@@ -1,0 +1,33 @@
+# Editor/local workspace
+.vscode/
+
+# Codex and local pass artifacts
+codex-temp-*/
+.codex-temp-*/
+tmp/
+
+# Browser automation profiles/caches
+edge-headless-profile/
+edge-cdp-profile*/
+edge-debug-profile*/
+edge-data/
+edge-crash/
+cdp-log.txt
+
+# Root-level verification screenshots
+/clients-*.png
+/lens-*.png
+/settings-*.png
+/nav-debug*.png
+
+# Accidental copied root assets and temp files
+/Images/
+/-Context
+
+# Codex patch artifacts
+/life-insurance-planner/_codex_*.patch
+
+# OS/log noise
+.DS_Store
+Thumbs.db
+*.log

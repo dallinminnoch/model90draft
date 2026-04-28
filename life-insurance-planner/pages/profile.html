@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Link Profile | Life Evaluation &amp; Needs Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class='home-page lens-page lens-workflow-page lens-intake-page' data-step='profile-1'>
+  <script>
+    (function () {
+      try {
+        const session = JSON.parse(localStorage.getItem('lipPlannerAuthSession') || 'null');
+        const identity = session && session.email ? String(session.email).trim().toLowerCase() : 'guest';
+        if (localStorage.getItem(`workspaceSideNavCollapsed:${identity}`) === '1') {
+          document.body.classList.add('workspace-side-nav-collapsed');
+        }
+      } catch (error) {
+        // Ignore storage issues and fall back to the default expanded state.
+      }
+    })();
+  </script>
+  <div class='workspace-page-topbar'>
+    <div class='workspace-page-topbar-inner'>
+      <details class='workspace-page-menu'>
+        <summary class='workspace-page-menu-trigger' aria-label='Open pages menu' title='Pages'>
+          <img class='workspace-page-menu-icon' src='../Images/menu.svg' alt='' aria-hidden='true'>
+        </summary>
+        <div class='workspace-page-menu-panel'>
+          <a class='workspace-page-menu-link' href='../index.html'>
+            <span class='workspace-page-menu-link-icon' aria-hidden='true'>
+              <svg viewBox='0 0 20 20' fill='none'>
+                <path d='M3.6 8.45 10 3.55l6.4 4.9v7.2a1.35 1.35 0 0 1-1.35 1.35H4.95A1.35 1.35 0 0 1 3.6 15.65V8.45Z' stroke='currentColor' stroke-width='1.55' stroke-linejoin='round'/>
+                <path d='M7.75 16.95v-4.3h4.5v4.3' stroke='currentColor' stroke-width='1.55' stroke-linejoin='round'/>
+              </svg>
+            </span>
+            <span class='workspace-page-menu-link-label'>Home</span>
+          </a>
+          <a class='workspace-page-menu-link' href='clients.html'>
+            <span class='workspace-page-menu-link-icon' aria-hidden='true'>
+              <svg viewBox='0 0 20 20' fill='none'>
+                <circle cx='7' cy='7.2' r='2.35' stroke='currentColor' stroke-width='1.55'/>
+                <circle cx='13.3' cy='8.15' r='2.05' stroke='currentColor' stroke-width='1.55'/>
+                <path d='M3.9 15.35c.55-2.15 2.2-3.45 4.15-3.45 1.95 0 3.55 1.3 4.1 3.45' stroke='currentColor' stroke-width='1.55' stroke-linecap='round'/>
+                <path d='M11.2 15.35c.4-1.65 1.7-2.65 3.25-2.65 1.1 0 2.15.5 2.85 1.45' stroke='currentColor' stroke-width='1.55' stroke-linecap='round'/>
+              </svg>
+            </span>
+            <span class='workspace-page-menu-link-label'>Client Directory</span>
+          </a>
+          <a class='workspace-page-menu-link is-active' href='lens.html' aria-current='page'>
+            <span class='workspace-page-menu-link-icon' aria-hidden='true'>
+              <svg viewBox='0 0 20 20' fill='none'>
+                <circle cx='10' cy='10' r='6.05' stroke='currentColor' stroke-width='1.55'/>
+                <circle cx='10' cy='10' r='2.1' stroke='currentColor' stroke-width='1.55'/>
+                <path d='M10 2.95v1.85M10 15.2v1.85M17.05 10H15.2M4.8 10H2.95' stroke='currentColor' stroke-width='1.55' stroke-linecap='round'/>
+              </svg>
+            </span>
+            <span class='workspace-page-menu-link-label'>LENS Analysis</span>
+          </a>
+        </div>
+      </details>
+      <div class='workspace-page-topbar-actions'>
+        <button class='fullscreen-toggle' type='button' data-fullscreen-toggle aria-label='Enter full screen' title='Enter full screen' aria-pressed='false'>
+          <img class='fullscreen-toggle-icon' data-fullscreen-icon src='../Images/openfullscreen.svg' alt='' aria-hidden='true'>
+          <span class='sr-only'>Toggle full screen</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class='workspace-side-nav-host' data-workspace-side-nav-host data-workspace-side-nav='lens'></div>
+  <script>
+    if (document.body.classList.contains('workspace-side-nav-collapsed')) {
+      document.currentScript.previousElementSibling.classList.add('is-collapsed');
+    }
+  </script>
+  <main class='home-shell app-home-shell prospect-shell lens-workflow-shell'>
+    <section class='prospect-stage lens-workflow-stage'>
+      <section class='lens-workflow-pane workspace-visible-pane'>
+        <div class="lens-intake-layout">
+      <section class="lens-intake-main">
+        <section class="page-intro lens-intake-intro">
+          <div>
+            <div class="section-label">Step 1</div>
+            <h1>Link Profile</h1>
+            <p class="intro-copy">Start by linking a saved client profile, or enter details manually.</p>
+          </div>
+        </section>
+
+        <form id="client-profile-form" class="lens-intake-form" data-next-page="analysis-setup.html">
+          <section class="lens-intake-link-card">
+            <div class="lens-intake-link-workflow" id="analysis-link-workflow">
+              <div class="lens-intake-link-header">
+                <div class="lens-intake-link-title-wrap">
+                  <div class="lens-intake-icon-box">
+                    <img class="lens-intake-icon-svg" src="../Images/link_2_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg" alt="Link client profile">
+                  </div>
+                  <div>
+                    <h2 class="section-title">Link Client Profile</h2>
+                    <p class="helper-text">Pull household and planning details into this analysis automatically.</p>
+                  </div>
+                </div>
+                <span class="lens-intake-badge">Recommended</span>
+              </div>
+
+              <div class="lens-intake-link-tabs" role="tablist" aria-label="Client link method">
+                <button class="lens-intake-tab is-active" type="button" data-analysis-link-tab="search">Search Client</button>
+                <button class="lens-intake-tab" type="button" data-analysis-link-tab="case-ref">Case Reference Number</button>
+              </div>
+
+              <div class="lens-intake-link-panel is-active" data-analysis-link-panel="search">
+                <div class="lens-intake-search-row">
+                  <button id="analysis-link-button" class="lens-intake-search-input" type="button" data-analysis-link-open>
+                    Search by client name, email, or phone
+                  </button>
+                  <button class="btn btn-primary lens-intake-search-submit" type="button" data-analysis-link-open>Search</button>
+                </div>
+                <p class="lens-intake-link-copy">Find a saved client to automatically populate their household, income, and family information.</p>
+              </div>
+
+              <div class="lens-intake-link-panel" data-analysis-link-panel="case-ref">
+                <div class="lens-intake-search-row">
+                  <input id="analysis-case-ref" name="linkedCaseRef" type="text" placeholder="CL/00000" data-analysis-case-ref autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" readonly>
+                  <button class="btn btn-secondary lens-intake-search-browse" type="button" data-analysis-link-open>Browse</button>
+                </div>
+                <p class="lens-intake-link-copy">Use a case reference number when you already know which saved profile should drive this analysis.</p>
+              </div>
+
+              <input type="hidden" name="linkedRecordId" id="analysis-linked-record-id">
+              <input type="hidden" name="clientName" id="analysis-linked-client-name">
+              <input type="hidden" name="analysisEntryMode" id="analysis-entry-mode" value="">
+
+              <div class="lens-intake-linked-card info-card" id="analysis-linked-client-card" hidden>
+                <div class="lens-intake-linked-card-header">
+                  <div class="section-label">Linked Client</div>
+                  <button class="lens-intake-linked-remove" type="button" id="analysis-linked-client-remove">Remove</button>
+                </div>
+                <ul class="compact-list">
+                  <li><span>Name</span><strong id="analysis-linked-client-display">Not linked</strong></li>
+                  <li><span>Case Ref</span><strong id="analysis-linked-client-case-ref">Pending</strong></li>
+                  <li><span>Status</span><strong id="analysis-linked-client-status">Pending</strong></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="lens-intake-divider"><span>OR</span></div>
+
+            <button class="lens-intake-manual-trigger" type="button" data-analysis-manual-toggle>
+              <span class="lens-intake-icon-box is-soft" id="analysis-manual-icon-box">
+                <img class="lens-intake-icon-svg" id="analysis-manual-icon" src="../Images/edit_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg" alt="Enter details manually">
+              </span>
+              <span class="lens-intake-manual-copy">
+                <strong id="analysis-manual-title">Enter Details Manually</strong>
+                <span id="analysis-manual-subcopy">No saved profile? You can enter all details manually.</span>
+              </span>
+              <span class="lens-intake-manual-action" id="analysis-manual-action">
+                <img
+                  class="lens-intake-manual-action-icon"
+                  id="analysis-manual-action-icon"
+                  src="../Images/trashcan.png"
+                  alt=""
+                  hidden
+                >
+                <span id="analysis-manual-action-label">Enter Manually -></span>
+              </span>
+            </button>
+
+          </section>
+
+          <section class="lens-intake-note">
+            <div class="lens-intake-note-icon">
+              <img class="lens-intake-icon-svg" src="../Images/emoji_objects_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg" alt="Helpful note">
+            </div>
+            <div>
+              <strong>Linking a client profile saves time and reduces manual entry.</strong>
+              <p>You can review and edit any information before continuing.</p>
+            </div>
+          </section>
+
+          <div class="lens-intake-actions">
+            <button class="btn btn-primary lens-intake-continue" type="submit" id="analysis-intake-continue" disabled>Continue -></button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="lens-intake-rail">
+        <section class="lens-intake-sidecard">
+          <h3>This step includes</h3>
+          <ul class="lens-intake-side-list">
+            <li><span class="lens-intake-mini-icon">ID</span><span>Client details</span></li>
+            <li><span class="lens-intake-mini-icon">HM</span><span>Household structure</span></li>
+            <li><span class="lens-intake-mini-icon">$</span><span>Income profile</span></li>
+          </ul>
+          <p class="lens-intake-side-meta">3-5 minutes to complete</p>
+        </section>
+
+        <section class="lens-intake-sidecard">
+          <h3>Key discussion prompts</h3>
+          <ul class="lens-intake-prompt-list">
+            <li>
+              <span class="lens-intake-mini-icon">$</span>
+              <div>
+                <strong>Primary income earner</strong>
+                <p>Understand who financially supports the household.</p>
+              </div>
+            </li>
+            <li>
+              <span class="lens-intake-mini-icon">DP</span>
+              <div>
+                <strong>Dependent timeline</strong>
+                <p>Plan for education, milestones, and future financial needs.</p>
+              </div>
+            </li>
+            <li>
+              <span class="lens-intake-mini-icon">RT</span>
+              <div>
+                <strong>Retirement planning</strong>
+                <p>Align life insurance with long-term goals and obligations.</p>
+              </div>
+            </li>
+          </ul>
+
+          <div class="lens-intake-save-note">
+            <span class="lens-intake-mini-icon">SV</span>
+            <div>
+              <strong>Your inputs are saved automatically</strong>
+              <p>You can return and finish this step later without losing your progress.</p>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="lens-manual-widget" data-analysis-manual-widget hidden>
+    <div class="lens-manual-widget-backdrop" data-analysis-manual-close></div>
+    <div class="lens-manual-widget-panel" role="dialog" aria-modal="true" aria-labelledby="analysis-manual-widget-title">
+      <button class="lens-manual-widget-close" type="button" aria-label="Close manual options" data-analysis-manual-close>x</button>
+      <div class="lens-manual-widget-header">
+        <h2 id="analysis-manual-widget-title">Choose Manual Workflow</h2>
+        <p>Select which manual input path you want to use for this analysis.</p>
+      </div>
+      <div class="lens-manual-widget-options">
+        <a class="lens-manual-widget-option" href="manual-protection-modeling-inputs.html" data-loading-link>Protection Modeling Inputs</a>
+        <a class="lens-manual-widget-option" href="manual-minimum-inputs.html" data-loading-link>Minimum Inputs</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-search-modal" data-analysis-link-modal hidden>
+    <div class="profile-search-modal-backdrop" data-analysis-link-close></div>
+    <div class="profile-search-modal-panel" role="dialog" aria-modal="true" aria-labelledby="analysis-link-modal-title">
+      <button class="profile-search-modal-close" type="button" aria-label="Close search" data-analysis-link-close>x</button>
+      <div class="profile-search-modal-header">
+        <h2 id="analysis-link-modal-title">Select Client Profile</h2>
+      </div>
+      <div class="field-group full-width">
+        <label for="analysis-link-search-input">Search</label>
+        <input id="analysis-link-search-input" type="text" placeholder="Search client directory" data-analysis-link-search-input>
+      </div>
+      <div class="profile-search-results" data-analysis-link-results></div>
+    </div>
+  </div>
+
+  <div class="client-add-modal" data-analysis-link-error-modal hidden>
+    <div class="client-add-modal-backdrop" data-analysis-link-error-close></div>
+    <div class="client-add-modal-panel" role="dialog" aria-modal="true" aria-labelledby="analysis-link-error-title">
+      <div class="client-add-modal-content">
+        <h2 id="analysis-link-error-title">Client Can't Be Linked Yet</h2>
+        <p data-analysis-link-error-message>This client needs a completed PMI form before it can be linked into analysis.</p>
+      </div>
+      <div class="client-add-modal-actions">
+        <button class="btn btn-secondary client-add-modal-continue client-add-modal-secondary" type="button" data-analysis-link-error-close>Okay</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="client-add-modal" data-analysis-manual-remove-modal hidden>
+    <div class="client-add-modal-backdrop" data-analysis-manual-remove-close></div>
+    <div class="client-add-modal-panel" role="dialog" aria-modal="true" aria-labelledby="analysis-manual-remove-title">
+      <div class="client-add-modal-content">
+        <h2 id="analysis-manual-remove-title">Delete Manual Entry?</h2>
+        <p>Manual analysis inputs will be lost. Do you want to continue?</p>
+      </div>
+      <div class="client-add-modal-actions">
+        <button class="btn btn-secondary client-add-modal-continue client-add-modal-secondary" type="button" data-analysis-manual-remove-close>Stay</button>
+        <button class="btn btn-primary client-add-modal-continue client-add-modal-delete" type="button" id="analysis-manual-remove-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src='../workspace-side-nav.js'></script>
+  <script src='../data.js'></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script src="../lens-workflow.js"></script>
+  <script>
+    (function () {
+      const clientRecordsApi = window.LensApp?.clientRecords || {};
+      const temporaryAnalysisSessionKey = "lensTemporaryAnalysisSession";
+      const form = document.getElementById("client-profile-form");
+      const linkOpenButtons = Array.from(document.querySelectorAll("[data-analysis-link-open]"));
+      const linkModal = document.querySelector("[data-analysis-link-modal]");
+      const linkModalInput = document.querySelector("[data-analysis-link-search-input]");
+      const linkModalResults = document.querySelector("[data-analysis-link-results]");
+      const linkModalClose = document.querySelectorAll("[data-analysis-link-close]");
+      const linkErrorModal = document.querySelector("[data-analysis-link-error-modal]");
+      const linkErrorClose = document.querySelectorAll("[data-analysis-link-error-close]");
+      const linkErrorMessage = document.querySelector("[data-analysis-link-error-message]");
+      const manualRemoveModal = document.querySelector("[data-analysis-manual-remove-modal]");
+      const manualRemoveClose = document.querySelectorAll("[data-analysis-manual-remove-close]");
+      const manualRemoveConfirm = document.getElementById("analysis-manual-remove-confirm");
+      const linkWorkflow = document.getElementById("analysis-link-workflow");
+      const caseRefField = document.querySelector("[data-analysis-case-ref]");
+      const linkedRecordIdField = document.getElementById("analysis-linked-record-id");
+      const linkedClientNameField = document.getElementById("analysis-linked-client-name");
+      const linkedClientCard = document.getElementById("analysis-linked-client-card");
+      const linkedClientRemoveButton = document.getElementById("analysis-linked-client-remove");
+      const linkedClientDisplay = document.getElementById("analysis-linked-client-display");
+      const linkedClientCaseRef = document.getElementById("analysis-linked-client-case-ref");
+      const linkedClientStatus = document.getElementById("analysis-linked-client-status");
+      const manualToggleButton = document.querySelector("[data-analysis-manual-toggle]");
+      const manualIcon = document.getElementById("analysis-manual-icon");
+      const manualTitle = document.getElementById("analysis-manual-title");
+      const manualSubcopy = document.getElementById("analysis-manual-subcopy");
+      const manualAction = document.getElementById("analysis-manual-action");
+      const manualActionIcon = document.getElementById("analysis-manual-action-icon");
+      const manualActionLabel = document.getElementById("analysis-manual-action-label");
+      const manualPanel = document.querySelector("[data-analysis-manual-panel]");
+      const manualWidget = document.querySelector("[data-analysis-manual-widget]");
+      const manualWidgetClose = document.querySelectorAll("[data-analysis-manual-close]");
+      const entryModeField = document.getElementById("analysis-entry-mode");
+      const continueButton = document.getElementById("analysis-intake-continue");
+      const linkTabs = Array.from(document.querySelectorAll("[data-analysis-link-tab]"));
+      const linkPanels = Array.from(document.querySelectorAll("[data-analysis-link-panel]"));
+      const params = new URLSearchParams(window.location.search);
+      const urlCaseRef = String(params.get("caseRef") || "").trim().toUpperCase();
+      const urlRecordId = String(params.get("id") || "").trim();
+      let linkedRecord = null;
+      let manualModeEnabled = false;
+
+      function loadTemporaryAnalysisSession() {
+        try {
+          const session = JSON.parse(sessionStorage.getItem(temporaryAnalysisSessionKey) || "null");
+          return session && typeof session === "object" ? session : null;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function clearTemporaryAnalysisSession() {
+        sessionStorage.removeItem(temporaryAnalysisSessionKey);
+      }
+
+      function getManualWorkflowLabel(variant) {
+        const normalized = String(variant || "").trim();
+        if (normalized === "manual-protection-modeling") {
+          return "Protection Modeling Inputs";
+        }
+        if (normalized === "manual-simplified") {
+          return "Protection Modeling Inputs";
+        }
+        if (normalized === "manual-minimum-inputs") {
+          return "Minimum Inputs";
+        }
+        return "Manual Workflow";
+      }
+
+      function syncManualTriggerState() {
+        const temporaryAnalysisSession = loadTemporaryAnalysisSession();
+        const activeManualState = temporaryAnalysisSession?.hasData ? temporaryAnalysisSession : null;
+        const hasManualSession = Boolean(activeManualState?.hasData);
+        const label = getManualWorkflowLabel(activeManualState?.variant);
+        const manualDisabled = Boolean(linkedRecord);
+        const linkDisabled = hasManualSession;
+
+        linkWorkflow?.classList.toggle("is-disabled", linkDisabled);
+        linkOpenButtons.forEach(function (button) {
+          button.disabled = linkDisabled;
+        });
+        caseRefField && (caseRefField.disabled = linkDisabled);
+        linkTabs.forEach(function (tab) {
+          tab.disabled = linkDisabled;
+        });
+
+        if (manualToggleButton) {
+          manualToggleButton.classList.toggle("is-complete", hasManualSession);
+          manualToggleButton.classList.toggle("is-disabled", manualDisabled);
+          manualToggleButton.disabled = manualDisabled;
+        }
+        if (manualIcon) {
+          manualIcon.src = hasManualSession
+            ? "../Images/docs_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg"
+            : "../Images/edit_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg";
+          manualIcon.alt = hasManualSession ? `${label} completed` : "Enter details manually";
+        }
+        if (manualTitle) {
+          manualTitle.textContent = hasManualSession ? `${label} Completed` : "Enter Details Manually";
+        }
+        if (manualSubcopy) {
+          if (manualDisabled) {
+            manualSubcopy.textContent = "Manual entry is unavailable while a client profile is linked.";
+          } else {
+            manualSubcopy.textContent = hasManualSession
+              ? "Manual analysis inputs have been saved for this session."
+              : "No saved profile? You can enter all details manually.";
+          }
+        }
+        if (manualAction) {
+          manualAction.classList.toggle("is-delete", Boolean(hasManualSession && !manualDisabled));
+        }
+        if (manualActionIcon) {
+          manualActionIcon.hidden = !(hasManualSession && !manualDisabled);
+        }
+        if (manualActionLabel) {
+          manualActionLabel.textContent = manualDisabled
+            ? "Unavailable"
+            : (hasManualSession ? "Delete" : "Enter Manually ->");
+        }
+      }
+
+      function syncContinueState() {
+        const canContinue = Boolean(linkedRecord || manualModeEnabled);
+        if (continueButton) {
+          continueButton.disabled = !canContinue;
+        }
+      }
+
+      function setEntryMode(value) {
+        if (entryModeField) {
+          entryModeField.value = value;
+        }
+        syncContinueState();
+      }
+
+      function setManualMode(enabled) {
+        manualModeEnabled = Boolean(enabled);
+        if (manualPanel) {
+          manualPanel.hidden = !manualModeEnabled;
+        }
+        if (manualToggleButton) {
+          manualToggleButton.classList.toggle("is-active", manualModeEnabled);
+        }
+        if (manualModeEnabled) {
+          setEntryMode("manual");
+        } else if (!linkedRecord) {
+          setEntryMode("");
+        }
+      }
+
+      function openManualWidget() {
+        if (!manualWidget) {
+          return;
+        }
+        manualWidget.hidden = false;
+        manualToggleButton?.classList.add("is-active");
+      }
+
+      function closeManualWidget() {
+        if (!manualWidget) {
+          return;
+        }
+        manualWidget.hidden = true;
+        manualToggleButton?.classList.remove("is-active");
+      }
+
+      function setLinkTab(mode) {
+        linkTabs.forEach(function (tab) {
+          tab.classList.toggle("is-active", tab.getAttribute("data-analysis-link-tab") === mode);
+        });
+        linkPanels.forEach(function (panel) {
+          panel.classList.toggle("is-active", panel.getAttribute("data-analysis-link-panel") === mode);
+        });
+      }
+
+      function updateLinkedClientButton(record) {
+        linkedRecord = record || null;
+
+        if (!record) {
+          linkOpenButtons.forEach(function (button) {
+            button.classList.remove("is-linked");
+          });
+          if (linkOpenButtons[0]) {
+            linkOpenButtons[0].innerHTML = "Search by client name, email, or phone";
+          }
+          if (linkedRecordIdField) {
+            linkedRecordIdField.value = "";
+          }
+          if (linkedClientNameField) {
+            linkedClientNameField.value = "";
+          }
+          if (linkedClientCard) {
+            linkedClientCard.hidden = true;
+          }
+          if (!manualModeEnabled) {
+            setEntryMode("");
+          }
+          syncManualTriggerState();
+          syncContinueState();
+          return;
+        }
+
+        linkOpenButtons.forEach(function (button) {
+          button.classList.add("is-linked");
+        });
+        closeManualWidget();
+        if (manualModeEnabled) {
+          manualModeEnabled = false;
+          clearTemporaryAnalysisSession();
+        }
+        if (linkOpenButtons[0]) {
+          linkOpenButtons[0].innerHTML = `
+          <span class="preliminary-link-button-primary">${String(record.displayName || "").trim()}</span>
+          <span class="preliminary-link-button-secondary">Click to change</span>
+        `;
+        }
+        if (linkedRecordIdField) {
+          linkedRecordIdField.value = String(record.id || "").trim();
+        }
+        if (linkedClientNameField) {
+          linkedClientNameField.value = String(record.displayName || "").trim();
+        }
+        if (linkedClientCard) {
+          linkedClientCard.hidden = false;
+        }
+        if (linkedClientDisplay) {
+          linkedClientDisplay.textContent = String(record.displayName || "").trim() || "Not linked";
+        }
+        if (linkedClientCaseRef) {
+          linkedClientCaseRef.textContent = String(record.caseRef || "").trim() || "Pending";
+        }
+        if (linkedClientStatus) {
+          linkedClientStatus.textContent = String(record.statusGroup || "").trim() || "Pending";
+        }
+        setEntryMode("linked");
+        syncManualTriggerState();
+        syncContinueState();
+      }
+
+      function syncLinkedClientFromCaseRef() {
+        const matchedRecord = clientRecordsApi.findLinkableIndividualClientByCaseRef?.(caseRefField?.value || "") || null;
+        updateLinkedClientButton(matchedRecord);
+      }
+
+      function getCompletedPmiPayload(record) {
+        if (!record || typeof record !== "object") {
+          return null;
+        }
+
+        const latestPayload = (function () {
+          if (record.protectionModeling && typeof record.protectionModeling === "object") {
+            return record.protectionModeling;
+          }
+
+          if (Array.isArray(record.protectionModelingEntries) && record.protectionModelingEntries.length) {
+            return record.protectionModelingEntries[record.protectionModelingEntries.length - 1];
+          }
+
+          return null;
+        })();
+
+        if (!latestPayload || typeof latestPayload !== "object") {
+          return null;
+        }
+
+        if (record.pmiCompleted === true || latestPayload.completed === true) {
+          return latestPayload;
+        }
+
+        return null;
+      }
+
+      function openLinkErrorModal(message) {
+        if (!linkErrorModal) {
+          return;
+        }
+
+        if (linkErrorMessage) {
+          linkErrorMessage.textContent = message || "This client needs a completed PMI form before it can be linked into analysis.";
+        }
+
+        linkErrorModal.hidden = false;
+        linkErrorModal.classList.add("is-open");
+        document.body.classList.add("is-modal-open");
+      }
+
+      function closeLinkErrorModal() {
+        if (!linkErrorModal) {
+          return;
+        }
+
+        linkErrorModal.hidden = true;
+        linkErrorModal.classList.remove("is-open");
+        document.body.classList.remove("is-modal-open");
+      }
+
+      function openManualRemoveModal() {
+        if (!manualRemoveModal) {
+          return;
+        }
+
+        manualRemoveModal.hidden = false;
+        manualRemoveModal.classList.add("is-open");
+        document.body.classList.add("is-modal-open");
+      }
+
+      function closeManualRemoveModal() {
+        if (!manualRemoveModal) {
+          return;
+        }
+
+        manualRemoveModal.hidden = true;
+        manualRemoveModal.classList.remove("is-open");
+        document.body.classList.remove("is-modal-open");
+      }
+
+      function getMissingPmiLinkMessage(record) {
+        const displayName = String(record?.displayName || "").trim() || "This client";
+        return `${displayName} can't be linked yet because there is no completed PMI form saved on the profile. Complete Protection Modeling Inputs first.`;
+      }
+
+      function tryLinkRecord(record, options) {
+        const nextRecord = record && typeof record === "object" ? record : null;
+        const shouldCloseSearch = Boolean(options?.closeSearch);
+        const shouldSwitchToCaseRefTab = Boolean(options?.switchToCaseRefTab);
+
+        if (!nextRecord) {
+          return false;
+        }
+
+        if (!getCompletedPmiPayload(nextRecord)) {
+          if (caseRefField && shouldSwitchToCaseRefTab) {
+            caseRefField.value = "";
+          }
+          clientRecordsApi.setLinkedCaseRef?.("");
+          clientRecordsApi.setLinkedRecordId?.("");
+          updateLinkedClientButton(null);
+          openLinkErrorModal(getMissingPmiLinkMessage(nextRecord));
+          return false;
+        }
+
+        if (caseRefField) {
+          caseRefField.value = String(nextRecord.caseRef || "").trim();
+          clientRecordsApi.setLinkedCaseRef?.(caseRefField.value);
+        }
+        clientRecordsApi.setLinkedRecordId?.(String(nextRecord.id || "").trim());
+        syncLinkedClientFromCaseRef();
+
+        if (shouldCloseSearch) {
+          closeLinkModal();
+        }
+
+        return true;
+      }
+
+      function openLinkModal() {
+        if (!linkModal) {
+          return;
+        }
+
+        linkModal.hidden = false;
+        linkModal.classList.add("is-open");
+        renderLinkResults();
+        window.setTimeout(function () {
+          linkModalInput?.focus();
+        }, 20);
+      }
+
+      function closeLinkModal() {
+        if (!linkModal) {
+          return;
+        }
+
+        if (linkModalInput) {
+          linkModalInput.value = "";
+        }
+        linkModal.hidden = true;
+        linkModal.classList.remove("is-open");
+        renderLinkResults();
+      }
+
+      function renderLinkResults() {
+        if (!linkModalResults) {
+          return;
+        }
+
+        const query = String(linkModalInput?.value || "").trim();
+        const filtered = clientRecordsApi.getLinkableIndividualClientRecords?.(query) || [];
+
+        linkModalResults.innerHTML = "";
+
+        if (!filtered.length) {
+          const emptyState = document.createElement("div");
+          emptyState.className = "profile-search-results-empty";
+          emptyState.textContent = "No matching client profiles found.";
+          linkModalResults.appendChild(emptyState);
+          return;
+        }
+
+        filtered.forEach((record) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "profile-search-result-button";
+          button.textContent = `${record.displayName} - ${record.caseRef}`;
+          button.addEventListener("click", function () {
+            tryLinkRecord(record, { closeSearch: true });
+          });
+          linkModalResults.appendChild(button);
+        });
+      }
+
+      if (caseRefField) {
+        const unlockCaseRefField = function () {
+          caseRefField.removeAttribute("readonly");
+        };
+
+        caseRefField.addEventListener("focus", unlockCaseRefField);
+        caseRefField.addEventListener("pointerdown", unlockCaseRefField);
+        caseRefField.addEventListener("input", function () {
+          caseRefField.value = String(caseRefField.value || "").toUpperCase();
+          const matchedRecord = clientRecordsApi.findLinkableIndividualClientByCaseRef?.(caseRefField.value) || null;
+          if (!matchedRecord) {
+            clientRecordsApi.setLinkedCaseRef?.("");
+            clientRecordsApi.setLinkedRecordId?.("");
+            updateLinkedClientButton(null);
+            return;
+          }
+
+          tryLinkRecord(matchedRecord, { switchToCaseRefTab: true });
+        });
+      }
+
+      if (form) {
+        form.addEventListener("submit", function (event) {
+          if (!linkedRecord && !manualModeEnabled) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            window.alert("Link a client profile or choose manual entry before continuing.");
+            return;
+          }
+
+          if (linkedRecord && !manualModeEnabled) {
+            const completedPmiPayload = getCompletedPmiPayload(linkedRecord);
+            if (!completedPmiPayload) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              openLinkErrorModal(getMissingPmiLinkMessage(linkedRecord));
+              return;
+            }
+
+            clientRecordsApi.setLinkedCaseRef?.(String(linkedRecord.caseRef || "").trim());
+            clientRecordsApi.setLinkedRecordId?.(String(linkedRecord.id || "").trim());
+            clearTemporaryAnalysisSession();
+            syncManualTriggerState();
+          }
+        }, true);
+      }
+
+      linkTabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          setLinkTab(tab.getAttribute("data-analysis-link-tab") || "search");
+        });
+      });
+
+      linkOpenButtons.forEach(function (button) {
+        button.addEventListener("click", openLinkModal);
+      });
+      linkModalInput?.addEventListener("input", renderLinkResults);
+      linkModalClose.forEach(function (button) {
+        button.addEventListener("click", closeLinkModal);
+      });
+      linkedClientRemoveButton?.addEventListener("click", function () {
+        if (caseRefField) {
+          caseRefField.value = "";
+        }
+        clientRecordsApi.setLinkedCaseRef?.("");
+        clientRecordsApi.setLinkedRecordId?.("");
+        updateLinkedClientButton(null);
+      });
+      linkErrorClose.forEach(function (button) {
+        button.addEventListener("click", closeLinkErrorModal);
+      });
+      manualToggleButton?.addEventListener("click", function () {
+        if (manualToggleButton.disabled) {
+          return;
+        }
+        if (loadTemporaryAnalysisSession()?.hasData) {
+          openManualRemoveModal();
+          return;
+        }
+        if (manualWidget?.hidden) {
+          openManualWidget();
+        } else {
+          closeManualWidget();
+        }
+      });
+
+      manualWidgetClose.forEach(function (button) {
+        button.addEventListener("click", closeManualWidget);
+      });
+      manualRemoveClose.forEach(function (button) {
+        button.addEventListener("click", closeManualRemoveModal);
+      });
+      manualRemoveConfirm?.addEventListener("click", function () {
+        clearTemporaryAnalysisSession();
+        setManualMode(false);
+        syncManualTriggerState();
+        syncContinueState();
+        closeManualRemoveModal();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && linkModal && !linkModal.hidden) {
+          closeLinkModal();
+        }
+        if (event.key === "Escape" && linkErrorModal && !linkErrorModal.hidden) {
+          closeLinkErrorModal();
+        }
+        if (event.key === "Escape" && manualWidget && !manualWidget.hidden) {
+          closeManualWidget();
+        }
+        if (event.key === "Escape" && manualRemoveModal && !manualRemoveModal.hidden) {
+          closeManualRemoveModal();
+        }
+      });
+
+      linkModal?.querySelector(".profile-search-modal-backdrop")?.addEventListener("click", closeLinkModal);
+      linkErrorModal?.querySelector(".client-add-modal-backdrop")?.addEventListener("click", closeLinkErrorModal);
+      manualRemoveModal?.querySelector(".client-add-modal-backdrop")?.addEventListener("click", closeManualRemoveModal);
+
+      const temporaryAnalysisSession = loadTemporaryAnalysisSession();
+      const hasTemporaryManualSession = Boolean(temporaryAnalysisSession?.hasData);
+
+      if (hasTemporaryManualSession) {
+        if (caseRefField) {
+          caseRefField.value = "";
+        }
+        clientRecordsApi.setLinkedCaseRef?.("");
+        clientRecordsApi.setLinkedRecordId?.("");
+        updateLinkedClientButton(null);
+        setManualMode(true);
+      } else {
+        const initialRecordCandidate = clientRecordsApi.getClientRecordByReference?.(
+          urlRecordId || clientRecordsApi.getLinkedRecordId?.(),
+          urlCaseRef || clientRecordsApi.getLinkedCaseRef?.()
+        ) || null;
+        const initialRecord = initialRecordCandidate
+          && String(initialRecordCandidate.viewType || "").trim() === "individuals"
+          && String(initialRecordCandidate.caseRef || "").trim()
+            ? initialRecordCandidate
+            : null;
+
+        if (initialRecord && caseRefField) {
+          caseRefField.value = String(initialRecord.caseRef || "").trim();
+          clientRecordsApi.setLinkedCaseRef?.(caseRefField.value);
+          clientRecordsApi.setLinkedRecordId?.(String(initialRecord.id || "").trim());
+        }
+
+        syncLinkedClientFromCaseRef();
+      }
+
+      syncManualTriggerState();
+      setLinkTab("search");
+      syncContinueState();
+    })();
+  </script>
+</body>
+</html>
+
+
+

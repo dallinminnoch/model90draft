@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PMI Entry | LENS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page" data-page="modeling-overview">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="prospect-empty-panel">
+        <div class="prospect-panel-header">
+          <a class="prospect-return-button" href="new-prospect.html" data-loading-link>Previous</a>
+          <h1>PMI Entry</h1>
+          <p class="profile-section-note entry-mode-heading-note">Choose Entry Mode</p>
+        </div>
+        <section class="entry-mode-panel">
+            <div class="entry-mode-actions">
+              <div class="entry-mode-option">
+              <a class="btn btn-primary btn-prelim-continue entry-mode-button" href="protection-modeling-linked.html" data-loading-link>Advisor Assisted</a>
+              <span class="entry-mode-icon entry-mode-icon-unlocked" aria-hidden="true"></span>
+              </div>
+              <div class="entry-mode-option">
+              <button class="btn btn-primary btn-prelim-continue entry-mode-button entry-mode-button-confidential" type="button" data-confidential-trigger>Confidential Entry Mode</button>
+              <span class="entry-mode-icon entry-mode-icon-locked" aria-hidden="true"></span>
+              </div>
+            </div>
+          <p class="entry-mode-note">Continue to the current PMI workflow to link the client and choose advisor-assisted or confidential entry. Sensitive financial details remain protected in Confidential Entry Mode.</p>
+          <div class="entry-mode-pin-shell is-disabled" data-pin-shell>
+            <label class="entry-mode-pin-label" for="confidential-pin-1">
+              <span>Create 4-Digit PIN</span>
+              <span class="entry-mode-help" aria-hidden="true" data-entry-mode-help="The client should create this PIN privately. Confidential financial details should not be viewable anywhere in this flow without entering that PIN.">?</span>
+            </label>
+            <div class="entry-mode-pin-grid" data-pin-grid>
+              <input id="confidential-pin-1" class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+              <input class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+              <input class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+              <input class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+            </div>
+            <a class="btn btn-primary btn-prelim-continue entry-mode-button entry-mode-button-confidential-continue" href="protection-modeling-linked.html" data-loading-link data-confidential-continue aria-disabled="true" tabindex="-1">Continue to Current PMI Workflow</a>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const confidentialTrigger = document.querySelector("[data-confidential-trigger]");
+      const pinShell = document.querySelector("[data-pin-shell]");
+      const pinInputs = Array.from(document.querySelectorAll("[data-pin-input]"));
+      const confidentialContinue = document.querySelector("[data-confidential-continue]");
+
+      if (!confidentialTrigger || !pinShell || !pinInputs.length || !confidentialContinue) {
+        return;
+      }
+
+      function syncContinueState() {
+        const pin = pinInputs.map((input) => input.value).join("");
+        const isComplete = pin.length === 4 && /^\d{4}$/.test(pin);
+
+        confidentialContinue.setAttribute("aria-disabled", isComplete ? "false" : "true");
+        confidentialContinue.tabIndex = isComplete ? 0 : -1;
+        confidentialContinue.classList.toggle("is-disabled", !isComplete);
+
+        if (isComplete) {
+          sessionStorage.setItem("lensConfidentialEntryPin", pin);
+        } else {
+          sessionStorage.removeItem("lensConfidentialEntryPin");
+        }
+      }
+
+      function enablePinShell() {
+        pinShell.classList.remove("is-disabled");
+        confidentialTrigger.classList.add("is-selected");
+        pinInputs[0]?.focus();
+      }
+
+      confidentialTrigger.addEventListener("click", enablePinShell);
+
+      confidentialContinue.addEventListener("click", (event) => {
+        if (confidentialContinue.getAttribute("aria-disabled") === "true") {
+          event.preventDefault();
+          enablePinShell();
+        }
+      });
+
+      pinInputs.forEach((input, index) => {
+        input.addEventListener("input", () => {
+          input.value = String(input.value || "").replace(/\D/g, "").slice(0, 1);
+          if (input.value && pinInputs[index + 1]) {
+            pinInputs[index + 1].focus();
+          }
+          syncContinueState();
+        });
+
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Backspace" && !input.value && pinInputs[index - 1]) {
+            pinInputs[index - 1].focus();
+          }
+        });
+      });
+
+      syncContinueState();
+    })();
+  </script>
+</body>
+</html>
+
+
+

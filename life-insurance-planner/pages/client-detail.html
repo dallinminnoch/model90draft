@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting to Client Directory</title>
+</head>
+<body>
+  <p>Redirecting to the Client Directory viewer... <a href="clients.html">Continue</a></p>
+  <script>
+    (function () {
+      const sourceParams = new URLSearchParams(window.location.search);
+      const targetUrl = new URL("clients.html", window.location.href);
+      const profileId = sourceParams.get("profileId") || sourceParams.get("id");
+      const profileCaseRef = sourceParams.get("profileCaseRef") || sourceParams.get("caseRef");
+      const profileTab = sourceParams.get("profileTab") || sourceParams.get("tab");
+
+      if (profileId) {
+        targetUrl.searchParams.set("profileId", profileId);
+      }
+      if (profileCaseRef) {
+        targetUrl.searchParams.set("profileCaseRef", profileCaseRef);
+      }
+      if (profileTab) {
+        targetUrl.searchParams.set("profileTab", profileTab);
+      }
+
+      sourceParams.forEach(function (value, key) {
+        if (key === "id" || key === "caseRef" || key === "tab") {
+          return;
+        }
+        if (
+          (key === "profileId" && profileId) ||
+          (key === "profileCaseRef" && profileCaseRef) ||
+          (key === "profileTab" && profileTab)
+        ) {
+          return;
+        }
+        if (!targetUrl.searchParams.has(key)) {
+          targetUrl.searchParams.set(key, value);
+        }
+      });
+
+      if (window.location.hash) {
+        targetUrl.hash = window.location.hash;
+      }
+
+      window.location.replace(targetUrl.toString());
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile Only Form | Advisor Planning Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="prospect-empty-panel">
+        <div class="prospect-panel-header">
+          <a class="prospect-return-button" href="clients.html">Return to Client Directory</a>
+          <h1>Profile Only Form</h1>
+          <p class="profile-required-key"><span class="profile-required-star" aria-hidden="true">*</span> = Required</p>
+        </div>
+        <form class="profile-creation-form" id="client-creation-form" data-client-type="individual">
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Client Identification</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="first-name">First Name <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="first-name" name="firstName" type="text" required>
+              </div>
+              <div class="field-group">
+                <label for="middle-name">Middle Name</label>
+                <input id="middle-name" name="middleName" type="text">
+              </div>
+              <div class="field-group">
+                <label for="last-name">Last Name <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="last-name" name="lastName" type="text" required>
+              </div>
+              <div class="field-group">
+                <label for="preferred-name">Preferred Name</label>
+                <input id="preferred-name" name="preferredName" type="text">
+              </div>
+              <div class="field-group">
+                <label for="date-of-birth">Date of Birth <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="date-of-birth" name="dateOfBirth" type="date" required data-date-of-birth>
+              </div>
+              <div class="field-group profile-compact-field-group">
+                <label for="age">Age</label>
+                <div class="profile-age-row">
+                  <input id="age" class="profile-age-field" name="age" type="number" readonly data-age-field>
+                  <span class="profile-field-hint" data-age-hint hidden>Enter date of birth</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="insurance-rating-sex">Insurance Rating Sex <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <select id="insurance-rating-sex" class="profile-placeholder-select is-placeholder" name="insuranceRatingSex" required data-placeholder-select>
+                  <option value="" selected disabled>Please Select</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Prefer not to specify">Prefer not to specify</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="email-address">Email Address <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="email-address" name="emailAddress" type="email" required>
+              </div>
+              <div class="field-group">
+                <label for="phone-number">Phone Number <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="phone-number" name="phoneNumber" type="tel" required>
+              </div>
+              <div class="field-group">
+                <label for="preferred-contact-method">Preferred Contact Method <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <select id="preferred-contact-method" name="preferredContactMethod" required>
+                  <option value="Phone">Phone</option>
+                  <option value="Email">Email</option>
+                  <option value="Text">Text</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Household / Company Information</h2>
+              <p class="profile-section-note">All new profiles will automatically generate a new household profile unless an existing household profile is linked below.</p>
+            </div>
+            <input type="hidden" name="interestType" value="family" data-interest-type-field>
+            <input type="hidden" name="profileAssignmentTargetId" value="" data-profile-assignment-target-id>
+            <input type="hidden" name="profileAssignmentTargetType" value="" data-profile-assignment-target-type>
+            <div class="profile-interest-toggle" role="group" aria-label="Interest type">
+              <button class="profile-interest-button is-active" type="button" data-interest-button="family">Family Interest</button>
+              <button class="profile-interest-button" type="button" data-interest-button="business">Business Interest</button>
+            </div>
+            <div class="profile-interest-variants" aria-label="Interest variation">
+              <div class="profile-interest-variant is-active" data-interest-variant="family" aria-label="Family Interest active">
+                <span class="profile-interest-variant-dot" aria-hidden="true"></span>
+              </div>
+              <div class="profile-interest-variant" data-interest-variant="business" aria-label="Business Interest inactive">
+                <span class="profile-interest-variant-dot" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="profile-household-top-row full-width">
+                <div class="field-group profile-household-role-field">
+                <label for="household-role">Household / Company Role <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <select id="household-role" name="householdRole" required>
+                  <option value="Primary Client">Primary Client</option>
+                  <option value="Spouse or Partner" data-family-only>Spouse or Partner</option>
+                  <option value="Child or Dependent" data-family-only>Child or Dependent</option>
+                  <option value="Business Partner" data-business-only>Business Partner</option>
+                  <option value="Key Employee" data-business-only>Key Employee</option>
+                </select>
+                </div>
+              </div>
+              <div class="profile-interest-panel full-width is-active" data-interest-panel="family">
+                <div class="profile-household-top-row">
+                  <div class="field-group">
+                <label for="marital-status">Marital Status <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <select id="marital-status" name="maritalStatus" required>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Domestic Partnership">Domestic Partnership</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Widowed">Widowed</option>
+                  <option value="Separated">Separated</option>
+                </select>
+                </div>
+                  </div>
+                  <div class="field-group">
+                  <label for="spouse-date-of-birth">Spouse/Partner Date of Birth</label>
+                  <input id="spouse-date-of-birth" name="spouseDateOfBirth" type="date" data-spouse-date-of-birth>
+                  </div>
+                  <div class="field-group profile-compact-field-group">
+                  <label for="spouse-age">Age</label>
+                  <input id="spouse-age" class="profile-age-field" name="spouseAge" type="number" readonly data-spouse-age-field>
+                  </div>
+                </div>
+              </div>
+              <div class="profile-interest-panel full-width" data-interest-panel="business">
+                <div class="profile-business-row">
+                  <div class="field-group">
+                    <label for="business-type">Business Type</label>
+                    <select id="business-type" name="businessType" data-business-field>
+                      <option value="Operating Company">Operating Company</option>
+                      <option value="Professional Practice">Professional Practice</option>
+                      <option value="Partnership">Partnership</option>
+                      <option value="Closely Held Family Business">Closely Held Family Business</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="business-planning-focus">Business Planning Focus</label>
+                    <select id="business-planning-focus" name="businessPlanningFocus" data-business-field>
+                      <option value="Key Person Coverage">Key Person Coverage</option>
+                      <option value="Buy-Sell Planning">Buy-Sell Planning</option>
+                      <option value="Business Continuity">Business Continuity</option>
+                      <option value="Executive Retention">Executive Retention</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="ownership-percent">Ownership %</label>
+                    <input id="ownership-percent" class="profile-yes-no-field" name="ownershipPercent" type="number" min="0" max="100" step="1" data-business-field>
+                  </div>
+                  <div class="field-group">
+                    <label for="buy-sell-relevant">Buy-Sell / Key Person Relevant?</label>
+                    <select id="buy-sell-relevant" class="profile-yes-no-field" name="businessCoverageRelevance" data-business-field>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="profile-assignment-mode">Household / Company Assignment <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <select id="profile-assignment-mode" name="profileAssignmentMode" class="profile-placeholder-select is-placeholder" data-placeholder-select data-profile-assignment-mode required>
+                  <option value="" selected disabled>Please Select to Continue</option>
+                  <option value="create-household" data-family-assignment>Create New Household</option>
+                  <option value="existing-household" data-family-assignment>Add to Existing Household</option>
+                  <option value="create-company" data-business-assignment>Create New Company Profile</option>
+                  <option value="existing-company" data-business-assignment>Add to Existing Company Profile</option>
+                </select>
+              </div>
+              <div class="profile-assignment-actions">
+                <button class="profile-assignment-search-button" type="button" data-search-households disabled>Search Existing Households</button>
+                <button class="profile-assignment-search-button" type="button" data-search-companies disabled>Search Business Profiles</button>
+              </div>
+              <div class="field-group full-width">
+                  <label for="profile-assignment-name">Selected Household / Business Name <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="profile-assignment-name" name="profileAssignmentName" type="text" data-profile-assignment-name disabled required>
+              </div>
+              <div class="profile-inline-divider" aria-hidden="true"></div>
+              <fieldset class="profile-dependent-fields" data-profile-dependent-fields disabled>
+                <div class="form-grid">
+                  <div class="profile-dependent-row">
+                    <div class="field-group">
+                      <label for="has-dependents">Dependents / Children</label>
+                      <select id="has-dependents" class="profile-yes-no-field" name="hasDependents">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                    <div class="field-group full-width">
+                      <label>Current Children / Dependents</label>
+                      <input id="dependents-count" name="dependentsCount" type="hidden" value="0">
+                      <input id="dependent-ages" name="dependentAges" type="hidden" value="">
+                      <input id="dependent-details" name="dependentDetails" type="hidden" value="">
+                      <div class="profile-dependent-builder">
+                        <div id="dependent-list" class="profile-dependent-list"></div>
+                        <button id="add-dependent-button" class="button tertiary-button profile-dependent-add-button" type="button">Add Dependent</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="profile-dependent-secondary-row full-width">
+                    <div class="field-group">
+                      <label for="projected-dependents">Projected Dependents / Children</label>
+                      <select id="projected-dependents" class="profile-yes-no-field" name="projectedDependents">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                    <div class="field-group">
+                      <label for="projected-dependents-count">Amount of Desired Dependents / Children</label>
+                      <input id="projected-dependents-count" class="profile-yes-no-field" name="projectedDependentsCount" type="number" min="0" step="1">
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Address Information</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group full-width">
+                <label for="street-address">Street Address</label>
+                <input id="street-address" name="streetAddress" type="text">
+              </div>
+              <div class="field-group">
+                <label for="city">City</label>
+                <input id="city" name="city" type="text">
+              </div>
+              <div class="field-group">
+                <label for="state">State</label>
+                <input id="state" name="state" type="text">
+              </div>
+              <div class="field-group">
+                <label for="zip-code">ZIP Code</label>
+                <input id="zip-code" name="zipCode" type="text">
+              </div>
+              <div class="field-group">
+                <label for="country">Country</label>
+                <input id="country" name="country" type="text">
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Employment and Occupation</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="employment-status">Employment Status</label>
+                <select id="employment-status" name="employmentStatus" required>
+                  <option value="Employed">Employed</option>
+                  <option value="Self-employed">Self-employed</option>
+                  <option value="Business Owner">Business Owner</option>
+                  <option value="Retired">Retired</option>
+                  <option value="Unemployed">Unemployed</option>
+                  <option value="Student">Student</option>
+                  <option value="Child <18">Child &lt;18</option>
+                </select>
+              </div>
+              <div class="field-group profile-empty-slot" aria-hidden="true"></div>
+              <div class="field-group">
+                <label for="occupation">Occupation</label>
+                <input id="occupation" name="occupation" type="text" required data-employment-detail-field>
+              </div>
+              <div class="field-group">
+                <label for="employer-name">Employer Name (optional)</label>
+                <input id="employer-name" name="employerName" type="text" data-employment-detail-field>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Advisory Section</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="advisor-name">Advisor Name <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="advisor-name" name="advisorName" type="text" required data-advisor-name>
+              </div>
+              <div class="field-group">
+                <label for="firm-name">Firm Name (optional)</label>
+                <input id="firm-name" name="firmName" type="text">
+              </div>
+              <input id="household-id" name="householdId" type="hidden" data-household-id>
+              <div class="field-group">
+                <label for="date-profile-created">Date Profile Created <span class="profile-required-star" aria-hidden="true">*</span></label>
+                <input id="date-profile-created" name="dateProfileCreated" type="date" data-created-date required>
+              </div>
+              <div class="field-group">
+                <label for="last-updated-date">Last Updated Date</label>
+                <input id="last-updated-date" name="lastUpdatedDate" type="date" data-last-updated-date>
+              </div>
+              <div class="profile-advisory-row full-width">
+                <div class="field-group profile-advisory-priority-group">
+                  <label>Priority <span class="profile-required-star" aria-hidden="true">*</span></label>
+                  <div class="client-priority-dropdown profile-priority-dropdown" data-profile-priority-dropdown>
+                    <button class="client-priority-button client-priority-button-unset" type="button" data-profile-priority-trigger>Select Priority</button>
+                    <div class="client-priority-menu" data-profile-priority-menu>
+                      <button class="client-priority-option client-priority-option-low" type="button" data-profile-priority-option="low">Low</button>
+                      <button class="client-priority-option client-priority-option-medium" type="button" data-profile-priority-option="medium">Medium</button>
+                      <button class="client-priority-option client-priority-option-high" type="button" data-profile-priority-option="high">High</button>
+                    </div>
+                    <input type="hidden" name="advisoryPriority" value="" data-profile-priority-input>
+                  </div>
+                </div>
+                <div class="field-group profile-advisory-source-group">
+                  <label for="acquisition-source">Source <span class="profile-required-star" aria-hidden="true">*</span></label>
+                  <select id="acquisition-source" name="acquisitionSource" data-acquisition-source required>
+                    <option value="Referral">Referral</option>
+                    <option value="Existing Client">Existing Client</option>
+                    <option value="Website">Website</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Seminar / Event">Seminar / Event</option>
+                    <option value="COI / Partner">COI / Partner</option>
+                    <option value="Direct Outreach">Direct Outreach</option>
+                    <option value="Walk-In">Walk-In</option>
+                    <option value="Purchased Lead">Purchased Lead</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="field-group profile-advisory-other-group">
+                  <label for="acquisition-source-other">Other Source</label>
+                  <input id="acquisition-source-other" name="acquisitionSourceOther" type="text" disabled data-acquisition-source-other>
+                </div>
+                <div class="field-group profile-advisory-status-group">
+                  <label for="client-status">Client Status <span class="profile-required-star" aria-hidden="true">*</span></label>
+                  <select id="client-status" name="clientStatus" required>
+                    <option value="Prospect">Prospect</option>
+                    <option value="In Review">In Review</option>
+                    <option value="Coverage Placed">Coverage Placed</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-group full-width">
+                <label for="client-notes">Client Notes</label>
+                <textarea id="client-notes" name="clientNotes" rows="4"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <p class="profile-creation-feedback" id="client-creation-feedback" hidden></p>
+          <div class="actions-row">
+            <button class="btn btn-secondary pmi-save-exit-button" type="submit">Save Profile</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <div class="profile-search-modal" data-profile-search-modal hidden>
+    <div class="profile-search-modal-backdrop" data-profile-search-close></div>
+    <div class="profile-search-modal-panel" role="dialog" aria-modal="true" aria-labelledby="profile-search-modal-title">
+      <button class="profile-search-modal-close" type="button" aria-label="Close search" data-profile-search-close>x</button>
+      <div class="profile-search-modal-header">
+        <h2 id="profile-search-modal-title" data-profile-search-title>Select Profile</h2>
+      </div>
+      <div class="field-group full-width">
+        <label for="profile-search-input">Search</label>
+        <input id="profile-search-input" type="text" placeholder="Search profiles" data-profile-search-input>
+      </div>
+      <div class="profile-search-results" data-profile-search-results></div>
+    </div>
+  </div>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const dobField = document.querySelector("[data-date-of-birth]");
+      const ageField = document.querySelector("[data-age-field]");
+      const spouseDobField = document.querySelector("[data-spouse-date-of-birth]");
+      const spouseAgeField = document.querySelector("[data-spouse-age-field]");
+      const ageHint = document.querySelector("[data-age-hint]");
+      const placeholderSelects = document.querySelectorAll("[data-placeholder-select]");
+      const interestButtons = document.querySelectorAll("[data-interest-button]");
+      const interestTypeField = document.querySelector("[data-interest-type-field]");
+      const householdRoleField = document.getElementById("household-role");
+      const maritalStatusField = document.getElementById("marital-status");
+      const familyOnlyRoleOptions = document.querySelectorAll("[data-family-only]");
+      const businessOnlyRoleOptions = document.querySelectorAll("[data-business-only]");
+      const assignmentModeField = document.querySelector("[data-profile-assignment-mode]");
+      const employmentStatusField = document.getElementById("employment-status");
+      const employmentDetailFields = document.querySelectorAll("[data-employment-detail-field]");
+      const hasDependentsField = document.getElementById("has-dependents");
+      const dependentsCountField = document.getElementById("dependents-count");
+      const dependentAgesField = document.getElementById("dependent-ages");
+      const dependentDetailsField = document.getElementById("dependent-details");
+      const dependentList = document.getElementById("dependent-list");
+      const addDependentButton = document.getElementById("add-dependent-button");
+      const projectedDependentsField = document.getElementById("projected-dependents");
+      const projectedDependentsCountField = document.getElementById("projected-dependents-count");
+      const profilePriorityDropdown = document.querySelector("[data-profile-priority-dropdown]");
+      const profilePriorityTrigger = document.querySelector("[data-profile-priority-trigger]");
+      const profilePriorityInput = document.querySelector("[data-profile-priority-input]");
+      const profilePriorityOptions = document.querySelectorAll("[data-profile-priority-option]");
+      const acquisitionSourceField = document.querySelector("[data-acquisition-source]");
+      const acquisitionSourceOtherField = document.querySelector("[data-acquisition-source-other]");
+      const interestVariants = document.querySelectorAll("[data-interest-variant]");
+      const interestPanels = document.querySelectorAll("[data-interest-panel]");
+      const businessFields = document.querySelectorAll("[data-business-field]");
+      const familyAssignmentOptions = document.querySelectorAll("[data-family-assignment]");
+      const businessAssignmentOptions = document.querySelectorAll("[data-business-assignment]");
+      const dependentFields = document.querySelector("[data-profile-dependent-fields]");
+      let ageHintTimer = null;
+      let ageHintFadeTimer = null;
+
+      if (!dobField || !ageField) {
+        return;
+      }
+
+      const sharedProfileFormBehavior = window.LensApp?.clientIntake?.createSharedProfileFormBehavior?.({
+        spouseDobField,
+        spouseAgeField,
+        maritalStatusField,
+        interestTypeField,
+        dependentFields,
+        hasDependentsField,
+        dependentsCountField,
+        dependentAgesField,
+        dependentDetailsField,
+        dependentList,
+        addDependentButton,
+        projectedDependentsField,
+        projectedDependentsCountField,
+        employmentStatusField,
+        employmentDetailFields,
+        acquisitionSourceField,
+        acquisitionSourceOtherField
+      }) || {};
+
+      function syncSpouseAge() {
+        if (!spouseAgeField) {
+          return;
+        }
+
+        const spouseBirthDate = String(spouseDobField?.value || "").trim();
+        const calculateAgeFromDate = window.LensApp?.clientIntake?.calculateAgeFromDate;
+        spouseAgeField.value = spouseBirthDate && typeof calculateAgeFromDate === "function"
+          ? String(calculateAgeFromDate(spouseBirthDate))
+          : "";
+      }
+
+      function syncSpouseFields() {
+        sharedProfileFormBehavior.syncSpouseFields?.();
+      }
+
+      function syncPlaceholderSelectState(select) {
+        if (!select) {
+          return;
+        }
+
+        select.classList.toggle("is-placeholder", !select.value);
+      }
+
+      function syncInterestButtons(nextValue) {
+        if (!interestTypeField) {
+          return;
+        }
+
+        interestTypeField.value = nextValue;
+        interestButtons.forEach(function (button) {
+          button.classList.toggle("is-active", button.dataset.interestButton === nextValue);
+        });
+        interestVariants.forEach(function (variant) {
+          variant.classList.toggle("is-active", variant.dataset.interestVariant === nextValue);
+        });
+        interestPanels.forEach(function (panel) {
+          const isActive = panel.dataset.interestPanel === nextValue;
+          panel.classList.toggle("is-active", isActive);
+          panel.classList.toggle("is-hidden", !isActive);
+        });
+        businessFields.forEach(function (field) {
+          const disableField = nextValue !== "business";
+          field.disabled = disableField;
+          field.closest(".field-group")?.classList.toggle("is-disabled", disableField);
+          if (disableField) {
+            if (field.tagName === "SELECT") {
+              field.selectedIndex = 0;
+            } else {
+              field.value = "";
+            }
+          }
+        });
+        syncHouseholdRoleOptions(nextValue);
+        syncAssignmentModeOptions(nextValue);
+        syncDependentFieldsetState();
+        syncSpouseFields();
+      }
+
+      function syncHouseholdRoleOptions(interestType) {
+        const isFamily = interestType === "family";
+        const isBusiness = interestType === "business";
+
+        businessOnlyRoleOptions.forEach(function (option) {
+          option.disabled = isFamily;
+          option.classList.toggle("is-struck", isFamily);
+        });
+
+        familyOnlyRoleOptions.forEach(function (option) {
+          option.disabled = isBusiness;
+          option.classList.toggle("is-struck", isBusiness);
+        });
+
+        if ((isFamily || isBusiness) && householdRoleField) {
+          const selectedOption = householdRoleField.options[householdRoleField.selectedIndex];
+          if (selectedOption && selectedOption.disabled) {
+            householdRoleField.value = "Primary Client";
+          }
+        }
+      }
+
+      function syncAssignmentModeOptions(interestType) {
+        const isFamily = interestType === "family";
+        const isBusiness = interestType === "business";
+
+        familyAssignmentOptions.forEach(function (option) {
+          option.disabled = isBusiness;
+          option.classList.toggle("is-struck", isBusiness);
+        });
+
+        businessAssignmentOptions.forEach(function (option) {
+          option.disabled = isFamily;
+          option.classList.toggle("is-struck", isFamily);
+        });
+
+        if (assignmentModeField) {
+          const selectedOption = assignmentModeField.options[assignmentModeField.selectedIndex];
+          if (selectedOption && selectedOption.disabled) {
+            assignmentModeField.value = "";
+            assignmentModeField.dispatchEvent(new Event("change", { bubbles: true }));
+          } else {
+            syncPlaceholderSelectState(assignmentModeField);
+          }
+        }
+
+      }
+
+      function syncDependentFieldsetState() {
+        sharedProfileFormBehavior.syncDependentFieldsetState?.();
+      }
+
+      function syncEmploymentDetailFields() {
+        sharedProfileFormBehavior.syncEmploymentDetailFields?.();
+      }
+
+      function getDependentAgeValues() {
+        return sharedProfileFormBehavior.getDependentAgeValues?.() || [];
+      }
+
+      function syncDependentHiddenFields() {
+        sharedProfileFormBehavior.syncDependentHiddenFields?.();
+      }
+
+      function syncDependentEntryLabels() {
+        sharedProfileFormBehavior.syncDependentEntryLabels?.();
+      }
+
+      function syncDependentBuilderDisabledState() {
+        sharedProfileFormBehavior.syncDependentBuilderDisabledState?.();
+      }
+
+      function removeDependentEntry(entry) {
+        sharedProfileFormBehavior.removeDependentEntry?.(entry);
+      }
+
+      function createDependentEntry(ageValue) {
+        sharedProfileFormBehavior.createDependentEntry?.(ageValue);
+      }
+
+      function rebuildDependentEntriesFromStoredValue() {
+        sharedProfileFormBehavior.rebuildDependentEntriesFromStoredValue?.();
+      }
+
+      function syncDependentsCountField() {
+        sharedProfileFormBehavior.syncDependentsCountField?.();
+      }
+
+      function setProjectedFieldDisabled(field, disabled, preserveValue) {
+        sharedProfileFormBehavior.setProjectedFieldDisabled?.(field, disabled, preserveValue);
+      }
+
+      function syncProjectedDependentsFields() {
+        sharedProfileFormBehavior.syncProjectedDependentsFields?.();
+      }
+
+      function syncAcquisitionSourceField() {
+        sharedProfileFormBehavior.syncAcquisitionSourceField?.();
+      }
+
+      function applyProfilePriority(priority) {
+        if (!profilePriorityTrigger || !profilePriorityInput) {
+          return;
+        }
+
+        const normalized = String(priority || "").trim().toLowerCase();
+        profilePriorityInput.value = normalized;
+        profilePriorityDropdown?.classList.remove("is-open");
+        profilePriorityTrigger.className = "client-priority-button";
+
+        if (normalized === "low") {
+          profilePriorityTrigger.textContent = "Low";
+          profilePriorityTrigger.classList.add("client-priority-button-low");
+          return;
+        }
+
+        if (normalized === "medium") {
+          profilePriorityTrigger.textContent = "Medium";
+          profilePriorityTrigger.classList.add("client-priority-button-medium");
+          return;
+        }
+
+        if (normalized === "high") {
+          profilePriorityTrigger.textContent = "High";
+          profilePriorityTrigger.classList.add("client-priority-button-high");
+          return;
+        }
+
+        profilePriorityTrigger.textContent = "Select Priority";
+        profilePriorityTrigger.classList.add("client-priority-button-unset");
+      }
+
+      function showAgeHint() {
+        if (!ageHint || dobField.value) {
+          return;
+        }
+
+        if (ageHintTimer) {
+          window.clearTimeout(ageHintTimer);
+        }
+        if (ageHintFadeTimer) {
+          window.clearTimeout(ageHintFadeTimer);
+        }
+
+        ageHint.classList.remove("is-fading");
+        ageHint.hidden = false;
+        ageHintFadeTimer = window.setTimeout(function () {
+          ageHint.classList.add("is-fading");
+          ageHintFadeTimer = null;
+        }, 2600);
+        ageHintTimer = window.setTimeout(function () {
+          ageHint.hidden = true;
+          ageHint.classList.remove("is-fading");
+          ageHintTimer = null;
+        }, 3000);
+      }
+
+      spouseDobField?.addEventListener("input", syncSpouseAge);
+      spouseDobField?.addEventListener("change", syncSpouseAge);
+      maritalStatusField?.addEventListener("change", syncSpouseFields);
+      ageField.addEventListener("click", showAgeHint);
+      ageField.addEventListener("focus", showAgeHint);
+      placeholderSelects.forEach(function (select) {
+        select.addEventListener("change", function () {
+          syncPlaceholderSelectState(select);
+        });
+        syncPlaceholderSelectState(select);
+      });
+      employmentStatusField?.addEventListener("change", syncEmploymentDetailFields);
+      hasDependentsField?.addEventListener("change", () => {
+        syncDependentsCountField();
+        syncProjectedDependentsFields();
+      });
+      projectedDependentsField?.addEventListener("change", syncProjectedDependentsFields);
+      projectedDependentsCountField?.addEventListener("input", syncProjectedDependentsFields);
+      projectedDependentsCountField?.addEventListener("change", syncProjectedDependentsFields);
+      addDependentButton?.addEventListener("click", function () {
+        createDependentEntry("");
+      });
+      acquisitionSourceField?.addEventListener("change", syncAcquisitionSourceField);
+      profilePriorityTrigger?.addEventListener("click", function () {
+        profilePriorityDropdown?.classList.toggle("is-open");
+      });
+      profilePriorityOptions.forEach(function (option) {
+        option.addEventListener("click", function () {
+          applyProfilePriority(option.dataset.profilePriorityOption || "");
+        });
+      });
+      interestButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          syncInterestButtons(button.dataset.interestButton || "family");
+        });
+      });
+      document.addEventListener("click", function (event) {
+        if (!profilePriorityDropdown || profilePriorityDropdown.contains(event.target)) {
+          return;
+        }
+
+        profilePriorityDropdown.classList.remove("is-open");
+      });
+      syncSpouseFields();
+      syncDependentFieldsetState();
+      syncEmploymentDetailFields();
+      rebuildDependentEntriesFromStoredValue();
+      syncDependentsCountField();
+      syncProjectedDependentsFields();
+      syncAcquisitionSourceField();
+      applyProfilePriority(profilePriorityInput?.value || "");
+      syncInterestButtons(interestTypeField?.value || "family");
+    })();
+  </script>
+</body>
+</html>
+
+
+

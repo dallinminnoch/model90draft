@@ -1,0 +1,3696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protection Modeling Inputs | LENS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page" data-page="manual-protection-modeling-inputs">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="prospect-empty-panel">
+        <div class="prospect-panel-header">
+          <a class="prospect-return-button" href="profile.html" data-loading-link>Previous</a>
+          <h1>Protection Modeling Inputs</h1>
+          <button class="confidential-calculator-toggle" type="button" data-calculator-toggle aria-expanded="false" aria-controls="protection-calculator" aria-label="Open calculator">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="4" y="2.1" width="16" height="19.8" rx="1.6" fill="#ffffff" stroke="#000000" stroke-width="1.2"></rect>
+              <rect x="6.85" y="4.5" width="10.3" height="3.05" rx="0.65" fill="#000000" opacity="0.12"></rect>
+              <rect x="6.75" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="10.7" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="14.65" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="6.75" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="10.7" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="14.65" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="6.75" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="10.7" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="14.65" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000"></rect>
+            </svg>
+          </button>
+        </div>
+        <form class="profile-creation-form" id="protection-modeling-form">
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Income Calculation</h2>
+            </div>
+            <div class="form-grid income-calculation-grid">
+              <div class="field-group">
+                <label for="linked-marital-status">Marital Status</label>
+                <select id="linked-marital-status" name="linkedMaritalStatusDisplay">
+                  <option value="">Please select</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Domestic Partnership">Domestic Partnership</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Separated">Separated</option>
+                  <option value="Widowed">Widowed</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="current-age">Current Age</label>
+                <input id="current-age" class="profile-small-number-field" name="currentAge" type="number" min="0" max="100" step="1">
+              </div>
+              <div class="field-group">
+                <label for="filing-status">Filing Status</label>
+                <select id="filing-status" name="filingStatus">
+                  <option value="">Please select</option>
+                  <option value="Single">Single</option>
+                  <option value="Married Filing Jointly">Married Filing Jointly</option>
+                  <option value="Married Filing Separately">Married Filing Separately</option>
+                  <option value="Head of Household">Head of Household</option>
+                  <option value="Qualifying Surviving Spouse">Qualifying Surviving Spouse</option>
+                </select>
+              </div>
+              <div class="field-group full-width income-calculation-circle-row" aria-hidden="true">
+                <span class="income-calculation-circle" data-filing-status-circle="Single" title="Single"></span>
+                <span class="income-calculation-circle" data-filing-status-circle="Married Filing Jointly" title="Married Filing Jointly"></span>
+                <span class="income-calculation-circle" data-filing-status-circle="Married Filing Separately" title="Married Filing Separately"></span>
+                <span class="income-calculation-circle" data-filing-status-circle="Head of Household" title="Head of Household"></span>
+                <span class="income-calculation-circle" data-filing-status-circle="Qualifying Surviving Spouse" title="Qualifying Surviving Spouse"></span>
+              </div>
+              <div class="field-group">
+                <label for="gross-annual-income">Gross Annual Income</label>
+                <div class="profile-currency-field">
+                  <input id="gross-annual-income" name="grossAnnualIncome" type="text" inputmode="decimal">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-income">Spouse Gross Annual Income</label>
+                <div class="profile-currency-field">
+                  <input id="spouse-income" name="spouseIncome" type="text" inputmode="decimal">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-current-age">Spouse Current Age</label>
+                <input id="spouse-current-age" class="profile-small-number-field" name="spouseCurrentAge" type="number" min="0" max="100" step="1">
+              </div>
+              <div class="field-group">
+                <label for="deduction-method">Primary Deduction Method</label>
+                <input id="deduction-method" name="deductionMethod" type="hidden" value="standard">
+                <div class="profile-form-toggle-group" data-deduction-method-group="primary">
+                  <button class="profile-form-toggle-button is-active" type="button" data-deduction-method-toggle="primary" data-deduction-method-value="standard">Use Standard Deduction</button>
+                  <button class="profile-form-toggle-button" type="button" data-deduction-method-toggle="primary" data-deduction-method-value="itemized">Use Itemized Deductions</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-deduction-method">Spouse Deduction Method</label>
+                <input id="spouse-deduction-method" name="spouseDeductionMethod" type="hidden" value="standard">
+                <div class="profile-form-toggle-group" data-deduction-method-group="spouse">
+                  <button class="profile-form-toggle-button is-active" type="button" data-deduction-method-toggle="spouse" data-deduction-method-value="standard">Use Standard Deduction</button>
+                  <button class="profile-form-toggle-button" type="button" data-deduction-method-toggle="spouse" data-deduction-method-value="itemized">Use Itemized Deductions</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="standard-deduction">Standard Deduction</label>
+                <div class="profile-currency-field">
+                  <input id="standard-deduction" name="standardDeduction" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-standard-deduction">Spouse Standard Deduction</label>
+                <div class="profile-currency-field">
+                  <input id="spouse-standard-deduction" name="spouseStandardDeduction" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="yearly-tax-deductions">Yearly Tax Deductions</label>
+                <div class="profile-currency-field">
+                  <input id="yearly-tax-deductions" name="yearlyTaxDeductions" type="text" inputmode="decimal">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-yearly-tax-deductions">Spouse Yearly Tax Deductions</label>
+                <div class="profile-currency-field">
+                  <input id="spouse-yearly-tax-deductions" name="spouseYearlyTaxDeductions" type="text" inputmode="decimal">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="taxable-income">Taxable Income</label>
+                <div class="profile-currency-field">
+                  <input id="taxable-income" name="taxableIncome" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-taxable-income">Spouse Taxable Income</label>
+                <div class="profile-currency-field">
+                  <input id="spouse-taxable-income" name="spouseTaxableIncome" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="federal-tax-bracket" data-federal-tax-bracket-label>Federal Tax Bracket</label>
+                <select id="federal-tax-bracket" name="federalTaxBracket" disabled>
+                  <option value="">Please select</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="spouse-federal-tax-bracket" data-spouse-federal-tax-bracket-label>Spouse Federal Tax Bracket</label>
+                <select id="spouse-federal-tax-bracket" name="spouseFederalTaxBracket" disabled>
+                  <option value="">Please select</option>
+                </select>
+              </div>
+              <div class="field-group full-width">
+                <label for="state-of-residence">State of Residence</label>
+                <div class="profile-state-select-shell">
+                  <select id="state-of-residence" class="profile-state-field" name="stateOfResidence" data-state-select>
+                    <option value="">Select state</option>
+                    <option value="AL">Alabama</option>
+                    <option value="AK">Alaska</option>
+                    <option value="AZ">Arizona</option>
+                    <option value="AR">Arkansas</option>
+                    <option value="CA">California</option>
+                    <option value="CO">Colorado</option>
+                    <option value="CT">Connecticut</option>
+                    <option value="DE">Delaware</option>
+                    <option value="FL">Florida</option>
+                    <option value="GA">Georgia</option>
+                    <option value="HI">Hawaii</option>
+                    <option value="ID">Idaho</option>
+                    <option value="IL">Illinois</option>
+                    <option value="IN">Indiana</option>
+                    <option value="IA">Iowa</option>
+                    <option value="KS">Kansas</option>
+                    <option value="KY">Kentucky</option>
+                    <option value="LA">Louisiana</option>
+                    <option value="ME">Maine</option>
+                    <option value="MD">Maryland</option>
+                    <option value="MA">Massachusetts</option>
+                    <option value="MI">Michigan</option>
+                    <option value="MN">Minnesota</option>
+                    <option value="MS">Mississippi</option>
+                    <option value="MO">Missouri</option>
+                    <option value="MT">Montana</option>
+                    <option value="NE">Nebraska</option>
+                    <option value="NV">Nevada</option>
+                    <option value="NH">New Hampshire</option>
+                    <option value="NJ">New Jersey</option>
+                    <option value="NM">New Mexico</option>
+                    <option value="NY">New York</option>
+                    <option value="NC">North Carolina</option>
+                    <option value="ND">North Dakota</option>
+                    <option value="OH">Ohio</option>
+                    <option value="OK">Oklahoma</option>
+                    <option value="OR">Oregon</option>
+                    <option value="PA">Pennsylvania</option>
+                    <option value="RI">Rhode Island</option>
+                    <option value="SC">South Carolina</option>
+                    <option value="SD">South Dakota</option>
+                    <option value="TN">Tennessee</option>
+                    <option value="TX">Texas</option>
+                    <option value="UT">Utah</option>
+                    <option value="VT">Vermont</option>
+                    <option value="VA">Virginia</option>
+                    <option value="WA">Washington</option>
+                    <option value="WV">West Virginia</option>
+                    <option value="WI">Wisconsin</option>
+                    <option value="WY">Wyoming</option>
+                  </select>
+                  <span class="profile-state-select-value" data-state-select-value>Select state</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="state-income-tax-bracket" data-state-tax-bracket-label>State Income Tax Bracket</label>
+                <select id="state-income-tax-bracket" name="stateIncomeTaxBracket" disabled>
+                  <option value="">Please select</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="spouse-state-income-tax-bracket" data-spouse-state-tax-bracket-label>Spouse State Income Tax Bracket</label>
+                <select id="spouse-state-income-tax-bracket" name="spouseStateIncomeTaxBracket" disabled>
+                  <option value="">Please select</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="primary-payroll-taxes">Primary Payroll Taxes</label>
+                <div class="profile-currency-field">
+                  <input id="primary-payroll-taxes" name="primaryPayrollTaxes" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="spouse-payroll-taxes">Spouse Payroll Taxes</label>
+                <div class="profile-currency-field">
+                  <input id="spouse-payroll-taxes" name="spousePayrollTaxes" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group primary-net-income-group">
+                <label for="net-annual-income">Net Annual Income</label>
+                <div class="profile-currency-field">
+                  <input id="net-annual-income" name="netAnnualIncome" type="text" inputmode="decimal" readonly>
+                  <button class="net-income-action" type="button" data-net-income-action="primary">Edit</button>
+                </div>
+              </div>
+              <div class="field-group spouse-net-income-group">
+                <label for="spouse-net-annual-income">Spouse Net Annual Income</label>
+                <div class="profile-currency-field">
+                  <input id="spouse-net-annual-income" name="spouseNetAnnualIncome" type="text" inputmode="decimal" readonly>
+                  <button class="net-income-action" type="button" data-net-income-action="spouse">Edit</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Income and Economic Value</h2>
+              <p class="profile-section-note">Fields already captured on the client profile are intentionally excluded here.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="income-growth-rate">Annual Income Growth Rate Assumption</label>
+                <div class="profile-currency-field">
+                  <input id="income-growth-rate" class="profile-small-number-field" name="incomeGrowthRate" type="number" min="0" max="25" step="0.1">
+                  <span class="profile-currency-suffix">%</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="bonus-variable-income">Annual Bonus / Variable Income</label>
+                <div class="profile-currency-field">
+                  <input id="bonus-variable-income" name="bonusVariableIncome" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="years-until-retirement">Estimated Years Until Retirement or Income Exhaustion</label>
+                <input id="years-until-retirement" class="profile-small-number-field" name="yearsUntilRetirement" type="number" min="0" max="80" step="1">
+              </div>
+              <div class="field-group">
+                <label for="employer-benefits-value">Annual Employer Benefits Value</label>
+                <div class="profile-currency-field">
+                  <input id="employer-benefits-value" name="employerBenefitsValue" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Housing Costs</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="housing-status">Housing Status</label>
+                <select id="housing-status" name="housingStatus">
+                  <option value="">Please select</option>
+                  <option value="Homeowner">Homeowner</option>
+                  <option value="Owns Free and Clear">Owns Free and Clear</option>
+                  <option value="Renter">Renter</option>
+                </select>
+              </div>
+              <div class="field-group full-width income-calculation-circle-row" aria-hidden="true">
+                <span class="income-calculation-circle" data-housing-status-circle="Homeowner" title="Homeowner"></span>
+                <span class="income-calculation-circle" data-housing-status-circle="Owns Free and Clear" title="Owns Free and Clear"></span>
+                <span class="income-calculation-circle" data-housing-status-circle="Renter" title="Renter"></span>
+              </div>
+              <div class="field-group" data-housing-visibility="renter">
+                <label for="monthly-housing-cost">All-In Monthly Rent</label>
+                <div class="profile-currency-field">
+                  <input id="monthly-housing-cost" name="monthlyHousingCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="renter">
+                <label for="relocation-reserve">Relocation Reserve</label>
+                <div class="profile-currency-field" id="relocation-reserve-shell">
+                  <input id="relocation-reserve" name="relocationReserve" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                  <span class="profile-recommended-label">(Recommended minimum)</span>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="homeowner">
+                <label for="mortgage-balance">Mortgage Balance</label>
+                <div class="profile-currency-field">
+                  <input id="mortgage-balance" name="mortgageBalance" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="selected">
+                <label for="utilities-cost">Monthly Utilities</label>
+                <div class="profile-currency-field">
+                  <input id="utilities-cost" name="utilitiesCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="selected">
+                <label for="housing-insurance-cost">Monthly Housing Insurance</label>
+                <div class="profile-currency-field">
+                  <input id="housing-insurance-cost" name="housingInsuranceCost" type="number" min="0" step="25">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group field-group--compact-owner-row" data-housing-visibility="homeowner">
+                <label for="mortgage-term-remaining-years">Mortgage Remaining Term and Interest Rate</label>
+                <div class="profile-owner-term-row">
+                  <div class="profile-dual-unit-field">
+                    <div class="profile-inline-unit-field">
+                      <input id="mortgage-term-remaining-years" class="profile-small-number-field" name="mortgageTermRemainingYears" type="number" min="0" max="50" step="1">
+                      <span class="profile-inline-unit">Years</span>
+                    </div>
+                    <div class="profile-inline-unit-field">
+                      <input id="mortgage-term-remaining-months" class="profile-small-number-field" name="mortgageTermRemainingMonths" type="number" min="0" max="11" step="1">
+                      <span class="profile-inline-unit">Months</span>
+                    </div>
+                    <input id="mortgage-term-remaining" name="mortgageTermRemaining" type="hidden">
+                  </div>
+                  <div class="profile-currency-field profile-owner-rate-field">
+                    <input id="mortgage-interest-rate" class="profile-small-number-field" name="mortgageInterestRate" type="number" min="0" max="25" step="0.01">
+                    <span class="profile-currency-suffix">%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="property-tax">
+                <label for="property-tax">Annual Property Tax</label>
+                <div class="profile-currency-field">
+                  <input id="property-tax" name="propertyTax" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="owner">
+                <label for="monthly-hoa-cost">Monthly HOA</label>
+                <div class="profile-currency-field">
+                  <input id="monthly-hoa-cost" name="monthlyHoaCost" type="number" min="0" step="25">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group field-group--compact-owner-row" data-housing-visibility="owner">
+                <label for="home-square-footage">Home Square Footage and Age</label>
+                <div class="profile-owner-meta-row">
+                  <select id="home-square-footage" class="profile-owner-square-footage" name="homeSquareFootage">
+                    <option value="">Sq Ft</option>
+                    <option value="Under 1,500 sq ft">Under 1,500</option>
+                    <option value="1,500-2,499 sq ft">1,500-2,499</option>
+                    <option value="2,500-3,499 sq ft">2,500-3,499</option>
+                    <option value="3,500+ sq ft">3,500+</option>
+                  </select>
+                  <div class="profile-inline-unit-field">
+                    <input id="home-age-years" class="profile-small-number-field" name="homeAgeYears" type="text" inputmode="numeric" placeholder="Years">
+                    <span class="profile-inline-unit">Years</span>
+                  </div>
+                </div>
+              </div>
+              <div class="field-group" data-housing-visibility="owner">
+                <label for="monthly-maintenance-recommendation">Recommended Monthly Maintenance / Repairs</label>
+                <div class="profile-currency-field">
+                  <input id="monthly-maintenance-recommendation" name="monthlyMaintenanceRecommendation" type="text" inputmode="decimal" readonly>
+                  <button class="net-income-action" type="button" data-maintenance-action="primary">Edit</button>
+                </div>
+              </div>
+              <div class="field-group full-width field-group--centered-result" data-housing-visibility="selected">
+                <label for="calculated-monthly-mortgage-payment">Calculated Monthly Burden</label>
+                <div class="profile-currency-field">
+                  <input id="calculated-monthly-mortgage-payment" name="calculatedMonthlyMortgagePayment" type="text" inputmode="decimal" readonly>
+                  <button class="net-income-action" type="button" data-mortgage-payment-action="primary">Edit</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Debts and Liabilities</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="other-real-estate-loans">HELOC / Second Mortgage / Other Property Loans</label>
+                <div class="profile-currency-field">
+                  <input id="other-real-estate-loans" name="otherRealEstateLoans" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="auto-loans">Remaining Auto Loan Balances</label>
+                <div class="profile-currency-field">
+                  <input id="auto-loans" name="autoLoans" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="credit-card-debt">Revolving Credit Card Debt</label>
+                <div class="profile-currency-field">
+                  <input id="credit-card-debt" name="creditCardDebt" type="number" min="0" step="100">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="student-loans">Remaining Student Loan Balances</label>
+                <div class="profile-currency-field">
+                  <input id="student-loans" name="studentLoans" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="personal-loans">Remaining Personal Loan Balances</label>
+                <div class="profile-currency-field">
+                  <input id="personal-loans" name="personalLoans" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="tax-liabilities">Tax Liabilities / IRS or State Tax Debt</label>
+                <div class="profile-currency-field">
+                  <input id="tax-liabilities" name="taxLiabilities" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="business-debt">Business Loan / Credit Obligations</label>
+                <div class="profile-currency-field">
+                  <input id="business-debt" name="businessDebt" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="other-loan-obligations">Other Loan Obligations</label>
+                <div class="profile-currency-field">
+                  <input id="other-loan-obligations" name="otherLoanObligations" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Expenses and Lifestyle</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group full-width form-subgroup-label">
+                <span>Household Spending</span>
+              </div>
+              <div class="field-group">
+                <label for="insurance-cost">Non-Housing Monthly Insurance</label>
+                <div class="profile-currency-field">
+                  <input id="insurance-cost" name="insuranceCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="healthcare-out-of-pocket-cost">Healthcare / Out-of-Pocket Medical</label>
+                <div class="profile-currency-field">
+                  <input id="healthcare-out-of-pocket-cost" name="healthcareOutOfPocketCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="food-cost">Monthly Food / Grocery Cost</label>
+                <div class="profile-currency-field">
+                  <input id="food-cost" name="foodCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="transportation-cost">Monthly Transportation Cost</label>
+                <div class="profile-currency-field">
+                  <input id="transportation-cost" name="transportationCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="childcare-dependent-care-cost">Childcare / Dependent Care</label>
+                <div class="profile-currency-field">
+                  <input id="childcare-dependent-care-cost" name="childcareDependentCareCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="phone-internet-cost">Phone / Internet</label>
+                <div class="profile-currency-field">
+                  <input id="phone-internet-cost" name="phoneInternetCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="household-supplies-cost">Household Essentials / Supplies</label>
+                <div class="profile-currency-field">
+                  <input id="household-supplies-cost" name="householdSuppliesCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="other-household-expenses">Other Household Expenses</label>
+                <div class="profile-currency-field">
+                  <input id="other-household-expenses" name="otherHouseholdExpenses" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group full-width section-divider-field" aria-hidden="true">
+                <span class="section-divider-line"></span>
+              </div>
+              <div class="field-group full-width form-subgroup-label">
+                <span>Personal Spending That May Disappear</span>
+              </div>
+              <div class="field-group">
+                <label for="travel-discretionary-cost">Entertainment / Travel</label>
+                <div class="profile-currency-field">
+                  <input id="travel-discretionary-cost" name="travelDiscretionaryCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="subscriptions-cost">Recurring Personal Spending</label>
+                <div class="profile-currency-field">
+                  <input id="subscriptions-cost" name="subscriptionsCost" type="number" min="0" step="50">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Education Funding</h2>
+            </div>
+            <div class="form-grid">
+              <div class="profile-dependent-row full-width">
+                <div class="field-group">
+                  <label for="has-dependents">Dependents / Children</label>
+                  <select id="has-dependents" class="profile-yes-no-field" name="hasDependents">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label for="children-needing-funding">Amount of Dependents / Children</label>
+                  <input id="children-needing-funding" class="profile-yes-no-field" name="childrenNeedingFunding" type="number" min="0" step="1">
+                </div>
+                <div class="field-group">
+                  <label for="dependent-ages">Current Children Ages</label>
+                  <input id="dependent-ages" class="profile-yes-no-field" name="dependentAges" type="text" placeholder="Example: 4, 8, 12">
+                </div>
+                <div class="field-group">
+                  <label for="estimated-cost-per-child">Desired Education Funding (Per Dependent)</label>
+                  <div class="profile-currency-field">
+                    <input id="estimated-cost-per-child" class="profile-education-funding-field" name="estimatedCostPerChild" type="number" min="0" step="5000" list="education-funding-options">
+                    <span class="profile-currency-suffix">USD</span>
+                  </div>
+                  <datalist id="education-funding-options">
+                    <option value="5000"></option>
+                    <option value="10000"></option>
+                    <option value="15000"></option>
+                    <option value="20000"></option>
+                    <option value="25000"></option>
+                    <option value="30000"></option>
+                    <option value="35000"></option>
+                    <option value="40000"></option>
+                    <option value="45000"></option>
+                    <option value="50000"></option>
+                    <option value="55000"></option>
+                    <option value="60000"></option>
+                    <option value="65000"></option>
+                    <option value="70000"></option>
+                    <option value="75000"></option>
+                  </datalist>
+                </div>
+              </div>
+              <div class="profile-dependent-secondary-row full-width">
+                <div class="field-group">
+                  <label for="projected-dependents">Projected Dependents / Children</label>
+                  <select id="projected-dependents" class="profile-yes-no-field" name="projectedDependents">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label for="projected-dependents-count">Amount of Desired Dependents / Children</label>
+                  <input id="projected-dependents-count" class="profile-yes-no-field" name="projectedDependentsCount" type="number" min="0" step="1">
+                </div>
+                <div class="field-group">
+                  <label for="same-education-funding">Same Education Funding?</label>
+                  <select id="same-education-funding" class="profile-yes-no-field" name="sameEducationFunding">
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label for="projected-education-funding-per-dependent">Desired Education Funding (Per Dependent)</label>
+                  <div class="profile-currency-field">
+                    <input id="projected-education-funding-per-dependent" class="profile-education-funding-field" name="projectedEducationFundingPerDependent" type="number" min="0" step="5000" list="education-funding-options">
+                    <span class="profile-currency-suffix">USD</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Assets and Existing Coverage</h2>
+              <p class="helper-text">Enter current asset values only. Asset treatment and offset assumptions are managed in Analysis Setup.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="cash-and-cash-equivalents">Cash &amp; Cash Equivalents</label>
+                <div class="profile-currency-field">
+                  <input id="cash-and-cash-equivalents" name="cashAndCashEquivalents" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="emergency-fund">Emergency Fund</label>
+                <div class="profile-currency-field">
+                  <input id="emergency-fund" name="emergencyFund" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="taxable-brokerage-investments">Taxable Brokerage / Investments</label>
+                <div class="profile-currency-field">
+                  <input id="taxable-brokerage-investments" name="taxableBrokerageInvestments" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="traditional-retirement-assets">Traditional Retirement Assets</label>
+                <div class="profile-currency-field">
+                  <input id="traditional-retirement-assets" name="traditionalRetirementAssets" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="roth-tax-advantaged-retirement-assets">Roth / Tax-Advantaged Retirement Assets</label>
+                <div class="profile-currency-field">
+                  <input id="roth-tax-advantaged-retirement-assets" name="rothTaxAdvantagedRetirementAssets" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="qualified-annuities">Qualified Annuities</label>
+                <div class="profile-currency-field">
+                  <input id="qualified-annuities" name="qualifiedAnnuities" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="nonqualified-annuities">Nonqualified Annuities</label>
+                <div class="profile-currency-field">
+                  <input id="nonqualified-annuities" name="nonqualifiedAnnuities" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="primary-residence-equity">Primary Residence Equity</label>
+                <div class="profile-currency-field">
+                  <input id="primary-residence-equity" name="primaryResidenceEquity" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="other-real-estate-equity">Other Real Estate Equity</label>
+                <div class="profile-currency-field">
+                  <input id="other-real-estate-equity" name="otherRealEstateEquity" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="business-private-company-value">Business / Private Company Value</label>
+                <div class="profile-currency-field">
+                  <input id="business-private-company-value" name="businessPrivateCompanyValue" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="education-specific-savings">Education-Specific Savings</label>
+                <div class="profile-currency-field">
+                  <input id="education-specific-savings" name="educationSpecificSavings" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="trust-restricted-assets">Trust / Restricted Assets</label>
+                <div class="profile-currency-field">
+                  <input id="trust-restricted-assets" name="trustRestrictedAssets" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="stock-compensation-deferred-compensation">Stock Compensation / Deferred Compensation</label>
+                <div class="profile-currency-field">
+                  <input id="stock-compensation-deferred-compensation" name="stockCompensationDeferredCompensation" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="digital-assets-crypto">Digital Assets / Crypto</label>
+                <div class="profile-currency-field">
+                  <input id="digital-assets-crypto" name="digitalAssetsCrypto" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="other-custom-asset">Other / Custom Asset</label>
+                <div class="profile-currency-field">
+                  <input id="other-custom-asset" name="otherCustomAsset" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="assets-confidence-level">Asset Data Confidence</label>
+                <select id="assets-confidence-level" name="assetsConfidenceLevel">
+                  <option value="">Optional</option>
+                  <option value="Exact">Exact</option>
+                  <option value="Estimated">Estimated</option>
+                  <option value="Unknown">Unknown</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="immediate-liquidity-buffer">Immediate Liquidity Buffer</label>
+                <div class="profile-currency-field">
+                  <input id="immediate-liquidity-buffer" name="immediateLiquidityBuffer" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="individual-policy-type">Individual Life Insurance Type</label>
+                <select id="individual-policy-type" name="individualPolicyType">
+                  <option value="">Leave Blank if None</option>
+                  <option value="Term">Term</option>
+                  <option value="Whole">Whole</option>
+                  <option value="UL">UL</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="individual-death-benefit">Individual Death Benefit</label>
+                <div class="profile-currency-field">
+                  <input id="individual-death-benefit" name="individualDeathBenefit" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="individual-years-remaining">Years Remaining</label>
+                <input id="individual-years-remaining" class="profile-small-number-field" name="individualYearsRemaining" type="number" min="0" max="80" step="1">
+              </div>
+              <div class="field-group">
+                <label for="group-life-coverage">Group Life Coverage Amount</label>
+                <div class="profile-currency-field">
+                  <input id="group-life-coverage" name="groupLifeCoverage" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="group-life-portability">Group Life Portability</label>
+                <select id="group-life-portability" name="groupLifePortability">
+                  <option value="">Leave Blank if None</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Final Expenses and Assumptions</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="funeral-burial-estimate">Funeral / Burial Estimate</label>
+                <div class="profile-currency-field is-recommended" data-recommended-default="15000">
+                  <input id="funeral-burial-estimate" name="funeralBurialEstimate" type="number" min="0" step="1000" value="15000">
+                  <span class="profile-currency-suffix">USD</span>
+                  <span class="profile-recommended-label">(Recommended amount)</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="medical-end-of-life-costs">Medical End-of-Life Costs</label>
+                <div class="profile-currency-field is-recommended" data-recommended-default="15000">
+                  <input id="medical-end-of-life-costs" name="medicalEndOfLifeCosts" type="number" min="0" step="1000" value="15000">
+                  <span class="profile-currency-suffix">USD</span>
+                  <span class="profile-recommended-label">(Recommended amount)</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="estate-settlement-costs">Estate Settlement Costs</label>
+                <div class="profile-currency-field is-recommended" data-recommended-default="10000">
+                  <input id="estate-settlement-costs" name="estateSettlementCosts" type="number" min="0" step="1000" value="10000">
+                  <span class="profile-currency-suffix">USD</span>
+                  <span class="profile-recommended-label">(Recommended amount)</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="inflation-rate-assumption">Inflation Rate Assumption</label>
+                <div class="profile-currency-field">
+                  <input id="inflation-rate-assumption" class="profile-small-number-field" name="inflationRateAssumption" type="number" min="0" max="25" step="0.1">
+                  <span class="profile-currency-suffix">%</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="discount-rate">Discount Rate</label>
+                <div class="profile-currency-field">
+                  <input id="discount-rate" class="profile-small-number-field" name="discountRate" type="number" min="0" max="25" step="0.1">
+                  <span class="profile-currency-suffix">%</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="investment-return-assumption">Investment Return Assumption</label>
+                <div class="profile-currency-field">
+                  <input id="investment-return-assumption" class="profile-small-number-field" name="investmentReturnAssumption" type="number" min="0" max="25" step="0.1">
+                  <span class="profile-currency-suffix">%</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="household-income-use">Estimated % of Income Used for Household</label>
+                <div class="profile-currency-field">
+                  <input id="household-income-use" class="profile-small-number-field" name="householdIncomeUsePercent" type="text" inputmode="decimal" readonly>
+                  <span class="profile-currency-suffix">%</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="actions-row">
+            <button class="btn btn-secondary pmi-save-exit-button" type="button" data-pmi-save-exit>Save and Continue</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <div class="floating-calculator" id="protection-calculator" hidden aria-hidden="true">
+    <div class="floating-calculator-header" data-calculator-drag-handle><button class="floating-calculator-close" type="button" aria-label="Close calculator">�</button>
+    </div>
+    <div class="floating-calculator-body">
+      <input
+        class="floating-calculator-display"
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Calculator display"
+      >
+      <div class="floating-calculator-pad" aria-label="Calculator buttons">
+        <button type="button" data-calculator-action="clear">C</button>
+        <button type="button" data-calculator-action="parens">()</button>
+        <button type="button" data-calculator-action="percent">%</button>
+        <button type="button" data-calculator-value="/">/</button>
+        <button type="button" data-calculator-value="7">7</button>
+        <button type="button" data-calculator-value="8">8</button>
+        <button type="button" data-calculator-value="9">9</button>
+        <button type="button" data-calculator-value="*">*</button>
+        <button type="button" data-calculator-value="4">4</button>
+        <button type="button" data-calculator-value="5">5</button>
+        <button type="button" data-calculator-value="6">6</button>
+        <button type="button" data-calculator-value="-">-</button>
+        <button type="button" data-calculator-value="1">1</button>
+        <button type="button" data-calculator-value="2">2</button>
+        <button type="button" data-calculator-value="3">3</button>
+        <button type="button" data-calculator-value="+">+</button>
+        <button type="button" data-calculator-action="sign">+/-</button>
+        <button type="button" data-calculator-value="0">0</button>
+        <button type="button" data-calculator-value=".">.</button>
+        <button type="button" data-calculator-action="equals" class="floating-calculator-equals">=</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script src="../pmi-tax-utils.js"></script>
+  <script src="../pmi-calculator.js"></script>
+  <script>
+    (function () {
+      const form = document.getElementById("protection-modeling-form");
+
+      if (!form) {
+        return;
+      }
+
+      const formatter = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      const liveFormatter = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+
+      const numberInputs = Array.from(form.querySelectorAll('input[type="number"]'));
+
+      function sanitizeNumericValue(value) {
+        const cleaned = String(value || "").replace(/[^0-9.]/g, "");
+        const parts = cleaned.split(".");
+
+        if (parts.length <= 1) {
+          return cleaned;
+        }
+
+        return `${parts[0]}.${parts.slice(1).join("")}`;
+      }
+
+      function formatNumericValue(input) {
+        const sanitized = sanitizeNumericValue(input.value);
+
+        if (!sanitized) {
+          input.value = "";
+          return;
+        }
+
+        const numericValue = Number(sanitized);
+
+        if (!Number.isFinite(numericValue)) {
+          input.value = "";
+          return;
+        }
+
+        input.value = formatter.format(numericValue);
+      }
+
+      function formatNumericValueLive(input) {
+        const sanitized = sanitizeNumericValue(input.value);
+
+        if (!sanitized) {
+          input.value = "";
+          return;
+        }
+
+        const parts = sanitized.split(".");
+        const wholePart = parts[0] || "0";
+        const decimalPart = parts[1] || "";
+        const wholeNumber = Number(wholePart);
+
+        if (!Number.isFinite(wholeNumber)) {
+          input.value = "";
+          return;
+        }
+
+        const formattedWhole = liveFormatter.format(wholeNumber).split(".")[0];
+        input.value = decimalPart ? `${formattedWhole}.${decimalPart.slice(0, 2)}` : formattedWhole;
+      }
+
+      function stripFormatting(input) {
+        input.value = sanitizeNumericValue(input.value);
+      }
+
+      numberInputs.forEach((input) => {
+        input.type = "text";
+        input.inputMode = "decimal";
+        input.autocomplete = "off";
+
+        input.addEventListener("focus", () => {
+          stripFormatting(input);
+          input.select();
+        });
+
+        input.addEventListener("input", () => {
+          formatNumericValueLive(input);
+        });
+
+        input.addEventListener("blur", () => {
+          formatNumericValue(input);
+        });
+
+        formatNumericValue(input);
+      });
+
+      form.addEventListener("submit", () => {
+        numberInputs.forEach((input) => {
+          stripFormatting(input);
+        });
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      const defaults = [
+        { id: "funeral-burial-estimate", value: "15,000" },
+        { id: "medical-end-of-life-costs", value: "15,000" },
+        { id: "estate-settlement-costs", value: "10,000" }
+      ];
+
+      defaults.forEach(({ id, value }) => {
+        const input = document.getElementById(id);
+
+        if (!input) {
+          return;
+        }
+
+        const field = input.closest(".profile-currency-field");
+
+        if (!field) {
+          return;
+        }
+
+        input.addEventListener("input", () => {
+          field.classList.remove("is-recommended");
+        }, { once: true });
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      const form = document.getElementById("protection-modeling-form");
+
+      if (!form) {
+        return;
+      }
+
+      const helpByFieldId = {
+        "gross-annual-income": "Total annual household income before taxes.",
+        "net-annual-income": "Automatically calculated net annual income after federal, state, and payroll taxes.",
+        "spouse-net-annual-income": "Automatically calculated spouse net annual income after federal, state, and payroll taxes.",
+        "spouse-income": "Annual income earned by a spouse or partner.",
+        "income-growth-rate": "Expected annual income growth used for future projections.",
+        "bonus-variable-income": "Bonuses, commissions, or other variable pay to include in the plan.",
+        "years-until-retirement": "Expected years until the main earner plans to retire.",
+        "employer-benefits-value": "Estimated annual value of employer-provided benefits tied to the insured, such as health insurance subsidy, retirement match, pension accrual, disability coverage, or other workplace benefits the household would lose at death.",
+        "household-income-use": "Auto-calculated percentage of household net income used to cover recurring household expenses that remain after death.",
+        "federal-tax-bracket": "Select the federal marginal tax bracket to use for future net-income modeling. These options are maintained in restricted Account Administration.",
+        "monthly-housing-cost": "All-in monthly rent for renter scenarios, including pet fees or technology fees. Utilities are entered separately.",
+        "utilities-cost": "Average monthly utilities across all housing statuses.",
+        "calculated-monthly-mortgage-payment": "Auto-calculated monthly mortgage payment from balance, remaining term, and interest rate. You can edit it to override the calculated amount.",
+        "food-cost": "Average monthly grocery and household food spending.",
+        "insurance-cost": "Monthly non-housing insurance costs such as health, auto, umbrella, and other recurring coverage.",
+        "transportation-cost": "Monthly transportation spending, including fuel, maintenance, transit, and vehicle costs.",
+        "childcare-dependent-care-cost": "Monthly childcare, babysitting, nanny, after-school care, elder care, or other dependent-care costs that support the household.",
+        "household-supplies-cost": "Monthly household essentials spending such as toiletries, cleaning supplies, paper goods, diapers, and other routine home supplies.",
+        "phone-internet-cost": "Monthly phone, wireless, and home internet costs used by the household.",
+        "healthcare-out-of-pocket-cost": "Monthly out-of-pocket healthcare spending, such as copays, prescriptions, therapies, and recurring medical costs not already captured elsewhere.",
+        "other-household-expenses": "Other recurring household costs that do not fit the listed categories but would likely continue after death.",
+        "travel-discretionary-cost": "Use this for optional leisure experiences such as vacations, concerts, sporting events, nights out, recreation, and other entertainment or travel spending. Do not include routine recurring personal purchases here.",
+        "subscriptions-cost": "Use this for recurring personal discretionary costs such as streaming subscriptions, salon or grooming costs, clothing, hobbies, memberships, and other routine nonessential spending. Do not include travel, vacations, or entertainment outings here.",
+        "current-total-monthly-spending": "Auto-calculated total for the Expenses and Lifestyle section. You can edit it if you want to override the estimate.",
+        "mortgage-balance": "Current unpaid mortgage balance.",
+        "mortgage-term-remaining-years": "Remaining years on the mortgage term.",
+        "mortgage-term-remaining-months": "Additional remaining months on the mortgage term.",
+        "mortgage-interest-rate": "Mortgage interest rate, if used in the analysis.",
+        "property-tax": "Average property tax obligation for homeowner scenarios.",
+        "other-real-estate-loans": "Include HELOC balances, second mortgages, and debt tied to other owned properties that should still be considered in the household need analysis.",
+        "auto-loans": "Outstanding auto loan balances.",
+        "credit-card-debt": "Revolving credit card balances.",
+        "student-loans": "Outstanding student loan balances.",
+        "personal-loans": "Other unsecured personal loans.",
+        "business-debt": "Business debt that would matter if the client died.",
+        "has-dependents": "Indicate whether education funding is currently relevant because the household already has dependents or children.",
+        "children-needing-funding": "How many current dependents or children you want to include in education planning.",
+        "dependent-ages": "Enter the current ages of each child or dependent you want included in education planning, separated by commas.",
+        "estimated-cost-per-child": "Desired education funding target for each current dependent or child.",
+        "projected-dependents": "Use this when future children or dependents should also be included in planning.",
+        "projected-dependents-count": "How many future dependents or children you want to include.",
+        "same-education-funding": "Choose Yes to reuse the same per-dependent education funding amount for projected children.",
+        "projected-education-funding-per-dependent": "Desired education funding target for each projected dependent or child when it differs from the current amount.",
+        "cash-and-cash-equivalents": "Checking, savings, money market, CDs, and other cash-like balances.",
+        "emergency-fund": "Emergency reserve funds available.",
+        "taxable-brokerage-investments": "Taxable brokerage and non-retirement investment account balances.",
+        "traditional-retirement-assets": "Traditional 401(k), IRA, and similar pre-tax retirement account balances.",
+        "roth-tax-advantaged-retirement-assets": "Roth IRA, Roth 401(k), and similar tax-advantaged retirement account balances.",
+        "qualified-annuities": "Qualified annuity balances held inside tax-qualified retirement arrangements.",
+        "nonqualified-annuities": "Nonqualified annuity account values or surrender values.",
+        "primary-residence-equity": "Estimated equity in the client's primary residence.",
+        "other-real-estate-equity": "Estimated equity in rental, vacation, investment, or other non-primary real estate.",
+        "business-private-company-value": "Estimated business ownership, private company, or closely held entity value.",
+        "education-specific-savings": "529 plans, Coverdell accounts, or other education-dedicated savings.",
+        "trust-restricted-assets": "Trust-owned, restricted, pledged, or otherwise limited-access asset balances.",
+        "stock-compensation-deferred-compensation": "RSUs, options, deferred compensation, and other employer-linked asset values.",
+        "digital-assets-crypto": "Digital assets, cryptocurrency, and similar alternative asset balances.",
+        "other-custom-asset": "Advisor-defined asset category for raw asset facts not covered by the default list.",
+        "assets-confidence-level": "Confidence level for the asset values entered in this section.",
+        "immediate-liquidity-buffer": "Immediate cash reserve the survivor may need right away after death, in addition to the amounts entered in Final Expenses and Assumptions.",
+        "individual-policy-type": "Type of existing individual life insurance coverage.",
+        "individual-death-benefit": "Total death benefit on existing individual coverage.",
+        "individual-years-remaining": "Remaining years on any term policy.",
+        "group-life-coverage": "Employer-provided group life coverage amount.",
+        "group-life-portability": "Whether group coverage can continue after employment changes.",
+        "spouse-federal-tax-bracket": "Federal tax bracket used for the spouse when filing status is Married Filing Separately.",
+        "state-of-residence": "State abbreviation used for future state tax handling. If this form is linked to a client, it will prefill from the profile address but can still be changed here.",
+        "state-income-tax-bracket": "State income tax bracket for the selected state of residence.",
+        "spouse-state-income-tax-bracket": "State income tax bracket used for the spouse when filing status is Married Filing Separately.",
+        "deduction-method": "Choose whether the primary client uses the filing-status standard deduction or manually entered itemized deductions.",
+        "spouse-deduction-method": "Choose whether the spouse uses the filing-status standard deduction or manually entered itemized deductions.",
+        "standard-deduction": "Automatically populated from restricted Account Administration based on the selected filing status unless itemized deductions are used.",
+        "spouse-standard-deduction": "Automatically populated for the spouse based on the selected filing status unless spouse itemized deductions are used.",
+        "primary-payroll-taxes": "Automatically calculated payroll taxes for the primary client using the payroll tax settings maintained in restricted Account Administration.",
+        "spouse-payroll-taxes": "Automatically calculated payroll taxes for the spouse using the payroll tax settings maintained in restricted Account Administration.",
+        "funeral-burial-estimate": "A common national reference point is about $8,300 for a funeral with burial and about $6,280 for cremation, based on NFDA medians. Once cemetery, marker, and other burial fees are added, the total can commonly reach $15,000 or more.",
+        "medical-end-of-life-costs": "A practical planning range is often $10,000 to $25,000, depending on coverage and expected care needs.",
+        "estate-settlement-costs": "A practical starting range is often $5,000 to $15,000, with higher amounts for larger or more complex estates.",
+        "inflation-rate-assumption": "Inflation assumption used for future value estimates.",
+        "discount-rate": "Discount rate used when converting future needs to present value.",
+        "investment-return-assumption": "Assumed investment return used in projections.",
+        "income-replacement-duration": "How long income should be replaced.",
+        "survivor-net-annual-income": "Net annual household income available for survivorship planning.",
+        "survivor-income": "Gross survivor income before reductions or taxes.",
+        "survivor-continues-working": "Whether the spouse or partner is expected to keep working after a death.",
+        "spouse-income-growth-rate": "Expected annual growth rate for spouse income after death.",
+        "spouse-years-until-retirement": "Years remaining until the spouse expects to retire.",
+        "survivor-income-start-delay-months": "Optional delay before survivor income begins.",
+        "spouse-expected-work-reduction-at-death": "Optional expected reduction in spouse work activity after death.",
+        "expense-reduction-at-death": "Percent of expenses expected to disappear after the insured dies.",
+        "child-dependency-duration": "Years children are expected to remain financially dependent.",
+        "primary-goal": "Primary planning goal for the analysis.",
+        "coverage-time-horizon": "Whether the client wants temporary, permanent, or blended coverage.",
+        "budget-range": "Monthly premium comfort range.",
+        "risk-preference": "Whether the client prefers lowest cost, balanced, or certainty-focused coverage."
+      };
+
+      form.querySelectorAll(".field-group > label[for]").forEach((label) => {
+        const fieldId = label.getAttribute("for");
+        const helpText = helpByFieldId[fieldId];
+
+        if (!helpText || label.querySelector("[data-confidential-field-help]")) {
+          return;
+        }
+
+        const help = document.createElement("span");
+        help.className = "entry-mode-help confidential-field-help";
+        help.setAttribute("tabindex", "0");
+        help.setAttribute("aria-hidden", "true");
+        help.setAttribute("data-entry-mode-help", helpText);
+        help.setAttribute("data-confidential-field-help", "");
+        help.textContent = "?";
+        label.appendChild(help);
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      if (window.initializePmiCalculator) {
+        window.initializePmiCalculator();
+        return;
+      }
+      const toggleButton = document.querySelector("[data-calculator-toggle]");
+      const calculator = document.getElementById("protection-calculator");
+      const closeButton = calculator ? calculator.querySelector(".floating-calculator-close") : null;
+      const dragHandle = calculator ? calculator.querySelector("[data-calculator-drag-handle]") : null;
+      const display = calculator ? calculator.querySelector(".floating-calculator-display") : null;
+      const pad = calculator ? calculator.querySelector(".floating-calculator-pad") : null;
+
+      if (!toggleButton || !calculator || !closeButton || !dragHandle || !display || !pad) {
+        return;
+      }
+
+      let dragState = null;
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function sanitizeExpression(value) {
+        return String(value || "").replace(/[^0-9+\-*/().\s]/g, "");
+      }
+
+      function setDisplayValue(value) {
+        display.value = sanitizeExpression(value);
+      }
+
+      function evaluateDisplay() {
+        const expression = sanitizeExpression(display.value).replace(/[×]/g, "*").replace(/[÷]/g, "/");
+
+        if (!expression.trim()) {
+          return;
+        }
+
+        if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
+          return;
+        }
+
+        try {
+          const result = Function(`"use strict"; return (${expression});`)();
+
+          if (Number.isFinite(result)) {
+            display.value = String(result);
+          }
+        } catch (_error) {
+        }
+      }
+
+      function appendValue(value) {
+        const nextValue = `${display.value || ""}${value}`;
+        setDisplayValue(nextValue);
+        display.focus();
+        display.setSelectionRange(display.value.length, display.value.length);
+      }
+
+      function backspaceValue() {
+        setDisplayValue(display.value.slice(0, -1));
+        display.focus();
+        display.setSelectionRange(display.value.length, display.value.length);
+      }
+
+      function openCalculator() {
+        calculator.hidden = false;
+        calculator.setAttribute("aria-hidden", "false");
+        toggleButton.setAttribute("aria-expanded", "true");
+        if (!calculator.style.left && !calculator.style.top) {
+          calculator.style.top = "8rem";
+          calculator.style.right = "1.25rem";
+          calculator.style.left = "auto";
+          calculator.style.bottom = "auto";
+        }
+        display.focus();
+      }
+
+      function closeCalculator() {
+        calculator.hidden = true;
+        calculator.setAttribute("aria-hidden", "true");
+        toggleButton.setAttribute("aria-expanded", "false");
+        dragState = null;
+      }
+
+      toggleButton.addEventListener("click", () => {
+        if (calculator.hidden) {
+          openCalculator();
+        } else {
+          closeCalculator();
+        }
+      });
+
+      closeButton.addEventListener("click", closeCalculator);
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !calculator.hidden) {
+          closeCalculator();
+        }
+      });
+
+      pad.addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+
+        if (!button) {
+          return;
+        }
+
+        const action = button.getAttribute("data-calculator-action");
+        const value = button.getAttribute("data-calculator-value");
+
+        if (action === "clear") {
+          setDisplayValue("");
+          display.focus();
+          return;
+        }
+
+        if (action === "backspace") {
+          backspaceValue();
+          return;
+        }
+
+        if (action === "equals") {
+          evaluateDisplay();
+          display.focus();
+          return;
+        }
+
+        if (value) {
+          appendValue(value);
+        }
+      });
+
+      display.addEventListener("input", () => {
+        setDisplayValue(display.value);
+      });
+
+      display.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          evaluateDisplay();
+        }
+      });
+
+      dragHandle.addEventListener("pointerdown", (event) => {
+        if (event.target.closest("button, input")) {
+          return;
+        }
+
+        const rect = calculator.getBoundingClientRect();
+        dragState = {
+          startX: event.clientX,
+          startY: event.clientY,
+          startLeft: rect.left,
+          startTop: rect.top
+        };
+
+        calculator.style.left = `${rect.left}px`;
+        calculator.style.top = `${rect.top}px`;
+        calculator.style.right = "auto";
+        calculator.style.bottom = "auto";
+        calculator.style.position = "fixed";
+        dragHandle.setPointerCapture(event.pointerId);
+        dragHandle.style.cursor = "grabbing";
+        event.preventDefault();
+      });
+
+      dragHandle.addEventListener("pointermove", (event) => {
+        if (!dragState || !dragHandle.hasPointerCapture(event.pointerId)) {
+          return;
+        }
+
+        const nextLeft = dragState.startLeft + (event.clientX - dragState.startX);
+        const nextTop = dragState.startTop + (event.clientY - dragState.startY);
+        const rect = calculator.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - rect.width);
+        const maxTop = Math.max(0, window.innerHeight - rect.height);
+
+        calculator.style.left = `${clamp(nextLeft, 0, maxLeft)}px`;
+        calculator.style.top = `${clamp(nextTop, 0, maxTop)}px`;
+      });
+
+      const endDrag = (event) => {
+        if (!dragState) {
+          return;
+        }
+
+        dragState = null;
+        dragHandle.style.cursor = "move";
+        if (dragHandle.hasPointerCapture(event.pointerId)) {
+          dragHandle.releasePointerCapture(event.pointerId);
+        }
+      };
+
+      dragHandle.addEventListener("pointerup", endDrag);
+      dragHandle.addEventListener("pointercancel", endDrag);
+
+      setDisplayValue("");
+    })();
+  </script>
+  <script>
+    (function () {
+      const form = document.getElementById("protection-modeling-form");
+      const saveExitButton = document.querySelector("[data-pmi-save-exit]");
+
+      if (!form || !saveExitButton) {
+        return;
+      }
+
+      const costToFundPercentField = form.elements.namedItem("costToFundPercent");
+      const linkedMaritalStatusField = form.elements.namedItem("linkedMaritalStatusDisplay");
+      const filingStatusField = form.elements.namedItem("filingStatus");
+      const grossAnnualIncomeField = form.elements.namedItem("grossAnnualIncome");
+      const spouseIncomeField = form.elements.namedItem("spouseIncome");
+      const deductionMethodField = form.elements.namedItem("deductionMethod");
+      const spouseDeductionMethodField = form.elements.namedItem("spouseDeductionMethod");
+      const standardDeductionField = form.elements.namedItem("standardDeduction");
+      const spouseStandardDeductionField = form.elements.namedItem("spouseStandardDeduction");
+      const yearlyTaxDeductionsField = form.elements.namedItem("yearlyTaxDeductions");
+      const spouseYearlyTaxDeductionsField = form.elements.namedItem("spouseYearlyTaxDeductions");
+      const taxableIncomeField = form.elements.namedItem("taxableIncome");
+      const spouseTaxableIncomeField = form.elements.namedItem("spouseTaxableIncome");
+      const stateOfResidenceField = form.elements.namedItem("stateOfResidence");
+      const stateIncomeTaxBracketField = form.elements.namedItem("stateIncomeTaxBracket");
+      const spouseStateIncomeTaxBracketField = form.elements.namedItem("spouseStateIncomeTaxBracket");
+      const federalTaxBracketField = form.elements.namedItem("federalTaxBracket");
+      const spouseFederalTaxBracketField = form.elements.namedItem("spouseFederalTaxBracket");
+      const primaryPayrollTaxesField = form.elements.namedItem("primaryPayrollTaxes");
+      const spousePayrollTaxesField = form.elements.namedItem("spousePayrollTaxes");
+      const netAnnualIncomeField = form.elements.namedItem("netAnnualIncome");
+      const spouseNetAnnualIncomeField = form.elements.namedItem("spouseNetAnnualIncome");
+      const primaryNetIncomeAction = form.querySelector('[data-net-income-action="primary"]');
+      const spouseNetIncomeAction = form.querySelector('[data-net-income-action="spouse"]');
+      const monthlyMortgagePaymentField = form.elements.namedItem("calculatedMonthlyMortgagePayment");
+      const monthlyMortgagePaymentAction = form.querySelector('[data-mortgage-payment-action="primary"]');
+      const maintenanceRecommendationField = form.elements.namedItem("monthlyMaintenanceRecommendation");
+      const maintenanceRecommendationAction = form.querySelector('[data-maintenance-action="primary"]');
+      const householdIncomeUseField = form.elements.namedItem("householdIncomeUsePercent");
+      const utilitiesCostField = form.elements.namedItem("utilitiesCost");
+      const relocationReserveField = form.elements.namedItem("relocationReserve");
+      const housingInsuranceCostField = form.elements.namedItem("housingInsuranceCost");
+      const monthlyHoaCostField = form.elements.namedItem("monthlyHoaCost");
+      const homeSquareFootageField = form.elements.namedItem("homeSquareFootage");
+      const homeAgeYearsField = form.elements.namedItem("homeAgeYears");
+      const mortgageTermRemainingYearsField = form.elements.namedItem("mortgageTermRemainingYears");
+      const mortgageTermRemainingMonthsField = form.elements.namedItem("mortgageTermRemainingMonths");
+      const mortgageTermRemainingField = form.elements.namedItem("mortgageTermRemaining");
+      const foodCostField = form.elements.namedItem("foodCost");
+      const insuranceCostField = form.elements.namedItem("insuranceCost");
+      const transportationCostField = form.elements.namedItem("transportationCost");
+      const travelDiscretionaryCostField = form.elements.namedItem("travelDiscretionaryCost");
+      const subscriptionsCostField = form.elements.namedItem("subscriptionsCost");
+      const hasDependentsField = form.elements.namedItem("hasDependents");
+      const dependentAgesField = form.elements.namedItem("dependentAges");
+      const educationFundingPerDependentField = form.elements.namedItem("estimatedCostPerChild");
+      const projectedDependentsField = form.elements.namedItem("projectedDependents");
+      const projectedDependentsCountField = form.elements.namedItem("projectedDependentsCount");
+      const sameEducationFundingField = form.elements.namedItem("sameEducationFunding");
+      const projectedEducationFundingPerDependentField = form.elements.namedItem("projectedEducationFundingPerDependent");
+      const incomeCalculationGrid = form.querySelector(".income-calculation-grid");
+      const derivedDraftFieldNames = new Set([
+        "linkedMaritalStatusDisplay",
+        "standardDeduction",
+        "spouseStandardDeduction",
+        "taxableIncome",
+        "spouseTaxableIncome",
+        "federalTaxBracket",
+        "spouseFederalTaxBracket",
+        "stateIncomeTaxBracket",
+        "spouseStateIncomeTaxBracket",
+        "primaryPayrollTaxes",
+        "spousePayrollTaxes",
+        "netAnnualIncome",
+        "spouseNetAnnualIncome",
+        "mortgageTermRemaining",
+        "calculatedMonthlyMortgagePayment",
+        "monthlyMaintenanceRecommendation"
+      ]);
+      const federalTaxBracketStorageKey = "lensFederalTaxBrackets";
+      const standardDeductionStorageKey = "lensStandardDeductions";
+      const stateTaxBracketStorageKey = "lensStateIncomeTaxBrackets";
+      const payrollTaxStorageKey = "lensPayrollTaxConfig";
+      const maintenanceStorageKey = "lensHousingMaintenanceConfig";
+      const defaultHousingMaintenanceRows = [
+        { label: "Under 1,500 sq ft", minSqFt: "0", maxSqFt: "1499", age0To10: "120", age11To25: "180", age26To40: "260", age41Plus: "360" },
+        { label: "1,500-2,499 sq ft", minSqFt: "1500", maxSqFt: "2499", age0To10: "165", age11To25: "235", age26To40: "325", age41Plus: "430" },
+        { label: "2,500-3,499 sq ft", minSqFt: "2500", maxSqFt: "3499", age0To10: "215", age11To25: "295", age26To40: "395", age41Plus: "520" },
+        { label: "3,500+ sq ft", minSqFt: "3500", maxSqFt: "", age0To10: "285", age11To25: "375", age26To40: "490", age41Plus: "635" }
+      ];
+      const defaultFederalRowsByStatus = {
+        "Single": [
+          { rate: "10%", minIncome: "0", maxIncome: "12400" },
+          { rate: "12%", minIncome: "12401", maxIncome: "50400" },
+          { rate: "22%", minIncome: "50401", maxIncome: "105700" },
+          { rate: "24%", minIncome: "105701", maxIncome: "201775" },
+          { rate: "32%", minIncome: "201776", maxIncome: "256225" },
+          { rate: "35%", minIncome: "256226", maxIncome: "640600" },
+          { rate: "37%", minIncome: "640601", maxIncome: "" }
+        ],
+        "Married Filing Jointly": [
+          { rate: "10%", minIncome: "0", maxIncome: "24800" },
+          { rate: "12%", minIncome: "24801", maxIncome: "100800" },
+          { rate: "22%", minIncome: "100801", maxIncome: "211400" },
+          { rate: "24%", minIncome: "211401", maxIncome: "403550" },
+          { rate: "32%", minIncome: "403551", maxIncome: "512450" },
+          { rate: "35%", minIncome: "512451", maxIncome: "768700" },
+          { rate: "37%", minIncome: "768701", maxIncome: "" }
+        ],
+        "Married Filing Separately": [
+          { rate: "10%", minIncome: "0", maxIncome: "12400" },
+          { rate: "12%", minIncome: "12401", maxIncome: "50400" },
+          { rate: "22%", minIncome: "50401", maxIncome: "105700" },
+          { rate: "24%", minIncome: "105701", maxIncome: "201775" },
+          { rate: "32%", minIncome: "201776", maxIncome: "256225" },
+          { rate: "35%", minIncome: "256226", maxIncome: "384350" },
+          { rate: "37%", minIncome: "384351", maxIncome: "" }
+        ],
+        "Head of Household": [
+          { rate: "10%", minIncome: "0", maxIncome: "17700" },
+          { rate: "12%", minIncome: "17701", maxIncome: "67500" },
+          { rate: "22%", minIncome: "67501", maxIncome: "105700" },
+          { rate: "24%", minIncome: "105701", maxIncome: "201750" },
+          { rate: "32%", minIncome: "201751", maxIncome: "256200" },
+          { rate: "35%", minIncome: "256201", maxIncome: "640600" },
+          { rate: "37%", minIncome: "640601", maxIncome: "" }
+        ],
+        "Qualifying Surviving Spouse": [
+          { rate: "10%", minIncome: "0", maxIncome: "24800" },
+          { rate: "12%", minIncome: "24801", maxIncome: "100800" },
+          { rate: "22%", minIncome: "100801", maxIncome: "211400" },
+          { rate: "24%", minIncome: "211401", maxIncome: "403550" },
+          { rate: "32%", minIncome: "403551", maxIncome: "512450" },
+          { rate: "35%", minIncome: "512451", maxIncome: "768700" },
+          { rate: "37%", minIncome: "768701", maxIncome: "" }
+        ]
+      };
+      const legacySingleFederalRows = [
+        { rate: "10%", minIncome: "0", maxIncome: "11600" },
+        { rate: "12%", minIncome: "11601", maxIncome: "47150" },
+        { rate: "22%", minIncome: "47151", maxIncome: "100525" },
+        { rate: "24%", minIncome: "100526", maxIncome: "191950" },
+        { rate: "32%", minIncome: "191951", maxIncome: "243725" },
+        { rate: "35%", minIncome: "243726", maxIncome: "609350" },
+        { rate: "37%", minIncome: "609351", maxIncome: "" }
+      ];
+      const defaultStandardDeductions = {
+        "Single": "16100",
+        "Married Filing Jointly": "32200",
+        "Married Filing Separately": "16100",
+        "Head of Household": "24150",
+        "Qualifying Surviving Spouse": "32200"
+      };
+      const defaultStateTaxRows = [
+        { rate: "5%", minIncome: "0", maxIncome: "50000" },
+        { rate: "6.5%", minIncome: "50001", maxIncome: "100000" },
+        { rate: "8%", minIncome: "100001", maxIncome: "" }
+      ];
+      const noIncomeTaxStates = new Set(["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"]);
+      const defaultPayrollRows = [
+        { name: "Social Security", rate: "6.2%", wageBase: "176100" },
+        { name: "Medicare", rate: "1.45%", wageBase: "" },
+        {
+          name: "Additional Medicare",
+          rate: "0.9%",
+          wageBase: "",
+          thresholds: {
+            "Single": "200000",
+            "Married Filing Jointly": "250000",
+            "Married Filing Separately": "125000",
+            "Head of Household": "200000",
+            "Qualifying Surviving Spouse": "250000"
+          }
+        }
+      ];
+
+      const resolvedLinkedCaseRef = "";
+
+      function getCurrentClientRecordsStorageKey() {
+        let session = null;
+        try {
+          session = JSON.parse(localStorage.getItem("lipPlannerAuthSession") || "null");
+        } catch (_error) {
+          session = null;
+        }
+
+        const identity = session?.email ? String(session.email).trim().toLowerCase() : "guest";
+        return `lensClientRecords:${identity}`;
+      }
+
+      function getLinkedRecord() {
+        const linkedCaseRef = resolvedLinkedCaseRef.toLowerCase();
+
+        if (!linkedCaseRef) {
+          return null;
+        }
+
+        const key = getCurrentClientRecordsStorageKey();
+        try {
+          const records = JSON.parse(localStorage.getItem(key) || "[]");
+          if (!Array.isArray(records)) {
+            return null;
+          }
+
+          const match = records.find((record) => String(record?.caseRef || "").trim().toLowerCase() === linkedCaseRef);
+          if (match) {
+            return match;
+          }
+        } catch (_error) {
+        }
+
+        return null;
+      }
+
+      function syncLinkedStateOfResidence() {
+        if (!stateOfResidenceField || stateOfResidenceField instanceof RadioNodeList) {
+          return;
+        }
+
+        if (String(stateOfResidenceField.value || "").trim()) {
+          return;
+        }
+
+        const linkedState = String(getLinkedRecord()?.state || "").trim().toUpperCase();
+        if (linkedState) {
+          stateOfResidenceField.value = linkedState;
+        }
+      }
+
+      function syncLinkedMaritalStatus() {
+        if (!linkedMaritalStatusField || linkedMaritalStatusField instanceof RadioNodeList) {
+          return;
+        }
+      }
+
+      function getFederalTaxBracketRowsForStatus(filingStatus) {
+        const normalizedStatus = String(filingStatus || "").trim();
+        const defaultConfig = defaultFederalRowsByStatus;
+        const rowsMatch = (leftRows, rightRows) => {
+          if (!Array.isArray(leftRows) || !Array.isArray(rightRows) || leftRows.length !== rightRows.length) {
+            return false;
+          }
+
+          return leftRows.every((row, index) => {
+            const rightRow = rightRows[index] || {};
+            return String(row?.rate || "").trim() === String(rightRow?.rate || "").trim()
+              && String(row?.minIncome || "").trim() === String(rightRow?.minIncome || "").trim()
+              && String(row?.maxIncome || "").trim() === String(rightRow?.maxIncome || "").trim();
+          });
+        };
+
+        try {
+          const stored = JSON.parse(localStorage.getItem(federalTaxBracketStorageKey) || "null");
+
+          if (Array.isArray(stored)) {
+            return stored;
+          }
+
+          if (stored && typeof stored === "object" && Array.isArray(stored[normalizedStatus])) {
+            return normalizedStatus !== "Single" && rowsMatch(stored[normalizedStatus], legacySingleFederalRows)
+              ? defaultConfig[normalizedStatus]
+              : stored[normalizedStatus];
+          }
+        } catch (_error) {
+        }
+
+        return defaultConfig[normalizedStatus] || defaultFederalRowsByStatus.Single;
+      }
+
+      function getStateTaxConfigForState(stateCode) {
+        const normalizedCode = String(stateCode || "").trim().toUpperCase();
+        const normalizedFilingStatus = String(filingStatusField?.value || "").trim();
+        const defaultConfig = {
+          hasIncomeTax: !noIncomeTaxStates.has(normalizedCode),
+          mode: "brackets",
+          flatRate: "",
+          rows: noIncomeTaxStates.has(normalizedCode) ? [] : defaultStateTaxRows
+        };
+
+        if (!normalizedCode || !normalizedFilingStatus) {
+          return { hasIncomeTax: false, rows: [] };
+        }
+
+        try {
+          const stored = JSON.parse(localStorage.getItem(stateTaxBracketStorageKey) || "null");
+          if (stored && typeof stored === "object" && stored[normalizedCode] && typeof stored[normalizedCode] === "object") {
+            const hasIncomeTax = stored[normalizedCode].hasIncomeTax === false ? false : true;
+            const mode = String(stored[normalizedCode].mode || "brackets").trim() === "flat" ? "flat" : "brackets";
+            const flatRate = String(stored[normalizedCode].flatRate || "").trim();
+            const filings = stored[normalizedCode].filings && typeof stored[normalizedCode].filings === "object"
+              ? stored[normalizedCode].filings
+              : {};
+            const rows = Array.isArray(filings[normalizedFilingStatus]) ? filings[normalizedFilingStatus] : [];
+            return {
+              hasIncomeTax,
+              mode,
+              flatRate,
+              rows: hasIncomeTax ? (rows.length ? rows : defaultConfig.rows) : []
+            };
+          }
+        } catch (_error) {
+        }
+
+        return defaultConfig;
+      }
+
+      function parseCurrencyLikeNumber(value) {
+        const cleaned = String(value || "").replace(/[^0-9.]/g, "");
+        const numericValue = Number(cleaned);
+        return Number.isFinite(numericValue) ? numericValue : 0;
+      }
+
+      function parsePercentLikeNumber(value) {
+        return parseCurrencyLikeNumber(value) / 100;
+      }
+
+      function formatNumberWithCommas(value) {
+        const numericValue = parseCurrencyLikeNumber(value);
+        if (!Number.isFinite(numericValue)) {
+          return "";
+        }
+
+        return numericValue.toLocaleString("en-US", {
+          minimumFractionDigits: numericValue % 1 === 0 ? 0 : 2,
+          maximumFractionDigits: 2
+        });
+      }
+
+      function getIncomeCalculationCurrencyFields() {
+        return [
+          grossAnnualIncomeField,
+          spouseIncomeField,
+          standardDeductionField,
+          spouseStandardDeductionField,
+          yearlyTaxDeductionsField,
+          spouseYearlyTaxDeductionsField,
+          taxableIncomeField,
+          spouseTaxableIncomeField,
+          primaryPayrollTaxesField,
+          spousePayrollTaxesField,
+          netAnnualIncomeField,
+          spouseNetAnnualIncomeField
+        ].filter((field) => field && !(field instanceof RadioNodeList));
+      }
+
+      function syncIncomeCalculationCurrencyFormatting() {
+        getIncomeCalculationCurrencyFields().forEach((field) => {
+          if (field === netAnnualIncomeField || field === spouseNetAnnualIncomeField) {
+            return;
+          }
+          const numericValue = parseCurrencyLikeNumber(field.value);
+          field.value = formatNumberWithCommas(numericValue);
+        });
+      }
+
+      function formatNetIncomeDisplay(value) {
+        return `$${formatNumberWithCommas(value)}`;
+      }
+
+      function setNetIncomeActionLabel(field, actionButton) {
+        if (!field || field instanceof RadioNodeList || !actionButton) {
+          return;
+        }
+
+        actionButton.textContent = field.dataset.manualOverride === "true" ? "Reset" : "Edit";
+      }
+
+      function clearNetIncomeManualOverride(field, actionButton) {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        delete field.dataset.manualOverride;
+        delete field.dataset.manualValue;
+        setNetIncomeActionLabel(field, actionButton);
+      }
+
+      function lockNetIncomeField(field, actionButton, options = {}) {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        const shouldUseCalculatedValue = options.useCalculatedValue === true || field.dataset.manualOverride !== "true";
+        const numericValue = shouldUseCalculatedValue
+          ? parseCurrencyLikeNumber(field.dataset.calculatedValue)
+          : parseCurrencyLikeNumber(field.dataset.manualValue);
+
+        field.setAttribute("readonly", "readonly");
+        field.closest(".profile-currency-field")?.classList.remove("is-editing");
+        delete field.dataset.editing;
+        field.value = field.dataset.shouldBeBlank === "true" ? "" : formatNetIncomeDisplay(numericValue);
+        setNetIncomeActionLabel(field, actionButton);
+      }
+
+      function beginNetIncomeEdit(field, actionButton) {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.dataset.editing = "true";
+        field.removeAttribute("readonly");
+        field.closest(".profile-currency-field")?.classList.add("is-editing");
+        const currentValue = field.dataset.manualOverride === "true"
+          ? parseCurrencyLikeNumber(field.dataset.manualValue)
+          : parseCurrencyLikeNumber(field.dataset.calculatedValue);
+        field.value = String(currentValue || 0);
+        setNetIncomeActionLabel(field, actionButton);
+        field.focus();
+        field.select();
+      }
+
+      function finalizeNetIncomeEdit(field, actionButton) {
+        if (!field || field instanceof RadioNodeList || field.dataset.editing !== "true") {
+          return;
+        }
+
+        const typedValue = parseCurrencyLikeNumber(field.value);
+        const calculatedValue = parseCurrencyLikeNumber(field.dataset.calculatedValue);
+
+        if (field.value.trim() && typedValue !== calculatedValue) {
+          field.dataset.manualOverride = "true";
+          field.dataset.manualValue = String(typedValue);
+        } else {
+          clearNetIncomeManualOverride(field, actionButton);
+        }
+
+        lockNetIncomeField(field, actionButton);
+      }
+
+      function applyNetIncomeValue(field, actionButton, calculatedValue, options = {}) {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.dataset.calculatedValue = String(calculatedValue);
+        field.dataset.shouldBeBlank = options.blank === true ? "true" : "false";
+
+        if (options.blank === true) {
+          clearNetIncomeManualOverride(field, actionButton);
+          field.value = "";
+          setNetIncomeActionLabel(field, actionButton);
+          return;
+        }
+
+        if (field.dataset.manualOverride === "true") {
+          lockNetIncomeField(field, actionButton);
+          return;
+        }
+
+        field.value = formatNetIncomeDisplay(calculatedValue);
+        setNetIncomeActionLabel(field, actionButton);
+      }
+
+      function readStoredStandardDeductionConfig() {
+        return window.LensPmiTaxUtils.readStoredStandardDeductionConfig(
+          standardDeductionStorageKey,
+          defaultStandardDeductions
+        );
+      }
+
+      function getIncomeCalculationMode() {
+        const linkedMaritalStatus = String(linkedMaritalStatusField?.value || "").trim();
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const isMarried = linkedMaritalStatus === "Married";
+
+        if (isMarried && filingStatus === "Married Filing Jointly") {
+          return "joint";
+        }
+
+        if (isMarried && filingStatus === "Married Filing Separately") {
+          return "separate";
+        }
+
+        return "single";
+      }
+
+      function getDeductionMethodValue(field, fallback) {
+        if (!field || field instanceof RadioNodeList) {
+          return fallback;
+        }
+
+        const normalized = String(field.value || "").trim().toLowerCase();
+        return normalized === "itemized" ? "itemized" : fallback;
+      }
+
+      function getSelectedStandardDeductionAmount() {
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const config = readStoredStandardDeductionConfig();
+        return parseCurrencyLikeNumber(config[filingStatus] || defaultStandardDeductions[filingStatus] || "0");
+      }
+
+      function syncStandardDeductionFields() {
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const deductionAmount = getSelectedStandardDeductionAmount();
+        const incomeCalculationMode = getIncomeCalculationMode();
+
+        if (incomeCalculationMode === "joint") {
+          if (standardDeductionField && !(standardDeductionField instanceof RadioNodeList)) {
+            standardDeductionField.value = formatNumberWithCommas(deductionAmount);
+          }
+
+          if (spouseStandardDeductionField && !(spouseStandardDeductionField instanceof RadioNodeList)) {
+            spouseStandardDeductionField.value = "";
+          }
+          return;
+        }
+
+        const deductionSplit = window.LensPmiTaxUtils.getStandardDeductionSplit({
+          filingStatus,
+          deductionAmount,
+          primaryIncome: parseCurrencyLikeNumber(grossAnnualIncomeField?.value),
+          spouseIncome: parseCurrencyLikeNumber(spouseIncomeField?.value)
+        });
+
+        if (standardDeductionField && !(standardDeductionField instanceof RadioNodeList)) {
+          standardDeductionField.value = formatNumberWithCommas(deductionSplit.primary);
+        }
+
+        if (spouseStandardDeductionField && !(spouseStandardDeductionField instanceof RadioNodeList)) {
+          spouseStandardDeductionField.value = formatNumberWithCommas(deductionSplit.spouse);
+        }
+      }
+
+      function getEffectiveDeductionValue(role) {
+        const incomeCalculationMode = getIncomeCalculationMode();
+        if (incomeCalculationMode === "joint" && role === "spouse") {
+          return 0;
+        }
+
+        const isSpouse = role === "spouse";
+        const methodField = isSpouse ? spouseDeductionMethodField : deductionMethodField;
+        const standardField = isSpouse ? spouseStandardDeductionField : standardDeductionField;
+        const itemizedField = isSpouse ? spouseYearlyTaxDeductionsField : yearlyTaxDeductionsField;
+        const method = getDeductionMethodValue(methodField, "standard");
+        const standardAmount = parseCurrencyLikeNumber(standardField?.value);
+        const itemizedAmount = parseCurrencyLikeNumber(itemizedField?.value);
+
+        if (method === "itemized") {
+          return Math.max(standardAmount, itemizedAmount);
+        }
+
+        return standardAmount;
+      }
+
+      function syncDeductionMethodButtons(role) {
+        const methodField = role === "spouse" ? spouseDeductionMethodField : deductionMethodField;
+        const group = form.querySelector(`[data-deduction-method-group="${role}"]`);
+        const currentValue = getDeductionMethodValue(methodField, "standard");
+        group?.querySelectorAll("[data-deduction-method-toggle]").forEach((button) => {
+          button.classList.toggle("is-active", button.getAttribute("data-deduction-method-value") === currentValue);
+        });
+      }
+
+      function syncDeductionMethodState() {
+        const incomeCalculationMode = getIncomeCalculationMode();
+        const primaryMethod = getDeductionMethodValue(deductionMethodField, "standard");
+        const spouseMethod = getDeductionMethodValue(spouseDeductionMethodField, "standard");
+        const primaryStandardAmount = parseCurrencyLikeNumber(standardDeductionField?.value);
+        const spouseStandardAmount = parseCurrencyLikeNumber(spouseStandardDeductionField?.value);
+
+        if (yearlyTaxDeductionsField && !(yearlyTaxDeductionsField instanceof RadioNodeList)) {
+          const useItemized = primaryMethod === "itemized";
+          yearlyTaxDeductionsField.disabled = !useItemized;
+          yearlyTaxDeductionsField.closest(".field-group")?.classList.toggle("is-disabled", !useItemized);
+          if (useItemized && parseCurrencyLikeNumber(yearlyTaxDeductionsField.value) < primaryStandardAmount) {
+            yearlyTaxDeductionsField.value = formatNumberWithCommas(primaryStandardAmount);
+          }
+        }
+
+        if (standardDeductionField && !(standardDeductionField instanceof RadioNodeList)) {
+          standardDeductionField.closest(".field-group")?.classList.toggle("is-disabled", primaryMethod === "itemized");
+        }
+
+        if (spouseYearlyTaxDeductionsField && !(spouseYearlyTaxDeductionsField instanceof RadioNodeList)) {
+          const useItemized = incomeCalculationMode === "separate" && spouseMethod === "itemized";
+          spouseYearlyTaxDeductionsField.disabled = !useItemized;
+          spouseYearlyTaxDeductionsField.closest(".field-group")?.classList.toggle("is-disabled", !useItemized);
+          if (useItemized && parseCurrencyLikeNumber(spouseYearlyTaxDeductionsField.value) < spouseStandardAmount) {
+            spouseYearlyTaxDeductionsField.value = formatNumberWithCommas(spouseStandardAmount);
+          }
+        }
+
+        if (spouseStandardDeductionField && !(spouseStandardDeductionField instanceof RadioNodeList)) {
+          spouseStandardDeductionField.closest(".field-group")?.classList.toggle("is-disabled", incomeCalculationMode !== "separate" || spouseMethod === "itemized");
+        }
+
+        syncDeductionMethodButtons("primary");
+        syncDeductionMethodButtons("spouse");
+      }
+
+      function getDefaultAdditionalMedicareThresholds() {
+        return {
+          "Single": "200000",
+          "Married Filing Jointly": "250000",
+          "Married Filing Separately": "125000",
+          "Head of Household": "200000",
+          "Qualifying Surviving Spouse": "250000"
+        };
+      }
+
+      function isAdditionalMedicareTaxName(value) {
+        return String(value || "").trim().toLowerCase() === "additional medicare";
+      }
+
+      function readStoredPayrollConfig() {
+        return window.LensPmiTaxUtils.readStoredPayrollConfig({
+          storageKey: payrollTaxStorageKey,
+          defaultRows: defaultPayrollRows,
+          isAdditionalMedicareTaxName,
+          getDefaultAdditionalMedicareThresholds
+        });
+      }
+
+      function normalizeMaintenanceConfigRow(row) {
+        if (!row || typeof row !== "object") {
+          return null;
+        }
+
+        return {
+          label: String(row.label || "").trim(),
+          minSqFt: String(row.minSqFt || "").replace(/[^0-9]/g, "").trim(),
+          maxSqFt: String(row.maxSqFt || "").replace(/[^0-9]/g, "").trim(),
+          age0To10: String(row.age0To10 || "").replace(/[^0-9.]/g, "").trim(),
+          age11To25: String(row.age11To25 || "").replace(/[^0-9.]/g, "").trim(),
+          age26To40: String(row.age26To40 || "").replace(/[^0-9.]/g, "").trim(),
+          age41Plus: String(row.age41Plus || "").replace(/[^0-9.]/g, "").trim()
+        };
+      }
+
+      function readStoredMaintenanceConfig() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(maintenanceStorageKey) || "null");
+          if (!Array.isArray(raw) || !raw.length) {
+            return defaultHousingMaintenanceRows.map((row) => ({ ...row }));
+          }
+
+          const normalized = raw.map(normalizeMaintenanceConfigRow).filter(Boolean);
+          return normalized.length ? normalized : defaultHousingMaintenanceRows.map((row) => ({ ...row }));
+        } catch (_error) {
+          return defaultHousingMaintenanceRows.map((row) => ({ ...row }));
+        }
+      }
+
+      function getSelectedBracketRate(field) {
+        return window.LensPmiTaxUtils.getSelectedBracketRate(field, parsePercentLikeNumber);
+      }
+
+      function getFederalTaxBracketIncomeBasis() {
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const taxableIncomeValues = getCurrentTaxableIncomeValues();
+
+        if (filingStatus === "Married Filing Jointly") {
+          return taxableIncomeValues.combined;
+        }
+
+        return taxableIncomeValues.primary;
+      }
+
+      function syncTaxableIncomeFields() {
+        const taxableIncomeValues = getCurrentTaxableIncomeValues();
+
+        if (taxableIncomeField && !(taxableIncomeField instanceof RadioNodeList)) {
+          taxableIncomeField.value = formatNumberWithCommas(
+            taxableIncomeValues.incomeCalculationMode === "joint"
+              ? taxableIncomeValues.combined
+              : taxableIncomeValues.primary
+          );
+        }
+
+        if (spouseTaxableIncomeField && !(spouseTaxableIncomeField instanceof RadioNodeList)) {
+          spouseTaxableIncomeField.value = taxableIncomeValues.incomeCalculationMode === "joint"
+            ? ""
+            : formatNumberWithCommas(taxableIncomeValues.spouse);
+        }
+      }
+
+      function getCurrentTaxableIncomeValues() {
+        const incomeCalculationMode = getIncomeCalculationMode();
+        const primaryGrossIncome = parseCurrencyLikeNumber(grossAnnualIncomeField?.value);
+        const spouseGrossIncome = parseCurrencyLikeNumber(spouseIncomeField?.value);
+
+        if (incomeCalculationMode === "joint") {
+          const combinedGrossIncome = primaryGrossIncome + spouseGrossIncome;
+          const combinedDeduction = getEffectiveDeductionValue("primary");
+          const combinedTaxableIncome = Math.max(0, combinedGrossIncome - combinedDeduction);
+
+          if (!combinedGrossIncome) {
+            return {
+              incomeCalculationMode,
+              combined: combinedTaxableIncome,
+              primary: combinedTaxableIncome,
+              spouse: 0
+            };
+          }
+
+          return {
+            incomeCalculationMode,
+            combined: combinedTaxableIncome,
+            primary: combinedTaxableIncome * (primaryGrossIncome / combinedGrossIncome),
+            spouse: combinedTaxableIncome * (spouseGrossIncome / combinedGrossIncome)
+          };
+        }
+
+        const primaryTaxableIncome = Math.max(0, primaryGrossIncome - getEffectiveDeductionValue("primary"));
+        const spouseTaxableIncome = Math.max(0, spouseGrossIncome - getEffectiveDeductionValue("spouse"));
+        return {
+          incomeCalculationMode,
+          combined: primaryTaxableIncome + spouseTaxableIncome,
+          primary: primaryTaxableIncome,
+          spouse: spouseTaxableIncome
+        };
+      }
+
+      function syncFilingStatusOptions() {
+        if (!filingStatusField || filingStatusField instanceof RadioNodeList || !linkedMaritalStatusField || linkedMaritalStatusField instanceof RadioNodeList) {
+          return;
+        }
+
+        const maritalStatus = String(linkedMaritalStatusField.value || "").trim();
+        const allowedByMaritalStatus = {
+          "Married": ["Married Filing Jointly", "Married Filing Separately"],
+          "Domestic Partnership": ["Single", "Head of Household"],
+          "Single": ["Single", "Head of Household"],
+          "Divorced": ["Single", "Head of Household"],
+          "Separated": ["Single", "Head of Household", "Married Filing Separately"],
+          "Widowed": ["Single", "Head of Household", "Qualifying Surviving Spouse"]
+        };
+
+        const allowedOptions = allowedByMaritalStatus[maritalStatus] || null;
+
+        Array.from(filingStatusField.options).forEach((option) => {
+          if (!option.value) {
+            option.disabled = false;
+            option.hidden = false;
+            return;
+          }
+
+          const isAllowed = !allowedOptions || allowedOptions.includes(option.value);
+          option.disabled = !isAllowed;
+        });
+
+        if (filingStatusField.value && allowedOptions && !allowedOptions.includes(filingStatusField.value)) {
+          filingStatusField.value = "";
+        }
+      }
+
+      function syncFilingStatusCircles() {
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        form.querySelectorAll("[data-filing-status-circle]").forEach((circle) => {
+          circle.classList.toggle("is-active", circle.getAttribute("data-filing-status-circle") === selectedFilingStatus);
+        });
+      }
+
+      function syncHousingStatusCircles() {
+        const housingStatusField = form.elements.namedItem("housingStatus");
+        if (!housingStatusField || housingStatusField instanceof RadioNodeList) {
+          return;
+        }
+
+        const selectedHousingStatus = String(housingStatusField.value || "").trim();
+        form.querySelectorAll("[data-housing-status-circle]").forEach((circle) => {
+          circle.classList.toggle("is-active", circle.getAttribute("data-housing-status-circle") === selectedHousingStatus);
+        });
+      }
+
+      function syncHousingStatusFieldVisibility() {
+        const housingStatusField = form.elements.namedItem("housingStatus");
+        if (!housingStatusField || housingStatusField instanceof RadioNodeList) {
+          return;
+        }
+
+        const selectedHousingStatus = String(housingStatusField.value || "").trim();
+        const isHomeowner = selectedHousingStatus === "Homeowner";
+        const isRenter = selectedHousingStatus === "Renter";
+        const isOwner = selectedHousingStatus === "Homeowner" || selectedHousingStatus === "Owns Free and Clear";
+        const hasPropertyTax = selectedHousingStatus === "Homeowner" || selectedHousingStatus === "Owns Free and Clear";
+        const hasHousingStatus = Boolean(selectedHousingStatus);
+
+        const setHousingFieldGroupState = (selector, isVisible) => {
+          form.querySelectorAll(selector).forEach((group) => {
+            group.classList.toggle("is-hidden", !isVisible);
+            group.classList.toggle("is-disabled", !isVisible);
+            group.querySelectorAll("input, select, button").forEach((control) => {
+              control.disabled = !isVisible;
+            });
+          });
+        };
+
+        setHousingFieldGroupState('[data-housing-visibility="renter"]', isRenter);
+        setHousingFieldGroupState('[data-housing-visibility="homeowner"]', isHomeowner);
+        setHousingFieldGroupState('[data-housing-visibility="owner"]', isOwner);
+        setHousingFieldGroupState('[data-housing-visibility="property-tax"]', hasPropertyTax);
+        setHousingFieldGroupState('[data-housing-visibility="selected"]', hasHousingStatus);
+      }
+
+      function syncIncomeCalculationSpouseFields() {
+        if (!linkedMaritalStatusField || linkedMaritalStatusField instanceof RadioNodeList) {
+          return;
+        }
+
+        const incomeCalculationMode = getIncomeCalculationMode();
+        const fieldGroupFor = (name) => {
+          const field = form.elements.namedItem(name);
+          return field && !(field instanceof RadioNodeList) ? field.closest(".field-group") : null;
+        };
+        const setGroupState = (group, isVisible, isDisabled) => {
+          if (!group) {
+            return;
+          }
+          group.classList.toggle("is-hidden", !isVisible);
+          group.classList.toggle("is-disabled", isDisabled);
+          group.querySelectorAll("input, select, button").forEach((control) => {
+            if (control.closest(".profile-form-toggle-group")) {
+              return;
+            }
+            const isReadonly = control.hasAttribute("readonly");
+            control.disabled = isDisabled && !isReadonly;
+          });
+        };
+        const setToggleGroupState = (role, isVisible, isDisabled) => {
+          const group = form.querySelector(`[data-deduction-method-group="${role}"]`);
+          const wrapper = group?.closest(".field-group");
+          setGroupState(wrapper, isVisible, isDisabled);
+          group?.querySelectorAll("[data-deduction-method-toggle]").forEach((button) => {
+            button.disabled = isDisabled;
+          });
+        };
+        const setLabel = (forId, text) => {
+          const label = form.querySelector(`label[for="${forId}"]`);
+          if (label) {
+            label.textContent = text;
+          }
+        };
+
+        const isJoint = incomeCalculationMode === "joint";
+        const isSeparate = incomeCalculationMode === "separate";
+        const showSpouseIncome = isJoint || isSeparate;
+        const showDetailedSpouseFields = isSeparate;
+
+        if (incomeCalculationGrid) {
+          incomeCalculationGrid.classList.toggle("income-calculation-grid-single", !isJoint && !isSeparate);
+          incomeCalculationGrid.classList.toggle("income-calculation-grid-joint", isJoint);
+          incomeCalculationGrid.classList.toggle("income-calculation-grid-separate", isSeparate);
+        }
+
+        setGroupState(fieldGroupFor("spouseIncome"), showSpouseIncome, !showSpouseIncome);
+        setToggleGroupState("spouse", showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spouseStandardDeduction"), showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spouseYearlyTaxDeductions"), showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spouseTaxableIncome"), showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spouseFederalTaxBracket"), showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spouseStateIncomeTaxBracket"), showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spousePayrollTaxes"), showDetailedSpouseFields, !showDetailedSpouseFields);
+        setGroupState(fieldGroupFor("spouseNetAnnualIncome"), showDetailedSpouseFields, !showDetailedSpouseFields);
+
+        setLabel("gross-annual-income", isJoint || isSeparate ? "Primary Gross Annual Income" : "Gross Annual Income");
+        setLabel("deduction-method", isJoint ? "Household Deduction Method" : isSeparate ? "Primary Deduction Method" : "Deduction Method");
+        setLabel("standard-deduction", isJoint ? "Household Standard Deduction" : isSeparate ? "Primary Standard Deduction" : "Standard Deduction");
+        setLabel("yearly-tax-deductions", isJoint ? "Household Yearly Tax Deductions" : isSeparate ? "Primary Yearly Tax Deductions" : "Yearly Tax Deductions");
+        setLabel("taxable-income", isJoint ? "Combined Taxable Income" : isSeparate ? "Primary Taxable Income" : "Taxable Income");
+        setLabel("federal-tax-bracket", isSeparate ? "Primary Federal Tax Bracket" : "Federal Tax Bracket");
+        setLabel("state-income-tax-bracket", isSeparate ? "Primary State Income Tax Bracket" : "State Income Tax Bracket");
+        setLabel("primary-payroll-taxes", isJoint ? "Combined Payroll Taxes" : isSeparate ? "Primary Payroll Taxes" : "Payroll Taxes");
+        setLabel("net-annual-income", isJoint ? "Combined Household Net Income" : isSeparate ? "Primary Net Annual Income" : "Net Annual Income");
+      }
+
+      function populateFederalTaxBracketOptions() {
+        if (!federalTaxBracketField || federalTaxBracketField instanceof RadioNodeList) {
+          return;
+        }
+
+        const currentValue = String(federalTaxBracketField.value || "").trim();
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        const federalTaxBracketLabel = form.querySelector("[data-federal-tax-bracket-label]");
+
+        federalTaxBracketField.disabled = !selectedFilingStatus;
+        federalTaxBracketField.closest(".field-group")?.classList.toggle("is-disabled", !selectedFilingStatus);
+        federalTaxBracketLabel?.classList.toggle("is-disabled", !selectedFilingStatus);
+
+        if (!selectedFilingStatus) {
+          federalTaxBracketField.innerHTML = '<option value="">Please select</option>';
+          federalTaxBracketField.value = "";
+          return;
+        }
+
+        const options = getFederalTaxBracketRowsForStatus(selectedFilingStatus);
+
+        federalTaxBracketField.innerHTML = '<option value="">Please select</option>' + options.map((row) => {
+          const safeValue = String(row?.rate || "").trim();
+          const minIncome = String(row?.minIncome || "").trim();
+          const maxIncome = String(row?.maxIncome || "").trim();
+          const rangeStart = minIncome || "0";
+          const rangeEnd = maxIncome || "No cap";
+          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          return `<option value="${safeValue}">${label}</option>`;
+        }).join("");
+
+        if (currentValue) {
+          federalTaxBracketField.value = currentValue;
+        }
+
+        if (federalTaxBracketField.value !== currentValue) {
+          federalTaxBracketField.value = "";
+        }
+      }
+
+      function populateSpouseFederalTaxBracketOptions() {
+        if (!spouseFederalTaxBracketField || spouseFederalTaxBracketField instanceof RadioNodeList) {
+          return;
+        }
+
+        const currentValue = String(spouseFederalTaxBracketField.value || "").trim();
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        const spouseFederalTaxBracketLabel = form.querySelector("[data-spouse-federal-tax-bracket-label]");
+        const isMarriedFilingSeparately = selectedFilingStatus === "Married Filing Separately";
+
+        spouseFederalTaxBracketField.disabled = !isMarriedFilingSeparately;
+        spouseFederalTaxBracketField.closest(".field-group")?.classList.toggle("is-disabled", !isMarriedFilingSeparately);
+        spouseFederalTaxBracketLabel?.classList.toggle("is-disabled", !isMarriedFilingSeparately);
+
+        if (!isMarriedFilingSeparately) {
+          spouseFederalTaxBracketField.innerHTML = '<option value="">Please select</option>';
+          spouseFederalTaxBracketField.value = "";
+          return;
+        }
+
+        const options = getFederalTaxBracketRowsForStatus(selectedFilingStatus);
+        spouseFederalTaxBracketField.innerHTML = '<option value="">Please select</option>' + options.map((row) => {
+          const safeValue = String(row?.rate || "").trim();
+          const minIncome = String(row?.minIncome || "").trim();
+          const maxIncome = String(row?.maxIncome || "").trim();
+          const rangeStart = minIncome || "0";
+          const rangeEnd = maxIncome || "No cap";
+          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          return `<option value="${safeValue}">${label}</option>`;
+        }).join("");
+
+        if (currentValue) {
+          spouseFederalTaxBracketField.value = currentValue;
+        }
+
+        if (spouseFederalTaxBracketField.value !== currentValue) {
+          spouseFederalTaxBracketField.value = "";
+        }
+      }
+
+      function populateStateTaxBracketOptions() {
+        if (!stateIncomeTaxBracketField || stateIncomeTaxBracketField instanceof RadioNodeList) {
+          return;
+        }
+
+        const currentValue = String(stateIncomeTaxBracketField.value || "").trim();
+        const selectedState = String(stateOfResidenceField?.value || "").trim().toUpperCase();
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        const stateTaxBracketLabel = form.querySelector("[data-state-tax-bracket-label]");
+        const stateConfig = getStateTaxConfigForState(selectedState);
+        const shouldDisable = !selectedState || !selectedFilingStatus || !stateConfig.hasIncomeTax;
+
+        stateIncomeTaxBracketField.disabled = shouldDisable;
+        stateIncomeTaxBracketField.closest(".field-group")?.classList.toggle("is-disabled", shouldDisable);
+        stateTaxBracketLabel?.classList.toggle("is-disabled", shouldDisable);
+
+        if (!selectedState || !selectedFilingStatus) {
+          stateIncomeTaxBracketField.innerHTML = '<option value="">Please select</option>';
+          stateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        if (!stateConfig.hasIncomeTax) {
+          stateIncomeTaxBracketField.innerHTML = '<option value="">No state income tax</option>';
+          stateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        if (stateConfig.mode === "flat") {
+          const flatRate = String(stateConfig.flatRate || "").trim();
+          stateIncomeTaxBracketField.innerHTML = `<option value="${flatRate}">${flatRate ? `${flatRate} | Flat Tax Rate` : "Flat tax rate not set"}</option>`;
+          stateIncomeTaxBracketField.value = flatRate;
+          return;
+        }
+
+        const options = Array.isArray(stateConfig.rows) ? stateConfig.rows : [];
+        stateIncomeTaxBracketField.innerHTML = '<option value="">Please select</option>' + options.map((row) => {
+          const safeValue = String(row?.rate || "").trim();
+          const minIncome = String(row?.minIncome || "").trim();
+          const maxIncome = String(row?.maxIncome || "").trim();
+          const rangeStart = minIncome || "0";
+          const rangeEnd = maxIncome || "No cap";
+          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          return `<option value="${safeValue}">${label}</option>`;
+        }).join("");
+
+        if (currentValue) {
+          stateIncomeTaxBracketField.value = currentValue;
+        }
+
+        if (stateIncomeTaxBracketField.value !== currentValue) {
+          stateIncomeTaxBracketField.value = "";
+        }
+      }
+
+      function populateSpouseStateTaxBracketOptions() {
+        if (!spouseStateIncomeTaxBracketField || spouseStateIncomeTaxBracketField instanceof RadioNodeList) {
+          return;
+        }
+
+        const currentValue = String(spouseStateIncomeTaxBracketField.value || "").trim();
+        const selectedState = String(stateOfResidenceField?.value || "").trim().toUpperCase();
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        const spouseStateTaxBracketLabel = form.querySelector("[data-spouse-state-tax-bracket-label]");
+        const stateConfig = getStateTaxConfigForState(selectedState);
+        const isMarriedFilingSeparately = selectedFilingStatus === "Married Filing Separately";
+        const shouldDisable = !selectedState || !isMarriedFilingSeparately || !stateConfig.hasIncomeTax;
+
+        spouseStateIncomeTaxBracketField.disabled = shouldDisable;
+        spouseStateIncomeTaxBracketField.closest(".field-group")?.classList.toggle("is-disabled", shouldDisable);
+        spouseStateTaxBracketLabel?.classList.toggle("is-disabled", shouldDisable);
+
+        if (!selectedState || !isMarriedFilingSeparately) {
+          spouseStateIncomeTaxBracketField.innerHTML = '<option value="">Please select</option>';
+          spouseStateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        if (!stateConfig.hasIncomeTax) {
+          spouseStateIncomeTaxBracketField.innerHTML = '<option value="">No state income tax</option>';
+          spouseStateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        if (stateConfig.mode === "flat") {
+          const flatRate = String(stateConfig.flatRate || "").trim();
+          spouseStateIncomeTaxBracketField.innerHTML = `<option value="${flatRate}">${flatRate ? `${flatRate} | Flat Tax Rate` : "Flat tax rate not set"}</option>`;
+          spouseStateIncomeTaxBracketField.value = flatRate;
+          return;
+        }
+
+        const options = Array.isArray(stateConfig.rows) ? stateConfig.rows : [];
+        spouseStateIncomeTaxBracketField.innerHTML = '<option value="">Please select</option>' + options.map((row) => {
+          const safeValue = String(row?.rate || "").trim();
+          const minIncome = String(row?.minIncome || "").trim();
+          const maxIncome = String(row?.maxIncome || "").trim();
+          const rangeStart = minIncome || "0";
+          const rangeEnd = maxIncome || "No cap";
+          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          return `<option value="${safeValue}">${label}</option>`;
+        }).join("");
+
+        if (currentValue) {
+          spouseStateIncomeTaxBracketField.value = currentValue;
+        }
+
+        if (spouseStateIncomeTaxBracketField.value !== currentValue) {
+          spouseStateIncomeTaxBracketField.value = "";
+        }
+      }
+
+      function syncFederalTaxBracketSelection() {
+        if (!federalTaxBracketField || federalTaxBracketField instanceof RadioNodeList || federalTaxBracketField.disabled) {
+          return;
+        }
+
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        if (!selectedFilingStatus) {
+          federalTaxBracketField.value = "";
+          return;
+        }
+
+        const incomeBasis = getFederalTaxBracketIncomeBasis();
+        const options = getFederalTaxBracketRowsForStatus(selectedFilingStatus);
+
+        const matchedRow = options.find((row) => {
+          const minIncome = parseCurrencyLikeNumber(row?.minIncome);
+          const maxRaw = String(row?.maxIncome || "").trim();
+          const maxIncome = maxRaw ? parseCurrencyLikeNumber(maxRaw) : Number.POSITIVE_INFINITY;
+          return incomeBasis >= minIncome && incomeBasis <= maxIncome;
+        });
+
+        federalTaxBracketField.value = String(matchedRow?.rate || "");
+      }
+
+      function syncSpouseFederalTaxBracketSelection() {
+        if (!spouseFederalTaxBracketField || spouseFederalTaxBracketField instanceof RadioNodeList || spouseFederalTaxBracketField.disabled) {
+          return;
+        }
+
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        if (selectedFilingStatus !== "Married Filing Separately") {
+          spouseFederalTaxBracketField.value = "";
+          return;
+        }
+
+        const spouseIncomeBasis = getCurrentTaxableIncomeValues().spouse;
+        const options = getFederalTaxBracketRowsForStatus(selectedFilingStatus);
+        const matchedRow = options.find((row) => {
+          const minIncome = parseCurrencyLikeNumber(row?.minIncome);
+          const maxRaw = String(row?.maxIncome || "").trim();
+          const maxIncome = maxRaw ? parseCurrencyLikeNumber(maxRaw) : Number.POSITIVE_INFINITY;
+          return spouseIncomeBasis >= minIncome && spouseIncomeBasis <= maxIncome;
+        });
+
+        spouseFederalTaxBracketField.value = String(matchedRow?.rate || "");
+      }
+
+      function syncStateTaxBracketSelection() {
+        if (!stateIncomeTaxBracketField || stateIncomeTaxBracketField instanceof RadioNodeList || stateIncomeTaxBracketField.disabled) {
+          return;
+        }
+
+        const selectedState = String(stateOfResidenceField?.value || "").trim().toUpperCase();
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        if (!selectedState || !selectedFilingStatus) {
+          stateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        const stateConfig = getStateTaxConfigForState(selectedState);
+        if (!stateConfig.hasIncomeTax) {
+          stateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        if (stateConfig.mode === "flat") {
+          stateIncomeTaxBracketField.value = String(stateConfig.flatRate || "").trim();
+          return;
+        }
+
+        const incomeBasis = getFederalTaxBracketIncomeBasis();
+        const options = Array.isArray(stateConfig.rows) ? stateConfig.rows : [];
+        const matchedRow = options.find((row) => {
+          const minIncome = parseCurrencyLikeNumber(row?.minIncome);
+          const maxRaw = String(row?.maxIncome || "").trim();
+          const maxIncome = maxRaw ? parseCurrencyLikeNumber(maxRaw) : Number.POSITIVE_INFINITY;
+          return incomeBasis >= minIncome && incomeBasis <= maxIncome;
+        });
+
+        stateIncomeTaxBracketField.value = String(matchedRow?.rate || "");
+      }
+
+      function syncSpouseStateTaxBracketSelection() {
+        if (!spouseStateIncomeTaxBracketField || spouseStateIncomeTaxBracketField instanceof RadioNodeList || spouseStateIncomeTaxBracketField.disabled) {
+          return;
+        }
+
+        const selectedState = String(stateOfResidenceField?.value || "").trim().toUpperCase();
+        const selectedFilingStatus = String(filingStatusField?.value || "").trim();
+        if (!selectedState || selectedFilingStatus !== "Married Filing Separately") {
+          spouseStateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        const stateConfig = getStateTaxConfigForState(selectedState);
+        if (!stateConfig.hasIncomeTax) {
+          spouseStateIncomeTaxBracketField.value = "";
+          return;
+        }
+
+        if (stateConfig.mode === "flat") {
+          spouseStateIncomeTaxBracketField.value = String(stateConfig.flatRate || "").trim();
+          return;
+        }
+
+        const spouseIncomeBasis = getCurrentTaxableIncomeValues().spouse;
+        const options = Array.isArray(stateConfig.rows) ? stateConfig.rows : [];
+        const matchedRow = options.find((row) => {
+          const minIncome = parseCurrencyLikeNumber(row?.minIncome);
+          const maxRaw = String(row?.maxIncome || "").trim();
+          const maxIncome = maxRaw ? parseCurrencyLikeNumber(maxRaw) : Number.POSITIVE_INFINITY;
+          return spouseIncomeBasis >= minIncome && spouseIncomeBasis <= maxIncome;
+        });
+
+        spouseStateIncomeTaxBracketField.value = String(matchedRow?.rate || "");
+      }
+
+      // Keep the page-specific field wiring here, but share the tax math so the
+      // advisor and confidential PMI flows cannot drift apart.
+      function getPrimaryAndSpouseFederalTaxAmounts() {
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const taxableIncomeValues = getCurrentTaxableIncomeValues();
+        const primaryTaxableIncome = taxableIncomeValues.primary;
+        const spouseTaxableIncome = taxableIncomeValues.spouse;
+        const federalBracketRows = getFederalTaxBracketRowsForStatus(filingStatus);
+        return window.LensPmiTaxUtils.getProgressiveBracketTaxAmounts({
+          filingStatus,
+          primaryTaxableIncome,
+          spouseTaxableIncome,
+          primaryBracketRows: federalBracketRows,
+          spouseBracketRows: federalBracketRows,
+          parseCurrencyLikeNumber,
+          parsePercentLikeNumber
+        });
+      }
+
+      function getPrimaryAndSpouseStateTaxAmounts() {
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const taxableIncomeValues = getCurrentTaxableIncomeValues();
+        const primaryTaxableIncome = taxableIncomeValues.primary;
+        const spouseTaxableIncome = taxableIncomeValues.spouse;
+        const selectedState = String(stateOfResidenceField?.value || "").trim().toUpperCase();
+        const stateConfig = getStateTaxConfigForState(selectedState);
+
+        if (stateConfig.mode === "flat") {
+          const primaryRate = getSelectedBracketRate(stateIncomeTaxBracketField);
+          const spouseRate = getSelectedBracketRate(spouseStateIncomeTaxBracketField);
+          return window.LensPmiTaxUtils.getBracketTaxAmounts({
+            filingStatus,
+            primaryTaxableIncome,
+            spouseTaxableIncome,
+            primaryRate,
+            spouseRate
+          });
+        }
+
+        return window.LensPmiTaxUtils.getProgressiveBracketTaxAmounts({
+          filingStatus,
+          primaryTaxableIncome,
+          spouseTaxableIncome,
+          primaryBracketRows: Array.isArray(stateConfig.rows) ? stateConfig.rows : [],
+          spouseBracketRows: Array.isArray(stateConfig.rows) ? stateConfig.rows : [],
+          parseCurrencyLikeNumber,
+          parsePercentLikeNumber
+        });
+      }
+
+      function getPrimaryAndSpousePayrollTaxAmounts() {
+        const filingStatus = String(filingStatusField?.value || "").trim();
+        const primaryEarnedIncome = parseCurrencyLikeNumber(grossAnnualIncomeField?.value);
+        const spouseEarnedIncome = parseCurrencyLikeNumber(spouseIncomeField?.value);
+        return window.LensPmiTaxUtils.getPayrollTaxAmounts({
+          filingStatus,
+          primaryEarnedIncome,
+          spouseEarnedIncome,
+          primaryTaxableIncome: primaryEarnedIncome,
+          spouseTaxableIncome: spouseEarnedIncome,
+          payrollRows: readStoredPayrollConfig(),
+          parseCurrencyLikeNumber,
+          parsePercentLikeNumber,
+          getDefaultAdditionalMedicareThresholds
+        });
+      }
+
+      function syncPayrollTaxFields() {
+        const payrollTaxes = getPrimaryAndSpousePayrollTaxAmounts();
+        const incomeCalculationMode = getIncomeCalculationMode();
+        const combinedPayrollTaxes = payrollTaxes.primary + payrollTaxes.spouse;
+
+        if (primaryPayrollTaxesField && !(primaryPayrollTaxesField instanceof RadioNodeList)) {
+          primaryPayrollTaxesField.value = formatNumberWithCommas(
+            incomeCalculationMode === "joint" ? combinedPayrollTaxes : payrollTaxes.primary
+          );
+        }
+
+        if (spousePayrollTaxesField && !(spousePayrollTaxesField instanceof RadioNodeList)) {
+          spousePayrollTaxesField.value = incomeCalculationMode === "separate"
+            ? formatNumberWithCommas(payrollTaxes.spouse)
+            : "";
+        }
+
+      }
+
+      function syncNetAnnualIncomeFields() {
+        const federalTaxes = getPrimaryAndSpouseFederalTaxAmounts();
+        const stateTaxes = getPrimaryAndSpouseStateTaxAmounts();
+        const payrollTaxes = getPrimaryAndSpousePayrollTaxAmounts();
+        const incomeCalculationMode = getIncomeCalculationMode();
+        const primaryGrossIncome = parseCurrencyLikeNumber(grossAnnualIncomeField?.value);
+        const spouseGrossIncome = parseCurrencyLikeNumber(spouseIncomeField?.value);
+        const combinedNetIncome = window.LensPmiTaxUtils.getNetIncome(
+          primaryGrossIncome + spouseGrossIncome,
+          federalTaxes.primary + federalTaxes.spouse,
+          stateTaxes.primary + stateTaxes.spouse,
+          payrollTaxes.primary + payrollTaxes.spouse
+        );
+
+        if (netAnnualIncomeField && !(netAnnualIncomeField instanceof RadioNodeList)) {
+          const primaryNetIncome = incomeCalculationMode === "joint"
+            ? combinedNetIncome
+            : window.LensPmiTaxUtils.getNetIncome(
+                primaryGrossIncome,
+                federalTaxes.primary,
+                stateTaxes.primary,
+                payrollTaxes.primary
+              );
+          applyNetIncomeValue(netAnnualIncomeField, primaryNetIncomeAction, primaryNetIncome);
+        }
+
+        if (spouseNetAnnualIncomeField && !(spouseNetAnnualIncomeField instanceof RadioNodeList)) {
+          const spouseNetIncome = incomeCalculationMode === "separate"
+            ? window.LensPmiTaxUtils.getNetIncome(
+                spouseGrossIncome,
+                federalTaxes.spouse,
+                stateTaxes.spouse,
+                payrollTaxes.spouse
+              )
+            : 0;
+          applyNetIncomeValue(
+            spouseNetAnnualIncomeField,
+            spouseNetIncomeAction,
+            spouseNetIncome,
+            { blank: incomeCalculationMode !== "separate" }
+          );
+        }
+      }
+
+      function getHouseholdNetIncomeBasis() {
+        const incomeCalculationMode = getIncomeCalculationMode();
+        const primaryNetIncome = parseCurrencyLikeNumber(netAnnualIncomeField?.value);
+        const spouseNetIncome = parseCurrencyLikeNumber(spouseNetAnnualIncomeField?.value);
+
+        if (incomeCalculationMode === "separate") {
+          return primaryNetIncome + spouseNetIncome;
+        }
+
+        return primaryNetIncome;
+      }
+
+      function syncEstimatedHouseholdIncomeUse() {
+        if (!householdIncomeUseField || householdIncomeUseField instanceof RadioNodeList) {
+          return;
+        }
+
+        const annualHouseholdExpenses = [
+          utilitiesCostField,
+          foodCostField,
+          insuranceCostField,
+          transportationCostField
+        ].reduce((total, field) => total + (parseCurrencyLikeNumber(field?.value) * 12), 0);
+        const expenseReductionPercent = Math.min(100, Math.max(0, parsePercentLikeNumber(getPreservedManualExpenseReductionAtDeath())));
+        const adjustedAnnualHouseholdExpenses = annualHouseholdExpenses * (1 - (expenseReductionPercent / 100));
+        const householdNetIncomeBasis = getHouseholdNetIncomeBasis();
+
+        if (!adjustedAnnualHouseholdExpenses || !householdNetIncomeBasis) {
+          householdIncomeUseField.value = "";
+          return;
+        }
+
+        const estimatedPercent = Math.min(999, (adjustedAnnualHouseholdExpenses / householdNetIncomeBasis) * 100);
+        householdIncomeUseField.value = Number.isFinite(estimatedPercent)
+          ? estimatedPercent.toFixed(1).replace(/\.0$/, "")
+          : "";
+      }
+
+      function syncMortgageTermRemainingField() {
+        if (!mortgageTermRemainingField || mortgageTermRemainingField instanceof RadioNodeList) {
+          return;
+        }
+
+        const years = Math.max(0, Math.round(parseCurrencyLikeNumber(mortgageTermRemainingYearsField?.value)));
+        const months = Math.min(11, Math.max(0, Math.round(parseCurrencyLikeNumber(mortgageTermRemainingMonthsField?.value))));
+
+        if (mortgageTermRemainingYearsField && !(mortgageTermRemainingYearsField instanceof RadioNodeList)) {
+          mortgageTermRemainingYearsField.value = mortgageTermRemainingYearsField.value === "" && !years ? "" : String(years);
+        }
+
+        if (mortgageTermRemainingMonthsField && !(mortgageTermRemainingMonthsField instanceof RadioNodeList)) {
+          mortgageTermRemainingMonthsField.value = mortgageTermRemainingMonthsField.value === "" && !months ? "" : String(months);
+        }
+
+        if (!years && !months) {
+          mortgageTermRemainingField.value = "";
+          return;
+        }
+
+        const combinedYears = years + (months / 12);
+        mortgageTermRemainingField.value = combinedYears.toFixed(2).replace(/\.00$/, "");
+      }
+
+      function getRecommendedRelocationReserveAmount() {
+        const housingStatusField = form.elements.namedItem("housingStatus");
+        const selectedHousingStatus = housingStatusField && !(housingStatusField instanceof RadioNodeList)
+          ? String(housingStatusField.value || "").trim()
+          : "";
+
+        if (selectedHousingStatus !== "Renter") {
+          return null;
+        }
+
+        const monthlyRent = parseCurrencyLikeNumber(form.elements.namedItem("monthlyHousingCost")?.value);
+        if (!monthlyRent) {
+          return null;
+        }
+
+        return monthlyRent * 3;
+      }
+
+      function syncRelocationReserveField() {
+        if (!relocationReserveField || relocationReserveField instanceof RadioNodeList) {
+          return;
+        }
+
+        const shell = relocationReserveField.closest(".profile-currency-field");
+        const recommendedAmount = getRecommendedRelocationReserveAmount();
+        const currentValue = parseCurrencyLikeNumber(relocationReserveField.value);
+
+        if (!Number.isFinite(recommendedAmount) || recommendedAmount <= 0) {
+          shell?.classList.remove("is-recommended");
+          if (relocationReserveField.dataset.manualEdited !== "true" && !currentValue) {
+            relocationReserveField.value = "";
+          }
+          return;
+        }
+
+        if (relocationReserveField.dataset.manualEdited === "true") {
+          shell?.classList.remove("is-recommended");
+          return;
+        }
+
+        if (currentValue && Math.abs(currentValue - Math.round(recommendedAmount)) > 0.5) {
+          relocationReserveField.dataset.manualEdited = "true";
+          shell?.classList.remove("is-recommended");
+          return;
+        }
+
+        relocationReserveField.value = String(Math.round(recommendedAmount));
+        shell?.classList.add("is-recommended");
+      }
+
+      function getMaintenanceAgeBand(ageYears) {
+        if (ageYears <= 10) {
+          return "age0To10";
+        }
+        if (ageYears <= 25) {
+          return "age11To25";
+        }
+        if (ageYears <= 40) {
+          return "age26To40";
+        }
+        return "age41Plus";
+      }
+
+      function normalizeHomeAgeYearsValue() {
+        if (!homeAgeYearsField || homeAgeYearsField instanceof RadioNodeList) {
+          return 0;
+        }
+
+        const rawValue = String(homeAgeYearsField.value || "").trim();
+        if (!rawValue) {
+          homeAgeYearsField.value = "";
+          return 0;
+        }
+
+        const numericValue = Math.max(0, Math.round(parseCurrencyLikeNumber(rawValue)));
+        if (numericValue > 41) {
+          homeAgeYearsField.value = "42+";
+          return 42;
+        }
+
+        homeAgeYearsField.value = String(numericValue);
+        return numericValue;
+      }
+
+      function parseHomeAgeYearsValue() {
+        if (!homeAgeYearsField || homeAgeYearsField instanceof RadioNodeList) {
+          return 0;
+        }
+
+        const rawValue = String(homeAgeYearsField.value || "").trim();
+        if (!rawValue) {
+          return 0;
+        }
+
+        return Math.max(0, Math.round(parseCurrencyLikeNumber(rawValue)));
+      }
+
+      function getRecommendedMaintenanceAmount() {
+        const housingStatusField = form.elements.namedItem("housingStatus");
+        const selectedHousingStatus = housingStatusField && !(housingStatusField instanceof RadioNodeList)
+          ? String(housingStatusField.value || "").trim()
+          : "";
+
+        if (selectedHousingStatus !== "Homeowner" && selectedHousingStatus !== "Owns Free and Clear") {
+          return null;
+        }
+
+        const squareFootageLabel = homeSquareFootageField && !(homeSquareFootageField instanceof RadioNodeList)
+          ? String(homeSquareFootageField.value || "").trim()
+          : "";
+        const homeAgeYears = parseHomeAgeYearsValue();
+
+        if (!squareFootageLabel) {
+          return null;
+        }
+
+        const matchingRow = readStoredMaintenanceConfig().find((row) => String(row?.label || "").trim() === squareFootageLabel);
+        if (!matchingRow) {
+          return null;
+        }
+
+        return parseCurrencyLikeNumber(matchingRow[getMaintenanceAgeBand(homeAgeYears)]);
+      }
+
+      function syncMaintenanceRecommendationField() {
+        if (!maintenanceRecommendationField || maintenanceRecommendationField instanceof RadioNodeList) {
+          return;
+        }
+
+        const recommendedAmount = getRecommendedMaintenanceAmount();
+        applyNetIncomeValue(
+          maintenanceRecommendationField,
+          maintenanceRecommendationAction,
+          recommendedAmount || 0,
+          { blank: !Number.isFinite(recommendedAmount) || recommendedAmount <= 0 }
+        );
+      }
+
+      function calculateMonthlyMortgagePaymentAmount() {
+        const housingStatusField = form.elements.namedItem("housingStatus");
+        const selectedHousingStatus = housingStatusField && !(housingStatusField instanceof RadioNodeList)
+          ? String(housingStatusField.value || "").trim()
+          : "";
+        const monthlyUtilities = parseCurrencyLikeNumber(utilitiesCostField?.value);
+        const monthlyHousingInsurance = parseCurrencyLikeNumber(housingInsuranceCostField?.value);
+        const monthlyHoaCost = parseCurrencyLikeNumber(monthlyHoaCostField?.value);
+        const monthlyPropertyTax = parseCurrencyLikeNumber(form.elements.namedItem("propertyTax")?.value) / 12;
+        const monthlyMaintenance = parseCurrencyLikeNumber(maintenanceRecommendationField?.value);
+
+        if (!selectedHousingStatus) {
+          return null;
+        }
+
+        if (selectedHousingStatus === "Renter") {
+          const monthlyRent = parseCurrencyLikeNumber(form.elements.namedItem("monthlyHousingCost")?.value);
+          const renterTotal = monthlyRent + monthlyUtilities + monthlyHousingInsurance;
+          return renterTotal > 0 ? renterTotal : null;
+        }
+
+        if (selectedHousingStatus === "Owns Free and Clear") {
+          const freeAndClearTotal = monthlyUtilities + monthlyPropertyTax + monthlyHousingInsurance + monthlyMaintenance + monthlyHoaCost;
+          return freeAndClearTotal > 0 ? freeAndClearTotal : null;
+        }
+
+        const principal = parseCurrencyLikeNumber(form.elements.namedItem("mortgageBalance")?.value);
+        const years = Math.max(0, Math.round(parseCurrencyLikeNumber(mortgageTermRemainingYearsField?.value)));
+        const months = Math.min(11, Math.max(0, Math.round(parseCurrencyLikeNumber(mortgageTermRemainingMonthsField?.value))));
+        const totalMonths = (years * 12) + months;
+        const annualRate = parseCurrencyLikeNumber(form.elements.namedItem("mortgageInterestRate")?.value);
+
+        if (!principal || !totalMonths) {
+          const fallbackTotal = monthlyUtilities + monthlyPropertyTax + monthlyHousingInsurance + monthlyMaintenance + monthlyHoaCost;
+          return fallbackTotal > 0 ? fallbackTotal : null;
+        }
+
+        if (!annualRate) {
+          return (principal / totalMonths) + monthlyUtilities + monthlyPropertyTax + monthlyHousingInsurance + monthlyMaintenance + monthlyHoaCost;
+        }
+
+        const monthlyRate = annualRate / 1200;
+        if (!monthlyRate) {
+          return (principal / totalMonths) + monthlyUtilities + monthlyPropertyTax + monthlyHousingInsurance + monthlyMaintenance + monthlyHoaCost;
+        }
+
+        return (principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -totalMonths)))) + monthlyUtilities + monthlyPropertyTax + monthlyHousingInsurance + monthlyMaintenance + monthlyHoaCost;
+      }
+
+      function syncMonthlyMortgagePaymentField() {
+        if (!monthlyMortgagePaymentField || monthlyMortgagePaymentField instanceof RadioNodeList) {
+          return;
+        }
+
+        const calculatedPayment = calculateMonthlyMortgagePaymentAmount();
+        applyNetIncomeValue(
+          monthlyMortgagePaymentField,
+          monthlyMortgagePaymentAction,
+          calculatedPayment || 0,
+          { blank: !Number.isFinite(calculatedPayment) || calculatedPayment <= 0 }
+        );
+      }
+
+      function syncAllTaxDerivedFields() {
+        syncTaxableIncomeFields();
+        syncFederalTaxBracketSelection();
+        syncSpouseFederalTaxBracketSelection();
+        syncStateTaxBracketSelection();
+        syncSpouseStateTaxBracketSelection();
+        syncPayrollTaxFields();
+        syncNetAnnualIncomeFields();
+        syncEstimatedHouseholdIncomeUse();
+      }
+
+      function syncStateOfResidenceDisplay() {
+        if (!stateOfResidenceField || stateOfResidenceField instanceof RadioNodeList) {
+          return;
+        }
+
+        const display = form.querySelector("[data-state-select-value]");
+        const shell = stateOfResidenceField.closest(".profile-state-select-shell");
+        if (!display) {
+          return;
+        }
+
+        const selectedValue = String(stateOfResidenceField.value || "").trim().toUpperCase();
+        display.textContent = selectedValue || "Select state";
+        display.classList.toggle("is-placeholder", !selectedValue);
+        shell?.classList.toggle("is-placeholder", !selectedValue);
+      }
+
+      function clampCostToFundPercent() {
+        if (!costToFundPercentField || !("value" in costToFundPercentField)) {
+          return;
+        }
+
+        const rawValue = Number(costToFundPercentField.value);
+
+        if (!Number.isFinite(rawValue)) {
+          return;
+        }
+
+        const clampedValue = Math.min(100, Math.max(0, rawValue));
+        if (String(clampedValue) !== String(costToFundPercentField.value)) {
+          costToFundPercentField.value = String(clampedValue);
+        }
+      }
+
+
+      function saveManualAnalysisSession(payload) {
+        if (!payload || typeof payload !== "object") {
+          return null;
+        }
+
+        const nextSession = {
+          hasData: true,
+          savedAt: new Date().toISOString(),
+          variant: String(payload.variant || "").trim(),
+          sourcePage: String(payload.sourcePage || "").trim(),
+          data: payload.data && typeof payload.data === "object" ? payload.data : {},
+          meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {}
+        };
+
+        try {
+          sessionStorage.setItem("lensTemporaryAnalysisSession", JSON.stringify(nextSession));
+          return nextSession;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function readSavedManualAnalysisData() {
+        try {
+          const session = JSON.parse(sessionStorage.getItem("lensTemporaryAnalysisSession") || "{}");
+          if (session?.variant !== "manual-protection-modeling") {
+            return {};
+          }
+          return session.data && typeof session.data === "object" ? session.data : {};
+        } catch (_error) {
+          return {};
+        }
+      }
+
+      const LEGACY_SURVIVOR_PLANNING_FIELD_NAMES = Object.freeze([
+        "survivorContinuesWorking",
+        "spouseExpectedWorkReductionAtDeath",
+        "survivorIncome",
+        "survivorNetAnnualIncome",
+        "survivorIncomeStartDelayMonths",
+        "spouseIncomeGrowthRate",
+        "spouseYearsUntilRetirement",
+        "incomeReplacementDuration",
+        "expenseReductionAtDeath",
+        "childDependencyDuration",
+        "survivorIncomeManualOverride",
+        "survivorNetAnnualIncomeManualOverride"
+      ]);
+
+      function getPreservedManualExpenseReductionAtDeath() {
+        const restoredManualAnalysisData = readSavedManualAnalysisData();
+        return restoredManualAnalysisData?.expenseReductionAtDeath ?? 0;
+      }
+
+      function syncDependentsCountField() {
+        if (!hasDependentsField || hasDependentsField instanceof RadioNodeList) {
+          return;
+        }
+
+        const disableCount = String(hasDependentsField.value || "No") !== "Yes";
+        [
+          form.elements.namedItem("childrenNeedingFunding"),
+          dependentAgesField,
+          educationFundingPerDependentField
+        ].forEach((field) => {
+          if (!field || field instanceof RadioNodeList) {
+            return;
+          }
+
+          field.disabled = disableCount;
+          field.closest(".field-group")?.classList.toggle("is-disabled", disableCount);
+          if (disableCount) {
+            field.value = "";
+          }
+        });
+      }
+
+      function setProjectedFieldDisabled(field, disabled, preserveValue) {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.disabled = disabled;
+        field.closest(".field-group")?.classList.toggle("is-disabled", disabled);
+        if (disabled && !preserveValue) {
+          if (field.tagName === "SELECT") {
+            field.selectedIndex = 0;
+          } else {
+            field.value = "";
+          }
+        }
+      }
+
+      function syncProjectedDependentsFields() {
+        if (!projectedDependentsField || projectedDependentsField instanceof RadioNodeList) {
+          return;
+        }
+
+        const hasCurrentDependents = String(hasDependentsField?.value || "No") === "Yes";
+        const hasProjectedDependents = String(projectedDependentsField.value || "No") === "Yes";
+        const projectedCount = Number(projectedDependentsCountField?.value || 0);
+        const hasProjectedCount = projectedCount > 0;
+        const sameEducationFunding = String(sameEducationFundingField?.value || "Yes") === "Yes";
+
+        if (!hasProjectedDependents) {
+          setProjectedFieldDisabled(projectedDependentsCountField, true);
+          setProjectedFieldDisabled(sameEducationFundingField, true);
+          setProjectedFieldDisabled(projectedEducationFundingPerDependentField, true);
+          return;
+        }
+
+        setProjectedFieldDisabled(projectedDependentsCountField, false);
+
+        if (!hasProjectedCount) {
+          setProjectedFieldDisabled(sameEducationFundingField, true);
+          setProjectedFieldDisabled(projectedEducationFundingPerDependentField, true);
+          return;
+        }
+
+        if (!hasCurrentDependents) {
+          setProjectedFieldDisabled(sameEducationFundingField, true);
+          setProjectedFieldDisabled(projectedEducationFundingPerDependentField, false);
+          return;
+        }
+
+        setProjectedFieldDisabled(sameEducationFundingField, false);
+        if (sameEducationFunding && projectedEducationFundingPerDependentField && !(projectedEducationFundingPerDependentField instanceof RadioNodeList) && educationFundingPerDependentField && !(educationFundingPerDependentField instanceof RadioNodeList)) {
+          projectedEducationFundingPerDependentField.value = educationFundingPerDependentField.value;
+        }
+        setProjectedFieldDisabled(projectedEducationFundingPerDependentField, sameEducationFunding, sameEducationFunding);
+      }
+
+      const ASSET_VALUE_FIELD_ALIASES = Object.freeze({
+        cashSavings: "cashAndCashEquivalents",
+        brokerageAccounts: "taxableBrokerageInvestments",
+        retirementAssets: "traditionalRetirementAssets",
+        realEstateEquity: "primaryResidenceEquity",
+        businessValue: "businessPrivateCompanyValue"
+      });
+
+      function getSavedAssetValue(saved, currentName, legacyName) {
+        if (!saved || typeof saved !== "object") {
+          return null;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(saved, currentName) && String(saved[currentName] ?? "").trim() !== "") {
+          return saved[currentName];
+        }
+
+        if (legacyName && Object.prototype.hasOwnProperty.call(saved, legacyName) && String(saved[legacyName] ?? "").trim() !== "") {
+          return saved[legacyName];
+        }
+
+        return null;
+      }
+
+      function restoreAssetValueAliases(saved) {
+        if (!saved || typeof saved !== "object") {
+          return;
+        }
+
+        Object.entries(ASSET_VALUE_FIELD_ALIASES).forEach(([legacyName, currentName]) => {
+          const control = form.elements.namedItem(currentName);
+          if (!control || control instanceof RadioNodeList || String(control.value || "").trim()) {
+            return;
+          }
+
+          const value = getSavedAssetValue(saved, currentName, legacyName);
+          if (value === null) {
+            return;
+          }
+
+          control.value = value;
+          control.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      }
+
+      function preserveLegacyAssetValueAliases(draft) {
+        Object.entries(ASSET_VALUE_FIELD_ALIASES).forEach(([legacyName, currentName]) => {
+          if (!Object.prototype.hasOwnProperty.call(draft, currentName)) {
+            return;
+          }
+
+          draft[legacyName] = draft[currentName];
+        });
+
+        return draft;
+      }
+
+      function getLegacyOffsetAssetTreatmentFieldNames() {
+        return [
+          "cashSavingsIncludeInOffset",
+          "cashSavingsLiquidityType",
+          "cashSavingsPercentAvailable",
+          "emergencyFundIncludeInOffset",
+          "emergencyFundLiquidityType",
+          "emergencyFundPercentAvailable",
+          "brokerageAccountsIncludeInOffset",
+          "brokerageAccountsLiquidityType",
+          "brokerageAccountsPercentAvailable",
+          "retirementAssetsIncludeInOffset",
+          "retirementAssetsLiquidityType",
+          "retirementAssetsPercentAvailable",
+          "realEstateEquityIncludeInOffset",
+          "realEstateEquityLiquidityType",
+          "realEstateEquityPercentAvailable",
+          "businessValueIncludeInOffset",
+          "businessValueLiquidityType",
+          "businessValuePercentAvailable"
+        ];
+      }
+
+      function preserveLegacyOffsetAssetTreatmentValues(draft) {
+        const restoredManualAnalysisData = readSavedManualAnalysisData();
+        if (!restoredManualAnalysisData || typeof restoredManualAnalysisData !== "object") {
+          return draft;
+        }
+
+        getLegacyOffsetAssetTreatmentFieldNames().forEach((fieldName) => {
+          if (Object.prototype.hasOwnProperty.call(draft, fieldName)) {
+            return;
+          }
+
+          if (!Object.prototype.hasOwnProperty.call(restoredManualAnalysisData, fieldName)) {
+            return;
+          }
+
+          draft[fieldName] = restoredManualAnalysisData[fieldName];
+        });
+
+        return draft;
+      }
+
+      function preserveLegacySurvivorPlanningValues(draft) {
+        const restoredManualAnalysisData = readSavedManualAnalysisData();
+        if (!restoredManualAnalysisData || typeof restoredManualAnalysisData !== "object") {
+          return draft;
+        }
+
+        LEGACY_SURVIVOR_PLANNING_FIELD_NAMES.forEach((fieldName) => {
+          if (Object.prototype.hasOwnProperty.call(draft, fieldName)) {
+            return;
+          }
+
+          if (!Object.prototype.hasOwnProperty.call(restoredManualAnalysisData, fieldName)) {
+            return;
+          }
+
+          draft[fieldName] = restoredManualAnalysisData[fieldName];
+        });
+
+        return draft;
+      }
+
+      function buildManualAnalysisSnapshot() {
+        const draft = typeof window.serializeLensFormSnapshot === "function"
+          ? window.serializeLensFormSnapshot(form)
+          : {};
+
+        if (netAnnualIncomeField && !(netAnnualIncomeField instanceof RadioNodeList) && netAnnualIncomeField.dataset.manualOverride === "true") {
+          draft.netAnnualIncome = parseCurrencyLikeNumber(netAnnualIncomeField.dataset.manualValue);
+          draft.netAnnualIncomeManualOverride = true;
+        }
+
+        if (spouseNetAnnualIncomeField && !(spouseNetAnnualIncomeField instanceof RadioNodeList) && spouseNetAnnualIncomeField.dataset.manualOverride === "true") {
+          draft.spouseNetAnnualIncome = parseCurrencyLikeNumber(spouseNetAnnualIncomeField.dataset.manualValue);
+          draft.spouseNetAnnualIncomeManualOverride = true;
+        }
+
+        if (monthlyMortgagePaymentField && !(monthlyMortgagePaymentField instanceof RadioNodeList) && monthlyMortgagePaymentField.dataset.manualOverride === "true") {
+          draft.calculatedMonthlyMortgagePayment = parseCurrencyLikeNumber(monthlyMortgagePaymentField.dataset.manualValue);
+          draft.calculatedMonthlyMortgagePaymentManualOverride = true;
+        }
+
+        if (maintenanceRecommendationField && !(maintenanceRecommendationField instanceof RadioNodeList) && maintenanceRecommendationField.dataset.manualOverride === "true") {
+          draft.monthlyMaintenanceRecommendation = parseCurrencyLikeNumber(maintenanceRecommendationField.dataset.manualValue);
+          draft.monthlyMaintenanceRecommendationManualOverride = true;
+        }
+
+        preserveLegacyAssetValueAliases(draft);
+        preserveLegacyOffsetAssetTreatmentValues(draft);
+        preserveLegacySurvivorPlanningValues(draft);
+
+        return draft;
+      }
+
+      window.restoreLensTemporaryAnalysisForm?.(form, "manual-protection-modeling");
+      const restoredManualAnalysisData = readSavedManualAnalysisData();
+      restoreAssetValueAliases(restoredManualAnalysisData);
+      if (mortgageTermRemainingYearsField && !(mortgageTermRemainingYearsField instanceof RadioNodeList) && mortgageTermRemainingMonthsField && !(mortgageTermRemainingMonthsField instanceof RadioNodeList)) {
+        const combinedTerm = parseCurrencyLikeNumber(restoredManualAnalysisData.mortgageTermRemaining);
+        if (combinedTerm && !restoredManualAnalysisData.mortgageTermRemainingYears && !restoredManualAnalysisData.mortgageTermRemainingMonths) {
+          const wholeYears = Math.floor(combinedTerm);
+          const remainingMonths = Math.round((combinedTerm - wholeYears) * 12);
+          mortgageTermRemainingYearsField.value = String(wholeYears);
+          mortgageTermRemainingMonthsField.value = String(remainingMonths);
+        }
+      }
+      if (monthlyMortgagePaymentField && !(monthlyMortgagePaymentField instanceof RadioNodeList)) {
+        if (restoredManualAnalysisData.calculatedMonthlyMortgagePaymentManualOverride) {
+          monthlyMortgagePaymentField.dataset.manualOverride = "true";
+          monthlyMortgagePaymentField.dataset.manualValue = String(parseCurrencyLikeNumber(restoredManualAnalysisData.calculatedMonthlyMortgagePayment));
+        } else {
+          clearNetIncomeManualOverride(monthlyMortgagePaymentField, monthlyMortgagePaymentAction);
+        }
+        setNetIncomeActionLabel(monthlyMortgagePaymentField, monthlyMortgagePaymentAction);
+      }
+      if (maintenanceRecommendationField && !(maintenanceRecommendationField instanceof RadioNodeList)) {
+        if (restoredManualAnalysisData.monthlyMaintenanceRecommendationManualOverride) {
+          maintenanceRecommendationField.dataset.manualOverride = "true";
+          maintenanceRecommendationField.dataset.manualValue = String(parseCurrencyLikeNumber(restoredManualAnalysisData.monthlyMaintenanceRecommendation));
+        } else {
+          clearNetIncomeManualOverride(maintenanceRecommendationField, maintenanceRecommendationAction);
+        }
+        setNetIncomeActionLabel(maintenanceRecommendationField, maintenanceRecommendationAction);
+      }
+      if (netAnnualIncomeField && !(netAnnualIncomeField instanceof RadioNodeList)) {
+        if (restoredManualAnalysisData.netAnnualIncomeManualOverride) {
+          netAnnualIncomeField.dataset.manualOverride = "true";
+          netAnnualIncomeField.dataset.manualValue = String(parseCurrencyLikeNumber(restoredManualAnalysisData.netAnnualIncome));
+        } else {
+          clearNetIncomeManualOverride(netAnnualIncomeField, primaryNetIncomeAction);
+        }
+        setNetIncomeActionLabel(netAnnualIncomeField, primaryNetIncomeAction);
+      }
+      if (spouseNetAnnualIncomeField && !(spouseNetAnnualIncomeField instanceof RadioNodeList)) {
+        if (restoredManualAnalysisData.spouseNetAnnualIncomeManualOverride) {
+          spouseNetAnnualIncomeField.dataset.manualOverride = "true";
+          spouseNetAnnualIncomeField.dataset.manualValue = String(parseCurrencyLikeNumber(restoredManualAnalysisData.spouseNetAnnualIncome));
+        } else {
+          clearNetIncomeManualOverride(spouseNetAnnualIncomeField, spouseNetIncomeAction);
+        }
+        setNetIncomeActionLabel(spouseNetAnnualIncomeField, spouseNetIncomeAction);
+      }
+      syncDependentsCountField();
+      syncProjectedDependentsFields();
+
+      saveExitButton.addEventListener("click", () => {
+        clampCostToFundPercent();
+        syncFilingStatusOptions();
+        syncAllTaxDerivedFields();
+        const draft = buildManualAnalysisSnapshot();
+        const savedSession = saveManualAnalysisSession({
+          variant: "manual-protection-modeling",
+          sourcePage: "manual-protection-modeling-inputs",
+          data: draft
+        });
+
+        if (!savedSession?.hasData) {
+          window.alert("The manual analysis session could not be saved right now. Please try again.");
+          return;
+        }
+
+        window.beginLensAnalysisInternalNavigation?.();
+        window.location.href = "profile.html";
+      });
+      if (costToFundPercentField) {
+        costToFundPercentField.addEventListener("input", clampCostToFundPercent);
+        costToFundPercentField.addEventListener("change", clampCostToFundPercent);
+        costToFundPercentField.addEventListener("blur", clampCostToFundPercent);
+      }
+
+      [
+        mortgageTermRemainingYearsField,
+        mortgageTermRemainingMonthsField
+      ].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("input", () => {
+          syncMortgageTermRemainingField();
+          syncMonthlyMortgagePaymentField();
+        });
+        field.addEventListener("change", () => {
+          syncMortgageTermRemainingField();
+          syncMonthlyMortgagePaymentField();
+        });
+        field.addEventListener("blur", () => {
+          syncMortgageTermRemainingField();
+          syncMonthlyMortgagePaymentField();
+        });
+      });
+
+      [
+        form.elements.namedItem("mortgageBalance"),
+        form.elements.namedItem("mortgageInterestRate"),
+        form.elements.namedItem("monthlyHousingCost"),
+        form.elements.namedItem("propertyTax"),
+        relocationReserveField,
+        utilitiesCostField,
+        housingInsuranceCostField,
+        monthlyHoaCostField,
+        homeSquareFootageField,
+        homeAgeYearsField
+      ].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("input", () => {
+          if (field === relocationReserveField) {
+            relocationReserveField.dataset.manualEdited = "true";
+            relocationReserveField.closest(".profile-currency-field")?.classList.remove("is-recommended");
+          }
+          if (field !== homeAgeYearsField) {
+            syncRelocationReserveField();
+          }
+          syncMaintenanceRecommendationField();
+          syncMonthlyMortgagePaymentField();
+        });
+        field.addEventListener("change", () => {
+          if (field === relocationReserveField) {
+            relocationReserveField.dataset.manualEdited = "true";
+            relocationReserveField.closest(".profile-currency-field")?.classList.remove("is-recommended");
+          }
+          if (field === homeAgeYearsField) {
+            normalizeHomeAgeYearsValue();
+          }
+          syncRelocationReserveField();
+          syncMaintenanceRecommendationField();
+          syncMonthlyMortgagePaymentField();
+        });
+        field.addEventListener("blur", () => {
+          if (field === homeAgeYearsField) {
+            normalizeHomeAgeYearsValue();
+          }
+          syncRelocationReserveField();
+          syncMaintenanceRecommendationField();
+          syncMonthlyMortgagePaymentField();
+        });
+      });
+
+      [
+        utilitiesCostField,
+        foodCostField,
+        insuranceCostField,
+        transportationCostField,
+        travelDiscretionaryCostField,
+        subscriptionsCostField
+      ].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("input", () => {
+          syncEstimatedHouseholdIncomeUse();
+        });
+        field.addEventListener("change", () => {
+          syncEstimatedHouseholdIncomeUse();
+        });
+        field.addEventListener("blur", () => {
+          syncEstimatedHouseholdIncomeUse();
+        });
+      });
+
+      [
+        [netAnnualIncomeField, primaryNetIncomeAction],
+        [spouseNetAnnualIncomeField, spouseNetIncomeAction],
+        [monthlyMortgagePaymentField, monthlyMortgagePaymentAction],
+        [maintenanceRecommendationField, maintenanceRecommendationAction]
+      ].forEach(([field, actionButton]) => {
+        if (!field || field instanceof RadioNodeList || !actionButton) {
+          return;
+        }
+
+        setNetIncomeActionLabel(field, actionButton);
+
+        actionButton.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+        });
+
+        actionButton.addEventListener("click", () => {
+          if (field.dataset.editing === "true" || field.dataset.manualOverride === "true") {
+            clearNetIncomeManualOverride(field, actionButton);
+            lockNetIncomeField(field, actionButton, { useCalculatedValue: true });
+            if (field === maintenanceRecommendationField) {
+              syncMonthlyMortgagePaymentField();
+            }
+            return;
+          }
+
+          beginNetIncomeEdit(field, actionButton);
+        });
+
+        field.addEventListener("input", () => {
+          if (field.dataset.editing !== "true") {
+            return;
+          }
+
+          const typedValue = parseCurrencyLikeNumber(field.value);
+          const calculatedValue = parseCurrencyLikeNumber(field.dataset.calculatedValue);
+          actionButton.textContent = field.value.trim() && typedValue !== calculatedValue ? "Reset" : "Edit";
+        });
+
+        field.addEventListener("blur", () => {
+          finalizeNetIncomeEdit(field, actionButton);
+          if (field === maintenanceRecommendationField) {
+            syncMonthlyMortgagePaymentField();
+          }
+        });
+      });
+
+      if (hasDependentsField && !(hasDependentsField instanceof RadioNodeList)) {
+        hasDependentsField.addEventListener("change", () => {
+          syncDependentsCountField();
+          syncProjectedDependentsFields();
+        });
+        hasDependentsField.addEventListener("input", () => {
+          syncDependentsCountField();
+          syncProjectedDependentsFields();
+        });
+      }
+
+      projectedDependentsCountField?.addEventListener("input", syncProjectedDependentsFields);
+      projectedDependentsCountField?.addEventListener("change", syncProjectedDependentsFields);
+      sameEducationFundingField?.addEventListener("change", syncProjectedDependentsFields);
+      educationFundingPerDependentField?.addEventListener("input", syncProjectedDependentsFields);
+      educationFundingPerDependentField?.addEventListener("change", syncProjectedDependentsFields);
+      projectedDependentsField?.addEventListener("input", syncProjectedDependentsFields);
+      projectedDependentsField?.addEventListener("change", syncProjectedDependentsFields);
+
+      if (filingStatusField && !(filingStatusField instanceof RadioNodeList)) {
+        const syncFederalBracketState = () => {
+          syncIncomeCalculationSpouseFields();
+          syncFilingStatusCircles();
+          syncStandardDeductionFields();
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          populateFederalTaxBracketOptions();
+          populateSpouseFederalTaxBracketOptions();
+          populateStateTaxBracketOptions();
+          populateSpouseStateTaxBracketOptions();
+          syncAllTaxDerivedFields();
+        };
+        filingStatusField.addEventListener("change", syncFederalBracketState);
+        filingStatusField.addEventListener("input", syncFederalBracketState);
+      }
+
+      [grossAnnualIncomeField, spouseIncomeField].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("input", () => {
+          syncStandardDeductionFields();
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          syncAllTaxDerivedFields();
+        });
+        field.addEventListener("blur", () => {
+          syncStandardDeductionFields();
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          syncAllTaxDerivedFields();
+        });
+      });
+
+      [yearlyTaxDeductionsField, spouseYearlyTaxDeductionsField].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("input", () => {
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          syncAllTaxDerivedFields();
+        });
+        field.addEventListener("blur", () => {
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          syncAllTaxDerivedFields();
+        });
+      });
+
+      [grossAnnualIncomeField, spouseIncomeField, yearlyTaxDeductionsField, spouseYearlyTaxDeductionsField].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("focus", () => {
+          field.value = parseCurrencyLikeNumber(field.value) ? String(parseCurrencyLikeNumber(field.value)) : "";
+        });
+
+        field.addEventListener("blur", () => {
+          const numericValue = parseCurrencyLikeNumber(field.value);
+          field.value = numericValue ? formatNumberWithCommas(numericValue) : "";
+          syncStandardDeductionFields();
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          syncAllTaxDerivedFields();
+        });
+      });
+
+      form.querySelectorAll("[data-deduction-method-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const role = button.getAttribute("data-deduction-method-toggle");
+          const value = button.getAttribute("data-deduction-method-value") === "itemized" ? "itemized" : "standard";
+          const field = role === "spouse" ? spouseDeductionMethodField : deductionMethodField;
+          if (!field || field instanceof RadioNodeList || button.disabled) {
+            return;
+          }
+
+          field.value = value;
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          syncAllTaxDerivedFields();
+        });
+      });
+
+      if (stateOfResidenceField && !(stateOfResidenceField instanceof RadioNodeList)) {
+        const syncStateTaxState = () => {
+          syncStateOfResidenceDisplay();
+          populateStateTaxBracketOptions();
+          populateSpouseStateTaxBracketOptions();
+          syncAllTaxDerivedFields();
+        };
+        stateOfResidenceField.addEventListener("change", syncStateTaxState);
+        stateOfResidenceField.addEventListener("input", syncStateTaxState);
+      }
+
+      const housingStatusField = form.elements.namedItem("housingStatus");
+      if (housingStatusField && !(housingStatusField instanceof RadioNodeList)) {
+        const syncHousingStatusState = () => {
+          syncHousingStatusCircles();
+          syncHousingStatusFieldVisibility();
+          syncRelocationReserveField();
+          syncMaintenanceRecommendationField();
+          syncMonthlyMortgagePaymentField();
+        };
+        housingStatusField.addEventListener("change", syncHousingStatusState);
+        housingStatusField.addEventListener("input", syncHousingStatusState);
+      }
+
+      [federalTaxBracketField, spouseFederalTaxBracketField, stateIncomeTaxBracketField, spouseStateIncomeTaxBracketField].forEach((field) => {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.addEventListener("change", syncAllTaxDerivedFields);
+        field.addEventListener("input", syncAllTaxDerivedFields);
+      });
+
+      if (linkedMaritalStatusField && !(linkedMaritalStatusField instanceof RadioNodeList)) {
+        const syncManualMaritalState = () => {
+          syncFilingStatusOptions();
+          syncIncomeCalculationSpouseFields();
+          syncFilingStatusCircles();
+          syncStandardDeductionFields();
+          syncDeductionMethodState();
+          syncTaxableIncomeFields();
+          populateFederalTaxBracketOptions();
+          populateSpouseFederalTaxBracketOptions();
+          populateStateTaxBracketOptions();
+          populateSpouseStateTaxBracketOptions();
+          syncAllTaxDerivedFields();
+        };
+        linkedMaritalStatusField.addEventListener("change", syncManualMaritalState);
+        linkedMaritalStatusField.addEventListener("input", syncManualMaritalState);
+      }
+
+      populateFederalTaxBracketOptions();
+      syncTaxableIncomeFields();
+      syncLinkedMaritalStatus();
+      syncFilingStatusOptions();
+      syncIncomeCalculationSpouseFields();
+      syncFilingStatusCircles();
+      syncStandardDeductionFields();
+      syncDeductionMethodState();
+      populateFederalTaxBracketOptions();
+      populateSpouseFederalTaxBracketOptions();
+      syncLinkedStateOfResidence();
+      syncStateOfResidenceDisplay();
+      populateStateTaxBracketOptions();
+      populateSpouseStateTaxBracketOptions();
+      syncHousingStatusCircles();
+      syncHousingStatusFieldVisibility();
+      syncMortgageTermRemainingField();
+      syncRelocationReserveField();
+      syncMaintenanceRecommendationField();
+      syncMonthlyMortgagePaymentField();
+      syncAllTaxDerivedFields();
+      syncIncomeCalculationCurrencyFormatting();
+      syncEstimatedHouseholdIncomeUse();
+    })();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+

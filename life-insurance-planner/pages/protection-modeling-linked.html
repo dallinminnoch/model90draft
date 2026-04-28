@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PMI Entry | LENS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page" data-page="protection-modeling-linked">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <div class="entry-page-viewport">
+        <section class="prospect-empty-panel">
+          <div class="prospect-panel-header">
+            <div class="linked-profile-title-line">
+              <div class="linked-profile-title-eyebrow">Link Profile</div>
+              <span class="linked-profile-title-dot" aria-hidden="true">&middot;</span>
+              <h1 class="linked-profile-title">PMI Entry</h1>
+            </div>
+          </div>
+          <div class="entry-page-layout">
+            <section class="profile-form-section protection-modeling-link-section entry-page-link-card">
+              <div class="profile-form-section-heading">
+                <h2>Client Link</h2>
+              </div>
+              <div class="form-grid preliminary-link-grid">
+                <div class="field-group preliminary-link-button-group">
+                  <label for="protection-modeling-link-button">Search Client Directory</label>
+                  <button id="protection-modeling-link-button" class="btn btn-secondary preliminary-link-search-button" type="button" data-protection-modeling-link-open>Search Client Directory</button>
+                </div>
+                <div class="field-group">
+                  <label for="protection-modeling-case-ref">Case Ref Number</label>
+                  <input id="protection-modeling-case-ref" name="protectionModelingCaseRef" type="text" placeholder="CL/00000" data-protection-modeling-case-ref autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" readonly>
+                </div>
+              </div>
+              <p class="underwriting-helper-text preliminary-link-helper">Use either the search button or the case reference number to link this protection modeling form to a client profile.</p>
+            </section>
+            <section class="entry-mode-panel entry-page-action-card">
+              <div class="entry-page-action-heading">
+                <p class="entry-page-action-eyebrow">Next Step</p>
+                <h2>Choose Entry Mode</h2>
+                <p>Select how this case should be entered, then continue without leaving the flow or losing context.</p>
+              </div>
+              <div class="entry-mode-actions">
+                <div class="entry-mode-option">
+                  <a class="btn btn-primary btn-prelim-continue entry-mode-button" href="next-step.html" data-loading-link>Advisor Assisted</a>
+                  <span class="entry-mode-icon entry-mode-icon-unlocked" aria-hidden="true"></span>
+                </div>
+                <div class="entry-mode-option">
+                  <button class="btn btn-primary btn-prelim-continue entry-mode-button entry-mode-button-confidential" type="button" data-confidential-trigger>Confidential Entry Mode</button>
+                  <span class="entry-mode-icon entry-mode-icon-locked" aria-hidden="true"></span>
+                </div>
+              </div>
+              <p class="entry-mode-note">The client may enter sensitive financial details privately. This information will still be used for analysis but should remain hidden during discussion unless the client chooses to share it.</p>
+              <div class="entry-mode-pin-shell is-disabled" data-pin-shell>
+                <label class="entry-mode-pin-label" for="confidential-pin-1">
+                  <span>Create 4-Digit PIN</span>
+                  <span class="entry-mode-help" aria-hidden="true" data-entry-mode-help="The client should create this PIN privately. Confidential financial details should not be viewable anywhere in this flow without entering that PIN.">?</span>
+                </label>
+                <div class="entry-mode-pin-grid" data-pin-grid>
+                  <input id="confidential-pin-1" class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+                  <input class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+                  <input class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+                  <input class="entry-mode-pin-input" type="password" inputmode="numeric" maxlength="1" data-pin-input>
+                </div>
+                <a class="btn btn-primary btn-prelim-continue entry-mode-button entry-mode-button-confidential-continue" href="confidential-inputs.html" data-loading-link data-confidential-continue aria-disabled="true" tabindex="-1">Continue in Confidential Mode</a>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="profile-search-modal" data-protection-modeling-link-modal hidden>
+    <div class="profile-search-modal-backdrop" data-protection-modeling-link-close></div>
+    <div class="profile-search-modal-panel" role="dialog" aria-modal="true" aria-labelledby="protection-modeling-link-modal-title">
+      <button class="profile-search-modal-close" type="button" aria-label="Close search" data-protection-modeling-link-close>x</button>
+      <div class="profile-search-modal-header">
+        <h2 id="protection-modeling-link-modal-title">Select Client Profile</h2>
+      </div>
+      <div class="field-group full-width">
+        <label for="protection-modeling-link-search-input">Search</label>
+        <input id="protection-modeling-link-search-input" type="text" placeholder="Search client directory" data-protection-modeling-link-search-input>
+      </div>
+      <div class="profile-search-results" data-protection-modeling-link-results></div>
+    </div>
+  </div>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const clientRecordsApi = window.LensApp?.clientRecords || {};
+      const linkOpenButton = document.querySelector("[data-protection-modeling-link-open]");
+      const linkModal = document.querySelector("[data-protection-modeling-link-modal]");
+      const linkModalInput = document.querySelector("[data-protection-modeling-link-search-input]");
+      const linkModalResults = document.querySelector("[data-protection-modeling-link-results]");
+      const linkModalClose = document.querySelectorAll("[data-protection-modeling-link-close]");
+      const caseRefField = document.querySelector("[data-protection-modeling-case-ref]");
+      const saveButton = document.querySelector("[data-protection-modeling-save-button]");
+      const confidentialTrigger = document.querySelector("[data-confidential-trigger]");
+      const pinShell = document.querySelector("[data-pin-shell]");
+      const pinInputs = Array.from(document.querySelectorAll("[data-pin-input]"));
+      const pinHelp = document.querySelector(".entry-mode-pin-label .entry-mode-help");
+      const confidentialContinue = document.querySelector("[data-confidential-continue]");
+      const advisorContinue = document.querySelector('.entry-mode-button[href="next-step.html"]');
+      let linkedRecord = null;
+
+      function updateLinkedClientButton(record) {
+        linkedRecord = record || null;
+
+        if (!linkOpenButton) {
+          return;
+        }
+
+        if (!record) {
+          linkOpenButton.classList.remove("is-linked");
+          linkOpenButton.innerHTML = "Search Client Directory";
+          advisorContinue && (advisorContinue.href = "next-step.html");
+          advisorContinue?.setAttribute("aria-disabled", "true");
+          advisorContinue?.setAttribute("tabindex", "-1");
+          advisorContinue?.classList.add("is-disabled");
+          confidentialTrigger?.setAttribute("aria-disabled", "true");
+          confidentialTrigger?.classList.add("is-disabled");
+          if (confidentialTrigger) {
+            confidentialTrigger.disabled = true;
+          }
+          confidentialContinue && (confidentialContinue.href = "confidential-inputs.html");
+          confidentialContinue?.setAttribute("aria-disabled", "true");
+          confidentialContinue?.setAttribute("tabindex", "-1");
+          confidentialContinue?.classList.add("is-disabled");
+          pinShell?.classList.add("is-disabled");
+          return;
+        }
+
+        linkOpenButton.classList.add("is-linked");
+        linkOpenButton.innerHTML = `
+          <span class="preliminary-link-button-primary">${String(record.displayName || "").trim()}</span>
+          <span class="preliminary-link-button-secondary">Click to change</span>
+        `;
+        advisorContinue?.setAttribute("aria-disabled", "false");
+        advisorContinue?.setAttribute("tabindex", "0");
+        advisorContinue?.classList.remove("is-disabled");
+        if (advisorContinue) {
+          advisorContinue.href = `next-step.html?caseRef=${encodeURIComponent(String(record.caseRef || "").trim())}`;
+        }
+        confidentialTrigger?.setAttribute("aria-disabled", "false");
+        confidentialTrigger?.classList.remove("is-disabled");
+        if (confidentialTrigger) {
+          confidentialTrigger.disabled = false;
+        }
+        if (confidentialContinue) {
+          confidentialContinue.href = `confidential-inputs.html?caseRef=${encodeURIComponent(String(record.caseRef || "").trim())}`;
+        }
+      }
+
+      function syncLinkedClientFromCaseRef() {
+        const findLinkableIndividualClientByCaseRef = clientRecordsApi.findLinkableIndividualClientByCaseRef;
+        const matchedRecord = typeof findLinkableIndividualClientByCaseRef === "function"
+          ? findLinkableIndividualClientByCaseRef(caseRefField?.value || "")
+          : null;
+        updateLinkedClientButton(matchedRecord);
+      }
+
+      function openLinkModal() {
+        if (!linkModal) {
+          return;
+        }
+
+        linkModal.hidden = false;
+        linkModal.classList.add("is-open");
+        renderLinkResults();
+        window.setTimeout(() => {
+          linkModalInput?.focus();
+        }, 20);
+      }
+
+      function closeLinkModal() {
+        if (!linkModal) {
+          return;
+        }
+
+        if (linkModalInput) {
+          linkModalInput.value = "";
+        }
+        linkModal.hidden = true;
+        linkModal.classList.remove("is-open");
+        renderLinkResults();
+      }
+
+      function renderLinkResults() {
+        if (!linkModalResults) {
+          return;
+        }
+
+        const query = String(linkModalInput?.value || "").trim().toLowerCase();
+        const getLinkableIndividualClientRecords = clientRecordsApi.getLinkableIndividualClientRecords;
+        const filtered = typeof getLinkableIndividualClientRecords === "function"
+          ? getLinkableIndividualClientRecords(query)
+          : [];
+
+        linkModalResults.innerHTML = "";
+
+        if (!filtered.length) {
+          const emptyState = document.createElement("div");
+          emptyState.className = "profile-search-results-empty";
+          emptyState.textContent = "No matching client profiles found.";
+          linkModalResults.appendChild(emptyState);
+          return;
+        }
+
+        filtered.forEach((record) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "profile-search-result-button";
+          button.textContent = `${record.displayName} - ${record.caseRef}`;
+          button.addEventListener("click", () => {
+            if (caseRefField) {
+              caseRefField.value = String(record.caseRef || "").trim();
+              clientRecordsApi.setLinkedCaseRef?.(caseRefField.value);
+            }
+            syncLinkedClientFromCaseRef();
+            closeLinkModal();
+          });
+          linkModalResults.appendChild(button);
+        });
+      }
+
+      if (caseRefField) {
+        const unlockCaseRefField = () => {
+          caseRefField.removeAttribute("readonly");
+        };
+
+        caseRefField.addEventListener("focus", unlockCaseRefField);
+        caseRefField.addEventListener("pointerdown", unlockCaseRefField);
+        caseRefField.addEventListener("input", () => {
+          caseRefField.value = String(caseRefField.value || "").toUpperCase();
+          const findLinkableIndividualClientByCaseRef = clientRecordsApi.findLinkableIndividualClientByCaseRef;
+          const matchedRecord = typeof findLinkableIndividualClientByCaseRef === "function"
+            ? findLinkableIndividualClientByCaseRef(caseRefField.value)
+            : null;
+          clientRecordsApi.setLinkedCaseRef?.(matchedRecord ? String(matchedRecord.caseRef || "").trim() : "");
+          syncLinkedClientFromCaseRef();
+        });
+      }
+
+      linkOpenButton?.addEventListener("click", openLinkModal);
+      linkModalInput?.addEventListener("input", renderLinkResults);
+      linkModalClose.forEach((button) => {
+        button.addEventListener("click", closeLinkModal);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && linkModal && !linkModal.hidden) {
+          closeLinkModal();
+        }
+      });
+
+      linkModal?.querySelector(".profile-search-modal-backdrop")?.addEventListener("click", closeLinkModal);
+      advisorContinue?.addEventListener("click", (event) => {
+        if (!linkedRecord) {
+          event.preventDefault();
+          return;
+        }
+
+        const linkedCaseRef = String(linkedRecord.caseRef || "").trim();
+        clientRecordsApi.setLinkedCaseRef?.(linkedCaseRef);
+      });
+
+      if (!confidentialTrigger || !pinShell || !pinInputs.length || !confidentialContinue) {
+        renderLinkResults();
+        return;
+      }
+
+      function syncContinueState() {
+        const pin = pinInputs.map((input) => input.value).join("");
+        const isComplete = Boolean(linkedRecord) && pin.length === 4 && /^\d{4}$/.test(pin);
+
+        confidentialContinue.setAttribute("aria-disabled", isComplete ? "false" : "true");
+        confidentialContinue.tabIndex = isComplete ? 0 : -1;
+        confidentialContinue.classList.toggle("is-disabled", !isComplete);
+
+        if (isComplete) {
+          sessionStorage.setItem("lensConfidentialEntryPin", pin);
+        } else {
+          sessionStorage.removeItem("lensConfidentialEntryPin");
+        }
+      }
+
+      function enablePinShell() {
+        if (!linkedRecord) {
+          return;
+        }
+
+        pinShell.classList.remove("is-disabled");
+        confidentialTrigger.classList.add("is-selected");
+        pinInputs[0]?.focus();
+      }
+
+      confidentialTrigger.addEventListener("click", enablePinShell);
+
+      ["mousedown", "click"].forEach((eventName) => {
+        pinHelp?.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+      });
+
+      confidentialContinue.addEventListener("click", (event) => {
+        if (confidentialContinue.getAttribute("aria-disabled") === "true" || !linkedRecord) {
+          event.preventDefault();
+          enablePinShell();
+          return;
+        }
+
+        const linkedCaseRef = String(linkedRecord.caseRef || "").trim();
+        clientRecordsApi.setLinkedCaseRef?.(linkedCaseRef);
+      });
+
+      pinInputs.forEach((input, index) => {
+        input.addEventListener("input", () => {
+          input.value = String(input.value || "").replace(/\D/g, "").slice(0, 1);
+          if (input.value && pinInputs[index + 1]) {
+            pinInputs[index + 1].focus();
+          }
+          syncContinueState();
+        });
+
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Backspace" && !input.value && pinInputs[index - 1]) {
+            pinInputs[index - 1].focus();
+          }
+        });
+      });
+
+      syncContinueState();
+
+      renderLinkResults();
+      syncLinkedClientFromCaseRef();
+    })();
+  </script>
+</body>
+</html>
+
+
+

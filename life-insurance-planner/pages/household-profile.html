@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Household Profile | Advisor Planning Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <script>
+    window.location.replace("new-prospect.html");
+  </script>
+</head>
+<body class="home-page prospect-page profile-creation-page">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="prospect-empty-panel">
+        <div class="prospect-panel-header">
+          <a class="prospect-return-button" href="new-prospect.html">Return to Create Client Profile</a>
+          <h1>Create Household Profile</h1>
+        </div>
+        <form class="profile-creation-form" id="client-creation-form" data-client-type="household">
+          <div class="form-grid">
+            <div class="field-group">
+              <label for="household-name">Household Name</label>
+              <input id="household-name" name="householdName" type="text" required>
+            </div>
+            <div class="field-group">
+              <label for="primary-last-name">Primary Last Name</label>
+              <input id="primary-last-name" name="primaryLastName" type="text" required>
+            </div>
+            <div class="field-group">
+              <label for="status-group">Client Status</label>
+              <select id="status-group" name="statusGroup" required>
+                <option value="prospects">Prospects</option>
+                <option value="in-review">In Review</option>
+                <option value="coverage-placed">Coverage Placed</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="source">Source</label>
+              <input id="source" name="source" type="text" placeholder="Referral, Website, CPA">
+            </div>
+            <div class="field-group">
+              <label for="insured-count">Insured Lives</label>
+              <input id="insured-count" name="insuredCount" type="number" min="1" step="1" required>
+            </div>
+            <div class="field-group">
+              <label for="last-review">Last Review</label>
+              <input id="last-review" name="lastReview" type="date" required>
+            </div>
+            <div class="field-group">
+              <label for="priority">Priority</label>
+              <select id="priority" name="priority" required>
+                <option value="" selected disabled>Select Priority</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="coverage-amount">Coverage Amount</label>
+              <input id="coverage-amount" name="coverageAmount" type="number" min="0" step="1000" required>
+            </div>
+            <div class="field-group">
+              <label for="coverage-gap">Coverage Gap</label>
+              <input id="coverage-gap" name="coverageGap" type="number" min="0" step="1000" required>
+            </div>
+            <div class="field-group full-width">
+              <label for="profile-summary">Household Summary</label>
+              <input id="profile-summary" name="summary" type="text" placeholder="Short description for the client directory">
+            </div>
+          </div>
+          <p class="profile-creation-feedback" id="client-creation-feedback" hidden></p>
+          <div class="actions-row">
+            <button class="btn btn-primary" type="submit">Save Household Profile</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+</body>
+</html>
+
+
+

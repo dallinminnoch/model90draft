@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Household | Advisor Planning Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="prospect-empty-panel">
+        <div class="prospect-panel-header">
+          <a class="prospect-return-button" href="clients.html">Return to Client Directory</a>
+          <div>
+            <h1>Create Household</h1>
+            <p class="prospect-panel-subtitle">Group clients into a household for planning and organization.</p>
+          </div>
+        </div>
+
+        <form class="profile-creation-form" id="create-household-form" novalidate>
+          <section class="profile-form-section">
+            <div class="profile-form-section-header">
+              <h2>Household Information</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="household-name">Household Name <span class="required-star" aria-hidden="true">*</span></label>
+                <input id="household-name" name="householdName" type="text" required>
+              </div>
+              <div class="field-group">
+                <label for="household-type">Household Type</label>
+                <select id="household-type" name="householdType">
+                  <option value="Married Couple">Married Couple</option>
+                  <option value="Unmarried Couple">Unmarried Couple</option>
+                  <option value="Family">Family</option>
+                  <option value="Individual">Individual</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="household-state">State</label>
+                <select id="household-state" name="state" data-household-state-select></select>
+              </div>
+              <div class="field-group">
+                <label for="household-status">Status</label>
+                <select id="household-status" name="status">
+                  <option value="Prospect">Prospect</option>
+                  <option value="Active">Active</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+              <div class="field-group full-width">
+                <label for="household-notes">Notes</label>
+                <textarea id="household-notes" name="notes" rows="4" placeholder="Internal household notes"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-header">
+              <h2>Members</h2>
+            </div>
+            <div class="household-member-toolbar">
+              <button class="btn btn-secondary" type="button" data-household-add-member>Add Member</button>
+            </div>
+            <div class="household-member-list" data-household-member-list></div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-header">
+              <h2>Household Structure</h2>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="financial-structure">Financial Structure</label>
+                <select id="financial-structure" name="financialStructure">
+                  <option value="Combined">Combined</option>
+                  <option value="Partially Shared">Partially Shared</option>
+                  <option value="Separate">Separate</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="planning-mode">Planning Mode</label>
+                <select id="planning-mode" name="planningMode">
+                  <option value="Household">Household</option>
+                  <option value="Individual">Individual</option>
+                  <option value="Both">Both</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-header">
+              <h2>System Flags</h2>
+            </div>
+            <div class="household-flag-grid">
+              <label class="household-toggle-option">
+                <input type="checkbox" name="enableConfidentialInput">
+                <span>Enable Confidential Input</span>
+              </label>
+              <label class="household-toggle-option">
+                <input type="checkbox" name="hasExistingCoverage">
+                <span>Has Existing Coverage</span>
+              </label>
+              <label class="household-toggle-option">
+                <input type="checkbox" name="needsFullAnalysis">
+                <span>Needs Full Analysis</span>
+              </label>
+            </div>
+          </section>
+
+          <div class="actions-row household-actions-row">
+            <button class="btn btn-primary" type="submit">Create Household</button>
+            <a class="btn btn-secondary" href="clients.html">Cancel</a>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const stateSelect = document.querySelector("[data-household-state-select]");
+      const memberList = document.querySelector("[data-household-member-list]");
+      const addMemberButton = document.querySelector("[data-household-add-member]");
+      const form = document.getElementById("create-household-form");
+
+      if (stateSelect) {
+        const states = [
+          "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia",
+          "Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts",
+          "Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey",
+          "New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island",
+          "South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia",
+          "Wisconsin","Wyoming","District of Columbia"
+        ];
+
+        stateSelect.innerHTML = [
+          "<option value=\"\">Select State</option>",
+          ...states.map((state) => `<option value="${state}">${state}</option>`)
+        ].join("");
+      }
+
+      let memberIndex = 0;
+
+      function buildMemberCard(index) {
+        const card = document.createElement("article");
+        card.className = "household-member-card";
+        card.innerHTML = `
+          <div class="household-member-card-header">
+            <h3>Member ${index + 1}</h3>
+            ${index > 0 ? '<button class="household-member-remove-button" type="button" aria-label="Remove member">&times;</button>' : ""}
+          </div>
+          <div class="household-member-grid form-grid">
+            <div class="field-group">
+              <label>Member Source</label>
+              <select name="members[${index}][source]">
+                <option value="Existing Client">Existing Client</option>
+                <option value="Create New Client">Create New Client</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Name</label>
+              <input type="text" name="members[${index}][name]" placeholder="Client name">
+            </div>
+            <div class="field-group">
+              <label>Role</label>
+              <select name="members[${index}][role]">
+                <option value="Primary">Primary</option>
+                <option value="Spouse / Partner">Spouse / Partner</option>
+                <option value="Child">Child</option>
+                <option value="Dependent">Dependent</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <label class="household-toggle-option">
+              <input type="checkbox" name="members[${index}][financiallyDependent]">
+              <span>Financially Dependent</span>
+            </label>
+            <label class="household-toggle-option">
+              <input type="checkbox" name="members[${index}][incomeEarner]">
+              <span>Income Earner</span>
+            </label>
+            <label class="household-toggle-option">
+              <input type="checkbox" name="members[${index}][potentialInsured]">
+              <span>Potential Insured</span>
+            </label>
+          </div>
+        `;
+
+        const removeButton = card.querySelector(".household-member-remove-button");
+        if (removeButton) {
+          removeButton.addEventListener("click", () => {
+            card.remove();
+          });
+        }
+
+        return card;
+      }
+
+      function addMember() {
+        if (!memberList) {
+          return;
+        }
+
+        memberList.appendChild(buildMemberCard(memberIndex));
+        memberIndex += 1;
+      }
+
+      if (addMemberButton) {
+        addMemberButton.addEventListener("click", addMember);
+      }
+
+      if (form) {
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const formData = new FormData(form);
+          console.log("Create household form data", Array.from(formData.entries()));
+          window.location.href = "clients.html";
+        });
+      }
+
+      addMember();
+    })();
+  </script>
+</body>
+</html>
+
+
+

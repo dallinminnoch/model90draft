@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Existing Coverage Details | LENS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page" data-page="existing-coverage-details">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <div class="entry-page-viewport">
+        <section class="prospect-empty-panel">
+          <div class="prospect-panel-header existing-coverage-page-header">
+            <a class="prospect-return-button existing-coverage-return-button" href="existing-coverage-linked.html" data-loading-link>
+              <span class="existing-coverage-return-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" focusable="false" aria-hidden="true">
+                  <path d="M11.75 4.5 6.25 10l5.5 5.5" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>Back</span>
+            </a>
+            <div class="existing-coverage-page-heading">
+              <h1>Existing Coverage Details</h1>
+              <p class="helper-text">Capture the linked client&apos;s placed policy details so coverage on file stays structured and reviewable.</p>
+            </div>
+          </div>
+
+          <section class="profile-form-section existing-coverage-summary-section">
+            <div class="profile-form-section-heading existing-coverage-section-heading">
+              <h2>Linked Profile</h2>
+              <p data-existing-coverage-linked-copy>Saving here updates the linked client record and existing coverage inventory.</p>
+            </div>
+            <div class="existing-coverage-summary-grid">
+              <div class="existing-coverage-summary-card existing-coverage-summary-card-client">
+                <span class="existing-coverage-summary-avatar" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">
+                    <path d="M12 12a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Zm-6.25 7.25a6.25 6.25 0 0 1 12.5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <div class="existing-coverage-summary-copy">
+                  <span class="existing-coverage-summary-label">Client</span>
+                  <strong class="existing-coverage-summary-value" data-existing-coverage-client-name>--</strong>
+                  <span class="existing-coverage-summary-meta" data-existing-coverage-case-ref>--</span>
+                </div>
+              </div>
+              <div class="existing-coverage-summary-card">
+                <div class="existing-coverage-summary-copy">
+                  <span class="existing-coverage-summary-label">Policies on File</span>
+                  <strong class="existing-coverage-summary-value" data-existing-coverage-policy-count>0</strong>
+                  <span class="existing-coverage-summary-meta">Counted from non-empty policy entries</span>
+                </div>
+              </div>
+              <div class="existing-coverage-summary-card">
+                <div class="existing-coverage-summary-copy">
+                  <span class="existing-coverage-summary-label">Coverage Total</span>
+                  <strong class="existing-coverage-summary-value" data-existing-coverage-total>$0</strong>
+                  <span class="existing-coverage-summary-meta">Summed from face amounts on this page</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <form class="profile-form-section existing-coverage-form-shell" data-existing-coverage-form novalidate>
+            <div class="existing-coverage-form-header">
+              <div class="profile-form-section-heading existing-coverage-section-heading">
+                <h2>Policies on File</h2>
+                <p>Add, edit, or remove placed policy details for this linked profile.</p>
+              </div>
+              <div class="existing-coverage-toolbar">
+                <button class="btn btn-secondary existing-coverage-add-button" type="button" data-existing-coverage-add-policy>
+                  <span class="existing-coverage-add-icon" aria-hidden="true">+</span>
+                  <span>Add Existing Coverage</span>
+                </button>
+              </div>
+            </div>
+            <div class="existing-coverage-inline-note" role="note">
+              <span class="existing-coverage-inline-note-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" focusable="false" aria-hidden="true">
+                  <circle cx="10" cy="10" r="7.75" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M10 8.1v4.15M10 6.1h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>Saved policies update the linked profile&apos;s current coverage and can fill linked analysis coverage when no separate total is entered in PMI.</span>
+            </div>
+            <p class="existing-coverage-feedback" data-existing-coverage-feedback aria-live="polite"></p>
+            <section class="client-detail-card existing-coverage-saved-shell">
+              <div class="client-detail-card-header existing-coverage-saved-heading">
+                <h3>Saved Policies</h3>
+                <p>Review, edit, or remove placed coverage records for this linked profile.</p>
+              </div>
+              <div class="existing-coverage-policy-list existing-coverage-saved-list" data-existing-coverage-policy-list></div>
+            </section>
+          </form>
+
+          <section class="existing-coverage-status-banner" aria-label="Save information">
+            <span class="existing-coverage-status-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">
+                <path d="M12 3.5 18.5 6v5.32c0 4.08-2.46 7.76-6.24 9.35L12 20.8l-.26-.13A10.1 10.1 0 0 1 5.5 11.32V6L12 3.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="m9.5 12.2 1.65 1.65 3.45-3.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div class="existing-coverage-status-copy">
+              <strong>Your changes are saved to the linked client record</strong>
+              <span>Coverage totals and counts update automatically.</span>
+            </div>
+          </section>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app/features/coverage/coverage-policy-utils.js"></script>
+  <script src="../app/features/coverage/coverage-policy-summary-list.js"></script>
+  <script src="../app/features/coverage/coverage-policy-manager.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const clientRecordsApi = window.LensApp?.clientRecords || {};
+      const coveragePolicyUtils = window.LensApp?.coverage || {};
+      const coverageSummaryList = window.LensApp?.coverageSummaryList || {};
+      const coverageManager = window.LensApp?.coverageManager || {};
+      const urlParams = new URLSearchParams(window.location.search);
+      const normalizeCaseRef = clientRecordsApi.normalizeCaseRef;
+      const resolvedCaseRef = typeof normalizeCaseRef === "function"
+        ? normalizeCaseRef(urlParams.get("caseRef") || clientRecordsApi.getLinkedCaseRef?.() || "")
+        : String(urlParams.get("caseRef") || clientRecordsApi.getLinkedCaseRef?.() || "").trim().toUpperCase();
+      const getClientRecordByReference = clientRecordsApi.getClientRecordByReference;
+      const updateClientRecordByCaseRef = clientRecordsApi.updateClientRecordByCaseRef;
+      const clientNameValue = document.querySelector("[data-existing-coverage-client-name]");
+      const caseRefValue = document.querySelector("[data-existing-coverage-case-ref]");
+      const policyCountValue = document.querySelector("[data-existing-coverage-policy-count]");
+      const coverageTotalValue = document.querySelector("[data-existing-coverage-total]");
+      const feedback = document.querySelector("[data-existing-coverage-feedback]");
+      const addPolicyButton = document.querySelector("[data-existing-coverage-add-policy]");
+      const policyList = document.querySelector("[data-existing-coverage-policy-list]");
+      const previousLink = document.querySelector('.prospect-return-button[href="existing-coverage-linked.html"]');
+
+      const POLICY_DOCUMENT_DB_NAME = "lipPlannerPolicyDocuments";
+      const POLICY_DOCUMENT_STORE_NAME = "policyDocuments";
+      const MAX_COVERAGE_POLICY_LIMIT = 5;
+
+      let linkedRecord = typeof getClientRecordByReference === "function"
+        ? getClientRecordByReference(clientRecordsApi.getLinkedRecordId?.(), resolvedCaseRef)
+        : null;
+      let policyDocumentDbPromise = null;
+
+      function normalizeCoverageCurrencyValue(value) {
+        const normalized = String(value || "").replace(/[^0-9.]/g, "");
+        const firstDot = normalized.indexOf(".");
+        const cleaned = firstDot === -1
+          ? normalized
+          : `${normalized.slice(0, firstDot + 1)}${normalized.slice(firstDot + 1).replace(/\./g, "")}`;
+
+        if (!cleaned) {
+          return "";
+        }
+
+        const numericValue = Number(cleaned);
+        if (!Number.isFinite(numericValue)) {
+          return "";
+        }
+
+        return numericValue.toFixed(2);
+      }
+
+      function parseCurrencyNumber(value) {
+        const normalized = normalizeCoverageCurrencyValue(value);
+        return normalized ? Number(normalized) : 0;
+      }
+
+      function getPolicyDeathBenefitAmount(policy) {
+        return typeof coveragePolicyUtils.getCoverageDeathBenefitAmount === "function"
+          ? coveragePolicyUtils.getCoverageDeathBenefitAmount(policy)
+          : parseCurrencyNumber(policy?.faceAmount);
+      }
+
+      function summarizeCoveragePoliciesForPage(policies) {
+        if (typeof coverageSummaryList.createCoverageTotals === "function") {
+          return coverageSummaryList.createCoverageTotals(policies);
+        }
+
+        if (typeof coveragePolicyUtils.summarizeCoveragePolicies === "function") {
+          return coveragePolicyUtils.summarizeCoveragePolicies(policies);
+        }
+
+        const totalCoverage = Array.isArray(policies)
+          ? policies.reduce(function (sum, policy) {
+              return sum + getPolicyDeathBenefitAmount(policy);
+            }, 0)
+          : 0;
+        return { totalCoverage };
+      }
+
+      function getCoverageProfileSummaryFields(policies) {
+        const safePolicies = Array.isArray(policies) ? policies : [];
+        const summary = summarizeCoveragePoliciesForPage(safePolicies);
+        const totalCoverage = Math.max(0, Number(summary?.totalCoverage || 0));
+        return {
+          currentCoverage: totalCoverage,
+          coverageAmount: totalCoverage,
+          policyCount: safePolicies.length
+        };
+      }
+
+      function formatCurrencyDisplay(value) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        }).format(Math.max(0, Number(value || 0)));
+      }
+
+      function openPolicyDocumentDb() {
+        if (!("indexedDB" in window)) {
+          return Promise.resolve(null);
+        }
+
+        if (policyDocumentDbPromise) {
+          return policyDocumentDbPromise;
+        }
+
+        policyDocumentDbPromise = new Promise(function (resolve, reject) {
+          const request = window.indexedDB.open(POLICY_DOCUMENT_DB_NAME, 1);
+
+          request.onupgradeneeded = function () {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(POLICY_DOCUMENT_STORE_NAME)) {
+              db.createObjectStore(POLICY_DOCUMENT_STORE_NAME, { keyPath: "id" });
+            }
+          };
+
+          request.onsuccess = function () {
+            resolve(request.result);
+          };
+
+          request.onerror = function () {
+            reject(request.error || new Error("Unable to open policy document storage."));
+          };
+        });
+
+        return policyDocumentDbPromise;
+      }
+
+      function buildPolicyDocumentKey(recordId, policyId) {
+        return `${String(recordId || "").trim()}::${String(policyId || "").trim()}`;
+      }
+
+      function deletePolicyDocumentFiles(recordId, policyId) {
+        return openPolicyDocumentDb().then(function (db) {
+          if (!db) {
+            return false;
+          }
+
+          return new Promise(function (resolve, reject) {
+            const transaction = db.transaction(POLICY_DOCUMENT_STORE_NAME, "readwrite");
+            const store = transaction.objectStore(POLICY_DOCUMENT_STORE_NAME);
+            const request = store.delete(buildPolicyDocumentKey(recordId, policyId));
+
+            request.onsuccess = function () {
+              resolve(true);
+            };
+
+            request.onerror = function () {
+              reject(request.error || new Error("Unable to delete the policy documents."));
+            };
+          });
+        });
+      }
+
+      function getCoveragePolicies() {
+        return Array.isArray(linkedRecord?.coveragePolicies) ? linkedRecord.coveragePolicies : [];
+      }
+
+      function getCoveragePolicyLimit() {
+        return MAX_COVERAGE_POLICY_LIMIT;
+      }
+
+      function refreshCoverageAddButtons() {
+        const atLimit = getCoveragePolicies().length >= getCoveragePolicyLimit();
+        [addPolicyButton].forEach(function (button) {
+          if (button instanceof HTMLButtonElement) {
+            button.disabled = atLimit;
+          }
+        });
+      }
+
+      function syncLinkedProfileSummary() {
+        if (!linkedRecord) {
+          return;
+        }
+
+        if (clientNameValue) {
+          clientNameValue.textContent = String(linkedRecord.displayName || linkedRecord.firstName || "Linked Client").trim();
+        }
+
+        if (caseRefValue) {
+          caseRefValue.textContent = String(linkedRecord.caseRef || resolvedCaseRef || "--").trim();
+        }
+      }
+
+      function syncSummary() {
+        const policies = getCoveragePolicies();
+        const totalCoverage = summarizeCoveragePoliciesForPage(policies).totalCoverage;
+
+        if (policyCountValue) {
+          policyCountValue.textContent = String(policies.length);
+        }
+
+        if (coverageTotalValue) {
+          coverageTotalValue.textContent = formatCurrencyDisplay(totalCoverage);
+        }
+      }
+
+      function showFeedback(message, tone) {
+        if (!feedback) {
+          return;
+        }
+
+        feedback.textContent = String(message || "").trim();
+        feedback.classList.toggle("is-success", tone === "success");
+        feedback.classList.toggle("is-error", tone === "error");
+      }
+
+      function clearFeedback() {
+        showFeedback("", "");
+      }
+
+      function renderSavedPolicies() {
+        if (!policyList) {
+          return;
+        }
+
+        const policies = getCoveragePolicies();
+        if (typeof coverageSummaryList.renderCoveragePolicyList === "function") {
+          coverageSummaryList.renderCoveragePolicyList(policyList, policies, {
+            itemClass: "existing-coverage-saved-card",
+            copyClass: "existing-coverage-saved-card-copy",
+            actionsClass: "existing-coverage-saved-card-actions",
+            emptyClass: "existing-coverage-empty",
+            emptyTitle: "No policies are saved to this profile yet.",
+            emptyCopy: `Use Add Existing Coverage to save a face amount now and add policy details when available. Up to ${getCoveragePolicyLimit()} total policies can be saved on one profile.`,
+            indexAttribute: "data-existing-coverage-policy-index",
+            renderActions: function () {
+              return `
+                <button class="btn btn-secondary existing-coverage-saved-action" type="button" data-existing-coverage-edit>Edit</button>
+                <button class="existing-coverage-saved-delete" type="button" data-existing-coverage-remove>Remove</button>
+              `;
+            }
+          });
+          return;
+        }
+
+        policyList.innerHTML = "";
+      }
+
+      function saveReusableCoveragePolicies(updatedPolicies) {
+        if (!linkedRecord || typeof updateClientRecordByCaseRef !== "function") {
+          return null;
+        }
+
+        const safePolicies = Array.isArray(updatedPolicies)
+          ? updatedPolicies.filter(function (policy) {
+              return policy && typeof policy === "object";
+            })
+          : [];
+        const today = new Date().toISOString().slice(0, 10);
+        const updatedRecord = updateClientRecordByCaseRef(resolvedCaseRef, function (currentRecord) {
+          const coverageSummaryFields = getCoverageProfileSummaryFields(safePolicies);
+          return {
+            ...currentRecord,
+            coveragePolicies: safePolicies,
+            ...coverageSummaryFields,
+            lastUpdatedDate: today,
+            lastReview: today
+          };
+        });
+
+        if (!updatedRecord) {
+          return null;
+        }
+
+        linkedRecord = updatedRecord;
+        clientRecordsApi.setLinkedRecordId?.(updatedRecord.id);
+        syncLinkedProfileSummary();
+        syncSummary();
+        renderSavedPolicies();
+        refreshCoverageAddButtons();
+
+        const policies = getCoveragePolicies();
+        const totalCoverage = summarizeCoveragePoliciesForPage(policies).totalCoverage;
+        showFeedback(`Saved ${policies.length === 1 ? "1 policy" : `${policies.length} policies`} totaling ${formatCurrencyDisplay(totalCoverage)}.`, "success");
+
+        return updatedRecord;
+      }
+
+      function openReusableCoverageManager(options) {
+        if (!linkedRecord || typeof coverageManager.openCoveragePolicyManager !== "function") {
+          showFeedback("Unable to open the coverage manager right now.", "error");
+          return;
+        }
+
+        const normalizedOptions = options && typeof options === "object" ? options : {};
+        clearFeedback();
+        coverageManager.openCoveragePolicyManager({
+          profileRecord: linkedRecord,
+          coveragePolicies: getCoveragePolicies(),
+          allowDelete: false,
+          policyLimit: getCoveragePolicyLimit(),
+          initialAction: normalizedOptions.initialAction,
+          initialPolicyIndex: normalizedOptions.initialPolicyIndex,
+          title: "Manage Existing Coverage",
+          contextLabel: String(linkedRecord.displayName || linkedRecord.caseRef || "Linked profile").trim(),
+          onSavePolicies: saveReusableCoveragePolicies
+        });
+      }
+
+      async function removeCoveragePolicy(policyIndex) {
+        if (!linkedRecord || typeof updateClientRecordByCaseRef !== "function") {
+          return false;
+        }
+
+        const currentPolicies = getCoveragePolicies();
+        const policy = currentPolicies[policyIndex] || null;
+        if (!policy) {
+          return false;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const updatedRecord = updateClientRecordByCaseRef(resolvedCaseRef, function (currentRecord) {
+          const currentPoliciesOnRecord = Array.isArray(currentRecord?.coveragePolicies) ? currentRecord.coveragePolicies.slice() : [];
+          currentPoliciesOnRecord.splice(policyIndex, 1);
+          const coverageSummaryFields = getCoverageProfileSummaryFields(currentPoliciesOnRecord);
+
+          return {
+            ...currentRecord,
+            coveragePolicies: currentPoliciesOnRecord,
+            ...coverageSummaryFields,
+            lastUpdatedDate: today,
+            lastReview: today
+          };
+        });
+
+        if (!updatedRecord) {
+          return false;
+        }
+
+        linkedRecord = updatedRecord;
+        clientRecordsApi.setLinkedRecordId?.(updatedRecord.id);
+
+        if (policy.id) {
+          try {
+            await deletePolicyDocumentFiles(String(linkedRecord.id || "").trim(), String(policy.id || "").trim());
+          } catch (error) {
+            // Keep record deletion even if file cleanup fails.
+          }
+        }
+
+        return true;
+      }
+
+      if (!resolvedCaseRef || !linkedRecord) {
+        window.location.replace("existing-coverage-linked.html");
+        return;
+      }
+
+      clientRecordsApi.setLinkedCaseRef?.(resolvedCaseRef);
+      clientRecordsApi.setLinkedRecordId?.(linkedRecord.id);
+      if (previousLink) {
+        previousLink.href = `existing-coverage-linked.html?caseRef=${encodeURIComponent(resolvedCaseRef)}`;
+      }
+
+      syncLinkedProfileSummary();
+      syncSummary();
+      renderSavedPolicies();
+      refreshCoverageAddButtons();
+
+      addPolicyButton?.addEventListener("click", function () {
+        if (getCoveragePolicies().length >= getCoveragePolicyLimit()) {
+          showFeedback(`You can save up to ${getCoveragePolicyLimit()} policies on one profile.`, "error");
+          return;
+        }
+
+        openReusableCoverageManager({ initialAction: "add" });
+      });
+
+      policyList?.addEventListener("click", async function (event) {
+        const editButton = event.target.closest("[data-existing-coverage-edit]");
+        if (editButton) {
+          clearFeedback();
+          const card = editButton.closest("[data-existing-coverage-policy-index]");
+          const policyIndex = Number(card?.getAttribute("data-existing-coverage-policy-index") || "-1");
+          openReusableCoverageManager({ initialPolicyIndex: policyIndex });
+          return;
+        }
+
+        const removeButton = event.target.closest("[data-existing-coverage-remove]");
+        if (!removeButton) {
+          return;
+        }
+
+        const card = removeButton.closest("[data-existing-coverage-policy-index]");
+        const policyIndex = Number(card?.getAttribute("data-existing-coverage-policy-index") || "-1");
+        if (policyIndex < 0) {
+          return;
+        }
+
+        const shouldRemove = window.confirm("Remove this policy from the linked profile?");
+        if (!shouldRemove) {
+          return;
+        }
+
+        clearFeedback();
+        const removed = await removeCoveragePolicy(policyIndex);
+        if (!removed) {
+          showFeedback("Unable to remove this policy right now.", "error");
+          return;
+        }
+
+        syncSummary();
+        renderSavedPolicies();
+        refreshCoverageAddButtons();
+        showFeedback("Policy removed from the linked profile.", "success");
+      });
+    })();
+  </script>
+</body>
+</html>

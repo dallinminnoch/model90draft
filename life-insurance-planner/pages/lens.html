@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="pageTitle.lens">LENS | Life Evaluation &amp; Needs Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page lens-page lens-start-page">
+  <script>
+    (function () {
+      try {
+        const session = JSON.parse(localStorage.getItem("lipPlannerAuthSession") || "null");
+        const identity = session && session.email ? String(session.email).trim().toLowerCase() : "guest";
+        if (localStorage.getItem(`workspaceSideNavCollapsed:${identity}`) === "1") {
+          document.body.classList.add("workspace-side-nav-collapsed");
+        }
+      } catch (error) {
+        // Ignore storage issues and fall back to the default expanded state.
+      }
+    })();
+  </script>
+  <div class="workspace-page-topbar">
+    <div class="workspace-page-topbar-inner">
+      <details class="workspace-page-menu">
+        <summary class="workspace-page-menu-trigger" aria-label="Open pages menu" title="Pages">
+          <img class="workspace-page-menu-icon" src="../Images/menu.svg" alt="" aria-hidden="true">
+        </summary>
+        <div class="workspace-page-menu-panel">
+          <a class="workspace-page-menu-link" href="../index.html">
+            <span class="workspace-page-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <path d="M3.6 8.45 10 3.55l6.4 4.9v7.2a1.35 1.35 0 0 1-1.35 1.35H4.95A1.35 1.35 0 0 1 3.6 15.65V8.45Z" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+                <path d="M7.75 16.95v-4.3h4.5v4.3" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="workspace-page-menu-link-label">Home</span>
+          </a>
+          <a class="workspace-page-menu-link" href="clients.html">
+            <span class="workspace-page-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <circle cx="7" cy="7.2" r="2.35" stroke="currentColor" stroke-width="1.55"/>
+                <circle cx="13.3" cy="8.15" r="2.05" stroke="currentColor" stroke-width="1.55"/>
+                <path d="M3.9 15.35c.55-2.15 2.2-3.45 4.15-3.45 1.95 0 3.55 1.3 4.1 3.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                <path d="M11.2 15.35c.4-1.65 1.7-2.65 3.25-2.65 1.1 0 2.15.5 2.85 1.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="workspace-page-menu-link-label">Client Directory</span>
+          </a>
+          <a class="workspace-page-menu-link is-active" href="lens.html">
+            <span class="workspace-page-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="6.05" stroke="currentColor" stroke-width="1.55"/>
+                <circle cx="10" cy="10" r="2.1" stroke="currentColor" stroke-width="1.55"/>
+                <path d="M10 2.95v1.85M10 15.2v1.85M17.05 10H15.2M4.8 10H2.95" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="workspace-page-menu-link-label">LENS Analysis</span>
+          </a>
+        </div>
+      </details>
+      <div class="workspace-page-topbar-actions">
+        <button class="fullscreen-toggle" type="button" data-fullscreen-toggle aria-label="Enter full screen" title="Enter full screen" aria-pressed="false">
+          <img class="fullscreen-toggle-icon" data-fullscreen-icon src="../Images/openfullscreen.svg" alt="" aria-hidden="true">
+          <span class="sr-only">Toggle full screen</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="workspace-side-nav-host" data-workspace-side-nav-host data-workspace-side-nav="lens"></div>
+  <script>
+    if (document.body.classList.contains("workspace-side-nav-collapsed")) {
+      document.currentScript.previousElementSibling.classList.add("is-collapsed");
+    }
+  </script>
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="lens-start-layout workspace-visible-pane" id="lens-overview">
+        <section class="lens-start-main">
+          <section class="page-intro lens-start-intro">
+          <div>
+            <div class="section-label">Overview</div>
+            <h1 class="lens-hero-title">Life Evaluation &amp; Needs System.</h1>
+            <p class="lens-hero-subtitle">Estimate coverage need, compare planning methods, and shape a clear recommendation in one guided analysis.</p>
+          </div>
+        </section>
+
+        <section class="lens-start-card" id="lens-start-analysis">
+          <div class="lens-start-card-header">
+            <div>
+              <h2 class="section-title">Start Analysis</h2>
+              <p class="helper-text">Review a live preview of the planning outputs, then launch the guided intake flow.</p>
+            </div>
+            <a class="btn btn-primary lens-start-button" href="profile.html" id="start-planning">Start Analysis</a>
+          </div>
+
+          <div class="lens-start-note">
+            <div class="lens-intake-note-icon">
+              <img class="lens-intake-icon-svg" src="../Images/emoji_objects_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg" alt="Helpful note">
+            </div>
+            <div>
+              <strong>The analysis flow saves each step automatically.</strong>
+              <p>You can start from a linked client profile, move through the guided steps, and return later without losing progress.</p>
+            </div>
+          </div>
+
+          <aside class="lens-hero-visual" aria-label="Workflow summary">
+            <div class="lens-analysis-stage" data-lens-card-stage>
+            <section class="lens-analysis-card is-visible" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Coverage Need</span>
+                <div class="lens-analysis-list">
+                  <div class="lens-analysis-row">
+                    <span>Coverage Need</span>
+                    <strong>$2,400,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Current Coverage</span>
+                    <strong>$800,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Coverage Gap</span>
+                    <strong>$1,600,000</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Recommendation</span>
+                <strong>Blend term and permanent coverage</strong>
+                <p>Based on needs analysis</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card is-visible" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Method Review</span>
+                <div class="lens-bars-panel" aria-hidden="true">
+                  <div class="lens-bar-row">
+                    <div class="lens-bar-copy">
+                      <span>HLV</span>
+                      <strong>$2,950,000</strong>
+                    </div>
+                    <div class="lens-bar-track">
+                      <span class="lens-bar-fill" style="width: 86%;"></span>
+                    </div>
+                  </div>
+                  <div class="lens-bar-row">
+                    <div class="lens-bar-copy">
+                      <span>DIME</span>
+                      <strong>$2,180,000</strong>
+                    </div>
+                    <div class="lens-bar-track">
+                      <span class="lens-bar-fill is-muted" style="width: 63%;"></span>
+                    </div>
+                  </div>
+                  <div class="lens-bar-row">
+                    <div class="lens-bar-copy">
+                      <span>Needs</span>
+                      <strong>$2,420,000</strong>
+                    </div>
+                    <div class="lens-bar-track">
+                      <span class="lens-bar-fill is-bright" style="width: 72%;"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Interpretation</span>
+                <strong>Balanced target centers around the needs-based result</strong>
+                <p>HLV runs higher, DIME runs leaner, and Needs lands in the recommended middle range.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card is-visible" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Income Loss Impact</span>
+                <div class="lens-slider-stack" aria-hidden="true">
+                  <div class="lens-slider-card">
+                    <div class="lens-slider-copy">
+                      <span>Annual Income Replaced</span>
+                      <strong>$165,000</strong>
+                    </div>
+                    <div class="lens-slider-track">
+                      <span class="lens-slider-fill" style="width: 58%;"></span>
+                    </div>
+                  </div>
+                  <div class="lens-slider-card">
+                    <div class="lens-slider-copy">
+                      <span>Support Horizon</span>
+                      <strong>12 Years</strong>
+                    </div>
+                    <div class="lens-slider-track">
+                      <span class="lens-slider-fill is-soft" style="width: 76%;"></span>
+                    </div>
+                  </div>
+                  <div class="lens-slider-card">
+                    <div class="lens-slider-copy">
+                      <span>Total Income Exposure</span>
+                      <strong>$1,980,000</strong>
+                    </div>
+                    <div class="lens-slider-track">
+                      <span class="lens-slider-fill is-bright" style="width: 88%;"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Household Effect</span>
+                <strong>Primary earnings loss creates the largest pressure on long-term stability</strong>
+                <p>Most of the gap comes from replacing income long enough for the household to reset and refinance its obligations.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Debt Relief</span>
+                <div class="lens-analysis-list">
+                  <div class="lens-analysis-row">
+                    <span>Mortgage Balance</span>
+                    <strong>$620,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Consumer Debt</span>
+                    <strong>$74,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Total Payoff Need</span>
+                    <strong>$694,000</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Priority</span>
+                <strong>Debt payoff removes immediate cash-flow strain</strong>
+                <p>Clearing core liabilities keeps housing and credit stability intact during the transition period.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Education Funding</span>
+                <div class="lens-mini-chart" aria-hidden="true">
+                  <div class="lens-mini-chart-bars">
+                    <span class="lens-mini-chart-bar" style="height: 82%;"></span>
+                    <span class="lens-mini-chart-bar is-muted" style="height: 28%;"></span>
+                    <span class="lens-mini-chart-bar is-bright" style="height: 64%;"></span>
+                  </div>
+                  <div class="lens-mini-chart-labels">
+                    <span>Goal</span>
+                    <span>Saved</span>
+                    <span>Gap</span>
+                  </div>
+                  <div class="lens-mini-chart-values">
+                    <strong>$280K</strong>
+                    <strong>$64K</strong>
+                    <strong>$216K</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Family Goal</span>
+                <strong>Protection supports tuition continuity for dependents</strong>
+                <p>Education funding keeps long-term goals on track even if household income is interrupted.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Liquidity Reserve</span>
+                <div class="lens-analysis-list">
+                  <div class="lens-analysis-row">
+                    <span>Emergency Target</span>
+                    <strong>$120,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Estate Costs</span>
+                    <strong>$35,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Bridge Reserve</span>
+                    <strong>$155,000</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Stability</span>
+                <strong>Short-term liquidity protects decision making</strong>
+                <p>Readily available cash reduces the need for rushed asset sales or rushed product changes.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Estate Balance</span>
+                <div class="lens-analysis-list">
+                  <div class="lens-analysis-row">
+                    <span>Projected Estate</span>
+                    <strong>$3,800,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Protected Assets</span>
+                    <strong>$2,100,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Uncovered Portion</span>
+                    <strong>$1,700,000</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Preservation</span>
+                <strong>Coverage keeps asset transfers cleaner and more flexible</strong>
+                <p>Liquidity can offset taxes, equalize inheritances, or reduce pressure on business and property assets.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Business Continuity</span>
+                <div class="lens-bars-panel" aria-hidden="true">
+                  <div class="lens-bar-row">
+                    <div class="lens-bar-copy">
+                      <span>Owner Contribution</span>
+                      <strong>$410,000</strong>
+                    </div>
+                    <div class="lens-bar-track">
+                      <span class="lens-bar-fill" style="width: 33%;"></span>
+                    </div>
+                  </div>
+                  <div class="lens-bar-row">
+                    <div class="lens-bar-copy">
+                      <span>Buyout Reserve</span>
+                      <strong>$850,000</strong>
+                    </div>
+                    <div class="lens-bar-track">
+                      <span class="lens-bar-fill is-muted" style="width: 67%;"></span>
+                    </div>
+                  </div>
+                  <div class="lens-bar-row">
+                    <div class="lens-bar-copy">
+                      <span>Working Capital Need</span>
+                      <strong>$1,260,000</strong>
+                    </div>
+                    <div class="lens-bar-track">
+                      <span class="lens-bar-fill is-bright" style="width: 100%;"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Continuity</span>
+                <strong>Coverage can stabilize ownership and operating capital</strong>
+                <p>For closely held businesses, protection planning often supports both family income and transition funding.</p>
+              </section>
+            </section>
+
+            <section class="lens-analysis-card" data-lens-card>
+              <div class="lens-analysis-section">
+                <span class="lens-analysis-label">Retirement Offset</span>
+                <div class="lens-analysis-list">
+                  <div class="lens-analysis-row">
+                    <span>Future Income Goal</span>
+                    <strong>$1,480,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Accumulated Assets</span>
+                    <strong>$930,000</strong>
+                  </div>
+                  <div class="lens-analysis-row">
+                    <span>Offset Need</span>
+                    <strong>$550,000</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="lens-recommendation-panel">
+                <span class="lens-analysis-label">Long Range</span>
+                <strong>Insurance can preserve retirement timing for a surviving spouse</strong>
+                <p>The goal is protecting future lifestyle planning, not only near-term obligations.</p>
+              </section>
+            </section>
+            </div>
+          </aside>
+        </section>
+      </section>
+
+      <aside class="lens-start-rail" id="lens-tool-summary">
+        <section class="lens-intake-sidecard">
+          <h3>This tool includes</h3>
+          <ul class="lens-intake-side-list">
+            <li><span class="lens-intake-mini-icon">IN</span><span>Intake form and linked client entry</span></li>
+            <li><span class="lens-intake-mini-icon">IL</span><span>Income loss impact framing</span></li>
+            <li><span class="lens-intake-mini-icon">NA</span><span>Needs analysis and estimate views</span></li>
+          </ul>
+          <p class="lens-intake-side-meta">A few minutes to get through the guided setup</p>
+        </section>
+
+        <section class="lens-intake-sidecard">
+          <h3>What you can surface</h3>
+          <ul class="lens-intake-prompt-list">
+            <li>
+              <span class="lens-intake-mini-icon">CG</span>
+              <div>
+                <strong>Coverage gap</strong>
+                <p>Show the difference between current coverage and practical protection need.</p>
+              </div>
+            </li>
+            <li>
+              <span class="lens-intake-mini-icon">MV</span>
+              <div>
+                <strong>Method comparison</strong>
+                <p>Contrast HLV, DIME, and needs-based views without overwhelming the client.</p>
+              </div>
+            </li>
+            <li>
+              <span class="lens-intake-mini-icon">RC</span>
+              <div>
+                <strong>Recommendation path</strong>
+                <p>Move from analysis into coverage options, planning strategy, and final review.</p>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="../workspace-side-nav.js"></script>
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const pageMenu = document.querySelector(".workspace-page-menu");
+      const lensNavLinks = Array.from(document.querySelectorAll("[data-lens-tab]"));
+      const stage = document.querySelector("[data-lens-card-stage]");
+      const cards = Array.from(document.querySelectorAll("[data-lens-card]"));
+      const cardsPerView = 3;
+
+      lensNavLinks.forEach(function (link) {
+        link.addEventListener("click", function () {
+          lensNavLinks.forEach(function (item) {
+            item.classList.remove("is-active");
+            item.removeAttribute("aria-current");
+          });
+          link.classList.add("is-active");
+          link.setAttribute("aria-current", "location");
+        });
+      });
+
+      document.addEventListener("click", function (event) {
+        if (!event.target.closest(".workspace-page-menu") && pageMenu) {
+          pageMenu.removeAttribute("open");
+        }
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && pageMenu) {
+          pageMenu.removeAttribute("open");
+        }
+      });
+
+      if (!stage || cards.length <= cardsPerView) {
+        return;
+      }
+
+      const slotCount = Math.min(cardsPerView, cards.length);
+      const slots = [];
+      const pauseBetweenChanges = 1500;
+      const slotOffsets = [0, 1200, 2400];
+      let lastSwapAt = Date.now();
+
+      for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+        const slot = document.createElement("div");
+        slot.className = "lens-analysis-slot";
+        stage.appendChild(slot);
+        slots.push(slot);
+      }
+
+      cards.forEach(function (card, index) {
+        const slotIndex = index % slotCount;
+        card.classList.toggle("is-visible", index < slotCount);
+        slots[slotIndex].appendChild(card);
+      });
+
+      const slotState = slots.map(function (_, slotIndex) {
+        return {
+          slot: slotIndex,
+          activeIndex: slotIndex,
+          cardIndexes: cards
+            .map(function (_card, index) {
+              return index;
+            })
+            .filter(function (index) {
+              return index % slotCount === slotIndex;
+            })
+        };
+      });
+
+      function getRandomDelay() {
+        return 3200 + Math.floor(Math.random() * 3200);
+      }
+
+      function getSlotDelay(slotIndex) {
+        return getRandomDelay() + (slotOffsets[slotIndex] || 0);
+      }
+
+      function scheduleRotate(state, delay) {
+        window.setTimeout(function () {
+          const elapsedSinceLastSwap = Date.now() - lastSwapAt;
+          const remainingPause = pauseBetweenChanges - elapsedSinceLastSwap;
+          if (remainingPause > 0) {
+            scheduleRotate(state, remainingPause + 50);
+            return;
+          }
+          rotateSlot(state);
+        }, delay);
+      }
+
+      function rotateSlot(state) {
+        if (state.cardIndexes.length < 2) {
+          return;
+        }
+
+        const currentCard = cards[state.activeIndex];
+        const currentPosition = state.cardIndexes.indexOf(state.activeIndex);
+        const nextPosition = (currentPosition + 1) % state.cardIndexes.length;
+        const nextIndex = state.cardIndexes[nextPosition];
+        const nextCard = cards[nextIndex];
+
+        if (currentCard) {
+          currentCard.classList.remove("is-visible");
+        }
+        if (nextCard) {
+          nextCard.classList.add("is-visible");
+        }
+
+        lastSwapAt = Date.now();
+        state.activeIndex = nextIndex;
+        scheduleRotate(state, getSlotDelay(state.slot));
+      }
+
+      slotState.forEach(function (state) {
+        scheduleRotate(state, getSlotDelay(state.slot));
+      });
+    })();
+  </script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimum Inputs | LENS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page prospect-page profile-creation-page" data-page="manual-minimum-inputs">
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="prospect-empty-panel">
+        <div class="prospect-panel-header">
+          <a class="prospect-return-button" href="profile.html" data-loading-link>Previous</a>
+          <h1>Minimum Inputs</h1>
+          <button class="confidential-calculator-toggle" type="button" data-calculator-toggle aria-expanded="false" aria-controls="protection-calculator" aria-label="Open calculator">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="4" y="2.1" width="16" height="19.8" rx="1.6" fill="#ffffff" stroke="#000000" stroke-width="1.2"></rect>
+              <rect x="6.85" y="4.5" width="10.3" height="3.05" rx="0.65" fill="#000000" opacity="0.12"></rect>
+              <rect x="6.75" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="10.7" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="14.65" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="6.75" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="10.7" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="14.65" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="6.75" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="10.7" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000" opacity="0.88"></rect>
+              <rect x="14.65" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000"></rect>
+            </svg>
+          </button>
+        </div>
+        <form class="profile-creation-form" id="protection-modeling-form" data-pmi-draft-key="manual-minimum-inputs">
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Core Income</h2>
+              <p class="profile-section-note">This is the smallest set of income fields needed to support HLV and income replacement.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="net-annual-income">Net Annual Income</label>
+                <div class="profile-currency-field">
+                  <input id="net-annual-income" name="netAnnualIncome" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="current-age">Current Age</label>
+                <input id="current-age" class="profile-small-number-field" name="currentAge" type="number" min="0" max="100" step="1">
+              </div>
+              <div class="field-group">
+                <label for="years-until-retirement">Years Until Retirement</label>
+                <input id="years-until-retirement" class="profile-small-number-field" name="yearsUntilRetirement" type="number" min="0" max="80" step="1">
+              </div>
+              <div class="field-group">
+                <label for="income-growth-rate">Income Growth Rate Assumption</label>
+                <div class="profile-currency-field">
+                  <input id="income-growth-rate" class="profile-small-number-field" name="incomeGrowthRate" type="number" min="0" max="25" step="0.1">
+                  <span class="profile-currency-suffix">%</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="employer-benefits-value">Employer Benefits Value</label>
+                <div class="profile-currency-field">
+                  <input id="employer-benefits-value" name="employerBenefitsValue" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Income Replacement</h2>
+              <p class="profile-section-note">Enter only the core cash-flow replacement assumptions.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="annual-income-to-replace">Annual Income To Replace</label>
+                <div class="profile-currency-field">
+                  <input id="annual-income-to-replace" name="annualIncomeToReplace" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="income-replacement-duration">Income Replacement Duration</label>
+                <div class="profile-inline-unit-field">
+                  <input id="income-replacement-duration" class="profile-small-number-field" name="incomeReplacementDuration" type="number" min="0" max="80" step="1">
+                  <span class="profile-inline-unit">Years</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="survivor-net-annual-income">Survivor Annual Income Available After Death</label>
+                <div class="profile-currency-field">
+                  <input id="survivor-net-annual-income" name="survivorNetAnnualIncome" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Debt Summary</h2>
+              <p class="profile-section-note">Enter the total amount of debt the death benefit should clear.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="debt-payoff-total">Total Debt Payoff Need</label>
+                <div class="profile-currency-field">
+                  <input id="debt-payoff-total" name="debtPayoffTotal" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="final-expenses-total">Final Expenses Total</label>
+                <div class="profile-currency-field">
+                  <input id="final-expenses-total" name="finalExpensesTotal" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Education Funding</h2>
+              <p class="profile-section-note">Enter one total if education funding should be part of the death benefit.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="education-funding-total">Total Education Funding Goal</label>
+                <div class="profile-currency-field">
+                  <input id="education-funding-total" name="educationFundingTotal" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Current Coverage and Assets</h2>
+              <p class="profile-section-note">Use one total for current coverage and one total for other available offsets.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="existing-coverage-total">Total Existing Life Coverage</label>
+                <div class="profile-currency-field">
+                  <input id="existing-coverage-total" name="existingCoverageTotal" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="available-assets-total">Total Available Assets / Offsets</label>
+                <div class="profile-currency-field">
+                  <input id="available-assets-total" name="availableAssetsTotal" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="profile-form-section">
+            <div class="profile-form-section-heading">
+              <h2>Additional Needs</h2>
+              <p class="profile-section-note">Use this section for extra lump-sum needs that belong in the broader needs analysis but do not fit the other buckets.</p>
+            </div>
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="funeral-burial-estimate">Funeral / Burial Estimate</label>
+                <div class="profile-currency-field is-recommended" data-recommended-default="15000">
+                  <input id="funeral-burial-estimate" name="funeralBurialEstimate" type="number" min="0" step="1000" value="15000">
+                  <span class="profile-currency-suffix">USD</span>
+                  <span class="profile-recommended-label">(Recommended amount)</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="special-one-time-goals">Special One-Time Goals</label>
+                <div class="profile-currency-field">
+                  <input id="special-one-time-goals" name="specialOneTimeGoals" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="other-survivor-lump-sum-need">Other Survivor Lump-Sum Need</label>
+                <div class="profile-currency-field">
+                  <input id="other-survivor-lump-sum-need" name="otherSurvivorLumpSumNeed" type="number" min="0" step="1000">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="actions-row">
+            <button class="btn btn-secondary pmi-save-exit-button" type="button" data-pmi-save-exit>Save and Continue</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <div class="floating-calculator" id="protection-calculator" hidden aria-hidden="true">
+    <div class="floating-calculator-header" data-calculator-drag-handle><button class="floating-calculator-close" type="button" aria-label="Close calculator">×</button>
+    </div>
+    <div class="floating-calculator-body">
+      <input
+        class="floating-calculator-display"
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Calculator display"
+      >
+      <div class="floating-calculator-pad" aria-label="Calculator buttons">
+        <button type="button" data-calculator-action="clear">C</button>
+        <button type="button" data-calculator-action="parens">()</button>
+        <button type="button" data-calculator-action="percent">%</button>
+        <button type="button" data-calculator-value="/">/</button>
+        <button type="button" data-calculator-value="7">7</button>
+        <button type="button" data-calculator-value="8">8</button>
+        <button type="button" data-calculator-value="9">9</button>
+        <button type="button" data-calculator-value="*">×</button>
+        <button type="button" data-calculator-value="4">4</button>
+        <button type="button" data-calculator-value="5">5</button>
+        <button type="button" data-calculator-value="6">6</button>
+        <button type="button" data-calculator-value="-">−</button>
+        <button type="button" data-calculator-value="1">1</button>
+        <button type="button" data-calculator-value="2">2</button>
+        <button type="button" data-calculator-value="3">3</button>
+        <button type="button" data-calculator-value="+">+</button>
+        <button type="button" data-calculator-value="0">0</button>
+        <button type="button" data-calculator-value=".">.</button>
+        <button type="button" data-calculator-action="backspace">⌫</button>
+        <button type="button" data-calculator-action="equals">=</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script src="../pmi-calculator.js"></script>
+  <script>
+    (function () {
+      const form = document.getElementById("protection-modeling-form");
+
+      if (!form) {
+        return;
+      }
+
+      const formatter = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      const liveFormatter = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+      const numberInputs = Array.from(form.querySelectorAll('input[type="number"]'));
+
+      function sanitizeNumericValue(value) {
+        const cleaned = String(value || "").replace(/[^0-9.]/g, "");
+        const parts = cleaned.split(".");
+        return parts.length <= 1 ? cleaned : `${parts[0]}.${parts.slice(1).join("")}`;
+      }
+
+      function formatNumericValue(input) {
+        const sanitized = sanitizeNumericValue(input.value);
+        if (!sanitized) {
+          input.value = "";
+          return;
+        }
+
+        const numericValue = Number(sanitized);
+        if (!Number.isFinite(numericValue)) {
+          input.value = "";
+          return;
+        }
+
+        input.value = formatter.format(numericValue);
+      }
+
+      function formatNumericValueLive(input) {
+        const sanitized = sanitizeNumericValue(input.value);
+        if (!sanitized) {
+          input.value = "";
+          return;
+        }
+
+        const parts = sanitized.split(".");
+        const wholePart = parts[0] || "0";
+        const decimalPart = parts[1] || "";
+        const wholeNumber = Number(wholePart);
+
+        if (!Number.isFinite(wholeNumber)) {
+          input.value = "";
+          return;
+        }
+
+        const formattedWhole = liveFormatter.format(wholeNumber).split(".")[0];
+        input.value = decimalPart ? `${formattedWhole}.${decimalPart.slice(0, 2)}` : formattedWhole;
+      }
+
+      function stripFormatting(input) {
+        input.value = sanitizeNumericValue(input.value);
+      }
+
+      numberInputs.forEach((input) => {
+        input.type = "text";
+        input.inputMode = "decimal";
+        input.autocomplete = "off";
+
+        input.addEventListener("focus", () => {
+          stripFormatting(input);
+          input.select();
+        });
+
+        input.addEventListener("input", () => {
+          formatNumericValueLive(input);
+        });
+
+        input.addEventListener("blur", () => {
+          formatNumericValue(input);
+        });
+
+        formatNumericValue(input);
+      });
+
+      form.addEventListener("submit", () => {
+        numberInputs.forEach((input) => {
+          stripFormatting(input);
+        });
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      const defaults = [
+        { id: "funeral-burial-estimate" }
+      ];
+
+      defaults.forEach(({ id }) => {
+        const input = document.getElementById(id);
+        if (!input) {
+          return;
+        }
+
+        const field = input.closest(".profile-currency-field");
+        if (!field) {
+          return;
+        }
+
+        input.addEventListener("input", () => {
+          field.classList.remove("is-recommended");
+        }, { once: true });
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      if (window.initializePmiCalculator) {
+        window.initializePmiCalculator();
+        return;
+      }
+
+      const toggleButton = document.querySelector("[data-calculator-toggle]");
+      const calculator = document.getElementById("protection-calculator");
+      const closeButton = calculator ? calculator.querySelector(".floating-calculator-close") : null;
+      const dragHandle = calculator ? calculator.querySelector("[data-calculator-drag-handle]") : null;
+      const display = calculator ? calculator.querySelector(".floating-calculator-display") : null;
+      const pad = calculator ? calculator.querySelector(".floating-calculator-pad") : null;
+
+      if (!toggleButton || !calculator || !closeButton || !dragHandle || !display || !pad) {
+        return;
+      }
+
+      let dragState = null;
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function sanitizeExpression(value) {
+        return String(value || "").replace(/[^0-9+\-*/().\s]/g, "");
+      }
+
+      function setDisplayValue(value) {
+        display.value = sanitizeExpression(value);
+      }
+
+      function evaluateDisplay() {
+        const expression = sanitizeExpression(display.value).replace(/[×]/g, "*").replace(/[÷]/g, "/");
+        if (!expression.trim() || !/^[0-9+\-*/().\s]+$/.test(expression)) {
+          return;
+        }
+
+        try {
+          const result = Function(`"use strict"; return (${expression});`)();
+          if (Number.isFinite(result)) {
+            display.value = String(result);
+          }
+        } catch (_error) {
+        }
+      }
+
+      function appendValue(value) {
+        const nextValue = `${display.value || ""}${value}`;
+        setDisplayValue(nextValue);
+        display.focus();
+        display.setSelectionRange(display.value.length, display.value.length);
+      }
+
+      function backspaceValue() {
+        setDisplayValue(display.value.slice(0, -1));
+        display.focus();
+        display.setSelectionRange(display.value.length, display.value.length);
+      }
+
+      function openCalculator() {
+        calculator.hidden = false;
+        calculator.setAttribute("aria-hidden", "false");
+        toggleButton.setAttribute("aria-expanded", "true");
+        if (!calculator.style.left && !calculator.style.top) {
+          calculator.style.top = "8rem";
+          calculator.style.right = "1.25rem";
+          calculator.style.left = "auto";
+          calculator.style.bottom = "auto";
+        }
+        display.focus();
+      }
+
+      function closeCalculator() {
+        calculator.hidden = true;
+        calculator.setAttribute("aria-hidden", "true");
+        toggleButton.setAttribute("aria-expanded", "false");
+        dragState = null;
+      }
+
+      toggleButton.addEventListener("click", () => {
+        if (calculator.hidden) {
+          openCalculator();
+        } else {
+          closeCalculator();
+        }
+      });
+
+      closeButton.addEventListener("click", closeCalculator);
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !calculator.hidden) {
+          closeCalculator();
+        }
+      });
+
+      pad.addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (!button) {
+          return;
+        }
+
+        const action = button.getAttribute("data-calculator-action");
+        const value = button.getAttribute("data-calculator-value");
+
+        if (action === "clear") {
+          setDisplayValue("");
+          display.focus();
+          return;
+        }
+
+        if (action === "backspace") {
+          backspaceValue();
+          return;
+        }
+
+        if (action === "equals") {
+          evaluateDisplay();
+          display.focus();
+          return;
+        }
+
+        if (value) {
+          appendValue(value);
+        }
+      });
+
+      display.addEventListener("input", () => {
+        setDisplayValue(display.value);
+      });
+
+      display.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          evaluateDisplay();
+        }
+      });
+
+      dragHandle.addEventListener("pointerdown", (event) => {
+        if (event.target.closest("button, input")) {
+          return;
+        }
+
+        const rect = calculator.getBoundingClientRect();
+        dragState = {
+          startX: event.clientX,
+          startY: event.clientY,
+          startLeft: rect.left,
+          startTop: rect.top
+        };
+
+        calculator.style.left = `${rect.left}px`;
+        calculator.style.top = `${rect.top}px`;
+        calculator.style.right = "auto";
+        calculator.style.bottom = "auto";
+        calculator.style.position = "fixed";
+        dragHandle.setPointerCapture(event.pointerId);
+        dragHandle.style.cursor = "grabbing";
+        event.preventDefault();
+      });
+
+      dragHandle.addEventListener("pointermove", (event) => {
+        if (!dragState || !dragHandle.hasPointerCapture(event.pointerId)) {
+          return;
+        }
+
+        const nextLeft = dragState.startLeft + (event.clientX - dragState.startX);
+        const nextTop = dragState.startTop + (event.clientY - dragState.startY);
+        const rect = calculator.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - rect.width);
+        const maxTop = Math.max(0, window.innerHeight - rect.height);
+
+        calculator.style.left = `${clamp(nextLeft, 0, maxLeft)}px`;
+        calculator.style.top = `${clamp(nextTop, 0, maxTop)}px`;
+      });
+
+      const endDrag = (event) => {
+        if (!dragState) {
+          return;
+        }
+
+        dragState = null;
+        dragHandle.style.cursor = "move";
+        if (dragHandle.hasPointerCapture(event.pointerId)) {
+          dragHandle.releasePointerCapture(event.pointerId);
+        }
+      };
+
+      dragHandle.addEventListener("pointerup", endDrag);
+      dragHandle.addEventListener("pointercancel", endDrag);
+
+      setDisplayValue("");
+    })();
+  </script>
+  <script>
+    (function () {
+      const form = document.getElementById("protection-modeling-form");
+      const saveExitButton = document.querySelector("[data-pmi-save-exit]");
+
+      if (!form || !saveExitButton) {
+        return;
+      }
+
+      const costToFundPercentField = form.elements.namedItem("costToFundPercent");
+
+      function clampCostToFundPercent() {
+        if (!costToFundPercentField || !("value" in costToFundPercentField)) {
+          return;
+        }
+
+        const rawValue = Number(costToFundPercentField.value);
+        if (!Number.isFinite(rawValue)) {
+          return;
+        }
+
+        const clampedValue = Math.min(100, Math.max(0, rawValue));
+        if (String(clampedValue) !== String(costToFundPercentField.value)) {
+          costToFundPercentField.value = String(clampedValue);
+        }
+      }
+
+      function saveManualAnalysisSession(payload) {
+        if (!payload || typeof payload !== "object") {
+          return null;
+        }
+
+        const nextSession = {
+          hasData: true,
+          savedAt: new Date().toISOString(),
+          variant: String(payload.variant || "").trim(),
+          sourcePage: String(payload.sourcePage || "").trim(),
+          data: payload.data && typeof payload.data === "object" ? payload.data : {},
+          meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {}
+        };
+
+        try {
+          sessionStorage.setItem("lensTemporaryAnalysisSession", JSON.stringify(nextSession));
+          return nextSession;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      window.restoreLensTemporaryAnalysisForm?.(form, "manual-minimum-inputs");
+
+      saveExitButton.addEventListener("click", () => {
+        clampCostToFundPercent();
+        const draft = typeof window.serializeLensFormSnapshot === "function"
+          ? window.serializeLensFormSnapshot(form)
+          : {};
+        const savedSession = saveManualAnalysisSession({
+          variant: "manual-minimum-inputs",
+          sourcePage: "manual-minimum-inputs",
+          data: draft
+        });
+
+        if (!savedSession?.hasData) {
+          window.alert("The manual analysis session could not be saved right now. Please try again.");
+          return;
+        }
+
+        window.beginLensAnalysisInternalNavigation?.();
+        window.location.href = "profile.html";
+      });
+
+      if (costToFundPercentField) {
+        costToFundPercentField.addEventListener("input", clampCostToFundPercent);
+        costToFundPercentField.addEventListener("change", clampCostToFundPercent);
+        costToFundPercentField.addEventListener("blur", clampCostToFundPercent);
+      }
+
+    })();
+  </script>
+</body>
+</html>
+
+

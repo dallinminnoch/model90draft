@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Accounts | Advisor Planning Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="admin-page">
+  <main class="admin-shell" id="admin-accounts-page">
+    <header class="admin-header">
+      <div>
+        <div class="eyebrow">Restricted Access</div>
+        <h1>Account Administration</h1>
+        <p class="panel-copy">Manage registered website accounts from this hidden admin console.</p>
+      </div>
+      <div class="admin-header-actions">
+        <a class="btn btn-secondary" href="../index.html">Return Home</a>
+        <button class="btn btn-primary" type="button" id="admin-sign-out">Sign Out</button>
+      </div>
+    </header>
+
+    <section class="admin-summary-grid">
+      <article class="admin-summary-card">
+        <span class="section-label">Registered Accounts</span>
+        <strong id="admin-account-count">0</strong>
+      </article>
+      <article class="admin-summary-card">
+        <span class="section-label">Active Accounts</span>
+        <strong id="admin-active-count">0</strong>
+      </article>
+    </section>
+
+    <section class="admin-accounts-panel">
+      <div class="admin-panel-header">
+        <div class="section-label">User Directory</div>
+        <h2>Managed Accounts</h2>
+      </div>
+      <div id="admin-accounts-list" class="admin-accounts-list"></div>
+    </section>
+
+    <section class="admin-accounts-panel">
+      <div class="admin-panel-header">
+        <div class="section-label">Planning Configuration</div>
+        <h2>Federal Tax Brackets</h2>
+        <p class="panel-copy">These options populate the Protection Modeling form federal tax bracket dropdown by filing status. Update them here when bracket selections change.</p>
+      </div>
+      <div id="admin-tax-bracket-groups" class="admin-tax-bracket-groups"></div>
+    </section>
+    <section class="admin-accounts-panel">
+      <div class="admin-panel-header">
+        <div class="section-label">Planning Configuration</div>
+        <h2>Standard Deductions</h2>
+        <p class="panel-copy">Maintain the standard deduction amount for each filing status. PMI forms default to these amounts unless itemized deductions are selected.</p>
+      </div>
+      <div id="admin-standard-deduction-groups" class="admin-tax-bracket-groups"></div>
+    </section>
+    <section class="admin-accounts-panel">
+      <div class="admin-panel-header">
+        <div class="section-label">Planning Configuration</div>
+        <h2>State Income Tax</h2>
+        <p class="panel-copy">These options populate the Protection Modeling form state income tax bracket dropdown by state. Set whether each state has income tax, then maintain the bracket rows for states that do.</p>
+      </div>
+      <div id="admin-state-tax-groups" class="admin-tax-bracket-groups"></div>
+    </section>
+    <section class="admin-accounts-panel">
+      <div class="admin-panel-header">
+        <div class="section-label">Planning Configuration</div>
+        <h2>Payroll Taxes</h2>
+        <p class="panel-copy">Maintain the payroll tax rates and wage-base thresholds used for future income modeling. This section is configuration only.</p>
+      </div>
+      <table class="admin-tax-bracket-table" id="admin-payroll-tax-table">
+        <thead>
+          <tr>
+            <th>Payroll Tax</th>
+            <th>Tax %</th>
+            <th>Wage Base / Threshold</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="admin-payroll-tax-body"></tbody>
+      </table>
+      <div class="admin-tax-bracket-actions">
+        <button class="admin-action-button" type="button" id="admin-payroll-tax-add">Add Payroll Tax</button>
+        <button class="admin-action-button" type="button" id="admin-payroll-tax-reset">Reset Defaults</button>
+        <button class="admin-action-button" type="button" id="admin-payroll-tax-save">Save Changes</button>
+      </div>
+      <section class="admin-tax-bracket-group">
+        <div class="admin-tax-bracket-toolbar">
+          <span class="section-label">Additional Medicare Thresholds</span>
+        </div>
+        <table class="admin-tax-bracket-table" id="admin-additional-medicare-table">
+          <thead>
+            <tr>
+              <th>Filing Status</th>
+              <th>Threshold</th>
+            </tr>
+          </thead>
+          <tbody id="admin-additional-medicare-body"></tbody>
+        </table>
+      </section>
+      <p class="panel-copy admin-tax-bracket-feedback" id="admin-payroll-tax-feedback"></p>
+    </section>
+    <section class="admin-accounts-panel">
+      <div class="admin-panel-header">
+        <div class="section-label">Planning Configuration</div>
+        <h2>Housing Maintenance Recommendations</h2>
+        <p class="panel-copy">Set the recommended monthly maintenance reserve by home size and home age. Advanced PMI homeowner scenarios use this table to auto-fill the maintenance field.</p>
+      </div>
+      <table class="admin-tax-bracket-table" id="admin-maintenance-table">
+        <thead>
+          <tr>
+            <th>Square Footage Tier</th>
+            <th>Min Sq Ft</th>
+            <th>Max Sq Ft</th>
+            <th>0-10 Years</th>
+            <th>11-25 Years</th>
+            <th>26-40 Years</th>
+            <th>41+ Years</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="admin-maintenance-body"></tbody>
+      </table>
+      <div class="admin-tax-bracket-actions">
+        <button class="admin-action-button" type="button" id="admin-maintenance-add">Add Tier</button>
+        <button class="admin-action-button" type="button" id="admin-maintenance-reset">Reset Defaults</button>
+        <button class="admin-action-button" type="button" id="admin-maintenance-save">Save Changes</button>
+      </div>
+      <p class="panel-copy admin-tax-bracket-feedback" id="admin-maintenance-feedback"></p>
+    </section>
+  </main>
+
+  <script src="../data.js"></script>
+  <script src="../calculations.js"></script>
+  <script src="../charts.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const federalStorageKey = "lensFederalTaxBrackets";
+      const standardDeductionStorageKey = "lensStandardDeductions";
+      const stateStorageKey = "lensStateIncomeTaxBrackets";
+      const payrollStorageKey = "lensPayrollTaxConfig";
+      const maintenanceStorageKey = "lensHousingMaintenanceConfig";
+      const filingStatuses = [
+        "Single",
+        "Married Filing Jointly",
+        "Married Filing Separately",
+        "Head of Household",
+        "Qualifying Surviving Spouse"
+      ];
+      const defaultMaintenanceRows = [
+        { label: "Under 1,500 sq ft", minSqFt: "0", maxSqFt: "1499", age0To10: "120", age11To25: "180", age26To40: "260", age41Plus: "360" },
+        { label: "1,500-2,499 sq ft", minSqFt: "1500", maxSqFt: "2499", age0To10: "165", age11To25: "235", age26To40: "325", age41Plus: "430" },
+        { label: "2,500-3,499 sq ft", minSqFt: "2500", maxSqFt: "3499", age0To10: "215", age11To25: "295", age26To40: "395", age41Plus: "520" },
+        { label: "3,500+ sq ft", minSqFt: "3500", maxSqFt: "", age0To10: "285", age11To25: "375", age26To40: "490", age41Plus: "635" }
+      ];
+      const states = [
+        { code: "AL", name: "Alabama" },
+        { code: "AK", name: "Alaska" },
+        { code: "AZ", name: "Arizona" },
+        { code: "AR", name: "Arkansas" },
+        { code: "CA", name: "California" },
+        { code: "CO", name: "Colorado" },
+        { code: "CT", name: "Connecticut" },
+        { code: "DE", name: "Delaware" },
+        { code: "FL", name: "Florida" },
+        { code: "GA", name: "Georgia" },
+        { code: "HI", name: "Hawaii" },
+        { code: "ID", name: "Idaho" },
+        { code: "IL", name: "Illinois" },
+        { code: "IN", name: "Indiana" },
+        { code: "IA", name: "Iowa" },
+        { code: "KS", name: "Kansas" },
+        { code: "KY", name: "Kentucky" },
+        { code: "LA", name: "Louisiana" },
+        { code: "ME", name: "Maine" },
+        { code: "MD", name: "Maryland" },
+        { code: "MA", name: "Massachusetts" },
+        { code: "MI", name: "Michigan" },
+        { code: "MN", name: "Minnesota" },
+        { code: "MS", name: "Mississippi" },
+        { code: "MO", name: "Missouri" },
+        { code: "MT", name: "Montana" },
+        { code: "NE", name: "Nebraska" },
+        { code: "NV", name: "Nevada" },
+        { code: "NH", name: "New Hampshire" },
+        { code: "NJ", name: "New Jersey" },
+        { code: "NM", name: "New Mexico" },
+        { code: "NY", name: "New York" },
+        { code: "NC", name: "North Carolina" },
+        { code: "ND", name: "North Dakota" },
+        { code: "OH", name: "Ohio" },
+        { code: "OK", name: "Oklahoma" },
+        { code: "OR", name: "Oregon" },
+        { code: "PA", name: "Pennsylvania" },
+        { code: "RI", name: "Rhode Island" },
+        { code: "SC", name: "South Carolina" },
+        { code: "SD", name: "South Dakota" },
+        { code: "TN", name: "Tennessee" },
+        { code: "TX", name: "Texas" },
+        { code: "UT", name: "Utah" },
+        { code: "VT", name: "Vermont" },
+        { code: "VA", name: "Virginia" },
+        { code: "WA", name: "Washington" },
+        { code: "WV", name: "West Virginia" },
+        { code: "WI", name: "Wisconsin" },
+        { code: "WY", name: "Wyoming" }
+      ];
+      const noIncomeTaxStates = new Set(["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"]);
+      const defaultFederalRowsByStatus = {
+        "Single": [
+          { rate: "10%", minIncome: "0", maxIncome: "12400" },
+          { rate: "12%", minIncome: "12401", maxIncome: "50400" },
+          { rate: "22%", minIncome: "50401", maxIncome: "105700" },
+          { rate: "24%", minIncome: "105701", maxIncome: "201775" },
+          { rate: "32%", minIncome: "201776", maxIncome: "256225" },
+          { rate: "35%", minIncome: "256226", maxIncome: "640600" },
+          { rate: "37%", minIncome: "640601", maxIncome: "" }
+        ],
+        "Married Filing Jointly": [
+          { rate: "10%", minIncome: "0", maxIncome: "24800" },
+          { rate: "12%", minIncome: "24801", maxIncome: "100800" },
+          { rate: "22%", minIncome: "100801", maxIncome: "211400" },
+          { rate: "24%", minIncome: "211401", maxIncome: "403550" },
+          { rate: "32%", minIncome: "403551", maxIncome: "512450" },
+          { rate: "35%", minIncome: "512451", maxIncome: "768700" },
+          { rate: "37%", minIncome: "768701", maxIncome: "" }
+        ],
+        "Married Filing Separately": [
+          { rate: "10%", minIncome: "0", maxIncome: "12400" },
+          { rate: "12%", minIncome: "12401", maxIncome: "50400" },
+          { rate: "22%", minIncome: "50401", maxIncome: "105700" },
+          { rate: "24%", minIncome: "105701", maxIncome: "201775" },
+          { rate: "32%", minIncome: "201776", maxIncome: "256225" },
+          { rate: "35%", minIncome: "256226", maxIncome: "384350" },
+          { rate: "37%", minIncome: "384351", maxIncome: "" }
+        ],
+        "Head of Household": [
+          { rate: "10%", minIncome: "0", maxIncome: "17700" },
+          { rate: "12%", minIncome: "17701", maxIncome: "67500" },
+          { rate: "22%", minIncome: "67501", maxIncome: "105700" },
+          { rate: "24%", minIncome: "105701", maxIncome: "201750" },
+          { rate: "32%", minIncome: "201751", maxIncome: "256200" },
+          { rate: "35%", minIncome: "256201", maxIncome: "640600" },
+          { rate: "37%", minIncome: "640601", maxIncome: "" }
+        ],
+        "Qualifying Surviving Spouse": [
+          { rate: "10%", minIncome: "0", maxIncome: "24800" },
+          { rate: "12%", minIncome: "24801", maxIncome: "100800" },
+          { rate: "22%", minIncome: "100801", maxIncome: "211400" },
+          { rate: "24%", minIncome: "211401", maxIncome: "403550" },
+          { rate: "32%", minIncome: "403551", maxIncome: "512450" },
+          { rate: "35%", minIncome: "512451", maxIncome: "768700" },
+          { rate: "37%", minIncome: "768701", maxIncome: "" }
+        ]
+      };
+      const legacySingleFederalRows = [
+        { rate: "10%", minIncome: "0", maxIncome: "11600" },
+        { rate: "12%", minIncome: "11601", maxIncome: "47150" },
+        { rate: "22%", minIncome: "47151", maxIncome: "100525" },
+        { rate: "24%", minIncome: "100526", maxIncome: "191950" },
+        { rate: "32%", minIncome: "191951", maxIncome: "243725" },
+        { rate: "35%", minIncome: "243726", maxIncome: "609350" },
+        { rate: "37%", minIncome: "609351", maxIncome: "" }
+      ];
+      const defaultStateRows = [
+        { rate: "5%", minIncome: "0", maxIncome: "50000" },
+        { rate: "6.5%", minIncome: "50001", maxIncome: "100000" },
+        { rate: "8%", minIncome: "100001", maxIncome: "" }
+      ];
+      const defaultStandardDeductions = {
+        "Single": "16100",
+        "Married Filing Jointly": "32200",
+        "Married Filing Separately": "16100",
+        "Head of Household": "24150",
+        "Qualifying Surviving Spouse": "32200"
+      };
+      const defaultPayrollRows = [
+        { name: "Social Security", rate: "6.2%", wageBase: "176100" },
+        { name: "Medicare", rate: "1.45%", wageBase: "" },
+        {
+          name: "Additional Medicare",
+          rate: "0.9%",
+          wageBase: "",
+          thresholds: {
+            "Single": "200000",
+            "Married Filing Jointly": "250000",
+            "Married Filing Separately": "125000",
+            "Head of Household": "200000",
+            "Qualifying Surviving Spouse": "250000"
+          }
+        }
+      ];
+      const federalGroupsHost = document.getElementById("admin-tax-bracket-groups");
+      const standardDeductionGroupsHost = document.getElementById("admin-standard-deduction-groups");
+      const stateGroupsHost = document.getElementById("admin-state-tax-groups");
+      const payrollTaxBody = document.getElementById("admin-payroll-tax-body");
+      const additionalMedicareBody = document.getElementById("admin-additional-medicare-body");
+      const payrollTaxFeedback = document.getElementById("admin-payroll-tax-feedback");
+      const payrollTaxAddButton = document.getElementById("admin-payroll-tax-add");
+      const payrollTaxResetButton = document.getElementById("admin-payroll-tax-reset");
+      const payrollTaxSaveButton = document.getElementById("admin-payroll-tax-save");
+      const maintenanceBody = document.getElementById("admin-maintenance-body");
+      const maintenanceFeedback = document.getElementById("admin-maintenance-feedback");
+      const maintenanceAddButton = document.getElementById("admin-maintenance-add");
+      const maintenanceResetButton = document.getElementById("admin-maintenance-reset");
+      const maintenanceSaveButton = document.getElementById("admin-maintenance-save");
+
+      if (!federalGroupsHost || !standardDeductionGroupsHost || !stateGroupsHost || !payrollTaxBody || !additionalMedicareBody || !payrollTaxFeedback || !payrollTaxAddButton || !payrollTaxResetButton || !payrollTaxSaveButton) {
+        return;
+      }
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function normalizePercentValue(value) {
+        const trimmed = String(value || "").trim();
+        if (!trimmed) {
+          return "";
+        }
+
+        const cleaned = trimmed.replace(/[^0-9.]/g, "");
+        if (!cleaned) {
+          return "";
+        }
+
+        return `${cleaned}%`;
+      }
+
+      function isMedicareTaxName(value) {
+        return String(value || "").trim().toLowerCase() === "medicare";
+      }
+
+      function isAdditionalMedicareTaxName(value) {
+        return String(value || "").trim().toLowerCase() === "additional medicare";
+      }
+
+      function getDefaultAdditionalMedicareThresholds() {
+        return {
+          "Single": "200000",
+          "Married Filing Jointly": "250000",
+          "Married Filing Separately": "125000",
+          "Head of Household": "200000",
+          "Qualifying Surviving Spouse": "250000"
+        };
+      }
+
+      function normalizeRow(row) {
+        if (!row || typeof row !== "object") {
+          return null;
+        }
+
+        const rate = String(row.rate || row.percentage || "").trim();
+        const minIncome = String(row.minIncome || row.rangeStart || "").trim();
+        const maxIncome = String(row.maxIncome || row.rangeEnd || "").trim();
+
+        if (!rate && !minIncome && !maxIncome) {
+          return null;
+        }
+
+        return { rate, minIncome, maxIncome };
+      }
+
+      function rowsMatch(leftRows, rightRows) {
+        if (!Array.isArray(leftRows) || !Array.isArray(rightRows) || leftRows.length !== rightRows.length) {
+          return false;
+        }
+
+        return leftRows.every((row, index) => {
+          const rightRow = rightRows[index] || {};
+          return String(row?.rate || "").trim() === String(rightRow?.rate || "").trim()
+            && String(row?.minIncome || "").trim() === String(rightRow?.minIncome || "").trim()
+            && String(row?.maxIncome || "").trim() === String(rightRow?.maxIncome || "").trim();
+        });
+      }
+
+      function buildDefaultFederalConfig() {
+        return Object.fromEntries(
+          filingStatuses.map((status) => [
+            status,
+            (defaultFederalRowsByStatus[status] || []).map((row) => ({ ...row }))
+          ])
+        );
+      }
+
+      function readStoredStandardDeductionConfig() {
+        return window.LensPmiTaxUtils
+          ? window.LensPmiTaxUtils.readStoredStandardDeductionConfig(standardDeductionStorageKey, defaultStandardDeductions)
+          : { ...defaultStandardDeductions };
+      }
+
+      function buildDefaultStateConfig() {
+        return Object.fromEntries(
+          states.map((state) => [
+            state.code,
+            {
+              hasIncomeTax: !noIncomeTaxStates.has(state.code),
+              mode: "brackets",
+              flatRate: "",
+              filings: Object.fromEntries(
+                filingStatuses.map((status) => [
+                  status,
+                  noIncomeTaxStates.has(state.code) ? [] : defaultStateRows.map((row) => ({ ...row }))
+                ])
+              )
+            }
+          ])
+        );
+      }
+
+      function readStoredFederalConfig() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(federalStorageKey) || "null");
+          const defaults = buildDefaultFederalConfig();
+
+          if (Array.isArray(parsed)) {
+            const normalizedRows = parsed.map(normalizeRow).filter(Boolean);
+            defaults.Single = normalizedRows.length ? normalizedRows : defaults.Single;
+            return defaults;
+          }
+
+          if (!parsed || typeof parsed !== "object") {
+            return defaults;
+          }
+
+          filingStatuses.forEach((status) => {
+            const rows = Array.isArray(parsed[status]) ? parsed[status] : [];
+            const normalizedRows = rows.map(normalizeRow).filter(Boolean);
+            if (normalizedRows.length) {
+              defaults[status] = status !== "Single" && rowsMatch(normalizedRows, legacySingleFederalRows)
+                ? defaultFederalRowsByStatus[status].map((row) => ({ ...row }))
+                : normalizedRows;
+            }
+          });
+
+          return defaults;
+        } catch (_error) {
+          return buildDefaultFederalConfig();
+        }
+      }
+
+      function readStoredStateConfig() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(stateStorageKey) || "null");
+          const defaults = buildDefaultStateConfig();
+
+          if (!parsed || typeof parsed !== "object") {
+            return defaults;
+          }
+
+          states.forEach((state) => {
+            const existing = parsed[state.code];
+            if (!existing || typeof existing !== "object") {
+              return;
+            }
+
+            const hasIncomeTax = existing.hasIncomeTax === false ? false : true;
+            const mode = String(existing.mode || "brackets").trim() === "flat" ? "flat" : "brackets";
+            const flatRate = normalizePercentValue(existing.flatRate);
+            const filings = existing.filings && typeof existing.filings === "object" ? existing.filings : {};
+            defaults[state.code] = {
+              hasIncomeTax,
+              mode,
+              flatRate,
+              filings: Object.fromEntries(
+                filingStatuses.map((status) => {
+                  const rows = Array.isArray(filings[status]) ? filings[status].map(normalizeRow).filter(Boolean) : [];
+                  return [status, hasIncomeTax ? (rows.length ? rows : defaults[state.code].filings[status]) : []];
+                })
+              )
+            };
+          });
+
+          return defaults;
+        } catch (_error) {
+          return buildDefaultStateConfig();
+        }
+      }
+
+      function readStoredPayrollConfig() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(payrollStorageKey) || "[]");
+          if (!Array.isArray(raw) || !raw.length) {
+            return defaultPayrollRows.map((row) => ({ ...row }));
+          }
+
+          return raw.map((row) => ({
+            name: String(row?.name || "").trim(),
+            rate: String(row?.rate || "").trim(),
+            wageBase: String(row?.wageBase || "").trim(),
+            thresholds: isAdditionalMedicareTaxName(row?.name)
+              ? {
+                  ...getDefaultAdditionalMedicareThresholds(),
+                  ...(row?.thresholds && typeof row.thresholds === "object" ? Object.fromEntries(
+                    Object.entries(getDefaultAdditionalMedicareThresholds()).map(([status]) => [status, String(row.thresholds?.[status] || getDefaultAdditionalMedicareThresholds()[status]).trim()])
+                  ) : {})
+                }
+              : undefined
+          }));
+        } catch (_error) {
+          return defaultPayrollRows.map((row) => ({ ...row }));
+        }
+      }
+
+      function normalizeMaintenanceRow(row) {
+        if (!row || typeof row !== "object") {
+          return null;
+        }
+
+        const normalized = {
+          label: String(row.label || "").trim(),
+          minSqFt: String(row.minSqFt || "").replace(/[^0-9]/g, "").trim(),
+          maxSqFt: String(row.maxSqFt || "").replace(/[^0-9]/g, "").trim(),
+          age0To10: String(row.age0To10 || "").replace(/[^0-9.]/g, "").trim(),
+          age11To25: String(row.age11To25 || "").replace(/[^0-9.]/g, "").trim(),
+          age26To40: String(row.age26To40 || "").replace(/[^0-9.]/g, "").trim(),
+          age41Plus: String(row.age41Plus || "").replace(/[^0-9.]/g, "").trim()
+        };
+
+        if (!normalized.label && !normalized.minSqFt && !normalized.maxSqFt && !normalized.age0To10 && !normalized.age11To25 && !normalized.age26To40 && !normalized.age41Plus) {
+          return null;
+        }
+
+        return normalized;
+      }
+
+      function readStoredMaintenanceConfig() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(maintenanceStorageKey) || "null");
+          if (!Array.isArray(raw) || !raw.length) {
+            return defaultMaintenanceRows.map((row) => ({ ...row }));
+          }
+
+          const normalized = raw.map(normalizeMaintenanceRow).filter(Boolean);
+          return normalized.length ? normalized : defaultMaintenanceRows.map((row) => ({ ...row }));
+        } catch (_error) {
+          return defaultMaintenanceRows.map((row) => ({ ...row }));
+        }
+      }
+
+      function renderFederalGroups(config, feedbackByStatus) {
+        federalGroupsHost.innerHTML = filingStatuses.map((status) => {
+          const rows = Array.isArray(config[status]) && config[status].length
+            ? config[status]
+            : (defaultFederalRowsByStatus[status] || []).map((row) => ({ ...row }));
+          const statusKey = escapeHtml(status);
+          const sectionTitle = status === "Single" ? "Filing Single" : status;
+
+          return `
+            <details class="admin-tax-bracket-group admin-federal-tax-group" data-tax-group="${statusKey}">
+              <summary class="admin-state-tax-summary">
+                <div class="admin-tax-bracket-toolbar">
+                  <span class="section-label">${escapeHtml(sectionTitle)}</span>
+                  <strong>${rows.length}</strong>
+                </div>
+              </summary>
+              <div class="admin-state-tax-body">
+                <table class="admin-tax-bracket-table">
+                  <thead>
+                    <tr>
+                      <th>Tax %</th>
+                      <th>Range From</th>
+                      <th>Range To</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows.map((row, index) => `
+                      <tr class="admin-tax-bracket-row">
+                        <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.rate)}" data-tax-rate data-tax-status="${statusKey}" data-tax-index="${index}" placeholder="24%"></td>
+                        <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.minIncome)}" data-tax-min data-tax-status="${statusKey}" data-tax-index="${index}" placeholder="100526"></td>
+                        <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.maxIncome)}" data-tax-max data-tax-status="${statusKey}" data-tax-index="${index}" placeholder="191950"></td>
+                        <td class="admin-tax-bracket-actions-cell"><button class="admin-action-button admin-tax-bracket-remove" type="button" data-tax-remove="${index}" data-tax-status="${statusKey}">Remove</button></td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+                <div class="admin-tax-bracket-actions">
+                  <button class="admin-action-button" type="button" data-federal-tax-add="${statusKey}">Add Bracket</button>
+                  <button class="admin-action-button" type="button" data-federal-tax-reset="${statusKey}">Reset Defaults</button>
+                  <button class="admin-action-button" type="button" data-federal-tax-save="${statusKey}">Save Changes</button>
+                </div>
+                <p class="panel-copy admin-tax-bracket-feedback" data-federal-tax-feedback="${statusKey}">${escapeHtml(feedbackByStatus?.[status] || "")}</p>
+              </div>
+            </details>
+          `;
+        }).join("");
+      }
+
+      function renderStandardDeductionGroups(config, feedbackByStatus) {
+        standardDeductionGroupsHost.innerHTML = filingStatuses.map((status) => {
+          const value = String(config?.[status] || defaultStandardDeductions[status] || "").trim();
+          const safeStatus = escapeHtml(status);
+
+          return `
+            <details class="admin-tax-bracket-group admin-federal-tax-group" data-standard-deduction-group="${safeStatus}">
+              <summary class="admin-state-tax-summary">
+                <div class="admin-tax-bracket-toolbar">
+                  <span class="section-label">${escapeHtml(status === "Single" ? "Filing Single" : status)}</span>
+                  <strong>${escapeHtml(value || "0")}</strong>
+                </div>
+              </summary>
+              <div class="admin-state-tax-body">
+                <section class="admin-tax-bracket-group">
+                  <div class="admin-tax-bracket-toolbar">
+                    <span class="section-label">Standard Deduction Amount</span>
+                  </div>
+                  <div class="admin-tax-bracket-actions">
+                    <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(value)}" data-standard-deduction-value="${safeStatus}" placeholder="15000">
+                    <button class="admin-action-button" type="button" data-standard-deduction-save="${safeStatus}">Save Changes</button>
+                    <button class="admin-action-button" type="button" data-standard-deduction-reset="${safeStatus}">Reset Default</button>
+                  </div>
+                  <p class="panel-copy admin-tax-bracket-feedback" data-standard-deduction-feedback="${safeStatus}">${escapeHtml(feedbackByStatus?.[status] || "")}</p>
+                </section>
+              </div>
+            </details>
+          `;
+        }).join("");
+      }
+
+      function renderStateGroups(config, feedbackByKey) {
+        stateGroupsHost.innerHTML = states.map((state) => {
+          const stateConfig = config[state.code] || buildDefaultStateConfig()[state.code];
+          const hasIncomeTax = stateConfig.hasIncomeTax !== false;
+          const mode = stateConfig.mode === "flat" ? "flat" : "brackets";
+          const flatRate = normalizePercentValue(stateConfig.flatRate);
+          const safeCode = escapeHtml(state.code);
+          const filingMarkup = filingStatuses.map((status) => {
+            const safeStatus = escapeHtml(status);
+            const rows = Array.isArray(stateConfig.filings?.[status]) && stateConfig.filings[status].length
+              ? stateConfig.filings[status]
+              : (hasIncomeTax ? defaultStateRows.map((row) => ({ ...row })) : []);
+            const feedbackKey = `${state.code}::${status}`;
+            return `
+              <section class="admin-tax-bracket-group admin-state-tax-filing-group${mode === 'flat' ? ' is-disabled' : ''}" data-state-tax-filing-group="${safeCode}" data-state-tax-filing="${safeStatus}">
+                <div class="admin-tax-bracket-toolbar">
+                  <span class="section-label">${escapeHtml(status)}</span>
+                  <strong>${rows.length}</strong>
+                </div>
+                <table class="admin-tax-bracket-table${hasIncomeTax ? '' : ' is-disabled'}">
+                  <thead>
+                    <tr>
+                      <th>Tax %</th>
+                      <th>Range From</th>
+                      <th>Range To</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows.map((row, index) => `
+                      <tr class="admin-tax-bracket-row">
+                        <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.rate)}" data-state-tax-rate data-state-tax-state="${safeCode}" data-state-tax-filing="${safeStatus}" data-state-tax-index="${index}" placeholder="5%" ${hasIncomeTax ? '' : 'disabled'}></td>
+                        <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.minIncome)}" data-state-tax-min data-state-tax-state="${safeCode}" data-state-tax-filing="${safeStatus}" data-state-tax-index="${index}" placeholder="0" ${hasIncomeTax ? '' : 'disabled'}></td>
+                        <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.maxIncome)}" data-state-tax-max data-state-tax-state="${safeCode}" data-state-tax-filing="${safeStatus}" data-state-tax-index="${index}" placeholder="50000" ${hasIncomeTax ? '' : 'disabled'}></td>
+                        <td class="admin-tax-bracket-actions-cell"><button class="admin-action-button admin-tax-bracket-remove" type="button" data-state-tax-remove="${index}" data-state-tax-state="${safeCode}" data-state-tax-filing="${safeStatus}" ${hasIncomeTax ? '' : 'disabled'}>Remove</button></td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+                <div class="admin-tax-bracket-actions">
+                  <button class="admin-action-button" type="button" data-state-tax-add="${safeCode}" data-state-tax-filing="${safeStatus}" ${hasIncomeTax ? '' : 'disabled'}>Add Bracket</button>
+                  <button class="admin-action-button" type="button" data-state-tax-reset="${safeCode}" data-state-tax-filing="${safeStatus}">Reset Defaults</button>
+                  <button class="admin-action-button" type="button" data-state-tax-save="${safeCode}" data-state-tax-filing="${safeStatus}">Save Changes</button>
+                </div>
+                <p class="panel-copy admin-tax-bracket-feedback" data-state-tax-feedback="${escapeHtml(feedbackKey)}">${escapeHtml(feedbackByKey?.[feedbackKey] || "")}</p>
+              </section>
+            `;
+          }).join("");
+
+          return `
+            <details class="admin-tax-bracket-group admin-state-tax-group" data-state-tax-group="${safeCode}">
+              <summary class="admin-state-tax-summary">
+                <div class="admin-tax-bracket-toolbar">
+                  <span class="section-label">${escapeHtml(state.name)} (${safeCode})</span>
+                  <div class="admin-state-tax-controls">
+                    <div class="admin-state-tax-toggle" role="group" aria-label="${escapeHtml(state.name)} income tax">
+                      <button class="admin-action-button${hasIncomeTax ? ' is-active' : ''}" type="button" data-state-tax-toggle="${safeCode}" data-state-tax-value="yes">Yes</button>
+                      <button class="admin-action-button${!hasIncomeTax ? ' is-active' : ''}" type="button" data-state-tax-toggle="${safeCode}" data-state-tax-value="no">No</button>
+                    </div>
+                    <div class="admin-state-tax-toggle" role="group" aria-label="${escapeHtml(state.name)} tax mode">
+                      <button class="admin-action-button${mode === 'flat' ? ' is-active' : ''}" type="button" data-state-tax-mode="${safeCode}" data-state-tax-mode-value="flat" ${hasIncomeTax ? '' : 'disabled'}>Flat Tax Rate</button>
+                      <button class="admin-action-button${mode === 'brackets' ? ' is-active' : ''}" type="button" data-state-tax-mode="${safeCode}" data-state-tax-mode-value="brackets" ${hasIncomeTax ? '' : 'disabled'}>Bracket Tables</button>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+              <div class="admin-state-tax-body">
+                <section class="admin-tax-bracket-group${mode === 'brackets' ? ' is-disabled' : ''}">
+                  <div class="admin-tax-bracket-toolbar">
+                    <span class="section-label">Flat Tax Rate</span>
+                  </div>
+                  <div class="admin-tax-bracket-actions">
+                    <input class="admin-tax-bracket-input admin-state-tax-flat-input" type="text" value="${escapeHtml(flatRate)}" data-state-tax-flat-rate="${safeCode}" placeholder="5%" ${hasIncomeTax && mode === 'flat' ? '' : 'disabled'}>
+                    <button class="admin-action-button" type="button" data-state-tax-save-flat="${safeCode}" ${hasIncomeTax ? '' : 'disabled'}>Save Flat Rate</button>
+                  </div>
+                  <p class="panel-copy admin-tax-bracket-feedback" data-state-tax-flat-feedback="${escapeHtml(`${state.code}::flat`)}">${escapeHtml(feedbackByKey?.[`${state.code}::flat`] || "")}</p>
+                </section>
+                ${filingMarkup}
+              </div>
+            </details>
+          `;
+        }).join("");
+      }
+
+      function renderPayrollTaxRows(rows, feedbackMessage) {
+        const additionalMedicareRow = rows.find((row) => isAdditionalMedicareTaxName(row.name));
+        const additionalMedicareThresholds = additionalMedicareRow?.thresholds || getDefaultAdditionalMedicareThresholds();
+
+        payrollTaxBody.innerHTML = rows.map((row, index) => `
+          <tr class="admin-tax-bracket-row">
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.name)}" data-payroll-tax-name data-payroll-tax-index="${index}" placeholder="Social Security"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.rate)}" data-payroll-tax-rate data-payroll-tax-index="${index}" placeholder="6.2%"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(isMedicareTaxName(row.name) || isAdditionalMedicareTaxName(row.name) ? "" : row.wageBase)}" data-payroll-tax-wage-base data-payroll-tax-index="${index}" placeholder="${isMedicareTaxName(row.name) ? 'Not applicable' : isAdditionalMedicareTaxName(row.name) ? 'See thresholds below' : '176100'}" ${isMedicareTaxName(row.name) || isAdditionalMedicareTaxName(row.name) ? 'disabled' : ''}></td>
+            <td class="admin-tax-bracket-actions-cell"><button class="admin-action-button admin-tax-bracket-remove" type="button" data-payroll-tax-remove="${index}">Remove</button></td>
+          </tr>
+        `).join("");
+        additionalMedicareBody.innerHTML = filingStatuses.map((status) => `
+          <tr class="admin-tax-bracket-row">
+            <td>${escapeHtml(status)}</td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(additionalMedicareThresholds[status] || "")}" data-additional-medicare-threshold="${escapeHtml(status)}" placeholder="200000"></td>
+          </tr>
+        `).join("");
+        payrollTaxFeedback.textContent = feedbackMessage || "";
+      }
+
+      function renderMaintenanceRows(rows, feedbackMessage) {
+        maintenanceBody.innerHTML = rows.map((row, index) => `
+          <tr class="admin-tax-bracket-row">
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.label)}" data-maintenance-label data-maintenance-index="${index}" placeholder="1,500-2,499 sq ft"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.minSqFt)}" data-maintenance-min data-maintenance-index="${index}" placeholder="1500"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.maxSqFt)}" data-maintenance-max data-maintenance-index="${index}" placeholder="2499"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.age0To10)}" data-maintenance-age-0-10 data-maintenance-index="${index}" placeholder="165"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.age11To25)}" data-maintenance-age-11-25 data-maintenance-index="${index}" placeholder="235"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.age26To40)}" data-maintenance-age-26-40 data-maintenance-index="${index}" placeholder="325"></td>
+            <td><input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.age41Plus)}" data-maintenance-age-41-plus data-maintenance-index="${index}" placeholder="430"></td>
+            <td class="admin-tax-bracket-actions-cell"><button class="admin-action-button admin-tax-bracket-remove" type="button" data-maintenance-remove="${index}">Remove</button></td>
+          </tr>
+        `).join("");
+        maintenanceFeedback.textContent = feedbackMessage || "";
+      }
+
+      function collectPayrollTaxRows() {
+        const additionalMedicareThresholds = Object.fromEntries(
+          filingStatuses.map((status) => [
+            status,
+            String(additionalMedicareBody.querySelector(`[data-additional-medicare-threshold="${status}"]`)?.value || "").trim()
+          ])
+        );
+
+        return Array.from(payrollTaxBody.querySelectorAll("tr")).map((row) => ({
+          name: String(row.querySelector("[data-payroll-tax-name]")?.value || "").trim(),
+          rate: String(row.querySelector("[data-payroll-tax-rate]")?.value || "").trim(),
+          wageBase: (isMedicareTaxName(row.querySelector("[data-payroll-tax-name]")?.value) || isAdditionalMedicareTaxName(row.querySelector("[data-payroll-tax-name]")?.value)) ? "" : String(row.querySelector("[data-payroll-tax-wage-base]")?.value || "").trim(),
+          thresholds: isAdditionalMedicareTaxName(row.querySelector("[data-payroll-tax-name]")?.value) ? additionalMedicareThresholds : undefined
+        })).filter((row) => row.name || row.rate || row.wageBase);
+      }
+
+      function collectMaintenanceRows() {
+        return Array.from(maintenanceBody.querySelectorAll("tr")).map((row) => normalizeMaintenanceRow({
+          label: row.querySelector("[data-maintenance-label]")?.value,
+          minSqFt: row.querySelector("[data-maintenance-min]")?.value,
+          maxSqFt: row.querySelector("[data-maintenance-max]")?.value,
+          age0To10: row.querySelector("[data-maintenance-age-0-10]")?.value,
+          age11To25: row.querySelector("[data-maintenance-age-11-25]")?.value,
+          age26To40: row.querySelector("[data-maintenance-age-26-40]")?.value,
+          age41Plus: row.querySelector("[data-maintenance-age-41-plus]")?.value
+        })).filter(Boolean);
+      }
+
+      function collectFederalRowsForStatus(status) {
+        const rows = [];
+        const safeStatus = String(status || "").trim();
+        const rateInputs = Array.from(federalGroupsHost.querySelectorAll(`[data-tax-rate][data-tax-status="${safeStatus}"]`));
+
+        rateInputs.forEach((input) => {
+          const index = input.getAttribute("data-tax-index");
+          const minInput = federalGroupsHost.querySelector(`[data-tax-min][data-tax-status="${safeStatus}"][data-tax-index="${index}"]`);
+          const maxInput = federalGroupsHost.querySelector(`[data-tax-max][data-tax-status="${safeStatus}"][data-tax-index="${index}"]`);
+          const normalized = normalizeRow({
+            rate: input.value,
+            minIncome: minInput?.value,
+            maxIncome: maxInput?.value
+          });
+          if (normalized) {
+            rows.push(normalized);
+          }
+        });
+
+        return rows;
+      }
+
+      function collectStateRows(stateCode, filingStatus) {
+        const rows = [];
+        const safeCode = String(stateCode || "").trim();
+        const safeStatus = String(filingStatus || "").trim();
+        const rateInputs = Array.from(stateGroupsHost.querySelectorAll(`[data-state-tax-rate][data-state-tax-state="${safeCode}"][data-state-tax-filing="${safeStatus}"]`));
+
+        rateInputs.forEach((input) => {
+          const index = input.getAttribute("data-state-tax-index");
+          const minInput = stateGroupsHost.querySelector(`[data-state-tax-min][data-state-tax-state="${safeCode}"][data-state-tax-filing="${safeStatus}"][data-state-tax-index="${index}"]`);
+          const maxInput = stateGroupsHost.querySelector(`[data-state-tax-max][data-state-tax-state="${safeCode}"][data-state-tax-filing="${safeStatus}"][data-state-tax-index="${index}"]`);
+          const normalized = normalizeRow({
+            rate: input.value,
+            minIncome: minInput?.value,
+            maxIncome: maxInput?.value
+          });
+          if (normalized) {
+            rows.push(normalized);
+          }
+        });
+
+        return rows;
+      }
+
+      federalGroupsHost.addEventListener("click", (event) => {
+        const addButton = event.target.closest("[data-federal-tax-add]");
+        const removeButton = event.target.closest("[data-tax-remove]");
+        const saveButton = event.target.closest("[data-federal-tax-save]");
+        const resetButton = event.target.closest("[data-federal-tax-reset]");
+        const currentConfig = readStoredFederalConfig();
+
+        if (addButton) {
+          const status = addButton.getAttribute("data-federal-tax-add");
+          const nextRows = [...collectFederalRowsForStatus(status), { rate: "", minIncome: "", maxIncome: "" }];
+          currentConfig[status] = nextRows;
+          renderFederalGroups(currentConfig, {});
+          return;
+        }
+
+        if (removeButton) {
+          const status = removeButton.getAttribute("data-tax-status");
+          const indexToRemove = removeButton.getAttribute("data-tax-remove");
+          const nextRows = collectFederalRowsForStatus(status).filter((_row, index) => String(index) !== String(indexToRemove));
+          currentConfig[status] = nextRows.length ? nextRows : (defaultFederalRowsByStatus[status] || []).map((row) => ({ ...row }));
+          renderFederalGroups(currentConfig, {});
+          return;
+        }
+
+        if (saveButton) {
+          const status = saveButton.getAttribute("data-federal-tax-save");
+          const nextRows = collectFederalRowsForStatus(status);
+          if (!nextRows.length) {
+            renderFederalGroups(currentConfig, { [status]: "Add at least one federal tax bracket row." });
+            return;
+          }
+
+          currentConfig[status] = nextRows;
+          localStorage.setItem(federalStorageKey, JSON.stringify(currentConfig));
+          renderFederalGroups(currentConfig, { [status]: "Federal tax bracket rows saved." });
+          return;
+        }
+
+        if (resetButton) {
+          const status = resetButton.getAttribute("data-federal-tax-reset");
+          currentConfig[status] = (defaultFederalRowsByStatus[status] || []).map((row) => ({ ...row }));
+          localStorage.setItem(federalStorageKey, JSON.stringify(currentConfig));
+          renderFederalGroups(currentConfig, {});
+        }
+      });
+
+      standardDeductionGroupsHost.addEventListener("click", (event) => {
+        const saveButton = event.target.closest("[data-standard-deduction-save]");
+        const resetButton = event.target.closest("[data-standard-deduction-reset]");
+        const currentConfig = readStoredStandardDeductionConfig();
+
+        if (saveButton) {
+          const status = saveButton.getAttribute("data-standard-deduction-save");
+          const input = standardDeductionGroupsHost.querySelector(`[data-standard-deduction-value="${status}"]`);
+          const nextValue = String(input?.value || "").replace(/[^0-9.]/g, "").trim();
+
+          if (!nextValue) {
+            renderStandardDeductionGroups(currentConfig, { [status]: "Enter a standard deduction amount before saving." });
+            return;
+          }
+
+          currentConfig[status] = nextValue;
+          localStorage.setItem(standardDeductionStorageKey, JSON.stringify(currentConfig));
+          renderStandardDeductionGroups(currentConfig, { [status]: "Standard deduction saved." });
+          return;
+        }
+
+        if (resetButton) {
+          const status = resetButton.getAttribute("data-standard-deduction-reset");
+          currentConfig[status] = defaultStandardDeductions[status];
+          localStorage.setItem(standardDeductionStorageKey, JSON.stringify(currentConfig));
+          renderStandardDeductionGroups(currentConfig, { [status]: "Standard deduction reset." });
+        }
+      });
+
+      stateGroupsHost.addEventListener("click", (event) => {
+        const toggleButton = event.target.closest("[data-state-tax-toggle]");
+        const modeButton = event.target.closest("[data-state-tax-mode]");
+        const addButton = event.target.closest("[data-state-tax-add]");
+        const removeButton = event.target.closest("[data-state-tax-remove]");
+        const saveButton = event.target.closest("[data-state-tax-save]");
+        const saveFlatButton = event.target.closest("[data-state-tax-save-flat]");
+        const resetButton = event.target.closest("[data-state-tax-reset]");
+        const currentConfig = readStoredStateConfig();
+
+        if (toggleButton) {
+          event.preventDefault();
+          const stateCode = toggleButton.getAttribute("data-state-tax-toggle");
+          const hasIncomeTax = toggleButton.getAttribute("data-state-tax-value") === "yes";
+          currentConfig[stateCode] = {
+            hasIncomeTax,
+            mode: currentConfig[stateCode]?.mode === "flat" ? "flat" : "brackets",
+            flatRate: String(currentConfig[stateCode]?.flatRate || "").trim(),
+            filings: Object.fromEntries(
+              filingStatuses.map((status) => [
+                status,
+                hasIncomeTax
+                  ? (collectStateRows(stateCode, status).length ? collectStateRows(stateCode, status) : defaultStateRows.map((row) => ({ ...row })))
+                  : []
+              ])
+            )
+          };
+          localStorage.setItem(stateStorageKey, JSON.stringify(currentConfig));
+          renderStateGroups(currentConfig, {});
+          return;
+        }
+
+        if (modeButton) {
+          const stateCode = modeButton.getAttribute("data-state-tax-mode");
+          const mode = modeButton.getAttribute("data-state-tax-mode-value") === "flat" ? "flat" : "brackets";
+          currentConfig[stateCode].mode = mode;
+          localStorage.setItem(stateStorageKey, JSON.stringify(currentConfig));
+          renderStateGroups(currentConfig, {});
+          return;
+        }
+
+        if (addButton) {
+          const stateCode = addButton.getAttribute("data-state-tax-add");
+          const filingStatus = addButton.getAttribute("data-state-tax-filing");
+          currentConfig[stateCode].filings[filingStatus] = [...collectStateRows(stateCode, filingStatus), { rate: "", minIncome: "", maxIncome: "" }];
+          renderStateGroups(currentConfig, {});
+          return;
+        }
+
+        if (saveFlatButton) {
+          const stateCode = saveFlatButton.getAttribute("data-state-tax-save-flat");
+          const feedbackKey = `${stateCode}::flat`;
+          const flatInput = stateGroupsHost.querySelector(`[data-state-tax-flat-rate="${stateCode}"]`);
+          const flatRate = normalizePercentValue(flatInput?.value);
+
+          if (currentConfig[stateCode].hasIncomeTax !== false && currentConfig[stateCode].mode === "flat" && !flatRate) {
+            renderStateGroups(currentConfig, { [feedbackKey]: "Enter a flat tax rate before saving." });
+            return;
+          }
+
+          currentConfig[stateCode].flatRate = flatRate;
+          localStorage.setItem(stateStorageKey, JSON.stringify(currentConfig));
+          renderStateGroups(currentConfig, { [feedbackKey]: "Flat tax rate saved." });
+          return;
+        }
+
+        if (removeButton) {
+          const stateCode = removeButton.getAttribute("data-state-tax-state");
+          const filingStatus = removeButton.getAttribute("data-state-tax-filing");
+          const indexToRemove = removeButton.getAttribute("data-state-tax-remove");
+          const nextRows = collectStateRows(stateCode, filingStatus).filter((_row, index) => String(index) !== String(indexToRemove));
+          currentConfig[stateCode].filings[filingStatus] = nextRows.length ? nextRows : defaultStateRows.map((row) => ({ ...row }));
+          renderStateGroups(currentConfig, {});
+          return;
+        }
+
+        if (saveButton) {
+          const stateCode = saveButton.getAttribute("data-state-tax-save");
+          const filingStatus = saveButton.getAttribute("data-state-tax-filing");
+          const hasIncomeTax = currentConfig[stateCode].hasIncomeTax !== false;
+          const nextRows = hasIncomeTax ? collectStateRows(stateCode, filingStatus) : [];
+          const feedbackKey = `${stateCode}::${filingStatus}`;
+
+          if (hasIncomeTax && !nextRows.length) {
+            renderStateGroups(currentConfig, { [feedbackKey]: "Add at least one state income tax bracket row or set the state to No." });
+            return;
+          }
+
+          currentConfig[stateCode].filings[filingStatus] = hasIncomeTax ? nextRows : [];
+          localStorage.setItem(stateStorageKey, JSON.stringify(currentConfig));
+          renderStateGroups(currentConfig, { [feedbackKey]: hasIncomeTax ? "State income tax rows saved." : "State marked as no income tax." });
+          return;
+        }
+
+        if (resetButton) {
+          const stateCode = resetButton.getAttribute("data-state-tax-reset");
+          const filingStatus = resetButton.getAttribute("data-state-tax-filing");
+          currentConfig[stateCode].filings[filingStatus] = currentConfig[stateCode].hasIncomeTax === false ? [] : defaultStateRows.map((row) => ({ ...row }));
+          localStorage.setItem(stateStorageKey, JSON.stringify(currentConfig));
+          renderStateGroups(currentConfig, {});
+        }
+      });
+
+      payrollTaxBody.addEventListener("click", (event) => {
+        const removeButton = event.target.closest("[data-payroll-tax-remove]");
+        if (!removeButton) {
+          return;
+        }
+
+        const currentRows = collectPayrollTaxRows();
+        const nextRows = currentRows.filter((_row, index) => String(index) !== String(removeButton.getAttribute("data-payroll-tax-remove")));
+        renderPayrollTaxRows(nextRows.length ? nextRows : defaultPayrollRows.map((row) => ({ ...row })), "");
+      });
+
+      payrollTaxBody.addEventListener("input", (event) => {
+        const nameInput = event.target.closest("[data-payroll-tax-name]");
+        if (!nameInput) {
+          return;
+        }
+
+        renderPayrollTaxRows(collectPayrollTaxRows(), "");
+      });
+
+      payrollTaxAddButton.addEventListener("click", () => {
+        const currentRows = collectPayrollTaxRows();
+        renderPayrollTaxRows([...currentRows, { name: "", rate: "", wageBase: "" }], "");
+      });
+
+      payrollTaxResetButton.addEventListener("click", () => {
+        const nextRows = defaultPayrollRows.map((row) => ({ ...row }));
+        localStorage.setItem(payrollStorageKey, JSON.stringify(nextRows));
+        renderPayrollTaxRows(nextRows, "Payroll tax defaults restored.");
+      });
+
+      payrollTaxSaveButton.addEventListener("click", () => {
+        const nextRows = collectPayrollTaxRows();
+        if (!nextRows.length) {
+          renderPayrollTaxRows(readStoredPayrollConfig(), "Add at least one payroll tax row.");
+          return;
+        }
+
+        localStorage.setItem(payrollStorageKey, JSON.stringify(nextRows));
+        renderPayrollTaxRows(nextRows, "Payroll tax rows saved.");
+      });
+
+      maintenanceBody.addEventListener("click", (event) => {
+        const removeButton = event.target.closest("[data-maintenance-remove]");
+        if (!removeButton) {
+          return;
+        }
+
+        const currentRows = collectMaintenanceRows();
+        const nextRows = currentRows.filter((_row, index) => String(index) !== String(removeButton.getAttribute("data-maintenance-remove")));
+        renderMaintenanceRows(nextRows.length ? nextRows : defaultMaintenanceRows.map((row) => ({ ...row })), "");
+      });
+
+      maintenanceAddButton.addEventListener("click", () => {
+        const currentRows = collectMaintenanceRows();
+        renderMaintenanceRows([...currentRows, {
+          label: "",
+          minSqFt: "",
+          maxSqFt: "",
+          age0To10: "",
+          age11To25: "",
+          age26To40: "",
+          age41Plus: ""
+        }], "");
+      });
+
+      maintenanceResetButton.addEventListener("click", () => {
+        const nextRows = defaultMaintenanceRows.map((row) => ({ ...row }));
+        localStorage.setItem(maintenanceStorageKey, JSON.stringify(nextRows));
+        renderMaintenanceRows(nextRows, "Housing maintenance defaults restored.");
+      });
+
+      maintenanceSaveButton.addEventListener("click", () => {
+        const nextRows = collectMaintenanceRows();
+        if (!nextRows.length) {
+          renderMaintenanceRows(readStoredMaintenanceConfig(), "Add at least one housing maintenance tier.");
+          return;
+        }
+
+        localStorage.setItem(maintenanceStorageKey, JSON.stringify(nextRows));
+        renderMaintenanceRows(nextRows, "Housing maintenance recommendations saved.");
+      });
+
+      renderFederalGroups(readStoredFederalConfig(), {});
+      renderStandardDeductionGroups(readStoredStandardDeductionConfig(), {});
+      renderStateGroups(readStoredStateConfig(), {});
+      renderPayrollTaxRows(readStoredPayrollConfig(), "");
+      renderMaintenanceRows(readStoredMaintenanceConfig(), "");
+    })();
+  </script>
+</body>
+</html>
+
+
+

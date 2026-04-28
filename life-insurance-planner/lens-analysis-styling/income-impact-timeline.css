@@ -1,0 +1,111 @@
+/* Income Loss Impact placeholder timeline chart styles. */
+
+.income-impact-timeline-chart {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.72rem 0.8rem 0.62rem;
+  border: 1px solid rgba(213, 220, 233, 0.92);
+  border-radius: 0.55rem;
+  background: #ffffff;
+}
+
+.income-impact-chart-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.income-impact-chart-topline p,
+.income-impact-chart-hover-label {
+  margin: 0;
+  color: #627086;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.income-impact-placeholder-badge {
+  flex: 0 0 auto;
+  padding: 0.24rem 0.48rem;
+  border: 1px solid rgba(88, 65, 216, 0.24);
+  border-radius: 999px;
+  background: rgba(88, 65, 216, 0.1);
+  color: #4f3bd0;
+  font-size: 0.66rem;
+  font-weight: 820;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.income-impact-timeline-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 11rem;
+}
+
+.income-impact-chart-grid line {
+  stroke: rgba(20, 28, 40, 0.07);
+  stroke-width: 1;
+}
+
+.income-impact-timeline-column {
+  stroke: rgba(20, 28, 40, 0.08);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.income-impact-timeline-month-band {
+  fill: transparent;
+  pointer-events: all;
+  transition: fill 160ms ease;
+}
+
+.income-impact-timeline-month-band:hover {
+  fill: rgba(20, 28, 40, 0.045);
+}
+
+.income-impact-timeline-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.income-impact-timeline-line--primary {
+  stroke: #141820;
+  stroke-width: 3.2;
+}
+
+.income-impact-timeline-line--reference {
+  stroke: rgba(20, 28, 40, 0.18);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.income-impact-chart-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  color: #647085;
+  font-size: 0.72rem;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.income-impact-chart-axis span {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  white-space: nowrap;
+}
+
+.income-impact-chart-hover-label {
+  min-height: 1.1rem;
+  padding-top: 0.12rem;
+  color: #4054b8;
+  font-weight: 760;
+}
