@@ -226,6 +226,55 @@
     }
   }
 
+  function parseDependentDetails(profileRecord) {
+    const dependentDetails = profileRecord?.dependentDetails;
+    if (Array.isArray(dependentDetails)) {
+      return dependentDetails;
+    }
+
+    if (typeof dependentDetails !== "string") {
+      return [];
+    }
+
+    const normalizedDetails = dependentDetails.trim();
+    if (!normalizedDetails) {
+      return [];
+    }
+
+    try {
+      const parsedDetails = JSON.parse(normalizedDetails);
+      return Array.isArray(parsedDetails) ? parsedDetails : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function createEducationCurrentDependentDetails(profileRecord) {
+    return parseDependentDetails(profileRecord)
+      .map(function (detail, index) {
+        if (!isPlainObject(detail)) {
+          return null;
+        }
+
+        const dateOfBirth = normalizeString(detail.dateOfBirth || detail.birthDate);
+        if (!dateOfBirth) {
+          return null;
+        }
+
+        const dependentRow = {
+          index,
+          dateOfBirth
+        };
+        const id = normalizeString(detail.id);
+        if (id) {
+          dependentRow.id = id;
+        }
+
+        return dependentRow;
+      })
+      .filter(Boolean);
+  }
+
   function getProfileCurrentDependentCount(profileRecord, profileFieldNames) {
     const getCurrentDependentCount = LensApp.clientRecords?.getCurrentDependentCount;
     if (hasStructuredDependentDetailsSource(profileRecord) && typeof getCurrentDependentCount === "function") {
@@ -746,6 +795,25 @@
     };
   }
 
+  function attachEducationCurrentDependentDetails(lensModel, profileRecord) {
+    if (!isPlainObject(lensModel)) {
+      return lensModel;
+    }
+
+    const currentDependentDetails = createEducationCurrentDependentDetails(profileRecord);
+    if (!currentDependentDetails.length) {
+      return lensModel;
+    }
+
+    return {
+      ...lensModel,
+      educationSupport: {
+        ...clonePlainObject(lensModel.educationSupport),
+        currentDependentDetails
+      }
+    };
+  }
+
   function createFinalExpensesSource(sourceData) {
     return {
       funeralBurialEstimate: sourceData.funeralBurialEstimate,
@@ -1102,6 +1170,7 @@
       });
 
       if (isPlainObject(lensModel)) {
+        lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
       }
     }

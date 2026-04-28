@@ -20,6 +20,18 @@
     "finalExpenseInflationRatePercent"
   ]);
   const MAX_INFLATION_RATE_PERCENT = 100;
+  const DEFAULT_EDUCATION_START_AGE = 18;
+  const MIN_EDUCATION_START_AGE = 0;
+  const MAX_EDUCATION_START_AGE = 30;
+  const DEFAULT_EDUCATION_ASSUMPTIONS = Object.freeze({
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: DEFAULT_EDUCATION_START_AGE,
+    fundingTargetPercent: 100,
+    useExistingEducationSavingsOffset: false,
+    source: "analysis-setup"
+  });
 
   // Owner: lens-analysis settings adapter.
   // Purpose: map saved Analysis Setup settings into the flat settings objects
@@ -293,6 +305,138 @@
     return parsed;
   }
 
+  function normalizeEducationPercent(value, fallback, key, warnings) {
+    const sourcePath = `analysisSettings.educationAssumptions.fundingTreatment.${key}`;
+    const parsed = toOptionalNumber(value);
+
+    if (parsed == null) {
+      warnings.push(createWarning(
+        `invalid-education-${key}`,
+        `${key} was invalid and defaulted to ${fallback}.`,
+        "warning",
+        [sourcePath]
+      ));
+      return fallback;
+    }
+
+    if (parsed < 0) {
+      warnings.push(createWarning(
+        `negative-education-${key}`,
+        `${key} was negative and defaulted to ${fallback}.`,
+        "warning",
+        [sourcePath]
+      ));
+      return fallback;
+    }
+
+    if (parsed > 100) {
+      warnings.push(createWarning(
+        `clamped-education-${key}`,
+        `${key} was above 100 and was clamped to 100.`,
+        "warning",
+        [sourcePath]
+      ));
+      return 100;
+    }
+
+    return parsed;
+  }
+
+  function normalizeEducationStartAge(value, warnings) {
+    const sourcePath = "analysisSettings.educationAssumptions.fundingTreatment.educationStartAge";
+    const parsed = toOptionalNumber(value);
+
+    if (parsed == null) {
+      warnings.push(createWarning(
+        "invalid-education-start-age",
+        "educationStartAge was invalid and defaulted to 18.",
+        "warning",
+        [sourcePath]
+      ));
+      return DEFAULT_EDUCATION_START_AGE;
+    }
+
+    const rounded = Math.round(parsed);
+    if (rounded < MIN_EDUCATION_START_AGE || rounded > MAX_EDUCATION_START_AGE) {
+      warnings.push(createWarning(
+        "out-of-range-education-start-age",
+        "educationStartAge was outside the supported range and defaulted to 18.",
+        "warning",
+        [sourcePath]
+      ));
+      return DEFAULT_EDUCATION_START_AGE;
+    }
+
+    return rounded;
+  }
+
+  function createNeedsEducationAssumptions(analysisSettings, warnings) {
+    const saved = isPlainObject(analysisSettings.educationAssumptions)
+      ? analysisSettings.educationAssumptions
+      : {};
+    const fundingTreatment = isPlainObject(saved.fundingTreatment)
+      ? saved.fundingTreatment
+      : {};
+    const normalized = { ...DEFAULT_EDUCATION_ASSUMPTIONS };
+
+    if (
+      hasOwn(analysisSettings, "educationAssumptions")
+      && !isPlainObject(analysisSettings.educationAssumptions)
+    ) {
+      warnings.push(createWarning(
+        "invalid-education-assumptions",
+        "Saved education assumptions were invalid and default assumptions were used.",
+        "warning",
+        ["analysisSettings.educationAssumptions"]
+      ));
+    }
+
+    [
+      "includeEducationFunding",
+      "includeProjectedDependents",
+      "applyEducationInflation",
+      "useExistingEducationSavingsOffset"
+    ].forEach(function (key) {
+      if (!hasOwn(fundingTreatment, key)) {
+        return;
+      }
+
+      if (typeof fundingTreatment[key] === "boolean") {
+        normalized[key] = fundingTreatment[key];
+        return;
+      }
+
+      warnings.push(createWarning(
+        `invalid-education-${key}`,
+        `${key} was invalid and defaulted to ${DEFAULT_EDUCATION_ASSUMPTIONS[key]}.`,
+        "warning",
+        [`analysisSettings.educationAssumptions.fundingTreatment.${key}`]
+      ));
+    });
+
+    if (hasOwn(fundingTreatment, "fundingTargetPercent")) {
+      normalized.fundingTargetPercent = normalizeEducationPercent(
+        fundingTreatment.fundingTargetPercent,
+        DEFAULT_EDUCATION_ASSUMPTIONS.fundingTargetPercent,
+        "fundingTargetPercent",
+        warnings
+      );
+    }
+
+    if (hasOwn(fundingTreatment, "educationStartAge")) {
+      normalized.educationStartAge = normalizeEducationStartAge(
+        fundingTreatment.educationStartAge,
+        warnings
+      );
+    }
+
+    if (typeof saved.source === "string" && saved.source.trim()) {
+      normalized.source = saved.source.trim();
+    }
+
+    return normalized;
+  }
+
   function createNeedsInflationAssumptions(analysisSettings, warnings) {
     const saved = isPlainObject(analysisSettings.inflationAssumptions)
       ? analysisSettings.inflationAssumptions
@@ -525,6 +669,10 @@
     applyExistingCoverageSettings(settings, analysisSettings, trace);
     applyNeedsAssetOffsetInclusionSettings(settings, methodDefaults, warnings, trace);
     settings.inflationAssumptions = createNeedsInflationAssumptions(
+      analysisSettings,
+      warnings
+    );
+    settings.educationAssumptions = createNeedsEducationAssumptions(
       analysisSettings,
       warnings
     );

@@ -1005,6 +1005,280 @@
     };
   }
 
+  function getNonNegativeEducationNumber(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return null;
+    }
+
+    return Math.max(0, number);
+  }
+
+  function getEducationSettings(settings) {
+    return isPlainObject(settings.educationAssumptions)
+      ? settings.educationAssumptions
+      : {};
+  }
+
+  function getEducationStartAgeSetting(settings) {
+    const educationStartAge = toOptionalNumber(getEducationSettings(settings).educationStartAge);
+    if (educationStartAge == null) {
+      return 18;
+    }
+
+    const rounded = Math.round(educationStartAge);
+    return rounded >= 0 && rounded <= 30 ? rounded : 18;
+  }
+
+  function resolveEducationFundingInflationSettings(settings) {
+    const educationAssumptions = getEducationSettings(settings);
+    const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
+      ? settings.inflationAssumptions
+      : null;
+    const educationRate = toOptionalNumber(inflationAssumptions?.educationInflationRatePercent);
+    const generalRate = toOptionalNumber(inflationAssumptions?.generalInflationRatePercent);
+    const hasEducationRate = educationRate != null && educationRate >= 0;
+    const hasGeneralRate = generalRate != null && generalRate >= 0;
+    const ratePercent = hasEducationRate
+      ? educationRate
+      : (hasGeneralRate ? generalRate : 0);
+    const rateSource = hasEducationRate
+      ? "settings.inflationAssumptions.educationInflationRatePercent"
+      : (hasGeneralRate ? "settings.inflationAssumptions.generalInflationRatePercent" : null);
+
+    return {
+      hasInflationSettings: Boolean(inflationAssumptions),
+      inflationEnabled: inflationAssumptions?.enabled === true,
+      includeEducationFunding: educationAssumptions.includeEducationFunding !== false,
+      includeProjectedDependentsSetting: educationAssumptions.includeProjectedDependents !== false,
+      applyEducationInflation: educationAssumptions.applyEducationInflation === true,
+      educationStartAge: getEducationStartAgeSetting(settings),
+      ratePercent,
+      rateSource,
+      source: inflationAssumptions?.source || educationAssumptions.source || null,
+      sourcePaths: [
+        "settings.educationAssumptions",
+        "settings.educationAssumptions.applyEducationInflation",
+        "settings.educationAssumptions.educationStartAge",
+        "settings.inflationAssumptions.enabled",
+        rateSource || "settings.inflationAssumptions"
+      ]
+    };
+  }
+
+  function createCurrentDollarEducationInflationTrace(options) {
+    const normalizedOptions = isPlainObject(options) ? options : {};
+    return {
+      component: "education funding",
+      enabled: Boolean(normalizedOptions.enabled),
+      applied: false,
+      currentDatedChildCount: normalizedOptions.currentDatedChildCount || 0,
+      plannedDependentCount: normalizedOptions.plannedDependentCount || 0,
+      currentDollarCurrentChildTotal: normalizedOptions.currentDollarCurrentChildTotal || 0,
+      projectedCurrentChildTotal: normalizedOptions.currentDollarCurrentChildTotal || 0,
+      currentDollarPlannedDependentTotal: normalizedOptions.currentDollarPlannedDependentTotal || 0,
+      combinedEducationTotalUsed: normalizedOptions.currentDollarTotal || 0,
+      educationStartAge: normalizedOptions.educationStartAge,
+      ratePercent: normalizedOptions.ratePercent,
+      rateSource: normalizedOptions.rateSource,
+      childRows: [],
+      helperWarnings: normalizedOptions.helperWarnings || [],
+      reason: normalizedOptions.reason || "current-dollar-education-used",
+      sourcePaths: normalizedOptions.sourcePaths || ["educationSupport.totalEducationFundingNeed"]
+    };
+  }
+
+  function createNeedsEducationComponent(model, settings, warnings) {
+    const currentDollarEducation = normalizeComponentNumber({
+      value: getPath(model, "educationSupport.totalEducationFundingNeed"),
+      sourcePath: "educationSupport.totalEducationFundingNeed",
+      warnings,
+      warnWhenMissing: true,
+      missingCode: "missing-education-funding-need",
+      missingMessage: "totalEducationFundingNeed was missing; Needs Analysis education component defaulted to 0.",
+      negativeCode: "negative-value-treated-as-zero",
+      negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for Needs Analysis."
+    });
+    const currentDollarTotal = currentDollarEducation;
+    const educationSettings = resolveEducationFundingInflationSettings(settings);
+    const currentDependentDetails = Array.isArray(getPath(model, "educationSupport.currentDependentDetails"))
+      ? getPath(model, "educationSupport.currentDependentDetails").slice()
+      : [];
+    const currentDatedChildCount = currentDependentDetails.length;
+    const plannedDependentCount = getNonNegativeEducationNumber(
+      getPath(model, "educationSupport.desiredAdditionalDependentCount")
+    ) || 0;
+    const currentDollarCurrentChildTotal = getNonNegativeEducationNumber(
+      getPath(model, "educationSupport.linkedDependentEducationFundingNeed")
+    );
+    const currentDollarPlannedDependentTotal = getNonNegativeEducationNumber(
+      getPath(model, "educationSupport.desiredAdditionalDependentEducationFundingNeed")
+    ) || 0;
+    const resolvedCurrentDollarCurrentChildTotal = currentDollarCurrentChildTotal == null
+      ? Math.max(currentDollarTotal - currentDollarPlannedDependentTotal, 0)
+      : currentDollarCurrentChildTotal;
+    const perChildFundingAmount = getNonNegativeEducationNumber(
+      getPath(model, "educationSupport.perLinkedDependentEducationFunding")
+    );
+    const baseSourcePaths = [
+      "educationSupport.totalEducationFundingNeed",
+      "educationSupport.linkedDependentEducationFundingNeed",
+      "educationSupport.desiredAdditionalDependentEducationFundingNeed",
+      "educationSupport.perLinkedDependentEducationFunding",
+      "educationSupport.currentDependentDetails",
+      ...educationSettings.sourcePaths
+    ];
+    const currentDollarTraceBase = {
+      ...educationSettings,
+      currentDatedChildCount,
+      plannedDependentCount,
+      currentDollarCurrentChildTotal: resolvedCurrentDollarCurrentChildTotal,
+      currentDollarPlannedDependentTotal,
+      currentDollarTotal,
+      sourcePaths: baseSourcePaths
+    };
+
+    const createCurrentDollarResult = function (reason, helperWarnings) {
+      return {
+        value: currentDollarTotal,
+        formula: "educationSupport.totalEducationFundingNeed",
+        inputs: {
+          totalEducationFundingNeed: currentDollarTotal
+        },
+        sourcePaths: ["educationSupport.totalEducationFundingNeed"],
+        inflation: createCurrentDollarEducationInflationTrace({
+          ...currentDollarTraceBase,
+          enabled: educationSettings.includeEducationFunding
+            && educationSettings.applyEducationInflation
+            && educationSettings.inflationEnabled
+            && educationSettings.rateSource !== null,
+          helperWarnings,
+          reason
+        })
+      };
+    };
+
+    if (!educationSettings.includeEducationFunding) {
+      return createCurrentDollarResult("education-funding-not-included-setting");
+    }
+
+    if (!educationSettings.applyEducationInflation) {
+      return createCurrentDollarResult("education-inflation-disabled");
+    }
+
+    if (!educationSettings.hasInflationSettings || !educationSettings.inflationEnabled) {
+      return createCurrentDollarResult("inflation-assumptions-disabled-or-missing");
+    }
+
+    if (educationSettings.rateSource === null) {
+      return createCurrentDollarResult("education-inflation-rate-missing");
+    }
+
+    if (!currentDependentDetails.length) {
+      return createCurrentDollarResult("no-current-dependent-birthdates");
+    }
+
+    if (perChildFundingAmount == null) {
+      return createCurrentDollarResult("missing-per-child-current-education-funding");
+    }
+
+    if (currentDollarCurrentChildTotal == null) {
+      return createCurrentDollarResult("missing-current-child-education-subtotal");
+    }
+
+    if (resolvedCurrentDollarCurrentChildTotal <= 0) {
+      return createCurrentDollarResult("no-current-child-education-funding");
+    }
+
+    const calculateEducationFundingProjection = lensAnalysis.calculateEducationFundingProjection;
+    if (typeof calculateEducationFundingProjection !== "function") {
+      return createCurrentDollarResult("education-projection-helper-unavailable", [
+        {
+          code: "education-projection-helper-unavailable",
+          message: "Education funding projection helper was not loaded; current-dollar education funding was used."
+        }
+      ]);
+    }
+
+    const projection = calculateEducationFundingProjection({
+      dependentDetails: currentDependentDetails,
+      perChildFundingAmount,
+      ratePercent: educationSettings.ratePercent,
+      enabled: true,
+      educationStartAge: educationSettings.educationStartAge,
+      timing: "annual",
+      source: "needs-analysis.educationSupport.currentDependentDetails"
+    });
+    const childRows = Array.isArray(projection.childRows) ? projection.childRows : [];
+    const validChildCount = childRows.filter(function (row) {
+      return isPlainObject(row) && row.currentAge !== null;
+    }).length;
+
+    if (validChildCount <= 0) {
+      return createCurrentDollarResult(
+        "no-valid-current-dependent-birthdates",
+        Array.isArray(projection.warnings) ? projection.warnings : []
+      );
+    }
+
+    const projectedDatedCurrentChildTotal = getNonNegativeEducationNumber(projection.projectedTotal);
+    const currentDollarDatedChildTotal = getNonNegativeEducationNumber(projection.currentDollarTotal);
+    if (projectedDatedCurrentChildTotal == null || currentDollarDatedChildTotal == null) {
+      return createCurrentDollarResult(
+        "education-projection-invalid",
+        Array.isArray(projection.warnings) ? projection.warnings : []
+      );
+    }
+
+    const currentDollarUndatedCurrentChildTotal = Math.max(
+      resolvedCurrentDollarCurrentChildTotal - currentDollarDatedChildTotal,
+      0
+    );
+    const projectedCurrentChildTotal = projectedDatedCurrentChildTotal + currentDollarUndatedCurrentChildTotal;
+    const combinedEducationTotalUsed = projectedCurrentChildTotal + currentDollarPlannedDependentTotal;
+    const helperWarnings = Array.isArray(projection.warnings) ? projection.warnings : [];
+    const projectionApplied = projection.applied === true;
+    const inflationTrace = {
+      component: "education funding",
+      enabled: true,
+      applied: projectionApplied,
+      currentDatedChildCount: validChildCount,
+      inputCurrentDatedChildCount: currentDatedChildCount,
+      plannedDependentCount,
+      includeProjectedDependentsSetting: educationSettings.includeProjectedDependentsSetting,
+      currentDollarCurrentChildTotal: resolvedCurrentDollarCurrentChildTotal,
+      currentDollarDatedChildTotal,
+      currentDollarUndatedCurrentChildTotal,
+      projectedDatedCurrentChildTotal,
+      projectedCurrentChildTotal,
+      currentDollarPlannedDependentTotal,
+      combinedEducationTotalUsed,
+      educationStartAge: projection.educationStartAge,
+      ratePercent: projection.ratePercent,
+      rateSource: educationSettings.rateSource,
+      childRows,
+      helperWarnings,
+      helperTrace: projection.trace || null,
+      reason: projectionApplied ? "education-inflation-applied" : "education-inflation-disabled-or-zero-rate",
+      sourcePaths: baseSourcePaths
+    };
+
+    return {
+      value: combinedEducationTotalUsed,
+      formula: projectionApplied
+        ? "project current dated child lump-sum education funding to educationStartAge + current-dollar planned dependent education funding"
+        : "current-dollar education funding total used",
+      inputs: {
+        currentDollarCurrentChildTotal: resolvedCurrentDollarCurrentChildTotal,
+        projectedCurrentChildTotal,
+        currentDollarPlannedDependentTotal,
+        combinedEducationTotalUsed
+      },
+      sourcePaths: baseSourcePaths,
+      inflation: inflationTrace
+    };
+  }
+
   function createEssentialSupportComponent(model, settings, needsSupportDurationYears, includeSurvivorIncomeOffset, warnings) {
     const annualSupport = normalizeNonNegativeNumber(
       getPath(model, "ongoingSupport.annualTotalEssentialSupportCost"),
@@ -1584,16 +1858,12 @@
       includeSurvivorIncomeOffset,
       warnings
     );
-    const education = normalizeComponentNumber({
-      value: getPath(model, "educationSupport.totalEducationFundingNeed"),
-      sourcePath: "educationSupport.totalEducationFundingNeed",
-      warnings,
-      warnWhenMissing: true,
-      missingCode: "missing-education-funding-need",
-      missingMessage: "totalEducationFundingNeed was missing; Needs Analysis education component defaulted to 0.",
-      negativeCode: "negative-value-treated-as-zero",
-      negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for Needs Analysis."
-    });
+    const educationComponent = createNeedsEducationComponent(
+      model,
+      normalizedSettings,
+      warnings
+    );
+    const education = educationComponent.value;
     const finalExpenses = normalizeComponentNumber({
       value: getPath(model, "finalExpenses.totalFinalExpenseNeed"),
       sourcePath: "finalExpenses.totalFinalExpenseNeed",
@@ -1797,13 +2067,39 @@
     trace.push(createTraceRow({
       key: "education",
       label: "Education",
-      formula: "educationSupport.totalEducationFundingNeed",
-      inputs: {
-        totalEducationFundingNeed: education
-      },
+      formula: educationComponent.formula,
+      inputs: educationComponent.inputs,
       value: education,
-      sourcePaths: ["educationSupport.totalEducationFundingNeed"]
+      sourcePaths: educationComponent.sourcePaths
     }));
+    if (educationComponent.inflation) {
+      trace.push(createTraceRow({
+        key: "educationFundingInflation",
+        label: "Education Funding Inflation",
+        formula: educationComponent.inflation.applied
+          ? "project current dated child lump-sum education funding to educationStartAge"
+          : "current-dollar education funding total used",
+        inputs: {
+          component: "education funding",
+          enabled: educationComponent.inflation.enabled,
+          applied: educationComponent.inflation.applied,
+          currentDatedChildCount: educationComponent.inflation.currentDatedChildCount,
+          plannedDependentCount: educationComponent.inflation.plannedDependentCount,
+          currentDollarCurrentChildTotal: educationComponent.inflation.currentDollarCurrentChildTotal,
+          projectedCurrentChildTotal: educationComponent.inflation.projectedCurrentChildTotal,
+          currentDollarPlannedDependentTotal: educationComponent.inflation.currentDollarPlannedDependentTotal,
+          combinedEducationTotalUsed: educationComponent.inflation.combinedEducationTotalUsed,
+          educationStartAge: educationComponent.inflation.educationStartAge,
+          ratePercent: educationComponent.inflation.ratePercent,
+          rateSource: educationComponent.inflation.rateSource,
+          childRows: educationComponent.inflation.childRows,
+          helperWarnings: educationComponent.inflation.helperWarnings,
+          reason: educationComponent.inflation.reason
+        },
+        value: educationComponent.inflation.combinedEducationTotalUsed,
+        sourcePaths: educationComponent.inflation.sourcePaths
+      }));
+    }
     trace.push(createTraceRow({
       key: "finalExpenses",
       label: "Final Expenses",

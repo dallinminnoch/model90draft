@@ -662,13 +662,14 @@
     custom: "Custom"
   });
   const EDUCATION_PROFILE_KEYS = Object.freeze(Object.keys(EDUCATION_PROFILE_LABELS));
+  const DEFAULT_EDUCATION_START_AGE = 18;
   const DEFAULT_EDUCATION_ASSUMPTIONS = Object.freeze({
     enabled: false,
     globalTreatmentProfile: "balanced",
     fundingTreatment: Object.freeze({
       includeEducationFunding: true,
       fundingTargetPercent: 100,
-      yearsFundedPerStudent: null,
+      educationStartAge: DEFAULT_EDUCATION_START_AGE,
       includeProjectedDependents: true,
       applyEducationInflation: false,
       useExistingEducationSavingsOffset: false
@@ -700,7 +701,7 @@
       fundingTreatment: Object.freeze({
         includeEducationFunding: true,
         fundingTargetPercent: 75,
-        yearsFundedPerStudent: null,
+        educationStartAge: DEFAULT_EDUCATION_START_AGE,
         includeProjectedDependents: true,
         applyEducationInflation: false,
         useExistingEducationSavingsOffset: false
@@ -826,7 +827,9 @@
   const MIN_SURVIVOR_SUPPORT_YEARS = 0;
   const MIN_EDUCATION_PERCENT = 0;
   const MAX_EDUCATION_PERCENT = 100;
-  const MIN_EDUCATION_YEARS = 0;
+  const MIN_EDUCATION_NUMBER = 0;
+  const MIN_EDUCATION_START_AGE = 0;
+  const MAX_EDUCATION_START_AGE = 30;
   const MIN_RECOMMENDATION_PERCENT = 0;
   const MAX_RECOMMENDATION_PERCENT = 100;
   const MIN_RECOMMENDATION_MONEY = 0;
@@ -1214,17 +1217,26 @@
     return Math.max(0, number);
   }
 
-  function normalizeEducationYears(value, fallback) {
+  function normalizeEducationStartAge(value, fallback) {
+    const fallbackValue = Number.isFinite(Number(fallback))
+      ? Math.round(Number(fallback))
+      : DEFAULT_EDUCATION_START_AGE;
+
     if (value === null || value === undefined || String(value).trim() === "") {
-      return fallback == null ? null : fallback;
+      return fallbackValue;
     }
 
     const number = Number(value);
     if (!Number.isFinite(number)) {
-      return fallback == null ? null : fallback;
+      return fallbackValue;
     }
 
-    return Math.max(MIN_EDUCATION_YEARS, number);
+    const roundedAge = Math.round(number);
+    if (roundedAge < MIN_EDUCATION_START_AGE || roundedAge > MAX_EDUCATION_START_AGE) {
+      return fallbackValue;
+    }
+
+    return roundedAge;
   }
 
   function normalizeEducationMoneyValue(value, fallback) {
@@ -1998,9 +2010,9 @@
           savedFundingTreatment.fundingTargetPercent,
           defaultFundingTreatment.fundingTargetPercent
         ),
-        yearsFundedPerStudent: normalizeEducationYears(
-          savedFundingTreatment.yearsFundedPerStudent,
-          defaultFundingTreatment.yearsFundedPerStudent
+        educationStartAge: normalizeEducationStartAge(
+          savedFundingTreatment.educationStartAge,
+          defaultFundingTreatment.educationStartAge
         ),
         includeProjectedDependents: typeof savedFundingTreatment.includeProjectedDependents === "boolean"
           ? savedFundingTreatment.includeProjectedDependents
@@ -3525,14 +3537,6 @@
       : fallback;
   }
 
-  function readEducationDraftYears(fields, fieldPath, fallback) {
-    const field = fields.values?.[fieldPath];
-    const rawValue = String(field?.value || "").trim();
-    return rawValue
-      ? normalizeEducationYears(rawValue, fallback)
-      : null;
-  }
-
   function readEducationDraftMoney(fields, fieldPath, fallback) {
     const field = fields.values?.[fieldPath];
     const rawValue = String(field?.value || "").trim();
@@ -3599,10 +3603,9 @@
           "fundingTreatment.fundingTargetPercent",
           currentFundingTreatment.fundingTargetPercent
         ),
-        yearsFundedPerStudent: readEducationDraftYears(
-          fields,
-          "fundingTreatment.yearsFundedPerStudent",
-          currentFundingTreatment.yearsFundedPerStudent
+        educationStartAge: normalizeEducationStartAge(
+          fields.values?.["fundingTreatment.educationStartAge"]?.value,
+          currentFundingTreatment.educationStartAge
         ),
         includeProjectedDependents: readEducationDraftBoolean(
           fields,
@@ -4752,8 +4755,8 @@
     );
     setEducationValue(
       fields,
-      "fundingTreatment.yearsFundedPerStudent",
-      assumptions.fundingTreatment.yearsFundedPerStudent
+      "fundingTreatment.educationStartAge",
+      assumptions.fundingTreatment.educationStartAge
     );
     setEducationChecked(
       fields,
@@ -6404,28 +6407,10 @@
     };
   }
 
-  function readOptionalEducationYears(fields, fieldPath, label) {
-    const field = fields.values?.[fieldPath];
-    const rawValue = String(field?.value || "").trim();
-    if (!rawValue) {
-      return { value: null };
-    }
-
-    const number = Number(rawValue);
-    if (!Number.isFinite(number)) {
-      return {
-        error: `${label} must be a numeric year value.`
-      };
-    }
-
-    if (number < MIN_EDUCATION_YEARS) {
-      return {
-        error: `${label} must be ${MIN_EDUCATION_YEARS} or greater.`
-      };
-    }
-
+  function readEducationStartAge(fields) {
+    const field = fields.values?.["fundingTreatment.educationStartAge"];
     return {
-      value: Number(number.toFixed(2))
+      value: normalizeEducationStartAge(field?.value, DEFAULT_EDUCATION_START_AGE)
     };
   }
 
@@ -6471,15 +6456,7 @@
       return fundingTarget;
     }
 
-    const yearsFunded = readOptionalEducationYears(
-      fields,
-      "fundingTreatment.yearsFundedPerStudent",
-      "Years funded per student"
-    );
-    if (yearsFunded.error) {
-      return yearsFunded;
-    }
-
+    const educationStartAge = readEducationStartAge(fields);
     const savingsValue = readOptionalEducationMoney(
       fields,
       "educationSavingsTreatment.existingEducationSavingsValue",
@@ -6519,7 +6496,7 @@
             current.fundingTreatment.includeEducationFunding
           ),
           fundingTargetPercent: fundingTarget.value,
-          yearsFundedPerStudent: yearsFunded.value,
+          educationStartAge: educationStartAge.value,
           includeProjectedDependents: readEducationDraftBoolean(
             fields,
             "fundingTreatment.includeProjectedDependents",
@@ -6965,7 +6942,7 @@
     if (shouldSaveEducation) {
       [
         "fundingTreatment.fundingTargetPercent",
-        "fundingTreatment.yearsFundedPerStudent",
+        "fundingTreatment.educationStartAge",
         "educationSavingsTreatment.existingEducationSavingsValue",
         "educationSavingsTreatment.taxDragPercent",
         "educationSavingsTreatment.liquidityHaircutPercent"
@@ -6976,13 +6953,21 @@
         const isPercentField = fieldPath === "fundingTreatment.fundingTargetPercent"
           || fieldPath === "educationSavingsTreatment.taxDragPercent"
           || fieldPath === "educationSavingsTreatment.liquidityHaircutPercent";
+        const isStartAgeField = fieldPath === "fundingTreatment.educationStartAge";
+        const roundedStartAge = isStartAgeField ? Math.round(number) : null;
         const isValid = field
           && rawValue
           && Number.isFinite(number)
-          && number >= MIN_EDUCATION_YEARS
-          && (!isPercentField || number <= MAX_EDUCATION_PERCENT);
+          && number >= (isStartAgeField ? MIN_EDUCATION_START_AGE : MIN_EDUCATION_NUMBER)
+          && (!isPercentField || number <= MAX_EDUCATION_PERCENT)
+          && (!isStartAgeField || (
+            roundedStartAge >= MIN_EDUCATION_START_AGE
+            && roundedStartAge <= MAX_EDUCATION_START_AGE
+          ));
         if (isValid) {
-          field.value = formatHaircutInputValue(number);
+          field.value = isStartAgeField
+            ? String(roundedStartAge)
+            : formatHaircutInputValue(number);
         }
       });
     }
@@ -7705,12 +7690,10 @@
 
       field.addEventListener("input", function () {
         if (
-          fieldPath === "fundingTreatment.yearsFundedPerStudent"
+          fieldPath === "fundingTreatment.educationStartAge"
           || fieldPath === "educationSavingsTreatment.existingEducationSavingsValue"
         ) {
-          const sanitizedValue = fieldPath === "fundingTreatment.yearsFundedPerStudent"
-            ? sanitizeNumericTextValue(field.value)
-            : String(field.value || "").replace(/[^0-9.]/g, "");
+          const sanitizedValue = String(field.value || "").replace(/[^0-9.]/g, "");
           if (field.value !== sanitizedValue) {
             field.value = sanitizedValue;
           }
@@ -7724,18 +7707,26 @@
         const isPercentField = fieldPath === "fundingTreatment.fundingTargetPercent"
           || fieldPath === "educationSavingsTreatment.taxDragPercent"
           || fieldPath === "educationSavingsTreatment.liquidityHaircutPercent";
-        const isOptionalNumberField = fieldPath === "fundingTreatment.yearsFundedPerStudent"
+        const isStartAgeField = fieldPath === "fundingTreatment.educationStartAge";
+        const roundedStartAge = isStartAgeField ? Math.round(number) : null;
+        const isOptionalNumberField = isStartAgeField
           || fieldPath === "educationSavingsTreatment.existingEducationSavingsValue";
 
         if (
           field.type !== "checkbox"
           && rawValue
           && Number.isFinite(number)
-          && number >= MIN_EDUCATION_YEARS
+          && number >= (isStartAgeField ? MIN_EDUCATION_START_AGE : MIN_EDUCATION_NUMBER)
           && (!isPercentField || number <= MAX_EDUCATION_PERCENT)
+          && (!isStartAgeField || (
+            roundedStartAge >= MIN_EDUCATION_START_AGE
+            && roundedStartAge <= MAX_EDUCATION_START_AGE
+          ))
           && (isPercentField || isOptionalNumberField)
         ) {
-          field.value = formatHaircutInputValue(number);
+          field.value = isStartAgeField
+            ? String(roundedStartAge)
+            : formatHaircutInputValue(number);
         }
         syncEducationChange();
       });
