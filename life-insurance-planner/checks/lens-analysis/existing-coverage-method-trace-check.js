@@ -9,6 +9,9 @@ const vm = require("node:vm");
 const repoRoot = path.resolve(__dirname, "..", "..");
 const RAW_EXISTING_COVERAGE = 100000;
 const TREATED_EXISTING_COVERAGE = 25000;
+const TREATED_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
+const RAW_SOURCE_PATH = "existingCoverage.totalExistingCoverage";
+const FALLBACK_WARNING_CODE = "treated-existing-coverage-unavailable-raw-fallback";
 
 const context = {
   console,
@@ -75,12 +78,16 @@ function createModel(options = {}) {
   if (includeTreatedOffset) {
     model.treatedExistingCoverageOffset = {
       totalRawCoverage: RAW_EXISTING_COVERAGE,
-      totalTreatedCoverageOffset: TREATED_EXISTING_COVERAGE,
+      totalTreatedCoverageOffset: options.treatedValue == null
+        ? TREATED_EXISTING_COVERAGE
+        : options.treatedValue,
       policyCount: 3,
       includedPolicyCount: 2,
       excludedPolicyCount: 1,
+      warnings: [],
       metadata: {
-        consumedByMethods: false
+        consumedByMethods: true,
+        reason: options.reason || ""
       }
     };
   }
@@ -108,115 +115,139 @@ function findTrace(result, key) {
     : null;
 }
 
-function assertTraceIncludesPreparedCoverage(result, methodName, expectedOffsetUsed) {
+function hasWarningCode(result, code) {
+  return Array.isArray(result?.warnings) && result.warnings.some((warning) => warning?.code === code);
+}
+
+function assertTraceShowsTreatedUsed(result, methodName) {
   const trace = findTrace(result, "existingCoverageOffset");
   assert.ok(trace, methodName + " should include an existing coverage offset trace row.");
-  assert.equal(trace.value, expectedOffsetUsed, methodName + " trace value should match the method-used offset.");
-  assert.ok(
-    trace.sourcePaths.includes("existingCoverage.totalExistingCoverage"),
-    methodName + " trace should expose the raw existing coverage source path."
-  );
-  assert.ok(
-    trace.sourcePaths.includes("treatedExistingCoverageOffset.totalTreatedCoverageOffset"),
-    methodName + " trace should expose the prepared treated coverage source path."
-  );
-  assert.ok(
-    trace.sourcePaths.includes("treatedExistingCoverageOffset.metadata.consumedByMethods"),
-    methodName + " trace should expose method-consumption metadata."
-  );
-  assert.equal(trace.inputs.includeExistingCoverageOffset, expectedOffsetUsed > 0);
+  assert.equal(trace.value, TREATED_EXISTING_COVERAGE);
+  assert.equal(trace.formula, TREATED_SOURCE_PATH);
+  assert.equal(trace.sourcePaths[0], TREATED_SOURCE_PATH);
+  assert.equal(trace.inputs.includeExistingCoverageOffset, true);
   assert.equal(trace.inputs.rawExistingCoverageTotal, RAW_EXISTING_COVERAGE);
-  assert.equal(trace.inputs.rawExistingCoverageOffsetUsed, expectedOffsetUsed);
-  assert.equal(trace.inputs.methodOffsetSourcePath, "existingCoverage.totalExistingCoverage");
+  assert.equal(trace.inputs.rawExistingCoverageOffsetUsed, null);
+  assert.equal(trace.inputs.methodUsedExistingCoverageOffset, TREATED_EXISTING_COVERAGE);
+  assert.equal(trace.inputs.methodOffsetSourcePath, TREATED_SOURCE_PATH);
+  assert.equal(trace.inputs.existingCoverageOffsetStatus, "treated-used");
+  assert.equal(trace.inputs.existingCoverageOffsetFallbackUsed, false);
+  assert.equal(trace.inputs.existingCoverageOffsetFallbackReason, null);
   assert.equal(trace.inputs.treatedExistingCoverageOffsetAvailable, true);
   assert.equal(trace.inputs.treatedExistingCoverageTotal, TREATED_EXISTING_COVERAGE);
-  assert.equal(trace.inputs.treatedExistingCoverageConsumedByMethods, false);
-  assert.equal(trace.inputs.treatedExistingCoveragePreparedNotUsed, true);
+  assert.equal(trace.inputs.treatedExistingCoverageConsumedByMethods, true);
+  assert.equal(trace.inputs.treatedExistingCoverageMetadataConsumedByMethods, true);
+  assert.equal(trace.inputs.treatedExistingCoveragePreparedNotUsed, false);
   assert.equal(trace.inputs.treatedExistingCoveragePolicyCount, 3);
   assert.equal(trace.inputs.treatedExistingCoverageIncludedPolicyCount, 2);
   assert.equal(trace.inputs.treatedExistingCoverageExcludedPolicyCount, 1);
+  assert.equal(trace.inputs.treatedExistingCoverageTraceNote, "treatedExistingCoverageOffset method-used");
+}
+
+function assertTraceShowsRawFallback(result, methodName) {
+  const trace = findTrace(result, "existingCoverageOffset");
+  assert.ok(trace, methodName + " should include an existing coverage offset trace row.");
+  assert.equal(trace.value, RAW_EXISTING_COVERAGE);
+  assert.equal(trace.formula, RAW_SOURCE_PATH);
+  assert.equal(trace.sourcePaths[0], RAW_SOURCE_PATH);
+  assert.equal(trace.inputs.includeExistingCoverageOffset, true);
+  assert.equal(trace.inputs.rawExistingCoverageTotal, RAW_EXISTING_COVERAGE);
+  assert.equal(trace.inputs.rawExistingCoverageOffsetUsed, RAW_EXISTING_COVERAGE);
+  assert.equal(trace.inputs.methodUsedExistingCoverageOffset, RAW_EXISTING_COVERAGE);
+  assert.equal(trace.inputs.methodOffsetSourcePath, RAW_SOURCE_PATH);
+  assert.equal(trace.inputs.existingCoverageOffsetStatus, "raw-fallback");
+  assert.equal(trace.inputs.existingCoverageOffsetFallbackUsed, true);
+  assert.equal(trace.inputs.existingCoverageOffsetFallbackReason, "missing-treated-existing-coverage-offset");
+  assert.equal(trace.inputs.treatedExistingCoverageOffsetAvailable, false);
+  assert.equal(trace.inputs.treatedExistingCoverageConsumedByMethods, false);
+  assert.equal(trace.inputs.treatedExistingCoveragePreparedNotUsed, false);
+  assert.equal(
+    trace.inputs.existingCoverageOffsetFallbackNote,
+    "Treated existing coverage unavailable; raw linked coverage used as fallback."
+  );
   assert.equal(
     trace.inputs.treatedExistingCoverageTraceNote,
-    "treatedExistingCoverageOffset prepared but not method-used"
+    "Treated existing coverage unavailable; raw linked coverage used as fallback."
   );
 }
 
-function assertMethodOutputParity(methodCase) {
+function assertTraceShowsExistingCoverageExcluded(result, methodName) {
+  const trace = findTrace(result, "existingCoverageOffset");
+  assert.ok(trace, methodName + " should include an existing coverage offset trace row.");
+  assert.equal(trace.value, 0);
+  assert.equal(trace.formula, "disabled by settings");
+  assert.deepEqual(cloneJson(trace.sourcePaths), ["settings.includeExistingCoverageOffset"]);
+  assert.equal(trace.inputs.includeExistingCoverageOffset, false);
+  assert.equal(trace.inputs.methodUsedExistingCoverageOffset, 0);
+  assert.equal(trace.inputs.methodOffsetSourcePath, null);
+  assert.equal(trace.inputs.existingCoverageOffsetStatus, "excluded");
+  assert.equal(trace.inputs.existingCoverageOffsetFallbackUsed, false);
+  assert.equal(trace.inputs.treatedExistingCoverageOffsetAvailable, true);
+  assert.equal(trace.inputs.treatedExistingCoverageConsumedByMethods, false);
+}
+
+function assertTreatedOffsetUsed(methodCase) {
   const settings = createSettings();
   const modelWithTreatedOffset = createModel();
   const originalModel = cloneJson(modelWithTreatedOffset);
-  const modelWithoutTreatedOffset = createModel({ includeTreatedOffset: false });
-
-  const resultWithTreatedOffset = methodCase.run(modelWithTreatedOffset, settings);
-  const resultWithoutTreatedOffset = methodCase.run(modelWithoutTreatedOffset, settings);
+  const result = methodCase.run(modelWithTreatedOffset, settings);
 
   assert.deepEqual(modelWithTreatedOffset, originalModel, methodCase.name + " should not mutate the model input.");
   assert.equal(
-    resultWithTreatedOffset.commonOffsets.existingCoverageOffset,
+    result.commonOffsets.existingCoverageOffset,
+    TREATED_EXISTING_COVERAGE,
+    methodCase.name + " should use treatedExistingCoverageOffset.totalTreatedCoverageOffset."
+  );
+  assertTraceShowsTreatedUsed(result, methodCase.name);
+  assert.equal(hasWarningCode(result, FALLBACK_WARNING_CODE), false);
+}
+
+function assertRawFallbackUsed(methodCase) {
+  const settings = createSettings();
+  const modelWithoutTreatedOffset = createModel({ includeTreatedOffset: false });
+  const originalModel = cloneJson(modelWithoutTreatedOffset);
+  const result = methodCase.run(modelWithoutTreatedOffset, settings);
+
+  assert.deepEqual(modelWithoutTreatedOffset, originalModel, methodCase.name + " should not mutate the model input.");
+  assert.equal(
+    result.commonOffsets.existingCoverageOffset,
     RAW_EXISTING_COVERAGE,
-    methodCase.name + " should use existingCoverage.totalExistingCoverage."
+    methodCase.name + " should fall back to existingCoverage.totalExistingCoverage when treated coverage is unavailable."
   );
-  assert.equal(
-    resultWithTreatedOffset.commonOffsets.existingCoverageOffset,
-    resultWithoutTreatedOffset.commonOffsets.existingCoverageOffset,
-    methodCase.name + " existing coverage offset should not depend on treatedExistingCoverageOffset."
-  );
-  assert.equal(
-    resultWithTreatedOffset.commonOffsets.totalOffset,
-    resultWithoutTreatedOffset.commonOffsets.totalOffset,
-    methodCase.name + " total offset should not depend on treatedExistingCoverageOffset."
-  );
-  assert.equal(
-    resultWithTreatedOffset[methodCase.grossKey],
-    resultWithoutTreatedOffset[methodCase.grossKey],
-    methodCase.name + " gross output should not depend on treatedExistingCoverageOffset."
-  );
-  assert.equal(
-    resultWithTreatedOffset.netCoverageGap,
-    resultWithoutTreatedOffset.netCoverageGap,
-    methodCase.name + " net coverage gap should not depend on treatedExistingCoverageOffset."
-  );
-  assert.deepEqual(
-    resultWithTreatedOffset.components,
-    resultWithoutTreatedOffset.components,
-    methodCase.name + " components should not depend on treatedExistingCoverageOffset."
-  );
-  assertTraceIncludesPreparedCoverage(resultWithTreatedOffset, methodCase.name, RAW_EXISTING_COVERAGE);
+  assert.ok(hasWarningCode(result, FALLBACK_WARNING_CODE), methodCase.name + " should warn when raw fallback is used.");
+  assertTraceShowsRawFallback(result, methodCase.name);
 }
 
 function assertDisabledExistingCoverageOffset(methodCase) {
   const result = methodCase.run(createModel(), createSettings({
     includeExistingCoverageOffset: false
   }));
-  const trace = findTrace(result, "existingCoverageOffset");
 
   assert.equal(
     result.commonOffsets.existingCoverageOffset,
     0,
     methodCase.name + " should force existing coverage offset to 0 when disabled."
   );
-  assert.equal(trace.formula, "disabled by settings");
-  assertTraceIncludesPreparedCoverage(result, methodCase.name, 0);
+  assertTraceShowsExistingCoverageExcluded(result, methodCase.name);
+  assert.equal(hasWarningCode(result, FALLBACK_WARNING_CODE), false);
 }
 
 [
   {
     name: "DIME",
-    run: methods.runDimeAnalysis,
-    grossKey: "grossNeed"
+    run: methods.runDimeAnalysis
   },
   {
     name: "Needs",
-    run: methods.runNeedsAnalysis,
-    grossKey: "grossNeed"
+    run: methods.runNeedsAnalysis
   },
   {
     name: "Simple HLV",
-    run: methods.runHumanLifeValueAnalysis,
-    grossKey: "grossHumanLifeValue"
+    run: methods.runHumanLifeValueAnalysis
   }
 ].forEach((methodCase) => {
-  assertMethodOutputParity(methodCase);
+  assertTreatedOffsetUsed(methodCase);
+  assertRawFallbackUsed(methodCase);
   assertDisabledExistingCoverageOffset(methodCase);
 });
 

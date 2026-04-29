@@ -367,7 +367,23 @@
     return numericValue == null ? null : numericValue;
   }
 
-  function createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset) {
+  function getTreatedExistingCoverageUnavailableReason(treatedCoverageOffset) {
+    if (!isPlainObject(treatedCoverageOffset)) {
+      return "missing-treated-existing-coverage-offset";
+    }
+
+    const metadata = isPlainObject(treatedCoverageOffset.metadata)
+      ? treatedCoverageOffset.metadata
+      : {};
+    const metadataReason = String(metadata.reason || "").trim();
+    if (metadataReason) {
+      return metadataReason;
+    }
+
+    return "missing-treated-existing-coverage-total";
+  }
+
+  function createExistingCoverageOffsetTraceInputs(model, selection) {
     const treatedCoverageOffset = getPath(model, "treatedExistingCoverageOffset");
     const treatedCoverageOffsetMetadata = isPlainObject(treatedCoverageOffset?.metadata)
       ? treatedCoverageOffset.metadata
@@ -375,38 +391,140 @@
     const treatedCoverageOffsetTotal = getPath(model, TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH);
     const treatedCoverageOffsetAvailable = isPlainObject(treatedCoverageOffset)
       && toTraceNumberOrNull(treatedCoverageOffsetTotal) != null;
-    const treatedCoverageConsumedByMethods = treatedCoverageOffsetMetadata.consumedByMethods === true;
+    const treatedWarnings = Array.isArray(treatedCoverageOffset?.warnings)
+      ? treatedCoverageOffset.warnings
+      : [];
+    const selected = isPlainObject(selection) ? selection : {};
+    const fallbackReason = selected.fallbackReason || null;
+    const fallbackNote = fallbackReason
+      ? "Treated existing coverage unavailable; raw linked coverage used as fallback."
+      : null;
 
     return {
-      includeExistingCoverageOffset,
+      includeExistingCoverageOffset: selected.includeExistingCoverageOffset === true,
       rawExistingCoverageTotal: toTraceNumberOrNull(getPath(model, EXISTING_COVERAGE_OFFSET_SOURCE_PATH)),
-      rawExistingCoverageOffsetUsed: existingCoverageOffset,
-      methodOffsetSourcePath: EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      rawExistingCoverageOffsetUsed: selected.sourcePath === EXISTING_COVERAGE_OFFSET_SOURCE_PATH
+        ? selected.value
+        : null,
+      methodUsedExistingCoverageOffset: selected.value,
+      methodOffsetSourcePath: selected.sourcePath,
+      existingCoverageOffsetStatus: selected.status || null,
+      existingCoverageOffsetFallbackUsed: selected.fallbackUsed === true,
+      existingCoverageOffsetFallbackReason: fallbackReason,
+      existingCoverageOffsetFallbackNote: fallbackNote,
       treatedExistingCoverageOffsetAvailable: treatedCoverageOffsetAvailable,
       treatedExistingCoverageTotal: treatedCoverageOffsetAvailable
         ? toTraceNumberOrNull(treatedCoverageOffsetTotal)
         : null,
-      treatedExistingCoverageConsumedByMethods: treatedCoverageConsumedByMethods,
-      treatedExistingCoveragePreparedNotUsed: treatedCoverageOffsetAvailable && !treatedCoverageConsumedByMethods,
+      treatedExistingCoverageConsumedByMethods: selected.sourcePath === TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      treatedExistingCoverageMetadataConsumedByMethods: treatedCoverageOffsetMetadata.consumedByMethods === true,
+      treatedExistingCoveragePreparedNotUsed: treatedCoverageOffsetAvailable
+        && selected.sourcePath !== TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
       treatedExistingCoveragePolicyCount: toTraceNumberOrNull(getPath(model, "treatedExistingCoverageOffset.policyCount")),
       treatedExistingCoverageIncludedPolicyCount: toTraceNumberOrNull(getPath(model, "treatedExistingCoverageOffset.includedPolicyCount")),
       treatedExistingCoverageExcludedPolicyCount: toTraceNumberOrNull(getPath(model, "treatedExistingCoverageOffset.excludedPolicyCount")),
-      treatedExistingCoverageTraceNote: treatedCoverageOffsetAvailable && !treatedCoverageConsumedByMethods
-        ? "treatedExistingCoverageOffset prepared but not method-used"
-        : null
+      treatedExistingCoverageWarningCount: treatedWarnings.length,
+      treatedExistingCoverageUnavailableReason: treatedCoverageOffsetAvailable
+        ? null
+        : getTreatedExistingCoverageUnavailableReason(treatedCoverageOffset),
+      treatedExistingCoverageTraceNote: selected.sourcePath === TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH
+        ? "treatedExistingCoverageOffset method-used"
+        : fallbackNote
     };
   }
 
-  function getExistingCoverageOffsetTraceSourcePaths() {
-    return [
-      EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
-      "settings.includeExistingCoverageOffset",
-      TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
-      TREATED_EXISTING_COVERAGE_METHOD_CONSUMPTION_SOURCE_PATH,
-      "treatedExistingCoverageOffset.policyCount",
-      "treatedExistingCoverageOffset.includedPolicyCount",
-      "treatedExistingCoverageOffset.excludedPolicyCount"
-    ];
+  function resolveExistingCoverageOffsetSelection(options) {
+    const normalizedOptions = isPlainObject(options) ? options : {};
+    const model = isPlainObject(normalizedOptions.model) ? normalizedOptions.model : {};
+    const warnings = Array.isArray(normalizedOptions.warnings) ? normalizedOptions.warnings : [];
+    const includeExistingCoverageOffset = normalizedOptions.includeExistingCoverageOffset === true;
+    const methodLabel = normalizedOptions.methodLabel || "analysis";
+    const treatedCoverageOffset = getPath(model, "treatedExistingCoverageOffset");
+    const treatedRawValue = getPath(model, TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH);
+    const treatedCoverageOffsetAvailable = isPlainObject(treatedCoverageOffset)
+      && toOptionalNumber(treatedRawValue) != null;
+
+    if (!includeExistingCoverageOffset) {
+      return {
+        value: 0,
+        formula: "disabled by settings",
+        sourcePath: null,
+        sourcePaths: ["settings.includeExistingCoverageOffset"],
+        includeExistingCoverageOffset,
+        status: "excluded",
+        fallbackUsed: false,
+        fallbackReason: null
+      };
+    }
+
+    if (treatedCoverageOffsetAvailable) {
+      const value = normalizeComponentNumber({
+        value: treatedRawValue,
+        sourcePath: TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        warnings,
+        warnWhenMissing: true,
+        missingCode: "treated-existing-coverage-missing",
+        missingMessage: "treatedExistingCoverageOffset.totalTreatedCoverageOffset was missing; existing coverage offset defaulted to 0.",
+        missingSeverity: "info",
+        negativeCode: "negative-treated-existing-coverage",
+        negativeMessage: `treatedExistingCoverageOffset.totalTreatedCoverageOffset was negative and was treated as 0 for ${methodLabel}.`
+      });
+
+      return {
+        value,
+        formula: TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        sourcePath: TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        sourcePaths: [
+          TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+          TREATED_EXISTING_COVERAGE_METHOD_CONSUMPTION_SOURCE_PATH,
+          "settings.includeExistingCoverageOffset"
+        ],
+        includeExistingCoverageOffset,
+        status: value === 0 ? "treated-zero" : "treated-used",
+        fallbackUsed: false,
+        fallbackReason: null
+      };
+    }
+
+    const fallbackReason = getTreatedExistingCoverageUnavailableReason(treatedCoverageOffset);
+    addWarning(
+      warnings,
+      "treated-existing-coverage-unavailable-raw-fallback",
+      `treatedExistingCoverageOffset.totalTreatedCoverageOffset was unavailable for ${methodLabel}; raw linked coverage was used as the existing coverage offset.`,
+      "warning",
+      [
+        TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        "settings.includeExistingCoverageOffset"
+      ]
+    );
+
+    const value = normalizeComponentNumber({
+      value: getPath(model, EXISTING_COVERAGE_OFFSET_SOURCE_PATH),
+      sourcePath: EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      warnings,
+      warnWhenMissing: true,
+      missingCode: normalizedOptions.rawMissingCode || "existing-coverage-missing",
+      missingMessage: normalizedOptions.rawMissingMessage || "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
+      missingSeverity: "info",
+      negativeCode: normalizedOptions.rawNegativeCode || "negative-existing-coverage",
+      negativeMessage: normalizedOptions.rawNegativeMessage || `totalExistingCoverage was negative and was treated as 0 for ${methodLabel}.`
+    });
+
+    return {
+      value,
+      formula: EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      sourcePath: EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      sourcePaths: [
+        EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+        "settings.includeExistingCoverageOffset"
+      ],
+      includeExistingCoverageOffset,
+      status: "raw-fallback",
+      fallbackUsed: true,
+      fallbackReason
+    };
   }
 
   function createAssetOffsetSelectionResult(options) {
@@ -1653,19 +1771,17 @@
       negativeCode: "negative-education-funding-need",
       negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for DIME."
     });
-    const existingCoverageOffset = includeExistingCoverageOffset
-      ? normalizeComponentNumber({
-          value: getPath(model, "existingCoverage.totalExistingCoverage"),
-          sourcePath: "existingCoverage.totalExistingCoverage",
-          warnings,
-          warnWhenMissing: true,
-          missingCode: "existing-coverage-missing",
-          missingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
-          missingSeverity: "info",
-          negativeCode: "negative-existing-coverage",
-          negativeMessage: "totalExistingCoverage was negative and was treated as 0 for DIME."
-        })
-      : 0;
+    const existingCoverageOffsetSelection = resolveExistingCoverageOffsetSelection({
+      model,
+      warnings,
+      includeExistingCoverageOffset,
+      methodLabel: "DIME",
+      rawMissingCode: "existing-coverage-missing",
+      rawMissingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
+      rawNegativeCode: "negative-existing-coverage",
+      rawNegativeMessage: "totalExistingCoverage was negative and was treated as 0 for DIME."
+    });
+    const existingCoverageOffset = existingCoverageOffsetSelection.value;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
       warnings,
@@ -1736,12 +1852,10 @@
     trace.push(createTraceRow({
       key: "existingCoverageOffset",
       label: "Existing Coverage Offset",
-      formula: includeExistingCoverageOffset
-        ? "existingCoverage.totalExistingCoverage"
-        : "disabled by settings",
-      inputs: createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset),
+      formula: existingCoverageOffsetSelection.formula,
+      inputs: createExistingCoverageOffsetTraceInputs(model, existingCoverageOffsetSelection),
       value: existingCoverageOffset,
-      sourcePaths: getExistingCoverageOffsetTraceSourcePaths()
+      sourcePaths: existingCoverageOffsetSelection.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "assetOffset",
@@ -1883,19 +1997,17 @@
         );
     const discretionarySupport = discretionarySupportComponent.value;
 
-    const existingCoverageOffset = includeExistingCoverageOffset
-      ? normalizeComponentNumber({
-          value: getPath(model, "existingCoverage.totalExistingCoverage"),
-          sourcePath: "existingCoverage.totalExistingCoverage",
-          warnings,
-          warnWhenMissing: true,
-          missingCode: "missing-existing-coverage",
-          missingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
-          missingSeverity: "info",
-          negativeCode: "negative-value-treated-as-zero",
-          negativeMessage: "totalExistingCoverage was negative and was treated as 0 for Needs Analysis."
-        })
-      : 0;
+    const existingCoverageOffsetSelection = resolveExistingCoverageOffsetSelection({
+      model,
+      warnings,
+      includeExistingCoverageOffset,
+      methodLabel: "Needs Analysis",
+      rawMissingCode: "missing-existing-coverage",
+      rawMissingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
+      rawNegativeCode: "negative-value-treated-as-zero",
+      rawNegativeMessage: "totalExistingCoverage was negative and was treated as 0 for Needs Analysis."
+    });
+    const existingCoverageOffset = existingCoverageOffsetSelection.value;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
       warnings,
@@ -2135,12 +2247,10 @@
     trace.push(createTraceRow({
       key: "existingCoverageOffset",
       label: "Existing Coverage Offset",
-      formula: includeExistingCoverageOffset
-        ? "existingCoverage.totalExistingCoverage"
-        : "disabled by settings",
-      inputs: createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset),
+      formula: existingCoverageOffsetSelection.formula,
+      inputs: createExistingCoverageOffsetTraceInputs(model, existingCoverageOffsetSelection),
       value: existingCoverageOffset,
-      sourcePaths: getExistingCoverageOffsetTraceSourcePaths()
+      sourcePaths: existingCoverageOffsetSelection.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "assetOffset",
@@ -2307,19 +2417,17 @@
       );
     }
 
-    const existingCoverageOffset = includeExistingCoverageOffset
-      ? normalizeComponentNumber({
-          value: getPath(model, "existingCoverage.totalExistingCoverage"),
-          sourcePath: "existingCoverage.totalExistingCoverage",
-          warnings,
-          warnWhenMissing: true,
-          missingCode: "existing-coverage-missing",
-          missingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
-          missingSeverity: "info",
-          negativeCode: "negative-value-treated-as-zero",
-          negativeMessage: "totalExistingCoverage was negative and was treated as 0 for Simple HLV."
-        })
-      : 0;
+    const existingCoverageOffsetSelection = resolveExistingCoverageOffsetSelection({
+      model,
+      warnings,
+      includeExistingCoverageOffset,
+      methodLabel: "Simple HLV",
+      rawMissingCode: "existing-coverage-missing",
+      rawMissingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
+      rawNegativeCode: "negative-value-treated-as-zero",
+      rawNegativeMessage: "totalExistingCoverage was negative and was treated as 0 for Simple HLV."
+    });
+    const existingCoverageOffset = existingCoverageOffsetSelection.value;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
       warnings,
@@ -2370,12 +2478,10 @@
     trace.push(createTraceRow({
       key: "existingCoverageOffset",
       label: "Existing Coverage Offset",
-      formula: includeExistingCoverageOffset
-        ? "existingCoverage.totalExistingCoverage"
-        : "disabled by settings",
-      inputs: createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset),
+      formula: existingCoverageOffsetSelection.formula,
+      inputs: createExistingCoverageOffsetTraceInputs(model, existingCoverageOffsetSelection),
       value: existingCoverageOffset,
-      sourcePaths: getExistingCoverageOffsetTraceSourcePaths()
+      sourcePaths: existingCoverageOffsetSelection.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "assetOffset",

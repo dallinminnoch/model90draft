@@ -10,6 +10,7 @@
 
   const SURVIVOR_NET_INCOME_TAX_BASIS = "Qualifying Surviving Spouse";
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
+  const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
 
   function createWarning(code, message, details) {
     return {
@@ -1311,7 +1312,7 @@
       options: {
         valuationDate: valuationDateResult.valuationDate,
         source: "lens-model-preparation",
-        consumedByMethods: false
+        consumedByMethods: true
       }
     });
     const policies = Array.isArray(result?.policies) ? result.policies : [];
@@ -1340,10 +1341,10 @@
         calculationSource: resultMetadata.calculationSource || "existing-coverage-treatment-calculations",
         coveragePolicySourcePath: coveragePolicyResult.sourcePath,
         rawExistingCoverageTotal: existingCoverage.totalExistingCoverage ?? null,
-        methodOffsetSourcePath: "existingCoverage.totalExistingCoverage",
+        methodOffsetSourcePath: TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
         valuationDate: valuationDateResult.valuationDate,
         valuationDateSource: valuationDateResult.valuationDateSource,
-        consumedByMethods: false
+        consumedByMethods: true
       }
     };
   }

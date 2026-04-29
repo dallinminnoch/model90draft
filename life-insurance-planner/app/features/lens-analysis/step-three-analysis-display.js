@@ -274,7 +274,20 @@
       return "Excluded by Include Existing Coverage Offset";
     }
 
+    const offsetStatus = String(getTraceInput(trace, "existingCoverageOffsetStatus") || "").trim();
+    if (offsetStatus === "treated-used" || offsetStatus === "treated-zero") {
+      return "Using treated existing coverage";
+    }
+
+    if (offsetStatus === "raw-fallback") {
+      return "Using raw linked coverage fallback";
+    }
+
     const sourcePath = String(getTraceInput(trace, "methodOffsetSourcePath") || "").trim();
+    if (sourcePath === "treatedExistingCoverageOffset.totalTreatedCoverageOffset") {
+      return "Using treated existing coverage";
+    }
+
     if (sourcePath === "existingCoverage.totalExistingCoverage") {
       return "Using raw linked profile coverage";
     }
@@ -283,13 +296,31 @@
   }
 
   function getExistingCoverageTreatmentStatus(trace) {
+    if (getTraceInput(trace, "existingCoverageOffsetFallbackUsed") === true) {
+      return "Treated coverage unavailable; raw fallback used";
+    }
+
     if (getTraceInput(trace, "treatedExistingCoverageOffsetAvailable") !== true) {
       return "";
     }
 
     return getTraceInput(trace, "treatedExistingCoverageConsumedByMethods") === true
-      ? "Prepared and method-used"
+      ? "Treated coverage used"
       : "Prepared for preview; not method-used";
+  }
+
+  function formatTraceReason(value) {
+    const normalized = String(value || "").trim();
+    if (!normalized) {
+      return "";
+    }
+
+    return normalized
+      .replace(/[-_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^./, function (match) {
+        return match.toUpperCase();
+      });
   }
 
   function formatExistingCoveragePolicyCount(trace) {
@@ -325,22 +356,26 @@
       return "";
     }
 
-    const rawExistingCoverageOffsetUsed = toDisplayNumber(
-      getTraceInput(existingCoverageTrace, "rawExistingCoverageOffsetUsed")
+    const methodUsedExistingCoverageOffset = toDisplayNumber(
+      getTraceInput(existingCoverageTrace, "methodUsedExistingCoverageOffset")
     );
     const linkedCoverageTotal = toDisplayNumber(getTraceInput(existingCoverageTrace, "rawExistingCoverageTotal"));
     const treatedCoverageAvailable = getTraceInput(existingCoverageTrace, "treatedExistingCoverageOffsetAvailable") === true;
+    const treatedCoverageConsumed = getTraceInput(existingCoverageTrace, "treatedExistingCoverageConsumedByMethods") === true;
     const treatedCoverageTotal = treatedCoverageAvailable
       ? toDisplayNumber(getTraceInput(existingCoverageTrace, "treatedExistingCoverageTotal"))
       : null;
     const treatmentStatus = getExistingCoverageTreatmentStatus(existingCoverageTrace);
     const policyCount = formatExistingCoveragePolicyCount(existingCoverageTrace);
+    const fallbackReason = formatTraceReason(
+      getTraceInput(existingCoverageTrace, "existingCoverageOffsetFallbackReason")
+    );
 
     const rows = [
       { label: "Existing coverage status", value: getExistingCoverageStatus(existingCoverageTrace) },
       {
         label: "Method-used coverage",
-        value: formatCurrency(rawExistingCoverageOffsetUsed == null ? existingCoverageTrace.value : rawExistingCoverageOffsetUsed)
+        value: formatCurrency(methodUsedExistingCoverageOffset == null ? existingCoverageTrace.value : methodUsedExistingCoverageOffset)
       }
     ];
 
@@ -349,11 +384,18 @@
     }
 
     if (treatedCoverageAvailable && treatedCoverageTotal != null) {
-      rows.push({ label: "Treated coverage preview", value: formatCurrency(treatedCoverageTotal) });
+      rows.push({
+        label: treatedCoverageConsumed ? "Treated coverage used" : "Treated coverage preview",
+        value: formatCurrency(treatedCoverageTotal)
+      });
     }
 
     if (treatmentStatus) {
       rows.push({ label: "Treatment status", value: treatmentStatus });
+    }
+
+    if (fallbackReason) {
+      rows.push({ label: "Fallback reason", value: fallbackReason });
     }
 
     if (policyCount) {

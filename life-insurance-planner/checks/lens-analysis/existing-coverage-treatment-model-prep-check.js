@@ -149,8 +149,8 @@ assert.equal(treatedExistingCoverageOffset.policyCount, 2);
 assert.equal(treatedExistingCoverageOffset.includedPolicyCount, 2);
 assert.equal(treatedExistingCoverageOffset.excludedPolicyCount, 0);
 assert.equal(treatedExistingCoverageOffset.metadata.rawExistingCoverageTotal, 300000);
-assert.equal(treatedExistingCoverageOffset.metadata.methodOffsetSourcePath, "existingCoverage.totalExistingCoverage");
-assert.equal(treatedExistingCoverageOffset.metadata.consumedByMethods, false);
+assert.equal(treatedExistingCoverageOffset.metadata.methodOffsetSourcePath, "treatedExistingCoverageOffset.totalTreatedCoverageOffset");
+assert.equal(treatedExistingCoverageOffset.metadata.consumedByMethods, true);
 assert.equal(treatedExistingCoverageOffset.metadata.valuationDate, "2026-01-01");
 assert.equal(
   treatedExistingCoverageOffset.metadata.valuationDateSource,
@@ -189,6 +189,6 @@ assert.equal(emptyPoliciesModel.existingCoverage.totalExistingCoverage, null);
 assert.equal(emptyPoliciesModel.treatedExistingCoverageOffset.totalRawCoverage, 0);
 assert.equal(emptyPoliciesModel.treatedExistingCoverageOffset.totalTreatedCoverageOffset, 0);
 assert.equal(emptyPoliciesModel.treatedExistingCoverageOffset.policyCount, 0);
-assert.equal(emptyPoliciesModel.treatedExistingCoverageOffset.metadata.consumedByMethods, false);
+assert.equal(emptyPoliciesModel.treatedExistingCoverageOffset.metadata.consumedByMethods, true);
 
 console.log("Existing coverage treatment model prep checks passed.");
