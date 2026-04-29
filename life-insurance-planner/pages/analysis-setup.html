@@ -709,7 +709,7 @@
                             <ul>
                               <li><strong>Apply survivor income start delay:</strong> delays when survivor income begins reducing support need.</li>
                               <li><strong>Apply survivor income growth:</strong> saves a future-use growth assumption; current Needs does not project it.</li>
-                              <li><strong>Maximum reliance:</strong> caps how much support can rely on survivor income.</li>
+                              <li><strong>Maximum reliance:</strong> saves a future-use cap; current Needs does not cap survivor income.</li>
                             </ul>
                           </div>
                         </div>
@@ -734,11 +734,12 @@
                         </span>
                       </label>
                       <div class="analysis-setup-survivor-control-row">
-                        <label for="analysis-setup-survivor-max-reliance">Maximum reliance on survivor income</label>
+                        <label for="analysis-setup-survivor-max-reliance">Future survivor income reliance cap</label>
                         <span class="analysis-setup-asset-percent">
                           <input id="analysis-setup-survivor-max-reliance" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="decimal" data-analysis-survivor-field="survivorIncomeTreatment.maxReliancePercent">
                           <span aria-hidden="true">%</span>
                         </span>
+                        <p>Saved for future cap modeling; current Needs does not cap survivor income.</p>
                       </div>
                     </div>
 
@@ -756,7 +757,7 @@
                               <li><strong>Expected work reduction:</strong> reduces survivor income for caregiving, transition, or schedule changes.</li>
                               <li><strong>Start delay:</strong> sets how many months pass before survivor income is applied.</li>
                               <li><strong>Income growth:</strong> saves a future-use survivor income growth rate.</li>
-                              <li><strong>Income horizon:</strong> sets how long survivor income remains available for planning.</li>
+                              <li><strong>Income horizon:</strong> saves a future-use duration assumption; current Needs does not limit survivor income by horizon.</li>
                             </ul>
                           </div>
                         </div>
@@ -792,11 +793,12 @@
                         <p>Captured for future projections; current Needs does not apply growth.</p>
                       </div>
                       <div class="analysis-setup-survivor-control-row">
-                        <label for="analysis-setup-survivor-income-horizon">Survivor income horizon</label>
+                        <label for="analysis-setup-survivor-income-horizon">Future survivor income horizon</label>
                         <span class="analysis-setup-survivor-years">
                           <input id="analysis-setup-survivor-income-horizon" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-survivor-field="survivorScenario.survivorRetirementHorizonYears">
                           <span>years</span>
                         </span>
+                        <p>Saved for future duration modeling; current Needs does not limit survivor income by horizon.</p>
                       </div>
                     </div>
 
@@ -827,10 +829,11 @@
                     </div>
 
                     <div class="analysis-setup-survivor-card">
-                      <h4>Risk flag</h4>
+                      <h4>Future risk flags</h4>
+                      <p>Saved for future recommendation guardrails; not applied to current DIME, Needs, HLV, or recommendations.</p>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
                         <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Flag high survivor income reliance</span>
+                          <span class="settings-toggle-label">Save high survivor income reliance flag</span>
                         </span>
                         <span class="settings-switch analysis-setup-mini-switch">
                           <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Flag high survivor income reliance" data-analysis-survivor-field="riskFlags.flagHighSurvivorIncomeReliance">
