@@ -765,7 +765,7 @@
                       <div class="analysis-setup-survivor-control-row">
                         <label for="analysis-setup-survivor-continues-working">Survivor continues working</label>
                         <select id="analysis-setup-survivor-continues-working" class="analysis-setup-method-select analysis-setup-survivor-field" data-analysis-survivor-field="survivorScenario.survivorContinuesWorking">
-                          <option value="">Use saved PMI value</option>
+                          <option value="">Use Analysis Setup default</option>
                           <option value="true">Yes</option>
                           <option value="false">No</option>
                         </select>
@@ -852,12 +852,12 @@
 
                   <div class="analysis-setup-survivor-preview" aria-label="Survivor and support source preview">
                     <div>
-                      <span>Survivor net income</span>
-                      <strong data-analysis-survivor-preview="netIncome">No saved net income found</strong>
+                      <span>Raw spouse income</span>
+                      <strong data-analysis-survivor-preview="spouseIncome">No raw spouse income found</strong>
                     </div>
                     <div>
                       <span>Income start delay</span>
-                      <strong data-analysis-survivor-preview="startDelay">No saved delay found</strong>
+                      <strong data-analysis-survivor-preview="startDelay">No Analysis Setup delay</strong>
                     </div>
                     <div>
                       <span>Support duration source</span>
@@ -868,7 +868,7 @@
                       <strong data-analysis-survivor-preview="discretionarySupport">Excluded later</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-survivor-preview-note">Needs uses the supported survivor offset settings. Survivor income growth and horizon are saved for future projections.</p>
+                  <p class="analysis-setup-survivor-preview-note">Needs uses Analysis Setup survivor assumptions with raw spouse income from PMI/profile. Survivor income growth and horizon are saved for future projections.</p>
                 </section>
 
                 <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning">

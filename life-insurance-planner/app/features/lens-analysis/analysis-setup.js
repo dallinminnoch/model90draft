@@ -2606,7 +2606,7 @@
       values: {},
       fieldGroups: {},
       preview: {
-        netIncome: document.querySelector("[data-analysis-survivor-preview='netIncome']"),
+        spouseIncome: document.querySelector("[data-analysis-survivor-preview='spouseIncome']"),
         startDelay: document.querySelector("[data-analysis-survivor-preview='startDelay']"),
         supportDuration: document.querySelector("[data-analysis-survivor-preview='supportDuration']"),
         discretionarySupport: document.querySelector("[data-analysis-survivor-preview='discretionarySupport']")
@@ -4147,28 +4147,29 @@
     return parseOptionalNumberValue(getSurvivorSupportSourceRawValue(linkedRecord, sourceField));
   }
 
-  function getSurvivorSupportDefaultScenario(linkedRecord, fallbackScenario) {
+  function getSurvivorSupportDefaultScenario(_linkedRecord, fallbackScenario) {
     const defaults = fallbackScenario || DEFAULT_SURVIVOR_SUPPORT_ASSUMPTIONS.survivorScenario;
+    const fallback = DEFAULT_SURVIVOR_SUPPORT_ASSUMPTIONS.survivorScenario;
     return {
       survivorContinuesWorking: normalizeSurvivorSupportBoolean(
-        getSurvivorSupportSourceRawValue(linkedRecord, "survivorContinuesWorking"),
-        defaults.survivorContinuesWorking
+        defaults.survivorContinuesWorking,
+        fallback.survivorContinuesWorking
       ),
       expectedSurvivorWorkReductionPercent: normalizeSurvivorSupportPercent(
-        getSurvivorSupportSourceRawValue(linkedRecord, "spouseExpectedWorkReductionAtDeath"),
-        defaults.expectedSurvivorWorkReductionPercent
+        defaults.expectedSurvivorWorkReductionPercent,
+        fallback.expectedSurvivorWorkReductionPercent
       ),
       survivorIncomeStartDelayMonths: normalizeSurvivorSupportNonNegativeNumber(
-        getSurvivorSupportSourceRawValue(linkedRecord, "survivorIncomeStartDelayMonths"),
-        defaults.survivorIncomeStartDelayMonths
+        defaults.survivorIncomeStartDelayMonths,
+        fallback.survivorIncomeStartDelayMonths
       ),
       survivorEarnedIncomeGrowthRatePercent: normalizeSurvivorSupportPercent(
-        getSurvivorSupportSourceRawValue(linkedRecord, "spouseIncomeGrowthRate"),
-        defaults.survivorEarnedIncomeGrowthRatePercent
+        defaults.survivorEarnedIncomeGrowthRatePercent,
+        fallback.survivorEarnedIncomeGrowthRatePercent
       ),
       survivorRetirementHorizonYears: normalizeSurvivorSupportNonNegativeNumber(
-        getSurvivorSupportSourceRawValue(linkedRecord, "spouseYearsUntilRetirement"),
-        defaults.survivorRetirementHorizonYears
+        defaults.survivorRetirementHorizonYears,
+        fallback.survivorRetirementHorizonYears
       )
     };
   }
@@ -4410,20 +4411,19 @@
     const assumptions = getSurvivorSupportDraftAssumptions(fields);
     fields.currentAssumptions = assumptions;
 
-    const survivorNetIncome = getSurvivorSupportMoneySourceValue(linkedRecord, "survivorNetAnnualIncome");
-    const startDelayMonths = assumptions.survivorScenario?.survivorIncomeStartDelayMonths
-      ?? getSurvivorSupportNumberSourceValue(linkedRecord, "survivorIncomeStartDelayMonths");
+    const rawSpouseIncome = getSurvivorSupportMoneySourceValue(linkedRecord, "spouseIncome");
+    const startDelayMonths = assumptions.survivorScenario?.survivorIncomeStartDelayMonths;
     const supportDurationYears = assumptions.supportTreatment?.supportDurationYears;
     const discretionaryIncluded = Boolean(assumptions.supportTreatment?.includeDiscretionarySupport);
 
-    if (fields.preview?.netIncome) {
-      fields.preview.netIncome.textContent = survivorNetIncome === null
-        ? "No saved net income found"
-        : formatCurrencyValue(survivorNetIncome);
+    if (fields.preview?.spouseIncome) {
+      fields.preview.spouseIncome.textContent = rawSpouseIncome === null
+        ? "No raw spouse income found"
+        : formatCurrencyValue(rawSpouseIncome);
     }
     if (fields.preview?.startDelay) {
       fields.preview.startDelay.textContent = startDelayMonths === null
-        ? "No saved delay found"
+        ? "No Analysis Setup delay"
         : `${formatHaircutInputValue(startDelayMonths)} months`;
     }
     if (fields.preview?.supportDuration) {
