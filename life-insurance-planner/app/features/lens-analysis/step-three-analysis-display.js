@@ -223,6 +223,134 @@
     `;
   }
 
+  function normalizeAssetOffsetSource(value) {
+    return String(value == null ? "" : value).trim().toLowerCase();
+  }
+
+  function formatAssetOffsetSource(value) {
+    const source = normalizeAssetOffsetSource(value);
+    if (source === "legacy") {
+      return "Legacy offset assets";
+    }
+
+    if (source === "treated") {
+      return "Treated asset offsets";
+    }
+
+    if (source === "legacy-fallback") {
+      return "Legacy fallback";
+    }
+
+    if (source === "disabled") {
+      return "Excluded";
+    }
+
+    if (source === "zero") {
+      return "No available offset asset total";
+    }
+
+    return source ? source : "Not set";
+  }
+
+  function getAssetOffsetStatus(trace) {
+    const includeOffsetAssets = getTraceInput(trace, "includeOffsetAssets") === true;
+    const requestedSource = normalizeAssetOffsetSource(getTraceInput(trace, "requestedAssetOffsetSource"));
+    const effectiveSource = normalizeAssetOffsetSource(getTraceInput(trace, "effectiveAssetOffsetSource"));
+    const fallbackUsed = getTraceInput(trace, "fallbackUsed") === true;
+    const selectedInputValue = toDisplayNumber(getTraceInput(trace, "selectedAssetOffsetValue"));
+    const traceValue = toDisplayNumber(trace?.value);
+    const selectedValue = selectedInputValue == null ? traceValue : selectedInputValue;
+    const treatedAvailable = getTraceInput(trace, "treatedAssetOffsetsAvailable") === true;
+    const legacyAvailable = getTraceInput(trace, "legacyOffsetAssetsAvailable") === true;
+    const sourceAvailable = effectiveSource === "treated"
+      ? treatedAvailable
+      : (effectiveSource === "legacy" || effectiveSource === "legacy-fallback") && legacyAvailable;
+
+    if (!includeOffsetAssets || effectiveSource === "disabled") {
+      return "Asset offsets excluded";
+    }
+
+    if (fallbackUsed || effectiveSource === "legacy-fallback") {
+      return "Treated requested; legacy fallback used";
+    }
+
+    if (sourceAvailable && selectedValue === 0) {
+      return "Available source selected, but offset is $0";
+    }
+
+    if (effectiveSource === "treated") {
+      return "Treated asset offsets used";
+    }
+
+    if (effectiveSource === "legacy") {
+      return "Legacy offset assets used";
+    }
+
+    if (effectiveSource === "zero" || requestedSource === "treated") {
+      return "No available offset asset total";
+    }
+
+    return "No available offset asset total";
+  }
+
+  function formatAssetOffsetFallback(trace) {
+    const requestedSource = normalizeAssetOffsetSource(getTraceInput(trace, "requestedAssetOffsetSource"));
+    const fallbackUsed = getTraceInput(trace, "fallbackUsed") === true;
+    const fallbackAllowed = getTraceInput(trace, "fallbackToLegacyOffsetAssets") === true;
+
+    if (fallbackUsed) {
+      return "Legacy fallback used";
+    }
+
+    if (requestedSource !== "treated") {
+      return "Not used";
+    }
+
+    return fallbackAllowed ? "Available if treated unavailable" : "Disabled";
+  }
+
+  function renderAssetOffsetDetails(result) {
+    const assetOffsetTrace = findTrace(result, "assetOffset");
+    if (!assetOffsetTrace) {
+      return "";
+    }
+
+    const requestedSource = getTraceInput(assetOffsetTrace, "requestedAssetOffsetSource");
+    const effectiveSource = getTraceInput(assetOffsetTrace, "effectiveAssetOffsetSource");
+    const requestedAssetOffsetSource = requestedSource == null
+      ? result?.assumptions?.assetOffsetSource
+      : requestedSource;
+    const effectiveAssetOffsetSource = effectiveSource == null
+      ? result?.assumptions?.effectiveAssetOffsetSource
+      : effectiveSource;
+    const normalizedRequestedSource = normalizeAssetOffsetSource(requestedAssetOffsetSource);
+    const normalizedEffectiveSource = normalizeAssetOffsetSource(effectiveAssetOffsetSource);
+    const fallbackUsed = getTraceInput(assetOffsetTrace, "fallbackUsed") === true
+      || result?.assumptions?.assetOffsetFallbackUsed === true;
+    const rows = [
+      { label: "Asset offset status", value: getAssetOffsetStatus(assetOffsetTrace) },
+      { label: "Effective source", value: formatAssetOffsetSource(effectiveAssetOffsetSource) }
+    ];
+
+    if (
+      normalizedRequestedSource === "treated"
+      || normalizedEffectiveSource === "treated"
+      || normalizedEffectiveSource === "legacy-fallback"
+      || fallbackUsed
+    ) {
+      rows.splice(1, 0, {
+        label: "Requested source",
+        value: formatAssetOffsetSource(requestedAssetOffsetSource)
+      });
+      rows.push({
+        label: "Fallback",
+        value: formatAssetOffsetFallback(assetOffsetTrace)
+      });
+    }
+
+    return renderProjectionDetailSection("Asset Offset Details", rows);
+  }
+
   function formatInflationRateLabel(ratePercent, rateSource) {
     const sourceLabel = String(rateSource || "").includes("householdExpenseInflationRatePercent")
       ? "household expense inflation"
@@ -454,6 +582,7 @@
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: dimeResult.netCoverageGap }
       ])}
+      ${renderAssetOffsetDetails(dimeResult)}
       <div class="analysis-result-eyebrow">DIME Components</div>
       ${renderMoneyList([
         { label: "Debt", value: components.debt },
@@ -490,6 +619,7 @@
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: needsResult.netCoverageGap }
       ])}
+      ${renderAssetOffsetDetails(needsResult)}
       <div class="analysis-result-eyebrow">Support Reduction</div>
       ${renderMoneyList([
         { label: "Survivor Income Applied to Support", value: offsets.survivorIncomeOffset }
@@ -537,6 +667,7 @@
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: humanLifeValueResult.netCoverageGap }
       ])}
+      ${renderAssetOffsetDetails(humanLifeValueResult)}
       <div class="analysis-result-eyebrow">HLV Components</div>
       ${renderAssumptionList([
         { label: "Annual Income Value", value: formatCurrency(components.annualIncomeValue) },
