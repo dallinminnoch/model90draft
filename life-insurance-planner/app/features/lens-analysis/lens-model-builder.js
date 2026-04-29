@@ -1108,6 +1108,25 @@
       );
     }
 
+    if (assetTreatmentAssumptions.enabled !== true) {
+      return createEmptyTreatedAssetOffsets(
+        [
+          createWarning(
+            "asset-treatment-disabled",
+            "Asset Treatment assumptions are disabled; treated asset offsets were not prepared for method consumption.",
+            {
+              assetCount: assetFacts.assets.length
+            }
+          )
+        ],
+        {
+          reason: "asset-treatment-disabled",
+          assetCount: assetFacts.assets.length,
+          assumptionsEnabled: false
+        }
+      );
+    }
+
     if (typeof calculateAssetTreatment !== "function") {
       return createEmptyTreatedAssetOffsets(
         [
