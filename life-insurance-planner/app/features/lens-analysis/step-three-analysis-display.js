@@ -65,6 +65,17 @@
     return number === 1 ? "1 year" : `${number} years`;
   }
 
+  function formatCount(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return "Not set";
+    }
+
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0
+    }).format(number);
+  }
+
   function formatDisplayValue(value) {
     if (typeof value === "boolean") {
       return value ? "Included" : "Excluded";
@@ -204,6 +215,15 @@
     return `${formatPercent(ratePercent)} ${sourceLabel}`;
   }
 
+  function formatEducationInflationRateLabel(ratePercent, rateSource) {
+    const normalizedSource = String(rateSource || "");
+    const sourceLabel = normalizedSource.includes("educationInflationRatePercent")
+      ? "education inflation"
+      : (normalizedSource.includes("generalInflationRatePercent") ? "general inflation" : "inflation");
+
+    return `${formatPercent(ratePercent)} ${sourceLabel}`;
+  }
+
   function renderInflationProjectionDetail(options) {
     const normalizedOptions = isPlainObject(options) ? options : {};
     const inflationTrace = normalizedOptions.trace;
@@ -270,6 +290,52 @@
       projectedLabel: "Projected discretionary support",
       disabledCurrentDollarLabel: "Current-dollar discretionary support used"
     });
+  }
+
+  function getEducationInflationStatus(inflationTrace) {
+    if (getTraceInput(inflationTrace, "applied") === true) {
+      return "Applied";
+    }
+
+    return getTraceInput(inflationTrace, "enabled") === true ? "Current-dollar" : "Disabled";
+  }
+
+  function renderNeedsEducationInflationDetail(needsResult) {
+    const inflationTrace = findTrace(needsResult, "educationFundingInflation");
+    if (!inflationTrace) {
+      return "";
+    }
+
+    const reason = String(getTraceInput(inflationTrace, "reason") || "");
+    if (reason === "education-funding-not-included-setting") {
+      return "";
+    }
+
+    const plannedDependentCount = Number(getTraceInput(inflationTrace, "plannedDependentCount"));
+    const hasPlannedDependents = Number.isFinite(plannedDependentCount) && plannedDependentCount > 0;
+    const plannedDependentLabel = hasPlannedDependents
+      ? "Planned-dependent education (current-dollar)"
+      : "Planned-dependent education";
+
+    return `
+      <div class="analysis-result-eyebrow">Education Funding Projection</div>
+      ${renderAssumptionList([
+        { label: "Inflation status", value: getEducationInflationStatus(inflationTrace) },
+        { label: "Current children projected", value: formatCount(getTraceInput(inflationTrace, "currentDatedChildCount")) },
+        { label: "Current-dollar current-child education", value: formatCurrency(getTraceInput(inflationTrace, "currentDollarCurrentChildTotal")) },
+        { label: "Projected current-child education", value: formatCurrency(getTraceInput(inflationTrace, "projectedCurrentChildTotal")) },
+        { label: plannedDependentLabel, value: `${formatCurrency(getTraceInput(inflationTrace, "currentDollarPlannedDependentTotal"))} current-dollar` },
+        { label: "Education total used", value: formatCurrency(getTraceInput(inflationTrace, "combinedEducationTotalUsed")) },
+        { label: "Education start age", value: formatCount(getTraceInput(inflationTrace, "educationStartAge")) },
+        {
+          label: "Inflation rate",
+          value: formatEducationInflationRateLabel(
+            getTraceInput(inflationTrace, "ratePercent"),
+            getTraceInput(inflationTrace, "rateSource")
+          )
+        }
+      ])}
+    `;
   }
 
   function splitWarnings(warnings) {
@@ -385,6 +451,7 @@
         { label: "Transition Needs", value: components.transitionNeeds },
         { label: "Discretionary Support", value: components.discretionarySupport }
       ])}
+      ${renderNeedsEducationInflationDetail(needsResult)}
       ${renderNeedsInflationDetail(needsResult)}
       ${renderNeedsDiscretionaryInflationDetail(needsResult)}
       <div class="analysis-result-eyebrow">Assumptions</div>
