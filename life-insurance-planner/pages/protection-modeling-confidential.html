@@ -399,54 +399,6 @@
             </div>
           </section>
 
-          <section class="profile-form-section">
-            <div class="profile-form-section-heading">
-              <h2>Survivorship Adjustments</h2>
-            </div>
-            <div class="form-grid">
-              <div class="field-group">
-                <label for="survivor-continues-working">Spouse Continues Working?</label>
-                <select id="survivor-continues-working" name="survivorContinuesWorking">
-                  <option value="">Please select</option>
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
-              <div class="field-group">
-                <label for="survivor-income">Gross Survivor Income</label>
-                <div class="profile-currency-field">
-                  <input id="survivor-income" name="survivorIncome" type="number" min="0" step="1000" disabled>
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="survivor-net-annual-income">Net Annual Income</label>
-                <div class="profile-currency-field">
-                  <input id="survivor-net-annual-income" name="survivorNetAnnualIncome" type="number" min="0" step="1000" disabled>
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="income-replacement-duration">Income Replacement Duration</label>
-                <div class="profile-inline-unit-field">
-                  <input id="income-replacement-duration" class="profile-small-number-field" name="incomeReplacementDuration" type="number" min="0" max="80" step="1" disabled>
-                  <span class="profile-inline-unit">Years</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="expense-reduction-at-death">Expense Reduction at Death</label>
-                <div class="profile-currency-field">
-                  <input id="expense-reduction-at-death" class="profile-small-number-field" name="expenseReductionAtDeath" type="number" min="0" max="100" step="1" disabled>
-                  <span class="profile-currency-suffix">%</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="child-dependency-duration">Child Dependency Duration</label>
-                <input id="child-dependency-duration" class="profile-small-number-field" name="childDependencyDuration" type="number" min="0" max="40" step="1" disabled>
-              </div>
-            </div>
-          </section>
-
           <div class="actions-row">
             <button class="btn btn-secondary pmi-save-exit-button" type="button" data-pmi-save-exit>Save and Exit</button>
           </div>
@@ -951,38 +903,6 @@
         }
       }
 
-      function syncSurvivorshipAdjustments() {
-        const survivorWorkingSelect = form.elements.namedItem("survivorContinuesWorking");
-        if (!survivorWorkingSelect || survivorWorkingSelect instanceof RadioNodeList) {
-          return;
-        }
-
-        const shouldEnable = String(survivorWorkingSelect.value || "").trim().toLowerCase() === "yes";
-        const dependentNames = [
-          "survivorIncome",
-          "survivorNetAnnualIncome",
-          "incomeReplacementDuration",
-          "expenseReductionAtDeath",
-          "childDependencyDuration"
-        ];
-
-        dependentNames.forEach((name) => {
-          const field = form.elements.namedItem(name);
-          if (!field || field instanceof RadioNodeList) {
-            return;
-          }
-
-          const fieldGroup = field.closest?.(".field-group");
-          field.disabled = !shouldEnable;
-
-          if (!shouldEnable) {
-            field.value = "";
-          }
-
-          fieldGroup?.classList.toggle("is-disabled", !shouldEnable);
-        });
-      }
-
       function restoreDraft() {
         try {
           const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
@@ -1063,14 +983,7 @@
         costToFundPercentField.addEventListener("blur", clampCostToFundPercent);
       }
 
-      const survivorWorkingSelect = form.elements.namedItem("survivorContinuesWorking");
-      if (survivorWorkingSelect && !(survivorWorkingSelect instanceof RadioNodeList)) {
-        survivorWorkingSelect.addEventListener("change", syncSurvivorshipAdjustments);
-        survivorWorkingSelect.addEventListener("input", syncSurvivorshipAdjustments);
-      }
-
       restoreDraft();
-      syncSurvivorshipAdjustments();
     })();
   </script>
 </body>
