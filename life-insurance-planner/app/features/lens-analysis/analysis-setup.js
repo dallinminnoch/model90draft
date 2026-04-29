@@ -1970,15 +1970,10 @@
       || EDUCATION_PROFILE_DEFAULTS[DEFAULT_EDUCATION_ASSUMPTIONS.globalTreatmentProfile];
     const defaultFundingTreatment = profileDefaults.fundingTreatment
       || DEFAULT_EDUCATION_ASSUMPTIONS.fundingTreatment;
-    const defaultSavingsTreatment = profileDefaults.educationSavingsTreatment
-      || DEFAULT_EDUCATION_ASSUMPTIONS.educationSavingsTreatment;
     const defaultRiskFlags = profileDefaults.riskFlags
       || DEFAULT_EDUCATION_ASSUMPTIONS.riskFlags;
     const savedFundingTreatment = isPlainObject(saved.fundingTreatment)
       ? saved.fundingTreatment
-      : {};
-    const savedSavingsTreatment = isPlainObject(saved.educationSavingsTreatment)
-      ? saved.educationSavingsTreatment
       : {};
     const savedRiskFlags = isPlainObject(saved.riskFlags)
       ? saved.riskFlags
@@ -2006,26 +2001,13 @@
         applyEducationInflation: typeof savedFundingTreatment.applyEducationInflation === "boolean"
           ? savedFundingTreatment.applyEducationInflation
           : Boolean(defaultFundingTreatment.applyEducationInflation),
-        useExistingEducationSavingsOffset: typeof savedFundingTreatment.useExistingEducationSavingsOffset === "boolean"
-          ? savedFundingTreatment.useExistingEducationSavingsOffset
-          : Boolean(defaultFundingTreatment.useExistingEducationSavingsOffset)
+        useExistingEducationSavingsOffset: false
       },
       educationSavingsTreatment: {
-        existingEducationSavingsValue: normalizeEducationMoneyValue(
-          savedSavingsTreatment.existingEducationSavingsValue,
-          defaultSavingsTreatment.existingEducationSavingsValue
-        ),
-        includeAsOffset: typeof savedSavingsTreatment.includeAsOffset === "boolean"
-          ? savedSavingsTreatment.includeAsOffset
-          : Boolean(defaultSavingsTreatment.includeAsOffset),
-        taxDragPercent: normalizeEducationPercent(
-          savedSavingsTreatment.taxDragPercent,
-          defaultSavingsTreatment.taxDragPercent
-        ),
-        liquidityHaircutPercent: normalizeEducationPercent(
-          savedSavingsTreatment.liquidityHaircutPercent,
-          defaultSavingsTreatment.liquidityHaircutPercent
-        )
+        existingEducationSavingsValue: null,
+        includeAsOffset: false,
+        taxDragPercent: 0,
+        liquidityHaircutPercent: 0
       },
       riskFlags: {
         flagMissingDependentDetails: typeof savedRiskFlags.flagMissingDependentDetails === "boolean"
@@ -2593,8 +2575,7 @@
         currentNeed: document.querySelector("[data-analysis-education-preview='currentNeed']"),
         childrenNeedingFunding: document.querySelector("[data-analysis-education-preview='childrenNeedingFunding']"),
         projectedDependents: document.querySelector("[data-analysis-education-preview='projectedDependents']"),
-        costPerChild: document.querySelector("[data-analysis-education-preview='costPerChild']"),
-        educationSavings: document.querySelector("[data-analysis-education-preview='educationSavings']")
+        costPerChild: document.querySelector("[data-analysis-education-preview='costPerChild']")
       },
       currentAssumptions: null
     };
@@ -3523,14 +3504,6 @@
       : fallback;
   }
 
-  function readEducationDraftMoney(fields, fieldPath, fallback) {
-    const field = fields.values?.[fieldPath];
-    const rawValue = String(field?.value || "").trim();
-    return rawValue
-      ? normalizeEducationMoneyValue(rawValue, fallback)
-      : null;
-  }
-
   function readRecommendationDraftBoolean(fields, fieldPath, fallback) {
     const field = fields.values?.[fieldPath];
     return field ? Boolean(field.checked) : Boolean(fallback);
@@ -3570,8 +3543,6 @@
     const current = getEducationCurrentAssumptions(fields);
     const currentFundingTreatment = current.fundingTreatment
       || DEFAULT_EDUCATION_ASSUMPTIONS.fundingTreatment;
-    const currentSavingsTreatment = current.educationSavingsTreatment
-      || DEFAULT_EDUCATION_ASSUMPTIONS.educationSavingsTreatment;
     const currentRiskFlags = current.riskFlags
       || DEFAULT_EDUCATION_ASSUMPTIONS.riskFlags;
 
@@ -3603,33 +3574,13 @@
           "fundingTreatment.applyEducationInflation",
           currentFundingTreatment.applyEducationInflation
         ),
-        useExistingEducationSavingsOffset: readEducationDraftBoolean(
-          fields,
-          "educationSavingsTreatment.includeAsOffset",
-          currentFundingTreatment.useExistingEducationSavingsOffset
-        )
+        useExistingEducationSavingsOffset: false
       },
       educationSavingsTreatment: {
-        existingEducationSavingsValue: readEducationDraftMoney(
-          fields,
-          "educationSavingsTreatment.existingEducationSavingsValue",
-          currentSavingsTreatment.existingEducationSavingsValue
-        ),
-        includeAsOffset: readEducationDraftBoolean(
-          fields,
-          "educationSavingsTreatment.includeAsOffset",
-          currentSavingsTreatment.includeAsOffset
-        ),
-        taxDragPercent: readEducationDraftPercent(
-          fields,
-          "educationSavingsTreatment.taxDragPercent",
-          currentSavingsTreatment.taxDragPercent
-        ),
-        liquidityHaircutPercent: readEducationDraftPercent(
-          fields,
-          "educationSavingsTreatment.liquidityHaircutPercent",
-          currentSavingsTreatment.liquidityHaircutPercent
-        )
+        existingEducationSavingsValue: null,
+        includeAsOffset: false,
+        taxDragPercent: 0,
+        liquidityHaircutPercent: 0
       },
       riskFlags: {
         flagMissingDependentDetails: readEducationDraftBoolean(
@@ -4371,7 +4322,6 @@
     fields.currentAssumptions = assumptions;
 
     const sourcePreview = getEducationSourcePreview(linkedRecord);
-    const educationSavingsValue = assumptions.educationSavingsTreatment?.existingEducationSavingsValue;
     const noSourceText = "No saved education data found";
 
     if (fields.preview?.currentNeed) {
@@ -4393,11 +4343,6 @@
       fields.preview.costPerChild.textContent = sourcePreview.costPerChild === null
         ? noSourceText
         : formatCurrencyValue(sourcePreview.costPerChild);
-    }
-    if (fields.preview?.educationSavings) {
-      fields.preview.educationSavings.textContent = educationSavingsValue === null || educationSavingsValue === undefined
-        ? "Not entered"
-        : formatCurrencyValue(educationSavingsValue);
     }
   }
 
@@ -4688,31 +4633,6 @@
       fields,
       "fundingTreatment.applyEducationInflation",
       assumptions.fundingTreatment.applyEducationInflation
-    );
-    setEducationChecked(
-      fields,
-      "fundingTreatment.useExistingEducationSavingsOffset",
-      assumptions.fundingTreatment.useExistingEducationSavingsOffset
-    );
-    setEducationValue(
-      fields,
-      "educationSavingsTreatment.existingEducationSavingsValue",
-      assumptions.educationSavingsTreatment.existingEducationSavingsValue
-    );
-    setEducationChecked(
-      fields,
-      "educationSavingsTreatment.includeAsOffset",
-      assumptions.educationSavingsTreatment.includeAsOffset
-    );
-    setEducationValue(
-      fields,
-      "educationSavingsTreatment.taxDragPercent",
-      assumptions.educationSavingsTreatment.taxDragPercent
-    );
-    setEducationValue(
-      fields,
-      "educationSavingsTreatment.liquidityHaircutPercent",
-      assumptions.educationSavingsTreatment.liquidityHaircutPercent
     );
     setEducationChecked(
       fields,
@@ -5294,11 +5214,14 @@
       globalTreatmentProfile: normalizedProfile,
       fundingTreatment: {
         ...current.fundingTreatment,
-        ...profileDefaults.fundingTreatment
+        ...profileDefaults.fundingTreatment,
+        useExistingEducationSavingsOffset: false
       },
       educationSavingsTreatment: {
-        ...current.educationSavingsTreatment,
-        ...profileDefaults.educationSavingsTreatment
+        existingEducationSavingsValue: null,
+        includeAsOffset: false,
+        taxDragPercent: 0,
+        liquidityHaircutPercent: 0
       },
       riskFlags: {
         ...current.riskFlags,
@@ -6326,31 +6249,6 @@
     };
   }
 
-  function readOptionalEducationMoney(fields, fieldPath, label) {
-    const field = fields.values?.[fieldPath];
-    const rawValue = String(field?.value || "").trim();
-    if (!rawValue) {
-      return { value: null };
-    }
-
-    const number = Number(rawValue.replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(number)) {
-      return {
-        error: `${label} must be a numeric dollar value.`
-      };
-    }
-
-    if (number < 0) {
-      return {
-        error: `${label} must be 0 or greater.`
-      };
-    }
-
-    return {
-      value: Number(number.toFixed(2))
-    };
-  }
-
   function readValidatedEducationAssumptions(fields) {
     const defaultProfile = getEducationDefaultProfile(fields);
     if (!EDUCATION_PROFILE_KEYS.includes(defaultProfile)) {
@@ -6369,33 +6267,6 @@
     }
 
     const educationStartAge = readEducationStartAge(fields);
-    const savingsValue = readOptionalEducationMoney(
-      fields,
-      "educationSavingsTreatment.existingEducationSavingsValue",
-      "Existing education savings value"
-    );
-    if (savingsValue.error) {
-      return savingsValue;
-    }
-
-    const taxDrag = readRequiredEducationPercent(
-      fields,
-      "educationSavingsTreatment.taxDragPercent",
-      "Education savings tax drag"
-    );
-    if (taxDrag.error) {
-      return taxDrag;
-    }
-
-    const liquidityHaircut = readRequiredEducationPercent(
-      fields,
-      "educationSavingsTreatment.liquidityHaircutPercent",
-      "Education savings availability adjustment"
-    );
-    if (liquidityHaircut.error) {
-      return liquidityHaircut;
-    }
-
     const current = getEducationDraftAssumptions(fields);
     return {
       value: {
@@ -6419,21 +6290,13 @@
             "fundingTreatment.applyEducationInflation",
             current.fundingTreatment.applyEducationInflation
           ),
-          useExistingEducationSavingsOffset: readEducationDraftBoolean(
-            fields,
-            "educationSavingsTreatment.includeAsOffset",
-            current.fundingTreatment.useExistingEducationSavingsOffset
-          )
+          useExistingEducationSavingsOffset: false
         },
         educationSavingsTreatment: {
-          existingEducationSavingsValue: savingsValue.value,
-          includeAsOffset: readEducationDraftBoolean(
-            fields,
-            "educationSavingsTreatment.includeAsOffset",
-            current.educationSavingsTreatment.includeAsOffset
-          ),
-          taxDragPercent: taxDrag.value,
-          liquidityHaircutPercent: liquidityHaircut.value
+          existingEducationSavingsValue: null,
+          includeAsOffset: false,
+          taxDragPercent: 0,
+          liquidityHaircutPercent: 0
         },
         riskFlags: {
           flagMissingDependentDetails: readEducationDraftBoolean(
@@ -6854,17 +6717,12 @@
     if (shouldSaveEducation) {
       [
         "fundingTreatment.fundingTargetPercent",
-        "fundingTreatment.educationStartAge",
-        "educationSavingsTreatment.existingEducationSavingsValue",
-        "educationSavingsTreatment.taxDragPercent",
-        "educationSavingsTreatment.liquidityHaircutPercent"
+        "fundingTreatment.educationStartAge"
       ].forEach(function (fieldPath) {
         const field = educationFields.values[fieldPath];
         const rawValue = String(field?.value || "").trim().replace(/[$,\s]/g, "");
         const number = Number(rawValue);
-        const isPercentField = fieldPath === "fundingTreatment.fundingTargetPercent"
-          || fieldPath === "educationSavingsTreatment.taxDragPercent"
-          || fieldPath === "educationSavingsTreatment.liquidityHaircutPercent";
+        const isPercentField = fieldPath === "fundingTreatment.fundingTargetPercent";
         const isStartAgeField = fieldPath === "fundingTreatment.educationStartAge";
         const roundedStartAge = isStartAgeField ? Math.round(number) : null;
         const isValid = field
@@ -7596,10 +7454,7 @@
       };
 
       field.addEventListener("input", function () {
-        if (
-          fieldPath === "fundingTreatment.educationStartAge"
-          || fieldPath === "educationSavingsTreatment.existingEducationSavingsValue"
-        ) {
+        if (fieldPath === "fundingTreatment.educationStartAge") {
           const sanitizedValue = String(field.value || "").replace(/[^0-9.]/g, "");
           if (field.value !== sanitizedValue) {
             field.value = sanitizedValue;
@@ -7611,13 +7466,10 @@
       field.addEventListener("change", function () {
         const rawValue = String(field.value || "").trim().replace(/[$,\s]/g, "");
         const number = Number(rawValue);
-        const isPercentField = fieldPath === "fundingTreatment.fundingTargetPercent"
-          || fieldPath === "educationSavingsTreatment.taxDragPercent"
-          || fieldPath === "educationSavingsTreatment.liquidityHaircutPercent";
+        const isPercentField = fieldPath === "fundingTreatment.fundingTargetPercent";
         const isStartAgeField = fieldPath === "fundingTreatment.educationStartAge";
         const roundedStartAge = isStartAgeField ? Math.round(number) : null;
-        const isOptionalNumberField = isStartAgeField
-          || fieldPath === "educationSavingsTreatment.existingEducationSavingsValue";
+        const isOptionalNumberField = isStartAgeField;
 
         if (
           field.type !== "checkbox"

@@ -901,7 +901,7 @@
                 <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-education-treatment">Education Assumptions</h3>
-                    <p>Control how education funding will be treated later in advanced Needs and LENS calculations. Raw education inputs remain in Protection Modeling Inputs.</p>
+                    <p>Current Needs uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-education-defaults" aria-label="Education treatment default settings">
@@ -919,10 +919,11 @@
                       <h4>Funding treatment</h4>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Include education funding</span>
+                          <span class="settings-toggle-label">Use education funding treatment</span>
+                          <span class="settings-toggle-note">Current-dollar saved education may still remain in Needs; this controls current projection treatment.</span>
                         </span>
                         <span class="settings-switch">
-                          <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Include education funding" data-analysis-education-field="fundingTreatment.includeEducationFunding">
+                          <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Use education funding treatment" data-analysis-education-field="fundingTreatment.includeEducationFunding">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
                       </label>
@@ -932,12 +933,12 @@
                           <input id="analysis-setup-education-funding-target" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="fundingTreatment.fundingTargetPercent">
                           <span aria-hidden="true">%</span>
                         </span>
-                        <p>Saved for future target adjustments; current Needs uses saved per-child funding amounts.</p>
+                        <p>Saved for future target adjustments; current Needs uses saved education amounts.</p>
                       </div>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include projected dependents</span>
-                          <span class="settings-toggle-note">Includes planned-dependent targets as current-dollar amounts; timing and inflation are not applied yet.</span>
+                          <span class="settings-toggle-note">Planned-dependent targets may be included as current-dollar amounts; timing and inflation are not applied yet.</span>
                         </span>
                         <span class="settings-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Include projected dependents" data-analysis-education-field="fundingTreatment.includeProjectedDependents">
@@ -964,43 +965,6 @@
                       </div>
                     </div>
 
-                    <div class="analysis-setup-education-card">
-                      <h4>Education savings treatment</h4>
-                      <div class="analysis-setup-education-control-row">
-                        <label for="analysis-setup-education-savings-value">Existing education savings value</label>
-                        <span class="analysis-setup-education-money">
-                          <span aria-hidden="true">$</span>
-                          <input id="analysis-setup-education-savings-value" class="analysis-setup-card-input analysis-setup-card-input--money analysis-setup-education-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-education-field="educationSavingsTreatment.existingEducationSavingsValue">
-                        </span>
-                        <p>Saved for future education offset modeling; current Needs does not subtract education savings.</p>
-                      </div>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Include education savings as offset</span>
-                          <span class="settings-toggle-note">Saved for future education offset modeling; not applied to current Needs.</span>
-                        </span>
-                        <span class="settings-switch">
-                          <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Include education savings as offset" data-analysis-education-field="educationSavingsTreatment.includeAsOffset">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <div class="analysis-setup-education-control-row">
-                        <label for="analysis-setup-education-tax-drag">Tax drag</label>
-                        <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-education-tax-drag" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="educationSavingsTreatment.taxDragPercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                        <p>Saved for future education savings offset modeling.</p>
-                      </div>
-                      <div class="analysis-setup-education-control-row">
-                        <label for="analysis-setup-education-liquidity-haircut">Liquidity / availability adjustment</label>
-                        <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-education-liquidity-haircut" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="educationSavingsTreatment.liquidityHaircutPercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                        <p>Saved for future education savings offset modeling.</p>
-                      </div>
-                    </div>
                   </div>
 
                   <div class="analysis-setup-education-preview" aria-label="Education source preview">
@@ -1020,12 +984,8 @@
                       <span>Estimated cost per child</span>
                       <strong data-analysis-education-preview="costPerChild">No saved education data found</strong>
                     </div>
-                    <div>
-                      <span>Education savings entered</span>
-                      <strong data-analysis-education-preview="educationSavings">Not entered</strong>
-                    </div>
                   </div>
-                  <p class="analysis-setup-education-preview-note">Preview only. Current Needs, DIME, HLV, and recommendation results are unchanged.</p>
+                  <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current Needs may use education funding, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
                 <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning">
