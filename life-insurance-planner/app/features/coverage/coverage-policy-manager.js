@@ -66,6 +66,22 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function isValidPolicyEffectiveDate(value) {
+    const normalized = toTrimmedString(value);
+    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return false;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(Date.UTC(year, monthIndex, day));
+    return date.getUTCFullYear() === year
+      && date.getUTCMonth() === monthIndex
+      && date.getUTCDate() === day;
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -655,8 +671,8 @@
             </label>
           `}
           <label class="client-activity-field">
-            <span>Effective Date</span>
-            <input class="client-activity-input" type="date" name="effectiveDate" value="${escapeHtml(toTrimmedString(current.effectiveDate))}">
+            <span>Effective Date <span class="existing-coverage-required-note">required</span></span>
+            <input class="client-activity-input" type="date" name="effectiveDate" value="${escapeHtml(toTrimmedString(current.effectiveDate))}" required aria-required="true">
           </label>
           <label class="client-activity-field">
             <span>Underwriting Class</span>
@@ -867,6 +883,15 @@
     function goToStep(nextStep) {
       activeStep = Math.max(0, Math.min(COVERAGE_WIDGET_STEPS.length - 1, Number(nextStep) || 0));
       renderEditorStep();
+    }
+
+    function focusEditorField(fieldName) {
+      root.requestAnimationFrame(function () {
+        const field = editor?.querySelector(`[name="${fieldName}"]`);
+        if (field instanceof HTMLElement) {
+          field.focus();
+        }
+      });
     }
 
     function render() {
@@ -1140,6 +1165,12 @@
       }
 
       syncDraftFromForm();
+      if (activeStep === 1 && !isValidPolicyEffectiveDate(activeDraft.effectiveDate)) {
+        showFeedback("Enter the policy effective date.");
+        focusEditorField("effectiveDate");
+        return;
+      }
+
       if (activeStep < COVERAGE_WIDGET_STEPS.length - 1) {
         goToStep(activeStep + 1);
         return;
@@ -1154,6 +1185,13 @@
             faceAmountField.focus();
           }
         });
+        return;
+      }
+
+      if (!isValidPolicyEffectiveDate(activeDraft.effectiveDate)) {
+        showFeedback("Enter the policy effective date.");
+        goToStep(1);
+        focusEditorField("effectiveDate");
         return;
       }
 
