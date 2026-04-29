@@ -213,12 +213,15 @@
   }
 
   function normalizeAsOfDate(value, warnings) {
-    if (value === undefined || value === null || value === "") {
-      const today = new Date();
-      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) {
+      warnings.push(
+        createWarning("missing-as-of-date", "asOfDate is required for education projection; current-dollar amounts were returned.")
+      );
+
       return {
-        date,
-        normalizedDate: formatDateParts(date.getFullYear(), date.getMonth(), date.getDate())
+        date: null,
+        normalizedDate: null,
+        warningCode: "missing-as-of-date"
       };
     }
 
@@ -227,24 +230,22 @@
       return parsed;
     }
 
-    const today = new Date();
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     warnings.push(
-      createWarning("invalid-as-of-date", "asOfDate was invalid; today's date was used.", {
-        received: value,
-        fallback: formatDateParts(date.getFullYear(), date.getMonth(), date.getDate())
+      createWarning("invalid-as-of-date", "asOfDate was invalid; current-dollar amounts were returned.", {
+        received: value
       })
     );
 
     return {
-      date,
-      normalizedDate: formatDateParts(date.getFullYear(), date.getMonth(), date.getDate())
+      date: null,
+      normalizedDate: null,
+      warningCode: "invalid-as-of-date"
     };
   }
 
   function calculateAgeFromDateOfBirth(dateOfBirthValue, asOfDateValue) {
     const birthDate = parseDateInput(dateOfBirthValue);
-    const asOfDate = parseDateInput(asOfDateValue) || normalizeAsOfDate(asOfDateValue, []);
+    const asOfDate = parseDateInput(asOfDateValue);
 
     if (!birthDate || !asOfDate || birthDate.date > asOfDate.date) {
       return null;
@@ -301,6 +302,7 @@
       timing: normalizeTiming(safeInput.timing),
       asOfDate: asOfDate.normalizedDate,
       asOfDateObject: asOfDate.date,
+      asOfDateWarningCode: asOfDate.warningCode || null,
       source: safeInput.source === undefined ? null : safeInput.source,
       warnings
     };
@@ -338,6 +340,21 @@
     };
   }
 
+  function createCurrentDollarUnavailableAsOfDateRow(child, index, normalized, parsedBirthDate) {
+    return {
+      index,
+      id: getChildIdentifier(child, index),
+      dateOfBirth: parsedBirthDate.normalizedDate,
+      currentAge: null,
+      yearsUntilEducationStart: null,
+      baseAmount: normalized.perChildFundingAmount,
+      projectedAmount: normalized.perChildFundingAmount,
+      inflationFactor: 1,
+      applied: false,
+      warnings: []
+    };
+  }
+
   function getInflationExponent(yearsUntilEducationStart, timing) {
     if (timing === "beginning") {
       return Math.max(yearsUntilEducationStart - 1, 0);
@@ -368,6 +385,10 @@
         })
       );
       return createInvalidChildRow(child, index, childWarnings);
+    }
+
+    if (!normalized.asOfDateObject) {
+      return createCurrentDollarUnavailableAsOfDateRow(child, index, normalized, parsedBirthDate);
     }
 
     if (parsedBirthDate.date > normalized.asOfDateObject) {
@@ -451,6 +472,10 @@
       return "education-inflation-disabled";
     }
 
+    if (!normalized.asOfDateObject) {
+      return normalized.asOfDateWarningCode || "missing-as-of-date";
+    }
+
     if (validChildCount <= 0) {
       return "no-valid-dependent-birthdates";
     }
@@ -495,9 +520,11 @@
       projectedTotal,
       inputChildCount: normalized.dependentDetails.length,
       validChildCount,
-      formula: applied
-        ? "sum(perChildFundingAmount * (1 + ratePercent / 100) ^ yearsUntilEducationStart for each valid dated child)"
-        : "sum(perChildFundingAmount for each valid dated child); education inflation not applied",
+      formula: !normalized.asOfDateObject
+        ? "sum(perChildFundingAmount for each child with valid dateOfBirth); projection unavailable without valid asOfDate"
+        : (applied
+          ? "sum(perChildFundingAmount * (1 + ratePercent / 100) ^ yearsUntilEducationStart for each valid dated child)"
+          : "sum(perChildFundingAmount for each valid dated child); education inflation not applied"),
       warningCodes: normalized.warnings.map(function (warning) {
         return warning.code;
       }).concat(childWarningCodes)

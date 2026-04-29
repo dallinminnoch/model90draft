@@ -197,14 +197,36 @@ function runNeeds(methods, model, settings) {
   return result;
 }
 
+function createProjectionInput(overrides = {}) {
+  return {
+    dependentDetails: [
+      {
+        id: "child-1",
+        dateOfBirth: "2020-01-01"
+      }
+    ],
+    perChildFundingAmount: 10000,
+    ratePercent: 5,
+    enabled: true,
+    educationStartAge: 18,
+    timing: "annual",
+    source: "education-valuation-date-behavior-check.direct-helper",
+    ...overrides
+  };
+}
+
 const context = createContext();
 const analysisSetup = context.LensApp.analysisSetup;
 const adapter = context.LensApp.lensAnalysis.analysisSettingsAdapter;
 const methods = context.LensApp.lensAnalysis.analysisMethods;
+const educationProjectionHelper = context.LensApp.lensAnalysis.calculateEducationFundingProjection;
+const educationAgeHelper = context.LensApp.lensAnalysis.calculateEducationProjectionAgeFromDateOfBirth;
 
 assert.equal(typeof analysisSetup?.resolveAnalysisValuationDateForSave, "function");
 assert.equal(typeof adapter?.createNeedsAnalysisSettings, "function");
 assert.equal(typeof methods?.runNeedsAnalysis, "function");
+assert.equal(typeof educationProjectionHelper, "function");
+assert.equal(typeof educationAgeHelper, "function");
 
 const source = fs.readFileSync(
   path.join(repoRoot, "app/features/lens-analysis/analysis-setup.js"),
@@ -231,6 +253,41 @@ const invalidSaveDate = analysisSetup.resolveAnalysisValuationDateForSave({
 });
 assertTodayDate(invalidSaveDate.valuationDate, "Invalid saved valuationDate should default to today's date.");
 assert.equal(invalidSaveDate.valuationDateWarningCode, "invalid-analysis-valuation-date-defaulted");
+
+const validProjectionInput = createProjectionInput({
+  asOfDate: "2026-01-01"
+});
+const validProjectionInputBefore = cloneJson(validProjectionInput);
+const validProjection = educationProjectionHelper(validProjectionInput);
+assert.deepEqual(validProjectionInput, validProjectionInputBefore, "Education projection helper must not mutate input.");
+assert.equal(validProjection.trace.asOfDate, "2026-01-01");
+assert.equal(validProjection.currentDollarTotal, 10000);
+assert.ok(validProjection.projectedTotal > validProjection.currentDollarTotal);
+assert.equal(validProjection.applied, true);
+
+const missingDateProjection = educationProjectionHelper(createProjectionInput());
+assert.equal(missingDateProjection.trace.asOfDate, null);
+assert.equal(missingDateProjection.trace.reason, "missing-as-of-date");
+assert.equal(missingDateProjection.currentDollarTotal, 10000);
+assert.equal(missingDateProjection.projectedTotal, 10000);
+assert.equal(missingDateProjection.applied, false);
+assert.ok(hasWarningCode(missingDateProjection.warnings, "missing-as-of-date"));
+assert.ok(missingDateProjection.trace.warningCodes.includes("missing-as-of-date"));
+
+const invalidDateProjection = educationProjectionHelper(createProjectionInput({
+  asOfDate: "not-a-date"
+}));
+assert.equal(invalidDateProjection.trace.asOfDate, null);
+assert.equal(invalidDateProjection.trace.reason, "invalid-as-of-date");
+assert.equal(invalidDateProjection.currentDollarTotal, 10000);
+assert.equal(invalidDateProjection.projectedTotal, 10000);
+assert.equal(invalidDateProjection.applied, false);
+assert.ok(hasWarningCode(invalidDateProjection.warnings, "invalid-as-of-date"));
+assert.ok(invalidDateProjection.trace.warningCodes.includes("invalid-as-of-date"));
+
+assert.equal(educationAgeHelper("2020-01-01"), null);
+assert.equal(educationAgeHelper("2020-01-01", "not-a-date"), null);
+assert.equal(educationAgeHelper("2020-01-01", "2026-01-01"), 6);
 
 const mapped = createNeedsSettings(adapter, {
   valuationDate: "2026-01-01"
