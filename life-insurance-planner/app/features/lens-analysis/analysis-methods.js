@@ -11,12 +11,9 @@
 
   const DEFAULT_DIME_INCOME_YEARS = 10;
   const DEFAULT_NEEDS_SUPPORT_DURATION_YEARS = 10;
-  const ASSET_OFFSET_SOURCE_LEGACY = "legacy";
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
   const ASSET_OFFSET_SOURCE_DISABLED = "disabled";
-  const ASSET_OFFSET_SOURCE_LEGACY_FALLBACK = "legacy-fallback";
   const ASSET_OFFSET_SOURCE_ZERO = "zero";
-  const LEGACY_ASSET_OFFSET_SOURCE_PATH = "offsetAssets.totalAvailableOffsetAssetValue";
   const TREATED_ASSET_OFFSET_SOURCE_PATH = "treatedAssetOffsets.totalTreatedAssetValue";
 
   const DIME_NON_MORTGAGE_DEBT_FIELDS = Object.freeze([
@@ -358,15 +355,6 @@
     return hasOwn(settings, settingName) ? settings[settingName] !== false : defaultValue;
   }
 
-  function getAssetOffsetSourceSetting(settings) {
-    const value = String(settings?.assetOffsetSource || ASSET_OFFSET_SOURCE_LEGACY).trim().toLowerCase();
-    return value === ASSET_OFFSET_SOURCE_TREATED ? ASSET_OFFSET_SOURCE_TREATED : ASSET_OFFSET_SOURCE_LEGACY;
-  }
-
-  function getFallbackToLegacyOffsetAssetsSetting(settings) {
-    return getBooleanSetting(settings, "fallbackToLegacyOffsetAssets", true);
-  }
-
   function hasNumericAssetOffset(value) {
     return toOptionalNumber(value) != null;
   }
@@ -374,24 +362,18 @@
   function createAssetOffsetSelectionResult(options) {
     const normalizedOptions = options && typeof options === "object" ? options : {};
     const includeOffsetAssets = normalizedOptions.includeOffsetAssets === true;
-    const requestedAssetOffsetSource = normalizedOptions.requestedAssetOffsetSource || ASSET_OFFSET_SOURCE_LEGACY;
-    const effectiveAssetOffsetSource = normalizedOptions.effectiveAssetOffsetSource || ASSET_OFFSET_SOURCE_LEGACY;
-    const fallbackToLegacyOffsetAssets = normalizedOptions.fallbackToLegacyOffsetAssets === true;
-    const fallbackUsed = normalizedOptions.fallbackUsed === true;
+    const effectiveAssetOffsetSource = normalizedOptions.effectiveAssetOffsetSource || ASSET_OFFSET_SOURCE_ZERO;
     const sourcePath = normalizedOptions.sourcePath || null;
     const sourcePaths = sourcePath
       ? [
           sourcePath,
-          "settings.includeOffsetAssets",
-          "settings.assetOffsetSource",
-          "settings.fallbackToLegacyOffsetAssets"
+          "settings.includeOffsetAssets"
         ]
       : [
-          "settings.includeOffsetAssets",
-          "settings.assetOffsetSource",
-          "settings.fallbackToLegacyOffsetAssets"
+          "settings.includeOffsetAssets"
         ];
     const value = normalizedOptions.value == null ? 0 : normalizedOptions.value;
+    const assetOffsetStatus = normalizedOptions.assetOffsetStatus || null;
 
     return {
       value,
@@ -400,20 +382,22 @@
       sourcePaths,
       traceInputs: {
         includeOffsetAssets,
-        assetOffsetSource: requestedAssetOffsetSource,
-        requestedAssetOffsetSource,
+        assetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
+        requestedAssetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
         effectiveAssetOffsetSource,
-        fallbackToLegacyOffsetAssets,
-        fallbackUsed,
+        fallbackToLegacyOffsetAssets: false,
+        fallbackUsed: false,
+        assetOffsetStatus,
         selectedAssetOffsetValue: value,
         treatedAssetOffsetsAvailable: normalizedOptions.treatedAssetOffsetsAvailable === true,
-        legacyOffsetAssetsAvailable: normalizedOptions.legacyOffsetAssetsAvailable === true
+        legacyOffsetAssetsAvailable: false
       },
       assumptionFields: {
-        assetOffsetSource: requestedAssetOffsetSource,
+        assetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
         effectiveAssetOffsetSource,
-        fallbackToLegacyOffsetAssets,
-        assetOffsetFallbackUsed: fallbackUsed
+        fallbackToLegacyOffsetAssets: false,
+        assetOffsetFallbackUsed: false,
+        assetOffsetStatus
       }
     };
   }
@@ -421,46 +405,17 @@
   function resolveAssetOffsetSelection(options) {
     const normalizedOptions = options && typeof options === "object" ? options : {};
     const model = isPlainObject(normalizedOptions.model) ? normalizedOptions.model : {};
-    const settings = isPlainObject(normalizedOptions.settings) ? normalizedOptions.settings : {};
     const warnings = Array.isArray(normalizedOptions.warnings) ? normalizedOptions.warnings : [];
     const includeOffsetAssets = normalizedOptions.includeOffsetAssets === true;
-    const requestedAssetOffsetSource = getAssetOffsetSourceSetting(settings);
-    const fallbackToLegacyOffsetAssets = getFallbackToLegacyOffsetAssetsSetting(settings);
     const methodLabel = normalizedOptions.methodLabel || "analysis";
-    const legacyRawValue = getPath(model, LEGACY_ASSET_OFFSET_SOURCE_PATH);
     const treatedRawValue = getPath(model, TREATED_ASSET_OFFSET_SOURCE_PATH);
-    const legacyOffsetAssetsAvailable = hasNumericAssetOffset(legacyRawValue);
     const treatedAssetOffsetsAvailable = hasNumericAssetOffset(treatedRawValue);
 
     function createResult(resultOptions) {
       return createAssetOffsetSelectionResult({
         includeOffsetAssets,
-        requestedAssetOffsetSource,
-        fallbackToLegacyOffsetAssets,
         treatedAssetOffsetsAvailable,
-        legacyOffsetAssetsAvailable,
         ...resultOptions
-      });
-    }
-
-    function normalizeLegacyOffset(effectiveAssetOffsetSource, fallbackUsed) {
-      const value = normalizeComponentNumber({
-        value: legacyRawValue,
-        sourcePath: LEGACY_ASSET_OFFSET_SOURCE_PATH,
-        warnings,
-        warnWhenMissing: true,
-        missingCode: normalizedOptions.legacyMissingCode || "offset-assets-missing",
-        missingMessage: normalizedOptions.legacyMissingMessage || "totalAvailableOffsetAssetValue was missing; asset offset defaulted to 0.",
-        missingSeverity: "info",
-        negativeCode: normalizedOptions.legacyNegativeCode || "negative-value-treated-as-zero",
-        negativeMessage: normalizedOptions.legacyNegativeMessage || "totalAvailableOffsetAssetValue was negative and was treated as 0."
-      });
-
-      return createResult({
-        value,
-        sourcePath: LEGACY_ASSET_OFFSET_SOURCE_PATH,
-        effectiveAssetOffsetSource,
-        fallbackUsed
       });
     }
 
@@ -469,59 +424,45 @@
         value: 0,
         sourcePath: null,
         effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_DISABLED,
-        fallbackUsed: false
+        assetOffsetStatus: "excluded"
       });
     }
 
-    if (requestedAssetOffsetSource === ASSET_OFFSET_SOURCE_TREATED) {
-      if (treatedAssetOffsetsAvailable) {
-        const value = normalizeComponentNumber({
-          value: treatedRawValue,
-          sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
-          warnings,
-          warnWhenMissing: true,
-          missingCode: "treated-offset-assets-missing",
-          missingMessage: "treatedAssetOffsets.totalTreatedAssetValue was missing; asset offset defaulted to 0.",
-          missingSeverity: "info",
-          negativeCode: "negative-treated-offset-assets",
-          negativeMessage: `treatedAssetOffsets.totalTreatedAssetValue was negative and was treated as 0 for ${methodLabel}.`
-        });
-
-        return createResult({
-          value,
-          sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
-          effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
-          fallbackUsed: false
-        });
-      }
-
-      if (fallbackToLegacyOffsetAssets) {
-        addWarning(
-          warnings,
-          "treated-offset-assets-missing-legacy-fallback",
-          "treatedAssetOffsets.totalTreatedAssetValue was missing; asset offset fell back to legacy offsetAssets.",
-          "info",
-          [TREATED_ASSET_OFFSET_SOURCE_PATH, "settings.assetOffsetSource", "settings.fallbackToLegacyOffsetAssets"]
-        );
-        return normalizeLegacyOffset(ASSET_OFFSET_SOURCE_LEGACY_FALLBACK, true);
-      }
-
-      addWarning(
-        warnings,
-        "treated-offset-assets-missing-no-fallback",
-        "treatedAssetOffsets.totalTreatedAssetValue was missing and legacy fallback was disabled; asset offset defaulted to 0.",
-        "info",
-        [TREATED_ASSET_OFFSET_SOURCE_PATH, "settings.assetOffsetSource", "settings.fallbackToLegacyOffsetAssets"]
-      );
-      return createResult({
-        value: 0,
+    if (treatedAssetOffsetsAvailable) {
+      const value = normalizeComponentNumber({
+        value: treatedRawValue,
         sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
-        effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_ZERO,
-        fallbackUsed: false
+        warnings,
+        warnWhenMissing: true,
+        missingCode: "treated-offset-assets-missing",
+        missingMessage: "treatedAssetOffsets.totalTreatedAssetValue was missing; asset offset defaulted to 0.",
+        missingSeverity: "info",
+        negativeCode: "negative-treated-offset-assets",
+        negativeMessage: `treatedAssetOffsets.totalTreatedAssetValue was negative and was treated as 0 for ${methodLabel}.`
+      });
+
+      return createResult({
+        value,
+        sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
+        effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
+        assetOffsetStatus: value === 0 ? "treated-zero" : "treated-used"
       });
     }
 
-    return normalizeLegacyOffset(ASSET_OFFSET_SOURCE_LEGACY, false);
+    addWarning(
+      warnings,
+      "treated-offset-assets-unavailable",
+      `treatedAssetOffsets.totalTreatedAssetValue was unavailable for ${methodLabel}; asset offset defaulted to 0.`,
+      "info",
+      [TREATED_ASSET_OFFSET_SOURCE_PATH, "settings.includeOffsetAssets"]
+    );
+
+    return createResult({
+      value: 0,
+      sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
+      effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_ZERO,
+      assetOffsetStatus: "treated-unavailable"
+    });
   }
 
   function roundToIncrement(value, increment) {
@@ -1626,7 +1567,7 @@
         "offset-assets-disabled-by-default",
         "Offset assets were not applied because DIME only includes asset offsets when includeOffsetAssets is true.",
         "info",
-        ["settings.includeOffsetAssets", "offsetAssets.totalAvailableOffsetAssetValue"]
+        ["settings.includeOffsetAssets", TREATED_ASSET_OFFSET_SOURCE_PATH]
       );
     }
 
@@ -1677,14 +1618,9 @@
       : 0;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
-      settings: normalizedSettings,
       warnings,
       includeOffsetAssets,
-      methodLabel: "DIME",
-      legacyMissingCode: "offset-assets-missing",
-      legacyMissingMessage: "totalAvailableOffsetAssetValue was missing; asset offset defaulted to 0.",
-      legacyNegativeCode: "negative-offset-assets",
-      legacyNegativeMessage: "totalAvailableOffsetAssetValue was negative and was treated as 0 for DIME."
+      methodLabel: "DIME"
     });
     const assetOffset = assetOffsetSelection.value;
 
@@ -1914,14 +1850,9 @@
       : 0;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
-      settings: normalizedSettings,
       warnings,
       includeOffsetAssets,
-      methodLabel: "Needs Analysis",
-      legacyMissingCode: "missing-offset-assets",
-      legacyMissingMessage: "totalAvailableOffsetAssetValue was missing; asset offset defaulted to 0.",
-      legacyNegativeCode: "negative-value-treated-as-zero",
-      legacyNegativeMessage: "totalAvailableOffsetAssetValue was negative and was treated as 0 for Needs Analysis."
+      methodLabel: "Needs Analysis"
     });
     const assetOffset = assetOffsetSelection.value;
     const survivorIncomeOffset = essentialSupportComponent.survivorIncomeOffset || 0;
@@ -2277,7 +2208,7 @@
         "offset-assets-disabled-by-default",
         "Offset assets were not applied because Simple HLV only includes asset offsets when includeOffsetAssets is true.",
         "info",
-        ["settings.includeOffsetAssets", "offsetAssets.totalAvailableOffsetAssetValue"]
+        ["settings.includeOffsetAssets", TREATED_ASSET_OFFSET_SOURCE_PATH]
       );
     }
 
@@ -2345,14 +2276,9 @@
       : 0;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
-      settings: normalizedSettings,
       warnings,
       includeOffsetAssets,
-      methodLabel: "Simple HLV",
-      legacyMissingCode: "offset-assets-missing",
-      legacyMissingMessage: "totalAvailableOffsetAssetValue was missing; asset offset defaulted to 0.",
-      legacyNegativeCode: "negative-value-treated-as-zero",
-      legacyNegativeMessage: "totalAvailableOffsetAssetValue was negative and was treated as 0 for Simple HLV."
+      methodLabel: "Simple HLV"
     });
     const assetOffset = assetOffsetSelection.value;
     const totalOffset = existingCoverageOffset + assetOffset;

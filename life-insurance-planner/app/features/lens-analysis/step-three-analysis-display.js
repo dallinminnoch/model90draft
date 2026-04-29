@@ -223,90 +223,32 @@
     `;
   }
 
-  function normalizeAssetOffsetSource(value) {
-    return String(value == null ? "" : value).trim().toLowerCase();
-  }
-
-  function formatAssetOffsetSource(value) {
-    const source = normalizeAssetOffsetSource(value);
-    if (source === "legacy") {
-      return "Legacy offset assets";
-    }
-
-    if (source === "treated") {
-      return "Treated asset offsets";
-    }
-
-    if (source === "legacy-fallback") {
-      return "Legacy fallback";
-    }
-
-    if (source === "disabled") {
-      return "Excluded";
-    }
-
-    if (source === "zero") {
-      return "No available offset asset total";
-    }
-
-    return source ? source : "Not set";
-  }
-
   function getAssetOffsetStatus(trace) {
     const includeOffsetAssets = getTraceInput(trace, "includeOffsetAssets") === true;
-    const requestedSource = normalizeAssetOffsetSource(getTraceInput(trace, "requestedAssetOffsetSource"));
-    const effectiveSource = normalizeAssetOffsetSource(getTraceInput(trace, "effectiveAssetOffsetSource"));
-    const fallbackUsed = getTraceInput(trace, "fallbackUsed") === true;
+    const effectiveSource = String(getTraceInput(trace, "effectiveAssetOffsetSource") || "").trim().toLowerCase();
+    const assetOffsetStatus = String(getTraceInput(trace, "assetOffsetStatus") || "").trim().toLowerCase();
     const selectedInputValue = toDisplayNumber(getTraceInput(trace, "selectedAssetOffsetValue"));
     const traceValue = toDisplayNumber(trace?.value);
     const selectedValue = selectedInputValue == null ? traceValue : selectedInputValue;
     const treatedAvailable = getTraceInput(trace, "treatedAssetOffsetsAvailable") === true;
-    const legacyAvailable = getTraceInput(trace, "legacyOffsetAssetsAvailable") === true;
-    const sourceAvailable = effectiveSource === "treated"
-      ? treatedAvailable
-      : (effectiveSource === "legacy" || effectiveSource === "legacy-fallback") && legacyAvailable;
 
-    if (!includeOffsetAssets || effectiveSource === "disabled") {
+    if (!includeOffsetAssets || effectiveSource === "disabled" || assetOffsetStatus === "excluded") {
       return "Asset offsets excluded";
     }
 
-    if (fallbackUsed || effectiveSource === "legacy-fallback") {
-      return "Treated requested; legacy fallback used";
+    if (assetOffsetStatus === "treated-unavailable" || effectiveSource === "zero" || !treatedAvailable) {
+      return "Treated asset total unavailable; using $0";
     }
 
-    if (sourceAvailable && selectedValue === 0) {
-      return "Available source selected, but offset is $0";
+    if (assetOffsetStatus === "treated-zero" || selectedValue === 0) {
+      return "Treated asset total available but $0";
     }
 
-    if (effectiveSource === "treated") {
-      return "Treated asset offsets used";
+    if (assetOffsetStatus === "treated-used" || effectiveSource === "treated") {
+      return "Treated asset offset used";
     }
 
-    if (effectiveSource === "legacy") {
-      return "Legacy offset assets used";
-    }
-
-    if (effectiveSource === "zero" || requestedSource === "treated") {
-      return "No available offset asset total";
-    }
-
-    return "No available offset asset total";
-  }
-
-  function formatAssetOffsetFallback(trace) {
-    const requestedSource = normalizeAssetOffsetSource(getTraceInput(trace, "requestedAssetOffsetSource"));
-    const fallbackUsed = getTraceInput(trace, "fallbackUsed") === true;
-    const fallbackAllowed = getTraceInput(trace, "fallbackToLegacyOffsetAssets") === true;
-
-    if (fallbackUsed) {
-      return "Legacy fallback used";
-    }
-
-    if (requestedSource !== "treated") {
-      return "Not used";
-    }
-
-    return fallbackAllowed ? "Available if treated unavailable" : "Disabled";
+    return "Treated asset total unavailable; using $0";
   }
 
   function renderAssetOffsetDetails(result) {
@@ -315,38 +257,9 @@
       return "";
     }
 
-    const requestedSource = getTraceInput(assetOffsetTrace, "requestedAssetOffsetSource");
-    const effectiveSource = getTraceInput(assetOffsetTrace, "effectiveAssetOffsetSource");
-    const requestedAssetOffsetSource = requestedSource == null
-      ? result?.assumptions?.assetOffsetSource
-      : requestedSource;
-    const effectiveAssetOffsetSource = effectiveSource == null
-      ? result?.assumptions?.effectiveAssetOffsetSource
-      : effectiveSource;
-    const normalizedRequestedSource = normalizeAssetOffsetSource(requestedAssetOffsetSource);
-    const normalizedEffectiveSource = normalizeAssetOffsetSource(effectiveAssetOffsetSource);
-    const fallbackUsed = getTraceInput(assetOffsetTrace, "fallbackUsed") === true
-      || result?.assumptions?.assetOffsetFallbackUsed === true;
     const rows = [
-      { label: "Asset offset status", value: getAssetOffsetStatus(assetOffsetTrace) },
-      { label: "Effective source", value: formatAssetOffsetSource(effectiveAssetOffsetSource) }
+      { label: "Asset offset status", value: getAssetOffsetStatus(assetOffsetTrace) }
     ];
-
-    if (
-      normalizedRequestedSource === "treated"
-      || normalizedEffectiveSource === "treated"
-      || normalizedEffectiveSource === "legacy-fallback"
-      || fallbackUsed
-    ) {
-      rows.splice(1, 0, {
-        label: "Requested source",
-        value: formatAssetOffsetSource(requestedAssetOffsetSource)
-      });
-      rows.push({
-        label: "Fallback",
-        value: formatAssetOffsetFallback(assetOffsetTrace)
-      });
-    }
 
     return renderProjectionDetailSection("Asset Offset Details", rows);
   }
