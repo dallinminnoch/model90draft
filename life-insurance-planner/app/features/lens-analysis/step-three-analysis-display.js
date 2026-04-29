@@ -47,6 +47,10 @@
     }).format(number);
   }
 
+  function formatOptionalCurrency(value) {
+    return toDisplayNumber(value) == null ? "Not set" : formatCurrency(value);
+  }
+
   function toDisplayNumber(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
@@ -91,6 +95,27 @@
     }
 
     return String(value);
+  }
+
+  function formatBooleanDetail(value) {
+    if (value === true) {
+      return "Yes";
+    }
+
+    if (value === false) {
+      return "No";
+    }
+
+    return "Not set";
+  }
+
+  function formatMonths(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return "Not set";
+    }
+
+    return number === 1 ? "1 month" : `${number} months`;
   }
 
   function findTrace(result, key) {
@@ -533,6 +558,48 @@
     });
   }
 
+  function getSurvivorIncomeOffsetStatus(derivationTrace) {
+    const suppressionReason = formatTraceReason(getTraceInput(derivationTrace, "survivorIncomeSuppressionReason"));
+    if (suppressionReason) {
+      return `Suppressed: ${suppressionReason}`;
+    }
+
+    return getTraceInput(derivationTrace, "survivorIncomeOffsetApplied") === true
+      ? "Applied inside essential support"
+      : "Not applied";
+  }
+
+  function getSurvivorIncomeStartDelayDetail(derivationTrace) {
+    const delayMonths = getTraceInput(derivationTrace, "survivorIncomeStartDelayMonths");
+    if (getTraceInput(derivationTrace, "applyStartDelay") === false) {
+      return `Not applied (${formatMonths(delayMonths)})`;
+    }
+
+    return formatMonths(delayMonths);
+  }
+
+  function renderSurvivorIncomeDerivationDetail(needsResult) {
+    const derivationTrace = findTrace(needsResult, "survivorIncomeDerivation");
+    if (!derivationTrace) {
+      return "";
+    }
+
+    const rows = [
+      {
+        label: "Survivor income source",
+        value: formatTraceReason(getTraceInput(derivationTrace, "survivorIncomeSource")) || "Unavailable"
+      },
+      { label: "Raw spouse income", value: formatOptionalCurrency(getTraceInput(derivationTrace, "rawSpouseIncome")) },
+      { label: "Survivor continues working", value: formatBooleanDetail(getTraceInput(derivationTrace, "survivorContinuesWorking")) },
+      { label: "Work reduction", value: formatPercent(getTraceInput(derivationTrace, "workReductionPercent")) },
+      { label: "Survivor net income used", value: formatOptionalCurrency(getTraceInput(derivationTrace, "survivorNetAnnualIncomeUsed")) },
+      { label: "Start delay", value: getSurvivorIncomeStartDelayDetail(derivationTrace) },
+      { label: "Offset status", value: getSurvivorIncomeOffsetStatus(derivationTrace) }
+    ];
+
+    return renderProjectionDetailSection("Survivor Income Derivation", rows);
+  }
+
   function renderNeedsDiscretionaryInflationDetail(needsResult) {
     const inflationTrace = findTrace(needsResult, "discretionarySupportInflation");
     if (!inflationTrace || getTraceInput(inflationTrace, "included") !== true) {
@@ -633,6 +700,7 @@
   function renderNeedsProjectionDetails(needsResult) {
     const projectionDetails = [
       renderNeedsInflationDetail(needsResult),
+      renderSurvivorIncomeDerivationDetail(needsResult),
       renderNeedsDiscretionaryInflationDetail(needsResult),
       renderNeedsEducationInflationDetail(needsResult)
     ].filter(Boolean);

@@ -171,6 +171,81 @@
     };
   }
 
+  function getSurvivorIncomeDerivation(model) {
+    const derivation = getPath(model, "survivorScenario.survivorIncomeDerivation");
+    return isPlainObject(derivation) ? derivation : {};
+  }
+
+  function getSurvivorIncomeSuppressionReason(options) {
+    const normalizedOptions = options && typeof options === "object" ? options : {};
+    if (normalizedOptions.includeEssentialSupport === false) {
+      return "essential-support-excluded";
+    }
+
+    if (normalizedOptions.includeSurvivorIncomeOffset !== true) {
+      return "survivor-income-offset-disabled";
+    }
+
+    if (normalizedOptions.survivorContinuesWorking === false) {
+      return "survivor-not-working";
+    }
+
+    if (normalizedOptions.survivorIncomeOffsetApplied !== true) {
+      return "survivor-income-unavailable-or-zero";
+    }
+
+    return null;
+  }
+
+  function createSurvivorIncomeDerivationTraceInputs(options) {
+    const normalizedOptions = options && typeof options === "object" ? options : {};
+    const derivation = isPlainObject(normalizedOptions.derivation)
+      ? normalizedOptions.derivation
+      : {};
+    const supportDetails = isPlainObject(normalizedOptions.supportDetails)
+      ? normalizedOptions.supportDetails
+      : {};
+    const survivorIncomeOffsetApplied = supportDetails.survivorIncomeOffsetApplied === true;
+    const survivorContinuesWorking = Object.prototype.hasOwnProperty.call(derivation, "survivorContinuesWorking")
+      ? derivation.survivorContinuesWorking
+      : normalizedOptions.survivorContinuesWorking;
+    const survivorIncomeStartDelayMonths = supportDetails.survivorIncomeStartDelayMonths == null
+      ? (derivation.survivorIncomeStartDelayMonths ?? null)
+      : supportDetails.survivorIncomeStartDelayMonths;
+    const survivorNetAnnualIncomeUsed = supportDetails.survivorNetAnnualIncome == null
+      ? null
+      : supportDetails.survivorNetAnnualIncome;
+    const survivorIncomeSuppressionReason = getSurvivorIncomeSuppressionReason({
+      includeEssentialSupport: normalizedOptions.includeEssentialSupport,
+      includeSurvivorIncomeOffset: normalizedOptions.includeSurvivorIncomeOffset,
+      survivorContinuesWorking,
+      survivorIncomeOffsetApplied
+    });
+
+    return {
+      survivorIncomeSource: derivation.survivorIncomeSource || "unavailable",
+      rawSpouseIncome: derivation.rawSpouseIncome ?? null,
+      rawSpouseIncomeSourcePath: derivation.rawSpouseIncomeSourcePath || "protectionModeling.data.spouseIncome",
+      survivorContinuesWorking,
+      workReductionPercent: derivation.expectedSurvivorWorkReductionPercent ?? null,
+      adjustedSurvivorGrossIncome: derivation.adjustedSurvivorGrossIncome ?? null,
+      survivorNetAnnualIncomePrepared: derivation.survivorNetAnnualIncomePrepared ?? null,
+      survivorNetAnnualIncomeUsed,
+      survivorIncomeDerivedFromSpouseIncome: derivation.survivorIncomeDerivedFromSpouseIncome === true,
+      legacySurvivorIncomeFallbackUsed: derivation.legacySurvivorIncomeFallbackUsed === true,
+      applyStartDelay: Object.prototype.hasOwnProperty.call(derivation, "applyStartDelay")
+        ? derivation.applyStartDelay
+        : null,
+      survivorIncomeStartDelayMonths,
+      supportDurationYears: normalizedOptions.needsSupportDurationYears,
+      survivorIncomeOffsetApplied,
+      survivorIncomeOffsetSuppressed: supportDetails.survivorIncomeOffsetSuppressed === true,
+      survivorIncomeSuppressionReason,
+      fallbackReasons: Array.isArray(derivation.fallbackReasons) ? derivation.fallbackReasons : [],
+      derivationWarnings: Array.isArray(derivation.warnings) ? derivation.warnings : []
+    };
+  }
+
   function normalizeNonNegativeNumber(value, sourcePath, warnings, warningContext) {
     const numericValue = toOptionalNumber(value);
     if (numericValue == null) {
@@ -2466,6 +2541,15 @@
     const assetOffset = assetOffsetSelection.value;
     const survivorIncomeOffset = essentialSupportComponent.survivorIncomeOffset || 0;
     const supportDetails = essentialSupportComponent.supportDetails || {};
+    const survivorIncomeDerivation = getSurvivorIncomeDerivation(model);
+    const survivorIncomeDerivationTraceInputs = createSurvivorIncomeDerivationTraceInputs({
+      derivation: survivorIncomeDerivation,
+      supportDetails,
+      includeEssentialSupport,
+      includeSurvivorIncomeOffset,
+      needsSupportDurationYears,
+      survivorContinuesWorking: getPath(model, "survivorScenario.survivorContinuesWorking")
+    });
 
     const grossNeed = debtPayoffComponent.value
       + essentialSupportComponent.value
@@ -2572,6 +2656,22 @@
       value: supportDetails.survivorNetAnnualIncome == null ? null : supportDetails.survivorNetAnnualIncome,
       sourcePaths: [
         "survivorScenario.survivorNetAnnualIncome",
+        "settings.includeSurvivorIncomeOffset",
+        "settings.includeEssentialSupport"
+      ]
+    }));
+    trace.push(createTraceRow({
+      key: "survivorIncomeDerivation",
+      label: "Survivor Income Derivation",
+      formula: survivorIncomeDerivationTraceInputs.survivorIncomeDerivedFromSpouseIncome
+        ? "spouse income x (1 - work reduction)"
+        : survivorIncomeDerivationTraceInputs.survivorIncomeSource,
+      inputs: survivorIncomeDerivationTraceInputs,
+      value: survivorIncomeDerivationTraceInputs.survivorNetAnnualIncomeUsed,
+      sourcePaths: [
+        "survivorScenario.survivorIncomeDerivation",
+        "survivorScenario.survivorNetAnnualIncome",
+        "survivorScenario.survivorIncomeStartDelayMonths",
         "settings.includeSurvivorIncomeOffset",
         "settings.includeEssentialSupport"
       ]
@@ -2754,14 +2854,22 @@
             : "suppressed because essential support is excluded")
         : "disabled by settings",
       inputs: {
+        survivorIncomeSource: survivorIncomeDerivationTraceInputs.survivorIncomeSource,
+        rawSpouseIncome: survivorIncomeDerivationTraceInputs.rawSpouseIncome,
+        survivorContinuesWorking: survivorIncomeDerivationTraceInputs.survivorContinuesWorking,
+        workReductionPercent: survivorIncomeDerivationTraceInputs.workReductionPercent,
+        survivorNetAnnualIncomeUsed: survivorIncomeDerivationTraceInputs.survivorNetAnnualIncomeUsed,
         survivorNetAnnualIncome: supportDetails.survivorNetAnnualIncome,
+        applyStartDelay: survivorIncomeDerivationTraceInputs.applyStartDelay,
         survivorIncomeStartDelayMonths: supportDetails.survivorIncomeStartDelayMonths,
         incomeOffsetMonths: supportDetails.incomeOffsetMonths,
+        supportDurationYears: needsSupportDurationYears,
         includeEssentialSupport,
         includeSurvivorIncomeOffset,
         essentialSupportExcluded: includeEssentialSupport === false,
         survivorIncomeOffsetApplied: supportDetails.survivorIncomeOffsetApplied === true,
         survivorIncomeOffsetSuppressed: supportDetails.survivorIncomeOffsetSuppressed === true,
+        survivorIncomeSuppressionReason: survivorIncomeDerivationTraceInputs.survivorIncomeSuppressionReason,
         includedInTotalOffset: false
       },
       value: survivorIncomeOffset,
