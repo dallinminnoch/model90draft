@@ -51,6 +51,7 @@
     includeExistingCoverageOffset: true,
     includeOffsetAssets: true,
     assetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
+    includeEssentialSupport: true,
     includeTransitionNeeds: true,
     includeDiscretionarySupport: false,
     includeSurvivorIncomeOffset: true
@@ -312,6 +313,15 @@
         "includeTransitionNeeds-survivor-support",
         "includeTransitionNeeds came from Analysis Setup Survivor & Support assumptions.",
         ["analysisSettings.survivorSupportAssumptions.supportTreatment.includeTransitionNeeds"]
+      ));
+    }
+
+    if (typeof supportTreatment.includeEssentialSupport === "boolean") {
+      settings.includeEssentialSupport = supportTreatment.includeEssentialSupport;
+      trace.push(createTrace(
+        "includeEssentialSupport-survivor-support",
+        "includeEssentialSupport came from Analysis Setup Survivor & Support assumptions.",
+        ["analysisSettings.survivorSupportAssumptions.supportTreatment.includeEssentialSupport"]
       ));
     }
 

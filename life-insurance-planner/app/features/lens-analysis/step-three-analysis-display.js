@@ -485,7 +485,29 @@
     const offsets = isPlainObject(needsResult.commonOffsets) ? needsResult.commonOffsets : {};
     const survivorIncomeOffset = toDisplayNumber(offsets.survivorIncomeOffset);
     const essentialSupport = toDisplayNumber(components.essentialSupport);
+    const essentialSupportExcluded = getTraceInput(inflationTrace, "includeEssentialSupport") === false
+      || getTraceInput(inflationTrace, "included") === false;
     const bridgeRows = [];
+
+    if (essentialSupportExcluded) {
+      let preExclusionAmount = getTraceInput(inflationTrace, "essentialSupportPreExclusionAmount");
+      if (preExclusionAmount == null) {
+        preExclusionAmount = getTraceInput(inflationTrace, "projectedTotal");
+      }
+      const excludedReason = formatTraceReason(getTraceInput(inflationTrace, "exclusionReason"));
+      const rows = [
+        { label: "Essential support status", value: "Excluded by setting" },
+        { label: "Pre-exclusion support", value: formatCurrency(preExclusionAmount) },
+        { label: "Net essential support used", value: formatCurrency(essentialSupport) },
+        { label: "Survivor income offset", value: "Not applied" }
+      ];
+
+      if (excludedReason) {
+        rows.push({ label: "Reason", value: excludedReason });
+      }
+
+      return renderProjectionDetailSection("Essential Support Projection", rows);
+    }
 
     if (survivorIncomeOffset != null && survivorIncomeOffset > 0) {
       bridgeRows.push({

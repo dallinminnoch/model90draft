@@ -925,6 +925,8 @@
     const calculateInflationProjection = lensAnalysis.calculateInflationProjection;
     const baseTrace = {
       component: "essential support",
+      included: true,
+      includeEssentialSupport: true,
       enabled: inflationSettings.enabled,
       applied: false,
       baseAnnualAmount: amount,
@@ -1000,6 +1002,46 @@
         helperTrace: projection.trace || null,
         reason: projection.applied === true ? "inflation-applied" : "inflation-disabled-or-zero-rate"
       }
+    };
+  }
+
+  function createExcludedEssentialSupportInflationTrace(
+    settings,
+    durationYears,
+    annualAmount,
+    includeSurvivorIncomeOffset
+  ) {
+    const inflationSettings = resolveEssentialSupportInflationSettings(settings);
+    const normalizedAnnualAmount = toOptionalNumber(annualAmount);
+    const currentDollarTotal = normalizedAnnualAmount == null ? 0 : normalizedAnnualAmount * durationYears;
+
+    return {
+      component: "essential support",
+      included: false,
+      includeEssentialSupport: false,
+      enabled: inflationSettings.enabled,
+      applied: false,
+      baseAnnualAmount: normalizedAnnualAmount,
+      durationYears,
+      ratePercent: inflationSettings.ratePercent,
+      rateSource: inflationSettings.rateSource,
+      currentDollarTotal,
+      projectedTotal: currentDollarTotal,
+      source: inflationSettings.source,
+      sourcePaths: [
+        "settings.includeEssentialSupport",
+        "ongoingSupport.annualTotalEssentialSupportCost",
+        ...inflationSettings.sourcePaths
+      ],
+      helperWarnings: [],
+      reason: "essential-support-excluded-by-setting",
+      essentialSupportRawAmount: normalizedAnnualAmount,
+      essentialSupportPreExclusionAmount: currentDollarTotal,
+      essentialSupportIncludedAmount: 0,
+      essentialSupportExcludedAmount: currentDollarTotal,
+      exclusionReason: "essential-support-not-included-setting",
+      survivorIncomeOffsetApplied: false,
+      survivorIncomeOffsetSuppressed: includeSurvivorIncomeOffset === true
     };
   }
 
@@ -1624,7 +1666,14 @@
     };
   }
 
-  function createEssentialSupportComponent(model, settings, needsSupportDurationYears, includeSurvivorIncomeOffset, warnings) {
+  function createEssentialSupportComponent(
+    model,
+    settings,
+    needsSupportDurationYears,
+    includeSurvivorIncomeOffset,
+    includeEssentialSupport,
+    warnings
+  ) {
     const annualSupport = normalizeNonNegativeNumber(
       getPath(model, "ongoingSupport.annualTotalEssentialSupportCost"),
       "ongoingSupport.annualTotalEssentialSupportCost",
@@ -1649,20 +1698,95 @@
         ? "inflation-adjusted annualTotalEssentialSupportCost over needsSupportDurationYears"
         : "annualTotalEssentialSupportCost x needsSupportDurationYears";
 
+      if (includeEssentialSupport === false) {
+        const excludedInflationTrace = {
+          ...supportProjection.trace,
+          included: false,
+          includeEssentialSupport: false,
+          reason: "essential-support-excluded-by-setting",
+          essentialSupportRawAmount: annualSupport.value,
+          essentialSupportPreExclusionAmount: grossSupportNeed,
+          essentialSupportIncludedAmount: 0,
+          essentialSupportExcludedAmount: grossSupportNeed,
+          exclusionReason: "essential-support-not-included-setting",
+          survivorIncomeOffsetApplied: false,
+          survivorIncomeOffsetSuppressed: includeSurvivorIncomeOffset === true,
+          sourcePaths: [
+            "settings.includeEssentialSupport",
+            ...supportProjection.trace.sourcePaths.filter(function (sourcePath) {
+              return sourcePath !== "settings.includeEssentialSupport";
+            })
+          ]
+        };
+
+        return {
+          value: 0,
+          source: "settings.includeEssentialSupport",
+          formula: "disabled by settings",
+          inputs: {
+            includeEssentialSupport: false,
+            annualTotalEssentialSupportCost: annualSupport.value,
+            needsSupportDurationYears,
+            essentialSupportRawAmount: annualSupport.value,
+            essentialSupportPreExclusionAmount: grossSupportNeed,
+            essentialSupportIncludedAmount: 0,
+            essentialSupportExcludedAmount: grossSupportNeed,
+            exclusionReason: "essential-support-not-included-setting",
+            survivorIncomeOffsetApplied: false,
+            survivorIncomeOffsetSuppressed: includeSurvivorIncomeOffset === true,
+            inflation: excludedInflationTrace
+          },
+          sourcePaths: excludedInflationTrace.sourcePaths,
+          survivorIncomeOffset: 0,
+          supportDetails: {
+            includeEssentialSupport: false,
+            monthlySupportNeed,
+            totalSupportMonths,
+            annualTotalEssentialSupportCost: annualSupport.value,
+            survivorNetAnnualIncome: null,
+            monthlySurvivorIncome: 0,
+            survivorIncomeStartDelayMonths: 0,
+            incomeOffsetMonths: 0,
+            supportNeedDuringDelay: 0,
+            projectedSupportAfterIncomeStarts: 0,
+            survivorIncomeDuringIncomeMonths: 0,
+            monthlySupportGapAfterIncomeStarts: 0,
+            supportNeedAfterIncomeStarts: 0,
+            grossSupportNeed,
+            currentDollarGrossSupportNeed,
+            essentialSupportRawAmount: annualSupport.value,
+            essentialSupportPreExclusionAmount: grossSupportNeed,
+            essentialSupportIncludedAmount: 0,
+            essentialSupportExcludedAmount: grossSupportNeed,
+            essentialSupportExclusionReason: "essential-support-not-included-setting",
+            survivorIncomeOffsetApplied: false,
+            survivorIncomeOffsetSuppressed: includeSurvivorIncomeOffset === true,
+            inflation: excludedInflationTrace
+          }
+        };
+      }
+
       if (!includeSurvivorIncomeOffset) {
         return {
           value: grossSupportNeed,
           source: "ongoingSupport.annualTotalEssentialSupportCost",
           formula: essentialSupportFormula,
           inputs: {
+            includeEssentialSupport: true,
             annualTotalEssentialSupportCost: annualSupport.value,
             needsSupportDurationYears,
             includeSurvivorIncomeOffset,
+            essentialSupportRawAmount: annualSupport.value,
+            essentialSupportPreExclusionAmount: grossSupportNeed,
+            essentialSupportIncludedAmount: grossSupportNeed,
+            essentialSupportExcludedAmount: 0,
+            exclusionReason: null,
             inflation: supportProjection.trace
           },
           sourcePaths: supportProjection.trace.sourcePaths,
           survivorIncomeOffset: 0,
           supportDetails: {
+            includeEssentialSupport: true,
             monthlySupportNeed,
             totalSupportMonths,
             annualTotalEssentialSupportCost: annualSupport.value,
@@ -1675,6 +1799,13 @@
             supportNeedAfterIncomeStarts: 0,
             grossSupportNeed,
             currentDollarGrossSupportNeed,
+            essentialSupportRawAmount: annualSupport.value,
+            essentialSupportPreExclusionAmount: grossSupportNeed,
+            essentialSupportIncludedAmount: grossSupportNeed,
+            essentialSupportExcludedAmount: 0,
+            essentialSupportExclusionReason: null,
+            survivorIncomeOffsetApplied: false,
+            survivorIncomeOffsetSuppressed: false,
             inflation: supportProjection.trace
           }
         };
@@ -1783,6 +1914,7 @@
           ? "projected support during survivor-income delay + projected post-delay support gap"
           : "support during survivor-income delay + post-delay monthly support gap",
         inputs: {
+          includeEssentialSupport: true,
           annualTotalEssentialSupportCost: annualSupport.value,
           needsSupportDurationYears,
           totalSupportMonths,
@@ -1795,6 +1927,12 @@
           survivorIncomeDuringIncomeMonths,
           monthlySupportGapAfterIncomeStarts,
           supportNeedAfterIncomeStarts,
+          essentialSupportRawAmount: annualSupport.value,
+          essentialSupportPreExclusionAmount: grossSupportNeed,
+          essentialSupportIncludedAmount: essentialSupport,
+          essentialSupportExcludedAmount: 0,
+          exclusionReason: null,
+          survivorIncomeOffsetApplied: survivorIncomeOffset > 0,
           inflation: supportProjection.trace
         },
         sourcePaths: [
@@ -1807,6 +1945,7 @@
         ],
         survivorIncomeOffset,
         supportDetails: {
+          includeEssentialSupport: true,
           monthlySupportNeed,
           totalSupportMonths,
           annualTotalEssentialSupportCost: annualSupport.value,
@@ -1821,7 +1960,69 @@
           supportNeedAfterIncomeStarts,
           grossSupportNeed,
           currentDollarGrossSupportNeed,
+          essentialSupportRawAmount: annualSupport.value,
+          essentialSupportPreExclusionAmount: grossSupportNeed,
+          essentialSupportIncludedAmount: essentialSupport,
+          essentialSupportExcludedAmount: 0,
+          essentialSupportExclusionReason: null,
+          survivorIncomeOffsetApplied: survivorIncomeOffset > 0,
+          survivorIncomeOffsetSuppressed: false,
           inflation: supportProjection.trace
+        }
+      };
+    }
+
+    if (includeEssentialSupport === false) {
+      const excludedInflationTrace = createExcludedEssentialSupportInflationTrace(
+        settings,
+        needsSupportDurationYears,
+        null,
+        includeSurvivorIncomeOffset
+      );
+
+      return {
+        value: 0,
+        source: "settings.includeEssentialSupport",
+        formula: "disabled by settings",
+        inputs: {
+          includeEssentialSupport: false,
+          annualTotalEssentialSupportCost: null,
+          needsSupportDurationYears,
+          essentialSupportRawAmount: null,
+          essentialSupportPreExclusionAmount: 0,
+          essentialSupportIncludedAmount: 0,
+          essentialSupportExcludedAmount: 0,
+          exclusionReason: "essential-support-not-included-setting",
+          survivorIncomeOffsetApplied: false,
+          survivorIncomeOffsetSuppressed: includeSurvivorIncomeOffset === true,
+          inflation: excludedInflationTrace
+        },
+        sourcePaths: excludedInflationTrace.sourcePaths,
+        survivorIncomeOffset: 0,
+        supportDetails: {
+          includeEssentialSupport: false,
+          monthlySupportNeed: null,
+          totalSupportMonths: needsSupportDurationYears * 12,
+          annualTotalEssentialSupportCost: null,
+          survivorNetAnnualIncome: null,
+          monthlySurvivorIncome: 0,
+          survivorIncomeStartDelayMonths: 0,
+          incomeOffsetMonths: 0,
+          supportNeedDuringDelay: 0,
+          projectedSupportAfterIncomeStarts: 0,
+          survivorIncomeDuringIncomeMonths: 0,
+          monthlySupportGapAfterIncomeStarts: 0,
+          supportNeedAfterIncomeStarts: 0,
+          grossSupportNeed: 0,
+          currentDollarGrossSupportNeed: 0,
+          essentialSupportRawAmount: null,
+          essentialSupportPreExclusionAmount: 0,
+          essentialSupportIncludedAmount: 0,
+          essentialSupportExcludedAmount: 0,
+          essentialSupportExclusionReason: "essential-support-not-included-setting",
+          survivorIncomeOffsetApplied: false,
+          survivorIncomeOffsetSuppressed: includeSurvivorIncomeOffset === true,
+          inflation: excludedInflationTrace
         }
       };
     }
@@ -2161,8 +2362,19 @@
     );
     const includeOffsetAssets = getBooleanSetting(normalizedSettings, "includeOffsetAssets", true);
     const includeTransitionNeeds = getBooleanSetting(normalizedSettings, "includeTransitionNeeds", true);
+    const includeEssentialSupport = getBooleanSetting(normalizedSettings, "includeEssentialSupport", true);
     const includeDiscretionarySupport = normalizedSettings.includeDiscretionarySupport === true;
     const includeSurvivorIncomeOffset = getBooleanSetting(normalizedSettings, "includeSurvivorIncomeOffset", true);
+
+    if (!includeEssentialSupport) {
+      addWarning(
+        warnings,
+        "essential-support-disabled",
+        "Essential support was not included because includeEssentialSupport is false.",
+        "info",
+        ["settings.includeEssentialSupport", "ongoingSupport.annualTotalEssentialSupportCost"]
+      );
+    }
 
     if (!includeDiscretionarySupport) {
       addWarning(
@@ -2190,6 +2402,7 @@
       normalizedSettings,
       needsSupportDurationYears,
       includeSurvivorIncomeOffset,
+      includeEssentialSupport,
       warnings
     );
     const educationComponent = createNeedsEducationComponent(
@@ -2286,9 +2499,11 @@
       trace.push(createTraceRow({
         key: "essentialSupportInflation",
         label: "Essential Support Inflation",
-        formula: supportDetails.inflation.applied
-          ? "project annualTotalEssentialSupportCost by household expense inflation over needsSupportDurationYears"
-          : "current-dollar essential support total used",
+        formula: supportDetails.inflation.included === false
+          ? "disabled by settings"
+          : (supportDetails.inflation.applied
+              ? "project annualTotalEssentialSupportCost by household expense inflation over needsSupportDurationYears"
+              : "current-dollar essential support total used"),
         inputs: {
           component: "essential support",
           inflationEnabled: supportDetails.inflation.enabled,
@@ -2299,10 +2514,21 @@
           rateSource: supportDetails.inflation.rateSource,
           currentDollarTotal: supportDetails.inflation.currentDollarTotal,
           projectedTotal: supportDetails.inflation.projectedTotal,
+          included: supportDetails.inflation.included,
+          includeEssentialSupport: supportDetails.inflation.includeEssentialSupport,
+          essentialSupportRawAmount: supportDetails.inflation.essentialSupportRawAmount,
+          essentialSupportPreExclusionAmount: supportDetails.inflation.essentialSupportPreExclusionAmount,
+          essentialSupportIncludedAmount: supportDetails.inflation.essentialSupportIncludedAmount,
+          essentialSupportExcludedAmount: supportDetails.inflation.essentialSupportExcludedAmount,
+          exclusionReason: supportDetails.inflation.exclusionReason,
+          survivorIncomeOffsetApplied: supportDetails.inflation.survivorIncomeOffsetApplied,
+          survivorIncomeOffsetSuppressed: supportDetails.inflation.survivorIncomeOffsetSuppressed,
           reason: supportDetails.inflation.reason,
           helperWarnings: supportDetails.inflation.helperWarnings
         },
-        value: supportDetails.inflation.projectedTotal,
+        value: supportDetails.inflation.included === false
+          ? supportDetails.inflation.essentialSupportIncludedAmount
+          : supportDetails.inflation.projectedTotal,
         sourcePaths: supportDetails.inflation.sourcePaths
       }));
     }
@@ -2311,6 +2537,7 @@
       label: "Gross Annual Household Support Need",
       formula: "ongoingSupport.annualTotalEssentialSupportCost",
       inputs: {
+        includeEssentialSupport,
         annualTotalEssentialSupportCost: supportDetails.annualTotalEssentialSupportCost == null
           ? null
           : supportDetails.annualTotalEssentialSupportCost
@@ -2333,14 +2560,21 @@
     trace.push(createTraceRow({
       key: "survivorNetAnnualIncomeForSupport",
       label: "Survivor Net Annual Income",
-      formula: includeSurvivorIncomeOffset
-        ? "survivorScenario.survivorNetAnnualIncome"
-        : "disabled by settings",
+      formula: includeEssentialSupport === false
+        ? "suppressed because essential support is excluded"
+        : (includeSurvivorIncomeOffset
+            ? "survivorScenario.survivorNetAnnualIncome"
+            : "disabled by settings"),
       inputs: {
+        includeEssentialSupport,
         includeSurvivorIncomeOffset
       },
       value: supportDetails.survivorNetAnnualIncome == null ? null : supportDetails.survivorNetAnnualIncome,
-      sourcePaths: ["survivorScenario.survivorNetAnnualIncome", "settings.includeSurvivorIncomeOffset"]
+      sourcePaths: [
+        "survivorScenario.survivorNetAnnualIncome",
+        "settings.includeSurvivorIncomeOffset",
+        "settings.includeEssentialSupport"
+      ]
     }));
     trace.push(createTraceRow({
       key: "survivorIncomeStartDelayMonths",
@@ -2515,17 +2749,27 @@
       key: "survivorIncomeOffset",
       label: "Survivor Income Offset",
       formula: includeSurvivorIncomeOffset
-        ? "applied inside essential support; not added to totalOffset"
+        ? (includeEssentialSupport
+            ? "applied inside essential support; not added to totalOffset"
+            : "suppressed because essential support is excluded")
         : "disabled by settings",
       inputs: {
         survivorNetAnnualIncome: supportDetails.survivorNetAnnualIncome,
         survivorIncomeStartDelayMonths: supportDetails.survivorIncomeStartDelayMonths,
         incomeOffsetMonths: supportDetails.incomeOffsetMonths,
+        includeEssentialSupport,
         includeSurvivorIncomeOffset,
+        essentialSupportExcluded: includeEssentialSupport === false,
+        survivorIncomeOffsetApplied: supportDetails.survivorIncomeOffsetApplied === true,
+        survivorIncomeOffsetSuppressed: supportDetails.survivorIncomeOffsetSuppressed === true,
         includedInTotalOffset: false
       },
       value: survivorIncomeOffset,
-      sourcePaths: ["survivorScenario.survivorNetAnnualIncome", "settings.includeSurvivorIncomeOffset"]
+      sourcePaths: [
+        "survivorScenario.survivorNetAnnualIncome",
+        "settings.includeSurvivorIncomeOffset",
+        "settings.includeEssentialSupport"
+      ]
     }));
     trace.push(createTraceRow({
       key: "grossNeed",
@@ -2580,6 +2824,7 @@
         includeExistingCoverageOffset,
         includeOffsetAssets,
         ...assetOffsetSelection.assumptionFields,
+        includeEssentialSupport,
         includeTransitionNeeds,
         includeDiscretionarySupport,
         includeSurvivorIncomeOffset,
