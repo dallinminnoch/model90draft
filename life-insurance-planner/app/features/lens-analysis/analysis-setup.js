@@ -3906,14 +3906,7 @@
       : [];
   }
 
-  function normalizeCoveragePolicyForPreview(policy) {
-    const coverageUtils = LensApp.coverage || {};
-    return typeof coverageUtils.normalizeCoveragePolicyRecord === "function"
-      ? coverageUtils.normalizeCoveragePolicyRecord(policy)
-      : (policy && typeof policy === "object" ? policy : {});
-  }
-
-  function getCoveragePolicyAmount(policy) {
+  function getCoveragePolicyRawPreviewAmount(policy) {
     const coverageUtils = LensApp.coverage || {};
     if (typeof coverageUtils.getCoverageDeathBenefitAmount === "function") {
       return coverageUtils.getCoverageDeathBenefitAmount(policy);
@@ -3926,152 +3919,101 @@
     ) || 0;
   }
 
-  function getCoveragePolicyClassification(policy) {
-    const coverageUtils = LensApp.coverage || {};
-    if (typeof coverageUtils.classifyCoveragePolicy === "function") {
-      return coverageUtils.classifyCoveragePolicy(policy);
-    }
-
-    const coverageSource = String(policy?.coverageSource || "").trim();
-    const policyType = String(policy?.policyType || "").trim().toLowerCase();
-    if (coverageSource === "groupEmployer" || /group\s*life/.test(policyType)) {
-      return "groupEmployer";
-    }
-    if (coverageSource === "individual" || policyType) {
-      return "individual";
-    }
-    return "unclassified";
+  function getExistingCoveragePreviewRawTotal(policies) {
+    return policies.reduce(function (total, policy) {
+      return total + Math.max(0, getCoveragePolicyRawPreviewAmount(policy));
+    }, 0);
   }
 
-  function isPendingCoveragePolicy(policy) {
-    const status = String(policy?.status || "").trim().toLowerCase();
-    const notes = String(policy?.policyNotes || "").trim().toLowerCase();
-    return /pending|proposed|proposal|application|applied|underwriting|quoted/.test(status)
-      || /pending|proposed|proposal|application|applied|underwriting|quoted/.test(notes);
+  function getExistingCoverageTreatmentCalculator() {
+    const calculator = LensApp.lensAnalysis?.calculateExistingCoverageTreatment;
+    return typeof calculator === "function" ? calculator : null;
   }
 
-  function isPermanentCoveragePolicy(policy) {
-    const policyType = String(policy?.policyType || "").trim().toLowerCase();
-    const termLength = String(policy?.termLength || "").trim().toLowerCase();
-    return /whole|universal|indexed|variable|iul|vul|permanent|final\s*expense|burial/.test(policyType)
-      || /permanent/.test(termLength);
+  function normalizeDateOnlyCandidate(value) {
+    const match = String(value || "").trim().match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : null;
   }
 
-  function isTermCoveragePolicy(policy) {
-    const policyType = String(policy?.policyType || "").trim().toLowerCase();
-    const termLength = String(policy?.termLength || "").trim().toLowerCase();
-    return /term/.test(policyType) || (/year|yr|\d/.test(termLength) && !isPermanentCoveragePolicy(policy));
-  }
+  function resolveExistingCoveragePreviewValuationDate(record, assumptions) {
+    const savedAssumptions = isPlainObject(record?.analysisSettings?.existingCoverageAssumptions)
+      ? record.analysisSettings.existingCoverageAssumptions
+      : {};
+    const candidates = [
+      { value: assumptions?.valuationDate, source: "draft-existingCoverageAssumptions.valuationDate" },
+      { value: assumptions?.asOfDate, source: "draft-existingCoverageAssumptions.asOfDate" },
+      { value: assumptions?.lastUpdatedAt, source: "draft-existingCoverageAssumptions.lastUpdatedAt" },
+      { value: savedAssumptions.valuationDate, source: "analysisSettings.existingCoverageAssumptions.valuationDate" },
+      { value: savedAssumptions.asOfDate, source: "analysisSettings.existingCoverageAssumptions.asOfDate" },
+      { value: savedAssumptions.lastUpdatedAt, source: "analysisSettings.existingCoverageAssumptions.lastUpdatedAt" },
+      { value: record?.lastReview, source: "linkedRecord.lastReview" },
+      { value: record?.lastUpdatedDate, source: "linkedRecord.lastUpdatedDate" },
+      { value: record?.dateProfileCreated, source: "linkedRecord.dateProfileCreated" }
+    ];
 
-  function getPolicyTermLengthYears(policy) {
-    const termLength = String(policy?.termLength || "").trim();
-    const match = termLength.match(/\d+/);
-    if (!match) {
-      return null;
-    }
-
-    const years = Number(match[0]);
-    return Number.isFinite(years) && years >= 0 ? years : null;
-  }
-
-  function getPolicyTermRemainingYears(policy) {
-    const termYears = getPolicyTermLengthYears(policy);
-    const effectiveDate = Date.parse(String(policy?.effectiveDate || "").trim());
-    if (termYears === null || !Number.isFinite(effectiveDate)) {
-      return null;
-    }
-
-    const endDate = new Date(effectiveDate);
-    endDate.setFullYear(endDate.getFullYear() + termYears);
-    const yearsRemaining = (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 365.25);
-    return Math.max(0, yearsRemaining);
-  }
-
-  function getExistingCoverageTreatmentForPolicy(policy, assumptions) {
-    if (isPendingCoveragePolicy(policy)) {
-      return {
-        kind: "pending",
-        treatment: assumptions.pendingCoverageTreatment
-      };
-    }
-
-    const classification = getCoveragePolicyClassification(policy);
-    if (classification === "groupEmployer") {
-      return {
-        kind: "group",
-        treatment: assumptions.groupCoverageTreatment
-      };
-    }
-
-    if (isPermanentCoveragePolicy(policy)) {
-      return {
-        kind: "permanent",
-        treatment: assumptions.permanentCoverageTreatment
-      };
-    }
-
-    if (isTermCoveragePolicy(policy)) {
-      return {
-        kind: "term",
-        treatment: assumptions.individualTermTreatment
-      };
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      const valuationDate = normalizeDateOnlyCandidate(candidate.value);
+      if (valuationDate) {
+        return {
+          valuationDate,
+          source: candidate.source
+        };
+      }
     }
 
     return {
-      kind: "unknown",
-      treatment: assumptions.unknownCoverageTreatment
+      valuationDate: null,
+      source: "unavailable"
     };
   }
 
-  function getAdjustedExistingCoverageAmount(policy, assumptions) {
-    const amount = getCoveragePolicyAmount(policy);
-    if (!assumptions.includeExistingCoverage || amount <= 0) {
-      return 0;
-    }
-
-    const policyTreatment = getExistingCoverageTreatmentForPolicy(policy, assumptions);
-    const treatment = policyTreatment.treatment || DEFAULT_EXISTING_COVERAGE_ASSUMPTIONS.unknownCoverageTreatment;
-    if (!treatment.include) {
-      return 0;
-    }
-
-    if (
-      policyTreatment.kind === "term"
-      && assumptions.individualTermTreatment.excludeIfExpiresWithinYears !== null
-    ) {
-      const yearsRemaining = getPolicyTermRemainingYears(policy);
-      if (
-        yearsRemaining !== null
-        && yearsRemaining <= assumptions.individualTermTreatment.excludeIfExpiresWithinYears
-      ) {
-        return 0;
-      }
-    }
-
-    const reliabilityDiscountPercent = normalizeCoverageTreatmentPercent(
-      treatment.reliabilityDiscountPercent,
-      DEFAULT_EXISTING_COVERAGE_ASSUMPTIONS.unknownCoverageTreatment.reliabilityDiscountPercent
-    );
-    return Math.max(0, amount * (1 - (reliabilityDiscountPercent / 100)));
+  function hasExistingCoverageDateWarning(warnings) {
+    return Array.isArray(warnings) && warnings.some(function (warning) {
+      const code = String(warning?.code || "");
+      return code.includes("effective-date") || code.includes("valuation-date");
+    });
   }
 
   function getExistingCoveragePreviewTotals(record, assumptions) {
-    const policies = getCoveragePolicyArray(record).map(normalizeCoveragePolicyForPreview);
-    return policies.reduce(function (totals, policy) {
-      const amount = getCoveragePolicyAmount(policy);
-      if (amount <= 0) {
-        return totals;
-      }
+    const policies = getCoveragePolicyArray(record);
+    const rawTotal = getExistingCoveragePreviewRawTotal(policies);
+    const calculator = getExistingCoverageTreatmentCalculator();
+    const valuationDateResult = resolveExistingCoveragePreviewValuationDate(record, assumptions);
+    if (!calculator) {
+      return {
+        hasPolicies: policies.length > 0,
+        rawTotal,
+        adjustedTotal: null,
+        warnings: [{
+          code: "missing-existing-coverage-treatment-helper",
+          message: "Existing coverage treatment preview is unavailable because the treatment helper is not loaded."
+        }],
+        helperUsed: false,
+        valuationDate: valuationDateResult.valuationDate,
+        valuationDateSource: valuationDateResult.source
+      };
+    }
 
-      totals.hasPolicies = true;
-      totals.rawTotal += amount;
-      totals.adjustedTotal += getAdjustedExistingCoverageAmount(policy, assumptions);
-      return totals;
-    }, {
-      hasPolicies: false,
-      rawTotal: 0,
-      adjustedTotal: 0
+    const result = calculator({
+      coveragePolicies: policies,
+      existingCoverageAssumptions: assumptions,
+      options: {
+        valuationDate: valuationDateResult.valuationDate,
+        source: "analysis-setup-preview",
+        consumedByMethods: false
+      }
     });
+
+    return {
+      hasPolicies: policies.length > 0,
+      rawTotal: Number(result?.totalRawCoverage || 0),
+      adjustedTotal: Number(result?.totalTreatedCoverageOffset || 0),
+      warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+      helperUsed: true,
+      valuationDate: valuationDateResult.valuationDate,
+      valuationDateSource: valuationDateResult.source
+    };
   }
 
   function syncExistingCoveragePreview(fields, linkedRecord) {
@@ -4086,7 +4028,9 @@
       ? `${formatCurrencyValue(totals.rawTotal)} total raw coverage`
       : "No linked coverage policies found";
     const adjustedText = totals.hasPolicies
-      ? `${formatCurrencyValue(totals.adjustedTotal)} preview only`
+      ? (totals.adjustedTotal === null
+          ? "Preview unavailable - helper not loaded"
+          : `${formatCurrencyValue(totals.adjustedTotal)} preview only${hasExistingCoverageDateWarning(totals.warnings) ? " - check policy dates" : ""}`)
       : "No linked coverage policies found";
 
     if (fields.rawPreview) {
