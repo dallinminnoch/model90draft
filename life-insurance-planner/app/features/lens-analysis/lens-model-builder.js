@@ -1107,33 +1107,139 @@
       : {};
   }
 
+  function normalizeDateOnlyValue(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        return null;
+      }
+
+      return [
+        String(value.getUTCFullYear()).padStart(4, "0"),
+        String(value.getUTCMonth() + 1).padStart(2, "0"),
+        String(value.getUTCDate()).padStart(2, "0")
+      ].join("-");
+    }
+
+    const match = normalizeString(value).match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T|\s)/);
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(Date.UTC(year, monthIndex, day));
+    if (
+      Number.isNaN(date.getTime())
+      || date.getUTCFullYear() !== year
+      || date.getUTCMonth() !== monthIndex
+      || date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return [
+      String(year).padStart(4, "0"),
+      String(monthIndex + 1).padStart(2, "0"),
+      String(day).padStart(2, "0")
+    ].join("-");
+  }
+
   function resolveExistingCoverageTreatmentValuationDate(input, existingCoverageAssumptions) {
     const builderInput = input && typeof input === "object" ? input : {};
     const options = isPlainObject(builderInput.options) ? builderInput.options : {};
+    const analysisSettings = resolveAnalysisSettings(input);
     const assumptions = isPlainObject(existingCoverageAssumptions) ? existingCoverageAssumptions : {};
     const candidates = [
       { value: options.valuationDate, source: "input.options.valuationDate" },
       { value: builderInput.valuationDate, source: "input.valuationDate" },
-      { value: assumptions.valuationDate, source: "analysisSettings.existingCoverageAssumptions.valuationDate" },
-      { value: assumptions.asOfDate, source: "analysisSettings.existingCoverageAssumptions.asOfDate" },
-      { value: assumptions.lastUpdatedAt, source: "analysisSettings.existingCoverageAssumptions.lastUpdatedAt" }
+      { value: analysisSettings.valuationDate, source: "analysisSettings.valuationDate" },
+      {
+        value: assumptions.valuationDate,
+        source: "analysisSettings.existingCoverageAssumptions.valuationDate",
+        deprecated: true
+      },
+      {
+        value: assumptions.asOfDate,
+        source: "analysisSettings.existingCoverageAssumptions.asOfDate",
+        deprecated: true
+      }
     ];
+    const warnings = [];
 
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[index];
-      const normalized = normalizeString(candidate.value);
-      const match = normalized.match(/^(\d{4}-\d{2}-\d{2})/);
-      if (match) {
+      if (isBlankValue(candidate.value)) {
+        continue;
+      }
+
+      const valuationDate = normalizeDateOnlyValue(candidate.value);
+      if (valuationDate) {
+        const deprecatedWarningCode = "deprecated-existing-coverage-valuation-date-fallback";
+        if (candidate.deprecated) {
+          warnings.push(createWarning(
+            deprecatedWarningCode,
+            "Existing coverage treatment used a deprecated existing coverage valuation date because the shared Planning As-Of Date was unavailable.",
+            {
+              source: candidate.source,
+              replacementSource: "analysisSettings.valuationDate"
+            }
+          ));
+        }
+
         return {
-          valuationDate: match[1],
-          valuationDateSource: candidate.source
+          valuationDate,
+          valuationDateSource: candidate.source,
+          valuationDateDefaulted: false,
+          valuationDateWarningCode: candidate.deprecated
+            ? deprecatedWarningCode
+            : (warnings[0]?.code || null),
+          warnings
         };
       }
+
+      warnings.push(createWarning(
+        "invalid-existing-coverage-valuation-date",
+        "Existing coverage treatment ignored an invalid valuation date.",
+        {
+          source: candidate.source
+        }
+      ));
     }
+
+    if (!isBlankValue(assumptions.lastUpdatedAt)) {
+      warnings.push(createWarning(
+        "ignored-existing-coverage-last-updated-at-valuation-date",
+        "Existing coverage treatment ignored existingCoverageAssumptions.lastUpdatedAt because saved timestamps are not Planning As-Of Dates.",
+        {
+          source: "analysisSettings.existingCoverageAssumptions.lastUpdatedAt"
+        }
+      ));
+    }
+
+    const warningCode = warnings.some(function (warning) {
+      return warning?.code === "invalid-existing-coverage-valuation-date";
+    })
+      ? "invalid-existing-coverage-valuation-date"
+      : "missing-existing-coverage-valuation-date";
+    warnings.push(createWarning(
+      warningCode,
+      "Existing coverage treatment has no valid Planning As-Of Date; date-sensitive pending and term guardrail treatment may not be applied.",
+      {
+        source: "analysisSettings.valuationDate"
+      }
+    ));
 
     return {
       valuationDate: null,
-      valuationDateSource: "unavailable"
+      valuationDateSource: "unavailable",
+      valuationDateDefaulted: false,
+      valuationDateWarningCode: warningCode,
+      warnings
     };
   }
 
@@ -1264,12 +1370,16 @@
       input,
       existingCoverageAssumptions
     );
+    const valuationDateWarnings = Array.isArray(valuationDateResult.warnings)
+      ? valuationDateResult.warnings
+      : [];
     const coveragePolicyResult = resolveTreatmentCoveragePolicies(input);
     const calculateExistingCoverageTreatment = lensAnalysis.calculateExistingCoverageTreatment;
 
     if (!Array.isArray(coveragePolicyResult.policies)) {
       return createEmptyTreatedExistingCoverageOffset(
         [
+          ...valuationDateWarnings,
           createWarning(
             coveragePolicyResult.reason,
             "profileRecord.coveragePolicies is unavailable; treated existing coverage offset was not calculated."
@@ -1281,7 +1391,9 @@
           rawExistingCoverageTotal: existingCoverage.totalExistingCoverage ?? null,
           methodOffsetSourcePath: "existingCoverage.totalExistingCoverage",
           valuationDate: valuationDateResult.valuationDate,
-          valuationDateSource: valuationDateResult.valuationDateSource
+          valuationDateSource: valuationDateResult.valuationDateSource,
+          valuationDateDefaulted: valuationDateResult.valuationDateDefaulted === true,
+          valuationDateWarningCode: valuationDateResult.valuationDateWarningCode || null
         }
       );
     }
@@ -1289,6 +1401,7 @@
     if (typeof calculateExistingCoverageTreatment !== "function") {
       return createEmptyTreatedExistingCoverageOffset(
         [
+          ...valuationDateWarnings,
           createWarning(
             "missing-existing-coverage-treatment-helper",
             "calculateExistingCoverageTreatment is unavailable; treated existing coverage offset was not calculated."
@@ -1301,7 +1414,9 @@
           rawExistingCoverageTotal: existingCoverage.totalExistingCoverage ?? null,
           methodOffsetSourcePath: "existingCoverage.totalExistingCoverage",
           valuationDate: valuationDateResult.valuationDate,
-          valuationDateSource: valuationDateResult.valuationDateSource
+          valuationDateSource: valuationDateResult.valuationDateSource,
+          valuationDateDefaulted: valuationDateResult.valuationDateDefaulted === true,
+          valuationDateWarningCode: valuationDateResult.valuationDateWarningCode || null
         }
       );
     }
@@ -1333,7 +1448,10 @@
       totalsByTreatmentKind: isPlainObject(result?.totalsByTreatmentKind)
         ? result.totalsByTreatmentKind
         : {},
-      warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+      warnings: [
+        ...valuationDateWarnings,
+        ...(Array.isArray(result?.warnings) ? result.warnings : [])
+      ],
       trace: Array.isArray(result?.trace) ? result.trace : [],
       metadata: {
         ...resultMetadata,
@@ -1344,6 +1462,8 @@
         methodOffsetSourcePath: TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
         valuationDate: valuationDateResult.valuationDate,
         valuationDateSource: valuationDateResult.valuationDateSource,
+        valuationDateDefaulted: valuationDateResult.valuationDateDefaulted === true,
+        valuationDateWarningCode: valuationDateResult.valuationDateWarningCode || null,
         consumedByMethods: true
       }
     };

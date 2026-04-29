@@ -79,6 +79,7 @@ function createCoveragePolicies() {
       id: "group-policy",
       coverageSource: "groupEmployer",
       policyType: "Group Life",
+      effectiveDate: "2020-01-01",
       faceAmount: "100000"
     },
     {
@@ -94,6 +95,7 @@ function createCoveragePolicies() {
 
 function createAnalysisSettings() {
   return {
+    valuationDate: "2026-01-01",
     existingCoverageAssumptions: {
       groupCoverageTreatment: {
         include: true,
@@ -105,7 +107,9 @@ function createAnalysisSettings() {
         excludeIfExpiresWithinYears: null
       },
       source: "existing-coverage-treatment-model-prep-check",
-      lastUpdatedAt: "2026-01-01T00:00:00.000Z"
+      valuationDate: "2030-01-01",
+      asOfDate: "2031-01-01",
+      lastUpdatedAt: "2025-01-01T00:00:00.000Z"
     }
   };
 }
@@ -124,6 +128,12 @@ function buildModel(context, options = {}) {
   return result.lensModel;
 }
 
+function findPolicyResult(model, policyId) {
+  return model.treatedExistingCoverageOffset.policies.find((policy) => {
+    return policy.policyId === policyId;
+  });
+}
+
 const context = createContext();
 const lensAnalysis = context.LensApp.lensAnalysis;
 
@@ -133,7 +143,10 @@ assert.equal(lensAnalysis.analysisMethods, undefined, "Model-prep check should n
 
 const coveragePolicies = createCoveragePolicies();
 const originalPolicies = cloneJson(coveragePolicies);
+const analysisSettings = createAnalysisSettings();
+const originalAnalysisSettings = cloneJson(analysisSettings);
 const model = buildModel(context, {
+  analysisSettings,
   profileRecord: {
     coveragePolicies
   }
@@ -152,11 +165,143 @@ assert.equal(treatedExistingCoverageOffset.metadata.rawExistingCoverageTotal, 30
 assert.equal(treatedExistingCoverageOffset.metadata.methodOffsetSourcePath, "treatedExistingCoverageOffset.totalTreatedCoverageOffset");
 assert.equal(treatedExistingCoverageOffset.metadata.consumedByMethods, true);
 assert.equal(treatedExistingCoverageOffset.metadata.valuationDate, "2026-01-01");
+assert.equal(treatedExistingCoverageOffset.metadata.valuationDateSource, "analysisSettings.valuationDate");
+assert.equal(treatedExistingCoverageOffset.metadata.valuationDateDefaulted, false);
+assert.equal(treatedExistingCoverageOffset.metadata.valuationDateWarningCode, null);
 assert.equal(
   treatedExistingCoverageOffset.metadata.valuationDateSource,
-  "analysisSettings.existingCoverageAssumptions.lastUpdatedAt"
+  "analysisSettings.valuationDate",
+  "Shared analysisSettings.valuationDate should win over deprecated existing coverage date fields."
+);
+assert.ok(
+  !hasWarningCode(treatedExistingCoverageOffset.warnings, "deprecated-existing-coverage-valuation-date-fallback"),
+  "Deprecated existing coverage date fields should not warn when shared valuationDate is available."
+);
+assert.ok(
+  !hasWarningCode(treatedExistingCoverageOffset.warnings, "ignored-existing-coverage-last-updated-at-valuation-date"),
+  "lastUpdatedAt should not participate when shared valuationDate is available."
 );
 assert.deepEqual(coveragePolicies, originalPolicies, "Model prep must not mutate input coverage policies.");
+assert.deepEqual(analysisSettings, originalAnalysisSettings, "Model prep must not mutate input analysis settings.");
+
+const sharedDatePendingModel = buildModel(context, {
+  analysisSettings: {
+    valuationDate: "2026-01-01",
+    existingCoverageAssumptions: {
+      valuationDate: "2030-01-01",
+      pendingCoverageTreatment: {
+        include: false,
+        reliabilityDiscountPercent: 0
+      }
+    }
+  },
+  profileRecord: {
+    coveragePolicies: [
+      {
+        id: "active-term",
+        coverageSource: "individual",
+        policyType: "Term Life",
+        termLength: "20",
+        effectiveDate: "2020-01-01",
+        faceAmount: "200000"
+      },
+      {
+        id: "future-term",
+        coverageSource: "individual",
+        policyType: "Term Life",
+        termLength: "20",
+        effectiveDate: "2027-01-01",
+        faceAmount: "50000"
+      }
+    ]
+  }
+});
+assert.equal(sharedDatePendingModel.treatedExistingCoverageOffset.metadata.valuationDate, "2026-01-01");
+assert.equal(sharedDatePendingModel.treatedExistingCoverageOffset.metadata.valuationDateSource, "analysisSettings.valuationDate");
+assert.equal(sharedDatePendingModel.treatedExistingCoverageOffset.totalTreatedCoverageOffset, 200000);
+assert.equal(findPolicyResult(sharedDatePendingModel, "future-term").treatmentKind, "pending");
+assert.equal(findPolicyResult(sharedDatePendingModel, "future-term").included, false);
+assert.equal(findPolicyResult(sharedDatePendingModel, "future-term").exclusionReason, "pending-excluded-by-assumption");
+
+const sharedDateTermGuardrailModel = buildModel(context, {
+  analysisSettings: {
+    valuationDate: "2026-01-01",
+    existingCoverageAssumptions: {
+      asOfDate: "2022-01-01",
+      individualTermTreatment: {
+        include: true,
+        reliabilityDiscountPercent: 0,
+        excludeIfExpiresWithinYears: 5
+      }
+    }
+  },
+  profileRecord: {
+    coveragePolicies: [
+      {
+        id: "guardrail-term",
+        coverageSource: "individual",
+        policyType: "Term Life",
+        termLength: "10",
+        effectiveDate: "2020-01-01",
+        faceAmount: "100000"
+      }
+    ]
+  }
+});
+assert.equal(sharedDateTermGuardrailModel.treatedExistingCoverageOffset.metadata.valuationDate, "2026-01-01");
+assert.equal(sharedDateTermGuardrailModel.treatedExistingCoverageOffset.metadata.valuationDateSource, "analysisSettings.valuationDate");
+assert.equal(sharedDateTermGuardrailModel.treatedExistingCoverageOffset.totalTreatedCoverageOffset, 0);
+assert.equal(findPolicyResult(sharedDateTermGuardrailModel, "guardrail-term").exclusionReason, "term-expiring-within-guardrail");
+
+const deprecatedFallbackModel = buildModel(context, {
+  analysisSettings: {
+    existingCoverageAssumptions: {
+      valuationDate: "2026-01-01",
+      lastUpdatedAt: "2025-01-01T00:00:00.000Z"
+    }
+  }
+});
+assert.equal(deprecatedFallbackModel.treatedExistingCoverageOffset.metadata.valuationDate, "2026-01-01");
+assert.equal(
+  deprecatedFallbackModel.treatedExistingCoverageOffset.metadata.valuationDateSource,
+  "analysisSettings.existingCoverageAssumptions.valuationDate"
+);
+assert.equal(
+  deprecatedFallbackModel.treatedExistingCoverageOffset.metadata.valuationDateWarningCode,
+  "deprecated-existing-coverage-valuation-date-fallback"
+);
+assert.ok(
+  hasWarningCode(deprecatedFallbackModel.treatedExistingCoverageOffset.warnings, "deprecated-existing-coverage-valuation-date-fallback"),
+  "Deprecated existing coverage valuationDate fallback should be explicit."
+);
+
+const invalidSharedDateModel = buildModel(context, {
+  analysisSettings: {
+    valuationDate: "2026-99-99",
+    existingCoverageAssumptions: {
+      lastUpdatedAt: "2026-01-01T00:00:00.000Z"
+    }
+  }
+});
+assert.equal(invalidSharedDateModel.treatedExistingCoverageOffset.metadata.valuationDate, null);
+assert.equal(invalidSharedDateModel.treatedExistingCoverageOffset.metadata.valuationDateSource, "unavailable");
+assert.equal(
+  invalidSharedDateModel.treatedExistingCoverageOffset.metadata.valuationDateWarningCode,
+  "invalid-existing-coverage-valuation-date"
+);
+assert.ok(
+  hasWarningCode(invalidSharedDateModel.treatedExistingCoverageOffset.warnings, "invalid-existing-coverage-valuation-date"),
+  "Invalid shared valuationDate should be explicit."
+);
+assert.ok(
+  hasWarningCode(invalidSharedDateModel.treatedExistingCoverageOffset.warnings, "ignored-existing-coverage-last-updated-at-valuation-date"),
+  "lastUpdatedAt should be explicitly ignored instead of used as planning intent."
+);
+assert.notEqual(invalidSharedDateModel.treatedExistingCoverageOffset.metadata.valuationDate, "2026-99-99");
+assert.notEqual(
+  invalidSharedDateModel.treatedExistingCoverageOffset.metadata.valuationDateSource,
+  "analysisSettings.existingCoverageAssumptions.lastUpdatedAt"
+);
 
 const noHelperContext = createContext({ includeTreatmentHelper: false });
 const noHelperModel = buildModel(noHelperContext);
