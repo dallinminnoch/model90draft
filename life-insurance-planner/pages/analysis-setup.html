@@ -208,6 +208,7 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include Existing Coverage Offset</span>
+                          <span class="settings-toggle-note">When on, DIME, Needs, and HLV subtract linked profile coverage as the current coverage offset.</span>
                         </span>
                         <span class="settings-switch analysis-setup-mini-switch">
                           <input type="checkbox" role="switch" aria-label="Include Existing Coverage Offset" data-analysis-coverage-field="includeExistingCoverage" data-analysis-calculation-inclusion-control>
@@ -504,7 +505,7 @@
                   <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
-                    <p>Control how current policies are counted as coverage offsets. Raw policy details remain stored on the client profile.</p>
+                    <p>Saved for future treatment modeling and preview only. Current DIME, Needs, and HLV offsets use linked profile coverage when Include Existing Coverage Offset is on.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-coverage-defaults" aria-label="Existing coverage treatment default settings">
@@ -521,7 +522,7 @@
                     <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-coverage-toggle">
                       <span class="settings-toggle-copy">
                         <span class="settings-toggle-label">Include existing coverage</span>
-                        <span class="settings-toggle-note">Controls whether existing coverage is counted as a coverage offset. Detailed treatment settings remain available for future coverage modeling.</span>
+                        <span class="settings-toggle-note">Same saved switch as Include Existing Coverage Offset; current methods use linked profile coverage when it is on.</span>
                       </span>
                       <span class="settings-switch">
                         <input type="checkbox" role="switch" aria-label="Include existing coverage" data-analysis-coverage-field="includeExistingCoverage">
@@ -547,7 +548,7 @@
                           </span>
                         </label>
                       </div>
-                      <p>Discounts employer/group coverage for portability and job-change risk.</p>
+                      <p>Saved for future treatment modeling and preview; not used by current method offsets.</p>
                     </div>
 
                     <div class="analysis-setup-coverage-row">
@@ -558,7 +559,7 @@
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
                       </label>
-                      <p>Pending or proposed coverage should usually not offset the need until placed.</p>
+                      <p>Saved for future treatment modeling and preview; not used by current method offsets.</p>
                     </div>
 
                     <div class="analysis-setup-coverage-row analysis-setup-coverage-row--discount">
@@ -596,7 +597,7 @@
                       <strong data-analysis-coverage-raw-preview>No linked coverage policies found</strong>
                     </div>
                     <div>
-                      <span>Future adjusted coverage preview</span>
+                      <span>Future adjusted coverage preview (not used by methods)</span>
                       <strong data-analysis-coverage-adjusted-preview>No linked coverage policies found</strong>
                     </div>
                   </div>
