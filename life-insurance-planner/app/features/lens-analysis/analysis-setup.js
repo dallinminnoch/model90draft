@@ -49,7 +49,7 @@
     needsSupportYears: "Needs Support Years",
     hlvProjectionYears: "HLV Projection Years"
   };
-  const ASSET_OFFSET_SOURCE_LEGACY = "legacy";
+  // Deprecated settings metadata retained until adapter/methods are moved to treated-only.
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
 
   const DEFAULT_INFLATION_ASSUMPTIONS = Object.freeze({
@@ -67,8 +67,7 @@
     needsSupportYears: 10,
     hlvProjectionYears: 10,
     needsIncludeOffsetAssets: true,
-    assetOffsetSource: ASSET_OFFSET_SOURCE_LEGACY,
-    fallbackToLegacyOffsetAssets: true,
+    assetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
     source: "analysis-setup"
   });
 
@@ -917,15 +916,8 @@
     return Math.min(MAX_METHOD_YEARS, Math.max(MIN_METHOD_YEARS, Math.round(number)));
   }
 
-  function normalizeAssetOffsetSource(value, fallback) {
-    const normalizedValue = String(value || "").trim().toLowerCase();
-    if (normalizedValue === ASSET_OFFSET_SOURCE_TREATED) {
-      return ASSET_OFFSET_SOURCE_TREATED;
-    }
-    if (normalizedValue === ASSET_OFFSET_SOURCE_LEGACY) {
-      return ASSET_OFFSET_SOURCE_LEGACY;
-    }
-    return fallback || ASSET_OFFSET_SOURCE_LEGACY;
+  function getAnalysisSetupAssetOffsetSource() {
+    return ASSET_OFFSET_SOURCE_TREATED;
   }
 
   function normalizeGrowthReturnBasis(value, fallback) {
@@ -1479,13 +1471,7 @@
     nextDefaults.needsIncludeOffsetAssets = typeof saved.needsIncludeOffsetAssets === "boolean"
       ? saved.needsIncludeOffsetAssets
       : defaults.needsIncludeOffsetAssets;
-    nextDefaults.assetOffsetSource = normalizeAssetOffsetSource(
-      saved.assetOffsetSource,
-      defaults.assetOffsetSource
-    );
-    nextDefaults.fallbackToLegacyOffsetAssets = typeof saved.fallbackToLegacyOffsetAssets === "boolean"
-      ? saved.fallbackToLegacyOffsetAssets
-      : defaults.fallbackToLegacyOffsetAssets;
+    nextDefaults.assetOffsetSource = getAnalysisSetupAssetOffsetSource();
 
     if (saved.lastUpdatedAt) {
       nextDefaults.lastUpdatedAt = String(saved.lastUpdatedAt);
@@ -3795,12 +3781,6 @@
         defaults.hlvProjectionYears ?? DEFAULT_METHOD_DEFAULTS.hlvProjectionYears
       );
     }
-    if (fields.assetOffsetSource) {
-      fields.assetOffsetSource.value = normalizeAssetOffsetSource(
-        defaults.assetOffsetSource,
-        DEFAULT_METHOD_DEFAULTS.assetOffsetSource
-      );
-    }
     if (fields.needsIncludeOffsetAssets) {
       fields.needsIncludeOffsetAssets.checked = defaults.needsIncludeOffsetAssets !== false;
     }
@@ -5505,14 +5485,10 @@
       nextDefaults[fieldName] = number;
     }
 
-    nextDefaults.assetOffsetSource = normalizeAssetOffsetSource(
-      fields.assetOffsetSource?.value,
-      DEFAULT_METHOD_DEFAULTS.assetOffsetSource
-    );
+    nextDefaults.assetOffsetSource = getAnalysisSetupAssetOffsetSource();
     nextDefaults.needsIncludeOffsetAssets = fields.needsIncludeOffsetAssets
       ? Boolean(fields.needsIncludeOffsetAssets.checked)
       : DEFAULT_METHOD_DEFAULTS.needsIncludeOffsetAssets;
-    nextDefaults.fallbackToLegacyOffsetAssets = true;
 
     return {
       value: {
@@ -5521,7 +5497,6 @@
         hlvProjectionYears: nextDefaults.hlvProjectionYears,
         needsIncludeOffsetAssets: nextDefaults.needsIncludeOffsetAssets,
         assetOffsetSource: nextDefaults.assetOffsetSource,
-        fallbackToLegacyOffsetAssets: nextDefaults.fallbackToLegacyOffsetAssets,
         lastUpdatedAt: new Date().toISOString(),
         source: "analysis-setup"
       }
@@ -5658,12 +5633,8 @@
     };
   }
 
-  function readValidatedAssetTreatmentAssumptions(fields, options) {
-    const safeOptions = isPlainObject(options) ? options : {};
-    const sourceDrivenEnabled = normalizeAssetOffsetSource(
-      safeOptions.assetOffsetSource,
-      DEFAULT_METHOD_DEFAULTS.assetOffsetSource
-    ) === ASSET_OFFSET_SOURCE_TREATED;
+  function readValidatedAssetTreatmentAssumptions(fields) {
+    const sourceDrivenEnabled = getAnalysisSetupAssetOffsetSource() === ASSET_OFFSET_SOURCE_TREATED;
     const defaultProfile = getAssetDefaultProfile(fields);
     if (!ASSET_TREATMENT_DEFAULT_PROFILE_KEYS.includes(defaultProfile)) {
       return {
@@ -7033,9 +7004,7 @@
     }
 
     const validatedAssetTreatment = shouldSaveAssetTreatment
-      ? readValidatedAssetTreatmentAssumptions(assetTreatmentFields, {
-          assetOffsetSource: validatedMethodDefaults.value.assetOffsetSource
-        })
+      ? readValidatedAssetTreatmentAssumptions(assetTreatmentFields)
       : null;
 
     if (validatedAssetTreatment?.error) {
@@ -7352,10 +7321,6 @@
         }
         markUnsaved();
       });
-    });
-
-    methodFields.assetOffsetSource?.addEventListener("change", function () {
-      markUnsaved();
     });
 
     methodFields.needsIncludeOffsetAssets?.addEventListener("change", function () {

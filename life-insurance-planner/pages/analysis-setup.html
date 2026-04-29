@@ -274,15 +274,7 @@
                         <span>HLV Projection Years</span>
                         <input id="analysis-setup-hlv-projection-years" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-method-field="hlvProjectionYears">
                       </label>
-                      <label class="analysis-setup-method-row" for="analysis-setup-asset-offset-source">
-                        <span>Asset Offset Source</span>
-                        <select id="analysis-setup-asset-offset-source" class="analysis-setup-method-select" data-analysis-method-field="assetOffsetSource">
-                          <option value="legacy">Legacy offset assets</option>
-                          <option value="treated">Treated asset offsets</option>
-                        </select>
-                      </label>
                     </div>
-                    <p class="analysis-setup-method-copy">Legacy uses compatibility offset asset values. Treated uses Asset Treatment assumptions; if treated totals are unavailable, Needs can fall back to legacy.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--growth" aria-labelledby="analysis-setup-growth-return">
@@ -478,10 +470,10 @@
                 <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-view-panel="offset">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-asset-treatment">Asset Treatment</h3>
-                    <p>Set how treated asset offsets are prepared when Asset Offset Source is Treated. Asset values are still collected in Protection Modeling Inputs.</p>
+                    <p>Set how treated asset offsets are prepared from raw asset values. Asset values are still collected in Protection Modeling Inputs.</p>
                     <p class="analysis-setup-asset-note">Rows use category-level treatment. Assets in the same category share treatment assumptions.</p>
                     <p class="analysis-setup-asset-note">Tax drag estimates taxes if the asset is used. Haircut estimates liquidity, timing, marketability, and planning risk before counting the asset as available.</p>
-                    <p class="analysis-setup-asset-note">Preview amounts are not necessarily method offsets; method use requires Treated source and included asset offsets.</p>
+                    <p class="analysis-setup-asset-note">Preview amounts are not necessarily method offsets; Needs uses treated offsets when asset offsets are included and treated totals are available.</p>
                     <p class="analysis-setup-asset-note">Step-up eligible assets may have little capital-gains tax drag at death. Retirement and annuity assets may be taxable when distributed.</p>
                   </div>
 
