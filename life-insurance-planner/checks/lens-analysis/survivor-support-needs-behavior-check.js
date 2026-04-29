@@ -180,7 +180,6 @@ function createBuilderSourceData(overrides = {}) {
   return {
     grossAnnualIncome: 120000,
     spouseIncome: 80000,
-    survivorIncomeStartDelayMonths: 6,
     annualMortgagePayment: 0,
     monthlyRent: 0,
     monthlyNonHousingEssentialExpenses: 5000,
@@ -192,8 +191,11 @@ function createBuilderSourceData(overrides = {}) {
   };
 }
 
-function buildLensModel(lensAnalysis, options = {}) {
+function buildLensModelResult(lensAnalysis, options = {}) {
   const analysisSettings = createAnalysisSettings(options.overrides || {});
+  if (options.omitSurvivorSupportAssumptions) {
+    delete analysisSettings.survivorSupportAssumptions;
+  }
   const input = {
     sourceData: createBuilderSourceData(options.sourceData || {}),
     analysisSettings,
@@ -206,7 +208,11 @@ function buildLensModel(lensAnalysis, options = {}) {
   const result = lensAnalysis.buildLensModelFromSavedProtectionModeling(input);
   assert.deepEqual(cloneJson(input), inputBefore, "Lens model builder must not mutate survivor support inputs.");
   assert.ok(result.lensModel, "Lens model should build for survivor support derivation checks.");
-  return result.lensModel;
+  return result;
+}
+
+function buildLensModel(lensAnalysis, options = {}) {
+  return buildLensModelResult(lensAnalysis, options).lensModel;
 }
 
 function createDimeSettings(adapter, overrides) {
@@ -249,6 +255,13 @@ assert.equal(typeof methods?.runHumanLifeValueAnalysis, "function");
 assert.equal(typeof lensAnalysis.buildLensModelFromSavedProtectionModeling, "function");
 
 const derivedModel = buildLensModel(lensAnalysis, {
+  sourceData: {
+    survivorContinuesWorking: "No",
+    spouseExpectedWorkReductionAtDeath: 100,
+    survivorIncome: 999999,
+    survivorNetAnnualIncome: 999999,
+    survivorIncomeStartDelayMonths: 18
+  },
   overrides: {
     survivorIncomeTreatment: {
       includeSurvivorIncome: true,
@@ -268,6 +281,18 @@ assert.equal(derivedModel.survivorScenario.survivorIncomeDerivation.expectedSurv
 assert.equal(derivedModel.survivorScenario.survivorIncomeDerivation.adjustedSurvivorGrossIncome, 60000);
 assert.equal(derivedModel.survivorScenario.survivorIncomeDerivation.applyStartDelay, true);
 assert.equal(derivedModel.survivorScenario.survivorIncomeDerivation.survivorIncomeStartDelayMonths, 6);
+assert.equal(derivedModel.survivorScenario.survivorIncomeDerivation.legacySurvivorIncomeFallbackUsed, false);
+assert.deepEqual(
+  Array.from(derivedModel.survivorScenario.survivorIncomeDerivation.ignoredLegacySurvivorFields).sort(),
+  [
+    "spouseExpectedWorkReductionAtDeath",
+    "survivorContinuesWorking",
+    "survivorIncome",
+    "survivorIncomeStartDelayMonths",
+    "survivorNetAnnualIncome"
+  ].sort(),
+  "Analysis Setup survivor assumptions should beat conflicting legacy PMI survivor fields."
+);
 assert.equal(
   derivedModel.survivorScenario.survivorIncomeDerivation.survivorNetAnnualIncomePrepared,
   derivedModel.survivorScenario.survivorNetAnnualIncome ?? null,
@@ -290,9 +315,10 @@ const noStartDelayModel = buildLensModel(lensAnalysis, {
 assert.equal(noStartDelayModel.survivorScenario.survivorIncomeStartDelayMonths, 0, "applyStartDelay=false should prepare a zero survivor income delay.");
 assert.equal(noStartDelayModel.survivorScenario.survivorIncomeDerivation.applyStartDelay, false);
 
-const legacyFallbackModel = buildLensModel(lensAnalysis, {
+const legacyIgnoredResult = buildLensModelResult(lensAnalysis, {
   sourceData: {
     spouseIncome: "",
+    survivorIncome: 36000,
     survivorNetAnnualIncome: 24000
   },
   overrides: {
@@ -302,12 +328,61 @@ const legacyFallbackModel = buildLensModel(lensAnalysis, {
     }
   }
 });
-assert.equal(legacyFallbackModel.survivorScenario.survivorNetAnnualIncome, 24000, "Legacy survivor net fallback should preserve existing behavior when spouse income is missing.");
-assert.equal(legacyFallbackModel.survivorScenario.survivorIncomeDerivation.legacySurvivorIncomeFallbackUsed, true);
-assert.equal(legacyFallbackModel.survivorScenario.survivorIncomeDerivation.survivorIncomeSource, "legacy-survivor-net-fallback");
+const legacyIgnoredModel = legacyIgnoredResult.lensModel;
+assert.equal(legacyIgnoredModel.survivorScenario.survivorNetAnnualIncome, null, "Legacy survivor net income should not prepare survivor income when spouse income is missing.");
+assert.equal(legacyIgnoredModel.survivorScenario.survivorGrossAnnualIncome, null, "Legacy survivor gross income should not prepare survivor income when spouse income is missing.");
+assert.equal(legacyIgnoredModel.survivorScenario.survivorIncomeDerivation.legacySurvivorIncomeFallbackUsed, false);
+assert.equal(legacyIgnoredModel.survivorScenario.survivorIncomeDerivation.survivorIncomeSource, "missing-spouse-income");
 assert.ok(
-  legacyFallbackModel.survivorScenario.survivorIncomeDerivation.warnings.some((warning) => warning.code === "missing-spouse-income-for-survivor-income-derivation"),
-  "Missing spouse income fallback should carry an explicit derivation warning."
+  legacyIgnoredModel.survivorScenario.survivorIncomeDerivation.ignoredLegacySurvivorFields.includes("survivorIncome")
+    && legacyIgnoredModel.survivorScenario.survivorIncomeDerivation.ignoredLegacySurvivorFields.includes("survivorNetAnnualIncome"),
+  "Legacy survivor gross/net fields should be recorded as ignored metadata only."
+);
+assert.ok(
+  legacyIgnoredModel.survivorScenario.survivorIncomeDerivation.warnings.some((warning) => warning.code === "missing-spouse-income-for-survivor-income-derivation"),
+  "Missing spouse income should carry an explicit derivation warning."
+);
+assert.ok(
+  legacyIgnoredModel.survivorScenario.survivorIncomeDerivation.warnings.some((warning) => warning.code === "legacy-survivor-fields-ignored"),
+  "Ignored legacy survivor fields should be warning-backed in derivation metadata."
+);
+assert.ok(
+  legacyIgnoredResult.warnings.some((warning) => warning.code === "legacy-survivor-fields-ignored"),
+  "Ignored legacy survivor fields should be warning-backed at model-builder level."
+);
+
+const defaultedSurvivorResult = buildLensModelResult(lensAnalysis, {
+  omitSurvivorSupportAssumptions: true,
+  sourceData: {
+    survivorContinuesWorking: "No",
+    spouseExpectedWorkReductionAtDeath: 100,
+    survivorIncomeStartDelayMonths: 18,
+    survivorIncome: 999999,
+    survivorNetAnnualIncome: 999999
+  }
+});
+const defaultedSurvivorModel = defaultedSurvivorResult.lensModel;
+assert.equal(defaultedSurvivorModel.survivorScenario.survivorContinuesWorking, true, "Missing Analysis Setup assumptions should use default survivor continues working.");
+assert.equal(defaultedSurvivorModel.survivorScenario.expectedSurvivorWorkReductionPercent, 25, "Missing Analysis Setup assumptions should use default work reduction.");
+assert.equal(defaultedSurvivorModel.survivorScenario.survivorIncomeStartDelayMonths, 3, "Missing Analysis Setup assumptions should use default survivor income delay.");
+assert.equal(defaultedSurvivorModel.survivorScenario.survivorIncomeDerivation.survivorSupportAssumptionsSource, "defaulted-analysis-setup-survivor-support");
+assert.equal(defaultedSurvivorModel.survivorScenario.survivorIncomeDerivation.survivorSupportAssumptionsDefaulted, true);
+assert.equal(defaultedSurvivorModel.survivorScenario.survivorIncomeDerivation.survivorIncomeSource, "derived-from-spouse-income");
+assert.equal(defaultedSurvivorModel.survivorScenario.survivorIncomeDerivation.adjustedSurvivorGrossIncome, 60000);
+assert.deepEqual(
+  Array.from(defaultedSurvivorModel.survivorScenario.survivorIncomeDerivation.ignoredLegacySurvivorFields).sort(),
+  [
+    "spouseExpectedWorkReductionAtDeath",
+    "survivorContinuesWorking",
+    "survivorIncome",
+    "survivorIncomeStartDelayMonths",
+    "survivorNetAnnualIncome"
+  ].sort(),
+  "Missing Analysis Setup defaults should still ignore conflicting legacy PMI survivor fields."
+);
+assert.ok(
+  defaultedSurvivorResult.warnings.some((warning) => warning.code === "missing-survivor-support-assumptions-defaulted"),
+  "Missing Analysis Setup survivor assumptions should carry an explicit default warning."
 );
 
 const baseModel = createModel();

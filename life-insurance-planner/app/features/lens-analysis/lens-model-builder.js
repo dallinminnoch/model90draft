@@ -11,6 +11,28 @@
   const SURVIVOR_NET_INCOME_TAX_BASIS = "Qualifying Surviving Spouse";
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
   const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
+  const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
+    applyStartDelay: true,
+    survivorContinuesWorking: true,
+    expectedSurvivorWorkReductionPercent: 25,
+    survivorIncomeStartDelayMonths: 3,
+    survivorEarnedIncomeGrowthRatePercent: 0,
+    survivorRetirementHorizonYears: null
+  });
+  const LEGACY_SURVIVOR_TREATMENT_FIELD_NAMES = Object.freeze([
+    "survivorContinuesWorking",
+    "spouseExpectedWorkReductionAtDeath",
+    "survivorIncome",
+    "survivorNetAnnualIncome",
+    "survivorIncomeStartDelayMonths",
+    "spouseIncomeGrowthRate",
+    "spouseYearsUntilRetirement",
+    "survivorIncomeManualOverride",
+    "survivorNetAnnualIncomeManualOverride",
+    "incomeReplacementDuration",
+    "expenseReductionAtDeath",
+    "childDependencyDuration"
+  ]);
 
   function createWarning(code, message, details) {
     return {
@@ -135,42 +157,96 @@
       : null;
   }
 
-  function getExplicitSurvivorScenarioAssumptions(profileRecord) {
+  function getSurvivorSupportAssumptionContext(profileRecord) {
     const survivorSupport = getSavedSurvivorSupportAssumptions(profileRecord);
-    const survivorScenario = isPlainObject(survivorSupport?.survivorScenario)
+    const savedSurvivorScenario = isPlainObject(survivorSupport?.survivorScenario)
       ? survivorSupport.survivorScenario
-      : null;
-    if (!survivorScenario) {
-      return null;
+      : {};
+    const savedSurvivorIncomeTreatment = isPlainObject(survivorSupport?.survivorIncomeTreatment)
+      ? survivorSupport.survivorIncomeTreatment
+      : {};
+    const defaultedFields = [];
+
+    function getAssumptionValue(source, fieldName, fallback, sourcePath) {
+      if (Object.prototype.hasOwnProperty.call(source, fieldName) && !isBlankValue(source[fieldName])) {
+        return source[fieldName];
+      }
+
+      defaultedFields.push(sourcePath);
+      return fallback;
     }
 
-    const hasExplicitValue = [
-      "survivorContinuesWorking",
-      "expectedSurvivorWorkReductionPercent",
-      "survivorIncomeStartDelayMonths",
-      "survivorEarnedIncomeGrowthRatePercent",
-      "survivorRetirementHorizonYears"
-    ].some(function (fieldName) {
-      return Object.prototype.hasOwnProperty.call(survivorScenario, fieldName)
-        && !isBlankValue(survivorScenario[fieldName]);
+    function getBooleanAssumptionValue(source, fieldName, fallback, sourcePath) {
+      if (typeof source[fieldName] === "boolean") {
+        return source[fieldName];
+      }
+
+      if (Object.prototype.hasOwnProperty.call(source, fieldName) && !isBlankValue(source[fieldName])) {
+        const normalized = normalizeYesNoBoolean(source[fieldName]);
+        if (normalized != null) {
+          return normalized;
+        }
+      }
+
+      defaultedFields.push(sourcePath);
+      return fallback;
+    }
+
+    return {
+      source: survivorSupport
+        ? "analysis-setup"
+        : "defaulted-analysis-setup-survivor-support",
+      defaulted: !survivorSupport,
+      defaultedFields,
+      survivorIncomeTreatment: {
+        applyStartDelay: getBooleanAssumptionValue(
+          savedSurvivorIncomeTreatment,
+          "applyStartDelay",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.applyStartDelay,
+          "analysisSettings.survivorSupportAssumptions.survivorIncomeTreatment.applyStartDelay"
+        )
+      },
+      survivorScenario: {
+        survivorContinuesWorking: getBooleanAssumptionValue(
+          savedSurvivorScenario,
+          "survivorContinuesWorking",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.survivorContinuesWorking,
+          "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorContinuesWorking"
+        ),
+        expectedSurvivorWorkReductionPercent: getAssumptionValue(
+          savedSurvivorScenario,
+          "expectedSurvivorWorkReductionPercent",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.expectedSurvivorWorkReductionPercent,
+          "analysisSettings.survivorSupportAssumptions.survivorScenario.expectedSurvivorWorkReductionPercent"
+        ),
+        survivorIncomeStartDelayMonths: getAssumptionValue(
+          savedSurvivorScenario,
+          "survivorIncomeStartDelayMonths",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.survivorIncomeStartDelayMonths,
+          "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorIncomeStartDelayMonths"
+        ),
+        survivorEarnedIncomeGrowthRatePercent: getAssumptionValue(
+          savedSurvivorScenario,
+          "survivorEarnedIncomeGrowthRatePercent",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.survivorEarnedIncomeGrowthRatePercent,
+          "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorEarnedIncomeGrowthRatePercent"
+        ),
+        survivorRetirementHorizonYears: getAssumptionValue(
+          savedSurvivorScenario,
+          "survivorRetirementHorizonYears",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.survivorRetirementHorizonYears,
+          "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorRetirementHorizonYears"
+        )
+      }
+    };
+  }
+
+  function collectIgnoredLegacySurvivorFields(sourceData) {
+    const safeSource = sourceData && typeof sourceData === "object" ? sourceData : {};
+    return LEGACY_SURVIVOR_TREATMENT_FIELD_NAMES.filter(function (fieldName) {
+      return Object.prototype.hasOwnProperty.call(safeSource, fieldName)
+        && !isBlankValue(safeSource[fieldName]);
     });
-
-    return hasExplicitValue ? survivorScenario : null;
-  }
-
-  function getScenarioAssumptionValue(survivorScenario, fieldName, fallback) {
-    return survivorScenario && Object.prototype.hasOwnProperty.call(survivorScenario, fieldName)
-      && !isBlankValue(survivorScenario[fieldName])
-      ? survivorScenario[fieldName]
-      : fallback;
-  }
-
-  function hasScenarioAssumptionValue(survivorScenario, fieldName) {
-    return Boolean(
-      survivorScenario
-      && Object.prototype.hasOwnProperty.call(survivorScenario, fieldName)
-      && !isBlankValue(survivorScenario[fieldName])
-    );
   }
 
   function resolveSourceData(input, warnings) {
@@ -863,41 +939,24 @@
   }
 
   function createSurvivorScenarioSource(input, sourceData, profileRecord, warnings) {
-    const survivorSupport = getSavedSurvivorSupportAssumptions(profileRecord);
-    const survivorScenarioAssumptions = getExplicitSurvivorScenarioAssumptions(profileRecord);
-    const survivorIncomeTreatment = isPlainObject(survivorSupport?.survivorIncomeTreatment)
-      ? survivorSupport.survivorIncomeTreatment
-      : {};
-    const survivorContinuesWorking = normalizeYesNoBoolean(getScenarioAssumptionValue(
-      survivorScenarioAssumptions,
-      "survivorContinuesWorking",
-      sourceData.survivorContinuesWorking
-    ));
-    const expectedWorkReductionPercent = clampPercent(getScenarioAssumptionValue(
-      survivorScenarioAssumptions,
-      "expectedSurvivorWorkReductionPercent",
-      sourceData.spouseExpectedWorkReductionAtDeath
-    ));
-    const scenarioDrivesSurvivorIncome = hasScenarioAssumptionValue(
-      survivorScenarioAssumptions,
-      "survivorContinuesWorking"
-    ) || hasScenarioAssumptionValue(
-      survivorScenarioAssumptions,
-      "expectedSurvivorWorkReductionPercent"
+    const survivorSupportContext = getSurvivorSupportAssumptionContext(profileRecord);
+    const survivorScenarioAssumptions = survivorSupportContext.survivorScenario;
+    const survivorIncomeTreatment = survivorSupportContext.survivorIncomeTreatment;
+    const survivorContinuesWorking = normalizeYesNoBoolean(
+      survivorScenarioAssumptions.survivorContinuesWorking
+    );
+    const expectedWorkReductionPercent = clampPercent(
+      survivorScenarioAssumptions.expectedSurvivorWorkReductionPercent
     );
     const spouseGrossIncome = toOptionalNumber(sourceData.spouseIncome);
     const sourceSurvivorGrossIncome = toOptionalNumber(sourceData.survivorIncome);
     const sourceSurvivorNetIncome = toOptionalNumber(sourceData.survivorNetAnnualIncome);
-    let survivorGrossIncome = sourceSurvivorGrossIncome;
-    const survivorNetManualOverride = scenarioDrivesSurvivorIncome
-      ? false
-      : isTrue(sourceData.survivorNetAnnualIncomeManualOverride);
-    let survivorNetIncome = survivorNetManualOverride ? sourceData.survivorNetAnnualIncome : null;
-    let survivorIncomeSource = sourceSurvivorGrossIncome != null
-      ? "legacy-survivor-gross-income"
-      : "missing-survivor-income";
+    const ignoredLegacySurvivorFields = collectIgnoredLegacySurvivorFields(sourceData);
+    let survivorGrossIncome = null;
+    let survivorNetIncome = null;
+    let survivorIncomeSource = "missing-spouse-income";
     let survivorIncomeDerivedFromSpouseIncome = false;
-    let legacySurvivorIncomeFallbackUsed = false;
+    const legacySurvivorIncomeFallbackUsed = false;
     const fallbackReasons = [];
     const derivationWarnings = [];
 
@@ -905,7 +964,44 @@
       derivationWarnings.push(createWarning(code, message, details));
     }
 
-    if (scenarioDrivesSurvivorIncome && survivorContinuesWorking === true) {
+    if (survivorSupportContext.defaulted) {
+      const warningDetails = {
+        source: "analysisSettings.survivorSupportAssumptions",
+        survivorSupportAssumptionsSource: survivorSupportContext.source,
+        defaultedFields: survivorSupportContext.defaultedFields
+      };
+      addWarning(
+        warnings,
+        "missing-survivor-support-assumptions-defaulted",
+        "Survivor & Support assumptions were missing; model builder used explicit Analysis Setup defaults.",
+        warningDetails
+      );
+      addDerivationWarning(
+        "missing-survivor-support-assumptions-defaulted",
+        "Survivor & Support assumptions were missing; explicit Analysis Setup defaults were used.",
+        warningDetails
+      );
+    }
+
+    if (ignoredLegacySurvivorFields.length > 0) {
+      const warningDetails = {
+        ignoredLegacySurvivorFields,
+        replacementSource: "analysisSettings.survivorSupportAssumptions"
+      };
+      addWarning(
+        warnings,
+        "legacy-survivor-fields-ignored",
+        "Legacy PMI survivor treatment fields were ignored; Survivor & Support assumptions own survivor treatment.",
+        warningDetails
+      );
+      addDerivationWarning(
+        "legacy-survivor-fields-ignored",
+        "Legacy PMI survivor treatment fields were ignored for survivor income preparation.",
+        warningDetails
+      );
+    }
+
+    if (survivorContinuesWorking === true) {
       if (spouseGrossIncome != null) {
         const reductionPercent = expectedWorkReductionPercent == null ? 0 : expectedWorkReductionPercent;
         survivorGrossIncome = Math.max(0, spouseGrossIncome * (1 - reductionPercent / 100));
@@ -915,25 +1011,17 @@
         fallbackReasons.push("missing-spouse-income");
         addDerivationWarning(
           "missing-spouse-income-for-survivor-income-derivation",
-          "Spouse income was unavailable, so survivor income could not be derived from spouse income.",
+          "Spouse income was unavailable, so survivor income could not be derived. Legacy survivor income fields were not used.",
           { sourcePath: "protectionModeling.data.spouseIncome" }
         );
-        if (sourceSurvivorGrossIncome != null) {
-          survivorIncomeSource = "legacy-survivor-gross-income-fallback";
-          legacySurvivorIncomeFallbackUsed = true;
-          fallbackReasons.push("legacy-survivor-gross-income-used");
-        }
       }
-    } else if (scenarioDrivesSurvivorIncome && survivorContinuesWorking === false) {
+    } else if (survivorContinuesWorking === false) {
       survivorGrossIncome = null;
       survivorIncomeSource = "suppressed-survivor-not-working";
-    } else if (survivorNetManualOverride) {
-      survivorIncomeSource = "legacy-survivor-net-manual-override";
     }
 
     if (
       survivorContinuesWorking === true
-      && !survivorNetManualOverride
       && survivorGrossIncome != null
     ) {
       const calculatedSurvivorNetIncome = calculateSurvivorNetIncome(
@@ -949,46 +1037,12 @@
       }
     }
 
-    if (
-      scenarioDrivesSurvivorIncome
-      && survivorContinuesWorking === true
-      && survivorNetIncome == null
-      && !isBlankValue(sourceData.survivorNetAnnualIncome)
-    ) {
-      survivorNetIncome = sourceData.survivorNetAnnualIncome;
-      survivorIncomeSource = "legacy-survivor-net-fallback";
-      legacySurvivorIncomeFallbackUsed = true;
-      fallbackReasons.push("legacy-survivor-net-income-used");
-      addDerivationWarning(
-        "legacy-survivor-net-income-fallback-used",
-        "Saved legacy survivor net income was used because spouse-income-based survivor income could not be prepared.",
-        { sourcePath: "protectionModeling.data.survivorNetAnnualIncome" }
-      );
-    }
-
     if (survivorContinuesWorking === false) {
       survivorNetIncome = null;
       survivorIncomeSource = "suppressed-survivor-not-working";
     }
 
-    if (
-      survivorContinuesWorking === true
-      && !scenarioDrivesSurvivorIncome
-      && (!Object.prototype.hasOwnProperty.call(sourceData, "survivorIncomeManualOverride")
-        || !Object.prototype.hasOwnProperty.call(sourceData, "survivorNetAnnualIncomeManualOverride"))
-    ) {
-      addWarning(
-        warnings,
-        "survivor-manual-state-not-persisted",
-        "Saved survivor gross/net income values do not carry full DOM manual/suggested state; metadata may be less precise than active PMI runtime metadata."
-      );
-    }
-
-    const rawStartDelayMonths = getScenarioAssumptionValue(
-      survivorScenarioAssumptions,
-      "survivorIncomeStartDelayMonths",
-      sourceData.survivorIncomeStartDelayMonths
-    );
+    const rawStartDelayMonths = survivorScenarioAssumptions.survivorIncomeStartDelayMonths;
     const applyStartDelay = survivorIncomeTreatment.applyStartDelay !== false;
     const startDelayMonths = applyStartDelay === false
       ? 0
@@ -1005,8 +1059,12 @@
       expectedSurvivorWorkReductionPercent: expectedWorkReductionPercent,
       adjustedSurvivorGrossIncome: survivorGrossIncome,
       survivorNetAnnualIncomePrepared: survivorNetIncome == null ? null : toOptionalNumber(survivorNetIncome),
-      survivorNetIncomeManualOverride: survivorNetManualOverride,
-      scenarioAssumptionsApplied: scenarioDrivesSurvivorIncome,
+      survivorNetIncomeManualOverride: false,
+      scenarioAssumptionsApplied: true,
+      survivorSupportAssumptionsSource: survivorSupportContext.source,
+      survivorSupportAssumptionsDefaulted: survivorSupportContext.defaulted,
+      defaultedSurvivorSupportFields: survivorSupportContext.defaultedFields,
+      ignoredLegacySurvivorFields,
       applyStartDelay,
       rawSurvivorIncomeStartDelayMonths: rawStartDelayMonths == null ? null : toOptionalNumber(rawStartDelayMonths),
       survivorIncomeStartDelayMonths: startDelayMonths == null ? null : toOptionalNumber(startDelayMonths),
@@ -1014,8 +1072,6 @@
       warnings: derivationWarnings,
       sourcePaths: [
         "protectionModeling.data.spouseIncome",
-        "protectionModeling.data.survivorIncome",
-        "protectionModeling.data.survivorNetAnnualIncome",
         "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorContinuesWorking",
         "analysisSettings.survivorSupportAssumptions.survivorScenario.expectedSurvivorWorkReductionPercent",
         "analysisSettings.survivorSupportAssumptions.survivorIncomeTreatment.applyStartDelay",
@@ -1027,20 +1083,12 @@
       survivorContinuesWorking,
       spouseExpectedWorkReductionAtDeath: expectedWorkReductionPercent,
       survivorIncome: survivorGrossIncome,
-      survivorIncomeManualOverride: scenarioDrivesSurvivorIncome ? false : isTrue(sourceData.survivorIncomeManualOverride),
+      survivorIncomeManualOverride: false,
       survivorNetAnnualIncome: survivorNetIncome,
-      survivorNetAnnualIncomeManualOverride: survivorNetManualOverride,
+      survivorNetAnnualIncomeManualOverride: false,
       survivorIncomeStartDelayMonths: startDelayMonths,
-      spouseIncomeGrowthRate: getScenarioAssumptionValue(
-        survivorScenarioAssumptions,
-        "survivorEarnedIncomeGrowthRatePercent",
-        sourceData.spouseIncomeGrowthRate
-      ),
-      spouseYearsUntilRetirement: getScenarioAssumptionValue(
-        survivorScenarioAssumptions,
-        "survivorRetirementHorizonYears",
-        sourceData.spouseYearsUntilRetirement
-      ),
+      spouseIncomeGrowthRate: survivorScenarioAssumptions.survivorEarnedIncomeGrowthRatePercent,
+      spouseYearsUntilRetirement: survivorScenarioAssumptions.survivorRetirementHorizonYears,
       survivorNetIncomeTaxBasis: SURVIVOR_NET_INCOME_TAX_BASIS,
       survivorIncomeDerivation
     };
