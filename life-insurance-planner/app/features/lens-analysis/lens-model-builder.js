@@ -1060,6 +1060,30 @@
     };
   }
 
+  function createEmptyTreatedExistingCoverageOffset(warnings, metadata) {
+    const safeWarnings = Array.isArray(warnings) ? warnings : [];
+    const safeMetadata = isPlainObject(metadata) ? metadata : {};
+
+    return {
+      policies: [],
+      totalRawCoverage: null,
+      totalIncludedRawCoverage: null,
+      totalTreatedCoverageOffset: null,
+      excludedCoverageValue: null,
+      policyCount: 0,
+      includedPolicyCount: 0,
+      excludedPolicyCount: 0,
+      totalsByTreatmentKind: {},
+      warnings: safeWarnings,
+      trace: [],
+      metadata: {
+        ...safeMetadata,
+        source: "lens-model-preparation",
+        consumedByMethods: false
+      }
+    };
+  }
+
   function resolveAnalysisSettings(input) {
     const builderInput = input && typeof input === "object" ? input : {};
     const directAnalysisSettings = isPlainObject(builderInput.analysisSettings)
@@ -1072,6 +1096,76 @@
     const analysisSettings = directAnalysisSettings || profileAnalysisSettings || {};
 
     return analysisSettings;
+  }
+
+  function resolveExistingCoverageTreatmentAssumptions(input) {
+    const analysisSettings = resolveAnalysisSettings(input);
+
+    return isPlainObject(analysisSettings.existingCoverageAssumptions)
+      ? analysisSettings.existingCoverageAssumptions
+      : {};
+  }
+
+  function resolveExistingCoverageTreatmentValuationDate(input, existingCoverageAssumptions) {
+    const builderInput = input && typeof input === "object" ? input : {};
+    const options = isPlainObject(builderInput.options) ? builderInput.options : {};
+    const assumptions = isPlainObject(existingCoverageAssumptions) ? existingCoverageAssumptions : {};
+    const candidates = [
+      { value: options.valuationDate, source: "input.options.valuationDate" },
+      { value: builderInput.valuationDate, source: "input.valuationDate" },
+      { value: assumptions.valuationDate, source: "analysisSettings.existingCoverageAssumptions.valuationDate" },
+      { value: assumptions.asOfDate, source: "analysisSettings.existingCoverageAssumptions.asOfDate" },
+      { value: assumptions.lastUpdatedAt, source: "analysisSettings.existingCoverageAssumptions.lastUpdatedAt" }
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      const normalized = normalizeString(candidate.value);
+      const match = normalized.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) {
+        return {
+          valuationDate: match[1],
+          valuationDateSource: candidate.source
+        };
+      }
+    }
+
+    return {
+      valuationDate: null,
+      valuationDateSource: "unavailable"
+    };
+  }
+
+  function resolveTreatmentCoveragePolicies(input) {
+    const builderInput = input && typeof input === "object" ? input : {};
+    const profileRecord = isPlainObject(builderInput.profileRecord) ? builderInput.profileRecord : null;
+    if (!profileRecord) {
+      return {
+        policies: null,
+        reason: "missing-profile-record",
+        sourcePath: "profileRecord.coveragePolicies"
+      };
+    }
+
+    if (!Array.isArray(profileRecord.coveragePolicies)) {
+      return {
+        policies: null,
+        reason: "missing-coverage-policies",
+        sourcePath: "profileRecord.coveragePolicies"
+      };
+    }
+
+    return {
+      policies: profileRecord.coveragePolicies
+        .filter(function (policy) {
+          return policy && typeof policy === "object";
+        })
+        .map(function (policy) {
+          return { ...policy };
+        }),
+      reason: "",
+      sourcePath: "profileRecord.coveragePolicies"
+    };
   }
 
   function getForwardAssetOffsetSource() {
@@ -1159,6 +1253,101 @@
     };
   }
 
+  function createPreparedTreatedExistingCoverageOffset(lensModel, input) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const existingCoverage = isPlainObject(safeLensModel.existingCoverage)
+      ? safeLensModel.existingCoverage
+      : {};
+    const existingCoverageAssumptions = resolveExistingCoverageTreatmentAssumptions(input);
+    const valuationDateResult = resolveExistingCoverageTreatmentValuationDate(
+      input,
+      existingCoverageAssumptions
+    );
+    const coveragePolicyResult = resolveTreatmentCoveragePolicies(input);
+    const calculateExistingCoverageTreatment = lensAnalysis.calculateExistingCoverageTreatment;
+
+    if (!Array.isArray(coveragePolicyResult.policies)) {
+      return createEmptyTreatedExistingCoverageOffset(
+        [
+          createWarning(
+            coveragePolicyResult.reason,
+            "profileRecord.coveragePolicies is unavailable; treated existing coverage offset was not calculated."
+          )
+        ],
+        {
+          reason: coveragePolicyResult.reason,
+          coveragePolicySourcePath: coveragePolicyResult.sourcePath,
+          rawExistingCoverageTotal: existingCoverage.totalExistingCoverage ?? null,
+          methodOffsetSourcePath: "existingCoverage.totalExistingCoverage",
+          valuationDate: valuationDateResult.valuationDate,
+          valuationDateSource: valuationDateResult.valuationDateSource
+        }
+      );
+    }
+
+    if (typeof calculateExistingCoverageTreatment !== "function") {
+      return createEmptyTreatedExistingCoverageOffset(
+        [
+          createWarning(
+            "missing-existing-coverage-treatment-helper",
+            "calculateExistingCoverageTreatment is unavailable; treated existing coverage offset was not calculated."
+          )
+        ],
+        {
+          reason: "missing-existing-coverage-treatment-helper",
+          coveragePolicyCount: coveragePolicyResult.policies.length,
+          coveragePolicySourcePath: coveragePolicyResult.sourcePath,
+          rawExistingCoverageTotal: existingCoverage.totalExistingCoverage ?? null,
+          methodOffsetSourcePath: "existingCoverage.totalExistingCoverage",
+          valuationDate: valuationDateResult.valuationDate,
+          valuationDateSource: valuationDateResult.valuationDateSource
+        }
+      );
+    }
+
+    const result = calculateExistingCoverageTreatment({
+      coveragePolicies: coveragePolicyResult.policies,
+      existingCoverageAssumptions,
+      options: {
+        valuationDate: valuationDateResult.valuationDate,
+        source: "lens-model-preparation",
+        consumedByMethods: false
+      }
+    });
+    const policies = Array.isArray(result?.policies) ? result.policies : [];
+    const resultMetadata = isPlainObject(result?.metadata) ? result.metadata : {};
+    const includedPolicyCount = policies.filter(function (policy) {
+      return policy?.included === true;
+    }).length;
+
+    return {
+      policies,
+      totalRawCoverage: result?.totalRawCoverage ?? null,
+      totalIncludedRawCoverage: result?.totalIncludedRawCoverage ?? null,
+      totalTreatedCoverageOffset: result?.totalTreatedCoverageOffset ?? null,
+      excludedCoverageValue: result?.excludedCoverageValue ?? null,
+      policyCount: policies.length,
+      includedPolicyCount,
+      excludedPolicyCount: policies.length - includedPolicyCount,
+      totalsByTreatmentKind: isPlainObject(result?.totalsByTreatmentKind)
+        ? result.totalsByTreatmentKind
+        : {},
+      warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+      trace: Array.isArray(result?.trace) ? result.trace : [],
+      metadata: {
+        ...resultMetadata,
+        source: "lens-model-preparation",
+        calculationSource: resultMetadata.calculationSource || "existing-coverage-treatment-calculations",
+        coveragePolicySourcePath: coveragePolicyResult.sourcePath,
+        rawExistingCoverageTotal: existingCoverage.totalExistingCoverage ?? null,
+        methodOffsetSourcePath: "existingCoverage.totalExistingCoverage",
+        valuationDate: valuationDateResult.valuationDate,
+        valuationDateSource: valuationDateResult.valuationDateSource,
+        consumedByMethods: false
+      }
+    };
+  }
+
   function buildLensModelFromSavedProtectionModeling(input) {
     const warnings = [];
     const builderInput = input && typeof input === "object" ? input : {};
@@ -1181,6 +1370,7 @@
       if (isPlainObject(lensModel)) {
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
+        lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
       }
     }
 
