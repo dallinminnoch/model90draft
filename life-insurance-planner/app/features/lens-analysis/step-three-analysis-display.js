@@ -513,11 +513,44 @@
   }
 
   function getEducationInflationStatus(inflationTrace) {
+    if (getTraceInput(inflationTrace, "educationFundingExcluded") === true) {
+      return "Excluded by setting";
+    }
+
     if (getTraceInput(inflationTrace, "applied") === true) {
       return "Applied";
     }
 
     return getTraceInput(inflationTrace, "enabled") === true ? "Current-dollar" : "Disabled";
+  }
+
+  function getEducationCurrentChildDetailValue(inflationTrace) {
+    const includedAmount = hasTraceInput(inflationTrace, "currentChildEducationIncludedAmount")
+      ? getTraceInput(inflationTrace, "currentChildEducationIncludedAmount")
+      : getTraceInput(inflationTrace, "projectedCurrentChildTotal");
+    const status = String(getTraceInput(inflationTrace, "currentEducationProjectionStatus") || "").trim();
+    const statusLabel = status === "projected"
+      ? "projected"
+      : (status === "excluded" ? "excluded" : "current-dollar");
+
+    return `${formatCurrency(includedAmount)} ${statusLabel}`;
+  }
+
+  function getEducationPlannedDependentDetailValue(inflationTrace) {
+    const status = String(getTraceInput(inflationTrace, "plannedDependentEducationStatus") || "").trim();
+    const includedAmount = getTraceInput(inflationTrace, "plannedDependentEducationIncludedAmount");
+    const excludedAmount = getTraceInput(inflationTrace, "plannedDependentEducationExcludedAmount");
+    const rawPlannedAmount = getTraceInput(inflationTrace, "currentDollarPlannedDependentTotal");
+
+    if (status.indexOf("excluded") >= 0) {
+      return `${formatCurrency(excludedAmount || rawPlannedAmount)} excluded`;
+    }
+
+    if (status === "not-present") {
+      return "$0 not present";
+    }
+
+    return `${formatCurrency(includedAmount)} current-dollar`;
   }
 
   function renderNeedsEducationInflationDetail(needsResult) {
@@ -526,22 +559,21 @@
       return "";
     }
 
-    const reason = String(getTraceInput(inflationTrace, "reason") || "");
-    if (reason === "education-funding-not-included-setting") {
-      return "";
-    }
-
     const plannedDependentCount = Number(getTraceInput(inflationTrace, "plannedDependentCount"));
     const hasPlannedDependents = Number.isFinite(plannedDependentCount) && plannedDependentCount > 0;
-    const plannedDependentLabel = hasPlannedDependents
-      ? "Planned-dependent education (current-dollar)"
-      : "Planned-dependent education";
-
-    return renderProjectionDetailSection("Education Funding Projection", [
+    const plannedDependentStatus = String(getTraceInput(inflationTrace, "plannedDependentEducationStatus") || "");
+    const plannedDependentLabel = plannedDependentStatus.indexOf("excluded") >= 0
+      ? "Planned-dependent education"
+      : (hasPlannedDependents
+          ? "Planned-dependent education (current-dollar)"
+          : "Planned-dependent education");
+    const educationFundingExcluded = getTraceInput(inflationTrace, "educationFundingExcluded") === true;
+    const rows = [
+      { label: "Education funding", value: educationFundingExcluded ? "Excluded by setting" : "Included" },
       { label: "Inflation status", value: getEducationInflationStatus(inflationTrace) },
       { label: "Education total used", value: formatCurrency(getTraceInput(inflationTrace, "combinedEducationTotalUsed")) },
-      { label: "Projected current-child education", value: formatCurrency(getTraceInput(inflationTrace, "projectedCurrentChildTotal")) },
-      { label: plannedDependentLabel, value: `${formatCurrency(getTraceInput(inflationTrace, "currentDollarPlannedDependentTotal"))} current-dollar` },
+      { label: "Current-child education", value: getEducationCurrentChildDetailValue(inflationTrace) },
+      { label: plannedDependentLabel, value: getEducationPlannedDependentDetailValue(inflationTrace) },
       { label: "Current-dollar current-child education", value: formatCurrency(getTraceInput(inflationTrace, "currentDollarCurrentChildTotal")) },
       { label: "Current children projected", value: formatCount(getTraceInput(inflationTrace, "currentDatedChildCount")) },
       { label: "Education start age", value: formatCount(getTraceInput(inflationTrace, "educationStartAge")) },
@@ -552,7 +584,13 @@
           getTraceInput(inflationTrace, "rateSource")
         )
       }
-    ]);
+    ];
+
+    if (educationFundingExcluded) {
+      return renderProjectionDetailSection("Education Funding Projection", rows.slice(0, 5));
+    }
+
+    return renderProjectionDetailSection("Education Funding Projection", rows);
   }
 
   function renderNeedsProjectionDetails(needsResult) {

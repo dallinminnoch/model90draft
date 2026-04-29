@@ -1139,11 +1139,46 @@
     return rounded >= 0 && rounded <= 30 ? rounded : 18;
   }
 
+  function normalizeDateOnlyString(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+  }
+
+  function resolveEducationProjectionAsOfDate(settings) {
+    const educationAssumptions = getEducationSettings(settings);
+    const candidates = [
+      { value: educationAssumptions.asOfDate, source: "settings.educationAssumptions.asOfDate" },
+      { value: educationAssumptions.valuationDate, source: "settings.educationAssumptions.valuationDate" },
+      { value: settings?.asOfDate, source: "settings.asOfDate" },
+      { value: settings?.valuationDate, source: "settings.valuationDate" }
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const asOfDate = normalizeDateOnlyString(candidates[index].value);
+      if (asOfDate) {
+        return {
+          asOfDate,
+          source: candidates[index].source
+        };
+      }
+    }
+
+    return {
+      asOfDate: null,
+      source: "education-projection-helper-default"
+    };
+  }
+
   function resolveEducationFundingInflationSettings(settings) {
     const educationAssumptions = getEducationSettings(settings);
     const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
       ? settings.inflationAssumptions
       : null;
+    const asOfDateResult = resolveEducationProjectionAsOfDate(settings);
     const educationRate = toOptionalNumber(inflationAssumptions?.educationInflationRatePercent);
     const generalRate = toOptionalNumber(inflationAssumptions?.generalInflationRatePercent);
     const hasEducationRate = educationRate != null && educationRate >= 0;
@@ -1162,14 +1197,19 @@
       includeProjectedDependentsSetting: educationAssumptions.includeProjectedDependents !== false,
       applyEducationInflation: educationAssumptions.applyEducationInflation === true,
       educationStartAge: getEducationStartAgeSetting(settings),
+      asOfDate: asOfDateResult.asOfDate,
+      asOfDateSource: asOfDateResult.source,
       ratePercent,
       rateSource,
       source: inflationAssumptions?.source || educationAssumptions.source || null,
       sourcePaths: [
         "settings.educationAssumptions",
+        "settings.educationAssumptions.includeEducationFunding",
+        "settings.educationAssumptions.includeProjectedDependents",
         "settings.educationAssumptions.applyEducationInflation",
         "settings.educationAssumptions.educationStartAge",
         "settings.inflationAssumptions.enabled",
+        asOfDateResult.asOfDate ? asOfDateResult.source : "settings.educationAssumptions.asOfDate",
         rateSource || "settings.inflationAssumptions"
       ]
     };
@@ -1177,17 +1217,38 @@
 
   function createCurrentDollarEducationInflationTrace(options) {
     const normalizedOptions = isPlainObject(options) ? options : {};
+    const currentChildIncludedAmount = normalizedOptions.currentChildEducationIncludedAmount == null
+      ? (normalizedOptions.currentDollarCurrentChildTotal || 0)
+      : normalizedOptions.currentChildEducationIncludedAmount;
+    const plannedIncludedAmount = normalizedOptions.plannedDependentEducationIncludedAmount == null
+      ? (normalizedOptions.currentDollarPlannedDependentTotal || 0)
+      : normalizedOptions.plannedDependentEducationIncludedAmount;
+    const plannedExcludedAmount = normalizedOptions.plannedDependentEducationExcludedAmount || 0;
+    const totalUsed = normalizedOptions.combinedEducationTotalUsed == null
+      ? currentChildIncludedAmount + plannedIncludedAmount
+      : normalizedOptions.combinedEducationTotalUsed;
     return {
       component: "education funding",
+      includeEducationFundingSetting: normalizedOptions.includeEducationFunding !== false,
+      includeProjectedDependentsSetting: normalizedOptions.includeProjectedDependentsSetting !== false,
+      educationFundingExcluded: normalizedOptions.educationFundingExcluded === true,
+      educationExcludedReason: normalizedOptions.educationExcludedReason || null,
       enabled: Boolean(normalizedOptions.enabled),
       applied: false,
       currentDatedChildCount: normalizedOptions.currentDatedChildCount || 0,
       plannedDependentCount: normalizedOptions.plannedDependentCount || 0,
       currentDollarCurrentChildTotal: normalizedOptions.currentDollarCurrentChildTotal || 0,
-      projectedCurrentChildTotal: normalizedOptions.currentDollarCurrentChildTotal || 0,
+      projectedCurrentChildTotal: currentChildIncludedAmount,
+      currentChildEducationIncludedAmount: currentChildIncludedAmount,
       currentDollarPlannedDependentTotal: normalizedOptions.currentDollarPlannedDependentTotal || 0,
-      combinedEducationTotalUsed: normalizedOptions.currentDollarTotal || 0,
+      plannedDependentEducationIncludedAmount: plannedIncludedAmount,
+      plannedDependentEducationExcludedAmount: plannedExcludedAmount,
+      plannedDependentEducationStatus: normalizedOptions.plannedDependentEducationStatus || "current-dollar-included",
+      currentEducationProjectionStatus: normalizedOptions.currentEducationProjectionStatus || "current-dollar",
+      combinedEducationTotalUsed: totalUsed,
       educationStartAge: normalizedOptions.educationStartAge,
+      asOfDate: normalizedOptions.asOfDate || null,
+      asOfDateSource: normalizedOptions.asOfDateSource || null,
       ratePercent: normalizedOptions.ratePercent,
       rateSource: normalizedOptions.rateSource,
       childRows: [],
@@ -1223,6 +1284,16 @@
     const currentDollarPlannedDependentTotal = getNonNegativeEducationNumber(
       getPath(model, "educationSupport.desiredAdditionalDependentEducationFundingNeed")
     ) || 0;
+    const includeProjectedDependents = educationSettings.includeProjectedDependentsSetting !== false;
+    const plannedDependentEducationIncludedAmount = includeProjectedDependents
+      ? currentDollarPlannedDependentTotal
+      : 0;
+    const plannedDependentEducationExcludedAmount = includeProjectedDependents
+      ? 0
+      : currentDollarPlannedDependentTotal;
+    const plannedDependentEducationStatus = currentDollarPlannedDependentTotal <= 0
+      ? "not-present"
+      : (includeProjectedDependents ? "current-dollar-included" : "excluded-by-setting");
     const resolvedCurrentDollarCurrentChildTotal = currentDollarCurrentChildTotal == null
       ? Math.max(currentDollarTotal - currentDollarPlannedDependentTotal, 0)
       : currentDollarCurrentChildTotal;
@@ -1243,24 +1314,61 @@
       plannedDependentCount,
       currentDollarCurrentChildTotal: resolvedCurrentDollarCurrentChildTotal,
       currentDollarPlannedDependentTotal,
+      plannedDependentEducationIncludedAmount,
+      plannedDependentEducationExcludedAmount,
+      plannedDependentEducationStatus,
       currentDollarTotal,
       sourcePaths: baseSourcePaths
     };
 
     const createCurrentDollarResult = function (reason, helperWarnings) {
+      const educationFundingExcluded = !educationSettings.includeEducationFunding;
+      const currentChildEducationIncludedAmount = educationFundingExcluded
+        ? 0
+        : resolvedCurrentDollarCurrentChildTotal;
+      const effectivePlannedIncludedAmount = educationFundingExcluded
+        ? 0
+        : plannedDependentEducationIncludedAmount;
+      const effectivePlannedExcludedAmount = educationFundingExcluded
+        ? currentDollarPlannedDependentTotal
+        : plannedDependentEducationExcludedAmount;
+      const combinedEducationTotalUsed = currentChildEducationIncludedAmount + effectivePlannedIncludedAmount;
       return {
-        value: currentDollarTotal,
-        formula: "educationSupport.totalEducationFundingNeed",
+        value: combinedEducationTotalUsed,
+        formula: educationFundingExcluded
+          ? "disabled by settings"
+          : (includeProjectedDependents
+              ? "current-dollar education funding total used"
+              : "current-child education funding only; planned-dependent education excluded by setting"),
         inputs: {
-          totalEducationFundingNeed: currentDollarTotal
+          includeEducationFunding: educationSettings.includeEducationFunding,
+          includeProjectedDependents: educationSettings.includeProjectedDependentsSetting,
+          totalEducationFundingNeed: currentDollarTotal,
+          currentChildEducationIncludedAmount,
+          plannedDependentEducationIncludedAmount: effectivePlannedIncludedAmount,
+          plannedDependentEducationExcludedAmount: effectivePlannedExcludedAmount,
+          combinedEducationTotalUsed,
+          educationExcludedReason: educationFundingExcluded ? reason : null
         },
-        sourcePaths: ["educationSupport.totalEducationFundingNeed"],
+        sourcePaths: baseSourcePaths,
         inflation: createCurrentDollarEducationInflationTrace({
           ...currentDollarTraceBase,
           enabled: educationSettings.includeEducationFunding
             && educationSettings.applyEducationInflation
             && educationSettings.inflationEnabled
             && educationSettings.rateSource !== null,
+          currentChildEducationIncludedAmount,
+          plannedDependentEducationIncludedAmount: effectivePlannedIncludedAmount,
+          plannedDependentEducationExcludedAmount: effectivePlannedExcludedAmount,
+          plannedDependentEducationStatus: educationFundingExcluded
+            ? "excluded-by-education-funding-setting"
+            : plannedDependentEducationStatus,
+          currentEducationProjectionStatus: educationFundingExcluded ? "excluded" : "current-dollar",
+          combinedEducationTotalUsed,
+          educationFundingExcluded,
+          educationExcludedReason: educationFundingExcluded ? reason : null,
+          asOfDate: educationSettings.asOfDate,
+          asOfDateSource: educationSettings.asOfDateSource,
           helperWarnings,
           reason
         })
@@ -1316,6 +1424,7 @@
       enabled: true,
       educationStartAge: educationSettings.educationStartAge,
       timing: "annual",
+      asOfDate: educationSettings.asOfDate,
       source: "needs-analysis.educationSupport.currentDependentDetails"
     });
     const childRows = Array.isArray(projection.childRows) ? projection.childRows : [];
@@ -1344,30 +1453,40 @@
       0
     );
     const projectedCurrentChildTotal = projectedDatedCurrentChildTotal + currentDollarUndatedCurrentChildTotal;
-    const combinedEducationTotalUsed = projectedCurrentChildTotal + currentDollarPlannedDependentTotal;
+    const combinedEducationTotalUsed = projectedCurrentChildTotal + plannedDependentEducationIncludedAmount;
     const helperWarnings = Array.isArray(projection.warnings) ? projection.warnings : [];
     const projectionApplied = projection.applied === true;
     const inflationTrace = {
       component: "education funding",
+      includeEducationFundingSetting: educationSettings.includeEducationFunding,
+      includeProjectedDependentsSetting: educationSettings.includeProjectedDependentsSetting,
+      educationFundingExcluded: false,
+      educationExcludedReason: null,
       enabled: true,
       applied: projectionApplied,
       currentDatedChildCount: validChildCount,
       inputCurrentDatedChildCount: currentDatedChildCount,
       plannedDependentCount,
-      includeProjectedDependentsSetting: educationSettings.includeProjectedDependentsSetting,
       currentDollarCurrentChildTotal: resolvedCurrentDollarCurrentChildTotal,
       currentDollarDatedChildTotal,
       currentDollarUndatedCurrentChildTotal,
       projectedDatedCurrentChildTotal,
       projectedCurrentChildTotal,
+      currentChildEducationIncludedAmount: projectedCurrentChildTotal,
       currentDollarPlannedDependentTotal,
+      plannedDependentEducationIncludedAmount,
+      plannedDependentEducationExcludedAmount,
+      plannedDependentEducationStatus,
       combinedEducationTotalUsed,
       educationStartAge: projection.educationStartAge,
+      asOfDate: projection.trace?.asOfDate || educationSettings.asOfDate || null,
+      asOfDateSource: educationSettings.asOfDateSource,
       ratePercent: projection.ratePercent,
       rateSource: educationSettings.rateSource,
       childRows,
       helperWarnings,
       helperTrace: projection.trace || null,
+      currentEducationProjectionStatus: projectionApplied ? "projected" : "current-dollar",
       reason: projectionApplied ? "education-inflation-applied" : "education-inflation-disabled-or-zero-rate",
       sourcePaths: baseSourcePaths
     };
@@ -1375,12 +1494,21 @@
     return {
       value: combinedEducationTotalUsed,
       formula: projectionApplied
-        ? "project current dated child lump-sum education funding to educationStartAge + current-dollar planned dependent education funding"
-        : "current-dollar education funding total used",
+        ? (includeProjectedDependents
+            ? "project current dated child lump-sum education funding to educationStartAge + current-dollar planned dependent education funding"
+            : "project current dated child lump-sum education funding to educationStartAge; planned-dependent education excluded by setting")
+        : (includeProjectedDependents
+            ? "current-dollar education funding total used"
+            : "current-child education funding only; planned-dependent education excluded by setting"),
       inputs: {
+        includeEducationFunding: educationSettings.includeEducationFunding,
+        includeProjectedDependents: educationSettings.includeProjectedDependentsSetting,
         currentDollarCurrentChildTotal: resolvedCurrentDollarCurrentChildTotal,
+        currentChildEducationIncludedAmount: projectedCurrentChildTotal,
         projectedCurrentChildTotal,
         currentDollarPlannedDependentTotal,
+        plannedDependentEducationIncludedAmount,
+        plannedDependentEducationExcludedAmount,
         combinedEducationTotalUsed
       },
       sourcePaths: baseSourcePaths,
@@ -2172,18 +2300,29 @@
           : "current-dollar education funding total used",
         inputs: {
           component: "education funding",
+          includeEducationFundingSetting: educationComponent.inflation.includeEducationFundingSetting,
+          includeProjectedDependentsSetting: educationComponent.inflation.includeProjectedDependentsSetting,
+          educationFundingExcluded: educationComponent.inflation.educationFundingExcluded,
+          educationExcludedReason: educationComponent.inflation.educationExcludedReason,
           enabled: educationComponent.inflation.enabled,
           applied: educationComponent.inflation.applied,
           currentDatedChildCount: educationComponent.inflation.currentDatedChildCount,
           plannedDependentCount: educationComponent.inflation.plannedDependentCount,
           currentDollarCurrentChildTotal: educationComponent.inflation.currentDollarCurrentChildTotal,
           projectedCurrentChildTotal: educationComponent.inflation.projectedCurrentChildTotal,
+          currentChildEducationIncludedAmount: educationComponent.inflation.currentChildEducationIncludedAmount,
           currentDollarPlannedDependentTotal: educationComponent.inflation.currentDollarPlannedDependentTotal,
+          plannedDependentEducationIncludedAmount: educationComponent.inflation.plannedDependentEducationIncludedAmount,
+          plannedDependentEducationExcludedAmount: educationComponent.inflation.plannedDependentEducationExcludedAmount,
+          plannedDependentEducationStatus: educationComponent.inflation.plannedDependentEducationStatus,
           combinedEducationTotalUsed: educationComponent.inflation.combinedEducationTotalUsed,
           educationStartAge: educationComponent.inflation.educationStartAge,
+          asOfDate: educationComponent.inflation.asOfDate,
+          asOfDateSource: educationComponent.inflation.asOfDateSource,
           ratePercent: educationComponent.inflation.ratePercent,
           rateSource: educationComponent.inflation.rateSource,
           childRows: educationComponent.inflation.childRows,
+          currentEducationProjectionStatus: educationComponent.inflation.currentEducationProjectionStatus,
           helperWarnings: educationComponent.inflation.helperWarnings,
           reason: educationComponent.inflation.reason
         },
