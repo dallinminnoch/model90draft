@@ -5224,7 +5224,6 @@
     const nextAssumptions = {
       ...current,
       globalTreatmentProfile: normalizedProfile,
-      includeExistingCoverage: Boolean(profileDefaults.includeExistingCoverage),
       groupCoverageTreatment: {
         ...current.groupCoverageTreatment,
         ...profileDefaults.groupCoverageTreatment
@@ -5240,7 +5239,6 @@
     };
     fields.currentAssumptions = nextAssumptions;
 
-    setExistingCoverageChecked(fields, "includeExistingCoverage", nextAssumptions.includeExistingCoverage);
     setExistingCoverageChecked(fields, "groupCoverageTreatment.include", nextAssumptions.groupCoverageTreatment.include);
     setExistingCoverageValue(
       fields,
@@ -7870,7 +7868,6 @@
         validationMessage,
         statusMessage
       ) || linkedRecord;
-      syncCalculationSnapshot();
     });
 
     applyButton?.addEventListener("click", function () {
