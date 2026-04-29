@@ -2412,7 +2412,6 @@
 
   function getAssetTreatmentFieldMap() {
     const fields = {
-      enabled: document.querySelector("[data-analysis-asset-treatment-enabled]"),
       defaultProfile: DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.defaultProfile,
       defaultProfileButtons: Array.from(document.querySelectorAll("[data-analysis-asset-default-profile]")),
       include: {},
@@ -2652,7 +2651,8 @@
       );
     });
     const hasCustomFields = Object.keys(fields.custom?.label || {}).length > 0;
-    return Boolean(fields.enabled) || hasStandardFields || hasCustomFields;
+    const hasDefaultProfileControls = Array.isArray(fields.defaultProfileButtons) && fields.defaultProfileButtons.length > 0;
+    return hasDefaultProfileControls || hasStandardFields || hasCustomFields;
   }
 
   function hasExistingCoverageFields(fields) {
@@ -4554,9 +4554,6 @@
 
   function populateAssetTreatmentFields(fields, assumptions, linkedRecord) {
     fields.currentAssumptions = assumptions;
-    if (fields.enabled) {
-      fields.enabled.checked = Boolean(assumptions.enabled);
-    }
     setAssetDefaultProfile(fields, assumptions.defaultProfile);
 
     getVisibleAssetTreatmentItemKeys(fields).forEach(function (itemKey) {
@@ -4945,9 +4942,6 @@
   }
 
   function setAssetTreatmentFieldsDisabled(fields, disabled) {
-    if (fields.enabled) {
-      fields.enabled.disabled = Boolean(disabled);
-    }
     (fields.defaultProfileButtons || []).forEach(function (button) {
       button.disabled = Boolean(disabled);
     });
@@ -5664,7 +5658,12 @@
     };
   }
 
-  function readValidatedAssetTreatmentAssumptions(fields) {
+  function readValidatedAssetTreatmentAssumptions(fields, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const sourceDrivenEnabled = normalizeAssetOffsetSource(
+      safeOptions.assetOffsetSource,
+      DEFAULT_METHOD_DEFAULTS.assetOffsetSource
+    ) === ASSET_OFFSET_SOURCE_TREATED;
     const defaultProfile = getAssetDefaultProfile(fields);
     if (!ASSET_TREATMENT_DEFAULT_PROFILE_KEYS.includes(defaultProfile)) {
       return {
@@ -5679,7 +5678,7 @@
       ? currentAssumptions.assets
       : {};
     const nextAssumptions = {
-      enabled: Boolean(fields.enabled?.checked),
+      enabled: sourceDrivenEnabled,
       defaultProfile,
       assets: {},
       customAssets: Array.isArray(currentAssumptions.customAssets)
@@ -7034,7 +7033,9 @@
     }
 
     const validatedAssetTreatment = shouldSaveAssetTreatment
-      ? readValidatedAssetTreatmentAssumptions(assetTreatmentFields)
+      ? readValidatedAssetTreatmentAssumptions(assetTreatmentFields, {
+          assetOffsetSource: validatedMethodDefaults.value.assetOffsetSource
+        })
       : null;
 
     if (validatedAssetTreatment?.error) {
@@ -7432,7 +7433,6 @@
       });
     });
 
-    assetTreatmentFields.enabled?.addEventListener("change", markUnsaved);
     (existingCoverageFields.defaultProfileButtons || []).forEach(function (button) {
       button.addEventListener("click", function () {
         const profile = String(button.getAttribute("data-analysis-coverage-profile") || "").trim();

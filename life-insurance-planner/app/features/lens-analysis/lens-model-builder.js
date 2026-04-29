@@ -9,6 +9,8 @@
   // no coverage-gap math, and no legacy analysis bucket dependency.
 
   const SURVIVOR_NET_INCOME_TAX_BASIS = "Qualifying Surviving Spouse";
+  const ASSET_OFFSET_SOURCE_LEGACY = "legacy";
+  const ASSET_OFFSET_SOURCE_TREATED = "treated";
 
   function createWarning(code, message, details) {
     return {
@@ -28,6 +30,17 @@
 
   function clonePlainObject(value) {
     return isPlainObject(value) ? { ...value } : {};
+  }
+
+  function normalizeAssetOffsetSource(value, fallback) {
+    const normalized = normalizeString(value).toLowerCase();
+    if (normalized === ASSET_OFFSET_SOURCE_TREATED) {
+      return ASSET_OFFSET_SOURCE_TREATED;
+    }
+    if (normalized === ASSET_OFFSET_SOURCE_LEGACY) {
+      return ASSET_OFFSET_SOURCE_LEGACY;
+    }
+    return fallback || ASSET_OFFSET_SOURCE_LEGACY;
   }
 
   function normalizeString(value) {
@@ -1059,7 +1072,7 @@
     };
   }
 
-  function resolveAssetTreatmentAssumptions(input) {
+  function resolveAnalysisSettings(input) {
     const builderInput = input && typeof input === "object" ? input : {};
     const directAnalysisSettings = isPlainObject(builderInput.analysisSettings)
       ? builderInput.analysisSettings
@@ -1070,6 +1083,20 @@
       : null;
     const analysisSettings = directAnalysisSettings || profileAnalysisSettings || {};
 
+    return analysisSettings;
+  }
+
+  function resolveAssetOffsetSource(input) {
+    const analysisSettings = resolveAnalysisSettings(input);
+    const methodDefaults = isPlainObject(analysisSettings.methodDefaults)
+      ? analysisSettings.methodDefaults
+      : {};
+    return normalizeAssetOffsetSource(methodDefaults.assetOffsetSource, ASSET_OFFSET_SOURCE_LEGACY);
+  }
+
+  function resolveAssetTreatmentAssumptions(input) {
+    const analysisSettings = resolveAnalysisSettings(input);
+
     return isPlainObject(analysisSettings.assetTreatmentAssumptions)
       ? analysisSettings.assetTreatmentAssumptions
       : null;
@@ -1077,9 +1104,21 @@
 
   function createPreparedTreatedAssetOffsets(lensModel, input) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const requestedAssetOffsetSource = resolveAssetOffsetSource(input);
     const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
     const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
     const calculateAssetTreatment = lensAnalysis.calculateAssetTreatment;
+
+    if (requestedAssetOffsetSource !== ASSET_OFFSET_SOURCE_TREATED) {
+      return createEmptyTreatedAssetOffsets(
+        [],
+        {
+          reason: "asset-offset-source-legacy",
+          assetOffsetSource: requestedAssetOffsetSource,
+          methodConsumable: false
+        }
+      );
+    }
 
     if (!assetFacts || !Array.isArray(assetFacts.assets)) {
       return createEmptyTreatedAssetOffsets(
@@ -1103,26 +1142,8 @@
         ],
         {
           reason: "missing-asset-treatment-assumptions",
-          assetCount: assetFacts.assets.length
-        }
-      );
-    }
-
-    if (assetTreatmentAssumptions.enabled !== true) {
-      return createEmptyTreatedAssetOffsets(
-        [
-          createWarning(
-            "asset-treatment-disabled",
-            "Asset Treatment assumptions are disabled; treated asset offsets were not prepared for method consumption.",
-            {
-              assetCount: assetFacts.assets.length
-            }
-          )
-        ],
-        {
-          reason: "asset-treatment-disabled",
           assetCount: assetFacts.assets.length,
-          assumptionsEnabled: false
+          assetOffsetSource: requestedAssetOffsetSource
         }
       );
     }
@@ -1137,14 +1158,20 @@
         ],
         {
           reason: "missing-asset-treatment-helper",
-          assetCount: assetFacts.assets.length
+          assetCount: assetFacts.assets.length,
+          assetOffsetSource: requestedAssetOffsetSource
         }
       );
     }
 
+    const effectiveAssetTreatmentAssumptions = {
+      ...assetTreatmentAssumptions,
+      enabled: true
+    };
+
     const result = calculateAssetTreatment({
       assetFacts,
-      assetTreatmentAssumptions,
+      assetTreatmentAssumptions: effectiveAssetTreatmentAssumptions,
       options: {
         source: "lens-model-preparation",
         consumedByMethods: false
@@ -1164,6 +1191,9 @@
         ...resultMetadata,
         source: "lens-model-preparation",
         calculationSource: resultMetadata.source || "asset-treatment-calculations",
+        assetOffsetSource: requestedAssetOffsetSource,
+        savedAssumptionsEnabled: assetTreatmentAssumptions.enabled === true,
+        assumptionsEnabled: true,
         consumedByMethods: false
       }
     };

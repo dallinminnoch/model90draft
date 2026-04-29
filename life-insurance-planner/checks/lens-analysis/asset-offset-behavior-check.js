@@ -91,12 +91,25 @@ function createAssetTreatmentAssumptions(enabled) {
   };
 }
 
-function buildModel(assetTreatmentEnabled) {
+function buildModel(options = {}) {
+  const {
+    assetTreatmentEnabled = true,
+    assetOffsetSource = "legacy",
+    includeAssetTreatmentAssumptions = true
+  } = options;
+  const analysisSettings = {
+    methodDefaults: {
+      assetOffsetSource,
+      fallbackToLegacyOffsetAssets: true
+    }
+  };
+  if (includeAssetTreatmentAssumptions) {
+    analysisSettings.assetTreatmentAssumptions = createAssetTreatmentAssumptions(assetTreatmentEnabled);
+  }
+
   const result = lensAnalysis.buildLensModelFromSavedProtectionModeling({
     sourceData: createSourceData(),
-    analysisSettings: {
-      assetTreatmentAssumptions: createAssetTreatmentAssumptions(assetTreatmentEnabled)
-    },
+    analysisSettings,
     profileRecord: {}
   });
 
@@ -125,49 +138,92 @@ function assertAssetOffset(result, expected, message) {
   assert.equal(result.commonOffsets.assetOffset, expected, message);
 }
 
-const enabledModel = buildModel(true);
+const treatedSourceModel = buildModel({
+  assetTreatmentEnabled: true,
+  assetOffsetSource: "treated"
+});
 assert.equal(
-  enabledModel.treatedAssetOffsets.totalTreatedAssetValue,
+  treatedSourceModel.treatedAssetOffsets.totalTreatedAssetValue,
   TREATED_ASSET_OFFSET,
-  "Enabled asset treatment should prepare a numeric treated total."
+  "Treated source should prepare a numeric treated total."
 );
 
-const treatedNeeds = runNeedsAnalysis(enabledModel, {
+const treatedNeeds = runNeedsAnalysis(treatedSourceModel, {
   includeOffsetAssets: true,
   assetOffsetSource: "treated"
 });
 assertAssetOffset(
   treatedNeeds,
   TREATED_ASSET_OFFSET,
-  "Needs should use treated assets when treatment is enabled and treated source is selected."
+  "Needs should use treated assets when treated source is selected and treated totals are available."
 );
 assert.equal(treatedNeeds.assumptions.effectiveAssetOffsetSource, "treated");
 
-const disabledModel = buildModel(false);
+const savedDisabledTreatedSourceModel = buildModel({
+  assetTreatmentEnabled: false,
+  assetOffsetSource: "treated"
+});
 assert.equal(
-  disabledModel.treatedAssetOffsets.totalTreatedAssetValue,
-  null,
-  "Disabled asset treatment should not expose a method-consumable treated total."
+  savedDisabledTreatedSourceModel.treatedAssetOffsets.totalTreatedAssetValue,
+  TREATED_ASSET_OFFSET,
+  "Treated source should prepare treated totals even when legacy enabled metadata is false."
 );
-assert.ok(
-  hasWarningCode(disabledModel.treatedAssetOffsets.warnings, "asset-treatment-disabled"),
-  "Disabled asset treatment should record an asset-treatment-disabled warning."
+assert.equal(
+  hasWarningCode(savedDisabledTreatedSourceModel.treatedAssetOffsets.warnings, "asset-treatment-disabled"),
+  false,
+  "Legacy enabled:false metadata should not create an asset-treatment-disabled warning."
 );
 
-const disabledTreatedNeeds = runNeedsAnalysis(disabledModel, {
+const savedDisabledTreatedNeeds = runNeedsAnalysis(savedDisabledTreatedSourceModel, {
   includeOffsetAssets: true,
   assetOffsetSource: "treated",
   fallbackToLegacyOffsetAssets: true
 });
 assertAssetOffset(
-  disabledTreatedNeeds,
-  LEGACY_ASSET_OFFSET,
-  "Needs should fall back to legacy assets when treated source is selected but treatment is disabled."
+  savedDisabledTreatedNeeds,
+  TREATED_ASSET_OFFSET,
+  "Needs should use treated assets when treated source is selected even if legacy enabled metadata is false."
 );
-assert.equal(disabledTreatedNeeds.assumptions.effectiveAssetOffsetSource, "legacy-fallback");
-assert.equal(disabledTreatedNeeds.assumptions.assetOffsetFallbackUsed, true);
+assert.equal(savedDisabledTreatedNeeds.assumptions.effectiveAssetOffsetSource, "treated");
 
-const legacyNeeds = runNeedsAnalysis(enabledModel, {
+const unavailableTreatedSourceModel = buildModel({
+  assetOffsetSource: "treated",
+  includeAssetTreatmentAssumptions: false
+});
+assert.equal(
+  unavailableTreatedSourceModel.treatedAssetOffsets.totalTreatedAssetValue,
+  null,
+  "Missing treatment assumptions should leave treated totals unavailable."
+);
+assert.ok(
+  hasWarningCode(unavailableTreatedSourceModel.treatedAssetOffsets.warnings, "missing-asset-treatment-assumptions"),
+  "Missing treatment assumptions should record a warning."
+);
+
+const unavailableTreatedNeeds = runNeedsAnalysis(unavailableTreatedSourceModel, {
+  includeOffsetAssets: true,
+  assetOffsetSource: "treated",
+  fallbackToLegacyOffsetAssets: true
+});
+assertAssetOffset(
+  unavailableTreatedNeeds,
+  LEGACY_ASSET_OFFSET,
+  "Needs should fall back to legacy assets when treated source is selected but treated totals are unavailable."
+);
+assert.equal(unavailableTreatedNeeds.assumptions.effectiveAssetOffsetSource, "legacy-fallback");
+assert.equal(unavailableTreatedNeeds.assumptions.assetOffsetFallbackUsed, true);
+
+const legacySourceModel = buildModel({
+  assetTreatmentEnabled: true,
+  assetOffsetSource: "legacy"
+});
+assert.equal(
+  legacySourceModel.treatedAssetOffsets.totalTreatedAssetValue,
+  null,
+  "Legacy source should not expose a method-consumable treated total."
+);
+
+const legacyNeeds = runNeedsAnalysis(legacySourceModel, {
   includeOffsetAssets: true,
   assetOffsetSource: "legacy"
 });
@@ -178,7 +234,7 @@ assertAssetOffset(
 );
 assert.equal(legacyNeeds.assumptions.effectiveAssetOffsetSource, "legacy");
 
-const disabledOffsetNeeds = runNeedsAnalysis(enabledModel, {
+const disabledOffsetNeeds = runNeedsAnalysis(treatedSourceModel, {
   includeOffsetAssets: false,
   assetOffsetSource: "treated"
 });
@@ -195,13 +251,13 @@ assert.equal(defaultSettings.humanLifeValueSettings.includeOffsetAssets, false);
 assert.equal(defaultSettings.needsAnalysisSettings.includeOffsetAssets, true);
 assert.equal(defaultSettings.needsAnalysisSettings.assetOffsetSource, "legacy");
 
-const defaultDime = methods.runDimeAnalysis(enabledModel, defaultSettings.dimeSettings);
+const defaultDime = methods.runDimeAnalysis(legacySourceModel, defaultSettings.dimeSettings);
 assertAssetOffset(defaultDime, 0, "DIME default settings should leave asset offsets off.");
 
-const defaultHlv = methods.runHumanLifeValueAnalysis(enabledModel, defaultSettings.humanLifeValueSettings);
+const defaultHlv = methods.runHumanLifeValueAnalysis(legacySourceModel, defaultSettings.humanLifeValueSettings);
 assertAssetOffset(defaultHlv, 0, "HLV default settings should leave asset offsets off.");
 
-const defaultNeeds = methods.runNeedsAnalysis(enabledModel, defaultSettings.needsAnalysisSettings);
+const defaultNeeds = methods.runNeedsAnalysis(legacySourceModel, defaultSettings.needsAnalysisSettings);
 assertAssetOffset(defaultNeeds, LEGACY_ASSET_OFFSET, "Needs default settings should use legacy asset offsets.");
 assert.equal(defaultNeeds.assumptions.effectiveAssetOffsetSource, "legacy");
 
