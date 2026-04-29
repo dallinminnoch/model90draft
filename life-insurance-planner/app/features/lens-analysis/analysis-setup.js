@@ -838,6 +838,71 @@
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
 
+  function formatDateOnlyFromDate(date) {
+    return [
+      String(date.getFullYear()).padStart(4, "0"),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+  }
+
+  function getCurrentDateOnly() {
+    const today = new Date();
+    return formatDateOnlyFromDate(today);
+  }
+
+  function normalizeAnalysisDateOnlyValue(value) {
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : formatDateOnlyFromDate(value);
+    }
+
+    const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(year, monthIndex, day);
+
+    if (
+      Number.isNaN(date.getTime())
+      || date.getFullYear() !== year
+      || date.getMonth() !== monthIndex
+      || date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return formatDateOnlyFromDate(date);
+  }
+
+  function resolveAnalysisValuationDateForSave(analysisSettings) {
+    const savedSettings = isPlainObject(analysisSettings) ? analysisSettings : {};
+    const savedValuationDate = normalizeAnalysisDateOnlyValue(savedSettings.valuationDate);
+    if (savedValuationDate) {
+      return {
+        valuationDate: savedValuationDate,
+        valuationDateSource: "analysisSettings.valuationDate",
+        valuationDateDefaulted: false,
+        valuationDateWarningCode: null
+      };
+    }
+
+    const hasInvalidSavedDate = Object.prototype.hasOwnProperty.call(savedSettings, "valuationDate")
+      && String(savedSettings.valuationDate || "").trim() !== "";
+
+    return {
+      valuationDate: getCurrentDateOnly(),
+      valuationDateSource: "system-current-date-fallback",
+      valuationDateDefaulted: true,
+      valuationDateWarningCode: hasInvalidSavedDate
+        ? "invalid-analysis-valuation-date-defaulted"
+        : "analysis-valuation-date-defaulted"
+    };
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -6874,11 +6939,13 @@
       const currentSettings = isPlainObject(currentRecord.analysisSettings)
         ? currentRecord.analysisSettings
         : {};
+      const valuationDateResult = resolveAnalysisValuationDateForSave(currentSettings);
 
       return {
         ...currentRecord,
         analysisSettings: {
           ...currentSettings,
+          valuationDate: valuationDateResult.valuationDate,
           inflationAssumptions: validatedInflation.value,
           methodDefaults: validatedMethodDefaults.value,
           growthAndReturnAssumptions: validatedGrowth.value,
@@ -7705,6 +7772,8 @@
     DEFAULT_SURVIVOR_SUPPORT_ASSUMPTIONS,
     DEFAULT_EDUCATION_ASSUMPTIONS,
     DEFAULT_RECOMMENDATION_GUARDRAILS,
+    normalizeAnalysisDateOnlyValue,
+    resolveAnalysisValuationDateForSave,
     getInflationAssumptions,
     getMethodDefaults,
     getGrowthAndReturnAssumptions,

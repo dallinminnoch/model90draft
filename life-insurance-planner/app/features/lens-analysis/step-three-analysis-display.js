@@ -104,6 +104,20 @@
     return isPlainObject(trace?.inputs) ? trace.inputs[inputKey] : undefined;
   }
 
+  function getEducationValuationDateDetailValue(inflationTrace) {
+    const valuationDate = getTraceInput(inflationTrace, "valuationDate")
+      || getTraceInput(inflationTrace, "asOfDate");
+    if (!valuationDate) {
+      return "Not set";
+    }
+
+    if (getTraceInput(inflationTrace, "valuationDateDefaulted") === true) {
+      return `${valuationDate} (defaulted to current date)`;
+    }
+
+    return String(valuationDate);
+  }
+
   function hasTraceInput(trace, inputKey) {
     return isPlainObject(trace?.inputs)
       && Object.prototype.hasOwnProperty.call(trace.inputs, inputKey);
@@ -571,6 +585,7 @@
     const rows = [
       { label: "Education funding", value: educationFundingExcluded ? "Excluded by setting" : "Included" },
       { label: "Inflation status", value: getEducationInflationStatus(inflationTrace) },
+      { label: "Planning as-of date", value: getEducationValuationDateDetailValue(inflationTrace) },
       { label: "Education total used", value: formatCurrency(getTraceInput(inflationTrace, "combinedEducationTotalUsed")) },
       { label: "Current-child education", value: getEducationCurrentChildDetailValue(inflationTrace) },
       { label: plannedDependentLabel, value: getEducationPlannedDependentDetailValue(inflationTrace) },
@@ -587,7 +602,7 @@
     ];
 
     if (educationFundingExcluded) {
-      return renderProjectionDetailSection("Education Funding Projection", rows.slice(0, 5));
+      return renderProjectionDetailSection("Education Funding Projection", rows.slice(0, 6));
     }
 
     return renderProjectionDetailSection("Education Funding Projection", rows);

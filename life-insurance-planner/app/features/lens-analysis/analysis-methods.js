@@ -1139,46 +1139,130 @@
     return rounded >= 0 && rounded <= 30 ? rounded : 18;
   }
 
+  function formatDateOnlyFromDate(date) {
+    return [
+      String(date.getFullYear()).padStart(4, "0"),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+  }
+
+  function getCurrentDateOnly() {
+    const today = new Date();
+    return formatDateOnlyFromDate(today);
+  }
+
   function normalizeDateOnlyString(value) {
     if (value == null || value === "") {
       return null;
     }
 
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : formatDateOnlyFromDate(value);
+    }
+
     const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(year, monthIndex, day);
+    if (
+      Number.isNaN(date.getTime())
+      || date.getFullYear() !== year
+      || date.getMonth() !== monthIndex
+      || date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return formatDateOnlyFromDate(date);
   }
 
-  function resolveEducationProjectionAsOfDate(settings) {
+  function resolveEducationProjectionAsOfDate(settings, warnings) {
     const educationAssumptions = getEducationSettings(settings);
     const candidates = [
-      { value: educationAssumptions.asOfDate, source: "settings.educationAssumptions.asOfDate" },
-      { value: educationAssumptions.valuationDate, source: "settings.educationAssumptions.valuationDate" },
-      { value: settings?.asOfDate, source: "settings.asOfDate" },
-      { value: settings?.valuationDate, source: "settings.valuationDate" }
+      {
+        value: educationAssumptions.asOfDate,
+        source: educationAssumptions.asOfDateSource || "settings.educationAssumptions.asOfDate",
+        defaulted: educationAssumptions.asOfDateDefaulted === true,
+        warningCode: educationAssumptions.asOfDateWarningCode || null
+      },
+      {
+        value: educationAssumptions.valuationDate,
+        source: educationAssumptions.valuationDateSource || "settings.educationAssumptions.valuationDate",
+        defaulted: educationAssumptions.valuationDateDefaulted === true,
+        warningCode: educationAssumptions.valuationDateWarningCode || null
+      },
+      {
+        value: settings?.valuationDate,
+        source: settings?.valuationDateSource || "settings.valuationDate",
+        defaulted: settings?.valuationDateDefaulted === true,
+        warningCode: settings?.valuationDateWarningCode || null
+      },
+      {
+        value: settings?.asOfDate,
+        source: settings?.asOfDateSource || "settings.asOfDate",
+        defaulted: settings?.asOfDateDefaulted === true,
+        warningCode: settings?.asOfDateWarningCode || null
+      }
     ];
+    let invalidDateCandidate = null;
 
     for (let index = 0; index < candidates.length; index += 1) {
+      if (candidates[index].value == null || candidates[index].value === "") {
+        continue;
+      }
+
       const asOfDate = normalizeDateOnlyString(candidates[index].value);
       if (asOfDate) {
         return {
           asOfDate,
-          source: candidates[index].source
+          valuationDate: asOfDate,
+          source: candidates[index].source,
+          defaulted: candidates[index].defaulted,
+          warningCode: candidates[index].warningCode
         };
       }
+
+      invalidDateCandidate = invalidDateCandidate || candidates[index];
     }
 
+    const warningCode = invalidDateCandidate
+      ? "invalid-education-valuation-date-defaulted"
+      : "education-valuation-date-defaulted";
+    const message = invalidDateCandidate
+      ? "Education projection valuationDate was invalid; current date was used."
+      : "Education projection valuationDate was missing; current date was used.";
+
+    if (Array.isArray(warnings)) {
+      warnings.push(createWarning(
+        warningCode,
+        message,
+        invalidDateCandidate ? "warning" : "info",
+        [invalidDateCandidate?.source || "settings.valuationDate"]
+      ));
+    }
+
+    const fallbackDate = getCurrentDateOnly();
     return {
-      asOfDate: null,
-      source: "education-projection-helper-default"
+      asOfDate: fallbackDate,
+      valuationDate: fallbackDate,
+      source: "system-current-date-fallback",
+      defaulted: true,
+      warningCode
     };
   }
 
-  function resolveEducationFundingInflationSettings(settings) {
+  function resolveEducationFundingInflationSettings(settings, warnings) {
     const educationAssumptions = getEducationSettings(settings);
     const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
       ? settings.inflationAssumptions
       : null;
-    const asOfDateResult = resolveEducationProjectionAsOfDate(settings);
+    const asOfDateResult = resolveEducationProjectionAsOfDate(settings, warnings);
     const educationRate = toOptionalNumber(inflationAssumptions?.educationInflationRatePercent);
     const generalRate = toOptionalNumber(inflationAssumptions?.generalInflationRatePercent);
     const hasEducationRate = educationRate != null && educationRate >= 0;
@@ -1198,7 +1282,11 @@
       applyEducationInflation: educationAssumptions.applyEducationInflation === true,
       educationStartAge: getEducationStartAgeSetting(settings),
       asOfDate: asOfDateResult.asOfDate,
+      valuationDate: asOfDateResult.valuationDate,
       asOfDateSource: asOfDateResult.source,
+      valuationDateSource: asOfDateResult.source,
+      valuationDateDefaulted: asOfDateResult.defaulted === true,
+      valuationDateWarningCode: asOfDateResult.warningCode || null,
       ratePercent,
       rateSource,
       source: inflationAssumptions?.source || educationAssumptions.source || null,
@@ -1209,7 +1297,7 @@
         "settings.educationAssumptions.applyEducationInflation",
         "settings.educationAssumptions.educationStartAge",
         "settings.inflationAssumptions.enabled",
-        asOfDateResult.asOfDate ? asOfDateResult.source : "settings.educationAssumptions.asOfDate",
+        asOfDateResult.asOfDate ? asOfDateResult.source : "settings.educationAssumptions.valuationDate",
         rateSource || "settings.inflationAssumptions"
       ]
     };
@@ -1249,6 +1337,10 @@
       educationStartAge: normalizedOptions.educationStartAge,
       asOfDate: normalizedOptions.asOfDate || null,
       asOfDateSource: normalizedOptions.asOfDateSource || null,
+      valuationDate: normalizedOptions.valuationDate || normalizedOptions.asOfDate || null,
+      valuationDateSource: normalizedOptions.valuationDateSource || normalizedOptions.asOfDateSource || null,
+      valuationDateDefaulted: normalizedOptions.valuationDateDefaulted === true,
+      valuationDateWarningCode: normalizedOptions.valuationDateWarningCode || null,
       ratePercent: normalizedOptions.ratePercent,
       rateSource: normalizedOptions.rateSource,
       childRows: [],
@@ -1270,7 +1362,7 @@
       negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for Needs Analysis."
     });
     const currentDollarTotal = currentDollarEducation;
-    const educationSettings = resolveEducationFundingInflationSettings(settings);
+    const educationSettings = resolveEducationFundingInflationSettings(settings, warnings);
     const currentDependentDetails = Array.isArray(getPath(model, "educationSupport.currentDependentDetails"))
       ? getPath(model, "educationSupport.currentDependentDetails").slice()
       : [];
@@ -1348,7 +1440,11 @@
           plannedDependentEducationIncludedAmount: effectivePlannedIncludedAmount,
           plannedDependentEducationExcludedAmount: effectivePlannedExcludedAmount,
           combinedEducationTotalUsed,
-          educationExcludedReason: educationFundingExcluded ? reason : null
+          educationExcludedReason: educationFundingExcluded ? reason : null,
+          valuationDate: educationSettings.valuationDate,
+          valuationDateSource: educationSettings.valuationDateSource,
+          valuationDateDefaulted: educationSettings.valuationDateDefaulted,
+          valuationDateWarningCode: educationSettings.valuationDateWarningCode
         },
         sourcePaths: baseSourcePaths,
         inflation: createCurrentDollarEducationInflationTrace({
@@ -1369,6 +1465,10 @@
           educationExcludedReason: educationFundingExcluded ? reason : null,
           asOfDate: educationSettings.asOfDate,
           asOfDateSource: educationSettings.asOfDateSource,
+          valuationDate: educationSettings.valuationDate,
+          valuationDateSource: educationSettings.valuationDateSource,
+          valuationDateDefaulted: educationSettings.valuationDateDefaulted,
+          valuationDateWarningCode: educationSettings.valuationDateWarningCode,
           helperWarnings,
           reason
         })
@@ -1424,7 +1524,7 @@
       enabled: true,
       educationStartAge: educationSettings.educationStartAge,
       timing: "annual",
-      asOfDate: educationSettings.asOfDate,
+      asOfDate: educationSettings.valuationDate,
       source: "needs-analysis.educationSupport.currentDependentDetails"
     });
     const childRows = Array.isArray(projection.childRows) ? projection.childRows : [];
@@ -1481,6 +1581,10 @@
       educationStartAge: projection.educationStartAge,
       asOfDate: projection.trace?.asOfDate || educationSettings.asOfDate || null,
       asOfDateSource: educationSettings.asOfDateSource,
+      valuationDate: projection.trace?.asOfDate || educationSettings.valuationDate || null,
+      valuationDateSource: educationSettings.valuationDateSource,
+      valuationDateDefaulted: educationSettings.valuationDateDefaulted,
+      valuationDateWarningCode: educationSettings.valuationDateWarningCode,
       ratePercent: projection.ratePercent,
       rateSource: educationSettings.rateSource,
       childRows,
@@ -1509,7 +1613,11 @@
         currentDollarPlannedDependentTotal,
         plannedDependentEducationIncludedAmount,
         plannedDependentEducationExcludedAmount,
-        combinedEducationTotalUsed
+        combinedEducationTotalUsed,
+        valuationDate: projection.trace?.asOfDate || educationSettings.valuationDate || null,
+        valuationDateSource: educationSettings.valuationDateSource,
+        valuationDateDefaulted: educationSettings.valuationDateDefaulted,
+        valuationDateWarningCode: educationSettings.valuationDateWarningCode
       },
       sourcePaths: baseSourcePaths,
       inflation: inflationTrace
@@ -2319,6 +2427,10 @@
           educationStartAge: educationComponent.inflation.educationStartAge,
           asOfDate: educationComponent.inflation.asOfDate,
           asOfDateSource: educationComponent.inflation.asOfDateSource,
+          valuationDate: educationComponent.inflation.valuationDate,
+          valuationDateSource: educationComponent.inflation.valuationDateSource,
+          valuationDateDefaulted: educationComponent.inflation.valuationDateDefaulted,
+          valuationDateWarningCode: educationComponent.inflation.valuationDateWarningCode,
           ratePercent: educationComponent.inflation.ratePercent,
           rateSource: educationComponent.inflation.rateSource,
           childRows: educationComponent.inflation.childRows,
@@ -2471,6 +2583,13 @@
         includeTransitionNeeds,
         includeDiscretionarySupport,
         includeSurvivorIncomeOffset,
+        valuationDate: educationComponent.inflation?.valuationDate || normalizedSettings.valuationDate || null,
+        valuationDateSource: educationComponent.inflation?.valuationDateSource || normalizedSettings.valuationDateSource || null,
+        valuationDateDefaulted: educationComponent.inflation?.valuationDateDefaulted === true
+          || normalizedSettings.valuationDateDefaulted === true,
+        valuationDateWarningCode: educationComponent.inflation?.valuationDateWarningCode
+          || normalizedSettings.valuationDateWarningCode
+          || null,
         survivorIncomeStartDelayMonths: supportDetails.survivorIncomeStartDelayMonths == null
           ? null
           : supportDetails.survivorIncomeStartDelayMonths,

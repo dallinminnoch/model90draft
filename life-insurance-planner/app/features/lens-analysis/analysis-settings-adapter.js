@@ -96,6 +96,104 @@
     };
   }
 
+  function formatDateOnlyFromDate(date) {
+    return [
+      String(date.getFullYear()).padStart(4, "0"),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+  }
+
+  function getCurrentDateOnly() {
+    const today = new Date();
+    return formatDateOnlyFromDate(today);
+  }
+
+  function normalizeDateOnlyValue(value) {
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : formatDateOnlyFromDate(value);
+    }
+
+    const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(year, monthIndex, day);
+    if (
+      Number.isNaN(date.getTime())
+      || date.getFullYear() !== year
+      || date.getMonth() !== monthIndex
+      || date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return formatDateOnlyFromDate(date);
+  }
+
+  function resolvePlanningValuationDate(analysisSettings, warnings, trace) {
+    const savedDate = normalizeDateOnlyValue(analysisSettings.valuationDate);
+    if (savedDate) {
+      trace.push(createTrace(
+        "planning-valuation-date-saved",
+        "Planning As-Of Date came from saved Analysis Setup valuationDate.",
+        ["analysisSettings.valuationDate"]
+      ));
+      return {
+        valuationDate: savedDate,
+        valuationDateSource: "analysisSettings.valuationDate",
+        valuationDateDefaulted: false,
+        valuationDateWarningCode: null
+      };
+    }
+
+    const hasInvalidSavedDate = hasOwn(analysisSettings, "valuationDate")
+      && String(analysisSettings.valuationDate || "").trim() !== "";
+    const warningCode = hasInvalidSavedDate
+      ? "invalid-analysis-valuation-date-defaulted"
+      : "analysis-valuation-date-defaulted";
+    const message = hasInvalidSavedDate
+      ? "Saved Planning As-Of Date was invalid; current date was used for date-sensitive projections."
+      : "Planning As-Of Date was missing; current date was used for date-sensitive projections.";
+
+    warnings.push(createWarning(
+      warningCode,
+      message,
+      hasInvalidSavedDate ? "warning" : "info",
+      ["analysisSettings.valuationDate"]
+    ));
+    trace.push(createTrace(
+      "planning-valuation-date-defaulted",
+      message,
+      ["analysisSettings.valuationDate"]
+    ));
+
+    return {
+      valuationDate: getCurrentDateOnly(),
+      valuationDateSource: "system-current-date-fallback",
+      valuationDateDefaulted: true,
+      valuationDateWarningCode: warningCode
+    };
+  }
+
+  function applyPlanningValuationDateSettings(settings, valuationDateResult) {
+    settings.valuationDate = valuationDateResult.valuationDate;
+    settings.valuationDateSource = valuationDateResult.valuationDateSource;
+    settings.valuationDateDefaulted = valuationDateResult.valuationDateDefaulted;
+    settings.valuationDateWarningCode = valuationDateResult.valuationDateWarningCode;
+  }
+
+  function applyEducationValuationDateSettings(educationAssumptions, valuationDateResult) {
+    educationAssumptions.valuationDate = valuationDateResult.valuationDate;
+    educationAssumptions.valuationDateSource = valuationDateResult.valuationDateSource;
+    educationAssumptions.valuationDateDefaulted = valuationDateResult.valuationDateDefaulted;
+    educationAssumptions.valuationDateWarningCode = valuationDateResult.valuationDateWarningCode;
+  }
+
   function cloneDefaults(defaults) {
     return { ...(isPlainObject(defaults) ? defaults : {}) };
   }
@@ -610,8 +708,11 @@
     const defaults = getDefaultSettings(options.defaults);
     const warnings = Array.isArray(options.warnings) ? options.warnings : [];
     const trace = Array.isArray(options.trace) ? options.trace : [];
+    const valuationDateResult = options.valuationDateResult
+      || resolvePlanningValuationDate(analysisSettings, warnings, trace);
     const settings = { ...defaults.dime };
 
+    applyPlanningValuationDateSettings(settings, valuationDateResult);
     applyAssetOffsetSourceSettings(settings, methodDefaults, trace);
     applyExistingCoverageSettings(settings, analysisSettings, trace);
 
@@ -641,8 +742,11 @@
     const defaults = getDefaultSettings(options.defaults);
     const warnings = Array.isArray(options.warnings) ? options.warnings : [];
     const trace = Array.isArray(options.trace) ? options.trace : [];
+    const valuationDateResult = options.valuationDateResult
+      || resolvePlanningValuationDate(analysisSettings, warnings, trace);
     const settings = { ...defaults.needsAnalysis };
 
+    applyPlanningValuationDateSettings(settings, valuationDateResult);
     applyAssetOffsetSourceSettings(settings, methodDefaults, trace);
     applyExistingCoverageSettings(settings, analysisSettings, trace);
     applyNeedsAssetOffsetInclusionSettings(settings, methodDefaults, warnings, trace);
@@ -654,6 +758,7 @@
       analysisSettings,
       warnings
     );
+    applyEducationValuationDateSettings(settings.educationAssumptions, valuationDateResult);
 
     if (hasOwn(methodDefaults, "needsSupportDurationYears")) {
       addPositiveSetting({
@@ -704,8 +809,11 @@
     const defaults = getDefaultSettings(options.defaults);
     const warnings = Array.isArray(options.warnings) ? options.warnings : [];
     const trace = Array.isArray(options.trace) ? options.trace : [];
+    const valuationDateResult = options.valuationDateResult
+      || resolvePlanningValuationDate(analysisSettings, warnings, trace);
     const settings = { ...defaults.humanLifeValue };
 
+    applyPlanningValuationDateSettings(settings, valuationDateResult);
     applyAssetOffsetSourceSettings(settings, methodDefaults, trace);
     applyExistingCoverageSettings(settings, analysisSettings, trace);
 
@@ -732,13 +840,15 @@
     const analysisSettings = isPlainObject(options.analysisSettings) ? options.analysisSettings : {};
     const warnings = [];
     const trace = [];
+    const valuationDateResult = resolvePlanningValuationDate(analysisSettings, warnings, trace);
     const sharedOptions = {
       analysisSettings,
       lensModel: options.lensModel,
       profileRecord: options.profileRecord,
       defaults: options.defaults,
       warnings,
-      trace
+      trace,
+      valuationDateResult
     };
 
     const dimeSettings = createDimeSettings(sharedOptions);
