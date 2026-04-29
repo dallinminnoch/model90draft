@@ -15,6 +15,9 @@
   const ASSET_OFFSET_SOURCE_DISABLED = "disabled";
   const ASSET_OFFSET_SOURCE_ZERO = "zero";
   const TREATED_ASSET_OFFSET_SOURCE_PATH = "treatedAssetOffsets.totalTreatedAssetValue";
+  const EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "existingCoverage.totalExistingCoverage";
+  const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
+  const TREATED_EXISTING_COVERAGE_METHOD_CONSUMPTION_SOURCE_PATH = "treatedExistingCoverageOffset.metadata.consumedByMethods";
 
   const DIME_NON_MORTGAGE_DEBT_FIELDS = Object.freeze([
     Object.freeze({
@@ -357,6 +360,53 @@
 
   function hasNumericAssetOffset(value) {
     return toOptionalNumber(value) != null;
+  }
+
+  function toTraceNumberOrNull(value) {
+    const numericValue = toOptionalNumber(value);
+    return numericValue == null ? null : numericValue;
+  }
+
+  function createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset) {
+    const treatedCoverageOffset = getPath(model, "treatedExistingCoverageOffset");
+    const treatedCoverageOffsetMetadata = isPlainObject(treatedCoverageOffset?.metadata)
+      ? treatedCoverageOffset.metadata
+      : {};
+    const treatedCoverageOffsetTotal = getPath(model, TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH);
+    const treatedCoverageOffsetAvailable = isPlainObject(treatedCoverageOffset)
+      && toTraceNumberOrNull(treatedCoverageOffsetTotal) != null;
+    const treatedCoverageConsumedByMethods = treatedCoverageOffsetMetadata.consumedByMethods === true;
+
+    return {
+      includeExistingCoverageOffset,
+      rawExistingCoverageTotal: toTraceNumberOrNull(getPath(model, EXISTING_COVERAGE_OFFSET_SOURCE_PATH)),
+      rawExistingCoverageOffsetUsed: existingCoverageOffset,
+      methodOffsetSourcePath: EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      treatedExistingCoverageOffsetAvailable: treatedCoverageOffsetAvailable,
+      treatedExistingCoverageTotal: treatedCoverageOffsetAvailable
+        ? toTraceNumberOrNull(treatedCoverageOffsetTotal)
+        : null,
+      treatedExistingCoverageConsumedByMethods: treatedCoverageConsumedByMethods,
+      treatedExistingCoveragePreparedNotUsed: treatedCoverageOffsetAvailable && !treatedCoverageConsumedByMethods,
+      treatedExistingCoveragePolicyCount: toTraceNumberOrNull(getPath(model, "treatedExistingCoverageOffset.policyCount")),
+      treatedExistingCoverageIncludedPolicyCount: toTraceNumberOrNull(getPath(model, "treatedExistingCoverageOffset.includedPolicyCount")),
+      treatedExistingCoverageExcludedPolicyCount: toTraceNumberOrNull(getPath(model, "treatedExistingCoverageOffset.excludedPolicyCount")),
+      treatedExistingCoverageTraceNote: treatedCoverageOffsetAvailable && !treatedCoverageConsumedByMethods
+        ? "treatedExistingCoverageOffset prepared but not method-used"
+        : null
+    };
+  }
+
+  function getExistingCoverageOffsetTraceSourcePaths() {
+    return [
+      EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      "settings.includeExistingCoverageOffset",
+      TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH,
+      TREATED_EXISTING_COVERAGE_METHOD_CONSUMPTION_SOURCE_PATH,
+      "treatedExistingCoverageOffset.policyCount",
+      "treatedExistingCoverageOffset.includedPolicyCount",
+      "treatedExistingCoverageOffset.excludedPolicyCount"
+    ];
   }
 
   function createAssetOffsetSelectionResult(options) {
@@ -1689,11 +1739,9 @@
       formula: includeExistingCoverageOffset
         ? "existingCoverage.totalExistingCoverage"
         : "disabled by settings",
-      inputs: {
-        includeExistingCoverageOffset
-      },
+      inputs: createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset),
       value: existingCoverageOffset,
-      sourcePaths: ["existingCoverage.totalExistingCoverage", "settings.includeExistingCoverageOffset"]
+      sourcePaths: getExistingCoverageOffsetTraceSourcePaths()
     }));
     trace.push(createTraceRow({
       key: "assetOffset",
@@ -2090,11 +2138,9 @@
       formula: includeExistingCoverageOffset
         ? "existingCoverage.totalExistingCoverage"
         : "disabled by settings",
-      inputs: {
-        includeExistingCoverageOffset
-      },
+      inputs: createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset),
       value: existingCoverageOffset,
-      sourcePaths: ["existingCoverage.totalExistingCoverage", "settings.includeExistingCoverageOffset"]
+      sourcePaths: getExistingCoverageOffsetTraceSourcePaths()
     }));
     trace.push(createTraceRow({
       key: "assetOffset",
@@ -2327,11 +2373,9 @@
       formula: includeExistingCoverageOffset
         ? "existingCoverage.totalExistingCoverage"
         : "disabled by settings",
-      inputs: {
-        includeExistingCoverageOffset
-      },
+      inputs: createExistingCoverageOffsetTraceInputs(model, includeExistingCoverageOffset, existingCoverageOffset),
       value: existingCoverageOffset,
-      sourcePaths: ["existingCoverage.totalExistingCoverage", "settings.includeExistingCoverageOffset"]
+      sourcePaths: getExistingCoverageOffsetTraceSourcePaths()
     }));
     trace.push(createTraceRow({
       key: "assetOffset",

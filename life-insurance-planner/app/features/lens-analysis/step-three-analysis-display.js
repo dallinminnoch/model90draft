@@ -104,6 +104,11 @@
     return isPlainObject(trace?.inputs) ? trace.inputs[inputKey] : undefined;
   }
 
+  function hasTraceInput(trace, inputKey) {
+    return isPlainObject(trace?.inputs)
+      && Object.prototype.hasOwnProperty.call(trace.inputs, inputKey);
+  }
+
   function normalizeWarningMessage(warning) {
     if (!warning || typeof warning !== "object") {
       return "";
@@ -262,6 +267,100 @@
     ];
 
     return renderProjectionDetailSection("Asset Offset Details", rows);
+  }
+
+  function getExistingCoverageStatus(trace) {
+    if (getTraceInput(trace, "includeExistingCoverageOffset") !== true) {
+      return "Excluded by Include Existing Coverage Offset";
+    }
+
+    const sourcePath = String(getTraceInput(trace, "methodOffsetSourcePath") || "").trim();
+    if (sourcePath === "existingCoverage.totalExistingCoverage") {
+      return "Using raw linked profile coverage";
+    }
+
+    return "Using current method trace";
+  }
+
+  function getExistingCoverageTreatmentStatus(trace) {
+    if (getTraceInput(trace, "treatedExistingCoverageOffsetAvailable") !== true) {
+      return "";
+    }
+
+    return getTraceInput(trace, "treatedExistingCoverageConsumedByMethods") === true
+      ? "Prepared and method-used"
+      : "Prepared for preview; not method-used";
+  }
+
+  function formatExistingCoveragePolicyCount(trace) {
+    const policyCount = toDisplayNumber(getTraceInput(trace, "treatedExistingCoveragePolicyCount"));
+    if (policyCount == null) {
+      return "";
+    }
+
+    const includedPolicyCount = toDisplayNumber(getTraceInput(trace, "treatedExistingCoverageIncludedPolicyCount"));
+    const excludedPolicyCount = toDisplayNumber(getTraceInput(trace, "treatedExistingCoverageExcludedPolicyCount"));
+    if (includedPolicyCount != null && excludedPolicyCount != null) {
+      return `${formatCount(includedPolicyCount)} included / ${formatCount(excludedPolicyCount)} excluded (${formatCount(policyCount)} total)`;
+    }
+
+    return `${formatCount(policyCount)} total`;
+  }
+
+  function renderExistingCoverageDetails(result) {
+    const existingCoverageTrace = findTrace(result, "existingCoverageOffset");
+    if (!existingCoverageTrace) {
+      return "";
+    }
+
+    const hasDetailTrace = [
+      "rawExistingCoverageTotal",
+      "rawExistingCoverageOffsetUsed",
+      "methodOffsetSourcePath",
+      "treatedExistingCoverageOffsetAvailable"
+    ].some(function (fieldName) {
+      return hasTraceInput(existingCoverageTrace, fieldName);
+    });
+    if (!hasDetailTrace) {
+      return "";
+    }
+
+    const rawExistingCoverageOffsetUsed = toDisplayNumber(
+      getTraceInput(existingCoverageTrace, "rawExistingCoverageOffsetUsed")
+    );
+    const linkedCoverageTotal = toDisplayNumber(getTraceInput(existingCoverageTrace, "rawExistingCoverageTotal"));
+    const treatedCoverageAvailable = getTraceInput(existingCoverageTrace, "treatedExistingCoverageOffsetAvailable") === true;
+    const treatedCoverageTotal = treatedCoverageAvailable
+      ? toDisplayNumber(getTraceInput(existingCoverageTrace, "treatedExistingCoverageTotal"))
+      : null;
+    const treatmentStatus = getExistingCoverageTreatmentStatus(existingCoverageTrace);
+    const policyCount = formatExistingCoveragePolicyCount(existingCoverageTrace);
+
+    const rows = [
+      { label: "Existing coverage status", value: getExistingCoverageStatus(existingCoverageTrace) },
+      {
+        label: "Method-used coverage",
+        value: formatCurrency(rawExistingCoverageOffsetUsed == null ? existingCoverageTrace.value : rawExistingCoverageOffsetUsed)
+      }
+    ];
+
+    if (linkedCoverageTotal != null) {
+      rows.push({ label: "Linked coverage total", value: formatCurrency(linkedCoverageTotal) });
+    }
+
+    if (treatedCoverageAvailable && treatedCoverageTotal != null) {
+      rows.push({ label: "Treated coverage preview", value: formatCurrency(treatedCoverageTotal) });
+    }
+
+    if (treatmentStatus) {
+      rows.push({ label: "Treatment status", value: treatmentStatus });
+    }
+
+    if (policyCount) {
+      rows.push({ label: "Policy count", value: policyCount });
+    }
+
+    return renderProjectionDetailSection("Existing Coverage Details", rows);
   }
 
   function formatInflationRateLabel(ratePercent, rateSource) {
@@ -495,6 +594,7 @@
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: dimeResult.netCoverageGap }
       ])}
+      ${renderExistingCoverageDetails(dimeResult)}
       ${renderAssetOffsetDetails(dimeResult)}
       <div class="analysis-result-eyebrow">DIME Components</div>
       ${renderMoneyList([
@@ -532,6 +632,7 @@
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: needsResult.netCoverageGap }
       ])}
+      ${renderExistingCoverageDetails(needsResult)}
       ${renderAssetOffsetDetails(needsResult)}
       <div class="analysis-result-eyebrow">Support Reduction</div>
       ${renderMoneyList([
@@ -580,6 +681,7 @@
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: humanLifeValueResult.netCoverageGap }
       ])}
+      ${renderExistingCoverageDetails(humanLifeValueResult)}
       ${renderAssetOffsetDetails(humanLifeValueResult)}
       <div class="analysis-result-eyebrow">HLV Components</div>
       ${renderAssumptionList([
