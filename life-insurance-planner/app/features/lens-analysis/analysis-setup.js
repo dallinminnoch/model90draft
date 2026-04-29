@@ -5296,7 +5296,8 @@
       globalTreatmentProfile: normalizedProfile,
       survivorIncomeTreatment: {
         ...current.survivorIncomeTreatment,
-        ...profileDefaults.survivorIncomeTreatment
+        ...profileDefaults.survivorIncomeTreatment,
+        includeSurvivorIncome: current.survivorIncomeTreatment.includeSurvivorIncome
       },
       survivorScenario: {
         ...current.survivorScenario,
@@ -5304,7 +5305,10 @@
       },
       supportTreatment: {
         ...current.supportTreatment,
-        ...profileDefaults.supportTreatment
+        ...profileDefaults.supportTreatment,
+        includeEssentialSupport: current.supportTreatment.includeEssentialSupport,
+        includeDiscretionarySupport: current.supportTreatment.includeDiscretionarySupport,
+        includeTransitionNeeds: current.supportTreatment.includeTransitionNeeds
       },
       riskFlags: {
         ...current.riskFlags,

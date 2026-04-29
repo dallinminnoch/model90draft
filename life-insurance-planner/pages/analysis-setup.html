@@ -236,6 +236,15 @@
                       </label>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
                         <span class="settings-toggle-copy">
+                          <span class="settings-toggle-label">Include Essential Support</span>
+                        </span>
+                        <span class="settings-switch analysis-setup-mini-switch">
+                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Include Essential Support" data-analysis-survivor-field="supportTreatment.includeEssentialSupport" data-analysis-calculation-inclusion-control>
+                          <span class="settings-switch-track" aria-hidden="true"></span>
+                        </span>
+                      </label>
+                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
+                        <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include Transition Needs</span>
                         </span>
                         <span class="settings-switch analysis-setup-mini-switch">
@@ -698,7 +707,6 @@
                           </span>
                           <div id="analysis-setup-survivor-income-treatment-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
                             <ul>
-                              <li><strong>Apply survivor income offset:</strong> lets Needs count survivor income against the support gap.</li>
                               <li><strong>Apply survivor income start delay:</strong> delays when survivor income begins reducing support need.</li>
                               <li><strong>Apply survivor income growth:</strong> saves a future-use growth assumption; current Needs does not project it.</li>
                               <li><strong>Maximum reliance:</strong> caps how much support can rely on survivor income.</li>
@@ -706,15 +714,6 @@
                           </div>
                         </div>
                       </div>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Apply survivor income offset</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Apply survivor income offset" data-analysis-survivor-field="survivorIncomeTreatment.includeSurvivorIncome">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Apply survivor income start delay</span>
@@ -811,41 +810,12 @@
                           </span>
                           <div id="analysis-setup-survivor-support-treatment-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
                             <ul>
-                              <li><strong>Include essential support:</strong> includes core household support in Needs.</li>
-                              <li><strong>Include discretionary support:</strong> includes discretionary lifestyle support when enabled.</li>
-                              <li><strong>Include transition needs:</strong> includes temporary adjustment costs after death.</li>
+                              <li><strong>Inclusion switches:</strong> use Calculation Inclusion Controls above.</li>
                               <li><strong>Support duration override:</strong> replaces the Method Defaults support duration for this plan.</li>
                             </ul>
                           </div>
                         </div>
                       </div>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Include essential support</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Include essential support" data-analysis-survivor-field="supportTreatment.includeEssentialSupport">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Include discretionary support</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Include discretionary support" data-analysis-survivor-field="supportTreatment.includeDiscretionarySupport">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Include transition needs</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Include transition needs" data-analysis-survivor-field="supportTreatment.includeTransitionNeeds">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
                       <div class="analysis-setup-survivor-control-row">
                         <label for="analysis-setup-survivor-support-duration">Support duration override</label>
                         <span class="analysis-setup-survivor-years">
