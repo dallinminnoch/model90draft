@@ -3947,40 +3947,90 @@
   }
 
   function normalizeDateOnlyCandidate(value) {
-    const match = String(value || "").trim().match(/^(\d{4}-\d{2}-\d{2})/);
-    return match ? match[1] : null;
+    const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(year, monthIndex, day);
+    if (
+      Number.isNaN(date.getTime())
+      || date.getFullYear() !== year
+      || date.getMonth() !== monthIndex
+      || date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return formatDateOnlyFromDate(date);
   }
 
   function resolveExistingCoveragePreviewValuationDate(record, assumptions) {
+    const analysisSettings = isPlainObject(record?.analysisSettings)
+      ? record.analysisSettings
+      : {};
     const savedAssumptions = isPlainObject(record?.analysisSettings?.existingCoverageAssumptions)
       ? record.analysisSettings.existingCoverageAssumptions
       : {};
     const candidates = [
-      { value: assumptions?.valuationDate, source: "draft-existingCoverageAssumptions.valuationDate" },
-      { value: assumptions?.asOfDate, source: "draft-existingCoverageAssumptions.asOfDate" },
-      { value: assumptions?.lastUpdatedAt, source: "draft-existingCoverageAssumptions.lastUpdatedAt" },
-      { value: savedAssumptions.valuationDate, source: "analysisSettings.existingCoverageAssumptions.valuationDate" },
-      { value: savedAssumptions.asOfDate, source: "analysisSettings.existingCoverageAssumptions.asOfDate" },
-      { value: savedAssumptions.lastUpdatedAt, source: "analysisSettings.existingCoverageAssumptions.lastUpdatedAt" },
-      { value: record?.lastReview, source: "linkedRecord.lastReview" },
-      { value: record?.lastUpdatedDate, source: "linkedRecord.lastUpdatedDate" },
-      { value: record?.dateProfileCreated, source: "linkedRecord.dateProfileCreated" }
+      { value: analysisSettings.valuationDate, source: "analysisSettings.valuationDate" },
+      {
+        value: savedAssumptions.valuationDate,
+        source: "analysisSettings.existingCoverageAssumptions.valuationDate",
+        deprecated: true
+      },
+      {
+        value: savedAssumptions.asOfDate,
+        source: "analysisSettings.existingCoverageAssumptions.asOfDate",
+        deprecated: true
+      }
     ];
+    let invalidDateSource = "";
 
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[index];
+      if (candidate.value == null || String(candidate.value).trim() === "") {
+        continue;
+      }
+
       const valuationDate = normalizeDateOnlyCandidate(candidate.value);
       if (valuationDate) {
         return {
           valuationDate,
-          source: candidate.source
+          source: candidate.source,
+          warning: candidate.deprecated
+            ? {
+                code: "deprecated-existing-coverage-preview-valuation-date-fallback",
+                message: "Existing coverage preview used a deprecated existing coverage valuation date because the shared Planning As-Of Date was unavailable.",
+                details: {
+                  source: candidate.source,
+                  replacementSource: "analysisSettings.valuationDate"
+                }
+              }
+            : null
         };
       }
+
+      invalidDateSource = invalidDateSource || candidate.source;
     }
 
     return {
       valuationDate: null,
-      source: "unavailable"
+      source: "unavailable",
+      warning: {
+        code: invalidDateSource
+          ? "invalid-existing-coverage-preview-valuation-date"
+          : "missing-existing-coverage-preview-valuation-date",
+        message: invalidDateSource
+          ? "Existing coverage preview ignored an invalid Planning As-Of Date."
+          : "Existing coverage preview has no valid Planning As-Of Date; date-sensitive pending and term guardrail treatment may not be applied.",
+        details: {
+          source: invalidDateSource || "analysisSettings.valuationDate"
+        }
+      }
     };
   }
 
@@ -4001,10 +4051,13 @@
         hasPolicies: policies.length > 0,
         rawTotal,
         adjustedTotal: null,
-        warnings: [{
-          code: "missing-existing-coverage-treatment-helper",
-          message: "Existing coverage treatment preview is unavailable because the treatment helper is not loaded."
-        }],
+        warnings: [
+          ...(valuationDateResult.warning ? [valuationDateResult.warning] : []),
+          {
+            code: "missing-existing-coverage-treatment-helper",
+            message: "Existing coverage treatment preview is unavailable because the treatment helper is not loaded."
+          }
+        ],
         helperUsed: false,
         valuationDate: valuationDateResult.valuationDate,
         valuationDateSource: valuationDateResult.source
@@ -4025,7 +4078,10 @@
       hasPolicies: policies.length > 0,
       rawTotal: Number(result?.totalRawCoverage || 0),
       adjustedTotal: Number(result?.totalTreatedCoverageOffset || 0),
-      warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+      warnings: [
+        ...(valuationDateResult.warning ? [valuationDateResult.warning] : []),
+        ...(Array.isArray(result?.warnings) ? result.warnings : [])
+      ],
       helperUsed: true,
       valuationDate: valuationDateResult.valuationDate,
       valuationDateSource: valuationDateResult.source
