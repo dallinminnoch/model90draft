@@ -47,6 +47,11 @@
     }).format(number);
   }
 
+  function toDisplayNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
   function formatPercent(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
@@ -207,6 +212,17 @@
     `;
   }
 
+  function renderProjectionDetailSection(title, rows) {
+    if (!Array.isArray(rows) || !rows.length) {
+      return "";
+    }
+
+    return `
+      <p class="analysis-result-copy"><strong>${escapeHtml(title)}</strong></p>
+      ${renderAssumptionList(rows)}
+    `;
+  }
+
   function formatInflationRateLabel(ratePercent, rateSource) {
     const sourceLabel = String(rateSource || "").includes("householdExpenseInflationRatePercent")
       ? "household expense inflation"
@@ -238,12 +254,16 @@
     const currentDollarLabel = normalizedOptions.currentDollarLabel || "Current-dollar support";
     const projectedLabel = normalizedOptions.projectedLabel || "Projected support";
     const disabledCurrentDollarLabel = normalizedOptions.disabledCurrentDollarLabel || "Current-dollar support used";
+    const afterProjectedRows = Array.isArray(normalizedOptions.afterProjectedRows)
+      ? normalizedOptions.afterProjectedRows
+      : [];
 
     const rows = inflationApplied
       ? [
           { label: "Inflation status", value: "Applied" },
-          { label: currentDollarLabel, value: formatCurrency(currentDollarTotal) },
           { label: projectedLabel, value: formatCurrency(projectedTotal) },
+          ...afterProjectedRows,
+          { label: currentDollarLabel, value: formatCurrency(currentDollarTotal) },
           {
             label: "Inflation rate",
             value: formatInflationRateLabel(
@@ -256,24 +276,42 @@
       : [
           { label: "Inflation status", value: "Disabled" },
           { label: disabledCurrentDollarLabel, value: formatCurrency(currentDollarTotal) },
+          ...afterProjectedRows,
           { label: "Projection duration", value: formatYears(durationYears) }
         ];
 
-    return `
-      <div class="analysis-result-eyebrow">${escapeHtml(normalizedOptions.title)}</div>
-      ${renderAssumptionList(rows)}
-    `;
+    return renderProjectionDetailSection(normalizedOptions.title, rows);
   }
 
   function renderNeedsInflationDetail(needsResult) {
     const inflationTrace = findTrace(needsResult, "essentialSupportInflation");
+    const components = isPlainObject(needsResult.components) ? needsResult.components : {};
+    const offsets = isPlainObject(needsResult.commonOffsets) ? needsResult.commonOffsets : {};
+    const survivorIncomeOffset = toDisplayNumber(offsets.survivorIncomeOffset);
+    const essentialSupport = toDisplayNumber(components.essentialSupport);
+    const bridgeRows = [];
+
+    if (survivorIncomeOffset != null && survivorIncomeOffset > 0) {
+      bridgeRows.push({
+        label: "Survivor income offset",
+        value: formatCurrency(-survivorIncomeOffset)
+      });
+    }
+
+    if (essentialSupport != null) {
+      bridgeRows.push({
+        label: "Net essential support used",
+        value: formatCurrency(essentialSupport)
+      });
+    }
 
     return renderInflationProjectionDetail({
       trace: inflationTrace,
       title: "Essential Support Projection",
-      currentDollarLabel: "Current-dollar support",
-      projectedLabel: "Projected support",
-      disabledCurrentDollarLabel: "Current-dollar support used"
+      currentDollarLabel: "Current-dollar support before survivor offset",
+      projectedLabel: "Projected support before survivor offset",
+      disabledCurrentDollarLabel: "Current-dollar support before survivor offset",
+      afterProjectedRows: bridgeRows
     });
   }
 
@@ -317,24 +355,38 @@
       ? "Planned-dependent education (current-dollar)"
       : "Planned-dependent education";
 
+    return renderProjectionDetailSection("Education Funding Projection", [
+      { label: "Inflation status", value: getEducationInflationStatus(inflationTrace) },
+      { label: "Education total used", value: formatCurrency(getTraceInput(inflationTrace, "combinedEducationTotalUsed")) },
+      { label: "Projected current-child education", value: formatCurrency(getTraceInput(inflationTrace, "projectedCurrentChildTotal")) },
+      { label: plannedDependentLabel, value: `${formatCurrency(getTraceInput(inflationTrace, "currentDollarPlannedDependentTotal"))} current-dollar` },
+      { label: "Current-dollar current-child education", value: formatCurrency(getTraceInput(inflationTrace, "currentDollarCurrentChildTotal")) },
+      { label: "Current children projected", value: formatCount(getTraceInput(inflationTrace, "currentDatedChildCount")) },
+      { label: "Education start age", value: formatCount(getTraceInput(inflationTrace, "educationStartAge")) },
+      {
+        label: "Inflation rate",
+        value: formatEducationInflationRateLabel(
+          getTraceInput(inflationTrace, "ratePercent"),
+          getTraceInput(inflationTrace, "rateSource")
+        )
+      }
+    ]);
+  }
+
+  function renderNeedsProjectionDetails(needsResult) {
+    const projectionDetails = [
+      renderNeedsInflationDetail(needsResult),
+      renderNeedsDiscretionaryInflationDetail(needsResult),
+      renderNeedsEducationInflationDetail(needsResult)
+    ].filter(Boolean);
+
+    if (!projectionDetails.length) {
+      return "";
+    }
+
     return `
-      <div class="analysis-result-eyebrow">Education Funding Projection</div>
-      ${renderAssumptionList([
-        { label: "Inflation status", value: getEducationInflationStatus(inflationTrace) },
-        { label: "Current children projected", value: formatCount(getTraceInput(inflationTrace, "currentDatedChildCount")) },
-        { label: "Current-dollar current-child education", value: formatCurrency(getTraceInput(inflationTrace, "currentDollarCurrentChildTotal")) },
-        { label: "Projected current-child education", value: formatCurrency(getTraceInput(inflationTrace, "projectedCurrentChildTotal")) },
-        { label: plannedDependentLabel, value: `${formatCurrency(getTraceInput(inflationTrace, "currentDollarPlannedDependentTotal"))} current-dollar` },
-        { label: "Education total used", value: formatCurrency(getTraceInput(inflationTrace, "combinedEducationTotalUsed")) },
-        { label: "Education start age", value: formatCount(getTraceInput(inflationTrace, "educationStartAge")) },
-        {
-          label: "Inflation rate",
-          value: formatEducationInflationRateLabel(
-            getTraceInput(inflationTrace, "ratePercent"),
-            getTraceInput(inflationTrace, "rateSource")
-          )
-        }
-      ])}
+      <div class="analysis-result-eyebrow">Projection Details</div>
+      ${projectionDetails.join("")}
     `;
   }
 
@@ -451,9 +503,7 @@
         { label: "Transition Needs", value: components.transitionNeeds },
         { label: "Discretionary Support", value: components.discretionarySupport }
       ])}
-      ${renderNeedsEducationInflationDetail(needsResult)}
-      ${renderNeedsInflationDetail(needsResult)}
-      ${renderNeedsDiscretionaryInflationDetail(needsResult)}
+      ${renderNeedsProjectionDetails(needsResult)}
       <div class="analysis-result-eyebrow">Assumptions</div>
       ${renderAssumptionList([
         { label: "Support duration years", value: assumptions.needsSupportDurationYears },

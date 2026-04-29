@@ -128,6 +128,7 @@
                   <div class="analysis-setup-method-header">
                     <div class="analysis-setup-control-heading">
                       <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
+                      <p>Household and education rates affect current Needs where enabled. General is a fallback; healthcare and final expense rates are saved for future modeling.</p>
                     </div>
                     <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
                   </div>
@@ -150,7 +151,7 @@
 
                   <div class="analysis-setup-rate-grid">
                     <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-general-inflation-label" for="analysis-setup-general-inflation-value">General inflation rate</label>
+                      <label class="analysis-setup-rate-label" id="analysis-setup-general-inflation-label" for="analysis-setup-general-inflation-value">General inflation fallback</label>
                       <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-general-inflation-label" data-analysis-inflation-slider="generalInflationRatePercent">
                       <span class="analysis-setup-percent-input">
                         <input id="analysis-setup-general-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-general-inflation-label" data-analysis-inflation-field="generalInflationRatePercent">
@@ -177,7 +178,7 @@
                     </div>
 
                     <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-healthcare-inflation-label" for="analysis-setup-healthcare-inflation-value">Healthcare inflation</label>
+                      <label class="analysis-setup-rate-label" id="analysis-setup-healthcare-inflation-label" for="analysis-setup-healthcare-inflation-value">Healthcare inflation (future use)</label>
                       <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-slider="healthcareInflationRatePercent">
                       <span class="analysis-setup-percent-input">
                         <input id="analysis-setup-healthcare-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-field="healthcareInflationRatePercent">
@@ -186,7 +187,7 @@
                     </div>
 
                     <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-final-expense-inflation-label" for="analysis-setup-final-expense-inflation-value">Final expense inflation</label>
+                      <label class="analysis-setup-rate-label" id="analysis-setup-final-expense-inflation-label" for="analysis-setup-final-expense-inflation-value">Final expense inflation (future use)</label>
                       <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-slider="finalExpenseInflationRatePercent">
                       <span class="analysis-setup-percent-input">
                         <input id="analysis-setup-final-expense-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-field="finalExpenseInflationRatePercent">
@@ -963,10 +964,12 @@
                           <input id="analysis-setup-education-funding-target" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="fundingTreatment.fundingTargetPercent">
                           <span aria-hidden="true">%</span>
                         </span>
+                        <p>Saved for future target adjustments; current Needs uses saved per-child funding amounts.</p>
                       </div>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include projected dependents</span>
+                          <span class="settings-toggle-note">Includes planned-dependent targets as current-dollar amounts; timing and inflation are not applied yet.</span>
                         </span>
                         <span class="settings-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Include projected dependents" data-analysis-education-field="fundingTreatment.includeProjectedDependents">
@@ -976,7 +979,7 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Apply education inflation</span>
-                          <span class="settings-toggle-note">Saved for future projections; not applied yet.</span>
+                          <span class="settings-toggle-note">Applies in Needs to current dependents with valid birthdates; planned dependents remain current-dollar.</span>
                         </span>
                         <span class="settings-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Apply education inflation" data-analysis-education-field="fundingTreatment.applyEducationInflation">
@@ -989,7 +992,7 @@
                           <input id="analysis-setup-education-start-age" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="numeric" data-analysis-education-field="fundingTreatment.educationStartAge">
                           <span>age</span>
                         </span>
-                        <p>Used to project education funding for current dependents with birthdates. Planned dependents remain current-dollar until timing is added.</p>
+                        <p>Used to project education funding for current dependents with valid birthdates. Planned dependents remain current-dollar until timing is added.</p>
                       </div>
                     </div>
 
@@ -1001,10 +1004,12 @@
                           <span aria-hidden="true">$</span>
                           <input id="analysis-setup-education-savings-value" class="analysis-setup-card-input analysis-setup-card-input--money analysis-setup-education-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-education-field="educationSavingsTreatment.existingEducationSavingsValue">
                         </span>
+                        <p>Saved for future education offset modeling; current Needs does not subtract education savings.</p>
                       </div>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include education savings as offset</span>
+                          <span class="settings-toggle-note">Saved for future education offset modeling; not applied to current Needs.</span>
                         </span>
                         <span class="settings-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Include education savings as offset" data-analysis-education-field="educationSavingsTreatment.includeAsOffset">
@@ -1017,6 +1022,7 @@
                           <input id="analysis-setup-education-tax-drag" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="educationSavingsTreatment.taxDragPercent">
                           <span aria-hidden="true">%</span>
                         </span>
+                        <p>Saved for future education savings offset modeling.</p>
                       </div>
                       <div class="analysis-setup-education-control-row">
                         <label for="analysis-setup-education-liquidity-haircut">Liquidity / availability adjustment</label>
@@ -1024,6 +1030,7 @@
                           <input id="analysis-setup-education-liquidity-haircut" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="educationSavingsTreatment.liquidityHaircutPercent">
                           <span aria-hidden="true">%</span>
                         </span>
+                        <p>Saved for future education savings offset modeling.</p>
                       </div>
                     </div>
                   </div>
