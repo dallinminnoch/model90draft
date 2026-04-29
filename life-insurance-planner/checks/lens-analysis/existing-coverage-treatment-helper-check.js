@@ -73,6 +73,7 @@ const rawEquivalentPolicies = [
     id: "group-default",
     coverageSource: "groupEmployer",
     policyType: "Group Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "100000"
   },
   {
@@ -86,11 +87,13 @@ const rawEquivalentPolicies = [
   {
     id: "permanent-default",
     policyType: "Whole Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "300000"
   },
   {
     id: "unknown-default",
     entryMode: "simple",
+    effectiveDate: "2020-01-01",
     faceAmount: "40000"
   }
 ];
@@ -108,6 +111,7 @@ const groupDiscount = runTreatment([
     id: "group-discount",
     coverageSource: "groupEmployer",
     policyType: "Group Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "100000"
   }
 ], {
@@ -125,6 +129,7 @@ const groupExcluded = runTreatment([
     id: "group-excluded",
     coverageSource: "groupEmployer",
     policyType: "Group Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "100000"
   }
 ], {
@@ -180,6 +185,7 @@ const permanentDiscount = runTreatment([
     id: "permanent-discount",
     policyType: "Whole Life",
     termLength: "Permanent Coverage",
+    effectiveDate: "2020-01-01",
     faceAmount: "150000"
   }
 ], {
@@ -195,6 +201,7 @@ const permanentExcluded = runTreatment([
   {
     id: "permanent-excluded",
     policyType: "Universal Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "150000"
   }
 ], {
@@ -210,6 +217,7 @@ const unknownDiscount = runTreatment([
   {
     id: "unknown-discount",
     entryMode: "simple",
+    effectiveDate: "2020-01-01",
     faceAmount: "30000"
   }
 ], {
@@ -222,14 +230,13 @@ assert.equal(unknownDiscount.policies[0].classification, "unclassified");
 assert.equal(unknownDiscount.policies[0].treatmentKind, "unknown");
 assert.equal(unknownDiscount.totalTreatedCoverageOffset, 15000);
 
-const pendingDetection = runTreatment([
+const futureEffectiveDatePending = runTreatment([
   {
-    id: "pending-status",
+    id: "future-effective-date-pending",
     coverageSource: "individual",
     policyType: "Term Life",
-    status: "Pending underwriting",
     termLength: "20",
-    effectiveDate: "2025-01-01",
+    effectiveDate: "2026-02-01",
     faceAmount: "40000"
   }
 ], {
@@ -238,18 +245,131 @@ const pendingDetection = runTreatment([
     reliabilityDiscountPercent: 50
   }
 });
-assert.equal(pendingDetection.policies[0].treatmentKind, "pending");
-assert.equal(pendingDetection.totalTreatedCoverageOffset, 20000);
-assert.ok(
-  hasWarningCode(pendingDetection, "pending-coverage-detected-from-status"),
-  "Pending detection should warn because current data is weak."
-);
+assert.equal(futureEffectiveDatePending.policies[0].treatmentKind, "pending");
+assert.equal(futureEffectiveDatePending.totalTreatedCoverageOffset, 20000);
+
+const sameDayEffectiveDateActive = runTreatment([
+  {
+    id: "same-day-effective-date-active",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    termLength: "20",
+    effectiveDate: "2026-01-01",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(sameDayEffectiveDateActive.policies[0].treatmentKind, "term");
+assert.equal(sameDayEffectiveDateActive.totalTreatedCoverageOffset, 40000);
+
+const pastEffectiveDateActive = runTreatment([
+  {
+    id: "past-effective-date-active",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    termLength: "20",
+    effectiveDate: "2025-12-31",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(pastEffectiveDateActive.policies[0].treatmentKind, "term");
+assert.equal(pastEffectiveDateActive.totalTreatedCoverageOffset, 40000);
+
+const statusPendingTextWithPastDate = runTreatment([
+  {
+    id: "status-pending-text-with-past-date",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    status: "Pending underwriting",
+    termLength: "20",
+    effectiveDate: "2025-01-01",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(statusPendingTextWithPastDate.policies[0].treatmentKind, "term");
+assert.equal(statusPendingTextWithPastDate.totalTreatedCoverageOffset, 40000);
+assert.equal(hasWarningCode(statusPendingTextWithPastDate, "pending-coverage-detected-from-status"), false);
+
+const notesPendingTextWithPastDate = runTreatment([
+  {
+    id: "notes-pending-text-with-past-date",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    policyNotes: "Application is pending carrier review.",
+    termLength: "20",
+    effectiveDate: "2025-01-01",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(notesPendingTextWithPastDate.policies[0].treatmentKind, "term");
+assert.equal(notesPendingTextWithPastDate.totalTreatedCoverageOffset, 40000);
+assert.equal(hasWarningCode(notesPendingTextWithPastDate, "pending-coverage-detected-from-notes"), false);
+
+const pendingTextWithSameDayEffectiveDate = runTreatment([
+  {
+    id: "pending-text-with-same-day-effective-date",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    status: "Pending underwriting",
+    policyNotes: "Application is pending carrier review.",
+    termLength: "20",
+    effectiveDate: "2026-01-01",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(pendingTextWithSameDayEffectiveDate.policies[0].treatmentKind, "term");
+assert.equal(pendingTextWithSameDayEffectiveDate.totalTreatedCoverageOffset, 40000);
+assert.equal(hasWarningCode(pendingTextWithSameDayEffectiveDate, "pending-coverage-detected-from-status"), false);
+assert.equal(hasWarningCode(pendingTextWithSameDayEffectiveDate, "pending-coverage-detected-from-notes"), false);
+
+const missingEffectiveDateForPending = runTreatment([
+  {
+    id: "missing-effective-date-for-pending",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    termLength: "20",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(missingEffectiveDateForPending.policies[0].treatmentKind, "term");
+assert.equal(missingEffectiveDateForPending.totalTreatedCoverageOffset, 40000);
+assert.ok(hasWarningCode(missingEffectiveDateForPending, "missing-effective-date-for-pending-classification"));
+
+const invalidEffectiveDateForPending = runTreatment([
+  {
+    id: "invalid-effective-date-for-pending",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    termLength: "20",
+    effectiveDate: "2026-02-31",
+    faceAmount: "40000"
+  }
+]);
+assert.equal(invalidEffectiveDateForPending.policies[0].treatmentKind, "term");
+assert.equal(invalidEffectiveDateForPending.totalTreatedCoverageOffset, 40000);
+assert.ok(hasWarningCode(invalidEffectiveDateForPending, "invalid-effective-date-for-pending-classification"));
+
+const missingValuationDateForPending = runTreatment([
+  {
+    id: "missing-valuation-date-for-pending",
+    coverageSource: "individual",
+    policyType: "Term Life",
+    termLength: "20",
+    effectiveDate: "2026-02-01",
+    faceAmount: "40000"
+  }
+], {}, {
+  valuationDate: ""
+});
+assert.equal(missingValuationDateForPending.policies[0].treatmentKind, "term");
+assert.equal(missingValuationDateForPending.totalTreatedCoverageOffset, 40000);
+assert.ok(hasWarningCode(missingValuationDateForPending, "missing-valuation-date-for-pending-classification"));
 
 const pendingExcluded = runTreatment([
   {
     id: "pending-excluded",
     policyType: "Term Life",
-    status: "Application submitted",
+    termLength: "20",
+    effectiveDate: "2026-02-01",
     faceAmount: "40000"
   }
 ], {
@@ -329,11 +449,13 @@ const formattedPositiveAmounts = runTreatment([
   {
     id: "currency-positive",
     policyType: "Term Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "$1,000"
   },
   {
     id: "comma-positive",
     policyType: "Term Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "1,000"
   }
 ]);
@@ -388,6 +510,7 @@ const globalDisabled = runTreatment([
   {
     id: "global-disabled",
     policyType: "Whole Life",
+    effectiveDate: "2020-01-01",
     faceAmount: "100000"
   }
 ], {

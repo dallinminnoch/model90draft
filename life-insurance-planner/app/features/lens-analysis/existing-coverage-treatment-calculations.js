@@ -12,7 +12,6 @@
 
   const CALCULATION_VERSION = 1;
   const TREATMENT_KINDS = Object.freeze(["group", "term", "permanent", "pending", "unknown"]);
-  const PENDING_PATTERN = /pending|proposed|proposal|application|applied|underwriting|quoted/i;
   const PERMANENT_PATTERN = /whole|universal|indexed|variable|iul|vul|permanent|final\s*expense|burial/i;
   const TERM_PATTERN = /term/i;
   const YEAR_PATTERN = /year|yr|\d/i;
@@ -262,40 +261,6 @@
     return "unclassified";
   }
 
-  function isPendingCoveragePolicy(policy) {
-    const status = toTrimmedString(policy?.status);
-    const notes = toTrimmedString(policy?.policyNotes || policy?.notes);
-    if (PENDING_PATTERN.test(status)) {
-      return {
-        pending: true,
-        source: "status",
-        warning: createWarning(
-          "pending-coverage-detected-from-status",
-          "Pending coverage was inferred from the policy status field; confirm before using as firm in-force coverage.",
-          { status }
-        )
-      };
-    }
-
-    if (PENDING_PATTERN.test(notes)) {
-      return {
-        pending: true,
-        source: "notes",
-        warning: createWarning(
-          "pending-coverage-detected-from-notes",
-          "Pending coverage was inferred from policy notes; confirm before using as firm in-force coverage.",
-          { notes }
-        )
-      };
-    }
-
-    return {
-      pending: false,
-      source: "",
-      warning: null
-    };
-  }
-
   function isPermanentCoveragePolicy(policy) {
     const policyType = toTrimmedString(policy?.policyType);
     const termLength = toTrimmedString(policy?.termLength);
@@ -344,6 +309,57 @@
     }
 
     return date;
+  }
+
+  function getPendingCoverageDateResult(policy, valuationDate) {
+    const policyId = toTrimmedString(policy?.id);
+    const rawEffectiveDate = toTrimmedString(policy?.effectiveDate);
+    if (!rawEffectiveDate) {
+      return {
+        pending: false,
+        warning: createWarning(
+          "missing-effective-date-for-pending-classification",
+          "Pending coverage classification could not be determined because effective date is missing; policy was not treated as pending.",
+          {
+            policyId
+          }
+        )
+      };
+    }
+
+    const effectiveDate = parseDateOnly(rawEffectiveDate);
+    if (!effectiveDate) {
+      return {
+        pending: false,
+        warning: createWarning(
+          "invalid-effective-date-for-pending-classification",
+          "Pending coverage classification could not be determined because effective date is invalid; policy was not treated as pending.",
+          {
+            policyId,
+            effectiveDate: rawEffectiveDate
+          }
+        )
+      };
+    }
+
+    if (!(valuationDate instanceof Date)) {
+      return {
+        pending: false,
+        warning: createWarning(
+          "missing-valuation-date-for-pending-classification",
+          "Pending coverage classification could not be determined because no valid valuation date was provided; policy was not treated as pending.",
+          {
+            policyId,
+            effectiveDate: rawEffectiveDate
+          }
+        )
+      };
+    }
+
+    return {
+      pending: effectiveDate.getTime() > valuationDate.getTime(),
+      warning: null
+    };
   }
 
   function getPolicyTermRemainingYears(policy, valuationDate) {
@@ -397,13 +413,13 @@
     };
   }
 
-  function classifyExistingCoverageTreatmentPolicy(policy) {
-    const pendingResult = isPendingCoveragePolicy(policy);
+  function classifyExistingCoverageTreatmentPolicy(policy, valuationDate) {
+    const pendingResult = getPendingCoverageDateResult(policy, valuationDate);
     if (pendingResult.pending) {
       return {
         classification: classifyCoveragePolicy(policy),
         treatmentKind: "pending",
-        pendingWarning: pendingResult.warning
+        pendingWarnings: []
       };
     }
 
@@ -412,7 +428,7 @@
       return {
         classification,
         treatmentKind: "group",
-        pendingWarning: null
+        pendingWarnings: pendingResult.warning ? [pendingResult.warning] : []
       };
     }
 
@@ -420,7 +436,7 @@
       return {
         classification,
         treatmentKind: "permanent",
-        pendingWarning: null
+        pendingWarnings: pendingResult.warning ? [pendingResult.warning] : []
       };
     }
 
@@ -428,14 +444,14 @@
       return {
         classification,
         treatmentKind: "term",
-        pendingWarning: null
+        pendingWarnings: pendingResult.warning ? [pendingResult.warning] : []
       };
     }
 
     return {
       classification,
       treatmentKind: "unknown",
-      pendingWarning: null
+      pendingWarnings: pendingResult.warning ? [pendingResult.warning] : []
     };
   }
 
@@ -497,9 +513,9 @@
       warnings.push(amountResult.warning);
     }
 
-    const classificationResult = classifyExistingCoverageTreatmentPolicy(normalizedPolicy);
-    if (classificationResult.pendingWarning) {
-      warnings.push(classificationResult.pendingWarning);
+    const classificationResult = classifyExistingCoverageTreatmentPolicy(normalizedPolicy, valuationDate);
+    if (Array.isArray(classificationResult.pendingWarnings)) {
+      warnings.push(...classificationResult.pendingWarnings);
     }
 
     const treatment = getTreatmentForKind(classificationResult.treatmentKind, assumptions);
