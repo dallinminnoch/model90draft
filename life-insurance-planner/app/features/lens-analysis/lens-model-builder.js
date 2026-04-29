@@ -9,7 +9,6 @@
   // no coverage-gap math, and no legacy analysis bucket dependency.
 
   const SURVIVOR_NET_INCOME_TAX_BASIS = "Qualifying Surviving Spouse";
-  const ASSET_OFFSET_SOURCE_LEGACY = "legacy";
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
 
   function createWarning(code, message, details) {
@@ -30,17 +29,6 @@
 
   function clonePlainObject(value) {
     return isPlainObject(value) ? { ...value } : {};
-  }
-
-  function normalizeAssetOffsetSource(value, fallback) {
-    const normalized = normalizeString(value).toLowerCase();
-    if (normalized === ASSET_OFFSET_SOURCE_TREATED) {
-      return ASSET_OFFSET_SOURCE_TREATED;
-    }
-    if (normalized === ASSET_OFFSET_SOURCE_LEGACY) {
-      return ASSET_OFFSET_SOURCE_LEGACY;
-    }
-    return fallback || ASSET_OFFSET_SOURCE_LEGACY;
   }
 
   function normalizeString(value) {
@@ -1086,12 +1074,8 @@
     return analysisSettings;
   }
 
-  function resolveAssetOffsetSource(input) {
-    const analysisSettings = resolveAnalysisSettings(input);
-    const methodDefaults = isPlainObject(analysisSettings.methodDefaults)
-      ? analysisSettings.methodDefaults
-      : {};
-    return normalizeAssetOffsetSource(methodDefaults.assetOffsetSource, ASSET_OFFSET_SOURCE_LEGACY);
+  function getForwardAssetOffsetSource() {
+    return ASSET_OFFSET_SOURCE_TREATED;
   }
 
   function resolveAssetTreatmentAssumptions(input) {
@@ -1099,26 +1083,15 @@
 
     return isPlainObject(analysisSettings.assetTreatmentAssumptions)
       ? analysisSettings.assetTreatmentAssumptions
-      : null;
+      : {};
   }
 
   function createPreparedTreatedAssetOffsets(lensModel, input) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
-    const requestedAssetOffsetSource = resolveAssetOffsetSource(input);
+    const assetOffsetSource = getForwardAssetOffsetSource();
     const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
     const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
     const calculateAssetTreatment = lensAnalysis.calculateAssetTreatment;
-
-    if (requestedAssetOffsetSource !== ASSET_OFFSET_SOURCE_TREATED) {
-      return createEmptyTreatedAssetOffsets(
-        [],
-        {
-          reason: "asset-offset-source-legacy",
-          assetOffsetSource: requestedAssetOffsetSource,
-          methodConsumable: false
-        }
-      );
-    }
 
     if (!assetFacts || !Array.isArray(assetFacts.assets)) {
       return createEmptyTreatedAssetOffsets(
@@ -1128,22 +1101,9 @@
             "assetFacts.assets is missing; treated asset offsets were not calculated."
           )
         ],
-        { reason: "missing-asset-facts" }
-      );
-    }
-
-    if (!assetTreatmentAssumptions) {
-      return createEmptyTreatedAssetOffsets(
-        [
-          createWarning(
-            "missing-asset-treatment-assumptions",
-            "Analysis Setup assetTreatmentAssumptions are missing; treated asset offsets were not calculated."
-          )
-        ],
         {
-          reason: "missing-asset-treatment-assumptions",
-          assetCount: assetFacts.assets.length,
-          assetOffsetSource: requestedAssetOffsetSource
+          reason: "missing-asset-facts",
+          assetOffsetSource
         }
       );
     }
@@ -1159,7 +1119,7 @@
         {
           reason: "missing-asset-treatment-helper",
           assetCount: assetFacts.assets.length,
-          assetOffsetSource: requestedAssetOffsetSource
+          assetOffsetSource
         }
       );
     }
@@ -1174,7 +1134,7 @@
       assetTreatmentAssumptions: effectiveAssetTreatmentAssumptions,
       options: {
         source: "lens-model-preparation",
-        consumedByMethods: false
+        consumedByMethods: true
       }
     });
     const resultMetadata = isPlainObject(result?.metadata) ? result.metadata : {};
@@ -1191,10 +1151,10 @@
         ...resultMetadata,
         source: "lens-model-preparation",
         calculationSource: resultMetadata.source || "asset-treatment-calculations",
-        assetOffsetSource: requestedAssetOffsetSource,
+        assetOffsetSource,
         savedAssumptionsEnabled: assetTreatmentAssumptions.enabled === true,
         assumptionsEnabled: true,
-        consumedByMethods: false
+        consumedByMethods: true
       }
     };
   }
