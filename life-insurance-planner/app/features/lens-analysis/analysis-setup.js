@@ -458,7 +458,7 @@
     includeExistingCoverage: true,
     groupCoverageTreatment: Object.freeze({
       include: true,
-      reliabilityDiscountPercent: 25,
+      reliabilityDiscountPercent: 0,
       portabilityRequired: false
     }),
     individualTermTreatment: Object.freeze({
@@ -471,8 +471,8 @@
       reliabilityDiscountPercent: 0
     }),
     pendingCoverageTreatment: Object.freeze({
-      include: false,
-      reliabilityDiscountPercent: 100
+      include: true,
+      reliabilityDiscountPercent: 0
     }),
     unknownCoverageTreatment: Object.freeze({
       include: true,
