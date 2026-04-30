@@ -504,6 +504,125 @@
     });
   }
 
+  function hasDebtTraceField(trace, fieldName) {
+    return Boolean(
+      isPlainObject(trace)
+      && (
+        Object.prototype.hasOwnProperty.call(trace, fieldName)
+        || hasTraceInput(trace, fieldName)
+      )
+    );
+  }
+
+  function getDebtTraceField(trace, fieldName) {
+    if (hasTraceInput(trace, fieldName)) {
+      return getTraceInput(trace, fieldName);
+    }
+
+    return isPlainObject(trace) ? trace[fieldName] : undefined;
+  }
+
+  function isMortgageSupportTrace(trace) {
+    return String(getDebtTraceField(trace, "mortgageTreatmentMode") || "").trim().toLowerCase() === "support";
+  }
+
+  function getPreparedMortgageSupportTrace(lensModel) {
+    const treatedDebtPayoff = isPlainObject(lensModel?.treatedDebtPayoff)
+      ? lensModel.treatedDebtPayoff
+      : {};
+    const candidates = [
+      ...(Array.isArray(treatedDebtPayoff.trace) ? treatedDebtPayoff.trace : []),
+      ...(Array.isArray(treatedDebtPayoff.debts) ? treatedDebtPayoff.debts : [])
+    ];
+
+    return candidates.find(function (trace) {
+      return isPlainObject(trace)
+        && trace.isMortgage === true
+        && isMortgageSupportTrace(trace);
+    }) || null;
+  }
+
+  function getMortgageSupportDisplayTrace(methodTrace, lensModel) {
+    return isMortgageSupportTrace(methodTrace)
+      ? methodTrace
+      : getPreparedMortgageSupportTrace(lensModel);
+  }
+
+  function formatSupportPeriod(years, months) {
+    const parts = [];
+    if (toDisplayNumber(years) != null) {
+      parts.push(formatYears(years));
+    }
+    if (toDisplayNumber(months) != null) {
+      parts.push(formatMonths(months));
+    }
+
+    return parts.length ? parts.join(" / ") : "Not set";
+  }
+
+  function pushMortgageSupportTraceRows(rows, supportTrace) {
+    if (!isMortgageSupportTrace(supportTrace)) {
+      return;
+    }
+
+    rows.push({ label: "Mortgage treatment mode", value: "Support" });
+    pushOptionalMoneyRow(rows, "Monthly mortgage payment used", getDebtTraceField(supportTrace, "monthlyMortgagePaymentUsed"));
+
+    if (
+      hasDebtTraceField(supportTrace, "supportYearsRequested")
+      || hasDebtTraceField(supportTrace, "supportMonthsRequested")
+    ) {
+      rows.push({
+        label: "Requested support period / months",
+        value: formatSupportPeriod(
+          getDebtTraceField(supportTrace, "supportYearsRequested"),
+          getDebtTraceField(supportTrace, "supportMonthsRequested")
+        )
+      });
+    }
+
+    const supportMonthsUsed = getDebtTraceField(supportTrace, "supportMonthsUsed");
+    if (toDisplayNumber(supportMonthsUsed) != null) {
+      rows.push({ label: "Support months used", value: formatMonths(supportMonthsUsed) });
+    }
+
+    if (hasDebtTraceField(supportTrace, "remainingTermCapApplied")) {
+      rows.push({
+        label: "Remaining-term cap applied",
+        value: formatBooleanDetail(getDebtTraceField(supportTrace, "remainingTermCapApplied"))
+      });
+    }
+
+    const remainingTermMonths = getDebtTraceField(supportTrace, "remainingTermMonths");
+    if (toDisplayNumber(remainingTermMonths) != null) {
+      rows.push({ label: "Remaining term months", value: formatMonths(remainingTermMonths) });
+    }
+
+    const noCapReason = getDebtTraceField(supportTrace, "noCapReason");
+    if (
+      getDebtTraceField(supportTrace, "remainingTermCapApplied") === false
+      && noCapReason
+    ) {
+      rows.push({ label: "No-cap reason", value: formatTraceReason(noCapReason) });
+    }
+
+    if (hasDebtTraceField(supportTrace, "noInflationApplied")) {
+      rows.push({
+        label: "No inflation applied",
+        value: formatBooleanDetail(getDebtTraceField(supportTrace, "noInflationApplied"))
+      });
+    }
+
+    if (hasDebtTraceField(supportTrace, "noDiscountingApplied")) {
+      rows.push({
+        label: "No discounting applied",
+        value: formatBooleanDetail(getDebtTraceField(supportTrace, "noDiscountingApplied"))
+      });
+    }
+
+    pushOptionalMoneyRow(rows, "Mortgage support amount", getDebtTraceField(supportTrace, "mortgageSupportAmount"));
+  }
+
   function getDebtTreatmentWarningsSummary(traces) {
     const labels = [];
     const seen = new Set();
@@ -527,13 +646,14 @@
     return labels.join("; ");
   }
 
-  function renderDimeDebtTreatmentDetails(dimeResult) {
+  function renderDimeDebtTreatmentDetails(dimeResult, lensModel) {
     const debtTrace = findTrace(dimeResult, "debt");
     const mortgageTrace = findTrace(dimeResult, "mortgage");
     if (!hasDebtTreatmentTrace(debtTrace) && !hasDebtTreatmentTrace(mortgageTrace)) {
       return "";
     }
 
+    const mortgageSupportTrace = getMortgageSupportDisplayTrace(mortgageTrace || debtTrace, lensModel);
     const statusTrace = [debtTrace, mortgageTrace].find(function (trace) {
       return hasDebtTreatmentTrace(trace) && getTraceInput(trace, "treatedDebtConsumedByMethods") === true;
     }) || (hasDebtTreatmentTrace(debtTrace) ? debtTrace : mortgageTrace);
@@ -557,7 +677,12 @@
         : "Raw mortgage used",
       getTraceInput(mortgageTrace || debtTrace, "rawMortgageAmount")
     );
-    pushOptionalMoneyRow(rows, "Prepared treated mortgage", getTraceInput(mortgageTrace || debtTrace, "preparedMortgageAmount"));
+    pushOptionalMoneyRow(
+      rows,
+      mortgageSupportTrace ? "Prepared treated mortgage support" : "Prepared treated mortgage",
+      getTraceInput(mortgageTrace || debtTrace, "preparedMortgageAmount")
+    );
+    pushMortgageSupportTraceRows(rows, mortgageSupportTrace);
     pushOptionalMoneyRow(rows, "Excluded debt", getTraceInput(statusTrace, "excludedDebtAmount"));
     pushOptionalMoneyRow(rows, "Deferred debt", getTraceInput(statusTrace, "deferredDebtAmount"));
 
@@ -569,12 +694,13 @@
     return renderProjectionDetailSection("Debt Treatment Details", rows);
   }
 
-  function renderNeedsDebtTreatmentDetails(needsResult) {
+  function renderNeedsDebtTreatmentDetails(needsResult, lensModel) {
     const debtTrace = findTrace(needsResult, "debtPayoff");
     if (!hasDebtTreatmentTrace(debtTrace)) {
       return "";
     }
 
+    const mortgageSupportTrace = getMortgageSupportDisplayTrace(debtTrace, lensModel);
     const rows = [
       { label: "Debt treatment status", value: getDebtTreatmentStatus(debtTrace) },
       { label: "Current method-used debt source", value: getDebtTreatmentCurrentSource(debtTrace) }
@@ -588,8 +714,13 @@
       getTraceInput(debtTrace, "rawDebtPayoffAmount")
     );
     pushOptionalMoneyRow(rows, "Prepared treated debt", getTraceInput(debtTrace, "preparedDebtPayoffAmount"));
-    pushOptionalMoneyRow(rows, "Prepared treated mortgage", getTraceInput(debtTrace, "preparedMortgagePayoffAmount"));
+    pushOptionalMoneyRow(
+      rows,
+      mortgageSupportTrace ? "Prepared treated mortgage support" : "Prepared treated mortgage",
+      getTraceInput(debtTrace, "preparedMortgagePayoffAmount")
+    );
     pushOptionalMoneyRow(rows, "Prepared treated non-mortgage debt", getTraceInput(debtTrace, "preparedNonMortgageDebtAmount"));
+    pushMortgageSupportTraceRows(rows, mortgageSupportTrace);
 
     if (getTraceInput(debtTrace, "manualTotalDebtPayoffOverride") === true) {
       rows.push({
@@ -925,7 +1056,7 @@
     return warningMarkup + notesMarkup;
   }
 
-  function renderDimeResult(host, dimeResult, sharedWarnings) {
+  function renderDimeResult(host, dimeResult, sharedWarnings, lensModel) {
     const components = dimeResult.components || {};
     const offsets = dimeResult.commonOffsets || {};
     const assumptions = dimeResult.assumptions || {};
@@ -946,7 +1077,7 @@
       ])}
       ${renderExistingCoverageDetails(dimeResult)}
       ${renderAssetOffsetDetails(dimeResult)}
-      ${renderDimeDebtTreatmentDetails(dimeResult)}
+      ${renderDimeDebtTreatmentDetails(dimeResult, lensModel)}
       <div class="analysis-result-eyebrow">DIME Components</div>
       ${renderMoneyList([
         { label: "Debt", value: components.debt },
@@ -964,7 +1095,7 @@
     `;
   }
 
-  function renderNeedsResult(host, needsResult, sharedWarnings) {
+  function renderNeedsResult(host, needsResult, sharedWarnings, lensModel) {
     const components = needsResult.components || {};
     const offsets = needsResult.commonOffsets || {};
     const assumptions = needsResult.assumptions || {};
@@ -985,7 +1116,7 @@
       ])}
       ${renderExistingCoverageDetails(needsResult)}
       ${renderAssetOffsetDetails(needsResult)}
-      ${renderNeedsDebtTreatmentDetails(needsResult)}
+      ${renderNeedsDebtTreatmentDetails(needsResult, lensModel)}
       <div class="analysis-result-eyebrow">Support Reduction</div>
       ${renderMoneyList([
         { label: "Survivor Income Applied to Support", value: offsets.survivorIncomeOffset }
@@ -1127,7 +1258,8 @@
         renderDimeResult(
           dimeHost,
           runDimeAnalysis(builderResult.lensModel, cloneSettings(methodSettings.dimeSettings)),
-          sharedWarnings
+          sharedWarnings,
+          builderResult.lensModel
         );
       }
 
@@ -1135,7 +1267,8 @@
         renderNeedsResult(
           needsHost,
           runNeedsAnalysis(builderResult.lensModel, cloneSettings(methodSettings.needsAnalysisSettings)),
-          sharedWarnings
+          sharedWarnings,
+          builderResult.lensModel
         );
       }
 
