@@ -26,6 +26,7 @@ function createContext() {
   [
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
+    "app/features/lens-analysis/final-expense-inflation-calculations.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js"
   ].forEach(function (relativePath) {
@@ -45,6 +46,11 @@ function hasOwn(source, key) {
 
 function createLensModel() {
   return {
+    profileFacts: {
+      clientDateOfBirth: "1980-01-01",
+      clientDateOfBirthSourcePath: "profileRecord.dateOfBirth",
+      clientDateOfBirthStatus: "valid"
+    },
     incomeBasis: {
       annualIncomeReplacementBase: 120000,
       insuredRetirementHorizonYears: 20
@@ -108,6 +114,7 @@ function createAnalysisSettings(options = {}) {
       educationInflationRatePercent: 5,
       healthcareInflationRatePercent: 5,
       finalExpenseInflationRatePercent: 3,
+      finalExpenseTargetAge: 85,
       source: "inflation-assumptions-current-output-check",
       ...inflationOverrides
     },
@@ -289,8 +296,10 @@ function assertAdapterTraceTruthful(methodSettings) {
     return entry?.key === "inflationAssumptions-current-needs-and-future-use";
   });
   assert.ok(inflationTrace, "Adapter should emit truthful inflation current/future-use trace.");
-  assert.match(inflationTrace.message, /current Needs output/);
-  assert.match(inflationTrace.message, /healthcare and final expense rates are saved for future modeling/);
+  assert.match(inflationTrace.message, /current Needs support/);
+  assert.match(inflationTrace.message, /current Needs education/);
+  assert.match(inflationTrace.message, /final expense inflation can affect current Needs final expenses/);
+  assert.match(inflationTrace.message, /Healthcare inflation remains saved for future modeling/);
   assert.ok(
     inflationTrace.sourcePaths.includes("analysisSettings.inflationAssumptions"),
     "Adapter inflation trace should point to saved inflation assumptions."
@@ -331,6 +340,7 @@ assert.equal(typeof methods?.runNeedsAnalysis, "function");
 assert.equal(typeof methods?.runHumanLifeValueAnalysis, "function");
 assert.equal(typeof lensAnalysis.calculateInflationProjection, "function");
 assert.equal(typeof lensAnalysis.calculateEducationFundingProjection, "function");
+assert.equal(typeof lensAnalysis.calculateFinalExpenseInflationProjection, "function");
 
 const enabledRun = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({
   inflationAssumptions: {
@@ -560,7 +570,8 @@ const finalExpenseLow = runAllForAnalysisSettings(adapter, methods, createAnalys
     householdExpenseInflationRatePercent: 3,
     educationInflationRatePercent: 5,
     healthcareInflationRatePercent: 5,
-    finalExpenseInflationRatePercent: 1
+    finalExpenseInflationRatePercent: 1,
+    finalExpenseTargetAge: 85
   }
 }));
 const finalExpenseHigh = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({
@@ -568,18 +579,32 @@ const finalExpenseHigh = runAllForAnalysisSettings(adapter, methods, createAnaly
     householdExpenseInflationRatePercent: 3,
     educationInflationRatePercent: 5,
     healthcareInflationRatePercent: 5,
-    finalExpenseInflationRatePercent: 9
+    finalExpenseInflationRatePercent: 9,
+    finalExpenseTargetAge: 85
   }
 }));
+assert.ok(
+  finalExpenseHigh.results.needs.components.finalExpenses > finalExpenseLow.results.needs.components.finalExpenses,
+  "Final expense inflation should alter current Needs final expenses when DOB, valuation date, and target age are valid."
+);
+assert.ok(
+  finalExpenseHigh.results.needs.grossNeed > finalExpenseLow.results.needs.grossNeed,
+  "Final expense inflation should alter current Needs gross need when valid."
+);
 assert.deepEqual(
-  outputSnapshot(finalExpenseHigh.results),
-  outputSnapshot(finalExpenseLow.results),
-  "Final expense inflation should not alter current DIME, Needs, or HLV outputs."
+  dimeSnapshot(finalExpenseHigh.results),
+  dimeSnapshot(finalExpenseLow.results),
+  "Final expense inflation should not alter DIME output."
+);
+assert.deepEqual(
+  hlvSnapshot(finalExpenseHigh.results),
+  hlvSnapshot(finalExpenseLow.results),
+  "Final expense inflation should not alter HLV output."
 );
 assert.equal(
   finalExpenseHigh.methodSettings.needsAnalysisSettings.inflationAssumptions.finalExpenseInflationRatePercent,
   9,
-  "Needs settings may carry saved future-use final expense inflation for trace/readiness."
+  "Needs settings should carry saved current-output final expense inflation."
 );
 
 console.log("Inflation Assumptions current-output check passed.");

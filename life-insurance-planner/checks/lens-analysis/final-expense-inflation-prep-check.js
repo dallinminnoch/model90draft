@@ -80,6 +80,7 @@ function createLensAnalysisContext() {
     "app/features/lens-analysis/debt-treatment-calculations.js",
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
+    "app/features/lens-analysis/final-expense-inflation-calculations.js",
     "app/features/lens-analysis/lens-model-builder.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js"
@@ -238,7 +239,7 @@ function outputSnapshot(results) {
 
 const html = readRepoFile("pages/analysis-setup.html");
 assert.match(html, /data-analysis-inflation-field="finalExpenseTargetAge"/);
-assert.match(html, /Final expense target age \(future use\)/);
+assert.match(html, /Final expense target age \(Needs only\)/);
 
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;
@@ -322,15 +323,20 @@ const targetAge95 = runAll(context, {
     }
   })
 });
-assert.deepEqual(
-  outputSnapshot(targetAge95.results),
-  outputSnapshot(targetAge85.results),
-  "Changing finalExpenseTargetAge should not alter current DIME, Needs, or HLV outputs before activation."
-);
 assert.equal(
   targetAge95.methodSettings.needsAnalysisSettings.inflationAssumptions.finalExpenseTargetAge,
   95,
-  "Needs settings should preserve saved finalExpenseTargetAge for later activation."
+  "Needs settings should preserve saved finalExpenseTargetAge for current Needs final expense inflation."
+);
+assert.deepEqual(
+  outputSnapshot(targetAge95.results).dime,
+  outputSnapshot(targetAge85.results).dime,
+  "Changing finalExpenseTargetAge should not alter DIME output."
+);
+assert.deepEqual(
+  outputSnapshot(targetAge95.results).hlv,
+  outputSnapshot(targetAge85.results).hlv,
+  "Changing finalExpenseTargetAge should not alter HLV output."
 );
 
 const dob1980 = runAll(context, {
@@ -340,9 +346,14 @@ const dob1990 = runAll(context, {
   profileRecord: createProfileRecord({ dateOfBirth: "1990-06-15" })
 });
 assert.deepEqual(
-  outputSnapshot(dob1990.results),
-  outputSnapshot(dob1980.results),
-  "Changing normalized client DOB should not alter current outputs before final expense inflation activation."
+  outputSnapshot(dob1990.results).dime,
+  outputSnapshot(dob1980.results).dime,
+  "Changing normalized client DOB should not alter DIME output."
+);
+assert.deepEqual(
+  outputSnapshot(dob1990.results).hlv,
+  outputSnapshot(dob1980.results).hlv,
+  "Changing normalized client DOB should not alter HLV output."
 );
 
 console.log("Final Expense Inflation prep check passed.");

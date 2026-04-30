@@ -993,12 +993,82 @@
     return renderProjectionDetailSection("Education Funding Projection", rows);
   }
 
+  function getFinalExpenseInflationStatus(finalExpenseTrace) {
+    if (getTraceInput(finalExpenseTrace, "applied") === true) {
+      return "Applied";
+    }
+
+    const reason = String(getTraceInput(finalExpenseTrace, "reason") || "");
+    if (reason === "inflation-assumptions-disabled") {
+      return "Disabled";
+    }
+
+    return "Current-dollar";
+  }
+
+  function getFinalExpenseValuationDateDetailValue(finalExpenseTrace) {
+    const valuationDate = getTraceInput(finalExpenseTrace, "valuationDate");
+    if (!valuationDate) {
+      return "Not set";
+    }
+
+    if (getTraceInput(finalExpenseTrace, "valuationDateDefaulted") === true) {
+      return `${valuationDate} (defaulted)`;
+    }
+
+    return String(valuationDate);
+  }
+
+  function getFinalExpenseDobDetailValue(finalExpenseTrace) {
+    const status = formatTraceReason(getTraceInput(finalExpenseTrace, "clientDateOfBirthStatus")) || "Not set";
+    const clientDateOfBirth = getTraceInput(finalExpenseTrace, "clientDateOfBirth");
+    const sourcePath = getTraceInput(finalExpenseTrace, "clientDateOfBirthSourcePath");
+    const dateLabel = clientDateOfBirth ? `: ${clientDateOfBirth}` : "";
+    const sourceLabel = sourcePath ? ` (${sourcePath})` : "";
+
+    return `${status}${dateLabel}${sourceLabel}`;
+  }
+
+  function formatFinalExpenseInflationRateLabel(finalExpenseTrace) {
+    return `${formatPercent(getTraceInput(finalExpenseTrace, "finalExpenseInflationRatePercent"))} final expense inflation`;
+  }
+
+  function renderNeedsFinalExpenseProjectionDetail(needsResult) {
+    const finalExpenseTrace = findTrace(needsResult, "finalExpenses");
+    if (
+      !finalExpenseTrace
+      || !hasTraceInput(finalExpenseTrace, "currentFinalExpenseAmount")
+    ) {
+      return "";
+    }
+
+    const rows = [
+      { label: "Inflation status", value: getFinalExpenseInflationStatus(finalExpenseTrace) },
+      { label: "Final expense used", value: formatCurrency(getTraceInput(finalExpenseTrace, "projectedFinalExpenseAmount")) },
+      { label: "Current-dollar final expense", value: formatCurrency(getTraceInput(finalExpenseTrace, "currentFinalExpenseAmount")) },
+      { label: "Inflation rate", value: formatFinalExpenseInflationRateLabel(finalExpenseTrace) },
+      { label: "Target age", value: formatCount(getTraceInput(finalExpenseTrace, "finalExpenseTargetAge")) },
+      { label: "Client DOB status/source", value: getFinalExpenseDobDetailValue(finalExpenseTrace) },
+      { label: "Planning as-of date", value: getFinalExpenseValuationDateDetailValue(finalExpenseTrace) },
+      { label: "Current age", value: formatCount(getTraceInput(finalExpenseTrace, "currentAge")) },
+      { label: "Projection years", value: formatYears(getTraceInput(finalExpenseTrace, "projectionYears")) }
+    ];
+    const reason = formatTraceReason(getTraceInput(finalExpenseTrace, "reason"));
+
+    if (getTraceInput(finalExpenseTrace, "applied") !== true && reason) {
+      rows.push({ label: "Reason", value: reason });
+    }
+
+    return renderProjectionDetailSection("Final Expense Projection", rows);
+  }
+
   function renderNeedsProjectionDetails(needsResult) {
     const projectionDetails = [
       renderNeedsInflationDetail(needsResult),
       renderSurvivorIncomeDerivationDetail(needsResult),
       renderNeedsDiscretionaryInflationDetail(needsResult),
-      renderNeedsEducationInflationDetail(needsResult)
+      renderNeedsEducationInflationDetail(needsResult),
+      renderNeedsFinalExpenseProjectionDetail(needsResult)
     ].filter(Boolean);
 
     if (!projectionDetails.length) {

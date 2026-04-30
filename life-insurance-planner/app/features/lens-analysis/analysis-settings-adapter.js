@@ -440,29 +440,57 @@
     );
   }
 
+  function normalizeCurrentNeedsFinalExpenseInflationRate(source, normalized, warnings) {
+    const key = "finalExpenseInflationRatePercent";
+    const sourcePath = `analysisSettings.inflationAssumptions.${key}`;
+
+    if (!hasOwn(source, key)) {
+      delete normalized[key];
+      return;
+    }
+
+    const parsed = toOptionalNumber(source[key]);
+    if (parsed != null && parsed >= 0) {
+      normalized[key] = normalizeInflationRate(
+        source[key],
+        DEFAULT_INFLATION_ASSUMPTIONS[key],
+        key,
+        warnings
+      );
+      return;
+    }
+
+    warnings.push(createWarning(
+      `invalid-${key}-current-dollar-fallback`,
+      `${key} was invalid; Needs Analysis will use current-dollar final expenses.`,
+      "warning",
+      [sourcePath]
+    ));
+    delete normalized[key];
+  }
+
   function normalizeFinalExpenseTargetAge(value, warnings) {
     const sourcePath = "analysisSettings.inflationAssumptions.finalExpenseTargetAge";
-    const fallback = DEFAULT_INFLATION_ASSUMPTIONS.finalExpenseTargetAge;
     const parsed = toOptionalNumber(value);
 
     if (parsed == null) {
       warnings.push(createWarning(
         "invalid-finalExpenseTargetAge",
-        `finalExpenseTargetAge was invalid and defaulted to ${fallback}.`,
+        "finalExpenseTargetAge was invalid; Needs Analysis will use current-dollar final expenses.",
         "warning",
         [sourcePath]
       ));
-      return fallback;
+      return null;
     }
 
     if (parsed < MIN_FINAL_EXPENSE_TARGET_AGE || parsed > MAX_FINAL_EXPENSE_TARGET_AGE) {
       warnings.push(createWarning(
         "out-of-range-finalExpenseTargetAge",
-        `finalExpenseTargetAge was outside the supported range and defaulted to ${fallback}.`,
+        "finalExpenseTargetAge was outside the supported range; Needs Analysis will use current-dollar final expenses.",
         "warning",
         [sourcePath]
       ));
-      return fallback;
+      return null;
     }
 
     return parsed;
@@ -640,6 +668,11 @@
         return;
       }
 
+      if (key === "finalExpenseInflationRatePercent") {
+        normalizeCurrentNeedsFinalExpenseInflationRate(saved, normalized, warnings);
+        return;
+      }
+
       if (!hasOwn(saved, key)) {
         return;
       }
@@ -657,6 +690,8 @@
         saved.finalExpenseTargetAge,
         warnings
       );
+    } else {
+      delete normalized.finalExpenseTargetAge;
     }
 
     if (typeof saved.source === "string" && saved.source.trim()) {
@@ -791,7 +826,7 @@
       {
         key: "inflationAssumptions",
         traceKey: "inflationAssumptions-current-needs-and-future-use",
-        message: "Saved inflation assumptions are mapped into Needs settings. Household/general and education/general inflation can affect current Needs output; healthcare and final expense rates are saved for future modeling."
+        message: "Saved inflation assumptions are mapped into Needs settings. Household/general inflation can affect current Needs support, education/general inflation can affect current Needs education, and final expense inflation can affect current Needs final expenses. Healthcare inflation remains saved for future modeling."
       },
       {
         key: "growthAndReturnAssumptions",

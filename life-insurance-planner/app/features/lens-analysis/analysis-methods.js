@@ -21,6 +21,8 @@
   const TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.nonMortgageDebtAmount";
   const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
   const TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
+  const FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseInflationRatePercent";
+  const FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseTargetAge";
 
   const DIME_NON_MORTGAGE_DEBT_FIELDS = Object.freeze([
     Object.freeze({
@@ -2345,6 +2347,135 @@
     };
   }
 
+  function getFinalExpenseInflationWarningSeverity(warningCode) {
+    if (!warningCode) {
+      return null;
+    }
+
+    if (
+      warningCode === "final-expense-inflation-disabled"
+      || warningCode === "zero-or-missing-current-final-expense"
+      || warningCode === "final-expense-target-age-not-greater-than-current-age"
+    ) {
+      return "info";
+    }
+
+    return "warning";
+  }
+
+  function getFinalExpenseInflationWarningMessage(projection) {
+    const reasonMessages = {
+      "inflation-assumptions-disabled": "Inflation Assumptions are disabled.",
+      "zero-or-missing-current-final-expense": "current final expense is zero or missing.",
+      "final-expense-inflation-rate-unavailable": "the final expense inflation rate is missing or invalid.",
+      "final-expense-target-age-unavailable": "the final expense target age is missing or invalid.",
+      "client-date-of-birth-missing": "client date of birth is missing.",
+      "client-date-of-birth-invalid": "client date of birth is invalid.",
+      "valuation-date-unavailable": "Planning As-Of Date is missing, invalid, or defaulted.",
+      "target-age-not-greater-than-current-age": "the target age is not greater than current age.",
+      "final-expense-inflation-helper-unavailable": "the final expense inflation helper is unavailable."
+    };
+    const reason = reasonMessages[projection.reason] || projection.reason || "the required inputs were unavailable.";
+    return `Final expense inflation used current-dollar final expenses because ${reason}`;
+  }
+
+  function createCurrentDollarFinalExpenseInflationTrace(options) {
+    const normalizedOptions = isPlainObject(options) ? options : {};
+    const currentFinalExpenseAmount = normalizedOptions.currentFinalExpenseAmount || 0;
+    return {
+      source: "analysis-methods-current-dollar-fallback",
+      currentFinalExpenseAmount,
+      projectedFinalExpenseAmount: currentFinalExpenseAmount,
+      finalExpenseInflationRatePercent: null,
+      finalExpenseTargetAge: null,
+      clientDateOfBirth: getPath(normalizedOptions.model, "profileFacts.clientDateOfBirth") || null,
+      clientDateOfBirthSourcePath: getPath(normalizedOptions.model, "profileFacts.clientDateOfBirthSourcePath") || null,
+      clientDateOfBirthStatus: getPath(normalizedOptions.model, "profileFacts.clientDateOfBirthStatus") || null,
+      valuationDate: normalizedOptions.settings?.valuationDate || null,
+      valuationDateSource: normalizedOptions.settings?.valuationDateSource || null,
+      valuationDateDefaulted: normalizedOptions.settings?.valuationDateDefaulted === true,
+      currentAge: null,
+      projectionYears: 0,
+      applied: false,
+      reason: normalizedOptions.reason || "final-expense-inflation-helper-unavailable",
+      warningCode: normalizedOptions.warningCode || "final-expense-inflation-helper-unavailable",
+      rateSourcePath: FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
+      targetAgeSourcePath: FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH
+    };
+  }
+
+  function createNeedsFinalExpensesComponent(model, settings, warnings) {
+    const currentFinalExpenseAmount = normalizeComponentNumber({
+      value: getPath(model, "finalExpenses.totalFinalExpenseNeed"),
+      sourcePath: "finalExpenses.totalFinalExpenseNeed",
+      warnings,
+      warnWhenMissing: true,
+      missingCode: "missing-final-expense-need",
+      missingMessage: "totalFinalExpenseNeed was missing; Needs Analysis final expenses component defaulted to 0.",
+      negativeCode: "negative-value-treated-as-zero",
+      negativeMessage: "totalFinalExpenseNeed was negative and was treated as 0 for Needs Analysis."
+    });
+    const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
+      ? settings.inflationAssumptions
+      : {};
+    const calculateFinalExpenseInflationProjection = lensAnalysis.calculateFinalExpenseInflationProjection;
+    const sourcePaths = [
+      "finalExpenses.totalFinalExpenseNeed",
+      "settings.inflationAssumptions.enabled",
+      FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
+      FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH,
+      "profileFacts.clientDateOfBirth",
+      "settings.valuationDate"
+    ];
+    const projection = typeof calculateFinalExpenseInflationProjection === "function"
+      ? calculateFinalExpenseInflationProjection({
+          enabled: inflationAssumptions.enabled === true,
+          currentFinalExpenseAmount,
+          finalExpenseInflationRatePercent: inflationAssumptions.finalExpenseInflationRatePercent,
+          finalExpenseTargetAge: inflationAssumptions.finalExpenseTargetAge,
+          clientDateOfBirth: getPath(model, "profileFacts.clientDateOfBirth"),
+          clientDateOfBirthSourcePath: getPath(model, "profileFacts.clientDateOfBirthSourcePath"),
+          clientDateOfBirthStatus: getPath(model, "profileFacts.clientDateOfBirthStatus"),
+          valuationDate: settings.valuationDate,
+          valuationDateSource: settings.valuationDateSource,
+          valuationDateDefaulted: settings.valuationDateDefaulted,
+          valuationDateWarningCode: settings.valuationDateWarningCode,
+          rateSourcePath: FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
+          targetAgeSourcePath: FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH
+        })
+      : createCurrentDollarFinalExpenseInflationTrace({
+          model,
+          settings,
+          currentFinalExpenseAmount,
+          reason: "final-expense-inflation-helper-unavailable",
+          warningCode: "final-expense-inflation-helper-unavailable"
+        });
+
+    const warningSeverity = getFinalExpenseInflationWarningSeverity(projection.warningCode);
+    if (warningSeverity) {
+      addWarning(
+        warnings,
+        projection.warningCode,
+        getFinalExpenseInflationWarningMessage(projection),
+        warningSeverity,
+        sourcePaths
+      );
+    }
+
+    return {
+      value: projection.projectedFinalExpenseAmount,
+      formula: projection.applied
+        ? "currentFinalExpenseAmount x (1 + finalExpenseInflationRatePercent / 100) ^ projectionYears"
+        : "finalExpenses.totalFinalExpenseNeed",
+      inputs: {
+        ...projection,
+        totalFinalExpenseNeed: currentFinalExpenseAmount
+      },
+      sourcePaths,
+      inflation: projection
+    };
+  }
+
   function createDiscretionarySupportComponent(model, settings, needsSupportDurationYears, warnings) {
     const annualDiscretionarySupport = normalizeComponentNumber({
       value: getPath(model, "ongoingSupport.annualDiscretionaryPersonalSpending"),
@@ -2727,16 +2858,12 @@
       warnings
     );
     const education = educationComponent.value;
-    const finalExpenses = normalizeComponentNumber({
-      value: getPath(model, "finalExpenses.totalFinalExpenseNeed"),
-      sourcePath: "finalExpenses.totalFinalExpenseNeed",
-      warnings,
-      warnWhenMissing: true,
-      missingCode: "missing-final-expense-need",
-      missingMessage: "totalFinalExpenseNeed was missing; Needs Analysis final expenses component defaulted to 0.",
-      negativeCode: "negative-value-treated-as-zero",
-      negativeMessage: "totalFinalExpenseNeed was negative and was treated as 0 for Needs Analysis."
-    });
+    const finalExpensesComponent = createNeedsFinalExpensesComponent(
+      model,
+      normalizedSettings,
+      warnings
+    );
+    const finalExpenses = finalExpensesComponent.value;
     const transitionNeeds = includeTransitionNeeds
       ? normalizeComponentNumber({
           value: getPath(model, "transitionNeeds.totalTransitionNeed"),
@@ -3051,12 +3178,10 @@
     trace.push(createTraceRow({
       key: "finalExpenses",
       label: "Final Expenses",
-      formula: "finalExpenses.totalFinalExpenseNeed",
-      inputs: {
-        totalFinalExpenseNeed: finalExpenses
-      },
+      formula: finalExpensesComponent.formula,
+      inputs: finalExpensesComponent.inputs,
       value: finalExpenses,
-      sourcePaths: ["finalExpenses.totalFinalExpenseNeed"]
+      sourcePaths: finalExpensesComponent.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "transitionNeeds",
