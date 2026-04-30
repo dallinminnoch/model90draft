@@ -70,6 +70,24 @@
         totalDebtPayoffNeed: null
       },
 
+      // Raw debt facts projected from scalar PMI debt fields and repeatable
+      // debtRecords[]. This is not treatment logic and does not replace the
+      // current debtPayoff compatibility bucket used by methods.
+      debtFacts: {
+        debts: [],
+        totalReportedDebtBalance: null,
+        metadata: {
+          source: "protectionModeling.data",
+          taxonomySource: "debt-taxonomy",
+          scalarDebtSource: "scalar-compatibility-fields",
+          debtRecordsSource: "protectionModeling.data.debtRecords",
+          acceptedScalarDebtCount: 0,
+          acceptedDebtRecordCount: 0,
+          invalidDebtRecordCount: 0,
+          warnings: []
+        }
+      },
+
       // Recurring survivor-support needs. Housing fields capture the current
       // monthly and annual support burden before any future mortgage payoff or
       // timeline adjustments. These are neutral facts, not recommendations.

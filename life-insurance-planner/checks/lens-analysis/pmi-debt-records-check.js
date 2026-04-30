@@ -127,8 +127,6 @@ function assertNoProtectedDiffs() {
     "pages/manual-protection-modeling-inputs.html",
     "app/features/lens-analysis/blocks/debt-payoff.js",
     "app/features/lens-analysis/lens-model-builder.js",
-    "app/features/lens-analysis/normalize-lens-model.js",
-    "app/features/lens-analysis/schema.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",

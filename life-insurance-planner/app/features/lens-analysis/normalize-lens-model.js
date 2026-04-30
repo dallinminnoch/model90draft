@@ -19,6 +19,11 @@
   const TAX_CONTEXT_BLOCK_ID = lensAnalysis.TAX_CONTEXT_BLOCK_ID || "tax-context";
   const ONGOING_SUPPORT_COMPOSITION_BLOCK_ID = "ongoingSupport-composition";
   const ONGOING_SUPPORT_COMPOSITION_BLOCK_TYPE = "bucket-composition";
+  const BLOCKED_DEBT_FACT_KEYS = Object.freeze([
+    "primaryResidenceEquity",
+    "realEstateEquity",
+    "otherRealEstateEquity"
+  ]);
 
   // This pass normalizes the currently proven runtime block outputs into the
   // canonical incomeBasis, debtPayoff, ongoingSupport, educationSupport,
@@ -629,6 +634,11 @@
     return null;
   }
 
+  function toOptionalNonNegativeNumber(value) {
+    const numericValue = toOptionalNumber(value);
+    return numericValue == null || numericValue < 0 ? null : numericValue;
+  }
+
   function getAssetTaxonomy() {
     const taxonomy = lensAnalysis.assetTaxonomy && typeof lensAnalysis.assetTaxonomy === "object"
       ? lensAnalysis.assetTaxonomy
@@ -989,6 +999,466 @@
     return projection.metadata;
   }
 
+  function normalizeDebtRecordString(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
+  function normalizeDebtRecordToken(value) {
+    return normalizeDebtRecordString(value)
+      .replace(/[^A-Za-z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function isBlockedDebtFactKey(value) {
+    return BLOCKED_DEBT_FACT_KEYS.indexOf(normalizeDebtRecordString(value)) !== -1;
+  }
+
+  function getDebtTaxonomy() {
+    const taxonomy = lensAnalysis.debtTaxonomy && typeof lensAnalysis.debtTaxonomy === "object"
+      ? lensAnalysis.debtTaxonomy
+      : {};
+    const categories = Array.isArray(taxonomy.DEFAULT_DEBT_CATEGORIES)
+      ? taxonomy.DEFAULT_DEBT_CATEGORIES
+      : [];
+    const scalarSourceFields = Array.isArray(taxonomy.CURRENT_PMI_DEBT_SOURCE_FIELDS)
+      ? taxonomy.CURRENT_PMI_DEBT_SOURCE_FIELDS
+      : [];
+
+    return {
+      categories,
+      scalarSourceFields,
+      taxonomySource: categories.length ? "debt-taxonomy" : "unavailable"
+    };
+  }
+
+  function getDebtLibraryEntry(typeKey) {
+    const normalizedTypeKey = normalizeDebtRecordString(typeKey);
+    if (!normalizedTypeKey) {
+      return null;
+    }
+
+    const debtLibrary = lensAnalysis.debtLibrary && typeof lensAnalysis.debtLibrary === "object"
+      ? lensAnalysis.debtLibrary
+      : {};
+
+    if (typeof debtLibrary.findDebtLibraryEntry === "function") {
+      return debtLibrary.findDebtLibraryEntry(normalizedTypeKey);
+    }
+
+    const entries = Array.isArray(debtLibrary.DEBT_LIBRARY_ENTRIES)
+      ? debtLibrary.DEBT_LIBRARY_ENTRIES
+      : [];
+    return entries.find(function (entry) {
+      return entry
+        && (entry.typeKey === normalizedTypeKey || entry.libraryEntryKey === normalizedTypeKey);
+    }) || null;
+  }
+
+  function getDebtCategoryByKey(taxonomy, categoryKey) {
+    const safeTaxonomy = taxonomy && typeof taxonomy === "object" ? taxonomy : {};
+    const categories = Array.isArray(safeTaxonomy.categories) ? safeTaxonomy.categories : [];
+    const normalizedCategoryKey = normalizeDebtRecordString(categoryKey);
+
+    if (!normalizedCategoryKey) {
+      return null;
+    }
+
+    return categories.find(function (category) {
+      return category && category.categoryKey === normalizedCategoryKey;
+    }) || null;
+  }
+
+  function createDebtFactWarning(code, message, details) {
+    return {
+      code,
+      message,
+      details: details || null
+    };
+  }
+
+  function hasUsableDebtSourceValue(sourceData, sourceKey) {
+    if (!sourceData || typeof sourceData !== "object" || !sourceKey) {
+      return false;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(sourceData, sourceKey)) {
+      return false;
+    }
+
+    const rawValue = sourceData[sourceKey];
+    return rawValue != null && String(rawValue).trim() !== "";
+  }
+
+  function createScalarDebtFactId(sourceKey) {
+    return "scalar_debt_" + (normalizeDebtRecordToken(sourceKey) || "unknown");
+  }
+
+  function createFallbackDebtRecordFactId(debtRecord, index) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const categoryToken = normalizeDebtRecordToken(safeDebtRecord.categoryKey) || "uncategorized";
+    const typeToken = normalizeDebtRecordToken(safeDebtRecord.typeKey || safeDebtRecord.label) || "debt";
+    const positionToken = Number.isInteger(index) ? index + 1 : 1;
+
+    return "debt_record_" + categoryToken + "_" + typeToken + "_" + positionToken;
+  }
+
+  function createDebtFactFromScalarSource(sourceData, sourceField, taxonomy) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
+    const sourceKey = normalizeDebtRecordString(safeSourceField.sourceKey);
+    const warnings = [];
+
+    if (!sourceKey || !hasUsableDebtSourceValue(safeSourceData, sourceKey)) {
+      return {
+        debt: null,
+        warnings
+      };
+    }
+
+    const categoryKey = normalizeDebtRecordString(safeSourceField.categoryKey);
+    const taxonomyCategory = getDebtCategoryByKey(taxonomy, categoryKey);
+    const currentBalance = toOptionalNumber(safeSourceData[sourceKey]);
+
+    if (isBlockedDebtFactKey(sourceKey) || isBlockedDebtFactKey(categoryKey)) {
+      warnings.push(createDebtFactWarning(
+        "equity-scalar-debt-source-rejected",
+        "Equity fields are not debt facts and were not projected into debtFacts.",
+        { sourceKey, categoryKey }
+      ));
+    }
+
+    if (!categoryKey) {
+      warnings.push(createDebtFactWarning(
+        "missing-scalar-debt-category",
+        "Scalar debt source metadata is missing a categoryKey.",
+        { sourceKey }
+      ));
+    } else if (!taxonomyCategory) {
+      warnings.push(createDebtFactWarning(
+        "unknown-scalar-debt-category",
+        "Scalar debt source categoryKey is not present in the debt taxonomy.",
+        { sourceKey, categoryKey }
+      ));
+    }
+
+    if (currentBalance == null) {
+      warnings.push(createDebtFactWarning(
+        "invalid-scalar-debt-balance",
+        "Scalar debt source is missing a numeric balance.",
+        { sourceKey, categoryKey }
+      ));
+    } else if (currentBalance < 0) {
+      warnings.push(createDebtFactWarning(
+        "negative-scalar-debt-balance",
+        "Scalar debt source had a negative balance and was not projected into debtFacts.",
+        { sourceKey, categoryKey }
+      ));
+    }
+
+    if (warnings.length) {
+      return {
+        debt: null,
+        warnings
+      };
+    }
+
+    return {
+      debt: {
+        debtFactId: createScalarDebtFactId(sourceKey),
+        categoryKey,
+        typeKey: sourceKey,
+        label: normalizeDebtRecordString(safeSourceField.label) || sourceKey,
+        currentBalance,
+        minimumMonthlyPayment: null,
+        interestRatePercent: null,
+        remainingTermMonths: null,
+        securedBy: null,
+        sourceKey,
+        source: "protectionModeling.data",
+        isHousingFieldOwned: safeSourceField.isHousingFieldOwned === true,
+        isScalarCompatibilityDebt: true,
+        isRepeatableDebtRecord: false,
+        isCustomDebt: false,
+        metadata: {
+          sourceType: "user-input",
+          confidence: "reported",
+          canonicalDestination: "debtFacts.debts",
+          recordSource: "scalar-compatibility-field",
+          owner: normalizeDebtRecordString(safeSourceField.owner) || null,
+          taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          duplicateProtection: safeSourceField.duplicateProtection || null
+        }
+      },
+      warnings
+    };
+  }
+
+  function createDebtFactFromDebtRecord(debtRecord, index, taxonomy) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const warnings = [];
+    const categoryKey = normalizeDebtRecordString(safeDebtRecord.categoryKey);
+    const typeKey = normalizeDebtRecordString(safeDebtRecord.typeKey);
+    const taxonomyCategory = getDebtCategoryByKey(taxonomy, categoryKey);
+    const libraryEntry = getDebtLibraryEntry(typeKey);
+    const currentBalance = toOptionalNumber(safeDebtRecord.currentBalance);
+    const debtId = normalizeDebtRecordString(safeDebtRecord.debtId);
+
+    if (
+      isBlockedDebtFactKey(categoryKey)
+      || isBlockedDebtFactKey(typeKey)
+      || isBlockedDebtFactKey(safeDebtRecord.sourceKey)
+    ) {
+      warnings.push(createDebtFactWarning(
+        "equity-debt-record-rejected",
+        "Equity fields are not debt facts and were not projected into debtFacts.",
+        { index, categoryKey: categoryKey || null, typeKey: typeKey || null }
+      ));
+    }
+
+    if (typeKey === "primaryResidenceMortgage" || (libraryEntry && libraryEntry.isHousingFieldOwned === true)) {
+      warnings.push(createDebtFactWarning(
+        "protected-mortgage-debt-record-rejected",
+        "Primary residence mortgage debtRecords are ignored because mortgageBalance is the housing-owned source.",
+        { index, debtId: debtId || null, typeKey: typeKey || null, ownedByField: libraryEntry?.ownedByField || "mortgageBalance" }
+      ));
+    }
+
+    if (libraryEntry && libraryEntry.isAddable === false) {
+      warnings.push(createDebtFactWarning(
+        "non-addable-debt-record-rejected",
+        "Non-addable debt library entries are not projected into debtFacts.",
+        { index, debtId: debtId || null, typeKey: typeKey || null }
+      ));
+    }
+
+    if (!categoryKey) {
+      warnings.push(createDebtFactWarning(
+        "missing-debt-record-category",
+        "Debt record is missing a categoryKey.",
+        { index, debtId: debtId || null }
+      ));
+    } else if (!taxonomyCategory) {
+      warnings.push(createDebtFactWarning(
+        "unknown-debt-record-category",
+        "Debt record categoryKey is not present in the debt taxonomy.",
+        { index, debtId: debtId || null, categoryKey }
+      ));
+    }
+
+    if (!typeKey) {
+      warnings.push(createDebtFactWarning(
+        "missing-debt-record-type",
+        "Debt record is missing a typeKey.",
+        { index, debtId: debtId || null, categoryKey: categoryKey || null }
+      ));
+    } else if (!libraryEntry) {
+      warnings.push(createDebtFactWarning(
+        "unknown-debt-record-type",
+        "Debt record typeKey is not present in the debt library.",
+        { index, debtId: debtId || null, typeKey }
+      ));
+    } else if (categoryKey && libraryEntry.categoryKey !== categoryKey) {
+      warnings.push(createDebtFactWarning(
+        "debt-record-category-type-mismatch",
+        "Debt record categoryKey does not match the debt library entry categoryKey.",
+        {
+          index,
+          debtId: debtId || null,
+          typeKey,
+          categoryKey,
+          expectedCategoryKey: libraryEntry.categoryKey
+        }
+      ));
+    }
+
+    if (currentBalance == null) {
+      warnings.push(createDebtFactWarning(
+        "missing-debt-record-balance",
+        "Debt record is missing a numeric currentBalance.",
+        { index, debtId: debtId || null, categoryKey: categoryKey || null, typeKey: typeKey || null }
+      ));
+    } else if (currentBalance < 0) {
+      warnings.push(createDebtFactWarning(
+        "negative-debt-record-balance",
+        "Debt record had a negative currentBalance and was not projected into debtFacts.",
+        { index, debtId: debtId || null, categoryKey: categoryKey || null, typeKey: typeKey || null }
+      ));
+    }
+
+    if (warnings.length) {
+      return {
+        debt: null,
+        warnings
+      };
+    }
+
+    const metadata = safeDebtRecord.metadata && typeof safeDebtRecord.metadata === "object"
+      ? clonePlainValue(safeDebtRecord.metadata)
+      : {};
+    const libraryEntryKey = normalizeDebtRecordString(
+      metadata.libraryEntryKey || safeDebtRecord.libraryEntryKey || typeKey
+    );
+
+    return {
+      debt: {
+        debtFactId: debtId || createFallbackDebtRecordFactId(safeDebtRecord, index),
+        categoryKey,
+        typeKey,
+        label: normalizeDebtRecordString(safeDebtRecord.label)
+          || normalizeDebtRecordString(libraryEntry && libraryEntry.label)
+          || typeKey,
+        currentBalance,
+        minimumMonthlyPayment: toOptionalNonNegativeNumber(safeDebtRecord.minimumMonthlyPayment),
+        interestRatePercent: toOptionalNonNegativeNumber(safeDebtRecord.interestRatePercent),
+        remainingTermMonths: toOptionalNonNegativeNumber(safeDebtRecord.remainingTermMonths),
+        securedBy: normalizeDebtRecordString(safeDebtRecord.securedBy) || null,
+        sourceKey: normalizeDebtRecordString(safeDebtRecord.sourceKey) || null,
+        source: "protectionModeling.data.debtRecords",
+        isHousingFieldOwned: false,
+        isScalarCompatibilityDebt: false,
+        isRepeatableDebtRecord: true,
+        isCustomDebt: safeDebtRecord.isCustomDebt === true || typeKey === "customDebt" || categoryKey === "otherDebt",
+        metadata: Object.assign({}, metadata, {
+          sourceType: "user-input",
+          confidence: metadata.confidence || "reported",
+          canonicalDestination: "debtFacts.debts",
+          recordSource: "debtRecords",
+          sourceIndex: Number.isInteger(index) ? index : null,
+          taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          libraryEntryKey,
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null
+        })
+      },
+      warnings
+    };
+  }
+
+  function createDebtFactsFromDebtRecords(sourceData, taxonomy) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const sourceRecords = Array.isArray(safeSourceData.debtRecords) ? safeSourceData.debtRecords : [];
+    const debts = [];
+    const warnings = [];
+
+    sourceRecords.forEach(function (debtRecord, index) {
+      const result = createDebtFactFromDebtRecord(debtRecord, index, taxonomy);
+      warnings.push.apply(warnings, result.warnings);
+
+      if (result.debt) {
+        debts.push(result.debt);
+      }
+    });
+
+    return {
+      debts,
+      sourceRecordCount: sourceRecords.length,
+      acceptedRecordCount: debts.length,
+      invalidRecordCount: sourceRecords.length - debts.length,
+      warnings
+    };
+  }
+
+  function markDuplicateDebtFactIds(debts) {
+    const seenDebtIds = {};
+    const duplicateDebtIds = [];
+
+    debts.forEach(function (debt) {
+      const debtFactId = debt && debt.debtFactId ? debt.debtFactId : null;
+      if (!debtFactId) {
+        return;
+      }
+
+      if (seenDebtIds[debtFactId]) {
+        if (duplicateDebtIds.indexOf(debtFactId) === -1) {
+          duplicateDebtIds.push(debtFactId);
+        }
+        debt.metadata = Object.assign({}, debt.metadata, {
+          duplicateDebtId: true
+        });
+        return;
+      }
+
+      seenDebtIds[debtFactId] = true;
+    });
+
+    return duplicateDebtIds;
+  }
+
+  function createDebtFactsFromSourceData(sourceData) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const taxonomy = getDebtTaxonomy();
+    const debts = [];
+    const warnings = [];
+
+    taxonomy.scalarSourceFields.forEach(function (sourceField) {
+      const result = createDebtFactFromScalarSource(safeSourceData, sourceField, taxonomy);
+      warnings.push.apply(warnings, result.warnings);
+
+      if (result.debt) {
+        debts.push(result.debt);
+      }
+    });
+
+    const debtRecordsProjection = createDebtFactsFromDebtRecords(safeSourceData, taxonomy);
+    debts.push.apply(debts, debtRecordsProjection.debts);
+    warnings.push.apply(warnings, debtRecordsProjection.warnings);
+    const duplicateDebtIds = markDuplicateDebtFactIds(debts);
+
+    duplicateDebtIds.forEach(function (debtId) {
+      warnings.push(createDebtFactWarning(
+        "duplicate-debt-fact-id",
+        "Multiple debt facts share the same debtFactId; records were kept and marked for review.",
+        { debtFactId: debtId }
+      ));
+    });
+
+    const manualTotalDebtPayoffOverride = toOptionalBoolean(safeSourceData.totalDebtPayoffNeedManualOverride) === true;
+
+    return {
+      debts,
+      totalReportedDebtBalance: sumOptionalBucketComponents(debts.map(function (debt) {
+        return debt.currentBalance;
+      })),
+      metadata: {
+        source: "protectionModeling.data",
+        taxonomySource: taxonomy.taxonomySource,
+        scalarDebtSource: "scalar-compatibility-fields",
+        debtRecordsSource: "protectionModeling.data.debtRecords",
+        scalarDebtSourceFieldCount: taxonomy.scalarSourceFields.length,
+        acceptedScalarDebtCount: debts.filter(function (debt) {
+          return debt && debt.isScalarCompatibilityDebt === true;
+        }).length,
+        debtRecordCount: debtRecordsProjection.sourceRecordCount,
+        acceptedDebtRecordCount: debtRecordsProjection.acceptedRecordCount,
+        invalidDebtRecordCount: debtRecordsProjection.invalidRecordCount,
+        duplicateDebtIds,
+        manualTotalDebtPayoffOverride,
+        manualTotalDebtPayoffNeed: manualTotalDebtPayoffOverride
+          ? toOptionalNumber(safeSourceData.totalDebtPayoffNeed)
+          : null,
+        manualOverrideSource: manualTotalDebtPayoffOverride
+          ? "debtPayoff.totalDebtPayoffNeed"
+          : null,
+        warnings
+      }
+    };
+  }
+
+  function applyDebtFactsProjection(lensModel, options) {
+    const safeLensModel = lensModel && typeof lensModel === "object" ? lensModel : {};
+    const normalizedOptions = options && typeof options === "object" ? options : {};
+    const projection = createDebtFactsFromSourceData(normalizedOptions.sourceData);
+
+    if (!safeLensModel.debtFacts || typeof safeLensModel.debtFacts !== "object") {
+      safeLensModel.debtFacts = {};
+    }
+
+    safeLensModel.debtFacts.debts = projection.debts;
+    safeLensModel.debtFacts.totalReportedDebtBalance = projection.totalReportedDebtBalance;
+    safeLensModel.debtFacts.metadata = projection.metadata;
+
+    return projection.metadata;
+  }
+
   function normalizeBlockOutputValue(value, mapping) {
     const normalizedMapping = mapping && typeof mapping === "object" ? mapping : {};
 
@@ -1224,12 +1694,14 @@
     );
     applyOngoingSupportComposition(lensModel.ongoingSupport, ongoingSupportNormalizationMetadata);
     const assetFactsNormalizationMetadata = applyAssetFactsProjection(lensModel, options);
+    const debtFactsNormalizationMetadata = applyDebtFactsProjection(lensModel, options);
 
     // Provenance stays outside the canonical bucket facts so future formulas
     // can read canonical buckets directly without mixing data and metadata.
     lensModel.normalizationMetadata = {
       incomeBasis: incomeBasisNormalizationMetadata,
       debtPayoff: debtPayoffNormalizationMetadata,
+      debtFacts: debtFactsNormalizationMetadata,
       ongoingSupport: ongoingSupportNormalizationMetadata,
       educationSupport: educationSupportNormalizationMetadata,
       finalExpenses: finalExpensesNormalizationMetadata,
@@ -1272,5 +1744,7 @@
   lensAnalysis.SURVIVOR_SCENARIO_BLOCK_OUTPUT_NORMALIZATION_MAP = SURVIVOR_SCENARIO_BLOCK_OUTPUT_NORMALIZATION_MAP;
   lensAnalysis.createAssetFactsFromSourceData = createAssetFactsFromSourceData;
   lensAnalysis.applyAssetFactsProjection = applyAssetFactsProjection;
+  lensAnalysis.createDebtFactsFromSourceData = createDebtFactsFromSourceData;
+  lensAnalysis.applyDebtFactsProjection = applyDebtFactsProjection;
   lensAnalysis.createLensModelFromBlockOutputs = createLensModelFromBlockOutputs;
 })();
