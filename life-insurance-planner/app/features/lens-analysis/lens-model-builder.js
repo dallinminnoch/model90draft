@@ -368,6 +368,35 @@
       .filter(Boolean);
   }
 
+  function createProfileFacts(profileRecord) {
+    const hasDateOfBirth = Object.prototype.hasOwnProperty.call(profileRecord || {}, "dateOfBirth");
+    const rawDateOfBirth = normalizeString(profileRecord?.dateOfBirth);
+    const normalizedDateOfBirth = normalizeDateOnlyValue(rawDateOfBirth);
+    const status = normalizedDateOfBirth
+      ? "valid"
+      : (rawDateOfBirth ? "invalid" : "missing");
+
+    return {
+      clientDateOfBirth: normalizedDateOfBirth,
+      clientDateOfBirthSourcePath: hasDateOfBirth ? "profileRecord.dateOfBirth" : null,
+      clientDateOfBirthStatus: status
+    };
+  }
+
+  function attachProfileFacts(lensModel, profileRecord) {
+    if (!isPlainObject(lensModel)) {
+      return lensModel;
+    }
+
+    return {
+      ...lensModel,
+      profileFacts: {
+        ...clonePlainObject(lensModel.profileFacts),
+        ...createProfileFacts(profileRecord)
+      }
+    };
+  }
+
   function getProfileCurrentDependentCount(profileRecord, profileFieldNames) {
     const getCurrentDependentCount = LensApp.clientRecords?.getCurrentDependentCount;
     if (hasStructuredDependentDetailsSource(profileRecord) && typeof getCurrentDependentCount === "function") {
@@ -1851,6 +1880,7 @@
       });
 
       if (isPlainObject(lensModel)) {
+        lensModel = attachProfileFacts(lensModel, builderInput.profileRecord);
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);

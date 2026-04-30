@@ -17,6 +17,8 @@
     finalExpenseInflationRatePercent: "Final expense inflation"
   };
 
+  const FINAL_EXPENSE_TARGET_AGE_FIELD = "finalExpenseTargetAge";
+
   const GROWTH_RATE_FIELDS = [
     "primaryIncomeGrowthRatePercent",
     "partnerIncomeGrowthRatePercent",
@@ -59,6 +61,7 @@
     educationInflationRatePercent: 5,
     healthcareInflationRatePercent: 5,
     finalExpenseInflationRatePercent: 3,
+    finalExpenseTargetAge: 85,
     source: "analysis-setup"
   });
 
@@ -858,6 +861,8 @@
 
   const MIN_RATE = 0;
   const MAX_RATE = 10;
+  const MIN_FINAL_EXPENSE_TARGET_AGE = 0;
+  const MAX_FINAL_EXPENSE_TARGET_AGE = 120;
   const MIN_GROWTH_RATE = 0;
   const MAX_GROWTH_RATE = 12;
   const MIN_METHOD_YEARS = 0;
@@ -1004,6 +1009,18 @@
     }
 
     return clampRateValue(number);
+  }
+
+  function normalizeFinalExpenseTargetAgeValue(value, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return fallback;
+    }
+
+    return Math.min(
+      MAX_FINAL_EXPENSE_TARGET_AGE,
+      Math.max(MIN_FINAL_EXPENSE_TARGET_AGE, Number(number.toFixed(2)))
+    );
   }
 
   function clampRateValue(value) {
@@ -1516,6 +1533,11 @@
         DEFAULT_INFLATION_ASSUMPTIONS[fieldName]
       );
     });
+
+    nextAssumptions.finalExpenseTargetAge = normalizeFinalExpenseTargetAgeValue(
+      saved.finalExpenseTargetAge,
+      DEFAULT_INFLATION_ASSUMPTIONS.finalExpenseTargetAge
+    );
 
     if (saved.lastUpdatedAt) {
       nextAssumptions.lastUpdatedAt = String(saved.lastUpdatedAt);
@@ -3855,6 +3877,12 @@
         updateRateSliderProgress(sliders[fieldName]);
       }
     });
+
+    if (fields[FINAL_EXPENSE_TARGET_AGE_FIELD]) {
+      fields[FINAL_EXPENSE_TARGET_AGE_FIELD].value = formatHaircutInputValue(
+        assumptions.finalExpenseTargetAge
+      );
+    }
   }
 
   function populateMethodFields(fields, defaults) {
@@ -5510,6 +5538,33 @@
       nextAssumptions[fieldName] = Number(number.toFixed(2));
     }
 
+    const targetAgeField = fields[FINAL_EXPENSE_TARGET_AGE_FIELD];
+    if (targetAgeField) {
+      const rawTargetAge = String(targetAgeField.value || "").trim();
+      if (!rawTargetAge) {
+        return {
+          error: `Final expense target age is required. Enter a value from ${MIN_FINAL_EXPENSE_TARGET_AGE} to ${MAX_FINAL_EXPENSE_TARGET_AGE}.`
+        };
+      }
+
+      const targetAge = Number(rawTargetAge);
+      if (!Number.isFinite(targetAge)) {
+        return {
+          error: "Final expense target age must be numeric."
+        };
+      }
+
+      if (targetAge < MIN_FINAL_EXPENSE_TARGET_AGE || targetAge > MAX_FINAL_EXPENSE_TARGET_AGE) {
+        return {
+          error: `Final expense target age must be between ${MIN_FINAL_EXPENSE_TARGET_AGE} and ${MAX_FINAL_EXPENSE_TARGET_AGE}.`
+        };
+      }
+
+      nextAssumptions.finalExpenseTargetAge = Number(targetAge.toFixed(2));
+    } else {
+      nextAssumptions.finalExpenseTargetAge = DEFAULT_INFLATION_ASSUMPTIONS.finalExpenseTargetAge;
+    }
+
     return {
       value: {
         ...nextAssumptions,
@@ -6707,6 +6762,19 @@
       syncSliderFromNumber(fields, sliders, fieldName, true);
     });
 
+    const finalExpenseTargetAgeField = fields[FINAL_EXPENSE_TARGET_AGE_FIELD];
+    const finalExpenseTargetAgeRaw = String(finalExpenseTargetAgeField?.value || "").trim();
+    const finalExpenseTargetAgeNumber = Number(finalExpenseTargetAgeRaw);
+    if (
+      finalExpenseTargetAgeField
+      && finalExpenseTargetAgeRaw
+      && Number.isFinite(finalExpenseTargetAgeNumber)
+      && finalExpenseTargetAgeNumber >= MIN_FINAL_EXPENSE_TARGET_AGE
+      && finalExpenseTargetAgeNumber <= MAX_FINAL_EXPENSE_TARGET_AGE
+    ) {
+      finalExpenseTargetAgeField.value = formatHaircutInputValue(finalExpenseTargetAgeNumber);
+    }
+
     resetHlvProjectionYearsToDefault(methodFields, linkedRecord);
 
     METHOD_DEFAULT_FIELDS.forEach(function (fieldName) {
@@ -7235,6 +7303,21 @@
         syncNumberFromSlider(fields, sliders, fieldName);
         markUnsaved();
       });
+    });
+
+    fields[FINAL_EXPENSE_TARGET_AGE_FIELD]?.addEventListener("input", markUnsaved);
+    fields[FINAL_EXPENSE_TARGET_AGE_FIELD]?.addEventListener("change", function () {
+      const rawValue = String(fields[FINAL_EXPENSE_TARGET_AGE_FIELD]?.value || "").trim();
+      const number = Number(rawValue);
+      if (
+        rawValue
+        && Number.isFinite(number)
+        && number >= MIN_FINAL_EXPENSE_TARGET_AGE
+        && number <= MAX_FINAL_EXPENSE_TARGET_AGE
+      ) {
+        fields[FINAL_EXPENSE_TARGET_AGE_FIELD].value = formatHaircutInputValue(number);
+      }
+      markUnsaved();
     });
 
     METHOD_DEFAULT_FIELDS.forEach(function (fieldName) {

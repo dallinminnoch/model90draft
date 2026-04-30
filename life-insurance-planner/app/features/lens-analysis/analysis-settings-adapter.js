@@ -9,6 +9,7 @@
     educationInflationRatePercent: 5,
     healthcareInflationRatePercent: 5,
     finalExpenseInflationRatePercent: 3,
+    finalExpenseTargetAge: 85,
     source: "analysis-setup"
   });
   const INFLATION_RATE_FIELDS = Object.freeze([
@@ -19,6 +20,8 @@
     "finalExpenseInflationRatePercent"
   ]);
   const MAX_INFLATION_RATE_PERCENT = 100;
+  const MIN_FINAL_EXPENSE_TARGET_AGE = 0;
+  const MAX_FINAL_EXPENSE_TARGET_AGE = 120;
   const DEFAULT_EDUCATION_START_AGE = 18;
   const MIN_EDUCATION_START_AGE = 0;
   const MAX_EDUCATION_START_AGE = 30;
@@ -437,6 +440,34 @@
     );
   }
 
+  function normalizeFinalExpenseTargetAge(value, warnings) {
+    const sourcePath = "analysisSettings.inflationAssumptions.finalExpenseTargetAge";
+    const fallback = DEFAULT_INFLATION_ASSUMPTIONS.finalExpenseTargetAge;
+    const parsed = toOptionalNumber(value);
+
+    if (parsed == null) {
+      warnings.push(createWarning(
+        "invalid-finalExpenseTargetAge",
+        `finalExpenseTargetAge was invalid and defaulted to ${fallback}.`,
+        "warning",
+        [sourcePath]
+      ));
+      return fallback;
+    }
+
+    if (parsed < MIN_FINAL_EXPENSE_TARGET_AGE || parsed > MAX_FINAL_EXPENSE_TARGET_AGE) {
+      warnings.push(createWarning(
+        "out-of-range-finalExpenseTargetAge",
+        `finalExpenseTargetAge was outside the supported range and defaulted to ${fallback}.`,
+        "warning",
+        [sourcePath]
+      ));
+      return fallback;
+    }
+
+    return parsed;
+  }
+
   function normalizeEducationPercent(value, fallback, key, warnings) {
     const sourcePath = `analysisSettings.educationAssumptions.fundingTreatment.${key}`;
     const parsed = toOptionalNumber(value);
@@ -620,6 +651,13 @@
         warnings
       );
     });
+
+    if (hasOwn(saved, "finalExpenseTargetAge")) {
+      normalized.finalExpenseTargetAge = normalizeFinalExpenseTargetAge(
+        saved.finalExpenseTargetAge,
+        warnings
+      );
+    }
 
     if (typeof saved.source === "string" && saved.source.trim()) {
       normalized.source = saved.source.trim();

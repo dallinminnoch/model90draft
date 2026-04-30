@@ -225,7 +225,7 @@
 
     rootProfileFactsUsedDuringNormalization: [
       { rawField: "age", canonicalField: null, note: "Supporting context only. Current age should not be conflated with retirement horizon." },
-      { rawField: "dateOfBirth", canonicalField: null, note: "Useful fallback for age derivation before formulas." },
+      { rawField: "dateOfBirth", canonicalField: "profileFacts.clientDateOfBirth", note: "Profile-owned client date of birth normalized for future age-based projections." },
       { rawField: "spouseAge", canonicalField: null, note: "Supporting context only. Spouse-or-partner age should not be conflated with retirement horizon." },
       { rawField: "spouseDateOfBirth", canonicalField: null, note: "Useful fallback for spouse-or-partner age derivation before formulas." },
       { rawField: "dependentsCount", canonicalField: "educationSupport.linkedDependentCount", note: "Current linked PMI hydrates childrenNeedingFunding from this profile field." },

@@ -12,6 +12,14 @@
     return {
       schemaVersion: LENS_MODEL_SCHEMA_VERSION,
 
+      // Linked profile facts needed by analysis projections. These are raw
+      // profile-owned facts normalized for method use, not assumptions.
+      profileFacts: {
+        clientDateOfBirth: null,
+        clientDateOfBirthSourcePath: null,
+        clientDateOfBirthStatus: null
+      },
+
       // Current income facts and income-replacement base inputs.
       // `spouseOrPartner*` means the current partner income context before the
       // insured's death. Active post-loss survivor assumptions normalize into
