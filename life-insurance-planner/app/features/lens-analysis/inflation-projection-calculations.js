@@ -4,8 +4,8 @@
 
   // Owner: Lens analysis inflation projection helper.
   // Purpose: provide pure current-dollar-to-projected-output calculations for
-  // future method wiring. This file is intentionally not loaded by production
-  // pages yet.
+  // Needs support/discretionary support and other method projections that need
+  // annual inflation schedules.
   // Non-goals: no DOM access, no storage access, no method wiring, no adapter
   // mapping, no PMI mutation, and no Lens model mutation.
 
