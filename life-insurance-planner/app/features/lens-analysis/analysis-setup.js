@@ -509,7 +509,7 @@
     custom: "Custom"
   });
   const DEBT_TREATMENT_PROFILE_KEYS = Object.freeze(Object.keys(DEBT_TREATMENT_PROFILE_LABELS));
-  const MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "support", "custom"]);
+  const MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "support"]);
   const DEBT_CATEGORY_TREATMENT_MODES = Object.freeze(["payoff", "exclude", "custom"]);
   const DEBT_TREATMENT_SCHEMA_VERSION = 2;
   const FALLBACK_DEBT_CATEGORY_TREATMENT_ITEMS = Object.freeze([
@@ -4511,8 +4511,8 @@
     }
     if (fields.previewNote) {
       fields.previewNote.textContent = adjustedPreview.mortgageHandledThroughSupport
-        ? "Setup preview. Mortgage support mode is deferred and warning-backed; DIME and Needs use raw-equivalent mortgage treatment for that mode until formulas are defined."
-        : "Setup preview of saved assumption effects. DIME and Needs use treated debt in Step 3; HLV remains unchanged. Support and custom modes use warning-backed raw-equivalent behavior until formulas are defined.";
+        ? "Support mode uses the current monthly mortgage payment from PMI for the selected support period. It caps support at the remaining mortgage term when reliable term data is available. No inflation or discounting is applied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses."
+        : "Setup preview of saved assumption effects. DIME and Needs use treated debt in Step 3; HLV remains unchanged. Non-mortgage custom treatment remains warning-backed until formulas are defined.";
     }
   }
 
@@ -4728,7 +4728,7 @@
     }
 
     const mode = String(fields.mortgage?.mode?.value || "").trim();
-    row.hidden = !(mode === "support" || mode === "custom");
+    row.hidden = mode !== "support";
   }
 
   function populateDebtTreatmentFields(fields, assumptions, linkedRecord) {
@@ -6146,7 +6146,7 @@
     const mortgageMode = String(fields.mortgage?.mode?.value || "").trim();
     if (!MORTGAGE_TREATMENT_MODES.includes(mortgageMode)) {
       return {
-        error: "Mortgage treatment must be Payoff, Support, or Custom."
+        error: "Mortgage treatment must be Payoff or Support."
       };
     }
 

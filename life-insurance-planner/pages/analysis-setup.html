@@ -604,7 +604,7 @@
                   <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-debt-treatment">Debt &amp; Mortgage Treatment</h3>
-                    <p>Used by DIME and Needs. These assumptions affect DIME Debt, DIME Mortgage, and Needs Debt Payoff. HLV is unchanged. Support and custom modes are deferred and warning-backed.</p>
+                    <p>Used by DIME and Needs. These assumptions affect DIME Debt, DIME Mortgage, and Needs Debt Payoff. Mortgage support uses the current PMI mortgage payment for the selected support period. HLV is unchanged.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-debt-defaults" aria-label="Debt and mortgage treatment default settings">
@@ -627,8 +627,7 @@
                         <span>Treatment mode</span>
                         <select class="analysis-setup-asset-select analysis-setup-debt-field" data-analysis-debt-mortgage-field="mode" aria-label="Mortgage treatment mode">
                           <option value="payoff">Payoff</option>
-                          <option value="support">Support (deferred)</option>
-                          <option value="custom">Custom (deferred)</option>
+                          <option value="support">Support</option>
                         </select>
                       </label>
                       <label class="analysis-setup-debt-switch">
@@ -646,7 +645,7 @@
                         </span>
                       </label>
                       <label class="analysis-setup-debt-years" for="analysis-setup-mortgage-support-years" data-analysis-debt-support-years-row hidden>
-                        <span>Support years (deferred)</span>
+                        <span>Support years</span>
                         <span>
                           <input id="analysis-setup-mortgage-support-years" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-debt-mortgage-field="paymentSupportYears">
                           <span>years</span>
@@ -675,7 +674,7 @@
                       <strong data-analysis-debt-adjusted-preview>No saved debt data found</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Setup preview of saved assumption effects. DIME and Needs use treated debt in Step 3; HLV remains unchanged. Support and custom modes use warning-backed raw-equivalent behavior until formulas are defined.</p>
+                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Support mode uses the current monthly mortgage payment from PMI for the selected support period. It caps support at the remaining mortgage term when reliable term data is available. No inflation or discounting is applied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses.</p>
                   </section>
                 </div>
 

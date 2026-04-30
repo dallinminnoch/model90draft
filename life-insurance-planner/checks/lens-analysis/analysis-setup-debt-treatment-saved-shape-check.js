@@ -77,6 +77,7 @@ function assertNoProtectedDiffs() {
     "app/features/lens-analysis/normalize-lens-model.js",
     "app/features/lens-analysis/blocks/debt-payoff.js",
     "app/features/lens-analysis/debt-treatment-calculations.js",
+    "app/features/lens-analysis/lens-model-builder.js",
     "pages/next-step.html",
     "pages/confidential-inputs.html",
     "pages/manual-protection-modeling-inputs.html",
@@ -108,6 +109,8 @@ const expectedCategoryKeys = toPlainObject(taxonomy.DEFAULT_DEBT_CATEGORY_KEYS);
 const defaultAssumptions = analysisSetup.DEFAULT_DEBT_TREATMENT_ASSUMPTIONS;
 assert.equal(defaultAssumptions.schemaVersion, 2);
 assert.equal(defaultAssumptions.enabled, true, "Debt treatment assumptions should be active for DIME and Needs.");
+assert.equal(defaultAssumptions.mortgageTreatment.mode, "payoff");
+assert.equal(defaultAssumptions.mortgageTreatment.paymentSupportYears, null);
 assert.ok(defaultAssumptions.debtCategoryTreatment, "default assumptions should expose debtCategoryTreatment");
 assert.equal(
   Object.prototype.hasOwnProperty.call(defaultAssumptions, "nonMortgageDebtTreatment"),
@@ -226,17 +229,55 @@ assert.doesNotMatch(profileBody, /nonMortgageDebtTreatment/);
 const previewBody = extractFunctionBody(source, "syncDebtTreatmentPreview", "syncSurvivorSupportPreview");
 assert.match(previewBody, /DIME and Needs use treated debt/);
 assert.match(previewBody, /HLV remains unchanged/);
-assert.match(previewBody, /Support and custom modes use warning-backed raw-equivalent behavior/);
+assert.match(previewBody, /Support mode uses the current monthly mortgage payment from PMI/);
+assert.match(previewBody, /remaining mortgage term when reliable term data is available/);
+assert.match(previewBody, /No inflation or discounting is applied/);
+assert.match(previewBody, /Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses/);
+assert.match(previewBody, /Non-mortgage custom treatment remains warning-backed until formulas are defined/);
+assert.doesNotMatch(previewBody, /Mortgage support mode is deferred/);
+assert.doesNotMatch(previewBody, /Support and custom modes use warning-backed raw-equivalent behavior/);
 assert.doesNotMatch(previewBody, /current DIME, Needs, HLV/);
 assert.doesNotMatch(previewBody, /current methods still use raw debt payoff values/);
+
+const supportYearsVisibilityBody = extractFunctionBody(
+  source,
+  "syncDebtSupportYearsVisibility",
+  "populateDebtTreatmentFields"
+);
+assert.match(supportYearsVisibilityBody, /row\.hidden\s*=\s*mode\s*!==\s*"support"/);
+assert.doesNotMatch(supportYearsVisibilityBody, /mode === "custom"/);
+
+assert.match(source, /const MORTGAGE_TREATMENT_MODES = Object\.freeze\(\["payoff", "support"\]\)/);
+assert.match(source, /Mortgage treatment must be Payoff or Support\./);
+assert.doesNotMatch(source, /Mortgage treatment must be Payoff, Support, or Custom\./);
 
 const html = readRepoFile("pages/analysis-setup.html");
 assert.match(html, /Used by DIME and Needs/);
 assert.match(html, /HLV is unchanged/);
-assert.match(html, /Support and custom modes are deferred and warning-backed/);
+assert.match(html, /Mortgage support uses the current PMI mortgage payment for the selected support period/);
+assert.match(html, /Support mode uses the current monthly mortgage payment from PMI/);
+assert.match(html, /remaining mortgage term when reliable term data is available/);
+assert.match(html, /No inflation or discounting is applied/);
+assert.match(html, /Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses/);
+assert.match(html, /<option value="payoff">Payoff<\/option>/);
+assert.match(html, /<option value="support">Support<\/option>/);
+assert.doesNotMatch(html, /<option value="custom">Custom \(deferred\)<\/option>/);
+assert.doesNotMatch(html, /Support \(deferred\)/);
+assert.doesNotMatch(html, /Support years \(deferred\)/);
+assert.doesNotMatch(html, /Support and custom modes are deferred and warning-backed/);
+assert.doesNotMatch(html, /Support and custom modes use warning-backed raw-equivalent behavior/);
 assert.doesNotMatch(html, /Current DIME, Needs, and HLV outputs still use raw debt payoff values/);
 assert.doesNotMatch(html, /Debt treatment preview \\(not used by current methods\\)/);
 assert.doesNotMatch(html, /Future Defaults:/);
+
+const mortgageSelectMarkup = html.match(/<select class="analysis-setup-asset-select analysis-setup-debt-field" data-analysis-debt-mortgage-field="mode"[\s\S]*?<\/select>/);
+assert.ok(mortgageSelectMarkup, "Mortgage treatment mode select should exist.");
+const mortgageOptions = Array.from(mortgageSelectMarkup[0].matchAll(/<option value="([^"]+)">/g)).map((match) => match[1]);
+assert.deepEqual(mortgageOptions, ["payoff", "support"], "Visible mortgage treatment modes should be payoff and support only.");
+
+const debtCategoryModeOptionsBody = extractFunctionBody(source, "getDebtCategoryModeOptionsMarkup", "renderDebtTreatmentRows");
+assert.match(debtCategoryModeOptionsBody, /custom:\s*"Custom \(deferred\)"/);
+assert.match(debtCategoryModeOptionsBody, /DEBT_CATEGORY_TREATMENT_MODES/);
 
 assertNoProtectedDiffs();
 
