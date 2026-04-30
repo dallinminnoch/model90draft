@@ -81,14 +81,7 @@ function createRecommendationGuardrails(roundingIncrement, options = {}) {
       maxRelianceOnIlliquidAssetsPercent: 25,
       maxRelianceOnSurvivorIncomePercent: 50
     },
-    presentationRules: {
-      showMinimumRecommendedConservativeRange: true,
-      showMethodComparison: true,
-      showWarnings: true,
-      requireAdvisorReviewBeforeRecommendation: true
-    },
     confidenceRules: {
-      minimumConfidencePercent: 80,
       flagMissingCriticalInputs: true,
       flagHeavyAssetReliance: true,
       flagHeavySurvivorIncomeReliance: true,

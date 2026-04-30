@@ -978,43 +978,6 @@
 
                   <div class="analysis-setup-recommendation-grid" aria-label="Recommendation guardrail controls">
                     <div class="analysis-setup-recommendation-card">
-                      <h4>Recommendation target</h4>
-                      <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-target-mode">Target mode</label>
-                        <select id="analysis-setup-recommendation-target-mode" class="analysis-setup-asset-select analysis-setup-recommendation-field" data-analysis-recommendation-field="recommendationTarget.mode">
-                          <option value="close-practical-gap">Close practical gap</option>
-                          <option value="conservative-family-protection">Conservative family protection</option>
-                          <option value="reduce-income-risk">Reduce income risk</option>
-                          <option value="estate-liquidity-protection">Estate / liquidity protection</option>
-                        </select>
-                      </div>
-                      <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-minimum-floor">Minimum coverage floor</label>
-                        <span class="analysis-setup-recommendation-money">
-                          <span aria-hidden="true">$</span>
-                          <input id="analysis-setup-recommendation-minimum-floor" class="analysis-setup-card-input analysis-setup-card-input--money analysis-setup-recommendation-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-recommendation-field="recommendationTarget.minimumCoverageFloor">
-                        </span>
-                      </div>
-                      <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-maximum-cap">Maximum coverage cap</label>
-                        <span class="analysis-setup-recommendation-money">
-                          <span aria-hidden="true">$</span>
-                          <input id="analysis-setup-recommendation-maximum-cap" class="analysis-setup-card-input analysis-setup-card-input--money analysis-setup-recommendation-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-recommendation-field="recommendationTarget.maximumCoverageCap">
-                        </span>
-                      </div>
-                      <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-rounding">Rounding increment</label>
-                        <select id="analysis-setup-recommendation-rounding" class="analysis-setup-asset-select analysis-setup-recommendation-field" data-analysis-recommendation-field="recommendationTarget.roundingIncrement">
-                          <option value="1000">$1,000</option>
-                          <option value="5000">$5,000</option>
-                          <option value="10000">$10,000</option>
-                          <option value="25000">$25,000</option>
-                          <option value="50000">$50,000</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div class="analysis-setup-recommendation-card">
                       <h4>Risk tolerance</h4>
                       <div class="analysis-setup-recommendation-control-row">
                         <label for="analysis-setup-recommendation-asset-reliance">Max reliance on assets</label>
@@ -1040,14 +1003,7 @@
                     </div>
 
                     <div class="analysis-setup-recommendation-card">
-                      <h4>Confidence / warning rules</h4>
-                      <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-confidence">Minimum confidence</label>
-                        <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-recommendation-confidence" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="confidenceRules.minimumConfidencePercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                      </div>
+                      <h4>Warning rules</h4>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
                         <span class="settings-toggle-copy"><span class="settings-toggle-label">Flag missing critical inputs</span></span>
                         <span class="settings-switch">
@@ -1073,31 +1029,6 @@
                         <span class="settings-toggle-copy"><span class="settings-toggle-label">Flag group coverage reliance</span></span>
                         <span class="settings-switch">
                           <input class="analysis-setup-recommendation-field" type="checkbox" role="switch" aria-label="Flag group coverage reliance" data-analysis-recommendation-field="confidenceRules.flagGroupCoverageReliance">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                    </div>
-
-                    <div class="analysis-setup-recommendation-card">
-                      <h4>Presentation rules</h4>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
-                        <span class="settings-toggle-copy"><span class="settings-toggle-label">Show method comparison</span></span>
-                        <span class="settings-switch">
-                          <input class="analysis-setup-recommendation-field" type="checkbox" role="switch" aria-label="Show method comparison" data-analysis-recommendation-field="presentationRules.showMethodComparison">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
-                        <span class="settings-toggle-copy"><span class="settings-toggle-label">Show warnings</span></span>
-                        <span class="settings-switch">
-                          <input class="analysis-setup-recommendation-field" type="checkbox" role="switch" aria-label="Show warnings" data-analysis-recommendation-field="presentationRules.showWarnings">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
-                        <span class="settings-toggle-copy"><span class="settings-toggle-label">Require advisor review before recommendation</span></span>
-                        <span class="settings-switch">
-                          <input class="analysis-setup-recommendation-field" type="checkbox" role="switch" aria-label="Require advisor review before recommendation" data-analysis-recommendation-field="presentationRules.requireAdvisorReviewBeforeRecommendation">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
                       </label>

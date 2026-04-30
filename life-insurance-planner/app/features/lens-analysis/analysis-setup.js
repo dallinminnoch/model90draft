@@ -769,36 +769,16 @@
     custom: "Custom"
   });
   const RECOMMENDATION_PROFILE_KEYS = Object.freeze(Object.keys(RECOMMENDATION_PROFILE_LABELS));
-  const RECOMMENDATION_TARGET_MODE_LABELS = Object.freeze({
-    "close-practical-gap": "Close practical gap",
-    "conservative-family-protection": "Conservative family protection",
-    "reduce-income-risk": "Reduce income risk",
-    "estate-liquidity-protection": "Estate / liquidity protection"
-  });
-  const RECOMMENDATION_TARGET_MODE_KEYS = Object.freeze(Object.keys(RECOMMENDATION_TARGET_MODE_LABELS));
   const DEFAULT_RECOMMENDATION_GUARDRAILS = Object.freeze({
     enabled: false,
     recommendationProfile: "balanced",
-    recommendationTarget: Object.freeze({
-      mode: "close-practical-gap",
-      minimumCoverageFloor: null,
-      maximumCoverageCap: null,
-      roundingIncrement: 10000
-    }),
     riskTolerance: Object.freeze({
       posture: "balanced",
       maxRelianceOnAssetsPercent: 50,
       maxRelianceOnIlliquidAssetsPercent: 25,
       maxRelianceOnSurvivorIncomePercent: 50
     }),
-    presentationRules: Object.freeze({
-      showMinimumRecommendedConservativeRange: true,
-      showMethodComparison: true,
-      showWarnings: true,
-      requireAdvisorReviewBeforeRecommendation: true
-    }),
     confidenceRules: Object.freeze({
-      minimumConfidencePercent: 80,
       flagMissingCriticalInputs: true,
       flagHeavyAssetReliance: true,
       flagHeavySurvivorIncomeReliance: true,
@@ -808,10 +788,6 @@
   });
   const RECOMMENDATION_PROFILE_DEFAULTS = Object.freeze({
     conservative: Object.freeze({
-      recommendationTarget: Object.freeze({
-        mode: "conservative-family-protection",
-        roundingIncrement: 10000
-      }),
       riskTolerance: Object.freeze({
         posture: "conservative",
         maxRelianceOnAssetsPercent: 35,
@@ -819,25 +795,17 @@
         maxRelianceOnSurvivorIncomePercent: 35
       }),
       confidenceRules: Object.freeze({
-        minimumConfidencePercent: 85,
         flagMissingCriticalInputs: true,
         flagHeavyAssetReliance: true,
         flagHeavySurvivorIncomeReliance: true,
         flagGroupCoverageReliance: true
-      }),
-      presentationRules: DEFAULT_RECOMMENDATION_GUARDRAILS.presentationRules
+      })
     }),
     balanced: Object.freeze({
-      recommendationTarget: DEFAULT_RECOMMENDATION_GUARDRAILS.recommendationTarget,
       riskTolerance: DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance,
-      confidenceRules: DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules,
-      presentationRules: DEFAULT_RECOMMENDATION_GUARDRAILS.presentationRules
+      confidenceRules: DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules
     }),
     aggressive: Object.freeze({
-      recommendationTarget: Object.freeze({
-        mode: "close-practical-gap",
-        roundingIncrement: 10000
-      }),
       riskTolerance: Object.freeze({
         posture: "aggressive",
         maxRelianceOnAssetsPercent: 70,
@@ -845,13 +813,11 @@
         maxRelianceOnSurvivorIncomePercent: 70
       }),
       confidenceRules: Object.freeze({
-        minimumConfidencePercent: 70,
         flagMissingCriticalInputs: true,
         flagHeavyAssetReliance: true,
         flagHeavySurvivorIncomeReliance: true,
         flagGroupCoverageReliance: true
-      }),
-      presentationRules: DEFAULT_RECOMMENDATION_GUARDRAILS.presentationRules
+      })
     })
   });
 
@@ -883,8 +849,6 @@
   const MAX_EDUCATION_START_AGE = 30;
   const MIN_RECOMMENDATION_PERCENT = 0;
   const MAX_RECOMMENDATION_PERCENT = 100;
-  const MIN_RECOMMENDATION_MONEY = 0;
-  const MIN_RECOMMENDATION_ROUNDING_INCREMENT = 1;
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -1135,13 +1099,6 @@
       : fallback;
   }
 
-  function normalizeRecommendationTargetMode(value, fallback) {
-    const normalizedValue = String(value || "").trim().toLowerCase();
-    return RECOMMENDATION_TARGET_MODE_KEYS.includes(normalizedValue)
-      ? normalizedValue
-      : fallback;
-  }
-
   function normalizeMortgageTreatmentMode(value, fallback) {
     const normalizedValue = String(value || "").trim().toLowerCase();
     return MORTGAGE_TREATMENT_MODES.includes(normalizedValue)
@@ -1259,15 +1216,6 @@
     );
   }
 
-  function normalizeRecommendationRoundingIncrement(value, fallback) {
-    const number = Number(String(value ?? "").replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(number) || number < MIN_RECOMMENDATION_ROUNDING_INCREMENT) {
-      return fallback;
-    }
-
-    return number;
-  }
-
   function normalizeCoverageTermGuardrailYears(value, fallback) {
     if (value === null || value === undefined || String(value).trim() === "") {
       return fallback == null ? null : fallback;
@@ -1359,19 +1307,6 @@
     }
 
     return Math.max(0, number);
-  }
-
-  function normalizeRecommendationMoneyValue(value, fallback) {
-    if (value === null || value === undefined || String(value).trim() === "") {
-      return fallback == null ? null : fallback;
-    }
-
-    const number = Number(String(value).replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(number)) {
-      return fallback == null ? null : fallback;
-    }
-
-    return Math.max(MIN_RECOMMENDATION_MONEY, number);
   }
 
   function getPresetDefaults(presetKey) {
@@ -2192,30 +2127,16 @@
     );
     const profileDefaults = RECOMMENDATION_PROFILE_DEFAULTS[recommendationProfile]
       || RECOMMENDATION_PROFILE_DEFAULTS[DEFAULT_RECOMMENDATION_GUARDRAILS.recommendationProfile];
-    const defaultRecommendationTarget = {
-      ...DEFAULT_RECOMMENDATION_GUARDRAILS.recommendationTarget,
-      ...(profileDefaults.recommendationTarget || {})
-    };
     const defaultRiskTolerance = {
       ...DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance,
       ...(profileDefaults.riskTolerance || {})
-    };
-    const defaultPresentationRules = {
-      ...DEFAULT_RECOMMENDATION_GUARDRAILS.presentationRules,
-      ...(profileDefaults.presentationRules || {})
     };
     const defaultConfidenceRules = {
       ...DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules,
       ...(profileDefaults.confidenceRules || {})
     };
-    const savedRecommendationTarget = isPlainObject(saved.recommendationTarget)
-      ? saved.recommendationTarget
-      : {};
     const savedRiskTolerance = isPlainObject(saved.riskTolerance)
       ? saved.riskTolerance
-      : {};
-    const savedPresentationRules = isPlainObject(saved.presentationRules)
-      ? saved.presentationRules
       : {};
     const savedConfidenceRules = isPlainObject(saved.confidenceRules)
       ? saved.confidenceRules
@@ -2225,24 +2146,6 @@
         ? saved.enabled
         : DEFAULT_RECOMMENDATION_GUARDRAILS.enabled,
       recommendationProfile,
-      recommendationTarget: {
-        mode: normalizeRecommendationTargetMode(
-          savedRecommendationTarget.mode,
-          defaultRecommendationTarget.mode
-        ),
-        minimumCoverageFloor: normalizeRecommendationMoneyValue(
-          savedRecommendationTarget.minimumCoverageFloor,
-          defaultRecommendationTarget.minimumCoverageFloor
-        ),
-        maximumCoverageCap: normalizeRecommendationMoneyValue(
-          savedRecommendationTarget.maximumCoverageCap,
-          defaultRecommendationTarget.maximumCoverageCap
-        ),
-        roundingIncrement: normalizeRecommendationRoundingIncrement(
-          savedRecommendationTarget.roundingIncrement ?? saved.roundingIncrement,
-          defaultRecommendationTarget.roundingIncrement
-        )
-      },
       riskTolerance: {
         posture: normalizeRecommendationProfile(
           savedRiskTolerance.posture,
@@ -2261,25 +2164,7 @@
           defaultRiskTolerance.maxRelianceOnSurvivorIncomePercent
         )
       },
-      presentationRules: {
-        showMinimumRecommendedConservativeRange: typeof savedPresentationRules.showMinimumRecommendedConservativeRange === "boolean"
-          ? savedPresentationRules.showMinimumRecommendedConservativeRange
-          : Boolean(defaultPresentationRules.showMinimumRecommendedConservativeRange),
-        showMethodComparison: typeof savedPresentationRules.showMethodComparison === "boolean"
-          ? savedPresentationRules.showMethodComparison
-          : Boolean(defaultPresentationRules.showMethodComparison),
-        showWarnings: typeof savedPresentationRules.showWarnings === "boolean"
-          ? savedPresentationRules.showWarnings
-          : Boolean(defaultPresentationRules.showWarnings),
-        requireAdvisorReviewBeforeRecommendation: typeof savedPresentationRules.requireAdvisorReviewBeforeRecommendation === "boolean"
-          ? savedPresentationRules.requireAdvisorReviewBeforeRecommendation
-          : Boolean(defaultPresentationRules.requireAdvisorReviewBeforeRecommendation)
-      },
       confidenceRules: {
-        minimumConfidencePercent: normalizeRecommendationPercent(
-          savedConfidenceRules.minimumConfidencePercent,
-          defaultConfidenceRules.minimumConfidencePercent
-        ),
         flagMissingCriticalInputs: typeof savedConfidenceRules.flagMissingCriticalInputs === "boolean"
           ? savedConfidenceRules.flagMissingCriticalInputs
           : Boolean(defaultConfidenceRules.flagMissingCriticalInputs),
@@ -3673,27 +3558,6 @@
       : fallback;
   }
 
-  function readRecommendationDraftMoney(fields, fieldPath, fallback) {
-    const field = fields.values?.[fieldPath];
-    const rawValue = String(field?.value || "").trim();
-    return rawValue
-      ? normalizeRecommendationMoneyValue(rawValue, fallback)
-      : null;
-  }
-
-  function readRecommendationDraftRoundingIncrement(fields, fallback) {
-    const field = fields.values?.["recommendationTarget.roundingIncrement"];
-    const rawValue = String(field?.value || "").trim();
-    return rawValue
-      ? normalizeRecommendationRoundingIncrement(rawValue, fallback)
-      : fallback;
-  }
-
-  function readRecommendationDraftTargetMode(fields, fallback) {
-    const field = fields.values?.["recommendationTarget.mode"];
-    return normalizeRecommendationTargetMode(field?.value, fallback);
-  }
-
   function getEducationDraftAssumptions(fields) {
     const current = getEducationCurrentAssumptions(fields);
     const currentFundingTreatment = current.fundingTreatment
@@ -3755,12 +3619,8 @@
 
   function getRecommendationDraftGuardrails(fields) {
     const current = getRecommendationCurrentGuardrails(fields);
-    const currentRecommendationTarget = current.recommendationTarget
-      || DEFAULT_RECOMMENDATION_GUARDRAILS.recommendationTarget;
     const currentRiskTolerance = current.riskTolerance
       || DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance;
-    const currentPresentationRules = current.presentationRules
-      || DEFAULT_RECOMMENDATION_GUARDRAILS.presentationRules;
     const currentConfidenceRules = current.confidenceRules
       || DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules;
     const recommendationProfile = getRecommendationDefaultProfile(fields);
@@ -3768,23 +3628,6 @@
     return {
       enabled: Boolean(current.enabled),
       recommendationProfile,
-      recommendationTarget: {
-        mode: readRecommendationDraftTargetMode(fields, currentRecommendationTarget.mode),
-        minimumCoverageFloor: readRecommendationDraftMoney(
-          fields,
-          "recommendationTarget.minimumCoverageFloor",
-          currentRecommendationTarget.minimumCoverageFloor
-        ),
-        maximumCoverageCap: readRecommendationDraftMoney(
-          fields,
-          "recommendationTarget.maximumCoverageCap",
-          currentRecommendationTarget.maximumCoverageCap
-        ),
-        roundingIncrement: readRecommendationDraftRoundingIncrement(
-          fields,
-          currentRecommendationTarget.roundingIncrement
-        )
-      },
       riskTolerance: {
         posture: recommendationProfile === "custom"
           ? normalizeRecommendationProfile(currentRiskTolerance.posture, DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance.posture)
@@ -3805,34 +3648,7 @@
           currentRiskTolerance.maxRelianceOnSurvivorIncomePercent
         )
       },
-      presentationRules: {
-        showMinimumRecommendedConservativeRange: readRecommendationDraftBoolean(
-          fields,
-          "presentationRules.showMinimumRecommendedConservativeRange",
-          currentPresentationRules.showMinimumRecommendedConservativeRange
-        ),
-        showMethodComparison: readRecommendationDraftBoolean(
-          fields,
-          "presentationRules.showMethodComparison",
-          currentPresentationRules.showMethodComparison
-        ),
-        showWarnings: readRecommendationDraftBoolean(
-          fields,
-          "presentationRules.showWarnings",
-          currentPresentationRules.showWarnings
-        ),
-        requireAdvisorReviewBeforeRecommendation: readRecommendationDraftBoolean(
-          fields,
-          "presentationRules.requireAdvisorReviewBeforeRecommendation",
-          currentPresentationRules.requireAdvisorReviewBeforeRecommendation
-        )
-      },
       confidenceRules: {
-        minimumConfidencePercent: readRecommendationDraftPercent(
-          fields,
-          "confidenceRules.minimumConfidencePercent",
-          currentConfidenceRules.minimumConfidencePercent
-        ),
         flagMissingCriticalInputs: readRecommendationDraftBoolean(
           fields,
           "confidenceRules.flagMissingCriticalInputs",
@@ -4899,26 +4715,6 @@
     setRecommendationDefaultProfile(fields, guardrails.recommendationProfile);
     setRecommendationValue(
       fields,
-      "recommendationTarget.mode",
-      guardrails.recommendationTarget.mode
-    );
-    setRecommendationValue(
-      fields,
-      "recommendationTarget.minimumCoverageFloor",
-      guardrails.recommendationTarget.minimumCoverageFloor
-    );
-    setRecommendationValue(
-      fields,
-      "recommendationTarget.maximumCoverageCap",
-      guardrails.recommendationTarget.maximumCoverageCap
-    );
-    setRecommendationValue(
-      fields,
-      "recommendationTarget.roundingIncrement",
-      guardrails.recommendationTarget.roundingIncrement
-    );
-    setRecommendationValue(
-      fields,
       "riskTolerance.maxRelianceOnAssetsPercent",
       guardrails.riskTolerance.maxRelianceOnAssetsPercent
     );
@@ -4931,11 +4727,6 @@
       fields,
       "riskTolerance.maxRelianceOnSurvivorIncomePercent",
       guardrails.riskTolerance.maxRelianceOnSurvivorIncomePercent
-    );
-    setRecommendationValue(
-      fields,
-      "confidenceRules.minimumConfidencePercent",
-      guardrails.confidenceRules.minimumConfidencePercent
     );
     setRecommendationChecked(
       fields,
@@ -4956,21 +4747,6 @@
       fields,
       "confidenceRules.flagGroupCoverageReliance",
       guardrails.confidenceRules.flagGroupCoverageReliance
-    );
-    setRecommendationChecked(
-      fields,
-      "presentationRules.showMethodComparison",
-      guardrails.presentationRules.showMethodComparison
-    );
-    setRecommendationChecked(
-      fields,
-      "presentationRules.showWarnings",
-      guardrails.presentationRules.showWarnings
-    );
-    setRecommendationChecked(
-      fields,
-      "presentationRules.requireAdvisorReviewBeforeRecommendation",
-      guardrails.presentationRules.requireAdvisorReviewBeforeRecommendation
     );
     syncRecommendationPreview(fields);
   }
@@ -5487,17 +5263,9 @@
     const nextGuardrails = {
       ...current,
       recommendationProfile: normalizedProfile,
-      recommendationTarget: {
-        ...current.recommendationTarget,
-        ...profileDefaults.recommendationTarget
-      },
       riskTolerance: {
         ...current.riskTolerance,
         ...profileDefaults.riskTolerance
-      },
-      presentationRules: {
-        ...current.presentationRules,
-        ...profileDefaults.presentationRules
       },
       confidenceRules: {
         ...current.confidenceRules,
@@ -6580,104 +6348,12 @@
     };
   }
 
-  function readOptionalRecommendationMoney(fields, fieldPath, label) {
-    const field = fields.values?.[fieldPath];
-    const rawValue = String(field?.value || "").trim();
-    if (!rawValue) {
-      return { value: null };
-    }
-
-    const number = Number(rawValue.replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(number)) {
-      return {
-        error: `${label} must be a numeric dollar value.`
-      };
-    }
-
-    if (number < MIN_RECOMMENDATION_MONEY) {
-      return {
-        error: `${label} must be ${MIN_RECOMMENDATION_MONEY} or greater.`
-      };
-    }
-
-    return {
-      value: Number(number.toFixed(2))
-    };
-  }
-
-  function readRequiredRecommendationRoundingIncrement(fields) {
-    const field = fields.values?.["recommendationTarget.roundingIncrement"];
-    const rawValue = String(field?.value || "").trim();
-    if (!rawValue) {
-      return {
-        error: "Rounding increment is required."
-      };
-    }
-
-    const number = Number(rawValue.replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(number)) {
-      return {
-        error: "Rounding increment must be numeric."
-      };
-    }
-
-    if (number < MIN_RECOMMENDATION_ROUNDING_INCREMENT) {
-      return {
-        error: "Rounding increment must be greater than 0."
-      };
-    }
-
-    return {
-      value: Number(number.toFixed(2))
-    };
-  }
-
   function readValidatedRecommendationGuardrails(fields) {
     const recommendationProfile = getRecommendationDefaultProfile(fields);
     if (!RECOMMENDATION_PROFILE_KEYS.includes(recommendationProfile)) {
       return {
         error: "Recommendation Guardrails profile must be Conservative, Balanced, Aggressive, or Custom."
       };
-    }
-
-    const targetMode = String(fields.values?.["recommendationTarget.mode"]?.value || "").trim();
-    if (!RECOMMENDATION_TARGET_MODE_KEYS.includes(targetMode)) {
-      return {
-        error: "Recommendation target mode must be one of the available target modes."
-      };
-    }
-
-    const minimumCoverageFloor = readOptionalRecommendationMoney(
-      fields,
-      "recommendationTarget.minimumCoverageFloor",
-      "Minimum coverage floor"
-    );
-    if (minimumCoverageFloor.error) {
-      return minimumCoverageFloor;
-    }
-
-    const maximumCoverageCap = readOptionalRecommendationMoney(
-      fields,
-      "recommendationTarget.maximumCoverageCap",
-      "Maximum coverage cap"
-    );
-    if (maximumCoverageCap.error) {
-      return maximumCoverageCap;
-    }
-
-    if (
-      minimumCoverageFloor.value !== null
-      && maximumCoverageCap.value !== null
-      && maximumCoverageCap.value < minimumCoverageFloor.value
-    ) {
-      return {
-        error: "Maximum coverage cap must be greater than or equal to the minimum coverage floor."
-      };
-    }
-
-    const roundingIncrement = readRequiredRecommendationRoundingIncrement(fields);
-    if (roundingIncrement.error) {
-      return roundingIncrement;
     }
 
     const maxRelianceOnAssets = readRequiredRecommendationPercent(
@@ -6707,28 +6383,13 @@
       return maxRelianceOnSurvivorIncome;
     }
 
-    const minimumConfidence = readRequiredRecommendationPercent(
-      fields,
-      "confidenceRules.minimumConfidencePercent",
-      "Minimum confidence"
-    );
-    if (minimumConfidence.error) {
-      return minimumConfidence;
-    }
-
     const current = getRecommendationDraftGuardrails(fields);
     return {
       value: {
-        enabled: false,
+        enabled: Boolean(current.enabled),
         source: "analysis-setup",
         lastUpdatedAt: new Date().toISOString(),
         recommendationProfile,
-        recommendationTarget: {
-          mode: targetMode,
-          minimumCoverageFloor: minimumCoverageFloor.value,
-          maximumCoverageCap: maximumCoverageCap.value,
-          roundingIncrement: roundingIncrement.value
-        },
         riskTolerance: {
           posture: recommendationProfile === "custom"
             ? normalizeRecommendationProfile(current.riskTolerance.posture, DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance.posture)
@@ -6737,30 +6398,7 @@
           maxRelianceOnIlliquidAssetsPercent: maxRelianceOnIlliquidAssets.value,
           maxRelianceOnSurvivorIncomePercent: maxRelianceOnSurvivorIncome.value
         },
-        presentationRules: {
-          showMinimumRecommendedConservativeRange: readRecommendationDraftBoolean(
-            fields,
-            "presentationRules.showMinimumRecommendedConservativeRange",
-            current.presentationRules.showMinimumRecommendedConservativeRange
-          ),
-          showMethodComparison: readRecommendationDraftBoolean(
-            fields,
-            "presentationRules.showMethodComparison",
-            current.presentationRules.showMethodComparison
-          ),
-          showWarnings: readRecommendationDraftBoolean(
-            fields,
-            "presentationRules.showWarnings",
-            current.presentationRules.showWarnings
-          ),
-          requireAdvisorReviewBeforeRecommendation: readRecommendationDraftBoolean(
-            fields,
-            "presentationRules.requireAdvisorReviewBeforeRecommendation",
-            current.presentationRules.requireAdvisorReviewBeforeRecommendation
-          )
-        },
         confidenceRules: {
-          minimumConfidencePercent: minimumConfidence.value,
           flagMissingCriticalInputs: readRecommendationDraftBoolean(
             fields,
             "confidenceRules.flagMissingCriticalInputs",
@@ -6981,25 +6619,18 @@
 
     if (shouldSaveRecommendationGuardrails) {
       [
-        "recommendationTarget.minimumCoverageFloor",
-        "recommendationTarget.maximumCoverageCap",
-        "recommendationTarget.roundingIncrement",
         "riskTolerance.maxRelianceOnAssetsPercent",
         "riskTolerance.maxRelianceOnIlliquidAssetsPercent",
-        "riskTolerance.maxRelianceOnSurvivorIncomePercent",
-        "confidenceRules.minimumConfidencePercent"
+        "riskTolerance.maxRelianceOnSurvivorIncomePercent"
       ].forEach(function (fieldPath) {
         const field = recommendationGuardrailFields.values[fieldPath];
         const rawValue = String(field?.value || "").trim().replace(/[$,\s]/g, "");
         const number = Number(rawValue);
-        const isPercentField = fieldPath.indexOf("riskTolerance.") === 0
-          || fieldPath === "confidenceRules.minimumConfidencePercent";
-        const isRoundingField = fieldPath === "recommendationTarget.roundingIncrement";
         const isValid = field
           && rawValue
           && Number.isFinite(number)
-          && number >= (isRoundingField ? MIN_RECOMMENDATION_ROUNDING_INCREMENT : MIN_RECOMMENDATION_MONEY)
-          && (!isPercentField || number <= MAX_RECOMMENDATION_PERCENT);
+          && number >= MIN_RECOMMENDATION_PERCENT
+          && number <= MAX_RECOMMENDATION_PERCENT;
         if (isValid) {
           field.value = formatHaircutInputValue(number);
         }
@@ -7743,35 +7374,22 @@
       };
 
       field.addEventListener("input", function () {
-        if (
-          fieldPath === "recommendationTarget.minimumCoverageFloor"
-          || fieldPath === "recommendationTarget.maximumCoverageCap"
-        ) {
-          const sanitizedValue = String(field.value || "").replace(/[^0-9.]/g, "");
-          if (field.value !== sanitizedValue) {
-            field.value = sanitizedValue;
-          }
-        }
         syncRecommendationChange();
       });
 
       field.addEventListener("change", function () {
         const rawValue = String(field.value || "").trim().replace(/[$,\s]/g, "");
         const number = Number(rawValue);
-        const isPercentField = fieldPath.indexOf("riskTolerance.") === 0
-          || fieldPath === "confidenceRules.minimumConfidencePercent";
-        const isMoneyField = fieldPath === "recommendationTarget.minimumCoverageFloor"
-          || fieldPath === "recommendationTarget.maximumCoverageCap";
-        const isRoundingField = fieldPath === "recommendationTarget.roundingIncrement";
+        const isPercentField = fieldPath.indexOf("riskTolerance.") === 0;
 
         if (
           field.type !== "checkbox"
           && field.tagName !== "SELECT"
           && rawValue
           && Number.isFinite(number)
-          && number >= (isRoundingField ? MIN_RECOMMENDATION_ROUNDING_INCREMENT : MIN_RECOMMENDATION_MONEY)
-          && (!isPercentField || number <= MAX_RECOMMENDATION_PERCENT)
-          && (isPercentField || isMoneyField || isRoundingField)
+          && number >= MIN_RECOMMENDATION_PERCENT
+          && number <= MAX_RECOMMENDATION_PERCENT
+          && isPercentField
         ) {
           field.value = formatHaircutInputValue(number);
         }
