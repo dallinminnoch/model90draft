@@ -97,7 +97,7 @@ function createRecommendationGuardrails(roundingIncrement, options = {}) {
       },
       conflictHandling: "flagForAdvisorReview"
     },
-    confidenceRules: {
+    riskFlags: {
       flagMissingCriticalInputs: true,
       flagHeavyAssetReliance: true,
       flagHeavySurvivorIncomeReliance: true,
@@ -157,9 +157,15 @@ function assertNoRecommendationGuardrailsInSettings(methodSettings, message) {
   [
     "riskTolerance",
     "riskThresholds",
+    "riskFlags",
+    "confidenceRules",
     "assetReliance",
     "illiquidAssetReliance",
     "survivorIncomeReliance",
+    "flagMissingCriticalInputs",
+    "flagHeavyAssetReliance",
+    "flagHeavySurvivorIncomeReliance",
+    "flagGroupCoverageReliance",
     "assetRelianceWarningThresholdPercent",
     "illiquidAssetRelianceWarningThresholdPercent",
     "survivorIncomeRelianceWarningThresholdPercent",
@@ -211,6 +217,22 @@ function assertNoRecommendationGuardrailsInSettings(methodSettings, message) {
     )),
     false,
     `${message}: adapter trace should not source method behavior from Recommendation Guardrails risk thresholds.`
+  );
+  assert.equal(
+    methodSettings.trace.some((entry) => (
+      Array.isArray(entry?.sourcePaths)
+      && entry.sourcePaths.some((sourcePath) => sourcePath.indexOf("analysisSettings.recommendationGuardrails.riskFlags") === 0)
+    )),
+    false,
+    `${message}: adapter trace should not source method behavior from Recommendation Guardrails risk flags.`
+  );
+  assert.equal(
+    methodSettings.trace.some((entry) => (
+      Array.isArray(entry?.sourcePaths)
+      && entry.sourcePaths.some((sourcePath) => sourcePath.indexOf("analysisSettings.recommendationGuardrails.confidenceRules") === 0)
+    )),
+    false,
+    `${message}: adapter trace should not source method behavior from retired Recommendation Guardrails confidence rules.`
   );
   assert.equal(
     methodSettings.trace.some((entry) => (
@@ -349,6 +371,50 @@ const conflictHandlingChangedSettings = createMethodSettings(
     }
   })
 );
+const missingCriticalInputsFlagChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskFlags: {
+      flagMissingCriticalInputs: false,
+      flagHeavyAssetReliance: true,
+      flagHeavySurvivorIncomeReliance: true,
+      flagGroupCoverageReliance: true
+    }
+  })
+);
+const heavyAssetRelianceFlagChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskFlags: {
+      flagMissingCriticalInputs: true,
+      flagHeavyAssetReliance: false,
+      flagHeavySurvivorIncomeReliance: true,
+      flagGroupCoverageReliance: true
+    }
+  })
+);
+const heavySurvivorIncomeRelianceFlagChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskFlags: {
+      flagMissingCriticalInputs: true,
+      flagHeavyAssetReliance: true,
+      flagHeavySurvivorIncomeReliance: false,
+      flagGroupCoverageReliance: true
+    }
+  })
+);
+const groupCoverageRelianceFlagChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskFlags: {
+      flagMissingCriticalInputs: true,
+      flagHeavyAssetReliance: true,
+      flagHeavySurvivorIncomeReliance: true,
+      flagGroupCoverageReliance: false
+    }
+  })
+);
 
 assertNoRecommendationGuardrailsInSettings(baselineSettings, "Baseline nested guardrails");
 assertNoRecommendationGuardrailsInSettings(enabledSettings, "Enabled future-use guardrails");
@@ -360,6 +426,10 @@ assertNoRecommendationGuardrailsInSettings(survivorIncomeThresholdChangedSetting
 assertNoRecommendationGuardrailsInSettings(lowerBoundChangedSettings, "Changed lower range constraints");
 assertNoRecommendationGuardrailsInSettings(upperBoundChangedSettings, "Changed upper range constraints");
 assertNoRecommendationGuardrailsInSettings(conflictHandlingChangedSettings, "Changed range conflict handling");
+assertNoRecommendationGuardrailsInSettings(missingCriticalInputsFlagChangedSettings, "Changed missing critical inputs risk flag");
+assertNoRecommendationGuardrailsInSettings(heavyAssetRelianceFlagChangedSettings, "Changed heavy asset reliance risk flag");
+assertNoRecommendationGuardrailsInSettings(heavySurvivorIncomeRelianceFlagChangedSettings, "Changed heavy survivor income reliance risk flag");
+assertNoRecommendationGuardrailsInSettings(groupCoverageRelianceFlagChangedSettings, "Changed group coverage reliance risk flag");
 
 const baselineOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, baselineSettings)
@@ -390,6 +460,18 @@ const upperBoundChangedOutputs = extractComparableOutputs(
 );
 const conflictHandlingChangedOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, conflictHandlingChangedSettings)
+);
+const missingCriticalInputsFlagChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, missingCriticalInputsFlagChangedSettings)
+);
+const heavyAssetRelianceFlagChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, heavyAssetRelianceFlagChangedSettings)
+);
+const heavySurvivorIncomeRelianceFlagChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, heavySurvivorIncomeRelianceFlagChangedSettings)
+);
+const groupCoverageRelianceFlagChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, groupCoverageRelianceFlagChangedSettings)
 );
 
 assert.deepEqual(
@@ -436,6 +518,26 @@ assert.deepEqual(
   conflictHandlingChangedOutputs,
   baselineOutputs,
   "Changing Recommendation Guardrails conflict handling should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  missingCriticalInputsFlagChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails missing critical inputs risk flag should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  heavyAssetRelianceFlagChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails heavy asset reliance risk flag should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  heavySurvivorIncomeRelianceFlagChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails heavy survivor income reliance risk flag should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  groupCoverageRelianceFlagChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails group coverage reliance risk flag should not alter DIME, Needs, or HLV outputs."
 );
 
 const methodDefaultsRoundingSettings = createMethodSettings(

@@ -48,6 +48,10 @@ const recommendationSection = html.slice(
   'data-analysis-recommendation-field="riskTolerance.maxRelianceOnIlliquidAssetsPercent"',
   'data-analysis-recommendation-field="riskTolerance.maxRelianceOnSurvivorIncomePercent"',
   'data-analysis-recommendation-field="confidenceRules.minimumConfidencePercent"',
+  'data-analysis-recommendation-field="confidenceRules.flagMissingCriticalInputs"',
+  'data-analysis-recommendation-field="confidenceRules.flagHeavyAssetReliance"',
+  'data-analysis-recommendation-field="confidenceRules.flagHeavySurvivorIncomeReliance"',
+  'data-analysis-recommendation-field="confidenceRules.flagGroupCoverageReliance"',
   'data-analysis-recommendation-field="presentationRules.showMethodComparison"',
   'data-analysis-recommendation-field="presentationRules.showWarnings"',
   'data-analysis-recommendation-field="presentationRules.requireAdvisorReviewBeforeRecommendation"',
@@ -66,6 +70,7 @@ const recommendationSection = html.slice(
   "Max reliance on illiquid assets",
   "Max reliance on survivor income",
   "Minimum confidence",
+  "Warning rules",
   "Presentation rules",
   "Show method comparison",
   "Show warnings",
@@ -97,10 +102,12 @@ const recommendationSection = html.slice(
   'data-analysis-recommendation-field="rangeConstraints.lowerBound.tolerancePercent"',
   'data-analysis-recommendation-field="rangeConstraints.upperBound.source"',
   'data-analysis-recommendation-field="rangeConstraints.upperBound.tolerancePercent"',
-  'data-analysis-recommendation-field="confidenceRules.flagMissingCriticalInputs"',
-  'data-analysis-recommendation-field="confidenceRules.flagHeavyAssetReliance"',
-  'data-analysis-recommendation-field="confidenceRules.flagHeavySurvivorIncomeReliance"',
-  'data-analysis-recommendation-field="confidenceRules.flagGroupCoverageReliance"',
+  "Recommendation risk flags",
+  "Saved for the future recommendation engine only. These flags will support explainable recommendation review and do not change current DIME, Needs, or Human Life Value outputs.",
+  'data-analysis-recommendation-field="riskFlags.flagMissingCriticalInputs"',
+  'data-analysis-recommendation-field="riskFlags.flagHeavyAssetReliance"',
+  'data-analysis-recommendation-field="riskFlags.flagHeavySurvivorIncomeReliance"',
+  'data-analysis-recommendation-field="riskFlags.flagGroupCoverageReliance"',
   'data-analysis-recommendation-preview="currentMode"',
   'data-analysis-recommendation-preview="engineStatus"',
   'data-analysis-recommendation-preview="savedFor"'
@@ -121,8 +128,8 @@ assert.ok(
   "Recommendation range constraints should appear after Reliance warning thresholds"
 );
 assert.ok(
-  recommendationSection.indexOf("<h4>Recommendation range constraints</h4>") < recommendationSection.indexOf("<h4>Warning rules</h4>"),
-  "Recommendation range constraints should appear before Warning rules"
+  recommendationSection.indexOf("<h4>Recommendation range constraints</h4>") < recommendationSection.indexOf("<h4>Recommendation risk flags</h4>"),
+  "Recommendation range constraints should appear before Recommendation risk flags"
 );
 
 [
@@ -132,6 +139,7 @@ assert.ok(
   "maxRelianceOnAssetsPercent",
   "maxRelianceOnIlliquidAssetsPercent",
   "maxRelianceOnSurvivorIncomePercent",
+  "confidenceRules",
   "minimumConfidencePercent",
   retiredConservativeRangeFlag,
   "roundingIncrement",
@@ -177,14 +185,10 @@ assert.equal(defaults.recommendationProfile, "balanced", "Recommendation profile
 assert.equal(hasOwn(defaults, "riskTolerance"), false, "Default riskTolerance should be retired");
 assert.ok(hasOwn(defaults, "riskThresholds"), "Default risk thresholds should exist");
 assert.ok(hasOwn(defaults, "rangeConstraints"), "Default range constraints should exist");
-assert.ok(hasOwn(defaults, "confidenceRules"), "Default warning rules should remain");
+assert.equal(hasOwn(defaults, "confidenceRules"), false, "Default confidenceRules should be retired");
+assert.ok(hasOwn(defaults, "riskFlags"), "Default risk flags should exist");
 assert.equal(hasOwn(defaults, "recommendationTarget"), false, "Default recommendationTarget should be retired");
 assert.equal(hasOwn(defaults, "presentationRules"), false, "Default presentationRules should be retired");
-assert.equal(
-  hasOwn(defaults.confidenceRules, "minimumConfidencePercent"),
-  false,
-  "Default minimumConfidencePercent should be retired"
-);
 
 assert.equal(defaults.riskThresholds.assetReliance.warningThresholdPercent, 40, "Default asset reliance warning threshold should be 40%");
 assert.equal(defaults.riskThresholds.illiquidAssetReliance.warningThresholdPercent, 25, "Default illiquid asset reliance warning threshold should be 25%");
@@ -202,7 +206,8 @@ assert.equal(defaults.rangeConstraints.conflictHandling, "flagForAdvisorReview",
   "flagHeavySurvivorIncomeReliance",
   "flagGroupCoverageReliance"
 ].forEach((key) => {
-  assert.ok(hasOwn(defaults.confidenceRules, key), `Default confidenceRules.${key} should remain`);
+  assert.ok(hasOwn(defaults.riskFlags, key), `Default riskFlags.${key} should exist`);
+  assert.equal(defaults.riskFlags[key], true, `Default riskFlags.${key} should default to true`);
 });
 
 const loaded = analysisSetup.getRecommendationGuardrails({
@@ -246,6 +251,12 @@ const loaded = analysisSetup.getRecommendationGuardrails({
       },
       confidenceRules: {
         minimumConfidencePercent: 80,
+        flagMissingCriticalInputs: true,
+        flagHeavyAssetReliance: true,
+        flagHeavySurvivorIncomeReliance: false,
+        flagGroupCoverageReliance: true
+      },
+      riskFlags: {
         flagMissingCriticalInputs: false,
         flagHeavyAssetReliance: false,
         flagHeavySurvivorIncomeReliance: true,
@@ -268,17 +279,13 @@ assert.equal(loaded.rangeConstraints.lowerBound.tolerancePercent, 12, "Loaded lo
 assert.equal(loaded.rangeConstraints.upperBound.source, "needsAnalysis", "Loaded upper range source should be preserved");
 assert.equal(loaded.rangeConstraints.upperBound.tolerancePercent, 33, "Loaded upper range tolerance should be preserved");
 assert.equal(loaded.rangeConstraints.conflictHandling, "flagForAdvisorReview", "Loaded range conflict handling should be preserved");
-assert.equal(loaded.confidenceRules.flagMissingCriticalInputs, false, "Loaded missing-input flag should be preserved");
-assert.equal(loaded.confidenceRules.flagHeavyAssetReliance, false, "Loaded asset warning flag should be preserved");
-assert.equal(loaded.confidenceRules.flagHeavySurvivorIncomeReliance, true, "Loaded survivor warning flag should be preserved");
-assert.equal(loaded.confidenceRules.flagGroupCoverageReliance, false, "Loaded group coverage flag should be preserved");
+assert.equal(hasOwn(loaded, "confidenceRules"), false, "Loaded confidenceRules should be retired");
+assert.equal(loaded.riskFlags.flagMissingCriticalInputs, false, "Loaded missing-input risk flag should be preserved");
+assert.equal(loaded.riskFlags.flagHeavyAssetReliance, false, "Loaded asset risk flag should be preserved");
+assert.equal(loaded.riskFlags.flagHeavySurvivorIncomeReliance, true, "Loaded survivor risk flag should be preserved");
+assert.equal(loaded.riskFlags.flagGroupCoverageReliance, false, "Loaded group coverage risk flag should be preserved");
 assert.equal(hasOwn(loaded, "recommendationTarget"), false, "Loaded recommendationTarget should be retired");
 assert.equal(hasOwn(loaded, "presentationRules"), false, "Loaded presentationRules should be retired");
-assert.equal(
-  hasOwn(loaded.confidenceRules, "minimumConfidencePercent"),
-  false,
-  "Loaded minimumConfidencePercent should be retired"
-);
 assert.ok(fs.existsSync(currentOutputCheckPath), "Recommendation Guardrails current-output check should exist and be runnable separately");
 
 function createTextField(value) {
@@ -333,10 +340,10 @@ function createRecommendationFields(enabled) {
       "rangeConstraints.lowerBound.tolerancePercent": createTextField("25"),
       "rangeConstraints.upperBound.source": createSelectField("humanLifeValue"),
       "rangeConstraints.upperBound.tolerancePercent": createTextField("25"),
-      "confidenceRules.flagMissingCriticalInputs": createCheckbox(true),
-      "confidenceRules.flagHeavyAssetReliance": createCheckbox(true),
-      "confidenceRules.flagHeavySurvivorIncomeReliance": createCheckbox(true),
-      "confidenceRules.flagGroupCoverageReliance": createCheckbox(true)
+      "riskFlags.flagMissingCriticalInputs": createCheckbox(true),
+      "riskFlags.flagHeavyAssetReliance": createCheckbox(true),
+      "riskFlags.flagHeavySurvivorIncomeReliance": createCheckbox(true),
+      "riskFlags.flagGroupCoverageReliance": createCheckbox(true)
     },
     preview: {
       currentMode: { textContent: "" },
@@ -381,6 +388,17 @@ assert.equal(editedThresholdDraft.riskThresholds.assetReliance.warningThresholdP
 assert.equal(editedThresholdDraft.riskThresholds.illiquidAssetReliance.warningThresholdPercent, 20, "Draft Recommendation Guardrails should read edited illiquid asset reliance threshold");
 assert.equal(editedThresholdDraft.riskThresholds.survivorIncomeReliance.warningThresholdPercent, 30, "Draft Recommendation Guardrails should read edited survivor income reliance threshold");
 
+const editedRiskFlagFields = createRecommendationFields(true);
+editedRiskFlagFields.values["riskFlags.flagMissingCriticalInputs"].checked = false;
+editedRiskFlagFields.values["riskFlags.flagHeavyAssetReliance"].checked = false;
+editedRiskFlagFields.values["riskFlags.flagHeavySurvivorIncomeReliance"].checked = true;
+editedRiskFlagFields.values["riskFlags.flagGroupCoverageReliance"].checked = false;
+const editedRiskFlagDraft = harness.getRecommendationDraftGuardrails(editedRiskFlagFields);
+assert.equal(editedRiskFlagDraft.riskFlags.flagMissingCriticalInputs, false, "Draft Recommendation Guardrails should read edited missing-input risk flag");
+assert.equal(editedRiskFlagDraft.riskFlags.flagHeavyAssetReliance, false, "Draft Recommendation Guardrails should read edited asset risk flag");
+assert.equal(editedRiskFlagDraft.riskFlags.flagHeavySurvivorIncomeReliance, true, "Draft Recommendation Guardrails should read edited survivor risk flag");
+assert.equal(editedRiskFlagDraft.riskFlags.flagGroupCoverageReliance, false, "Draft Recommendation Guardrails should read edited group coverage risk flag");
+
 assert.equal(
   harness.readValidatedRecommendationGuardrails(checkedFields).value.enabled,
   true,
@@ -401,6 +419,11 @@ const validatedThresholds = harness.readValidatedRecommendationGuardrails(edited
 assert.equal(validatedThresholds.assetReliance.warningThresholdPercent, 45, "Validated Recommendation Guardrails should save edited asset reliance threshold");
 assert.equal(validatedThresholds.illiquidAssetReliance.warningThresholdPercent, 20, "Validated Recommendation Guardrails should save edited illiquid asset reliance threshold");
 assert.equal(validatedThresholds.survivorIncomeReliance.warningThresholdPercent, 30, "Validated Recommendation Guardrails should save edited survivor income reliance threshold");
+const validatedRiskFlags = harness.readValidatedRecommendationGuardrails(editedRiskFlagFields).value.riskFlags;
+assert.equal(validatedRiskFlags.flagMissingCriticalInputs, false, "Validated Recommendation Guardrails should save edited missing-input risk flag");
+assert.equal(validatedRiskFlags.flagHeavyAssetReliance, false, "Validated Recommendation Guardrails should save edited asset risk flag");
+assert.equal(validatedRiskFlags.flagHeavySurvivorIncomeReliance, true, "Validated Recommendation Guardrails should save edited survivor risk flag");
+assert.equal(validatedRiskFlags.flagGroupCoverageReliance, false, "Validated Recommendation Guardrails should save edited group coverage risk flag");
 
 const populatedFields = createRecommendationFields(false);
 harness.populateRecommendationGuardrailFields(populatedFields, loaded);
@@ -444,8 +467,32 @@ assert.equal(
   "33",
   "Populate Recommendation Guardrails should load saved upper tolerance"
 );
+assert.equal(
+  populatedFields.values["riskFlags.flagMissingCriticalInputs"].checked,
+  false,
+  "Populate Recommendation Guardrails should load saved missing-input risk flag"
+);
+assert.equal(
+  populatedFields.values["riskFlags.flagHeavyAssetReliance"].checked,
+  false,
+  "Populate Recommendation Guardrails should load saved asset risk flag"
+);
+assert.equal(
+  populatedFields.values["riskFlags.flagHeavySurvivorIncomeReliance"].checked,
+  true,
+  "Populate Recommendation Guardrails should load saved survivor risk flag"
+);
+assert.equal(
+  populatedFields.values["riskFlags.flagGroupCoverageReliance"].checked,
+  false,
+  "Populate Recommendation Guardrails should load saved group coverage risk flag"
+);
 
 const conservativeFields = createRecommendationFields(true);
+conservativeFields.values["riskFlags.flagMissingCriticalInputs"].checked = false;
+conservativeFields.values["riskFlags.flagHeavyAssetReliance"].checked = false;
+conservativeFields.values["riskFlags.flagHeavySurvivorIncomeReliance"].checked = false;
+conservativeFields.values["riskFlags.flagGroupCoverageReliance"].checked = false;
 harness.applyRecommendationProfile(conservativeFields, "conservative");
 assert.equal(
   conservativeFields.values["riskThresholds.assetReliance.warningThresholdPercent"].value,
@@ -462,8 +509,16 @@ assert.equal(
   "35",
   "Conservative profile should set survivor income reliance threshold"
 );
+assert.equal(conservativeFields.values["riskFlags.flagMissingCriticalInputs"].checked, true, "Conservative profile should set missing-input risk flag");
+assert.equal(conservativeFields.values["riskFlags.flagHeavyAssetReliance"].checked, true, "Conservative profile should set asset risk flag");
+assert.equal(conservativeFields.values["riskFlags.flagHeavySurvivorIncomeReliance"].checked, true, "Conservative profile should set survivor risk flag");
+assert.equal(conservativeFields.values["riskFlags.flagGroupCoverageReliance"].checked, true, "Conservative profile should set group coverage risk flag");
 
 const aggressiveFields = createRecommendationFields(true);
+aggressiveFields.values["riskFlags.flagMissingCriticalInputs"].checked = false;
+aggressiveFields.values["riskFlags.flagHeavyAssetReliance"].checked = false;
+aggressiveFields.values["riskFlags.flagHeavySurvivorIncomeReliance"].checked = false;
+aggressiveFields.values["riskFlags.flagGroupCoverageReliance"].checked = false;
 harness.applyRecommendationProfile(aggressiveFields, "aggressive");
 assert.equal(
   aggressiveFields.values["riskThresholds.assetReliance.warningThresholdPercent"].value,
@@ -480,5 +535,9 @@ assert.equal(
   "70",
   "Aggressive profile should set survivor income reliance threshold"
 );
+assert.equal(aggressiveFields.values["riskFlags.flagMissingCriticalInputs"].checked, true, "Aggressive profile should set missing-input risk flag");
+assert.equal(aggressiveFields.values["riskFlags.flagHeavyAssetReliance"].checked, true, "Aggressive profile should set asset risk flag");
+assert.equal(aggressiveFields.values["riskFlags.flagHeavySurvivorIncomeReliance"].checked, true, "Aggressive profile should set survivor risk flag");
+assert.equal(aggressiveFields.values["riskFlags.flagGroupCoverageReliance"].checked, true, "Aggressive profile should set group coverage risk flag");
 
 console.log("Recommendation Guardrails save-shape check passed.");

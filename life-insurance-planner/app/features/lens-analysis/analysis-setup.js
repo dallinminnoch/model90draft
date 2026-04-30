@@ -803,7 +803,7 @@
       }),
       conflictHandling: "flagForAdvisorReview"
     }),
-    confidenceRules: Object.freeze({
+    riskFlags: Object.freeze({
       flagMissingCriticalInputs: true,
       flagHeavyAssetReliance: true,
       flagHeavySurvivorIncomeReliance: true,
@@ -824,7 +824,7 @@
           warningThresholdPercent: 35
         })
       }),
-      confidenceRules: Object.freeze({
+      riskFlags: Object.freeze({
         flagMissingCriticalInputs: true,
         flagHeavyAssetReliance: true,
         flagHeavySurvivorIncomeReliance: true,
@@ -833,7 +833,7 @@
     }),
     balanced: Object.freeze({
       riskThresholds: DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds,
-      confidenceRules: DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules
+      riskFlags: DEFAULT_RECOMMENDATION_GUARDRAILS.riskFlags
     }),
     aggressive: Object.freeze({
       riskThresholds: Object.freeze({
@@ -847,7 +847,7 @@
           warningThresholdPercent: 70
         })
       }),
-      confidenceRules: Object.freeze({
+      riskFlags: Object.freeze({
         flagMissingCriticalInputs: true,
         flagHeavyAssetReliance: true,
         flagHeavySurvivorIncomeReliance: true,
@@ -2191,9 +2191,9 @@
         ...(profileRiskThresholds.survivorIncomeReliance || {})
       }
     };
-    const defaultConfidenceRules = {
-      ...DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules,
-      ...(profileDefaults.confidenceRules || {})
+    const defaultRiskFlags = {
+      ...DEFAULT_RECOMMENDATION_GUARDRAILS.riskFlags,
+      ...(profileDefaults.riskFlags || {})
     };
     const savedRiskThresholds = isPlainObject(saved.riskThresholds)
       ? saved.riskThresholds
@@ -2216,8 +2216,8 @@
     const savedUpperBound = isPlainObject(savedRangeConstraints.upperBound)
       ? savedRangeConstraints.upperBound
       : {};
-    const savedConfidenceRules = isPlainObject(saved.confidenceRules)
-      ? saved.confidenceRules
+    const savedRiskFlags = isPlainObject(saved.riskFlags)
+      ? saved.riskFlags
       : {};
     const nextGuardrails = {
       enabled: typeof saved.enabled === "boolean"
@@ -2270,19 +2270,19 @@
           DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.conflictHandling
         )
       },
-      confidenceRules: {
-        flagMissingCriticalInputs: typeof savedConfidenceRules.flagMissingCriticalInputs === "boolean"
-          ? savedConfidenceRules.flagMissingCriticalInputs
-          : Boolean(defaultConfidenceRules.flagMissingCriticalInputs),
-        flagHeavyAssetReliance: typeof savedConfidenceRules.flagHeavyAssetReliance === "boolean"
-          ? savedConfidenceRules.flagHeavyAssetReliance
-          : Boolean(defaultConfidenceRules.flagHeavyAssetReliance),
-        flagHeavySurvivorIncomeReliance: typeof savedConfidenceRules.flagHeavySurvivorIncomeReliance === "boolean"
-          ? savedConfidenceRules.flagHeavySurvivorIncomeReliance
-          : Boolean(defaultConfidenceRules.flagHeavySurvivorIncomeReliance),
-        flagGroupCoverageReliance: typeof savedConfidenceRules.flagGroupCoverageReliance === "boolean"
-          ? savedConfidenceRules.flagGroupCoverageReliance
-          : Boolean(defaultConfidenceRules.flagGroupCoverageReliance)
+      riskFlags: {
+        flagMissingCriticalInputs: typeof savedRiskFlags.flagMissingCriticalInputs === "boolean"
+          ? savedRiskFlags.flagMissingCriticalInputs
+          : Boolean(defaultRiskFlags.flagMissingCriticalInputs),
+        flagHeavyAssetReliance: typeof savedRiskFlags.flagHeavyAssetReliance === "boolean"
+          ? savedRiskFlags.flagHeavyAssetReliance
+          : Boolean(defaultRiskFlags.flagHeavyAssetReliance),
+        flagHeavySurvivorIncomeReliance: typeof savedRiskFlags.flagHeavySurvivorIncomeReliance === "boolean"
+          ? savedRiskFlags.flagHeavySurvivorIncomeReliance
+          : Boolean(defaultRiskFlags.flagHeavySurvivorIncomeReliance),
+        flagGroupCoverageReliance: typeof savedRiskFlags.flagGroupCoverageReliance === "boolean"
+          ? savedRiskFlags.flagGroupCoverageReliance
+          : Boolean(defaultRiskFlags.flagGroupCoverageReliance)
       },
       source: String(saved.source || DEFAULT_RECOMMENDATION_GUARDRAILS.source)
     };
@@ -3754,8 +3754,8 @@
       || DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.lowerBound;
     const currentUpperBound = currentRangeConstraints.upperBound
       || DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.upperBound;
-    const currentConfidenceRules = current.confidenceRules
-      || DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules;
+    const currentRiskFlags = current.riskFlags
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.riskFlags;
     const recommendationProfile = getRecommendationDefaultProfile(fields);
 
     return {
@@ -3814,26 +3814,26 @@
           DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.conflictHandling
         )
       },
-      confidenceRules: {
+      riskFlags: {
         flagMissingCriticalInputs: readRecommendationDraftBoolean(
           fields,
-          "confidenceRules.flagMissingCriticalInputs",
-          currentConfidenceRules.flagMissingCriticalInputs
+          "riskFlags.flagMissingCriticalInputs",
+          currentRiskFlags.flagMissingCriticalInputs
         ),
         flagHeavyAssetReliance: readRecommendationDraftBoolean(
           fields,
-          "confidenceRules.flagHeavyAssetReliance",
-          currentConfidenceRules.flagHeavyAssetReliance
+          "riskFlags.flagHeavyAssetReliance",
+          currentRiskFlags.flagHeavyAssetReliance
         ),
         flagHeavySurvivorIncomeReliance: readRecommendationDraftBoolean(
           fields,
-          "confidenceRules.flagHeavySurvivorIncomeReliance",
-          currentConfidenceRules.flagHeavySurvivorIncomeReliance
+          "riskFlags.flagHeavySurvivorIncomeReliance",
+          currentRiskFlags.flagHeavySurvivorIncomeReliance
         ),
         flagGroupCoverageReliance: readRecommendationDraftBoolean(
           fields,
-          "confidenceRules.flagGroupCoverageReliance",
-          currentConfidenceRules.flagGroupCoverageReliance
+          "riskFlags.flagGroupCoverageReliance",
+          currentRiskFlags.flagGroupCoverageReliance
         )
       },
       source: "analysis-setup"
@@ -4917,23 +4917,23 @@
     );
     setRecommendationChecked(
       fields,
-      "confidenceRules.flagMissingCriticalInputs",
-      guardrails.confidenceRules.flagMissingCriticalInputs
+      "riskFlags.flagMissingCriticalInputs",
+      guardrails.riskFlags.flagMissingCriticalInputs
     );
     setRecommendationChecked(
       fields,
-      "confidenceRules.flagHeavyAssetReliance",
-      guardrails.confidenceRules.flagHeavyAssetReliance
+      "riskFlags.flagHeavyAssetReliance",
+      guardrails.riskFlags.flagHeavyAssetReliance
     );
     setRecommendationChecked(
       fields,
-      "confidenceRules.flagHeavySurvivorIncomeReliance",
-      guardrails.confidenceRules.flagHeavySurvivorIncomeReliance
+      "riskFlags.flagHeavySurvivorIncomeReliance",
+      guardrails.riskFlags.flagHeavySurvivorIncomeReliance
     );
     setRecommendationChecked(
       fields,
-      "confidenceRules.flagGroupCoverageReliance",
-      guardrails.confidenceRules.flagGroupCoverageReliance
+      "riskFlags.flagGroupCoverageReliance",
+      guardrails.riskFlags.flagGroupCoverageReliance
     );
     syncRecommendationPreview(fields);
   }
@@ -5468,9 +5468,9 @@
           ...profileDefaults.riskThresholds.survivorIncomeReliance
         }
       },
-      confidenceRules: {
-        ...current.confidenceRules,
-        ...profileDefaults.confidenceRules
+      riskFlags: {
+        ...current.riskFlags,
+        ...profileDefaults.riskFlags
       }
     };
 
@@ -6667,26 +6667,26 @@
             DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.conflictHandling
           )
         },
-        confidenceRules: {
+        riskFlags: {
           flagMissingCriticalInputs: readRecommendationDraftBoolean(
             fields,
-            "confidenceRules.flagMissingCriticalInputs",
-            current.confidenceRules.flagMissingCriticalInputs
+            "riskFlags.flagMissingCriticalInputs",
+            current.riskFlags.flagMissingCriticalInputs
           ),
           flagHeavyAssetReliance: readRecommendationDraftBoolean(
             fields,
-            "confidenceRules.flagHeavyAssetReliance",
-            current.confidenceRules.flagHeavyAssetReliance
+            "riskFlags.flagHeavyAssetReliance",
+            current.riskFlags.flagHeavyAssetReliance
           ),
           flagHeavySurvivorIncomeReliance: readRecommendationDraftBoolean(
             fields,
-            "confidenceRules.flagHeavySurvivorIncomeReliance",
-            current.confidenceRules.flagHeavySurvivorIncomeReliance
+            "riskFlags.flagHeavySurvivorIncomeReliance",
+            current.riskFlags.flagHeavySurvivorIncomeReliance
           ),
           flagGroupCoverageReliance: readRecommendationDraftBoolean(
             fields,
-            "confidenceRules.flagGroupCoverageReliance",
-            current.confidenceRules.flagGroupCoverageReliance
+            "riskFlags.flagGroupCoverageReliance",
+            current.riskFlags.flagGroupCoverageReliance
           )
         }
       }
