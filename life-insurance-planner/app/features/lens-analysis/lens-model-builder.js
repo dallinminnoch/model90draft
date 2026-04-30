@@ -11,6 +11,8 @@
   const SURVIVOR_NET_INCOME_TAX_BASIS = "Qualifying Surviving Spouse";
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
   const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
+  const TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.nonMortgageDebtAmount";
+  const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
   const TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
     applyStartDelay: true,
@@ -1216,26 +1218,49 @@
   }
 
   function createDebtTreatmentMethodConsumptionMetadata(options) {
+    const preparedDimeNonMortgageDebtAmount = toOptionalNumber(options?.preparedDimeNonMortgageDebtAmount);
+    const preparedDimeMortgageAmount = toOptionalNumber(options?.preparedDimeMortgageAmount);
     const preparedNeedsDebtPayoffAmount = toOptionalNumber(options?.preparedNeedsDebtPayoffAmount);
+    const dimeDebtConsumesTreatedDebt = preparedDimeNonMortgageDebtAmount != null
+      && preparedDimeNonMortgageDebtAmount >= 0;
+    const dimeMortgageConsumesTreatedDebt = preparedDimeMortgageAmount != null
+      && preparedDimeMortgageAmount >= 0;
+    const dimeConsumesTreatedDebt = dimeDebtConsumesTreatedDebt || dimeMortgageConsumesTreatedDebt;
     const needsConsumesTreatedDebt = preparedNeedsDebtPayoffAmount != null && preparedNeedsDebtPayoffAmount >= 0;
+    const consumedByMethodNames = [];
+    if (dimeConsumesTreatedDebt) {
+      consumedByMethodNames.push("dime");
+    }
+    if (needsConsumesTreatedDebt) {
+      consumedByMethodNames.push("needs");
+    }
 
     return {
-      consumedByMethods: needsConsumesTreatedDebt,
-      consumedByMethodNames: needsConsumesTreatedDebt ? ["needs"] : [],
+      consumedByMethods: consumedByMethodNames.length > 0,
+      consumedByMethodNames,
       methodConsumption: {
-        dime: false,
+        dime: dimeConsumesTreatedDebt,
         needs: needsConsumesTreatedDebt,
         hlv: false
       },
       currentMethodSourcePaths: {
-        dimeDebt: "debtPayoff",
-        dimeMortgage: "debtPayoff.mortgageBalance",
+        dimeDebt: dimeDebtConsumesTreatedDebt
+          ? TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH
+          : "debtPayoff",
+        dimeMortgage: dimeMortgageConsumesTreatedDebt
+          ? TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH
+          : "debtPayoff.mortgageBalance",
         needsDebtPayoff: needsConsumesTreatedDebt
           ? TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH
           : "debtPayoff"
       },
-      methodDebtSourcePath: needsConsumesTreatedDebt ? "partial-method-consumption" : "debtPayoff",
-      dimeDebtSourcePath: "debtPayoff",
+      methodDebtSourcePath: consumedByMethodNames.length ? "partial-method-consumption" : "debtPayoff",
+      dimeDebtSourcePath: dimeDebtConsumesTreatedDebt
+        ? TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH
+        : "debtPayoff",
+      dimeMortgageSourcePath: dimeMortgageConsumesTreatedDebt
+        ? TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH
+        : "debtPayoff.mortgageBalance",
       needsDebtSourcePath: needsConsumesTreatedDebt
         ? TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH
         : "debtPayoff"
@@ -1717,6 +1742,8 @@
     });
     const resultMetadata = isPlainObject(result?.metadata) ? result.metadata : {};
     const methodConsumptionMetadata = createDebtTreatmentMethodConsumptionMetadata({
+      preparedDimeNonMortgageDebtAmount: result?.dime?.nonMortgageDebtAmount,
+      preparedDimeMortgageAmount: result?.dime?.mortgageAmount,
       preparedNeedsDebtPayoffAmount: result?.needs?.debtPayoffAmount
     });
 

@@ -44,12 +44,12 @@ function createDimeResult() {
   return {
     method: "dime",
     label: "DIME Analysis",
-    grossNeed: 1350000,
-    netCoverageGap: 1350000,
+    grossNeed: 1012000,
+    netCoverageGap: 1012000,
     components: {
-      debt: 100000,
+      debt: 12000,
       income: 1000000,
-      mortgage: 250000,
+      mortgage: 0,
       education: 0
     },
     commonOffsets: {
@@ -67,11 +67,13 @@ function createDimeResult() {
       {
         key: "debt",
         label: "Debt",
-        formula: "Sum of non-mortgage debt fields",
-        value: 100000,
-        sourcePaths: ["debtPayoff.otherRealEstateLoanBalance"],
+        formula: "treatedDebtPayoff.dime.nonMortgageDebtAmount",
+        value: 12000,
+        sourcePaths: ["treatedDebtPayoff.dime.nonMortgageDebtAmount"],
         inputs: createDebtTraceInputs({
-          currentMethodDebtSourcePath: "explicit-non-mortgage-debt-fields",
+          treatedDebtConsumedByMethods: true,
+          currentMethodDebtSourcePath: "treatedDebtPayoff.dime.nonMortgageDebtAmount",
+          fallbackDebtSourcePath: "explicit-non-mortgage-debt-fields",
           preparedDebtSourcePath: "treatedDebtPayoff.dime.nonMortgageDebtAmount",
           rawNonMortgageDebtAmount: 100000,
           preparedNonMortgageDebtAmount: 12000,
@@ -82,11 +84,13 @@ function createDimeResult() {
       {
         key: "mortgage",
         label: "Mortgage",
-        formula: "mortgageBalance",
-        value: 250000,
-        sourcePaths: ["debtPayoff.mortgageBalance"],
+        formula: "treatedDebtPayoff.dime.mortgageAmount",
+        value: 0,
+        sourcePaths: ["treatedDebtPayoff.dime.mortgageAmount"],
         inputs: createDebtTraceInputs({
-          currentMethodDebtSourcePath: "debtPayoff.mortgageBalance",
+          treatedDebtConsumedByMethods: true,
+          currentMethodDebtSourcePath: "treatedDebtPayoff.dime.mortgageAmount",
+          fallbackDebtSourcePath: "debtPayoff.mortgageBalance",
           preparedDebtSourcePath: "treatedDebtPayoff.dime.mortgageAmount",
           rawNonMortgageDebtAmount: 100000,
           preparedNonMortgageDebtAmount: 12000,
@@ -292,12 +296,12 @@ const needsHtml = hosts["[data-step-three-needs-analysis]"].innerHTML;
 const hlvHtml = hosts["[data-step-three-human-life-value-analysis]"].innerHTML;
 
 assert.match(dimeHtml, /Debt Treatment Details/);
-assert.match(dimeHtml, /Raw debtPayoff used/);
-assert.match(dimeHtml, /Raw non-mortgage debt used/);
+assert.match(dimeHtml, /Prepared treated debt used/);
+assert.match(dimeHtml, /Raw non-mortgage debt reference/);
 assert.match(dimeHtml, /Prepared treated non-mortgage debt/);
-assert.match(dimeHtml, /Raw mortgage used/);
+assert.match(dimeHtml, /Raw mortgage reference/);
 assert.match(dimeHtml, /Prepared treated mortgage/);
-assert.match(dimeHtml, /Prepared only; not method-used/);
+assert.match(dimeHtml, /Prepared treated debt method-used/);
 assert.match(dimeHtml, /Deferred treatment warning/);
 
 assert.match(needsHtml, /Debt Treatment Details/);

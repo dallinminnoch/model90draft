@@ -534,15 +534,29 @@
       return "";
     }
 
-    const statusTrace = hasDebtTreatmentTrace(debtTrace) ? debtTrace : mortgageTrace;
+    const statusTrace = [debtTrace, mortgageTrace].find(function (trace) {
+      return hasDebtTreatmentTrace(trace) && getTraceInput(trace, "treatedDebtConsumedByMethods") === true;
+    }) || (hasDebtTreatmentTrace(debtTrace) ? debtTrace : mortgageTrace);
     const rows = [
       { label: "Debt treatment status", value: getDebtTreatmentStatus(statusTrace) },
       { label: "Current method-used debt source", value: getDebtTreatmentCurrentSource(debtTrace || mortgageTrace) }
     ];
 
-    pushOptionalMoneyRow(rows, "Raw non-mortgage debt used", getTraceInput(debtTrace, "rawNonMortgageDebtAmount"));
+    pushOptionalMoneyRow(
+      rows,
+      getTraceInput(debtTrace, "treatedDebtConsumedByMethods") === true
+        ? "Raw non-mortgage debt reference"
+        : "Raw non-mortgage debt used",
+      getTraceInput(debtTrace, "rawNonMortgageDebtAmount")
+    );
     pushOptionalMoneyRow(rows, "Prepared treated non-mortgage debt", getTraceInput(debtTrace, "preparedNonMortgageDebtAmount"));
-    pushOptionalMoneyRow(rows, "Raw mortgage used", getTraceInput(mortgageTrace || debtTrace, "rawMortgageAmount"));
+    pushOptionalMoneyRow(
+      rows,
+      getTraceInput(mortgageTrace || debtTrace, "treatedDebtConsumedByMethods") === true
+        ? "Raw mortgage reference"
+        : "Raw mortgage used",
+      getTraceInput(mortgageTrace || debtTrace, "rawMortgageAmount")
+    );
     pushOptionalMoneyRow(rows, "Prepared treated mortgage", getTraceInput(mortgageTrace || debtTrace, "preparedMortgageAmount"));
     pushOptionalMoneyRow(rows, "Excluded debt", getTraceInput(statusTrace, "excludedDebtAmount"));
     pushOptionalMoneyRow(rows, "Deferred debt", getTraceInput(statusTrace, "deferredDebtAmount"));

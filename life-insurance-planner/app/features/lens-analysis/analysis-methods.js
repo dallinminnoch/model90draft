@@ -555,6 +555,50 @@
     };
   }
 
+  function resolveDimeDebtTreatmentSelection(options) {
+    const normalizedOptions = isPlainObject(options) ? options : {};
+    const rawSourcePaths = Array.isArray(normalizedOptions.rawSourcePaths)
+      ? normalizedOptions.rawSourcePaths.slice()
+      : [];
+    const rawSource = normalizedOptions.rawSource || null;
+    const rawFallbackSourcePath = getSingleOrSummarySourcePath(rawSourcePaths, rawSource);
+    const preparedAmount = toOptionalNumber(normalizedOptions.preparedAmount);
+    const hasValidPreparedAmount = normalizedOptions.treatedDebtPayoffAvailable === true
+      && preparedAmount != null
+      && preparedAmount >= 0;
+
+    if (hasValidPreparedAmount) {
+      return {
+        value: preparedAmount,
+        formula: normalizedOptions.preparedSourcePath,
+        source: normalizedOptions.preparedSourcePath,
+        sourcePaths: [normalizedOptions.preparedSourcePath],
+        currentMethodDebtSourcePath: normalizedOptions.preparedSourcePath,
+        currentMethodDebtSourcePaths: [normalizedOptions.preparedSourcePath],
+        fallbackDebtSourcePath: rawFallbackSourcePath,
+        fallbackDebtSourcePaths: rawSourcePaths,
+        treatedDebtConsumedByMethods: true,
+        fallbackReason: null
+      };
+    }
+
+    return {
+      value: normalizedOptions.rawValue,
+      formula: normalizedOptions.rawFormula,
+      source: rawSource,
+      sourcePaths: rawSourcePaths,
+      currentMethodDebtSourcePath: rawFallbackSourcePath,
+      currentMethodDebtSourcePaths: rawSourcePaths,
+      fallbackDebtSourcePath: rawFallbackSourcePath,
+      fallbackDebtSourcePaths: rawSourcePaths,
+      treatedDebtConsumedByMethods: false,
+      fallbackReason: normalizedOptions.fallbackReason
+        || (preparedAmount != null && preparedAmount < 0
+          ? normalizedOptions.invalidFallbackReason
+          : normalizedOptions.unavailableFallbackReason)
+    };
+  }
+
   function getDimeIncomeYears(settings, warnings) {
     if (!hasOwn(settings, "dimeIncomeYears")) {
       return DEFAULT_DIME_INCOME_YEARS;
@@ -2448,8 +2492,34 @@
     });
     const assetOffset = assetOffsetSelection.value;
     const treatedDebtTraceContext = createTreatedDebtPayoffTraceContext(model);
+    const debtSelection = resolveDimeDebtTreatmentSelection({
+      rawValue: debtComponent.value,
+      rawFormula: debtComponent.source === "explicit-non-mortgage-debt-fields"
+        ? "Sum of non-mortgage debt fields"
+        : "Fallback debt total minus mortgage when available",
+      rawSource: debtComponent.source,
+      rawSourcePaths: debtComponent.sourcePaths,
+      preparedAmount: treatedDebtTraceContext.preparedDimeNonMortgageDebtAmount,
+      preparedSourcePath: TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH,
+      treatedDebtPayoffAvailable: treatedDebtTraceContext.treatedDebtPayoffAvailable,
+      fallbackReason: treatedDebtTraceContext.fallbackReason,
+      invalidFallbackReason: "invalid-treated-dime-non-mortgage-debt-amount",
+      unavailableFallbackReason: "treated-dime-non-mortgage-debt-unavailable"
+    });
+    const mortgageSelection = resolveDimeDebtTreatmentSelection({
+      rawValue: mortgage,
+      rawFormula: "mortgageBalance",
+      rawSource: "debtPayoff.mortgageBalance",
+      rawSourcePaths: ["debtPayoff.mortgageBalance"],
+      preparedAmount: treatedDebtTraceContext.preparedDimeMortgageAmount,
+      preparedSourcePath: TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH,
+      treatedDebtPayoffAvailable: treatedDebtTraceContext.treatedDebtPayoffAvailable,
+      fallbackReason: treatedDebtTraceContext.fallbackReason,
+      invalidFallbackReason: "invalid-treated-dime-mortgage-amount",
+      unavailableFallbackReason: "treated-dime-mortgage-unavailable"
+    });
 
-    const grossNeed = debtComponent.value + income + mortgage + education;
+    const grossNeed = debtSelection.value + income + mortgageSelection.value + education;
     const totalOffset = existingCoverageOffset + assetOffset;
     const rawUncappedGap = grossNeed - totalOffset;
     const netCoverageGap = Math.max(rawUncappedGap, 0);
@@ -2457,25 +2527,24 @@
     trace.push(createTraceRow({
       key: "debt",
       label: "Debt",
-      formula: debtComponent.source === "explicit-non-mortgage-debt-fields"
-        ? "Sum of non-mortgage debt fields"
-        : "Fallback debt total minus mortgage when available",
+      formula: debtSelection.formula,
       inputs: {
         ...debtComponent.inputs,
         ...createBaseDebtTreatmentTraceInputs(treatedDebtTraceContext),
-        currentMethodDebtSourcePath: getSingleOrSummarySourcePath(
-          debtComponent.sourcePaths,
-          debtComponent.source
-        ),
-        currentMethodDebtSourcePaths: debtComponent.sourcePaths,
+        treatedDebtConsumedByMethods: debtSelection.treatedDebtConsumedByMethods,
+        fallbackReason: debtSelection.fallbackReason,
+        currentMethodDebtSourcePath: debtSelection.currentMethodDebtSourcePath,
+        currentMethodDebtSourcePaths: debtSelection.currentMethodDebtSourcePaths,
+        fallbackDebtSourcePath: debtSelection.fallbackDebtSourcePath,
+        fallbackDebtSourcePaths: debtSelection.fallbackDebtSourcePaths,
         preparedDebtSourcePath: TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH,
         rawNonMortgageDebtAmount: debtComponent.value,
         preparedNonMortgageDebtAmount: treatedDebtTraceContext.preparedDimeNonMortgageDebtAmount,
         rawMortgageAmount: mortgage,
         preparedMortgageAmount: treatedDebtTraceContext.preparedDimeMortgageAmount
       },
-      value: debtComponent.value,
-      sourcePaths: debtComponent.sourcePaths
+      value: debtSelection.value,
+      sourcePaths: debtSelection.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "income",
@@ -2491,20 +2560,24 @@
     trace.push(createTraceRow({
       key: "mortgage",
       label: "Mortgage",
-      formula: "mortgageBalance",
+      formula: mortgageSelection.formula,
       inputs: {
         mortgageBalance: mortgage,
         ...createBaseDebtTreatmentTraceInputs(treatedDebtTraceContext),
-        currentMethodDebtSourcePath: "debtPayoff.mortgageBalance",
-        currentMethodDebtSourcePaths: ["debtPayoff.mortgageBalance"],
+        treatedDebtConsumedByMethods: mortgageSelection.treatedDebtConsumedByMethods,
+        fallbackReason: mortgageSelection.fallbackReason,
+        currentMethodDebtSourcePath: mortgageSelection.currentMethodDebtSourcePath,
+        currentMethodDebtSourcePaths: mortgageSelection.currentMethodDebtSourcePaths,
+        fallbackDebtSourcePath: mortgageSelection.fallbackDebtSourcePath,
+        fallbackDebtSourcePaths: mortgageSelection.fallbackDebtSourcePaths,
         preparedDebtSourcePath: TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH,
         rawNonMortgageDebtAmount: debtComponent.value,
         preparedNonMortgageDebtAmount: treatedDebtTraceContext.preparedDimeNonMortgageDebtAmount,
         rawMortgageAmount: mortgage,
         preparedMortgageAmount: treatedDebtTraceContext.preparedDimeMortgageAmount
       },
-      value: mortgage,
-      sourcePaths: ["debtPayoff.mortgageBalance"]
+      value: mortgageSelection.value,
+      sourcePaths: mortgageSelection.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "education",
@@ -2521,9 +2594,9 @@
       label: "Gross DIME Need",
       formula: "debt + income + mortgage + education",
       inputs: {
-        debt: debtComponent.value,
+        debt: debtSelection.value,
         income,
-        mortgage,
+        mortgage: mortgageSelection.value,
         education
       },
       value: grossNeed,
@@ -2564,9 +2637,9 @@
       netCoverageGap,
       rawUncappedGap,
       components: {
-        debt: debtComponent.value,
+        debt: debtSelection.value,
         income,
-        mortgage,
+        mortgage: mortgageSelection.value,
         education
       },
       commonOffsets: {
@@ -2579,9 +2652,9 @@
         includeExistingCoverageOffset,
         includeOffsetAssets,
         ...assetOffsetSelection.assumptionFields,
-        debtComponentSource: debtComponent.source,
+        debtComponentSource: debtSelection.source,
         incomeComponentSource: "incomeBasis.annualIncomeReplacementBase",
-        mortgageComponentSource: "debtPayoff.mortgageBalance",
+        mortgageComponentSource: mortgageSelection.source,
         educationComponentSource: "educationSupport.totalEducationFundingNeed"
       },
       warnings,

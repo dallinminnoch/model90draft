@@ -93,15 +93,15 @@ function createTreatedDebtPayoff() {
       source: "debtFacts",
       fallbackSource: "debtPayoff-compatibility",
       consumedByMethods: true,
-      consumedByMethodNames: ["needs"],
+      consumedByMethodNames: ["dime", "needs"],
       methodConsumption: {
-        dime: false,
+        dime: true,
         needs: true,
         hlv: false
       },
       currentMethodSourcePaths: {
-        dimeDebt: "debtPayoff",
-        dimeMortgage: "debtPayoff.mortgageBalance",
+        dimeDebt: "treatedDebtPayoff.dime.nonMortgageDebtAmount",
+        dimeMortgage: "treatedDebtPayoff.dime.mortgageAmount",
         needsDebtPayoff: "treatedDebtPayoff.needs.debtPayoffAmount"
       },
       manualTotalDebtPayoffOverride: true,
@@ -150,6 +150,26 @@ function createInvalidNeedsTreatedDebtPayoff() {
     debtPayoffAmount: -1,
     mortgagePayoffAmount: 0,
     nonMortgageDebtAmount: 0
+  };
+  return treatedDebtPayoff;
+}
+
+function createInvalidDimeDebtTreatedDebtPayoff() {
+  const treatedDebtPayoff = createTreatedDebtPayoff();
+  treatedDebtPayoff.dime = {
+    nonMortgageDebtAmount: -1,
+    mortgageAmount: 0,
+    totalDebtAndMortgageAmount: 0
+  };
+  return treatedDebtPayoff;
+}
+
+function createInvalidDimeMortgageTreatedDebtPayoff() {
+  const treatedDebtPayoff = createTreatedDebtPayoff();
+  treatedDebtPayoff.dime = {
+    nonMortgageDebtAmount: 12000,
+    mortgageAmount: -1,
+    totalDebtAndMortgageAmount: 12000
   };
   return treatedDebtPayoff;
 }
@@ -256,7 +276,11 @@ function createModel(options = {}) {
         ? createRawEquivalentTreatedDebtPayoff()
         : (options.invalidNeedsTreatedDebt === true
           ? createInvalidNeedsTreatedDebtPayoff()
-          : createTreatedDebtPayoff()));
+          : (options.invalidDimeDebtTreatedDebt === true
+            ? createInvalidDimeDebtTreatedDebtPayoff()
+            : (options.invalidDimeMortgageTreatedDebt === true
+              ? createInvalidDimeMortgageTreatedDebtPayoff()
+              : createTreatedDebtPayoff()))));
   }
 
   return model;
@@ -329,14 +353,16 @@ function assertDebtTreatmentTraceBase(trace, methodName, expectedConsumedByMetho
 
 function assertDimeDebtTrace(dimeResult) {
   const debtTrace = findTrace(dimeResult, "debt");
-  assertDebtTreatmentTraceBase(debtTrace, "DIME debt");
-  assert.equal(debtTrace.value, 100000);
+  assertDebtTreatmentTraceBase(debtTrace, "DIME debt", true);
+  assert.equal(debtTrace.value, 12000);
   assert.equal(debtTrace.inputs.rawNonMortgageDebtAmount, 100000);
   assert.equal(debtTrace.inputs.preparedNonMortgageDebtAmount, 12000);
   assert.equal(debtTrace.inputs.rawMortgageAmount, 250000);
   assert.equal(debtTrace.inputs.preparedMortgageAmount, 0);
-  assert.equal(debtTrace.inputs.currentMethodDebtSourcePath, "explicit-non-mortgage-debt-fields");
-  assert.deepEqual(cloneJson(debtTrace.sourcePaths), [
+  assert.equal(debtTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.dime.nonMortgageDebtAmount");
+  assert.deepEqual(cloneJson(debtTrace.sourcePaths), ["treatedDebtPayoff.dime.nonMortgageDebtAmount"]);
+  assert.equal(debtTrace.inputs.fallbackDebtSourcePath, "explicit-non-mortgage-debt-fields");
+  assert.deepEqual(cloneJson(debtTrace.inputs.fallbackDebtSourcePaths), [
     "debtPayoff.otherRealEstateLoanBalance",
     "debtPayoff.autoLoanBalance",
     "debtPayoff.creditCardBalance",
@@ -351,10 +377,12 @@ function assertDimeDebtTrace(dimeResult) {
 
 function assertDimeMortgageTrace(dimeResult) {
   const mortgageTrace = findTrace(dimeResult, "mortgage");
-  assertDebtTreatmentTraceBase(mortgageTrace, "DIME mortgage");
-  assert.equal(mortgageTrace.value, 250000);
-  assert.equal(mortgageTrace.inputs.currentMethodDebtSourcePath, "debtPayoff.mortgageBalance");
-  assert.deepEqual(cloneJson(mortgageTrace.sourcePaths), ["debtPayoff.mortgageBalance"]);
+  assertDebtTreatmentTraceBase(mortgageTrace, "DIME mortgage", true);
+  assert.equal(mortgageTrace.value, 0);
+  assert.equal(mortgageTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.dime.mortgageAmount");
+  assert.deepEqual(cloneJson(mortgageTrace.sourcePaths), ["treatedDebtPayoff.dime.mortgageAmount"]);
+  assert.equal(mortgageTrace.inputs.fallbackDebtSourcePath, "debtPayoff.mortgageBalance");
+  assert.deepEqual(cloneJson(mortgageTrace.inputs.fallbackDebtSourcePaths), ["debtPayoff.mortgageBalance"]);
   assert.equal(mortgageTrace.inputs.preparedDebtSourcePath, "treatedDebtPayoff.dime.mortgageAmount");
   assert.equal(mortgageTrace.inputs.rawMortgageAmount, 250000);
   assert.equal(mortgageTrace.inputs.preparedMortgageAmount, 0);
@@ -415,7 +443,52 @@ function assertUnavailableTrace(methods) {
   assert.equal(invalidNeeds.components.debtPayoff, 350000);
 }
 
+function assertDimeFallbackTrace(methods) {
+  const invalidDebt = methods.runDimeAnalysis(
+    createModel({ invalidDimeDebtTreatedDebt: true }),
+    createDimeSettings()
+  );
+  const invalidDebtTrace = findTrace(invalidDebt, "debt");
+  const invalidDebtMortgageTrace = findTrace(invalidDebt, "mortgage");
+  assert.equal(invalidDebt.components.debt, 100000);
+  assert.equal(invalidDebt.components.mortgage, 0);
+  assert.equal(invalidDebtTrace.inputs.treatedDebtConsumedByMethods, false);
+  assert.equal(invalidDebtTrace.inputs.fallbackReason, "invalid-treated-dime-non-mortgage-debt-amount");
+  assert.equal(invalidDebtTrace.inputs.currentMethodDebtSourcePath, "explicit-non-mortgage-debt-fields");
+  assert.equal(invalidDebtMortgageTrace.inputs.treatedDebtConsumedByMethods, true);
+  assert.equal(invalidDebtMortgageTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.dime.mortgageAmount");
+
+  const invalidMortgage = methods.runDimeAnalysis(
+    createModel({ invalidDimeMortgageTreatedDebt: true }),
+    createDimeSettings()
+  );
+  const invalidMortgageDebtTrace = findTrace(invalidMortgage, "debt");
+  const invalidMortgageTrace = findTrace(invalidMortgage, "mortgage");
+  assert.equal(invalidMortgage.components.debt, 12000);
+  assert.equal(invalidMortgage.components.mortgage, 250000);
+  assert.equal(invalidMortgageDebtTrace.inputs.treatedDebtConsumedByMethods, true);
+  assert.equal(invalidMortgageDebtTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.dime.nonMortgageDebtAmount");
+  assert.equal(invalidMortgageTrace.inputs.treatedDebtConsumedByMethods, false);
+  assert.equal(invalidMortgageTrace.inputs.fallbackReason, "invalid-treated-dime-mortgage-amount");
+  assert.equal(invalidMortgageTrace.inputs.currentMethodDebtSourcePath, "debtPayoff.mortgageBalance");
+}
+
 function assertEnabledFalseDoesNotZeroDebt(methods) {
+  const dimeResult = methods.runDimeAnalysis(
+    createModel({ rawEquivalentTreatedDebt: true }),
+    createDimeSettings()
+  );
+  const dimeDebtTrace = findTrace(dimeResult, "debt");
+  const dimeMortgageTrace = findTrace(dimeResult, "mortgage");
+  assert.equal(dimeResult.components.debt, 100000);
+  assert.equal(dimeResult.components.mortgage, 250000);
+  assert.equal(dimeDebtTrace.inputs.treatedDebtConsumedByMethods, true);
+  assert.equal(dimeMortgageTrace.inputs.treatedDebtConsumedByMethods, true);
+  assert.equal(dimeDebtTrace.inputs.rawEquivalentDefault, true);
+  assert.equal(dimeMortgageTrace.inputs.rawEquivalentDefault, true);
+  assert.equal(dimeDebtTrace.inputs.treatmentApplied, false);
+  assert.equal(dimeMortgageTrace.inputs.treatmentApplied, false);
+
   const needsResult = methods.runNeedsAnalysis(
     createModel({ rawEquivalentTreatedDebt: true }),
     createNeedsSettings()
@@ -459,8 +532,8 @@ const dimeWithTreated = assertNoMutation("DIME", {
   createSettings: createDimeSettings,
   execute: methods.runDimeAnalysis
 });
-assert.equal(dimeWithTreated.components.debt, 100000);
-assert.equal(dimeWithTreated.components.mortgage, 250000);
+assert.equal(dimeWithTreated.components.debt, 12000);
+assert.equal(dimeWithTreated.components.mortgage, 0);
 assertDimeDebtTrace(dimeWithTreated);
 assertDimeMortgageTrace(dimeWithTreated);
 
@@ -491,6 +564,7 @@ assert.equal(
 );
 
 assertUnavailableTrace(methods);
+assertDimeFallbackTrace(methods);
 assertEnabledFalseDoesNotZeroDebt(methods);
 assertNoProtectedDiffs();
 
