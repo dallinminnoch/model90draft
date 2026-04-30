@@ -4,8 +4,8 @@
 
   // Owner: Lens analysis expense library metadata.
   // Purpose: define searchable raw expense types that future PMI
-  // expenseRecords[] rows can use. Projection, inflation, treatment, and
-  // recommendation assumptions stay outside this metadata module.
+  // expenseRecords[] rows can use. Runtime behavior stays outside this
+  // metadata module.
 
   const PROTECTED_SCALAR_EXPENSE_OPTIONS = Object.freeze({
     funeralBurialEstimate: Object.freeze({
@@ -53,22 +53,42 @@
     ["otherFinalExpenses", "Other Final Expenses", "otherFinalExpense", "Scalar-owned other final expense amount from the current PMI final expenses section.", "other final expense|misc final expense", "oneTime", "oneTime", PROTECTED_SCALAR_EXPENSE_OPTIONS.otherFinalExpenses],
 
     ["healthInsurancePremiums", "Health Insurance Premiums", "ongoingHealthcare", "Recurring health insurance premium expense.", "health insurance|medical premium|premium", "monthly", "ongoing"],
+    ["medicarePartBPremiums", "Medicare Part B Premiums", "ongoingHealthcare", "Recurring Medicare Part B premium expense.", "medicare part b|medicare premiums|medical insurance", "monthly", "ongoing"],
+    ["medicarePartDPremiums", "Medicare Part D Premiums", "ongoingHealthcare", "Recurring Medicare Part D prescription drug premium expense.", "medicare part d|drug plan|prescription coverage", "monthly", "ongoing"],
+    ["medigapPremiums", "Medigap Premiums", "ongoingHealthcare", "Recurring Medicare supplement premium expense.", "medigap|medicare supplement|supplemental medicare", "monthly", "ongoing"],
+    ["medicareAdvantagePremiums", "Medicare Advantage Premiums", "ongoingHealthcare", "Recurring Medicare Advantage plan premium expense.", "medicare advantage|part c|advantage plan", "monthly", "ongoing"],
+    ["cobraPremiums", "COBRA Premiums", "ongoingHealthcare", "Temporary COBRA health insurance premium expense.", "cobra|temporary health coverage|continuation coverage", "monthly", "fixedYears", { suggestedTermYears: 1 }],
+    ["hsaContributions", "HSA Contributions", "ongoingHealthcare", "Recurring health savings account contribution expense.", "hsa|health savings account|medical savings", "monthly", "ongoing"],
     ["medicalOutOfPocket", "Medical Out-of-Pocket", "ongoingHealthcare", "Recurring medical out-of-pocket expense.", "medical out of pocket|copay|deductible|coinsurance", "monthly", "ongoing"],
     ["prescriptionMedications", "Prescription Medications", "ongoingHealthcare", "Recurring prescription medication expense.", "prescriptions|medications|pharmacy", "monthly", "ongoing"],
     ["specialistVisits", "Specialist Visits", "ongoingHealthcare", "Recurring or periodic medical specialist visit expense.", "specialist|doctor visit|provider visit", "quarterly", "ongoing"],
     ["therapyCounseling", "Therapy / Counseling", "mentalHealthCare", "Recurring therapy, counseling, or mental health care expense.", "therapy|counseling|mental health|behavioral health", "monthly", "ongoing"],
+    ["psychiatricMedicationManagement", "Psychiatric Medication Management", "mentalHealthCare", "Recurring psychiatric medication management or behavioral health provider expense.", "psychiatry|medication management|behavioral health", "monthly", "ongoing"],
+    ["inpatientMentalHealthCare", "Inpatient Mental Health Care", "mentalHealthCare", "Inpatient or intensive mental health care expense.", "inpatient mental health|psychiatric facility|intensive care", "monthly", "fixedYears", { suggestedTermYears: 1 }],
     ["physicalTherapy", "Physical Therapy", "ongoingHealthcare", "Physical therapy or rehabilitative care expense.", "physical therapy|rehab|rehabilitation", "monthly", "fixedYears", { suggestedTermYears: 1 }],
     ["dentalInsurance", "Dental Insurance", "dentalCare", "Recurring dental insurance premium expense.", "dental insurance|dental premium", "monthly", "ongoing"],
     ["dentalOutOfPocket", "Dental Out-of-Pocket", "dentalCare", "Routine or recurring dental out-of-pocket expense.", "dental out of pocket|dentist|dental care", "annual", "ongoing"],
     ["orthodontics", "Orthodontics", "dentalCare", "Orthodontic care expense.", "orthodontics|braces|aligners", "monthly", "fixedYears", { suggestedTermYears: 2 }],
+    ["majorDentalWork", "Major Dental Work", "dentalCare", "One-time major dental work expense.", "major dental|root canal|crowns|oral surgery", "oneTime", "oneTime"],
+    ["denturesImplants", "Dentures / Implants", "dentalCare", "One-time dentures, dental implant, or restorative dental expense.", "dentures|implants|restorative dental", "oneTime", "oneTime"],
     ["visionInsurance", "Vision Insurance", "visionCare", "Recurring vision insurance premium expense.", "vision insurance|eye insurance|vision premium", "monthly", "ongoing"],
     ["visionOutOfPocket", "Vision Out-of-Pocket", "visionCare", "Vision care out-of-pocket expense.", "vision out of pocket|glasses|contacts|eye exam", "annual", "ongoing"],
+    ["glassesContacts", "Glasses / Contacts", "visionCare", "Recurring eyewear, glasses, contacts, or lens expense.", "glasses|contacts|eyewear|lenses", "annual", "ongoing"],
+    ["eyeSurgery", "Eye Surgery", "visionCare", "One-time eye surgery or corrective vision procedure expense.", "eye surgery|lasik|cataract|vision procedure", "oneTime", "oneTime"],
     ["hearingAidsAudiology", "Hearing Aids / Audiology", "medicalEquipment", "One-time hearing aid or audiology equipment expense.", "hearing aids|audiology|hearing", "oneTime", "oneTime"],
     ["durableMedicalEquipment", "Durable Medical Equipment", "medicalEquipment", "One-time durable medical equipment expense.", "dme|wheelchair|medical equipment|mobility aid", "oneTime", "oneTime"],
+    ["adaptiveHomeModification", "Adaptive Home Modification", "medicalEquipment", "One-time home modification for accessibility or medical support.", "adaptive home|home modification|accessibility|ramps", "oneTime", "oneTime"],
+    ["mobilityVehicleModification", "Mobility Vehicle Modification", "medicalEquipment", "One-time vehicle modification for mobility or accessibility needs.", "vehicle modification|mobility vehicle|wheelchair van", "oneTime", "oneTime"],
+    ["mobilityAids", "Mobility Aids", "medicalEquipment", "One-time mobility aid or assistive device expense.", "mobility aids|walker|scooter|assistive device", "oneTime", "oneTime"],
     ["homeHealthAide", "Home Health Aide", "homeHealthCare", "Home health aide or in-home care expense.", "home health|home aide|in home care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
+    ["medicalAlertMonitoring", "Medical Alert Monitoring", "homeHealthCare", "Recurring medical alert monitoring or emergency response service expense.", "medical alert|emergency response|monitoring", "monthly", "ongoing"],
+    ["longTermCareInsurancePremiums", "Long-Term Care Insurance Premiums", "longTermCare", "Recurring long-term care insurance premium expense.", "ltc insurance|long term care premium|care insurance", "annual", "ongoing"],
     ["nursingCare", "Nursing Care", "longTermCare", "Nursing care or skilled nursing expense.", "nursing care|skilled nursing|care facility", "monthly", "fixedYears", { suggestedTermYears: 3 }],
     ["assistedLiving", "Assisted Living", "longTermCare", "Assisted living care expense.", "assisted living|care residence|senior care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
     ["memoryCare", "Memory Care", "longTermCare", "Memory care or dementia care expense.", "memory care|dementia care|alzheimers care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
+    ["adultDayCare", "Adult Day Care", "longTermCare", "Adult day care or daytime supervised care expense.", "adult day care|day program|senior day care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
+    ["respiteCare", "Respite Care", "longTermCare", "Temporary respite care or relief caregiver expense.", "respite care|relief care|temporary care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
+    ["specialNeedsCare", "Special Needs Care", "longTermCare", "Special needs support or specialized dependent care expense.", "special needs|specialized care|dependent care support", "monthly", "fixedYears", { suggestedTermYears: 5 }],
     ["hospiceCare", "Hospice Care", "medicalFinalExpense", "One-time hospice or end-of-life care expense.", "hospice|end of life care|final medical", "oneTime", "oneTime"],
     ["hospitalFinalBill", "Hospital Final Bill", "medicalFinalExpense", "One-time hospital or final medical bill expense.", "hospital bill|final medical bill|medical final expense", "oneTime", "oneTime"],
     ["endOfLifePrescriptionCosts", "End-of-Life Prescription Costs", "medicalFinalExpense", "One-time end-of-life medication or prescription expense.", "end of life prescriptions|final medications|pharmacy", "oneTime", "oneTime"],
@@ -88,29 +108,42 @@
     ["rentOrMortgagePayment", "Rent or Mortgage Payment", "housingExpense", "Recurring housing payment expense.", "rent|mortgage payment|housing payment", "monthly", "ongoing"],
     ["propertyTaxes", "Property Taxes", "housingExpense", "Recurring property tax expense.", "property tax|real estate tax", "annual", "ongoing"],
     ["homeownersInsurance", "Homeowners Insurance", "housingExpense", "Recurring homeowners insurance expense.", "homeowners insurance|hazard insurance|property insurance", "annual", "ongoing"],
-    ["utilities", "Utilities", "utilities", "Recurring utility expense.", "utilities|electric|gas|water|trash", "monthly", "ongoing"],
+    ["homeMaintenanceRepairs", "Home Maintenance / Repairs", "housingExpense", "Recurring or periodic home maintenance and repair expense.", "home maintenance|repairs|house repairs|maintenance", "annual", "ongoing"],
+    ["hoaDues", "HOA Dues", "housingExpense", "Recurring homeowners association dues expense.", "hoa|association dues|condo dues", "monthly", "ongoing"],
+    ["propertyAssessments", "Property Assessments", "housingExpense", "Periodic property assessment or special assessment expense.", "property assessment|special assessment|tax assessment", "annual", "ongoing"],
+    ["householdUtilities", "Utilities", "utilities", "Recurring household utility expense.", "utilities|electric|gas|water|trash|household utilities", "monthly", "ongoing"],
     ["internetPhone", "Internet / Phone", "utilities", "Recurring internet and phone expense.", "internet|phone|cell phone|broadband", "monthly", "ongoing"],
     ["groceries", "Groceries", "foodGroceries", "Recurring grocery and household food expense.", "groceries|food|household food", "monthly", "ongoing"],
     ["transportationFuel", "Transportation Fuel", "transportation", "Recurring fuel or transportation expense.", "fuel|gasoline|transportation", "monthly", "ongoing"],
     ["vehicleInsurance", "Vehicle Insurance", "transportation", "Recurring vehicle insurance expense.", "auto insurance|vehicle insurance|car insurance", "monthly", "ongoing"],
     ["vehicleMaintenance", "Vehicle Maintenance", "transportation", "Recurring or periodic vehicle maintenance expense.", "vehicle maintenance|car maintenance|repairs", "annual", "ongoing"],
-    ["childcare", "Childcare", "childcare", "Recurring childcare expense.", "childcare|daycare|dependent care", "monthly", "fixedYears", { suggestedTermYears: 5 }],
-    ["dependentSupport", "Dependent Support", "dependentSupport", "Recurring dependent support expense.", "dependent support|family support|care support", "monthly", "fixedYears", { suggestedTermYears: 5 }],
+    ["rentersInsurance", "Renters Insurance", "insurancePremiums", "Recurring renters insurance premium expense.", "renters insurance|tenant insurance|renter premium", "monthly", "ongoing"],
+    ["umbrellaInsurance", "Umbrella Insurance", "insurancePremiums", "Recurring umbrella liability insurance premium expense.", "umbrella insurance|liability insurance|excess liability", "annual", "ongoing"],
+    ["disabilityInsurancePremiums", "Disability Insurance Premiums", "insurancePremiums", "Recurring disability insurance premium expense.", "disability insurance|income protection premium|di premium", "monthly", "ongoing"],
+    ["lifeInsurancePremiums", "Life Insurance Premiums", "insurancePremiums", "Recurring life insurance premium expense.", "life insurance premium|policy premium|coverage premium", "monthly", "ongoing"],
+    ["petInsurance", "Pet Insurance", "insurancePremiums", "Recurring pet insurance premium expense.", "pet insurance|animal insurance|pet premium", "monthly", "ongoing"],
+    ["childcareExpense", "Childcare", "childcare", "Recurring childcare expense.", "childcare|daycare|dependent care", "monthly", "fixedYears", { suggestedTermYears: 5 }],
+    ["dependentSupportExpense", "Dependent Support", "dependentSupport", "Recurring dependent support expense.", "dependent support|family support|care support", "monthly", "fixedYears", { suggestedTermYears: 5 }],
     ["personalCare", "Personal Care", "personalLiving", "Recurring personal care expense.", "personal care|household personal|living expense", "monthly", "ongoing"],
+    ["householdSupplies", "Household Supplies", "personalLiving", "Recurring household supplies expense.", "household supplies|cleaning supplies|home supplies", "monthly", "ongoing"],
+    ["clothing", "Clothing", "personalLiving", "Recurring clothing and apparel expense.", "clothing|apparel|shoes", "monthly", "ongoing"],
+    ["subscriptionsMemberships", "Subscriptions / Memberships", "personalLiving", "Recurring subscriptions, memberships, or club dues expense.", "subscriptions|memberships|dues|streaming", "monthly", "ongoing"],
+    ["petCare", "Pet Care", "otherLivingExpense", "Recurring pet care expense.", "pet care|veterinary|pet food|animal care", "monthly", "ongoing"],
 
     ["privateSchoolTuition", "Private School Tuition", "educationExpense", "Annual private school tuition expense.", "private school|tuition|school", "annual", "fixedYears", { suggestedTermYears: 4 }],
     ["tutoring", "Tutoring", "educationExpense", "Recurring tutoring or academic support expense.", "tutoring|academic support|education", "monthly", "fixedYears", { suggestedTermYears: 2 }],
     ["collegeApplicationTesting", "College Application / Testing", "educationExpense", "One-time college application, testing, or preparation expense.", "college application|testing|sat|act", "oneTime", "oneTime"],
+    ["schoolSupplies", "School Supplies", "educationExpense", "Annual school supplies or classroom materials expense.", "school supplies|classroom supplies|books", "annual", "fixedYears", { suggestedTermYears: 5 }],
     ["childActivitiesSports", "Child Activities / Sports", "childActivityExpense", "Recurring child activities, sports, or enrichment expense.", "child activities|sports|enrichment", "monthly", "fixedYears", { suggestedTermYears: 5 }],
-    ["childcareEducation", "Childcare Education", "childcareEducation", "Recurring education-linked childcare or early education expense.", "preschool|daycare education|early education", "monthly", "fixedYears", { suggestedTermYears: 5 }],
+    ["earlyEducationChildcare", "Childcare Education", "childcareEducation", "Recurring education-linked childcare or early education expense.", "preschool|daycare education|early education", "monthly", "fixedYears", { suggestedTermYears: 5 }],
 
     ["businessOverheadRent", "Business Overhead Rent", "businessOverhead", "Recurring business rent or location overhead expense.", "business rent|office rent|overhead", "monthly", "fixedYears", { suggestedTermYears: 1 }],
     ["businessPayrollCoverage", "Business Payroll Coverage", "businessOverhead", "Recurring business payroll coverage expense.", "payroll|business payroll|employee payroll", "monthly", "fixedYears", { suggestedTermYears: 1 }],
     ["professionalLicensingFees", "Professional Licensing Fees", "professionalServices", "Recurring professional licensing or credential expense.", "licensing|professional license|credential", "annual", "ongoing"],
     ["professionalAdvisorFees", "Professional Advisor Fees", "professionalServices", "Recurring professional advisor or service fee.", "advisor fees|professional fees|consultant", "annual", "ongoing"],
-    ["keyPersonReplacementExpense", "Key Person Replacement Expense", "keyPersonReplacementExpense", "One-time key person replacement or recruiting expense.", "key person|replacement|recruiting", "oneTime", "oneTime"],
+    ["keyPersonRecruitingReplacement", "Key Person Replacement Expense", "keyPersonReplacementExpense", "One-time key person replacement or recruiting expense.", "key person|replacement|recruiting", "oneTime", "oneTime"],
 
-    ["customExpense", "Custom Expense", "customExpense", "Advisor-defined expense not covered by the standard expense library.", "custom|other expense|advisor defined", "monthly", "ongoing", { isCustomType: true }]
+    ["customExpenseRecord", "Custom Expense", "customExpense", "Advisor-defined expense not covered by the standard expense library.", "custom|other expense|advisor defined", "monthly", "ongoing", { isCustomType: true }]
   ]);
 
   function getExpenseTaxonomyApi() {

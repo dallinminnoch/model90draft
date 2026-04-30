@@ -5,9 +5,8 @@
   // Owner: Lens analysis expense taxonomy.
   // Purpose: define broad raw expense category metadata for future PMI
   // expenseFacts and expenseRecords.
-  // Non-goals: no DOM reads, no persistence, no record building, no inflation
-  // projection, no method formulas, no recommendation logic, and no Step 3
-  // rendering.
+  // Non-goals: this module is metadata only; runtime behavior belongs to
+  // future owners.
 
   const DEFAULT_EXPENSE_CATEGORIES = Object.freeze([
     Object.freeze({
@@ -101,7 +100,7 @@
     Object.freeze({
       categoryKey: "longTermCare",
       label: "Long-Term Care",
-      description: "Assisted living, nursing care, memory care, and long-term custodial care costs.",
+      description: "Assisted living, nursing care, memory care, adult day care, respite, and long-term custodial care costs.",
       domain: "healthcare",
       timingRole: "mixed",
       isHealthcareSensitive: true,
@@ -112,7 +111,7 @@
     Object.freeze({
       categoryKey: "homeHealthCare",
       label: "Home Health Care",
-      description: "Home health aides, in-home nursing, and care delivered in the home.",
+      description: "Home health aides, in-home nursing, medical alert monitoring, and care delivered in the home.",
       domain: "healthcare",
       timingRole: "recurring",
       isHealthcareSensitive: true,
@@ -123,7 +122,7 @@
     Object.freeze({
       categoryKey: "medicalEquipment",
       label: "Medical Equipment",
-      description: "Durable medical equipment, hearing aids, mobility aids, and related equipment costs.",
+      description: "Durable medical equipment, hearing aids, mobility aids, adaptive modifications, and related equipment costs.",
       domain: "healthcare",
       timingRole: "mixed",
       isHealthcareSensitive: true,
@@ -145,7 +144,7 @@
     Object.freeze({
       categoryKey: "housingExpense",
       label: "Housing Expense",
-      description: "Rent, mortgage, property tax, homeowners insurance, and related housing costs.",
+      description: "Rent, mortgage, property tax, homeowners insurance, HOA dues, maintenance, assessments, and related housing costs.",
       domain: "living",
       timingRole: "recurring",
       isHealthcareSensitive: false,
@@ -189,7 +188,7 @@
     Object.freeze({
       categoryKey: "insurancePremiums",
       label: "Insurance Premiums",
-      description: "Non-health insurance premiums and related household protection costs.",
+      description: "Non-health insurance premiums, including renters, umbrella, disability, life, and related household protection costs.",
       domain: "living",
       timingRole: "recurring",
       isHealthcareSensitive: false,
@@ -222,7 +221,7 @@
     Object.freeze({
       categoryKey: "personalLiving",
       label: "Personal Living",
-      description: "Personal care, ordinary living, and household personal expenses.",
+      description: "Personal care, clothing, household supplies, memberships, and ordinary living expenses.",
       domain: "living",
       timingRole: "recurring",
       isHealthcareSensitive: false,

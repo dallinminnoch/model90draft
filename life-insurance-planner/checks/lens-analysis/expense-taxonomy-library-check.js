@@ -157,6 +157,10 @@ entries.forEach((entry) => {
   assert.equal(taxonomy.isValidExpenseTermType(entry.defaultTermType), true, `${entry.typeKey} should have a valid defaultTermType`);
   assert.ok(Array.isArray(entry.tags), `${entry.typeKey} should expose tags`);
   assert.ok(Array.isArray(entry.searchTerms), `${entry.typeKey} should expose searchTerms`);
+  if (entry.defaultTermType === "fixedYears") {
+    assert.equal(Number.isFinite(entry.suggestedTermYears), true, `${entry.typeKey} fixedYears default should include suggestedTermYears`);
+    assert.ok(entry.suggestedTermYears > 0, `${entry.typeKey} suggestedTermYears should be positive`);
+  }
 });
 
 const protectedScalarRows = [
@@ -216,22 +220,42 @@ protectedScalarRows.forEach((protectedRow) => {
 
 [
   "healthInsurancePremiums",
+  "medicarePartBPremiums",
+  "medicarePartDPremiums",
+  "medigapPremiums",
+  "medicareAdvantagePremiums",
+  "cobraPremiums",
+  "hsaContributions",
   "medicalOutOfPocket",
   "prescriptionMedications",
   "specialistVisits",
   "therapyCounseling",
+  "psychiatricMedicationManagement",
+  "inpatientMentalHealthCare",
   "physicalTherapy",
   "dentalInsurance",
   "dentalOutOfPocket",
   "orthodontics",
+  "majorDentalWork",
+  "denturesImplants",
   "visionInsurance",
   "visionOutOfPocket",
+  "glassesContacts",
+  "eyeSurgery",
   "hearingAidsAudiology",
   "durableMedicalEquipment",
+  "adaptiveHomeModification",
+  "mobilityVehicleModification",
+  "mobilityAids",
   "homeHealthAide",
+  "medicalAlertMonitoring",
+  "longTermCareInsurancePremiums",
   "nursingCare",
   "assistedLiving",
   "memoryCare",
+  "adultDayCare",
+  "respiteCare",
+  "specialNeedsCare",
   "hospiceCare",
   "hospitalFinalBill",
   "endOfLifePrescriptionCosts",
@@ -244,6 +268,42 @@ protectedScalarRows.forEach((protectedRow) => {
 });
 
 [
+  "rentOrMortgagePayment",
+  "propertyTaxes",
+  "homeownersInsurance",
+  "homeMaintenanceRepairs",
+  "hoaDues",
+  "propertyAssessments",
+  "householdUtilities",
+  "internetPhone",
+  "groceries",
+  "transportationFuel",
+  "vehicleInsurance",
+  "vehicleMaintenance",
+  "rentersInsurance",
+  "umbrellaInsurance",
+  "disabilityInsurancePremiums",
+  "lifeInsurancePremiums",
+  "petInsurance",
+  "childcareExpense",
+  "dependentSupportExpense",
+  "personalCare",
+  "householdSupplies",
+  "clothing",
+  "subscriptionsMemberships",
+  "petCare",
+  "schoolSupplies",
+  "earlyEducationChildcare"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should exist as a living, household, insurance, or education expense entry`);
+  assert.equal(entry.isAddable, true, `${typeKey} should be addable`);
+});
+
+[
+  "hospiceCare",
+  "hospitalFinalBill",
+  "endOfLifePrescriptionCosts",
   "cremation",
   "burialPlot",
   "headstoneMarker",
@@ -261,8 +321,20 @@ protectedScalarRows.forEach((protectedRow) => {
   assert.equal(taxonomy.getExpenseCategory(entry.categoryKey).isFinalExpenseComponent, true, `${typeKey} should map to a final-expense bucket`);
 });
 
-const customExpense = library.getExpenseLibraryEntry("customExpense");
-assert.ok(customExpense, "customExpense should exist");
+[
+  ["utilities", "householdUtilities"],
+  ["childcare", "childcareExpense"],
+  ["dependentSupport", "dependentSupportExpense"],
+  ["childcareEducation", "earlyEducationChildcare"],
+  ["keyPersonReplacementExpense", "keyPersonRecruitingReplacement"],
+  ["customExpense", "customExpenseRecord"]
+].forEach(([oldTypeKey, newTypeKey]) => {
+  assert.equal(library.getExpenseLibraryEntry(oldTypeKey), null, `${oldTypeKey} typeKey should be retired to avoid category/type key collision`);
+  assert.ok(library.getExpenseLibraryEntry(newTypeKey), `${newTypeKey} replacement typeKey should exist`);
+});
+
+const customExpense = library.getExpenseLibraryEntry("customExpenseRecord");
+assert.ok(customExpense, "customExpenseRecord should exist");
 assert.equal(customExpense.categoryKey, "customExpense");
 assert.equal(customExpense.isAddable, true);
 assert.equal(customExpense.isCustomType, true);
@@ -273,10 +345,16 @@ const bannedRuntimeReferences = [
   "runHumanLifeValueAnalysis",
   "analysisMethods",
   "analysisSettings",
+  "Analysis Setup",
+  "analysis-setup",
+  "method formulas",
+  "Step 3",
   "step-three",
   "stepThree",
+  "storage",
   "localStorage",
   "sessionStorage",
+  "DOM",
   "document.",
   "querySelector",
   "addEventListener",
