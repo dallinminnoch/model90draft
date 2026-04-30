@@ -15,7 +15,7 @@ const html = fs.readFileSync(analysisSetupHtmlPath, "utf8");
 const source = fs.readFileSync(analysisSetupJsPath, "utf8");
 const instrumentedSource = source.replace(
   "  LensApp.analysisSetup = Object.assign",
-  "  LensApp.__recommendationGuardrailTestHarness = { getRecommendationDraftGuardrails, populateRecommendationGuardrailFields, readValidatedRecommendationGuardrails };\n  LensApp.analysisSetup = Object.assign"
+  "  LensApp.__recommendationGuardrailTestHarness = { applyRecommendationProfile, getRecommendationDraftGuardrails, populateRecommendationGuardrailFields, readValidatedRecommendationGuardrails };\n  LensApp.analysisSetup = Object.assign"
 );
 const retiredConservativeRangeFlag = "showMinimumRecommended" + "ConservativeRange";
 
@@ -44,6 +44,9 @@ const recommendationSection = html.slice(
   'data-analysis-recommendation-field="recommendationTarget.minimumCoverageFloor"',
   'data-analysis-recommendation-field="recommendationTarget.maximumCoverageCap"',
   'data-analysis-recommendation-field="recommendationTarget.roundingIncrement"',
+  'data-analysis-recommendation-field="riskTolerance.maxRelianceOnAssetsPercent"',
+  'data-analysis-recommendation-field="riskTolerance.maxRelianceOnIlliquidAssetsPercent"',
+  'data-analysis-recommendation-field="riskTolerance.maxRelianceOnSurvivorIncomePercent"',
   'data-analysis-recommendation-field="confidenceRules.minimumConfidencePercent"',
   'data-analysis-recommendation-field="presentationRules.showMethodComparison"',
   'data-analysis-recommendation-field="presentationRules.showWarnings"',
@@ -58,6 +61,10 @@ const recommendationSection = html.slice(
   "Minimum coverage floor",
   "Maximum coverage cap",
   "Rounding increment",
+  "Risk tolerance",
+  "Max reliance on assets",
+  "Max reliance on illiquid assets",
+  "Max reliance on survivor income",
   "Minimum confidence",
   "Presentation rules",
   "Show method comparison",
@@ -75,9 +82,14 @@ const recommendationSection = html.slice(
   'data-analysis-recommendation-profile="balanced"',
   'data-analysis-recommendation-profile="aggressive"',
   'data-analysis-recommendation-profile="custom"',
-  'data-analysis-recommendation-field="riskTolerance.maxRelianceOnAssetsPercent"',
-  'data-analysis-recommendation-field="riskTolerance.maxRelianceOnIlliquidAssetsPercent"',
-  'data-analysis-recommendation-field="riskTolerance.maxRelianceOnSurvivorIncomePercent"',
+  "Reliance warning thresholds",
+  "Saved for the future recommendation engine only. These thresholds will flag recommendations when reliance exceeds the selected level. They do not change current DIME, Needs, or Human Life Value outputs.",
+  "Flag when asset reliance exceeds",
+  "Flag when illiquid asset reliance exceeds",
+  "Flag when survivor income reliance exceeds",
+  'data-analysis-recommendation-field="riskThresholds.assetReliance.warningThresholdPercent"',
+  'data-analysis-recommendation-field="riskThresholds.illiquidAssetReliance.warningThresholdPercent"',
+  'data-analysis-recommendation-field="riskThresholds.survivorIncomeReliance.warningThresholdPercent"',
   "Recommendation range constraints",
   "Saved for the future recommendation engine only. These settings do not change current DIME, Needs, or Human Life Value outputs.",
   "If future lower and upper bounds conflict, MODEL90 will flag the recommendation for advisor review.",
@@ -105,8 +117,8 @@ assert.ok(
   "Recommendation Guardrails enable toggle should appear above profile presets"
 );
 assert.ok(
-  recommendationSection.indexOf("<h4>Risk tolerance</h4>") < recommendationSection.indexOf("<h4>Recommendation range constraints</h4>"),
-  "Recommendation range constraints should appear after Risk tolerance"
+  recommendationSection.indexOf("<h4>Reliance warning thresholds</h4>") < recommendationSection.indexOf("<h4>Recommendation range constraints</h4>"),
+  "Recommendation range constraints should appear after Reliance warning thresholds"
 );
 assert.ok(
   recommendationSection.indexOf("<h4>Recommendation range constraints</h4>") < recommendationSection.indexOf("<h4>Warning rules</h4>"),
@@ -116,6 +128,10 @@ assert.ok(
 [
   "recommendationTarget",
   "presentationRules",
+  "riskTolerance",
+  "maxRelianceOnAssetsPercent",
+  "maxRelianceOnIlliquidAssetsPercent",
+  "maxRelianceOnSurvivorIncomePercent",
   "minimumConfidencePercent",
   retiredConservativeRangeFlag,
   "roundingIncrement",
@@ -150,6 +166,7 @@ const analysisSetup = context.LensApp.analysisSetup;
 const harness = context.LensApp.__recommendationGuardrailTestHarness;
 assert.ok(analysisSetup, "LensApp.analysisSetup should be exported");
 assert.equal(typeof analysisSetup.getRecommendationGuardrails, "function", "getRecommendationGuardrails should be exported");
+assert.equal(typeof harness?.applyRecommendationProfile, "function", "Recommendation profile harness should be available");
 assert.equal(typeof harness?.getRecommendationDraftGuardrails, "function", "Recommendation draft harness should be available");
 assert.equal(typeof harness?.readValidatedRecommendationGuardrails, "function", "Recommendation validation harness should be available");
 assert.equal(typeof harness?.populateRecommendationGuardrailFields, "function", "Recommendation populate harness should be available");
@@ -157,7 +174,8 @@ assert.equal(typeof harness?.populateRecommendationGuardrailFields, "function", 
 const defaults = analysisSetup.DEFAULT_RECOMMENDATION_GUARDRAILS;
 assert.equal(defaults.enabled, false, "Recommendation Guardrails default enabled metadata should remain false");
 assert.equal(defaults.recommendationProfile, "balanced", "Recommendation profile default should remain balanced");
-assert.ok(hasOwn(defaults, "riskTolerance"), "Default risk tolerance should remain");
+assert.equal(hasOwn(defaults, "riskTolerance"), false, "Default riskTolerance should be retired");
+assert.ok(hasOwn(defaults, "riskThresholds"), "Default risk thresholds should exist");
 assert.ok(hasOwn(defaults, "rangeConstraints"), "Default range constraints should exist");
 assert.ok(hasOwn(defaults, "confidenceRules"), "Default warning rules should remain");
 assert.equal(hasOwn(defaults, "recommendationTarget"), false, "Default recommendationTarget should be retired");
@@ -168,13 +186,9 @@ assert.equal(
   "Default minimumConfidencePercent should be retired"
 );
 
-[
-  "maxRelianceOnAssetsPercent",
-  "maxRelianceOnIlliquidAssetsPercent",
-  "maxRelianceOnSurvivorIncomePercent"
-].forEach((key) => {
-  assert.ok(hasOwn(defaults.riskTolerance, key), `Default riskTolerance.${key} should remain`);
-});
+assert.equal(defaults.riskThresholds.assetReliance.warningThresholdPercent, 40, "Default asset reliance warning threshold should be 40%");
+assert.equal(defaults.riskThresholds.illiquidAssetReliance.warningThresholdPercent, 25, "Default illiquid asset reliance warning threshold should be 25%");
+assert.equal(defaults.riskThresholds.survivorIncomeReliance.warningThresholdPercent, 35, "Default survivor income reliance warning threshold should be 35%");
 
 assert.equal(defaults.rangeConstraints.lowerBound.source, "needsAnalysis", "Default lower range source should be Needs Analysis");
 assert.equal(defaults.rangeConstraints.lowerBound.tolerancePercent, 25, "Default lower range tolerance should be 25%");
@@ -208,6 +222,17 @@ const loaded = analysisSetup.getRecommendationGuardrails({
         maxRelianceOnIlliquidAssetsPercent: 22,
         maxRelianceOnSurvivorIncomePercent: 44
       },
+      riskThresholds: {
+        assetReliance: {
+          warningThresholdPercent: 41
+        },
+        illiquidAssetReliance: {
+          warningThresholdPercent: 23
+        },
+        survivorIncomeReliance: {
+          warningThresholdPercent: 37
+        }
+      },
       rangeConstraints: {
         lowerBound: {
           source: "dime",
@@ -234,9 +259,10 @@ const loaded = analysisSetup.getRecommendationGuardrails({
 
 assert.equal(loaded.enabled, true, "Loaded enabled metadata should be preserved");
 assert.equal(loaded.recommendationProfile, "aggressive", "Loaded profile should be preserved");
-assert.equal(loaded.riskTolerance.maxRelianceOnAssetsPercent, 61, "Loaded asset reliance should be preserved");
-assert.equal(loaded.riskTolerance.maxRelianceOnIlliquidAssetsPercent, 22, "Loaded illiquid reliance should be preserved");
-assert.equal(loaded.riskTolerance.maxRelianceOnSurvivorIncomePercent, 44, "Loaded survivor reliance should be preserved");
+assert.equal(hasOwn(loaded, "riskTolerance"), false, "Loaded riskTolerance should be retired");
+assert.equal(loaded.riskThresholds.assetReliance.warningThresholdPercent, 41, "Loaded asset reliance threshold should be preserved");
+assert.equal(loaded.riskThresholds.illiquidAssetReliance.warningThresholdPercent, 23, "Loaded illiquid asset reliance threshold should be preserved");
+assert.equal(loaded.riskThresholds.survivorIncomeReliance.warningThresholdPercent, 37, "Loaded survivor income reliance threshold should be preserved");
 assert.equal(loaded.rangeConstraints.lowerBound.source, "dime", "Loaded lower range source should be preserved");
 assert.equal(loaded.rangeConstraints.lowerBound.tolerancePercent, 12, "Loaded lower range tolerance should be preserved");
 assert.equal(loaded.rangeConstraints.upperBound.source, "needsAnalysis", "Loaded upper range source should be preserved");
@@ -300,9 +326,9 @@ function createRecommendationFields(enabled) {
     defaultProfile: "balanced",
     defaultProfileButtons: ["conservative", "balanced", "aggressive", "custom"].map(createProfileButton),
     values: {
-      "riskTolerance.maxRelianceOnAssetsPercent": createTextField("50"),
-      "riskTolerance.maxRelianceOnIlliquidAssetsPercent": createTextField("25"),
-      "riskTolerance.maxRelianceOnSurvivorIncomePercent": createTextField("50"),
+      "riskThresholds.assetReliance.warningThresholdPercent": createTextField("40"),
+      "riskThresholds.illiquidAssetReliance.warningThresholdPercent": createTextField("25"),
+      "riskThresholds.survivorIncomeReliance.warningThresholdPercent": createTextField("35"),
       "rangeConstraints.lowerBound.source": createSelectField("needsAnalysis"),
       "rangeConstraints.lowerBound.tolerancePercent": createTextField("25"),
       "rangeConstraints.upperBound.source": createSelectField("humanLifeValue"),
@@ -346,6 +372,15 @@ assert.equal(editedDraft.rangeConstraints.upperBound.source, "needsAnalysis", "D
 assert.equal(editedDraft.rangeConstraints.upperBound.tolerancePercent, 35, "Draft Recommendation Guardrails should read edited upper tolerance");
 assert.equal(editedDraft.rangeConstraints.conflictHandling, "flagForAdvisorReview", "Draft Recommendation Guardrails should preserve default range conflict handling");
 
+const editedThresholdFields = createRecommendationFields(true);
+editedThresholdFields.values["riskThresholds.assetReliance.warningThresholdPercent"].value = "45";
+editedThresholdFields.values["riskThresholds.illiquidAssetReliance.warningThresholdPercent"].value = "20";
+editedThresholdFields.values["riskThresholds.survivorIncomeReliance.warningThresholdPercent"].value = "30";
+const editedThresholdDraft = harness.getRecommendationDraftGuardrails(editedThresholdFields);
+assert.equal(editedThresholdDraft.riskThresholds.assetReliance.warningThresholdPercent, 45, "Draft Recommendation Guardrails should read edited asset reliance threshold");
+assert.equal(editedThresholdDraft.riskThresholds.illiquidAssetReliance.warningThresholdPercent, 20, "Draft Recommendation Guardrails should read edited illiquid asset reliance threshold");
+assert.equal(editedThresholdDraft.riskThresholds.survivorIncomeReliance.warningThresholdPercent, 30, "Draft Recommendation Guardrails should read edited survivor income reliance threshold");
+
 assert.equal(
   harness.readValidatedRecommendationGuardrails(checkedFields).value.enabled,
   true,
@@ -362,6 +397,10 @@ assert.equal(validatedRange.lowerBound.tolerancePercent, 15, "Validated Recommen
 assert.equal(validatedRange.upperBound.source, "needsAnalysis", "Validated Recommendation Guardrails should save edited upper source");
 assert.equal(validatedRange.upperBound.tolerancePercent, 35, "Validated Recommendation Guardrails should save edited upper tolerance");
 assert.equal(validatedRange.conflictHandling, "flagForAdvisorReview", "Validated Recommendation Guardrails should save default range conflict handling");
+const validatedThresholds = harness.readValidatedRecommendationGuardrails(editedThresholdFields).value.riskThresholds;
+assert.equal(validatedThresholds.assetReliance.warningThresholdPercent, 45, "Validated Recommendation Guardrails should save edited asset reliance threshold");
+assert.equal(validatedThresholds.illiquidAssetReliance.warningThresholdPercent, 20, "Validated Recommendation Guardrails should save edited illiquid asset reliance threshold");
+assert.equal(validatedThresholds.survivorIncomeReliance.warningThresholdPercent, 30, "Validated Recommendation Guardrails should save edited survivor income reliance threshold");
 
 const populatedFields = createRecommendationFields(false);
 harness.populateRecommendationGuardrailFields(populatedFields, loaded);
@@ -369,6 +408,21 @@ assert.equal(
   populatedFields.enabled.checked,
   true,
   "Populate Recommendation Guardrails should load saved enabled state into the visible toggle"
+);
+assert.equal(
+  populatedFields.values["riskThresholds.assetReliance.warningThresholdPercent"].value,
+  "41",
+  "Populate Recommendation Guardrails should load saved asset reliance threshold"
+);
+assert.equal(
+  populatedFields.values["riskThresholds.illiquidAssetReliance.warningThresholdPercent"].value,
+  "23",
+  "Populate Recommendation Guardrails should load saved illiquid asset reliance threshold"
+);
+assert.equal(
+  populatedFields.values["riskThresholds.survivorIncomeReliance.warningThresholdPercent"].value,
+  "37",
+  "Populate Recommendation Guardrails should load saved survivor income reliance threshold"
 );
 assert.equal(
   populatedFields.values["rangeConstraints.lowerBound.source"].value,
@@ -389,6 +443,42 @@ assert.equal(
   populatedFields.values["rangeConstraints.upperBound.tolerancePercent"].value,
   "33",
   "Populate Recommendation Guardrails should load saved upper tolerance"
+);
+
+const conservativeFields = createRecommendationFields(true);
+harness.applyRecommendationProfile(conservativeFields, "conservative");
+assert.equal(
+  conservativeFields.values["riskThresholds.assetReliance.warningThresholdPercent"].value,
+  "35",
+  "Conservative profile should set asset reliance threshold"
+);
+assert.equal(
+  conservativeFields.values["riskThresholds.illiquidAssetReliance.warningThresholdPercent"].value,
+  "10",
+  "Conservative profile should set illiquid asset reliance threshold"
+);
+assert.equal(
+  conservativeFields.values["riskThresholds.survivorIncomeReliance.warningThresholdPercent"].value,
+  "35",
+  "Conservative profile should set survivor income reliance threshold"
+);
+
+const aggressiveFields = createRecommendationFields(true);
+harness.applyRecommendationProfile(aggressiveFields, "aggressive");
+assert.equal(
+  aggressiveFields.values["riskThresholds.assetReliance.warningThresholdPercent"].value,
+  "70",
+  "Aggressive profile should set asset reliance threshold"
+);
+assert.equal(
+  aggressiveFields.values["riskThresholds.illiquidAssetReliance.warningThresholdPercent"].value,
+  "40",
+  "Aggressive profile should set illiquid asset reliance threshold"
+);
+assert.equal(
+  aggressiveFields.values["riskThresholds.survivorIncomeReliance.warningThresholdPercent"].value,
+  "70",
+  "Aggressive profile should set survivor income reliance threshold"
 );
 
 console.log("Recommendation Guardrails save-shape check passed.");

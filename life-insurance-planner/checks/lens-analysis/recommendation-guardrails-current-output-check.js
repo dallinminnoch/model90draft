@@ -75,11 +75,16 @@ function createRecommendationGuardrails(roundingIncrement, options = {}) {
       maximumCoverageCap: 1000000,
       roundingIncrement
     },
-    riskTolerance: {
-      posture: "balanced",
-      maxRelianceOnAssetsPercent: 50,
-      maxRelianceOnIlliquidAssetsPercent: 25,
-      maxRelianceOnSurvivorIncomePercent: 50
+    riskThresholds: {
+      assetReliance: {
+        warningThresholdPercent: 40
+      },
+      illiquidAssetReliance: {
+        warningThresholdPercent: 25
+      },
+      survivorIncomeReliance: {
+        warningThresholdPercent: 35
+      }
     },
     rangeConstraints: {
       lowerBound: {
@@ -139,7 +144,7 @@ function extractComparableOutputs(results) {
   };
 }
 
-function assertNoRecommendationRoundingInSettings(methodSettings, message) {
+function assertNoRecommendationGuardrailsInSettings(methodSettings, message) {
   assert.equal(hasOwn(methodSettings.dimeSettings, "roundingIncrement"), false, `${message}: DIME settings should not include guardrail rounding.`);
   assert.equal(hasOwn(methodSettings.needsAnalysisSettings, "roundingIncrement"), false, `${message}: Needs settings should not include guardrail rounding.`);
   assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "roundingIncrement"), false, `${message}: HLV settings should not include guardrail rounding.`);
@@ -150,6 +155,15 @@ function assertNoRecommendationRoundingInSettings(methodSettings, message) {
   assert.equal(hasOwn(methodSettings.needsAnalysisSettings, "recommendationGuardrailsEnabled"), false, `${message}: Needs settings should not include Recommendation Guardrails enabled state.`);
   assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "recommendationGuardrailsEnabled"), false, `${message}: HLV settings should not include Recommendation Guardrails enabled state.`);
   [
+    "riskTolerance",
+    "riskThresholds",
+    "assetReliance",
+    "illiquidAssetReliance",
+    "survivorIncomeReliance",
+    "assetRelianceWarningThresholdPercent",
+    "illiquidAssetRelianceWarningThresholdPercent",
+    "survivorIncomeRelianceWarningThresholdPercent",
+    "warningThresholdPercent",
     "rangeConstraints",
     "recommendationRangeConstraints",
     "lowerBound",
@@ -190,6 +204,22 @@ function assertNoRecommendationRoundingInSettings(methodSettings, message) {
     false,
     `${message}: adapter trace should not source method behavior from Recommendation Guardrails range constraints.`
   );
+  assert.equal(
+    methodSettings.trace.some((entry) => (
+      Array.isArray(entry?.sourcePaths)
+      && entry.sourcePaths.some((sourcePath) => sourcePath.indexOf("analysisSettings.recommendationGuardrails.riskThresholds") === 0)
+    )),
+    false,
+    `${message}: adapter trace should not source method behavior from Recommendation Guardrails risk thresholds.`
+  );
+  assert.equal(
+    methodSettings.trace.some((entry) => (
+      Array.isArray(entry?.sourcePaths)
+      && entry.sourcePaths.some((sourcePath) => sourcePath.indexOf("analysisSettings.recommendationGuardrails.riskTolerance") === 0)
+    )),
+    false,
+    `${message}: adapter trace should not source method behavior from retired Recommendation Guardrails risk tolerance.`
+  );
 }
 
 const context = createContext();
@@ -221,6 +251,54 @@ const legacyTopLevelSettings = createMethodSettings(
   adapter,
   createRecommendationGuardrails(1000, {
     roundingIncrement: 50000
+  })
+);
+const assetThresholdChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskThresholds: {
+      assetReliance: {
+        warningThresholdPercent: 5
+      },
+      illiquidAssetReliance: {
+        warningThresholdPercent: 25
+      },
+      survivorIncomeReliance: {
+        warningThresholdPercent: 35
+      }
+    }
+  })
+);
+const illiquidAssetThresholdChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskThresholds: {
+      assetReliance: {
+        warningThresholdPercent: 40
+      },
+      illiquidAssetReliance: {
+        warningThresholdPercent: 5
+      },
+      survivorIncomeReliance: {
+        warningThresholdPercent: 35
+      }
+    }
+  })
+);
+const survivorIncomeThresholdChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    riskThresholds: {
+      assetReliance: {
+        warningThresholdPercent: 40
+      },
+      illiquidAssetReliance: {
+        warningThresholdPercent: 25
+      },
+      survivorIncomeReliance: {
+        warningThresholdPercent: 5
+      }
+    }
   })
 );
 const lowerBoundChangedSettings = createMethodSettings(
@@ -272,13 +350,16 @@ const conflictHandlingChangedSettings = createMethodSettings(
   })
 );
 
-assertNoRecommendationRoundingInSettings(baselineSettings, "Baseline nested guardrails");
-assertNoRecommendationRoundingInSettings(enabledSettings, "Enabled future-use guardrails");
-assertNoRecommendationRoundingInSettings(nestedChangedSettings, "Changed nested guardrails");
-assertNoRecommendationRoundingInSettings(legacyTopLevelSettings, "Legacy top-level guardrails");
-assertNoRecommendationRoundingInSettings(lowerBoundChangedSettings, "Changed lower range constraints");
-assertNoRecommendationRoundingInSettings(upperBoundChangedSettings, "Changed upper range constraints");
-assertNoRecommendationRoundingInSettings(conflictHandlingChangedSettings, "Changed range conflict handling");
+assertNoRecommendationGuardrailsInSettings(baselineSettings, "Baseline nested guardrails");
+assertNoRecommendationGuardrailsInSettings(enabledSettings, "Enabled future-use guardrails");
+assertNoRecommendationGuardrailsInSettings(nestedChangedSettings, "Changed nested guardrails");
+assertNoRecommendationGuardrailsInSettings(legacyTopLevelSettings, "Legacy top-level guardrails");
+assertNoRecommendationGuardrailsInSettings(assetThresholdChangedSettings, "Changed asset reliance threshold");
+assertNoRecommendationGuardrailsInSettings(illiquidAssetThresholdChangedSettings, "Changed illiquid asset reliance threshold");
+assertNoRecommendationGuardrailsInSettings(survivorIncomeThresholdChangedSettings, "Changed survivor income reliance threshold");
+assertNoRecommendationGuardrailsInSettings(lowerBoundChangedSettings, "Changed lower range constraints");
+assertNoRecommendationGuardrailsInSettings(upperBoundChangedSettings, "Changed upper range constraints");
+assertNoRecommendationGuardrailsInSettings(conflictHandlingChangedSettings, "Changed range conflict handling");
 
 const baselineOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, baselineSettings)
@@ -291,6 +372,15 @@ const enabledOutputs = extractComparableOutputs(
 );
 const legacyTopLevelOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, legacyTopLevelSettings)
+);
+const assetThresholdChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, assetThresholdChangedSettings)
+);
+const illiquidAssetThresholdChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, illiquidAssetThresholdChangedSettings)
+);
+const survivorIncomeThresholdChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, survivorIncomeThresholdChangedSettings)
 );
 const lowerBoundChangedOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, lowerBoundChangedSettings)
@@ -316,6 +406,21 @@ assert.deepEqual(
   legacyTopLevelOutputs,
   baselineOutputs,
   "Legacy top-level Recommendation Guardrails rounding should be ignored by current method outputs."
+);
+assert.deepEqual(
+  assetThresholdChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails asset reliance threshold should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  illiquidAssetThresholdChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails illiquid asset reliance threshold should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  survivorIncomeThresholdChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails survivor income reliance threshold should not alter DIME, Needs, or HLV outputs."
 );
 assert.deepEqual(
   lowerBoundChangedOutputs,

@@ -781,11 +781,16 @@
   const DEFAULT_RECOMMENDATION_GUARDRAILS = Object.freeze({
     enabled: false,
     recommendationProfile: "balanced",
-    riskTolerance: Object.freeze({
-      posture: "balanced",
-      maxRelianceOnAssetsPercent: 50,
-      maxRelianceOnIlliquidAssetsPercent: 25,
-      maxRelianceOnSurvivorIncomePercent: 50
+    riskThresholds: Object.freeze({
+      assetReliance: Object.freeze({
+        warningThresholdPercent: 40
+      }),
+      illiquidAssetReliance: Object.freeze({
+        warningThresholdPercent: 25
+      }),
+      survivorIncomeReliance: Object.freeze({
+        warningThresholdPercent: 35
+      })
     }),
     rangeConstraints: Object.freeze({
       lowerBound: Object.freeze({
@@ -808,11 +813,16 @@
   });
   const RECOMMENDATION_PROFILE_DEFAULTS = Object.freeze({
     conservative: Object.freeze({
-      riskTolerance: Object.freeze({
-        posture: "conservative",
-        maxRelianceOnAssetsPercent: 35,
-        maxRelianceOnIlliquidAssetsPercent: 10,
-        maxRelianceOnSurvivorIncomePercent: 35
+      riskThresholds: Object.freeze({
+        assetReliance: Object.freeze({
+          warningThresholdPercent: 35
+        }),
+        illiquidAssetReliance: Object.freeze({
+          warningThresholdPercent: 10
+        }),
+        survivorIncomeReliance: Object.freeze({
+          warningThresholdPercent: 35
+        })
       }),
       confidenceRules: Object.freeze({
         flagMissingCriticalInputs: true,
@@ -822,15 +832,20 @@
       })
     }),
     balanced: Object.freeze({
-      riskTolerance: DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance,
+      riskThresholds: DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds,
       confidenceRules: DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules
     }),
     aggressive: Object.freeze({
-      riskTolerance: Object.freeze({
-        posture: "aggressive",
-        maxRelianceOnAssetsPercent: 70,
-        maxRelianceOnIlliquidAssetsPercent: 40,
-        maxRelianceOnSurvivorIncomePercent: 70
+      riskThresholds: Object.freeze({
+        assetReliance: Object.freeze({
+          warningThresholdPercent: 70
+        }),
+        illiquidAssetReliance: Object.freeze({
+          warningThresholdPercent: 40
+        }),
+        survivorIncomeReliance: Object.freeze({
+          warningThresholdPercent: 70
+        })
       }),
       confidenceRules: Object.freeze({
         flagMissingCriticalInputs: true,
@@ -2161,16 +2176,36 @@
     );
     const profileDefaults = RECOMMENDATION_PROFILE_DEFAULTS[recommendationProfile]
       || RECOMMENDATION_PROFILE_DEFAULTS[DEFAULT_RECOMMENDATION_GUARDRAILS.recommendationProfile];
-    const defaultRiskTolerance = {
-      ...DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance,
-      ...(profileDefaults.riskTolerance || {})
+    const profileRiskThresholds = profileDefaults.riskThresholds || {};
+    const defaultRiskThresholds = {
+      assetReliance: {
+        ...DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds.assetReliance,
+        ...(profileRiskThresholds.assetReliance || {})
+      },
+      illiquidAssetReliance: {
+        ...DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds.illiquidAssetReliance,
+        ...(profileRiskThresholds.illiquidAssetReliance || {})
+      },
+      survivorIncomeReliance: {
+        ...DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds.survivorIncomeReliance,
+        ...(profileRiskThresholds.survivorIncomeReliance || {})
+      }
     };
     const defaultConfidenceRules = {
       ...DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules,
       ...(profileDefaults.confidenceRules || {})
     };
-    const savedRiskTolerance = isPlainObject(saved.riskTolerance)
-      ? saved.riskTolerance
+    const savedRiskThresholds = isPlainObject(saved.riskThresholds)
+      ? saved.riskThresholds
+      : {};
+    const savedAssetReliance = isPlainObject(savedRiskThresholds.assetReliance)
+      ? savedRiskThresholds.assetReliance
+      : {};
+    const savedIlliquidAssetReliance = isPlainObject(savedRiskThresholds.illiquidAssetReliance)
+      ? savedRiskThresholds.illiquidAssetReliance
+      : {};
+    const savedSurvivorIncomeReliance = isPlainObject(savedRiskThresholds.survivorIncomeReliance)
+      ? savedRiskThresholds.survivorIncomeReliance
       : {};
     const savedRangeConstraints = isPlainObject(saved.rangeConstraints)
       ? saved.rangeConstraints
@@ -2189,23 +2224,25 @@
         ? saved.enabled
         : DEFAULT_RECOMMENDATION_GUARDRAILS.enabled,
       recommendationProfile,
-      riskTolerance: {
-        posture: normalizeRecommendationProfile(
-          savedRiskTolerance.posture,
-          defaultRiskTolerance.posture
-        ),
-        maxRelianceOnAssetsPercent: normalizeRecommendationPercent(
-          savedRiskTolerance.maxRelianceOnAssetsPercent,
-          defaultRiskTolerance.maxRelianceOnAssetsPercent
-        ),
-        maxRelianceOnIlliquidAssetsPercent: normalizeRecommendationPercent(
-          savedRiskTolerance.maxRelianceOnIlliquidAssetsPercent,
-          defaultRiskTolerance.maxRelianceOnIlliquidAssetsPercent
-        ),
-        maxRelianceOnSurvivorIncomePercent: normalizeRecommendationPercent(
-          savedRiskTolerance.maxRelianceOnSurvivorIncomePercent,
-          defaultRiskTolerance.maxRelianceOnSurvivorIncomePercent
-        )
+      riskThresholds: {
+        assetReliance: {
+          warningThresholdPercent: normalizeRecommendationPercent(
+            savedAssetReliance.warningThresholdPercent,
+            defaultRiskThresholds.assetReliance.warningThresholdPercent
+          )
+        },
+        illiquidAssetReliance: {
+          warningThresholdPercent: normalizeRecommendationPercent(
+            savedIlliquidAssetReliance.warningThresholdPercent,
+            defaultRiskThresholds.illiquidAssetReliance.warningThresholdPercent
+          )
+        },
+        survivorIncomeReliance: {
+          warningThresholdPercent: normalizeRecommendationPercent(
+            savedSurvivorIncomeReliance.warningThresholdPercent,
+            defaultRiskThresholds.survivorIncomeReliance.warningThresholdPercent
+          )
+        }
       },
       rangeConstraints: {
         lowerBound: {
@@ -3703,8 +3740,14 @@
 
   function getRecommendationDraftGuardrails(fields) {
     const current = getRecommendationCurrentGuardrails(fields);
-    const currentRiskTolerance = current.riskTolerance
-      || DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance;
+    const currentRiskThresholds = current.riskThresholds
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds;
+    const currentAssetReliance = currentRiskThresholds.assetReliance
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds.assetReliance;
+    const currentIlliquidAssetReliance = currentRiskThresholds.illiquidAssetReliance
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds.illiquidAssetReliance;
+    const currentSurvivorIncomeReliance = currentRiskThresholds.survivorIncomeReliance
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.riskThresholds.survivorIncomeReliance;
     const currentRangeConstraints = current.rangeConstraints
       || DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints;
     const currentLowerBound = currentRangeConstraints.lowerBound
@@ -3718,25 +3761,28 @@
     return {
       enabled: fields.enabled ? Boolean(fields.enabled.checked) : Boolean(current.enabled),
       recommendationProfile,
-      riskTolerance: {
-        posture: recommendationProfile === "custom"
-          ? normalizeRecommendationProfile(currentRiskTolerance.posture, DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance.posture)
-          : recommendationProfile,
-        maxRelianceOnAssetsPercent: readRecommendationDraftPercent(
-          fields,
-          "riskTolerance.maxRelianceOnAssetsPercent",
-          currentRiskTolerance.maxRelianceOnAssetsPercent
-        ),
-        maxRelianceOnIlliquidAssetsPercent: readRecommendationDraftPercent(
-          fields,
-          "riskTolerance.maxRelianceOnIlliquidAssetsPercent",
-          currentRiskTolerance.maxRelianceOnIlliquidAssetsPercent
-        ),
-        maxRelianceOnSurvivorIncomePercent: readRecommendationDraftPercent(
-          fields,
-          "riskTolerance.maxRelianceOnSurvivorIncomePercent",
-          currentRiskTolerance.maxRelianceOnSurvivorIncomePercent
-        )
+      riskThresholds: {
+        assetReliance: {
+          warningThresholdPercent: readRecommendationDraftPercent(
+            fields,
+            "riskThresholds.assetReliance.warningThresholdPercent",
+            currentAssetReliance.warningThresholdPercent
+          )
+        },
+        illiquidAssetReliance: {
+          warningThresholdPercent: readRecommendationDraftPercent(
+            fields,
+            "riskThresholds.illiquidAssetReliance.warningThresholdPercent",
+            currentIlliquidAssetReliance.warningThresholdPercent
+          )
+        },
+        survivorIncomeReliance: {
+          warningThresholdPercent: readRecommendationDraftPercent(
+            fields,
+            "riskThresholds.survivorIncomeReliance.warningThresholdPercent",
+            currentSurvivorIncomeReliance.warningThresholdPercent
+          )
+        }
       },
       rangeConstraints: {
         lowerBound: {
@@ -4836,18 +4882,18 @@
     setRecommendationDefaultProfile(fields, guardrails.recommendationProfile);
     setRecommendationValue(
       fields,
-      "riskTolerance.maxRelianceOnAssetsPercent",
-      guardrails.riskTolerance.maxRelianceOnAssetsPercent
+      "riskThresholds.assetReliance.warningThresholdPercent",
+      guardrails.riskThresholds.assetReliance.warningThresholdPercent
     );
     setRecommendationValue(
       fields,
-      "riskTolerance.maxRelianceOnIlliquidAssetsPercent",
-      guardrails.riskTolerance.maxRelianceOnIlliquidAssetsPercent
+      "riskThresholds.illiquidAssetReliance.warningThresholdPercent",
+      guardrails.riskThresholds.illiquidAssetReliance.warningThresholdPercent
     );
     setRecommendationValue(
       fields,
-      "riskTolerance.maxRelianceOnSurvivorIncomePercent",
-      guardrails.riskTolerance.maxRelianceOnSurvivorIncomePercent
+      "riskThresholds.survivorIncomeReliance.warningThresholdPercent",
+      guardrails.riskThresholds.survivorIncomeReliance.warningThresholdPercent
     );
     setRecommendationValue(
       fields,
@@ -5408,9 +5454,19 @@
     const nextGuardrails = {
       ...current,
       recommendationProfile: normalizedProfile,
-      riskTolerance: {
-        ...current.riskTolerance,
-        ...profileDefaults.riskTolerance
+      riskThresholds: {
+        assetReliance: {
+          ...current.riskThresholds.assetReliance,
+          ...profileDefaults.riskThresholds.assetReliance
+        },
+        illiquidAssetReliance: {
+          ...current.riskThresholds.illiquidAssetReliance,
+          ...profileDefaults.riskThresholds.illiquidAssetReliance
+        },
+        survivorIncomeReliance: {
+          ...current.riskThresholds.survivorIncomeReliance,
+          ...profileDefaults.riskThresholds.survivorIncomeReliance
+        }
       },
       confidenceRules: {
         ...current.confidenceRules,
@@ -6516,31 +6572,31 @@
       };
     }
 
-    const maxRelianceOnAssets = readRequiredRecommendationPercent(
+    const assetRelianceThreshold = readRequiredRecommendationPercent(
       fields,
-      "riskTolerance.maxRelianceOnAssetsPercent",
-      "Max reliance on assets"
+      "riskThresholds.assetReliance.warningThresholdPercent",
+      "Asset reliance warning threshold"
     );
-    if (maxRelianceOnAssets.error) {
-      return maxRelianceOnAssets;
+    if (assetRelianceThreshold.error) {
+      return assetRelianceThreshold;
     }
 
-    const maxRelianceOnIlliquidAssets = readRequiredRecommendationPercent(
+    const illiquidAssetRelianceThreshold = readRequiredRecommendationPercent(
       fields,
-      "riskTolerance.maxRelianceOnIlliquidAssetsPercent",
-      "Max reliance on illiquid assets"
+      "riskThresholds.illiquidAssetReliance.warningThresholdPercent",
+      "Illiquid asset reliance warning threshold"
     );
-    if (maxRelianceOnIlliquidAssets.error) {
-      return maxRelianceOnIlliquidAssets;
+    if (illiquidAssetRelianceThreshold.error) {
+      return illiquidAssetRelianceThreshold;
     }
 
-    const maxRelianceOnSurvivorIncome = readRequiredRecommendationPercent(
+    const survivorIncomeRelianceThreshold = readRequiredRecommendationPercent(
       fields,
-      "riskTolerance.maxRelianceOnSurvivorIncomePercent",
-      "Max reliance on survivor income"
+      "riskThresholds.survivorIncomeReliance.warningThresholdPercent",
+      "Survivor income reliance warning threshold"
     );
-    if (maxRelianceOnSurvivorIncome.error) {
-      return maxRelianceOnSurvivorIncome;
+    if (survivorIncomeRelianceThreshold.error) {
+      return survivorIncomeRelianceThreshold;
     }
 
     const lowerBoundSource = readRequiredRecommendationRangeSource(
@@ -6586,13 +6642,16 @@
         source: "analysis-setup",
         lastUpdatedAt: new Date().toISOString(),
         recommendationProfile,
-        riskTolerance: {
-          posture: recommendationProfile === "custom"
-            ? normalizeRecommendationProfile(current.riskTolerance.posture, DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance.posture)
-            : recommendationProfile,
-          maxRelianceOnAssetsPercent: maxRelianceOnAssets.value,
-          maxRelianceOnIlliquidAssetsPercent: maxRelianceOnIlliquidAssets.value,
-          maxRelianceOnSurvivorIncomePercent: maxRelianceOnSurvivorIncome.value
+        riskThresholds: {
+          assetReliance: {
+            warningThresholdPercent: assetRelianceThreshold.value
+          },
+          illiquidAssetReliance: {
+            warningThresholdPercent: illiquidAssetRelianceThreshold.value
+          },
+          survivorIncomeReliance: {
+            warningThresholdPercent: survivorIncomeRelianceThreshold.value
+          }
         },
         rangeConstraints: {
           lowerBound: {
@@ -6829,9 +6888,9 @@
 
     if (shouldSaveRecommendationGuardrails) {
       [
-        "riskTolerance.maxRelianceOnAssetsPercent",
-        "riskTolerance.maxRelianceOnIlliquidAssetsPercent",
-        "riskTolerance.maxRelianceOnSurvivorIncomePercent"
+        "riskThresholds.assetReliance.warningThresholdPercent",
+        "riskThresholds.illiquidAssetReliance.warningThresholdPercent",
+        "riskThresholds.survivorIncomeReliance.warningThresholdPercent"
       ].forEach(function (fieldPath) {
         const field = recommendationGuardrailFields.values[fieldPath];
         const rawValue = String(field?.value || "").trim().replace(/[$,\s]/g, "");
@@ -7595,7 +7654,7 @@
       field.addEventListener("change", function () {
         const rawValue = String(field.value || "").trim().replace(/[$,\s]/g, "");
         const number = Number(rawValue);
-        const isPercentField = fieldPath.indexOf("riskTolerance.") === 0
+        const isPercentField = fieldPath.indexOf("riskThresholds.") === 0
           || fieldPath === "rangeConstraints.lowerBound.tolerancePercent"
           || fieldPath === "rangeConstraints.upperBound.tolerancePercent";
 

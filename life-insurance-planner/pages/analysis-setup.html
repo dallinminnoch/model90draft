@@ -989,25 +989,26 @@
 
                   <div class="analysis-setup-recommendation-grid" aria-label="Recommendation guardrail controls">
                     <div class="analysis-setup-recommendation-card">
-                      <h4>Risk tolerance</h4>
+                      <h4>Reliance warning thresholds</h4>
+                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These thresholds will flag recommendations when reliance exceeds the selected level. They do not change current DIME, Needs, or Human Life Value outputs.</p>
                       <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-asset-reliance">Max reliance on assets</label>
+                        <label for="analysis-setup-recommendation-asset-reliance-threshold">Flag when asset reliance exceeds</label>
                         <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-recommendation-asset-reliance" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="riskTolerance.maxRelianceOnAssetsPercent">
+                          <input id="analysis-setup-recommendation-asset-reliance-threshold" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="riskThresholds.assetReliance.warningThresholdPercent">
                           <span aria-hidden="true">%</span>
                         </span>
                       </div>
                       <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-illiquid-reliance">Max reliance on illiquid assets</label>
+                        <label for="analysis-setup-recommendation-illiquid-reliance-threshold">Flag when illiquid asset reliance exceeds</label>
                         <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-recommendation-illiquid-reliance" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="riskTolerance.maxRelianceOnIlliquidAssetsPercent">
+                          <input id="analysis-setup-recommendation-illiquid-reliance-threshold" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="riskThresholds.illiquidAssetReliance.warningThresholdPercent">
                           <span aria-hidden="true">%</span>
                         </span>
                       </div>
                       <div class="analysis-setup-recommendation-control-row">
-                        <label for="analysis-setup-recommendation-survivor-reliance">Max reliance on survivor income</label>
+                        <label for="analysis-setup-recommendation-survivor-reliance-threshold">Flag when survivor income reliance exceeds</label>
                         <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-recommendation-survivor-reliance" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="riskTolerance.maxRelianceOnSurvivorIncomePercent">
+                          <input id="analysis-setup-recommendation-survivor-reliance-threshold" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="riskThresholds.survivorIncomeReliance.warningThresholdPercent">
                           <span aria-hidden="true">%</span>
                         </span>
                       </div>
