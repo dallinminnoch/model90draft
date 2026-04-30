@@ -132,6 +132,12 @@ function assertNoRecommendationRoundingInSettings(methodSettings, message) {
   assert.equal(hasOwn(methodSettings.dimeSettings, "roundingIncrement"), false, `${message}: DIME settings should not include guardrail rounding.`);
   assert.equal(hasOwn(methodSettings.needsAnalysisSettings, "roundingIncrement"), false, `${message}: Needs settings should not include guardrail rounding.`);
   assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "roundingIncrement"), false, `${message}: HLV settings should not include guardrail rounding.`);
+  assert.equal(hasOwn(methodSettings.dimeSettings, "recommendationGuardrails"), false, `${message}: DIME settings should not include Recommendation Guardrails state.`);
+  assert.equal(hasOwn(methodSettings.needsAnalysisSettings, "recommendationGuardrails"), false, `${message}: Needs settings should not include Recommendation Guardrails state.`);
+  assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "recommendationGuardrails"), false, `${message}: HLV settings should not include Recommendation Guardrails state.`);
+  assert.equal(hasOwn(methodSettings.dimeSettings, "recommendationGuardrailsEnabled"), false, `${message}: DIME settings should not include Recommendation Guardrails enabled state.`);
+  assert.equal(hasOwn(methodSettings.needsAnalysisSettings, "recommendationGuardrailsEnabled"), false, `${message}: Needs settings should not include Recommendation Guardrails enabled state.`);
+  assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "recommendationGuardrailsEnabled"), false, `${message}: HLV settings should not include Recommendation Guardrails enabled state.`);
   assert.equal(
     methodSettings.trace.some((entry) => (
       Array.isArray(entry?.sourcePaths)
@@ -139,6 +145,14 @@ function assertNoRecommendationRoundingInSettings(methodSettings, message) {
     )),
     false,
     `${message}: adapter trace should not source method rounding from Recommendation Guardrails.`
+  );
+  assert.equal(
+    methodSettings.trace.some((entry) => (
+      Array.isArray(entry?.sourcePaths)
+      && entry.sourcePaths.includes("analysisSettings.recommendationGuardrails.enabled")
+    )),
+    false,
+    `${message}: adapter trace should not source method behavior from Recommendation Guardrails enabled state.`
   );
 }
 
@@ -157,6 +171,12 @@ const baselineSettings = createMethodSettings(
   adapter,
   createRecommendationGuardrails(1000)
 );
+const enabledSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    enabled: true
+  })
+);
 const nestedChangedSettings = createMethodSettings(
   adapter,
   createRecommendationGuardrails(50000)
@@ -169,6 +189,7 @@ const legacyTopLevelSettings = createMethodSettings(
 );
 
 assertNoRecommendationRoundingInSettings(baselineSettings, "Baseline nested guardrails");
+assertNoRecommendationRoundingInSettings(enabledSettings, "Enabled future-use guardrails");
 assertNoRecommendationRoundingInSettings(nestedChangedSettings, "Changed nested guardrails");
 assertNoRecommendationRoundingInSettings(legacyTopLevelSettings, "Legacy top-level guardrails");
 
@@ -178,10 +199,18 @@ const baselineOutputs = extractComparableOutputs(
 const nestedChangedOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, nestedChangedSettings)
 );
+const enabledOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, enabledSettings)
+);
 const legacyTopLevelOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, legacyTopLevelSettings)
 );
 
+assert.deepEqual(
+  enabledOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails enabled from false to true should not alter DIME, Needs, or HLV outputs."
+);
 assert.deepEqual(
   nestedChangedOutputs,
   baselineOutputs,

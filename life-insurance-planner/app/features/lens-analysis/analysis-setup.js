@@ -2630,6 +2630,7 @@
 
   function getRecommendationGuardrailFieldMap() {
     const fields = {
+      enabled: document.querySelector("[data-analysis-recommendation-enabled]"),
       defaultProfile: DEFAULT_RECOMMENDATION_GUARDRAILS.recommendationProfile,
       defaultProfileButtons: Array.from(document.querySelectorAll("[data-analysis-recommendation-profile]")),
       values: {},
@@ -2715,12 +2716,19 @@
 
   function hasRecommendationGuardrailFields(fields) {
     return Boolean(
-      (fields.defaultProfileButtons || []).length
+      fields.enabled
+      || (fields.defaultProfileButtons || []).length
       || Object.keys(fields.values || {}).length
       || Object.keys(fields.preview || {}).some(function (key) {
         return Boolean(fields.preview[key]);
       })
     );
+  }
+
+  function setRecommendationEnabled(fields, value) {
+    if (fields.enabled) {
+      fields.enabled.checked = Boolean(value);
+    }
   }
 
   function setMessage(element, message, tone) {
@@ -3626,7 +3634,7 @@
     const recommendationProfile = getRecommendationDefaultProfile(fields);
 
     return {
-      enabled: Boolean(current.enabled),
+      enabled: fields.enabled ? Boolean(fields.enabled.checked) : Boolean(current.enabled),
       recommendationProfile,
       riskTolerance: {
         posture: recommendationProfile === "custom"
@@ -4712,6 +4720,7 @@
 
   function populateRecommendationGuardrailFields(fields, guardrails) {
     fields.currentAssumptions = guardrails;
+    setRecommendationEnabled(fields, guardrails.enabled);
     setRecommendationDefaultProfile(fields, guardrails.recommendationProfile);
     setRecommendationValue(
       fields,
@@ -4866,6 +4875,10 @@
   }
 
   function setRecommendationGuardrailFieldsDisabled(fields, disabled) {
+    if (fields.enabled) {
+      fields.enabled.disabled = Boolean(disabled);
+    }
+
     (fields.defaultProfileButtons || []).forEach(function (button) {
       button.disabled = Boolean(disabled);
     });
@@ -7115,6 +7128,11 @@
         applyRecommendationProfile(recommendationGuardrailFields, profile);
         markUnsaved();
       });
+    });
+
+    recommendationGuardrailFields.enabled?.addEventListener("change", function () {
+      syncRecommendationPreview(recommendationGuardrailFields);
+      markUnsaved();
     });
 
     (assetTreatmentFields.defaultProfileButtons || []).forEach(function (button) {

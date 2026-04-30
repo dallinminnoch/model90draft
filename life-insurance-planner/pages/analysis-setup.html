@@ -966,6 +966,17 @@
                     <p>Set how future LENS recommendations should be shaped and risk-flagged. These settings are saved for future recommendation logic and are not applied to current DIME, Needs, or HLV results yet.</p>
                   </div>
 
+                  <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
+                    <span class="settings-toggle-copy">
+                      <span class="settings-toggle-label">Save future recommendation-engine constraints and warning rules</span>
+                      <span class="settings-toggle-note">Does not affect current DIME, Needs, or Human Life Value outputs yet.</span>
+                    </span>
+                    <span class="settings-switch">
+                      <input type="checkbox" role="switch" aria-label="Save future recommendation-engine constraints and warning rules" data-analysis-recommendation-enabled>
+                      <span class="settings-switch-track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+
                   <div class="analysis-setup-asset-defaults analysis-setup-recommendation-defaults" aria-label="Recommendation guardrail profile">
                     <span class="analysis-setup-asset-defaults-label">Recommendation Profile:</span>
                     <div class="analysis-setup-asset-default-buttons" role="group" aria-label="Recommendation guardrail profile">

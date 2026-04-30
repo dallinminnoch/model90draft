@@ -13,6 +13,10 @@ const currentOutputCheckPath = path.join(__dirname, "recommendation-guardrails-c
 
 const html = fs.readFileSync(analysisSetupHtmlPath, "utf8");
 const source = fs.readFileSync(analysisSetupJsPath, "utf8");
+const instrumentedSource = source.replace(
+  "  LensApp.analysisSetup = Object.assign",
+  "  LensApp.__recommendationGuardrailTestHarness = { getRecommendationDraftGuardrails, populateRecommendationGuardrailFields, readValidatedRecommendationGuardrails };\n  LensApp.analysisSetup = Object.assign"
+);
 const retiredConservativeRangeFlag = "showMinimumRecommended" + "ConservativeRange";
 
 function assertIncludes(text, needle, label) {
@@ -64,6 +68,9 @@ const recommendationSection = html.slice(
 });
 
 [
+  "data-analysis-recommendation-enabled",
+  "Save future recommendation-engine constraints and warning rules",
+  "Does not affect current DIME, Needs, or Human Life Value outputs yet.",
   'data-analysis-recommendation-profile="conservative"',
   'data-analysis-recommendation-profile="balanced"',
   'data-analysis-recommendation-profile="aggressive"',
@@ -81,6 +88,15 @@ const recommendationSection = html.slice(
 ].forEach((needle) => {
   assertIncludes(html, needle, "analysis-setup.html");
 });
+
+assertExcludes(html, 'data-analysis-recommendation-field="enabled"', "analysis-setup.html");
+assertExcludes(recommendationSection, "Include Recommendation Guardrails", "Recommendation Guardrails markup");
+assertExcludes(recommendationSection, "Apply Recommendation Guardrails", "Recommendation Guardrails markup");
+assertExcludes(recommendationSection, "Turn on Recommendation Guardrails", "Recommendation Guardrails markup");
+assert.ok(
+  recommendationSection.indexOf("data-analysis-recommendation-enabled") < recommendationSection.indexOf("analysis-setup-recommendation-defaults"),
+  "Recommendation Guardrails enable toggle should appear above profile presets"
+);
 
 [
   "recommendationTarget",
@@ -113,11 +129,15 @@ context.window = context;
 context.globalThis = context;
 context.LensApp = {};
 vm.createContext(context);
-vm.runInContext(source, context, { filename: analysisSetupJsPath });
+vm.runInContext(instrumentedSource, context, { filename: analysisSetupJsPath });
 
 const analysisSetup = context.LensApp.analysisSetup;
+const harness = context.LensApp.__recommendationGuardrailTestHarness;
 assert.ok(analysisSetup, "LensApp.analysisSetup should be exported");
 assert.equal(typeof analysisSetup.getRecommendationGuardrails, "function", "getRecommendationGuardrails should be exported");
+assert.equal(typeof harness?.getRecommendationDraftGuardrails, "function", "Recommendation draft harness should be available");
+assert.equal(typeof harness?.readValidatedRecommendationGuardrails, "function", "Recommendation validation harness should be available");
+assert.equal(typeof harness?.populateRecommendationGuardrailFields, "function", "Recommendation populate harness should be available");
 
 const defaults = analysisSetup.DEFAULT_RECOMMENDATION_GUARDRAILS;
 assert.equal(defaults.enabled, false, "Recommendation Guardrails default enabled metadata should remain false");
@@ -196,5 +216,90 @@ assert.equal(
   "Loaded minimumConfidencePercent should be retired"
 );
 assert.ok(fs.existsSync(currentOutputCheckPath), "Recommendation Guardrails current-output check should exist and be runnable separately");
+
+function createTextField(value) {
+  return {
+    type: "text",
+    tagName: "INPUT",
+    value: String(value)
+  };
+}
+
+function createCheckbox(checked) {
+  return {
+    type: "checkbox",
+    tagName: "INPUT",
+    checked: Boolean(checked)
+  };
+}
+
+function createProfileButton(profile) {
+  return {
+    dataset: {},
+    attributes: {
+      "data-analysis-recommendation-profile": profile
+    },
+    getAttribute(name) {
+      return this.attributes[name] || "";
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+    }
+  };
+}
+
+function createRecommendationFields(enabled) {
+  return {
+    enabled: createCheckbox(enabled),
+    defaultProfile: "balanced",
+    defaultProfileButtons: ["conservative", "balanced", "aggressive", "custom"].map(createProfileButton),
+    values: {
+      "riskTolerance.maxRelianceOnAssetsPercent": createTextField("50"),
+      "riskTolerance.maxRelianceOnIlliquidAssetsPercent": createTextField("25"),
+      "riskTolerance.maxRelianceOnSurvivorIncomePercent": createTextField("50"),
+      "confidenceRules.flagMissingCriticalInputs": createCheckbox(true),
+      "confidenceRules.flagHeavyAssetReliance": createCheckbox(true),
+      "confidenceRules.flagHeavySurvivorIncomeReliance": createCheckbox(true),
+      "confidenceRules.flagGroupCoverageReliance": createCheckbox(true)
+    },
+    preview: {
+      currentMode: { textContent: "" },
+      engineStatus: { textContent: "" },
+      savedFor: { textContent: "" }
+    },
+    currentAssumptions: defaults
+  };
+}
+
+const checkedFields = createRecommendationFields(true);
+const uncheckedFields = createRecommendationFields(false);
+assert.equal(
+  harness.getRecommendationDraftGuardrails(checkedFields).enabled,
+  true,
+  "Draft Recommendation Guardrails should read checked enabled state"
+);
+assert.equal(
+  harness.getRecommendationDraftGuardrails(uncheckedFields).enabled,
+  false,
+  "Draft Recommendation Guardrails should read unchecked enabled state"
+);
+assert.equal(
+  harness.readValidatedRecommendationGuardrails(checkedFields).value.enabled,
+  true,
+  "Validated Recommendation Guardrails should save checked enabled state"
+);
+assert.equal(
+  harness.readValidatedRecommendationGuardrails(uncheckedFields).value.enabled,
+  false,
+  "Validated Recommendation Guardrails should save unchecked enabled state"
+);
+
+const populatedFields = createRecommendationFields(false);
+harness.populateRecommendationGuardrailFields(populatedFields, loaded);
+assert.equal(
+  populatedFields.enabled.checked,
+  true,
+  "Populate Recommendation Guardrails should load saved enabled state into the visible toggle"
+);
 
 console.log("Recommendation Guardrails save-shape check passed.");
