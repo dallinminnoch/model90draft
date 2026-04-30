@@ -92,13 +92,66 @@ function createTreatedDebtPayoff() {
     metadata: {
       source: "debtFacts",
       fallbackSource: "debtPayoff-compatibility",
-      consumedByMethods: false,
+      consumedByMethods: true,
+      consumedByMethodNames: ["needs"],
+      methodConsumption: {
+        dime: false,
+        needs: true,
+        hlv: false
+      },
+      currentMethodSourcePaths: {
+        dimeDebt: "debtPayoff",
+        dimeMortgage: "debtPayoff.mortgageBalance",
+        needsDebtPayoff: "treatedDebtPayoff.needs.debtPayoffAmount"
+      },
       manualTotalDebtPayoffOverride: true,
       manualTotalDebtPayoffNeed: 999999,
       manualOverrideSource: "debtPayoff.totalDebtPayoffNeed",
       warnings
     }
   };
+}
+
+function createRawEquivalentTreatedDebtPayoff() {
+  const treatedDebtPayoff = createTreatedDebtPayoff();
+  treatedDebtPayoff.rawEquivalentDefault = true;
+  treatedDebtPayoff.treatmentApplied = false;
+  treatedDebtPayoff.dime = {
+    nonMortgageDebtAmount: 100000,
+    mortgageAmount: 250000,
+    totalDebtAndMortgageAmount: 350000
+  };
+  treatedDebtPayoff.needs = {
+    debtPayoffAmount: 350000,
+    mortgagePayoffAmount: 250000,
+    nonMortgageDebtAmount: 100000
+  };
+  treatedDebtPayoff.rawTotals = {
+    totalDebtBalance: 350000,
+    mortgageBalance: 250000,
+    nonMortgageDebtBalance: 100000,
+    excludedDebtAmount: 0,
+    deferredDebtAmount: 0
+  };
+  treatedDebtPayoff.excludedDebtAmount = 0;
+  treatedDebtPayoff.deferredDebtAmount = 0;
+  treatedDebtPayoff.warnings = [];
+  treatedDebtPayoff.metadata = {
+    ...treatedDebtPayoff.metadata,
+    consumedByMethods: false,
+    warnings: []
+  };
+  return treatedDebtPayoff;
+}
+
+function createInvalidNeedsTreatedDebtPayoff() {
+  const treatedDebtPayoff = createTreatedDebtPayoff();
+  treatedDebtPayoff.needs = {
+    debtPayoffAmount: -1,
+    mortgagePayoffAmount: 0,
+    nonMortgageDebtAmount: 0
+  };
+  return treatedDebtPayoff;
 }
 
 function createUnavailableTreatedDebtPayoff() {
@@ -138,6 +191,17 @@ function createUnavailableTreatedDebtPayoff() {
     },
     metadata: {
       consumedByMethods: false,
+      consumedByMethodNames: [],
+      methodConsumption: {
+        dime: false,
+        needs: false,
+        hlv: false
+      },
+      currentMethodSourcePaths: {
+        dimeDebt: "debtPayoff",
+        dimeMortgage: "debtPayoff.mortgageBalance",
+        needsDebtPayoff: "debtPayoff"
+      },
       reason: "missing-debt-treatment-helper",
       warnings
     }
@@ -188,7 +252,11 @@ function createModel(options = {}) {
   if (options.includeTreatedDebt !== false) {
     model.treatedDebtPayoff = options.unavailableTreatedDebt === true
       ? createUnavailableTreatedDebtPayoff()
-      : createTreatedDebtPayoff();
+      : (options.rawEquivalentTreatedDebt === true
+        ? createRawEquivalentTreatedDebtPayoff()
+        : (options.invalidNeedsTreatedDebt === true
+          ? createInvalidNeedsTreatedDebtPayoff()
+          : createTreatedDebtPayoff()));
   }
 
   return model;
@@ -239,10 +307,10 @@ function assertNoMutation(methodName, run) {
   return result;
 }
 
-function assertDebtTreatmentTraceBase(trace, methodName) {
+function assertDebtTreatmentTraceBase(trace, methodName, expectedConsumedByMethods = false) {
   assert.ok(trace, methodName + " should include a debt treatment readiness trace.");
   assert.equal(trace.inputs.treatedDebtPayoffAvailable, true);
-  assert.equal(trace.inputs.treatedDebtConsumedByMethods, false);
+  assert.equal(trace.inputs.treatedDebtConsumedByMethods, expectedConsumedByMethods);
   assert.equal(trace.inputs.preparedDebtSource, "debtFacts");
   assert.equal(trace.inputs.preparedDebtFallbackSource, "debtPayoff-compatibility");
   assert.equal(trace.inputs.rawEquivalentDefault, false);
@@ -296,10 +364,12 @@ function assertDimeMortgageTrace(dimeResult) {
 
 function assertNeedsDebtTrace(needsResult) {
   const debtTrace = findTrace(needsResult, "debtPayoff");
-  assertDebtTreatmentTraceBase(debtTrace, "Needs debt payoff");
-  assert.equal(debtTrace.value, 350000);
-  assert.equal(debtTrace.inputs.currentMethodDebtSourcePath, "debtPayoff.totalDebtPayoffNeed");
-  assert.deepEqual(cloneJson(debtTrace.sourcePaths), ["debtPayoff.totalDebtPayoffNeed"]);
+  assertDebtTreatmentTraceBase(debtTrace, "Needs debt payoff", true);
+  assert.equal(debtTrace.value, 12000);
+  assert.equal(debtTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.needs.debtPayoffAmount");
+  assert.deepEqual(cloneJson(debtTrace.sourcePaths), ["treatedDebtPayoff.needs.debtPayoffAmount"]);
+  assert.equal(debtTrace.inputs.fallbackDebtSourcePath, "debtPayoff.totalDebtPayoffNeed");
+  assert.deepEqual(cloneJson(debtTrace.inputs.fallbackDebtSourcePaths), ["debtPayoff.totalDebtPayoffNeed"]);
   assert.equal(debtTrace.inputs.preparedDebtSourcePath, "treatedDebtPayoff.needs.debtPayoffAmount");
   assert.equal(debtTrace.inputs.rawDebtPayoffAmount, 350000);
   assert.equal(debtTrace.inputs.rawMortgageAmount, 250000);
@@ -332,13 +402,42 @@ function assertUnavailableTrace(methods) {
   assert.equal(unavailableNeedsTrace.inputs.fallbackReason, "missing-debt-treatment-helper");
   assert.ok(unavailableNeedsTrace.inputs.warningCodes.includes("missing-debt-treatment-helper"));
   assert.equal(unavailableNeeds.components.debtPayoff, 350000);
+
+  const invalidNeeds = methods.runNeedsAnalysis(
+    createModel({ invalidNeedsTreatedDebt: true }),
+    createNeedsSettings()
+  );
+  const invalidNeedsTrace = findTrace(invalidNeeds, "debtPayoff");
+  assert.equal(invalidNeedsTrace.inputs.treatedDebtPayoffAvailable, true);
+  assert.equal(invalidNeedsTrace.inputs.treatedDebtConsumedByMethods, false);
+  assert.equal(invalidNeedsTrace.inputs.fallbackReason, "invalid-treated-debt-payoff-amount");
+  assert.equal(invalidNeedsTrace.inputs.currentMethodDebtSourcePath, "debtPayoff.totalDebtPayoffNeed");
+  assert.equal(invalidNeeds.components.debtPayoff, 350000);
+}
+
+function assertEnabledFalseDoesNotZeroDebt(methods) {
+  const needsResult = methods.runNeedsAnalysis(
+    createModel({ rawEquivalentTreatedDebt: true }),
+    createNeedsSettings()
+  );
+  const debtTrace = findTrace(needsResult, "debtPayoff");
+
+  assert.equal(needsResult.components.debtPayoff, 350000);
+  assert.equal(debtTrace.inputs.treatedDebtPayoffAvailable, true);
+  assert.equal(debtTrace.inputs.treatedDebtConsumedByMethods, true);
+  assert.equal(debtTrace.inputs.rawEquivalentDefault, true);
+  assert.equal(debtTrace.inputs.treatmentApplied, false);
+  assert.equal(debtTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.needs.debtPayoffAmount");
 }
 
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/lens-model-builder.js",
+    "app/features/lens-analysis/step-three-analysis-display.js",
     "checks/lens-analysis/debt-treatment-model-prep-check.js",
-    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js"
+    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
+    "checks/lens-analysis/step-three-debt-treatment-display-check.js"
   ]);
   const changedFiles = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
     cwd: repoRoot,
@@ -369,7 +468,7 @@ const needsWithTreated = assertNoMutation("Needs", {
   createSettings: createNeedsSettings,
   execute: methods.runNeedsAnalysis
 });
-assert.equal(needsWithTreated.components.debtPayoff, 350000);
+assert.equal(needsWithTreated.components.debtPayoff, 12000);
 assertNeedsDebtTrace(needsWithTreated);
 
 const hlvWithTreated = assertNoMutation("Simple HLV", {
@@ -392,6 +491,7 @@ assert.equal(
 );
 
 assertUnavailableTrace(methods);
+assertEnabledFalseDoesNotZeroDebt(methods);
 assertNoProtectedDiffs();
 
 console.log("debt-treatment-method-trace-readiness-check passed");

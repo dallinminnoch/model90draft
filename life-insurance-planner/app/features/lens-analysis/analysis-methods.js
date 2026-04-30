@@ -510,6 +510,51 @@
     };
   }
 
+  function resolveNeedsDebtPayoffSelection(rawDebtPayoffComponent, treatedDebtTraceContext) {
+    const rawSourcePaths = Array.isArray(rawDebtPayoffComponent?.sourcePaths)
+      ? rawDebtPayoffComponent.sourcePaths.slice()
+      : [];
+    const rawSource = rawDebtPayoffComponent?.source || null;
+    const rawFallbackSourcePath = getSingleOrSummarySourcePath(rawSourcePaths, rawSource);
+    const preparedDebtPayoffAmount = toOptionalNumber(treatedDebtTraceContext?.preparedNeedsDebtPayoffAmount);
+    const hasValidPreparedDebtPayoff = treatedDebtTraceContext?.treatedDebtPayoffAvailable === true
+      && preparedDebtPayoffAmount != null
+      && preparedDebtPayoffAmount >= 0;
+
+    if (hasValidPreparedDebtPayoff) {
+      return {
+        value: preparedDebtPayoffAmount,
+        formula: TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH,
+        source: TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH,
+        sourcePaths: [TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH],
+        currentMethodDebtSourcePath: TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH,
+        currentMethodDebtSourcePaths: [TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH],
+        fallbackDebtSourcePath: rawFallbackSourcePath,
+        fallbackDebtSourcePaths: rawSourcePaths,
+        treatedDebtConsumedByMethods: true,
+        fallbackReason: null
+      };
+    }
+
+    return {
+      value: rawDebtPayoffComponent.value,
+      formula: rawDebtPayoffComponent.source === "debtPayoff.totalDebtPayoffNeed"
+        ? "debtPayoff.totalDebtPayoffNeed"
+        : "Sum of available debt payoff fields",
+      source: rawSource,
+      sourcePaths: rawSourcePaths,
+      currentMethodDebtSourcePath: rawFallbackSourcePath,
+      currentMethodDebtSourcePaths: rawSourcePaths,
+      fallbackDebtSourcePath: rawFallbackSourcePath,
+      fallbackDebtSourcePaths: rawSourcePaths,
+      treatedDebtConsumedByMethods: false,
+      fallbackReason: treatedDebtTraceContext?.fallbackReason
+        || (preparedDebtPayoffAmount != null && preparedDebtPayoffAmount < 0
+          ? "invalid-treated-debt-payoff-amount"
+          : "treated-debt-payoff-unavailable")
+    };
+  }
+
   function getDimeIncomeYears(settings, warnings) {
     if (!hasOwn(settings, "dimeIncomeYears")) {
       return DEFAULT_DIME_INCOME_YEARS;
@@ -2674,6 +2719,7 @@
       survivorContinuesWorking: getPath(model, "survivorScenario.survivorContinuesWorking")
     });
     const treatedDebtTraceContext = createTreatedDebtPayoffTraceContext(model);
+    const debtPayoffSelection = resolveNeedsDebtPayoffSelection(debtPayoffComponent, treatedDebtTraceContext);
     const rawDebtPayoffMortgageAmount = toOptionalNumber(getPath(model, "debtPayoff.mortgageBalance"));
     const rawNeedsMortgageAmount = treatedDebtTraceContext.rawMortgageAmount == null
       ? rawDebtPayoffMortgageAmount
@@ -2686,7 +2732,7 @@
         )
       : treatedDebtTraceContext.rawNonMortgageDebtAmount;
 
-    const grossNeed = debtPayoffComponent.value
+    const grossNeed = debtPayoffSelection.value
       + essentialSupportComponent.value
       + education
       + finalExpenses
@@ -2699,17 +2745,16 @@
     trace.push(createTraceRow({
       key: "debtPayoff",
       label: "Debt Payoff",
-      formula: debtPayoffComponent.source === "debtPayoff.totalDebtPayoffNeed"
-        ? "debtPayoff.totalDebtPayoffNeed"
-        : "Sum of available debt payoff fields",
+      formula: debtPayoffSelection.formula,
       inputs: {
         ...debtPayoffComponent.inputs,
         ...createBaseDebtTreatmentTraceInputs(treatedDebtTraceContext),
-        currentMethodDebtSourcePath: getSingleOrSummarySourcePath(
-          debtPayoffComponent.sourcePaths,
-          debtPayoffComponent.source
-        ),
-        currentMethodDebtSourcePaths: debtPayoffComponent.sourcePaths,
+        treatedDebtConsumedByMethods: debtPayoffSelection.treatedDebtConsumedByMethods,
+        fallbackReason: debtPayoffSelection.fallbackReason,
+        currentMethodDebtSourcePath: debtPayoffSelection.currentMethodDebtSourcePath,
+        currentMethodDebtSourcePaths: debtPayoffSelection.currentMethodDebtSourcePaths,
+        fallbackDebtSourcePath: debtPayoffSelection.fallbackDebtSourcePath,
+        fallbackDebtSourcePaths: debtPayoffSelection.fallbackDebtSourcePaths,
         preparedDebtSourcePath: TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH,
         rawDebtPayoffAmount: debtPayoffComponent.value,
         rawMortgageAmount: rawNeedsMortgageAmount,
@@ -2722,8 +2767,8 @@
         manualOverrideSource: treatedDebtTraceContext.manualOverrideSource,
         manualOverridePolicy: "metadata-only"
       },
-      value: debtPayoffComponent.value,
-      sourcePaths: debtPayoffComponent.sourcePaths
+      value: debtPayoffSelection.value,
+      sourcePaths: debtPayoffSelection.sourcePaths
     }));
     trace.push(createTraceRow({
       key: "essentialSupport",
@@ -3038,7 +3083,7 @@
       label: "Gross Need",
       formula: "debtPayoff + essentialSupport + education + finalExpenses + transitionNeeds + discretionarySupport",
       inputs: {
-        debtPayoff: debtPayoffComponent.value,
+        debtPayoff: debtPayoffSelection.value,
         essentialSupport: essentialSupportComponent.value,
         education,
         finalExpenses,
@@ -3067,7 +3112,7 @@
       netCoverageGap,
       rawUncappedGap,
       components: {
-        debtPayoff: debtPayoffComponent.value,
+        debtPayoff: debtPayoffSelection.value,
         essentialSupport: essentialSupportComponent.value,
         education,
         finalExpenses,

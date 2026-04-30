@@ -102,10 +102,10 @@ function createNeedsResult() {
   return {
     method: "needs",
     label: "Needs Analysis",
-    grossNeed: 350000,
-    netCoverageGap: 350000,
+    grossNeed: 12000,
+    netCoverageGap: 12000,
     components: {
-      debtPayoff: 350000,
+      debtPayoff: 12000,
       essentialSupport: 0,
       education: 0,
       finalExpenses: 0,
@@ -132,11 +132,13 @@ function createNeedsResult() {
       {
         key: "debtPayoff",
         label: "Debt Payoff",
-        formula: "debtPayoff.totalDebtPayoffNeed",
-        value: 350000,
-        sourcePaths: ["debtPayoff.totalDebtPayoffNeed"],
+        formula: "treatedDebtPayoff.needs.debtPayoffAmount",
+        value: 12000,
+        sourcePaths: ["treatedDebtPayoff.needs.debtPayoffAmount"],
         inputs: createDebtTraceInputs({
-          currentMethodDebtSourcePath: "debtPayoff.totalDebtPayoffNeed",
+          treatedDebtConsumedByMethods: true,
+          currentMethodDebtSourcePath: "treatedDebtPayoff.needs.debtPayoffAmount",
+          fallbackDebtSourcePath: "debtPayoff.totalDebtPayoffNeed",
           preparedDebtSourcePath: "treatedDebtPayoff.needs.debtPayoffAmount",
           rawDebtPayoffAmount: 350000,
           rawMortgageAmount: 250000,
@@ -188,6 +190,7 @@ function createHlvResult() {
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/lens-model-builder.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "checks/lens-analysis/debt-treatment-model-prep-check.js",
     "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
@@ -298,12 +301,12 @@ assert.match(dimeHtml, /Prepared only; not method-used/);
 assert.match(dimeHtml, /Deferred treatment warning/);
 
 assert.match(needsHtml, /Debt Treatment Details/);
-assert.match(needsHtml, /Raw debtPayoff used/);
-assert.match(needsHtml, /Raw debt payoff used/);
+assert.match(needsHtml, /Prepared treated debt used/);
+assert.match(needsHtml, /Raw debt payoff reference/);
 assert.match(needsHtml, /Prepared treated debt/);
 assert.match(needsHtml, /Prepared treated mortgage/);
 assert.match(needsHtml, /Prepared treated non-mortgage debt/);
-assert.match(needsHtml, /Prepared only; not method-used/);
+assert.match(needsHtml, /Prepared treated debt method-used/);
 assert.match(needsHtml, /Manual override: metadata only/);
 assert.match(needsHtml, /999,999/);
 assert.match(needsHtml, /Deferred treatment warning/);

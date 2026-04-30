@@ -11,6 +11,7 @@
   const SURVIVOR_NET_INCOME_TAX_BASIS = "Qualifying Surviving Spouse";
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
   const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
+  const TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
     applyStartDelay: true,
     survivorContinuesWorking: true,
@@ -1214,9 +1215,37 @@
     };
   }
 
+  function createDebtTreatmentMethodConsumptionMetadata(options) {
+    const preparedNeedsDebtPayoffAmount = toOptionalNumber(options?.preparedNeedsDebtPayoffAmount);
+    const needsConsumesTreatedDebt = preparedNeedsDebtPayoffAmount != null && preparedNeedsDebtPayoffAmount >= 0;
+
+    return {
+      consumedByMethods: needsConsumesTreatedDebt,
+      consumedByMethodNames: needsConsumesTreatedDebt ? ["needs"] : [],
+      methodConsumption: {
+        dime: false,
+        needs: needsConsumesTreatedDebt,
+        hlv: false
+      },
+      currentMethodSourcePaths: {
+        dimeDebt: "debtPayoff",
+        dimeMortgage: "debtPayoff.mortgageBalance",
+        needsDebtPayoff: needsConsumesTreatedDebt
+          ? TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH
+          : "debtPayoff"
+      },
+      methodDebtSourcePath: needsConsumesTreatedDebt ? "partial-method-consumption" : "debtPayoff",
+      dimeDebtSourcePath: "debtPayoff",
+      needsDebtSourcePath: needsConsumesTreatedDebt
+        ? TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH
+        : "debtPayoff"
+    };
+  }
+
   function createEmptyTreatedDebtPayoff(warnings, metadata) {
     const safeWarnings = Array.isArray(warnings) ? warnings : [];
     const safeMetadata = isPlainObject(metadata) ? metadata : {};
+    const methodConsumptionMetadata = createDebtTreatmentMethodConsumptionMetadata();
 
     return {
       rawEquivalentDefault: false,
@@ -1256,10 +1285,7 @@
         ...safeMetadata,
         source: "lens-model-preparation",
         preparationSource: "lens-model-preparation",
-        consumedByMethods: false,
-        methodDebtSourcePath: "debtPayoff",
-        dimeDebtSourcePath: "debtPayoff",
-        needsDebtSourcePath: "debtPayoff",
+        ...methodConsumptionMetadata,
         warnings: safeWarnings
       }
     };
@@ -1690,6 +1716,9 @@
       }
     });
     const resultMetadata = isPlainObject(result?.metadata) ? result.metadata : {};
+    const methodConsumptionMetadata = createDebtTreatmentMethodConsumptionMetadata({
+      preparedNeedsDebtPayoffAmount: result?.needs?.debtPayoffAmount
+    });
 
     return {
       rawEquivalentDefault: result?.rawEquivalentDefault === true,
@@ -1725,10 +1754,7 @@
         assumptionsSource: resultMetadata.assumptionsSource || null,
         rawEquivalentDefault: result?.rawEquivalentDefault === true,
         treatmentApplied: result?.treatmentApplied === true,
-        consumedByMethods: false,
-        methodDebtSourcePath: "debtPayoff",
-        dimeDebtSourcePath: "debtPayoff",
-        needsDebtSourcePath: "debtPayoff",
+        ...methodConsumptionMetadata,
         source: result?.source || resultMetadata.source || null,
         fallbackSource: result?.fallbackSource || null,
         warnings: Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : []

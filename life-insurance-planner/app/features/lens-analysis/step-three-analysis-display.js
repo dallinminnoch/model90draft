@@ -477,6 +477,10 @@
       return "Current method trace";
     }
 
+    if (sourcePath.indexOf("treatedDebtPayoff") >= 0) {
+      return "Prepared treated debt used";
+    }
+
     if (
       sourcePath.indexOf("debtPayoff") >= 0
       || sourcePath === "explicit-non-mortgage-debt-fields"
@@ -562,7 +566,13 @@
       { label: "Current method-used debt source", value: getDebtTreatmentCurrentSource(debtTrace) }
     ];
 
-    pushOptionalMoneyRow(rows, "Raw debt payoff used", getTraceInput(debtTrace, "rawDebtPayoffAmount"));
+    pushOptionalMoneyRow(
+      rows,
+      getTraceInput(debtTrace, "treatedDebtConsumedByMethods") === true
+        ? "Raw debt payoff reference"
+        : "Raw debt payoff used",
+      getTraceInput(debtTrace, "rawDebtPayoffAmount")
+    );
     pushOptionalMoneyRow(rows, "Prepared treated debt", getTraceInput(debtTrace, "preparedDebtPayoffAmount"));
     pushOptionalMoneyRow(rows, "Prepared treated mortgage", getTraceInput(debtTrace, "preparedMortgagePayoffAmount"));
     pushOptionalMoneyRow(rows, "Prepared treated non-mortgage debt", getTraceInput(debtTrace, "preparedNonMortgageDebtAmount"));

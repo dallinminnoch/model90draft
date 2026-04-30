@@ -198,9 +198,12 @@ function findTrace(result, key) {
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/lens-model-builder.js",
     "pages/analysis-estimate.html",
-    "checks/lens-analysis/debt-treatment-model-prep-check.js"
+    "checks/lens-analysis/debt-treatment-model-prep-check.js",
+    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
+    "checks/lens-analysis/step-three-debt-treatment-display-check.js"
   ]);
   const changedFiles = execFileSync("git", ["diff", "--name-only"], {
     cwd: repoRoot,
@@ -250,10 +253,21 @@ assert.equal(model.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff total
 assert.equal(model.debtPayoff.mortgageBalance, 250000, "Raw mortgage balance should stay unchanged.");
 assert.equal(treatedDebtPayoff.rawEquivalentDefault, true, "Default broad debt assumptions should be raw-equivalent.");
 assert.equal(treatedDebtPayoff.treatmentApplied, false, "enabled:false should not apply treatment or zero debt.");
-assert.equal(treatedDebtPayoff.metadata.consumedByMethods, false, "treatedDebtPayoff must not be method-consumed yet.");
-assert.equal(treatedDebtPayoff.metadata.methodDebtSourcePath, "debtPayoff");
+assert.equal(treatedDebtPayoff.metadata.consumedByMethods, true, "treatedDebtPayoff should report partial method consumption.");
+assert.deepEqual(cloneJson(treatedDebtPayoff.metadata.consumedByMethodNames), ["needs"]);
+assert.deepEqual(cloneJson(treatedDebtPayoff.metadata.methodConsumption), {
+  dime: false,
+  needs: true,
+  hlv: false
+});
+assert.deepEqual(cloneJson(treatedDebtPayoff.metadata.currentMethodSourcePaths), {
+  dimeDebt: "debtPayoff",
+  dimeMortgage: "debtPayoff.mortgageBalance",
+  needsDebtPayoff: "treatedDebtPayoff.needs.debtPayoffAmount"
+});
+assert.equal(treatedDebtPayoff.metadata.methodDebtSourcePath, "partial-method-consumption");
 assert.equal(treatedDebtPayoff.metadata.dimeDebtSourcePath, "debtPayoff");
-assert.equal(treatedDebtPayoff.metadata.needsDebtSourcePath, "debtPayoff");
+assert.equal(treatedDebtPayoff.metadata.needsDebtSourcePath, "treatedDebtPayoff.needs.debtPayoffAmount");
 assert.equal(treatedDebtPayoff.source, "debtFacts");
 assert.equal(treatedDebtPayoff.metadata.source, "debtFacts");
 assert.equal(treatedDebtPayoff.metadata.fallbackSource, "debtPayoff-compatibility");
@@ -301,7 +315,7 @@ const excludedModel = buildModel(context, {
 }).lensModel;
 
 assert.equal(excludedModel.treatedDebtPayoff.needs.debtPayoffAmount, 0, "Prepared treatment can differ from raw debtPayoff.");
-assert.equal(excludedModel.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff still remains current method source.");
+assert.equal(excludedModel.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff should remain unchanged for fallback and DIME.");
 
 const methodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 assert.equal(methodsSource.includes("treatedDebtPayoff"), true, "Methods may reference treatedDebtPayoff for trace readiness only.");
@@ -317,11 +331,15 @@ const methodResults = lensAnalysis.analysisMethods.runAnalysisMethods(excludedMo
 });
 assert.equal(methodResults.dime.components.mortgage, 250000, "DIME should still use debtPayoff.mortgageBalance.");
 assert.equal(methodResults.dime.components.debt, 100000, "DIME should still use raw non-mortgage debtPayoff fields.");
-assert.equal(methodResults.needsAnalysis.components.debtPayoff, 350000, "Needs should still use debtPayoff.totalDebtPayoffNeed.");
+assert.equal(methodResults.needsAnalysis.components.debtPayoff, 0, "Needs should use prepared treated debt payoff when available.");
 assert.equal(methodResults.humanLifeValue.assumptions.survivorIncomeApplied, false, "HLV should remain unaffected by debt treatment prep.");
 assert.equal(findTrace(methodResults.dime, "debt").inputs.treatedDebtConsumedByMethods, false);
 assert.equal(findTrace(methodResults.dime, "mortgage").inputs.treatedDebtConsumedByMethods, false);
-assert.equal(findTrace(methodResults.needsAnalysis, "debtPayoff").inputs.treatedDebtConsumedByMethods, false);
+assert.equal(findTrace(methodResults.needsAnalysis, "debtPayoff").inputs.treatedDebtConsumedByMethods, true);
+assert.equal(
+  findTrace(methodResults.needsAnalysis, "debtPayoff").inputs.currentMethodDebtSourcePath,
+  "treatedDebtPayoff.needs.debtPayoffAmount"
+);
 
 const noHelperContext = createContext({ includeDebtTreatmentHelper: false });
 const noHelperResult = buildModel(noHelperContext, {
@@ -331,6 +349,17 @@ const noHelperResult = buildModel(noHelperContext, {
 });
 assert.ok(noHelperResult.lensModel.treatedDebtPayoff, "Missing helper path should still prepare an unavailable object.");
 assert.equal(noHelperResult.lensModel.treatedDebtPayoff.metadata.consumedByMethods, false);
+assert.deepEqual(cloneJson(noHelperResult.lensModel.treatedDebtPayoff.metadata.consumedByMethodNames), []);
+assert.deepEqual(cloneJson(noHelperResult.lensModel.treatedDebtPayoff.metadata.methodConsumption), {
+  dime: false,
+  needs: false,
+  hlv: false
+});
+assert.deepEqual(cloneJson(noHelperResult.lensModel.treatedDebtPayoff.metadata.currentMethodSourcePaths), {
+  dimeDebt: "debtPayoff",
+  dimeMortgage: "debtPayoff.mortgageBalance",
+  needsDebtPayoff: "debtPayoff"
+});
 assert.equal(noHelperResult.lensModel.treatedDebtPayoff.metadata.reason, "missing-debt-treatment-helper");
 assert.ok(
   hasWarningCode(noHelperResult.lensModel.treatedDebtPayoff.warnings, "missing-debt-treatment-helper"),
