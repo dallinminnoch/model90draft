@@ -746,6 +746,7 @@
                   <span class="profile-currency-suffix">USD</span>
                 </div>
               </div>
+              <div class="field-group full-width" data-pmi-debt-records-root></div>
               <div class="field-group full-width field-group--centered-result debt-payoff-total-group">
                 <label for="total-debt-payoff-need">Total Debt Payoff Need</label>
                 <div class="profile-currency-field">
@@ -930,6 +931,9 @@
   <script src="../app/features/lens-analysis/asset-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/asset-library.js"></script>
   <script src="../app/features/lens-analysis/pmi-asset-records.js"></script>
+  <script src="../app/features/lens-analysis/debt-taxonomy.js"></script>
+  <script src="../app/features/lens-analysis/debt-library.js"></script>
+  <script src="../app/features/lens-analysis/pmi-debt-records.js"></script>
   <script src="../app/features/lens-analysis/block-outputs.js"></script>
   <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
   <script src="../app/features/lens-analysis/blocks/existing-coverage.js"></script>
@@ -1561,6 +1565,9 @@
       const existingCoverageManageLink = form.querySelector("[data-pmi-existing-coverage-manage]");
       const pmiAssetRecordsController = window.LensApp?.lensAnalysis?.pmiAssetRecords?.initPmiAssetRecords({
         root: form.querySelector("[data-pmi-asset-records-root]")
+      });
+      const pmiDebtRecordsController = window.LensApp?.lensAnalysis?.pmiDebtRecords?.initPmiDebtRecords({
+        root: form.querySelector("[data-pmi-debt-records-root]")
       });
       const derivedDraftFieldNames = new Set([
         "linkedMaritalStatusDisplay",
@@ -4106,6 +4113,9 @@
           if (pmiAssetRecordsController && typeof pmiAssetRecordsController.hydrateAssetRecords === "function") {
             pmiAssetRecordsController.hydrateAssetRecords(saved.assetRecords);
           }
+          if (pmiDebtRecordsController && typeof pmiDebtRecordsController.hydrateDebtRecords === "function") {
+            pmiDebtRecordsController.hydrateDebtRecords(saved.debtRecords);
+          }
           if (mortgageTermRemainingYearsField && !(mortgageTermRemainingYearsField instanceof RadioNodeList) && mortgageTermRemainingMonthsField && !(mortgageTermRemainingMonthsField instanceof RadioNodeList)) {
             const combinedTerm = parseCurrencyLikeNumber(saved.mortgageTermRemaining);
             if (combinedTerm && !saved.mortgageTermRemainingYears && !saved.mortgageTermRemainingMonths) {
@@ -4260,6 +4270,9 @@
 
         if (pmiAssetRecordsController && typeof pmiAssetRecordsController.serializeAssetRecords === "function") {
           draft.assetRecords = pmiAssetRecordsController.serializeAssetRecords();
+        }
+        if (pmiDebtRecordsController && typeof pmiDebtRecordsController.serializeDebtRecords === "function") {
+          draft.debtRecords = pmiDebtRecordsController.serializeDebtRecords();
         }
 
         preserveLegacyAssetValueAliases(draft);
