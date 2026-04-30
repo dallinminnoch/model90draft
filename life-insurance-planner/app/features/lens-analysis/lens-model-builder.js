@@ -1214,6 +1214,57 @@
     };
   }
 
+  function createEmptyTreatedDebtPayoff(warnings, metadata) {
+    const safeWarnings = Array.isArray(warnings) ? warnings : [];
+    const safeMetadata = isPlainObject(metadata) ? metadata : {};
+
+    return {
+      rawEquivalentDefault: false,
+      treatmentApplied: false,
+      source: null,
+      fallbackSource: null,
+      dime: {
+        nonMortgageDebtAmount: null,
+        mortgageAmount: null,
+        totalDebtAndMortgageAmount: null
+      },
+      needs: {
+        debtPayoffAmount: null,
+        mortgagePayoffAmount: null,
+        nonMortgageDebtAmount: null
+      },
+      rawTotals: {
+        totalDebtBalance: null,
+        mortgageBalance: null,
+        nonMortgageDebtBalance: null,
+        excludedDebtAmount: null,
+        deferredDebtAmount: null
+      },
+      excludedDebtAmount: null,
+      deferredDebtAmount: null,
+      debts: [],
+      warnings: safeWarnings,
+      trace: {
+        debts: [],
+        rawEquivalentDefault: false,
+        treatmentApplied: false,
+        source: null,
+        fallbackSource: null,
+        manualTotalDebtPayoffOverride: false
+      },
+      metadata: {
+        ...safeMetadata,
+        source: "lens-model-preparation",
+        preparationSource: "lens-model-preparation",
+        consumedByMethods: false,
+        methodDebtSourcePath: "debtPayoff",
+        dimeDebtSourcePath: "debtPayoff",
+        needsDebtSourcePath: "debtPayoff",
+        warnings: safeWarnings
+      }
+    };
+  }
+
   function resolveAnalysisSettings(input) {
     const builderInput = input && typeof input === "object" ? input : {};
     const directAnalysisSettings = isPlainObject(builderInput.analysisSettings)
@@ -1598,6 +1649,93 @@
     };
   }
 
+  function resolveDebtTreatmentAssumptions(input) {
+    const analysisSettings = resolveAnalysisSettings(input);
+
+    return isPlainObject(analysisSettings.debtTreatmentAssumptions)
+      ? analysisSettings.debtTreatmentAssumptions
+      : {};
+  }
+
+  function createPreparedTreatedDebtPayoff(lensModel, input) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const debtFacts = isPlainObject(safeLensModel.debtFacts) ? safeLensModel.debtFacts : null;
+    const debtPayoff = isPlainObject(safeLensModel.debtPayoff) ? safeLensModel.debtPayoff : {};
+    const debtTreatmentAssumptions = resolveDebtTreatmentAssumptions(input);
+    const calculateDebtTreatment = lensAnalysis.calculateDebtTreatment;
+
+    if (typeof calculateDebtTreatment !== "function") {
+      return createEmptyTreatedDebtPayoff(
+        [
+          createWarning(
+            "missing-debt-treatment-helper",
+            "calculateDebtTreatment is unavailable; treated debt payoff values were not prepared."
+          )
+        ],
+        {
+          reason: "missing-debt-treatment-helper",
+          debtFactCount: Array.isArray(debtFacts?.debts) ? debtFacts.debts.length : null,
+          rawDebtPayoffTotal: debtPayoff.totalDebtPayoffNeed ?? null
+        }
+      );
+    }
+
+    const result = calculateDebtTreatment({
+      debtFacts,
+      debtPayoff,
+      debtTreatmentAssumptions,
+      options: {
+        source: "lens-model-preparation",
+        consumedByMethods: false
+      }
+    });
+    const resultMetadata = isPlainObject(result?.metadata) ? result.metadata : {};
+
+    return {
+      rawEquivalentDefault: result?.rawEquivalentDefault === true,
+      treatmentApplied: result?.treatmentApplied === true,
+      source: result?.source || null,
+      fallbackSource: result?.fallbackSource || null,
+      dime: isPlainObject(result?.dime) ? cloneSerializable(result.dime) : {
+        nonMortgageDebtAmount: null,
+        mortgageAmount: null,
+        totalDebtAndMortgageAmount: null
+      },
+      needs: isPlainObject(result?.needs) ? cloneSerializable(result.needs) : {
+        debtPayoffAmount: null,
+        mortgagePayoffAmount: null,
+        nonMortgageDebtAmount: null
+      },
+      rawTotals: isPlainObject(result?.rawTotals) ? cloneSerializable(result.rawTotals) : {
+        totalDebtBalance: null,
+        mortgageBalance: null,
+        nonMortgageDebtBalance: null,
+        excludedDebtAmount: null,
+        deferredDebtAmount: null
+      },
+      excludedDebtAmount: result?.excludedDebtAmount ?? null,
+      deferredDebtAmount: result?.deferredDebtAmount ?? null,
+      debts: Array.isArray(result?.debts) ? cloneSerializable(result.debts) : [],
+      warnings: Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : [],
+      trace: isPlainObject(result?.trace) ? cloneSerializable(result.trace) : {},
+      metadata: {
+        ...resultMetadata,
+        preparationSource: "lens-model-preparation",
+        calculationSource: resultMetadata.source || "debt-treatment-calculations",
+        assumptionsSource: resultMetadata.assumptionsSource || null,
+        rawEquivalentDefault: result?.rawEquivalentDefault === true,
+        treatmentApplied: result?.treatmentApplied === true,
+        consumedByMethods: false,
+        methodDebtSourcePath: "debtPayoff",
+        dimeDebtSourcePath: "debtPayoff",
+        needsDebtSourcePath: "debtPayoff",
+        source: result?.source || resultMetadata.source || null,
+        fallbackSource: result?.fallbackSource || null,
+        warnings: Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : []
+      }
+    };
+  }
+
   function attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const blockSourceObjects = isPlainObject(sourceResult?.blockSourceObjects)
@@ -1645,6 +1783,7 @@
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
+        lensModel.treatedDebtPayoff = createPreparedTreatedDebtPayoff(lensModel, builderInput);
       }
     }
 
