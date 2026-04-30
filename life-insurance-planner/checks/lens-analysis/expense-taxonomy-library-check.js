@@ -48,6 +48,11 @@ assert.equal(typeof taxonomy.isValidExpenseFrequency, "function");
 assert.equal(typeof taxonomy.isValidExpenseTermType, "function");
 assert.equal(typeof taxonomy.normalizeExpenseFrequency, "function");
 assert.equal(typeof taxonomy.normalizeExpenseTermType, "function");
+assert.deepEqual(
+  Array.from(library.EXPENSE_UI_AVAILABILITY_VALUES),
+  ["initial", "advanced", "future"],
+  "library should expose the approved UI availability enum"
+);
 assert.equal(typeof library.getExpenseLibraryEntries, "function");
 assert.equal(typeof library.getExpenseLibraryEntry, "function");
 assert.equal(typeof library.findExpenseLibraryEntry, "function");
@@ -145,6 +150,7 @@ assert.equal(taxonomy.normalizeExpenseTermType("bad", "fixedYears"), "fixedYears
 const entries = Array.from(library.getExpenseLibraryEntries());
 const typeKeys = Array.from(entries, (entry) => entry.typeKey);
 const entryKeys = Array.from(entries, (entry) => entry.libraryEntryKey);
+const allowedUiAvailabilityValues = Array.from(library.EXPENSE_UI_AVAILABILITY_VALUES);
 assert.ok(uniqueValues(typeKeys), "library typeKeys should be unique");
 assert.ok(uniqueValues(entryKeys), "library entry keys should be unique");
 
@@ -155,6 +161,8 @@ entries.forEach((entry) => {
   assert.ok(entry.description, `${entry.typeKey} should have a description`);
   assert.equal(taxonomy.isValidExpenseFrequency(entry.defaultFrequency), true, `${entry.typeKey} should have a valid defaultFrequency`);
   assert.equal(taxonomy.isValidExpenseTermType(entry.defaultTermType), true, `${entry.typeKey} should have a valid defaultTermType`);
+  assert.ok(allowedUiAvailabilityValues.includes(entry.uiAvailability), `${entry.typeKey} should have a valid uiAvailability`);
+  assert.equal(library.EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY[entry.typeKey], entry.uiAvailability, `${entry.typeKey} should have explicit UI availability metadata`);
   assert.ok(Array.isArray(entry.tags), `${entry.typeKey} should expose tags`);
   assert.ok(Array.isArray(entry.searchTerms), `${entry.typeKey} should expose searchTerms`);
   if (entry.defaultTermType === "fixedYears") {
@@ -162,6 +170,132 @@ entries.forEach((entry) => {
     assert.ok(entry.suggestedTermYears > 0, `${entry.typeKey} suggestedTermYears should be positive`);
   }
 });
+
+const initialUiTypeKeys = [
+  "healthInsurancePremiums",
+  "medicarePartBPremiums",
+  "medicarePartDPremiums",
+  "medigapPremiums",
+  "medicareAdvantagePremiums",
+  "cobraPremiums",
+  "medicalOutOfPocket",
+  "prescriptionMedications",
+  "specialistVisits",
+  "therapyCounseling",
+  "psychiatricMedicationManagement",
+  "physicalTherapy",
+  "dentalInsurance",
+  "dentalOutOfPocket",
+  "orthodontics",
+  "majorDentalWork",
+  "denturesImplants",
+  "visionInsurance",
+  "visionOutOfPocket",
+  "glassesContacts",
+  "eyeSurgery",
+  "longTermCareInsurancePremiums",
+  "adultDayCare",
+  "respiteCare",
+  "specialNeedsCare",
+  "homeHealthAide",
+  "medicalAlertMonitoring",
+  "hearingAidsAudiology",
+  "durableMedicalEquipment",
+  "adaptiveHomeModification",
+  "mobilityVehicleModification",
+  "mobilityAids",
+  "otherHealthcareExpense",
+  "rentOrMortgagePayment",
+  "propertyTaxes",
+  "homeownersInsurance",
+  "homeMaintenanceRepairs",
+  "propertyAssessments",
+  "hoaDues",
+  "householdUtilities",
+  "internetPhone",
+  "groceries",
+  "transportationFuel",
+  "vehicleInsurance",
+  "vehicleMaintenance",
+  "rentersInsurance",
+  "umbrellaInsurance",
+  "disabilityInsurancePremiums",
+  "petInsurance",
+  "householdSupplies",
+  "clothing",
+  "subscriptionsMemberships",
+  "petCare",
+  "childcareExpense",
+  "dependentSupportExpense",
+  "personalCare",
+  "privateSchoolTuition",
+  "tutoring",
+  "schoolSupplies",
+  "childActivitiesSports",
+  "earlyEducationChildcare",
+  "customExpenseRecord"
+];
+
+const futureUiTypeKeys = [
+  "funeralBurialEstimate",
+  "medicalEndOfLifeCosts",
+  "estateSettlementCosts",
+  "otherFinalExpenses",
+  "businessOverheadRent",
+  "businessPayrollCoverage",
+  "professionalLicensingFees",
+  "professionalAdvisorFees",
+  "keyPersonRecruitingReplacement",
+  "hospiceCare",
+  "hospitalFinalBill",
+  "endOfLifePrescriptionCosts",
+  "cremation",
+  "burialPlot",
+  "headstoneMarker",
+  "memorialService",
+  "probateAttorney",
+  "executorFees",
+  "finalTaxPreparation",
+  "estateAdministrationCosts",
+  "obituaryDeathCertificates",
+  "travelForFamilyFinalArrangements",
+  "lifeInsurancePremiums",
+  "hsaContributions"
+];
+
+const advancedUiTypeKeys = [
+  "inpatientMentalHealthCare",
+  "nursingCare",
+  "assistedLiving",
+  "memoryCare",
+  "collegeApplicationTesting"
+];
+
+[
+  [initialUiTypeKeys, "initial"],
+  [futureUiTypeKeys, "future"],
+  [advancedUiTypeKeys, "advanced"]
+].forEach(([expectedTypeKeys, expectedAvailability]) => {
+  expectedTypeKeys.forEach((typeKey) => {
+    const entry = library.getExpenseLibraryEntry(typeKey);
+    assert.ok(entry, `${typeKey} should exist for UI availability validation`);
+    assert.equal(entry.uiAvailability, expectedAvailability, `${typeKey} should be ${expectedAvailability}`);
+  });
+});
+
+assert.deepEqual(
+  typeKeys.slice().sort(),
+  initialUiTypeKeys.concat(futureUiTypeKeys, advancedUiTypeKeys).slice().sort(),
+  "every library entry should have an explicit expected UI availability"
+);
+
+const ltcPremiums = library.getExpenseLibraryEntry("longTermCareInsurancePremiums");
+assert.equal(ltcPremiums.defaultFrequency, "monthly");
+assert.equal(ltcPremiums.defaultTermType, "ongoing");
+
+const inpatientMentalHealthCare = library.getExpenseLibraryEntry("inpatientMentalHealthCare");
+assert.equal(inpatientMentalHealthCare.defaultFrequency, "oneTime");
+assert.equal(inpatientMentalHealthCare.defaultTermType, "oneTime");
 
 const protectedScalarRows = [
   {
@@ -202,6 +336,7 @@ protectedScalarRows.forEach((expected) => {
   assert.equal(entry.isScalarFieldOwned, true);
   assert.equal(entry.isProtected, true);
   assert.equal(entry.isAddable, false);
+  assert.equal(entry.uiAvailability, "future");
   assert.equal(entry.ownedByField, expected.ownedByField);
   assert.equal(entry.sourcePath, expected.sourcePath);
   assert.equal(entry.duplicateProtection, expected.duplicateProtection);

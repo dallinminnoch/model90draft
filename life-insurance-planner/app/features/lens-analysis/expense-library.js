@@ -7,6 +7,108 @@
   // expenseRecords[] rows can use. Runtime behavior stays outside this
   // metadata module.
 
+  const EXPENSE_UI_AVAILABILITY_VALUES = Object.freeze(["initial", "advanced", "future"]);
+
+  const EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY = Object.freeze({
+    funeralBurialEstimate: "future",
+    medicalEndOfLifeCosts: "future",
+    estateSettlementCosts: "future",
+    otherFinalExpenses: "future",
+
+    healthInsurancePremiums: "initial",
+    medicarePartBPremiums: "initial",
+    medicarePartDPremiums: "initial",
+    medigapPremiums: "initial",
+    medicareAdvantagePremiums: "initial",
+    cobraPremiums: "initial",
+    hsaContributions: "future",
+    medicalOutOfPocket: "initial",
+    prescriptionMedications: "initial",
+    specialistVisits: "initial",
+    therapyCounseling: "initial",
+    psychiatricMedicationManagement: "initial",
+    inpatientMentalHealthCare: "advanced",
+    physicalTherapy: "initial",
+    dentalInsurance: "initial",
+    dentalOutOfPocket: "initial",
+    orthodontics: "initial",
+    majorDentalWork: "initial",
+    denturesImplants: "initial",
+    visionInsurance: "initial",
+    visionOutOfPocket: "initial",
+    glassesContacts: "initial",
+    eyeSurgery: "initial",
+    hearingAidsAudiology: "initial",
+    durableMedicalEquipment: "initial",
+    adaptiveHomeModification: "initial",
+    mobilityVehicleModification: "initial",
+    mobilityAids: "initial",
+    homeHealthAide: "initial",
+    medicalAlertMonitoring: "initial",
+    longTermCareInsurancePremiums: "initial",
+    nursingCare: "advanced",
+    assistedLiving: "advanced",
+    memoryCare: "advanced",
+    adultDayCare: "initial",
+    respiteCare: "initial",
+    specialNeedsCare: "initial",
+    hospiceCare: "future",
+    hospitalFinalBill: "future",
+    endOfLifePrescriptionCosts: "future",
+    otherHealthcareExpense: "initial",
+
+    cremation: "future",
+    burialPlot: "future",
+    headstoneMarker: "future",
+    memorialService: "future",
+    obituaryDeathCertificates: "future",
+    travelForFamilyFinalArrangements: "future",
+    probateAttorney: "future",
+    executorFees: "future",
+    finalTaxPreparation: "future",
+    estateAdministrationCosts: "future",
+
+    rentOrMortgagePayment: "initial",
+    propertyTaxes: "initial",
+    homeownersInsurance: "initial",
+    homeMaintenanceRepairs: "initial",
+    hoaDues: "initial",
+    propertyAssessments: "initial",
+    householdUtilities: "initial",
+    internetPhone: "initial",
+    groceries: "initial",
+    transportationFuel: "initial",
+    vehicleInsurance: "initial",
+    vehicleMaintenance: "initial",
+    rentersInsurance: "initial",
+    umbrellaInsurance: "initial",
+    disabilityInsurancePremiums: "initial",
+    lifeInsurancePremiums: "future",
+    petInsurance: "initial",
+    childcareExpense: "initial",
+    dependentSupportExpense: "initial",
+    personalCare: "initial",
+    householdSupplies: "initial",
+    clothing: "initial",
+    subscriptionsMemberships: "initial",
+    petCare: "initial",
+
+    privateSchoolTuition: "initial",
+    tutoring: "initial",
+    collegeApplicationTesting: "advanced",
+    schoolSupplies: "initial",
+    childActivitiesSports: "initial",
+    earlyEducationChildcare: "initial",
+
+    businessOverheadRent: "future",
+    businessPayrollCoverage: "future",
+    professionalLicensingFees: "future",
+    professionalAdvisorFees: "future",
+    keyPersonRecruitingReplacement: "future",
+
+    customExpenseRecord: "initial"
+  });
+
   const PROTECTED_SCALAR_EXPENSE_OPTIONS = Object.freeze({
     funeralBurialEstimate: Object.freeze({
       isDefaultExpense: true,
@@ -64,7 +166,7 @@
     ["specialistVisits", "Specialist Visits", "ongoingHealthcare", "Recurring or periodic medical specialist visit expense.", "specialist|doctor visit|provider visit", "quarterly", "ongoing"],
     ["therapyCounseling", "Therapy / Counseling", "mentalHealthCare", "Recurring therapy, counseling, or mental health care expense.", "therapy|counseling|mental health|behavioral health", "monthly", "ongoing"],
     ["psychiatricMedicationManagement", "Psychiatric Medication Management", "mentalHealthCare", "Recurring psychiatric medication management or behavioral health provider expense.", "psychiatry|medication management|behavioral health", "monthly", "ongoing"],
-    ["inpatientMentalHealthCare", "Inpatient Mental Health Care", "mentalHealthCare", "Inpatient or intensive mental health care expense.", "inpatient mental health|psychiatric facility|intensive care", "monthly", "fixedYears", { suggestedTermYears: 1 }],
+    ["inpatientMentalHealthCare", "Inpatient Mental Health Care", "mentalHealthCare", "Inpatient or intensive mental health care expense.", "inpatient mental health|psychiatric facility|intensive care", "oneTime", "oneTime"],
     ["physicalTherapy", "Physical Therapy", "ongoingHealthcare", "Physical therapy or rehabilitative care expense.", "physical therapy|rehab|rehabilitation", "monthly", "fixedYears", { suggestedTermYears: 1 }],
     ["dentalInsurance", "Dental Insurance", "dentalCare", "Recurring dental insurance premium expense.", "dental insurance|dental premium", "monthly", "ongoing"],
     ["dentalOutOfPocket", "Dental Out-of-Pocket", "dentalCare", "Routine or recurring dental out-of-pocket expense.", "dental out of pocket|dentist|dental care", "annual", "ongoing"],
@@ -82,7 +184,7 @@
     ["mobilityAids", "Mobility Aids", "medicalEquipment", "One-time mobility aid or assistive device expense.", "mobility aids|walker|scooter|assistive device", "oneTime", "oneTime"],
     ["homeHealthAide", "Home Health Aide", "homeHealthCare", "Home health aide or in-home care expense.", "home health|home aide|in home care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
     ["medicalAlertMonitoring", "Medical Alert Monitoring", "homeHealthCare", "Recurring medical alert monitoring or emergency response service expense.", "medical alert|emergency response|monitoring", "monthly", "ongoing"],
-    ["longTermCareInsurancePremiums", "Long-Term Care Insurance Premiums", "longTermCare", "Recurring long-term care insurance premium expense.", "ltc insurance|long term care premium|care insurance", "annual", "ongoing"],
+    ["longTermCareInsurancePremiums", "Long-Term Care Insurance Premiums", "longTermCare", "Recurring long-term care insurance premium expense.", "ltc insurance|long term care premium|care insurance", "monthly", "ongoing"],
     ["nursingCare", "Nursing Care", "longTermCare", "Nursing care or skilled nursing expense.", "nursing care|skilled nursing|care facility", "monthly", "fixedYears", { suggestedTermYears: 3 }],
     ["assistedLiving", "Assisted Living", "longTermCare", "Assisted living care expense.", "assisted living|care residence|senior care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
     ["memoryCare", "Memory Care", "longTermCare", "Memory care or dementia care expense.", "memory care|dementia care|alzheimers care", "monthly", "fixedYears", { suggestedTermYears: 3 }],
@@ -189,6 +291,19 @@
       : false;
   }
 
+  function normalizeUiAvailability(typeKey, value) {
+    if (EXPENSE_UI_AVAILABILITY_VALUES.indexOf(value) !== -1) {
+      return value;
+    }
+
+    const mappedAvailability = EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY[typeKey];
+    if (EXPENSE_UI_AVAILABILITY_VALUES.indexOf(mappedAvailability) !== -1) {
+      return mappedAvailability;
+    }
+
+    return "advanced";
+  }
+
   function toExpenseLibraryEntry(definition, index) {
     const options = definition[7] && typeof definition[7] === "object" ? definition[7] : {};
     const category = getCategory(definition[2]);
@@ -211,6 +326,7 @@
       description: definition[3],
       defaultFrequency,
       defaultTermType,
+      uiAvailability: normalizeUiAvailability(definition[0], options.uiAvailability),
       suggestedTermYears: Number.isFinite(Number(options.suggestedTermYears))
         ? Number(options.suggestedTermYears)
         : null,
@@ -280,6 +396,8 @@
   }
 
   lensAnalysis.expenseLibrary = Object.freeze({
+    EXPENSE_UI_AVAILABILITY_VALUES,
+    EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY,
     EXPENSE_LIBRARY_ENTRIES,
     EXPENSE_LIBRARY_GROUPS,
     PROTECTED_SCALAR_EXPENSE_TYPE_KEYS,
