@@ -13,21 +13,46 @@
 
   const MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "support", "custom"]);
   const NON_MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "exclude", "custom"]);
-  const NON_MORTGAGE_TREATMENT_KEYS = Object.freeze([
-    "autoLoans",
-    "creditCardDebt",
-    "studentLoans",
-    "personalLoans",
-    "taxLiabilities",
+  const DEBT_CATEGORY_TREATMENT_KEYS = Object.freeze([
+    "realEstateSecuredDebt",
+    "securedConsumerDebt",
+    "unsecuredConsumerDebt",
+    "educationDebt",
+    "medicalDebt",
+    "taxLegalDebt",
     "businessDebt",
-    "otherRealEstateLoans",
-    "otherLoanObligations"
+    "privatePersonalDebt",
+    "consumerFinanceDebt",
+    "otherDebt"
   ]);
-
-  const RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT = Object.freeze({
+  const RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT = Object.freeze({
     include: true,
     mode: "payoff",
     payoffPercent: 100
+  });
+
+  const RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT_MAP = Object.freeze({
+    realEstateSecuredDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    securedConsumerDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    unsecuredConsumerDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    educationDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    medicalDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    taxLegalDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    businessDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    privatePersonalDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    consumerFinanceDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    otherDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT
+  });
+
+  const RAW_EQUIVALENT_LEGACY_NON_MORTGAGE_TREATMENT_MAP = Object.freeze({
+    autoLoans: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    creditCardDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    studentLoans: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    personalLoans: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    taxLiabilities: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    businessDebt: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    otherRealEstateLoans: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT,
+    otherLoanObligations: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT
   });
 
   const RAW_EQUIVALENT_DEBT_TREATMENT_ASSUMPTIONS = Object.freeze({
@@ -39,49 +64,22 @@
       payoffPercent: 100,
       paymentSupportYears: null
     }),
-    nonMortgageDebtTreatment: Object.freeze({
-      autoLoans: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      creditCardDebt: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      studentLoans: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      personalLoans: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      taxLiabilities: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      businessDebt: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      otherRealEstateLoans: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT,
-      otherLoanObligations: RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT
-    }),
+    debtCategoryTreatment: RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT_MAP,
+    nonMortgageDebtTreatment: RAW_EQUIVALENT_LEGACY_NON_MORTGAGE_TREATMENT_MAP,
     source: "debt-treatment-calculations-raw-equivalent-defaults"
   });
 
-  const CATEGORY_TO_TREATMENT_KEY = Object.freeze({
-    realEstateSecuredDebt: "otherRealEstateLoans",
-    securedConsumerDebt: "autoLoans",
-    unsecuredConsumerDebt: "creditCardDebt",
-    educationDebt: "studentLoans",
-    medicalDebt: "otherLoanObligations",
-    taxLegalDebt: "taxLiabilities",
-    businessDebt: "businessDebt",
-    privatePersonalDebt: "otherLoanObligations",
-    consumerFinanceDebt: "otherLoanObligations",
-    otherDebt: "otherLoanObligations"
-  });
-
-  const SOURCE_TO_TREATMENT_KEY = Object.freeze({
-    otherRealEstateLoans: "otherRealEstateLoans",
-    otherRealEstateLoanBalance: "otherRealEstateLoans",
-    autoLoans: "autoLoans",
-    autoLoanBalance: "autoLoans",
-    creditCardDebt: "creditCardDebt",
-    creditCardBalance: "creditCardDebt",
-    studentLoans: "studentLoans",
-    studentLoanBalance: "studentLoans",
-    personalLoans: "personalLoans",
-    personalLoanBalance: "personalLoans",
-    taxLiabilities: "taxLiabilities",
-    outstandingTaxLiabilities: "taxLiabilities",
-    businessDebt: "businessDebt",
-    businessDebtBalance: "businessDebt",
-    otherLoanObligations: "otherLoanObligations",
-    otherDebtPayoffNeeds: "otherLoanObligations"
+  const LEGACY_TREATMENT_KEYS_BY_CATEGORY = Object.freeze({
+    realEstateSecuredDebt: Object.freeze(["otherRealEstateLoans"]),
+    securedConsumerDebt: Object.freeze(["autoLoans"]),
+    unsecuredConsumerDebt: Object.freeze(["creditCardDebt", "personalLoans"]),
+    educationDebt: Object.freeze(["studentLoans"]),
+    medicalDebt: Object.freeze([]),
+    taxLegalDebt: Object.freeze(["taxLiabilities"]),
+    businessDebt: Object.freeze(["businessDebt"]),
+    privatePersonalDebt: Object.freeze([]),
+    consumerFinanceDebt: Object.freeze([]),
+    otherDebt: Object.freeze(["otherLoanObligations"])
   });
 
   const DEBT_PAYOFF_COMPATIBILITY_FIELDS = Object.freeze([
@@ -296,7 +294,7 @@
 
   function normalizeNonMortgageTreatment(source, fallback, key, warnings) {
     const safeSource = isPlainObject(source) ? source : {};
-    const safeFallback = isPlainObject(fallback) ? fallback : RAW_EQUIVALENT_NON_MORTGAGE_TREATMENT;
+    const safeFallback = isPlainObject(fallback) ? fallback : RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT;
     return {
       include: typeof safeSource.include === "boolean"
         ? safeSource.include
@@ -317,12 +315,91 @@
     };
   }
 
+  function areDebtCategoryTreatmentsEquivalent(left, right) {
+    return Boolean(left && right)
+      && left.include === right.include
+      && left.mode === right.mode
+      && left.payoffPercent === right.payoffPercent;
+  }
+
+  function getRawEquivalentCategoryTreatment(categoryKey) {
+    return RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT_MAP[categoryKey]
+      || RAW_EQUIVALENT_DEBT_CATEGORY_TREATMENT;
+  }
+
+  function resolveLegacyCategoryTreatment(categoryKey, sourceNonMortgage, warnings) {
+    const legacyKeys = LEGACY_TREATMENT_KEYS_BY_CATEGORY[categoryKey] || [];
+    const presentLegacyKeys = legacyKeys.filter(function (legacyKey) {
+      return isPlainObject(sourceNonMortgage[legacyKey]);
+    });
+
+    if (!presentLegacyKeys.length) {
+      return null;
+    }
+
+    const defaultTreatment = getRawEquivalentCategoryTreatment(categoryKey);
+    const migratedTreatments = presentLegacyKeys.map(function (legacyKey) {
+      return {
+        legacyKey,
+        treatment: normalizeNonMortgageTreatment(
+          sourceNonMortgage[legacyKey],
+          defaultTreatment,
+          legacyKey,
+          warnings
+        )
+      };
+    });
+    const firstTreatment = migratedTreatments[0].treatment;
+    const hasConflict = migratedTreatments.some(function (candidate) {
+      return !areDebtCategoryTreatmentsEquivalent(candidate.treatment, firstTreatment);
+    });
+
+    if (hasConflict) {
+      pushWarning(
+        warnings,
+        "legacy-debt-category-treatment-conflict-defaulted",
+        "Multiple legacy scalar debt treatment keys map to one broad debt category and conflicted; the raw-equivalent category default was used.",
+        {
+          categoryKey,
+          legacyKeys: presentLegacyKeys.slice(),
+          defaultTreatment
+        }
+      );
+      return {
+        treatment: defaultTreatment,
+        source: "raw-equivalent-default",
+        conflict: true,
+        legacyKeys: presentLegacyKeys.slice()
+      };
+    }
+
+    pushWarning(
+      warnings,
+      "legacy-debt-category-treatment-migrated",
+      "Legacy scalar debt treatment was interpreted as broad debt category treatment for compatibility.",
+      {
+        categoryKey,
+        legacyKeys: presentLegacyKeys.slice()
+      }
+    );
+    return {
+      treatment: firstTreatment,
+      source: "legacy-nonMortgageDebtTreatment",
+      conflict: false,
+      legacyKeys: presentLegacyKeys.slice()
+    };
+  }
+
   function normalizeDebtTreatmentAssumptionsInternal(source, warnings) {
     const safeSource = isPlainObject(source) ? source : {};
     const defaultAssumptions = RAW_EQUIVALENT_DEBT_TREATMENT_ASSUMPTIONS;
     const sourceMissing = !isPlainObject(source);
     const mortgageSource = isPlainObject(safeSource.mortgageTreatment) ? safeSource.mortgageTreatment : {};
     const mortgageDefault = defaultAssumptions.mortgageTreatment;
+    const sourceCategoryTreatment = isPlainObject(safeSource.debtCategoryTreatment)
+      ? safeSource.debtCategoryTreatment
+      : {};
+    const hasPrimaryCategoryTreatmentSource = isPlainObject(safeSource.debtCategoryTreatment);
     const sourceNonMortgage = isPlainObject(safeSource.nonMortgageDebtTreatment)
       ? safeSource.nonMortgageDebtTreatment
       : {};
@@ -364,16 +441,68 @@
           warnings
         )
       },
-      nonMortgageDebtTreatment: {},
+      debtCategoryTreatment: {},
+      nonMortgageDebtTreatment: isPlainObject(safeSource.nonMortgageDebtTreatment)
+        ? clonePlainValue(safeSource.nonMortgageDebtTreatment)
+        : {},
+      categoryTreatmentSources: {},
+      defaultedDebtCategoryKeys: [],
+      legacyCompatibility: {
+        used: false,
+        migratedCategoryKeys: [],
+        conflictCategoryKeys: []
+      },
       source: toTrimmedString(safeSource.source) || defaultAssumptions.source
     };
 
-    NON_MORTGAGE_TREATMENT_KEYS.forEach(function (key) {
-      normalized.nonMortgageDebtTreatment[key] = normalizeNonMortgageTreatment(
-        sourceNonMortgage[key],
-        defaultAssumptions.nonMortgageDebtTreatment[key],
-        key,
-        warnings
+    DEBT_CATEGORY_TREATMENT_KEYS.forEach(function (categoryKey) {
+      const defaultTreatment = getRawEquivalentCategoryTreatment(categoryKey);
+
+      if (hasPrimaryCategoryTreatmentSource && isPlainObject(sourceCategoryTreatment[categoryKey])) {
+        normalized.debtCategoryTreatment[categoryKey] = normalizeNonMortgageTreatment(
+          sourceCategoryTreatment[categoryKey],
+          defaultTreatment,
+          categoryKey,
+          warnings
+        );
+        normalized.categoryTreatmentSources[categoryKey] = "debtCategoryTreatment";
+        return;
+      }
+
+      if (hasPrimaryCategoryTreatmentSource) {
+        normalized.debtCategoryTreatment[categoryKey] = defaultTreatment;
+        normalized.categoryTreatmentSources[categoryKey] = "raw-equivalent-default";
+        normalized.defaultedDebtCategoryKeys.push(categoryKey);
+        pushWarning(
+          warnings,
+          "missing-debt-category-treatment-defaulted",
+          "Debt category treatment was missing; the raw-equivalent default was used.",
+          { categoryKey }
+        );
+        return;
+      }
+
+      const legacyTreatment = resolveLegacyCategoryTreatment(categoryKey, sourceNonMortgage, warnings);
+      if (legacyTreatment) {
+        normalized.debtCategoryTreatment[categoryKey] = legacyTreatment.treatment;
+        normalized.categoryTreatmentSources[categoryKey] = legacyTreatment.source;
+        normalized.legacyCompatibility.used = normalized.legacyCompatibility.used || legacyTreatment.source === "legacy-nonMortgageDebtTreatment";
+        if (legacyTreatment.conflict) {
+          normalized.legacyCompatibility.conflictCategoryKeys.push(categoryKey);
+        } else {
+          normalized.legacyCompatibility.migratedCategoryKeys.push(categoryKey);
+        }
+        return;
+      }
+
+      normalized.debtCategoryTreatment[categoryKey] = defaultTreatment;
+      normalized.categoryTreatmentSources[categoryKey] = "raw-equivalent-default";
+      normalized.defaultedDebtCategoryKeys.push(categoryKey);
+      pushWarning(
+        warnings,
+        "missing-debt-category-treatment-defaulted",
+        "Debt category treatment was missing; the raw-equivalent default was used.",
+        { categoryKey }
       );
     });
 
@@ -387,7 +516,7 @@
     return normalizeDebtTreatmentAssumptionsInternal(source, []).assumptions;
   }
 
-  function isRawEquivalentNonMortgageTreatment(treatment) {
+  function isRawEquivalentCategoryTreatment(treatment) {
     return treatment.include !== false
       && treatment.mode === "payoff"
       && treatment.payoffPercent === 100;
@@ -399,8 +528,8 @@
       return false;
     }
 
-    return NON_MORTGAGE_TREATMENT_KEYS.every(function (key) {
-      return isRawEquivalentNonMortgageTreatment(assumptions.nonMortgageDebtTreatment[key]);
+    return DEBT_CATEGORY_TREATMENT_KEYS.every(function (categoryKey) {
+      return isRawEquivalentCategoryTreatment(assumptions.debtCategoryTreatment[categoryKey]);
     });
   }
 
@@ -545,15 +674,27 @@
     return debts;
   }
 
-  function getTreatmentKeyForDebt(debt) {
+  function getTreatmentKeyForDebt(debt, warnings) {
     if (isPrimaryMortgageDebt(debt)) {
       return "mortgage";
     }
 
-    return SOURCE_TO_TREATMENT_KEY[debt.sourceKey]
-      || SOURCE_TO_TREATMENT_KEY[debt.typeKey]
-      || CATEGORY_TO_TREATMENT_KEY[debt.categoryKey]
-      || "otherLoanObligations";
+    if (DEBT_CATEGORY_TREATMENT_KEYS.indexOf(debt.categoryKey) !== -1) {
+      return debt.categoryKey;
+    }
+
+    pushWarning(
+      warnings,
+      "invalid-debt-category-treatment-key-defaulted",
+      "Debt fact categoryKey was missing or unknown; otherDebt treatment was used.",
+      {
+        debtFactId: debt.debtFactId,
+        categoryKey: debt.categoryKey || null,
+        sourceKey: debt.sourceKey || null,
+        typeKey: debt.typeKey || null
+      }
+    );
+    return "otherDebt";
   }
 
   function calculateAppliedTreatment(debt, treatment, kind, warnings) {
@@ -694,11 +835,11 @@
         primaryMortgageSeen = true;
       }
 
-      const treatmentKey = getTreatmentKeyForDebt(normalizedDebt);
+      const treatmentKey = getTreatmentKeyForDebt(normalizedDebt, warnings);
       const treatment = isMortgage
         ? assumptions.mortgageTreatment
-        : assumptions.nonMortgageDebtTreatment[treatmentKey]
-          || assumptions.nonMortgageDebtTreatment.otherLoanObligations;
+        : assumptions.debtCategoryTreatment[treatmentKey]
+          || getRawEquivalentCategoryTreatment(treatmentKey);
       const applied = calculateAppliedTreatment(
         normalizedDebt,
         treatment,
@@ -782,6 +923,9 @@
         assumptionsSource: assumptions.source,
         assumptionsDefaulted: normalizedAssumptionsResult.defaulted,
         assumptionsEnabled: assumptions.enabled === true,
+        categoryTreatmentSources: clonePlainValue(assumptions.categoryTreatmentSources),
+        defaultedDebtCategoryKeys: assumptions.defaultedDebtCategoryKeys.slice(),
+        legacyCompatibility: clonePlainValue(assumptions.legacyCompatibility),
         manualTotalDebtPayoffOverride: manualOverrideMetadata.manualTotalDebtPayoffOverride,
         manualTotalDebtPayoffNeed: manualOverrideMetadata.manualTotalDebtPayoffNeed,
         manualOverrideSource: manualOverrideMetadata.manualOverrideSource,

@@ -133,6 +133,45 @@ function createDebtPayoff(overrides = {}) {
   };
 }
 
+function createRawEquivalentCategoryTreatment(overrides = {}) {
+  return {
+    include: true,
+    mode: "payoff",
+    payoffPercent: 100,
+    ...overrides
+  };
+}
+
+function createRawEquivalentDebtCategoryTreatment(overrides = {}) {
+  return {
+    realEstateSecuredDebt: createRawEquivalentCategoryTreatment(),
+    securedConsumerDebt: createRawEquivalentCategoryTreatment(),
+    unsecuredConsumerDebt: createRawEquivalentCategoryTreatment(),
+    educationDebt: createRawEquivalentCategoryTreatment(),
+    medicalDebt: createRawEquivalentCategoryTreatment(),
+    taxLegalDebt: createRawEquivalentCategoryTreatment(),
+    businessDebt: createRawEquivalentCategoryTreatment(),
+    privatePersonalDebt: createRawEquivalentCategoryTreatment(),
+    consumerFinanceDebt: createRawEquivalentCategoryTreatment(),
+    otherDebt: createRawEquivalentCategoryTreatment(),
+    ...overrides
+  };
+}
+
+function createLegacyNonMortgageTreatment(overrides = {}) {
+  return {
+    autoLoans: createRawEquivalentCategoryTreatment(),
+    creditCardDebt: createRawEquivalentCategoryTreatment(),
+    studentLoans: createRawEquivalentCategoryTreatment(),
+    personalLoans: createRawEquivalentCategoryTreatment(),
+    taxLiabilities: createRawEquivalentCategoryTreatment(),
+    businessDebt: createRawEquivalentCategoryTreatment(),
+    otherRealEstateLoans: createRawEquivalentCategoryTreatment(),
+    otherLoanObligations: createRawEquivalentCategoryTreatment(),
+    ...overrides
+  };
+}
+
 function createRawEquivalentAssumptions(overrides = {}) {
   return {
     enabled: false,
@@ -143,17 +182,24 @@ function createRawEquivalentAssumptions(overrides = {}) {
       payoffPercent: 100,
       paymentSupportYears: null
     },
-    nonMortgageDebtTreatment: {
-      autoLoans: { include: true, mode: "payoff", payoffPercent: 100 },
-      creditCardDebt: { include: true, mode: "payoff", payoffPercent: 100 },
-      studentLoans: { include: true, mode: "payoff", payoffPercent: 100 },
-      personalLoans: { include: true, mode: "payoff", payoffPercent: 100 },
-      taxLiabilities: { include: true, mode: "payoff", payoffPercent: 100 },
-      businessDebt: { include: true, mode: "payoff", payoffPercent: 100 },
-      otherRealEstateLoans: { include: true, mode: "payoff", payoffPercent: 100 },
-      otherLoanObligations: { include: true, mode: "payoff", payoffPercent: 100 }
-    },
+    debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment(),
     source: "debt-treatment-helper-check",
+    ...overrides
+  };
+}
+
+function createLegacyAssumptions(overrides = {}) {
+  return {
+    enabled: false,
+    globalTreatmentProfile: "balanced",
+    mortgageTreatment: {
+      include: true,
+      mode: "payoff",
+      payoffPercent: 100,
+      paymentSupportYears: null
+    },
+    nonMortgageDebtTreatment: createLegacyNonMortgageTreatment(),
+    source: "legacy-debt-treatment-helper-check",
     ...overrides
   };
 }
@@ -204,6 +250,7 @@ const calculateDebtTreatment = lensAnalysis.calculateDebtTreatment;
 assert.equal(typeof calculateDebtTreatment, "function");
 assert.equal(typeof lensAnalysis.normalizeDebtTreatmentAssumptions, "function");
 assert.ok(lensAnalysis.RAW_EQUIVALENT_DEBT_TREATMENT_ASSUMPTIONS);
+assert.ok(lensAnalysis.RAW_EQUIVALENT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment);
 
 const rawEquivalent = runTreatment();
 assert.equal(rawEquivalent.source, "debtFacts");
@@ -225,6 +272,81 @@ assert.equal(missingAssumptions.rawEquivalentDefault, true);
 assert.equal(missingAssumptions.dime.nonMortgageDebtAmount, 100000);
 assert.equal(missingAssumptions.needs.debtPayoffAmount, 350000);
 assert.equal(hasWarningCode(missingAssumptions, "missing-debt-treatment-assumptions-defaulted"), true);
+
+const missingBroadBucketResult = runTreatment({
+  debtTreatmentAssumptions: createRawEquivalentAssumptions({
+    debtCategoryTreatment: {
+      securedConsumerDebt: createRawEquivalentCategoryTreatment({ payoffPercent: 50 })
+    }
+  })
+});
+assert.equal(missingBroadBucketResult.dime.nonMortgageDebtAmount, 92500);
+assert.equal(missingBroadBucketResult.needs.debtPayoffAmount, 342500);
+assert.equal(hasWarningCode(missingBroadBucketResult, "missing-debt-category-treatment-defaulted"), true);
+assert.ok(missingBroadBucketResult.metadata.defaultedDebtCategoryKeys.includes("unsecuredConsumerDebt"));
+
+const broadWinsOverLegacy = runTreatment({
+  debtTreatmentAssumptions: createRawEquivalentAssumptions({
+    debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
+      securedConsumerDebt: createRawEquivalentCategoryTreatment({ payoffPercent: 50 })
+    }),
+    nonMortgageDebtTreatment: createLegacyNonMortgageTreatment({
+      autoLoans: { include: false, mode: "exclude", payoffPercent: 0 }
+    })
+  })
+});
+assert.equal(broadWinsOverLegacy.dime.nonMortgageDebtAmount, 92500);
+assert.equal(broadWinsOverLegacy.needs.debtPayoffAmount, 342500);
+assert.equal(
+  broadWinsOverLegacy.metadata.categoryTreatmentSources.securedConsumerDebt,
+  "debtCategoryTreatment"
+);
+assert.equal(hasWarningCode(broadWinsOverLegacy, "legacy-debt-category-treatment-migrated"), false);
+
+const legacyMigrated = runTreatment({
+  debtTreatmentAssumptions: createLegacyAssumptions({
+    nonMortgageDebtTreatment: createLegacyNonMortgageTreatment({
+      autoLoans: { include: true, mode: "payoff", payoffPercent: 50 }
+    })
+  })
+});
+assert.equal(legacyMigrated.dime.nonMortgageDebtAmount, 92500);
+assert.equal(legacyMigrated.needs.debtPayoffAmount, 342500);
+assert.equal(legacyMigrated.metadata.legacyCompatibility.used, true);
+assert.ok(legacyMigrated.metadata.legacyCompatibility.migratedCategoryKeys.includes("securedConsumerDebt"));
+assert.equal(hasWarningCode(legacyMigrated, "legacy-debt-category-treatment-migrated"), true);
+
+const legacyConflict = runTreatment({
+  debtTreatmentAssumptions: createLegacyAssumptions({
+    nonMortgageDebtTreatment: createLegacyNonMortgageTreatment({
+      creditCardDebt: { include: false, mode: "exclude", payoffPercent: 0 },
+      personalLoans: { include: true, mode: "payoff", payoffPercent: 50 }
+    })
+  })
+});
+assert.equal(legacyConflict.dime.nonMortgageDebtAmount, 100000);
+assert.equal(legacyConflict.needs.debtPayoffAmount, 350000);
+assert.ok(legacyConflict.metadata.legacyCompatibility.conflictCategoryKeys.includes("unsecuredConsumerDebt"));
+assert.equal(hasWarningCode(legacyConflict, "legacy-debt-category-treatment-conflict-defaulted"), true);
+
+const mortgageSeparateFromRealEstateDebt = runTreatment({
+  debtTreatmentAssumptions: createRawEquivalentAssumptions({
+    debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
+      realEstateSecuredDebt: { include: false, mode: "exclude", payoffPercent: 0 }
+    })
+  })
+});
+assert.equal(mortgageSeparateFromRealEstateDebt.dime.mortgageAmount, 250000);
+assert.equal(mortgageSeparateFromRealEstateDebt.dime.nonMortgageDebtAmount, 80000);
+assert.equal(mortgageSeparateFromRealEstateDebt.needs.debtPayoffAmount, 330000);
+assert.equal(
+  mortgageSeparateFromRealEstateDebt.debts.find((debt) => debt.sourceKey === "mortgageBalance").treatmentKey,
+  "mortgage"
+);
+assert.equal(
+  mortgageSeparateFromRealEstateDebt.debts.find((debt) => debt.sourceKey === "otherRealEstateLoans").treatmentKey,
+  "realEstateSecuredDebt"
+);
 
 const protectedMortgage = createDebtFact("primaryResidenceMortgage", 999999, {
   debtFactId: "protected_primary_mortgage",
@@ -274,10 +396,9 @@ const deferredAssumptions = createRawEquivalentAssumptions({
     payoffPercent: 100,
     paymentSupportYears: 10
   },
-  nonMortgageDebtTreatment: {
-    ...createRawEquivalentAssumptions().nonMortgageDebtTreatment,
-    creditCardDebt: { include: true, mode: "custom", payoffPercent: 25 }
-  }
+  debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
+    unsecuredConsumerDebt: { include: true, mode: "custom", payoffPercent: 25 }
+  })
 });
 const deferredResult = runTreatment({ debtTreatmentAssumptions: deferredAssumptions });
 assert.equal(deferredResult.rawEquivalentDefault, false);
@@ -285,7 +406,7 @@ assert.equal(deferredResult.treatmentApplied, true);
 assert.equal(deferredResult.dime.mortgageAmount, 250000);
 assert.equal(deferredResult.needs.debtPayoffAmount, 350000);
 assert.equal(hasWarningCode(deferredResult, "debt-treatment-mode-deferred"), true);
-assert.ok(deferredResult.deferredDebtAmount >= 255000);
+assert.ok(deferredResult.deferredDebtAmount >= 263000);
 
 const percentAssumptions = createRawEquivalentAssumptions({
   enabled: true,
@@ -295,33 +416,31 @@ const percentAssumptions = createRawEquivalentAssumptions({
     payoffPercent: 80,
     paymentSupportYears: null
   },
-  nonMortgageDebtTreatment: {
-    ...createRawEquivalentAssumptions().nonMortgageDebtTreatment,
-    creditCardDebt: { include: true, mode: "payoff", payoffPercent: 50 }
-  }
+  debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
+    unsecuredConsumerDebt: { include: true, mode: "payoff", payoffPercent: 50 }
+  })
 });
 const percentResult = runTreatment({ debtTreatmentAssumptions: percentAssumptions });
 assert.equal(percentResult.rawEquivalentDefault, false);
 assert.equal(percentResult.dime.mortgageAmount, 200000);
-assert.equal(percentResult.dime.nonMortgageDebtAmount, 97500);
-assert.equal(percentResult.needs.debtPayoffAmount, 297500);
-assert.equal(percentResult.excludedDebtAmount, 52500);
+assert.equal(percentResult.dime.nonMortgageDebtAmount, 93500);
+assert.equal(percentResult.needs.debtPayoffAmount, 293500);
+assert.equal(percentResult.excludedDebtAmount, 56500);
 
 const invalidAssumptions = createRawEquivalentAssumptions({
   enabled: true,
-  nonMortgageDebtTreatment: {
-    ...createRawEquivalentAssumptions().nonMortgageDebtTreatment,
-    autoLoans: { include: true, mode: "payoff", payoffPercent: 150 },
-    personalLoans: { include: true, mode: "payoff", payoffPercent: -10 },
-    studentLoans: { include: true, mode: "payoff", payoffPercent: "not-a-number" }
-  }
+  debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
+    securedConsumerDebt: { include: true, mode: "payoff", payoffPercent: 150 },
+    unsecuredConsumerDebt: { include: true, mode: "payoff", payoffPercent: -10 },
+    educationDebt: { include: true, mode: "payoff", payoffPercent: "not-a-number" }
+  })
 });
 const invalidDebt = createDebtFact("businessDebt", -10, { debtFactId: "negative_business_debt" });
 const invalidResult = runTreatment({
   debtFacts: createBaseDebtFacts([invalidDebt]),
   debtTreatmentAssumptions: invalidAssumptions
 });
-assert.equal(invalidResult.dime.nonMortgageDebtAmount, 92000);
+assert.equal(invalidResult.dime.nonMortgageDebtAmount, 87000);
 assert.equal(hasWarningCode(invalidResult, "debt-payoff-percent-clamped"), true);
 assert.equal(hasWarningCode(invalidResult, "invalid-debt-payoff-percent"), true);
 assert.equal(hasWarningCode(invalidResult, "negative-debt-treatment-balance"), true);
