@@ -1014,6 +1014,42 @@
                     </div>
 
                     <div class="analysis-setup-recommendation-card">
+                      <h4>Recommendation range constraints</h4>
+                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These settings do not change current DIME, Needs, or Human Life Value outputs.</p>
+                      <div class="analysis-setup-recommendation-control-row">
+                        <label for="analysis-setup-recommendation-lower-bound-source">Lower bound source</label>
+                        <select id="analysis-setup-recommendation-lower-bound-source" class="analysis-setup-card-input analysis-setup-recommendation-field" data-analysis-recommendation-field="rangeConstraints.lowerBound.source">
+                          <option value="dime">DIME</option>
+                          <option value="needsAnalysis">Needs Analysis</option>
+                          <option value="humanLifeValue">Human Life Value</option>
+                        </select>
+                      </div>
+                      <div class="analysis-setup-recommendation-control-row">
+                        <label for="analysis-setup-recommendation-lower-bound-tolerance">Lower bound tolerance</label>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-recommendation-lower-bound-tolerance" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="rangeConstraints.lowerBound.tolerancePercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </div>
+                      <div class="analysis-setup-recommendation-control-row">
+                        <label for="analysis-setup-recommendation-upper-bound-source">Upper bound source</label>
+                        <select id="analysis-setup-recommendation-upper-bound-source" class="analysis-setup-card-input analysis-setup-recommendation-field" data-analysis-recommendation-field="rangeConstraints.upperBound.source">
+                          <option value="dime">DIME</option>
+                          <option value="needsAnalysis">Needs Analysis</option>
+                          <option value="humanLifeValue">Human Life Value</option>
+                        </select>
+                      </div>
+                      <div class="analysis-setup-recommendation-control-row">
+                        <label for="analysis-setup-recommendation-upper-bound-tolerance">Upper bound tolerance</label>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-recommendation-upper-bound-tolerance" class="analysis-setup-card-input analysis-setup-recommendation-field" type="text" inputmode="decimal" data-analysis-recommendation-field="rangeConstraints.upperBound.tolerancePercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </div>
+                      <p class="analysis-setup-recommendation-preview-note">If future lower and upper bounds conflict, MODEL90 will flag the recommendation for advisor review.</p>
+                    </div>
+
+                    <div class="analysis-setup-recommendation-card">
                       <h4>Warning rules</h4>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
                         <span class="settings-toggle-copy"><span class="settings-toggle-label">Flag missing critical inputs</span></span>

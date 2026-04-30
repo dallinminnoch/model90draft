@@ -78,6 +78,13 @@ const recommendationSection = html.slice(
   'data-analysis-recommendation-field="riskTolerance.maxRelianceOnAssetsPercent"',
   'data-analysis-recommendation-field="riskTolerance.maxRelianceOnIlliquidAssetsPercent"',
   'data-analysis-recommendation-field="riskTolerance.maxRelianceOnSurvivorIncomePercent"',
+  "Recommendation range constraints",
+  "Saved for the future recommendation engine only. These settings do not change current DIME, Needs, or Human Life Value outputs.",
+  "If future lower and upper bounds conflict, MODEL90 will flag the recommendation for advisor review.",
+  'data-analysis-recommendation-field="rangeConstraints.lowerBound.source"',
+  'data-analysis-recommendation-field="rangeConstraints.lowerBound.tolerancePercent"',
+  'data-analysis-recommendation-field="rangeConstraints.upperBound.source"',
+  'data-analysis-recommendation-field="rangeConstraints.upperBound.tolerancePercent"',
   'data-analysis-recommendation-field="confidenceRules.flagMissingCriticalInputs"',
   'data-analysis-recommendation-field="confidenceRules.flagHeavyAssetReliance"',
   'data-analysis-recommendation-field="confidenceRules.flagHeavySurvivorIncomeReliance"',
@@ -96,6 +103,14 @@ assertExcludes(recommendationSection, "Turn on Recommendation Guardrails", "Reco
 assert.ok(
   recommendationSection.indexOf("data-analysis-recommendation-enabled") < recommendationSection.indexOf("analysis-setup-recommendation-defaults"),
   "Recommendation Guardrails enable toggle should appear above profile presets"
+);
+assert.ok(
+  recommendationSection.indexOf("<h4>Risk tolerance</h4>") < recommendationSection.indexOf("<h4>Recommendation range constraints</h4>"),
+  "Recommendation range constraints should appear after Risk tolerance"
+);
+assert.ok(
+  recommendationSection.indexOf("<h4>Recommendation range constraints</h4>") < recommendationSection.indexOf("<h4>Warning rules</h4>"),
+  "Recommendation range constraints should appear before Warning rules"
 );
 
 [
@@ -143,6 +158,7 @@ const defaults = analysisSetup.DEFAULT_RECOMMENDATION_GUARDRAILS;
 assert.equal(defaults.enabled, false, "Recommendation Guardrails default enabled metadata should remain false");
 assert.equal(defaults.recommendationProfile, "balanced", "Recommendation profile default should remain balanced");
 assert.ok(hasOwn(defaults, "riskTolerance"), "Default risk tolerance should remain");
+assert.ok(hasOwn(defaults, "rangeConstraints"), "Default range constraints should exist");
 assert.ok(hasOwn(defaults, "confidenceRules"), "Default warning rules should remain");
 assert.equal(hasOwn(defaults, "recommendationTarget"), false, "Default recommendationTarget should be retired");
 assert.equal(hasOwn(defaults, "presentationRules"), false, "Default presentationRules should be retired");
@@ -159,6 +175,12 @@ assert.equal(
 ].forEach((key) => {
   assert.ok(hasOwn(defaults.riskTolerance, key), `Default riskTolerance.${key} should remain`);
 });
+
+assert.equal(defaults.rangeConstraints.lowerBound.source, "needsAnalysis", "Default lower range source should be Needs Analysis");
+assert.equal(defaults.rangeConstraints.lowerBound.tolerancePercent, 25, "Default lower range tolerance should be 25%");
+assert.equal(defaults.rangeConstraints.upperBound.source, "humanLifeValue", "Default upper range source should be Human Life Value");
+assert.equal(defaults.rangeConstraints.upperBound.tolerancePercent, 25, "Default upper range tolerance should be 25%");
+assert.equal(defaults.rangeConstraints.conflictHandling, "flagForAdvisorReview", "Default range conflict handling should flag for advisor review");
 
 [
   "flagMissingCriticalInputs",
@@ -186,6 +208,17 @@ const loaded = analysisSetup.getRecommendationGuardrails({
         maxRelianceOnIlliquidAssetsPercent: 22,
         maxRelianceOnSurvivorIncomePercent: 44
       },
+      rangeConstraints: {
+        lowerBound: {
+          source: "dime",
+          tolerancePercent: 12
+        },
+        upperBound: {
+          source: "needsAnalysis",
+          tolerancePercent: 33
+        },
+        conflictHandling: "flagForAdvisorReview"
+      },
       confidenceRules: {
         minimumConfidencePercent: 80,
         flagMissingCriticalInputs: false,
@@ -204,6 +237,11 @@ assert.equal(loaded.recommendationProfile, "aggressive", "Loaded profile should 
 assert.equal(loaded.riskTolerance.maxRelianceOnAssetsPercent, 61, "Loaded asset reliance should be preserved");
 assert.equal(loaded.riskTolerance.maxRelianceOnIlliquidAssetsPercent, 22, "Loaded illiquid reliance should be preserved");
 assert.equal(loaded.riskTolerance.maxRelianceOnSurvivorIncomePercent, 44, "Loaded survivor reliance should be preserved");
+assert.equal(loaded.rangeConstraints.lowerBound.source, "dime", "Loaded lower range source should be preserved");
+assert.equal(loaded.rangeConstraints.lowerBound.tolerancePercent, 12, "Loaded lower range tolerance should be preserved");
+assert.equal(loaded.rangeConstraints.upperBound.source, "needsAnalysis", "Loaded upper range source should be preserved");
+assert.equal(loaded.rangeConstraints.upperBound.tolerancePercent, 33, "Loaded upper range tolerance should be preserved");
+assert.equal(loaded.rangeConstraints.conflictHandling, "flagForAdvisorReview", "Loaded range conflict handling should be preserved");
 assert.equal(loaded.confidenceRules.flagMissingCriticalInputs, false, "Loaded missing-input flag should be preserved");
 assert.equal(loaded.confidenceRules.flagHeavyAssetReliance, false, "Loaded asset warning flag should be preserved");
 assert.equal(loaded.confidenceRules.flagHeavySurvivorIncomeReliance, true, "Loaded survivor warning flag should be preserved");
@@ -221,6 +259,14 @@ function createTextField(value) {
   return {
     type: "text",
     tagName: "INPUT",
+    value: String(value)
+  };
+}
+
+function createSelectField(value) {
+  return {
+    type: "select-one",
+    tagName: "SELECT",
     value: String(value)
   };
 }
@@ -257,6 +303,10 @@ function createRecommendationFields(enabled) {
       "riskTolerance.maxRelianceOnAssetsPercent": createTextField("50"),
       "riskTolerance.maxRelianceOnIlliquidAssetsPercent": createTextField("25"),
       "riskTolerance.maxRelianceOnSurvivorIncomePercent": createTextField("50"),
+      "rangeConstraints.lowerBound.source": createSelectField("needsAnalysis"),
+      "rangeConstraints.lowerBound.tolerancePercent": createTextField("25"),
+      "rangeConstraints.upperBound.source": createSelectField("humanLifeValue"),
+      "rangeConstraints.upperBound.tolerancePercent": createTextField("25"),
       "confidenceRules.flagMissingCriticalInputs": createCheckbox(true),
       "confidenceRules.flagHeavyAssetReliance": createCheckbox(true),
       "confidenceRules.flagHeavySurvivorIncomeReliance": createCheckbox(true),
@@ -283,6 +333,19 @@ assert.equal(
   false,
   "Draft Recommendation Guardrails should read unchecked enabled state"
 );
+
+const editedRangeFields = createRecommendationFields(true);
+editedRangeFields.values["rangeConstraints.lowerBound.source"].value = "dime";
+editedRangeFields.values["rangeConstraints.lowerBound.tolerancePercent"].value = "15";
+editedRangeFields.values["rangeConstraints.upperBound.source"].value = "needsAnalysis";
+editedRangeFields.values["rangeConstraints.upperBound.tolerancePercent"].value = "35";
+const editedDraft = harness.getRecommendationDraftGuardrails(editedRangeFields);
+assert.equal(editedDraft.rangeConstraints.lowerBound.source, "dime", "Draft Recommendation Guardrails should read edited lower source");
+assert.equal(editedDraft.rangeConstraints.lowerBound.tolerancePercent, 15, "Draft Recommendation Guardrails should read edited lower tolerance");
+assert.equal(editedDraft.rangeConstraints.upperBound.source, "needsAnalysis", "Draft Recommendation Guardrails should read edited upper source");
+assert.equal(editedDraft.rangeConstraints.upperBound.tolerancePercent, 35, "Draft Recommendation Guardrails should read edited upper tolerance");
+assert.equal(editedDraft.rangeConstraints.conflictHandling, "flagForAdvisorReview", "Draft Recommendation Guardrails should preserve default range conflict handling");
+
 assert.equal(
   harness.readValidatedRecommendationGuardrails(checkedFields).value.enabled,
   true,
@@ -293,6 +356,12 @@ assert.equal(
   false,
   "Validated Recommendation Guardrails should save unchecked enabled state"
 );
+const validatedRange = harness.readValidatedRecommendationGuardrails(editedRangeFields).value.rangeConstraints;
+assert.equal(validatedRange.lowerBound.source, "dime", "Validated Recommendation Guardrails should save edited lower source");
+assert.equal(validatedRange.lowerBound.tolerancePercent, 15, "Validated Recommendation Guardrails should save edited lower tolerance");
+assert.equal(validatedRange.upperBound.source, "needsAnalysis", "Validated Recommendation Guardrails should save edited upper source");
+assert.equal(validatedRange.upperBound.tolerancePercent, 35, "Validated Recommendation Guardrails should save edited upper tolerance");
+assert.equal(validatedRange.conflictHandling, "flagForAdvisorReview", "Validated Recommendation Guardrails should save default range conflict handling");
 
 const populatedFields = createRecommendationFields(false);
 harness.populateRecommendationGuardrailFields(populatedFields, loaded);
@@ -300,6 +369,26 @@ assert.equal(
   populatedFields.enabled.checked,
   true,
   "Populate Recommendation Guardrails should load saved enabled state into the visible toggle"
+);
+assert.equal(
+  populatedFields.values["rangeConstraints.lowerBound.source"].value,
+  "dime",
+  "Populate Recommendation Guardrails should load saved lower source"
+);
+assert.equal(
+  populatedFields.values["rangeConstraints.lowerBound.tolerancePercent"].value,
+  "12",
+  "Populate Recommendation Guardrails should load saved lower tolerance"
+);
+assert.equal(
+  populatedFields.values["rangeConstraints.upperBound.source"].value,
+  "needsAnalysis",
+  "Populate Recommendation Guardrails should load saved upper source"
+);
+assert.equal(
+  populatedFields.values["rangeConstraints.upperBound.tolerancePercent"].value,
+  "33",
+  "Populate Recommendation Guardrails should load saved upper tolerance"
 );
 
 console.log("Recommendation Guardrails save-shape check passed.");

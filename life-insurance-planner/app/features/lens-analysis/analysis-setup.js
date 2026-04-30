@@ -769,6 +769,15 @@
     custom: "Custom"
   });
   const RECOMMENDATION_PROFILE_KEYS = Object.freeze(Object.keys(RECOMMENDATION_PROFILE_LABELS));
+  const RECOMMENDATION_RANGE_SOURCE_LABELS = Object.freeze({
+    dime: "DIME",
+    needsAnalysis: "Needs Analysis",
+    humanLifeValue: "Human Life Value"
+  });
+  const RECOMMENDATION_RANGE_SOURCE_KEYS = Object.freeze(Object.keys(RECOMMENDATION_RANGE_SOURCE_LABELS));
+  const RECOMMENDATION_RANGE_CONFLICT_HANDLING_VALUES = Object.freeze([
+    "flagForAdvisorReview"
+  ]);
   const DEFAULT_RECOMMENDATION_GUARDRAILS = Object.freeze({
     enabled: false,
     recommendationProfile: "balanced",
@@ -777,6 +786,17 @@
       maxRelianceOnAssetsPercent: 50,
       maxRelianceOnIlliquidAssetsPercent: 25,
       maxRelianceOnSurvivorIncomePercent: 50
+    }),
+    rangeConstraints: Object.freeze({
+      lowerBound: Object.freeze({
+        source: "needsAnalysis",
+        tolerancePercent: 25
+      }),
+      upperBound: Object.freeze({
+        source: "humanLifeValue",
+        tolerancePercent: 25
+      }),
+      conflictHandling: "flagForAdvisorReview"
     }),
     confidenceRules: Object.freeze({
       flagMissingCriticalInputs: true,
@@ -1095,6 +1115,20 @@
   function normalizeRecommendationProfile(value, fallback) {
     const normalizedValue = String(value || "").trim().toLowerCase();
     return RECOMMENDATION_PROFILE_KEYS.includes(normalizedValue)
+      ? normalizedValue
+      : fallback;
+  }
+
+  function normalizeRecommendationRangeSource(value, fallback) {
+    const normalizedValue = String(value || "").trim();
+    return RECOMMENDATION_RANGE_SOURCE_KEYS.includes(normalizedValue)
+      ? normalizedValue
+      : fallback;
+  }
+
+  function normalizeRecommendationConflictHandling(value, fallback) {
+    const normalizedValue = String(value || "").trim();
+    return RECOMMENDATION_RANGE_CONFLICT_HANDLING_VALUES.includes(normalizedValue)
       ? normalizedValue
       : fallback;
   }
@@ -2138,6 +2172,15 @@
     const savedRiskTolerance = isPlainObject(saved.riskTolerance)
       ? saved.riskTolerance
       : {};
+    const savedRangeConstraints = isPlainObject(saved.rangeConstraints)
+      ? saved.rangeConstraints
+      : {};
+    const savedLowerBound = isPlainObject(savedRangeConstraints.lowerBound)
+      ? savedRangeConstraints.lowerBound
+      : {};
+    const savedUpperBound = isPlainObject(savedRangeConstraints.upperBound)
+      ? savedRangeConstraints.upperBound
+      : {};
     const savedConfidenceRules = isPlainObject(saved.confidenceRules)
       ? saved.confidenceRules
       : {};
@@ -2162,6 +2205,32 @@
         maxRelianceOnSurvivorIncomePercent: normalizeRecommendationPercent(
           savedRiskTolerance.maxRelianceOnSurvivorIncomePercent,
           defaultRiskTolerance.maxRelianceOnSurvivorIncomePercent
+        )
+      },
+      rangeConstraints: {
+        lowerBound: {
+          source: normalizeRecommendationRangeSource(
+            savedLowerBound.source,
+            DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.lowerBound.source
+          ),
+          tolerancePercent: normalizeRecommendationPercent(
+            savedLowerBound.tolerancePercent,
+            DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.lowerBound.tolerancePercent
+          )
+        },
+        upperBound: {
+          source: normalizeRecommendationRangeSource(
+            savedUpperBound.source,
+            DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.upperBound.source
+          ),
+          tolerancePercent: normalizeRecommendationPercent(
+            savedUpperBound.tolerancePercent,
+            DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.upperBound.tolerancePercent
+          )
+        },
+        conflictHandling: normalizeRecommendationConflictHandling(
+          savedRangeConstraints.conflictHandling,
+          DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.conflictHandling
         )
       },
       confidenceRules: {
@@ -3566,6 +3635,13 @@
       : fallback;
   }
 
+  function readRecommendationDraftRangeSource(fields, fieldPath, fallback) {
+    return normalizeRecommendationRangeSource(
+      fields.values?.[fieldPath]?.value,
+      fallback
+    );
+  }
+
   function getEducationDraftAssumptions(fields) {
     const current = getEducationCurrentAssumptions(fields);
     const currentFundingTreatment = current.fundingTreatment
@@ -3629,6 +3705,12 @@
     const current = getRecommendationCurrentGuardrails(fields);
     const currentRiskTolerance = current.riskTolerance
       || DEFAULT_RECOMMENDATION_GUARDRAILS.riskTolerance;
+    const currentRangeConstraints = current.rangeConstraints
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints;
+    const currentLowerBound = currentRangeConstraints.lowerBound
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.lowerBound;
+    const currentUpperBound = currentRangeConstraints.upperBound
+      || DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.upperBound;
     const currentConfidenceRules = current.confidenceRules
       || DEFAULT_RECOMMENDATION_GUARDRAILS.confidenceRules;
     const recommendationProfile = getRecommendationDefaultProfile(fields);
@@ -3654,6 +3736,36 @@
           fields,
           "riskTolerance.maxRelianceOnSurvivorIncomePercent",
           currentRiskTolerance.maxRelianceOnSurvivorIncomePercent
+        )
+      },
+      rangeConstraints: {
+        lowerBound: {
+          source: readRecommendationDraftRangeSource(
+            fields,
+            "rangeConstraints.lowerBound.source",
+            currentLowerBound.source
+          ),
+          tolerancePercent: readRecommendationDraftPercent(
+            fields,
+            "rangeConstraints.lowerBound.tolerancePercent",
+            currentLowerBound.tolerancePercent
+          )
+        },
+        upperBound: {
+          source: readRecommendationDraftRangeSource(
+            fields,
+            "rangeConstraints.upperBound.source",
+            currentUpperBound.source
+          ),
+          tolerancePercent: readRecommendationDraftPercent(
+            fields,
+            "rangeConstraints.upperBound.tolerancePercent",
+            currentUpperBound.tolerancePercent
+          )
+        },
+        conflictHandling: normalizeRecommendationConflictHandling(
+          currentRangeConstraints.conflictHandling,
+          DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.conflictHandling
         )
       },
       confidenceRules: {
@@ -4736,6 +4848,26 @@
       fields,
       "riskTolerance.maxRelianceOnSurvivorIncomePercent",
       guardrails.riskTolerance.maxRelianceOnSurvivorIncomePercent
+    );
+    setRecommendationValue(
+      fields,
+      "rangeConstraints.lowerBound.source",
+      guardrails.rangeConstraints.lowerBound.source
+    );
+    setRecommendationValue(
+      fields,
+      "rangeConstraints.lowerBound.tolerancePercent",
+      guardrails.rangeConstraints.lowerBound.tolerancePercent
+    );
+    setRecommendationValue(
+      fields,
+      "rangeConstraints.upperBound.source",
+      guardrails.rangeConstraints.upperBound.source
+    );
+    setRecommendationValue(
+      fields,
+      "rangeConstraints.upperBound.tolerancePercent",
+      guardrails.rangeConstraints.upperBound.tolerancePercent
     );
     setRecommendationChecked(
       fields,
@@ -6361,6 +6493,21 @@
     };
   }
 
+  function readRequiredRecommendationRangeSource(fields, fieldPath, label) {
+    const field = fields.values?.[fieldPath];
+    const rawValue = String(field?.value || "").trim();
+    const normalizedSource = normalizeRecommendationRangeSource(rawValue, null);
+    if (!normalizedSource) {
+      return {
+        error: `${label} must be DIME, Needs Analysis, or Human Life Value.`
+      };
+    }
+
+    return {
+      value: normalizedSource
+    };
+  }
+
   function readValidatedRecommendationGuardrails(fields) {
     const recommendationProfile = getRecommendationDefaultProfile(fields);
     if (!RECOMMENDATION_PROFILE_KEYS.includes(recommendationProfile)) {
@@ -6396,6 +6543,42 @@
       return maxRelianceOnSurvivorIncome;
     }
 
+    const lowerBoundSource = readRequiredRecommendationRangeSource(
+      fields,
+      "rangeConstraints.lowerBound.source",
+      "Lower bound source"
+    );
+    if (lowerBoundSource.error) {
+      return lowerBoundSource;
+    }
+
+    const lowerBoundTolerance = readRequiredRecommendationPercent(
+      fields,
+      "rangeConstraints.lowerBound.tolerancePercent",
+      "Lower bound tolerance"
+    );
+    if (lowerBoundTolerance.error) {
+      return lowerBoundTolerance;
+    }
+
+    const upperBoundSource = readRequiredRecommendationRangeSource(
+      fields,
+      "rangeConstraints.upperBound.source",
+      "Upper bound source"
+    );
+    if (upperBoundSource.error) {
+      return upperBoundSource;
+    }
+
+    const upperBoundTolerance = readRequiredRecommendationPercent(
+      fields,
+      "rangeConstraints.upperBound.tolerancePercent",
+      "Upper bound tolerance"
+    );
+    if (upperBoundTolerance.error) {
+      return upperBoundTolerance;
+    }
+
     const current = getRecommendationDraftGuardrails(fields);
     return {
       value: {
@@ -6410,6 +6593,20 @@
           maxRelianceOnAssetsPercent: maxRelianceOnAssets.value,
           maxRelianceOnIlliquidAssetsPercent: maxRelianceOnIlliquidAssets.value,
           maxRelianceOnSurvivorIncomePercent: maxRelianceOnSurvivorIncome.value
+        },
+        rangeConstraints: {
+          lowerBound: {
+            source: lowerBoundSource.value,
+            tolerancePercent: lowerBoundTolerance.value
+          },
+          upperBound: {
+            source: upperBoundSource.value,
+            tolerancePercent: upperBoundTolerance.value
+          },
+          conflictHandling: normalizeRecommendationConflictHandling(
+            current.rangeConstraints.conflictHandling,
+            DEFAULT_RECOMMENDATION_GUARDRAILS.rangeConstraints.conflictHandling
+          )
         },
         confidenceRules: {
           flagMissingCriticalInputs: readRecommendationDraftBoolean(
@@ -7398,7 +7595,9 @@
       field.addEventListener("change", function () {
         const rawValue = String(field.value || "").trim().replace(/[$,\s]/g, "");
         const number = Number(rawValue);
-        const isPercentField = fieldPath.indexOf("riskTolerance.") === 0;
+        const isPercentField = fieldPath.indexOf("riskTolerance.") === 0
+          || fieldPath === "rangeConstraints.lowerBound.tolerancePercent"
+          || fieldPath === "rangeConstraints.upperBound.tolerancePercent";
 
         if (
           field.type !== "checkbox"

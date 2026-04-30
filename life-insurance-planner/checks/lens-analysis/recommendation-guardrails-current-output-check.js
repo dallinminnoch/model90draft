@@ -81,6 +81,17 @@ function createRecommendationGuardrails(roundingIncrement, options = {}) {
       maxRelianceOnIlliquidAssetsPercent: 25,
       maxRelianceOnSurvivorIncomePercent: 50
     },
+    rangeConstraints: {
+      lowerBound: {
+        source: "needsAnalysis",
+        tolerancePercent: 25
+      },
+      upperBound: {
+        source: "humanLifeValue",
+        tolerancePercent: 25
+      },
+      conflictHandling: "flagForAdvisorReview"
+    },
     confidenceRules: {
       flagMissingCriticalInputs: true,
       flagHeavyAssetReliance: true,
@@ -138,6 +149,23 @@ function assertNoRecommendationRoundingInSettings(methodSettings, message) {
   assert.equal(hasOwn(methodSettings.dimeSettings, "recommendationGuardrailsEnabled"), false, `${message}: DIME settings should not include Recommendation Guardrails enabled state.`);
   assert.equal(hasOwn(methodSettings.needsAnalysisSettings, "recommendationGuardrailsEnabled"), false, `${message}: Needs settings should not include Recommendation Guardrails enabled state.`);
   assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "recommendationGuardrailsEnabled"), false, `${message}: HLV settings should not include Recommendation Guardrails enabled state.`);
+  [
+    "rangeConstraints",
+    "recommendationRangeConstraints",
+    "lowerBound",
+    "upperBound",
+    "lowerBoundSource",
+    "upperBoundSource",
+    "lowerBoundTolerancePercent",
+    "upperBoundTolerancePercent",
+    "tolerancePercent",
+    "conflictHandling",
+    "rangeConflictHandling"
+  ].forEach((key) => {
+    assert.equal(hasOwn(methodSettings.dimeSettings, key), false, `${message}: DIME settings should not include Recommendation Guardrails ${key}.`);
+    assert.equal(hasOwn(methodSettings.needsAnalysisSettings, key), false, `${message}: Needs settings should not include Recommendation Guardrails ${key}.`);
+    assert.equal(hasOwn(methodSettings.humanLifeValueSettings, key), false, `${message}: HLV settings should not include Recommendation Guardrails ${key}.`);
+  });
   assert.equal(
     methodSettings.trace.some((entry) => (
       Array.isArray(entry?.sourcePaths)
@@ -153,6 +181,14 @@ function assertNoRecommendationRoundingInSettings(methodSettings, message) {
     )),
     false,
     `${message}: adapter trace should not source method behavior from Recommendation Guardrails enabled state.`
+  );
+  assert.equal(
+    methodSettings.trace.some((entry) => (
+      Array.isArray(entry?.sourcePaths)
+      && entry.sourcePaths.some((sourcePath) => sourcePath.indexOf("analysisSettings.recommendationGuardrails.rangeConstraints") === 0)
+    )),
+    false,
+    `${message}: adapter trace should not source method behavior from Recommendation Guardrails range constraints.`
   );
 }
 
@@ -187,11 +223,62 @@ const legacyTopLevelSettings = createMethodSettings(
     roundingIncrement: 50000
   })
 );
+const lowerBoundChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    rangeConstraints: {
+      lowerBound: {
+        source: "dime",
+        tolerancePercent: 5
+      },
+      upperBound: {
+        source: "humanLifeValue",
+        tolerancePercent: 25
+      },
+      conflictHandling: "flagForAdvisorReview"
+    }
+  })
+);
+const upperBoundChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    rangeConstraints: {
+      lowerBound: {
+        source: "needsAnalysis",
+        tolerancePercent: 25
+      },
+      upperBound: {
+        source: "needsAnalysis",
+        tolerancePercent: 45
+      },
+      conflictHandling: "flagForAdvisorReview"
+    }
+  })
+);
+const conflictHandlingChangedSettings = createMethodSettings(
+  adapter,
+  createRecommendationGuardrails(1000, {
+    rangeConstraints: {
+      lowerBound: {
+        source: "needsAnalysis",
+        tolerancePercent: 25
+      },
+      upperBound: {
+        source: "humanLifeValue",
+        tolerancePercent: 25
+      },
+      conflictHandling: "futureCustomConflictHandling"
+    }
+  })
+);
 
 assertNoRecommendationRoundingInSettings(baselineSettings, "Baseline nested guardrails");
 assertNoRecommendationRoundingInSettings(enabledSettings, "Enabled future-use guardrails");
 assertNoRecommendationRoundingInSettings(nestedChangedSettings, "Changed nested guardrails");
 assertNoRecommendationRoundingInSettings(legacyTopLevelSettings, "Legacy top-level guardrails");
+assertNoRecommendationRoundingInSettings(lowerBoundChangedSettings, "Changed lower range constraints");
+assertNoRecommendationRoundingInSettings(upperBoundChangedSettings, "Changed upper range constraints");
+assertNoRecommendationRoundingInSettings(conflictHandlingChangedSettings, "Changed range conflict handling");
 
 const baselineOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, baselineSettings)
@@ -204,6 +291,15 @@ const enabledOutputs = extractComparableOutputs(
 );
 const legacyTopLevelOutputs = extractComparableOutputs(
   runAllMethods(methods, lensModel, legacyTopLevelSettings)
+);
+const lowerBoundChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, lowerBoundChangedSettings)
+);
+const upperBoundChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, upperBoundChangedSettings)
+);
+const conflictHandlingChangedOutputs = extractComparableOutputs(
+  runAllMethods(methods, lensModel, conflictHandlingChangedSettings)
 );
 
 assert.deepEqual(
@@ -220,6 +316,21 @@ assert.deepEqual(
   legacyTopLevelOutputs,
   baselineOutputs,
   "Legacy top-level Recommendation Guardrails rounding should be ignored by current method outputs."
+);
+assert.deepEqual(
+  lowerBoundChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails lower range constraints should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  upperBoundChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails upper range constraints should not alter DIME, Needs, or HLV outputs."
+);
+assert.deepEqual(
+  conflictHandlingChangedOutputs,
+  baselineOutputs,
+  "Changing Recommendation Guardrails conflict handling should not alter DIME, Needs, or HLV outputs."
 );
 
 const methodDefaultsRoundingSettings = createMethodSettings(
