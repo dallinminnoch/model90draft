@@ -1746,10 +1746,12 @@
       preparedDimeMortgageAmount: result?.dime?.mortgageAmount,
       preparedNeedsDebtPayoffAmount: result?.needs?.debtPayoffAmount
     });
+    const methodTreatmentApplied = methodConsumptionMetadata.consumedByMethods === true;
+    const assumptionsTreatmentApplied = result?.treatmentApplied === true;
 
     return {
       rawEquivalentDefault: result?.rawEquivalentDefault === true,
-      treatmentApplied: result?.treatmentApplied === true,
+      treatmentApplied: methodTreatmentApplied || assumptionsTreatmentApplied,
       source: result?.source || null,
       fallbackSource: result?.fallbackSource || null,
       dime: isPlainObject(result?.dime) ? cloneSerializable(result.dime) : {
@@ -1780,7 +1782,9 @@
         calculationSource: resultMetadata.source || "debt-treatment-calculations",
         assumptionsSource: resultMetadata.assumptionsSource || null,
         rawEquivalentDefault: result?.rawEquivalentDefault === true,
-        treatmentApplied: result?.treatmentApplied === true,
+        treatmentApplied: methodTreatmentApplied || assumptionsTreatmentApplied,
+        methodTreatmentApplied,
+        assumptionsTreatmentApplied,
         ...methodConsumptionMetadata,
         source: result?.source || resultMetadata.source || null,
         fallbackSource: result?.fallbackSource || null,

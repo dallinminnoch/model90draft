@@ -216,14 +216,10 @@ function runTreatment(input = {}) {
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/lens-model-builder.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",
-    "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/blocks/debt-payoff.js",
     "app/features/lens-analysis/normalize-lens-model.js",
-    "app/features/lens-analysis/schema.js",
-    "pages/analysis-setup.html",
     "pages/next-step.html",
     "pages/confidential-inputs.html",
     "pages/manual-protection-modeling-inputs.html",

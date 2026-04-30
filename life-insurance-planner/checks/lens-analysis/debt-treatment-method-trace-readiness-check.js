@@ -115,7 +115,7 @@ function createTreatedDebtPayoff() {
 function createRawEquivalentTreatedDebtPayoff() {
   const treatedDebtPayoff = createTreatedDebtPayoff();
   treatedDebtPayoff.rawEquivalentDefault = true;
-  treatedDebtPayoff.treatmentApplied = false;
+  treatedDebtPayoff.treatmentApplied = true;
   treatedDebtPayoff.dime = {
     nonMortgageDebtAmount: 100000,
     mortgageAmount: 250000,
@@ -486,8 +486,8 @@ function assertEnabledFalseDoesNotZeroDebt(methods) {
   assert.equal(dimeMortgageTrace.inputs.treatedDebtConsumedByMethods, true);
   assert.equal(dimeDebtTrace.inputs.rawEquivalentDefault, true);
   assert.equal(dimeMortgageTrace.inputs.rawEquivalentDefault, true);
-  assert.equal(dimeDebtTrace.inputs.treatmentApplied, false);
-  assert.equal(dimeMortgageTrace.inputs.treatmentApplied, false);
+  assert.equal(dimeDebtTrace.inputs.treatmentApplied, true);
+  assert.equal(dimeMortgageTrace.inputs.treatmentApplied, true);
 
   const needsResult = methods.runNeedsAnalysis(
     createModel({ rawEquivalentTreatedDebt: true }),
@@ -499,15 +499,23 @@ function assertEnabledFalseDoesNotZeroDebt(methods) {
   assert.equal(debtTrace.inputs.treatedDebtPayoffAvailable, true);
   assert.equal(debtTrace.inputs.treatedDebtConsumedByMethods, true);
   assert.equal(debtTrace.inputs.rawEquivalentDefault, true);
-  assert.equal(debtTrace.inputs.treatmentApplied, false);
+  assert.equal(debtTrace.inputs.treatmentApplied, true);
   assert.equal(debtTrace.inputs.currentMethodDebtSourcePath, "treatedDebtPayoff.needs.debtPayoffAmount");
 }
 
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
+    "pages/analysis-setup.html",
     "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/lens-model-builder.js",
+    "app/features/lens-analysis/schema.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
+    "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
+    "checks/lens-analysis/debt-facts-normalization-check.js",
+    "checks/lens-analysis/debt-taxonomy-library-check.js",
+    "checks/lens-analysis/pmi-debt-records-check.js",
+    "checks/lens-analysis/debt-treatment-helper-check.js",
     "checks/lens-analysis/debt-treatment-model-prep-check.js",
     "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
     "checks/lens-analysis/step-three-debt-treatment-display-check.js"
@@ -518,7 +526,7 @@ function assertNoProtectedDiffs() {
   }).split(/\r?\n/).filter(Boolean).map((line) => line.slice(3).trim());
   const protectedDiffs = changedFiles.filter((filePath) => !allowedDiffs.has(filePath));
 
-  assert.deepEqual(protectedDiffs, [], "Only method trace scaffolding files should change.");
+  assert.deepEqual(protectedDiffs, [], "Only debt treatment truthfulness, metadata, and check files should change.");
 }
 
 const context = createContext();

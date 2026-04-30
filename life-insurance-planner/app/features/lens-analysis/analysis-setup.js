@@ -561,7 +561,7 @@
 
   const DEFAULT_DEBT_TREATMENT_ASSUMPTIONS = Object.freeze({
     schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
-    enabled: false,
+    enabled: true,
     globalTreatmentProfile: "balanced",
     mortgageTreatment: Object.freeze({
       mode: "payoff",
@@ -1960,9 +1960,7 @@
     const defaultMortgageTreatment = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment;
     const nextAssumptions = {
       schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
-      enabled: typeof saved.enabled === "boolean"
-        ? saved.enabled
-        : DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.enabled,
+      enabled: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.enabled,
       globalTreatmentProfile,
       mortgageTreatment: {
         mode: normalizeMortgageTreatmentMode(
@@ -2425,9 +2423,9 @@
 
   function getDebtCategoryModeOptionsMarkup(selectedMode) {
     const labels = {
-      payoff: "Future payoff preview",
-      exclude: "Future exclude preview",
-      custom: "Custom future treatment"
+      payoff: "Payoff",
+      exclude: "Exclude",
+      custom: "Custom (deferred)"
     };
     return DEBT_CATEGORY_TREATMENT_MODES.map(function (mode) {
       const selected = mode === selectedMode ? " selected" : "";
@@ -2448,21 +2446,21 @@
         <div class="analysis-setup-debt-row" role="row" data-analysis-debt-row="${item.key}">
           <span class="analysis-setup-debt-label" role="cell">${item.label}</span>
           <span role="cell">
-            <label class="analysis-setup-asset-include" aria-label="Future include ${item.label}">
+            <label class="analysis-setup-asset-include" aria-label="Include ${item.label}">
               <span class="settings-switch analysis-setup-mini-switch">
-                <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Future include ${item.label}" data-analysis-debt-include="${item.key}">
+                <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Include ${item.label}" data-analysis-debt-include="${item.key}">
                 <span class="settings-switch-track" aria-hidden="true"></span>
               </span>
             </label>
           </span>
           <span role="cell">
-            <select class="analysis-setup-asset-select analysis-setup-debt-field" aria-label="${item.label} future debt treatment preview mode" data-analysis-debt-mode="${item.key}">
+            <select class="analysis-setup-asset-select analysis-setup-debt-field" aria-label="${item.label} debt treatment mode" data-analysis-debt-mode="${item.key}">
               ${getDebtCategoryModeOptionsMarkup(defaults.mode)}
             </select>
           </span>
           <span role="cell">
             <span class="analysis-setup-asset-percent">
-              <input class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" value="${defaults.payoffPercent}" aria-label="${item.label} future payoff preview percentage" data-analysis-debt-payoff="${item.key}">
+              <input class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" value="${defaults.payoffPercent}" aria-label="${item.label} payoff percentage" data-analysis-debt-payoff="${item.key}">
               <span aria-hidden="true">%</span>
             </span>
           </span>
@@ -4513,8 +4511,8 @@
     }
     if (fields.previewNote) {
       fields.previewNote.textContent = adjustedPreview.mortgageHandledThroughSupport
-        ? "Preview only. Mortgage balance is excluded from this future treatment preview because support mode is saved for later modeling; current methods still use raw debt payoff values."
-        : "Preview only. Saved for future treatment; current DIME, Needs, HLV, and recommendation results still use raw debt payoff values.";
+        ? "Setup preview. Mortgage support mode is deferred and warning-backed; DIME and Needs use raw-equivalent mortgage treatment for that mode until formulas are defined."
+        : "Setup preview of saved assumption effects. DIME and Needs use treated debt in Step 3; HLV remains unchanged. Support and custom modes use warning-backed raw-equivalent behavior until formulas are defined.";
     }
   }
 
@@ -6167,7 +6165,7 @@
 
     const nextAssumptions = {
       schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
-      enabled: false,
+      enabled: true,
       globalTreatmentProfile: defaultProfile,
       mortgageTreatment: {
         mode: mortgageMode,

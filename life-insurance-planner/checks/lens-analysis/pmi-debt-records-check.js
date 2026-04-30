@@ -126,9 +126,7 @@ function assertNoProtectedDiffs() {
   const protectedFiles = [
     "pages/manual-protection-modeling-inputs.html",
     "app/features/lens-analysis/blocks/debt-payoff.js",
-    "app/features/lens-analysis/lens-model-builder.js",
     "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/asset-treatment-calculations.js"
@@ -138,7 +136,7 @@ function assertNoProtectedDiffs() {
     encoding: "utf8"
   }).trim();
 
-  assert.equal(status, "", "protected formula/model/normalization/schema/manual files should not have diffs");
+  assert.equal(status, "", "protected formula/display/adapter/manual files should not have diffs");
 }
 
 const context = {

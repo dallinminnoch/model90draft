@@ -145,7 +145,7 @@ function createAnalysisSettings(overrides = {}) {
     valuationDate: "2026-04-29",
     debtTreatmentAssumptions: {
       schemaVersion: 2,
-      enabled: false,
+      enabled: true,
       globalTreatmentProfile: "balanced",
       mortgageTreatment: {
         include: true,
@@ -197,10 +197,18 @@ function findTrace(result, key) {
 
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
+    "pages/analysis-setup.html",
     "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/lens-model-builder.js",
+    "app/features/lens-analysis/schema.js",
     "pages/analysis-estimate.html",
+    "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
+    "checks/lens-analysis/debt-facts-normalization-check.js",
+    "checks/lens-analysis/debt-taxonomy-library-check.js",
+    "checks/lens-analysis/pmi-debt-records-check.js",
+    "checks/lens-analysis/debt-treatment-helper-check.js",
     "checks/lens-analysis/debt-treatment-model-prep-check.js",
     "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
     "checks/lens-analysis/step-three-debt-treatment-display-check.js"
@@ -213,7 +221,7 @@ function assertNoProtectedDiffs() {
   });
   const protectedDiffs = changedFiles.filter((filePath) => !allowedDiffs.has(filePath));
 
-  assert.deepEqual(protectedDiffs, [], "Only model-builder prep and analysis-estimate load order should have production diffs.");
+  assert.deepEqual(protectedDiffs, [], "Only debt treatment truthfulness, metadata, and check files should change.");
 }
 
 function assertAnalysisEstimateLoadOrder() {
@@ -252,7 +260,9 @@ assert.ok(treatedDebtPayoff, "treatedDebtPayoff should be prepared.");
 assert.equal(model.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff total should stay unchanged.");
 assert.equal(model.debtPayoff.mortgageBalance, 250000, "Raw mortgage balance should stay unchanged.");
 assert.equal(treatedDebtPayoff.rawEquivalentDefault, true, "Default broad debt assumptions should be raw-equivalent.");
-assert.equal(treatedDebtPayoff.treatmentApplied, false, "enabled:false should not apply treatment or zero debt.");
+assert.equal(treatedDebtPayoff.treatmentApplied, true, "Prepared debt treatment is method-applied when DIME and Needs consume it.");
+assert.equal(treatedDebtPayoff.metadata.methodTreatmentApplied, true);
+assert.equal(treatedDebtPayoff.metadata.assumptionsTreatmentApplied, true);
 assert.equal(treatedDebtPayoff.metadata.consumedByMethods, true, "treatedDebtPayoff should report partial method consumption.");
 assert.deepEqual(cloneJson(treatedDebtPayoff.metadata.consumedByMethodNames), ["dime", "needs"]);
 assert.deepEqual(cloneJson(treatedDebtPayoff.metadata.methodConsumption), {

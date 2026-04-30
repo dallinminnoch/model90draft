@@ -33,8 +33,6 @@ function uniqueValues(values) {
 function assertNoProtectedDiffs() {
   const protectedFiles = [
     "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/lens-model-builder.js",
-    "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",
     "app/features/lens-analysis/asset-treatment-calculations.js"
   ];
@@ -43,7 +41,7 @@ function assertNoProtectedDiffs() {
     encoding: "utf8"
   }).trim();
 
-  assert.equal(status, "", "protected formula/model/setup files should not have diffs");
+  assert.equal(status, "", "protected formula/adapter files should not have diffs");
 }
 
 loadScript("app/features/lens-analysis/debt-taxonomy.js");

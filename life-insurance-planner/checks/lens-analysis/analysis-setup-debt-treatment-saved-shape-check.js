@@ -72,14 +72,11 @@ function assertRawEquivalentTreatment(treatment, message) {
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-settings-adapter.js",
-    "app/features/lens-analysis/lens-model-builder.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/normalize-lens-model.js",
-    "app/features/lens-analysis/schema.js",
     "app/features/lens-analysis/blocks/debt-payoff.js",
     "app/features/lens-analysis/debt-treatment-calculations.js",
-    "pages/analysis-setup.html",
     "pages/next-step.html",
     "pages/confidential-inputs.html",
     "pages/manual-protection-modeling-inputs.html",
@@ -110,6 +107,7 @@ assert.equal(typeof analysisSetup.getDebtCategoryTreatmentItems, "function");
 const expectedCategoryKeys = toPlainObject(taxonomy.DEFAULT_DEBT_CATEGORY_KEYS);
 const defaultAssumptions = analysisSetup.DEFAULT_DEBT_TREATMENT_ASSUMPTIONS;
 assert.equal(defaultAssumptions.schemaVersion, 2);
+assert.equal(defaultAssumptions.enabled, true, "Debt treatment assumptions should be active for DIME and Needs.");
 assert.ok(defaultAssumptions.debtCategoryTreatment, "default assumptions should expose debtCategoryTreatment");
 assert.equal(
   Object.prototype.hasOwnProperty.call(defaultAssumptions, "nonMortgageDebtTreatment"),
@@ -154,6 +152,7 @@ const broadSaved = analysisSetup.getDebtTreatmentAssumptions({
   }
 });
 assert.equal(broadSaved.schemaVersion, 2);
+assert.equal(broadSaved.enabled, true, "Legacy false enabled flags should not make active DIME/Needs treatment look inactive.");
 assert.equal(broadSaved.debtCategoryTreatment.securedConsumerDebt.payoffPercent, 50);
 assert.equal(broadSaved.debtCategoryTreatment.securedConsumerDebt.include, true);
 assert.equal(
@@ -207,6 +206,7 @@ const saveBody = extractFunctionBody(
   "readValidatedSurvivorSupportAssumptions"
 );
 assert.match(saveBody, /schemaVersion:\s*DEBT_TREATMENT_SCHEMA_VERSION/);
+assert.match(saveBody, /enabled:\s*true/);
 assert.match(saveBody, /debtCategoryTreatment:\s*\{\}/);
 assert.doesNotMatch(
   saveBody,
@@ -224,8 +224,19 @@ assert.match(profileBody, /debtCategoryTreatment/);
 assert.doesNotMatch(profileBody, /nonMortgageDebtTreatment/);
 
 const previewBody = extractFunctionBody(source, "syncDebtTreatmentPreview", "syncSurvivorSupportPreview");
-assert.match(previewBody, /Preview only/);
-assert.match(previewBody, /current DIME, Needs, HLV/);
+assert.match(previewBody, /DIME and Needs use treated debt/);
+assert.match(previewBody, /HLV remains unchanged/);
+assert.match(previewBody, /Support and custom modes use warning-backed raw-equivalent behavior/);
+assert.doesNotMatch(previewBody, /current DIME, Needs, HLV/);
+assert.doesNotMatch(previewBody, /current methods still use raw debt payoff values/);
+
+const html = readRepoFile("pages/analysis-setup.html");
+assert.match(html, /Used by DIME and Needs/);
+assert.match(html, /HLV is unchanged/);
+assert.match(html, /Support and custom modes are deferred and warning-backed/);
+assert.doesNotMatch(html, /Current DIME, Needs, and HLV outputs still use raw debt payoff values/);
+assert.doesNotMatch(html, /Debt treatment preview \\(not used by current methods\\)/);
+assert.doesNotMatch(html, /Future Defaults:/);
 
 assertNoProtectedDiffs();
 

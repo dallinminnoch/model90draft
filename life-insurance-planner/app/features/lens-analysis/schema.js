@@ -71,8 +71,9 @@
       },
 
       // Raw debt facts projected from scalar PMI debt fields and repeatable
-      // debtRecords[]. This is not treatment logic and does not replace the
-      // current debtPayoff compatibility bucket used by methods.
+      // debtRecords[]. This is not treatment logic; current methods consume
+      // model-prepared treated debt derived from this bucket with debtPayoff as
+      // fallback/reference data.
       debtFacts: {
         debts: [],
         totalReportedDebtBalance: null,
