@@ -511,27 +511,56 @@
   const DEBT_TREATMENT_PROFILE_KEYS = Object.freeze(Object.keys(DEBT_TREATMENT_PROFILE_LABELS));
   const MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "support", "custom"]);
   const DEBT_CATEGORY_TREATMENT_MODES = Object.freeze(["payoff", "exclude", "custom"]);
-  const NON_MORTGAGE_DEBT_ITEMS = Object.freeze([
-    { key: "autoLoans", label: "Auto loans", sourceField: "autoLoans" },
-    { key: "creditCardDebt", label: "Credit cards", sourceField: "creditCardDebt" },
-    { key: "studentLoans", label: "Student loans", sourceField: "studentLoans" },
-    { key: "personalLoans", label: "Personal loans", sourceField: "personalLoans" },
-    { key: "taxLiabilities", label: "Tax liabilities", sourceField: "taxLiabilities" },
-    { key: "businessDebt", label: "Business debt", sourceField: "businessDebt" },
-    { key: "otherRealEstateLoans", label: "Other real estate loans", sourceField: "otherRealEstateLoans" },
-    { key: "otherLoanObligations", label: "Other debts", sourceField: "otherLoanObligations" }
+  const DEBT_TREATMENT_SCHEMA_VERSION = 2;
+  const FALLBACK_DEBT_CATEGORY_TREATMENT_ITEMS = Object.freeze([
+    { key: "realEstateSecuredDebt", label: "Real Estate Secured Debt", sourceFields: Object.freeze(["otherRealEstateLoans"]) },
+    { key: "securedConsumerDebt", label: "Secured Consumer Debt", sourceFields: Object.freeze(["autoLoans"]) },
+    { key: "unsecuredConsumerDebt", label: "Unsecured Consumer Debt", sourceFields: Object.freeze(["creditCardDebt", "personalLoans"]) },
+    { key: "educationDebt", label: "Education Debt", sourceFields: Object.freeze(["studentLoans"]) },
+    { key: "medicalDebt", label: "Medical Debt", sourceFields: Object.freeze([]) },
+    { key: "taxLegalDebt", label: "Tax / Legal Debt", sourceFields: Object.freeze(["taxLiabilities"]) },
+    { key: "businessDebt", label: "Business Debt", sourceFields: Object.freeze(["businessDebt"]) },
+    { key: "privatePersonalDebt", label: "Private / Personal Debt", sourceFields: Object.freeze([]) },
+    { key: "consumerFinanceDebt", label: "Consumer Finance Debt", sourceFields: Object.freeze([]) },
+    { key: "otherDebt", label: "Other Debt", sourceFields: Object.freeze(["otherLoanObligations"]) }
   ]);
+  const DEBT_CATEGORY_TREATMENT_KEYS = Object.freeze(
+    FALLBACK_DEBT_CATEGORY_TREATMENT_ITEMS.map(function (item) {
+      return item.key;
+    })
+  );
+  const LEGACY_DEBT_TREATMENT_KEYS_BY_CATEGORY = Object.freeze({
+    realEstateSecuredDebt: Object.freeze(["otherRealEstateLoans"]),
+    securedConsumerDebt: Object.freeze(["autoLoans"]),
+    unsecuredConsumerDebt: Object.freeze(["creditCardDebt", "personalLoans"]),
+    educationDebt: Object.freeze(["studentLoans"]),
+    medicalDebt: Object.freeze([]),
+    taxLegalDebt: Object.freeze(["taxLiabilities"]),
+    businessDebt: Object.freeze(["businessDebt"]),
+    privatePersonalDebt: Object.freeze([]),
+    consumerFinanceDebt: Object.freeze([]),
+    otherDebt: Object.freeze(["otherLoanObligations"])
+  });
 
-  function createDefaultNonMortgageDebtTreatment(key) {
+  function createDefaultDebtCategoryTreatment() {
     return Object.freeze({
       include: true,
       mode: "payoff",
-      payoffPercent: 100,
-      ...(key === "studentLoans" ? { dischargeAssumption: "unknown" } : {})
+      payoffPercent: 100
     });
   }
 
+  function createDefaultDebtCategoryTreatmentMap() {
+    return Object.freeze(
+      DEBT_CATEGORY_TREATMENT_KEYS.reduce(function (map, categoryKey) {
+        map[categoryKey] = createDefaultDebtCategoryTreatment();
+        return map;
+      }, {})
+    );
+  }
+
   const DEFAULT_DEBT_TREATMENT_ASSUMPTIONS = Object.freeze({
+    schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
     enabled: false,
     globalTreatmentProfile: "balanced",
     mortgageTreatment: Object.freeze({
@@ -540,33 +569,56 @@
       payoffPercent: 100,
       paymentSupportYears: null
     }),
-    nonMortgageDebtTreatment: Object.freeze({
-      autoLoans: createDefaultNonMortgageDebtTreatment("autoLoans"),
-      creditCardDebt: createDefaultNonMortgageDebtTreatment("creditCardDebt"),
-      studentLoans: createDefaultNonMortgageDebtTreatment("studentLoans"),
-      personalLoans: createDefaultNonMortgageDebtTreatment("personalLoans"),
-      taxLiabilities: createDefaultNonMortgageDebtTreatment("taxLiabilities"),
-      businessDebt: createDefaultNonMortgageDebtTreatment("businessDebt"),
-      otherRealEstateLoans: createDefaultNonMortgageDebtTreatment("otherRealEstateLoans"),
-      otherLoanObligations: createDefaultNonMortgageDebtTreatment("otherLoanObligations")
-    }),
+    debtCategoryTreatment: createDefaultDebtCategoryTreatmentMap(),
     source: "analysis-setup"
   });
 
   const DEBT_TREATMENT_PROFILE_DEFAULTS = Object.freeze({
     conservative: Object.freeze({
       mortgageTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment,
-      nonMortgageDebtTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment
+      debtCategoryTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment
     }),
     balanced: Object.freeze({
       mortgageTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment,
-      nonMortgageDebtTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment
+      debtCategoryTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment
     }),
     aggressive: Object.freeze({
       mortgageTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment,
-      nonMortgageDebtTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment
+      debtCategoryTreatment: DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment
     })
   });
+
+  function getFallbackDebtCategoryTreatmentItem(categoryKey) {
+    return FALLBACK_DEBT_CATEGORY_TREATMENT_ITEMS.find(function (item) {
+      return item.key === categoryKey;
+    }) || null;
+  }
+
+  function getDebtCategoryTreatmentItems() {
+    const taxonomyCategories = Array.isArray(LensApp.lensAnalysis?.debtTaxonomy?.DEFAULT_DEBT_CATEGORIES)
+      ? LensApp.lensAnalysis.debtTaxonomy.DEFAULT_DEBT_CATEGORIES
+      : [];
+
+    return DEBT_CATEGORY_TREATMENT_KEYS.map(function (categoryKey) {
+      const fallbackItem = getFallbackDebtCategoryTreatmentItem(categoryKey);
+      const taxonomyCategory = taxonomyCategories.find(function (category) {
+        return category && category.categoryKey === categoryKey;
+      });
+      const taxonomySourceFields = Array.isArray(taxonomyCategory?.defaultPmiSourceKeys)
+        ? taxonomyCategory.defaultPmiSourceKeys.filter(function (sourceField) {
+            return sourceField !== "mortgageBalance";
+          })
+        : null;
+
+      return {
+        key: categoryKey,
+        label: String(taxonomyCategory?.label || fallbackItem?.label || categoryKey),
+        sourceFields: Object.freeze(
+          (taxonomySourceFields || fallbackItem?.sourceFields || []).slice()
+        )
+      };
+    });
+  }
 
   const SURVIVOR_SUPPORT_PROFILE_LABELS = Object.freeze({
     conservative: "Conservative",
@@ -1846,20 +1898,68 @@
     return nextAssumptions;
   }
 
+  function normalizeDebtCategoryTreatment(source, defaults) {
+    const safeSource = isPlainObject(source) ? source : {};
+    const safeDefaults = isPlainObject(defaults) ? defaults : createDefaultDebtCategoryTreatment();
+    return {
+      include: typeof safeSource.include === "boolean"
+        ? safeSource.include
+        : safeDefaults.include !== false,
+      mode: normalizeDebtCategoryTreatmentMode(safeSource.mode, safeDefaults.mode || "payoff"),
+      payoffPercent: normalizeDebtPayoffPercent(
+        safeSource.payoffPercent,
+        normalizeDebtPayoffPercent(safeDefaults.payoffPercent, 100)
+      )
+    };
+  }
+
+  function areDebtCategoryTreatmentsEquivalent(left, right) {
+    return Boolean(left && right)
+      && left.include === right.include
+      && left.mode === right.mode
+      && left.payoffPercent === right.payoffPercent;
+  }
+
+  function getLegacyDebtCategoryTreatment(categoryKey, legacyTreatments, defaults) {
+    const legacyKeys = LEGACY_DEBT_TREATMENT_KEYS_BY_CATEGORY[categoryKey] || [];
+    const presentLegacyKeys = legacyKeys.filter(function (legacyKey) {
+      return isPlainObject(legacyTreatments?.[legacyKey]);
+    });
+
+    if (!presentLegacyKeys.length) {
+      return null;
+    }
+
+    const migratedTreatments = presentLegacyKeys.map(function (legacyKey) {
+      return normalizeDebtCategoryTreatment(legacyTreatments[legacyKey], defaults);
+    });
+    const firstTreatment = migratedTreatments[0];
+    const hasConflict = migratedTreatments.some(function (treatment) {
+      return !areDebtCategoryTreatmentsEquivalent(treatment, firstTreatment);
+    });
+
+    return hasConflict ? null : firstTreatment;
+  }
+
   function getDebtTreatmentAssumptions(record) {
     const saved = isPlainObject(record?.analysisSettings?.debtTreatmentAssumptions)
       ? record.analysisSettings.debtTreatmentAssumptions
       : {};
     const savedMortgageTreatment = isPlainObject(saved.mortgageTreatment) ? saved.mortgageTreatment : {};
-    const savedNonMortgageTreatment = isPlainObject(saved.nonMortgageDebtTreatment)
+    const savedDebtCategoryTreatment = isPlainObject(saved.debtCategoryTreatment)
+      ? saved.debtCategoryTreatment
+      : {};
+    const savedLegacyNonMortgageTreatment = isPlainObject(saved.nonMortgageDebtTreatment)
       ? saved.nonMortgageDebtTreatment
       : {};
+    const hasSavedDebtCategoryTreatment = isPlainObject(saved.debtCategoryTreatment);
     const globalTreatmentProfile = normalizeDebtTreatmentProfile(
       saved.globalTreatmentProfile,
       DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.globalTreatmentProfile
     );
     const defaultMortgageTreatment = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment;
     const nextAssumptions = {
+      schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
       enabled: typeof saved.enabled === "boolean"
         ? saved.enabled
         : DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.enabled,
@@ -1881,28 +1981,20 @@
           defaultMortgageTreatment.paymentSupportYears
         )
       },
-      nonMortgageDebtTreatment: {},
+      debtCategoryTreatment: {},
       source: String(saved.source || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.source)
     };
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
-      const defaults = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key];
-      const savedTreatment = isPlainObject(savedNonMortgageTreatment[item.key])
-        ? savedNonMortgageTreatment[item.key]
-        : {};
-      nextAssumptions.nonMortgageDebtTreatment[item.key] = {
-        include: typeof savedTreatment.include === "boolean"
-          ? savedTreatment.include
-          : defaults.include,
-        mode: normalizeDebtCategoryTreatmentMode(savedTreatment.mode, defaults.mode),
-        payoffPercent: normalizeDebtPayoffPercent(
-          savedTreatment.payoffPercent,
-          defaults.payoffPercent
-        ),
-        ...(item.key === "studentLoans"
-          ? { dischargeAssumption: String(savedTreatment.dischargeAssumption || defaults.dischargeAssumption || "unknown") }
-          : {})
-      };
+    getDebtCategoryTreatmentItems().forEach(function (item) {
+      const defaults = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+        || createDefaultDebtCategoryTreatment();
+      const savedTreatment = hasSavedDebtCategoryTreatment && isPlainObject(savedDebtCategoryTreatment[item.key])
+        ? savedDebtCategoryTreatment[item.key]
+        : getLegacyDebtCategoryTreatment(item.key, savedLegacyNonMortgageTreatment, defaults);
+      nextAssumptions.debtCategoryTreatment[item.key] = normalizeDebtCategoryTreatment(
+        savedTreatment,
+        defaults
+      );
     });
 
     if (saved.lastUpdatedAt) {
@@ -2349,8 +2441,9 @@
       return;
     }
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
-      const defaults = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key];
+    getDebtCategoryTreatmentItems().forEach(function (item) {
+      const defaults = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+        || createDefaultDebtCategoryTreatment();
       table.insertAdjacentHTML("beforeend", `
         <div class="analysis-setup-debt-row" role="row" data-analysis-debt-row="${item.key}">
           <span class="analysis-setup-debt-label" role="cell">${item.label}</span>
@@ -3363,6 +3456,7 @@
     const current = getDebtTreatmentCurrentAssumptions(fields);
     const currentMortgageTreatment = current.mortgageTreatment || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment;
     const nextAssumptions = {
+      schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
       enabled: Boolean(current.enabled),
       globalTreatmentProfile: getDebtTreatmentDefaultProfile(fields),
       mortgageTreatment: {
@@ -3380,20 +3474,18 @@
           currentMortgageTreatment.paymentSupportYears
         )
       },
-      nonMortgageDebtTreatment: {},
+      debtCategoryTreatment: {},
       source: "analysis-setup"
     };
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
-      const currentTreatment = current.nonMortgageDebtTreatment?.[item.key]
-        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key];
-      nextAssumptions.nonMortgageDebtTreatment[item.key] = {
+    getDebtCategoryTreatmentItems().forEach(function (item) {
+      const currentTreatment = current.debtCategoryTreatment?.[item.key]
+        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+        || createDefaultDebtCategoryTreatment();
+      nextAssumptions.debtCategoryTreatment[item.key] = {
         include: readDebtDraftBoolean(fields.include?.[item.key], currentTreatment.include),
         mode: normalizeDebtCategoryTreatmentMode(fields.mode?.[item.key]?.value, currentTreatment.mode),
-        payoffPercent: readDebtDraftPercent(fields.payoff?.[item.key], currentTreatment.payoffPercent),
-        ...(item.key === "studentLoans"
-          ? { dischargeAssumption: String(currentTreatment.dischargeAssumption || "unknown") }
-          : {})
+        payoffPercent: readDebtDraftPercent(fields.payoff?.[item.key], currentTreatment.payoffPercent)
       };
     });
 
@@ -4126,6 +4218,22 @@
     return null;
   }
 
+  function getDebtCategorySourceValue(linkedRecord, item) {
+    const sourceFields = Array.isArray(item?.sourceFields) ? item.sourceFields : [];
+    let hasSource = false;
+    const total = sourceFields.reduce(function (sum, sourceField) {
+      const sourceValue = getDebtSourceValue(linkedRecord, sourceField);
+      if (sourceValue === null) {
+        return sum;
+      }
+
+      hasSource = true;
+      return sum + Math.max(0, sourceValue);
+    }, 0);
+
+    return hasSource ? total : null;
+  }
+
   function getSurvivorSupportSourceRawValue(linkedRecord, sourceField) {
     const sourceData = getLinkedProtectionModelingData(linkedRecord);
     if (sourceField && Object.prototype.hasOwnProperty.call(sourceData, sourceField)) {
@@ -4300,9 +4408,11 @@
   }
 
   function getDebtSourceTotals(linkedRecord) {
-    const sourceFields = ["mortgageBalance"].concat(NON_MORTGAGE_DEBT_ITEMS.map(function (item) {
-      return item.sourceField;
-    }));
+    const sourceFields = ["mortgageBalance"].concat(
+      getDebtCategoryTreatmentItems().reduce(function (fields, item) {
+        return fields.concat(item.sourceFields || []);
+      }, [])
+    );
     return sourceFields.reduce(function (totals, sourceField) {
       const sourceValue = getDebtSourceValue(linkedRecord, sourceField);
       if (sourceValue === null) {
@@ -4337,22 +4447,23 @@
       }
     }
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
-      const sourceValue = getDebtSourceValue(linkedRecord, item.sourceField);
+    getDebtCategoryTreatmentItems().forEach(function (item) {
+      const sourceValue = getDebtCategorySourceValue(linkedRecord, item);
       if (sourceValue === null) {
         return;
       }
 
       hasSource = true;
-      const treatment = assumptions.nonMortgageDebtTreatment?.[item.key]
-        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key];
+      const treatment = assumptions.debtCategoryTreatment?.[item.key]
+        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+        || createDefaultDebtCategoryTreatment();
       if (!treatment.include || treatment.mode === "exclude") {
         return;
       }
 
       adjustedTotal += Math.max(0, sourceValue) * (normalizeDebtPayoffPercent(
         treatment.payoffPercent,
-        DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key].payoffPercent
+        DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]?.payoffPercent || 100
       ) / 100);
     });
 
@@ -4367,13 +4478,13 @@
     const assumptions = getDebtTreatmentDraftAssumptions(fields);
     fields.currentAssumptions = assumptions;
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
+    getDebtCategoryTreatmentItems().forEach(function (item) {
       const preview = fields.sourcePreview?.[item.key];
       if (!preview) {
         return;
       }
 
-      const sourceValue = getDebtSourceValue(linkedRecord, item.sourceField);
+      const sourceValue = getDebtCategorySourceValue(linkedRecord, item);
       preview.textContent = sourceValue === null
         ? "No source value"
         : formatCurrencyValue(sourceValue);
@@ -4632,9 +4743,10 @@
     setDebtMortgageValue(fields, "payoffPercent", assumptions.mortgageTreatment.payoffPercent);
     setDebtMortgageValue(fields, "paymentSupportYears", assumptions.mortgageTreatment.paymentSupportYears);
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
-      const assumption = assumptions.nonMortgageDebtTreatment[item.key]
-        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key];
+    getDebtCategoryTreatmentItems().forEach(function (item) {
+      const assumption = assumptions.debtCategoryTreatment[item.key]
+        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+        || createDefaultDebtCategoryTreatment();
       setDebtCategoryChecked(fields, item.key, assumption.include);
       if (fields.mode[item.key]) {
         fields.mode[item.key].value = assumption.mode;
@@ -5257,19 +5369,21 @@
 
     const nextAssumptions = {
       ...current,
+      schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
       globalTreatmentProfile: normalizedProfile,
       mortgageTreatment: {
         ...current.mortgageTreatment,
         ...profileDefaults.mortgageTreatment
       },
-      nonMortgageDebtTreatment: {}
+      debtCategoryTreatment: {}
     };
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
-      nextAssumptions.nonMortgageDebtTreatment[item.key] = {
-        ...current.nonMortgageDebtTreatment[item.key],
-        ...(profileDefaults.nonMortgageDebtTreatment[item.key]
-          || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.nonMortgageDebtTreatment[item.key])
+    getDebtCategoryTreatmentItems().forEach(function (item) {
+      nextAssumptions.debtCategoryTreatment[item.key] = {
+        ...(current.debtCategoryTreatment?.[item.key] || {}),
+        ...(profileDefaults.debtCategoryTreatment[item.key]
+          || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+          || createDefaultDebtCategoryTreatment())
       };
     });
 
@@ -6052,6 +6166,7 @@
     }
 
     const nextAssumptions = {
+      schemaVersion: DEBT_TREATMENT_SCHEMA_VERSION,
       enabled: false,
       globalTreatmentProfile: defaultProfile,
       mortgageTreatment: {
@@ -6060,11 +6175,12 @@
         payoffPercent: mortgagePayoff.value,
         paymentSupportYears: supportYears.value
       },
-      nonMortgageDebtTreatment: {}
+      debtCategoryTreatment: {}
     };
 
-    for (let index = 0; index < NON_MORTGAGE_DEBT_ITEMS.length; index += 1) {
-      const item = NON_MORTGAGE_DEBT_ITEMS[index];
+    const debtCategoryTreatmentItems = getDebtCategoryTreatmentItems();
+    for (let index = 0; index < debtCategoryTreatmentItems.length; index += 1) {
+      const item = debtCategoryTreatmentItems[index];
       const mode = String(fields.mode[item.key]?.value || "").trim();
       if (!DEBT_CATEGORY_TREATMENT_MODES.includes(mode)) {
         return {
@@ -6080,18 +6196,16 @@
         return payoff;
       }
 
-      nextAssumptions.nonMortgageDebtTreatment[item.key] = {
+      nextAssumptions.debtCategoryTreatment[item.key] = {
         include: Boolean(fields.include[item.key]?.checked),
         mode,
-        payoffPercent: payoff.value,
-        ...(item.key === "studentLoans" ? { dischargeAssumption: "unknown" } : {})
+        payoffPercent: payoff.value
       };
     }
 
     return {
       value: {
         ...nextAssumptions,
-        lastUpdatedAt: new Date().toISOString(),
         source: "analysis-setup"
       }
     };
@@ -6795,7 +6909,7 @@
         }
       });
 
-      NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
+      getDebtCategoryTreatmentItems().forEach(function (item) {
         const field = debtTreatmentFields.payoff[item.key];
         const rawValue = String(field?.value || "").trim();
         const number = Number(rawValue);
@@ -7475,7 +7589,7 @@
       });
     });
 
-    NON_MORTGAGE_DEBT_ITEMS.forEach(function (item) {
+    getDebtCategoryTreatmentItems().forEach(function (item) {
       const syncDebtRowChange = function () {
         setDebtTreatmentDefaultProfile(debtTreatmentFields, "custom");
         syncDebtTreatmentPreview(debtTreatmentFields, linkedRecord);
@@ -7840,6 +7954,7 @@
     getPolicyTypeReturnAssumptions,
     getAssetTreatmentAssumptions,
     getExistingCoverageAssumptions,
+    getDebtCategoryTreatmentItems,
     getDebtTreatmentAssumptions,
     getSurvivorSupportAssumptions,
     getEducationAssumptions,
