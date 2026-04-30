@@ -604,11 +604,11 @@
                   <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-debt-treatment">Debt &amp; Mortgage Treatment</h3>
-                    <p>Choose which debts should be paid off immediately or handled through ongoing support later. Raw balances remain in Protection Modeling Inputs.</p>
+                    <p>Saved for future debt and mortgage treatment modeling. Current DIME, Needs, and HLV outputs still use raw debt payoff values from Protection Modeling Inputs.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-debt-defaults" aria-label="Debt and mortgage treatment default settings">
-                    <span class="analysis-setup-asset-defaults-label">Default Settings:</span>
+                    <span class="analysis-setup-asset-defaults-label">Future Defaults:</span>
                     <div class="analysis-setup-asset-default-buttons" role="group" aria-label="Debt and mortgage treatment profile">
                       <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="conservative" aria-pressed="false">Conservative</button>
                       <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="balanced" aria-pressed="true">Balanced</button>
@@ -619,34 +619,34 @@
 
                   <div class="analysis-setup-debt-mortgage-card" aria-label="Mortgage treatment">
                     <div class="analysis-setup-debt-mortgage-head">
-                      <span>Mortgage treatment</span>
+                      <span>Mortgage treatment preview</span>
                       <span class="analysis-setup-treatment-preview" data-analysis-debt-mortgage-preview>No source value</span>
                     </div>
                     <div class="analysis-setup-debt-mortgage-grid">
                       <label>
-                        <span>Mode</span>
+                        <span>Future mode</span>
                         <select class="analysis-setup-asset-select analysis-setup-debt-field" data-analysis-debt-mortgage-field="mode" aria-label="Mortgage treatment mode">
-                          <option value="payoff">Pay off full mortgage</option>
-                          <option value="support">Include mortgage payments in support</option>
-                          <option value="custom">Custom</option>
+                          <option value="payoff">Future payoff preview</option>
+                          <option value="support">Future support preview</option>
+                          <option value="custom">Custom future treatment</option>
                         </select>
                       </label>
                       <label class="analysis-setup-debt-switch">
-                        <span>Include mortgage payoff</span>
+                        <span>Future include mortgage payoff</span>
                         <span class="settings-switch analysis-setup-mini-switch">
                           <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Include mortgage payoff" data-analysis-debt-mortgage-field="include">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
                       </label>
                       <label class="analysis-setup-debt-percent" for="analysis-setup-mortgage-payoff-percent">
-                        <span>Payoff percent</span>
+                        <span>Future payoff percent</span>
                         <span class="analysis-setup-asset-percent">
                           <input id="analysis-setup-mortgage-payoff-percent" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" data-analysis-debt-mortgage-field="payoffPercent">
                           <span aria-hidden="true">%</span>
                         </span>
                       </label>
                       <label class="analysis-setup-debt-years" for="analysis-setup-mortgage-support-years" data-analysis-debt-support-years-row hidden>
-                        <span>Payment support years</span>
+                        <span>Future support years</span>
                         <span>
                           <input id="analysis-setup-mortgage-support-years" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-debt-mortgage-field="paymentSupportYears">
                           <span>years</span>
@@ -655,27 +655,27 @@
                     </div>
                   </div>
 
-                  <div class="analysis-setup-debt-table" role="table" aria-label="Non-mortgage debt treatment" data-analysis-debt-table>
+                  <div class="analysis-setup-debt-table" role="table" aria-label="Non-mortgage debt treatment preview" data-analysis-debt-table>
                     <div class="analysis-setup-debt-row analysis-setup-debt-row--head" role="row">
                       <span role="columnheader">Debt</span>
-                      <span role="columnheader">Include</span>
-                      <span role="columnheader">Mode</span>
-                      <span role="columnheader">Payoff</span>
+                      <span role="columnheader">Future include</span>
+                      <span role="columnheader">Future mode</span>
+                      <span role="columnheader">Preview payoff</span>
                       <span role="columnheader">Source balance</span>
                     </div>
                   </div>
 
-                  <div class="analysis-setup-debt-preview" aria-label="Debt treatment preview">
+                  <div class="analysis-setup-debt-preview" aria-label="Debt treatment preview not used by current methods">
                     <div>
                       <span>Raw debt payoff total</span>
                       <strong data-analysis-debt-raw-preview>No saved debt data found</strong>
                     </div>
                     <div>
-                      <span>Future adjusted debt treatment preview</span>
+                      <span>Debt treatment preview (not used by current methods)</span>
                       <strong data-analysis-debt-adjusted-preview>No saved debt data found</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Preview only. Current Needs, DIME, HLV, and recommendation results are unchanged.</p>
+                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Preview only. Saved for future treatment; current DIME, Needs, HLV, and recommendation results still use raw debt payoff values.</p>
                   </section>
                 </div>
 
