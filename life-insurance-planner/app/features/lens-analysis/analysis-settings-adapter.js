@@ -391,6 +391,52 @@
     return parsed;
   }
 
+  function hasUsableInflationFallback(source, key) {
+    const parsed = toOptionalNumber(source[key]);
+    return parsed != null && parsed >= 0;
+  }
+
+  function normalizeCurrentNeedsInflationRate(source, key, normalized, warnings) {
+    const hasSavedValue = hasOwn(source, key);
+    const hasGeneralFallback = hasUsableInflationFallback(source, "generalInflationRatePercent");
+
+    if (!hasSavedValue) {
+      if (hasGeneralFallback) {
+        delete normalized[key];
+      }
+      return;
+    }
+
+    const parsed = toOptionalNumber(source[key]);
+    if (parsed != null && parsed >= 0) {
+      normalized[key] = normalizeInflationRate(
+        source[key],
+        DEFAULT_INFLATION_ASSUMPTIONS[key],
+        key,
+        warnings
+      );
+      return;
+    }
+
+    if (hasGeneralFallback) {
+      warnings.push(createWarning(
+        `invalid-${key}-general-fallback`,
+        `${key} was invalid; Needs Analysis will use generalInflationRatePercent as the fallback.`,
+        "warning",
+        [`analysisSettings.inflationAssumptions.${key}`]
+      ));
+      delete normalized[key];
+      return;
+    }
+
+    normalized[key] = normalizeInflationRate(
+      source[key],
+      DEFAULT_INFLATION_ASSUMPTIONS[key],
+      key,
+      warnings
+    );
+  }
+
   function normalizeEducationPercent(value, fallback, key, warnings) {
     const sourcePath = `analysisSettings.educationAssumptions.fundingTreatment.${key}`;
     const parsed = toOptionalNumber(value);
@@ -555,6 +601,14 @@
     }
 
     INFLATION_RATE_FIELDS.forEach(function (key) {
+      if (
+        key === "householdExpenseInflationRatePercent"
+        || key === "educationInflationRatePercent"
+      ) {
+        normalizeCurrentNeedsInflationRate(saved, key, normalized, warnings);
+        return;
+      }
+
       if (!hasOwn(saved, key)) {
         return;
       }
@@ -696,15 +750,27 @@
 
   function addFutureSettingsTrace(analysisSettings, trace) {
     [
-      ["inflationAssumptions", "Saved inflation assumptions are mapped into Needs settings but are not applied to current method results."],
-      ["growthAndReturnAssumptions", "Saved growth and return assumptions are present but are not applied to current method results."],
-      ["assetTreatmentAssumptions", "Saved asset treatment assumptions prepare treated asset offsets for method use."]
+      {
+        key: "inflationAssumptions",
+        traceKey: "inflationAssumptions-current-needs-and-future-use",
+        message: "Saved inflation assumptions are mapped into Needs settings. Household/general and education/general inflation can affect current Needs output; healthcare and final expense rates are saved for future modeling."
+      },
+      {
+        key: "growthAndReturnAssumptions",
+        traceKey: "growthAndReturnAssumptions-not-applied",
+        message: "Saved growth and return assumptions are present but are not applied to current method results."
+      },
+      {
+        key: "assetTreatmentAssumptions",
+        traceKey: "assetTreatmentAssumptions-not-applied",
+        message: "Saved asset treatment assumptions prepare treated asset offsets for method use."
+      }
     ].forEach(function (entry) {
-      const key = entry[0];
+      const key = entry.key;
       if (isPlainObject(analysisSettings[key])) {
         trace.push(createTrace(
-          `${key}-not-applied`,
-          entry[1],
+          entry.traceKey,
+          entry.message,
           [`analysisSettings.${key}`]
         ));
       }
