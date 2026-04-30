@@ -189,10 +189,18 @@ function hasWarningCode(warnings, code) {
   return Array.isArray(warnings) && warnings.some((warning) => warning?.code === code);
 }
 
+function findTrace(result, key) {
+  return Array.isArray(result?.trace)
+    ? result.trace.find((entry) => entry?.key === key)
+    : null;
+}
+
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
+    "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/lens-model-builder.js",
-    "pages/analysis-estimate.html"
+    "pages/analysis-estimate.html",
+    "checks/lens-analysis/debt-treatment-model-prep-check.js"
   ]);
   const changedFiles = execFileSync("git", ["diff", "--name-only"], {
     cwd: repoRoot,
@@ -296,7 +304,7 @@ assert.equal(excludedModel.treatedDebtPayoff.needs.debtPayoffAmount, 0, "Prepare
 assert.equal(excludedModel.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff still remains current method source.");
 
 const methodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
-assert.equal(methodsSource.includes("treatedDebtPayoff"), false, "Methods should not reference treatedDebtPayoff yet.");
+assert.equal(methodsSource.includes("treatedDebtPayoff"), true, "Methods may reference treatedDebtPayoff for trace readiness only.");
 const methodResults = lensAnalysis.analysisMethods.runAnalysisMethods(excludedModel, {
   includeExistingCoverageOffset: false,
   includeOffsetAssets: false,
@@ -311,6 +319,9 @@ assert.equal(methodResults.dime.components.mortgage, 250000, "DIME should still 
 assert.equal(methodResults.dime.components.debt, 100000, "DIME should still use raw non-mortgage debtPayoff fields.");
 assert.equal(methodResults.needsAnalysis.components.debtPayoff, 350000, "Needs should still use debtPayoff.totalDebtPayoffNeed.");
 assert.equal(methodResults.humanLifeValue.assumptions.survivorIncomeApplied, false, "HLV should remain unaffected by debt treatment prep.");
+assert.equal(findTrace(methodResults.dime, "debt").inputs.treatedDebtConsumedByMethods, false);
+assert.equal(findTrace(methodResults.dime, "mortgage").inputs.treatedDebtConsumedByMethods, false);
+assert.equal(findTrace(methodResults.needsAnalysis, "debtPayoff").inputs.treatedDebtConsumedByMethods, false);
 
 const noHelperContext = createContext({ includeDebtTreatmentHelper: false });
 const noHelperResult = buildModel(noHelperContext, {

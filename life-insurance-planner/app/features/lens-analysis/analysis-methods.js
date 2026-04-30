@@ -18,6 +18,9 @@
   const EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "existingCoverage.totalExistingCoverage";
   const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
   const TREATED_EXISTING_COVERAGE_METHOD_CONSUMPTION_SOURCE_PATH = "treatedExistingCoverageOffset.metadata.consumedByMethods";
+  const TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.nonMortgageDebtAmount";
+  const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
+  const TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
 
   const DIME_NON_MORTGAGE_DEBT_FIELDS = Object.freeze([
     Object.freeze({
@@ -406,6 +409,104 @@
       sourcePaths: DIME_NON_MORTGAGE_DEBT_FIELDS.map(function (field) {
         return field.sourcePath;
       })
+    };
+  }
+
+  function getSingleOrSummarySourcePath(sourcePaths, fallbackSource) {
+    if (!Array.isArray(sourcePaths) || !sourcePaths.length) {
+      return fallbackSource || null;
+    }
+
+    return sourcePaths.length === 1 ? sourcePaths[0] : fallbackSource || sourcePaths[0];
+  }
+
+  function createDebtTreatmentWarningSummaries(treatedDebtPayoff) {
+    const metadata = isPlainObject(treatedDebtPayoff?.metadata) ? treatedDebtPayoff.metadata : {};
+    const sourceWarnings = Array.isArray(treatedDebtPayoff?.warnings) && treatedDebtPayoff.warnings.length
+      ? treatedDebtPayoff.warnings
+      : (Array.isArray(metadata.warnings) ? metadata.warnings : []);
+
+    return sourceWarnings
+      .filter(function (warning) {
+        return isPlainObject(warning);
+      })
+      .map(function (warning) {
+        return {
+          code: warning.code || null,
+          message: warning.message || "",
+          severity: warning.severity || null,
+          sourcePaths: Array.isArray(warning.sourcePaths) ? warning.sourcePaths.slice() : []
+        };
+      });
+  }
+
+  function createTreatedDebtPayoffTraceContext(model) {
+    const treatedDebtPayoff = isPlainObject(model?.treatedDebtPayoff) ? model.treatedDebtPayoff : null;
+    const metadata = isPlainObject(treatedDebtPayoff?.metadata) ? treatedDebtPayoff.metadata : {};
+    const trace = isPlainObject(treatedDebtPayoff?.trace) ? treatedDebtPayoff.trace : {};
+    const dime = isPlainObject(treatedDebtPayoff?.dime) ? treatedDebtPayoff.dime : {};
+    const needs = isPlainObject(treatedDebtPayoff?.needs) ? treatedDebtPayoff.needs : {};
+    const rawTotals = isPlainObject(treatedDebtPayoff?.rawTotals) ? treatedDebtPayoff.rawTotals : {};
+    const warnings = createDebtTreatmentWarningSummaries(treatedDebtPayoff);
+    const fallbackReason = treatedDebtPayoff
+      ? (metadata.reason || null)
+      : "missing-treatedDebtPayoff";
+    const hasPreparedValues = toOptionalNumber(dime.nonMortgageDebtAmount) != null
+      || toOptionalNumber(dime.mortgageAmount) != null
+      || toOptionalNumber(needs.debtPayoffAmount) != null;
+    const treatedDebtPayoffAvailable = Boolean(treatedDebtPayoff && hasPreparedValues && !fallbackReason);
+    const manualTotalDebtPayoffOverride = metadata.manualTotalDebtPayoffOverride === true
+      || trace.manualTotalDebtPayoffOverride === true;
+
+    return {
+      treatedDebtPayoffAvailable,
+      treatedDebtConsumedByMethods: false,
+      fallbackReason: treatedDebtPayoffAvailable
+        ? null
+        : (fallbackReason || "treated-debt-values-unavailable"),
+      preparedDebtSource: treatedDebtPayoff?.source || metadata.source || null,
+      preparedDebtFallbackSource: treatedDebtPayoff?.fallbackSource || metadata.fallbackSource || null,
+      rawEquivalentDefault: treatedDebtPayoff?.rawEquivalentDefault === true,
+      treatmentApplied: treatedDebtPayoff?.treatmentApplied === true,
+      rawTotalDebtAmount: toOptionalNumber(rawTotals.totalDebtBalance),
+      rawNonMortgageDebtAmount: toOptionalNumber(rawTotals.nonMortgageDebtBalance),
+      rawMortgageAmount: toOptionalNumber(rawTotals.mortgageBalance),
+      preparedDimeNonMortgageDebtAmount: toOptionalNumber(dime.nonMortgageDebtAmount),
+      preparedDimeMortgageAmount: toOptionalNumber(dime.mortgageAmount),
+      preparedNeedsDebtPayoffAmount: toOptionalNumber(needs.debtPayoffAmount),
+      preparedNeedsMortgagePayoffAmount: toOptionalNumber(needs.mortgagePayoffAmount),
+      preparedNeedsNonMortgageDebtAmount: toOptionalNumber(needs.nonMortgageDebtAmount),
+      excludedDebtAmount: toOptionalNumber(treatedDebtPayoff?.excludedDebtAmount ?? rawTotals.excludedDebtAmount),
+      deferredDebtAmount: toOptionalNumber(treatedDebtPayoff?.deferredDebtAmount ?? rawTotals.deferredDebtAmount),
+      manualTotalDebtPayoffOverride,
+      manualTotalDebtPayoffAmount: manualTotalDebtPayoffOverride
+        ? toOptionalNumber(metadata.manualTotalDebtPayoffNeed)
+        : null,
+      manualOverrideSource: manualTotalDebtPayoffOverride
+        ? (metadata.manualOverrideSource || null)
+        : null,
+      warnings,
+      warningCodes: warnings
+        .map(function (warning) {
+          return warning.code;
+        })
+        .filter(Boolean)
+    };
+  }
+
+  function createBaseDebtTreatmentTraceInputs(context) {
+    return {
+      treatedDebtPayoffAvailable: context.treatedDebtPayoffAvailable,
+      treatedDebtConsumedByMethods: false,
+      preparedDebtSource: context.preparedDebtSource,
+      preparedDebtFallbackSource: context.preparedDebtFallbackSource,
+      rawEquivalentDefault: context.rawEquivalentDefault,
+      treatmentApplied: context.treatmentApplied,
+      excludedDebtAmount: context.excludedDebtAmount,
+      deferredDebtAmount: context.deferredDebtAmount,
+      warningCodes: context.warningCodes,
+      warnings: context.warnings,
+      fallbackReason: context.fallbackReason
     };
   }
 
@@ -2301,6 +2402,7 @@
       methodLabel: "DIME"
     });
     const assetOffset = assetOffsetSelection.value;
+    const treatedDebtTraceContext = createTreatedDebtPayoffTraceContext(model);
 
     const grossNeed = debtComponent.value + income + mortgage + education;
     const totalOffset = existingCoverageOffset + assetOffset;
@@ -2313,7 +2415,20 @@
       formula: debtComponent.source === "explicit-non-mortgage-debt-fields"
         ? "Sum of non-mortgage debt fields"
         : "Fallback debt total minus mortgage when available",
-      inputs: debtComponent.inputs,
+      inputs: {
+        ...debtComponent.inputs,
+        ...createBaseDebtTreatmentTraceInputs(treatedDebtTraceContext),
+        currentMethodDebtSourcePath: getSingleOrSummarySourcePath(
+          debtComponent.sourcePaths,
+          debtComponent.source
+        ),
+        currentMethodDebtSourcePaths: debtComponent.sourcePaths,
+        preparedDebtSourcePath: TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH,
+        rawNonMortgageDebtAmount: debtComponent.value,
+        preparedNonMortgageDebtAmount: treatedDebtTraceContext.preparedDimeNonMortgageDebtAmount,
+        rawMortgageAmount: mortgage,
+        preparedMortgageAmount: treatedDebtTraceContext.preparedDimeMortgageAmount
+      },
       value: debtComponent.value,
       sourcePaths: debtComponent.sourcePaths
     }));
@@ -2333,7 +2448,15 @@
       label: "Mortgage",
       formula: "mortgageBalance",
       inputs: {
-        mortgageBalance: mortgage
+        mortgageBalance: mortgage,
+        ...createBaseDebtTreatmentTraceInputs(treatedDebtTraceContext),
+        currentMethodDebtSourcePath: "debtPayoff.mortgageBalance",
+        currentMethodDebtSourcePaths: ["debtPayoff.mortgageBalance"],
+        preparedDebtSourcePath: TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH,
+        rawNonMortgageDebtAmount: debtComponent.value,
+        preparedNonMortgageDebtAmount: treatedDebtTraceContext.preparedDimeNonMortgageDebtAmount,
+        rawMortgageAmount: mortgage,
+        preparedMortgageAmount: treatedDebtTraceContext.preparedDimeMortgageAmount
       },
       value: mortgage,
       sourcePaths: ["debtPayoff.mortgageBalance"]
@@ -2550,6 +2673,18 @@
       needsSupportDurationYears,
       survivorContinuesWorking: getPath(model, "survivorScenario.survivorContinuesWorking")
     });
+    const treatedDebtTraceContext = createTreatedDebtPayoffTraceContext(model);
+    const rawDebtPayoffMortgageAmount = toOptionalNumber(getPath(model, "debtPayoff.mortgageBalance"));
+    const rawNeedsMortgageAmount = treatedDebtTraceContext.rawMortgageAmount == null
+      ? rawDebtPayoffMortgageAmount
+      : treatedDebtTraceContext.rawMortgageAmount;
+    const rawNeedsNonMortgageDebtAmount = treatedDebtTraceContext.rawNonMortgageDebtAmount == null
+      ? (
+          rawNeedsMortgageAmount == null
+            ? null
+            : Math.max(0, debtPayoffComponent.value - Math.max(0, rawNeedsMortgageAmount))
+        )
+      : treatedDebtTraceContext.rawNonMortgageDebtAmount;
 
     const grossNeed = debtPayoffComponent.value
       + essentialSupportComponent.value
@@ -2567,7 +2702,26 @@
       formula: debtPayoffComponent.source === "debtPayoff.totalDebtPayoffNeed"
         ? "debtPayoff.totalDebtPayoffNeed"
         : "Sum of available debt payoff fields",
-      inputs: debtPayoffComponent.inputs,
+      inputs: {
+        ...debtPayoffComponent.inputs,
+        ...createBaseDebtTreatmentTraceInputs(treatedDebtTraceContext),
+        currentMethodDebtSourcePath: getSingleOrSummarySourcePath(
+          debtPayoffComponent.sourcePaths,
+          debtPayoffComponent.source
+        ),
+        currentMethodDebtSourcePaths: debtPayoffComponent.sourcePaths,
+        preparedDebtSourcePath: TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH,
+        rawDebtPayoffAmount: debtPayoffComponent.value,
+        rawMortgageAmount: rawNeedsMortgageAmount,
+        rawNonMortgageDebtAmount: rawNeedsNonMortgageDebtAmount,
+        preparedDebtPayoffAmount: treatedDebtTraceContext.preparedNeedsDebtPayoffAmount,
+        preparedMortgagePayoffAmount: treatedDebtTraceContext.preparedNeedsMortgagePayoffAmount,
+        preparedNonMortgageDebtAmount: treatedDebtTraceContext.preparedNeedsNonMortgageDebtAmount,
+        manualTotalDebtPayoffOverride: treatedDebtTraceContext.manualTotalDebtPayoffOverride,
+        manualTotalDebtPayoffAmount: treatedDebtTraceContext.manualTotalDebtPayoffAmount,
+        manualOverrideSource: treatedDebtTraceContext.manualOverrideSource,
+        manualOverridePolicy: "metadata-only"
+      },
       value: debtPayoffComponent.value,
       sourcePaths: debtPayoffComponent.sourcePaths
     }));
