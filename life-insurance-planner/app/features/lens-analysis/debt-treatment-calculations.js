@@ -11,7 +11,7 @@
 
   const CALCULATION_VERSION = 1;
 
-  const MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "support", "custom"]);
+  const MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "support"]);
   const NON_MORTGAGE_TREATMENT_MODES = Object.freeze(["payoff", "exclude", "custom"]);
   const DEBT_CATEGORY_TREATMENT_KEYS = Object.freeze([
     "realEstateSecuredDebt",
@@ -228,6 +228,31 @@
     return fallback;
   }
 
+  function normalizeMortgageTreatmentMode(value, fallback, warnings) {
+    const normalized = toTrimmedString(value);
+    if (!normalized) {
+      return fallback;
+    }
+
+    if (normalized === "custom") {
+      pushWarning(
+        warnings,
+        "mortgage-custom-mode-deprecated-defaulted-to-payoff",
+        "Mortgage custom mode is deprecated until a precise formula exists; payoff mode was used.",
+        { field: "mortgageTreatment.mode", received: value, fallback: "payoff" }
+      );
+      return "payoff";
+    }
+
+    return normalizeMode(
+      normalized,
+      MORTGAGE_TREATMENT_MODES,
+      fallback,
+      "mortgageTreatment.mode",
+      warnings
+    );
+  }
+
   function normalizePayoffPercent(value, fallback, fieldName, warnings) {
     const parsed = toOptionalNumber(value);
     if (parsed == null) {
@@ -421,11 +446,9 @@
         include: typeof mortgageSource.include === "boolean"
           ? mortgageSource.include
           : mortgageDefault.include,
-        mode: normalizeMode(
+        mode: normalizeMortgageTreatmentMode(
           mortgageSource.mode,
-          MORTGAGE_TREATMENT_MODES,
           mortgageDefault.mode,
-          "mortgageTreatment.mode",
           warnings
         ),
         payoffPercent: normalizePayoffPercent(
@@ -697,10 +720,153 @@
     return "otherDebt";
   }
 
-  function calculateAppliedTreatment(debt, treatment, kind, warnings) {
+  function getMortgageSupportFieldValue(source, fieldNames) {
+    const safeSource = isPlainObject(source) ? source : {};
+    const names = Array.isArray(fieldNames) ? fieldNames : [];
+    for (let index = 0; index < names.length; index += 1) {
+      const fieldName = names[index];
+      if (Object.prototype.hasOwnProperty.call(safeSource, fieldName)) {
+        return safeSource[fieldName];
+      }
+    }
+    return null;
+  }
+
+  function normalizeMortgageSupportFacts(source) {
+    const safeSource = isPlainObject(source) ? source : {};
+    return {
+      monthlyMortgagePayment: toOptionalNumber(safeSource.monthlyMortgagePayment),
+      monthlyMortgagePaymentSourcePath: toTrimmedString(safeSource.monthlyMortgagePaymentSourcePath) || null,
+      remainingTermMonths: toOptionalNumber(getMortgageSupportFieldValue(safeSource, [
+        "remainingTermMonths",
+        "mortgageRemainingTermMonths"
+      ])),
+      remainingTermMonthsSourcePath: toTrimmedString(getMortgageSupportFieldValue(safeSource, [
+        "remainingTermMonthsSourcePath",
+        "mortgageRemainingTermMonthsSourcePath"
+      ])) || null
+    };
+  }
+
+  function createMortgageSupportTrace(fields) {
+    const safeFields = isPlainObject(fields) ? fields : {};
+    return {
+      mortgageTreatmentMode: "support",
+      monthlyMortgagePaymentUsed: safeFields.monthlyMortgagePaymentUsed ?? null,
+      monthlyMortgagePaymentSourcePath: safeFields.monthlyMortgagePaymentSourcePath || null,
+      supportYearsRequested: safeFields.supportYearsRequested ?? null,
+      supportMonthsRequested: safeFields.supportMonthsRequested ?? null,
+      supportMonthsUsed: safeFields.supportMonthsUsed ?? null,
+      remainingTermMonths: safeFields.remainingTermMonths ?? null,
+      remainingTermMonthsSourcePath: safeFields.remainingTermMonthsSourcePath || null,
+      remainingTermCapApplied: safeFields.remainingTermCapApplied === true,
+      noCapReason: safeFields.noCapReason || null,
+      noInflationApplied: true,
+      noDiscountingApplied: true,
+      mortgageSupportAmount: safeFields.mortgageSupportAmount ?? null,
+      fallbackReason: safeFields.fallbackReason || null
+    };
+  }
+
+  function applyMortgageSupportFallback(result, rawBalance, warnings, code, message, details, traceFields) {
+    const warning = pushWarning(warnings, code, message, details);
+    result.warningCodes.push(warning.code);
+    result.treatedAmount = rawBalance;
+    result.excludedAmount = 0;
+    result.mortgageSupportTrace = createMortgageSupportTrace({
+      ...traceFields,
+      mortgageSupportAmount: null,
+      fallbackReason: code
+    });
+    return result;
+  }
+
+  function applyMortgageSupportTreatment(result, debt, treatment, warnings, mortgageSupportFacts) {
+    const rawBalance = roundMoney(debt.currentBalance);
+    const supportYears = toOptionalNumber(treatment.paymentSupportYears);
+    const supportMonthsRequested = supportYears == null ? null : supportYears * 12;
+    const monthlyMortgagePayment = toOptionalNumber(mortgageSupportFacts.monthlyMortgagePayment);
+    const remainingTermMonths = toOptionalNumber(mortgageSupportFacts.remainingTermMonths);
+    const hasReliableRemainingTerm = remainingTermMonths != null && remainingTermMonths > 0;
+    const baseTraceFields = {
+      monthlyMortgagePaymentUsed: monthlyMortgagePayment != null && monthlyMortgagePayment >= 0
+        ? monthlyMortgagePayment
+        : null,
+      monthlyMortgagePaymentSourcePath: mortgageSupportFacts.monthlyMortgagePaymentSourcePath,
+      supportYearsRequested: supportYears,
+      supportMonthsRequested,
+      supportMonthsUsed: null,
+      remainingTermMonths,
+      remainingTermMonthsSourcePath: mortgageSupportFacts.remainingTermMonthsSourcePath,
+      remainingTermCapApplied: false,
+      noCapReason: hasReliableRemainingTerm ? null : "remaining-term-missing-or-invalid"
+    };
+
+    if (monthlyMortgagePayment == null || monthlyMortgagePayment < 0) {
+      return applyMortgageSupportFallback(
+        result,
+        rawBalance,
+        warnings,
+        "mortgage-support-payment-unavailable-defaulted-to-payoff",
+        "Mortgage support mode requires a valid monthly mortgage payment; payoff mode was used.",
+        {
+          debtFactId: debt.debtFactId,
+          sourcePath: mortgageSupportFacts.monthlyMortgagePaymentSourcePath || null,
+          received: mortgageSupportFacts.monthlyMortgagePayment
+        },
+        baseTraceFields
+      );
+    }
+
+    if (supportYears == null || supportYears <= 0) {
+      return applyMortgageSupportFallback(
+        result,
+        rawBalance,
+        warnings,
+        "mortgage-support-years-unavailable-defaulted-to-payoff",
+        "Mortgage support mode requires positive support years; payoff mode was used.",
+        {
+          debtFactId: debt.debtFactId,
+          field: "mortgageTreatment.paymentSupportYears",
+          received: treatment.paymentSupportYears
+        },
+        baseTraceFields
+      );
+    }
+
+    const supportMonthsUsed = hasReliableRemainingTerm
+      ? Math.min(supportMonthsRequested, remainingTermMonths)
+      : supportMonthsRequested;
+    const remainingTermCapApplied = hasReliableRemainingTerm && remainingTermMonths < supportMonthsRequested;
+    const noCapReason = remainingTermCapApplied
+      ? null
+      : (
+          hasReliableRemainingTerm
+            ? "remaining-term-not-shorter-than-support-period"
+            : "remaining-term-missing-or-invalid"
+        );
+    const mortgageSupportAmount = roundMoney(monthlyMortgagePayment * supportMonthsUsed);
+
+    result.treatedAmount = mortgageSupportAmount;
+    result.excludedAmount = roundMoney(rawBalance - mortgageSupportAmount);
+    result.mortgageSupportTrace = createMortgageSupportTrace({
+      ...baseTraceFields,
+      supportMonthsUsed,
+      remainingTermCapApplied,
+      noCapReason,
+      mortgageSupportAmount
+    });
+    return result;
+  }
+
+  function calculateAppliedTreatment(debt, treatment, kind, warnings, context) {
     const rawBalance = roundMoney(debt.currentBalance);
     const include = treatment.include !== false;
     const mode = treatment.mode || "payoff";
+    const safeContext = isPlainObject(context) ? context : {};
+    const mortgageSupportFacts = isPlainObject(safeContext.mortgageSupportFacts)
+      ? safeContext.mortgageSupportFacts
+      : {};
     const result = {
       included: include,
       treatmentMode: mode,
@@ -709,7 +875,8 @@
       excludedAmount: 0,
       deferredAmount: 0,
       exclusionReason: null,
-      warningCodes: []
+      warningCodes: [],
+      mortgageSupportTrace: null
     };
 
     if (!include) {
@@ -725,8 +892,11 @@
       return result;
     }
 
-    if ((kind === "mortgage" && (mode === "support" || mode === "custom"))
-      || (kind === "non-mortgage" && mode === "custom")) {
+    if (kind === "mortgage" && mode === "support") {
+      return applyMortgageSupportTreatment(result, debt, treatment, warnings, mortgageSupportFacts);
+    }
+
+    if (kind === "non-mortgage" && mode === "custom") {
       const warning = pushWarning(
         warnings,
         "debt-treatment-mode-deferred",
@@ -752,7 +922,7 @@
   }
 
   function createDebtTraceRow(debt, treatmentKey, applied, isMortgage) {
-    return {
+    const traceRow = {
       debtFactId: debt.debtFactId,
       categoryKey: debt.categoryKey || null,
       typeKey: debt.typeKey || null,
@@ -771,6 +941,12 @@
       exclusionReason: applied.exclusionReason,
       warningCodes: applied.warningCodes.slice()
     };
+
+    if (isPlainObject(applied.mortgageSupportTrace)) {
+      Object.assign(traceRow, clonePlainValue(applied.mortgageSupportTrace));
+    }
+
+    return traceRow;
   }
 
   function getDebtPayoffManualOverrideMetadata(debtPayoff, debtFacts) {
@@ -810,6 +986,7 @@
       : [];
     const source = sourceDebtFacts.length ? "debtFacts" : "debtPayoff-compatibility";
     const sourceDebts = sourceDebtFacts.length ? sourceDebtFacts : fallbackDebts;
+    const mortgageSupportFacts = normalizeMortgageSupportFacts(safeInput.mortgageSupportFacts);
     let primaryMortgageSeen = false;
     const debts = [];
     const trace = [];
@@ -844,7 +1021,8 @@
         normalizedDebt,
         treatment,
         isMortgage ? "mortgage" : "non-mortgage",
-        warnings
+        warnings,
+        { mortgageSupportFacts }
       );
       const traceRow = createDebtTraceRow(normalizedDebt, treatmentKey, applied, isMortgage);
       debts.push(traceRow);

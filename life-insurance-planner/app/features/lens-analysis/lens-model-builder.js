@@ -1316,6 +1316,20 @@
     };
   }
 
+  function createMortgageSupportFacts(lensModel) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const ongoingSupport = isPlainObject(safeLensModel.ongoingSupport)
+      ? safeLensModel.ongoingSupport
+      : {};
+
+    return {
+      monthlyMortgagePayment: ongoingSupport.monthlyMortgagePayment,
+      monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+      mortgageRemainingTermMonths: ongoingSupport.mortgageRemainingTermMonths,
+      mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths"
+    };
+  }
+
   function resolveAnalysisSettings(input) {
     const builderInput = input && typeof input === "object" ? input : {};
     const directAnalysisSettings = isPlainObject(builderInput.analysisSettings)
@@ -1735,6 +1749,7 @@
       debtFacts,
       debtPayoff,
       debtTreatmentAssumptions,
+      mortgageSupportFacts: createMortgageSupportFacts(safeLensModel),
       options: {
         source: "lens-model-preparation",
         consumedByMethods: false

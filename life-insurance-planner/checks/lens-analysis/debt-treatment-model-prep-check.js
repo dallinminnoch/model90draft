@@ -197,21 +197,10 @@ function findTrace(result, key) {
 
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
-    "pages/analysis-setup.html",
-    "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/analysis-setup.js",
-    "app/features/lens-analysis/step-three-analysis-display.js",
+    "app/features/lens-analysis/debt-treatment-calculations.js",
     "app/features/lens-analysis/lens-model-builder.js",
-    "app/features/lens-analysis/schema.js",
-    "pages/analysis-estimate.html",
-    "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
-    "checks/lens-analysis/debt-facts-normalization-check.js",
-    "checks/lens-analysis/debt-taxonomy-library-check.js",
-    "checks/lens-analysis/pmi-debt-records-check.js",
     "checks/lens-analysis/debt-treatment-helper-check.js",
-    "checks/lens-analysis/debt-treatment-model-prep-check.js",
-    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
-    "checks/lens-analysis/step-three-debt-treatment-display-check.js"
+    "checks/lens-analysis/debt-treatment-model-prep-check.js"
   ]);
   const changedFiles = execFileSync("git", ["diff", "--name-only"], {
     cwd: repoRoot,
@@ -297,6 +286,78 @@ assert.ok(
 assert.ok(
   !treatedDebtPayoff.debts.some((debt) => debt.isMortgage === true && debt.treatmentKey === "realEstateSecuredDebt"),
   "Primary mortgage should not route through realEstateSecuredDebt."
+);
+
+const supportTreatmentSettings = createAnalysisSettings({
+  debtTreatmentAssumptions: {
+    schemaVersion: 2,
+    enabled: true,
+    globalTreatmentProfile: "custom",
+    mortgageTreatment: {
+      include: true,
+      mode: "support",
+      payoffPercent: 100,
+      paymentSupportYears: 10
+    },
+    debtCategoryTreatment: createDebtCategoryTreatment(),
+    source: "debt-treatment-model-prep-check-support"
+  }
+});
+const supportSourceData = createSourceData({
+  housingStatus: "Homeowner",
+  monthlyMortgagePaymentOnly: 2000,
+  monthlyMortgagePaymentOnlyManualOverride: true,
+  calculatedMonthlyMortgagePayment: 999999,
+  calculatedMonthlyMortgagePaymentManualOverride: true,
+  mortgageTermRemainingYears: 3,
+  mortgageTermRemainingMonths: 0
+});
+const supportSourceDataBefore = cloneJson(supportSourceData);
+const supportTreatmentSettingsBefore = cloneJson(supportTreatmentSettings);
+const supportProfileRecord = createProfileRecord(supportTreatmentSettings);
+const supportProfileRecordBefore = cloneJson(supportProfileRecord);
+const supportModel = buildModel(context, {
+  sourceData: supportSourceData,
+  analysisSettings: supportTreatmentSettings,
+  profileRecord: supportProfileRecord
+}).lensModel;
+const supportTreatedDebtPayoff = supportModel.treatedDebtPayoff;
+const supportMortgageTrace = supportTreatedDebtPayoff.debts.find((debt) => debt.isMortgage === true);
+
+assert.deepEqual(supportSourceData, supportSourceDataBefore, "Support model builder path must not mutate source data.");
+assert.deepEqual(
+  supportTreatmentSettings,
+  supportTreatmentSettingsBefore,
+  "Support model builder path must not mutate analysis settings."
+);
+assert.deepEqual(supportProfileRecord, supportProfileRecordBefore, "Support model builder path must not mutate profile record.");
+assert.equal(supportModel.ongoingSupport.monthlyMortgagePayment, 2000);
+assert.equal(supportModel.ongoingSupport.mortgageRemainingTermMonths, 36);
+assert.equal(
+  supportModel.ongoingSupport.monthlyHousingSupportCost,
+  999999,
+  "Calculated monthly housing burden can exist without becoming the mortgage support source."
+);
+assert.equal(supportTreatedDebtPayoff.dime.mortgageAmount, 72000);
+assert.equal(supportTreatedDebtPayoff.dime.nonMortgageDebtAmount, 104000);
+assert.equal(supportTreatedDebtPayoff.needs.mortgagePayoffAmount, 72000);
+assert.equal(supportTreatedDebtPayoff.needs.debtPayoffAmount, 176000);
+assert.equal(supportMortgageTrace.mortgageTreatmentMode, "support");
+assert.equal(supportMortgageTrace.monthlyMortgagePaymentUsed, 2000);
+assert.equal(supportMortgageTrace.monthlyMortgagePaymentSourcePath, "ongoingSupport.monthlyMortgagePayment");
+assert.equal(supportMortgageTrace.supportYearsRequested, 10);
+assert.equal(supportMortgageTrace.supportMonthsRequested, 120);
+assert.equal(supportMortgageTrace.supportMonthsUsed, 36);
+assert.equal(supportMortgageTrace.remainingTermMonths, 36);
+assert.equal(supportMortgageTrace.remainingTermCapApplied, true);
+assert.equal(supportMortgageTrace.noCapReason, null);
+assert.equal(supportMortgageTrace.noInflationApplied, true);
+assert.equal(supportMortgageTrace.noDiscountingApplied, true);
+assert.equal(supportMortgageTrace.mortgageSupportAmount, 72000);
+assert.equal(
+  hasWarningCode(supportTreatedDebtPayoff.warnings, "debt-treatment-mode-deferred"),
+  false,
+  "Mortgage support mode should no longer be treated as a deferred helper mode."
 );
 
 const excludedTreatmentSettings = createAnalysisSettings({

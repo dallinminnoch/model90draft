@@ -42,6 +42,12 @@ function hasWarningCode(resultOrWarnings, code) {
   return Array.isArray(warnings) && warnings.some((warning) => warning?.code === code);
 }
 
+function findMortgageDebt(result) {
+  return Array.isArray(result?.debts)
+    ? result.debts.find((debt) => debt?.isMortgage === true)
+    : null;
+}
+
 function createDebtFact(sourceKey, currentBalance, overrides = {}) {
   const categoryBySource = {
     mortgageBalance: "realEstateSecuredDebt",
@@ -209,6 +215,7 @@ function runTreatment(input = {}) {
     debtFacts: input.debtFacts || createBaseDebtFacts(),
     debtPayoff: input.debtPayoff || createDebtPayoff(),
     debtTreatmentAssumptions: input.debtTreatmentAssumptions || createRawEquivalentAssumptions(),
+    mortgageSupportFacts: input.mortgageSupportFacts,
     options: input.options || {}
   });
 }
@@ -384,25 +391,160 @@ assert.equal(manualOverrideResult.metadata.manualTotalDebtPayoffOverride, true);
 assert.equal(manualOverrideResult.metadata.manualTotalDebtPayoffNeed, 999999);
 assert.equal(manualOverrideResult.needs.debtPayoffAmount, 350000, "manual total should be metadata only when debtFacts are present");
 
-const deferredAssumptions = createRawEquivalentAssumptions({
+const nonMortgageCustomDeferredAssumptions = createRawEquivalentAssumptions({
+  enabled: true,
+  mortgageTreatment: {
+    include: true,
+    mode: "payoff",
+    payoffPercent: 100,
+    paymentSupportYears: null
+  },
+  debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
+    unsecuredConsumerDebt: { include: true, mode: "custom", payoffPercent: 25 }
+  })
+});
+const nonMortgageCustomDeferredResult = runTreatment({ debtTreatmentAssumptions: nonMortgageCustomDeferredAssumptions });
+assert.equal(nonMortgageCustomDeferredResult.rawEquivalentDefault, false);
+assert.equal(nonMortgageCustomDeferredResult.treatmentApplied, true);
+assert.equal(nonMortgageCustomDeferredResult.dime.mortgageAmount, 250000);
+assert.equal(nonMortgageCustomDeferredResult.needs.debtPayoffAmount, 350000);
+assert.equal(hasWarningCode(nonMortgageCustomDeferredResult, "debt-treatment-mode-deferred"), true);
+assert.ok(nonMortgageCustomDeferredResult.deferredDebtAmount >= 13000);
+
+const supportAssumptions = createRawEquivalentAssumptions({
   enabled: true,
   mortgageTreatment: {
     include: true,
     mode: "support",
     payoffPercent: 100,
     paymentSupportYears: 10
-  },
-  debtCategoryTreatment: createRawEquivalentDebtCategoryTreatment({
-    unsecuredConsumerDebt: { include: true, mode: "custom", payoffPercent: 25 }
-  })
+  }
 });
-const deferredResult = runTreatment({ debtTreatmentAssumptions: deferredAssumptions });
-assert.equal(deferredResult.rawEquivalentDefault, false);
-assert.equal(deferredResult.treatmentApplied, true);
-assert.equal(deferredResult.dime.mortgageAmount, 250000);
-assert.equal(deferredResult.needs.debtPayoffAmount, 350000);
-assert.equal(hasWarningCode(deferredResult, "debt-treatment-mode-deferred"), true);
-assert.ok(deferredResult.deferredDebtAmount >= 263000);
+const supportResult = runTreatment({
+  debtTreatmentAssumptions: supportAssumptions,
+  mortgageSupportFacts: {
+    monthlyMortgagePayment: 2000,
+    monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+    mortgageRemainingTermMonths: null,
+    mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths",
+    calculatedMonthlyMortgagePayment: 999999
+  }
+});
+const supportMortgage = findMortgageDebt(supportResult);
+assert.equal(supportResult.rawEquivalentDefault, false);
+assert.equal(supportResult.treatmentApplied, true);
+assert.equal(supportResult.dime.mortgageAmount, 240000);
+assert.equal(supportResult.dime.nonMortgageDebtAmount, 100000, "DIME non-mortgage should not change in mortgage support mode.");
+assert.equal(supportResult.needs.mortgagePayoffAmount, 240000);
+assert.equal(supportResult.needs.debtPayoffAmount, 340000);
+assert.equal(hasWarningCode(supportResult, "debt-treatment-mode-deferred"), false);
+assert.equal(supportMortgage.mortgageTreatmentMode, "support");
+assert.equal(supportMortgage.monthlyMortgagePaymentUsed, 2000);
+assert.equal(supportMortgage.monthlyMortgagePaymentSourcePath, "ongoingSupport.monthlyMortgagePayment");
+assert.equal(supportMortgage.supportYearsRequested, 10);
+assert.equal(supportMortgage.supportMonthsRequested, 120);
+assert.equal(supportMortgage.supportMonthsUsed, 120);
+assert.equal(supportMortgage.remainingTermMonths, null);
+assert.equal(supportMortgage.remainingTermCapApplied, false);
+assert.equal(supportMortgage.noCapReason, "remaining-term-missing-or-invalid");
+assert.equal(supportMortgage.noInflationApplied, true);
+assert.equal(supportMortgage.noDiscountingApplied, true);
+assert.equal(supportMortgage.mortgageSupportAmount, 240000);
+
+const cappedSupportResult = runTreatment({
+  debtTreatmentAssumptions: supportAssumptions,
+  mortgageSupportFacts: {
+    monthlyMortgagePayment: 2000,
+    monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+    mortgageRemainingTermMonths: 36,
+    mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths",
+    calculatedMonthlyMortgagePayment: 999999
+  }
+});
+const cappedSupportMortgage = findMortgageDebt(cappedSupportResult);
+assert.equal(cappedSupportResult.dime.mortgageAmount, 72000);
+assert.equal(cappedSupportResult.dime.nonMortgageDebtAmount, 100000);
+assert.equal(cappedSupportResult.needs.mortgagePayoffAmount, 72000);
+assert.equal(cappedSupportResult.needs.debtPayoffAmount, 172000);
+assert.equal(cappedSupportMortgage.supportMonthsRequested, 120);
+assert.equal(cappedSupportMortgage.supportMonthsUsed, 36);
+assert.equal(cappedSupportMortgage.remainingTermMonths, 36);
+assert.equal(cappedSupportMortgage.remainingTermCapApplied, true);
+assert.equal(cappedSupportMortgage.noCapReason, null);
+assert.equal(cappedSupportMortgage.mortgageSupportAmount, 72000);
+
+const invalidRemainingTermSupportResult = runTreatment({
+  debtTreatmentAssumptions: supportAssumptions,
+  mortgageSupportFacts: {
+    monthlyMortgagePayment: 2000,
+    monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+    mortgageRemainingTermMonths: "not-a-number",
+    mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths",
+    calculatedMonthlyMortgagePayment: 999999
+  }
+});
+const invalidRemainingTermMortgage = findMortgageDebt(invalidRemainingTermSupportResult);
+assert.equal(invalidRemainingTermSupportResult.dime.mortgageAmount, 240000);
+assert.equal(invalidRemainingTermMortgage.remainingTermMonths, null);
+assert.equal(invalidRemainingTermMortgage.remainingTermCapApplied, false);
+assert.equal(invalidRemainingTermMortgage.noCapReason, "remaining-term-missing-or-invalid");
+
+const missingPaymentSupportResult = runTreatment({
+  debtTreatmentAssumptions: supportAssumptions,
+  mortgageSupportFacts: {
+    monthlyMortgagePayment: null,
+    monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+    mortgageRemainingTermMonths: 36,
+    mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths"
+  }
+});
+assert.equal(missingPaymentSupportResult.dime.mortgageAmount, 250000);
+assert.equal(missingPaymentSupportResult.needs.debtPayoffAmount, 350000);
+assert.equal(hasWarningCode(missingPaymentSupportResult, "mortgage-support-payment-unavailable-defaulted-to-payoff"), true);
+
+const missingSupportYearsResult = runTreatment({
+  debtTreatmentAssumptions: createRawEquivalentAssumptions({
+    enabled: true,
+    mortgageTreatment: {
+      include: true,
+      mode: "support",
+      payoffPercent: 100,
+      paymentSupportYears: null
+    }
+  }),
+  mortgageSupportFacts: {
+    monthlyMortgagePayment: 2000,
+    monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+    mortgageRemainingTermMonths: 36,
+    mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths"
+  }
+});
+assert.equal(missingSupportYearsResult.dime.mortgageAmount, 250000);
+assert.equal(missingSupportYearsResult.needs.debtPayoffAmount, 350000);
+assert.equal(hasWarningCode(missingSupportYearsResult, "mortgage-support-years-unavailable-defaulted-to-payoff"), true);
+
+const customMortgageResult = runTreatment({
+  debtTreatmentAssumptions: createRawEquivalentAssumptions({
+    enabled: true,
+    mortgageTreatment: {
+      include: true,
+      mode: "custom",
+      payoffPercent: 100,
+      paymentSupportYears: 10
+    }
+  }),
+  mortgageSupportFacts: {
+    monthlyMortgagePayment: 2000,
+    monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+    mortgageRemainingTermMonths: 36,
+    mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths"
+  }
+});
+assert.equal(customMortgageResult.dime.mortgageAmount, 250000);
+assert.equal(customMortgageResult.needs.debtPayoffAmount, 350000);
+assert.equal(findMortgageDebt(customMortgageResult).treatmentMode, "payoff");
+assert.equal(hasWarningCode(customMortgageResult, "mortgage-custom-mode-deprecated-defaulted-to-payoff"), true);
+assert.equal(hasWarningCode(customMortgageResult, "debt-treatment-mode-deferred"), false);
 
 const percentAssumptions = createRawEquivalentAssumptions({
   enabled: true,
@@ -453,19 +595,32 @@ assert.equal(fallbackResult.dime.nonMortgageDebtAmount, 100000);
 const mutationDebtFacts = createBaseDebtFacts();
 const mutationDebtPayoff = createDebtPayoff();
 const mutationAssumptions = createRawEquivalentAssumptions();
+const mutationMortgageSupportFacts = {
+  monthlyMortgagePayment: 2000,
+  monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+  mortgageRemainingTermMonths: 36,
+  mortgageRemainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths"
+};
 const mutationSnapshot = {
   debtFacts: cloneJson(mutationDebtFacts),
   debtPayoff: cloneJson(mutationDebtPayoff),
-  assumptions: cloneJson(mutationAssumptions)
+  assumptions: cloneJson(mutationAssumptions),
+  mortgageSupportFacts: cloneJson(mutationMortgageSupportFacts)
 };
 calculateDebtTreatment({
   debtFacts: mutationDebtFacts,
   debtPayoff: mutationDebtPayoff,
-  debtTreatmentAssumptions: mutationAssumptions
+  debtTreatmentAssumptions: mutationAssumptions,
+  mortgageSupportFacts: mutationMortgageSupportFacts
 });
 assert.deepEqual(mutationDebtFacts, mutationSnapshot.debtFacts, "helper must not mutate debtFacts");
 assert.deepEqual(mutationDebtPayoff, mutationSnapshot.debtPayoff, "helper must not mutate debtPayoff");
 assert.deepEqual(mutationAssumptions, mutationSnapshot.assumptions, "helper must not mutate assumptions");
+assert.deepEqual(
+  mutationMortgageSupportFacts,
+  mutationSnapshot.mortgageSupportFacts,
+  "helper must not mutate mortgageSupportFacts"
+);
 
 assertNoProtectedDiffs();
 
