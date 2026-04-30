@@ -740,7 +740,6 @@
     });
 
     addRoundingIfPresent(settings, analysisSettings, warnings, trace, "methodDefaults");
-    addRoundingIfPresent(settings, analysisSettings, warnings, trace, "recommendationGuardrails");
 
     return settings;
   }
@@ -807,7 +806,6 @@
     applySurvivorSupportSettings(settings, analysisSettings, warnings, trace);
 
     addRoundingIfPresent(settings, analysisSettings, warnings, trace, "methodDefaults");
-    addRoundingIfPresent(settings, analysisSettings, warnings, trace, "recommendationGuardrails");
 
     return settings;
   }
@@ -840,7 +838,6 @@
     });
 
     addRoundingIfPresent(settings, analysisSettings, warnings, trace, "methodDefaults");
-    addRoundingIfPresent(settings, analysisSettings, warnings, trace, "recommendationGuardrails");
 
     return settings;
   }
