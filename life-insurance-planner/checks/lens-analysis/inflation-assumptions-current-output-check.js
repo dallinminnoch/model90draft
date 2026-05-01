@@ -77,6 +77,10 @@ function createLensModel() {
       ]
     },
     finalExpenses: {
+      medicalEndOfLifeCost: 400,
+      funeralAndBurialCost: 300,
+      estateSettlementCost: 200,
+      otherFinalExpenses: 100,
       totalFinalExpenseNeed: 1000
     },
     transitionNeeds: {
@@ -298,8 +302,9 @@ function assertAdapterTraceTruthful(methodSettings) {
   assert.ok(inflationTrace, "Adapter should emit truthful inflation current/future-use trace.");
   assert.match(inflationTrace.message, /current Needs support/);
   assert.match(inflationTrace.message, /current Needs education/);
-  assert.match(inflationTrace.message, /final expense inflation can affect current Needs final expenses/);
-  assert.match(inflationTrace.message, /Healthcare inflation remains saved for future modeling/);
+  assert.match(inflationTrace.message, /healthcare inflation can affect current Needs medical final expense/);
+  assert.match(inflationTrace.message, /final expense inflation can affect current Needs non-medical final expense/);
+  assert.match(inflationTrace.message, /Recurring healthcare expense facts remain raw-only/);
   assert.ok(
     inflationTrace.sourcePaths.includes("analysisSettings.inflationAssumptions"),
     "Adapter inflation trace should point to saved inflation assumptions."
@@ -554,10 +559,19 @@ const healthcareHigh = runAllForAnalysisSettings(adapter, methods, createAnalysi
     finalExpenseInflationRatePercent: 3
   }
 }));
+assert.ok(
+  healthcareHigh.results.needs.components.finalExpenses > healthcareLow.results.needs.components.finalExpenses,
+  "Healthcare inflation should alter current Needs medical final expense when medical final expense exists."
+);
 assert.deepEqual(
-  outputSnapshot(healthcareHigh.results),
-  outputSnapshot(healthcareLow.results),
-  "Healthcare inflation should not alter current DIME, Needs, or HLV outputs."
+  dimeSnapshot(healthcareHigh.results),
+  dimeSnapshot(healthcareLow.results),
+  "Healthcare inflation should not alter DIME output."
+);
+assert.deepEqual(
+  hlvSnapshot(healthcareHigh.results),
+  hlvSnapshot(healthcareLow.results),
+  "Healthcare inflation should not alter HLV output."
 );
 assert.equal(
   healthcareHigh.methodSettings.needsAnalysisSettings.inflationAssumptions.healthcareInflationRatePercent,

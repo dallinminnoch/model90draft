@@ -13,26 +13,34 @@ function readRepoFile(relativePath) {
 }
 
 function createFinalExpenseTrace(overrides = {}) {
-  const currentFinalExpenseAmount = overrides.currentFinalExpenseAmount ?? 10000;
-  const projectedFinalExpenseAmount = overrides.projectedFinalExpenseAmount ?? 31671.99;
+  const projectedFinalExpenseAmount = overrides.projectedFinalExpenseAmount ?? 130390;
   return {
     key: "finalExpenses",
     label: "Final Expenses",
     formula: overrides.applied === false
-      ? "finalExpenses.totalFinalExpenseNeed"
-      : "currentFinalExpenseAmount x (1 + finalExpenseInflationRatePercent / 100) ^ projectionYears",
+      ? "current-dollar final expense buckets"
+      : "medical final expense projected by healthcare inflation plus non-medical final expense projected by final expense inflation",
     value: projectedFinalExpenseAmount,
     sourcePaths: [
-      "finalExpenses.totalFinalExpenseNeed",
+      "protectionModeling.data.medicalEndOfLifeCosts",
+      "protectionModeling.data.funeralBurialEstimate",
+      "settings.inflationAssumptions.healthcareInflationRatePercent",
       "settings.inflationAssumptions.finalExpenseInflationRatePercent",
       "settings.inflationAssumptions.finalExpenseTargetAge",
       "profileFacts.clientDateOfBirth",
       "settings.valuationDate"
     ],
     inputs: {
-      currentFinalExpenseAmount,
+      source: "final-expense-inflation-calculations",
+      sourceMode: "expenseFacts-final-expense-components",
+      currentFinalExpenseAmount: 30000,
       projectedFinalExpenseAmount,
-      totalFinalExpenseNeed: currentFinalExpenseAmount,
+      currentMedicalFinalExpenseAmount: 10000,
+      projectedMedicalFinalExpenseAmount: 67040,
+      currentNonMedicalFinalExpenseAmount: 20000,
+      projectedNonMedicalFinalExpenseAmount: 63350,
+      totalFinalExpenseNeed: 30000,
+      healthcareInflationRatePercent: 5,
       finalExpenseInflationRatePercent: 3,
       finalExpenseTargetAge: 85,
       clientDateOfBirth: "1980-01-01",
@@ -44,9 +52,16 @@ function createFinalExpenseTrace(overrides = {}) {
       currentAge: 46,
       projectionYears: 39,
       applied: true,
-      reason: "final-expense-inflation-applied",
+      medicalApplied: true,
+      nonMedicalApplied: true,
+      reason: "final-expense-bucket-inflation-applied",
       warningCode: null,
-      rateSourcePath: "settings.inflationAssumptions.finalExpenseInflationRatePercent",
+      medicalReason: "final-expense-bucket-inflation-applied",
+      medicalWarningCode: null,
+      nonMedicalReason: "final-expense-bucket-inflation-applied",
+      nonMedicalWarningCode: null,
+      healthcareRateSourcePath: "settings.inflationAssumptions.healthcareInflationRatePercent",
+      finalExpenseRateSourcePath: "settings.inflationAssumptions.finalExpenseInflationRatePercent",
       targetAgeSourcePath: "settings.inflationAssumptions.finalExpenseTargetAge",
       ...overrides
     }
@@ -73,14 +88,7 @@ function createNeedsResult(finalExpenseTrace) {
       survivorIncomeOffset: 0,
       totalOffset: 0
     },
-    assumptions: {
-      needsSupportDurationYears: 5,
-      includeExistingCoverageOffset: false,
-      includeOffsetAssets: false,
-      includeTransitionNeeds: false,
-      includeDiscretionarySupport: false,
-      includeSurvivorIncomeOffset: false
-    },
+    assumptions: {},
     warnings: [],
     trace: [finalExpenseTrace]
   };
@@ -225,12 +233,24 @@ const appliedScenario = renderScenario(createFinalExpenseTrace());
 assert.match(appliedScenario.needsHtml, /Final Expense Projection/);
 assert.match(appliedScenario.needsHtml, /Inflation status/);
 assert.match(appliedScenario.needsHtml, /Applied/);
-assert.match(appliedScenario.needsHtml, /Final expense used/);
-assert.match(appliedScenario.needsHtml, /\$31,672/);
-assert.match(appliedScenario.needsHtml, /Current-dollar final expense/);
+assert.match(appliedScenario.needsHtml, /Combined final expense used/);
+assert.match(appliedScenario.needsHtml, /\$130,390/);
+assert.match(appliedScenario.needsHtml, /Current-dollar total/);
+assert.match(appliedScenario.needsHtml, /\$30,000/);
+assert.match(appliedScenario.needsHtml, /Medical final expense current/);
 assert.match(appliedScenario.needsHtml, /\$10,000/);
-assert.match(appliedScenario.needsHtml, /Inflation rate/);
+assert.match(appliedScenario.needsHtml, /Medical final expense projected/);
+assert.match(appliedScenario.needsHtml, /\$67,040/);
+assert.match(appliedScenario.needsHtml, /Healthcare inflation rate/);
+assert.match(appliedScenario.needsHtml, /5\.00% healthcare inflation/);
+assert.match(appliedScenario.needsHtml, /Non-medical final expense current/);
+assert.match(appliedScenario.needsHtml, /\$20,000/);
+assert.match(appliedScenario.needsHtml, /Non-medical final expense projected/);
+assert.match(appliedScenario.needsHtml, /\$63,350/);
+assert.match(appliedScenario.needsHtml, /Final expense inflation rate/);
 assert.match(appliedScenario.needsHtml, /3\.00% final expense inflation/);
+assert.match(appliedScenario.needsHtml, /Source mode/);
+assert.match(appliedScenario.needsHtml, /expenseFacts final expense components/);
 assert.match(appliedScenario.needsHtml, /Target age/);
 assert.match(appliedScenario.needsHtml, /85/);
 assert.match(appliedScenario.needsHtml, /Client DOB status\/source/);
@@ -241,16 +261,23 @@ assert.match(appliedScenario.needsHtml, /Current age/);
 assert.match(appliedScenario.needsHtml, /46/);
 assert.match(appliedScenario.needsHtml, /Projection years/);
 assert.match(appliedScenario.needsHtml, /39 years/);
-assert.doesNotMatch(appliedScenario.needsHtml, /Healthcare inflation/);
+assert.doesNotMatch(appliedScenario.needsHtml, /ongoingHealthcare/);
+assert.doesNotMatch(appliedScenario.needsHtml, /Medical Out-of-Pocket/);
 assert.doesNotMatch(appliedScenario.dimeHtml, /Final Expense Projection/);
 assert.doesNotMatch(appliedScenario.hlvHtml, /Final Expense Projection/);
 
 const disabledScenario = renderScenario(createFinalExpenseTrace({
-  projectedFinalExpenseAmount: 10000,
-  value: 10000,
+  projectedFinalExpenseAmount: 30000,
+  value: 30000,
   applied: false,
+  medicalApplied: false,
+  nonMedicalApplied: false,
+  projectedMedicalFinalExpenseAmount: 10000,
+  projectedNonMedicalFinalExpenseAmount: 20000,
   reason: "inflation-assumptions-disabled",
   warningCode: "final-expense-inflation-disabled",
+  medicalReason: "inflation-assumptions-disabled",
+  nonMedicalReason: "inflation-assumptions-disabled",
   projectionYears: 0
 }));
 assert.match(disabledScenario.needsHtml, /Final Expense Projection/);
@@ -259,44 +286,61 @@ assert.match(disabledScenario.needsHtml, /Reason/);
 assert.match(disabledScenario.needsHtml, /Inflation assumptions disabled/);
 
 const missingDobScenario = renderScenario(createFinalExpenseTrace({
-  projectedFinalExpenseAmount: 10000,
-  value: 10000,
+  projectedFinalExpenseAmount: 30000,
+  value: 30000,
   applied: false,
+  medicalApplied: false,
+  nonMedicalApplied: false,
+  projectedMedicalFinalExpenseAmount: 10000,
+  projectedNonMedicalFinalExpenseAmount: 20000,
   clientDateOfBirth: null,
   clientDateOfBirthSourcePath: null,
   clientDateOfBirthStatus: "missing",
   currentAge: null,
   projectionYears: 0,
   reason: "client-date-of-birth-missing",
+  medicalReason: "client-date-of-birth-missing",
+  nonMedicalReason: "client-date-of-birth-missing",
   warningCode: "missing-client-date-of-birth"
 }));
 assert.match(missingDobScenario.needsHtml, /Current-dollar/);
 assert.match(missingDobScenario.needsHtml, /Missing/);
 assert.match(missingDobScenario.needsHtml, /Client date of birth missing/);
 
-const invalidDobScenario = renderScenario(createFinalExpenseTrace({
-  projectedFinalExpenseAmount: 10000,
-  value: 10000,
-  applied: false,
-  clientDateOfBirth: null,
-  clientDateOfBirthSourcePath: "profileRecord.dateOfBirth",
-  clientDateOfBirthStatus: "invalid",
-  currentAge: null,
-  projectionYears: 0,
-  reason: "client-date-of-birth-invalid",
-  warningCode: "invalid-client-date-of-birth"
+const partialScenario = renderScenario(createFinalExpenseTrace({
+  projectedFinalExpenseAmount: 34951.44,
+  projectedMedicalFinalExpenseAmount: 10000,
+  projectedNonMedicalFinalExpenseAmount: 24951.44,
+  applied: true,
+  medicalApplied: false,
+  nonMedicalApplied: true,
+  reason: "partial-final-expense-bucket-inflation-applied",
+  medicalReason: "healthcare-inflation-rate-unavailable",
+  medicalWarningCode: "invalid-healthcare-inflation-rate"
 }));
-assert.match(invalidDobScenario.needsHtml, /Invalid \(profileRecord.dateOfBirth\)/);
-assert.match(invalidDobScenario.needsHtml, /Client date of birth invalid/);
+assert.match(partialScenario.needsHtml, /Partially applied/);
+assert.match(partialScenario.needsHtml, /Medical reason/);
+assert.match(partialScenario.needsHtml, /Healthcare inflation rate unavailable/);
+
+const fallbackScenario = renderScenario(createFinalExpenseTrace({
+  sourceMode: "finalExpenses-fallback"
+}));
+assert.match(fallbackScenario.needsHtml, /finalExpenses fallback/);
 
 const targetAgeNotGreaterScenario = renderScenario(createFinalExpenseTrace({
-  projectedFinalExpenseAmount: 10000,
-  value: 10000,
+  projectedFinalExpenseAmount: 30000,
+  value: 30000,
   applied: false,
+  medicalApplied: false,
+  nonMedicalApplied: false,
+  projectedMedicalFinalExpenseAmount: 10000,
+  projectedNonMedicalFinalExpenseAmount: 20000,
   finalExpenseTargetAge: 40,
   currentAge: 46,
   projectionYears: 0,
   reason: "target-age-not-greater-than-current-age",
+  medicalReason: "target-age-not-greater-than-current-age",
+  nonMedicalReason: "target-age-not-greater-than-current-age",
   warningCode: "final-expense-target-age-not-greater-than-current-age"
 }));
 assert.match(targetAgeNotGreaterScenario.needsHtml, /Target age not greater than current age/);
@@ -305,7 +349,9 @@ assert.match(targetAgeNotGreaterScenario.needsHtml, /0 years/);
 
 const source = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
 assert.equal(/Math\.pow/.test(source), false, "Step 3 should not calculate final expense projection.");
-assert.equal(/finalExpenseInflationRatePercent\s*\/\s*100/.test(source), false, "Step 3 should not calculate inflation factors.");
-assert.equal(/calculateFinalExpenseInflationProjection/.test(source), false, "Step 3 should not call the final expense helper.");
+assert.equal(/healthcareInflationRatePercent\s*\/\s*100/.test(source), false, "Step 3 should not calculate healthcare inflation factors.");
+assert.equal(/finalExpenseInflationRatePercent\s*\/\s*100/.test(source), false, "Step 3 should not calculate final expense inflation factors.");
+assert.equal(/calculateFinalExpenseBucketInflationProjection/.test(source), false, "Step 3 should not call the split final expense helper.");
+assert.equal(/calculateFinalExpenseInflationProjection/.test(source), false, "Step 3 should not call the legacy final expense helper.");
 
 console.log("step-three-final-expense-inflation-display-check passed");

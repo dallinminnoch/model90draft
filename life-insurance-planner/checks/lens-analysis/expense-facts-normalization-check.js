@@ -580,34 +580,54 @@ if (modelWithoutExpenseFacts.normalizationMetadata) {
 const outputWithExpenseFacts = runMethodSnapshot(context, lensModel, methodSettings);
 const outputWithoutExpenseFacts = runMethodSnapshot(context, modelWithoutExpenseFacts, methodSettings);
 assert.deepEqual(
-  cloneJson(outputWithExpenseFacts),
-  cloneJson(outputWithoutExpenseFacts),
-  "DIME, Needs, HLV, and final expense inflation trace should remain unchanged when expenseFacts is removed"
+  cloneJson(outputWithExpenseFacts.dime),
+  cloneJson(outputWithoutExpenseFacts.dime),
+  "DIME should remain unchanged when expenseFacts is removed"
+);
+assert.deepEqual(
+  cloneJson(outputWithExpenseFacts.hlv),
+  cloneJson(outputWithoutExpenseFacts.hlv),
+  "HLV should remain unchanged when expenseFacts is removed"
+);
+assert.equal(
+  outputWithExpenseFacts.needs.components.finalExpenses,
+  outputWithoutExpenseFacts.needs.components.finalExpenses,
+  "Scalar expenseFacts and finalExpenses fallback should produce the same Needs final expense when their scalar values match"
 );
 assert.ok(
   outputWithExpenseFacts.needs.components.finalExpenses > lensModel.finalExpenses.totalFinalExpenseNeed,
-  "final expense inflation should still apply from existing finalExpenses behavior"
-);
-assert.ok(
-  JSON.stringify(outputWithExpenseFacts.needs.finalExpensesTrace).includes("finalExpenses.totalFinalExpenseNeed"),
-  "Needs final expense trace should remain sourced from finalExpenses"
+  "final expense inflation should still apply from scalar expenseFacts"
 );
 assert.equal(
-  JSON.stringify(outputWithExpenseFacts.needs.finalExpensesTrace).includes("expenseFacts"),
-  false,
-  "Needs final expense trace should not source expenseFacts in this pass"
+  outputWithExpenseFacts.needs.finalExpensesTrace.inputs.sourceMode,
+  "expenseFacts-final-expense-components",
+  "Needs final expense trace should source expenseFacts final expense components when available"
+);
+assert.equal(
+  outputWithoutExpenseFacts.needs.finalExpensesTrace.inputs.sourceMode,
+  "finalExpenses-fallback",
+  "Needs final expense trace should fall back to finalExpenses when expenseFacts are unavailable"
 );
 
 const outputWithRepeatableExpenseFacts = runMethodSnapshot(context, repeatableExpenseModel, repeatableMethodSettings);
 assert.deepEqual(
-  cloneJson(outputWithRepeatableExpenseFacts),
-  cloneJson(outputWithExpenseFacts),
-  "DIME, Needs, HLV, and final expense inflation should remain unchanged when repeatable expenseFacts exist"
+  cloneJson(outputWithRepeatableExpenseFacts.dime),
+  cloneJson(outputWithExpenseFacts.dime),
+  "DIME should remain unchanged when repeatable expenseFacts exist"
+);
+assert.deepEqual(
+  cloneJson(outputWithRepeatableExpenseFacts.hlv),
+  cloneJson(outputWithExpenseFacts.hlv),
+  "HLV should remain unchanged when repeatable expenseFacts exist"
+);
+assert.ok(
+  outputWithRepeatableExpenseFacts.needs.components.finalExpenses > outputWithExpenseFacts.needs.components.finalExpenses,
+  "Repeatable final-expense component facts should now affect Needs final expenses through expenseFacts"
 );
 assert.equal(
-  JSON.stringify(outputWithRepeatableExpenseFacts.needs.finalExpensesTrace).includes("expenseFacts"),
-  false,
-  "Needs final expense trace should not source repeatable expenseFacts"
+  outputWithRepeatableExpenseFacts.needs.finalExpensesTrace.inputs.sourceMode,
+  "expenseFacts-final-expense-components",
+  "Needs final expense trace should source repeatable final-expense expenseFacts"
 );
 
 const lowHealthcareSettings = createAnalysisSettings({
@@ -622,18 +642,32 @@ const highHealthcareSettings = createAnalysisSettings({
 });
 const lowHealthcareModel = buildModel(context, sourceData, lowHealthcareSettings).lensModel;
 const highHealthcareModel = buildModel(context, sourceData, highHealthcareSettings).lensModel;
-assert.deepEqual(
-  cloneJson(runMethodSnapshot(context, lowHealthcareModel, createMethodSettings(context, lowHealthcareModel, lowHealthcareSettings))),
-  cloneJson(runMethodSnapshot(context, highHealthcareModel, createMethodSettings(context, highHealthcareModel, highHealthcareSettings))),
-  "healthcare inflation should remain inactive for current DIME, Needs, and HLV outputs"
+const lowHealthcareSnapshot = runMethodSnapshot(context, lowHealthcareModel, createMethodSettings(context, lowHealthcareModel, lowHealthcareSettings));
+const highHealthcareSnapshot = runMethodSnapshot(context, highHealthcareModel, createMethodSettings(context, highHealthcareModel, highHealthcareSettings));
+assert.ok(
+  highHealthcareSnapshot.needs.components.finalExpenses > lowHealthcareSnapshot.needs.components.finalExpenses,
+  "healthcare inflation should affect current Needs medical final expense"
 );
+assert.deepEqual(cloneJson(highHealthcareSnapshot.dime), cloneJson(lowHealthcareSnapshot.dime));
+assert.deepEqual(cloneJson(highHealthcareSnapshot.hlv), cloneJson(lowHealthcareSnapshot.hlv));
 const lowHealthcareRepeatableModel = buildModel(context, repeatableExpenseSource, lowHealthcareSettings).lensModel;
 const highHealthcareRepeatableModel = buildModel(context, repeatableExpenseSource, highHealthcareSettings).lensModel;
-assert.deepEqual(
-  cloneJson(runMethodSnapshot(context, lowHealthcareRepeatableModel, createMethodSettings(context, lowHealthcareRepeatableModel, lowHealthcareSettings))),
-  cloneJson(runMethodSnapshot(context, highHealthcareRepeatableModel, createMethodSettings(context, highHealthcareRepeatableModel, highHealthcareSettings))),
-  "healthcare inflation should remain inactive even when healthcare-sensitive repeatable expenseFacts exist"
+const lowHealthcareRepeatableSnapshot = runMethodSnapshot(
+  context,
+  lowHealthcareRepeatableModel,
+  createMethodSettings(context, lowHealthcareRepeatableModel, lowHealthcareSettings)
 );
+const highHealthcareRepeatableSnapshot = runMethodSnapshot(
+  context,
+  highHealthcareRepeatableModel,
+  createMethodSettings(context, highHealthcareRepeatableModel, highHealthcareSettings)
+);
+assert.ok(
+  highHealthcareRepeatableSnapshot.needs.components.finalExpenses > lowHealthcareRepeatableSnapshot.needs.components.finalExpenses,
+  "healthcare inflation should affect healthcare-sensitive final-expense components"
+);
+assert.deepEqual(cloneJson(highHealthcareRepeatableSnapshot.dime), cloneJson(lowHealthcareRepeatableSnapshot.dime));
+assert.deepEqual(cloneJson(highHealthcareRepeatableSnapshot.hlv), cloneJson(lowHealthcareRepeatableSnapshot.hlv));
 
 [
   "pages/analysis-estimate.html",

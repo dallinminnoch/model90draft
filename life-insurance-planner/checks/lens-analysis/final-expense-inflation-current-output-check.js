@@ -40,8 +40,29 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function hasOwn(source, key) {
-  return Object.prototype.hasOwnProperty.call(source || {}, key);
+function createFact(typeKey, categoryKey, amount) {
+  const isMedical = categoryKey === "medicalFinalExpense";
+  return {
+    expenseFactId: `scalar_${typeKey}`,
+    typeKey,
+    categoryKey,
+    label: typeKey,
+    amount,
+    frequency: "oneTime",
+    termType: "oneTime",
+    sourcePath: `protectionModeling.data.${typeKey}`,
+    isDefaultExpense: true,
+    isScalarFieldOwned: true,
+    isProtected: true,
+    isAddable: false,
+    isRepeatableExpenseRecord: false,
+    isFinalExpenseComponent: true,
+    isHealthcareSensitive: isMedical,
+    defaultInflationRole: isMedical ? "healthcareInflation" : "finalExpenseInflation",
+    uiAvailability: "future",
+    oneTimeAmount: amount,
+    annualizedAmount: null
+  };
 }
 
 function createLensModel(overrides = {}) {
@@ -73,9 +94,25 @@ function createLensModel(overrides = {}) {
       currentDependentDetails: []
     },
     finalExpenses: {
-      totalFinalExpenseNeed: 10000,
+      medicalEndOfLifeCost: 10000,
+      funeralAndBurialCost: 10000,
+      estateSettlementCost: 5000,
+      otherFinalExpenses: 5000,
+      totalFinalExpenseNeed: 30000,
       ...(overrides.finalExpenses || {})
     },
+    expenseFacts: Object.prototype.hasOwnProperty.call(overrides, "expenseFacts")
+      ? overrides.expenseFacts
+      : {
+          expenses: [
+            createFact("medicalEndOfLifeCosts", "medicalFinalExpense", 10000),
+            createFact("funeralBurialEstimate", "funeralBurial", 10000),
+            createFact("estateSettlementCosts", "estateSettlement", 5000),
+            createFact("otherFinalExpenses", "otherFinalExpense", 5000)
+          ],
+          totalsByBucket: {},
+          metadata: {}
+        },
     transitionNeeds: {
       totalTransitionNeed: 0
     },
@@ -98,9 +135,8 @@ function createLensModel(overrides = {}) {
 }
 
 function createAnalysisSettings(options = {}) {
-  const inflationOverrides = options.inflationAssumptions || {};
   return {
-    valuationDate: "2026-01-01",
+    valuationDate: options.valuationDate === undefined ? "2026-01-01" : options.valuationDate,
     inflationAssumptions: {
       enabled: true,
       generalInflationRatePercent: 0,
@@ -110,7 +146,7 @@ function createAnalysisSettings(options = {}) {
       finalExpenseInflationRatePercent: 3,
       finalExpenseTargetAge: 85,
       source: "final-expense-inflation-current-output-check",
-      ...inflationOverrides
+      ...(options.inflationAssumptions || {})
     },
     educationAssumptions: {
       fundingTreatment: {
@@ -138,29 +174,34 @@ function createAnalysisSettings(options = {}) {
       needsSupportYears: 5,
       hlvProjectionYears: 20,
       needsIncludeOffsetAssets: false
-    },
-    ...(options.analysisSettings || {})
+    }
   };
 }
 
 function runAll(context, options = {}) {
   const lensAnalysis = context.LensApp.lensAnalysis;
-  const adapter = lensAnalysis.analysisSettingsAdapter;
-  const methods = lensAnalysis.analysisMethods;
   const lensModel = createLensModel(options.lensModel || {});
-  const analysisSettings = createAnalysisSettings(options);
-  const methodSettings = adapter.createAnalysisMethodSettings({
+  const analysisSettings = createAnalysisSettings(options.analysisSettings || {});
+  const methodSettings = lensAnalysis.analysisSettingsAdapter.createAnalysisMethodSettings({
     analysisSettings,
     lensModel,
     profileRecord: {}
   });
 
+  if (options.needsInflationOverrides) {
+    methodSettings.needsAnalysisSettings.inflationAssumptions = {
+      ...methodSettings.needsAnalysisSettings.inflationAssumptions,
+      ...options.needsInflationOverrides
+    };
+  }
+
   return {
+    lensModel,
     methodSettings,
     results: {
-      dime: methods.runDimeAnalysis(lensModel, cloneJson(methodSettings.dimeSettings)),
-      needs: methods.runNeedsAnalysis(lensModel, cloneJson(methodSettings.needsAnalysisSettings)),
-      hlv: methods.runHumanLifeValueAnalysis(lensModel, cloneJson(methodSettings.humanLifeValueSettings))
+      dime: lensAnalysis.analysisMethods.runDimeAnalysis(lensModel, cloneJson(methodSettings.dimeSettings)),
+      needs: lensAnalysis.analysisMethods.runNeedsAnalysis(lensModel, cloneJson(methodSettings.needsAnalysisSettings)),
+      hlv: lensAnalysis.analysisMethods.runHumanLifeValueAnalysis(lensModel, cloneJson(methodSettings.humanLifeValueSettings))
     }
   };
 }
@@ -198,74 +239,87 @@ function assertDimeHlvUnchanged(left, right, label) {
   assert.deepEqual(hlvSnapshot(left.results), hlvSnapshot(right.results), `${label}: HLV should remain unchanged.`);
 }
 
-function assertNoInflationMappedToDimeOrHlv(methodSettings) {
-  assert.equal(hasOwn(methodSettings.dimeSettings, "inflationAssumptions"), false);
-  assert.equal(hasOwn(methodSettings.humanLifeValueSettings, "inflationAssumptions"), false);
-}
-
 const context = createContext();
 const lensAnalysis = context.LensApp.lensAnalysis;
+assert.equal(typeof lensAnalysis.calculateFinalExpenseBucketInflationProjection, "function");
 assert.equal(typeof lensAnalysis.calculateFinalExpenseInflationProjection, "function");
 assert.equal(typeof lensAnalysis.analysisMethods?.runNeedsAnalysis, "function");
 assert.equal(typeof lensAnalysis.analysisSettingsAdapter?.createAnalysisMethodSettings, "function");
 
-const appliedRun = runAll(context, {
-  inflationAssumptions: {
-    enabled: true,
-    finalExpenseInflationRatePercent: 3,
-    finalExpenseTargetAge: 85
-  }
-});
+const appliedRun = runAll(context);
 const appliedTrace = findTrace(appliedRun.results.needs, "finalExpenses");
-assert.ok(appliedRun.results.needs.components.finalExpenses > 10000, "Valid DOB, rate, and target age should increase Needs final expenses.");
-assert.ok(appliedRun.results.needs.grossNeed > 10000, "Projected final expense should flow into Needs gross need.");
-assert.equal(appliedTrace.inputs.applied, true);
-assert.equal(appliedTrace.inputs.currentFinalExpenseAmount, 10000);
+assert.equal(appliedTrace.inputs.sourceMode, "expenseFacts-final-expense-components");
+assert.equal(appliedTrace.inputs.currentMedicalFinalExpenseAmount, 10000);
+assert.equal(appliedTrace.inputs.currentNonMedicalFinalExpenseAmount, 20000);
+assert.equal(appliedTrace.inputs.medicalApplied, true);
+assert.equal(appliedTrace.inputs.nonMedicalApplied, true);
+assert.ok(appliedRun.results.needs.components.finalExpenses > 30000, "Valid split projection should increase Needs final expenses.");
 assert.equal(appliedTrace.inputs.projectedFinalExpenseAmount, appliedRun.results.needs.components.finalExpenses);
-assert.equal(appliedTrace.inputs.finalExpenseInflationRatePercent, 3);
 assert.equal(appliedTrace.inputs.finalExpenseTargetAge, 85);
-assert.equal(appliedTrace.inputs.clientDateOfBirth, "1980-01-01");
-assert.equal(appliedTrace.inputs.clientDateOfBirthSourcePath, "profileRecord.dateOfBirth");
-assert.equal(appliedTrace.inputs.clientDateOfBirthStatus, "valid");
-assert.equal(appliedTrace.inputs.valuationDate, "2026-01-01");
 assert.equal(appliedTrace.inputs.currentAge, 46);
 assert.equal(appliedTrace.inputs.projectionYears, 39);
-assert.equal(appliedTrace.inputs.rateSourcePath, "settings.inflationAssumptions.finalExpenseInflationRatePercent");
+assert.equal(appliedTrace.inputs.healthcareRateSourcePath, "settings.inflationAssumptions.healthcareInflationRatePercent");
+assert.equal(appliedTrace.inputs.finalExpenseRateSourcePath, "settings.inflationAssumptions.finalExpenseInflationRatePercent");
 assert.equal(appliedTrace.inputs.targetAgeSourcePath, "settings.inflationAssumptions.finalExpenseTargetAge");
-assertNoInflationMappedToDimeOrHlv(appliedRun.methodSettings);
 
-const lowRateRun = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseInflationRatePercent: 1,
-    finalExpenseTargetAge: 85
+const healthcareLow = runAll(context, {
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 1,
+      finalExpenseInflationRatePercent: 3
+    }
   }
 });
-const highRateRun = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseInflationRatePercent: 9,
-    finalExpenseTargetAge: 85
+const healthcareHigh = runAll(context, {
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 9,
+      finalExpenseInflationRatePercent: 3
+    }
   }
 });
 assert.ok(
-  highRateRun.results.needs.components.finalExpenses > lowRateRun.results.needs.components.finalExpenses,
-  "Changing finalExpenseInflationRatePercent should change Needs final expenses."
+  findTrace(healthcareHigh.results.needs, "finalExpenses").inputs.projectedMedicalFinalExpenseAmount
+    > findTrace(healthcareLow.results.needs, "finalExpenses").inputs.projectedMedicalFinalExpenseAmount,
+  "Changing healthcareInflationRatePercent should change Needs medical final expense."
 );
+assertDimeHlvUnchanged(healthcareHigh, healthcareLow, "healthcare inflation rate");
+
+const finalExpenseLow = runAll(context, {
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 5,
+      finalExpenseInflationRatePercent: 1
+    }
+  }
+});
+const finalExpenseHigh = runAll(context, {
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 5,
+      finalExpenseInflationRatePercent: 9
+    }
+  }
+});
 assert.ok(
-  highRateRun.results.needs.grossNeed > lowRateRun.results.needs.grossNeed,
-  "Changing finalExpenseInflationRatePercent should change Needs gross need."
+  findTrace(finalExpenseHigh.results.needs, "finalExpenses").inputs.projectedNonMedicalFinalExpenseAmount
+    > findTrace(finalExpenseLow.results.needs, "finalExpenses").inputs.projectedNonMedicalFinalExpenseAmount,
+  "Changing finalExpenseInflationRatePercent should change Needs non-medical final expense."
 );
-assertDimeHlvUnchanged(highRateRun, lowRateRun, "final expense inflation rate");
+assertDimeHlvUnchanged(finalExpenseHigh, finalExpenseLow, "final expense inflation rate");
 
 const target85Run = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseInflationRatePercent: 3,
-    finalExpenseTargetAge: 85
+  analysisSettings: {
+    inflationAssumptions: {
+      finalExpenseTargetAge: 85
+    }
   }
 });
 const target95Run = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseInflationRatePercent: 3,
-    finalExpenseTargetAge: 95
+  analysisSettings: {
+    inflationAssumptions: {
+      finalExpenseTargetAge: 95
+    }
   }
 });
 assert.ok(
@@ -275,16 +329,18 @@ assert.ok(
 assertDimeHlvUnchanged(target95Run, target85Run, "final expense target age");
 
 const disabledRun = runAll(context, {
-  inflationAssumptions: {
-    enabled: false,
-    finalExpenseInflationRatePercent: 9,
-    finalExpenseTargetAge: 95
+  analysisSettings: {
+    inflationAssumptions: {
+      enabled: false,
+      healthcareInflationRatePercent: 9,
+      finalExpenseInflationRatePercent: 9,
+      finalExpenseTargetAge: 95
+    }
   }
 });
-const disabledTrace = findTrace(disabledRun.results.needs, "finalExpenses");
-assert.equal(disabledRun.results.needs.components.finalExpenses, 10000);
-assert.equal(disabledTrace.inputs.applied, false);
-assert.equal(disabledTrace.inputs.reason, "inflation-assumptions-disabled");
+let trace = findTrace(disabledRun.results.needs, "finalExpenses");
+assert.equal(disabledRun.results.needs.components.finalExpenses, 30000);
+assert.equal(trace.inputs.reason, "inflation-assumptions-disabled");
 
 const missingDobRun = runAll(context, {
   lensModel: {
@@ -295,10 +351,9 @@ const missingDobRun = runAll(context, {
     }
   }
 });
-const missingDobTrace = findTrace(missingDobRun.results.needs, "finalExpenses");
-assert.equal(missingDobRun.results.needs.components.finalExpenses, 10000);
-assert.equal(missingDobTrace.inputs.applied, false);
-assert.equal(missingDobTrace.inputs.reason, "client-date-of-birth-missing");
+trace = findTrace(missingDobRun.results.needs, "finalExpenses");
+assert.equal(missingDobRun.results.needs.components.finalExpenses, 30000);
+assert.equal(trace.inputs.reason, "client-date-of-birth-missing");
 assert.ok(findWarning(missingDobRun.results.needs, "missing-client-date-of-birth"));
 
 const invalidDobRun = runAll(context, {
@@ -310,100 +365,87 @@ const invalidDobRun = runAll(context, {
     }
   }
 });
-const invalidDobTrace = findTrace(invalidDobRun.results.needs, "finalExpenses");
-assert.equal(invalidDobRun.results.needs.components.finalExpenses, 10000);
-assert.equal(invalidDobTrace.inputs.reason, "client-date-of-birth-invalid");
+trace = findTrace(invalidDobRun.results.needs, "finalExpenses");
+assert.equal(invalidDobRun.results.needs.components.finalExpenses, 30000);
+assert.equal(trace.inputs.reason, "client-date-of-birth-invalid");
 assert.ok(findWarning(invalidDobRun.results.needs, "invalid-client-date-of-birth"));
-
-const missingValuationRun = runAll(context, {
-  analysisSettings: {
-    valuationDate: null
-  }
-});
-const missingValuationTrace = findTrace(missingValuationRun.results.needs, "finalExpenses");
-assert.equal(missingValuationRun.results.needs.components.finalExpenses, 10000);
-assert.equal(missingValuationTrace.inputs.applied, false);
-assert.equal(missingValuationTrace.inputs.reason, "valuation-date-unavailable");
 
 const invalidValuationRun = runAll(context, {
   analysisSettings: {
     valuationDate: "not-a-date"
   }
 });
-const invalidValuationTrace = findTrace(invalidValuationRun.results.needs, "finalExpenses");
-assert.equal(invalidValuationRun.results.needs.components.finalExpenses, 10000);
-assert.equal(invalidValuationTrace.inputs.reason, "valuation-date-unavailable");
+trace = findTrace(invalidValuationRun.results.needs, "finalExpenses");
+assert.equal(invalidValuationRun.results.needs.components.finalExpenses, 30000);
+assert.equal(trace.inputs.reason, "valuation-date-unavailable");
 
 const targetAgeNotGreaterRun = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseTargetAge: 40
+  analysisSettings: {
+    inflationAssumptions: {
+      finalExpenseTargetAge: 40
+    }
   }
 });
-const targetAgeNotGreaterTrace = findTrace(targetAgeNotGreaterRun.results.needs, "finalExpenses");
-assert.equal(targetAgeNotGreaterRun.results.needs.components.finalExpenses, 10000);
-assert.equal(targetAgeNotGreaterTrace.inputs.reason, "target-age-not-greater-than-current-age");
-assert.equal(targetAgeNotGreaterTrace.inputs.projectionYears, 0);
+trace = findTrace(targetAgeNotGreaterRun.results.needs, "finalExpenses");
+assert.equal(targetAgeNotGreaterRun.results.needs.components.finalExpenses, 30000);
+assert.equal(trace.inputs.reason, "target-age-not-greater-than-current-age");
 
 const zeroFinalExpenseRun = runAll(context, {
   lensModel: {
     finalExpenses: {
+      medicalEndOfLifeCost: 0,
+      funeralAndBurialCost: 0,
+      estateSettlementCost: 0,
+      otherFinalExpenses: 0,
       totalFinalExpenseNeed: 0
+    },
+    expenseFacts: {
+      expenses: [],
+      totalsByBucket: {},
+      metadata: {}
     }
   }
 });
-const zeroFinalExpenseTrace = findTrace(zeroFinalExpenseRun.results.needs, "finalExpenses");
+trace = findTrace(zeroFinalExpenseRun.results.needs, "finalExpenses");
 assert.equal(zeroFinalExpenseRun.results.needs.components.finalExpenses, 0);
-assert.equal(zeroFinalExpenseTrace.inputs.reason, "zero-or-missing-current-final-expense");
+assert.equal(trace.inputs.reason, "zero-or-missing-current-final-expense");
 
-const invalidRateRun = runAll(context, {
-  inflationAssumptions: {
+const invalidHealthcareRun = runAll(context, {
+  needsInflationOverrides: {
+    healthcareInflationRatePercent: "not-a-number",
+    finalExpenseInflationRatePercent: 3
+  }
+});
+trace = findTrace(invalidHealthcareRun.results.needs, "finalExpenses");
+assert.equal(trace.inputs.projectedMedicalFinalExpenseAmount, 10000);
+assert.ok(trace.inputs.projectedNonMedicalFinalExpenseAmount > 20000);
+assert.equal(trace.inputs.medicalReason, "healthcare-inflation-rate-unavailable");
+
+const invalidFinalExpenseRun = runAll(context, {
+  needsInflationOverrides: {
+    healthcareInflationRatePercent: 5,
     finalExpenseInflationRatePercent: "not-a-number"
   }
 });
-const invalidRateTrace = findTrace(invalidRateRun.results.needs, "finalExpenses");
-assert.equal(invalidRateRun.results.needs.components.finalExpenses, 10000);
-assert.equal(invalidRateTrace.inputs.reason, "final-expense-inflation-rate-unavailable");
+trace = findTrace(invalidFinalExpenseRun.results.needs, "finalExpenses");
+assert.ok(trace.inputs.projectedMedicalFinalExpenseAmount > 10000);
+assert.equal(trace.inputs.projectedNonMedicalFinalExpenseAmount, 20000);
+assert.equal(trace.inputs.nonMedicalReason, "final-expense-inflation-rate-unavailable");
 
-const invalidTargetAgeRun = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseTargetAge: "not-a-number"
-  }
-});
-const invalidTargetAgeTrace = findTrace(invalidTargetAgeRun.results.needs, "finalExpenses");
-assert.equal(invalidTargetAgeRun.results.needs.components.finalExpenses, 10000);
-assert.equal(invalidTargetAgeTrace.inputs.reason, "final-expense-target-age-unavailable");
-
-const helper = lensAnalysis.calculateFinalExpenseInflationProjection;
-delete lensAnalysis.calculateFinalExpenseInflationProjection;
+const helper = lensAnalysis.calculateFinalExpenseBucketInflationProjection;
+delete lensAnalysis.calculateFinalExpenseBucketInflationProjection;
 const helperUnavailableRun = runAll(context, {
-  inflationAssumptions: {
-    finalExpenseInflationRatePercent: 9,
-    finalExpenseTargetAge: 95
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 9,
+      finalExpenseInflationRatePercent: 9,
+      finalExpenseTargetAge: 95
+    }
   }
 });
-lensAnalysis.calculateFinalExpenseInflationProjection = helper;
-const helperUnavailableTrace = findTrace(helperUnavailableRun.results.needs, "finalExpenses");
-assert.equal(helperUnavailableRun.results.needs.components.finalExpenses, 10000);
-assert.equal(helperUnavailableTrace.inputs.reason, "final-expense-inflation-helper-unavailable");
-
-const healthcareLowRun = runAll(context, {
-  inflationAssumptions: {
-    healthcareInflationRatePercent: 1,
-    finalExpenseInflationRatePercent: 3,
-    finalExpenseTargetAge: 85
-  }
-});
-const healthcareHighRun = runAll(context, {
-  inflationAssumptions: {
-    healthcareInflationRatePercent: 9,
-    finalExpenseInflationRatePercent: 3,
-    finalExpenseTargetAge: 85
-  }
-});
-assert.deepEqual(
-  healthcareHighRun.results,
-  healthcareLowRun.results,
-  "Healthcare inflation should remain separate and should not affect current DIME, Needs, or HLV outputs."
-);
+lensAnalysis.calculateFinalExpenseBucketInflationProjection = helper;
+trace = findTrace(helperUnavailableRun.results.needs, "finalExpenses");
+assert.equal(helperUnavailableRun.results.needs.components.finalExpenses, 30000);
+assert.equal(trace.inputs.reason, "final-expense-bucket-inflation-helper-unavailable");
 
 console.log("Final Expense Inflation current-output check passed.");

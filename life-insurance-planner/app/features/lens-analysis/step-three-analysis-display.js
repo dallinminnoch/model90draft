@@ -995,7 +995,9 @@
 
   function getFinalExpenseInflationStatus(finalExpenseTrace) {
     if (getTraceInput(finalExpenseTrace, "applied") === true) {
-      return "Applied";
+      const medicalApplied = getTraceInput(finalExpenseTrace, "medicalApplied") === true;
+      const nonMedicalApplied = getTraceInput(finalExpenseTrace, "nonMedicalApplied") === true;
+      return medicalApplied && nonMedicalApplied ? "Applied" : "Partially applied";
     }
 
     const reason = String(getTraceInput(finalExpenseTrace, "reason") || "");
@@ -1033,6 +1035,23 @@
     return `${formatPercent(getTraceInput(finalExpenseTrace, "finalExpenseInflationRatePercent"))} final expense inflation`;
   }
 
+  function formatHealthcareInflationRateLabel(finalExpenseTrace) {
+    return `${formatPercent(getTraceInput(finalExpenseTrace, "healthcareInflationRatePercent"))} healthcare inflation`;
+  }
+
+  function formatFinalExpenseSourceMode(finalExpenseTrace) {
+    const sourceMode = String(getTraceInput(finalExpenseTrace, "sourceMode") || "").trim();
+    if (sourceMode === "expenseFacts-final-expense-components") {
+      return "expenseFacts final expense components";
+    }
+
+    if (sourceMode === "finalExpenses-fallback") {
+      return "finalExpenses fallback";
+    }
+
+    return sourceMode || "Not set";
+  }
+
   function renderNeedsFinalExpenseProjectionDetail(needsResult) {
     const finalExpenseTrace = findTrace(needsResult, "finalExpenses");
     if (
@@ -1044,9 +1063,15 @@
 
     const rows = [
       { label: "Inflation status", value: getFinalExpenseInflationStatus(finalExpenseTrace) },
-      { label: "Final expense used", value: formatCurrency(getTraceInput(finalExpenseTrace, "projectedFinalExpenseAmount")) },
-      { label: "Current-dollar final expense", value: formatCurrency(getTraceInput(finalExpenseTrace, "currentFinalExpenseAmount")) },
-      { label: "Inflation rate", value: formatFinalExpenseInflationRateLabel(finalExpenseTrace) },
+      { label: "Combined final expense used", value: formatCurrency(getTraceInput(finalExpenseTrace, "projectedFinalExpenseAmount")) },
+      { label: "Current-dollar total", value: formatCurrency(getTraceInput(finalExpenseTrace, "currentFinalExpenseAmount")) },
+      { label: "Medical final expense current", value: formatCurrency(getTraceInput(finalExpenseTrace, "currentMedicalFinalExpenseAmount")) },
+      { label: "Medical final expense projected", value: formatCurrency(getTraceInput(finalExpenseTrace, "projectedMedicalFinalExpenseAmount")) },
+      { label: "Healthcare inflation rate", value: formatHealthcareInflationRateLabel(finalExpenseTrace) },
+      { label: "Non-medical final expense current", value: formatCurrency(getTraceInput(finalExpenseTrace, "currentNonMedicalFinalExpenseAmount")) },
+      { label: "Non-medical final expense projected", value: formatCurrency(getTraceInput(finalExpenseTrace, "projectedNonMedicalFinalExpenseAmount")) },
+      { label: "Final expense inflation rate", value: formatFinalExpenseInflationRateLabel(finalExpenseTrace) },
+      { label: "Source mode", value: formatFinalExpenseSourceMode(finalExpenseTrace) },
       { label: "Target age", value: formatCount(getTraceInput(finalExpenseTrace, "finalExpenseTargetAge")) },
       { label: "Client DOB status/source", value: getFinalExpenseDobDetailValue(finalExpenseTrace) },
       { label: "Planning as-of date", value: getFinalExpenseValuationDateDetailValue(finalExpenseTrace) },
@@ -1054,9 +1079,19 @@
       { label: "Projection years", value: formatYears(getTraceInput(finalExpenseTrace, "projectionYears")) }
     ];
     const reason = formatTraceReason(getTraceInput(finalExpenseTrace, "reason"));
+    const medicalReason = formatTraceReason(getTraceInput(finalExpenseTrace, "medicalReason"));
+    const nonMedicalReason = formatTraceReason(getTraceInput(finalExpenseTrace, "nonMedicalReason"));
 
     if (getTraceInput(finalExpenseTrace, "applied") !== true && reason) {
       rows.push({ label: "Reason", value: reason });
+    }
+
+    if (getTraceInput(finalExpenseTrace, "medicalApplied") !== true && medicalReason && medicalReason !== reason) {
+      rows.push({ label: "Medical reason", value: medicalReason });
+    }
+
+    if (getTraceInput(finalExpenseTrace, "nonMedicalApplied") !== true && nonMedicalReason && nonMedicalReason !== reason) {
+      rows.push({ label: "Non-medical reason", value: nonMedicalReason });
     }
 
     return renderProjectionDetailSection("Final Expense Projection", rows);

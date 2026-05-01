@@ -826,7 +826,7 @@
       {
         key: "inflationAssumptions",
         traceKey: "inflationAssumptions-current-needs-and-future-use",
-        message: "Saved inflation assumptions are mapped into Needs settings. Household/general inflation can affect current Needs support, education/general inflation can affect current Needs education, and final expense inflation can affect current Needs final expenses. Healthcare inflation remains saved for future modeling."
+        message: "Saved inflation assumptions are mapped into Needs settings. Household/general inflation can affect current Needs support, education/general inflation can affect current Needs education, healthcare inflation can affect current Needs medical final expense, and final expense inflation can affect current Needs non-medical final expense. Recurring healthcare expense facts remain raw-only."
       },
       {
         key: "growthAndReturnAssumptions",

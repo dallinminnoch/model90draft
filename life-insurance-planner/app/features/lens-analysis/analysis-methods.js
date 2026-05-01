@@ -21,6 +21,7 @@
   const TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.nonMortgageDebtAmount";
   const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
   const TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
+  const HEALTHCARE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.healthcareInflationRatePercent";
   const FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseInflationRatePercent";
   const FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseTargetAge";
 
@@ -149,6 +150,16 @@
 
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function uniqueStrings(values) {
+    return Array.from(new Set(
+      (Array.isArray(values) ? values : [])
+        .map(function (value) {
+          return typeof value === "string" ? value.trim() : "";
+        })
+        .filter(Boolean)
+    ));
   }
 
   function createWarning(code, message, severity, sourcePaths) {
@@ -2367,25 +2378,103 @@
     const reasonMessages = {
       "inflation-assumptions-disabled": "Inflation Assumptions are disabled.",
       "zero-or-missing-current-final-expense": "current final expense is zero or missing.",
+      "healthcare-inflation-rate-unavailable": "the healthcare inflation rate is missing or invalid.",
       "final-expense-inflation-rate-unavailable": "the final expense inflation rate is missing or invalid.",
       "final-expense-target-age-unavailable": "the final expense target age is missing or invalid.",
       "client-date-of-birth-missing": "client date of birth is missing.",
       "client-date-of-birth-invalid": "client date of birth is invalid.",
       "valuation-date-unavailable": "Planning As-Of Date is missing, invalid, or defaulted.",
       "target-age-not-greater-than-current-age": "the target age is not greater than current age.",
+      "final-expense-bucket-inflation-helper-unavailable": "the final expense inflation helper is unavailable.",
       "final-expense-inflation-helper-unavailable": "the final expense inflation helper is unavailable."
     };
     const reason = reasonMessages[projection.reason] || projection.reason || "the required inputs were unavailable.";
     return `Final expense inflation used current-dollar final expenses because ${reason}`;
   }
 
+  function getFinalExpenseBucketWarningMessage(projection, bucketKey) {
+    const isMedical = bucketKey === "medical";
+    const reason = isMedical ? projection.medicalReason : projection.nonMedicalReason;
+    const reasonMessages = {
+      "healthcare-inflation-rate-unavailable": "the healthcare inflation rate is missing or invalid.",
+      "final-expense-inflation-rate-unavailable": "the final expense inflation rate is missing or invalid."
+    };
+    const label = isMedical ? "Medical final expense" : "Non-medical final expense";
+    return `${label} inflation used current-dollar ${label.toLowerCase()} because ${reasonMessages[reason] || reason || "the required inputs were unavailable."}`;
+  }
+
+  function addFinalExpenseProjectionWarnings(warnings, projection, sourcePaths) {
+    const seen = {};
+    const sharedSeverity = getFinalExpenseInflationWarningSeverity(projection.warningCode);
+    if (sharedSeverity) {
+      addWarning(
+        warnings,
+        projection.warningCode,
+        getFinalExpenseInflationWarningMessage(projection),
+        sharedSeverity,
+        sourcePaths
+      );
+      seen[projection.warningCode] = true;
+    }
+
+    [
+      {
+        bucketKey: "medical",
+        code: projection.medicalWarningCode,
+        sourcePaths: projection.medicalSourcePaths || []
+      },
+      {
+        bucketKey: "nonMedical",
+        code: projection.nonMedicalWarningCode,
+        sourcePaths: projection.nonMedicalSourcePaths || []
+      }
+    ].forEach(function (entry) {
+      if (!entry.code || seen[entry.code]) {
+        return;
+      }
+
+      const severity = getFinalExpenseInflationWarningSeverity(entry.code);
+      if (!severity) {
+        return;
+      }
+
+      addWarning(
+        warnings,
+        entry.code,
+        getFinalExpenseBucketWarningMessage(projection, entry.bucketKey),
+        severity,
+        uniqueStrings([
+          ...(entry.sourcePaths || []),
+          entry.bucketKey === "medical"
+            ? HEALTHCARE_INFLATION_RATE_SOURCE_PATH
+            : FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH
+        ])
+      );
+      seen[entry.code] = true;
+    });
+  }
+
   function createCurrentDollarFinalExpenseInflationTrace(options) {
     const normalizedOptions = isPlainObject(options) ? options : {};
     const currentFinalExpenseAmount = normalizedOptions.currentFinalExpenseAmount || 0;
+    const finalExpenses = getPath(normalizedOptions.model, "finalExpenses") || {};
+    const medicalFinalExpenseAmount = Math.max(0, toOptionalNumber(finalExpenses.medicalEndOfLifeCost) || 0);
+    const nonMedicalFinalExpenseAmountFromSubcomponents = Math.max(0, toOptionalNumber(finalExpenses.funeralAndBurialCost) || 0)
+      + Math.max(0, toOptionalNumber(finalExpenses.estateSettlementCost) || 0)
+      + Math.max(0, toOptionalNumber(finalExpenses.otherFinalExpenses) || 0);
+    const nonMedicalFinalExpenseAmount = nonMedicalFinalExpenseAmountFromSubcomponents > 0
+      ? nonMedicalFinalExpenseAmountFromSubcomponents
+      : Math.max(0, currentFinalExpenseAmount - medicalFinalExpenseAmount);
     return {
       source: "analysis-methods-current-dollar-fallback",
+      sourceMode: "finalExpenses-fallback",
       currentFinalExpenseAmount,
       projectedFinalExpenseAmount: currentFinalExpenseAmount,
+      currentMedicalFinalExpenseAmount: medicalFinalExpenseAmount,
+      projectedMedicalFinalExpenseAmount: medicalFinalExpenseAmount,
+      currentNonMedicalFinalExpenseAmount: nonMedicalFinalExpenseAmount,
+      projectedNonMedicalFinalExpenseAmount: nonMedicalFinalExpenseAmount,
+      healthcareInflationRatePercent: null,
       finalExpenseInflationRatePercent: null,
       finalExpenseTargetAge: null,
       clientDateOfBirth: getPath(normalizedOptions.model, "profileFacts.clientDateOfBirth") || null,
@@ -2397,8 +2486,23 @@
       currentAge: null,
       projectionYears: 0,
       applied: false,
+      medicalApplied: false,
+      nonMedicalApplied: false,
       reason: normalizedOptions.reason || "final-expense-inflation-helper-unavailable",
       warningCode: normalizedOptions.warningCode || "final-expense-inflation-helper-unavailable",
+      medicalReason: normalizedOptions.reason || "final-expense-inflation-helper-unavailable",
+      medicalWarningCode: normalizedOptions.warningCode || "final-expense-inflation-helper-unavailable",
+      nonMedicalReason: normalizedOptions.reason || "final-expense-inflation-helper-unavailable",
+      nonMedicalWarningCode: normalizedOptions.warningCode || "final-expense-inflation-helper-unavailable",
+      sourcePaths: ["finalExpenses.totalFinalExpenseNeed"],
+      medicalSourcePaths: ["finalExpenses.medicalEndOfLifeCost"],
+      nonMedicalSourcePaths: [
+        "finalExpenses.funeralAndBurialCost",
+        "finalExpenses.estateSettlementCost",
+        "finalExpenses.otherFinalExpenses"
+      ],
+      healthcareRateSourcePath: HEALTHCARE_INFLATION_RATE_SOURCE_PATH,
+      finalExpenseRateSourcePath: FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
       rateSourcePath: FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
       targetAgeSourcePath: FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH
     };
@@ -2418,19 +2522,21 @@
     const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
       ? settings.inflationAssumptions
       : {};
-    const calculateFinalExpenseInflationProjection = lensAnalysis.calculateFinalExpenseInflationProjection;
-    const sourcePaths = [
-      "finalExpenses.totalFinalExpenseNeed",
+    const calculateFinalExpenseBucketInflationProjection = lensAnalysis.calculateFinalExpenseBucketInflationProjection;
+    const settingSourcePaths = [
       "settings.inflationAssumptions.enabled",
+      HEALTHCARE_INFLATION_RATE_SOURCE_PATH,
       FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
       FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH,
       "profileFacts.clientDateOfBirth",
       "settings.valuationDate"
     ];
-    const projection = typeof calculateFinalExpenseInflationProjection === "function"
-      ? calculateFinalExpenseInflationProjection({
+    const projection = typeof calculateFinalExpenseBucketInflationProjection === "function"
+      ? calculateFinalExpenseBucketInflationProjection({
           enabled: inflationAssumptions.enabled === true,
-          currentFinalExpenseAmount,
+          expenseFacts: getPath(model, "expenseFacts"),
+          finalExpenses: getPath(model, "finalExpenses"),
+          healthcareInflationRatePercent: inflationAssumptions.healthcareInflationRatePercent,
           finalExpenseInflationRatePercent: inflationAssumptions.finalExpenseInflationRatePercent,
           finalExpenseTargetAge: inflationAssumptions.finalExpenseTargetAge,
           clientDateOfBirth: getPath(model, "profileFacts.clientDateOfBirth"),
@@ -2440,38 +2546,36 @@
           valuationDateSource: settings.valuationDateSource,
           valuationDateDefaulted: settings.valuationDateDefaulted,
           valuationDateWarningCode: settings.valuationDateWarningCode,
-          rateSourcePath: FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
+          healthcareRateSourcePath: HEALTHCARE_INFLATION_RATE_SOURCE_PATH,
+          finalExpenseRateSourcePath: FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH,
           targetAgeSourcePath: FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH
         })
       : createCurrentDollarFinalExpenseInflationTrace({
           model,
           settings,
           currentFinalExpenseAmount,
-          reason: "final-expense-inflation-helper-unavailable",
-          warningCode: "final-expense-inflation-helper-unavailable"
+          reason: "final-expense-bucket-inflation-helper-unavailable",
+          warningCode: "final-expense-bucket-inflation-helper-unavailable"
         });
+    const resolvedSourcePaths = uniqueStrings([
+      ...settingSourcePaths,
+      ...(Array.isArray(projection.sourcePaths) ? projection.sourcePaths : []),
+      ...(Array.isArray(projection.medicalSourcePaths) ? projection.medicalSourcePaths : []),
+      ...(Array.isArray(projection.nonMedicalSourcePaths) ? projection.nonMedicalSourcePaths : [])
+    ]);
 
-    const warningSeverity = getFinalExpenseInflationWarningSeverity(projection.warningCode);
-    if (warningSeverity) {
-      addWarning(
-        warnings,
-        projection.warningCode,
-        getFinalExpenseInflationWarningMessage(projection),
-        warningSeverity,
-        sourcePaths
-      );
-    }
+    addFinalExpenseProjectionWarnings(warnings, projection, resolvedSourcePaths);
 
     return {
       value: projection.projectedFinalExpenseAmount,
       formula: projection.applied
-        ? "currentFinalExpenseAmount x (1 + finalExpenseInflationRatePercent / 100) ^ projectionYears"
-        : "finalExpenses.totalFinalExpenseNeed",
+        ? "medical final expense projected by healthcare inflation plus non-medical final expense projected by final expense inflation"
+        : "current-dollar final expense buckets",
       inputs: {
         ...projection,
         totalFinalExpenseNeed: currentFinalExpenseAmount
       },
-      sourcePaths,
+      sourcePaths: resolvedSourcePaths,
       inflation: projection
     };
   }
