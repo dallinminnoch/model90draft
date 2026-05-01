@@ -128,7 +128,7 @@
                   <div class="analysis-setup-method-header">
                     <div class="analysis-setup-control-heading">
                       <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
-                      <p>Household, education, and final expense rates affect current Needs where enabled. General is a fallback; healthcare remains saved for future modeling.</p>
+                      <p>Household, education, healthcare, and final expense rates affect current Needs where enabled. General is a fallback; DIME and HLV are unaffected.</p>
                     </div>
                     <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
                   </div>
@@ -178,7 +178,7 @@
                     </div>
 
                     <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-healthcare-inflation-label" for="analysis-setup-healthcare-inflation-value">Healthcare inflation (future use)</label>
+                      <label class="analysis-setup-rate-label" id="analysis-setup-healthcare-inflation-label" for="analysis-setup-healthcare-inflation-value">Healthcare inflation</label>
                       <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-slider="healthcareInflationRatePercent">
                       <span class="analysis-setup-percent-input">
                         <input id="analysis-setup-healthcare-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-field="healthcareInflationRatePercent">
@@ -187,7 +187,7 @@
                     </div>
 
                     <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-final-expense-inflation-label" for="analysis-setup-final-expense-inflation-value">Final expense inflation (Needs only)</label>
+                      <label class="analysis-setup-rate-label" id="analysis-setup-final-expense-inflation-label" for="analysis-setup-final-expense-inflation-value">Final expense inflation</label>
                       <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-slider="finalExpenseInflationRatePercent">
                       <span class="analysis-setup-percent-input">
                         <input id="analysis-setup-final-expense-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-field="finalExpenseInflationRatePercent">
@@ -200,6 +200,7 @@
                     <span>Final expense target age (Needs only)</span>
                     <input id="analysis-setup-final-expense-target-age" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-inflation-field="finalExpenseTargetAge">
                   </label>
+                  <p class="underwriting-helper-text">Healthcare inflation applies to Needs medical final expense projection; final expense inflation applies to Needs non-medical final expense projection. Target age is used for Needs final expense projection. Recurring healthcare expense records remain saved/raw-only until a future healthcare expense component is activated.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion">

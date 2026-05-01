@@ -169,9 +169,11 @@
         totalFinalExpenseNeed: null
       },
 
-      // Raw expense facts projected from current scalar final-expense PMI
-      // fields. This is an additive future-ready facts layer; current methods
-      // still consume the finalExpenses compatibility bucket.
+      // Normalized raw expense facts projected from scalar final-expense PMI
+      // fields and repeatable expense records. Needs final expense projection
+      // can use final-expense component facts from this layer when available;
+      // non-final recurring records remain raw-only. finalExpenses remains the
+      // compatibility/fallback source.
       expenseFacts: {
         expenses: [],
         totalsByBucket: {},
