@@ -516,6 +516,7 @@
                   <span class="profile-currency-suffix">USD</span>
                 </div>
               </div>
+              <div class="field-group full-width" data-pmi-expense-records-root></div>
                 </div>
               </section>
 
@@ -932,6 +933,7 @@
   <script src="../app/features/lens-analysis/pmi-debt-records.js"></script>
   <script src="../app/features/lens-analysis/expense-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/expense-library.js"></script>
+  <script src="../app/features/lens-analysis/pmi-expense-records.js"></script>
   <script src="../app/features/lens-analysis/block-outputs.js"></script>
   <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
   <script src="../app/features/lens-analysis/blocks/existing-coverage.js"></script>
@@ -1564,6 +1566,9 @@
       });
       const pmiDebtRecordsController = window.LensApp?.lensAnalysis?.pmiDebtRecords?.initPmiDebtRecords({
         root: form.querySelector("[data-pmi-debt-records-root]")
+      });
+      const pmiExpenseRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
+        root: form.querySelector("[data-pmi-expense-records-root]")
       });
       const derivedDraftFieldNames = new Set([
         "linkedMaritalStatusDisplay",
@@ -4112,6 +4117,9 @@
           if (pmiDebtRecordsController && typeof pmiDebtRecordsController.hydrateDebtRecords === "function") {
             pmiDebtRecordsController.hydrateDebtRecords(saved.debtRecords);
           }
+          if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.hydrateExpenseRecords === "function") {
+            pmiExpenseRecordsController.hydrateExpenseRecords(saved.expenseRecords);
+          }
           if (mortgageTermRemainingYearsField && !(mortgageTermRemainingYearsField instanceof RadioNodeList) && mortgageTermRemainingMonthsField && !(mortgageTermRemainingMonthsField instanceof RadioNodeList)) {
             const combinedTerm = parseCurrencyLikeNumber(saved.mortgageTermRemaining);
             if (combinedTerm && !saved.mortgageTermRemainingYears && !saved.mortgageTermRemainingMonths) {
@@ -4269,6 +4277,9 @@
         }
         if (pmiDebtRecordsController && typeof pmiDebtRecordsController.serializeDebtRecords === "function") {
           draft.debtRecords = pmiDebtRecordsController.serializeDebtRecords();
+        }
+        if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.serializeExpenseRecords === "function") {
+          draft.expenseRecords = pmiExpenseRecordsController.serializeExpenseRecords();
         }
 
         preserveLegacyAssetValueAliases(draft);

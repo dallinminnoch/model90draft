@@ -1494,8 +1494,10 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 
 [data-pmi-asset-records-root],
 [data-pmi-debt-records-root],
+[data-pmi-expense-records-root],
 .pmi-asset-records-list,
-.pmi-debt-records-list {
+.pmi-debt-records-list,
+.pmi-expense-records-list {
   display: contents;
 }
 
@@ -1527,12 +1529,14 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-records-add-field,
-.pmi-debt-records-add-field {
+.pmi-debt-records-add-field,
+.pmi-expense-records-add-field {
   align-content: end;
 }
 
 .pmi-asset-records-add-button,
-.pmi-debt-records-add-button {
+.pmi-debt-records-add-button,
+.pmi-expense-records-add-button {
   min-height: 2.85rem;
   justify-self: start;
   border: 1px solid #111827;
@@ -1545,18 +1549,21 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-records-add-button:hover:not(:disabled),
-.pmi-debt-records-add-button:hover:not(:disabled) {
+.pmi-debt-records-add-button:hover:not(:disabled),
+.pmi-expense-records-add-button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-backdrop,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-backdrop {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-backdrop,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-backdrop {
   background: rgba(25, 32, 44, 0.44);
   backdrop-filter: blur(6px);
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-panel,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-panel {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-panel,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-panel {
   width: min(52rem, calc(100vw - 3rem));
   max-height: min(40rem, calc(100vh - 3rem));
   grid-template-rows: auto auto auto minmax(0, 1fr);
@@ -1568,12 +1575,14 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-header,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-header {
   padding: 1.55rem 1.65rem 0.8rem;
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-header h2,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header h2 {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header h2,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-header h2 {
   font-size: 1.55rem;
   line-height: 1.1;
   font-weight: 800;
@@ -1581,14 +1590,16 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-header p,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header p {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header p,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-header p {
   margin: 0.4rem 0 0;
   color: #6b7280;
   font-size: 1rem;
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-close,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-close {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-close,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-close {
   top: 1.45rem;
   right: 1.45rem;
   width: 2.6rem;
@@ -1603,18 +1614,21 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-close:hover,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-close:hover {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-close:hover,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-close:hover {
   border-color: rgba(151, 163, 184, 0.8);
   color: #172031;
 }
 
 .pmi-asset-library-search,
-.pmi-debt-library-search {
+.pmi-debt-library-search,
+.pmi-expense-library-search {
   padding: 0 1.65rem;
 }
 
 .pmi-asset-library-search input,
-.pmi-debt-library-search input {
+.pmi-debt-library-search input,
+.pmi-expense-library-search input {
   width: 100%;
   min-height: 3.25rem;
   border: 1px solid rgba(214, 221, 231, 0.95);
@@ -1627,14 +1641,16 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-search input:focus,
-.pmi-debt-library-search input:focus {
+.pmi-debt-library-search input:focus,
+.pmi-expense-library-search input:focus {
   outline: none;
   border-color: rgba(38, 86, 184, 0.45);
   box-shadow: 0 0 0 3px rgba(38, 86, 184, 0.12);
 }
 
 .pmi-asset-library-filter-row,
-.pmi-debt-library-filter-row {
+.pmi-debt-library-filter-row,
+.pmi-expense-library-filter-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1644,7 +1660,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-filter,
-.pmi-debt-library-filter {
+.pmi-debt-library-filter,
+.pmi-expense-library-filter {
   min-height: 2.35rem;
   padding: 0 0.95rem;
   border: 1px solid rgba(214, 221, 231, 0.95);
@@ -1657,7 +1674,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-filter.is-active,
-.pmi-debt-library-filter.is-active {
+.pmi-debt-library-filter.is-active,
+.pmi-expense-library-filter.is-active {
   border-color: #111827;
   background: #111827;
   color: #ffffff;
@@ -1665,19 +1683,22 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-results,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-results {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-results,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-results {
   gap: 0.9rem;
   padding: 0.95rem 1.65rem 1.35rem;
 }
 
 .pmi-asset-library-group,
-.pmi-debt-library-group {
+.pmi-debt-library-group,
+.pmi-expense-library-group {
   display: grid;
   gap: 0.55rem;
 }
 
 .pmi-asset-library-group-heading,
-.pmi-debt-library-group-heading {
+.pmi-debt-library-group-heading,
+.pmi-expense-library-group-heading {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1685,7 +1706,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-group-heading h3,
-.pmi-debt-library-group-heading h3 {
+.pmi-debt-library-group-heading h3,
+.pmi-expense-library-group-heading h3 {
   margin: 0;
   color: #172031;
   font-size: 1.08rem;
@@ -1693,20 +1715,23 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-group-heading span,
-.pmi-debt-library-group-heading span {
+.pmi-debt-library-group-heading span,
+.pmi-expense-library-group-heading span {
   color: #7a8494;
   font-size: 0.82rem;
   font-weight: 700;
 }
 
 .pmi-asset-library-items,
-.pmi-debt-library-items {
+.pmi-debt-library-items,
+.pmi-expense-library-items {
   display: grid;
   gap: 0.4rem;
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-result-button,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-result-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
@@ -1718,27 +1743,31 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-result-button:hover,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button:hover {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button:hover,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-result-button:hover {
   border-color: rgba(38, 86, 184, 0.28);
   background: #f8fbff;
 }
 
 .pmi-asset-library-result-copy,
-.pmi-debt-library-result-copy {
+.pmi-debt-library-result-copy,
+.pmi-expense-library-result-copy {
   display: grid;
   gap: 0.25rem;
   min-width: 0;
 }
 
 .pmi-asset-library-result-copy strong,
-.pmi-debt-library-result-copy strong {
+.pmi-debt-library-result-copy strong,
+.pmi-expense-library-result-copy strong {
   color: #172031;
   font-size: 0.94rem;
   font-weight: 800;
 }
 
 .pmi-asset-library-result-copy span,
-.pmi-debt-library-result-copy span {
+.pmi-debt-library-result-copy span,
+.pmi-expense-library-result-copy span {
   color: #6b7280;
   font-size: 0.82rem;
   font-weight: 500;
@@ -1746,7 +1775,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-result-meta,
-.pmi-debt-library-result-meta {
+.pmi-debt-library-result-meta,
+.pmi-expense-library-result-meta {
   max-width: 11rem;
   padding: 0.22rem 0.52rem;
   border-radius: 999px;
@@ -1760,7 +1790,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-result-action,
-.pmi-debt-library-result-action {
+.pmi-debt-library-result-action,
+.pmi-expense-library-result-action {
   width: 2.2rem;
   height: 2.2rem;
   display: inline-grid;
@@ -1768,20 +1799,23 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-library-result-action img,
-.pmi-debt-library-result-action img {
+.pmi-debt-library-result-action img,
+.pmi-expense-library-result-action img {
   width: 2.05rem;
   height: 2.05rem;
   display: block;
 }
 
 .profile-search-modal[data-pmi-asset-library-modal] .profile-search-result-button:hover .pmi-asset-library-result-action,
-.profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button:hover .pmi-debt-library-result-action {
+.profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button:hover .pmi-debt-library-result-action,
+.profile-search-modal[data-pmi-expense-library-modal] .profile-search-result-button:hover .pmi-expense-library-result-action {
   transform: scale(1.04);
 }
 
 @media (max-width: 720px) {
   .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-panel,
-  .profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-panel {
+  .profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-panel,
+  .profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-panel {
     width: calc(100vw - 1rem);
     max-height: calc(100vh - 1rem);
     border-radius: 0.9rem;
@@ -1789,31 +1823,38 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 
   .profile-search-modal[data-pmi-asset-library-modal] .profile-search-modal-header,
   .profile-search-modal[data-pmi-debt-library-modal] .profile-search-modal-header,
+  .profile-search-modal[data-pmi-expense-library-modal] .profile-search-modal-header,
   .pmi-asset-library-search,
   .pmi-debt-library-search,
+  .pmi-expense-library-search,
   .profile-search-modal[data-pmi-asset-library-modal] .profile-search-results,
-  .profile-search-modal[data-pmi-debt-library-modal] .profile-search-results {
+  .profile-search-modal[data-pmi-debt-library-modal] .profile-search-results,
+  .profile-search-modal[data-pmi-expense-library-modal] .profile-search-results {
     padding-left: 1rem;
     padding-right: 1rem;
   }
 
   .pmi-asset-library-filter-row,
-  .pmi-debt-library-filter-row {
+  .pmi-debt-library-filter-row,
+  .pmi-expense-library-filter-row {
     margin-left: 1rem;
     margin-right: 1rem;
     overflow-x: auto;
   }
 
   .profile-search-modal[data-pmi-asset-library-modal] .profile-search-result-button,
-  .profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button {
+  .profile-search-modal[data-pmi-debt-library-modal] .profile-search-result-button,
+  .profile-search-modal[data-pmi-expense-library-modal] .profile-search-result-button {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
   .pmi-asset-library-result-meta,
   .pmi-debt-library-result-meta,
+  .pmi-expense-library-result-meta,
   .pmi-debt-library-result-action,
-  .pmi-asset-library-result-action {
+  .pmi-asset-library-result-action,
+  .pmi-expense-library-result-action {
     justify-self: start;
   }
 }
