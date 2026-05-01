@@ -182,6 +182,7 @@
           scalarExpenseSource: "final-expense-scalar-fields",
           expenseRecordsSource: null,
           acceptedScalarExpenseCount: 0,
+          sourceExpenseRecordCount: 0,
           acceptedExpenseRecordCount: 0,
           invalidExpenseRecordCount: 0,
           warnings: []

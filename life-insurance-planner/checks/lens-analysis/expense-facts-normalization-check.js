@@ -213,6 +213,20 @@ function assertScriptBefore(sources, beforeName, afterName, pagePath) {
   assert.ok(beforeIndex < afterIndex, `${beforeName} should load before ${afterName} on ${pagePath}`);
 }
 
+function findExpenseFact(expenseFacts, typeKey, expenseRecordId = null) {
+  return expenseFacts.expenses.find((expense) => {
+    if (!expense || expense.typeKey !== typeKey) {
+      return false;
+    }
+
+    return expenseRecordId == null || expense.expenseRecordId === expenseRecordId;
+  }) || null;
+}
+
+function metadataWarningCodes(expenseFacts) {
+  return (expenseFacts.metadata.warnings || []).map((warning) => warning.code);
+}
+
 const context = createContext();
 const lensAnalysis = context.LensApp.lensAnalysis;
 
@@ -227,6 +241,7 @@ assert.equal(emptyModel.expenseFacts.metadata.taxonomySource, "expense-taxonomy"
 assert.equal(emptyModel.expenseFacts.metadata.librarySource, "expense-library");
 assert.equal(emptyModel.expenseFacts.metadata.scalarExpenseSource, "final-expense-scalar-fields");
 assert.equal(emptyModel.expenseFacts.metadata.expenseRecordsSource, null);
+assert.equal(emptyModel.expenseFacts.metadata.sourceExpenseRecordCount, 0);
 
 const sourceData = createSourceData();
 const sourceSnapshot = cloneJson(sourceData);
@@ -245,6 +260,7 @@ assert.equal(expenseFacts.metadata.librarySource, "expense-library");
 assert.equal(expenseFacts.metadata.scalarExpenseSource, "final-expense-scalar-fields");
 assert.equal(expenseFacts.metadata.expenseRecordsSource, null);
 assert.equal(expenseFacts.metadata.acceptedScalarExpenseCount, 4);
+assert.equal(expenseFacts.metadata.sourceExpenseRecordCount, 0);
 assert.equal(expenseFacts.metadata.acceptedExpenseRecordCount, 0);
 assert.equal(expenseFacts.metadata.invalidExpenseRecordCount, 0);
 assert.ok(Array.isArray(expenseFacts.metadata.warnings));
@@ -308,11 +324,17 @@ assert.equal(expenseFacts.totalsByBucket.medicalFinalExpense, 15000);
 assert.equal(expenseFacts.totalsByBucket.funeralBurial, 15000);
 assert.equal(expenseFacts.totalsByBucket.estateSettlement, 10000);
 assert.equal(expenseFacts.totalsByBucket.otherFinalExpense, 5000);
+assert.equal(expenseFacts.totalsByBucket.totalScalarFinalExpense, 45000);
+assert.equal(expenseFacts.totalsByBucket.totalRepeatableFinalExpense, null);
 assert.equal(expenseFacts.totalsByBucket.totalFinalExpense, 45000);
 assert.equal(expenseFacts.totalsByBucket.totalFinalExpense, lensModel.finalExpenses.totalFinalExpenseNeed);
 assert.equal(expenseFacts.totalsByBucket.totalNonMedicalFinalExpense, 30000);
 assert.equal(expenseFacts.totalsByBucket.totalHealthcareSensitiveExpense, 15000);
 assert.equal(expenseFacts.totalsByBucket.totalHealthcareExpense, 15000);
+assert.equal(expenseFacts.totalsByBucket.totalAnnualRecurringExpense, null);
+assert.equal(expenseFacts.totalsByBucket.totalOneTimeExpense, 45000);
+assert.equal(expenseFacts.totalsByBucket.totalAnnualHealthcareExpense, null);
+assert.equal(expenseFacts.totalsByBucket.totalOneTimeHealthcareExpense, 15000);
 
 assert.deepEqual(cloneJson(lensModel.finalExpenses), {
   funeralAndBurialCost: 15000,
@@ -335,10 +357,219 @@ assert.equal(zeroAndMissingModel.expenseFacts.expenses[0].amount, 0);
 assert.equal(zeroAndMissingModel.expenseFacts.metadata.acceptedScalarExpenseCount, 1);
 assert.equal(zeroAndMissingModel.expenseFacts.totalsByBucket.funeralBurial, 0);
 
+const repeatableExpenseSource = createSourceData({
+  expenseRecords: [
+    {
+      expenseId: "weekly_medical",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "ongoingHealthcare",
+      label: "Weekly medical cost",
+      amount: 10,
+      frequency: "weekly",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "monthly_prescriptions",
+      typeKey: "prescriptionMedications",
+      categoryKey: "ongoingHealthcare",
+      amount: 25,
+      frequency: "monthly",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "quarterly_specialist",
+      typeKey: "specialistVisits",
+      categoryKey: "ongoingHealthcare",
+      amount: 100,
+      frequency: "quarterly",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "semiannual_dental",
+      typeKey: "dentalOutOfPocket",
+      categoryKey: "dentalCare",
+      amount: 300,
+      frequency: "semiAnnual",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "annual_property_tax",
+      typeKey: "propertyTaxes",
+      categoryKey: "housingExpense",
+      amount: 2400,
+      frequency: "annual",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "future_hospice",
+      typeKey: "hospiceCare",
+      categoryKey: "medicalFinalExpense",
+      amount: 6000,
+      frequency: "oneTime",
+      termType: "oneTime"
+    },
+    {
+      expenseId: "fixed_years_invalid_optional",
+      typeKey: "physicalTherapy",
+      categoryKey: "ongoingHealthcare",
+      amount: 80,
+      frequency: "monthly",
+      termType: "fixedYears",
+      termYears: "not-a-number",
+      endAge: "not-a-number",
+      endDate: "not-a-date"
+    },
+    {
+      expenseId: "custom_missing_category",
+      typeKey: "customExpenseRecord",
+      label: "",
+      amount: 50,
+      frequency: "monthly",
+      termType: "ongoing",
+      isCustomExpense: true
+    },
+    {
+      expenseId: "protected_medical_scalar",
+      typeKey: "medicalEndOfLifeCosts",
+      categoryKey: "medicalFinalExpense",
+      amount: 1,
+      frequency: "oneTime",
+      termType: "oneTime"
+    },
+    {
+      expenseId: "invalid_category",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "unknownExpenseBucket",
+      amount: 10,
+      frequency: "monthly",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "invalid_frequency",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "ongoingHealthcare",
+      amount: 10,
+      frequency: "biweekly",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "invalid_term_type",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "ongoingHealthcare",
+      amount: 10,
+      frequency: "monthly",
+      termType: "forLife"
+    },
+    {
+      expenseId: "negative_amount",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "ongoingHealthcare",
+      amount: -10,
+      frequency: "monthly",
+      termType: "ongoing"
+    }
+  ]
+});
+const repeatableExpenseSourceSnapshot = cloneJson(repeatableExpenseSource);
+const repeatableExpenseModel = buildModel(context, repeatableExpenseSource, analysisSettings).lensModel;
+assert.deepEqual(repeatableExpenseSource, repeatableExpenseSourceSnapshot, "repeatable expense normalization should not mutate source data");
+
+const repeatableExpenseFacts = repeatableExpenseModel.expenseFacts;
+assert.equal(repeatableExpenseFacts.expenses.length, 12, "four scalar facts and eight repeatable facts should normalize");
+assert.equal(repeatableExpenseFacts.metadata.expenseRecordsSource, "protectionModeling.data.expenseRecords");
+assert.equal(repeatableExpenseFacts.metadata.acceptedScalarExpenseCount, 4);
+assert.equal(repeatableExpenseFacts.metadata.sourceExpenseRecordCount, 13);
+assert.equal(repeatableExpenseFacts.metadata.acceptedExpenseRecordCount, 8);
+assert.equal(repeatableExpenseFacts.metadata.invalidExpenseRecordCount, 5);
+
+const weeklyMedicalFact = findExpenseFact(repeatableExpenseFacts, "medicalOutOfPocket", "weekly_medical");
+assert.ok(weeklyMedicalFact, "weekly expense record should normalize");
+assert.equal(weeklyMedicalFact.expenseFactId, "expense_record_weekly_medical");
+assert.equal(weeklyMedicalFact.source, "protectionModeling.data.expenseRecords");
+assert.equal(weeklyMedicalFact.sourceKey, "expenseRecords");
+assert.equal(weeklyMedicalFact.sourcePath, "protectionModeling.data.expenseRecords[0]");
+assert.equal(weeklyMedicalFact.sourceIndex, 0);
+assert.equal(weeklyMedicalFact.isDefaultExpense, false);
+assert.equal(weeklyMedicalFact.isScalarFieldOwned, false);
+assert.equal(weeklyMedicalFact.isProtected, false);
+assert.equal(weeklyMedicalFact.isAddable, true);
+assert.equal(weeklyMedicalFact.isRepeatableExpenseRecord, true);
+assert.equal(weeklyMedicalFact.isCustomExpense, false);
+assert.equal(weeklyMedicalFact.isHealthcareSensitive, true);
+assert.equal(weeklyMedicalFact.isFinalExpenseComponent, false);
+assert.equal(weeklyMedicalFact.uiAvailability, "initial");
+assert.equal(weeklyMedicalFact.annualizedAmount, 520);
+assert.equal(weeklyMedicalFact.oneTimeAmount, null);
+assert.equal(weeklyMedicalFact.metadata.canonicalDestination, "expenseFacts.expenses");
+assert.equal(weeklyMedicalFact.metadata.recordSource, "expenseRecords");
+assert.equal(weeklyMedicalFact.metadata.libraryEntryKey, "medicalOutOfPocket");
+
+assert.equal(findExpenseFact(repeatableExpenseFacts, "prescriptionMedications", "monthly_prescriptions").annualizedAmount, 300);
+assert.equal(findExpenseFact(repeatableExpenseFacts, "specialistVisits", "quarterly_specialist").annualizedAmount, 400);
+assert.equal(findExpenseFact(repeatableExpenseFacts, "dentalOutOfPocket", "semiannual_dental").annualizedAmount, 600);
+assert.equal(findExpenseFact(repeatableExpenseFacts, "propertyTaxes", "annual_property_tax").annualizedAmount, 2400);
+
+const futureHospiceFact = findExpenseFact(repeatableExpenseFacts, "hospiceCare", "future_hospice");
+assert.ok(futureHospiceFact, "valid addable future entries should normalize when present in saved data");
+assert.equal(futureHospiceFact.uiAvailability, "future");
+assert.equal(futureHospiceFact.isHealthcareSensitive, true);
+assert.equal(futureHospiceFact.isFinalExpenseComponent, true);
+assert.equal(futureHospiceFact.annualizedAmount, null);
+assert.equal(futureHospiceFact.oneTimeAmount, 6000);
+
+const fixedYearsFact = findExpenseFact(repeatableExpenseFacts, "physicalTherapy", "fixed_years_invalid_optional");
+assert.equal(fixedYearsFact.termType, "fixedYears");
+assert.equal(fixedYearsFact.termYears, null, "invalid optional termYears should become null");
+assert.equal(fixedYearsFact.endAge, null);
+assert.equal(fixedYearsFact.endDate, null);
+
+const customFact = findExpenseFact(repeatableExpenseFacts, "customExpenseRecord", "custom_missing_category");
+assert.ok(customFact, "custom records should normalize");
+assert.equal(customFact.categoryKey, "customExpense");
+assert.equal(customFact.label, "Custom Expense");
+assert.equal(customFact.isCustomExpense, true);
+assert.equal(customFact.annualizedAmount, 600);
+assert.equal(customFact.uiAvailability, "initial");
+
+const warningCodes = metadataWarningCodes(repeatableExpenseFacts);
+assert.ok(warningCodes.includes("protected-scalar-expense-record-rejected"));
+assert.ok(warningCodes.includes("unknown-expense-record-category"));
+assert.ok(warningCodes.includes("invalid-expense-record-frequency"));
+assert.ok(warningCodes.includes("invalid-expense-record-term-type"));
+assert.ok(warningCodes.includes("negative-expense-record-amount"));
+assert.equal(findExpenseFact(repeatableExpenseFacts, "medicalEndOfLifeCosts", "protected_medical_scalar"), null);
+
+assert.equal(repeatableExpenseFacts.totalsByBucket.medicalFinalExpense, 21000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.ongoingHealthcare, 2180);
+assert.equal(repeatableExpenseFacts.totalsByBucket.dentalCare, 600);
+assert.equal(repeatableExpenseFacts.totalsByBucket.housingExpense, 2400);
+assert.equal(repeatableExpenseFacts.totalsByBucket.customExpense, 600);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalScalarFinalExpense, 45000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalRepeatableFinalExpense, 6000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalFinalExpense, 51000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalFinalExpense, repeatableExpenseModel.finalExpenses.totalFinalExpenseNeed + 6000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalNonMedicalFinalExpense, 30000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalHealthcareSensitiveExpense, 23780);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalHealthcareExpense, 23780);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualRecurringExpense, 5780);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalOneTimeExpense, 51000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualHealthcareExpense, 2780);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalOneTimeHealthcareExpense, 21000);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualLivingExpense, 2400);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualEducationExpense, null);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualBusinessExpense, null);
+assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualCustomExpense, 600);
+
+assert.deepEqual(cloneJson(repeatableExpenseModel.finalExpenses), cloneJson(lensModel.finalExpenses), "repeatable expenses should not alter method-facing finalExpenses");
+
 const methodSettings = createMethodSettings(context, lensModel, analysisSettings);
 const methodSettingsText = JSON.stringify(methodSettings);
 assert.equal(methodSettingsText.includes("expenseFacts"), false, "method settings should not consume expenseFacts");
 assert.equal(methodSettingsText.includes("totalsByBucket"), false, "method settings should not consume expenseFacts totals");
+const repeatableMethodSettings = createMethodSettings(context, repeatableExpenseModel, analysisSettings);
+const repeatableMethodSettingsText = JSON.stringify(repeatableMethodSettings);
+assert.equal(repeatableMethodSettingsText.includes("expenseFacts"), false, "method settings should not consume repeatable expenseFacts");
+assert.equal(repeatableMethodSettingsText.includes("totalsByBucket"), false, "method settings should not consume repeatable expenseFacts totals");
 
 const modelWithoutExpenseFacts = cloneJson(lensModel);
 delete modelWithoutExpenseFacts.expenseFacts;
@@ -367,6 +598,18 @@ assert.equal(
   "Needs final expense trace should not source expenseFacts in this pass"
 );
 
+const outputWithRepeatableExpenseFacts = runMethodSnapshot(context, repeatableExpenseModel, repeatableMethodSettings);
+assert.deepEqual(
+  cloneJson(outputWithRepeatableExpenseFacts),
+  cloneJson(outputWithExpenseFacts),
+  "DIME, Needs, HLV, and final expense inflation should remain unchanged when repeatable expenseFacts exist"
+);
+assert.equal(
+  JSON.stringify(outputWithRepeatableExpenseFacts.needs.finalExpensesTrace).includes("expenseFacts"),
+  false,
+  "Needs final expense trace should not source repeatable expenseFacts"
+);
+
 const lowHealthcareSettings = createAnalysisSettings({
   inflationAssumptions: {
     healthcareInflationRatePercent: 1
@@ -383,6 +626,13 @@ assert.deepEqual(
   cloneJson(runMethodSnapshot(context, lowHealthcareModel, createMethodSettings(context, lowHealthcareModel, lowHealthcareSettings))),
   cloneJson(runMethodSnapshot(context, highHealthcareModel, createMethodSettings(context, highHealthcareModel, highHealthcareSettings))),
   "healthcare inflation should remain inactive for current DIME, Needs, and HLV outputs"
+);
+const lowHealthcareRepeatableModel = buildModel(context, repeatableExpenseSource, lowHealthcareSettings).lensModel;
+const highHealthcareRepeatableModel = buildModel(context, repeatableExpenseSource, highHealthcareSettings).lensModel;
+assert.deepEqual(
+  cloneJson(runMethodSnapshot(context, lowHealthcareRepeatableModel, createMethodSettings(context, lowHealthcareRepeatableModel, lowHealthcareSettings))),
+  cloneJson(runMethodSnapshot(context, highHealthcareRepeatableModel, createMethodSettings(context, highHealthcareRepeatableModel, highHealthcareSettings))),
+  "healthcare inflation should remain inactive even when healthcare-sensitive repeatable expenseFacts exist"
 );
 
 [

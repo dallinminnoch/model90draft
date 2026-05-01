@@ -46,6 +46,14 @@
       categoryKey: "otherFinalExpense"
     })
   ]);
+  const EXPENSE_RECORDS_SOURCE_PATH = "protectionModeling.data.expenseRecords";
+  const EXPENSE_FREQUENCY_ANNUALIZATION_FACTORS = Object.freeze({
+    weekly: 52,
+    monthly: 12,
+    quarterly: 4,
+    semiAnnual: 2,
+    annual: 1
+  });
 
   // This pass normalizes the currently proven runtime block outputs into the
   // canonical incomeBasis, debtPayoff, ongoingSupport, educationSupport,
@@ -1562,6 +1570,269 @@
     return "scalar_expense_" + (normalizeExpenseRecordToken(sourceKey) || "unknown");
   }
 
+  function createExpenseRecordFactId(expenseRecord, index) {
+    const safeExpenseRecord = expenseRecord && typeof expenseRecord === "object" ? expenseRecord : {};
+    const expenseRecordId = normalizeExpenseRecordString(safeExpenseRecord.expenseId)
+      || normalizeExpenseRecordString(safeExpenseRecord.id)
+      || ("expense_record_" + (index + 1));
+
+    return "expense_record_" + (normalizeExpenseRecordToken(expenseRecordId) || (index + 1));
+  }
+
+  function normalizeExpenseFrequencyStrict(frequency) {
+    const normalizedFrequency = normalizeExpenseRecordString(frequency);
+    const taxonomy = lensAnalysis.expenseTaxonomy && typeof lensAnalysis.expenseTaxonomy === "object"
+      ? lensAnalysis.expenseTaxonomy
+      : {};
+
+    if (typeof taxonomy.isValidExpenseFrequency === "function") {
+      return taxonomy.isValidExpenseFrequency(normalizedFrequency) ? normalizedFrequency : null;
+    }
+
+    if (normalizedFrequency === "oneTime"
+      || Object.prototype.hasOwnProperty.call(EXPENSE_FREQUENCY_ANNUALIZATION_FACTORS, normalizedFrequency)) {
+      return normalizedFrequency;
+    }
+
+    return null;
+  }
+
+  function normalizeExpenseTermTypeStrict(termType) {
+    const normalizedTermType = normalizeExpenseRecordString(termType);
+    const taxonomy = lensAnalysis.expenseTaxonomy && typeof lensAnalysis.expenseTaxonomy === "object"
+      ? lensAnalysis.expenseTaxonomy
+      : {};
+
+    if (typeof taxonomy.isValidExpenseTermType === "function") {
+      return taxonomy.isValidExpenseTermType(normalizedTermType) ? normalizedTermType : null;
+    }
+
+    return ["ongoing", "fixedYears", "untilAge", "untilDate", "oneTime"].indexOf(normalizedTermType) === -1
+      ? null
+      : normalizedTermType;
+  }
+
+  function normalizeOptionalExpenseRecordNumber(value) {
+    const numericValue = toOptionalNumber(value);
+    return numericValue == null || numericValue < 0 ? null : numericValue;
+  }
+
+  function calculateRepeatableExpenseAmounts(amount, frequency) {
+    if (frequency === "oneTime") {
+      return {
+        annualizedAmount: null,
+        oneTimeAmount: amount
+      };
+    }
+
+    const factor = EXPENSE_FREQUENCY_ANNUALIZATION_FACTORS[frequency];
+    return {
+      annualizedAmount: Number.isFinite(factor) ? amount * factor : null,
+      oneTimeAmount: null
+    };
+  }
+
+  function isCustomExpenseRecord(typeKey, record, libraryEntry) {
+    return typeKey === "customExpenseRecord"
+      || record?.isCustomExpense === true
+      || libraryEntry?.isCustomType === true;
+  }
+
+  function createExpenseFactFromExpenseRecord(expenseRecord, index, taxonomy) {
+    const safeExpenseRecord = expenseRecord && typeof expenseRecord === "object" ? expenseRecord : {};
+    const warnings = [];
+    const rawTypeKey = normalizeExpenseRecordString(safeExpenseRecord.typeKey);
+    const hasCustomFallback = safeExpenseRecord.isCustomExpense === true || rawTypeKey === "customExpenseRecord";
+    const typeKey = rawTypeKey || (hasCustomFallback ? "customExpenseRecord" : "");
+    const libraryEntry = typeKey ? getExpenseLibraryEntry(typeKey) : null;
+    const customRecord = isCustomExpenseRecord(typeKey, safeExpenseRecord, libraryEntry);
+    const categoryKey = normalizeExpenseRecordString(safeExpenseRecord.categoryKey)
+      || (customRecord ? "customExpense" : normalizeExpenseRecordString(libraryEntry?.categoryKey));
+    const taxonomyCategory = getExpenseCategoryByKey(taxonomy, categoryKey);
+    const amount = toOptionalNumber(safeExpenseRecord.amount);
+    const frequency = normalizeExpenseFrequencyStrict(safeExpenseRecord.frequency);
+    const termType = normalizeExpenseTermTypeStrict(safeExpenseRecord.termType);
+    const details = {
+      index,
+      expenseId: normalizeExpenseRecordString(safeExpenseRecord.expenseId) || null,
+      typeKey: typeKey || null,
+      categoryKey: categoryKey || null
+    };
+
+    if (!typeKey) {
+      warnings.push(createExpenseFactWarning(
+        "missing-expense-record-type",
+        "Expense record is missing a typeKey and was not projected into expenseFacts.",
+        details
+      ));
+    } else if (!libraryEntry) {
+      warnings.push(createExpenseFactWarning(
+        "unknown-expense-record-type",
+        "Expense record typeKey is not present in the expense library.",
+        details
+      ));
+    }
+
+    if (libraryEntry && (libraryEntry.isProtected === true || libraryEntry.isScalarFieldOwned === true)) {
+      warnings.push(createExpenseFactWarning(
+        "protected-scalar-expense-record-rejected",
+        "Protected scalar-owned final expense rows must remain single-source scalar fields and were not projected from expenseRecords.",
+        details
+      ));
+    } else if (libraryEntry && libraryEntry.isAddable !== true) {
+      warnings.push(createExpenseFactWarning(
+        "non-addable-expense-record-rejected",
+        "Expense record typeKey is not addable and was not projected into expenseFacts.",
+        details
+      ));
+    }
+
+    if (!categoryKey) {
+      warnings.push(createExpenseFactWarning(
+        "missing-expense-record-category",
+        "Expense record is missing a categoryKey.",
+        details
+      ));
+    } else if (!taxonomyCategory) {
+      warnings.push(createExpenseFactWarning(
+        "unknown-expense-record-category",
+        "Expense record categoryKey is not present in the expense taxonomy.",
+        details
+      ));
+    } else if (libraryEntry && !customRecord && libraryEntry.categoryKey !== categoryKey) {
+      warnings.push(createExpenseFactWarning(
+        "expense-record-category-type-mismatch",
+        "Expense record categoryKey does not match the expense library entry categoryKey.",
+        Object.assign({}, details, { expectedCategoryKey: libraryEntry.categoryKey })
+      ));
+    }
+
+    if (amount == null) {
+      warnings.push(createExpenseFactWarning(
+        "missing-expense-record-amount",
+        "Expense record is missing a numeric amount.",
+        details
+      ));
+    } else if (amount < 0) {
+      warnings.push(createExpenseFactWarning(
+        "negative-expense-record-amount",
+        "Expense record has a negative amount and was not projected into expenseFacts.",
+        details
+      ));
+    }
+
+    if (!frequency) {
+      warnings.push(createExpenseFactWarning(
+        "invalid-expense-record-frequency",
+        "Expense record frequency is not present in the expense taxonomy.",
+        details
+      ));
+    }
+
+    if (!termType) {
+      warnings.push(createExpenseFactWarning(
+        "invalid-expense-record-term-type",
+        "Expense record termType is not present in the expense taxonomy.",
+        details
+      ));
+    }
+
+    if (warnings.length) {
+      return {
+        expense: null,
+        warnings
+      };
+    }
+
+    const normalizedAmounts = calculateRepeatableExpenseAmounts(amount, frequency);
+    const expenseFactId = createExpenseRecordFactId(safeExpenseRecord, index);
+    const expenseRecordId = normalizeExpenseRecordString(safeExpenseRecord.expenseId)
+      || normalizeExpenseRecordString(safeExpenseRecord.id)
+      || null;
+    const termYears = termType === "fixedYears"
+      ? normalizeOptionalExpenseRecordNumber(safeExpenseRecord.termYears)
+      : null;
+    const endAge = termType === "untilAge"
+      ? normalizeOptionalExpenseRecordNumber(safeExpenseRecord.endAge)
+      : null;
+    const endDate = termType === "untilDate"
+      ? (normalizeExpenseRecordString(safeExpenseRecord.endDate) || null)
+      : null;
+
+    return {
+      expense: {
+        expenseFactId,
+        expenseRecordId,
+        typeKey,
+        categoryKey,
+        label: normalizeExpenseRecordString(safeExpenseRecord.label)
+          || normalizeExpenseRecordString(libraryEntry?.label)
+          || normalizeExpenseRecordString(taxonomyCategory?.label)
+          || (customRecord ? "Custom Expense" : typeKey),
+        domain: normalizeExpenseRecordString(taxonomyCategory?.domain) || null,
+        amount,
+        frequency,
+        termType,
+        termYears,
+        endAge,
+        endDate,
+        source: EXPENSE_RECORDS_SOURCE_PATH,
+        sourceKey: "expenseRecords",
+        sourcePath: EXPENSE_RECORDS_SOURCE_PATH + "[" + index + "]",
+        sourceIndex: index,
+        isDefaultExpense: false,
+        isScalarFieldOwned: false,
+        isProtected: false,
+        isAddable: true,
+        isRepeatableExpenseRecord: true,
+        isCustomExpense: customRecord,
+        isFinalExpenseComponent: taxonomyCategory?.isFinalExpenseComponent === true,
+        isHealthcareSensitive: taxonomyCategory?.isHealthcareSensitive === true,
+        defaultInflationRole: normalizeExpenseRecordString(taxonomyCategory?.defaultInflationRole) || null,
+        uiAvailability: normalizeExpenseRecordString(libraryEntry?.uiAvailability) || null,
+        annualizedAmount: normalizedAmounts.annualizedAmount,
+        oneTimeAmount: normalizedAmounts.oneTimeAmount,
+        metadata: {
+          sourceType: "user-input",
+          confidence: "reported",
+          canonicalDestination: "expenseFacts.expenses",
+          recordSource: "expenseRecords",
+          sourceIndex: index,
+          taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          libraryEntryKey: normalizeExpenseRecordString(libraryEntry?.libraryEntryKey) || typeKey,
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null
+        }
+      },
+      warnings
+    };
+  }
+
+  function createExpenseFactsFromExpenseRecords(sourceData, taxonomy) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const sourceRecords = Array.isArray(safeSourceData.expenseRecords)
+      ? safeSourceData.expenseRecords
+      : [];
+    const expenses = [];
+    const warnings = [];
+
+    sourceRecords.forEach(function (expenseRecord, index) {
+      const result = createExpenseFactFromExpenseRecord(expenseRecord, index, taxonomy);
+      warnings.push.apply(warnings, result.warnings);
+
+      if (result.expense) {
+        expenses.push(result.expense);
+      }
+    });
+
+    return {
+      expenses,
+      sourceRecordCount: sourceRecords.length,
+      acceptedRecordCount: expenses.length,
+      invalidRecordCount: sourceRecords.length - expenses.length,
+      warnings
+    };
+  }
+
   function createExpenseFactFromScalarSource(sourceData, sourceField, taxonomy) {
     const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
     const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
@@ -1633,6 +1904,7 @@
         label: normalizeExpenseRecordString(libraryEntry?.label)
           || normalizeExpenseRecordString(taxonomyCategory?.label)
           || typeKey,
+        domain: normalizeExpenseRecordString(taxonomyCategory?.domain) || null,
         amount,
         frequency: normalizeExpenseRecordString(libraryEntry?.defaultFrequency) || "oneTime",
         termType: normalizeExpenseRecordString(libraryEntry?.defaultTermType) || "oneTime",
@@ -1666,60 +1938,161 @@
     };
   }
 
+  function getExpenseFactTotalAmount(expense) {
+    if (!expense || typeof expense !== "object") {
+      return null;
+    }
+
+    if (expense.isRepeatableExpenseRecord === true) {
+      if (expense.frequency === "oneTime") {
+        return toOptionalNumber(expense.oneTimeAmount);
+      }
+
+      return toOptionalNumber(expense.annualizedAmount);
+    }
+
+    return toOptionalNumber(expense.amount);
+  }
+
+  function getExpenseFactOneTimeAmount(expense) {
+    if (!expense || typeof expense !== "object") {
+      return null;
+    }
+
+    if (expense.isRepeatableExpenseRecord === true) {
+      return expense.frequency === "oneTime" ? toOptionalNumber(expense.oneTimeAmount) : null;
+    }
+
+    return expense.frequency === "oneTime" ? toOptionalNumber(expense.amount) : null;
+  }
+
+  function getExpenseFactAnnualRecurringAmount(expense) {
+    if (!expense || typeof expense !== "object" || expense.isRepeatableExpenseRecord !== true) {
+      return null;
+    }
+
+    return expense.frequency === "oneTime" ? null : toOptionalNumber(expense.annualizedAmount);
+  }
+
+  function sumExpenseFacts(expenses, predicate, amountSelector) {
+    return sumOptionalBucketComponents(expenses
+      .filter(predicate)
+      .map(amountSelector));
+  }
+
   function calculateExpenseFactsTotalsByBucket(expenses) {
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
-    const totalsByBucket = {
-      medicalFinalExpense: sumOptionalBucketComponents(safeExpenses
-        .filter(function (expense) {
-          return expense.categoryKey === "medicalFinalExpense";
-        })
-        .map(function (expense) {
-          return expense.amount;
-        })),
-      funeralBurial: sumOptionalBucketComponents(safeExpenses
-        .filter(function (expense) {
-          return expense.categoryKey === "funeralBurial";
-        })
-        .map(function (expense) {
-          return expense.amount;
-        })),
-      estateSettlement: sumOptionalBucketComponents(safeExpenses
-        .filter(function (expense) {
-          return expense.categoryKey === "estateSettlement";
-        })
-        .map(function (expense) {
-          return expense.amount;
-        })),
-      otherFinalExpense: sumOptionalBucketComponents(safeExpenses
-        .filter(function (expense) {
-          return expense.categoryKey === "otherFinalExpense";
-        })
-        .map(function (expense) {
-          return expense.amount;
-        }))
-    };
+    const totalsByBucket = {};
 
+    safeExpenses.forEach(function (expense) {
+      const categoryKey = normalizeExpenseRecordString(expense?.categoryKey);
+      const amount = getExpenseFactTotalAmount(expense);
+
+      if (!categoryKey || amount == null) {
+        return;
+      }
+
+      totalsByBucket[categoryKey] = sumOptionalBucketComponents([
+        totalsByBucket[categoryKey],
+        amount
+      ]);
+    });
+
+    ["medicalFinalExpense", "funeralBurial", "estateSettlement", "otherFinalExpense"].forEach(function (categoryKey) {
+      if (!Object.prototype.hasOwnProperty.call(totalsByBucket, categoryKey)) {
+        totalsByBucket[categoryKey] = null;
+      }
+    });
+
+    totalsByBucket.totalScalarFinalExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.isFinalExpenseComponent === true && expense.isScalarFieldOwned === true;
+      },
+      getExpenseFactTotalAmount
+    );
+    totalsByBucket.totalRepeatableFinalExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.isFinalExpenseComponent === true && expense.isRepeatableExpenseRecord === true;
+      },
+      getExpenseFactTotalAmount
+    );
     totalsByBucket.totalFinalExpense = sumOptionalBucketComponents([
-      totalsByBucket.medicalFinalExpense,
-      totalsByBucket.funeralBurial,
-      totalsByBucket.estateSettlement,
-      totalsByBucket.otherFinalExpense
+      totalsByBucket.totalScalarFinalExpense,
+      totalsByBucket.totalRepeatableFinalExpense
     ]);
-    totalsByBucket.totalHealthcareSensitiveExpense = sumOptionalBucketComponents(safeExpenses
-      .filter(function (expense) {
+    totalsByBucket.totalHealthcareSensitiveExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
         return expense.isHealthcareSensitive === true;
-      })
-      .map(function (expense) {
-        return expense.amount;
-      }));
-    totalsByBucket.totalNonMedicalFinalExpense = sumOptionalBucketComponents(safeExpenses
-      .filter(function (expense) {
+      },
+      getExpenseFactTotalAmount
+    );
+    totalsByBucket.totalNonMedicalFinalExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
         return expense.isFinalExpenseComponent === true && expense.isHealthcareSensitive !== true;
-      })
-      .map(function (expense) {
-        return expense.amount;
-      }));
+      },
+      getExpenseFactTotalAmount
+    );
     totalsByBucket.totalHealthcareExpense = totalsByBucket.totalHealthcareSensitiveExpense;
+    totalsByBucket.totalAnnualRecurringExpense = sumExpenseFacts(
+      safeExpenses,
+      function () {
+        return true;
+      },
+      getExpenseFactAnnualRecurringAmount
+    );
+    totalsByBucket.totalOneTimeExpense = sumExpenseFacts(
+      safeExpenses,
+      function () {
+        return true;
+      },
+      getExpenseFactOneTimeAmount
+    );
+    totalsByBucket.totalAnnualHealthcareExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.isHealthcareSensitive === true;
+      },
+      getExpenseFactAnnualRecurringAmount
+    );
+    totalsByBucket.totalOneTimeHealthcareExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.isHealthcareSensitive === true;
+      },
+      getExpenseFactOneTimeAmount
+    );
+    totalsByBucket.totalAnnualLivingExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.domain === "living";
+      },
+      getExpenseFactAnnualRecurringAmount
+    );
+    totalsByBucket.totalAnnualEducationExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.domain === "education";
+      },
+      getExpenseFactAnnualRecurringAmount
+    );
+    totalsByBucket.totalAnnualBusinessExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.domain === "business";
+      },
+      getExpenseFactAnnualRecurringAmount
+    );
+    totalsByBucket.totalAnnualCustomExpense = sumExpenseFacts(
+      safeExpenses,
+      function (expense) {
+        return expense.domain === "custom";
+      },
+      getExpenseFactAnnualRecurringAmount
+    );
 
     return totalsByBucket;
   }
@@ -1728,6 +2101,7 @@
     const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
     const taxonomy = getExpenseTaxonomy();
     const expenses = [];
+    const scalarExpenses = [];
     const warnings = [];
 
     SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.forEach(function (sourceField) {
@@ -1736,8 +2110,13 @@
 
       if (result.expense) {
         expenses.push(result.expense);
+        scalarExpenses.push(result.expense);
       }
     });
+
+    const expenseRecordsProjection = createExpenseFactsFromExpenseRecords(safeSourceData, taxonomy);
+    expenses.push.apply(expenses, expenseRecordsProjection.expenses);
+    warnings.push.apply(warnings, expenseRecordsProjection.warnings);
 
     return {
       expenses,
@@ -1747,11 +2126,12 @@
         taxonomySource: taxonomy.taxonomySource,
         librarySource: lensAnalysis.expenseLibrary ? "expense-library" : "unavailable",
         scalarExpenseSource: "final-expense-scalar-fields",
-        expenseRecordsSource: null,
+        expenseRecordsSource: expenseRecordsProjection.sourceRecordCount ? EXPENSE_RECORDS_SOURCE_PATH : null,
         scalarExpenseSourceFieldCount: SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.length,
-        acceptedScalarExpenseCount: expenses.length,
-        acceptedExpenseRecordCount: 0,
-        invalidExpenseRecordCount: 0,
+        acceptedScalarExpenseCount: scalarExpenses.length,
+        sourceExpenseRecordCount: expenseRecordsProjection.sourceRecordCount,
+        acceptedExpenseRecordCount: expenseRecordsProjection.acceptedRecordCount,
+        invalidExpenseRecordCount: expenseRecordsProjection.invalidRecordCount,
         warnings
       }
     };
