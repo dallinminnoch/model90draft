@@ -169,6 +169,25 @@
         totalFinalExpenseNeed: null
       },
 
+      // Raw expense facts projected from current scalar final-expense PMI
+      // fields. This is an additive future-ready facts layer; current methods
+      // still consume the finalExpenses compatibility bucket.
+      expenseFacts: {
+        expenses: [],
+        totalsByBucket: {},
+        metadata: {
+          source: "protectionModeling.data",
+          taxonomySource: "expense-taxonomy",
+          librarySource: "expense-library",
+          scalarExpenseSource: "final-expense-scalar-fields",
+          expenseRecordsSource: null,
+          acceptedScalarExpenseCount: 0,
+          acceptedExpenseRecordCount: 0,
+          invalidExpenseRecordCount: 0,
+          warnings: []
+        }
+      },
+
       // One-time survivor transition needs. These are neutral lump-sum
       // transition targets, not current assets, offsets, recurring support,
       // final expenses, education, debts, or recommendations.

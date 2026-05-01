@@ -24,6 +24,28 @@
     "realEstateEquity",
     "otherRealEstateEquity"
   ]);
+  const SCALAR_FINAL_EXPENSE_SOURCE_FIELDS = Object.freeze([
+    Object.freeze({
+      sourceKey: "funeralBurialEstimate",
+      typeKey: "funeralBurialEstimate",
+      categoryKey: "funeralBurial"
+    }),
+    Object.freeze({
+      sourceKey: "medicalEndOfLifeCosts",
+      typeKey: "medicalEndOfLifeCosts",
+      categoryKey: "medicalFinalExpense"
+    }),
+    Object.freeze({
+      sourceKey: "estateSettlementCosts",
+      typeKey: "estateSettlementCosts",
+      categoryKey: "estateSettlement"
+    }),
+    Object.freeze({
+      sourceKey: "otherFinalExpenses",
+      typeKey: "otherFinalExpenses",
+      categoryKey: "otherFinalExpense"
+    })
+  ]);
 
   // This pass normalizes the currently proven runtime block outputs into the
   // canonical incomeBasis, debtPayoff, ongoingSupport, educationSupport,
@@ -1459,6 +1481,298 @@
     return projection.metadata;
   }
 
+  function normalizeExpenseRecordString(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
+  function normalizeExpenseRecordToken(value) {
+    return normalizeExpenseRecordString(value)
+      .replace(/[^A-Za-z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function getExpenseTaxonomy() {
+    const taxonomy = lensAnalysis.expenseTaxonomy && typeof lensAnalysis.expenseTaxonomy === "object"
+      ? lensAnalysis.expenseTaxonomy
+      : {};
+    const categories = Array.isArray(taxonomy.DEFAULT_EXPENSE_CATEGORIES)
+      ? taxonomy.DEFAULT_EXPENSE_CATEGORIES
+      : [];
+
+    return {
+      categories,
+      taxonomySource: categories.length ? "expense-taxonomy" : "unavailable"
+    };
+  }
+
+  function getExpenseCategoryByKey(taxonomy, categoryKey) {
+    const safeTaxonomy = taxonomy && typeof taxonomy === "object" ? taxonomy : {};
+    const categories = Array.isArray(safeTaxonomy.categories) ? safeTaxonomy.categories : [];
+    const safeCategoryKey = normalizeExpenseRecordString(categoryKey);
+
+    if (!safeCategoryKey) {
+      return null;
+    }
+
+    return categories.find(function (category) {
+      return category && category.categoryKey === safeCategoryKey;
+    }) || null;
+  }
+
+  function getExpenseLibraryEntry(typeKey) {
+    const expenseLibrary = lensAnalysis.expenseLibrary && typeof lensAnalysis.expenseLibrary === "object"
+      ? lensAnalysis.expenseLibrary
+      : {};
+
+    if (typeof expenseLibrary.getExpenseLibraryEntry === "function") {
+      return expenseLibrary.getExpenseLibraryEntry(typeKey);
+    }
+
+    const entries = Array.isArray(expenseLibrary.EXPENSE_LIBRARY_ENTRIES)
+      ? expenseLibrary.EXPENSE_LIBRARY_ENTRIES
+      : [];
+    const safeTypeKey = normalizeExpenseRecordString(typeKey);
+    return entries.find(function (entry) {
+      return entry && entry.typeKey === safeTypeKey;
+    }) || null;
+  }
+
+  function hasUsableExpenseSourceValue(sourceData, sourceKey) {
+    if (!sourceData || typeof sourceData !== "object" || !sourceKey) {
+      return false;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(sourceData, sourceKey)) {
+      return false;
+    }
+
+    const rawValue = sourceData[sourceKey];
+    return rawValue != null && String(rawValue).trim() !== "";
+  }
+
+  function createExpenseFactWarning(code, message, details) {
+    return {
+      code,
+      message,
+      details: details || null
+    };
+  }
+
+  function createScalarExpenseFactId(sourceKey) {
+    return "scalar_expense_" + (normalizeExpenseRecordToken(sourceKey) || "unknown");
+  }
+
+  function createExpenseFactFromScalarSource(sourceData, sourceField, taxonomy) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
+    const sourceKey = normalizeExpenseRecordString(safeSourceField.sourceKey);
+    const typeKey = normalizeExpenseRecordString(safeSourceField.typeKey);
+    const warnings = [];
+
+    if (!sourceKey || !hasUsableExpenseSourceValue(safeSourceData, sourceKey)) {
+      return {
+        expense: null,
+        warnings
+      };
+    }
+
+    const libraryEntry = getExpenseLibraryEntry(typeKey);
+    const categoryKey = normalizeExpenseRecordString(libraryEntry?.categoryKey)
+      || normalizeExpenseRecordString(safeSourceField.categoryKey);
+    const taxonomyCategory = getExpenseCategoryByKey(taxonomy, categoryKey);
+    const amount = toOptionalNumber(safeSourceData[sourceKey]);
+
+    if (!libraryEntry) {
+      warnings.push(createExpenseFactWarning(
+        "unknown-scalar-expense-type",
+        "Scalar expense source typeKey is not present in the expense library.",
+        { sourceKey, typeKey }
+      ));
+    }
+
+    if (!categoryKey) {
+      warnings.push(createExpenseFactWarning(
+        "missing-scalar-expense-category",
+        "Scalar expense source metadata is missing a categoryKey.",
+        { sourceKey, typeKey }
+      ));
+    } else if (!taxonomyCategory) {
+      warnings.push(createExpenseFactWarning(
+        "unknown-scalar-expense-category",
+        "Scalar expense source categoryKey is not present in the expense taxonomy.",
+        { sourceKey, typeKey, categoryKey }
+      ));
+    }
+
+    if (amount == null) {
+      warnings.push(createExpenseFactWarning(
+        "invalid-scalar-expense-amount",
+        "Scalar expense source is missing a numeric amount.",
+        { sourceKey, typeKey, categoryKey: categoryKey || null }
+      ));
+    } else if (amount < 0) {
+      warnings.push(createExpenseFactWarning(
+        "negative-scalar-expense-amount",
+        "Scalar expense source had a negative amount and was not projected into expenseFacts.",
+        { sourceKey, typeKey, categoryKey: categoryKey || null }
+      ));
+    }
+
+    if (warnings.length) {
+      return {
+        expense: null,
+        warnings
+      };
+    }
+
+    return {
+      expense: {
+        expenseFactId: createScalarExpenseFactId(sourceKey),
+        typeKey,
+        categoryKey,
+        label: normalizeExpenseRecordString(libraryEntry?.label)
+          || normalizeExpenseRecordString(taxonomyCategory?.label)
+          || typeKey,
+        amount,
+        frequency: normalizeExpenseRecordString(libraryEntry?.defaultFrequency) || "oneTime",
+        termType: normalizeExpenseRecordString(libraryEntry?.defaultTermType) || "oneTime",
+        source: "protectionModeling.data",
+        sourceKey,
+        sourcePath: normalizeExpenseRecordString(libraryEntry?.sourcePath)
+          || ("protectionModeling.data." + sourceKey),
+        ownedByField: normalizeExpenseRecordString(libraryEntry?.ownedByField) || sourceKey,
+        isDefaultExpense: libraryEntry?.isDefaultExpense === true,
+        isScalarFieldOwned: libraryEntry?.isScalarFieldOwned === true,
+        isProtected: libraryEntry?.isProtected === true,
+        isAddable: false,
+        isRepeatableExpenseRecord: false,
+        isFinalExpenseComponent: taxonomyCategory?.isFinalExpenseComponent === true,
+        isHealthcareSensitive: taxonomyCategory?.isHealthcareSensitive === true,
+        defaultInflationRole: normalizeExpenseRecordString(taxonomyCategory?.defaultInflationRole) || null,
+        uiAvailability: normalizeExpenseRecordString(libraryEntry?.uiAvailability) || null,
+        metadata: {
+          sourceType: "user-input",
+          confidence: "reported",
+          canonicalDestination: "expenseFacts.expenses",
+          recordSource: "final-expense-scalar-field",
+          sourceIndex: null,
+          taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          libraryEntryKey: normalizeExpenseRecordString(libraryEntry?.libraryEntryKey) || typeKey,
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
+          duplicateProtection: libraryEntry?.duplicateProtection || null
+        }
+      },
+      warnings
+    };
+  }
+
+  function calculateExpenseFactsTotalsByBucket(expenses) {
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const totalsByBucket = {
+      medicalFinalExpense: sumOptionalBucketComponents(safeExpenses
+        .filter(function (expense) {
+          return expense.categoryKey === "medicalFinalExpense";
+        })
+        .map(function (expense) {
+          return expense.amount;
+        })),
+      funeralBurial: sumOptionalBucketComponents(safeExpenses
+        .filter(function (expense) {
+          return expense.categoryKey === "funeralBurial";
+        })
+        .map(function (expense) {
+          return expense.amount;
+        })),
+      estateSettlement: sumOptionalBucketComponents(safeExpenses
+        .filter(function (expense) {
+          return expense.categoryKey === "estateSettlement";
+        })
+        .map(function (expense) {
+          return expense.amount;
+        })),
+      otherFinalExpense: sumOptionalBucketComponents(safeExpenses
+        .filter(function (expense) {
+          return expense.categoryKey === "otherFinalExpense";
+        })
+        .map(function (expense) {
+          return expense.amount;
+        }))
+    };
+
+    totalsByBucket.totalFinalExpense = sumOptionalBucketComponents([
+      totalsByBucket.medicalFinalExpense,
+      totalsByBucket.funeralBurial,
+      totalsByBucket.estateSettlement,
+      totalsByBucket.otherFinalExpense
+    ]);
+    totalsByBucket.totalHealthcareSensitiveExpense = sumOptionalBucketComponents(safeExpenses
+      .filter(function (expense) {
+        return expense.isHealthcareSensitive === true;
+      })
+      .map(function (expense) {
+        return expense.amount;
+      }));
+    totalsByBucket.totalNonMedicalFinalExpense = sumOptionalBucketComponents(safeExpenses
+      .filter(function (expense) {
+        return expense.isFinalExpenseComponent === true && expense.isHealthcareSensitive !== true;
+      })
+      .map(function (expense) {
+        return expense.amount;
+      }));
+    totalsByBucket.totalHealthcareExpense = totalsByBucket.totalHealthcareSensitiveExpense;
+
+    return totalsByBucket;
+  }
+
+  function createExpenseFactsFromSourceData(sourceData) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const taxonomy = getExpenseTaxonomy();
+    const expenses = [];
+    const warnings = [];
+
+    SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.forEach(function (sourceField) {
+      const result = createExpenseFactFromScalarSource(safeSourceData, sourceField, taxonomy);
+      warnings.push.apply(warnings, result.warnings);
+
+      if (result.expense) {
+        expenses.push(result.expense);
+      }
+    });
+
+    return {
+      expenses,
+      totalsByBucket: calculateExpenseFactsTotalsByBucket(expenses),
+      metadata: {
+        source: "protectionModeling.data",
+        taxonomySource: taxonomy.taxonomySource,
+        librarySource: lensAnalysis.expenseLibrary ? "expense-library" : "unavailable",
+        scalarExpenseSource: "final-expense-scalar-fields",
+        expenseRecordsSource: null,
+        scalarExpenseSourceFieldCount: SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.length,
+        acceptedScalarExpenseCount: expenses.length,
+        acceptedExpenseRecordCount: 0,
+        invalidExpenseRecordCount: 0,
+        warnings
+      }
+    };
+  }
+
+  function applyExpenseFactsProjection(lensModel, options) {
+    const safeLensModel = lensModel && typeof lensModel === "object" ? lensModel : {};
+    const normalizedOptions = options && typeof options === "object" ? options : {};
+    const projection = createExpenseFactsFromSourceData(normalizedOptions.sourceData);
+
+    if (!safeLensModel.expenseFacts || typeof safeLensModel.expenseFacts !== "object") {
+      safeLensModel.expenseFacts = {};
+    }
+
+    safeLensModel.expenseFacts.expenses = projection.expenses;
+    safeLensModel.expenseFacts.totalsByBucket = projection.totalsByBucket;
+    safeLensModel.expenseFacts.metadata = projection.metadata;
+
+    return projection.metadata;
+  }
+
   function normalizeBlockOutputValue(value, mapping) {
     const normalizedMapping = mapping && typeof mapping === "object" ? mapping : {};
 
@@ -1695,6 +2009,7 @@
     applyOngoingSupportComposition(lensModel.ongoingSupport, ongoingSupportNormalizationMetadata);
     const assetFactsNormalizationMetadata = applyAssetFactsProjection(lensModel, options);
     const debtFactsNormalizationMetadata = applyDebtFactsProjection(lensModel, options);
+    const expenseFactsNormalizationMetadata = applyExpenseFactsProjection(lensModel, options);
 
     // Provenance stays outside the canonical bucket facts so future formulas
     // can read canonical buckets directly without mixing data and metadata.
@@ -1702,6 +2017,7 @@
       incomeBasis: incomeBasisNormalizationMetadata,
       debtPayoff: debtPayoffNormalizationMetadata,
       debtFacts: debtFactsNormalizationMetadata,
+      expenseFacts: expenseFactsNormalizationMetadata,
       ongoingSupport: ongoingSupportNormalizationMetadata,
       educationSupport: educationSupportNormalizationMetadata,
       finalExpenses: finalExpensesNormalizationMetadata,
@@ -1746,5 +2062,7 @@
   lensAnalysis.applyAssetFactsProjection = applyAssetFactsProjection;
   lensAnalysis.createDebtFactsFromSourceData = createDebtFactsFromSourceData;
   lensAnalysis.applyDebtFactsProjection = applyDebtFactsProjection;
+  lensAnalysis.createExpenseFactsFromSourceData = createExpenseFactsFromSourceData;
+  lensAnalysis.applyExpenseFactsProjection = applyExpenseFactsProjection;
   lensAnalysis.createLensModelFromBlockOutputs = createLensModelFromBlockOutputs;
 })();

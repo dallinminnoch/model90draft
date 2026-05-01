@@ -141,7 +141,15 @@
         { rawField: "medicalEndOfLifeCosts", canonicalField: "finalExpenses.medicalEndOfLifeCost", availability: "activeLinkedPmi", note: "One-time medical end-of-life cost estimate." },
         { rawField: "estateSettlementCosts", canonicalField: "finalExpenses.estateSettlementCost", availability: "activeLinkedPmi", note: "One-time estate settlement cost estimate." },
         { rawField: "otherFinalExpenses", canonicalField: "finalExpenses.otherFinalExpenses", availability: "activeLinkedPmi", note: "Other narrow one-time final expenses not captured by the named final-expense fields." },
-        { rawField: "funeralBurialEstimate + medicalEndOfLifeCosts + estateSettlementCosts + otherFinalExpenses", canonicalField: "finalExpenses.totalFinalExpenseNeed", availability: "activeLinkedPmiBlockOutput", note: "Neutral lump-sum final expense target; not inflation-adjusted, offset-adjusted, present-valued, or a recommendation." }
+        { rawField: "funeralBurialEstimate + medicalEndOfLifeCosts + estateSettlementCosts + otherFinalExpenses", canonicalField: "finalExpenses.totalFinalExpenseNeed", availability: "activeLinkedPmiBlockOutput", note: "Neutral lump-sum final expense target; not inflation-adjusted, offset-adjusted, present-valued, or a recommendation. This remains the current method-facing compatibility object." }
+      ],
+
+      expenseFacts: [
+        { rawField: "funeralBurialEstimate", canonicalField: "expenseFacts.expenses[]", availability: "activeLinkedPmiNormalization", note: "Protected scalar-owned raw expense fact mapped to the funeralBurial bucket. No current methods consume this fact layer yet." },
+        { rawField: "medicalEndOfLifeCosts", canonicalField: "expenseFacts.expenses[]", availability: "activeLinkedPmiNormalization", note: "Protected scalar-owned raw expense fact mapped to the medicalFinalExpense bucket and flagged healthcare-sensitive for future healthcare inflation design." },
+        { rawField: "estateSettlementCosts", canonicalField: "expenseFacts.expenses[]", availability: "activeLinkedPmiNormalization", note: "Protected scalar-owned raw expense fact mapped to the estateSettlement bucket. No current methods consume this fact layer yet." },
+        { rawField: "otherFinalExpenses", canonicalField: "expenseFacts.expenses[]", availability: "activeLinkedPmiNormalization", note: "Protected scalar-owned raw expense fact mapped to the otherFinalExpense bucket. No current methods consume this fact layer yet." },
+        { rawField: "scalar final expense bucket totals", canonicalField: "expenseFacts.totalsByBucket", availability: "activeLinkedPmiNormalization", note: "Backend-ready bucket totals for future expense/healthcare logic. Current DIME, Needs, HLV, and Step 3 behavior remain owned by finalExpenses and method traces." }
       ],
 
       transitionNeeds: [
