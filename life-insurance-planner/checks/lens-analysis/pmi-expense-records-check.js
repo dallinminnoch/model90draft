@@ -166,6 +166,56 @@ function assertNoProtectedDiffs() {
   assert.equal(status, "", "formula/display/normalization/Analysis Setup files should not have diffs");
 }
 
+function assertStrictProtectedDiffGuardIfRequested() {
+  if (process.env.PMI_EXPENSE_RECORDS_STRICT_DIFF_GUARD !== "1") {
+    return;
+  }
+
+  assertNoProtectedDiffs();
+}
+
+function stripJavaScriptComments(source) {
+  return String(source || "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+function assertNoFormulaOwnerReferences(widgetSource) {
+  const executableSource = stripJavaScriptComments(widgetSource);
+  [
+    {
+      pattern: /analysis-methods|analysisMethods/,
+      message: "PMI expense records widget should not reference analysis methods."
+    },
+    {
+      pattern: /step-three-analysis-display/,
+      message: "PMI expense records widget should not reference Step 3 display."
+    },
+    {
+      pattern: /analysis-setup/,
+      message: "PMI expense records widget should not reference Analysis Setup."
+    },
+    {
+      pattern: /normalize-lens-model/,
+      message: "PMI expense records widget should not reference Lens normalization."
+    },
+    {
+      pattern: /final-expense-inflation-calculations/,
+      message: "PMI expense records widget should not reference final expense inflation helpers."
+    },
+    {
+      pattern: /inflationAssumptions|inflation-assumptions|healthcareInflation|finalExpenseInflation/,
+      message: "PMI expense records widget should not reference inflation assumption or formula owners."
+    },
+    {
+      pattern: /runNeedsAnalysis|runDimeAnalysis|runHlvAnalysis|runHumanLifeValueAnalysis/,
+      message: "PMI expense records widget should not call analysis methods."
+    }
+  ].forEach(function (entry) {
+    assert.equal(entry.pattern.test(executableSource), false, entry.message);
+  });
+}
+
 function assertScriptOrder(source, relativePath) {
   const taxonomyIndex = source.indexOf("expense-taxonomy.js");
   const libraryIndex = source.indexOf("expense-library.js");
@@ -212,6 +262,7 @@ const expenseTaxonomy = lensAnalysis.expenseTaxonomy;
 const pmiExpenseRecords = lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
 
+assertNoFormulaOwnerReferences(widgetSource);
 assert.equal(typeof pmiExpenseRecords?.initPmiExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.hydrateExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
@@ -489,6 +540,6 @@ assert.deepEqual(inputRecords[0], {
   assert.equal(source.includes("data-pmi-expense-records-root"), false, `${relativePath} should not mount the PMI expense widget`);
 });
 
-assertNoProtectedDiffs();
+assertStrictProtectedDiffGuardIfRequested();
 
 console.log("pmi-expense-records-check passed");
