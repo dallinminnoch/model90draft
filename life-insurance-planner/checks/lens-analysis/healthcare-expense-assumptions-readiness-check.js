@@ -302,6 +302,9 @@ assert.match(healthcareSection, /data-analysis-healthcare-expense-field="include
 assert.doesNotMatch(healthcareSection, /oneTimeProjectionMode/);
 assert.match(healthcareSection, /Controls the Needs healthcareExpenses component when enabled/);
 assert.match(healthcareSection, /DIME and HLV are unaffected/);
+assert.match(healthcareSection, /Default healthcare expense projection years/);
+assert.match(healthcareSection, /Used for ongoing healthcare expense records and as the fallback when a record-specific duration is missing or invalid/);
+assert.match(healthcareSection, /Only applies when this Needs component is enabled; medical final expense, DIME, and HLV do not use it/);
 assert.match(healthcareSection, /Medical final expense is already handled separately through Final Expense projection/);
 assert.match(healthcareSection, /eligible entered recurring\/non-final healthcare expense records/);
 assert.match(healthcareSection, /one-time healthcare records are included current-dollar only/);

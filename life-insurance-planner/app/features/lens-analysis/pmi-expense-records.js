@@ -570,7 +570,7 @@
                 </select>
               </div>
               <div class="field-group">
-                <label for="${escapeHtml(termTypeInputId)}">Term Type</label>
+                <label for="${escapeHtml(termTypeInputId)}">Duration / term</label>
                 <select id="${escapeHtml(termTypeInputId)}" data-pmi-expense-record-term-type>
                   ${renderSelectOptions(getTermTypeOptions(), normalizeString(record.termType))}
                 </select>

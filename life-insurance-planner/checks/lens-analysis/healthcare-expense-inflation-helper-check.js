@@ -154,6 +154,39 @@ assert.equal(monthlyOngoingResult.currentAnnualHealthcareExpenseAmount, 1200);
 assert.equal(monthlyOngoingResult.projectedHealthcareExpenseAmount, 2772);
 assert.equal(findIncluded(monthlyOngoingResult, "monthlyOngoing").durationSource, "healthcareExpenseAssumptions.projectionYears");
 
+const yearByYearProjection = context.LensApp.lensAnalysis.calculateInflationProjection({
+  amount: 1200,
+  durationYears: 10,
+  ratePercent: 3,
+  enabled: true,
+  timing: "annual",
+  source: "healthcare-expense-inflation-helper-check"
+});
+assert.equal(yearByYearProjection.annualValues[0].amount, 1236);
+assert.equal(yearByYearProjection.annualValues[1].amount, 1273.08);
+assert.equal(yearByYearProjection.annualValues[2].amount, 1311.27);
+assert.equal(yearByYearProjection.annualValues[9].amount, 1612.7);
+assert.equal(yearByYearProjection.projectedTotal, 14169.35);
+
+const healthcareYearByYearResult = run(helper, createInput({
+  expenseFacts: createExpenseFacts([
+    createFact({
+      typeKey: "yearByYearHealthcare",
+      annualizedAmount: 1200,
+      frequency: "annual",
+      termType: "ongoing"
+    })
+  ]),
+  healthcareExpenseAssumptions: {
+    projectionYears: 10
+  },
+  inflationAssumptions: {
+    healthcareInflationRatePercent: 3
+  }
+}));
+assert.equal(healthcareYearByYearResult.projectedHealthcareExpenseAmount, 14169.35);
+assert.notEqual(healthcareYearByYearResult.projectedHealthcareExpenseAmount, 12000);
+
 const annualizationResult = run(helper, createInput({
   expenseFacts: createExpenseFacts([
     createFact({ typeKey: "weeklyHealthcare", amount: 10, frequency: "weekly" }),
@@ -231,6 +264,7 @@ const untilAgeResult = run(helper, createInput({
 }));
 assert.equal(findIncluded(untilAgeResult, "untilAgeHealthcare").durationYears, 5);
 assert.equal(findIncluded(untilAgeResult, "untilAgeHealthcare").durationSource, "endAge-clientDateOfBirth-valuationDate");
+assert.equal(untilAgeResult.projectedHealthcareExpenseAmount, 6000);
 
 const untilAgeFallbackResult = run(helper, createInput({
   expenseFacts: createExpenseFacts([
@@ -261,6 +295,19 @@ const untilDateResult = run(helper, createInput({
 }));
 assert.equal(findIncluded(untilDateResult, "untilDateHealthcare").durationYears, 3);
 assert.equal(findIncluded(untilDateResult, "untilDateHealthcare").durationSource, "endDate-valuationDate");
+
+const untilDatePartialYearResult = run(helper, createInput({
+  expenseFacts: createExpenseFacts([
+    createFact({ typeKey: "untilDatePartialYearHealthcare", amount: 100, termType: "untilDate", endDate: "2026-02-01" })
+  ]),
+  valuationDate: "2026-01-01",
+  inflationAssumptions: {
+    healthcareInflationRatePercent: 0
+  }
+}));
+assert.equal(findIncluded(untilDatePartialYearResult, "untilDatePartialYearHealthcare").durationYears, 0.084932);
+assert.equal(findIncluded(untilDatePartialYearResult, "untilDatePartialYearHealthcare").durationSource, "endDate-valuationDate");
+assert.equal(untilDatePartialYearResult.projectedHealthcareExpenseAmount, 101.92);
 
 const untilDateFallbackResult = run(helper, createInput({
   expenseFacts: createExpenseFacts([

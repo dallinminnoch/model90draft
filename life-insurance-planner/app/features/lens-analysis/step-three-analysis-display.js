@@ -1076,6 +1076,40 @@
       .join(", ") || "None";
   }
 
+  function getHealthcareExpenseDurationBasisSummary(healthcareExpenseTrace) {
+    const projectionYears = formatYears(getTraceInput(healthcareExpenseTrace, "projectionYears"));
+    const projectionYearsSource = String(getTraceInput(healthcareExpenseTrace, "projectionYearsSource") || "").trim();
+    const includedRecords = getTraceInput(healthcareExpenseTrace, "includedRecords");
+    const durationSources = Array.isArray(includedRecords)
+      ? Array.from(new Set(includedRecords
+          .map(function (record) {
+            return String(record?.durationSource || "").trim();
+          })
+          .filter(Boolean)))
+      : [];
+    const warnings = getTraceInput(healthcareExpenseTrace, "warnings");
+    const durationWarnings = Array.isArray(warnings)
+      ? warnings
+          .map(getTraceWarningMessage)
+          .filter(function (message) {
+            return /duration|termYears|fallback/i.test(message || "");
+          })
+      : [];
+    const parts = [];
+
+    parts.push(`Default: ${projectionYears}${projectionYearsSource ? ` (${projectionYearsSource})` : ""}`);
+
+    if (durationSources.length) {
+      parts.push(`Included duration sources: ${formatTraceList(durationSources)}`);
+    }
+
+    if (durationWarnings.length) {
+      parts.push(`Duration warnings: ${durationWarnings.join("; ")}`);
+    }
+
+    return parts.join("; ");
+  }
+
   function getTraceWarningMessage(warning) {
     if (!isPlainObject(warning)) {
       return "";
@@ -1193,6 +1227,7 @@
       { label: "Healthcare inflation rate", value: formatHealthcareExpenseInflationRateLabel(healthcareExpenseTrace) },
       { label: "Projection years", value: formatYears(getTraceInput(healthcareExpenseTrace, "projectionYears")) },
       { label: "Projection years source", value: String(getTraceInput(healthcareExpenseTrace, "projectionYearsSource") || "Not set") },
+      { label: "Duration basis", value: getHealthcareExpenseDurationBasisSummary(healthcareExpenseTrace) },
       { label: "Include one-time healthcare expenses", value: formatBooleanDetail(getTraceInput(healthcareExpenseTrace, "includeOneTimeHealthcareExpenses")) },
       { label: "One-time projection mode", value: String(getTraceInput(healthcareExpenseTrace, "oneTimeProjectionMode") || "Not set") },
       { label: "Included record count", value: formatCount(getTraceInput(healthcareExpenseTrace, "includedRecordCount")) },

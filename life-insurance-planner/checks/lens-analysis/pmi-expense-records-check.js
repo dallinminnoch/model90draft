@@ -453,6 +453,8 @@ const inputRecords = Object.freeze([
 
 controller.hydrateExpenseRecords(inputRecords);
 assert.match(fakeDom.list.innerHTML, /Medical Out-of-Pocket/, "hydrate should render saved valid record labels");
+assert.match(fakeDom.list.innerHTML, /Duration \/ term/, "expense record duration selector should use advisor-facing copy");
+assert.doesNotMatch(fakeDom.list.innerHTML, />Term Type</, "expense record duration selector should not use the stale Term Type label");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Should Be Ignored/, "hydrate should reject protected scalar expense records");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Future Entry Should Be Ignored/, "hydrate should reject future expense records");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Advanced Entry Should Be Ignored/, "hydrate should reject advanced expense records");
