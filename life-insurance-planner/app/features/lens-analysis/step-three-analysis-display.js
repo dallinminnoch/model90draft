@@ -1039,6 +1039,87 @@
     return `${formatPercent(getTraceInput(finalExpenseTrace, "healthcareInflationRatePercent"))} healthcare inflation`;
   }
 
+  function formatHealthcareExpenseInflationRateLabel(healthcareExpenseTrace) {
+    return `${formatPercent(getTraceInput(healthcareExpenseTrace, "healthcareInflationRatePercent"))} healthcare inflation`;
+  }
+
+  function formatHealthcareExpenseProjectionStatus(healthcareExpenseTrace) {
+    if (getTraceInput(healthcareExpenseTrace, "enabled") !== true) {
+      return "Disabled";
+    }
+
+    const warningCode = String(getTraceInput(healthcareExpenseTrace, "warningCode") || "").trim();
+    if (warningCode && warningCode !== "healthcare-expense-assumptions-disabled") {
+      return "Warning";
+    }
+
+    if (
+      getTraceInput(healthcareExpenseTrace, "applied") === true
+      && getTraceInput(healthcareExpenseTrace, "healthcareInflationApplied") !== true
+    ) {
+      return "Current-dollar";
+    }
+
+    return getTraceInput(healthcareExpenseTrace, "applied") === true ? "Applied" : "Current-dollar";
+  }
+
+  function formatTraceList(values) {
+    if (!Array.isArray(values) || !values.length) {
+      return "None";
+    }
+
+    return values
+      .map(function (value) {
+        return String(value || "").trim();
+      })
+      .filter(Boolean)
+      .join(", ") || "None";
+  }
+
+  function getTraceWarningMessage(warning) {
+    if (!isPlainObject(warning)) {
+      return "";
+    }
+
+    return String(warning.message || warning.code || "").trim();
+  }
+
+  function findHealthcareExpenseOverlapWarning(healthcareExpenseTrace) {
+    const warnings = getTraceInput(healthcareExpenseTrace, "warnings");
+    if (!Array.isArray(warnings)) {
+      return null;
+    }
+
+    return warnings.find(function (warning) {
+      return warning?.code === "healthcare-expense-overlap-review"
+        || /overlap/i.test(getTraceWarningMessage(warning));
+    }) || null;
+  }
+
+  function getHealthcareExpenseWarningSummary(healthcareExpenseTrace) {
+    const reason = formatTraceReason(getTraceInput(healthcareExpenseTrace, "reason"));
+    const warningCode = formatTraceReason(getTraceInput(healthcareExpenseTrace, "warningCode"));
+    const warnings = getTraceInput(healthcareExpenseTrace, "warnings");
+    const messages = Array.isArray(warnings)
+      ? warnings
+          .map(getTraceWarningMessage)
+          .filter(Boolean)
+          .filter(function (message) {
+            return !/overlap/i.test(message);
+          })
+      : [];
+
+    if (messages.length) {
+      return messages.join("; ");
+    }
+
+    if (reason) {
+      return reason;
+    }
+
+    return warningCode || "None";
+  }
+
   function formatFinalExpenseSourceMode(finalExpenseTrace) {
     const sourceMode = String(getTraceInput(finalExpenseTrace, "sourceMode") || "").trim();
     if (sourceMode === "expenseFacts-final-expense-components") {
@@ -1097,13 +1178,49 @@
     return renderProjectionDetailSection("Final Expense Projection", rows);
   }
 
+  function renderNeedsHealthcareExpenseProjectionDetail(needsResult) {
+    const healthcareExpenseTrace = findTrace(needsResult, "healthcareExpenses");
+    if (!healthcareExpenseTrace) {
+      return "";
+    }
+
+    const rows = [
+      { label: "Inclusion status", value: formatHealthcareExpenseProjectionStatus(healthcareExpenseTrace) },
+      { label: "Healthcare expense amount used", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "projectedHealthcareExpenseAmount")) },
+      { label: "Current annual healthcare expense", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "currentAnnualHealthcareExpenseAmount")) },
+      { label: "Projected recurring healthcare need", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "projectedRecurringHealthcareExpenseAmount")) },
+      { label: "One-time healthcare amount included", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "includedOneTimeHealthcareExpenseAmount")) },
+      { label: "Healthcare inflation rate", value: formatHealthcareExpenseInflationRateLabel(healthcareExpenseTrace) },
+      { label: "Projection years", value: formatYears(getTraceInput(healthcareExpenseTrace, "projectionYears")) },
+      { label: "Projection years source", value: String(getTraceInput(healthcareExpenseTrace, "projectionYearsSource") || "Not set") },
+      { label: "Include one-time healthcare expenses", value: formatBooleanDetail(getTraceInput(healthcareExpenseTrace, "includeOneTimeHealthcareExpenses")) },
+      { label: "One-time projection mode", value: String(getTraceInput(healthcareExpenseTrace, "oneTimeProjectionMode") || "Not set") },
+      { label: "Included record count", value: formatCount(getTraceInput(healthcareExpenseTrace, "includedRecordCount")) },
+      { label: "Excluded record count", value: formatCount(getTraceInput(healthcareExpenseTrace, "excludedRecordCount")) },
+      { label: "Included buckets", value: formatTraceList(getTraceInput(healthcareExpenseTrace, "includedBuckets")) },
+      { label: "Excluded buckets", value: formatTraceList(getTraceInput(healthcareExpenseTrace, "excludedBuckets")) },
+      { label: "Warning/reason summary", value: getHealthcareExpenseWarningSummary(healthcareExpenseTrace) }
+    ];
+    const overlapWarning = findHealthcareExpenseOverlapWarning(healthcareExpenseTrace);
+
+    if (overlapWarning) {
+      rows.push({
+        label: "Overlap warning",
+        value: getTraceWarningMessage(overlapWarning)
+      });
+    }
+
+    return renderProjectionDetailSection("Healthcare Expense Projection", rows);
+  }
+
   function renderNeedsProjectionDetails(needsResult) {
     const projectionDetails = [
       renderNeedsInflationDetail(needsResult),
       renderSurvivorIncomeDerivationDetail(needsResult),
       renderNeedsDiscretionaryInflationDetail(needsResult),
       renderNeedsEducationInflationDetail(needsResult),
-      renderNeedsFinalExpenseProjectionDetail(needsResult)
+      renderNeedsFinalExpenseProjectionDetail(needsResult),
+      renderNeedsHealthcareExpenseProjectionDetail(needsResult)
     ].filter(Boolean);
 
     if (!projectionDetails.length) {
