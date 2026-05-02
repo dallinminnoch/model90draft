@@ -172,8 +172,12 @@
       // Normalized raw expense facts projected from scalar final-expense PMI
       // fields and repeatable expense records. Needs final expense projection
       // can use final-expense component facts from this layer when available;
-      // non-final recurring records remain raw-only. finalExpenses remains the
-      // compatibility/fallback source.
+      // eligible non-final healthcare facts remain raw fact-owned but can feed
+      // the Needs healthcareExpenses component when enabled through the
+      // healthcare expense projection helper. Medical final expense stays in
+      // Final Expense projection; living, education, business, and custom
+      // expense facts remain raw-only for current outputs. DIME and HLV do not
+      // consume expenseFacts.
       expenseFacts: {
         expenses: [],
         totalsByBucket: {},
