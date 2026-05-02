@@ -27,6 +27,7 @@ function createContext() {
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
     "app/features/lens-analysis/final-expense-inflation-calculations.js",
+    "app/features/lens-analysis/healthcare-expense-inflation-calculations.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js"
   ].forEach(function (relativePath) {
@@ -242,6 +243,9 @@ function runAll(context, options = {}) {
   const methods = lensAnalysis.analysisMethods;
   const lensModel = createLensModel(options.lensModel || {});
   const analysisSettings = createAnalysisSettings(options.analysisSettings || {});
+  if (Object.prototype.hasOwnProperty.call(options.analysisSettings || {}, "healthcareExpenseAssumptions")) {
+    analysisSettings.healthcareExpenseAssumptions = options.analysisSettings.healthcareExpenseAssumptions;
+  }
   const methodSettings = adapter.createAnalysisMethodSettings({
     analysisSettings,
     lensModel,
@@ -394,6 +398,35 @@ assert.deepEqual(
   "Recurring healthcare and non-final expense facts should remain raw-only for Needs final expense."
 );
 assertDimeHlvUnchanged(rawOnlyRun, baseline, "raw-only non-final expense facts");
+
+const activatedHealthcareExpenseRun = runAll(context, {
+  lensModel: {
+    expenseFacts: rawOnlyExpenses
+  },
+  analysisSettings: {
+    healthcareExpenseAssumptions: {
+      enabled: true,
+      projectionYears: 2,
+      includeOneTimeHealthcareExpenses: false,
+      oneTimeProjectionMode: "currentDollarOnly",
+      source: "healthcare-final-expense-split-current-output-check"
+    }
+  }
+});
+assert.deepEqual(
+  findTrace(activatedHealthcareExpenseRun.results.needs, "finalExpenses").inputs,
+  baselineTrace.inputs,
+  "Activated recurring healthcare expense records should not alter Needs final expense split."
+);
+assert.ok(
+  activatedHealthcareExpenseRun.results.needs.components.healthcareExpenses > 0,
+  "Activated recurring healthcare expense records should flow through the separate healthcareExpenses component."
+);
+assertDimeHlvUnchanged(
+  activatedHealthcareExpenseRun,
+  rawOnlyRun,
+  "activated non-final healthcare expense facts"
+);
 
 const noDoubleCountRun = runAll(context, {
   lensModel: {

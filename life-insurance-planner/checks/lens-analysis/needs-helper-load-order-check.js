@@ -11,7 +11,8 @@ const pagesDir = path.join(repoRoot, "pages");
 const REQUIRED_NEEDS_HELPERS = [
   "app/features/lens-analysis/inflation-projection-calculations.js",
   "app/features/lens-analysis/education-funding-projection-calculations.js",
-  "app/features/lens-analysis/final-expense-inflation-calculations.js"
+  "app/features/lens-analysis/final-expense-inflation-calculations.js",
+  "app/features/lens-analysis/healthcare-expense-inflation-calculations.js"
 ];
 const ANALYSIS_METHODS_SCRIPT = "app/features/lens-analysis/analysis-methods.js";
 

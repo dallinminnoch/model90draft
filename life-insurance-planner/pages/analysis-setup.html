@@ -200,21 +200,21 @@
                     <span>Final expense target age (Needs only)</span>
                     <input id="analysis-setup-final-expense-target-age" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-inflation-field="finalExpenseTargetAge">
                   </label>
-                  <p class="underwriting-helper-text">Healthcare inflation applies to Needs medical final expense projection; final expense inflation applies to Needs non-medical final expense projection. Target age is used for Needs final expense projection. Recurring healthcare expense records remain saved/raw-only until a future healthcare expense component is activated.</p>
+                  <p class="underwriting-helper-text">Healthcare inflation applies to Needs medical final expense projection and, when enabled, the Needs healthcare expense component. Final expense inflation applies to Needs non-medical final expense projection. Target age is used for Needs final expense projection.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--healthcare-expense" aria-labelledby="analysis-setup-healthcare-expense">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">
                         <h3 id="analysis-setup-healthcare-expense">Healthcare Expense Assumptions</h3>
-                        <p>Saved for a future Needs healthcareExpenses component. These controls do not affect current DIME, Needs, or HLV outputs yet.</p>
+                        <p>Controls the Needs healthcareExpenses component when enabled. DIME and HLV are unaffected.</p>
                       </div>
                     </div>
 
                     <label class="settings-toggle-row analysis-setup-toggle-control">
                       <span class="settings-toggle-copy">
                         <span class="settings-toggle-label">Enable healthcare expense component</span>
-                        <span class="settings-toggle-note">Saved for future Needs use only. The toggle does not change current output.</span>
+                        <span class="settings-toggle-note">When on, Needs can include eligible entered recurring/non-final healthcare expense records.</span>
                       </span>
                       <span class="settings-switch">
                         <input
@@ -234,7 +234,7 @@
                     <label class="settings-toggle-row analysis-setup-toggle-control">
                       <span class="settings-toggle-copy">
                         <span class="settings-toggle-label">Include one-time healthcare expenses</span>
-                        <span class="settings-toggle-note">Saved for future Needs use only; one-time healthcare records will be current-dollar only when activated later.</span>
+                        <span class="settings-toggle-note">When on, eligible one-time healthcare records are included current-dollar only.</span>
                       </span>
                       <span class="settings-switch">
                         <input
@@ -246,7 +246,7 @@
                       </span>
                     </label>
 
-                    <p class="underwriting-helper-text">Medical final expense is already handled separately through Final Expense projection. Only entered healthcare expense records will be eligible later; recurring/non-final healthcare records remain raw-only until the future component is activated. Review possible overlap with household healthcare or out-of-pocket support before activation.</p>
+                    <p class="underwriting-helper-text">Medical final expense is already handled separately through Final Expense projection. Only entered healthcare expense records are eligible for this component. Review possible overlap with household healthcare or out-of-pocket support before relying on the component.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion">

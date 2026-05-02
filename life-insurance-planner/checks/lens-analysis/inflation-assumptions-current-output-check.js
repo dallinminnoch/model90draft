@@ -27,6 +27,7 @@ function createContext() {
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
     "app/features/lens-analysis/final-expense-inflation-calculations.js",
+    "app/features/lens-analysis/healthcare-expense-inflation-calculations.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js"
   ].forEach(function (relativePath) {
@@ -101,6 +102,24 @@ function createLensModel() {
         consumedByMethods: true
       }
     }
+  };
+}
+
+function createHealthcareExpenseFact(overrides = {}) {
+  return {
+    expenseFactId: overrides.expenseFactId || "expense_record_ongoingHealthcare",
+    typeKey: overrides.typeKey || "medicalOutOfPocket",
+    categoryKey: overrides.categoryKey || "ongoingHealthcare",
+    label: overrides.label || "Medical Out-of-Pocket",
+    amount: overrides.amount === undefined ? 100 : overrides.amount,
+    frequency: overrides.frequency || "monthly",
+    termType: overrides.termType || "ongoing",
+    annualizedAmount: overrides.annualizedAmount,
+    oneTimeAmount: overrides.oneTimeAmount,
+    sourcePath: overrides.sourcePath || "expenseFacts.expenses[0]",
+    isFinalExpenseComponent: overrides.isFinalExpenseComponent === true,
+    isHealthcareSensitive: overrides.isHealthcareSensitive !== false,
+    isCustomExpense: overrides.isCustomExpense === true
   };
 }
 
@@ -187,6 +206,18 @@ function runAllForAnalysisSettings(adapter, methods, analysisSettings) {
   return {
     methodSettings,
     results: runAllMethods(methods, methodSettings)
+  };
+}
+
+function runAllForLensModel(adapter, methods, analysisSettings, lensModel) {
+  const methodSettings = createMethodSettings(adapter, analysisSettings);
+  return {
+    methodSettings,
+    results: {
+      dime: methods.runDimeAnalysis(lensModel, cloneJson(methodSettings.dimeSettings)),
+      needs: methods.runNeedsAnalysis(lensModel, cloneJson(methodSettings.needsAnalysisSettings)),
+      hlv: methods.runHumanLifeValueAnalysis(lensModel, cloneJson(methodSettings.humanLifeValueSettings))
+    }
   };
 }
 
@@ -303,8 +334,9 @@ function assertAdapterTraceTruthful(methodSettings) {
   assert.match(inflationTrace.message, /current Needs support/);
   assert.match(inflationTrace.message, /current Needs education/);
   assert.match(inflationTrace.message, /healthcare inflation can affect current Needs medical final expense/);
+  assert.match(inflationTrace.message, /Needs healthcareExpenses component when healthcare expense assumptions are enabled/);
   assert.match(inflationTrace.message, /final expense inflation can affect current Needs non-medical final expense/);
-  assert.match(inflationTrace.message, /Recurring healthcare expense facts remain raw-only/);
+  assert.match(inflationTrace.message, /DIME and HLV remain unaffected/);
   assert.ok(
     inflationTrace.sourcePaths.includes("analysisSettings.inflationAssumptions"),
     "Adapter inflation trace should point to saved inflation assumptions."
@@ -576,7 +608,76 @@ assert.deepEqual(
 assert.equal(
   healthcareHigh.methodSettings.needsAnalysisSettings.inflationAssumptions.healthcareInflationRatePercent,
   9,
-  "Needs settings may carry saved future-use healthcare inflation for trace/readiness."
+  "Needs settings should carry saved healthcare inflation for medical final expense and healthcareExpenses."
+);
+
+const healthcareExpenseModel = createLensModel();
+healthcareExpenseModel.expenseFacts = {
+  expenses: [
+    createHealthcareExpenseFact({
+      amount: 100,
+      frequency: "monthly",
+      termType: "ongoing",
+      annualizedAmount: 1200
+    })
+  ],
+  totalsByBucket: {},
+  metadata: {
+    source: "inflation-assumptions-current-output-check"
+  }
+};
+const healthcareExpenseLowSettings = createAnalysisSettings({
+  inflationAssumptions: {
+    householdExpenseInflationRatePercent: 3,
+    educationInflationRatePercent: 5,
+    healthcareInflationRatePercent: 1,
+    finalExpenseInflationRatePercent: 3
+  }
+});
+healthcareExpenseLowSettings.healthcareExpenseAssumptions = {
+  enabled: true,
+  projectionYears: 2,
+  includeOneTimeHealthcareExpenses: false,
+  oneTimeProjectionMode: "currentDollarOnly",
+  source: "inflation-assumptions-current-output-check"
+};
+const healthcareExpenseHighSettings = createAnalysisSettings({
+  inflationAssumptions: {
+    householdExpenseInflationRatePercent: 3,
+    educationInflationRatePercent: 5,
+    healthcareInflationRatePercent: 9,
+    finalExpenseInflationRatePercent: 3
+  }
+});
+healthcareExpenseHighSettings.healthcareExpenseAssumptions = {
+  ...healthcareExpenseLowSettings.healthcareExpenseAssumptions
+};
+const healthcareExpenseLowRun = runAllForLensModel(
+  adapter,
+  methods,
+  healthcareExpenseLowSettings,
+  healthcareExpenseModel
+);
+const healthcareExpenseHighRun = runAllForLensModel(
+  adapter,
+  methods,
+  healthcareExpenseHighSettings,
+  healthcareExpenseModel
+);
+assert.ok(
+  healthcareExpenseHighRun.results.needs.components.healthcareExpenses
+    > healthcareExpenseLowRun.results.needs.components.healthcareExpenses,
+  "Healthcare inflation should alter Needs healthcareExpenses when healthcare expense assumptions are enabled."
+);
+assert.deepEqual(
+  dimeSnapshot(healthcareExpenseHighRun.results),
+  dimeSnapshot(healthcareExpenseLowRun.results),
+  "Healthcare expense inflation should not alter DIME output."
+);
+assert.deepEqual(
+  hlvSnapshot(healthcareExpenseHighRun.results),
+  hlvSnapshot(healthcareExpenseLowRun.results),
+  "Healthcare expense inflation should not alter HLV output."
 );
 
 const finalExpenseLow = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({

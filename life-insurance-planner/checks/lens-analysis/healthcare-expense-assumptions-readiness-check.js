@@ -74,6 +74,7 @@ function createLensAnalysisContext() {
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
     "app/features/lens-analysis/final-expense-inflation-calculations.js",
+    "app/features/lens-analysis/healthcare-expense-inflation-calculations.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js"
   ].forEach(function (relativePath) {
@@ -299,12 +300,12 @@ assert.match(healthcareSection, /data-analysis-healthcare-expense-field="enabled
 assert.match(healthcareSection, /data-analysis-healthcare-expense-field="projectionYears"/);
 assert.match(healthcareSection, /data-analysis-healthcare-expense-field="includeOneTimeHealthcareExpenses"/);
 assert.doesNotMatch(healthcareSection, /oneTimeProjectionMode/);
-assert.match(healthcareSection, /future Needs healthcareExpenses component/);
-assert.match(healthcareSection, /do not affect current DIME, Needs, or HLV outputs yet/);
+assert.match(healthcareSection, /Controls the Needs healthcareExpenses component when enabled/);
+assert.match(healthcareSection, /DIME and HLV are unaffected/);
 assert.match(healthcareSection, /Medical final expense is already handled separately through Final Expense projection/);
-assert.match(healthcareSection, /recurring\/non-final healthcare records remain raw-only/);
-assert.match(healthcareSection, /one-time healthcare records will be current-dollar only when activated later/);
-assert.match(healthcareSection, /Only entered healthcare expense records will be eligible later/);
+assert.match(healthcareSection, /eligible entered recurring\/non-final healthcare expense records/);
+assert.match(healthcareSection, /one-time healthcare records are included current-dollar only/);
+assert.match(healthcareSection, /Only entered healthcare expense records are eligible for this component/);
 assert.match(healthcareSection, /overlap with household healthcare or out-of-pocket support/);
 assert.equal(
   /<select[\s\S]*oneTimeProjectionMode[\s\S]*<\/select>/i.test(healthcareSection),
@@ -469,10 +470,9 @@ assert.equal(
 
 const readinessTrace = findTrace(mappedSettings, "healthcareExpenseAssumptions-activation-readiness");
 assert.ok(readinessTrace, "Adapter should emit healthcare expense activation-readiness trace.");
-assert.match(readinessTrace.message, /future Needs healthcareExpenses component/);
-assert.match(readinessTrace.message, /do not consume/);
-assert.match(readinessTrace.message, /current healthcare inflation only affects Needs medical final expense/);
-assert.match(readinessTrace.message, /raw-only/);
+assert.match(readinessTrace.message, /control the Needs healthcareExpenses component when enabled/);
+assert.match(readinessTrace.message, /DIME and HLV formulas do not consume them/);
+assert.match(readinessTrace.message, /Medical final expense remains handled separately through Final Expense projection/);
 assert.ok(
   readinessTrace.sourcePaths.includes("analysisSettings.healthcareExpenseAssumptions"),
   "Healthcare expense readiness trace should point to the saved assumptions shape."
@@ -542,14 +542,19 @@ const activeReadinessRun = runAllForAnalysisSettings(adapter, methods, createAna
   }
 }));
 assert.deepEqual(
-  outputSnapshot(activeReadinessRun.results),
-  outputSnapshot(baselineRun.results),
-  "Healthcare expense assumptions mapping must not change current DIME, Needs, or HLV outputs."
+  outputSnapshot(activeReadinessRun.results).dime,
+  outputSnapshot(baselineRun.results).dime,
+  "Healthcare expense assumptions mapping must not change current DIME output."
 );
 assert.equal(
-  hasOwn(activeReadinessRun.results.needs.components, "healthcareExpenses"),
-  false,
-  "Needs should not expose a healthcareExpenses component before formula activation."
+  activeReadinessRun.results.needs.components.healthcareExpenses,
+  0,
+  "Needs healthcareExpenses should remain 0 when enabled but no eligible expense facts exist."
+);
+assert.deepEqual(
+  outputSnapshot(activeReadinessRun.results).hlv,
+  outputSnapshot(baselineRun.results).hlv,
+  "Healthcare expense assumptions mapping must not change current HLV output."
 );
 
 const healthcareLowRun = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({
@@ -601,10 +606,19 @@ const rawOnlyHealthcareRun = runAllForAnalysisSettings(
   }),
   rawOnlyHealthcareModel
 );
+assert.ok(
+  rawOnlyHealthcareRun.results.needs.components.healthcareExpenses > 0,
+  "Recurring/non-final healthcare expense records should feed Needs healthcareExpenses when enabled."
+);
 assert.deepEqual(
-  outputSnapshot(rawOnlyHealthcareRun.results),
-  outputSnapshot(activeReadinessRun.results),
-  "Recurring/non-final healthcare expense records should remain raw-only before future component activation."
+  outputSnapshot(rawOnlyHealthcareRun.results).dime,
+  outputSnapshot(activeReadinessRun.results).dime,
+  "Recurring/non-final healthcare expense activation should not change DIME output."
+);
+assert.deepEqual(
+  outputSnapshot(rawOnlyHealthcareRun.results).hlv,
+  outputSnapshot(activeReadinessRun.results).hlv,
+  "Recurring/non-final healthcare expense activation should not change HLV output."
 );
 
 console.log("Healthcare Expense Assumptions activation-readiness check passed.");

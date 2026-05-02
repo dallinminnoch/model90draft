@@ -3,11 +3,10 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   // Owner: Lens analysis healthcare expense projection helper.
-  // Purpose: prepare traceable projection math for future Needs healthcare
-  // expense activation without wiring the result into any current method.
+  // Purpose: prepare traceable projection math for the Needs healthcare
+  // expense component.
   // Non-goals: no DOM access, no storage access, no adapter ownership, no
-  // method calls, no Step 3 rendering, no model mutation, and no formula
-  // activation.
+  // method calls, no Step 3 rendering, and no model mutation.
 
   const CALCULATION_VERSION = 1;
   const SOURCE = "healthcare-expense-inflation-calculations";
