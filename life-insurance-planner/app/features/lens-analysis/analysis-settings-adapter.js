@@ -660,13 +660,17 @@
       rounded < MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS
       || rounded > MAX_HEALTHCARE_EXPENSE_PROJECTION_YEARS
     ) {
+      const clamped = Math.min(
+        MAX_HEALTHCARE_EXPENSE_PROJECTION_YEARS,
+        Math.max(MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS, rounded)
+      );
       warnings.push(createWarning(
-        "out-of-range-healthcare-expense-projection-years",
-        "Saved healthcare expense projection years was outside the supported range and defaulted to 10.",
+        "clamped-healthcare-expense-projection-years",
+        `Saved healthcare expense projection years was outside the supported range and was clamped to ${clamped}.`,
         "warning",
         [sourcePath]
       ));
-      return DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears;
+      return clamped;
     }
 
     return rounded;
@@ -958,7 +962,7 @@
       {
         key: "healthcareExpenseAssumptions",
         traceKey: "healthcareExpenseAssumptions-activation-readiness",
-        message: "Saved healthcare expense assumptions are mapped into Needs settings for future healthcareExpenses activation. Current DIME, Needs, and HLV formulas do not consume them; recurring and non-final healthcare expense facts remain raw-only."
+        message: "Saved healthcare expense assumptions are mapped into Needs settings for future Needs healthcareExpenses component metadata. Current DIME, Needs, and HLV formulas do not consume them; current healthcare inflation only affects Needs medical final expense through Final Expense projection, and recurring/non-final healthcare expense facts remain raw-only."
       }
     ].forEach(function (entry) {
       const key = entry.key;

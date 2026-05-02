@@ -203,6 +203,52 @@
                   <p class="underwriting-helper-text">Healthcare inflation applies to Needs medical final expense projection; final expense inflation applies to Needs non-medical final expense projection. Target age is used for Needs final expense projection. Recurring healthcare expense records remain saved/raw-only until a future healthcare expense component is activated.</p>
                   </section>
 
+                  <section class="analysis-setup-control-group analysis-setup-control-group--healthcare-expense" aria-labelledby="analysis-setup-healthcare-expense">
+                    <div class="analysis-setup-method-header">
+                      <div class="analysis-setup-control-heading">
+                        <h3 id="analysis-setup-healthcare-expense">Healthcare Expense Assumptions</h3>
+                        <p>Saved for a future Needs healthcareExpenses component. These controls do not affect current DIME, Needs, or HLV outputs yet.</p>
+                      </div>
+                    </div>
+
+                    <label class="settings-toggle-row analysis-setup-toggle-control">
+                      <span class="settings-toggle-copy">
+                        <span class="settings-toggle-label">Enable healthcare expense component</span>
+                        <span class="settings-toggle-note">Saved for future Needs use only. The toggle does not change current output.</span>
+                      </span>
+                      <span class="settings-switch">
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          aria-label="Enable healthcare expense component"
+                          data-analysis-healthcare-expense-field="enabled">
+                        <span class="settings-switch-track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+
+                    <label class="analysis-setup-method-row" for="analysis-setup-healthcare-expense-projection-years">
+                      <span>Healthcare expense projection years</span>
+                      <input id="analysis-setup-healthcare-expense-projection-years" class="analysis-setup-method-input" type="number" min="1" max="60" step="1" inputmode="numeric" autocomplete="off" data-analysis-healthcare-expense-field="projectionYears">
+                    </label>
+
+                    <label class="settings-toggle-row analysis-setup-toggle-control">
+                      <span class="settings-toggle-copy">
+                        <span class="settings-toggle-label">Include one-time healthcare expenses</span>
+                        <span class="settings-toggle-note">Saved for future Needs use only; one-time healthcare records will be current-dollar only when activated later.</span>
+                      </span>
+                      <span class="settings-switch">
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          aria-label="Include one-time healthcare expenses"
+                          data-analysis-healthcare-expense-field="includeOneTimeHealthcareExpenses">
+                        <span class="settings-switch-track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+
+                    <p class="underwriting-helper-text">Medical final expense is already handled separately through Final Expense projection. Only entered healthcare expense records will be eligible later; recurring/non-final healthcare records remain raw-only until the future component is activated. Review possible overlap with household healthcare or out-of-pocket support before activation.</p>
+                  </section>
+
                   <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">

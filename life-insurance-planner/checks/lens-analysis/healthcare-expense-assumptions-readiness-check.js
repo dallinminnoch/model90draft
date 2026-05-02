@@ -33,6 +33,11 @@ function cloneJson(value) {
 }
 
 function createAnalysisSetupContext() {
+  const source = readRepoFile("app/features/lens-analysis/analysis-setup.js");
+  const instrumentedSource = source.replace(
+    "  LensApp.analysisSetup = Object.assign",
+    "  LensApp.__healthcareExpenseAssumptionsHarness = { clampHealthcareExpenseProjectionYearsField, populateHealthcareExpenseFields, readValidatedHealthcareExpenseAssumptions };\n  LensApp.analysisSetup = Object.assign"
+  );
   const context = {
     console,
     document: {
@@ -48,7 +53,9 @@ function createAnalysisSetupContext() {
   context.globalThis = context;
   context.LensApp = {};
   vm.createContext(context);
-  loadScript(context, "app/features/lens-analysis/analysis-setup.js");
+  vm.runInContext(instrumentedSource, context, {
+    filename: "app/features/lens-analysis/analysis-setup.js"
+  });
   return context;
 }
 
@@ -76,8 +83,38 @@ function createLensAnalysisContext() {
   return context;
 }
 
-function createLensModel() {
+function createNonFinalHealthcareExpenseFact(overrides = {}) {
   return {
+    expenseFactId: "expense_record_medicalOutOfPocket",
+    expenseRecordId: "record_medicalOutOfPocket",
+    typeKey: "medicalOutOfPocket",
+    categoryKey: "ongoingHealthcare",
+    label: "Medical Out-of-Pocket",
+    amount: 1000,
+    frequency: "monthly",
+    termType: "ongoing",
+    source: "protectionModeling.data.expenseRecords",
+    sourceKey: "expenseRecords",
+    sourcePath: "protectionModeling.data.expenseRecords[0]",
+    sourceIndex: 0,
+    isDefaultExpense: false,
+    isScalarFieldOwned: false,
+    isProtected: false,
+    isAddable: true,
+    isRepeatableExpenseRecord: true,
+    isCustomExpense: false,
+    isFinalExpenseComponent: false,
+    isHealthcareSensitive: true,
+    defaultInflationRole: "healthcareInflation",
+    uiAvailability: "initial",
+    annualizedAmount: 12000,
+    oneTimeAmount: null,
+    ...overrides
+  };
+}
+
+function createLensModel(overrides = {}) {
+  const model = {
     profileFacts: {
       clientDateOfBirth: "1980-01-01",
       clientDateOfBirthSourcePath: "profileRecord.dateOfBirth",
@@ -134,6 +171,12 @@ function createLensModel() {
       }
     }
   };
+
+  if (hasOwn(overrides, "expenseFacts")) {
+    model.expenseFacts = overrides.expenseFacts;
+  }
+
+  return model;
 }
 
 function createAnalysisSettings(options = {}) {
@@ -147,7 +190,8 @@ function createAnalysisSettings(options = {}) {
       healthcareInflationRatePercent: 5,
       finalExpenseInflationRatePercent: 3,
       finalExpenseTargetAge: 85,
-      source: "healthcare-expense-assumptions-readiness-check"
+      source: "healthcare-expense-assumptions-readiness-check",
+      ...(options.inflationAssumptions || {})
     },
     educationAssumptions: {
       fundingTreatment: {
@@ -185,28 +229,28 @@ function createAnalysisSettings(options = {}) {
   return settings;
 }
 
-function createMethodSettings(adapter, analysisSettings) {
+function createMethodSettings(adapter, analysisSettings, lensModel) {
   return adapter.createAnalysisMethodSettings({
     analysisSettings,
-    lensModel: createLensModel(),
+    lensModel: lensModel || createLensModel(),
     profileRecord: {}
   });
 }
 
-function runAllMethods(methods, methodSettings) {
-  const lensModel = createLensModel();
+function runAllMethods(methods, methodSettings, lensModel) {
+  const model = lensModel || createLensModel();
   return {
-    dime: methods.runDimeAnalysis(lensModel, cloneJson(methodSettings.dimeSettings)),
-    needs: methods.runNeedsAnalysis(lensModel, cloneJson(methodSettings.needsAnalysisSettings)),
-    hlv: methods.runHumanLifeValueAnalysis(lensModel, cloneJson(methodSettings.humanLifeValueSettings))
+    dime: methods.runDimeAnalysis(model, cloneJson(methodSettings.dimeSettings)),
+    needs: methods.runNeedsAnalysis(model, cloneJson(methodSettings.needsAnalysisSettings)),
+    hlv: methods.runHumanLifeValueAnalysis(model, cloneJson(methodSettings.humanLifeValueSettings))
   };
 }
 
-function runAllForAnalysisSettings(adapter, methods, analysisSettings) {
-  const methodSettings = createMethodSettings(adapter, analysisSettings);
+function runAllForAnalysisSettings(adapter, methods, analysisSettings, lensModel) {
+  const methodSettings = createMethodSettings(adapter, analysisSettings, lensModel);
   return {
     methodSettings,
-    results: runAllMethods(methods, methodSettings)
+    results: runAllMethods(methods, methodSettings, lensModel)
   };
 }
 
@@ -242,8 +286,35 @@ function findWarning(result, code) {
   });
 }
 
+const html = readRepoFile("pages/analysis-setup.html");
+const healthcareSectionStart = html.indexOf("analysis-setup-control-group--healthcare-expense");
+assert.notEqual(healthcareSectionStart, -1, "Analysis Setup should render a Healthcare Expense Assumptions group.");
+const healthcareSectionEnd = html.indexOf("analysis-setup-control-group--calculation-inclusion", healthcareSectionStart);
+const healthcareSection = html.slice(
+  healthcareSectionStart,
+  healthcareSectionEnd === -1 ? html.length : healthcareSectionEnd
+);
+assert.match(healthcareSection, /Healthcare Expense Assumptions/);
+assert.match(healthcareSection, /data-analysis-healthcare-expense-field="enabled"/);
+assert.match(healthcareSection, /data-analysis-healthcare-expense-field="projectionYears"/);
+assert.match(healthcareSection, /data-analysis-healthcare-expense-field="includeOneTimeHealthcareExpenses"/);
+assert.doesNotMatch(healthcareSection, /oneTimeProjectionMode/);
+assert.match(healthcareSection, /future Needs healthcareExpenses component/);
+assert.match(healthcareSection, /do not affect current DIME, Needs, or HLV outputs yet/);
+assert.match(healthcareSection, /Medical final expense is already handled separately through Final Expense projection/);
+assert.match(healthcareSection, /recurring\/non-final healthcare records remain raw-only/);
+assert.match(healthcareSection, /one-time healthcare records will be current-dollar only when activated later/);
+assert.match(healthcareSection, /Only entered healthcare expense records will be eligible later/);
+assert.match(healthcareSection, /overlap with household healthcare or out-of-pocket support/);
+assert.equal(
+  /<select[\s\S]*oneTimeProjectionMode[\s\S]*<\/select>/i.test(healthcareSection),
+  false,
+  "Healthcare Expense Assumptions should not expose a oneTimeProjectionMode selector."
+);
+
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;
+const setupHarness = setupContext.LensApp.__healthcareExpenseAssumptionsHarness;
 
 assert.deepEqual(
   cloneJson(analysisSetup.DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS),
@@ -287,9 +358,72 @@ assert.deepEqual(
       }
     }
   })),
-  EXPECTED_DEFAULTS,
-  "Analysis Setup should normalize invalid healthcare expense assumptions back to the inactive defaults."
+  {
+    ...EXPECTED_DEFAULTS,
+    projectionYears: 1
+  },
+  "Analysis Setup should default invalid healthcare expense assumptions and clamp finite projection years to 1-60."
 );
+
+function createHealthcareExpenseFields() {
+  return {
+    enabled: { checked: false },
+    projectionYears: { value: "" },
+    includeOneTimeHealthcareExpenses: { checked: false }
+  };
+}
+
+const defaultHealthcareFields = createHealthcareExpenseFields();
+setupHarness.populateHealthcareExpenseFields(defaultHealthcareFields, EXPECTED_DEFAULTS);
+assert.equal(defaultHealthcareFields.enabled.checked, false);
+assert.equal(defaultHealthcareFields.projectionYears.value, "10");
+assert.equal(defaultHealthcareFields.includeOneTimeHealthcareExpenses.checked, false);
+
+defaultHealthcareFields.enabled.checked = true;
+defaultHealthcareFields.projectionYears.value = "24";
+defaultHealthcareFields.includeOneTimeHealthcareExpenses.checked = true;
+const editedHealthcareAssumptions = setupHarness.readValidatedHealthcareExpenseAssumptions(defaultHealthcareFields);
+assert.equal(editedHealthcareAssumptions.error, undefined);
+assert.deepEqual(
+  {
+    enabled: editedHealthcareAssumptions.value.enabled,
+    projectionYears: editedHealthcareAssumptions.value.projectionYears,
+    includeOneTimeHealthcareExpenses: editedHealthcareAssumptions.value.includeOneTimeHealthcareExpenses,
+    oneTimeProjectionMode: editedHealthcareAssumptions.value.oneTimeProjectionMode,
+    source: editedHealthcareAssumptions.value.source
+  },
+  {
+    enabled: true,
+    projectionYears: 24,
+    includeOneTimeHealthcareExpenses: true,
+    oneTimeProjectionMode: "currentDollarOnly",
+    source: "analysis-setup"
+  },
+  "Analysis Setup should read edited healthcare expense assumptions without exposing oneTimeProjectionMode."
+);
+
+const reloadedHealthcareFields = createHealthcareExpenseFields();
+setupHarness.populateHealthcareExpenseFields(reloadedHealthcareFields, editedHealthcareAssumptions.value);
+assert.equal(reloadedHealthcareFields.enabled.checked, true);
+assert.equal(reloadedHealthcareFields.projectionYears.value, "24");
+assert.equal(reloadedHealthcareFields.includeOneTimeHealthcareExpenses.checked, true);
+
+[
+  { value: "0", expected: 1 },
+  { value: "-5", expected: 1 },
+  { value: "99", expected: 60 },
+  { value: "not-a-number", expected: 10 },
+  { value: "", expected: 10 }
+].forEach(function (scenario) {
+  const fields = createHealthcareExpenseFields();
+  fields.projectionYears.value = scenario.value;
+  setupHarness.clampHealthcareExpenseProjectionYearsField(fields);
+  assert.equal(
+    fields.projectionYears.value,
+    String(scenario.expected),
+    `Analysis Setup should clamp/default projectionYears ${scenario.value} to ${scenario.expected}.`
+  );
+});
 
 const lensContext = createLensAnalysisContext();
 const lensAnalysis = lensContext.LensApp.lensAnalysis;
@@ -335,8 +469,9 @@ assert.equal(
 
 const readinessTrace = findTrace(mappedSettings, "healthcareExpenseAssumptions-activation-readiness");
 assert.ok(readinessTrace, "Adapter should emit healthcare expense activation-readiness trace.");
-assert.match(readinessTrace.message, /future healthcareExpenses activation/);
+assert.match(readinessTrace.message, /future Needs healthcareExpenses component/);
 assert.match(readinessTrace.message, /do not consume/);
+assert.match(readinessTrace.message, /current healthcare inflation only affects Needs medical final expense/);
 assert.match(readinessTrace.message, /raw-only/);
 assert.ok(
   readinessTrace.sourcePaths.includes("analysisSettings.healthcareExpenseAssumptions"),
@@ -353,13 +488,48 @@ const invalidSettings = createMethodSettings(adapter, createAnalysisSettings({
 }));
 assert.deepEqual(
   cloneJson(invalidSettings.needsAnalysisSettings.healthcareExpenseAssumptions),
-  EXPECTED_DEFAULTS,
-  "Adapter should default invalid saved healthcare expense assumptions without activating formulas."
+  {
+    ...EXPECTED_DEFAULTS,
+    projectionYears: 1
+  },
+  "Adapter should default invalid saved healthcare expense assumptions and clamp finite projection years without activating formulas."
 );
 assert.ok(findWarning(invalidSettings, "invalid-healthcare-expense-enabled"));
-assert.ok(findWarning(invalidSettings, "out-of-range-healthcare-expense-projection-years"));
+assert.ok(findWarning(invalidSettings, "clamped-healthcare-expense-projection-years"));
 assert.ok(findWarning(invalidSettings, "invalid-healthcare-expense-include-one-time"));
 assert.ok(findWarning(invalidSettings, "invalid-healthcare-expense-one-time-projection-mode"));
+
+const adapterHighClampSettings = createMethodSettings(adapter, createAnalysisSettings({
+  healthcareExpenseAssumptions: {
+    projectionYears: 99
+  }
+}));
+assert.equal(
+  adapterHighClampSettings.needsAnalysisSettings.healthcareExpenseAssumptions.projectionYears,
+  60,
+  "Adapter should clamp finite projectionYears values above 60 to 60."
+);
+
+const adapterNonFiniteDefaultSettings = createMethodSettings(adapter, createAnalysisSettings({
+  healthcareExpenseAssumptions: {
+    projectionYears: "not-a-number"
+  }
+}));
+assert.equal(
+  adapterNonFiniteDefaultSettings.needsAnalysisSettings.healthcareExpenseAssumptions.projectionYears,
+  10,
+  "Adapter should default non-finite projectionYears values to 10."
+);
+assert.ok(findWarning(adapterNonFiniteDefaultSettings, "invalid-healthcare-expense-projection-years"));
+
+const adapterMissingDefaultSettings = createMethodSettings(adapter, createAnalysisSettings({
+  healthcareExpenseAssumptions: {}
+}));
+assert.equal(
+  adapterMissingDefaultSettings.needsAnalysisSettings.healthcareExpenseAssumptions.projectionYears,
+  10,
+  "Adapter should default missing projectionYears values to 10 without requiring current formula consumption."
+);
 
 const baselineRun = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings());
 const activeReadinessRun = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({
@@ -380,6 +550,61 @@ assert.equal(
   hasOwn(activeReadinessRun.results.needs.components, "healthcareExpenses"),
   false,
   "Needs should not expose a healthcareExpenses component before formula activation."
+);
+
+const healthcareLowRun = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({
+  inflationAssumptions: {
+    healthcareInflationRatePercent: 1
+  }
+}));
+const healthcareHighRun = runAllForAnalysisSettings(adapter, methods, createAnalysisSettings({
+  inflationAssumptions: {
+    healthcareInflationRatePercent: 9
+  }
+}));
+assert.ok(
+  healthcareHighRun.results.needs.components.finalExpenses > healthcareLowRun.results.needs.components.finalExpenses,
+  "Existing healthcare inflation should continue to affect Needs medical final expense behavior."
+);
+assert.deepEqual(
+  outputSnapshot(healthcareHighRun.results).dime,
+  outputSnapshot(healthcareLowRun.results).dime,
+  "Healthcare inflation should remain neutral to DIME output."
+);
+assert.deepEqual(
+  outputSnapshot(healthcareHighRun.results).hlv,
+  outputSnapshot(healthcareLowRun.results).hlv,
+  "Healthcare inflation should remain neutral to HLV output."
+);
+
+const rawOnlyHealthcareModel = createLensModel({
+  expenseFacts: {
+    expenses: [
+      createNonFinalHealthcareExpenseFact()
+    ],
+    totalsByBucket: {},
+    metadata: {
+      source: "protectionModeling.data"
+    }
+  }
+});
+const rawOnlyHealthcareRun = runAllForAnalysisSettings(
+  adapter,
+  methods,
+  createAnalysisSettings({
+    healthcareExpenseAssumptions: {
+      enabled: true,
+      projectionYears: 60,
+      includeOneTimeHealthcareExpenses: true,
+      oneTimeProjectionMode: "currentDollarOnly"
+    }
+  }),
+  rawOnlyHealthcareModel
+);
+assert.deepEqual(
+  outputSnapshot(rawOnlyHealthcareRun.results),
+  outputSnapshot(activeReadinessRun.results),
+  "Recurring/non-final healthcare expense records should remain raw-only before future component activation."
 );
 
 console.log("Healthcare Expense Assumptions activation-readiness check passed.");
