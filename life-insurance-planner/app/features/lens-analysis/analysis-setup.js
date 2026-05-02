@@ -65,6 +65,18 @@
     source: "analysis-setup"
   });
 
+  const HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR = "currentDollarOnly";
+  const HEALTHCARE_ONE_TIME_PROJECTION_MODES = Object.freeze([
+    HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR
+  ]);
+  const DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS = Object.freeze({
+    enabled: false,
+    projectionYears: 10,
+    includeOneTimeHealthcareExpenses: false,
+    oneTimeProjectionMode: HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR,
+    source: "analysis-setup"
+  });
+
   const DEFAULT_METHOD_DEFAULTS = Object.freeze({
     dimeIncomeYears: 10,
     needsSupportYears: 10,
@@ -867,6 +879,7 @@
   const MAX_GROWTH_RATE = 12;
   const MIN_METHOD_YEARS = 0;
   const MAX_METHOD_YEARS = 60;
+  const MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS = 1;
   const MIN_HAIRCUT = 0;
   const MAX_HAIRCUT = 100;
   const MIN_ASSET_TREATMENT_PERCENT = 0;
@@ -1047,6 +1060,27 @@
     }
 
     return Math.min(MAX_METHOD_YEARS, Math.max(MIN_METHOD_YEARS, Math.round(number)));
+  }
+
+  function normalizeHealthcareProjectionYearsValue(value, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return fallback;
+    }
+
+    const rounded = Math.round(number);
+    if (rounded < MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS) {
+      return fallback;
+    }
+
+    return Math.min(MAX_METHOD_YEARS, rounded);
+  }
+
+  function normalizeHealthcareOneTimeProjectionMode(value, fallback) {
+    const normalizedValue = String(value || "").trim();
+    return HEALTHCARE_ONE_TIME_PROJECTION_MODES.includes(normalizedValue)
+      ? normalizedValue
+      : fallback || HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR;
   }
 
   function getAnalysisSetupAssetOffsetSource() {
@@ -1544,6 +1578,30 @@
     }
 
     return nextAssumptions;
+  }
+
+  function getHealthcareExpenseAssumptions(record) {
+    const saved = isPlainObject(record?.analysisSettings?.healthcareExpenseAssumptions)
+      ? record.analysisSettings.healthcareExpenseAssumptions
+      : {};
+    return {
+      ...DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS,
+      enabled: typeof saved.enabled === "boolean"
+        ? saved.enabled
+        : DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.enabled,
+      projectionYears: normalizeHealthcareProjectionYearsValue(
+        saved.projectionYears,
+        DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears
+      ),
+      includeOneTimeHealthcareExpenses: typeof saved.includeOneTimeHealthcareExpenses === "boolean"
+        ? saved.includeOneTimeHealthcareExpenses
+        : DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.includeOneTimeHealthcareExpenses,
+      oneTimeProjectionMode: normalizeHealthcareOneTimeProjectionMode(
+        saved.oneTimeProjectionMode,
+        DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.oneTimeProjectionMode
+      ),
+      source: String(saved.source || DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.source)
+    };
   }
 
   function getRetirementYearsDefault(record) {
@@ -7080,6 +7138,10 @@
         ? currentRecord.analysisSettings
         : {};
       const valuationDateResult = resolveAnalysisValuationDateForSave(currentSettings);
+      const healthcareExpenseAssumptions = {
+        ...getHealthcareExpenseAssumptions({ analysisSettings: currentSettings }),
+        source: "analysis-setup"
+      };
 
       return {
         ...currentRecord,
@@ -7087,6 +7149,7 @@
           ...currentSettings,
           valuationDate: valuationDateResult.valuationDate,
           inflationAssumptions: validatedInflation.value,
+          healthcareExpenseAssumptions,
           methodDefaults: validatedMethodDefaults.value,
           growthAndReturnAssumptions: validatedGrowth.value,
           ...(validatedPolicyReturns ? { policyTypeReturnAssumptions: validatedPolicyReturns.value } : {}),
@@ -7912,6 +7975,7 @@
 
   LensApp.analysisSetup = Object.assign(LensApp.analysisSetup || {}, {
     DEFAULT_INFLATION_ASSUMPTIONS,
+    DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS,
     DEFAULT_METHOD_DEFAULTS,
     DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS,
     DEFAULT_POLICY_TYPE_RETURN_ASSUMPTIONS,
@@ -7924,6 +7988,7 @@
     normalizeAnalysisDateOnlyValue,
     resolveAnalysisValuationDateForSave,
     getInflationAssumptions,
+    getHealthcareExpenseAssumptions,
     getMethodDefaults,
     getGrowthAndReturnAssumptions,
     getPolicyTypeReturnAssumptions,

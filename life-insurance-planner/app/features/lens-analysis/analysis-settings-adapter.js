@@ -34,6 +34,19 @@
     useExistingEducationSavingsOffset: false,
     source: "analysis-setup"
   });
+  const HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR = "currentDollarOnly";
+  const HEALTHCARE_ONE_TIME_PROJECTION_MODES = Object.freeze([
+    HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR
+  ]);
+  const MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS = 1;
+  const MAX_HEALTHCARE_EXPENSE_PROJECTION_YEARS = 60;
+  const DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS = Object.freeze({
+    enabled: false,
+    projectionYears: 10,
+    includeOneTimeHealthcareExpenses: false,
+    oneTimeProjectionMode: HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR,
+    source: "analysis-setup"
+  });
 
   // Owner: lens-analysis settings adapter.
   // Purpose: map saved Analysis Setup settings into the flat settings objects
@@ -628,6 +641,110 @@
     return normalized;
   }
 
+  function normalizeHealthcareExpenseProjectionYears(value, warnings) {
+    const sourcePath = "analysisSettings.healthcareExpenseAssumptions.projectionYears";
+    const parsed = toOptionalNumber(value);
+
+    if (parsed == null) {
+      warnings.push(createWarning(
+        "invalid-healthcare-expense-projection-years",
+        "Saved healthcare expense projection years was invalid and defaulted to 10.",
+        "warning",
+        [sourcePath]
+      ));
+      return DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears;
+    }
+
+    const rounded = Math.round(parsed);
+    if (
+      rounded < MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS
+      || rounded > MAX_HEALTHCARE_EXPENSE_PROJECTION_YEARS
+    ) {
+      warnings.push(createWarning(
+        "out-of-range-healthcare-expense-projection-years",
+        "Saved healthcare expense projection years was outside the supported range and defaulted to 10.",
+        "warning",
+        [sourcePath]
+      ));
+      return DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears;
+    }
+
+    return rounded;
+  }
+
+  function createNeedsHealthcareExpenseAssumptions(analysisSettings, warnings) {
+    const saved = isPlainObject(analysisSettings.healthcareExpenseAssumptions)
+      ? analysisSettings.healthcareExpenseAssumptions
+      : {};
+    const normalized = { ...DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS };
+
+    if (
+      hasOwn(analysisSettings, "healthcareExpenseAssumptions")
+      && !isPlainObject(analysisSettings.healthcareExpenseAssumptions)
+    ) {
+      warnings.push(createWarning(
+        "invalid-healthcare-expense-assumptions",
+        "Saved healthcare expense assumptions were invalid and default assumptions were used.",
+        "warning",
+        ["analysisSettings.healthcareExpenseAssumptions"]
+      ));
+      return normalized;
+    }
+
+    if (hasOwn(saved, "enabled")) {
+      if (typeof saved.enabled === "boolean") {
+        normalized.enabled = saved.enabled;
+      } else {
+        warnings.push(createWarning(
+          "invalid-healthcare-expense-enabled",
+          "Saved healthcare expense enabled flag was invalid and defaulted to false.",
+          "warning",
+          ["analysisSettings.healthcareExpenseAssumptions.enabled"]
+        ));
+      }
+    }
+
+    if (hasOwn(saved, "projectionYears")) {
+      normalized.projectionYears = normalizeHealthcareExpenseProjectionYears(
+        saved.projectionYears,
+        warnings
+      );
+    }
+
+    if (hasOwn(saved, "includeOneTimeHealthcareExpenses")) {
+      if (typeof saved.includeOneTimeHealthcareExpenses === "boolean") {
+        normalized.includeOneTimeHealthcareExpenses = saved.includeOneTimeHealthcareExpenses;
+      } else {
+        warnings.push(createWarning(
+          "invalid-healthcare-expense-include-one-time",
+          "Saved healthcare expense one-time inclusion flag was invalid and defaulted to false.",
+          "warning",
+          ["analysisSettings.healthcareExpenseAssumptions.includeOneTimeHealthcareExpenses"]
+        ));
+      }
+    }
+
+    if (hasOwn(saved, "oneTimeProjectionMode")) {
+      const normalizedMode = String(saved.oneTimeProjectionMode || "").trim();
+      if (HEALTHCARE_ONE_TIME_PROJECTION_MODES.includes(normalizedMode)) {
+        normalized.oneTimeProjectionMode = normalizedMode;
+      } else {
+        warnings.push(createWarning(
+          "invalid-healthcare-expense-one-time-projection-mode",
+          "Saved healthcare expense one-time projection mode was invalid and defaulted to currentDollarOnly.",
+          "warning",
+          ["analysisSettings.healthcareExpenseAssumptions.oneTimeProjectionMode"]
+        ));
+      }
+    }
+
+    if (typeof saved.source === "string" && saved.source.trim()) {
+      normalized.source = saved.source.trim();
+    }
+
+    return normalized;
+  }
+
   function createNeedsInflationAssumptions(analysisSettings, warnings) {
     const saved = isPlainObject(analysisSettings.inflationAssumptions)
       ? analysisSettings.inflationAssumptions
@@ -837,6 +954,11 @@
         key: "assetTreatmentAssumptions",
         traceKey: "assetTreatmentAssumptions-not-applied",
         message: "Saved asset treatment assumptions prepare treated asset offsets for method use."
+      },
+      {
+        key: "healthcareExpenseAssumptions",
+        traceKey: "healthcareExpenseAssumptions-activation-readiness",
+        message: "Saved healthcare expense assumptions are mapped into Needs settings for future healthcareExpenses activation. Current DIME, Needs, and HLV formulas do not consume them; recurring and non-final healthcare expense facts remain raw-only."
       }
     ].forEach(function (entry) {
       const key = entry.key;
@@ -903,6 +1025,10 @@
       warnings
     );
     settings.educationAssumptions = createNeedsEducationAssumptions(
+      analysisSettings,
+      warnings
+    );
+    settings.healthcareExpenseAssumptions = createNeedsHealthcareExpenseAssumptions(
       analysisSettings,
       warnings
     );
@@ -1016,6 +1142,7 @@
     DEFAULT_DIME_SETTINGS,
     DEFAULT_NEEDS_ANALYSIS_SETTINGS,
     DEFAULT_HUMAN_LIFE_VALUE_SETTINGS,
+    DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS,
     createAnalysisMethodSettings,
     createDimeSettings,
     createNeedsAnalysisSettings,
