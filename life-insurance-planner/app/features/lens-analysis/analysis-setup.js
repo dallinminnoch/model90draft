@@ -294,14 +294,50 @@
     "reportingOnly",
     "projectedOffsets"
   ]);
+  const CASH_RESERVE_ASSUMPTION_MODES = Object.freeze([
+    "reportingOnly",
+    "methodActiveFuture"
+  ]);
+  const CASH_RESERVE_METHODS = Object.freeze([
+    "monthsOfEssentialExpenses",
+    "fixedDollarAmount"
+  ]);
+  const CASH_RESERVE_EXPENSE_BASIS_VALUES = Object.freeze([
+    "essentialSupport",
+    "essentialPlusHealthcare",
+    "essentialPlusHealthcareAndDiscretionary"
+  ]);
+  const CASH_RESERVE_ASSET_SCOPE_VALUES = Object.freeze([
+    "cashAndCashEquivalents",
+    "liquidAssetsFuture",
+    "selectedAssetsFuture"
+  ]);
   const MIN_ASSET_GROWTH_PROJECTION_YEARS = 0;
   const MAX_ASSET_GROWTH_PROJECTION_YEARS = 60;
   const MIN_ASSET_GROWTH_RATE_PERCENT = 0;
   const MAX_ASSET_GROWTH_RATE_PERCENT = 12;
+  const MIN_CASH_RESERVE_MONTHS = 0;
+  const MAX_CASH_RESERVE_MONTHS = 24;
+  const MIN_CASH_RESERVE_AMOUNT = 0;
+  const MAX_CASH_RESERVE_AMOUNT = 10000000;
   const DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS = Object.freeze({
     mode: "currentDollarOnly",
     projectionYears: 0,
     projectionYearsSource: "analysis-setup",
+    source: "analysis-setup",
+    consumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY
+  });
+  const DEFAULT_CASH_RESERVE_ASSUMPTIONS = Object.freeze({
+    enabled: false,
+    mode: "reportingOnly",
+    reserveMethod: "monthsOfEssentialExpenses",
+    reserveMonths: 6,
+    fixedReserveAmount: 0,
+    expenseBasis: "essentialSupport",
+    applyToAssetScope: "cashAndCashEquivalents",
+    excludeEmergencyFundAssets: true,
+    includeHealthcareExpenses: false,
+    includeDiscretionaryExpenses: false,
     source: "analysis-setup",
     consumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY
   });
@@ -431,6 +467,7 @@
       DEFAULT_CUSTOM_ASSET_TREATMENT
     ]),
     assetGrowthProjectionAssumptions: DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS,
+    cashReserveAssumptions: DEFAULT_CASH_RESERVE_ASSUMPTIONS,
     source: "analysis-setup"
   });
 
@@ -1295,6 +1332,95 @@
     };
   }
 
+  function normalizeCashReserveAssumptionMode(value) {
+    const normalizedValue = String(value || "").trim();
+    return CASH_RESERVE_ASSUMPTION_MODES.includes(normalizedValue)
+      ? normalizedValue
+      : DEFAULT_CASH_RESERVE_ASSUMPTIONS.mode;
+  }
+
+  function normalizeCashReserveMethod(value) {
+    const normalizedValue = String(value || "").trim();
+    return CASH_RESERVE_METHODS.includes(normalizedValue)
+      ? normalizedValue
+      : DEFAULT_CASH_RESERVE_ASSUMPTIONS.reserveMethod;
+  }
+
+  function normalizeCashReserveExpenseBasis(value) {
+    const normalizedValue = String(value || "").trim();
+    return CASH_RESERVE_EXPENSE_BASIS_VALUES.includes(normalizedValue)
+      ? normalizedValue
+      : DEFAULT_CASH_RESERVE_ASSUMPTIONS.expenseBasis;
+  }
+
+  function normalizeCashReserveAssetScope(value) {
+    const normalizedValue = String(value || "").trim();
+    return CASH_RESERVE_ASSET_SCOPE_VALUES.includes(normalizedValue)
+      ? normalizedValue
+      : DEFAULT_CASH_RESERVE_ASSUMPTIONS.applyToAssetScope;
+  }
+
+  function normalizeCashReserveNumber(value, fallback, min, max) {
+    if (value === null || value === undefined || String(value).trim() === "") {
+      return fallback;
+    }
+
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return fallback;
+    }
+
+    return Number(Math.min(max, Math.max(min, number)).toFixed(2));
+  }
+
+  function normalizeCashReserveBoolean(value, fallback) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    return Boolean(fallback);
+  }
+
+  function getCashReserveAssumptions(savedAssumptions) {
+    const saved = isPlainObject(savedAssumptions) ? savedAssumptions : {};
+    return {
+      enabled: normalizeCashReserveBoolean(
+        saved.enabled,
+        DEFAULT_CASH_RESERVE_ASSUMPTIONS.enabled
+      ),
+      mode: normalizeCashReserveAssumptionMode(saved.mode),
+      reserveMethod: normalizeCashReserveMethod(saved.reserveMethod),
+      reserveMonths: normalizeCashReserveNumber(
+        saved.reserveMonths,
+        DEFAULT_CASH_RESERVE_ASSUMPTIONS.reserveMonths,
+        MIN_CASH_RESERVE_MONTHS,
+        MAX_CASH_RESERVE_MONTHS
+      ),
+      fixedReserveAmount: normalizeCashReserveNumber(
+        saved.fixedReserveAmount,
+        DEFAULT_CASH_RESERVE_ASSUMPTIONS.fixedReserveAmount,
+        MIN_CASH_RESERVE_AMOUNT,
+        MAX_CASH_RESERVE_AMOUNT
+      ),
+      expenseBasis: normalizeCashReserveExpenseBasis(saved.expenseBasis),
+      applyToAssetScope: normalizeCashReserveAssetScope(saved.applyToAssetScope),
+      excludeEmergencyFundAssets: normalizeCashReserveBoolean(
+        saved.excludeEmergencyFundAssets,
+        DEFAULT_CASH_RESERVE_ASSUMPTIONS.excludeEmergencyFundAssets
+      ),
+      includeHealthcareExpenses: normalizeCashReserveBoolean(
+        saved.includeHealthcareExpenses,
+        DEFAULT_CASH_RESERVE_ASSUMPTIONS.includeHealthcareExpenses
+      ),
+      includeDiscretionaryExpenses: normalizeCashReserveBoolean(
+        saved.includeDiscretionaryExpenses,
+        DEFAULT_CASH_RESERVE_ASSUMPTIONS.includeDiscretionaryExpenses
+      ),
+      source: DEFAULT_CASH_RESERVE_ASSUMPTIONS.source,
+      consumptionStatus: DEFAULT_CASH_RESERVE_ASSUMPTIONS.consumptionStatus
+    };
+  }
+
   function normalizeAssetGrowthRateProfile(value, fallback) {
     const normalizedValue = String(value || "").trim().toLowerCase();
     if (ASSET_GROWTH_RATE_PROFILE_KEYS.includes(normalizedValue)) {
@@ -2037,6 +2163,9 @@
       customAssets: [],
       assetGrowthProjectionAssumptions: getAssetGrowthProjectionAssumptions(
         saved.assetGrowthProjectionAssumptions
+      ),
+      cashReserveAssumptions: getCashReserveAssumptions(
+        saved.cashReserveAssumptions
       ),
       source: String(saved.source || DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.source)
     };
@@ -6253,6 +6382,9 @@
       assetGrowthProjectionAssumptions: readAssetGrowthProjectionAssumptionsFromFields(
         fields,
         currentAssumptions
+      ),
+      cashReserveAssumptions: getCashReserveAssumptions(
+        currentAssumptions.cashReserveAssumptions
       )
     };
 
