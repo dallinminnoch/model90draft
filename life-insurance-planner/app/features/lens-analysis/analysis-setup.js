@@ -289,8 +289,22 @@
   const ASSET_GROWTH_RATE_SOURCE_ADVISOR = "advisor";
   const ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT = "taxonomy-default";
   const ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY = "saved-only";
+  const ASSET_GROWTH_PROJECTION_MODES = Object.freeze([
+    "currentDollarOnly",
+    "reportingOnly",
+    "projectedOffsets"
+  ]);
+  const MIN_ASSET_GROWTH_PROJECTION_YEARS = 0;
+  const MAX_ASSET_GROWTH_PROJECTION_YEARS = 60;
   const MIN_ASSET_GROWTH_RATE_PERCENT = 0;
   const MAX_ASSET_GROWTH_RATE_PERCENT = 12;
+  const DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS = Object.freeze({
+    mode: "currentDollarOnly",
+    projectionYears: 0,
+    projectionYearsSource: "analysis-setup",
+    source: "analysis-setup",
+    consumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY
+  });
 
   const DEFAULT_CUSTOM_ASSET_TREATMENT = Object.freeze({
     id: "custom-asset-1",
@@ -416,6 +430,7 @@
     customAssets: Object.freeze([
       DEFAULT_CUSTOM_ASSET_TREATMENT
     ]),
+    assetGrowthProjectionAssumptions: DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS,
     source: "analysis-setup"
   });
 
@@ -1250,6 +1265,36 @@
     return Number(clampedValue.toFixed(2));
   }
 
+  function normalizeAssetGrowthProjectionMode(value) {
+    const normalizedValue = String(value || "").trim();
+    return ASSET_GROWTH_PROJECTION_MODES.includes(normalizedValue)
+      ? normalizedValue
+      : DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS.mode;
+  }
+
+  function normalizeAssetGrowthProjectionYears(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS.projectionYears;
+    }
+
+    return Math.min(
+      MAX_ASSET_GROWTH_PROJECTION_YEARS,
+      Math.max(MIN_ASSET_GROWTH_PROJECTION_YEARS, number)
+    );
+  }
+
+  function getAssetGrowthProjectionAssumptions(savedAssumptions) {
+    const saved = isPlainObject(savedAssumptions) ? savedAssumptions : {};
+    return {
+      mode: normalizeAssetGrowthProjectionMode(saved.mode),
+      projectionYears: normalizeAssetGrowthProjectionYears(saved.projectionYears),
+      projectionYearsSource: DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS.projectionYearsSource,
+      source: DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS.source,
+      consumptionStatus: DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS.consumptionStatus
+    };
+  }
+
   function normalizeAssetGrowthRateProfile(value, fallback) {
     const normalizedValue = String(value || "").trim().toLowerCase();
     if (ASSET_GROWTH_RATE_PROFILE_KEYS.includes(normalizedValue)) {
@@ -1990,6 +2035,9 @@
       ),
       assets: {},
       customAssets: [],
+      assetGrowthProjectionAssumptions: getAssetGrowthProjectionAssumptions(
+        saved.assetGrowthProjectionAssumptions
+      ),
       source: String(saved.source || DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.source)
     };
 
@@ -6151,7 +6199,10 @@
         })
         : DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.customAssets.map(function (asset) {
           return { ...asset };
-        })
+        }),
+      assetGrowthProjectionAssumptions: getAssetGrowthProjectionAssumptions(
+        currentAssumptions.assetGrowthProjectionAssumptions
+      )
     };
 
     ASSET_TREATMENT_ITEMS.forEach(function (item) {
