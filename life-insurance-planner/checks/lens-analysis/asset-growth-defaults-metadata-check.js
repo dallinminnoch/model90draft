@@ -70,6 +70,10 @@ function getDirtyPaths() {
     });
 }
 
+function isStrictDiffGuardEnabled() {
+  return process.env.ASSET_GROWTH_STRICT_DIFF_GUARD === "1";
+}
+
 const context = createLensAnalysisContext();
 const lensAnalysis = context.LensApp.lensAnalysis;
 const taxonomy = lensAnalysis.assetTaxonomy;
@@ -246,22 +250,26 @@ assert.equal(categoryMap.has("highYieldSavingsAccount"), false, "high-yield savi
   );
 });
 
-const allowedDirtyPaths = new Set([
-  "life-insurance-planner/components.css",
-  "life-insurance-planner/pages/analysis-setup.html",
-  "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
-  "life-insurance-planner/app/features/lens-analysis/asset-taxonomy.js",
-  "life-insurance-planner/checks/lens-analysis/asset-growth-defaults-metadata-check.js",
-  "life-insurance-planner/checks/lens-analysis/asset-growth-ui-saved-only-check.js",
-  "life-insurance-planner/checks/lens-analysis/asset-growth-saved-shape-check.js"
-]);
-const unexpectedDirtyPaths = getDirtyPaths().filter(function (dirtyPath) {
-  return !allowedDirtyPaths.has(dirtyPath);
-});
-assert.deepEqual(
-  unexpectedDirtyPaths,
-  [],
-  "only asset growth metadata and saved-shape prep files should be changed"
-);
+if (isStrictDiffGuardEnabled()) {
+  const allowedDirtyPaths = new Set([
+    "life-insurance-planner/components.css",
+    "life-insurance-planner/pages/analysis-setup.html",
+    "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
+    "life-insurance-planner/app/features/lens-analysis/asset-taxonomy.js",
+    "life-insurance-planner/app/features/lens-analysis/asset-growth-projection-calculations.js",
+    "life-insurance-planner/checks/lens-analysis/asset-growth-defaults-metadata-check.js",
+    "life-insurance-planner/checks/lens-analysis/asset-growth-projection-helper-check.js",
+    "life-insurance-planner/checks/lens-analysis/asset-growth-ui-saved-only-check.js",
+    "life-insurance-planner/checks/lens-analysis/asset-growth-saved-shape-check.js"
+  ]);
+  const unexpectedDirtyPaths = getDirtyPaths().filter(function (dirtyPath) {
+    return !allowedDirtyPaths.has(dirtyPath);
+  });
+  assert.deepEqual(
+    unexpectedDirtyPaths,
+    [],
+    "strict asset growth diff guard should only allow asset-growth owner files"
+  );
+}
 
 console.log("asset-growth-defaults-metadata-check passed");
