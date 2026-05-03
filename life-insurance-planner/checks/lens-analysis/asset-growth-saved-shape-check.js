@@ -334,7 +334,7 @@ assert.equal(profileChangedValidation.error, undefined);
 assert.equal(
   profileChangedValidation.value.assets.cashAndCashEquivalents.assumedAnnualGrowthRatePercent,
   1,
-  "taxonomy-seeded hidden growth defaults should re-seed from the selected Asset Treatment profile"
+  "taxonomy-seeded saved-only growth defaults should re-seed from the selected Asset Treatment profile"
 );
 assert.equal(
   profileChangedValidation.value.assets.cashAndCashEquivalents.assumedAnnualGrowthRateProfile,
@@ -357,11 +357,6 @@ assert.equal(taxonomyCategories.get("qualifiedAnnuities").growthReviewRequired, 
 assert.equal(taxonomyCategories.get("digitalAssetsCrypto").growthAssumptionStatus, "review-only");
 assert.equal(taxonomyCategories.get("otherCustomAsset").growthAssumptionStatus, "review-only");
 
-const analysisSetupHtml = readRepoFile("pages/analysis-setup.html");
-assert.doesNotMatch(analysisSetupHtml, /assumedAnnualGrowthRatePercent|Assumed annual growth|data-analysis-asset-growth/);
-const componentsCss = readRepoFile("components.css");
-assert.doesNotMatch(componentsCss, /assumedAnnualGrowthRatePercent|data-analysis-asset-growth|analysis-setup-asset-growth/);
-
 [
   "app/features/lens-analysis/asset-treatment-calculations.js",
   "app/features/lens-analysis/analysis-methods.js",
@@ -382,12 +377,15 @@ const changedOutputs = createMethodOutputs(outputContext, createAssetTreatmentAs
 assert.deepEqual(
   cloneJson(changedOutputs),
   cloneJson(baseOutputs),
-  "changing hidden saved asset growth assumptions should not change treated offsets or DIME/Needs/HLV outputs"
+  "changing saved-only asset growth assumptions should not change treated offsets or DIME/Needs/HLV outputs"
 );
 
 const allowedDirtyPaths = new Set([
+  "life-insurance-planner/components.css",
+  "life-insurance-planner/pages/analysis-setup.html",
   "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
   "life-insurance-planner/checks/lens-analysis/asset-growth-defaults-metadata-check.js",
+  "life-insurance-planner/checks/lens-analysis/asset-growth-ui-saved-only-check.js",
   "life-insurance-planner/checks/lens-analysis/asset-growth-saved-shape-check.js"
 ]);
 const unexpectedDirtyPaths = getDirtyPaths().filter(function (dirtyPath) {
@@ -396,7 +394,7 @@ const unexpectedDirtyPaths = getDirtyPaths().filter(function (dirtyPath) {
 assert.deepEqual(
   unexpectedDirtyPaths,
   [],
-  "this pass should not change UI, CSS, method, helper, Step 3, or unrelated files"
+  "this pass should only change saved-only Asset Treatment growth UI, wiring, and focused checks"
 );
 
 console.log("asset-growth-saved-shape-check passed");

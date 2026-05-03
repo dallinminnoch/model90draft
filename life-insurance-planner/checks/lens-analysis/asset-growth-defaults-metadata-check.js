@@ -233,8 +233,6 @@ assert.equal(
 assert.equal(categoryMap.has("highYieldSavingsAccount"), false, "high-yield savings should not be introduced as a visible category in this pass");
 
 [
-  "pages/analysis-setup.html",
-  "components.css",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
@@ -249,9 +247,12 @@ assert.equal(categoryMap.has("highYieldSavingsAccount"), false, "high-yield savi
 });
 
 const allowedDirtyPaths = new Set([
+  "life-insurance-planner/components.css",
+  "life-insurance-planner/pages/analysis-setup.html",
   "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
   "life-insurance-planner/app/features/lens-analysis/asset-taxonomy.js",
   "life-insurance-planner/checks/lens-analysis/asset-growth-defaults-metadata-check.js",
+  "life-insurance-planner/checks/lens-analysis/asset-growth-ui-saved-only-check.js",
   "life-insurance-planner/checks/lens-analysis/asset-growth-saved-shape-check.js"
 ]);
 const unexpectedDirtyPaths = getDirtyPaths().filter(function (dirtyPath) {

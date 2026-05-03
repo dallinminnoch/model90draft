@@ -12541,16 +12541,17 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   min-height: 0;
   height: 100%;
   max-height: none;
+  overflow-x: auto;
   overflow-y: auto;
   padding-right: 0.12rem;
 }
 
 .analysis-setup-asset-row {
   display: grid;
-  grid-template-columns: minmax(8rem, 0.9fr) 2.55rem minmax(8rem, 0.95fr) minmax(5.2rem, 0.52fr) minmax(4.3rem, 0.4fr) minmax(4.3rem, 0.4fr) minmax(6.4rem, 0.62fr);
+  grid-template-columns: minmax(7.2rem, 1fr) 2.42rem minmax(8rem, 0.92fr) minmax(6.5rem, 0.76fr) minmax(4.95rem, 0.52fr) minmax(3.95rem, 0.4fr) minmax(3.95rem, 0.4fr) minmax(5.9rem, 0.58fr);
   align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
+  gap: 0.34rem;
+  min-width: 52rem;
   min-height: 2.28rem;
   padding: 0.36rem 0.5rem;
   border: 1px solid rgba(211, 219, 231, 0.92);
@@ -12578,32 +12579,23 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   justify-self: center;
 }
 
-.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(3) {
+.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(3),
+.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(4) {
   justify-self: stretch;
 }
 
-.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(2),
-.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(3),
-.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(4) {
-  transform: translateX(-0.28rem);
-}
-
-.analysis-setup-control-group--assets .analysis-setup-asset-row:not(.analysis-setup-asset-row--head) > span:nth-child(5),
-.analysis-setup-control-group--assets .analysis-setup-asset-row:not(.analysis-setup-asset-row--head) > span:nth-child(6) {
-  transform: translateX(0.8rem);
+.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(6),
+.analysis-setup-control-group--assets .analysis-setup-asset-row > span:nth-child(7) {
+  justify-self: center;
 }
 
 .analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(2),
-.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(3) {
+.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(3),
+.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(4),
+.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(6),
+.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(7) {
   justify-self: stretch;
   text-align: center;
-}
-
-.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(5),
-.analysis-setup-control-group--assets .analysis-setup-asset-row--head span:nth-child(6) {
-  justify-self: stretch;
-  text-align: center;
-  transform: translateX(0.24rem);
 }
 
 .analysis-setup-control-group--assets .analysis-setup-asset-row--head span:last-child {
@@ -12623,6 +12615,9 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   font-size: 0.75rem;
   font-weight: 760;
   line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .analysis-setup-asset-include {
@@ -12657,6 +12652,80 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .analysis-setup-mini-switch input:checked + .settings-switch-track::after {
   transform: translateX(1rem);
+}
+
+.analysis-setup-asset-growth-control {
+  display: grid;
+  grid-template-columns: minmax(3.6rem, 1fr) minmax(3.85rem, max-content);
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.analysis-setup-asset-growth-slider {
+  --analysis-setup-slider-fill: #4b35c8;
+  --analysis-setup-slider-empty: #ebe7ff;
+  --analysis-setup-slider-progress: 0%;
+  width: 100%;
+  min-width: 0;
+  height: 0.72rem;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      var(--analysis-setup-slider-fill) 0%,
+      var(--analysis-setup-slider-fill) var(--analysis-setup-slider-progress),
+      var(--analysis-setup-slider-empty) var(--analysis-setup-slider-progress),
+      var(--analysis-setup-slider-empty) 100%
+    )
+    center / 100% 0.28rem no-repeat;
+  accent-color: var(--analysis-setup-slider-fill);
+  cursor: pointer;
+}
+
+.analysis-setup-asset-growth-slider::-webkit-slider-runnable-track {
+  height: 0.28rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.analysis-setup-asset-growth-slider::-webkit-slider-thumb {
+  width: 0.72rem;
+  height: 0.72rem;
+  margin-top: -0.22rem;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--analysis-setup-slider-fill);
+  box-shadow: 0 0 0 1px rgba(75, 53, 200, 0.22);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.analysis-setup-asset-growth-slider::-moz-range-track {
+  height: 0.28rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--analysis-setup-slider-empty);
+}
+
+.analysis-setup-asset-growth-slider::-moz-range-progress {
+  height: 0.28rem;
+  border-radius: 999px;
+  background: var(--analysis-setup-slider-fill);
+}
+
+.analysis-setup-asset-growth-slider::-moz-range-thumb {
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--analysis-setup-slider-fill);
+  box-shadow: 0 0 0 1px rgba(75, 53, 200, 0.22);
 }
 
 .analysis-setup-asset-select,
@@ -12742,6 +12811,14 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   text-align: right;
 }
 
+.analysis-setup-asset-growth-percent {
+  min-width: 3.6rem;
+}
+
+.analysis-setup-asset-growth-input {
+  width: 2.42rem;
+}
+
 .analysis-setup-asset-label-input,
 .analysis-setup-asset-value-input {
   width: 100%;
@@ -12770,10 +12847,16 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .analysis-setup-asset-haircut-input:focus,
 .analysis-setup-asset-label-input:focus,
 .analysis-setup-asset-value-input:focus,
+.analysis-setup-asset-growth-input:focus,
 .analysis-setup-card-input:focus {
   border-color: rgba(139, 124, 246, 0.78);
   outline: none;
   box-shadow: 0 0 0 2px rgba(139, 124, 246, 0.18);
+}
+
+.analysis-setup-asset-growth-slider:focus-visible {
+  outline: 2px solid rgba(157, 140, 248, 0.62);
+  outline-offset: 3px;
 }
 
 .analysis-setup-asset-percent {
@@ -12815,6 +12898,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .analysis-setup-control-group--assets .analysis-setup-treatment-preview {
   justify-content: flex-end;
   text-align: right;
+  white-space: nowrap;
 }
 
 .analysis-setup-tax-treatment-pill {

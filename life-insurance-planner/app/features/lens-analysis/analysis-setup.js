@@ -1561,6 +1561,58 @@
     };
   }
 
+  function readVisibleAssetGrowthSavedFields(fields, itemKey, currentAsset, defaultProfile) {
+    const field = getAssetTreatmentField(fields, "growth", itemKey);
+    const fieldSource = String(field?.dataset?.analysisAssetGrowthSource || "").trim();
+    const fieldProfile = normalizeAssetGrowthRateProfile(
+      field?.dataset?.analysisAssetGrowthProfile,
+      defaultProfile
+    );
+    const baseGrowthFields = createAssetGrowthSavedFields(currentAsset, itemKey, defaultProfile, {
+      preserveTaxonomyDefault: false
+    });
+    const fieldDefaultGrowthFields = fieldSource === ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT
+      ? createAssetGrowthSavedFields({}, itemKey, fieldProfile)
+      : baseGrowthFields;
+    if (!field) {
+      return baseGrowthFields;
+    }
+
+    const rawValue = String(field.value || "").trim();
+    const number = Number(rawValue);
+    if (!rawValue || !Number.isFinite(number)) {
+      return fieldDefaultGrowthFields;
+    }
+
+    const value = normalizeAssetGrowthRatePercent(
+      number,
+      fieldDefaultGrowthFields.assumedAnnualGrowthRatePercent
+    );
+    const savedSource = String(currentAsset?.assumedAnnualGrowthRateSource || "").trim();
+    const baseRate = normalizeAssetGrowthRatePercent(
+      fieldDefaultGrowthFields.assumedAnnualGrowthRatePercent,
+      0
+    );
+    const shouldUseAdvisorSource = fieldSource === ASSET_GROWTH_RATE_SOURCE_ADVISOR
+      || (
+        !fieldSource
+        && savedSource
+        && savedSource !== ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT
+      )
+      || Math.abs(value - baseRate) > 0.001;
+
+    return {
+      assumedAnnualGrowthRatePercent: value,
+      assumedAnnualGrowthRateSource: shouldUseAdvisorSource
+        ? ASSET_GROWTH_RATE_SOURCE_ADVISOR
+        : ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT,
+      assumedAnnualGrowthRateProfile: shouldUseAdvisorSource
+        ? "custom"
+        : fieldDefaultGrowthFields.assumedAnnualGrowthRateProfile,
+      growthConsumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY
+    };
+  }
+
   function getAssetTreatmentDefaultForKey(itemKey) {
     const key = String(itemKey || "").trim();
     return DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.assets[key]
@@ -1627,6 +1679,49 @@
     }
 
     setAssetTreatmentFieldsValue(fields, groupName, itemKey, sourceField.value);
+  }
+
+  function setAssetTreatmentGrowthFieldMetadata(field, source, profile) {
+    if (!field || !field.dataset) {
+      return;
+    }
+
+    field.dataset.analysisAssetGrowthSource = source;
+    field.dataset.analysisAssetGrowthProfile = profile;
+  }
+
+  function setAssetTreatmentGrowthFields(fields, itemKey, growthFields) {
+    const safeGrowthFields = isPlainObject(growthFields) ? growthFields : {};
+    const value = formatHaircutInputValue(normalizeAssetGrowthRatePercent(
+      safeGrowthFields.assumedAnnualGrowthRatePercent,
+      0
+    ));
+    const source = String(
+      safeGrowthFields.assumedAnnualGrowthRateSource || ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT
+    );
+    const profile = normalizeAssetGrowthRateProfile(
+      safeGrowthFields.assumedAnnualGrowthRateProfile,
+      getAssetGrowthSeedProfile(fields?.defaultProfile)
+    );
+
+    getAssetTreatmentFieldList(fields, "growth", itemKey).forEach(function (field) {
+      field.value = value;
+      setAssetTreatmentGrowthFieldMetadata(field, source, profile);
+    });
+    getAssetTreatmentFieldList(fields, "growthSlider", itemKey).forEach(function (slider) {
+      slider.value = value;
+      setAssetTreatmentGrowthFieldMetadata(slider, source, profile);
+      updateRateSliderProgress(slider);
+    });
+  }
+
+  function markAssetTreatmentGrowthFieldsAsAdvisor(fields, itemKey) {
+    getAssetTreatmentFieldList(fields, "growth", itemKey).forEach(function (field) {
+      setAssetTreatmentGrowthFieldMetadata(field, ASSET_GROWTH_RATE_SOURCE_ADVISOR, "custom");
+    });
+    getAssetTreatmentFieldList(fields, "growthSlider", itemKey).forEach(function (field) {
+      setAssetTreatmentGrowthFieldMetadata(field, ASSET_GROWTH_RATE_SOURCE_ADVISOR, "custom");
+    });
   }
 
   function getSavedAssetTreatmentForItem(savedAssets, item) {
@@ -2546,6 +2641,7 @@
           <span role="cell"></span>
           <span role="cell"></span>
           <span role="cell"></span>
+          <span role="cell"></span>
         </div>
       `);
       table.dataset.rendered = "true";
@@ -2558,6 +2654,8 @@
       const safeKey = escapeHtml(item.key);
       const safeAssetId = escapeHtml(item.assetId);
       const currentValue = Number(item.currentValue);
+      const growthFields = createAssetGrowthSavedFields({}, item.key, DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.defaultProfile);
+      const growthValue = formatHaircutInputValue(growthFields.assumedAnnualGrowthRatePercent);
       table.insertAdjacentHTML("beforeend", `
         <div class="analysis-setup-asset-row" role="row" aria-disabled="false" data-analysis-asset-treatment-row="${safeKey}" data-analysis-asset-id="${safeAssetId}">
           <span class="analysis-setup-asset-label" role="cell">${safeLabel}</span>
@@ -2568,6 +2666,15 @@
                 <span class="settings-switch-track" aria-hidden="true"></span>
               </span>
             </label>
+          </span>
+          <span role="cell">
+            <span class="analysis-setup-asset-growth-control" aria-label="${safeLabel} assumed annual growth">
+              <input class="analysis-setup-asset-growth-slider analysis-setup-asset-field" type="range" min="${MIN_ASSET_GROWTH_RATE_PERCENT}" max="${MAX_ASSET_GROWTH_RATE_PERCENT}" step="0.25" value="${growthValue}" aria-label="${safeLabel} assumed annual growth slider" data-analysis-asset-treatment-growth-slider="${safeKey}" data-analysis-asset-growth-source="${growthFields.assumedAnnualGrowthRateSource}" data-analysis-asset-growth-profile="${growthFields.assumedAnnualGrowthRateProfile}">
+              <span class="analysis-setup-asset-percent analysis-setup-asset-growth-percent">
+                <input class="analysis-setup-asset-percent-input analysis-setup-asset-growth-input analysis-setup-asset-field" type="text" inputmode="decimal" value="${growthValue}" aria-label="${safeLabel} assumed annual growth percentage" data-analysis-asset-treatment-growth="${safeKey}" data-analysis-asset-growth-source="${growthFields.assumedAnnualGrowthRateSource}" data-analysis-asset-growth-profile="${growthFields.assumedAnnualGrowthRateProfile}">
+                <span aria-hidden="true">%</span>
+              </span>
+            </span>
           </span>
           <span role="cell">
             <select class="analysis-setup-asset-select analysis-setup-asset-field" aria-label="${safeLabel} treatment preset" data-analysis-asset-treatment-preset="${safeKey}">
@@ -2723,6 +2830,8 @@
       defaultProfile: DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.defaultProfile,
       defaultProfileButtons: Array.from(document.querySelectorAll("[data-analysis-asset-default-profile]")),
       include: {},
+      growth: {},
+      growthSlider: {},
       preset: {},
       taxTreatment: {},
       tax: {},
@@ -2730,6 +2839,8 @@
       preview: {},
       fieldLists: {
         include: {},
+        growth: {},
+        growthSlider: {},
         preset: {},
         taxTreatment: {},
         tax: {},
@@ -2750,6 +2861,14 @@
 
     Array.from(document.querySelectorAll("[data-analysis-asset-treatment-include]")).forEach(function (field) {
       addAssetTreatmentField(fields, "include", "data-analysis-asset-treatment-include", field);
+    });
+
+    Array.from(document.querySelectorAll("[data-analysis-asset-treatment-growth]")).forEach(function (field) {
+      addAssetTreatmentField(fields, "growth", "data-analysis-asset-treatment-growth", field);
+    });
+
+    Array.from(document.querySelectorAll("[data-analysis-asset-treatment-growth-slider]")).forEach(function (field) {
+      addAssetTreatmentField(fields, "growthSlider", "data-analysis-asset-treatment-growth-slider", field);
     });
 
     Array.from(document.querySelectorAll("[data-analysis-asset-treatment-preset]")).forEach(function (field) {
@@ -2952,6 +3071,8 @@
     const hasStandardFields = ASSET_TREATMENT_ITEMS.some(function (item) {
       return Boolean(
         fields.include[item.key]
+        || fields.growth[item.key]
+        || fields.growthSlider[item.key]
         || fields.preset[item.key]
         || fields.taxTreatment[item.key]
         || fields.tax[item.key]
@@ -4884,6 +5005,11 @@
       const assumption = assumptions.assets[itemKey] || getAssetTreatmentDefaultForKey(itemKey);
 
       setAssetTreatmentFieldsChecked(fields, "include", itemKey, assumption.include);
+      setAssetTreatmentGrowthFields(fields, itemKey, createAssetGrowthSavedFields(
+        assumption,
+        itemKey,
+        assumptions.defaultProfile
+      ));
       setAssetTreatmentFieldsValue(fields, "preset", itemKey, assumption.treatmentPreset);
       getAssetTreatmentFieldList(fields, "taxTreatment", itemKey).forEach(function (field) {
         syncTaxTreatmentPill(field, assumption.taxTreatment);
@@ -5233,7 +5359,7 @@
       button.disabled = Boolean(disabled);
     });
 
-    ["include", "preset", "tax", "haircut"].forEach(function (groupName) {
+    ["include", "growth", "growthSlider", "preset", "tax", "haircut"].forEach(function (groupName) {
       const fieldLists = fields.fieldLists?.[groupName] || {};
       Object.keys(fieldLists).forEach(function (fieldName) {
         (fieldLists[fieldName] || []).forEach(function (field) {
@@ -5485,6 +5611,7 @@
       getAssetTreatmentFieldList(fields, "taxTreatment", itemKey).forEach(function (field) {
         syncTaxTreatmentPill(field, defaults.taxTreatment);
       });
+      setAssetTreatmentGrowthFields(fields, itemKey, createAssetGrowthSavedFields({}, itemKey, normalizedProfile));
       setAssetTreatmentFieldsValue(fields, "tax", itemKey, formatHaircutInputValue(defaults.taxDragPercent));
       setAssetTreatmentFieldsValue(fields, "haircut", itemKey, formatHaircutInputValue(defaults.liquidityHaircutPercent));
 
@@ -6103,9 +6230,7 @@
         ),
         taxDragPercent: Number(tax.toFixed(2)),
         liquidityHaircutPercent: Number(haircut.toFixed(2)),
-        ...createAssetGrowthSavedFields(currentAsset, item.key, defaultProfile, {
-          preserveTaxonomyDefault: false
-        })
+        ...readVisibleAssetGrowthSavedFields(fields, item.key, currentAsset, defaultProfile)
       };
     }
 
@@ -8054,6 +8179,60 @@
           setAssetTreatmentFieldsValue(assetTreatmentFields, "preset", itemKey, field.value);
           setAssetDefaultProfile(assetTreatmentFields, "custom");
           applyAssetTreatmentPreset(assetTreatmentFields, itemKey, linkedRecord);
+          markUnsaved();
+        });
+      });
+
+      getAssetTreatmentFieldList(assetTreatmentFields, "growthSlider", itemKey).forEach(function (field) {
+        const syncFromSlider = function () {
+          const number = Number(field.value);
+          const growthValue = normalizeAssetGrowthRatePercent(number, 0);
+          setAssetTreatmentGrowthFields(assetTreatmentFields, itemKey, {
+            assumedAnnualGrowthRatePercent: growthValue,
+            assumedAnnualGrowthRateSource: ASSET_GROWTH_RATE_SOURCE_ADVISOR,
+            assumedAnnualGrowthRateProfile: "custom"
+          });
+          setAssetDefaultProfile(assetTreatmentFields, "custom");
+          markUnsaved();
+        };
+
+        field.addEventListener("input", syncFromSlider);
+        field.addEventListener("change", syncFromSlider);
+      });
+
+      getAssetTreatmentFieldList(assetTreatmentFields, "growth", itemKey).forEach(function (field) {
+        field.addEventListener("input", function () {
+          syncAssetTreatmentFieldValueFromSource(assetTreatmentFields, "growth", itemKey, field);
+          markAssetTreatmentGrowthFieldsAsAdvisor(assetTreatmentFields, itemKey);
+
+          const rawValue = String(field?.value || "").trim();
+          const number = Number(rawValue);
+          if (rawValue && Number.isFinite(number)) {
+            getAssetTreatmentFieldList(assetTreatmentFields, "growthSlider", itemKey).forEach(function (slider) {
+              slider.value = normalizeAssetGrowthRatePercent(number, 0);
+              updateRateSliderProgress(slider);
+            });
+          }
+
+          setAssetDefaultProfile(assetTreatmentFields, "custom");
+          markUnsaved();
+        });
+
+        field.addEventListener("change", function () {
+          const rawValue = String(field?.value || "").trim();
+          const number = Number(rawValue);
+          const growthFields = rawValue && Number.isFinite(number)
+            ? {
+              assumedAnnualGrowthRatePercent: normalizeAssetGrowthRatePercent(number, 0),
+              assumedAnnualGrowthRateSource: ASSET_GROWTH_RATE_SOURCE_ADVISOR,
+              assumedAnnualGrowthRateProfile: "custom"
+            }
+            : createAssetGrowthSavedFields({}, itemKey, getAssetDefaultProfile(assetTreatmentFields));
+
+          setAssetTreatmentGrowthFields(assetTreatmentFields, itemKey, growthFields);
+          setAssetDefaultProfile(assetTreatmentFields, growthFields.assumedAnnualGrowthRateSource === ASSET_GROWTH_RATE_SOURCE_ADVISOR
+            ? "custom"
+            : getAssetDefaultProfile(assetTreatmentFields));
           markUnsaved();
         });
       });
