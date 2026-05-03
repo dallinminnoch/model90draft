@@ -380,8 +380,7 @@ assert.equal(profileValidation.value.assets.taxableBrokerageInvestments.growthCo
 
 [
   "app/features/lens-analysis/asset-treatment-calculations.js",
-  "app/features/lens-analysis/analysis-methods.js",
-  "app/features/lens-analysis/step-three-analysis-display.js"
+  "app/features/lens-analysis/analysis-methods.js"
 ].forEach(function (relativePath) {
   const source = readRepoFile(relativePath);
   assert.doesNotMatch(
@@ -390,6 +389,18 @@ assert.equal(profileValidation.value.assets.taxableBrokerageInvestments.growthCo
     `${relativePath} should not consume or render saved-only asset growth`
   );
 });
+
+const stepThreeSource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
+assert.match(
+  stepThreeSource,
+  /Projected Asset Growth/,
+  "Step 3 may render saved-only asset growth as reporting-only display"
+);
+assert.doesNotMatch(
+  stepThreeSource,
+  /calculateAssetGrowthProjection|asset-growth-projection-calculations|assetGrowthProjectionAssumptions/,
+  "Step 3 should render prepared projectedAssetGrowth only, without helper calls or source-mode ownership"
+);
 
 const outputContext = createLensAnalysisContext();
 const baseOutputs = createMethodOutputs(outputContext, createAssetTreatmentAssumptions(2));

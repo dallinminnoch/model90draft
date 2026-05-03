@@ -238,7 +238,6 @@ assert.equal(categoryMap.has("highYieldSavingsAccount"), false, "high-yield savi
 
 [
   "app/features/lens-analysis/analysis-methods.js",
-  "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/asset-treatment-calculations.js"
 ].forEach(function (relativePath) {
@@ -249,6 +248,18 @@ assert.equal(categoryMap.has("highYieldSavingsAccount"), false, "high-yield savi
     `${relativePath} should not consume or render asset growth defaults in this metadata-only pass`
   );
 });
+
+const stepThreeSource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
+assert.match(
+  stepThreeSource,
+  /Projected Asset Growth/,
+  "Step 3 may render prepared asset growth values as reporting-only display"
+);
+assert.doesNotMatch(
+  stepThreeSource,
+  /growthDefaults|growthAssumptionStatus|growthReviewRequired|calculateAssetGrowthProjection/,
+  "Step 3 should not consume asset taxonomy growth defaults or calculate projections"
+);
 
 if (isStrictDiffGuardEnabled()) {
   const allowedDirtyPaths = new Set([

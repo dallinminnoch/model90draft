@@ -1154,6 +1154,129 @@
     return warningCode || "None";
   }
 
+  function formatAssetGrowthSourceMode(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "currentDollarOnly") {
+      return "Current-dollar only";
+    }
+
+    if (normalized === "reportingOnly") {
+      return "Reporting only";
+    }
+
+    if (normalized === "projectedOffsets") {
+      return "Projected offsets - future / inactive";
+    }
+
+    return normalized || "Not set";
+  }
+
+  function formatAssetGrowthProjectionMode(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "currentDollarOnly") {
+      return "Current-dollar only";
+    }
+
+    if (normalized === "reportingOnly") {
+      return "Reporting-only projection";
+    }
+
+    if (normalized === "projectedOffsetsFutureInactive") {
+      return "Projected offsets future/inactive";
+    }
+
+    return normalized || "Not set";
+  }
+
+  function getAssetGrowthProjectionStatus(projectedAssetGrowth) {
+    const sourceMode = String(projectedAssetGrowth?.sourceMode || "").trim();
+    const projectionMode = String(projectedAssetGrowth?.projectionMode || "").trim();
+
+    if (sourceMode === "projectedOffsets" || projectionMode === "projectedOffsetsFutureInactive") {
+      return "Projected offsets future/inactive; reporting only and not used in current outputs";
+    }
+
+    if (sourceMode === "reportingOnly" || projectionMode === "reportingOnly") {
+      return "Reporting only; projected values are not used in current DIME, Needs, or HLV outputs";
+    }
+
+    return "Current-dollar only; projection years 0 and no current output impact";
+  }
+
+  function getAssetGrowthWarningSummary(projectedAssetGrowth) {
+    const warnings = Array.isArray(projectedAssetGrowth?.warnings)
+      ? projectedAssetGrowth.warnings
+      : [];
+    const messages = warnings
+      .map(getTraceWarningMessage)
+      .filter(Boolean);
+
+    return messages.length ? messages.join("; ") : "None";
+  }
+
+  function renderAssetGrowthIncludedCategorySummary(projectedAssetGrowth) {
+    const categories = Array.isArray(projectedAssetGrowth?.includedCategories)
+      ? projectedAssetGrowth.includedCategories
+      : [];
+
+    if (!categories.length) {
+      return "";
+    }
+
+    return `
+      <p class="analysis-result-copy"><strong>Included Asset Growth Categories</strong></p>
+      <ul class="analysis-result-list">
+        ${categories.map(function (category) {
+          const label = category?.label || category?.categoryKey || "Asset category";
+          const reviewLabel = category?.reviewRequired === true || (Array.isArray(category?.warnings) && category.warnings.length)
+            ? "; review warnings present"
+            : "";
+          const value = [
+            `${formatCurrency(category?.currentValue)} current`,
+            `${formatPercent(category?.assumedAnnualGrowthRatePercent)} assumed annual growth`,
+            formatYears(category?.projectionYears),
+            `${formatCurrency(category?.projectedValue)} projected`,
+            `${formatCurrency(category?.projectedGrowthAmount)} projected growth${reviewLabel}`
+          ].join("; ");
+
+          return `<li><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></li>`;
+        }).join("")}
+      </ul>
+    `;
+  }
+
+  function renderProjectedAssetGrowthReportingDetail(lensModel) {
+    const projectedAssetGrowth = isPlainObject(lensModel?.projectedAssetGrowth)
+      ? lensModel.projectedAssetGrowth
+      : null;
+    if (!projectedAssetGrowth) {
+      return "";
+    }
+
+    const rows = [
+      { label: "Projection status", value: getAssetGrowthProjectionStatus(projectedAssetGrowth) },
+      { label: "Source mode", value: formatAssetGrowthSourceMode(projectedAssetGrowth.sourceMode) },
+      { label: "Projection mode", value: formatAssetGrowthProjectionMode(projectedAssetGrowth.projectionMode) },
+      { label: "Projection years", value: formatYears(projectedAssetGrowth.projectionYears) },
+      { label: "Projection years source", value: projectedAssetGrowth.projectionYearsSource || "Not set" },
+      { label: "Current total asset value", value: formatCurrency(projectedAssetGrowth.currentTotalAssetValue) },
+      { label: "Projected total asset value", value: formatCurrency(projectedAssetGrowth.projectedTotalAssetValue) },
+      { label: "Projected growth amount", value: formatCurrency(projectedAssetGrowth.totalProjectedGrowthAmount) },
+      { label: "Included category count", value: formatCount(projectedAssetGrowth.includedCategoryCount) },
+      { label: "Excluded category count", value: formatCount(projectedAssetGrowth.excludedCategoryCount) },
+      { label: "Review warning count", value: formatCount(projectedAssetGrowth.reviewWarningCount) },
+      { label: "Consumed by methods", value: projectedAssetGrowth.consumedByMethods === true ? "Yes" : "No" },
+      { label: "Current output impact", value: "Reporting only / none; DIME, Needs, and HLV outputs are unaffected" },
+      { label: "Current asset offsets", value: "Current asset offsets remain current-dollar/current treatment based" },
+      { label: "Warning summary", value: getAssetGrowthWarningSummary(projectedAssetGrowth) }
+    ];
+
+    return `
+      ${renderProjectionDetailSection("Projected Asset Growth — Reporting Only", rows)}
+      ${renderAssetGrowthIncludedCategorySummary(projectedAssetGrowth)}
+    `;
+  }
+
   function formatFinalExpenseSourceMode(finalExpenseTrace) {
     const sourceMode = String(getTraceInput(finalExpenseTrace, "sourceMode") || "").trim();
     if (sourceMode === "expenseFacts-final-expense-components") {
@@ -1248,14 +1371,15 @@
     return renderProjectionDetailSection("Healthcare Expense Projection", rows);
   }
 
-  function renderNeedsProjectionDetails(needsResult) {
+  function renderNeedsProjectionDetails(needsResult, lensModel) {
     const projectionDetails = [
       renderNeedsInflationDetail(needsResult),
       renderSurvivorIncomeDerivationDetail(needsResult),
       renderNeedsDiscretionaryInflationDetail(needsResult),
       renderNeedsEducationInflationDetail(needsResult),
       renderNeedsFinalExpenseProjectionDetail(needsResult),
-      renderNeedsHealthcareExpenseProjectionDetail(needsResult)
+      renderNeedsHealthcareExpenseProjectionDetail(needsResult),
+      renderProjectedAssetGrowthReportingDetail(lensModel)
     ].filter(Boolean);
 
     if (!projectionDetails.length) {
@@ -1387,7 +1511,7 @@
         { label: "Transition Needs", value: components.transitionNeeds },
         { label: "Discretionary Support", value: components.discretionarySupport }
       ])}
-      ${renderNeedsProjectionDetails(needsResult)}
+      ${renderNeedsProjectionDetails(needsResult, lensModel)}
       <div class="analysis-result-eyebrow">Assumptions</div>
       ${renderAssumptionList([
         { label: "Support duration years", value: assumptions.needsSupportDurationYears },
