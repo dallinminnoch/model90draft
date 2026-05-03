@@ -3,7 +3,10 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   // Owner: PMI expense records controller.
-  // Purpose: collect repeatable raw-only expenseRecords[] rows from PMI.
+  // Purpose: collect repeatable Additional Expenses records from PMI.
+  // Healthcare rows can affect Needs healthcareExpenses when enabled;
+  // non-healthcare rows remain raw-only for current output, and
+  // continuationStatus is future support-treatment metadata.
   // Non-goals: no normalization, no formulas, no inflation/projection math,
   // no treatment assumptions, no Step 3 wiring, and no storage access.
 
@@ -454,6 +457,13 @@
     }
 
     root.innerHTML = `
+      <div class="field-group full-width form-subgroup-label pmi-expense-records-heading">
+        <span>Additional Expenses</span>
+      </div>
+      <div class="field-group full-width pmi-expense-records-copy">
+        <p class="underwriting-helper-text">Use this for expenses not already captured in Household Spending. Healthcare-related rows may affect Needs when Healthcare Expense Assumptions are enabled; non-healthcare rows are saved as raw facts for now.</p>
+        <p class="underwriting-helper-text">"Continues after death?" is saved for future support-treatment review. Review overlap with Household Spending to avoid duplicate entry.</p>
+      </div>
       <div class="pmi-expense-records-list" data-pmi-expense-records-list></div>
       <div class="field-group pmi-expense-records-add-field">
         <button class="button tertiary-button pmi-expense-records-add-button" type="button" data-pmi-expense-records-add>Add Expense</button>
@@ -479,7 +489,7 @@
         <div class="profile-search-modal-header">
           <div>
             <h2 id="pmi-expense-library-title">Add Expense</h2>
-            <p>Search or browse initial expense types to add as raw PMI facts.</p>
+            <p>Add expenses not already captured in Household Spending. Healthcare-related rows may affect Needs when Healthcare Expense Assumptions are enabled; non-healthcare rows remain saved raw facts for now.</p>
           </div>
         </div>
         <div class="pmi-expense-library-search">

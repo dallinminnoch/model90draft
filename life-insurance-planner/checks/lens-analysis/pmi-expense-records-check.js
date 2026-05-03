@@ -264,6 +264,16 @@ const pmiExpenseRecords = lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
 
 assertNoFormulaOwnerReferences(widgetSource);
+assert.match(widgetSource, /Additional Expenses records from PMI/);
+assert.match(widgetSource, /Healthcare rows can affect Needs healthcareExpenses when enabled/);
+assert.match(widgetSource, /non-healthcare rows remain raw-only for current output/);
+assert.match(widgetSource, /continuationStatus is future support-treatment metadata/);
+assert.match(widgetSource, /Healthcare-related rows may affect Needs when Healthcare Expense Assumptions are enabled/);
+assert.match(widgetSource, /non-healthcare rows are saved as raw facts for now/);
+assert.match(widgetSource, /non-healthcare rows remain saved raw facts for now/);
+assert.match(widgetSource, /Review overlap with Household Spending to avoid duplicate entry/);
+assert.doesNotMatch(widgetSource, /collect repeatable raw-only expenseRecords\[\] rows from PMI/);
+assert.doesNotMatch(widgetSource, /Search or browse initial expense types to add as raw PMI facts/);
 assert.equal(typeof pmiExpenseRecords?.initPmiExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.hydrateExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
@@ -340,6 +350,11 @@ const fakeDom = createFakeRoot();
 const controller = pmiExpenseRecords.initPmiExpenseRecords({ root: fakeDom.root });
 assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiExpenseRecordsInitialized, "true");
+assert.match(fakeDom.root.innerHTML, /Additional Expenses/, "widget should render the Additional Expenses heading");
+assert.match(fakeDom.root.innerHTML, /expenses not already captured in Household Spending/, "widget should warn against Household Spending overlap");
+assert.match(fakeDom.root.innerHTML, /Healthcare-related rows may affect Needs when Healthcare Expense Assumptions are enabled/, "widget should describe active healthcare behavior");
+assert.match(fakeDom.root.innerHTML, /non-healthcare rows are saved as raw facts for now/, "widget should describe non-healthcare raw-fact behavior");
+assert.match(fakeDom.root.innerHTML, /"Continues after death\?" is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
 
 const inputRecords = Object.freeze([
   Object.freeze({
