@@ -284,6 +284,13 @@
     custom: "Custom"
   });
   const ASSET_TREATMENT_DEFAULT_PROFILE_KEYS = Object.freeze(Object.keys(ASSET_TREATMENT_DEFAULT_PROFILE_LABELS));
+  const ASSET_GROWTH_RATE_PROFILE_KEYS = Object.freeze(["conservative", "balanced", "aggressive", "custom"]);
+  const ASSET_GROWTH_DEFAULT_PROFILE_FALLBACK = "balanced";
+  const ASSET_GROWTH_RATE_SOURCE_ADVISOR = "advisor";
+  const ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT = "taxonomy-default";
+  const ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY = "saved-only";
+  const MIN_ASSET_GROWTH_RATE_PERCENT = 0;
+  const MAX_ASSET_GROWTH_RATE_PERCENT = 12;
 
   const DEFAULT_CUSTOM_ASSET_TREATMENT = Object.freeze({
     id: "custom-asset-1",
@@ -1230,6 +1237,40 @@
     );
   }
 
+  function normalizeAssetGrowthRatePercent(value, fallback) {
+    const number = Number(value);
+    const fallbackNumber = Number(fallback);
+    const baseValue = Number.isFinite(number)
+      ? number
+      : (Number.isFinite(fallbackNumber) ? fallbackNumber : 0);
+    const clampedValue = Math.min(
+      MAX_ASSET_GROWTH_RATE_PERCENT,
+      Math.max(MIN_ASSET_GROWTH_RATE_PERCENT, baseValue)
+    );
+    return Number(clampedValue.toFixed(2));
+  }
+
+  function normalizeAssetGrowthRateProfile(value, fallback) {
+    const normalizedValue = String(value || "").trim().toLowerCase();
+    if (ASSET_GROWTH_RATE_PROFILE_KEYS.includes(normalizedValue)) {
+      return normalizedValue;
+    }
+
+    return ASSET_GROWTH_RATE_PROFILE_KEYS.includes(fallback)
+      ? fallback
+      : ASSET_GROWTH_DEFAULT_PROFILE_FALLBACK;
+  }
+
+  function getAssetGrowthSeedProfile(profile) {
+    const normalizedProfile = normalizeAssetDefaultProfile(
+      profile,
+      DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.defaultProfile
+    );
+    return normalizedProfile === "custom"
+      ? ASSET_GROWTH_DEFAULT_PROFILE_FALLBACK
+      : normalizeAssetGrowthRateProfile(normalizedProfile, ASSET_GROWTH_DEFAULT_PROFILE_FALLBACK);
+  }
+
   function normalizeCoverageTreatmentPercent(value, fallback) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
@@ -1466,6 +1507,58 @@
     return ASSET_TREATMENT_ITEMS.find(function (item) {
       return item.key === key;
     }) || null;
+  }
+
+  function getAssetTaxonomyCategoryByKey(categoryKey) {
+    const taxonomy = LensApp.lensAnalysis?.assetTaxonomy;
+    const categories = Array.isArray(taxonomy?.DEFAULT_ASSET_CATEGORIES)
+      ? taxonomy.DEFAULT_ASSET_CATEGORIES
+      : [];
+    const safeCategoryKey = String(categoryKey || "").trim();
+    return categories.find(function (category) {
+      return category && category.categoryKey === safeCategoryKey;
+    }) || null;
+  }
+
+  function getAssetGrowthDefaultRate(categoryKey, profile) {
+    const category = getAssetTaxonomyCategoryByKey(categoryKey);
+    const seedProfile = getAssetGrowthSeedProfile(profile);
+    const profileDefault = category?.growthDefaults?.[seedProfile];
+    return normalizeAssetGrowthRatePercent(
+      profileDefault?.assumedAnnualGrowthRatePercent,
+      0
+    );
+  }
+
+  function createAssetGrowthSavedFields(savedAsset, categoryKey, profile, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const safeSavedAsset = isPlainObject(savedAsset) ? savedAsset : {};
+    const seedProfile = getAssetGrowthSeedProfile(profile);
+    const defaultRate = getAssetGrowthDefaultRate(categoryKey, seedProfile);
+    const savedRate = Number(safeSavedAsset.assumedAnnualGrowthRatePercent);
+    const savedSource = String(safeSavedAsset.assumedAnnualGrowthRateSource || "").trim();
+    const savedWasTaxonomyDefault = savedSource === ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT;
+    const shouldPreserveSavedRate = Number.isFinite(savedRate)
+      && (safeOptions.preserveTaxonomyDefault !== false || !savedWasTaxonomyDefault);
+    const source = shouldPreserveSavedRate
+      ? (savedSource || ASSET_GROWTH_RATE_SOURCE_ADVISOR)
+      : ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT;
+    const fallbackProfile = shouldPreserveSavedRate && source !== ASSET_GROWTH_RATE_SOURCE_TAXONOMY_DEFAULT
+      ? "custom"
+      : seedProfile;
+
+    return {
+      assumedAnnualGrowthRatePercent: normalizeAssetGrowthRatePercent(
+        shouldPreserveSavedRate ? savedRate : defaultRate,
+        defaultRate
+      ),
+      assumedAnnualGrowthRateSource: source,
+      assumedAnnualGrowthRateProfile: normalizeAssetGrowthRateProfile(
+        shouldPreserveSavedRate ? safeSavedAsset.assumedAnnualGrowthRateProfile : seedProfile,
+        fallbackProfile
+      ),
+      growthConsumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY
+    };
   }
 
   function getAssetTreatmentDefaultForKey(itemKey) {
@@ -1834,7 +1927,8 @@
         liquidityHaircutPercent: normalizeAssetTreatmentPercent(
           savedAsset.liquidityHaircutPercent,
           defaults.liquidityHaircutPercent
-        )
+        ),
+        ...createAssetGrowthSavedFields(savedAsset, item.key, nextAssumptions.defaultProfile)
       };
     });
 
@@ -5937,7 +6031,12 @@
       const currentAsset = isPlainObject(currentAssets[item.key])
         ? currentAssets[item.key]
         : getAssetTreatmentDefaultForKey(item.key);
-      nextAssumptions.assets[item.key] = { ...currentAsset };
+      nextAssumptions.assets[item.key] = {
+        ...currentAsset,
+        ...createAssetGrowthSavedFields(currentAsset, item.key, defaultProfile, {
+          preserveTaxonomyDefault: false
+        })
+      };
     });
 
     const visibleItemKeys = getVisibleAssetTreatmentItemKeys(fields);
@@ -5992,6 +6091,9 @@
         };
       }
 
+      const currentAsset = isPlainObject(currentAssets[item.key])
+        ? currentAssets[item.key]
+        : getAssetTreatmentDefaultForKey(item.key);
       nextAssumptions.assets[item.key] = {
         include: Boolean(getAssetTreatmentField(fields, "include", itemKey)?.checked),
         treatmentPreset: preset,
@@ -6000,7 +6102,10 @@
           "custom"
         ),
         taxDragPercent: Number(tax.toFixed(2)),
-        liquidityHaircutPercent: Number(haircut.toFixed(2))
+        liquidityHaircutPercent: Number(haircut.toFixed(2)),
+        ...createAssetGrowthSavedFields(currentAsset, item.key, defaultProfile, {
+          preserveTaxonomyDefault: false
+        })
       };
     }
 
