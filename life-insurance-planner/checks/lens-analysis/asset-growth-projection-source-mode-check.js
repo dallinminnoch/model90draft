@@ -281,6 +281,12 @@ function createMethodOutputs(context, assetTreatmentAssumptions) {
   };
 }
 
+function getWarningByCode(warnings, code) {
+  return (Array.isArray(warnings) ? warnings : []).find(function (warning) {
+    return warning && warning.code === code;
+  });
+}
+
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;
 const harness = setupContext.LensApp.__assetGrowthProjectionSourceModeHarness;
@@ -411,7 +417,6 @@ assert.doesNotMatch(
 );
 
 [
-  "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
@@ -424,6 +429,11 @@ assert.doesNotMatch(
     `${relativePath} should not consume or render asset growth projection source-mode assumptions`
   );
 });
+assert.match(
+  readRepoFile("app/features/lens-analysis/lens-model-builder.js"),
+  /assetGrowthProjectionAssumptions/,
+  "lens-model-builder should read source-mode assumptions for reporting-only projectedAssetGrowth model prep"
+);
 
 const analysisContext = createLensAnalysisContext();
 const currentDollarOutputs = createMethodOutputs(
@@ -453,17 +463,33 @@ assert.equal(currentDollarOutputs.projectedAssetGrowth.consumedByMethods, false)
 assert.equal(reportingOnlyOutputs.projectedAssetGrowth.consumedByMethods, false);
 assert.equal(projectedOffsetsOutputs.projectedAssetGrowth.consumedByMethods, false);
 assert.equal(currentDollarOutputs.projectedAssetGrowth.projectionYears, 0);
-assert.equal(reportingOnlyOutputs.projectedAssetGrowth.projectionYears, 0);
+assert.equal(reportingOnlyOutputs.projectedAssetGrowth.projectionYears, 45);
 assert.equal(projectedOffsetsOutputs.projectedAssetGrowth.projectionYears, 0);
 assert.equal(
   reportingOnlyOutputs.projectedAssetGrowth.projectionYearsSource,
-  "not-selected-current-dollar-default",
-  "model prep should keep the current 0-year source until a later UI/model-prep pass"
+  "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.projectionYears",
+  "reportingOnly should use saved projection years in model prep"
 );
 assert.equal(
   projectedOffsetsOutputs.projectedAssetGrowth.projectionYearsSource,
-  "not-selected-current-dollar-default",
-  "projectedOffsets must not activate projected asset growth methods"
+  "assetGrowthProjectionAssumptions.projectedOffsets-future-inactive",
+  "projectedOffsets must remain future/inactive in model prep"
+);
+assert.equal(reportingOnlyOutputs.projectedAssetGrowth.sourceMode, "reportingOnly");
+assert.equal(reportingOnlyOutputs.projectedAssetGrowth.projectionMode, "reportingOnly");
+assert.ok(
+  reportingOnlyOutputs.projectedAssetGrowth.projectedTotalAssetValue
+    > reportingOnlyOutputs.projectedAssetGrowth.currentTotalAssetValue,
+  "reportingOnly projected totals can differ from current totals"
+);
+assert.equal(projectedOffsetsOutputs.projectedAssetGrowth.sourceMode, "projectedOffsets");
+assert.equal(projectedOffsetsOutputs.projectedAssetGrowth.projectionMode, "projectedOffsetsFutureInactive");
+assert.ok(
+  getWarningByCode(
+    projectedOffsetsOutputs.projectedAssetGrowth.warnings,
+    "asset-growth-projected-offsets-future-inactive"
+  ),
+  "projectedOffsets should carry a future/inactive warning"
 );
 
 assert.deepEqual(

@@ -81,11 +81,18 @@ function createAssetAssumption(rate, overrides) {
   }, overrides || {});
 }
 
-function createAssetTreatmentAssumptions(rate) {
+function createAssetTreatmentAssumptions(rate, projectionAssumptions) {
   return {
     enabled: true,
     defaultProfile: "balanced",
     source: "asset-growth-model-prep-check",
+    assetGrowthProjectionAssumptions: Object.assign({
+      mode: "currentDollarOnly",
+      projectionYears: 0,
+      projectionYearsSource: "analysis-setup",
+      source: "analysis-setup",
+      consumptionStatus: "saved-only"
+    }, projectionAssumptions || {}),
     assets: {
       cashAndCashEquivalents: createAssetAssumption(rate, {
         treatmentPreset: "cash-like"
@@ -201,17 +208,20 @@ const lensAnalysis = context.LensApp.lensAnalysis;
 assert.equal(typeof lensAnalysis.calculateAssetGrowthProjection, "function");
 assert.equal(typeof lensAnalysis.buildLensModelFromSavedProtectionModeling, "function");
 
-const lensModel = buildLensModel(context, createAssetTreatmentAssumptions(6));
-const projectedAssetGrowth = lensModel.projectedAssetGrowth;
+const currentDollarModel = buildLensModel(context, createAssetTreatmentAssumptions(6));
+const projectedAssetGrowth = currentDollarModel.projectedAssetGrowth;
 
 assert.ok(projectedAssetGrowth, "lensModel.projectedAssetGrowth should exist");
 assert.equal(projectedAssetGrowth.source, "asset-growth-projection-calculations");
 assert.equal(projectedAssetGrowth.consumedByMethods, false);
-assert.equal(projectedAssetGrowth.projectionMode, "saved-only");
+assert.equal(projectedAssetGrowth.sourceMode, "currentDollarOnly");
+assert.equal(projectedAssetGrowth.projectionMode, "currentDollarOnly");
+assert.equal(projectedAssetGrowth.sourceModeSource, "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode");
+assert.equal(projectedAssetGrowth.consumptionStatus, "saved-only");
 assert.equal(projectedAssetGrowth.projectionYears, 0);
 assert.equal(
   projectedAssetGrowth.projectionYearsSource,
-  "not-selected-current-dollar-default"
+  "assetGrowthProjectionAssumptions.currentDollarOnly"
 );
 assert.equal(projectedAssetGrowth.currentTotalAssetValue, 310000);
 assert.equal(projectedAssetGrowth.projectedTotalAssetValue, 310000);
@@ -221,6 +231,8 @@ assert.equal(projectedAssetGrowth.excludedCategoryCount, 0);
 assert.ok(projectedAssetGrowth.reviewWarningCount >= 1);
 assert.equal(projectedAssetGrowth.trace.source, "asset-growth-projection-calculations");
 assert.equal(projectedAssetGrowth.trace.consumedByMethods, false);
+assert.equal(projectedAssetGrowth.trace.sourceMode, "currentDollarOnly");
+assert.equal(projectedAssetGrowth.trace.projectionMode, "currentDollarOnly");
 assert.equal(projectedAssetGrowth.trace.projectionYears, 0);
 assert.ok(Array.isArray(projectedAssetGrowth.includedCategories));
 assert.ok(projectedAssetGrowth.includedCategories.some(function (category) {
@@ -240,25 +252,99 @@ assert.ok(
   "model prep should warn that projected asset growth is saved-only"
 );
 assert.ok(
-  getWarningByCode(projectedAssetGrowth.warnings, "asset-growth-projection-years-not-selected"),
-  "model prep should warn that projection years are not selected yet"
+  getWarningByCode(projectedAssetGrowth.warnings, "asset-growth-projection-current-dollar-only"),
+  "currentDollarOnly should warn that projected values use a 0-year current-dollar default"
+);
+
+const reportingOnlyModel = buildLensModel(context, createAssetTreatmentAssumptions(6, {
+  mode: "reportingOnly",
+  projectionYears: 10
+}));
+const reportingOnlyGrowth = reportingOnlyModel.projectedAssetGrowth;
+assert.equal(reportingOnlyGrowth.sourceMode, "reportingOnly");
+assert.equal(reportingOnlyGrowth.projectionMode, "reportingOnly");
+assert.equal(reportingOnlyGrowth.projectionYears, 10);
+assert.equal(
+  reportingOnlyGrowth.projectionYearsSource,
+  "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.projectionYears"
+);
+assert.equal(reportingOnlyGrowth.consumedByMethods, false);
+assert.equal(reportingOnlyGrowth.currentTotalAssetValue, 310000);
+assert.equal(reportingOnlyGrowth.projectedTotalAssetValue, 547254.31);
+assert.equal(reportingOnlyGrowth.totalProjectedGrowthAmount, 237254.31);
+assert.ok(
+  reportingOnlyGrowth.projectedTotalAssetValue > reportingOnlyGrowth.currentTotalAssetValue,
+  "reportingOnly should allow projected totals to differ from current totals"
+);
+assert.equal(reportingOnlyGrowth.trace.sourceMode, "reportingOnly");
+assert.equal(reportingOnlyGrowth.trace.projectionYears, 10);
+assert.ok(
+  getWarningByCode(reportingOnlyGrowth.warnings, "asset-growth-projection-reporting-only"),
+  "reportingOnly should warn that projected values are reporting-only and not method-consumed"
+);
+
+const projectedOffsetsModel = buildLensModel(context, createAssetTreatmentAssumptions(6, {
+  mode: "projectedOffsets",
+  projectionYears: 30,
+  consumptionStatus: "method-active"
+}));
+const projectedOffsetsGrowth = projectedOffsetsModel.projectedAssetGrowth;
+assert.equal(projectedOffsetsGrowth.sourceMode, "projectedOffsets");
+assert.equal(projectedOffsetsGrowth.projectionMode, "projectedOffsetsFutureInactive");
+assert.equal(projectedOffsetsGrowth.projectionYears, 0);
+assert.equal(
+  projectedOffsetsGrowth.projectionYearsSource,
+  "assetGrowthProjectionAssumptions.projectedOffsets-future-inactive"
+);
+assert.equal(projectedOffsetsGrowth.consumptionStatus, "saved-only");
+assert.equal(projectedOffsetsGrowth.consumedByMethods, false);
+assert.equal(projectedOffsetsGrowth.projectedTotalAssetValue, projectedOffsetsGrowth.currentTotalAssetValue);
+assert.ok(
+  getWarningByCode(projectedOffsetsGrowth.warnings, "asset-growth-projected-offsets-future-inactive"),
+  "projectedOffsets should warn that the mode is future/inactive"
+);
+
+const invalidModeModel = buildLensModel(context, createAssetTreatmentAssumptions(6, {
+  mode: "activeNow",
+  projectionYears: 90
+}));
+assert.equal(invalidModeModel.projectedAssetGrowth.sourceMode, "currentDollarOnly");
+assert.equal(invalidModeModel.projectedAssetGrowth.projectionYears, 0);
+assert.ok(
+  getWarningByCode(invalidModeModel.projectedAssetGrowth.warnings, "invalid-asset-growth-projection-mode"),
+  "invalid source mode should warn and default to currentDollarOnly"
 );
 
 const noHelperContext = createLensAnalysisContext({ includeAssetGrowthHelper: false });
 const noHelperModel = buildLensModel(noHelperContext, createAssetTreatmentAssumptions(6));
 assert.equal(noHelperModel.projectedAssetGrowth.consumedByMethods, false);
-assert.equal(noHelperModel.projectedAssetGrowth.projectionMode, "saved-only");
+assert.equal(noHelperModel.projectedAssetGrowth.projectionMode, "currentDollarOnly");
 assert.ok(
   getWarningByCode(noHelperModel.projectedAssetGrowth.warnings, "missing-asset-growth-projection-helper"),
   "model prep should fail closed when helper is unavailable"
 );
 
-const baseOutputs = createMethodOutputs(context, createAssetTreatmentAssumptions(2));
-const changedOutputs = createMethodOutputs(context, createAssetTreatmentAssumptions(11));
+const baseOutputs = createMethodOutputs(context, createAssetTreatmentAssumptions(2, {
+  mode: "currentDollarOnly",
+  projectionYears: 0
+}));
+const changedOutputs = createMethodOutputs(context, createAssetTreatmentAssumptions(11, {
+  mode: "reportingOnly",
+  projectionYears: 40
+}));
+const projectedOffsetsOutputs = createMethodOutputs(context, createAssetTreatmentAssumptions(11, {
+  mode: "projectedOffsets",
+  projectionYears: 40
+}));
 assert.deepEqual(
   cloneJson(changedOutputs),
   cloneJson(baseOutputs),
-  "changing saved-only asset growth values should not change treated offsets or DIME/Needs/HLV outputs"
+  "reportingOnly projected asset growth should not change treated offsets or DIME/Needs/HLV outputs"
+);
+assert.deepEqual(
+  cloneJson(projectedOffsetsOutputs),
+  cloneJson(baseOutputs),
+  "projectedOffsets must remain future/inactive and not change treated offsets or DIME/Needs/HLV outputs"
 );
 
 [
@@ -279,6 +365,11 @@ assert.match(
   readRepoFile("app/features/lens-analysis/lens-model-builder.js"),
   /calculateAssetGrowthProjection/,
   "lens-model-builder should prepare projected asset growth through the pure helper"
+);
+assert.match(
+  readRepoFile("app/features/lens-analysis/lens-model-builder.js"),
+  /assetGrowthProjectionAssumptions/,
+  "lens-model-builder should read saved source-mode assumptions for reporting-only model prep"
 );
 
 assertAssetGrowthHelperLoadsBeforeModelBuilder("pages/analysis-estimate.html");

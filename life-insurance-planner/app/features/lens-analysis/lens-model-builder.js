@@ -14,6 +14,12 @@
   const TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.nonMortgageDebtAmount";
   const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
   const TREATED_DEBT_NEEDS_PAYOFF_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
+  const ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR = "currentDollarOnly";
+  const ASSET_GROWTH_PROJECTION_MODE_REPORTING_ONLY = "reportingOnly";
+  const ASSET_GROWTH_PROJECTION_MODE_PROJECTED_OFFSETS = "projectedOffsets";
+  const ASSET_GROWTH_PROJECTION_MIN_YEARS = 0;
+  const ASSET_GROWTH_PROJECTION_MAX_YEARS = 60;
+  const ASSET_GROWTH_PROJECTION_CONSUMPTION_STATUS = "saved-only";
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
     applyStartDelay: true,
     survivorContinuesWorking: true,
@@ -1561,6 +1567,116 @@
       : {};
   }
 
+  function normalizeAssetGrowthProjectionModeForModel(value, warnings) {
+    const normalized = normalizeString(value);
+    if (
+      normalized === ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR
+      || normalized === ASSET_GROWTH_PROJECTION_MODE_REPORTING_ONLY
+      || normalized === ASSET_GROWTH_PROJECTION_MODE_PROJECTED_OFFSETS
+    ) {
+      return normalized;
+    }
+
+    if (normalized) {
+      addWarning(
+        warnings,
+        "invalid-asset-growth-projection-mode",
+        "Asset growth projection mode was invalid and defaulted to current-dollar only.",
+        { received: normalized, defaultValue: ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR }
+      );
+    }
+
+    return ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR;
+  }
+
+  function normalizeAssetGrowthProjectionYearsForModel(value, warnings) {
+    const parsed = toOptionalNumber(value);
+    if (parsed == null) {
+      addWarning(
+        warnings,
+        "invalid-asset-growth-projection-years",
+        "Asset growth projection years was missing or invalid and defaulted to 0.",
+        { received: value, defaultValue: ASSET_GROWTH_PROJECTION_MIN_YEARS }
+      );
+      return ASSET_GROWTH_PROJECTION_MIN_YEARS;
+    }
+
+    const clamped = Math.min(
+      ASSET_GROWTH_PROJECTION_MAX_YEARS,
+      Math.max(ASSET_GROWTH_PROJECTION_MIN_YEARS, parsed)
+    );
+    if (clamped !== parsed) {
+      addWarning(
+        warnings,
+        "asset-growth-projection-years-clamped",
+        "Asset growth projection years was outside the supported 0-60 range and was clamped.",
+        {
+          received: parsed,
+          min: ASSET_GROWTH_PROJECTION_MIN_YEARS,
+          max: ASSET_GROWTH_PROJECTION_MAX_YEARS,
+          used: clamped
+        }
+      );
+    }
+
+    return Number(clamped.toFixed(6));
+  }
+
+  function resolveAssetGrowthProjectionContext(assetTreatmentAssumptions) {
+    const savedProjectionAssumptions = isPlainObject(assetTreatmentAssumptions?.assetGrowthProjectionAssumptions)
+      ? assetTreatmentAssumptions.assetGrowthProjectionAssumptions
+      : {};
+    const warnings = [];
+    const sourceMode = normalizeAssetGrowthProjectionModeForModel(
+      savedProjectionAssumptions.mode,
+      warnings
+    );
+    const savedProjectionYears = normalizeAssetGrowthProjectionYearsForModel(
+      savedProjectionAssumptions.projectionYears,
+      warnings
+    );
+    const context = {
+      sourceMode,
+      sourceModeSource: "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode",
+      consumptionStatus: ASSET_GROWTH_PROJECTION_CONSUMPTION_STATUS,
+      consumedByMethods: false,
+      projectionYears: ASSET_GROWTH_PROJECTION_MIN_YEARS,
+      projectionYearsSource: "assetGrowthProjectionAssumptions.currentDollarOnly",
+      projectionMode: ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR,
+      warnings
+    };
+
+    if (sourceMode === ASSET_GROWTH_PROJECTION_MODE_REPORTING_ONLY) {
+      context.projectionYears = savedProjectionYears;
+      context.projectionYearsSource = "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.projectionYears";
+      context.projectionMode = ASSET_GROWTH_PROJECTION_MODE_REPORTING_ONLY;
+      addWarning(
+        context.warnings,
+        "asset-growth-projection-reporting-only",
+        "Projected asset growth uses saved reporting-only projection years and is not consumed by current methods."
+      );
+      return context;
+    }
+
+    if (sourceMode === ASSET_GROWTH_PROJECTION_MODE_PROJECTED_OFFSETS) {
+      context.projectionYearsSource = "assetGrowthProjectionAssumptions.projectedOffsets-future-inactive";
+      context.projectionMode = "projectedOffsetsFutureInactive";
+      addWarning(
+        context.warnings,
+        "asset-growth-projected-offsets-future-inactive",
+        "Projected offsets mode is saved for future use only and is not consumed by current methods."
+      );
+      return context;
+    }
+
+    addWarning(
+      context.warnings,
+      "asset-growth-projection-current-dollar-only",
+      "Asset growth projection mode is current-dollar only; projected asset values use a 0-year current-dollar default."
+    );
+    return context;
+  }
+
   function createPreparedTreatedAssetOffsets(lensModel, input) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const assetOffsetSource = getForwardAssetOffsetSource();
@@ -1640,26 +1756,30 @@
     const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
     const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
     const calculateAssetGrowthProjection = lensAnalysis.calculateAssetGrowthProjection;
-    const projectionYears = 0;
-    const projectionYearsSource = "not-selected-current-dollar-default";
+    const projectionContext = resolveAssetGrowthProjectionContext(assetTreatmentAssumptions);
+    const projectionYears = projectionContext.projectionYears;
+    const projectionYearsSource = projectionContext.projectionYearsSource;
     const modelWarnings = [
       createWarning(
         "asset-growth-projection-saved-only",
         "Projected asset growth values are prepared for future reporting only and are not consumed by current methods."
       ),
-      createWarning(
-        "asset-growth-projection-years-not-selected",
-        "No asset growth projection horizon is selected yet; projected asset values use a 0-year current-dollar default."
-      )
+      ...projectionContext.warnings
     ];
+    const modelTraceFields = {
+      sourceMode: projectionContext.sourceMode,
+      projectionMode: projectionContext.projectionMode,
+      projectionYears,
+      projectionYearsSource,
+      sourceModeSource: projectionContext.sourceModeSource,
+      consumptionStatus: projectionContext.consumptionStatus,
+      consumedByMethods: false
+    };
 
     if (!assetFacts || !Array.isArray(assetFacts.assets)) {
       return {
         source: "asset-growth-projection-calculations",
-        consumedByMethods: false,
-        projectionMode: "saved-only",
-        projectionYears,
-        projectionYearsSource,
+        ...modelTraceFields,
         currentTotalAssetValue: 0,
         projectedTotalAssetValue: 0,
         totalProjectedGrowthAmount: 0,
@@ -1682,10 +1802,7 @@
     if (typeof calculateAssetGrowthProjection !== "function") {
       return {
         source: "asset-growth-projection-calculations",
-        consumedByMethods: false,
-        projectionMode: "saved-only",
-        projectionYears,
-        projectionYearsSource,
+        ...modelTraceFields,
         currentTotalAssetValue: 0,
         projectedTotalAssetValue: 0,
         totalProjectedGrowthAmount: 0,
@@ -1718,8 +1835,7 @@
 
     return {
       source: result?.source || "asset-growth-projection-calculations",
-      consumedByMethods: false,
-      projectionMode: "saved-only",
+      ...modelTraceFields,
       projectionYears: result?.projectionYears ?? projectionYears,
       projectionYearsSource: result?.projectionYearsSource || projectionYearsSource,
       currentTotalAssetValue: result?.currentTotalAssetValue ?? 0,
@@ -1735,7 +1851,13 @@
         ? cloneSerializable(result.excludedCategories)
         : [],
       warnings: helperWarnings.concat(modelWarnings),
-      trace: cloneSerializable(result),
+      trace: cloneSerializable({
+        ...result,
+        ...modelTraceFields,
+        projectionYears: result?.projectionYears ?? projectionYears,
+        projectionYearsSource: result?.projectionYearsSource || projectionYearsSource,
+        warnings: helperWarnings.concat(modelWarnings)
+      }),
       valuationDate: result?.valuationDate || null,
       valuationDateSource: result?.valuationDateSource || null
     };
