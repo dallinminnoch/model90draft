@@ -2,6 +2,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -24,6 +25,30 @@ function loadScript(relativePath) {
   const source = fs.readFileSync(absolutePath, "utf8");
   vm.runInContext(source, context, { filename: relativePath });
   return source;
+}
+
+function assertNoProtectedDiffs() {
+  const protectedFiles = [
+    "pages/next-step.html",
+    "pages/confidential-inputs.html",
+    "pages/analysis-setup.html",
+    "pages/analysis-estimate.html",
+    "pages/income-loss-impact.html",
+    "app/features/lens-analysis/pmi-expense-records.js",
+    "app/features/lens-analysis/normalize-lens-model.js",
+    "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/step-three-analysis-display.js",
+    "app/features/lens-analysis/analysis-setup.js",
+    "app/features/lens-analysis/analysis-settings-adapter.js",
+    "app/features/lens-analysis/healthcare-expense-inflation-calculations.js",
+    "app/features/lens-analysis/final-expense-inflation-calculations.js"
+  ];
+  const status = execFileSync("git", ["status", "--short", "--"].concat(protectedFiles), {
+    cwd: repoRoot,
+    encoding: "utf8"
+  }).trim();
+
+  assert.equal(status, "", "runtime, page, method, display, adapter, and normalization files should not have diffs");
 }
 
 function uniqueValues(values) {
@@ -248,6 +273,7 @@ const futureUiTypeKeys = [
   "medicalEndOfLifeCosts",
   "estateSettlementCosts",
   "otherFinalExpenses",
+  "healthcareOutOfPocketSupportDefault",
   "businessOverheadRent",
   "businessPayrollCoverage",
   "professionalLicensingFees",
@@ -267,7 +293,15 @@ const futureUiTypeKeys = [
   "obituaryDeathCertificates",
   "travelForFamilyFinalArrangements",
   "lifeInsurancePremiums",
-  "hsaContributions"
+  "hsaContributions",
+  "householdInsurancePremiums",
+  "householdTransportation",
+  "otherHouseholdExpenseDefault",
+  "discretionaryTravelEntertainment",
+  "recurringPersonalSpendingDefault",
+  "housingInsuranceDefault",
+  "monthlyPropertyTaxDefault",
+  "monthlyHomeMaintenanceDefault"
 ];
 
 const advancedUiTypeKeys = [
@@ -303,6 +337,86 @@ assert.equal(ltcPremiums.defaultTermType, "ongoing");
 const inpatientMentalHealthCare = library.getExpenseLibraryEntry("inpatientMentalHealthCare");
 assert.equal(inpatientMentalHealthCare.defaultFrequency, "oneTime");
 assert.equal(inpatientMentalHealthCare.defaultTermType, "oneTime");
+
+const futureSupportDefaultEntries = [
+  {
+    typeKey: "householdInsurancePremiums",
+    categoryKey: "insurancePremiums",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "review"
+  },
+  {
+    typeKey: "householdTransportation",
+    categoryKey: "transportation",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "review"
+  },
+  {
+    typeKey: "otherHouseholdExpenseDefault",
+    categoryKey: "otherLivingExpense",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "continues"
+  },
+  {
+    typeKey: "discretionaryTravelEntertainment",
+    categoryKey: "personalLiving",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "review"
+  },
+  {
+    typeKey: "recurringPersonalSpendingDefault",
+    categoryKey: "personalLiving",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "review"
+  },
+  {
+    typeKey: "housingInsuranceDefault",
+    categoryKey: "housingExpense",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "continues"
+  },
+  {
+    typeKey: "monthlyPropertyTaxDefault",
+    categoryKey: "housingExpense",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "continues"
+  },
+  {
+    typeKey: "monthlyHomeMaintenanceDefault",
+    categoryKey: "housingExpense",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "continues"
+  },
+  {
+    typeKey: "healthcareOutOfPocketSupportDefault",
+    categoryKey: "ongoingHealthcare",
+    defaultFrequency: "monthly",
+    defaultTermType: "ongoing",
+    defaultContinuationStatus: "review"
+  }
+];
+
+futureSupportDefaultEntries.forEach((expected) => {
+  const entry = library.getExpenseLibraryEntry(expected.typeKey);
+  assert.ok(entry, `${expected.typeKey} future support default entry should exist`);
+  assert.equal(entry.categoryKey, expected.categoryKey, `${expected.typeKey} should map to the intended support category`);
+  assert.ok(categoryKeys.includes(entry.categoryKey), `${expected.typeKey} should map to a valid taxonomy category`);
+  assert.equal(entry.defaultFrequency, expected.defaultFrequency, `${expected.typeKey} should use the scalar-support frequency`);
+  assert.equal(entry.defaultTermType, expected.defaultTermType, `${expected.typeKey} should use the scalar-support term type`);
+  assert.equal(entry.defaultContinuationStatus, expected.defaultContinuationStatus, `${expected.typeKey} should use the intended continuationStatus default`);
+  assert.equal(entry.uiAvailability, "future", `${expected.typeKey} should remain future UI metadata only`);
+  assert.equal(entry.isAddable, true, `${expected.typeKey} should remain addable metadata for future default expense rows`);
+  assert.equal(entry.isProtected, false, `${expected.typeKey} should not become a protected scalar row in this prep pass`);
+  assert.equal(entry.isScalarFieldOwned, false, `${expected.typeKey} should not become scalar-owned until a future projection pass`);
+});
 
 const protectedScalarRows = [
   {
@@ -429,6 +543,14 @@ protectedScalarRows.forEach((protectedRow) => {
   "petInsurance",
   "childcareExpense",
   "dependentSupportExpense",
+  "householdInsurancePremiums",
+  "householdTransportation",
+  "otherHouseholdExpenseDefault",
+  "discretionaryTravelEntertainment",
+  "recurringPersonalSpendingDefault",
+  "housingInsuranceDefault",
+  "monthlyPropertyTaxDefault",
+  "monthlyHomeMaintenanceDefault",
   "personalCare",
   "householdSupplies",
   "clothing",
@@ -496,6 +618,7 @@ assert.equal(customExpense.defaultContinuationStatus, "review", "customExpenseRe
 [
   "healthInsurancePremiums",
   "medicalOutOfPocket",
+  "healthcareOutOfPocketSupportDefault",
   "dentalOutOfPocket",
   "therapyCounseling",
   "longTermCareInsurancePremiums",
@@ -514,6 +637,10 @@ assert.equal(customExpense.defaultContinuationStatus, "review", "customExpenseRe
   "internetPhone",
   "groceries",
   "householdSupplies",
+  "otherHouseholdExpenseDefault",
+  "housingInsuranceDefault",
+  "monthlyPropertyTaxDefault",
+  "monthlyHomeMaintenanceDefault",
   "childcareExpense",
   "dependentSupportExpense"
 ].forEach((typeKey) => {
@@ -531,14 +658,18 @@ assert.equal(customExpense.defaultContinuationStatus, "review", "customExpenseRe
 
 [
   "transportationFuel",
+  "householdTransportation",
   "vehicleInsurance",
   "vehicleMaintenance",
+  "householdInsurancePremiums",
   "rentersInsurance",
   "umbrellaInsurance",
   "petInsurance",
   "personalCare",
   "clothing",
   "subscriptionsMemberships",
+  "recurringPersonalSpendingDefault",
+  "discretionaryTravelEntertainment",
   "petCare",
   "businessOverheadRent"
 ].forEach((typeKey) => {
@@ -585,5 +716,7 @@ bannedRuntimeReferences.forEach((token) => {
   assert.equal(taxonomySource.includes(token), false, `expense taxonomy should not reference ${token}`);
   assert.equal(librarySource.includes(token), false, `expense library should not reference ${token}`);
 });
+
+assertNoProtectedDiffs();
 
 console.log("expense-taxonomy-library-check passed");
