@@ -19,6 +19,23 @@
     "not-recommended"
   ]);
 
+  const ASSET_RESERVE_ROLES = Object.freeze([
+    "cashEquivalent",
+    "emergencyReserve",
+    "reserveEligible",
+    "escrowedRestricted",
+    "businessReserve",
+    "review"
+  ]);
+
+  const ASSET_RESERVE_TREATMENT_DEFAULTS = Object.freeze([
+    "availableForOffset",
+    "preserveAsReserve",
+    "availableAboveReserve",
+    "review",
+    "excluded"
+  ]);
+
   function createGrowthProfileDefault(assumedAnnualGrowthRatePercent, reviewRequired) {
     return Object.freeze({
       assumedAnnualGrowthRatePercent,
@@ -46,6 +63,22 @@
     });
   }
 
+  function createReserveMetadata(options) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    return Object.freeze({
+      reserveRole: ASSET_RESERVE_ROLES.includes(safeOptions.reserveRole)
+        ? safeOptions.reserveRole
+        : "review",
+      reserveTreatmentDefault: ASSET_RESERVE_TREATMENT_DEFAULTS.includes(safeOptions.reserveTreatmentDefault)
+        ? safeOptions.reserveTreatmentDefault
+        : "review",
+      reserveEligible: safeOptions.reserveEligible === true,
+      reservedByDefault: safeOptions.reservedByDefault === true,
+      reserveReviewRequired: safeOptions.reserveReviewRequired === true,
+      reserveRationale: String(safeOptions.reserveRationale || "")
+    });
+  }
+
   const DEFAULT_ASSET_CATEGORIES = Object.freeze([
     Object.freeze({
       categoryKey: "cashAndCashEquivalents",
@@ -59,6 +92,14 @@
       ...createGrowthAssumptionMetadata(1, 2, 3, {
         status: "standard",
         rationale: "Cash and cash-like reserves use low assumed growth defaults; high-yield savings remains in this category until a separate category is introduced."
+      }),
+      ...createReserveMetadata({
+        reserveRole: "cashEquivalent",
+        reserveTreatmentDefault: "availableAboveReserve",
+        reserveEligible: true,
+        reservedByDefault: false,
+        reserveReviewRequired: false,
+        reserveRationale: "Cash and cash-like balances may be available above a future reserve threshold."
       }),
       notes: "Current PMI cashAndCashEquivalents maps here; legacy cashSavings remains an alias."
     }),
@@ -74,6 +115,14 @@
       ...createGrowthAssumptionMetadata(0, 0.5, 1, {
         status: "review-only",
         rationale: "Emergency reserves prioritize preservation and liquidity; advisors should review before applying growth assumptions."
+      }),
+      ...createReserveMetadata({
+        reserveRole: "emergencyReserve",
+        reserveTreatmentDefault: "preserveAsReserve",
+        reserveEligible: true,
+        reservedByDefault: true,
+        reserveReviewRequired: true,
+        reserveRationale: "Dedicated emergency fund balances should generally be preserved before reducing insurance need."
       }),
       notes: "Separate from survivor transition needs and desired emergency fund targets."
     }),
@@ -329,6 +378,8 @@
   lensAnalysis.assetTaxonomy = Object.freeze({
     ASSET_GROWTH_ASSUMPTION_STATUSES,
     ASSET_GROWTH_PROFILE_KEYS,
+    ASSET_RESERVE_ROLES,
+    ASSET_RESERVE_TREATMENT_DEFAULTS,
     DEFAULT_ASSET_CATEGORIES,
     DEFAULT_VISIBLE_ASSET_CATEGORY_KEYS,
     LEGACY_ASSET_SOURCE_ALIASES,

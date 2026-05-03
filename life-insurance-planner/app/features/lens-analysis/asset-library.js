@@ -41,6 +41,49 @@
     custom: "Custom asset types"
   });
 
+  const ASSET_LIBRARY_RESERVE_METADATA_BY_TYPE = Object.freeze({
+    highYieldSavingsAccount: Object.freeze({
+      reserveRole: "cashEquivalent",
+      reserveTreatmentDefault: "availableAboveReserve",
+      reserveEligible: true,
+      reservedByDefault: false,
+      reserveReviewRequired: false,
+      reserveRationale: "High-yield savings can support future reserve modeling, but only balances above a reserve threshold should reduce insurance need."
+    }),
+    emergencyFundReserve: Object.freeze({
+      reserveRole: "emergencyReserve",
+      reserveTreatmentDefault: "preserveAsReserve",
+      reserveEligible: true,
+      reservedByDefault: true,
+      reserveReviewRequired: true,
+      reserveRationale: "Explicit emergency reserves should be preserved by default before reducing insurance need."
+    }),
+    sinkingFund: Object.freeze({
+      reserveRole: "reserveEligible",
+      reserveTreatmentDefault: "preserveAsReserve",
+      reserveEligible: true,
+      reservedByDefault: true,
+      reserveReviewRequired: true,
+      reserveRationale: "Sinking funds are set aside for known expenses and should be reviewed before offset use."
+    }),
+    businessCashReserve: Object.freeze({
+      reserveRole: "businessReserve",
+      reserveTreatmentDefault: "review",
+      reserveEligible: true,
+      reservedByDefault: false,
+      reserveReviewRequired: true,
+      reserveRationale: "Business cash reserves may need to stay with the business and require advisor review before offset use."
+    }),
+    escrowedCash: Object.freeze({
+      reserveRole: "escrowedRestricted",
+      reserveTreatmentDefault: "excluded",
+      reserveEligible: false,
+      reservedByDefault: true,
+      reserveReviewRequired: true,
+      reserveRationale: "Escrowed or restricted cash should not reduce insurance need without explicit review."
+    })
+  });
+
   const RAW_ASSET_LIBRARY_ENTRIES = Object.freeze([
     ["checkingAccount", "Checking Account", "cashAndCashEquivalents", GROUPS.cash, "Bank checking account balance.", "checking|bank account|deposit account"],
     ["savingsAccount", "Savings Account", "cashAndCashEquivalents", GROUPS.cash, "Bank savings account balance.", "savings|bank savings|deposit account"],
@@ -367,6 +410,7 @@
   function toAssetLibraryEntry(definition) {
     const aliases = splitAliases(definition[5]);
     const categoryLabel = CATEGORY_LABELS[definition[2]];
+    const reserveMetadata = ASSET_LIBRARY_RESERVE_METADATA_BY_TYPE[definition[0]];
     if (categoryLabel && aliases.indexOf(categoryLabel) === -1) {
       aliases.push(categoryLabel);
     }
@@ -378,7 +422,8 @@
       group: definition[3],
       description: definition[4],
       aliases: Object.freeze(aliases),
-      isCustomType: definition[6] === true
+      isCustomType: definition[6] === true,
+      ...(reserveMetadata || {})
     });
   }
 
@@ -418,6 +463,7 @@
   }
 
   lensAnalysis.assetLibrary = Object.freeze({
+    ASSET_LIBRARY_RESERVE_METADATA_BY_TYPE,
     ASSET_LIBRARY_ENTRIES,
     ASSET_LIBRARY_GROUPS,
     getAssetLibraryEntries,
