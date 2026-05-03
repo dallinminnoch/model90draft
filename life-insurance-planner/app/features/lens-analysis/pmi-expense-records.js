@@ -183,6 +183,31 @@
     return values.indexOf(normalizedFallback) !== -1 ? normalizedFallback : "ongoing";
   }
 
+  function getContinuationStatusOptions() {
+    return [
+      { value: "continues", label: "Continues after death" },
+      { value: "stops", label: "Stops/reduces after death" },
+      { value: "review", label: "Review case-by-case" }
+    ];
+  }
+
+  function normalizeContinuationStatus(value, fallback) {
+    const values = getContinuationStatusOptions().map(function (option) {
+      return option.value;
+    });
+    const normalized = normalizeString(value);
+    if (values.indexOf(normalized) !== -1) {
+      return normalized;
+    }
+
+    const normalizedFallback = normalizeString(fallback);
+    return values.indexOf(normalizedFallback) !== -1 ? normalizedFallback : "review";
+  }
+
+  function getLibraryDefaultContinuationStatus(entry) {
+    return normalizeContinuationStatus(entry && entry.defaultContinuationStatus, "review");
+  }
+
   function normalizeDateOnlyValue(value) {
     const normalized = normalizeString(value);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
@@ -230,6 +255,7 @@
       amount: null,
       frequency: normalizeExpenseFrequency(safeEntry.defaultFrequency, "monthly"),
       termType,
+      continuationStatus: getLibraryDefaultContinuationStatus(safeEntry),
       termYears: termType === "fixedYears" && Number.isFinite(Number(safeEntry.suggestedTermYears))
         ? Number(safeEntry.suggestedTermYears)
         : null,
@@ -271,6 +297,10 @@
 
     const metadata = clonePlainObject(safeRecord.metadata);
     const termType = normalizeExpenseTermType(safeRecord.termType, entry && entry.defaultTermType);
+    const continuationStatus = normalizeContinuationStatus(
+      safeRecord.continuationStatus,
+      getLibraryDefaultContinuationStatus(entry)
+    );
     return {
       expenseId: normalizeString(safeRecord.expenseId) || generateExpenseId(),
       categoryKey,
@@ -279,6 +309,7 @@
       amount: toOptionalNumber(safeRecord.amount),
       frequency: normalizeExpenseFrequency(safeRecord.frequency, entry && entry.defaultFrequency),
       termType,
+      continuationStatus,
       termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(safeRecord.termYears) : null,
       endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(safeRecord.endAge) : null,
       endDate: termType === "untilDate" ? normalizeDateOnlyValue(safeRecord.endDate) : null,
@@ -512,6 +543,7 @@
           const amountInput = row.querySelector("[data-pmi-expense-record-amount]");
           const frequencyInput = row.querySelector("[data-pmi-expense-record-frequency]");
           const termTypeInput = row.querySelector("[data-pmi-expense-record-term-type]");
+          const continuationStatusInput = row.querySelector("[data-pmi-expense-record-continuation-status]");
           const termYearsInput = row.querySelector("[data-pmi-expense-record-term-years]");
           const endAgeInput = row.querySelector("[data-pmi-expense-record-end-age]");
           const endDateInput = row.querySelector("[data-pmi-expense-record-end-date]");
@@ -524,6 +556,10 @@
             amount: toOptionalNumber(amountInput && amountInput.value),
             frequency: normalizeExpenseFrequency(frequencyInput && frequencyInput.value, existingRecord.frequency),
             termType,
+            continuationStatus: normalizeContinuationStatus(
+              continuationStatusInput && continuationStatusInput.value,
+              existingRecord.continuationStatus
+            ),
             termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(termYearsInput && termYearsInput.value) : null,
             endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(endAgeInput && endAgeInput.value) : null,
             endDate: termType === "untilDate" ? normalizeDateOnlyValue(endDateInput && endDateInput.value) : null
@@ -547,6 +583,7 @@
         const amountInputId = createInputId("pmi-expense-record", expenseId, "amount");
         const frequencyInputId = createInputId("pmi-expense-record", expenseId, "frequency");
         const termTypeInputId = createInputId("pmi-expense-record", expenseId, "term-type");
+        const continuationStatusInputId = createInputId("pmi-expense-record", expenseId, "continuation-status");
         const categoryId = createInputId("pmi-expense-record", expenseId, "category");
         return `
           <div class="field-group full-width pmi-expense-record-field" data-pmi-expense-record-entry data-pmi-expense-id="${escapeHtml(expenseId)}">
@@ -573,6 +610,12 @@
                 <label for="${escapeHtml(termTypeInputId)}">Duration / term</label>
                 <select id="${escapeHtml(termTypeInputId)}" data-pmi-expense-record-term-type>
                   ${renderSelectOptions(getTermTypeOptions(), normalizeString(record.termType))}
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="${escapeHtml(continuationStatusInputId)}">Continues after death?</label>
+                <select id="${escapeHtml(continuationStatusInputId)}" data-pmi-expense-record-continuation-status>
+                  ${renderSelectOptions(getContinuationStatusOptions(), normalizeContinuationStatus(record.continuationStatus, "review"))}
                 </select>
               </div>
               ${renderConditionalTermField(record, expenseId)}
@@ -753,6 +796,7 @@
           const typeKey = normalizeString(record.typeKey);
           const termType = normalizeExpenseTermType(record.termType, "ongoing");
           const frequency = normalizeExpenseFrequency(record.frequency, "monthly");
+          const continuationStatus = normalizeContinuationStatus(record.continuationStatus, "review");
 
           if (amount == null || amount < 0 || !categoryKey || !typeKey || !isValidExpenseCategory(categoryKey)) {
             return null;
@@ -766,6 +810,7 @@
             amount,
             frequency,
             termType,
+            continuationStatus,
             termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(record.termYears) : null,
             endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(record.endAge) : null,
             endDate: termType === "untilDate" ? normalizeDateOnlyValue(record.endDate) : null,

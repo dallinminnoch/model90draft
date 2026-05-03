@@ -53,6 +53,11 @@ assert.deepEqual(
   ["initial", "advanced", "future"],
   "library should expose the approved UI availability enum"
 );
+assert.deepEqual(
+  Array.from(library.EXPENSE_CONTINUATION_STATUS_VALUES),
+  ["continues", "stops", "review"],
+  "library should expose the approved continuationStatus enum"
+);
 assert.equal(typeof library.getExpenseLibraryEntries, "function");
 assert.equal(typeof library.getExpenseLibraryEntry, "function");
 assert.equal(typeof library.findExpenseLibraryEntry, "function");
@@ -151,6 +156,7 @@ const entries = Array.from(library.getExpenseLibraryEntries());
 const typeKeys = Array.from(entries, (entry) => entry.typeKey);
 const entryKeys = Array.from(entries, (entry) => entry.libraryEntryKey);
 const allowedUiAvailabilityValues = Array.from(library.EXPENSE_UI_AVAILABILITY_VALUES);
+const allowedContinuationStatusValues = Array.from(library.EXPENSE_CONTINUATION_STATUS_VALUES);
 assert.ok(uniqueValues(typeKeys), "library typeKeys should be unique");
 assert.ok(uniqueValues(entryKeys), "library entry keys should be unique");
 
@@ -163,6 +169,7 @@ entries.forEach((entry) => {
   assert.equal(taxonomy.isValidExpenseTermType(entry.defaultTermType), true, `${entry.typeKey} should have a valid defaultTermType`);
   assert.ok(allowedUiAvailabilityValues.includes(entry.uiAvailability), `${entry.typeKey} should have a valid uiAvailability`);
   assert.equal(library.EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY[entry.typeKey], entry.uiAvailability, `${entry.typeKey} should have explicit UI availability metadata`);
+  assert.ok(allowedContinuationStatusValues.includes(entry.defaultContinuationStatus), `${entry.typeKey} should have a valid defaultContinuationStatus`);
   assert.ok(Array.isArray(entry.tags), `${entry.typeKey} should expose tags`);
   assert.ok(Array.isArray(entry.searchTerms), `${entry.typeKey} should expose searchTerms`);
   if (entry.defaultTermType === "fixedYears") {
@@ -473,6 +480,83 @@ assert.ok(customExpense, "customExpenseRecord should exist");
 assert.equal(customExpense.categoryKey, "customExpense");
 assert.equal(customExpense.isAddable, true);
 assert.equal(customExpense.isCustomType, true);
+assert.equal(customExpense.defaultContinuationStatus, "review", "customExpenseRecord should default continuationStatus to review");
+
+[
+  "funeralBurialEstimate",
+  "medicalEndOfLifeCosts",
+  "hospiceCare",
+  "cremation",
+  "probateAttorney"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.equal(entry.defaultContinuationStatus, "continues", `${typeKey} should default continuationStatus to continues`);
+});
+
+[
+  "healthInsurancePremiums",
+  "medicalOutOfPocket",
+  "dentalOutOfPocket",
+  "therapyCounseling",
+  "longTermCareInsurancePremiums",
+  "homeHealthAide",
+  "durableMedicalEquipment",
+  "otherHealthcareExpense"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.equal(entry.defaultContinuationStatus, "review", `${typeKey} healthcare continuationStatus should default to review`);
+});
+
+[
+  "rentOrMortgagePayment",
+  "propertyTaxes",
+  "householdUtilities",
+  "internetPhone",
+  "groceries",
+  "householdSupplies",
+  "childcareExpense",
+  "dependentSupportExpense"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.equal(entry.defaultContinuationStatus, "continues", `${typeKey} household/dependent continuationStatus should default to continues`);
+});
+
+[
+  "disabilityInsurancePremiums",
+  "lifeInsurancePremiums"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.equal(entry.defaultContinuationStatus, "stops", `${typeKey} continuationStatus should default to stops`);
+});
+
+[
+  "transportationFuel",
+  "vehicleInsurance",
+  "vehicleMaintenance",
+  "rentersInsurance",
+  "umbrellaInsurance",
+  "petInsurance",
+  "personalCare",
+  "clothing",
+  "subscriptionsMemberships",
+  "petCare",
+  "businessOverheadRent"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.equal(entry.defaultContinuationStatus, "review", `${typeKey} ambiguous continuationStatus should default to review`);
+});
+
+[
+  "privateSchoolTuition",
+  "tutoring",
+  "collegeApplicationTesting",
+  "schoolSupplies",
+  "childActivitiesSports",
+  "earlyEducationChildcare"
+].forEach((typeKey) => {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.equal(entry.defaultContinuationStatus, "continues", `${typeKey} education continuationStatus should default to continues`);
+});
 
 const bannedRuntimeReferences = [
   "runNeedsAnalysis",

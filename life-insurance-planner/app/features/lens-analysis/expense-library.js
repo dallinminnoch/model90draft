@@ -8,6 +8,7 @@
   // metadata module.
 
   const EXPENSE_UI_AVAILABILITY_VALUES = Object.freeze(["initial", "advanced", "future"]);
+  const EXPENSE_CONTINUATION_STATUS_VALUES = Object.freeze(["continues", "stops", "review"]);
 
   const EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY = Object.freeze({
     funeralBurialEstimate: "future",
@@ -107,6 +108,53 @@
     keyPersonRecruitingReplacement: "future",
 
     customExpenseRecord: "initial"
+  });
+
+  const DEFAULT_CONTINUATION_STATUS_BY_TYPE_KEY = Object.freeze({
+    funeralBurialEstimate: "continues",
+    medicalEndOfLifeCosts: "continues",
+    estateSettlementCosts: "continues",
+    otherFinalExpenses: "continues",
+
+    rentOrMortgagePayment: "continues",
+    propertyTaxes: "continues",
+    homeownersInsurance: "continues",
+    homeMaintenanceRepairs: "continues",
+    hoaDues: "continues",
+    propertyAssessments: "continues",
+    householdUtilities: "continues",
+    internetPhone: "continues",
+    groceries: "continues",
+    householdSupplies: "continues",
+    childcareExpense: "continues",
+    dependentSupportExpense: "continues",
+
+    transportationFuel: "review",
+    vehicleInsurance: "review",
+    vehicleMaintenance: "review",
+    rentersInsurance: "review",
+    umbrellaInsurance: "review",
+    petInsurance: "review",
+    disabilityInsurancePremiums: "stops",
+    lifeInsurancePremiums: "stops",
+    personalCare: "review",
+    clothing: "review",
+    subscriptionsMemberships: "review",
+    petCare: "review",
+
+    privateSchoolTuition: "continues",
+    tutoring: "continues",
+    collegeApplicationTesting: "continues",
+    schoolSupplies: "continues",
+    childActivitiesSports: "continues",
+    earlyEducationChildcare: "continues",
+
+    businessOverheadRent: "review",
+    businessPayrollCoverage: "review",
+    professionalLicensingFees: "review",
+    professionalAdvisorFees: "review",
+    keyPersonRecruitingReplacement: "review",
+    customExpenseRecord: "review"
   });
 
   const PROTECTED_SCALAR_EXPENSE_OPTIONS = Object.freeze({
@@ -304,6 +352,40 @@
     return "advanced";
   }
 
+  function normalizeContinuationStatus(value, fallback) {
+    const normalized = String(value == null ? "" : value).trim();
+    if (EXPENSE_CONTINUATION_STATUS_VALUES.indexOf(normalized) !== -1) {
+      return normalized;
+    }
+
+    const fallbackStatus = String(fallback == null ? "" : fallback).trim();
+    return EXPENSE_CONTINUATION_STATUS_VALUES.indexOf(fallbackStatus) !== -1
+      ? fallbackStatus
+      : "review";
+  }
+
+  function getDefaultContinuationStatus(definition, category, options) {
+    if (Object.prototype.hasOwnProperty.call(options, "defaultContinuationStatus")) {
+      return normalizeContinuationStatus(options.defaultContinuationStatus, "review");
+    }
+
+    const typeKey = definition[0];
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_CONTINUATION_STATUS_BY_TYPE_KEY, typeKey)) {
+      return DEFAULT_CONTINUATION_STATUS_BY_TYPE_KEY[typeKey];
+    }
+
+    if (category && category.isFinalExpenseComponent === true) {
+      return "continues";
+    }
+
+    const domain = category && category.domain;
+    if (domain === "education") {
+      return "continues";
+    }
+
+    return "review";
+  }
+
   function toExpenseLibraryEntry(definition, index) {
     const options = definition[7] && typeof definition[7] === "object" ? definition[7] : {};
     const category = getCategory(definition[2]);
@@ -326,6 +408,7 @@
       description: definition[3],
       defaultFrequency,
       defaultTermType,
+      defaultContinuationStatus: getDefaultContinuationStatus(definition, category, options),
       uiAvailability: normalizeUiAvailability(definition[0], options.uiAvailability),
       suggestedTermYears: Number.isFinite(Number(options.suggestedTermYears))
         ? Number(options.suggestedTermYears)
@@ -397,6 +480,7 @@
 
   lensAnalysis.expenseLibrary = Object.freeze({
     EXPENSE_UI_AVAILABILITY_VALUES,
+    EXPENSE_CONTINUATION_STATUS_VALUES,
     EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY,
     EXPENSE_LIBRARY_ENTRIES,
     EXPENSE_LIBRARY_GROUPS,

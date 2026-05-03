@@ -57,6 +57,7 @@ function createContext() {
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
     "app/features/lens-analysis/final-expense-inflation-calculations.js",
+    "app/features/lens-analysis/healthcare-expense-inflation-calculations.js",
     "app/features/lens-analysis/lens-model-builder.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js"
@@ -366,7 +367,8 @@ const repeatableExpenseSource = createSourceData({
       label: "Weekly medical cost",
       amount: 10,
       frequency: "weekly",
-      termType: "ongoing"
+      termType: "ongoing",
+      continuationStatus: "stops"
     },
     {
       expenseId: "monthly_prescriptions",
@@ -415,6 +417,7 @@ const repeatableExpenseSource = createSourceData({
       amount: 80,
       frequency: "monthly",
       termType: "fixedYears",
+      continuationStatus: "not-valid",
       termYears: "not-a-number",
       endAge: "not-a-number",
       endDate: "not-a-date"
@@ -426,6 +429,7 @@ const repeatableExpenseSource = createSourceData({
       amount: 50,
       frequency: "monthly",
       termType: "ongoing",
+      continuationStatus: "not-valid",
       isCustomExpense: true
     },
     {
@@ -498,16 +502,25 @@ assert.equal(weeklyMedicalFact.isCustomExpense, false);
 assert.equal(weeklyMedicalFact.isHealthcareSensitive, true);
 assert.equal(weeklyMedicalFact.isFinalExpenseComponent, false);
 assert.equal(weeklyMedicalFact.uiAvailability, "initial");
+assert.equal(weeklyMedicalFact.continuationStatus, "stops");
+assert.equal(weeklyMedicalFact.continuationStatusSource, "advisor");
 assert.equal(weeklyMedicalFact.annualizedAmount, 520);
 assert.equal(weeklyMedicalFact.oneTimeAmount, null);
 assert.equal(weeklyMedicalFact.metadata.canonicalDestination, "expenseFacts.expenses");
 assert.equal(weeklyMedicalFact.metadata.recordSource, "expenseRecords");
 assert.equal(weeklyMedicalFact.metadata.libraryEntryKey, "medicalOutOfPocket");
+assert.equal(weeklyMedicalFact.metadata.continuationStatusSource, "advisor");
 
-assert.equal(findExpenseFact(repeatableExpenseFacts, "prescriptionMedications", "monthly_prescriptions").annualizedAmount, 300);
+const monthlyPrescriptionFact = findExpenseFact(repeatableExpenseFacts, "prescriptionMedications", "monthly_prescriptions");
+assert.equal(monthlyPrescriptionFact.annualizedAmount, 300);
+assert.equal(monthlyPrescriptionFact.continuationStatus, "review");
+assert.equal(monthlyPrescriptionFact.continuationStatusSource, "library-default");
 assert.equal(findExpenseFact(repeatableExpenseFacts, "specialistVisits", "quarterly_specialist").annualizedAmount, 400);
 assert.equal(findExpenseFact(repeatableExpenseFacts, "dentalOutOfPocket", "semiannual_dental").annualizedAmount, 600);
-assert.equal(findExpenseFact(repeatableExpenseFacts, "propertyTaxes", "annual_property_tax").annualizedAmount, 2400);
+const propertyTaxFact = findExpenseFact(repeatableExpenseFacts, "propertyTaxes", "annual_property_tax");
+assert.equal(propertyTaxFact.annualizedAmount, 2400);
+assert.equal(propertyTaxFact.continuationStatus, "continues");
+assert.equal(propertyTaxFact.continuationStatusSource, "library-default");
 
 const futureHospiceFact = findExpenseFact(repeatableExpenseFacts, "hospiceCare", "future_hospice");
 assert.ok(futureHospiceFact, "valid addable future entries should normalize when present in saved data");
@@ -519,6 +532,8 @@ assert.equal(futureHospiceFact.oneTimeAmount, 6000);
 
 const fixedYearsFact = findExpenseFact(repeatableExpenseFacts, "physicalTherapy", "fixed_years_invalid_optional");
 assert.equal(fixedYearsFact.termType, "fixedYears");
+assert.equal(fixedYearsFact.continuationStatus, "review");
+assert.equal(fixedYearsFact.continuationStatusSource, "library-default");
 assert.equal(fixedYearsFact.termYears, null, "invalid optional termYears should become null");
 assert.equal(fixedYearsFact.endAge, null);
 assert.equal(fixedYearsFact.endDate, null);
@@ -528,6 +543,8 @@ assert.ok(customFact, "custom records should normalize");
 assert.equal(customFact.categoryKey, "customExpense");
 assert.equal(customFact.label, "Custom Expense");
 assert.equal(customFact.isCustomExpense, true);
+assert.equal(customFact.continuationStatus, "review");
+assert.equal(customFact.continuationStatusSource, "library-default");
 assert.equal(customFact.annualizedAmount, 600);
 assert.equal(customFact.uiAvailability, "initial");
 
@@ -629,6 +646,50 @@ assert.equal(
   "expenseFacts-final-expense-components",
   "Needs final expense trace should source repeatable final-expense expenseFacts"
 );
+
+const continuationChangedSource = cloneJson(repeatableExpenseSource);
+continuationChangedSource.expenseRecords.forEach((record, index) => {
+  record.continuationStatus = index % 2 === 0 ? "continues" : "stops";
+});
+const continuationChangedModel = buildModel(context, continuationChangedSource, analysisSettings).lensModel;
+const continuationChangedMethodSettings = createMethodSettings(context, continuationChangedModel, analysisSettings);
+const continuationChangedSnapshot = runMethodSnapshot(context, continuationChangedModel, continuationChangedMethodSettings);
+assert.deepEqual(
+  cloneJson(continuationChangedSnapshot),
+  cloneJson(outputWithRepeatableExpenseFacts),
+  "Changing expense continuationStatus metadata should not change current DIME, Needs, or HLV outputs"
+);
+
+const healthcareExpenseEnabledSettings = createAnalysisSettings({
+  analysisSettings: {
+    healthcareExpenseAssumptions: {
+      enabled: true,
+      projectionYears: 10,
+      includeOneTimeHealthcareExpenses: false,
+      oneTimeProjectionMode: "currentDollarOnly",
+      source: "expense-facts-normalization-check"
+    }
+  }
+});
+const healthcareExpenseEnabledModel = buildModel(context, repeatableExpenseSource, healthcareExpenseEnabledSettings).lensModel;
+const healthcareContinuationChangedModel = buildModel(context, continuationChangedSource, healthcareExpenseEnabledSettings).lensModel;
+const healthcareExpenseEnabledSnapshot = runMethodSnapshot(
+  context,
+  healthcareExpenseEnabledModel,
+  createMethodSettings(context, healthcareExpenseEnabledModel, healthcareExpenseEnabledSettings)
+);
+const healthcareContinuationChangedSnapshot = runMethodSnapshot(
+  context,
+  healthcareContinuationChangedModel,
+  createMethodSettings(context, healthcareContinuationChangedModel, healthcareExpenseEnabledSettings)
+);
+assert.equal(
+  healthcareContinuationChangedSnapshot.needs.components.healthcareExpenses,
+  healthcareExpenseEnabledSnapshot.needs.components.healthcareExpenses,
+  "Current healthcareExpenses behavior should not filter or recalculate based on continuationStatus metadata"
+);
+assert.deepEqual(cloneJson(healthcareContinuationChangedSnapshot.dime), cloneJson(healthcareExpenseEnabledSnapshot.dime));
+assert.deepEqual(cloneJson(healthcareContinuationChangedSnapshot.hlv), cloneJson(healthcareExpenseEnabledSnapshot.hlv));
 
 const lowHealthcareSettings = createAnalysisSettings({
   inflationAssumptions: {

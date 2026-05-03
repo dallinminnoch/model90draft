@@ -65,7 +65,8 @@ function parseRowsFromMarkup(markup) {
         };
         const selectSelectors = {
           "[data-pmi-expense-record-frequency]": "data-pmi-expense-record-frequency",
-          "[data-pmi-expense-record-term-type]": "data-pmi-expense-record-term-type"
+          "[data-pmi-expense-record-term-type]": "data-pmi-expense-record-term-type",
+          "[data-pmi-expense-record-continuation-status]": "data-pmi-expense-record-continuation-status"
         };
         const inputAttribute = inputSelectors[selector];
         if (inputAttribute) {
@@ -281,6 +282,7 @@ assert.equal(medicalOutOfPocketRecord.typeKey, "medicalOutOfPocket");
 assert.equal(medicalOutOfPocketRecord.amount, null);
 assert.equal(medicalOutOfPocketRecord.frequency, "monthly");
 assert.equal(medicalOutOfPocketRecord.termType, "ongoing");
+assert.equal(medicalOutOfPocketRecord.continuationStatus, "review");
 assert.equal(medicalOutOfPocketRecord.termYears, null);
 assert.equal(medicalOutOfPocketRecord.endAge, null);
 assert.equal(medicalOutOfPocketRecord.endDate, null);
@@ -295,12 +297,18 @@ assert.equal(medicalOutOfPocketRecord.metadata.sourceType, "user-input");
 assert.equal(medicalOutOfPocketRecord.metadata.source, "expense-library");
 assert.equal(medicalOutOfPocketRecord.metadata.libraryEntryKey, "medicalOutOfPocket");
 
+const propertyTaxesRecord = pmiExpenseRecords.createExpenseRecordFromLibraryEntry(
+  expenseLibrary.findExpenseLibraryEntry("propertyTaxes")
+);
+assert.equal(propertyTaxesRecord.continuationStatus, "continues", "new household expense records should default continuationStatus from the library");
+
 const customExpenseRecord = pmiExpenseRecords.createExpenseRecordFromLibraryEntry(
   expenseLibrary.findExpenseLibraryEntry("customExpenseRecord")
 );
 assert.equal(customExpenseRecord.categoryKey, "customExpense");
 assert.equal(customExpenseRecord.typeKey, "customExpenseRecord");
 assert.equal(customExpenseRecord.isCustomExpense, true);
+assert.equal(customExpenseRecord.continuationStatus, "review");
 
 assert.equal(
   pmiExpenseRecords.createExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("nursingCare")),
@@ -342,6 +350,7 @@ const inputRecords = Object.freeze([
     amount: "250.50",
     frequency: "monthly",
     termType: "ongoing",
+    continuationStatus: "continues",
     sourceKey: null,
     isCustomExpense: false,
     metadata: Object.freeze({ sourceType: "user-input", source: "expense-library", libraryEntryKey: "medicalOutOfPocket" })
@@ -353,7 +362,8 @@ const inputRecords = Object.freeze([
     label: "Vision",
     amount: "0",
     frequency: "annual",
-    termType: "ongoing"
+    termType: "ongoing",
+    continuationStatus: "not-a-status"
   }),
   Object.freeze({
     expenseId: "expense_bad_frequency",
@@ -447,6 +457,7 @@ const inputRecords = Object.freeze([
     amount: "75",
     frequency: "weekly",
     termType: "ongoing",
+    continuationStatus: "review",
     isCustomExpense: true
   })
 ]);
@@ -454,6 +465,10 @@ const inputRecords = Object.freeze([
 controller.hydrateExpenseRecords(inputRecords);
 assert.match(fakeDom.list.innerHTML, /Medical Out-of-Pocket/, "hydrate should render saved valid record labels");
 assert.match(fakeDom.list.innerHTML, /Duration \/ term/, "expense record duration selector should use advisor-facing copy");
+assert.match(fakeDom.list.innerHTML, /Continues after death\?/, "expense record continuationStatus selector should render");
+assert.match(fakeDom.list.innerHTML, /Continues after death/, "expense record continuationStatus continues option should render");
+assert.match(fakeDom.list.innerHTML, /Stops\/reduces after death/, "expense record continuationStatus stops option should render");
+assert.match(fakeDom.list.innerHTML, /Review case-by-case/, "expense record continuationStatus review option should render");
 assert.doesNotMatch(fakeDom.list.innerHTML, />Term Type</, "expense record duration selector should not use the stale Term Type label");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Should Be Ignored/, "hydrate should reject protected scalar expense records");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Future Entry Should Be Ignored/, "hydrate should reject future expense records");
@@ -468,6 +483,7 @@ assert.equal(valid.label, "Medical Out-of-Pocket");
 assert.equal(valid.amount, 250.5);
 assert.equal(valid.frequency, "monthly");
 assert.equal(valid.termType, "ongoing");
+assert.equal(valid.continuationStatus, "continues", "valid advisor continuationStatus override should serialize");
 assert.equal(valid.termYears, null);
 assert.equal(valid.endAge, null);
 assert.equal(valid.endDate, null);
@@ -486,6 +502,7 @@ assert.equal(valid.metadata.libraryEntryKey, "medicalOutOfPocket");
 const zero = serialized.find((record) => record.expenseId === "expense_zero");
 assert.ok(zero, "zero amounts should serialize as non-negative raw facts");
 assert.equal(zero.amount, 0);
+assert.equal(zero.continuationStatus, "review", "invalid continuationStatus should default safely through the library default");
 
 const badFrequency = serialized.find((record) => record.expenseId === "expense_bad_frequency");
 assert.ok(badFrequency, "invalid frequency and term type should normalize through taxonomy helpers");
@@ -508,12 +525,14 @@ const untilDateBadDetail = serialized.find((record) => record.expenseId === "exp
 assert.ok(untilDateBadDetail, "invalid untilDate detail should not block raw record serialization");
 assert.equal(untilDateBadDetail.termType, "untilDate");
 assert.equal(untilDateBadDetail.endDate, null);
+assert.equal(untilDateBadDetail.continuationStatus, "continues", "missing continuationStatus should default from the library entry");
 
 const custom = serialized.find((record) => record.expenseId === "expense_custom");
 assert.ok(custom, "custom expense records should serialize");
 assert.equal(custom.categoryKey, "customExpense");
 assert.equal(custom.typeKey, "customExpenseRecord");
 assert.equal(custom.isCustomExpense, true);
+assert.equal(custom.continuationStatus, "review");
 
 assert.deepEqual(inputRecords[0], {
   expenseId: "expense_valid",
@@ -523,6 +542,7 @@ assert.deepEqual(inputRecords[0], {
   amount: "250.50",
   frequency: "monthly",
   termType: "ongoing",
+  continuationStatus: "continues",
   sourceKey: null,
   isCustomExpense: false,
   metadata: { sourceType: "user-input", source: "expense-library", libraryEntryKey: "medicalOutOfPocket" }

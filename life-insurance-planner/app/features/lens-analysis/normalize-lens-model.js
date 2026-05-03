@@ -1612,6 +1612,40 @@
       : normalizedTermType;
   }
 
+  function normalizeExpenseContinuationStatus(status) {
+    const normalizedStatus = normalizeExpenseRecordString(status);
+    const expenseLibrary = lensAnalysis.expenseLibrary && typeof lensAnalysis.expenseLibrary === "object"
+      ? lensAnalysis.expenseLibrary
+      : {};
+    const values = Array.isArray(expenseLibrary.EXPENSE_CONTINUATION_STATUS_VALUES)
+      ? expenseLibrary.EXPENSE_CONTINUATION_STATUS_VALUES
+      : ["continues", "stops", "review"];
+    return values.indexOf(normalizedStatus) === -1 ? null : normalizedStatus;
+  }
+
+  function resolveExpenseContinuationStatus(expenseRecord, libraryEntry) {
+    const advisorStatus = normalizeExpenseContinuationStatus(expenseRecord?.continuationStatus);
+    if (advisorStatus) {
+      return {
+        continuationStatus: advisorStatus,
+        continuationStatusSource: "advisor"
+      };
+    }
+
+    const libraryDefault = normalizeExpenseContinuationStatus(libraryEntry?.defaultContinuationStatus);
+    if (libraryDefault) {
+      return {
+        continuationStatus: libraryDefault,
+        continuationStatusSource: "library-default"
+      };
+    }
+
+    return {
+      continuationStatus: "review",
+      continuationStatusSource: "fallback-review"
+    };
+  }
+
   function normalizeOptionalExpenseRecordNumber(value) {
     const numericValue = toOptionalNumber(value);
     return numericValue == null || numericValue < 0 ? null : numericValue;
@@ -1758,6 +1792,7 @@
     const endDate = termType === "untilDate"
       ? (normalizeExpenseRecordString(safeExpenseRecord.endDate) || null)
       : null;
+    const continuation = resolveExpenseContinuationStatus(safeExpenseRecord, libraryEntry);
 
     return {
       expense: {
@@ -1773,6 +1808,8 @@
         amount,
         frequency,
         termType,
+        continuationStatus: continuation.continuationStatus,
+        continuationStatusSource: continuation.continuationStatusSource,
         termYears,
         endAge,
         endDate,
@@ -1800,7 +1837,8 @@
           sourceIndex: index,
           taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
           libraryEntryKey: normalizeExpenseRecordString(libraryEntry?.libraryEntryKey) || typeKey,
-          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
+          continuationStatusSource: continuation.continuationStatusSource
         }
       },
       warnings
