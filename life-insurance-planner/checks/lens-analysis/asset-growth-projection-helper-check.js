@@ -379,8 +379,7 @@ const helperSource = readRepoFile("app/features/lens-analysis/asset-growth-proje
   "app/features/lens-analysis/asset-treatment-calculations.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
-  "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/lens-model-builder.js"
+  "app/features/lens-analysis/analysis-settings-adapter.js"
 ].forEach(function (relativePath) {
   const source = readRepoFile(relativePath);
   assert.doesNotMatch(

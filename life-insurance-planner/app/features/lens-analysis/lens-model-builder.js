@@ -1634,6 +1634,113 @@
     };
   }
 
+  function createPreparedProjectedAssetGrowth(lensModel, input) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const analysisSettings = resolveAnalysisSettings(input);
+    const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
+    const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
+    const calculateAssetGrowthProjection = lensAnalysis.calculateAssetGrowthProjection;
+    const projectionYears = 0;
+    const projectionYearsSource = "not-selected-current-dollar-default";
+    const modelWarnings = [
+      createWarning(
+        "asset-growth-projection-saved-only",
+        "Projected asset growth values are prepared for future reporting only and are not consumed by current methods."
+      ),
+      createWarning(
+        "asset-growth-projection-years-not-selected",
+        "No asset growth projection horizon is selected yet; projected asset values use a 0-year current-dollar default."
+      )
+    ];
+
+    if (!assetFacts || !Array.isArray(assetFacts.assets)) {
+      return {
+        source: "asset-growth-projection-calculations",
+        consumedByMethods: false,
+        projectionMode: "saved-only",
+        projectionYears,
+        projectionYearsSource,
+        currentTotalAssetValue: 0,
+        projectedTotalAssetValue: 0,
+        totalProjectedGrowthAmount: 0,
+        includedCategoryCount: 0,
+        excludedCategoryCount: 0,
+        reviewWarningCount: 0,
+        includedCategories: [],
+        excludedCategories: [],
+        warnings: [
+          createWarning(
+            "missing-asset-facts",
+            "assetFacts.assets is missing; saved-only projected asset growth values were not prepared."
+          ),
+          ...modelWarnings
+        ],
+        trace: null
+      };
+    }
+
+    if (typeof calculateAssetGrowthProjection !== "function") {
+      return {
+        source: "asset-growth-projection-calculations",
+        consumedByMethods: false,
+        projectionMode: "saved-only",
+        projectionYears,
+        projectionYearsSource,
+        currentTotalAssetValue: 0,
+        projectedTotalAssetValue: 0,
+        totalProjectedGrowthAmount: 0,
+        includedCategoryCount: 0,
+        excludedCategoryCount: assetFacts.assets.length,
+        reviewWarningCount: 0,
+        includedCategories: [],
+        excludedCategories: [],
+        warnings: [
+          createWarning(
+            "missing-asset-growth-projection-helper",
+            "calculateAssetGrowthProjection is unavailable; saved-only projected asset growth values were not prepared."
+          ),
+          ...modelWarnings
+        ],
+        trace: null
+      };
+    }
+
+    const result = calculateAssetGrowthProjection({
+      assetFacts,
+      assetTreatmentAssumptions,
+      assetTaxonomy: lensAnalysis.assetTaxonomy,
+      projectionYears,
+      projectionYearsSource,
+      valuationDate: analysisSettings.valuationDate,
+      valuationDateSource: analysisSettings.valuationDate ? "analysisSettings.valuationDate" : null
+    });
+    const helperWarnings = Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : [];
+
+    return {
+      source: result?.source || "asset-growth-projection-calculations",
+      consumedByMethods: false,
+      projectionMode: "saved-only",
+      projectionYears: result?.projectionYears ?? projectionYears,
+      projectionYearsSource: result?.projectionYearsSource || projectionYearsSource,
+      currentTotalAssetValue: result?.currentTotalAssetValue ?? 0,
+      projectedTotalAssetValue: result?.projectedTotalAssetValue ?? 0,
+      totalProjectedGrowthAmount: result?.totalProjectedGrowthAmount ?? 0,
+      includedCategoryCount: result?.includedCategoryCount ?? 0,
+      excludedCategoryCount: result?.excludedCategoryCount ?? 0,
+      reviewWarningCount: result?.reviewWarningCount ?? 0,
+      includedCategories: Array.isArray(result?.includedCategories)
+        ? cloneSerializable(result.includedCategories)
+        : [],
+      excludedCategories: Array.isArray(result?.excludedCategories)
+        ? cloneSerializable(result.excludedCategories)
+        : [],
+      warnings: helperWarnings.concat(modelWarnings),
+      trace: cloneSerializable(result),
+      valuationDate: result?.valuationDate || null,
+      valuationDateSource: result?.valuationDateSource || null
+    };
+  }
+
   function createPreparedTreatedExistingCoverageOffset(lensModel, input) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const existingCoverage = isPlainObject(safeLensModel.existingCoverage)
@@ -1883,6 +1990,7 @@
         lensModel = attachProfileFacts(lensModel, builderInput.profileRecord);
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
+        lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(lensModel, builderInput);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
         lensModel.treatedDebtPayoff = createPreparedTreatedDebtPayoff(lensModel, builderInput);
