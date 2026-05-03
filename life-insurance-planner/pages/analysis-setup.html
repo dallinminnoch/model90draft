@@ -552,6 +552,25 @@
                     </div>
                   </div>
 
+                  <div class="analysis-setup-asset-growth-projection-controls" aria-label="Asset growth projection source-mode controls" data-analysis-asset-growth-projection-controls>
+                    <div class="analysis-setup-asset-growth-projection-copy">
+                      <span class="analysis-setup-asset-defaults-label">Asset Growth Projection:</span>
+                      <p>Projection mode is saved for future reporting/modeling. Current asset offsets remain current-dollar/current treatment based. Projected asset values do not affect DIME, Needs, or HLV outputs yet. Emergency reserves, liquidity, and source-mode rules must be reviewed before projected offsets can be used.</p>
+                    </div>
+                    <label class="analysis-setup-asset-growth-projection-field" for="analysis-setup-asset-growth-projection-mode">
+                      <span>Projection mode</span>
+                      <select id="analysis-setup-asset-growth-projection-mode" class="analysis-setup-asset-select" data-analysis-asset-growth-projection-mode>
+                        <option value="currentDollarOnly">Current-dollar only</option>
+                        <option value="reportingOnly">Reporting only</option>
+                        <option value="projectedOffsets" disabled>Projected offsets - future / inactive</option>
+                      </select>
+                    </label>
+                    <label class="analysis-setup-asset-growth-projection-field" for="analysis-setup-asset-growth-projection-years">
+                      <span>Projection years</span>
+                      <input id="analysis-setup-asset-growth-projection-years" class="analysis-setup-card-input analysis-setup-asset-growth-projection-years" type="number" min="0" max="60" step="1" inputmode="numeric" value="0" data-analysis-asset-growth-projection-years>
+                    </label>
+                  </div>
+
                   <div class="analysis-setup-asset-table" role="table" aria-label="Asset treatment assumptions" data-analysis-asset-treatment-table>
                     <div class="analysis-setup-asset-row analysis-setup-asset-row--head" role="row">
                       <span role="columnheader">Asset</span>

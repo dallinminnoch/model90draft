@@ -2885,6 +2885,10 @@
       tax: {},
       haircut: {},
       preview: {},
+      assetGrowthProjection: {
+        mode: document.querySelector("[data-analysis-asset-growth-projection-mode]"),
+        projectionYears: document.querySelector("[data-analysis-asset-growth-projection-years]")
+      },
       fieldLists: {
         include: {},
         growth: {},
@@ -3389,6 +3393,51 @@
     return normalizeAssetDefaultProfile(
       fields.defaultProfile,
       DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.defaultProfile
+    );
+  }
+
+  function populateAssetGrowthProjectionFields(fields, assumptions) {
+    const projectionAssumptions = getAssetGrowthProjectionAssumptions(
+      assumptions?.assetGrowthProjectionAssumptions
+    );
+    const modeField = fields?.assetGrowthProjection?.mode;
+    const projectionYearsField = fields?.assetGrowthProjection?.projectionYears;
+
+    if (modeField) {
+      modeField.value = projectionAssumptions.mode;
+    }
+    if (projectionYearsField) {
+      projectionYearsField.value = formatHaircutInputValue(
+        projectionAssumptions.projectionYears
+      );
+    }
+  }
+
+  function readAssetGrowthProjectionAssumptionsFromFields(fields, currentAssumptions) {
+    const currentProjectionAssumptions = getAssetGrowthProjectionAssumptions(
+      currentAssumptions?.assetGrowthProjectionAssumptions
+    );
+    const modeField = fields?.assetGrowthProjection?.mode;
+    const projectionYearsField = fields?.assetGrowthProjection?.projectionYears;
+
+    return getAssetGrowthProjectionAssumptions({
+      mode: modeField
+        ? modeField.value
+        : currentProjectionAssumptions.mode,
+      projectionYears: projectionYearsField
+        ? projectionYearsField.value
+        : currentProjectionAssumptions.projectionYears
+    });
+  }
+
+  function clampAssetGrowthProjectionYearsField(fields) {
+    const field = fields?.assetGrowthProjection?.projectionYears;
+    if (!field) {
+      return;
+    }
+
+    field.value = formatHaircutInputValue(
+      normalizeAssetGrowthProjectionYears(field.value)
     );
   }
 
@@ -5048,6 +5097,7 @@
   function populateAssetTreatmentFields(fields, assumptions, linkedRecord) {
     fields.currentAssumptions = assumptions;
     setAssetDefaultProfile(fields, assumptions.defaultProfile);
+    populateAssetGrowthProjectionFields(fields, assumptions);
 
     getVisibleAssetTreatmentItemKeys(fields).forEach(function (itemKey) {
       const assumption = assumptions.assets[itemKey] || getAssetTreatmentDefaultForKey(itemKey);
@@ -6200,8 +6250,9 @@
         : DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.customAssets.map(function (asset) {
           return { ...asset };
         }),
-      assetGrowthProjectionAssumptions: getAssetGrowthProjectionAssumptions(
-        currentAssumptions.assetGrowthProjectionAssumptions
+      assetGrowthProjectionAssumptions: readAssetGrowthProjectionAssumptionsFromFields(
+        fields,
+        currentAssumptions
       )
     };
 
@@ -7939,6 +7990,17 @@
         applyAssetTreatmentProfile(assetTreatmentFields, profile, linkedRecord);
         markUnsaved();
       });
+    });
+
+    assetTreatmentFields.assetGrowthProjection?.mode?.addEventListener("change", function () {
+      markUnsaved();
+    });
+    assetTreatmentFields.assetGrowthProjection?.projectionYears?.addEventListener("input", function () {
+      markUnsaved();
+    });
+    assetTreatmentFields.assetGrowthProjection?.projectionYears?.addEventListener("change", function () {
+      clampAssetGrowthProjectionYearsField(assetTreatmentFields);
+      markUnsaved();
     });
 
     Object.keys(existingCoverageFields.values || {}).forEach(function (fieldPath) {

@@ -12531,6 +12531,56 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   cursor: not-allowed;
 }
 
+.analysis-setup-asset-growth-projection-controls {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(10rem, 0.42fr) minmax(7rem, 0.24fr);
+  align-items: center;
+  gap: 0.58rem;
+  min-width: 0;
+  padding: 0.44rem;
+  border: 1px solid rgba(211, 219, 231, 0.92);
+  border-radius: 0.38rem;
+  background: #f8fafc;
+}
+
+.analysis-setup-asset-growth-projection-copy {
+  min-width: 0;
+}
+
+.analysis-setup-asset-growth-projection-copy p {
+  margin: 0.14rem 0 0;
+  color: #627086;
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.analysis-setup-asset-growth-projection-field {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  color: #17202c;
+  font-size: 0.66rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.analysis-setup-asset-growth-projection-field select,
+.analysis-setup-asset-growth-projection-field input {
+  width: 100%;
+}
+
+.analysis-setup-asset-growth-projection-years {
+  min-height: 1.56rem;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 900px) {
+  .analysis-setup-asset-growth-projection-controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
 .analysis-setup-asset-table {
   display: grid;
   grid-auto-flow: row;

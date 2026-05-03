@@ -394,15 +394,20 @@ assert.deepEqual(cloneJson(savedProjectedOffsetsResult.value.assetGrowthProjecti
 });
 
 const analysisSetupHtml = readRepoFile("pages/analysis-setup.html");
-assert.doesNotMatch(
+assert.match(
   analysisSetupHtml,
-  /assetGrowthProjectionAssumptions|projectedOffsets|reportingOnly|asset-growth-projection-source-mode/i,
-  "analysis-setup.html should not add visible asset growth projection source-mode controls yet"
+  /data-analysis-asset-growth-projection-controls/,
+  "analysis-setup.html should expose the saved-only projection source-mode controls"
+);
+assert.match(
+  analysisSetupHtml,
+  /Projected offsets - future \/ inactive/,
+  "projectedOffsets should be visibly future/inactive when offered"
 );
 assert.doesNotMatch(
   readRepoFile("components.css"),
-  /asset-growth-projection-source-mode|asset-growth-projection-assumptions/i,
-  "CSS should not add asset growth source-mode layout or controls in this pass"
+  /projected offsets.*method-active|method-active.*projected offsets/i,
+  "CSS should not imply asset growth source-mode controls are method-active"
 );
 
 [
