@@ -59,7 +59,7 @@ assert.match(
 );
 assert.match(
   lensHtml,
-  /DIME is available as a quick flow\. Simple Needs and Human Life Value are planned as separate quick flows\./
+  /DIME and Human Life Value are available as quick flows\. Simple Needs is planned as a separate quick flow\./
 );
 
 const lensCard = getCardBlock(lensHtml, "lens");
@@ -85,27 +85,23 @@ assert.doesNotMatch(dimeCard, /Quick flow coming soon/);
 assert.doesNotMatch(dimeCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(dimeCard, /dime-results\.html/);
 
-[
-  {
-    key: "Simple Needs",
-    block: simpleNeedsCard,
-    title: /Simple Needs Analysis/,
-    description: /Straightforward current-dollar needs estimate using core planning inputs\./
-  },
-  {
-    key: "Human Life Value",
-    block: hlvCard,
-    title: /Human Life Value/,
-    description: /Fast income-capitalization estimate\./
-  }
-].forEach(function (card) {
-  assert.match(card.block, card.title, `${card.key} title should render.`);
-  assert.match(card.block, card.description, `${card.key} description should render.`);
-  assert.match(card.block, /Quick flow coming soon/, `${card.key} should be marked as a future quick flow.`);
-  assert.match(card.block, /<button\b[^>]*\bdisabled\b/, `${card.key} should use a disabled placeholder action.`);
-  assert.deepEqual(getHrefValues(card.block), [], `${card.key} should not link to a missing quick-method page.`);
-  assert.doesNotMatch(card.block, /\.html/, `${card.key} should not route to an active result page yet.`);
-});
+assert.match(hlvCard, /Human Life Value/);
+assert.match(hlvCard, /Quick flow available/);
+assert.match(hlvCard, /Quick income-capitalization estimate using income value and projection years\./);
+assert.match(hlvCard, /does not use the LENS assumptions panel/);
+assert.match(hlvCard, /Start Human Life Value/);
+assert.deepEqual(getHrefValues(hlvCard), ["hlv-entry.html"]);
+assert.match(hlvCard, /data-hlv-start-link/);
+assert.doesNotMatch(hlvCard, /Quick flow coming soon/);
+assert.doesNotMatch(hlvCard, /<button\b[^>]*\bdisabled\b/);
+assert.doesNotMatch(hlvCard, /hlv-results\.html/);
+
+assert.match(simpleNeedsCard, /Simple Needs Analysis/);
+assert.match(simpleNeedsCard, /Straightforward current-dollar needs estimate using core planning inputs\./);
+assert.match(simpleNeedsCard, /Quick flow coming soon/);
+assert.match(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
+assert.deepEqual(getHrefValues(simpleNeedsCard), []);
+assert.doesNotMatch(simpleNeedsCard, /\.html/);
 
 assert.match(lensHtml, /const passthroughParams = \["caseRef", "profileCaseRef", "linkedCaseRef", "id"\]/);
 assert.match(lensHtml, /sourceParams\.get\("profileCaseRef"\)/);
@@ -114,6 +110,7 @@ assert.match(lensHtml, /function applyPassthroughParams\(links, targetPage\)/);
 assert.match(lensHtml, /link\.setAttribute\("href", queryString \? `\$\{targetPage\}\?\$\{queryString\}` : targetPage\)/);
 assert.match(lensHtml, /applyPassthroughParams\(lensStartLinks, "profile\.html"\)/);
 assert.match(lensHtml, /applyPassthroughParams\(dimeStartLinks, "dime-entry\.html"\)/);
+assert.match(lensHtml, /applyPassthroughParams\(hlvStartLinks, "hlv-entry\.html"\)/);
 assert.doesNotMatch(lensHtml, /data-lens-card/);
 assert.doesNotMatch(lensHtml, /needs-based result/);
 assert.doesNotMatch(lensHtml, /method: "simpleNeeds"/);

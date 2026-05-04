@@ -148,11 +148,15 @@ assert.match(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
 
 const hlvCard = getCardBlock(lensHtml, "human-life-value");
 assert.match(hlvCard, /Human Life Value/);
-assert.match(hlvCard, /Quick flow coming soon/);
-assert.match(hlvCard, /<button\b[^>]*\bdisabled\b/);
-assert.doesNotMatch(hlvCard, /href=/);
+assert.match(hlvCard, /Quick flow available/);
+assert.match(hlvCard, /Quick income-capitalization estimate using income value and projection years\./);
+assert.match(hlvCard, /does not use the LENS assumptions panel/);
+assert.match(hlvCard, /Start Human Life Value/);
+assert.match(hlvCard, /href="hlv-entry\.html"/);
+assert.match(hlvCard, /data-hlv-start-link/);
+assert.doesNotMatch(hlvCard, /Quick flow coming soon/);
+assert.doesNotMatch(hlvCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(hlvCard, /hlv-results\.html/);
-assert.doesNotMatch(hlvCard, /hlv-entry\.html/);
 
 const dimeCard = getCardBlock(lensHtml, "dime");
 assert.match(dimeCard, /href="dime-entry\.html"/);
@@ -186,7 +190,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/analysis-estimate.html",
-  "pages/lens.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/profile.html",
