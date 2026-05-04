@@ -293,7 +293,7 @@ const appliedScenario = renderScenario(createHealthcareExpenseTrace());
 assert.match(appliedScenario.needsHtml, /Healthcare Bucket Expenses/);
 assert.match(appliedScenario.needsHtml, /Projection status/);
 assert.match(appliedScenario.needsHtml, /Applied/);
-assert.match(appliedScenario.needsHtml, /Healthcare bucket expense records projected using Healthcare Inflation/);
+assert.match(appliedScenario.needsHtml, /Recurring healthcare bucket records projected using Healthcare Inflation\./);
 assert.match(appliedScenario.needsHtml, /Healthcare expense amount used/);
 assert.match(appliedScenario.needsHtml, /\$3,272/);
 assert.match(appliedScenario.needsHtml, /Current annual healthcare expense/);
@@ -369,7 +369,64 @@ const currentDollarScenario = renderScenario(createHealthcareExpenseTrace({
   warningCode: null
 }));
 assert.match(currentDollarScenario.needsHtml, /Current-dollar/);
+assert.match(currentDollarScenario.needsHtml, /Recurring healthcare bucket records included current-dollar because Healthcare Inflation was disabled or invalid\./);
 assert.match(currentDollarScenario.needsHtml, /recurring healthcare expenses used current-dollar projection/);
+assert.doesNotMatch(currentDollarScenario.needsHtml, /Recurring healthcare bucket records projected using Healthcare Inflation/);
+
+const disabledInflationScenario = renderScenario(createHealthcareExpenseTrace({
+  applied: true,
+  enabled: true,
+  projectedHealthcareExpenseAmount: 2400,
+  projectedRecurringHealthcareExpenseAmount: 2400,
+  includedOneTimeHealthcareExpenseAmount: 0,
+  healthcareInflationApplied: false,
+  healthcareInflationRatePercent: null,
+  warnings: [
+    {
+      code: "healthcare-inflation-disabled-current-dollar",
+      message: "Healthcare inflation is disabled; recurring healthcare expenses used current-dollar projection."
+    }
+  ],
+  warningCount: 1,
+  reason: null,
+  warningCode: null
+}));
+assert.match(disabledInflationScenario.needsHtml, /Recurring healthcare bucket records included current-dollar because Healthcare Inflation was disabled or invalid\./);
+assert.match(disabledInflationScenario.needsHtml, /Healthcare inflation is disabled; recurring healthcare expenses used current-dollar projection/);
+
+const oneTimeOnlyScenario = renderScenario(createHealthcareExpenseTrace({
+  applied: true,
+  enabled: true,
+  projectedHealthcareExpenseAmount: 500,
+  projectedRecurringHealthcareExpenseAmount: 0,
+  includedOneTimeHealthcareExpenseAmount: 500,
+  currentAnnualHealthcareExpenseAmount: 0,
+  healthcareInflationApplied: false,
+  healthcareInflationRatePercent: null,
+  includedRecordCount: 1,
+  excludedRecordCount: 0,
+  includedBuckets: ["medicalEquipment"],
+  excludedBuckets: [],
+  includedRecords: [
+    {
+      expenseFactId: "expense_record_adaptiveEquipment",
+      typeKey: "adaptiveEquipment",
+      categoryKey: "medicalEquipment",
+      label: "Adaptive Equipment",
+      oneTimeAmount: 500,
+      durationYears: 0,
+      durationSource: "oneTime-current-dollar",
+      projectedAmount: 500
+    }
+  ],
+  warnings: [],
+  warningCount: 0,
+  reason: null,
+  warningCode: null
+}));
+assert.match(oneTimeOnlyScenario.needsHtml, /One-time healthcare bucket records are included current-dollar in v1\./);
+assert.match(oneTimeOnlyScenario.needsHtml, /Included current-dollar only/);
+assert.doesNotMatch(oneTimeOnlyScenario.needsHtml, /Recurring healthcare bucket records projected using Healthcare Inflation/);
 
 const helperWarningScenario = renderScenario(createHealthcareExpenseTrace({
   applied: false,

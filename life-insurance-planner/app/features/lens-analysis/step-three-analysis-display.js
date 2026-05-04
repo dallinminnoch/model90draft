@@ -1367,6 +1367,25 @@
     return warningCode || "None";
   }
 
+  function getHealthcareExpenseSourceSummary(healthcareExpenseTrace) {
+    const recurringAmount = Number(getTraceInput(healthcareExpenseTrace, "projectedRecurringHealthcareExpenseAmount") || 0);
+    const oneTimeAmount = Number(getTraceInput(healthcareExpenseTrace, "includedOneTimeHealthcareExpenseAmount") || 0);
+
+    if (recurringAmount > 0 && getTraceInput(healthcareExpenseTrace, "healthcareInflationApplied") === true) {
+      return "Recurring healthcare bucket records projected using Healthcare Inflation.";
+    }
+
+    if (recurringAmount > 0) {
+      return "Recurring healthcare bucket records included current-dollar because Healthcare Inflation was disabled or invalid.";
+    }
+
+    if (oneTimeAmount > 0) {
+      return "One-time healthcare bucket records are included current-dollar in v1.";
+    }
+
+    return "Eligible non-final healthcare bucket expense records are included in LENS healthcare expenses.";
+  }
+
   function formatAssetGrowthSourceMode(value) {
     const normalized = String(value || "").trim();
     if (normalized === "currentDollarOnly") {
@@ -1719,7 +1738,7 @@
 
     const rows = [
       { label: "Projection status", value: formatHealthcareExpenseProjectionStatus(healthcareExpenseTrace) },
-      { label: "Source", value: "Healthcare bucket expense records projected using Healthcare Inflation" },
+      { label: "Source", value: getHealthcareExpenseSourceSummary(healthcareExpenseTrace) },
       { label: "Healthcare expense amount used", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "projectedHealthcareExpenseAmount")) },
       { label: "Current annual healthcare expense", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "currentAnnualHealthcareExpenseAmount")) },
       { label: "Projected recurring healthcare need", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "projectedRecurringHealthcareExpenseAmount")) },
