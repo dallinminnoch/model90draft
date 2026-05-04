@@ -26,26 +26,6 @@
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
 
-  function cloneSettings(settings) {
-    return isPlainObject(settings) ? { ...settings } : {};
-  }
-
-  function createFallbackAnalysisMethodSettings(analysisSettingsAdapter) {
-    const adapter = isPlainObject(analysisSettingsAdapter) ? analysisSettingsAdapter : {};
-    return {
-      needsAnalysisSettings: cloneSettings(adapter.DEFAULT_NEEDS_ANALYSIS_SETTINGS),
-      warnings: [
-        {
-          code: "analysis-settings-adapter-unavailable",
-          message: "Analysis settings adapter was unavailable; current default LENS settings were used.",
-          severity: "info",
-          sourcePaths: ["LensApp.lensAnalysis.analysisSettingsAdapter"]
-        }
-      ],
-      trace: []
-    };
-  }
-
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -146,6 +126,64 @@
     return normalized || "Linked profile and Protection Modeling facts";
   }
 
+  function formatDateOnly(date) {
+    return [
+      String(date.getFullYear()).padStart(4, "0"),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+  }
+
+  function normalizeDateOnly(value) {
+    if (value == null || value === "") {
+      return "";
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return formatDateOnly(value);
+    }
+
+    const normalized = String(value).trim();
+    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return "";
+    }
+
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const parsed = new Date(year, monthIndex, day);
+    if (
+      Number.isNaN(parsed.getTime())
+      || parsed.getFullYear() !== year
+      || parsed.getMonth() !== monthIndex
+      || parsed.getDate() !== day
+    ) {
+      return "";
+    }
+
+    return formatDateOnly(parsed);
+  }
+
+  function resolveTimelineValuationDate(profileRecord, lensModel) {
+    const candidates = [
+      getPath(lensModel, "treatedExistingCoverageOffset.metadata.valuationDate"),
+      getPath(lensModel, "treatedExistingCoverageOffset.valuationDate"),
+      getPath(profileRecord, "analysisSettings.valuationDate"),
+      getPath(profileRecord, "analysisSettings.existingCoverageAssumptions.valuationDate"),
+      getPath(profileRecord, "analysisSettings.existingCoverageAssumptions.asOfDate")
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const normalized = normalizeDateOnly(candidates[index]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return formatDateOnly(new Date());
+  }
+
   function syncIncomeImpactWorkflowLinks() {
     const currentParams = new URLSearchParams(window.location.search);
     if (!Array.from(currentParams.keys()).length) {
@@ -235,21 +273,6 @@
     });
   }
 
-  function findTrace(result, key) {
-    const trace = Array.isArray(result?.trace) ? result.trace : [];
-    return trace.find(function (entry) {
-      return entry && entry.key === key;
-    }) || null;
-  }
-
-  function getTraceNumber(result, key) {
-    return toOptionalNumber(findTrace(result, key)?.value);
-  }
-
-  function getTraceInputNumber(result, key, inputKey) {
-    return toOptionalNumber(findTrace(result, key)?.inputs?.[inputKey]);
-  }
-
   function renderEmptyState(host, title, message) {
     host.innerHTML = `
       <div class="income-impact-empty-state">
@@ -260,48 +283,25 @@
     `;
   }
 
-  function formatDurationPart(value, singular, plural) {
-    return `${value.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${value === 1 ? singular : plural}`;
+  function findSummaryCard(timelineResult, id) {
+    const summaryCards = Array.isArray(timelineResult?.summaryCards) ? timelineResult.summaryCards : [];
+    return summaryCards.find(function (card) {
+      return card?.id === id;
+    }) || null;
   }
 
-  function normalizeDurationParts(duration) {
-    const monthValue = toOptionalNumber(duration?.months);
-    if (monthValue != null && monthValue >= 0) {
-      const totalMonths = Math.round(monthValue);
-      return {
-        years: Math.floor(totalMonths / 12),
-        months: totalMonths % 12
-      };
-    }
+  function renderFinancialSecurityCard(timelineResult) {
+    const card = findSummaryCard(timelineResult, "yearsOfFinancialSecurity");
+    const displayValue = card?.displayValue || UNAVAILABLE_COPY;
+    const status = card?.status || "notAvailable";
 
-    const yearValue = toOptionalNumber(duration?.years);
-    if (yearValue != null && yearValue >= 0) {
-      return {
-        years: Math.round(yearValue * 10) / 10,
-        months: 0
-      };
-    }
-
-    return null;
-  }
-
-  function formatFinancialSecurityDuration(duration) {
-    const parts = normalizeDurationParts(duration);
-    if (!parts) {
-      return UNAVAILABLE_COPY;
-    }
-
-    return `${formatDurationPart(parts.years, "year", "years")} ${formatDurationPart(parts.months, "month", "months")}`;
-  }
-
-  function renderFinancialSecurityCard(data) {
     return `
-      <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card>
+      <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card data-income-impact-summary-card-id="yearsOfFinancialSecurity" data-income-impact-summary-status="${escapeHtml(status)}">
         <div class="income-impact-card-header">
           <h2>Years of Financial Security</h2>
           <p>Read-only estimate from linked profile and Protection Modeling information. It does not change the LENS recommendation.</p>
         </div>
-        <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value>${escapeHtml(formatFinancialSecurityDuration(data.duration))}</strong>
+        <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value data-income-impact-helper-summary-card="yearsOfFinancialSecurity">${escapeHtml(displayValue)}</strong>
       </article>
     `;
   }
@@ -507,12 +507,12 @@
     });
 
     return `
-      <div class="income-impact-timeline-chart" aria-label="Placeholder support gap timeline visualization">
+      <div class="income-impact-timeline-chart" aria-label="Placeholder household impact timeline visualization">
         <div class="income-impact-chart-topline">
           <span class="income-impact-placeholder-badge">Placeholder visualization</span>
-          <p>15-year monthly placeholder values shown for layout only. Future timeline values will use fact-based linked profile and Protection Modeling events, not the final LENS recommendation.</p>
+          <p>Chart values are still placeholder-only for layout. The event list below uses fact-based linked profile and Protection Modeling events, not the final LENS recommendation.</p>
         </div>
-        <svg class="income-impact-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Sample support gap timeline shown as thin columns under trendlines">
+        <svg class="income-impact-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Sample household impact timeline shown as thin columns under trendlines">
           <g class="income-impact-chart-grid" aria-hidden="true">
             <line x1="${xStart}" y1="${chartTop}" x2="${xEnd}" y2="${chartTop}"></line>
             <line x1="${xStart}" y1="${Math.round(chartTop + ((chartBottom - chartTop) * 0.25))}" x2="${xEnd}" y2="${Math.round(chartTop + ((chartBottom - chartTop) * 0.25))}"></line>
@@ -547,7 +547,7 @@
                   data-income-impact-timeline-month="${escapeHtml(band.point.item.label)}"
                   data-income-impact-timeline-gap="${escapeHtml(String(band.point.item.primaryGap))}"
                 >
-                  <title>${escapeHtml(`${band.point.item.label}: ${formatCurrency(band.point.item.primaryGap)} sample gap`)}</title>
+                  <title>${escapeHtml(`${band.point.item.label}: ${formatCurrency(band.point.item.primaryGap)} sample value`)}</title>
                 </rect>
               `;
             }).join("")}
@@ -591,7 +591,7 @@
 
         label.textContent = gap == null
           ? monthLabel
-          : `${monthLabel} - sample gap ${formatCompactCurrency(gap)}`;
+          : `${monthLabel} - sample value ${formatCompactCurrency(gap)}`;
       }
 
       chart.addEventListener("mouseover", function (event) {
@@ -605,98 +605,103 @@
     });
   }
 
-  function renderTimeline(data) {
-    const supportDurationMonths = data.supportDurationMonths;
-    if (supportDurationMonths == null || supportDurationMonths <= 0) {
-      return `
-        <article class="income-impact-card income-impact-card--wide">
-          <div class="income-impact-card-header">
-            <h3>Support Gap Timeline</h3>
-            <p>Placeholder-only timeline. Not final functionality.</p>
-          </div>
-          ${renderPlaceholderTimelineChart()}
-          <div class="income-impact-empty-inline">${escapeHtml(EMPTY_MESSAGE)}</div>
-        </article>
-      `;
+  function formatTimelineTiming(event) {
+    const pieces = [];
+    if (event?.date) {
+      pieces.push(event.date);
+    }
+    if (event?.age != null) {
+      pieces.push(`Age ${event.age}`);
     }
 
-    const delayMonths = Math.max(0, data.survivorIncomeStartDelayMonths || 0);
-    const incomeOffsetMonths = Math.max(0, data.incomeOffsetMonths == null
-      ? supportDurationMonths - delayMonths
-      : data.incomeOffsetMonths);
+    return pieces.length ? pieces.join(" - ") : "Timing unavailable";
+  }
+
+  function renderTimelineEvents(timelineResult) {
+    const events = (Array.isArray(timelineResult?.timelineEvents) ? timelineResult.timelineEvents : [])
+      .filter(function (event) {
+        return event && event.type && event.type !== "dataGap";
+      });
+
+    if (!events.length) {
+      return `<div class="income-impact-empty-inline" data-income-impact-helper-timeline-events>${escapeHtml(EMPTY_MESSAGE)}</div>`;
+    }
 
     return `
-      <article class="income-impact-card income-impact-card--wide">
+      <div class="income-impact-timeline-grid" data-income-impact-helper-timeline-events>
+        ${events.map(function (event) {
+          const amount = toOptionalNumber(event.amount);
+          return `
+            <div data-income-impact-timeline-event-type="${escapeHtml(event.type)}">
+              <span>${escapeHtml(formatTimelineTiming(event))}</span>
+              <strong>${escapeHtml(event.label || "Timeline event")}</strong>
+              <p>${escapeHtml(amount == null ? "Fact-based event" : formatCurrency(amount))}</p>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderDataGaps(timelineResult) {
+    const dataGaps = Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : [];
+    if (!dataGaps.length) {
+      return "";
+    }
+
+    return `
+      <div class="income-impact-empty-inline" data-income-impact-data-gaps>
+        <strong>Data needed</strong>
+        <ul>
+          ${dataGaps.map(function (dataGap) {
+            return `<li>${escapeHtml(dataGap.label || dataGap.code || "Additional profile information is needed.")}</li>`;
+          }).join("")}
+        </ul>
+      </div>
+    `;
+  }
+
+  function renderWarnings(timelineResult) {
+    const warnings = Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : [];
+    if (!warnings.length) {
+      return "";
+    }
+
+    return `
+      <div class="income-impact-empty-inline" data-income-impact-warnings>
+        <strong>Review notes</strong>
+        <ul>
+          ${warnings.map(function (warning) {
+            return `<li>${escapeHtml(warning.message || warning.code || "Review the linked profile facts.")}</li>`;
+          }).join("")}
+        </ul>
+      </div>
+    `;
+  }
+
+  function renderTimeline(timelineResult) {
+    return `
+      <article class="income-impact-card income-impact-card--wide" data-income-impact-helper-timeline>
         <div class="income-impact-card-header">
-          <h3>Support Gap Timeline</h3>
-          <p>Placeholder-only timeline. Not final functionality.</p>
+          <h3>Household Impact Timeline</h3>
+          <p>Fact-based events from linked profile and Protection Modeling information. The chart remains placeholder-only until the timeline visualization pass.</p>
         </div>
-        <div class="income-impact-timeline" aria-label="Current-dollar support gap timeline">
+        <div class="income-impact-timeline" aria-label="Fact-based household impact timeline">
           ${renderPlaceholderTimelineChart()}
-          <div class="income-impact-timeline-grid">
-            <div>
-              <span>Before survivor income starts</span>
-              <strong>${escapeHtml(formatMonths(delayMonths))}</strong>
-              <p>${escapeHtml(formatCurrency(data.supportNeedDuringDelay))} support need during delay</p>
-            </div>
-            <div>
-              <span>After survivor income starts</span>
-              <strong>${escapeHtml(formatMonths(incomeOffsetMonths))}</strong>
-              <p>${escapeHtml(formatCurrency(data.supportNeedAfterIncomeStarts))} remaining support need</p>
-            </div>
-          </div>
+          ${renderTimelineEvents(timelineResult)}
+          ${renderDataGaps(timelineResult)}
+          ${renderWarnings(timelineResult)}
         </div>
       </article>
     `;
   }
 
-  function normalizeDisplayData(lensModel, needsResult) {
-    const incomeBasis = isPlainObject(lensModel?.incomeBasis) ? lensModel.incomeBasis : {};
-    const survivorScenario = isPlainObject(lensModel?.survivorScenario) ? lensModel.survivorScenario : {};
-    const needsAssumptions = isPlainObject(needsResult?.assumptions) ? needsResult.assumptions : {};
-    const needsComponents = isPlainObject(needsResult?.components) ? needsResult.components : {};
-    const needsOffsets = isPlainObject(needsResult?.commonOffsets) ? needsResult.commonOffsets : {};
-
-    const monthlySupportGap = getTraceNumber(needsResult, "supportGapAfterSurvivorIncomeStarts");
-    const supportDurationMonths = getTraceNumber(needsResult, "supportDuration");
-    const supportDurationYears = toOptionalNumber(needsAssumptions.needsSupportDurationYears);
-    const survivorIncomeStartDelayMonths = getTraceNumber(needsResult, "survivorIncomeStartDelayMonths")
-      ?? toOptionalNumber(survivorScenario.survivorIncomeStartDelayMonths);
-    const incomeOffsetMonths = getTraceInputNumber(needsResult, "survivorIncomeOffset", "incomeOffsetMonths")
-      ?? getTraceInputNumber(needsResult, "supportNeedAfterSurvivorIncomeStarts", "incomeOffsetMonths");
-
-    return {
-      duration: supportDurationMonths == null
-        ? { years: supportDurationYears }
-        : { months: supportDurationMonths },
-      insuredGrossAnnualIncome: toOptionalNumber(incomeBasis.insuredGrossAnnualIncome),
-      bonusVariableAnnualIncome: toOptionalNumber(incomeBasis.bonusVariableAnnualIncome),
-      annualEmployerBenefitsValue: toOptionalNumber(incomeBasis.annualEmployerBenefitsValue),
-      annualIncomeReplacementBase: toOptionalNumber(incomeBasis.annualIncomeReplacementBase),
-      survivorContinuesWorking: survivorScenario.survivorContinuesWorking,
-      survivorGrossAnnualIncome: toOptionalNumber(survivorScenario.survivorGrossAnnualIncome),
-      survivorNetAnnualIncome: toOptionalNumber(survivorScenario.survivorNetAnnualIncome),
-      expectedSurvivorWorkReductionPercent: toOptionalNumber(survivorScenario.expectedSurvivorWorkReductionPercent),
-      survivorIncomeStartDelayMonths,
-      survivorIncomeOffset: toOptionalNumber(needsOffsets.survivorIncomeOffset),
-      monthlySupportGap,
-      annualSupportGap: monthlySupportGap == null ? null : monthlySupportGap * 12,
-      supportDurationMonths,
-      supportDurationYears,
-      incomeOffsetMonths,
-      supportNeedDuringDelay: getTraceNumber(needsResult, "supportNeedDuringSurvivorIncomeDelay"),
-      supportNeedAfterIncomeStarts: getTraceNumber(needsResult, "supportNeedAfterSurvivorIncomeStarts"),
-      totalIncomeSupportNeed: toOptionalNumber(needsComponents.essentialSupport),
-      source: formatSource(findTrace(needsResult, "essentialSupport")?.sourcePaths?.join(", "))
-    };
-  }
-
   function renderIncomeImpact(host, context) {
-    const data = normalizeDisplayData(context.lensModel, context.needsResult);
+    const timelineResult = isPlainObject(context?.timelineResult) ? context.timelineResult : {};
     host.innerHTML = `
       <div class="income-impact-grid">
-        ${renderFinancialSecurityCard(data)}
-        ${renderTimeline(data)}
+        ${renderFinancialSecurityCard(timelineResult)}
+        ${renderTimeline(timelineResult)}
       </div>
     `;
     bindPlaceholderTimelineHover(host);
@@ -711,17 +716,15 @@
 
     const currentLensAnalysis = window.LensApp?.lensAnalysis || {};
     const buildLensModelFromSavedProtectionModeling = currentLensAnalysis.buildLensModelFromSavedProtectionModeling;
-    const analysisSettingsAdapter = currentLensAnalysis.analysisSettingsAdapter;
-    const createAnalysisMethodSettings = analysisSettingsAdapter?.createAnalysisMethodSettings;
-    const runNeedsAnalysis = currentLensAnalysis.analysisMethods?.runNeedsAnalysis;
+    const calculateIncomeLossImpactTimeline = currentLensAnalysis.calculateIncomeLossImpactTimeline;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
       return;
     }
 
-    if (typeof runNeedsAnalysis !== "function") {
-      renderEmptyState(host, "Income impact unavailable", "LENS Analysis is unavailable.");
+    if (typeof calculateIncomeLossImpactTimeline !== "function") {
+      renderEmptyState(host, "Income impact unavailable", "Income impact timeline helper is unavailable.");
       return;
     }
 
@@ -749,24 +752,16 @@
         return;
       }
 
-      const methodSettings = typeof createAnalysisMethodSettings === "function"
-        ? createAnalysisMethodSettings({
-            analysisSettings: profileRecord.analysisSettings,
-            lensModel: builderResult.lensModel,
-            profileRecord
-          })
-        : createFallbackAnalysisMethodSettings(analysisSettingsAdapter);
-
-      const needsResult = runNeedsAnalysis(
-        builderResult.lensModel,
-        cloneSettings(methodSettings.needsAnalysisSettings)
-      );
+      const timelineResult = calculateIncomeLossImpactTimeline({
+        lensModel: builderResult.lensModel,
+        valuationDate: resolveTimelineValuationDate(profileRecord, builderResult.lensModel),
+        profileRecord
+      });
 
       renderIncomeImpact(host, {
         lensModel: builderResult.lensModel,
-        needsResult,
-        builderWarnings: builderResult.warnings,
-        methodWarnings: methodSettings.warnings
+        timelineResult,
+        builderWarnings: builderResult.warnings
       });
     } catch (error) {
       renderEmptyState(host, "Income impact unavailable", "Income Loss Impact could not be prepared from the saved Lens model.");

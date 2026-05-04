@@ -41,7 +41,7 @@ function getChangedFiles(relativePaths) {
 function createIncomeImpactDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactDisplayHarness = { formatFinancialSecurityDuration, normalizeDurationParts };\n})(window);\n"
+    "\n  window.__incomeImpactDisplayHarness = { renderFinancialSecurityCard, renderTimeline };\n})(window);\n"
   );
   const sandbox = {
     console,
@@ -147,6 +147,11 @@ assert.match(
   /<a\b[^>]*href="analysis-estimate\.html"[^>]*data-income-impact-route-link[^>]*>Continue to LENS Result<\/a>/,
   "Income Impact should link onward to the LENS result."
 );
+assert.match(
+  incomeLossHtml,
+  /income-loss-impact-timeline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
+  "Income Impact should load the pure timeline helper before the display module."
+);
 assert.doesNotMatch(incomeLossHtml, /Continue to Estimate Need/);
 assert.doesNotMatch(incomeLossHtml, /Optional Review/);
 assert.doesNotMatch(incomeLossHtml, /<input\b/i, "Income Loss Impact should not contain input controls in this pass.");
@@ -172,12 +177,22 @@ assert.match(
 assert.match(
   incomeLossDisplaySource,
   /buildLensModelFromSavedProtectionModeling/,
-  "Income Loss Impact should build from saved LENS model data for compatibility."
+  "Income Loss Impact should build normalized Lens model facts from saved Protection Modeling data."
 );
 assert.match(
   incomeLossDisplaySource,
-  /const runNeedsAnalysis = currentLensAnalysis\.analysisMethods\?\.runNeedsAnalysis/,
-  "Current Income Impact display still has a temporary runNeedsAnalysis dependency."
+  /calculateIncomeLossImpactTimeline/,
+  "Income Impact display should call the pure fact-based timeline helper."
+);
+assert.doesNotMatch(
+  incomeLossDisplaySource,
+  /runNeedsAnalysis/,
+  "Income Impact display should not use runNeedsAnalysis as its visible product source."
+);
+assert.doesNotMatch(
+  incomeLossDisplaySource,
+  /needsResult/,
+  "Income Impact display should not render from Needs result compatibility data."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -196,7 +211,7 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /function renderTimeline\(data\)/,
+  /function renderTimeline\(timelineResult\)/,
   "Income Impact should preserve the existing timeline renderer."
 );
 assert.match(
@@ -211,8 +226,23 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /renderFinancialSecurityCard\(data\)[\s\S]*renderTimeline\(data\)/,
+  /renderFinancialSecurityCard\(timelineResult\)[\s\S]*renderTimeline\(timelineResult\)/,
   "Income Impact should render the financial security card separately before the timeline."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /data-income-impact-helper-summary-card="yearsOfFinancialSecurity"/,
+  "Years of Financial Security should render from a helper summary card."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /data-income-impact-helper-timeline-events/,
+  "Income Impact timeline should render helper timeline events."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /data-income-impact-data-gaps/,
+  "Income Impact should render helper data gaps safely."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -253,20 +283,62 @@ assert.doesNotMatch(
 );
 
 const displayHarness = createIncomeImpactDisplayHarness(incomeLossDisplaySource);
-assert.equal(
-  displayHarness.formatFinancialSecurityDuration({ months: 27 }),
-  "2 years 3 months",
-  "Financial security duration should convert available months into years and months."
+const helperDisplayFixture = {
+  summaryCards: [
+    {
+      id: "yearsOfFinancialSecurity",
+      displayValue: "8 years 4 months",
+      status: "available"
+    }
+  ],
+  timelineEvents: [
+    {
+      type: "death",
+      date: "2030-06-15",
+      age: 50,
+      label: "Selected death event"
+    },
+    {
+      type: "incomeStops",
+      date: "2030-06-15",
+      age: 50,
+      label: "Insured income stops",
+      amount: 120000
+    }
+  ],
+  dataGaps: [
+    {
+      code: "missing-client-dob",
+      label: "Client date of birth is missing or invalid."
+    }
+  ],
+  warnings: [
+    {
+      code: "missing-annual-shortfall",
+      message: "Years of Financial Security was not calculated because annual shortfall inputs are missing."
+    }
+  ]
+};
+assert.match(
+  displayHarness.renderFinancialSecurityCard(helperDisplayFixture),
+  /8 years 4 months/,
+  "Financial security card should render the helper summary display value."
 );
-assert.equal(
-  displayHarness.formatFinancialSecurityDuration({ years: 8 }),
-  "8 years 0 months",
-  "Financial security duration should show 0 months when only years are available."
+const helperTimelineHtml = displayHarness.renderTimeline(helperDisplayFixture);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-helper-timeline-events/,
+  "Timeline should expose a helper event host."
 );
-assert.equal(
-  displayHarness.formatFinancialSecurityDuration({}),
-  "Not available",
-  "Financial security duration should show Not available when no duration source exists."
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-timeline-event-type="incomeStops"/,
+  "Timeline should render helper event types."
+);
+assert.match(
+  helperTimelineHtml,
+  /Client date of birth is missing or invalid\./,
+  "Timeline should render helper data gaps."
 );
 
 assert.match(
