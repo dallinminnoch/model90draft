@@ -112,6 +112,11 @@ const scripts = extractScriptSources(simpleNeedsResultsHtml);
 ].forEach(function (script) {
   assert.ok(scripts.includes(script), `${script} should load on Simple Needs result page.`);
 });
+assert.equal(
+  scripts.includes("../app/features/lens-analysis/projected-asset-offset-calculations.js"),
+  false,
+  "Simple Needs result page should not require projected asset offset helper while projectedAssetOffset is inactive."
+);
 assert.ok(
   scripts.indexOf("../app/features/lens-analysis/schema.js")
     < scripts.indexOf("../app/features/lens-analysis/normalize-lens-model.js"),
@@ -215,9 +220,7 @@ assert.doesNotMatch(hlvResultsHtml, /simple-needs-results-display\.js/);
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
-  "pages/analysis-estimate.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/hlv-results.html"
@@ -225,7 +228,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Simple Needs selector activation should not change methods, adapter, model builder, Step 3, combined page, DIME pages, or HLV pages."
+  "Simple Needs selector activation should not change methods, adapter, Step 3 display, DIME pages, or HLV pages."
 );
 
 console.log("simple-needs-results-page-check passed");

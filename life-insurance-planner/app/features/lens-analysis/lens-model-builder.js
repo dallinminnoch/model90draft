@@ -1865,6 +1865,165 @@
     };
   }
 
+  function createEmptyProjectedAssetOffset(warnings, metadata) {
+    const safeWarnings = Array.isArray(warnings) ? warnings : [];
+    const safeMetadata = isPlainObject(metadata) ? metadata : {};
+    const currentTreatedAssetOffset = toOptionalNumber(safeMetadata.currentTreatedAssetOffset) ?? 0;
+
+    return {
+      source: "projected-asset-offset-calculations",
+      calculationVersion: null,
+      currentTreatedAssetOffset,
+      eligibleTreatedBase: 0,
+      projectedTreatedValue: 0,
+      projectedGrowthAdjustment: 0,
+      effectiveProjectedAssetOffset: currentTreatedAssetOffset,
+      projectionYears: 0,
+      projectionYearsSource: "assetGrowthProjectionAssumptions.projectionYears",
+      sourceMode: normalizeString(safeMetadata.sourceMode) || ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR,
+      sourceModeSource: "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode",
+      projectionMode: normalizeString(safeMetadata.projectionMode)
+        || normalizeString(safeMetadata.sourceMode)
+        || ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR,
+      consumptionStatus: ASSET_GROWTH_PROJECTION_CONSUMPTION_STATUS,
+      consumedByMethods: false,
+      activationStatus: "future-inactive",
+      includedCategoryCount: 0,
+      excludedCategoryCount: 0,
+      includedCategories: [],
+      excludedCategories: [],
+      warnings: safeWarnings,
+      trace: null,
+      metadata: {
+        ...safeMetadata,
+        source: "lens-model-preparation",
+        calculationSource: "projected-asset-offset-calculations",
+        savedDataShapeChanged: false,
+        consumedByMethods: false,
+        activationStatus: "future-inactive"
+      }
+    };
+  }
+
+  function createPreparedProjectedAssetOffset(lensModel, input) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const treatedAssetOffsets = isPlainObject(safeLensModel.treatedAssetOffsets)
+      ? safeLensModel.treatedAssetOffsets
+      : null;
+    const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
+    const projectionAssumptions = isPlainObject(assetTreatmentAssumptions.assetGrowthProjectionAssumptions)
+      ? assetTreatmentAssumptions.assetGrowthProjectionAssumptions
+      : {};
+    const sourceMode = normalizeString(projectionAssumptions.mode)
+      || ASSET_GROWTH_PROJECTION_MODE_CURRENT_DOLLAR;
+    const projectionMode = sourceMode === ASSET_GROWTH_PROJECTION_MODE_PROJECTED_OFFSETS
+      ? "projectedOffsetsFutureInactive"
+      : sourceMode;
+    const currentTreatedAssetOffset = toOptionalNumber(treatedAssetOffsets?.totalTreatedAssetValue) ?? 0;
+    const modelWarnings = [
+      createWarning(
+        "projected-asset-offset-inactive-model-prep",
+        "Projected asset offset is prepared as an inactive future candidate and is not consumed by current methods."
+      ),
+      createWarning(
+        "treated-asset-offsets-remain-current-source",
+        "Current methods continue to consume treatedAssetOffsets.totalTreatedAssetValue."
+      )
+    ];
+    const calculateProjectedAssetOffset = lensAnalysis.calculateProjectedAssetOffset;
+
+    if (!treatedAssetOffsets) {
+      return createEmptyProjectedAssetOffset(
+        [
+          createWarning(
+            "missing-treated-asset-offsets",
+            "treatedAssetOffsets is missing; inactive projected asset offset candidate was not prepared."
+          ),
+          ...modelWarnings
+        ],
+        {
+          reason: "missing-treated-asset-offsets",
+          currentTreatedAssetOffset,
+          sourceMode,
+          projectionMode
+        }
+      );
+    }
+
+    if (typeof calculateProjectedAssetOffset !== "function") {
+      return createEmptyProjectedAssetOffset(
+        [
+          createWarning(
+            "missing-projected-asset-offset-helper",
+            "calculateProjectedAssetOffset is unavailable; inactive projected asset offset candidate was not prepared."
+          ),
+          ...modelWarnings
+        ],
+        {
+          reason: "missing-projected-asset-offset-helper",
+          currentTreatedAssetOffset,
+          sourceMode,
+          projectionMode
+        }
+      );
+    }
+
+    const result = calculateProjectedAssetOffset({
+      treatedAssetOffsets,
+      assetTreatmentAssumptions,
+      assetGrowthProjectionAssumptions: projectionAssumptions,
+      assetTaxonomy: lensAnalysis.assetTaxonomy
+    });
+    const resultMetadata = isPlainObject(result?.metadata) ? result.metadata : {};
+    const helperWarnings = Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : [];
+    const combinedWarnings = helperWarnings.concat(modelWarnings);
+
+    return {
+      source: result?.source || "projected-asset-offset-calculations",
+      calculationVersion: result?.calculationVersion ?? null,
+      currentTreatedAssetOffset: result?.currentTreatedAssetOffset ?? currentTreatedAssetOffset,
+      eligibleTreatedBase: result?.eligibleTreatedBase ?? 0,
+      projectedTreatedValue: result?.projectedTreatedValue ?? 0,
+      projectedGrowthAdjustment: result?.projectedGrowthAdjustment ?? 0,
+      effectiveProjectedAssetOffset: result?.effectiveProjectedAssetOffset ?? currentTreatedAssetOffset,
+      projectionYears: result?.projectionYears ?? 0,
+      projectionYearsSource: result?.projectionYearsSource || "assetGrowthProjectionAssumptions.projectionYears",
+      projectionYearsDefaulted: result?.projectionYearsDefaulted === true,
+      projectionYearsClamped: result?.projectionYearsClamped === true,
+      sourceMode: result?.sourceMode || sourceMode,
+      sourceModeSource: result?.sourceModeSource
+        || "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode",
+      projectionMode: result?.projectionMode || projectionMode,
+      consumptionStatus: result?.consumptionStatus || ASSET_GROWTH_PROJECTION_CONSUMPTION_STATUS,
+      consumedByMethods: false,
+      activationStatus: result?.activationStatus || "future-inactive",
+      includedCategoryCount: result?.includedCategoryCount ?? 0,
+      excludedCategoryCount: result?.excludedCategoryCount ?? 0,
+      includedCategories: Array.isArray(result?.includedCategories)
+        ? cloneSerializable(result.includedCategories)
+        : [],
+      excludedCategories: Array.isArray(result?.excludedCategories)
+        ? cloneSerializable(result.excludedCategories)
+        : [],
+      warnings: combinedWarnings,
+      trace: cloneSerializable({
+        ...result,
+        consumedByMethods: false,
+        activationStatus: result?.activationStatus || "future-inactive",
+        warnings: combinedWarnings
+      }),
+      metadata: {
+        ...resultMetadata,
+        source: "lens-model-preparation",
+        calculationSource: resultMetadata.source || "projected-asset-offset-calculations",
+        inputBasis: resultMetadata.inputBasis || "treatedAssetOffsets",
+        savedDataShapeChanged: false,
+        consumedByMethods: false,
+        activationStatus: result?.activationStatus || "future-inactive"
+      }
+    };
+  }
+
   function createPreparedCashReserveProjection(lensModel, input) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const analysisSettings = resolveAnalysisSettings(input);
@@ -2262,9 +2421,10 @@
         lensModel = attachProfileFacts(lensModel, builderInput.profileRecord);
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
-        lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(lensModel, builderInput);
-        lensModel.cashReserveProjection = createPreparedCashReserveProjection(lensModel, builderInput);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
+        lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(lensModel, builderInput);
+        lensModel.projectedAssetOffset = createPreparedProjectedAssetOffset(lensModel, builderInput);
+        lensModel.cashReserveProjection = createPreparedCashReserveProjection(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
         lensModel.treatedDebtPayoff = createPreparedTreatedDebtPayoff(lensModel, builderInput);
       }

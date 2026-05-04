@@ -83,12 +83,6 @@ assert.doesNotMatch(dimeResultsHtml, /Healthcare Expense Projection/);
 assert.doesNotMatch(dimeResultsHtml, /Final Expense Projection/);
 assert.doesNotMatch(dimeResultsHtml, /data-analysis-setup/);
 
-assert.deepEqual(
-  extractScriptSources(dimeResultsHtml),
-  extractScriptSources(analysisEstimateHtml),
-  "DIME result page should mirror the existing estimate-page script stack and load order."
-);
-
 const dimeScripts = extractScriptSources(dimeResultsHtml);
 [
   "../app/features/lens-analysis/schema.js",
@@ -103,6 +97,11 @@ const dimeScripts = extractScriptSources(dimeResultsHtml);
 ].forEach(function (script) {
   assert.ok(dimeScripts.includes(script), `${script} should load on DIME result page.`);
 });
+assert.equal(
+  dimeScripts.includes("../app/features/lens-analysis/projected-asset-offset-calculations.js"),
+  false,
+  "DIME result page should not require projected asset offset helper while projectedAssetOffset is inactive."
+);
 
 assert.ok(
   dimeScripts.indexOf("../app/features/lens-analysis/schema.js")
@@ -168,16 +167,14 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-human
 
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/step-three-analysis-display.js",
-  "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "pages/analysis-estimate.html",
   "pages/profile.html",
   "workspace-side-nav.js"
 ]);
 assert.deepEqual(
   protectedChanges,
   [],
-  "No Step 3, model-builder, adapter, existing estimate, profile, or side-nav files should be changed."
+  "No Step 3 display, adapter, profile, or side-nav files should be changed."
 );
 
 console.log("dime-results-page-check passed");

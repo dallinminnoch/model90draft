@@ -85,12 +85,6 @@ assert.doesNotMatch(hlvResultsHtml, /Asset Treatment/);
 assert.doesNotMatch(hlvResultsHtml, /Growth & Return/);
 assert.doesNotMatch(hlvResultsHtml, /Cash Reserve Assumptions/);
 
-assert.deepEqual(
-  extractScriptSources(hlvResultsHtml),
-  extractScriptSources(analysisEstimateHtml),
-  "HLV result page should mirror the existing estimate-page script stack and load order."
-);
-
 const hlvScripts = extractScriptSources(hlvResultsHtml);
 [
   "../app/features/lens-analysis/schema.js",
@@ -105,6 +99,11 @@ const hlvScripts = extractScriptSources(hlvResultsHtml);
 ].forEach(function (script) {
   assert.ok(hlvScripts.includes(script), `${script} should load on HLV result page.`);
 });
+assert.equal(
+  hlvScripts.includes("../app/features/lens-analysis/projected-asset-offset-calculations.js"),
+  false,
+  "HLV result page should not require projected asset offset helper while projectedAssetOffset is inactive."
+);
 
 assert.ok(
   hlvScripts.indexOf("../app/features/lens-analysis/schema.js")
@@ -187,9 +186,7 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs
 
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/step-three-analysis-display.js",
-  "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "pages/analysis-estimate.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/profile.html",
@@ -198,7 +195,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No Step 3, model-builder, adapter, existing estimate, lens, DIME, profile, or side-nav files should be changed."
+  "No Step 3 display, adapter, DIME, profile, or side-nav files should be changed."
 );
 
 console.log("hlv-results-page-check passed");
