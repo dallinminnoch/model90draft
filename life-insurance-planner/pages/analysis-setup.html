@@ -571,6 +571,56 @@
                     </label>
                   </div>
 
+                  <div class="analysis-setup-cash-reserve-controls" aria-label="Cash Reserve Assumptions" data-analysis-cash-reserve-controls>
+                    <div class="analysis-setup-cash-reserve-copy">
+                      <span class="analysis-setup-asset-defaults-label">Cash Reserve Assumptions:</span>
+                      <p>Saved for future reporting/modeling. These controls do not affect current DIME, Needs, or HLV outputs, and current asset offsets remain current-dollar/current treatment based. Emergency reserve and liquidity rules must be reviewed before reserve-adjusted offsets become method-active. Explicit emergency fund assets are generally preserved before offsetting need.</p>
+                    </div>
+                    <label class="analysis-setup-cash-reserve-switch">
+                      <span>Enable cash reserve modeling</span>
+                      <span class="settings-switch analysis-setup-mini-switch">
+                        <input type="checkbox" role="switch" aria-label="Enable cash reserve modeling" data-analysis-cash-reserve-enabled>
+                        <span class="settings-switch-track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="analysis-setup-cash-reserve-field" for="analysis-setup-cash-reserve-method">
+                      <span>Reserve method</span>
+                      <select id="analysis-setup-cash-reserve-method" class="analysis-setup-asset-select" data-analysis-cash-reserve-method>
+                        <option value="monthsOfEssentialExpenses">Months of essential expenses</option>
+                        <option value="fixedDollarAmount">Fixed dollar amount</option>
+                      </select>
+                    </label>
+                    <label class="analysis-setup-cash-reserve-field" for="analysis-setup-cash-reserve-months" data-analysis-cash-reserve-months-row>
+                      <span>Reserve months</span>
+                      <input id="analysis-setup-cash-reserve-months" class="analysis-setup-card-input analysis-setup-cash-reserve-number" type="number" min="0" max="24" step="1" inputmode="numeric" value="6" data-analysis-cash-reserve-months>
+                    </label>
+                    <label class="analysis-setup-cash-reserve-field" for="analysis-setup-cash-reserve-fixed-amount" data-analysis-cash-reserve-fixed-row hidden>
+                      <span>Fixed reserve amount</span>
+                      <input id="analysis-setup-cash-reserve-fixed-amount" class="analysis-setup-card-input analysis-setup-cash-reserve-number" type="text" inputmode="decimal" value="0" data-analysis-cash-reserve-fixed-amount>
+                    </label>
+                    <label class="analysis-setup-cash-reserve-field" for="analysis-setup-cash-reserve-expense-basis">
+                      <span>Expense basis</span>
+                      <select id="analysis-setup-cash-reserve-expense-basis" class="analysis-setup-asset-select" data-analysis-cash-reserve-expense-basis>
+                        <option value="essentialSupport">Essential support only</option>
+                        <option value="essentialPlusHealthcare">Essential + healthcare</option>
+                        <option value="essentialPlusHealthcareAndDiscretionary">Essential + healthcare + discretionary</option>
+                      </select>
+                      <small>Essential support only is the safest current default; healthcare and discretionary bases are saved for future reporting behavior.</small>
+                    </label>
+                    <label class="analysis-setup-cash-reserve-field" for="analysis-setup-cash-reserve-asset-scope">
+                      <span>Apply reserve to</span>
+                      <select id="analysis-setup-cash-reserve-asset-scope" class="analysis-setup-asset-select" data-analysis-cash-reserve-asset-scope>
+                        <option value="cashAndCashEquivalents">Cash and cash equivalents</option>
+                        <option value="liquidAssetsFuture" disabled>Liquid assets - future / inactive</option>
+                        <option value="selectedAssetsFuture" disabled>Selected assets - future / inactive</option>
+                      </select>
+                    </label>
+                    <label class="analysis-setup-cash-reserve-checkbox">
+                      <input type="checkbox" data-analysis-cash-reserve-exclude-emergency-fund>
+                      <span>Exclude explicit emergency fund assets</span>
+                    </label>
+                  </div>
+
                   <div class="analysis-setup-asset-table" role="table" aria-label="Asset treatment assumptions" data-analysis-asset-treatment-table>
                     <div class="analysis-setup-asset-row analysis-setup-asset-row--head" role="row">
                       <span role="columnheader">Asset</span>

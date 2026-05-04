@@ -3018,6 +3018,17 @@
         mode: document.querySelector("[data-analysis-asset-growth-projection-mode]"),
         projectionYears: document.querySelector("[data-analysis-asset-growth-projection-years]")
       },
+      cashReserve: {
+        enabled: document.querySelector("[data-analysis-cash-reserve-enabled]"),
+        reserveMethod: document.querySelector("[data-analysis-cash-reserve-method]"),
+        reserveMonths: document.querySelector("[data-analysis-cash-reserve-months]"),
+        reserveMonthsRow: document.querySelector("[data-analysis-cash-reserve-months-row]"),
+        fixedReserveAmount: document.querySelector("[data-analysis-cash-reserve-fixed-amount]"),
+        fixedReserveAmountRow: document.querySelector("[data-analysis-cash-reserve-fixed-row]"),
+        expenseBasis: document.querySelector("[data-analysis-cash-reserve-expense-basis]"),
+        applyToAssetScope: document.querySelector("[data-analysis-cash-reserve-asset-scope]"),
+        excludeEmergencyFundAssets: document.querySelector("[data-analysis-cash-reserve-exclude-emergency-fund]")
+      },
       fieldLists: {
         include: {},
         growth: {},
@@ -3568,6 +3579,142 @@
     field.value = formatHaircutInputValue(
       normalizeAssetGrowthProjectionYears(field.value)
     );
+  }
+
+  function sanitizeCashReserveAmountTextValue(value) {
+    const rawValue = String(value || "");
+    let nextValue = "";
+    let hasDecimal = false;
+
+    for (let index = 0; index < rawValue.length; index += 1) {
+      const character = rawValue[index];
+      if (character >= "0" && character <= "9") {
+        nextValue += character;
+      } else if (character === "-" && nextValue === "") {
+        nextValue += character;
+      } else if (character === "." && !hasDecimal) {
+        nextValue += character;
+        hasDecimal = true;
+      }
+    }
+
+    return nextValue;
+  }
+
+  function syncCashReserveMethodFields(fields) {
+    const reserveFields = fields?.cashReserve || {};
+    const reserveMethod = normalizeCashReserveMethod(reserveFields.reserveMethod?.value);
+    const usesMonths = reserveMethod !== "fixedDollarAmount";
+
+    if (reserveFields.reserveMonthsRow) {
+      reserveFields.reserveMonthsRow.hidden = !usesMonths;
+    }
+    if (reserveFields.fixedReserveAmountRow) {
+      reserveFields.fixedReserveAmountRow.hidden = usesMonths;
+    }
+    if (reserveFields.reserveMonths) {
+      reserveFields.reserveMonths.disabled = !usesMonths;
+    }
+    if (reserveFields.fixedReserveAmount) {
+      reserveFields.fixedReserveAmount.disabled = usesMonths;
+    }
+  }
+
+  function populateCashReserveFields(fields, assumptions) {
+    const reserveAssumptions = getCashReserveAssumptions(
+      assumptions?.cashReserveAssumptions
+    );
+    const reserveFields = fields?.cashReserve || {};
+
+    if (reserveFields.enabled) {
+      reserveFields.enabled.checked = reserveAssumptions.enabled;
+    }
+    if (reserveFields.reserveMethod) {
+      reserveFields.reserveMethod.value = reserveAssumptions.reserveMethod;
+    }
+    if (reserveFields.reserveMonths) {
+      reserveFields.reserveMonths.value = formatHaircutInputValue(
+        reserveAssumptions.reserveMonths
+      );
+    }
+    if (reserveFields.fixedReserveAmount) {
+      reserveFields.fixedReserveAmount.value = formatHaircutInputValue(
+        reserveAssumptions.fixedReserveAmount
+      );
+    }
+    if (reserveFields.expenseBasis) {
+      reserveFields.expenseBasis.value = reserveAssumptions.expenseBasis;
+    }
+    if (reserveFields.applyToAssetScope) {
+      reserveFields.applyToAssetScope.value = reserveAssumptions.applyToAssetScope;
+    }
+    if (reserveFields.excludeEmergencyFundAssets) {
+      reserveFields.excludeEmergencyFundAssets.checked = reserveAssumptions.excludeEmergencyFundAssets;
+    }
+
+    syncCashReserveMethodFields(fields);
+  }
+
+  function readCashReserveAssumptionsFromFields(fields, currentAssumptions) {
+    const currentCashReserveAssumptions = getCashReserveAssumptions(
+      currentAssumptions?.cashReserveAssumptions
+    );
+    const reserveFields = fields?.cashReserve || {};
+    const expenseBasis = normalizeCashReserveExpenseBasis(
+      reserveFields.expenseBasis
+        ? reserveFields.expenseBasis.value
+        : currentCashReserveAssumptions.expenseBasis
+    );
+
+    return getCashReserveAssumptions({
+      enabled: reserveFields.enabled
+        ? reserveFields.enabled.checked
+        : currentCashReserveAssumptions.enabled,
+      mode: currentCashReserveAssumptions.mode,
+      reserveMethod: reserveFields.reserveMethod
+        ? reserveFields.reserveMethod.value
+        : currentCashReserveAssumptions.reserveMethod,
+      reserveMonths: reserveFields.reserveMonths
+        ? reserveFields.reserveMonths.value
+        : currentCashReserveAssumptions.reserveMonths,
+      fixedReserveAmount: reserveFields.fixedReserveAmount
+        ? sanitizeCashReserveAmountTextValue(reserveFields.fixedReserveAmount.value)
+        : currentCashReserveAssumptions.fixedReserveAmount,
+      expenseBasis,
+      applyToAssetScope: reserveFields.applyToAssetScope
+        ? reserveFields.applyToAssetScope.value
+        : currentCashReserveAssumptions.applyToAssetScope,
+      excludeEmergencyFundAssets: reserveFields.excludeEmergencyFundAssets
+        ? reserveFields.excludeEmergencyFundAssets.checked
+        : currentCashReserveAssumptions.excludeEmergencyFundAssets,
+      includeHealthcareExpenses: expenseBasis === "essentialPlusHealthcare"
+        || expenseBasis === "essentialPlusHealthcareAndDiscretionary",
+      includeDiscretionaryExpenses: expenseBasis === "essentialPlusHealthcareAndDiscretionary"
+    });
+  }
+
+  function clampCashReserveFields(fields) {
+    const reserveFields = fields?.cashReserve || {};
+    if (reserveFields.reserveMonths) {
+      reserveFields.reserveMonths.value = formatHaircutInputValue(
+        normalizeCashReserveNumber(
+          reserveFields.reserveMonths.value,
+          DEFAULT_CASH_RESERVE_ASSUMPTIONS.reserveMonths,
+          MIN_CASH_RESERVE_MONTHS,
+          MAX_CASH_RESERVE_MONTHS
+        )
+      );
+    }
+    if (reserveFields.fixedReserveAmount) {
+      reserveFields.fixedReserveAmount.value = formatHaircutInputValue(
+        normalizeCashReserveNumber(
+          sanitizeCashReserveAmountTextValue(reserveFields.fixedReserveAmount.value),
+          DEFAULT_CASH_RESERVE_ASSUMPTIONS.fixedReserveAmount,
+          MIN_CASH_RESERVE_AMOUNT,
+          MAX_CASH_RESERVE_AMOUNT
+        )
+      );
+    }
   }
 
   function setExistingCoverageDefaultProfile(fields, profile) {
@@ -5227,6 +5374,7 @@
     fields.currentAssumptions = assumptions;
     setAssetDefaultProfile(fields, assumptions.defaultProfile);
     populateAssetGrowthProjectionFields(fields, assumptions);
+    populateCashReserveFields(fields, assumptions);
 
     getVisibleAssetTreatmentItemKeys(fields).forEach(function (itemKey) {
       const assumption = assumptions.assets[itemKey] || getAssetTreatmentDefaultForKey(itemKey);
@@ -5600,6 +5748,24 @@
         fields.custom[groupName][fieldName].disabled = Boolean(disabled) || !CUSTOM_ASSET_TREATMENT_USES_PMI_INPUT;
       });
     });
+
+    [
+      "enabled",
+      "reserveMethod",
+      "reserveMonths",
+      "fixedReserveAmount",
+      "expenseBasis",
+      "applyToAssetScope",
+      "excludeEmergencyFundAssets"
+    ].forEach(function (fieldName) {
+      if (fields.cashReserve?.[fieldName]) {
+        fields.cashReserve[fieldName].disabled = Boolean(disabled);
+      }
+    });
+
+    if (!disabled) {
+      syncCashReserveMethodFields(fields);
+    }
   }
 
   function setExistingCoverageFieldsDisabled(fields, disabled) {
@@ -6383,8 +6549,9 @@
         fields,
         currentAssumptions
       ),
-      cashReserveAssumptions: getCashReserveAssumptions(
-        currentAssumptions.cashReserveAssumptions
+      cashReserveAssumptions: readCashReserveAssumptionsFromFields(
+        fields,
+        currentAssumptions
       )
     };
 
@@ -7422,6 +7589,8 @@
     }
 
     if (shouldSaveAssetTreatment) {
+      clampCashReserveFields(assetTreatmentFields);
+
       getVisibleAssetTreatmentItemKeys(assetTreatmentFields).forEach(function (itemKey) {
         ["tax", "haircut"].forEach(function (groupName) {
           getAssetTreatmentFieldList(assetTreatmentFields, groupName, itemKey).forEach(function (field) {
@@ -8134,6 +8303,39 @@
       clampAssetGrowthProjectionYearsField(assetTreatmentFields);
       markUnsaved();
     });
+
+    assetTreatmentFields.cashReserve?.enabled?.addEventListener("change", markUnsaved);
+    assetTreatmentFields.cashReserve?.reserveMethod?.addEventListener("change", function () {
+      syncCashReserveMethodFields(assetTreatmentFields);
+      markUnsaved();
+    });
+    assetTreatmentFields.cashReserve?.reserveMonths?.addEventListener("input", function () {
+      const field = assetTreatmentFields.cashReserve.reserveMonths;
+      const sanitizedValue = sanitizeNumericTextValue(field?.value);
+      if (field && field.value !== sanitizedValue) {
+        field.value = sanitizedValue;
+      }
+      markUnsaved();
+    });
+    assetTreatmentFields.cashReserve?.reserveMonths?.addEventListener("change", function () {
+      clampCashReserveFields(assetTreatmentFields);
+      markUnsaved();
+    });
+    assetTreatmentFields.cashReserve?.fixedReserveAmount?.addEventListener("input", function () {
+      const field = assetTreatmentFields.cashReserve.fixedReserveAmount;
+      const sanitizedValue = sanitizeCashReserveAmountTextValue(field?.value);
+      if (field && field.value !== sanitizedValue) {
+        field.value = sanitizedValue;
+      }
+      markUnsaved();
+    });
+    assetTreatmentFields.cashReserve?.fixedReserveAmount?.addEventListener("change", function () {
+      clampCashReserveFields(assetTreatmentFields);
+      markUnsaved();
+    });
+    assetTreatmentFields.cashReserve?.expenseBasis?.addEventListener("change", markUnsaved);
+    assetTreatmentFields.cashReserve?.applyToAssetScope?.addEventListener("change", markUnsaved);
+    assetTreatmentFields.cashReserve?.excludeEmergencyFundAssets?.addEventListener("change", markUnsaved);
 
     Object.keys(existingCoverageFields.values || {}).forEach(function (fieldPath) {
       const fieldsForPath = getExistingCoverageFieldControls(existingCoverageFields, fieldPath);

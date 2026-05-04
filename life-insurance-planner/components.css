@@ -12574,8 +12574,72 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   font-size: 0.68rem;
 }
 
+.analysis-setup-cash-reserve-controls {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1fr) repeat(3, minmax(8rem, 0.42fr));
+  align-items: start;
+  gap: 0.58rem;
+  min-width: 0;
+  padding: 0.44rem;
+  border: 1px solid rgba(211, 219, 231, 0.92);
+  border-radius: 0.38rem;
+  background: #f8fafc;
+}
+
+.analysis-setup-cash-reserve-copy {
+  min-width: 0;
+}
+
+.analysis-setup-cash-reserve-copy p {
+  margin: 0.14rem 0 0;
+  color: #627086;
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.analysis-setup-cash-reserve-switch,
+.analysis-setup-cash-reserve-field,
+.analysis-setup-cash-reserve-checkbox {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  color: #17202c;
+  font-size: 0.66rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.analysis-setup-cash-reserve-switch {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.analysis-setup-cash-reserve-checkbox {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  line-height: 1.18;
+}
+
+.analysis-setup-cash-reserve-field select,
+.analysis-setup-cash-reserve-field input {
+  width: 100%;
+}
+
+.analysis-setup-cash-reserve-field small {
+  color: #627086;
+  font-size: 0.6rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.analysis-setup-cash-reserve-number {
+  min-height: 1.56rem;
+  font-size: 0.68rem;
+}
+
 @media (max-width: 900px) {
-  .analysis-setup-asset-growth-projection-controls {
+  .analysis-setup-asset-growth-projection-controls,
+  .analysis-setup-cash-reserve-controls {
     grid-template-columns: 1fr;
     align-items: stretch;
   }

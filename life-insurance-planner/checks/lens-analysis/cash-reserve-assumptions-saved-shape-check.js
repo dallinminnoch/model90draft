@@ -376,10 +376,10 @@ assert.equal(savedFieldsResult.value.cashReserveAssumptions.consumptionStatus, "
 assert.equal(savedFieldsResult.value.cashReserveAssumptions.source, "analysis-setup");
 
 const analysisSetupHtml = readRepoFile("pages/analysis-setup.html");
-assert.doesNotMatch(
+assert.match(
   analysisSetupHtml,
-  /data-analysis-cash-reserve|cashReserveAssumptions|Cash Reserve Assumptions/i,
-  "No visible Analysis Setup cash reserve controls should be added in this hidden saved-shape pass"
+  /data-analysis-cash-reserve-controls|Cash Reserve Assumptions/i,
+  "Visible cash reserve controls may exist, but saved-shape behavior should remain normalized and output-neutral"
 );
 
 [
