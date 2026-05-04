@@ -1359,9 +1359,20 @@ body.analysis-setup-assumptions-open {
 
 .analysis-setup-view-frame {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(11.5rem, 13.75rem) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: clamp(0.62rem, 1vw, 0.9rem);
   min-height: 0;
   overflow: hidden;
+}
+
+.analysis-setup-view-nav {
+  display: grid;
+  align-content: start;
+  gap: 0.38rem;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .analysis-setup-panel-body {
@@ -1406,9 +1417,8 @@ body.analysis-setup-assumptions-open {
 .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack,
 .analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-left-stack {
   grid-template-columns:
-    minmax(19rem, 0.95fr)
-    minmax(22rem, 1.45fr)
-    minmax(19rem, 0.95fr);
+    minmax(18rem, 0.95fr)
+    minmax(20rem, 1.05fr);
   align-items: start;
   column-gap: clamp(0.75rem, 1.45vw, 1.75rem);
   row-gap: clamp(0.72rem, 1vw, 1rem);
@@ -1450,8 +1460,8 @@ body.analysis-setup-assumptions-open {
 .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns,
 .analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--policy-returns {
   order: 5;
-  grid-column: 3;
-  grid-row: 1 / span 3;
+  grid-column: 2;
+  grid-row: 2 / span 3;
 }
 
 body.lens-workflow-page.workspace-side-nav-collapsed .analysis-setup-panel-grid,
@@ -1543,6 +1553,15 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
   .lens-assumptions-dialog {
     width: min(96vw, 64rem);
     height: min(94vh, 58rem);
+  }
+
+  .analysis-setup-view-frame {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .analysis-setup-view-nav {
+    overflow: visible;
   }
 
   .analysis-setup-panel-grid {

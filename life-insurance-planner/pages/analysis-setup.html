@@ -142,14 +142,14 @@
             </header>
 
             <div class="analysis-setup-view-frame">
-              <div class="analysis-setup-view-tabs" role="group" aria-label="Analysis Setup views">
-                <button class="analysis-setup-view-tab" type="button" data-analysis-setup-view-tab="calculation" aria-pressed="true" data-active="true">Calculation Assumptions</button>
-                <button class="analysis-setup-view-tab" type="button" data-analysis-setup-view-tab="offset" aria-pressed="false">Offset &amp; Balance Sheet Treatment</button>
-                <button class="analysis-setup-view-tab" type="button" data-analysis-setup-view-tab="planning" aria-pressed="false">Planning Goals &amp; Guardrails</button>
-              </div>
+              <nav class="analysis-setup-view-nav" aria-label="Assumption sections">
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" aria-pressed="true" data-active="true">Calculation Assumptions</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" aria-pressed="false">Offset &amp; Balance Sheet Treatment</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" aria-pressed="false">Planning Goals &amp; Guardrails</button>
+              </nav>
 
               <div class="analysis-setup-panel-body">
-                <div class="analysis-setup-panel-grid" data-analysis-setup-view-grid data-analysis-setup-scroll-mode="true" data-analysis-setup-current-view="calculation">
+                <div class="analysis-setup-panel-grid" data-analysis-setup-view-grid data-analysis-setup-current-view="calculation">
                 <div class="analysis-setup-left-stack" data-analysis-setup-view-panel="calculation" data-active="true">
                   <section class="analysis-setup-control-group analysis-setup-control-group--inflation" aria-labelledby="analysis-setup-inflation">
                   <div class="analysis-setup-method-header">
@@ -461,7 +461,7 @@
 
                 </div>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-view-panel="offset">
+                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-view-panel="offset" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-asset-treatment">Asset Treatment</h3>
                     <p>Set how treated asset offsets are prepared from raw asset values. Asset values are still collected in Protection Modeling Inputs.</p>
@@ -568,7 +568,7 @@
                   </div>
                 </section>
 
-                <div class="analysis-setup-treatment-row" data-analysis-setup-view-panel="offset">
+                <div class="analysis-setup-treatment-row" data-analysis-setup-view-panel="offset" data-active="false" hidden>
                   <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
@@ -736,7 +736,7 @@
                   </section>
                 </div>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-view-panel="planning">
+                <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-view-panel="planning" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-survivor-support-treatment">Survivor &amp; Support Assumptions</h3>
                     <p>PMI captures current spouse income facts. These assumptions control how survivor income is treated after death. Balanced assumes the survivor continues working with a temporary 25% reduction and a 3-month income delay.</p>
@@ -928,7 +928,7 @@
                   <p class="analysis-setup-survivor-preview-note">LENS uses Analysis Setup survivor assumptions with raw spouse income from PMI/profile. Survivor income growth and horizon are saved for future projections.</p>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning">
+                <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-education-treatment">Education Assumptions</h3>
                     <p>Current LENS uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
@@ -1018,7 +1018,7 @@
                   <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current LENS may use education funding, projected dependents, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning">
+                <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-recommendation-guardrails">Recommendation Guardrails</h3>
                     <p>Set how future LENS recommendations should be shaped and risk-flagged. These settings are saved for future recommendation logic and are not applied to current DIME, LENS, or HLV results yet.</p>

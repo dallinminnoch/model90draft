@@ -3434,7 +3434,7 @@
     (viewPanels || []).forEach(function (panel) {
       const panelView = normalizeAnalysisSetupView(panel.getAttribute("data-analysis-setup-view-panel"));
       const isSelected = panelView === selectedView;
-      panel.hidden = false;
+      panel.hidden = !isSelected;
       panel.dataset.active = isSelected ? "true" : "false";
     });
 
@@ -3449,7 +3449,7 @@
 
   function bindAnalysisSetupViewScrollSync(viewTabs, viewPanels, viewGrid) {
     const scrollContainer = getAnalysisSetupScrollContainer(viewGrid);
-    if (!scrollContainer || !viewPanels?.length) {
+    if (!scrollContainer || !viewPanels?.length || viewGrid?.dataset.analysisSetupScrollMode !== "true") {
       return;
     }
 
