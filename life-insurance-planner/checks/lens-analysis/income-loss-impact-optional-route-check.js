@@ -164,6 +164,21 @@ assert.doesNotMatch(
   /income-loss-impact\.html/,
   "App config should not make Income Loss Impact part of the primary required sequence."
 );
+assert.doesNotMatch(
+  appConfigSource,
+  /analysis-detail\.html/,
+  "App config should not make Detailed Analysis part of the primary required sequence."
+);
+assert.doesNotMatch(
+  lensWorkflowSource,
+  /analysis-detail\.html/,
+  "Detailed Analysis should not be part of the active LENS workflow progress sequence."
+);
+assert.doesNotMatch(
+  workspaceSideNavSource,
+  /\{ id: "detail", label: "Detailed Analysis", path: "analysis-detail\.html"/,
+  "Workspace side nav should not expose Detailed Analysis as an active LENS workflow destination."
+);
 
 assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
@@ -177,9 +192,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-setup.js",
   "pages/income-loss-impact.html",
   "app/features/lens-analysis/income-loss-impact-display.js",
-  "lens-workflow.js",
-  "app/core/config.js",
-  "workspace-side-nav.js",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/simple-needs-entry.html",

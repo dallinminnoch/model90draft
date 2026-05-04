@@ -194,8 +194,7 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs
 const protectedChanges = getChangedFiles([
   "pages/dime-entry.html",
   "pages/dime-results.html",
-  "pages/profile.html",
-  "workspace-side-nav.js"
+  "pages/profile.html"
 ]);
 assert.deepEqual(
   protectedChanges,

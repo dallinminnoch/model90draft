@@ -156,13 +156,12 @@ const protectedChanges = getChangedFiles([
   "pages/hlv-results.html",
   "pages/dime-results.html",
   "pages/profile.html",
-  "pages/analysis-estimate.html",
-  "workspace-side-nav.js"
+  "pages/analysis-estimate.html"
 ]);
 assert.deepEqual(
   protectedChanges,
   [],
-  "No Step 3, model-builder, adapter, selector, HLV results, DIME, profile, estimate, or side-nav files should be changed."
+  "No Step 3, model-builder, adapter, selector, HLV results, DIME, profile, or estimate files should be changed."
 );
 
 console.log("hlv-entry-page-check passed");

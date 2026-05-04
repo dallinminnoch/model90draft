@@ -151,15 +151,12 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "pages/analysis-setup.html",
-  "app/features/lens-analysis/analysis-setup.js",
-  "lens-workflow.js",
-  "workspace-side-nav.js",
-  "app/core/config.js"
+  "app/features/lens-analysis/analysis-setup.js"
 ]);
 assert.deepEqual(
   protectedChanges,
   [],
-  "Quick picker adoption should not change LENS profile, result pages, DIME pages, HLV pages, selector, methods, Step 3, Analysis Setup, workflow, side-nav, or config files."
+  "Quick picker adoption should not change LENS profile, result pages, DIME pages, HLV pages, selector, methods, Step 3, or Analysis Setup files."
 );
 
 console.log("quick-linked-profile-picker-check passed");

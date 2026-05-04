@@ -173,8 +173,7 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-human-life-value-analysis]")'));
 
 const protectedChanges = getChangedFiles([
-  "pages/profile.html",
-  "workspace-side-nav.js"
+  "pages/profile.html"
 ]);
 assert.deepEqual(
   protectedChanges,

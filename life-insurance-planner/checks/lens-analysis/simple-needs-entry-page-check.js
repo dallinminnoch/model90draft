@@ -171,13 +171,12 @@ const protectedChanges = getChangedFiles([
   "pages/dime-results.html",
   "pages/hlv-results.html",
   "pages/profile.html",
-  "pages/analysis-estimate.html",
-  "workspace-side-nav.js"
+  "pages/analysis-estimate.html"
 ]);
 assert.deepEqual(
   protectedChanges,
   [],
-  "Simple Needs selector activation should not change methods, display initializer, Step 3, model builder, adapter, result page, DIME pages, HLV pages, profile, estimate, or side-nav files."
+  "Simple Needs selector activation should not change methods, display initializer, Step 3, model builder, adapter, result page, DIME pages, HLV pages, profile, or estimate files."
 );
 
 console.log("simple-needs-entry-page-check passed");

@@ -136,6 +136,7 @@ assert.doesNotMatch(lensHtml, /runSimpleNeedsAnalysis/);
 
 assert.match(workspaceSideNavSource, /lens: "lens\.html"/);
 assert.match(workspaceSideNavSource, /lens: "studio\.html\?view=lens\.html"/);
+assert.doesNotMatch(workspaceSideNavSource, /path: "analysis-detail\.html"/);
 
 assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
@@ -159,8 +160,7 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/lens-model-builder.js",
-  "pages/analysis-setup.html",
-  "workspace-side-nav.js"
+  "pages/analysis-setup.html"
 ]);
 assert.deepEqual(protectedChanges, [], "No Step 3, Analysis Setup, model-builder, estimate page, or side-nav files should be changed.");
 
