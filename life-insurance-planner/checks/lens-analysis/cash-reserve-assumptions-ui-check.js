@@ -449,8 +449,7 @@ assert.doesNotMatch(
 );
 [
   "app/features/lens-analysis/asset-treatment-calculations.js",
-  "app/features/lens-analysis/analysis-methods.js",
-  "app/features/lens-analysis/step-three-analysis-display.js"
+  "app/features/lens-analysis/analysis-methods.js"
 ].forEach(function (relativePath) {
   assert.doesNotMatch(
     readRepoFile(relativePath),
@@ -458,5 +457,22 @@ assert.doesNotMatch(
     `${relativePath} should not consume or render cash reserve assumptions as active output`
   );
 });
+
+const stepThreeSource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
+assert.match(
+  stepThreeSource,
+  /renderCashReserveProjectionReportingDetail/,
+  "Step 3 may render cashReserveProjection as reporting-only display"
+);
+assert.match(
+  stepThreeSource,
+  /Reporting only \/ none; DIME, Needs, and HLV outputs are unaffected/,
+  "Step 3 cash reserve display should stay current-output neutral"
+);
+assert.doesNotMatch(
+  stepThreeSource,
+  /\bcashReserveAssumptions\b|calculateCashReserveProjection|cash-reserve-calculations|\breserveAdjusted\b|methodConsumedReserve|consumedByMethods:\s*true[^}]*cashReserve/i,
+  "Step 3 should not consume cash reserve assumptions or prepare active reserve-adjusted offsets"
+);
 
 console.log("cash-reserve-assumptions-ui-check passed");

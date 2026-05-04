@@ -459,10 +459,15 @@ assert.deepEqual(
 });
 
 const stepThreeSource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
+assert.match(
+  stepThreeSource,
+  /renderCashReserveProjectionReportingDetail/,
+  "Step 3 may render cashReserveProjection as reporting-only display after model prep"
+);
 assert.doesNotMatch(
   stepThreeSource,
-  /cashReserveProjection|calculateCashReserveProjection|cash-reserve-calculations/,
-  "Step 3 should not render or calculate cash reserve projection in this pass"
+  /calculateCashReserveProjection|cash-reserve-calculations/,
+  "Step 3 should not calculate cash reserve projection"
 );
 
 const modelBuilderSource = readRepoFile("app/features/lens-analysis/lens-model-builder.js");

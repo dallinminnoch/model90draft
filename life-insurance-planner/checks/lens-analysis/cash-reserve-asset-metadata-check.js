@@ -241,8 +241,7 @@ assertReserveMetadata(
   "app/features/lens-analysis/asset-treatment-calculations.js",
   "app/features/lens-analysis/asset-growth-projection-calculations.js",
   "app/features/lens-analysis/lens-model-builder.js",
-  "app/features/lens-analysis/analysis-methods.js",
-  "app/features/lens-analysis/step-three-analysis-display.js"
+  "app/features/lens-analysis/analysis-methods.js"
 ].forEach(function (relativePath) {
   assert.doesNotMatch(
     readRepoFile(relativePath),
@@ -250,6 +249,23 @@ assertReserveMetadata(
     `${relativePath} should not consume reserve metadata in this metadata-only pass`
   );
 });
+
+const stepThreeSource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
+assert.match(
+  stepThreeSource,
+  /renderCashReserveProjectionReportingDetail/,
+  "Step 3 may render prepared cash reserve metadata summaries as reporting-only display"
+);
+assert.match(
+  stepThreeSource,
+  /reserve role:/,
+  "Step 3 cash reserve display may format reserve metadata already present on model summaries"
+);
+assert.doesNotMatch(
+  stepThreeSource,
+  /assetTaxonomy|assetLibrary|calculateCashReserveProjection|cash-reserve-calculations/,
+  "Step 3 should not look up or calculate reserve metadata"
+);
 
 const analysisSettings = {
   assetTreatmentAssumptions: {

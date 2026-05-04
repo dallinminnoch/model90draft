@@ -1277,6 +1277,163 @@
     `;
   }
 
+  function formatCashReserveMode(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "reportingOnly") {
+      return "Reporting only";
+    }
+
+    if (normalized === "methodActiveFuture") {
+      return "Future method activation inactive";
+    }
+
+    return normalized || "Not set";
+  }
+
+  function formatCashReserveMethod(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "monthsOfEssentialExpenses") {
+      return "Months of essential expenses";
+    }
+
+    if (normalized === "fixedDollarAmount") {
+      return "Fixed dollar amount";
+    }
+
+    return normalized || "Not set";
+  }
+
+  function formatCashReserveExpenseBasis(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "essentialSupport") {
+      return "Essential support only";
+    }
+
+    if (normalized === "essentialPlusHealthcare") {
+      return "Essential + healthcare";
+    }
+
+    if (normalized === "essentialPlusHealthcareAndDiscretionary") {
+      return "Essential + healthcare + discretionary";
+    }
+
+    return normalized || "Not set";
+  }
+
+  function formatCashReserveAssetScope(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "cashAndCashEquivalents") {
+      return "Cash and cash equivalents";
+    }
+
+    if (normalized === "liquidAssetsFuture") {
+      return "Liquid assets - future / inactive";
+    }
+
+    if (normalized === "selectedAssetsFuture") {
+      return "Selected assets - future / inactive";
+    }
+
+    return normalized || "Not set";
+  }
+
+  function getCashReserveProjectionStatus(cashReserveProjection) {
+    const mode = String(cashReserveProjection?.mode || "").trim();
+    if (mode === "methodActiveFuture") {
+      return "Future method activation is inactive; reserve values are reporting only and not used in current outputs";
+    }
+
+    if (cashReserveProjection?.enabled !== true) {
+      return "Disabled; reporting-only trace and no current output impact";
+    }
+
+    return "Reporting only; reserve values are not used in current DIME, Needs, or HLV outputs";
+  }
+
+  function getCashReserveWarningSummary(cashReserveProjection) {
+    const warnings = Array.isArray(cashReserveProjection?.warnings)
+      ? cashReserveProjection.warnings
+      : [];
+    const messages = warnings
+      .map(getTraceWarningMessage)
+      .filter(Boolean);
+
+    return messages.length ? messages.join("; ") : "None";
+  }
+
+  function renderCashReserveAssetSummaryList(title, assets) {
+    const summaries = Array.isArray(assets) ? assets : [];
+    if (!summaries.length) {
+      return "";
+    }
+
+    return `
+      <p class="analysis-result-copy"><strong>${escapeHtml(title)}</strong></p>
+      <ul class="analysis-result-list">
+        ${summaries.map(function (asset) {
+          const label = asset?.label || asset?.typeKey || asset?.categoryKey || "Asset";
+          const warnings = Array.isArray(asset?.warnings)
+            ? asset.warnings.map(getTraceWarningMessage).filter(Boolean)
+            : [];
+          const parts = [
+            `${formatCurrency(asset?.value)} value`,
+            asset?.classification ? `classification: ${asset.classification}` : "",
+            asset?.reserveRole ? `reserve role: ${asset.reserveRole}` : "",
+            asset?.reserveTreatmentDefault ? `default: ${asset.reserveTreatmentDefault}` : "",
+            warnings.length ? `warnings: ${warnings.join("; ")}` : ""
+          ].filter(Boolean);
+
+          return `<li><span>${escapeHtml(label)}</span><strong>${escapeHtml(parts.join("; "))}</strong></li>`;
+        }).join("")}
+      </ul>
+    `;
+  }
+
+  function renderCashReserveProjectionReportingDetail(lensModel) {
+    const cashReserveProjection = isPlainObject(lensModel?.cashReserveProjection)
+      ? lensModel.cashReserveProjection
+      : null;
+    if (!cashReserveProjection) {
+      return "";
+    }
+
+    const rows = [
+      { label: "Status / enabled state", value: getCashReserveProjectionStatus(cashReserveProjection) },
+      { label: "Mode", value: formatCashReserveMode(cashReserveProjection.mode) },
+      { label: "Reserve method", value: formatCashReserveMethod(cashReserveProjection.reserveMethod) },
+      { label: "Expense basis", value: formatCashReserveExpenseBasis(cashReserveProjection.expenseBasis) },
+      { label: "Monthly reserve basis", value: formatCurrency(cashReserveProjection.monthlyReserveBasis) },
+      { label: "Required reserve amount", value: formatCurrency(cashReserveProjection.requiredReserveAmount) },
+      { label: "Emergency fund reserved", value: formatCurrency(cashReserveProjection.emergencyFundReservedAmount) },
+      { label: "Cash equivalent value", value: formatCurrency(cashReserveProjection.totalCashEquivalentValue) },
+      { label: "Cash available above reserve", value: formatCurrency(cashReserveProjection.cashAvailableAboveReserve) },
+      { label: "Total reserved amount", value: formatCurrency(cashReserveProjection.totalReservedAmount) },
+      { label: "Total available after reserve", value: formatCurrency(cashReserveProjection.totalAvailableAfterReserve) },
+      { label: "Exclude emergency fund assets", value: formatBooleanDetail(cashReserveProjection.excludeEmergencyFundAssets) },
+      { label: "Apply-to asset scope", value: formatCashReserveAssetScope(cashReserveProjection.applyToAssetScope) },
+      { label: "Consumed by methods", value: cashReserveProjection.consumedByMethods === true ? "Yes" : "No" },
+      { label: "Current output impact", value: "Reporting only / none; DIME, Needs, and HLV outputs are unaffected" },
+      { label: "Current asset offsets", value: "Current asset offsets remain current-dollar/current treatment based" },
+      { label: "Reserve-adjusted offsets", value: "Not active in current methods; no recommendation is reduced by cash reserve projection" },
+      { label: "Warning summary", value: getCashReserveWarningSummary(cashReserveProjection) }
+    ];
+
+    if (cashReserveProjection.reserveMethod === "monthsOfEssentialExpenses") {
+      rows.splice(5, 0, { label: "Reserve months", value: formatMonths(cashReserveProjection.reserveMonths) });
+    }
+
+    if (cashReserveProjection.reserveMethod === "fixedDollarAmount") {
+      rows.splice(5, 0, { label: "Fixed reserve amount", value: formatCurrency(cashReserveProjection.fixedReserveAmount) });
+    }
+
+    return `
+      ${renderProjectionDetailSection("Cash Reserve Projection — Reporting Only", rows)}
+      ${renderCashReserveAssetSummaryList("Cash Reserve Included Assets", cashReserveProjection.includedAssets)}
+      ${renderCashReserveAssetSummaryList("Cash Reserve Excluded Assets", cashReserveProjection.excludedAssets)}
+      ${renderCashReserveAssetSummaryList("Cash Reserve Review Assets", cashReserveProjection.reviewAssets)}
+    `;
+  }
+
   function formatFinalExpenseSourceMode(finalExpenseTrace) {
     const sourceMode = String(getTraceInput(finalExpenseTrace, "sourceMode") || "").trim();
     if (sourceMode === "expenseFacts-final-expense-components") {
@@ -1379,6 +1536,7 @@
       renderNeedsEducationInflationDetail(needsResult),
       renderNeedsFinalExpenseProjectionDetail(needsResult),
       renderNeedsHealthcareExpenseProjectionDetail(needsResult),
+      renderCashReserveProjectionReportingDetail(lensModel),
       renderProjectedAssetGrowthReportingDetail(lensModel)
     ].filter(Boolean);
 
