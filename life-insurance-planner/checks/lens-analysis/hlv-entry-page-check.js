@@ -124,12 +124,12 @@ assert.doesNotMatch(hlvCard, /hlv-results\.html/);
 
 assert.match(analysisMethodsSource, /function runHumanLifeValueAnalysis\(/);
 assert.match(analysisMethodsSource, /method: "humanLifeValue"/);
-assert.doesNotMatch(analysisMethodsSource, /runSimpleNeedsAnalysis/);
-assert.doesNotMatch(analysisMethodsSource, /method: "simpleNeeds"/);
+assert.match(analysisMethodsSource, /function runSimpleNeedsAnalysis\(/);
+assert.match(analysisMethodsSource, /method: "simpleNeeds"/);
+assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysis\(lensModel, settings\)/);
 assert.match(stepThreeDisplaySource, /function renderHumanLifeValueResult\(/);
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
@@ -143,7 +143,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No method, Step 3, model-builder, adapter, selector, HLV results, DIME, profile, estimate, or side-nav files should be changed."
+  "No Step 3, model-builder, adapter, selector, HLV results, DIME, profile, estimate, or side-nav files should be changed."
 );
 
 console.log("hlv-entry-page-check passed");

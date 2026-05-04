@@ -126,14 +126,14 @@ assert.match(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
 assert.match(analysisMethodsSource, /method: "dime"/);
 assert.match(analysisMethodsSource, /method: "needsAnalysis"/);
 assert.match(analysisMethodsSource, /method: "humanLifeValue"/);
+assert.match(analysisMethodsSource, /function runSimpleNeedsAnalysis\(/);
+assert.match(analysisMethodsSource, /method: "simpleNeeds"/);
 assert.match(analysisMethodsSource, /dime: runDimeAnalysis\(lensModel, settings\)/);
 assert.match(analysisMethodsSource, /needsAnalysis: runNeedsAnalysis\(lensModel, settings\)/);
 assert.match(analysisMethodsSource, /humanLifeValue: runHumanLifeValueAnalysis\(lensModel, settings\)/);
-assert.doesNotMatch(analysisMethodsSource, /method: "simpleNeeds"/);
-assert.doesNotMatch(analysisMethodsSource, /runSimpleNeedsAnalysis/);
+assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysis\(lensModel, settings\)/);
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/lens-model-builder.js",
@@ -141,6 +141,6 @@ const protectedChanges = getChangedFiles([
   "pages/analysis-setup.html",
   "workspace-side-nav.js"
 ]);
-assert.deepEqual(protectedChanges, [], "No method, Step 3, Analysis Setup, model-builder, estimate page, or side-nav files should be changed.");
+assert.deepEqual(protectedChanges, [], "No Step 3, Analysis Setup, model-builder, estimate page, or side-nav files should be changed.");
 
 console.log("lens-start-selection-page-check passed");

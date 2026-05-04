@@ -252,7 +252,9 @@ assert.match(analysisMethodsSource, /method: "needsAnalysis"/);
 assert.match(analysisSettingsAdapterSource, /needsAnalysisSettings/);
 assert.doesNotMatch(analysisMethodsSource, /method: "lens"/);
 assert.doesNotMatch(analysisMethodsSource, /runLensAnalysis/);
-assert.doesNotMatch(analysisMethodsSource, /simpleNeeds/);
+assert.match(analysisMethodsSource, /function runSimpleNeedsAnalysis\(/);
+assert.match(analysisMethodsSource, /method: "simpleNeeds"/);
+assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysis\(lensModel, settings\)/);
 assert.doesNotMatch(analysisSettingsAdapterSource, /lensSettings/);
 assert.doesNotMatch(analysisSettingsAdapterSource, /simpleNeeds/);
 
@@ -303,7 +305,21 @@ assert.equal(hlvResult.method, "humanLifeValue");
 assert.equal(hlvResult.grossHumanLifeValue, 2000000);
 assert.equal(hlvResult.netCoverageGap, 1900000);
 assert.equal(lensAnalysis.analysisMethods.runLensAnalysis, undefined);
-assert.equal(lensAnalysis.analysisMethods.runSimpleNeedsAnalysis, undefined);
+assert.equal(typeof lensAnalysis.analysisMethods.runSimpleNeedsAnalysis, "function");
+
+const methodOutputs = lensAnalysis.analysisMethods.runAnalysisMethods(lensModel, {
+  dimeIncomeYears: 10,
+  needsSupportDurationYears: 10,
+  hlvProjectionYears: 20,
+  includeExistingCoverageOffset: true,
+  includeOffsetAssets: true
+});
+assert.deepEqual(
+  Object.keys(methodOutputs).sort(),
+  ["dime", "humanLifeValue", "needsAnalysis"],
+  "runAnalysisMethods should not add a visible Simple Needs result yet."
+);
+assert.equal(methodOutputs.simpleNeeds, undefined);
 
 const stepThree = createStepThreeContext(lensModel, methodSettings);
 assert.match(stepThree.needsHtml, /LENS Analysis/);

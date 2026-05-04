@@ -157,8 +157,9 @@ assert.doesNotMatch(dimeCard, /dime-results\.html/);
 
 assert.match(analysisMethodsSource, /function runDimeAnalysis\(/);
 assert.match(analysisMethodsSource, /method: "dime"/);
-assert.doesNotMatch(analysisMethodsSource, /runSimpleNeedsAnalysis/);
-assert.doesNotMatch(analysisMethodsSource, /method: "simpleNeeds"/);
+assert.match(analysisMethodsSource, /function runSimpleNeedsAnalysis\(/);
+assert.match(analysisMethodsSource, /method: "simpleNeeds"/);
+assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysis\(lensModel, settings\)/);
 
 assert.match(stepThreeDisplaySource, /function renderDimeResult\(/);
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-dime-analysis]")'));
@@ -166,7 +167,6 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-human-life-value-analysis]")'));
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
@@ -177,7 +177,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No method, Step 3, model-builder, adapter, existing estimate, profile, or side-nav files should be changed."
+  "No Step 3, model-builder, adapter, existing estimate, profile, or side-nav files should be changed."
 );
 
 console.log("dime-results-page-check passed");

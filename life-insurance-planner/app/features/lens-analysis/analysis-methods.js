@@ -11,6 +11,16 @@
 
   const DEFAULT_DIME_INCOME_YEARS = 10;
   const DEFAULT_NEEDS_SUPPORT_DURATION_YEARS = 10;
+  const DEFAULT_SIMPLE_NEEDS_SETTINGS = Object.freeze({
+    supportYears: 10,
+    includeExistingCoverageOffset: true,
+    includeAssetOffsets: false,
+    includeDebtPayoff: true,
+    includeEssentialSupport: true,
+    includeEducation: true,
+    includeFinalExpenses: true,
+    source: "method-defaults"
+  });
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
   const ASSET_OFFSET_SOURCE_DISABLED = "disabled";
   const ASSET_OFFSET_SOURCE_ZERO = "zero";
@@ -2865,6 +2875,406 @@
     return annualValue * normalizedOptions.durationYears;
   }
 
+  function resolveSimpleNeedsSupportYears(settings, warnings) {
+    if (!hasOwn(settings, "supportYears")) {
+      return {
+        value: DEFAULT_SIMPLE_NEEDS_SETTINGS.supportYears,
+        source: "default-10-years",
+        sourcePaths: ["settings.supportYears"]
+      };
+    }
+
+    const supportYears = toOptionalNumber(settings.supportYears);
+    if (supportYears != null && supportYears >= 0) {
+      return {
+        value: supportYears,
+        source: "settings",
+        sourcePaths: ["settings.supportYears"]
+      };
+    }
+
+    addWarning(
+      warnings,
+      "invalid-simple-needs-support-years",
+      "Invalid Simple Needs support years setting; defaulted to 10 years.",
+      "warning",
+      ["settings.supportYears"]
+    );
+
+    return {
+      value: DEFAULT_SIMPLE_NEEDS_SETTINGS.supportYears,
+      source: "default-10-years",
+      sourcePaths: ["settings.supportYears"]
+    };
+  }
+
+  function createSimpleNeedsScalarComponent(options) {
+    const normalizedOptions = options && typeof options === "object" ? options : {};
+    const includeComponent = normalizedOptions.includeComponent !== false;
+    if (!includeComponent) {
+      return {
+        value: 0,
+        formula: "disabled by settings",
+        source: "settings",
+        inputs: {
+          included: false
+        },
+        sourcePaths: [normalizedOptions.settingSourcePath]
+      };
+    }
+
+    const value = normalizeComponentNumber({
+      value: getPath(normalizedOptions.model, normalizedOptions.sourcePath),
+      sourcePath: normalizedOptions.sourcePath,
+      warnings: normalizedOptions.warnings,
+      warnWhenMissing: true,
+      missingCode: normalizedOptions.missingCode,
+      missingMessage: normalizedOptions.missingMessage,
+      negativeCode: "negative-value-treated-as-zero",
+      negativeMessage: normalizedOptions.negativeMessage
+    });
+
+    return {
+      value,
+      formula: normalizedOptions.sourcePath,
+      source: normalizedOptions.sourcePath,
+      inputs: {
+        included: true,
+        value
+      },
+      sourcePaths: [normalizedOptions.sourcePath]
+    };
+  }
+
+  function createSimpleNeedsEssentialSupportComponent(model, supportYears, includeEssentialSupport, warnings) {
+    if (!includeEssentialSupport) {
+      return {
+        value: 0,
+        annualValue: 0,
+        formula: "disabled by settings",
+        source: "settings",
+        inputs: {
+          included: false,
+          supportYears
+        },
+        sourcePaths: ["settings.includeEssentialSupport"]
+      };
+    }
+
+    const annualSupport = normalizeNonNegativeNumber(
+      getPath(model, "ongoingSupport.annualTotalEssentialSupportCost"),
+      "ongoingSupport.annualTotalEssentialSupportCost",
+      warnings,
+      {
+        negativeCode: "negative-value-treated-as-zero",
+        negativeMessage: "annualTotalEssentialSupportCost was negative and was treated as 0 for Simple Needs."
+      }
+    );
+
+    if (annualSupport.hasValue) {
+      return {
+        value: annualSupport.value * supportYears,
+        annualValue: annualSupport.value,
+        formula: "annualTotalEssentialSupportCost x supportYears",
+        source: "ongoingSupport.annualTotalEssentialSupportCost",
+        inputs: {
+          included: true,
+          annualTotalEssentialSupportCost: annualSupport.value,
+          supportYears
+        },
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "settings.supportYears"]
+      };
+    }
+
+    const fallbackIncome = normalizeNonNegativeNumber(
+      getPath(model, "incomeBasis.annualIncomeReplacementBase"),
+      "incomeBasis.annualIncomeReplacementBase",
+      warnings,
+      {
+        negativeCode: "negative-value-treated-as-zero",
+        negativeMessage: "annualIncomeReplacementBase was negative and was treated as 0 for Simple Needs essential support fallback."
+      }
+    );
+
+    if (fallbackIncome.hasValue) {
+      addWarning(
+        warnings,
+        "simple-needs-essential-support-income-fallback-used",
+        "Simple Needs used annualIncomeReplacementBase because annualTotalEssentialSupportCost was missing.",
+        "warning",
+        ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase"]
+      );
+
+      return {
+        value: fallbackIncome.value * supportYears,
+        annualValue: fallbackIncome.value,
+        formula: "annualIncomeReplacementBase x supportYears",
+        source: "incomeBasis.annualIncomeReplacementBase",
+        inputs: {
+          included: true,
+          annualIncomeReplacementBase: fallbackIncome.value,
+          supportYears
+        },
+        sourcePaths: ["incomeBasis.annualIncomeReplacementBase", "settings.supportYears"]
+      };
+    }
+
+    addWarning(
+      warnings,
+      "missing-simple-needs-essential-support-basis",
+      "annualTotalEssentialSupportCost and annualIncomeReplacementBase were missing; Simple Needs essential support defaulted to 0.",
+      "warning",
+      ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase"]
+    );
+
+    return {
+      value: 0,
+      annualValue: null,
+      formula: "annualTotalEssentialSupportCost x supportYears",
+      source: "missing-default-zero",
+      inputs: {
+        included: true,
+        annualTotalEssentialSupportCost: null,
+        annualIncomeReplacementBase: null,
+        supportYears
+      },
+      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase", "settings.supportYears"]
+    };
+  }
+
+  function runSimpleNeedsAnalysis(lensModel, settings) {
+    const model = isPlainObject(lensModel) ? lensModel : {};
+    const normalizedSettings = isPlainObject(settings) ? settings : {};
+    const warnings = [];
+    const trace = [];
+    const supportYearsResult = resolveSimpleNeedsSupportYears(normalizedSettings, warnings);
+    const supportYears = supportYearsResult.value;
+    const includeExistingCoverageOffset = getBooleanSetting(
+      normalizedSettings,
+      "includeExistingCoverageOffset",
+      DEFAULT_SIMPLE_NEEDS_SETTINGS.includeExistingCoverageOffset
+    );
+    const includeAssetOffsets = normalizedSettings.includeAssetOffsets === true;
+    const includeDebtPayoff = getBooleanSetting(
+      normalizedSettings,
+      "includeDebtPayoff",
+      DEFAULT_SIMPLE_NEEDS_SETTINGS.includeDebtPayoff
+    );
+    const includeEssentialSupport = getBooleanSetting(
+      normalizedSettings,
+      "includeEssentialSupport",
+      DEFAULT_SIMPLE_NEEDS_SETTINGS.includeEssentialSupport
+    );
+    const includeEducation = getBooleanSetting(
+      normalizedSettings,
+      "includeEducation",
+      DEFAULT_SIMPLE_NEEDS_SETTINGS.includeEducation
+    );
+    const includeFinalExpenses = getBooleanSetting(
+      normalizedSettings,
+      "includeFinalExpenses",
+      DEFAULT_SIMPLE_NEEDS_SETTINGS.includeFinalExpenses
+    );
+    const settingsSource = typeof normalizedSettings.source === "string" && normalizedSettings.source.trim()
+      ? normalizedSettings.source.trim()
+      : DEFAULT_SIMPLE_NEEDS_SETTINGS.source;
+
+    addWarning(
+      warnings,
+      "simple-needs-current-dollar-only",
+      "Simple Needs uses current-dollar normalized fields only and does not consume advanced LENS projections or reporting-only traces.",
+      "info",
+      []
+    );
+
+    if (!includeAssetOffsets) {
+      addWarning(
+        warnings,
+        "simple-needs-asset-offsets-disabled-by-default",
+        "Asset offsets were not applied because Simple Needs only includes current-dollar treated asset offsets when includeAssetOffsets is true.",
+        "info",
+        ["settings.includeAssetOffsets", TREATED_ASSET_OFFSET_SOURCE_PATH]
+      );
+    }
+
+    const debtPayoffComponent = createSimpleNeedsScalarComponent({
+      model,
+      warnings,
+      includeComponent: includeDebtPayoff,
+      sourcePath: "debtPayoff.totalDebtPayoffNeed",
+      settingSourcePath: "settings.includeDebtPayoff",
+      missingCode: "missing-simple-needs-debt-payoff",
+      missingMessage: "totalDebtPayoffNeed was missing; Simple Needs debt payoff defaulted to 0.",
+      negativeMessage: "totalDebtPayoffNeed was negative and was treated as 0 for Simple Needs."
+    });
+    const essentialSupportComponent = createSimpleNeedsEssentialSupportComponent(
+      model,
+      supportYears,
+      includeEssentialSupport,
+      warnings
+    );
+    const educationComponent = createSimpleNeedsScalarComponent({
+      model,
+      warnings,
+      includeComponent: includeEducation,
+      sourcePath: "educationSupport.totalEducationFundingNeed",
+      settingSourcePath: "settings.includeEducation",
+      missingCode: "missing-simple-needs-education",
+      missingMessage: "totalEducationFundingNeed was missing; Simple Needs education defaulted to 0.",
+      negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for Simple Needs."
+    });
+    const finalExpensesComponent = createSimpleNeedsScalarComponent({
+      model,
+      warnings,
+      includeComponent: includeFinalExpenses,
+      sourcePath: "finalExpenses.totalFinalExpenseNeed",
+      settingSourcePath: "settings.includeFinalExpenses",
+      missingCode: "missing-simple-needs-final-expenses",
+      missingMessage: "totalFinalExpenseNeed was missing; Simple Needs final expenses defaulted to 0.",
+      negativeMessage: "totalFinalExpenseNeed was negative and was treated as 0 for Simple Needs."
+    });
+    const existingCoverageOffsetSelection = resolveExistingCoverageOffsetSelection({
+      model,
+      warnings,
+      includeExistingCoverageOffset,
+      methodLabel: "Simple Needs",
+      rawMissingCode: "simple-needs-existing-coverage-missing",
+      rawMissingMessage: "totalExistingCoverage was missing; Simple Needs existing coverage offset defaulted to 0.",
+      rawNegativeCode: "negative-value-treated-as-zero",
+      rawNegativeMessage: "totalExistingCoverage was negative and was treated as 0 for Simple Needs."
+    });
+    const existingCoverageOffset = existingCoverageOffsetSelection.value;
+    const assetOffsetSelection = resolveAssetOffsetSelection({
+      model,
+      warnings,
+      includeOffsetAssets: includeAssetOffsets,
+      methodLabel: "Simple Needs"
+    });
+    const assetOffset = assetOffsetSelection.value;
+    const grossNeed = debtPayoffComponent.value
+      + essentialSupportComponent.value
+      + educationComponent.value
+      + finalExpensesComponent.value;
+    const totalOffset = existingCoverageOffset + assetOffset;
+    const rawUncappedGap = grossNeed - totalOffset;
+    const netCoverageGap = Math.max(rawUncappedGap, 0);
+
+    trace.push(createTraceRow({
+      key: "debtPayoff",
+      label: "Debt Payoff",
+      formula: debtPayoffComponent.formula,
+      inputs: debtPayoffComponent.inputs,
+      value: debtPayoffComponent.value,
+      sourcePaths: debtPayoffComponent.sourcePaths
+    }));
+    trace.push(createTraceRow({
+      key: "essentialSupport",
+      label: "Essential Support",
+      formula: essentialSupportComponent.formula,
+      inputs: essentialSupportComponent.inputs,
+      value: essentialSupportComponent.value,
+      sourcePaths: essentialSupportComponent.sourcePaths
+    }));
+    trace.push(createTraceRow({
+      key: "education",
+      label: "Education",
+      formula: educationComponent.formula,
+      inputs: educationComponent.inputs,
+      value: educationComponent.value,
+      sourcePaths: educationComponent.sourcePaths
+    }));
+    trace.push(createTraceRow({
+      key: "finalExpenses",
+      label: "Final Expenses",
+      formula: finalExpensesComponent.formula,
+      inputs: finalExpensesComponent.inputs,
+      value: finalExpensesComponent.value,
+      sourcePaths: finalExpensesComponent.sourcePaths
+    }));
+    trace.push(createTraceRow({
+      key: "existingCoverageOffset",
+      label: "Existing Coverage Offset",
+      formula: existingCoverageOffsetSelection.formula,
+      inputs: createExistingCoverageOffsetTraceInputs(model, existingCoverageOffsetSelection),
+      value: existingCoverageOffset,
+      sourcePaths: existingCoverageOffsetSelection.sourcePaths
+    }));
+    trace.push(createTraceRow({
+      key: "assetOffset",
+      label: "Asset Offset",
+      formula: assetOffsetSelection.formula,
+      inputs: assetOffsetSelection.traceInputs,
+      value: assetOffset,
+      sourcePaths: assetOffsetSelection.sourcePaths
+    }));
+    trace.push(createTraceRow({
+      key: "grossNeed",
+      label: "Gross Simple Needs",
+      formula: "debtPayoff + essentialSupport + education + finalExpenses",
+      inputs: {
+        debtPayoff: debtPayoffComponent.value,
+        essentialSupport: essentialSupportComponent.value,
+        education: educationComponent.value,
+        finalExpenses: finalExpensesComponent.value
+      },
+      value: grossNeed,
+      sourcePaths: []
+    }));
+    trace.push(createTraceRow({
+      key: "netCoverageGap",
+      label: "Net Coverage Gap",
+      formula: "max(grossNeed - totalOffset, 0)",
+      inputs: {
+        grossNeed,
+        totalOffset
+      },
+      value: netCoverageGap,
+      sourcePaths: []
+    }));
+
+    return {
+      method: "simpleNeeds",
+      methodKey: "simpleNeeds",
+      label: "Simple Needs Analysis",
+      grossNeed,
+      netNeed: netCoverageGap,
+      coverageGap: netCoverageGap,
+      netCoverageGap,
+      rawUncappedGap,
+      components: {
+        debtPayoff: debtPayoffComponent.value,
+        essentialSupport: essentialSupportComponent.value,
+        education: educationComponent.value,
+        finalExpenses: finalExpensesComponent.value
+      },
+      commonOffsets: {
+        existingCoverageOffset,
+        assetOffset,
+        totalOffset
+      },
+      assumptions: {
+        source: settingsSource,
+        supportYears,
+        supportYearsSource: supportYearsResult.source,
+        currentDollarOnly: true,
+        includeExistingCoverageOffset,
+        includeAssetOffsets,
+        includeDebtPayoff,
+        includeEssentialSupport,
+        includeEducation,
+        includeFinalExpenses,
+        ...assetOffsetSelection.assumptionFields,
+        debtPayoffSource: debtPayoffComponent.source,
+        essentialSupportSource: essentialSupportComponent.source,
+        educationSource: educationComponent.source,
+        finalExpensesSource: finalExpensesComponent.source,
+        advancedLensAssumptionsConsumed: false
+      },
+      warnings,
+      trace
+    };
+  }
+
   function runDimeAnalysis(lensModel, settings) {
     const model = isPlainObject(lensModel) ? lensModel : {};
     const normalizedSettings = isPlainObject(settings) ? settings : {};
@@ -3895,7 +4305,9 @@
   }
 
   const analysisMethods = {
+    DEFAULT_SIMPLE_NEEDS_SETTINGS,
     runDimeAnalysis,
+    runSimpleNeedsAnalysis,
     runNeedsAnalysis,
     runHumanLifeValueAnalysis,
     runAnalysisMethods
