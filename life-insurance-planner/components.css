@@ -11968,8 +11968,22 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .analysis-setup-calculation-inclusion-list {
   display: grid;
-  gap: 0.32rem;
+  gap: 0.24rem;
   min-width: 0;
+}
+
+.analysis-setup-control-group--calculation-inclusion .analysis-setup-toggle-control {
+  min-height: 2.16rem;
+  padding: 0.34rem 0.48rem;
+}
+
+.analysis-setup-control-group--calculation-inclusion .settings-toggle-copy {
+  gap: 0.04rem;
+}
+
+.analysis-setup-control-group--calculation-inclusion .settings-toggle-note {
+  font-size: 0.66rem;
+  line-height: 1.18;
 }
 
 .analysis-setup-calculation-inclusion-note {

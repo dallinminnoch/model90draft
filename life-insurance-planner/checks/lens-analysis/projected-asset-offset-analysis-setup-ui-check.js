@@ -334,10 +334,12 @@ assert.match(inclusionSection, /settings-toggle-row analysis-setup-toggle-contro
 assert.match(inclusionSection, /settings-switch analysis-setup-mini-switch/);
 assert.match(inclusionSection, /data-analysis-projected-asset-offset-enabled/);
 assert.match(inclusionSection, /Use Projected Asset Offset in LENS/);
-assert.match(inclusionSection, /Requires Include Asset Offsets in Needs/);
-assert.match(inclusionSection, /treated eligible assets plus incremental projected growth/);
-assert.match(inclusionSection, /DIME, HLV, and Simple Needs are unchanged/);
-assert.match(inclusionSection, /Step 3 shows the effective offset, exclusions, and any fallback/);
+assert.match(inclusionSection, /Requires Asset Offsets in Needs\./);
+assert.doesNotMatch(inclusionSection, /subtract linked profile coverage as the current coverage offset/);
+assert.doesNotMatch(inclusionSection, /Turns asset offsets on or off for the LENS method only/);
+assert.doesNotMatch(inclusionSection, /treated eligible assets plus incremental projected growth/);
+assert.doesNotMatch(inclusionSection, /DIME, HLV, and Simple Needs are unchanged/);
+assert.doesNotMatch(inclusionSection, /Step 3 shows the effective offset, exclusions, and any fallback/);
 assert.ok(
   inclusionSection.indexOf("Use Projected Asset Offset in LENS")
     > inclusionSection.indexOf("Include Asset Offsets in Needs"),
