@@ -92,7 +92,7 @@
             <div class="lens-start-card-header">
               <div>
                 <h2 class="section-title" id="lens-analysis-type-heading">Select Analysis Path</h2>
-                <p class="helper-text">LENS is the advanced analysis available now. DIME, Simple Needs, and Human Life Value are planned as separate quick flows.</p>
+                <p class="helper-text">LENS is the advanced analysis available now. DIME is available as a quick flow. Simple Needs and Human Life Value are planned as separate quick flows.</p>
               </div>
             </div>
 
@@ -105,10 +105,10 @@
               </article>
 
               <article class="analysis-card" data-analysis-type-card="dime">
-                <div class="section-label">Quick flow coming soon</div>
+                <div class="section-label">Quick flow available</div>
                 <h3 class="card-title">DIME Analysis</h3>
-                <p class="card-copy">Fast estimate using debts, income, mortgage, and education.</p>
-                <button class="btn btn-secondary lens-start-button" type="button" disabled aria-disabled="true">Quick flow coming soon</button>
+                <p class="card-copy">Quick coverage estimate using debts, income, mortgage, and education. This quick flow does not use the LENS assumptions panel.</p>
+                <a class="btn btn-primary lens-start-button" href="dime-entry.html" data-dime-start-link>Start DIME Analysis</a>
               </article>
 
               <article class="analysis-card" data-analysis-type-card="simple-needs">
@@ -143,6 +143,7 @@
             <h3>Available today</h3>
             <ul class="lens-intake-side-list">
               <li><span class="lens-intake-mini-icon">LE</span><span>LENS Analysis with linked profile entry</span></li>
+              <li><span class="lens-intake-mini-icon">DI</span><span>DIME quick-flow entry and DIME-only result page</span></li>
               <li><span class="lens-intake-mini-icon">AS</span><span>LENS-only assumption controls</span></li>
               <li><span class="lens-intake-mini-icon">RE</span><span>Existing DIME, LENS, and HLV result comparison remains on the current result page</span></li>
             </ul>
@@ -151,13 +152,6 @@
           <section class="lens-intake-sidecard">
             <h3>Future quick flows</h3>
             <ul class="lens-intake-prompt-list">
-              <li>
-                <span class="lens-intake-mini-icon">DI</span>
-                <div>
-                  <strong>DIME Analysis</strong>
-                  <p>Separate quick path for the acronym-based estimate.</p>
-                </div>
-              </li>
               <li>
                 <span class="lens-intake-mini-icon">SN</span>
                 <div>
@@ -196,31 +190,37 @@
     (function () {
       const pageMenu = document.querySelector(".workspace-page-menu");
       const lensStartLinks = Array.from(document.querySelectorAll("[data-lens-start-link]"));
+      const dimeStartLinks = Array.from(document.querySelectorAll("[data-dime-start-link]"));
       const passthroughParams = ["caseRef", "profileCaseRef", "linkedCaseRef", "id"];
       const sourceParams = new URLSearchParams(window.location.search);
 
-      lensStartLinks.forEach(function (link) {
-        const nextParams = new URLSearchParams();
-        passthroughParams.forEach(function (key) {
-          const value = String(sourceParams.get(key) || "").trim();
-          if (value) {
-            nextParams.set(key, value);
+      function applyPassthroughParams(links, targetPage) {
+        links.forEach(function (link) {
+          const nextParams = new URLSearchParams();
+          passthroughParams.forEach(function (key) {
+            const value = String(sourceParams.get(key) || "").trim();
+            if (value) {
+              nextParams.set(key, value);
+            }
+          });
+
+          const caseRef = String(
+            sourceParams.get("caseRef")
+            || sourceParams.get("profileCaseRef")
+            || sourceParams.get("linkedCaseRef")
+            || ""
+          ).trim();
+          if (caseRef && !nextParams.has("caseRef")) {
+            nextParams.set("caseRef", caseRef);
           }
+
+          const queryString = nextParams.toString();
+          link.setAttribute("href", queryString ? `${targetPage}?${queryString}` : targetPage);
         });
+      }
 
-        const caseRef = String(
-          sourceParams.get("caseRef")
-          || sourceParams.get("profileCaseRef")
-          || sourceParams.get("linkedCaseRef")
-          || ""
-        ).trim();
-        if (caseRef && !nextParams.has("caseRef")) {
-          nextParams.set("caseRef", caseRef);
-        }
-
-        const queryString = nextParams.toString();
-        link.setAttribute("href", queryString ? `profile.html?${queryString}` : "profile.html");
-      });
+      applyPassthroughParams(lensStartLinks, "profile.html");
+      applyPassthroughParams(dimeStartLinks, "dime-entry.html");
 
       document.addEventListener("click", function (event) {
         if (!event.target.closest(".workspace-page-menu") && pageMenu) {

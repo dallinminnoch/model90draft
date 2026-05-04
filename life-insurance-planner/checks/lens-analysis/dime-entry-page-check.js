@@ -98,10 +98,13 @@ assert.doesNotMatch(dimeResultsHtml, /Cash Reserve Projection/);
 
 const dimeCard = getCardBlock(lensHtml, "dime");
 assert.match(dimeCard, /DIME Analysis/);
-assert.match(dimeCard, /Quick flow coming soon/);
-assert.match(dimeCard, /<button\b[^>]*\bdisabled\b/);
-assert.doesNotMatch(dimeCard, /href=/);
-assert.doesNotMatch(dimeCard, /dime-entry\.html/);
+assert.match(dimeCard, /Quick flow available/);
+assert.match(dimeCard, /Quick coverage estimate using debts, income, mortgage, and education\./);
+assert.match(dimeCard, /does not use the LENS assumptions panel/);
+assert.match(dimeCard, /Start DIME Analysis/);
+assert.match(dimeCard, /href="dime-entry\.html"/);
+assert.match(dimeCard, /data-dime-start-link/);
+assert.doesNotMatch(dimeCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(dimeCard, /dime-results\.html/);
 
 assert.match(analysisMethodsSource, /function runDimeAnalysis\(/);
@@ -116,7 +119,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/dime-results.html",
-  "pages/lens.html",
   "pages/profile.html",
   "pages/analysis-estimate.html",
   "workspace-side-nav.js"
@@ -124,7 +126,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No method, Step 3, model-builder, adapter, existing DIME results, lens, profile, estimate, or side-nav files should be changed."
+  "No method, Step 3, model-builder, adapter, existing DIME results, profile, estimate, or side-nav files should be changed."
 );
 
 console.log("dime-entry-page-check passed");

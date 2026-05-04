@@ -57,6 +57,10 @@ assert.match(
   lensHtml,
   /Start with LENS for the full advanced planning workflow, or choose a quicker standalone analysis path when available\./
 );
+assert.match(
+  lensHtml,
+  /DIME is available as a quick flow\. Simple Needs and Human Life Value are planned as separate quick flows\./
+);
 
 const lensCard = getCardBlock(lensHtml, "lens");
 const dimeCard = getCardBlock(lensHtml, "dime");
@@ -70,13 +74,18 @@ assert.match(lensCard, /Start LENS Analysis/);
 assert.deepEqual(getHrefValues(lensCard), ["profile.html"]);
 assert.match(lensCard, /data-lens-start-link/);
 
+assert.match(dimeCard, /DIME Analysis/);
+assert.match(dimeCard, /Quick flow available/);
+assert.match(dimeCard, /Quick coverage estimate using debts, income, mortgage, and education\./);
+assert.match(dimeCard, /does not use the LENS assumptions panel/);
+assert.match(dimeCard, /Start DIME Analysis/);
+assert.deepEqual(getHrefValues(dimeCard), ["dime-entry.html"]);
+assert.match(dimeCard, /data-dime-start-link/);
+assert.doesNotMatch(dimeCard, /Quick flow coming soon/);
+assert.doesNotMatch(dimeCard, /<button\b[^>]*\bdisabled\b/);
+assert.doesNotMatch(dimeCard, /dime-results\.html/);
+
 [
-  {
-    key: "DIME",
-    block: dimeCard,
-    title: /DIME Analysis/,
-    description: /Fast estimate using debts, income, mortgage, and education\./
-  },
   {
     key: "Simple Needs",
     block: simpleNeedsCard,
@@ -101,9 +110,14 @@ assert.match(lensCard, /data-lens-start-link/);
 assert.match(lensHtml, /const passthroughParams = \["caseRef", "profileCaseRef", "linkedCaseRef", "id"\]/);
 assert.match(lensHtml, /sourceParams\.get\("profileCaseRef"\)/);
 assert.match(lensHtml, /sourceParams\.get\("linkedCaseRef"\)/);
-assert.match(lensHtml, /link\.setAttribute\("href", queryString \? `profile\.html\?\$\{queryString\}` : "profile\.html"\)/);
+assert.match(lensHtml, /function applyPassthroughParams\(links, targetPage\)/);
+assert.match(lensHtml, /link\.setAttribute\("href", queryString \? `\$\{targetPage\}\?\$\{queryString\}` : targetPage\)/);
+assert.match(lensHtml, /applyPassthroughParams\(lensStartLinks, "profile\.html"\)/);
+assert.match(lensHtml, /applyPassthroughParams\(dimeStartLinks, "dime-entry\.html"\)/);
 assert.doesNotMatch(lensHtml, /data-lens-card/);
 assert.doesNotMatch(lensHtml, /needs-based result/);
+assert.doesNotMatch(lensHtml, /method: "simpleNeeds"/);
+assert.doesNotMatch(lensHtml, /runSimpleNeedsAnalysis/);
 
 assert.match(workspaceSideNavSource, /lens: "lens\.html"/);
 assert.match(workspaceSideNavSource, /lens: "studio\.html\?view=lens\.html"/);
