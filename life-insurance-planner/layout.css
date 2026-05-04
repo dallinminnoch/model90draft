@@ -1284,6 +1284,77 @@ body.lens-workflow-page {
   display: none;
 }
 
+.analysis-setup-entry-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(17rem, 0.65fr);
+  align-items: start;
+  gap: clamp(0.85rem, 1.35vw, 1.2rem);
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.analysis-setup-entry-main {
+  display: grid;
+  align-content: start;
+  gap: clamp(0.75rem, 1.1vw, 1rem);
+  min-width: 0;
+}
+
+.analysis-setup-entry-summary {
+  display: grid;
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.analysis-setup-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.58rem;
+}
+
+.lens-assumptions-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: clamp(0.8rem, 2vw, 1.5rem);
+  overflow: hidden;
+}
+
+.lens-assumptions-overlay[hidden] {
+  display: none !important;
+}
+
+.lens-assumptions-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(96vw, 112rem);
+  height: min(92vh, 58rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lens-assumptions-dialog-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.lens-assumptions-dialog-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lens-assumptions-dialog-body .analysis-setup-workspace {
+  height: 100%;
+}
+
 .analysis-setup-workspace {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -1476,6 +1547,15 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
 }
 
 @media (max-width: 860px) {
+  .analysis-setup-entry-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .lens-assumptions-dialog {
+    width: min(96vw, 64rem);
+    height: min(94vh, 58rem);
+  }
+
   .analysis-setup-panel-grid {
     grid-template-columns: 1fr;
   }

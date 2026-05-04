@@ -84,7 +84,7 @@
             <div class="analysis-setup-title-line">
               <div class="analysis-setup-eyebrow">Step 2</div>
               <span class="analysis-setup-title-dot" aria-hidden="true">&middot;</span>
-              <h1>Analysis Setup</h1>
+              <h1 id="analysis-setup-page-title">LENS Analysis Setup</h1>
               <span class="analysis-setup-title-dot" aria-hidden="true">&middot;</span>
               <span class="analysis-setup-linked-state" data-analysis-setup-linked-state>Resolving linked profile...</span>
             </div>
@@ -98,8 +98,45 @@
           </div>
         </header>
 
-        <section class="analysis-setup-workspace" aria-label="Analysis setup workspace">
-          <section class="analysis-setup-assumption-panel" aria-labelledby="analysis-setup-panel-title">
+        <section class="analysis-setup-entry-screen" data-analysis-setup-entry aria-labelledby="analysis-setup-page-title">
+          <div class="analysis-setup-entry-main">
+            <div class="analysis-setup-entry-kicker">Entry checkpoint</div>
+            <h2>Review assumptions before calculating the LENS result</h2>
+            <p>Use this screen to confirm the linked profile and review planning assumptions before proceeding to the LENS recommendation result.</p>
+            <div class="analysis-setup-entry-actions">
+              <button class="analysis-setup-action" type="button" data-lens-assumptions-open aria-controls="lens-assumptions-overlay">Review LENS Assumptions</button>
+              <button class="analysis-setup-action" type="button" data-lens-result-proceed data-analysis-setup-apply aria-describedby="analysis-setup-status">Proceed to LENS Result</button>
+            </div>
+          </div>
+          <div class="analysis-setup-entry-summary" aria-label="LENS setup readiness summary">
+            <article class="analysis-setup-entry-summary-card">
+              <span>Linked profile</span>
+              <strong data-analysis-setup-entry-linked-state>Uses the active client profile</strong>
+            </article>
+            <article class="analysis-setup-entry-summary-card">
+              <span>Assumptions</span>
+              <strong>Review before result</strong>
+            </article>
+            <article class="analysis-setup-entry-summary-card">
+              <span>Result path</span>
+              <strong>Proceeds to LENS only</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="lens-assumptions-overlay" id="lens-assumptions-overlay" data-lens-assumptions-overlay hidden aria-hidden="true">
+          <div class="lens-assumptions-dialog" data-lens-assumptions-dialog role="dialog" aria-modal="true" aria-labelledby="lens-assumptions-overlay-title">
+            <header class="lens-assumptions-dialog-header">
+              <div>
+                <div class="lens-assumptions-dialog-kicker">Planning Settings</div>
+                <h2 id="lens-assumptions-overlay-title">Review LENS Assumptions</h2>
+                <p>These controls define how linked profile facts are interpreted for LENS. Save keeps the overlay open; Save &amp; Exit will close the assumption workspace after a later behavior pass.</p>
+              </div>
+              <button class="lens-assumptions-close" type="button" data-lens-assumptions-close aria-label="Close LENS assumptions">Close</button>
+            </header>
+            <div class="lens-assumptions-dialog-body">
+              <section class="analysis-setup-workspace" aria-label="Analysis setup workspace">
+                <section class="analysis-setup-assumption-panel" aria-labelledby="analysis-setup-panel-title">
             <header class="analysis-setup-panel-header">
               <div>
                 <div class="analysis-setup-panel-kicker">Planning Settings</div>
@@ -1196,14 +1233,17 @@
               </div>
             </div>
 
-            <footer class="analysis-setup-panel-footer">
-              <span id="analysis-setup-status" data-analysis-setup-status aria-live="polite">Analysis Setup settings save to the linked profile.</span>
-              <div class="analysis-setup-action-row">
-                <button class="analysis-setup-action" type="button" data-analysis-setup-save disabled aria-describedby="analysis-setup-status">Save Assumptions</button>
-                <button class="analysis-setup-action" type="button" data-analysis-setup-apply disabled aria-describedby="analysis-setup-status">Apply &amp; Continue</button>
-              </div>
-            </footer>
-          </section>
+                  <footer class="analysis-setup-panel-footer">
+                    <span id="analysis-setup-status" data-analysis-setup-status aria-live="polite">Analysis Setup settings save to the linked profile.</span>
+                    <div class="analysis-setup-action-row">
+                      <button class="analysis-setup-action" type="button" data-analysis-setup-save data-lens-assumptions-save disabled aria-describedby="analysis-setup-status">Save</button>
+                      <button class="analysis-setup-action" type="button" data-lens-assumptions-save-exit disabled aria-describedby="analysis-setup-status">Save &amp; Exit</button>
+                    </div>
+                  </footer>
+                </section>
+              </section>
+            </div>
+          </div>
         </section>
       </section>
     </section>
