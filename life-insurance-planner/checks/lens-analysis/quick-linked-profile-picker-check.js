@@ -118,9 +118,19 @@ assert.match(simpleNeedsEntryHtml, /data-quick-profile-selected-card/);
 assert.match(simpleNeedsEntryHtml, /data-quick-profile-status/);
 assert.match(simpleNeedsEntryHtml, /aria-disabled="true"/);
 assert.match(simpleNeedsEntryHtml, /data-quick-profile-blocked="true"/);
-assert.doesNotMatch(hlvEntryHtml, /quick-linked-profile-picker\.js/);
-assert.doesNotMatch(hlvEntryHtml, /initQuickLinkedProfilePicker/);
-assert.doesNotMatch(hlvEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(hlvEntryHtml, /quick-linked-profile-picker\.js/);
+assert.match(hlvEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(hlvEntryHtml, /initQuickLinkedProfilePicker/);
+assert.match(hlvEntryHtml, /methodLabel: "Human Life Value"/);
+assert.match(hlvEntryHtml, /resultPagePath: "hlv-results\.html"/);
+assert.match(hlvEntryHtml, /allowedQueryKeys: passthroughParams/);
+assert.match(hlvEntryHtml, /continueLinkSelector: "\[data-hlv-results-link\]"/);
+assert.match(hlvEntryHtml, /data-quick-profile-search/);
+assert.match(hlvEntryHtml, /data-quick-profile-case-ref/);
+assert.match(hlvEntryHtml, /data-quick-profile-selected-card/);
+assert.match(hlvEntryHtml, /data-quick-profile-status/);
+assert.match(hlvEntryHtml, /aria-disabled="true"/);
+assert.match(hlvEntryHtml, /data-quick-profile-blocked="true"/);
 
 assert.match(analysisMethodsSource, /function runDimeAnalysis\(/);
 assert.match(analysisMethodsSource, /function runSimpleNeedsAnalysis\(/);
@@ -134,7 +144,6 @@ assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysi
 const protectedChanges = getChangedFiles([
   "pages/profile.html",
   "pages/simple-needs-results.html",
-  "pages/hlv-entry.html",
   "pages/hlv-results.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",

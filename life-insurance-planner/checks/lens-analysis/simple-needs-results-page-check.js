@@ -220,7 +220,6 @@ const protectedChanges = getChangedFiles([
   "pages/analysis-estimate.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
-  "pages/hlv-entry.html",
   "pages/hlv-results.html"
 ]);
 assert.deepEqual(

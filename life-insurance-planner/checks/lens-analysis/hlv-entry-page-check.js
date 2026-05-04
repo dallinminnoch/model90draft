@@ -53,6 +53,7 @@ const hlvResultsHtml = readRepoFile("pages/hlv-results.html");
 const dimeEntryHtml = readRepoFile("pages/dime-entry.html");
 const dimeResultsHtml = readRepoFile("pages/dime-results.html");
 const lensHtml = readRepoFile("pages/lens.html");
+const quickPickerSource = readRepoFile("app/features/lens-analysis/quick-linked-profile-picker.js");
 const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 const stepThreeDisplaySource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
 
@@ -62,11 +63,27 @@ assert.match(hlvEntryHtml, /Quick income-capitalization estimate\./);
 assert.match(hlvEntryHtml, /Link a client profile to generate an HLV-only result\./);
 assert.match(hlvEntryHtml, /does not use the LENS assumptions panel/);
 assert.match(hlvEntryHtml, /income value and projection years/);
+assert.match(hlvEntryHtml, /Search for a saved individual client or enter a case reference/);
 assert.match(hlvEntryHtml, /Annual income value/);
 assert.match(hlvEntryHtml, /Projection years/);
 
 assert.match(hlvEntryHtml, /href="hlv-results\.html"/);
 assert.match(hlvEntryHtml, /data-hlv-results-link/);
+assert.match(hlvEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(hlvEntryHtml, /data-quick-profile-search/);
+assert.match(hlvEntryHtml, /data-quick-profile-case-ref/);
+assert.match(hlvEntryHtml, /data-quick-profile-results/);
+assert.match(hlvEntryHtml, /data-quick-profile-selected-card/);
+assert.match(hlvEntryHtml, /data-quick-profile-status/);
+assert.match(hlvEntryHtml, /Select a client with completed Protection Modeling Inputs to continue\./);
+assert.match(hlvEntryHtml, /aria-disabled="true"/);
+assert.match(hlvEntryHtml, /data-quick-profile-blocked="true"/);
+assert.match(hlvEntryHtml, /quick-linked-profile-picker\.js/);
+assert.match(hlvEntryHtml, /initQuickLinkedProfilePicker/);
+assert.match(hlvEntryHtml, /methodLabel: "Human Life Value"/);
+assert.match(hlvEntryHtml, /resultPagePath: "hlv-results\.html"/);
+assert.match(quickPickerSource, /Select a client with completed Protection Modeling Inputs before continuing to \$\{methodLabel\} results\./);
+assert.match(quickPickerSource, /needs completed Protection Modeling Inputs before \$\{methodLabel\} can continue\./);
 assert.match(hlvEntryHtml, /const passthroughParams = \["caseRef", "profileCaseRef", "linkedCaseRef", "id"\]/);
 assert.match(hlvEntryHtml, /sourceParams\.get\("profileCaseRef"\)/);
 assert.match(hlvEntryHtml, /sourceParams\.get\("linkedCaseRef"\)/);
@@ -74,12 +91,15 @@ assert.match(
   hlvEntryHtml,
   /link\.setAttribute\("href", queryString \? `hlv-results\.html\?\$\{queryString\}` : "hlv-results\.html"\)/
 );
+assert.match(hlvEntryHtml, /allowedQueryKeys: passthroughParams/);
 
 assert.doesNotMatch(hlvEntryHtml, /analysis-setup\.html/);
 assert.doesNotMatch(hlvEntryHtml, /analysis-estimate\.html/);
 assert.doesNotMatch(hlvEntryHtml, /income-loss-impact\.html/);
 assert.doesNotMatch(hlvEntryHtml, /dime-entry\.html/);
 assert.doesNotMatch(hlvEntryHtml, /dime-results\.html/);
+assert.doesNotMatch(hlvEntryHtml, /simple-needs-entry\.html/);
+assert.doesNotMatch(hlvEntryHtml, /simple-needs-results\.html/);
 assert.doesNotMatch(hlvEntryHtml, /Asset Treatment/);
 assert.doesNotMatch(hlvEntryHtml, /Cash Reserve/);
 assert.doesNotMatch(hlvEntryHtml, /Growth & Return/);
