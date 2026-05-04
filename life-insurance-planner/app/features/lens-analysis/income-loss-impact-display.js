@@ -260,6 +260,52 @@
     `;
   }
 
+  function formatDurationPart(value, singular, plural) {
+    return `${value.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${value === 1 ? singular : plural}`;
+  }
+
+  function normalizeDurationParts(duration) {
+    const monthValue = toOptionalNumber(duration?.months);
+    if (monthValue != null && monthValue >= 0) {
+      const totalMonths = Math.round(monthValue);
+      return {
+        years: Math.floor(totalMonths / 12),
+        months: totalMonths % 12
+      };
+    }
+
+    const yearValue = toOptionalNumber(duration?.years);
+    if (yearValue != null && yearValue >= 0) {
+      return {
+        years: Math.round(yearValue * 10) / 10,
+        months: 0
+      };
+    }
+
+    return null;
+  }
+
+  function formatFinancialSecurityDuration(duration) {
+    const parts = normalizeDurationParts(duration);
+    if (!parts) {
+      return UNAVAILABLE_COPY;
+    }
+
+    return `${formatDurationPart(parts.years, "year", "years")} ${formatDurationPart(parts.months, "month", "months")}`;
+  }
+
+  function renderFinancialSecurityCard(data) {
+    return `
+      <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card>
+        <div class="income-impact-card-header">
+          <h2>Years of Financial Security</h2>
+          <p>Read-only estimate from linked profile and Protection Modeling information. It does not change the LENS recommendation.</p>
+        </div>
+        <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value>${escapeHtml(formatFinancialSecurityDuration(data.duration))}</strong>
+      </article>
+    `;
+  }
+
   function renderMetric(label, value, helper) {
     return `
       <article class="income-impact-metric">
@@ -620,6 +666,9 @@
       ?? getTraceInputNumber(needsResult, "supportNeedAfterSurvivorIncomeStarts", "incomeOffsetMonths");
 
     return {
+      duration: supportDurationMonths == null
+        ? { years: supportDurationYears }
+        : { months: supportDurationMonths },
       insuredGrossAnnualIncome: toOptionalNumber(incomeBasis.insuredGrossAnnualIncome),
       bonusVariableAnnualIncome: toOptionalNumber(incomeBasis.bonusVariableAnnualIncome),
       annualEmployerBenefitsValue: toOptionalNumber(incomeBasis.annualEmployerBenefitsValue),
@@ -644,74 +693,11 @@
 
   function renderIncomeImpact(host, context) {
     const data = normalizeDisplayData(context.lensModel, context.needsResult);
-    const notes = [
-      ...(Array.isArray(context.builderWarnings) ? context.builderWarnings : []),
-      ...(Array.isArray(context.methodWarnings) ? context.methodWarnings : []),
-      ...(Array.isArray(context.needsResult?.warnings) ? context.needsResult.warnings : [])
-    ]
-      .map(function (warning) {
-        return String(warning?.message || warning?.code || "").trim();
-      })
-      .filter(Boolean);
-
     host.innerHTML = `
-      <div class="income-impact-header">
-        <div>
-          <div class="section-label">Income Impact Review</div>
-          <h2>Income Loss Impact</h2>
-          <p>Read-only fact preview from linked profile and Protection Modeling data. It does not save assumptions or change the LENS recommendation.</p>
-        </div>
-        <span class="income-impact-source">Current-dollar v1</span>
-      </div>
-
-      <div class="income-impact-notes">
-        <strong>Temporary compatibility</strong>
-        <p>Some support-gap values below still use the current LENS Analysis engine until the fact-based timeline helper replaces this display.</p>
-      </div>
-
-      <div class="income-impact-snapshot" aria-label="Income loss snapshot">
-        ${renderMetric("Annual Income Lost", formatCurrency(data.annualIncomeReplacementBase), "incomeBasis.annualIncomeReplacementBase")}
-        ${renderMetric("Survivor Income Available", formatCurrency(data.survivorNetAnnualIncome), "survivorScenario.survivorNetAnnualIncome")}
-        ${renderMetric("Annual Support Gap", formatCurrency(data.annualSupportGap), "Temporary compatibility from Needs support trace")}
-        ${renderMetric("Support Duration", formatYears(data.supportDurationYears), "Temporary LENS compatibility duration")}
-      </div>
-
       <div class="income-impact-grid">
-        ${renderCard("Income Replacement Bridge", "Current model facts with temporary Needs support trace compatibility.", [
-          { label: "Insured gross income", value: formatCurrency(data.insuredGrossAnnualIncome) },
-          { label: "Bonus / variable income", value: formatCurrency(data.bonusVariableAnnualIncome) },
-          { label: "Employer benefits", value: formatCurrency(data.annualEmployerBenefitsValue) },
-          { label: "Income replacement base", value: formatCurrency(data.annualIncomeReplacementBase) },
-          { label: "Survivor income offset", value: formatCurrency(data.survivorIncomeOffset) },
-          { label: "Annual income gap", value: formatCurrency(data.annualSupportGap) }
-        ])}
-        ${renderCard("Survivor Income Impact", "Prepared survivor facts; support-applied values remain temporary compatibility.", [
-          { label: "Survivor continues working", value: formatBoolean(data.survivorContinuesWorking) },
-          { label: "Survivor gross income", value: formatCurrency(data.survivorGrossAnnualIncome) },
-          { label: "Survivor net income", value: formatCurrency(data.survivorNetAnnualIncome) },
-          { label: "Expected work reduction", value: formatPercent(data.expectedSurvivorWorkReductionPercent) },
-          { label: "Income start delay", value: formatMonths(data.survivorIncomeStartDelayMonths) },
-          { label: "Survivor income applied to support", value: formatCurrency(data.survivorIncomeOffset) }
-        ])}
+        ${renderFinancialSecurityCard(data)}
         ${renderTimeline(data)}
-        ${renderCard("Temporary Support Context", "Temporary LENS compatibility output; not the final recommendation.", [
-          { label: "Annual support gap", value: formatCurrency(data.annualSupportGap) },
-          { label: "Support duration", value: formatYears(data.supportDurationYears) },
-          { label: "Total income support need", value: formatCurrency(data.totalIncomeSupportNeed) },
-          { label: "Assumption / method source", value: data.source }
-        ])}
       </div>
-
-      ${notes.length ? `
-        <div class="income-impact-notes">
-          <strong>Data notes</strong>
-          <ul>
-            ${notes.slice(0, 4).map(function (note) {
-              return `<li>${escapeHtml(note)}</li>`;
-            }).join("")}
-          </ul>
-        </div>
-      ` : ""}
     `;
     bindPlaceholderTimelineHover(host);
   }

@@ -235,8 +235,12 @@ assert.doesNotMatch(stepThreeSource, /Needs Components/);
 
 assert.match(analysisEstimateHtml, /LENS Analysis will appear here/);
 assert.match(incomeLossImpactHtml, /linked profile and Protection Modeling facts/);
-assert.match(incomeLossImpactSource, /Read-only fact preview from linked profile and Protection Modeling data/);
-assert.match(incomeLossImpactSource, /Temporary compatibility/);
+assert.match(incomeLossImpactSource, /Years of Financial Security/);
+assert.match(incomeLossImpactSource, /Read-only estimate from linked profile and Protection Modeling information/);
+assert.doesNotMatch(incomeLossImpactSource, /Temporary compatibility/);
+assert.doesNotMatch(incomeLossImpactSource, /Annual Support Gap/);
+assert.doesNotMatch(incomeLossImpactSource, /Income Replacement Bridge/);
+assert.doesNotMatch(incomeLossImpactSource, /Survivor Income Impact/);
 assert.match(analysisSetupHtml, /<span>LENS Support Years<\/span>/);
 assert.match(analysisSetupHtml, /current LENS where enabled/);
 assert.doesNotMatch(analysisSetupHtml, /current Needs/);

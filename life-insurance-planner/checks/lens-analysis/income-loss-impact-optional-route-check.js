@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -35,6 +36,29 @@ function getChangedFiles(relativePaths) {
   } catch (_error) {
     return [];
   }
+}
+
+function createIncomeImpactDisplayHarness(source) {
+  const instrumentedSource = source.replace(
+    /\n\}\)\(window\);\s*$/,
+    "\n  window.__incomeImpactDisplayHarness = { formatFinancialSecurityDuration, normalizeDurationParts };\n})(window);\n"
+  );
+  const sandbox = {
+    console,
+    document: {
+      addEventListener() {}
+    },
+    Intl,
+    URL,
+    URLSearchParams,
+    window: {
+      LensApp: {}
+    }
+  };
+  vm.runInNewContext(instrumentedSource, sandbox, {
+    filename: "income-loss-impact-display.js"
+  });
+  return sandbox.window.__incomeImpactDisplayHarness;
 }
 
 const profileHtml = readRepoFile("pages/profile.html");
@@ -157,38 +181,92 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /Temporary compatibility/,
-  "Income Impact copy should explicitly label the runNeedsAnalysis display dependency as temporary."
+  /Years of Financial Security/,
+  "Income Impact should render the advisor-facing financial security card."
 );
 assert.match(
   incomeLossDisplaySource,
-  /fact-based timeline helper replaces this display/,
-  "Income Impact copy should point to the future fact-based display owner."
+  /data-income-impact-financial-security-card/,
+  "Income Impact should expose a stable card selector for browser smoke."
 );
 assert.match(
   incomeLossDisplaySource,
-  /Read-only fact preview from linked profile and Protection Modeling data\./,
+  /data-income-impact-financial-security-value/,
+  "Income Impact should expose a stable value selector for browser smoke."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /function renderTimeline\(data\)/,
+  "Income Impact should preserve the existing timeline renderer."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /renderPlaceholderTimelineChart\(\)/,
+  "Income Impact should preserve the existing placeholder timeline visualization."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /data-income-impact-timeline-month/,
+  "Income Impact should preserve timeline month hover markers."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /renderFinancialSecurityCard\(data\)[\s\S]*renderTimeline\(data\)/,
+  "Income Impact should render the financial security card separately before the timeline."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /Read-only estimate from linked profile and Protection Modeling information\./,
   "Income Impact display copy should classify the page as fact-based and read-only."
 );
 assert.match(
   incomeLossDisplaySource,
-  /It does not save assumptions or change the LENS recommendation\./,
+  /It does not change the LENS recommendation\./,
   "Income Impact display copy should be output-neutral."
-);
-assert.match(
-  incomeLossDisplaySource,
-  /Placeholder-only timeline\. Not final functionality\./,
-  "Placeholder timeline should not be presented as final functionality."
 );
 assert.match(
   incomeLossDisplaySource,
   /function syncIncomeImpactWorkflowLinks\(\)/,
   "Income Impact should preserve current query params on Back and Continue links."
 );
+[
+  /Temporary compatibility/,
+  /Annual Income Lost/,
+  /Survivor Income Available/,
+  /Annual Support Gap/,
+  /Support Duration/,
+  /Income Replacement Bridge/,
+  /Survivor Income Impact/,
+  /support trace/i,
+  /temporary LENS compatibility/i
+].forEach(function (pattern) {
+  assert.doesNotMatch(
+    incomeLossDisplaySource,
+    pattern,
+    `Income Impact display should not expose old jargon: ${pattern}.`
+  );
+});
 assert.doesNotMatch(
   incomeLossDisplaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
   "Income Loss Impact should not persist model data, assumptions, slider state, or saved profile state."
+);
+
+const displayHarness = createIncomeImpactDisplayHarness(incomeLossDisplaySource);
+assert.equal(
+  displayHarness.formatFinancialSecurityDuration({ months: 27 }),
+  "2 years 3 months",
+  "Financial security duration should convert available months into years and months."
+);
+assert.equal(
+  displayHarness.formatFinancialSecurityDuration({ years: 8 }),
+  "8 years 0 months",
+  "Financial security duration should show 0 months when only years are available."
+);
+assert.equal(
+  displayHarness.formatFinancialSecurityDuration({}),
+  "Not available",
+  "Financial security duration should show Not available when no duration source exists."
 );
 
 assert.match(
