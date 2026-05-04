@@ -11936,22 +11936,19 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   background: #ffffff;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack .analysis-setup-control-group,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-left-stack .analysis-setup-control-group {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack .analysis-setup-control-group {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--method-defaults {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults {
   padding-left: 1rem;
   align-content: stretch;
   grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--calculation-inclusion,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--calculation-inclusion {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--calculation-inclusion {
   order: 1;
   grid-column: 1;
   grid-row: 1;
@@ -11992,15 +11989,12 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--inflation,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--growth,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--inflation,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--growth {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--growth {
   padding-right: 0;
   padding-left: 0;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--policy-returns {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns {
   padding-right: 0.05rem;
 }
 
@@ -14137,15 +14131,13 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   background: #f8fafc;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults .analysis-setup-method-row,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--method-defaults .analysis-setup-method-row {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults .analysis-setup-method-row {
   padding: 0.46rem 0;
   border-color: transparent;
   background: transparent;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults .analysis-setup-method-list,
-.analysis-setup-panel-grid[data-analysis-setup-scroll-mode="true"] .analysis-setup-control-group--method-defaults .analysis-setup-method-list {
+.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults .analysis-setup-method-list {
   align-self: stretch;
   align-content: start;
   gap: 0;

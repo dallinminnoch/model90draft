@@ -3393,30 +3393,6 @@
     scrollContainer.scrollTop = nextTop;
   }
 
-  function getAnalysisSetupViewFromScroll(viewPanels, viewGrid) {
-    const scrollContainer = getAnalysisSetupScrollContainer(viewGrid);
-    if (!scrollContainer) {
-      return ANALYSIS_SETUP_DEFAULT_VIEW;
-    }
-
-    const containerRect = scrollContainer.getBoundingClientRect();
-    const activationLine = containerRect.top + Math.min(160, containerRect.height * 0.34);
-    let activeView = ANALYSIS_SETUP_DEFAULT_VIEW;
-
-    ANALYSIS_SETUP_VIEW_KEYS.forEach(function (viewName) {
-      const targetPanel = getAnalysisSetupViewTarget(viewName, viewPanels);
-      if (!targetPanel) {
-        return;
-      }
-
-      if (targetPanel.getBoundingClientRect().top <= activationLine) {
-        activeView = viewName;
-      }
-    });
-
-    return activeView;
-  }
-
   function setAnalysisSetupView(viewName, viewTabs, viewPanels, viewGrid, options) {
     const selectedView = normalizeAnalysisSetupView(viewName);
 
@@ -3445,38 +3421,6 @@
     if (options?.scrollToView) {
       scrollAnalysisSetupViewIntoPlace(selectedView, viewPanels, viewGrid, options);
     }
-  }
-
-  function bindAnalysisSetupViewScrollSync(viewTabs, viewPanels, viewGrid) {
-    const scrollContainer = getAnalysisSetupScrollContainer(viewGrid);
-    if (!scrollContainer || !viewPanels?.length || viewGrid?.dataset.analysisSetupScrollMode !== "true") {
-      return;
-    }
-
-    let syncQueued = false;
-    const requestFrame = window.requestAnimationFrame || function (callback) {
-      return window.setTimeout(callback, 16);
-    };
-    const syncFromScroll = function () {
-      syncQueued = false;
-      setAnalysisSetupView(
-        getAnalysisSetupViewFromScroll(viewPanels, viewGrid),
-        viewTabs,
-        viewPanels,
-        viewGrid,
-        { updateHash: true }
-      );
-    };
-    const requestSync = function () {
-      if (syncQueued) {
-        return;
-      }
-      syncQueued = true;
-      requestFrame(syncFromScroll);
-    };
-
-    scrollContainer.addEventListener("scroll", requestSync, { passive: true });
-    window.addEventListener("resize", requestSync);
   }
 
   function setAssetDefaultProfile(fields, profile) {
@@ -8016,7 +7960,6 @@
       scrollToView: Boolean(window.location.hash),
       instantScroll: true
     });
-    bindAnalysisSetupViewScrollSync(viewTabs, viewPanels, viewGrid);
     viewTabs.forEach(function (tab) {
       tab.addEventListener("click", function () {
         setAnalysisSetupView(
