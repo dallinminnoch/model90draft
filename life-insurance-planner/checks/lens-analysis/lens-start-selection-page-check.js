@@ -61,6 +61,18 @@ assert.match(
   lensHtml,
   /DIME, Simple Needs, and Human Life Value are available as quick flows\./
 );
+assert.match(
+  lensHtml,
+  /The primary LENS path runs from linked profile entry to Analysis Setup and then the existing results page\./
+);
+assert.match(
+  lensHtml,
+  /Income Loss Impact remains available as optional read-only review, not a required step\./
+);
+assert.doesNotMatch(
+  lensHtml,
+  /continues through linked profile entry, Analysis Setup, income impact, and the existing results page/
+);
 
 const lensCard = getCardBlock(lensHtml, "lens");
 const dimeCard = getCardBlock(lensHtml, "dime");

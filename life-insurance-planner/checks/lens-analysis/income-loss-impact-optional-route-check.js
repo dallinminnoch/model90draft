@@ -38,6 +38,7 @@ function getChangedFiles(relativePaths) {
 }
 
 const profileHtml = readRepoFile("pages/profile.html");
+const lensHtml = readRepoFile("pages/lens.html");
 const analysisSetupHtml = readRepoFile("pages/analysis-setup.html");
 const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 const incomeLossHtml = readRepoFile("pages/income-loss-impact.html");
@@ -53,6 +54,21 @@ assert.match(
   profileHtml,
   /<form\b[^>]*id="client-profile-form"[^>]*data-next-page="analysis-setup\.html"/,
   "Profile entry should continue to Analysis Setup."
+);
+assert.match(
+  lensHtml,
+  /The primary LENS path runs from linked profile entry to Analysis Setup and then the existing results page\./,
+  "Selector copy should describe the direct primary LENS path."
+);
+assert.match(
+  lensHtml,
+  /Income Loss Impact remains available as optional read-only review, not a required step\./,
+  "Selector copy should classify Income Loss Impact as optional read-only review."
+);
+assert.doesNotMatch(
+  lensHtml,
+  /continues through linked profile entry, Analysis Setup, income impact, and the existing results page/,
+  "Selector copy should not imply Income Loss Impact is a required route."
 );
 
 assert.match(
