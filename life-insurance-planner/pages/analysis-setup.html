@@ -104,7 +104,7 @@
             <h2>Review assumptions before calculating the LENS result</h2>
             <p>Use this screen to confirm the linked profile and review planning assumptions before proceeding to the LENS recommendation result.</p>
             <div class="analysis-setup-entry-actions">
-              <button class="analysis-setup-action" type="button" data-lens-assumptions-open aria-controls="lens-assumptions-overlay">Review LENS Assumptions</button>
+              <button class="analysis-setup-action" type="button" data-lens-assumptions-open aria-controls="lens-assumptions-overlay" aria-expanded="false">Review LENS Assumptions</button>
               <button class="analysis-setup-action" type="button" data-lens-result-proceed data-analysis-setup-apply aria-describedby="analysis-setup-status">Proceed to LENS Result</button>
             </div>
           </div>
@@ -125,30 +125,20 @@
         </section>
 
         <section class="lens-assumptions-overlay" id="lens-assumptions-overlay" data-lens-assumptions-overlay hidden aria-hidden="true">
-          <div class="lens-assumptions-dialog" data-lens-assumptions-dialog role="dialog" aria-modal="true" aria-labelledby="lens-assumptions-overlay-title" aria-describedby="lens-assumptions-overlay-copy" tabindex="-1">
-            <header class="lens-assumptions-dialog-header">
-              <div>
-                <div class="lens-assumptions-dialog-kicker">Planning Settings</div>
-                <h2 id="lens-assumptions-overlay-title">Review LENS Assumptions</h2>
-                <p id="lens-assumptions-overlay-copy">These controls define how linked profile facts are interpreted for LENS. Save keeps the overlay open; Save &amp; Exit saves and returns to the setup screen.</p>
-              </div>
-              <button class="lens-assumptions-close" type="button" data-lens-assumptions-close aria-label="Close LENS assumptions">Close</button>
-            </header>
+          <div class="lens-assumptions-dialog" data-lens-assumptions-dialog role="dialog" aria-modal="true" aria-labelledby="lens-assumptions-overlay-title" tabindex="-1">
             <div class="lens-assumptions-dialog-body">
               <section class="analysis-setup-workspace" aria-label="Analysis setup workspace">
-                <section class="analysis-setup-assumption-panel" aria-labelledby="analysis-setup-panel-title">
+                <section class="analysis-setup-assumption-panel" aria-labelledby="lens-assumptions-overlay-title">
             <header class="analysis-setup-panel-header">
               <div>
-                <div class="analysis-setup-panel-kicker">Planning Settings</div>
-                <h2 id="analysis-setup-panel-title">Assumption Controls</h2>
+                <div class="analysis-setup-panel-title-row">
+                  <h2 id="lens-assumptions-overlay-title">Assumption Controls</h2>
+                  <span class="analysis-setup-panel-title-separator" aria-hidden="true">•</span>
+                  <span class="analysis-setup-panel-profile-name" data-lens-assumptions-profile-name>No linked profile</span>
+                </div>
                 <p class="analysis-setup-validation-message" data-analysis-setup-validation role="alert" hidden></p>
               </div>
-              <button class="analysis-setup-header-toggle" type="button" data-analysis-setup-header-toggle aria-controls="analysis-setup-page-header" aria-expanded="true" title="Collapse setup header">
-                <span class="analysis-setup-header-toggle-glyph" aria-hidden="true">
-                  <img class="analysis-setup-header-toggle-art" src="../Images/doublearrow.svg" alt="">
-                </span>
-                <span class="sr-only" data-analysis-setup-header-toggle-label>Collapse setup header</span>
-              </button>
+              <button class="lens-assumptions-close" type="button" data-lens-assumptions-close aria-label="Close LENS assumptions">Close</button>
             </header>
 
             <div class="analysis-setup-view-frame">

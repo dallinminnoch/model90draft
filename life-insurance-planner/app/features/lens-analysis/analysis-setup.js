@@ -7953,9 +7953,7 @@
     const statusMessage = document.querySelector("[data-analysis-setup-status]");
     const validationMessage = document.querySelector("[data-analysis-setup-validation]");
     const linkedState = document.querySelector("[data-analysis-setup-linked-state]");
-    const setupShell = document.querySelector(".analysis-setup-shell");
-    const headerToggle = document.querySelector("[data-analysis-setup-header-toggle]");
-    const headerToggleLabel = document.querySelector("[data-analysis-setup-header-toggle-label]");
+    const assumptionsProfileName = document.querySelector("[data-lens-assumptions-profile-name]");
     const viewTabs = Array.from(document.querySelectorAll("[data-analysis-setup-view-tab]"));
     const viewPanels = Array.from(document.querySelectorAll("[data-analysis-setup-view-panel]"));
     const viewGrid = document.querySelector("[data-analysis-setup-view-grid]");
@@ -7966,6 +7964,7 @@
     const assumptionsSaveExitButton = document.querySelector("[data-lens-assumptions-save-exit]");
     let hasUnsavedAnalysisSetupChanges = false;
     let assumptionsOverlayReturnFocus = null;
+    let protectedAssumptionsOverlayBackground = [];
     const syncAnalysisSetupViewFromHash = function (options) {
       setAnalysisSetupView(
         getAnalysisSetupViewFromHash(),
@@ -7999,11 +7998,117 @@
       syncAnalysisSetupViewFromHash({ scrollToView: true });
     });
 
+    function getFocusableAssumptionsOverlayElements() {
+      if (!assumptionsDialog) {
+        return [];
+      }
+
+      return Array.from(assumptionsDialog.querySelectorAll([
+        "a[href]",
+        "button:not([disabled])",
+        "input:not([disabled]):not([type='hidden'])",
+        "select:not([disabled])",
+        "textarea:not([disabled])",
+        "[tabindex]:not([tabindex='-1'])"
+      ].join(","))).filter(function (element) {
+        const elementStyle = window.getComputedStyle(element);
+        const elementRect = element.getBoundingClientRect();
+        return elementStyle.display !== "none"
+          && elementStyle.visibility !== "hidden"
+          && elementRect.width > 0
+          && elementRect.height > 0;
+      });
+    }
+
     function getAssumptionsOverlayFocusTarget() {
       return assumptionsCloseButton
         || viewTabs.find(function (tab) { return tab && !tab.disabled; })
         || saveButton
         || assumptionsDialog;
+    }
+
+    function getLinkedProfileDisplayName(record) {
+      return String(record?.displayName || record?.clientName || "").trim() || "No linked profile";
+    }
+
+    function syncLinkedProfileDisplay(record) {
+      const profileName = getLinkedProfileDisplayName(record);
+      if (linkedState) {
+        linkedState.textContent = profileName;
+      }
+      if (assumptionsProfileName) {
+        assumptionsProfileName.textContent = profileName;
+      }
+    }
+
+    function setAssumptionsOverlayBackgroundFocusProtection(isProtected) {
+      const backgroundSelectors = [
+        ".workspace-page-topbar",
+        ".workspace-side-nav-host",
+        ".analysis-setup-header",
+        "[data-analysis-setup-entry]"
+      ];
+
+      if (isProtected) {
+        protectedAssumptionsOverlayBackground = backgroundSelectors
+          .map(function (selector) { return document.querySelector(selector); })
+          .filter(function (element) { return element && element !== assumptionsOverlay; })
+          .map(function (element) {
+            const state = {
+              element,
+              ariaHidden: element.getAttribute("aria-hidden"),
+              inert: element.inert === true
+            };
+            element.inert = true;
+            element.setAttribute("aria-hidden", "true");
+            return state;
+          });
+        return;
+      }
+
+      protectedAssumptionsOverlayBackground.forEach(function (state) {
+        state.element.inert = state.inert;
+        if (state.ariaHidden === null) {
+          state.element.removeAttribute("aria-hidden");
+        } else {
+          state.element.setAttribute("aria-hidden", state.ariaHidden);
+        }
+      });
+      protectedAssumptionsOverlayBackground = [];
+    }
+
+    function keepFocusInsideAssumptionsOverlay(event) {
+      if (!assumptionsOverlay || assumptionsOverlay.hidden || event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = getFocusableAssumptionsOverlayElements();
+      if (!focusableElements.length) {
+        event.preventDefault();
+        assumptionsDialog?.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+        return;
+      }
+
+      if (!assumptionsDialog.contains(activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+      }
     }
 
     function setAssumptionsOverlayOpen(isOpen) {
@@ -8018,7 +8123,9 @@
         assumptionsOverlay.hidden = false;
         assumptionsOverlay.removeAttribute("aria-hidden");
         assumptionsOverlay.setAttribute("data-overlay-open", "true");
+        assumptionsOpenButton?.setAttribute("aria-expanded", "true");
         document.body.classList.add("analysis-setup-assumptions-open");
+        setAssumptionsOverlayBackgroundFocusProtection(true);
         const focusTarget = getAssumptionsOverlayFocusTarget();
         if (focusTarget && typeof focusTarget.focus === "function") {
           window.setTimeout(function () {
@@ -8031,7 +8138,9 @@
       assumptionsOverlay.hidden = true;
       assumptionsOverlay.setAttribute("aria-hidden", "true");
       assumptionsOverlay.removeAttribute("data-overlay-open");
+      assumptionsOpenButton?.setAttribute("aria-expanded", "false");
       document.body.classList.remove("analysis-setup-assumptions-open");
+      setAssumptionsOverlayBackgroundFocusProtection(false);
       const returnFocusTarget = assumptionsOverlayReturnFocus || assumptionsOpenButton;
       assumptionsOverlayReturnFocus = null;
       if (returnFocusTarget && typeof returnFocusTarget.focus === "function") {
@@ -8077,6 +8186,8 @@
     });
 
     document.addEventListener("keydown", function (event) {
+      keepFocusInsideAssumptionsOverlay(event);
+
       if (event.key === "Escape" && assumptionsOverlay && !assumptionsOverlay.hidden) {
         const didClose = requestAssumptionsOverlayClose();
         if (!didClose) {
@@ -8097,17 +8208,6 @@
     populateSurvivorSupportFields(survivorSupportFields, getSurvivorSupportAssumptions(linkedRecord), linkedRecord);
     populateEducationFields(educationFields, getEducationAssumptions(linkedRecord), linkedRecord);
     populateRecommendationGuardrailFields(recommendationGuardrailFields, getRecommendationGuardrails(linkedRecord));
-
-    if (setupShell && headerToggle) {
-      headerToggle.addEventListener("click", function () {
-        const isCollapsed = setupShell.classList.toggle("is-header-collapsed");
-        headerToggle.setAttribute("aria-expanded", String(!isCollapsed));
-        headerToggle.title = isCollapsed ? "Expand setup header" : "Collapse setup header";
-        if (headerToggleLabel) {
-          headerToggleLabel.textContent = isCollapsed ? "Expand setup header" : "Collapse setup header";
-        }
-      });
-    }
 
     if (!linkedRecord) {
       setFieldsDisabled(fields, sliders, true);
@@ -8133,9 +8233,7 @@
           window.location.href = "analysis-estimate.html";
         });
       }
-      if (linkedState) {
-        linkedState.textContent = "No linked profile";
-      }
+      syncLinkedProfileDisplay(null);
       setStatus(statusMessage, "Settings require a linked profile. Continue without saving.", "error");
       return;
     }
@@ -8161,10 +8259,7 @@
     if (assumptionsSaveExitButton) {
       assumptionsSaveExitButton.disabled = false;
     }
-    if (linkedState) {
-      const profileName = String(linkedRecord.displayName || linkedRecord.clientName || "Linked profile").trim();
-      linkedState.textContent = profileName;
-    }
+    syncLinkedProfileDisplay(linkedRecord);
     setStatus(statusMessage, "Analysis Setup settings save to the linked profile.", "neutral");
 
     function markUnsaved() {
@@ -8193,6 +8288,7 @@
       );
       if (updatedRecord) {
         linkedRecord = updatedRecord;
+        syncLinkedProfileDisplay(linkedRecord);
         hasUnsavedAnalysisSetupChanges = false;
       }
       return updatedRecord;
