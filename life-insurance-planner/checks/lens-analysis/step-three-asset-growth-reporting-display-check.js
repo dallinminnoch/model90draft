@@ -300,9 +300,9 @@ function renderScenario(projectedAssetGrowth) {
 
 const reportingScenario = renderScenario(createProjectedAssetGrowth());
 assert.match(reportingScenario.needsHtml, /Projected Asset Growth — Reporting Only/);
-assert.match(reportingScenario.needsHtml, /Reporting only; projected values are not used in current DIME, Needs, or HLV outputs/);
+assert.match(reportingScenario.needsHtml, /Reporting only; projected values are not used in current DIME, LENS, or HLV outputs/);
 assert.match(reportingScenario.needsHtml, /Current output impact/);
-assert.match(reportingScenario.needsHtml, /Reporting only \/ none; DIME, Needs, and HLV outputs are unaffected/);
+assert.match(reportingScenario.needsHtml, /Reporting only \/ none; DIME, LENS, and HLV outputs are unaffected/);
 assert.match(reportingScenario.needsHtml, /Current asset offsets remain current-dollar\/current treatment based/);
 assert.match(reportingScenario.needsHtml, /Source mode/);
 assert.match(reportingScenario.needsHtml, /Reporting only/);

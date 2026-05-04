@@ -107,7 +107,7 @@ function createHealthcareExpenseTrace(overrides = {}) {
       warnings: [
         {
           code: "healthcare-expense-overlap-review",
-          message: "Entered healthcare expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the Needs healthcareExpenses component.",
+          message: "Entered healthcare expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the LENS healthcareExpenses component.",
           severity: "info"
         }
       ],

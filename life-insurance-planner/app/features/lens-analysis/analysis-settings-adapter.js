@@ -437,7 +437,7 @@
     if (hasGeneralFallback) {
       warnings.push(createWarning(
         `invalid-${key}-general-fallback`,
-        `${key} was invalid; Needs Analysis will use generalInflationRatePercent as the fallback.`,
+        `${key} was invalid; LENS Analysis will use generalInflationRatePercent as the fallback.`,
         "warning",
         [`analysisSettings.inflationAssumptions.${key}`]
       ));
@@ -475,7 +475,7 @@
 
     warnings.push(createWarning(
       `invalid-${key}-current-dollar-fallback`,
-      `${key} was invalid; Needs Analysis will use current-dollar final expenses.`,
+      `${key} was invalid; LENS Analysis will use current-dollar final expenses.`,
       "warning",
       [sourcePath]
     ));
@@ -489,7 +489,7 @@
     if (parsed == null) {
       warnings.push(createWarning(
         "invalid-finalExpenseTargetAge",
-        "finalExpenseTargetAge was invalid; Needs Analysis will use current-dollar final expenses.",
+        "finalExpenseTargetAge was invalid; LENS Analysis will use current-dollar final expenses.",
         "warning",
         [sourcePath]
       ));
@@ -499,7 +499,7 @@
     if (parsed < MIN_FINAL_EXPENSE_TARGET_AGE || parsed > MAX_FINAL_EXPENSE_TARGET_AGE) {
       warnings.push(createWarning(
         "out-of-range-finalExpenseTargetAge",
-        "finalExpenseTargetAge was outside the supported range; Needs Analysis will use current-dollar final expenses.",
+        "finalExpenseTargetAge was outside the supported range; LENS Analysis will use current-dollar final expenses.",
         "warning",
         [sourcePath]
       ));
@@ -947,7 +947,7 @@
       {
         key: "inflationAssumptions",
         traceKey: "inflationAssumptions-current-needs-and-future-use",
-        message: "Saved inflation assumptions are mapped into Needs settings. Household/general inflation can affect current Needs support, education/general inflation can affect current Needs education, healthcare inflation can affect current Needs medical final expense and the Needs healthcareExpenses component when healthcare expense assumptions are enabled, and final expense inflation can affect current Needs non-medical final expense. DIME and HLV remain unaffected."
+        message: "Saved inflation assumptions are mapped into LENS settings. Household/general inflation can affect current LENS support, education/general inflation can affect current LENS education, healthcare inflation can affect current LENS medical final expense and the LENS healthcareExpenses component when healthcare expense assumptions are enabled, and final expense inflation can affect current LENS non-medical final expense. DIME and HLV remain unaffected."
       },
       {
         key: "growthAndReturnAssumptions",
@@ -962,7 +962,7 @@
       {
         key: "healthcareExpenseAssumptions",
         traceKey: "healthcareExpenseAssumptions-activation-readiness",
-        message: "Saved healthcare expense assumptions are mapped into Needs settings and control the Needs healthcareExpenses component when enabled. DIME and HLV formulas do not consume them. Medical final expense remains handled separately through Final Expense projection."
+        message: "Saved healthcare expense assumptions are mapped into LENS settings and control the LENS healthcareExpenses component when enabled. DIME and HLV formulas do not consume them. Medical final expense remains handled separately through Final Expense projection."
       }
     ].forEach(function (entry) {
       const key = entry.key;

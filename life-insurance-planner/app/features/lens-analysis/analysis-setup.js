@@ -48,7 +48,7 @@
 
   const METHOD_DEFAULT_LABELS = {
     dimeIncomeYears: "DIME Income Years",
-    needsSupportYears: "Needs Support Years",
+    needsSupportYears: "LENS Support Years",
     hlvProjectionYears: "HLV Projection Years"
   };
   // Deprecated settings metadata retained until adapter/methods are moved to treated-only.
@@ -845,7 +845,7 @@
   const RECOMMENDATION_PROFILE_KEYS = Object.freeze(Object.keys(RECOMMENDATION_PROFILE_LABELS));
   const RECOMMENDATION_RANGE_SOURCE_LABELS = Object.freeze({
     dime: "DIME",
-    needsAnalysis: "Needs Analysis",
+    needsAnalysis: "LENS Analysis",
     humanLifeValue: "Human Life Value"
   });
   const RECOMMENDATION_RANGE_SOURCE_KEYS = Object.freeze(Object.keys(RECOMMENDATION_RANGE_SOURCE_LABELS));
@@ -5231,7 +5231,7 @@
     if (fields.previewNote) {
       fields.previewNote.textContent = adjustedPreview.mortgageHandledThroughSupport
         ? "Support mode uses the current monthly mortgage payment from PMI for the selected support period. It caps support at the remaining mortgage term when reliable term data is available. No inflation or discounting is applied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses."
-        : "Setup preview of saved assumption effects. DIME and Needs use treated debt in Step 3; HLV remains unchanged. Non-mortgage custom treatment remains warning-backed until formulas are defined.";
+        : "Setup preview of saved assumption effects. DIME and LENS use treated debt in Step 3; HLV remains unchanged. Non-mortgage custom treatment remains warning-backed until formulas are defined.";
     }
   }
 
@@ -7387,7 +7387,7 @@
     const normalizedSource = normalizeRecommendationRangeSource(rawValue, null);
     if (!normalizedSource) {
       return {
-        error: `${label} must be DIME, Needs Analysis, or Human Life Value.`
+        error: `${label} must be DIME, LENS Analysis, or Human Life Value.`
       };
     }
 

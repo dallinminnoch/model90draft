@@ -1197,7 +1197,7 @@
     }
 
     if (sourceMode === "reportingOnly" || projectionMode === "reportingOnly") {
-      return "Reporting only; projected values are not used in current DIME, Needs, or HLV outputs";
+      return "Reporting only; projected values are not used in current DIME, LENS, or HLV outputs";
     }
 
     return "Current-dollar only; projection years 0 and no current output impact";
@@ -1266,7 +1266,7 @@
       { label: "Excluded category count", value: formatCount(projectedAssetGrowth.excludedCategoryCount) },
       { label: "Review warning count", value: formatCount(projectedAssetGrowth.reviewWarningCount) },
       { label: "Consumed by methods", value: projectedAssetGrowth.consumedByMethods === true ? "Yes" : "No" },
-      { label: "Current output impact", value: "Reporting only / none; DIME, Needs, and HLV outputs are unaffected" },
+      { label: "Current output impact", value: "Reporting only / none; DIME, LENS, and HLV outputs are unaffected" },
       { label: "Current asset offsets", value: "Current asset offsets remain current-dollar/current treatment based" },
       { label: "Warning summary", value: getAssetGrowthWarningSummary(projectedAssetGrowth) }
     ];
@@ -1347,7 +1347,7 @@
       return "Disabled; reporting-only trace and no current output impact";
     }
 
-    return "Reporting only; reserve values are not used in current DIME, Needs, or HLV outputs";
+    return "Reporting only; reserve values are not used in current DIME, LENS, or HLV outputs";
   }
 
   function getCashReserveWarningSummary(cashReserveProjection) {
@@ -1412,7 +1412,7 @@
       { label: "Exclude emergency fund assets", value: formatBooleanDetail(cashReserveProjection.excludeEmergencyFundAssets) },
       { label: "Apply-to asset scope", value: formatCashReserveAssetScope(cashReserveProjection.applyToAssetScope) },
       { label: "Consumed by methods", value: cashReserveProjection.consumedByMethods === true ? "Yes" : "No" },
-      { label: "Current output impact", value: "Reporting only / none; DIME, Needs, and HLV outputs are unaffected" },
+      { label: "Current output impact", value: "Reporting only / none; DIME, LENS, and HLV outputs are unaffected" },
       { label: "Current asset offsets", value: "Current asset offsets remain current-dollar/current treatment based" },
       { label: "Reserve-adjusted offsets", value: "Not active in current methods; no recommendation is reduced by cash reserve projection" },
       { label: "Warning summary", value: getCashReserveWarningSummary(cashReserveProjection) }
@@ -1545,7 +1545,7 @@
     }
 
     return `
-      <div class="analysis-result-eyebrow">Projection Details</div>
+      <div class="analysis-result-eyebrow">LENS Projection Details</div>
       ${projectionDetails.join("")}
     `;
   }
@@ -1644,11 +1644,11 @@
     ];
 
     host.innerHTML = `
-      <div class="analysis-result-eyebrow">Needs Analysis</div>
+      <div class="analysis-result-eyebrow">LENS Analysis</div>
       <div class="analysis-result-value">${formatCurrency(needsResult.netCoverageGap)}</div>
-      <p class="analysis-result-copy">Net coverage gap from the detailed needs methodology.</p>
+      <p class="analysis-result-copy">Advanced needs analysis using detailed planning assumptions.</p>
       ${renderMoneyList([
-        { label: "Gross Needs Analysis Need", value: needsResult.grossNeed },
+        { label: "Gross LENS Need", value: needsResult.grossNeed },
         { label: "Existing Coverage Offset", value: offsets.existingCoverageOffset },
         { label: "Asset Offset", value: offsets.assetOffset },
         { label: "Net Coverage Gap", value: needsResult.netCoverageGap }
@@ -1660,7 +1660,7 @@
       ${renderMoneyList([
         { label: "Survivor Income Applied to Support", value: offsets.survivorIncomeOffset }
       ])}
-      <div class="analysis-result-eyebrow">Needs Components</div>
+      <div class="analysis-result-eyebrow">LENS Components</div>
       ${renderMoneyList([
         { label: "Debt Payoff", value: components.debtPayoff },
         { label: "Essential Support", value: components.essentialSupport },

@@ -331,11 +331,11 @@ function assertAdapterTraceTruthful(methodSettings) {
     return entry?.key === "inflationAssumptions-current-needs-and-future-use";
   });
   assert.ok(inflationTrace, "Adapter should emit truthful inflation current/future-use trace.");
-  assert.match(inflationTrace.message, /current Needs support/);
-  assert.match(inflationTrace.message, /current Needs education/);
-  assert.match(inflationTrace.message, /healthcare inflation can affect current Needs medical final expense/);
-  assert.match(inflationTrace.message, /Needs healthcareExpenses component when healthcare expense assumptions are enabled/);
-  assert.match(inflationTrace.message, /final expense inflation can affect current Needs non-medical final expense/);
+  assert.match(inflationTrace.message, /current LENS support/);
+  assert.match(inflationTrace.message, /current LENS education/);
+  assert.match(inflationTrace.message, /healthcare inflation can affect current LENS medical final expense/);
+  assert.match(inflationTrace.message, /LENS healthcareExpenses component when healthcare expense assumptions are enabled/);
+  assert.match(inflationTrace.message, /final expense inflation can affect current LENS non-medical final expense/);
   assert.match(inflationTrace.message, /DIME and HLV remain unaffected/);
   assert.ok(
     inflationTrace.sourcePaths.includes("analysisSettings.inflationAssumptions"),

@@ -239,7 +239,7 @@ function outputSnapshot(results) {
 
 const html = readRepoFile("pages/analysis-setup.html");
 assert.match(html, /data-analysis-inflation-field="finalExpenseTargetAge"/);
-assert.match(html, /Final expense target age \(Needs only\)/);
+assert.match(html, /Final expense target age \(LENS only\)/);
 
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;

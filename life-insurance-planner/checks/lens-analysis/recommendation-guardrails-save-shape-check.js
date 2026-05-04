@@ -82,13 +82,13 @@ const recommendationSection = html.slice(
 [
   "data-analysis-recommendation-enabled",
   "Save future recommendation-engine constraints and warning rules",
-  "Does not affect current DIME, Needs, or Human Life Value outputs yet.",
+  "Does not affect current DIME, LENS, or Human Life Value outputs yet.",
   'data-analysis-recommendation-profile="conservative"',
   'data-analysis-recommendation-profile="balanced"',
   'data-analysis-recommendation-profile="aggressive"',
   'data-analysis-recommendation-profile="custom"',
   "Reliance warning thresholds",
-  "Saved for the future recommendation engine only. These thresholds will flag recommendations when reliance exceeds the selected level. They do not change current DIME, Needs, or Human Life Value outputs.",
+  "Saved for the future recommendation engine only. These thresholds will flag recommendations when reliance exceeds the selected level. They do not change current DIME, LENS, or Human Life Value outputs.",
   "Flag when asset reliance exceeds",
   "Flag when illiquid asset reliance exceeds",
   "Flag when survivor income reliance exceeds",
@@ -96,14 +96,14 @@ const recommendationSection = html.slice(
   'data-analysis-recommendation-field="riskThresholds.illiquidAssetReliance.warningThresholdPercent"',
   'data-analysis-recommendation-field="riskThresholds.survivorIncomeReliance.warningThresholdPercent"',
   "Recommendation range constraints",
-  "Saved for the future recommendation engine only. These settings do not change current DIME, Needs, or Human Life Value outputs.",
+  "Saved for the future recommendation engine only. These settings do not change current DIME, LENS, or Human Life Value outputs.",
   "If future lower and upper bounds conflict, MODEL90 will flag the recommendation for advisor review.",
   'data-analysis-recommendation-field="rangeConstraints.lowerBound.source"',
   'data-analysis-recommendation-field="rangeConstraints.lowerBound.tolerancePercent"',
   'data-analysis-recommendation-field="rangeConstraints.upperBound.source"',
   'data-analysis-recommendation-field="rangeConstraints.upperBound.tolerancePercent"',
   "Recommendation risk flags",
-  "Saved for the future recommendation engine only. These flags will support explainable recommendation review and do not change current DIME, Needs, or Human Life Value outputs.",
+  "Saved for the future recommendation engine only. These flags will support explainable recommendation review and do not change current DIME, LENS, or Human Life Value outputs.",
   'data-analysis-recommendation-field="riskFlags.flagMissingCriticalInputs"',
   'data-analysis-recommendation-field="riskFlags.flagHeavyAssetReliance"',
   'data-analysis-recommendation-field="riskFlags.flagHeavySurvivorIncomeReliance"',
@@ -194,7 +194,7 @@ assert.equal(defaults.riskThresholds.assetReliance.warningThresholdPercent, 40, 
 assert.equal(defaults.riskThresholds.illiquidAssetReliance.warningThresholdPercent, 25, "Default illiquid asset reliance warning threshold should be 25%");
 assert.equal(defaults.riskThresholds.survivorIncomeReliance.warningThresholdPercent, 35, "Default survivor income reliance warning threshold should be 35%");
 
-assert.equal(defaults.rangeConstraints.lowerBound.source, "needsAnalysis", "Default lower range source should be Needs Analysis");
+assert.equal(defaults.rangeConstraints.lowerBound.source, "needsAnalysis", "Default lower range source should be LENS Analysis");
 assert.equal(defaults.rangeConstraints.lowerBound.tolerancePercent, 25, "Default lower range tolerance should be 25%");
 assert.equal(defaults.rangeConstraints.upperBound.source, "humanLifeValue", "Default upper range source should be Human Life Value");
 assert.equal(defaults.rangeConstraints.upperBound.tolerancePercent, 25, "Default upper range tolerance should be 25%");

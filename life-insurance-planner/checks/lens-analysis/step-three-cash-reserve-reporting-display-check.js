@@ -397,8 +397,8 @@ function renderScenario(cashReserveProjection) {
 const monthsScenario = renderScenario(createCashReserveProjection());
 assert.match(monthsScenario.needsHtml, /Cash Reserve Projection/);
 assert.match(monthsScenario.needsHtml, /Reporting Only/);
-assert.match(monthsScenario.needsHtml, /Reporting only; reserve values are not used in current DIME, Needs, or HLV outputs/);
-assert.match(monthsScenario.needsHtml, /Reporting only \/ none; DIME, Needs, and HLV outputs are unaffected/);
+assert.match(monthsScenario.needsHtml, /Reporting only; reserve values are not used in current DIME, LENS, or HLV outputs/);
+assert.match(monthsScenario.needsHtml, /Reporting only \/ none; DIME, LENS, and HLV outputs are unaffected/);
 assert.match(monthsScenario.needsHtml, /Current asset offsets remain current-dollar\/current treatment based/);
 assert.match(monthsScenario.needsHtml, /Not active in current methods; no recommendation is reduced by cash reserve projection/);
 assert.match(monthsScenario.needsHtml, /Status \/ enabled state/);

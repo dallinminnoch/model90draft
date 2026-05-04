@@ -37,7 +37,7 @@
       warnings: [
         {
           code: "analysis-settings-adapter-unavailable",
-          message: "Analysis settings adapter was unavailable; current default Needs settings were used.",
+          message: "Analysis settings adapter was unavailable; current default LENS settings were used.",
           severity: "info",
           sourcePaths: ["LensApp.lensAnalysis.analysisSettingsAdapter"]
         }
@@ -143,7 +143,7 @@
 
   function formatSource(value) {
     const normalized = String(value || "").trim();
-    return normalized || "Current Lens model and Needs Analysis result";
+    return normalized || "Current Lens model and LENS Analysis result";
   }
 
   function getUrlValue(params, fieldNames) {
@@ -633,7 +633,7 @@
         <div>
           <div class="section-label">Detailed Analysis</div>
           <h2>Income Loss Impact</h2>
-          <p>Read-only view built from the current Lens model and Needs Analysis result.</p>
+          <p>Read-only view built from the current Lens model and LENS Analysis result.</p>
         </div>
         <span class="income-impact-source">Current-dollar v1</span>
       </div>
@@ -642,7 +642,7 @@
         ${renderMetric("Annual Income Lost", formatCurrency(data.annualIncomeReplacementBase), "incomeBasis.annualIncomeReplacementBase")}
         ${renderMetric("Survivor Income Available", formatCurrency(data.survivorNetAnnualIncome), "survivorScenario.survivorNetAnnualIncome")}
         ${renderMetric("Annual Support Gap", formatCurrency(data.annualSupportGap), "Annualized from Needs support gap trace")}
-        ${renderMetric("Support Duration", formatYears(data.supportDurationYears), "Needs Analysis support duration")}
+        ${renderMetric("Support Duration", formatYears(data.supportDurationYears), "LENS Analysis support duration")}
       </div>
 
       <div class="income-impact-grid">
@@ -654,7 +654,7 @@
           { label: "Survivor income offset", value: formatCurrency(data.survivorIncomeOffset) },
           { label: "Annual income gap", value: formatCurrency(data.annualSupportGap) }
         ])}
-        ${renderCard("Survivor Income Impact", "Survivor facts used by the Needs Analysis support component.", [
+        ${renderCard("Survivor Income Impact", "Survivor facts used by the LENS Analysis support component.", [
           { label: "Survivor continues working", value: formatBoolean(data.survivorContinuesWorking) },
           { label: "Survivor gross income", value: formatCurrency(data.survivorGrossAnnualIncome) },
           { label: "Survivor net income", value: formatCurrency(data.survivorNetAnnualIncome) },
@@ -663,7 +663,7 @@
           { label: "Survivor income applied to support", value: formatCurrency(data.survivorIncomeOffset) }
         ])}
         ${renderTimeline(data)}
-        ${renderCard("Capital Needed for Income Support", "Needs Analysis essential support component.", [
+        ${renderCard("Capital Needed for Income Support", "LENS Analysis essential support component.", [
           { label: "Annual support gap", value: formatCurrency(data.annualSupportGap) },
           { label: "Support duration", value: formatYears(data.supportDurationYears) },
           { label: "Total income support need", value: formatCurrency(data.totalIncomeSupportNeed) },
@@ -703,7 +703,7 @@
     }
 
     if (typeof runNeedsAnalysis !== "function") {
-      renderEmptyState(host, "Income impact unavailable", "Needs Analysis is unavailable.");
+      renderEmptyState(host, "Income impact unavailable", "LENS Analysis is unavailable.");
       return;
     }
 

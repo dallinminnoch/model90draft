@@ -243,7 +243,7 @@ assert.match(analysisSetupHtml, /data-analysis-growth-field="taxableInvestmentRe
 assert.match(analysisSetupHtml, /data-analysis-growth-field="retirementAssetReturnRatePercent"/);
 assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="enabled"/);
 assert.match(analysisSetupHtml, /Saved for future projection\/modeling/);
-assert.match(analysisSetupHtml, /do not affect current DIME, Needs, or Human Life Value outputs/);
+assert.match(analysisSetupHtml, /do not affect current DIME, LENS, or Human Life Value outputs/);
 assert.match(analysisSetupHtml, /Asset Treatment owns current saved asset-specific assumed annual growth/);
 assert.match(analysisSetupHtml, /current asset treatment, projected asset growth, existing coverage, healthcare, inflation, and recommendations do not consume the broad taxable\/retirement return sliders/);
 assert.match(analysisSetupHtml, /those sliders do not seed Asset Treatment defaults today/);
@@ -354,7 +354,7 @@ const changedAssetTreatmentAssumptions = analysisSetup.getAssetTreatmentAssumpti
 assert.deepEqual(
   cloneJson(changedSnapshot.result),
   cloneJson(baseSnapshot.result),
-  "DIME, Needs, and HLV outputs should not change when saved Growth & Return assumptions change"
+  "DIME, LENS, and HLV outputs should not change when saved Growth & Return assumptions change"
 );
 assert.deepEqual(
   cloneJson(changedAssetTreatmentAssumptions),

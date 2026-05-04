@@ -128,7 +128,7 @@
                   <div class="analysis-setup-method-header">
                     <div class="analysis-setup-control-heading">
                       <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
-                      <p>Household, education, healthcare, and final expense rates affect current Needs where enabled. General is a fallback; DIME and HLV are unaffected.</p>
+                      <p>Household, education, healthcare, and final expense rates affect current LENS where enabled. General is a fallback; DIME and HLV are unaffected.</p>
                     </div>
                     <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
                   </div>
@@ -197,24 +197,24 @@
                   </div>
 
                   <label class="analysis-setup-method-row" for="analysis-setup-final-expense-target-age">
-                    <span>Final expense target age (Needs only)</span>
+                    <span>Final expense target age (LENS only)</span>
                     <input id="analysis-setup-final-expense-target-age" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-inflation-field="finalExpenseTargetAge">
                   </label>
-                  <p class="underwriting-helper-text">Healthcare inflation applies to Needs medical final expense projection and, when enabled, the Needs healthcare expense component. Final expense inflation applies to Needs non-medical final expense projection. Target age is used for Needs final expense projection.</p>
+                  <p class="underwriting-helper-text">Healthcare inflation applies to LENS medical final expense projection and, when enabled, the LENS healthcare expense component. Final expense inflation applies to LENS non-medical final expense projection. Target age is used for LENS final expense projection.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--healthcare-expense" aria-labelledby="analysis-setup-healthcare-expense">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">
                         <h3 id="analysis-setup-healthcare-expense">Healthcare Expense Assumptions</h3>
-                        <p>Controls the Needs healthcareExpenses component when enabled. DIME and HLV are unaffected.</p>
+                        <p>Controls the LENS healthcareExpenses component when enabled. DIME and HLV are unaffected.</p>
                       </div>
                     </div>
 
                     <label class="settings-toggle-row analysis-setup-toggle-control">
                       <span class="settings-toggle-copy">
                         <span class="settings-toggle-label">Enable healthcare expense component</span>
-                        <span class="settings-toggle-note">When on, Needs can include eligible entered recurring/non-final healthcare expense records.</span>
+                        <span class="settings-toggle-note">When on, LENS can include eligible entered recurring/non-final healthcare expense records.</span>
                       </span>
                       <span class="settings-switch">
                         <input
@@ -230,7 +230,7 @@
                       <span>Default healthcare expense projection years</span>
                       <input id="analysis-setup-healthcare-expense-projection-years" class="analysis-setup-method-input" type="number" min="1" max="60" step="1" inputmode="numeric" autocomplete="off" data-analysis-healthcare-expense-field="projectionYears">
                     </label>
-                    <p class="underwriting-helper-text">Used for ongoing healthcare expense records and as the fallback when a record-specific duration is missing or invalid. Only applies when this Needs component is enabled; medical final expense, DIME, and HLV do not use it.</p>
+                    <p class="underwriting-helper-text">Used for ongoing healthcare expense records and as the fallback when a record-specific duration is missing or invalid. Only applies when this LENS component is enabled; medical final expense, DIME, and HLV do not use it.</p>
 
                     <label class="settings-toggle-row analysis-setup-toggle-control">
                       <span class="settings-toggle-copy">
@@ -261,7 +261,7 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include Existing Coverage Offset</span>
-                          <span class="settings-toggle-note">When on, DIME, Needs, and HLV subtract linked profile coverage as the current coverage offset.</span>
+                          <span class="settings-toggle-note">When on, DIME, LENS, and HLV subtract linked profile coverage as the current coverage offset.</span>
                         </span>
                         <span class="settings-switch analysis-setup-mini-switch">
                           <input type="checkbox" role="switch" aria-label="Include Existing Coverage Offset" data-analysis-coverage-field="includeExistingCoverage" data-analysis-calculation-inclusion-control>
@@ -271,7 +271,7 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include Asset Offsets in Needs</span>
-                          <span class="settings-toggle-note">Turns asset offsets on or off for the Needs method only. DIME and HLV keep their method defaults.</span>
+                          <span class="settings-toggle-note">Turns asset offsets on or off for the LENS method only. DIME and HLV keep their method defaults.</span>
                         </span>
                         <span class="settings-switch analysis-setup-mini-switch">
                           <input type="checkbox" role="switch" aria-label="Include Asset Offsets in Needs" data-analysis-method-field="needsIncludeOffsetAssets" data-analysis-calculation-inclusion-control>
@@ -330,7 +330,7 @@
                         <input id="analysis-setup-dime-income-years" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-method-field="dimeIncomeYears">
                       </label>
                       <label class="analysis-setup-method-row" for="analysis-setup-needs-support-years">
-                        <span>Needs Support Years</span>
+                        <span>LENS Support Years</span>
                         <input id="analysis-setup-needs-support-years" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-method-field="needsSupportYears">
                       </label>
                       <label class="analysis-setup-method-row" for="analysis-setup-hlv-projection-years">
@@ -347,7 +347,7 @@
                       </div>
                       <button class="analysis-setup-reset-button" type="button" data-analysis-growth-reset>Reset to Default</button>
                     </div>
-                    <p class="underwriting-helper-text">Saved for future projection/modeling. These controls do not affect current DIME, Needs, or Human Life Value outputs. Asset Treatment owns current saved asset-specific assumed annual growth; current asset treatment, projected asset growth, existing coverage, healthcare, inflation, and recommendations do not consume the broad taxable/retirement return sliders, and those sliders do not seed Asset Treatment defaults today.</p>
+                    <p class="underwriting-helper-text">Saved for future projection/modeling. These controls do not affect current DIME, LENS, or Human Life Value outputs. Asset Treatment owns current saved asset-specific assumed annual growth; current asset treatment, projected asset growth, existing coverage, healthcare, inflation, and recommendations do not consume the broad taxable/retirement return sliders, and those sliders do not seed Asset Treatment defaults today.</p>
 
                     <div class="analysis-setup-rate-grid">
                       <div class="analysis-setup-rate-control analysis-setup-return-basis-control">
@@ -537,9 +537,9 @@
                     <p>Set how treated asset offsets are prepared from raw asset values. Asset values are still collected in Protection Modeling Inputs.</p>
                     <p class="analysis-setup-asset-note">Rows use category-level treatment. Assets in the same category share treatment assumptions.</p>
                     <p class="analysis-setup-asset-note">Tax drag estimates taxes if the asset is used. Haircut estimates liquidity, timing, marketability, and planning risk before counting the asset as available.</p>
-                    <p class="analysis-setup-asset-note">Preview amounts are not necessarily method offsets; Needs uses treated offsets when asset offsets are included and treated totals are available.</p>
+                    <p class="analysis-setup-asset-note">Preview amounts are not necessarily method offsets; LENS uses treated offsets when asset offsets are included and treated totals are available.</p>
                     <p class="analysis-setup-asset-note">Step-up eligible assets may have little capital-gains tax drag at death. Retirement and annuity assets may be taxable when distributed.</p>
-                    <p class="analysis-setup-asset-note">Assumed annual growth is an assumption, not a prediction. It is saved for future projected asset treatment; current asset offsets remain current-dollar/current treatment based and current DIME, Needs, and HLV outputs are unaffected. Review-only categories need advisor judgment.</p>
+                    <p class="analysis-setup-asset-note">Assumed annual growth is an assumption, not a prediction. It is saved for future projected asset treatment; current asset offsets remain current-dollar/current treatment based and current DIME, LENS, and HLV outputs are unaffected. Review-only categories need advisor judgment.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults" aria-label="Asset treatment default settings">
@@ -555,7 +555,7 @@
                   <div class="analysis-setup-asset-growth-projection-controls" aria-label="Asset growth projection source-mode controls" data-analysis-asset-growth-projection-controls>
                     <div class="analysis-setup-asset-growth-projection-copy">
                       <span class="analysis-setup-asset-defaults-label">Asset Growth Projection:</span>
-                      <p>Projection mode is saved for future reporting/modeling. Current asset offsets remain current-dollar/current treatment based. Projected asset values do not affect DIME, Needs, or HLV outputs yet. Emergency reserves, liquidity, and source-mode rules must be reviewed before projected offsets can be used.</p>
+                      <p>Projection mode is saved for future reporting/modeling. Current asset offsets remain current-dollar/current treatment based. Projected asset values do not affect DIME, LENS, or HLV outputs yet. Emergency reserves, liquidity, and source-mode rules must be reviewed before projected offsets can be used.</p>
                     </div>
                     <label class="analysis-setup-asset-growth-projection-field" for="analysis-setup-asset-growth-projection-mode">
                       <span>Projection mode</span>
@@ -574,7 +574,7 @@
                   <div class="analysis-setup-cash-reserve-controls" aria-label="Cash Reserve Assumptions" data-analysis-cash-reserve-controls>
                     <div class="analysis-setup-cash-reserve-copy">
                       <span class="analysis-setup-asset-defaults-label">Cash Reserve Assumptions:</span>
-                      <p>Saved for future reporting/modeling. These controls do not affect current DIME, Needs, or HLV outputs, and current asset offsets remain current-dollar/current treatment based. Emergency reserve and liquidity rules must be reviewed before reserve-adjusted offsets become method-active. Explicit emergency fund assets are generally preserved before offsetting need.</p>
+                      <p>Saved for future reporting/modeling. These controls do not affect current DIME, LENS, or HLV outputs, and current asset offsets remain current-dollar/current treatment based. Emergency reserve and liquidity rules must be reviewed before reserve-adjusted offsets become method-active. Explicit emergency fund assets are generally preserved before offsetting need.</p>
                     </div>
                     <label class="analysis-setup-cash-reserve-switch">
                       <span>Enable cash reserve modeling</span>
@@ -639,7 +639,7 @@
                   <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
-                    <p>Saved for future treatment modeling and preview only. Current DIME, Needs, and HLV offsets use linked profile coverage when Include Existing Coverage Offset is on.</p>
+                    <p>Saved for future treatment modeling and preview only. Current DIME, LENS, and HLV offsets use linked profile coverage when Include Existing Coverage Offset is on.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-coverage-defaults" aria-label="Existing coverage treatment default settings">
@@ -729,7 +729,7 @@
                   <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-debt-treatment">Debt &amp; Mortgage Treatment</h3>
-                    <p>Used by DIME and Needs. These assumptions affect DIME Debt, DIME Mortgage, and Needs Debt Payoff. Mortgage support uses the current PMI mortgage payment for the selected support period. HLV is unchanged.</p>
+                    <p>Used by DIME and LENS. These assumptions affect DIME Debt, DIME Mortgage, and LENS Debt Payoff. Mortgage support uses the current PMI mortgage payment for the selected support period. HLV is unchanged.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-debt-defaults" aria-label="Debt and mortgage treatment default settings">
@@ -832,8 +832,8 @@
                           <div id="analysis-setup-survivor-income-treatment-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
                             <ul>
                               <li><strong>Apply survivor income start delay:</strong> delays when survivor income begins reducing support need.</li>
-                              <li><strong>Apply survivor income growth:</strong> saves a future-use growth assumption; current Needs does not project it.</li>
-                              <li><strong>Maximum reliance:</strong> saves a future-use cap; current Needs does not cap survivor income.</li>
+                              <li><strong>Apply survivor income growth:</strong> saves a future-use growth assumption; current LENS does not project it.</li>
+                              <li><strong>Maximum reliance:</strong> saves a future-use cap; current LENS does not cap survivor income.</li>
                             </ul>
                           </div>
                         </div>
@@ -863,7 +863,7 @@
                           <input id="analysis-setup-survivor-max-reliance" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="decimal" data-analysis-survivor-field="survivorIncomeTreatment.maxReliancePercent">
                           <span aria-hidden="true">%</span>
                         </span>
-                        <p>Saved for future cap modeling; current Needs does not cap survivor income.</p>
+                        <p>Saved for future cap modeling; current LENS does not cap survivor income.</p>
                       </div>
                     </div>
 
@@ -881,7 +881,7 @@
                               <li><strong>Expected work reduction:</strong> reduces survivor income for caregiving, transition, or schedule changes.</li>
                               <li><strong>Start delay:</strong> sets how many months pass before survivor income is applied.</li>
                               <li><strong>Income growth:</strong> saves a future-use survivor income growth rate.</li>
-                              <li><strong>Income horizon:</strong> saves a future-use duration assumption; current Needs does not limit survivor income by horizon.</li>
+                              <li><strong>Income horizon:</strong> saves a future-use duration assumption; current LENS does not limit survivor income by horizon.</li>
                             </ul>
                           </div>
                         </div>
@@ -914,7 +914,7 @@
                           <input id="analysis-setup-survivor-income-growth" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-survivor-field="survivorScenario.survivorEarnedIncomeGrowthRatePercent">
                           <span aria-hidden="true">%</span>
                         </span>
-                        <p>Captured for future projections; current Needs does not apply growth.</p>
+                        <p>Captured for future projections; current LENS does not apply growth.</p>
                       </div>
                       <div class="analysis-setup-survivor-control-row">
                         <label for="analysis-setup-survivor-income-horizon">Future survivor income horizon</label>
@@ -922,7 +922,7 @@
                           <input id="analysis-setup-survivor-income-horizon" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-survivor-field="survivorScenario.survivorRetirementHorizonYears">
                           <span>years</span>
                         </span>
-                        <p>Saved for future duration modeling; current Needs does not limit survivor income by horizon.</p>
+                        <p>Saved for future duration modeling; current LENS does not limit survivor income by horizon.</p>
                       </div>
                     </div>
 
@@ -954,7 +954,7 @@
 
                     <div class="analysis-setup-survivor-card">
                       <h4>Future risk flags</h4>
-                      <p>Saved for future recommendation guardrails; not applied to current DIME, Needs, HLV, or recommendations.</p>
+                      <p>Saved for future recommendation guardrails; not applied to current DIME, LENS, HLV, or recommendations.</p>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Save high survivor income reliance flag</span>
@@ -992,13 +992,13 @@
                       <strong data-analysis-survivor-preview="discretionarySupport">Excluded later</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-survivor-preview-note">Needs uses Analysis Setup survivor assumptions with raw spouse income from PMI/profile. Survivor income growth and horizon are saved for future projections.</p>
+                  <p class="analysis-setup-survivor-preview-note">LENS uses Analysis Setup survivor assumptions with raw spouse income from PMI/profile. Survivor income growth and horizon are saved for future projections.</p>
                 </section>
 
                 <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-education-treatment">Education Assumptions</h3>
-                    <p>Current Needs uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
+                    <p>Current LENS uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-education-defaults" aria-label="Education treatment default settings">
@@ -1017,7 +1017,7 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Use education funding treatment</span>
-                          <span class="settings-toggle-note">Controls whether Needs includes education funding. When off, Needs education is $0.</span>
+                          <span class="settings-toggle-note">Controls whether LENS includes education funding. When off, LENS education is $0.</span>
                         </span>
                         <span class="settings-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Use education funding treatment" data-analysis-education-field="fundingTreatment.includeEducationFunding">
@@ -1030,7 +1030,7 @@
                           <input id="analysis-setup-education-funding-target" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="fundingTreatment.fundingTargetPercent">
                           <span aria-hidden="true">%</span>
                         </span>
-                        <p>Saved for future target adjustments; current Needs uses saved education amounts.</p>
+                        <p>Saved for future target adjustments; current LENS uses saved education amounts.</p>
                       </div>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
@@ -1045,7 +1045,7 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Apply education inflation</span>
-                          <span class="settings-toggle-note">Applies in Needs to current dependents with valid birthdates; planned dependents remain current-dollar.</span>
+                          <span class="settings-toggle-note">Applies in LENS to current dependents with valid birthdates; planned dependents remain current-dollar.</span>
                         </span>
                         <span class="settings-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Apply education inflation" data-analysis-education-field="fundingTreatment.applyEducationInflation">
@@ -1082,19 +1082,19 @@
                       <strong data-analysis-education-preview="costPerChild">No saved education data found</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current Needs may use education funding, projected dependents, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
+                  <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current LENS may use education funding, projected dependents, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
                 <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-recommendation-guardrails">Recommendation Guardrails</h3>
-                    <p>Set how future LENS recommendations should be shaped and risk-flagged. These settings are saved for future recommendation logic and are not applied to current DIME, Needs, or HLV results yet.</p>
+                    <p>Set how future LENS recommendations should be shaped and risk-flagged. These settings are saved for future recommendation logic and are not applied to current DIME, LENS, or HLV results yet.</p>
                   </div>
 
                   <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
                     <span class="settings-toggle-copy">
                       <span class="settings-toggle-label">Save future recommendation-engine constraints and warning rules</span>
-                      <span class="settings-toggle-note">Does not affect current DIME, Needs, or Human Life Value outputs yet.</span>
+                      <span class="settings-toggle-note">Does not affect current DIME, LENS, or Human Life Value outputs yet.</span>
                     </span>
                     <span class="settings-switch">
                       <input type="checkbox" role="switch" aria-label="Save future recommendation-engine constraints and warning rules" data-analysis-recommendation-enabled>
@@ -1115,7 +1115,7 @@
                   <div class="analysis-setup-recommendation-grid" aria-label="Recommendation guardrail controls">
                     <div class="analysis-setup-recommendation-card">
                       <h4>Reliance warning thresholds</h4>
-                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These thresholds will flag recommendations when reliance exceeds the selected level. They do not change current DIME, Needs, or Human Life Value outputs.</p>
+                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These thresholds will flag recommendations when reliance exceeds the selected level. They do not change current DIME, LENS, or Human Life Value outputs.</p>
                       <div class="analysis-setup-recommendation-control-row">
                         <label for="analysis-setup-recommendation-asset-reliance-threshold">Flag when asset reliance exceeds</label>
                         <span class="analysis-setup-asset-percent">
@@ -1141,12 +1141,12 @@
 
                     <div class="analysis-setup-recommendation-card">
                       <h4>Recommendation range constraints</h4>
-                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These settings do not change current DIME, Needs, or Human Life Value outputs.</p>
+                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These settings do not change current DIME, LENS, or Human Life Value outputs.</p>
                       <div class="analysis-setup-recommendation-control-row">
                         <label for="analysis-setup-recommendation-lower-bound-source">Lower bound source</label>
                         <select id="analysis-setup-recommendation-lower-bound-source" class="analysis-setup-card-input analysis-setup-recommendation-field" data-analysis-recommendation-field="rangeConstraints.lowerBound.source">
                           <option value="dime">DIME</option>
-                          <option value="needsAnalysis">Needs Analysis</option>
+                          <option value="needsAnalysis">LENS Analysis</option>
                           <option value="humanLifeValue">Human Life Value</option>
                         </select>
                       </div>
@@ -1161,7 +1161,7 @@
                         <label for="analysis-setup-recommendation-upper-bound-source">Upper bound source</label>
                         <select id="analysis-setup-recommendation-upper-bound-source" class="analysis-setup-card-input analysis-setup-recommendation-field" data-analysis-recommendation-field="rangeConstraints.upperBound.source">
                           <option value="dime">DIME</option>
-                          <option value="needsAnalysis">Needs Analysis</option>
+                          <option value="needsAnalysis">LENS Analysis</option>
                           <option value="humanLifeValue">Human Life Value</option>
                         </select>
                       </div>
@@ -1177,7 +1177,7 @@
 
                     <div class="analysis-setup-recommendation-card">
                       <h4>Recommendation risk flags</h4>
-                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These flags will support explainable recommendation review and do not change current DIME, Needs, or Human Life Value outputs.</p>
+                      <p class="analysis-setup-recommendation-preview-note">Saved for the future recommendation engine only. These flags will support explainable recommendation review and do not change current DIME, LENS, or Human Life Value outputs.</p>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-recommendation-toggle">
                         <span class="settings-toggle-copy"><span class="settings-toggle-label">Flag missing critical inputs</span></span>
                         <span class="settings-switch">
@@ -1223,7 +1223,7 @@
                       <strong data-analysis-recommendation-preview="savedFor">Future LENS recommendation logic</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-recommendation-preview-note">Preview only. Current Needs, DIME, HLV, and recommendation results are unchanged.</p>
+                  <p class="analysis-setup-recommendation-preview-note">Preview only. Current LENS, DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
                 </div>

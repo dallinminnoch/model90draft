@@ -290,7 +290,7 @@ const growthReturnSection = getSection(
 assert.match(assetTreatmentSection, /data-analysis-cash-reserve-controls/);
 assert.match(assetTreatmentSection, /Cash Reserve Assumptions:/);
 assert.match(assetTreatmentSection, /Saved for future reporting\/modeling/i);
-assert.match(assetTreatmentSection, /do not affect current DIME, Needs, or HLV outputs/i);
+assert.match(assetTreatmentSection, /do not affect current DIME, LENS, or HLV outputs/i);
 assert.match(assetTreatmentSection, /current asset offsets remain current-dollar\/current treatment based/i);
 assert.match(assetTreatmentSection, /Emergency reserve and liquidity rules must be reviewed/i);
 assert.match(assetTreatmentSection, /Explicit emergency fund assets are generally preserved before offsetting need/i);
@@ -466,7 +466,7 @@ assert.match(
 );
 assert.match(
   stepThreeSource,
-  /Reporting only \/ none; DIME, Needs, and HLV outputs are unaffected/,
+  /Reporting only \/ none; DIME, LENS, and HLV outputs are unaffected/,
   "Step 3 cash reserve display should stay current-output neutral"
 );
 assert.doesNotMatch(

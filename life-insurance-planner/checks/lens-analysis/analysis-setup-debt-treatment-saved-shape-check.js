@@ -227,7 +227,7 @@ assert.match(profileBody, /debtCategoryTreatment/);
 assert.doesNotMatch(profileBody, /nonMortgageDebtTreatment/);
 
 const previewBody = extractFunctionBody(source, "syncDebtTreatmentPreview", "syncSurvivorSupportPreview");
-assert.match(previewBody, /DIME and Needs use treated debt/);
+assert.match(previewBody, /DIME and LENS use treated debt/);
 assert.match(previewBody, /HLV remains unchanged/);
 assert.match(previewBody, /Support mode uses the current monthly mortgage payment from PMI/);
 assert.match(previewBody, /remaining mortgage term when reliable term data is available/);
@@ -252,7 +252,7 @@ assert.match(source, /Mortgage treatment must be Payoff or Support\./);
 assert.doesNotMatch(source, /Mortgage treatment must be Payoff, Support, or Custom\./);
 
 const html = readRepoFile("pages/analysis-setup.html");
-assert.match(html, /Used by DIME and Needs/);
+assert.match(html, /Used by DIME and LENS/);
 assert.match(html, /HLV is unchanged/);
 assert.match(html, /Mortgage support uses the current PMI mortgage payment for the selected support period/);
 assert.match(html, /Support mode uses the current monthly mortgage payment from PMI/);

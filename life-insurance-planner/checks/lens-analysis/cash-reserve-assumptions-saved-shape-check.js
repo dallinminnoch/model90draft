@@ -402,7 +402,7 @@ assert.match(
 );
 assert.match(
   stepThreeSource,
-  /Reporting only \/ none; DIME, Needs, and HLV outputs are unaffected/,
+  /Reporting only \/ none; DIME, LENS, and HLV outputs are unaffected/,
   "Step 3 cash reserve display should stay current-output neutral"
 );
 assert.doesNotMatch(

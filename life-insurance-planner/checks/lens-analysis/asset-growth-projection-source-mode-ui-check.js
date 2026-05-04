@@ -296,7 +296,7 @@ assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-years
 assert.doesNotMatch(growthReturnSection, /data-analysis-asset-growth-projection-/);
 assert.match(assetTreatmentSection, /Projection mode is saved for future reporting\/modeling/i);
 assert.match(assetTreatmentSection, /Current asset offsets remain current-dollar\/current treatment based/i);
-assert.match(assetTreatmentSection, /Projected asset values do not affect DIME, Needs, or HLV outputs yet/i);
+assert.match(assetTreatmentSection, /Projected asset values do not affect DIME, LENS, or HLV outputs yet/i);
 assert.match(assetTreatmentSection, /Emergency reserves, liquidity, and source-mode rules must be reviewed/i);
 assert.match(assetTreatmentSection, /Current-dollar only/);
 assert.match(assetTreatmentSection, /Reporting only/);

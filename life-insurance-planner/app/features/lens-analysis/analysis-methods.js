@@ -962,7 +962,7 @@
       addWarning(
         warnings,
         "invalid-needs-support-duration-years",
-        "Invalid Needs Analysis support duration setting was ignored.",
+        "Invalid LENS Analysis support duration setting was ignored.",
         "warning",
         ["settings.needsSupportDurationYears"]
       );
@@ -1039,7 +1039,7 @@
           sourcePath: "debtPayoff.totalDebtPayoffNeed",
           warnings,
           negativeCode: "negative-value-treated-as-zero",
-          negativeMessage: "totalDebtPayoffNeed was negative and was treated as 0 for Needs Analysis."
+          negativeMessage: "totalDebtPayoffNeed was negative and was treated as 0 for LENS Analysis."
         }),
         source: "debtPayoff.totalDebtPayoffNeed",
         inputs: {
@@ -1056,7 +1056,7 @@
     NEEDS_DEBT_PAYOFF_FALLBACK_FIELDS.forEach(function (field) {
       const normalized = normalizeNonNegativeNumber(debtPayoff[field.key], field.sourcePath, warnings, {
         negativeCode: "negative-value-treated-as-zero",
-        negativeMessage: field.label + " was negative and was treated as 0 for Needs Analysis."
+        negativeMessage: field.label + " was negative and was treated as 0 for LENS Analysis."
       });
 
       fallbackInputs[field.key] = normalized.value;
@@ -1072,7 +1072,7 @@
       addWarning(
         warnings,
         "debt-payoff-fallback-used",
-        "Needs Analysis debt payoff used the sum of available debt fields because totalDebtPayoffNeed was missing.",
+        "LENS Analysis debt payoff used the sum of available debt fields because totalDebtPayoffNeed was missing.",
         "info",
         NEEDS_DEBT_PAYOFF_FALLBACK_FIELDS.map(function (field) {
           return field.sourcePath;
@@ -1092,7 +1092,7 @@
     addWarning(
       warnings,
       "missing-total-debt-payoff-need",
-      "totalDebtPayoffNeed was missing; Needs Analysis debt payoff component defaulted to 0.",
+      "totalDebtPayoffNeed was missing; LENS Analysis debt payoff component defaulted to 0.",
       "info",
       ["debtPayoff.totalDebtPayoffNeed"]
     );
@@ -1677,9 +1677,9 @@
       warnings,
       warnWhenMissing: true,
       missingCode: "missing-education-funding-need",
-      missingMessage: "totalEducationFundingNeed was missing; Needs Analysis education component defaulted to 0.",
+      missingMessage: "totalEducationFundingNeed was missing; LENS Analysis education component defaulted to 0.",
       negativeCode: "negative-value-treated-as-zero",
-      negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for Needs Analysis."
+      negativeMessage: "totalEducationFundingNeed was negative and was treated as 0 for LENS Analysis."
     });
     const currentDollarTotal = currentDollarEducation;
     const educationSettings = resolveEducationFundingInflationSettings(settings, warnings);
@@ -1958,7 +1958,7 @@
       warnings,
       {
         negativeCode: "negative-value-treated-as-zero",
-        negativeMessage: "annualTotalEssentialSupportCost was negative and was treated as 0 for Needs Analysis."
+        negativeMessage: "annualTotalEssentialSupportCost was negative and was treated as 0 for LENS Analysis."
       }
     );
 
@@ -2100,7 +2100,7 @@
             warnings,
             {
               negativeCode: "negative-value-treated-as-zero",
-              negativeMessage: "survivorNetAnnualIncome was negative and was treated as 0 for Needs Analysis."
+              negativeMessage: "survivorNetAnnualIncome was negative and was treated as 0 for LENS Analysis."
             }
           );
       let survivorNetAnnualIncome = 0;
@@ -2111,7 +2111,7 @@
         addWarning(
           warnings,
           "missing-survivor-income-for-offset",
-          "survivorNetAnnualIncome was missing; Needs Analysis support used no survivor income reduction.",
+          "survivorNetAnnualIncome was missing; LENS Analysis support used no survivor income reduction.",
           "warning",
           [survivorIncomePath]
         );
@@ -2126,7 +2126,7 @@
           addWarning(
             warnings,
             "survivor-income-start-delay-defaulted-zero",
-            "survivorIncomeStartDelayMonths was missing; survivor income was treated as starting immediately for Needs Analysis.",
+            "survivorIncomeStartDelayMonths was missing; survivor income was treated as starting immediately for LENS Analysis.",
             "info",
             [delayPath]
           );
@@ -2135,7 +2135,7 @@
         addWarning(
           warnings,
           "negative-value-treated-as-zero",
-          "survivorIncomeStartDelayMonths was negative and was treated as 0 for Needs Analysis.",
+          "survivorIncomeStartDelayMonths was negative and was treated as 0 for LENS Analysis.",
           "warning",
           [delayPath]
         );
@@ -2144,7 +2144,7 @@
         addWarning(
           warnings,
           "survivor-income-delay-exceeds-support-duration",
-          "survivorIncomeStartDelayMonths exceeded the Needs Analysis support duration and was clamped to the support duration.",
+          "survivorIncomeStartDelayMonths exceeded the LENS Analysis support duration and was clamped to the support duration.",
           "info",
           [delayPath]
         );
@@ -2179,7 +2179,7 @@
         addWarning(
           warnings,
           "survivor-income-growth-not-applied-v1",
-          "Survivor income growth is captured but not applied to the v1 Needs Analysis support calculation.",
+          "Survivor income growth is captured but not applied to the v1 LENS Analysis support calculation.",
           "info",
           ["survivorScenario.survivorEarnedIncomeGrowthRatePercent"]
         );
@@ -2312,7 +2312,7 @@
         warnings,
         {
           negativeCode: "negative-value-treated-as-zero",
-          negativeMessage: "annualIncomeReplacementBase was negative and was treated as 0 for Needs Analysis income fallback."
+          negativeMessage: "annualIncomeReplacementBase was negative and was treated as 0 for LENS Analysis income fallback."
         }
       );
 
@@ -2320,7 +2320,7 @@
         addWarning(
           warnings,
           "essential-support-income-fallback-used",
-          "Needs Analysis used annualIncomeReplacementBase because annualTotalEssentialSupportCost was missing and allowIncomeFallback was true.",
+          "LENS Analysis used annualIncomeReplacementBase because annualTotalEssentialSupportCost was missing and allowIncomeFallback was true.",
           "warning",
           ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase"]
         );
@@ -2341,7 +2341,7 @@
     addWarning(
       warnings,
       "missing-essential-support-cost",
-      "annualTotalEssentialSupportCost was missing; Needs Analysis essential support component defaulted to 0.",
+      "annualTotalEssentialSupportCost was missing; LENS Analysis essential support component defaulted to 0.",
       "warning",
       ["ongoingSupport.annualTotalEssentialSupportCost"]
     );
@@ -2515,9 +2515,9 @@
       warnings,
       warnWhenMissing: true,
       missingCode: "missing-final-expense-need",
-      missingMessage: "totalFinalExpenseNeed was missing; Needs Analysis final expenses component defaulted to 0.",
+      missingMessage: "totalFinalExpenseNeed was missing; LENS Analysis final expenses component defaulted to 0.",
       negativeCode: "negative-value-treated-as-zero",
-      negativeMessage: "totalFinalExpenseNeed was negative and was treated as 0 for Needs Analysis."
+      negativeMessage: "totalFinalExpenseNeed was negative and was treated as 0 for LENS Analysis."
     });
     const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
       ? settings.inflationAssumptions
@@ -2589,7 +2589,7 @@
     const reason = normalizedOptions.reason || "healthcare-expense-projection-unavailable";
     const warningCode = normalizedOptions.warningCode || reason;
     const warningMessage = normalizedOptions.warningMessage
-      || "Healthcare expense projection was unavailable; Needs healthcareExpenses defaulted to 0.";
+      || "Healthcare expense projection was unavailable; LENS healthcareExpenses defaulted to 0.";
     const traceWarning = createWarning(
       warningCode,
       warningMessage,
@@ -2664,7 +2664,7 @@
 
     const warning = createWarning(
       "healthcare-expense-overlap-review",
-      "Entered healthcare expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the Needs healthcareExpenses component.",
+      "Entered healthcare expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the LENS healthcareExpenses component.",
       "info",
       [
         "expenseFacts.expenses",
@@ -2716,7 +2716,7 @@
       addWarning(
         warnings,
         "healthcare-expense-inflation-helper-unavailable",
-        "Healthcare expense projection helper was unavailable; Needs healthcareExpenses defaulted to 0.",
+        "Healthcare expense projection helper was unavailable; LENS healthcareExpenses defaulted to 0.",
         "warning",
         ["LensApp.lensAnalysis.calculateHealthcareExpenseProjection"]
       );
@@ -2725,7 +2725,7 @@
         settings,
         reason: "healthcare-expense-inflation-helper-unavailable",
         warningCode: "healthcare-expense-inflation-helper-unavailable",
-        warningMessage: "Healthcare expense projection helper was unavailable; Needs healthcareExpenses defaulted to 0."
+        warningMessage: "Healthcare expense projection helper was unavailable; LENS healthcareExpenses defaulted to 0."
       });
     } else {
       projection = {
@@ -2764,7 +2764,7 @@
       addWarning(
         warnings,
         "invalid-healthcare-expense-projection-result",
-        "Healthcare expense projection helper returned an invalid result; Needs healthcareExpenses defaulted to 0.",
+        "Healthcare expense projection helper returned an invalid result; LENS healthcareExpenses defaulted to 0.",
         "warning",
         ["LensApp.lensAnalysis.calculateHealthcareExpenseProjection"]
       );
@@ -2773,7 +2773,7 @@
         settings,
         reason: "invalid-healthcare-expense-projection-result",
         warningCode: "invalid-healthcare-expense-projection-result",
-        warningMessage: "Healthcare expense projection helper returned an invalid result; Needs healthcareExpenses defaulted to 0."
+        warningMessage: "Healthcare expense projection helper returned an invalid result; LENS healthcareExpenses defaulted to 0."
       });
       componentValue = 0;
     }
@@ -2801,7 +2801,7 @@
       missingCode: "missing-discretionary-support-cost",
       missingMessage: "annualDiscretionaryPersonalSpending was missing; discretionary support component defaulted to 0.",
       negativeCode: "negative-value-treated-as-zero",
-      negativeMessage: "annualDiscretionaryPersonalSpending was negative and was treated as 0 for Needs Analysis."
+      negativeMessage: "annualDiscretionaryPersonalSpending was negative and was treated as 0 for LENS Analysis."
     });
     const supportProjection = calculateDiscretionarySupportInflationProjection(
       annualDiscretionarySupport,
@@ -3193,9 +3193,9 @@
           warnings,
           warnWhenMissing: true,
           missingCode: "missing-transition-need",
-          missingMessage: "totalTransitionNeed was missing; Needs Analysis transition needs component defaulted to 0.",
+          missingMessage: "totalTransitionNeed was missing; LENS Analysis transition needs component defaulted to 0.",
           negativeCode: "negative-value-treated-as-zero",
-          negativeMessage: "totalTransitionNeed was negative and was treated as 0 for Needs Analysis."
+          negativeMessage: "totalTransitionNeed was negative and was treated as 0 for LENS Analysis."
         })
       : 0;
     const discretionarySupportComponent = includeDiscretionarySupport
@@ -3215,18 +3215,18 @@
       model,
       warnings,
       includeExistingCoverageOffset,
-      methodLabel: "Needs Analysis",
+      methodLabel: "LENS Analysis",
       rawMissingCode: "missing-existing-coverage",
       rawMissingMessage: "totalExistingCoverage was missing; existing coverage offset defaulted to 0.",
       rawNegativeCode: "negative-value-treated-as-zero",
-      rawNegativeMessage: "totalExistingCoverage was negative and was treated as 0 for Needs Analysis."
+      rawNegativeMessage: "totalExistingCoverage was negative and was treated as 0 for LENS Analysis."
     });
     const existingCoverageOffset = existingCoverageOffsetSelection.value;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
       warnings,
       includeOffsetAssets,
-      methodLabel: "Needs Analysis"
+      methodLabel: "LENS Analysis"
     });
     const assetOffset = assetOffsetSelection.value;
     const survivorIncomeOffset = essentialSupportComponent.survivorIncomeOffset || 0;
@@ -3637,7 +3637,7 @@
 
     const baseResult = {
       method: "needsAnalysis",
-      label: "Needs Analysis",
+      label: "LENS Analysis",
       grossNeed,
       netCoverageGap,
       rawUncappedGap,
