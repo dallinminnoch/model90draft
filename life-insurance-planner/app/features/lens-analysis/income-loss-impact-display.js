@@ -66,35 +66,6 @@
     }).format(number);
   }
 
-  function formatPercent(value) {
-    const number = toOptionalNumber(value);
-    if (number == null) {
-      return UNAVAILABLE_COPY;
-    }
-
-    return `${number.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
-  }
-
-  function formatMonths(value) {
-    const number = toOptionalNumber(value);
-    if (number == null) {
-      return UNAVAILABLE_COPY;
-    }
-
-    const rounded = Math.round(number * 10) / 10;
-    return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${rounded === 1 ? "month" : "months"}`;
-  }
-
-  function formatYears(value) {
-    const number = toOptionalNumber(value);
-    if (number == null) {
-      return UNAVAILABLE_COPY;
-    }
-
-    const rounded = Math.round(number * 10) / 10;
-    return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${rounded === 1 ? "year" : "years"}`;
-  }
-
   function formatCompactCurrency(value) {
     const number = toOptionalNumber(value);
     if (number == null) {
@@ -107,23 +78,6 @@
       notation: "compact",
       maximumFractionDigits: 0
     }).format(number);
-  }
-
-  function formatBoolean(value) {
-    if (value === true) {
-      return "Yes";
-    }
-
-    if (value === false) {
-      return "No";
-    }
-
-    return UNAVAILABLE_COPY;
-  }
-
-  function formatSource(value) {
-    const normalized = String(value || "").trim();
-    return normalized || "Linked profile and Protection Modeling facts";
   }
 
   function formatDateOnly(date) {
@@ -302,43 +256,6 @@
           <p>Read-only estimate from linked profile and Protection Modeling information. It does not change the LENS recommendation.</p>
         </div>
         <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value data-income-impact-helper-summary-card="yearsOfFinancialSecurity">${escapeHtml(displayValue)}</strong>
-      </article>
-    `;
-  }
-
-  function renderMetric(label, value, helper) {
-    return `
-      <article class="income-impact-metric">
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value)}</strong>
-        <p>${escapeHtml(helper)}</p>
-      </article>
-    `;
-  }
-
-  function renderRows(rows) {
-    return `
-      <ul class="income-impact-list">
-        ${rows.map(function (row) {
-          return `
-            <li>
-              <span>${escapeHtml(row.label)}</span>
-              <strong>${escapeHtml(row.value)}</strong>
-            </li>
-          `;
-        }).join("")}
-      </ul>
-    `;
-  }
-
-  function renderCard(title, helper, rows) {
-    return `
-      <article class="income-impact-card">
-        <div class="income-impact-card-header">
-          <h3>${escapeHtml(title)}</h3>
-          <p>${escapeHtml(helper)}</p>
-        </div>
-        ${renderRows(rows)}
       </article>
     `;
   }
