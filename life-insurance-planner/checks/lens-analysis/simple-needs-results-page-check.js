@@ -181,9 +181,15 @@ assert.match(analysisMethodsSource, /needsAnalysis: runNeedsAnalysis\(lensModel,
 assert.match(analysisMethodsSource, /humanLifeValue: runHumanLifeValueAnalysis\(lensModel, settings\)/);
 assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysis\(lensModel, settings\)/);
 
-assert.match(analysisEstimateHtml, /data-step-three-dime-analysis/);
-assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
-assert.match(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.equal(
+  countMatches(analysisEstimateHtml, /data-step-three-needs-analysis/g),
+  1,
+  "LENS result page should contain exactly one LENS Step 3 host."
+);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /DIME analysis will appear here/);
+assert.doesNotMatch(analysisEstimateHtml, /Income value lens will appear here/);
 assert.doesNotMatch(analysisEstimateHtml, /data-simple-needs-results-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-simple-needs-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /simple-needs-results-display\.js/);

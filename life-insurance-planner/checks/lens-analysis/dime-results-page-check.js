@@ -140,9 +140,15 @@ assert.ok(
   "Settings adapter should load before Step 3 display."
 );
 
-assert.match(analysisEstimateHtml, /data-step-three-dime-analysis/);
-assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
-assert.match(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.equal(
+  countMatches(analysisEstimateHtml, /data-step-three-needs-analysis/g),
+  1,
+  "LENS result page should contain exactly one LENS Step 3 host."
+);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /DIME analysis will appear here/);
+assert.doesNotMatch(analysisEstimateHtml, /Income value lens will appear here/);
 
 const dimeCard = getCardBlock(lensHtml, "dime");
 assert.match(dimeCard, /DIME Analysis/);

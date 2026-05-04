@@ -63,7 +63,7 @@ assert.match(
 );
 assert.match(
   lensHtml,
-  /The primary LENS path runs from linked profile entry to Analysis Setup and then the existing results page\./
+  /The primary LENS path runs from linked profile entry to Analysis Setup and then the LENS result page\./
 );
 assert.match(
   lensHtml,
@@ -137,9 +137,13 @@ assert.doesNotMatch(lensHtml, /runSimpleNeedsAnalysis/);
 assert.match(workspaceSideNavSource, /lens: "lens\.html"/);
 assert.match(workspaceSideNavSource, /lens: "studio\.html\?view=lens\.html"/);
 
-assert.match(analysisEstimateHtml, /data-step-three-dime-analysis/);
 assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
-assert.match(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /DIME analysis will appear here/);
+assert.doesNotMatch(analysisEstimateHtml, /Income value lens will appear here/);
+assert.doesNotMatch(lensHtml, /Existing DIME, LENS, and HLV result comparison remains on the current result page/);
+assert.match(lensHtml, /quick methods use their own result pages/);
 
 assert.match(analysisMethodsSource, /method: "dime"/);
 assert.match(analysisMethodsSource, /method: "needsAnalysis"/);
@@ -155,7 +159,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/lens-model-builder.js",
-  "pages/analysis-estimate.html",
   "pages/analysis-setup.html",
   "workspace-side-nav.js"
 ]);

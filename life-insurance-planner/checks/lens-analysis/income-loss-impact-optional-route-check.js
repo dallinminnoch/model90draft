@@ -57,7 +57,7 @@ assert.match(
 );
 assert.match(
   lensHtml,
-  /The primary LENS path runs from linked profile entry to Analysis Setup and then the existing results page\./,
+  /The primary LENS path runs from linked profile entry to Analysis Setup and then the LENS result page\./,
   "Selector copy should describe the direct primary LENS path."
 );
 assert.match(
@@ -165,9 +165,11 @@ assert.doesNotMatch(
   "App config should not make Income Loss Impact part of the primary required sequence."
 );
 
-assert.match(analysisEstimateHtml, /data-step-three-dime-analysis/);
 assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
-assert.match(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
+assert.doesNotMatch(analysisEstimateHtml, /DIME analysis will appear here/);
+assert.doesNotMatch(analysisEstimateHtml, /Income value lens will appear here/);
 
 const protectedChanges = getChangedFiles([
   "pages/profile.html",
@@ -175,7 +177,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-setup.js",
   "pages/income-loss-impact.html",
   "app/features/lens-analysis/income-loss-impact-display.js",
-  "pages/analysis-estimate.html",
   "lens-workflow.js",
   "app/core/config.js",
   "workspace-side-nav.js",
