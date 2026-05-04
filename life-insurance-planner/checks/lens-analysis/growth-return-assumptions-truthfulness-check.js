@@ -242,9 +242,11 @@ assert.match(analysisSetupHtml, /data-analysis-growth-field="partnerIncomeGrowth
 assert.match(analysisSetupHtml, /data-analysis-growth-field="taxableInvestmentReturnRatePercent"/);
 assert.match(analysisSetupHtml, /data-analysis-growth-field="retirementAssetReturnRatePercent"/);
 assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="enabled"/);
-assert.match(analysisSetupHtml, /Saved for future projection and modeling work/);
+assert.match(analysisSetupHtml, /Saved for future projection\/modeling/);
 assert.match(analysisSetupHtml, /do not affect current DIME, Needs, or Human Life Value outputs/);
-assert.match(analysisSetupHtml, /Current asset treatment, existing coverage, healthcare, inflation, and recommendation logic do not consume them/);
+assert.match(analysisSetupHtml, /Asset Treatment owns current saved asset-specific assumed annual growth/);
+assert.match(analysisSetupHtml, /current asset treatment, projected asset growth, existing coverage, healthcare, inflation, and recommendations do not consume the broad taxable\/retirement return sliders/);
+assert.match(analysisSetupHtml, /those sliders do not seed Asset Treatment defaults today/);
 
 const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 assert.match(analysisSetupSource, /growthAndReturnAssumptions: validatedGrowth\.value/);
@@ -339,10 +341,25 @@ const changedGrowth = {
 };
 const baseSnapshot = createMethodSnapshot(context, baseGrowth);
 const changedSnapshot = createMethodSnapshot(context, changedGrowth);
+const baseAssetTreatmentAssumptions = analysisSetup.getAssetTreatmentAssumptions({
+  analysisSettings: {
+    growthAndReturnAssumptions: baseGrowth
+  }
+});
+const changedAssetTreatmentAssumptions = analysisSetup.getAssetTreatmentAssumptions({
+  analysisSettings: {
+    growthAndReturnAssumptions: changedGrowth
+  }
+});
 assert.deepEqual(
   cloneJson(changedSnapshot.result),
   cloneJson(baseSnapshot.result),
   "DIME, Needs, and HLV outputs should not change when saved Growth & Return assumptions change"
+);
+assert.deepEqual(
+  cloneJson(changedAssetTreatmentAssumptions),
+  cloneJson(baseAssetTreatmentAssumptions),
+  "Asset Treatment per-category assumed growth defaults should not change when broad Growth & Return sliders change"
 );
 assert.equal(JSON.stringify(changedSnapshot.methodSettings.dimeSettings).includes("growthAndReturnAssumptions"), false);
 assert.equal(JSON.stringify(changedSnapshot.methodSettings.needsAnalysisSettings).includes("growthAndReturnAssumptions"), false);
@@ -359,9 +376,21 @@ assert.ok(
 const modelBuilderSource = readRepoFile("app/features/lens-analysis/lens-model-builder.js");
 const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 const stepThreeSource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
+const assetGrowthProjectionSource = readRepoFile("app/features/lens-analysis/asset-growth-projection-calculations.js");
+const assetTreatmentCalculationsSource = readRepoFile("app/features/lens-analysis/asset-treatment-calculations.js");
+const assetTaxonomySource = readRepoFile("app/features/lens-analysis/asset-taxonomy.js");
 assert.equal(modelBuilderSource.includes("growthAndReturnAssumptions"), false, "lens-model-builder should not consume Growth & Return assumptions");
 assert.equal(analysisMethodsSource.includes("growthAndReturnAssumptions"), false, "analysis methods should not consume Growth & Return assumptions");
 assert.equal(stepThreeSource.includes("growthAndReturnAssumptions"), false, "Step 3 should not render Growth & Return as current-output data");
 assert.equal(stepThreeSource.includes("Growth & Return Assumptions"), false, "Step 3 should not add a current-output Growth & Return section");
+[
+  "taxableInvestmentReturnRatePercent",
+  "retirementAssetReturnRatePercent"
+].forEach(function (fieldName) {
+  assert.equal(modelBuilderSource.includes(fieldName), false, `${fieldName} should not affect projectedAssetGrowth model prep`);
+  assert.equal(assetGrowthProjectionSource.includes(fieldName), false, `${fieldName} should not affect projectedAssetGrowth helper math`);
+  assert.equal(assetTreatmentCalculationsSource.includes(fieldName), false, `${fieldName} should not affect treated asset offsets`);
+  assert.equal(assetTaxonomySource.includes(fieldName), false, `${fieldName} should not seed Asset Treatment growth defaults`);
+});
 
 console.log("growth-return-assumptions-truthfulness-check passed");
