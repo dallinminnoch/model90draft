@@ -265,11 +265,15 @@ assert.match(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(simpleNeedsCard, /href=/);
 assert.doesNotMatch(simpleNeedsCard, /simple-needs-entry\.html/);
 assert.doesNotMatch(simpleNeedsCard, /simple-needs-results\.html/);
-assert.equal(fs.existsSync(path.join(repoRoot, "pages/simple-needs-entry.html")), false);
+assert.equal(
+  fs.existsSync(path.join(repoRoot, "pages/simple-needs-entry.html")),
+  true,
+  "Simple Needs entry page can exist while the selector remains disabled."
+);
 assert.equal(
   fs.existsSync(path.join(repoRoot, "pages/simple-needs-results.html")),
   true,
-  "Simple Needs result page can exist while the selector remains disabled and no entry page exists."
+  "Simple Needs result page can exist while the selector remains disabled."
 );
 
 const context = createLensAnalysisContext();
