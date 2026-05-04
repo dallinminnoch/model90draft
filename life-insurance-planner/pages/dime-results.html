@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIME Analysis | Life Evaluation &amp; Needs Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class='home-page lens-page lens-workflow-page analysis-estimate-page dime-results-page' data-step='dime-results'>
+  <script>
+    (function () {
+      try {
+        const session = JSON.parse(localStorage.getItem('lipPlannerAuthSession') || 'null');
+        const identity = session && session.email ? String(session.email).trim().toLowerCase() : 'guest';
+        if (localStorage.getItem(`workspaceSideNavCollapsed:${identity}`) === '1') {
+          document.body.classList.add('workspace-side-nav-collapsed');
+        }
+      } catch (error) {
+        // Ignore storage issues and fall back to the default expanded state.
+      }
+    })();
+  </script>
+  <div class='workspace-page-topbar'>
+    <div class='workspace-page-topbar-inner'>
+      <details class='workspace-page-menu'>
+        <summary class='workspace-page-menu-trigger' aria-label='Open pages menu' title='Pages'>
+          <img class='workspace-page-menu-icon' src='../Images/menu.svg' alt='' aria-hidden='true'>
+        </summary>
+        <div class='workspace-page-menu-panel'>
+          <a class='workspace-page-menu-link' href='../index.html'>
+            <span class='workspace-page-menu-link-icon' aria-hidden='true'>
+              <svg viewBox='0 0 20 20' fill='none'>
+                <path d='M3.6 8.45 10 3.55l6.4 4.9v7.2a1.35 1.35 0 0 1-1.35 1.35H4.95A1.35 1.35 0 0 1 3.6 15.65V8.45Z' stroke='currentColor' stroke-width='1.55' stroke-linejoin='round'/>
+                <path d='M7.75 16.95v-4.3h4.5v4.3' stroke='currentColor' stroke-width='1.55' stroke-linejoin='round'/>
+              </svg>
+            </span>
+            <span class='workspace-page-menu-link-label'>Home</span>
+          </a>
+          <a class='workspace-page-menu-link' href='clients.html'>
+            <span class='workspace-page-menu-link-icon' aria-hidden='true'>
+              <svg viewBox='0 0 20 20' fill='none'>
+                <circle cx='7' cy='7.2' r='2.35' stroke='currentColor' stroke-width='1.55'/>
+                <circle cx='13.3' cy='8.15' r='2.05' stroke='currentColor' stroke-width='1.55'/>
+                <path d='M3.9 15.35c.55-2.15 2.2-3.45 4.15-3.45 1.95 0 3.55 1.3 4.1 3.45' stroke='currentColor' stroke-width='1.55' stroke-linecap='round'/>
+                <path d='M11.2 15.35c.4-1.65 1.7-2.65 3.25-2.65 1.1 0 2.15.5 2.85 1.45' stroke='currentColor' stroke-width='1.55' stroke-linecap='round'/>
+              </svg>
+            </span>
+            <span class='workspace-page-menu-link-label'>Client Directory</span>
+          </a>
+          <a class='workspace-page-menu-link is-active' href='lens.html' aria-current='page'>
+            <span class='workspace-page-menu-link-icon' aria-hidden='true'>
+              <svg viewBox='0 0 20 20' fill='none'>
+                <circle cx='10' cy='10' r='6.05' stroke='currentColor' stroke-width='1.55'/>
+                <circle cx='10' cy='10' r='2.1' stroke='currentColor' stroke-width='1.55'/>
+                <path d='M10 2.95v1.85M10 15.2v1.85M17.05 10H15.2M4.8 10H2.95' stroke='currentColor' stroke-width='1.55' stroke-linecap='round'/>
+              </svg>
+            </span>
+            <span class='workspace-page-menu-link-label'>LENS Analysis</span>
+          </a>
+        </div>
+      </details>
+      <div class='workspace-page-topbar-actions'>
+        <button class='fullscreen-toggle' type='button' data-fullscreen-toggle aria-label='Enter full screen' title='Enter full screen' aria-pressed='false'>
+          <img class='fullscreen-toggle-icon' data-fullscreen-icon src='../Images/openfullscreen.svg' alt='' aria-hidden='true'>
+          <span class='sr-only'>Toggle full screen</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class='workspace-side-nav-host' data-workspace-side-nav-host data-workspace-side-nav='lens'></div>
+  <script>
+    if (document.body.classList.contains('workspace-side-nav-collapsed')) {
+      document.currentScript.previousElementSibling.classList.add('is-collapsed');
+    }
+  </script>
+  <main class='home-shell app-home-shell prospect-shell lens-workflow-shell'>
+    <section class='prospect-stage lens-workflow-stage'>
+      <section class='analysis-estimate-shell workspace-visible-pane'>
+        <section class="analysis-estimate-header">
+          <div>
+            <div class="analysis-estimate-eyebrow">Quick Analysis</div>
+            <h1>DIME Analysis</h1>
+            <p class="intro-copy">Fast estimate using debts, income, mortgage, and education from the linked protection modeling data.</p>
+          </div>
+        </section>
+
+        <section class="analysis-estimate-workspace" aria-label="DIME Analysis result">
+          <div class="analysis-results-grid" aria-label="DIME result card">
+            <article class="analysis-result-card" id="dime-results-analysis" data-step-three-dime-analysis aria-live="polite">
+              <p class="analysis-result-copy">DIME analysis will appear here when linked protection modeling data is available.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src='../workspace-side-nav.js'></script>
+  <script src='../data.js'></script>
+  <script src="../site-header.js"></script>
+  <script src="../pmi-tax-utils.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app/features/coverage/coverage-policy-utils.js"></script>
+  <script src="../app/features/lens-analysis/schema.js"></script>
+  <script src="../app/features/lens-analysis/asset-taxonomy.js"></script>
+  <script src="../app/features/lens-analysis/asset-library.js"></script>
+  <script src="../app/features/lens-analysis/debt-taxonomy.js"></script>
+  <script src="../app/features/lens-analysis/debt-library.js"></script>
+  <script src="../app/features/lens-analysis/expense-taxonomy.js"></script>
+  <script src="../app/features/lens-analysis/expense-library.js"></script>
+  <script src="../app/features/lens-analysis/block-outputs.js"></script>
+  <script src="../app/features/lens-analysis/helpers/income-tax-calculations.js"></script>
+  <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
+  <script src="../app/features/lens-analysis/blocks/existing-coverage.js"></script>
+  <script src="../app/features/lens-analysis/blocks/offset-assets.js"></script>
+  <script src="../app/features/lens-analysis/blocks/survivor-scenario.js"></script>
+  <script src="../app/features/lens-analysis/blocks/tax-context.js"></script>
+  <script src="../app/features/lens-analysis/blocks/income-net-income.js"></script>
+  <script src="../app/features/lens-analysis/blocks/debt-payoff.js"></script>
+  <script src="../app/features/lens-analysis/blocks/housing-ongoing-support.js"></script>
+  <script src="../app/features/lens-analysis/blocks/non-housing-ongoing-support.js"></script>
+  <script src="../app/features/lens-analysis/blocks/education-support.js"></script>
+  <script src="../app/features/lens-analysis/blocks/final-expenses.js"></script>
+  <script src="../app/features/lens-analysis/blocks/transition-needs.js"></script>
+  <script src="../app/features/lens-analysis/normalize-lens-model.js"></script>
+  <script src="../app/features/lens-analysis/asset-treatment-calculations.js"></script>
+  <script src="../app/features/lens-analysis/existing-coverage-treatment-calculations.js"></script>
+  <script src="../app/features/lens-analysis/debt-treatment-calculations.js"></script>
+  <script src="../app/features/lens-analysis/inflation-projection-calculations.js"></script>
+  <script src="../app/features/lens-analysis/education-funding-projection-calculations.js"></script>
+  <script src="../app/features/lens-analysis/final-expense-inflation-calculations.js"></script>
+  <script src="../app/features/lens-analysis/healthcare-expense-inflation-calculations.js"></script>
+  <script src="../app/features/lens-analysis/asset-growth-projection-calculations.js"></script>
+  <script src="../app/features/lens-analysis/cash-reserve-calculations.js"></script>
+  <script src="../app/features/lens-analysis/lens-model-builder.js"></script>
+  <script src="../app/features/lens-analysis/analysis-methods.js"></script>
+  <script src="../app/features/lens-analysis/analysis-settings-adapter.js"></script>
+  <script src="../app/features/lens-analysis/step-three-analysis-display.js"></script>
+  <script src="../app.js"></script>
+  <script src="../lens-workflow.js"></script>
+</body>
+</html>
