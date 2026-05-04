@@ -11973,6 +11973,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .analysis-setup-control-group--calculation-inclusion .analysis-setup-toggle-control {
+  margin-inline: 0.16rem;
   min-height: 2.16rem;
   padding: 0.34rem 0.48rem;
 }

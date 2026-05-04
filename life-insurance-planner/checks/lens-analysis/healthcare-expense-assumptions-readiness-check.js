@@ -220,7 +220,10 @@ assert.doesNotMatch(html, /Enable healthcare expense component/);
 assert.doesNotMatch(html, /Default healthcare expense projection years/);
 assert.doesNotMatch(html, /Include one-time healthcare expenses/);
 assert.match(html, /Healthcare inflation/);
-assert.match(html, /eligible non-final healthcare bucket expenses/);
+assert.doesNotMatch(
+  html,
+  /Healthcare inflation applies to LENS medical final expense projection and eligible non-final healthcare bucket expenses/
+);
 
 const setupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 assert.doesNotMatch(setupSource, /getHealthcareExpenseFieldMap/);
