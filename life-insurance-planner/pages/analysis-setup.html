@@ -125,12 +125,12 @@
         </section>
 
         <section class="lens-assumptions-overlay" id="lens-assumptions-overlay" data-lens-assumptions-overlay hidden aria-hidden="true">
-          <div class="lens-assumptions-dialog" data-lens-assumptions-dialog role="dialog" aria-modal="true" aria-labelledby="lens-assumptions-overlay-title">
+          <div class="lens-assumptions-dialog" data-lens-assumptions-dialog role="dialog" aria-modal="true" aria-labelledby="lens-assumptions-overlay-title" aria-describedby="lens-assumptions-overlay-copy" tabindex="-1">
             <header class="lens-assumptions-dialog-header">
               <div>
                 <div class="lens-assumptions-dialog-kicker">Planning Settings</div>
                 <h2 id="lens-assumptions-overlay-title">Review LENS Assumptions</h2>
-                <p>These controls define how linked profile facts are interpreted for LENS. Save keeps the overlay open; Save &amp; Exit will close the assumption workspace after a later behavior pass.</p>
+                <p id="lens-assumptions-overlay-copy">These controls define how linked profile facts are interpreted for LENS. Save keeps the overlay open; Save &amp; Exit saves and returns to the setup screen.</p>
               </div>
               <button class="lens-assumptions-close" type="button" data-lens-assumptions-close aria-label="Close LENS assumptions">Close</button>
             </header>

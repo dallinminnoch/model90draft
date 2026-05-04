@@ -7959,6 +7959,13 @@
     const viewTabs = Array.from(document.querySelectorAll("[data-analysis-setup-view-tab]"));
     const viewPanels = Array.from(document.querySelectorAll("[data-analysis-setup-view-panel]"));
     const viewGrid = document.querySelector("[data-analysis-setup-view-grid]");
+    const assumptionsOpenButton = document.querySelector("[data-lens-assumptions-open]");
+    const assumptionsOverlay = document.querySelector("[data-lens-assumptions-overlay]");
+    const assumptionsDialog = document.querySelector("[data-lens-assumptions-dialog]");
+    const assumptionsCloseButton = document.querySelector("[data-lens-assumptions-close]");
+    const assumptionsSaveExitButton = document.querySelector("[data-lens-assumptions-save-exit]");
+    let hasUnsavedAnalysisSetupChanges = false;
+    let assumptionsOverlayReturnFocus = null;
     const syncAnalysisSetupViewFromHash = function (options) {
       setAnalysisSetupView(
         getAnalysisSetupViewFromHash(),
@@ -7990,6 +7997,92 @@
     });
     window.addEventListener("hashchange", function () {
       syncAnalysisSetupViewFromHash({ scrollToView: true });
+    });
+
+    function getAssumptionsOverlayFocusTarget() {
+      return assumptionsCloseButton
+        || viewTabs.find(function (tab) { return tab && !tab.disabled; })
+        || saveButton
+        || assumptionsDialog;
+    }
+
+    function setAssumptionsOverlayOpen(isOpen) {
+      if (!assumptionsOverlay) {
+        return;
+      }
+
+      if (isOpen) {
+        assumptionsOverlayReturnFocus = document.activeElement && typeof document.activeElement.focus === "function"
+          ? document.activeElement
+          : assumptionsOpenButton;
+        assumptionsOverlay.hidden = false;
+        assumptionsOverlay.removeAttribute("aria-hidden");
+        assumptionsOverlay.setAttribute("data-overlay-open", "true");
+        document.body.classList.add("analysis-setup-assumptions-open");
+        const focusTarget = getAssumptionsOverlayFocusTarget();
+        if (focusTarget && typeof focusTarget.focus === "function") {
+          window.setTimeout(function () {
+            focusTarget.focus();
+          }, 0);
+        }
+        return;
+      }
+
+      assumptionsOverlay.hidden = true;
+      assumptionsOverlay.setAttribute("aria-hidden", "true");
+      assumptionsOverlay.removeAttribute("data-overlay-open");
+      document.body.classList.remove("analysis-setup-assumptions-open");
+      const returnFocusTarget = assumptionsOverlayReturnFocus || assumptionsOpenButton;
+      assumptionsOverlayReturnFocus = null;
+      if (returnFocusTarget && typeof returnFocusTarget.focus === "function") {
+        returnFocusTarget.focus();
+      }
+    }
+
+    function requestAssumptionsOverlayClose() {
+      if (!assumptionsOverlay || assumptionsOverlay.hidden) {
+        return true;
+      }
+
+      if (hasUnsavedAnalysisSetupChanges) {
+        setMessage(
+          validationMessage,
+          "Save or use Save & Exit before closing LENS assumptions.",
+          "error"
+        );
+        setStatus(
+          statusMessage,
+          "Unsaved Analysis Setup changes. Save before closing assumptions.",
+          "error"
+        );
+        return false;
+      }
+
+      setAssumptionsOverlayOpen(false);
+      return true;
+    }
+
+    assumptionsOpenButton?.addEventListener("click", function () {
+      setAssumptionsOverlayOpen(true);
+    });
+
+    assumptionsCloseButton?.addEventListener("click", function () {
+      requestAssumptionsOverlayClose();
+    });
+
+    assumptionsOverlay?.addEventListener("click", function (event) {
+      if (event.target === assumptionsOverlay) {
+        requestAssumptionsOverlayClose();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && assumptionsOverlay && !assumptionsOverlay.hidden) {
+        const didClose = requestAssumptionsOverlayClose();
+        if (!didClose) {
+          event.preventDefault();
+        }
+      }
     });
 
     populateFields(fields, getInflationAssumptions(linkedRecord), sliders);
@@ -8030,6 +8123,9 @@
       if (saveButton) {
         saveButton.disabled = true;
       }
+      if (assumptionsSaveExitButton) {
+        assumptionsSaveExitButton.disabled = true;
+      }
       if (applyButton) {
         applyButton.disabled = false;
         applyButton.textContent = "Continue";
@@ -8062,6 +8158,9 @@
     if (applyButton) {
       applyButton.disabled = false;
     }
+    if (assumptionsSaveExitButton) {
+      assumptionsSaveExitButton.disabled = false;
+    }
     if (linkedState) {
       const profileName = String(linkedRecord.displayName || linkedRecord.clientName || "Linked profile").trim();
       linkedState.textContent = profileName;
@@ -8069,8 +8168,34 @@
     setStatus(statusMessage, "Analysis Setup settings save to the linked profile.", "neutral");
 
     function markUnsaved() {
+      hasUnsavedAnalysisSetupChanges = true;
       setMessage(validationMessage, "", "neutral");
       setStatus(statusMessage, "Unsaved Analysis Setup changes.", "neutral");
+    }
+
+    function saveCurrentAnalysisSetupSettings() {
+      const updatedRecord = saveAnalysisSetupSettings(
+        fields,
+        sliders,
+        methodFields,
+        growthFields,
+        growthSliders,
+        policyReturnFields,
+        assetTreatmentFields,
+        existingCoverageFields,
+        debtTreatmentFields,
+        survivorSupportFields,
+        educationFields,
+        recommendationGuardrailFields,
+        linkedRecord,
+        validationMessage,
+        statusMessage
+      );
+      if (updatedRecord) {
+        linkedRecord = updatedRecord;
+        hasUnsavedAnalysisSetupChanges = false;
+      }
+      return updatedRecord;
     }
 
     fields.enabled?.addEventListener("change", function () {
@@ -8763,43 +8888,18 @@
     });
 
     saveButton?.addEventListener("click", function () {
-      linkedRecord = saveAnalysisSetupSettings(
-        fields,
-        sliders,
-        methodFields,
-        growthFields,
-        growthSliders,
-        policyReturnFields,
-        assetTreatmentFields,
-        existingCoverageFields,
-        debtTreatmentFields,
-        survivorSupportFields,
-        educationFields,
-        recommendationGuardrailFields,
-        linkedRecord,
-        validationMessage,
-        statusMessage
-      ) || linkedRecord;
+      saveCurrentAnalysisSetupSettings();
+    });
+
+    assumptionsSaveExitButton?.addEventListener("click", function () {
+      const updatedRecord = saveCurrentAnalysisSetupSettings();
+      if (updatedRecord) {
+        setAssumptionsOverlayOpen(false);
+      }
     });
 
     applyButton?.addEventListener("click", function () {
-      const updatedRecord = saveAnalysisSetupSettings(
-        fields,
-        sliders,
-        methodFields,
-        growthFields,
-        growthSliders,
-        policyReturnFields,
-        assetTreatmentFields,
-        existingCoverageFields,
-        debtTreatmentFields,
-        survivorSupportFields,
-        educationFields,
-        recommendationGuardrailFields,
-        linkedRecord,
-        validationMessage,
-        statusMessage
-      );
+      const updatedRecord = saveCurrentAnalysisSetupSettings();
       if (!updatedRecord) {
         return;
       }

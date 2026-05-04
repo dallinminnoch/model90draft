@@ -39,6 +39,7 @@ function getChangedFiles() {
 }
 
 const html = readRepoFile("pages/analysis-setup.html");
+const setupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 const layoutCss = readRepoFile("layout.css");
 const componentsCss = readRepoFile("components.css");
 
@@ -63,10 +64,14 @@ assert.match(overlaySection, /hidden aria-hidden="true"/);
 assert.match(overlaySection, /data-lens-assumptions-dialog/);
 assert.match(overlaySection, /role="dialog"/);
 assert.match(overlaySection, /data-lens-assumptions-close/);
+assert.match(overlaySection, /aria-describedby="lens-assumptions-overlay-copy"/);
+assert.match(overlaySection, /tabindex="-1"/);
 assert.match(overlaySection, /data-analysis-setup-save/);
 assert.match(overlaySection, /data-lens-assumptions-save/);
 assert.match(overlaySection, /data-lens-assumptions-save-exit/);
 assert.match(overlaySection, /Save &amp; Exit/);
+assert.match(overlaySection, /Save keeps the overlay open/);
+assert.match(overlaySection, /Save &amp; Exit saves and returns to the setup screen/);
 assert.match(overlaySection, /analysis-setup-assumption-panel/);
 assert.match(overlaySection, /analysis-setup-view-tabs/);
 assert.doesNotMatch(overlaySection, /data-lens-result-proceed/);
@@ -104,7 +109,59 @@ const inlineScripts = Array.from(html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([
   .join("\n");
 assert.doesNotMatch(inlineScripts, /lens-assumptions|data-lens-assumptions/);
 
+assert.match(setupSource, /document\.querySelector\("\[data-lens-assumptions-open\]"\)/);
+assert.match(setupSource, /document\.querySelector\("\[data-lens-assumptions-overlay\]"\)/);
+assert.match(setupSource, /document\.querySelector\("\[data-lens-assumptions-dialog\]"\)/);
+assert.match(setupSource, /document\.querySelector\("\[data-lens-assumptions-close\]"\)/);
+assert.match(setupSource, /document\.querySelector\("\[data-lens-assumptions-save-exit\]"\)/);
+assert.match(setupSource, /function setAssumptionsOverlayOpen\(isOpen\)/);
+assert.match(setupSource, /assumptionsOverlay\.hidden = false/);
+assert.match(setupSource, /assumptionsOverlay\.hidden = true/);
+assert.match(setupSource, /assumptionsOverlay\.removeAttribute\("aria-hidden"\)/);
+assert.match(setupSource, /assumptionsOverlay\.setAttribute\("aria-hidden", "true"\)/);
+assert.match(setupSource, /document\.body\.classList\.add\("analysis-setup-assumptions-open"\)/);
+assert.match(setupSource, /document\.body\.classList\.remove\("analysis-setup-assumptions-open"\)/);
+assert.match(setupSource, /assumptionsOverlayReturnFocus/);
+assert.match(setupSource, /returnFocusTarget\.focus\(\)/);
+assert.match(setupSource, /function requestAssumptionsOverlayClose\(\)/);
+assert.match(setupSource, /hasUnsavedAnalysisSetupChanges/);
+assert.match(setupSource, /Save or use Save & Exit before closing LENS assumptions/);
+assert.match(setupSource, /Unsaved Analysis Setup changes\. Save before closing assumptions/);
+assert.match(setupSource, /assumptionsOpenButton\?\.addEventListener\("click"/);
+assert.match(setupSource, /assumptionsCloseButton\?\.addEventListener\("click"/);
+assert.match(setupSource, /assumptionsOverlay\?\.addEventListener\("click"/);
+assert.match(setupSource, /event\.target === assumptionsOverlay/);
+assert.match(setupSource, /document\.addEventListener\("keydown"/);
+assert.match(setupSource, /event\.key === "Escape"/);
+assert.match(setupSource, /function saveCurrentAnalysisSetupSettings\(\)/);
+assert.match(setupSource, /hasUnsavedAnalysisSetupChanges = false/);
+assert.match(setupSource, /hasUnsavedAnalysisSetupChanges = true/);
+
+const saveHandlerSection = getSection(
+  setupSource,
+  'saveButton?.addEventListener("click"',
+  'assumptionsSaveExitButton?.addEventListener("click"'
+);
+assert.match(saveHandlerSection, /saveCurrentAnalysisSetupSettings\(\)/);
+assert.doesNotMatch(saveHandlerSection, /setAssumptionsOverlayOpen\(false\)/);
+
+const saveExitHandlerSection = getSection(
+  setupSource,
+  'assumptionsSaveExitButton?.addEventListener("click"',
+  'applyButton?.addEventListener("click"'
+);
+assert.match(saveExitHandlerSection, /saveCurrentAnalysisSetupSettings\(\)/);
+assert.match(saveExitHandlerSection, /setAssumptionsOverlayOpen\(false\)/);
+
+const applyHandlerSection = getSection(
+  setupSource,
+  'applyButton?.addEventListener("click"',
+  'window.location.href = "analysis-estimate.html";'
+);
+assert.match(applyHandlerSection, /saveCurrentAnalysisSetupSettings\(\)/);
+
 assert.match(layoutCss, /\.analysis-setup-entry-screen/);
+assert.match(layoutCss, /body\.analysis-setup-assumptions-open/);
 assert.match(layoutCss, /\.lens-assumptions-overlay/);
 assert.match(layoutCss, /\.lens-assumptions-dialog/);
 assert.match(componentsCss, /\.analysis-setup-entry-screen/);
@@ -114,7 +171,6 @@ assert.match(componentsCss, /\.analysis-setup-action\[data-lens-assumptions-save
 const changedFiles = getChangedFiles();
 [
   "styles.css",
-  "app/features/lens-analysis/analysis-setup.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/lens-model-builder.js",
@@ -133,4 +189,4 @@ const changedFiles = getChangedFiles();
   );
 });
 
-console.log("Analysis Setup entry overlay static markup checks passed.");
+console.log("Analysis Setup entry overlay behavior checks passed.");

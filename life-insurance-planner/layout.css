@@ -1284,6 +1284,10 @@ body.lens-workflow-page {
   display: none;
 }
 
+body.analysis-setup-assumptions-open {
+  overflow: hidden;
+}
+
 .analysis-setup-entry-screen {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(17rem, 0.65fr);
