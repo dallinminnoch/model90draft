@@ -143,7 +143,33 @@
 
   function formatSource(value) {
     const normalized = String(value || "").trim();
-    return normalized || "Current Lens model and LENS Analysis result";
+    return normalized || "Linked profile and Protection Modeling facts";
+  }
+
+  function syncIncomeImpactWorkflowLinks() {
+    const currentParams = new URLSearchParams(window.location.search);
+    if (!Array.from(currentParams.keys()).length) {
+      return;
+    }
+
+    Array.from(document.querySelectorAll("[data-income-impact-route-link]")).forEach(function (link) {
+      const rawHref = link.getAttribute("href");
+      if (!rawHref) {
+        return;
+      }
+
+      const targetUrl = new URL(rawHref, window.location.href);
+      currentParams.forEach(function (value, key) {
+        if (!targetUrl.searchParams.has(key)) {
+          targetUrl.searchParams.append(key, value);
+        }
+      });
+
+      link.setAttribute(
+        "href",
+        `${targetUrl.pathname.split("/").pop()}${targetUrl.search}${targetUrl.hash}`
+      );
+    });
   }
 
   function getUrlValue(params, fieldNames) {
@@ -227,7 +253,7 @@
   function renderEmptyState(host, title, message) {
     host.innerHTML = `
       <div class="income-impact-empty-state">
-        <div class="section-label">Income Loss Impact</div>
+        <div class="section-label">Income Impact Review</div>
         <h2>${escapeHtml(title)}</h2>
         <p>${escapeHtml(message)}</p>
       </div>
@@ -438,7 +464,7 @@
       <div class="income-impact-timeline-chart" aria-label="Placeholder support gap timeline visualization">
         <div class="income-impact-chart-topline">
           <span class="income-impact-placeholder-badge">Placeholder visualization</span>
-          <p>15-year monthly placeholder values shown for layout only. Final timeline will use model-calculated support gap projections.</p>
+          <p>15-year monthly placeholder values shown for layout only. Future timeline values will use fact-based linked profile and Protection Modeling events, not the final LENS recommendation.</p>
         </div>
         <svg class="income-impact-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Sample support gap timeline shown as thin columns under trendlines">
           <g class="income-impact-chart-grid" aria-hidden="true">
@@ -540,7 +566,7 @@
         <article class="income-impact-card income-impact-card--wide">
           <div class="income-impact-card-header">
             <h3>Support Gap Timeline</h3>
-            <p>Current-dollar v1 timeline. Chart values are placeholder only.</p>
+            <p>Placeholder-only timeline. Not final functionality.</p>
           </div>
           ${renderPlaceholderTimelineChart()}
           <div class="income-impact-empty-inline">${escapeHtml(EMPTY_MESSAGE)}</div>
@@ -557,7 +583,7 @@
       <article class="income-impact-card income-impact-card--wide">
         <div class="income-impact-card-header">
           <h3>Support Gap Timeline</h3>
-          <p>Current-dollar v1 timeline. Chart values are placeholder only.</p>
+          <p>Placeholder-only timeline. Not final functionality.</p>
         </div>
         <div class="income-impact-timeline" aria-label="Current-dollar support gap timeline">
           ${renderPlaceholderTimelineChart()}
@@ -631,22 +657,27 @@
     host.innerHTML = `
       <div class="income-impact-header">
         <div>
-          <div class="section-label">Optional Review</div>
+          <div class="section-label">Income Impact Review</div>
           <h2>Income Loss Impact</h2>
-          <p>Read-only view built from the current Lens model and LENS Analysis result.</p>
+          <p>Read-only fact preview from linked profile and Protection Modeling data. It does not save assumptions or change the LENS recommendation.</p>
         </div>
         <span class="income-impact-source">Current-dollar v1</span>
+      </div>
+
+      <div class="income-impact-notes">
+        <strong>Temporary compatibility</strong>
+        <p>Some support-gap values below still use the current LENS Analysis engine until the fact-based timeline helper replaces this display.</p>
       </div>
 
       <div class="income-impact-snapshot" aria-label="Income loss snapshot">
         ${renderMetric("Annual Income Lost", formatCurrency(data.annualIncomeReplacementBase), "incomeBasis.annualIncomeReplacementBase")}
         ${renderMetric("Survivor Income Available", formatCurrency(data.survivorNetAnnualIncome), "survivorScenario.survivorNetAnnualIncome")}
-        ${renderMetric("Annual Support Gap", formatCurrency(data.annualSupportGap), "Annualized from Needs support gap trace")}
-        ${renderMetric("Support Duration", formatYears(data.supportDurationYears), "LENS Analysis support duration")}
+        ${renderMetric("Annual Support Gap", formatCurrency(data.annualSupportGap), "Temporary compatibility from Needs support trace")}
+        ${renderMetric("Support Duration", formatYears(data.supportDurationYears), "Temporary LENS compatibility duration")}
       </div>
 
       <div class="income-impact-grid">
-        ${renderCard("Income Replacement Bridge", "Current model facts and Needs support trace.", [
+        ${renderCard("Income Replacement Bridge", "Current model facts with temporary Needs support trace compatibility.", [
           { label: "Insured gross income", value: formatCurrency(data.insuredGrossAnnualIncome) },
           { label: "Bonus / variable income", value: formatCurrency(data.bonusVariableAnnualIncome) },
           { label: "Employer benefits", value: formatCurrency(data.annualEmployerBenefitsValue) },
@@ -654,7 +685,7 @@
           { label: "Survivor income offset", value: formatCurrency(data.survivorIncomeOffset) },
           { label: "Annual income gap", value: formatCurrency(data.annualSupportGap) }
         ])}
-        ${renderCard("Survivor Income Impact", "Survivor facts used by the LENS Analysis support component.", [
+        ${renderCard("Survivor Income Impact", "Prepared survivor facts; support-applied values remain temporary compatibility.", [
           { label: "Survivor continues working", value: formatBoolean(data.survivorContinuesWorking) },
           { label: "Survivor gross income", value: formatCurrency(data.survivorGrossAnnualIncome) },
           { label: "Survivor net income", value: formatCurrency(data.survivorNetAnnualIncome) },
@@ -663,7 +694,7 @@
           { label: "Survivor income applied to support", value: formatCurrency(data.survivorIncomeOffset) }
         ])}
         ${renderTimeline(data)}
-        ${renderCard("Capital Needed for Income Support", "LENS Analysis essential support component.", [
+        ${renderCard("Temporary Support Context", "Temporary LENS compatibility output; not the final recommendation.", [
           { label: "Annual support gap", value: formatCurrency(data.annualSupportGap) },
           { label: "Support duration", value: formatYears(data.supportDurationYears) },
           { label: "Total income support need", value: formatCurrency(data.totalIncomeSupportNeed) },
@@ -690,6 +721,7 @@
     if (!host) {
       return;
     }
+    syncIncomeImpactWorkflowLinks();
 
     const currentLensAnalysis = window.LensApp?.lensAnalysis || {};
     const buildLensModelFromSavedProtectionModeling = currentLensAnalysis.buildLensModelFromSavedProtectionModeling;

@@ -129,7 +129,8 @@
   const allSteps = [
     { id: "profile-1", label: "Link Profile", path: "profile.html" },
     { id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup.html" },
-    { id: "estimate", label: "Estimate Need", path: "analysis-estimate.html" },
+    { id: "income-impact", label: "Income Impact Review", path: "income-loss-impact.html" },
+    { id: "estimate", label: "LENS Result", path: "analysis-estimate.html" },
     { id: "recommendations", label: "Coverage Options", path: "recommendations.html" },
     { id: "planner", label: "Policy Planner", path: "planner.html" },
     { id: "summary", label: "Summary", path: "summary.html" }

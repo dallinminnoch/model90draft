@@ -49,7 +49,7 @@ assert.match(html, /Review LENS Assumptions/);
 assert.match(html, /data-lens-assumptions-open/);
 assert.match(html, /data-lens-assumptions-open[^>]*aria-controls="lens-assumptions-overlay"[^>]*aria-expanded="false"/);
 assert.match(html, /data-lens-result-proceed/);
-assert.match(html, /Proceed to LENS Result/);
+assert.match(html, /Continue to Income Impact/);
 
 const entrySection = getSection(html, 'data-analysis-setup-entry', 'data-lens-assumptions-overlay');
 assert.match(entrySection, /Review LENS Assumptions/);
@@ -90,7 +90,7 @@ assert.doesNotMatch(overlaySection, />Review LENS Assumptions</);
 assert.doesNotMatch(overlaySection, /These controls define how linked profile facts are interpreted for LENS/);
 assert.doesNotMatch(overlaySection, /Save keeps the overlay open/);
 assert.doesNotMatch(overlaySection, /data-lens-result-proceed/);
-assert.doesNotMatch(overlaySection, /Proceed to LENS Result/);
+assert.doesNotMatch(overlaySection, /Continue to Income Impact/);
 assert.doesNotMatch(overlaySection, /lens-assumptions-dialog-header/);
 assert.doesNotMatch(overlaySection, /data-analysis-setup-header-toggle/);
 assert.doesNotMatch(overlaySection, /analysis-setup-header-toggle/);
@@ -192,6 +192,9 @@ assert.match(setupSource, /event\.key === "Escape"/);
 assert.match(setupSource, /function saveCurrentAnalysisSetupSettings\(\)/);
 assert.match(setupSource, /hasUnsavedAnalysisSetupChanges = false/);
 assert.match(setupSource, /hasUnsavedAnalysisSetupChanges = true/);
+assert.match(setupSource, /const INCOME_LOSS_IMPACT_ROUTE = "income-loss-impact\.html"/);
+assert.match(setupSource, /function getRouteWithCurrentQuery\(path\)/);
+assert.match(setupSource, /currentSearch \? `\$\{route\}\$\{currentSearch\}` : route/);
 
 const saveHandlerSection = getSection(
   setupSource,
@@ -212,9 +215,10 @@ assert.match(saveExitHandlerSection, /setAssumptionsOverlayOpen\(false\)/);
 const applyHandlerSection = getSection(
   setupSource,
   'applyButton?.addEventListener("click"',
-  'window.location.href = "analysis-estimate.html";'
+  'document.addEventListener("DOMContentLoaded"'
 );
 assert.match(applyHandlerSection, /saveCurrentAnalysisSetupSettings\(\)/);
+assert.match(applyHandlerSection, /window\.location\.href = getRouteWithCurrentQuery\(INCOME_LOSS_IMPACT_ROUTE\)/);
 
 assert.match(layoutCss, /\.analysis-setup-entry-screen/);
 assert.match(layoutCss, /body\.analysis-setup-assumptions-open/);
@@ -255,7 +259,6 @@ const changedFiles = getChangedFiles();
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/projected-asset-offset-calculations.js",
   "app/features/lens-analysis/healthcare-expense-inflation-calculations.js",
-  "pages/analysis-estimate.html",
   "pages/dime-results.html",
   "pages/hlv-results.html",
   "pages/simple-needs-results.html"

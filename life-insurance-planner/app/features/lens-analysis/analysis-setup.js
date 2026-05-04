@@ -1,5 +1,6 @@
 (function () {
   const LensApp = window.LensApp || (window.LensApp = {});
+  const INCOME_LOSS_IMPACT_ROUTE = "income-loss-impact.html";
 
   const RATE_FIELDS = [
     "generalInflationRatePercent",
@@ -8,6 +9,16 @@
     "healthcareInflationRatePercent",
     "finalExpenseInflationRatePercent"
   ];
+
+  function getRouteWithCurrentQuery(path) {
+    const route = String(path || "").trim();
+    if (!route) {
+      return "";
+    }
+
+    const currentSearch = String(window.location?.search || "").trim();
+    return currentSearch ? `${route}${currentSearch}` : route;
+  }
 
   const RATE_LABELS = {
     generalInflationRatePercent: "General inflation rate",
@@ -8205,9 +8216,9 @@
       }
       if (applyButton) {
         applyButton.disabled = false;
-        applyButton.textContent = "Continue";
+        applyButton.textContent = "Continue to Income Impact";
         applyButton.addEventListener("click", function () {
-          window.location.href = "analysis-estimate.html";
+          window.location.href = getRouteWithCurrentQuery(INCOME_LOSS_IMPACT_ROUTE);
         });
       }
       syncLinkedProfileDisplay(null);
@@ -8977,7 +8988,7 @@
         return;
       }
 
-      window.location.href = "analysis-estimate.html";
+      window.location.href = getRouteWithCurrentQuery(INCOME_LOSS_IMPACT_ROUTE);
     });
   }
 

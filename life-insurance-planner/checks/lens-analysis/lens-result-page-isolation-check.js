@@ -44,9 +44,11 @@ const stepThreeDisplaySource = readRepoFile("app/features/lens-analysis/step-thr
 
 assert.match(
   analysisEstimateHtml,
-  /Review the LENS recommendation from the linked profile and Analysis Setup assumptions before moving into recommendation design\./,
+  /Review the final LENS result from the linked profile, Analysis Setup assumptions, and Income Impact Review before moving into recommendation design\./,
   "LENS result page copy should be LENS-only."
 );
+assert.match(analysisEstimateHtml, /<title>LENS Result \| Life Evaluation &amp; Needs Analysis<\/title>/);
+assert.match(analysisEstimateHtml, /Step 4: LENS Result/);
 assert.doesNotMatch(
   analysisEstimateHtml,
   /Compare the saved protection modeling data across the active analysis methods/,

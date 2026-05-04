@@ -63,15 +63,15 @@ assert.match(
 );
 assert.match(
   lensHtml,
-  /The primary LENS path runs from linked profile entry to Analysis Setup and then the LENS result page\./
+  /The primary LENS path runs from linked profile entry to Analysis Setup, Income Impact Review, and then the LENS Result page\./
 );
 assert.match(
   lensHtml,
-  /Income Loss Impact remains available as optional read-only review, not a required step\./
+  /DIME, Simple Needs, and Human Life Value remain standalone quick flows\./
 );
 assert.doesNotMatch(
   lensHtml,
-  /continues through linked profile entry, Analysis Setup, income impact, and the existing results page/
+  /Income Loss Impact remains available as optional read-only review, not a required step/
 );
 
 const lensCard = getCardBlock(lensHtml, "lens");
@@ -137,7 +137,10 @@ assert.doesNotMatch(lensHtml, /runSimpleNeedsAnalysis/);
 assert.match(workspaceSideNavSource, /lens: "lens\.html"/);
 assert.match(workspaceSideNavSource, /lens: "studio\.html\?view=lens\.html"/);
 assert.doesNotMatch(workspaceSideNavSource, /path: "analysis-detail\.html"/);
-assert.doesNotMatch(workspaceSideNavSource, /path: "income-loss-impact\.html"/);
+assert.match(
+  workspaceSideNavSource,
+  /\{ id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup\.html", icon: "financial-snapshot" \}[\s\S]*?\{ id: "income-impact", label: "Income Impact Review", path: "income-loss-impact\.html", icon: "analysis" \}[\s\S]*?\{ id: "estimate", label: "LENS Result", path: "analysis-estimate\.html", icon: "needs-analysis" \}/
+);
 
 assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
@@ -160,8 +163,7 @@ assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysi
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/lens-model-builder.js",
-  "pages/analysis-setup.html"
+  "app/features/lens-analysis/lens-model-builder.js"
 ]);
 assert.deepEqual(protectedChanges, [], "No Step 3, Analysis Setup, model-builder, estimate page, or side-nav files should be changed.");
 

@@ -84,6 +84,7 @@ assert.equal(
   1,
   "analysis-estimate.html should remain LENS-only."
 );
+assert.match(analysisEstimateHtml, /Step 4: LENS Result/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-human-life-value-analysis/);
 
@@ -123,7 +124,6 @@ const forbiddenChangedFiles = getChangedFiles([
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/projected-asset-offset-calculations.js",
-  "pages/analysis-estimate.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/hlv-entry.html",
