@@ -266,7 +266,11 @@ assert.doesNotMatch(simpleNeedsCard, /href=/);
 assert.doesNotMatch(simpleNeedsCard, /simple-needs-entry\.html/);
 assert.doesNotMatch(simpleNeedsCard, /simple-needs-results\.html/);
 assert.equal(fs.existsSync(path.join(repoRoot, "pages/simple-needs-entry.html")), false);
-assert.equal(fs.existsSync(path.join(repoRoot, "pages/simple-needs-results.html")), false);
+assert.equal(
+  fs.existsSync(path.join(repoRoot, "pages/simple-needs-results.html")),
+  true,
+  "Simple Needs result page can exist while the selector remains disabled and no entry page exists."
+);
 
 const context = createLensAnalysisContext();
 const methods = context.LensApp.lensAnalysis.analysisMethods;
