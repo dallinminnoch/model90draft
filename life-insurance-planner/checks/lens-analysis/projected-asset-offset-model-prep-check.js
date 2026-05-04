@@ -464,10 +464,20 @@ assert.match(
   /PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION/,
   "projectedAssetOffset method-readiness must require an explicit activation version"
 );
+assert.match(
+  stepThreeDisplaySource,
+  /Projected Asset Offset/,
+  "Step 3 may explain active projectedAssetOffset consumption after the display pass"
+);
+assert.match(
+  stepThreeDisplaySource,
+  /projectedAssetOffsetConsumed/,
+  "Step 3 projectedAssetOffset display should use method trace consumption as its source of truth"
+);
 assert.doesNotMatch(
   stepThreeDisplaySource,
-  /projectedAssetOffset|Projected Asset Offset/,
-  "Step 3 display should not render projectedAssetOffset in this pass"
+  /projectedAssetOffset\.consumedByMethods/,
+  "Step 3 projectedAssetOffset display should not use the inactive model-prep consumedByMethods flag as its source of truth"
 );
 assert.doesNotMatch(
   analysisSetupHtml + "\n" + analysisSetupSource,

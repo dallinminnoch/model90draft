@@ -78,6 +78,7 @@ assert.doesNotMatch(dimeResultsHtml, /LENS Analysis will appear here/);
 assert.doesNotMatch(dimeResultsHtml, /Income value lens will appear here/);
 assert.doesNotMatch(dimeResultsHtml, /LENS Projection Details/);
 assert.doesNotMatch(dimeResultsHtml, /Projected Asset Growth/);
+assert.doesNotMatch(dimeResultsHtml, /Projected Asset Offset/);
 assert.doesNotMatch(dimeResultsHtml, /Cash Reserve Projection/);
 assert.doesNotMatch(dimeResultsHtml, /Healthcare Expense Projection/);
 assert.doesNotMatch(dimeResultsHtml, /Final Expense Projection/);
@@ -166,7 +167,6 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-human-life-value-analysis]")'));
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/profile.html",
   "workspace-side-nav.js"
@@ -174,7 +174,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No Step 3 display, adapter, profile, or side-nav files should be changed."
+  "No DIME-adjacent adapter, profile, or side-nav files should be changed."
 );
 
 console.log("dime-results-page-check passed");

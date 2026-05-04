@@ -463,10 +463,10 @@ assert.doesNotMatch(
   /projectedAssetOffsetAssumptions|activationVersion/,
   "Current Analysis Setup UI and saved schema must not create the projectedAssetOffset active marker."
 );
-assert.doesNotMatch(
+assert.match(
   readRepoFile("app/features/lens-analysis/step-three-analysis-display.js"),
-  /projectedAssetOffset|Projected Asset Offset/,
-  "Step 3 display should not render projectedAssetOffset in this backend-readiness pass."
+  /Projected Asset Offset/,
+  "Step 3 may explain active projectedAssetOffset consumption after the display pass."
 );
 
 console.log("projected-asset-offset-method-consumption-check passed");

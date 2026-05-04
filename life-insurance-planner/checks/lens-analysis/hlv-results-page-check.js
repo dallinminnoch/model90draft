@@ -83,6 +83,7 @@ assert.doesNotMatch(hlvResultsHtml, /Final Expense Projection/);
 assert.doesNotMatch(hlvResultsHtml, /data-analysis-setup/);
 assert.doesNotMatch(hlvResultsHtml, /Asset Treatment/);
 assert.doesNotMatch(hlvResultsHtml, /Growth & Return/);
+assert.doesNotMatch(hlvResultsHtml, /Projected Asset Offset/);
 assert.doesNotMatch(hlvResultsHtml, /Cash Reserve Assumptions/);
 
 const hlvScripts = extractScriptSources(hlvResultsHtml);
@@ -185,7 +186,6 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-dime-
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs-analysis]")'));
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/dime-entry.html",
   "pages/dime-results.html",
@@ -195,7 +195,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No Step 3 display, adapter, DIME, profile, or side-nav files should be changed."
+  "No HLV-adjacent adapter, DIME, profile, or side-nav files should be changed."
 );
 
 console.log("hlv-results-page-check passed");

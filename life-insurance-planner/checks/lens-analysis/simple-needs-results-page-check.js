@@ -89,6 +89,7 @@ assert.doesNotMatch(mainContent, /DIME Analysis/);
 assert.doesNotMatch(mainContent, /LENS Analysis/);
 assert.doesNotMatch(mainContent, /Human Life Value/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Projected Asset Growth/);
+assert.doesNotMatch(simpleNeedsResultsHtml, /Projected Asset Offset/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Cash Reserve Projection/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Healthcare Expense Projection/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Final Expense Projection/);
@@ -219,7 +220,6 @@ assert.doesNotMatch(hlvResultsHtml, /simple-needs-results-display\.js/);
 
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/step-three-analysis-display.js",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/hlv-results.html"
@@ -227,7 +227,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Simple Needs selector activation should not change adapter, Step 3 display, DIME pages, or HLV pages."
+  "Simple Needs selector activation should not change adapter, DIME pages, or HLV pages."
 );
 
 console.log("simple-needs-results-page-check passed");

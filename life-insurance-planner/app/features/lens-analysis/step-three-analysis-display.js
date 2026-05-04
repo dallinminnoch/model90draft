@@ -280,6 +280,18 @@
       return "Asset offsets excluded";
     }
 
+    if (assetOffsetStatus === "projected-active-used" || effectiveSource === "projectedassetoffset") {
+      return "Projected asset offset used";
+    }
+
+    if (assetOffsetStatus === "projected-invalid-fallback-to-treated") {
+      return "Projected asset offset invalid; treated asset offset used";
+    }
+
+    if (assetOffsetStatus === "projected-invalid-fallback-to-zero") {
+      return "Projected asset offset invalid; using $0";
+    }
+
     if (assetOffsetStatus === "treated-unavailable" || effectiveSource === "zero" || !treatedAvailable) {
       return "Treated asset total unavailable; using $0";
     }
@@ -306,6 +318,207 @@
     ];
 
     return renderProjectionDetailSection("Asset Offset Details", rows);
+  }
+
+  function formatProjectedAssetOffsetSourceMode(value) {
+    const normalized = String(value || "").trim();
+    if (normalized === "projectedOffsets") {
+      return "Projected offsets";
+    }
+
+    return formatAssetGrowthSourceMode(value);
+  }
+
+  function getProjectedAssetOffsetWarningSummary(projectedAssetOffset) {
+    const inactiveWarningCodes = new Set([
+      "projected-asset-offset-future-inactive",
+      "projected-asset-offset-source-mode-future-inactive",
+      "projected-asset-offset-inactive-model-prep",
+      "treated-asset-offsets-remain-current-source"
+    ]);
+    const messages = (Array.isArray(projectedAssetOffset?.warnings) ? projectedAssetOffset.warnings : [])
+      .filter(function (warning) {
+        return !inactiveWarningCodes.has(String(warning?.code || "").trim());
+      })
+      .map(getTraceWarningMessage)
+      .filter(Boolean);
+
+    return messages.join("; ");
+  }
+
+  function getTraceSourcePath(trace, preferredPath, fallbackPath) {
+    const sourcePaths = Array.isArray(trace?.sourcePaths) ? trace.sourcePaths : [];
+    if (sourcePaths.includes(preferredPath)) {
+      return preferredPath;
+    }
+
+    return sourcePaths[0] || fallbackPath || "Not set";
+  }
+
+  function getProjectedAssetOffsetTraceValue(assetOffsetTrace, inputKey, projectedAssetOffset, candidateKey) {
+    const traceValue = getTraceInput(assetOffsetTrace, inputKey);
+    return traceValue == null ? projectedAssetOffset?.[candidateKey] : traceValue;
+  }
+
+  function renderProjectedAssetOffsetCategorySummaryList(title, categories, included) {
+    const summaries = Array.isArray(categories) ? categories : [];
+    if (!summaries.length) {
+      return "";
+    }
+
+    return `
+      <p class="analysis-result-copy"><strong>${escapeHtml(title)}</strong></p>
+      <ul class="analysis-result-list">
+        ${summaries.map(function (category) {
+          const label = category?.label || category?.categoryKey || "Asset category";
+          const warnings = Array.isArray(category?.warnings)
+            ? category.warnings.map(getTraceWarningMessage).filter(Boolean)
+            : [];
+          const valueParts = included
+            ? [
+                `${formatCurrency(category?.treatedValue)} treated value`,
+                `${formatPercent(category?.assumedAnnualGrowthRatePercent)} assumed annual growth`,
+                formatYears(category?.projectionYears),
+                `${formatCurrency(category?.projectedTreatedValue)} projected treated value`,
+                `${formatCurrency(category?.projectedGrowthAdjustment)} incremental projected growth`,
+                warnings.length ? `warnings: ${warnings.join("; ")}` : ""
+              ]
+            : [
+                `${formatCurrency(category?.treatedValue)} treated value`,
+                category?.reason || category?.warningCode
+                  ? `reason: ${formatTraceReason(category.reason || category.warningCode)}`
+                  : "",
+                warnings.length ? `warnings: ${warnings.join("; ")}` : ""
+              ];
+
+          return `<li><span>${escapeHtml(label)}</span><strong>${escapeHtml(valueParts.filter(Boolean).join("; "))}</strong></li>`;
+        }).join("")}
+      </ul>
+    `;
+  }
+
+  function renderProjectedAssetOffsetDetails(result, lensModel) {
+    const assetOffsetTrace = findTrace(result, "assetOffset");
+    const projectedAssetOffset = isPlainObject(lensModel?.projectedAssetOffset)
+      ? lensModel.projectedAssetOffset
+      : null;
+    if (!assetOffsetTrace || !projectedAssetOffset) {
+      return "";
+    }
+
+    const projectedConsumed = getTraceInput(assetOffsetTrace, "projectedAssetOffsetConsumed") === true;
+    const projectedGateActive = getTraceInput(assetOffsetTrace, "projectedAssetOffsetGateActive") === true;
+    const fallbackUsed = getTraceInput(assetOffsetTrace, "fallbackUsed") === true;
+    const sourcePathUsed = getTraceSourcePath(
+      assetOffsetTrace,
+      projectedConsumed
+        ? "projectedAssetOffset.effectiveProjectedAssetOffset"
+        : "treatedAssetOffsets.totalTreatedAssetValue",
+      projectedConsumed
+        ? "projectedAssetOffset.effectiveProjectedAssetOffset"
+        : "treatedAssetOffsets.totalTreatedAssetValue"
+    );
+
+    if (projectedConsumed) {
+      const warningSummary = getProjectedAssetOffsetWarningSummary(projectedAssetOffset);
+      const rows = [
+        { label: "Status", value: "Active; LENS used projected asset offset" },
+        { label: "Effective LENS asset offset used", value: formatCurrency(assetOffsetTrace.value) },
+        {
+          label: "Current treated asset offset",
+          value: formatCurrency(getProjectedAssetOffsetTraceValue(
+            assetOffsetTrace,
+            "currentTreatedAssetOffset",
+            projectedAssetOffset,
+            "currentTreatedAssetOffset"
+          ))
+        },
+        { label: "Eligible treated base", value: formatCurrency(projectedAssetOffset.eligibleTreatedBase) },
+        { label: "Projected treated value", value: formatCurrency(projectedAssetOffset.projectedTreatedValue) },
+        {
+          label: "Projected growth adjustment",
+          value: formatCurrency(getProjectedAssetOffsetTraceValue(
+            assetOffsetTrace,
+            "projectedGrowthAdjustment",
+            projectedAssetOffset,
+            "projectedGrowthAdjustment"
+          ))
+        },
+        {
+          label: "Projection years",
+          value: formatYears(getProjectedAssetOffsetTraceValue(
+            assetOffsetTrace,
+            "projectionYears",
+            projectedAssetOffset,
+            "projectionYears"
+          ))
+        },
+        {
+          label: "Source mode",
+          value: formatProjectedAssetOffsetSourceMode(
+            getTraceInput(assetOffsetTrace, "projectedAssetOffsetSourceMode") || projectedAssetOffset.sourceMode
+          )
+        },
+        {
+          label: "Consumption status",
+          value: formatTraceReason(getTraceInput(assetOffsetTrace, "projectedAssetOffsetConsumptionStatus"))
+        },
+        {
+          label: "Activation version",
+          value: formatCount(getTraceInput(assetOffsetTrace, "projectedAssetOffsetActivationVersion"))
+        },
+        { label: "Consumed by methods", value: "Yes" },
+        { label: "Source path consumed", value: sourcePathUsed }
+      ];
+
+      if (warningSummary) {
+        rows.push({ label: "Warning summary", value: warningSummary });
+      }
+
+      return `
+        ${renderProjectionDetailSection("Projected Asset Offset — Active in LENS", rows)}
+        ${renderProjectedAssetOffsetCategorySummaryList(
+          "Included Projected Offset Categories",
+          projectedAssetOffset.includedCategories,
+          true
+        )}
+        ${renderProjectedAssetOffsetCategorySummaryList(
+          "Excluded Projected Offset Categories",
+          projectedAssetOffset.excludedCategories,
+          false
+        )}
+      `;
+    }
+
+    if (projectedGateActive && fallbackUsed) {
+      const rows = [
+        { label: "Status", value: "Active marker present; current treated asset offset used" },
+        { label: "Asset offset actually used", value: formatCurrency(assetOffsetTrace.value) },
+        {
+          label: "Rejected projected offset value",
+          value: formatOptionalCurrency(getProjectedAssetOffsetTraceValue(
+            assetOffsetTrace,
+            "effectiveProjectedAssetOffset",
+            projectedAssetOffset,
+            "effectiveProjectedAssetOffset"
+          ))
+        },
+        {
+          label: "Fallback reason",
+          value: formatTraceReason(getTraceInput(assetOffsetTrace, "projectedAssetOffsetFallbackReason"))
+        },
+        { label: "Source path used", value: sourcePathUsed },
+        { label: "Projected offset consumed", value: "No" },
+        {
+          label: "Warning",
+          value: "Projected asset offset was not used because the prepared candidate was invalid. LENS used the current treated asset offset instead."
+        }
+      ];
+
+      return renderProjectionDetailSection("Projected Asset Offset — Not Used", rows);
+    }
+
+    return "";
   }
 
   function getExistingCoverageStatus(trace) {
@@ -1655,6 +1868,7 @@
       ])}
       ${renderExistingCoverageDetails(needsResult)}
       ${renderAssetOffsetDetails(needsResult)}
+      ${renderProjectedAssetOffsetDetails(needsResult, lensModel)}
       ${renderNeedsDebtTreatmentDetails(needsResult, lensModel)}
       <div class="analysis-result-eyebrow">Support Reduction</div>
       ${renderMoneyList([
