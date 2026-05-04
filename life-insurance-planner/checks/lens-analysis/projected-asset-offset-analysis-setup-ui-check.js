@@ -2,6 +2,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -20,6 +21,25 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function getChangedFiles(relativePaths) {
+  try {
+    const output = childProcess.execFileSync(
+      "git",
+      ["diff", "--name-only", "--", ...relativePaths],
+      {
+        cwd: repoRoot,
+        encoding: "utf8"
+      }
+    );
+    return output
+      .split(/\r?\n/)
+      .map(function (line) { return line.trim(); })
+      .filter(Boolean);
+  } catch (_error) {
+    return [];
+  }
+}
+
 function getSection(source, startNeedle, endNeedle) {
   const startIndex = source.indexOf(startNeedle);
   assert.ok(startIndex >= 0, `${startNeedle} should exist`);
@@ -35,6 +55,7 @@ function createAnalysisSetupContext() {
       "  LensApp.__projectedAssetOffsetAnalysisSetupUiHarness = {",
       "    populateProjectedAssetOffsetFields,",
       "    syncProjectedAssetOffsetToggleState,",
+      "    syncAssetGrowthProjectionImpactStatus,",
       "    readValidatedProjectedAssetOffsetAssumptions,",
       "    applyProjectedAssetOffsetModeToAssetTreatmentAssumptions",
       "  };",
@@ -144,6 +165,23 @@ function createMethodFields(options) {
   return {
     needsIncludeOffsetAssets: createCheckbox(normalizedOptions.includeAssetOffsets !== false),
     projectedAssetOffsetEnabled: createCheckbox(normalizedOptions.projectedEnabled === true)
+  };
+}
+
+function createImpactElement() {
+  return {
+    dataset: {},
+    textContent: ""
+  };
+}
+
+function createAssetGrowthProjectionImpactFields() {
+  return {
+    assetGrowthProjection: {
+      impactStatus: createImpactElement(),
+      impactLabel: createImpactElement(),
+      impactCopy: createImpactElement()
+    }
   };
 }
 
@@ -322,9 +360,13 @@ assert.match(assetTreatmentSection, /Current-dollar only/);
 assert.match(assetTreatmentSection, /Reporting only/);
 assert.doesNotMatch(assetTreatmentSection, /<option value="projectedOffsets"/);
 assert.doesNotMatch(assetTreatmentSection, /Projected offsets - future \/ inactive/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-projected-asset-offset-enabled/);
 assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/);
 assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/);
 assert.match(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/);
+assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
+assert.match(assetTreatmentSection, /Recommendation impact: Reporting only\./);
+assert.match(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
 assert.match(setupSource, /data-analysis-asset-treatment-growth/);
 assert.match(setupSource, /data-analysis-asset-treatment-growth-slider/);
 
@@ -334,6 +376,43 @@ const harness = setupContext.LensApp.__projectedAssetOffsetAnalysisSetupUiHarnes
 assert.equal(typeof analysisSetup.getProjectedAssetOffsetAssumptions, "function");
 assert.equal(typeof harness.readValidatedProjectedAssetOffsetAssumptions, "function");
 assert.equal(typeof harness.applyProjectedAssetOffsetModeToAssetTreatmentAssumptions, "function");
+assert.equal(typeof harness.syncAssetGrowthProjectionImpactStatus, "function");
+
+const reportingImpactFields = createAssetGrowthProjectionImpactFields();
+harness.syncAssetGrowthProjectionImpactStatus(createMethodFields({
+  includeAssetOffsets: true,
+  projectedEnabled: false
+}), reportingImpactFields);
+assert.equal(reportingImpactFields.assetGrowthProjection.impactStatus.dataset.recommendationImpact, "reporting-only");
+assert.equal(reportingImpactFields.assetGrowthProjection.impactLabel.textContent, "Recommendation impact: Reporting only.");
+assert.match(
+  reportingImpactFields.assetGrowthProjection.impactCopy.textContent,
+  /does not change the LENS recommendation/
+);
+
+const activeImpactFields = createAssetGrowthProjectionImpactFields();
+harness.syncAssetGrowthProjectionImpactStatus(createMethodFields({
+  includeAssetOffsets: true,
+  projectedEnabled: true
+}), activeImpactFields);
+assert.equal(activeImpactFields.assetGrowthProjection.impactStatus.dataset.recommendationImpact, "active");
+assert.equal(activeImpactFields.assetGrowthProjection.impactLabel.textContent, "Recommendation impact: Active in LENS.");
+assert.match(
+  activeImpactFields.assetGrowthProjection.impactCopy.textContent,
+  /treated eligible assets plus incremental projected growth/
+);
+
+const blockedImpactFields = createAssetGrowthProjectionImpactFields();
+harness.syncAssetGrowthProjectionImpactStatus(createMethodFields({
+  includeAssetOffsets: false,
+  projectedEnabled: true
+}), blockedImpactFields);
+assert.equal(blockedImpactFields.assetGrowthProjection.impactStatus.dataset.recommendationImpact, "off");
+assert.equal(blockedImpactFields.assetGrowthProjection.impactLabel.textContent, "Recommendation impact: Off.");
+assert.match(
+  blockedImpactFields.assetGrowthProjection.impactCopy.textContent,
+  /Asset offsets are disabled/
+);
 
 assert.deepEqual(
   cloneJson(analysisSetup.getProjectedAssetOffsetAssumptions({})),
@@ -503,5 +582,19 @@ assert.equal(
 assert.deepEqual(cloneJson(activeOutputs.dime), cloneJson(inactiveOutputs.dime));
 assert.deepEqual(cloneJson(activeOutputs.hlv), cloneJson(inactiveOutputs.hlv));
 assert.deepEqual(cloneJson(activeOutputs.simpleNeeds), cloneJson(inactiveOutputs.simpleNeeds));
+
+assert.deepEqual(
+  getChangedFiles([
+    "app/features/lens-analysis/analysis-methods.js",
+    "app/features/lens-analysis/analysis-settings-adapter.js",
+    "app/features/lens-analysis/step-three-analysis-display.js",
+    "pages/analysis-estimate.html",
+    "pages/dime-results.html",
+    "pages/hlv-results.html",
+    "pages/simple-needs-results.html"
+  ]),
+  [],
+  "Projected asset offset UI clarity pass should not change methods, adapter gate, Step 3, or result pages."
+);
 
 console.log("projected-asset-offset-analysis-setup-ui-check passed");

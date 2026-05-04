@@ -3058,7 +3058,10 @@
       preview: {},
       assetGrowthProjection: {
         mode: document.querySelector("[data-analysis-asset-growth-projection-mode]"),
-        projectionYears: document.querySelector("[data-analysis-asset-growth-projection-years]")
+        projectionYears: document.querySelector("[data-analysis-asset-growth-projection-years]"),
+        impactStatus: document.querySelector("[data-analysis-asset-growth-projection-impact-status]"),
+        impactLabel: document.querySelector("[data-analysis-asset-growth-projection-impact-label]"),
+        impactCopy: document.querySelector("[data-analysis-asset-growth-projection-impact-copy]")
       },
       cashReserve: {
         enabled: document.querySelector("[data-analysis-cash-reserve-enabled]"),
@@ -4669,6 +4672,39 @@
       projectedField.checked = false;
     }
     projectedField.disabled = !includeAssetOffsets;
+  }
+
+  function syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields) {
+    const impactStatus = assetTreatmentFields?.assetGrowthProjection?.impactStatus;
+    const impactLabel = assetTreatmentFields?.assetGrowthProjection?.impactLabel;
+    const impactCopy = assetTreatmentFields?.assetGrowthProjection?.impactCopy;
+    if (!impactStatus || !impactLabel || !impactCopy) {
+      return;
+    }
+
+    const includeAssetOffsets = methodFields?.needsIncludeOffsetAssets
+      ? methodFields.needsIncludeOffsetAssets.checked !== false
+      : DEFAULT_METHOD_DEFAULTS.needsIncludeOffsetAssets;
+    const projectedOffsetEnabled = includeAssetOffsets
+      && methodFields?.projectedAssetOffsetEnabled?.checked === true;
+
+    let impactState = "reporting-only";
+    let label = "Recommendation impact: Reporting only.";
+    let copy = "Projected asset growth is shown for insight only and does not change the LENS recommendation. To apply projected growth to LENS, enable \"Use Projected Asset Offset in LENS\" in Calculation Inclusion Controls.";
+
+    if (!includeAssetOffsets) {
+      impactState = "off";
+      label = "Recommendation impact: Off.";
+      copy = "Asset offsets are disabled, so projected asset growth cannot affect LENS.";
+    } else if (projectedOffsetEnabled) {
+      impactState = "active";
+      label = "Recommendation impact: Active in LENS.";
+      copy = "LENS uses treated eligible assets plus incremental projected growth as the asset offset. Step 3 shows the effective offset, exclusions, and any fallback.";
+    }
+
+    impactStatus.dataset.recommendationImpact = impactState;
+    impactLabel.textContent = label;
+    impactCopy.textContent = copy;
   }
 
   function populateProjectedAssetOffsetFields(fields, assumptions) {
@@ -8119,6 +8155,7 @@
     populateGrowthFields(growthFields, getGrowthAndReturnAssumptions(linkedRecord), growthSliders);
     populatePolicyTypeReturnFields(policyReturnFields, getPolicyTypeReturnAssumptions(linkedRecord));
     populateAssetTreatmentFields(assetTreatmentFields, getAssetTreatmentAssumptions(linkedRecord), linkedRecord);
+    syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields);
     populateExistingCoverageFields(existingCoverageFields, getExistingCoverageAssumptions(linkedRecord), linkedRecord);
     populateDebtTreatmentFields(debtTreatmentFields, getDebtTreatmentAssumptions(linkedRecord), linkedRecord);
     populateSurvivorSupportFields(survivorSupportFields, getSurvivorSupportAssumptions(linkedRecord), linkedRecord);
@@ -8169,6 +8206,7 @@
     setHealthcareExpenseFieldsDisabled(healthcareExpenseFields, false);
     setMethodFieldsDisabled(methodFields, false);
     syncProjectedAssetOffsetToggleState(methodFields);
+    syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields);
     setGrowthFieldsDisabled(growthFields, growthSliders, false);
     setPolicyTypeReturnFieldsDisabled(policyReturnFields, false);
     setAssetTreatmentFieldsDisabled(assetTreatmentFields, false);
@@ -8276,16 +8314,19 @@
 
     methodFields.needsIncludeOffsetAssets?.addEventListener("change", function () {
       syncProjectedAssetOffsetToggleState(methodFields);
+      syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields);
       markUnsaved();
     });
 
     methodFields.projectedAssetOffsetEnabled?.addEventListener("change", function () {
+      syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields);
       markUnsaved();
     });
 
     methodFields.resetButton?.addEventListener("click", function () {
       populateDefaultMethodFields(methodFields, linkedRecord);
       populateProjectedAssetOffsetFields(methodFields, DEFAULT_PROJECTED_ASSET_OFFSET_ASSUMPTIONS);
+      syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields);
       markUnsaved();
     });
 

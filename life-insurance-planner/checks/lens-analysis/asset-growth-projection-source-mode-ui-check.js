@@ -34,7 +34,8 @@ function createAnalysisSetupContext() {
     [
       "  LensApp.__assetGrowthProjectionSourceModeUiHarness = {",
       "    populateAssetTreatmentFields,",
-      "    readValidatedAssetTreatmentAssumptions",
+      "    readValidatedAssetTreatmentAssumptions,",
+      "    syncAssetGrowthProjectionImpactStatus",
       "  };",
       "  LensApp.analysisSetup = Object.assign"
     ].join("\n")
@@ -145,6 +146,28 @@ function createButton(profile) {
   };
 }
 
+function createCheckbox(checked) {
+  return {
+    checked: checked === true,
+    disabled: false
+  };
+}
+
+function createImpactElement() {
+  return {
+    dataset: {},
+    textContent: ""
+  };
+}
+
+function createMethodFields(options) {
+  const normalizedOptions = options && typeof options === "object" ? options : {};
+  return {
+    needsIncludeOffsetAssets: createCheckbox(normalizedOptions.includeAssetOffsets !== false),
+    projectedAssetOffsetEnabled: createCheckbox(normalizedOptions.projectedEnabled === true)
+  };
+}
+
 function createTreatmentFields(assumptions) {
   return {
     defaultProfile: assumptions.defaultProfile || "balanced",
@@ -159,7 +182,10 @@ function createTreatmentFields(assumptions) {
     preview: {},
     assetGrowthProjection: {
       mode: createField(""),
-      projectionYears: createField("")
+      projectionYears: createField(""),
+      impactStatus: createImpactElement(),
+      impactLabel: createImpactElement(),
+      impactCopy: createImpactElement()
     },
     fieldLists: {
       include: {},
@@ -298,10 +324,14 @@ assert.match(assetTreatmentSection, /Projection mode controls reporting-only gro
 assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/i);
 assert.match(assetTreatmentSection, /DIME, HLV, and Simple Needs remain unchanged/i);
 assert.match(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/i);
+assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
+assert.match(assetTreatmentSection, /Recommendation impact: Reporting only\./);
+assert.match(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
 assert.match(assetTreatmentSection, /Current-dollar only/);
 assert.match(assetTreatmentSection, /Reporting only/);
 assert.doesNotMatch(assetTreatmentSection, /Projected offsets - future \/ inactive/);
 assert.doesNotMatch(assetTreatmentSection, /<option value="projectedOffsets"/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-projected-asset-offset-enabled/);
 assert.doesNotMatch(`${html}\n${analysisSetupSource}\n${componentsCss}`, /Predicted annual growth/i);
 assert.match(componentsCss, /analysis-setup-asset-growth-projection-controls/);
 
@@ -311,6 +341,7 @@ const harness = setupContext.LensApp.__assetGrowthProjectionSourceModeUiHarness;
 assert.equal(typeof analysisSetup.getAssetTreatmentAssumptions, "function");
 assert.equal(typeof harness.populateAssetTreatmentFields, "function");
 assert.equal(typeof harness.readValidatedAssetTreatmentAssumptions, "function");
+assert.equal(typeof harness.syncAssetGrowthProjectionImpactStatus, "function");
 
 const savedReportingAssumptions = analysisSetup.getAssetTreatmentAssumptions({
   analysisSettings: {
@@ -324,6 +355,28 @@ const reportingFields = createTreatmentFields(savedReportingAssumptions);
 harness.populateAssetTreatmentFields(reportingFields, savedReportingAssumptions, {});
 assert.equal(reportingFields.assetGrowthProjection.mode.value, "reportingOnly");
 assert.equal(reportingFields.assetGrowthProjection.projectionYears.value, "22");
+harness.syncAssetGrowthProjectionImpactStatus(createMethodFields({
+  includeAssetOffsets: true,
+  projectedEnabled: false
+}), reportingFields);
+assert.equal(reportingFields.assetGrowthProjection.impactStatus.dataset.recommendationImpact, "reporting-only");
+assert.equal(reportingFields.assetGrowthProjection.impactLabel.textContent, "Recommendation impact: Reporting only.");
+
+const activeStatusFields = createTreatmentFields(savedReportingAssumptions);
+harness.syncAssetGrowthProjectionImpactStatus(createMethodFields({
+  includeAssetOffsets: true,
+  projectedEnabled: true
+}), activeStatusFields);
+assert.equal(activeStatusFields.assetGrowthProjection.impactStatus.dataset.recommendationImpact, "active");
+assert.equal(activeStatusFields.assetGrowthProjection.impactLabel.textContent, "Recommendation impact: Active in LENS.");
+
+const blockedStatusFields = createTreatmentFields(savedReportingAssumptions);
+harness.syncAssetGrowthProjectionImpactStatus(createMethodFields({
+  includeAssetOffsets: false,
+  projectedEnabled: true
+}), blockedStatusFields);
+assert.equal(blockedStatusFields.assetGrowthProjection.impactStatus.dataset.recommendationImpact, "off");
+assert.equal(blockedStatusFields.assetGrowthProjection.impactLabel.textContent, "Recommendation impact: Off.");
 
 const savedProjectedOffsetsAssumptions = analysisSetup.getAssetTreatmentAssumptions({
   analysisSettings: {
