@@ -1327,7 +1327,7 @@ body.analysis-setup-assumptions-open {
 .lens-assumptions-dialog {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  width: min(96vw, 112rem);
+  width: min(80vw, 78rem);
   height: min(92vh, 58rem);
   min-height: 0;
   overflow: hidden;
