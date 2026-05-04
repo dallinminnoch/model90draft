@@ -102,12 +102,49 @@
               </div>
               <div>
                 <strong>Simple Needs uses saved linked protection modeling data.</strong>
-                <p>Open this page with a linked profile context, then continue to estimate need from debts, essential support, education, final expenses, and existing coverage.</p>
+                <p>Search for a saved individual client or enter a case reference, then continue to estimate need from debts, essential support, education, final expenses, and existing coverage.</p>
               </div>
             </div>
 
+            <div
+              class="lens-intake-link-card"
+              data-quick-linked-profile-picker
+              data-method-label="Simple Needs Analysis"
+              data-result-page-path="simple-needs-results.html"
+            >
+              <div class="lens-intake-link-panel is-active">
+                <label class="lens-intake-link-copy" for="simple-needs-profile-search">Search saved clients</label>
+                <div class="lens-intake-search-row">
+                  <input id="simple-needs-profile-search" type="search" placeholder="Search by client name, case ref, or summary" data-quick-profile-search autocomplete="off">
+                </div>
+                <div class="profile-search-results" data-quick-profile-results></div>
+              </div>
+
+              <div class="lens-intake-link-panel is-active">
+                <label class="lens-intake-link-copy" for="simple-needs-case-ref">Case reference</label>
+                <div class="lens-intake-search-row">
+                  <input id="simple-needs-case-ref" name="linkedCaseRef" type="text" placeholder="CL/00000" data-quick-profile-case-ref autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
+                  <button class="btn btn-secondary lens-intake-search-browse" type="button" data-quick-profile-clear>Clear</button>
+                </div>
+              </div>
+
+              <div class="lens-intake-linked-card info-card" data-quick-profile-selected-card hidden>
+                <div class="lens-intake-linked-card-header">
+                  <div class="section-label">Linked Client</div>
+                  <button class="lens-intake-linked-remove" type="button" data-quick-profile-clear>Remove</button>
+                </div>
+                <ul class="compact-list">
+                  <li><span>Name</span><strong data-quick-profile-selected-name>Not linked</strong></li>
+                  <li><span>Case Ref</span><strong data-quick-profile-selected-case-ref>Pending</strong></li>
+                  <li><span>Status</span><strong data-quick-profile-selected-status>Pending</strong></li>
+                </ul>
+              </div>
+
+              <p class="helper-text" data-quick-profile-status aria-live="polite">Select a client with completed Protection Modeling Inputs to continue.</p>
+            </div>
+
             <div class="lens-start-actions">
-              <a class="btn btn-primary lens-start-button" href="simple-needs-results.html" data-simple-needs-results-link>Continue to Simple Needs Results</a>
+              <a class="btn btn-primary lens-start-button is-disabled" href="simple-needs-results.html" data-simple-needs-results-link aria-disabled="true" data-quick-profile-blocked="true" tabindex="-1">Continue to Simple Needs Results</a>
               <a class="btn btn-secondary lens-start-button" href="lens.html">Back to Analysis Types</a>
             </div>
           </section>
@@ -160,6 +197,7 @@
   <script src="../app/features/client-intake.js"></script>
   <script src="../app/features/client-directory.js"></script>
   <script src="../app.js"></script>
+  <script src="../app/features/lens-analysis/quick-linked-profile-picker.js"></script>
   <script>
     (function () {
       const pageMenu = document.querySelector(".workspace-page-menu");
@@ -188,6 +226,16 @@
 
         const queryString = nextParams.toString();
         link.setAttribute("href", queryString ? `simple-needs-results.html?${queryString}` : "simple-needs-results.html");
+      });
+
+      window.LensApp?.lensAnalysis?.initQuickLinkedProfilePicker?.({
+        rootSelector: "[data-quick-linked-profile-picker]",
+        methodLabel: "Simple Needs Analysis",
+        resultPagePath: "simple-needs-results.html",
+        allowedQueryKeys: passthroughParams,
+        continueLinkSelector: "[data-simple-needs-results-link]",
+        statusSelector: "[data-quick-profile-status]",
+        selectedClientCardSelector: "[data-quick-profile-selected-card]"
       });
 
       document.addEventListener("click", function (event) {

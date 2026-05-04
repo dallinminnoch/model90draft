@@ -55,6 +55,7 @@ const dimeResultsHtml = readRepoFile("pages/dime-results.html");
 const hlvEntryHtml = readRepoFile("pages/hlv-entry.html");
 const hlvResultsHtml = readRepoFile("pages/hlv-results.html");
 const lensHtml = readRepoFile("pages/lens.html");
+const quickPickerSource = readRepoFile("app/features/lens-analysis/quick-linked-profile-picker.js");
 const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 
 assert.match(simpleNeedsEntryHtml, /<title>Simple Needs Analysis \| Life Evaluation &amp; Needs Analysis<\/title>/);
@@ -63,6 +64,7 @@ assert.match(simpleNeedsEntryHtml, /Straightforward current-dollar needs estimat
 assert.match(simpleNeedsEntryHtml, /Link a client profile to generate a Simple Needs-only result\./);
 assert.match(simpleNeedsEntryHtml, /does not use the LENS assumptions panel/);
 assert.match(simpleNeedsEntryHtml, /debts, essential support, education, final expenses, and existing coverage/);
+assert.match(simpleNeedsEntryHtml, /Search for a saved individual client or enter a case reference/);
 assert.match(simpleNeedsEntryHtml, /Debts/);
 assert.match(simpleNeedsEntryHtml, /Essential support/);
 assert.match(simpleNeedsEntryHtml, /Education/);
@@ -71,6 +73,21 @@ assert.match(simpleNeedsEntryHtml, /Existing coverage/);
 
 assert.match(simpleNeedsEntryHtml, /href="simple-needs-results\.html"/);
 assert.match(simpleNeedsEntryHtml, /data-simple-needs-results-link/);
+assert.match(simpleNeedsEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-search/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-case-ref/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-results/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-selected-card/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-status/);
+assert.match(simpleNeedsEntryHtml, /Select a client with completed Protection Modeling Inputs to continue\./);
+assert.match(simpleNeedsEntryHtml, /aria-disabled="true"/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-blocked="true"/);
+assert.match(simpleNeedsEntryHtml, /quick-linked-profile-picker\.js/);
+assert.match(simpleNeedsEntryHtml, /initQuickLinkedProfilePicker/);
+assert.match(simpleNeedsEntryHtml, /methodLabel: "Simple Needs Analysis"/);
+assert.match(simpleNeedsEntryHtml, /resultPagePath: "simple-needs-results\.html"/);
+assert.match(quickPickerSource, /Select a client with completed Protection Modeling Inputs before continuing to \$\{methodLabel\} results\./);
+assert.match(quickPickerSource, /needs completed Protection Modeling Inputs before \$\{methodLabel\} can continue\./);
 assert.match(simpleNeedsEntryHtml, /const passthroughParams = \["caseRef", "profileCaseRef", "linkedCaseRef", "id"\]/);
 assert.match(simpleNeedsEntryHtml, /sourceParams\.get\("profileCaseRef"\)/);
 assert.match(simpleNeedsEntryHtml, /sourceParams\.get\("linkedCaseRef"\)/);
@@ -78,6 +95,7 @@ assert.match(
   simpleNeedsEntryHtml,
   /link\.setAttribute\("href", queryString \? `simple-needs-results\.html\?\$\{queryString\}` : "simple-needs-results\.html"\)/
 );
+assert.match(simpleNeedsEntryHtml, /allowedQueryKeys: passthroughParams/);
 
 assert.doesNotMatch(simpleNeedsEntryHtml, /analysis-setup\.html/);
 assert.doesNotMatch(simpleNeedsEntryHtml, /analysis-estimate\.html/);

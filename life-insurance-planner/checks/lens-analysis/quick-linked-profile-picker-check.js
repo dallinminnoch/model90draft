@@ -105,9 +105,19 @@ assert.match(dimeEntryHtml, /data-quick-profile-status/);
 assert.match(dimeEntryHtml, /aria-disabled="true"/);
 assert.match(dimeEntryHtml, /data-quick-profile-blocked="true"/);
 
-assert.doesNotMatch(simpleNeedsEntryHtml, /quick-linked-profile-picker\.js/);
-assert.doesNotMatch(simpleNeedsEntryHtml, /initQuickLinkedProfilePicker/);
-assert.doesNotMatch(simpleNeedsEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(simpleNeedsEntryHtml, /quick-linked-profile-picker\.js/);
+assert.match(simpleNeedsEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(simpleNeedsEntryHtml, /initQuickLinkedProfilePicker/);
+assert.match(simpleNeedsEntryHtml, /methodLabel: "Simple Needs Analysis"/);
+assert.match(simpleNeedsEntryHtml, /resultPagePath: "simple-needs-results\.html"/);
+assert.match(simpleNeedsEntryHtml, /allowedQueryKeys: passthroughParams/);
+assert.match(simpleNeedsEntryHtml, /continueLinkSelector: "\[data-simple-needs-results-link\]"/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-search/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-case-ref/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-selected-card/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-status/);
+assert.match(simpleNeedsEntryHtml, /aria-disabled="true"/);
+assert.match(simpleNeedsEntryHtml, /data-quick-profile-blocked="true"/);
 assert.doesNotMatch(hlvEntryHtml, /quick-linked-profile-picker\.js/);
 assert.doesNotMatch(hlvEntryHtml, /initQuickLinkedProfilePicker/);
 assert.doesNotMatch(hlvEntryHtml, /data-quick-linked-profile-picker/);
@@ -123,10 +133,10 @@ assert.doesNotMatch(analysisMethodsSource, /simpleNeeds:\s*runSimpleNeedsAnalysi
 
 const protectedChanges = getChangedFiles([
   "pages/profile.html",
-  "pages/simple-needs-entry.html",
   "pages/simple-needs-results.html",
   "pages/hlv-entry.html",
   "pages/hlv-results.html",
+  "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/lens.html",
   "app/features/lens-analysis/analysis-methods.js",
@@ -140,7 +150,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "DIME quick picker pass should not change LENS profile, Simple Needs, HLV, DIME result, selector, methods, Step 3, Analysis Setup, workflow, side-nav, or config files."
+  "Quick picker adoption should not change LENS profile, result pages, DIME pages, HLV pages, selector, methods, Step 3, Analysis Setup, workflow, side-nav, or config files."
 );
 
 console.log("quick-linked-profile-picker-check passed");
