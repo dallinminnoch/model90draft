@@ -418,7 +418,6 @@ assert.doesNotMatch(
 
 [
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/asset-treatment-calculations.js"
 ].forEach(function (relativePath) {
@@ -429,6 +428,17 @@ assert.doesNotMatch(
     `${relativePath} should not consume or render asset growth projection source-mode assumptions`
   );
 });
+const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
+assert.match(
+  analysisMethodsSource,
+  /allowProjectedAssetOffset/,
+  "analysis-methods should only read projected offset source-mode assumptions through the explicit LENS-only activation gate"
+);
+assert.doesNotMatch(
+  analysisMethodsSource,
+  /projectedAssetGrowth\.(projectedTotalAssetValue|totalProjectedGrowthAmount)/,
+  "analysis-methods must not consume raw projectedAssetGrowth totals"
+);
 assert.match(
   readRepoFile("app/features/lens-analysis/lens-model-builder.js"),
   /assetGrowthProjectionAssumptions/,

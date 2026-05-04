@@ -218,7 +218,6 @@ assert.doesNotMatch(hlvResultsHtml, /data-simple-needs-results-analysis/);
 assert.doesNotMatch(hlvResultsHtml, /simple-needs-results-display\.js/);
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "pages/dime-entry.html",
@@ -228,7 +227,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Simple Needs selector activation should not change methods, adapter, Step 3 display, DIME pages, or HLV pages."
+  "Simple Needs selector activation should not change adapter, Step 3 display, DIME pages, or HLV pages."
 );
 
 console.log("simple-needs-results-page-check passed");

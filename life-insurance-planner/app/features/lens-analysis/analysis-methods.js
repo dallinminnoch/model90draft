@@ -22,9 +22,19 @@
     source: "method-defaults"
   });
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
+  const ASSET_OFFSET_SOURCE_PROJECTED = "projectedAssetOffset";
   const ASSET_OFFSET_SOURCE_DISABLED = "disabled";
   const ASSET_OFFSET_SOURCE_ZERO = "zero";
   const TREATED_ASSET_OFFSET_SOURCE_PATH = "treatedAssetOffsets.totalTreatedAssetValue";
+  const PROJECTED_ASSET_OFFSET_SOURCE_PATH = "projectedAssetOffset.effectiveProjectedAssetOffset";
+  const PROJECTED_ASSET_OFFSET_CURRENT_SOURCE_PATH = "projectedAssetOffset.currentTreatedAssetOffset";
+  const PROJECTED_ASSET_OFFSET_GROWTH_SOURCE_PATH = "projectedAssetOffset.projectedGrowthAdjustment";
+  const PROJECTED_ASSET_OFFSET_YEARS_SOURCE_PATH = "projectedAssetOffset.projectionYears";
+  const PROJECTED_ASSET_OFFSET_ASSUMPTIONS_SOURCE_PATH = "projectedAssetOffsetAssumptions";
+  const PROJECTED_ASSET_OFFSET_SETTINGS_SOURCE_PATH = "settings.projectedAssetOffsetAssumptions";
+  const ASSET_GROWTH_PROJECTION_SETTINGS_SOURCE_PATH = "settings.assetGrowthProjectionAssumptions.mode";
+  const PROJECTED_ASSET_OFFSET_ACTIVE_STATUS = "method-active";
+  const PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION = 1;
   const EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "existingCoverage.totalExistingCoverage";
   const TREATED_EXISTING_COVERAGE_OFFSET_SOURCE_PATH = "treatedExistingCoverageOffset.totalTreatedCoverageOffset";
   const TREATED_EXISTING_COVERAGE_METHOD_CONSUMPTION_SOURCE_PATH = "treatedExistingCoverageOffset.metadata.consumedByMethods";
@@ -650,6 +660,10 @@
     return toOptionalNumber(value) != null;
   }
 
+  function roundMoney(value) {
+    return Number.isFinite(value) ? Number(value.toFixed(2)) : 0;
+  }
+
   function toTraceNumberOrNull(value) {
     const numericValue = toOptionalNumber(value);
     return numericValue == null ? null : numericValue;
@@ -815,57 +829,307 @@
     };
   }
 
+  function getProjectedAssetOffsetSourceMode(model, settings) {
+    const settingsProjectionAssumptions = isPlainObject(settings?.assetGrowthProjectionAssumptions)
+      ? settings.assetGrowthProjectionAssumptions
+      : null;
+    if (settingsProjectionAssumptions) {
+      return {
+        value: typeof settingsProjectionAssumptions.mode === "string"
+          ? settingsProjectionAssumptions.mode.trim()
+          : "",
+        sourcePath: ASSET_GROWTH_PROJECTION_SETTINGS_SOURCE_PATH
+      };
+    }
+
+    const modelProjectionAssumptions = isPlainObject(model?.assetGrowthProjectionAssumptions)
+      ? model.assetGrowthProjectionAssumptions
+      : null;
+    if (modelProjectionAssumptions) {
+      return {
+        value: typeof modelProjectionAssumptions.mode === "string"
+          ? modelProjectionAssumptions.mode.trim()
+          : "",
+        sourcePath: "assetGrowthProjectionAssumptions.mode"
+      };
+    }
+
+    const modelAssetTreatmentAssumptions = isPlainObject(model?.assetTreatmentAssumptions)
+      ? model.assetTreatmentAssumptions
+      : null;
+    const modelAssetGrowthProjectionAssumptions = isPlainObject(
+      modelAssetTreatmentAssumptions?.assetGrowthProjectionAssumptions
+    )
+      ? modelAssetTreatmentAssumptions.assetGrowthProjectionAssumptions
+      : null;
+    if (modelAssetGrowthProjectionAssumptions) {
+      return {
+        value: typeof modelAssetGrowthProjectionAssumptions.mode === "string"
+          ? modelAssetGrowthProjectionAssumptions.mode.trim()
+          : "",
+        sourcePath: "assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode"
+      };
+    }
+
+    return {
+      value: "",
+      sourcePath: "assetGrowthProjectionAssumptions.mode"
+    };
+  }
+
+  function getProjectedAssetOffsetAssumptions(model, settings) {
+    if (isPlainObject(settings?.projectedAssetOffsetAssumptions)) {
+      return {
+        value: settings.projectedAssetOffsetAssumptions,
+        sourcePath: PROJECTED_ASSET_OFFSET_SETTINGS_SOURCE_PATH
+      };
+    }
+
+    if (isPlainObject(model?.projectedAssetOffsetAssumptions)) {
+      return {
+        value: model.projectedAssetOffsetAssumptions,
+        sourcePath: PROJECTED_ASSET_OFFSET_ASSUMPTIONS_SOURCE_PATH
+      };
+    }
+
+    return {
+      value: {},
+      sourcePath: PROJECTED_ASSET_OFFSET_ASSUMPTIONS_SOURCE_PATH
+    };
+  }
+
+  function resolveProjectedAssetOffsetActivation(model, settings) {
+    const sourceMode = getProjectedAssetOffsetSourceMode(model, settings);
+    const assumptions = getProjectedAssetOffsetAssumptions(model, settings);
+    const assumptionValue = assumptions.value;
+    const activationVersion = toOptionalNumber(assumptionValue.activationVersion);
+    const enabled = assumptionValue.enabled === true;
+    const consumptionStatus = typeof assumptionValue.consumptionStatus === "string"
+      ? assumptionValue.consumptionStatus.trim()
+      : "";
+    const sourcePaths = uniqueStrings([
+      sourceMode.sourcePath,
+      `${assumptions.sourcePath}.enabled`,
+      `${assumptions.sourcePath}.consumptionStatus`,
+      `${assumptions.sourcePath}.activationVersion`
+    ]);
+    const active = sourceMode.value === "projectedOffsets"
+      && enabled
+      && consumptionStatus === PROJECTED_ASSET_OFFSET_ACTIVE_STATUS
+      && activationVersion != null
+      && activationVersion >= PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION;
+
+    return {
+      active,
+      sourceMode: sourceMode.value,
+      sourceModeSourcePath: sourceMode.sourcePath,
+      enabled,
+      consumptionStatus,
+      activationVersion,
+      activationSourcePath: assumptions.sourcePath,
+      sourcePaths
+    };
+  }
+
+  function createProjectedAssetOffsetTraceFields(gate, validation) {
+    const normalizedValidation = validation && typeof validation === "object" ? validation : {};
+    return {
+      projectedAssetOffsetGateActive: gate.active === true,
+      projectedAssetOffsetConsumed: normalizedValidation.consumed === true,
+      projectedAssetOffsetSourceMode: gate.sourceMode || null,
+      projectedAssetOffsetSourceModeSourcePath: gate.sourceModeSourcePath || null,
+      projectedAssetOffsetActivationEnabled: gate.enabled === true,
+      projectedAssetOffsetActivationVersion: gate.activationVersion == null
+        ? null
+        : gate.activationVersion,
+      projectedAssetOffsetConsumptionStatus: gate.consumptionStatus || null,
+      projectedAssetOffsetActivationSourcePath: gate.activationSourcePath || null,
+      projectedAssetOffsetFallbackReason: normalizedValidation.fallbackReason || null,
+      currentTreatedAssetOffset: normalizedValidation.currentTreatedAssetOffset == null
+        ? null
+        : normalizedValidation.currentTreatedAssetOffset,
+      projectedGrowthAdjustment: normalizedValidation.projectedGrowthAdjustment == null
+        ? null
+        : normalizedValidation.projectedGrowthAdjustment,
+      effectiveProjectedAssetOffset: normalizedValidation.effectiveProjectedAssetOffset == null
+        ? null
+        : normalizedValidation.effectiveProjectedAssetOffset,
+      projectionYears: normalizedValidation.projectionYears == null
+        ? null
+        : normalizedValidation.projectionYears
+    };
+  }
+
+  function validateProjectedAssetOffsetCandidate(model, treatedRawValue, treatedAssetOffsetsAvailable) {
+    const candidate = isPlainObject(model?.projectedAssetOffset) ? model.projectedAssetOffset : null;
+    if (!candidate) {
+      return {
+        valid: false,
+        fallbackReason: "missing-projected-asset-offset"
+      };
+    }
+
+    const effectiveProjectedAssetOffset = toOptionalNumber(candidate.effectiveProjectedAssetOffset);
+    if (effectiveProjectedAssetOffset == null || effectiveProjectedAssetOffset <= 0) {
+      return {
+        valid: false,
+        fallbackReason: "invalid-effective-projected-asset-offset",
+        effectiveProjectedAssetOffset
+      };
+    }
+
+    const currentTreatedAssetOffset = toOptionalNumber(candidate.currentTreatedAssetOffset);
+    if (currentTreatedAssetOffset == null || currentTreatedAssetOffset < 0 || !treatedAssetOffsetsAvailable) {
+      return {
+        valid: false,
+        fallbackReason: "invalid-current-treated-asset-offset",
+        currentTreatedAssetOffset,
+        effectiveProjectedAssetOffset
+      };
+    }
+
+    const treatedValue = toOptionalNumber(treatedRawValue);
+    if (treatedValue == null || roundMoney(treatedValue) !== roundMoney(currentTreatedAssetOffset)) {
+      return {
+        valid: false,
+        fallbackReason: "projected-asset-offset-treated-base-mismatch",
+        currentTreatedAssetOffset,
+        effectiveProjectedAssetOffset
+      };
+    }
+
+    const projectedGrowthAdjustment = toOptionalNumber(candidate.projectedGrowthAdjustment);
+    if (projectedGrowthAdjustment == null || projectedGrowthAdjustment <= 0) {
+      return {
+        valid: false,
+        fallbackReason: "invalid-projected-growth-adjustment",
+        currentTreatedAssetOffset,
+        projectedGrowthAdjustment,
+        effectiveProjectedAssetOffset
+      };
+    }
+
+    const projectionYears = toOptionalNumber(candidate.projectionYears);
+    if (projectionYears == null || projectionYears <= 0) {
+      return {
+        valid: false,
+        fallbackReason: "invalid-projected-asset-offset-projection-years",
+        currentTreatedAssetOffset,
+        projectedGrowthAdjustment,
+        effectiveProjectedAssetOffset,
+        projectionYears
+      };
+    }
+
+    if (candidate.sourceMode !== "projectedOffsets") {
+      return {
+        valid: false,
+        fallbackReason: "projected-asset-offset-source-mode-mismatch",
+        currentTreatedAssetOffset,
+        projectedGrowthAdjustment,
+        effectiveProjectedAssetOffset,
+        projectionYears
+      };
+    }
+
+    const expectedEffectiveOffset = roundMoney(currentTreatedAssetOffset + projectedGrowthAdjustment);
+    if (roundMoney(effectiveProjectedAssetOffset) !== expectedEffectiveOffset) {
+      return {
+        valid: false,
+        fallbackReason: "projected-asset-offset-formula-mismatch",
+        currentTreatedAssetOffset,
+        projectedGrowthAdjustment,
+        effectiveProjectedAssetOffset,
+        projectionYears
+      };
+    }
+
+    return {
+      valid: true,
+      consumed: true,
+      currentTreatedAssetOffset: roundMoney(currentTreatedAssetOffset),
+      projectedGrowthAdjustment: roundMoney(projectedGrowthAdjustment),
+      effectiveProjectedAssetOffset: roundMoney(effectiveProjectedAssetOffset),
+      projectionYears
+    };
+  }
+
   function createAssetOffsetSelectionResult(options) {
     const normalizedOptions = options && typeof options === "object" ? options : {};
     const includeOffsetAssets = normalizedOptions.includeOffsetAssets === true;
     const effectiveAssetOffsetSource = normalizedOptions.effectiveAssetOffsetSource || ASSET_OFFSET_SOURCE_ZERO;
     const sourcePath = normalizedOptions.sourcePath || null;
-    const sourcePaths = sourcePath
-      ? [
-          sourcePath,
-          "settings.includeOffsetAssets"
-        ]
-      : [
-          "settings.includeOffsetAssets"
-        ];
+    const sourcePaths = Array.isArray(normalizedOptions.sourcePaths)
+      ? uniqueStrings(normalizedOptions.sourcePaths)
+      : (sourcePath
+        ? [
+            sourcePath,
+            "settings.includeOffsetAssets"
+          ]
+        : [
+            "settings.includeOffsetAssets"
+          ]);
     const value = normalizedOptions.value == null ? 0 : normalizedOptions.value;
     const assetOffsetStatus = normalizedOptions.assetOffsetStatus || null;
+    const requestedAssetOffsetSource = normalizedOptions.requestedAssetOffsetSource
+      || ASSET_OFFSET_SOURCE_TREATED;
+    const assetOffsetSource = normalizedOptions.assetOffsetSource || ASSET_OFFSET_SOURCE_TREATED;
+    const fallbackUsed = normalizedOptions.fallbackUsed === true;
+    const fallbackReason = normalizedOptions.fallbackReason || null;
+    const projectedAssetOffsetTraceInputs = isPlainObject(normalizedOptions.projectedAssetOffsetTraceInputs)
+      ? normalizedOptions.projectedAssetOffsetTraceInputs
+      : null;
+    const traceInputs = {
+      includeOffsetAssets,
+      assetOffsetSource,
+      requestedAssetOffsetSource,
+      effectiveAssetOffsetSource,
+      fallbackToLegacyOffsetAssets: false,
+      fallbackUsed,
+      assetOffsetStatus,
+      selectedAssetOffsetValue: value,
+      treatedAssetOffsetsAvailable: normalizedOptions.treatedAssetOffsetsAvailable === true,
+      legacyOffsetAssetsAvailable: false
+    };
+    const assumptionFields = {
+      assetOffsetSource,
+      effectiveAssetOffsetSource,
+      fallbackToLegacyOffsetAssets: false,
+      assetOffsetFallbackUsed: fallbackUsed,
+      assetOffsetStatus
+    };
+
+    if (fallbackUsed || fallbackReason) {
+      traceInputs.fallbackReason = fallbackReason;
+      assumptionFields.assetOffsetFallbackReason = fallbackReason;
+    }
+
+    if (projectedAssetOffsetTraceInputs) {
+      Object.assign(traceInputs, projectedAssetOffsetTraceInputs);
+      Object.assign(assumptionFields, projectedAssetOffsetTraceInputs);
+    }
 
     return {
       value,
       formula: includeOffsetAssets && sourcePath ? sourcePath : "disabled by settings",
       sourcePath,
       sourcePaths,
-      traceInputs: {
-        includeOffsetAssets,
-        assetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
-        requestedAssetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
-        effectiveAssetOffsetSource,
-        fallbackToLegacyOffsetAssets: false,
-        fallbackUsed: false,
-        assetOffsetStatus,
-        selectedAssetOffsetValue: value,
-        treatedAssetOffsetsAvailable: normalizedOptions.treatedAssetOffsetsAvailable === true,
-        legacyOffsetAssetsAvailable: false
-      },
-      assumptionFields: {
-        assetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
-        effectiveAssetOffsetSource,
-        fallbackToLegacyOffsetAssets: false,
-        assetOffsetFallbackUsed: false,
-        assetOffsetStatus
-      }
+      traceInputs,
+      assumptionFields
     };
   }
 
   function resolveAssetOffsetSelection(options) {
     const normalizedOptions = options && typeof options === "object" ? options : {};
     const model = isPlainObject(normalizedOptions.model) ? normalizedOptions.model : {};
+    const settings = isPlainObject(normalizedOptions.settings) ? normalizedOptions.settings : {};
     const warnings = Array.isArray(normalizedOptions.warnings) ? normalizedOptions.warnings : [];
     const includeOffsetAssets = normalizedOptions.includeOffsetAssets === true;
     const methodLabel = normalizedOptions.methodLabel || "analysis";
+    const allowProjectedAssetOffset = normalizedOptions.allowProjectedAssetOffset === true;
     const treatedRawValue = getPath(model, TREATED_ASSET_OFFSET_SOURCE_PATH);
     const treatedAssetOffsetsAvailable = hasNumericAssetOffset(treatedRawValue);
+    let projectedAssetOffsetFallbackOptions = null;
 
     function createResult(resultOptions) {
       return createAssetOffsetSelectionResult({
@@ -884,6 +1148,65 @@
       });
     }
 
+    if (allowProjectedAssetOffset) {
+      const projectedAssetOffsetGate = resolveProjectedAssetOffsetActivation(model, settings);
+      if (projectedAssetOffsetGate.active) {
+        const projectedValidation = validateProjectedAssetOffsetCandidate(
+          model,
+          treatedRawValue,
+          treatedAssetOffsetsAvailable
+        );
+        const projectedTraceInputs = createProjectedAssetOffsetTraceFields(
+          projectedAssetOffsetGate,
+          projectedValidation
+        );
+        const projectedSourcePaths = uniqueStrings([
+          PROJECTED_ASSET_OFFSET_SOURCE_PATH,
+          PROJECTED_ASSET_OFFSET_CURRENT_SOURCE_PATH,
+          PROJECTED_ASSET_OFFSET_GROWTH_SOURCE_PATH,
+          PROJECTED_ASSET_OFFSET_YEARS_SOURCE_PATH,
+          ...projectedAssetOffsetGate.sourcePaths,
+          "settings.includeOffsetAssets"
+        ]);
+
+        if (projectedValidation.valid) {
+          return createResult({
+            value: projectedValidation.effectiveProjectedAssetOffset,
+            sourcePath: PROJECTED_ASSET_OFFSET_SOURCE_PATH,
+            sourcePaths: projectedSourcePaths,
+            assetOffsetSource: ASSET_OFFSET_SOURCE_PROJECTED,
+            requestedAssetOffsetSource: ASSET_OFFSET_SOURCE_PROJECTED,
+            effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_PROJECTED,
+            assetOffsetStatus: "projected-active-used",
+            projectedAssetOffsetTraceInputs: projectedTraceInputs
+          });
+        }
+
+        addWarning(
+          warnings,
+          "projected-asset-offset-active-invalid-treated-fallback",
+          `Projected asset offset active marker was present for ${methodLabel}, but the prepared projected asset offset was invalid; treated asset offsets were used instead.`,
+          "warning",
+          uniqueStrings([
+            ...projectedSourcePaths,
+            TREATED_ASSET_OFFSET_SOURCE_PATH
+          ])
+        );
+
+        projectedAssetOffsetFallbackOptions = {
+          sourcePaths: uniqueStrings([
+            TREATED_ASSET_OFFSET_SOURCE_PATH,
+            ...projectedSourcePaths
+          ]),
+          assetOffsetSource: ASSET_OFFSET_SOURCE_PROJECTED,
+          requestedAssetOffsetSource: ASSET_OFFSET_SOURCE_PROJECTED,
+          fallbackUsed: true,
+          fallbackReason: projectedValidation.fallbackReason,
+          projectedAssetOffsetTraceInputs: projectedTraceInputs
+        };
+      }
+    }
+
     if (treatedAssetOffsetsAvailable) {
       const value = normalizeComponentNumber({
         value: treatedRawValue,
@@ -900,8 +1223,16 @@
       return createResult({
         value,
         sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
+        sourcePaths: projectedAssetOffsetFallbackOptions?.sourcePaths,
+        assetOffsetSource: projectedAssetOffsetFallbackOptions?.assetOffsetSource,
+        requestedAssetOffsetSource: projectedAssetOffsetFallbackOptions?.requestedAssetOffsetSource,
         effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_TREATED,
-        assetOffsetStatus: value === 0 ? "treated-zero" : "treated-used"
+        assetOffsetStatus: projectedAssetOffsetFallbackOptions
+          ? "projected-invalid-fallback-to-treated"
+          : (value === 0 ? "treated-zero" : "treated-used"),
+        fallbackUsed: projectedAssetOffsetFallbackOptions?.fallbackUsed,
+        fallbackReason: projectedAssetOffsetFallbackOptions?.fallbackReason,
+        projectedAssetOffsetTraceInputs: projectedAssetOffsetFallbackOptions?.projectedAssetOffsetTraceInputs
       });
     }
 
@@ -916,8 +1247,16 @@
     return createResult({
       value: 0,
       sourcePath: TREATED_ASSET_OFFSET_SOURCE_PATH,
+      sourcePaths: projectedAssetOffsetFallbackOptions?.sourcePaths,
+      assetOffsetSource: projectedAssetOffsetFallbackOptions?.assetOffsetSource,
+      requestedAssetOffsetSource: projectedAssetOffsetFallbackOptions?.requestedAssetOffsetSource,
       effectiveAssetOffsetSource: ASSET_OFFSET_SOURCE_ZERO,
-      assetOffsetStatus: "treated-unavailable"
+      assetOffsetStatus: projectedAssetOffsetFallbackOptions
+        ? "projected-invalid-fallback-to-zero"
+        : "treated-unavailable",
+      fallbackUsed: projectedAssetOffsetFallbackOptions?.fallbackUsed,
+      fallbackReason: projectedAssetOffsetFallbackOptions?.fallbackReason,
+      projectedAssetOffsetTraceInputs: projectedAssetOffsetFallbackOptions?.projectedAssetOffsetTraceInputs
     });
   }
 
@@ -3634,9 +3973,11 @@
     const existingCoverageOffset = existingCoverageOffsetSelection.value;
     const assetOffsetSelection = resolveAssetOffsetSelection({
       model,
+      settings: normalizedSettings,
       warnings,
       includeOffsetAssets,
-      methodLabel: "LENS Analysis"
+      methodLabel: "LENS Analysis",
+      allowProjectedAssetOffset: true
     });
     const assetOffset = assetOffsetSelection.value;
     const survivorIncomeOffset = essentialSupportComponent.survivorIncomeOffset || 0;

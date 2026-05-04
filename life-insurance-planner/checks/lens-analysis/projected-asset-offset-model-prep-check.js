@@ -454,10 +454,15 @@ const resultPageSources = [
   readRepoFile("app/features/lens-analysis/simple-needs-results-display.js")
 ].join("\n");
 
-assert.doesNotMatch(
+assert.match(
   analysisMethodsSource,
-  /projectedAssetOffset/,
-  "methods must not consume projectedAssetOffset in this inactive prep pass"
+  /allowProjectedAssetOffset/,
+  "methods may only consider projectedAssetOffset through an explicit LENS-only gate"
+);
+assert.match(
+  analysisMethodsSource,
+  /PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION/,
+  "projectedAssetOffset method-readiness must require an explicit activation version"
 );
 assert.doesNotMatch(
   stepThreeDisplaySource,
