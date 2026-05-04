@@ -281,9 +281,9 @@ const assetTreatmentSection = getSection(
   'id="analysis-setup-asset-treatment"',
   'id="analysis-setup-coverage-treatment"'
 );
-const growthReturnSection = getSection(
+const calculationSectionBeforePolicyReturns = getSection(
   html,
-  'id="analysis-setup-growth-return"',
+  'id="analysis-setup-inflation"',
   'id="analysis-setup-policy-returns"'
 );
 
@@ -294,7 +294,8 @@ assert.match(assetTreatmentSection, /do not affect current DIME, LENS, or HLV ou
 assert.match(assetTreatmentSection, /current asset offsets remain current-dollar\/current treatment based/i);
 assert.match(assetTreatmentSection, /Emergency reserve and liquidity rules must be reviewed/i);
 assert.match(assetTreatmentSection, /Explicit emergency fund assets are generally preserved before offsetting need/i);
-assert.doesNotMatch(growthReturnSection, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
+assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
+assert.doesNotMatch(calculationSectionBeforePolicyReturns, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
 
 [
   "data-analysis-cash-reserve-enabled",

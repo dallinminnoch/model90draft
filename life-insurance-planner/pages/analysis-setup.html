@@ -327,63 +327,6 @@
                     </div>
                   </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--growth" aria-labelledby="analysis-setup-growth-return">
-                    <div class="analysis-setup-method-header">
-                      <div class="analysis-setup-control-heading">
-                        <h3 id="analysis-setup-growth-return">Growth &amp; Return Assumptions</h3>
-                      </div>
-                      <button class="analysis-setup-reset-button" type="button" data-analysis-growth-reset>Reset to Default</button>
-                    </div>
-                    <p class="underwriting-helper-text">Saved for future projection/modeling. These controls do not affect current DIME, LENS, or Human Life Value outputs. Asset Treatment owns current saved asset-specific assumed annual growth; current asset treatment, projected asset growth, existing coverage, healthcare, inflation, and recommendations do not consume the broad taxable/retirement return sliders, and those sliders do not seed Asset Treatment defaults today.</p>
-
-                    <div class="analysis-setup-rate-grid">
-                      <div class="analysis-setup-rate-control analysis-setup-return-basis-control">
-                        <label class="analysis-setup-rate-label" id="analysis-setup-return-basis-label" for="analysis-setup-return-basis">Return Basis</label>
-                        <p class="analysis-setup-return-basis-note">Used for future projections; keep nominal unless modeling real returns separately.</p>
-                        <select id="analysis-setup-return-basis" class="analysis-setup-method-select analysis-setup-return-basis-select" aria-labelledby="analysis-setup-return-basis-label" data-analysis-growth-field="returnBasis">
-                          <option value="nominal">Nominal returns</option>
-                          <option value="real">Real returns after inflation</option>
-                        </select>
-                      </div>
-
-                      <div class="analysis-setup-rate-control">
-                        <label class="analysis-setup-rate-label" id="analysis-setup-primary-income-growth-label" for="analysis-setup-primary-income-growth-value">Primary income growth</label>
-                        <input class="analysis-setup-rate-slider" type="range" min="0" max="12" step="0.25" aria-labelledby="analysis-setup-primary-income-growth-label" data-analysis-growth-slider="primaryIncomeGrowthRatePercent">
-                        <span class="analysis-setup-percent-input">
-                          <input id="analysis-setup-primary-income-growth-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-primary-income-growth-label" data-analysis-growth-field="primaryIncomeGrowthRatePercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                      </div>
-
-                      <div class="analysis-setup-rate-control">
-                        <label class="analysis-setup-rate-label" id="analysis-setup-partner-income-growth-label" for="analysis-setup-partner-income-growth-value">Partner / survivor income growth</label>
-                        <input class="analysis-setup-rate-slider" type="range" min="0" max="12" step="0.25" aria-labelledby="analysis-setup-partner-income-growth-label" data-analysis-growth-slider="partnerIncomeGrowthRatePercent">
-                        <span class="analysis-setup-percent-input">
-                          <input id="analysis-setup-partner-income-growth-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-partner-income-growth-label" data-analysis-growth-field="partnerIncomeGrowthRatePercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                      </div>
-
-                      <div class="analysis-setup-rate-control">
-                        <label class="analysis-setup-rate-label" id="analysis-setup-taxable-investment-return-label" for="analysis-setup-taxable-investment-return-value">Taxable investment return</label>
-                        <input class="analysis-setup-rate-slider" type="range" min="0" max="12" step="0.25" aria-labelledby="analysis-setup-taxable-investment-return-label" data-analysis-growth-slider="taxableInvestmentReturnRatePercent">
-                        <span class="analysis-setup-percent-input">
-                          <input id="analysis-setup-taxable-investment-return-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-taxable-investment-return-label" data-analysis-growth-field="taxableInvestmentReturnRatePercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                      </div>
-
-                      <div class="analysis-setup-rate-control">
-                        <label class="analysis-setup-rate-label" id="analysis-setup-retirement-asset-return-label" for="analysis-setup-retirement-asset-return-value">Retirement asset return</label>
-                        <input class="analysis-setup-rate-slider" type="range" min="0" max="12" step="0.25" aria-labelledby="analysis-setup-retirement-asset-return-label" data-analysis-growth-slider="retirementAssetReturnRatePercent">
-                        <span class="analysis-setup-percent-input">
-                          <input id="analysis-setup-retirement-asset-return-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-retirement-asset-return-label" data-analysis-growth-field="retirementAssetReturnRatePercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                      </div>
-                    </div>
-                  </section>
-
                   <section class="analysis-setup-control-group analysis-setup-control-group--policy-returns" aria-labelledby="analysis-setup-policy-returns">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">

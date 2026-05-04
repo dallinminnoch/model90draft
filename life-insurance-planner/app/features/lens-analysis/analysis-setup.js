@@ -2003,9 +2003,9 @@
     return normalizeProjectedAssetOffsetAssumptions(saved);
   }
 
-  function getGrowthAndReturnAssumptions(record) {
-    const saved = isPlainObject(record?.analysisSettings?.growthAndReturnAssumptions)
-      ? record.analysisSettings.growthAndReturnAssumptions
+  function normalizeGrowthAndReturnAssumptions(savedAssumptions) {
+    const saved = isPlainObject(savedAssumptions)
+      ? savedAssumptions
       : {};
     const nextAssumptions = {
       ...DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS,
@@ -2035,6 +2035,10 @@
     }
 
     return nextAssumptions;
+  }
+
+  function getGrowthAndReturnAssumptions(record) {
+    return normalizeGrowthAndReturnAssumptions(record?.analysisSettings?.growthAndReturnAssumptions);
   }
 
   function getPolicyTypeReturnAssumptions(record) {
@@ -5683,10 +5687,14 @@
 
   function setGrowthFieldsDisabled(fields, sliders, disabled) {
     Object.keys(fields).forEach(function (fieldName) {
-      fields[fieldName].disabled = Boolean(disabled);
+      if (fields[fieldName]) {
+        fields[fieldName].disabled = Boolean(disabled);
+      }
     });
     Object.keys(sliders || {}).forEach(function (fieldName) {
-      sliders[fieldName].disabled = Boolean(disabled);
+      if (sliders[fieldName]) {
+        sliders[fieldName].disabled = Boolean(disabled);
+      }
     });
   }
 
@@ -6383,18 +6391,41 @@
     };
   }
 
-  function readValidatedGrowthAndReturnAssumptions(fields) {
+  function hasVisibleGrowthAndReturnFields(fields) {
+    return Boolean(fields.enabled || fields.returnBasis)
+      || GROWTH_RATE_FIELDS.some(function (fieldName) {
+        return Boolean(fields[fieldName]);
+      });
+  }
+
+  function readValidatedGrowthAndReturnAssumptions(fields, fallbackAssumptions) {
+    const normalizedFallback = normalizeGrowthAndReturnAssumptions(fallbackAssumptions);
+
+    if (!hasVisibleGrowthAndReturnFields(fields)) {
+      return {
+        value: normalizedFallback
+      };
+    }
+
     const nextAssumptions = {
       enabled: Boolean(fields.enabled?.checked),
       returnBasis: normalizeGrowthReturnBasis(
         fields.returnBasis?.value,
-        DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS.returnBasis
+        normalizedFallback.returnBasis
       )
     };
 
     for (let index = 0; index < GROWTH_RATE_FIELDS.length; index += 1) {
       const fieldName = GROWTH_RATE_FIELDS[index];
       const field = fields[fieldName];
+      if (!field) {
+        nextAssumptions[fieldName] = normalizeGrowthRateValue(
+          normalizedFallback[fieldName],
+          DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS[fieldName]
+        );
+        continue;
+      }
+
       const rawValue = String(field?.value || "").trim();
       const label = GROWTH_RATE_LABELS[fieldName];
 
@@ -7765,7 +7796,10 @@
 
     const validatedProjectedAssetOffset = readValidatedProjectedAssetOffsetAssumptions(methodFields);
 
-    const validatedGrowth = readValidatedGrowthAndReturnAssumptions(growthFields);
+    const validatedGrowth = readValidatedGrowthAndReturnAssumptions(
+      growthFields,
+      getGrowthAndReturnAssumptions(linkedRecord)
+    );
 
     if (validatedGrowth.error) {
       setMessage(validationMessage, validatedGrowth.error, "error");

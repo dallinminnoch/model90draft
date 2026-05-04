@@ -310,16 +310,17 @@ const assetTreatmentSection = getSection(
   'id="analysis-setup-asset-treatment"',
   'id="analysis-setup-existing-coverage-treatment"'
 );
-const growthReturnSection = getSection(
+const calculationSectionBeforePolicyReturns = getSection(
   html,
-  'id="analysis-setup-growth-return"',
+  'id="analysis-setup-inflation"',
   'id="analysis-setup-policy-returns"'
 );
 
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-controls/);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
-assert.doesNotMatch(growthReturnSection, /data-analysis-asset-growth-projection-/);
+assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
+assert.doesNotMatch(calculationSectionBeforePolicyReturns, /data-analysis-asset-growth-projection-/);
 assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/i);
 assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/i);
 assert.match(assetTreatmentSection, /DIME, HLV, and Simple Needs remain unchanged/i);

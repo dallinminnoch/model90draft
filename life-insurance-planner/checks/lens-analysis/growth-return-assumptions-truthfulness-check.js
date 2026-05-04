@@ -234,23 +234,34 @@ function createMethodSnapshot(context, growthAndReturnAssumptions) {
 }
 
 const analysisSetupHtml = readRepoFile("pages/analysis-setup.html");
-assert.match(analysisSetupHtml, /Growth &amp; Return Assumptions/);
-assert.match(analysisSetupHtml, /data-analysis-growth-reset/);
-assert.match(analysisSetupHtml, /data-analysis-growth-field="returnBasis"/);
-assert.match(analysisSetupHtml, /data-analysis-growth-field="primaryIncomeGrowthRatePercent"/);
-assert.match(analysisSetupHtml, /data-analysis-growth-field="partnerIncomeGrowthRatePercent"/);
-assert.match(analysisSetupHtml, /data-analysis-growth-field="taxableInvestmentReturnRatePercent"/);
-assert.match(analysisSetupHtml, /data-analysis-growth-field="retirementAssetReturnRatePercent"/);
+assert.doesNotMatch(analysisSetupHtml, /Growth &amp; Return Assumptions/);
+assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-reset/);
+assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="returnBasis"/);
+assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="primaryIncomeGrowthRatePercent"/);
+assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="partnerIncomeGrowthRatePercent"/);
+assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="taxableInvestmentReturnRatePercent"/);
+assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="retirementAssetReturnRatePercent"/);
 assert.doesNotMatch(analysisSetupHtml, /data-analysis-growth-field="enabled"/);
-assert.match(analysisSetupHtml, /Saved for future projection\/modeling/);
-assert.match(analysisSetupHtml, /do not affect current DIME, LENS, or Human Life Value outputs/);
-assert.match(analysisSetupHtml, /Asset Treatment owns current saved asset-specific assumed annual growth/);
-assert.match(analysisSetupHtml, /current asset treatment, projected asset growth, existing coverage, healthcare, inflation, and recommendations do not consume the broad taxable\/retirement return sliders/);
-assert.match(analysisSetupHtml, /those sliders do not seed Asset Treatment defaults today/);
+assert.doesNotMatch(analysisSetupHtml, /Taxable investment return/);
+assert.doesNotMatch(analysisSetupHtml, /Retirement asset return/);
+assert.doesNotMatch(analysisSetupHtml, /Saved for future projection\/modeling/);
+assert.doesNotMatch(analysisSetupHtml, /broad taxable\/retirement return sliders/);
 
 const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 assert.match(analysisSetupSource, /growthAndReturnAssumptions: validatedGrowth\.value/);
 assert.match(analysisSetupSource, /function readValidatedGrowthAndReturnAssumptions/);
+assert.match(analysisSetupSource, /function hasVisibleGrowthAndReturnFields/);
+assert.match(analysisSetupSource, /getGrowthAndReturnAssumptions\(linkedRecord\)/);
+assert.match(
+  analysisSetupSource,
+  /function setGrowthFieldsDisabled[\s\S]*if \(fields\[fieldName\]\)[\s\S]*fields\[fieldName\]\.disabled = Boolean\(disabled\)/,
+  "Growth & Return disable path should tolerate removed DOM fields"
+);
+assert.match(
+  analysisSetupSource,
+  /function setGrowthFieldsDisabled[\s\S]*if \(sliders\[fieldName\]\)[\s\S]*sliders\[fieldName\]\.disabled = Boolean\(disabled\)/,
+  "Growth & Return slider disable path should tolerate removed DOM sliders"
+);
 
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;
@@ -309,6 +320,25 @@ assert.equal(validatedGrowth.value.taxableInvestmentReturnRatePercent, 7);
 assert.equal(validatedGrowth.value.retirementAssetReturnRatePercent, 5.75);
 assert.equal(validatedGrowth.value.source, "analysis-setup");
 assert.ok(validatedGrowth.value.lastUpdatedAt, "validated saved shape should include lastUpdatedAt");
+const legacySavedGrowth = {
+  enabled: true,
+  returnBasis: "real",
+  primaryIncomeGrowthRatePercent: 8,
+  partnerIncomeGrowthRatePercent: 6,
+  taxableInvestmentReturnRatePercent: 7,
+  retirementAssetReturnRatePercent: 5,
+  source: "legacy-saved-growth"
+};
+assert.deepEqual(
+  cloneJson(harness.readValidatedGrowthAndReturnAssumptions({}, legacySavedGrowth).value),
+  cloneJson(legacySavedGrowth),
+  "missing visible Growth & Return controls should preserve existing legacy saved values"
+);
+assert.deepEqual(
+  cloneJson(harness.readValidatedGrowthAndReturnAssumptions({}).value),
+  cloneJson(analysisSetup.DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS),
+  "missing visible Growth & Return controls should fall back to safe defaults"
+);
 assert.match(
   harness.readValidatedGrowthAndReturnAssumptions({
     returnBasis: { value: "nominal" },
