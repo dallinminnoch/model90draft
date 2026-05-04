@@ -1258,11 +1258,11 @@
 
   function formatHealthcareExpenseProjectionStatus(healthcareExpenseTrace) {
     if (getTraceInput(healthcareExpenseTrace, "enabled") !== true) {
-      return "Disabled";
+      return "Not used";
     }
 
     const warningCode = String(getTraceInput(healthcareExpenseTrace, "warningCode") || "").trim();
-    if (warningCode && warningCode !== "healthcare-expense-assumptions-disabled") {
+    if (warningCode && warningCode !== "no-eligible-healthcare-expense-records") {
       return "Warning";
     }
 
@@ -1711,8 +1711,15 @@
       return "";
     }
 
+    const includedRecordCount = Number(getTraceInput(healthcareExpenseTrace, "includedRecordCount") || 0);
+    const warningCode = String(getTraceInput(healthcareExpenseTrace, "warningCode") || "").trim();
+    if (includedRecordCount <= 0 && (!warningCode || warningCode === "no-eligible-healthcare-expense-records")) {
+      return "";
+    }
+
     const rows = [
-      { label: "Inclusion status", value: formatHealthcareExpenseProjectionStatus(healthcareExpenseTrace) },
+      { label: "Projection status", value: formatHealthcareExpenseProjectionStatus(healthcareExpenseTrace) },
+      { label: "Source", value: "Healthcare bucket expense records projected using Healthcare Inflation" },
       { label: "Healthcare expense amount used", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "projectedHealthcareExpenseAmount")) },
       { label: "Current annual healthcare expense", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "currentAnnualHealthcareExpenseAmount")) },
       { label: "Projected recurring healthcare need", value: formatCurrency(getTraceInput(healthcareExpenseTrace, "projectedRecurringHealthcareExpenseAmount")) },
@@ -1721,7 +1728,7 @@
       { label: "Projection years", value: formatYears(getTraceInput(healthcareExpenseTrace, "projectionYears")) },
       { label: "Projection years source", value: String(getTraceInput(healthcareExpenseTrace, "projectionYearsSource") || "Not set") },
       { label: "Duration basis", value: getHealthcareExpenseDurationBasisSummary(healthcareExpenseTrace) },
-      { label: "Include one-time healthcare expenses", value: formatBooleanDetail(getTraceInput(healthcareExpenseTrace, "includeOneTimeHealthcareExpenses")) },
+      { label: "One-time healthcare behavior", value: getTraceInput(healthcareExpenseTrace, "includeOneTimeHealthcareExpenses") === true ? "Included current-dollar only" : "Excluded" },
       { label: "One-time projection mode", value: String(getTraceInput(healthcareExpenseTrace, "oneTimeProjectionMode") || "Not set") },
       { label: "Included record count", value: formatCount(getTraceInput(healthcareExpenseTrace, "includedRecordCount")) },
       { label: "Excluded record count", value: formatCount(getTraceInput(healthcareExpenseTrace, "excludedRecordCount")) },
@@ -1738,7 +1745,7 @@
       });
     }
 
-    return renderProjectionDetailSection("Healthcare Expense Projection", rows);
+    return renderProjectionDetailSection("Healthcare Bucket Expenses", rows);
   }
 
   function renderNeedsProjectionDetails(needsResult, lensModel) {

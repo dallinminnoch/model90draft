@@ -92,6 +92,7 @@ assert.doesNotMatch(simpleNeedsResultsHtml, /Projected Asset Growth/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Projected Asset Offset/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Cash Reserve Projection/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Healthcare Expense Projection/);
+assert.doesNotMatch(simpleNeedsResultsHtml, /Healthcare Bucket Expenses/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /Final Expense Projection/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /LENS Projection Details/);
 assert.doesNotMatch(simpleNeedsResultsHtml, /data-analysis-setup/);

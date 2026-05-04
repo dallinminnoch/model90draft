@@ -265,12 +265,14 @@ const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-record
 
 assertNoFormulaOwnerReferences(widgetSource);
 assert.match(widgetSource, /Additional Expenses records from PMI/);
-assert.match(widgetSource, /Healthcare rows can affect Needs healthcareExpenses when enabled/);
+assert.match(widgetSource, /Healthcare bucket rows can affect Needs healthcareExpenses automatically/);
 assert.match(widgetSource, /non-healthcare rows remain raw-only for current output/);
 assert.match(widgetSource, /continuationStatus is future support-treatment metadata/);
-assert.match(widgetSource, /Healthcare-related rows may affect Needs when Healthcare Expense Assumptions are enabled/);
-assert.match(widgetSource, /non-healthcare rows are saved as raw facts for now/);
-assert.match(widgetSource, /non-healthcare rows remain saved raw facts for now/);
+assert.match(widgetSource, /Healthcare bucket rows are included in LENS healthcare expenses automatically/);
+assert.match(widgetSource, /recurring healthcare rows are projected with Healthcare Inflation/);
+assert.match(widgetSource, /one-time healthcare rows are included current-dollar/);
+assert.match(widgetSource, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/);
+assert.match(widgetSource, /Non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them/);
 assert.match(widgetSource, /Review overlap with Household Spending to avoid duplicate entry/);
 assert.doesNotMatch(widgetSource, /collect repeatable raw-only expenseRecords\[\] rows from PMI/);
 assert.doesNotMatch(widgetSource, /Search or browse initial expense types to add as raw PMI facts/);
@@ -352,8 +354,8 @@ assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiExpenseRecordsInitialized, "true");
 assert.match(fakeDom.root.innerHTML, /Additional Expenses/, "widget should render the Additional Expenses heading");
 assert.match(fakeDom.root.innerHTML, /expenses not already captured in Household Spending/, "widget should warn against Household Spending overlap");
-assert.match(fakeDom.root.innerHTML, /Healthcare-related rows may affect Needs when Healthcare Expense Assumptions are enabled/, "widget should describe active healthcare behavior");
-assert.match(fakeDom.root.innerHTML, /non-healthcare rows are saved as raw facts for now/, "widget should describe non-healthcare raw-fact behavior");
+assert.match(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should describe automatic healthcare behavior");
+assert.match(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should describe non-healthcare raw-fact behavior");
 assert.match(fakeDom.root.innerHTML, /"Continues after death\?" is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
 
 const inputRecords = Object.freeze([

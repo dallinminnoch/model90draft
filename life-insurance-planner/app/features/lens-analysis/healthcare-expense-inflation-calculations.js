@@ -14,6 +14,12 @@
   const MIN_PROJECTION_YEARS = 1;
   const MAX_PROJECTION_YEARS = 60;
   const ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR = "currentDollarOnly";
+  const DEFAULT_ASSUMPTIONS = Object.freeze({
+    enabled: true,
+    projectionYears: DEFAULT_PROJECTION_YEARS,
+    includeOneTimeHealthcareExpenses: true,
+    oneTimeProjectionMode: ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR
+  });
   const HEALTHCARE_BUCKETS = Object.freeze([
     "ongoingHealthcare",
     "dentalCare",
@@ -242,7 +248,7 @@
 
     return {
       value: clamped,
-      source: "healthcareExpenseAssumptions.projectionYears"
+      source: "internalHealthcareExpenseDefaults.projectionYears"
     };
   }
 
@@ -260,7 +266,19 @@
     return ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR;
   }
 
-  function normalizeHealthcareInflationRate(value, warnings) {
+  function normalizeHealthcareInflationRate(value, warnings, inflationEnabled) {
+    if (inflationEnabled !== true) {
+      warnings.push(createWarning(
+        "healthcare-inflation-disabled-current-dollar",
+        "Healthcare inflation is disabled; recurring healthcare expenses used current-dollar projection.",
+        { enabled: inflationEnabled === true }
+      ));
+      return {
+        value: null,
+        applied: false
+      };
+    }
+
     const parsed = toOptionalNumber(value);
     if (parsed == null || parsed < 0) {
       warnings.push(createWarning(
@@ -405,7 +423,7 @@
       ));
       return {
         durationYears: context.projectionYears,
-        durationSource: "healthcareExpenseAssumptions.projectionYears-fallback",
+        durationSource: "internalHealthcareExpenseDefaults.projectionYears-fallback",
         warnings
       };
     }
@@ -427,7 +445,7 @@
       ));
       return {
         durationYears: context.projectionYears,
-        durationSource: "healthcareExpenseAssumptions.projectionYears-fallback",
+        durationSource: "internalHealthcareExpenseDefaults.projectionYears-fallback",
         warnings
       };
     }
@@ -452,14 +470,14 @@
       ));
       return {
         durationYears: context.projectionYears,
-        durationSource: "healthcareExpenseAssumptions.projectionYears-fallback",
+        durationSource: "internalHealthcareExpenseDefaults.projectionYears-fallback",
         warnings
       };
     }
 
     return {
       durationYears: context.projectionYears,
-      durationSource: "healthcareExpenseAssumptions.projectionYears",
+      durationSource: "internalHealthcareExpenseDefaults.projectionYears",
       warnings
     };
   }
@@ -570,11 +588,11 @@
         included: false,
         record: createExcludedRecord(
           fact,
-          "Healthcare expense assumptions are disabled.",
-          "healthcare-expense-assumptions-disabled",
-          index
-        )
-      };
+            "Automatic healthcare bucket expense projection was disabled by internal settings.",
+            "healthcare-bucket-projection-disabled",
+            index
+          )
+        };
     }
 
     if (isOneTimeFact(fact)) {
@@ -583,7 +601,7 @@
           included: false,
           record: createExcludedRecord(
             fact,
-            "One-time healthcare expenses are excluded by healthcare expense assumptions.",
+            "One-time healthcare expenses are excluded by internal healthcare bucket defaults.",
             "one-time-healthcare-expense-excluded",
             index
           )
@@ -649,9 +667,12 @@
 
   function buildContext(input, warnings) {
     const safeInput = isPlainObject(input) ? input : {};
-    const assumptions = isPlainObject(safeInput.healthcareExpenseAssumptions)
-      ? safeInput.healthcareExpenseAssumptions
-      : {};
+    const assumptions = {
+      ...DEFAULT_ASSUMPTIONS,
+      ...(isPlainObject(safeInput.healthcareExpenseAssumptions)
+        ? safeInput.healthcareExpenseAssumptions
+        : {})
+    };
     const inflationAssumptions = isPlainObject(safeInput.inflationAssumptions)
       ? safeInput.inflationAssumptions
       : {};
@@ -668,7 +689,8 @@
     );
     const rateResult = normalizeHealthcareInflationRate(
       inflationAssumptions.healthcareInflationRatePercent,
-      warnings
+      warnings,
+      inflationAssumptions.enabled === true
     );
     const parsedDateOfBirth = parseDateOnly(profileFacts.clientDateOfBirth);
     const parsedValuationDate = parseDateOnly(safeInput.valuationDate);
@@ -677,7 +699,7 @@
       : null;
 
     return {
-      enabled: assumptions.enabled === true,
+      enabled: assumptions.enabled !== false,
       projectionYears: projectionYearsResult.value,
       projectionYearsSource: projectionYearsResult.source,
       includeOneTimeHealthcareExpenses: assumptions.includeOneTimeHealthcareExpenses === true,
@@ -734,11 +756,11 @@
       : 0;
     const applied = context.enabled === true && projectedHealthcareExpenseAmount > 0;
     const reason = context.enabled
-      ? (includedRecords.length ? null : "No eligible healthcare expense records were included.")
-      : "Healthcare expense assumptions are disabled.";
+      ? (includedRecords.length ? null : "No eligible healthcare bucket expense records were included.")
+      : "Automatic healthcare bucket expense projection was disabled.";
     const warningCode = context.enabled
       ? (includedRecords.length ? null : "no-eligible-healthcare-expense-records")
-      : "healthcare-expense-assumptions-disabled";
+      : "healthcare-bucket-projection-disabled";
 
     return {
       source: SOURCE,

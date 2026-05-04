@@ -334,7 +334,7 @@ function assertAdapterTraceTruthful(methodSettings) {
   assert.match(inflationTrace.message, /current LENS support/);
   assert.match(inflationTrace.message, /current LENS education/);
   assert.match(inflationTrace.message, /healthcare inflation can affect current LENS medical final expense/);
-  assert.match(inflationTrace.message, /LENS healthcareExpenses component when healthcare expense assumptions are enabled/);
+  assert.match(inflationTrace.message, /eligible non-final healthcare bucket expenses/);
   assert.match(inflationTrace.message, /final expense inflation can affect current LENS non-medical final expense/);
   assert.match(inflationTrace.message, /DIME and HLV remain unaffected/);
   assert.ok(
@@ -634,13 +634,6 @@ const healthcareExpenseLowSettings = createAnalysisSettings({
     finalExpenseInflationRatePercent: 3
   }
 });
-healthcareExpenseLowSettings.healthcareExpenseAssumptions = {
-  enabled: true,
-  projectionYears: 2,
-  includeOneTimeHealthcareExpenses: false,
-  oneTimeProjectionMode: "currentDollarOnly",
-  source: "inflation-assumptions-current-output-check"
-};
 const healthcareExpenseHighSettings = createAnalysisSettings({
   inflationAssumptions: {
     householdExpenseInflationRatePercent: 3,
@@ -649,9 +642,6 @@ const healthcareExpenseHighSettings = createAnalysisSettings({
     finalExpenseInflationRatePercent: 3
   }
 });
-healthcareExpenseHighSettings.healthcareExpenseAssumptions = {
-  ...healthcareExpenseLowSettings.healthcareExpenseAssumptions
-};
 const healthcareExpenseLowRun = runAllForLensModel(
   adapter,
   methods,
@@ -667,7 +657,7 @@ const healthcareExpenseHighRun = runAllForLensModel(
 assert.ok(
   healthcareExpenseHighRun.results.needs.components.healthcareExpenses
     > healthcareExpenseLowRun.results.needs.components.healthcareExpenses,
-  "Healthcare inflation should alter Needs healthcareExpenses when healthcare expense assumptions are enabled."
+  "Healthcare inflation should alter automatic Needs healthcareExpenses for eligible healthcare bucket records."
 );
 assert.deepEqual(
   dimeSnapshot(healthcareExpenseHighRun.results),

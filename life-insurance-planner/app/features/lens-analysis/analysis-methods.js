@@ -42,8 +42,16 @@
   const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
   const TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
   const HEALTHCARE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.healthcareInflationRatePercent";
+  const HEALTHCARE_EXPENSE_DEFAULTS_SOURCE_PATH = "internalHealthcareExpenseDefaults";
   const FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseInflationRatePercent";
   const FINAL_EXPENSE_TARGET_AGE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseTargetAge";
+  const HEALTHCARE_EXPENSE_AUTOMATIC_ASSUMPTIONS = Object.freeze({
+    enabled: true,
+    projectionYears: 10,
+    includeOneTimeHealthcareExpenses: true,
+    oneTimeProjectionMode: "currentDollarOnly",
+    source: "healthcare-bucket-automatic"
+  });
 
   const DIME_NON_MORTGAGE_DEBT_FIELDS = Object.freeze([
     Object.freeze({
@@ -2932,9 +2940,7 @@
   function createHealthcareExpenseFallbackProjection(options) {
     const normalizedOptions = isPlainObject(options) ? options : {};
     const settings = isPlainObject(normalizedOptions.settings) ? normalizedOptions.settings : {};
-    const assumptions = isPlainObject(settings.healthcareExpenseAssumptions)
-      ? settings.healthcareExpenseAssumptions
-      : {};
+    const assumptions = { ...HEALTHCARE_EXPENSE_AUTOMATIC_ASSUMPTIONS };
     const reason = normalizedOptions.reason || "healthcare-expense-projection-unavailable";
     const warningCode = normalizedOptions.warningCode || reason;
     const warningMessage = normalizedOptions.warningMessage
@@ -2991,10 +2997,9 @@
       });
 
     return uniqueStrings([
-      "settings.healthcareExpenseAssumptions",
-      "settings.healthcareExpenseAssumptions.enabled",
-      "settings.healthcareExpenseAssumptions.projectionYears",
-      "settings.healthcareExpenseAssumptions.includeOneTimeHealthcareExpenses",
+      HEALTHCARE_EXPENSE_DEFAULTS_SOURCE_PATH,
+      `${HEALTHCARE_EXPENSE_DEFAULTS_SOURCE_PATH}.projectionYears`,
+      `${HEALTHCARE_EXPENSE_DEFAULTS_SOURCE_PATH}.includeOneTimeHealthcareExpenses`,
       HEALTHCARE_INFLATION_RATE_SOURCE_PATH,
       "expenseFacts.expenses",
       "profileFacts.clientDateOfBirth",
@@ -3013,13 +3018,13 @@
 
     const warning = createWarning(
       "healthcare-expense-overlap-review",
-      "Entered healthcare expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the LENS healthcareExpenses component.",
+      "Healthcare bucket expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the LENS healthcare bucket expense component.",
       "info",
       [
         "expenseFacts.expenses",
         "ongoingSupport.monthlyHealthcareOutOfPocketCost",
         "ongoingSupport.annualTotalEssentialSupportCost",
-        "settings.healthcareExpenseAssumptions.enabled"
+        HEALTHCARE_EXPENSE_DEFAULTS_SOURCE_PATH
       ]
     );
     addWarning(
@@ -3042,10 +3047,7 @@
   }
 
   function createNeedsHealthcareExpensesComponent(model, settings, warnings) {
-    const assumptions = isPlainObject(settings.healthcareExpenseAssumptions)
-      ? settings.healthcareExpenseAssumptions
-      : {};
-    const healthcareExpensesEnabled = assumptions.enabled === true;
+    const assumptions = { ...HEALTHCARE_EXPENSE_AUTOMATIC_ASSUMPTIONS };
     const calculateHealthcareExpenseProjection = lensAnalysis.calculateHealthcareExpenseProjection;
     let projection;
 
@@ -3061,7 +3063,7 @@
         valuationDateSource: settings.valuationDateSource,
         valuationDateDefaulted: settings.valuationDateDefaulted
       });
-    } else if (healthcareExpensesEnabled) {
+    } else {
       addWarning(
         warnings,
         "healthcare-expense-inflation-helper-unavailable",
@@ -3076,36 +3078,6 @@
         warningCode: "healthcare-expense-inflation-helper-unavailable",
         warningMessage: "Healthcare expense projection helper was unavailable; LENS healthcareExpenses defaulted to 0."
       });
-    } else {
-      projection = {
-        source: "analysis-methods-healthcare-expense-disabled",
-        applied: false,
-        enabled: false,
-        projectedHealthcareExpenseAmount: 0,
-        projectedRecurringHealthcareExpenseAmount: 0,
-        includedOneTimeHealthcareExpenseAmount: 0,
-        currentAnnualHealthcareExpenseAmount: 0,
-        healthcareInflationRatePercent: getPath(settings, "inflationAssumptions.healthcareInflationRatePercent") ?? null,
-        projectionYears: assumptions.projectionYears ?? null,
-        projectionYearsSource: null,
-        includeOneTimeHealthcareExpenses: assumptions.includeOneTimeHealthcareExpenses === true,
-        oneTimeProjectionMode: assumptions.oneTimeProjectionMode || "currentDollarOnly",
-        includedRecordCount: 0,
-        excludedRecordCount: 0,
-        includedBuckets: [],
-        excludedBuckets: [],
-        includedRecords: [],
-        excludedRecords: [],
-        warnings: [],
-        warningCount: 0,
-        reason: "Healthcare expense assumptions are disabled; recurring/non-final healthcare expense records remain raw-only.",
-        warningCode: "healthcare-expense-assumptions-disabled",
-        valuationDate: settings.valuationDate || null,
-        valuationDateSource: settings.valuationDateSource || null,
-        valuationDateDefaulted: settings.valuationDateDefaulted === true,
-        clientDateOfBirth: getPath(model, "profileFacts.clientDateOfBirth") || null,
-        clientDateOfBirthStatus: getPath(model, "profileFacts.clientDateOfBirthStatus") || null
-      };
     }
 
     let componentValue = normalizeHealthcareExpenseProjectionAmount(projection);
@@ -3128,13 +3100,11 @@
     }
 
     const traceProjection = addHealthcareExpenseOverlapWarning(projection, warnings);
-    const value = healthcareExpensesEnabled ? componentValue : 0;
+    const value = componentValue;
 
     return {
       value,
-      formula: healthcareExpensesEnabled
-        ? "healthcare expense projection helper for eligible non-final healthcare expense records"
-        : "disabled by healthcareExpenseAssumptions.enabled",
+      formula: "automatic healthcare bucket expense projection for eligible non-final healthcare expense records",
       inputs: traceProjection,
       sourcePaths: getHealthcareExpenseProjectionSourcePaths(traceProjection),
       projection: traceProjection

@@ -56,10 +56,10 @@ function createHealthcareExpenseTrace(overrides = {}) {
   return {
     key: "healthcareExpenses",
     label: "Healthcare Expenses",
-    formula: "healthcare expense projection helper for eligible non-final healthcare expense records",
+    formula: "automatic healthcare bucket expense projection for eligible non-final healthcare expense records",
     value: overrides.projectedHealthcareExpenseAmount ?? 3272,
     sourcePaths: [
-      "settings.healthcareExpenseAssumptions",
+      "internalHealthcareExpenseDefaults",
       "settings.inflationAssumptions.healthcareInflationRatePercent",
       "expenseFacts.expenses"
     ],
@@ -74,7 +74,7 @@ function createHealthcareExpenseTrace(overrides = {}) {
       healthcareInflationRatePercent: 10,
       healthcareInflationApplied: true,
       projectionYears: 2,
-      projectionYearsSource: "healthcareExpenseAssumptions.projectionYears",
+      projectionYearsSource: "internalHealthcareExpenseDefaults.projectionYears",
       includeOneTimeHealthcareExpenses: true,
       oneTimeProjectionMode: "currentDollarOnly",
       includedRecordCount: 2,
@@ -89,7 +89,7 @@ function createHealthcareExpenseTrace(overrides = {}) {
           label: "Medical Out-of-Pocket",
           annualizedAmount: 1200,
           durationYears: 2,
-          durationSource: "healthcareExpenseAssumptions.projectionYears",
+          durationSource: "internalHealthcareExpenseDefaults.projectionYears",
           projectedAmount: 2772
         },
         {
@@ -107,7 +107,7 @@ function createHealthcareExpenseTrace(overrides = {}) {
       warnings: [
         {
           code: "healthcare-expense-overlap-review",
-          message: "Entered healthcare expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the LENS healthcareExpenses component.",
+          message: "Healthcare bucket expense records may overlap existing household healthcare or out-of-pocket support; review before relying on the LENS healthcare bucket expense component.",
           severity: "info"
         }
       ],
@@ -290,9 +290,10 @@ function renderScenario(healthcareExpenseTrace) {
 }
 
 const appliedScenario = renderScenario(createHealthcareExpenseTrace());
-assert.match(appliedScenario.needsHtml, /Healthcare Expense Projection/);
-assert.match(appliedScenario.needsHtml, /Inclusion status/);
+assert.match(appliedScenario.needsHtml, /Healthcare Bucket Expenses/);
+assert.match(appliedScenario.needsHtml, /Projection status/);
 assert.match(appliedScenario.needsHtml, /Applied/);
+assert.match(appliedScenario.needsHtml, /Healthcare bucket expense records projected using Healthcare Inflation/);
 assert.match(appliedScenario.needsHtml, /Healthcare expense amount used/);
 assert.match(appliedScenario.needsHtml, /\$3,272/);
 assert.match(appliedScenario.needsHtml, /Current annual healthcare expense/);
@@ -306,12 +307,12 @@ assert.match(appliedScenario.needsHtml, /10\.00% healthcare inflation/);
 assert.match(appliedScenario.needsHtml, /Projection years/);
 assert.match(appliedScenario.needsHtml, /2 years/);
 assert.match(appliedScenario.needsHtml, /Projection years source/);
-assert.match(appliedScenario.needsHtml, /healthcareExpenseAssumptions\.projectionYears/);
+assert.match(appliedScenario.needsHtml, /internalHealthcareExpenseDefaults\.projectionYears/);
 assert.match(appliedScenario.needsHtml, /Duration basis/);
 assert.match(appliedScenario.needsHtml, /Included duration sources/);
 assert.match(appliedScenario.needsHtml, /oneTime-current-dollar/);
-assert.match(appliedScenario.needsHtml, /Include one-time healthcare expenses/);
-assert.match(appliedScenario.needsHtml, /Yes/);
+assert.match(appliedScenario.needsHtml, /One-time healthcare behavior/);
+assert.match(appliedScenario.needsHtml, /Included current-dollar only/);
 assert.match(appliedScenario.needsHtml, /One-time projection mode/);
 assert.match(appliedScenario.needsHtml, /currentDollarOnly/);
 assert.match(appliedScenario.needsHtml, /Included record count/);
@@ -326,13 +327,13 @@ assert.match(appliedScenario.needsHtml, /Warning\/reason summary/);
 assert.match(appliedScenario.needsHtml, /None/);
 assert.match(appliedScenario.needsHtml, /Overlap warning/);
 assert.match(appliedScenario.needsHtml, /overlap existing household healthcare or out-of-pocket support/);
-assert.doesNotMatch(appliedScenario.dimeHtml, /Healthcare Expense Projection/);
-assert.doesNotMatch(appliedScenario.hlvHtml, /Healthcare Expense Projection/);
+assert.doesNotMatch(appliedScenario.dimeHtml, /Healthcare Bucket Expenses/);
+assert.doesNotMatch(appliedScenario.hlvHtml, /Healthcare Bucket Expenses/);
 assert.match(appliedScenario.needsHtml, /Final Expense Projection/);
 
-const disabledScenario = renderScenario(createHealthcareExpenseTrace({
+const noEligibleScenario = renderScenario(createHealthcareExpenseTrace({
   applied: false,
-  enabled: false,
+  enabled: true,
   projectedHealthcareExpenseAmount: 0,
   projectedRecurringHealthcareExpenseAmount: 0,
   includedOneTimeHealthcareExpenseAmount: 0,
@@ -344,13 +345,10 @@ const disabledScenario = renderScenario(createHealthcareExpenseTrace({
   excludedBuckets: ["ongoingHealthcare"],
   warnings: [],
   warningCount: 0,
-  reason: "Healthcare expense assumptions are disabled.",
-  warningCode: "healthcare-expense-assumptions-disabled"
+  reason: "No eligible healthcare bucket expense records were included.",
+  warningCode: "no-eligible-healthcare-expense-records"
 }));
-assert.match(disabledScenario.needsHtml, /Healthcare Expense Projection/);
-assert.match(disabledScenario.needsHtml, /Disabled/);
-assert.match(disabledScenario.needsHtml, /\$0/);
-assert.match(disabledScenario.needsHtml, /Healthcare expense assumptions are disabled/);
+assert.doesNotMatch(noEligibleScenario.needsHtml, /Healthcare Bucket Expenses/);
 
 const currentDollarScenario = renderScenario(createHealthcareExpenseTrace({
   applied: true,
@@ -373,7 +371,7 @@ const currentDollarScenario = renderScenario(createHealthcareExpenseTrace({
 assert.match(currentDollarScenario.needsHtml, /Current-dollar/);
 assert.match(currentDollarScenario.needsHtml, /recurring healthcare expenses used current-dollar projection/);
 
-const warningScenario = renderScenario(createHealthcareExpenseTrace({
+const helperWarningScenario = renderScenario(createHealthcareExpenseTrace({
   applied: false,
   enabled: true,
   projectedHealthcareExpenseAmount: 0,
@@ -381,17 +379,17 @@ const warningScenario = renderScenario(createHealthcareExpenseTrace({
   includedOneTimeHealthcareExpenseAmount: 0,
   currentAnnualHealthcareExpenseAmount: 0,
   healthcareInflationApplied: true,
-  includedRecordCount: 0,
+  includedRecordCount: 1,
   excludedRecordCount: 3,
-  includedBuckets: [],
+  includedBuckets: ["ongoingHealthcare"],
   excludedBuckets: ["medicalFinalExpense", "livingExpense"],
   warnings: [],
   warningCount: 0,
-  reason: "No eligible healthcare expense records were included.",
-  warningCode: "no-eligible-healthcare-expense-records"
+  reason: "Healthcare expense projection helper was unavailable.",
+  warningCode: "healthcare-expense-inflation-helper-unavailable"
 }));
-assert.match(warningScenario.needsHtml, /Warning/);
-assert.match(warningScenario.needsHtml, /No eligible healthcare expense records were included/);
+assert.match(helperWarningScenario.needsHtml, /Warning/);
+assert.match(helperWarningScenario.needsHtml, /Healthcare expense projection helper was unavailable/);
 
 const source = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
 assert.equal(/Math\.pow/.test(source), false, "Step 3 should not calculate healthcare expense projection.");

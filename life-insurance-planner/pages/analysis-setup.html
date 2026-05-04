@@ -200,54 +200,7 @@
                     <span>Final expense target age (LENS only)</span>
                     <input id="analysis-setup-final-expense-target-age" class="analysis-setup-method-input" type="text" inputmode="numeric" autocomplete="off" data-analysis-inflation-field="finalExpenseTargetAge">
                   </label>
-                  <p class="underwriting-helper-text">Healthcare inflation applies to LENS medical final expense projection and, when enabled, the LENS healthcare expense component. Final expense inflation applies to LENS non-medical final expense projection. Target age is used for LENS final expense projection.</p>
-                  </section>
-
-                  <section class="analysis-setup-control-group analysis-setup-control-group--healthcare-expense" aria-labelledby="analysis-setup-healthcare-expense">
-                    <div class="analysis-setup-method-header">
-                      <div class="analysis-setup-control-heading">
-                        <h3 id="analysis-setup-healthcare-expense">Healthcare Expense Assumptions</h3>
-                        <p>Controls the LENS healthcareExpenses component when enabled. DIME and HLV are unaffected.</p>
-                      </div>
-                    </div>
-
-                    <label class="settings-toggle-row analysis-setup-toggle-control">
-                      <span class="settings-toggle-copy">
-                        <span class="settings-toggle-label">Enable healthcare expense component</span>
-                        <span class="settings-toggle-note">When on, LENS can include eligible entered recurring/non-final healthcare expense records.</span>
-                      </span>
-                      <span class="settings-switch">
-                        <input
-                          type="checkbox"
-                          role="switch"
-                          aria-label="Enable healthcare expense component"
-                          data-analysis-healthcare-expense-field="enabled">
-                        <span class="settings-switch-track" aria-hidden="true"></span>
-                      </span>
-                    </label>
-
-                    <label class="analysis-setup-method-row" for="analysis-setup-healthcare-expense-projection-years">
-                      <span>Default healthcare expense projection years</span>
-                      <input id="analysis-setup-healthcare-expense-projection-years" class="analysis-setup-method-input" type="number" min="1" max="60" step="1" inputmode="numeric" autocomplete="off" data-analysis-healthcare-expense-field="projectionYears">
-                    </label>
-                    <p class="underwriting-helper-text">Used for ongoing healthcare expense records and as the fallback when a record-specific duration is missing or invalid. Only applies when this LENS component is enabled; medical final expense, DIME, and HLV do not use it.</p>
-
-                    <label class="settings-toggle-row analysis-setup-toggle-control">
-                      <span class="settings-toggle-copy">
-                        <span class="settings-toggle-label">Include one-time healthcare expenses</span>
-                        <span class="settings-toggle-note">When on, eligible one-time healthcare records are included current-dollar only.</span>
-                      </span>
-                      <span class="settings-switch">
-                        <input
-                          type="checkbox"
-                          role="switch"
-                          aria-label="Include one-time healthcare expenses"
-                          data-analysis-healthcare-expense-field="includeOneTimeHealthcareExpenses">
-                        <span class="settings-switch-track" aria-hidden="true"></span>
-                      </span>
-                    </label>
-
-                    <p class="underwriting-helper-text">Medical final expense is already handled separately through Final Expense projection. Only entered healthcare expense records are eligible for this component. Review possible overlap with household healthcare or out-of-pocket support before relying on the component.</p>
+                  <p class="underwriting-helper-text">Healthcare inflation applies to LENS medical final expense projection and eligible non-final healthcare bucket expenses. Recurring healthcare expense records are projected with this rate; one-time healthcare expense records are included current-dollar. Final expense inflation applies to LENS non-medical final expense projection. Target age is used for LENS final expense projection.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion">

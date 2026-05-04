@@ -83,11 +83,12 @@ function createInput(overrides = {}) {
     healthcareExpenseAssumptions: {
       enabled: true,
       projectionYears: 10,
-      includeOneTimeHealthcareExpenses: false,
+      includeOneTimeHealthcareExpenses: true,
       oneTimeProjectionMode: "currentDollarOnly",
       ...(overrides.healthcareExpenseAssumptions || {})
     },
     inflationAssumptions: {
+      enabled: true,
       healthcareInflationRatePercent: 5,
       ...(overrides.inflationAssumptions || {})
     },
@@ -130,7 +131,7 @@ const disabledResult = run(helper, createInput({
 assert.equal(disabledResult.enabled, false);
 assert.equal(disabledResult.applied, false);
 assert.equal(disabledResult.projectedHealthcareExpenseAmount, 0);
-assert.equal(disabledResult.warningCode, "healthcare-expense-assumptions-disabled");
+assert.equal(disabledResult.warningCode, "healthcare-bucket-projection-disabled");
 assert.match(disabledResult.reason, /disabled/);
 
 const monthlyOngoingResult = run(helper, createInput({
@@ -152,7 +153,7 @@ const monthlyOngoingResult = run(helper, createInput({
 assert.equal(monthlyOngoingResult.applied, true);
 assert.equal(monthlyOngoingResult.currentAnnualHealthcareExpenseAmount, 1200);
 assert.equal(monthlyOngoingResult.projectedHealthcareExpenseAmount, 2772);
-assert.equal(findIncluded(monthlyOngoingResult, "monthlyOngoing").durationSource, "healthcareExpenseAssumptions.projectionYears");
+assert.equal(findIncluded(monthlyOngoingResult, "monthlyOngoing").durationSource, "internalHealthcareExpenseDefaults.projectionYears");
 
 const yearByYearProjection = context.LensApp.lensAnalysis.calculateInflationProjection({
   amount: 1200,
@@ -232,7 +233,7 @@ const fixedYearsFallbackResult = run(helper, createInput({
   }
 }));
 assert.equal(findIncluded(fixedYearsFallbackResult, "fixedYearsFallback").durationYears, 4);
-assert.equal(findIncluded(fixedYearsFallbackResult, "fixedYearsFallback").durationSource, "healthcareExpenseAssumptions.projectionYears-fallback");
+assert.equal(findIncluded(fixedYearsFallbackResult, "fixedYearsFallback").durationSource, "internalHealthcareExpenseDefaults.projectionYears-fallback");
 assert.ok(findWarning(fixedYearsFallbackResult, "fixed-years-term-years-fallback"));
 
 const ongoingResult = run(helper, createInput({
@@ -247,7 +248,7 @@ const ongoingResult = run(helper, createInput({
   }
 }));
 assert.equal(findIncluded(ongoingResult, "ongoingProjectionYears").durationYears, 7);
-assert.equal(findIncluded(ongoingResult, "ongoingProjectionYears").durationSource, "healthcareExpenseAssumptions.projectionYears");
+assert.equal(findIncluded(ongoingResult, "ongoingProjectionYears").durationSource, "internalHealthcareExpenseDefaults.projectionYears");
 
 const untilAgeResult = run(helper, createInput({
   expenseFacts: createExpenseFacts([

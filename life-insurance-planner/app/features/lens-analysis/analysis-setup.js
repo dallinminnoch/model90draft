@@ -65,18 +65,6 @@
     source: "analysis-setup"
   });
 
-  const HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR = "currentDollarOnly";
-  const HEALTHCARE_ONE_TIME_PROJECTION_MODES = Object.freeze([
-    HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR
-  ]);
-  const DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS = Object.freeze({
-    enabled: false,
-    projectionYears: 10,
-    includeOneTimeHealthcareExpenses: false,
-    oneTimeProjectionMode: HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR,
-    source: "analysis-setup"
-  });
-
   const DEFAULT_METHOD_DEFAULTS = Object.freeze({
     dimeIncomeYears: 10,
     needsSupportYears: 10,
@@ -946,8 +934,6 @@
   const MAX_GROWTH_RATE = 12;
   const MIN_METHOD_YEARS = 0;
   const MAX_METHOD_YEARS = 60;
-  const MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS = 1;
-  const MAX_HEALTHCARE_EXPENSE_PROJECTION_YEARS = 60;
   const MIN_HAIRCUT = 0;
   const MAX_HAIRCUT = 100;
   const MIN_ASSET_TREATMENT_PERCENT = 0;
@@ -1128,31 +1114,6 @@
     }
 
     return Math.min(MAX_METHOD_YEARS, Math.max(MIN_METHOD_YEARS, Math.round(number)));
-  }
-
-  function normalizeHealthcareProjectionYearsValue(value, fallback) {
-    const rawValue = String(value ?? "").trim();
-    if (!rawValue) {
-      return fallback;
-    }
-
-    const number = Number(rawValue);
-    if (!Number.isFinite(number)) {
-      return fallback;
-    }
-
-    const rounded = Math.round(number);
-    return Math.min(
-      MAX_HEALTHCARE_EXPENSE_PROJECTION_YEARS,
-      Math.max(MIN_HEALTHCARE_EXPENSE_PROJECTION_YEARS, rounded)
-    );
-  }
-
-  function normalizeHealthcareOneTimeProjectionMode(value, fallback) {
-    const normalizedValue = String(value || "").trim();
-    return HEALTHCARE_ONE_TIME_PROJECTION_MODES.includes(normalizedValue)
-      ? normalizedValue
-      : fallback || HEALTHCARE_ONE_TIME_PROJECTION_MODE_CURRENT_DOLLAR;
   }
 
   function getAnalysisSetupAssetOffsetSource() {
@@ -1969,36 +1930,6 @@
       saved.finalExpenseTargetAge,
       DEFAULT_INFLATION_ASSUMPTIONS.finalExpenseTargetAge
     );
-
-    if (saved.lastUpdatedAt) {
-      nextAssumptions.lastUpdatedAt = String(saved.lastUpdatedAt);
-    }
-
-    return nextAssumptions;
-  }
-
-  function getHealthcareExpenseAssumptions(record) {
-    const saved = isPlainObject(record?.analysisSettings?.healthcareExpenseAssumptions)
-      ? record.analysisSettings.healthcareExpenseAssumptions
-      : {};
-    const nextAssumptions = {
-      ...DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS,
-      enabled: typeof saved.enabled === "boolean"
-        ? saved.enabled
-        : DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.enabled,
-      projectionYears: normalizeHealthcareProjectionYearsValue(
-        saved.projectionYears,
-        DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears
-      ),
-      includeOneTimeHealthcareExpenses: typeof saved.includeOneTimeHealthcareExpenses === "boolean"
-        ? saved.includeOneTimeHealthcareExpenses
-        : DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.includeOneTimeHealthcareExpenses,
-      oneTimeProjectionMode: normalizeHealthcareOneTimeProjectionMode(
-        saved.oneTimeProjectionMode,
-        DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.oneTimeProjectionMode
-      ),
-      source: String(saved.source || DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.source)
-    };
 
     if (saved.lastUpdatedAt) {
       nextAssumptions.lastUpdatedAt = String(saved.lastUpdatedAt);
@@ -2991,14 +2922,6 @@
     return sliders;
   }
 
-  function getHealthcareExpenseFieldMap() {
-    const fields = {};
-    Array.from(document.querySelectorAll("[data-analysis-healthcare-expense-field]")).forEach(function (field) {
-      fields[field.getAttribute("data-analysis-healthcare-expense-field")] = field;
-    });
-    return fields;
-  }
-
   function getMethodFieldMap() {
     const fields = {
       resetButton: document.querySelector("[data-analysis-method-reset]"),
@@ -3327,14 +3250,6 @@
       || fields.adjustedPreview
       || (fields.defaultProfileButtons || []).length
       || Object.keys(fields.values || {}).length
-    );
-  }
-
-  function hasHealthcareExpenseFields(fields) {
-    return Boolean(
-      fields.enabled
-      || fields.projectionYears
-      || fields.includeOneTimeHealthcareExpenses
     );
   }
 
@@ -4605,42 +4520,6 @@
     }
   }
 
-  function populateHealthcareExpenseFields(fields, assumptions) {
-    if (fields.enabled) {
-      fields.enabled.checked = Boolean(assumptions.enabled);
-    }
-    if (fields.projectionYears) {
-      fields.projectionYears.value = String(
-        normalizeHealthcareProjectionYearsValue(
-          assumptions.projectionYears,
-          DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears
-        )
-      );
-    }
-    if (fields.includeOneTimeHealthcareExpenses) {
-      fields.includeOneTimeHealthcareExpenses.checked = Boolean(
-        assumptions.includeOneTimeHealthcareExpenses
-      );
-    }
-  }
-
-  function clampHealthcareExpenseProjectionYearsField(fields) {
-    const field = fields.projectionYears;
-    if (!field) {
-      return;
-    }
-
-    const rawValue = String(field.value || "").trim();
-    const number = rawValue ? Number(rawValue) : null;
-    const nextValue = number !== null && Number.isFinite(number)
-      ? normalizeHealthcareProjectionYearsValue(
-        number,
-        DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears
-      )
-      : DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears;
-    field.value = String(nextValue);
-  }
-
   function populateMethodFields(fields, defaults) {
     if (fields.dimeIncomeYears) {
       fields.dimeIncomeYears.value = formatHaircutInputValue(defaults.dimeIncomeYears);
@@ -5796,12 +5675,6 @@
     });
   }
 
-  function setHealthcareExpenseFieldsDisabled(fields, disabled) {
-    Object.keys(fields).forEach(function (fieldName) {
-      fields[fieldName].disabled = Boolean(disabled);
-    });
-  }
-
   function setMethodFieldsDisabled(fields, disabled) {
     Object.keys(fields).forEach(function (fieldName) {
       fields[fieldName].disabled = Boolean(disabled);
@@ -6414,25 +6287,6 @@
     return {
       value: {
         ...nextAssumptions,
-        lastUpdatedAt: new Date().toISOString(),
-        source: "analysis-setup"
-      }
-    };
-  }
-
-  function readValidatedHealthcareExpenseAssumptions(fields) {
-    const rawProjectionYears = String(fields.projectionYears?.value || "").trim();
-    const projectionYears = normalizeHealthcareProjectionYearsValue(
-      rawProjectionYears,
-      DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.projectionYears
-    );
-
-    return {
-      value: {
-        enabled: Boolean(fields.enabled?.checked),
-        projectionYears,
-        includeOneTimeHealthcareExpenses: Boolean(fields.includeOneTimeHealthcareExpenses?.checked),
-        oneTimeProjectionMode: DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS.oneTimeProjectionMode,
         lastUpdatedAt: new Date().toISOString(),
         source: "analysis-setup"
       }
@@ -7665,9 +7519,8 @@
     };
   }
 
-  function saveAnalysisSetupSettings(fields, sliders, healthcareExpenseFields, methodFields, growthFields, growthSliders, policyReturnFields, assetTreatmentFields, existingCoverageFields, debtTreatmentFields, survivorSupportFields, educationFields, recommendationGuardrailFields, linkedRecord, validationMessage, statusMessage) {
+  function saveAnalysisSetupSettings(fields, sliders, methodFields, growthFields, growthSliders, policyReturnFields, assetTreatmentFields, existingCoverageFields, debtTreatmentFields, survivorSupportFields, educationFields, recommendationGuardrailFields, linkedRecord, validationMessage, statusMessage) {
     const clientRecords = LensApp.clientRecords || {};
-    const shouldSaveHealthcareExpense = hasHealthcareExpenseFields(healthcareExpenseFields);
     const shouldSavePolicyReturns = hasPolicyTypeReturnFields(policyReturnFields);
     const shouldSaveAssetTreatment = hasAssetTreatmentFields(assetTreatmentFields);
     const shouldSaveExistingCoverage = hasExistingCoverageFields(existingCoverageFields);
@@ -7694,9 +7547,6 @@
     }
 
     resetHlvProjectionYearsToDefault(methodFields, linkedRecord);
-    if (shouldSaveHealthcareExpense) {
-      clampHealthcareExpenseProjectionYearsField(healthcareExpenseFields);
-    }
 
     METHOD_DEFAULT_FIELDS.forEach(function (fieldName) {
       const field = methodFields[fieldName];
@@ -7905,10 +7755,6 @@
       return null;
     }
 
-    const validatedHealthcareExpense = shouldSaveHealthcareExpense
-      ? readValidatedHealthcareExpenseAssumptions(healthcareExpenseFields)
-      : null;
-
     const validatedMethodDefaults = readValidatedMethodDefaults(methodFields);
 
     if (validatedMethodDefaults.error) {
@@ -8016,19 +7862,18 @@
       const currentSettings = isPlainObject(currentRecord.analysisSettings)
         ? currentRecord.analysisSettings
         : {};
+      const {
+        healthcareExpenseAssumptions: _removedHealthcareExpenseAssumptions,
+        ...settingsWithoutHealthcareExpenseAssumptions
+      } = currentSettings;
       const valuationDateResult = resolveAnalysisValuationDateForSave(currentSettings);
-      const healthcareExpenseAssumptions = validatedHealthcareExpense?.value || {
-        ...getHealthcareExpenseAssumptions({ analysisSettings: currentSettings }),
-        source: "analysis-setup"
-      };
 
       return {
         ...currentRecord,
         analysisSettings: {
-          ...currentSettings,
+          ...settingsWithoutHealthcareExpenseAssumptions,
           valuationDate: valuationDateResult.valuationDate,
           inflationAssumptions: validatedInflation.value,
-          healthcareExpenseAssumptions,
           methodDefaults: validatedMethodDefaults.value,
           projectedAssetOffsetAssumptions,
           growthAndReturnAssumptions: validatedGrowth.value,
@@ -8093,7 +7938,6 @@
 
     const fields = getFieldMap();
     const sliders = getSliderMap();
-    const healthcareExpenseFields = getHealthcareExpenseFieldMap();
     const methodFields = getMethodFieldMap();
     const growthFields = getGrowthFieldMap();
     const growthSliders = getGrowthSliderMap();
@@ -8149,7 +7993,6 @@
     });
 
     populateFields(fields, getInflationAssumptions(linkedRecord), sliders);
-    populateHealthcareExpenseFields(healthcareExpenseFields, getHealthcareExpenseAssumptions(linkedRecord));
     populateMethodFields(methodFields, getMethodDefaults(linkedRecord));
     populateProjectedAssetOffsetFields(methodFields, getProjectedAssetOffsetAssumptions(linkedRecord));
     populateGrowthFields(growthFields, getGrowthAndReturnAssumptions(linkedRecord), growthSliders);
@@ -8175,7 +8018,6 @@
 
     if (!linkedRecord) {
       setFieldsDisabled(fields, sliders, true);
-      setHealthcareExpenseFieldsDisabled(healthcareExpenseFields, true);
       setMethodFieldsDisabled(methodFields, true);
       setGrowthFieldsDisabled(growthFields, growthSliders, true);
       setPolicyTypeReturnFieldsDisabled(policyReturnFields, true);
@@ -8203,7 +8045,6 @@
     }
 
     setFieldsDisabled(fields, sliders, false);
-    setHealthcareExpenseFieldsDisabled(healthcareExpenseFields, false);
     setMethodFieldsDisabled(methodFields, false);
     syncProjectedAssetOffsetToggleState(methodFields);
     syncAssetGrowthProjectionImpactStatus(methodFields, assetTreatmentFields);
@@ -8269,21 +8110,6 @@
       ) {
         fields[FINAL_EXPENSE_TARGET_AGE_FIELD].value = formatHaircutInputValue(number);
       }
-      markUnsaved();
-    });
-
-    healthcareExpenseFields.enabled?.addEventListener("change", markUnsaved);
-    healthcareExpenseFields.includeOneTimeHealthcareExpenses?.addEventListener("change", markUnsaved);
-    healthcareExpenseFields.projectionYears?.addEventListener("input", function () {
-      const field = healthcareExpenseFields.projectionYears;
-      const sanitizedValue = sanitizeNumericTextValue(field?.value);
-      if (field && field.value !== sanitizedValue) {
-        field.value = sanitizedValue;
-      }
-      markUnsaved();
-    });
-    healthcareExpenseFields.projectionYears?.addEventListener("change", function () {
-      clampHealthcareExpenseProjectionYearsField(healthcareExpenseFields);
       markUnsaved();
     });
 
@@ -8940,7 +8766,6 @@
       linkedRecord = saveAnalysisSetupSettings(
         fields,
         sliders,
-        healthcareExpenseFields,
         methodFields,
         growthFields,
         growthSliders,
@@ -8961,7 +8786,6 @@
       const updatedRecord = saveAnalysisSetupSettings(
         fields,
         sliders,
-        healthcareExpenseFields,
         methodFields,
         growthFields,
         growthSliders,
@@ -8988,7 +8812,6 @@
 
   LensApp.analysisSetup = Object.assign(LensApp.analysisSetup || {}, {
     DEFAULT_INFLATION_ASSUMPTIONS,
-    DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS,
     DEFAULT_METHOD_DEFAULTS,
     DEFAULT_PROJECTED_ASSET_OFFSET_ASSUMPTIONS,
     DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS,
@@ -9002,7 +8825,6 @@
     normalizeAnalysisDateOnlyValue,
     resolveAnalysisValuationDateForSave,
     getInflationAssumptions,
-    getHealthcareExpenseAssumptions,
     getMethodDefaults,
     getProjectedAssetOffsetAssumptions,
     getGrowthAndReturnAssumptions,
