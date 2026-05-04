@@ -51,6 +51,7 @@ assert.ok(fs.existsSync(dimeEntryPath), "pages/dime-entry.html should exist.");
 const dimeEntryHtml = readRepoFile("pages/dime-entry.html");
 const dimeResultsHtml = readRepoFile("pages/dime-results.html");
 const lensHtml = readRepoFile("pages/lens.html");
+const quickPickerSource = readRepoFile("app/features/lens-analysis/quick-linked-profile-picker.js");
 const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 const stepThreeDisplaySource = readRepoFile("app/features/lens-analysis/step-three-analysis-display.js");
 
@@ -59,6 +60,7 @@ assert.match(dimeEntryHtml, /<h1 class="lens-hero-title">DIME Analysis<\/h1>/);
 assert.match(dimeEntryHtml, /Quick coverage estimate using debts, income, mortgage, and education\./);
 assert.match(dimeEntryHtml, /Link a client profile to generate a DIME-only result\./);
 assert.match(dimeEntryHtml, /does not use the LENS assumptions panel/);
+assert.match(dimeEntryHtml, /Search for a saved individual client or enter a case reference/);
 assert.match(dimeEntryHtml, /Debts/);
 assert.match(dimeEntryHtml, /Income/);
 assert.match(dimeEntryHtml, /Mortgage/);
@@ -66,6 +68,21 @@ assert.match(dimeEntryHtml, /Education/);
 
 assert.match(dimeEntryHtml, /href="dime-results\.html"/);
 assert.match(dimeEntryHtml, /data-dime-results-link/);
+assert.match(dimeEntryHtml, /data-quick-linked-profile-picker/);
+assert.match(dimeEntryHtml, /data-quick-profile-search/);
+assert.match(dimeEntryHtml, /data-quick-profile-case-ref/);
+assert.match(dimeEntryHtml, /data-quick-profile-results/);
+assert.match(dimeEntryHtml, /data-quick-profile-selected-card/);
+assert.match(dimeEntryHtml, /data-quick-profile-status/);
+assert.match(dimeEntryHtml, /Select a client with completed Protection Modeling Inputs to continue\./);
+assert.match(dimeEntryHtml, /aria-disabled="true"/);
+assert.match(dimeEntryHtml, /data-quick-profile-blocked="true"/);
+assert.match(dimeEntryHtml, /quick-linked-profile-picker\.js/);
+assert.match(dimeEntryHtml, /initQuickLinkedProfilePicker/);
+assert.match(dimeEntryHtml, /methodLabel: "DIME Analysis"/);
+assert.match(dimeEntryHtml, /resultPagePath: "dime-results\.html"/);
+assert.match(quickPickerSource, /Select a client with completed Protection Modeling Inputs before continuing to \$\{methodLabel\} results\./);
+assert.match(quickPickerSource, /needs completed Protection Modeling Inputs before \$\{methodLabel\} can continue\./);
 assert.match(dimeEntryHtml, /const passthroughParams = \["caseRef", "profileCaseRef", "linkedCaseRef", "id"\]/);
 assert.match(dimeEntryHtml, /sourceParams\.get\("profileCaseRef"\)/);
 assert.match(dimeEntryHtml, /sourceParams\.get\("linkedCaseRef"\)/);
@@ -73,10 +90,15 @@ assert.match(
   dimeEntryHtml,
   /link\.setAttribute\("href", queryString \? `dime-results\.html\?\$\{queryString\}` : "dime-results\.html"\)/
 );
+assert.match(dimeEntryHtml, /allowedQueryKeys: passthroughParams/);
 
 assert.doesNotMatch(dimeEntryHtml, /analysis-setup\.html/);
 assert.doesNotMatch(dimeEntryHtml, /analysis-estimate\.html/);
 assert.doesNotMatch(dimeEntryHtml, /income-loss-impact\.html/);
+assert.doesNotMatch(dimeEntryHtml, /simple-needs-entry\.html/);
+assert.doesNotMatch(dimeEntryHtml, /simple-needs-results\.html/);
+assert.doesNotMatch(dimeEntryHtml, /hlv-entry\.html/);
+assert.doesNotMatch(dimeEntryHtml, /hlv-results\.html/);
 assert.doesNotMatch(dimeEntryHtml, /Asset Treatment/);
 assert.doesNotMatch(dimeEntryHtml, /Cash Reserve/);
 assert.doesNotMatch(dimeEntryHtml, /Growth & Return/);

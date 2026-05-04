@@ -134,7 +134,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/hlv-results.html",
-  "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/profile.html",
   "pages/analysis-estimate.html",
