@@ -479,10 +479,10 @@ assert.doesNotMatch(
   /projectedAssetOffset\.consumedByMethods/,
   "Step 3 projectedAssetOffset display should not use the inactive model-prep consumedByMethods flag as its source of truth"
 );
-assert.doesNotMatch(
+assert.match(
   analysisSetupHtml + "\n" + analysisSetupSource,
-  /projectedAssetOffset|Projected Asset Offset/,
-  "Analysis Setup UI should not gain projectedAssetOffset controls in this pass"
+  /Use Projected Asset Offset in LENS|projectedAssetOffsetAssumptions/,
+  "Analysis Setup now owns the projected asset offset activation UI and saved assumptions"
 );
 assert.doesNotMatch(
   resultPageSources,
@@ -491,8 +491,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
   schemaSource,
-  /projectedAssetOffset/,
-  "saved schema/data shape should not add projectedAssetOffset in this inactive prep pass"
+  /projectedAssetOffsetAssumptions|activationVersion/,
+  "saved schema/data defaults should not create projected asset offset activation"
 );
 
 console.log("projected-asset-offset-model-prep-check passed");

@@ -2,6 +2,10 @@
   const LensApp = global.LensApp || (global.LensApp = {});
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
   const ASSET_OFFSET_SOURCE_TREATED = "treated";
+  const ASSET_GROWTH_PROJECTION_MODE_PROJECTED_OFFSETS = "projectedOffsets";
+  const PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_ACTIVE = "method-active";
+  const PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_SAVED_ONLY = "saved-only";
+  const PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION = 1;
   const DEFAULT_INFLATION_ASSUMPTIONS = Object.freeze({
     enabled: true,
     generalInflationRatePercent: 3,
@@ -297,6 +301,88 @@
       "warning",
       ["analysisSettings.methodDefaults.needsIncludeOffsetAssets"]
     ));
+  }
+
+  function applyNeedsProjectedAssetOffsetSettings(settings, analysisSettings, warnings, trace) {
+    const assetTreatmentAssumptions = isPlainObject(analysisSettings.assetTreatmentAssumptions)
+      ? analysisSettings.assetTreatmentAssumptions
+      : {};
+    const projectionAssumptions = isPlainObject(assetTreatmentAssumptions.assetGrowthProjectionAssumptions)
+      ? assetTreatmentAssumptions.assetGrowthProjectionAssumptions
+      : null;
+    if (typeof projectionAssumptions?.mode === "string" && projectionAssumptions.mode.trim()) {
+      settings.assetGrowthProjectionAssumptions = {
+        mode: projectionAssumptions.mode.trim()
+      };
+      trace.push(createTrace(
+        "needs-projected-asset-offset-source-mode",
+        "LENS projected asset offset source mode came from saved Analysis Setup Asset Treatment assumptions.",
+        ["analysisSettings.assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode"]
+      ));
+    }
+
+    const assumptions = isPlainObject(analysisSettings.projectedAssetOffsetAssumptions)
+      ? analysisSettings.projectedAssetOffsetAssumptions
+      : null;
+    if (!assumptions) {
+      return;
+    }
+
+    const enabled = assumptions.enabled === true;
+    const rawConsumptionStatus = typeof assumptions.consumptionStatus === "string"
+      ? assumptions.consumptionStatus.trim()
+      : "";
+    const activationVersion = toOptionalNumber(assumptions.activationVersion);
+    const normalizedAssumptions = {
+      enabled,
+      consumptionStatus: enabled
+        ? rawConsumptionStatus
+        : PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_SAVED_ONLY,
+      activationVersion: enabled && activationVersion != null
+        ? activationVersion
+        : 0,
+      source: typeof assumptions.source === "string" && assumptions.source.trim()
+        ? assumptions.source.trim()
+        : "analysis-setup"
+    };
+
+    settings.projectedAssetOffsetAssumptions = normalizedAssumptions;
+    trace.push(createTrace(
+      "needs-projected-asset-offset-assumptions",
+      "Saved projected asset offset assumptions are mapped only into LENS settings.",
+      ["analysisSettings.projectedAssetOffsetAssumptions"]
+    ));
+
+    if (!enabled) {
+      return;
+    }
+
+    if (rawConsumptionStatus !== PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_ACTIVE) {
+      warnings.push(createWarning(
+        "invalid-projected-asset-offset-consumption-status",
+        "Saved projected asset offset consumption status was not method-active; LENS will not consume projected offsets.",
+        "warning",
+        ["analysisSettings.projectedAssetOffsetAssumptions.consumptionStatus"]
+      ));
+    }
+
+    if (activationVersion == null || activationVersion < PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION) {
+      warnings.push(createWarning(
+        "invalid-projected-asset-offset-activation-version",
+        "Saved projected asset offset activation version was missing or below the active gate; LENS will not consume projected offsets.",
+        "warning",
+        ["analysisSettings.projectedAssetOffsetAssumptions.activationVersion"]
+      ));
+    }
+
+    if (settings.assetGrowthProjectionAssumptions?.mode !== ASSET_GROWTH_PROJECTION_MODE_PROJECTED_OFFSETS) {
+      warnings.push(createWarning(
+        "projected-asset-offset-source-mode-inactive",
+        "Saved projected asset offset assumptions were active, but asset growth projection mode was not projectedOffsets; LENS will not consume projected offsets.",
+        "warning",
+        ["analysisSettings.assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode"]
+      ));
+    }
   }
 
   function applySurvivorSupportSettings(settings, analysisSettings, warnings, trace) {
@@ -1024,6 +1110,7 @@
     applyAssetOffsetSourceSettings(settings, methodDefaults, trace);
     applyExistingCoverageSettings(settings, analysisSettings, trace);
     applyNeedsAssetOffsetInclusionSettings(settings, methodDefaults, warnings, trace);
+    applyNeedsProjectedAssetOffsetSettings(settings, analysisSettings, warnings, trace);
     settings.inflationAssumptions = createNeedsInflationAssumptions(
       analysisSettings,
       warnings

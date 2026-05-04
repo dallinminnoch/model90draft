@@ -167,14 +167,13 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-human-life-value-analysis]")'));
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/profile.html",
   "workspace-side-nav.js"
 ]);
 assert.deepEqual(
   protectedChanges,
   [],
-  "No DIME-adjacent adapter, profile, or side-nav files should be changed."
+  "No DIME-adjacent profile or side-nav files should be changed."
 );
 
 console.log("dime-results-page-check passed");

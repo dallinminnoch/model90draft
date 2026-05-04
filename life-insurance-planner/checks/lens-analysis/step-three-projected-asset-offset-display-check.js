@@ -463,14 +463,15 @@ assert.doesNotMatch(
   /Projected Asset Offset|projectedAssetOffset/,
   "Quick result pages should not render projected asset offset sections."
 );
+assert.match(
+  readRepoFile("pages/analysis-setup.html"),
+  /Use Projected Asset Offset in LENS/,
+  "Analysis Setup should own the advisor-facing projected offset activation switch."
+);
 assert.doesNotMatch(
-  readRepoFile("pages/analysis-setup.html")
-    + "\n"
-    + readRepoFile("app/features/lens-analysis/analysis-setup.js")
-    + "\n"
-    + readRepoFile("app/features/lens-analysis/schema.js"),
+  readRepoFile("app/features/lens-analysis/schema.js"),
   /projectedAssetOffsetAssumptions|activationVersion/,
-  "Analysis Setup UI and saved defaults should not create projected offset activation."
+  "Saved defaults should not create projected offset activation."
 );
 assert.deepEqual(
   getChangedFiles([

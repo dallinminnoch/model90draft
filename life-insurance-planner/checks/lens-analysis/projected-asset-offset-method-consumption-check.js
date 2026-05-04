@@ -455,13 +455,14 @@ assert.doesNotMatch(
   "Current settings adapter defaults must not create the active marker."
 );
 assert.doesNotMatch(
-  readRepoFile("pages/analysis-setup.html")
-    + "\n"
-    + readRepoFile("app/features/lens-analysis/analysis-setup.js")
-    + "\n"
-    + readRepoFile("app/features/lens-analysis/schema.js"),
+  readRepoFile("app/features/lens-analysis/schema.js"),
   /projectedAssetOffsetAssumptions|activationVersion/,
-  "Current Analysis Setup UI and saved schema must not create the projectedAssetOffset active marker."
+  "Saved schema defaults must not create the projectedAssetOffset active marker."
+);
+assert.match(
+  readRepoFile("pages/analysis-setup.html"),
+  /Use Projected Asset Offset in LENS/,
+  "Analysis Setup now owns the advisor-facing projected asset offset activation switch."
 );
 assert.match(
   readRepoFile("app/features/lens-analysis/step-three-analysis-display.js"),

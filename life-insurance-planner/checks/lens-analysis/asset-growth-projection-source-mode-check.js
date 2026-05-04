@@ -405,10 +405,15 @@ assert.match(
   /data-analysis-asset-growth-projection-controls/,
   "analysis-setup.html should expose the saved-only projection source-mode controls"
 );
-assert.match(
+assert.doesNotMatch(
   analysisSetupHtml,
   /Projected offsets - future \/ inactive/,
-  "projectedOffsets should be visibly future/inactive when offered"
+  "projectedOffsets should not remain visible as a duplicate activation control"
+);
+assert.doesNotMatch(
+  analysisSetupHtml,
+  /<option value="projectedOffsets"/,
+  "Asset Treatment projection mode should not expose projectedOffsets after the master toggle owns activation"
 );
 assert.doesNotMatch(
   readRepoFile("components.css"),
@@ -417,7 +422,6 @@ assert.doesNotMatch(
 );
 
 [
-  "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/asset-treatment-calculations.js"
 ].forEach(function (relativePath) {
@@ -428,6 +432,11 @@ assert.doesNotMatch(
     `${relativePath} should not consume or render asset growth projection source-mode assumptions`
   );
 });
+assert.match(
+  readRepoFile("app/features/lens-analysis/analysis-settings-adapter.js"),
+  /applyNeedsProjectedAssetOffsetSettings/,
+  "settings adapter should pass source-mode assumptions only to the LENS projected offset activation gate"
+);
 const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 assert.match(
   analysisMethodsSource,
@@ -547,10 +556,24 @@ assert.deepEqual(
   reportingOnlyOutputs.settings,
   projectedOffsetsOutputs.settings
 ].forEach(function (settings) {
-  assert.doesNotMatch(
-    JSON.stringify(settings),
-    /assetGrowthProjectionAssumptions|projectedOffsets|reportingOnly/,
-    "method settings should not receive asset growth projection source-mode assumptions"
+  assert.equal(
+    settings.dimeSettings.assetGrowthProjectionAssumptions,
+    undefined,
+    "DIME settings should not receive asset growth projection source-mode assumptions"
+  );
+  assert.equal(
+    settings.humanLifeValueSettings.assetGrowthProjectionAssumptions,
+    undefined,
+    "HLV settings should not receive asset growth projection source-mode assumptions"
+  );
+  assert.ok(
+    settings.needsAnalysisSettings.assetGrowthProjectionAssumptions,
+    "LENS settings may receive source-mode assumptions for the explicit projected asset offset gate"
+  );
+  assert.equal(
+    settings.needsAnalysisSettings.projectedAssetOffsetAssumptions,
+    undefined,
+    "source mode alone should not create projected asset offset active assumptions"
   );
 });
 

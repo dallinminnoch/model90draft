@@ -294,14 +294,14 @@ assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-contr
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
 assert.doesNotMatch(growthReturnSection, /data-analysis-asset-growth-projection-/);
-assert.match(assetTreatmentSection, /Projection mode is saved for future reporting\/modeling/i);
-assert.match(assetTreatmentSection, /Current asset offsets remain current-dollar\/current treatment based/i);
-assert.match(assetTreatmentSection, /Projected asset values do not affect DIME, LENS, or HLV outputs yet/i);
-assert.match(assetTreatmentSection, /Emergency reserves, liquidity, and source-mode rules must be reviewed/i);
+assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/i);
+assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/i);
+assert.match(assetTreatmentSection, /DIME, HLV, and Simple Needs remain unchanged/i);
+assert.match(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/i);
 assert.match(assetTreatmentSection, /Current-dollar only/);
 assert.match(assetTreatmentSection, /Reporting only/);
-assert.match(assetTreatmentSection, /Projected offsets - future \/ inactive/);
-assert.match(assetTreatmentSection, /<option value="projectedOffsets" disabled>/);
+assert.doesNotMatch(assetTreatmentSection, /Projected offsets - future \/ inactive/);
+assert.doesNotMatch(assetTreatmentSection, /<option value="projectedOffsets"/);
 assert.doesNotMatch(`${html}\n${analysisSetupSource}\n${componentsCss}`, /Predicted annual growth/i);
 assert.match(componentsCss, /analysis-setup-asset-growth-projection-controls/);
 
@@ -324,11 +324,26 @@ const reportingFields = createTreatmentFields(savedReportingAssumptions);
 harness.populateAssetTreatmentFields(reportingFields, savedReportingAssumptions, {});
 assert.equal(reportingFields.assetGrowthProjection.mode.value, "reportingOnly");
 assert.equal(reportingFields.assetGrowthProjection.projectionYears.value, "22");
-reportingFields.assetGrowthProjection.mode.value = "projectedOffsets";
-reportingFields.assetGrowthProjection.projectionYears.value = "45";
-const savedProjectedOffsets = harness.readValidatedAssetTreatmentAssumptions(reportingFields).value;
+
+const savedProjectedOffsetsAssumptions = analysisSetup.getAssetTreatmentAssumptions({
+  analysisSettings: {
+    assetTreatmentAssumptions: createAssetTreatmentAssumptions({
+      mode: "projectedOffsets",
+      projectionYears: 45
+    })
+  }
+});
+const projectedOffsetsFields = createTreatmentFields(savedProjectedOffsetsAssumptions);
+harness.populateAssetTreatmentFields(projectedOffsetsFields, savedProjectedOffsetsAssumptions, {});
+assert.equal(
+  projectedOffsetsFields.assetGrowthProjection.mode.value,
+  "reportingOnly",
+  "Old saved projectedOffsets records should not expose a duplicate activation option in Asset Treatment"
+);
+assert.equal(projectedOffsetsFields.assetGrowthProjection.projectionYears.value, "45");
+const savedProjectedOffsets = harness.readValidatedAssetTreatmentAssumptions(projectedOffsetsFields).value;
 assert.deepEqual(cloneJson(savedProjectedOffsets.assetGrowthProjectionAssumptions), {
-  mode: "projectedOffsets",
+  mode: "reportingOnly",
   projectionYears: 45,
   projectionYearsSource: "analysis-setup",
   source: "analysis-setup",
@@ -399,7 +414,6 @@ assert.deepEqual(cloneJson(reportingOutputs.hlv), cloneJson(baseOutputs.hlv));
 assert.deepEqual(cloneJson(projectedOffsetsOutputs.hlv), cloneJson(baseOutputs.hlv));
 
 [
-  "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/asset-treatment-calculations.js"
 ].forEach(function (relativePath) {
@@ -409,5 +423,16 @@ assert.deepEqual(cloneJson(projectedOffsetsOutputs.hlv), cloneJson(baseOutputs.h
     `${relativePath} should not consume or render asset growth projection source-mode assumptions`
   );
 });
+const analysisMethodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
+assert.match(
+  analysisMethodsSource,
+  /allowProjectedAssetOffset/,
+  "analysis-methods should only read projection source mode through the explicit LENS-only projected offset gate"
+);
+assert.doesNotMatch(
+  analysisMethodsSource,
+  /projectedAssetGrowth\.(projectedTotalAssetValue|totalProjectedGrowthAmount)/,
+  "analysis-methods must not consume raw projectedAssetGrowth totals"
+);
 
 console.log("asset-growth-projection-source-mode-ui-check passed");

@@ -327,6 +327,14 @@
     source: "analysis-setup",
     consumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY
   });
+  const PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_ACTIVE = "method-active";
+  const PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION = 1;
+  const DEFAULT_PROJECTED_ASSET_OFFSET_ASSUMPTIONS = Object.freeze({
+    enabled: false,
+    consumptionStatus: ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY,
+    activationVersion: 0,
+    source: "analysis-setup"
+  });
   const DEFAULT_CASH_RESERVE_ASSUMPTIONS = Object.freeze({
     enabled: false,
     mode: "reportingOnly",
@@ -1332,6 +1340,31 @@
     };
   }
 
+  function normalizeProjectedAssetOffsetAssumptions(savedAssumptions) {
+    const saved = isPlainObject(savedAssumptions) ? savedAssumptions : {};
+    const savedConsumptionStatus = typeof saved.consumptionStatus === "string"
+      ? saved.consumptionStatus.trim()
+      : "";
+    const savedActivationVersion = Number(saved.activationVersion);
+    const hasActiveMarker = saved.enabled === true
+      && savedConsumptionStatus === PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_ACTIVE
+      && Number.isFinite(savedActivationVersion)
+      && savedActivationVersion >= PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION;
+    const enabled = hasActiveMarker;
+    const activationVersion = enabled
+      ? savedActivationVersion
+      : 0;
+
+    return {
+      enabled,
+      consumptionStatus: enabled
+        ? PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_ACTIVE
+        : ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY,
+      activationVersion,
+      source: "analysis-setup"
+    };
+  }
+
   function normalizeCashReserveAssumptionMode(value) {
     const normalizedValue = String(value || "").trim();
     return CASH_RESERVE_ASSUMPTION_MODES.includes(normalizedValue)
@@ -2029,6 +2062,14 @@
     }
 
     return nextDefaults;
+  }
+
+  function getProjectedAssetOffsetAssumptions(record) {
+    const saved = isPlainObject(record?.analysisSettings?.projectedAssetOffsetAssumptions)
+      ? record.analysisSettings.projectedAssetOffsetAssumptions
+      : DEFAULT_PROJECTED_ASSET_OFFSET_ASSUMPTIONS;
+
+    return normalizeProjectedAssetOffsetAssumptions(saved);
   }
 
   function getGrowthAndReturnAssumptions(record) {
@@ -2960,7 +3001,8 @@
 
   function getMethodFieldMap() {
     const fields = {
-      resetButton: document.querySelector("[data-analysis-method-reset]")
+      resetButton: document.querySelector("[data-analysis-method-reset]"),
+      projectedAssetOffsetEnabled: document.querySelector("[data-analysis-projected-asset-offset-enabled]")
     };
     Array.from(document.querySelectorAll("[data-analysis-method-field]")).forEach(function (field) {
       fields[field.getAttribute("data-analysis-method-field")] = field;
@@ -3544,7 +3586,9 @@
     const projectionYearsField = fields?.assetGrowthProjection?.projectionYears;
 
     if (modeField) {
-      modeField.value = projectionAssumptions.mode;
+      modeField.value = projectionAssumptions.mode === "projectedOffsets"
+        ? "reportingOnly"
+        : projectionAssumptions.mode;
     }
     if (projectionYearsField) {
       projectionYearsField.value = formatHaircutInputValue(
@@ -4609,6 +4653,31 @@
     if (fields.needsIncludeOffsetAssets) {
       fields.needsIncludeOffsetAssets.checked = defaults.needsIncludeOffsetAssets !== false;
     }
+  }
+
+  function syncProjectedAssetOffsetToggleState(fields) {
+    const projectedField = fields?.projectedAssetOffsetEnabled;
+    if (!projectedField) {
+      return;
+    }
+
+    const includeAssetOffsets = fields.needsIncludeOffsetAssets
+      ? fields.needsIncludeOffsetAssets.checked !== false
+      : DEFAULT_METHOD_DEFAULTS.needsIncludeOffsetAssets;
+
+    if (!includeAssetOffsets) {
+      projectedField.checked = false;
+    }
+    projectedField.disabled = !includeAssetOffsets;
+  }
+
+  function populateProjectedAssetOffsetFields(fields, assumptions) {
+    if (!fields?.projectedAssetOffsetEnabled) {
+      return;
+    }
+
+    fields.projectedAssetOffsetEnabled.checked = assumptions?.enabled === true;
+    syncProjectedAssetOffsetToggleState(fields);
   }
 
   function populateDefaultMethodFields(fields, linkedRecord) {
@@ -6389,6 +6458,41 @@
     };
   }
 
+  function readValidatedProjectedAssetOffsetAssumptions(fields) {
+    const includeAssetOffsets = fields.needsIncludeOffsetAssets
+      ? Boolean(fields.needsIncludeOffsetAssets.checked)
+      : DEFAULT_METHOD_DEFAULTS.needsIncludeOffsetAssets;
+    const enabled = Boolean(fields.projectedAssetOffsetEnabled?.checked) && includeAssetOffsets;
+
+    return {
+      value: normalizeProjectedAssetOffsetAssumptions(enabled
+        ? {
+            enabled: true,
+            consumptionStatus: PROJECTED_ASSET_OFFSET_CONSUMPTION_STATUS_ACTIVE,
+            activationVersion: PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION
+          }
+        : { enabled: false })
+    };
+  }
+
+  function applyProjectedAssetOffsetModeToAssetTreatmentAssumptions(assetTreatmentAssumptions, projectedAssetOffsetAssumptions) {
+    const nextAssumptions = isPlainObject(assetTreatmentAssumptions)
+      ? { ...assetTreatmentAssumptions }
+      : {};
+    const nextProjectionAssumptions = getAssetGrowthProjectionAssumptions(
+      nextAssumptions.assetGrowthProjectionAssumptions
+    );
+
+    if (projectedAssetOffsetAssumptions?.enabled === true) {
+      nextProjectionAssumptions.mode = "projectedOffsets";
+    }
+
+    return {
+      ...nextAssumptions,
+      assetGrowthProjectionAssumptions: nextProjectionAssumptions
+    };
+  }
+
   function readValidatedGrowthAndReturnAssumptions(fields) {
     const nextAssumptions = {
       enabled: Boolean(fields.enabled?.checked),
@@ -7777,6 +7881,8 @@
       return null;
     }
 
+    const validatedProjectedAssetOffset = readValidatedProjectedAssetOffsetAssumptions(methodFields);
+
     const validatedGrowth = readValidatedGrowthAndReturnAssumptions(growthFields);
 
     if (validatedGrowth.error) {
@@ -7804,6 +7910,14 @@
       setStatus(statusMessage, "Analysis Setup settings were not saved.", "error");
       return null;
     }
+
+    const projectedAssetOffsetAssumptions = validatedProjectedAssetOffset.value;
+    const assetTreatmentAssumptions = validatedAssetTreatment
+      ? applyProjectedAssetOffsetModeToAssetTreatmentAssumptions(
+          validatedAssetTreatment.value,
+          projectedAssetOffsetAssumptions
+        )
+      : null;
 
     const validatedExistingCoverage = shouldSaveExistingCoverage
       ? readValidatedExistingCoverageAssumptions(existingCoverageFields)
@@ -7880,9 +7994,10 @@
           inflationAssumptions: validatedInflation.value,
           healthcareExpenseAssumptions,
           methodDefaults: validatedMethodDefaults.value,
+          projectedAssetOffsetAssumptions,
           growthAndReturnAssumptions: validatedGrowth.value,
           ...(validatedPolicyReturns ? { policyTypeReturnAssumptions: validatedPolicyReturns.value } : {}),
-          ...(validatedAssetTreatment ? { assetTreatmentAssumptions: validatedAssetTreatment.value } : {}),
+          ...(assetTreatmentAssumptions ? { assetTreatmentAssumptions } : {}),
           ...(validatedExistingCoverage ? { existingCoverageAssumptions: validatedExistingCoverage.value } : {}),
           ...(validatedDebtTreatment ? { debtTreatmentAssumptions: validatedDebtTreatment.value } : {}),
           ...(validatedSurvivorSupport ? { survivorSupportAssumptions: validatedSurvivorSupport.value } : {}),
@@ -7902,6 +8017,7 @@
     clientRecords.setLinkedRecordId?.(updatedRecord.id);
     populateFields(fields, getInflationAssumptions(updatedRecord), sliders);
     populateMethodFields(methodFields, getMethodDefaults(updatedRecord));
+    populateProjectedAssetOffsetFields(methodFields, getProjectedAssetOffsetAssumptions(updatedRecord));
     populateGrowthFields(growthFields, getGrowthAndReturnAssumptions(updatedRecord), growthSliders);
     if (shouldSavePolicyReturns) {
       populatePolicyTypeReturnFields(policyReturnFields, getPolicyTypeReturnAssumptions(updatedRecord));
@@ -7999,6 +8115,7 @@
     populateFields(fields, getInflationAssumptions(linkedRecord), sliders);
     populateHealthcareExpenseFields(healthcareExpenseFields, getHealthcareExpenseAssumptions(linkedRecord));
     populateMethodFields(methodFields, getMethodDefaults(linkedRecord));
+    populateProjectedAssetOffsetFields(methodFields, getProjectedAssetOffsetAssumptions(linkedRecord));
     populateGrowthFields(growthFields, getGrowthAndReturnAssumptions(linkedRecord), growthSliders);
     populatePolicyTypeReturnFields(policyReturnFields, getPolicyTypeReturnAssumptions(linkedRecord));
     populateAssetTreatmentFields(assetTreatmentFields, getAssetTreatmentAssumptions(linkedRecord), linkedRecord);
@@ -8051,6 +8168,7 @@
     setFieldsDisabled(fields, sliders, false);
     setHealthcareExpenseFieldsDisabled(healthcareExpenseFields, false);
     setMethodFieldsDisabled(methodFields, false);
+    syncProjectedAssetOffsetToggleState(methodFields);
     setGrowthFieldsDisabled(growthFields, growthSliders, false);
     setPolicyTypeReturnFieldsDisabled(policyReturnFields, false);
     setAssetTreatmentFieldsDisabled(assetTreatmentFields, false);
@@ -8157,11 +8275,17 @@
     });
 
     methodFields.needsIncludeOffsetAssets?.addEventListener("change", function () {
+      syncProjectedAssetOffsetToggleState(methodFields);
+      markUnsaved();
+    });
+
+    methodFields.projectedAssetOffsetEnabled?.addEventListener("change", function () {
       markUnsaved();
     });
 
     methodFields.resetButton?.addEventListener("click", function () {
       populateDefaultMethodFields(methodFields, linkedRecord);
+      populateProjectedAssetOffsetFields(methodFields, DEFAULT_PROJECTED_ASSET_OFFSET_ASSUMPTIONS);
       markUnsaved();
     });
 
@@ -8825,6 +8949,7 @@
     DEFAULT_INFLATION_ASSUMPTIONS,
     DEFAULT_HEALTHCARE_EXPENSE_ASSUMPTIONS,
     DEFAULT_METHOD_DEFAULTS,
+    DEFAULT_PROJECTED_ASSET_OFFSET_ASSUMPTIONS,
     DEFAULT_GROWTH_AND_RETURN_ASSUMPTIONS,
     DEFAULT_POLICY_TYPE_RETURN_ASSUMPTIONS,
     DEFAULT_ASSET_TREATMENT_ASSUMPTIONS,
@@ -8838,6 +8963,7 @@
     getInflationAssumptions,
     getHealthcareExpenseAssumptions,
     getMethodDefaults,
+    getProjectedAssetOffsetAssumptions,
     getGrowthAndReturnAssumptions,
     getPolicyTypeReturnAssumptions,
     getAssetTreatmentAssumptions,

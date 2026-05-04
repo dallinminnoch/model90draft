@@ -186,7 +186,6 @@ assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-dime-
 assert.ok(stepThreeDisplaySource.includes('querySelector("[data-step-three-needs-analysis]")'));
 
 const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/analysis-settings-adapter.js",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/profile.html",
@@ -195,7 +194,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "No HLV-adjacent adapter, DIME, profile, or side-nav files should be changed."
+  "No HLV-adjacent DIME, profile, or side-nav files should be changed."
 );
 
 console.log("hlv-results-page-check passed");
