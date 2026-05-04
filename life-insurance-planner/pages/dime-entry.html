@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIME Analysis | Life Evaluation &amp; Needs Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="home-page lens-page lens-start-page dime-entry-page">
+  <script>
+    (function () {
+      try {
+        const session = JSON.parse(localStorage.getItem("lipPlannerAuthSession") || "null");
+        const identity = session && session.email ? String(session.email).trim().toLowerCase() : "guest";
+        if (localStorage.getItem(`workspaceSideNavCollapsed:${identity}`) === "1") {
+          document.body.classList.add("workspace-side-nav-collapsed");
+        }
+      } catch (error) {
+        // Ignore storage issues and fall back to the default expanded state.
+      }
+    })();
+  </script>
+  <div class="workspace-page-topbar">
+    <div class="workspace-page-topbar-inner">
+      <details class="workspace-page-menu">
+        <summary class="workspace-page-menu-trigger" aria-label="Open pages menu" title="Pages">
+          <img class="workspace-page-menu-icon" src="../Images/menu.svg" alt="" aria-hidden="true">
+        </summary>
+        <div class="workspace-page-menu-panel">
+          <a class="workspace-page-menu-link" href="../index.html">
+            <span class="workspace-page-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <path d="M3.6 8.45 10 3.55l6.4 4.9v7.2a1.35 1.35 0 0 1-1.35 1.35H4.95A1.35 1.35 0 0 1 3.6 15.65V8.45Z" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+                <path d="M7.75 16.95v-4.3h4.5v4.3" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="workspace-page-menu-link-label">Home</span>
+          </a>
+          <a class="workspace-page-menu-link" href="clients.html">
+            <span class="workspace-page-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <circle cx="7" cy="7.2" r="2.35" stroke="currentColor" stroke-width="1.55"/>
+                <circle cx="13.3" cy="8.15" r="2.05" stroke="currentColor" stroke-width="1.55"/>
+                <path d="M3.9 15.35c.55-2.15 2.2-3.45 4.15-3.45 1.95 0 3.55 1.3 4.1 3.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                <path d="M11.2 15.35c.4-1.65 1.7-2.65 3.25-2.65 1.1 0 2.15.5 2.85 1.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="workspace-page-menu-link-label">Client Directory</span>
+          </a>
+          <a class="workspace-page-menu-link is-active" href="lens.html" aria-current="page">
+            <span class="workspace-page-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="6.05" stroke="currentColor" stroke-width="1.55"/>
+                <circle cx="10" cy="10" r="2.1" stroke="currentColor" stroke-width="1.55"/>
+                <path d="M10 2.95v1.85M10 15.2v1.85M17.05 10H15.2M4.8 10H2.95" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="workspace-page-menu-link-label">LENS Analysis</span>
+          </a>
+        </div>
+      </details>
+      <div class="workspace-page-topbar-actions">
+        <button class="fullscreen-toggle" type="button" data-fullscreen-toggle aria-label="Enter full screen" title="Enter full screen" aria-pressed="false">
+          <img class="fullscreen-toggle-icon" data-fullscreen-icon src="../Images/openfullscreen.svg" alt="" aria-hidden="true">
+          <span class="sr-only">Toggle full screen</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="workspace-side-nav-host" data-workspace-side-nav-host data-workspace-side-nav="lens"></div>
+  <script>
+    if (document.body.classList.contains("workspace-side-nav-collapsed")) {
+      document.currentScript.previousElementSibling.classList.add("is-collapsed");
+    }
+  </script>
+  <main class="home-shell app-home-shell prospect-shell">
+    <section class="prospect-stage">
+      <section class="lens-start-layout workspace-visible-pane" id="dime-entry">
+        <section class="lens-start-main">
+          <section class="page-intro lens-start-intro">
+            <div>
+              <div class="section-label">Quick Analysis</div>
+              <h1 class="lens-hero-title">DIME Analysis</h1>
+              <p class="lens-hero-subtitle">Quick coverage estimate using debts, income, mortgage, and education.</p>
+            </div>
+          </section>
+
+          <section class="lens-start-card" id="dime-entry-card" aria-labelledby="dime-entry-heading">
+            <div class="lens-start-card-header">
+              <div>
+                <h2 class="section-title" id="dime-entry-heading">Linked Profile Entry</h2>
+                <p class="helper-text">Link a client profile to generate a DIME-only result. This quick flow does not use the LENS assumptions panel.</p>
+              </div>
+            </div>
+
+            <div class="lens-start-note">
+              <div class="lens-intake-note-icon">
+                <img class="lens-intake-icon-svg" src="../Images/emoji_objects_24dp_E3E3E3_FILL0_wght300_GRAD0_opsz24.svg" alt="Helpful note">
+              </div>
+              <div>
+                <strong>DIME uses the saved linked protection modeling data.</strong>
+                <p>Open this page with a linked profile context, then continue to the DIME-only result page.</p>
+              </div>
+            </div>
+
+            <div class="lens-start-actions">
+              <a class="btn btn-primary lens-start-button" href="dime-results.html" data-dime-results-link>Continue to DIME Results</a>
+              <a class="btn btn-secondary lens-start-button" href="lens.html">Back to Analysis Types</a>
+            </div>
+          </section>
+        </section>
+
+        <aside class="lens-start-rail" id="dime-entry-summary">
+          <section class="lens-intake-sidecard">
+            <h3>DIME inputs</h3>
+            <ul class="lens-intake-side-list">
+              <li><span class="lens-intake-mini-icon">DE</span><span>Debts</span></li>
+              <li><span class="lens-intake-mini-icon">IN</span><span>Income</span></li>
+              <li><span class="lens-intake-mini-icon">MO</span><span>Mortgage</span></li>
+              <li><span class="lens-intake-mini-icon">ED</span><span>Education</span></li>
+            </ul>
+          </section>
+
+          <section class="lens-intake-sidecard">
+            <h3>Quick-flow boundary</h3>
+            <ul class="lens-intake-prompt-list">
+              <li>
+                <span class="lens-intake-mini-icon">DI</span>
+                <div>
+                  <strong>DIME-only result</strong>
+                  <p>The next page renders the existing DIME method output without LENS or HLV result cards.</p>
+                </div>
+              </li>
+              <li>
+                <span class="lens-intake-mini-icon">QA</span>
+                <div>
+                  <strong>No LENS assumptions panel</strong>
+                  <p>This skeleton keeps the quick DIME path separate from advanced planning controls.</p>
+                </div>
+              </li>
+            </ul>
+          </section>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="../workspace-side-nav.js"></script>
+  <script src="../data.js"></script>
+  <script src="../site-header.js"></script>
+  <script src="../app/core/config.js"></script>
+  <script src="../app/core/storage.js"></script>
+  <script src="../app/core/i18n.js"></script>
+  <script src="../app/features/auth.js"></script>
+  <script src="../app/features/client-records.js"></script>
+  <script src="../app/features/client-intake.js"></script>
+  <script src="../app/features/client-directory.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (function () {
+      const pageMenu = document.querySelector(".workspace-page-menu");
+      const dimeResultsLinks = Array.from(document.querySelectorAll("[data-dime-results-link]"));
+      const passthroughParams = ["caseRef", "profileCaseRef", "linkedCaseRef", "id"];
+      const sourceParams = new URLSearchParams(window.location.search);
+
+      dimeResultsLinks.forEach(function (link) {
+        const nextParams = new URLSearchParams();
+        passthroughParams.forEach(function (key) {
+          const value = String(sourceParams.get(key) || "").trim();
+          if (value) {
+            nextParams.set(key, value);
+          }
+        });
+
+        const caseRef = String(
+          sourceParams.get("caseRef")
+          || sourceParams.get("profileCaseRef")
+          || sourceParams.get("linkedCaseRef")
+          || ""
+        ).trim();
+        if (caseRef && !nextParams.has("caseRef")) {
+          nextParams.set("caseRef", caseRef);
+        }
+
+        const queryString = nextParams.toString();
+        link.setAttribute("href", queryString ? `dime-results.html?${queryString}` : "dime-results.html");
+      });
+
+      document.addEventListener("click", function (event) {
+        if (!event.target.closest(".workspace-page-menu") && pageMenu) {
+          pageMenu.removeAttribute("open");
+        }
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && pageMenu) {
+          pageMenu.removeAttribute("open");
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
