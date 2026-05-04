@@ -128,10 +128,15 @@ assert.doesNotMatch(hlvResultsHtml, /data-simple-needs-results-analysis/);
 
 const simpleNeedsCard = getCardBlock(lensHtml, "simple-needs");
 assert.match(simpleNeedsCard, /Simple Needs Analysis/);
-assert.match(simpleNeedsCard, /Quick flow coming soon/);
-assert.match(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
-assert.doesNotMatch(simpleNeedsCard, /href=/);
-assert.doesNotMatch(simpleNeedsCard, /simple-needs-entry\.html/);
+assert.match(simpleNeedsCard, /Quick flow available/);
+assert.match(simpleNeedsCard, /Quick current-dollar needs estimate using core planning inputs/);
+assert.match(simpleNeedsCard, /debts, essential support, education, final expenses, and existing coverage/);
+assert.match(simpleNeedsCard, /does not use the LENS assumptions panel/);
+assert.match(simpleNeedsCard, /Start Simple Needs Analysis/);
+assert.match(simpleNeedsCard, /href="simple-needs-entry\.html"/);
+assert.match(simpleNeedsCard, /data-simple-needs-start-link/);
+assert.doesNotMatch(simpleNeedsCard, /Quick flow coming soon/);
+assert.doesNotMatch(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(simpleNeedsCard, /simple-needs-results\.html/);
 
 assert.match(analysisMethodsSource, /function runSimpleNeedsAnalysis\(/);
@@ -144,7 +149,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/step-three-analysis-display.js",
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "pages/lens.html",
   "pages/simple-needs-results.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
@@ -157,7 +161,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Simple Needs entry-page pass should not change methods, display initializer, Step 3, model builder, adapter, selector, result page, DIME pages, HLV pages, profile, estimate, or side-nav files."
+  "Simple Needs selector activation should not change methods, display initializer, Step 3, model builder, adapter, result page, DIME pages, HLV pages, profile, estimate, or side-nav files."
 );
 
 console.log("simple-needs-entry-page-check passed");

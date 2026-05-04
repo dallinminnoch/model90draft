@@ -260,20 +260,22 @@ assert.doesNotMatch(analysisSetupSource, /simpleNeeds/);
 
 const simpleNeedsCard = getCardBlock(lensHtml, "simple-needs");
 assert.match(simpleNeedsCard, /Simple Needs Analysis/);
-assert.match(simpleNeedsCard, /Quick flow coming soon/);
-assert.match(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
-assert.doesNotMatch(simpleNeedsCard, /href=/);
-assert.doesNotMatch(simpleNeedsCard, /simple-needs-entry\.html/);
+assert.match(simpleNeedsCard, /Quick flow available/);
+assert.match(simpleNeedsCard, /Start Simple Needs Analysis/);
+assert.match(simpleNeedsCard, /href="simple-needs-entry\.html"/);
+assert.match(simpleNeedsCard, /data-simple-needs-start-link/);
+assert.doesNotMatch(simpleNeedsCard, /Quick flow coming soon/);
+assert.doesNotMatch(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(simpleNeedsCard, /simple-needs-results\.html/);
 assert.equal(
   fs.existsSync(path.join(repoRoot, "pages/simple-needs-entry.html")),
   true,
-  "Simple Needs entry page can exist while the selector remains disabled."
+  "Simple Needs entry page should exist for the quick-flow selector."
 );
 assert.equal(
   fs.existsSync(path.join(repoRoot, "pages/simple-needs-results.html")),
   true,
-  "Simple Needs result page can exist while the selector remains disabled."
+  "Simple Needs result page should exist for the quick-flow selector."
 );
 
 const context = createLensAnalysisContext();

@@ -59,7 +59,7 @@ assert.match(
 );
 assert.match(
   lensHtml,
-  /DIME and Human Life Value are available as quick flows\. Simple Needs is planned as a separate quick flow\./
+  /DIME, Simple Needs, and Human Life Value are available as quick flows\./
 );
 
 const lensCard = getCardBlock(lensHtml, "lens");
@@ -97,11 +97,16 @@ assert.doesNotMatch(hlvCard, /<button\b[^>]*\bdisabled\b/);
 assert.doesNotMatch(hlvCard, /hlv-results\.html/);
 
 assert.match(simpleNeedsCard, /Simple Needs Analysis/);
-assert.match(simpleNeedsCard, /Straightforward current-dollar needs estimate using core planning inputs\./);
-assert.match(simpleNeedsCard, /Quick flow coming soon/);
-assert.match(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
-assert.deepEqual(getHrefValues(simpleNeedsCard), []);
-assert.doesNotMatch(simpleNeedsCard, /\.html/);
+assert.match(simpleNeedsCard, /Quick flow available/);
+assert.match(simpleNeedsCard, /Quick current-dollar needs estimate using core planning inputs/);
+assert.match(simpleNeedsCard, /debts, essential support, education, final expenses, and existing coverage/);
+assert.match(simpleNeedsCard, /does not use the LENS assumptions panel/);
+assert.match(simpleNeedsCard, /Start Simple Needs Analysis/);
+assert.deepEqual(getHrefValues(simpleNeedsCard), ["simple-needs-entry.html"]);
+assert.match(simpleNeedsCard, /data-simple-needs-start-link/);
+assert.doesNotMatch(simpleNeedsCard, /Quick flow coming soon/);
+assert.doesNotMatch(simpleNeedsCard, /<button\b[^>]*\bdisabled\b/);
+assert.doesNotMatch(simpleNeedsCard, /simple-needs-results\.html/);
 
 assert.match(lensHtml, /const passthroughParams = \["caseRef", "profileCaseRef", "linkedCaseRef", "id"\]/);
 assert.match(lensHtml, /sourceParams\.get\("profileCaseRef"\)/);
@@ -110,6 +115,7 @@ assert.match(lensHtml, /function applyPassthroughParams\(links, targetPage\)/);
 assert.match(lensHtml, /link\.setAttribute\("href", queryString \? `\$\{targetPage\}\?\$\{queryString\}` : targetPage\)/);
 assert.match(lensHtml, /applyPassthroughParams\(lensStartLinks, "profile\.html"\)/);
 assert.match(lensHtml, /applyPassthroughParams\(dimeStartLinks, "dime-entry\.html"\)/);
+assert.match(lensHtml, /applyPassthroughParams\(simpleNeedsStartLinks, "simple-needs-entry\.html"\)/);
 assert.match(lensHtml, /applyPassthroughParams\(hlvStartLinks, "hlv-entry\.html"\)/);
 assert.doesNotMatch(lensHtml, /data-lens-card/);
 assert.doesNotMatch(lensHtml, /needs-based result/);

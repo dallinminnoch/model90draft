@@ -92,7 +92,7 @@
             <div class="lens-start-card-header">
               <div>
                 <h2 class="section-title" id="lens-analysis-type-heading">Select Analysis Path</h2>
-                <p class="helper-text">LENS is the advanced analysis available now. DIME and Human Life Value are available as quick flows. Simple Needs is planned as a separate quick flow.</p>
+                <p class="helper-text">LENS is the advanced analysis available now. DIME, Simple Needs, and Human Life Value are available as quick flows.</p>
               </div>
             </div>
 
@@ -112,10 +112,10 @@
               </article>
 
               <article class="analysis-card" data-analysis-type-card="simple-needs">
-                <div class="section-label">Quick flow coming soon</div>
+                <div class="section-label">Quick flow available</div>
                 <h3 class="card-title">Simple Needs Analysis</h3>
-                <p class="card-copy">Straightforward current-dollar needs estimate using core planning inputs.</p>
-                <button class="btn btn-secondary lens-start-button" type="button" disabled aria-disabled="true">Quick flow coming soon</button>
+                <p class="card-copy">Quick current-dollar needs estimate using core planning inputs: debts, essential support, education, final expenses, and existing coverage. This quick flow does not use the LENS assumptions panel.</p>
+                <a class="btn btn-primary lens-start-button" href="simple-needs-entry.html" data-simple-needs-start-link>Start Simple Needs Analysis</a>
               </article>
 
               <article class="analysis-card" data-analysis-type-card="human-life-value">
@@ -144,6 +144,7 @@
             <ul class="lens-intake-side-list">
               <li><span class="lens-intake-mini-icon">LE</span><span>LENS Analysis with linked profile entry</span></li>
               <li><span class="lens-intake-mini-icon">DI</span><span>DIME quick-flow entry and DIME-only result page</span></li>
+              <li><span class="lens-intake-mini-icon">SN</span><span>Simple Needs quick-flow entry and Simple Needs-only result page</span></li>
               <li><span class="lens-intake-mini-icon">HL</span><span>Human Life Value quick-flow entry and HLV-only result page</span></li>
               <li><span class="lens-intake-mini-icon">AS</span><span>LENS-only assumption controls</span></li>
               <li><span class="lens-intake-mini-icon">RE</span><span>Existing DIME, LENS, and HLV result comparison remains on the current result page</span></li>
@@ -151,13 +152,13 @@
           </section>
 
           <section class="lens-intake-sidecard">
-            <h3>Future quick flow</h3>
+            <h3>Quick method boundary</h3>
             <ul class="lens-intake-prompt-list">
               <li>
                 <span class="lens-intake-mini-icon">SN</span>
                 <div>
                   <strong>Simple Needs Analysis</strong>
-                  <p>Separate current-dollar needs path after the method exists.</p>
+                  <p>Separate current-dollar quick path with its own entry and Simple Needs-only result page.</p>
                 </div>
               </li>
             </ul>
@@ -185,6 +186,7 @@
       const pageMenu = document.querySelector(".workspace-page-menu");
       const lensStartLinks = Array.from(document.querySelectorAll("[data-lens-start-link]"));
       const dimeStartLinks = Array.from(document.querySelectorAll("[data-dime-start-link]"));
+      const simpleNeedsStartLinks = Array.from(document.querySelectorAll("[data-simple-needs-start-link]"));
       const hlvStartLinks = Array.from(document.querySelectorAll("[data-hlv-start-link]"));
       const passthroughParams = ["caseRef", "profileCaseRef", "linkedCaseRef", "id"];
       const sourceParams = new URLSearchParams(window.location.search);
@@ -216,6 +218,7 @@
 
       applyPassthroughParams(lensStartLinks, "profile.html");
       applyPassthroughParams(dimeStartLinks, "dime-entry.html");
+      applyPassthroughParams(simpleNeedsStartLinks, "simple-needs-entry.html");
       applyPassthroughParams(hlvStartLinks, "hlv-entry.html");
 
       document.addEventListener("click", function (event) {
