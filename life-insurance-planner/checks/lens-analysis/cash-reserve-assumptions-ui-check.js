@@ -279,6 +279,11 @@ const componentsCss = readRepoFile("components.css");
 const assetTreatmentSection = getSection(
   html,
   'id="analysis-setup-asset-treatment"',
+  'id="analysis-setup-cash-reserve"'
+);
+const cashReserveSection = getSection(
+  html,
+  'analysis-setup-control-group--cash-reserve',
   'id="analysis-setup-coverage-treatment"'
 );
 const calculationSectionBeforePolicyReturns = getSection(
@@ -287,13 +292,22 @@ const calculationSectionBeforePolicyReturns = getSection(
   'id="analysis-setup-policy-returns"'
 );
 
-assert.match(assetTreatmentSection, /data-analysis-cash-reserve-controls/);
-assert.match(assetTreatmentSection, /Cash Reserve Assumptions:/);
-assert.match(assetTreatmentSection, /Saved for future reporting\/modeling/i);
-assert.match(assetTreatmentSection, /do not affect current DIME, LENS, or HLV outputs/i);
-assert.match(assetTreatmentSection, /current asset offsets remain current-dollar\/current treatment based/i);
-assert.match(assetTreatmentSection, /Emergency reserve and liquidity rules must be reviewed/i);
-assert.match(assetTreatmentSection, /Explicit emergency fund assets are generally preserved before offsetting need/i);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-cash-reserve-controls|Cash Reserve Assumptions/i);
+assert.match(cashReserveSection, /data-analysis-setup-view-panel="offset"/);
+assert.match(cashReserveSection, /id="analysis-setup-cash-reserve"/);
+assert.match(cashReserveSection, /Cash Reserve \/ Emergency Fund/);
+assert.match(cashReserveSection, /data-analysis-cash-reserve-controls/);
+assert.equal(
+  (html.match(/data-analysis-cash-reserve-controls/g) || []).length,
+  1,
+  "Cash Reserve controls should render once"
+);
+assert.match(cashReserveSection, /Cash Reserve Assumptions:/);
+assert.match(cashReserveSection, /Saved for future reporting\/modeling/i);
+assert.match(cashReserveSection, /do not affect current DIME, LENS, or HLV outputs/i);
+assert.match(cashReserveSection, /current asset offsets remain current-dollar\/current treatment based/i);
+assert.match(cashReserveSection, /Emergency reserve and liquidity rules must be reviewed/i);
+assert.match(cashReserveSection, /Explicit emergency fund assets are generally preserved before offsetting need/i);
 assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
 assert.doesNotMatch(calculationSectionBeforePolicyReturns, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
 
@@ -306,21 +320,21 @@ assert.doesNotMatch(calculationSectionBeforePolicyReturns, /data-analysis-cash-r
   "data-analysis-cash-reserve-asset-scope",
   "data-analysis-cash-reserve-exclude-emergency-fund"
 ].forEach(function (needle) {
-  assert.match(assetTreatmentSection, new RegExp(needle), `${needle} should render`);
+  assert.match(cashReserveSection, new RegExp(needle), `${needle} should render`);
 });
 
-assert.match(assetTreatmentSection, /Months of essential expenses/);
-assert.match(assetTreatmentSection, /Fixed dollar amount/);
-assert.match(assetTreatmentSection, /Essential support only/);
-assert.match(assetTreatmentSection, /Essential \+ healthcare/);
-assert.match(assetTreatmentSection, /Essential \+ healthcare \+ discretionary/);
-assert.match(assetTreatmentSection, /Cash and cash equivalents/);
-assert.match(assetTreatmentSection, /Liquid assets - future \/ inactive/);
-assert.match(assetTreatmentSection, /Selected assets - future \/ inactive/);
-assert.match(assetTreatmentSection, /<option value="liquidAssetsFuture" disabled>/);
-assert.match(assetTreatmentSection, /<option value="selectedAssetsFuture" disabled>/);
-assert.doesNotMatch(assetTreatmentSection, /data-analysis-cash-reserve-include-healthcare/);
-assert.doesNotMatch(assetTreatmentSection, /data-analysis-cash-reserve-include-discretionary/);
+assert.match(cashReserveSection, /Months of essential expenses/);
+assert.match(cashReserveSection, /Fixed dollar amount/);
+assert.match(cashReserveSection, /Essential support only/);
+assert.match(cashReserveSection, /Essential \+ healthcare/);
+assert.match(cashReserveSection, /Essential \+ healthcare \+ discretionary/);
+assert.match(cashReserveSection, /Cash and cash equivalents/);
+assert.match(cashReserveSection, /Liquid assets - future \/ inactive/);
+assert.match(cashReserveSection, /Selected assets - future \/ inactive/);
+assert.match(cashReserveSection, /<option value="liquidAssetsFuture" disabled>/);
+assert.match(cashReserveSection, /<option value="selectedAssetsFuture" disabled>/);
+assert.doesNotMatch(cashReserveSection, /data-analysis-cash-reserve-include-healthcare/);
+assert.doesNotMatch(cashReserveSection, /data-analysis-cash-reserve-include-discretionary/);
 assert.match(componentsCss, /analysis-setup-cash-reserve-controls/);
 
 const setupContext = createAnalysisSetupContext();
