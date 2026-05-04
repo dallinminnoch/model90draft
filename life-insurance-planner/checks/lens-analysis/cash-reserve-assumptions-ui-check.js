@@ -420,7 +420,9 @@ const changedOutputs = createMethodOutputs(
   createAssetTreatmentAssumptions(savedEdited.cashReserveAssumptions)
 );
 
-assert.equal(changedOutputs.cashReserveProjection, undefined);
+assert.ok(changedOutputs.cashReserveProjection, "cashReserveProjection may be prepared as reporting-only model trace");
+assert.equal(changedOutputs.cashReserveProjection.consumedByMethods, false);
+assert.equal(changedOutputs.cashReserveProjection.consumptionStatus, "saved-only");
 assert.deepEqual(
   cloneJson(changedOutputs.treatedAssetOffsets),
   cloneJson(defaultOutputs.treatedAssetOffsets),
@@ -435,10 +437,15 @@ assert.deepEqual(cloneJson(changedOutputs.dime), cloneJson(defaultOutputs.dime))
 assert.deepEqual(cloneJson(changedOutputs.needs), cloneJson(defaultOutputs.needs));
 assert.deepEqual(cloneJson(changedOutputs.hlv), cloneJson(defaultOutputs.hlv));
 
-assert.doesNotMatch(
+assert.match(
   readRepoFile("app/features/lens-analysis/lens-model-builder.js"),
   /cashReserveProjection|calculateCashReserveProjection/,
-  "lens-model-builder should not prepare reserve-adjusted offsets or cashReserveProjection yet"
+  "lens-model-builder may prepare reporting-only cashReserveProjection"
+);
+assert.doesNotMatch(
+  readRepoFile("app/features/lens-analysis/lens-model-builder.js"),
+  /reserveAdjusted|adjustedReserve|methodConsumedReserve|consumedByMethods:\s*true[^}]*cashReserve/s,
+  "lens-model-builder should not prepare reserve-adjusted method-consumed offsets"
 );
 [
   "app/features/lens-analysis/asset-treatment-calculations.js",

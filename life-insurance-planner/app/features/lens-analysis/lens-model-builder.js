@@ -20,6 +20,8 @@
   const ASSET_GROWTH_PROJECTION_MIN_YEARS = 0;
   const ASSET_GROWTH_PROJECTION_MAX_YEARS = 60;
   const ASSET_GROWTH_PROJECTION_CONSUMPTION_STATUS = "saved-only";
+  const CASH_RESERVE_CONSUMPTION_STATUS = "saved-only";
+  const CASH_RESERVE_MODE_METHOD_ACTIVE_FUTURE = "methodActiveFuture";
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
     applyStartDelay: true,
     survivorContinuesWorking: true,
@@ -1863,6 +1865,154 @@
     };
   }
 
+  function createPreparedCashReserveProjection(lensModel, input) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const analysisSettings = resolveAnalysisSettings(input);
+    const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
+    const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
+    const cashReserveAssumptions = isPlainObject(assetTreatmentAssumptions.cashReserveAssumptions)
+      ? assetTreatmentAssumptions.cashReserveAssumptions
+      : {};
+    const calculateCashReserveProjection = lensAnalysis.calculateCashReserveProjection;
+    const enabled = cashReserveAssumptions.enabled === true;
+    const modelWarnings = [
+      createWarning(
+        "cash-reserve-projection-reporting-only",
+        "Cash reserve projection is prepared for reporting only and is not consumed by current methods."
+      ),
+      createWarning(
+        "cash-reserve-not-consumed-by-current-methods",
+        "Cash reserve projection does not affect current DIME, Needs, or Human Life Value outputs."
+      ),
+      createWarning(
+        "treated-asset-offsets-unchanged",
+        "Current treated asset offsets remain current-dollar/current treatment based."
+      )
+    ];
+
+    if (!enabled) {
+      modelWarnings.push(createWarning(
+        "cash-reserve-projection-disabled",
+        "Cash reserve assumptions are disabled; model prep retained a reporting-only trace with no current-output impact."
+      ));
+    }
+
+    if (cashReserveAssumptions.mode === CASH_RESERVE_MODE_METHOD_ACTIVE_FUTURE) {
+      modelWarnings.push(createWarning(
+        "method-active-future-inactive",
+        "Cash reserve method-active mode is a future enum only and is not consumed by current methods."
+      ));
+    }
+
+    if (typeof calculateCashReserveProjection !== "function") {
+      return {
+        source: "cash-reserve-calculations",
+        applied: false,
+        enabled,
+        consumedByMethods: false,
+        consumptionStatus: CASH_RESERVE_CONSUMPTION_STATUS,
+        mode: normalizeString(cashReserveAssumptions.mode) || "reportingOnly",
+        reserveMethod: normalizeString(cashReserveAssumptions.reserveMethod) || "monthsOfEssentialExpenses",
+        reserveMonths: 0,
+        fixedReserveAmount: 0,
+        expenseBasis: normalizeString(cashReserveAssumptions.expenseBasis) || "essentialSupport",
+        monthlyReserveBasis: 0,
+        monthlyReserveBasisSourcePaths: [],
+        requiredReserveAmount: 0,
+        applyToAssetScope: normalizeString(cashReserveAssumptions.applyToAssetScope) || "cashAndCashEquivalents",
+        excludeEmergencyFundAssets: cashReserveAssumptions.excludeEmergencyFundAssets !== false,
+        includeHealthcareExpenses: cashReserveAssumptions.includeHealthcareExpenses === true,
+        includeDiscretionaryExpenses: cashReserveAssumptions.includeDiscretionaryExpenses === true,
+        totalCashEquivalentValue: 0,
+        totalExplicitEmergencyFundValue: 0,
+        totalRestrictedOrEscrowedCashValue: 0,
+        totalBusinessReserveValue: 0,
+        emergencyFundReservedAmount: 0,
+        remainingReserveNeededAfterEmergencyFund: 0,
+        cashAvailableAboveReserve: 0,
+        totalReservedAmount: 0,
+        totalAvailableAfterReserve: 0,
+        includedAssets: [],
+        excludedAssets: [],
+        reviewAssets: [],
+        warnings: [
+          createWarning(
+            "missing-cash-reserve-helper",
+            "calculateCashReserveProjection is unavailable; reporting-only cash reserve projection was not prepared."
+          ),
+          ...modelWarnings
+        ],
+        valuationDate: analysisSettings.valuationDate || null,
+        valuationDateSource: analysisSettings.valuationDate ? "analysisSettings.valuationDate" : null,
+        trace: null
+      };
+    }
+
+    const helperInput = {
+      assetFacts,
+      cashReserveAssumptions,
+      ongoingSupport: isPlainObject(safeLensModel.ongoingSupport) ? safeLensModel.ongoingSupport : {},
+      assetTaxonomy: lensAnalysis.assetTaxonomy,
+      assetLibrary: lensAnalysis.assetLibrary,
+      valuationDate: analysisSettings.valuationDate,
+      valuationDateSource: analysisSettings.valuationDate ? "analysisSettings.valuationDate" : null
+    };
+    const result = calculateCashReserveProjection(helperInput);
+    const helperWarnings = Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : [];
+    const combinedWarnings = helperWarnings.concat(modelWarnings);
+
+    return {
+      source: result?.source || "cash-reserve-calculations",
+      calculationVersion: result?.calculationVersion ?? null,
+      applied: enabled && result?.applied === true,
+      enabled: result?.enabled === true,
+      consumedByMethods: false,
+      consumptionStatus: CASH_RESERVE_CONSUMPTION_STATUS,
+      mode: result?.mode || "reportingOnly",
+      reserveMethod: result?.reserveMethod || "monthsOfEssentialExpenses",
+      reserveMonths: result?.reserveMonths ?? 0,
+      fixedReserveAmount: result?.fixedReserveAmount ?? 0,
+      expenseBasis: result?.expenseBasis || "essentialSupport",
+      monthlyReserveBasis: result?.monthlyReserveBasis ?? 0,
+      monthlyReserveBasisSourcePaths: Array.isArray(result?.monthlyReserveBasisSourcePaths)
+        ? cloneSerializable(result.monthlyReserveBasisSourcePaths)
+        : [],
+      requiredReserveAmount: result?.requiredReserveAmount ?? 0,
+      applyToAssetScope: result?.applyToAssetScope || "cashAndCashEquivalents",
+      excludeEmergencyFundAssets: result?.excludeEmergencyFundAssets !== false,
+      includeHealthcareExpenses: result?.includeHealthcareExpenses === true,
+      includeDiscretionaryExpenses: result?.includeDiscretionaryExpenses === true,
+      totalCashEquivalentValue: result?.totalCashEquivalentValue ?? 0,
+      totalExplicitEmergencyFundValue: result?.totalExplicitEmergencyFundValue ?? 0,
+      totalRestrictedOrEscrowedCashValue: result?.totalRestrictedOrEscrowedCashValue ?? 0,
+      totalBusinessReserveValue: result?.totalBusinessReserveValue ?? 0,
+      emergencyFundReservedAmount: result?.emergencyFundReservedAmount ?? 0,
+      remainingReserveNeededAfterEmergencyFund: result?.remainingReserveNeededAfterEmergencyFund ?? 0,
+      cashAvailableAboveReserve: result?.cashAvailableAboveReserve ?? 0,
+      totalReservedAmount: result?.totalReservedAmount ?? 0,
+      totalAvailableAfterReserve: result?.totalAvailableAfterReserve ?? 0,
+      includedAssets: Array.isArray(result?.includedAssets)
+        ? cloneSerializable(result.includedAssets)
+        : [],
+      excludedAssets: Array.isArray(result?.excludedAssets)
+        ? cloneSerializable(result.excludedAssets)
+        : [],
+      reviewAssets: Array.isArray(result?.reviewAssets)
+        ? cloneSerializable(result.reviewAssets)
+        : [],
+      warnings: combinedWarnings,
+      valuationDate: result?.valuationDate || null,
+      valuationDateSource: result?.valuationDateSource || null,
+      trace: cloneSerializable({
+        ...result,
+        applied: enabled && result?.applied === true,
+        consumedByMethods: false,
+        consumptionStatus: CASH_RESERVE_CONSUMPTION_STATUS,
+        warnings: combinedWarnings
+      })
+    };
+  }
+
   function createPreparedTreatedExistingCoverageOffset(lensModel, input) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const existingCoverage = isPlainObject(safeLensModel.existingCoverage)
@@ -2113,6 +2263,7 @@
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
         lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(lensModel, builderInput);
+        lensModel.cashReserveProjection = createPreparedCashReserveProjection(lensModel, builderInput);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
         lensModel.treatedDebtPayoff = createPreparedTreatedDebtPayoff(lensModel, builderInput);

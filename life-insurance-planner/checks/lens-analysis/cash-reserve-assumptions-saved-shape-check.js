@@ -385,7 +385,6 @@ assert.match(
 [
   "app/features/lens-analysis/asset-treatment-calculations.js",
   "app/features/lens-analysis/asset-growth-projection-calculations.js",
-  "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/step-three-analysis-display.js"
 ].forEach(function (relativePath) {
@@ -395,6 +394,18 @@ assert.match(
     `${relativePath} should not consume or render cash reserve assumptions yet`
   );
 });
+
+const modelBuilderSource = readRepoFile("app/features/lens-analysis/lens-model-builder.js");
+assert.match(
+  modelBuilderSource,
+  /cashReserveProjection|calculateCashReserveProjection/,
+  "lens-model-builder may prepare reporting-only cashReserveProjection"
+);
+assert.doesNotMatch(
+  modelBuilderSource,
+  /reserveAdjusted|adjustedReserve|methodConsumedReserve|consumedByMethods:\s*true[^}]*cashReserve/s,
+  "lens-model-builder should not prepare reserve-adjusted method-consumed offsets"
+);
 
 const lensContext = createLensAnalysisContext();
 const defaultOutputs = createMethodOutputs(
