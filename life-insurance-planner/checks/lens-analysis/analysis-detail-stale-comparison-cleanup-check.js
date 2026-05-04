@@ -62,6 +62,8 @@ assert.doesNotMatch(
 );
 
 assert.match(analysisDetailHtml, /data-step='detail-preview'/);
+assert.match(analysisDetailHtml, /<title>LENS Interpretation Preview \| Life Evaluation &amp; Needs Analysis<\/title>/);
+assert.doesNotMatch(analysisDetailHtml, /<title>Detailed Analysis \|/);
 assert.match(analysisDetailHtml, /Future LENS Review/);
 assert.match(analysisDetailHtml, /LENS Interpretation Preview/);
 assert.match(analysisDetailHtml, /future LENS-only advisor interpretation view/);

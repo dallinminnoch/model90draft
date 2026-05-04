@@ -44,6 +44,7 @@ const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-se
 const incomeLossHtml = readRepoFile("pages/income-loss-impact.html");
 const incomeLossDisplaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
 const analysisEstimateHtml = readRepoFile("pages/analysis-estimate.html");
+const summaryHtml = readRepoFile("pages/summary.html");
 const lensWorkflowSource = readRepoFile("lens-workflow.js");
 const appConfigSource = readRepoFile("app/core/config.js");
 const workspaceSideNavSource = readRepoFile("workspace-side-nav.js");
@@ -133,6 +134,16 @@ assert.match(
   /Read-only view built from the current Lens model and LENS Analysis result\./,
   "Income Loss Impact display copy should classify the page as read-only."
 );
+assert.match(
+  incomeLossDisplaySource,
+  /<div class="section-label">Optional Review<\/div>/,
+  "Income Loss Impact display should label the direct page as optional review."
+);
+assert.doesNotMatch(
+  incomeLossDisplaySource,
+  /<div class="section-label">Detailed Analysis<\/div>/,
+  "Income Loss Impact should not use the old Detailed Analysis label."
+);
 assert.doesNotMatch(
   incomeLossDisplaySource,
   /runAnalysisMethods|runDimeAnalysis|runHumanLifeValueAnalysis|runSimpleNeedsAnalysis/,
@@ -144,16 +155,34 @@ assert.doesNotMatch(
   "Income Loss Impact should not persist model data, assumptions, or saved profile state."
 );
 
-assert.match(
+assert.doesNotMatch(
   lensWorkflowSource,
   /\{ id: "income-impact", label: "Income Loss Impact", path: "income-loss-impact\.html" \}/,
-  "Legacy workflow progress nav still includes Income Loss Impact as a reachable step."
+  "Income Loss Impact should not be presented as an active workflow progress step."
+);
+assert.doesNotMatch(
+  workspaceSideNavSource,
+  /\{ id: "income-impact", label: "Income Loss Impact", path: "income-loss-impact\.html", icon: "analysis" \}/,
+  "Workspace side nav should not expose Income Loss Impact as a required LENS workflow destination."
+);
+assert.match(
+  lensWorkflowSource,
+  /\{ id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup\.html" \}[\s\S]*?\{ id: "estimate", label: "Estimate Need", path: "analysis-estimate\.html" \}/,
+  "Workflow progress should represent the direct Analysis Setup to Estimate sequence."
 );
 assert.match(
   workspaceSideNavSource,
-  /\{ id: "income-impact", label: "Income Loss Impact", path: "income-loss-impact\.html", icon: "analysis" \}/,
-  "Workspace side nav still includes Income Loss Impact as a reachable LENS review page."
+  /\{ id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup\.html", icon: "financial-snapshot" \}[\s\S]*?\{ id: "estimate", label: "Estimate Need", path: "analysis-estimate\.html", icon: "needs-analysis" \}/,
+  "Workspace side nav should represent the direct Analysis Setup to Estimate sequence."
 );
+assert.doesNotMatch(
+  lensWorkflowSource,
+  /lipPlannerIncludeDetailed|summary-detailed-analysis|Detailed analysis included in planning path|Detailed analysis was skipped in this planning path/,
+  "Workflow summary copy should not keep stale Detailed Analysis state or wording."
+);
+assert.match(summaryHtml, /<h3>LENS Result Summary<\/h3>/);
+assert.match(summaryHtml, /id="summary-lens-review"/);
+assert.doesNotMatch(summaryHtml, /Detailed Analysis Summary|summary-detailed-analysis|Detailed methodology summary/);
 assert.match(
   appConfigSource,
   /\{ id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup\.html" \}[\s\S]*?\{ id: "estimate", label: "Estimate Need", path: "analysis-estimate\.html" \}/,
@@ -190,8 +219,6 @@ const protectedChanges = getChangedFiles([
   "pages/profile.html",
   "pages/analysis-setup.html",
   "app/features/lens-analysis/analysis-setup.js",
-  "pages/income-loss-impact.html",
-  "app/features/lens-analysis/income-loss-impact-display.js",
   "pages/dime-entry.html",
   "pages/dime-results.html",
   "pages/simple-needs-entry.html",
@@ -206,7 +233,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "This optional-route clarification pass should not change routing, pages, quick flows, methods, model builder, adapter, or Step 3."
+  "This optional-route cleanup pass should not change profile/setup routing, quick flows, methods, model builder, adapter, or Step 3."
 );
 
 console.log("income-loss-impact-optional-route-check passed: Income Loss Impact is optional read-only review; Analysis Setup intentionally continues directly to Estimate Need.");

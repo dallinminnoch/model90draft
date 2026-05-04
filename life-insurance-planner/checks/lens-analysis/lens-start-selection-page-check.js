@@ -137,6 +137,7 @@ assert.doesNotMatch(lensHtml, /runSimpleNeedsAnalysis/);
 assert.match(workspaceSideNavSource, /lens: "lens\.html"/);
 assert.match(workspaceSideNavSource, /lens: "studio\.html\?view=lens\.html"/);
 assert.doesNotMatch(workspaceSideNavSource, /path: "analysis-detail\.html"/);
+assert.doesNotMatch(workspaceSideNavSource, /path: "income-loss-impact\.html"/);
 
 assert.match(analysisEstimateHtml, /data-step-three-needs-analysis/);
 assert.doesNotMatch(analysisEstimateHtml, /data-step-three-dime-analysis/);

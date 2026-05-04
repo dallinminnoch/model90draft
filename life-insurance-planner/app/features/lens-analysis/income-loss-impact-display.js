@@ -631,7 +631,7 @@
     host.innerHTML = `
       <div class="income-impact-header">
         <div>
-          <div class="section-label">Detailed Analysis</div>
+          <div class="section-label">Optional Review</div>
           <h2>Income Loss Impact</h2>
           <p>Read-only view built from the current Lens model and LENS Analysis result.</p>
         </div>

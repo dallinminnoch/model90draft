@@ -2,7 +2,6 @@
   const WORKFLOW_STEPS = [
     { id: "profile-1", label: "Link Profile", path: "profile.html" },
     { id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup.html" },
-    { id: "income-impact", label: "Income Loss Impact", path: "income-loss-impact.html" },
     { id: "estimate", label: "Estimate Need", path: "analysis-estimate.html" },
     { id: "recommendations", label: "Coverage Options", path: "recommendations.html" },
     { id: "planner", label: "Policy Planner", path: "planner.html" },
@@ -11,7 +10,6 @@
 
   const STORAGE_KEYS = {
     profile: "lipPlannerProfile",
-    includeDetailed: "lipPlannerIncludeDetailed",
     recommendation: "lipPlannerRecommendation",
     strategy: "lipPlannerStrategy",
     notes: "lipPlannerNotes"
@@ -318,7 +316,6 @@
     const recommendation = localStorage.getItem(STORAGE_KEYS.recommendation) || "Balanced Protection";
     const strategy = localStorage.getItem(STORAGE_KEYS.strategy) || "Hybrid Strategy";
     const notes = localStorage.getItem(STORAGE_KEYS.notes) || "Advisor notes will appear here.";
-    const includeDetailed = sessionStorage.getItem(STORAGE_KEYS.includeDetailed) !== "false";
 
     const familyParts = [];
     if (profile.maritalStatus) {
@@ -333,7 +330,7 @@
     setText("summary-income", formatCurrency(profile.annualIncome));
     setText("summary-family", familyParts.join(" | ") || "Family profile pending");
     setText("summary-balanced-need", getBalancedEstimate());
-    setText("summary-detailed-analysis", includeDetailed ? "Detailed analysis included in planning path." : "Detailed analysis was skipped in this planning path.");
+    setText("summary-lens-review", "LENS result reviewed before recommendation planning.");
     setText("summary-recommendation", recommendation);
     setText("summary-strategy", strategy);
     setText("summary-notes", notes);
