@@ -126,6 +126,26 @@ function run() {
     "helper should export calculateIncomeLossImpactTimeline"
   );
 
+  const currentAgeOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel(),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 45
+  });
+  assert.strictEqual(currentAgeOutput.selectedDeath.date, "2026-01-01");
+  assert.strictEqual(currentAgeOutput.selectedDeath.age, 45);
+  assert.strictEqual(currentAgeOutput.selectedDeath.source, "selectedDeathAge");
+  assert.strictEqual(currentAgeOutput.selectedDeath.status, "resolved");
+
+  const belowCurrentAgeOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel(),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 44
+  });
+  assert.strictEqual(belowCurrentAgeOutput.selectedDeath.date, "2026-01-01");
+  assert.strictEqual(belowCurrentAgeOutput.selectedDeath.age, 45);
+  assert.strictEqual(belowCurrentAgeOutput.selectedDeath.source, "selectedDeathAge");
+  assert.strictEqual(belowCurrentAgeOutput.selectedDeath.status, "resolved");
+
   const fullLensModel = createFullLensModel();
   const profileRecord = {
     dependentDetails: JSON.stringify([

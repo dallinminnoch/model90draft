@@ -157,7 +157,9 @@ function createHarness(options = {}) {
           calculateIncomeLossImpactTimeline(input) {
             helperCalls.push(cloneJson(input));
             const age = input.selectedDeathAge == null ? null : Number(input.selectedDeathAge);
-            const date = age == null ? null : `${1980 + age}-06-15`;
+            const date = age == null
+              ? null
+              : (age <= 45 ? input.valuationDate : `${1980 + age}-06-15`);
             return {
               selectedDeath: {
                 age,
@@ -249,16 +251,24 @@ assert.equal(available.slider.min, "45", "slider min should be the current age f
 assert.equal(available.slider.max, "85", "slider max should be current age plus 40, capped by the display rule.");
 assert.equal(available.slider.value, "45", "slider should default to current age.");
 assert.equal(available.ageValue.textContent, "45");
-assert.equal(available.dateValue.textContent, "2025-06-15");
+assert.equal(available.dateValue.textContent, "2026-01-01");
 assert.equal(available.helperCalls.length, 1);
 assert.equal(available.helperCalls[0].selectedDeathAge, 45);
 assert.match(available.host.innerHTML, /45 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 45/);
 
-available.slider.value = "50";
+available.slider.value = "44";
 available.slider.listeners.input({ target: available.slider });
 assert.equal(available.helperCalls.length, 2);
-assert.equal(available.helperCalls[1].selectedDeathAge, 50);
+assert.equal(available.helperCalls[1].selectedDeathAge, 45);
+assert.equal(available.slider.value, "45");
+assert.equal(available.ageValue.textContent, "45");
+assert.equal(available.dateValue.textContent, "2026-01-01");
+
+available.slider.value = "50";
+available.slider.listeners.input({ target: available.slider });
+assert.equal(available.helperCalls.length, 3);
+assert.equal(available.helperCalls[2].selectedDeathAge, 50);
 assert.equal(available.slider.value, "50");
 assert.equal(available.ageValue.textContent, "50");
 assert.equal(available.dateValue.textContent, "2030-06-15");

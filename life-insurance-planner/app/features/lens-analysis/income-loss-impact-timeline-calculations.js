@@ -4,11 +4,10 @@
 
   // Owner: Lens analysis Income Loss Impact timeline helper.
   // Purpose: calculate fact-based, output-neutral household impact timeline
-  // data from normalized linked profile / PMI facts. This file is intentionally
-  // not wired into the page yet.
+  // data from normalized linked profile / PMI facts for the Income Impact page.
   // Non-goals: no DOM access, no storage access, no method calls, no
-  // recommendation logic, no save/load behavior, no slider UI, and no model
-  // mutation.
+  // recommendation logic, no save/load behavior, no UI state ownership, and no
+  // model mutation.
 
   const CALCULATION_VERSION = 1;
   const DEFAULT_DEPENDENT_MILESTONE_AGE = 18;
@@ -336,8 +335,19 @@
     let status = "unresolved";
 
     if (hasDateOfBirth && selectedDeathAge != null) {
-      selectedDate = addYears(parsedDateOfBirth.date, Math.round(selectedDeathAge));
-      selectedAge = selectedDeathAge;
+      const roundedSelectedDeathAge = Math.round(selectedDeathAge);
+      const currentAge = parsedValuationDate
+        ? calculateAge(parsedDateOfBirth.date, parsedValuationDate.date)
+        : null;
+      const effectiveSelectedDeathAge = currentAge == null
+        ? roundedSelectedDeathAge
+        : Math.max(currentAge, roundedSelectedDeathAge);
+      selectedDate = currentAge != null
+        && effectiveSelectedDeathAge === currentAge
+        && parsedValuationDate
+          ? parsedValuationDate.date
+          : addYears(parsedDateOfBirth.date, effectiveSelectedDeathAge);
+      selectedAge = effectiveSelectedDeathAge;
       source = "selectedDeathAge";
       status = "resolved";
     } else if (parsedSelectedDeathDate) {
