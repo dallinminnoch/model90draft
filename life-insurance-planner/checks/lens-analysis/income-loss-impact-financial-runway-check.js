@@ -239,7 +239,7 @@ const partialFixture = {
   summaryCards: [
     {
       id: "yearsOfFinancialSecurity",
-      displayValue: "Partial estimate",
+      displayValue: "Partial runway estimate",
       status: "partial-estimate"
     }
   ],
@@ -257,9 +257,10 @@ const partialFixture = {
   ]
 };
 const partialSecurityHtml = harness.renderFinancialSecurityCard(partialFixture);
-assert.match(partialSecurityHtml, /Partial estimate/);
-assert.match(partialSecurityHtml, /Computed from incomplete facts: 0 years 0 months/);
-assert.match(partialSecurityHtml, /Financial runway is a partial estimate because critical facts are missing\./);
+assert.match(partialSecurityHtml, /Partial runway estimate/);
+assert.match(partialSecurityHtml, /This preview is using the facts currently available\./);
+assert.match(partialSecurityHtml, /Add the missing items below to improve the estimate\./);
+assert.match(partialSecurityHtml, /Current estimate: 0 years 0 months/);
 assert.doesNotMatch(
   partialSecurityHtml,
   /data-income-impact-financial-security-value[^>]*>0 years 0 months/,
@@ -267,7 +268,8 @@ assert.doesNotMatch(
 );
 const partialTimelineHtml = harness.renderTimeline(partialFixture);
 assert.match(partialTimelineHtml, /data-income-impact-runway-status="partial-estimate"/);
-assert.match(partialTimelineHtml, /Partial estimate\. Review the data needed below before relying on this runway\./);
+assert.match(partialTimelineHtml, /Partial runway estimate\. This preview is using the facts currently available\. Add the missing items below to improve the estimate\./);
+assert.doesNotMatch(partialTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
 
 const unavailableFixture = {
   ...fixture,
@@ -309,11 +311,13 @@ const unavailableFixture = {
   ]
 };
 const unavailableSecurityHtml = harness.renderFinancialSecurityCard(unavailableFixture);
-assert.match(unavailableSecurityHtml, /Not available/);
+assert.match(unavailableSecurityHtml, /Runway estimate unavailable/);
 assert.match(unavailableSecurityHtml, /annual shortfall inputs are missing/);
 const unavailableTimelineHtml = harness.renderTimeline(unavailableFixture);
 assert.match(unavailableTimelineHtml, /data-income-impact-runway-status="not-available"/);
-assert.match(unavailableTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
+assert.match(unavailableTimelineHtml, /Runway estimate unavailable/);
+assert.match(unavailableTimelineHtml, /annual shortfall inputs are missing/);
+assert.doesNotMatch(unavailableTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
 
 const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /Financial Runway if Death Occurs at Selected Age/);

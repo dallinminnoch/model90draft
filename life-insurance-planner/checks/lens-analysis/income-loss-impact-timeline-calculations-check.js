@@ -486,7 +486,8 @@ function run() {
   const missingCoverageCard = findCard(missingCoverageOutput, "yearsOfFinancialSecurity");
   assert.strictEqual(missingCoverageOutput.financialRunway.status, "partial-estimate");
   assert.strictEqual(missingCoverageCard.status, "partial-estimate");
-  assert.strictEqual(missingCoverageCard.displayValue, "Partial estimate");
+  assert.strictEqual(missingCoverageCard.displayValue, "Partial runway estimate");
+  assert(missingCoverageOutput.financialRunway.projectionPoints.length > 0);
   assert.notStrictEqual(
     missingCoverageCard.displayValue,
     "0 years 0 months",
@@ -508,8 +509,32 @@ function run() {
     selectedDeathAge: 50
   });
   assert.strictEqual(missingAssetsOutput.financialRunway.status, "partial-estimate");
-  assert.strictEqual(findCard(missingAssetsOutput, "yearsOfFinancialSecurity").displayValue, "Partial estimate");
+  assert.strictEqual(findCard(missingAssetsOutput, "yearsOfFinancialSecurity").displayValue, "Partial runway estimate");
+  assert(missingAssetsOutput.financialRunway.projectionPoints.length > 0);
   assert(findDataGap(missingAssetsOutput, "missing-assets-liquidity"));
+
+  const missingSurvivorIncomeOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel({
+      survivorScenario: {
+        survivorNetAnnualIncome: undefined,
+        survivorGrossAnnualIncome: undefined
+      },
+      incomeBasis: {
+        spouseOrPartnerNetAnnualIncome: undefined,
+        spouseOrPartnerGrossAnnualIncome: undefined
+      }
+    }),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50
+  });
+  assert.strictEqual(missingSurvivorIncomeOutput.financialRunway.status, "partial-estimate");
+  assert.strictEqual(missingSurvivorIncomeOutput.financialRunway.annualHouseholdNeed, 90000);
+  assert.strictEqual(missingSurvivorIncomeOutput.financialRunway.annualSurvivorIncome, null);
+  assert.strictEqual(missingSurvivorIncomeOutput.financialRunway.annualShortfall, 90000);
+  assert(missingSurvivorIncomeOutput.financialRunway.projectionPoints.length > 0);
+  assert.strictEqual(missingSurvivorIncomeOutput.financialRunway.projectionPoints[0].survivorIncomeOffset, 0);
+  assert(findDataGap(missingSurvivorIncomeOutput, "missing-survivor-income"));
+  assert(findWarning(missingSurvivorIncomeOutput, "missing-survivor-income-runway-assumed-zero"));
 
   const missingObligationsOutput = calculateIncomeLossImpactTimeline({
     lensModel: createFullLensModel({
@@ -530,6 +555,7 @@ function run() {
     selectedDeathAge: 50
   });
   assert.strictEqual(missingObligationsOutput.financialRunway.status, "partial-estimate");
+  assert(missingObligationsOutput.financialRunway.projectionPoints.length > 0);
   assert(findDataGap(missingObligationsOutput, "missing-immediate-obligations"));
 
   const sparseOutput = calculateIncomeLossImpactTimeline({

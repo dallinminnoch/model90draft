@@ -391,7 +391,7 @@
           || message.includes("Financial runway");
       })?.message
       || dataGaps[0]?.label
-      || "Complete income, survivor income, coverage, liquidity, and obligation facts to calculate this estimate."
+      || "Add annual household need and at least one resource bucket to calculate this preview."
     );
   }
 
@@ -403,14 +403,14 @@
     const displayValue = status === "no-shortfall"
       ? "No shortfall identified"
       : (status === "partial-estimate"
-        ? "Partial estimate"
-        : (status === "complete" ? computedDisplayValue : UNAVAILABLE_COPY));
+        ? "Partial runway estimate"
+        : (status === "complete" ? computedDisplayValue : "Runway estimate unavailable"));
     const warnings = Array.isArray(runway.warnings) ? runway.warnings : (Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : []);
     const dataGaps = Array.isArray(runway.dataGaps) ? runway.dataGaps : (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []);
     const unavailableReason = status === "complete"
       ? ""
       : (status === "partial-estimate"
-        ? `Computed from incomplete facts: ${computedDisplayValue}. ${findRunwayReason(warnings, dataGaps)}`
+        ? `This preview is using the facts currently available. Add the missing items below to improve the estimate. Current estimate: ${computedDisplayValue}.`
         : findRunwayReason(warnings, dataGaps));
 
     return `
@@ -587,7 +587,14 @@
     const status = normalizeRunwayStatus(runway.status);
     const model = buildRunwayChartModel(timelineResult);
     if (!model.points.length) {
-      return `<div class="income-impact-empty-inline" data-income-impact-visual-timeline data-income-impact-financial-runway data-income-impact-runway-status="${escapeHtml(status)}">Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed.</div>`;
+      const warnings = Array.isArray(runway.warnings) ? runway.warnings : (Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : []);
+      const dataGaps = Array.isArray(runway.dataGaps) ? runway.dataGaps : (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []);
+      return `
+        <div class="income-impact-empty-inline" data-income-impact-visual-timeline data-income-impact-financial-runway data-income-impact-runway-status="${escapeHtml(status)}">
+          <strong>Runway estimate unavailable</strong>
+          <span>${escapeHtml(findRunwayReason(warnings, dataGaps))}</span>
+        </div>
+      `;
     }
 
     const startLabel = runway.netAvailableResources == null
@@ -603,14 +610,14 @@
       ? UNAVAILABLE_COPY
       : formatCurrency(runway.annualShortfall);
     const statusNote = status === "partial-estimate"
-      ? "Partial estimate. Review the data needed below before relying on this runway."
+      ? "Partial runway estimate. This preview is using the facts currently available. Add the missing items below to improve the estimate."
       : (status === "not-available"
-        ? "Runway not available. Complete the data needed below."
+        ? "Runway estimate unavailable. Add the missing items below to calculate this preview."
         : "");
     const depletionLabel = status === "no-shortfall"
       ? "No depletion projected from annual shortfall in this preview."
       : (status === "partial-estimate"
-        ? "Partial estimate: review data gaps before relying on depletion timing."
+        ? (runway.depletionDate ? `Partial depletion estimate: ${runway.depletionDate}` : "Partial depletion estimate unavailable.")
         : (runway.depletionDate ? `Estimated depletion: ${runway.depletionDate}` : "Estimated depletion not available."));
 
     return `

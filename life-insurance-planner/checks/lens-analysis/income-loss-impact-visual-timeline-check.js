@@ -205,7 +205,7 @@ const partialCardHtml = harness.renderFinancialSecurityCard({
   summaryCards: [
     {
       id: "yearsOfFinancialSecurity",
-      displayValue: "Partial estimate",
+      displayValue: "Partial runway estimate",
       status: "partial-estimate"
     }
   ],
@@ -227,8 +227,9 @@ const partialCardHtml = harness.renderFinancialSecurityCard({
     ]
   }
 });
-assert.match(partialCardHtml, /Partial estimate/);
-assert.match(partialCardHtml, /Computed from incomplete facts: 0 years 0 months/);
+assert.match(partialCardHtml, /Partial runway estimate/);
+assert.match(partialCardHtml, /This preview is using the facts currently available\./);
+assert.match(partialCardHtml, /Current estimate: 0 years 0 months/);
 assert.doesNotMatch(
   partialCardHtml,
   /data-income-impact-financial-security-value[^>]*>0 years 0 months/,

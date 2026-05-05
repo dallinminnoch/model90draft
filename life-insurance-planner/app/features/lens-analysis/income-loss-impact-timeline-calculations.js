@@ -1313,9 +1313,19 @@
       }));
     }
 
-    const annualShortfall = resolvedAnnualEssentialExpenses == null || survivorIncome.value == null
+    const effectiveSurvivorIncome = survivorIncome.value == null ? 0 : survivorIncome.value;
+    const annualShortfallSourcePaths = uniqueStrings(
+      annualEssentialSourcePaths.concat(survivorIncome.sourcePath ? [survivorIncome.sourcePath] : survivorIncome.sourcePaths)
+    );
+    const annualShortfall = resolvedAnnualEssentialExpenses == null
       ? null
-      : resolvedAnnualEssentialExpenses - survivorIncome.value;
+      : resolvedAnnualEssentialExpenses - effectiveSurvivorIncome;
+    if (resolvedAnnualEssentialExpenses != null && survivorIncome.value == null) {
+      output.warnings.push(createWarning(
+        "missing-survivor-income-runway-assumed-zero",
+        "Financial runway is a partial estimate because survivor income is missing and treated as $0 for this preview."
+      ));
+    }
     if (annualShortfall != null) {
       output.timelineEvents.push(createEvent({
         id: "household-expense-runway",
@@ -1324,7 +1334,7 @@
         age: output.selectedDeath.age,
         label: annualShortfall > 0 ? "Annual household shortfall" : "No annual household shortfall",
         amount: Math.max(0, annualShortfall),
-        sourcePaths: annualEssentialSourcePaths.concat([survivorIncome.sourcePath]),
+        sourcePaths: annualShortfallSourcePaths,
         confidence: "calculated"
       }));
     }
@@ -1337,7 +1347,7 @@
     const scheduledObligations = financialRunwayInputs.projection.scheduledObligations;
     const runwaySourcePaths = totalResources.sourcePaths
       .concat(immediateObligations.sourcePaths)
-      .concat(annualEssentialSourcePaths)
+      .concat(annualShortfallSourcePaths)
       .concat(survivorIncome.sourcePath ? [survivorIncome.sourcePath] : [])
       .concat(assetGrowth.sourcePaths || [])
       .concat(scheduledObligations.sourcePaths || []);
@@ -1372,7 +1382,7 @@
         selectedDeathAge: output.selectedDeath.age,
         netAvailableResources,
         annualNeed: resolvedAnnualEssentialExpenses,
-        survivorIncomeOffset: survivorIncome.value,
+        survivorIncomeOffset: effectiveSurvivorIncome,
         annualShortfall,
         growthRate: assetGrowth.growthRate,
         scheduledObligations: scheduledObligations.value,
@@ -1523,7 +1533,7 @@
         yearsOfFinancialSecurityStatus === "no-shortfall"
           ? "No shortfall"
           : (yearsOfFinancialSecurityStatus === "partial-estimate"
-            ? "Partial estimate"
+            ? "Partial runway estimate"
             : formatYearsMonths(yearsOfFinancialSecurity)),
         yearsOfFinancialSecurityStatus,
         ["incomeLossImpact.formula.yearsOfFinancialSecurity"]
@@ -1542,7 +1552,7 @@
         annualShortfall == null ? null : roundMoney(Math.max(0, annualShortfall)),
         annualShortfall == null ? "Not available" : formatMoney(Math.max(0, annualShortfall)),
         annualShortfall == null ? "notAvailable" : (annualShortfall <= 0 ? "noShortfall" : "available"),
-        annualEssentialSourcePaths.concat([survivorIncome.sourcePath])
+        annualShortfallSourcePaths
       ),
       createSummaryCard(
         "immediateObligations",
