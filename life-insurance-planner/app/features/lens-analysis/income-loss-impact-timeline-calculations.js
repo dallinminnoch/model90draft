@@ -1653,7 +1653,10 @@
         product: "generic-household-position",
         scheduledObligationsPolicy: "none-added-mortgage-already-in-recurring-expenses",
         projectionMode: assetGrowth.active ? "asset-growth" : "current-dollar",
-        assetGrowthStatus: assetGrowth.status
+        assetGrowthStatus: assetGrowth.status,
+        includePreTargetContext: safeOptions.includePreTargetContext === true,
+        preTargetMonths: toOptionalNumber(safeOptions.preTargetMonths),
+        preTargetMode: normalizeString(safeOptions.preTargetMode)
       }
     };
   }
@@ -1716,6 +1719,7 @@
       totalExpenses: 0,
       totalScheduledObligations: 0,
       totalAssetGrowth: 0,
+      preTargetPoints: [],
       points: [],
       inputs: input,
       sourcePaths,
@@ -2160,7 +2164,45 @@
     const householdPositionPoints = Array.isArray(householdPosition?.points)
       ? householdPosition.points
       : [];
+    const householdPreTargetPoints = Array.isArray(householdPosition?.preTargetPoints)
+      ? householdPosition.preTargetPoints
+      : [];
     let preDeathHouseholdPointCount = 0;
+
+    householdPreTargetPoints.forEach(function (point) {
+      if (!isPlainObject(point)) {
+        return;
+      }
+
+      const parsedPointDate = parseDateOnly(point.date);
+      if (!parsedPointDate || parsedPointDate.date < axisStart || parsedPointDate.date >= deathDate.date) {
+        return;
+      }
+
+      const relativeMonthIndex = calculateWholeMonthsBetweenDates(deathDate.date, parsedPointDate.date);
+      const monthlyNetCashFlow = toOptionalNumber(point.netCashFlow);
+      const monthlyExpenses = toOptionalNumber(point.expenses);
+      scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
+        id: `pre-target-household-position-modeled-backcast-month-${Math.abs(toOptionalNumber(point.monthIndex) || preDeathHouseholdPointCount + 1)}`,
+        date: parsedPointDate.normalizedDate,
+        age: deathAge == null || relativeMonthIndex == null ? null : deathAge + relativeMonthIndex / 12,
+        relativeMonthIndex,
+        relativeYear: relativeMonthIndex == null ? null : relativeMonthIndex / 12,
+        phase: "preDeath",
+        resolution: "modeledBackcastMonthly",
+        startingBalance: point.startingBalance,
+        growthAmount: 0,
+        householdNeed: monthlyExpenses == null ? annualNeed : monthlyExpenses * 12,
+        survivorIncomeOffset: null,
+        annualShortfall: monthlyNetCashFlow == null ? null : Math.max(0, -monthlyNetCashFlow * 12),
+        scheduledObligations: point.scheduledObligations,
+        endingBalance: point.endingBalance,
+        status: point.status || "modeledBackcast",
+        sourcePaths: uniqueStrings(sourcePaths.concat(point.sourcePaths || []))
+      }));
+      preDeathHouseholdPointCount += 1;
+    });
+
     householdPositionPoints.forEach(function (point) {
       if (!isPlainObject(point) || point.monthIndex === householdPosition.durationMonths) {
         return;
@@ -2711,7 +2753,10 @@
       targetDate: output.selectedDeath.date,
       fallbackStartingResources: assets,
       analysisSettings: safeInput.analysisSettings,
-      profileRecord
+      profileRecord,
+      includePreTargetContext: true,
+      preTargetMonths: PRE_DEATH_CONTEXT_YEARS * 12,
+      preTargetMode: "modeledBackcast"
     });
     (Array.isArray(householdPosition?.warnings) ? householdPosition.warnings : []).forEach(function (warning) {
       output.warnings.push(warning);

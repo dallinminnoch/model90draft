@@ -79,6 +79,7 @@ assert.equal(surplus.startingBalance, 100000);
 assert.equal(surplus.targetBalance, 160000);
 assert.equal(surplus.totalIncome, 120000);
 assert.equal(surplus.totalExpenses, 60000);
+assert.equal(surplus.preTargetPoints.length, 0);
 assert.equal(surplus.points.length, 13);
 assert.equal(surplus.points.at(-1).endingBalance, 160000);
 
@@ -117,6 +118,22 @@ assert.ok(
   "Missing mature net household income should create a data gap."
 );
 
+const missingNetIncomeBackcast = calculateHouseholdFinancialPosition(baseInput({
+  recurringIncome: {
+    value: null,
+    frequency: "annual",
+    status: "missing-net-household-income",
+    sourcePaths: ["incomeBasis.insuredNetAnnualIncome", "incomeBasis.spouseOrPartnerNetAnnualIncome"]
+  },
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 60,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(missingNetIncomeBackcast.status, "data-gap");
+assert.equal(missingNetIncomeBackcast.preTargetPoints.length, 0);
+
 const unsafeGrossIncome = calculateHouseholdFinancialPosition(baseInput({
   recurringIncome: {
     value: 180000,
@@ -133,6 +150,22 @@ assert.ok(
   }),
   "Gross income should be treated as unsafe instead of spendable income."
 );
+
+const unsafeGrossIncomeBackcast = calculateHouseholdFinancialPosition(baseInput({
+  recurringIncome: {
+    value: 180000,
+    frequency: "annual",
+    status: "gross-fallback",
+    sourcePaths: ["incomeBasis.insuredGrossAnnualIncome"]
+  },
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 60,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(unsafeGrossIncomeBackcast.status, "data-gap");
+assert.equal(unsafeGrossIncomeBackcast.preTargetPoints.length, 0);
 
 const inactiveGrowth = calculateHouseholdFinancialPosition(baseInput({
   recurringIncome: { value: 0, frequency: "annual", status: "net-household-income", sourcePaths: ["incomeBasis.insuredNetAnnualIncome"] },
@@ -159,6 +192,73 @@ const activeGrowth = calculateHouseholdFinancialPosition(baseInput({
 }));
 assert.ok(activeGrowth.totalAssetGrowth > 0);
 assert.ok(activeGrowth.targetBalance > 100000);
+
+const modeledBackcast = calculateHouseholdFinancialPosition(baseInput({
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 60,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(modeledBackcast.status, "complete");
+assert.equal(modeledBackcast.preTargetPoints.length, 60);
+assert.equal(modeledBackcast.preTargetPoints[0].monthIndex, -60);
+assert.equal(modeledBackcast.preTargetPoints.at(-1).monthIndex, -1);
+assert.equal(modeledBackcast.preTargetPoints[0].status, "modeledBackcast");
+assert.equal(modeledBackcast.preTargetPoints[0].precision, "estimated");
+assert.equal(modeledBackcast.preTargetPoints[0].growth, 0);
+assert.equal(modeledBackcast.preTargetPoints.at(-1).endingBalance, 95000);
+assert.ok(
+  modeledBackcast.preTargetPoints.every(function (point) {
+    return point.status === "modeledBackcast" && point.precision === "estimated";
+  }),
+  "Pre-target points should be modeled estimates, not historical account data."
+);
+assert.ok(
+  modeledBackcast.warnings.some(function (warning) {
+    return warning.code === "modeled-backcast-not-historical";
+  }),
+  "Modeled backcast should warn that it is not historical account data."
+);
+assert.equal(modeledBackcast.trace.preTargetContext.mode, "modeledBackcast");
+assert.equal(modeledBackcast.trace.preTargetContext.precision, "estimated");
+assert.equal(modeledBackcast.trace.preTargetContext.assetGrowthApplied, false);
+
+const activeGrowthBackcast = calculateHouseholdFinancialPosition(baseInput({
+  recurringIncome: { value: 0, frequency: "annual", status: "net-household-income", sourcePaths: ["incomeBasis.insuredNetAnnualIncome"] },
+  recurringExpenses: { value: 0, frequency: "annual", status: "prepared-bucket", sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"] },
+  assetGrowth: {
+    annualRatePercent: 12,
+    active: true,
+    status: "current-output-active",
+    sourcePaths: ["activeGrowth.annualRatePercent"]
+  },
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 60,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(activeGrowthBackcast.preTargetPoints.length, 60);
+assert.ok(activeGrowthBackcast.totalAssetGrowth > 0);
+assert.ok(
+  activeGrowthBackcast.preTargetPoints.every(function (point) {
+    return point.growth === 0;
+  }),
+  "Reverse asset growth should not be applied in pre-target context."
+);
+assert.ok(
+  activeGrowthBackcast.warnings.some(function (warning) {
+    return warning.code === "modeled-backcast-reverse-asset-growth-not-applied";
+  }),
+  "Active forward growth should warn when reverse growth is not applied."
+);
+assert.ok(
+  activeGrowthBackcast.dataGaps.some(function (gap) {
+    return gap.code === "reverse-asset-growth-not-applied";
+  }),
+  "Active forward growth should leave a data gap for unsupported reverse growth."
+);
 
 const separateObligation = calculateHouseholdFinancialPosition(baseInput({
   scheduledObligations: [

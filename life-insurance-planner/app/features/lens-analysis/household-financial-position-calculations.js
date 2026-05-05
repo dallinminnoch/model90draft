@@ -9,6 +9,9 @@
   // downstream.
 
   const CALCULATION_VERSION = 1;
+  const DEFAULT_PRE_TARGET_CONTEXT_MONTHS = 60;
+  const MAX_PRE_TARGET_CONTEXT_MONTHS = 120;
+  const PRE_TARGET_CONTEXT_MODE_MODELED_BACKCAST = "modeledBackcast";
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -152,6 +155,7 @@
       totalExpenses: 0,
       totalScheduledObligations: 0,
       totalAssetGrowth: 0,
+      preTargetPoints: [],
       points: [],
       inputs: {
         startingResources: normalizeInputSnapshot(input.startingResources),
@@ -169,7 +173,15 @@
           "current-dollar projection is used unless assetGrowth is explicitly active",
           "targetBalance = startingResources + recurringIncome - recurringExpenses - scheduledObligations + active asset growth"
         ],
-        sourcePaths: []
+        sourcePaths: [],
+        preTargetContext: {
+          requested: false,
+          mode: "none",
+          precision: null,
+          basis: null,
+          months: 0,
+          assetGrowthApplied: false
+        }
       }
     };
   }
@@ -333,6 +345,130 @@
     }, 0);
   }
 
+  function normalizePreTargetContextOptions(options, output, assetGrowth, scheduledObligations) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const requested = safeOptions.includePreTargetContext === true;
+    const mode = normalizeString(safeOptions.preTargetMode) || PRE_TARGET_CONTEXT_MODE_MODELED_BACKCAST;
+    const requestedMonths = toOptionalNumber(safeOptions.preTargetMonths);
+    const months = Math.max(
+      0,
+      Math.min(
+        MAX_PRE_TARGET_CONTEXT_MONTHS,
+        Math.round(requestedMonths == null ? DEFAULT_PRE_TARGET_CONTEXT_MONTHS : requestedMonths)
+      )
+    );
+    const scheduledObligationSourcePaths = scheduledObligations.flatMap(function (row) {
+      return row.sourcePaths;
+    });
+
+    output.trace.preTargetContext = {
+      requested,
+      mode: requested ? mode : "none",
+      precision: requested ? "estimated" : null,
+      basis: requested ? "current income/expense assumptions reversed from asOfDate" : null,
+      months: requested ? months : 0,
+      assetGrowthApplied: false,
+      scheduledObligationsApplied: false,
+      sourcePaths: []
+    };
+
+    if (!requested) {
+      return {
+        requested: false,
+        active: false,
+        mode: "none",
+        months: 0,
+        scheduledObligationSourcePaths
+      };
+    }
+
+    if (mode !== PRE_TARGET_CONTEXT_MODE_MODELED_BACKCAST) {
+      output.dataGaps.push(createDataGap(
+        "unsupported-pre-target-context-mode",
+        "Pre-target context was requested with an unsupported mode.",
+        ["options.preTargetMode"],
+        { received: mode, supportedMode: PRE_TARGET_CONTEXT_MODE_MODELED_BACKCAST }
+      ));
+      return {
+        requested: true,
+        active: false,
+        mode,
+        months,
+        scheduledObligationSourcePaths
+      };
+    }
+
+    output.warnings.push(createWarning(
+      "modeled-backcast-not-historical",
+      "Pre-target household position context is modeled from current assumptions and is not historical account data.",
+      {
+        mode,
+        precision: "estimated",
+        months
+      }
+    ));
+
+    if (assetGrowth.active) {
+      output.warnings.push(createWarning(
+        "modeled-backcast-reverse-asset-growth-not-applied",
+        "Active forward asset growth was not applied in reverse for modeled pre-target context.",
+        {
+          mode,
+          assetGrowthStatus: assetGrowth.status,
+          sourcePaths: assetGrowth.sourcePaths
+        }
+      ));
+      output.dataGaps.push(createDataGap(
+        "reverse-asset-growth-not-applied",
+        "Reverse asset growth is not supported in this modeled pre-target context slice.",
+        assetGrowth.sourcePaths,
+        { mode, assetGrowthApplied: false }
+      ));
+    }
+
+    return {
+      requested: true,
+      active: months > 0,
+      mode,
+      months,
+      scheduledObligationSourcePaths
+    };
+  }
+
+  function buildModeledBackcastPreTargetPoints(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const asOfDate = safeOptions.asOfDate;
+    const months = safeOptions.months;
+    const monthlyIncome = safeOptions.monthlyIncome;
+    const monthlyExpenses = safeOptions.monthlyExpenses;
+    const monthlyNetCashFlow = monthlyIncome - monthlyExpenses;
+    const sourcePaths = uniqueStrings(safeOptions.sourcePaths);
+    const points = [];
+    let nextBalance = safeOptions.startingBalance;
+
+    for (let monthOffset = -1; monthOffset >= -months; monthOffset -= 1) {
+      const pointDate = addMonths(asOfDate.date, monthOffset);
+      const modeledBalance = nextBalance - monthlyNetCashFlow;
+      points.push({
+        date: formatDateOnly(pointDate),
+        monthIndex: monthOffset,
+        startingBalance: roundMoney(modeledBalance),
+        income: roundMoney(monthlyIncome),
+        expenses: roundMoney(monthlyExpenses),
+        scheduledObligations: 0,
+        growth: 0,
+        netCashFlow: roundMoney(monthlyNetCashFlow),
+        endingBalance: roundMoney(modeledBalance),
+        status: "modeledBackcast",
+        precision: "estimated",
+        sourcePaths
+      });
+      nextBalance = modeledBalance;
+    }
+
+    return points.reverse();
+  }
+
   function calculateHouseholdFinancialPosition(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const output = createOutputBase(safeInput);
@@ -405,6 +541,12 @@
     if (!assetGrowth.active) {
       output.trace.formula.push("assetGrowth was inactive; totalAssetGrowth remains 0 in current dollars.");
     }
+    const preTargetContext = normalizePreTargetContextOptions(
+      safeInput.options,
+      output,
+      assetGrowth,
+      scheduledObligations
+    );
 
     output.sourcePaths = uniqueStrings(
       startingResourcePaths
@@ -414,6 +556,13 @@
         .concat(scheduledObligations.flatMap(function (row) { return row.sourcePaths; }))
     );
     output.trace.sourcePaths = output.sourcePaths.slice();
+    output.trace.preTargetContext.sourcePaths = uniqueStrings(
+      startingResourcePaths
+        .concat(recurringIncomePaths)
+        .concat(recurringExpensePaths)
+        .concat(preTargetContext.scheduledObligationSourcePaths)
+        .concat(assetGrowth.active ? assetGrowth.sourcePaths : [])
+    );
     output.startingBalance = startingBalance == null ? null : roundMoney(startingBalance);
 
     if (output.dataGaps.some(function (gap) {
@@ -433,6 +582,18 @@
     const monthlyExpenses = annualExpenses / 12;
     const monthlyGrowthRate = assetGrowth.active ? assetGrowth.annualRatePercent / 100 / 12 : 0;
     let runningBalance = startingBalance;
+
+    if (preTargetContext.active) {
+      output.preTargetPoints = buildModeledBackcastPreTargetPoints({
+        asOfDate,
+        months: preTargetContext.months,
+        startingBalance,
+        monthlyIncome,
+        monthlyExpenses,
+        sourcePaths: output.trace.preTargetContext.sourcePaths
+      });
+      output.trace.formula.push("preTargetPoints use modeledBackcast current-dollar reverse cash flow and are not historical account data.");
+    }
 
     output.points.push(createPoint({
       date: asOfDate.normalizedDate,

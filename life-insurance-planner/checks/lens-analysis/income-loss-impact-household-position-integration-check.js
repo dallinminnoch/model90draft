@@ -153,6 +153,8 @@ assert.ok(
 const timelineSource = readRepoFile("app/features/lens-analysis/income-loss-impact-timeline-calculations.js");
 assert.match(timelineSource, /calculateHouseholdFinancialPosition/);
 assert.match(timelineSource, /treatedAssetOffsets\.totalTreatedAssetValue/);
+assert.match(timelineSource, /preTargetPoints/);
+assert.match(timelineSource, /modeledBackcastMonthly/);
 assert.doesNotMatch(timelineSource, /householdPosition\.startingResources[\s\S]*treatedExistingCoverageOffset/);
 
 const context = createContext();
@@ -186,6 +188,13 @@ assert.equal(output.financialRunway.existingCoverage, 500000);
 assert.equal(output.financialRunway.householdPosition.startingBalance, 100000);
 assert.equal(output.financialRunway.householdPosition.targetBalance, 340000);
 assert.equal(output.financialRunway.householdPositionAtTarget, 340000);
+assert.equal(output.financialRunway.householdPosition.preTargetPoints.length, 60);
+assert.ok(
+  output.financialRunway.householdPosition.warnings.some(function (warning) {
+    return warning.code === "modeled-backcast-not-historical";
+  }),
+  "Household position should warn that modeled pre-target context is not historical account data."
+);
 assert.equal(
   output.financialRunway.householdPosition.inputs.startingResources.sourcePath,
   "treatedAssetOffsets.totalTreatedAssetValue",
@@ -219,7 +228,18 @@ const preDeathPoints = output.scenarioTimeline.resourceSeries.points.filter(func
   return point.phase === "preDeath";
 });
 assert.ok(preDeathPoints.length > 1, "Pre-death household position should provide multiple projected points.");
-assert.equal(preDeathPoints[0].startingBalance, 100000);
+assert.ok(
+  preDeathPoints.some(function (point) {
+    return point.resolution === "modeledBackcastMonthly" && point.status === "modeledBackcast";
+  }),
+  "Pre-death timeline should include modeled backcast points supplied by HFP."
+);
+assert.ok(
+  preDeathPoints.some(function (point) {
+    return point.resolution === "monthly" && point.status === "projected";
+  }),
+  "Future death-age timeline should still include forward HFP monthly points."
+);
 assert.ok(
   preDeathPoints.every(function (point) {
     return point.startingBalance < 500000 && point.endingBalance < 500000;
@@ -233,6 +253,48 @@ assert.ok(
 assert.ok(
   preDeathPoints.at(-1).endingBalance > preDeathPoints[0].endingBalance,
   "Household surplus should increase pre-death balances."
+);
+
+const currentDateDeathOutput = calculateIncomeLossImpactTimeline({
+  lensModel: createLensModel(),
+  valuationDate: "2026-06-15",
+  selectedDeathAge: 46,
+  options: {
+    scenario: {
+      projectionHorizonYears: 10,
+      mortgageTreatmentOverride: "followAssumptions"
+    }
+  }
+});
+const currentDatePreDeathPoints = currentDateDeathOutput.scenarioTimeline.resourceSeries.points.filter(function (point) {
+  return point.phase === "preDeath";
+});
+assert.equal(currentDateDeathOutput.selectedDeath.date, "2026-06-15");
+assert.equal(currentDateDeathOutput.financialRunway.householdPosition.durationMonths, 0);
+assert.equal(currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints.length, 60);
+assert.equal(currentDatePreDeathPoints.length, 60);
+assert.ok(
+  currentDatePreDeathPoints.every(function (point) {
+    return point.resolution === "modeledBackcastMonthly" && point.status === "modeledBackcast";
+  }),
+  "Current-date death should get modeled pre-death points from HFP preTargetPoints."
+);
+assert.ok(
+  currentDatePreDeathPoints.every(function (point) {
+    return point.endingBalance < currentDateDeathOutput.financialRunway.existingCoverage;
+  }),
+  "Modeled pre-death points should not include life insurance coverage."
+);
+const currentDateDeathPoint = currentDateDeathOutput.scenarioTimeline.resourceSeries.points.find(function (point) {
+  return point.id === "death-point";
+});
+assert.ok(currentDateDeathPoint, "Current-date death should include the death point.");
+assert.equal(
+  currentDateDeathPoint.startingBalance,
+  currentDateDeathOutput.financialRunway.householdPosition.targetBalance
+    + currentDateDeathOutput.financialRunway.existingCoverage
+    - currentDateDeathOutput.financialRunway.immediateObligations,
+  "Death point should still equal household target plus coverage minus immediate obligations."
 );
 
 const deficitOutput = calculateIncomeLossImpactTimeline({

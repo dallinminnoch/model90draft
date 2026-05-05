@@ -7,6 +7,7 @@
   const DEFAULT_PROJECTION_HORIZON_YEARS = 40;
   const MIN_PROJECTION_HORIZON_YEARS = 5;
   const MAX_PROJECTION_HORIZON_YEARS = 100;
+  const RUNWAY_CHART_TOP_HEADROOM_RATIO = 0.12;
   const MORTGAGE_TREATMENT_LABELS = Object.freeze({
     followAssumptions: "Follow Assumption Controls",
     payOffMortgage: "Pay off mortgage",
@@ -647,6 +648,40 @@
     return `Year ${yearIndex}`;
   }
 
+  function resolveScenarioAxisDomainMonths(scenarioTimeline) {
+    const axis = isPlainObject(scenarioTimeline?.axis) ? scenarioTimeline.axis : {};
+    const deathDate = axis.deathDate || scenarioTimeline?.scenario?.deathDate || "";
+    const preDeathYears = toOptionalNumber(axis.preDeathYears);
+    const minCandidates = [0];
+    const maxCandidates = [12];
+    const axisStartOffset = deathDate && axis.startDate
+      ? calculateMonthOffset(deathDate, axis.startDate)
+      : null;
+    const axisEndOffset = deathDate && axis.endDate
+      ? calculateMonthOffset(deathDate, axis.endDate)
+      : null;
+
+    if (axisStartOffset != null && axisStartOffset < 0) {
+      minCandidates.push(axisStartOffset);
+    }
+    if (preDeathYears != null && preDeathYears > 0) {
+      minCandidates.push(-Math.ceil(preDeathYears * 12));
+    }
+    if (axisEndOffset != null && axisEndOffset > 0) {
+      maxCandidates.push(axisEndOffset);
+    }
+
+    return {
+      minRelativeMonthIndex: Math.min(...minCandidates),
+      maxRelativeMonthIndex: Math.max(...maxCandidates)
+    };
+  }
+
+  function resolveRunwayChartMaxBalance(maxPlottedBalance) {
+    const safeMaxPlottedBalance = Math.max(1, maxPlottedBalance || 0);
+    return safeMaxPlottedBalance / (1 - RUNWAY_CHART_TOP_HEADROOM_RATIO);
+  }
+
   function buildRunwayChartModel(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const scenarioTimeline = getScenarioTimeline(timelineResult);
@@ -667,11 +702,14 @@
         return value != null;
       });
     const fallbackMaxMonthIndex = Math.max(12, (runway.projectionYears || 1) * 12);
+    const scenarioAxisDomain = usesScenarioSeries
+      ? resolveScenarioAxisDomainMonths(scenarioTimeline)
+      : null;
     const minRelativeMonthIndex = usesScenarioSeries
-      ? Math.min(0, ...relativeMonths)
+      ? Math.min(scenarioAxisDomain.minRelativeMonthIndex, 0, ...relativeMonths)
       : 0;
     const maxRelativeMonthIndex = usesScenarioSeries
-      ? Math.max(12, ...relativeMonths)
+      ? Math.max(scenarioAxisDomain.maxRelativeMonthIndex, 12, ...relativeMonths)
       : fallbackMaxMonthIndex;
     const relativeMonthSpan = Math.max(1, maxRelativeMonthIndex - minRelativeMonthIndex);
     const maxYearIndex = Math.max(1, Math.ceil(maxRelativeMonthIndex / 12));
@@ -683,9 +721,10 @@
         return value != null;
       })
       .concat(toOptionalNumber(runway.netAvailableResources) || 0);
-    const maxBalance = Math.max(1, ...balances.map(function (value) {
+    const maxPlottedBalance = Math.max(1, ...balances.map(function (value) {
       return Math.max(0, value);
     }));
+    const maxBalance = resolveRunwayChartMaxBalance(maxPlottedBalance);
     const chartPoints = points.map(function (point) {
       const relativeMonthIndex = getPointRelativeMonthIndex(point);
       const relativeYear = getPointRelativeYear(point);
