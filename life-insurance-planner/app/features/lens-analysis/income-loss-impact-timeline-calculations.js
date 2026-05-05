@@ -21,6 +21,23 @@
     "payOffMortgage",
     "continueMortgagePayments"
   ]);
+  const PROJECTED_ASSET_OFFSET_ACTIVE_STATUS = "method-active";
+  const PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION = 1;
+  const HOUSEHOLD_ASSET_GROWTH_CURRENT_DOLLAR_SOURCE_PATH =
+    "incomeLossImpact.householdPosition.assetGrowth.currentDollar";
+  const HOUSEHOLD_ASSET_GROWTH_EXCLUDED_CATEGORY_KEYS = Object.freeze([
+    "emergencyFund",
+    "qualifiedAnnuities",
+    "nonqualifiedAnnuities",
+    "primaryResidenceEquity",
+    "otherRealEstateEquity",
+    "businessPrivateCompanyValue",
+    "educationSpecificSavings",
+    "trustRestrictedAssets",
+    "stockCompensationDeferredCompensation",
+    "digitalAssetsCrypto",
+    "otherCustomAsset"
+  ]);
   const MONEY_FORMATTER = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -325,6 +342,417 @@
       }),
       "missing"
     );
+  }
+
+  function getHouseholdAssetGrowthGateSourcePaths() {
+    return [
+      "analysisSettings.projectedAssetOffsetAssumptions.enabled",
+      "analysisSettings.projectedAssetOffsetAssumptions.consumptionStatus",
+      "analysisSettings.projectedAssetOffsetAssumptions.activationVersion",
+      "analysisSettings.assetTreatmentAssumptions.assetGrowthProjectionAssumptions.mode"
+    ];
+  }
+
+  function getProjectedAssetOffsetSourcePaths() {
+    return [
+      "projectedAssetOffset.effectiveProjectedAssetOffset",
+      "projectedAssetOffset.currentTreatedAssetOffset",
+      "projectedAssetOffset.projectedGrowthAdjustment",
+      "projectedAssetOffset.projectionYears",
+      "projectedAssetOffset.includedCategories",
+      "projectedAssetOffset.excludedCategories"
+    ];
+  }
+
+  function createHouseholdAssetGrowthInput(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const active = safeOptions.active === true;
+    const annualRatePercent = toOptionalNumber(safeOptions.annualRatePercent);
+    const sourcePaths = uniqueStrings(
+      (active ? [] : [HOUSEHOLD_ASSET_GROWTH_CURRENT_DOLLAR_SOURCE_PATH])
+        .concat(safeOptions.sourcePaths || [])
+    );
+    return {
+      value: active && annualRatePercent != null ? annualRatePercent : 0,
+      annualRatePercent: active && annualRatePercent != null ? annualRatePercent : 0,
+      active,
+      status: safeOptions.status || (active ? "method-active" : "current-dollar"),
+      sourcePath: safeOptions.sourcePath || (active
+        ? "projectedAssetOffset.includedCategories"
+        : HOUSEHOLD_ASSET_GROWTH_CURRENT_DOLLAR_SOURCE_PATH),
+      sourcePaths,
+      trace: isPlainObject(safeOptions.trace)
+        ? safeOptions.trace
+        : {
+            active,
+            fallbackReason: safeOptions.fallbackReason || null,
+            sourcePaths
+          },
+      warnings: Array.isArray(safeOptions.warnings) ? safeOptions.warnings.slice() : [],
+      dataGaps: Array.isArray(safeOptions.dataGaps) ? safeOptions.dataGaps.slice() : []
+    };
+  }
+
+  function createInactiveHouseholdAssetGrowthInput(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const gate = isPlainObject(safeOptions.gate) ? safeOptions.gate : {};
+    const fallbackReason = safeOptions.fallbackReason || "asset-growth-current-dollar";
+    const sourcePaths = uniqueStrings(
+      getHouseholdAssetGrowthGateSourcePaths()
+        .concat(safeOptions.sourcePaths || [])
+    );
+    return createHouseholdAssetGrowthInput({
+      active: false,
+      status: safeOptions.status || "current-dollar",
+      fallbackReason,
+      sourcePaths,
+      warnings: safeOptions.warnings,
+      dataGaps: safeOptions.dataGaps,
+      trace: {
+        active: false,
+        activeGate: gate,
+        sourceMode: gate.sourceMode || null,
+        includedEligibleCategoryKeys: [],
+        excludedCategoryKeys: [],
+        eligibleGrowthBase: 0,
+        totalTreatedBase: safeOptions.totalTreatedBase == null ? null : roundMoney(safeOptions.totalTreatedBase),
+        selectedAnnualGrowthRatePercent: 0,
+        fallbackReason,
+        sourcePaths
+      }
+    });
+  }
+
+  function getHouseholdPositionAnalysisSettings(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    if (isPlainObject(safeOptions.analysisSettings)) {
+      return safeOptions.analysisSettings;
+    }
+    if (isPlainObject(safeOptions.profileRecord?.analysisSettings)) {
+      return safeOptions.profileRecord.analysisSettings;
+    }
+    return {};
+  }
+
+  function resolveHouseholdAssetGrowthGate(analysisSettings) {
+    const safeSettings = isPlainObject(analysisSettings) ? analysisSettings : {};
+    const projectedAssumptions = isPlainObject(safeSettings.projectedAssetOffsetAssumptions)
+      ? safeSettings.projectedAssetOffsetAssumptions
+      : {};
+    const projectionAssumptions = isPlainObject(
+      safeSettings.assetTreatmentAssumptions?.assetGrowthProjectionAssumptions
+    )
+      ? safeSettings.assetTreatmentAssumptions.assetGrowthProjectionAssumptions
+      : {};
+    const activationVersion = toOptionalNumber(projectedAssumptions.activationVersion);
+    const consumptionStatus = normalizeString(projectedAssumptions.consumptionStatus);
+    const sourceMode = normalizeString(projectionAssumptions.mode);
+    const enabled = projectedAssumptions.enabled === true;
+    const requested = enabled
+      || consumptionStatus === PROJECTED_ASSET_OFFSET_ACTIVE_STATUS
+      || (activationVersion != null && activationVersion >= PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION)
+      || sourceMode === "projectedOffsets";
+    const active = enabled
+      && consumptionStatus === PROJECTED_ASSET_OFFSET_ACTIVE_STATUS
+      && activationVersion != null
+      && activationVersion >= PROJECTED_ASSET_OFFSET_MIN_ACTIVATION_VERSION
+      && sourceMode === "projectedOffsets";
+
+    return {
+      active,
+      requested,
+      enabled,
+      consumptionStatus: consumptionStatus || null,
+      activationVersion,
+      sourceMode: sourceMode || null,
+      sourcePaths: getHouseholdAssetGrowthGateSourcePaths()
+    };
+  }
+
+  function getCategoryKeys(rows) {
+    return uniqueStrings((Array.isArray(rows) ? rows : []).map(function (row) {
+      return row?.categoryKey;
+    }));
+  }
+
+  function getHouseholdAssetGrowthEligibleRows(projectedAssetOffset) {
+    const includedCategories = Array.isArray(projectedAssetOffset?.includedCategories)
+      ? projectedAssetOffset.includedCategories
+      : [];
+    const eligibleRows = [];
+    const guardExcludedCategoryKeys = [];
+
+    includedCategories.forEach(function (row) {
+      const categoryKey = normalizeString(row?.categoryKey);
+      const treatedValue = toOptionalNumber(row?.treatedValue);
+      const rate = toOptionalNumber(row?.assumedAnnualGrowthRatePercent);
+      if (!categoryKey) {
+        return;
+      }
+      if (HOUSEHOLD_ASSET_GROWTH_EXCLUDED_CATEGORY_KEYS.includes(categoryKey)) {
+        guardExcludedCategoryKeys.push(categoryKey);
+        return;
+      }
+      if (treatedValue == null || treatedValue <= 0 || rate == null || rate < 0) {
+        guardExcludedCategoryKeys.push(categoryKey);
+        return;
+      }
+      eligibleRows.push({
+        categoryKey,
+        treatedValue,
+        rate,
+        projectedTreatedValue: toOptionalNumber(row?.projectedTreatedValue)
+      });
+    });
+
+    return {
+      eligibleRows,
+      guardExcludedCategoryKeys: uniqueStrings(guardExcludedCategoryKeys)
+    };
+  }
+
+  function resolveHouseholdAssetGrowthRateFromProjectedOffset(projectedAssetOffset, eligibleRows, projectionYears, totalTreatedBase) {
+    let eligibleGrowthBase = 0;
+    let weightedRateTotal = 0;
+    let projectedEligibleValue = 0;
+
+    eligibleRows.forEach(function (row) {
+      const projectedValue = row.projectedTreatedValue != null
+        ? row.projectedTreatedValue
+        : row.treatedValue * Math.pow(1 + row.rate / 100, projectionYears);
+      eligibleGrowthBase += row.treatedValue;
+      weightedRateTotal += row.treatedValue * row.rate;
+      projectedEligibleValue += Math.max(row.treatedValue, projectedValue);
+    });
+
+    const eligibleGrowthAdjustment = Math.max(0, projectedEligibleValue - eligibleGrowthBase);
+    const blendedCategoryRate = eligibleGrowthBase > 0 ? weightedRateTotal / eligibleGrowthBase : 0;
+    const preparedGrowthAdjustment = toOptionalNumber(projectedAssetOffset?.projectedGrowthAdjustment) || 0;
+    const selectedGrowthAdjustment = eligibleGrowthAdjustment > 0
+      ? eligibleGrowthAdjustment
+      : preparedGrowthAdjustment;
+    const annualRatePercent = totalTreatedBase > 0 && projectionYears > 0 && selectedGrowthAdjustment > 0
+      ? (Math.pow((totalTreatedBase + selectedGrowthAdjustment) / totalTreatedBase, 1 / projectionYears) - 1) * 100
+      : 0;
+
+    return {
+      annualRatePercent: roundYears(annualRatePercent) || 0,
+      blendedCategoryRate: roundYears(blendedCategoryRate) || 0,
+      eligibleGrowthBase: roundMoney(eligibleGrowthBase),
+      selectedGrowthAdjustment: roundMoney(selectedGrowthAdjustment),
+      preparedGrowthAdjustment: roundMoney(preparedGrowthAdjustment)
+    };
+  }
+
+  function resolveHouseholdPositionAssetGrowthInput(lensModel, startingResources, options) {
+    const analysisSettings = getHouseholdPositionAnalysisSettings(options);
+    const gate = resolveHouseholdAssetGrowthGate(analysisSettings);
+    const startingResourceValue = toOptionalNumber(startingResources?.value);
+    const baseSourcePaths = gate.sourcePaths.concat(getProjectedAssetOffsetSourcePaths());
+
+    if (!gate.active) {
+      return createInactiveHouseholdAssetGrowthInput({
+        gate,
+        status: gate.requested ? "projected-asset-growth-gate-inactive" : "current-dollar",
+        fallbackReason: gate.requested
+          ? "projected-asset-offset-active-gate-invalid"
+          : "projected-asset-offset-active-gate-missing",
+        totalTreatedBase: startingResourceValue,
+        sourcePaths: baseSourcePaths,
+        warnings: gate.requested
+          ? [
+              createWarning(
+                "household-asset-growth-active-gate-invalid",
+                "Household asset growth remained current-dollar because the projected asset offset active gate was incomplete or invalid.",
+                {
+                  enabled: gate.enabled,
+                  consumptionStatus: gate.consumptionStatus,
+                  activationVersion: gate.activationVersion,
+                  sourceMode: gate.sourceMode
+                }
+              )
+            ]
+          : []
+      });
+    }
+
+    const projectedAssetOffset = isPlainObject(lensModel?.projectedAssetOffset)
+      ? lensModel.projectedAssetOffset
+      : null;
+    if (!projectedAssetOffset) {
+      const sourcePaths = uniqueStrings(baseSourcePaths);
+      return createInactiveHouseholdAssetGrowthInput({
+        gate,
+        status: "projected-asset-growth-missing-prepared-output",
+        fallbackReason: "missing-projected-asset-offset",
+        totalTreatedBase: startingResourceValue,
+        sourcePaths,
+        warnings: [
+          createWarning(
+            "household-asset-growth-missing-projected-offset",
+            "Projected asset offset active marker was present, but prepared projectedAssetOffset output was missing; household position used current-dollar growth.",
+            { sourcePaths }
+          )
+        ],
+        dataGaps: [
+          createDataGap(
+            "missing-projected-asset-offset-for-household-growth",
+            "Projected asset offset output is required before Household Financial Position can apply active asset growth.",
+            sourcePaths
+          )
+        ]
+      });
+    }
+
+    const currentTreatedAssetOffset = toOptionalNumber(projectedAssetOffset.currentTreatedAssetOffset);
+    const effectiveProjectedAssetOffset = toOptionalNumber(projectedAssetOffset.effectiveProjectedAssetOffset);
+    const projectedGrowthAdjustment = toOptionalNumber(projectedAssetOffset.projectedGrowthAdjustment);
+    const projectionYears = toOptionalNumber(projectedAssetOffset.projectionYears);
+    const sourceMode = normalizeString(projectedAssetOffset.sourceMode);
+    const formulaMatches = currentTreatedAssetOffset != null
+      && projectedGrowthAdjustment != null
+      && effectiveProjectedAssetOffset != null
+      && roundMoney(currentTreatedAssetOffset + projectedGrowthAdjustment) === roundMoney(effectiveProjectedAssetOffset);
+    const treatedBaseMatches = startingResourceValue != null
+      && currentTreatedAssetOffset != null
+      && roundMoney(startingResourceValue) === roundMoney(currentTreatedAssetOffset);
+    const projectedCategories = getHouseholdAssetGrowthEligibleRows(projectedAssetOffset);
+    const excludedCategoryKeys = uniqueStrings(
+      getCategoryKeys(projectedAssetOffset.excludedCategories)
+        .concat(projectedCategories.guardExcludedCategoryKeys)
+    );
+
+    if (
+      sourceMode !== "projectedOffsets"
+      || !treatedBaseMatches
+      || !formulaMatches
+      || projectionYears == null
+      || projectionYears <= 0
+      || projectedGrowthAdjustment == null
+      || projectedGrowthAdjustment <= 0
+    ) {
+      const fallbackReason = sourceMode !== "projectedOffsets"
+        ? "projected-asset-offset-source-mode-mismatch"
+        : !treatedBaseMatches
+          ? "projected-asset-offset-treated-base-mismatch"
+          : !formulaMatches
+            ? "projected-asset-offset-formula-mismatch"
+            : "invalid-projected-asset-offset-growth";
+      const sourcePaths = uniqueStrings(baseSourcePaths);
+      return createInactiveHouseholdAssetGrowthInput({
+        gate,
+        status: "projected-asset-growth-invalid-prepared-output",
+        fallbackReason,
+        totalTreatedBase: startingResourceValue,
+        sourcePaths,
+        warnings: [
+          createWarning(
+            "household-asset-growth-invalid-projected-offset",
+            "Projected asset offset active marker was present, but prepared projectedAssetOffset output was invalid; household position used current-dollar growth.",
+            {
+              fallbackReason,
+              currentTreatedAssetOffset,
+              projectedGrowthAdjustment,
+              effectiveProjectedAssetOffset,
+              projectionYears,
+              sourceMode
+            }
+          )
+        ],
+        dataGaps: [
+          createDataGap(
+            "invalid-projected-asset-offset-for-household-growth",
+            "Valid projected asset offset output is required before Household Financial Position can apply active asset growth.",
+            sourcePaths,
+            { fallbackReason }
+          )
+        ]
+      });
+    }
+
+    if (!projectedCategories.eligibleRows.length) {
+      const sourcePaths = uniqueStrings(baseSourcePaths);
+      return createInactiveHouseholdAssetGrowthInput({
+        gate,
+        status: "projected-asset-growth-no-eligible-categories",
+        fallbackReason: "no-eligible-projected-asset-offset-categories",
+        totalTreatedBase: startingResourceValue,
+        sourcePaths,
+        warnings: [
+          createWarning(
+            "household-asset-growth-no-eligible-categories",
+            "Projected asset offset active marker was present, but no eligible projected asset categories were available for Household Financial Position growth.",
+            { excludedCategoryKeys }
+          )
+        ],
+        dataGaps: [
+          createDataGap(
+            "missing-eligible-projected-asset-categories-for-household-growth",
+            "Eligible projected asset categories are required before Household Financial Position can apply active asset growth.",
+            sourcePaths,
+            { excludedCategoryKeys }
+          )
+        ]
+      });
+    }
+
+    const resolvedRate = resolveHouseholdAssetGrowthRateFromProjectedOffset(
+      projectedAssetOffset,
+      projectedCategories.eligibleRows,
+      projectionYears,
+      currentTreatedAssetOffset
+    );
+    if (resolvedRate.annualRatePercent <= 0) {
+      const sourcePaths = uniqueStrings(baseSourcePaths);
+      return createInactiveHouseholdAssetGrowthInput({
+        gate,
+        status: "projected-asset-growth-zero-rate",
+        fallbackReason: "eligible-projected-asset-growth-rate-zero",
+        totalTreatedBase: startingResourceValue,
+        sourcePaths,
+        warnings: [
+          createWarning(
+            "household-asset-growth-zero-active-rate",
+            "Projected asset offset active marker was present, but eligible growth resolved to a 0% rate; household position used current-dollar growth."
+          )
+        ]
+      });
+    }
+
+    const includedEligibleCategoryKeys = projectedCategories.eligibleRows.map(function (row) {
+      return row.categoryKey;
+    });
+    const sourcePaths = uniqueStrings(
+      baseSourcePaths.concat([
+        "projectedAssetOffset.includedCategories[].treatedValue",
+        "projectedAssetOffset.includedCategories[].projectedTreatedValue",
+        "projectedAssetOffset.includedCategories[].assumedAnnualGrowthRatePercent"
+      ])
+    );
+    return createHouseholdAssetGrowthInput({
+      active: true,
+      annualRatePercent: resolvedRate.annualRatePercent,
+      status: "method-active",
+      sourcePath: "projectedAssetOffset.includedCategories",
+      sourcePaths,
+      trace: {
+        active: true,
+        activeGate: gate,
+        sourceMode,
+        includedEligibleCategoryKeys,
+        excludedCategoryKeys,
+        eligibleGrowthBase: resolvedRate.eligibleGrowthBase,
+        totalTreatedBase: roundMoney(currentTreatedAssetOffset),
+        selectedAnnualGrowthRatePercent: resolvedRate.annualRatePercent,
+        blendedCategoryGrowthRatePercent: resolvedRate.blendedCategoryRate,
+        selectedGrowthAdjustment: resolvedRate.selectedGrowthAdjustment,
+        preparedProjectedGrowthAdjustment: resolvedRate.preparedGrowthAdjustment,
+        projectionYears,
+        rateBasis: "total-treated-base-equivalent-rate-from-eligible-projected-offset-growth",
+        fallbackReason: null,
+        sourcePaths
+      }
+    });
   }
 
   function resolveProjectedAssetOffsetCandidate(lensModel, treatedAssetValue) {
@@ -1190,6 +1618,11 @@
     const startingResources = resolveHouseholdPositionStartingResourcesInput(lensModel);
     const recurringIncome = resolveHouseholdPositionRecurringIncomeInput(lensModel);
     const recurringExpenses = resolveHouseholdPositionRecurringExpenseInput(lensModel);
+    const assetGrowth = resolveHouseholdPositionAssetGrowthInput(
+      lensModel,
+      startingResources,
+      safeOptions
+    );
 
     return {
       asOfDate: safeOptions.asOfDate,
@@ -1215,23 +1648,47 @@
         sourcePaths: recurringExpenses.sourcePaths
       },
       scheduledObligations: [],
-      assetGrowth: {
-        value: 0,
-        annualRatePercent: 0,
-        active: false,
-        status: "current-dollar",
-        sourcePath: "incomeLossImpact.householdPosition.assetGrowth.currentDollar",
-        sourcePaths: [
-          "incomeLossImpact.householdPosition.assetGrowth.currentDollar",
-          "projectedAssetGrowth.includedCategories"
-        ]
-      },
+      assetGrowth,
       options: {
         product: "generic-household-position",
         scheduledObligationsPolicy: "none-added-mortgage-already-in-recurring-expenses",
-        projectionMode: "current-dollar"
+        projectionMode: assetGrowth.active ? "asset-growth" : "current-dollar",
+        assetGrowthStatus: assetGrowth.status
       }
     };
+  }
+
+  function applyHouseholdAssetGrowthDiagnostics(householdPosition, assetGrowthInput) {
+    if (!isPlainObject(householdPosition) || !isPlainObject(assetGrowthInput)) {
+      return householdPosition;
+    }
+
+    householdPosition.warnings = (Array.isArray(householdPosition.warnings)
+      ? householdPosition.warnings
+      : []).concat(assetGrowthInput.warnings || []);
+    householdPosition.dataGaps = (Array.isArray(householdPosition.dataGaps)
+      ? householdPosition.dataGaps
+      : []).concat(assetGrowthInput.dataGaps || []);
+    householdPosition.sourcePaths = uniqueStrings(
+      (householdPosition.sourcePaths || []).concat(assetGrowthInput.sourcePaths || [])
+    );
+    householdPosition.trace = isPlainObject(householdPosition.trace)
+      ? householdPosition.trace
+      : {};
+    householdPosition.trace.assetGrowth = isPlainObject(assetGrowthInput.trace)
+      ? assetGrowthInput.trace
+      : null;
+    householdPosition.trace.sourcePaths = uniqueStrings(
+      (householdPosition.trace.sourcePaths || []).concat(assetGrowthInput.sourcePaths || [])
+    );
+    if (isPlainObject(householdPosition.inputs?.assetGrowth)) {
+      householdPosition.inputs.assetGrowth.trace = isPlainObject(assetGrowthInput.trace)
+        ? assetGrowthInput.trace
+        : null;
+      householdPosition.inputs.assetGrowth.warnings = (assetGrowthInput.warnings || []).slice();
+      householdPosition.inputs.assetGrowth.dataGaps = (assetGrowthInput.dataGaps || []).slice();
+    }
+    return householdPosition;
   }
 
   function createHouseholdFinancialPositionFallback(input, fallbackStartingResources) {
@@ -1279,10 +1736,13 @@
   function calculateHouseholdPositionForRunway(lensModel, options) {
     const safeOptions = isPlainObject(options) ? options : {};
     const input = buildHouseholdFinancialPositionInput(lensModel, safeOptions);
+    let result;
     if (typeof lensAnalysis.calculateHouseholdFinancialPosition !== "function") {
-      return createHouseholdFinancialPositionFallback(input, safeOptions.fallbackStartingResources);
+      result = createHouseholdFinancialPositionFallback(input, safeOptions.fallbackStartingResources);
+    } else {
+      result = lensAnalysis.calculateHouseholdFinancialPosition(input);
     }
-    return lensAnalysis.calculateHouseholdFinancialPosition(input);
+    return applyHouseholdAssetGrowthDiagnostics(result, input.assetGrowth);
   }
 
   function addUnique(target, values) {
@@ -2249,7 +2709,9 @@
     const householdPosition = calculateHouseholdPositionForRunway(lensModel, {
       asOfDate: parsedValuationDate ? parsedValuationDate.normalizedDate : safeInput.valuationDate,
       targetDate: output.selectedDeath.date,
-      fallbackStartingResources: assets
+      fallbackStartingResources: assets,
+      analysisSettings: safeInput.analysisSettings,
+      profileRecord
     });
     (Array.isArray(householdPosition?.warnings) ? householdPosition.warnings : []).forEach(function (warning) {
       output.warnings.push(warning);
@@ -2568,7 +3030,7 @@
     output.scenarioTimeline = buildScenarioTimeline(output, safeInput);
 
     output.trace.formula.push(
-      "householdPosition.targetBalance = treatedAssetOffsets.totalTreatedAssetValue + mature net household income - mature recurring expenses through selected death date",
+      "householdPosition.targetBalance = treatedAssetOffsets.totalTreatedAssetValue + mature net household income - mature recurring expenses + active gated asset growth through selected death date",
       "netAvailableResources = preferred coverage bucket + householdPosition.targetBalance - immediate obligations",
       "annualHouseholdShortfall = ongoingSupport.annualTotalEssentialSupportCost - survivorScenario.survivorNetAnnualIncome",
       "yearsOfFinancialSecurity = netAvailableResources / annualHouseholdShortfall",
