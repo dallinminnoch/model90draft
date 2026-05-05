@@ -349,7 +349,7 @@ assert.match(timelineHtml, /income-impact-supporting-events/);
 assert.match(timelineHtml, /data-income-impact-timeline-event-type="coverageAvailable"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-visual-event-group|data-income-impact-visual-event-type/);
 assert.doesNotMatch(timelineHtml, /Built from helper events|calculateIncomeLossImpactTimeline|Selected scenario timeline/);
-assert.match(timelineHtml, /This preview does not change the LENS recommendation\./);
+assert.match(securityHtml, /It does not change the LENS recommendation\./);
 
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-methods.js",
