@@ -88,33 +88,6 @@
         </section>
 
         <div class="panel-stack">
-          <section class="income-impact-section" data-income-impact-death-age-control hidden>
-            <article class="income-impact-card income-impact-card--wide">
-              <div class="income-impact-card-header">
-                <h2>Death Age Scenario</h2>
-                <p>Preview only. This does not change the LENS recommendation.</p>
-              </div>
-              <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
-                <label for="income-impact-death-age-slider">Selected death age</label>
-                <input
-                  id="income-impact-death-age-slider"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value="0"
-                  data-income-impact-death-age-slider
-                  disabled
-                >
-              </div>
-              <div class="income-impact-death-age-summary">
-                <span>Age <strong data-income-impact-death-age-value>Not available</strong></span>
-                <span>Date <strong data-income-impact-death-date-value>Not available</strong></span>
-              </div>
-              <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
-            </article>
-          </section>
-
           <section class="income-impact-section" data-income-impact-display aria-live="polite">
             <div class="income-impact-empty-state">
               <div class="section-label">Income Impact Review</div>
@@ -127,6 +100,61 @@
             <a class="btn btn-secondary" href="analysis-setup.html" data-income-impact-route-link>Back to Assumptions</a>
             <a class="btn btn-primary" href="analysis-estimate.html" data-income-impact-route-link>Continue to LENS Result</a>
           </div>
+
+          <section class="income-impact-scenario-banner" data-income-impact-scenario-banner>
+            <div class="income-impact-scenario-header">
+              <div class="income-impact-scenario-title">
+                <span class="section-label">Scenario Controls</span>
+                <p>Preview only. These controls do not change the LENS recommendation.</p>
+              </div>
+              <div class="income-impact-scenario-summary" data-income-impact-scenario-summary>
+                <span>Age <strong data-income-impact-death-age-value>Not available</strong></span>
+                <span>Date <strong data-income-impact-death-date-value>Not available</strong></span>
+                <span>Horizon <strong data-income-impact-projection-horizon-value>40 years</strong></span>
+                <span>Mortgage <strong data-income-impact-mortgage-treatment-value>Follow Assumption Controls</strong></span>
+              </div>
+              <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide controls</button>
+            </div>
+            <div class="income-impact-scenario-content" data-income-impact-scenario-content>
+              <div class="income-impact-scenario-field" data-income-impact-death-age-control>
+                <label for="income-impact-death-age-slider">Death age</label>
+                <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
+                  <input
+                    id="income-impact-death-age-slider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="0"
+                    data-income-impact-death-age-slider
+                    disabled
+                  >
+                </div>
+                <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
+              </div>
+              <label class="income-impact-scenario-field" for="income-impact-projection-horizon">
+                <span>Projection horizon</span>
+                <input
+                  id="income-impact-projection-horizon"
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value="40"
+                  data-income-impact-projection-horizon
+                >
+              </label>
+              <label class="income-impact-scenario-field" for="income-impact-mortgage-treatment">
+                <span>Mortgage treatment</span>
+                <select id="income-impact-mortgage-treatment" data-income-impact-mortgage-treatment>
+                  <option value="followAssumptions">Follow Assumption Controls</option>
+                  <option value="payOffMortgage">Pay off mortgage</option>
+                  <option value="continueMortgagePayments">Continue mortgage payments</option>
+                </select>
+                <small>Current mortgage math follows Assumption Controls.</small>
+              </label>
+            </div>
+          </section>
         </div>
       </section>
     </section>

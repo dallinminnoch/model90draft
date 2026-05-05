@@ -4,6 +4,14 @@
 
   const UNAVAILABLE_COPY = "Not available";
   const EMPTY_MESSAGE = "Not available until income and survivor inputs are completed.";
+  const DEFAULT_PROJECTION_HORIZON_YEARS = 40;
+  const MIN_PROJECTION_HORIZON_YEARS = 5;
+  const MAX_PROJECTION_HORIZON_YEARS = 100;
+  const MORTGAGE_TREATMENT_LABELS = Object.freeze({
+    followAssumptions: "Follow Assumption Controls",
+    payOffMortgage: "Pay off mortgage",
+    continueMortgagePayments: "Continue mortgage payments"
+  });
   let incomeImpactState = null;
 
   function isPlainObject(value) {
@@ -121,6 +129,24 @@
     const number = toOptionalNumber(value);
     const rounded = number == null ? minAge : Math.round(number);
     return Math.max(minAge, Math.min(maxAge, rounded));
+  }
+
+  function clampProjectionHorizonYears(value) {
+    const number = toOptionalNumber(value);
+    const rounded = number == null ? DEFAULT_PROJECTION_HORIZON_YEARS : Math.round(number);
+    return Math.max(MIN_PROJECTION_HORIZON_YEARS, Math.min(MAX_PROJECTION_HORIZON_YEARS, rounded));
+  }
+
+  function normalizeMortgageTreatmentOverride(value) {
+    const normalized = String(value || "").trim();
+    return Object.prototype.hasOwnProperty.call(MORTGAGE_TREATMENT_LABELS, normalized)
+      ? normalized
+      : "followAssumptions";
+  }
+
+  function getMortgageTreatmentLabel(value) {
+    const normalized = normalizeMortgageTreatmentOverride(value);
+    return MORTGAGE_TREATMENT_LABELS[normalized];
   }
 
   function resolveDeathAgeControlState(lensModel, valuationDate) {
@@ -276,9 +302,27 @@
       control,
       sliderRow: control.querySelector("[data-income-impact-death-age-slider-row]"),
       slider: control.querySelector("[data-income-impact-death-age-slider]"),
-      ageValue: control.querySelector("[data-income-impact-death-age-value]"),
-      dateValue: control.querySelector("[data-income-impact-death-date-value]"),
+      ageValue: control.querySelector("[data-income-impact-death-age-value]") || document.querySelector("[data-income-impact-death-age-value]"),
+      dateValue: control.querySelector("[data-income-impact-death-date-value]") || document.querySelector("[data-income-impact-death-date-value]"),
       warning: control.querySelector("[data-income-impact-death-age-warning]")
+    };
+  }
+
+  function getScenarioBannerElements() {
+    const banner = document.querySelector("[data-income-impact-scenario-banner]");
+    if (!banner) {
+      return null;
+    }
+
+    return {
+      banner,
+      toggle: banner.querySelector("[data-income-impact-scenario-toggle]"),
+      content: banner.querySelector("[data-income-impact-scenario-content]"),
+      projectionHorizon: banner.querySelector("[data-income-impact-projection-horizon]"),
+      projectionHorizonValue: banner.querySelector("[data-income-impact-projection-horizon-value]"),
+      mortgageTreatment: banner.querySelector("[data-income-impact-mortgage-treatment]"),
+      mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
+      scenarioSummary: banner.querySelector("[data-income-impact-scenario-summary]")
     };
   }
 
@@ -342,6 +386,58 @@
     if (warning) {
       warning.hidden = true;
       warning.textContent = "";
+    }
+  }
+
+  function updateScenarioControls(timelineResult) {
+    updateDeathAgeControl(timelineResult, incomeImpactState?.deathAgeState);
+
+    const elements = getScenarioBannerElements();
+    if (!elements) {
+      return;
+    }
+
+    const scenarioState = isPlainObject(incomeImpactState?.scenarioState)
+      ? incomeImpactState.scenarioState
+      : {};
+    const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
+    const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
+    const collapsed = scenarioState.bannerCollapsed === true;
+
+    elements.banner.classList.toggle("is-collapsed", collapsed);
+    elements.banner.setAttribute("data-income-impact-scenario-state", collapsed ? "collapsed" : "expanded");
+
+    if (elements.toggle) {
+      elements.toggle.setAttribute("aria-expanded", String(!collapsed));
+      elements.toggle.textContent = collapsed ? "Show controls" : "Hide controls";
+    }
+
+    if (elements.content) {
+      elements.content.hidden = collapsed;
+    }
+
+    if (elements.projectionHorizon) {
+      elements.projectionHorizon.min = String(MIN_PROJECTION_HORIZON_YEARS);
+      elements.projectionHorizon.max = String(MAX_PROJECTION_HORIZON_YEARS);
+      elements.projectionHorizon.step = "1";
+      elements.projectionHorizon.value = String(projectionHorizonYears);
+      elements.projectionHorizon.setAttribute("aria-valuetext", `${projectionHorizonYears} years`);
+    }
+
+    if (elements.projectionHorizonValue) {
+      elements.projectionHorizonValue.textContent = `${projectionHorizonYears} years`;
+    }
+
+    if (elements.mortgageTreatment) {
+      elements.mortgageTreatment.value = mortgageTreatmentOverride;
+    }
+
+    if (elements.mortgageTreatmentValue) {
+      elements.mortgageTreatmentValue.textContent = getMortgageTreatmentLabel(mortgageTreatmentOverride);
+    }
+
+    if (elements.scenarioSummary) {
+      elements.scenarioSummary.setAttribute("data-income-impact-mortgage-treatment-label", getMortgageTreatmentLabel(mortgageTreatmentOverride));
     }
   }
 
@@ -817,10 +913,19 @@
 
   function calculateTimelineResultFromState(state) {
     const safeState = isPlainObject(state) ? state : {};
+    const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
+    const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
+    const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
     const input = {
       lensModel: safeState.lensModel,
       valuationDate: safeState.valuationDate,
-      profileRecord: safeState.profileRecord
+      profileRecord: safeState.profileRecord,
+      options: {
+        scenario: {
+          projectionHorizonYears,
+          mortgageTreatmentOverride
+        }
+      }
     };
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
 
@@ -832,6 +937,7 @@
       );
       deathAgeState.selectedDeathAge = selectedDeathAge;
       input.selectedDeathAge = selectedDeathAge;
+      input.options.scenario.deathAge = selectedDeathAge;
     }
 
     return safeState.calculateIncomeLossImpactTimeline(input);
@@ -843,19 +949,17 @@
     }
 
     const timelineResult = calculateTimelineResultFromState(incomeImpactState);
+    incomeImpactState.latestTimelineResult = timelineResult;
     renderIncomeImpact(incomeImpactState.host, {
       lensModel: incomeImpactState.lensModel,
       timelineResult,
       builderWarnings: incomeImpactState.builderWarnings
     });
-    updateDeathAgeControl(timelineResult, incomeImpactState.deathAgeState);
+    updateScenarioControls(timelineResult);
   }
 
-  function bindDeathAgeControl() {
+  function bindScenarioControls() {
     const elements = getDeathAgeControlElements();
-    if (!elements?.slider) {
-      return;
-    }
 
     function updateSelectedDeathAge(event) {
       const state = incomeImpactState?.deathAgeState;
@@ -871,8 +975,53 @@
       renderIncomeImpactFromState();
     }
 
-    elements.slider.addEventListener("input", updateSelectedDeathAge);
-    elements.slider.addEventListener("change", updateSelectedDeathAge);
+    if (elements?.slider) {
+      elements.slider.addEventListener("input", updateSelectedDeathAge);
+      elements.slider.addEventListener("change", updateSelectedDeathAge);
+    }
+
+    const scenarioElements = getScenarioBannerElements();
+    if (!scenarioElements) {
+      return;
+    }
+
+    if (scenarioElements.projectionHorizon) {
+      const updateProjectionHorizon = function (event) {
+        const scenarioState = incomeImpactState?.scenarioState;
+        if (!scenarioState) {
+          return;
+        }
+
+        scenarioState.projectionHorizonYears = clampProjectionHorizonYears(event?.target?.value);
+        renderIncomeImpactFromState();
+      };
+      scenarioElements.projectionHorizon.addEventListener("input", updateProjectionHorizon);
+      scenarioElements.projectionHorizon.addEventListener("change", updateProjectionHorizon);
+    }
+
+    if (scenarioElements.mortgageTreatment) {
+      scenarioElements.mortgageTreatment.addEventListener("change", function (event) {
+        const scenarioState = incomeImpactState?.scenarioState;
+        if (!scenarioState) {
+          return;
+        }
+
+        scenarioState.mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(event?.target?.value);
+        renderIncomeImpactFromState();
+      });
+    }
+
+    if (scenarioElements.toggle) {
+      scenarioElements.toggle.addEventListener("click", function () {
+        const scenarioState = incomeImpactState?.scenarioState;
+        if (!scenarioState) {
+          return;
+        }
+
+        scenarioState.bannerCollapsed = !scenarioState.bannerCollapsed;
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    }
   }
 
   function initializeIncomeLossImpactDisplay() {
@@ -928,11 +1077,16 @@
         valuationDate,
         calculateIncomeLossImpactTimeline,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
+        scenarioState: {
+          projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,
+          mortgageTreatmentOverride: "followAssumptions",
+          bannerCollapsed: false
+        },
         builderWarnings: builderResult.warnings
       };
 
       renderIncomeImpactFromState();
-      bindDeathAgeControl();
+      bindScenarioControls();
     } catch (error) {
       renderEmptyState(host, "Income impact unavailable", "Income Loss Impact could not be prepared from the saved Lens model.");
       console.error("Income Loss Impact display failed", error);

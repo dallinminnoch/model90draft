@@ -1123,6 +1123,20 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     padding: clamp(1.25rem, 2.5vw, 1.75rem) clamp(0.95rem, 1.45vw, 1.15rem);
   }
 
+  body[data-step="income-impact"] .lens-workflow-pane {
+    padding-bottom: clamp(1.5rem, 2.8vw, 2.25rem);
+  }
+
+  body[data-step="income-impact"] .actions-row {
+    margin-bottom: 0.75rem;
+  }
+
+  body[data-step="income-impact"] .income-impact-scenario-banner {
+    position: sticky;
+    bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    z-index: 35;
+  }
+
   body.settings-page .settings-shell {
     display: grid;
     grid-template-rows: minmax(0, 1fr);

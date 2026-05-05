@@ -159,15 +159,21 @@ assert.match(
   "Income Impact should load the pure timeline helper before the display module."
 );
 [
+  /data-income-impact-scenario-banner/,
+  /data-income-impact-scenario-toggle/,
+  /data-income-impact-scenario-content/,
+  /data-income-impact-projection-horizon/,
+  /data-income-impact-projection-horizon-value/,
+  /data-income-impact-mortgage-treatment/,
   /data-income-impact-death-age-control/,
   /data-income-impact-death-age-slider/,
   /data-income-impact-death-age-value/,
   /data-income-impact-death-date-value/,
   /data-income-impact-death-age-warning/,
-  /Death Age Scenario/,
-  /Preview only\. This does not change the LENS recommendation\./
+  /Scenario Controls/,
+  /Preview only\. These controls do not change the LENS recommendation\./
 ].forEach(function (pattern) {
-  assert.match(incomeLossHtml, pattern, `Income Impact should expose death-age preview control ${pattern}.`);
+  assert.match(incomeLossHtml, pattern, `Income Impact should expose scenario control ${pattern}.`);
 });
 [
   "../app/features/lens-analysis/analysis-methods.js",
@@ -248,15 +254,29 @@ assert.doesNotMatch(incomeLossHtml, /Continue to Estimate Need/);
 assert.doesNotMatch(incomeLossHtml, /Optional Review/);
 assert.equal(
   (incomeLossHtml.match(/<input\b/gi) || []).length,
-  1,
-  "Income Loss Impact should contain only the death-age preview slider input."
+  2,
+  "Income Loss Impact should contain only death-age and projection-horizon range inputs."
 );
 assert.match(
   incomeLossHtml,
   /<input\b[\s\S]*type="range"[\s\S]*data-income-impact-death-age-slider/,
   "Income Loss Impact should expose the death-age range slider."
 );
-assert.doesNotMatch(incomeLossHtml, /<select\b/i, "Income Loss Impact should not contain select controls.");
+assert.match(
+  incomeLossHtml,
+  /<input\b[\s\S]*type="range"[\s\S]*data-income-impact-projection-horizon/,
+  "Income Loss Impact should expose the projection horizon range control."
+);
+assert.equal(
+  (incomeLossHtml.match(/<select\b/gi) || []).length,
+  1,
+  "Income Loss Impact should contain only the mortgage treatment scenario select."
+);
+assert.match(
+  incomeLossHtml,
+  /<select\b[\s\S]*data-income-impact-mortgage-treatment[\s\S]*followAssumptions[\s\S]*payOffMortgage[\s\S]*continueMortgagePayments/,
+  "Income Loss Impact should expose the three v1 mortgage treatment options."
+);
 assert.doesNotMatch(incomeLossHtml, /<textarea\b/i, "Income Loss Impact should not contain textarea controls.");
 assert.doesNotMatch(incomeLossHtml, /<form\b/i, "Income Loss Impact should not contain forms.");
 assert.doesNotMatch(
