@@ -469,6 +469,35 @@
     return points.reverse();
   }
 
+  function buildCurrentPositionPreTargetPoints(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const asOfDate = safeOptions.asOfDate;
+    const months = safeOptions.months;
+    const startingBalance = safeOptions.startingBalance;
+    const sourcePaths = uniqueStrings(safeOptions.sourcePaths);
+    const points = [];
+
+    for (let monthOffset = -months; monthOffset < 0; monthOffset += 1) {
+      const pointDate = addMonths(asOfDate.date, monthOffset);
+      points.push({
+        date: formatDateOnly(pointDate),
+        monthIndex: monthOffset,
+        startingBalance: roundMoney(startingBalance),
+        income: null,
+        expenses: null,
+        scheduledObligations: 0,
+        growth: 0,
+        netCashFlow: null,
+        endingBalance: roundMoney(startingBalance),
+        status: "currentPositionContext",
+        precision: "estimated",
+        sourcePaths
+      });
+    }
+
+    return points;
+  }
+
   function calculateHouseholdFinancialPosition(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const output = createOutputBase(safeInput);
@@ -565,25 +594,36 @@
     );
     output.startingBalance = startingBalance == null ? null : roundMoney(startingBalance);
 
-    if (output.dataGaps.some(function (gap) {
+    const hasStartingResourceGap = output.dataGaps.some(function (gap) {
+      return gap.code === "missing-starting-resources";
+    });
+    const hasCashFlowGap = output.dataGaps.some(function (gap) {
       return [
-        "missing-starting-resources",
         "missing-net-recurring-income",
         "unsafe-recurring-income",
         "missing-recurring-expenses"
       ].includes(gap.code);
+    });
+    if (output.dataGaps.some(function (gap) {
+      return gap.code === "missing-starting-resources"
+        || (durationMonths > 0 && [
+          "missing-net-recurring-income",
+          "unsafe-recurring-income",
+          "missing-recurring-expenses"
+        ].includes(gap.code));
     })) {
       output.status = "data-gap";
       finalizeOutput(output);
       return output;
     }
 
-    const monthlyIncome = annualIncome / 12;
-    const monthlyExpenses = annualExpenses / 12;
+    const canUseCashFlow = !hasStartingResourceGap && !hasCashFlowGap;
+    const monthlyIncome = canUseCashFlow ? annualIncome / 12 : 0;
+    const monthlyExpenses = canUseCashFlow ? annualExpenses / 12 : 0;
     const monthlyGrowthRate = assetGrowth.active ? assetGrowth.annualRatePercent / 100 / 12 : 0;
     let runningBalance = startingBalance;
 
-    if (preTargetContext.active) {
+    if (preTargetContext.active && canUseCashFlow) {
       output.preTargetPoints = buildModeledBackcastPreTargetPoints({
         asOfDate,
         months: preTargetContext.months,
@@ -593,6 +633,22 @@
         sourcePaths: output.trace.preTargetContext.sourcePaths
       });
       output.trace.formula.push("preTargetPoints use modeledBackcast current-dollar reverse cash flow and are not historical account data.");
+    } else if (preTargetContext.active && !canUseCashFlow) {
+      if (!hasStartingResourceGap && durationMonths === 0) {
+        output.preTargetPoints = buildCurrentPositionPreTargetPoints({
+          asOfDate,
+          months: preTargetContext.months,
+          startingBalance,
+          sourcePaths: output.trace.preTargetContext.sourcePaths
+        });
+        output.trace.preTargetContext.mode = "currentPositionContext";
+        output.trace.preTargetContext.basis = "current treated household resources carried backward from asOfDate because mature cash-flow inputs were unavailable";
+        output.trace.preTargetContext.fallbackReason = "cash-flow-data-gap";
+        output.trace.preTargetContext.cashFlowApplied = false;
+        output.trace.formula.push("preTargetPoints use currentPositionContext when mature net income or recurring expenses are unavailable at a zero-month target; points carry startingResources backward and are not historical account data.");
+      } else {
+        output.trace.formula.push("preTargetPoints were not generated because mature net income or recurring expenses were unavailable, but targetBalance still used startingResources for a zero-month target.");
+      }
     }
 
     output.points.push(createPoint({

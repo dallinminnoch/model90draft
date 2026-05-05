@@ -272,12 +272,25 @@ const currentDatePreDeathPoints = currentDateDeathOutput.scenarioTimeline.resour
 assert.equal(currentDateDeathOutput.selectedDeath.date, "2026-06-15");
 assert.equal(currentDateDeathOutput.financialRunway.householdPosition.durationMonths, 0);
 assert.equal(currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints.length, 60);
-assert.equal(currentDatePreDeathPoints.length, 60);
+assert.equal(currentDatePreDeathPoints.length, 61);
+const currentDateMonthlyPreDeathPoints = currentDatePreDeathPoints.filter(function (point) {
+  return point.resolution === "modeledBackcastMonthly";
+});
+const currentDatePreDeathThresholdPoint = currentDatePreDeathPoints.find(function (point) {
+  return point.resolution === "targetThreshold";
+});
+assert.equal(currentDateMonthlyPreDeathPoints.length, 60);
 assert.ok(
-  currentDatePreDeathPoints.every(function (point) {
+  currentDateMonthlyPreDeathPoints.every(function (point) {
     return point.resolution === "modeledBackcastMonthly" && point.status === "modeledBackcast";
   }),
   "Current-date death should get modeled pre-death points from HFP preTargetPoints."
+);
+assert.ok(currentDatePreDeathThresholdPoint, "Current-date death should include a pre-death household target threshold point.");
+assert.equal(
+  currentDatePreDeathThresholdPoint.endingBalance,
+  currentDateDeathOutput.financialRunway.householdPosition.targetBalance,
+  "Pre-death threshold should show household assets before coverage and immediate death obligations apply."
 );
 assert.ok(
   currentDatePreDeathPoints.every(function (point) {
@@ -295,6 +308,61 @@ assert.equal(
     + currentDateDeathOutput.financialRunway.existingCoverage
     - currentDateDeathOutput.financialRunway.immediateObligations,
   "Death point should still equal household target plus coverage minus immediate obligations."
+);
+
+const currentDateMissingIncomeOutput = calculateIncomeLossImpactTimeline({
+  lensModel: createLensModel({
+    incomeBasis: {
+      insuredNetAnnualIncome: null,
+      spouseOrPartnerNetAnnualIncome: null
+    }
+  }),
+  valuationDate: "2026-06-15",
+  selectedDeathAge: 46,
+  options: {
+    scenario: {
+      projectionHorizonYears: 10,
+      mortgageTreatmentOverride: "followAssumptions"
+    }
+  }
+});
+assert.equal(currentDateMissingIncomeOutput.financialRunway.householdPosition.status, "partial");
+assert.equal(currentDateMissingIncomeOutput.financialRunway.householdPosition.durationMonths, 0);
+assert.equal(currentDateMissingIncomeOutput.financialRunway.householdPosition.targetBalance, 100000);
+assert.equal(currentDateMissingIncomeOutput.financialRunway.householdPositionAtTarget, 100000);
+assert.equal(currentDateMissingIncomeOutput.financialRunway.startingResources, 600000);
+assert.equal(currentDateMissingIncomeOutput.financialRunway.netAvailableResources, 500000);
+assert.equal(currentDateMissingIncomeOutput.financialRunway.householdPosition.preTargetPoints.length, 60);
+assert.ok(
+  currentDateMissingIncomeOutput.financialRunway.householdPosition.preTargetPoints.every(function (point) {
+    return point.status === "currentPositionContext" && point.endingBalance === 100000;
+  }),
+  "Missing cash-flow inputs should still provide estimated current-position context from treated assets."
+);
+const currentDateMissingIncomePreDeathPoints = currentDateMissingIncomeOutput.scenarioTimeline.resourceSeries.points.filter(function (point) {
+  return point.phase === "preDeath";
+});
+const currentDateMissingIncomeContextPoints = currentDateMissingIncomePreDeathPoints.filter(function (point) {
+  return point.resolution === "currentPositionContextMonthly";
+});
+const currentDateMissingIncomeThresholdPoint = currentDateMissingIncomePreDeathPoints.find(function (point) {
+  return point.resolution === "targetThreshold";
+});
+assert.equal(currentDateMissingIncomePreDeathPoints.length, 61);
+assert.equal(currentDateMissingIncomeContextPoints.length, 60);
+assert.ok(
+  currentDateMissingIncomeContextPoints.every(function (point) {
+    return point.status === "currentPositionContext" && point.endingBalance === 100000;
+  }),
+  "Income Impact should map HFP current-position context into visible pre-death asset points."
+);
+assert.ok(currentDateMissingIncomeThresholdPoint, "Missing-income current-date death should still include a pre-death asset threshold.");
+assert.equal(currentDateMissingIncomeThresholdPoint.endingBalance, 100000);
+assert.ok(
+  currentDateMissingIncomeOutput.financialRunway.householdPosition.dataGaps.some(function (gap) {
+    return gap.code === "missing-net-recurring-income";
+  }),
+  "Missing cash-flow inputs should block cash-flow-modeled backcast, not remove current treated assets at a zero-month target."
 );
 
 const deficitOutput = calculateIncomeLossImpactTimeline({

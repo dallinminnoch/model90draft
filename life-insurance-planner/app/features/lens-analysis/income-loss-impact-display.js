@@ -7,7 +7,12 @@
   const DEFAULT_PROJECTION_HORIZON_YEARS = 40;
   const MIN_PROJECTION_HORIZON_YEARS = 5;
   const MAX_PROJECTION_HORIZON_YEARS = 100;
-  const RUNWAY_CHART_TOP_HEADROOM_RATIO = 0.12;
+  const RUNWAY_CHART_TOP_HEADROOM_RATIO = 0.18;
+  const RUNWAY_CHART_BOTTOM_HEADROOM_RATIO = 0.08;
+  const RUNWAY_CHART_PRE_DEATH_SEGMENT_RATIO = 0.28;
+  const RUNWAY_CHART_PRE_DEATH_MIN_WIDTH = 220;
+  const RUNWAY_CHART_PRE_DEATH_MAX_RATIO = 0.36;
+  const RUNWAY_CHART_PRIMARY_LINE_STYLE = "fill: none; stroke: #141820; stroke-width: 4.8; stroke-linecap: round; stroke-linejoin: round; opacity: 1;";
   const MORTGAGE_TREATMENT_LABELS = Object.freeze({
     followAssumptions: "Follow Assumption Controls",
     payOffMortgage: "Pay off mortgage",
@@ -631,11 +636,15 @@
   function getScenarioPointDisplayBalance(point) {
     const displayedBalance = toOptionalNumber(point?.displayedBalance);
     if (displayedBalance != null) {
-      return Math.max(0, displayedBalance);
+      return displayedBalance;
     }
 
     const fallbackBalance = getRunwayPointBalance(point);
-    return fallbackBalance == null ? null : Math.max(0, fallbackBalance);
+    return fallbackBalance == null ? null : fallbackBalance;
+  }
+
+  function getScenarioPointPlotBalance(point) {
+    return getScenarioPointDisplayBalance(point);
   }
 
   function getRunwayYearMarkerLabel(yearIndex) {
@@ -682,6 +691,62 @@
     return safeMaxPlottedBalance / (1 - RUNWAY_CHART_TOP_HEADROOM_RATIO);
   }
 
+  function resolveRunwayChartMinBalance(minPlottedBalance) {
+    const safeMinPlottedBalance = Math.min(0, minPlottedBalance || 0);
+    if (safeMinPlottedBalance >= 0) {
+      return 0;
+    }
+
+    return safeMinPlottedBalance / (1 - RUNWAY_CHART_BOTTOM_HEADROOM_RATIO);
+  }
+
+  function resolveRunwayChartPreDeathWidth(plotWidth, hasPreDeathDomain) {
+    if (!hasPreDeathDomain) {
+      return 0;
+    }
+
+    const maxWidth = plotWidth * RUNWAY_CHART_PRE_DEATH_MAX_RATIO;
+    const preferredWidth = plotWidth * RUNWAY_CHART_PRE_DEATH_SEGMENT_RATIO;
+    return Math.min(maxWidth, Math.max(RUNWAY_CHART_PRE_DEATH_MIN_WIDTH, preferredWidth));
+  }
+
+  function buildSvgPath(points) {
+    return points.map(function (point, index) {
+      return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
+    }).join(" ");
+  }
+
+  function buildSvgAreaPath(points, yBottom) {
+    if (!points.length) {
+      return "";
+    }
+
+    return `${buildSvgPath(points)} L ${points[points.length - 1].x} ${yBottom} L ${points[0].x} ${yBottom} Z`;
+  }
+
+  function getVisualPercentForRelativeMonthIndex(chartModel, relativeMonthIndex) {
+    const visualScale = isPlainObject(chartModel?.visualScale) ? chartModel.visualScale : null;
+    if (!visualScale) {
+      const minRelativeMonthIndex = toOptionalNumber(chartModel?.minRelativeMonthIndex) ?? 0;
+      const maxRelativeMonthIndex = toOptionalNumber(chartModel?.maxRelativeMonthIndex)
+        ?? Math.max(12, (toOptionalNumber(chartModel?.maxYearIndex) || 1) * 12);
+      const relativeMonthSpan = Math.max(1, maxRelativeMonthIndex - minRelativeMonthIndex);
+      return ((relativeMonthIndex - minRelativeMonthIndex) / relativeMonthSpan) * 100;
+    }
+
+    const minRelativeMonthIndex = toOptionalNumber(visualScale.minRelativeMonthIndex) ?? 0;
+    const maxRelativeMonthIndex = toOptionalNumber(visualScale.maxRelativeMonthIndex) ?? 12;
+    const preDeathPercent = toOptionalNumber(visualScale.preDeathPercent) ?? 0;
+
+    if (relativeMonthIndex < 0 && minRelativeMonthIndex < 0) {
+      const preDeathSpan = Math.max(1, 0 - minRelativeMonthIndex);
+      return ((relativeMonthIndex - minRelativeMonthIndex) / preDeathSpan) * preDeathPercent;
+    }
+
+    const postDeathSpan = Math.max(1, maxRelativeMonthIndex);
+    return preDeathPercent + (relativeMonthIndex / postDeathSpan) * (100 - preDeathPercent);
+  }
+
   function buildRunwayChartModel(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const scenarioTimeline = getScenarioTimeline(timelineResult);
@@ -691,11 +756,12 @@
       ? scenarioPoints
       : (Array.isArray(runway.projectionPoints) ? runway.projectionPoints : []);
     const width = 1040;
-    const height = 420;
+    const height = 540;
     const xStart = 82;
     const xEnd = width - 82;
-    const yTop = 86;
-    const yBottom = 292;
+    const yTop = 102;
+    const yBottom = 410;
+    const plotWidth = xEnd - xStart;
     const relativeMonths = points
       .map(getPointRelativeMonthIndex)
       .filter(function (value) {
@@ -711,44 +777,59 @@
     const maxRelativeMonthIndex = usesScenarioSeries
       ? Math.max(scenarioAxisDomain.maxRelativeMonthIndex, 12, ...relativeMonths)
       : fallbackMaxMonthIndex;
-    const relativeMonthSpan = Math.max(1, maxRelativeMonthIndex - minRelativeMonthIndex);
+    const hasPreDeathDomain = minRelativeMonthIndex < 0;
+    const preDeathVisualWidth = resolveRunwayChartPreDeathWidth(plotWidth, hasPreDeathDomain);
+    const deathX = hasPreDeathDomain ? xStart + preDeathVisualWidth : xStart;
+    const preDeathMonthSpan = Math.max(1, 0 - minRelativeMonthIndex);
+    const postDeathMonthSpan = Math.max(1, maxRelativeMonthIndex);
     const maxYearIndex = Math.max(1, Math.ceil(maxRelativeMonthIndex / 12));
     const balances = points
       .map(function (point) {
-        return usesScenarioSeries ? getScenarioPointDisplayBalance(point) : getRunwayPointBalance(point);
+        return usesScenarioSeries ? getScenarioPointPlotBalance(point) : getRunwayPointBalance(point);
       })
       .filter(function (value) {
         return value != null;
       })
       .concat(toOptionalNumber(runway.netAvailableResources) || 0);
-    const maxPlottedBalance = Math.max(1, ...balances.map(function (value) {
-      return Math.max(0, value);
-    }));
+    const maxPlottedBalance = Math.max(1, ...balances);
+    const minPlottedBalance = Math.min(0, ...balances);
     const maxBalance = resolveRunwayChartMaxBalance(maxPlottedBalance);
+    const minBalance = resolveRunwayChartMinBalance(minPlottedBalance);
+    const balanceSpan = Math.max(1, maxBalance - minBalance);
+    const yFromBalance = function (balance) {
+      return yBottom - (((balance - minBalance) / balanceSpan) * (yBottom - yTop));
+    };
+    const zeroY = yFromBalance(0);
+    const xFromRelativeMonthIndex = function (relativeMonthIndex) {
+      const safeMonthIndex = Math.max(minRelativeMonthIndex, Math.min(maxRelativeMonthIndex, relativeMonthIndex));
+      if (hasPreDeathDomain && safeMonthIndex < 0) {
+        return xStart + ((safeMonthIndex - minRelativeMonthIndex) / preDeathMonthSpan) * preDeathVisualWidth;
+      }
+
+      return deathX + (Math.max(0, safeMonthIndex) / postDeathMonthSpan) * (xEnd - deathX);
+    };
     const chartPoints = points.map(function (point) {
       const relativeMonthIndex = getPointRelativeMonthIndex(point);
       const relativeYear = getPointRelativeYear(point);
       const rawBalance = getRunwayPointBalance(point);
-      const displayedBalance = usesScenarioSeries ? getScenarioPointDisplayBalance(point) : Math.max(0, rawBalance == null ? 0 : rawBalance);
-      const clampedBalance = Math.max(0, displayedBalance == null ? 0 : displayedBalance);
+      const displayedBalance = usesScenarioSeries ? getScenarioPointDisplayBalance(point) : rawBalance;
+      const plotBalance = usesScenarioSeries ? getScenarioPointPlotBalance(point) : rawBalance;
+      const safePlotBalance = plotBalance == null ? 0 : plotBalance;
       const safeRelativeMonthIndex = relativeMonthIndex == null ? 0 : relativeMonthIndex;
-      const x = xStart + ((safeRelativeMonthIndex - minRelativeMonthIndex) / relativeMonthSpan) * (xEnd - xStart);
-      const y = yBottom - ((clampedBalance / maxBalance) * (yBottom - yTop));
+      const x = xFromRelativeMonthIndex(safeRelativeMonthIndex);
+      const y = yFromBalance(safePlotBalance);
       return {
         ...point,
         yearIndex: point.yearIndex == null && relativeYear != null ? relativeYear : point.yearIndex,
         x: Math.round(x * 100) / 100,
         y: Math.round(y * 100) / 100,
         balance: rawBalance,
-        displayedBalance: displayedBalance == null ? null : clampedBalance,
+        displayedBalance: displayedBalance == null ? null : displayedBalance,
+        plotBalance: plotBalance == null ? null : Math.round(plotBalance * 100) / 100,
         relativeMonthIndex,
         relativeYear
       };
     });
-    const xFromRelativeMonthIndex = function (relativeMonthIndex) {
-      const safeMonthIndex = Math.max(minRelativeMonthIndex, Math.min(maxRelativeMonthIndex, relativeMonthIndex));
-      return xStart + ((safeMonthIndex - minRelativeMonthIndex) / relativeMonthSpan) * (xEnd - xStart);
-    };
     const totalMonths = toOptionalNumber(runway.totalMonthsOfSecurity);
     const depletionMonthIndex = totalMonths == null
       ? (
@@ -773,10 +854,12 @@
     if (!yearMarkerIndexes.includes(maxYearIndex)) {
       yearMarkerIndexes.push(maxYearIndex);
     }
-    const deathPoint = chartPoints.find(function (point) {
-      return point.phase === "death" || point.relativeMonthIndex === 0;
+    const phaseDeathPoint = chartPoints.find(function (point) {
+      return point.phase === "death";
     });
-    const deathX = xFromRelativeMonthIndex(0);
+    const deathPoint = phaseDeathPoint || chartPoints.find(function (point) {
+      return point.relativeMonthIndex === 0;
+    });
     const preDeathRegion = minRelativeMonthIndex < 0
       ? {
           x: xStart,
@@ -788,6 +871,26 @@
     const maxAccumulatedUnmetNeed = Math.max(0, ...chartPoints.map(function (point) {
       return toOptionalNumber(point.accumulatedUnmetNeed) || 0;
     }));
+    const preDeathPathPoints = chartPoints.filter(function (point) {
+      return point.phase === "preDeath";
+    });
+    const survivorRunwayPathPoints = usesScenarioSeries && preDeathPathPoints.length
+      ? chartPoints.filter(function (point) {
+          return point.phase !== "preDeath";
+        })
+      : chartPoints;
+    const linePath = buildSvgPath(chartPoints);
+    const preDeathPath = buildSvgPath(preDeathPathPoints);
+    const survivorRunwayPath = buildSvgPath(survivorRunwayPathPoints);
+    const survivorRunwayAreaPath = buildSvgAreaPath(survivorRunwayPathPoints, zeroY);
+    const preDeathThresholdPoint = preDeathPathPoints.length
+      ? preDeathPathPoints[preDeathPathPoints.length - 1]
+      : null;
+    const deathTransitionPath = preDeathThresholdPoint && phaseDeathPoint
+      && Math.round(preDeathThresholdPoint.x * 100) === Math.round(phaseDeathPoint.x * 100)
+      && Math.round(preDeathThresholdPoint.y * 100) !== Math.round(phaseDeathPoint.y * 100)
+      ? buildSvgPath([preDeathThresholdPoint, phaseDeathPoint])
+      : "";
 
     return {
       width,
@@ -797,22 +900,28 @@
       yTop,
       yBottom,
       maxBalance,
+      minBalance,
+      zeroY: Math.round(zeroY * 100) / 100,
       maxYearIndex,
       minRelativeMonthIndex,
       maxRelativeMonthIndex,
+      visualScale: {
+        minRelativeMonthIndex,
+        maxRelativeMonthIndex,
+        preDeathWidth: Math.round(preDeathVisualWidth * 100) / 100,
+        preDeathPercent: plotWidth > 0 ? Math.round((preDeathVisualWidth / plotWidth) * 10000) / 100 : 0
+      },
       source: usesScenarioSeries ? "scenarioTimeline.resourceSeries.points" : "financialRunway.projectionPoints",
       fallbackUsed: !usesScenarioSeries,
       axisStart: scenarioTimeline.axis?.startDate || points[0]?.date || timelineResult?.selectedDeath?.date || "",
       axisEnd: scenarioTimeline.axis?.endDate || points[points.length - 1]?.date || "",
       points: chartPoints,
-      linePath: chartPoints.map(function (point, index) {
-        return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
-      }).join(" "),
-      areaPath: chartPoints.length
-        ? `${chartPoints.map(function (point, index) {
-            return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
-          }).join(" ")} L ${chartPoints[chartPoints.length - 1].x} ${yBottom} L ${chartPoints[0].x} ${yBottom} Z`
-        : "",
+      linePath,
+      preDeathPath,
+      deathTransitionPath,
+      survivorRunwayPath,
+      postDeathPath: survivorRunwayPath,
+      areaPath: survivorRunwayAreaPath || buildSvgAreaPath(chartPoints, zeroY),
       yearMarkers: yearMarkerIndexes.map(function (yearIndex) {
         const markerRelativeMonthIndex = yearIndex * 12;
         const x = xFromRelativeMonthIndex(markerRelativeMonthIndex);
@@ -831,7 +940,7 @@
         ? null
         : {
             x: Math.round(depletionX * 100) / 100,
-            y: yBottom,
+            y: Math.round(zeroY * 100) / 100,
             date: runway.depletionDate
           },
       deathPoint: {
@@ -941,7 +1050,6 @@
     const minRelativeMonthIndex = toOptionalNumber(chartModel?.minRelativeMonthIndex) ?? 0;
     const maxRelativeMonthIndex = toOptionalNumber(chartModel?.maxRelativeMonthIndex)
       ?? Math.max(12, (toOptionalNumber(chartModel?.maxYearIndex) || 1) * 12);
-    const relativeMonthSpan = Math.max(1, maxRelativeMonthIndex - minRelativeMonthIndex);
     const markers = [];
     const undated = [];
 
@@ -976,7 +1084,7 @@
           minRelativeMonthIndex,
           Math.min(maxRelativeMonthIndex, relativeMonthIndex)
         );
-        const percent = ((safeRelativeMonthIndex - minRelativeMonthIndex) / relativeMonthSpan) * 100;
+        const percent = getVisualPercentForRelativeMonthIndex(chartModel, safeRelativeMonthIndex);
         marker.percent = Math.round(percent * 100) / 100;
         marker.bucket = Math.round(percent / 6) * 6;
         markers.push(marker);
@@ -1205,12 +1313,12 @@
             }).join("")}
           </g>
           ${model.areaPath ? `<path class="income-impact-runway-area" data-income-impact-runway-area d="${escapeHtml(model.areaPath)}"></path>` : ""}
-          <path class="income-impact-timeline-line income-impact-timeline-line--reference" d="M ${model.xStart} ${model.yBottom} L ${model.xEnd} ${model.yBottom}"></path>
-          <path class="income-impact-timeline-line income-impact-timeline-line--primary" data-income-impact-runway-line d="${escapeHtml(model.linePath)}"></path>
-          <g data-income-impact-runway-points>
+          <path class="income-impact-timeline-line income-impact-timeline-line--reference" data-income-impact-runway-zero-line d="M ${model.xStart} ${model.zeroY} L ${model.xEnd} ${model.zeroY}"></path>
+          <path class="income-impact-timeline-line income-impact-timeline-line--primary" data-income-impact-runway-line data-income-impact-runway-post-death-line d="${escapeHtml(model.survivorRunwayPath || model.linePath)}" style="${RUNWAY_CHART_PRIMARY_LINE_STYLE}"></path>
+          <g data-income-impact-runway-points aria-hidden="true">
             ${model.points.map(function (point) {
               return `
-                <circle
+                <metadata
                   data-income-impact-runway-point
                   data-income-impact-runway-point-year-index="${escapeHtml(String(point.yearIndex))}"
                   data-income-impact-runway-point-relative-year="${escapeHtml(point.relativeYear == null ? "" : String(point.relativeYear))}"
@@ -1223,43 +1331,36 @@
                   data-income-impact-runway-point-displayed-balance="${escapeHtml(point.displayedBalance == null ? "" : String(point.displayedBalance))}"
                   data-income-impact-runway-point-accumulated-unmet-need="${escapeHtml(point.accumulatedUnmetNeed == null ? "" : String(point.accumulatedUnmetNeed))}"
                   data-income-impact-runway-point-status="${escapeHtml(point.status || "")}"
-                  cx="${point.x}"
-                  cy="${point.y}"
-                  r="${point.phase === "death" || point.yearIndex === 0 ? 7 : 4.5}"
-                  fill="${point.phase === "preDeath" ? "#647085" : (point.status === "depleted" ? "#b42318" : "#4054b8")}"
-                  stroke="#ffffff"
-                  stroke-width="2"
-                >
-                  <title>${escapeHtml(`${point.date || "Date unavailable"}: ${formatCurrency(point.displayedBalance)}`)}</title>
-                </circle>
+                ></metadata>
               `;
             }).join("")}
           </g>
+          ${model.preDeathPath ? `<path class="income-impact-timeline-line income-impact-timeline-line--primary" data-income-impact-runway-pre-death-line data-income-impact-runway-pre-death-signed-line d="${escapeHtml(model.preDeathPath)}" style="${RUNWAY_CHART_PRIMARY_LINE_STYLE}"></path>` : ""}
           ${model.deathPoint ? `
             <g data-income-impact-runway-death data-income-impact-runway-death-date="${escapeHtml(model.deathPoint.date)}">
               <line x1="${model.deathPoint.x}" y1="${model.yTop}" x2="${model.deathPoint.x}" y2="${model.yBottom}" class="income-impact-runway-death-line"></line>
-              <circle cx="${model.deathPoint.x}" cy="${model.deathPoint.y}" r="10" class="income-impact-runway-death-marker"></circle>
               <text x="${model.deathPoint.x}" y="${model.yTop - 24}" text-anchor="middle" class="income-impact-runway-death-label" data-income-impact-death-marker-label>Death occurs</text>
               <text x="${model.deathPoint.x}" y="${model.yTop - 5}" text-anchor="middle" class="income-impact-runway-year-date">${escapeHtml(model.deathPoint.date || "")}</text>
             </g>
           ` : ""}
+          ${model.deathTransitionPath ? `<path class="income-impact-timeline-line income-impact-timeline-line--primary" data-income-impact-runway-death-transition-line d="${escapeHtml(model.deathTransitionPath)}" style="${RUNWAY_CHART_PRIMARY_LINE_STYLE}"></path>` : ""}
           ${model.depletionPoint ? `
             <g data-income-impact-runway-depletion data-income-impact-runway-depletion-date="${escapeHtml(model.depletionPoint.date)}">
               <line x1="${model.depletionPoint.x}" y1="${model.yTop}" x2="${model.depletionPoint.x}" y2="${model.yBottom}" stroke="#b42318" stroke-width="1.5" stroke-dasharray="5 5"></line>
-              <circle cx="${model.depletionPoint.x}" cy="${model.yBottom}" r="9" fill="#b42318" stroke="#ffffff" stroke-width="3"></circle>
               <text x="${model.depletionPoint.x}" y="${model.yTop - 24}" text-anchor="middle" class="income-impact-runway-depletion-label">Money runs out</text>
               <text x="${model.depletionPoint.x}" y="${model.yTop - 5}" text-anchor="middle" class="income-impact-runway-depletion-date">${escapeHtml(model.depletionPoint.date)}</text>
             </g>
           ` : ""}
           <text x="${model.xStart}" y="42" text-anchor="start" class="income-impact-runway-start-label" data-income-impact-runway-starting-resources>Available after obligations: ${escapeHtml(startLabel)}</text>
           <text x="${model.xStart}" y="${model.yTop - 10}" text-anchor="start" class="income-impact-runway-axis-label">${escapeHtml(formatCurrency(model.maxBalance))}</text>
-          <text x="${model.xStart}" y="${model.yBottom - 10}" text-anchor="start" class="income-impact-runway-axis-label">$0</text>
+          <text x="${model.xStart}" y="${model.zeroY <= model.yTop + 18 ? model.zeroY + 16 : model.zeroY - 10}" text-anchor="start" class="income-impact-runway-axis-label" data-income-impact-runway-zero-label>$0</text>
+          ${model.minBalance < 0 ? `<text x="${model.xStart}" y="${model.yBottom - 10}" text-anchor="start" class="income-impact-runway-axis-label" data-income-impact-runway-negative-axis-label>${escapeHtml(formatCurrency(model.minBalance))}</text>` : ""}
         </svg>
         <div class="income-impact-chart-axis" aria-hidden="true">
           <span>${escapeHtml(formatTimelineAxisDate(model.axisStart) || "Start")}</span>
           <span>${escapeHtml(formatTimelineAxisDate(model.axisEnd) || "End")}</span>
         </div>
-        <p class="income-impact-axis-note" data-income-impact-axis-note>Remaining available resources are plotted above $0. Timing runs from 5 years before death through the selected projection horizon.</p>
+        <p class="income-impact-axis-note" data-income-impact-axis-note>Remaining available resources can plot above or below $0. Timing runs from 5 years before death through the selected projection horizon.</p>
         ${unmetNeedLabel ? `
           <div class="income-impact-unmet-need" data-income-impact-accumulated-unmet-need>
             <span>Accumulated unmet need after resources are depleted. Unmet need is tracked separately after resources reach $0.</span>

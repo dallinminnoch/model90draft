@@ -2011,7 +2011,7 @@
   function createScenarioTimelinePoint(options) {
     const safeOptions = isPlainObject(options) ? options : {};
     const endingBalance = toOptionalNumber(safeOptions.endingBalance);
-    const displayedBalance = endingBalance == null ? null : Math.max(0, endingBalance);
+    const displayedBalance = endingBalance;
     const accumulatedUnmetNeed = endingBalance == null ? 0 : Math.max(0, -endingBalance);
     return {
       id: normalizeString(safeOptions.id),
@@ -2079,7 +2079,7 @@
       "scenarioTimeline.resourceSeries uses remaining available resources for the y-axis.",
       "pre-death points use reusable household financial position projection points when available.",
       "post-death points use monthly resolution for the first 24 months and annual resolution after month 24.",
-      "displayedBalance = max(0, endingBalance); accumulatedUnmetNeed tracks below-zero balances separately.",
+      "displayedBalance preserves endingBalance, including below-zero values; accumulatedUnmetNeed also tracks negative balances separately.",
       "mortgageTreatmentOverride changes preview-only immediate mortgage payoff or scheduled mortgage payments without changing saved assumptions or recommendations."
     ];
     scenarioTimeline.trace.deferred = [
@@ -2161,6 +2161,14 @@
     const householdPosition = isPlainObject(financialRunway.householdPosition)
       ? financialRunway.householdPosition
       : null;
+    const explicitHouseholdPositionAtTarget = toOptionalNumber(financialRunway.householdPositionAtTarget);
+    const householdPositionTargetBalance = explicitHouseholdPositionAtTarget == null
+      ? toOptionalNumber(householdPosition?.targetBalance)
+      : explicitHouseholdPositionAtTarget;
+    const householdPositionTargetSourcePaths = uniqueStrings(
+      ["householdPosition.targetBalance", "treatedAssetOffsets.totalTreatedAssetValue"]
+        .concat(householdPosition?.sourcePaths || [])
+    );
     const householdPositionPoints = Array.isArray(householdPosition?.points)
       ? householdPosition.points
       : [];
@@ -2182,6 +2190,10 @@
       const relativeMonthIndex = calculateWholeMonthsBetweenDates(deathDate.date, parsedPointDate.date);
       const monthlyNetCashFlow = toOptionalNumber(point.netCashFlow);
       const monthlyExpenses = toOptionalNumber(point.expenses);
+      const pointStatus = normalizeString(point.status) || "modeledBackcast";
+      const pointResolution = pointStatus === "currentPositionContext"
+        ? "currentPositionContextMonthly"
+        : "modeledBackcastMonthly";
       scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
         id: `pre-target-household-position-modeled-backcast-month-${Math.abs(toOptionalNumber(point.monthIndex) || preDeathHouseholdPointCount + 1)}`,
         date: parsedPointDate.normalizedDate,
@@ -2189,7 +2201,7 @@
         relativeMonthIndex,
         relativeYear: relativeMonthIndex == null ? null : relativeMonthIndex / 12,
         phase: "preDeath",
-        resolution: "modeledBackcastMonthly",
+        resolution: pointResolution,
         startingBalance: point.startingBalance,
         growthAmount: 0,
         householdNeed: monthlyExpenses == null ? annualNeed : monthlyExpenses * 12,
@@ -2197,7 +2209,7 @@
         annualShortfall: monthlyNetCashFlow == null ? null : Math.max(0, -monthlyNetCashFlow * 12),
         scheduledObligations: point.scheduledObligations,
         endingBalance: point.endingBalance,
-        status: point.status || "modeledBackcast",
+        status: pointStatus,
         sourcePaths: uniqueStrings(sourcePaths.concat(point.sourcePaths || []))
       }));
       preDeathHouseholdPointCount += 1;
@@ -2262,6 +2274,28 @@
       }
     } else if (!preDeathHouseholdPointCount) {
       scenarioTimeline.trace.formula.push("pre-death household position points were not generated because household position inputs had data gaps or fell outside the visible pre-death context.");
+    }
+
+    if (householdPositionTargetBalance != null) {
+      scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
+        id: "pre-death-household-position-target",
+        date: deathDate.normalizedDate,
+        age: deathAge,
+        relativeMonthIndex: 0,
+        relativeYear: 0,
+        phase: "preDeath",
+        resolution: "targetThreshold",
+        startingBalance: householdPositionTargetBalance,
+        growthAmount: 0,
+        householdNeed: annualNeed,
+        survivorIncomeOffset: null,
+        annualShortfall: null,
+        scheduledObligations: 0,
+        endingBalance: householdPositionTargetBalance,
+        status: "preDeathTarget",
+        sourcePaths: uniqueStrings(sourcePaths.concat(householdPositionTargetSourcePaths))
+      }));
+      scenarioTimeline.trace.formula.push("pre-death target threshold point uses householdPosition.targetBalance before death benefits and immediate death obligations are applied.");
     }
 
     scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({

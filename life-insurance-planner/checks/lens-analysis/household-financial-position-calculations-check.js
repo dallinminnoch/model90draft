@@ -118,6 +118,44 @@ assert.ok(
   "Missing mature net household income should create a data gap."
 );
 
+const zeroDurationMissingNetIncome = calculateHouseholdFinancialPosition(baseInput({
+  targetDate: "2026-01-01",
+  recurringIncome: {
+    value: null,
+    frequency: "annual",
+    status: "missing-net-household-income",
+    sourcePaths: ["incomeBasis.insuredNetAnnualIncome", "incomeBasis.spouseOrPartnerNetAnnualIncome"]
+  },
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 60,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(zeroDurationMissingNetIncome.status, "partial");
+assert.equal(zeroDurationMissingNetIncome.durationMonths, 0);
+assert.equal(zeroDurationMissingNetIncome.startingBalance, 100000);
+assert.equal(zeroDurationMissingNetIncome.targetBalance, 100000);
+assert.equal(zeroDurationMissingNetIncome.points.length, 1);
+assert.equal(zeroDurationMissingNetIncome.preTargetPoints.length, 60);
+assert.ok(
+  zeroDurationMissingNetIncome.preTargetPoints.every(function (point) {
+    return point.status === "currentPositionContext"
+      && point.precision === "estimated"
+      && point.endingBalance === 100000
+      && point.netCashFlow == null;
+  }),
+  "Zero-duration current-position context should carry treated starting assets backward without inventing cash flow."
+);
+assert.equal(zeroDurationMissingNetIncome.trace.preTargetContext.mode, "currentPositionContext");
+assert.equal(zeroDurationMissingNetIncome.trace.preTargetContext.fallbackReason, "cash-flow-data-gap");
+assert.ok(
+  zeroDurationMissingNetIncome.dataGaps.some(function (gap) {
+    return gap.code === "missing-net-recurring-income";
+  }),
+  "Missing income should still be traced when it prevents cash-flow-modeled pre-target context."
+);
+
 const missingNetIncomeBackcast = calculateHouseholdFinancialPosition(baseInput({
   recurringIncome: {
     value: null,
