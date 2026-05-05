@@ -355,6 +355,16 @@ assert.equal(
   1,
   "death-age slider should exist exactly once."
 );
+assert.equal(
+  (pageSource.match(/data-income-impact-projection-horizon(?:\s|>)/g) || []).length,
+  1,
+  "projection horizon control should exist exactly once."
+);
+assert.equal(
+  (pageSource.match(/data-income-impact-mortgage-treatment(?:\s|>)/g) || []).length,
+  1,
+  "mortgage treatment control should exist exactly once."
+);
 assert.match(pageSource, /Scenario Controls/);
 assert.match(pageSource, /Preview only\. These controls do not change the LENS recommendation\./);
 assert.doesNotMatch(pageSource, /Death Age Scenario/);
@@ -375,14 +385,64 @@ assert.doesNotMatch(
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
   "scenario state should not be persisted."
 );
-assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*position: sticky;/);
+assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*position: fixed;/);
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.actions-row[\s\S]*margin-bottom: 0\.75rem;/,
-  "Income Impact actions should keep spacing from the sticky scenario banner."
+  /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*left:\s*calc\(var\(--app-side-nav-width\) \+ clamp\(0\.95rem, 1\.45vw, 1\.15rem\)\);[\s\S]*right:\s*clamp\(0\.95rem, 1\.45vw, 1\.15rem\);/,
+  "Desktop/tablet scenario banner should be fixed to the viewport bottom and aligned to the LENS content pane."
+);
+assert.match(
+  layoutSource,
+  /workspace-side-nav-collapsed \.income-impact-scenario-banner[\s\S]*left:\s*calc\(var\(--app-side-nav-collapsed-width\) \+ clamp\(0\.95rem, 1\.45vw, 1\.15rem\)\);/,
+  "Fixed scenario banner should stay aligned when the LENS side nav is collapsed."
+);
+assert.match(
+  layoutSource,
+  /--income-impact-scenario-banner-reserve:\s*clamp\(/,
+  "Income Impact should reserve scroll space for the fixed scenario banner."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*scroll-padding-bottom:\s*calc\(var\(--income-impact-scenario-banner-reserve\) \+ 1rem\);/,
+  "Income Impact content should scroll above the fixed scenario banner."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.actions-row[\s\S]*margin-bottom:\s*calc\(var\(--income-impact-scenario-banner-reserve\) \+ 0\.75rem\);[\s\S]*scroll-margin-bottom:\s*calc\(var\(--income-impact-scenario-banner-reserve\) \+ 1rem\);/,
+  "Income Impact actions should keep reachable clearance from the fixed scenario banner."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*max-height:\s*min\(var\(--income-impact-scenario-banner-reserve\), calc\(100vh - 5rem\)\);[\s\S]*overflow-y:\s*auto;/,
+  "Fixed scenario banner should have a constrained height with internal overflow."
+);
+assert.match(
+  layoutSource,
+  /@media \(min-width: 721px\) and \(max-height: 700px\)[\s\S]*--income-impact-scenario-banner-reserve:\s*clamp\(10\.5rem, 34vh, 12rem\);/,
+  "Short-height desktop should use a smaller scenario banner reserve."
+);
+assert.match(
+  layoutSource,
+  /Mobile keeps scenario controls inline[\s\S]*body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*position: static;[\s\S]*left: auto;[\s\S]*right: auto;[\s\S]*max-height: none;[\s\S]*overflow: visible;/,
+  "Mobile scenario banner behavior should be explicit and inline."
 );
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
+assert.match(
+  componentsSource,
+  /@media \(max-width: 980px\)[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns: minmax\(8rem, 1fr\) minmax\(8rem, 1fr\) minmax\(11rem, 1\.1fr\);/,
+  "Tablet scenario controls should use a compact three-column layout."
+);
+assert.match(
+  componentsSource,
+  /@media \(min-width: 721px\) and \(max-height: 700px\)[\s\S]*\.income-impact-scenario-banner[\s\S]*padding: 0\.58rem 0\.72rem;/,
+  "Short-height scenario banner should use tighter spacing."
+);
+assert.match(
+  componentsSource,
+  /@media \(max-width: 720px\)[\s\S]*\.income-impact-scenario-header,[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns: 1fr;/,
+  "Mobile scenario controls should use an intentional inline single-column layout."
+);
 assert.match(
   componentsSource,
   /\.income-impact-scenario-content\[hidden\]\s*\{[\s\S]*display: none;/,
