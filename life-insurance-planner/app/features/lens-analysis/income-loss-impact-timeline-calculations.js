@@ -769,10 +769,246 @@
     };
   }
 
+  function resolveMortgagePaymentRunwayInput(lensModel) {
+    const monthlyPayment = firstRunwayValue(lensModel, [
+      { path: "ongoingSupport.monthlyMortgagePayment", status: "prepared-bucket" },
+      { path: "ongoingSupport.calculatedMonthlyMortgagePayment", status: "legacy-calculated-fallback" },
+      { path: "ongoingSupport.monthlyMortgagePaymentOnly", status: "legacy-payment-fallback" }
+    ]);
+    const remainingTermMonths = firstRunwayValue(lensModel, [
+      { path: "ongoingSupport.mortgageRemainingTermMonths", status: "prepared-bucket" }
+    ]);
+
+    return {
+      monthlyPayment,
+      remainingTermMonths,
+      annualPayment: monthlyPayment.value == null
+        ? createMissingRunwayValue(monthlyPayment.sourcePaths, "missing")
+        : createRunwayValue(
+            monthlyPayment.value * 12,
+            `${monthlyPayment.sourcePath || "ongoingSupport.monthlyMortgagePayment"} * 12`,
+            monthlyPayment.sourcePaths,
+            monthlyPayment.status
+          )
+    };
+  }
+
+  function debtPayoffIncludesMortgage(debtPayoff, mortgage) {
+    if (debtPayoff?.value == null || mortgage?.value == null) {
+      return false;
+    }
+
+    const debtSourcePaths = uniqueStrings(debtPayoff.sourcePaths);
+    const mortgageSourcePaths = uniqueStrings(mortgage.sourcePaths);
+    if (mortgageSourcePaths.some(function (sourcePath) {
+      return debtSourcePaths.includes(sourcePath);
+    })) {
+      return true;
+    }
+
+    if (
+      debtSourcePaths.includes("treatedDebtPayoff.needs.debtPayoffAmount")
+      && (
+        mortgageSourcePaths.includes("treatedDebtPayoff.needs.mortgagePayoffAmount")
+        || mortgageSourcePaths.includes("treatedDebtPayoff.dime.mortgageAmount")
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function createAdjustedDebtRunwayValue(value, sourcePath, sourcePaths, status) {
+    const normalizedValue = toOptionalNumber(value);
+    return createRunwayValue(
+      normalizedValue == null ? null : Math.max(0, normalizedValue),
+      sourcePath,
+      sourcePaths,
+      status
+    );
+  }
+
+  function createMortgageTreatmentTrace(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    return {
+      override: safeOptions.override || "followAssumptions",
+      source: `options.scenario.mortgageTreatmentOverride:${safeOptions.override || "followAssumptions"}`,
+      immediatePayoffAmount: safeOptions.immediatePayoffAmount == null ? null : roundMoney(safeOptions.immediatePayoffAmount),
+      payoffAlreadyIncluded: safeOptions.payoffAlreadyIncluded === true,
+      scheduledAnnualPayment: safeOptions.scheduledAnnualPayment == null ? null : roundMoney(safeOptions.scheduledAnnualPayment),
+      scheduledMonthlyPayment: safeOptions.scheduledMonthlyPayment == null ? null : roundMoney(safeOptions.scheduledMonthlyPayment),
+      scheduledTermMonths: safeOptions.scheduledTermMonths == null ? null : safeOptions.scheduledTermMonths,
+      sourcePaths: uniqueStrings(safeOptions.sourcePaths),
+      warnings: Array.isArray(safeOptions.warnings) ? safeOptions.warnings.slice() : [],
+      dataGaps: Array.isArray(safeOptions.dataGaps) ? safeOptions.dataGaps.slice() : [],
+      trace: Array.isArray(safeOptions.trace) ? safeOptions.trace.slice() : []
+    };
+  }
+
+  function applyMortgageTreatmentOverride(debtInput, mortgagePaymentInput, options) {
+    const safeDebtInput = isPlainObject(debtInput) ? debtInput : {};
+    const override = resolveMortgageTreatmentOverride(options);
+    const debtPayoff = isPlainObject(safeDebtInput.debtPayoff)
+      ? safeDebtInput.debtPayoff
+      : createMissingRunwayValue([], "missing");
+    const mortgage = isPlainObject(safeDebtInput.mortgage)
+      ? safeDebtInput.mortgage
+      : createMissingRunwayValue(["debtPayoff.mortgageBalance"], "missing");
+    const nonMortgageDebt = isPlainObject(safeDebtInput.nonMortgageDebt)
+      ? safeDebtInput.nonMortgageDebt
+      : createMissingRunwayValue([], "missing");
+    const mortgageIncluded = debtPayoffIncludesMortgage(debtPayoff, mortgage);
+
+    const adjusted = {
+      debtPayoff,
+      mortgage,
+      nonMortgageDebt,
+      sourceStatus: safeDebtInput.sourceStatus || "missing",
+      mortgageTreatment: createMortgageTreatmentTrace({
+        override,
+        payoffAlreadyIncluded: mortgageIncluded,
+        sourcePaths: debtPayoff.sourcePaths.concat(mortgage.sourcePaths),
+        trace: ["followAssumptions preserves prepared debt and mortgage bucket behavior."]
+      }),
+      scheduledObligations: {
+        value: 0,
+        sourcePath: "incomeLossImpact.projection.scheduledObligations.none",
+        sourcePaths: [],
+        status: "none",
+        warnings: [],
+        dataGaps: []
+      }
+    };
+
+    if (override === "followAssumptions") {
+      return adjusted;
+    }
+
+    if (override === "payOffMortgage") {
+      if (mortgage.value == null) {
+        adjusted.mortgageTreatment = createMortgageTreatmentTrace({
+          override,
+          payoffAlreadyIncluded: false,
+          sourcePaths: mortgage.sourcePaths,
+          dataGaps: [
+            createDataGap(
+              "missing-mortgage-payoff-amount",
+              "Mortgage payoff amount is missing; pay-off-mortgage scenario could not add an immediate mortgage obligation.",
+              mortgage.sourcePaths
+            )
+          ],
+          trace: ["payOffMortgage requested but no mortgage payoff amount was available."]
+        });
+        return adjusted;
+      }
+
+      if (mortgageIncluded) {
+        adjusted.mortgageTreatment = createMortgageTreatmentTrace({
+          override,
+          immediatePayoffAmount: 0,
+          payoffAlreadyIncluded: true,
+          sourcePaths: debtPayoff.sourcePaths.concat(mortgage.sourcePaths),
+          trace: ["payOffMortgage did not add mortgage again because the prepared debt payoff bucket already includes mortgage."]
+        });
+        return adjusted;
+      }
+
+      adjusted.debtPayoff = createAdjustedDebtRunwayValue(
+        (debtPayoff.value == null ? 0 : debtPayoff.value) + mortgage.value,
+        "incomeLossImpact.scenario.payOffMortgage.debtPayoff",
+        debtPayoff.sourcePaths.concat(mortgage.sourcePaths),
+        "scenario-payoff-mortgage"
+      );
+      adjusted.sourceStatus = "scenario-payoff-mortgage";
+      adjusted.mortgageTreatment = createMortgageTreatmentTrace({
+        override,
+        immediatePayoffAmount: mortgage.value,
+        payoffAlreadyIncluded: false,
+        sourcePaths: debtPayoff.sourcePaths.concat(mortgage.sourcePaths),
+        trace: ["payOffMortgage added mortgage as a preview-only immediate obligation."]
+      });
+      return adjusted;
+    }
+
+    const monthlyPayment = mortgagePaymentInput?.monthlyPayment || createMissingRunwayValue(["ongoingSupport.monthlyMortgagePayment"], "missing");
+    const remainingTermMonths = mortgagePaymentInput?.remainingTermMonths || createMissingRunwayValue(["ongoingSupport.mortgageRemainingTermMonths"], "missing");
+    if (mortgageIncluded) {
+      const fallbackNonMortgageValue = nonMortgageDebt.value != null
+        ? nonMortgageDebt.value
+        : (
+            debtPayoff.value != null && mortgage.value != null
+              ? Math.max(0, debtPayoff.value - mortgage.value)
+              : null
+          );
+      adjusted.debtPayoff = fallbackNonMortgageValue == null
+        ? createMissingRunwayValue(debtPayoff.sourcePaths.concat(nonMortgageDebt.sourcePaths), "missing-non-mortgage-debt")
+        : createAdjustedDebtRunwayValue(
+            fallbackNonMortgageValue,
+            nonMortgageDebt.value != null
+              ? "debtPayoff.nonMortgageComponents"
+              : "incomeLossImpact.scenario.continueMortgagePayments.debtPayoffLessMortgage",
+            nonMortgageDebt.sourcePaths.concat(debtPayoff.sourcePaths).concat(mortgage.sourcePaths),
+            nonMortgageDebt.value != null ? "raw-detail" : "scenario-excludes-mortgage-payoff"
+          );
+      adjusted.sourceStatus = "scenario-continue-mortgage-payments";
+    }
+
+    const dataGaps = [];
+    if (monthlyPayment.value == null) {
+      dataGaps.push(createDataGap(
+        "missing-mortgage-payment",
+        "Monthly mortgage payment is missing; continue-mortgage-payments scenario could not schedule mortgage payments.",
+        monthlyPayment.sourcePaths
+      ));
+    }
+    if (remainingTermMonths.value == null || remainingTermMonths.value <= 0) {
+      dataGaps.push(createDataGap(
+        "missing-mortgage-term",
+        "Mortgage remaining term is missing; continue-mortgage-payments scenario could not schedule mortgage payments.",
+        remainingTermMonths.sourcePaths
+      ));
+    }
+
+    if (!dataGaps.length) {
+      adjusted.scheduledObligations = {
+        value: monthlyPayment.value * 12,
+        monthlyAmount: monthlyPayment.value,
+        termMonths: remainingTermMonths.value,
+        sourcePath: "incomeLossImpact.scenario.continueMortgagePayments.scheduledMortgagePayments",
+        sourcePaths: monthlyPayment.sourcePaths.concat(remainingTermMonths.sourcePaths),
+        status: "mortgage-payments-continue",
+        warnings: [],
+        dataGaps: []
+      };
+    }
+
+    adjusted.mortgageTreatment = createMortgageTreatmentTrace({
+      override,
+      payoffAlreadyIncluded: mortgageIncluded,
+      scheduledAnnualPayment: dataGaps.length ? null : monthlyPayment.value * 12,
+      scheduledMonthlyPayment: dataGaps.length ? null : monthlyPayment.value,
+      scheduledTermMonths: dataGaps.length ? null : remainingTermMonths.value,
+      sourcePaths: debtPayoff.sourcePaths
+        .concat(mortgage.sourcePaths)
+        .concat(monthlyPayment.sourcePaths)
+        .concat(remainingTermMonths.sourcePaths),
+      dataGaps,
+      trace: dataGaps.length
+        ? ["continueMortgagePayments requested but mortgage payment or term facts were missing."]
+        : ["continueMortgagePayments removed immediate mortgage payoff when present and scheduled mortgage payments into projection points."]
+    });
+    return adjusted;
+  }
+
   function resolveFinancialRunwayInputs(lensModel, options) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const assetInput = resolveAssetRunwayInput(safeLensModel);
-    const debtInput = resolveDebtRunwayInput(safeLensModel);
+    const debtInput = applyMortgageTreatmentOverride(
+      resolveDebtRunwayInput(safeLensModel),
+      resolveMortgagePaymentRunwayInput(safeLensModel),
+      options
+    );
     const incomeOffsets = resolveIncomeOffsetRunwayInput(safeLensModel);
     const survivorIncomeDelayWarnings = incomeOffsets.survivorIncomeStartDelayMonths > 0
       ? [
@@ -799,7 +1035,8 @@
         debtPayoff: debtInput.debtPayoff,
         mortgage: debtInput.mortgage,
         nonMortgageDebt: debtInput.nonMortgageDebt,
-        debtSourceStatus: debtInput.sourceStatus
+        debtSourceStatus: debtInput.sourceStatus,
+        mortgageTreatment: debtInput.mortgageTreatment
       },
       annualNeeds: resolveAnnualNeedRunwayInput(safeLensModel, options),
       incomeOffsets,
@@ -811,22 +1048,8 @@
           sourcePaths: ["survivorScenario.survivorIncomeStartDelayMonths"],
           warnings: survivorIncomeDelayWarnings
         },
-        scheduledObligations: {
-          value: 0,
-          sourcePath: "incomeLossImpact.projection.scheduledObligations.deferred",
-          sourcePaths: [
-            "educationSupport.totalEducationFundingNeed",
-            "ongoingSupport.mortgageRemainingTermMonths",
-            "treatedDebtPayoff.needs.debtPayoffAmount"
-          ],
-          status: "deferred",
-          warnings: [
-            createWarning(
-              "scheduled-obligations-projection-deferred",
-              "Education and mortgage timing are represented as events today; year-specific scheduled obligations are deferred."
-            )
-          ]
-        }
+        scheduledObligations: debtInput.scheduledObligations,
+        mortgageTreatment: debtInput.mortgageTreatment
       },
       milestones: {
         dependents: firstRunwayValue(safeLensModel, [
@@ -920,6 +1143,60 @@
       : "followAssumptions";
   }
 
+  function normalizeScheduledObligationProjectionInput(value) {
+    if (isPlainObject(value)) {
+      const monthlyAmount = toOptionalNumber(value.monthlyAmount);
+      const termMonths = toOptionalNumber(value.termMonths);
+      const annualAmount = toOptionalNumber(value.value) || (monthlyAmount == null ? 0 : monthlyAmount * 12);
+      return {
+        annualAmount: Math.max(0, annualAmount || 0),
+        monthlyAmount: monthlyAmount == null ? null : Math.max(0, monthlyAmount),
+        termMonths: termMonths == null ? null : Math.max(0, Math.round(termMonths)),
+        sourcePaths: uniqueStrings(value.sourcePaths),
+        status: normalizeString(value.status)
+      };
+    }
+
+    const annualAmount = toOptionalNumber(value);
+    return {
+      annualAmount: Math.max(0, annualAmount || 0),
+      monthlyAmount: null,
+      termMonths: null,
+      sourcePaths: [],
+      status: annualAmount == null ? "none" : "annual"
+    };
+  }
+
+  function getScheduledObligationAmountForProjectionYear(scheduledObligations, yearIndex) {
+    if (!scheduledObligations || yearIndex <= 0) {
+      return 0;
+    }
+
+    if (scheduledObligations.monthlyAmount != null && scheduledObligations.termMonths != null) {
+      const startMonth = (yearIndex - 1) * 12;
+      const monthsInYear = Math.max(0, Math.min(12, scheduledObligations.termMonths - startMonth));
+      return scheduledObligations.monthlyAmount * monthsInYear;
+    }
+
+    return scheduledObligations.annualAmount || 0;
+  }
+
+  function getScheduledObligationAmountForMonth(scheduledObligations, monthIndex) {
+    if (!scheduledObligations || monthIndex <= 0) {
+      return 0;
+    }
+
+    if (scheduledObligations.monthlyAmount == null) {
+      return 0;
+    }
+
+    if (scheduledObligations.termMonths != null && monthIndex > scheduledObligations.termMonths) {
+      return 0;
+    }
+
+    return scheduledObligations.monthlyAmount;
+  }
+
   function buildRunwayProjectionPoints(options) {
     const safeOptions = isPlainObject(options) ? options : {};
     const deathDate = parseDateOnly(safeOptions.selectedDeathDate);
@@ -929,8 +1206,8 @@
     const annualNeed = toOptionalNumber(safeOptions.annualNeed);
     const survivorIncomeOffset = toOptionalNumber(safeOptions.survivorIncomeOffset);
     const growthRate = Math.max(0, toOptionalNumber(safeOptions.growthRate) || 0);
-    const scheduledObligations = Math.max(0, toOptionalNumber(safeOptions.scheduledObligations) || 0);
-    const sourcePaths = uniqueStrings(safeOptions.sourcePaths);
+    const scheduledObligations = normalizeScheduledObligationProjectionInput(safeOptions.scheduledObligations);
+    const sourcePaths = uniqueStrings(safeOptions.sourcePaths).concat(scheduledObligations.sourcePaths);
     const projectionYears = resolveProjectionYears(safeOptions.options);
 
     if (netAvailableResources == null || annualShortfall == null || !deathDate) {
@@ -944,7 +1221,7 @@
       const growthAmount = yearIndex === 0 || startingBalance <= 0
         ? 0
         : startingBalance * (growthRate / 100);
-      const yearScheduledObligations = yearIndex === 0 ? 0 : scheduledObligations;
+      const yearScheduledObligations = getScheduledObligationAmountForProjectionYear(scheduledObligations, yearIndex);
       const endingBalance = yearIndex === 0
         ? netAvailableResources
         : startingBalance + growthAmount - effectiveShortfall - yearScheduledObligations;
@@ -1121,11 +1398,10 @@
       "pre-death points are flat context-only baseline points.",
       "post-death points use monthly resolution for the first 24 months and annual resolution after month 24.",
       "displayedBalance = max(0, endingBalance); accumulatedUnmetNeed tracks below-zero balances separately.",
-      "mortgageTreatmentOverride is captured for scenario controls but does not change mortgage math in this pass."
+      "mortgageTreatmentOverride changes preview-only immediate mortgage payoff or scheduled mortgage payments without changing saved assumptions or recommendations."
     ];
     scenarioTimeline.trace.deferred = [
       "pivotal-warning-events-library",
-      "mortgage-treatment-override-behavior",
       "housing-risk-marker-evaluation",
       "education-risk-marker-evaluation"
     ];
@@ -1189,6 +1465,10 @@
     const annualNeed = toOptionalNumber(financialRunway.annualHouseholdNeed);
     const survivorIncomeOffset = toOptionalNumber(financialRunway.annualSurvivorIncome);
     const growthRate = toOptionalNumber(financialRunway.inputs?.projection?.assetGrowth?.growthRate) || 0;
+    const scheduledObligations = normalizeScheduledObligationProjectionInput(
+      financialRunway.scheduledObligations || financialRunway.inputs?.projection?.scheduledObligations
+    );
+    const mortgageTreatment = financialRunway.mortgageTreatment || financialRunway.inputs?.projection?.mortgageTreatment;
     const sourcePaths = uniqueStrings(financialRunway.sourcePaths || []);
     if (netAvailableResources == null || annualShortfall == null) {
       scenarioTimeline.trace.formula.push("scenarioTimeline resource points require net available resources and annual shortfall.");
@@ -1249,6 +1529,48 @@
       sourcePaths: ["selectedDeathDate", "selectedDeathAge", "profileFacts.clientDateOfBirth"]
     }));
 
+    if (mortgageTreatment?.override === "payOffMortgage") {
+      scenarioTimeline.eventLanes.housing.push(createScenarioLaneEvent({
+        id: "mortgage-payoff-at-death",
+        type: "mortgagePayoffAtDeath",
+        date: deathDate.normalizedDate,
+        age: deathAge,
+        relativeMonthIndex: 0,
+        label: mortgageTreatment.payoffAlreadyIncluded
+          ? "Mortgage payoff already included"
+          : "Mortgage payoff at death",
+        lane: "housing",
+        status: mortgageTreatment.payoffAlreadyIncluded ? "included-in-prepared-debt" : "scenario-override",
+        sourcePaths: mortgageTreatment.sourcePaths
+      }));
+    } else if (mortgageTreatment?.override === "continueMortgagePayments") {
+      if (scheduledObligations.annualAmount > 0 && scheduledObligations.termMonths != null) {
+        scenarioTimeline.eventLanes.housing.push(createScenarioLaneEvent({
+          id: "mortgage-payments-continue",
+          type: "mortgagePaymentsContinue",
+          date: deathDate.normalizedDate,
+          age: deathAge,
+          relativeMonthIndex: 0,
+          label: "Mortgage payments continue",
+          lane: "housing",
+          status: "scenario-override",
+          sourcePaths: scheduledObligations.sourcePaths
+        }));
+      } else {
+        scenarioTimeline.eventLanes.dataQuality.push(createScenarioLaneEvent({
+          id: "mortgage-data-gap",
+          type: "mortgageDataGap",
+          date: deathDate.normalizedDate,
+          age: deathAge,
+          relativeMonthIndex: 0,
+          label: "Mortgage payment timing missing",
+          lane: "dataQuality",
+          status: "missing-facts",
+          sourcePaths: mortgageTreatment.sourcePaths
+        }));
+      }
+    }
+
     const effectiveAnnualShortfall = Math.max(0, annualShortfall);
     const monthlyShortfall = effectiveAnnualShortfall / 12;
     const monthlyGrowthRate = growthRate > 0 ? growthRate / 100 / 12 : 0;
@@ -1257,7 +1579,8 @@
       const pointDate = addMonths(deathDate.date, monthIndex);
       const startingBalance = runningBalance;
       const growthAmount = startingBalance > 0 ? startingBalance * monthlyGrowthRate : 0;
-      const endingBalance = startingBalance + growthAmount - monthlyShortfall;
+      const monthlyScheduledObligations = getScheduledObligationAmountForMonth(scheduledObligations, monthIndex);
+      const endingBalance = startingBalance + growthAmount - monthlyShortfall - monthlyScheduledObligations;
       runningBalance = endingBalance;
       scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
         id: `post-death-month-${monthIndex}`,
@@ -1272,7 +1595,7 @@
         householdNeed: annualNeed,
         survivorIncomeOffset,
         annualShortfall: effectiveAnnualShortfall,
-        scheduledObligations: 0,
+        scheduledObligations: monthlyScheduledObligations,
         endingBalance,
         status: endingBalance <= 0 ? "depleted" : "available",
         sourcePaths
@@ -1283,7 +1606,8 @@
       const pointDate = addYears(deathDate.date, yearIndex);
       const startingBalance = runningBalance;
       const growthAmount = startingBalance > 0 ? startingBalance * (growthRate / 100) : 0;
-      const endingBalance = startingBalance + growthAmount - effectiveAnnualShortfall;
+      const yearScheduledObligations = getScheduledObligationAmountForProjectionYear(scheduledObligations, yearIndex);
+      const endingBalance = startingBalance + growthAmount - effectiveAnnualShortfall - yearScheduledObligations;
       runningBalance = endingBalance;
       scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
         id: `post-death-year-${yearIndex}`,
@@ -1298,7 +1622,7 @@
         householdNeed: annualNeed,
         survivorIncomeOffset,
         annualShortfall: effectiveAnnualShortfall,
-        scheduledObligations: 0,
+        scheduledObligations: yearScheduledObligations,
         endingBalance,
         status: endingBalance <= 0 ? "depleted" : "available",
         sourcePaths
@@ -1706,6 +2030,19 @@
     const assetGrowth = financialRunwayInputs.projection.assetGrowth;
     const survivorIncomeDelay = financialRunwayInputs.projection.survivorIncomeDelay;
     const scheduledObligations = financialRunwayInputs.projection.scheduledObligations;
+    const mortgageTreatment = financialRunwayInputs.projection.mortgageTreatment;
+    (Array.isArray(mortgageTreatment?.warnings) ? mortgageTreatment.warnings : []).forEach(function (warning) {
+      output.warnings.push(warning);
+    });
+    (Array.isArray(mortgageTreatment?.dataGaps) ? mortgageTreatment.dataGaps : []).forEach(function (dataGap) {
+      addDataGap(output, dataGap.code, dataGap.label, dataGap.sourcePaths, dataGap.details);
+    });
+    (Array.isArray(scheduledObligations?.warnings) ? scheduledObligations.warnings : []).forEach(function (warning) {
+      output.warnings.push(warning);
+    });
+    (Array.isArray(scheduledObligations?.dataGaps) ? scheduledObligations.dataGaps : []).forEach(function (dataGap) {
+      addDataGap(output, dataGap.code, dataGap.label, dataGap.sourcePaths, dataGap.details);
+    });
     const runwaySourcePaths = totalResources.sourcePaths
       .concat(immediateObligations.sourcePaths)
       .concat(annualShortfallSourcePaths)
@@ -1746,7 +2083,7 @@
         survivorIncomeOffset: effectiveSurvivorIncome,
         annualShortfall,
         growthRate: assetGrowth.growthRate,
-        scheduledObligations: scheduledObligations.value,
+        scheduledObligations,
         sourcePaths: runwaySourcePaths,
         options: { projectionYears }
       });
@@ -1807,6 +2144,8 @@
       depletionDate: depletionDateValue,
       projectionYears,
       projectionPoints,
+      mortgageTreatment,
+      scheduledObligations,
       inputs: financialRunwayInputs,
       sourcePaths: uniqueStrings(runwaySourcePaths),
       warnings: output.warnings.slice(),

@@ -318,8 +318,8 @@ function run() {
   );
   assert.strictEqual(
     output.financialRunway.inputs.projection.scheduledObligations.status,
-    "deferred",
-    "scheduled obligations should be explicitly scaffolded even before scheduling is implemented"
+    "none",
+    "followAssumptions should not schedule extra obligations unless a scenario override requests it"
   );
   assert(
     output.trace.formula.some((formula) => formula.includes("projectionPoints ledger fields")),

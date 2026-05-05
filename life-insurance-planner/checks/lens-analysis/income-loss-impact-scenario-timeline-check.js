@@ -122,7 +122,7 @@ const output = calculateIncomeLossImpactTimeline({
     scenario: {
       deathAge: 50,
       projectionHorizonYears: 10,
-      mortgageTreatmentOverride: "payOffMortgage"
+      mortgageTreatmentOverride: "followAssumptions"
     }
   }
 });
@@ -135,8 +135,8 @@ assert.equal(timeline.scenario.deathDate, "2030-06-15");
 assert.equal(timeline.scenario.source, "selectedDeathAge");
 assert.equal(timeline.scenario.status, "resolved");
 assert.equal(timeline.scenario.projectionHorizonYears, 10);
-assert.equal(timeline.scenario.mortgageTreatmentOverride, "payOffMortgage");
-assert.equal(output.financialRunway.immediateObligations, 100000, "mortgage override should not change mortgage math in this pass.");
+assert.equal(timeline.scenario.mortgageTreatmentOverride, "followAssumptions");
+assert.equal(output.financialRunway.immediateObligations, 100000, "followAssumptions should preserve baseline mortgage behavior.");
 
 assert.equal(timeline.axis.startDate, "2025-06-15");
 assert.equal(timeline.axis.deathDate, "2030-06-15");
@@ -221,8 +221,8 @@ assert.ok(
   "warning event library should not be deferred when it is loaded."
 );
 assert.ok(
-  timeline.trace.deferred.includes("mortgage-treatment-override-behavior"),
-  "mortgage override behavior should be explicitly deferred."
+  !timeline.trace.deferred.includes("mortgage-treatment-override-behavior"),
+  "mortgage override behavior should be active in the helper output."
 );
 
 const missingCoverageOutput = calculateIncomeLossImpactTimeline({
