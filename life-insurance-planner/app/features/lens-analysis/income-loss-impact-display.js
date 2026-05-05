@@ -678,6 +678,255 @@
     };
   }
 
+  function calculateMonthOffset(startDateValue, endDateValue) {
+    const startDate = parseDateOnlyValue(startDateValue);
+    const endDate = parseDateOnlyValue(endDateValue);
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    const wholeMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12
+      + (endDate.getMonth() - startDate.getMonth());
+    return endDate.getDate() < startDate.getDate() ? wholeMonths - 1 : wholeMonths;
+  }
+
+  function getPivotalMarkerMonthOffset(event, timelineResult) {
+    const relativeMonthIndex = toOptionalNumber(event?.relativeMonthIndex);
+    if (relativeMonthIndex != null) {
+      return relativeMonthIndex;
+    }
+
+    const selectedDeathDate = timelineResult?.selectedDeath?.date
+      || timelineResult?.scenarioTimeline?.scenario?.deathDate
+      || timelineResult?.scenarioTimeline?.axis?.deathDate;
+    if (!event?.date || !selectedDeathDate) {
+      return null;
+    }
+
+    return calculateMonthOffset(selectedDeathDate, event.date);
+  }
+
+  function getPivotalMarkerLaneLabel(lane, kind) {
+    if (kind === "stable") {
+      return "Covered facts";
+    }
+
+    const normalized = String(lane || "").trim();
+    if (normalized === "housing") {
+      return "Housing";
+    }
+    if (normalized === "education") {
+      return "Education";
+    }
+    if (normalized === "income") {
+      return "Income";
+    }
+    if (normalized === "dataQuality") {
+      return "Data quality";
+    }
+    return "Resources";
+  }
+
+  function normalizePivotalMarkerLane(lane, kind) {
+    if (kind === "stable") {
+      return "stable";
+    }
+
+    const normalized = String(lane || "").trim();
+    return ["resources", "housing", "education", "income", "dataQuality"].includes(normalized)
+      ? normalized
+      : "resources";
+  }
+
+  function normalizePivotalMarkerSeverity(severity, kind) {
+    if (kind === "stable") {
+      return "stable";
+    }
+
+    const normalized = String(severity || "").trim();
+    return ["critical", "at-risk", "caution"].includes(normalized) ? normalized : "caution";
+  }
+
+  function getPivotalMarkerLabel(event) {
+    const rawLabel = String(event?.shortLabel || event?.label || "Event").trim();
+    const withoutAmounts = rawLabel.replace(/\$\s?[\d,]+(?:\.\d+)?/g, "").trim();
+    return withoutAmounts || "Event";
+  }
+
+  function getPivotalMarkerTimingLabel(marker) {
+    if (marker.date && marker.age != null) {
+      return `${marker.date} - Age ${marker.age}`;
+    }
+    if (marker.date) {
+      return marker.date;
+    }
+    if (marker.relativeMonthIndex === 0) {
+      return "At death";
+    }
+    if (marker.relativeMonthIndex != null) {
+      return `Month ${marker.relativeMonthIndex}`;
+    }
+    return "Timing unavailable";
+  }
+
+  function buildPivotalMarkerModel(timelineResult, chartModel) {
+    const events = getPivotalEvents(timelineResult);
+    const maxYearIndex = Math.max(1, toOptionalNumber(chartModel?.maxYearIndex) || 1);
+    const markers = [];
+    const undated = [];
+
+    [
+      { kind: "risk", events: events.risks },
+      { kind: "stable", events: events.stable }
+    ].forEach(function (group) {
+      group.events.forEach(function (event) {
+        const relativeMonthIndex = getPivotalMarkerMonthOffset(event, timelineResult);
+        const lane = normalizePivotalMarkerLane(event?.lane, group.kind);
+        const severity = normalizePivotalMarkerSeverity(event?.severity, group.kind);
+        const marker = {
+          id: String(event?.id || event?.type || `${group.kind}-${markers.length + undated.length}`),
+          type: String(event?.type || event?.id || ""),
+          kind: group.kind,
+          lane,
+          laneLabel: getPivotalMarkerLaneLabel(lane, group.kind),
+          severity,
+          label: getPivotalMarkerLabel(event),
+          date: event?.date || "",
+          age: event?.age,
+          relativeMonthIndex,
+          sourcePaths: Array.isArray(event?.sourcePaths) ? event.sourcePaths : []
+        };
+
+        if (relativeMonthIndex == null || !Number.isFinite(relativeMonthIndex)) {
+          undated.push(marker);
+          return;
+        }
+
+        const relativeYears = Math.max(0, Math.min(maxYearIndex, relativeMonthIndex / 12));
+        const percent = relativeYears / maxYearIndex * 100;
+        marker.percent = Math.round(percent * 100) / 100;
+        marker.bucket = Math.round(percent / 6) * 6;
+        markers.push(marker);
+      });
+    });
+
+    const laneOrder = ["resources", "income", "housing", "education", "dataQuality", "stable"];
+    const lanes = laneOrder.map(function (lane) {
+      const laneMarkers = markers.filter(function (marker) {
+        return marker.lane === lane;
+      });
+      if (!laneMarkers.length) {
+        return null;
+      }
+
+      const bucketMap = new Map();
+      laneMarkers.forEach(function (marker) {
+        const key = String(marker.bucket);
+        if (!bucketMap.has(key)) {
+          bucketMap.set(key, []);
+        }
+        bucketMap.get(key).push(marker);
+      });
+
+      return {
+        lane,
+        label: getPivotalMarkerLaneLabel(lane, lane === "stable" ? "stable" : "risk"),
+        kind: lane === "stable" ? "stable" : "risk",
+        groups: Array.from(bucketMap.entries()).map(function (entry) {
+          const groupMarkers = entry[1].sort(function (left, right) {
+            return (left.relativeMonthIndex || 0) - (right.relativeMonthIndex || 0);
+          });
+          const groupPercent = groupMarkers.reduce(function (total, marker) {
+            return total + marker.percent;
+          }, 0) / groupMarkers.length;
+          return {
+            bucket: entry[0],
+            percent: Math.round(groupPercent * 100) / 100,
+            edge: groupPercent <= 4 ? "start" : (groupPercent >= 96 ? "end" : "middle"),
+            markers: groupMarkers
+          };
+        }).sort(function (left, right) {
+          return left.percent - right.percent;
+        })
+      };
+    }).filter(Boolean);
+
+    return {
+      lanes,
+      undated
+    };
+  }
+
+  function renderPivotalMarker(marker) {
+    return `
+      <span
+        class="income-impact-marker-pill"
+        data-income-impact-timeline-marker
+        data-income-impact-marker-kind="${escapeHtml(marker.kind)}"
+        data-income-impact-marker-severity="${escapeHtml(marker.severity)}"
+        data-income-impact-marker-lane="${escapeHtml(marker.lane)}"
+        data-income-impact-marker-type="${escapeHtml(marker.type)}"
+        data-income-impact-marker-month="${escapeHtml(marker.relativeMonthIndex == null ? "" : String(marker.relativeMonthIndex))}"
+      >
+        <span class="income-impact-marker-dot" aria-hidden="true"></span>
+        <span>${escapeHtml(marker.label)}</span>
+        <span class="sr-only">${escapeHtml(getPivotalMarkerTimingLabel(marker))}</span>
+      </span>
+    `;
+  }
+
+  function renderPivotalMarkerGroup(group) {
+    return `
+      <div
+        class="income-impact-marker-group"
+        data-income-impact-timeline-marker-group
+        data-income-impact-marker-group-count="${escapeHtml(String(group.markers.length))}"
+        data-income-impact-marker-edge="${escapeHtml(group.edge)}"
+        style="left: ${group.percent}%"
+      >
+        ${group.markers.length > 1 ? `<span class="income-impact-marker-count">${escapeHtml(String(group.markers.length))}</span>` : ""}
+        <div class="income-impact-marker-stack">
+          ${group.markers.map(renderPivotalMarker).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPivotalMarkerLanes(timelineResult, chartModel) {
+    const markerModel = buildPivotalMarkerModel(timelineResult, chartModel);
+    const hasMarkers = markerModel.lanes.length || markerModel.undated.length;
+    if (!hasMarkers) {
+      return "";
+    }
+
+    return `
+      <div class="income-impact-marker-lanes" data-income-impact-timeline-marker-lanes aria-label="Income Impact scenario warning and coverage markers">
+        ${markerModel.lanes.map(function (lane) {
+          return `
+            <div
+              class="income-impact-marker-lane income-impact-marker-lane--${escapeHtml(lane.kind)}"
+              data-income-impact-marker-lane="${escapeHtml(lane.lane)}"
+              data-income-impact-marker-kind="${escapeHtml(lane.kind)}"
+            >
+              <span class="income-impact-marker-lane-label">${escapeHtml(lane.label)}</span>
+              <div class="income-impact-marker-track">
+                ${lane.groups.map(renderPivotalMarkerGroup).join("")}
+              </div>
+            </div>
+          `;
+        }).join("")}
+        ${markerModel.undated.length ? `
+          <div class="income-impact-marker-undated" data-income-impact-marker-undated>
+            <span>Undated events</span>
+            <div>
+              ${markerModel.undated.map(renderPivotalMarker).join("")}
+            </div>
+          </div>
+        ` : ""}
+      </div>
+    `;
+  }
+
   function renderFinancialRunwayChart(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const status = normalizeRunwayStatus(runway.status);
@@ -797,6 +1046,7 @@
           <span>${escapeHtml(formatTimelineAxisDate(model.axisStart) || "Start")}</span>
           <span>${escapeHtml(formatTimelineAxisDate(model.axisEnd) || "End")}</span>
         </div>
+        ${renderPivotalMarkerLanes(timelineResult, model)}
         <div class="income-impact-chart-hover-label">${escapeHtml(depletionLabel)}</div>
       </div>
     `;

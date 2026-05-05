@@ -14801,6 +14801,156 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   font-weight: 760;
 }
 
+.income-impact-marker-lanes {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(213, 220, 233, 0.78);
+  border-radius: 0.65rem;
+  background: #ffffff;
+}
+
+.income-impact-marker-lane {
+  display: grid;
+  grid-template-columns: 6.8rem minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.income-impact-marker-lane-label,
+.income-impact-marker-undated > span {
+  align-self: center;
+  color: #536176;
+  font-size: 0.72rem;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+.income-impact-marker-track {
+  position: relative;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(238, 242, 248, 0.9), rgba(246, 248, 252, 0.95));
+}
+
+.income-impact-marker-group {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  max-width: 11rem;
+  transform: translate(-50%, -50%);
+}
+
+.income-impact-marker-group[data-income-impact-marker-edge="start"] {
+  transform: translate(0, -50%);
+}
+
+.income-impact-marker-group[data-income-impact-marker-edge="end"] {
+  transform: translate(-100%, -50%);
+}
+
+.income-impact-marker-stack {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.income-impact-marker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 10rem;
+  padding: 0.24rem 0.46rem;
+  border: 1px solid rgba(213, 220, 233, 0.95);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #39475d;
+  font-size: 0.68rem;
+  font-weight: 820;
+  line-height: 1.1;
+  white-space: nowrap;
+  box-shadow: 0 0.18rem 0.5rem rgba(18, 27, 43, 0.07);
+}
+
+.income-impact-marker-pill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.income-impact-marker-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #647085;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-severity="critical"] {
+  border-color: rgba(180, 35, 24, 0.28);
+  color: #b42318;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-severity="critical"] .income-impact-marker-dot {
+  background: #b42318;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-severity="at-risk"] {
+  border-color: rgba(181, 71, 8, 0.28);
+  color: #b54708;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-severity="at-risk"] .income-impact-marker-dot {
+  background: #b54708;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-severity="caution"] {
+  border-color: rgba(138, 90, 0, 0.26);
+  color: #8a5a00;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-severity="caution"] .income-impact-marker-dot {
+  background: #c98200;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-kind="stable"] {
+  border-color: rgba(47, 115, 87, 0.26);
+  color: #2f7357;
+}
+
+.income-impact-marker-pill[data-income-impact-marker-kind="stable"] .income-impact-marker-dot {
+  background: #2f7357;
+}
+
+.income-impact-marker-count {
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #17202c;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 860;
+}
+
+.income-impact-marker-undated {
+  display: grid;
+  grid-template-columns: 6.8rem minmax(0, 1fr);
+  gap: 0.65rem;
+}
+
+.income-impact-marker-undated > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .income-impact-supporting-events {
   border: 1px solid rgba(223, 229, 238, 0.86);
   border-radius: 0.55rem;
