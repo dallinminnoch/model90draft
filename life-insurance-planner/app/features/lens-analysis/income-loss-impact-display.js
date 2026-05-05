@@ -880,6 +880,146 @@
     `;
   }
 
+  function getPivotalEvents(timelineResult) {
+    const scenarioTimeline = isPlainObject(timelineResult?.scenarioTimeline) ? timelineResult.scenarioTimeline : {};
+    const pivotalEvents = isPlainObject(scenarioTimeline.pivotalEvents) ? scenarioTimeline.pivotalEvents : {};
+    return {
+      risks: (Array.isArray(pivotalEvents.risks) ? pivotalEvents.risks : []).filter(isPlainObject),
+      stable: (Array.isArray(pivotalEvents.stable) ? pivotalEvents.stable : []).filter(isPlainObject)
+    };
+  }
+
+  function getRiskSeverityLabel(severity) {
+    const normalized = String(severity || "").trim();
+    if (normalized === "critical") {
+      return "Critical";
+    }
+    if (normalized === "at-risk") {
+      return "At Risk";
+    }
+    if (normalized === "caution") {
+      return "Caution";
+    }
+    if (normalized === "stable") {
+      return "Stable";
+    }
+    return normalized || "Review";
+  }
+
+  function formatPivotalEventTiming(event) {
+    const pieces = [];
+    if (event?.date) {
+      pieces.push(event.date);
+    }
+    if (event?.age != null) {
+      pieces.push(`Age ${event.age}`);
+    }
+    if (!pieces.length && event?.relativeMonthIndex != null) {
+      const months = toOptionalNumber(event.relativeMonthIndex);
+      if (months === 0) {
+        pieces.push("At death");
+      } else if (months != null) {
+        pieces.push(`Month ${months}`);
+      }
+    }
+    return pieces.join(" - ");
+  }
+
+  function renderPivotalEventMeta(event) {
+    const timing = formatPivotalEventTiming(event);
+    const amount = toOptionalNumber(event?.amount);
+    const pieces = [];
+    if (timing) {
+      pieces.push(`<span>${escapeHtml(timing)}</span>`);
+    }
+    if (amount != null) {
+      pieces.push(`<span>${escapeHtml(formatCurrency(amount))}</span>`);
+    }
+    return pieces.length ? `<div class="income-impact-risk-meta">${pieces.join("")}</div>` : "";
+  }
+
+  function renderPivotalEventDataGaps(event) {
+    const dataGaps = Array.isArray(event?.dataGaps) ? event.dataGaps : [];
+    if (!dataGaps.length) {
+      return "";
+    }
+    return `
+      <ul class="income-impact-risk-gaps">
+        ${dataGaps.map(function (gap) {
+          return `<li>${escapeHtml(gap?.label || gap?.code || "Additional profile information is needed.")}</li>`;
+        }).join("")}
+      </ul>
+    `;
+  }
+
+  function renderRiskEvent(event) {
+    const severity = String(event?.severity || "").trim();
+    return `
+      <article
+        class="income-impact-risk-item"
+        data-income-impact-risk-event
+        data-income-impact-risk-severity="${escapeHtml(severity)}"
+        data-income-impact-risk-type="${escapeHtml(event?.type || event?.id || "")}"
+      >
+        <div class="income-impact-risk-item-header">
+          <span class="income-impact-risk-severity" data-income-impact-risk-severity-label="${escapeHtml(severity)}">${escapeHtml(getRiskSeverityLabel(severity))}</span>
+          <strong>${escapeHtml(event?.label || event?.shortLabel || "Risk detected")}</strong>
+        </div>
+        <p>${escapeHtml(event?.advisorCopy || "Review this Income Impact scenario with the available facts.")}</p>
+        ${renderPivotalEventMeta(event)}
+        ${renderPivotalEventDataGaps(event)}
+      </article>
+    `;
+  }
+
+  function renderStableEvent(event) {
+    return `
+      <li data-income-impact-covered-event data-income-impact-covered-type="${escapeHtml(event?.type || event?.id || "")}">
+        <div>
+          <strong>${escapeHtml(event?.label || event?.shortLabel || "Covered item")}</strong>
+          <p>${escapeHtml(event?.advisorCopy || "This item is represented in the current preview.")}</p>
+        </div>
+        ${renderPivotalEventMeta(event)}
+      </li>
+    `;
+  }
+
+  function renderPivotalRiskPanel(timelineResult) {
+    const events = getPivotalEvents(timelineResult);
+    const dataGaps = Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : [];
+    const hasRisks = events.risks.length > 0;
+    const stablePanel = events.stable.length
+      ? `
+        <details class="income-impact-covered-panel" data-income-impact-covered-panel>
+          <summary>What is covered</summary>
+          <ul>
+            ${events.stable.map(renderStableEvent).join("")}
+          </ul>
+        </details>
+      `
+      : "";
+    const emptyCopy = dataGaps.length
+      ? "No risk events are available yet because the preview is missing key facts. Review the data needed below."
+      : "No major risks detected from the available facts.";
+
+    return `
+      <article class="income-impact-card income-impact-card--wide income-impact-risk-panel" data-income-impact-risk-panel>
+        <div class="income-impact-card-header">
+          <h3>Key risks detected</h3>
+          <p>These events are generated from the available scenario facts for this local preview. This does not change the LENS recommendation.</p>
+        </div>
+        ${hasRisks ? `
+          <div class="income-impact-risk-list" data-income-impact-risk-list>
+            ${events.risks.map(renderRiskEvent).join("")}
+          </div>
+        ` : `
+          <div class="income-impact-empty-inline" data-income-impact-risk-empty>${escapeHtml(emptyCopy)}</div>
+        `}
+        ${stablePanel}
+      </article>
+    `;
+  }
+
   function renderTimeline(timelineResult) {
     return `
       <article class="income-impact-card income-impact-card--wide" data-income-impact-helper-timeline>
@@ -905,6 +1045,7 @@
     host.innerHTML = `
       <div class="income-impact-grid">
         ${renderTimeline(timelineResult)}
+        ${renderPivotalRiskPanel(timelineResult)}
         ${renderFinancialSecurityCard(timelineResult)}
         ${renderFinancialRunwayCards(timelineResult)}
       </div>
