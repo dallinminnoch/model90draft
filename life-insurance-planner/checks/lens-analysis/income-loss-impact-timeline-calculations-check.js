@@ -276,6 +276,7 @@ function run() {
   assert.strictEqual(output.financialRunway.totalMonthsOfSecurity, 100);
   assert.strictEqual(output.financialRunway.depletionYear, 2038);
   assert.strictEqual(output.financialRunway.depletionDate, "2038-10-15");
+  assert.strictEqual(output.financialRunway.projectionMode, "current-dollar");
   assert.strictEqual(output.financialRunway.projectionYears, 40);
   assert.strictEqual(output.financialRunway.projectionPoints.length, 41);
   assert.strictEqual(
@@ -283,23 +284,45 @@ function run() {
     "offsetAssets.totalAvailableOffsetAssetValue",
     "legacy offsetAssets should remain a fallback when prepared treated assets are absent"
   );
-  assert.deepEqual(
-    output.financialRunway.projectionPoints[0],
-    {
-      yearIndex: 0,
-      date: "2030-06-15",
-      age: 50,
-      startingBalance: 500000,
-      annualShortfall: 60000,
-      endingBalance: 500000,
-      status: "starting"
-    },
-    "projection should start at selected death date with net resources after obligations"
+  const startingProjectionPoint = output.financialRunway.projectionPoints[0];
+  assert.strictEqual(startingProjectionPoint.yearIndex, 0);
+  assert.strictEqual(startingProjectionPoint.date, "2030-06-15");
+  assert.strictEqual(startingProjectionPoint.age, 50);
+  assert.strictEqual(startingProjectionPoint.startingBalance, 500000);
+  assert.strictEqual(startingProjectionPoint.growthAmount, 0);
+  assert.strictEqual(startingProjectionPoint.growthRate, 0);
+  assert.strictEqual(startingProjectionPoint.annualNeed, 90000);
+  assert.strictEqual(startingProjectionPoint.survivorIncomeOffset, 30000);
+  assert.strictEqual(startingProjectionPoint.annualShortfall, 60000);
+  assert.strictEqual(startingProjectionPoint.scheduledObligations, 0);
+  assert.strictEqual(startingProjectionPoint.endingBalance, 500000);
+  assert.strictEqual(startingProjectionPoint.status, "starting");
+  assert(Array.isArray(startingProjectionPoint.sourcePaths), "projection point should carry sourcePaths");
+  assert(
+    startingProjectionPoint.sourcePaths.includes("ongoingSupport.annualTotalEssentialSupportCost"),
+    "projection point should trace annual need source"
   );
   assert.strictEqual(output.financialRunway.projectionPoints[1].endingBalance, 440000);
+  assert.strictEqual(output.financialRunway.projectionPoints[1].growthAmount, 0);
+  assert.strictEqual(output.financialRunway.projectionPoints[1].growthRate, 0);
+  assert.strictEqual(output.financialRunway.projectionPoints[1].scheduledObligations, 0);
   assert(
     output.financialRunway.projectionPoints.some((point) => point.status === "depleted"),
     "projection should identify depleted points when annual shortfall consumes resources"
+  );
+  assert.strictEqual(
+    output.financialRunway.inputs.projection.survivorIncomeDelay.status,
+    "deferred",
+    "survivor income delay should be explicitly traced as deferred in the projection scaffold"
+  );
+  assert.strictEqual(
+    output.financialRunway.inputs.projection.scheduledObligations.status,
+    "deferred",
+    "scheduled obligations should be explicitly scaffolded even before scheduling is implemented"
+  );
+  assert(
+    output.trace.formula.some((formula) => formula.includes("projectionPoints ledger fields")),
+    "trace should document the projection ledger formula"
   );
   assert(
     output.trace.formula.some((formula) => formula.includes("yearsOfFinancialSecurity")),
@@ -308,6 +331,77 @@ function run() {
   assert(
     output.trace.formula.some((formula) => formula.includes("treatedAssetOffsets.totalTreatedAssetValue")),
     "trace should document prepared asset bucket priority"
+  );
+
+  const growthOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel({
+      root: {
+        treatedAssetOffsets: {
+          totalTreatedAssetValue: 100000,
+          assets: [
+            {
+              categoryKey: "cashAndCashEquivalents",
+              include: true,
+              treatedValue: 100000
+            }
+          ]
+        },
+        projectedAssetGrowth: {
+          includedCategories: [
+            {
+              categoryKey: "cashAndCashEquivalents",
+              currentValue: 100000,
+              assumedAnnualGrowthRatePercent: 5
+            }
+          ]
+        }
+      }
+    }),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50
+  });
+  assert.strictEqual(growthOutput.financialRunway.projectionMode, "asset-growth");
+  assert.strictEqual(growthOutput.financialRunway.availableAssets, 100000);
+  assert.strictEqual(growthOutput.financialRunway.inputs.projection.assetGrowth.growthRate, 5);
+  assert.strictEqual(growthOutput.financialRunway.projectionPoints[1].growthAmount, 25000);
+  assert.strictEqual(growthOutput.financialRunway.projectionPoints[1].endingBalance, 465000);
+  assert(
+    growthOutput.financialRunway.totalMonthsOfSecurity > output.financialRunway.totalMonthsOfSecurity,
+    "valid prepared asset growth should extend the runway"
+  );
+
+  const invalidGrowthOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel({
+      root: {
+        treatedAssetOffsets: {
+          totalTreatedAssetValue: 100000,
+          assets: [
+            {
+              categoryKey: "cashAndCashEquivalents",
+              include: true,
+              treatedValue: 100000
+            }
+          ]
+        },
+        projectedAssetGrowth: {
+          includedCategories: [
+            {
+              categoryKey: "taxableBrokerage",
+              currentValue: 100000,
+              assumedAnnualGrowthRatePercent: 7
+            }
+          ]
+        }
+      }
+    }),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50
+  });
+  assert.strictEqual(invalidGrowthOutput.financialRunway.projectionMode, "current-dollar");
+  assert.strictEqual(invalidGrowthOutput.financialRunway.projectionPoints[1].growthAmount, 0);
+  assert(
+    invalidGrowthOutput.financialRunway.inputs.projection.assetGrowth.warnings.some((warning) => warning.code === "asset-growth-runway-category-mapping-incomplete"),
+    "invalid or incomplete category growth mapping should not invent a return rate"
   );
 
   const lowProjectionOutput = calculateIncomeLossImpactTimeline({

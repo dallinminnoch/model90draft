@@ -463,6 +463,159 @@
     };
   }
 
+  function getTreatedAssetCategoryValues(lensModel) {
+    const treatedAssetOffsets = isPlainObject(lensModel?.treatedAssetOffsets)
+      ? lensModel.treatedAssetOffsets
+      : {};
+    const assets = Array.isArray(treatedAssetOffsets.assets)
+      ? treatedAssetOffsets.assets
+      : [];
+    const valuesByCategory = new Map();
+
+    assets.forEach(function (asset) {
+      if (!isPlainObject(asset) || asset.include !== true) {
+        return;
+      }
+
+      const categoryKey = normalizeString(asset.categoryKey);
+      const treatedValue = toOptionalNumber(asset.treatedValue);
+      if (!categoryKey || treatedValue == null || treatedValue <= 0) {
+        return;
+      }
+
+      valuesByCategory.set(
+        categoryKey,
+        (valuesByCategory.get(categoryKey) || 0) + treatedValue
+      );
+    });
+
+    return valuesByCategory;
+  }
+
+  function getProjectedAssetGrowthRows(lensModel) {
+    const projectedAssetGrowth = isPlainObject(lensModel?.projectedAssetGrowth)
+      ? lensModel.projectedAssetGrowth
+      : {};
+    return Array.isArray(projectedAssetGrowth.includedCategories)
+      ? projectedAssetGrowth.includedCategories
+      : [];
+  }
+
+  function createAssetGrowthRunwayInput(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const growthRate = toOptionalNumber(safeOptions.growthRate);
+    return {
+      projectionMode: growthRate != null && growthRate > 0 ? "asset-growth" : "current-dollar",
+      growthRate: growthRate == null ? 0 : roundYears(Math.max(0, growthRate)),
+      sourcePath: safeOptions.sourcePath || null,
+      sourcePaths: uniqueStrings(safeOptions.sourcePaths),
+      status: safeOptions.status || "current-dollar",
+      warnings: Array.isArray(safeOptions.warnings) ? safeOptions.warnings.slice() : []
+    };
+  }
+
+  function resolveAssetGrowthRunwayInput(lensModel, assetInput) {
+    const safeAssetInput = isPlainObject(assetInput) ? assetInput : {};
+    const projectedCandidate = isPlainObject(safeAssetInput.projectedAssetOffsetCandidate)
+      ? safeAssetInput.projectedAssetOffsetCandidate
+      : null;
+    const baseSourcePaths = [
+      "projectedAssetGrowth.includedCategories",
+      "treatedAssetOffsets.assets",
+      "treatedAssetOffsets.totalTreatedAssetValue"
+    ];
+
+    if (safeAssetInput.assets?.status === "projected-method-active") {
+      return createAssetGrowthRunwayInput({
+        sourcePaths: baseSourcePaths.concat(projectedCandidate?.sourcePaths || []),
+        status: "projected-offset-growth-excluded",
+        warnings: [
+          createWarning(
+            "projected-asset-offset-growth-double-count-prevented",
+            "Asset growth was not separately applied because the selected asset bucket already used a method-active projected asset offset."
+          )
+        ]
+      });
+    }
+
+    const treatedValuesByCategory = getTreatedAssetCategoryValues(lensModel);
+    const totalTreatedValue = Array.from(treatedValuesByCategory.values()).reduce(function (total, value) {
+      return total + value;
+    }, 0);
+    if (totalTreatedValue <= 0) {
+      return createAssetGrowthRunwayInput({
+        sourcePaths: baseSourcePaths,
+        status: "missing-treated-asset-category-values",
+        warnings: [
+          createWarning(
+            "asset-growth-runway-missing-treated-assets",
+            "Prepared asset growth was not applied because treated asset category values were unavailable."
+          )
+        ]
+      });
+    }
+
+    const projectedRows = getProjectedAssetGrowthRows(lensModel);
+    if (!projectedRows.length) {
+      return createAssetGrowthRunwayInput({
+        sourcePaths: baseSourcePaths,
+        status: "missing-projected-asset-growth"
+      });
+    }
+
+    const projectedRowsByCategory = new Map();
+    projectedRows.forEach(function (row, index) {
+      if (!isPlainObject(row)) {
+        return;
+      }
+      const categoryKey = normalizeString(row.categoryKey);
+      if (!categoryKey || projectedRowsByCategory.has(categoryKey)) {
+        return;
+      }
+      projectedRowsByCategory.set(categoryKey, { row, index });
+    });
+
+    let weightedRateTotal = 0;
+    const missingCategories = [];
+    const sourcePaths = baseSourcePaths.slice();
+    treatedValuesByCategory.forEach(function (treatedValue, categoryKey) {
+      const projectedEntry = projectedRowsByCategory.get(categoryKey);
+      const projectedRow = projectedEntry?.row;
+      const rate = toOptionalNumber(projectedRow?.assumedAnnualGrowthRatePercent);
+      if (!projectedRow || rate == null || rate < 0) {
+        missingCategories.push(categoryKey);
+        return;
+      }
+
+      weightedRateTotal += treatedValue * rate;
+      sourcePaths.push(
+        `projectedAssetGrowth.includedCategories[${projectedEntry.index}].assumedAnnualGrowthRatePercent`
+      );
+    });
+
+    if (missingCategories.length) {
+      return createAssetGrowthRunwayInput({
+        sourcePaths,
+        status: "category-mapping-incomplete",
+        warnings: [
+          createWarning(
+            "asset-growth-runway-category-mapping-incomplete",
+            "Prepared asset growth was not applied because every treated asset category must have a valid prepared growth row.",
+            { missingCategories }
+          )
+        ]
+      });
+    }
+
+    const blendedRate = totalTreatedValue > 0 ? weightedRateTotal / totalTreatedValue : 0;
+    return createAssetGrowthRunwayInput({
+      growthRate: blendedRate,
+      sourcePath: "projectedAssetGrowth.includedCategories[].assumedAnnualGrowthRatePercent",
+      sourcePaths,
+      status: "prepared-asset-growth"
+    });
+  }
+
   function resolveDebtRunwayInput(lensModel) {
     const treatedDebt = firstRunwayValue(lensModel, [
       { path: "treatedDebtPayoff.needs.debtPayoffAmount", status: "treated" }
@@ -600,6 +753,15 @@
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const assetInput = resolveAssetRunwayInput(safeLensModel);
     const debtInput = resolveDebtRunwayInput(safeLensModel);
+    const incomeOffsets = resolveIncomeOffsetRunwayInput(safeLensModel);
+    const survivorIncomeDelayWarnings = incomeOffsets.survivorIncomeStartDelayMonths > 0
+      ? [
+          createWarning(
+            "survivor-income-delay-projection-deferred",
+            "Survivor income delay is traced but not prorated into projection points in this scaffold."
+          )
+        ]
+      : [];
 
     return {
       availableAtDeath: {
@@ -620,7 +782,32 @@
         debtSourceStatus: debtInput.sourceStatus
       },
       annualNeeds: resolveAnnualNeedRunwayInput(safeLensModel, options),
-      incomeOffsets: resolveIncomeOffsetRunwayInput(safeLensModel),
+      incomeOffsets,
+      projection: {
+        assetGrowth: resolveAssetGrowthRunwayInput(safeLensModel, assetInput),
+        survivorIncomeDelay: {
+          months: incomeOffsets.survivorIncomeStartDelayMonths,
+          status: incomeOffsets.survivorIncomeStartDelayMonths > 0 ? "deferred" : "not-applicable",
+          sourcePaths: ["survivorScenario.survivorIncomeStartDelayMonths"],
+          warnings: survivorIncomeDelayWarnings
+        },
+        scheduledObligations: {
+          value: 0,
+          sourcePath: "incomeLossImpact.projection.scheduledObligations.deferred",
+          sourcePaths: [
+            "educationSupport.totalEducationFundingNeed",
+            "ongoingSupport.mortgageRemainingTermMonths",
+            "treatedDebtPayoff.needs.debtPayoffAmount"
+          ],
+          status: "deferred",
+          warnings: [
+            createWarning(
+              "scheduled-obligations-projection-deferred",
+              "Education and mortgage timing are represented as events today; year-specific scheduled obligations are deferred."
+            )
+          ]
+        }
+      },
       milestones: {
         dependents: firstRunwayValue(safeLensModel, [
           { path: "educationSupport.linkedDependentCount", status: "available" }
@@ -705,6 +892,11 @@
     const selectedDeathAge = toOptionalNumber(safeOptions.selectedDeathAge);
     const netAvailableResources = toOptionalNumber(safeOptions.netAvailableResources);
     const annualShortfall = toOptionalNumber(safeOptions.annualShortfall);
+    const annualNeed = toOptionalNumber(safeOptions.annualNeed);
+    const survivorIncomeOffset = toOptionalNumber(safeOptions.survivorIncomeOffset);
+    const growthRate = Math.max(0, toOptionalNumber(safeOptions.growthRate) || 0);
+    const scheduledObligations = Math.max(0, toOptionalNumber(safeOptions.scheduledObligations) || 0);
+    const sourcePaths = uniqueStrings(safeOptions.sourcePaths);
     const projectionYears = resolveProjectionYears(safeOptions.options);
 
     if (netAvailableResources == null || annualShortfall == null || !deathDate) {
@@ -713,16 +905,20 @@
 
     const effectiveShortfall = Math.max(0, annualShortfall);
     const points = [];
+    let startingBalance = netAvailableResources;
     for (let yearIndex = 0; yearIndex <= projectionYears; yearIndex += 1) {
-      const startingBalance = netAvailableResources - (effectiveShortfall * Math.max(0, yearIndex - 1));
+      const growthAmount = yearIndex === 0 || startingBalance <= 0
+        ? 0
+        : startingBalance * (growthRate / 100);
+      const yearScheduledObligations = yearIndex === 0 ? 0 : scheduledObligations;
       const endingBalance = yearIndex === 0
         ? netAvailableResources
-        : netAvailableResources - (effectiveShortfall * yearIndex);
+        : startingBalance + growthAmount - effectiveShortfall - yearScheduledObligations;
       const pointDate = addYears(deathDate.date, yearIndex);
       let status = "available";
       if (yearIndex === 0) {
         status = "starting";
-      } else if (effectiveShortfall <= 0) {
+      } else if (effectiveShortfall <= 0 && yearScheduledObligations <= 0) {
         status = "no-shortfall";
       } else if (startingBalance <= 0 || endingBalance <= 0) {
         status = "depleted";
@@ -733,13 +929,46 @@
         date: formatDateOnly(pointDate),
         age: selectedDeathAge == null ? null : roundYears(selectedDeathAge + yearIndex),
         startingBalance: roundMoney(startingBalance),
+        growthAmount: roundMoney(growthAmount),
+        growthRate: roundYears(growthRate),
+        annualNeed: annualNeed == null ? null : roundMoney(annualNeed),
+        survivorIncomeOffset: survivorIncomeOffset == null ? null : roundMoney(survivorIncomeOffset),
         annualShortfall: roundMoney(effectiveShortfall),
+        scheduledObligations: roundMoney(yearScheduledObligations),
         endingBalance: roundMoney(endingBalance),
-        status
+        status,
+        sourcePaths
       });
+
+      startingBalance = endingBalance;
     }
 
     return points;
+  }
+
+  function getRunwayDurationYearsFromProjectionPoints(points) {
+    const safePoints = Array.isArray(points) ? points : [];
+    for (let index = 1; index < safePoints.length; index += 1) {
+      const point = safePoints[index];
+      if (!isPlainObject(point) || point.status !== "depleted") {
+        continue;
+      }
+
+      const startingBalance = toOptionalNumber(point.startingBalance);
+      const growthAmount = toOptionalNumber(point.growthAmount) || 0;
+      const annualShortfall = toOptionalNumber(point.annualShortfall) || 0;
+      const scheduledObligations = toOptionalNumber(point.scheduledObligations) || 0;
+      const annualUse = annualShortfall + scheduledObligations;
+      if (startingBalance == null || annualUse <= 0) {
+        return Math.max(0, index - 1);
+      }
+
+      const availableBeforeUse = Math.max(0, startingBalance + growthAmount);
+      const yearFraction = Math.max(0, Math.min(1, availableBeforeUse / annualUse));
+      return roundYears(Math.max(0, point.yearIndex - 1 + yearFraction));
+    }
+
+    return null;
   }
 
   function getDependentDetailsFromProfile(profileRecord) {
@@ -1102,6 +1331,17 @@
 
     let yearsOfFinancialSecurity = null;
     let yearsOfFinancialSecurityStatus = "not-available";
+    const projectionYears = resolveProjectionYears(safeInput.options);
+    const assetGrowth = financialRunwayInputs.projection.assetGrowth;
+    const survivorIncomeDelay = financialRunwayInputs.projection.survivorIncomeDelay;
+    const scheduledObligations = financialRunwayInputs.projection.scheduledObligations;
+    const runwaySourcePaths = totalResources.sourcePaths
+      .concat(immediateObligations.sourcePaths)
+      .concat(annualEssentialSourcePaths)
+      .concat(survivorIncome.sourcePath ? [survivorIncome.sourcePath] : [])
+      .concat(assetGrowth.sourcePaths || [])
+      .concat(scheduledObligations.sourcePaths || []);
+    let projectionPoints = [];
     const missingRunwayCriticalFacts = [];
     if (coverage.value == null) {
       missingRunwayCriticalFacts.push("existing coverage");
@@ -1127,7 +1367,22 @@
     } else if (netAvailableResources == null) {
       output.warnings.push(createWarning("missing-net-available-resources", "Years of Financial Security was not calculated because coverage and liquidity facts are missing."));
     } else {
-      yearsOfFinancialSecurity = Math.max(0, netAvailableResources) / annualShortfall;
+      projectionPoints = buildRunwayProjectionPoints({
+        selectedDeathDate: output.selectedDeath.date,
+        selectedDeathAge: output.selectedDeath.age,
+        netAvailableResources,
+        annualNeed: resolvedAnnualEssentialExpenses,
+        survivorIncomeOffset: survivorIncome.value,
+        annualShortfall,
+        growthRate: assetGrowth.growthRate,
+        scheduledObligations: scheduledObligations.value,
+        sourcePaths: runwaySourcePaths,
+        options: { projectionYears }
+      });
+      yearsOfFinancialSecurity = getRunwayDurationYearsFromProjectionPoints(projectionPoints);
+      if (yearsOfFinancialSecurity == null) {
+        yearsOfFinancialSecurity = Math.max(0, netAvailableResources) / annualShortfall;
+      }
       yearsOfFinancialSecurityStatus = missingRunwayCriticalFacts.length ? "partial-estimate" : "complete";
       if (missingRunwayCriticalFacts.length) {
         output.warnings.push(createWarning(
@@ -1138,21 +1393,8 @@
           }
         ));
       }
-      const deathDate = parseDateOnly(output.selectedDeath.date);
-      if (deathDate) {
-        output.timelineEvents.push(createEvent({
-          id: "support-need-ends",
-          type: "supportNeedEnds",
-          date: formatDateOnly(addMonths(deathDate.date, Math.round(yearsOfFinancialSecurity * 12))),
-          age: output.selectedDeath.age == null ? null : roundYears(output.selectedDeath.age + yearsOfFinancialSecurity),
-          label: "Estimated security runway ends",
-          sourcePaths: ["incomeLossImpact.formula.yearsOfFinancialSecurity"],
-          confidence: "calculated"
-        }));
-      }
     }
 
-    const projectionYears = resolveProjectionYears(safeInput.options);
     const securityParts = getYearsMonthsParts(yearsOfFinancialSecurity);
     const depletionDate = yearsOfFinancialSecurity == null
       ? null
@@ -1161,8 +1403,24 @@
       ? formatDateOnly(addMonths(depletionDate.date, securityParts.totalMonths || 0))
       : null;
     const runwayStatus = yearsOfFinancialSecurityStatus;
+    const supportNeedEndDate = parseDateOnly(depletionDateValue);
+    if ((runwayStatus === "complete" || runwayStatus === "partial-estimate") && supportNeedEndDate) {
+      output.timelineEvents.push(createEvent({
+        id: "support-need-ends",
+        type: "supportNeedEnds",
+        date: depletionDateValue,
+        age: output.selectedDeath.age == null || yearsOfFinancialSecurity == null
+          ? null
+          : roundYears(output.selectedDeath.age + yearsOfFinancialSecurity),
+        label: "Estimated security runway ends",
+        sourcePaths: ["incomeLossImpact.formula.yearsOfFinancialSecurity"],
+        confidence: "calculated"
+      }));
+    }
+
     output.financialRunway = {
       status: runwayStatus,
+      projectionMode: assetGrowth.projectionMode,
       startingResources: totalResources.value == null ? null : roundMoney(totalResources.value),
       existingCoverage: coverage.value == null ? null : roundMoney(coverage.value),
       availableAssets: availableAssetValue == null ? null : roundMoney(availableAssetValue),
@@ -1177,18 +1435,9 @@
       depletionYear: depletionDateValue ? parseDateOnly(depletionDateValue)?.date.getFullYear() || null : null,
       depletionDate: depletionDateValue,
       projectionYears,
-      projectionPoints: buildRunwayProjectionPoints({
-        selectedDeathDate: output.selectedDeath.date,
-        selectedDeathAge: output.selectedDeath.age,
-        netAvailableResources,
-        annualShortfall,
-        options: { projectionYears }
-      }),
+      projectionPoints,
       inputs: financialRunwayInputs,
-      sourcePaths: totalResources.sourcePaths
-        .concat(immediateObligations.sourcePaths)
-        .concat(annualEssentialSourcePaths)
-        .concat(survivorIncome.sourcePath ? [survivorIncome.sourcePath] : []),
+      sourcePaths: uniqueStrings(runwaySourcePaths),
       warnings: output.warnings.slice(),
       dataGaps: output.dataGaps.slice()
     };
@@ -1309,10 +1558,20 @@
       "netAvailableResources = preferred coverage bucket + preferred prepared asset bucket - immediate obligations",
       "annualHouseholdShortfall = ongoingSupport.annualTotalEssentialSupportCost - survivorScenario.survivorNetAnnualIncome",
       "yearsOfFinancialSecurity = netAvailableResources / annualHouseholdShortfall",
+      "projectionPoints ledger fields: startingBalance + growthAmount - annualShortfall - scheduledObligations = endingBalance",
+      assetGrowth.projectionMode === "asset-growth"
+        ? "projectionMode asset-growth uses prepared projectedAssetGrowth category rates matched to treatedAssetOffsets.assets"
+        : "projectionMode current-dollar uses 0% growth when prepared asset growth is unavailable or unsafe",
       "coverage source priority: treatedExistingCoverageOffset.totalTreatedCoverageOffset, then existingCoverage totals",
       "asset source priority: method-active projectedAssetOffset, then treatedAssetOffsets.totalTreatedAssetValue, then legacy offsetAssets",
       "immediate obligations include finalExpenses.totalFinalExpenseNeed + transitionNeeds.totalTransitionNeed + treatedDebtPayoff.needs.debtPayoffAmount when available"
     );
+    if (survivorIncomeDelay.status === "deferred") {
+      output.trace.formula.push("survivorIncomeStartDelayMonths is traced but not prorated into projection points in this scaffold");
+    }
+    if (scheduledObligations.status === "deferred") {
+      output.trace.formula.push("scheduled education and mortgage obligations are deferred from year-specific projection points in this scaffold");
+    }
     addUnique(output.trace.sourcePaths, totalResources.sourcePaths);
     addUnique(output.trace.sourcePaths, immediateObligations.sourcePaths);
     addUnique(output.trace.sourcePaths, annualEssentialSourcePaths);

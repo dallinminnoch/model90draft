@@ -142,6 +142,11 @@ assert.strictEqual(treatedOutput.financialRunway.netAvailableResources, 2290000)
 assert.strictEqual(treatedOutput.financialRunway.annualHouseholdNeed, 90000);
 assert.strictEqual(treatedOutput.financialRunway.annualSurvivorIncome, 30000);
 assert.strictEqual(treatedOutput.financialRunway.annualShortfall, 60000);
+assert.strictEqual(treatedOutput.financialRunway.projectionMode, "current-dollar");
+assert.strictEqual(treatedOutput.financialRunway.projectionPoints[0].growthAmount, 0);
+assert.strictEqual(treatedOutput.financialRunway.projectionPoints[0].scheduledObligations, 0);
+assert.strictEqual(treatedOutput.financialRunway.projectionPoints[0].annualNeed, 90000);
+assert.strictEqual(treatedOutput.financialRunway.projectionPoints[0].survivorIncomeOffset, 30000);
 assert.strictEqual(
   treatedOutput.financialRunway.inputs.availableAtDeath.coverage.sourcePath,
   "treatedExistingCoverageOffset.totalTreatedCoverageOffset"
@@ -218,6 +223,16 @@ assert.strictEqual(
   projectedActiveOutput.financialRunway.inputs.availableAtDeath.projectedAssetOffsetCandidate.status,
   "method-active-used"
 );
+assert.strictEqual(
+  projectedActiveOutput.financialRunway.projectionMode,
+  "current-dollar",
+  "method-active projected asset offset should not be double counted as separate projection growth"
+);
+assert(
+  projectedActiveOutput.financialRunway.inputs.projection.assetGrowth.warnings.some((warning) => warning.code === "projected-asset-offset-growth-double-count-prevented"),
+  "projected asset offset should trace separate growth exclusion when method-active"
+);
+assert.strictEqual(projectedActiveOutput.financialRunway.projectionPoints[1].growthAmount, 0);
 
 const increasedIncomeOutput = calculate(calculateIncomeLossImpactTimeline, createLensModel({
   incomeBasis: {

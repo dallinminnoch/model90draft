@@ -60,6 +60,10 @@ const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impac
 
 assert.match(helperSource, /financialRunway/);
 assert.match(helperSource, /projectionPoints/);
+assert.match(helperSource, /projectionMode/);
+assert.match(helperSource, /growthAmount/);
+assert.match(helperSource, /growthRate/);
+assert.match(helperSource, /scheduledObligations/);
 assert.match(helperSource, /DEFAULT_RUNWAY_PROJECTION_YEARS/);
 assert.doesNotMatch(helperSource, /runNeedsAnalysis|analysis-methods/);
 assert.doesNotMatch(helperSource, /\bdocument\s*[.\[]|\bwindow\s*[.\[]|\blocalStorage\s*[.\[]|\bsessionStorage\s*[.\[]/);
@@ -103,6 +107,7 @@ const fixture = {
     totalMonthsOfSecurity: 100,
     depletionYear: 2038,
     depletionDate: "2038-10-15",
+    projectionMode: "current-dollar",
     projectionYears: 10,
     projectionPoints: [
       {
@@ -110,36 +115,60 @@ const fixture = {
         date: "2030-06-15",
         age: 50,
         startingBalance: 500000,
+        growthAmount: 0,
+        growthRate: 0,
+        annualNeed: 90000,
+        survivorIncomeOffset: 30000,
         annualShortfall: 60000,
+        scheduledObligations: 0,
         endingBalance: 500000,
-        status: "starting"
+        status: "starting",
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
       },
       {
         yearIndex: 1,
         date: "2031-06-15",
         age: 51,
         startingBalance: 500000,
+        growthAmount: 0,
+        growthRate: 0,
+        annualNeed: 90000,
+        survivorIncomeOffset: 30000,
         annualShortfall: 60000,
+        scheduledObligations: 0,
         endingBalance: 440000,
-        status: "available"
+        status: "available",
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
       },
       {
         yearIndex: 9,
         date: "2039-06-15",
         age: 59,
         startingBalance: 20000,
+        growthAmount: 0,
+        growthRate: 0,
+        annualNeed: 90000,
+        survivorIncomeOffset: 30000,
         annualShortfall: 60000,
+        scheduledObligations: 0,
         endingBalance: -40000,
-        status: "depleted"
+        status: "depleted",
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
       },
       {
         yearIndex: 10,
         date: "2040-06-15",
         age: 60,
         startingBalance: -40000,
+        growthAmount: 0,
+        growthRate: 0,
+        annualNeed: 90000,
+        survivorIncomeOffset: 30000,
         annualShortfall: 60000,
+        scheduledObligations: 0,
         endingBalance: -100000,
-        status: "depleted"
+        status: "depleted",
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
       }
     ],
     warnings: [],
