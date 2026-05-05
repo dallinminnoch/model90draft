@@ -148,6 +148,19 @@ const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /data-income-impact-visual-timeline/);
 assert.match(timelineHtml, /data-income-impact-visual-timeline-events/);
 assert.doesNotMatch(timelineHtml, /Placeholder visualization|placeholder-only/);
+assert.doesNotMatch(timelineHtml, /Built from helper events|calculateIncomeLossImpactTimeline/);
+assert.match(
+  timelineHtml,
+  /Timeline updates as you adjust the selected death age\./,
+  "Visual timeline should use advisor-facing update copy."
+);
+const sameDateGroupMatches = timelineHtml.match(/data-income-impact-visual-event-group-date="2030-06-15"/g) || [];
+assert.equal(sameDateGroupMatches.length, 1, "Same-date events should render as one visual group.");
+assert.match(
+  timelineHtml,
+  /data-income-impact-visual-event-group-date="2030-06-15"[\s\S]*?data-income-impact-visual-event-group-count="8"/,
+  "Same-date visual group should carry the grouped event count."
+);
 
 [
   "death",
@@ -177,7 +190,7 @@ assert.doesNotMatch(timelineHtml, /Placeholder visualization|placeholder-only/);
 assert.match(timelineHtml, /Dependent date of birth is missing\./);
 assert.match(timelineHtml, /\$120,000/);
 assert.match(timelineHtml, /\$500,000/);
-assert.match(timelineHtml, /Built from helper events for the selected death age\/date\./);
+assert.match(timelineHtml, /Timeline updates as you adjust the selected death age\./);
 assert.match(timelineHtml, /This preview does not change the LENS recommendation\./);
 
 const protectedChanges = getChangedFiles([

@@ -427,7 +427,7 @@
 
   function getTimelineEventLabel(event) {
     const label = String(event?.label || event?.type || "Timeline event").trim();
-    return label.length > 28 ? `${label.slice(0, 25)}...` : label;
+    return label.length > 42 ? `${label.slice(0, 39)}...` : label;
   }
 
   function getTimelineEventAmountLabel(event) {
@@ -435,7 +435,56 @@
     return amount == null ? "Fact-based event" : formatCurrency(amount);
   }
 
-  function buildVisualTimelineEvents(events) {
+  function getTimelineGroupTiming(group) {
+    const firstEvent = Array.isArray(group?.events) ? group.events[0] : null;
+    if (group?.date) {
+      const pieces = [group.date];
+      const age = group.events.find(function (event) {
+        return event?.age != null;
+      })?.age;
+      if (age != null) {
+        pieces.push(`Age ${age}`);
+      }
+      return pieces.join(" - ");
+    }
+
+    return firstEvent ? formatTimelineTiming(firstEvent) : "Timing unavailable";
+  }
+
+  function getTimelineGroupTitle(group) {
+    const events = Array.isArray(group?.events) ? group.events : [];
+    if (events.length === 1) {
+      return getTimelineEventLabel(events[0]);
+    }
+
+    return `${events.length} events`;
+  }
+
+  function getTimelineGroupColor(group) {
+    const events = Array.isArray(group?.events) ? group.events : [];
+    const priorityTypes = [
+      "death",
+      "incomeStops",
+      "coverageAvailable",
+      "liquidityCheckpoint",
+      "survivorIncomeContinues",
+      "finalExpensesDue",
+      "debtObligation",
+      "mortgageObligation",
+      "dataGap"
+    ];
+    const priorityEvent = priorityTypes
+      .map(function (type) {
+        return events.find(function (event) {
+          return event?.type === type;
+        });
+      })
+      .find(Boolean);
+
+    return getTimelineEventColor(priorityEvent || events[0]);
+  }
+
+  function buildVisualTimelineGroups(events) {
     const sortedEvents = events
       .map(function (event, index) {
         return {
@@ -456,21 +505,34 @@
         }
         return left.index - right.index;
       });
+    const groupedEvents = [];
+    const groupByKey = new Map();
+
+    sortedEvents.forEach(function (item) {
+      const key = item.event.date ? `date:${item.event.date}` : `undated:${item.index}`;
+      let group = groupByKey.get(key);
+      if (!group) {
+        group = {
+          key,
+          date: item.event.date || "",
+          parsedDate: item.date,
+          firstIndex: item.index,
+          events: []
+        };
+        groupByKey.set(key, group);
+        groupedEvents.push(group);
+      }
+      group.events.push(item.event);
+    });
 
     const width = 960;
-    const height = 260;
-    const xStart = 58;
-    const xEnd = width - 58;
-    const markerY = 132;
-    const datedEvents = sortedEvents.filter(function (item) {
-      return item.date;
+    const height = 380;
+    const xStart = 82;
+    const xEnd = width - 82;
+    const markerY = 190;
+    const datedGroups = groupedEvents.filter(function (group) {
+      return group.parsedDate;
     });
-    const times = datedEvents.map(function (item) {
-      return item.date.getTime();
-    });
-    const minTime = times.length ? Math.min(...times) : null;
-    const maxTime = times.length ? Math.max(...times) : null;
-    const hasDateSpan = minTime != null && maxTime != null && maxTime > minTime;
 
     return {
       width,
@@ -478,22 +540,29 @@
       xStart,
       xEnd,
       markerY,
-      axisStart: datedEvents[0]?.event?.date || sortedEvents[0]?.event?.date || "",
-      axisEnd: datedEvents[datedEvents.length - 1]?.event?.date || sortedEvents[sortedEvents.length - 1]?.event?.date || "",
-      events: sortedEvents.map(function (item, index) {
-        const distributedX = xStart + (((index + 1) / (sortedEvents.length + 1)) * (xEnd - xStart));
-        const dateX = item.date && hasDateSpan
-          ? xStart + (((item.date.getTime() - minTime) / (maxTime - minTime)) * (xEnd - xStart))
-          : distributedX;
-        const labelY = index % 2 === 0 ? 72 : 205;
-        const anchor = dateX < 150 ? "start" : (dateX > width - 150 ? "end" : "middle");
+      axisStart: datedGroups[0]?.date || groupedEvents[0]?.date || "",
+      axisEnd: datedGroups[datedGroups.length - 1]?.date || groupedEvents[groupedEvents.length - 1]?.date || "",
+      groups: groupedEvents.map(function (group, index) {
+        const groupCount = groupedEvents.length;
+        const distributedX = groupCount <= 1
+          ? (xStart + ((xEnd - xStart) / 2))
+          : xStart + ((index / (groupCount - 1)) * (xEnd - xStart));
+        const groupSide = index % 2 === 0 ? "top" : "bottom";
+        const titleY = groupSide === "top" ? 36 : 238;
+        const timingY = titleY + 18;
+        const eventStartY = timingY + 22;
+        const anchor = distributedX < 170 ? "start" : (distributedX > width - 170 ? "end" : "middle");
 
         return {
-          event: item.event,
-          x: Math.round(dateX * 100) / 100,
-          labelY,
+          ...group,
+          x: Math.round(distributedX * 100) / 100,
           anchor,
-          markerY
+          markerY,
+          groupSide,
+          titleY,
+          timingY,
+          eventStartY,
+          color: getTimelineGroupColor(group)
         };
       })
     };
@@ -505,39 +574,54 @@
       return `<div class="income-impact-empty-inline" data-income-impact-visual-timeline>${escapeHtml(EMPTY_MESSAGE)}</div>`;
     }
 
-    const model = buildVisualTimelineEvents(events);
+    const model = buildVisualTimelineGroups(events);
 
     return `
-      <div class="income-impact-timeline-chart" data-income-impact-visual-timeline data-income-impact-visual-event-count="${escapeHtml(String(events.length))}" aria-label="Helper-driven household impact timeline visualization">
+      <div class="income-impact-timeline-chart" data-income-impact-visual-timeline data-income-impact-visual-event-count="${escapeHtml(String(events.length))}" aria-label="Household impact timeline visualization">
         <div class="income-impact-chart-topline">
           <strong>Selected scenario timeline</strong>
-          <p>Built from helper events for the selected death age/date. This preview does not change the LENS recommendation.</p>
+          <p>Timeline updates as you adjust the selected death age. This preview does not change the LENS recommendation.</p>
         </div>
         <svg class="income-impact-timeline-svg" viewBox="0 0 ${model.width} ${model.height}" role="img" aria-label="Fact-based household impact timeline for selected death scenario">
           <g class="income-impact-chart-grid" aria-hidden="true">
-            <line x1="${model.xStart}" y1="132" x2="${model.xEnd}" y2="132"></line>
-            <line x1="${model.xStart}" y1="64" x2="${model.xStart}" y2="206"></line>
-            <line x1="${model.xEnd}" y1="64" x2="${model.xEnd}" y2="206"></line>
+            <line x1="${model.xStart}" y1="${model.markerY}" x2="${model.xEnd}" y2="${model.markerY}"></line>
+            <line x1="${model.xStart}" y1="64" x2="${model.xStart}" y2="318"></line>
+            <line x1="${model.xEnd}" y1="64" x2="${model.xEnd}" y2="318"></line>
           </g>
           <g class="income-impact-timeline-columns" data-income-impact-visual-timeline-events>
-            ${model.events.map(function (item) {
-              const event = item.event;
-              const color = getTimelineEventColor(event);
-              const label = getTimelineEventLabel(event);
-              const hasWarning = Array.isArray(event?.warnings) && event.warnings.length > 0;
+            ${model.groups.map(function (item) {
+              const eventLineSpacing = 14;
               return `
                 <g
-                  data-income-impact-visual-event
-                  data-income-impact-visual-event-type="${escapeHtml(event.type)}"
-                  data-income-impact-visual-event-date="${escapeHtml(event.date || "")}"
-                  data-income-impact-visual-event-age="${escapeHtml(event.age == null ? "" : String(event.age))}"
-                  data-income-impact-visual-event-warning="${hasWarning ? "true" : "false"}"
+                  data-income-impact-visual-event-group
+                  data-income-impact-visual-event-group-date="${escapeHtml(item.date || "undated")}"
+                  data-income-impact-visual-event-group-count="${escapeHtml(String(item.events.length))}"
+                  data-income-impact-visual-event-group-side="${escapeHtml(item.groupSide)}"
                 >
-                  <line class="income-impact-timeline-column" x1="${item.x}" y1="${item.labelY < item.markerY ? item.labelY + 10 : item.markerY}" x2="${item.x}" y2="${item.labelY < item.markerY ? item.markerY : item.labelY - 10}"></line>
-                  <circle cx="${item.x}" cy="${item.markerY}" r="8" fill="${color}" stroke="#ffffff" stroke-width="3"></circle>
-                  <text x="${item.x}" y="${item.labelY}" text-anchor="${item.anchor}" fill="${color}" font-size="16" font-weight="700">${escapeHtml(label)}</text>
-                  <text x="${item.x}" y="${item.labelY + 18}" text-anchor="${item.anchor}" fill="#647085" font-size="13">${escapeHtml(formatTimelineTiming(event))}</text>
-                  <title>${escapeHtml(`${event.label || event.type}: ${formatTimelineTiming(event)} - ${getTimelineEventAmountLabel(event)}`)}</title>
+                  <line class="income-impact-timeline-column" x1="${item.x}" y1="${item.groupSide === "top" ? Math.min(item.markerY - 12, item.eventStartY + (item.events.length * eventLineSpacing)) : item.markerY}" x2="${item.x}" y2="${item.groupSide === "top" ? item.markerY : item.titleY - 10}"></line>
+                  <circle cx="${item.x}" cy="${item.markerY}" r="9" fill="${item.color}" stroke="#ffffff" stroke-width="3"></circle>
+                  <text x="${item.x}" y="${item.titleY}" text-anchor="${item.anchor}" fill="${item.color}" font-size="16" font-weight="700">${escapeHtml(getTimelineGroupTitle(item))}</text>
+                  <text x="${item.x}" y="${item.timingY}" text-anchor="${item.anchor}" fill="#647085" font-size="13">${escapeHtml(getTimelineGroupTiming(item))}</text>
+                  ${item.events.map(function (event, eventIndex) {
+                    const eventColor = getTimelineEventColor(event);
+                    const amountLabel = getTimelineEventAmountLabel(event);
+                    return `
+                      <text
+                        data-income-impact-visual-event
+                        data-income-impact-visual-event-type="${escapeHtml(event.type)}"
+                        data-income-impact-visual-event-date="${escapeHtml(event.date || "")}"
+                        data-income-impact-visual-event-age="${escapeHtml(event.age == null ? "" : String(event.age))}"
+                        data-income-impact-visual-event-warning="${Array.isArray(event?.warnings) && event.warnings.length ? "true" : "false"}"
+                        x="${item.x}"
+                        y="${item.eventStartY + (eventIndex * eventLineSpacing)}"
+                        text-anchor="${item.anchor}"
+                        fill="${eventColor}"
+                        font-size="12"
+                        font-weight="650"
+                      >${escapeHtml(`${getTimelineEventLabel(event)}${amountLabel === "Fact-based event" ? "" : ` - ${amountLabel}`}`)}</text>
+                    `;
+                  }).join("")}
+                  <title>${escapeHtml(`${getTimelineGroupTiming(item)}: ${item.events.map(function (groupEvent) { return groupEvent.label || groupEvent.type; }).join("; ")}`)}</title>
                 </g>
               `;
             }).join("")}
@@ -547,7 +631,7 @@
           <span>${escapeHtml(formatTimelineAxisDate(model.axisStart) || "Start")}</span>
           <span>${escapeHtml(formatTimelineAxisDate(model.axisEnd) || "End")}</span>
         </div>
-        <div class="income-impact-chart-hover-label">Timeline events are sourced from calculateIncomeLossImpactTimeline().</div>
+        <div class="income-impact-chart-hover-label">Timeline updates as you adjust the selected death age.</div>
       </div>
     `;
   }

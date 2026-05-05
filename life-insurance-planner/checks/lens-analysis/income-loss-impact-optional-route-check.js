@@ -456,13 +456,18 @@ assert.match(
 );
 assert.match(
   helperTimelineHtml,
+  /data-income-impact-visual-event-group-date="2030-06-15"[\s\S]*?data-income-impact-visual-event-group-count="2"/,
+  "Visual timeline should group same-date helper events."
+);
+assert.match(
+  helperTimelineHtml,
   /data-income-impact-timeline-event-type="dataGap"/,
   "Timeline should render data-gap events visibly."
 );
 assert.doesNotMatch(
   helperTimelineHtml,
-  /Placeholder visualization|placeholder-only/,
-  "Timeline should not expose placeholder-only chart copy."
+  /Placeholder visualization|placeholder-only|Built from helper events|calculateIncomeLossImpactTimeline/,
+  "Timeline should not expose placeholder-only or developer-facing source copy."
 );
 assert.match(
   helperTimelineHtml,
