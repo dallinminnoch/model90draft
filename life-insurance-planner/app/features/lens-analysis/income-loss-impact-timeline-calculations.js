@@ -14,6 +14,13 @@
   const DEFAULT_RUNWAY_PROJECTION_YEARS = 40;
   const MIN_RUNWAY_PROJECTION_YEARS = 5;
   const MAX_RUNWAY_PROJECTION_YEARS = 100;
+  const PRE_DEATH_CONTEXT_YEARS = 5;
+  const MONTHLY_RESOLUTION_MONTHS_AFTER_DEATH = 24;
+  const MORTGAGE_TREATMENT_OVERRIDES = Object.freeze([
+    "followAssumptions",
+    "payOffMortgage",
+    "continueMortgagePayments"
+  ]);
   const MONEY_FORMATTER = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -183,6 +190,19 @@
       return new Date(output.getFullYear(), output.getMonth(), 0);
     }
     return output;
+  }
+
+  function calculateWholeMonthsBetweenDates(startDate, endDate) {
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    let months = (endDate.getFullYear() - startDate.getFullYear()) * 12
+      + (endDate.getMonth() - startDate.getMonth());
+    if (endDate.getDate() < startDate.getDate()) {
+      months -= 1;
+    }
+    return months;
   }
 
   function calculateAge(dateOfBirth, asOfDate) {
@@ -876,14 +896,28 @@
   }
 
   function resolveProjectionYears(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const scenario = isPlainObject(safeOptions.scenario) ? safeOptions.scenario : {};
+    const requestedProjectionYears = scenario.projectionHorizonYears != null
+      ? scenario.projectionHorizonYears
+      : safeOptions.projectionYears;
     const projectionYears = Math.round(
       clampNumber(
-        isPlainObject(options) ? options.projectionYears : null,
+        requestedProjectionYears,
         MIN_RUNWAY_PROJECTION_YEARS,
         MAX_RUNWAY_PROJECTION_YEARS
       ) || DEFAULT_RUNWAY_PROJECTION_YEARS
     );
     return Math.max(MIN_RUNWAY_PROJECTION_YEARS, Math.min(MAX_RUNWAY_PROJECTION_YEARS, projectionYears));
+  }
+
+  function resolveMortgageTreatmentOverride(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const scenario = isPlainObject(safeOptions.scenario) ? safeOptions.scenario : {};
+    const requestedOverride = normalizeString(scenario.mortgageTreatmentOverride);
+    return MORTGAGE_TREATMENT_OVERRIDES.includes(requestedOverride)
+      ? requestedOverride
+      : "followAssumptions";
   }
 
   function buildRunwayProjectionPoints(options) {
@@ -971,6 +1005,283 @@
     return null;
   }
 
+  function createScenarioTimelineBase() {
+    return {
+      version: 1,
+      scenario: {
+        deathAge: null,
+        deathDate: null,
+        projectionHorizonYears: DEFAULT_RUNWAY_PROJECTION_YEARS,
+        mortgageTreatmentOverride: "followAssumptions",
+        source: "unresolved",
+        status: "unresolved"
+      },
+      axis: {
+        startDate: null,
+        deathDate: null,
+        endDate: null,
+        preDeathYears: PRE_DEATH_CONTEXT_YEARS,
+        monthlyResolutionMonths: MONTHLY_RESOLUTION_MONTHS_AFTER_DEATH,
+        postMonth24Resolution: "annual"
+      },
+      resourceSeries: {
+        yAxis: "remainingAvailableResources",
+        points: []
+      },
+      eventLanes: {
+        resources: [],
+        housing: [],
+        education: [],
+        income: [],
+        dataQuality: []
+      },
+      pivotalEvents: {
+        risks: [],
+        stable: []
+      },
+      dataGaps: [],
+      warnings: [],
+      trace: {
+        sourcePaths: [],
+        formula: [],
+        deferred: []
+      }
+    };
+  }
+
+  function createScenarioTimelinePoint(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const endingBalance = toOptionalNumber(safeOptions.endingBalance);
+    const displayedBalance = endingBalance == null ? null : Math.max(0, endingBalance);
+    const accumulatedUnmetNeed = endingBalance == null ? 0 : Math.max(0, -endingBalance);
+    return {
+      id: normalizeString(safeOptions.id),
+      date: safeOptions.date || null,
+      age: safeOptions.age == null ? null : roundYears(safeOptions.age),
+      relativeMonthIndex: safeOptions.relativeMonthIndex == null ? null : safeOptions.relativeMonthIndex,
+      relativeYear: safeOptions.relativeYear == null ? null : roundYears(safeOptions.relativeYear),
+      phase: normalizeString(safeOptions.phase),
+      resolution: normalizeString(safeOptions.resolution),
+      startingBalance: safeOptions.startingBalance == null ? null : roundMoney(safeOptions.startingBalance),
+      growthAmount: safeOptions.growthAmount == null ? null : roundMoney(safeOptions.growthAmount),
+      householdNeed: safeOptions.householdNeed == null ? null : roundMoney(safeOptions.householdNeed),
+      survivorIncomeOffset: safeOptions.survivorIncomeOffset == null ? null : roundMoney(safeOptions.survivorIncomeOffset),
+      annualShortfall: safeOptions.annualShortfall == null ? null : roundMoney(safeOptions.annualShortfall),
+      scheduledObligations: safeOptions.scheduledObligations == null ? null : roundMoney(safeOptions.scheduledObligations),
+      endingBalance: endingBalance == null ? null : roundMoney(endingBalance),
+      displayedBalance: displayedBalance == null ? null : roundMoney(displayedBalance),
+      accumulatedUnmetNeed: roundMoney(accumulatedUnmetNeed),
+      status: normalizeString(safeOptions.status),
+      sourcePaths: Array.isArray(safeOptions.sourcePaths) ? safeOptions.sourcePaths.slice() : []
+    };
+  }
+
+  function createScenarioLaneEvent(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    return {
+      id: normalizeString(safeOptions.id),
+      type: normalizeString(safeOptions.type),
+      date: safeOptions.date || null,
+      age: safeOptions.age == null ? null : roundYears(safeOptions.age),
+      relativeMonthIndex: safeOptions.relativeMonthIndex == null ? null : safeOptions.relativeMonthIndex,
+      label: normalizeString(safeOptions.label),
+      lane: normalizeString(safeOptions.lane),
+      status: normalizeString(safeOptions.status),
+      sourcePaths: Array.isArray(safeOptions.sourcePaths) ? safeOptions.sourcePaths.slice() : []
+    };
+  }
+
+  function buildScenarioTimeline(output, input) {
+    const scenarioTimeline = createScenarioTimelineBase();
+    const safeInput = isPlainObject(input) ? input : {};
+    const options = isPlainObject(safeInput.options) ? safeInput.options : {};
+    const financialRunway = isPlainObject(output?.financialRunway) ? output.financialRunway : {};
+    const deathDate = parseDateOnly(output?.selectedDeath?.date);
+    const deathAge = toOptionalNumber(output?.selectedDeath?.age);
+    const projectionHorizonYears = resolveProjectionYears(options);
+    const mortgageTreatmentOverride = resolveMortgageTreatmentOverride(options);
+
+    scenarioTimeline.scenario = {
+      deathAge: deathAge == null ? null : deathAge,
+      deathDate: deathDate ? deathDate.normalizedDate : null,
+      projectionHorizonYears,
+      mortgageTreatmentOverride,
+      source: output?.selectedDeath?.source || "unresolved",
+      status: output?.selectedDeath?.status || "unresolved"
+    };
+    scenarioTimeline.axis.preDeathYears = PRE_DEATH_CONTEXT_YEARS;
+    scenarioTimeline.axis.monthlyResolutionMonths = MONTHLY_RESOLUTION_MONTHS_AFTER_DEATH;
+    scenarioTimeline.axis.postMonth24Resolution = "annual";
+    scenarioTimeline.dataGaps = Array.isArray(output?.dataGaps) ? output.dataGaps.slice() : [];
+    scenarioTimeline.warnings = Array.isArray(output?.warnings) ? output.warnings.slice() : [];
+    scenarioTimeline.trace.sourcePaths = uniqueStrings(financialRunway.sourcePaths || []);
+    scenarioTimeline.trace.formula = [
+      "scenarioTimeline.resourceSeries uses remaining available resources for the y-axis.",
+      "pre-death points are flat context-only baseline points.",
+      "post-death points use monthly resolution for the first 24 months and annual resolution after month 24.",
+      "displayedBalance = max(0, endingBalance); accumulatedUnmetNeed tracks below-zero balances separately.",
+      "mortgageTreatmentOverride is captured for scenario controls but does not change mortgage math in this pass."
+    ];
+    scenarioTimeline.trace.deferred = [
+      "pivotal-warning-events-library",
+      "mortgage-treatment-override-behavior",
+      "housing-risk-marker-evaluation",
+      "education-risk-marker-evaluation"
+    ];
+
+    if (!deathDate) {
+      scenarioTimeline.trace.formula.push("scenarioTimeline points were not generated because selected death date is unavailable.");
+      return scenarioTimeline;
+    }
+
+    const axisStart = addYears(deathDate.date, -PRE_DEATH_CONTEXT_YEARS);
+    const axisEnd = addYears(deathDate.date, projectionHorizonYears);
+    scenarioTimeline.axis.startDate = formatDateOnly(axisStart);
+    scenarioTimeline.axis.deathDate = deathDate.normalizedDate;
+    scenarioTimeline.axis.endDate = formatDateOnly(axisEnd);
+
+    const netAvailableResources = toOptionalNumber(financialRunway.netAvailableResources);
+    const annualShortfall = toOptionalNumber(financialRunway.annualShortfall);
+    const annualNeed = toOptionalNumber(financialRunway.annualHouseholdNeed);
+    const survivorIncomeOffset = toOptionalNumber(financialRunway.annualSurvivorIncome);
+    const growthRate = toOptionalNumber(financialRunway.inputs?.projection?.assetGrowth?.growthRate) || 0;
+    const sourcePaths = uniqueStrings(financialRunway.sourcePaths || []);
+    if (netAvailableResources == null || annualShortfall == null) {
+      scenarioTimeline.trace.formula.push("scenarioTimeline resource points require net available resources and annual shortfall.");
+      return scenarioTimeline;
+    }
+
+    for (let yearOffset = -PRE_DEATH_CONTEXT_YEARS; yearOffset < 0; yearOffset += 1) {
+      const pointDate = addYears(deathDate.date, yearOffset);
+      scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
+        id: `pre-death-year-${Math.abs(yearOffset)}`,
+        date: formatDateOnly(pointDate),
+        age: deathAge == null ? null : deathAge + yearOffset,
+        relativeMonthIndex: yearOffset * 12,
+        relativeYear: yearOffset,
+        phase: "preDeath",
+        resolution: "baseline",
+        startingBalance: netAvailableResources,
+        growthAmount: 0,
+        householdNeed: annualNeed,
+        survivorIncomeOffset,
+        annualShortfall,
+        scheduledObligations: 0,
+        endingBalance: netAvailableResources,
+        status: "context",
+        sourcePaths
+      }));
+    }
+
+    scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
+      id: "death-point",
+      date: deathDate.normalizedDate,
+      age: deathAge,
+      relativeMonthIndex: 0,
+      relativeYear: 0,
+      phase: "death",
+      resolution: "death",
+      startingBalance: netAvailableResources,
+      growthAmount: 0,
+      householdNeed: annualNeed,
+      survivorIncomeOffset,
+      annualShortfall,
+      scheduledObligations: 0,
+      endingBalance: netAvailableResources,
+      status: netAvailableResources <= 0 ? "depleted" : "starting",
+      sourcePaths
+    }));
+
+    scenarioTimeline.eventLanes.resources.push(createScenarioLaneEvent({
+      id: "death-marker",
+      type: "death",
+      date: deathDate.normalizedDate,
+      age: deathAge,
+      relativeMonthIndex: 0,
+      label: "Death scenario begins",
+      lane: "resources",
+      status: "scenario-marker",
+      sourcePaths: ["selectedDeathDate", "selectedDeathAge", "profileFacts.clientDateOfBirth"]
+    }));
+
+    const effectiveAnnualShortfall = Math.max(0, annualShortfall);
+    const monthlyShortfall = effectiveAnnualShortfall / 12;
+    const monthlyGrowthRate = growthRate > 0 ? growthRate / 100 / 12 : 0;
+    let runningBalance = netAvailableResources;
+    for (let monthIndex = 1; monthIndex <= MONTHLY_RESOLUTION_MONTHS_AFTER_DEATH; monthIndex += 1) {
+      const pointDate = addMonths(deathDate.date, monthIndex);
+      const startingBalance = runningBalance;
+      const growthAmount = startingBalance > 0 ? startingBalance * monthlyGrowthRate : 0;
+      const endingBalance = startingBalance + growthAmount - monthlyShortfall;
+      runningBalance = endingBalance;
+      scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
+        id: `post-death-month-${monthIndex}`,
+        date: formatDateOnly(pointDate),
+        age: deathAge == null ? null : deathAge + monthIndex / 12,
+        relativeMonthIndex: monthIndex,
+        relativeYear: monthIndex / 12,
+        phase: "postDeath",
+        resolution: "monthly",
+        startingBalance,
+        growthAmount,
+        householdNeed: annualNeed,
+        survivorIncomeOffset,
+        annualShortfall: effectiveAnnualShortfall,
+        scheduledObligations: 0,
+        endingBalance,
+        status: endingBalance <= 0 ? "depleted" : "available",
+        sourcePaths
+      }));
+    }
+
+    for (let yearIndex = 3; yearIndex <= projectionHorizonYears; yearIndex += 1) {
+      const pointDate = addYears(deathDate.date, yearIndex);
+      const startingBalance = runningBalance;
+      const growthAmount = startingBalance > 0 ? startingBalance * (growthRate / 100) : 0;
+      const endingBalance = startingBalance + growthAmount - effectiveAnnualShortfall;
+      runningBalance = endingBalance;
+      scenarioTimeline.resourceSeries.points.push(createScenarioTimelinePoint({
+        id: `post-death-year-${yearIndex}`,
+        date: formatDateOnly(pointDate),
+        age: deathAge == null ? null : deathAge + yearIndex,
+        relativeMonthIndex: yearIndex * 12,
+        relativeYear: yearIndex,
+        phase: "postDeath",
+        resolution: "annual",
+        startingBalance,
+        growthAmount,
+        householdNeed: annualNeed,
+        survivorIncomeOffset,
+        annualShortfall: effectiveAnnualShortfall,
+        scheduledObligations: 0,
+        endingBalance,
+        status: endingBalance <= 0 ? "depleted" : "available",
+        sourcePaths
+      }));
+    }
+
+    const depletionDate = parseDateOnly(financialRunway.depletionDate);
+    if (depletionDate) {
+      scenarioTimeline.eventLanes.resources.push(createScenarioLaneEvent({
+        id: "resources-depleted-marker",
+        type: "resourcesDepleted",
+        date: depletionDate.normalizedDate,
+        age: deathAge == null || financialRunway.totalMonthsOfSecurity == null
+          ? null
+          : deathAge + financialRunway.totalMonthsOfSecurity / 12,
+        relativeMonthIndex: calculateWholeMonthsBetweenDates(deathDate.date, depletionDate.date),
+        label: "Resources depleted",
+        lane: "resources",
+        status: "depletion-marker",
+        sourcePaths: ["incomeLossImpact.formula.yearsOfFinancialSecurity"]
+      }));
+    } else {
+      scenarioTimeline.trace.formula.push("resources depleted marker deferred because depletion date is unavailable.");
+    }
+
+    return scenarioTimeline;
+  }
+
   function getDependentDetailsFromProfile(profileRecord) {
     const source = profileRecord?.dependentDetails;
     if (Array.isArray(source)) {
@@ -1018,7 +1329,10 @@
   }
 
   function resolveSelectedDeath(input, output, parsedDateOfBirth, parsedValuationDate) {
-    const selectedDeathAge = toOptionalNumber(input?.selectedDeathAge);
+    const scenarioInput = isPlainObject(input?.options?.scenario) ? input.options.scenario : {};
+    const selectedDeathAge = toOptionalNumber(
+      input?.selectedDeathAge != null ? input.selectedDeathAge : scenarioInput.deathAge
+    );
     const parsedSelectedDeathDate = parseDateOnly(input?.selectedDeathDate);
     const hasDateOfBirth = Boolean(parsedDateOfBirth);
     let selectedDate = null;
@@ -1101,6 +1415,7 @@
         warnings: [],
         dataGaps: []
       },
+      scenarioTimeline: createScenarioTimelineBase(),
       dependents: {
         rows: [],
         milestones: []
@@ -1563,6 +1878,7 @@
         immediateObligations.sourcePaths
       )
     ];
+    output.scenarioTimeline = buildScenarioTimeline(output, safeInput);
 
     output.trace.formula.push(
       "netAvailableResources = preferred coverage bucket + preferred prepared asset bucket - immediate obligations",

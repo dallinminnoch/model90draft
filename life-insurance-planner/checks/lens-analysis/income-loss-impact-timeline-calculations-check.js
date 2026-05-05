@@ -574,6 +574,10 @@ function run() {
   assert.strictEqual(typeof sparseOutput.liquidity, "object");
   assert.strictEqual(typeof sparseOutput.financialRunway, "object");
   assert(Array.isArray(sparseOutput.financialRunway.projectionPoints), "financialRunway projection points should be stable");
+  assert.strictEqual(typeof sparseOutput.scenarioTimeline, "object");
+  assert(Array.isArray(sparseOutput.scenarioTimeline.resourceSeries.points), "scenarioTimeline resource points should be stable");
+  assert(Array.isArray(sparseOutput.scenarioTimeline.pivotalEvents.risks), "scenarioTimeline risk events should be stable");
+  assert(Array.isArray(sparseOutput.scenarioTimeline.pivotalEvents.stable), "scenarioTimeline stable events should be stable");
   assert(Array.isArray(sparseOutput.dependents.rows), "dependent rows should be stable");
   assert(Array.isArray(sparseOutput.dependents.milestones), "dependent milestones should be stable");
   assert(findDataGap(sparseOutput, "missing-client-dob"), "sparse output should report missing DOB");
