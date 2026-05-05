@@ -210,6 +210,7 @@ assert.match(
   "../app/features/lens-analysis/asset-growth-projection-calculations.js",
   "../app/features/lens-analysis/cash-reserve-calculations.js",
   "../app/features/lens-analysis/lens-model-builder.js",
+  "../app/features/lens-analysis/income-impact-warning-events-library.js",
   "../app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-display.js"
 ].forEach(function (scriptPath) {
@@ -222,6 +223,16 @@ assert.ok(
   incomeLossScriptSources.indexOf("../app/features/lens-analysis/normalize-lens-model.js")
     < incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js"),
   "Income Impact should load the normalizer before the Lens model builder."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-warning-events-library.js"),
+  "Income Impact should load the Lens model builder before the warning events library."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-warning-events-library.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-timeline-calculations.js"),
+  "Income Impact should load the warning events library before the timeline helper."
 );
 assert.ok(
   incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js")
