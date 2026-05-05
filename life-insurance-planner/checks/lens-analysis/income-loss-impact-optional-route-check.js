@@ -306,13 +306,8 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /renderPlaceholderTimelineChart\(\)/,
-  "Income Impact should preserve the existing placeholder timeline visualization."
-);
-assert.match(
-  incomeLossDisplaySource,
-  /data-income-impact-timeline-month/,
-  "Income Impact should preserve timeline month hover markers."
+  /data-income-impact-visual-timeline/,
+  "Income Impact should render a helper-driven visual timeline."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -336,8 +331,13 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /Read-only estimate from linked profile and Protection Modeling information\./,
+  /Fact-based runway estimate from linked profile and Protection Modeling information\./,
   "Income Impact display copy should classify the page as fact-based and read-only."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /Existing coverage \+ available assets, less immediate obligations, divided by estimated annual household shortfall\./,
+  "Years of Financial Security should explain the fact-based runway estimate."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -358,7 +358,11 @@ assert.match(
   /Income Replacement Bridge/,
   /Survivor Income Impact/,
   /support trace/i,
-  /temporary LENS compatibility/i
+  /temporary LENS compatibility/i,
+  /Placeholder visualization/,
+  /placeholder-only/,
+  /renderPlaceholderTimelineChart/,
+  /data-income-impact-timeline-month/
 ].forEach(function (pattern) {
   assert.doesNotMatch(
     incomeLossDisplaySource,
@@ -394,6 +398,16 @@ const helperDisplayFixture = {
       age: 50,
       label: "Insured income stops",
       amount: 120000
+    },
+    {
+      type: "dataGap",
+      label: "Dependent date is missing",
+      warnings: [
+        {
+          code: "missing-dependent-dob",
+          message: "Dependent date of birth is missing."
+        }
+      ]
     }
   ],
   dataGaps: [
@@ -414,7 +428,17 @@ assert.match(
   /8 years 4 months/,
   "Financial security card should render the helper summary display value."
 );
+assert.match(
+  displayHarness.renderFinancialSecurityCard(helperDisplayFixture),
+  /Existing coverage \+ available assets, less immediate obligations, divided by estimated annual household shortfall\./,
+  "Financial security card should explain the runway formula."
+);
 const helperTimelineHtml = displayHarness.renderTimeline(helperDisplayFixture);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-visual-timeline/,
+  "Timeline should expose a helper-driven visual timeline."
+);
 assert.match(
   helperTimelineHtml,
   /data-income-impact-helper-timeline-events/,
@@ -424,6 +448,21 @@ assert.match(
   helperTimelineHtml,
   /data-income-impact-timeline-event-type="incomeStops"/,
   "Timeline should render helper event types."
+);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-visual-event-type="incomeStops"/,
+  "Visual timeline should render helper event types."
+);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-timeline-event-type="dataGap"/,
+  "Timeline should render data-gap events visibly."
+);
+assert.doesNotMatch(
+  helperTimelineHtml,
+  /Placeholder visualization|placeholder-only/,
+  "Timeline should not expose placeholder-only chart copy."
 );
 assert.match(
   helperTimelineHtml,

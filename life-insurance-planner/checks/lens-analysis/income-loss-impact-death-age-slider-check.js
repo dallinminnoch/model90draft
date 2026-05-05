@@ -256,6 +256,9 @@ assert.equal(available.helperCalls.length, 1);
 assert.equal(available.helperCalls[0].selectedDeathAge, 45);
 assert.match(available.host.innerHTML, /45 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 45/);
+assert.match(available.host.innerHTML, /data-income-impact-visual-timeline/);
+assert.match(available.host.innerHTML, /data-income-impact-visual-event-date="2026-01-01"/);
+assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeholder-only/);
 
 available.slider.value = "44";
 available.slider.listeners.input({ target: available.slider });
@@ -274,6 +277,8 @@ assert.equal(available.ageValue.textContent, "50");
 assert.equal(available.dateValue.textContent, "2030-06-15");
 assert.match(available.host.innerHTML, /50 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 50/);
+assert.match(available.host.innerHTML, /data-income-impact-visual-event-date="2030-06-15"/);
+assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeholder-only/);
 assert.deepEqual(available.storageWrites, [], "slider changes should not write to browser storage.");
 
 const missingDob = createHarness({ missingDob: true });

@@ -4,23 +4,6 @@
 
   const UNAVAILABLE_COPY = "Not available";
   const EMPTY_MESSAGE = "Not available until income and survivor inputs are completed.";
-  const PLACEHOLDER_SUPPORT_GAP_TIMELINE_START_YEAR = 2026;
-  const PLACEHOLDER_SUPPORT_GAP_TIMELINE_YEARS = 15;
-  const PLACEHOLDER_SUPPORT_GAP_TIMELINE_START_VALUE = 184000;
-  const MONTH_LABELS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec"
-  ];
   let incomeImpactState = null;
 
   function isPlainObject(value) {
@@ -63,20 +46,6 @@
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      maximumFractionDigits: 0
-    }).format(number);
-  }
-
-  function formatCompactCurrency(value) {
-    const number = toOptionalNumber(value);
-    if (number == null) {
-      return UNAVAILABLE_COPY;
-    }
-
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      notation: "compact",
       maximumFractionDigits: 0
     }).format(number);
   }
@@ -387,278 +356,200 @@
     const card = findSummaryCard(timelineResult, "yearsOfFinancialSecurity");
     const displayValue = card?.displayValue || UNAVAILABLE_COPY;
     const status = card?.status || "notAvailable";
+    const warnings = Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : [];
+    const dataGaps = Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : [];
+    const unavailableReason = status === "available"
+      ? ""
+      : (
+        warnings.find(function (warning) {
+          return String(warning?.code || "").includes("annual")
+            || String(warning?.code || "").includes("resources")
+            || String(warning?.message || "").includes("Years of Financial Security");
+        })?.message
+        || dataGaps[0]?.label
+        || "Complete income, survivor income, coverage, liquidity, and obligation facts to calculate this estimate."
+      );
 
     return `
       <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card data-income-impact-summary-card-id="yearsOfFinancialSecurity" data-income-impact-summary-status="${escapeHtml(status)}">
         <div class="income-impact-card-header">
           <h2>Years of Financial Security</h2>
-          <p>Read-only estimate from linked profile and Protection Modeling information. It does not change the LENS recommendation.</p>
+          <p>Fact-based runway estimate from linked profile and Protection Modeling information. It does not change the LENS recommendation.</p>
         </div>
         <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value data-income-impact-helper-summary-card="yearsOfFinancialSecurity">${escapeHtml(displayValue)}</strong>
+        <p data-income-impact-financial-security-explanation>Existing coverage + available assets, less immediate obligations, divided by estimated annual household shortfall.</p>
+        ${unavailableReason ? `<p data-income-impact-financial-security-reason>${escapeHtml(unavailableReason)}</p>` : ""}
       </article>
     `;
   }
 
-  function smoothPlaceholderPoints(points) {
-    if (!Array.isArray(points) || points.length < 5) {
-      return Array.isArray(points) ? points : [];
-    }
-
-    const weights = [1, 3, 4, 3, 1];
-    const weightTotal = weights.reduce(function (total, weight) {
-      return total + weight;
-    }, 0);
-
-    return points.map(function (point, index) {
-      if (index < 2 || index > points.length - 3) {
-        return point;
-      }
-
-      const y = weights.reduce(function (total, weight, weightIndex) {
-        return total + (points[index + weightIndex - 2].y * weight);
-      }, 0) / weightTotal;
-
-      return {
-        ...point,
-        y: Math.round(y * 100) / 100
-      };
-    });
+  function getTimelineEvents(timelineResult) {
+    return (Array.isArray(timelineResult?.timelineEvents) ? timelineResult.timelineEvents : [])
+      .filter(function (event) {
+        return event && event.type;
+      });
   }
 
-  function buildSmoothPath(points) {
-    if (!Array.isArray(points) || !points.length) {
+  function formatTimelineAxisDate(value) {
+    const date = parseDateOnlyValue(value);
+    if (!date) {
       return "";
     }
 
-    if (points.length === 1) {
-      return `M ${points[0].x} ${points[0].y}`;
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      year: "numeric"
+    }).format(date);
+  }
+
+  function getTimelineEventColor(event) {
+    const type = String(event?.type || "");
+    if (type === "death") {
+      return "#111827";
     }
-
-    let path = `M ${points[0].x} ${points[0].y}`;
-    const tension = 0.82;
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const previous = points[Math.max(0, index - 1)];
-      const current = points[index];
-      const next = points[index + 1];
-      const after = points[Math.min(points.length - 1, index + 2)];
-      const firstControl = {
-        x: current.x + ((next.x - previous.x) * tension / 6),
-        y: current.y + ((next.y - previous.y) * tension / 6)
-      };
-      const secondControl = {
-        x: next.x - ((after.x - current.x) * tension / 6),
-        y: next.y - ((after.y - current.y) * tension / 6)
-      };
-
-      path += ` C ${Math.round(firstControl.x * 100) / 100} ${Math.round(firstControl.y * 100) / 100}, ${Math.round(secondControl.x * 100) / 100} ${Math.round(secondControl.y * 100) / 100}, ${next.x} ${next.y}`;
+    if (type === "incomeStops" || type === "debtObligation" || type === "mortgageObligation" || type === "finalExpensesDue") {
+      return "#b42318";
     }
-
-    return path;
+    if (type === "coverageAvailable" || type === "liquidityCheckpoint") {
+      return "#166534";
+    }
+    if (type === "survivorIncomeContinues" || type === "householdExpenseRunway" || type === "supportNeedEnds") {
+      return "#1d4ed8";
+    }
+    if (type === "dependentMilestone" || type === "educationWindow") {
+      return "#6d28d9";
+    }
+    if (type === "dataGap" || (Array.isArray(event?.warnings) && event.warnings.length)) {
+      return "#b45309";
+    }
+    return "#475569";
   }
 
-  function getPlaceholderChartY(value, maxValue, chartTop, chartBottom) {
-    const ratio = Math.max(0, Math.min(1, value / Math.max(maxValue, 1)));
-    return Math.round((chartBottom - (ratio * (chartBottom - chartTop))) * 100) / 100;
+  function getTimelineEventLabel(event) {
+    const label = String(event?.label || event?.type || "Timeline event").trim();
+    return label.length > 28 ? `${label.slice(0, 25)}...` : label;
   }
 
-  function buildPlaceholderSupportGapTimelineValues() {
-    const totalMonths = PLACEHOLDER_SUPPORT_GAP_TIMELINE_YEARS * 12;
-    const lastIndex = totalMonths - 1;
-
-    return Array.from({ length: totalMonths }, function (_item, index) {
-      const progress = lastIndex <= 0 ? 1 : index / lastIndex;
-      const monthIndex = index % 12;
-      const year = PLACEHOLDER_SUPPORT_GAP_TIMELINE_START_YEAR + Math.floor(index / 12);
-      const taper = Math.pow(1 - progress, 1.18);
-      const primaryWave = Math.sin(index * 0.42) * 4200 * (1 - progress);
-      const referenceWave = Math.cos(index * 0.38) * 2600 * (1 - progress);
-      const primaryGap = index === lastIndex
-        ? 0
-        : Math.max(0, Math.round((PLACEHOLDER_SUPPORT_GAP_TIMELINE_START_VALUE * taper) + primaryWave));
-      const referenceGap = index === lastIndex
-        ? 0
-        : Math.max(0, Math.round((PLACEHOLDER_SUPPORT_GAP_TIMELINE_START_VALUE * 0.78 * taper) + referenceWave));
-
-      return {
-        label: `${MONTH_LABELS[monthIndex]} ${year}`,
-        shortLabel: MONTH_LABELS[monthIndex],
-        year,
-        primaryGap,
-        referenceGap
-      };
-    });
+  function getTimelineEventAmountLabel(event) {
+    const amount = toOptionalNumber(event?.amount);
+    return amount == null ? "Fact-based event" : formatCurrency(amount);
   }
 
-  function renderPlaceholderTimelineChart() {
-    const values = buildPlaceholderSupportGapTimelineValues();
+  function buildVisualTimelineEvents(events) {
+    const sortedEvents = events
+      .map(function (event, index) {
+        return {
+          event,
+          index,
+          date: parseDateOnlyValue(event.date)
+        };
+      })
+      .sort(function (left, right) {
+        if (left.date && right.date) {
+          return left.date.getTime() - right.date.getTime() || left.index - right.index;
+        }
+        if (left.date) {
+          return -1;
+        }
+        if (right.date) {
+          return 1;
+        }
+        return left.index - right.index;
+      });
+
     const width = 960;
     const height = 260;
-    const chartTop = 26;
-    const chartBottom = 202;
-    const xStart = 10;
-    const xEnd = width - 10;
-    const monthWidth = (xEnd - xStart) / Math.max(values.length, 1);
-    const maxGap = Math.max(...values.map(function (item) {
-      return Math.max(item.primaryGap, item.referenceGap);
-    }), 1);
-    const monthPoints = values.map(function (item, index) {
-      const leftX = xStart + (index * monthWidth);
-      const rightX = leftX + monthWidth;
-      const centerX = leftX + (monthWidth / 2);
-      const primaryY = getPlaceholderChartY(item.primaryGap, maxGap, chartTop, chartBottom);
+    const xStart = 58;
+    const xEnd = width - 58;
+    const markerY = 132;
+    const datedEvents = sortedEvents.filter(function (item) {
+      return item.date;
+    });
+    const times = datedEvents.map(function (item) {
+      return item.date.getTime();
+    });
+    const minTime = times.length ? Math.min(...times) : null;
+    const maxTime = times.length ? Math.max(...times) : null;
+    const hasDateSpan = minTime != null && maxTime != null && maxTime > minTime;
 
-      return {
-        x: Math.round(centerX * 100) / 100,
-        y: primaryY,
-        leftX: Math.round(leftX * 100) / 100,
-        rightX: Math.round(rightX * 100) / 100,
-        item
-      };
-    });
-    const primaryPoints = monthPoints.map(function (point) {
-      return {
-        x: point.x,
-        y: point.y,
-        item: point.item
-      };
-    });
-    const referencePoints = values.map(function (item, index) {
-      const centerX = xStart + (index * monthWidth) + (monthWidth / 2);
-      return {
-        x: Math.round(centerX * 100) / 100,
-        y: getPlaceholderChartY(item.referenceGap, maxGap, chartTop, chartBottom),
-        item
-      };
-    });
-    const primaryLinePoints = smoothPlaceholderPoints(primaryPoints);
-    const referenceLinePoints = smoothPlaceholderPoints(referencePoints);
-    const boundaryLines = Array.from({ length: values.length + 1 }, function (_item, index) {
-      const x = xStart + (index * monthWidth);
-      const previousPoint = monthPoints[Math.max(0, index - 1)];
-      const nextPoint = monthPoints[Math.min(monthPoints.length - 1, index)];
-      const y = index === 0
-        ? nextPoint.y
-        : index === values.length
-          ? previousPoint.y
-          : (previousPoint.y + nextPoint.y) / 2;
+    return {
+      width,
+      height,
+      xStart,
+      xEnd,
+      markerY,
+      axisStart: datedEvents[0]?.event?.date || sortedEvents[0]?.event?.date || "",
+      axisEnd: datedEvents[datedEvents.length - 1]?.event?.date || sortedEvents[sortedEvents.length - 1]?.event?.date || "",
+      events: sortedEvents.map(function (item, index) {
+        const distributedX = xStart + (((index + 1) / (sortedEvents.length + 1)) * (xEnd - xStart));
+        const dateX = item.date && hasDateSpan
+          ? xStart + (((item.date.getTime() - minTime) / (maxTime - minTime)) * (xEnd - xStart))
+          : distributedX;
+        const labelY = index % 2 === 0 ? 72 : 205;
+        const anchor = dateX < 150 ? "start" : (dateX > width - 150 ? "end" : "middle");
 
-      return {
-        x: Math.round(x * 100) / 100,
-        y: Math.round(y * 100) / 100
-      };
-    });
-    const monthBands = monthPoints.map(function (point) {
-      const hitInset = Math.min(0.9, Math.max(0.35, monthWidth * 0.14));
-      const x = point.leftX + hitInset;
-      const width = Math.max(1, (point.rightX - point.leftX) - (hitInset * 2));
+        return {
+          event: item.event,
+          x: Math.round(dateX * 100) / 100,
+          labelY,
+          anchor,
+          markerY
+        };
+      })
+    };
+  }
 
-      return {
-        x: Math.round(x * 100) / 100,
-        width: Math.round(width * 100) / 100,
-        point
-      };
-    });
-    const axisValues = values.filter(function (item, index) {
-      return index === 0 || index === values.length - 1 || (item.shortLabel === "Jan" && (item.year - PLACEHOLDER_SUPPORT_GAP_TIMELINE_START_YEAR) % 3 === 0);
-    });
+  function renderVisualTimelineChart(timelineResult) {
+    const events = getTimelineEvents(timelineResult);
+    if (!events.length) {
+      return `<div class="income-impact-empty-inline" data-income-impact-visual-timeline>${escapeHtml(EMPTY_MESSAGE)}</div>`;
+    }
+
+    const model = buildVisualTimelineEvents(events);
 
     return `
-      <div class="income-impact-timeline-chart" aria-label="Placeholder household impact timeline visualization">
+      <div class="income-impact-timeline-chart" data-income-impact-visual-timeline data-income-impact-visual-event-count="${escapeHtml(String(events.length))}" aria-label="Helper-driven household impact timeline visualization">
         <div class="income-impact-chart-topline">
-          <span class="income-impact-placeholder-badge">Placeholder visualization</span>
-          <p>Chart values are still placeholder-only for layout. The event list below uses fact-based linked profile and Protection Modeling events, not the final LENS recommendation.</p>
+          <strong>Selected scenario timeline</strong>
+          <p>Built from helper events for the selected death age/date. This preview does not change the LENS recommendation.</p>
         </div>
-        <svg class="income-impact-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Sample household impact timeline shown as thin columns under trendlines">
+        <svg class="income-impact-timeline-svg" viewBox="0 0 ${model.width} ${model.height}" role="img" aria-label="Fact-based household impact timeline for selected death scenario">
           <g class="income-impact-chart-grid" aria-hidden="true">
-            <line x1="${xStart}" y1="${chartTop}" x2="${xEnd}" y2="${chartTop}"></line>
-            <line x1="${xStart}" y1="${Math.round(chartTop + ((chartBottom - chartTop) * 0.25))}" x2="${xEnd}" y2="${Math.round(chartTop + ((chartBottom - chartTop) * 0.25))}"></line>
-            <line x1="${xStart}" y1="${Math.round(chartTop + ((chartBottom - chartTop) * 0.5))}" x2="${xEnd}" y2="${Math.round(chartTop + ((chartBottom - chartTop) * 0.5))}"></line>
-            <line x1="${xStart}" y1="${Math.round(chartTop + ((chartBottom - chartTop) * 0.75))}" x2="${xEnd}" y2="${Math.round(chartTop + ((chartBottom - chartTop) * 0.75))}"></line>
-            <line x1="${xStart}" y1="${chartBottom}" x2="${xEnd}" y2="${chartBottom}"></line>
+            <line x1="${model.xStart}" y1="132" x2="${model.xEnd}" y2="132"></line>
+            <line x1="${model.xStart}" y1="64" x2="${model.xStart}" y2="206"></line>
+            <line x1="${model.xEnd}" y1="64" x2="${model.xEnd}" y2="206"></line>
           </g>
-          <g class="income-impact-timeline-columns" aria-hidden="true">
-            ${boundaryLines.map(function (boundary) {
+          <g class="income-impact-timeline-columns" data-income-impact-visual-timeline-events>
+            ${model.events.map(function (item) {
+              const event = item.event;
+              const color = getTimelineEventColor(event);
+              const label = getTimelineEventLabel(event);
+              const hasWarning = Array.isArray(event?.warnings) && event.warnings.length > 0;
               return `
-                <line
-                  class="income-impact-timeline-column"
-                  x1="${boundary.x}"
-                  y1="${boundary.y}"
-                  x2="${boundary.x}"
-                  y2="${chartBottom}"
-                ></line>
-              `;
-            }).join("")}
-          </g>
-          <path class="income-impact-timeline-line income-impact-timeline-line--reference" d="${escapeHtml(buildSmoothPath(referenceLinePoints))}"></path>
-          <path class="income-impact-timeline-line income-impact-timeline-line--primary" d="${escapeHtml(buildSmoothPath(primaryLinePoints))}"></path>
-          <g class="income-impact-timeline-month-bands">
-            ${monthBands.map(function (band) {
-              return `
-                <rect
-                  class="income-impact-timeline-month-band"
-                  x="${band.x}"
-                  y="${chartTop}"
-                  width="${band.width}"
-                  height="${chartBottom - chartTop}"
-                  data-income-impact-timeline-month="${escapeHtml(band.point.item.label)}"
-                  data-income-impact-timeline-gap="${escapeHtml(String(band.point.item.primaryGap))}"
+                <g
+                  data-income-impact-visual-event
+                  data-income-impact-visual-event-type="${escapeHtml(event.type)}"
+                  data-income-impact-visual-event-date="${escapeHtml(event.date || "")}"
+                  data-income-impact-visual-event-age="${escapeHtml(event.age == null ? "" : String(event.age))}"
+                  data-income-impact-visual-event-warning="${hasWarning ? "true" : "false"}"
                 >
-                  <title>${escapeHtml(`${band.point.item.label}: ${formatCurrency(band.point.item.primaryGap)} sample value`)}</title>
-                </rect>
+                  <line class="income-impact-timeline-column" x1="${item.x}" y1="${item.labelY < item.markerY ? item.labelY + 10 : item.markerY}" x2="${item.x}" y2="${item.labelY < item.markerY ? item.markerY : item.labelY - 10}"></line>
+                  <circle cx="${item.x}" cy="${item.markerY}" r="8" fill="${color}" stroke="#ffffff" stroke-width="3"></circle>
+                  <text x="${item.x}" y="${item.labelY}" text-anchor="${item.anchor}" fill="${color}" font-size="16" font-weight="700">${escapeHtml(label)}</text>
+                  <text x="${item.x}" y="${item.labelY + 18}" text-anchor="${item.anchor}" fill="#647085" font-size="13">${escapeHtml(formatTimelineTiming(event))}</text>
+                  <title>${escapeHtml(`${event.label || event.type}: ${formatTimelineTiming(event)} - ${getTimelineEventAmountLabel(event)}`)}</title>
+                </g>
               `;
             }).join("")}
           </g>
         </svg>
         <div class="income-impact-chart-axis" aria-hidden="true">
-          ${axisValues.map(function (item) {
-            return `<span>${escapeHtml(item.label)}</span>`;
-          }).join("")}
+          <span>${escapeHtml(formatTimelineAxisDate(model.axisStart) || "Start")}</span>
+          <span>${escapeHtml(formatTimelineAxisDate(model.axisEnd) || "End")}</span>
         </div>
-        <div
-          class="income-impact-chart-hover-label"
-          data-income-impact-chart-hover-label
-          data-default-text="Hover over a monthly bar to see the placeholder month and year."
-        >Hover over a monthly bar to see the placeholder month and year.</div>
+        <div class="income-impact-chart-hover-label">Timeline events are sourced from calculateIncomeLossImpactTimeline().</div>
       </div>
     `;
-  }
-
-  function bindPlaceholderTimelineHover(host) {
-    const charts = Array.from(host.querySelectorAll(".income-impact-timeline-chart"));
-    charts.forEach(function (chart) {
-      const label = chart.querySelector("[data-income-impact-chart-hover-label]");
-      if (!label) {
-        return;
-      }
-
-      const defaultText = label.getAttribute("data-default-text") || label.textContent;
-
-      function setDefaultText() {
-        label.textContent = defaultText;
-      }
-
-      function updateLabel(column) {
-        const monthLabel = String(column?.getAttribute("data-income-impact-timeline-month") || "").trim();
-        const gap = toOptionalNumber(column?.getAttribute("data-income-impact-timeline-gap"));
-        if (!monthLabel) {
-          setDefaultText();
-          return;
-        }
-
-        label.textContent = gap == null
-          ? monthLabel
-          : `${monthLabel} - sample value ${formatCompactCurrency(gap)}`;
-      }
-
-      chart.addEventListener("mouseover", function (event) {
-        const column = event.target?.closest?.("[data-income-impact-timeline-month]");
-        if (column && chart.contains(column)) {
-          updateLabel(column);
-        }
-      });
-
-      chart.addEventListener("mouseleave", setDefaultText);
-    });
   }
 
   function formatTimelineTiming(event) {
@@ -674,10 +565,7 @@
   }
 
   function renderTimelineEvents(timelineResult) {
-    const events = (Array.isArray(timelineResult?.timelineEvents) ? timelineResult.timelineEvents : [])
-      .filter(function (event) {
-        return event && event.type && event.type !== "dataGap";
-      });
+    const events = getTimelineEvents(timelineResult);
 
     if (!events.length) {
       return `<div class="income-impact-empty-inline" data-income-impact-helper-timeline-events>${escapeHtml(EMPTY_MESSAGE)}</div>`;
@@ -686,12 +574,19 @@
     return `
       <div class="income-impact-timeline-grid" data-income-impact-helper-timeline-events>
         ${events.map(function (event) {
-          const amount = toOptionalNumber(event.amount);
+          const warnings = Array.isArray(event?.warnings) ? event.warnings : [];
           return `
             <div data-income-impact-timeline-event-type="${escapeHtml(event.type)}">
               <span>${escapeHtml(formatTimelineTiming(event))}</span>
               <strong>${escapeHtml(event.label || "Timeline event")}</strong>
-              <p>${escapeHtml(amount == null ? "Fact-based event" : formatCurrency(amount))}</p>
+              <p>${escapeHtml(getTimelineEventAmountLabel(event))}</p>
+              ${warnings.length ? `
+                <ul>
+                  ${warnings.map(function (warning) {
+                    return `<li>${escapeHtml(warning.message || warning.code || "Review this event.")}</li>`;
+                  }).join("")}
+                </ul>
+              ` : ""}
             </div>
           `;
         }).join("")}
@@ -740,10 +635,10 @@
       <article class="income-impact-card income-impact-card--wide" data-income-impact-helper-timeline>
         <div class="income-impact-card-header">
           <h3>Household Impact Timeline</h3>
-          <p>Fact-based events from linked profile and Protection Modeling information. The chart remains placeholder-only until the timeline visualization pass.</p>
+          <p>Fact-based events from linked profile and Protection Modeling information for the selected death age/date.</p>
         </div>
         <div class="income-impact-timeline" aria-label="Fact-based household impact timeline">
-          ${renderPlaceholderTimelineChart()}
+          ${renderVisualTimelineChart(timelineResult)}
           ${renderTimelineEvents(timelineResult)}
           ${renderDataGaps(timelineResult)}
           ${renderWarnings(timelineResult)}
@@ -760,7 +655,6 @@
         ${renderTimeline(timelineResult)}
       </div>
     `;
-    bindPlaceholderTimelineHover(host);
   }
 
   function calculateTimelineResultFromState(state) {
