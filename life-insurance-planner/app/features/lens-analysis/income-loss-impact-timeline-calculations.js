@@ -637,6 +637,7 @@
   }
 
   function resolveDebtRunwayInput(lensModel) {
+    const preparedMortgageTreatmentTrace = getPreparedMortgageTreatmentTrace(lensModel);
     const treatedDebt = firstRunwayValue(lensModel, [
       { path: "treatedDebtPayoff.needs.debtPayoffAmount", status: "treated" }
     ]);
@@ -666,6 +667,7 @@
         nonMortgageDebt: nonMortgageDebt.value == null
           ? createMissingRunwayValue(nonMortgageDebt.sourcePaths, "missing")
           : createRunwayValue(nonMortgageDebt.value, "debtPayoff.nonMortgageComponents", nonMortgageDebt.sourcePaths, "raw-detail"),
+        preparedMortgageTreatmentTrace,
         sourceStatus: "treated"
       };
     }
@@ -680,6 +682,7 @@
         nonMortgageDebt: nonMortgageDebt.value == null
           ? createMissingRunwayValue(nonMortgageDebt.sourcePaths, "missing")
           : createRunwayValue(nonMortgageDebt.value, "debtPayoff.nonMortgageComponents", nonMortgageDebt.sourcePaths, "raw-detail"),
+        preparedMortgageTreatmentTrace,
         sourceStatus: "raw-fallback"
       };
     }
@@ -697,6 +700,7 @@
       nonMortgageDebt: nonMortgageDebt.value == null
         ? createMissingRunwayValue(nonMortgageDebt.sourcePaths, "missing")
         : createRunwayValue(nonMortgageDebt.value, "debtPayoff.nonMortgageComponents", nonMortgageDebt.sourcePaths, "raw-detail"),
+      preparedMortgageTreatmentTrace,
       sourceStatus: fallbackDebt.value == null ? "missing" : "raw-component-fallback"
     };
   }
@@ -819,6 +823,30 @@
     return false;
   }
 
+  function getPreparedMortgageTreatmentTrace(lensModel) {
+    const treatedDebtPayoff = isPlainObject(lensModel?.treatedDebtPayoff)
+      ? lensModel.treatedDebtPayoff
+      : {};
+    const candidateRows = []
+      .concat(Array.isArray(treatedDebtPayoff.debts) ? treatedDebtPayoff.debts : [])
+      .concat(Array.isArray(treatedDebtPayoff.trace?.debts) ? treatedDebtPayoff.trace.debts : []);
+    return candidateRows.find(function (row) {
+      return isPlainObject(row) && row.isMortgage === true;
+    }) || null;
+  }
+
+  function isPreparedMortgageSupportMode(mortgageTreatmentTrace) {
+    if (!isPlainObject(mortgageTreatmentTrace)) {
+      return false;
+    }
+
+    const treatmentMode = normalizeString(
+      mortgageTreatmentTrace.mortgageTreatmentMode || mortgageTreatmentTrace.treatmentMode
+    );
+    return treatmentMode === "support"
+      && mortgageTreatmentTrace.fallbackReason !== "mortgage-support-years-unavailable-defaulted-to-payoff";
+  }
+
   function createAdjustedDebtRunwayValue(value, sourcePath, sourcePaths, status) {
     const normalizedValue = toOptionalNumber(value);
     return createRunwayValue(
@@ -839,11 +867,86 @@
       scheduledAnnualPayment: safeOptions.scheduledAnnualPayment == null ? null : roundMoney(safeOptions.scheduledAnnualPayment),
       scheduledMonthlyPayment: safeOptions.scheduledMonthlyPayment == null ? null : roundMoney(safeOptions.scheduledMonthlyPayment),
       scheduledTermMonths: safeOptions.scheduledTermMonths == null ? null : safeOptions.scheduledTermMonths,
+      assumptionTreatment: safeOptions.assumptionTreatment || null,
       sourcePaths: uniqueStrings(safeOptions.sourcePaths),
       warnings: Array.isArray(safeOptions.warnings) ? safeOptions.warnings.slice() : [],
       dataGaps: Array.isArray(safeOptions.dataGaps) ? safeOptions.dataGaps.slice() : [],
       trace: Array.isArray(safeOptions.trace) ? safeOptions.trace.slice() : []
     };
+  }
+
+  function applyMortgagePaymentsContinueTreatment(adjusted, debtPayoff, mortgage, nonMortgageDebt, mortgagePaymentInput, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const override = safeOptions.override || "continueMortgagePayments";
+    const sourcePathPrefix = safeOptions.sourcePathPrefix || "incomeLossImpact.scenario.continueMortgagePayments";
+    const sourceStatus = safeOptions.sourceStatus || "scenario-continue-mortgage-payments";
+    const traceLabel = safeOptions.traceLabel || "continueMortgagePayments";
+    const assumptionTreatment = safeOptions.assumptionTreatment || null;
+    const mortgageIncluded = debtPayoffIncludesMortgage(debtPayoff, mortgage);
+    const monthlyPayment = mortgagePaymentInput?.monthlyPayment || createMissingRunwayValue(["ongoingSupport.monthlyMortgagePayment"], "missing");
+    const remainingTermMonths = mortgagePaymentInput?.remainingTermMonths || createMissingRunwayValue(["ongoingSupport.mortgageRemainingTermMonths"], "missing");
+
+    if (mortgageIncluded) {
+      const fallbackNonMortgageValue = debtPayoff.value != null && mortgage.value != null
+        ? Math.max(0, debtPayoff.value - mortgage.value)
+        : (nonMortgageDebt.value != null ? nonMortgageDebt.value : null);
+      adjusted.debtPayoff = fallbackNonMortgageValue == null
+        ? createMissingRunwayValue(debtPayoff.sourcePaths.concat(nonMortgageDebt.sourcePaths), "missing-non-mortgage-debt")
+        : createAdjustedDebtRunwayValue(
+            fallbackNonMortgageValue,
+            `${sourcePathPrefix}.debtPayoffLessMortgage`,
+            nonMortgageDebt.sourcePaths.concat(debtPayoff.sourcePaths).concat(mortgage.sourcePaths),
+            "scenario-excludes-mortgage-payoff"
+          );
+      adjusted.sourceStatus = sourceStatus;
+    }
+
+    const dataGaps = [];
+    if (monthlyPayment.value == null) {
+      dataGaps.push(createDataGap(
+        "missing-mortgage-payment",
+        "Monthly mortgage payment is missing; continue-mortgage-payments scenario could not schedule mortgage payments.",
+        monthlyPayment.sourcePaths
+      ));
+    }
+    if (remainingTermMonths.value == null || remainingTermMonths.value <= 0) {
+      dataGaps.push(createDataGap(
+        "missing-mortgage-term",
+        "Mortgage remaining term is missing; continue-mortgage-payments scenario could not schedule mortgage payments.",
+        remainingTermMonths.sourcePaths
+      ));
+    }
+
+    if (!dataGaps.length) {
+      adjusted.scheduledObligations = {
+        value: monthlyPayment.value * 12,
+        monthlyAmount: monthlyPayment.value,
+        termMonths: remainingTermMonths.value,
+        sourcePath: `${sourcePathPrefix}.scheduledMortgagePayments`,
+        sourcePaths: monthlyPayment.sourcePaths.concat(remainingTermMonths.sourcePaths),
+        status: "mortgage-payments-continue",
+        warnings: [],
+        dataGaps: []
+      };
+    }
+
+    adjusted.mortgageTreatment = createMortgageTreatmentTrace({
+      override,
+      payoffAlreadyIncluded: mortgageIncluded,
+      scheduledAnnualPayment: dataGaps.length ? null : monthlyPayment.value * 12,
+      scheduledMonthlyPayment: dataGaps.length ? null : monthlyPayment.value,
+      scheduledTermMonths: dataGaps.length ? null : remainingTermMonths.value,
+      assumptionTreatment,
+      sourcePaths: debtPayoff.sourcePaths
+        .concat(mortgage.sourcePaths)
+        .concat(monthlyPayment.sourcePaths)
+        .concat(remainingTermMonths.sourcePaths),
+      dataGaps,
+      trace: dataGaps.length
+        ? [`${traceLabel} requested but mortgage payment or term facts were missing.`]
+        : [`${traceLabel} removed immediate mortgage payoff when present and scheduled mortgage payments into projection points.`]
+    });
+    return adjusted;
   }
 
   function applyMortgageTreatmentOverride(debtInput, mortgagePaymentInput, options) {
@@ -882,6 +985,22 @@
     };
 
     if (override === "followAssumptions") {
+      if (isPreparedMortgageSupportMode(safeDebtInput.preparedMortgageTreatmentTrace)) {
+        return applyMortgagePaymentsContinueTreatment(
+          adjusted,
+          debtPayoff,
+          mortgage,
+          nonMortgageDebt,
+          mortgagePaymentInput,
+          {
+            override,
+            sourcePathPrefix: "incomeLossImpact.assumptions.followAssumptions",
+            sourceStatus: "assumption-controls-continue-mortgage-payments",
+            traceLabel: "followAssumptions mortgage support",
+            assumptionTreatment: "mortgageSupport"
+          }
+        );
+      }
       return adjusted;
     }
 
@@ -931,74 +1050,14 @@
       return adjusted;
     }
 
-    const monthlyPayment = mortgagePaymentInput?.monthlyPayment || createMissingRunwayValue(["ongoingSupport.monthlyMortgagePayment"], "missing");
-    const remainingTermMonths = mortgagePaymentInput?.remainingTermMonths || createMissingRunwayValue(["ongoingSupport.mortgageRemainingTermMonths"], "missing");
-    if (mortgageIncluded) {
-      const fallbackNonMortgageValue = nonMortgageDebt.value != null
-        ? nonMortgageDebt.value
-        : (
-            debtPayoff.value != null && mortgage.value != null
-              ? Math.max(0, debtPayoff.value - mortgage.value)
-              : null
-          );
-      adjusted.debtPayoff = fallbackNonMortgageValue == null
-        ? createMissingRunwayValue(debtPayoff.sourcePaths.concat(nonMortgageDebt.sourcePaths), "missing-non-mortgage-debt")
-        : createAdjustedDebtRunwayValue(
-            fallbackNonMortgageValue,
-            nonMortgageDebt.value != null
-              ? "debtPayoff.nonMortgageComponents"
-              : "incomeLossImpact.scenario.continueMortgagePayments.debtPayoffLessMortgage",
-            nonMortgageDebt.sourcePaths.concat(debtPayoff.sourcePaths).concat(mortgage.sourcePaths),
-            nonMortgageDebt.value != null ? "raw-detail" : "scenario-excludes-mortgage-payoff"
-          );
-      adjusted.sourceStatus = "scenario-continue-mortgage-payments";
-    }
-
-    const dataGaps = [];
-    if (monthlyPayment.value == null) {
-      dataGaps.push(createDataGap(
-        "missing-mortgage-payment",
-        "Monthly mortgage payment is missing; continue-mortgage-payments scenario could not schedule mortgage payments.",
-        monthlyPayment.sourcePaths
-      ));
-    }
-    if (remainingTermMonths.value == null || remainingTermMonths.value <= 0) {
-      dataGaps.push(createDataGap(
-        "missing-mortgage-term",
-        "Mortgage remaining term is missing; continue-mortgage-payments scenario could not schedule mortgage payments.",
-        remainingTermMonths.sourcePaths
-      ));
-    }
-
-    if (!dataGaps.length) {
-      adjusted.scheduledObligations = {
-        value: monthlyPayment.value * 12,
-        monthlyAmount: monthlyPayment.value,
-        termMonths: remainingTermMonths.value,
-        sourcePath: "incomeLossImpact.scenario.continueMortgagePayments.scheduledMortgagePayments",
-        sourcePaths: monthlyPayment.sourcePaths.concat(remainingTermMonths.sourcePaths),
-        status: "mortgage-payments-continue",
-        warnings: [],
-        dataGaps: []
-      };
-    }
-
-    adjusted.mortgageTreatment = createMortgageTreatmentTrace({
-      override,
-      payoffAlreadyIncluded: mortgageIncluded,
-      scheduledAnnualPayment: dataGaps.length ? null : monthlyPayment.value * 12,
-      scheduledMonthlyPayment: dataGaps.length ? null : monthlyPayment.value,
-      scheduledTermMonths: dataGaps.length ? null : remainingTermMonths.value,
-      sourcePaths: debtPayoff.sourcePaths
-        .concat(mortgage.sourcePaths)
-        .concat(monthlyPayment.sourcePaths)
-        .concat(remainingTermMonths.sourcePaths),
-      dataGaps,
-      trace: dataGaps.length
-        ? ["continueMortgagePayments requested but mortgage payment or term facts were missing."]
-        : ["continueMortgagePayments removed immediate mortgage payoff when present and scheduled mortgage payments into projection points."]
-    });
-    return adjusted;
+    return applyMortgagePaymentsContinueTreatment(
+      adjusted,
+      debtPayoff,
+      mortgage,
+      nonMortgageDebt,
+      mortgagePaymentInput,
+      { override }
+    );
   }
 
   function resolveFinancialRunwayInputs(lensModel, options) {
@@ -1529,6 +1588,9 @@
       sourcePaths: ["selectedDeathDate", "selectedDeathAge", "profileFacts.clientDateOfBirth"]
     }));
 
+    const mortgagePaymentsContinueActive = mortgageTreatment?.override === "continueMortgagePayments"
+      || mortgageTreatment?.assumptionTreatment === "mortgageSupport";
+
     if (mortgageTreatment?.override === "payOffMortgage") {
       scenarioTimeline.eventLanes.housing.push(createScenarioLaneEvent({
         id: "mortgage-payoff-at-death",
@@ -1543,7 +1605,7 @@
         status: mortgageTreatment.payoffAlreadyIncluded ? "included-in-prepared-debt" : "scenario-override",
         sourcePaths: mortgageTreatment.sourcePaths
       }));
-    } else if (mortgageTreatment?.override === "continueMortgagePayments") {
+    } else if (mortgagePaymentsContinueActive) {
       if (scheduledObligations.annualAmount > 0 && scheduledObligations.termMonths != null) {
         scenarioTimeline.eventLanes.housing.push(createScenarioLaneEvent({
           id: "mortgage-payments-continue",
@@ -1553,7 +1615,7 @@
           relativeMonthIndex: 0,
           label: "Mortgage payments continue",
           lane: "housing",
-          status: "scenario-override",
+          status: mortgageTreatment?.assumptionTreatment === "mortgageSupport" ? "assumption-controls" : "scenario-override",
           sourcePaths: scheduledObligations.sourcePaths
         }));
       } else {

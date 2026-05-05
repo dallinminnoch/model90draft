@@ -146,6 +146,19 @@ function eventTypes(events) {
   });
 }
 
+function createPreparedMortgageTrace(overrides = {}) {
+  return {
+    debtFactId: "debt_fact_mortgageBalance",
+    treatmentKey: "mortgage",
+    treatmentMode: "payoff",
+    isMortgage: true,
+    rawBalance: 250000,
+    treatedAmount: 250000,
+    mortgageTreatmentMode: "payoff",
+    ...(overrides || {})
+  };
+}
+
 assert.match(helperSource, /resolveMortgageTreatmentOverride/);
 assert.match(helperSource, /applyMortgageTreatmentOverride/);
 assert.match(helperSource, /mortgagePayoffAtDeath/);
@@ -197,13 +210,19 @@ const treatedMortgageIncludedModel = createLensModel({
         debtPayoffAmount: 300000,
         mortgagePayoffAmount: 250000,
         nonMortgageDebtAmount: 50000
-      }
+      },
+      debts: [
+        createPreparedMortgageTrace()
+      ]
     }
   }
 });
 const treatedFollowOutput = calculate(calculateIncomeLossImpactTimeline, treatedMortgageIncludedModel, "followAssumptions");
 const treatedPayOffOutput = calculate(calculateIncomeLossImpactTimeline, treatedMortgageIncludedModel, "payOffMortgage");
 assert.equal(treatedFollowOutput.financialRunway.immediateObligations, 340000);
+assert.equal(treatedFollowOutput.financialRunway.projectionPoints[1].scheduledObligations, 0);
+assert.equal(treatedFollowOutput.financialRunway.mortgageTreatment.override, "followAssumptions");
+assert.equal(treatedFollowOutput.scenarioTimeline.eventLanes.housing.length, 0);
 assert.equal(treatedPayOffOutput.financialRunway.immediateObligations, 340000);
 assert.equal(treatedPayOffOutput.financialRunway.mortgageTreatment.payoffAlreadyIncluded, true);
 assert.equal(treatedPayOffOutput.financialRunway.mortgageTreatment.immediatePayoffAmount, 0);
@@ -212,6 +231,81 @@ assert.equal(
     return event.type === "mortgagePayoffAtDeath";
   })?.status,
   "included-in-prepared-debt"
+);
+
+const treatedMortgageSupportModel = createLensModel({
+  ongoingSupport: {
+    monthlyMortgagePayment: 2000,
+    mortgageRemainingTermMonths: 36
+  },
+  debtPayoff: {
+    totalDebtPayoffNeed: undefined,
+    mortgageBalance: 250000,
+    creditCardBalance: 50000,
+    autoLoanBalance: undefined
+  },
+  root: {
+    treatedDebtPayoff: {
+      needs: {
+        debtPayoffAmount: 122000,
+        mortgagePayoffAmount: 72000,
+        nonMortgageDebtAmount: 50000
+      },
+      dime: {
+        mortgageAmount: 72000,
+        nonMortgageDebtAmount: 50000
+      },
+      debts: [
+        createPreparedMortgageTrace({
+          treatmentMode: "support",
+          treatedAmount: 72000,
+          mortgageTreatmentMode: "support",
+          monthlyMortgagePaymentUsed: 2000,
+          monthlyMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+          supportYearsRequested: 10,
+          supportMonthsRequested: 120,
+          supportMonthsUsed: 36,
+          remainingTermMonths: 36,
+          remainingTermMonthsSourcePath: "ongoingSupport.mortgageRemainingTermMonths",
+          remainingTermCapApplied: true,
+          mortgageSupportAmount: 72000
+        })
+      ]
+    }
+  }
+});
+const supportFollowOutput = calculate(calculateIncomeLossImpactTimeline, treatedMortgageSupportModel, "followAssumptions");
+assert.equal(supportFollowOutput.financialRunway.immediateObligations, 90000);
+assert.equal(supportFollowOutput.financialRunway.netAvailableResources, 510000);
+assert.equal(supportFollowOutput.financialRunway.mortgageTreatment.override, "followAssumptions");
+assert.equal(supportFollowOutput.financialRunway.mortgageTreatment.assumptionTreatment, "mortgageSupport");
+assert.equal(supportFollowOutput.financialRunway.mortgageTreatment.payoffAlreadyIncluded, true);
+assert.equal(supportFollowOutput.financialRunway.mortgageTreatment.scheduledMonthlyPayment, 2000);
+assert.equal(supportFollowOutput.financialRunway.mortgageTreatment.scheduledAnnualPayment, 24000);
+assert.equal(supportFollowOutput.financialRunway.mortgageTreatment.scheduledTermMonths, 36);
+assert.equal(supportFollowOutput.financialRunway.projectionPoints[1].scheduledObligations, 24000);
+assert.equal(supportFollowOutput.financialRunway.projectionPoints[3].scheduledObligations, 24000);
+assert.equal(supportFollowOutput.financialRunway.projectionPoints[4].scheduledObligations, 0);
+assert.equal(supportFollowOutput.scenarioTimeline.resourceSeries.points.find(function (point) {
+  return point.id === "post-death-month-1";
+})?.scheduledObligations, 2000);
+assert.equal(supportFollowOutput.scenarioTimeline.resourceSeries.points.find(function (point) {
+  return point.id === "post-death-year-4";
+})?.scheduledObligations, 0);
+assert.ok(
+  eventTypes(supportFollowOutput.scenarioTimeline.eventLanes.housing).includes("mortgagePaymentsContinue"),
+  "followAssumptions should add a housing lane marker when prepared debt indicates mortgage support."
+);
+assert.equal(
+  supportFollowOutput.scenarioTimeline.eventLanes.housing.find(function (event) {
+    return event.type === "mortgagePaymentsContinue";
+  })?.status,
+  "assumption-controls"
+);
+assert.equal(
+  eventTypes(supportFollowOutput.scenarioTimeline.eventLanes.housing).includes("mortgagePayoffAtDeath"),
+  false,
+  "followAssumptions support mode should not add a mortgage payoff marker."
 );
 
 const continueOutput = calculate(calculateIncomeLossImpactTimeline, treatedMortgageIncludedModel, "continueMortgagePayments");
@@ -254,7 +348,14 @@ const missingMortgageTimingModel = createLensModel({
         debtPayoffAmount: 300000,
         mortgagePayoffAmount: 250000,
         nonMortgageDebtAmount: 50000
-      }
+      },
+      debts: [
+        createPreparedMortgageTrace({
+          treatmentMode: "support",
+          mortgageTreatmentMode: "support",
+          fallbackReason: "mortgage-support-payment-unavailable-defaulted-to-payoff"
+        })
+      ]
     }
   }
 });
@@ -274,6 +375,25 @@ assert.ok(missingTimingOutput.dataGaps.some(function (gap) {
 assert.ok(
   eventTypes(missingTimingOutput.scenarioTimeline.eventLanes.dataQuality).includes("mortgageDataGap"),
   "continueMortgagePayments should surface a data-quality lane marker when timing facts are missing."
+);
+
+const missingTimingFollowOutput = calculate(calculateIncomeLossImpactTimeline, missingMortgageTimingModel, "followAssumptions");
+assert.equal(missingTimingFollowOutput.financialRunway.immediateObligations, 90000);
+assert.equal(missingTimingFollowOutput.financialRunway.projectionPoints[1].scheduledObligations, 0);
+assert.equal(missingTimingFollowOutput.financialRunway.mortgageTreatment.assumptionTreatment, "mortgageSupport");
+assert.deepEqual(
+  Array.from(missingTimingFollowOutput.financialRunway.mortgageTreatment.dataGaps.map(function (gap) { return gap.code; }).sort()),
+  ["missing-mortgage-payment", "missing-mortgage-term"]
+);
+assert.ok(missingTimingFollowOutput.dataGaps.some(function (gap) {
+  return gap.code === "missing-mortgage-payment";
+}));
+assert.ok(missingTimingFollowOutput.dataGaps.some(function (gap) {
+  return gap.code === "missing-mortgage-term";
+}));
+assert.ok(
+  eventTypes(missingTimingFollowOutput.scenarioTimeline.eventLanes.dataQuality).includes("mortgageDataGap"),
+  "followAssumptions support mode should surface a data-quality lane marker when timing facts are missing."
 );
 
 const protectedChanges = getChangedFiles([
