@@ -257,6 +257,386 @@
     };
   }
 
+  function uniqueStrings(values) {
+    return Array.from(new Set(
+      (Array.isArray(values) ? values : [])
+        .map(normalizeString)
+        .filter(Boolean)
+    ));
+  }
+
+  function createRunwayValue(value, sourcePath, sourcePaths, status) {
+    const normalizedValue = toOptionalNumber(value);
+    const normalizedSourcePaths = uniqueStrings(
+      Array.isArray(sourcePaths) && sourcePaths.length
+        ? sourcePaths
+        : (sourcePath ? [sourcePath] : [])
+    );
+
+    return {
+      value: normalizedValue,
+      sourcePath: sourcePath || normalizedSourcePaths[0] || null,
+      sourcePaths: normalizedSourcePaths,
+      status: status || (normalizedValue == null ? "missing" : "available")
+    };
+  }
+
+  function createMissingRunwayValue(sourcePaths, status) {
+    return createRunwayValue(null, null, sourcePaths, status || "missing");
+  }
+
+  function firstRunwayValue(source, candidates) {
+    const safeCandidates = Array.isArray(candidates) ? candidates : [];
+    for (let index = 0; index < safeCandidates.length; index += 1) {
+      const candidate = safeCandidates[index];
+      const value = getNumber(source, candidate.path);
+      if (value != null) {
+        return createRunwayValue(
+          value,
+          candidate.path,
+          candidate.sourcePaths || [candidate.path],
+          candidate.status
+        );
+      }
+    }
+    return createMissingRunwayValue(
+      safeCandidates.map(function (candidate) {
+        return candidate.path;
+      }),
+      "missing"
+    );
+  }
+
+  function resolveProjectedAssetOffsetCandidate(lensModel, treatedAssetValue) {
+    const projectedAssetOffset = isPlainObject(lensModel?.projectedAssetOffset)
+      ? lensModel.projectedAssetOffset
+      : null;
+    const metadata = isPlainObject(projectedAssetOffset?.metadata)
+      ? projectedAssetOffset.metadata
+      : {};
+    const effectiveProjectedAssetOffset = getNumber(lensModel, "projectedAssetOffset.effectiveProjectedAssetOffset");
+    const currentTreatedAssetOffset = getNumber(lensModel, "projectedAssetOffset.currentTreatedAssetOffset");
+    const projectedGrowthAdjustment = getNumber(lensModel, "projectedAssetOffset.projectedGrowthAdjustment");
+    const projectionYears = getNumber(lensModel, "projectedAssetOffset.projectionYears");
+    const sourceMode = normalizeString(projectedAssetOffset?.sourceMode || metadata.sourceMode);
+    const activationStatus = normalizeString(projectedAssetOffset?.activationStatus || metadata.activationStatus);
+    const consumptionStatus = normalizeString(projectedAssetOffset?.consumptionStatus || metadata.consumptionStatus);
+    const consumedByMethods = projectedAssetOffset?.consumedByMethods === true
+      || metadata.consumedByMethods === true
+      || activationStatus === "method-active"
+      || consumptionStatus === "method-active";
+    const treatedBaseMatches = treatedAssetValue != null
+      && currentTreatedAssetOffset != null
+      && roundMoney(currentTreatedAssetOffset) === roundMoney(treatedAssetValue);
+    const active = Boolean(
+      projectedAssetOffset
+      && consumedByMethods
+      && sourceMode === "projectedOffsets"
+      && effectiveProjectedAssetOffset != null
+      && effectiveProjectedAssetOffset > 0
+      && projectedGrowthAdjustment != null
+      && projectedGrowthAdjustment > 0
+      && projectionYears != null
+      && projectionYears > 0
+      && treatedBaseMatches
+    );
+
+    return {
+      active,
+      value: active ? effectiveProjectedAssetOffset : null,
+      sourcePath: active ? "projectedAssetOffset.effectiveProjectedAssetOffset" : null,
+      sourcePaths: uniqueStrings([
+        "projectedAssetOffset.effectiveProjectedAssetOffset",
+        "projectedAssetOffset.currentTreatedAssetOffset",
+        "projectedAssetOffset.projectedGrowthAdjustment",
+        "projectedAssetOffset.projectionYears",
+        "projectedAssetOffset.activationStatus",
+        "projectedAssetOffset.consumptionStatus",
+        "projectedAssetOffset.metadata.consumedByMethods"
+      ]),
+      status: active ? "method-active-used" : "excluded",
+      reason: active ? null : "projected-asset-offset-not-method-active",
+      sourceMode: sourceMode || null,
+      activationStatus: activationStatus || null,
+      consumptionStatus: consumptionStatus || null,
+      consumedByMethods,
+      currentTreatedAssetOffset,
+      projectedGrowthAdjustment,
+      effectiveProjectedAssetOffset,
+      projectionYears
+    };
+  }
+
+  function resolveCoverageRunwayInput(lensModel) {
+    const treatedCoverage = firstRunwayValue(lensModel, [
+      { path: "treatedExistingCoverageOffset.totalTreatedCoverageOffset", status: "treated" }
+    ]);
+    if (treatedCoverage.value != null) {
+      return treatedCoverage;
+    }
+
+    const rawCoverage = firstRunwayValue(lensModel, [
+      { path: "existingCoverage.totalExistingCoverage", status: "raw-fallback" },
+      { path: "existingCoverage.totalProfileCoverage", status: "raw-fallback" }
+    ]);
+    if (rawCoverage.value != null) {
+      return {
+        ...rawCoverage,
+        sourcePaths: uniqueStrings(treatedCoverage.sourcePaths.concat(rawCoverage.sourcePaths))
+      };
+    }
+
+    return createMissingRunwayValue(
+      treatedCoverage.sourcePaths.concat(rawCoverage.sourcePaths),
+      "missing"
+    );
+  }
+
+  function resolveAssetRunwayInput(lensModel) {
+    const treatedAssets = firstRunwayValue(lensModel, [
+      { path: "treatedAssetOffsets.totalTreatedAssetValue", status: "treated" }
+    ]);
+    const projectedAssetOffsetCandidate = resolveProjectedAssetOffsetCandidate(
+      lensModel,
+      treatedAssets.value
+    );
+
+    if (projectedAssetOffsetCandidate.active) {
+      return {
+        assets: createRunwayValue(
+          projectedAssetOffsetCandidate.value,
+          projectedAssetOffsetCandidate.sourcePath,
+          projectedAssetOffsetCandidate.sourcePaths,
+          "projected-method-active"
+        ),
+        projectedAssetOffsetCandidate
+      };
+    }
+
+    if (treatedAssets.value != null) {
+      return {
+        assets: treatedAssets,
+        projectedAssetOffsetCandidate
+      };
+    }
+
+    const legacyTotal = firstRunwayValue(lensModel, [
+      { path: "offsetAssets.totalAvailableOffsetAssetValue", status: "legacy-offset-assets-fallback" }
+    ]);
+    const legacyComponents = sumKnownValues([
+      { value: getNumber(lensModel, "offsetAssets.cashSavings.availableValue"), sourcePath: "offsetAssets.cashSavings.availableValue" },
+      { value: getNumber(lensModel, "offsetAssets.currentEmergencyFund.availableValue"), sourcePath: "offsetAssets.currentEmergencyFund.availableValue" },
+      { value: getNumber(lensModel, "offsetAssets.brokerageAccounts.availableValue"), sourcePath: "offsetAssets.brokerageAccounts.availableValue" },
+      { value: getNumber(lensModel, "offsetAssets.retirementAccounts.availableValue"), sourcePath: "offsetAssets.retirementAccounts.availableValue" },
+      { value: getNumber(lensModel, "offsetAssets.realEstateEquity.availableValue"), sourcePath: "offsetAssets.realEstateEquity.availableValue" },
+      { value: getNumber(lensModel, "offsetAssets.businessValue.availableValue"), sourcePath: "offsetAssets.businessValue.availableValue" }
+    ]);
+
+    if (legacyTotal.value != null) {
+      return {
+        assets: {
+          ...legacyTotal,
+          sourcePaths: uniqueStrings(treatedAssets.sourcePaths.concat(legacyTotal.sourcePaths))
+        },
+        projectedAssetOffsetCandidate
+      };
+    }
+
+    if (legacyComponents.value != null) {
+      return {
+        assets: createRunwayValue(
+          legacyComponents.value,
+          legacyComponents.sourcePaths.join(" + "),
+          treatedAssets.sourcePaths.concat(legacyComponents.sourcePaths),
+          "legacy-offset-assets-fallback"
+        ),
+        projectedAssetOffsetCandidate
+      };
+    }
+
+    return {
+      assets: createMissingRunwayValue(
+        treatedAssets.sourcePaths.concat(legacyTotal.sourcePaths).concat(legacyComponents.sourcePaths),
+        "missing"
+      ),
+      projectedAssetOffsetCandidate
+    };
+  }
+
+  function resolveDebtRunwayInput(lensModel) {
+    const treatedDebt = firstRunwayValue(lensModel, [
+      { path: "treatedDebtPayoff.needs.debtPayoffAmount", status: "treated" }
+    ]);
+    const rawDebtTotal = firstRunwayValue(lensModel, [
+      { path: "debtPayoff.totalDebtPayoffNeed", status: "raw-fallback" }
+    ]);
+    const nonMortgageDebt = sumKnownValues([
+      { value: getNumber(lensModel, "debtPayoff.otherRealEstateLoanBalance"), sourcePath: "debtPayoff.otherRealEstateLoanBalance" },
+      { value: getNumber(lensModel, "debtPayoff.autoLoanBalance"), sourcePath: "debtPayoff.autoLoanBalance" },
+      { value: getNumber(lensModel, "debtPayoff.creditCardBalance"), sourcePath: "debtPayoff.creditCardBalance" },
+      { value: getNumber(lensModel, "debtPayoff.studentLoanBalance"), sourcePath: "debtPayoff.studentLoanBalance" },
+      { value: getNumber(lensModel, "debtPayoff.personalLoanBalance"), sourcePath: "debtPayoff.personalLoanBalance" },
+      { value: getNumber(lensModel, "debtPayoff.businessDebtBalance"), sourcePath: "debtPayoff.businessDebtBalance" },
+      { value: getNumber(lensModel, "debtPayoff.outstandingTaxLiabilities"), sourcePath: "debtPayoff.outstandingTaxLiabilities" },
+      { value: getNumber(lensModel, "debtPayoff.otherDebtPayoffNeeds"), sourcePath: "debtPayoff.otherDebtPayoffNeeds" }
+    ]);
+    const mortgage = firstRunwayValue(lensModel, [
+      { path: "treatedDebtPayoff.needs.mortgagePayoffAmount", status: "treated" },
+      { path: "treatedDebtPayoff.dime.mortgageAmount", status: "treated" },
+      { path: "debtPayoff.mortgageBalance", status: "raw-fallback" }
+    ]);
+
+    if (treatedDebt.value != null) {
+      return {
+        debtPayoff: treatedDebt,
+        mortgage,
+        nonMortgageDebt: nonMortgageDebt.value == null
+          ? createMissingRunwayValue(nonMortgageDebt.sourcePaths, "missing")
+          : createRunwayValue(nonMortgageDebt.value, "debtPayoff.nonMortgageComponents", nonMortgageDebt.sourcePaths, "raw-detail"),
+        sourceStatus: "treated"
+      };
+    }
+
+    if (rawDebtTotal.value != null) {
+      return {
+        debtPayoff: {
+          ...rawDebtTotal,
+          sourcePaths: uniqueStrings(treatedDebt.sourcePaths.concat(rawDebtTotal.sourcePaths))
+        },
+        mortgage,
+        nonMortgageDebt: nonMortgageDebt.value == null
+          ? createMissingRunwayValue(nonMortgageDebt.sourcePaths, "missing")
+          : createRunwayValue(nonMortgageDebt.value, "debtPayoff.nonMortgageComponents", nonMortgageDebt.sourcePaths, "raw-detail"),
+        sourceStatus: "raw-fallback"
+      };
+    }
+
+    const fallbackDebt = sumKnownValues([
+      { value: nonMortgageDebt.value, sourcePath: "debtPayoff.nonMortgageComponents" },
+      { value: mortgage.value, sourcePath: mortgage.sourcePath }
+    ]);
+
+    return {
+      debtPayoff: fallbackDebt.value == null
+        ? createMissingRunwayValue(treatedDebt.sourcePaths.concat(rawDebtTotal.sourcePaths).concat(nonMortgageDebt.sourcePaths).concat(mortgage.sourcePaths), "missing")
+        : createRunwayValue(fallbackDebt.value, fallbackDebt.sourcePaths.join(" + "), fallbackDebt.sourcePaths, "raw-component-fallback"),
+      mortgage,
+      nonMortgageDebt: nonMortgageDebt.value == null
+        ? createMissingRunwayValue(nonMortgageDebt.sourcePaths, "missing")
+        : createRunwayValue(nonMortgageDebt.value, "debtPayoff.nonMortgageComponents", nonMortgageDebt.sourcePaths, "raw-detail"),
+      sourceStatus: fallbackDebt.value == null ? "missing" : "raw-component-fallback"
+    };
+  }
+
+  function resolveAnnualNeedRunwayInput(lensModel, options) {
+    const essentialSupport = firstRunwayValue(lensModel, [
+      { path: "ongoingSupport.annualTotalEssentialSupportCost", status: "prepared-bucket" },
+      { path: "ongoingSupport.annualNonHousingEssentialSupportCost", status: "partial-bucket-fallback" }
+    ]);
+    const monthlyEssentialExpenses = getNumber(lensModel, "ongoingSupport.monthlyTotalEssentialSupportCost");
+    const resolvedEssentialSupport = essentialSupport.value == null && monthlyEssentialExpenses != null
+      ? createRunwayValue(
+          monthlyEssentialExpenses * 12,
+          "ongoingSupport.monthlyTotalEssentialSupportCost",
+          ["ongoingSupport.monthlyTotalEssentialSupportCost"],
+          "monthly-annualized-fallback"
+        )
+      : essentialSupport;
+    const discretionarySupport = firstRunwayValue(lensModel, [
+      { path: "ongoingSupport.annualDiscretionaryPersonalSpending", status: "available-not-included" }
+    ]);
+    const includeDiscretionarySupport = options?.includeDiscretionarySupport === true;
+    const healthcare = createMissingRunwayValue(
+      [
+        "expenseFacts.expenses",
+        "healthcareExpenses.projectedHealthcareExpenseAmount"
+      ],
+      "not-included-no-prepared-healthcare-bucket"
+    );
+    const annualHouseholdNeed = includeDiscretionarySupport && discretionarySupport.value != null
+      ? createRunwayValue(
+          resolvedEssentialSupport.value + discretionarySupport.value,
+          "ongoingSupport.annualTotalEssentialSupportCost + ongoingSupport.annualDiscretionaryPersonalSpending",
+          resolvedEssentialSupport.sourcePaths.concat(discretionarySupport.sourcePaths),
+          "essential-plus-discretionary"
+        )
+      : resolvedEssentialSupport;
+
+    return {
+      essentialSupport: resolvedEssentialSupport,
+      discretionarySupport: discretionarySupport.value == null
+        ? discretionarySupport
+        : {
+            ...discretionarySupport,
+            status: includeDiscretionarySupport ? "included" : "not-included-no-active-state"
+          },
+      healthcare,
+      education: createMissingRunwayValue(["educationSupport.totalEducationFundingNeed"], "milestone-only"),
+      annualHouseholdNeed
+    };
+  }
+
+  function resolveIncomeOffsetRunwayInput(lensModel) {
+    const survivorIncome = firstRunwayValue(lensModel, [
+      { path: "survivorScenario.survivorNetAnnualIncome", status: "net-income" },
+      { path: "survivorScenario.survivorGrossAnnualIncome", status: "gross-fallback" },
+      { path: "incomeBasis.spouseOrPartnerNetAnnualIncome", status: "spouse-net-fallback" },
+      { path: "incomeBasis.spouseOrPartnerGrossAnnualIncome", status: "spouse-gross-fallback" }
+    ]);
+
+    return {
+      survivorIncome,
+      survivorIncomeStartDelayMonths: Math.max(
+        0,
+        toOptionalNumber(getPath(lensModel, "survivorScenario.survivorIncomeStartDelayMonths")) || 0
+      ),
+      survivorWorkReduction: firstRunwayValue(lensModel, [
+        { path: "survivorScenario.spouseExpectedWorkReductionAtDeath", status: "available" }
+      ])
+    };
+  }
+
+  function resolveFinancialRunwayInputs(lensModel, options) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const assetInput = resolveAssetRunwayInput(safeLensModel);
+    const debtInput = resolveDebtRunwayInput(safeLensModel);
+
+    return {
+      availableAtDeath: {
+        coverage: resolveCoverageRunwayInput(safeLensModel),
+        assets: assetInput.assets,
+        projectedAssetOffsetCandidate: assetInput.projectedAssetOffsetCandidate
+      },
+      immediateObligations: {
+        finalExpenses: firstRunwayValue(safeLensModel, [
+          { path: "finalExpenses.totalFinalExpenseNeed", status: "prepared-bucket" }
+        ]),
+        transitionNeeds: firstRunwayValue(safeLensModel, [
+          { path: "transitionNeeds.totalTransitionNeed", status: "prepared-bucket" }
+        ]),
+        debtPayoff: debtInput.debtPayoff,
+        mortgage: debtInput.mortgage,
+        nonMortgageDebt: debtInput.nonMortgageDebt,
+        debtSourceStatus: debtInput.sourceStatus
+      },
+      annualNeeds: resolveAnnualNeedRunwayInput(safeLensModel, options),
+      incomeOffsets: resolveIncomeOffsetRunwayInput(safeLensModel),
+      milestones: {
+        dependents: firstRunwayValue(safeLensModel, [
+          { path: "educationSupport.linkedDependentCount", status: "available" }
+        ]),
+        educationWindows: firstRunwayValue(safeLensModel, [
+          { path: "educationSupport.totalEducationFundingNeed", status: "milestone-only" },
+          { path: "educationSupport.linkedDependentEducationFundingNeed", status: "milestone-only" }
+        ]),
+        mortgageTerm: firstRunwayValue(safeLensModel, [
+          { path: "ongoingSupport.mortgageRemainingTermMonths", status: "available" }
+        ]),
+        depletionDate: createMissingRunwayValue(["incomeLossImpact.formula.depletionDate"], "calculated-after-runway")
+      }
+    };
+  }
+
   function addUnique(target, values) {
     (Array.isArray(values) ? values : []).forEach(function (value) {
       const normalized = normalizeString(value);
@@ -540,6 +920,8 @@
       }));
     }
 
+    const financialRunwayInputs = resolveFinancialRunwayInputs(lensModel, safeInput.options);
+
     const insuredIncome = firstNumber(lensModel, [
       { path: "incomeBasis.annualIncomeReplacementBase" },
       { path: "incomeBasis.insuredNetAnnualIncome" },
@@ -561,18 +943,10 @@
       addUnique(output.trace.sourcePaths, [insuredIncome.sourcePath]);
     }
 
-    const survivorIncome = firstNumber(lensModel, [
-      { path: "survivorScenario.survivorNetAnnualIncome" },
-      { path: "survivorScenario.survivorGrossAnnualIncome" },
-      { path: "incomeBasis.spouseOrPartnerNetAnnualIncome" },
-      { path: "incomeBasis.spouseOrPartnerGrossAnnualIncome" }
-    ]);
-    const survivorIncomeStartDelayMonths = Math.max(
-      0,
-      toOptionalNumber(getPath(lensModel, "survivorScenario.survivorIncomeStartDelayMonths")) || 0
-    );
+    const survivorIncome = financialRunwayInputs.incomeOffsets.survivorIncome;
+    const survivorIncomeStartDelayMonths = financialRunwayInputs.incomeOffsets.survivorIncomeStartDelayMonths;
     if (survivorIncome.value == null) {
-      addDataGap(output, "missing-survivor-income", "Survivor income is missing.", ["survivorScenario.survivorNetAnnualIncome", "survivorScenario.survivorGrossAnnualIncome"]);
+      addDataGap(output, "missing-survivor-income", "Survivor income is missing.", survivorIncome.sourcePaths);
     } else {
       const deathDate = parseDateOnly(output.selectedDeath.date);
       const survivorIncomeStartDate = deathDate
@@ -587,33 +961,22 @@
           ? `Survivor income begins after ${survivorIncomeStartDelayMonths} months`
           : "Survivor income continues",
         amount: survivorIncome.value,
-        sourcePaths: [survivorIncome.sourcePath, "survivorScenario.survivorIncomeStartDelayMonths"],
+        sourcePaths: survivorIncome.sourcePaths.concat(["survivorScenario.survivorIncomeStartDelayMonths"]),
         confidence: "calculated"
       }));
       addUnique(output.trace.sourcePaths, [survivorIncome.sourcePath, "survivorScenario.survivorIncomeStartDelayMonths"]);
     }
 
-    const annualEssentialExpenses = firstNumber(lensModel, [
-      { path: "ongoingSupport.annualTotalEssentialSupportCost" },
-      { path: "ongoingSupport.annualNonHousingEssentialSupportCost" }
-    ]);
-    const monthlyEssentialExpenses = getNumber(lensModel, "ongoingSupport.monthlyTotalEssentialSupportCost");
-    const resolvedAnnualEssentialExpenses = annualEssentialExpenses.value == null && monthlyEssentialExpenses != null
-      ? monthlyEssentialExpenses * 12
-      : annualEssentialExpenses.value;
-    const annualEssentialSourcePaths = annualEssentialExpenses.value == null && monthlyEssentialExpenses != null
-      ? ["ongoingSupport.monthlyTotalEssentialSupportCost"]
-      : [annualEssentialExpenses.sourcePath];
+    const annualHouseholdNeed = financialRunwayInputs.annualNeeds.annualHouseholdNeed;
+    const resolvedAnnualEssentialExpenses = annualHouseholdNeed.value;
+    const annualEssentialSourcePaths = annualHouseholdNeed.sourcePaths;
     if (resolvedAnnualEssentialExpenses == null) {
-      addDataGap(output, "missing-annual-essential-expenses", "Annual essential household expenses are missing.", ["ongoingSupport.annualTotalEssentialSupportCost", "ongoingSupport.monthlyTotalEssentialSupportCost"]);
+      addDataGap(output, "missing-annual-essential-expenses", "Annual essential household expenses are missing.", annualHouseholdNeed.sourcePaths);
     }
 
-    const coverage = firstNumber(lensModel, [
-      { path: "existingCoverage.totalExistingCoverage" },
-      { path: "existingCoverage.totalProfileCoverage" }
-    ]);
+    const coverage = financialRunwayInputs.availableAtDeath.coverage;
     if (coverage.value == null) {
-      addDataGap(output, "missing-existing-coverage", "Existing coverage is missing.", ["existingCoverage.totalExistingCoverage"]);
+      addDataGap(output, "missing-existing-coverage", "Existing coverage is missing.", coverage.sourcePaths);
     } else {
       output.timelineEvents.push(createEvent({
         id: "coverage-available",
@@ -622,34 +985,20 @@
         age: output.selectedDeath.age,
         label: "Existing coverage available",
         amount: coverage.value,
-        sourcePaths: [coverage.sourcePath],
+        sourcePaths: coverage.sourcePaths,
         confidence: "calculated"
       }));
       addUnique(output.trace.sourcePaths, [coverage.sourcePath]);
     }
 
-    const availableAssets = firstNumber(lensModel, [
-      { path: "offsetAssets.totalAvailableOffsetAssetValue" }
-    ]);
-    const fallbackAssets = sumKnownValues([
-      { value: getNumber(lensModel, "offsetAssets.cashSavings.availableValue"), sourcePath: "offsetAssets.cashSavings.availableValue" },
-      { value: getNumber(lensModel, "offsetAssets.currentEmergencyFund.availableValue"), sourcePath: "offsetAssets.currentEmergencyFund.availableValue" },
-      { value: getNumber(lensModel, "offsetAssets.brokerageAccounts.availableValue"), sourcePath: "offsetAssets.brokerageAccounts.availableValue" },
-      { value: getNumber(lensModel, "offsetAssets.retirementAccounts.availableValue"), sourcePath: "offsetAssets.retirementAccounts.availableValue" },
-      { value: getNumber(lensModel, "offsetAssets.realEstateEquity.availableValue"), sourcePath: "offsetAssets.realEstateEquity.availableValue" },
-      { value: getNumber(lensModel, "offsetAssets.businessValue.availableValue"), sourcePath: "offsetAssets.businessValue.availableValue" }
-    ]);
-    const availableAssetValue = availableAssets.value == null ? fallbackAssets.value : availableAssets.value;
-    const availableAssetSourcePaths = availableAssets.value == null
-      ? fallbackAssets.sourcePaths
-      : [availableAssets.sourcePath];
+    const assets = financialRunwayInputs.availableAtDeath.assets;
+    const availableAssetValue = assets.value;
+    const availableAssetSourcePaths = assets.sourcePaths;
     if (availableAssetValue == null) {
-      addDataGap(output, "missing-assets-liquidity", "Available asset and liquidity facts are missing.", ["offsetAssets.totalAvailableOffsetAssetValue"]);
+      addDataGap(output, "missing-assets-liquidity", "Available asset and liquidity facts are missing.", assets.sourcePaths);
     }
 
-    const finalExpenses = firstNumber(lensModel, [
-      { path: "finalExpenses.totalFinalExpenseNeed" }
-    ]);
+    const finalExpenses = financialRunwayInputs.immediateObligations.finalExpenses;
     if (finalExpenses.value != null) {
       output.timelineEvents.push(createEvent({
         id: "final-expenses-due",
@@ -658,17 +1007,13 @@
         age: output.selectedDeath.age,
         label: "Final expenses due",
         amount: finalExpenses.value,
-        sourcePaths: [finalExpenses.sourcePath],
+        sourcePaths: finalExpenses.sourcePaths,
         confidence: "calculated"
       }));
     }
 
-    const transitionNeeds = firstNumber(lensModel, [
-      { path: "transitionNeeds.totalTransitionNeed" }
-    ]);
-    const mortgage = firstNumber(lensModel, [
-      { path: "debtPayoff.mortgageBalance" }
-    ]);
+    const transitionNeeds = financialRunwayInputs.immediateObligations.transitionNeeds;
+    const mortgage = financialRunwayInputs.immediateObligations.mortgage;
     if (mortgage.value != null) {
       output.timelineEvents.push(createEvent({
         id: "mortgage-obligation",
@@ -677,30 +1022,19 @@
         age: output.selectedDeath.age,
         label: "Mortgage obligation",
         amount: mortgage.value,
-        sourcePaths: [mortgage.sourcePath],
-        confidence: "reported"
+        sourcePaths: mortgage.sourcePaths,
+        confidence: mortgage.status === "treated" ? "calculated" : "reported"
       }));
     }
 
-    const debtPayoffTotal = firstNumber(lensModel, [
-      { path: "debtPayoff.totalDebtPayoffNeed" }
-    ]);
-    const nonMortgageDebt = sumKnownValues([
-      { value: getNumber(lensModel, "debtPayoff.otherRealEstateLoanBalance"), sourcePath: "debtPayoff.otherRealEstateLoanBalance" },
-      { value: getNumber(lensModel, "debtPayoff.autoLoanBalance"), sourcePath: "debtPayoff.autoLoanBalance" },
-      { value: getNumber(lensModel, "debtPayoff.creditCardBalance"), sourcePath: "debtPayoff.creditCardBalance" },
-      { value: getNumber(lensModel, "debtPayoff.studentLoanBalance"), sourcePath: "debtPayoff.studentLoanBalance" },
-      { value: getNumber(lensModel, "debtPayoff.personalLoanBalance"), sourcePath: "debtPayoff.personalLoanBalance" },
-      { value: getNumber(lensModel, "debtPayoff.businessDebtBalance"), sourcePath: "debtPayoff.businessDebtBalance" },
-      { value: getNumber(lensModel, "debtPayoff.outstandingTaxLiabilities"), sourcePath: "debtPayoff.outstandingTaxLiabilities" },
-      { value: getNumber(lensModel, "debtPayoff.otherDebtPayoffNeeds"), sourcePath: "debtPayoff.otherDebtPayoffNeeds" }
-    ]);
+    const debtPayoffTotal = financialRunwayInputs.immediateObligations.debtPayoff;
+    const nonMortgageDebt = financialRunwayInputs.immediateObligations.nonMortgageDebt;
     if (nonMortgageDebt.value != null || debtPayoffTotal.value != null) {
-      const eventAmount = nonMortgageDebt.value == null
+      const eventAmount = debtPayoffTotal.status === "treated" || nonMortgageDebt.value == null
         ? debtPayoffTotal.value
         : nonMortgageDebt.value;
-      const sourcePaths = nonMortgageDebt.value == null
-        ? [debtPayoffTotal.sourcePath]
+      const sourcePaths = debtPayoffTotal.status === "treated" || nonMortgageDebt.value == null
+        ? debtPayoffTotal.sourcePaths
         : nonMortgageDebt.sourcePaths;
       output.timelineEvents.push(createEvent({
         id: "debt-obligation",
@@ -710,19 +1044,11 @@
         label: "Debt obligations",
         amount: eventAmount,
         sourcePaths,
-        confidence: "reported"
+        confidence: debtPayoffTotal.status === "treated" ? "calculated" : "reported"
       }));
     }
 
-    const immediateDebt = debtPayoffTotal.value == null
-      ? sumKnownValues([
-          { value: nonMortgageDebt.value, sourcePath: "debtPayoff.nonMortgageComponents" },
-          { value: mortgage.value, sourcePath: "debtPayoff.mortgageBalance" }
-        ])
-      : {
-          value: debtPayoffTotal.value,
-          sourcePaths: [debtPayoffTotal.sourcePath]
-        };
+    const immediateDebt = debtPayoffTotal;
     const immediateObligations = sumKnownValues([
       { value: finalExpenses.value, sourcePath: finalExpenses.sourcePath },
       { value: transitionNeeds.value, sourcePath: transitionNeeds.sourcePath },
@@ -732,6 +1058,7 @@
       addDataGap(output, "missing-immediate-obligations", "Immediate obligation facts are missing.", [
         "finalExpenses.totalFinalExpenseNeed",
         "transitionNeeds.totalTransitionNeed",
+        "treatedDebtPayoff.needs.debtPayoffAmount",
         "debtPayoff.totalDebtPayoffNeed"
       ]);
     }
@@ -857,6 +1184,7 @@
         annualShortfall,
         options: { projectionYears }
       }),
+      inputs: financialRunwayInputs,
       sourcePaths: totalResources.sourcePaths
         .concat(immediateObligations.sourcePaths)
         .concat(annualEssentialSourcePaths)
@@ -978,10 +1306,12 @@
     ];
 
     output.trace.formula.push(
-      "netAvailableResources = existingCoverage.totalExistingCoverage + liquid/available current assets - immediate obligations",
+      "netAvailableResources = preferred coverage bucket + preferred prepared asset bucket - immediate obligations",
       "annualHouseholdShortfall = ongoingSupport.annualTotalEssentialSupportCost - survivorScenario.survivorNetAnnualIncome",
       "yearsOfFinancialSecurity = netAvailableResources / annualHouseholdShortfall",
-      "immediate obligations include finalExpenses.totalFinalExpenseNeed + transitionNeeds.totalTransitionNeed + debtPayoff.totalDebtPayoffNeed when available"
+      "coverage source priority: treatedExistingCoverageOffset.totalTreatedCoverageOffset, then existingCoverage totals",
+      "asset source priority: method-active projectedAssetOffset, then treatedAssetOffsets.totalTreatedAssetValue, then legacy offsetAssets",
+      "immediate obligations include finalExpenses.totalFinalExpenseNeed + transitionNeeds.totalTransitionNeed + treatedDebtPayoff.needs.debtPayoffAmount when available"
     );
     addUnique(output.trace.sourcePaths, totalResources.sourcePaths);
     addUnique(output.trace.sourcePaths, immediateObligations.sourcePaths);

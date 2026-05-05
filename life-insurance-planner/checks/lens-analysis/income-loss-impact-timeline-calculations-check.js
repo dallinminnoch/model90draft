@@ -118,6 +118,7 @@ function run() {
   assert.doesNotMatch(helperSource, /\bdocument\s*[.\[]/);
   assert.doesNotMatch(helperSource, /\bwindow\s*[.\[]/);
   assert.doesNotMatch(helperSource, /\blocalStorage\s*[.\[]|\bsessionStorage\s*[.\[]/);
+  assert.match(helperSource, /resolveFinancialRunwayInputs/);
 
   const calculateIncomeLossImpactTimeline = loadHelper();
   assert.strictEqual(
@@ -277,6 +278,11 @@ function run() {
   assert.strictEqual(output.financialRunway.depletionDate, "2038-10-15");
   assert.strictEqual(output.financialRunway.projectionYears, 40);
   assert.strictEqual(output.financialRunway.projectionPoints.length, 41);
+  assert.strictEqual(
+    output.financialRunway.inputs.availableAtDeath.assets.sourcePath,
+    "offsetAssets.totalAvailableOffsetAssetValue",
+    "legacy offsetAssets should remain a fallback when prepared treated assets are absent"
+  );
   assert.deepEqual(
     output.financialRunway.projectionPoints[0],
     {
@@ -298,6 +304,10 @@ function run() {
   assert(
     output.trace.formula.some((formula) => formula.includes("yearsOfFinancialSecurity")),
     "trace should document the years of financial security formula"
+  );
+  assert(
+    output.trace.formula.some((formula) => formula.includes("treatedAssetOffsets.totalTreatedAssetValue")),
+    "trace should document prepared asset bucket priority"
   );
 
   const lowProjectionOutput = calculateIncomeLossImpactTimeline({
