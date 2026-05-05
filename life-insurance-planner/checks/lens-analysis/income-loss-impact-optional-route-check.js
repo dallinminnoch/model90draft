@@ -159,6 +159,17 @@ assert.match(
   "Income Impact should load the pure timeline helper before the display module."
 );
 [
+  /data-income-impact-death-age-control/,
+  /data-income-impact-death-age-slider/,
+  /data-income-impact-death-age-value/,
+  /data-income-impact-death-date-value/,
+  /data-income-impact-death-age-warning/,
+  /Death Age Scenario/,
+  /Preview only\. This does not change the LENS recommendation\./
+].forEach(function (pattern) {
+  assert.match(incomeLossHtml, pattern, `Income Impact should expose death-age preview control ${pattern}.`);
+});
+[
   "../app/features/lens-analysis/analysis-methods.js",
   "../app/features/lens-analysis/analysis-settings-adapter.js",
   "../app/features/lens-analysis/inflation-projection-calculations.js",
@@ -224,7 +235,16 @@ assert.ok(
 );
 assert.doesNotMatch(incomeLossHtml, /Continue to Estimate Need/);
 assert.doesNotMatch(incomeLossHtml, /Optional Review/);
-assert.doesNotMatch(incomeLossHtml, /<input\b/i, "Income Loss Impact should not contain input controls in this pass.");
+assert.equal(
+  (incomeLossHtml.match(/<input\b/gi) || []).length,
+  1,
+  "Income Loss Impact should contain only the death-age preview slider input."
+);
+assert.match(
+  incomeLossHtml,
+  /<input\b[\s\S]*type="range"[\s\S]*data-income-impact-death-age-slider/,
+  "Income Loss Impact should expose the death-age range slider."
+);
 assert.doesNotMatch(incomeLossHtml, /<select\b/i, "Income Loss Impact should not contain select controls.");
 assert.doesNotMatch(incomeLossHtml, /<textarea\b/i, "Income Loss Impact should not contain textarea controls.");
 assert.doesNotMatch(incomeLossHtml, /<form\b/i, "Income Loss Impact should not contain forms.");

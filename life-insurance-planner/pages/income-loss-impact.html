@@ -88,6 +88,33 @@
         </section>
 
         <div class="panel-stack">
+          <section class="income-impact-section" data-income-impact-death-age-control hidden>
+            <article class="income-impact-card income-impact-card--wide">
+              <div class="income-impact-card-header">
+                <h2>Death Age Scenario</h2>
+                <p>Preview only. This does not change the LENS recommendation.</p>
+              </div>
+              <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
+                <label for="income-impact-death-age-slider">Selected death age</label>
+                <input
+                  id="income-impact-death-age-slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="0"
+                  data-income-impact-death-age-slider
+                  disabled
+                >
+              </div>
+              <div class="income-impact-death-age-summary">
+                <span>Age <strong data-income-impact-death-age-value>Not available</strong></span>
+                <span>Date <strong data-income-impact-death-date-value>Not available</strong></span>
+              </div>
+              <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
+            </article>
+          </section>
+
           <section class="income-impact-section" data-income-impact-display aria-live="polite">
             <div class="income-impact-empty-state">
               <div class="section-label">Income Impact Review</div>

@@ -21,6 +21,7 @@
     "Nov",
     "Dec"
   ];
+  let incomeImpactState = null;
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -117,6 +118,65 @@
     }
 
     return formatDateOnly(parsed);
+  }
+
+  function parseDateOnlyValue(value) {
+    const normalized = normalizeDateOnly(value);
+    if (!normalized) {
+      return null;
+    }
+
+    const parts = normalized.split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function calculateAge(dateOfBirth, asOfDate) {
+    if (!dateOfBirth || !asOfDate) {
+      return null;
+    }
+
+    let age = asOfDate.getFullYear() - dateOfBirth.getFullYear();
+    const birthdayHasOccurred = asOfDate.getMonth() > dateOfBirth.getMonth()
+      || (
+        asOfDate.getMonth() === dateOfBirth.getMonth()
+        && asOfDate.getDate() >= dateOfBirth.getDate()
+      );
+    if (!birthdayHasOccurred) {
+      age -= 1;
+    }
+
+    return age >= 0 ? age : null;
+  }
+
+  function clampRoundedAge(value, minAge, maxAge) {
+    const number = toOptionalNumber(value);
+    const rounded = number == null ? minAge : Math.round(number);
+    return Math.max(minAge, Math.min(maxAge, rounded));
+  }
+
+  function resolveDeathAgeControlState(lensModel, valuationDate) {
+    const dateOfBirth = parseDateOnlyValue(getPath(lensModel, "profileFacts.clientDateOfBirth"));
+    const asOfDate = parseDateOnlyValue(valuationDate);
+    const currentAge = calculateAge(dateOfBirth, asOfDate);
+
+    if (currentAge == null) {
+      return {
+        hasDateOfBirth: false,
+        currentAge: null,
+        minAge: null,
+        maxAge: null,
+        selectedDeathAge: null
+      };
+    }
+
+    const maxAge = Math.max(currentAge, Math.min(100, currentAge + 40));
+    return {
+      hasDateOfBirth: true,
+      currentAge,
+      minAge: currentAge,
+      maxAge,
+      selectedDeathAge: currentAge
+    };
   }
 
   function resolveTimelineValuationDate(profileRecord, lensModel) {
@@ -235,6 +295,85 @@
         <p>${escapeHtml(message)}</p>
       </div>
     `;
+  }
+
+  function getDeathAgeControlElements() {
+    const control = document.querySelector("[data-income-impact-death-age-control]");
+    if (!control) {
+      return null;
+    }
+
+    return {
+      control,
+      sliderRow: control.querySelector("[data-income-impact-death-age-slider-row]"),
+      slider: control.querySelector("[data-income-impact-death-age-slider]"),
+      ageValue: control.querySelector("[data-income-impact-death-age-value]"),
+      dateValue: control.querySelector("[data-income-impact-death-date-value]"),
+      warning: control.querySelector("[data-income-impact-death-age-warning]")
+    };
+  }
+
+  function updateDeathAgeControl(timelineResult, deathAgeState) {
+    const elements = getDeathAgeControlElements();
+    if (!elements) {
+      return;
+    }
+
+    const {
+      control,
+      sliderRow,
+      slider,
+      ageValue,
+      dateValue,
+      warning
+    } = elements;
+    const state = isPlainObject(deathAgeState) ? deathAgeState : {};
+    control.hidden = false;
+
+    if (!state.hasDateOfBirth) {
+      control.setAttribute("data-income-impact-death-age-status", "missing-dob");
+      if (sliderRow) {
+        sliderRow.hidden = true;
+      }
+      if (slider) {
+        slider.disabled = true;
+      }
+      if (ageValue) {
+        ageValue.textContent = UNAVAILABLE_COPY;
+      }
+      if (dateValue) {
+        dateValue.textContent = UNAVAILABLE_COPY;
+      }
+      if (warning) {
+        warning.hidden = false;
+        warning.textContent = "Add insured date of birth to preview by age.";
+      }
+      return;
+    }
+
+    const selectedDeathAge = clampRoundedAge(state.selectedDeathAge, state.minAge, state.maxAge);
+    control.setAttribute("data-income-impact-death-age-status", "available");
+    if (sliderRow) {
+      sliderRow.hidden = false;
+    }
+    if (slider) {
+      slider.disabled = false;
+      slider.min = String(state.minAge);
+      slider.max = String(state.maxAge);
+      slider.step = "1";
+      slider.value = String(selectedDeathAge);
+      slider.setAttribute("aria-valuetext", `Age ${selectedDeathAge}`);
+    }
+    if (ageValue) {
+      ageValue.textContent = String(selectedDeathAge);
+    }
+    if (dateValue) {
+      dateValue.textContent = timelineResult?.selectedDeath?.date || UNAVAILABLE_COPY;
+    }
+    if (warning) {
+      warning.hidden = true;
+      warning.textContent = "";
+    }
   }
 
   function findSummaryCard(timelineResult, id) {
@@ -624,6 +763,66 @@
     bindPlaceholderTimelineHover(host);
   }
 
+  function calculateTimelineResultFromState(state) {
+    const safeState = isPlainObject(state) ? state : {};
+    const input = {
+      lensModel: safeState.lensModel,
+      valuationDate: safeState.valuationDate,
+      profileRecord: safeState.profileRecord
+    };
+    const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
+
+    if (deathAgeState.hasDateOfBirth) {
+      const selectedDeathAge = clampRoundedAge(
+        deathAgeState.selectedDeathAge,
+        deathAgeState.minAge,
+        deathAgeState.maxAge
+      );
+      deathAgeState.selectedDeathAge = selectedDeathAge;
+      input.selectedDeathAge = selectedDeathAge;
+    }
+
+    return safeState.calculateIncomeLossImpactTimeline(input);
+  }
+
+  function renderIncomeImpactFromState() {
+    if (!incomeImpactState?.host || typeof incomeImpactState.calculateIncomeLossImpactTimeline !== "function") {
+      return;
+    }
+
+    const timelineResult = calculateTimelineResultFromState(incomeImpactState);
+    renderIncomeImpact(incomeImpactState.host, {
+      lensModel: incomeImpactState.lensModel,
+      timelineResult,
+      builderWarnings: incomeImpactState.builderWarnings
+    });
+    updateDeathAgeControl(timelineResult, incomeImpactState.deathAgeState);
+  }
+
+  function bindDeathAgeControl() {
+    const elements = getDeathAgeControlElements();
+    if (!elements?.slider) {
+      return;
+    }
+
+    function updateSelectedDeathAge(event) {
+      const state = incomeImpactState?.deathAgeState;
+      if (!state?.hasDateOfBirth) {
+        return;
+      }
+
+      state.selectedDeathAge = clampRoundedAge(
+        event?.target?.value,
+        state.minAge,
+        state.maxAge
+      );
+      renderIncomeImpactFromState();
+    }
+
+    elements.slider.addEventListener("input", updateSelectedDeathAge);
+    elements.slider.addEventListener("change", updateSelectedDeathAge);
+  }
+
   function initializeIncomeLossImpactDisplay() {
     const host = document.querySelector("[data-income-impact-display]");
     if (!host) {
@@ -669,17 +868,19 @@
         return;
       }
 
-      const timelineResult = calculateIncomeLossImpactTimeline({
+      const valuationDate = resolveTimelineValuationDate(profileRecord, builderResult.lensModel);
+      incomeImpactState = {
+        host,
         lensModel: builderResult.lensModel,
-        valuationDate: resolveTimelineValuationDate(profileRecord, builderResult.lensModel),
-        profileRecord
-      });
-
-      renderIncomeImpact(host, {
-        lensModel: builderResult.lensModel,
-        timelineResult,
+        profileRecord,
+        valuationDate,
+        calculateIncomeLossImpactTimeline,
+        deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         builderWarnings: builderResult.warnings
-      });
+      };
+
+      renderIncomeImpactFromState();
+      bindDeathAgeControl();
     } catch (error) {
       renderEmptyState(host, "Income impact unavailable", "Income Loss Impact could not be prepared from the saved Lens model.");
       console.error("Income Loss Impact display failed", error);
