@@ -35,7 +35,7 @@ function getChangedFiles(relativePaths) {
 function createDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactScenarioChartHarness = { renderFinancialRunwayChart, renderPivotalRiskPanel, renderIncomeImpact };\n})(window);\n"
+    "\n  window.__incomeImpactChartAxisLegendHarness = { renderFinancialRunwayChart, renderIncomeImpact };\n})(window);\n"
   );
   const sandbox = {
     console,
@@ -52,7 +52,7 @@ function createDisplayHarness(source) {
   vm.runInNewContext(instrumentedSource, sandbox, {
     filename: "income-loss-impact-display.js"
   });
-  return sandbox.window.__incomeImpactScenarioChartHarness;
+  return sandbox.window.__incomeImpactChartAxisLegendHarness;
 }
 
 function addMonths(dateText, months) {
@@ -71,7 +71,7 @@ function buildScenarioPoints(horizonYears) {
   const points = [];
   [-5, -4, -3, -2, -1].forEach(function (yearOffset) {
     points.push({
-      id: `pre-${Math.abs(yearOffset)}`,
+      id: `pre-death-${Math.abs(yearOffset)}`,
       date: addMonths(deathDate, yearOffset * 12),
       age: 50 + yearOffset,
       relativeMonthIndex: yearOffset * 12,
@@ -114,7 +114,7 @@ function buildScenarioPoints(horizonYears) {
   for (let monthIndex = 1; monthIndex <= 24; monthIndex += 1) {
     const endingBalance = 500000 - monthIndex * 5000;
     points.push({
-      id: `month-${monthIndex}`,
+      id: `post-death-month-${monthIndex}`,
       date: addMonths(deathDate, monthIndex),
       age: 50 + monthIndex / 12,
       relativeMonthIndex: monthIndex,
@@ -137,7 +137,7 @@ function buildScenarioPoints(horizonYears) {
   for (let yearIndex = 3; yearIndex <= horizonYears; yearIndex += 1) {
     const endingBalance = 500000 - yearIndex * 160000;
     points.push({
-      id: `year-${yearIndex}`,
+      id: `post-death-year-${yearIndex}`,
       date: addMonths(deathDate, yearIndex * 12),
       age: 50 + yearIndex,
       relativeMonthIndex: yearIndex * 12,
@@ -160,7 +160,8 @@ function buildScenarioPoints(horizonYears) {
   return points;
 }
 
-function createFixture(horizonYears = 10, mortgageLabel = "baseline") {
+function createFixture(horizonYears) {
+  const points = buildScenarioPoints(horizonYears);
   return {
     selectedDeath: {
       date: "2030-06-15",
@@ -171,8 +172,8 @@ function createFixture(horizonYears = 10, mortgageLabel = "baseline") {
       startingResources: 600000,
       existingCoverage: 500000,
       availableAssets: 100000,
-      immediateObligations: mortgageLabel === "payoff" ? 250000 : 100000,
-      netAvailableResources: mortgageLabel === "payoff" ? 350000 : 500000,
+      immediateObligations: 100000,
+      netAvailableResources: 500000,
       annualHouseholdNeed: 90000,
       annualSurvivorIncome: 30000,
       annualShortfall: 60000,
@@ -181,29 +182,20 @@ function createFixture(horizonYears = 10, mortgageLabel = "baseline") {
       totalMonthsOfSecurity: 100,
       depletionYear: 2038,
       depletionDate: "2038-10-15",
+      projectionMode: "current-dollar",
       projectionYears: horizonYears,
       projectionPoints: [],
       warnings: [],
       dataGaps: []
     },
     scenarioTimeline: {
-      scenario: {
-        deathAge: 50,
-        deathDate: "2030-06-15",
-        projectionHorizonYears: horizonYears,
-        mortgageTreatmentOverride: mortgageLabel === "payoff" ? "payOffMortgage" : "followAssumptions"
-      },
       axis: {
         startDate: "2025-06-15",
         deathDate: "2030-06-15",
-        endDate: addMonths("2030-06-15", horizonYears * 12),
-        preDeathYears: 5,
-        monthlyResolutionMonths: 24,
-        postMonth24Resolution: "annual"
+        endDate: addMonths("2030-06-15", horizonYears * 12)
       },
       resourceSeries: {
-        yAxis: "remainingAvailableResources",
-        points: buildScenarioPoints(horizonYears)
+        points
       },
       pivotalEvents: {
         risks: [
@@ -218,7 +210,34 @@ function createFixture(horizonYears = 10, mortgageLabel = "baseline") {
             relativeMonthIndex: 100,
             lane: "resources",
             advisorCopy: "Available resources are projected to reach zero in this scenario.",
-            amount: 0
+            amount: 0,
+            sourcePaths: ["financialRunway.depletionDate"]
+          },
+          {
+            id: "primaryIncomeStops",
+            type: "primaryIncomeStops",
+            label: "Primary income stops",
+            shortLabel: "Income stops",
+            severity: "at-risk",
+            date: "2030-06-15",
+            age: 50,
+            relativeMonthIndex: 0,
+            lane: "income",
+            advisorCopy: "The household no longer has the primary earner's income in this scenario.",
+            amount: 120000,
+            sourcePaths: ["incomeBasis.annualIncomeReplacementBase"]
+          },
+          {
+            id: "partialEstimateOnly",
+            type: "partialEstimateOnly",
+            label: "Partial estimate only",
+            shortLabel: "Partial",
+            severity: "caution",
+            date: "2030-06-15",
+            relativeMonthIndex: 0,
+            lane: "dataQuality",
+            advisorCopy: "The estimate is using available facts and should be improved with the missing items.",
+            sourcePaths: ["financialRunway.status"]
           }
         ],
         stable: [
@@ -231,26 +250,45 @@ function createFixture(horizonYears = 10, mortgageLabel = "baseline") {
             date: "2030-06-15",
             relativeMonthIndex: 0,
             lane: "resources",
-            advisorCopy: "The selected death date anchors the scenario timeline."
+            advisorCopy: "The selected death date anchors the scenario timeline.",
+            sourcePaths: ["selectedDeath.date"]
+          },
+          {
+            id: "existingCoverageAvailable",
+            type: "existingCoverageAvailable",
+            label: "Existing coverage available",
+            shortLabel: "Coverage",
+            severity: "stable",
+            date: "2030-06-15",
+            relativeMonthIndex: 0,
+            lane: "resources",
+            advisorCopy: "Existing coverage is included in money available at death when present.",
+            amount: 500000,
+            sourcePaths: ["financialRunway.existingCoverage"]
           }
         ]
       }
     },
+    summaryCards: [
+      {
+        id: "yearsOfFinancialSecurity",
+        displayValue: "8 years 4 months",
+        status: "complete"
+      }
+    ],
     timelineEvents: [],
     dataGaps: [],
     warnings: []
   };
 }
 
-function getAttributeValues(html, attributeName) {
-  const values = [];
-  const pattern = new RegExp(`${attributeName}="([^"]*)"`, "g");
-  let match = pattern.exec(html);
-  while (match) {
-    values.push(match[1]);
-    match = pattern.exec(html);
-  }
-  return values;
+function getVisibleText(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
@@ -258,132 +296,64 @@ const componentsSource = readRepoFile("components.css");
 const harness = createDisplayHarness(displaySource);
 
 assert.equal(typeof harness.renderFinancialRunwayChart, "function");
-assert.match(displaySource, /getScenarioResourcePoints/);
-assert.match(displaySource, /scenarioTimeline\.resourceSeries/);
-assert.match(displaySource, /displayedBalance/);
-assert.match(displaySource, /data-income-impact-pre-death-region/);
-assert.match(displaySource, /data-income-impact-runway-death/);
-assert.match(displaySource, /data-income-impact-accumulated-unmet-need/);
-assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
+assert.equal(typeof harness.renderIncomeImpact, "function");
+assert.match(displaySource, /Income Impact Timeline/);
+assert.match(displaySource, /Resources before and after the selected death age, based on saved planning facts\./);
+assert.match(displaySource, /data-income-impact-chart-explainer/);
+assert.match(displaySource, /data-income-impact-y-axis-explanation/);
+assert.match(displaySource, /data-income-impact-x-axis-explanation/);
+assert.match(displaySource, /data-income-impact-pre-death-region-label/);
+assert.match(displaySource, /data-income-impact-death-marker-label/);
+assert.match(displaySource, /data-income-impact-post-death-region-label/);
+assert.match(displaySource, /data-income-impact-marker-legend/);
 assert.doesNotMatch(
   displaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
-  "Scenario chart display should not persist scenario or model state."
+  "Chart clarity display should not persist scenario or model state."
 );
 
-const chartModelSource = displaySource.match(/function getScenarioTimeline[\s\S]*?function calculateMonthOffset/)?.[0] || "";
-assert.doesNotMatch(
-  chartModelSource,
-  /runningBalance|annualShortfall\s*\*|endingBalance\s*=|projectionPoints\.push/,
-  "Scenario chart display should map helper-provided points, not duplicate projection math."
-);
-assert.match(componentsSource, /\.income-impact-pre-death-region/);
-assert.match(componentsSource, /\.income-impact-runway-death-marker/);
-assert.match(componentsSource, /\.income-impact-unmet-need/);
+assert.match(componentsSource, /\.income-impact-chart-explainer/);
+assert.match(componentsSource, /\.income-impact-runway-region-label/);
+assert.match(componentsSource, /\.income-impact-marker-legend/);
+assert.match(componentsSource, /\.income-impact-axis-note/);
 
-const fixture = createFixture(10);
-const chartHtml = harness.renderFinancialRunwayChart(fixture);
-assert.match(chartHtml, /data-income-impact-chart-source="scenarioTimeline\.resourceSeries\.points"/);
+const chartHtml = harness.renderFinancialRunwayChart(createFixture(10));
 assert.match(chartHtml, /Income Impact Timeline/);
-assert.match(chartHtml, /data-income-impact-pre-death-region/);
-assert.match(chartHtml, /data-income-impact-runway-death/);
-assert.match(chartHtml, /data-income-impact-runway-death-date="2030-06-15"/);
-assert.match(chartHtml, /data-income-impact-runway-point-phase="preDeath"/);
-assert.match(chartHtml, /data-income-impact-runway-point-phase="death"/);
-assert.match(chartHtml, /data-income-impact-runway-point-phase="postDeath"/);
-assert.match(chartHtml, /data-income-impact-runway-point-resolution="baseline"/);
-assert.match(chartHtml, /data-income-impact-runway-point-resolution="death"/);
-assert.equal((chartHtml.match(/data-income-impact-runway-point-resolution="monthly"/g) || []).length, 24);
-assert.ok((chartHtml.match(/data-income-impact-runway-point-resolution="annual"/g) || []).length >= 1);
-assert.match(chartHtml, /data-income-impact-runway-point-relative-month="-60"/);
-assert.match(chartHtml, /data-income-impact-runway-point-relative-month="0"/);
-assert.match(chartHtml, /data-income-impact-runway-point-relative-month="1"/);
-assert.match(chartHtml, /data-income-impact-runway-point-relative-month="24"/);
-assert.match(chartHtml, /data-income-impact-runway-point-relative-month="36"/);
-assert.match(chartHtml, /data-income-impact-runway-point-relative-year="10"/);
-assert.match(chartHtml, /5 yrs before/);
-assert.match(chartHtml, />Death</);
-assert.match(chartHtml, /Year 10/);
-assert.match(chartHtml, /data-income-impact-accumulated-unmet-need/);
-assert.match(chartHtml, /Accumulated unmet need after resources are depleted/);
+assert.match(chartHtml, /Resources before and after the selected death age, based on saved planning facts\./);
+assert.match(chartHtml, /Y-axis: Remaining available resources\./);
+assert.match(chartHtml, /X-axis: Years relative to death; key markers show dates and client age\./);
+assert.match(chartHtml, /5-year context before death/);
+assert.match(chartHtml, /Death occurs/);
+assert.match(chartHtml, /Survivor financial runway/);
+assert.match(chartHtml, /data-income-impact-marker-legend/);
+assert.match(chartHtml, /Critical/);
+assert.match(chartHtml, /At Risk/);
+assert.match(chartHtml, /Caution/);
+assert.match(chartHtml, /Covered/);
+assert.match(chartHtml, /Remaining available resources are plotted above \$0/);
+assert.match(chartHtml, /Unmet need is tracked separately after resources reach \$0\./);
 assert.match(chartHtml, /data-income-impact-timeline-marker-lanes/);
-assert.doesNotMatch(chartHtml, /data-income-impact-scenario-chart-fallback/);
+assert.match(chartHtml, /data-income-impact-chart-source="scenarioTimeline\.resourceSeries\.points"/);
 
-const displayedBalances = getAttributeValues(chartHtml, "data-income-impact-runway-point-displayed-balance")
-  .filter(Boolean)
-  .map(Number);
-assert.ok(displayedBalances.length > 0);
-assert(displayedBalances.every((value) => Number.isFinite(value) && value >= 0), "Displayed y-axis balances should never be below zero.");
-const accumulatedUnmetNeeds = getAttributeValues(chartHtml, "data-income-impact-runway-point-accumulated-unmet-need")
-  .filter(Boolean)
-  .map(Number);
-assert.ok(accumulatedUnmetNeeds.some((value) => value > 0), "Accumulated unmet need should be carried separately.");
-
-const fallbackHtml = harness.renderFinancialRunwayChart({
-  selectedDeath: {
-    date: "2030-06-15",
-    age: 50
-  },
-  financialRunway: {
-    status: "complete",
-    netAvailableResources: 500000,
-    startingResources: 600000,
-    immediateObligations: 100000,
-    annualShortfall: 60000,
-    totalMonthsOfSecurity: 100,
-    depletionDate: "2038-10-15",
-    projectionYears: 10,
-    projectionPoints: [
-      {
-        yearIndex: 0,
-        date: "2030-06-15",
-        age: 50,
-        startingBalance: 500000,
-        endingBalance: 500000,
-        status: "starting"
-      },
-      {
-        yearIndex: 10,
-        date: "2040-06-15",
-        age: 60,
-        startingBalance: -40000,
-        endingBalance: -100000,
-        status: "depleted"
-      }
-    ]
-  },
-  scenarioTimeline: {
-    resourceSeries: {
-      points: []
-    },
-    pivotalEvents: {
-      risks: [],
-      stable: []
-    }
-  }
-});
-assert.match(fallbackHtml, /data-income-impact-chart-source="financialRunway\.projectionPoints"/);
-assert.match(fallbackHtml, /data-income-impact-scenario-chart-fallback/);
+const visibleText = getVisibleText(chartHtml);
+assert.doesNotMatch(visibleText, /scenarioTimeline|resourceSeries|helper events|calculateIncomeLossImpactTimeline/);
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: createFixture(10) });
-assert.match(host.innerHTML, /data-income-impact-runway-point-relative-year="10"/);
+assert.match(host.innerHTML, /data-income-impact-risk-panel/);
 assert.match(host.innerHTML, /data-income-impact-timeline-marker-lanes/);
+assert.match(host.innerHTML, /data-income-impact-runway-point-relative-year="10"/);
 harness.renderIncomeImpact(host, { timelineResult: createFixture(5) });
 assert.match(host.innerHTML, /data-income-impact-runway-point-relative-year="5"/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-point-relative-year="10"/);
-harness.renderIncomeImpact(host, { timelineResult: createFixture(10, "payoff") });
-assert.match(host.innerHTML, /\$250,000/);
-assert.match(host.innerHTML, /data-income-impact-risk-panel/);
 
 const protectedChanges = getChangedFiles([
+  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
+  "app/features/lens-analysis/income-impact-warning-events-library.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
-  "app/features/lens-analysis/income-impact-warning-events-library.js",
-  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
-  "pages/income-loss-impact.html",
   "pages/analysis-estimate.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
@@ -396,7 +366,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Scenario chart pass should not change helpers, warning definitions, methods, model builder, adapter, HTML, result pages, quick flows, or styles.css."
+  "Chart axis/legend pass should not change helpers, warning definitions, methods, model builder, adapter, result pages, quick flows, or styles.css."
 );
 
-console.log("income-loss-impact-scenario-chart-check passed");
+console.log("income-loss-impact-chart-axis-legend-check passed");

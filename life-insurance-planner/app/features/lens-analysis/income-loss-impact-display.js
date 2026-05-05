@@ -1061,6 +1061,17 @@
     `;
   }
 
+  function renderRunwayMarkerLegend() {
+    return `
+      <div class="income-impact-marker-legend" data-income-impact-marker-legend aria-label="Timeline marker legend">
+        <span data-income-impact-marker-legend-item="critical"><i aria-hidden="true"></i>Critical</span>
+        <span data-income-impact-marker-legend-item="at-risk"><i aria-hidden="true"></i>At Risk</span>
+        <span data-income-impact-marker-legend-item="caution"><i aria-hidden="true"></i>Caution</span>
+        <span data-income-impact-marker-legend-item="covered"><i aria-hidden="true"></i>Covered</span>
+      </div>
+    `;
+  }
+
   function renderFinancialRunwayChart(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const status = normalizeRunwayStatus(runway.status);
@@ -1108,10 +1119,14 @@
     return `
       <div class="income-impact-timeline-chart" data-income-impact-visual-timeline data-income-impact-financial-runway data-income-impact-runway-primary-visual data-income-impact-runway-status="${escapeHtml(status)}" data-income-impact-chart-source="${escapeHtml(model.source)}" aria-label="Income Impact timeline">
         <div class="income-impact-chart-topline">
-          <strong>Financial Runway Timeline</strong>
-          <p>Timeline updates as you adjust the selected death age. This preview does not change the LENS recommendation.</p>
+          <strong>Income Impact Timeline</strong>
+          <p>Resources before and after the selected death age, based on saved planning facts.</p>
           ${statusNote ? `<p data-income-impact-runway-status-note>${escapeHtml(statusNote)}</p>` : ""}
           ${chartSourceNote ? `<p data-income-impact-scenario-chart-fallback>${escapeHtml(chartSourceNote)}</p>` : ""}
+        </div>
+        <div class="income-impact-chart-explainer" data-income-impact-chart-explainer>
+          <span data-income-impact-y-axis-explanation>Y-axis: Remaining available resources.</span>
+          <span data-income-impact-x-axis-explanation>X-axis: Years relative to death; key markers show dates and client age.</span>
         </div>
         <div class="income-impact-runway-snapshot" data-income-impact-runway-snapshot>
           <div>
@@ -1127,9 +1142,12 @@
             <strong data-income-impact-runway-annual-use>${escapeHtml(annualShortfallLabel)}</strong>
           </div>
         </div>
+        ${renderRunwayMarkerLegend()}
         <svg class="income-impact-timeline-svg income-impact-runway-svg" data-income-impact-runway-svg width="${model.width}" height="${model.height}" viewBox="0 0 ${model.width} ${model.height}" role="img" aria-label="Projected remaining resources from five years before death through the selected horizon">
           <rect x="0" y="0" width="${model.width}" height="${model.height}" rx="18" class="income-impact-runway-frame"></rect>
           ${model.preDeathRegion ? `<rect data-income-impact-pre-death-region x="${model.preDeathRegion.x}" y="${model.preDeathRegion.y}" width="${model.preDeathRegion.width}" height="${model.preDeathRegion.height}" class="income-impact-pre-death-region"></rect>` : ""}
+          ${model.preDeathRegion ? `<text x="${model.preDeathRegion.x + 12}" y="${model.yTop + 24}" text-anchor="start" class="income-impact-runway-region-label" data-income-impact-pre-death-region-label>5-year context before death</text>` : ""}
+          <text x="${Math.round(((model.deathPoint?.x || model.xStart) + model.xEnd) / 2)}" y="${model.yTop + 24}" text-anchor="middle" class="income-impact-runway-region-label" data-income-impact-post-death-region-label>Survivor financial runway</text>
           <g class="income-impact-chart-grid" aria-hidden="true">
             <line x1="${model.xStart}" y1="${model.yBottom}" x2="${model.xEnd}" y2="${model.yBottom}"></line>
             <line x1="${model.xStart}" y1="${model.yTop}" x2="${model.xStart}" y2="${model.yBottom}"></line>
@@ -1182,7 +1200,7 @@
             <g data-income-impact-runway-death data-income-impact-runway-death-date="${escapeHtml(model.deathPoint.date)}">
               <line x1="${model.deathPoint.x}" y1="${model.yTop}" x2="${model.deathPoint.x}" y2="${model.yBottom}" class="income-impact-runway-death-line"></line>
               <circle cx="${model.deathPoint.x}" cy="${model.deathPoint.y}" r="10" class="income-impact-runway-death-marker"></circle>
-              <text x="${model.deathPoint.x}" y="${model.yTop - 24}" text-anchor="middle" class="income-impact-runway-death-label">Death</text>
+              <text x="${model.deathPoint.x}" y="${model.yTop - 24}" text-anchor="middle" class="income-impact-runway-death-label" data-income-impact-death-marker-label>Death occurs</text>
               <text x="${model.deathPoint.x}" y="${model.yTop - 5}" text-anchor="middle" class="income-impact-runway-year-date">${escapeHtml(model.deathPoint.date || "")}</text>
             </g>
           ` : ""}
@@ -1202,9 +1220,10 @@
           <span>${escapeHtml(formatTimelineAxisDate(model.axisStart) || "Start")}</span>
           <span>${escapeHtml(formatTimelineAxisDate(model.axisEnd) || "End")}</span>
         </div>
+        <p class="income-impact-axis-note" data-income-impact-axis-note>Remaining available resources are plotted above $0. Timing runs from 5 years before death through the selected projection horizon.</p>
         ${unmetNeedLabel ? `
           <div class="income-impact-unmet-need" data-income-impact-accumulated-unmet-need>
-            <span>Accumulated unmet need after resources are depleted</span>
+            <span>Accumulated unmet need after resources are depleted. Unmet need is tracked separately after resources reach $0.</span>
             <strong data-income-impact-accumulated-unmet-need-value>${escapeHtml(unmetNeedLabel)}</strong>
           </div>
         ` : ""}

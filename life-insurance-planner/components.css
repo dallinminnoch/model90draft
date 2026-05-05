@@ -14719,6 +14719,35 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
 }
 
+.income-impact-chart-explainer,
+.income-impact-axis-note {
+  color: #627086;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.income-impact-chart-explainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+}
+
+.income-impact-chart-explainer span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid rgba(213, 220, 233, 0.78);
+  border-radius: 999px;
+  background: #ffffff;
+  font-weight: 740;
+}
+
+.income-impact-axis-note {
+  margin: -0.35rem 0 0;
+  font-weight: 720;
+}
+
 .income-impact-runway-snapshot {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -14787,6 +14816,12 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   font-weight: 700;
 }
 
+.income-impact-runway-region-label {
+  fill: #536176;
+  font-size: 12px;
+  font-weight: 820;
+}
+
 .income-impact-runway-start-label {
   fill: #17202c;
   font-size: 15px;
@@ -14846,6 +14881,50 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   color: #b42318;
   font-size: 0.95rem;
   font-weight: 840;
+}
+
+.income-impact-marker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(213, 220, 233, 0.78);
+  border-radius: 0.6rem;
+  background: #ffffff;
+}
+
+.income-impact-marker-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: #536176;
+  font-size: 0.72rem;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+.income-impact-marker-legend i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #647085;
+}
+
+.income-impact-marker-legend [data-income-impact-marker-legend-item="critical"] i {
+  background: #b42318;
+}
+
+.income-impact-marker-legend [data-income-impact-marker-legend-item="at-risk"] i {
+  background: #b54708;
+}
+
+.income-impact-marker-legend [data-income-impact-marker-legend-item="caution"] i {
+  background: #c98200;
+}
+
+.income-impact-marker-legend [data-income-impact-marker-legend-item="covered"] i {
+  background: #2f7357;
 }
 
 .income-impact-marker-lanes {
