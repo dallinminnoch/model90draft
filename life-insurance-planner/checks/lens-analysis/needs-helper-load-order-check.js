@@ -15,6 +15,7 @@ const REQUIRED_NEEDS_HELPERS = [
   "app/features/lens-analysis/healthcare-expense-inflation-calculations.js"
 ];
 const ANALYSIS_METHODS_SCRIPT = "app/features/lens-analysis/analysis-methods.js";
+const ANALYSIS_SETTINGS_ADAPTER_SCRIPT = "app/features/lens-analysis/analysis-settings-adapter.js";
 
 function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
@@ -94,10 +95,32 @@ assert.ok(
   needsPages.includes("pages/analysis-estimate.html"),
   "analysis-estimate.html should be recognized as a page that calls Needs Analysis."
 );
-assert.ok(
-  needsPages.includes("pages/income-loss-impact.html"),
-  "income-loss-impact.html should be recognized as a page that calls Needs Analysis."
+const incomeImpactScriptPaths = getScriptPaths(
+  "pages/income-loss-impact.html",
+  readRepoFile("pages/income-loss-impact.html")
 );
+assert.equal(
+  needsPages.includes("pages/income-loss-impact.html"),
+  false,
+  "income-loss-impact.html should not be recognized as a page that calls Needs Analysis."
+);
+assert.equal(
+  pagesWithMethods.includes("pages/income-loss-impact.html"),
+  false,
+  "income-loss-impact.html should not load analysis-methods.js."
+);
+assert.equal(
+  incomeImpactScriptPaths.includes(ANALYSIS_SETTINGS_ADAPTER_SCRIPT),
+  false,
+  "income-loss-impact.html should not load analysis-settings-adapter.js."
+);
+REQUIRED_NEEDS_HELPERS.forEach(function (helperPath) {
+  assert.equal(
+    incomeImpactScriptPaths.includes(helperPath),
+    false,
+    `income-loss-impact.html should not load old Needs helper ${helperPath}.`
+  );
+});
 
 assert.ok(
   pagesWithMethods.length >= needsPages.length,

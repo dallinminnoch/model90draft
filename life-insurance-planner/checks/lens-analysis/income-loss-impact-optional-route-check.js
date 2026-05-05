@@ -19,6 +19,11 @@ function getMainContent(source, relativePath) {
   return match[0];
 }
 
+function getScriptSources(source) {
+  return Array.from(source.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*><\/script>/g))
+    .map(function (match) { return match[1]; });
+}
+
 function getChangedFiles(relativePaths) {
   try {
     const output = childProcess.execFileSync(
@@ -73,6 +78,7 @@ const appConfigSource = readRepoFile("app/core/config.js");
 const workspaceSideNavSource = readRepoFile("workspace-side-nav.js");
 
 const incomeLossMain = getMainContent(incomeLossHtml, "pages/income-loss-impact.html");
+const incomeLossScriptSources = getScriptSources(incomeLossHtml);
 
 assert.match(
   profileHtml,
@@ -151,6 +157,70 @@ assert.match(
   incomeLossHtml,
   /income-loss-impact-timeline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
   "Income Impact should load the pure timeline helper before the display module."
+);
+[
+  "../app/features/lens-analysis/analysis-methods.js",
+  "../app/features/lens-analysis/analysis-settings-adapter.js",
+  "../app/features/lens-analysis/inflation-projection-calculations.js",
+  "../app/features/lens-analysis/education-funding-projection-calculations.js",
+  "../app/features/lens-analysis/final-expense-inflation-calculations.js",
+  "../app/features/lens-analysis/healthcare-expense-inflation-calculations.js"
+].forEach(function (scriptPath) {
+  assert.equal(
+    incomeLossScriptSources.includes(scriptPath),
+    false,
+    `Income Impact should not load old Needs result script ${scriptPath}.`
+  );
+});
+[
+  "../app/features/lens-analysis/schema.js",
+  "../app/features/lens-analysis/asset-taxonomy.js",
+  "../app/features/lens-analysis/asset-library.js",
+  "../app/features/lens-analysis/debt-taxonomy.js",
+  "../app/features/lens-analysis/debt-library.js",
+  "../app/features/lens-analysis/expense-taxonomy.js",
+  "../app/features/lens-analysis/expense-library.js",
+  "../app/features/lens-analysis/block-outputs.js",
+  "../app/features/lens-analysis/helpers/income-tax-calculations.js",
+  "../app/features/lens-analysis/helpers/housing-support-calculations.js",
+  "../app/features/lens-analysis/blocks/existing-coverage.js",
+  "../app/features/lens-analysis/blocks/offset-assets.js",
+  "../app/features/lens-analysis/blocks/survivor-scenario.js",
+  "../app/features/lens-analysis/blocks/tax-context.js",
+  "../app/features/lens-analysis/blocks/income-net-income.js",
+  "../app/features/lens-analysis/blocks/debt-payoff.js",
+  "../app/features/lens-analysis/blocks/housing-ongoing-support.js",
+  "../app/features/lens-analysis/blocks/non-housing-ongoing-support.js",
+  "../app/features/lens-analysis/blocks/education-support.js",
+  "../app/features/lens-analysis/blocks/final-expenses.js",
+  "../app/features/lens-analysis/blocks/transition-needs.js",
+  "../app/features/lens-analysis/normalize-lens-model.js",
+  "../app/features/lens-analysis/asset-treatment-calculations.js",
+  "../app/features/lens-analysis/asset-growth-projection-calculations.js",
+  "../app/features/lens-analysis/cash-reserve-calculations.js",
+  "../app/features/lens-analysis/lens-model-builder.js",
+  "../app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
+  "../app/features/lens-analysis/income-loss-impact-display.js"
+].forEach(function (scriptPath) {
+  assert.ok(
+    incomeLossScriptSources.includes(scriptPath),
+    `Income Impact should keep required model/display script ${scriptPath}.`
+  );
+});
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/normalize-lens-model.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js"),
+  "Income Impact should load the normalizer before the Lens model builder."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-timeline-calculations.js"),
+  "Income Impact should load the Lens model builder before the timeline helper."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-timeline-calculations.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-display.js"),
+  "Income Impact should load the timeline helper before the display module."
 );
 assert.doesNotMatch(incomeLossHtml, /Continue to Estimate Need/);
 assert.doesNotMatch(incomeLossHtml, /Optional Review/);
