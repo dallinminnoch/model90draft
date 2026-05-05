@@ -1100,6 +1100,7 @@
     const deathAge = toOptionalNumber(output?.selectedDeath?.age);
     const projectionHorizonYears = resolveProjectionYears(options);
     const mortgageTreatmentOverride = resolveMortgageTreatmentOverride(options);
+    const evaluateIncomeImpactWarningEvents = lensAnalysis.evaluateIncomeImpactWarningEvents;
 
     scenarioTimeline.scenario = {
       deathAge: deathAge == null ? null : deathAge,
@@ -1129,8 +1130,51 @@
       "education-risk-marker-evaluation"
     ];
 
+    function applyPivotalWarningEvents() {
+      if (typeof evaluateIncomeImpactWarningEvents !== "function") {
+        return;
+      }
+
+      const evaluatedEvents = evaluateIncomeImpactWarningEvents({
+        scenarioTimeline,
+        financialRunway,
+        timelineEvents: output.timelineEvents,
+        dataGaps: output.dataGaps,
+        warnings: output.warnings,
+        lensModel: isPlainObject(safeInput.lensModel) ? safeInput.lensModel : {}
+      });
+
+      if (!isPlainObject(evaluatedEvents)) {
+        return;
+      }
+
+      scenarioTimeline.pivotalEvents = {
+        risks: Array.isArray(evaluatedEvents.risks) ? evaluatedEvents.risks.slice() : [],
+        stable: Array.isArray(evaluatedEvents.stable) ? evaluatedEvents.stable.slice() : []
+      };
+      scenarioTimeline.trace.warningEvents = isPlainObject(evaluatedEvents.trace)
+        ? {
+            evaluatedDefinitions: Array.isArray(evaluatedEvents.trace.evaluatedDefinitions)
+              ? evaluatedEvents.trace.evaluatedDefinitions.slice()
+              : [],
+            deferredDefinitions: Array.isArray(evaluatedEvents.trace.deferredDefinitions)
+              ? evaluatedEvents.trace.deferredDefinitions.slice()
+              : [],
+            source: evaluatedEvents.trace.source || "income-impact-warning-events-library"
+          }
+        : {
+            evaluatedDefinitions: [],
+            deferredDefinitions: [],
+            source: "income-impact-warning-events-library"
+          };
+      scenarioTimeline.trace.deferred = scenarioTimeline.trace.deferred.filter(function (item) {
+        return item !== "pivotal-warning-events-library";
+      });
+    }
+
     if (!deathDate) {
       scenarioTimeline.trace.formula.push("scenarioTimeline points were not generated because selected death date is unavailable.");
+      applyPivotalWarningEvents();
       return scenarioTimeline;
     }
 
@@ -1148,6 +1192,7 @@
     const sourcePaths = uniqueStrings(financialRunway.sourcePaths || []);
     if (netAvailableResources == null || annualShortfall == null) {
       scenarioTimeline.trace.formula.push("scenarioTimeline resource points require net available resources and annual shortfall.");
+      applyPivotalWarningEvents();
       return scenarioTimeline;
     }
 
@@ -1279,6 +1324,7 @@
       scenarioTimeline.trace.formula.push("resources depleted marker deferred because depletion date is unavailable.");
     }
 
+    applyPivotalWarningEvents();
     return scenarioTimeline;
   }
 

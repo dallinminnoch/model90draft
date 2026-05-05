@@ -119,6 +119,7 @@ function run() {
   assert.doesNotMatch(helperSource, /\bwindow\s*[.\[]/);
   assert.doesNotMatch(helperSource, /\blocalStorage\s*[.\[]|\bsessionStorage\s*[.\[]/);
   assert.match(helperSource, /resolveFinancialRunwayInputs/);
+  assert.match(helperSource, /evaluateIncomeImpactWarningEvents/);
 
   const calculateIncomeLossImpactTimeline = loadHelper();
   assert.strictEqual(

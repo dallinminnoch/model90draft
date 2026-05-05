@@ -14,7 +14,15 @@ const helperPath = path.join(
   "lens-analysis",
   "income-loss-impact-timeline-calculations.js"
 );
+const warningLibraryPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "income-impact-warning-events-library.js"
+);
 const helperSource = fs.readFileSync(helperPath, "utf8");
+const warningLibrarySource = fs.readFileSync(warningLibraryPath, "utf8");
 
 function loadHelper() {
   const context = {
@@ -27,6 +35,7 @@ function loadHelper() {
   };
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(warningLibrarySource, context, { filename: warningLibraryPath });
   vm.runInContext(helperSource, context, { filename: helperPath });
   return context.LensApp.lensAnalysis.calculateIncomeLossImpactTimeline;
 }
@@ -196,15 +205,43 @@ assert.equal(timeline.eventLanes.income.length, 0);
 assert.equal(timeline.eventLanes.dataQuality.length, 0);
 assert.ok(Array.isArray(timeline.pivotalEvents.risks));
 assert.ok(Array.isArray(timeline.pivotalEvents.stable));
-assert.equal(timeline.pivotalEvents.risks.length, 0);
-assert.equal(timeline.pivotalEvents.stable.length, 0);
+assert.ok(timeline.pivotalEvents.risks.length > 0);
+assert.ok(timeline.pivotalEvents.stable.length > 0);
+assert.equal(timeline.pivotalEvents.risks.some((event) => event.severity === "stable"), false);
+assert.ok(timeline.pivotalEvents.stable.some((event) => event.type === "deathEvent"));
+assert.ok(timeline.pivotalEvents.stable.some((event) => event.type === "existingCoverageAvailable"));
+assert.ok(timeline.pivotalEvents.stable.some((event) => event.type === "liquidAssetsAvailable"));
+assert.equal(timeline.pivotalEvents.risks[0].severity, "critical");
+assert.ok(timeline.pivotalEvents.risks.some((event) => event.type === "resourcesDepleted" && event.severity === "critical"));
+assert.ok(timeline.pivotalEvents.risks.some((event) => event.type === "sixMonthsOfSupportRemaining" && event.severity === "critical"));
+assert.ok(timeline.pivotalEvents.risks.some((event) => event.type === "oneYearOfSupportRemaining" && event.severity === "at-risk"));
+assert.ok(timeline.trace.warningEvents.evaluatedDefinitions.includes("resourcesDepleted"));
 assert.ok(
-  timeline.trace.deferred.includes("pivotal-warning-events-library"),
-  "warning event library should be explicitly deferred."
+  !timeline.trace.deferred.includes("pivotal-warning-events-library"),
+  "warning event library should not be deferred when it is loaded."
 );
 assert.ok(
   timeline.trace.deferred.includes("mortgage-treatment-override-behavior"),
   "mortgage override behavior should be explicitly deferred."
+);
+
+const missingCoverageOutput = calculateIncomeLossImpactTimeline({
+  lensModel: createLensModel({
+    existingCoverage: {
+      totalExistingCoverage: undefined
+    }
+  }),
+  valuationDate: "2026-01-01",
+  options: {
+    scenario: {
+      deathAge: 50,
+      projectionHorizonYears: 10
+    }
+  }
+});
+assert.ok(
+  missingCoverageOutput.scenarioTimeline.pivotalEvents.risks.some((event) => event.type === "partialEstimateOnly"),
+  "partial-estimate runway should create partialEstimateOnly risk."
 );
 
 const lowHorizonOutput = calculateIncomeLossImpactTimeline({
@@ -245,5 +282,26 @@ const invalidMortgageOverrideOutput = calculateIncomeLossImpactTimeline({
   }
 });
 assert.equal(invalidMortgageOverrideOutput.scenarioTimeline.scenario.mortgageTreatmentOverride, "followAssumptions");
+
+const noShortfallOutput = calculateIncomeLossImpactTimeline({
+  lensModel: createLensModel({
+    survivorScenario: {
+      survivorNetAnnualIncome: 50000
+    },
+    ongoingSupport: {
+      annualTotalEssentialSupportCost: 30000
+    }
+  }),
+  valuationDate: "2026-01-01",
+  options: {
+    scenario: {
+      deathAge: 50
+    }
+  }
+});
+assert.ok(
+  noShortfallOutput.scenarioTimeline.pivotalEvents.stable.some((event) => event.type === "noShortfall"),
+  "no-shortfall runway should create a stable noShortfall event."
+);
 
 console.log("income-loss-impact-scenario-timeline-check passed");
