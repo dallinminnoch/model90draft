@@ -14761,6 +14761,10 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   fill: #ffffff;
 }
 
+.income-impact-pre-death-region {
+  fill: rgba(100, 112, 133, 0.08);
+}
+
 .income-impact-runway-area {
   fill: rgba(64, 84, 184, 0.16);
 }
@@ -14799,6 +14803,49 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   fill: #7a271a;
   font-size: 13px;
   font-weight: 760;
+}
+
+.income-impact-runway-death-line {
+  stroke: #17202c;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.income-impact-runway-death-marker {
+  fill: #17202c;
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.income-impact-runway-death-label {
+  fill: #17202c;
+  font-size: 15px;
+  font-weight: 820;
+}
+
+.income-impact-unmet-need {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.62rem 0.75rem;
+  border: 1px solid rgba(180, 35, 24, 0.2);
+  border-radius: 0.55rem;
+  background: #fff8f6;
+}
+
+.income-impact-unmet-need span {
+  color: #7a271a;
+  font-size: 0.78rem;
+  font-weight: 780;
+  line-height: 1.25;
+}
+
+.income-impact-unmet-need strong {
+  color: #b42318;
+  font-size: 0.95rem;
+  font-weight: 840;
 }
 
 .income-impact-marker-lanes {
