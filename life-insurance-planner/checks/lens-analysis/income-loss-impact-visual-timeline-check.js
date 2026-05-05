@@ -83,9 +83,66 @@ const fixture = {
     {
       id: "yearsOfFinancialSecurity",
       displayValue: "8 years 4 months",
-      status: "available"
+      status: "complete"
     }
   ],
+  financialRunway: {
+    status: "complete",
+    startingResources: 600000,
+    existingCoverage: 500000,
+    availableAssets: 100000,
+    immediateObligations: 100000,
+    netAvailableResources: 500000,
+    annualHouseholdNeed: 90000,
+    annualSurvivorIncome: 30000,
+    annualShortfall: 60000,
+    yearsOfSecurity: 8,
+    monthsOfSecurity: 4,
+    totalMonthsOfSecurity: 100,
+    depletionYear: 2038,
+    depletionDate: "2038-10-15",
+    projectionYears: 10,
+    projectionPoints: [
+      {
+        yearIndex: 0,
+        date: "2030-06-15",
+        age: 50,
+        startingBalance: 500000,
+        annualShortfall: 60000,
+        endingBalance: 500000,
+        status: "starting"
+      },
+      {
+        yearIndex: 1,
+        date: "2031-06-15",
+        age: 51,
+        startingBalance: 500000,
+        annualShortfall: 60000,
+        endingBalance: 440000,
+        status: "available"
+      },
+      {
+        yearIndex: 9,
+        date: "2039-06-15",
+        age: 59,
+        startingBalance: 20000,
+        annualShortfall: 60000,
+        endingBalance: -40000,
+        status: "depleted"
+      },
+      {
+        yearIndex: 10,
+        date: "2040-06-15",
+        age: 60,
+        startingBalance: -40000,
+        annualShortfall: 60000,
+        endingBalance: -100000,
+        status: "depleted"
+      }
+    ],
+    warnings: [],
+    dataGaps: []
+  },
   timelineEvents: [
     { type: "death", date: "2030-06-15", age: 50, label: "Selected death event" },
     { type: "incomeStops", date: "2030-06-15", age: 50, label: "Insured income stops", amount: 120000 },
@@ -131,7 +188,7 @@ const unavailableCardHtml = harness.renderFinancialSecurityCard({
     {
       id: "yearsOfFinancialSecurity",
       displayValue: "Not available",
-      status: "notAvailable"
+      status: "not-available"
     }
   ],
   warnings: [
@@ -144,23 +201,61 @@ const unavailableCardHtml = harness.renderFinancialSecurityCard({
 });
 assert.match(unavailableCardHtml, /Years of Financial Security was not calculated because annual shortfall inputs are missing\./);
 
+const partialCardHtml = harness.renderFinancialSecurityCard({
+  summaryCards: [
+    {
+      id: "yearsOfFinancialSecurity",
+      displayValue: "Partial estimate",
+      status: "partial-estimate"
+    }
+  ],
+  financialRunway: {
+    status: "partial-estimate",
+    yearsOfSecurity: 0,
+    monthsOfSecurity: 0,
+    warnings: [
+      {
+        code: "partial-financial-runway",
+        message: "Financial runway is a partial estimate because critical facts are missing."
+      }
+    ],
+    dataGaps: [
+      {
+        code: "missing-existing-coverage",
+        label: "Existing coverage is missing."
+      }
+    ]
+  }
+});
+assert.match(partialCardHtml, /Partial estimate/);
+assert.match(partialCardHtml, /Computed from incomplete facts: 0 years 0 months/);
+assert.doesNotMatch(
+  partialCardHtml,
+  /data-income-impact-financial-security-value[^>]*>0 years 0 months/,
+  "Partial states should not show a clean 0 years 0 months as the primary value."
+);
+
 const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /data-income-impact-visual-timeline/);
-assert.match(timelineHtml, /data-income-impact-visual-timeline-events/);
+assert.match(timelineHtml, /data-income-impact-financial-runway/);
+assert.match(timelineHtml, /data-income-impact-runway-primary-visual/);
+assert.match(timelineHtml, /Financial Runway if Death Occurs at Selected Age/);
+assert.match(timelineHtml, /data-income-impact-runway-snapshot/);
+assert.match(timelineHtml, /Money available at death/);
+assert.match(timelineHtml, /data-income-impact-runway-line/);
+assert.match(timelineHtml, /data-income-impact-runway-point/);
+assert.match(timelineHtml, /data-income-impact-runway-area/);
+assert.match(timelineHtml, /data-income-impact-runway-year-marker/);
+assert.match(timelineHtml, /data-income-impact-runway-depletion-date="2038-10-15"/);
+assert.match(timelineHtml, /Available after obligations: \$500,000/);
 assert.doesNotMatch(timelineHtml, /Placeholder visualization|placeholder-only/);
-assert.doesNotMatch(timelineHtml, /Built from helper events|calculateIncomeLossImpactTimeline/);
+assert.doesNotMatch(timelineHtml, /Built from helper events|calculateIncomeLossImpactTimeline|Selected scenario timeline/);
 assert.match(
   timelineHtml,
   /Timeline updates as you adjust the selected death age\./,
-  "Visual timeline should use advisor-facing update copy."
+  "Runway timeline should use advisor-facing update copy."
 );
-const sameDateGroupMatches = timelineHtml.match(/data-income-impact-visual-event-group-date="2030-06-15"/g) || [];
-assert.equal(sameDateGroupMatches.length, 1, "Same-date events should render as one visual group.");
-assert.match(
-  timelineHtml,
-  /data-income-impact-visual-event-group-date="2030-06-15"[\s\S]*?data-income-impact-visual-event-group-count="8"/,
-  "Same-date visual group should carry the grouped event count."
-);
+assert.doesNotMatch(timelineHtml, /data-income-impact-visual-event-group|data-income-impact-visual-event-type/);
 
 [
   "death",
@@ -178,13 +273,8 @@ assert.match(
 ].forEach(function (type) {
   assert.match(
     timelineHtml,
-    new RegExp(`data-income-impact-visual-event-type="${type}"`),
-    `Visual timeline should render ${type}.`
-  );
-  assert.match(
-    timelineHtml,
     new RegExp(`data-income-impact-timeline-event-type="${type}"`),
-    `Event list should render ${type}.`
+    `Supporting event list should render ${type}.`
   );
 });
 assert.match(timelineHtml, /Dependent date of birth is missing\./);

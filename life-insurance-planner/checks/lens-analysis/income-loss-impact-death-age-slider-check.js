@@ -165,11 +165,57 @@ function createHarness(options = {}) {
                 age,
                 date
               },
+              financialRunway: age == null
+                ? {
+                    status: "not-available",
+                    projectionPoints: [],
+                    warnings: [],
+                    dataGaps: []
+                  }
+                : {
+                    status: "complete",
+                    startingResources: 600000,
+                    existingCoverage: 500000,
+                    availableAssets: 100000,
+                    immediateObligations: 100000,
+                    netAvailableResources: 500000,
+                    annualHouseholdNeed: 90000,
+                    annualSurvivorIncome: 30000,
+                    annualShortfall: 60000,
+                    yearsOfSecurity: age,
+                    monthsOfSecurity: 0,
+                    totalMonthsOfSecurity: age * 12,
+                    depletionDate: date,
+                    depletionYear: date ? Number(date.slice(0, 4)) : null,
+                    projectionYears: 5,
+                    projectionPoints: [
+                      {
+                        yearIndex: 0,
+                        date,
+                        age,
+                        startingBalance: 500000,
+                        annualShortfall: 60000,
+                        endingBalance: 500000,
+                        status: "starting"
+                      },
+                      {
+                        yearIndex: 5,
+                        date: `${1985 + age}-06-15`,
+                        age: age + 5,
+                        startingBalance: 260000,
+                        annualShortfall: 60000,
+                        endingBalance: 200000,
+                        status: "available"
+                      }
+                    ],
+                    warnings: [],
+                    dataGaps: []
+                  },
               summaryCards: [
                 {
                   id: "yearsOfFinancialSecurity",
                   displayValue: age == null ? "Not available" : `${age} years 0 months`,
-                  status: age == null ? "notAvailable" : "available"
+                  status: age == null ? "not-available" : "complete"
                 }
               ],
               timelineEvents: age == null
@@ -257,8 +303,9 @@ assert.equal(available.helperCalls[0].selectedDeathAge, 45);
 assert.match(available.host.innerHTML, /45 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 45/);
 assert.match(available.host.innerHTML, /data-income-impact-visual-timeline/);
-assert.match(available.host.innerHTML, /data-income-impact-visual-event-date="2026-01-01"/);
-assert.match(available.host.innerHTML, /data-income-impact-visual-event-group-date="2026-01-01"/);
+assert.match(available.host.innerHTML, /data-income-impact-financial-runway/);
+assert.match(available.host.innerHTML, /data-income-impact-runway-point-date="2026-01-01"/);
+assert.match(available.host.innerHTML, /data-income-impact-runway-line/);
 assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeholder-only|Built from helper events|calculateIncomeLossImpactTimeline/);
 
 available.slider.value = "44";
@@ -278,8 +325,8 @@ assert.equal(available.ageValue.textContent, "50");
 assert.equal(available.dateValue.textContent, "2030-06-15");
 assert.match(available.host.innerHTML, /50 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 50/);
-assert.match(available.host.innerHTML, /data-income-impact-visual-event-date="2030-06-15"/);
-assert.match(available.host.innerHTML, /data-income-impact-visual-event-group-date="2030-06-15"/);
+assert.match(available.host.innerHTML, /data-income-impact-runway-point-date="2030-06-15"/);
+assert.match(available.host.innerHTML, /data-income-impact-financial-runway/);
 assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeholder-only|Built from helper events|calculateIncomeLossImpactTimeline/);
 assert.deepEqual(available.storageWrites, [], "slider changes should not write to browser storage.");
 

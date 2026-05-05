@@ -257,13 +257,70 @@ function run() {
 
   const yearsCard = findCard(output, "yearsOfFinancialSecurity");
   assert(yearsCard, "Years of Financial Security summary card should exist");
-  assert.strictEqual(yearsCard.status, "available");
+  assert.strictEqual(yearsCard.status, "complete");
   assert.strictEqual(yearsCard.value, 8.333333);
   assert.strictEqual(yearsCard.displayValue, "8 years 4 months");
+  assert(output.financialRunway, "helper should return financialRunway output");
+  assert.strictEqual(output.financialRunway.status, "complete");
+  assert.strictEqual(output.financialRunway.startingResources, 600000);
+  assert.strictEqual(output.financialRunway.existingCoverage, 500000);
+  assert.strictEqual(output.financialRunway.availableAssets, 100000);
+  assert.strictEqual(output.financialRunway.immediateObligations, 100000);
+  assert.strictEqual(output.financialRunway.netAvailableResources, 500000);
+  assert.strictEqual(output.financialRunway.annualHouseholdNeed, 90000);
+  assert.strictEqual(output.financialRunway.annualSurvivorIncome, 30000);
+  assert.strictEqual(output.financialRunway.annualShortfall, 60000);
+  assert.strictEqual(output.financialRunway.yearsOfSecurity, 8);
+  assert.strictEqual(output.financialRunway.monthsOfSecurity, 4);
+  assert.strictEqual(output.financialRunway.totalMonthsOfSecurity, 100);
+  assert.strictEqual(output.financialRunway.depletionYear, 2038);
+  assert.strictEqual(output.financialRunway.depletionDate, "2038-10-15");
+  assert.strictEqual(output.financialRunway.projectionYears, 40);
+  assert.strictEqual(output.financialRunway.projectionPoints.length, 41);
+  assert.deepEqual(
+    output.financialRunway.projectionPoints[0],
+    {
+      yearIndex: 0,
+      date: "2030-06-15",
+      age: 50,
+      startingBalance: 500000,
+      annualShortfall: 60000,
+      endingBalance: 500000,
+      status: "starting"
+    },
+    "projection should start at selected death date with net resources after obligations"
+  );
+  assert.strictEqual(output.financialRunway.projectionPoints[1].endingBalance, 440000);
+  assert(
+    output.financialRunway.projectionPoints.some((point) => point.status === "depleted"),
+    "projection should identify depleted points when annual shortfall consumes resources"
+  );
   assert(
     output.trace.formula.some((formula) => formula.includes("yearsOfFinancialSecurity")),
     "trace should document the years of financial security formula"
   );
+
+  const lowProjectionOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel(),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50,
+    options: {
+      projectionYears: 2
+    }
+  });
+  assert.strictEqual(lowProjectionOutput.financialRunway.projectionYears, 5);
+  assert.strictEqual(lowProjectionOutput.financialRunway.projectionPoints.length, 6);
+
+  const highProjectionOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel(),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50,
+    options: {
+      projectionYears: 125
+    }
+  });
+  assert.strictEqual(highProjectionOutput.financialRunway.projectionYears, 100);
+  assert.strictEqual(highProjectionOutput.financialRunway.projectionPoints.length, 101);
 
   const noShortfallOutput = calculateIncomeLossImpactTimeline({
     lensModel: createFullLensModel({
@@ -279,8 +336,11 @@ function run() {
   });
   const noShortfallCard = findCard(noShortfallOutput, "yearsOfFinancialSecurity");
   assert.strictEqual(noShortfallCard.value, null);
-  assert.strictEqual(noShortfallCard.status, "noShortfall");
+  assert.strictEqual(noShortfallCard.status, "no-shortfall");
   assert.strictEqual(noShortfallCard.displayValue, "No shortfall");
+  assert.strictEqual(noShortfallOutput.financialRunway.status, "no-shortfall");
+  assert.strictEqual(noShortfallOutput.financialRunway.annualShortfall, 0);
+  assert.strictEqual(noShortfallOutput.financialRunway.depletionDate, null);
   assert(
     findWarning(noShortfallOutput, "no-annual-household-shortfall"),
     "invalid or non-positive shortfall should not invent years"
@@ -301,12 +361,72 @@ function run() {
   });
   const missingShortfallCard = findCard(missingShortfallOutput, "yearsOfFinancialSecurity");
   assert.strictEqual(missingShortfallCard.value, null);
-  assert.strictEqual(missingShortfallCard.status, "notAvailable");
+  assert.strictEqual(missingShortfallCard.status, "not-available");
   assert.strictEqual(missingShortfallCard.displayValue, "Not available");
+  assert.strictEqual(missingShortfallOutput.financialRunway.status, "not-available");
+  assert.deepEqual(missingShortfallOutput.financialRunway.projectionPoints, []);
   assert(
     findWarning(missingShortfallOutput, "missing-annual-shortfall"),
     "missing shortfall inputs should warn and avoid invented years"
   );
+
+  const missingCoverageOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel({
+      existingCoverage: {
+        totalExistingCoverage: undefined
+      }
+    }),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50
+  });
+  const missingCoverageCard = findCard(missingCoverageOutput, "yearsOfFinancialSecurity");
+  assert.strictEqual(missingCoverageOutput.financialRunway.status, "partial-estimate");
+  assert.strictEqual(missingCoverageCard.status, "partial-estimate");
+  assert.strictEqual(missingCoverageCard.displayValue, "Partial estimate");
+  assert.notStrictEqual(
+    missingCoverageCard.displayValue,
+    "0 years 0 months",
+    "missing coverage should not produce a clean complete 0 years 0 months display"
+  );
+  assert(findDataGap(missingCoverageOutput, "missing-existing-coverage"));
+  assert(findWarning(missingCoverageOutput, "partial-financial-runway"));
+
+  const missingAssetsOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel({
+      offsetAssets: {
+        totalAvailableOffsetAssetValue: undefined,
+        cashSavings: {},
+        currentEmergencyFund: {},
+        brokerageAccounts: {}
+      }
+    }),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50
+  });
+  assert.strictEqual(missingAssetsOutput.financialRunway.status, "partial-estimate");
+  assert.strictEqual(findCard(missingAssetsOutput, "yearsOfFinancialSecurity").displayValue, "Partial estimate");
+  assert(findDataGap(missingAssetsOutput, "missing-assets-liquidity"));
+
+  const missingObligationsOutput = calculateIncomeLossImpactTimeline({
+    lensModel: createFullLensModel({
+      finalExpenses: {
+        totalFinalExpenseNeed: undefined
+      },
+      transitionNeeds: {
+        totalTransitionNeed: undefined
+      },
+      debtPayoff: {
+        totalDebtPayoffNeed: undefined,
+        mortgageBalance: undefined,
+        creditCardBalance: undefined,
+        autoLoanBalance: undefined
+      }
+    }),
+    valuationDate: "2026-01-01",
+    selectedDeathAge: 50
+  });
+  assert.strictEqual(missingObligationsOutput.financialRunway.status, "partial-estimate");
+  assert(findDataGap(missingObligationsOutput, "missing-immediate-obligations"));
 
   const sparseOutput = calculateIncomeLossImpactTimeline({
     lensModel: {},
@@ -322,6 +442,8 @@ function run() {
   assert.strictEqual(typeof sparseOutput.incomeImpact, "object");
   assert.strictEqual(typeof sparseOutput.obligations, "object");
   assert.strictEqual(typeof sparseOutput.liquidity, "object");
+  assert.strictEqual(typeof sparseOutput.financialRunway, "object");
+  assert(Array.isArray(sparseOutput.financialRunway.projectionPoints), "financialRunway projection points should be stable");
   assert(Array.isArray(sparseOutput.dependents.rows), "dependent rows should be stable");
   assert(Array.isArray(sparseOutput.dependents.milestones), "dependent milestones should be stable");
   assert(findDataGap(sparseOutput, "missing-client-dob"), "sparse output should report missing DOB");

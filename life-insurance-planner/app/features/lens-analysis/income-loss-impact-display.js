@@ -352,23 +352,66 @@
     }) || null;
   }
 
+  function getFinancialRunway(timelineResult) {
+    return isPlainObject(timelineResult?.financialRunway) ? timelineResult.financialRunway : {};
+  }
+
+  function formatYearsMonthsFromRunway(runway, fallbackValue) {
+    const years = toOptionalNumber(runway?.yearsOfSecurity);
+    const months = toOptionalNumber(runway?.monthsOfSecurity);
+    if (years != null && months != null) {
+      return `${years} ${years === 1 ? "year" : "years"} ${months} ${months === 1 ? "month" : "months"}`;
+    }
+    return fallbackValue || UNAVAILABLE_COPY;
+  }
+
+  function normalizeRunwayStatus(status) {
+    const normalized = String(status || "").trim();
+    if (normalized === "available") {
+      return "complete";
+    }
+    if (normalized === "notAvailable") {
+      return "not-available";
+    }
+    if (normalized === "noShortfall") {
+      return "no-shortfall";
+    }
+    return normalized || "not-available";
+  }
+
+  function findRunwayReason(warnings, dataGaps) {
+    return (
+      warnings.find(function (warning) {
+        const code = String(warning?.code || "");
+        const message = String(warning?.message || "");
+        return code.includes("annual")
+          || code.includes("resources")
+          || code.includes("partial")
+          || message.includes("Years of Financial Security")
+          || message.includes("Financial runway");
+      })?.message
+      || dataGaps[0]?.label
+      || "Complete income, survivor income, coverage, liquidity, and obligation facts to calculate this estimate."
+    );
+  }
+
   function renderFinancialSecurityCard(timelineResult) {
     const card = findSummaryCard(timelineResult, "yearsOfFinancialSecurity");
-    const displayValue = card?.displayValue || UNAVAILABLE_COPY;
-    const status = card?.status || "notAvailable";
-    const warnings = Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : [];
-    const dataGaps = Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : [];
-    const unavailableReason = status === "available"
+    const runway = getFinancialRunway(timelineResult);
+    const status = normalizeRunwayStatus(runway.status || card?.status);
+    const computedDisplayValue = formatYearsMonthsFromRunway(runway, card?.displayValue);
+    const displayValue = status === "no-shortfall"
+      ? "No shortfall identified"
+      : (status === "partial-estimate"
+        ? "Partial estimate"
+        : (status === "complete" ? computedDisplayValue : UNAVAILABLE_COPY));
+    const warnings = Array.isArray(runway.warnings) ? runway.warnings : (Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : []);
+    const dataGaps = Array.isArray(runway.dataGaps) ? runway.dataGaps : (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []);
+    const unavailableReason = status === "complete"
       ? ""
-      : (
-        warnings.find(function (warning) {
-          return String(warning?.code || "").includes("annual")
-            || String(warning?.code || "").includes("resources")
-            || String(warning?.message || "").includes("Years of Financial Security");
-        })?.message
-        || dataGaps[0]?.label
-        || "Complete income, survivor income, coverage, liquidity, and obligation facts to calculate this estimate."
-      );
+      : (status === "partial-estimate"
+        ? `Computed from incomplete facts: ${computedDisplayValue}. ${findRunwayReason(warnings, dataGaps)}`
+        : findRunwayReason(warnings, dataGaps));
 
     return `
       <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card data-income-impact-summary-card-id="yearsOfFinancialSecurity" data-income-impact-summary-status="${escapeHtml(status)}">
@@ -380,6 +423,45 @@
         <p data-income-impact-financial-security-explanation>Existing coverage + available assets, less immediate obligations, divided by estimated annual household shortfall.</p>
         ${unavailableReason ? `<p data-income-impact-financial-security-reason>${escapeHtml(unavailableReason)}</p>` : ""}
       </article>
+    `;
+  }
+
+  function renderRunwayMetricCard(id, title, value, description, status) {
+    return `
+      <article class="income-impact-card" data-income-impact-runway-metric-card="${escapeHtml(id)}" data-income-impact-runway-metric-status="${escapeHtml(status || "notAvailable")}">
+        <div class="income-impact-card-header">
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(description)}</p>
+        </div>
+        <strong data-income-impact-runway-metric-value="${escapeHtml(id)}">${escapeHtml(formatCurrency(value))}</strong>
+      </article>
+    `;
+  }
+
+  function renderFinancialRunwayCards(timelineResult) {
+    const runway = getFinancialRunway(timelineResult);
+    return `
+      ${renderRunwayMetricCard(
+        "immediateResources",
+        "Immediate Money Available",
+        runway.startingResources,
+        "Existing coverage plus available assets at the selected death date.",
+        runway.startingResources == null ? "notAvailable" : "available"
+      )}
+      ${renderRunwayMetricCard(
+        "immediateObligations",
+        "Immediate Obligations",
+        runway.immediateObligations,
+        "Final expenses, transition needs, and debt payoff obligations where available.",
+        runway.immediateObligations == null ? "notAvailable" : "available"
+      )}
+      ${renderRunwayMetricCard(
+        "annualShortfall",
+        "Annual Household Shortfall",
+        runway.annualShortfall,
+        "Annual household need less survivor income.",
+        runway.annualShortfall == null ? "notAvailable" : (runway.annualShortfall <= 0 ? "no-shortfall" : "available")
+      )}
     `;
   }
 
@@ -402,236 +484,217 @@
     }).format(date);
   }
 
-  function getTimelineEventColor(event) {
-    const type = String(event?.type || "");
-    if (type === "death") {
-      return "#111827";
-    }
-    if (type === "incomeStops" || type === "debtObligation" || type === "mortgageObligation" || type === "finalExpensesDue") {
-      return "#b42318";
-    }
-    if (type === "coverageAvailable" || type === "liquidityCheckpoint") {
-      return "#166534";
-    }
-    if (type === "survivorIncomeContinues" || type === "householdExpenseRunway" || type === "supportNeedEnds") {
-      return "#1d4ed8";
-    }
-    if (type === "dependentMilestone" || type === "educationWindow") {
-      return "#6d28d9";
-    }
-    if (type === "dataGap" || (Array.isArray(event?.warnings) && event.warnings.length)) {
-      return "#b45309";
-    }
-    return "#475569";
-  }
-
-  function getTimelineEventLabel(event) {
-    const label = String(event?.label || event?.type || "Timeline event").trim();
-    return label.length > 42 ? `${label.slice(0, 39)}...` : label;
-  }
-
   function getTimelineEventAmountLabel(event) {
     const amount = toOptionalNumber(event?.amount);
     return amount == null ? "Fact-based event" : formatCurrency(amount);
   }
 
-  function getTimelineGroupTiming(group) {
-    const firstEvent = Array.isArray(group?.events) ? group.events[0] : null;
-    if (group?.date) {
-      const pieces = [group.date];
-      const age = group.events.find(function (event) {
-        return event?.age != null;
-      })?.age;
-      if (age != null) {
-        pieces.push(`Age ${age}`);
-      }
-      return pieces.join(" - ");
+  function getRunwayPointBalance(point) {
+    const endingBalance = toOptionalNumber(point?.endingBalance);
+    if (endingBalance != null) {
+      return endingBalance;
     }
-
-    return firstEvent ? formatTimelineTiming(firstEvent) : "Timing unavailable";
+    return toOptionalNumber(point?.startingBalance);
   }
 
-  function getTimelineGroupTitle(group) {
-    const events = Array.isArray(group?.events) ? group.events : [];
-    if (events.length === 1) {
-      return getTimelineEventLabel(events[0]);
-    }
-
-    return `${events.length} events`;
-  }
-
-  function getTimelineGroupColor(group) {
-    const events = Array.isArray(group?.events) ? group.events : [];
-    const priorityTypes = [
-      "death",
-      "incomeStops",
-      "coverageAvailable",
-      "liquidityCheckpoint",
-      "survivorIncomeContinues",
-      "finalExpensesDue",
-      "debtObligation",
-      "mortgageObligation",
-      "dataGap"
-    ];
-    const priorityEvent = priorityTypes
-      .map(function (type) {
-        return events.find(function (event) {
-          return event?.type === type;
-        });
-      })
-      .find(Boolean);
-
-    return getTimelineEventColor(priorityEvent || events[0]);
-  }
-
-  function buildVisualTimelineGroups(events) {
-    const sortedEvents = events
-      .map(function (event, index) {
-        return {
-          event,
-          index,
-          date: parseDateOnlyValue(event.date)
-        };
-      })
-      .sort(function (left, right) {
-        if (left.date && right.date) {
-          return left.date.getTime() - right.date.getTime() || left.index - right.index;
-        }
-        if (left.date) {
-          return -1;
-        }
-        if (right.date) {
-          return 1;
-        }
-        return left.index - right.index;
-      });
-    const groupedEvents = [];
-    const groupByKey = new Map();
-
-    sortedEvents.forEach(function (item) {
-      const key = item.event.date ? `date:${item.event.date}` : `undated:${item.index}`;
-      let group = groupByKey.get(key);
-      if (!group) {
-        group = {
-          key,
-          date: item.event.date || "",
-          parsedDate: item.date,
-          firstIndex: item.index,
-          events: []
-        };
-        groupByKey.set(key, group);
-        groupedEvents.push(group);
-      }
-      group.events.push(item.event);
-    });
-
-    const width = 960;
-    const height = 380;
+  function buildRunwayChartModel(timelineResult) {
+    const runway = getFinancialRunway(timelineResult);
+    const points = Array.isArray(runway.projectionPoints) ? runway.projectionPoints : [];
+    const width = 1040;
+    const height = 420;
     const xStart = 82;
     const xEnd = width - 82;
-    const markerY = 190;
-    const datedGroups = groupedEvents.filter(function (group) {
-      return group.parsedDate;
+    const yTop = 86;
+    const yBottom = 292;
+    const maxYearIndex = Math.max(1, points[points.length - 1]?.yearIndex || runway.projectionYears || 1);
+    const balances = points
+      .map(getRunwayPointBalance)
+      .filter(function (value) {
+        return value != null;
+      })
+      .concat(toOptionalNumber(runway.netAvailableResources) || 0);
+    const maxBalance = Math.max(1, ...balances.map(function (value) {
+      return Math.max(0, value);
+    }));
+    const chartPoints = points.map(function (point) {
+      const balance = getRunwayPointBalance(point);
+      const clampedBalance = Math.max(0, balance == null ? 0 : balance);
+      const x = xStart + ((point.yearIndex || 0) / maxYearIndex) * (xEnd - xStart);
+      const y = yBottom - ((clampedBalance / maxBalance) * (yBottom - yTop));
+      return {
+        ...point,
+        x: Math.round(x * 100) / 100,
+        y: Math.round(y * 100) / 100,
+        balance
+      };
     });
+    const totalMonths = toOptionalNumber(runway.totalMonthsOfSecurity);
+    const depletionX = totalMonths == null
+      ? null
+      : xStart + Math.min(maxYearIndex, Math.max(0, totalMonths / 12)) / maxYearIndex * (xEnd - xStart);
+    const markerStep = maxYearIndex <= 20 ? 5 : 10;
+    const yearMarkerIndexes = [0];
+    for (let markerIndex = markerStep; markerIndex < maxYearIndex; markerIndex += markerStep) {
+      yearMarkerIndexes.push(markerIndex);
+    }
+    if (!yearMarkerIndexes.includes(maxYearIndex)) {
+      yearMarkerIndexes.push(maxYearIndex);
+    }
 
     return {
       width,
       height,
       xStart,
       xEnd,
-      markerY,
-      axisStart: datedGroups[0]?.date || groupedEvents[0]?.date || "",
-      axisEnd: datedGroups[datedGroups.length - 1]?.date || groupedEvents[groupedEvents.length - 1]?.date || "",
-      groups: groupedEvents.map(function (group, index) {
-        const groupCount = groupedEvents.length;
-        const distributedX = groupCount <= 1
-          ? (xStart + ((xEnd - xStart) / 2))
-          : xStart + ((index / (groupCount - 1)) * (xEnd - xStart));
-        const groupSide = index % 2 === 0 ? "top" : "bottom";
-        const titleY = groupSide === "top" ? 36 : 238;
-        const timingY = titleY + 18;
-        const eventStartY = timingY + 22;
-        const anchor = distributedX < 170 ? "start" : (distributedX > width - 170 ? "end" : "middle");
-
+      yTop,
+      yBottom,
+      maxBalance,
+      maxYearIndex,
+      axisStart: points[0]?.date || timelineResult?.selectedDeath?.date || "",
+      axisEnd: points[points.length - 1]?.date || "",
+      points: chartPoints,
+      linePath: chartPoints.map(function (point, index) {
+        return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
+      }).join(" "),
+      areaPath: chartPoints.length
+        ? `${chartPoints.map(function (point, index) {
+            return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
+          }).join(" ")} L ${chartPoints[chartPoints.length - 1].x} ${yBottom} L ${chartPoints[0].x} ${yBottom} Z`
+        : "",
+      yearMarkers: yearMarkerIndexes.map(function (yearIndex) {
+        const x = xStart + ((yearIndex || 0) / maxYearIndex) * (xEnd - xStart);
+        const point = chartPoints.find(function (candidate) {
+          return candidate.yearIndex === yearIndex;
+        });
         return {
-          ...group,
-          x: Math.round(distributedX * 100) / 100,
-          anchor,
-          markerY,
-          groupSide,
-          titleY,
-          timingY,
-          eventStartY,
-          color: getTimelineGroupColor(group)
+          yearIndex,
+          x: Math.round(x * 100) / 100,
+          date: point?.date || ""
         };
-      })
+      }),
+      depletionPoint: depletionX == null || !runway.depletionDate
+        ? null
+        : {
+            x: Math.round(depletionX * 100) / 100,
+            y: yBottom,
+            date: runway.depletionDate
+          }
     };
   }
 
-  function renderVisualTimelineChart(timelineResult) {
-    const events = getTimelineEvents(timelineResult);
-    if (!events.length) {
-      return `<div class="income-impact-empty-inline" data-income-impact-visual-timeline>${escapeHtml(EMPTY_MESSAGE)}</div>`;
+  function renderFinancialRunwayChart(timelineResult) {
+    const runway = getFinancialRunway(timelineResult);
+    const status = normalizeRunwayStatus(runway.status);
+    const model = buildRunwayChartModel(timelineResult);
+    if (!model.points.length) {
+      return `<div class="income-impact-empty-inline" data-income-impact-visual-timeline data-income-impact-financial-runway data-income-impact-runway-status="${escapeHtml(status)}">Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed.</div>`;
     }
 
-    const model = buildVisualTimelineGroups(events);
+    const startLabel = runway.netAvailableResources == null
+      ? UNAVAILABLE_COPY
+      : formatCurrency(runway.netAvailableResources);
+    const startingResourcesLabel = runway.startingResources == null
+      ? UNAVAILABLE_COPY
+      : formatCurrency(runway.startingResources);
+    const obligationsLabel = runway.immediateObligations == null
+      ? UNAVAILABLE_COPY
+      : formatCurrency(runway.immediateObligations);
+    const annualShortfallLabel = runway.annualShortfall == null
+      ? UNAVAILABLE_COPY
+      : formatCurrency(runway.annualShortfall);
+    const statusNote = status === "partial-estimate"
+      ? "Partial estimate. Review the data needed below before relying on this runway."
+      : (status === "not-available"
+        ? "Runway not available. Complete the data needed below."
+        : "");
+    const depletionLabel = status === "no-shortfall"
+      ? "No depletion projected from annual shortfall in this preview."
+      : (status === "partial-estimate"
+        ? "Partial estimate: review data gaps before relying on depletion timing."
+        : (runway.depletionDate ? `Estimated depletion: ${runway.depletionDate}` : "Estimated depletion not available."));
 
     return `
-      <div class="income-impact-timeline-chart" data-income-impact-visual-timeline data-income-impact-visual-event-count="${escapeHtml(String(events.length))}" aria-label="Household impact timeline visualization">
+      <div class="income-impact-timeline-chart" data-income-impact-visual-timeline data-income-impact-financial-runway data-income-impact-runway-primary-visual data-income-impact-runway-status="${escapeHtml(status)}" aria-label="Financial runway if death occurs at selected age">
         <div class="income-impact-chart-topline">
-          <strong>Selected scenario timeline</strong>
+          <strong>Financial Runway if Death Occurs at Selected Age</strong>
           <p>Timeline updates as you adjust the selected death age. This preview does not change the LENS recommendation.</p>
+          ${statusNote ? `<p data-income-impact-runway-status-note>${escapeHtml(statusNote)}</p>` : ""}
         </div>
-        <svg class="income-impact-timeline-svg" viewBox="0 0 ${model.width} ${model.height}" role="img" aria-label="Fact-based household impact timeline for selected death scenario">
+        <div class="income-impact-runway-snapshot" data-income-impact-runway-snapshot>
+          <div>
+            <span>Money available at death</span>
+            <strong data-income-impact-runway-starting-total>${escapeHtml(startingResourcesLabel)}</strong>
+          </div>
+          <div>
+            <span>Immediate obligations</span>
+            <strong data-income-impact-runway-obligations-total>${escapeHtml(obligationsLabel)}</strong>
+          </div>
+          <div>
+            <span>Used each year</span>
+            <strong data-income-impact-runway-annual-use>${escapeHtml(annualShortfallLabel)}</strong>
+          </div>
+        </div>
+        <svg class="income-impact-timeline-svg income-impact-runway-svg" data-income-impact-runway-svg width="${model.width}" height="${model.height}" viewBox="0 0 ${model.width} ${model.height}" role="img" aria-label="Projected remaining resources after immediate obligations and annual household shortfall">
+          <rect x="0" y="0" width="${model.width}" height="${model.height}" rx="18" class="income-impact-runway-frame"></rect>
           <g class="income-impact-chart-grid" aria-hidden="true">
-            <line x1="${model.xStart}" y1="${model.markerY}" x2="${model.xEnd}" y2="${model.markerY}"></line>
-            <line x1="${model.xStart}" y1="64" x2="${model.xStart}" y2="318"></line>
-            <line x1="${model.xEnd}" y1="64" x2="${model.xEnd}" y2="318"></line>
+            <line x1="${model.xStart}" y1="${model.yBottom}" x2="${model.xEnd}" y2="${model.yBottom}"></line>
+            <line x1="${model.xStart}" y1="${model.yTop}" x2="${model.xStart}" y2="${model.yBottom}"></line>
+            <line x1="${model.xEnd}" y1="${model.yTop}" x2="${model.xEnd}" y2="${model.yBottom}"></line>
+            <line x1="${model.xStart}" y1="${model.yTop}" x2="${model.xEnd}" y2="${model.yTop}"></line>
           </g>
-          <g class="income-impact-timeline-columns" data-income-impact-visual-timeline-events>
-            ${model.groups.map(function (item) {
-              const eventLineSpacing = 14;
+          <g class="income-impact-runway-year-markers" aria-hidden="true">
+            ${model.yearMarkers.map(function (marker) {
               return `
-                <g
-                  data-income-impact-visual-event-group
-                  data-income-impact-visual-event-group-date="${escapeHtml(item.date || "undated")}"
-                  data-income-impact-visual-event-group-count="${escapeHtml(String(item.events.length))}"
-                  data-income-impact-visual-event-group-side="${escapeHtml(item.groupSide)}"
-                >
-                  <line class="income-impact-timeline-column" x1="${item.x}" y1="${item.groupSide === "top" ? Math.min(item.markerY - 12, item.eventStartY + (item.events.length * eventLineSpacing)) : item.markerY}" x2="${item.x}" y2="${item.groupSide === "top" ? item.markerY : item.titleY - 10}"></line>
-                  <circle cx="${item.x}" cy="${item.markerY}" r="9" fill="${item.color}" stroke="#ffffff" stroke-width="3"></circle>
-                  <text x="${item.x}" y="${item.titleY}" text-anchor="${item.anchor}" fill="${item.color}" font-size="16" font-weight="700">${escapeHtml(getTimelineGroupTitle(item))}</text>
-                  <text x="${item.x}" y="${item.timingY}" text-anchor="${item.anchor}" fill="#647085" font-size="13">${escapeHtml(getTimelineGroupTiming(item))}</text>
-                  ${item.events.map(function (event, eventIndex) {
-                    const eventColor = getTimelineEventColor(event);
-                    const amountLabel = getTimelineEventAmountLabel(event);
-                    return `
-                      <text
-                        data-income-impact-visual-event
-                        data-income-impact-visual-event-type="${escapeHtml(event.type)}"
-                        data-income-impact-visual-event-date="${escapeHtml(event.date || "")}"
-                        data-income-impact-visual-event-age="${escapeHtml(event.age == null ? "" : String(event.age))}"
-                        data-income-impact-visual-event-warning="${Array.isArray(event?.warnings) && event.warnings.length ? "true" : "false"}"
-                        x="${item.x}"
-                        y="${item.eventStartY + (eventIndex * eventLineSpacing)}"
-                        text-anchor="${item.anchor}"
-                        fill="${eventColor}"
-                        font-size="12"
-                        font-weight="650"
-                      >${escapeHtml(`${getTimelineEventLabel(event)}${amountLabel === "Fact-based event" ? "" : ` - ${amountLabel}`}`)}</text>
-                    `;
-                  }).join("")}
-                  <title>${escapeHtml(`${getTimelineGroupTiming(item)}: ${item.events.map(function (groupEvent) { return groupEvent.label || groupEvent.type; }).join("; ")}`)}</title>
+                <g data-income-impact-runway-year-marker data-income-impact-runway-year-index="${escapeHtml(String(marker.yearIndex))}">
+                  <line x1="${marker.x}" y1="${model.yTop}" x2="${marker.x}" y2="${model.yBottom}" class="income-impact-runway-year-line"></line>
+                  <text x="${marker.x}" y="${model.yBottom + 34}" text-anchor="middle" class="income-impact-runway-year-label">Year ${escapeHtml(String(marker.yearIndex))}</text>
+                  <text x="${marker.x}" y="${model.yBottom + 54}" text-anchor="middle" class="income-impact-runway-year-date">${escapeHtml(formatTimelineAxisDate(marker.date) || "")}</text>
                 </g>
               `;
             }).join("")}
           </g>
+          ${model.areaPath ? `<path class="income-impact-runway-area" data-income-impact-runway-area d="${escapeHtml(model.areaPath)}"></path>` : ""}
+          <path class="income-impact-timeline-line income-impact-timeline-line--reference" d="M ${model.xStart} ${model.yBottom} L ${model.xEnd} ${model.yBottom}"></path>
+          <path class="income-impact-timeline-line income-impact-timeline-line--primary" data-income-impact-runway-line d="${escapeHtml(model.linePath)}"></path>
+          <g data-income-impact-runway-points>
+            ${model.points.map(function (point) {
+              return `
+                <circle
+                  data-income-impact-runway-point
+                  data-income-impact-runway-point-year-index="${escapeHtml(String(point.yearIndex))}"
+                  data-income-impact-runway-point-date="${escapeHtml(point.date || "")}"
+                  data-income-impact-runway-point-age="${escapeHtml(point.age == null ? "" : String(point.age))}"
+                  data-income-impact-runway-point-balance="${escapeHtml(point.balance == null ? "" : String(point.balance))}"
+                  data-income-impact-runway-point-status="${escapeHtml(point.status || "")}"
+                  cx="${point.x}"
+                  cy="${point.y}"
+                  r="${point.yearIndex === 0 ? 7 : 4.5}"
+                  fill="${point.status === "depleted" ? "#b42318" : "#4054b8"}"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                >
+                  <title>${escapeHtml(`${point.date || "Date unavailable"}: ${formatCurrency(point.balance)}`)}</title>
+                </circle>
+              `;
+            }).join("")}
+          </g>
+          ${model.depletionPoint ? `
+            <g data-income-impact-runway-depletion data-income-impact-runway-depletion-date="${escapeHtml(model.depletionPoint.date)}">
+              <line x1="${model.depletionPoint.x}" y1="${model.yTop}" x2="${model.depletionPoint.x}" y2="${model.yBottom}" stroke="#b42318" stroke-width="1.5" stroke-dasharray="5 5"></line>
+              <circle cx="${model.depletionPoint.x}" cy="${model.yBottom}" r="9" fill="#b42318" stroke="#ffffff" stroke-width="3"></circle>
+              <text x="${model.depletionPoint.x}" y="${model.yTop - 24}" text-anchor="middle" class="income-impact-runway-depletion-label">Money runs out</text>
+              <text x="${model.depletionPoint.x}" y="${model.yTop - 5}" text-anchor="middle" class="income-impact-runway-depletion-date">${escapeHtml(model.depletionPoint.date)}</text>
+            </g>
+          ` : ""}
+          <text x="${model.xStart}" y="42" text-anchor="start" class="income-impact-runway-start-label" data-income-impact-runway-starting-resources>Available after obligations: ${escapeHtml(startLabel)}</text>
+          <text x="${model.xStart}" y="${model.yTop - 10}" text-anchor="start" class="income-impact-runway-axis-label">${escapeHtml(formatCurrency(model.maxBalance))}</text>
+          <text x="${model.xStart}" y="${model.yBottom - 10}" text-anchor="start" class="income-impact-runway-axis-label">$0</text>
         </svg>
         <div class="income-impact-chart-axis" aria-hidden="true">
           <span>${escapeHtml(formatTimelineAxisDate(model.axisStart) || "Start")}</span>
           <span>${escapeHtml(formatTimelineAxisDate(model.axisEnd) || "End")}</span>
         </div>
-        <div class="income-impact-chart-hover-label">Timeline updates as you adjust the selected death age.</div>
+        <div class="income-impact-chart-hover-label">${escapeHtml(depletionLabel)}</div>
       </div>
     `;
   }
@@ -718,12 +781,15 @@
     return `
       <article class="income-impact-card income-impact-card--wide" data-income-impact-helper-timeline>
         <div class="income-impact-card-header">
-          <h3>Household Impact Timeline</h3>
-          <p>Fact-based events from linked profile and Protection Modeling information for the selected death age/date.</p>
+          <h3>Financial Runway if Death Occurs at Selected Age</h3>
+          <p>Fact-based runway from linked profile and Protection Modeling information for the selected death age/date.</p>
         </div>
         <div class="income-impact-timeline" aria-label="Fact-based household impact timeline">
-          ${renderVisualTimelineChart(timelineResult)}
-          ${renderTimelineEvents(timelineResult)}
+          ${renderFinancialRunwayChart(timelineResult)}
+          <details class="income-impact-supporting-events" data-income-impact-helper-timeline-events-panel>
+            <summary>Supporting timeline events</summary>
+            ${renderTimelineEvents(timelineResult)}
+          </details>
           ${renderDataGaps(timelineResult)}
           ${renderWarnings(timelineResult)}
         </div>
@@ -735,8 +801,9 @@
     const timelineResult = isPlainObject(context?.timelineResult) ? context.timelineResult : {};
     host.innerHTML = `
       <div class="income-impact-grid">
-        ${renderFinancialSecurityCard(timelineResult)}
         ${renderTimeline(timelineResult)}
+        ${renderFinancialSecurityCard(timelineResult)}
+        ${renderFinancialRunwayCards(timelineResult)}
       </div>
     `;
   }

@@ -311,8 +311,8 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /renderFinancialSecurityCard\(timelineResult\)[\s\S]*renderTimeline\(timelineResult\)/,
-  "Income Impact should render the financial security card separately before the timeline."
+  /renderTimeline\(timelineResult\)[\s\S]*renderFinancialSecurityCard\(timelineResult\)[\s\S]*renderFinancialRunwayCards\(timelineResult\)/,
+  "Income Impact should render the financial runway as the primary visual before summary cards."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -378,13 +378,56 @@ assert.doesNotMatch(
 
 const displayHarness = createIncomeImpactDisplayHarness(incomeLossDisplaySource);
 const helperDisplayFixture = {
+  selectedDeath: {
+    date: "2030-06-15",
+    age: 50
+  },
   summaryCards: [
     {
       id: "yearsOfFinancialSecurity",
       displayValue: "8 years 4 months",
-      status: "available"
+      status: "complete"
     }
   ],
+  financialRunway: {
+    status: "complete",
+    startingResources: 600000,
+    existingCoverage: 500000,
+    availableAssets: 100000,
+    immediateObligations: 100000,
+    netAvailableResources: 500000,
+    annualHouseholdNeed: 90000,
+    annualSurvivorIncome: 30000,
+    annualShortfall: 60000,
+    yearsOfSecurity: 8,
+    monthsOfSecurity: 4,
+    totalMonthsOfSecurity: 100,
+    depletionYear: 2038,
+    depletionDate: "2038-10-15",
+    projectionYears: 10,
+    projectionPoints: [
+      {
+        yearIndex: 0,
+        date: "2030-06-15",
+        age: 50,
+        startingBalance: 500000,
+        annualShortfall: 60000,
+        endingBalance: 500000,
+        status: "starting"
+      },
+      {
+        yearIndex: 10,
+        date: "2040-06-15",
+        age: 60,
+        startingBalance: -40000,
+        annualShortfall: 60000,
+        endingBalance: -100000,
+        status: "depleted"
+      }
+    ],
+    warnings: [],
+    dataGaps: []
+  },
   timelineEvents: [
     {
       type: "death",
@@ -437,7 +480,27 @@ const helperTimelineHtml = displayHarness.renderTimeline(helperDisplayFixture);
 assert.match(
   helperTimelineHtml,
   /data-income-impact-visual-timeline/,
-  "Timeline should expose a helper-driven visual timeline."
+  "Timeline should expose a runway visual timeline."
+);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-financial-runway/,
+  "Timeline should render the financial runway visual."
+);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-runway-primary-visual/,
+  "Financial runway should be the primary visual."
+);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-runway-snapshot/,
+  "Financial runway should expose visible resource and obligation summary."
+);
+assert.match(
+  helperTimelineHtml,
+  /data-income-impact-runway-line/,
+  "Timeline should render the financial runway projection line."
 );
 assert.match(
   helperTimelineHtml,
@@ -449,16 +512,7 @@ assert.match(
   /data-income-impact-timeline-event-type="incomeStops"/,
   "Timeline should render helper event types."
 );
-assert.match(
-  helperTimelineHtml,
-  /data-income-impact-visual-event-type="incomeStops"/,
-  "Visual timeline should render helper event types."
-);
-assert.match(
-  helperTimelineHtml,
-  /data-income-impact-visual-event-group-date="2030-06-15"[\s\S]*?data-income-impact-visual-event-group-count="2"/,
-  "Visual timeline should group same-date helper events."
-);
+assert.doesNotMatch(helperTimelineHtml, /data-income-impact-visual-event-type|data-income-impact-visual-event-group/);
 assert.match(
   helperTimelineHtml,
   /data-income-impact-timeline-event-type="dataGap"/,

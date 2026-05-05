@@ -11,6 +11,9 @@
 
   const CALCULATION_VERSION = 1;
   const DEFAULT_DEPENDENT_MILESTONE_AGE = 18;
+  const DEFAULT_RUNWAY_PROJECTION_YEARS = 40;
+  const MIN_RUNWAY_PROJECTION_YEARS = 5;
+  const MAX_RUNWAY_PROJECTION_YEARS = 100;
   const MONEY_FORMATTER = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -55,6 +58,14 @@
     return Number.isFinite(value) ? Number(value.toFixed(6)) : null;
   }
 
+  function clampNumber(value, min, max) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return null;
+    }
+    return Math.max(min, Math.min(max, number));
+  }
+
   function formatMoney(value) {
     const number = toOptionalNumber(value);
     return number == null ? "Not available" : MONEY_FORMATTER.format(number);
@@ -70,6 +81,24 @@
     const years = Math.floor(totalMonths / 12);
     const months = totalMonths % 12;
     return `${years} ${years === 1 ? "year" : "years"} ${months} ${months === 1 ? "month" : "months"}`;
+  }
+
+  function getYearsMonthsParts(value) {
+    const yearsValue = toOptionalNumber(value);
+    if (yearsValue == null || yearsValue < 0) {
+      return {
+        years: null,
+        months: null,
+        totalMonths: null
+      };
+    }
+
+    const totalMonths = Math.round(yearsValue * 12);
+    return {
+      years: Math.floor(totalMonths / 12),
+      months: totalMonths % 12,
+      totalMonths
+    };
   }
 
   function createWarning(code, message, details) {
@@ -279,6 +308,60 @@
     return dataGap;
   }
 
+  function resolveProjectionYears(options) {
+    const projectionYears = Math.round(
+      clampNumber(
+        isPlainObject(options) ? options.projectionYears : null,
+        MIN_RUNWAY_PROJECTION_YEARS,
+        MAX_RUNWAY_PROJECTION_YEARS
+      ) || DEFAULT_RUNWAY_PROJECTION_YEARS
+    );
+    return Math.max(MIN_RUNWAY_PROJECTION_YEARS, Math.min(MAX_RUNWAY_PROJECTION_YEARS, projectionYears));
+  }
+
+  function buildRunwayProjectionPoints(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const deathDate = parseDateOnly(safeOptions.selectedDeathDate);
+    const selectedDeathAge = toOptionalNumber(safeOptions.selectedDeathAge);
+    const netAvailableResources = toOptionalNumber(safeOptions.netAvailableResources);
+    const annualShortfall = toOptionalNumber(safeOptions.annualShortfall);
+    const projectionYears = resolveProjectionYears(safeOptions.options);
+
+    if (netAvailableResources == null || annualShortfall == null || !deathDate) {
+      return [];
+    }
+
+    const effectiveShortfall = Math.max(0, annualShortfall);
+    const points = [];
+    for (let yearIndex = 0; yearIndex <= projectionYears; yearIndex += 1) {
+      const startingBalance = netAvailableResources - (effectiveShortfall * Math.max(0, yearIndex - 1));
+      const endingBalance = yearIndex === 0
+        ? netAvailableResources
+        : netAvailableResources - (effectiveShortfall * yearIndex);
+      const pointDate = addYears(deathDate.date, yearIndex);
+      let status = "available";
+      if (yearIndex === 0) {
+        status = "starting";
+      } else if (effectiveShortfall <= 0) {
+        status = "no-shortfall";
+      } else if (startingBalance <= 0 || endingBalance <= 0) {
+        status = "depleted";
+      }
+
+      points.push({
+        yearIndex,
+        date: formatDateOnly(pointDate),
+        age: selectedDeathAge == null ? null : roundYears(selectedDeathAge + yearIndex),
+        startingBalance: roundMoney(startingBalance),
+        annualShortfall: roundMoney(effectiveShortfall),
+        endingBalance: roundMoney(endingBalance),
+        status
+      });
+    }
+
+    return points;
+  }
+
   function getDependentDetailsFromProfile(profileRecord) {
     const source = profileRecord?.dependentDetails;
     if (Array.isArray(source)) {
@@ -388,6 +471,27 @@
       incomeImpact: {},
       obligations: {},
       liquidity: {},
+      financialRunway: {
+        status: "not-available",
+        startingResources: null,
+        existingCoverage: null,
+        availableAssets: null,
+        immediateObligations: null,
+        netAvailableResources: null,
+        annualHouseholdNeed: null,
+        annualSurvivorIncome: null,
+        annualShortfall: null,
+        yearsOfSecurity: null,
+        monthsOfSecurity: null,
+        totalMonthsOfSecurity: null,
+        depletionYear: null,
+        depletionDate: null,
+        projectionYears: DEFAULT_RUNWAY_PROJECTION_YEARS,
+        projectionPoints: [],
+        sourcePaths: [],
+        warnings: [],
+        dataGaps: []
+      },
       dependents: {
         rows: [],
         milestones: []
@@ -624,6 +728,13 @@
       { value: transitionNeeds.value, sourcePath: transitionNeeds.sourcePath },
       { value: immediateDebt.value, sourcePath: immediateDebt.sourcePaths.join(" + ") }
     ]);
+    if (immediateObligations.value == null) {
+      addDataGap(output, "missing-immediate-obligations", "Immediate obligation facts are missing.", [
+        "finalExpenses.totalFinalExpenseNeed",
+        "transitionNeeds.totalTransitionNeed",
+        "debtPayoff.totalDebtPayoffNeed"
+      ]);
+    }
 
     const totalResources = sumKnownValues([
       { value: coverage.value, sourcePath: coverage.sourcePath },
@@ -663,17 +774,43 @@
     }
 
     let yearsOfFinancialSecurity = null;
-    let yearsOfFinancialSecurityStatus = "notAvailable";
+    let yearsOfFinancialSecurityStatus = "not-available";
+    const missingRunwayCriticalFacts = [];
+    if (coverage.value == null) {
+      missingRunwayCriticalFacts.push("existing coverage");
+    }
+    if (availableAssetValue == null) {
+      missingRunwayCriticalFacts.push("available assets/liquidity");
+    }
+    if (immediateObligations.value == null) {
+      missingRunwayCriticalFacts.push("immediate obligations");
+    }
+    if (resolvedAnnualEssentialExpenses == null) {
+      missingRunwayCriticalFacts.push("annual household need");
+    }
+    if (survivorIncome.value == null) {
+      missingRunwayCriticalFacts.push("survivor income");
+    }
+
     if (annualShortfall == null) {
       output.warnings.push(createWarning("missing-annual-shortfall", "Years of Financial Security was not calculated because annual shortfall inputs are missing."));
     } else if (annualShortfall <= 0) {
-      yearsOfFinancialSecurityStatus = "noShortfall";
+      yearsOfFinancialSecurityStatus = "no-shortfall";
       output.warnings.push(createWarning("no-annual-household-shortfall", "Years of Financial Security was not calculated because survivor income covers annual essential expenses."));
     } else if (netAvailableResources == null) {
       output.warnings.push(createWarning("missing-net-available-resources", "Years of Financial Security was not calculated because coverage and liquidity facts are missing."));
     } else {
       yearsOfFinancialSecurity = Math.max(0, netAvailableResources) / annualShortfall;
-      yearsOfFinancialSecurityStatus = "available";
+      yearsOfFinancialSecurityStatus = missingRunwayCriticalFacts.length ? "partial-estimate" : "complete";
+      if (missingRunwayCriticalFacts.length) {
+        output.warnings.push(createWarning(
+          "partial-financial-runway",
+          "Financial runway is a partial estimate because critical facts are missing.",
+          {
+            missingCriticalFacts: missingRunwayCriticalFacts.slice()
+          }
+        ));
+      }
       const deathDate = parseDateOnly(output.selectedDeath.date);
       if (deathDate) {
         output.timelineEvents.push(createEvent({
@@ -687,6 +824,46 @@
         }));
       }
     }
+
+    const projectionYears = resolveProjectionYears(safeInput.options);
+    const securityParts = getYearsMonthsParts(yearsOfFinancialSecurity);
+    const depletionDate = yearsOfFinancialSecurity == null
+      ? null
+      : parseDateOnly(output.selectedDeath.date);
+    const depletionDateValue = depletionDate
+      ? formatDateOnly(addMonths(depletionDate.date, securityParts.totalMonths || 0))
+      : null;
+    const runwayStatus = yearsOfFinancialSecurityStatus;
+    output.financialRunway = {
+      status: runwayStatus,
+      startingResources: totalResources.value == null ? null : roundMoney(totalResources.value),
+      existingCoverage: coverage.value == null ? null : roundMoney(coverage.value),
+      availableAssets: availableAssetValue == null ? null : roundMoney(availableAssetValue),
+      immediateObligations: immediateObligations.value == null ? null : roundMoney(immediateObligations.value),
+      netAvailableResources: netAvailableResources == null ? null : roundMoney(netAvailableResources),
+      annualHouseholdNeed: resolvedAnnualEssentialExpenses == null ? null : roundMoney(resolvedAnnualEssentialExpenses),
+      annualSurvivorIncome: survivorIncome.value == null ? null : roundMoney(survivorIncome.value),
+      annualShortfall: annualShortfall == null ? null : roundMoney(Math.max(0, annualShortfall)),
+      yearsOfSecurity: securityParts.years,
+      monthsOfSecurity: securityParts.months,
+      totalMonthsOfSecurity: securityParts.totalMonths,
+      depletionYear: depletionDateValue ? parseDateOnly(depletionDateValue)?.date.getFullYear() || null : null,
+      depletionDate: depletionDateValue,
+      projectionYears,
+      projectionPoints: buildRunwayProjectionPoints({
+        selectedDeathDate: output.selectedDeath.date,
+        selectedDeathAge: output.selectedDeath.age,
+        netAvailableResources,
+        annualShortfall,
+        options: { projectionYears }
+      }),
+      sourcePaths: totalResources.sourcePaths
+        .concat(immediateObligations.sourcePaths)
+        .concat(annualEssentialSourcePaths)
+        .concat(survivorIncome.sourcePath ? [survivorIncome.sourcePath] : []),
+      warnings: output.warnings.slice(),
+      dataGaps: output.dataGaps.slice()
+    };
 
     output.householdImpact = {
       annualEssentialExpenses: resolvedAnnualEssentialExpenses == null ? null : roundMoney(resolvedAnnualEssentialExpenses),
@@ -766,9 +943,11 @@
         "yearsOfFinancialSecurity",
         "Years of Financial Security",
         yearsOfFinancialSecurity == null ? null : roundYears(yearsOfFinancialSecurity),
-        yearsOfFinancialSecurityStatus === "noShortfall"
+        yearsOfFinancialSecurityStatus === "no-shortfall"
           ? "No shortfall"
-          : formatYearsMonths(yearsOfFinancialSecurity),
+          : (yearsOfFinancialSecurityStatus === "partial-estimate"
+            ? "Partial estimate"
+            : formatYearsMonths(yearsOfFinancialSecurity)),
         yearsOfFinancialSecurityStatus,
         ["incomeLossImpact.formula.yearsOfFinancialSecurity"]
       ),
