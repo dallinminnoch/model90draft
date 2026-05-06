@@ -54,6 +54,7 @@ function createHarness(options = {}) {
   const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
   const composerCalls = [];
   const riskCalls = [];
+  const graphCalls = [];
   const storageWrites = [];
   const profileRecord = {
     id: "slider-profile",
@@ -238,6 +239,68 @@ function createHarness(options = {}) {
               warnings: [],
               dataGaps: []
             };
+          },
+          buildIncomeImpactTimelineGraphModel(input) {
+            graphCalls.push(cloneJson(input));
+            const age = input.scenario?.scenario?.selectedDeathAge;
+            const deathDate = input.scenario?.scenario?.selectedDeathDate;
+            return {
+              status: age == null ? "partial" : "complete",
+              phases: {
+                preDeath: { startXRatio: 0, endXRatio: age <= 45 ? 0 : 0.2, available: age > 45 },
+                deathEvent: { xRatio: age <= 45 ? 0 : 0.2, date: deathDate },
+                postDeath: { startXRatio: age <= 45 ? 0 : 0.2, endXRatio: 1, available: true }
+              },
+              series: {
+                preDeathAssets: age > 45
+                  ? [
+                      { value: 200000, xRatio: 0, yRatio: 0.42 },
+                      { value: 200000 + age, xRatio: 0.2, yRatio: 0.34 }
+                    ]
+                  : [],
+                currentAnchor: age <= 45 ? { value: 200000 + (age || 0), xRatio: 0, yRatio: 0.34 } : null,
+                deathTransition: [
+                  { value: 200000 + (age || 0), xRatio: age <= 45 ? 0 : 0.2, yRatio: 0.34 },
+                  { value: 500000 + (age || 0), xRatio: age <= 45 ? 0 : 0.2, yRatio: 0.2 }
+                ],
+                postDeathResources: [
+                  { value: 500000 + (age || 0), xRatio: 0.3, yRatio: 0.2 },
+                  { value: 0, xRatio: 0.8, yRatio: 0.7 }
+                ]
+              },
+              axes: {
+                x: {
+                  ticks: [
+                    { id: "death", label: "Death", date: deathDate, xRatio: age <= 45 ? 0 : 0.2 },
+                    { id: "horizon", label: "Horizon", date: "2066-01-01", xRatio: 1 }
+                  ]
+                },
+                y: {
+                  signed: false,
+                  zeroYRatio: 0.74,
+                  ticks: [
+                    { value: 0, yRatio: 0.74 },
+                    { value: 500000, yRatio: 0.2 }
+                  ]
+                }
+              },
+              markers: [],
+              selectedEvent: null,
+              callouts: [
+                {
+                  id: age <= 45 ? "current-age-no-prior-trend" : "resources-after-obligations",
+                  label: age <= 45 ? "Before-death trend" : "Resources after obligations",
+                  value: age <= 45 ? "No prior modeled trend for current-age death." : 500000 + age,
+                  kind: age <= 45 ? "text" : "currency",
+                  phase: age <= 45 ? "preDeath" : "deathEvent"
+                }
+              ],
+              warnings: [],
+              dataGaps: [],
+              trace: {
+                calculationMethod: "income-impact-timeline-graph-model-v1"
+              }
+            };
           }
         }
       }
@@ -255,6 +318,7 @@ function createHarness(options = {}) {
     readyCallback,
     composerCalls,
     riskCalls,
+    graphCalls,
     storageWrites,
     host,
     control,
@@ -305,18 +369,18 @@ assert.equal(available.ageValue.textContent, "45");
 assert.equal(available.dateValue.textContent, "2026-01-01");
 assert.equal(available.composerCalls.length, 1);
 assert.equal(available.riskCalls.length, 1);
+assert.equal(available.graphCalls.length, 1);
 assert.equal(available.composerCalls[0].selectedDeathAge, 45);
 assert.equal(available.composerCalls[0].selectedDeathDate, "2026-01-01");
 assert.equal(available.composerCalls[0].projectionHorizonMonths, 480);
 assert.equal(available.riskCalls[0].scenario.scenario.selectedDeathAge, 45);
 assert.match(available.host.innerHTML, /45 years/);
-assert.match(available.host.innerHTML, /Death event resources/);
 assert.match(available.host.innerHTML, /Risk for age 45/);
 assert.match(available.host.innerHTML, /data-income-impact-visual-timeline/);
-assert.match(available.host.innerHTML, /data-income-impact-timeline-paused/);
-assert.match(available.host.innerHTML, /Timeline visualization paused/);
+assert.match(available.host.innerHTML, /data-income-impact-graph/);
+assert.match(available.host.innerHTML, /data-income-impact-graph-current-anchor/);
+assert.match(available.host.innerHTML, /No prior modeled trend for current-age death\./);
 assert.match(available.host.innerHTML, /2026-01-01/);
-assert.match(available.host.innerHTML, /data-income-impact-paused-fact="assets-before-death"/);
 assert.match(available.host.innerHTML, /data-income-impact-risk-panel/);
 assert.match(available.host.innerHTML, /data-income-impact-covered-panel/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-financial-runway/);
@@ -328,6 +392,7 @@ available.slider.value = "44";
 available.slider.listeners.input({ target: available.slider });
 assert.equal(available.composerCalls.length, 2);
 assert.equal(available.riskCalls.length, 2);
+assert.equal(available.graphCalls.length, 2);
 assert.equal(available.composerCalls[1].selectedDeathAge, 45);
 assert.equal(available.slider.value, "45");
 assert.equal(available.ageValue.textContent, "45");
@@ -337,6 +402,7 @@ available.slider.value = "50";
 available.slider.listeners.input({ target: available.slider });
 assert.equal(available.composerCalls.length, 3);
 assert.equal(available.riskCalls.length, 3);
+assert.equal(available.graphCalls.length, 3);
 assert.equal(available.composerCalls[2].selectedDeathAge, 50);
 assert.equal(available.composerCalls[2].selectedDeathDate, "2030-06-15");
 assert.equal(available.riskCalls[2].scenario.scenario.selectedDeathAge, 50);
@@ -344,9 +410,9 @@ assert.equal(available.slider.value, "50");
 assert.equal(available.ageValue.textContent, "50");
 assert.equal(available.dateValue.textContent, "2030-06-15");
 assert.match(available.host.innerHTML, /50 years/);
-assert.match(available.host.innerHTML, /Death event resources/);
 assert.match(available.host.innerHTML, /Risk for age 50/);
-assert.match(available.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(available.host.innerHTML, /data-income-impact-graph/);
+assert.match(available.host.innerHTML, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(available.host.innerHTML, /2030-06-15/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-point-date/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-financial-runway/);

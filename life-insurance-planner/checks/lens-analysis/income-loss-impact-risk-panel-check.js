@@ -126,6 +126,14 @@ const fixture = {
             {
               path: "timelineFacts.resourcesAfterObligations",
               value: 0
+            },
+            {
+              path: "postDeathSeries.depletion",
+              value: {
+                depleted: true,
+                depletionDate: "2038-10-15",
+                monthsCovered: 100
+              }
             }
           ],
           sourcePaths: ["financialRunway.depletionDate"]
@@ -232,6 +240,8 @@ assert.match(panelHtml, /data-income-impact-risk-evidence/);
 assert.match(panelHtml, /data-income-impact-risk-evidence-path="timelineFacts\.accumulatedUnmetNeed"/);
 assert.match(panelHtml, /\$60,000/);
 assert.match(panelHtml, /2038-10-15/);
+assert.doesNotMatch(panelHtml, /\[object Object\]/);
+assert.match(panelHtml, /Depleted: Yes; Depletion Date: 2038-10-15; Months Covered: 100/);
 assertInOrder(panelHtml, ["Resources depleted", "Household budget deficit begins", "Partial estimate only"], "Risks should preserve helper/library severity order.");
 
 const riskListHtml = panelHtml.match(/<div class="income-impact-risk-list"[\s\S]*?<\/div>\s*<details/)?.[0] || "";

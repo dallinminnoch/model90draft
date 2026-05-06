@@ -7,6 +7,14 @@
   const DEFAULT_PROJECTION_HORIZON_YEARS = 40;
   const MIN_PROJECTION_HORIZON_YEARS = 5;
   const MAX_PROJECTION_HORIZON_YEARS = 100;
+  const GRAPH_VIEW_BOX = Object.freeze({
+    width: 1000,
+    height: 430,
+    plotLeft: 74,
+    plotTop: 36,
+    plotWidth: 884,
+    plotHeight: 318
+  });
   const MORTGAGE_TREATMENT_LABELS = Object.freeze({
     followAssumptions: "Follow Assumption Controls",
     payOffMortgage: "Pay off mortgage",
@@ -591,18 +599,6 @@
     `;
   }
 
-  function getTimelineEvents(timelineResult) {
-    return (Array.isArray(timelineResult?.timelineEvents) ? timelineResult.timelineEvents : [])
-      .filter(function (event) {
-        return event && event.type;
-      });
-  }
-
-  function getTimelineEventAmountLabel(event) {
-    const amount = toOptionalNumber(event?.amount);
-    return amount == null ? "Fact-based event" : formatCurrency(amount);
-  }
-
   function getComposerScenario(timelineResult) {
     return isPlainObject(timelineResult?.scenario) ? timelineResult.scenario : {};
   }
@@ -666,7 +662,237 @@
     ];
   }
 
-  function renderPausedTimelineVisualization(timelineResult) {
+  function formatGraphCalloutValue(callout) {
+    if (!callout) {
+      return UNAVAILABLE_COPY;
+    }
+    if (callout.kind === "currency") {
+      return formatCurrency(callout.value);
+    }
+    if (callout.kind === "months") {
+      return formatMonthsCovered(callout.value);
+    }
+    if (callout.value == null || callout.value === "") {
+      return UNAVAILABLE_COPY;
+    }
+    return String(callout.value);
+  }
+
+  function getGraphModel(timelineResult) {
+    return isPlainObject(timelineResult?.graphModel) ? timelineResult.graphModel : {};
+  }
+
+  function toGraphX(xRatio) {
+    const ratio = toOptionalNumber(xRatio);
+    return Math.round(GRAPH_VIEW_BOX.plotLeft + ((ratio == null ? 0 : ratio) * GRAPH_VIEW_BOX.plotWidth));
+  }
+
+  function toGraphY(yRatio) {
+    const ratio = toOptionalNumber(yRatio);
+    return Math.round(GRAPH_VIEW_BOX.plotTop + ((ratio == null ? 0 : ratio) * GRAPH_VIEW_BOX.plotHeight));
+  }
+
+  function buildSvgPath(points) {
+    const usablePoints = (Array.isArray(points) ? points : []).filter(function (point) {
+      return toOptionalNumber(point?.xRatio) != null && toOptionalNumber(point?.yRatio) != null;
+    });
+    if (usablePoints.length < 2) {
+      return "";
+    }
+    return usablePoints.map(function (point, index) {
+      const command = index === 0 ? "M" : "L";
+      return `${command}${toGraphX(point.xRatio)} ${toGraphY(point.yRatio)}`;
+    }).join(" ");
+  }
+
+  function formatAxisCurrency(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return "";
+    }
+    const absolute = Math.abs(number);
+    const prefix = number < 0 ? "-" : "";
+    if (absolute >= 1000000) {
+      return `${prefix}$${Math.round(absolute / 1000000)}M`;
+    }
+    if (absolute >= 1000) {
+      return `${prefix}$${Math.round(absolute / 1000)}k`;
+    }
+    return `${prefix}$${Math.round(absolute)}`;
+  }
+
+  function renderGraphAxis(graphModel) {
+    const yTicks = Array.isArray(graphModel?.axes?.y?.ticks) ? graphModel.axes.y.ticks : [];
+    const xTicks = Array.isArray(graphModel?.axes?.x?.ticks) ? graphModel.axes.x.ticks : [];
+    const zeroYRatio = toOptionalNumber(graphModel?.axes?.y?.zeroYRatio);
+    return `
+      <g class="income-impact-graph-axis" data-income-impact-graph-axis="y">
+        ${yTicks.map(function (tick) {
+          const y = toGraphY(tick.yRatio);
+          return `
+            <g data-income-impact-graph-y-tick>
+              <line x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${y}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${y}"></line>
+              <text x="${GRAPH_VIEW_BOX.plotLeft - 10}" y="${y + 4}" text-anchor="end">${escapeHtml(formatAxisCurrency(tick.value))}</text>
+            </g>
+          `;
+        }).join("")}
+        ${zeroYRatio != null ? `
+          <line class="income-impact-graph-zero-baseline" data-income-impact-graph-zero-baseline x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${toGraphY(zeroYRatio)}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${toGraphY(zeroYRatio)}"></line>
+        ` : ""}
+      </g>
+      <g class="income-impact-graph-axis" data-income-impact-graph-axis="x">
+        ${xTicks.map(function (tick) {
+          const x = toGraphX(tick.xRatio);
+          return `
+            <g data-income-impact-graph-x-tick="${escapeHtml(tick.id || "")}">
+              <line x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${x}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
+              <text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 28}" text-anchor="middle">${escapeHtml(tick.label || "")}</text>
+              <text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 48}" text-anchor="middle">${escapeHtml(tick.date || "")}</text>
+            </g>
+          `;
+        }).join("")}
+      </g>
+    `;
+  }
+
+  function renderGraphPhases(graphModel) {
+    const phases = isPlainObject(graphModel?.phases) ? graphModel.phases : {};
+    const preDeath = phases.preDeath || {};
+    const postDeath = phases.postDeath || {};
+    const death = phases.deathEvent || {};
+    const preEnd = toOptionalNumber(preDeath.endXRatio);
+    const postStart = toOptionalNumber(postDeath.startXRatio);
+    const deathX = toOptionalNumber(death.xRatio);
+    return `
+      <g class="income-impact-graph-phases" data-income-impact-graph-phases>
+        ${preEnd != null && preEnd > 0 ? `
+          <rect class="income-impact-graph-phase income-impact-graph-phase--pre-death" x="${GRAPH_VIEW_BOX.plotLeft}" y="${GRAPH_VIEW_BOX.plotTop}" width="${Math.max(0, toGraphX(preEnd) - GRAPH_VIEW_BOX.plotLeft)}" height="${GRAPH_VIEW_BOX.plotHeight}"></rect>
+          <text x="${GRAPH_VIEW_BOX.plotLeft + 14}" y="${GRAPH_VIEW_BOX.plotTop + 24}">Before death</text>
+        ` : ""}
+        ${postStart != null && postStart < 1 ? `
+          <rect class="income-impact-graph-phase income-impact-graph-phase--post-death" x="${toGraphX(postStart)}" y="${GRAPH_VIEW_BOX.plotTop}" width="${Math.max(0, GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - toGraphX(postStart))}" height="${GRAPH_VIEW_BOX.plotHeight}"></rect>
+          <text x="${toGraphX(postStart) + 14}" y="${GRAPH_VIEW_BOX.plotTop + 24}">After death</text>
+        ` : ""}
+        ${deathX != null ? `
+          <line class="income-impact-graph-death-axis" data-income-impact-graph-death-axis x1="${toGraphX(deathX)}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${toGraphX(deathX)}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
+          <text class="income-impact-graph-death-label" x="${toGraphX(deathX)}" y="${GRAPH_VIEW_BOX.plotTop - 12}" text-anchor="middle">Death event</text>
+        ` : ""}
+      </g>
+    `;
+  }
+
+  function renderGraphMarkers(graphModel) {
+    const markers = (Array.isArray(graphModel?.markers) ? graphModel.markers : []).filter(function (marker) {
+      return marker?.positionable && toOptionalNumber(marker.xRatio) != null && toOptionalNumber(marker.yRatio) != null;
+    });
+    if (!markers.length) {
+      return "";
+    }
+    return `
+      <g class="income-impact-graph-markers" data-income-impact-graph-markers>
+        ${markers.map(function (marker) {
+          const x = toGraphX(marker.xRatio);
+          const y = toGraphY(marker.yRatio);
+          const radius = marker.kind === "stable" ? 5 : 7;
+          return `
+            <g
+              data-income-impact-graph-marker
+              data-income-impact-graph-marker-kind="${escapeHtml(marker.kind)}"
+              data-income-impact-graph-marker-severity="${escapeHtml(marker.severity || "")}"
+              data-income-impact-graph-marker-rule-id="${escapeHtml(marker.ruleId || marker.id || "")}"
+              transform="translate(${x} ${y})"
+            >
+              <circle r="${radius}"></circle>
+              <title>${escapeHtml(marker.title || marker.markerLabel || "Scenario marker")}</title>
+            </g>
+          `;
+        }).join("")}
+      </g>
+    `;
+  }
+
+  function renderGraphPath(pathId, points, label) {
+    const path = buildSvgPath(points);
+    if (!path) {
+      return "";
+    }
+    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)}" data-income-impact-graph-path="${escapeHtml(pathId)}" d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
+  }
+
+  function renderGraphDeathAnchor(graphModel) {
+    const anchor = graphModel?.series?.currentAnchor;
+    if (!anchor || toOptionalNumber(anchor.xRatio) == null || toOptionalNumber(anchor.yRatio) == null) {
+      return "";
+    }
+    return `
+      <g class="income-impact-graph-current-anchor" data-income-impact-graph-current-anchor transform="translate(${toGraphX(anchor.xRatio)} ${toGraphY(anchor.yRatio)})">
+        <rect x="-5" y="-5" width="10" height="10" rx="2"></rect>
+        <title>Current asset value at selected death date</title>
+      </g>
+    `;
+  }
+
+  function renderGraphSvg(graphModel) {
+    const preDeathPath = renderGraphPath("preDeathAssets", graphModel?.series?.preDeathAssets, "Projected assets before death");
+    const deathPath = renderGraphPath("deathTransition", graphModel?.series?.deathTransition, "Death-event resource conversion");
+    const postDeathPath = renderGraphPath("postDeathResources", graphModel?.series?.postDeathResources, "Survivor resources after death");
+    return `
+      <svg
+        class="income-impact-graph-svg"
+        data-income-impact-graph-svg
+        viewBox="0 0 ${GRAPH_VIEW_BOX.width} ${GRAPH_VIEW_BOX.height}"
+        role="img"
+        aria-label="Income Impact timeline graph"
+      >
+        ${renderGraphPhases(graphModel)}
+        ${renderGraphAxis(graphModel)}
+        <g class="income-impact-graph-series" data-income-impact-graph-series>
+          ${preDeathPath}
+          ${deathPath}
+          ${postDeathPath}
+          ${renderGraphDeathAnchor(graphModel)}
+        </g>
+        ${renderGraphMarkers(graphModel)}
+      </svg>
+    `;
+  }
+
+  function renderGraphCallouts(graphModel) {
+    const callouts = Array.isArray(graphModel?.callouts) ? graphModel.callouts : [];
+    if (!callouts.length) {
+      return "";
+    }
+    return `
+      <div class="income-impact-graph-callouts" data-income-impact-graph-callouts>
+        ${callouts.map(function (callout) {
+          return `
+            <span data-income-impact-graph-callout="${escapeHtml(callout.id || "")}" data-income-impact-graph-callout-phase="${escapeHtml(callout.phase || "")}">
+              <b>${escapeHtml(callout.label || "Graph fact")}</b>
+              <strong>${escapeHtml(formatGraphCalloutValue(callout))}</strong>
+            </span>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderSelectedGraphEvent(graphModel) {
+    const selectedEvent = isPlainObject(graphModel?.selectedEvent) ? graphModel.selectedEvent : null;
+    if (!selectedEvent) {
+      return "";
+    }
+    return `
+      <aside class="income-impact-graph-selected-event" data-income-impact-graph-selected-event>
+        <span>${escapeHtml(getRiskSeverityLabel(selectedEvent.severity || selectedEvent.kind))}</span>
+        <strong>${escapeHtml(selectedEvent.title || selectedEvent.markerLabel || "Selected event")}</strong>
+        <p>${escapeHtml(selectedEvent.summary || "Review this event against the scenario facts.")}</p>
+        ${renderPivotalEventMeta(selectedEvent)}
+        ${renderPivotalEventEvidence(selectedEvent)}
+      </aside>
+    `;
+  }
+
+  function renderTimelineUnavailableState(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const status = normalizeRunwayStatus(runway.status);
     const selectedDeathDate = timelineResult?.selectedDeath?.date || UNAVAILABLE_COPY;
@@ -676,9 +902,9 @@
     return `
       <div class="income-impact-timeline-paused" data-income-impact-visual-timeline data-income-impact-timeline-paused data-income-impact-runway-status="${escapeHtml(status)}">
         <div class="income-impact-paused-copy">
-          <span>Timeline paused</span>
-          <strong>Timeline visualization paused while the Income Impact projection model is being rebuilt.</strong>
-          <p>The warning panel and scenario controls remain available for this preview. No previous-asset or income trendline is being rendered from the retired chart model.</p>
+          <span>Timeline unavailable</span>
+          <strong>Timeline graph unavailable with the current profile facts.</strong>
+          <p>The scenario facts and risk panel remain available. Add the missing linked-profile data below to render the graph.</p>
         </div>
         <div class="income-impact-paused-facts" aria-label="Paused Income Impact preview facts">
           <span><b>Selected death date</b><strong>${escapeHtml(selectedDeathDate)}</strong></span>
@@ -691,44 +917,23 @@
     `;
   }
 
-  function formatTimelineTiming(event) {
-    const pieces = [];
-    if (event?.date) {
-      pieces.push(event.date);
+  function renderIncomeImpactTimelineGraph(timelineResult) {
+    const graphModel = getGraphModel(timelineResult);
+    if (!isPlainObject(graphModel) || !graphModel.status || graphModel.status === "unavailable" || !isPlainObject(graphModel.axes)) {
+      return renderTimelineUnavailableState(timelineResult);
     }
-    if (event?.age != null) {
-      pieces.push(`Age ${event.age}`);
-    }
-
-    return pieces.length ? pieces.join(" - ") : "Timing unavailable";
-  }
-
-  function renderTimelineEvents(timelineResult) {
-    const events = getTimelineEvents(timelineResult);
-
-    if (!events.length) {
-      return `<div class="income-impact-empty-inline" data-income-impact-helper-timeline-events>${escapeHtml(EMPTY_MESSAGE)}</div>`;
-    }
-
     return `
-      <div class="income-impact-timeline-grid" data-income-impact-helper-timeline-events>
-        ${events.map(function (event) {
-          const warnings = Array.isArray(event?.warnings) ? event.warnings : [];
-          return `
-            <div data-income-impact-timeline-event-type="${escapeHtml(event.type)}">
-              <span>${escapeHtml(formatTimelineTiming(event))}</span>
-              <strong>${escapeHtml(event.label || "Timeline event")}</strong>
-              <p>${escapeHtml(getTimelineEventAmountLabel(event))}</p>
-              ${warnings.length ? `
-                <ul>
-                  ${warnings.map(function (warning) {
-                    return `<li>${escapeHtml(warning.message || warning.code || "Review this event.")}</li>`;
-                  }).join("")}
-                </ul>
-              ` : ""}
-            </div>
-          `;
-        }).join("")}
+      <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(graphModel.status || "partial")}">
+        <div class="income-impact-graph-header">
+          <div>
+            <span>Selected scenario</span>
+            <strong>Remaining resources timeline</strong>
+          </div>
+          <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>
+        </div>
+        ${renderGraphSvg(graphModel)}
+        ${renderGraphCallouts(graphModel)}
+        ${renderSelectedGraphEvent(graphModel)}
       </div>
     `;
   }
@@ -817,6 +1022,32 @@
     const number = toOptionalNumber(value);
     if (number != null && Math.abs(number) >= 1000) {
       return formatCurrency(number);
+    }
+    if (Array.isArray(value)) {
+      const items = value
+        .slice(0, 3)
+        .map(formatEvidenceValue)
+        .filter(function (item) { return item && item !== UNAVAILABLE_COPY; });
+      return items.length ? items.join(", ") : UNAVAILABLE_COPY;
+    }
+    if (isPlainObject(value)) {
+      const entries = Object.keys(value)
+        .filter(function (key) {
+          const entryValue = value[key];
+          return entryValue == null
+            || typeof entryValue === "string"
+            || typeof entryValue === "number"
+            || typeof entryValue === "boolean";
+        })
+        .slice(0, 4)
+        .map(function (key) {
+          const label = key
+            .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+            .replace(/[_-]+/g, " ")
+            .replace(/\b\w/g, function (match) { return match.toUpperCase(); });
+          return `${label}: ${formatEvidenceValue(value[key])}`;
+        });
+      return entries.length ? entries.join("; ") : UNAVAILABLE_COPY;
     }
     if (typeof value === "boolean") {
       return value ? "Yes" : "No";
@@ -953,11 +1184,7 @@
           <p>Fact-based runway from linked profile and Protection Modeling information for the selected death age/date.</p>
         </div>
         <div class="income-impact-timeline" aria-label="Fact-based household impact timeline">
-          ${renderPausedTimelineVisualization(timelineResult)}
-          <details class="income-impact-supporting-events" data-income-impact-helper-timeline-events-panel>
-            <summary>Supporting timeline events</summary>
-            ${renderTimelineEvents(timelineResult)}
-          </details>
+          ${renderIncomeImpactTimelineGraph(timelineResult)}
           ${renderDataGaps(timelineResult)}
           ${renderWarnings(timelineResult)}
         </div>
@@ -1044,31 +1271,6 @@
     ];
   }
 
-  function buildTimelineEventsFromScenario(scenario) {
-    const scenarioFacts = isPlainObject(scenario?.scenario) ? scenario.scenario : {};
-    const facts = isPlainObject(scenario?.timelineFacts) ? scenario.timelineFacts : {};
-    const events = [
-      {
-        type: "death",
-        date: scenarioFacts.selectedDeathDate,
-        age: scenarioFacts.selectedDeathAge,
-        label: "Death event resources",
-        amount: facts.resourcesAfterObligations
-      }
-    ];
-
-    if (facts.depletionDate) {
-      events.push({
-        type: "resourcesDepleted",
-        date: facts.depletionDate,
-        label: "Survivor resources deplete",
-        amount: 0
-      });
-    }
-
-    return events;
-  }
-
   function buildIncomeImpactResultFromState(state) {
     const safeState = isPlainObject(state) ? state : {};
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
@@ -1101,12 +1303,22 @@
     const riskEvaluation = safeState.evaluateIncomeImpactRiskEvents({
       scenario
     });
+    const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
+      scenario,
+      riskEvaluation,
+      options: {
+        preserveSignedResources: true,
+        currentAgeMode: "death-event-only"
+      }
+    });
     const dataGaps = []
       .concat(Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [])
-      .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : []);
+      .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : [])
+      .concat(Array.isArray(graphModel?.dataGaps) ? graphModel.dataGaps : []);
     const warnings = []
       .concat(Array.isArray(scenario?.warnings) ? scenario.warnings : [])
-      .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : []);
+      .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : [])
+      .concat(Array.isArray(graphModel?.warnings) ? graphModel.warnings : []);
 
     return {
       selectedDeath: {
@@ -1115,9 +1327,9 @@
       },
       scenario,
       riskEvaluation,
+      graphModel,
       financialRunway: buildFinancialRunwayFromScenario(scenario, projectionHorizonYears),
       summaryCards: buildSummaryCardsFromScenario(scenario),
-      timelineEvents: buildTimelineEventsFromScenario(scenario),
       dataGaps,
       warnings,
       trace: {
@@ -1134,6 +1346,7 @@
       !incomeImpactState?.host
       || typeof incomeImpactState.composeIncomeImpactScenario !== "function"
       || typeof incomeImpactState.evaluateIncomeImpactRiskEvents !== "function"
+      || typeof incomeImpactState.buildIncomeImpactTimelineGraphModel !== "function"
     ) {
       return;
     }
@@ -1225,6 +1438,7 @@
     const buildLensModelFromSavedProtectionModeling = currentLensAnalysis.buildLensModelFromSavedProtectionModeling;
     const composeIncomeImpactScenario = currentLensAnalysis.composeIncomeImpactScenario;
     const evaluateIncomeImpactRiskEvents = currentLensAnalysis.evaluateIncomeImpactRiskEvents;
+    const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
@@ -1238,6 +1452,11 @@
 
     if (typeof evaluateIncomeImpactRiskEvents !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Income impact risk evaluator is unavailable.");
+      return;
+    }
+
+    if (typeof buildIncomeImpactTimelineGraphModel !== "function") {
+      renderEmptyState(host, "Income impact unavailable", "Income impact graph model builder is unavailable.");
       return;
     }
 
@@ -1275,6 +1494,7 @@
         valuationDate,
         composeIncomeImpactScenario,
         evaluateIncomeImpactRiskEvents,
+        buildIncomeImpactTimelineGraphModel,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,

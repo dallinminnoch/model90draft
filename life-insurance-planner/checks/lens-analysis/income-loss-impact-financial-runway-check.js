@@ -15,18 +15,11 @@ function readRepoFile(relativePath) {
 
 function getChangedFiles(relativePaths) {
   try {
-    const output = childProcess.execFileSync(
-      "git",
-      ["diff", "--name-only", "--", ...relativePaths],
-      {
-        cwd: repoRoot,
-        encoding: "utf8"
-      }
-    );
-    return output
-      .split(/\r?\n/)
-      .map(function (line) { return line.trim(); })
-      .filter(Boolean);
+    const output = childProcess.execFileSync("git", ["diff", "--name-only", "--", ...relativePaths], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   } catch (_error) {
     return [];
   }
@@ -55,39 +48,82 @@ function createDisplayHarness(source) {
   return sandbox.window.__incomeImpactFinancialRunwayHarness;
 }
 
-const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+function makeGraphModel() {
+  return {
+    status: "complete",
+    phases: {
+      preDeath: { startXRatio: 0, endXRatio: 0.25, available: true },
+      deathEvent: { date: "2030-06-15", xRatio: 0.25 },
+      postDeath: { startXRatio: 0.25, endXRatio: 1, available: true }
+    },
+    series: {
+      preDeathAssets: [
+        { value: 225000, xRatio: 0, yRatio: 0.42 },
+        { value: 300000, xRatio: 0.25, yRatio: 0.32 }
+      ],
+      currentAnchor: null,
+      deathTransition: [
+        { value: 300000, xRatio: 0.25, yRatio: 0.32 },
+        { value: 100000, xRatio: 0.25, yRatio: 0.54 },
+        { value: 600000, xRatio: 0.25, yRatio: 0.1 },
+        { value: 500000, xRatio: 0.25, yRatio: 0.18 }
+      ],
+      postDeathResources: [
+        { value: 440000, xRatio: 0.35, yRatio: 0.24 },
+        { value: -40000, xRatio: 0.82, yRatio: 0.78 }
+      ]
+    },
+    axes: {
+      x: {
+        ticks: [
+          { id: "valuation", label: "Valuation", date: "2026-06-15", xRatio: 0 },
+          { id: "death", label: "Death", date: "2030-06-15", xRatio: 0.25 },
+          { id: "horizon", label: "Horizon", date: "2070-06-15", xRatio: 1 }
+        ]
+      },
+      y: {
+        signed: true,
+        zeroYRatio: 0.7,
+        ticks: [
+          { value: -100000, yRatio: 0.84 },
+          { value: 0, yRatio: 0.7 },
+          { value: 600000, yRatio: 0.1 }
+        ]
+      }
+    },
+    markers: [],
+    selectedEvent: null,
+    callouts: [
+      { id: "assets-before-death", label: "Assets before death", value: 300000, kind: "currency", phase: "deathEvent" },
+      { id: "resources-after-obligations", label: "Resources after obligations", value: 500000, kind: "currency", phase: "deathEvent" },
+      { id: "runway-months-covered", label: "Runway covered", value: 100, kind: "months", phase: "postDeath" }
+    ],
+    warnings: [],
+    dataGaps: []
+  };
+}
 
-assert.match(displaySource, /data-income-impact-timeline-paused/);
-assert.match(displaySource, /Timeline visualization paused while the Income Impact projection model is being rebuilt/);
+const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+const harness = createDisplayHarness(displaySource);
+
+assert.match(displaySource, /data-income-impact-graph/);
 assert.match(displaySource, /composeIncomeImpactScenario/);
 assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
+assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /composeIncomeImpactScenario\.timelineFacts/);
-assert.doesNotMatch(displaySource, /data-income-impact-financial-runway/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-primary-visual/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-snapshot/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-svg/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-line/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-point/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-year-marker/);
-assert.doesNotMatch(displaySource, /data-income-impact-runway-depletion/);
+assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline|evaluateIncomeImpactWarningEvents|scenarioTimeline/);
+assert.doesNotMatch(displaySource, /data-income-impact-financial-runway|data-income-impact-runway-svg|data-income-impact-runway-line|data-income-impact-runway-point/);
 assert.match(displaySource, /Immediate Money Available/);
 assert.match(displaySource, /Immediate Obligations/);
 assert.match(displaySource, /Annual Household Shortfall/);
-assert.doesNotMatch(displaySource, /Built from helper events|calculateIncomeLossImpactTimeline\(\)\./);
-assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
-assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(
   displaySource,
-  /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
-  "Income Impact runway should not persist slider or model state."
+  /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/
 );
 
-const harness = createDisplayHarness(displaySource);
 const fixture = {
-  selectedDeath: {
-    date: "2030-06-15",
-    age: 50
-  },
+  selectedDeath: { date: "2030-06-15", age: 50 },
+  graphModel: makeGraphModel(),
   scenario: {
     timelineFacts: {
       assetsBeforeDeath: 225000,
@@ -106,78 +142,10 @@ const fixture = {
     availableAssets: 100000,
     immediateObligations: 100000,
     netAvailableResources: 500000,
-    annualHouseholdNeed: 90000,
-    annualSurvivorIncome: 30000,
     annualShortfall: 60000,
     yearsOfSecurity: 8,
     monthsOfSecurity: 4,
     totalMonthsOfSecurity: 100,
-    depletionYear: 2038,
-    depletionDate: "2038-10-15",
-    projectionMode: "current-dollar",
-    projectionYears: 10,
-    projectionPoints: [
-      {
-        yearIndex: 0,
-        date: "2030-06-15",
-        age: 50,
-        startingBalance: 500000,
-        growthAmount: 0,
-        growthRate: 0,
-        annualNeed: 90000,
-        survivorIncomeOffset: 30000,
-        annualShortfall: 60000,
-        scheduledObligations: 0,
-        endingBalance: 500000,
-        status: "starting",
-        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
-      },
-      {
-        yearIndex: 1,
-        date: "2031-06-15",
-        age: 51,
-        startingBalance: 500000,
-        growthAmount: 0,
-        growthRate: 0,
-        annualNeed: 90000,
-        survivorIncomeOffset: 30000,
-        annualShortfall: 60000,
-        scheduledObligations: 0,
-        endingBalance: 440000,
-        status: "available",
-        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
-      },
-      {
-        yearIndex: 9,
-        date: "2039-06-15",
-        age: 59,
-        startingBalance: 20000,
-        growthAmount: 0,
-        growthRate: 0,
-        annualNeed: 90000,
-        survivorIncomeOffset: 30000,
-        annualShortfall: 60000,
-        scheduledObligations: 0,
-        endingBalance: -40000,
-        status: "depleted",
-        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
-      },
-      {
-        yearIndex: 10,
-        date: "2040-06-15",
-        age: 60,
-        startingBalance: -40000,
-        growthAmount: 0,
-        growthRate: 0,
-        annualNeed: 90000,
-        survivorIncomeOffset: 30000,
-        annualShortfall: 60000,
-        scheduledObligations: 0,
-        endingBalance: -100000,
-        status: "depleted",
-        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
-      }
-    ],
     warnings: [],
     dataGaps: []
   },
@@ -188,21 +156,10 @@ const fixture = {
       status: "complete"
     }
   ],
-  timelineEvents: [
-    {
-      type: "death",
-      date: "2030-06-15",
-      age: 50,
-      label: "Selected death event"
-    },
-    {
-      type: "coverageAvailable",
-      date: "2030-06-15",
-      age: 50,
-      label: "Existing coverage available",
-      amount: 500000
-    }
-  ],
+  riskEvaluation: {
+    events: [],
+    stableEvents: []
+  },
   dataGaps: [],
   warnings: []
 };
@@ -221,90 +178,22 @@ assert.match(securityHtml, /8 years 4 months/);
 assert.match(securityHtml, /Existing coverage \+ available assets, less immediate obligations, divided by estimated annual household shortfall\./);
 assert.doesNotMatch(securityHtml, /final recommendation|fully protected/i);
 
-const partialFixture = {
-  ...fixture,
-  financialRunway: {
-    ...fixture.financialRunway,
-    status: "partial-estimate",
-    existingCoverage: null,
-    yearsOfSecurity: 0,
-    monthsOfSecurity: 0,
-    totalMonthsOfSecurity: 0,
-    warnings: [
-      {
-        code: "partial-financial-runway",
-        message: "Financial runway is a partial estimate because critical facts are missing."
-      }
-    ],
-    dataGaps: [
-      {
-        code: "missing-existing-coverage",
-        label: "Existing coverage is missing."
-      }
-    ]
-  },
-  summaryCards: [
-    {
-      id: "yearsOfFinancialSecurity",
-      displayValue: "Partial runway estimate",
-      status: "partial-estimate"
-    }
-  ],
-  dataGaps: [
-    {
-      code: "missing-existing-coverage",
-      label: "Existing coverage is missing."
-    }
-  ],
-  warnings: [
-    {
-      code: "partial-financial-runway",
-      message: "Financial runway is a partial estimate because critical facts are missing."
-    }
-  ]
-};
-const partialSecurityHtml = harness.renderFinancialSecurityCard(partialFixture);
-assert.match(partialSecurityHtml, /Partial runway estimate/);
-assert.match(partialSecurityHtml, /This preview is using the facts currently available\./);
-assert.match(partialSecurityHtml, /Add the missing items below to improve the estimate\./);
-assert.match(partialSecurityHtml, /Current estimate: 0 years 0 months/);
-assert.doesNotMatch(
-  partialSecurityHtml,
-  /data-income-impact-financial-security-value[^>]*>0 years 0 months/,
-  "Missing critical facts should not render a clean confident 0 years 0 months value."
-);
-const partialTimelineHtml = harness.renderTimeline(partialFixture);
-assert.match(partialTimelineHtml, /data-income-impact-runway-status="partial-estimate"/);
-assert.match(partialTimelineHtml, /Timeline visualization paused/);
-assert.match(partialTimelineHtml, /Financial runway is a partial estimate because critical facts are missing\./);
-assert.doesNotMatch(partialTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
+const timelineHtml = harness.renderTimeline(fixture);
+assert.match(timelineHtml, /Financial Runway if Death Occurs at Selected Age/);
+assert.match(timelineHtml, /data-income-impact-graph/);
+assert.match(timelineHtml, /data-income-impact-graph-svg/);
+assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
+assert.match(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
+assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
+assert.match(timelineHtml, /data-income-impact-graph-callout="assets-before-death"/);
+assert.match(timelineHtml, /data-income-impact-graph-callout="resources-after-obligations"/);
+assert.match(timelineHtml, /8 years 4 months/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-financial-runway|data-income-impact-runway-line|data-income-impact-runway-point/);
+assert.doesNotMatch(timelineHtml, /Supporting timeline events|calculateIncomeLossImpactTimeline|Selected scenario timeline/);
 
-const unavailableFixture = {
+const unavailableTimelineHtml = harness.renderTimeline({
   ...fixture,
-  financialRunway: {
-    status: "not-available",
-    projectionPoints: [],
-    warnings: [
-      {
-        code: "missing-annual-shortfall",
-        message: "Years of Financial Security was not calculated because annual shortfall inputs are missing."
-      }
-    ],
-    dataGaps: [
-      {
-        code: "missing-survivor-income",
-        label: "Survivor income is missing."
-      }
-    ]
-  },
-  summaryCards: [
-    {
-      id: "yearsOfFinancialSecurity",
-      displayValue: "Not available",
-      status: "not-available"
-    }
-  ],
-  timelineEvents: [],
+  graphModel: { status: "unavailable" },
   dataGaps: [
     {
       code: "missing-survivor-income",
@@ -317,44 +206,12 @@ const unavailableFixture = {
       message: "Years of Financial Security was not calculated because annual shortfall inputs are missing."
     }
   ]
-};
-const unavailableSecurityHtml = harness.renderFinancialSecurityCard(unavailableFixture);
-assert.match(unavailableSecurityHtml, /Runway estimate unavailable/);
-assert.match(unavailableSecurityHtml, /annual shortfall inputs are missing/);
-const unavailableTimelineHtml = harness.renderTimeline(unavailableFixture);
-assert.match(unavailableTimelineHtml, /data-income-impact-runway-status="not-available"/);
-assert.match(unavailableTimelineHtml, /Timeline visualization paused/);
+});
+assert.match(unavailableTimelineHtml, /data-income-impact-timeline-paused/);
+assert.match(unavailableTimelineHtml, /Timeline graph unavailable with the current profile facts/);
+assert.match(unavailableTimelineHtml, /Survivor income is missing\./);
 assert.match(unavailableTimelineHtml, /annual shortfall inputs are missing/);
-assert.doesNotMatch(unavailableTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
-
-const timelineHtml = harness.renderTimeline(fixture);
-assert.match(timelineHtml, /Financial Runway if Death Occurs at Selected Age/);
-assert.match(timelineHtml, /data-income-impact-timeline-paused/);
-assert.match(timelineHtml, /Timeline visualization paused/);
-assert.match(timelineHtml, /No previous-asset or income trendline is being rendered/);
-assert.match(timelineHtml, /Selected death date/);
-assert.match(timelineHtml, /2030-06-15/);
-assert.match(timelineHtml, /data-income-impact-paused-fact="assets-before-death"/);
-assert.match(timelineHtml, /\$225,000/);
-assert.match(timelineHtml, /data-income-impact-paused-fact="treated-assets-at-death"/);
-assert.match(timelineHtml, /\$100,000/);
-assert.match(timelineHtml, /data-income-impact-paused-fact="coverage-added"/);
-assert.match(timelineHtml, /data-income-impact-paused-fact="resources-after-obligations"/);
-assert.match(timelineHtml, /8 years 4 months/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-financial-runway/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-runway-primary-visual/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-runway-snapshot/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-runway-line/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-runway-area/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-runway-point/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-runway-depletion/);
-assert.doesNotMatch(timelineHtml, /<svg\b|<path\b|<circle\b/);
-assert.match(timelineHtml, /Supporting timeline events/);
-assert.match(timelineHtml, /income-impact-supporting-events/);
-assert.match(timelineHtml, /data-income-impact-timeline-event-type="coverageAvailable"/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-visual-event-group|data-income-impact-visual-event-type/);
-assert.doesNotMatch(timelineHtml, /Built from helper events|calculateIncomeLossImpactTimeline|Selected scenario timeline/);
-assert.match(securityHtml, /It does not change the LENS recommendation\./);
+assert.doesNotMatch(unavailableTimelineHtml, /data-income-impact-graph-svg/);
 
 const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-methods.js",

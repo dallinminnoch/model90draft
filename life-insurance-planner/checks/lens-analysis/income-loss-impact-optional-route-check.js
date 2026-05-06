@@ -402,8 +402,8 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
-  /data-income-impact-helper-timeline-events/,
-  "Income Impact timeline should render composer-derived supporting events."
+  /data-income-impact-graph-callouts/,
+  "Income Impact graph should render composer-derived fact callouts."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -509,31 +509,57 @@ const helperDisplayFixture = {
     warnings: [],
     dataGaps: []
   },
-  timelineEvents: [
-    {
-      type: "death",
-      date: "2030-06-15",
-      age: 50,
-      label: "Selected death event"
+  graphModel: {
+    status: "complete",
+    phases: {
+      preDeath: { startXRatio: 0, endXRatio: 0.2, available: true },
+      deathEvent: { xRatio: 0.2, date: "2030-06-15" },
+      postDeath: { startXRatio: 0.2, endXRatio: 1, available: true }
     },
-    {
-      type: "incomeStops",
-      date: "2030-06-15",
-      age: 50,
-      label: "Insured income stops",
-      amount: 120000
-    },
-    {
-      type: "dataGap",
-      label: "Dependent date is missing",
-      warnings: [
-        {
-          code: "missing-dependent-dob",
-          message: "Dependent date of birth is missing."
-        }
+    series: {
+      preDeathAssets: [
+        { value: 500000, xRatio: 0, yRatio: 0.28 },
+        { value: 600000, xRatio: 0.2, yRatio: 0.18 }
+      ],
+      currentAnchor: null,
+      deathTransition: [
+        { value: 600000, xRatio: 0.2, yRatio: 0.18 },
+        { value: 500000, xRatio: 0.2, yRatio: 0.28 }
+      ],
+      postDeathResources: [
+        { value: 500000, xRatio: 0.3, yRatio: 0.28 },
+        { value: -100000, xRatio: 0.9, yRatio: 0.82 }
       ]
-    }
-  ],
+    },
+    axes: {
+      x: {
+        ticks: [
+          { id: "death", label: "Death", date: "2030-06-15", xRatio: 0.2 },
+          { id: "horizon", label: "Horizon", date: "2070-06-15", xRatio: 1 }
+        ]
+      },
+      y: {
+        signed: true,
+        zeroYRatio: 0.7,
+        ticks: [
+          { value: -100000, yRatio: 0.82 },
+          { value: 0, yRatio: 0.7 },
+          { value: 600000, yRatio: 0.18 }
+        ]
+      }
+    },
+    markers: [],
+    selectedEvent: null,
+    callouts: [
+      { id: "resources-after-obligations", label: "Resources after obligations", value: 500000, kind: "currency", phase: "deathEvent" }
+    ],
+    warnings: [],
+    dataGaps: []
+  },
+  riskEvaluation: {
+    events: [],
+    stableEvents: []
+  },
   dataGaps: [
     {
       code: "missing-client-dob",
@@ -565,35 +591,24 @@ assert.match(
 );
 assert.match(
   helperTimelineHtml,
-  /data-income-impact-timeline-paused/,
-  "Timeline should render the paused visualization state while the projection model is rebuilt."
+  /data-income-impact-graph/,
+  "Timeline should render the Graph V1 visualization when a graph model is available."
 );
 assert.match(
   helperTimelineHtml,
-  /Timeline visualization paused while the Income Impact projection model is being rebuilt/,
-  "Paused visualization should explain why the chart is unavailable."
+  /data-income-impact-graph-svg/,
+  "Graph V1 should render an SVG from the graph model."
 );
 assert.doesNotMatch(helperTimelineHtml, /data-income-impact-financial-runway/);
 assert.doesNotMatch(helperTimelineHtml, /data-income-impact-runway-primary-visual/);
 assert.doesNotMatch(helperTimelineHtml, /data-income-impact-runway-snapshot/);
 assert.doesNotMatch(helperTimelineHtml, /data-income-impact-runway-line/);
-assert.doesNotMatch(helperTimelineHtml, /<svg\b|<path\b|<circle\b/);
 assert.match(
   helperTimelineHtml,
-  /data-income-impact-helper-timeline-events/,
-  "Timeline should expose a helper event host."
-);
-assert.match(
-  helperTimelineHtml,
-  /data-income-impact-timeline-event-type="incomeStops"/,
-  "Timeline should render helper event types."
+  /data-income-impact-graph-callout="resources-after-obligations"/,
+  "Timeline should expose graph callouts from composer facts."
 );
 assert.doesNotMatch(helperTimelineHtml, /data-income-impact-visual-event-type|data-income-impact-visual-event-group/);
-assert.match(
-  helperTimelineHtml,
-  /data-income-impact-timeline-event-type="dataGap"/,
-  "Timeline should render data-gap events visibly."
-);
 assert.doesNotMatch(
   helperTimelineHtml,
   /Placeholder visualization|placeholder-only|Built from helper events|calculateIncomeLossImpactTimeline/,

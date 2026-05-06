@@ -99,6 +99,7 @@ function createHarness() {
   const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
   const composerCalls = [];
   const riskEvaluatorCalls = [];
+  const graphModelCalls = [];
   const storageWrites = [];
   const profileRecord = {
     id: "scenario-banner-profile",
@@ -309,6 +310,65 @@ function createHarness() {
               dataGaps: [],
               warnings: []
             };
+          },
+          buildIncomeImpactTimelineGraphModel(input) {
+            graphModelCalls.push(cloneJson(input));
+            return {
+              status: "complete",
+              phases: {
+                preDeath: { available: false },
+                deathEvent: { xRatio: 0, date: input.scenario?.scenario?.selectedDeathDate },
+                postDeath: { available: true }
+              },
+              series: {
+                preDeathAssets: [],
+                currentAnchor: {
+                  xRatio: 0,
+                  yRatio: 0.25,
+                  value: input.scenario?.timelineFacts?.assetsBeforeDeath
+                },
+                deathTransition: [
+                  { xRatio: 0, yRatio: 0.25, value: input.scenario?.timelineFacts?.assetsBeforeDeath },
+                  { xRatio: 0, yRatio: 0.4, value: input.scenario?.timelineFacts?.resourcesAfterObligations }
+                ],
+                postDeathResources: [
+                  { xRatio: 0.1, yRatio: 0.42, value: input.scenario?.timelineFacts?.resourcesAfterObligations },
+                  { xRatio: 0.8, yRatio: 0.8, value: 0 }
+                ]
+              },
+              axes: {
+                x: {
+                  ticks: [
+                    { id: "death", label: "Death", date: input.scenario?.scenario?.selectedDeathDate, xRatio: 0 },
+                    { id: "horizon", label: "Horizon", date: "2066-01-01", xRatio: 1 }
+                  ]
+                },
+                y: {
+                  signed: false,
+                  zeroYRatio: 0.85,
+                  ticks: [
+                    { value: 0, yRatio: 0.85 },
+                    { value: 500000, yRatio: 0.25 }
+                  ]
+                }
+              },
+              markers: [],
+              selectedEvent: null,
+              callouts: [
+                {
+                  id: "resources-after-obligations",
+                  label: "Resources after obligations",
+                  value: input.scenario?.timelineFacts?.resourcesAfterObligations,
+                  kind: "currency",
+                  phase: "deathEvent"
+                }
+              ],
+              warnings: [],
+              dataGaps: [],
+              trace: {
+                calculationMethod: "income-impact-timeline-graph-model-v1"
+              }
+            };
           }
         }
       }
@@ -326,6 +386,7 @@ function createHarness() {
     readyCallback,
     composerCalls,
     riskEvaluatorCalls,
+    graphModelCalls,
     storageWrites,
     host,
     banner,
@@ -466,6 +527,7 @@ harness.readyCallback();
 
 assert.equal(harness.composerCalls.length, 1, "initial render should call composer once.");
 assert.equal(harness.riskEvaluatorCalls.length, 1, "initial render should evaluate Layer 4 risk events once.");
+assert.equal(harness.graphModelCalls.length, 1, "initial render should build the Graph V1 model once.");
 assert.equal(harness.composerCalls[0].selectedDeathAge, 45);
 assert.equal(harness.composerCalls[0].selectedDeathDate, "2026-01-01");
 assert.equal(harness.composerCalls[0].projectionHorizonMonths, 480);
@@ -493,9 +555,9 @@ assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
 assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "expanded");
 assert.equal(harness.banner.classList.contains("is-collapsed"), false);
-assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
-assert.match(harness.host.innerHTML, /data-income-impact-paused-fact="assets-before-death"/);
-assert.match(harness.host.innerHTML, /data-income-impact-paused-fact="resources-after-obligations"/);
+assert.match(harness.host.innerHTML, /data-income-impact-graph/);
+assert.match(harness.host.innerHTML, /data-income-impact-graph-svg/);
+assert.match(harness.host.innerHTML, /data-income-impact-graph-callout="resources-after-obligations"/);
 assert.match(harness.host.innerHTML, /Survivor resources deplete/);
 assert.match(harness.host.innerHTML, /Coverage added at death/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
@@ -505,26 +567,29 @@ harness.projectionHorizon.value = "4";
 harness.projectionHorizon.listeners.input({ target: harness.projectionHorizon });
 assert.equal(harness.composerCalls.length, 2);
 assert.equal(harness.riskEvaluatorCalls.length, 2);
+assert.equal(harness.graphModelCalls.length, 2);
 assert.equal(harness.composerCalls[1].projectionHorizonMonths, 60);
 assert.equal(harness.projectionHorizon.value, "5");
 assert.equal(harness.projectionHorizonValue.textContent, "5 years");
-assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
 harness.projectionHorizon.value = "125";
 harness.projectionHorizon.listeners.change({ target: harness.projectionHorizon });
 assert.equal(harness.composerCalls.length, 3);
 assert.equal(harness.riskEvaluatorCalls.length, 3);
+assert.equal(harness.graphModelCalls.length, 3);
 assert.equal(harness.composerCalls[2].projectionHorizonMonths, 1200);
 assert.equal(harness.projectionHorizon.value, "100");
 assert.equal(harness.projectionHorizonValue.textContent, "100 years");
-assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
 harness.mortgageTreatment.value = "payOffMortgage";
 harness.mortgageTreatment.listeners.change({ target: harness.mortgageTreatment });
 assert.equal(harness.composerCalls.length, 4);
 assert.equal(harness.riskEvaluatorCalls.length, 4);
+assert.equal(harness.graphModelCalls.length, 4);
 assert.equal(harness.composerCalls[3].scenarioOptions.mortgageTreatmentOverride, "payOffMortgage");
 assert.equal(harness.mortgageTreatment.value, "payOffMortgage");
 assert.equal(harness.mortgageTreatmentValue.textContent, "Pay off mortgage");
@@ -533,6 +598,7 @@ assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-mortgage-t
 harness.toggle.listeners.click();
 assert.equal(harness.composerCalls.length, 4, "collapsing should not rerun composer.");
 assert.equal(harness.riskEvaluatorCalls.length, 4, "collapsing should not rerun risk evaluator.");
+assert.equal(harness.graphModelCalls.length, 4, "collapsing should not rebuild the graph model.");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "false");
 assert.equal(harness.toggle.textContent, "Show controls");
 assert.equal(harness.content.hidden, true);
@@ -542,6 +608,7 @@ assert.equal(harness.banner.classList.contains("is-collapsed"), true);
 harness.toggle.listeners.click();
 assert.equal(harness.composerCalls.length, 4, "expanding should not rerun composer.");
 assert.equal(harness.riskEvaluatorCalls.length, 4, "expanding should not rerun risk evaluator.");
+assert.equal(harness.graphModelCalls.length, 4, "expanding should not rebuild the graph model.");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "true");
 assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
