@@ -620,6 +620,15 @@ const debtPaymentSource = createSourceData({
       remainingTermMonths: 42
     },
     {
+      debtId: "debt_honda_accord",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "secondVehicleLoan",
+      label: "Honda Accord",
+      currentBalance: 16000,
+      paymentFrequency: "monthly",
+      paymentAmount: 375
+    },
+    {
       debtId: "debt_auto_lease",
       categoryKey: "securedConsumerDebt",
       typeKey: "autoLease",
@@ -627,6 +636,15 @@ const debtPaymentSource = createSourceData({
       currentBalance: null,
       paymentFrequency: "biweekly",
       paymentAmount: 200
+    },
+    {
+      debtId: "debt_model_y",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "secondVehicleLease",
+      label: "Model Y",
+      currentBalance: null,
+      paymentFrequency: "monthly",
+      paymentAmount: 525
     },
     {
       debtId: "debt_credit_card",
@@ -698,19 +716,19 @@ const debtPaymentModel = buildModel(context, debtPaymentSource, analysisSettings
 assert.deepEqual(debtPaymentSource, debtPaymentSourceSnapshot, "debt-payment expense generation should not mutate source data");
 
 const debtPaymentExpenseFacts = debtPaymentModel.expenseFacts;
-assert.equal(debtPaymentExpenseFacts.expenses.length, 13, "four scalar facts, one manual expense, and eight generated debt-payment facts should normalize");
+assert.equal(debtPaymentExpenseFacts.expenses.length, 15, "four scalar facts, one manual expense, and ten generated debt-payment facts should normalize");
 assert.equal(debtPaymentExpenseFacts.metadata.expenseRecordsSource, "protectionModeling.data.expenseRecords");
 assert.equal(debtPaymentExpenseFacts.metadata.debtPaymentExpenseSource, "protectionModeling.data.debtRecords");
 assert.equal(debtPaymentExpenseFacts.metadata.sourceExpenseRecordCount, 1);
 assert.equal(debtPaymentExpenseFacts.metadata.acceptedExpenseRecordCount, 1);
 assert.equal(debtPaymentExpenseFacts.metadata.invalidExpenseRecordCount, 0);
-assert.equal(debtPaymentExpenseFacts.metadata.sourceDebtRecordCount, 9);
-assert.equal(debtPaymentExpenseFacts.metadata.acceptedGeneratedDebtPaymentExpenseCount, 8);
+assert.equal(debtPaymentExpenseFacts.metadata.sourceDebtRecordCount, 11);
+assert.equal(debtPaymentExpenseFacts.metadata.acceptedGeneratedDebtPaymentExpenseCount, 10);
 assert.equal(debtPaymentExpenseFacts.metadata.skippedGeneratedDebtPaymentExpenseCount, 1);
 assert.equal(debtPaymentExpenseFacts.metadata.invalidGeneratedDebtPaymentExpenseCount, 0);
 
 const generatedDebtPayments = debtPaymentExpenseFacts.expenses.filter((expense) => expense.isGeneratedExpense === true && expense.isDebtPaymentExpense === true);
-assert.equal(generatedDebtPayments.length, 8, "valid debtRecords with payments should generate read-only expense facts");
+assert.equal(generatedDebtPayments.length, 10, "valid debtRecords with payments should generate read-only expense facts");
 generatedDebtPayments.forEach((expense) => {
   assert.equal(expense.isReadOnly, true);
   assert.equal(expense.isFormulaEligible, false);
@@ -735,13 +753,26 @@ assert.equal(autoLoanPayment.annualizedAmount, 5100);
 assert.equal(autoLoanPayment.oneTimeAmount, null);
 assert.equal(autoLoanPayment.extraPayoffAmount, 50, "extra payoff should stay separate from required payment");
 assert.equal(autoLoanPayment.metadata.extraPayoffTreatment, "deferred-separate-from-required-payment");
+const hondaAccordPayment = generatedDebtPayments.find((expense) => expense.sourceDebtRecordId === "debt_honda_accord");
+assert.ok(hondaAccordPayment, "legacy secondVehicleLoan should generate through Auto Loan compatibility");
+assert.equal(hondaAccordPayment.sourceDebtTypeKey, "autoLoan");
+assert.equal(hondaAccordPayment.typeKey, "autoLoanPayment");
+assert.equal(hondaAccordPayment.label, "Auto Loan Payment \u2014 Honda Accord");
+assert.equal(hondaAccordPayment.metadata.deprecatedOriginalTypeKey, "secondVehicleLoan");
 
 const autoLeasePayment = generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "autoLease");
 assert.ok(autoLeasePayment, "auto lease should generate a debt-payment expense fact even without a balance");
+assert.equal(autoLeasePayment.label, "Auto Lease Payment");
 assert.equal(autoLeasePayment.amount, 200);
 assert.equal(autoLeasePayment.frequency, "biweekly");
 assert.equal(Math.round(autoLeasePayment.monthlyRecurringAmount * 100) / 100, 433.33);
 assert.equal(autoLeasePayment.annualizedAmount, 5200);
+const modelYPayment = generatedDebtPayments.find((expense) => expense.sourceDebtRecordId === "debt_model_y");
+assert.ok(modelYPayment, "legacy secondVehicleLease should generate through Auto Lease compatibility");
+assert.equal(modelYPayment.sourceDebtTypeKey, "autoLease");
+assert.equal(modelYPayment.typeKey, "autoLeasePayment");
+assert.equal(modelYPayment.label, "Auto Lease Payment \u2014 Model Y");
+assert.equal(modelYPayment.metadata.deprecatedOriginalTypeKey, "secondVehicleLease");
 
 assert.equal(generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "creditCard").monthlyRecurringAmount, 25 * 52 / 12);
 assert.equal(generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "personalLoan").monthlyRecurringAmount, 300);
@@ -770,8 +801,8 @@ assert.equal(debtPaymentExpenseFacts.totalsByBucket.debtPayment, undefined, "gen
 assert.equal(debtPaymentExpenseFacts.totalsByBucket.totalAnnualRecurringExpense, 5100, "formula-facing annual recurring total should include only the manual duplicate row");
 assert.equal(debtPaymentExpenseFacts.totalsByBucket.totalOneTimeExpense, 45000, "formula-facing one-time total should exclude generated one-time debt payment");
 assert.equal(debtPaymentExpenseFacts.totalsByBucket.totalAnnualCustomExpense, 5100);
-assert.equal(Math.round(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentMonthlyRecurringExpense * 100) / 100, 1666.67);
-assert.equal(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentAnnualRecurringExpense, 20000);
+assert.equal(Math.round(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentMonthlyRecurringExpense * 100) / 100, 2566.67);
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentAnnualRecurringExpense, 30800);
 assert.equal(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentOneTimeExpense, 1000);
 
 const debtPaymentWarningCodes = metadataWarningCodes(debtPaymentExpenseFacts);

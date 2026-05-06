@@ -111,6 +111,7 @@ narrowTypeKeys.forEach((key) => {
 const entries = Array.from(library.getDebtLibraryEntries());
 const entryKeys = Array.from(entries, (entry) => entry.libraryEntryKey);
 const typeKeys = Array.from(entries, (entry) => entry.typeKey);
+const addableTypeKeys = Array.from(entries.filter((entry) => entry.isAddable !== false), (entry) => entry.typeKey);
 assert.ok(uniqueValues(entryKeys), "library entry keys should be unique");
 assert.ok(uniqueValues(typeKeys), "library type keys should be unique");
 
@@ -148,12 +149,11 @@ const secondVehicleLoan = library.findDebtLibraryEntry("secondVehicleLoan");
 const secondVehicleLease = library.findDebtLibraryEntry("secondVehicleLease");
 assert.ok(autoLoan, "auto loan should exist as a distinct library entry");
 assert.ok(autoLease, "auto lease should exist as a distinct library entry");
-assert.ok(secondVehicleLoan, "second vehicle loan should exist as a distinct library entry");
-assert.ok(secondVehicleLease, "second vehicle lease should exist as a distinct library entry");
 assert.notEqual(autoLoan.typeKey, autoLease.typeKey, "auto loan and auto lease must remain distinct");
-assert.notEqual(secondVehicleLoan.typeKey, secondVehicleLease.typeKey, "second vehicle loan and lease must remain distinct");
 assert.equal(autoLoan.defaultPaymentType, "minimumPayment");
 assert.equal(autoLease.defaultPaymentType, "leasePayment");
+assert.equal(autoLoan.isAddable, true);
+assert.equal(autoLease.isAddable, true);
 assert.equal(secondVehicleLoan.defaultPaymentType, "minimumPayment");
 assert.equal(secondVehicleLease.defaultPaymentType, "leasePayment");
 assert.equal(autoLoan.isLease, false);
@@ -162,6 +162,16 @@ assert.equal(secondVehicleLoan.isLease, false);
 assert.equal(secondVehicleLease.isLease, true);
 assert.equal(autoLease.balanceRequiredForDebtFacts, false);
 assert.equal(secondVehicleLease.balanceRequiredForDebtFacts, false);
+assert.equal(secondVehicleLoan.isAddable, false, "second vehicle loan should be hidden from addable library choices");
+assert.equal(secondVehicleLease.isAddable, false, "second vehicle lease should be hidden from addable library choices");
+assert.equal(secondVehicleLoan.isDeprecated, true);
+assert.equal(secondVehicleLease.isDeprecated, true);
+assert.equal(secondVehicleLoan.canonicalTypeKey, "autoLoan");
+assert.equal(secondVehicleLease.canonicalTypeKey, "autoLease");
+assert.ok(addableTypeKeys.includes("autoLoan"), "Auto Loan should remain an addable library choice");
+assert.ok(addableTypeKeys.includes("autoLease"), "Auto Lease should remain an addable library choice");
+assert.equal(addableTypeKeys.includes("secondVehicleLoan"), false, "Second Vehicle Loan should not be a user-facing addable choice");
+assert.equal(addableTypeKeys.includes("secondVehicleLease"), false, "Second Vehicle Lease should not be a user-facing addable choice");
 
 assertNoProtectedDiffs();
 

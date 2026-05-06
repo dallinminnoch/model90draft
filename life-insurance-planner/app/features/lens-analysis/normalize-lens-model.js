@@ -49,6 +49,10 @@
   const EXPENSE_RECORDS_SOURCE_PATH = "protectionModeling.data.expenseRecords";
   const DEBT_RECORDS_SOURCE_PATH = "protectionModeling.data.debtRecords";
   const GENERATED_DEBT_PAYMENT_EXPENSE_CATEGORY_KEY = "debtPayment";
+  const DEPRECATED_DEBT_TYPE_ALIASES = Object.freeze({
+    secondVehicleLoan: "autoLoan",
+    secondVehicleLease: "autoLease"
+  });
   const DEBT_PAYMENT_FREQUENCY_MONTHLY_FACTORS = Object.freeze({
     monthly: 1,
     biweekly: 26 / 12,
@@ -1043,6 +1047,11 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function normalizeDebtRecordTypeKey(value) {
+    const normalizedValue = normalizeDebtRecordString(value);
+    return DEPRECATED_DEBT_TYPE_ALIASES[normalizedValue] || normalizedValue;
+  }
+
   function normalizeDebtRecordToken(value) {
     return normalizeDebtRecordString(value)
       .replace(/[^A-Za-z0-9_-]+/g, "_")
@@ -1243,7 +1252,8 @@
     const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
     const warnings = [];
     const categoryKey = normalizeDebtRecordString(safeDebtRecord.categoryKey);
-    const typeKey = normalizeDebtRecordString(safeDebtRecord.typeKey);
+    const originalTypeKey = normalizeDebtRecordString(safeDebtRecord.typeKey);
+    const typeKey = normalizeDebtRecordTypeKey(originalTypeKey);
     const taxonomyCategory = getDebtCategoryByKey(taxonomy, categoryKey);
     const libraryEntry = getDebtLibraryEntry(typeKey);
     const currentBalance = toOptionalNumber(safeDebtRecord.currentBalance);
@@ -1371,6 +1381,7 @@
           recordSource: "debtRecords",
           sourceIndex: Number.isInteger(index) ? index : null,
           taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          deprecatedOriginalTypeKey: originalTypeKey !== typeKey ? originalTypeKey : metadata.deprecatedOriginalTypeKey || null,
           libraryEntryKey,
           libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null
         })
@@ -1988,7 +1999,8 @@
     const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
     const warnings = [];
     const sourceDebtRecordId = createFallbackDebtRecordSourceId(safeDebtRecord, index);
-    const sourceDebtTypeKey = normalizeDebtRecordString(safeDebtRecord.typeKey);
+    const originalSourceDebtTypeKey = normalizeDebtRecordString(safeDebtRecord.typeKey);
+    const sourceDebtTypeKey = normalizeDebtRecordTypeKey(originalSourceDebtTypeKey);
     const libraryEntry = getDebtLibraryEntry(sourceDebtTypeKey);
     const sourcePath = DEBT_RECORDS_SOURCE_PATH + "[" + index + "]";
     const amount = getDebtRecordPaymentAmount(safeDebtRecord);
@@ -2038,10 +2050,13 @@
     }
 
     const amounts = calculateGeneratedDebtPaymentAmounts(amount, paymentFrequency);
-    const label = normalizeDebtRecordString(safeDebtRecord.label)
-      || normalizeDebtRecordString(libraryEntry && libraryEntry.label)
+    const libraryLabel = normalizeDebtRecordString(libraryEntry && libraryEntry.label)
       || sourceDebtTypeKey
       || "Debt";
+    const sourceLabel = normalizeDebtRecordString(safeDebtRecord.label);
+    const label = sourceLabel && sourceLabel !== libraryLabel
+      ? libraryLabel + " Payment \u2014 " + sourceLabel
+      : libraryLabel + " Payment";
     const extraPayoffAmount = toOptionalNonNegativeNumber(safeDebtRecord.extraPayoffAmount);
 
     return {
@@ -2050,7 +2065,7 @@
         expenseRecordId: null,
         typeKey: createDebtPaymentExpenseTypeKey(sourceDebtTypeKey),
         categoryKey: GENERATED_DEBT_PAYMENT_EXPENSE_CATEGORY_KEY,
-        label: label + " Payment",
+        label,
         domain: "debt",
         amount,
         frequency: paymentFrequency,
@@ -2097,6 +2112,7 @@
           sourcePath,
           sourceDebtRecordId,
           sourceDebtTypeKey,
+          deprecatedOriginalTypeKey: originalSourceDebtTypeKey !== sourceDebtTypeKey ? originalSourceDebtTypeKey : null,
           paymentFrequency,
           sourcePaymentAmount: amount,
           libraryEntryKey: normalizeDebtRecordString(libraryEntry && libraryEntry.libraryEntryKey) || sourceDebtTypeKey || null,

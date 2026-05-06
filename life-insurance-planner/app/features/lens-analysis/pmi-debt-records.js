@@ -153,6 +153,11 @@
     businessEquipmentLoan: "businessDebt"
   });
 
+  const DEPRECATED_DEBT_TYPE_ALIASES = Object.freeze({
+    secondVehicleLoan: "autoLoan",
+    secondVehicleLease: "autoLease"
+  });
+
   const LEGACY_SCALAR_BY_CATEGORY_KEY = Object.freeze({
     realEstateSecuredDebt: "otherRealEstateLoans",
     securedConsumerDebt: "autoLoans",
@@ -236,6 +241,11 @@
 
   function getDefaultPaymentFrequencyForEntry(entry) {
     return normalizePaymentFrequency(entry && entry.defaultPaymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
+  }
+
+  function normalizeDebtTypeKey(value) {
+    const normalizedValue = normalizeString(value);
+    return DEPRECATED_DEBT_TYPE_ALIASES[normalizedValue] || normalizedValue;
   }
 
   function getPaymentAmountForRecord(record) {
@@ -381,13 +391,15 @@
 
   function normalizeRecordForUi(record, index) {
     const safeRecord = record && typeof record === "object" ? record : {};
-    const entry = findLibraryEntry(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    const originalTypeKey = normalizeString(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    const normalizedTypeKey = normalizeDebtTypeKey(originalTypeKey);
+    const entry = findLibraryEntry(normalizedTypeKey);
     if (entry && (entry.isAddable === false || entry.isHousingFieldOwned === true)) {
       return null;
     }
 
     const categoryKey = normalizeString(safeRecord.categoryKey || (entry && entry.categoryKey));
-    const typeKey = normalizeString(safeRecord.typeKey || (entry && entry.typeKey));
+    const typeKey = normalizeString(normalizedTypeKey || (entry && entry.typeKey));
     const label = normalizeString(safeRecord.label || (entry && entry.label));
 
     if (!categoryKey || !typeKey || !label) {
@@ -421,6 +433,7 @@
         source: "debt-library",
         libraryEntryKey: normalizeString(typeKey)
       }, metadata, {
+        deprecatedOriginalTypeKey: originalTypeKey !== typeKey ? originalTypeKey : metadata.deprecatedOriginalTypeKey || null,
         sourceIndex: Number.isInteger(index) ? index : null
       })
     };
@@ -557,8 +570,6 @@
     "heloc",
     "autoLoan",
     "autoLease",
-    "secondVehicleLoan",
-    "secondVehicleLease",
     "creditCard",
     "personalLoan",
     "federalStudentLoan",

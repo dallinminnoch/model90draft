@@ -228,16 +228,16 @@ assert.equal(autoLeaseRecord.typeKey, "autoLease");
 assert.equal(autoLeaseRecord.paymentType, "leasePayment");
 assert.equal(autoLeaseRecord.paymentFrequency, "monthly");
 
-const secondVehicleLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
-  debtLibrary.findDebtLibraryEntry("secondVehicleLoan")
+assert.equal(
+  pmiDebtRecords.createDebtRecordFromLibraryEntry(debtLibrary.findDebtLibraryEntry("secondVehicleLoan")),
+  null,
+  "second vehicle loan should not be addable; add another Auto Loan row instead"
 );
-const secondVehicleLeaseRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
-  debtLibrary.findDebtLibraryEntry("secondVehicleLease")
+assert.equal(
+  pmiDebtRecords.createDebtRecordFromLibraryEntry(debtLibrary.findDebtLibraryEntry("secondVehicleLease")),
+  null,
+  "second vehicle lease should not be addable; add another Auto Lease row instead"
 );
-assert.equal(secondVehicleLoanRecord.typeKey, "secondVehicleLoan");
-assert.equal(secondVehicleLoanRecord.paymentType, "minimumPayment");
-assert.equal(secondVehicleLeaseRecord.typeKey, "secondVehicleLease");
-assert.equal(secondVehicleLeaseRecord.paymentType, "leasePayment");
 
 const customDebtRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
   debtLibrary.findDebtLibraryEntry("customDebt")
@@ -330,6 +330,7 @@ assert.equal(
 
 const fakeDom = createFakeRoot();
 const controller = pmiDebtRecords.initPmiDebtRecords({ root: fakeDom.root });
+const debtRecordsWidgetSource = readRepoFile("app/features/lens-analysis/pmi-debt-records.js");
 const componentsCss = readRepoFile("components.css");
 const debtRecordsListRule = extractCssRule(componentsCss, ".pmi-debt-records-list");
 const debtRecordsTableRule = extractCssRule(componentsCss, ".pmi-debt-records-table");
@@ -365,6 +366,7 @@ assert.doesNotMatch(fakeDom.list.innerHTML, />Notes</, "Notes column should not 
 assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-type/, "Payment Type select should not render");
 assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-notes/, "Notes input should not render");
 assert.match(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-frequency/, "Payment Frequency select should render");
+assert.doesNotMatch(debtRecordsWidgetSource, /"secondVehicleLoan",\s*"secondVehicleLease"/, "deprecated second vehicle types should not be suggested user-facing debt choices");
 assert.match(debtRecordsListRule, /overflow-x:\s*visible;/, "desktop debt records list should not use horizontal scrolling");
 assert.doesNotMatch(debtRecordsListRule, /overflow-x:\s*auto;/, "desktop debt records list should not declare overflow-x auto");
 assert.match(debtRecordsTableRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "debt records table should fit the card width");
@@ -409,12 +411,64 @@ assert.equal(controller.removeDebtRecordById("starter_debt_creditCard"), true);
 assert.doesNotMatch(fakeDom.list.innerHTML, /Credit Card Debt/, "starter rows should be removable");
 assert.equal(controller.serializeDebtRecords().some((record) => record.typeKey === "creditCard"), false);
 
-const addedFromLibrary = controller.addDebtRecordFromLibraryEntry(
-  debtLibrary.findDebtLibraryEntry("secondVehicleLease")
+const addedAutoLoan = controller.addDebtRecordFromLibraryEntry(
+  debtLibrary.findDebtLibraryEntry("autoLoan")
 );
-assert.ok(addedFromLibrary, "users should be able to add debts from the library/menu path");
-assert.equal(addedFromLibrary.typeKey, "secondVehicleLease");
-assert.match(fakeDom.list.innerHTML, /Second Vehicle Lease/);
+const addedAutoLease = controller.addDebtRecordFromLibraryEntry(
+  debtLibrary.findDebtLibraryEntry("autoLease")
+);
+assert.ok(addedAutoLoan, "users should be able to add repeatable Auto Loan rows from the library/menu path");
+assert.ok(addedAutoLease, "users should be able to add repeatable Auto Lease rows from the library/menu path");
+assert.equal(addedAutoLoan.typeKey, "autoLoan");
+assert.equal(addedAutoLease.typeKey, "autoLease");
+assert.equal(
+  controller.records.filter((record) => record.typeKey === "autoLoan").length,
+  2,
+  "repeatable debtRecords[] should allow multiple Auto Loan rows"
+);
+assert.equal(
+  controller.records.filter((record) => record.typeKey === "autoLease").length,
+  2,
+  "repeatable debtRecords[] should allow multiple Auto Lease rows"
+);
+assert.equal(
+  controller.addDebtRecordFromLibraryEntry(debtLibrary.findDebtLibraryEntry("secondVehicleLease")),
+  null,
+  "deprecated second vehicle lease should not be addable from the library/menu path"
+);
+assert.doesNotMatch(fakeDom.list.innerHTML, /Second Vehicle Lease/);
+
+controller.hydrateDebtRecords([
+  {
+    debtId: "legacy_second_vehicle_loan",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "secondVehicleLoan",
+    label: "Honda Accord",
+    currentBalance: 9000,
+    paymentFrequency: "monthly",
+    paymentAmount: 275
+  },
+  {
+    debtId: "legacy_second_vehicle_lease",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "secondVehicleLease",
+    label: "Model Y",
+    currentBalance: null,
+    paymentType: "leasePayment",
+    paymentFrequency: "monthly",
+    paymentAmount: 425
+  }
+]);
+const legacySecondVehicleSerialized = controller.serializeDebtRecords();
+assert.deepEqual(
+  Array.from(legacySecondVehicleSerialized, (record) => record.typeKey),
+  ["autoLoan", "autoLease"],
+  "saved secondVehicle records should hydrate through canonical Auto Loan / Auto Lease records"
+);
+assert.equal(legacySecondVehicleSerialized[0].metadata.deprecatedOriginalTypeKey, "secondVehicleLoan");
+assert.equal(legacySecondVehicleSerialized[1].metadata.deprecatedOriginalTypeKey, "secondVehicleLease");
+assert.match(fakeDom.list.innerHTML, /Honda Accord/);
+assert.match(fakeDom.list.innerHTML, /Model Y/);
 
 controller.hydrateDebtRecords([]);
 assert.equal(controller.records.length, 0, "explicit saved empty debtRecords[] should preserve removed starter rows");

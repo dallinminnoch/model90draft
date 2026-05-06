@@ -36,7 +36,6 @@ function assertNoProtectedDiffs() {
     "pages/analysis-estimate.html",
     "pages/income-loss-impact.html",
     "app/features/lens-analysis/pmi-expense-records.js",
-    "app/features/lens-analysis/normalize-lens-model.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/analysis-setup.js",
