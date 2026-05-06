@@ -5,12 +5,14 @@ const vm = require("vm");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 const featureRoot = path.join(repoRoot, "app", "features", "lens-analysis");
+const assetTaxonomyPath = path.join(featureRoot, "asset-taxonomy.js");
 const assetTreatmentPath = path.join(featureRoot, "asset-treatment-calculations.js");
 const layer1Path = path.join(featureRoot, "household-wealth-projection-calculations.js");
 const layer2Path = path.join(featureRoot, "household-death-event-availability-calculations.js");
 const layer3Path = path.join(featureRoot, "household-survivor-runway-calculations.js");
 const composerPath = path.join(featureRoot, "income-impact-scenario-composer-calculations.js");
 
+const assetTaxonomySource = fs.readFileSync(assetTaxonomyPath, "utf8");
 const assetTreatmentSource = fs.readFileSync(assetTreatmentPath, "utf8");
 const layer1Source = fs.readFileSync(layer1Path, "utf8");
 const layer2Source = fs.readFileSync(layer2Path, "utf8");
@@ -27,6 +29,7 @@ function createContext() {
   context.window = context;
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(assetTaxonomySource, context, { filename: assetTaxonomyPath });
   vm.runInContext(assetTreatmentSource, context, { filename: assetTreatmentPath });
   vm.runInContext(layer1Source, context, { filename: layer1Path });
   vm.runInContext(layer2Source, context, { filename: layer2Path });
@@ -438,6 +441,54 @@ function runInactiveGrowthChecks() {
   );
 }
 
+function runDefaultAssetTreatmentCompletenessChecks() {
+  const { composeIncomeImpactScenario } = loadComposerWithLayerSpies();
+  const scenario = composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      assetTreatmentAssumptions: null
+    },
+    lensModel: {
+      treatedDebtPayoff: {
+        sourcePaths: ["treatedDebtPayoff.debts"],
+        debts: [
+          {
+            debtFactId: "credit-card",
+            categoryKey: "unsecuredConsumerDebt",
+            isMortgage: false,
+            treatmentMode: "payoff",
+            included: true,
+            treatedAmount: 5000
+          }
+        ]
+      }
+    }
+  }));
+  const codes = scenario.dataGaps.map((gap) => gap.code);
+
+  assert.strictEqual(
+    scenario.status,
+    "complete",
+    "scenario is not partial solely because saved asset-treatment assumptions are missing"
+  );
+  assert.ok(
+    !codes.includes("missing-asset-treatment-assumptions"),
+    "composer should not create a duplicate blocking missing asset-treatment gap"
+  );
+  assert.ok(
+    scenario.warnings.some((warning) => warning.code === "asset-treatment-assumptions-defaulted"),
+    "Layer 2 warning carries through when default asset-treatment assumptions are applied"
+  );
+  assert.strictEqual(
+    scenario.deathEvent.layer2.trace.assetTreatmentAssumptions.status,
+    "defaulted",
+    "Layer 2 trace records the defaulted treatment policy"
+  );
+  assert.ok(
+    scenario.deathEvent.survivorAvailableTreatedAssets > 0,
+    "default asset-treatment policy still produces death-event treated assets"
+  );
+}
+
 function runDataGapChecks() {
   const { composeIncomeImpactScenario } = loadComposerWithLayerSpies();
   const scenario = composeIncomeImpactScenario(createInput({
@@ -461,7 +512,7 @@ function runDataGapChecks() {
   assert.ok(codes.includes("missing-current-gross-asset-facts"), "missing current asset facts are composer-gapped");
   assert.ok(codes.includes("missing-mature-net-household-income"), "missing mature net income is composer-gapped");
   assert.ok(codes.includes("unsafe-gross-income-fallback-excluded"), "gross income fallback is rejected");
-  assert.ok(codes.includes("missing-asset-treatment-assumptions"), "missing asset treatment is composer-gapped");
+  assert.ok(!codes.includes("missing-asset-treatment-assumptions"), "missing asset treatment assumptions are not composer-gapped");
   assert.ok(codes.includes("missing-treated-existing-coverage-output"), "missing treated coverage is composer-gapped");
   assert.strictEqual(scenario.status, "partial", "missing source scenario is partial");
 }
@@ -550,6 +601,7 @@ function runChecks() {
   runCurrentAgePolicyChecks();
   runDurationChecks();
   runInactiveGrowthChecks();
+  runDefaultAssetTreatmentCompletenessChecks();
   runDataGapChecks();
   runDepletionChecks();
   runDeterminismChecks();

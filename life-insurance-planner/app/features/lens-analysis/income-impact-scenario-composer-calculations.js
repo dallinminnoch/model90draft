@@ -736,14 +736,8 @@
   }
 
   function buildLayer2Input(input, layer1Output, layer1Input, targetWealthPoint, dataGaps, trace, sourcePaths) {
-    if (!isPlainObject(input.analysisSettings?.assetTreatmentAssumptions)) {
-      addIssue(
-        dataGaps,
-        "missing-asset-treatment-assumptions",
-        "Asset treatment assumptions are required for Layer 2.",
-        ["analysisSettings.assetTreatmentAssumptions"]
-      );
-    } else {
+    const hasAssetTreatmentAssumptions = isPlainObject(input.analysisSettings?.assetTreatmentAssumptions);
+    if (hasAssetTreatmentAssumptions) {
       appendUnique(sourcePaths, ["analysisSettings.assetTreatmentAssumptions"]);
     }
 
@@ -756,7 +750,9 @@
     trace.layer2.inputMapping = {
       projectedWealthPoint: "Layer 1 target point",
       projectedAssetLedgerRows: projectedAssetLedger.length,
-      assetTreatmentAssumptions: "analysisSettings.assetTreatmentAssumptions",
+      assetTreatmentAssumptions: hasAssetTreatmentAssumptions
+        ? "analysisSettings.assetTreatmentAssumptions"
+        : "Layer 2 default asset-treatment policy",
       existingCoverageTreatment: existingCoverageTreatment ? "prepared treated existing coverage output" : "missing",
       immediateObligations: "prepared final expenses, transition needs, and treated debt payoff"
     };

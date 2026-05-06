@@ -357,14 +357,6 @@
     const calculateAssetTreatment = lensAnalysis.calculateAssetTreatment;
     const assumptionsAvailable = isPlainObject(assetTreatmentAssumptions);
 
-    if (!assumptionsAvailable) {
-      dataGaps.push(createIssue(
-        "missing-asset-treatment-assumptions",
-        "Asset treatment assumptions are required to convert projected assets at the event date.",
-        ["assetTreatmentAssumptions"]
-      ));
-    }
-
     if (typeof calculateAssetTreatment !== "function") {
       dataGaps.push(createIssue(
         "missing-asset-treatment-helper",
@@ -372,6 +364,17 @@
         ["LensApp.lensAnalysis.calculateAssetTreatment"]
       ));
       trace.assetTreatmentHelper = "missing";
+      trace.assetTreatmentAssumptions = assumptionsAvailable
+        ? {
+            status: "provided",
+            source: "assetTreatmentAssumptions"
+          }
+        : {
+            status: "unavailable",
+            source: "assetTreatmentAssumptions",
+            reason: "Saved asset-treatment assumptions were unavailable and the helper was missing, so defaults could not be applied.",
+            blocking: true
+          };
       return {
         treatedAssetValue: 0,
         totalTreatmentReduction: normalizedAssets.grossProjectedAssets,
@@ -381,6 +384,24 @@
     }
 
     trace.assetTreatmentHelper = "LensApp.lensAnalysis.calculateAssetTreatment";
+    if (!assumptionsAvailable) {
+      warnings.push(createIssue(
+        "asset-treatment-assumptions-defaulted",
+        "Saved asset treatment assumptions were unavailable; default asset-treatment policy was applied.",
+        ["assetTreatmentAssumptions"]
+      ));
+    }
+    trace.assetTreatmentAssumptions = assumptionsAvailable
+      ? {
+          status: "provided",
+          source: "assetTreatmentAssumptions"
+        }
+      : {
+          status: "defaulted",
+          source: "asset-treatment-helper-defaults",
+          reason: "Saved asset-treatment assumptions were unavailable; projected event-date assets used helper defaults.",
+          blocking: false
+        };
     const result = calculateAssetTreatment({
       assetFacts: {
         assets: normalizedAssets.assetFacts

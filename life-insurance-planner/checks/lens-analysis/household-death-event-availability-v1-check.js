@@ -4,6 +4,13 @@ const path = require("path");
 const vm = require("vm");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
+const assetTaxonomyPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "asset-taxonomy.js"
+);
 const assetTreatmentPath = path.join(
   repoRoot,
   "app",
@@ -18,6 +25,7 @@ const helperPath = path.join(
   "lens-analysis",
   "household-death-event-availability-calculations.js"
 );
+const assetTaxonomySource = fs.readFileSync(assetTaxonomyPath, "utf8");
 const assetTreatmentSource = fs.readFileSync(assetTreatmentPath, "utf8");
 const helperSource = fs.readFileSync(helperPath, "utf8");
 
@@ -37,6 +45,7 @@ function createContext() {
 function loadCalculator(options = {}) {
   const context = createContext();
   if (options.withAssetTreatment !== false) {
+    vm.runInContext(assetTaxonomySource, context, { filename: assetTaxonomyPath });
     vm.runInContext(assetTreatmentSource, context, { filename: assetTreatmentPath });
   }
   vm.runInContext(helperSource, context, { filename: helperPath });
@@ -182,6 +191,38 @@ function createExistingCoverageTreatment() {
 }
 
 function createImmediateObligations(options = {}) {
+  const debtRows = [
+    {
+      debtFactId: "credit-card",
+      categoryKey: "unsecuredConsumerDebt",
+      isMortgage: false,
+      treatmentMode: "payoff",
+      included: true,
+      treatedAmount: 12000
+    },
+    {
+      debtFactId: "mortgage-payoff",
+      categoryKey: "realEstateSecuredDebt",
+      isMortgage: true,
+      treatmentMode: "payoff",
+      mortgageTreatmentMode: "payoff",
+      included: true,
+      treatedAmount: 80000
+    }
+  ];
+  if (options.noMortgageSupport !== true) {
+    debtRows.push({
+      debtFactId: "mortgage-support",
+      categoryKey: "realEstateSecuredDebt",
+      isMortgage: true,
+      treatmentMode: "support",
+      mortgageTreatmentMode: "support",
+      included: true,
+      treatedAmount: 36000,
+      mortgageSupportAmount: 36000
+    });
+  }
+
   return {
     finalExpenses: {
       value: 50000,
@@ -200,35 +241,7 @@ function createImmediateObligations(options = {}) {
       },
       debts: options.aggregateOnly === true
         ? []
-        : [
-            {
-              debtFactId: "credit-card",
-              categoryKey: "unsecuredConsumerDebt",
-              isMortgage: false,
-              treatmentMode: "payoff",
-              included: true,
-              treatedAmount: 12000
-            },
-            {
-              debtFactId: "mortgage-payoff",
-              categoryKey: "realEstateSecuredDebt",
-              isMortgage: true,
-              treatmentMode: "payoff",
-              mortgageTreatmentMode: "payoff",
-              included: true,
-              treatedAmount: 80000
-            },
-            {
-              debtFactId: "mortgage-support",
-              categoryKey: "realEstateSecuredDebt",
-              isMortgage: true,
-              treatmentMode: "support",
-              mortgageTreatmentMode: "support",
-              included: true,
-              treatedAmount: 36000,
-              mortgageSupportAmount: 36000
-            }
-          ]
+        : debtRows
     }
   };
 }
@@ -241,7 +254,9 @@ function createInput(options = {}) {
       monthIndex: 60
     },
     projectedAssetLedger: createProjectedAssetLedger(options),
-    assetTreatmentAssumptions: createAssetTreatmentAssumptions(),
+    assetTreatmentAssumptions: options.assetTreatmentAssumptions !== undefined
+      ? options.assetTreatmentAssumptions
+      : createAssetTreatmentAssumptions(),
     existingCoverageTreatment: createExistingCoverageTreatment(),
     immediateObligations: createImmediateObligations(options),
     options: {}
@@ -341,6 +356,47 @@ function runChecks() {
   assert.strictEqual(baseline.immediateObligations.totalImmediateObligations, 167000);
   assert.strictEqual(baseline.resources.totalResourcesBeforeObligations, 518000);
   assert.strictEqual(baseline.resources.resourcesAfterObligations, 351000);
+
+  const defaultedTreatment = calculateHouseholdDeathEventAvailability(createInput({
+    assetTreatmentAssumptions: null,
+    noMortgageSupport: true
+  }));
+  const defaultedCodes = defaultedTreatment.dataGaps.map((gap) => gap.code);
+  assert.strictEqual(
+    defaultedTreatment.status,
+    "complete",
+    "missing saved asset-treatment assumptions should not be a blocking gap when helper defaults apply"
+  );
+  assert.ok(
+    !defaultedCodes.includes("missing-asset-treatment-assumptions"),
+    "missing saved asset-treatment assumptions should not create a data gap"
+  );
+  assert.ok(
+    defaultedTreatment.warnings.some((warning) => warning.code === "asset-treatment-assumptions-defaulted"),
+    "Layer 2 warns when default asset-treatment assumptions are applied"
+  );
+  assert.strictEqual(
+    defaultedTreatment.trace.assetTreatmentAssumptions.status,
+    "defaulted",
+    "trace records the defaulted asset-treatment policy"
+  );
+  assert.ok(
+    defaultedTreatment.warnings.some((warning) => warning.code === "missing-asset-treatment-assumption"),
+    "missing per-category treatment remains a helper warning"
+  );
+  assert.ok(
+    defaultedTreatment.assetTreatmentAtDeath.treatedAssetValue > 0,
+    "default treatment produces usable treated asset resources"
+  );
+
+  const missingLedgerInput = createInput({ noMortgageSupport: true });
+  missingLedgerInput.projectedAssetLedger = [];
+  const missingLedger = calculateHouseholdDeathEventAvailability(missingLedgerInput);
+  assert.strictEqual(missingLedger.status, "partial", "missing projected asset ledger remains blocking");
+  assert.ok(
+    missingLedger.dataGaps.some((gap) => gap.code === "missing-projected-asset-ledger"),
+    "missing projected asset ledger creates a data gap"
+  );
 
   const negativeCashFlow = calculateHouseholdDeathEventAvailability(createInput({ negativeCashFlow: true }));
   const negativeCashFlowRow = negativeCashFlow.assetTreatmentAtDeath.rows.find((row) => row.id === "cashFlowContribution");
