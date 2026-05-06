@@ -615,6 +615,53 @@
     return hasAnyValue ? total : null;
   }
 
+  function selectNetIncomeValue(options) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    const savedNetIncome = toOptionalNumber(safeOptions.savedNetIncome);
+    const recomputedNetIncome = toOptionalNumber(safeOptions.recomputedNetIncome);
+
+    if (safeOptions.manualOverride) {
+      return {
+        value: savedNetIncome,
+        source: savedNetIncome == null ? "missing-manual-override" : "manual-override"
+      };
+    }
+
+    if (safeOptions.shouldRecompute && recomputedNetIncome != null) {
+      return {
+        value: recomputedNetIncome,
+        source: "recomputed"
+      };
+    }
+
+    if (safeOptions.shouldRecompute && savedNetIncome != null) {
+      return {
+        value: savedNetIncome,
+        source: "saved-net-income-after-recompute-unavailable"
+      };
+    }
+
+    return {
+      value: null,
+      source: "unavailable"
+    };
+  }
+
+  function warnSavedNetIncomeFallback(warnings, options) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    addWarning(
+      warnings,
+      safeOptions.code,
+      safeOptions.message,
+      {
+        sourcePath: safeOptions.sourcePath,
+        recomputationSource: "current-tax-recomputation",
+        selectedSource: "saved-net-income",
+        trace: "Saved net income was preserved as mature spendable income because tax recomputation did not produce a value."
+      }
+    );
+  }
+
   function createIncomeBlockSource(input, sourceData, profileRecord, warnings) {
     const incomeCalculationMode = getIncomeCalculationMode(sourceData, profileRecord);
     const primaryNetManualOverride = isTrue(sourceData.netAnnualIncomeManualOverride);
@@ -628,17 +675,23 @@
     const netValues = shouldRecomputePrimaryNet || shouldRecomputeSpouseNet
       ? calculateCurrentNetIncomeValues(input, sourceData, profileRecord, warnings)
       : null;
-    const selectedPrimaryNetIncome = primaryNetManualOverride
-      ? sourceData.netAnnualIncome
-      : (shouldRecomputePrimaryNet ? netValues?.primary : null);
+    const selectedPrimaryNetIncome = selectNetIncomeValue({
+      savedNetIncome: sourceData.netAnnualIncome,
+      recomputedNetIncome: netValues?.primary,
+      manualOverride: primaryNetManualOverride,
+      shouldRecompute: shouldRecomputePrimaryNet
+    });
     const selectedSpouseNetIncome = incomeCalculationMode === "separate"
-      ? (spouseNetManualOverride
-        ? sourceData.spouseNetAnnualIncome
-        : (shouldRecomputeSpouseNet ? netValues?.spouse : null))
+      ? selectNetIncomeValue({
+        savedNetIncome: sourceData.spouseNetAnnualIncome,
+        recomputedNetIncome: netValues?.spouse,
+        manualOverride: spouseNetManualOverride,
+        shouldRecompute: shouldRecomputeSpouseNet
+      })
       : null;
     const source = {
       grossAnnualIncome: sourceData.grossAnnualIncome,
-      netAnnualIncome: selectedPrimaryNetIncome,
+      netAnnualIncome: selectedPrimaryNetIncome.value,
       netAnnualIncomeManualOverride: primaryNetManualOverride,
       bonusVariableIncome: sourceData.bonusVariableIncome,
       employerBenefitsValue: sourceData.employerBenefitsValue,
@@ -646,9 +699,25 @@
       incomeGrowthRate: sourceData.incomeGrowthRate,
       spouseOrPartnerIncomeApplicability: incomeCalculationMode === "separate" ? "separate" : "not_applicable",
       spouseIncome: incomeCalculationMode === "separate" ? sourceData.spouseIncome : null,
-      spouseNetAnnualIncome: selectedSpouseNetIncome,
+      spouseNetAnnualIncome: selectedSpouseNetIncome?.value ?? null,
       spouseNetAnnualIncomeManualOverride: incomeCalculationMode === "separate" && spouseNetManualOverride
     };
+
+    if (selectedPrimaryNetIncome.source === "saved-net-income-after-recompute-unavailable") {
+      warnSavedNetIncomeFallback(warnings, {
+        code: "saved-net-income-used-after-tax-recompute-unavailable",
+        message: "Saved insured net annual income was preserved because tax recomputation did not produce a current value.",
+        sourcePath: "protectionModeling.data.netAnnualIncome"
+      });
+    }
+
+    if (selectedSpouseNetIncome?.source === "saved-net-income-after-recompute-unavailable") {
+      warnSavedNetIncomeFallback(warnings, {
+        code: "saved-spouse-net-income-used-after-tax-recompute-unavailable",
+        message: "Saved spouse net annual income was preserved because tax recomputation did not produce a current value.",
+        sourcePath: "protectionModeling.data.spouseNetAnnualIncome"
+      });
+    }
 
     if (!primaryNetManualOverride && !isBlankValue(sourceData.netAnnualIncome) && primaryGrossIncome == null) {
       addWarning(

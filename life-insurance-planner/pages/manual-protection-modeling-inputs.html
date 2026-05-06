@@ -3255,15 +3255,23 @@
           ? window.serializeLensFormSnapshot(form)
           : {};
 
-        if (netAnnualIncomeField && !(netAnnualIncomeField instanceof RadioNodeList) && netAnnualIncomeField.dataset.manualOverride === "true") {
-          draft.netAnnualIncome = parseCurrencyLikeNumber(netAnnualIncomeField.dataset.manualValue);
-          draft.netAnnualIncomeManualOverride = true;
-        }
-
-        if (spouseNetAnnualIncomeField && !(spouseNetAnnualIncomeField instanceof RadioNodeList) && spouseNetAnnualIncomeField.dataset.manualOverride === "true") {
-          draft.spouseNetAnnualIncome = parseCurrencyLikeNumber(spouseNetAnnualIncomeField.dataset.manualValue);
-          draft.spouseNetAnnualIncomeManualOverride = true;
-        }
+        persistNetIncomeSnapshotValue(
+          draft,
+          "netAnnualIncome",
+          "netAnnualIncomeManualOverride",
+          netAnnualIncomeField,
+          { includeWhen: parseCurrencyLikeNumber(grossAnnualIncomeField?.value) != null }
+        );
+        persistNetIncomeSnapshotValue(
+          draft,
+          "spouseNetAnnualIncome",
+          "spouseNetAnnualIncomeManualOverride",
+          spouseNetAnnualIncomeField,
+          {
+            includeWhen: getIncomeCalculationMode() === "separate"
+              && parseCurrencyLikeNumber(spouseIncomeField?.value) != null
+          }
+        );
 
         if (monthlyMortgagePaymentField && !(monthlyMortgagePaymentField instanceof RadioNodeList) && monthlyMortgagePaymentField.dataset.manualOverride === "true") {
           draft.calculatedMonthlyMortgagePayment = parseCurrencyLikeNumber(monthlyMortgagePaymentField.dataset.manualValue);
@@ -3280,6 +3288,30 @@
         preserveLegacySurvivorPlanningValues(draft);
 
         return draft;
+      }
+
+      function persistNetIncomeSnapshotValue(draft, fieldName, manualOverrideFieldName, field, options = {}) {
+        if (!field || field instanceof RadioNodeList || !fieldName || !manualOverrideFieldName) {
+          return;
+        }
+
+        if (field.dataset.manualOverride === "true") {
+          draft[fieldName] = parseCurrencyLikeNumber(field.dataset.manualValue);
+          draft[manualOverrideFieldName] = true;
+          return;
+        }
+
+        if (options.includeWhen === false) {
+          return;
+        }
+
+        const calculatedValue = parseCurrencyLikeNumber(field.value);
+        if (calculatedValue == null) {
+          return;
+        }
+
+        draft[fieldName] = calculatedValue;
+        draft[manualOverrideFieldName] = false;
       }
 
       window.restoreLensTemporaryAnalysisForm?.(form, "manual-protection-modeling");
