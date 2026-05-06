@@ -47,6 +47,16 @@
     })
   ]);
   const EXPENSE_RECORDS_SOURCE_PATH = "protectionModeling.data.expenseRecords";
+  const DEBT_RECORDS_SOURCE_PATH = "protectionModeling.data.debtRecords";
+  const GENERATED_DEBT_PAYMENT_EXPENSE_CATEGORY_KEY = "debtPayment";
+  const DEBT_PAYMENT_FREQUENCY_MONTHLY_FACTORS = Object.freeze({
+    monthly: 1,
+    biweekly: 26 / 12,
+    weekly: 52 / 12,
+    quarterly: 1 / 3,
+    semiannual: 1 / 6,
+    annual: 1 / 12
+  });
   const EXPENSE_FREQUENCY_ANNUALIZATION_FACTORS = Object.freeze({
     weekly: 52,
     monthly: 12,
@@ -1132,6 +1142,12 @@
     return "debt_record_" + categoryToken + "_" + typeToken + "_" + positionToken;
   }
 
+  function createFallbackDebtRecordSourceId(debtRecord, index) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    return normalizeDebtRecordString(safeDebtRecord.debtId)
+      || createFallbackDebtRecordFactId(safeDebtRecord, index);
+  }
+
   function createDebtFactFromScalarSource(sourceData, sourceField, taxonomy) {
     const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
     const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
@@ -1871,6 +1887,281 @@
     };
   }
 
+  function normalizeDebtPaymentFrequency(frequency) {
+    const normalizedFrequency = normalizeDebtRecordString(frequency);
+    if (!normalizedFrequency) {
+      return "monthly";
+    }
+
+    if (
+      normalizedFrequency === "oneTime"
+      || normalizedFrequency === "other"
+      || Object.prototype.hasOwnProperty.call(DEBT_PAYMENT_FREQUENCY_MONTHLY_FACTORS, normalizedFrequency)
+    ) {
+      return normalizedFrequency;
+    }
+
+    return "other";
+  }
+
+  function calculateGeneratedDebtPaymentAmounts(amount, paymentFrequency) {
+    if (paymentFrequency === "oneTime") {
+      return {
+        monthlyRecurringAmount: null,
+        annualizedAmount: null,
+        oneTimeAmount: amount
+      };
+    }
+
+    const monthlyFactor = DEBT_PAYMENT_FREQUENCY_MONTHLY_FACTORS[paymentFrequency];
+    if (!Number.isFinite(monthlyFactor)) {
+      return {
+        monthlyRecurringAmount: null,
+        annualizedAmount: null,
+        oneTimeAmount: null
+      };
+    }
+
+    const monthlyRecurringAmount = amount * monthlyFactor;
+    return {
+      monthlyRecurringAmount,
+      annualizedAmount: monthlyRecurringAmount * 12,
+      oneTimeAmount: null
+    };
+  }
+
+  function createDebtPaymentExpenseTypeKey(typeKey) {
+    const normalizedTypeKey = normalizeDebtRecordString(typeKey);
+    return normalizedTypeKey ? normalizedTypeKey + "Payment" : "debtPayment";
+  }
+
+  function createDebtPaymentExpenseFactId(sourceDebtRecordId, sourceDebtTypeKey, index) {
+    const debtRecordToken = normalizeExpenseRecordToken(sourceDebtRecordId)
+      || normalizeExpenseRecordToken(sourceDebtTypeKey)
+      || ("debt_" + (index + 1));
+    return "generated_debt_payment_expense_" + debtRecordToken;
+  }
+
+  function getDebtRecordPaymentAmount(debtRecord) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const paymentAmount = toOptionalNumber(safeDebtRecord.paymentAmount);
+    if (paymentAmount != null) {
+      return paymentAmount;
+    }
+
+    return toOptionalNumber(safeDebtRecord.minimumMonthlyPayment);
+  }
+
+  function createDebtPaymentDuplicateProtectionKey(sourceDebtRecordId, sourceDebtTypeKey) {
+    return [
+      "debt-payment",
+      normalizeDebtRecordToken(sourceDebtRecordId) || "unknown-record",
+      normalizeDebtRecordToken(sourceDebtTypeKey) || "unknown-type",
+      "required-payment"
+    ].join(":");
+  }
+
+  function createGeneratedDebtPaymentExpenseFactFromDebtRecord(debtRecord, index) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const warnings = [];
+    const sourceDebtRecordId = createFallbackDebtRecordSourceId(safeDebtRecord, index);
+    const sourceDebtTypeKey = normalizeDebtRecordString(safeDebtRecord.typeKey);
+    const libraryEntry = getDebtLibraryEntry(sourceDebtTypeKey);
+    const sourcePath = DEBT_RECORDS_SOURCE_PATH + "[" + index + "]";
+    const amount = getDebtRecordPaymentAmount(safeDebtRecord);
+    const paymentFrequency = normalizeDebtPaymentFrequency(safeDebtRecord.paymentFrequency);
+    const duplicateProtectionKey = createDebtPaymentDuplicateProtectionKey(sourceDebtRecordId, sourceDebtTypeKey);
+
+    if (!sourceDebtTypeKey) {
+      warnings.push(createExpenseFactWarning(
+        "missing-debt-payment-source-type",
+        "Debt record is missing a typeKey and did not generate a debt-payment expense fact.",
+        { index, sourceDebtRecordId, sourcePath }
+      ));
+    }
+
+    if (amount == null) {
+      return {
+        expense: null,
+        warnings,
+        skipped: true
+      };
+    }
+
+    if (amount < 0) {
+      warnings.push(createExpenseFactWarning(
+        "negative-debt-payment-amount",
+        "Debt record has a negative payment amount and did not generate a debt-payment expense fact.",
+        { index, sourceDebtRecordId, sourceDebtTypeKey: sourceDebtTypeKey || null, sourcePath }
+      ));
+    }
+
+    if (paymentFrequency === "other") {
+      warnings.push(createExpenseFactWarning(
+        "debt-payment-frequency-review",
+        "Debt record paymentFrequency is other or unrecognized; the generated debt-payment expense fact is not annualized.",
+        { index, sourceDebtRecordId, sourceDebtTypeKey: sourceDebtTypeKey || null, sourcePath }
+      ));
+    }
+
+    if (warnings.some(function (warning) {
+      return warning && warning.code !== "debt-payment-frequency-review";
+    })) {
+      return {
+        expense: null,
+        warnings,
+        skipped: false
+      };
+    }
+
+    const amounts = calculateGeneratedDebtPaymentAmounts(amount, paymentFrequency);
+    const label = normalizeDebtRecordString(safeDebtRecord.label)
+      || normalizeDebtRecordString(libraryEntry && libraryEntry.label)
+      || sourceDebtTypeKey
+      || "Debt";
+    const extraPayoffAmount = toOptionalNonNegativeNumber(safeDebtRecord.extraPayoffAmount);
+
+    return {
+      expense: {
+        expenseFactId: createDebtPaymentExpenseFactId(sourceDebtRecordId, sourceDebtTypeKey, index),
+        expenseRecordId: null,
+        typeKey: createDebtPaymentExpenseTypeKey(sourceDebtTypeKey),
+        categoryKey: GENERATED_DEBT_PAYMENT_EXPENSE_CATEGORY_KEY,
+        label: label + " Payment",
+        domain: "debt",
+        amount,
+        frequency: paymentFrequency,
+        paymentFrequency,
+        termType: paymentFrequency === "oneTime" ? "oneTime" : "ongoing",
+        continuationStatus: "review",
+        continuationStatusSource: "generated-debt-record",
+        termYears: null,
+        endAge: null,
+        endDate: null,
+        remainingTermMonths: toOptionalNonNegativeNumber(safeDebtRecord.remainingTermMonths),
+        extraPayoffAmount,
+        source: DEBT_RECORDS_SOURCE_PATH,
+        sourceKey: "debtRecords",
+        sourcePath,
+        sourceIndex: index,
+        sourceDebtRecordId,
+        sourceDebtTypeKey,
+        duplicateProtectionKey,
+        isDefaultExpense: false,
+        isScalarFieldOwned: false,
+        isProtected: false,
+        isAddable: false,
+        isRepeatableExpenseRecord: false,
+        isCustomExpense: sourceDebtTypeKey === "customDebt" || safeDebtRecord.isCustomDebt === true,
+        isFinalExpenseComponent: false,
+        isHealthcareSensitive: false,
+        isGeneratedExpense: true,
+        isDebtPaymentExpense: true,
+        isReadOnly: true,
+        isFormulaEligible: false,
+        isDebtObligation: true,
+        defaultInflationRole: "none",
+        uiAvailability: "generated",
+        monthlyRecurringAmount: amounts.monthlyRecurringAmount,
+        annualizedAmount: amounts.annualizedAmount,
+        oneTimeAmount: amounts.oneTimeAmount,
+        metadata: {
+          sourceType: "generated",
+          confidence: paymentFrequency === "other" ? "advisor-review-required" : "calculated-from-debt-record",
+          canonicalDestination: "expenseFacts.expenses",
+          recordSource: "debtRecords-generated-payment",
+          sourceIndex: index,
+          sourcePath,
+          sourceDebtRecordId,
+          sourceDebtTypeKey,
+          paymentFrequency,
+          sourcePaymentAmount: amount,
+          libraryEntryKey: normalizeDebtRecordString(libraryEntry && libraryEntry.libraryEntryKey) || sourceDebtTypeKey || null,
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
+          duplicateProtectionKey,
+          formulaActivation: "deferred",
+          extraPayoffTreatment: extraPayoffAmount == null ? null : "deferred-separate-from-required-payment"
+        }
+      },
+      warnings,
+      skipped: false
+    };
+  }
+
+  function createGeneratedDebtPaymentExpenseFactsFromDebtRecords(sourceData) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const sourceRecords = Array.isArray(safeSourceData.debtRecords) ? safeSourceData.debtRecords : [];
+    const expenses = [];
+    const warnings = [];
+    let skippedRecordCount = 0;
+
+    sourceRecords.forEach(function (debtRecord, index) {
+      const result = createGeneratedDebtPaymentExpenseFactFromDebtRecord(debtRecord, index);
+      warnings.push.apply(warnings, result.warnings);
+
+      if (result.skipped === true) {
+        skippedRecordCount += 1;
+        return;
+      }
+
+      if (result.expense) {
+        expenses.push(result.expense);
+      }
+    });
+
+    return {
+      expenses,
+      sourceRecordCount: sourceRecords.length,
+      acceptedRecordCount: expenses.length,
+      skippedRecordCount,
+      invalidRecordCount: sourceRecords.length - expenses.length - skippedRecordCount,
+      warnings
+    };
+  }
+
+  function normalizeDuplicateMatchText(value) {
+    return normalizeExpenseRecordString(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function flagPossibleGeneratedDebtPaymentDuplicates(manualExpenses, generatedDebtPaymentExpenses) {
+    const safeManualExpenses = Array.isArray(manualExpenses) ? manualExpenses : [];
+    const safeGeneratedExpenses = Array.isArray(generatedDebtPaymentExpenses) ? generatedDebtPaymentExpenses : [];
+    const warnings = [];
+
+    safeManualExpenses.forEach(function (manualExpense) {
+      const manualMatchText = normalizeDuplicateMatchText(manualExpense && manualExpense.label);
+      if (!manualMatchText) {
+        return;
+      }
+
+      const matchingGeneratedExpense = safeGeneratedExpenses.find(function (generatedExpense) {
+        return manualMatchText === normalizeDuplicateMatchText(generatedExpense && generatedExpense.label);
+      });
+      if (!matchingGeneratedExpense) {
+        return;
+      }
+
+      manualExpense.metadata = Object.assign({}, manualExpense.metadata, {
+        possibleGeneratedDebtPaymentDuplicate: true,
+        possibleGeneratedDebtPaymentDuplicateKey: matchingGeneratedExpense.duplicateProtectionKey || null
+      });
+      warnings.push(createExpenseFactWarning(
+        "manual-expense-possible-generated-debt-payment-duplicate",
+        "Manual expense record label matches a generated Debt Records payment; it was flagged for advisor review but not deleted or zeroed.",
+        {
+          expenseRecordId: manualExpense.expenseRecordId || null,
+          generatedExpenseFactId: matchingGeneratedExpense.expenseFactId || null,
+          sourceDebtRecordId: matchingGeneratedExpense.sourceDebtRecordId || null,
+          duplicateProtectionKey: matchingGeneratedExpense.duplicateProtectionKey || null
+        }
+      ));
+    });
+
+    return warnings;
+  }
+
   function createExpenseFactFromScalarSource(sourceData, sourceField, taxonomy) {
     const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
     const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
@@ -2012,6 +2303,20 @@
     return expense.frequency === "oneTime" ? null : toOptionalNumber(expense.annualizedAmount);
   }
 
+  function isFormulaFacingExpenseFact(expense) {
+    return expense
+      && typeof expense === "object"
+      && expense.isFormulaEligible !== false
+      && expense.isGeneratedExpense !== true;
+  }
+
+  function isGeneratedDebtPaymentExpenseFact(expense) {
+    return expense
+      && typeof expense === "object"
+      && expense.isGeneratedExpense === true
+      && expense.isDebtPaymentExpense === true;
+  }
+
   function sumExpenseFacts(expenses, predicate, amountSelector) {
     return sumOptionalBucketComponents(expenses
       .filter(predicate)
@@ -2020,9 +2325,11 @@
 
   function calculateExpenseFactsTotalsByBucket(expenses) {
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const formulaFacingExpenses = safeExpenses.filter(isFormulaFacingExpenseFact);
+    const generatedDebtPaymentExpenses = safeExpenses.filter(isGeneratedDebtPaymentExpenseFact);
     const totalsByBucket = {};
 
-    safeExpenses.forEach(function (expense) {
+    formulaFacingExpenses.forEach(function (expense) {
       const categoryKey = normalizeExpenseRecordString(expense?.categoryKey);
       const amount = getExpenseFactTotalAmount(expense);
 
@@ -2043,14 +2350,14 @@
     });
 
     totalsByBucket.totalScalarFinalExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.isFinalExpenseComponent === true && expense.isScalarFieldOwned === true;
       },
       getExpenseFactTotalAmount
     );
     totalsByBucket.totalRepeatableFinalExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.isFinalExpenseComponent === true && expense.isRepeatableExpenseRecord === true;
       },
@@ -2061,14 +2368,14 @@
       totalsByBucket.totalRepeatableFinalExpense
     ]);
     totalsByBucket.totalHealthcareSensitiveExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.isHealthcareSensitive === true;
       },
       getExpenseFactTotalAmount
     );
     totalsByBucket.totalNonMedicalFinalExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.isFinalExpenseComponent === true && expense.isHealthcareSensitive !== true;
       },
@@ -2076,60 +2383,87 @@
     );
     totalsByBucket.totalHealthcareExpense = totalsByBucket.totalHealthcareSensitiveExpense;
     totalsByBucket.totalAnnualRecurringExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function () {
         return true;
       },
       getExpenseFactAnnualRecurringAmount
     );
     totalsByBucket.totalOneTimeExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function () {
         return true;
       },
       getExpenseFactOneTimeAmount
     );
     totalsByBucket.totalAnnualHealthcareExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.isHealthcareSensitive === true;
       },
       getExpenseFactAnnualRecurringAmount
     );
     totalsByBucket.totalOneTimeHealthcareExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.isHealthcareSensitive === true;
       },
       getExpenseFactOneTimeAmount
     );
     totalsByBucket.totalAnnualLivingExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.domain === "living";
       },
       getExpenseFactAnnualRecurringAmount
     );
     totalsByBucket.totalAnnualEducationExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.domain === "education";
       },
       getExpenseFactAnnualRecurringAmount
     );
     totalsByBucket.totalAnnualBusinessExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.domain === "business";
       },
       getExpenseFactAnnualRecurringAmount
     );
     totalsByBucket.totalAnnualCustomExpense = sumExpenseFacts(
-      safeExpenses,
+      formulaFacingExpenses,
       function (expense) {
         return expense.domain === "custom";
       },
       getExpenseFactAnnualRecurringAmount
+    );
+    totalsByBucket.generatedDebtPaymentMonthlyRecurringExpense = sumExpenseFacts(
+      generatedDebtPaymentExpenses,
+      function () {
+        return true;
+      },
+      function (expense) {
+        return toOptionalNumber(expense.monthlyRecurringAmount);
+      }
+    );
+    totalsByBucket.generatedDebtPaymentAnnualRecurringExpense = sumExpenseFacts(
+      generatedDebtPaymentExpenses,
+      function () {
+        return true;
+      },
+      function (expense) {
+        return toOptionalNumber(expense.annualizedAmount);
+      }
+    );
+    totalsByBucket.generatedDebtPaymentOneTimeExpense = sumExpenseFacts(
+      generatedDebtPaymentExpenses,
+      function () {
+        return true;
+      },
+      function (expense) {
+        return toOptionalNumber(expense.oneTimeAmount);
+      }
     );
 
     return totalsByBucket;
@@ -2153,8 +2487,19 @@
     });
 
     const expenseRecordsProjection = createExpenseFactsFromExpenseRecords(safeSourceData, taxonomy);
-    expenses.push.apply(expenses, expenseRecordsProjection.expenses);
+    const debtPaymentExpenseProjection = createGeneratedDebtPaymentExpenseFactsFromDebtRecords(safeSourceData);
+
     warnings.push.apply(warnings, expenseRecordsProjection.warnings);
+    warnings.push.apply(
+      warnings,
+      flagPossibleGeneratedDebtPaymentDuplicates(
+        expenseRecordsProjection.expenses,
+        debtPaymentExpenseProjection.expenses
+      )
+    );
+    expenses.push.apply(expenses, expenseRecordsProjection.expenses);
+    expenses.push.apply(expenses, debtPaymentExpenseProjection.expenses);
+    warnings.push.apply(warnings, debtPaymentExpenseProjection.warnings);
 
     return {
       expenses,
@@ -2165,11 +2510,16 @@
         librarySource: lensAnalysis.expenseLibrary ? "expense-library" : "unavailable",
         scalarExpenseSource: "final-expense-scalar-fields",
         expenseRecordsSource: expenseRecordsProjection.sourceRecordCount ? EXPENSE_RECORDS_SOURCE_PATH : null,
+        debtPaymentExpenseSource: debtPaymentExpenseProjection.sourceRecordCount ? DEBT_RECORDS_SOURCE_PATH : null,
         scalarExpenseSourceFieldCount: SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.length,
         acceptedScalarExpenseCount: scalarExpenses.length,
         sourceExpenseRecordCount: expenseRecordsProjection.sourceRecordCount,
         acceptedExpenseRecordCount: expenseRecordsProjection.acceptedRecordCount,
         invalidExpenseRecordCount: expenseRecordsProjection.invalidRecordCount,
+        sourceDebtRecordCount: debtPaymentExpenseProjection.sourceRecordCount,
+        acceptedGeneratedDebtPaymentExpenseCount: debtPaymentExpenseProjection.acceptedRecordCount,
+        skippedGeneratedDebtPaymentExpenseCount: debtPaymentExpenseProjection.skippedRecordCount,
+        invalidGeneratedDebtPaymentExpenseCount: debtPaymentExpenseProjection.invalidRecordCount,
         warnings
       }
     };

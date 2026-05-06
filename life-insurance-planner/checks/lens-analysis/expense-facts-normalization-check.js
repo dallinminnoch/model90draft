@@ -260,10 +260,15 @@ assert.equal(expenseFacts.metadata.taxonomySource, "expense-taxonomy");
 assert.equal(expenseFacts.metadata.librarySource, "expense-library");
 assert.equal(expenseFacts.metadata.scalarExpenseSource, "final-expense-scalar-fields");
 assert.equal(expenseFacts.metadata.expenseRecordsSource, null);
+assert.equal(expenseFacts.metadata.debtPaymentExpenseSource, null);
 assert.equal(expenseFacts.metadata.acceptedScalarExpenseCount, 4);
 assert.equal(expenseFacts.metadata.sourceExpenseRecordCount, 0);
 assert.equal(expenseFacts.metadata.acceptedExpenseRecordCount, 0);
 assert.equal(expenseFacts.metadata.invalidExpenseRecordCount, 0);
+assert.equal(expenseFacts.metadata.sourceDebtRecordCount, 0);
+assert.equal(expenseFacts.metadata.acceptedGeneratedDebtPaymentExpenseCount, 0);
+assert.equal(expenseFacts.metadata.skippedGeneratedDebtPaymentExpenseCount, 0);
+assert.equal(expenseFacts.metadata.invalidGeneratedDebtPaymentExpenseCount, 0);
 assert.ok(Array.isArray(expenseFacts.metadata.warnings));
 assert.equal(expenseFacts.metadata.warnings.length, 0);
 
@@ -336,6 +341,9 @@ assert.equal(expenseFacts.totalsByBucket.totalAnnualRecurringExpense, null);
 assert.equal(expenseFacts.totalsByBucket.totalOneTimeExpense, 45000);
 assert.equal(expenseFacts.totalsByBucket.totalAnnualHealthcareExpense, null);
 assert.equal(expenseFacts.totalsByBucket.totalOneTimeHealthcareExpense, 15000);
+assert.equal(expenseFacts.totalsByBucket.generatedDebtPaymentMonthlyRecurringExpense, null);
+assert.equal(expenseFacts.totalsByBucket.generatedDebtPaymentAnnualRecurringExpense, null);
+assert.equal(expenseFacts.totalsByBucket.generatedDebtPaymentOneTimeExpense, null);
 
 assert.deepEqual(cloneJson(lensModel.finalExpenses), {
   funeralAndBurialCost: 15000,
@@ -481,10 +489,15 @@ assert.deepEqual(repeatableExpenseSource, repeatableExpenseSourceSnapshot, "repe
 const repeatableExpenseFacts = repeatableExpenseModel.expenseFacts;
 assert.equal(repeatableExpenseFacts.expenses.length, 12, "four scalar facts and eight repeatable facts should normalize");
 assert.equal(repeatableExpenseFacts.metadata.expenseRecordsSource, "protectionModeling.data.expenseRecords");
+assert.equal(repeatableExpenseFacts.metadata.debtPaymentExpenseSource, null);
 assert.equal(repeatableExpenseFacts.metadata.acceptedScalarExpenseCount, 4);
 assert.equal(repeatableExpenseFacts.metadata.sourceExpenseRecordCount, 13);
 assert.equal(repeatableExpenseFacts.metadata.acceptedExpenseRecordCount, 8);
 assert.equal(repeatableExpenseFacts.metadata.invalidExpenseRecordCount, 5);
+assert.equal(repeatableExpenseFacts.metadata.sourceDebtRecordCount, 0);
+assert.equal(repeatableExpenseFacts.metadata.acceptedGeneratedDebtPaymentExpenseCount, 0);
+assert.equal(repeatableExpenseFacts.metadata.skippedGeneratedDebtPaymentExpenseCount, 0);
+assert.equal(repeatableExpenseFacts.metadata.invalidGeneratedDebtPaymentExpenseCount, 0);
 
 const weeklyMedicalFact = findExpenseFact(repeatableExpenseFacts, "medicalOutOfPocket", "weekly_medical");
 assert.ok(weeklyMedicalFact, "weekly expense record should normalize");
@@ -576,8 +589,197 @@ assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualLivingExpense, 240
 assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualEducationExpense, null);
 assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualBusinessExpense, null);
 assert.equal(repeatableExpenseFacts.totalsByBucket.totalAnnualCustomExpense, 600);
+assert.equal(repeatableExpenseFacts.totalsByBucket.generatedDebtPaymentMonthlyRecurringExpense, null);
+assert.equal(repeatableExpenseFacts.totalsByBucket.generatedDebtPaymentAnnualRecurringExpense, null);
+assert.equal(repeatableExpenseFacts.totalsByBucket.generatedDebtPaymentOneTimeExpense, null);
 
 assert.deepEqual(cloneJson(repeatableExpenseModel.finalExpenses), cloneJson(lensModel.finalExpenses), "repeatable expenses should not alter method-facing finalExpenses");
+
+const debtPaymentSource = createSourceData({
+  expenseRecords: [
+    {
+      expenseId: "manual_auto_loan_payment",
+      typeKey: "customExpenseRecord",
+      categoryKey: "customExpense",
+      label: "Auto Loan Payment",
+      amount: 425,
+      frequency: "monthly",
+      termType: "ongoing"
+    }
+  ],
+  debtRecords: [
+    {
+      debtId: "debt_auto_loan",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "autoLoan",
+      label: "Auto Loan",
+      currentBalance: 18000,
+      paymentFrequency: "monthly",
+      paymentAmount: 425,
+      extraPayoffAmount: 50,
+      remainingTermMonths: 42
+    },
+    {
+      debtId: "debt_auto_lease",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "autoLease",
+      label: "Auto Lease",
+      currentBalance: null,
+      paymentFrequency: "biweekly",
+      paymentAmount: 200
+    },
+    {
+      debtId: "debt_credit_card",
+      categoryKey: "unsecuredConsumerDebt",
+      typeKey: "creditCard",
+      label: "Credit Card",
+      currentBalance: 2000,
+      paymentFrequency: "weekly",
+      paymentAmount: 25
+    },
+    {
+      debtId: "debt_personal_loan",
+      categoryKey: "unsecuredConsumerDebt",
+      typeKey: "personalLoan",
+      label: "Personal Loan",
+      currentBalance: 5000,
+      paymentFrequency: "quarterly",
+      paymentAmount: 900
+    },
+    {
+      debtId: "debt_student_loan",
+      categoryKey: "educationDebt",
+      typeKey: "federalStudentLoan",
+      label: "Student Loan",
+      currentBalance: 12000,
+      paymentFrequency: "semiannual",
+      paymentAmount: 1200
+    },
+    {
+      debtId: "debt_business_loan",
+      categoryKey: "businessDebt",
+      typeKey: "businessLoan",
+      label: "Business Loan",
+      currentBalance: 24000,
+      paymentFrequency: "annual",
+      paymentAmount: 2400
+    },
+    {
+      debtId: "debt_tax_plan",
+      categoryKey: "taxLegalDebt",
+      typeKey: "irsTaxDebt",
+      label: "IRS Payment Plan",
+      currentBalance: null,
+      paymentFrequency: "oneTime",
+      paymentAmount: 1000
+    },
+    {
+      debtId: "debt_medical_payment_plan",
+      categoryKey: "medicalDebt",
+      typeKey: "medicalBill",
+      label: "Medical Payment Plan",
+      currentBalance: null,
+      paymentFrequency: "other",
+      paymentAmount: 111
+    },
+    {
+      debtId: "debt_invalid_payment",
+      categoryKey: "otherDebt",
+      typeKey: "otherDebt",
+      label: "Invalid Payment",
+      currentBalance: null,
+      paymentFrequency: "monthly",
+      paymentAmount: ""
+    }
+  ]
+});
+const debtPaymentSourceSnapshot = cloneJson(debtPaymentSource);
+const debtPaymentModel = buildModel(context, debtPaymentSource, analysisSettings).lensModel;
+assert.deepEqual(debtPaymentSource, debtPaymentSourceSnapshot, "debt-payment expense generation should not mutate source data");
+
+const debtPaymentExpenseFacts = debtPaymentModel.expenseFacts;
+assert.equal(debtPaymentExpenseFacts.expenses.length, 13, "four scalar facts, one manual expense, and eight generated debt-payment facts should normalize");
+assert.equal(debtPaymentExpenseFacts.metadata.expenseRecordsSource, "protectionModeling.data.expenseRecords");
+assert.equal(debtPaymentExpenseFacts.metadata.debtPaymentExpenseSource, "protectionModeling.data.debtRecords");
+assert.equal(debtPaymentExpenseFacts.metadata.sourceExpenseRecordCount, 1);
+assert.equal(debtPaymentExpenseFacts.metadata.acceptedExpenseRecordCount, 1);
+assert.equal(debtPaymentExpenseFacts.metadata.invalidExpenseRecordCount, 0);
+assert.equal(debtPaymentExpenseFacts.metadata.sourceDebtRecordCount, 9);
+assert.equal(debtPaymentExpenseFacts.metadata.acceptedGeneratedDebtPaymentExpenseCount, 8);
+assert.equal(debtPaymentExpenseFacts.metadata.skippedGeneratedDebtPaymentExpenseCount, 1);
+assert.equal(debtPaymentExpenseFacts.metadata.invalidGeneratedDebtPaymentExpenseCount, 0);
+
+const generatedDebtPayments = debtPaymentExpenseFacts.expenses.filter((expense) => expense.isGeneratedExpense === true && expense.isDebtPaymentExpense === true);
+assert.equal(generatedDebtPayments.length, 8, "valid debtRecords with payments should generate read-only expense facts");
+generatedDebtPayments.forEach((expense) => {
+  assert.equal(expense.isReadOnly, true);
+  assert.equal(expense.isFormulaEligible, false);
+  assert.equal(expense.isAddable, false);
+  assert.equal(expense.source, "protectionModeling.data.debtRecords");
+  assert.equal(expense.sourceKey, "debtRecords");
+  assert.ok(expense.sourceDebtRecordId, "generated fact should link to sourceDebtRecordId");
+  assert.ok(expense.sourceDebtTypeKey, "generated fact should link to sourceDebtTypeKey");
+  assert.ok(expense.sourcePath.startsWith("protectionModeling.data.debtRecords["));
+  assert.ok(expense.duplicateProtectionKey.startsWith("debt-payment:"));
+  assert.equal(expense.metadata.recordSource, "debtRecords-generated-payment");
+  assert.equal(expense.metadata.formulaActivation, "deferred");
+});
+
+const autoLoanPayment = generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "autoLoan");
+assert.ok(autoLoanPayment, "auto loan should generate a debt-payment expense fact");
+assert.equal(autoLoanPayment.label, "Auto Loan Payment");
+assert.equal(autoLoanPayment.amount, 425);
+assert.equal(autoLoanPayment.frequency, "monthly");
+assert.equal(autoLoanPayment.monthlyRecurringAmount, 425);
+assert.equal(autoLoanPayment.annualizedAmount, 5100);
+assert.equal(autoLoanPayment.oneTimeAmount, null);
+assert.equal(autoLoanPayment.extraPayoffAmount, 50, "extra payoff should stay separate from required payment");
+assert.equal(autoLoanPayment.metadata.extraPayoffTreatment, "deferred-separate-from-required-payment");
+
+const autoLeasePayment = generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "autoLease");
+assert.ok(autoLeasePayment, "auto lease should generate a debt-payment expense fact even without a balance");
+assert.equal(autoLeasePayment.amount, 200);
+assert.equal(autoLeasePayment.frequency, "biweekly");
+assert.equal(Math.round(autoLeasePayment.monthlyRecurringAmount * 100) / 100, 433.33);
+assert.equal(autoLeasePayment.annualizedAmount, 5200);
+
+assert.equal(generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "creditCard").monthlyRecurringAmount, 25 * 52 / 12);
+assert.equal(generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "personalLoan").monthlyRecurringAmount, 300);
+assert.equal(generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "federalStudentLoan").monthlyRecurringAmount, 200);
+assert.equal(generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "businessLoan").monthlyRecurringAmount, 200);
+
+const oneTimeDebtPayment = generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "irsTaxDebt");
+assert.equal(oneTimeDebtPayment.frequency, "oneTime");
+assert.equal(oneTimeDebtPayment.monthlyRecurringAmount, null, "oneTime debt payments should not become recurring monthly");
+assert.equal(oneTimeDebtPayment.annualizedAmount, null);
+assert.equal(oneTimeDebtPayment.oneTimeAmount, 1000);
+
+const otherFrequencyDebtPayment = generatedDebtPayments.find((expense) => expense.sourceDebtTypeKey === "medicalBill");
+assert.equal(otherFrequencyDebtPayment.frequency, "other");
+assert.equal(otherFrequencyDebtPayment.monthlyRecurringAmount, null, "other frequency should be an advisor-review data gap");
+assert.equal(otherFrequencyDebtPayment.annualizedAmount, null);
+assert.equal(otherFrequencyDebtPayment.oneTimeAmount, null);
+assert.equal(otherFrequencyDebtPayment.metadata.confidence, "advisor-review-required");
+
+assert.equal(
+  debtPaymentExpenseFacts.expenses.some((expense) => expense.sourceDebtRecordId === "debt_invalid_payment"),
+  false,
+  "debt records without payment amounts should not generate payment expense facts"
+);
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.debtPayment, undefined, "generated debt payments should not enter formula-facing category totals");
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.totalAnnualRecurringExpense, 5100, "formula-facing annual recurring total should include only the manual duplicate row");
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.totalOneTimeExpense, 45000, "formula-facing one-time total should exclude generated one-time debt payment");
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.totalAnnualCustomExpense, 5100);
+assert.equal(Math.round(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentMonthlyRecurringExpense * 100) / 100, 1666.67);
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentAnnualRecurringExpense, 20000);
+assert.equal(debtPaymentExpenseFacts.totalsByBucket.generatedDebtPaymentOneTimeExpense, 1000);
+
+const debtPaymentWarningCodes = metadataWarningCodes(debtPaymentExpenseFacts);
+assert.ok(debtPaymentWarningCodes.includes("debt-payment-frequency-review"));
+assert.ok(debtPaymentWarningCodes.includes("manual-expense-possible-generated-debt-payment-duplicate"));
+const manualAutoLoanPayment = findExpenseFact(debtPaymentExpenseFacts, "customExpenseRecord", "manual_auto_loan_payment");
+assert.ok(manualAutoLoanPayment.metadata.possibleGeneratedDebtPaymentDuplicate, "manual duplicate should be flagged but preserved");
+assert.equal(manualAutoLoanPayment.amount, 425, "manual duplicate should not be auto-zeroed");
 
 const methodSettings = createMethodSettings(context, lensModel, analysisSettings);
 const methodSettingsText = JSON.stringify(methodSettings);
@@ -587,6 +789,10 @@ const repeatableMethodSettings = createMethodSettings(context, repeatableExpense
 const repeatableMethodSettingsText = JSON.stringify(repeatableMethodSettings);
 assert.equal(repeatableMethodSettingsText.includes("expenseFacts"), false, "method settings should not consume repeatable expenseFacts");
 assert.equal(repeatableMethodSettingsText.includes("totalsByBucket"), false, "method settings should not consume repeatable expenseFacts totals");
+const debtPaymentMethodSettings = createMethodSettings(context, debtPaymentModel, analysisSettings);
+const debtPaymentMethodSettingsText = JSON.stringify(debtPaymentMethodSettings);
+assert.equal(debtPaymentMethodSettingsText.includes("expenseFacts"), false, "method settings should not consume generated debt-payment expenseFacts");
+assert.equal(debtPaymentMethodSettingsText.includes("generatedDebtPayment"), false, "method settings should not consume generated debt-payment totals");
 
 const modelWithoutExpenseFacts = cloneJson(lensModel);
 delete modelWithoutExpenseFacts.expenseFacts;
@@ -627,6 +833,32 @@ assert.equal(
 );
 
 const outputWithRepeatableExpenseFacts = runMethodSnapshot(context, repeatableExpenseModel, repeatableMethodSettings);
+const debtPaymentModelWithoutExpenseFacts = cloneJson(debtPaymentModel);
+delete debtPaymentModelWithoutExpenseFacts.expenseFacts;
+if (debtPaymentModelWithoutExpenseFacts.normalizationMetadata) {
+  delete debtPaymentModelWithoutExpenseFacts.normalizationMetadata.expenseFacts;
+}
+const outputWithGeneratedDebtPaymentExpenseFacts = runMethodSnapshot(context, debtPaymentModel, debtPaymentMethodSettings);
+const outputWithoutGeneratedDebtPaymentExpenseFacts = runMethodSnapshot(
+  context,
+  debtPaymentModelWithoutExpenseFacts,
+  debtPaymentMethodSettings
+);
+assert.deepEqual(
+  cloneJson(outputWithGeneratedDebtPaymentExpenseFacts.dime),
+  cloneJson(outputWithoutGeneratedDebtPaymentExpenseFacts.dime),
+  "DIME should remain unchanged when generated debt-payment expenseFacts are removed"
+);
+assert.deepEqual(
+  cloneJson(outputWithGeneratedDebtPaymentExpenseFacts.hlv),
+  cloneJson(outputWithoutGeneratedDebtPaymentExpenseFacts.hlv),
+  "HLV should remain unchanged when generated debt-payment expenseFacts are removed"
+);
+assert.equal(
+  outputWithGeneratedDebtPaymentExpenseFacts.needs.components.finalExpenses,
+  outputWithoutGeneratedDebtPaymentExpenseFacts.needs.components.finalExpenses,
+  "Generated debt-payment expenseFacts should not change Needs final expenses"
+);
 assert.deepEqual(
   cloneJson(outputWithRepeatableExpenseFacts.dime),
   cloneJson(outputWithExpenseFacts.dime),

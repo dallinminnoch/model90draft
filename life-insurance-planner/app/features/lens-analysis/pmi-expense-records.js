@@ -125,6 +125,84 @@
       || "Expense";
   }
 
+  function formatDisplayAmount(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return "-";
+    }
+
+    return "$" + number.toLocaleString("en-US", {
+      maximumFractionDigits: number % 1 === 0 ? 0 : 2
+    });
+  }
+
+  function formatDisplayToken(value) {
+    const normalized = normalizeString(value);
+    if (!normalized) {
+      return "-";
+    }
+
+    return normalized
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, function (letter) {
+        return letter.toUpperCase();
+      });
+  }
+
+  function normalizeGeneratedExpenseFactForUi(expense) {
+    const safeExpense = expense && typeof expense === "object" ? expense : {};
+    if (safeExpense.isGeneratedExpense !== true || safeExpense.isDebtPaymentExpense !== true) {
+      return null;
+    }
+
+    const sourceDebtRecordId = normalizeString(safeExpense.sourceDebtRecordId);
+    const sourceDebtTypeKey = normalizeString(safeExpense.sourceDebtTypeKey);
+    const amount = toOptionalNumber(safeExpense.amount);
+    if (!sourceDebtRecordId || !sourceDebtTypeKey || amount == null) {
+      return null;
+    }
+
+    return {
+      expenseFactId: normalizeString(safeExpense.expenseFactId) || sourceDebtRecordId,
+      typeKey: normalizeString(safeExpense.typeKey) || "debtPayment",
+      categoryKey: normalizeString(safeExpense.categoryKey) || "debtPayment",
+      label: normalizeString(safeExpense.label) || "Debt Payment",
+      amount,
+      frequency: normalizeString(safeExpense.paymentFrequency || safeExpense.frequency) || "monthly",
+      termType: normalizeString(safeExpense.termType) || "ongoing",
+      continuationStatus: normalizeString(safeExpense.continuationStatus) || "review",
+      remainingTermMonths: toOptionalNonNegativeNumber(safeExpense.remainingTermMonths),
+      sourceDebtRecordId,
+      sourceDebtTypeKey,
+      sourcePath: normalizeString(safeExpense.sourcePath) || null,
+      duplicateProtectionKey: normalizeString(safeExpense.duplicateProtectionKey) || null,
+      isGeneratedExpense: true,
+      isDebtPaymentExpense: true,
+      isReadOnly: true,
+      isFormulaEligible: false
+    };
+  }
+
+  function normalizeGeneratedExpenseFactsForUi(expenseFacts) {
+    const sourceExpenses = Array.isArray(expenseFacts)
+      ? expenseFacts
+      : Array.isArray(expenseFacts && expenseFacts.expenses)
+        ? expenseFacts.expenses
+        : [];
+    return sourceExpenses.map(normalizeGeneratedExpenseFactForUi).filter(Boolean);
+  }
+
+  function createGeneratedExpenseFactsFromDebtRecords(debtRecords) {
+    const sourceRecords = Array.isArray(debtRecords) ? debtRecords : [];
+    if (!sourceRecords.length || typeof lensAnalysis.createExpenseFactsFromSourceData !== "function") {
+      return [];
+    }
+
+    const projection = lensAnalysis.createExpenseFactsFromSourceData({ debtRecords: sourceRecords });
+    return normalizeGeneratedExpenseFactsForUi(projection);
+  }
+
   function getFrequencyOptions() {
     const taxonomy = getExpenseTaxonomyApi();
     return Array.isArray(taxonomy.EXPENSE_FREQUENCY_OPTIONS)
@@ -445,6 +523,51 @@
     return '<span class="pmi-expense-record-muted" aria-label="No term detail">-</span>';
   }
 
+  function renderReadOnlyExpenseValue(value, className) {
+    return `<span class="pmi-expense-record-readonly-value ${escapeHtml(className || "")}">${escapeHtml(value || "-")}</span>`;
+  }
+
+  function renderGeneratedExpenseRow(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const expenseFactId = normalizeString(safeRecord.expenseFactId);
+    const sourceDebtRecordId = normalizeString(safeRecord.sourceDebtRecordId);
+    const termDetail = safeRecord.remainingTermMonths == null
+      ? "-"
+      : String(safeRecord.remainingTermMonths) + " mo";
+    return `
+      <div class="pmi-expense-record-row pmi-expense-record-row-generated" role="row" data-pmi-expense-generated-entry data-pmi-expense-generated-id="${escapeHtml(expenseFactId)}" data-source-debt-record-id="${escapeHtml(sourceDebtRecordId)}">
+        <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="Expense Type">
+          <span class="pmi-expense-record-type-label" title="Debt Payment">Debt Payment</span>
+          <span class="pmi-expense-record-source-chip">From Debt Records</span>
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Label / Vendor">
+          ${renderReadOnlyExpenseValue(safeRecord.label, "pmi-expense-record-generated-label")}
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Amount">
+          ${renderReadOnlyExpenseValue(formatDisplayAmount(safeRecord.amount), "pmi-expense-record-generated-amount")}
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Frequency">
+          ${renderReadOnlyExpenseValue(formatDisplayToken(safeRecord.frequency), "")}
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Duration">
+          ${renderReadOnlyExpenseValue(formatDisplayToken(safeRecord.termType), "")}
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Term Detail">
+          ${renderReadOnlyExpenseValue(termDetail, "")}
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Continues?">
+          ${renderReadOnlyExpenseValue("Review", "")}
+        </div>
+        <div class="pmi-expense-record-cell" role="cell" data-column-label="Category">
+          ${renderReadOnlyExpenseValue("Debt Payment", "pmi-expense-record-category-label")}
+        </div>
+        <div class="pmi-expense-record-cell pmi-expense-record-remove-cell" role="cell" data-column-label="Remove">
+          <span class="pmi-expense-record-source-hint">Edit in Debt Records</span>
+        </div>
+      </div>
+    `;
+  }
+
   function renderShell(root) {
     if (!root || root.dataset.pmiExpenseRecordsInitialized === "true") {
       return;
@@ -518,6 +641,7 @@
       root,
       documentRef: root.ownerDocument || document,
       records: [],
+      generatedRecords: [],
       list: root.querySelector("[data-pmi-expense-records-list]"),
       addButton: root.querySelector("[data-pmi-expense-records-add]"),
       modal: null,
@@ -526,6 +650,16 @@
     };
     controller.libraryFilter = "suggested";
     controller.recentTypeKeys = [];
+    controller.debtRecordsProvider = typeof safeOptions.debtRecordsProvider === "function"
+      ? safeOptions.debtRecordsProvider
+      : function () {
+        const debtRecordsApi = lensAnalysis.pmiDebtRecords && typeof lensAnalysis.pmiDebtRecords === "object"
+          ? lensAnalysis.pmiDebtRecords
+          : {};
+        return typeof debtRecordsApi.serializeDebtRecords === "function"
+          ? debtRecordsApi.serializeDebtRecords()
+          : [];
+      };
 
     function syncRecordsFromDom() {
       if (!controller.list) {
@@ -576,12 +710,12 @@
         return;
       }
 
-      if (!controller.records.length) {
+      if (!controller.records.length && !controller.generatedRecords.length) {
         controller.list.innerHTML = "";
         return;
       }
 
-      const rowsMarkup = controller.records.map(function (record) {
+      const manualRowsMarkup = controller.records.map(function (record) {
         const expenseId = normalizeString(record.expenseId);
         const labelInputId = createInputId("pmi-expense-record", expenseId, "label");
         const amountInputId = createInputId("pmi-expense-record", expenseId, "amount");
@@ -632,6 +766,8 @@
           </div>
         `;
       }).join("");
+      const generatedRowsMarkup = controller.generatedRecords.map(renderGeneratedExpenseRow).join("");
+      const rowsMarkup = manualRowsMarkup + generatedRowsMarkup;
 
       controller.list.innerHTML = `
         <div class="pmi-expense-records-table" role="table" aria-label="Expense records notebook" data-pmi-expense-records-table>
@@ -839,6 +975,49 @@
       renderRows();
     }
 
+    function hydrateGeneratedExpenseFacts(expenseFacts) {
+      controller.generatedRecords = normalizeGeneratedExpenseFactsForUi(expenseFacts);
+      renderRows();
+    }
+
+    function refreshGeneratedExpenseFactsFromDebtRecords() {
+      const debtRecords = controller.debtRecordsProvider();
+      controller.generatedRecords = createGeneratedExpenseFactsFromDebtRecords(debtRecords);
+      renderRows();
+    }
+
+    function connectDebtRecordsGeneratedRows() {
+      const form = root.closest && root.closest("form");
+      const debtRoot = form && typeof form.querySelector === "function"
+        ? form.querySelector("[data-pmi-debt-records-root]")
+        : null;
+      if (!debtRoot) {
+        return;
+      }
+
+      const scheduleRefresh = function () {
+        if (typeof global.requestAnimationFrame === "function") {
+          global.requestAnimationFrame(refreshGeneratedExpenseFactsFromDebtRecords);
+          return;
+        }
+
+        refreshGeneratedExpenseFactsFromDebtRecords();
+      };
+
+      debtRoot.addEventListener("input", scheduleRefresh);
+      debtRoot.addEventListener("change", scheduleRefresh);
+      debtRoot.addEventListener("click", scheduleRefresh);
+
+      if (typeof global.MutationObserver === "function") {
+        const observer = new global.MutationObserver(scheduleRefresh);
+        observer.observe(debtRoot, {
+          childList: true,
+          subtree: true
+        });
+        controller.generatedDebtRowsObserver = observer;
+      }
+    }
+
     function serializeExpenseRecords() {
       syncRecordsFromDom();
       return controller.records
@@ -884,6 +1063,8 @@
     }
 
     controller.hydrateExpenseRecords = hydrateExpenseRecords;
+    controller.hydrateGeneratedExpenseFacts = hydrateGeneratedExpenseFacts;
+    controller.refreshGeneratedExpenseFactsFromDebtRecords = refreshGeneratedExpenseFactsFromDebtRecords;
     controller.serializeExpenseRecords = serializeExpenseRecords;
     controller.addExpenseRecordFromLibraryEntry = addExpenseRecordFromLibraryEntry;
     controller.removeExpenseRecordById = removeExpenseRecordById;
@@ -920,6 +1101,8 @@
     });
 
     hydrateExpenseRecords([]);
+    connectDebtRecordsGeneratedRows();
+    refreshGeneratedExpenseFactsFromDebtRecords();
     activeController = controller;
     return controller;
   }
@@ -927,6 +1110,18 @@
   function hydrateExpenseRecords(records) {
     if (activeController && typeof activeController.hydrateExpenseRecords === "function") {
       activeController.hydrateExpenseRecords(records);
+    }
+  }
+
+  function hydrateGeneratedExpenseFacts(expenseFacts) {
+    if (activeController && typeof activeController.hydrateGeneratedExpenseFacts === "function") {
+      activeController.hydrateGeneratedExpenseFacts(expenseFacts);
+    }
+  }
+
+  function refreshGeneratedExpenseFactsFromDebtRecords() {
+    if (activeController && typeof activeController.refreshGeneratedExpenseFactsFromDebtRecords === "function") {
+      activeController.refreshGeneratedExpenseFactsFromDebtRecords();
     }
   }
 
@@ -939,6 +1134,8 @@
   lensAnalysis.pmiExpenseRecords = {
     initPmiExpenseRecords,
     hydrateExpenseRecords,
+    hydrateGeneratedExpenseFacts,
+    refreshGeneratedExpenseFactsFromDebtRecords,
     serializeExpenseRecords,
     createExpenseRecordFromLibraryEntry
   };

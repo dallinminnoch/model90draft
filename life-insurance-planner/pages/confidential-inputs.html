@@ -441,83 +441,198 @@
                   <h2>Expenses and Lifestyle</h2>
                 </div>
                 <div class="form-grid">
-              <div class="field-group full-width form-subgroup-label">
-                <span>Household Spending</span>
-              </div>
-              <div class="field-group">
-                <label for="insurance-cost">Non-Housing Monthly Insurance</label>
-                <div class="profile-currency-field">
-                  <input id="insurance-cost" name="insuranceCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
+              <div class="field-group full-width pmi-scalar-expenses-notebook" data-pmi-scalar-expenses-notebook>
+                <div class="pmi-scalar-expenses-section" data-pmi-scalar-expenses-section="household">
+                  <div class="pmi-scalar-expenses-section-title">Household Spending</div>
+                  <div class="pmi-scalar-expenses-table" role="table" aria-label="Household Spending">
+                    <div class="pmi-scalar-expenses-header" role="row">
+                      <span>Expense</span>
+                      <span>Amount</span>
+                      <span>Frequency</span>
+                      <span>Category / Treatment</span>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="insuranceCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="insurance-cost">Non-Housing Monthly Insurance</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="insurance-cost" name="insuranceCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="healthcareOutOfPocketCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="healthcare-out-of-pocket-cost">Healthcare / Out-of-Pocket Medical</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="healthcare-out-of-pocket-cost" name="healthcareOutOfPocketCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="foodCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="food-cost">Monthly Food / Grocery Cost</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="food-cost" name="foodCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="transportationCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="transportation-cost">Monthly Transportation Cost</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="transportation-cost" name="transportationCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="childcareDependentCareCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="childcare-dependent-care-cost">Childcare / Dependent Care</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="childcare-dependent-care-cost" name="childcareDependentCareCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="phoneInternetCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="phone-internet-cost">Phone / Internet</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="phone-internet-cost" name="phoneInternetCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="householdSuppliesCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="household-supplies-cost">Household Essentials / Supplies</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="household-supplies-cost" name="householdSuppliesCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Essential support</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="otherHouseholdExpenses">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="other-household-expenses">Other Household Expenses</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="other-household-expenses" name="otherHouseholdExpenses" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Advisor review</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="field-group">
-                <label for="healthcare-out-of-pocket-cost">Healthcare / Out-of-Pocket Medical</label>
-                <div class="profile-currency-field">
-                  <input id="healthcare-out-of-pocket-cost" name="healthcareOutOfPocketCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="food-cost">Monthly Food / Grocery Cost</label>
-                <div class="profile-currency-field">
-                  <input id="food-cost" name="foodCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="transportation-cost">Monthly Transportation Cost</label>
-                <div class="profile-currency-field">
-                  <input id="transportation-cost" name="transportationCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="childcare-dependent-care-cost">Childcare / Dependent Care</label>
-                <div class="profile-currency-field">
-                  <input id="childcare-dependent-care-cost" name="childcareDependentCareCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="phone-internet-cost">Phone / Internet</label>
-                <div class="profile-currency-field">
-                  <input id="phone-internet-cost" name="phoneInternetCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="household-supplies-cost">Household Essentials / Supplies</label>
-                <div class="profile-currency-field">
-                  <input id="household-supplies-cost" name="householdSuppliesCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="other-household-expenses">Other Household Expenses</label>
-                <div class="profile-currency-field">
-                  <input id="other-household-expenses" name="otherHouseholdExpenses" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group full-width section-divider-field" aria-hidden="true">
-                <span class="section-divider-line"></span>
-              </div>
-              <div class="field-group full-width form-subgroup-label">
-                <span>Personal Spending That May Disappear</span>
-              </div>
-              <div class="field-group">
-                <label for="travel-discretionary-cost">Entertainment / Travel</label>
-                <div class="profile-currency-field">
-                  <input id="travel-discretionary-cost" name="travelDiscretionaryCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="subscriptions-cost">Recurring Personal Spending</label>
-                <div class="profile-currency-field">
-                  <input id="subscriptions-cost" name="subscriptionsCost" type="number" min="0" step="50">
-                  <span class="profile-currency-suffix">USD</span>
+                <div class="pmi-scalar-expenses-section" data-pmi-scalar-expenses-section="personal">
+                  <div class="pmi-scalar-expenses-section-title">Personal Spending That May Disappear</div>
+                  <div class="pmi-scalar-expenses-table" role="table" aria-label="Personal Spending That May Disappear">
+                    <div class="pmi-scalar-expenses-header" role="row">
+                      <span>Expense</span>
+                      <span>Amount</span>
+                      <span>Frequency</span>
+                      <span>Category / Treatment</span>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="travelDiscretionaryCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="travel-discretionary-cost">Entertainment / Travel</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="travel-discretionary-cost" name="travelDiscretionaryCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Discretionary context</span>
+                      </div>
+                    </div>
+                    <div class="pmi-scalar-expense-row" role="row" data-pmi-scalar-expense-field="subscriptionsCost">
+                      <div class="pmi-scalar-expense-cell pmi-scalar-expense-label-cell" role="cell" data-column-label="Expense">
+                        <label for="subscriptions-cost">Recurring Personal Spending</label>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Amount">
+                        <div class="profile-currency-field pmi-scalar-expense-currency">
+                          <input id="subscriptions-cost" name="subscriptionsCost" type="number" min="0" step="50">
+                          <span class="profile-currency-suffix">USD</span>
+                        </div>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Frequency">
+                        <span class="pmi-scalar-expense-readonly">Monthly</span>
+                      </div>
+                      <div class="pmi-scalar-expense-cell" role="cell" data-column-label="Category / Treatment">
+                        <span class="pmi-scalar-expense-readonly">Discretionary context</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="field-group full-width" data-pmi-expense-records-root></div>

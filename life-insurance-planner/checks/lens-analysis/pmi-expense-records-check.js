@@ -267,7 +267,6 @@ const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-record
 const componentsCss = readRepoFile("components.css");
 
 assertNoFormulaOwnerReferences(widgetSource);
-assert.doesNotMatch(widgetSource, /debtRecords|debtPayment|debt-payment|generatedDebt|generated debt/i, "PMI expense records should not introduce generated debt expense behavior");
 assert.match(widgetSource, /Additional Expenses records from PMI/);
 assert.match(widgetSource, /Healthcare bucket rows can affect Needs healthcareExpenses automatically/);
 assert.match(widgetSource, /non-healthcare rows remain raw-only for current output/);
@@ -282,8 +281,13 @@ assert.doesNotMatch(widgetSource, /collect repeatable raw-only expenseRecords\[\
 assert.doesNotMatch(widgetSource, /Search or browse initial expense types to add as raw PMI facts/);
 assert.equal(typeof pmiExpenseRecords?.initPmiExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.hydrateExpenseRecords, "function");
+assert.equal(typeof pmiExpenseRecords?.hydrateGeneratedExpenseFacts, "function");
+assert.equal(typeof pmiExpenseRecords?.refreshGeneratedExpenseFactsFromDebtRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.createExpenseRecordFromLibraryEntry, "function");
+assert.match(widgetSource, /data-pmi-expense-generated-entry/, "expense records should render generated read-only rows when provided");
+assert.match(widgetSource, /From Debt Records/, "generated debt-payment rows should identify Debt Records as the source");
+assert.match(widgetSource, /Edit in Debt Records/, "generated debt-payment rows should show a source edit hint");
 assert.match(widgetSource, /data-pmi-expense-records-table/, "expense records should render a notebook table shell");
 assert.match(widgetSource, /class="pmi-expense-record-row"/, "expense records should render compact row shells");
 assert.match(widgetSource, /data-pmi-expense-record-type-label/, "expense rows should show expense type from row content");
@@ -296,6 +300,8 @@ assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-recor
 assert.match(componentsCss, /\.pmi-expense-records-list\s*{[\s\S]*?overflow-x:\s*visible;/, "expense notebook should not use horizontal scrolling as the desktop layout");
 assert.match(componentsCss, /\.pmi-expense-record-row input,\s*\.pmi-expense-record-row select\s*{[\s\S]*?min-height:\s*1\.72rem;/, "expense notebook controls should be compact");
 assert.match(componentsCss, /\.pmi-expense-record-row input,\s*\.pmi-expense-record-row select\s*{[\s\S]*?border-radius:\s*0\.18rem;/, "expense notebook controls should use sharper corners");
+assert.match(componentsCss, /\.pmi-expense-record-row-generated\s*{[\s\S]*?background:/, "generated debt-payment rows should have a read-only visual treatment");
+assert.match(componentsCss, /\.pmi-expense-record-source-chip,\s*\.pmi-expense-record-source-hint\s*{[\s\S]*?text-transform:\s*uppercase;/, "generated debt-payment rows should expose compact source cues");
 assert.match(widgetSource, /entry\.isAddable === true/);
 assert.match(widgetSource, /entry\.uiAvailability === "initial"/);
 assert.match(widgetSource, /entry\.isProtected !== true/);
@@ -382,6 +388,8 @@ assert.equal(fakeDom.list.innerHTML, "", "explicit saved [] should not render st
 
 assert.equal(typeof controller.addExpenseRecordFromLibraryEntry, "function", "controller should expose testable add-from-library behavior");
 assert.equal(typeof controller.removeExpenseRecordById, "function", "controller should expose testable remove behavior");
+assert.equal(typeof controller.hydrateGeneratedExpenseFacts, "function", "controller should expose generated fact hydration");
+assert.equal(typeof controller.refreshGeneratedExpenseFactsFromDebtRecords, "function", "controller should expose debt-record generated row refresh");
 const addedFromLibrary = controller.addExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("propertyTaxes"));
 assert.ok(addedFromLibrary, "add-from-library should create an expense record");
 assert.equal(controller.records.length, 1, "add-from-library should add one row");
@@ -389,6 +397,73 @@ assert.match(fakeDom.list.innerHTML, /Property Taxes/, "added library record sho
 assert.equal(controller.removeExpenseRecordById(addedFromLibrary.expenseId), true, "remove should remove a rendered expense row");
 assert.equal(controller.records.length, 0, "remove should leave the notebook empty");
 assert.equal(fakeDom.list.innerHTML, "", "removing the only expense record should restore empty state");
+
+const generatedDebtPaymentFact = Object.freeze({
+  expenseFactId: "generated_debt_payment_expense_auto_loan",
+  typeKey: "autoLoanPayment",
+  categoryKey: "debtPayment",
+  label: "Auto Loan Payment",
+  amount: 425,
+  frequency: "monthly",
+  paymentFrequency: "monthly",
+  termType: "ongoing",
+  remainingTermMonths: 42,
+  sourceDebtRecordId: "debt_auto_loan",
+  sourceDebtTypeKey: "autoLoan",
+  sourcePath: "protectionModeling.data.debtRecords[0]",
+  duplicateProtectionKey: "debt-payment:debt_auto_loan:autoLoan:required-payment",
+  isGeneratedExpense: true,
+  isDebtPaymentExpense: true,
+  isReadOnly: true,
+  isFormulaEligible: false
+});
+controller.hydrateGeneratedExpenseFacts({ expenses: [generatedDebtPaymentFact] });
+assert.match(fakeDom.list.innerHTML, /Auto Loan Payment/, "generated debt-payment fact should display in the expense notebook");
+assert.match(fakeDom.list.innerHTML, /From Debt Records/, "generated debt-payment row should identify its source");
+assert.match(fakeDom.list.innerHTML, /Edit in Debt Records/, "generated debt-payment row should show a source edit hint");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-generated-entry/, "generated debt-payment row should use generated row markup");
+assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-expense-generated-entry[\s\S]*data-pmi-expense-record-remove/, "generated rows should not render remove buttons");
+assert.equal(JSON.stringify(controller.serializeExpenseRecords()), "[]", "generated debt-payment rows should not serialize into expenseRecords[]");
+controller.hydrateGeneratedExpenseFacts([]);
+assert.equal(fakeDom.list.innerHTML, "", "clearing generated rows should restore empty state when there are no manual rows");
+
+lensAnalysis.createExpenseFactsFromSourceData = function (sourceData) {
+  return {
+    expenses: (sourceData.debtRecords || []).map((debtRecord, index) => ({
+      expenseFactId: `generated_debt_payment_expense_${debtRecord.debtId || index}`,
+      typeKey: `${debtRecord.typeKey}Payment`,
+      categoryKey: "debtPayment",
+      label: `${debtRecord.label} Payment`,
+      amount: debtRecord.paymentAmount,
+      frequency: debtRecord.paymentFrequency,
+      paymentFrequency: debtRecord.paymentFrequency,
+      termType: debtRecord.paymentFrequency === "oneTime" ? "oneTime" : "ongoing",
+      remainingTermMonths: debtRecord.remainingTermMonths,
+      sourceDebtRecordId: debtRecord.debtId,
+      sourceDebtTypeKey: debtRecord.typeKey,
+      sourcePath: `protectionModeling.data.debtRecords[${index}]`,
+      duplicateProtectionKey: `debt-payment:${debtRecord.debtId}:${debtRecord.typeKey}:required-payment`,
+      isGeneratedExpense: true,
+      isDebtPaymentExpense: true,
+      isReadOnly: true,
+      isFormulaEligible: false
+    }))
+  };
+};
+const providerFakeDom = createFakeRoot();
+const providerController = pmiExpenseRecords.initPmiExpenseRecords({
+  root: providerFakeDom.root,
+  debtRecordsProvider: () => [{
+    debtId: "debt_auto_lease",
+    typeKey: "autoLease",
+    label: "Auto Lease",
+    paymentFrequency: "biweekly",
+    paymentAmount: 200,
+    remainingTermMonths: 24
+  }]
+});
+assert.match(providerFakeDom.list.innerHTML, /Auto Lease Payment/, "expense notebook should render generated rows from Debt Records provider");
+assert.equal(JSON.stringify(providerController.serializeExpenseRecords()), "[]", "provider-generated rows should not serialize into manual expenseRecords[]");
 
 const inputRecords = Object.freeze([
   Object.freeze({
