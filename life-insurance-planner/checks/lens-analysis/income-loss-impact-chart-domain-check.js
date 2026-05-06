@@ -35,7 +35,7 @@ function getChangedFiles(relativePaths) {
 function createDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactChartDomainHarness = { buildRunwayChartModel, renderFinancialRunwayChart };\n})(window);\n"
+    "\n  window.__incomeImpactPausedTimelineHarness = { renderIncomeImpact, renderPausedTimelineVisualization };\n})(window);\n"
   );
   const sandbox = {
     console,
@@ -52,642 +52,121 @@ function createDisplayHarness(source) {
   vm.runInNewContext(instrumentedSource, sandbox, {
     filename: "income-loss-impact-display.js"
   });
-  return sandbox.window.__incomeImpactChartDomainHarness;
-}
-
-function addMonths(dateText, months) {
-  const parts = String(dateText).split("-").map(Number);
-  const date = new Date(parts[0], parts[1] - 1 + months, parts[2]);
-  return [
-    String(date.getFullYear()).padStart(4, "0"),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0")
-  ].join("-");
-}
-
-function createPoint(options) {
-  const displayedBalance = Number.isFinite(Number(options.displayedBalance))
-    ? Number(options.displayedBalance)
-    : options.balance;
-  return {
-    id: options.id,
-    date: options.date,
-    age: options.age,
-    relativeMonthIndex: options.relativeMonthIndex,
-    relativeYear: options.relativeMonthIndex / 12,
-    phase: options.phase,
-    resolution: options.resolution,
-    startingBalance: options.balance,
-    growthAmount: 0,
-    householdNeed: 60000,
-    survivorIncomeOffset: 0,
-    annualShortfall: 60000,
-    scheduledObligations: 0,
-    endingBalance: options.balance,
-    displayedBalance,
-    accumulatedUnmetNeed: Math.max(0, -displayedBalance),
-    status: options.status || "available",
-    sourcePaths: ["scenarioTimeline.resourceSeries.points"]
-  };
-}
-
-function buildScenarioPoints(options) {
-  const safeOptions = options || {};
-  const deathDate = safeOptions.deathDate || "2026-01-01";
-  const deathAge = safeOptions.deathAge || 46;
-  const horizonYears = safeOptions.horizonYears || 40;
-  const deathPointBalance = Number.isFinite(Number(safeOptions.deathPointBalance))
-    ? Number(safeOptions.deathPointBalance)
-    : 420000;
-  const preDeathStartBalance = Number.isFinite(Number(safeOptions.preDeathStartBalance))
-    ? Number(safeOptions.preDeathStartBalance)
-    : 300000;
-  const preDeathMonthlyDelta = Number.isFinite(Number(safeOptions.preDeathMonthlyDelta))
-    ? Number(safeOptions.preDeathMonthlyDelta)
-    : 2000;
-  const points = [];
-
-  if (safeOptions.includePreDeathPoints) {
-    for (let monthIndex = -60; monthIndex < 0; monthIndex += 1) {
-      points.push(createPoint({
-        id: `pre-death-month-${Math.abs(monthIndex)}`,
-        date: addMonths(deathDate, monthIndex),
-        age: deathAge + monthIndex / 12,
-        relativeMonthIndex: monthIndex,
-        phase: "preDeath",
-        resolution: safeOptions.preDeathResolution || "modeledBackcastMonthly",
-        balance: preDeathStartBalance + (monthIndex + 60) * preDeathMonthlyDelta,
-        status: safeOptions.preDeathStatus || "modeledBackcast"
-      }));
-    }
-  }
-
-  if (safeOptions.includePreDeathThreshold) {
-    points.push(createPoint({
-      id: "pre-death-household-position-target",
-      date: deathDate,
-      age: deathAge,
-      relativeMonthIndex: 0,
-      phase: "preDeath",
-      resolution: "targetThreshold",
-      balance: Number.isFinite(Number(safeOptions.preDeathThresholdBalance))
-        ? Number(safeOptions.preDeathThresholdBalance)
-        : preDeathStartBalance,
-      status: "preDeathTarget"
-    }));
-  }
-
-  points.push(createPoint({
-    id: "death-point",
-    date: deathDate,
-    age: deathAge,
-    relativeMonthIndex: 0,
-    phase: "death",
-    resolution: "death",
-    balance: deathPointBalance,
-    status: "starting"
-  }));
-
-  for (let monthIndex = 1; monthIndex <= 24; monthIndex += 1) {
-    points.push(createPoint({
-      id: `post-death-month-${monthIndex}`,
-      date: addMonths(deathDate, monthIndex),
-      age: deathAge + monthIndex / 12,
-      relativeMonthIndex: monthIndex,
-      phase: "postDeath",
-      resolution: "monthly",
-      balance: deathPointBalance - monthIndex * 2000
-    }));
-  }
-
-  for (let yearIndex = 3; yearIndex <= horizonYears; yearIndex += 1) {
-    points.push(createPoint({
-      id: `post-death-year-${yearIndex}`,
-      date: addMonths(deathDate, yearIndex * 12),
-      age: deathAge + yearIndex,
-      relativeMonthIndex: yearIndex * 12,
-      phase: "postDeath",
-      resolution: "annual",
-      balance: deathPointBalance - yearIndex * 24000
-    }));
-  }
-
-  return points;
-}
-
-function createTimelineResult(options) {
-  const safeOptions = options || {};
-  const deathDate = safeOptions.deathDate || "2026-01-01";
-  const horizonYears = safeOptions.horizonYears || 40;
-  return {
-    selectedDeath: {
-      date: deathDate,
-      age: safeOptions.deathAge || 46
-    },
-    financialRunway: {
-      status: "complete",
-      startingResources: Number.isFinite(Number(safeOptions.startingResources))
-        ? Number(safeOptions.startingResources)
-        : 500000,
-      immediateObligations: 80000,
-      netAvailableResources: Number.isFinite(Number(safeOptions.netAvailableResources))
-        ? Number(safeOptions.netAvailableResources)
-        : 420000,
-      annualShortfall: 60000,
-      projectionYears: horizonYears,
-      projectionPoints: [],
-      warnings: [],
-      dataGaps: []
-    },
-    scenarioTimeline: {
-      scenario: {
-        deathAge: safeOptions.deathAge || 46,
-        deathDate,
-        projectionHorizonYears: horizonYears,
-        mortgageTreatmentOverride: "followAssumptions"
-      },
-      axis: {
-        startDate: addMonths(deathDate, -60),
-        deathDate,
-        endDate: addMonths(deathDate, horizonYears * 12),
-        preDeathYears: 5,
-        monthlyResolutionMonths: 24,
-        postMonth24Resolution: "annual"
-      },
-      resourceSeries: {
-        yAxis: "remainingAvailableResources",
-        points: buildScenarioPoints({
-          deathDate,
-          deathAge: safeOptions.deathAge || 46,
-          horizonYears,
-          includePreDeathPoints: safeOptions.includePreDeathPoints === true,
-          preDeathStartBalance: safeOptions.preDeathStartBalance,
-          preDeathMonthlyDelta: safeOptions.preDeathMonthlyDelta,
-          includePreDeathThreshold: safeOptions.includePreDeathThreshold === true,
-          preDeathThresholdBalance: safeOptions.preDeathThresholdBalance,
-          preDeathResolution: safeOptions.preDeathResolution,
-          preDeathStatus: safeOptions.preDeathStatus,
-          deathPointBalance: Number.isFinite(Number(safeOptions.deathPointBalance))
-            ? Number(safeOptions.deathPointBalance)
-            : (Number.isFinite(Number(safeOptions.netAvailableResources)) ? Number(safeOptions.netAvailableResources) : 420000)
-        })
-      },
-      pivotalEvents: {
-        risks: [],
-        stable: []
-      }
-    },
-    timelineEvents: [],
-    dataGaps: [],
-    warnings: []
-  };
-}
-
-function getAttribute(html, selector) {
-  const match = html.match(selector);
-  return match ? Number(match[1]) : null;
-}
-
-function getMaxDisplayedBalance(model) {
-  return Math.max.apply(null, model.points.map(function (point) {
-    return Math.max(0, Number(point.displayedBalance || 0));
-  }));
-}
-
-function getHighestPointY(model) {
-  return Math.min.apply(null, model.points.map(function (point) {
-    return Number(point.y);
-  }));
-}
-
-function parsePathPoints(pathData) {
-  return Array.from(String(pathData || "").matchAll(/[ML]\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g))
-    .map(function (match) {
-      return {
-        x: Number(match[1]),
-        y: Number(match[2])
-      };
-    });
-}
-
-function assertPathMatchesPoints(pathData, points, message) {
-  const pathPoints = parsePathPoints(pathData);
-  assert.equal(pathPoints.length, points.length, message);
-  pathPoints.forEach(function (pathPoint, index) {
-    assert.equal(pathPoint.x, points[index].x, `${message} x mismatch at point ${index}.`);
-    assert.equal(pathPoint.y, points[index].y, `${message} y mismatch at point ${index}.`);
-  });
-}
-
-function getSvgPathData(html, attributeName) {
-  const pattern = new RegExp(`<path[^>]*${attributeName}[^>]* d="([^"]+)"`);
-  const match = html.match(pattern);
-  return match ? match[1] : "";
-}
-
-function getSvgPathStyle(html, attributeName) {
-  const pattern = new RegExp(`<path[^>]*${attributeName}[^>]*style="([^"]+)"`);
-  const match = html.match(pattern);
-  return match ? match[1] : "";
-}
-
-function getPathXSpan(pathData) {
-  const pathPoints = parsePathPoints(pathData);
-  if (!pathPoints.length) {
-    return 0;
-  }
-  return Math.max.apply(null, pathPoints.map(function (point) { return point.x; }))
-    - Math.min.apply(null, pathPoints.map(function (point) { return point.x; }));
-}
-
-function getPathYSpan(pathData) {
-  const pathPoints = parsePathPoints(pathData);
-  if (!pathPoints.length) {
-    return 0;
-  }
-  return Math.max.apply(null, pathPoints.map(function (point) { return point.y; }))
-    - Math.min.apply(null, pathPoints.map(function (point) { return point.y; }));
+  return sandbox.window.__incomeImpactPausedTimelineHarness;
 }
 
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+const componentsSource = readRepoFile("components.css");
+const pageSource = readRepoFile("pages/income-loss-impact.html");
 const harness = createDisplayHarness(displaySource);
 
-assert.equal(typeof harness.buildRunwayChartModel, "function");
-assert.equal(typeof harness.renderFinancialRunwayChart, "function");
-assert.match(displaySource, /resolveScenarioAxisDomainMonths/);
-assert.match(displaySource, /axis\.preDeathYears/);
-assert.match(displaySource, /RUNWAY_CHART_TOP_HEADROOM_RATIO/);
-assert.match(displaySource, /RUNWAY_CHART_BOTTOM_HEADROOM_RATIO/);
-assert.doesNotMatch(displaySource, /RUNWAY_CHART_DEATH_AVAILABLE_TOP_BUFFER/);
-assert.match(displaySource, /RUNWAY_CHART_PRIMARY_LINE_STYLE/);
-assert.match(displaySource, /resolveRunwayChartMaxBalance/);
-assert.match(displaySource, /resolveRunwayChartMinBalance/);
-assert.match(displaySource, /resolveRunwayChartPreDeathWidth/);
-assert.match(displaySource, /preDeathPath/);
-assert.doesNotMatch(displaySource, /<circle\b/, "Income Impact runway chart should not render visible SVG dot markers.");
-assert.doesNotMatch(displaySource, /preDeathBaselineContextPath/);
-assert.doesNotMatch(displaySource, /preDeathPositivePath/);
-assert.doesNotMatch(displaySource, /preDeathModeledContextTrendPath/);
-assert.doesNotMatch(displaySource, /calculateHouseholdFinancialPosition|projectedAssetOffset|assetLedger|taxDrag|liquidityHaircut/);
-assert.match(displaySource, /survivorRunwayPath/);
-
-const currentDeathResult = createTimelineResult({
-  deathDate: "2026-01-01",
-  deathAge: 46,
-  horizonYears: 40,
-  includePreDeathPoints: false
-});
-const currentDeathModel = harness.buildRunwayChartModel(currentDeathResult);
-const currentDeathHtml = harness.renderFinancialRunwayChart(currentDeathResult);
-const currentDeathChartPoint = currentDeathModel.points.find(function (point) {
-  return point.id === "death-point";
-});
-
-assert.equal(currentDeathModel.minRelativeMonthIndex, -60);
-assert.equal(currentDeathModel.maxRelativeMonthIndex, 480);
-assert.ok(currentDeathChartPoint, "Current-date model should include the plotted death point.");
-assert.equal(
-  currentDeathChartPoint.displayedBalance,
-  currentDeathResult.financialRunway.netAvailableResources,
-  "Death point should use the visible after-obligation death-event balance."
-);
-assert.ok(
-  currentDeathModel.maxBalance > getMaxDisplayedBalance(currentDeathModel),
-  "Y-domain max should include top headroom above the max displayed balance."
-);
-assert.ok(
-  currentDeathModel.maxBalance >= currentDeathChartPoint.displayedBalance + 500000,
-  "Y-domain max should reserve at least $500,000 above the plotted death-event balance."
-);
-assert.ok(
-  currentDeathModel.maxBalance < currentDeathResult.financialRunway.startingResources + 500000,
-  "Y-domain max should not be based on pre-obligation startingResources."
-);
-assert.ok(
-  getHighestPointY(currentDeathModel) >= currentDeathModel.yTop + 20,
-  "Highest current-date point should render visibly below the plot top."
-);
-assert.ok(
-  currentDeathModel.deathPoint.y >= currentDeathModel.yTop + 20,
-  "Death marker should have vertical headroom below the plot top."
-);
-assert.ok(currentDeathModel.preDeathRegion, "Current-date death should still render a pre-death region from the axis contract.");
-assert.ok(
-  currentDeathModel.preDeathRegion.width >= 220,
-  "Pre-death region should be visible, not collapsed to a marker edge."
-);
-assert.ok(
-  currentDeathModel.deathPoint.x > currentDeathModel.xStart + 220,
-  "Death marker should not be plotted at plot xStart when the axis includes five pre-death years."
-);
-assert.match(currentDeathHtml, /data-income-impact-pre-death-region/);
-assert.match(currentDeathHtml, /5-year context before death/);
-assert.match(currentDeathHtml, /data-income-impact-runway-death/);
-assert.doesNotMatch(currentDeathHtml, /data-income-impact-runway-point-phase="preDeath"/);
-assert.doesNotMatch(currentDeathHtml, /data-income-impact-runway-pre-death-line/);
-assert.doesNotMatch(currentDeathHtml, /data-income-impact-runway-pre-death-baseline-context-line/);
-assert.doesNotMatch(currentDeathHtml, /data-income-impact-runway-pre-death-modeled-context-line/);
-assert.match(currentDeathHtml, /data-income-impact-runway-zero-line/);
-
-const preRegionWidth = getAttribute(
-  currentDeathHtml,
-  /data-income-impact-pre-death-region[^>]* width="([^"]+)"/
-);
-assert.ok(preRegionWidth >= 220, "Rendered pre-death SVG region should have visible width.");
-const deathLabelY = getAttribute(
-  currentDeathHtml,
-  /<text x="[^"]+" y="([^"]+)"[^>]*data-income-impact-death-marker-label/
-);
-const deathDateLabelY = getAttribute(
-  currentDeathHtml,
-  /data-income-impact-death-marker-label[\s\S]*?<text x="[^"]+" y="([^"]+)"[^>]*class="income-impact-runway-year-date"/
-);
-const topValueLabelY = getAttribute(
-  currentDeathHtml,
-  /<text x="[^"]+" y="([^"]+)"[^>]*class="income-impact-runway-axis-label">\$/
-);
-assert.ok(deathLabelY > 0, "Death label should stay inside the SVG top boundary.");
-assert.ok(deathDateLabelY > deathLabelY, "Death date label should stay below the death label.");
-assert.ok(topValueLabelY > 0, "Top value axis label should stay inside the SVG top boundary.");
-assert.ok(
-  currentDeathModel.deathPoint.y - deathDateLabelY >= 20,
-  "Death marker should have usable space below the date label."
+assert.equal(typeof harness.renderIncomeImpact, "function");
+assert.equal(typeof harness.renderPausedTimelineVisualization, "function");
+assert.match(displaySource, /function renderPausedTimelineVisualization/);
+assert.match(displaySource, /Timeline visualization paused while the Income Impact projection model is being rebuilt/);
+assert.doesNotMatch(displaySource, /function buildRunwayChartModel/);
+assert.doesNotMatch(displaySource, /function renderFinancialRunwayChart/);
+assert.doesNotMatch(displaySource, /RUNWAY_CHART_/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-svg/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-line/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-pre-death-line/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-callout/);
+assert.doesNotMatch(displaySource, /data-income-impact-marker-legend/);
+assert.doesNotMatch(displaySource, /data-income-impact-timeline-marker/);
+assert.doesNotMatch(displaySource, /<svg\b|<path\b|<circle\b/);
+assert.doesNotMatch(
+  displaySource,
+  /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
+  "Paused timeline display should not persist scenario or model state."
 );
 
-const futureDeathResult = createTimelineResult({
-  deathDate: "2036-01-01",
-  deathAge: 56,
-  horizonYears: 40,
-  includePreDeathPoints: true
-});
-const futureDeathModel = harness.buildRunwayChartModel(futureDeathResult);
-const futureDeathHtml = harness.renderFinancialRunwayChart(futureDeathResult);
-const futurePreDeathPoints = futureDeathModel.points.filter(function (point) {
-  return point.phase === "preDeath";
-});
-const futureSurvivorPoints = futureDeathModel.points.filter(function (point) {
-  return point.phase !== "preDeath";
-});
-const futureDeathChartPoint = futureDeathModel.points.find(function (point) {
-  return point.id === "death-point";
-});
-const priorStrictProportionalSpan = (futureDeathModel.xEnd - futureDeathModel.xStart)
-  * (59 / (futureDeathModel.maxRelativeMonthIndex - futureDeathModel.minRelativeMonthIndex));
+assert.match(componentsSource, /\.income-impact-timeline-paused/);
+assert.match(componentsSource, /\.income-impact-paused-facts/);
+assert.doesNotMatch(componentsSource, /\.income-impact-runway-svg/);
+assert.doesNotMatch(componentsSource, /\.income-impact-runway-callout/);
+assert.doesNotMatch(componentsSource, /\.income-impact-runway-phase-strip/);
+assert.doesNotMatch(componentsSource, /\.income-impact-marker-lanes/);
+assert.doesNotMatch(componentsSource, /\.income-impact-marker-legend/);
 
-assert.equal(futureDeathModel.minRelativeMonthIndex, -60);
-assert.equal(futureDeathModel.maxRelativeMonthIndex, 480);
-assert.ok(futureDeathChartPoint, "Future death model should include the plotted death point.");
-assert.ok(
-  futureDeathModel.maxBalance > getMaxDisplayedBalance(futureDeathModel),
-  "Future death y-domain max should include top headroom above plotted balances."
-);
-assert.ok(
-  futureDeathModel.maxBalance >= futureDeathChartPoint.displayedBalance + 500000,
-  "Future death y-domain max should reserve at least $500,000 above the plotted death-event balance."
-);
-assert.ok(
-  futureDeathModel.maxBalance < futureDeathResult.financialRunway.startingResources + 500000,
-  "Future death y-domain max should not be based on pre-obligation startingResources."
-);
-assert.ok(
-  getHighestPointY(futureDeathModel) >= futureDeathModel.yTop + 20,
-  "Highest future death point should render visibly below the plot top."
-);
-assert.equal(futurePreDeathPoints.length, 60);
-assert.equal(futurePreDeathPoints[0].relativeMonthIndex, -60);
-assert.equal(futurePreDeathPoints[futurePreDeathPoints.length - 1].relativeMonthIndex, -1);
-assert.equal(futurePreDeathPoints[0].x, futureDeathModel.xStart);
-assert.ok(futureDeathModel.deathPoint.x > futureDeathModel.xStart + 220);
-assert.ok(futureDeathModel.preDeathPath, "Pre-death context should have a distinct line path.");
-assert.ok(futureDeathModel.minBalance < 0, "Signed y-domain should include below-zero post-death runway values.");
-assert.ok(futureDeathModel.zeroY > futureDeathModel.yTop && futureDeathModel.zeroY < futureDeathModel.yBottom);
-assert.ok(
-  futurePreDeathPoints.every(function (point) {
-    return point.displayedBalance > 0 && point.y < futureDeathModel.zeroY;
-  }),
-  "All-positive pre-death context should plot above the signed zero line."
-);
-assert.ok(futureDeathModel.survivorRunwayPath, "Survivor runway should have a distinct line path.");
-assertPathMatchesPoints(
-  futureDeathModel.preDeathPath,
-  futurePreDeathPoints,
-  "Pre-death path should be built from actual preDeath chart points."
-);
-assertPathMatchesPoints(
-  futureDeathModel.survivorRunwayPath,
-  futureSurvivorPoints,
-  "Survivor runway path should exclude preDeath points and start at death."
-);
-assert.ok(
-  futurePreDeathPoints[futurePreDeathPoints.length - 1].x - futurePreDeathPoints[0].x > priorStrictProportionalSpan * 2,
-  "Pre-death path should be substantially wider than the prior strict proportional span."
-);
-assert.ok(
-  futurePreDeathPoints[futurePreDeathPoints.length - 1].x - futurePreDeathPoints[0].x >= 200,
-  "Pre-death path should have meaningful x-span for readability."
-);
-assert.match(futureDeathHtml, /data-income-impact-runway-pre-death-line/);
-assert.match(futureDeathHtml, /data-income-impact-runway-pre-death-signed-line/);
-assert.match(futureDeathHtml, /data-income-impact-runway-post-death-line/);
-assert.equal(
-  getSvgPathData(futureDeathHtml, "data-income-impact-runway-pre-death-line"),
-  futureDeathModel.preDeathPath,
-  "Rendered pre-death path should use the chart model signed preDeathPath."
-);
-assert.equal(
-  getSvgPathData(futureDeathHtml, "data-income-impact-runway-post-death-line"),
-  futureDeathModel.survivorRunwayPath,
-  "Rendered post-death path should use the chart model survivorRunwayPath."
-);
-assert.ok(
-  futureDeathModel.deathPoint.x > futurePreDeathPoints[futurePreDeathPoints.length - 1].x,
-  "Death marker should remain after the pre-death segment."
-);
-assert.ok(
-  futureDeathModel.yearMarkers.some(function (marker) {
-    return marker.yearIndex === 40;
-  }),
-  "Post-death domain should still reach the projection horizon."
-);
-assert.match(futureDeathHtml, /data-income-impact-runway-point-resolution="modeledBackcastMonthly"/);
+assert.match(pageSource, /data-income-impact-display/);
+assert.match(pageSource, /data-income-impact-scenario-banner/);
+assert.match(pageSource, /income-impact-warning-events-library\.js/);
 
-const thresholdResult = createTimelineResult({
-  deathDate: "2026-01-01",
-  deathAge: 46,
-  horizonYears: 40,
-  includePreDeathPoints: true,
-  includePreDeathThreshold: true,
-  preDeathStartBalance: 100000,
-  preDeathMonthlyDelta: 0,
-  preDeathThresholdBalance: 100000
-});
-const thresholdModel = harness.buildRunwayChartModel(thresholdResult);
-const thresholdHtml = harness.renderFinancialRunwayChart(thresholdResult);
-const thresholdPreDeathPoints = thresholdModel.points.filter(function (point) {
-  return point.phase === "preDeath";
-});
-const thresholdPoint = thresholdPreDeathPoints.find(function (point) {
-  return point.resolution === "targetThreshold";
-});
-const thresholdDeathChartPoint = thresholdModel.points.find(function (point) {
-  return point.id === "death-point";
-});
-assert.equal(thresholdPreDeathPoints.length, 61);
-assert.ok(thresholdPoint, "Pre-death household target threshold should be included in the pre-death line.");
-assert.ok(thresholdDeathChartPoint, "Death chart point should remain present when a pre-death threshold shares relative month 0.");
-assert.equal(
-  thresholdDeathChartPoint.phase,
-  "death",
-  "Death marker should use the death point even when a pre-death threshold shares relative month 0."
-);
-assert.equal(thresholdModel.deathPoint.y, thresholdDeathChartPoint.y);
-assert.equal(thresholdPoint.x, thresholdModel.deathPoint.x);
-assert.notEqual(
-  thresholdPoint.y,
-  thresholdModel.deathPoint.y,
-  "Pre-death household assets and post-death available resources should be allowed to differ at the death threshold."
-);
-assertPathMatchesPoints(
-  thresholdModel.preDeathPath,
-  thresholdPreDeathPoints,
-  "Pre-death path should include the real household target threshold point."
-);
-assert.ok(thresholdModel.deathTransitionPath, "Death-date resource jump should render as a connected vertical transition path.");
-assertPathMatchesPoints(
-  thresholdModel.deathTransitionPath,
-  [thresholdPoint, thresholdDeathChartPoint],
-  "Death transition path should connect pre-death household assets to post-death available resources."
-);
-assert.equal(
-  getSvgPathData(thresholdHtml, "data-income-impact-runway-death-transition-line"),
-  thresholdModel.deathTransitionPath,
-  "Rendered death transition path should use the chart model transition path."
-);
-assert.equal(
-  getSvgPathStyle(thresholdHtml, "data-income-impact-runway-pre-death-line"),
-  getSvgPathStyle(thresholdHtml, "data-income-impact-runway-post-death-line"),
-  "Pre-death and post-death paths should use the same line style."
-);
-assert.equal(
-  getSvgPathStyle(thresholdHtml, "data-income-impact-runway-death-transition-line"),
-  getSvgPathStyle(thresholdHtml, "data-income-impact-runway-post-death-line"),
-  "Death transition path should use the same line style as the runway paths."
-);
+const fixture = {
+  selectedDeath: {
+    date: "2026-04-29",
+    age: 46
+  },
+  financialRunway: {
+    status: "complete",
+    startingResources: 400000,
+    immediateObligations: 107530,
+    annualShortfall: 50041,
+    netAvailableResources: 292470,
+    depletionDate: "2032-09-29"
+  },
+  scenarioTimeline: {
+    axis: {
+      deathDate: "2026-04-29"
+    },
+    pivotalEvents: {
+      risks: [
+        {
+          id: "resourcesDepleted",
+          type: "resourcesDepleted",
+          label: "Resources depleted",
+          shortLabel: "Depleted",
+          severity: "critical",
+          advisorCopy: "Available resources are projected to reach zero in this scenario."
+        }
+      ],
+      stable: [
+        {
+          id: "existingCoverage",
+          type: "existingCoverageAvailable",
+          label: "Existing coverage available",
+          severity: "covered",
+          advisorCopy: "Existing coverage is represented in this preview."
+        }
+      ]
+    }
+  },
+  timelineEvents: [
+    {
+      type: "deathEvent",
+      label: "Death scenario begins",
+      amount: 292470
+    }
+  ],
+  warnings: [],
+  dataGaps: []
+};
 
-const modeledBackcastResult = createTimelineResult({
-  deathDate: "2026-01-01",
-  deathAge: 46,
-  horizonYears: 40,
-  includePreDeathPoints: true,
-  preDeathStartBalance: -200000,
-  preDeathMonthlyDelta: 5000,
-  preDeathResolution: "modeledBackcastMonthly",
-  preDeathStatus: "modeledBackcast"
-});
-const modeledBackcastModel = harness.buildRunwayChartModel(modeledBackcastResult);
-const modeledBackcastPreDeathPoints = modeledBackcastModel.points.filter(function (point) {
-  return point.phase === "preDeath";
-});
-assert.equal(modeledBackcastPreDeathPoints.length, 60);
-assert.equal(
-  modeledBackcastPreDeathPoints.filter(function (point) { return point.displayedBalance < 0; }).length,
-  40,
-  "Negative modeled pre-death balances should stay negative instead of being clamped to $0."
-);
-assert.equal(
-  modeledBackcastPreDeathPoints.filter(function (point) { return point.displayedBalance === 0; }).length,
-  1,
-  "Only the actual zero-balance modeled pre-death point should display as $0."
-);
-assert.equal(
-  modeledBackcastPreDeathPoints.filter(function (point) { return point.displayedBalance > 0; }).length,
-  19,
-  "Positive modeled pre-death balances should remain positive."
-);
-assert.ok(modeledBackcastModel.minBalance < 0, "Signed y-domain should include negative modeled household position.");
-assert.ok(modeledBackcastModel.zeroY > modeledBackcastModel.yTop, "Zero line should render inside the plot when negatives exist.");
-assert.ok(modeledBackcastModel.zeroY < modeledBackcastModel.yBottom, "Zero line should leave visible space for below-zero values.");
-assert.ok(
-  modeledBackcastPreDeathPoints.some(function (point) {
-    return point.balance < 0 && point.displayedBalance < 0 && point.y > modeledBackcastModel.zeroY;
-  }),
-  "Negative pre-death balances should plot below the zero line."
-);
-const modeledBackcastPositivePoints = modeledBackcastPreDeathPoints.filter(function (point) {
-  return point.displayedBalance > 0;
-});
-assert.ok(
-  modeledBackcastPositivePoints.every(function (point) {
-    return point.y < modeledBackcastModel.zeroY;
-  }),
-  "Positive pre-death balances should plot above the zero line."
-);
-assertPathMatchesPoints(
-  modeledBackcastModel.preDeathPath,
-  modeledBackcastPreDeathPoints,
-  "Modeled backcast signed pre-death path should use all real preDeath points."
-);
-assert.ok(
-  getPathYSpan(modeledBackcastModel.preDeathPath) >= 70,
-  "Signed pre-death trend should have substantial visible height across below-zero and positive values."
-);
-assert.ok(
-  getPathXSpan(modeledBackcastModel.preDeathPath) >= 200,
-  "Signed pre-death trend should span the readable five-year segment."
-);
-const modeledBackcastHtml = harness.renderFinancialRunwayChart(modeledBackcastResult);
-assert.doesNotMatch(modeledBackcastHtml, /<circle\b/, "Rendered runway chart should not include visible dot markers.");
-assert.match(modeledBackcastHtml, /data-income-impact-runway-pre-death-signed-line/);
-assert.doesNotMatch(modeledBackcastHtml, /data-income-impact-runway-pre-death-baseline-context-line/);
-assert.doesNotMatch(modeledBackcastHtml, /data-income-impact-runway-pre-death-modeled-context-line/);
-assert.doesNotMatch(modeledBackcastHtml, /data-income-impact-modeled-context-scale="local"/);
-assert.doesNotMatch(modeledBackcastHtml, /data-income-impact-runway-pre-death-positive-line/);
-assert.equal(
-  getSvgPathData(modeledBackcastHtml, "data-income-impact-runway-pre-death-line"),
-  modeledBackcastModel.preDeathPath,
-  "Rendered pre-death path should use the chart model signed preDeathPath."
-);
-assert.match(modeledBackcastHtml, /data-income-impact-runway-zero-line/);
-assert.match(modeledBackcastHtml, /data-income-impact-runway-negative-axis-label/);
-assert.match(modeledBackcastHtml, /Remaining available resources can plot above or below \$0/);
-if (modeledBackcastModel.depletionPoint) {
-  assert.equal(
-    modeledBackcastModel.depletionPoint.y,
-    modeledBackcastModel.zeroY,
-    "Depletion marker should sit on the signed chart zero line."
-  );
-}
-assert.match(
-  getSvgPathStyle(modeledBackcastHtml, "data-income-impact-runway-pre-death-line"),
-  /stroke-width:\s*4\.8/,
-  "Signed pre-death trend should render strongly enough to read."
-);
-assert.ok(
-  modeledBackcastHtml.indexOf("data-income-impact-runway-pre-death-line") > modeledBackcastHtml.indexOf("data-income-impact-runway-points"),
-  "Signed pre-death trend should render after non-visible point metadata."
-);
-assert.ok(
-  parsePathPoints(modeledBackcastModel.preDeathPath).every(function (point) {
-    return point.y >= modeledBackcastModel.yTop && point.y <= modeledBackcastModel.yBottom;
-  }),
-  "Signed pre-death trend should stay inside the plot bounds."
-);
+const host = { innerHTML: "" };
+harness.renderIncomeImpact(host, { timelineResult: fixture });
 
-const protectedChanges = getChangedFiles([
-  "pages/income-loss-impact.html",
-  "app/features/lens-analysis/lens-model-builder.js",
-  "app/features/lens-analysis/normalize-lens-model.js",
-  "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/analysis-methods.js",
-  "app/features/lens-analysis/income-impact-warning-events-library.js",
-  "styles.css",
-  "components.css",
-  "layout.css"
-]);
+assert.match(host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(host.innerHTML, /Timeline visualization paused while the Income Impact projection model is being rebuilt/);
+assert.match(host.innerHTML, /data-income-impact-risk-panel/);
+assert.match(host.innerHTML, /Available resources are projected to reach zero in this scenario\./);
+assert.match(host.innerHTML, /data-income-impact-helper-timeline-events-panel/);
+assert.doesNotMatch(host.innerHTML, /<svg\b|<path\b|<circle\b/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-svg/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-line/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-point/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-callout/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-marker-legend/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-timeline-marker/);
+
+const calculationFiles = [
+  "app/features/lens-analysis/household-financial-position-calculations.js",
+  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
+  "app/features/lens-analysis/income-impact-warning-events-library.js"
+];
 assert.deepEqual(
-  protectedChanges,
+  getChangedFiles(calculationFiles),
   [],
-  "Chart-domain/HFP context pass should not change HTML, model prep, adapters, methods, warnings, or CSS."
+  "Removing the chart surface should not change HFP, timeline formulas, or the warning library."
 );
 
 console.log("income-loss-impact-chart-domain-check passed");

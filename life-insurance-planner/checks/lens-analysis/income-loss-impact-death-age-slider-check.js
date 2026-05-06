@@ -303,9 +303,12 @@ assert.equal(available.helperCalls[0].selectedDeathAge, 45);
 assert.match(available.host.innerHTML, /45 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 45/);
 assert.match(available.host.innerHTML, /data-income-impact-visual-timeline/);
-assert.match(available.host.innerHTML, /data-income-impact-financial-runway/);
-assert.match(available.host.innerHTML, /data-income-impact-runway-point-date="2026-01-01"/);
-assert.match(available.host.innerHTML, /data-income-impact-runway-line/);
+assert.match(available.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(available.host.innerHTML, /Timeline visualization paused/);
+assert.match(available.host.innerHTML, /2026-01-01/);
+assert.doesNotMatch(available.host.innerHTML, /data-income-impact-financial-runway/);
+assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-point-date/);
+assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-line/);
 assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeholder-only|Built from helper events|calculateIncomeLossImpactTimeline/);
 
 available.slider.value = "44";
@@ -325,8 +328,10 @@ assert.equal(available.ageValue.textContent, "50");
 assert.equal(available.dateValue.textContent, "2030-06-15");
 assert.match(available.host.innerHTML, /50 years 0 months/);
 assert.match(available.host.innerHTML, /Death at 50/);
-assert.match(available.host.innerHTML, /data-income-impact-runway-point-date="2030-06-15"/);
-assert.match(available.host.innerHTML, /data-income-impact-financial-runway/);
+assert.match(available.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(available.host.innerHTML, /2030-06-15/);
+assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-point-date/);
+assert.doesNotMatch(available.host.innerHTML, /data-income-impact-financial-runway/);
 assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeholder-only|Built from helper events|calculateIncomeLossImpactTimeline/);
 assert.deepEqual(available.storageWrites, [], "slider changes should not write to browser storage.");
 

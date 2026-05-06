@@ -515,24 +515,19 @@ assert.match(
 );
 assert.match(
   helperTimelineHtml,
-  /data-income-impact-financial-runway/,
-  "Timeline should render the financial runway visual."
+  /data-income-impact-timeline-paused/,
+  "Timeline should render the paused visualization state while the projection model is rebuilt."
 );
 assert.match(
   helperTimelineHtml,
-  /data-income-impact-runway-primary-visual/,
-  "Financial runway should be the primary visual."
+  /Timeline visualization paused while the Income Impact projection model is being rebuilt/,
+  "Paused visualization should explain why the chart is unavailable."
 );
-assert.match(
-  helperTimelineHtml,
-  /data-income-impact-runway-snapshot/,
-  "Financial runway should expose visible resource and obligation summary."
-);
-assert.match(
-  helperTimelineHtml,
-  /data-income-impact-runway-line/,
-  "Timeline should render the financial runway projection line."
-);
+assert.doesNotMatch(helperTimelineHtml, /data-income-impact-financial-runway/);
+assert.doesNotMatch(helperTimelineHtml, /data-income-impact-runway-primary-visual/);
+assert.doesNotMatch(helperTimelineHtml, /data-income-impact-runway-snapshot/);
+assert.doesNotMatch(helperTimelineHtml, /data-income-impact-runway-line/);
+assert.doesNotMatch(helperTimelineHtml, /<svg\b|<path\b|<circle\b/);
 assert.match(
   helperTimelineHtml,
   /data-income-impact-helper-timeline-events/,

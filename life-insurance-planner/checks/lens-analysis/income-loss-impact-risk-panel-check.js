@@ -87,6 +87,17 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /\.income-impact-risk-panel/);
 assert.match(componentsSource, /\.income-impact-covered-panel/);
+assert.match(componentsSource, /\.income-impact-layout/);
+assert.match(
+  componentsSource,
+  /\.income-impact-layout[\s\S]*grid-template-columns:\s*minmax\(0, 2\.35fr\) minmax\(18rem, 0\.85fr\);/,
+  "Desktop Income Impact layout should place the large timeline left and companion panel right."
+);
+assert.match(
+  componentsSource,
+  /@media \(max-width: 1180px\)[\s\S]*\.income-impact-layout[\s\S]*grid-template-columns: 1fr;/,
+  "Tablet and smaller Income Impact layout should stack cleanly."
+);
 assert.doesNotMatch(pageSource, /data-income-impact-risk-panel/);
 
 const fixture = {
@@ -262,6 +273,15 @@ assert.match(runwayOnlyHtml, /No major risks detected from the available facts\.
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: fixture });
+assert.match(host.innerHTML, /data-income-impact-layout/);
+assert.match(host.innerHTML, /data-income-impact-layout-main/);
+assert.match(host.innerHTML, /data-income-impact-layout-aside/);
+assert.match(host.innerHTML, /data-income-impact-timeline-paused/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-svg|data-income-impact-runway-line|data-income-impact-timeline-marker/);
+assert.ok(
+  host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
+  "Timeline should render before the right-side companion panel in source order."
+);
 assert.match(host.innerHTML, /data-income-impact-risk-panel/);
 assert.match(host.innerHTML, /Resources depleted/);
 harness.renderIncomeImpact(host, {

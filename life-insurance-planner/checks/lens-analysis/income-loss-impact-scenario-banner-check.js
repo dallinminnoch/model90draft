@@ -334,6 +334,9 @@ const pageSource = readRepoFile("pages/income-loss-impact.html");
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
 const layoutSource = readRepoFile("layout.css");
 const componentsSource = readRepoFile("components.css");
+const scenarioLayoutBlock = layoutSource.match(
+  /body\[data-step="income-impact"\] \.income-impact-scenario-banner\s*\{[\s\S]*?\n  \}/
+)?.[0] || "";
 
 [
   "data-income-impact-scenario-banner",
@@ -385,41 +388,30 @@ assert.doesNotMatch(
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
   "scenario state should not be persisted."
 );
-assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*position: fixed;/);
-assert.match(
+assert.doesNotMatch(
+  scenarioLayoutBlock,
+  /position: fixed;/,
+  "Scenario controls should no longer be fixed over the Income Impact chart."
+);
+assert.doesNotMatch(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*left:\s*calc\(var\(--app-side-nav-width\) \+ clamp\(0\.95rem, 1\.45vw, 1\.15rem\)\);[\s\S]*right:\s*clamp\(0\.95rem, 1\.45vw, 1\.15rem\);/,
-  "Desktop/tablet scenario banner should be fixed to the viewport bottom and aligned to the LENS content pane."
+  /--income-impact-scenario-banner-reserve/,
+  "Income Impact should not reserve space for a fixed scenario banner."
+);
+assert.match(
+  scenarioLayoutBlock,
+  /position: static;[\s\S]*max-height: none;[\s\S]*overflow: visible;/,
+  "Desktop/tablet scenario controls should render inline so they do not overlap the chart."
 );
 assert.match(
   layoutSource,
-  /workspace-side-nav-collapsed \.income-impact-scenario-banner[\s\S]*left:\s*calc\(var\(--app-side-nav-collapsed-width\) \+ clamp\(0\.95rem, 1\.45vw, 1\.15rem\)\);/,
-  "Fixed scenario banner should stay aligned when the LENS side nav is collapsed."
+  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*scroll-padding-bottom:\s*1rem;/,
+  "Income Impact content should use normal scroll padding now that controls are inline."
 );
 assert.match(
   layoutSource,
-  /--income-impact-scenario-banner-reserve:\s*clamp\(/,
-  "Income Impact should reserve scroll space for the fixed scenario banner."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*scroll-padding-bottom:\s*calc\(var\(--income-impact-scenario-banner-reserve\) \+ 1rem\);/,
-  "Income Impact content should scroll above the fixed scenario banner."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.actions-row[\s\S]*margin-bottom:\s*calc\(var\(--income-impact-scenario-banner-reserve\) \+ 0\.75rem\);[\s\S]*scroll-margin-bottom:\s*calc\(var\(--income-impact-scenario-banner-reserve\) \+ 1rem\);/,
-  "Income Impact actions should keep reachable clearance from the fixed scenario banner."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*max-height:\s*min\(var\(--income-impact-scenario-banner-reserve\), calc\(100vh - 5rem\)\);[\s\S]*overflow-y:\s*auto;/,
-  "Fixed scenario banner should have a constrained height with internal overflow."
-);
-assert.match(
-  layoutSource,
-  /@media \(min-width: 721px\) and \(max-height: 700px\)[\s\S]*--income-impact-scenario-banner-reserve:\s*clamp\(10\.5rem, 34vh, 12rem\);/,
-  "Short-height desktop should use a smaller scenario banner reserve."
+  /body\[data-step="income-impact"\] \.actions-row[\s\S]*margin-bottom:\s*0\.75rem;[\s\S]*scroll-margin-bottom:\s*1rem;/,
+  "Income Impact actions should use normal spacing before the inline scenario controls."
 );
 assert.match(
   layoutSource,
@@ -477,7 +469,9 @@ assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
 assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "expanded");
 assert.equal(harness.banner.classList.contains("is-collapsed"), false);
-assert.match(harness.host.innerHTML, /data-income-impact-runway-point-year-index="40"/);
+assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
+assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-svg/);
 
 harness.projectionHorizon.value = "4";
 harness.projectionHorizon.listeners.input({ target: harness.projectionHorizon });
@@ -485,7 +479,8 @@ assert.equal(harness.helperCalls.length, 2);
 assert.equal(harness.helperCalls[1].options.scenario.projectionHorizonYears, 5);
 assert.equal(harness.projectionHorizon.value, "5");
 assert.equal(harness.projectionHorizonValue.textContent, "5 years");
-assert.match(harness.host.innerHTML, /data-income-impact-runway-point-year-index="5"/);
+assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
 harness.projectionHorizon.value = "125";
 harness.projectionHorizon.listeners.change({ target: harness.projectionHorizon });
@@ -493,7 +488,8 @@ assert.equal(harness.helperCalls.length, 3);
 assert.equal(harness.helperCalls[2].options.scenario.projectionHorizonYears, 100);
 assert.equal(harness.projectionHorizon.value, "100");
 assert.equal(harness.projectionHorizonValue.textContent, "100 years");
-assert.match(harness.host.innerHTML, /data-income-impact-runway-point-year-index="100"/);
+assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
 harness.mortgageTreatment.value = "payOffMortgage";
 harness.mortgageTreatment.listeners.change({ target: harness.mortgageTreatment });

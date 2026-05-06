@@ -68,14 +68,16 @@ assert.match(helperSource, /DEFAULT_RUNWAY_PROJECTION_YEARS/);
 assert.doesNotMatch(helperSource, /runNeedsAnalysis|analysis-methods/);
 assert.doesNotMatch(helperSource, /\bdocument\s*[.\[]|\bwindow\s*[.\[]|\blocalStorage\s*[.\[]|\bsessionStorage\s*[.\[]/);
 
-assert.match(displaySource, /data-income-impact-financial-runway/);
-assert.match(displaySource, /data-income-impact-runway-primary-visual/);
-assert.match(displaySource, /data-income-impact-runway-snapshot/);
-assert.match(displaySource, /data-income-impact-runway-svg/);
-assert.match(displaySource, /data-income-impact-runway-line/);
-assert.match(displaySource, /data-income-impact-runway-point/);
-assert.match(displaySource, /data-income-impact-runway-year-marker/);
-assert.match(displaySource, /data-income-impact-runway-depletion/);
+assert.match(displaySource, /data-income-impact-timeline-paused/);
+assert.match(displaySource, /Timeline visualization paused while the Income Impact projection model is being rebuilt/);
+assert.doesNotMatch(displaySource, /data-income-impact-financial-runway/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-primary-visual/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-snapshot/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-svg/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-line/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-point/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-year-marker/);
+assert.doesNotMatch(displaySource, /data-income-impact-runway-depletion/);
 assert.match(displaySource, /Immediate Money Available/);
 assert.match(displaySource, /Immediate Obligations/);
 assert.match(displaySource, /Annual Household Shortfall/);
@@ -268,7 +270,8 @@ assert.doesNotMatch(
 );
 const partialTimelineHtml = harness.renderTimeline(partialFixture);
 assert.match(partialTimelineHtml, /data-income-impact-runway-status="partial-estimate"/);
-assert.match(partialTimelineHtml, /Partial runway estimate\. This preview is using the facts currently available\. Add the missing items below to improve the estimate\./);
+assert.match(partialTimelineHtml, /Timeline visualization paused/);
+assert.match(partialTimelineHtml, /Financial runway is a partial estimate because critical facts are missing\./);
 assert.doesNotMatch(partialTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
 
 const unavailableFixture = {
@@ -315,35 +318,25 @@ assert.match(unavailableSecurityHtml, /Runway estimate unavailable/);
 assert.match(unavailableSecurityHtml, /annual shortfall inputs are missing/);
 const unavailableTimelineHtml = harness.renderTimeline(unavailableFixture);
 assert.match(unavailableTimelineHtml, /data-income-impact-runway-status="not-available"/);
-assert.match(unavailableTimelineHtml, /Runway estimate unavailable/);
+assert.match(unavailableTimelineHtml, /Timeline visualization paused/);
 assert.match(unavailableTimelineHtml, /annual shortfall inputs are missing/);
 assert.doesNotMatch(unavailableTimelineHtml, /Financial runway is not available until coverage, liquidity, obligations, annual household need, and survivor income facts are completed\./);
 
 const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /Financial Runway if Death Occurs at Selected Age/);
-assert.match(timelineHtml, /data-income-impact-financial-runway/);
-assert.match(timelineHtml, /data-income-impact-runway-primary-visual/);
-assert.match(timelineHtml, /data-income-impact-runway-snapshot/);
-assert.match(timelineHtml, /Money available at death/);
-assert.match(timelineHtml, /data-income-impact-runway-starting-total>\$600,000/);
-assert.match(timelineHtml, /data-income-impact-runway-obligations-total>\$100,000/);
-assert.match(timelineHtml, /data-income-impact-runway-annual-use>\$60,000/);
-assert.match(
-  timelineHtml,
-  /<svg[^>]*data-income-impact-runway-svg[^>]*width="1040"[^>]*height="420"/,
-  "Runway chart should render with explicit non-trivial SVG dimensions."
-);
-assert.match(timelineHtml, /data-income-impact-runway-line/);
-assert.match(timelineHtml, /data-income-impact-runway-area/);
-assert.match(timelineHtml, /data-income-impact-runway-point-year-index="0"/);
-assert.match(timelineHtml, /data-income-impact-runway-point-year-index="10"/);
-assert.match(timelineHtml, /data-income-impact-runway-point-status="depleted"/);
-assert.match(timelineHtml, /data-income-impact-runway-depletion-date="2038-10-15"/);
-assert.match(timelineHtml, /Money runs out/);
-assert.match(timelineHtml, /data-income-impact-runway-year-marker/);
-assert.match(timelineHtml, /Year 10/);
-assert.match(timelineHtml, /Available after obligations: \$500,000/);
-assert.match(timelineHtml, /Estimated depletion: 2038-10-15/);
+assert.match(timelineHtml, /data-income-impact-timeline-paused/);
+assert.match(timelineHtml, /Timeline visualization paused/);
+assert.match(timelineHtml, /No previous-asset or income trendline is being rendered/);
+assert.match(timelineHtml, /Selected death date/);
+assert.match(timelineHtml, /2030-06-15/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-financial-runway/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-runway-primary-visual/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-runway-snapshot/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-runway-line/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-runway-area/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-runway-point/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-runway-depletion/);
+assert.doesNotMatch(timelineHtml, /<svg\b|<path\b|<circle\b/);
 assert.match(timelineHtml, /Supporting timeline events/);
 assert.match(timelineHtml, /income-impact-supporting-events/);
 assert.match(timelineHtml, /data-income-impact-timeline-event-type="coverageAvailable"/);
