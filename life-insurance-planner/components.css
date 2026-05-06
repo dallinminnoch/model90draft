@@ -1495,8 +1495,7 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 [data-pmi-asset-records-root],
 [data-pmi-debt-records-root],
 [data-pmi-expense-records-root],
-.pmi-asset-records-list,
-.pmi-expense-records-list {
+.pmi-asset-records-list {
   display: contents;
 }
 
@@ -1629,6 +1628,152 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   font-size: 0.95rem;
 }
 
+.pmi-expense-records-list {
+  display: block;
+  grid-column: 1 / -1;
+  max-width: 100%;
+  overflow-x: visible;
+}
+
+.pmi-expense-records-table {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid #d9dee8;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.pmi-expense-records-header,
+.pmi-expense-record-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1.05fr)
+    minmax(0, 0.55fr)
+    minmax(0, 0.68fr)
+    minmax(0, 0.7fr)
+    minmax(0, 0.58fr)
+    minmax(0, 0.78fr)
+    minmax(0, 0.8fr)
+    minmax(2.4rem, 0.28fr);
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.pmi-expense-records-header {
+  padding: 0.32rem 0.36rem;
+  background: #f6f8fb;
+  border-bottom: 1px solid #e5e9f0;
+  color: #5f6777;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.pmi-expense-records-header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pmi-expense-record-row {
+  padding: 0.32rem 0.36rem;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.pmi-expense-record-row:last-child {
+  border-bottom: 0;
+}
+
+.pmi-expense-record-cell {
+  min-width: 0;
+}
+
+.pmi-expense-record-type-label,
+.pmi-expense-record-category-label {
+  display: block;
+  overflow: hidden;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pmi-expense-record-type-label {
+  color: #30384a;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.pmi-expense-record-category-label {
+  color: #5f6777;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.pmi-expense-record-muted {
+  display: block;
+  color: #8b94a3;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.pmi-expense-record-row input,
+.pmi-expense-record-row select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 1.72rem;
+  padding: 0.22rem 0.32rem;
+  border-radius: 0.18rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+}
+
+.pmi-expense-record-row select {
+  padding-right: 1rem;
+}
+
+.pmi-expense-record-compact-currency {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.pmi-expense-record-compact-currency input {
+  padding-right: 1.35rem;
+}
+
+.pmi-expense-record-compact-currency .profile-currency-suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.3rem;
+  transform: translateY(-50%);
+  font-size: 0.56rem;
+  pointer-events: none;
+}
+
+.pmi-expense-record-remove-cell {
+  text-align: right;
+}
+
+.pmi-asset-record-remove.pmi-expense-record-remove {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 0.18rem;
+  font-size: 0;
+  line-height: 1;
+}
+
+.pmi-asset-record-remove.pmi-expense-record-remove::before {
+  content: "x";
+  font-size: 0.95rem;
+}
+
 .pmi-asset-record-label-row {
   display: flex;
   align-items: center;
@@ -1683,21 +1828,25 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 @media (max-width: 900px) {
-  .pmi-debt-records-list {
+  .pmi-debt-records-list,
+  .pmi-expense-records-list {
     overflow-x: visible;
   }
 
-  .pmi-debt-records-table {
+  .pmi-debt-records-table,
+  .pmi-expense-records-table {
     min-width: 0;
     border: 0;
     background: transparent;
   }
 
-  .pmi-debt-records-header {
+  .pmi-debt-records-header,
+  .pmi-expense-records-header {
     display: none;
   }
 
-  .pmi-debt-record-row {
+  .pmi-debt-record-row,
+  .pmi-expense-record-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem;
     margin-bottom: 0.75rem;
@@ -1706,7 +1855,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
     background: #ffffff;
   }
 
-  .pmi-debt-record-cell::before {
+  .pmi-debt-record-cell::before,
+  .pmi-expense-record-cell::before {
     content: attr(data-column-label);
     display: block;
     margin-bottom: 0.25rem;
@@ -1718,11 +1868,14 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   }
 
   .pmi-debt-record-type-cell,
-  .pmi-debt-record-remove-cell {
+  .pmi-debt-record-remove-cell,
+  .pmi-expense-record-type-cell,
+  .pmi-expense-record-remove-cell {
     grid-column: 1 / -1;
   }
 
-  .pmi-debt-record-remove-cell {
+  .pmi-debt-record-remove-cell,
+  .pmi-expense-record-remove-cell {
     text-align: left;
   }
 }

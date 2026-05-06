@@ -116,6 +116,15 @@
     return normalizeString(category && category.label) || normalizeString(categoryKey) || "Expense";
   }
 
+  function getExpenseTypeLabel(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const entry = findLibraryEntry(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    return normalizeString(entry && entry.label)
+      || normalizeString(safeRecord.typeKey)
+      || normalizeString(safeRecord.categoryKey)
+      || "Expense";
+  }
+
   function getFrequencyOptions() {
     const taxonomy = getExpenseTaxonomyApi();
     return Array.isArray(taxonomy.EXPENSE_FREQUENCY_OPTIONS)
@@ -416,39 +425,24 @@
     }).join("");
   }
 
-  function renderConditionalTermField(record, expenseId) {
+  function renderCompactTermDetailField(record, expenseId) {
     const termType = normalizeString(record.termType);
     if (termType === "fixedYears") {
       const termYearsInputId = createInputId("pmi-expense-record", expenseId, "term-years");
-      return `
-        <div class="field-group">
-          <label for="${escapeHtml(termYearsInputId)}">Term Years</label>
-          <input id="${escapeHtml(termYearsInputId)}" data-pmi-expense-record-term-years type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.termYears))}">
-        </div>
-      `;
+      return `<input id="${escapeHtml(termYearsInputId)}" data-pmi-expense-record-term-years type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.termYears))}" aria-label="Term Years">`;
     }
 
     if (termType === "untilAge") {
       const endAgeInputId = createInputId("pmi-expense-record", expenseId, "end-age");
-      return `
-        <div class="field-group">
-          <label for="${escapeHtml(endAgeInputId)}">End Age</label>
-          <input id="${escapeHtml(endAgeInputId)}" data-pmi-expense-record-end-age type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.endAge))}">
-        </div>
-      `;
+      return `<input id="${escapeHtml(endAgeInputId)}" data-pmi-expense-record-end-age type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.endAge))}" aria-label="End Age">`;
     }
 
     if (termType === "untilDate") {
       const endDateInputId = createInputId("pmi-expense-record", expenseId, "end-date");
-      return `
-        <div class="field-group">
-          <label for="${escapeHtml(endDateInputId)}">End Date</label>
-          <input id="${escapeHtml(endDateInputId)}" data-pmi-expense-record-end-date type="date" value="${escapeHtml(record.endDate || "")}">
-        </div>
-      `;
+      return `<input id="${escapeHtml(endDateInputId)}" data-pmi-expense-record-end-date type="date" value="${escapeHtml(record.endDate || "")}" aria-label="End Date">`;
     }
 
-    return "";
+    return '<span class="pmi-expense-record-muted" aria-label="No term detail">-</span>';
   }
 
   function renderShell(root) {
@@ -587,7 +581,7 @@
         return;
       }
 
-      controller.list.innerHTML = controller.records.map(function (record) {
+      const rowsMarkup = controller.records.map(function (record) {
         const expenseId = normalizeString(record.expenseId);
         const labelInputId = createInputId("pmi-expense-record", expenseId, "label");
         const amountInputId = createInputId("pmi-expense-record", expenseId, "amount");
@@ -595,48 +589,68 @@
         const termTypeInputId = createInputId("pmi-expense-record", expenseId, "term-type");
         const continuationStatusInputId = createInputId("pmi-expense-record", expenseId, "continuation-status");
         const categoryId = createInputId("pmi-expense-record", expenseId, "category");
+        const expenseTypeLabel = getExpenseTypeLabel(record);
+        const categoryLabel = getCategoryLabel(record.categoryKey);
         return `
-          <div class="field-group full-width pmi-expense-record-field" data-pmi-expense-record-entry data-pmi-expense-id="${escapeHtml(expenseId)}">
-            <div class="pmi-asset-record-label-row pmi-expense-record-label-row">
-              <label for="${escapeHtml(labelInputId)}">Expense</label>
-              <button class="pmi-asset-record-remove pmi-expense-record-remove" type="button" data-pmi-expense-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
+          <div class="pmi-expense-record-row" role="row" data-pmi-expense-record-entry data-pmi-expense-id="${escapeHtml(expenseId)}">
+            <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="Expense Type">
+              <span class="pmi-expense-record-type-label" data-pmi-expense-record-type-label title="${escapeHtml(expenseTypeLabel)}">${escapeHtml(expenseTypeLabel)}</span>
             </div>
-            <input id="${escapeHtml(labelInputId)}" data-pmi-expense-record-label type="text" value="${escapeHtml(record.label)}">
-            <div class="form-grid pmi-expense-record-grid">
-              <div class="field-group">
-                <label for="${escapeHtml(amountInputId)}">Amount</label>
-                <div class="profile-currency-field">
-                  <input id="${escapeHtml(amountInputId)}" data-pmi-expense-record-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.amount))}">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Label / Vendor">
+              <input id="${escapeHtml(labelInputId)}" data-pmi-expense-record-label type="text" value="${escapeHtml(record.label)}" aria-label="Label / Vendor">
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Amount">
+              <div class="profile-currency-field pmi-expense-record-compact-currency">
+                <input id="${escapeHtml(amountInputId)}" data-pmi-expense-record-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.amount))}" aria-label="Amount">
+                <span class="profile-currency-suffix">USD</span>
               </div>
-              <div class="field-group">
-                <label for="${escapeHtml(frequencyInputId)}">Frequency</label>
-                <select id="${escapeHtml(frequencyInputId)}" data-pmi-expense-record-frequency>
-                  ${renderSelectOptions(getFrequencyOptions(), normalizeString(record.frequency))}
-                </select>
-              </div>
-              <div class="field-group">
-                <label for="${escapeHtml(termTypeInputId)}">Duration / term</label>
-                <select id="${escapeHtml(termTypeInputId)}" data-pmi-expense-record-term-type>
-                  ${renderSelectOptions(getTermTypeOptions(), normalizeString(record.termType))}
-                </select>
-              </div>
-              <div class="field-group">
-                <label for="${escapeHtml(continuationStatusInputId)}">Continues after death?</label>
-                <select id="${escapeHtml(continuationStatusInputId)}" data-pmi-expense-record-continuation-status>
-                  ${renderSelectOptions(getContinuationStatusOptions(), normalizeContinuationStatus(record.continuationStatus, "review"))}
-                </select>
-              </div>
-              ${renderConditionalTermField(record, expenseId)}
-              <div class="field-group">
-                <label id="${escapeHtml(categoryId)}">Category</label>
-                <p class="underwriting-helper-text underwriting-helper-inline" aria-labelledby="${escapeHtml(categoryId)}">${escapeHtml(getCategoryLabel(record.categoryKey))}</p>
-              </div>
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Frequency">
+              <select id="${escapeHtml(frequencyInputId)}" data-pmi-expense-record-frequency aria-label="Frequency">
+                ${renderSelectOptions(getFrequencyOptions(), normalizeString(record.frequency))}
+              </select>
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Duration">
+              <select id="${escapeHtml(termTypeInputId)}" data-pmi-expense-record-term-type aria-label="Duration">
+                ${renderSelectOptions(getTermTypeOptions(), normalizeString(record.termType))}
+              </select>
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Term Detail">
+              ${renderCompactTermDetailField(record, expenseId)}
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Continues?">
+              <select id="${escapeHtml(continuationStatusInputId)}" data-pmi-expense-record-continuation-status aria-label="Continues after death?">
+                ${renderSelectOptions(getContinuationStatusOptions(), normalizeContinuationStatus(record.continuationStatus, "review"))}
+              </select>
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Category">
+              <span class="pmi-expense-record-category-label" id="${escapeHtml(categoryId)}" title="${escapeHtml(categoryLabel)}">${escapeHtml(categoryLabel)}</span>
+            </div>
+            <div class="pmi-expense-record-cell pmi-expense-record-remove-cell" role="cell" data-column-label="Remove">
+              <button class="pmi-asset-record-remove pmi-expense-record-remove" type="button" data-pmi-expense-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
             </div>
           </div>
         `;
       }).join("");
+
+      controller.list.innerHTML = `
+        <div class="pmi-expense-records-table" role="table" aria-label="Expense records notebook" data-pmi-expense-records-table>
+          <div class="pmi-expense-records-header" role="row" data-pmi-expense-records-header>
+            <span role="columnheader">Expense Type</span>
+            <span role="columnheader">Label / Vendor</span>
+            <span role="columnheader">Amount</span>
+            <span role="columnheader">Frequency</span>
+            <span role="columnheader">Duration</span>
+            <span role="columnheader">Term Detail</span>
+            <span role="columnheader">Continues?</span>
+            <span role="columnheader">Category</span>
+            <span role="columnheader">Remove</span>
+          </div>
+          <div class="pmi-expense-records-body" role="rowgroup" data-pmi-expense-records-body>
+            ${rowsMarkup}
+          </div>
+        </div>
+      `;
     }
 
     function renderResults() {
@@ -719,6 +733,40 @@
       }
     }
 
+    function addExpenseRecordFromLibraryEntry(entry) {
+      const record = createExpenseRecordFromLibraryEntry(entry);
+      if (!record) {
+        return null;
+      }
+
+      syncRecordsFromDom();
+      controller.records.push(record);
+      controller.recentTypeKeys = [record.typeKey].concat(controller.recentTypeKeys.filter(function (typeKey) {
+        return typeKey !== record.typeKey;
+      })).slice(0, 8);
+      renderRows();
+      return record;
+    }
+
+    function removeExpenseRecordById(expenseId) {
+      const normalizedExpenseId = normalizeString(expenseId);
+      if (!normalizedExpenseId) {
+        return false;
+      }
+
+      syncRecordsFromDom();
+      const nextRecords = controller.records.filter(function (record) {
+        return record.expenseId !== normalizedExpenseId;
+      });
+      if (nextRecords.length === controller.records.length) {
+        return false;
+      }
+
+      controller.records = nextRecords;
+      renderRows();
+      return true;
+    }
+
     function openModal() {
       if (!controller.modal) {
         controller.modal = createModal(controller);
@@ -749,17 +797,11 @@
           }
 
           const entry = findLibraryEntry(resultButton.getAttribute("data-pmi-expense-library-type-key"));
-          const record = createExpenseRecordFromLibraryEntry(entry);
+          const record = addExpenseRecordFromLibraryEntry(entry);
           if (!record) {
             return;
           }
 
-          syncRecordsFromDom();
-          controller.records.push(record);
-          controller.recentTypeKeys = [record.typeKey].concat(controller.recentTypeKeys.filter(function (typeKey) {
-            return typeKey !== record.typeKey;
-          })).slice(0, 8);
-          renderRows();
           closeModal();
 
           const row = controller.list
@@ -843,6 +885,8 @@
 
     controller.hydrateExpenseRecords = hydrateExpenseRecords;
     controller.serializeExpenseRecords = serializeExpenseRecords;
+    controller.addExpenseRecordFromLibraryEntry = addExpenseRecordFromLibraryEntry;
+    controller.removeExpenseRecordById = removeExpenseRecordById;
 
     controller.addButton?.addEventListener("click", openModal);
     controller.list?.addEventListener("click", function (event) {
@@ -853,10 +897,7 @@
 
       const row = removeButton.closest("[data-pmi-expense-record-entry]");
       const expenseId = normalizeString(row && row.getAttribute("data-pmi-expense-id"));
-      controller.records = controller.records.filter(function (record) {
-        return record.expenseId !== expenseId;
-      });
-      renderRows();
+      removeExpenseRecordById(expenseId);
     });
 
     controller.list?.addEventListener("input", function (event) {

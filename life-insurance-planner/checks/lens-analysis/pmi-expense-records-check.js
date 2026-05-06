@@ -44,13 +44,15 @@ function parseSelectedOption(markup) {
 
 function parseRowsFromMarkup(markup) {
   const source = String(markup || "");
-  const rowPattern = /<div class="field-group full-width pmi-expense-record-field" data-pmi-expense-record-entry data-pmi-expense-id="([^"]+)">([\s\S]*?)(?=\s*<div class="field-group full-width pmi-expense-record-field"|$)/g;
+  const rowPattern = /<div class="pmi-expense-record-row" role="row" data-pmi-expense-record-entry data-pmi-expense-id="([^"]+)">/g;
   const rows = [];
-  let match;
+  const matches = Array.from(source.matchAll(rowPattern));
 
-  while ((match = rowPattern.exec(source)) !== null) {
+  matches.forEach(function (match, index) {
     const expenseId = decodeHtml(match[1]);
-    const rowMarkup = match[2];
+    const rowStart = match.index;
+    const nextRowStart = matches[index + 1] ? matches[index + 1].index : source.length;
+    const rowMarkup = source.slice(rowStart, nextRowStart);
     rows.push({
       getAttribute(name) {
         return name === "data-pmi-expense-id" ? expenseId : null;
@@ -85,7 +87,7 @@ function parseRowsFromMarkup(markup) {
         return null;
       }
     });
-  }
+  });
 
   return rows;
 }
@@ -262,8 +264,10 @@ const expenseLibrary = lensAnalysis.expenseLibrary;
 const expenseTaxonomy = lensAnalysis.expenseTaxonomy;
 const pmiExpenseRecords = lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
+const componentsCss = readRepoFile("components.css");
 
 assertNoFormulaOwnerReferences(widgetSource);
+assert.doesNotMatch(widgetSource, /debtRecords|debtPayment|debt-payment|generatedDebt|generated debt/i, "PMI expense records should not introduce generated debt expense behavior");
 assert.match(widgetSource, /Additional Expenses records from PMI/);
 assert.match(widgetSource, /Healthcare bucket rows can affect Needs healthcareExpenses automatically/);
 assert.match(widgetSource, /non-healthcare rows remain raw-only for current output/);
@@ -280,6 +284,18 @@ assert.equal(typeof pmiExpenseRecords?.initPmiExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.hydrateExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.createExpenseRecordFromLibraryEntry, "function");
+assert.match(widgetSource, /data-pmi-expense-records-table/, "expense records should render a notebook table shell");
+assert.match(widgetSource, /class="pmi-expense-record-row"/, "expense records should render compact row shells");
+assert.match(widgetSource, /data-pmi-expense-record-type-label/, "expense rows should show expense type from row content");
+assert.match(widgetSource, /aria-label="Label \/ Vendor"/, "desktop rows should use aria labels instead of repeated visible labels");
+assert.doesNotMatch(widgetSource, /class="field-group full-width pmi-expense-record-field"/, "old stacked expense card shell should not be used");
+assert.doesNotMatch(widgetSource, /class="form-grid pmi-expense-record-grid"/, "old nested expense field grid should not be used");
+assert.match(componentsCss, /\.pmi-expense-records-table\s*{[\s\S]*?overflow:\s*hidden;/, "expense notebook shell should own the table frame");
+assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?display:\s*grid;/, "expense notebook rows should use grid layout");
+assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?minmax\(0,\s*1fr\)/, "expense notebook grid should use shrinkable columns");
+assert.match(componentsCss, /\.pmi-expense-records-list\s*{[\s\S]*?overflow-x:\s*visible;/, "expense notebook should not use horizontal scrolling as the desktop layout");
+assert.match(componentsCss, /\.pmi-expense-record-row input,\s*\.pmi-expense-record-row select\s*{[\s\S]*?min-height:\s*1\.72rem;/, "expense notebook controls should be compact");
+assert.match(componentsCss, /\.pmi-expense-record-row input,\s*\.pmi-expense-record-row select\s*{[\s\S]*?border-radius:\s*0\.18rem;/, "expense notebook controls should use sharper corners");
 assert.match(widgetSource, /entry\.isAddable === true/);
 assert.match(widgetSource, /entry\.uiAvailability === "initial"/);
 assert.match(widgetSource, /entry\.isProtected !== true/);
@@ -357,6 +373,22 @@ assert.match(fakeDom.root.innerHTML, /expenses not already captured in Household
 assert.match(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should describe automatic healthcare behavior");
 assert.match(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should describe non-healthcare raw-fact behavior");
 assert.match(fakeDom.root.innerHTML, /"Continues after death\?" is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
+assert.equal(controller.records.length, 0, "expense records should not create starter rows by default");
+assert.equal(fakeDom.list.innerHTML, "", "empty/default expense records should render an empty notebook body");
+assert.equal(JSON.stringify(controller.serializeExpenseRecords()), "[]", "empty/default expense records should serialize as an empty array");
+controller.hydrateExpenseRecords([]);
+assert.equal(controller.records.length, 0, "explicit saved [] should remain empty");
+assert.equal(fakeDom.list.innerHTML, "", "explicit saved [] should not render starter rows");
+
+assert.equal(typeof controller.addExpenseRecordFromLibraryEntry, "function", "controller should expose testable add-from-library behavior");
+assert.equal(typeof controller.removeExpenseRecordById, "function", "controller should expose testable remove behavior");
+const addedFromLibrary = controller.addExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("propertyTaxes"));
+assert.ok(addedFromLibrary, "add-from-library should create an expense record");
+assert.equal(controller.records.length, 1, "add-from-library should add one row");
+assert.match(fakeDom.list.innerHTML, /Property Taxes/, "added library record should render");
+assert.equal(controller.removeExpenseRecordById(addedFromLibrary.expenseId), true, "remove should remove a rendered expense row");
+assert.equal(controller.records.length, 0, "remove should leave the notebook empty");
+assert.equal(fakeDom.list.innerHTML, "", "removing the only expense record should restore empty state");
 
 const inputRecords = Object.freeze([
   Object.freeze({
@@ -370,6 +402,7 @@ const inputRecords = Object.freeze([
     continuationStatus: "continues",
     sourceKey: null,
     isCustomExpense: false,
+    notes: "Preserve silently",
     metadata: Object.freeze({ sourceType: "user-input", source: "expense-library", libraryEntryKey: "medicalOutOfPocket" })
   }),
   Object.freeze({
@@ -481,12 +514,33 @@ const inputRecords = Object.freeze([
 
 controller.hydrateExpenseRecords(inputRecords);
 assert.match(fakeDom.list.innerHTML, /Medical Out-of-Pocket/, "hydrate should render saved valid record labels");
-assert.match(fakeDom.list.innerHTML, /Duration \/ term/, "expense record duration selector should use advisor-facing copy");
-assert.match(fakeDom.list.innerHTML, /Continues after death\?/, "expense record continuationStatus selector should render");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-records-table/, "hydrate should render the notebook table shell");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-records-header/, "hydrate should render notebook column headers");
+[
+  "Expense Type",
+  "Label / Vendor",
+  "Amount",
+  "Frequency",
+  "Duration",
+  "Term Detail",
+  "Continues?",
+  "Category",
+  "Remove"
+].forEach((header) => {
+  assert.match(fakeDom.list.innerHTML, new RegExp(">" + header.replace("?", "\\?") + "<"), `expense notebook should render ${header} header`);
+});
+assert.match(fakeDom.list.innerHTML, /class="pmi-expense-record-row"/, "hydrate should render compact rows");
+assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-expense-record-field/, "hydrate should not render stacked expense cards");
+assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-expense-record-grid/, "hydrate should not render the old nested field grid");
+assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-expense-record-label-row/, "hydrate should not render per-row label rows");
+assert.doesNotMatch(fakeDom.list.innerHTML, /<label\b/, "desktop notebook rows should rely on headers instead of repeated visible field labels");
+assert.doesNotMatch(fakeDom.list.innerHTML, /Preserve silently/, "saved notes should not render visibly in notebook rows");
+assert.match(fakeDom.list.innerHTML, /aria-label="Continues after death\?"/, "expense record continuationStatus selector should keep accessible copy");
 assert.match(fakeDom.list.innerHTML, /Continues after death/, "expense record continuationStatus continues option should render");
 assert.match(fakeDom.list.innerHTML, /Stops\/reduces after death/, "expense record continuationStatus stops option should render");
 assert.match(fakeDom.list.innerHTML, /Review case-by-case/, "expense record continuationStatus review option should render");
 assert.doesNotMatch(fakeDom.list.innerHTML, />Term Type</, "expense record duration selector should not use the stale Term Type label");
+assert.doesNotMatch(fakeDom.list.innerHTML, /Duration \/ term/, "expense record notebook should use the compact Duration column header");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Should Be Ignored/, "hydrate should reject protected scalar expense records");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Future Entry Should Be Ignored/, "hydrate should reject future expense records");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Advanced Entry Should Be Ignored/, "hydrate should reject advanced expense records");
@@ -512,7 +566,7 @@ assert.equal(valid.isScalarFieldOwned, false);
 assert.equal(valid.isProtected, false);
 assert.equal(valid.isRepeatableExpenseRecord, true);
 assert.equal(valid.isCustomExpense, false);
-assert.equal(valid.notes, null);
+assert.equal(valid.notes, "Preserve silently", "saved notes should serialize unchanged even though they are not rendered");
 assert.equal(valid.metadata.source, "expense-library");
 assert.equal(valid.metadata.libraryEntryKey, "medicalOutOfPocket");
 
@@ -562,6 +616,7 @@ assert.deepEqual(inputRecords[0], {
   continuationStatus: "continues",
   sourceKey: null,
   isCustomExpense: false,
+  notes: "Preserve silently",
   metadata: { sourceType: "user-input", source: "expense-library", libraryEntryKey: "medicalOutOfPocket" }
 });
 
