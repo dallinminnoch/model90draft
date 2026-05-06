@@ -55,7 +55,7 @@
     }),
     Object.freeze({
       categoryKey: "ongoingHealthcare",
-      label: "Ongoing Healthcare",
+      label: "Healthcare",
       description: "Recurring health insurance, out-of-pocket care, medications, and ordinary healthcare costs.",
       domain: "healthcare",
       timingRole: "recurring",
@@ -143,7 +143,7 @@
     }),
     Object.freeze({
       categoryKey: "housingExpense",
-      label: "Housing Expense",
+      label: "Housing",
       description: "Rent, mortgage, property tax, homeowners insurance, HOA dues, maintenance, assessments, and related housing costs.",
       domain: "living",
       timingRole: "recurring",
@@ -154,7 +154,7 @@
     }),
     Object.freeze({
       categoryKey: "utilities",
-      label: "Utilities",
+      label: "Utilities & Communications",
       description: "Utilities, internet, phone, and household service costs.",
       domain: "living",
       timingRole: "recurring",
@@ -165,8 +165,8 @@
     }),
     Object.freeze({
       categoryKey: "foodGroceries",
-      label: "Food / Groceries",
-      description: "Groceries, household food, and ordinary family food costs.",
+      label: "Food & Household Consumables",
+      description: "Groceries, dining, household food, paper goods, cleaning supplies, toiletries, laundry supplies, and basic household consumables.",
       domain: "living",
       timingRole: "recurring",
       isHealthcareSensitive: false,
@@ -176,7 +176,7 @@
     }),
     Object.freeze({
       categoryKey: "transportation",
-      label: "Transportation",
+      label: "Transportation & Vehicle Ownership",
       description: "Fuel, vehicle insurance, maintenance, transit, and transportation costs.",
       domain: "living",
       timingRole: "recurring",
@@ -242,7 +242,7 @@
     }),
     Object.freeze({
       categoryKey: "educationExpense",
-      label: "Education Expense",
+      label: "Education & Enrichment",
       description: "Tuition, tutoring, testing, and education-related expenses.",
       domain: "education",
       timingRole: "mixed",
@@ -305,6 +305,138 @@
       isFinalExpenseComponent: false,
       defaultInflationRole: "future",
       sortOrder: 420
+    }),
+    Object.freeze({
+      categoryKey: "discretionaryLifestyle",
+      label: "Discretionary Lifestyle",
+      description: "Entertainment, recreation, subscriptions, hobbies, memberships, allowances, luxury purchases, and other compressible lifestyle costs.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "householdInflation",
+      sortOrder: 500
+    }),
+    Object.freeze({
+      categoryKey: "travelVacations",
+      label: "Travel & Vacations",
+      description: "Vacations, short trips, family visit travel, lodging, travel food, travel documents, and vacation club costs.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "householdInflation",
+      sortOrder: 510
+    }),
+    Object.freeze({
+      categoryKey: "debtObligations",
+      label: "Debt Obligations",
+      description: "Generated or source-linked debt-payment expense display categories. Debt Records owns primary debt payment intake.",
+      domain: "debt",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "none",
+      sortOrder: 520
+    }),
+    Object.freeze({
+      categoryKey: "savingsGoalContributions",
+      label: "Savings, Investing & Goal Contributions",
+      description: "Savings, investing, reserve, and goal-funding contributions kept separate from existing assets.",
+      domain: "savings",
+      timingRole: "recurring",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "none",
+      sortOrder: 530
+    }),
+    Object.freeze({
+      categoryKey: "taxes",
+      label: "Taxes",
+      description: "Income tax, self-employment tax, estimated tax, tax reserve, and tax administration payments.",
+      domain: "tax",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "none",
+      sortOrder: 540
+    }),
+    Object.freeze({
+      categoryKey: "familySupport",
+      label: "Child, Dependent & Family Support",
+      description: "Childcare, dependent care, family support, support obligations, caregiver travel, and family care costs.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "householdInflation",
+      sortOrder: 550
+    }),
+    Object.freeze({
+      categoryKey: "givingCommunity",
+      label: "Giving, Gifts & Community Obligations",
+      description: "Charitable giving, tithing, remittances, gifts, family events, community dues, and civic contributions.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "householdInflation",
+      sortOrder: 560
+    }),
+    Object.freeze({
+      categoryKey: "pets",
+      label: "Pets",
+      description: "Pet food, supplies, veterinary care, medication, boarding, grooming, training, insurance, and pet housing fees.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "householdInflation",
+      sortOrder: 570
+    }),
+    Object.freeze({
+      categoryKey: "legalAdministrative",
+      label: "Legal, Professional & Administrative",
+      description: "Financial planning, advisory, legal, tax preparation, bookkeeping, licensing, dues, continuing education, and document fees.",
+      domain: "business",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "future",
+      sortOrder: 580
+    }),
+    Object.freeze({
+      categoryKey: "businessSelfEmployment",
+      label: "Business & Self-Employment",
+      description: "Business operating, income-preserving, tax-reserve, debt-payment, insurance, software, marketing, inventory, and contractor expenses.",
+      domain: "business",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "future",
+      sortOrder: 590
+    }),
+    Object.freeze({
+      categoryKey: "bankingFinanceCharges",
+      label: "Banking, Finance Charges & Transaction Costs",
+      description: "Bank fees, overdraft fees, ATM costs, card interest, transfer fees, account fees, and identity protection costs.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "none",
+      sortOrder: 600
+    }),
+    Object.freeze({
+      categoryKey: "periodicSinkingFund",
+      label: "Periodic, One-Time & Sinking-Fund Expenses",
+      description: "Annual, seasonal, periodic, one-time, true-up, reserve, and sinking-fund expense categories.",
+      domain: "living",
+      timingRole: "mixed",
+      isHealthcareSensitive: false,
+      isFinalExpenseComponent: false,
+      defaultInflationRole: "householdInflation",
+      sortOrder: 610
     }),
     Object.freeze({
       categoryKey: "customExpense",
