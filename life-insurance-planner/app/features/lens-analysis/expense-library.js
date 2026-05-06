@@ -9,6 +9,37 @@
 
   const EXPENSE_UI_AVAILABILITY_VALUES = Object.freeze(["initial", "advanced", "future"]);
   const EXPENSE_CONTINUATION_STATUS_VALUES = Object.freeze(["continues", "stops", "review"]);
+  const EXPENSE_DEFAULT_NEED_TYPE_VALUES = Object.freeze([
+    "protectedEssential",
+    "flexibleEssential",
+    "discretionary",
+    "savingsContribution",
+    "debtObligation",
+    "legalObligation",
+    "businessIncomePreserving",
+    "finalExpense",
+    "custom",
+    "rawReview"
+  ]);
+  const EXPENSE_PRIORITY_CLASS_VALUES = Object.freeze([
+    "protected",
+    "essential",
+    "flexible",
+    "discretionary",
+    "pauseCandidate",
+    "generated",
+    "rawReview"
+  ]);
+  const EXPENSE_COMPRESSION_TIER_VALUES = Object.freeze([
+    "none",
+    "advisorConfirmed",
+    "late",
+    "medium",
+    "early",
+    "pauseCandidate",
+    "generatedOnly",
+    "rawReview"
+  ]);
 
   const EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY = Object.freeze({
     funeralBurialEstimate: "future",
@@ -326,7 +357,18 @@
     uiAvailability: "future",
     isAddable: false,
     sourcePath: "protectionModeling.data.debtRecords",
-    duplicateProtection: "debtRecords-generated-payment-source"
+    duplicateProtection: "debtRecords-generated-payment-source",
+    defaultNeedType: "debtObligation",
+    priorityClass: "generated",
+    compressionTier: "generatedOnly",
+    requiresAdvisorConfirmation: true,
+    formulaActiveNow: false,
+    triageEligibleLater: false,
+    interventionCandidate: false,
+    sourceOwnedBy: "debtRecords",
+    generatedOnly: true,
+    protectedCategory: true,
+    notes: "Generated/source-linked from Debt Records; not manually addable and not auto-compressible."
   });
 
   const ADDITIONAL_COMPRESSED_EXPENSE_LIBRARY_ENTRIES = Object.freeze([
@@ -665,6 +707,400 @@
       : "review";
   }
 
+  function includesValue(values, value) {
+    return values.indexOf(value) !== -1;
+  }
+
+  const HEALTHCARE_CATEGORY_KEYS = Object.freeze([
+    "ongoingHealthcare",
+    "dentalCare",
+    "visionCare",
+    "mentalHealthCare",
+    "longTermCare",
+    "homeHealthCare",
+    "medicalEquipment",
+    "otherHealthcare",
+    "medicalFinalExpense"
+  ]);
+
+  const EDUCATION_CATEGORY_KEYS = Object.freeze([
+    "educationExpense",
+    "childActivityExpense",
+    "childcareEducation"
+  ]);
+
+  const BUSINESS_CATEGORY_KEYS = Object.freeze([
+    "businessOverhead",
+    "professionalServices",
+    "keyPersonReplacementExpense",
+    "businessSelfEmployment"
+  ]);
+
+  const FINAL_EXPENSE_CATEGORY_KEYS = Object.freeze([
+    "medicalFinalExpense",
+    "funeralBurial",
+    "estateSettlement",
+    "otherFinalExpense"
+  ]);
+
+  const EARLY_COMPRESSIBLE_TYPE_KEYS = Object.freeze([
+    "diningOutRestaurants",
+    "takeoutConvenienceFood",
+    "mealDeliveryServices",
+    "groceryDeliveryFeesTips",
+    "alcoholSocialBeverages",
+    "entertainmentRecreation",
+    "streamingDigitalSubscriptions",
+    "gymFitnessMemberships",
+    "clubsSocialMemberships",
+    "hobbiesRecreationGear",
+    "eventsConcertsSportingEvents",
+    "gamingInAppPurchases",
+    "booksMediaMusic",
+    "dateNightsFamilyOutings",
+    "personalSpendingAllowance",
+    "miscellaneousLifestyleSpending",
+    "tobaccoVaping",
+    "lotteryGamblingSpend",
+    "luxuryPurchases",
+    "seasonalActivitiesRecreationPasses",
+    "vacationsTravel",
+    "weekendShortTrips",
+    "travelTransportation",
+    "lodging",
+    "travelFoodEntertainment",
+    "travelInsuranceDocumentsGear",
+    "timeshareVacationClubFees",
+    "discretionaryTravelEntertainment",
+    "recurringPersonalSpendingDefault",
+    "subscriptionsMemberships",
+    "homeOrganizationDecor",
+    "clientEntertainment"
+  ]);
+
+  const PROTECTED_ESSENTIAL_TYPE_KEYS = Object.freeze([
+    "groceries",
+    "householdConsumablesSupplies",
+    "specialtyDietAllergyFoodPremium",
+    "rentOrMortgagePayment",
+    "propertyTaxes",
+    "monthlyPropertyTaxDefault",
+    "homeownersInsurance",
+    "housingInsuranceDefault",
+    "homeMaintenanceRepairs",
+    "monthlyHomeMaintenanceDefault",
+    "hoaDues",
+    "householdUtilities",
+    "electricity",
+    "gasHeatingFuelPropaneOil",
+    "waterSewer",
+    "trashRecycling",
+    "internet",
+    "mobilePhone",
+    "internetPhone",
+    "fuel",
+    "transportationFuel",
+    "publicTransit",
+    "vehicleInsurance",
+    "vehicleMaintenance",
+    "autoInsurance",
+    "registrationInspectionEmissions",
+    "parkingTollsCommuting",
+    "daycareChildcare",
+    "childcareExpense",
+    "dependentSupportExpense",
+    "earlyEducationChildcare",
+    "healthInsurancePremiums",
+    "medicalOutOfPocket",
+    "healthcareOutOfPocketSupportDefault",
+    "prescriptionMedications",
+    "chronicConditionSupplies",
+    "deductibleAnnualExposureReserve",
+    "mentalHealthCare",
+    "medicalDeductibleExposure",
+    "disabilityInsurancePremiums",
+    "lifeInsurancePremiums",
+    "termLifePremiums",
+    "permanentLifePremiums"
+  ]);
+
+  const SAVINGS_CONTRIBUTION_TYPE_KEYS = Object.freeze([
+    "hsaContributions",
+    "retirementContributions",
+    "brokerageInvestmentContributions",
+    "educationSavingsContributions",
+    "emergencyFundContributions",
+    "sinkingFundContributions",
+    "vacationLifestyleGoalContributions",
+    "vehicleReplacementContributions",
+    "homeRepairReserveContributions",
+    "taxReserveContributions",
+    "businessReserveContributions",
+    "charitableGivingReserve",
+    "familyEventWeddingSavings",
+    "downPaymentSavings",
+    "otherGoalSavings"
+  ]);
+
+  const ADVISOR_CONFIRMATION_TYPE_KEYS = Object.freeze([
+    "charitableGiving",
+    "tithingReligiousGiving",
+    "remittancesFamilyAssistance",
+    "childSupportPaid",
+    "alimonyPaid",
+    "legalFeesCourtFees",
+    "legalSettlementJudgment",
+    "estateAttorneyProbateTrusteeExecutorFees",
+    "immigrationAttorneyFilingFees",
+    "taxBillTrueUp",
+    "taxPenaltyPaymentPlan",
+    "taxDebtIrsPaymentPlan",
+    "quarterlyEstimatedTaxes",
+    "selfEmploymentTax",
+    "businessTaxPayments",
+    "businessTaxReserve",
+    "ownerDrawGap",
+    "officeRentCoworking",
+    "businessInsuranceProfessionalLiability",
+    "contractorPayrollCosts",
+    "inventorySupplies",
+    "equipmentLease",
+    "businessVehicleCosts",
+    "merchantFeesShippingPostage"
+  ]);
+
+  function normalizeMetadataToken(value, allowedValues, fallback) {
+    const normalized = String(value == null ? "" : value).trim();
+    return allowedValues.indexOf(normalized) !== -1 ? normalized : fallback;
+  }
+
+  function isGeneratedDebtPaymentEntry(options) {
+    return options.generatedOnly === true
+      || options.sourceOwnedBy === "debtRecords"
+      || options.sourcePath === "protectionModeling.data.debtRecords";
+  }
+
+  function isSavingsContributionType(typeKey, categoryKey) {
+    return categoryKey === "savingsGoalContributions"
+      || includesValue(SAVINGS_CONTRIBUTION_TYPE_KEYS, typeKey);
+  }
+
+  function inferSourceOwnedBy(options) {
+    if (options.sourceOwnedBy) {
+      return options.sourceOwnedBy;
+    }
+
+    if (isGeneratedDebtPaymentEntry(options)) {
+      return "debtRecords";
+    }
+
+    if (options.isScalarFieldOwned === true || options.ownedByField) {
+      return "pmiScalarField";
+    }
+
+    return null;
+  }
+
+  function inferDefaultNeedType(typeKey, categoryKey, category, options) {
+    if (isGeneratedDebtPaymentEntry(options) || categoryKey === "debtObligations") {
+      return "debtObligation";
+    }
+
+    if (includesValue(FINAL_EXPENSE_CATEGORY_KEYS, categoryKey)) {
+      return "finalExpense";
+    }
+
+    if (isSavingsContributionType(typeKey, categoryKey)) {
+      return "savingsContribution";
+    }
+
+    if (categoryKey === "taxes" || categoryKey === "legalAdministrative") {
+      return "legalObligation";
+    }
+
+    if (includesValue(BUSINESS_CATEGORY_KEYS, categoryKey)) {
+      return "businessIncomePreserving";
+    }
+
+    if (categoryKey === "customExpense") {
+      return "custom";
+    }
+
+    if (includesValue(EARLY_COMPRESSIBLE_TYPE_KEYS, typeKey) || categoryKey === "discretionaryLifestyle" || categoryKey === "travelVacations") {
+      return "discretionary";
+    }
+
+    if (
+      includesValue(PROTECTED_ESSENTIAL_TYPE_KEYS, typeKey)
+      || includesValue(HEALTHCARE_CATEGORY_KEYS, categoryKey)
+      || categoryKey === "housingExpense"
+      || categoryKey === "utilities"
+    ) {
+      return "protectedEssential";
+    }
+
+    if (category && category.domain === "living") {
+      return "flexibleEssential";
+    }
+
+    return "rawReview";
+  }
+
+  function inferRequiresAdvisorConfirmation(typeKey, categoryKey, category, options) {
+    if (options.requiresAdvisorConfirmation === true) {
+      return true;
+    }
+
+    return isGeneratedDebtPaymentEntry(options)
+      || includesValue(HEALTHCARE_CATEGORY_KEYS, categoryKey)
+      || includesValue(EDUCATION_CATEGORY_KEYS, categoryKey)
+      || includesValue(BUSINESS_CATEGORY_KEYS, categoryKey)
+      || categoryKey === "taxes"
+      || categoryKey === "legalAdministrative"
+      || categoryKey === "debtObligations"
+      || includesValue(ADVISOR_CONFIRMATION_TYPE_KEYS, typeKey)
+      || (category && category.isFinalExpenseComponent === true);
+  }
+
+  function inferProtectedCategory(typeKey, categoryKey, category, defaultNeedType, options) {
+    if (options.protectedCategory === true || options.isProtected === true) {
+      return true;
+    }
+
+    return defaultNeedType === "protectedEssential"
+      || defaultNeedType === "finalExpense"
+      || defaultNeedType === "legalObligation"
+      || defaultNeedType === "debtObligation"
+      || includesValue(PROTECTED_ESSENTIAL_TYPE_KEYS, typeKey)
+      || (category && category.isFinalExpenseComponent === true);
+  }
+
+  function inferPriorityClass(typeKey, categoryKey, defaultNeedType, protectedCategory, options) {
+    if (isGeneratedDebtPaymentEntry(options)) {
+      return "generated";
+    }
+
+    if (isSavingsContributionType(typeKey, categoryKey)) {
+      return "pauseCandidate";
+    }
+
+    if (protectedCategory) {
+      return "protected";
+    }
+
+    if (defaultNeedType === "discretionary") {
+      return "discretionary";
+    }
+
+    if (defaultNeedType === "flexibleEssential") {
+      return "flexible";
+    }
+
+    if (defaultNeedType === "businessIncomePreserving") {
+      return "essential";
+    }
+
+    return "rawReview";
+  }
+
+  function inferCompressionTier(typeKey, categoryKey, defaultNeedType, requiresAdvisorConfirmation, protectedCategory, options) {
+    if (isGeneratedDebtPaymentEntry(options)) {
+      return "generatedOnly";
+    }
+
+    if (isSavingsContributionType(typeKey, categoryKey)) {
+      return "pauseCandidate";
+    }
+
+    if (includesValue(EARLY_COMPRESSIBLE_TYPE_KEYS, typeKey) || defaultNeedType === "discretionary") {
+      return "early";
+    }
+
+    if (requiresAdvisorConfirmation) {
+      return "advisorConfirmed";
+    }
+
+    if (protectedCategory) {
+      return "none";
+    }
+
+    if (defaultNeedType === "flexibleEssential") {
+      return "late";
+    }
+
+    return "rawReview";
+  }
+
+  function inferFormulaOwnerNow(typeKey, category, options) {
+    if (options.formulaOwnerNow) {
+      return options.formulaOwnerNow;
+    }
+
+    if (options.isScalarFieldOwned === true && category && category.isFinalExpenseComponent === true) {
+      return "pmi-final-expense-scalar";
+    }
+
+    return null;
+  }
+
+  function inferFormulaActiveNow(category, options) {
+    if (Object.prototype.hasOwnProperty.call(options, "formulaActiveNow")) {
+      return options.formulaActiveNow === true;
+    }
+
+    return options.isScalarFieldOwned === true
+      && category
+      && category.isFinalExpenseComponent === true;
+  }
+
+  function inferBehaviorMetadata(definition, category, options) {
+    const typeKey = definition[0];
+    const categoryKey = definition[2];
+    const generatedOnly = options.generatedOnly === true || isGeneratedDebtPaymentEntry(options);
+    const defaultNeedType = normalizeMetadataToken(
+      options.defaultNeedType,
+      EXPENSE_DEFAULT_NEED_TYPE_VALUES,
+      inferDefaultNeedType(typeKey, categoryKey, category, options)
+    );
+    const requiresAdvisorConfirmation = Object.prototype.hasOwnProperty.call(options, "requiresAdvisorConfirmation")
+      ? options.requiresAdvisorConfirmation === true
+      : inferRequiresAdvisorConfirmation(typeKey, categoryKey, category, options);
+    const protectedCategory = Object.prototype.hasOwnProperty.call(options, "protectedCategory")
+      ? options.protectedCategory === true
+      : inferProtectedCategory(typeKey, categoryKey, category, defaultNeedType, options);
+    const priorityClass = normalizeMetadataToken(
+      options.priorityClass,
+      EXPENSE_PRIORITY_CLASS_VALUES,
+      inferPriorityClass(typeKey, categoryKey, defaultNeedType, protectedCategory, options)
+    );
+    const compressionTier = normalizeMetadataToken(
+      options.compressionTier,
+      EXPENSE_COMPRESSION_TIER_VALUES,
+      inferCompressionTier(typeKey, categoryKey, defaultNeedType, requiresAdvisorConfirmation, protectedCategory, options)
+    );
+    const triageEligibleLater = Object.prototype.hasOwnProperty.call(options, "triageEligibleLater")
+      ? options.triageEligibleLater === true
+      : generatedOnly !== true && options.isScalarFieldOwned !== true;
+    const interventionCandidate = Object.prototype.hasOwnProperty.call(options, "interventionCandidate")
+      ? options.interventionCandidate === true
+      : compressionTier === "early" || compressionTier === "medium" || compressionTier === "pauseCandidate";
+
+    return {
+      defaultNeedType,
+      priorityClass,
+      compressionTier,
+      requiresAdvisorConfirmation,
+      formulaOwnerNow: inferFormulaOwnerNow(typeKey, category, options),
+      formulaActiveNow: inferFormulaActiveNow(category, options),
+      triageEligibleLater,
+      interventionCandidate,
+      sourceOwnedBy: inferSourceOwnedBy(options),
+      generatedOnly,
+      protectedCategory,
+      notes: options.notes || null
+    };
+  }
+
   function getDefaultContinuationStatus(definition, category, options) {
     if (Object.prototype.hasOwnProperty.call(options, "defaultContinuationStatus")) {
       return normalizeContinuationStatus(options.defaultContinuationStatus, "review");
@@ -694,6 +1130,7 @@
     const defaultFrequency = isValidFrequency(definition[5]) ? definition[5] : "monthly";
     const defaultTermType = isValidTermType(definition[6]) ? definition[6] : "ongoing";
     const searchTerms = splitSearchTerms(definition[4]);
+    const behaviorMetadata = inferBehaviorMetadata(definition, category, options);
 
     if (categoryLabel && searchTerms.indexOf(categoryLabel) === -1) {
       searchTerms.push(categoryLabel);
@@ -724,6 +1161,18 @@
       ownedByField: options.ownedByField || null,
       sourcePath: options.sourcePath || null,
       duplicateProtection: options.duplicateProtection || null,
+      defaultNeedType: behaviorMetadata.defaultNeedType,
+      priorityClass: behaviorMetadata.priorityClass,
+      compressionTier: behaviorMetadata.compressionTier,
+      requiresAdvisorConfirmation: behaviorMetadata.requiresAdvisorConfirmation,
+      formulaOwnerNow: behaviorMetadata.formulaOwnerNow,
+      formulaActiveNow: behaviorMetadata.formulaActiveNow,
+      triageEligibleLater: behaviorMetadata.triageEligibleLater,
+      interventionCandidate: behaviorMetadata.interventionCandidate,
+      sourceOwnedBy: behaviorMetadata.sourceOwnedBy,
+      generatedOnly: behaviorMetadata.generatedOnly,
+      protectedCategory: behaviorMetadata.protectedCategory,
+      notes: behaviorMetadata.notes,
       sortOrder: Number.isFinite(Number(options.sortOrder)) ? Number(options.sortOrder) : (index + 1) * 10
     });
   }
@@ -784,6 +1233,9 @@
   lensAnalysis.expenseLibrary = Object.freeze({
     EXPENSE_UI_AVAILABILITY_VALUES,
     EXPENSE_CONTINUATION_STATUS_VALUES,
+    EXPENSE_DEFAULT_NEED_TYPE_VALUES,
+    EXPENSE_PRIORITY_CLASS_VALUES,
+    EXPENSE_COMPRESSION_TIER_VALUES,
     EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY,
     EXPENSE_LIBRARY_ENTRIES,
     EXPENSE_LIBRARY_GROUPS,

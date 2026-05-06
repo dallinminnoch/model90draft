@@ -80,6 +80,14 @@ function assertSearchTerms(typeKey, terms) {
   });
 }
 
+function assertMetadata(typeKey, expected) {
+  const entry = byType(typeKey);
+  Object.entries(expected).forEach(([key, value]) => {
+    assert.deepEqual(entry[key], value, `${typeKey}.${key} should be ${JSON.stringify(value)}`);
+  });
+  return entry;
+}
+
 const taxonomySource = loadScript("app/features/lens-analysis/expense-taxonomy.js");
 const librarySource = loadScript("app/features/lens-analysis/expense-library.js");
 
@@ -96,6 +104,9 @@ assert.equal(typeof taxonomy.isValidExpenseTermType, "function");
 assert.equal(typeof library.getExpenseLibraryEntries, "function");
 assert.equal(typeof library.getExpenseLibraryEntry, "function");
 assert.equal(typeof library.findExpenseLibraryEntry, "function");
+assert.ok(Array.isArray(library.EXPENSE_DEFAULT_NEED_TYPE_VALUES), "expense library should expose valid need-type metadata values");
+assert.ok(Array.isArray(library.EXPENSE_PRIORITY_CLASS_VALUES), "expense library should expose valid priority-class metadata values");
+assert.ok(Array.isArray(library.EXPENSE_COMPRESSION_TIER_VALUES), "expense library should expose valid compression-tier metadata values");
 
 const categories = taxonomy.getExpenseCategories();
 const entries = library.getExpenseLibraryEntries();
@@ -164,6 +175,18 @@ entries.forEach((entry) => {
   assert.ok(Array.isArray(entry.tags), `${entry.typeKey} should expose tags`);
   assert.ok(Array.isArray(entry.searchTerms), `${entry.typeKey} should expose searchTerms`);
   assert.ok(entry.searchTerms.includes(entry.group), `${entry.typeKey} should be searchable by group label`);
+  assert.ok(library.EXPENSE_DEFAULT_NEED_TYPE_VALUES.includes(entry.defaultNeedType), `${entry.typeKey} should have valid defaultNeedType metadata`);
+  assert.ok(library.EXPENSE_PRIORITY_CLASS_VALUES.includes(entry.priorityClass), `${entry.typeKey} should have valid priorityClass metadata`);
+  assert.ok(library.EXPENSE_COMPRESSION_TIER_VALUES.includes(entry.compressionTier), `${entry.typeKey} should have valid compressionTier metadata`);
+  assert.equal(typeof entry.requiresAdvisorConfirmation, "boolean", `${entry.typeKey} should expose requiresAdvisorConfirmation metadata`);
+  assert.equal(typeof entry.formulaActiveNow, "boolean", `${entry.typeKey} should expose formulaActiveNow metadata`);
+  assert.equal(typeof entry.triageEligibleLater, "boolean", `${entry.typeKey} should expose triageEligibleLater metadata`);
+  assert.equal(typeof entry.interventionCandidate, "boolean", `${entry.typeKey} should expose interventionCandidate metadata`);
+  assert.equal(typeof entry.generatedOnly, "boolean", `${entry.typeKey} should expose generatedOnly metadata`);
+  assert.equal(typeof entry.protectedCategory, "boolean", `${entry.typeKey} should expose protectedCategory metadata`);
+  assert.ok(entry.formulaOwnerNow == null || typeof entry.formulaOwnerNow === "string", `${entry.typeKey} should expose passive formulaOwnerNow metadata`);
+  assert.ok(entry.sourceOwnedBy == null || typeof entry.sourceOwnedBy === "string", `${entry.typeKey} should expose passive source ownership metadata`);
+  assert.ok(entry.notes == null || typeof entry.notes === "string", `${entry.typeKey} should expose passive notes metadata`);
 });
 
 [
@@ -266,6 +289,105 @@ assertSearchTerms("tithingReligiousGiving", ["tithing", "religious giving"]);
 assertSearchTerms("softwareSaasWebsiteHosting", ["saas", "hosting"]);
 
 [
+  "groceries",
+  "householdConsumablesSupplies",
+  "rentOrMortgagePayment",
+  "propertyTaxes",
+  "householdUtilities",
+  "electricity",
+  "mobilePhone",
+  "fuel",
+  "publicTransit",
+  "healthInsurancePremiums",
+  "medicalOutOfPocket",
+  "mentalHealthCare",
+  "daycareChildcare"
+].forEach((typeKey) => {
+  assertMetadata(typeKey, {
+    defaultNeedType: "protectedEssential",
+    priorityClass: "protected",
+    protectedCategory: true
+  });
+});
+
+[
+  "diningOutRestaurants",
+  "takeoutConvenienceFood",
+  "entertainmentRecreation",
+  "streamingDigitalSubscriptions",
+  "luxuryPurchases",
+  "vacationsTravel",
+  "weekendShortTrips",
+  "travelFoodEntertainment"
+].forEach((typeKey) => {
+  assertMetadata(typeKey, {
+    defaultNeedType: "discretionary",
+    priorityClass: "discretionary",
+    compressionTier: "early",
+    interventionCandidate: true
+  });
+  assert.equal(byType(typeKey).requiresAdvisorConfirmation, false, `${typeKey} should not require advisor confirmation before ordinary discretionary triage`);
+});
+
+[
+  "healthInsurancePremiums",
+  "medicalOutOfPocket",
+  "mentalHealthCare",
+  "privateSchoolTuition",
+  "specialEducationServices",
+  "tithingReligiousGiving",
+  "remittancesFamilyAssistance",
+  "charitableGiving",
+  "quarterlyEstimatedTaxes",
+  "taxPenaltyPaymentPlan",
+  "alimonyPaid",
+  "childSupportPaid",
+  "legalFeesCourtFees",
+  "officeRentCoworking",
+  "businessInsuranceProfessionalLiability",
+  "contractorPayrollCosts",
+  "ownerDrawGap"
+].forEach((typeKey) => {
+  assert.equal(byType(typeKey).requiresAdvisorConfirmation, true, `${typeKey} should require advisor confirmation before reduction`);
+});
+
+[
+  "retirementContributions",
+  "brokerageInvestmentContributions",
+  "educationSavingsContributions",
+  "hsaContributions",
+  "emergencyFundContributions",
+  "vehicleReplacementContributions",
+  "homeRepairReserveContributions",
+  "businessReserveContributions"
+].forEach((typeKey) => {
+  assertMetadata(typeKey, {
+    defaultNeedType: "savingsContribution",
+    priorityClass: "pauseCandidate",
+    compressionTier: "pauseCandidate",
+    interventionCandidate: true
+  });
+});
+
+[
+  "funeralBurialEstimate",
+  "medicalEndOfLifeCosts",
+  "estateSettlementCosts",
+  "otherFinalExpenses"
+].forEach((typeKey) => {
+  const entry = assertMetadata(typeKey, {
+    defaultNeedType: "finalExpense",
+    priorityClass: "protected",
+    protectedCategory: true,
+    formulaActiveNow: true,
+    formulaOwnerNow: "pmi-final-expense-scalar",
+    sourceOwnedBy: "pmiScalarField",
+    triageEligibleLater: false
+  });
+  assert.equal(entry.compressionTier, "advisorConfirmed", `${typeKey} should stay advisor-confirmed rather than automatically compressible`);
+});
+
+[
   "autoLoanPayment",
   "autoLeasePayment",
   "creditCardMinimumPayment",
@@ -281,7 +403,17 @@ assertSearchTerms("softwareSaasWebsiteHosting", ["saas", "hosting"]);
     isAddable: false,
     uiAvailability: "future",
     sourcePath: "protectionModeling.data.debtRecords",
-    duplicateProtection: "debtRecords-generated-payment-source"
+    duplicateProtection: "debtRecords-generated-payment-source",
+    defaultNeedType: "debtObligation",
+    priorityClass: "generated",
+    compressionTier: "generatedOnly",
+    requiresAdvisorConfirmation: true,
+    formulaActiveNow: false,
+    triageEligibleLater: false,
+    interventionCandidate: false,
+    sourceOwnedBy: "debtRecords",
+    generatedOnly: true,
+    protectedCategory: true
   });
 });
 
