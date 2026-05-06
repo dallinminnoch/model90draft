@@ -10,6 +10,41 @@
   let generatedDebtIdCounter = 0;
   let activeController = null;
 
+  const PAYMENT_TYPE_OPTIONS = Object.freeze([
+    Object.freeze({ value: "minimumPayment", label: "Minimum Payment" }),
+    Object.freeze({ value: "fixedInstallment", label: "Fixed Installment" }),
+    Object.freeze({ value: "leasePayment", label: "Lease Payment" }),
+    Object.freeze({ value: "interestOnly", label: "Interest Only" }),
+    Object.freeze({ value: "otherRecurringPayment", label: "Other Recurring Payment" }),
+    Object.freeze({ value: "none", label: "No Regular Payment" })
+  ]);
+
+  const DEFAULT_PAYMENT_TYPE = "minimumPayment";
+
+  const STARTER_DEBT_TYPE_KEYS = Object.freeze([
+    "creditCard",
+    "federalStudentLoan",
+    "autoLoan",
+    "autoLease",
+    "personalLoan",
+    "irsTaxDebt",
+    "medicalBill",
+    "businessLoan",
+    "otherDebt"
+  ]);
+
+  const STARTER_DEBT_LABELS = Object.freeze({
+    creditCard: "Credit Card Debt",
+    federalStudentLoan: "Student Loan",
+    autoLoan: "Auto Loan",
+    autoLease: "Auto Lease",
+    personalLoan: "Personal Loan",
+    irsTaxDebt: "Tax Debt / IRS Payment Plan",
+    medicalBill: "Medical Debt",
+    businessLoan: "Business Debt",
+    otherDebt: "Other Debt"
+  });
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -36,6 +71,37 @@
   function toOptionalNonNegativeNumber(value) {
     const number = toOptionalNumber(value);
     return number == null || number < 0 ? null : number;
+  }
+
+  function normalizePaymentType(value, fallback) {
+    const normalizedValue = normalizeString(value);
+    if (PAYMENT_TYPE_OPTIONS.some(function (option) { return option.value === normalizedValue; })) {
+      return normalizedValue;
+    }
+
+    const normalizedFallback = normalizeString(fallback);
+    if (PAYMENT_TYPE_OPTIONS.some(function (option) { return option.value === normalizedFallback; })) {
+      return normalizedFallback;
+    }
+
+    return DEFAULT_PAYMENT_TYPE;
+  }
+
+  function getDefaultPaymentTypeForEntry(entry) {
+    return normalizePaymentType(entry && entry.defaultPaymentType, DEFAULT_PAYMENT_TYPE);
+  }
+
+  function getPaymentAmountForRecord(record) {
+    const paymentAmount = toOptionalNonNegativeNumber(record && record.paymentAmount);
+    if (paymentAmount != null) {
+      return paymentAmount;
+    }
+
+    return toOptionalNonNegativeNumber(record && record.minimumMonthlyPayment);
+  }
+
+  function getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount) {
+    return paymentType === "none" ? null : toOptionalNonNegativeNumber(paymentAmount);
   }
 
   function clonePlainObject(value) {
@@ -110,37 +176,43 @@
     return "debt_" + Date.now() + "_" + generatedDebtIdCounter;
   }
 
-  function createDebtRecordFromLibraryEntry(entry) {
+  function createDebtRecordFromLibraryEntry(entry, options) {
     const safeEntry = entry && typeof entry === "object" ? entry : {};
+    const safeOptions = options && typeof options === "object" ? options : {};
     if (safeEntry.isAddable === false || safeEntry.isHousingFieldOwned === true) {
       return null;
     }
 
     const typeKey = normalizeString(safeEntry.typeKey || safeEntry.libraryEntryKey);
     const categoryKey = normalizeString(safeEntry.categoryKey);
-    const label = normalizeString(safeEntry.label) || typeKey || "Added Debt";
+    const label = normalizeString(safeOptions.label) || normalizeString(safeEntry.label) || typeKey || "Added Debt";
+    const paymentType = normalizePaymentType(safeOptions.paymentType, getDefaultPaymentTypeForEntry(safeEntry));
+    const paymentAmount = toOptionalNumber(safeOptions.paymentAmount);
 
     if (!typeKey || !categoryKey) {
       return null;
     }
 
     return {
-      debtId: generateDebtId(),
+      debtId: normalizeString(safeOptions.debtId) || generateDebtId(),
       categoryKey,
       typeKey,
       label,
       currentBalance: null,
-      minimumMonthlyPayment: null,
+      paymentType,
+      paymentAmount,
+      minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+      extraPayoffAmount: null,
       interestRatePercent: null,
       remainingTermMonths: null,
       securedBy: null,
       sourceKey: null,
-      isDefaultDebt: false,
+      isDefaultDebt: safeOptions.isDefaultDebt === true,
       isCustomDebt: safeEntry.isCustomType === true || typeKey === "customDebt" || categoryKey === "otherDebt",
       notes: null,
       metadata: {
         sourceType: "user-input",
-        source: "debt-library",
+        source: normalizeString(safeOptions.source) || "debt-library",
         libraryEntryKey: normalizeString(safeEntry.libraryEntryKey || typeKey)
       }
     };
@@ -162,13 +234,18 @@
     }
 
     const metadata = clonePlainObject(safeRecord.metadata);
+    const paymentType = normalizePaymentType(safeRecord.paymentType, entry && entry.defaultPaymentType);
+    const paymentAmount = getPaymentAmountForRecord(safeRecord);
     return {
       debtId: normalizeString(safeRecord.debtId) || generateDebtId(),
       categoryKey,
       typeKey,
       label,
       currentBalance: toOptionalNumber(safeRecord.currentBalance),
-      minimumMonthlyPayment: toOptionalNumber(safeRecord.minimumMonthlyPayment),
+      paymentType,
+      paymentAmount,
+      minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+      extraPayoffAmount: toOptionalNonNegativeNumber(safeRecord.extraPayoffAmount),
       interestRatePercent: toOptionalNumber(safeRecord.interestRatePercent),
       remainingTermMonths: toOptionalNumber(safeRecord.remainingTermMonths),
       securedBy: normalizeString(safeRecord.securedBy) || null,
@@ -184,6 +261,20 @@
         sourceIndex: Number.isInteger(index) ? index : null
       })
     };
+  }
+
+  function createStarterDebtRecords() {
+    return STARTER_DEBT_TYPE_KEYS
+      .map(function (typeKey) {
+        const entry = findLibraryEntry(typeKey);
+        return createDebtRecordFromLibraryEntry(entry, {
+          debtId: createStarterDebtId(typeKey),
+          label: STARTER_DEBT_LABELS[typeKey],
+          source: "starter-notebook",
+          isDefaultDebt: true
+        });
+      })
+      .filter(Boolean);
   }
 
   function createSearchText(entry) {
@@ -214,6 +305,9 @@
   const SUGGESTED_DEBT_TYPE_KEYS = Object.freeze([
     "heloc",
     "autoLoan",
+    "autoLease",
+    "secondVehicleLoan",
+    "secondVehicleLease",
     "creditCard",
     "personalLoan",
     "federalStudentLoan",
@@ -259,6 +353,19 @@
       normalizeString(debtId).replace(/[^A-Za-z0-9_-]+/g, "-"),
       suffix
     ].filter(Boolean).join("-");
+  }
+
+  function renderSelectOptions(options, selectedValue) {
+    const normalizedSelectedValue = normalizeString(selectedValue);
+    return options.map(function (option) {
+      const value = normalizeString(option.value);
+      const selected = value === normalizedSelectedValue ? " selected" : "";
+      return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(option.label)}</option>`;
+    }).join("");
+  }
+
+  function createStarterDebtId(typeKey) {
+    return "starter_debt_" + normalizeString(typeKey).replace(/[^A-Za-z0-9_-]+/g, "_");
   }
 
   function renderShell(root) {
@@ -354,18 +461,28 @@
           const existingRecord = previousById[debtId] || {};
           const labelInput = row.querySelector("[data-pmi-debt-record-label]");
           const balanceInput = row.querySelector("[data-pmi-debt-record-balance]");
-          const paymentInput = row.querySelector("[data-pmi-debt-record-payment]");
+          const paymentTypeInput = row.querySelector("[data-pmi-debt-record-payment-type]");
+          const paymentInput = row.querySelector("[data-pmi-debt-record-payment-amount]")
+            || row.querySelector("[data-pmi-debt-record-payment]");
+          const extraPayoffInput = row.querySelector("[data-pmi-debt-record-extra-payoff]");
           const rateInput = row.querySelector("[data-pmi-debt-record-rate]");
           const termInput = row.querySelector("[data-pmi-debt-record-term]");
+          const notesInput = row.querySelector("[data-pmi-debt-record-notes]");
           const label = normalizeString(labelInput && labelInput.value) || existingRecord.label || "Added Debt";
+          const paymentType = normalizePaymentType(paymentTypeInput && paymentTypeInput.value, existingRecord.paymentType);
+          const paymentAmount = toOptionalNonNegativeNumber(paymentInput && paymentInput.value);
 
           return Object.assign({}, existingRecord, {
             debtId: existingRecord.debtId || debtId || generateDebtId(),
             label,
             currentBalance: toOptionalNumber(balanceInput && balanceInput.value),
-            minimumMonthlyPayment: toOptionalNumber(paymentInput && paymentInput.value),
+            paymentType,
+            paymentAmount,
+            minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+            extraPayoffAmount: toOptionalNonNegativeNumber(extraPayoffInput && extraPayoffInput.value),
             interestRatePercent: toOptionalNumber(rateInput && rateInput.value),
-            remainingTermMonths: toOptionalNumber(termInput && termInput.value)
+            remainingTermMonths: toOptionalNumber(termInput && termInput.value),
+            notes: normalizeString(notesInput && notesInput.value) || null
           });
         });
     }
@@ -384,9 +501,14 @@
         const debtId = normalizeString(record.debtId);
         const labelInputId = createInputId("pmi-debt-record", debtId, "label");
         const balanceInputId = createInputId("pmi-debt-record", debtId, "balance");
-        const paymentInputId = createInputId("pmi-debt-record", debtId, "payment");
+        const paymentTypeInputId = createInputId("pmi-debt-record", debtId, "payment-type");
+        const paymentInputId = createInputId("pmi-debt-record", debtId, "payment-amount");
+        const extraPayoffInputId = createInputId("pmi-debt-record", debtId, "extra-payoff");
         const rateInputId = createInputId("pmi-debt-record", debtId, "rate");
         const termInputId = createInputId("pmi-debt-record", debtId, "term");
+        const notesInputId = createInputId("pmi-debt-record", debtId, "notes");
+        const paymentType = normalizePaymentType(record.paymentType, DEFAULT_PAYMENT_TYPE);
+        const paymentAmount = getPaymentAmountForRecord(record);
         return `
           <div class="field-group full-width pmi-debt-record-field" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
             <div class="pmi-asset-record-label-row pmi-debt-record-label-row">
@@ -403,9 +525,22 @@
                 </div>
               </div>
               <div class="field-group">
-                <label for="${escapeHtml(paymentInputId)}">Minimum Monthly Payment</label>
+                <label for="${escapeHtml(paymentTypeInputId)}">Payment Type</label>
+                <select id="${escapeHtml(paymentTypeInputId)}" data-pmi-debt-record-payment-type>
+                  ${renderSelectOptions(PAYMENT_TYPE_OPTIONS, paymentType)}
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="${escapeHtml(paymentInputId)}">Payment Amount</label>
                 <div class="profile-currency-field">
-                  <input id="${escapeHtml(paymentInputId)}" data-pmi-debt-record-payment type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.minimumMonthlyPayment))}">
+                  <input id="${escapeHtml(paymentInputId)}" data-pmi-debt-record-payment data-pmi-debt-record-payment-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(paymentAmount))}">
+                  <span class="profile-currency-suffix">USD</span>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="${escapeHtml(extraPayoffInputId)}">Extra Payoff Amount</label>
+                <div class="profile-currency-field">
+                  <input id="${escapeHtml(extraPayoffInputId)}" data-pmi-debt-record-extra-payoff type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.extraPayoffAmount))}">
                   <span class="profile-currency-suffix">USD</span>
                 </div>
               </div>
@@ -423,10 +558,39 @@
                   <span class="profile-currency-suffix">Months</span>
                 </div>
               </div>
+              <div class="field-group full-width">
+                <label for="${escapeHtml(notesInputId)}">Notes</label>
+                <input id="${escapeHtml(notesInputId)}" data-pmi-debt-record-notes type="text" value="${escapeHtml(record.notes || "")}">
+              </div>
             </div>
           </div>
         `;
       }).join("");
+    }
+
+    function addDebtRecordFromLibraryEntry(entry) {
+      const record = createDebtRecordFromLibraryEntry(entry);
+      if (!record) {
+        return null;
+      }
+
+      syncRecordsFromDom();
+      controller.records.push(record);
+      controller.recentTypeKeys = [record.typeKey].concat(controller.recentTypeKeys.filter(function (typeKey) {
+        return typeKey !== record.typeKey;
+      })).slice(0, 8);
+      renderRows();
+      return record;
+    }
+
+    function removeDebtRecordById(debtId) {
+      const normalizedDebtId = normalizeString(debtId);
+      const initialCount = controller.records.length;
+      controller.records = controller.records.filter(function (record) {
+        return record.debtId !== normalizedDebtId;
+      });
+      renderRows();
+      return controller.records.length !== initialCount;
     }
 
     function renderResults() {
@@ -539,17 +703,11 @@
           }
 
           const entry = findLibraryEntry(resultButton.getAttribute("data-pmi-debt-library-type-key"));
-          const record = createDebtRecordFromLibraryEntry(entry);
+          const record = addDebtRecordFromLibraryEntry(entry);
           if (!record) {
             return;
           }
 
-          syncRecordsFromDom();
-          controller.records.push(record);
-          controller.recentTypeKeys = [record.typeKey].concat(controller.recentTypeKeys.filter(function (typeKey) {
-            return typeKey !== record.typeKey;
-          })).slice(0, 8);
-          renderRows();
           closeModal();
 
           const row = controller.list
@@ -583,7 +741,7 @@
     function hydrateDebtRecords(records) {
       controller.records = Array.isArray(records)
         ? records.map(normalizeRecordForUi).filter(Boolean)
-        : [];
+        : createStarterDebtRecords();
       renderRows();
     }
 
@@ -592,9 +750,12 @@
       return controller.records
         .map(function (record) {
           const currentBalance = toOptionalNumber(record.currentBalance);
-          if (currentBalance == null || currentBalance < 0) {
+          if (currentBalance != null && currentBalance < 0) {
             return null;
           }
+
+          const paymentType = normalizePaymentType(record.paymentType, DEFAULT_PAYMENT_TYPE);
+          const paymentAmount = toOptionalNonNegativeNumber(record.paymentAmount);
 
           return {
             debtId: normalizeString(record.debtId) || generateDebtId(),
@@ -602,7 +763,10 @@
             typeKey: normalizeString(record.typeKey),
             label: normalizeString(record.label) || normalizeString(record.typeKey) || "Added Debt",
             currentBalance,
-            minimumMonthlyPayment: toOptionalNonNegativeNumber(record.minimumMonthlyPayment),
+            paymentType,
+            paymentAmount,
+            minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+            extraPayoffAmount: toOptionalNonNegativeNumber(record.extraPayoffAmount),
             interestRatePercent: toOptionalNonNegativeNumber(record.interestRatePercent),
             remainingTermMonths: toOptionalNonNegativeNumber(record.remainingTermMonths),
             securedBy: normalizeString(record.securedBy) || null,
@@ -622,6 +786,8 @@
 
     controller.hydrateDebtRecords = hydrateDebtRecords;
     controller.serializeDebtRecords = serializeDebtRecords;
+    controller.addDebtRecordFromLibraryEntry = addDebtRecordFromLibraryEntry;
+    controller.removeDebtRecordById = removeDebtRecordById;
 
     controller.addButton?.addEventListener("click", openModal);
     controller.list?.addEventListener("click", function (event) {
@@ -632,10 +798,7 @@
 
       const row = removeButton.closest("[data-pmi-debt-record-entry]");
       const debtId = normalizeString(row && row.getAttribute("data-pmi-debt-id"));
-      controller.records = controller.records.filter(function (record) {
-        return record.debtId !== debtId;
-      });
-      renderRows();
+      removeDebtRecordById(debtId);
     });
 
     controller.list?.addEventListener("input", function (event) {
@@ -646,7 +809,7 @@
       syncRecordsFromDom();
     });
 
-    hydrateDebtRecords([]);
+    hydrateDebtRecords();
     activeController = controller;
     return controller;
   }

@@ -49,13 +49,25 @@ function parseRowsFromMarkup(markup) {
         const selectorToAttribute = {
           "[data-pmi-debt-record-label]": "data-pmi-debt-record-label",
           "[data-pmi-debt-record-balance]": "data-pmi-debt-record-balance",
+          "[data-pmi-debt-record-payment-type]": "data-pmi-debt-record-payment-type",
+          "[data-pmi-debt-record-payment-amount]": "data-pmi-debt-record-payment-amount",
           "[data-pmi-debt-record-payment]": "data-pmi-debt-record-payment",
+          "[data-pmi-debt-record-extra-payoff]": "data-pmi-debt-record-extra-payoff",
           "[data-pmi-debt-record-rate]": "data-pmi-debt-record-rate",
-          "[data-pmi-debt-record-term]": "data-pmi-debt-record-term"
+          "[data-pmi-debt-record-term]": "data-pmi-debt-record-term",
+          "[data-pmi-debt-record-notes]": "data-pmi-debt-record-notes"
         };
         const attribute = selectorToAttribute[selector];
         if (!attribute) {
           return null;
+        }
+        if (selector === "[data-pmi-debt-record-payment-type]") {
+          const selectPattern = new RegExp("<select[^>]*" + attribute + "[^>]*>([\\s\\S]*?)<\\/select>", "i");
+          const selectMatch = rowMarkup.match(selectPattern);
+          const selectedOptionMatch = selectMatch
+            ? selectMatch[1].match(/<option[^>]*value="([^"]*)"[^>]*selected[^>]*>/i)
+            : null;
+          return selectedOptionMatch ? { value: decodeHtml(selectedOptionMatch[1]) } : null;
         }
         const inputPattern = new RegExp("<input[^>]*" + attribute + "[^>]*>", "i");
         const inputMatch = rowMarkup.match(inputPattern);
@@ -169,7 +181,10 @@ assert.ok(autoLoanRecord.debtId.startsWith("debt_"));
 assert.equal(autoLoanRecord.categoryKey, "securedConsumerDebt");
 assert.equal(autoLoanRecord.typeKey, "autoLoan");
 assert.equal(autoLoanRecord.currentBalance, null);
+assert.equal(autoLoanRecord.paymentType, "minimumPayment");
+assert.equal(autoLoanRecord.paymentAmount, null);
 assert.equal(autoLoanRecord.minimumMonthlyPayment, null);
+assert.equal(autoLoanRecord.extraPayoffAmount, null);
 assert.equal(autoLoanRecord.interestRatePercent, null);
 assert.equal(autoLoanRecord.remainingTermMonths, null);
 assert.equal(autoLoanRecord.sourceKey, null);
@@ -178,6 +193,24 @@ assert.equal(autoLoanRecord.isCustomDebt, false);
 assert.equal(autoLoanRecord.metadata.sourceType, "user-input");
 assert.equal(autoLoanRecord.metadata.source, "debt-library");
 assert.equal(autoLoanRecord.metadata.libraryEntryKey, "autoLoan");
+
+const autoLeaseRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
+  debtLibrary.findDebtLibraryEntry("autoLease")
+);
+assert.equal(autoLeaseRecord.categoryKey, "securedConsumerDebt");
+assert.equal(autoLeaseRecord.typeKey, "autoLease");
+assert.equal(autoLeaseRecord.paymentType, "leasePayment");
+
+const secondVehicleLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
+  debtLibrary.findDebtLibraryEntry("secondVehicleLoan")
+);
+const secondVehicleLeaseRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
+  debtLibrary.findDebtLibraryEntry("secondVehicleLease")
+);
+assert.equal(secondVehicleLoanRecord.typeKey, "secondVehicleLoan");
+assert.equal(secondVehicleLoanRecord.paymentType, "minimumPayment");
+assert.equal(secondVehicleLeaseRecord.typeKey, "secondVehicleLease");
+assert.equal(secondVehicleLeaseRecord.paymentType, "leasePayment");
 
 const customDebtRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
   debtLibrary.findDebtLibraryEntry("customDebt")
@@ -195,6 +228,42 @@ const fakeDom = createFakeRoot();
 const controller = pmiDebtRecords.initPmiDebtRecords({ root: fakeDom.root });
 assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiDebtRecordsInitialized, "true");
+assert.equal(controller.records.length, 9, "default starter notebook rows should appear on init");
+[
+  "Credit Card Debt",
+  "Student Loan",
+  "Auto Loan",
+  "Auto Lease",
+  "Personal Loan",
+  "Tax Debt / IRS Payment Plan",
+  "Medical Debt",
+  "Business Debt",
+  "Other Debt"
+].forEach((label) => {
+  assert.match(fakeDom.list.innerHTML, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} starter row should render`);
+});
+
+const starterSerialized = controller.serializeDebtRecords();
+assert.equal(starterSerialized.length, 9, "starter rows should serialize as debtRecords[]");
+assert.ok(starterSerialized.every((record) => record.isDefaultDebt === true));
+assert.ok(starterSerialized.every((record) => record.currentBalance == null));
+assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentType, "leasePayment");
+assert.equal(starterSerialized.find((record) => record.typeKey === "creditCard").metadata.source, "starter-notebook");
+
+assert.equal(controller.removeDebtRecordById("starter_debt_creditCard"), true);
+assert.doesNotMatch(fakeDom.list.innerHTML, /Credit Card Debt/, "starter rows should be removable");
+assert.equal(controller.serializeDebtRecords().some((record) => record.typeKey === "creditCard"), false);
+
+const addedFromLibrary = controller.addDebtRecordFromLibraryEntry(
+  debtLibrary.findDebtLibraryEntry("secondVehicleLease")
+);
+assert.ok(addedFromLibrary, "users should be able to add debts from the library/menu path");
+assert.equal(addedFromLibrary.typeKey, "secondVehicleLease");
+assert.match(fakeDom.list.innerHTML, /Second Vehicle Lease/);
+
+controller.hydrateDebtRecords([]);
+assert.equal(controller.records.length, 0, "explicit saved empty debtRecords[] should preserve removed starter rows");
+assert.equal(controller.serializeDebtRecords().length, 0);
 
 const inputRecords = Object.freeze([
   Object.freeze({
@@ -203,9 +272,13 @@ const inputRecords = Object.freeze([
     typeKey: "creditCard",
     label: "Visa Card",
     currentBalance: "1200.50",
+    paymentType: "fixedInstallment",
+    paymentAmount: "80",
     minimumMonthlyPayment: "75",
+    extraPayoffAmount: "20",
     interestRatePercent: "19.99",
     remainingTermMonths: "24",
+    notes: "Primary card",
     sourceKey: null,
     isDefaultDebt: false,
     isCustomDebt: false,
@@ -252,23 +325,36 @@ assert.match(fakeDom.list.innerHTML, /Visa Card/, "hydrate should render saved v
 assert.doesNotMatch(fakeDom.list.innerHTML, /Should Be Ignored/, "hydrate should not preserve non-addable primary mortgage records");
 
 const serialized = controller.serializeDebtRecords();
-assert.equal(serialized.length, 2);
+assert.equal(serialized.length, 3);
 
 const valid = serialized.find((record) => record.debtId === "debt_valid");
 assert.ok(valid, "valid debt record should serialize");
 assert.equal(valid.label, "Visa Card");
 assert.equal(valid.currentBalance, 1200.5);
-assert.equal(valid.minimumMonthlyPayment, 75);
+assert.equal(valid.paymentType, "fixedInstallment");
+assert.equal(valid.paymentAmount, 80);
+assert.equal(valid.minimumMonthlyPayment, 80);
+assert.equal(valid.extraPayoffAmount, 20);
 assert.equal(valid.interestRatePercent, 19.99);
 assert.equal(valid.remainingTermMonths, 24);
+assert.equal(valid.notes, "Primary card");
 assert.equal(valid.categoryKey, "unsecuredConsumerDebt");
 assert.equal(valid.typeKey, "creditCard");
 assert.equal(valid.metadata.source, "debt-library");
 assert.equal(valid.metadata.libraryEntryKey, "creditCard");
 
+const invalidBalance = serialized.find((record) => record.debtId === "debt_invalid_balance");
+assert.ok(invalidBalance, "blank or invalid balance rows should preserve editable debtRecords");
+assert.equal(invalidBalance.currentBalance, null);
+assert.equal(invalidBalance.paymentAmount, 10);
+assert.equal(invalidBalance.minimumMonthlyPayment, 10);
+assert.equal(invalidBalance.interestRatePercent, null);
+assert.equal(invalidBalance.remainingTermMonths, null);
+
 const badOptional = serialized.find((record) => record.debtId === "debt_bad_optional");
 assert.ok(badOptional, "invalid optional fields should not block serialization");
 assert.equal(badOptional.currentBalance, 3000);
+assert.equal(badOptional.paymentAmount, null);
 assert.equal(badOptional.minimumMonthlyPayment, null);
 assert.equal(badOptional.interestRatePercent, null);
 assert.equal(badOptional.remainingTermMonths, null);
@@ -279,9 +365,13 @@ assert.deepEqual(inputRecords[0], {
   typeKey: "creditCard",
   label: "Visa Card",
   currentBalance: "1200.50",
+  paymentType: "fixedInstallment",
+  paymentAmount: "80",
   minimumMonthlyPayment: "75",
+  extraPayoffAmount: "20",
   interestRatePercent: "19.99",
   remainingTermMonths: "24",
+  notes: "Primary card",
   sourceKey: null,
   isDefaultDebt: false,
   isCustomDebt: false,

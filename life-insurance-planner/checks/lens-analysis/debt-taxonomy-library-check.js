@@ -83,6 +83,9 @@ bannedEquityKeys.forEach((key) => {
 
 const narrowTypeKeys = [
   "autoLoan",
+  "autoLease",
+  "secondVehicleLoan",
+  "secondVehicleLease",
   "motorcycleLoan",
   "rvLoan",
   "boatLoan",
@@ -138,6 +141,27 @@ assert.equal(primaryMortgage.isHousingFieldOwned, true);
 assert.equal(primaryMortgage.isAddable, false);
 assert.equal(primaryMortgage.ownedByField, "mortgageBalance");
 assert.equal(primaryMortgage.duplicateProtection, "mortgageBalance-remains-single-source");
+
+const autoLoan = library.findDebtLibraryEntry("autoLoan");
+const autoLease = library.findDebtLibraryEntry("autoLease");
+const secondVehicleLoan = library.findDebtLibraryEntry("secondVehicleLoan");
+const secondVehicleLease = library.findDebtLibraryEntry("secondVehicleLease");
+assert.ok(autoLoan, "auto loan should exist as a distinct library entry");
+assert.ok(autoLease, "auto lease should exist as a distinct library entry");
+assert.ok(secondVehicleLoan, "second vehicle loan should exist as a distinct library entry");
+assert.ok(secondVehicleLease, "second vehicle lease should exist as a distinct library entry");
+assert.notEqual(autoLoan.typeKey, autoLease.typeKey, "auto loan and auto lease must remain distinct");
+assert.notEqual(secondVehicleLoan.typeKey, secondVehicleLease.typeKey, "second vehicle loan and lease must remain distinct");
+assert.equal(autoLoan.defaultPaymentType, "minimumPayment");
+assert.equal(autoLease.defaultPaymentType, "leasePayment");
+assert.equal(secondVehicleLoan.defaultPaymentType, "minimumPayment");
+assert.equal(secondVehicleLease.defaultPaymentType, "leasePayment");
+assert.equal(autoLoan.isLease, false);
+assert.equal(autoLease.isLease, true);
+assert.equal(secondVehicleLoan.isLease, false);
+assert.equal(secondVehicleLease.isLease, true);
+assert.equal(autoLease.balanceRequiredForDebtFacts, false);
+assert.equal(secondVehicleLease.balanceRequiredForDebtFacts, false);
 
 assertNoProtectedDiffs();
 

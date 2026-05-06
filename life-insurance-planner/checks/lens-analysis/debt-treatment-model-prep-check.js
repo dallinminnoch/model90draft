@@ -197,10 +197,16 @@ function findTrace(result, key) {
 
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
+    "app/features/lens-analysis/debt-library.js",
+    "app/features/lens-analysis/pmi-debt-records.js",
     "app/features/lens-analysis/debt-treatment-calculations.js",
     "app/features/lens-analysis/lens-model-builder.js",
+    "checks/lens-analysis/debt-taxonomy-library-check.js",
+    "checks/lens-analysis/pmi-debt-records-check.js",
     "checks/lens-analysis/debt-treatment-helper-check.js",
-    "checks/lens-analysis/debt-treatment-model-prep-check.js"
+    "checks/lens-analysis/debt-treatment-model-prep-check.js",
+    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
+    "checks/lens-analysis/step-three-debt-treatment-display-check.js"
   ]);
   const changedFiles = execFileSync("git", ["diff", "--name-only"], {
     cwd: repoRoot,

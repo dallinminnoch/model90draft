@@ -233,7 +233,13 @@ function createHlvResult() {
 
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
+    "app/features/lens-analysis/debt-library.js",
+    "app/features/lens-analysis/pmi-debt-records.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
+    "checks/lens-analysis/debt-taxonomy-library-check.js",
+    "checks/lens-analysis/pmi-debt-records-check.js",
+    "checks/lens-analysis/debt-treatment-model-prep-check.js",
+    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
     "checks/lens-analysis/step-three-debt-treatment-display-check.js"
   ]);
   const changedFiles = execFileSync("git", ["status", "--short", "--untracked-files=all"], {

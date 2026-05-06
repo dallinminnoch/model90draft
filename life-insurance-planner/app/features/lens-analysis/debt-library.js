@@ -42,7 +42,10 @@
     ["landLoan", "Land Loan", "realEstateSecuredDebt", GROUPS.realEstateSecuredDebt, "Loan secured by land.", "lot loan|raw land loan"],
     ["constructionLoan", "Construction Loan", "realEstateSecuredDebt", GROUPS.realEstateSecuredDebt, "Construction or renovation loan secured by real estate.", "construction debt|renovation loan"],
 
-    ["autoLoan", "Auto Loan", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Loan secured by a car or truck.", "car loan|vehicle loan"],
+    ["autoLoan", "Auto Loan", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Loan secured by a car or truck.", "car loan|vehicle loan", { defaultPaymentType: "minimumPayment", isLease: false, balanceRequiredForDebtFacts: true }],
+    ["autoLease", "Auto Lease", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Lease payment obligation for a car or truck. Keep separate from auto loans because leases are payment obligations, not ordinary payoff balances.", "car lease|vehicle lease|lease payment", { defaultPaymentType: "leasePayment", isLease: true, balanceRequiredForDebtFacts: false }],
+    ["secondVehicleLoan", "Second Vehicle Loan", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Loan secured by a second household vehicle.", "second auto loan|second car loan|additional vehicle loan", { defaultPaymentType: "minimumPayment", isLease: false, balanceRequiredForDebtFacts: true }],
+    ["secondVehicleLease", "Second Vehicle Lease", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Lease payment obligation for a second household vehicle.", "second auto lease|second car lease|additional vehicle lease", { defaultPaymentType: "leasePayment", isLease: true, balanceRequiredForDebtFacts: false }],
     ["motorcycleLoan", "Motorcycle Loan", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Loan secured by a motorcycle.", "motorcycle financing"],
     ["rvLoan", "RV Loan", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Loan secured by a recreational vehicle.", "recreational vehicle loan|camper loan"],
     ["boatLoan", "Boat Loan", "securedConsumerDebt", GROUPS.securedConsumerDebt, "Loan secured by a boat or watercraft.", "marine loan|watercraft loan"],
@@ -127,7 +130,10 @@
       isCustomType: options.isCustomType === true,
       isHousingFieldOwned: options.isHousingFieldOwned === true,
       ownedByField: options.ownedByField || null,
-      duplicateProtection: options.duplicateProtection || null
+      duplicateProtection: options.duplicateProtection || null,
+      defaultPaymentType: options.defaultPaymentType || "minimumPayment",
+      isLease: options.isLease === true,
+      balanceRequiredForDebtFacts: options.balanceRequiredForDebtFacts === false ? false : true
     });
   }
 

@@ -506,6 +506,8 @@ function assertEnabledFalseDoesNotZeroDebt(methods) {
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
     "pages/analysis-setup.html",
+    "app/features/lens-analysis/debt-library.js",
+    "app/features/lens-analysis/pmi-debt-records.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/lens-model-builder.js",
