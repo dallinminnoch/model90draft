@@ -190,6 +190,17 @@ assert.match(
   );
 });
 [
+  "../app/features/lens-analysis/income-impact-warning-events-library.js",
+  "../app/features/lens-analysis/household-financial-position-calculations.js",
+  "../app/features/lens-analysis/income-loss-impact-timeline-calculations.js"
+].forEach(function (scriptPath) {
+  assert.equal(
+    incomeLossScriptSources.includes(scriptPath),
+    false,
+    `Income Impact should not load retired runtime dependency ${scriptPath}.`
+  );
+});
+[
   "../app/features/lens-analysis/schema.js",
   "../app/features/lens-analysis/asset-taxonomy.js",
   "../app/features/lens-analysis/asset-library.js",
@@ -216,14 +227,12 @@ assert.match(
   "../app/features/lens-analysis/asset-growth-projection-calculations.js",
   "../app/features/lens-analysis/cash-reserve-calculations.js",
   "../app/features/lens-analysis/lens-model-builder.js",
-  "../app/features/lens-analysis/income-impact-warning-events-library.js",
   "../app/features/lens-analysis/household-wealth-projection-calculations.js",
   "../app/features/lens-analysis/household-death-event-availability-calculations.js",
   "../app/features/lens-analysis/household-survivor-runway-calculations.js",
   "../app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
   "../app/features/lens-analysis/income-impact-caution-library.js",
   "../app/features/lens-analysis/income-impact-risk-event-evaluator-calculations.js",
-  "../app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-display.js"
 ].forEach(function (scriptPath) {
   assert.ok(

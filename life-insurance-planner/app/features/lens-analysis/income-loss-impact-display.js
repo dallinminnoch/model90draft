@@ -603,10 +603,6 @@
     return amount == null ? "Fact-based event" : formatCurrency(amount);
   }
 
-  function getScenarioTimeline(timelineResult) {
-    return isPlainObject(timelineResult?.scenarioTimeline) ? timelineResult.scenarioTimeline : {};
-  }
-
   function getComposerScenario(timelineResult) {
     return isPlainObject(timelineResult?.scenario) ? timelineResult.scenario : {};
   }
@@ -673,7 +669,7 @@
   function renderPausedTimelineVisualization(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const status = normalizeRunwayStatus(runway.status);
-    const selectedDeathDate = timelineResult?.selectedDeath?.date || getScenarioTimeline(timelineResult)?.axis?.deathDate || UNAVAILABLE_COPY;
+    const selectedDeathDate = timelineResult?.selectedDeath?.date || UNAVAILABLE_COPY;
     const selectedDeathAge = timelineResult?.selectedDeath?.age == null ? UNAVAILABLE_COPY : `Age ${timelineResult.selectedDeath.age}`;
     const facts = getPausedTimelineFacts(timelineResult);
 
@@ -775,18 +771,9 @@
 
   function getPivotalEvents(timelineResult) {
     const riskEvaluation = isPlainObject(timelineResult?.riskEvaluation) ? timelineResult.riskEvaluation : {};
-    if (Array.isArray(riskEvaluation.events) || Array.isArray(riskEvaluation.stableEvents)) {
-      return {
-        risks: (Array.isArray(riskEvaluation.events) ? riskEvaluation.events : []).filter(isPlainObject),
-        stable: (Array.isArray(riskEvaluation.stableEvents) ? riskEvaluation.stableEvents : []).filter(isPlainObject)
-      };
-    }
-
-    const scenarioTimeline = isPlainObject(timelineResult?.scenarioTimeline) ? timelineResult.scenarioTimeline : {};
-    const pivotalEvents = isPlainObject(scenarioTimeline.pivotalEvents) ? scenarioTimeline.pivotalEvents : {};
     return {
-      risks: (Array.isArray(pivotalEvents.risks) ? pivotalEvents.risks : []).filter(isPlainObject),
-      stable: (Array.isArray(pivotalEvents.stable) ? pivotalEvents.stable : []).filter(isPlainObject)
+      risks: (Array.isArray(riskEvaluation.events) ? riskEvaluation.events : []).filter(isPlainObject),
+      stable: (Array.isArray(riskEvaluation.stableEvents) ? riskEvaluation.stableEvents : []).filter(isPlainObject)
     };
   }
 
@@ -815,14 +802,7 @@
     if (event?.age != null) {
       pieces.push(`Age ${event.age}`);
     }
-    if (!pieces.length && event?.relativeMonthIndex != null) {
-      const months = toOptionalNumber(event.relativeMonthIndex);
-      if (months === 0) {
-        pieces.push("At death");
-      } else if (months != null) {
-        pieces.push(`Month ${months}`);
-      }
-    } else if (!pieces.length && event?.monthIndex != null) {
+    if (!pieces.length && event?.monthIndex != null) {
       const months = toOptionalNumber(event.monthIndex);
       if (months === 0) {
         pieces.push("At death");
@@ -901,14 +881,14 @@
         class="income-impact-risk-item"
         data-income-impact-risk-event
         data-income-impact-risk-severity="${escapeHtml(severity)}"
-        data-income-impact-risk-type="${escapeHtml(event?.category || event?.type || event?.id || "")}"
+        data-income-impact-risk-type="${escapeHtml(event?.category || "")}"
         data-income-impact-risk-rule-id="${escapeHtml(event?.ruleId || event?.id || "")}"
       >
         <div class="income-impact-risk-item-header">
           <span class="income-impact-risk-severity" data-income-impact-risk-severity-label="${escapeHtml(severity)}">${escapeHtml(getRiskSeverityLabel(severity))}</span>
-          <strong>${escapeHtml(event?.title || event?.label || event?.shortLabel || "Risk detected")}</strong>
+          <strong>${escapeHtml(event?.title || "Risk detected")}</strong>
         </div>
-        <p>${escapeHtml(event?.summary || event?.advisorCopy || "Review this Income Impact scenario with the available facts.")}</p>
+        <p>${escapeHtml(event?.summary || "Review this Income Impact scenario with the available facts.")}</p>
         ${renderPivotalEventMeta(event)}
         ${renderPivotalEventEvidence(event)}
         ${renderPivotalEventDataGaps(event)}
@@ -918,10 +898,10 @@
 
   function renderStableEvent(event) {
     return `
-      <li data-income-impact-covered-event data-income-impact-covered-type="${escapeHtml(event?.category || event?.type || event?.id || "")}" data-income-impact-covered-rule-id="${escapeHtml(event?.ruleId || event?.id || "")}">
+      <li data-income-impact-covered-event data-income-impact-covered-type="${escapeHtml(event?.category || "")}" data-income-impact-covered-rule-id="${escapeHtml(event?.ruleId || event?.id || "")}">
         <div>
-          <strong>${escapeHtml(event?.title || event?.label || event?.shortLabel || "Covered item")}</strong>
-          <p>${escapeHtml(event?.summary || event?.advisorCopy || "This item is represented in the current preview.")}</p>
+          <strong>${escapeHtml(event?.title || "Covered item")}</strong>
+          <p>${escapeHtml(event?.summary || "This item is represented in the current preview.")}</p>
         </div>
         ${renderPivotalEventMeta(event)}
         ${renderPivotalEventEvidence(event)}

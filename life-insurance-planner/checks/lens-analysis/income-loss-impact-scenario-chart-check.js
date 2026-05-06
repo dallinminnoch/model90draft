@@ -72,19 +72,31 @@ const fixture = {
     netAvailableResources: 500000,
     depletionDate: "2038-10-15"
   },
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [
-        {
-          id: "resourcesDepleted",
-          type: "resourcesDepleted",
-          label: "Resources depleted",
-          severity: "critical",
-          advisorCopy: "Available resources are projected to reach zero in this scenario."
-        }
-      ],
-      stable: []
+  scenario: {
+    timelineFacts: {
+      assetsBeforeDeath: 225000,
+      survivorAvailableTreatedAssets: 100000,
+      coverageAdded: 500000,
+      resourcesAfterObligations: 500000,
+      monthsCovered: 100,
+      depletionDate: "2038-10-15"
     }
+  },
+  riskEvaluation: {
+    events: [
+      {
+        id: "resourcesDepleted",
+        ruleId: "survivor-resources-depleted",
+        category: "runway",
+        title: "Resources depleted",
+        severity: "critical",
+        summary: "Available resources are projected to reach zero in this scenario.",
+        date: "2038-10-15",
+        phase: "postDeath",
+        monthIndex: 100
+      }
+    ],
+    stableEvents: []
   },
   timelineEvents: [],
   warnings: [],

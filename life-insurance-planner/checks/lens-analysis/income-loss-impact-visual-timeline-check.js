@@ -2,7 +2,6 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -11,25 +10,6 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 
 function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
-}
-
-function getChangedFiles(relativePaths) {
-  try {
-    const output = childProcess.execFileSync(
-      "git",
-      ["diff", "--name-only", "--", ...relativePaths],
-      {
-        cwd: repoRoot,
-        encoding: "utf8"
-      }
-    );
-    return output
-      .split(/\r?\n/)
-      .map(function (line) { return line.trim(); })
-      .filter(Boolean);
-  } catch (_error) {
-    return [];
-  }
 }
 
 function createDisplayHarness(source) {
@@ -94,10 +74,14 @@ const fixture = {
     warnings: [],
     dataGaps: []
   },
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [],
-      stable: []
+  scenario: {
+    timelineFacts: {
+      assetsBeforeDeath: 225000,
+      survivorAvailableTreatedAssets: 100000,
+      coverageAdded: 500000,
+      resourcesAfterObligations: 500000,
+      monthsCovered: 100,
+      depletionDate: "2038-10-15"
     }
   },
   timelineEvents: [
@@ -120,19 +104,11 @@ assert.match(timelineHtml, /Timeline visualization paused/);
 assert.match(timelineHtml, /Supporting timeline events/);
 assert.match(timelineHtml, /Selected death event/);
 assert.match(timelineHtml, /Insured income stops/);
+assert.match(timelineHtml, /data-income-impact-paused-fact="assets-before-death"/);
+assert.match(timelineHtml, /data-income-impact-paused-fact="resources-after-obligations"/);
+assert.match(timelineHtml, /\$225,000/);
+assert.match(timelineHtml, /\$500,000/);
 assert.doesNotMatch(timelineHtml, /<svg\b|<path\b|<circle\b/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-point|data-income-impact-runway-line/);
-
-const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/household-financial-position-calculations.js",
-  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
-  "app/features/lens-analysis/income-impact-warning-events-library.js",
-  "styles.css"
-]);
-assert.deepEqual(
-  protectedChanges,
-  [],
-  "Paused timeline removal should not change HFP, timeline formulas, warning library, or styles.css."
-);
 
 console.log("income-loss-impact-visual-timeline-check passed");

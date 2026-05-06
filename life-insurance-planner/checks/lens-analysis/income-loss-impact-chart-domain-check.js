@@ -90,7 +90,14 @@ assert.doesNotMatch(componentsSource, /\.income-impact-marker-legend/);
 
 assert.match(pageSource, /data-income-impact-display/);
 assert.match(pageSource, /data-income-impact-scenario-banner/);
-assert.match(pageSource, /income-impact-warning-events-library\.js/);
+assert.doesNotMatch(pageSource, /income-impact-warning-events-library\.js/);
+assert.doesNotMatch(pageSource, /household-financial-position-calculations\.js/);
+assert.doesNotMatch(pageSource, /income-loss-impact-timeline-calculations\.js/);
+assert.match(
+  pageSource,
+  /household-wealth-projection-calculations\.js[\s\S]*household-death-event-availability-calculations\.js[\s\S]*household-survivor-runway-calculations\.js[\s\S]*income-impact-scenario-composer-calculations\.js[\s\S]*income-impact-caution-library\.js[\s\S]*income-impact-risk-event-evaluator-calculations\.js[\s\S]*income-loss-impact-display\.js/,
+  "Income Impact should load the new stack in order before display."
+);
 
 const fixture = {
   selectedDeath: {
@@ -105,31 +112,40 @@ const fixture = {
     netAvailableResources: 292470,
     depletionDate: "2032-09-29"
   },
-  scenarioTimeline: {
-    axis: {
-      deathDate: "2026-04-29"
-    },
-    pivotalEvents: {
-      risks: [
-        {
-          id: "resourcesDepleted",
-          type: "resourcesDepleted",
-          label: "Resources depleted",
-          shortLabel: "Depleted",
-          severity: "critical",
-          advisorCopy: "Available resources are projected to reach zero in this scenario."
-        }
-      ],
-      stable: [
-        {
-          id: "existingCoverage",
-          type: "existingCoverageAvailable",
-          label: "Existing coverage available",
-          severity: "covered",
-          advisorCopy: "Existing coverage is represented in this preview."
-        }
-      ]
+  scenario: {
+    timelineFacts: {
+      assetsBeforeDeath: 400000,
+      survivorAvailableTreatedAssets: 100000,
+      coverageAdded: 400000,
+      resourcesAfterObligations: 292470,
+      monthsCovered: 77,
+      depletionDate: "2032-09-29"
     }
+  },
+  riskEvaluation: {
+    events: [
+      {
+        id: "resourcesDepleted",
+        ruleId: "survivor-resources-depleted",
+        category: "runway",
+        title: "Resources depleted",
+        severity: "critical",
+        summary: "Available resources are projected to reach zero in this scenario.",
+        date: "2032-09-29",
+        phase: "postDeath",
+        monthIndex: 77
+      }
+    ],
+    stableEvents: [
+      {
+        id: "existingCoverage",
+        ruleId: "coverage-added-at-death",
+        category: "coverage",
+        title: "Existing coverage available",
+        severity: "stable",
+        summary: "Existing coverage is represented in this preview."
+      }
+    ]
   },
   timelineEvents: [
     {

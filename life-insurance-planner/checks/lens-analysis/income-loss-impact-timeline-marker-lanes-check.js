@@ -42,7 +42,9 @@ const harness = createDisplayHarness(displaySource);
 
 assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.equal(typeof harness.renderPivotalRiskPanel, "function");
-assert.match(displaySource, /scenarioTimeline\.pivotalEvents/);
+assert.match(displaySource, /riskEvaluation\.events/);
+assert.match(displaySource, /riskEvaluation\.stableEvents/);
+assert.doesNotMatch(displaySource, /scenarioTimeline\.pivotalEvents/);
 assert.doesNotMatch(displaySource, /renderPivotalMarkerLanes|renderPivotalMarker|data-income-impact-timeline-marker/);
 assert.doesNotMatch(componentsSource, /\.income-impact-marker-lanes|\.income-impact-marker-pill|\.income-impact-marker-track/);
 assert.doesNotMatch(pageSource, /data-income-impact-timeline-marker-lanes/);
@@ -50,34 +52,35 @@ assert.doesNotMatch(pageSource, /data-income-impact-timeline-marker-lanes/);
 const fixture = {
   selectedDeath: { date: "2030-06-15", age: 50 },
   financialRunway: { status: "complete" },
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [
-        {
-          id: "resourcesDepleted",
-          type: "resourcesDepleted",
-          label: "Resources depleted",
-          shortLabel: "Depleted",
-          severity: "critical",
-          advisorCopy: "Available resources are projected to reach zero in this scenario."
-        },
-        {
-          id: "monthlyBudgetDeficitBegins",
-          type: "monthlyBudgetDeficitBegins",
-          label: "Household budget deficit begins",
-          severity: "at-risk",
-          advisorCopy: "Annual household need exceeds survivor income in this scenario."
-        }
-      ],
-      stable: [
-        {
-          id: "existingCoverage",
-          type: "existingCoverageAvailable",
-          label: "Existing coverage available",
-          advisorCopy: "Existing coverage is represented in this preview."
-        }
-      ]
-    }
+  riskEvaluation: {
+    events: [
+      {
+        id: "resourcesDepleted",
+        ruleId: "survivor-resources-depleted",
+        category: "runway",
+        title: "Resources depleted",
+        severity: "critical",
+        summary: "Available resources are projected to reach zero in this scenario."
+      },
+      {
+        id: "monthlyBudgetDeficitBegins",
+        ruleId: "accumulated-unmet-need",
+        category: "runway",
+        title: "Household budget deficit begins",
+        severity: "at-risk",
+        summary: "Annual household need exceeds survivor income in this scenario."
+      }
+    ],
+    stableEvents: [
+      {
+        id: "existingCoverage",
+        ruleId: "coverage-added-at-death",
+        category: "coverage",
+        title: "Existing coverage available",
+        severity: "stable",
+        summary: "Existing coverage is represented in this preview."
+      }
+    ]
   },
   timelineEvents: [],
   warnings: [],

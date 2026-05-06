@@ -52,7 +52,8 @@ function createElement(initial = {}) {
 
 function createHarness(options = {}) {
   const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
-  const helperCalls = [];
+  const composerCalls = [];
+  const riskCalls = [];
   const storageWrites = [];
   const profileRecord = {
     id: "slider-profile",
@@ -154,80 +155,41 @@ function createHarness(options = {}) {
               input
             };
           },
-          calculateIncomeLossImpactTimeline(input) {
-            helperCalls.push(cloneJson(input));
+          composeIncomeImpactScenario(input) {
+            composerCalls.push(cloneJson(input));
             const age = input.selectedDeathAge == null ? null : Number(input.selectedDeathAge);
-            const date = age == null
+            const date = input.selectedDeathDate || (age == null
               ? null
-              : (age <= 45 ? input.valuationDate : `${1980 + age}-06-15`);
+              : (age <= 45 ? input.valuationDate : `${1980 + age}-06-15`));
+            const monthsCovered = age == null ? null : age * 12;
             return {
-              selectedDeath: {
-                age,
-                date
+              status: age == null ? "partial" : "complete",
+              scenario: {
+                valuationDate: input.valuationDate,
+                selectedDeathDate: date,
+                selectedDeathAge: age,
+                projectionHorizonMonths: input.projectionHorizonMonths,
+                mortgageTreatmentOverride: input.scenarioOptions?.mortgageTreatmentOverride
               },
-              financialRunway: age == null
-                ? {
-                    status: "not-available",
-                    projectionPoints: [],
-                    warnings: [],
-                    dataGaps: []
-                  }
+              timelineFacts: age == null
+                ? {}
                 : {
-                    status: "complete",
-                    startingResources: 600000,
-                    existingCoverage: 500000,
-                    availableAssets: 100000,
-                    immediateObligations: 100000,
-                    netAvailableResources: 500000,
-                    annualHouseholdNeed: 90000,
-                    annualSurvivorIncome: 30000,
-                    annualShortfall: 60000,
-                    yearsOfSecurity: age,
-                    monthsOfSecurity: 0,
-                    totalMonthsOfSecurity: age * 12,
+                    assetsBeforeDeath: 200000 + age,
+                    survivorAvailableTreatedAssets: 100000 + age,
+                    coverageAdded: 500000,
+                    resourcesAfterObligations: 500000 + age,
+                    monthsCovered,
                     depletionDate: date,
-                    depletionYear: date ? Number(date.slice(0, 4)) : null,
-                    projectionYears: 5,
-                    projectionPoints: [
-                      {
-                        yearIndex: 0,
-                        date,
-                        age,
-                        startingBalance: 500000,
-                        annualShortfall: 60000,
-                        endingBalance: 500000,
-                        status: "starting"
-                      },
-                      {
-                        yearIndex: 5,
-                        date: `${1985 + age}-06-15`,
-                        age: age + 5,
-                        startingBalance: 260000,
-                        annualShortfall: 60000,
-                        endingBalance: 200000,
-                        status: "available"
-                      }
-                    ],
-                    warnings: [],
-                    dataGaps: []
+                    accumulatedUnmetNeed: 0
                   },
-              summaryCards: [
-                {
-                  id: "yearsOfFinancialSecurity",
-                  displayValue: age == null ? "Not available" : `${age} years 0 months`,
-                  status: age == null ? "not-available" : "complete"
+              deathEvent: {
+                immediateObligations: age == null ? null : 100000,
+                layer2: {
+                  resources: {
+                    totalResourcesBeforeObligations: age == null ? null : 600000 + age
+                  }
                 }
-              ],
-              timelineEvents: age == null
-                ? []
-                : [
-                    {
-                      type: "death",
-                      date,
-                      age,
-                      label: `Death at ${age}`
-                    }
-                  ],
+              },
               dataGaps: options.missingDob
                 ? [
                     {
@@ -236,7 +198,45 @@ function createHarness(options = {}) {
                     }
                   ]
                 : [],
-              warnings: []
+              warnings: [],
+              trace: {
+                calculationMethod: "income-impact-scenario-composer-v1"
+              }
+            };
+          },
+          evaluateIncomeImpactRiskEvents(input) {
+            riskCalls.push(cloneJson(input));
+            const scenario = input.scenario || {};
+            const age = scenario.scenario?.selectedDeathAge;
+            return {
+              status: "complete",
+              events: age == null
+                ? []
+                : [
+                    {
+                      id: `risk-${age}`,
+                      ruleId: "survivor-resources-depleted",
+                      category: "runway",
+                      severity: "critical",
+                      title: `Risk for age ${age}`,
+                      summary: "Layer 4 event from composer output.",
+                      date: scenario.timelineFacts?.depletionDate,
+                      monthIndex: scenario.timelineFacts?.monthsCovered,
+                      phase: "postDeath"
+                    }
+                  ],
+              stableEvents: [
+                {
+                  id: "coverage-added-at-death",
+                  ruleId: "coverage-added-at-death",
+                  category: "coverage",
+                  severity: "stable",
+                  title: "Coverage added at death",
+                  summary: "Layer 4 stable event from composer output."
+                }
+              ],
+              warnings: [],
+              dataGaps: []
             };
           }
         }
@@ -253,7 +253,8 @@ function createHarness(options = {}) {
 
   return {
     readyCallback,
-    helperCalls,
+    composerCalls,
+    riskCalls,
     storageWrites,
     host,
     control,
@@ -284,7 +285,11 @@ assert.doesNotMatch(
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
   "slider state should not be persisted"
 );
-assert.match(displaySource, /selectedDeathAge/, "display should pass selectedDeathAge into the timeline helper.");
+assert.match(displaySource, /composeIncomeImpactScenario/);
+assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
+assert.match(displaySource, /selectedDeathAge/, "display should pass selectedDeathAge into the scenario composer.");
+assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
+assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.match(displaySource, /addEventListener\("input", updateSelectedDeathAge\)/);
 assert.match(displaySource, /addEventListener\("change", updateSelectedDeathAge\)/);
 
@@ -298,14 +303,22 @@ assert.equal(available.slider.max, "85", "slider max should be current age plus 
 assert.equal(available.slider.value, "45", "slider should default to current age.");
 assert.equal(available.ageValue.textContent, "45");
 assert.equal(available.dateValue.textContent, "2026-01-01");
-assert.equal(available.helperCalls.length, 1);
-assert.equal(available.helperCalls[0].selectedDeathAge, 45);
-assert.match(available.host.innerHTML, /45 years 0 months/);
-assert.match(available.host.innerHTML, /Death at 45/);
+assert.equal(available.composerCalls.length, 1);
+assert.equal(available.riskCalls.length, 1);
+assert.equal(available.composerCalls[0].selectedDeathAge, 45);
+assert.equal(available.composerCalls[0].selectedDeathDate, "2026-01-01");
+assert.equal(available.composerCalls[0].projectionHorizonMonths, 480);
+assert.equal(available.riskCalls[0].scenario.scenario.selectedDeathAge, 45);
+assert.match(available.host.innerHTML, /45 years/);
+assert.match(available.host.innerHTML, /Death event resources/);
+assert.match(available.host.innerHTML, /Risk for age 45/);
 assert.match(available.host.innerHTML, /data-income-impact-visual-timeline/);
 assert.match(available.host.innerHTML, /data-income-impact-timeline-paused/);
 assert.match(available.host.innerHTML, /Timeline visualization paused/);
 assert.match(available.host.innerHTML, /2026-01-01/);
+assert.match(available.host.innerHTML, /data-income-impact-paused-fact="assets-before-death"/);
+assert.match(available.host.innerHTML, /data-income-impact-risk-panel/);
+assert.match(available.host.innerHTML, /data-income-impact-covered-panel/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-financial-runway/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-point-date/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-line/);
@@ -313,21 +326,26 @@ assert.doesNotMatch(available.host.innerHTML, /Placeholder visualization|placeho
 
 available.slider.value = "44";
 available.slider.listeners.input({ target: available.slider });
-assert.equal(available.helperCalls.length, 2);
-assert.equal(available.helperCalls[1].selectedDeathAge, 45);
+assert.equal(available.composerCalls.length, 2);
+assert.equal(available.riskCalls.length, 2);
+assert.equal(available.composerCalls[1].selectedDeathAge, 45);
 assert.equal(available.slider.value, "45");
 assert.equal(available.ageValue.textContent, "45");
 assert.equal(available.dateValue.textContent, "2026-01-01");
 
 available.slider.value = "50";
 available.slider.listeners.input({ target: available.slider });
-assert.equal(available.helperCalls.length, 3);
-assert.equal(available.helperCalls[2].selectedDeathAge, 50);
+assert.equal(available.composerCalls.length, 3);
+assert.equal(available.riskCalls.length, 3);
+assert.equal(available.composerCalls[2].selectedDeathAge, 50);
+assert.equal(available.composerCalls[2].selectedDeathDate, "2030-06-15");
+assert.equal(available.riskCalls[2].scenario.scenario.selectedDeathAge, 50);
 assert.equal(available.slider.value, "50");
 assert.equal(available.ageValue.textContent, "50");
 assert.equal(available.dateValue.textContent, "2030-06-15");
-assert.match(available.host.innerHTML, /50 years 0 months/);
-assert.match(available.host.innerHTML, /Death at 50/);
+assert.match(available.host.innerHTML, /50 years/);
+assert.match(available.host.innerHTML, /Death event resources/);
+assert.match(available.host.innerHTML, /Risk for age 50/);
 assert.match(available.host.innerHTML, /data-income-impact-timeline-paused/);
 assert.match(available.host.innerHTML, /2030-06-15/);
 assert.doesNotMatch(available.host.innerHTML, /data-income-impact-runway-point-date/);
@@ -344,11 +362,12 @@ assert.equal(missingDob.ageValue.textContent, "Not available");
 assert.equal(missingDob.dateValue.textContent, "Not available");
 assert.equal(missingDob.warning.hidden, false);
 assert.match(missingDob.warning.textContent, /Add insured date of birth to preview by age\./);
-assert.equal(missingDob.helperCalls.length, 1);
+assert.equal(missingDob.composerCalls.length, 1);
+assert.equal(missingDob.riskCalls.length, 1);
 assert.equal(
-  Object.prototype.hasOwnProperty.call(missingDob.helperCalls[0], "selectedDeathAge"),
-  false,
-  "missing-DOB helper call should not pass a broken selectedDeathAge."
+  missingDob.composerCalls[0].selectedDeathAge,
+  null,
+  "missing-DOB composer call should pass a null selectedDeathAge instead of a broken age."
 );
 assert.deepEqual(missingDob.storageWrites, [], "missing-DOB path should not write slider state.");
 

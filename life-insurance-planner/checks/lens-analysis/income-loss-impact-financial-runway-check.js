@@ -55,21 +55,13 @@ function createDisplayHarness(source) {
   return sandbox.window.__incomeImpactFinancialRunwayHarness;
 }
 
-const helperSource = readRepoFile("app/features/lens-analysis/income-loss-impact-timeline-calculations.js");
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
-
-assert.match(helperSource, /financialRunway/);
-assert.match(helperSource, /projectionPoints/);
-assert.match(helperSource, /projectionMode/);
-assert.match(helperSource, /growthAmount/);
-assert.match(helperSource, /growthRate/);
-assert.match(helperSource, /scheduledObligations/);
-assert.match(helperSource, /DEFAULT_RUNWAY_PROJECTION_YEARS/);
-assert.doesNotMatch(helperSource, /runNeedsAnalysis|analysis-methods/);
-assert.doesNotMatch(helperSource, /\bdocument\s*[.\[]|\bwindow\s*[.\[]|\blocalStorage\s*[.\[]|\bsessionStorage\s*[.\[]/);
 
 assert.match(displaySource, /data-income-impact-timeline-paused/);
 assert.match(displaySource, /Timeline visualization paused while the Income Impact projection model is being rebuilt/);
+assert.match(displaySource, /composeIncomeImpactScenario/);
+assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
+assert.match(displaySource, /composeIncomeImpactScenario\.timelineFacts/);
 assert.doesNotMatch(displaySource, /data-income-impact-financial-runway/);
 assert.doesNotMatch(displaySource, /data-income-impact-runway-primary-visual/);
 assert.doesNotMatch(displaySource, /data-income-impact-runway-snapshot/);
@@ -82,6 +74,8 @@ assert.match(displaySource, /Immediate Money Available/);
 assert.match(displaySource, /Immediate Obligations/);
 assert.match(displaySource, /Annual Household Shortfall/);
 assert.doesNotMatch(displaySource, /Built from helper events|calculateIncomeLossImpactTimeline\(\)\./);
+assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
+assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(
   displaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
@@ -93,6 +87,17 @@ const fixture = {
   selectedDeath: {
     date: "2030-06-15",
     age: 50
+  },
+  scenario: {
+    timelineFacts: {
+      assetsBeforeDeath: 225000,
+      survivorAvailableTreatedAssets: 100000,
+      coverageAdded: 500000,
+      resourcesAfterObligations: 500000,
+      monthsCovered: 100,
+      depletionDate: "2038-10-15",
+      accumulatedUnmetNeed: 0
+    }
   },
   financialRunway: {
     status: "complete",
@@ -329,6 +334,13 @@ assert.match(timelineHtml, /Timeline visualization paused/);
 assert.match(timelineHtml, /No previous-asset or income trendline is being rendered/);
 assert.match(timelineHtml, /Selected death date/);
 assert.match(timelineHtml, /2030-06-15/);
+assert.match(timelineHtml, /data-income-impact-paused-fact="assets-before-death"/);
+assert.match(timelineHtml, /\$225,000/);
+assert.match(timelineHtml, /data-income-impact-paused-fact="treated-assets-at-death"/);
+assert.match(timelineHtml, /\$100,000/);
+assert.match(timelineHtml, /data-income-impact-paused-fact="coverage-added"/);
+assert.match(timelineHtml, /data-income-impact-paused-fact="resources-after-obligations"/);
+assert.match(timelineHtml, /8 years 4 months/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-financial-runway/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-primary-visual/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-snapshot/);

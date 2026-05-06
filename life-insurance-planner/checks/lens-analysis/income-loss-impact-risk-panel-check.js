@@ -73,14 +73,16 @@ assert.equal(typeof harness.renderPivotalRiskPanel, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.match(displaySource, /riskEvaluation\.events/);
 assert.match(displaySource, /riskEvaluation\.stableEvents/);
-assert.ok(
-  displaySource.indexOf("riskEvaluation.events") < displaySource.indexOf("scenarioTimeline.pivotalEvents"),
-  "Risk panel should prefer Layer 4 events before falling back to legacy pivotalEvents."
+assert.doesNotMatch(
+  displaySource,
+  /scenarioTimeline\.pivotalEvents/,
+  "Risk panel should be Layer 4-only and should not fall back to legacy pivotalEvents."
 );
 assert.match(displaySource, /renderPivotalRiskPanel/);
 assert.match(displaySource, /renderPivotalRiskPanel\(timelineResult\)/);
 assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
 assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
+assert.doesNotMatch(displaySource, /advisorCopy|shortLabel|relativeMonthIndex/);
 assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
 assert.doesNotMatch(
   displaySource,
