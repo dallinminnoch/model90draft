@@ -239,7 +239,7 @@
     return pages;
   }
 
-  function renderPrimaryRailItem(page, extraClass) {
+  function renderPrimaryRailItem(page, extraClass, flyoutMarkup) {
     const classes = [
       "workspace-side-nav-button",
       "workspace-side-nav-primary-button",
@@ -249,12 +249,18 @@
     ].map(function (className) {
       return String(className || "").trim();
     }).filter(Boolean).join(" ");
+    const itemShellClasses = [
+      "workspace-side-nav-primary-item-shell",
+      String(extraClass || "").indexOf("workspace-side-nav-primary-button-settings") !== -1 ? "workspace-side-nav-primary-item-shell-settings" : "",
+      flyoutMarkup ? "has-workspace-side-nav-flyout" : ""
+    ].filter(Boolean).join(" ");
     const label = escapeHtml(page.label);
     const iconMarkup = `<span class="workspace-side-nav-icon workspace-side-nav-primary-icon" aria-hidden="true">${getWorkspacePrimaryRailIcon(page.key)}</span>`;
+    let itemMarkup = "";
 
     if (page.placeholder) {
       const placeholderLabel = escapeHtml(`${page.label} (Coming soon)`);
-      return `
+      itemMarkup = `
         <button
           class="${classes}"
           type="button"
@@ -268,23 +274,35 @@
           ${iconMarkup}
         </button>
       `;
+    } else {
+      itemMarkup = `
+        <a
+          class="${classes}"
+          href="${escapeHtml(page.href)}"
+          data-workspace-side-nav-item="${escapeHtml(page.key)}"
+          ${page.active ? ' aria-current="page"' : ""}
+          aria-label="${label}"
+          title="${label}"
+        >
+          ${iconMarkup}
+        </a>
+      `;
     }
 
     return `
-      <a
-        class="${classes}"
-        href="${escapeHtml(page.href)}"
-        data-workspace-side-nav-item="${escapeHtml(page.key)}"
-        ${page.active ? ' aria-current="page"' : ""}
-        aria-label="${label}"
-        title="${label}"
-      >
-        ${iconMarkup}
-      </a>
+      <div class="${itemShellClasses}" data-workspace-side-nav-primary-item-shell="${escapeHtml(page.key)}">
+        ${itemMarkup}
+        ${flyoutMarkup ? `
+          <div class="workspace-side-nav-flyout" data-workspace-side-nav-flyout data-workspace-side-nav-flyout-for="${escapeHtml(page.key)}">
+            ${flyoutMarkup}
+          </div>
+        ` : ""}
+      </div>
     `;
   }
 
-  function renderPrimaryRail(pages) {
+  function renderPrimaryRail(pages, flyouts) {
+    const flyoutMap = flyouts && typeof flyouts === "object" ? flyouts : {};
     const settingsPage = pages && pages.settingsPage
       ? pages.settingsPage
       : { key: "settings", label: "Settings", shortLabel: "Settings", href: "settings.html", active: false };
@@ -292,10 +310,10 @@
       <div class="workspace-side-nav-primary-rail">
         <nav class="workspace-side-nav-primary-items" aria-label="Workspace pages">
           ${pages.map(function (page) {
-            return renderPrimaryRailItem(page);
+            return renderPrimaryRailItem(page, "", flyoutMap[page.key]);
           }).join("")}
         </nav>
-        ${renderPrimaryRailItem(settingsPage, " workspace-side-nav-primary-button-settings")}
+        ${renderPrimaryRailItem(settingsPage, " workspace-side-nav-primary-button-settings", flyoutMap[settingsPage.key])}
       </div>
     `;
   }
@@ -415,28 +433,195 @@
     `;
   }
 
-  function renderWorkspaceShell(config) {
-    const shouldRenderFlyout = config.suppressFlyout !== true && String(config.contextMarkup || "").trim();
+  function findWorkspacePage(pages, key) {
+    const normalizedKey = String(key || "").trim();
+    const pageList = Array.isArray(pages) ? pages.slice() : [];
+    if (pages && pages.settingsPage) {
+      pageList.push(pages.settingsPage);
+    }
+    return pageList.find(function (page) {
+      return page && page.key === normalizedKey;
+    }) || null;
+  }
+
+  function renderWorkspaceFlyoutPanel(config) {
+    const panelConfig = config && typeof config === "object" ? config : {};
+    const contextMarkup = String(panelConfig.contextMarkup || "").trim();
+    if (!contextMarkup) {
+      return "";
+    }
+
     return `
-      <aside class="workspace-side-nav workspace-side-nav-shell${shouldRenderFlyout ? " has-workspace-side-nav-flyout" : ""}" aria-label="${escapeHtml(config.ariaLabel)}">
-        ${renderPrimaryRail(config.pages)}
-        ${shouldRenderFlyout ? `
-          <div class="workspace-side-nav-flyout" data-workspace-side-nav-flyout>
-            <div class="workspace-side-nav-context workspace-side-nav-flyout-panel">
-              <div class="workspace-side-nav-header workspace-side-nav-context-header">
-                <div class="workspace-side-nav-copy">
-                  <span class="workspace-side-nav-kicker">Current Page</span>
-                  <strong>${escapeHtml(config.title)}</strong>
-                </div>
-                ${config.headerActionMarkup ? `<div class="workspace-side-nav-context-header-extra">${config.headerActionMarkup}</div>` : ""}
-              </div>
-              <div class="workspace-side-nav-section workspace-side-nav-context-section">
-                <span class="workspace-side-nav-section-label workspace-side-nav-context-section-label">${escapeHtml(config.sectionLabel)}</span>
-                ${config.contextMarkup}
-              </div>
-            </div>
+      <div class="workspace-side-nav-context workspace-side-nav-flyout-panel">
+        <div class="workspace-side-nav-header workspace-side-nav-context-header">
+          <div class="workspace-side-nav-copy">
+            <span class="workspace-side-nav-kicker">${escapeHtml(panelConfig.kicker || "Workspace")}</span>
+            <strong>${escapeHtml(panelConfig.title || "Workspace")}</strong>
           </div>
-        ` : ""}
+          ${panelConfig.headerActionMarkup ? `<div class="workspace-side-nav-context-header-extra">${panelConfig.headerActionMarkup}</div>` : ""}
+        </div>
+        <div class="workspace-side-nav-section workspace-side-nav-context-section">
+          <span class="workspace-side-nav-section-label workspace-side-nav-context-section-label">${escapeHtml(panelConfig.sectionLabel || "Menu")}</span>
+          ${contextMarkup}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderClientDirectoryPrimaryFlyout(page) {
+    const href = page && page.href ? page.href : "clients.html";
+    return renderWorkspaceFlyoutPanel({
+      kicker: "Workspace",
+      title: "Client Directory",
+      sectionLabel: "Open",
+      contextMarkup: `
+        <nav class="workspace-side-nav-items workspace-side-nav-context-items" aria-label="Client directory shortcut">
+          <a
+            class="workspace-side-nav-button workspace-side-nav-context-button"
+            href="${escapeHtml(href)}"
+            aria-label="Open Client Directory"
+            title="Open Client Directory"
+          >
+            <span class="workspace-side-nav-icon workspace-side-nav-context-icon" aria-hidden="true">${getWorkspacePageIcon("clients")}</span>
+            <span class="workspace-side-nav-label workspace-side-nav-context-label">Open Client Directory</span>
+          </a>
+        </nav>
+      `
+    });
+  }
+
+  function getLensWorkflowSteps() {
+    return [
+      { id: "profile-1", label: "Link Profile", path: "profile.html", icon: "planning" },
+      { id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup.html", icon: "financial-snapshot" },
+      { id: "income-impact", label: "Income Impact Review", path: "income-loss-impact.html", icon: "analysis" },
+      { id: "estimate", label: "LENS Result", path: "analysis-estimate.html", icon: "needs-analysis" },
+      { id: "recommendations", label: "Coverage Options", path: "recommendations.html", icon: "recommendation" },
+      { id: "planner", label: "Policy Planner", path: "planner.html", icon: "placement" },
+      { id: "summary", label: "Summary", path: "summary.html", icon: "documents" },
+      { id: "debug-panel", label: "Debug Panel", path: "next-step.html?lensIncomeDebug=1", icon: "analysis" }
+    ];
+  }
+
+  function getLensOverviewItems(lensHref) {
+    const baseHref = String(lensHref || "").trim();
+    function getHref(hash) {
+      return baseHref ? `${baseHref}${hash}` : hash;
+    }
+    return [
+      { key: "overview", label: "Overview", href: getHref("#lens-overview"), active: true },
+      { key: "start", label: "Start Analysis", href: getHref("#lens-start-analysis"), active: false },
+      { key: "summary", label: "Tool Summary", href: getHref("#lens-tool-summary"), active: false }
+    ];
+  }
+
+  function renderLensContextMarkup(options) {
+    const config = options && typeof options === "object" ? options : {};
+    const workflowSteps = getLensWorkflowSteps();
+    const currentStep = String(config.currentStep || "").trim();
+    const isWorkflowPage = workflowSteps.some(function (step) {
+      return step.id === currentStep;
+    });
+    const overviewItems = getLensOverviewItems(config.lensHref || "");
+
+    return {
+      isWorkflowPage: isWorkflowPage,
+      contextMarkup: `
+        <nav class="workspace-side-nav-items workspace-side-nav-context-items${isWorkflowPage ? " client-profile-workflow-nav" : ""}" aria-label="${isWorkflowPage ? "LENS workflow navigation" : "LENS page navigation"}">
+          ${isWorkflowPage ? workflowSteps.map(function (item) {
+            const isActive = item.id === currentStep;
+            return `
+              <a
+                class="workspace-side-nav-button workspace-side-nav-context-button client-profile-workflow-button client-profile-workflow-button--workflow${isActive ? " is-active is-current" : ""}"
+                href="${escapeHtml(item.path)}"
+                ${isActive ? ' aria-current="page"' : ""}
+                aria-label="${escapeHtml(item.label)}"
+                title="${escapeHtml(item.label)}"
+              >
+                <span class="client-profile-workflow-button-main">
+                  <span class="workspace-side-nav-icon workspace-side-nav-context-icon client-profile-workflow-button-icon" aria-hidden="true">${getClientDetailIcon(item.icon)}</span>
+                  <span class="workspace-side-nav-label workspace-side-nav-context-label client-profile-workflow-button-label">${escapeHtml(item.label)}</span>
+                </span>
+              </a>
+            `;
+          }).join("") : overviewItems.map(function (item) {
+            return `
+              <a
+                class="workspace-side-nav-button workspace-side-nav-context-button${item.active ? " is-active" : ""}"
+                href="${escapeHtml(item.href)}"
+                data-lens-tab="${escapeHtml(item.key)}"
+                ${item.active && !config.lensHref ? ' aria-current="location"' : ""}
+                aria-label="${escapeHtml(item.label)}"
+                title="${escapeHtml(item.label)}"
+              >
+                <span class="workspace-side-nav-icon workspace-side-nav-context-icon" aria-hidden="true">${getLensPageIcon(item.key)}</span>
+                <span class="workspace-side-nav-label workspace-side-nav-context-label">${escapeHtml(item.label)}</span>
+              </a>
+            `;
+          }).join("")}
+        </nav>
+      `
+    };
+  }
+
+  function getCurrentLensStep() {
+    return String(document.body?.dataset?.step || "").trim();
+  }
+
+  function renderLensPrimaryFlyout(page) {
+    const lensHref = page && page.href ? page.href : "lens.html";
+    const isLensPage = document.body?.classList?.contains("lens-page");
+    const lensContext = renderLensContextMarkup({
+      currentStep: isLensPage ? getCurrentLensStep() : "",
+      lensHref: isLensPage ? "" : lensHref
+    });
+
+    return renderWorkspaceFlyoutPanel({
+      kicker: "Workspace",
+      title: "LENS Analysis",
+      sectionLabel: lensContext.isWorkflowPage ? "Analysis Workflow" : "Sections",
+      contextMarkup: lensContext.contextMarkup
+    });
+  }
+
+  function buildWorkspacePrimaryFlyouts(config) {
+    const shellConfig = config && typeof config === "object" ? config : {};
+    const pages = shellConfig.pages || [];
+    const flyouts = {};
+    const clientsPage = findWorkspacePage(pages, "clients");
+    const lensPage = findWorkspacePage(pages, "lens");
+
+    if (clientsPage && !clientsPage.placeholder) {
+      flyouts.clients = renderClientDirectoryPrimaryFlyout(clientsPage);
+    }
+
+    if (lensPage && !lensPage.placeholder) {
+      flyouts.lens = renderLensPrimaryFlyout(lensPage);
+    }
+
+    if (String(shellConfig.contextMarkup || "").trim()) {
+      const activePage = (Array.isArray(pages) ? pages : []).find(function (page) {
+        return page && page.active;
+      }) || (pages && pages.settingsPage && pages.settingsPage.active ? pages.settingsPage : null);
+      if (activePage && !flyouts[activePage.key]) {
+        flyouts[activePage.key] = renderWorkspaceFlyoutPanel({
+          kicker: "Current Page",
+          title: shellConfig.title,
+          sectionLabel: shellConfig.sectionLabel,
+          headerActionMarkup: shellConfig.headerActionMarkup,
+          contextMarkup: shellConfig.contextMarkup
+        });
+      }
+    }
+
+    return flyouts;
+  }
+
+  function renderWorkspaceShell(config) {
+    const primaryFlyouts = buildWorkspacePrimaryFlyouts(config);
+    return `
+      <aside class="workspace-side-nav workspace-side-nav-shell" aria-label="${escapeHtml(config.ariaLabel)}">
+        ${renderPrimaryRail(config.pages, primaryFlyouts)}
       </aside>
     `;
   }
@@ -752,70 +937,21 @@
 
   function renderLensSidebar(options) {
     const pages = getWorkspacePages("lens", options);
-    const workflowSteps = [
-      { id: "profile-1", label: "Link Profile", path: "profile.html", icon: "planning" },
-      { id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup.html", icon: "financial-snapshot" },
-      { id: "income-impact", label: "Income Impact Review", path: "income-loss-impact.html", icon: "analysis" },
-      { id: "estimate", label: "LENS Result", path: "analysis-estimate.html", icon: "needs-analysis" },
-      { id: "recommendations", label: "Coverage Options", path: "recommendations.html", icon: "recommendation" },
-      { id: "planner", label: "Policy Planner", path: "planner.html", icon: "placement" },
-      { id: "summary", label: "Summary", path: "summary.html", icon: "documents" },
-      { id: "debug-panel", label: "Debug Panel", path: "next-step.html?lensIncomeDebug=1", icon: "analysis" }
-    ];
-    const currentStep = String(document.body?.dataset?.step || "").trim();
-    const isWorkflowPage = workflowSteps.some(function (step) {
-      return step.id === currentStep;
+    const lensContext = renderLensContextMarkup({
+      currentStep: getCurrentLensStep(),
+      lensHref: ""
     });
-    const items = [
-      { key: "overview", label: "Overview", href: "#lens-overview", active: true },
-      { key: "start", label: "Start Analysis", href: "#lens-start-analysis", active: false },
-      { key: "summary", label: "Tool Summary", href: "#lens-tool-summary", active: false }
-    ];
 
     return renderWorkspaceShell({
       ariaLabel: "LENS workspace navigation",
       pages: pages,
       title: "LENS Analysis",
-      sectionLabel: isWorkflowPage ? "Analysis Workflow" : "Sections",
+      sectionLabel: lensContext.isWorkflowPage ? "Analysis Workflow" : "Sections",
       toggleClass: "client-profile-side-tabs-toggle",
       toggleGlyphClass: "client-profile-side-tabs-toggle-glyph",
       toggleDataAttr: "data-lens-side-tabs-toggle",
       toggleLabel: "Collapse section navigation",
-      contextMarkup: `
-        <nav class="workspace-side-nav-items workspace-side-nav-context-items${isWorkflowPage ? " client-profile-workflow-nav" : ""}" aria-label="${isWorkflowPage ? "LENS workflow navigation" : "LENS page navigation"}">
-          ${isWorkflowPage ? workflowSteps.map(function (item) {
-            const isActive = item.id === currentStep;
-            return `
-              <a
-                class="workspace-side-nav-button workspace-side-nav-context-button client-profile-workflow-button client-profile-workflow-button--workflow${isActive ? " is-active is-current" : ""}"
-                href="${escapeHtml(item.path)}"
-                ${isActive ? ' aria-current="page"' : ""}
-                aria-label="${escapeHtml(item.label)}"
-                title="${escapeHtml(item.label)}"
-              >
-                <span class="client-profile-workflow-button-main">
-                  <span class="workspace-side-nav-icon workspace-side-nav-context-icon client-profile-workflow-button-icon" aria-hidden="true">${getClientDetailIcon(item.icon)}</span>
-                  <span class="workspace-side-nav-label workspace-side-nav-context-label client-profile-workflow-button-label">${escapeHtml(item.label)}</span>
-                </span>
-              </a>
-            `;
-          }).join("") : items.map(function (item) {
-            return `
-              <a
-                class="workspace-side-nav-button workspace-side-nav-context-button${item.active ? " is-active" : ""}"
-                href="${escapeHtml(item.href)}"
-                data-lens-tab="${escapeHtml(item.key)}"
-                ${item.active ? ' aria-current="location"' : ""}
-                aria-label="${escapeHtml(item.label)}"
-                title="${escapeHtml(item.label)}"
-              >
-                <span class="workspace-side-nav-icon workspace-side-nav-context-icon" aria-hidden="true">${getLensPageIcon(item.key)}</span>
-                <span class="workspace-side-nav-label workspace-side-nav-context-label">${escapeHtml(item.label)}</span>
-              </a>
-            `;
-          }).join("")}
-        </nav>
-      `
+      contextMarkup: lensContext.contextMarkup
     });
   }
 

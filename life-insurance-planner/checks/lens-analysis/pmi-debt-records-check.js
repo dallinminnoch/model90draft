@@ -44,6 +44,7 @@ function parseRowsFromMarkup(markup) {
     const rowMarkup = source.slice(rowStart, nextRowStart);
 
     return {
+      markup: rowMarkup,
       getAttribute(name) {
         return name === "data-pmi-debt-id" ? debtId : null;
       },
@@ -76,6 +77,34 @@ function parseRowsFromMarkup(markup) {
       }
     };
   });
+}
+
+function getRowMarkupByLabel(markup, label) {
+  const rows = parseRowsFromMarkup(markup);
+  const escapedLabel = String(label || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(escapedLabel);
+  const row = rows.find((candidate) => pattern.test(candidate.markup));
+  assert.ok(row, `${label} row should render`);
+  return row.markup;
+}
+
+function assertFieldNotApplicable(rowMarkup, fieldAttribute, label) {
+  const fieldPattern = new RegExp(fieldAttribute + '[^>]*value="N/A"[^>]*disabled[^>]*data-pmi-debt-applicability-state="notApplicable"', "i");
+  assert.match(rowMarkup, /pmi-debt-record-cell--notApplicable/, `${label} cell should use the not-applicable class`);
+  assert.match(rowMarkup, fieldPattern, `${label} should render as disabled N/A`);
+}
+
+function assertFieldActive(rowMarkup, fieldAttribute, label) {
+  const activePattern = new RegExp(fieldAttribute + '[^>]*data-pmi-debt-applicability-state="active"', "i");
+  assert.match(rowMarkup, activePattern, `${label} should remain active`);
+  assert.doesNotMatch(rowMarkup, new RegExp(fieldAttribute + '[^>]*value="N/A"', "i"), `${label} should not render as N/A`);
+}
+
+function assertFieldOptional(rowMarkup, fieldAttribute, label) {
+  const optionalPattern = new RegExp(fieldAttribute + '[^>]*data-pmi-debt-applicability-state="optional"', "i");
+  assert.match(rowMarkup, optionalPattern, `${label} should render as optional`);
+  assert.doesNotMatch(rowMarkup, new RegExp(fieldAttribute + '[^>]*value="N/A"', "i"), `${label} should not render as N/A`);
+  assert.doesNotMatch(rowMarkup, new RegExp(fieldAttribute + '[^>]*disabled', "i"), `${label} should remain editable`);
 }
 
 function extractCssRule(source, selector) {
@@ -199,6 +228,7 @@ assert.equal(typeof pmiDebtRecords?.serializeDebtRecords, "function");
 assert.equal(typeof pmiDebtRecords?.createDebtRecordFromLibraryEntry, "function");
 assert.equal(typeof pmiDebtRecords?.createDebtRecordsFromLegacyScalarFields, "function");
 assert.equal(typeof pmiDebtRecords?.createLegacyScalarDebtCompatibilityFromRecords, "function");
+assert.equal(typeof pmiDebtRecords?.getDebtRecordFieldApplicability, "function");
 
 const autoLoanEntry = debtLibrary.findDebtLibraryEntry("autoLoan");
 const autoLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(autoLoanEntry);
@@ -380,6 +410,9 @@ assert.match(debtRecordControlRule, /border-radius:\s*0\.18rem;/, "debt row cont
 assert.match(debtRecordControlRule, /font-size:\s*0\.78rem;/, "debt row controls should preserve the existing text size");
 assert.match(debtRecordCurrencyRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "compact currency wrappers should not widen debt row cells");
 assert.match(debtRecordCurrencySuffixRule, /position:\s*absolute;[\s\S]*right:\s*0\.3rem;/, "compact currency suffixes should sit inside debt row controls");
+assert.match(componentsCss, /\.pmi-debt-record-cell--notApplicable\s*{[\s\S]*opacity:\s*0\.72;/, "not-applicable cells should render with muted debt-specific styling");
+assert.match(componentsCss, /\.pmi-debt-record-na-control\s*{[\s\S]*width:\s*100%;[\s\S]*min-width:\s*0;/, "not-applicable controls should preserve the compact table width contract");
+assert.match(componentsCss, /\.pmi-debt-record-row input:disabled,[\s\S]*\.pmi-debt-record-na-control input\s*{[\s\S]*background:\s*#f3f5f8;[\s\S]*color:\s*#8a92a1;/, "disabled N/A controls should be visibly greyed out");
 assert.match(componentsCss, /\.pmi-asset-record-remove\.pmi-debt-record-remove\s*{[\s\S]*width:\s*1\.45rem;[\s\S]*height:\s*1\.45rem;[\s\S]*border-radius:\s*0\.18rem;[\s\S]*font-size:\s*0;/, "remove control should be tighter, sharper, and override the shared asset remove rule");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-field/, "debt rows should not render as stacked card fields");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-grid/, "debt rows should not render the old stacked field grid");
@@ -399,12 +432,104 @@ assert.equal(parseRowsFromMarkup(fakeDom.list.innerHTML).length, 9, "starter deb
   assert.match(fakeDom.list.innerHTML, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} starter row should render`);
 });
 
+const autoLeaseApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "autoLease" });
+assert.equal(autoLeaseApplicability.currentBalance, "notApplicable");
+assert.equal(autoLeaseApplicability.paymentFrequency, "active");
+assert.equal(autoLeaseApplicability.paymentAmount, "active");
+assert.equal(autoLeaseApplicability.extraPayoffAmount, "notApplicable");
+assert.equal(autoLeaseApplicability.remainingTermMonths, "active");
+assert.equal(autoLeaseApplicability.interestRatePercent, "notApplicable");
+
+const creditCardApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "creditCard" });
+assert.equal(creditCardApplicability.currentBalance, "active");
+assert.equal(creditCardApplicability.paymentFrequency, "active");
+assert.equal(creditCardApplicability.paymentAmount, "active");
+assert.equal(creditCardApplicability.extraPayoffAmount, "active");
+assert.equal(creditCardApplicability.remainingTermMonths, "notApplicable");
+assert.equal(creditCardApplicability.interestRatePercent, "optional");
+
+const medicalBillApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "medicalBill" });
+assert.equal(medicalBillApplicability.remainingTermMonths, "optional");
+assert.equal(medicalBillApplicability.interestRatePercent, "optional");
+
+const dentalBillApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "dentalBill" });
+assert.equal(dentalBillApplicability.remainingTermMonths, "optional");
+assert.equal(dentalBillApplicability.interestRatePercent, "optional");
+
+const medicalPaymentPlanApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "medicalPaymentPlan" });
+assert.equal(medicalPaymentPlanApplicability.interestRatePercent, "optional");
+
+const longTermCareDebtApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "longTermCareDebt" });
+assert.equal(longTermCareDebtApplicability.interestRatePercent, "optional");
+
+const legalJudgmentApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "legalJudgment" });
+assert.equal(legalJudgmentApplicability.extraPayoffAmount, "optional");
+assert.equal(legalJudgmentApplicability.interestRatePercent, "optional");
+
+const courtOrderedDebtApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "courtOrderedDebt" });
+assert.equal(courtOrderedDebtApplicability.extraPayoffAmount, "optional");
+assert.equal(courtOrderedDebtApplicability.interestRatePercent, "optional");
+
+const familyLoanApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "familyLoan" });
+assert.equal(familyLoanApplicability.remainingTermMonths, "optional");
+assert.equal(familyLoanApplicability.interestRatePercent, "optional");
+
+const loanFromFriendApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "loanFromFriend" });
+assert.equal(loanFromFriendApplicability.remainingTermMonths, "optional");
+assert.equal(loanFromFriendApplicability.interestRatePercent, "optional");
+
+const informalPersonalObligationApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "informalPersonalObligation" });
+assert.equal(informalPersonalObligationApplicability.remainingTermMonths, "optional");
+assert.equal(informalPersonalObligationApplicability.interestRatePercent, "optional");
+
+const businessLineOfCreditApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "businessLineOfCredit" });
+assert.equal(businessLineOfCreditApplicability.remainingTermMonths, "optional");
+
+const autoLoanApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "autoLoan" });
+assert.equal(autoLoanApplicability.currentBalance, "active");
+assert.equal(autoLoanApplicability.paymentFrequency, "active");
+assert.equal(autoLoanApplicability.paymentAmount, "active");
+assert.equal(autoLoanApplicability.extraPayoffAmount, "active");
+assert.equal(autoLoanApplicability.remainingTermMonths, "active");
+assert.equal(autoLoanApplicability.interestRatePercent, "active");
+
+const starterAutoLeaseMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Auto Lease");
+assertFieldNotApplicable(starterAutoLeaseMarkup, "data-pmi-debt-record-balance", "Auto Lease Balance");
+assertFieldActive(starterAutoLeaseMarkup, "data-pmi-debt-record-payment-frequency", "Auto Lease Payment Frequency");
+assertFieldActive(starterAutoLeaseMarkup, "data-pmi-debt-record-payment-amount", "Auto Lease Payment Amount");
+assertFieldNotApplicable(starterAutoLeaseMarkup, "data-pmi-debt-record-extra-payoff", "Auto Lease Extra Payoff");
+assertFieldActive(starterAutoLeaseMarkup, "data-pmi-debt-record-term", "Auto Lease Remaining Term");
+assertFieldNotApplicable(starterAutoLeaseMarkup, "data-pmi-debt-record-rate", "Auto Lease Interest Rate");
+
+const starterCreditCardMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Credit Card Debt");
+assertFieldNotApplicable(starterCreditCardMarkup, "data-pmi-debt-record-term", "Credit Card Remaining Term");
+assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-balance", "Credit Card Balance");
+assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-payment-frequency", "Credit Card Payment Frequency");
+assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-payment-amount", "Credit Card Payment Amount");
+assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-extra-payoff", "Credit Card Extra Payoff");
+
+const starterMedicalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Medical Debt");
+assertFieldOptional(starterMedicalMarkup, "data-pmi-debt-record-term", "Medical Bill Remaining Term");
+assertFieldOptional(starterMedicalMarkup, "data-pmi-debt-record-rate", "Medical Bill Interest Rate");
+
+const starterAutoLoanMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Auto Loan");
+assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-balance", "Auto Loan Balance");
+assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-payment-frequency", "Auto Loan Payment Frequency");
+assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-payment-amount", "Auto Loan Payment Amount");
+assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-extra-payoff", "Auto Loan Extra Payoff");
+assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-term", "Auto Loan Remaining Term");
+assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-rate", "Auto Loan Interest Rate");
+
 const starterSerialized = controller.serializeDebtRecords();
 assert.equal(starterSerialized.length, 9, "starter rows should serialize as debtRecords[]");
 assert.ok(starterSerialized.every((record) => record.isDefaultDebt === true));
 assert.ok(starterSerialized.every((record) => record.currentBalance == null));
 assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentType, "leasePayment");
 assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentFrequency, "monthly");
+assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").currentBalance, null);
+assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").extraPayoffAmount, null);
+assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").interestRatePercent, null);
+assert.equal(starterSerialized.find((record) => record.typeKey === "creditCard").remainingTermMonths, null);
 assert.equal(starterSerialized.find((record) => record.typeKey === "creditCard").metadata.source, "starter-notebook");
 
 assert.equal(controller.removeDebtRecordById("starter_debt_creditCard"), true);
@@ -469,6 +594,120 @@ assert.equal(legacySecondVehicleSerialized[0].metadata.deprecatedOriginalTypeKey
 assert.equal(legacySecondVehicleSerialized[1].metadata.deprecatedOriginalTypeKey, "secondVehicleLease");
 assert.match(fakeDom.list.innerHTML, /Honda Accord/);
 assert.match(fakeDom.list.innerHTML, /Model Y/);
+const legacySecondVehicleLeaseMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Model Y");
+assertFieldNotApplicable(legacySecondVehicleLeaseMarkup, "data-pmi-debt-record-balance", "Legacy Second Vehicle Lease Balance");
+assertFieldNotApplicable(legacySecondVehicleLeaseMarkup, "data-pmi-debt-record-extra-payoff", "Legacy Second Vehicle Lease Extra Payoff");
+assertFieldNotApplicable(legacySecondVehicleLeaseMarkup, "data-pmi-debt-record-rate", "Legacy Second Vehicle Lease Interest Rate");
+assertFieldActive(legacySecondVehicleLeaseMarkup, "data-pmi-debt-record-payment-frequency", "Legacy Second Vehicle Lease Payment Frequency");
+assertFieldActive(legacySecondVehicleLeaseMarkup, "data-pmi-debt-record-payment-amount", "Legacy Second Vehicle Lease Payment Amount");
+assertFieldActive(legacySecondVehicleLeaseMarkup, "data-pmi-debt-record-term", "Legacy Second Vehicle Lease Remaining Term");
+
+controller.hydrateDebtRecords([
+  {
+    debtId: "lease_with_legacy_values",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "autoLease",
+    label: "Legacy Lease Values",
+    currentBalance: 8888,
+    paymentFrequency: "monthly",
+    paymentAmount: 500,
+    extraPayoffAmount: 300,
+    remainingTermMonths: 18,
+    interestRatePercent: 7.5
+  }
+]);
+const legacyLeaseMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Legacy Lease Values");
+assertFieldNotApplicable(legacyLeaseMarkup, "data-pmi-debt-record-balance", "Saved Auto Lease Balance");
+assertFieldNotApplicable(legacyLeaseMarkup, "data-pmi-debt-record-extra-payoff", "Saved Auto Lease Extra Payoff");
+assertFieldNotApplicable(legacyLeaseMarkup, "data-pmi-debt-record-rate", "Saved Auto Lease Interest Rate");
+assert.doesNotMatch(legacyLeaseMarkup, /8888|300|7\.5/, "not-applicable saved values should not surface as active row inputs");
+const legacyLeaseSerialized = controller.serializeDebtRecords()[0];
+assert.equal(legacyLeaseSerialized.currentBalance, 8888, "saved N/A balance should hydrate safely without being overwritten by the N/A control");
+assert.equal(legacyLeaseSerialized.extraPayoffAmount, 300, "saved N/A extra payoff should hydrate safely without being overwritten by the N/A control");
+assert.equal(legacyLeaseSerialized.interestRatePercent, 7.5, "saved N/A rate should hydrate safely without being overwritten by the N/A control");
+assert.equal(legacyLeaseSerialized.paymentAmount, 500);
+assert.equal(legacyLeaseSerialized.remainingTermMonths, 18);
+
+controller.hydrateDebtRecords([
+  {
+    debtId: "dental_optional",
+    categoryKey: "medicalDebt",
+    typeKey: "dentalBill",
+    label: "Dental Optional"
+  },
+  {
+    debtId: "medical_plan_optional",
+    categoryKey: "medicalDebt",
+    typeKey: "medicalPaymentPlan",
+    label: "Medical Plan Optional"
+  },
+  {
+    debtId: "ltc_optional",
+    categoryKey: "medicalDebt",
+    typeKey: "longTermCareDebt",
+    label: "LTC Optional"
+  },
+  {
+    debtId: "legal_optional",
+    categoryKey: "taxLegalDebt",
+    typeKey: "legalJudgment",
+    label: "Legal Optional"
+  },
+  {
+    debtId: "court_optional",
+    categoryKey: "taxLegalDebt",
+    typeKey: "courtOrderedDebt",
+    label: "Court Optional"
+  },
+  {
+    debtId: "family_optional",
+    categoryKey: "privatePersonalDebt",
+    typeKey: "familyLoan",
+    label: "Family Optional"
+  },
+  {
+    debtId: "friend_optional",
+    categoryKey: "privatePersonalDebt",
+    typeKey: "loanFromFriend",
+    label: "Friend Optional"
+  },
+  {
+    debtId: "informal_optional",
+    categoryKey: "privatePersonalDebt",
+    typeKey: "informalPersonalObligation",
+    label: "Informal Optional"
+  },
+  {
+    debtId: "business_loc_optional",
+    categoryKey: "businessDebt",
+    typeKey: "businessLineOfCredit",
+    label: "Business LOC Optional"
+  }
+]);
+const dentalOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Dental Optional");
+assertFieldOptional(dentalOptionalMarkup, "data-pmi-debt-record-term", "Dental Bill Remaining Term");
+assertFieldOptional(dentalOptionalMarkup, "data-pmi-debt-record-rate", "Dental Bill Interest Rate");
+const medicalPlanOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Medical Plan Optional");
+assertFieldOptional(medicalPlanOptionalMarkup, "data-pmi-debt-record-rate", "Medical Payment Plan Interest Rate");
+const ltcOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "LTC Optional");
+assertFieldOptional(ltcOptionalMarkup, "data-pmi-debt-record-rate", "Long-Term Care Debt Interest Rate");
+const legalOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Legal Optional");
+assertFieldOptional(legalOptionalMarkup, "data-pmi-debt-record-extra-payoff", "Legal Judgment Extra Payoff");
+assertFieldOptional(legalOptionalMarkup, "data-pmi-debt-record-rate", "Legal Judgment Interest Rate");
+const courtOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Court Optional");
+assertFieldOptional(courtOptionalMarkup, "data-pmi-debt-record-extra-payoff", "Court-Ordered Debt Extra Payoff");
+assertFieldOptional(courtOptionalMarkup, "data-pmi-debt-record-rate", "Court-Ordered Debt Interest Rate");
+const familyOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Family Optional");
+assertFieldOptional(familyOptionalMarkup, "data-pmi-debt-record-term", "Family Loan Remaining Term");
+assertFieldOptional(familyOptionalMarkup, "data-pmi-debt-record-rate", "Family Loan Interest Rate");
+const friendOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Friend Optional");
+assertFieldOptional(friendOptionalMarkup, "data-pmi-debt-record-term", "Loan From Friend Remaining Term");
+assertFieldOptional(friendOptionalMarkup, "data-pmi-debt-record-rate", "Loan From Friend Interest Rate");
+const informalOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Informal Optional");
+assertFieldOptional(informalOptionalMarkup, "data-pmi-debt-record-term", "Informal Personal Obligation Remaining Term");
+assertFieldOptional(informalOptionalMarkup, "data-pmi-debt-record-rate", "Informal Personal Obligation Interest Rate");
+const businessLocOptionalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Business LOC Optional");
+assertFieldOptional(businessLocOptionalMarkup, "data-pmi-debt-record-term", "Business Line of Credit Remaining Term");
 
 controller.hydrateDebtRecords([]);
 assert.equal(controller.records.length, 0, "explicit saved empty debtRecords[] should preserve removed starter rows");

@@ -34,6 +34,180 @@
 
   const DEFAULT_PAYMENT_FREQUENCY = "monthly";
 
+  const DEBT_FIELD_STATE = Object.freeze({
+    ACTIVE: "active",
+    OPTIONAL: "optional",
+    NOT_APPLICABLE: "notApplicable"
+  });
+
+  const DEFAULT_DEBT_FIELD_APPLICABILITY = Object.freeze({
+    currentBalance: DEBT_FIELD_STATE.ACTIVE,
+    paymentFrequency: DEBT_FIELD_STATE.ACTIVE,
+    paymentAmount: DEBT_FIELD_STATE.ACTIVE,
+    extraPayoffAmount: DEBT_FIELD_STATE.ACTIVE,
+    remainingTermMonths: DEBT_FIELD_STATE.ACTIVE,
+    interestRatePercent: DEBT_FIELD_STATE.ACTIVE
+  });
+
+  const DEBT_FIELD_APPLICABILITY_BY_TYPE = Object.freeze({
+    autoLease: Object.freeze({
+      currentBalance: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      extraPayoffAmount: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      interestRatePercent: DEBT_FIELD_STATE.NOT_APPLICABLE
+    }),
+    creditCard: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    storeCard: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    chargeCard: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    unsecuredLineOfCredit: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    federalStudentLoan: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    privateStudentLoan: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    parentPlusLoan: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    studentLoanRefinance: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    irsTaxDebt: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    stateTaxDebt: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    propertyTaxDebt: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    backTaxes: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    legalJudgment: Object.freeze({
+      currentBalance: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    courtOrderedDebt: Object.freeze({
+      currentBalance: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    medicalBill: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    medicalPaymentPlan: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    dentalBill: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    longTermCareDebt: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    businessLoan: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    businessLineOfCredit: Object.freeze({
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    sbaLoan: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    commercialMortgage: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    accountsPayableBusinessObligation: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.NOT_APPLICABLE,
+      interestRatePercent: DEBT_FIELD_STATE.NOT_APPLICABLE
+    }),
+    businessEquipmentLoan: Object.freeze({
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    familyLoan: Object.freeze({
+      paymentAmount: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    privateNote: Object.freeze({
+      paymentAmount: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    loanFromFriend: Object.freeze({
+      paymentAmount: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    informalPersonalObligation: Object.freeze({
+      paymentAmount: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    otherDebt: Object.freeze({
+      currentBalance: DEBT_FIELD_STATE.OPTIONAL,
+      paymentAmount: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    }),
+    customDebt: Object.freeze({
+      currentBalance: DEBT_FIELD_STATE.OPTIONAL,
+      paymentAmount: DEBT_FIELD_STATE.OPTIONAL,
+      extraPayoffAmount: DEBT_FIELD_STATE.OPTIONAL,
+      remainingTermMonths: DEBT_FIELD_STATE.OPTIONAL,
+      interestRatePercent: DEBT_FIELD_STATE.OPTIONAL
+    })
+  });
+
   const STARTER_DEBT_TYPE_KEYS = Object.freeze([
     "creditCard",
     "federalStudentLoan",
@@ -333,6 +507,22 @@
       || "Debt";
   }
 
+  function getDebtRecordFieldApplicability(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const typeKey = normalizeDebtTypeKey(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    const typePolicy = DEBT_FIELD_APPLICABILITY_BY_TYPE[typeKey] || {};
+    return Object.assign({}, DEFAULT_DEBT_FIELD_APPLICABILITY, typePolicy);
+  }
+
+  function getDebtRecordFieldState(record, fieldKey) {
+    const applicability = getDebtRecordFieldApplicability(record);
+    return applicability[fieldKey] || DEBT_FIELD_STATE.ACTIVE;
+  }
+
+  function isDebtRecordFieldNotApplicable(record, fieldKey) {
+    return getDebtRecordFieldState(record, fieldKey) === DEBT_FIELD_STATE.NOT_APPLICABLE;
+  }
+
   function generateDebtId() {
     if (global.crypto && typeof global.crypto.randomUUID === "function") {
       return "debt_" + global.crypto.randomUUID().replace(/-/g, "_");
@@ -626,6 +816,71 @@
     }).join("");
   }
 
+  function getDebtRecordFieldCellClass(fieldState) {
+    return [
+      "pmi-debt-record-cell",
+      "pmi-debt-record-cell--" + normalizeString(fieldState || DEBT_FIELD_STATE.ACTIVE)
+    ].join(" ");
+  }
+
+  function getApplicableFieldNumber(record, fieldKey, input, parser) {
+    const safeParser = typeof parser === "function" ? parser : toOptionalNumber;
+    if (isDebtRecordFieldNotApplicable(record, fieldKey)) {
+      return safeParser(record && record[fieldKey]);
+    }
+
+    return safeParser(input && input.value);
+  }
+
+  function renderNotApplicableInput(options) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    const inputId = normalizeString(safeOptions.inputId);
+    const dataAttribute = normalizeString(safeOptions.dataAttribute);
+    const ariaLabel = normalizeString(safeOptions.ariaLabel) || "Not applicable";
+    const fieldKey = normalizeString(safeOptions.fieldKey);
+    return `
+      <input id="${escapeHtml(inputId)}" ${escapeHtml(dataAttribute)} type="text" value="N/A" disabled aria-disabled="true" aria-label="${escapeHtml(ariaLabel)} not applicable" data-pmi-debt-applicability-state="${DEBT_FIELD_STATE.NOT_APPLICABLE}" data-pmi-debt-record-not-applicable="${escapeHtml(fieldKey)}">
+    `;
+  }
+
+  function renderDebtNumberControl(options) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    const record = safeOptions.record || {};
+    const fieldKey = normalizeString(safeOptions.fieldKey);
+    const fieldState = getDebtRecordFieldState(record, fieldKey);
+    const inputId = normalizeString(safeOptions.inputId);
+    const dataAttribute = normalizeString(safeOptions.dataAttribute);
+    const ariaLabel = normalizeString(safeOptions.ariaLabel);
+    const cellLabel = normalizeString(safeOptions.cellLabel) || ariaLabel;
+    const suffix = normalizeString(safeOptions.suffix);
+    const min = safeOptions.min == null ? "0" : normalizeString(safeOptions.min);
+    const step = safeOptions.step == null ? "1" : normalizeString(safeOptions.step);
+
+    if (fieldState === DEBT_FIELD_STATE.NOT_APPLICABLE) {
+      return `
+            <div class="${getDebtRecordFieldCellClass(fieldState)}" role="cell" data-column-label="${escapeHtml(cellLabel)}" data-pmi-debt-applicability-state="${fieldState}">
+              <div class="pmi-debt-record-na-control">
+                ${renderNotApplicableInput({
+                  inputId,
+                  dataAttribute,
+                  ariaLabel,
+                  fieldKey
+                })}
+              </div>
+            </div>
+      `;
+    }
+
+    return `
+            <div class="${getDebtRecordFieldCellClass(fieldState)}" role="cell" data-column-label="${escapeHtml(cellLabel)}" data-pmi-debt-applicability-state="${fieldState}">
+              <div class="profile-currency-field pmi-debt-record-compact-currency">
+                <input id="${escapeHtml(inputId)}" ${escapeHtml(dataAttribute)} type="number" min="${escapeHtml(min)}" step="${escapeHtml(step)}" value="${escapeHtml(formatValueForInput(safeOptions.value))}" aria-label="${escapeHtml(ariaLabel)}" data-pmi-debt-applicability-state="${fieldState}">
+                <span class="profile-currency-suffix">${escapeHtml(suffix)}</span>
+              </div>
+            </div>
+    `;
+  }
+
   function createStarterDebtId(typeKey) {
     return "starter_debt_" + normalizeString(typeKey).replace(/[^A-Za-z0-9_-]+/g, "_");
   }
@@ -755,18 +1010,38 @@
             paymentFrequencyInput && paymentFrequencyInput.value,
             existingRecord.paymentFrequency
           );
-          const paymentAmount = toOptionalNonNegativeNumber(paymentInput && paymentInput.value);
+          const paymentAmount = getApplicableFieldNumber(
+            existingRecord,
+            "paymentAmount",
+            paymentInput,
+            toOptionalNonNegativeNumber
+          );
 
           return Object.assign({}, existingRecord, {
             debtId: existingRecord.debtId || debtId || generateDebtId(),
             label,
-            currentBalance: toOptionalNumber(balanceInput && balanceInput.value),
+            currentBalance: getApplicableFieldNumber(existingRecord, "currentBalance", balanceInput, toOptionalNumber),
             paymentFrequency,
             paymentAmount,
             minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
-            extraPayoffAmount: toOptionalNonNegativeNumber(extraPayoffInput && extraPayoffInput.value),
-            interestRatePercent: toOptionalNumber(rateInput && rateInput.value),
-            remainingTermMonths: toOptionalNumber(termInput && termInput.value)
+            extraPayoffAmount: getApplicableFieldNumber(
+              existingRecord,
+              "extraPayoffAmount",
+              extraPayoffInput,
+              toOptionalNonNegativeNumber
+            ),
+            interestRatePercent: getApplicableFieldNumber(
+              existingRecord,
+              "interestRatePercent",
+              rateInput,
+              toOptionalNumber
+            ),
+            remainingTermMonths: getApplicableFieldNumber(
+              existingRecord,
+              "remainingTermMonths",
+              termInput,
+              toOptionalNumber
+            )
           });
         });
     }
@@ -792,6 +1067,7 @@
         const termInputId = createInputId("pmi-debt-record", debtId, "term");
         const paymentFrequency = normalizePaymentFrequency(record.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
         const paymentAmount = getPaymentAmountForRecord(record);
+        const paymentFrequencyState = getDebtRecordFieldState(record, "paymentFrequency");
         return `
           <div class="pmi-debt-record-row" role="row" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
             <div class="pmi-debt-record-cell pmi-debt-record-type-cell" role="cell" data-column-label="Debt Type">
@@ -800,41 +1076,66 @@
             <div class="pmi-debt-record-cell" role="cell" data-column-label="Label / Creditor">
               <input id="${escapeHtml(labelInputId)}" data-pmi-debt-record-label type="text" value="${escapeHtml(record.label)}" aria-label="Label / Creditor">
             </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Balance">
-              <div class="profile-currency-field pmi-debt-record-compact-currency">
-                <input id="${escapeHtml(balanceInputId)}" data-pmi-debt-record-balance type="number" min="0" step="100" value="${escapeHtml(formatValueForInput(record.currentBalance))}" aria-label="Balance">
-                <span class="profile-currency-suffix">USD</span>
-              </div>
-            </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Frequency">
-              <select id="${escapeHtml(paymentFrequencyInputId)}" data-pmi-debt-record-payment-frequency aria-label="Payment Frequency">
+            ${renderDebtNumberControl({
+              record,
+              fieldKey: "currentBalance",
+              inputId: balanceInputId,
+              dataAttribute: "data-pmi-debt-record-balance",
+              value: record.currentBalance,
+              ariaLabel: "Balance",
+              cellLabel: "Balance",
+              suffix: "USD",
+              step: "100"
+            })}
+            <div class="${getDebtRecordFieldCellClass(paymentFrequencyState)}" role="cell" data-column-label="Payment Frequency" data-pmi-debt-applicability-state="${paymentFrequencyState}">
+              <select id="${escapeHtml(paymentFrequencyInputId)}" data-pmi-debt-record-payment-frequency aria-label="Payment Frequency" data-pmi-debt-applicability-state="${paymentFrequencyState}">
                 ${renderSelectOptions(PAYMENT_FREQUENCY_OPTIONS, paymentFrequency)}
               </select>
             </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Amount">
-              <div class="profile-currency-field pmi-debt-record-compact-currency">
-                <input id="${escapeHtml(paymentInputId)}" data-pmi-debt-record-payment data-pmi-debt-record-payment-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(paymentAmount))}" aria-label="Payment Amount">
-                <span class="profile-currency-suffix">USD</span>
-              </div>
-            </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Extra Payoff">
-              <div class="profile-currency-field pmi-debt-record-compact-currency">
-                <input id="${escapeHtml(extraPayoffInputId)}" data-pmi-debt-record-extra-payoff type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.extraPayoffAmount))}" aria-label="Extra Payoff">
-                <span class="profile-currency-suffix">USD</span>
-              </div>
-            </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Remaining Term">
-              <div class="profile-currency-field pmi-debt-record-compact-currency">
-                <input id="${escapeHtml(termInputId)}" data-pmi-debt-record-term type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.remainingTermMonths))}" aria-label="Remaining Term">
-                <span class="profile-currency-suffix">Mo</span>
-              </div>
-            </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Interest Rate">
-              <div class="profile-currency-field pmi-debt-record-compact-currency">
-                <input id="${escapeHtml(rateInputId)}" data-pmi-debt-record-rate type="number" min="0" step="0.01" value="${escapeHtml(formatValueForInput(record.interestRatePercent))}" aria-label="Interest Rate">
-                <span class="profile-currency-suffix">%</span>
-              </div>
-            </div>
+            ${renderDebtNumberControl({
+              record,
+              fieldKey: "paymentAmount",
+              inputId: paymentInputId,
+              dataAttribute: "data-pmi-debt-record-payment data-pmi-debt-record-payment-amount",
+              value: paymentAmount,
+              ariaLabel: "Payment Amount",
+              cellLabel: "Payment Amount",
+              suffix: "USD",
+              step: "25"
+            })}
+            ${renderDebtNumberControl({
+              record,
+              fieldKey: "extraPayoffAmount",
+              inputId: extraPayoffInputId,
+              dataAttribute: "data-pmi-debt-record-extra-payoff",
+              value: record.extraPayoffAmount,
+              ariaLabel: "Extra Payoff",
+              cellLabel: "Extra Payoff",
+              suffix: "USD",
+              step: "25"
+            })}
+            ${renderDebtNumberControl({
+              record,
+              fieldKey: "remainingTermMonths",
+              inputId: termInputId,
+              dataAttribute: "data-pmi-debt-record-term",
+              value: record.remainingTermMonths,
+              ariaLabel: "Remaining Term",
+              cellLabel: "Remaining Term",
+              suffix: "Mo",
+              step: "1"
+            })}
+            ${renderDebtNumberControl({
+              record,
+              fieldKey: "interestRatePercent",
+              inputId: rateInputId,
+              dataAttribute: "data-pmi-debt-record-rate",
+              value: record.interestRatePercent,
+              ariaLabel: "Interest Rate",
+              cellLabel: "Interest Rate",
+              suffix: "%",
+              step: "0.01"
+            })}
             <div class="pmi-debt-record-cell pmi-debt-record-remove-cell" role="cell" data-column-label="Remove">
               <button class="pmi-asset-record-remove pmi-debt-record-remove" type="button" data-pmi-debt-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
             </div>
@@ -1141,6 +1442,7 @@
     serializeDebtRecords,
     createDebtRecordFromLibraryEntry,
     createDebtRecordsFromLegacyScalarFields,
-    createLegacyScalarDebtCompatibilityFromRecords
+    createLegacyScalarDebtCompatibilityFromRecords,
+    getDebtRecordFieldApplicability
   };
 })(window);

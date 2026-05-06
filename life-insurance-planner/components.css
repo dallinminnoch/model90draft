@@ -1690,6 +1690,10 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   min-width: 0;
 }
 
+.pmi-debt-record-cell--notApplicable {
+  opacity: 0.72;
+}
+
 .pmi-debt-record-type-label {
   display: block;
   overflow: hidden;
@@ -1713,8 +1717,30 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   line-height: 1.15;
 }
 
+.pmi-debt-record-row input:disabled,
+.pmi-debt-record-row select:disabled,
+.pmi-debt-record-na-control input {
+  border-color: #e1e5ed;
+  background: #f3f5f8;
+  color: #8a92a1;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .pmi-debt-record-row select {
   padding-right: 1rem;
+}
+
+.pmi-debt-record-na-control {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.pmi-debt-record-na-control input {
+  padding-right: 0.32rem;
+  text-align: center;
+  font-weight: 700;
 }
 
 .pmi-debt-record-compact-currency {
@@ -2784,7 +2810,7 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   min-height: 0;
   height: auto;
   margin-top: 0;
-  overflow-y: auto;
+  overflow: visible;
   padding: 0.76rem 0.24rem 0.9rem;
   background: #1f1a45;
   border-radius: 0.48rem;
@@ -2797,6 +2823,21 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   gap: 0.38rem;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: visible;
+}
+
+.workspace-side-nav-shell .workspace-side-nav-primary-item-shell {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.workspace-side-nav-shell .workspace-side-nav-primary-item-shell-settings {
+  margin-top: auto;
+}
+
+.workspace-side-nav-shell .workspace-side-nav-primary-item-shell > .workspace-side-nav-primary-button {
+  width: 100%;
 }
 
 .workspace-side-nav-shell .workspace-side-nav-primary-button {
@@ -2939,8 +2980,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 
 .workspace-side-nav-shell .workspace-side-nav-flyout {
   position: absolute;
-  top: 0.76rem;
-  left: calc(var(--workspace-side-nav-primary-rail-width) + 0.58rem);
+  top: 0;
+  left: calc(100% + 0.82rem);
   width: min(17.5rem, calc(100vw - 6.25rem));
   max-height: calc(100vh - var(--workspace-topbar-height, 2.2rem) - 1.35rem);
   opacity: 0;
@@ -2950,8 +2991,22 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   z-index: 44;
 }
 
-.workspace-side-nav-shell.has-workspace-side-nav-flyout:hover .workspace-side-nav-flyout,
-.workspace-side-nav-shell.has-workspace-side-nav-flyout:focus-within .workspace-side-nav-flyout {
+.workspace-side-nav-shell .workspace-side-nav-primary-item-shell-settings > .workspace-side-nav-flyout {
+  top: auto;
+  bottom: 0;
+}
+
+.workspace-side-nav-shell .workspace-side-nav-flyout::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.86rem;
+  width: 0.86rem;
+}
+
+.workspace-side-nav-shell .workspace-side-nav-primary-item-shell.has-workspace-side-nav-flyout:hover > .workspace-side-nav-flyout,
+.workspace-side-nav-shell .workspace-side-nav-primary-item-shell.has-workspace-side-nav-flyout:focus-within > .workspace-side-nav-flyout {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
