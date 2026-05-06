@@ -91,9 +91,9 @@ function createScenario(overrides = {}) {
     },
     warnings: [
       {
-        code: "composer-review-note",
-        message: "Composer warning retained for scenario review.",
-        sourcePaths: ["warnings.0"]
+        code: "asset-treatment-assumptions-defaulted",
+        message: "Saved asset treatment assumptions were unavailable; default asset-treatment policy was applied.",
+        sourcePaths: ["assetTreatmentAssumptions"]
       }
     ],
     dataGaps: [
@@ -101,6 +101,16 @@ function createScenario(overrides = {}) {
         code: "missing-survivor-net-income",
         message: "Survivor net income missing.",
         sourcePaths: ["lensModel.survivorScenario.survivorNetAnnualIncome"]
+      },
+      {
+        code: "missing-final-expenses",
+        message: "Final expenses missing.",
+        sourcePaths: ["immediateObligations.finalExpenses"]
+      },
+      {
+        code: "missing-transition-needs",
+        message: "Transition needs missing.",
+        sourcePaths: ["immediateObligations.transitionNeeds"]
       }
     ],
     trace: {
@@ -168,7 +178,7 @@ function assertNoForbiddenConcepts() {
 function assertLibraryShape(context) {
   const { incomeImpactCautionRules } = context.LensApp.lensAnalysis;
   assert.ok(Array.isArray(incomeImpactCautionRules), "incomeImpactCautionRules exports");
-  assert.strictEqual(incomeImpactCautionRules.length, 10, "V1 default rule count");
+  assert.strictEqual(incomeImpactCautionRules.length, 18, "expanded V1 default rule count");
   incomeImpactCautionRules.forEach((rule) => {
     assert.ok(rule.id, "rule id exists");
     assert.ok(rule.category, "rule category exists");
@@ -215,7 +225,21 @@ function runDefaultRuleChecks() {
 
   assert.deepStrictEqual(
     output.events.map((event) => event.severity),
-    ["critical", "critical", "critical", "at-risk", "at-risk", "caution", "caution", "caution"],
+    [
+      "critical",
+      "critical",
+      "critical",
+      "at-risk",
+      "at-risk",
+      "at-risk",
+      "caution",
+      "caution",
+      "caution",
+      "caution",
+      "caution",
+      "caution",
+      "caution"
+    ],
     "critical / at-risk / caution ordering works"
   );
   assert.deepStrictEqual(
@@ -225,10 +249,15 @@ function runDefaultRuleChecks() {
       "survivor-resources-depleted",
       "depletion-within-6-months",
       "depletion-within-12-months",
+      "depletion-within-24-months",
       "accumulated-unmet-need",
+      "low-runway-duration",
       "immediate-obligations-reduce-resources",
+      "missing-survivor-net-income",
+      "missing-final-expense-estimate",
+      "missing-transition-needs-estimate",
+      "asset-treatment-defaulted",
       "composer-status-partial",
-      "major-composer-data-gaps"
     ],
     "events are sorted by severity and priority"
   );
@@ -257,16 +286,29 @@ function runDefaultRuleChecks() {
   assert.strictEqual(resourcesEvent.monthIndex, 0, "death event monthIndex is zero");
 
   const dataGapEvent = findEvent(output, "major-composer-data-gaps");
-  assert.ok(dataGapEvent, "composer data gaps become data-quality event");
-  assert.strictEqual(dataGapEvent.category, "dataQuality");
+  assert.ok(!dataGapEvent, "generic data-gap fallback does not duplicate covered setup gaps");
+
+  const survivorIncomeEvent = findEvent(output, "missing-survivor-net-income");
+  assert.ok(survivorIncomeEvent, "missing survivor income rule triggers from specific data gap");
+  assert.strictEqual(survivorIncomeEvent.category, "income");
+  assert.strictEqual(survivorIncomeEvent.severity, "caution");
   assert.ok(
-    dataGapEvent.sourcePaths.includes("lensModel.survivorScenario.survivorNetAnnualIncome"),
-    "data-quality event includes nested data-gap source path"
+    survivorIncomeEvent.sourcePaths.includes("lensModel.survivorScenario.survivorNetAnnualIncome"),
+    "specific data-quality event includes nested data-gap source path"
   );
   assert.deepStrictEqual(
-    dataGapEvent.evidence.find((item) => item.path === "dataGaps").value,
+    survivorIncomeEvent.evidence.find((item) => item.path === "dataGaps").value,
     scenario.dataGaps,
-    "data gap evidence values are preserved"
+    "specific data gap evidence values are preserved"
+  );
+
+  assert.ok(findEvent(output, "missing-final-expense-estimate"), "missing final expenses rule triggers");
+  assert.ok(findEvent(output, "missing-transition-needs-estimate"), "missing transition needs rule triggers");
+  assert.ok(findEvent(output, "asset-treatment-defaulted"), "asset-treatment default warning rule triggers");
+  assert.ok(
+    output.trace.predicateIds.includes("issue-code-present")
+      && output.trace.predicateIds.includes("warning-code-present"),
+    "specific issue/warning predicates are traced"
   );
 
   assert.strictEqual(output.trace.calculationMethod, "income-impact-risk-event-evaluator-v1");
@@ -428,7 +470,94 @@ function runNoRiskScenarioChecks() {
     })
   }));
   assert.deepStrictEqual(output.events, [], "no-risk scenario emits no true risk events");
-  assert.deepStrictEqual(output.stableEvents, [], "no stable events emit when covered facts are absent");
+  assert.deepStrictEqual(
+    output.stableEvents.map((event) => event.ruleId),
+    ["resources-remain-through-horizon", "scenario-complete"],
+    "complete and not-depleted scenarios emit stable covered facts"
+  );
+}
+
+function runSpecificIssueCodeChecks() {
+  const context = createContext();
+  const { evaluateIncomeImpactRiskEvents } = context.LensApp.lensAnalysis;
+
+  const missingMatureOnly = clone(evaluateIncomeImpactRiskEvents({
+    scenario: createScenario({
+      dataGaps: [
+        {
+          code: "missing-mature-net-survivor-income",
+          message: "No mature net survivor income stream was supplied.",
+          sourcePaths: ["survivorIncomeStreams"]
+        }
+      ],
+      warnings: []
+    })
+  }));
+  assert.ok(
+    findEvent(missingMatureOnly, "missing-survivor-net-income"),
+    "issue-code-present supports multiple possible codes"
+  );
+
+  const unknownGapOnly = clone(evaluateIncomeImpactRiskEvents({
+    scenario: createScenario({
+      dataGaps: [
+        {
+          code: "missing-essential-needs",
+          message: "Survivor needs missing.",
+          sourcePaths: ["survivorNeedStreams"]
+        }
+      ],
+      warnings: []
+    })
+  }));
+  assert.ok(
+    findEvent(unknownGapOnly, "major-composer-data-gaps"),
+    "generic data-gap rule remains available for uncovered gap codes"
+  );
+  assert.ok(
+    unknownGapOnly.events.findIndex((event) => event.ruleId === "composer-status-partial")
+      < unknownGapOnly.events.findIndex((event) => event.ruleId === "major-composer-data-gaps"),
+    "generic partial umbrella still sorts before generic data-gap fallback"
+  );
+
+  const completeNotDepleted = clone(evaluateIncomeImpactRiskEvents({
+    scenario: createScenario({
+      status: "complete",
+      deathEvent: {
+        immediateObligations: 0,
+        resourcesAfterObligations: 500000,
+        survivorAvailableTreatedAssets: 120000,
+        coverageAdded: 400000
+      },
+      postDeathSeries: {
+        depletion: {
+          depleted: false,
+          depletionDate: null,
+          depletionMonthIndex: null,
+          monthsCovered: null,
+          precision: "monthly"
+        },
+        summary: {
+          accumulatedUnmetNeed: 0
+        }
+      },
+      timelineFacts: {
+        resourcesAfterObligations: 500000,
+        depletionDate: null,
+        monthsCovered: null,
+        accumulatedUnmetNeed: 0,
+        coverageAdded: 400000,
+        survivorAvailableTreatedAssets: 120000
+      },
+      dataGaps: [],
+      warnings: []
+    })
+  }));
+  assert.ok(findEvent(completeNotDepleted, "scenario-complete"), "status-equals supports complete stable event");
+  assert.ok(
+    findEvent(completeNotDepleted, "resources-remain-through-horizon"),
+    "depletion-not-depleted supports stable runway event"
+  );
 }
 
 function runChecks() {
@@ -440,6 +569,7 @@ function runChecks() {
   runSkipChecks();
   runMissingScenarioChecks();
   runNoRiskScenarioChecks();
+  runSpecificIssueCodeChecks();
   console.log("Income Impact risk event evaluator V1 checks passed.");
 }
 

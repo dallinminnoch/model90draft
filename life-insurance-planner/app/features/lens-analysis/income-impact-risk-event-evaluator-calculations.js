@@ -157,6 +157,65 @@
     return sourcePaths;
   }
 
+  function getIssueItems(scenario, path) {
+    const items = getPath(scenario, path);
+    return Array.isArray(items) ? items.filter(isPlainObject) : [];
+  }
+
+  function getRuleCodes(params) {
+    return uniqueStrings([]
+      .concat(Array.isArray(params.codes) ? params.codes : [])
+      .concat(params.code ? [params.code] : []));
+  }
+
+  function getIssueCode(item) {
+    return normalizeString(item?.code || item?.id);
+  }
+
+  function findMatchingIssueItems(scenario, params, defaultPath) {
+    const path = normalizeString(params.path || defaultPath);
+    const codes = getRuleCodes(params);
+    const excludedCodes = uniqueStrings(params.excludeCodes);
+    const items = getIssueItems(scenario, path);
+
+    if (codes.length) {
+      return items.filter(function (item) {
+        return codes.includes(getIssueCode(item));
+      });
+    }
+
+    if (excludedCodes.length) {
+      return items.filter(function (item) {
+        const code = getIssueCode(item);
+        return code && !excludedCodes.includes(code);
+      });
+    }
+
+    return items.filter(function (item) {
+      return Boolean(getIssueCode(item));
+    });
+  }
+
+  function collectIssueSourcePaths(scenario, rule) {
+    const predicateId = normalizeString(rule?.predicateId);
+    const params = isPlainObject(rule?.params) ? rule.params : {};
+    let defaultPath = "";
+
+    if (predicateId === "issue-code-present") {
+      defaultPath = "dataGaps";
+    } else if (predicateId === "warning-code-present") {
+      defaultPath = "warnings";
+    } else {
+      return [];
+    }
+
+    const sourcePaths = [];
+    findMatchingIssueItems(scenario, params, defaultPath).forEach(function (item) {
+      appendUnique(sourcePaths, item.sourcePaths);
+    });
+    return sourcePaths;
+  }
+
   function buildEvidence(scenario, rule) {
     return getEvidencePaths(rule).map(function (path) {
       return {
@@ -244,6 +303,13 @@
       };
     }
 
+    if (predicateId === "depletion-not-depleted") {
+      return {
+        known: true,
+        triggered: getDepletion(scenario).depleted === false
+      };
+    }
+
     if (predicateId === "depletion-within-months") {
       const depletion = getDepletion(scenario);
       const monthsCovered = toOptionalNumber(scenario?.timelineFacts?.monthsCovered ?? depletion.monthsCovered);
@@ -264,11 +330,44 @@
       };
     }
 
+    if (predicateId === "status-equals") {
+      return {
+        known: true,
+        triggered: normalizeStatus(getPath(scenario, params.path || "status")) === normalizeStatus(params.value)
+      };
+    }
+
+    if (predicateId === "boolean-equals") {
+      const value = getPath(scenario, params.path);
+      const expected = params.value === true || normalizeStatus(params.value) === "true";
+      return {
+        known: typeof value === "boolean",
+        triggered: typeof value === "boolean" && value === expected
+      };
+    }
+
     if (predicateId === "array-has-entries") {
       const value = getPath(scenario, params.path);
       return {
         known: Array.isArray(value),
         triggered: Array.isArray(value) && value.length > 0
+      };
+    }
+
+    if (predicateId === "issue-code-present") {
+      const path = normalizeString(params.path || "dataGaps");
+      const items = getIssueItems(scenario, path);
+      return {
+        known: Array.isArray(getPath(scenario, path)),
+        triggered: findMatchingIssueItems(scenario, params, "dataGaps").length > 0
+      };
+    }
+
+    if (predicateId === "warning-code-present") {
+      const path = normalizeString(params.path || "warnings");
+      return {
+        known: Array.isArray(getPath(scenario, path)),
+        triggered: findMatchingIssueItems(scenario, params, "warnings").length > 0
       };
     }
 
@@ -311,6 +410,7 @@
       (Array.isArray(rule.sourcePaths) ? rule.sourcePaths : [])
         .concat(getEvidencePaths(rule))
         .concat(rule.id === "major-composer-data-gaps" ? collectDataGapSourcePaths(scenario) : [])
+        .concat(collectIssueSourcePaths(scenario, rule))
     );
 
     return {

@@ -129,6 +129,48 @@
       enabled: true
     }),
     freezeRule({
+      id: "depletion-within-24-months",
+      category: "runway",
+      severity: "at-risk",
+      priority: 45,
+      phase: "postDeath",
+      predicateId: "depletion-within-months",
+      params: {
+        months: 24
+      },
+      title: "Resources deplete within 24 months",
+      summaryTemplate: "Resources are projected to cover {timelineFacts.monthsCovered} months.",
+      markerLabel: "24 months",
+      evidencePaths: [
+        "timelineFacts.monthsCovered",
+        "timelineFacts.depletionDate",
+        "postDeathSeries.depletion"
+      ],
+      sourcePaths: ["timelineFacts.monthsCovered"],
+      enabled: true
+    }),
+    freezeRule({
+      id: "low-runway-duration",
+      category: "runway",
+      severity: "caution",
+      priority: 58,
+      phase: "postDeath",
+      predicateId: "depletion-within-months",
+      params: {
+        months: 36
+      },
+      title: "Runway duration is limited",
+      summaryTemplate: "Resources are projected to cover {timelineFacts.monthsCovered} months before depletion.",
+      markerLabel: "Low runway",
+      evidencePaths: [
+        "timelineFacts.monthsCovered",
+        "timelineFacts.depletionDate",
+        "postDeathSeries.depletion"
+      ],
+      sourcePaths: ["timelineFacts.monthsCovered"],
+      enabled: true
+    }),
+    freezeRule({
       id: "immediate-obligations-reduce-resources",
       category: "obligations",
       severity: "caution",
@@ -192,10 +234,149 @@
       enabled: true
     }),
     freezeRule({
+      id: "resources-remain-through-horizon",
+      category: "runway",
+      severity: "stable",
+      priority: 85,
+      phase: "postDeath",
+      predicateId: "depletion-not-depleted",
+      title: "Resources remain through the horizon",
+      summaryTemplate: "Resources are not projected to deplete within the selected horizon.",
+      markerLabel: "Not depleted",
+      evidencePaths: [
+        "postDeathSeries.depletion",
+        "timelineFacts.monthsCovered"
+      ],
+      sourcePaths: ["postDeathSeries.depletion"],
+      enabled: true
+    }),
+    freezeRule({
+      id: "scenario-complete",
+      category: "dataQuality",
+      severity: "stable",
+      priority: 90,
+      phase: "dataQuality",
+      predicateId: "status-equals",
+      params: {
+        path: "status",
+        value: "complete"
+      },
+      title: "Scenario inputs are complete",
+      summaryTemplate: "Scenario status is {status}.",
+      markerLabel: "Complete",
+      evidencePaths: [
+        "status"
+      ],
+      sourcePaths: ["status"],
+      enabled: true
+    }),
+    freezeRule({
+      id: "missing-survivor-net-income",
+      category: "income",
+      severity: "caution",
+      priority: 110,
+      phase: "postDeath",
+      predicateId: "issue-code-present",
+      params: {
+        path: "dataGaps",
+        codes: [
+          "missing-survivor-net-income",
+          "missing-mature-net-survivor-income"
+        ]
+      },
+      title: "Survivor net income needs review",
+      summaryTemplate: "Survivor net income is missing from the setup inputs for the after-death runway.",
+      markerLabel: "Income input",
+      evidencePaths: [
+        "dataGaps",
+        "postDeathSeries.depletion"
+      ],
+      sourcePaths: [
+        "lensModel.survivorScenario.survivorNetAnnualIncome",
+        "survivorIncomeStreams"
+      ],
+      enabled: true
+    }),
+    freezeRule({
+      id: "missing-final-expense-estimate",
+      category: "obligations",
+      severity: "caution",
+      priority: 120,
+      phase: "deathEvent",
+      predicateId: "issue-code-present",
+      params: {
+        path: "dataGaps",
+        codes: [
+          "missing-final-expenses"
+        ]
+      },
+      title: "Final expense estimate is missing",
+      summaryTemplate: "Final expenses are not available for the death-event obligation estimate.",
+      markerLabel: "Final expenses",
+      evidencePaths: [
+        "dataGaps",
+        "deathEvent.immediateObligations",
+        "deathEvent.resourcesAfterObligations"
+      ],
+      sourcePaths: ["deathEvent.layer2.immediateObligations.finalExpenses"],
+      enabled: true
+    }),
+    freezeRule({
+      id: "missing-transition-needs-estimate",
+      category: "obligations",
+      severity: "caution",
+      priority: 130,
+      phase: "deathEvent",
+      predicateId: "issue-code-present",
+      params: {
+        path: "dataGaps",
+        codes: [
+          "missing-transition-needs"
+        ]
+      },
+      title: "Transition needs estimate is missing",
+      summaryTemplate: "Transition needs are not available for the death-event obligation estimate.",
+      markerLabel: "Transition needs",
+      evidencePaths: [
+        "dataGaps",
+        "deathEvent.immediateObligations",
+        "deathEvent.resourcesAfterObligations"
+      ],
+      sourcePaths: ["deathEvent.layer2.immediateObligations.transitionNeeds"],
+      enabled: true
+    }),
+    freezeRule({
+      id: "asset-treatment-defaulted",
+      category: "assetTreatment",
+      severity: "caution",
+      priority: 140,
+      phase: "deathEvent",
+      predicateId: "warning-code-present",
+      params: {
+        path: "warnings",
+        codes: [
+          "asset-treatment-assumptions-defaulted"
+        ]
+      },
+      title: "Asset treatment defaults applied",
+      summaryTemplate: "Saved asset-treatment assumptions were unavailable, so default treatment was applied and should be reviewed.",
+      markerLabel: "Asset defaults",
+      evidencePaths: [
+        "warnings",
+        "deathEvent.layer2.trace.assetTreatmentAssumptions",
+        "deathEvent.survivorAvailableTreatedAssets"
+      ],
+      sourcePaths: [
+        "warnings",
+        "deathEvent.layer2.trace.assetTreatmentAssumptions"
+      ],
+      enabled: true
+    }),
+    freezeRule({
       id: "composer-status-partial",
       category: "dataQuality",
       severity: "caution",
-      priority: 90,
+      priority: 900,
       phase: "dataQuality",
       predicateId: "status-not-complete",
       params: {
@@ -215,14 +396,20 @@
       id: "major-composer-data-gaps",
       category: "dataQuality",
       severity: "caution",
-      priority: 100,
+      priority: 910,
       phase: "dataQuality",
-      predicateId: "array-has-entries",
+      predicateId: "issue-code-present",
       params: {
-        path: "dataGaps"
+        path: "dataGaps",
+        excludeCodes: [
+          "missing-survivor-net-income",
+          "missing-mature-net-survivor-income",
+          "missing-final-expenses",
+          "missing-transition-needs"
+        ]
       },
-      title: "Scenario has data gaps",
-      summaryTemplate: "Scenario has {dataGaps.length} data gap entries.",
+      title: "Additional setup gaps remain",
+      summaryTemplate: "Scenario has additional data gaps that should be reviewed.",
       markerLabel: "Data gaps",
       evidencePaths: [
         "dataGaps"
