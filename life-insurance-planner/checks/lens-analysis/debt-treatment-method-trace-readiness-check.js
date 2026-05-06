@@ -504,31 +504,27 @@ function assertEnabledFalseDoesNotZeroDebt(methods) {
 }
 
 function assertNoProtectedDiffs() {
-  const allowedDiffs = new Set([
-    "pages/analysis-setup.html",
-    "app/features/lens-analysis/debt-library.js",
-    "app/features/lens-analysis/pmi-debt-records.js",
+  const protectedFiles = new Set([
+    "pages/manual-protection-modeling-inputs.html",
     "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/analysis-setup.js",
-    "app/features/lens-analysis/lens-model-builder.js",
-    "app/features/lens-analysis/schema.js",
+    "app/features/lens-analysis/debt-treatment-calculations.js",
+    "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
+    "app/features/lens-analysis/household-survivor-runway-calculations.js",
+    "app/features/lens-analysis/analysis-settings-adapter.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
-    "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
-    "checks/lens-analysis/debt-facts-normalization-check.js",
-    "checks/lens-analysis/debt-taxonomy-library-check.js",
-    "checks/lens-analysis/pmi-debt-records-check.js",
-    "checks/lens-analysis/debt-treatment-helper-check.js",
-    "checks/lens-analysis/debt-treatment-model-prep-check.js",
-    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
-    "checks/lens-analysis/step-three-debt-treatment-display-check.js"
+    "app/features/lens-analysis/asset-treatment-calculations.js",
+    "app/features/lens-analysis/existing-coverage-treatment-calculations.js",
+    "app/features/lens-analysis/education-funding-projection-calculations.js"
   ]);
   const changedFiles = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
     cwd: repoRoot,
     encoding: "utf8"
   }).split(/\r?\n/).filter(Boolean).map((line) => line.slice(3).trim());
-  const protectedDiffs = changedFiles.filter((filePath) => !allowedDiffs.has(filePath));
+  const protectedDiffs = changedFiles
+    .map((filePath) => filePath.replace(/^life-insurance-planner\//, ""))
+    .filter((filePath) => protectedFiles.has(filePath));
 
-  assert.deepEqual(protectedDiffs, [], "Only debt treatment truthfulness, metadata, and check files should change.");
+  assert.deepEqual(protectedDiffs, [], "Out-of-scope formula, display, and manual PMI files should not change.");
 }
 
 const context = createContext();

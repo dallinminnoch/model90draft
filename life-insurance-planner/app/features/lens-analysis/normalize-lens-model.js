@@ -1434,8 +1434,26 @@
     const taxonomy = getDebtTaxonomy();
     const debts = [];
     const warnings = [];
+    const debtRecordsAreSourceOfTruth = Array.isArray(safeSourceData.debtRecords);
+    const suppressedScalarDebtSourceFields = [];
 
     taxonomy.scalarSourceFields.forEach(function (sourceField) {
+      const sourceKey = normalizeDebtRecordString(sourceField && sourceField.sourceKey);
+      if (debtRecordsAreSourceOfTruth && sourceField && sourceField.isHousingFieldOwned !== true) {
+        if (hasUsableDebtSourceValue(safeSourceData, sourceKey)) {
+          suppressedScalarDebtSourceFields.push(sourceKey);
+          warnings.push(createDebtFactWarning(
+            "scalar-debt-source-suppressed-by-debt-records",
+            "Non-mortgage scalar debt source was not projected because debtRecords[] is the source of truth.",
+            {
+              sourceKey,
+              debtRecordsSource: DEBT_RECORDS_SOURCE_PATH
+            }
+          ));
+        }
+        return;
+      }
+
       const result = createDebtFactFromScalarSource(safeSourceData, sourceField, taxonomy);
       warnings.push.apply(warnings, result.warnings);
 
@@ -1470,6 +1488,11 @@
         scalarDebtSource: "scalar-compatibility-fields",
         debtRecordsSource: "protectionModeling.data.debtRecords",
         scalarDebtSourceFieldCount: taxonomy.scalarSourceFields.length,
+        debtRecordsSourceOfTruth: debtRecordsAreSourceOfTruth,
+        suppressedScalarDebtSourceFields,
+        scalarDebtSuppressionPolicy: debtRecordsAreSourceOfTruth
+          ? "non-mortgage-scalar-debt-fields-suppressed-when-debtRecords-exists"
+          : "scalar-compatibility-fields-project-when-debtRecords-missing",
         acceptedScalarDebtCount: debts.filter(function (debt) {
           return debt && debt.isScalarCompatibilityDebt === true;
         }).length,

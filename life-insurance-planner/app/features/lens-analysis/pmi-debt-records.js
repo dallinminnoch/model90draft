@@ -58,6 +58,122 @@
     otherDebt: "Other Debt"
   });
 
+  const LEGACY_SCALAR_DEBT_MIGRATION_FIELDS = Object.freeze([
+    Object.freeze({
+      sourceKey: "otherRealEstateLoans",
+      typeKey: "otherPropertyLoan",
+      label: "HELOC / Second Mortgage / Other Property Loans"
+    }),
+    Object.freeze({
+      sourceKey: "autoLoans",
+      typeKey: "autoLoan",
+      label: "Auto Loan"
+    }),
+    Object.freeze({
+      sourceKey: "creditCardDebt",
+      typeKey: "creditCard",
+      label: "Credit Card Debt"
+    }),
+    Object.freeze({
+      sourceKey: "studentLoans",
+      typeKey: "federalStudentLoan",
+      label: "Student Loan"
+    }),
+    Object.freeze({
+      sourceKey: "personalLoans",
+      typeKey: "personalLoan",
+      label: "Personal Loan"
+    }),
+    Object.freeze({
+      sourceKey: "taxLiabilities",
+      typeKey: "irsTaxDebt",
+      label: "Tax Debt / IRS Payment Plan"
+    }),
+    Object.freeze({
+      sourceKey: "businessDebt",
+      typeKey: "businessLoan",
+      label: "Business Debt"
+    }),
+    Object.freeze({
+      sourceKey: "otherLoanObligations",
+      typeKey: "otherDebt",
+      label: "Other Debt"
+    })
+  ]);
+
+  const LEGACY_SCALAR_COMPATIBILITY_KEYS = Object.freeze([
+    "otherRealEstateLoans",
+    "autoLoans",
+    "creditCardDebt",
+    "studentLoans",
+    "personalLoans",
+    "taxLiabilities",
+    "businessDebt",
+    "otherLoanObligations"
+  ]);
+
+  const LEGACY_SCALAR_BY_TYPE_KEY = Object.freeze({
+    heloc: "otherRealEstateLoans",
+    homeEquityLoan: "otherRealEstateLoans",
+    secondMortgage: "otherRealEstateLoans",
+    otherPropertyLoan: "otherRealEstateLoans",
+    investmentPropertyMortgage: "otherRealEstateLoans",
+    landLoan: "otherRealEstateLoans",
+    constructionLoan: "otherRealEstateLoans",
+    autoLoan: "autoLoans",
+    autoLease: "autoLoans",
+    secondVehicleLoan: "autoLoans",
+    secondVehicleLease: "autoLoans",
+    motorcycleLoan: "autoLoans",
+    rvLoan: "autoLoans",
+    boatLoan: "autoLoans",
+    aircraftLoan: "autoLoans",
+    creditCard: "creditCardDebt",
+    storeCard: "creditCardDebt",
+    chargeCard: "creditCardDebt",
+    personalLoan: "personalLoans",
+    securedPersonalLoan: "personalLoans",
+    unsecuredLineOfCredit: "personalLoans",
+    debtConsolidationLoan: "personalLoans",
+    federalStudentLoan: "studentLoans",
+    privateStudentLoan: "studentLoans",
+    parentPlusLoan: "studentLoans",
+    studentLoanRefinance: "studentLoans",
+    irsTaxDebt: "taxLiabilities",
+    stateTaxDebt: "taxLiabilities",
+    propertyTaxDebt: "taxLiabilities",
+    legalJudgment: "taxLiabilities",
+    courtOrderedDebt: "taxLiabilities",
+    backTaxes: "taxLiabilities",
+    businessLoan: "businessDebt",
+    businessLineOfCredit: "businessDebt",
+    sbaLoan: "businessDebt",
+    commercialMortgage: "businessDebt",
+    accountsPayableBusinessObligation: "businessDebt",
+    businessEquipmentLoan: "businessDebt"
+  });
+
+  const LEGACY_SCALAR_BY_CATEGORY_KEY = Object.freeze({
+    realEstateSecuredDebt: "otherRealEstateLoans",
+    securedConsumerDebt: "autoLoans",
+    educationDebt: "studentLoans",
+    medicalDebt: "otherLoanObligations",
+    taxLegalDebt: "taxLiabilities",
+    businessDebt: "businessDebt",
+    privatePersonalDebt: "otherLoanObligations",
+    consumerFinanceDebt: "otherLoanObligations",
+    otherDebt: "otherLoanObligations"
+  });
+
+  const BLOCKED_LEGACY_SCALAR_COMPATIBILITY_KEYS = Object.freeze([
+    "mortgageBalance",
+    "primaryResidenceMortgage",
+    "primaryResidenceEquity",
+    "realEstateEquity",
+    "otherRealEstateEquity",
+    "equity"
+  ]);
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -324,6 +440,94 @@
       .filter(Boolean);
   }
 
+  function createLegacyScalarDebtRecordId(sourceKey) {
+    return "legacy_scalar_debt_" + normalizeString(sourceKey).replace(/[^A-Za-z0-9_-]+/g, "_");
+  }
+
+  function createDebtRecordFromLegacyScalarField(sourceData, field) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const safeField = field && typeof field === "object" ? field : {};
+    const sourceKey = normalizeString(safeField.sourceKey);
+    const currentBalance = toOptionalNonNegativeNumber(safeSourceData[sourceKey]);
+    const entry = findLibraryEntry(safeField.typeKey);
+    const record = createDebtRecordFromLibraryEntry(entry, {
+      debtId: createLegacyScalarDebtRecordId(sourceKey),
+      label: safeField.label,
+      source: "legacy-scalar-migration"
+    });
+
+    if (!record || currentBalance == null || currentBalance <= 0) {
+      return null;
+    }
+
+    record.currentBalance = currentBalance;
+    record.sourceKey = sourceKey;
+    record.metadata = Object.assign({}, record.metadata, {
+      sourceType: "user-input",
+      source: "legacy-scalar-migration",
+      legacyScalarSourceKey: sourceKey,
+      migrationPolicy: "debtRecords-source-of-truth"
+    });
+    return record;
+  }
+
+  function createDebtRecordsFromLegacyScalarFields(sourceData) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    return LEGACY_SCALAR_DEBT_MIGRATION_FIELDS
+      .map(function (field) {
+        return createDebtRecordFromLegacyScalarField(safeSourceData, field);
+      })
+      .filter(Boolean);
+  }
+
+  function resolveLegacyScalarCompatibilityKey(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const sourceKey = normalizeString(safeRecord.sourceKey);
+    const typeKey = normalizeString(safeRecord.typeKey);
+    const categoryKey = normalizeString(safeRecord.categoryKey);
+    const directSourceMatch = LEGACY_SCALAR_COMPATIBILITY_KEYS.indexOf(sourceKey) !== -1
+      ? sourceKey
+      : null;
+
+    if (
+      BLOCKED_LEGACY_SCALAR_COMPATIBILITY_KEYS.indexOf(sourceKey) !== -1
+      || BLOCKED_LEGACY_SCALAR_COMPATIBILITY_KEYS.indexOf(typeKey) !== -1
+      || BLOCKED_LEGACY_SCALAR_COMPATIBILITY_KEYS.indexOf(categoryKey) !== -1
+    ) {
+      return null;
+    }
+
+    return directSourceMatch
+      || LEGACY_SCALAR_BY_TYPE_KEY[typeKey]
+      || LEGACY_SCALAR_BY_CATEGORY_KEY[categoryKey]
+      || "otherLoanObligations";
+  }
+
+  function createLegacyScalarDebtCompatibilityFromRecords(records) {
+    const compatibility = LEGACY_SCALAR_COMPATIBILITY_KEYS.reduce(function (fields, sourceKey) {
+      fields[sourceKey] = null;
+      return fields;
+    }, {});
+
+    if (!Array.isArray(records)) {
+      return compatibility;
+    }
+
+    records.forEach(function (record) {
+      const safeRecord = record && typeof record === "object" ? record : {};
+      const currentBalance = toOptionalNonNegativeNumber(safeRecord.currentBalance);
+      const compatibilityKey = resolveLegacyScalarCompatibilityKey(safeRecord);
+
+      if (currentBalance == null || currentBalance <= 0 || !compatibilityKey) {
+        return;
+      }
+
+      compatibility[compatibilityKey] = (compatibility[compatibilityKey] || 0) + currentBalance;
+    });
+
+    return compatibility;
+  }
+
   function createSearchText(entry) {
     return [
       entry.label,
@@ -490,6 +694,27 @@
     controller.libraryFilter = "suggested";
     controller.recentTypeKeys = [];
 
+    function getRecordsSnapshot() {
+      return controller.records.map(function (record) {
+        return Object.assign({}, record, {
+          metadata: clonePlainObject(record && record.metadata)
+        });
+      });
+    }
+
+    function notifyRecordsChanged() {
+      if (!root || typeof root.dispatchEvent !== "function" || typeof global.CustomEvent !== "function") {
+        return;
+      }
+
+      root.dispatchEvent(new global.CustomEvent("pmiDebtRecordsChange", {
+        bubbles: true,
+        detail: {
+          debtRecords: getRecordsSnapshot()
+        }
+      }));
+    }
+
     function syncRecordsFromDom() {
       if (!controller.list) {
         return;
@@ -638,6 +863,7 @@
         return typeKey !== record.typeKey;
       })).slice(0, 8);
       renderRows();
+      notifyRecordsChanged();
       return record;
     }
 
@@ -648,6 +874,7 @@
         return record.debtId !== normalizedDebtId;
       });
       renderRows();
+      notifyRecordsChanged();
       return controller.records.length !== initialCount;
     }
 
@@ -801,6 +1028,7 @@
         ? records.map(normalizeRecordForUi).filter(Boolean)
         : createStarterDebtRecords();
       renderRows();
+      notifyRecordsChanged();
     }
 
     function serializeDebtRecords() {
@@ -867,6 +1095,16 @@
       }
 
       syncRecordsFromDom();
+      notifyRecordsChanged();
+    });
+
+    controller.list?.addEventListener("change", function (event) {
+      if (!event.target.closest("[data-pmi-debt-record-entry]")) {
+        return;
+      }
+
+      syncRecordsFromDom();
+      notifyRecordsChanged();
     });
 
     hydrateDebtRecords();
@@ -890,6 +1128,8 @@
     initPmiDebtRecords,
     hydrateDebtRecords,
     serializeDebtRecords,
-    createDebtRecordFromLibraryEntry
+    createDebtRecordFromLibraryEntry,
+    createDebtRecordsFromLegacyScalarFields,
+    createLegacyScalarDebtCompatibilityFromRecords
   };
 })(window);

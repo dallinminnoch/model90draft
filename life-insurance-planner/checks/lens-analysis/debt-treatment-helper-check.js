@@ -225,14 +225,12 @@ function assertNoProtectedDiffs() {
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",
-    "app/features/lens-analysis/blocks/debt-payoff.js",
-    "app/features/lens-analysis/normalize-lens-model.js",
-    "pages/next-step.html",
-    "pages/confidential-inputs.html",
-    "pages/manual-protection-modeling-inputs.html",
-    "components.css",
-    "styles.css",
-    "app.js"
+    "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
+    "app/features/lens-analysis/household-survivor-runway-calculations.js",
+    "app/features/lens-analysis/asset-treatment-calculations.js",
+    "app/features/lens-analysis/existing-coverage-treatment-calculations.js",
+    "app/features/lens-analysis/education-funding-projection-calculations.js",
+    "pages/manual-protection-modeling-inputs.html"
   ]);
   const status = execFileSync("git", ["status", "--short"], {
     cwd: repoRoot,

@@ -119,6 +119,102 @@ function createSourceData(overrides = {}) {
     totalDebtPayoffNeedManualOverride: false,
     debtRecords: [
       {
+        debtId: "other-property-record",
+        categoryKey: "realEstateSecuredDebt",
+        typeKey: "otherPropertyLoan",
+        label: "Other Property Loan",
+        currentBalance: 20000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "otherPropertyLoan"
+        }
+      },
+      {
+        debtId: "auto-record",
+        categoryKey: "securedConsumerDebt",
+        typeKey: "autoLoan",
+        label: "Auto Loan",
+        currentBalance: 15000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "autoLoan"
+        }
+      },
+      {
+        debtId: "credit-card-record",
+        categoryKey: "unsecuredConsumerDebt",
+        typeKey: "creditCard",
+        label: "Credit Card",
+        currentBalance: 5000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "creditCard"
+        }
+      },
+      {
+        debtId: "student-record",
+        categoryKey: "educationDebt",
+        typeKey: "federalStudentLoan",
+        label: "Student Loan",
+        currentBalance: 40000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "federalStudentLoan"
+        }
+      },
+      {
+        debtId: "personal-record",
+        categoryKey: "unsecuredConsumerDebt",
+        typeKey: "personalLoan",
+        label: "Personal Loan",
+        currentBalance: 8000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "personalLoan"
+        }
+      },
+      {
+        debtId: "tax-record",
+        categoryKey: "taxLegalDebt",
+        typeKey: "irsTaxDebt",
+        label: "Tax Debt / IRS Payment Plan",
+        currentBalance: 3000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "irsTaxDebt"
+        }
+      },
+      {
+        debtId: "business-record",
+        categoryKey: "businessDebt",
+        typeKey: "businessLoan",
+        label: "Business Debt",
+        currentBalance: 7000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "businessLoan"
+        }
+      },
+      {
+        debtId: "other-record",
+        categoryKey: "otherDebt",
+        typeKey: "otherDebt",
+        label: "Other Debt",
+        currentBalance: 2000,
+        metadata: {
+          sourceType: "user-input",
+          source: "legacy-scalar-migration",
+          libraryEntryKey: "otherDebt"
+        }
+      },
+      {
         debtId: "medical-record",
         categoryKey: "medicalDebt",
         typeKey: "medicalPaymentPlan",
@@ -196,27 +292,27 @@ function findTrace(result, key) {
 }
 
 function assertNoProtectedDiffs() {
-  const allowedDiffs = new Set([
-    "app/features/lens-analysis/debt-library.js",
-    "app/features/lens-analysis/pmi-debt-records.js",
+  const protectedFiles = new Set([
+    "pages/manual-protection-modeling-inputs.html",
+    "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/debt-treatment-calculations.js",
-    "app/features/lens-analysis/lens-model-builder.js",
-    "checks/lens-analysis/debt-taxonomy-library-check.js",
-    "checks/lens-analysis/pmi-debt-records-check.js",
-    "checks/lens-analysis/debt-treatment-helper-check.js",
-    "checks/lens-analysis/debt-treatment-model-prep-check.js",
-    "checks/lens-analysis/debt-treatment-method-trace-readiness-check.js",
-    "checks/lens-analysis/step-three-debt-treatment-display-check.js"
+    "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
+    "app/features/lens-analysis/household-survivor-runway-calculations.js",
+    "app/features/lens-analysis/analysis-settings-adapter.js",
+    "app/features/lens-analysis/step-three-analysis-display.js",
+    "app/features/lens-analysis/asset-treatment-calculations.js",
+    "app/features/lens-analysis/existing-coverage-treatment-calculations.js",
+    "app/features/lens-analysis/education-funding-projection-calculations.js"
   ]);
-  const changedFiles = execFileSync("git", ["diff", "--name-only"], {
+  const changedFiles = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
     cwd: repoRoot,
     encoding: "utf8"
-  }).trim().split(/\r?\n/).filter(Boolean).map((filePath) => {
-    return filePath.replace(/^life-insurance-planner\//, "");
+  }).split(/\r?\n/).filter(Boolean).map((line) => {
+    return line.slice(3).trim().replace(/^life-insurance-planner\//, "");
   });
-  const protectedDiffs = changedFiles.filter((filePath) => !allowedDiffs.has(filePath));
+  const protectedDiffs = changedFiles.filter((filePath) => protectedFiles.has(filePath));
 
-  assert.deepEqual(protectedDiffs, [], "Only debt treatment truthfulness, metadata, and check files should change.");
+  assert.deepEqual(protectedDiffs, [], "Out-of-scope formula, display, and manual PMI files should not change.");
 }
 
 function assertAnalysisEstimateLoadOrder() {
@@ -252,7 +348,7 @@ assert.deepEqual(sourceData, sourceDataBefore, "Model builder must not mutate so
 assert.deepEqual(analysisSettings, analysisSettingsBefore, "Model builder must not mutate analysis settings.");
 assert.deepEqual(profileRecord, profileRecordBefore, "Model builder must not mutate profile record.");
 assert.ok(treatedDebtPayoff, "treatedDebtPayoff should be prepared.");
-assert.equal(model.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff total should stay unchanged.");
+assert.equal(model.debtPayoff.totalDebtPayoffNeed, 354000, "Raw debtPayoff total should be derived from Debt Records plus housing-owned mortgage.");
 assert.equal(model.debtPayoff.mortgageBalance, 250000, "Raw mortgage balance should stay unchanged.");
 assert.equal(treatedDebtPayoff.rawEquivalentDefault, true, "Default broad debt assumptions should be raw-equivalent.");
 assert.equal(treatedDebtPayoff.treatmentApplied, true, "Prepared debt treatment is method-applied when DIME and Needs consume it.");
@@ -395,7 +491,7 @@ const excludedModel = buildModel(context, {
 assert.equal(excludedModel.treatedDebtPayoff.needs.debtPayoffAmount, 0, "Prepared treatment can differ from raw debtPayoff.");
 assert.equal(excludedModel.treatedDebtPayoff.dime.nonMortgageDebtAmount, 0, "Prepared DIME debt can differ from raw debtPayoff.");
 assert.equal(excludedModel.treatedDebtPayoff.dime.mortgageAmount, 0, "Prepared DIME mortgage can differ from raw debtPayoff.");
-assert.equal(excludedModel.debtPayoff.totalDebtPayoffNeed, 350000, "Raw debtPayoff should remain unchanged for fallback/reference.");
+assert.equal(excludedModel.debtPayoff.totalDebtPayoffNeed, 354000, "Raw debtPayoff compatibility total should follow Debt Records source-of-truth values.");
 
 const methodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
 assert.equal(methodsSource.includes("treatedDebtPayoff"), true, "Methods may reference treatedDebtPayoff for trace readiness only.");

@@ -802,68 +802,21 @@
                   <h2>Debts and Liabilities</h2>
                 </div>
                 <div class="form-grid">
-              <div class="field-group">
-                <label for="other-real-estate-loans">HELOC / Second Mortgage / Other Property Loans</label>
-                <div class="profile-currency-field">
-                  <input id="other-real-estate-loans" name="otherRealEstateLoans" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="auto-loans">Remaining Auto Loan Balances</label>
-                <div class="profile-currency-field">
-                  <input id="auto-loans" name="autoLoans" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="credit-card-debt">Revolving Credit Card Debt</label>
-                <div class="profile-currency-field">
-                  <input id="credit-card-debt" name="creditCardDebt" type="number" min="0" step="100">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="student-loans">Remaining Student Loan Balances</label>
-                <div class="profile-currency-field">
-                  <input id="student-loans" name="studentLoans" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="personal-loans">Remaining Personal Loan Balances</label>
-                <div class="profile-currency-field">
-                  <input id="personal-loans" name="personalLoans" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="tax-liabilities">Tax Liabilities / IRS or State Tax Debt</label>
-                <div class="profile-currency-field">
-                  <input id="tax-liabilities" name="taxLiabilities" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="business-debt">Business Loan / Credit Obligations</label>
-                <div class="profile-currency-field">
-                  <input id="business-debt" name="businessDebt" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-              <div class="field-group">
-                <label for="other-loan-obligations">Other Loan Obligations</label>
-                <div class="profile-currency-field">
-                  <input id="other-loan-obligations" name="otherLoanObligations" type="number" min="0" step="1000">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
               <div class="field-group full-width" data-pmi-debt-records-root></div>
+              <div class="field-group full-width pmi-debt-scalar-compatibility-fields" data-pmi-scalar-debt-compatibility hidden>
+                <input id="other-real-estate-loans" name="otherRealEstateLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="auto-loans" name="autoLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="credit-card-debt" name="creditCardDebt" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="student-loans" name="studentLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="personal-loans" name="personalLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="tax-liabilities" name="taxLiabilities" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="business-debt" name="businessDebt" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="other-loan-obligations" name="otherLoanObligations" type="hidden" data-pmi-scalar-debt-compatibility-field>
+              </div>
               <div class="field-group full-width field-group--centered-result debt-payoff-total-group">
                 <label for="total-debt-payoff-need">Total Debt Payoff Need</label>
                 <div class="profile-currency-field">
                   <input id="total-debt-payoff-need" name="totalDebtPayoffNeed" type="text" inputmode="decimal" readonly>
-                  <button class="net-income-action" type="button" data-debt-total-action="primary">Edit</button>
                 </div>
               </div>
                 </div>
@@ -1676,11 +1629,12 @@
       const existingCoverageTotalsContainer = form.querySelector("[data-pmi-existing-coverage-totals]");
       const existingCoverageListContainer = form.querySelector("[data-pmi-existing-coverage-list]");
       const existingCoverageManageLink = form.querySelector("[data-pmi-existing-coverage-manage]");
+      const pmiDebtRecordsRoot = form.querySelector("[data-pmi-debt-records-root]");
       const pmiAssetRecordsController = window.LensApp?.lensAnalysis?.pmiAssetRecords?.initPmiAssetRecords({
         root: form.querySelector("[data-pmi-asset-records-root]")
       });
       const pmiDebtRecordsController = window.LensApp?.lensAnalysis?.pmiDebtRecords?.initPmiDebtRecords({
-        root: form.querySelector("[data-pmi-debt-records-root]")
+        root: pmiDebtRecordsRoot
       });
       const pmiExpenseRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
         root: form.querySelector("[data-pmi-expense-records-root]")
@@ -3606,6 +3560,58 @@
         return String(value == null ? "" : value).trim() === "" ? null : parseCurrencyLikeNumber(value);
       }
 
+      function getDebtRecordsHydrationSource(saved) {
+        const savedDraft = saved && typeof saved === "object" ? saved : {};
+        if (Array.isArray(savedDraft.debtRecords)) {
+          return savedDraft.debtRecords;
+        }
+
+        const createLegacyDebtRecords = window.LensApp?.lensAnalysis?.pmiDebtRecords?.createDebtRecordsFromLegacyScalarFields;
+        if (typeof createLegacyDebtRecords === "function") {
+          const migratedDebtRecords = createLegacyDebtRecords(savedDraft);
+          if (migratedDebtRecords.length) {
+            return migratedDebtRecords;
+          }
+        }
+
+        return savedDraft.debtRecords;
+      }
+
+      function getDebtRecordsForScalarCompatibility(records) {
+        if (Array.isArray(records)) {
+          return records;
+        }
+
+        return pmiDebtRecordsController && typeof pmiDebtRecordsController.serializeDebtRecords === "function"
+          ? pmiDebtRecordsController.serializeDebtRecords()
+          : [];
+      }
+
+      function setDebtScalarCompatibilityFieldValue(field, value) {
+        if (!field || field instanceof RadioNodeList) {
+          return;
+        }
+
+        field.value = value == null ? "" : String(value);
+      }
+
+      function syncDebtScalarCompatibilityFields(records) {
+        const createScalarCompatibility = window.LensApp?.lensAnalysis?.pmiDebtRecords?.createLegacyScalarDebtCompatibilityFromRecords;
+        if (typeof createScalarCompatibility !== "function") {
+          return;
+        }
+
+        const scalarCompatibility = createScalarCompatibility(getDebtRecordsForScalarCompatibility(records));
+        setDebtScalarCompatibilityFieldValue(otherRealEstateLoansField, scalarCompatibility.otherRealEstateLoans);
+        setDebtScalarCompatibilityFieldValue(autoLoansField, scalarCompatibility.autoLoans);
+        setDebtScalarCompatibilityFieldValue(creditCardDebtField, scalarCompatibility.creditCardDebt);
+        setDebtScalarCompatibilityFieldValue(studentLoansField, scalarCompatibility.studentLoans);
+        setDebtScalarCompatibilityFieldValue(personalLoansField, scalarCompatibility.personalLoans);
+        setDebtScalarCompatibilityFieldValue(taxLiabilitiesField, scalarCompatibility.taxLiabilities);
+        setDebtScalarCompatibilityFieldValue(businessDebtField, scalarCompatibility.businessDebt);
+        setDebtScalarCompatibilityFieldValue(otherLoanObligationsField, scalarCompatibility.otherLoanObligations);
+      }
+
       function getDebtPayoffSourceFields() {
         return [
           mortgageBalanceField,
@@ -3639,6 +3645,7 @@
         }
 
         const calculatedTotalDebtPayoffNeed = calculateTotalDebtPayoffNeed();
+        clearNetIncomeManualOverride(totalDebtPayoffNeedField, totalDebtPayoffNeedAction);
         applyNetIncomeValue(
           totalDebtPayoffNeedField,
           totalDebtPayoffNeedAction,
@@ -3683,7 +3690,7 @@
         lockNetIncomeField(field, actionButton);
       }
 
-      function syncDebtPayoffBlockOutput() {
+      function syncDebtPayoffBlockOutput(records) {
         const createDebtPayoffBlockOutput = window.LensApp?.lensAnalysis?.createDebtPayoffBlockOutput;
         const upsertRuntimeBlockOutput = window.LensApp?.lensAnalysis?.upsertRuntimeBlockOutput;
         const refreshLensIncomeDebugPanel = window.LensApp?.lensAnalysisDev?.refreshLensIncomeDebugPanel;
@@ -3691,6 +3698,7 @@
           return;
         }
 
+        syncDebtScalarCompatibilityFields(records);
         syncTotalDebtPayoffNeedField();
 
         const runtimeNamespace = window.LensApp.lensAnalysisRuntime || (window.LensApp.lensAnalysisRuntime = {});
@@ -3712,6 +3720,10 @@
           refreshLensIncomeDebugPanel(runtimeNamespace);
         }
       }
+
+      pmiDebtRecordsRoot?.addEventListener("pmiDebtRecordsChange", (event) => {
+        syncDebtPayoffBlockOutput(event.detail?.debtRecords);
+      });
 
       function syncHousingOngoingSupportBlockOutput() {
         const createHousingOngoingSupportBlockOutput = window.LensApp?.lensAnalysis?.createHousingOngoingSupportBlockOutput;
@@ -4230,7 +4242,7 @@
             pmiAssetRecordsController.hydrateAssetRecords(saved.assetRecords);
           }
           if (pmiDebtRecordsController && typeof pmiDebtRecordsController.hydrateDebtRecords === "function") {
-            pmiDebtRecordsController.hydrateDebtRecords(saved.debtRecords);
+            pmiDebtRecordsController.hydrateDebtRecords(getDebtRecordsHydrationSource(saved));
           }
           if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.hydrateExpenseRecords === "function") {
             pmiExpenseRecordsController.hydrateExpenseRecords(saved.expenseRecords);
@@ -4327,6 +4339,8 @@
 
       function serializeForm() {
         const draft = {};
+        syncDebtScalarCompatibilityFields();
+        syncTotalDebtPayoffNeedField();
 
         Array.from(form.elements).forEach((element) => {
           if (!element.name || element.disabled) {

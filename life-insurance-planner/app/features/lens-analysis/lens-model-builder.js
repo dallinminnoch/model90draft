@@ -767,8 +767,10 @@
   }
 
   function createDebtPayoffSource(sourceData) {
-    const manualOverride = isTrue(sourceData.totalDebtPayoffNeedManualOverride);
+    const debtRecordsAreSourceOfTruth = Array.isArray(sourceData.debtRecords);
+    const manualOverride = !debtRecordsAreSourceOfTruth && isTrue(sourceData.totalDebtPayoffNeedManualOverride);
     return {
+      debtRecords: sourceData.debtRecords,
       mortgageBalance: sourceData.mortgageBalance,
       otherRealEstateLoans: sourceData.otherRealEstateLoans,
       autoLoans: sourceData.autoLoans,
@@ -780,7 +782,7 @@
       otherLoanObligations: sourceData.otherLoanObligations,
       totalDebtPayoffNeed: manualOverride
         ? sourceData.totalDebtPayoffNeed
-        : calculateTotalDebtPayoffNeed(sourceData),
+        : (debtRecordsAreSourceOfTruth ? null : calculateTotalDebtPayoffNeed(sourceData)),
       totalDebtPayoffNeedManualOverride: manualOverride
     };
   }

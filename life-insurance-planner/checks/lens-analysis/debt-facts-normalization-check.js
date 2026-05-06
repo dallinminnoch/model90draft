@@ -228,13 +228,10 @@ function collectWarningCodes(debtFacts) {
 
 function assertNoProtectedDiffs() {
   const protectedFiles = [
-    "pages/next-step.html",
-    "pages/confidential-inputs.html",
     "pages/manual-protection-modeling-inputs.html",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",
-    "app/features/lens-analysis/blocks/debt-payoff.js",
     "app/features/lens-analysis/asset-treatment-calculations.js",
     "app/features/lens-analysis/existing-coverage-treatment-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js"
@@ -269,15 +266,30 @@ assert.equal(debtFacts.metadata.debtRecordsSource, "protectionModeling.data.debt
 assert.equal(debtFacts.metadata.manualTotalDebtPayoffOverride, true);
 assert.equal(debtFacts.metadata.manualTotalDebtPayoffNeed, 99999);
 assert.equal(debtFacts.metadata.manualOverrideSource, "debtPayoff.totalDebtPayoffNeed");
+assert.equal(debtFacts.metadata.debtRecordsSourceOfTruth, true);
+assert.deepEqual(
+  Array.from(debtFacts.metadata.suppressedScalarDebtSourceFields),
+  [
+    "otherRealEstateLoans",
+    "autoLoans",
+    "creditCardDebt",
+    "studentLoans",
+    "personalLoans",
+    "taxLiabilities",
+    "businessDebt",
+    "otherLoanObligations"
+  ],
+  "explicit debtRecords[] should suppress non-mortgage scalar debt sources"
+);
 
 const scalarDebts = debtFacts.debts.filter((debt) => debt.isScalarCompatibilityDebt === true);
 const repeatableDebts = debtFacts.debts.filter((debt) => debt.isRepeatableDebtRecord === true);
-assert.equal(scalarDebts.length, 9, "all positive scalar debt fields should project");
+assert.equal(scalarDebts.length, 1, "only housing-owned mortgage scalar debt should project when debtRecords[] exists");
 assert.equal(repeatableDebts.length, 3, "valid debtRecords should project without category dedupe");
-assert.equal(debtFacts.metadata.acceptedScalarDebtCount, 9);
+assert.equal(debtFacts.metadata.acceptedScalarDebtCount, 1);
 assert.equal(debtFacts.metadata.acceptedDebtRecordCount, 3);
 assert.equal(debtFacts.metadata.invalidDebtRecordCount, 6);
-assert.equal(debtFacts.debts.length, 12);
+assert.equal(debtFacts.debts.length, 4);
 
 const mortgageDebt = debtFacts.debts.find((debt) => debt.sourceKey === "mortgageBalance");
 assert.ok(mortgageDebt, "mortgageBalance should project as a housing-owned raw debt fact");
@@ -316,9 +328,15 @@ assert.equal(
   false,
   "manual totalDebtPayoffNeed should not create a debt fact"
 );
+assert.equal(
+  debtFacts.debts.some((debt) => debt.sourceKey === "creditCardDebt"),
+  false,
+  "non-mortgage scalar debt fields should not double count when debtRecords[] exists"
+);
 
 const warningCodes = collectWarningCodes(debtFacts);
 [
+  "scalar-debt-source-suppressed-by-debt-records",
   "duplicate-debt-fact-id",
   "negative-debt-record-balance",
   "missing-debt-record-balance",
@@ -334,17 +352,29 @@ assert.ok(debtFacts.metadata.duplicateDebtIds.includes("debt_duplicate"));
 const expectedDebtFactsTotal = debtFacts.debts.reduce((total, debt) => total + debt.currentBalance, 0);
 assert.equal(debtFacts.totalReportedDebtBalance, expectedDebtFactsTotal);
 
-assert.equal(modelWithRecords.debtPayoff.totalDebtPayoffNeed, 99999);
+assert.equal(modelWithRecords.debtPayoff.totalDebtPayoffNeed, 256500);
 assert.equal(modelWithRecords.debtPayoff.mortgageBalance, 250000);
+assert.equal(modelWithRecords.debtPayoff.creditCardBalance, 2000);
+assert.equal(modelWithRecords.debtPayoff.personalLoanBalance, 1000);
+assert.equal(modelWithRecords.debtPayoff.otherDebtPayoffNeeds, 3500);
 
 const modelWithoutRecords = buildModel(createSourceData(false));
-const methodsWithoutRecords = runMethods(modelWithoutRecords);
-const methodsWithRecords = runMethods(modelWithRecords);
-assert.deepEqual(
-  methodsWithRecords,
-  methodsWithoutRecords,
-  "normalization-only debtFacts projection should remain raw-equivalent with no debt treatment helper loaded"
+assert.equal(modelWithoutRecords.debtFacts.metadata.debtRecordsSourceOfTruth, false);
+assert.equal(
+  modelWithoutRecords.debtFacts.debts.filter((debt) => debt.isScalarCompatibilityDebt === true).length,
+  9,
+  "legacy scalar debt facts should still project when debtRecords[] is missing"
 );
+assert.equal(modelWithoutRecords.debtPayoff.totalDebtPayoffNeed, 99999);
+
+const sourceWithExplicitEmptyRecords = createSourceData(false);
+sourceWithExplicitEmptyRecords.debtRecords = [];
+const modelWithExplicitEmptyRecords = buildModel(sourceWithExplicitEmptyRecords);
+assert.equal(modelWithExplicitEmptyRecords.debtFacts.metadata.debtRecordsSourceOfTruth, true);
+assert.equal(modelWithExplicitEmptyRecords.debtFacts.metadata.acceptedScalarDebtCount, 1);
+assert.equal(modelWithExplicitEmptyRecords.debtFacts.metadata.acceptedDebtRecordCount, 0);
+assert.equal(modelWithExplicitEmptyRecords.debtFacts.debts.length, 1, "explicit empty debtRecords[] should keep only mortgage scalar facts");
+assert.equal(modelWithExplicitEmptyRecords.debtPayoff.totalDebtPayoffNeed, 250000);
 
 assertNoProtectedDiffs();
 

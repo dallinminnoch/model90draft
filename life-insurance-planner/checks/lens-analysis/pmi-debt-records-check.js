@@ -143,7 +143,6 @@ function createFakeRoot() {
 function assertNoProtectedDiffs() {
   const protectedFiles = [
     "pages/manual-protection-modeling-inputs.html",
-    "app/features/lens-analysis/blocks/debt-payoff.js",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
@@ -180,6 +179,8 @@ assert.equal(typeof pmiDebtRecords?.initPmiDebtRecords, "function");
 assert.equal(typeof pmiDebtRecords?.hydrateDebtRecords, "function");
 assert.equal(typeof pmiDebtRecords?.serializeDebtRecords, "function");
 assert.equal(typeof pmiDebtRecords?.createDebtRecordFromLibraryEntry, "function");
+assert.equal(typeof pmiDebtRecords?.createDebtRecordsFromLegacyScalarFields, "function");
+assert.equal(typeof pmiDebtRecords?.createLegacyScalarDebtCompatibilityFromRecords, "function");
 
 const autoLoanEntry = debtLibrary.findDebtLibraryEntry("autoLoan");
 const autoLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(autoLoanEntry);
@@ -231,6 +232,83 @@ const primaryMortgageRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
   debtLibrary.findDebtLibraryEntry("primaryResidenceMortgage")
 );
 assert.equal(primaryMortgageRecord, null, "primary residence mortgage should not be addable as a debt record");
+
+const migratedLegacyScalarRecords = pmiDebtRecords.createDebtRecordsFromLegacyScalarFields({
+  mortgageBalance: 250000,
+  otherRealEstateLoans: 20000,
+  autoLoans: 15000,
+  creditCardDebt: 7000,
+  studentLoans: 11000,
+  personalLoans: 5000,
+  taxLiabilities: 3000,
+  businessDebt: 9000,
+  otherLoanObligations: 4000,
+  totalDebtPayoffNeed: 99999
+});
+assert.equal(migratedLegacyScalarRecords.length, 8, "legacy scalar non-mortgage balances should migrate to debtRecords rows");
+assert.deepEqual(
+  Array.from(migratedLegacyScalarRecords, (record) => record.typeKey),
+  [
+    "otherPropertyLoan",
+    "autoLoan",
+    "creditCard",
+    "federalStudentLoan",
+    "personalLoan",
+    "irsTaxDebt",
+    "businessLoan",
+    "otherDebt"
+  ],
+  "legacy scalar fields should map to the expected Debt Records library types"
+);
+assert.equal(
+  migratedLegacyScalarRecords.some((record) => record.typeKey === "primaryResidenceMortgage"),
+  false,
+  "legacy scalar migration should not seed mortgageBalance"
+);
+assert.equal(
+  migratedLegacyScalarRecords.some((record) => record.sourceKey === "totalDebtPayoffNeed"),
+  false,
+  "legacy scalar migration should not seed totalDebtPayoffNeed as its own debt"
+);
+assert.equal(
+  migratedLegacyScalarRecords.find((record) => record.typeKey === "creditCard").currentBalance,
+  7000
+);
+assert.equal(
+  migratedLegacyScalarRecords.find((record) => record.typeKey === "creditCard").metadata.source,
+  "legacy-scalar-migration"
+);
+
+const scalarCompatibility = pmiDebtRecords.createLegacyScalarDebtCompatibilityFromRecords([
+  {
+    categoryKey: "unsecuredConsumerDebt",
+    typeKey: "creditCard",
+    currentBalance: 1200
+  },
+  {
+    categoryKey: "medicalDebt",
+    typeKey: "medicalBill",
+    currentBalance: 300
+  },
+  {
+    categoryKey: "securedConsumerDebt",
+    typeKey: "secondVehicleLease",
+    currentBalance: 2500
+  },
+  {
+    categoryKey: "realEstateSecuredDebt",
+    typeKey: "primaryResidenceMortgage",
+    currentBalance: 999999
+  }
+]);
+assert.equal(scalarCompatibility.creditCardDebt, 1200);
+assert.equal(scalarCompatibility.otherLoanObligations, 300);
+assert.equal(scalarCompatibility.autoLoans, 2500);
+assert.equal(
+  scalarCompatibility.otherRealEstateLoans,
+  null,
+  "Debt Records compatibility should not migrate primary residence mortgage into non-mortgage scalar outputs"
+);
 
 const fakeDom = createFakeRoot();
 const controller = pmiDebtRecords.initPmiDebtRecords({ root: fakeDom.root });
@@ -459,7 +537,14 @@ assert.deepEqual(inputRecords[0], {
   assert.match(source, /debt-library\.js/);
   assert.match(source, /pmi-debt-records\.js/);
   assert.match(source, /data-pmi-debt-records-root/);
-  assert.match(source, /hydrateDebtRecords\(saved\.debtRecords\)/);
+  assert.match(source, /data-pmi-scalar-debt-compatibility hidden/);
+  assert.match(source, /type="hidden" data-pmi-scalar-debt-compatibility-field/);
+  assert.doesNotMatch(source, /<label for="auto-loans">Remaining Auto Loan Balances<\/label>/);
+  assert.doesNotMatch(source, /<label for="credit-card-debt">Revolving Credit Card Debt<\/label>/);
+  assert.match(source, /getDebtRecordsHydrationSource\(saved\)/);
+  assert.match(source, /createDebtRecordsFromLegacyScalarFields/);
+  assert.match(source, /syncDebtScalarCompatibilityFields/);
+  assert.match(source, /pmiDebtRecordsChange/);
   assert.match(source, /draft\.debtRecords = pmiDebtRecordsController\.serializeDebtRecords\(\)/);
 });
 
