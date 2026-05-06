@@ -432,7 +432,34 @@
                 </div>
               </div>
                 </div>
-              </section><section class="profile-form-section profile-form-subsection">
+              </section>
+
+              <section class="profile-form-section profile-form-subsection">
+                <div class="profile-form-section-heading">
+                  <h2>Debts and Liabilities</h2>
+                </div>
+                <div class="form-grid">
+              <div class="field-group full-width" data-pmi-debt-records-root></div>
+              <div class="field-group full-width pmi-debt-scalar-compatibility-fields" data-pmi-scalar-debt-compatibility hidden>
+                <input id="other-real-estate-loans" name="otherRealEstateLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="auto-loans" name="autoLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="credit-card-debt" name="creditCardDebt" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="student-loans" name="studentLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="personal-loans" name="personalLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="tax-liabilities" name="taxLiabilities" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="business-debt" name="businessDebt" type="hidden" data-pmi-scalar-debt-compatibility-field>
+                <input id="other-loan-obligations" name="otherLoanObligations" type="hidden" data-pmi-scalar-debt-compatibility-field>
+              </div>
+              <div class="field-group full-width field-group--centered-result debt-payoff-total-group">
+                <label for="total-debt-payoff-need">Total Debt Payoff Need</label>
+                <div class="profile-currency-field">
+                  <input id="total-debt-payoff-need" name="totalDebtPayoffNeed" type="text" inputmode="decimal" readonly>
+                </div>
+              </div>
+                </div>
+              </section>
+
+              <section class="profile-form-section profile-form-subsection">
                 <div class="profile-form-section-heading">
                   <h2>Expenses and Lifestyle</h2>
                 </div>
@@ -792,31 +819,6 @@
                 <div class="profile-currency-field">
                   <input id="other-transition-needs" name="otherTransitionNeeds" type="number" min="0" step="1000">
                   <span class="profile-currency-suffix">USD</span>
-                </div>
-              </div>
-                </div>
-              </section>
-
-              <section class="profile-form-section profile-form-subsection">
-                <div class="profile-form-section-heading">
-                  <h2>Debts and Liabilities</h2>
-                </div>
-                <div class="form-grid">
-              <div class="field-group full-width" data-pmi-debt-records-root></div>
-              <div class="field-group full-width pmi-debt-scalar-compatibility-fields" data-pmi-scalar-debt-compatibility hidden>
-                <input id="other-real-estate-loans" name="otherRealEstateLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="auto-loans" name="autoLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="credit-card-debt" name="creditCardDebt" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="student-loans" name="studentLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="personal-loans" name="personalLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="tax-liabilities" name="taxLiabilities" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="business-debt" name="businessDebt" type="hidden" data-pmi-scalar-debt-compatibility-field>
-                <input id="other-loan-obligations" name="otherLoanObligations" type="hidden" data-pmi-scalar-debt-compatibility-field>
-              </div>
-              <div class="field-group full-width field-group--centered-result debt-payoff-total-group">
-                <label for="total-debt-payoff-need">Total Debt Payoff Need</label>
-                <div class="profile-currency-field">
-                  <input id="total-debt-payoff-need" name="totalDebtPayoffNeed" type="text" inputmode="decimal" readonly>
                 </div>
               </div>
                 </div>
