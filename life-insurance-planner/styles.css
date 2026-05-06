@@ -7890,29 +7890,35 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
 [data-client-nav-section] {
   scroll-margin-top: var(--client-profile-anchor-offset, 0.85rem);
 }
-.client-profile-shell.is-collapsed .workspace-side-nav.workspace-side-nav-shell,
-body.clients-page .workspace-side-nav-host.is-collapsed .workspace-side-nav.workspace-side-nav-shell {
+.client-profile-shell.is-collapsed .workspace-side-nav.workspace-side-nav-shell {
   display: block;
 }
 
-.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-context,
-body.clients-page .workspace-side-nav-host.is-collapsed .workspace-side-nav-shell .workspace-side-nav-context {
+.client-profile-shell.is-collapsed .workspace-side-nav-shell > .workspace-side-nav-context {
   display: none;
 }
 
-.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-rail,
-body.clients-page .workspace-side-nav-host.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-rail {
+.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-rail {
   width: 3.55rem;
   padding: 2.7rem 0.24rem 0.9rem;
 }
 
-.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-items,
-body.clients-page .workspace-side-nav-host.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-items {
+.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-items {
   align-items: center;
 }
 
-.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-label,
-body.clients-page .workspace-side-nav-host.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-label {
+.client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-label {
   display: none;
+}
+
+.workspace-side-nav-shell .workspace-side-nav-flyout-panel a.workspace-side-nav-context-button,
+.workspace-side-nav-shell .workspace-side-nav-flyout-panel a.workspace-side-nav-context-button:visited {
+  color: rgba(236, 239, 255, 0.88);
+}
+
+.workspace-side-nav-shell .workspace-side-nav-flyout-panel a.workspace-side-nav-context-button:hover,
+.workspace-side-nav-shell .workspace-side-nav-flyout-panel a.workspace-side-nav-context-button:focus-visible,
+.workspace-side-nav-shell .workspace-side-nav-flyout-panel a.workspace-side-nav-context-button.is-active {
+  color: #ffffff;
 }
 }

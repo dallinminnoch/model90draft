@@ -78,6 +78,7 @@
   </script>
   <main class="home-shell app-home-shell client-directory-shell">
     <section class="client-directory-shell-layout" data-directory-sidebar-layout>
+      <aside class="client-directory-menu-column workspace-side-nav-shell" data-directory-menu-column aria-label="Client directory views and filters"></aside>
       <section class="client-directory-workspace workspace-visible-pane">
         <section class="client-directory-main">
         <header class="client-directory-header">
@@ -880,6 +881,126 @@
         </section>
         </section>
       </section>
+      <aside class="client-directory-side-panel" aria-label="Client directory schedule and messages" tabindex="0">
+        <div class="client-directory-side-panel-inner">
+          <section class="client-directory-side-widget" aria-labelledby="client-directory-meetings-title">
+            <header class="client-directory-side-widget-header">
+              <span class="client-directory-side-widget-icon" aria-hidden="true">
+                <img src="../Images/schedulemeeting.svg" alt="">
+              </span>
+              <div class="client-directory-side-widget-title-group">
+                <span class="client-directory-side-widget-kicker">Today</span>
+                <h2 id="client-directory-meetings-title">Scheduled Meetings</h2>
+              </div>
+              <span class="client-directory-side-widget-count">3</span>
+            </header>
+            <div class="client-directory-side-list">
+              <article class="client-directory-side-item">
+                <time class="client-directory-side-item-time" datetime="10:30">10:30 AM</time>
+                <span class="client-directory-side-item-compact-name">Smith</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Smith Household Review</strong>
+                  <span>Coverage gap follow-up</span>
+                </div>
+              </article>
+              <article class="client-directory-side-item">
+                <time class="client-directory-side-item-time" datetime="13:00">1:00 PM</time>
+                <span class="client-directory-side-item-compact-name">Garcia</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Garcia Policy Delivery</strong>
+                  <span>Placement handoff</span>
+                </div>
+              </article>
+              <article class="client-directory-side-item">
+                <time class="client-directory-side-item-time" datetime="15:45">3:45 PM</time>
+                <span class="client-directory-side-item-compact-name">Nguyen</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Nguyen Underwriting</strong>
+                  <span>APS status review</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="client-directory-side-widget" aria-labelledby="client-directory-inbox-title">
+            <header class="client-directory-side-widget-header">
+              <span class="client-directory-side-widget-icon" aria-hidden="true">
+                <img src="../Images/email.svg" alt="">
+              </span>
+              <div class="client-directory-side-widget-title-group">
+                <span class="client-directory-side-widget-kicker">Unread</span>
+                <h2 id="client-directory-inbox-title">Inbox</h2>
+              </div>
+              <span class="client-directory-side-widget-count">5</span>
+            </header>
+            <div class="client-directory-side-list">
+              <article class="client-directory-side-item">
+                <span class="client-directory-side-item-time">Today</span>
+                <span class="client-directory-side-item-compact-name">Minnoch</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Carrier approval received</strong>
+                  <span>Minnoch case ready for delivery</span>
+                </div>
+              </article>
+              <article class="client-directory-side-item">
+                <span class="client-directory-side-item-time">Today</span>
+                <span class="client-directory-side-item-compact-name">Smith</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Missing financial input</strong>
+                  <span>Janet Smith needs follow-up</span>
+                </div>
+              </article>
+              <article class="client-directory-side-item">
+                <span class="client-directory-side-item-time">Tue</span>
+                <span class="client-directory-side-item-compact-name">Rober</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Signed illustration uploaded</strong>
+                  <span>Rober household package</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="client-directory-side-widget" aria-labelledby="client-directory-reminders-title">
+            <header class="client-directory-side-widget-header">
+              <span class="client-directory-side-widget-icon" aria-hidden="true">
+                <img src="../Images/reminder.svg" alt="">
+              </span>
+              <div class="client-directory-side-widget-title-group">
+                <span class="client-directory-side-widget-kicker">Due Soon</span>
+                <h2 id="client-directory-reminders-title">Reminders</h2>
+              </div>
+              <span class="client-directory-side-widget-count">4</span>
+            </header>
+            <div class="client-directory-side-list">
+              <article class="client-directory-side-item is-urgent">
+                <span class="client-directory-side-item-time">Due</span>
+                <span class="client-directory-side-item-compact-name">Elkhorn</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Call Elkhorn Household</strong>
+                  <span>Decision follow-up today</span>
+                </div>
+              </article>
+              <article class="client-directory-side-item">
+                <span class="client-directory-side-item-time">Fri</span>
+                <span class="client-directory-side-item-compact-name">Policy</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Send policy comparison</strong>
+                  <span>Term conversion options</span>
+                </div>
+              </article>
+              <article class="client-directory-side-item">
+                <span class="client-directory-side-item-time">Mon</span>
+                <span class="client-directory-side-item-compact-name">Bottleneck</span>
+                <div class="client-directory-side-item-copy">
+                  <strong>Review bottleneck cases</strong>
+                  <span>Four profiles need updates</span>
+                </div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </aside>
     </section>
   </main>
 

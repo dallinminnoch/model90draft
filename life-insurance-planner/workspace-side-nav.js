@@ -300,35 +300,143 @@
     `;
   }
 
-  function renderWorkspaceShell(config) {
+  function getDirectoryNavItems() {
+    return [
+      { key: "all", label: "View All" },
+      { key: "individuals", label: "Individuals" },
+      { key: "households", label: "Households" },
+      { key: "businesses", label: "Businesses" },
+      { key: "add", label: "Add New", extraClass: " workspace-side-nav-context-button-add" }
+    ];
+  }
+
+  function getDirectoryPriorityItems() {
+    return [
+      { key: "all", label: "All Priorities" },
+      { key: "high", label: "High Priority" },
+      { key: "medium", label: "Medium Priority" },
+      { key: "low", label: "Low Priority" }
+    ];
+  }
+
+  function getDirectoryScopeItems() {
+    return [
+      { key: "recently-viewed", label: "Recently Viewed" },
+      { key: "recently-added", label: "Recently Added" },
+      { key: "incomplete", label: "Incomplete Profiles" }
+    ];
+  }
+
+  function renderDirectoryContextMarkup(options) {
+    const config = options && typeof options === "object" ? options : {};
+    const items = getDirectoryNavItems();
+    const priorityItems = getDirectoryPriorityItems();
+    const scopeItems = getDirectoryScopeItems();
+    const navClasses = [
+      "workspace-side-nav-items",
+      "workspace-side-nav-context-items",
+      config.extraNavClass || ""
+    ].map(function (className) {
+      return String(className || "").trim();
+    }).filter(Boolean).join(" ");
+
     return `
-      <aside class="workspace-side-nav workspace-side-nav-shell" aria-label="${escapeHtml(config.ariaLabel)}">
-        ${renderPrimaryRail(config.pages)}
-        <div class="workspace-side-nav-context">
-          <div class="workspace-side-nav-header workspace-side-nav-context-header">
-            <div class="workspace-side-nav-copy">
-              <span class="workspace-side-nav-kicker">Current Page</span>
-              <strong>${escapeHtml(config.title)}</strong>
+      <nav class="${navClasses}" aria-label="Client directory actions">
+        ${items.map(function (item) {
+          const supportsPrioritySubmenu = item.key === "individuals" || item.key === "households" || item.key === "businesses";
+          const groupClasses = [
+            "workspace-side-nav-context-group",
+            supportsPrioritySubmenu ? "workspace-side-nav-context-group-has-submenu" : "",
+            supportsPrioritySubmenu && config.expandSubmenus ? "is-expanded" : ""
+          ].filter(Boolean).join(" ");
+          return `
+            <div class="${groupClasses}" data-directory-context-group${supportsPrioritySubmenu ? ` data-directory-context-group-key="${escapeHtml(item.key)}"` : ""}>
+              <button class="workspace-side-nav-button workspace-side-nav-context-button${item.extraClass || ""}" type="button" data-directory-nav-action="${escapeHtml(item.key)}">
+                <span class="workspace-side-nav-icon workspace-side-nav-context-icon" aria-hidden="true">
+                  ${getDirectoryIcon(item.key)}
+                </span>
+                <span class="workspace-side-nav-label workspace-side-nav-context-label">${escapeHtml(item.label)}</span>
+              </button>
+              ${supportsPrioritySubmenu ? `
+                <div class="workspace-side-nav-submenu" aria-label="${escapeHtml(item.label)} filters">
+                  ${scopeItems.map(function (scopeItem) {
+                    return `
+                      <button
+                        class="workspace-side-nav-button workspace-side-nav-submenu-button"
+                        type="button"
+                        data-directory-scope-action="${escapeHtml(`${item.key}:scope:${scopeItem.key}`)}"
+                        data-directory-scope-view="${escapeHtml(item.key)}"
+                        data-directory-scope="${escapeHtml(scopeItem.key)}"
+                      >
+                        <span class="workspace-side-nav-submenu-icon" aria-hidden="true">
+                          ${getDirectoryScopeIcon(scopeItem.key)}
+                        </span>
+                        <span class="workspace-side-nav-submenu-label">${escapeHtml(scopeItem.label)}</span>
+                      </button>
+                    `;
+                  }).join("")}
+                  <div class="workspace-side-nav-submenu-divider" role="presentation"></div>
+                  ${priorityItems.map(function (priorityItem) {
+                    return `
+                      <button
+                        class="workspace-side-nav-button workspace-side-nav-submenu-button"
+                        type="button"
+                        data-directory-priority-action="${escapeHtml(`${item.key}:${priorityItem.key}`)}"
+                        data-directory-priority-view="${escapeHtml(item.key)}"
+                        data-directory-priority="${escapeHtml(priorityItem.key)}"
+                      >
+                        <span class="workspace-side-nav-submenu-label">${escapeHtml(priorityItem.label)}</span>
+                      </button>
+                    `;
+                  }).join("")}
+                </div>
+              ` : ""}
             </div>
-            ${config.headerActionMarkup ? `<div class="workspace-side-nav-context-header-extra">${config.headerActionMarkup}</div>` : ""}
-          </div>
-          <div class="workspace-side-nav-section workspace-side-nav-context-section">
-            <span class="workspace-side-nav-section-label workspace-side-nav-context-section-label">${escapeHtml(config.sectionLabel)}</span>
-            ${config.contextMarkup}
+          `;
+        }).join("")}
+      </nav>
+    `;
+  }
+
+  function renderDirectoryPageColumn() {
+    return `
+      <div class="client-directory-menu-column-panel">
+        <div class="workspace-side-nav-header workspace-side-nav-context-header client-directory-menu-column-header">
+          <div class="workspace-side-nav-copy">
+            <span class="workspace-side-nav-kicker">Client Directory</span>
+            <strong>Views & Filters</strong>
           </div>
         </div>
-        <button
-          class="${escapeHtml(config.toggleClass)} workspace-side-nav-toggle workspace-side-nav-edge-toggle"
-          type="button"
-          ${config.toggleDataAttr}
-          aria-expanded="true"
-          aria-label="${escapeHtml(config.toggleLabel)}"
-          title="${escapeHtml(config.toggleLabel)}"
-        >
-          <span class="${escapeHtml(config.toggleGlyphClass)} workspace-side-nav-toggle-glyph" aria-hidden="true">
-            <img class="workspace-side-nav-toggle-art" src="../Images/doublearrow.svg" alt="">
-          </span>
-        </button>
+        <div class="workspace-side-nav-section workspace-side-nav-context-section client-directory-menu-column-section">
+          <span class="workspace-side-nav-section-label workspace-side-nav-context-section-label">Views & Actions</span>
+          ${renderDirectoryContextMarkup({ expandSubmenus: true, extraNavClass: "client-directory-menu-column-items" })}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderWorkspaceShell(config) {
+    const shouldRenderFlyout = config.suppressFlyout !== true && String(config.contextMarkup || "").trim();
+    return `
+      <aside class="workspace-side-nav workspace-side-nav-shell${shouldRenderFlyout ? " has-workspace-side-nav-flyout" : ""}" aria-label="${escapeHtml(config.ariaLabel)}">
+        ${renderPrimaryRail(config.pages)}
+        ${shouldRenderFlyout ? `
+          <div class="workspace-side-nav-flyout" data-workspace-side-nav-flyout>
+            <div class="workspace-side-nav-context workspace-side-nav-flyout-panel">
+              <div class="workspace-side-nav-header workspace-side-nav-context-header">
+                <div class="workspace-side-nav-copy">
+                  <span class="workspace-side-nav-kicker">Current Page</span>
+                  <strong>${escapeHtml(config.title)}</strong>
+                </div>
+                ${config.headerActionMarkup ? `<div class="workspace-side-nav-context-header-extra">${config.headerActionMarkup}</div>` : ""}
+              </div>
+              <div class="workspace-side-nav-section workspace-side-nav-context-section">
+                <span class="workspace-side-nav-section-label workspace-side-nav-context-section-label">${escapeHtml(config.sectionLabel)}</span>
+                ${config.contextMarkup}
+              </div>
+            </div>
+          </div>
+        ` : ""}
       </aside>
     `;
   }
@@ -475,24 +583,6 @@
 
   function renderDirectorySidebar(options) {
     const pages = getWorkspacePages("directory", options);
-    const items = [
-      { key: "all", label: "View All" },
-      { key: "individuals", label: "Individuals" },
-      { key: "households", label: "Households" },
-      { key: "businesses", label: "Businesses" },
-      { key: "add", label: "Add New", extraClass: " workspace-side-nav-context-button-add" }
-    ];
-    const priorityItems = [
-      { key: "all", label: "All Priorities" },
-      { key: "high", label: "High Priority" },
-      { key: "medium", label: "Medium Priority" },
-      { key: "low", label: "Low Priority" }
-    ];
-    const scopeItems = [
-      { key: "recently-viewed", label: "Recently Viewed" },
-      { key: "recently-added", label: "Recently Added" },
-      { key: "incomplete", label: "Incomplete Profiles" }
-    ];
 
     return renderWorkspaceShell({
       ariaLabel: "Client directory navigation",
@@ -503,57 +593,8 @@
       toggleGlyphClass: "client-directory-app-sidebar-toggle-glyph",
       toggleDataAttr: "data-directory-sidebar-toggle",
       toggleLabel: "Collapse directory navigation",
-      contextMarkup: `
-        <nav class="workspace-side-nav-items workspace-side-nav-context-items" aria-label="Client directory actions">
-          ${items.map(function (item) {
-            const supportsPrioritySubmenu = item.key === "individuals" || item.key === "households" || item.key === "businesses";
-            return `
-              <div class="workspace-side-nav-context-group${supportsPrioritySubmenu ? " workspace-side-nav-context-group-has-submenu" : ""}" data-directory-context-group${supportsPrioritySubmenu ? ` data-directory-context-group-key="${escapeHtml(item.key)}"` : ""}>
-                <button class="workspace-side-nav-button workspace-side-nav-context-button${item.extraClass || ""}" type="button" data-directory-nav-action="${escapeHtml(item.key)}">
-                  <span class="workspace-side-nav-icon workspace-side-nav-context-icon" aria-hidden="true">
-                    ${getDirectoryIcon(item.key)}
-                  </span>
-                  <span class="workspace-side-nav-label workspace-side-nav-context-label">${escapeHtml(item.label)}</span>
-                </button>
-                ${supportsPrioritySubmenu ? `
-                  <div class="workspace-side-nav-submenu" aria-label="${escapeHtml(item.label)} filters">
-                    ${scopeItems.map(function (scopeItem) {
-                      return `
-                        <button
-                          class="workspace-side-nav-button workspace-side-nav-submenu-button"
-                          type="button"
-                          data-directory-scope-action="${escapeHtml(`${item.key}:scope:${scopeItem.key}`)}"
-                          data-directory-scope-view="${escapeHtml(item.key)}"
-                          data-directory-scope="${escapeHtml(scopeItem.key)}"
-                        >
-                          <span class="workspace-side-nav-submenu-icon" aria-hidden="true">
-                            ${getDirectoryScopeIcon(scopeItem.key)}
-                          </span>
-                          <span class="workspace-side-nav-submenu-label">${escapeHtml(scopeItem.label)}</span>
-                        </button>
-                      `;
-                    }).join("")}
-                    <div class="workspace-side-nav-submenu-divider" role="presentation"></div>
-                    ${priorityItems.map(function (priorityItem) {
-                      return `
-                        <button
-                          class="workspace-side-nav-button workspace-side-nav-submenu-button"
-                          type="button"
-                          data-directory-priority-action="${escapeHtml(`${item.key}:${priorityItem.key}`)}"
-                          data-directory-priority-view="${escapeHtml(item.key)}"
-                          data-directory-priority="${escapeHtml(priorityItem.key)}"
-                        >
-                          <span class="workspace-side-nav-submenu-label">${escapeHtml(priorityItem.label)}</span>
-                        </button>
-                      `;
-                    }).join("")}
-                  </div>
-                ` : ""}
-              </div>
-            `;
-          }).join("")}
-        </nav>
-      `
+      contextMarkup: "",
+      suppressFlyout: true
     });
   }
 
@@ -895,6 +936,10 @@
       }
       node.innerHTML = markup;
     });
+
+    scope.querySelectorAll("[data-directory-menu-column]").forEach(function (node) {
+      node.innerHTML = renderDirectoryPageColumn();
+    });
   }
 
   function getStorageIdentity() {
@@ -956,6 +1001,7 @@
 
   window.WorkspaceSideNav = {
     render: render,
+    renderDirectoryPageColumn: renderDirectoryPageColumn,
     mountAll: mountAll,
     initializeCollapse: initializeWorkspaceSideNavCollapse
   };

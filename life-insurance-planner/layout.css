@@ -1,13 +1,69 @@
 .client-directory-shell-layout {
   width: 100%;
   display: grid;
-  grid-template-columns: 13.5rem minmax(0, 1fr);
+  --client-directory-side-collapsed-width: 5.5rem;
+  --client-directory-side-expanded-width: 16rem;
+  grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) var(--client-directory-side-collapsed-width);
   min-height: calc(100vh - 140px);
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(213, 221, 232, 0.78);
   border-radius: 0;
   box-shadow: 0 22px 48px rgba(16, 33, 52, 0.08);
   overflow: hidden;
+}
+
+.client-directory-menu-column {
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
+  border-right: 1px solid rgba(213, 221, 232, 0.78);
+  overflow: hidden;
+}
+
+.client-directory-menu-column-panel {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #ffffff;
+}
+
+.client-directory-side-panel {
+  position: relative;
+  z-index: 24;
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
+  border-left: 1px solid rgba(213, 221, 232, 0.78);
+  overflow: visible;
+}
+
+.client-directory-side-panel-inner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--client-directory-side-collapsed-width);
+  display: grid;
+  align-content: start;
+  gap: 0.82rem;
+  min-height: 100%;
+  background: #ffffff;
+  padding: 1rem 0.86rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.18s ease, box-shadow 0.18s ease;
+}
+
+.client-directory-side-panel:hover,
+.client-directory-side-panel:focus-within {
+  z-index: 42;
+}
+
+.client-directory-side-panel:hover .client-directory-side-panel-inner,
+.client-directory-side-panel:focus-within .client-directory-side-panel-inner {
+  width: var(--client-directory-side-expanded-width);
+  box-shadow: -18px 0 38px rgba(16, 33, 52, 0.14);
 }
 
 .client-directory-workspace {
@@ -56,13 +112,14 @@
 
 @media (min-width: 721px) {
   body.clients-page .client-directory-shell-layout {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) var(--client-directory-side-collapsed-width);
     width: 100%;
     min-width: 0;
     min-height: 0;
     container-type: inline-size;
     container-name: client-directory-shell;
-    padding-left: calc(var(--app-side-nav-width) + var(--app-side-nav-gap));
+    padding-left: calc(var(--app-side-nav-collapsed-width) + var(--app-side-nav-gap));
     box-sizing: border-box;
     background: transparent;
     border: 0;
@@ -100,7 +157,7 @@
     --client-directory-row-subtitle-size: calc(0.91em + (0.11em * var(--client-directory-density-scale)));
     --client-directory-row-person-gap: calc(0.56em + (0.26em * var(--client-directory-density-scale)));
     --client-directory-row-subtitle-gap: calc(0.14em + (0.08em * var(--client-directory-density-scale)));
-    font-size: clamp(0.84rem, calc(0.5rem + 0.62cqi), 1rem);
+    font-size: clamp(0.78rem, calc(0.46rem + 0.56cqi), 0.92rem);
     position: relative;
     min-height: 0;
     height: auto;
@@ -116,7 +173,7 @@
      - compact: <= 860px keeps 3-up summary but tightens controls and list tracks
      - narrow: <= 760px enables the strongest compaction and 2-up summary wrap
      Routine sizing should ride these workspace tokens; only true layout shifts belong in the band queries. */
-  body.clients-page:not(.workspace-side-nav-collapsed) .client-directory-workspace {
+  body.clients-page .client-directory-workspace {
     --client-directory-density-scale: 0.7;
     --client-directory-track-scale: 0.88;
     --client-directory-main-pad-y: 0.92em;
@@ -128,7 +185,7 @@
     --client-directory-items-trigger-min-width: 8em;
     --client-directory-summary-note-max: 13em;
     --client-directory-summary-card-min-height: 11.5em;
-    font-size: clamp(0.8rem, calc(0.46rem + 0.58cqi), 0.95rem);
+    font-size: clamp(0.72rem, calc(0.42rem + 0.52cqi), 0.86rem);
   }
 
   body.clients-page .client-directory-main {
@@ -154,7 +211,7 @@
     --client-directory-local-table-row-pad-block: 0.38rem;
   }
 
-  body.clients-page:not(.workspace-side-nav-collapsed)[data-local-client-directory="true"] .client-directory-workspace {
+  body.clients-page[data-local-client-directory="true"] .client-directory-workspace {
     --client-directory-local-table-columns:
         minmax(12.9em, 2.18fr)
         minmax(0, 1fr)
@@ -181,7 +238,7 @@
       --client-directory-items-trigger-min-width: 7.4em;
       --client-directory-summary-note-max: 12.25em;
       --client-directory-summary-card-min-height: 11em;
-      font-size: clamp(0.78rem, calc(0.48rem + 0.5cqi), 0.9rem);
+      font-size: clamp(0.7rem, calc(0.43rem + 0.45cqi), 0.82rem);
     }
 
     body.clients-page[data-local-client-directory="true"] .client-directory-workspace {
@@ -224,7 +281,7 @@
       --client-directory-items-trigger-min-width: 6.2em;
       --client-directory-summary-note-max: 10em;
       --client-directory-summary-card-min-height: 10em;
-      font-size: clamp(0.72rem, calc(0.54rem + 0.34cqi), 0.82rem);
+      font-size: clamp(0.66rem, calc(0.48rem + 0.3cqi), 0.76rem);
     }
 
     body.clients-page[data-local-client-directory="true"] .client-directory-workspace {
@@ -241,8 +298,36 @@
   }
 }
 
+@media (min-width: 721px) and (max-width: 1180px) {
+  body.clients-page .client-directory-shell-layout {
+    grid-template-columns: minmax(9.25rem, 10rem) minmax(0, 1fr);
+  }
+
+  body.clients-page .client-directory-side-panel {
+    grid-column: 2;
+    border-left: 0;
+    border-top: 1px solid rgba(213, 221, 232, 0.78);
+  }
+
+  body.clients-page .client-directory-side-panel-inner {
+    position: static;
+    width: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-height: 0;
+    padding: 0.82rem;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  body.clients-page .client-directory-side-panel:hover .client-directory-side-panel-inner,
+  body.clients-page .client-directory-side-panel:focus-within .client-directory-side-panel-inner {
+    width: auto;
+    box-shadow: none;
+  }
+}
+
 body.clients-page[data-local-client-directory="true"] .client-directory-shell-layout {
-  padding-left: var(--app-side-nav-width);
+  padding-left: var(--app-side-nav-collapsed-width);
 }
 
 body.clients-page.workspace-side-nav-collapsed[data-local-client-directory="true"] .client-directory-shell-layout {
@@ -296,6 +381,44 @@ body.clients-page.client-detail-overlay-open .workspace-visible-pane {
 @media (max-width: 720px) {
   .client-directory-shell-layout {
     grid-template-columns: 1fr;
+  }
+
+  body.clients-page[data-local-client-directory="true"] .client-directory-shell-layout,
+  body.clients-page.workspace-side-nav-collapsed[data-local-client-directory="true"] .client-directory-shell-layout {
+    padding-left: 0;
+  }
+
+  .client-directory-menu-column {
+    max-height: min(20rem, 48vh);
+    border-right: 0;
+    border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+    overflow-y: auto;
+  }
+
+  .client-directory-menu-column-panel {
+    height: auto;
+  }
+
+  .client-directory-side-panel {
+    border-left: 0;
+    border-top: 1px solid rgba(213, 221, 232, 0.78);
+    overflow: visible;
+  }
+
+  .client-directory-side-panel-inner {
+    position: static;
+    width: auto;
+    gap: 0.72rem;
+    min-height: 0;
+    padding: 0.82rem;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .client-directory-side-panel:hover .client-directory-side-panel-inner,
+  .client-directory-side-panel:focus-within .client-directory-side-panel-inner {
+    width: auto;
+    box-shadow: none;
   }
 
   .client-directory-rail {
@@ -1008,7 +1131,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     top: var(--workspace-topbar-height);
     left: var(--app-side-nav-screen-gap);
     bottom: 0;
-    width: calc(var(--app-side-nav-width) - var(--app-side-nav-screen-gap));
+    width: calc(var(--app-side-nav-collapsed-width) - var(--app-side-nav-screen-gap));
     z-index: 30;
     transition: width 0.22s ease;
   }
@@ -1028,7 +1151,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     height: 100%;
     min-height: 100%;
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 8px 0 24px rgba(16, 33, 52, 0.05);
   }
 
@@ -1095,7 +1218,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     grid-template-rows: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
-    padding-left: var(--app-side-nav-width);
+    padding-left: var(--app-side-nav-collapsed-width);
     overflow: hidden;
     box-sizing: border-box;
   }
@@ -1147,7 +1270,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     margin: 0;
     height: 100%;
     min-height: 0;
-    padding: 0 0 0 calc(var(--app-side-nav-width) + 0.25rem);
+    padding: 0 0 0 calc(var(--app-side-nav-collapsed-width) + 0.25rem);
     overflow: hidden;
     box-sizing: border-box;
   }

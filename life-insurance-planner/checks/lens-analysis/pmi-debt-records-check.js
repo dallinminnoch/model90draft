@@ -156,6 +156,24 @@ function assertNoProtectedDiffs() {
   assert.equal(status, "", "protected formula/display/adapter/manual files should not have diffs");
 }
 
+function getDebtRecordsHydrationSourceLikeLinkedPage(saved) {
+  const savedDraft = saved && typeof saved === "object" ? saved : {};
+  if (Array.isArray(savedDraft.debtRecords)) {
+    return savedDraft.debtRecords;
+  }
+
+  const migratedDebtRecords = pmiDebtRecords.createDebtRecordsFromLegacyScalarFields(savedDraft);
+  if (migratedDebtRecords.length) {
+    return migratedDebtRecords;
+  }
+
+  return savedDraft.debtRecords;
+}
+
+function countOccurrences(source, pattern) {
+  return (String(source || "").match(pattern) || []).length;
+}
+
 const context = {
   console,
   window: null,
@@ -508,6 +526,65 @@ assert.equal(badOptional.minimumMonthlyPayment, null);
 assert.equal(badOptional.interestRatePercent, null);
 assert.equal(badOptional.remainingTermMonths, null);
 
+const linkedMissingDebtRecordsSource = getDebtRecordsHydrationSourceLikeLinkedPage({
+  grossAnnualIncome: "125000"
+});
+assert.equal(
+  linkedMissingDebtRecordsSource,
+  undefined,
+  "linked PMI pages should pass missing debtRecords through as missing so the controller spawns starters"
+);
+controller.hydrateDebtRecords(linkedMissingDebtRecordsSource);
+assert.equal(controller.records.length, 9, "missing linked debtRecords should spawn starter rows");
+assert.equal(controller.records[0].debtId, "starter_debt_creditCard");
+
+const linkedScalarHydrationSource = getDebtRecordsHydrationSourceLikeLinkedPage({
+  autoLoans: "12000",
+  creditCardDebt: "3400",
+  mortgageBalance: "999000"
+});
+assert.equal(linkedScalarHydrationSource.length, 2, "linked scalar debts should seed rows only when debtRecords is missing");
+assert.deepEqual(
+  Array.from(linkedScalarHydrationSource, (record) => record.sourceKey),
+  ["autoLoans", "creditCardDebt"]
+);
+assert.equal(
+  linkedScalarHydrationSource.some((record) => record.sourceKey === "mortgageBalance"),
+  false,
+  "linked scalar migration should not seed housing-owned mortgage rows"
+);
+controller.hydrateDebtRecords(linkedScalarHydrationSource);
+assert.equal(controller.records.length, 2, "linked scalar migration should hydrate only migrated non-mortgage debts");
+assert.equal(controller.records[0].debtId, "legacy_scalar_debt_autoLoans");
+assert.equal(controller.records[1].debtId, "legacy_scalar_debt_creditCardDebt");
+
+const linkedExplicitEmptyHydrationSource = getDebtRecordsHydrationSourceLikeLinkedPage({
+  debtRecords: [],
+  autoLoans: "12000",
+  creditCardDebt: "3400"
+});
+assert.deepEqual(linkedExplicitEmptyHydrationSource, [], "explicit linked debtRecords[] should win over scalar fields");
+controller.hydrateDebtRecords(linkedExplicitEmptyHydrationSource);
+assert.equal(controller.records.length, 0, "explicit linked debtRecords[] should remain an empty notebook");
+
+const linkedSavedRowsHydrationSource = getDebtRecordsHydrationSourceLikeLinkedPage({
+  debtRecords: [
+    {
+      debtId: "saved_card",
+      categoryKey: "unsecuredConsumerDebt",
+      typeKey: "creditCard",
+      label: "Saved Card",
+      currentBalance: "1111"
+    }
+  ],
+  creditCardDebt: "9999"
+});
+assert.equal(linkedSavedRowsHydrationSource.length, 1, "saved linked debtRecords should win over scalar fields");
+controller.hydrateDebtRecords(linkedSavedRowsHydrationSource);
+assert.equal(controller.records.length, 1);
+assert.equal(controller.records[0].debtId, "saved_card");
+assert.equal(controller.records[0].currentBalance, 1111);
+
 assert.deepEqual(inputRecords[0], {
   debtId: "debt_valid",
   categoryKey: "unsecuredConsumerDebt",
@@ -539,13 +616,38 @@ assert.deepEqual(inputRecords[0], {
   assert.match(source, /data-pmi-debt-records-root/);
   assert.match(source, /data-pmi-scalar-debt-compatibility hidden/);
   assert.match(source, /type="hidden" data-pmi-scalar-debt-compatibility-field/);
+  assert.doesNotMatch(source, /name="debtRecords"/, "hidden scalar compatibility fields must not create debtRecords[]");
   assert.doesNotMatch(source, /<label for="auto-loans">Remaining Auto Loan Balances<\/label>/);
   assert.doesNotMatch(source, /<label for="credit-card-debt">Revolving Credit Card Debt<\/label>/);
+  assert.ok(
+    source.indexOf("pmi-debt-records.js") < source.indexOf("const pmiDebtRecordsController"),
+    "Debt Records feature script should load before linked page controller initialization"
+  );
   assert.match(source, /getDebtRecordsHydrationSource\(saved\)/);
   assert.match(source, /createDebtRecordsFromLegacyScalarFields/);
+  assert.match(
+    source,
+    /if \(Array\.isArray\(savedDraft\.debtRecords\)\) {\s*return savedDraft\.debtRecords;\s*}/,
+    "linked page hydration should preserve explicit debtRecords[] including []"
+  );
+  assert.match(
+    source,
+    /const migratedDebtRecords = createLegacyDebtRecords\(savedDraft\);[\s\S]*if \(migratedDebtRecords\.length\) {\s*return migratedDebtRecords;\s*}/,
+    "linked page hydration should seed scalar rows only when debtRecords is missing"
+  );
   assert.match(source, /syncDebtScalarCompatibilityFields/);
   assert.match(source, /pmiDebtRecordsChange/);
   assert.match(source, /draft\.debtRecords = pmiDebtRecordsController\.serializeDebtRecords\(\)/);
+  assert.equal(
+    countOccurrences(source, /const draft = serializeForm\(\);/g),
+    1,
+    "linked page should serialize the form only from the save action path"
+  );
+  assert.match(
+    source,
+    /saveExitButton\.addEventListener\("click", \(\) => {[\s\S]*const draft = serializeForm\(\);/,
+    "linked page should not write debtRecords[] during initial page load"
+  );
 });
 
 assertNoProtectedDiffs();
