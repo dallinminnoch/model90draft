@@ -51,19 +51,18 @@ function parseRowsFromMarkup(markup) {
         const selectorToAttribute = {
           "[data-pmi-debt-record-label]": "data-pmi-debt-record-label",
           "[data-pmi-debt-record-balance]": "data-pmi-debt-record-balance",
-          "[data-pmi-debt-record-payment-type]": "data-pmi-debt-record-payment-type",
+          "[data-pmi-debt-record-payment-frequency]": "data-pmi-debt-record-payment-frequency",
           "[data-pmi-debt-record-payment-amount]": "data-pmi-debt-record-payment-amount",
           "[data-pmi-debt-record-payment]": "data-pmi-debt-record-payment",
           "[data-pmi-debt-record-extra-payoff]": "data-pmi-debt-record-extra-payoff",
           "[data-pmi-debt-record-rate]": "data-pmi-debt-record-rate",
-          "[data-pmi-debt-record-term]": "data-pmi-debt-record-term",
-          "[data-pmi-debt-record-notes]": "data-pmi-debt-record-notes"
+          "[data-pmi-debt-record-term]": "data-pmi-debt-record-term"
         };
         const attribute = selectorToAttribute[selector];
         if (!attribute) {
           return null;
         }
-        if (selector === "[data-pmi-debt-record-payment-type]") {
+        if (selector === "[data-pmi-debt-record-payment-frequency]") {
           const selectPattern = new RegExp("<select[^>]*" + attribute + "[^>]*>([\\s\\S]*?)<\\/select>", "i");
           const selectMatch = rowMarkup.match(selectPattern);
           const selectedOptionMatch = selectMatch
@@ -77,6 +76,13 @@ function parseRowsFromMarkup(markup) {
       }
     };
   });
+}
+
+function extractCssRule(source, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(escapedSelector + "\\s*{([\\s\\S]*?)\\n}", "m");
+  const match = String(source || "").match(pattern);
+  return match ? match[1] : "";
 }
 
 function createFakeElement() {
@@ -182,6 +188,7 @@ assert.equal(autoLoanRecord.categoryKey, "securedConsumerDebt");
 assert.equal(autoLoanRecord.typeKey, "autoLoan");
 assert.equal(autoLoanRecord.currentBalance, null);
 assert.equal(autoLoanRecord.paymentType, "minimumPayment");
+assert.equal(autoLoanRecord.paymentFrequency, "monthly");
 assert.equal(autoLoanRecord.paymentAmount, null);
 assert.equal(autoLoanRecord.minimumMonthlyPayment, null);
 assert.equal(autoLoanRecord.extraPayoffAmount, null);
@@ -200,6 +207,7 @@ const autoLeaseRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
 assert.equal(autoLeaseRecord.categoryKey, "securedConsumerDebt");
 assert.equal(autoLeaseRecord.typeKey, "autoLease");
 assert.equal(autoLeaseRecord.paymentType, "leasePayment");
+assert.equal(autoLeaseRecord.paymentFrequency, "monthly");
 
 const secondVehicleLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
   debtLibrary.findDebtLibraryEntry("secondVehicleLoan")
@@ -226,6 +234,18 @@ assert.equal(primaryMortgageRecord, null, "primary residence mortgage should not
 
 const fakeDom = createFakeRoot();
 const controller = pmiDebtRecords.initPmiDebtRecords({ root: fakeDom.root });
+const componentsCss = readRepoFile("components.css");
+const debtRecordsListRule = extractCssRule(componentsCss, ".pmi-debt-records-list");
+const debtRecordsTableRule = extractCssRule(componentsCss, ".pmi-debt-records-table");
+const debtRecordControlRule = extractCssRule(
+  componentsCss,
+  ".pmi-debt-record-row input,\r?\n.pmi-debt-record-row select"
+) || extractCssRule(
+  componentsCss,
+  ".pmi-debt-record-row input,\n.pmi-debt-record-row select"
+);
+const debtRecordCurrencyRule = extractCssRule(componentsCss, ".pmi-debt-record-compact-currency");
+const debtRecordCurrencySuffixRule = extractCssRule(componentsCss, ".pmi-debt-record-compact-currency .profile-currency-suffix");
 assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiDebtRecordsInitialized, "true");
 assert.equal(controller.records.length, 9, "default starter notebook rows should appear on init");
@@ -235,16 +255,34 @@ assert.match(fakeDom.list.innerHTML, /data-pmi-debt-records-header/, "compact de
   "Debt Type",
   "Label / Creditor",
   "Balance",
-  "Payment Type",
+  "Payment Frequency",
   "Payment Amount",
   "Extra Payoff",
   "Remaining Term",
   "Interest Rate",
-  "Notes",
   "Remove"
 ].forEach((header) => {
   assert.match(fakeDom.list.innerHTML, new RegExp(`>${header}<`), `${header} column header should render`);
 });
+assert.doesNotMatch(fakeDom.list.innerHTML, />Payment Type</, "Payment Type column should not render");
+assert.doesNotMatch(fakeDom.list.innerHTML, />Notes</, "Notes column should not render");
+assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-type/, "Payment Type select should not render");
+assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-notes/, "Notes input should not render");
+assert.match(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-frequency/, "Payment Frequency select should render");
+assert.match(debtRecordsListRule, /overflow-x:\s*visible;/, "desktop debt records list should not use horizontal scrolling");
+assert.doesNotMatch(debtRecordsListRule, /overflow-x:\s*auto;/, "desktop debt records list should not declare overflow-x auto");
+assert.match(debtRecordsTableRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "debt records table should fit the card width");
+assert.match(debtRecordsTableRule, /border-radius:\s*0\.25rem;/, "debt records table should use the sharper compact shell radius");
+assert.match(componentsCss, /grid-template-columns:[\s\S]*minmax\(0,\s*1\.05fr\)[\s\S]*minmax\(2\.4rem,\s*0\.28fr\)/, "debt records grid should use compact flexible tracks");
+assert.match(componentsCss, /\.pmi-debt-record-row\s*{\s*padding:\s*0\.32rem\s+0\.36rem;/, "debt rows should use tighter notebook padding");
+assert.match(debtRecordControlRule, /min-width:\s*0;[\s\S]*box-sizing:\s*border-box;/, "debt row controls should shrink within cells");
+assert.match(debtRecordControlRule, /min-height:\s*1\.72rem;/, "debt row controls should use compact control height");
+assert.match(debtRecordControlRule, /padding:\s*0\.22rem\s+0\.32rem;/, "debt row controls should use compact vertical padding");
+assert.match(debtRecordControlRule, /border-radius:\s*0\.18rem;/, "debt row controls should use sharper control corners");
+assert.match(debtRecordControlRule, /font-size:\s*0\.78rem;/, "debt row controls should preserve the existing text size");
+assert.match(debtRecordCurrencyRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "compact currency wrappers should not widen debt row cells");
+assert.match(debtRecordCurrencySuffixRule, /position:\s*absolute;[\s\S]*right:\s*0\.3rem;/, "compact currency suffixes should sit inside debt row controls");
+assert.match(componentsCss, /\.pmi-asset-record-remove\.pmi-debt-record-remove\s*{[\s\S]*width:\s*1\.45rem;[\s\S]*height:\s*1\.45rem;[\s\S]*border-radius:\s*0\.18rem;[\s\S]*font-size:\s*0;/, "remove control should be tighter, sharper, and override the shared asset remove rule");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-field/, "debt rows should not render as stacked card fields");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-grid/, "debt rows should not render the old stacked field grid");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-label-row/, "row labels should come from column headers");
@@ -268,6 +306,7 @@ assert.equal(starterSerialized.length, 9, "starter rows should serialize as debt
 assert.ok(starterSerialized.every((record) => record.isDefaultDebt === true));
 assert.ok(starterSerialized.every((record) => record.currentBalance == null));
 assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentType, "leasePayment");
+assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentFrequency, "monthly");
 assert.equal(starterSerialized.find((record) => record.typeKey === "creditCard").metadata.source, "starter-notebook");
 
 assert.equal(controller.removeDebtRecordById("starter_debt_creditCard"), true);
@@ -294,6 +333,7 @@ const inputRecords = Object.freeze([
     label: "Visa Card",
     currentBalance: "1200.50",
     paymentType: "fixedInstallment",
+    paymentFrequency: "biweekly",
     paymentAmount: "80",
     minimumMonthlyPayment: "75",
     extraPayoffAmount: "20",
@@ -311,7 +351,9 @@ const inputRecords = Object.freeze([
     typeKey: "medicalBill",
     label: "Medical Bill",
     currentBalance: "abc",
+    paymentType: "minimumPayment",
     minimumMonthlyPayment: "10",
+    notes: "Legacy medical note",
     interestRatePercent: "bad",
     remainingTermMonths: "-3"
   }),
@@ -343,6 +385,10 @@ const inputRecords = Object.freeze([
 
 controller.hydrateDebtRecords(inputRecords);
 assert.match(fakeDom.list.innerHTML, /Visa Card/, "hydrate should render saved valid record labels");
+assert.doesNotMatch(fakeDom.list.innerHTML, /Primary card/, "saved notes should not render in the simplified row UI");
+assert.doesNotMatch(fakeDom.list.innerHTML, /Legacy medical note/, "legacy saved notes should not render in the simplified row UI");
+assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-type/, "legacy paymentType should not render as a visible select");
+assert.match(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-frequency/, "hydrated rows should render payment frequency select");
 assert.doesNotMatch(fakeDom.list.innerHTML, /Should Be Ignored/, "hydrate should not preserve non-addable primary mortgage records");
 
 const serialized = controller.serializeDebtRecords();
@@ -353,8 +399,9 @@ assert.ok(valid, "valid debt record should serialize");
 assert.equal(valid.label, "Visa Card");
 assert.equal(valid.currentBalance, 1200.5);
 assert.equal(valid.paymentType, "fixedInstallment");
+assert.equal(valid.paymentFrequency, "biweekly");
 assert.equal(valid.paymentAmount, 80);
-assert.equal(valid.minimumMonthlyPayment, 80);
+assert.equal(valid.minimumMonthlyPayment, null);
 assert.equal(valid.extraPayoffAmount, 20);
 assert.equal(valid.interestRatePercent, 19.99);
 assert.equal(valid.remainingTermMonths, 24);
@@ -367,8 +414,11 @@ assert.equal(valid.metadata.libraryEntryKey, "creditCard");
 const invalidBalance = serialized.find((record) => record.debtId === "debt_invalid_balance");
 assert.ok(invalidBalance, "blank or invalid balance rows should preserve editable debtRecords");
 assert.equal(invalidBalance.currentBalance, null);
+assert.equal(invalidBalance.paymentType, "minimumPayment");
+assert.equal(invalidBalance.paymentFrequency, "monthly");
 assert.equal(invalidBalance.paymentAmount, 10);
 assert.equal(invalidBalance.minimumMonthlyPayment, 10);
+assert.equal(invalidBalance.notes, "Legacy medical note");
 assert.equal(invalidBalance.interestRatePercent, null);
 assert.equal(invalidBalance.remainingTermMonths, null);
 
@@ -387,6 +437,7 @@ assert.deepEqual(inputRecords[0], {
   label: "Visa Card",
   currentBalance: "1200.50",
   paymentType: "fixedInstallment",
+  paymentFrequency: "biweekly",
   paymentAmount: "80",
   minimumMonthlyPayment: "75",
   extraPayoffAmount: "20",

@@ -21,6 +21,19 @@
 
   const DEFAULT_PAYMENT_TYPE = "minimumPayment";
 
+  const PAYMENT_FREQUENCY_OPTIONS = Object.freeze([
+    Object.freeze({ value: "monthly", label: "Monthly" }),
+    Object.freeze({ value: "biweekly", label: "Biweekly" }),
+    Object.freeze({ value: "weekly", label: "Weekly" }),
+    Object.freeze({ value: "quarterly", label: "Quarterly" }),
+    Object.freeze({ value: "semiannual", label: "Semiannual" }),
+    Object.freeze({ value: "annual", label: "Annual" }),
+    Object.freeze({ value: "oneTime", label: "One-Time" }),
+    Object.freeze({ value: "other", label: "Other" })
+  ]);
+
+  const DEFAULT_PAYMENT_FREQUENCY = "monthly";
+
   const STARTER_DEBT_TYPE_KEYS = Object.freeze([
     "creditCard",
     "federalStudentLoan",
@@ -91,6 +104,24 @@
     return normalizePaymentType(entry && entry.defaultPaymentType, DEFAULT_PAYMENT_TYPE);
   }
 
+  function normalizePaymentFrequency(value, fallback) {
+    const normalizedValue = normalizeString(value);
+    if (PAYMENT_FREQUENCY_OPTIONS.some(function (option) { return option.value === normalizedValue; })) {
+      return normalizedValue;
+    }
+
+    const normalizedFallback = normalizeString(fallback);
+    if (PAYMENT_FREQUENCY_OPTIONS.some(function (option) { return option.value === normalizedFallback; })) {
+      return normalizedFallback;
+    }
+
+    return DEFAULT_PAYMENT_FREQUENCY;
+  }
+
+  function getDefaultPaymentFrequencyForEntry(entry) {
+    return normalizePaymentFrequency(entry && entry.defaultPaymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
+  }
+
   function getPaymentAmountForRecord(record) {
     const paymentAmount = toOptionalNonNegativeNumber(record && record.paymentAmount);
     if (paymentAmount != null) {
@@ -100,8 +131,8 @@
     return toOptionalNonNegativeNumber(record && record.minimumMonthlyPayment);
   }
 
-  function getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount) {
-    return paymentType === "none" ? null : toOptionalNonNegativeNumber(paymentAmount);
+  function getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount) {
+    return paymentFrequency === "monthly" ? toOptionalNonNegativeNumber(paymentAmount) : null;
   }
 
   function clonePlainObject(value) {
@@ -196,6 +227,10 @@
     const categoryKey = normalizeString(safeEntry.categoryKey);
     const label = normalizeString(safeOptions.label) || normalizeString(safeEntry.label) || typeKey || "Added Debt";
     const paymentType = normalizePaymentType(safeOptions.paymentType, getDefaultPaymentTypeForEntry(safeEntry));
+    const paymentFrequency = normalizePaymentFrequency(
+      safeOptions.paymentFrequency,
+      getDefaultPaymentFrequencyForEntry(safeEntry)
+    );
     const paymentAmount = toOptionalNumber(safeOptions.paymentAmount);
 
     if (!typeKey || !categoryKey) {
@@ -209,8 +244,9 @@
       label,
       currentBalance: null,
       paymentType,
+      paymentFrequency,
       paymentAmount,
-      minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+      minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
       extraPayoffAmount: null,
       interestRatePercent: null,
       remainingTermMonths: null,
@@ -244,6 +280,7 @@
 
     const metadata = clonePlainObject(safeRecord.metadata);
     const paymentType = normalizePaymentType(safeRecord.paymentType, entry && entry.defaultPaymentType);
+    const paymentFrequency = normalizePaymentFrequency(safeRecord.paymentFrequency, entry && entry.defaultPaymentFrequency);
     const paymentAmount = getPaymentAmountForRecord(safeRecord);
     return {
       debtId: normalizeString(safeRecord.debtId) || generateDebtId(),
@@ -252,8 +289,9 @@
       label,
       currentBalance: toOptionalNumber(safeRecord.currentBalance),
       paymentType,
+      paymentFrequency,
       paymentAmount,
-      minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+      minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
       extraPayoffAmount: toOptionalNonNegativeNumber(safeRecord.extraPayoffAmount),
       interestRatePercent: toOptionalNumber(safeRecord.interestRatePercent),
       remainingTermMonths: toOptionalNumber(safeRecord.remainingTermMonths),
@@ -470,28 +508,29 @@
           const existingRecord = previousById[debtId] || {};
           const labelInput = row.querySelector("[data-pmi-debt-record-label]");
           const balanceInput = row.querySelector("[data-pmi-debt-record-balance]");
-          const paymentTypeInput = row.querySelector("[data-pmi-debt-record-payment-type]");
+          const paymentFrequencyInput = row.querySelector("[data-pmi-debt-record-payment-frequency]");
           const paymentInput = row.querySelector("[data-pmi-debt-record-payment-amount]")
             || row.querySelector("[data-pmi-debt-record-payment]");
           const extraPayoffInput = row.querySelector("[data-pmi-debt-record-extra-payoff]");
           const rateInput = row.querySelector("[data-pmi-debt-record-rate]");
           const termInput = row.querySelector("[data-pmi-debt-record-term]");
-          const notesInput = row.querySelector("[data-pmi-debt-record-notes]");
           const label = normalizeString(labelInput && labelInput.value) || existingRecord.label || "Added Debt";
-          const paymentType = normalizePaymentType(paymentTypeInput && paymentTypeInput.value, existingRecord.paymentType);
+          const paymentFrequency = normalizePaymentFrequency(
+            paymentFrequencyInput && paymentFrequencyInput.value,
+            existingRecord.paymentFrequency
+          );
           const paymentAmount = toOptionalNonNegativeNumber(paymentInput && paymentInput.value);
 
           return Object.assign({}, existingRecord, {
             debtId: existingRecord.debtId || debtId || generateDebtId(),
             label,
             currentBalance: toOptionalNumber(balanceInput && balanceInput.value),
-            paymentType,
+            paymentFrequency,
             paymentAmount,
-            minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+            minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
             extraPayoffAmount: toOptionalNonNegativeNumber(extraPayoffInput && extraPayoffInput.value),
             interestRatePercent: toOptionalNumber(rateInput && rateInput.value),
-            remainingTermMonths: toOptionalNumber(termInput && termInput.value),
-            notes: normalizeString(notesInput && notesInput.value) || null
+            remainingTermMonths: toOptionalNumber(termInput && termInput.value)
           });
         });
     }
@@ -510,13 +549,12 @@
         const debtId = normalizeString(record.debtId);
         const labelInputId = createInputId("pmi-debt-record", debtId, "label");
         const balanceInputId = createInputId("pmi-debt-record", debtId, "balance");
-        const paymentTypeInputId = createInputId("pmi-debt-record", debtId, "payment-type");
+        const paymentFrequencyInputId = createInputId("pmi-debt-record", debtId, "payment-frequency");
         const paymentInputId = createInputId("pmi-debt-record", debtId, "payment-amount");
         const extraPayoffInputId = createInputId("pmi-debt-record", debtId, "extra-payoff");
         const rateInputId = createInputId("pmi-debt-record", debtId, "rate");
         const termInputId = createInputId("pmi-debt-record", debtId, "term");
-        const notesInputId = createInputId("pmi-debt-record", debtId, "notes");
-        const paymentType = normalizePaymentType(record.paymentType, DEFAULT_PAYMENT_TYPE);
+        const paymentFrequency = normalizePaymentFrequency(record.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
         const paymentAmount = getPaymentAmountForRecord(record);
         return `
           <div class="pmi-debt-record-row" role="row" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
@@ -532,9 +570,9 @@
                 <span class="profile-currency-suffix">USD</span>
               </div>
             </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Type">
-              <select id="${escapeHtml(paymentTypeInputId)}" data-pmi-debt-record-payment-type aria-label="Payment Type">
-                ${renderSelectOptions(PAYMENT_TYPE_OPTIONS, paymentType)}
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Frequency">
+              <select id="${escapeHtml(paymentFrequencyInputId)}" data-pmi-debt-record-payment-frequency aria-label="Payment Frequency">
+                ${renderSelectOptions(PAYMENT_FREQUENCY_OPTIONS, paymentFrequency)}
               </select>
             </div>
             <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Amount">
@@ -561,9 +599,6 @@
                 <span class="profile-currency-suffix">%</span>
               </div>
             </div>
-            <div class="pmi-debt-record-cell" role="cell" data-column-label="Notes">
-              <input id="${escapeHtml(notesInputId)}" data-pmi-debt-record-notes type="text" value="${escapeHtml(record.notes || "")}" aria-label="Notes">
-            </div>
             <div class="pmi-debt-record-cell pmi-debt-record-remove-cell" role="cell" data-column-label="Remove">
               <button class="pmi-asset-record-remove pmi-debt-record-remove" type="button" data-pmi-debt-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
             </div>
@@ -577,12 +612,11 @@
             <span role="columnheader">Debt Type</span>
             <span role="columnheader">Label / Creditor</span>
             <span role="columnheader">Balance</span>
-            <span role="columnheader">Payment Type</span>
+            <span role="columnheader">Payment Frequency</span>
             <span role="columnheader">Payment Amount</span>
             <span role="columnheader">Extra Payoff</span>
             <span role="columnheader">Remaining Term</span>
             <span role="columnheader">Interest Rate</span>
-            <span role="columnheader">Notes</span>
             <span role="columnheader">Remove</span>
           </div>
           <div class="pmi-debt-records-body" role="rowgroup" data-pmi-debt-records-body>
@@ -779,6 +813,7 @@
           }
 
           const paymentType = normalizePaymentType(record.paymentType, DEFAULT_PAYMENT_TYPE);
+          const paymentFrequency = normalizePaymentFrequency(record.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
           const paymentAmount = toOptionalNonNegativeNumber(record.paymentAmount);
 
           return {
@@ -788,8 +823,9 @@
             label: normalizeString(record.label) || normalizeString(record.typeKey) || "Added Debt",
             currentBalance,
             paymentType,
+            paymentFrequency,
             paymentAmount,
-            minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentType, paymentAmount),
+            minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
             extraPayoffAmount: toOptionalNonNegativeNumber(record.extraPayoffAmount),
             interestRatePercent: toOptionalNonNegativeNumber(record.interestRatePercent),
             remainingTermMonths: toOptionalNonNegativeNumber(record.remainingTermMonths),
