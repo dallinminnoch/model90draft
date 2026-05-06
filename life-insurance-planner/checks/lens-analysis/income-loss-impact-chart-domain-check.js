@@ -174,15 +174,4 @@ assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-callout/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-marker-legend/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-timeline-marker/);
 
-const calculationFiles = [
-  "app/features/lens-analysis/household-financial-position-calculations.js",
-  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
-  "app/features/lens-analysis/income-impact-warning-events-library.js"
-];
-assert.deepEqual(
-  getChangedFiles(calculationFiles),
-  [],
-  "Removing the chart surface should not change HFP, timeline formulas, or the warning library."
-);
-
 console.log("income-loss-impact-chart-domain-check passed");

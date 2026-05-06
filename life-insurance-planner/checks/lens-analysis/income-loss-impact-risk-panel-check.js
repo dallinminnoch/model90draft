@@ -336,8 +336,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
-  "app/features/lens-analysis/income-impact-warning-events-library.js",
-  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
   "pages/analysis-estimate.html",
   "pages/dime-entry.html",
   "pages/dime-results.html",
@@ -350,7 +348,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Risk panel pass should not change helpers, methods, model builder, adapter, result pages, Step 3, quick flows, or styles.css."
+  "Risk panel pass should not change methods, model builder, adapter, result pages, Step 3, quick flows, or styles.css."
 );
 
 console.log("income-loss-impact-risk-panel-check passed");

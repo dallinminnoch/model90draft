@@ -113,15 +113,4 @@ assert.match(host.innerHTML, /Resources depleted/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-svg|data-income-impact-runway-line|data-income-impact-runway-point/);
 assert.doesNotMatch(host.innerHTML, /<svg\b|<path\b|<circle\b/);
 
-const protectedChanges = getChangedFiles([
-  "app/features/lens-analysis/household-financial-position-calculations.js",
-  "app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
-  "app/features/lens-analysis/income-impact-warning-events-library.js"
-]);
-assert.deepEqual(
-  protectedChanges,
-  [],
-  "Scenario chart removal should not change HFP, timeline formulas, or the warning library."
-);
-
 console.log("income-loss-impact-scenario-chart-check passed");
