@@ -155,8 +155,8 @@ assert.match(
 );
 assert.match(
   incomeLossHtml,
-  /income-loss-impact-timeline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
-  "Income Impact should load the pure timeline helper before the display module."
+  /income-impact-scenario-composer-calculations\.js[\s\S]*income-impact-risk-event-evaluator-calculations\.js[\s\S]*income-loss-impact-display\.js/,
+  "Income Impact should load the composer and risk evaluator before the display module."
 );
 [
   /data-income-impact-scenario-banner/,
@@ -217,6 +217,12 @@ assert.match(
   "../app/features/lens-analysis/cash-reserve-calculations.js",
   "../app/features/lens-analysis/lens-model-builder.js",
   "../app/features/lens-analysis/income-impact-warning-events-library.js",
+  "../app/features/lens-analysis/household-wealth-projection-calculations.js",
+  "../app/features/lens-analysis/household-death-event-availability-calculations.js",
+  "../app/features/lens-analysis/household-survivor-runway-calculations.js",
+  "../app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
+  "../app/features/lens-analysis/income-impact-caution-library.js",
+  "../app/features/lens-analysis/income-impact-risk-event-evaluator-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-timeline-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-display.js"
 ].forEach(function (scriptPath) {
@@ -232,23 +238,43 @@ assert.ok(
 );
 assert.ok(
   incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js")
-    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-warning-events-library.js"),
-  "Income Impact should load the Lens model builder before the warning events library."
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/household-wealth-projection-calculations.js"),
+  "Income Impact should load the Lens model builder before Layer 1."
 );
 assert.ok(
-  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-warning-events-library.js")
-    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-timeline-calculations.js"),
-  "Income Impact should load the warning events library before the timeline helper."
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/asset-treatment-calculations.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/household-death-event-availability-calculations.js"),
+  "Income Impact should load asset treatment before Layer 2."
 );
 assert.ok(
-  incomeLossScriptSources.indexOf("../app/features/lens-analysis/lens-model-builder.js")
-    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-timeline-calculations.js"),
-  "Income Impact should load the Lens model builder before the timeline helper."
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/household-wealth-projection-calculations.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-scenario-composer-calculations.js"),
+  "Income Impact should load Layer 1 before the composer."
 );
 assert.ok(
-  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-timeline-calculations.js")
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/household-death-event-availability-calculations.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-scenario-composer-calculations.js"),
+  "Income Impact should load Layer 2 before the composer."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/household-survivor-runway-calculations.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-scenario-composer-calculations.js"),
+  "Income Impact should load Layer 3 before the composer."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-caution-library.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-risk-event-evaluator-calculations.js"),
+  "Income Impact should load the caution library before the risk evaluator."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-scenario-composer-calculations.js")
     < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-display.js"),
-  "Income Impact should load the timeline helper before the display module."
+  "Income Impact should load the composer before the display module."
+);
+assert.ok(
+  incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-impact-risk-event-evaluator-calculations.js")
+    < incomeLossScriptSources.indexOf("../app/features/lens-analysis/income-loss-impact-display.js"),
+  "Income Impact should load the risk evaluator before the display module."
 );
 assert.doesNotMatch(incomeLossHtml, /Continue to Estimate Need/);
 assert.doesNotMatch(incomeLossHtml, /Optional Review/);
@@ -302,8 +328,23 @@ assert.match(
 );
 assert.match(
   incomeLossDisplaySource,
+  /composeIncomeImpactScenario/,
+  "Income Impact display should call the clean scenario composer."
+);
+assert.match(
+  incomeLossDisplaySource,
+  /evaluateIncomeImpactRiskEvents/,
+  "Income Impact display should call the Layer 4 risk evaluator."
+);
+assert.doesNotMatch(
+  incomeLossDisplaySource,
   /calculateIncomeLossImpactTimeline/,
-  "Income Impact display should call the pure fact-based timeline helper."
+  "Income Impact display should not call the retired timeline helper."
+);
+assert.doesNotMatch(
+  incomeLossDisplaySource,
+  /evaluateIncomeImpactWarningEvents/,
+  "Income Impact display should not call the legacy warning-event library."
 );
 assert.doesNotMatch(
   incomeLossDisplaySource,
@@ -338,7 +379,7 @@ assert.match(
 assert.match(
   incomeLossDisplaySource,
   /data-income-impact-visual-timeline/,
-  "Income Impact should render a helper-driven visual timeline."
+  "Income Impact should render the paused timeline region."
 );
 assert.match(
   incomeLossDisplaySource,
@@ -348,12 +389,12 @@ assert.match(
 assert.match(
   incomeLossDisplaySource,
   /data-income-impact-helper-summary-card="yearsOfFinancialSecurity"/,
-  "Years of Financial Security should render from a helper summary card."
+  "Years of Financial Security should render from the composed scenario view model."
 );
 assert.match(
   incomeLossDisplaySource,
   /data-income-impact-helper-timeline-events/,
-  "Income Impact timeline should render helper timeline events."
+  "Income Impact timeline should render composer-derived supporting events."
 );
 assert.match(
   incomeLossDisplaySource,

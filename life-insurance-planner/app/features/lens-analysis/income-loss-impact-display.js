@@ -66,6 +66,14 @@
     ].join("-");
   }
 
+  function addWholeYears(date, years) {
+    const targetYear = date.getFullYear() + years;
+    const target = new Date(targetYear, date.getMonth(), 1);
+    const lastDayOfTargetMonth = new Date(targetYear, date.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(date.getDate(), lastDayOfTargetMonth));
+    return target;
+  }
+
   function normalizeDateOnly(value) {
     if (value == null || value === "") {
       return "";
@@ -170,8 +178,30 @@
       currentAge,
       minAge: currentAge,
       maxAge,
-      selectedDeathAge: currentAge
+      selectedDeathAge: currentAge,
+      dateOfBirth: formatDateOnly(dateOfBirth)
     };
+  }
+
+  function resolveSelectedDeathDate(valuationDate, deathAgeState) {
+    const asOfDate = parseDateOnlyValue(valuationDate);
+    const state = isPlainObject(deathAgeState) ? deathAgeState : {};
+    if (!asOfDate || !state.hasDateOfBirth) {
+      return normalizeDateOnly(valuationDate) || "";
+    }
+
+    const selectedDeathAge = clampRoundedAge(state.selectedDeathAge, state.minAge, state.maxAge);
+    if (selectedDeathAge <= state.currentAge) {
+      return formatDateOnly(asOfDate);
+    }
+
+    const dateOfBirth = parseDateOnlyValue(state.dateOfBirth);
+    if (!dateOfBirth) {
+      return formatDateOnly(asOfDate);
+    }
+
+    const selectedDeathDate = addWholeYears(dateOfBirth, selectedDeathAge);
+    return selectedDeathDate < asOfDate ? formatDateOnly(asOfDate) : formatDateOnly(selectedDeathDate);
   }
 
   function resolveTimelineValuationDate(profileRecord, lensModel) {
@@ -577,12 +607,75 @@
     return isPlainObject(timelineResult?.scenarioTimeline) ? timelineResult.scenarioTimeline : {};
   }
 
+  function getComposerScenario(timelineResult) {
+    return isPlainObject(timelineResult?.scenario) ? timelineResult.scenario : {};
+  }
+
+  function getTimelineFacts(timelineResult) {
+    const scenario = getComposerScenario(timelineResult);
+    return isPlainObject(scenario.timelineFacts) ? scenario.timelineFacts : {};
+  }
+
+  function formatMonthsCovered(value) {
+    const months = toOptionalNumber(value);
+    if (months == null) {
+      return UNAVAILABLE_COPY;
+    }
+
+    const roundedMonths = Math.max(0, Math.round(months));
+    const years = Math.floor(roundedMonths / 12);
+    const remainder = roundedMonths % 12;
+    if (!years) {
+      return `${remainder} ${remainder === 1 ? "month" : "months"}`;
+    }
+    if (!remainder) {
+      return `${years} ${years === 1 ? "year" : "years"}`;
+    }
+    return `${years} ${years === 1 ? "year" : "years"} ${remainder} ${remainder === 1 ? "month" : "months"}`;
+  }
+
+  function getPausedTimelineFacts(timelineResult) {
+    const facts = getTimelineFacts(timelineResult);
+    return [
+      {
+        id: "assets-before-death",
+        label: "Assets before death",
+        value: formatCurrency(facts.assetsBeforeDeath)
+      },
+      {
+        id: "treated-assets-at-death",
+        label: "Treated assets at death",
+        value: formatCurrency(facts.survivorAvailableTreatedAssets)
+      },
+      {
+        id: "coverage-added",
+        label: "Coverage added at death",
+        value: formatCurrency(facts.coverageAdded)
+      },
+      {
+        id: "resources-after-obligations",
+        label: "Resources after obligations",
+        value: formatCurrency(facts.resourcesAfterObligations)
+      },
+      {
+        id: "runway-months-covered",
+        label: "Runway covered",
+        value: formatMonthsCovered(facts.monthsCovered)
+      },
+      {
+        id: "depletion-date",
+        label: "Depletion date",
+        value: facts.depletionDate || "Not depleted within horizon"
+      }
+    ];
+  }
+
   function renderPausedTimelineVisualization(timelineResult) {
     const runway = getFinancialRunway(timelineResult);
     const status = normalizeRunwayStatus(runway.status);
-    const events = getPivotalEvents(timelineResult);
     const selectedDeathDate = timelineResult?.selectedDeath?.date || getScenarioTimeline(timelineResult)?.axis?.deathDate || UNAVAILABLE_COPY;
     const selectedDeathAge = timelineResult?.selectedDeath?.age == null ? UNAVAILABLE_COPY : `Age ${timelineResult.selectedDeath.age}`;
+    const facts = getPausedTimelineFacts(timelineResult);
 
     return `
       <div class="income-impact-timeline-paused" data-income-impact-visual-timeline data-income-impact-timeline-paused data-income-impact-runway-status="${escapeHtml(status)}">
@@ -594,8 +687,9 @@
         <div class="income-impact-paused-facts" aria-label="Paused Income Impact preview facts">
           <span><b>Selected death date</b><strong>${escapeHtml(selectedDeathDate)}</strong></span>
           <span><b>Selected death age</b><strong>${escapeHtml(selectedDeathAge)}</strong></span>
-          <span><b>Risk events</b><strong>${escapeHtml(String(events.risks.length))}</strong></span>
-          <span><b>Controls</b><strong>Preview only</strong></span>
+          ${facts.map(function (fact) {
+            return `<span data-income-impact-paused-fact="${escapeHtml(fact.id)}"><b>${escapeHtml(fact.label)}</b><strong>${escapeHtml(fact.value)}</strong></span>`;
+          }).join("")}
         </div>
       </div>
     `;
@@ -680,6 +774,14 @@
   }
 
   function getPivotalEvents(timelineResult) {
+    const riskEvaluation = isPlainObject(timelineResult?.riskEvaluation) ? timelineResult.riskEvaluation : {};
+    if (Array.isArray(riskEvaluation.events) || Array.isArray(riskEvaluation.stableEvents)) {
+      return {
+        risks: (Array.isArray(riskEvaluation.events) ? riskEvaluation.events : []).filter(isPlainObject),
+        stable: (Array.isArray(riskEvaluation.stableEvents) ? riskEvaluation.stableEvents : []).filter(isPlainObject)
+      };
+    }
+
     const scenarioTimeline = isPlainObject(timelineResult?.scenarioTimeline) ? timelineResult.scenarioTimeline : {};
     const pivotalEvents = isPlainObject(scenarioTimeline.pivotalEvents) ? scenarioTimeline.pivotalEvents : {};
     return {
@@ -720,8 +822,29 @@
       } else if (months != null) {
         pieces.push(`Month ${months}`);
       }
+    } else if (!pieces.length && event?.monthIndex != null) {
+      const months = toOptionalNumber(event.monthIndex);
+      if (months === 0) {
+        pieces.push("At death");
+      } else if (months != null) {
+        pieces.push(`Month ${months}`);
+      }
     }
     return pieces.join(" - ");
+  }
+
+  function formatEvidenceValue(value) {
+    const number = toOptionalNumber(value);
+    if (number != null && Math.abs(number) >= 1000) {
+      return formatCurrency(number);
+    }
+    if (typeof value === "boolean") {
+      return value ? "Yes" : "No";
+    }
+    if (value == null || value === "") {
+      return UNAVAILABLE_COPY;
+    }
+    return String(value);
   }
 
   function renderPivotalEventMeta(event) {
@@ -751,6 +874,26 @@
     `;
   }
 
+  function renderPivotalEventEvidence(event) {
+    const evidence = Array.isArray(event?.evidence) ? event.evidence.filter(isPlainObject).slice(0, 3) : [];
+    if (!evidence.length) {
+      return "";
+    }
+
+    return `
+      <dl class="income-impact-risk-evidence" data-income-impact-risk-evidence>
+        ${evidence.map(function (item) {
+          return `
+            <div data-income-impact-risk-evidence-path="${escapeHtml(item.path || "")}">
+              <dt>${escapeHtml(item.label || item.path || "Evidence")}</dt>
+              <dd>${escapeHtml(formatEvidenceValue(item.value))}</dd>
+            </div>
+          `;
+        }).join("")}
+      </dl>
+    `;
+  }
+
   function renderRiskEvent(event) {
     const severity = String(event?.severity || "").trim();
     return `
@@ -758,14 +901,16 @@
         class="income-impact-risk-item"
         data-income-impact-risk-event
         data-income-impact-risk-severity="${escapeHtml(severity)}"
-        data-income-impact-risk-type="${escapeHtml(event?.type || event?.id || "")}"
+        data-income-impact-risk-type="${escapeHtml(event?.category || event?.type || event?.id || "")}"
+        data-income-impact-risk-rule-id="${escapeHtml(event?.ruleId || event?.id || "")}"
       >
         <div class="income-impact-risk-item-header">
           <span class="income-impact-risk-severity" data-income-impact-risk-severity-label="${escapeHtml(severity)}">${escapeHtml(getRiskSeverityLabel(severity))}</span>
-          <strong>${escapeHtml(event?.label || event?.shortLabel || "Risk detected")}</strong>
+          <strong>${escapeHtml(event?.title || event?.label || event?.shortLabel || "Risk detected")}</strong>
         </div>
-        <p>${escapeHtml(event?.advisorCopy || "Review this Income Impact scenario with the available facts.")}</p>
+        <p>${escapeHtml(event?.summary || event?.advisorCopy || "Review this Income Impact scenario with the available facts.")}</p>
         ${renderPivotalEventMeta(event)}
+        ${renderPivotalEventEvidence(event)}
         ${renderPivotalEventDataGaps(event)}
       </article>
     `;
@@ -773,12 +918,13 @@
 
   function renderStableEvent(event) {
     return `
-      <li data-income-impact-covered-event data-income-impact-covered-type="${escapeHtml(event?.type || event?.id || "")}">
+      <li data-income-impact-covered-event data-income-impact-covered-type="${escapeHtml(event?.category || event?.type || event?.id || "")}" data-income-impact-covered-rule-id="${escapeHtml(event?.ruleId || event?.id || "")}">
         <div>
-          <strong>${escapeHtml(event?.label || event?.shortLabel || "Covered item")}</strong>
-          <p>${escapeHtml(event?.advisorCopy || "This item is represented in the current preview.")}</p>
+          <strong>${escapeHtml(event?.title || event?.label || event?.shortLabel || "Covered item")}</strong>
+          <p>${escapeHtml(event?.summary || event?.advisorCopy || "This item is represented in the current preview.")}</p>
         </div>
         ${renderPivotalEventMeta(event)}
+        ${renderPivotalEventEvidence(event)}
       </li>
     `;
   }
@@ -857,44 +1003,162 @@
     `;
   }
 
-  function calculateTimelineResultFromState(state) {
+  function resolveAnalysisSettings(profileRecord, builderInput) {
+    if (isPlainObject(profileRecord?.analysisSettings)) {
+      return profileRecord.analysisSettings;
+    }
+    if (isPlainObject(builderInput?.analysisSettings)) {
+      return builderInput.analysisSettings;
+    }
+    if (isPlainObject(builderInput?.protectionModelingPayload?.analysisSettings)) {
+      return builderInput.protectionModelingPayload.analysisSettings;
+    }
+    return {};
+  }
+
+  function buildFinancialRunwayFromScenario(scenario, projectionHorizonYears) {
+    const facts = isPlainObject(scenario?.timelineFacts) ? scenario.timelineFacts : {};
+    const deathEvent = isPlainObject(scenario?.deathEvent) ? scenario.deathEvent : {};
+    const postDeathSeries = isPlainObject(scenario?.postDeathSeries) ? scenario.postDeathSeries : {};
+    const depletion = isPlainObject(postDeathSeries.depletion) ? postDeathSeries.depletion : {};
+    const monthsCovered = toOptionalNumber(facts.monthsCovered);
+    const yearsOfSecurity = monthsCovered == null ? null : Math.floor(Math.max(0, monthsCovered) / 12);
+    const monthsOfSecurity = monthsCovered == null ? null : Math.round(Math.max(0, monthsCovered) % 12);
+    const totalResourcesBeforeObligations = toOptionalNumber(deathEvent?.layer2?.resources?.totalResourcesBeforeObligations);
+    return {
+      status: scenario?.status === "complete" ? "complete" : "partial-estimate",
+      startingResources: totalResourcesBeforeObligations,
+      existingCoverage: facts.coverageAdded,
+      availableAssets: facts.survivorAvailableTreatedAssets,
+      immediateObligations: deathEvent.immediateObligations,
+      netAvailableResources: facts.resourcesAfterObligations,
+      annualHouseholdNeed: null,
+      annualSurvivorIncome: null,
+      annualShortfall: null,
+      yearsOfSecurity,
+      monthsOfSecurity,
+      totalMonthsOfSecurity: monthsCovered,
+      depletionDate: facts.depletionDate,
+      depletionYear: facts.depletionDate ? Number(String(facts.depletionDate).slice(0, 4)) : null,
+      projectionYears: projectionHorizonYears,
+      projectionPoints: [],
+      warnings: Array.isArray(scenario?.warnings) ? scenario.warnings : [],
+      dataGaps: Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [],
+      trace: {
+        source: "composeIncomeImpactScenario.timelineFacts"
+      }
+    };
+  }
+
+  function buildSummaryCardsFromScenario(scenario) {
+    const facts = isPlainObject(scenario?.timelineFacts) ? scenario.timelineFacts : {};
+    const depletionDate = facts.depletionDate;
+    const monthsCovered = facts.monthsCovered;
+    const displayValue = depletionDate ? formatMonthsCovered(monthsCovered) : "Not depleted within horizon";
+    return [
+      {
+        id: "yearsOfFinancialSecurity",
+        displayValue,
+        status: scenario?.status === "complete" ? "complete" : "partial-estimate"
+      }
+    ];
+  }
+
+  function buildTimelineEventsFromScenario(scenario) {
+    const scenarioFacts = isPlainObject(scenario?.scenario) ? scenario.scenario : {};
+    const facts = isPlainObject(scenario?.timelineFacts) ? scenario.timelineFacts : {};
+    const events = [
+      {
+        type: "death",
+        date: scenarioFacts.selectedDeathDate,
+        age: scenarioFacts.selectedDeathAge,
+        label: "Death event resources",
+        amount: facts.resourcesAfterObligations
+      }
+    ];
+
+    if (facts.depletionDate) {
+      events.push({
+        type: "resourcesDepleted",
+        date: facts.depletionDate,
+        label: "Survivor resources deplete",
+        amount: 0
+      });
+    }
+
+    return events;
+  }
+
+  function buildIncomeImpactResultFromState(state) {
     const safeState = isPlainObject(state) ? state : {};
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
     const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
     const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
-    const input = {
-      lensModel: safeState.lensModel,
-      valuationDate: safeState.valuationDate,
-      profileRecord: safeState.profileRecord,
-      options: {
-        scenario: {
-          projectionHorizonYears,
-          mortgageTreatmentOverride
-        }
-      }
-    };
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
+    const selectedDeathAge = deathAgeState.hasDateOfBirth
+      ? clampRoundedAge(deathAgeState.selectedDeathAge, deathAgeState.minAge, deathAgeState.maxAge)
+      : null;
+    const selectedDeathDate = resolveSelectedDeathDate(safeState.valuationDate, deathAgeState);
+    const scenarioOptions = {
+      mortgageTreatmentOverride,
+      includeDiscretionaryNeeds: true,
+      projectionCadence: "monthly"
+    };
 
     if (deathAgeState.hasDateOfBirth) {
-      const selectedDeathAge = clampRoundedAge(
-        deathAgeState.selectedDeathAge,
-        deathAgeState.minAge,
-        deathAgeState.maxAge
-      );
       deathAgeState.selectedDeathAge = selectedDeathAge;
-      input.selectedDeathAge = selectedDeathAge;
-      input.options.scenario.deathAge = selectedDeathAge;
     }
 
-    return safeState.calculateIncomeLossImpactTimeline(input);
+    const scenario = safeState.composeIncomeImpactScenario({
+      valuationDate: safeState.valuationDate,
+      selectedDeathDate,
+      selectedDeathAge,
+      projectionHorizonMonths: projectionHorizonYears * 12,
+      lensModel: safeState.lensModel,
+      analysisSettings: safeState.analysisSettings,
+      scenarioOptions
+    });
+    const riskEvaluation = safeState.evaluateIncomeImpactRiskEvents({
+      scenario
+    });
+    const dataGaps = []
+      .concat(Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [])
+      .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : []);
+    const warnings = []
+      .concat(Array.isArray(scenario?.warnings) ? scenario.warnings : [])
+      .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : []);
+
+    return {
+      selectedDeath: {
+        date: scenario?.scenario?.selectedDeathDate || selectedDeathDate,
+        age: scenario?.scenario?.selectedDeathAge ?? selectedDeathAge
+      },
+      scenario,
+      riskEvaluation,
+      financialRunway: buildFinancialRunwayFromScenario(scenario, projectionHorizonYears),
+      summaryCards: buildSummaryCardsFromScenario(scenario),
+      timelineEvents: buildTimelineEventsFromScenario(scenario),
+      dataGaps,
+      warnings,
+      trace: {
+        source: "income-impact-display-composer-risk-bridge",
+        composerStatus: scenario?.status || null,
+        riskEvaluatorStatus: riskEvaluation?.status || null,
+        retiredTimelineChartRendered: false
+      }
+    };
   }
 
   function renderIncomeImpactFromState() {
-    if (!incomeImpactState?.host || typeof incomeImpactState.calculateIncomeLossImpactTimeline !== "function") {
+    if (
+      !incomeImpactState?.host
+      || typeof incomeImpactState.composeIncomeImpactScenario !== "function"
+      || typeof incomeImpactState.evaluateIncomeImpactRiskEvents !== "function"
+    ) {
       return;
     }
 
-    const timelineResult = calculateTimelineResultFromState(incomeImpactState);
+    const timelineResult = buildIncomeImpactResultFromState(incomeImpactState);
     incomeImpactState.latestTimelineResult = timelineResult;
     renderIncomeImpact(incomeImpactState.host, {
       lensModel: incomeImpactState.lensModel,
@@ -979,15 +1243,21 @@
 
     const currentLensAnalysis = window.LensApp?.lensAnalysis || {};
     const buildLensModelFromSavedProtectionModeling = currentLensAnalysis.buildLensModelFromSavedProtectionModeling;
-    const calculateIncomeLossImpactTimeline = currentLensAnalysis.calculateIncomeLossImpactTimeline;
+    const composeIncomeImpactScenario = currentLensAnalysis.composeIncomeImpactScenario;
+    const evaluateIncomeImpactRiskEvents = currentLensAnalysis.evaluateIncomeImpactRiskEvents;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
       return;
     }
 
-    if (typeof calculateIncomeLossImpactTimeline !== "function") {
-      renderEmptyState(host, "Income impact unavailable", "Income impact timeline helper is unavailable.");
+    if (typeof composeIncomeImpactScenario !== "function") {
+      renderEmptyState(host, "Income impact unavailable", "Income impact scenario composer is unavailable.");
+      return;
+    }
+
+    if (typeof evaluateIncomeImpactRiskEvents !== "function") {
+      renderEmptyState(host, "Income impact unavailable", "Income impact risk evaluator is unavailable.");
       return;
     }
 
@@ -1004,11 +1274,12 @@
     }
 
     try {
-      const builderResult = buildLensModelFromSavedProtectionModeling({
+      const builderInput = {
         profileRecord,
         protectionModelingPayload,
         taxConfig: createSavedDataTaxConfig()
-      });
+      };
+      const builderResult = buildLensModelFromSavedProtectionModeling(builderInput);
 
       if (!builderResult?.lensModel) {
         renderEmptyState(host, "Income impact unavailable", "The saved Lens model could not be built for this profile.");
@@ -1020,8 +1291,10 @@
         host,
         lensModel: builderResult.lensModel,
         profileRecord,
+        analysisSettings: resolveAnalysisSettings(profileRecord, builderInput),
         valuationDate,
-        calculateIncomeLossImpactTimeline,
+        composeIncomeImpactScenario,
+        evaluateIncomeImpactRiskEvents,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,

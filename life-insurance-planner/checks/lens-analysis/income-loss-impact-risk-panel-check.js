@@ -71,9 +71,16 @@ const harness = createDisplayHarness(displaySource);
 
 assert.equal(typeof harness.renderPivotalRiskPanel, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
-assert.match(displaySource, /scenarioTimeline\.pivotalEvents/);
+assert.match(displaySource, /riskEvaluation\.events/);
+assert.match(displaySource, /riskEvaluation\.stableEvents/);
+assert.ok(
+  displaySource.indexOf("riskEvaluation.events") < displaySource.indexOf("scenarioTimeline.pivotalEvents"),
+  "Risk panel should prefer Layer 4 events before falling back to legacy pivotalEvents."
+);
 assert.match(displaySource, /renderPivotalRiskPanel/);
 assert.match(displaySource, /renderPivotalRiskPanel\(timelineResult\)/);
+assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
+assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
 assert.doesNotMatch(
   displaySource,
@@ -101,46 +108,54 @@ assert.match(
 assert.doesNotMatch(pageSource, /data-income-impact-risk-panel/);
 
 const fixture = {
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [
+  riskEvaluation: {
+    events: [
         {
           id: "resourcesDepleted",
-          type: "resourcesDepleted",
-          label: "Resources depleted",
-          shortLabel: "Depleted",
+          ruleId: "resources-after-obligations-negative-or-zero",
+          category: "resources",
+          title: "Resources depleted",
           severity: "critical",
           date: "2038-10-15",
-          age: 58,
-          relativeMonthIndex: 100,
-          lane: "resources",
-          advisorCopy: "Available resources are projected to reach zero in this scenario.",
-          amount: 0,
+          monthIndex: 100,
+          phase: "postDeath",
+          summary: "Available resources are projected to reach zero in this scenario.",
+          evidence: [
+            {
+              path: "timelineFacts.resourcesAfterObligations",
+              value: 0
+            }
+          ],
           sourcePaths: ["financialRunway.depletionDate"]
         },
         {
           id: "monthlyBudgetDeficitBegins",
-          type: "monthlyBudgetDeficitBegins",
-          label: "Household budget deficit begins",
-          shortLabel: "Deficit begins",
+          ruleId: "accumulated-unmet-need",
+          category: "runway",
+          title: "Household budget deficit begins",
           severity: "at-risk",
           date: "2030-06-15",
-          relativeMonthIndex: 0,
-          lane: "income",
-          advisorCopy: "Annual household need exceeds survivor income in this scenario.",
-          amount: 60000,
+          monthIndex: 0,
+          phase: "postDeath",
+          summary: "Annual household need exceeds survivor income in this scenario.",
+          evidence: [
+            {
+              path: "timelineFacts.accumulatedUnmetNeed",
+              value: 60000
+            }
+          ],
           sourcePaths: ["financialRunway.annualShortfall"]
         },
         {
           id: "partialEstimateOnly",
-          type: "partialEstimateOnly",
-          label: "Partial estimate only",
-          shortLabel: "Partial",
+          ruleId: "major-composer-data-gaps",
+          category: "dataQuality",
+          title: "Partial estimate only",
           severity: "caution",
           date: "2030-06-15",
-          relativeMonthIndex: 0,
-          lane: "dataQuality",
-          advisorCopy: "The estimate is using available facts and should be improved with the missing items.",
+          monthIndex: 0,
+          phase: "dataQuality",
+          summary: "The estimate is using available facts and should be improved with the missing items.",
           dataGaps: [
             {
               code: "missing-assets-liquidity",
@@ -150,34 +165,38 @@ const fixture = {
           sourcePaths: ["financialRunway.status", "dataGaps"]
         }
       ],
-      stable: [
+    stableEvents: [
         {
           id: "deathEvent",
-          type: "deathEvent",
-          label: "Death scenario begins",
-          shortLabel: "Death",
+          ruleId: "treated-assets-available-at-death",
+          category: "resources",
+          title: "Death scenario begins",
           severity: "stable",
           date: "2030-06-15",
-          relativeMonthIndex: 0,
-          lane: "resources",
-          advisorCopy: "The selected death date anchors the scenario timeline.",
+          monthIndex: 0,
+          phase: "deathEvent",
+          summary: "The selected death date anchors the scenario timeline.",
           sourcePaths: ["selectedDeath.date"]
         },
         {
           id: "existingCoverageAvailable",
-          type: "existingCoverageAvailable",
-          label: "Existing coverage available",
-          shortLabel: "Coverage",
+          ruleId: "coverage-added-at-death",
+          category: "coverage",
+          title: "Existing coverage available",
           severity: "stable",
           date: "2030-06-15",
-          relativeMonthIndex: 0,
-          lane: "resources",
-          advisorCopy: "Existing coverage is included in money available at death when present.",
-          amount: 500000,
+          monthIndex: 0,
+          phase: "deathEvent",
+          summary: "Existing coverage is included in money available at death when present.",
+          evidence: [
+            {
+              path: "deathEvent.coverageAdded",
+              value: 500000
+            }
+          ],
           sourcePaths: ["financialRunway.existingCoverage"]
         }
       ]
-    }
   },
   financialRunway: {
     annualShortfall: 60000,
@@ -207,8 +226,10 @@ assert.match(panelHtml, /Caution/);
 assert.match(panelHtml, /Available resources are projected to reach zero in this scenario\./);
 assert.match(panelHtml, /Annual household need exceeds survivor income in this scenario\./);
 assert.match(panelHtml, /Available assets are missing\./);
+assert.match(panelHtml, /data-income-impact-risk-evidence/);
+assert.match(panelHtml, /data-income-impact-risk-evidence-path="timelineFacts\.accumulatedUnmetNeed"/);
 assert.match(panelHtml, /\$60,000/);
-assert.match(panelHtml, /2038-10-15 - Age 58/);
+assert.match(panelHtml, /2038-10-15/);
 assertInOrder(panelHtml, ["Resources depleted", "Household budget deficit begins", "Partial estimate only"], "Risks should preserve helper/library severity order.");
 
 const riskListHtml = panelHtml.match(/<div class="income-impact-risk-list"[\s\S]*?<\/div>\s*<details/)?.[0] || "";
@@ -221,11 +242,9 @@ assert.match(panelHtml, /data-income-impact-covered-event/);
 assert.match(panelHtml, /Existing coverage is included in money available at death when present\./);
 
 const noRiskHtml = harness.renderPivotalRiskPanel({
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [],
-      stable: []
-    }
+  riskEvaluation: {
+    events: [],
+    stableEvents: []
   },
   dataGaps: []
 });
@@ -233,11 +252,9 @@ assert.match(noRiskHtml, /No major risks detected from the available facts\./);
 assert.doesNotMatch(noRiskHtml, /data-income-impact-risk-list/);
 
 const dataGapOnlyHtml = harness.renderPivotalRiskPanel({
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [],
-      stable: []
-    }
+  riskEvaluation: {
+    events: [],
+    stableEvents: []
   },
   dataGaps: [
     {
@@ -250,11 +267,9 @@ assert.match(dataGapOnlyHtml, /No risk events are available yet because the prev
 assert.doesNotMatch(dataGapOnlyHtml, /No major risks detected from the available facts\./);
 
 const runwayOnlyHtml = harness.renderPivotalRiskPanel({
-  scenarioTimeline: {
-    pivotalEvents: {
-      risks: [],
-      stable: []
-    }
+  riskEvaluation: {
+    events: [],
+    stableEvents: []
   },
   financialRunway: {
     annualShortfall: 90000,
@@ -286,18 +301,17 @@ assert.match(host.innerHTML, /data-income-impact-risk-panel/);
 assert.match(host.innerHTML, /Resources depleted/);
 harness.renderIncomeImpact(host, {
   timelineResult: {
-    scenarioTimeline: {
-      pivotalEvents: {
-        risks: [
+    riskEvaluation: {
+      events: [
           {
-            type: "survivorIncomeDelayed",
-            label: "Survivor income delay",
+            id: "survivorIncomeDelayed",
+            category: "runway",
+            title: "Survivor income delay",
             severity: "caution",
-            advisorCopy: "A survivor income delay can increase early cash-flow pressure."
+            summary: "A survivor income delay can increase early cash-flow pressure."
           }
         ],
-        stable: []
-      }
+      stableEvents: []
     },
     financialRunway: {}
   }

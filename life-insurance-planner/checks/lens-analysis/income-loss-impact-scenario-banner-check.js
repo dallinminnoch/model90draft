@@ -95,32 +95,10 @@ function createElement(initial = {}) {
   };
 }
 
-function createProjectionPoints(projectionYears, selectedDeathAge, selectedDeathDate) {
-  return [
-    {
-      yearIndex: 0,
-      date: selectedDeathDate,
-      age: selectedDeathAge,
-      startingBalance: 500000,
-      annualShortfall: 60000,
-      endingBalance: 500000,
-      status: "starting"
-    },
-    {
-      yearIndex: projectionYears,
-      date: `${Number(selectedDeathDate.slice(0, 4)) + projectionYears}${selectedDeathDate.slice(4)}`,
-      age: selectedDeathAge + projectionYears,
-      startingBalance: 500000 - (projectionYears - 1) * 60000,
-      annualShortfall: 60000,
-      endingBalance: 500000 - projectionYears * 60000,
-      status: projectionYears >= 9 ? "depleted" : "available"
-    }
-  ];
-}
-
 function createHarness() {
   const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
-  const helperCalls = [];
+  const composerCalls = [];
+  const riskEvaluatorCalls = [];
   const storageWrites = [];
   const profileRecord = {
     id: "scenario-banner-profile",
@@ -138,6 +116,9 @@ function createHarness() {
   const lensModel = {
     profileFacts: {
       clientDateOfBirth: "1980-06-15"
+    },
+    assetFacts: {
+      assets: []
     }
   };
   const host = createElement();
@@ -247,49 +228,82 @@ function createHarness() {
               input
             };
           },
-          calculateIncomeLossImpactTimeline(input) {
-            helperCalls.push(cloneJson(input));
-            const selectedDeathAge = Number(input.selectedDeathAge);
-            const selectedDeathDate = selectedDeathAge <= 45 ? input.valuationDate : `${1980 + selectedDeathAge}-06-15`;
-            const projectionYears = Number(input.options?.scenario?.projectionHorizonYears || 40);
+          composeIncomeImpactScenario(input) {
+            composerCalls.push(cloneJson(input));
             return {
-              selectedDeath: {
-                age: selectedDeathAge,
-                date: selectedDeathDate
+              status: "complete",
+              scenario: {
+                valuationDate: input.valuationDate,
+                selectedDeathDate: input.selectedDeathDate,
+                selectedDeathAge: input.selectedDeathAge,
+                projectionHorizonMonths: input.projectionHorizonMonths,
+                mortgageTreatmentOverride: input.scenarioOptions?.mortgageTreatmentOverride || null
               },
-              financialRunway: {
-                status: "complete",
-                startingResources: 600000,
-                existingCoverage: 500000,
-                availableAssets: 100000,
+              deathEvent: {
+                date: input.selectedDeathDate,
+                age: input.selectedDeathAge,
                 immediateObligations: 100000,
-                netAvailableResources: 500000,
-                annualHouseholdNeed: 90000,
-                annualSurvivorIncome: 30000,
-                annualShortfall: 60000,
-                yearsOfSecurity: 8,
-                monthsOfSecurity: 4,
-                totalMonthsOfSecurity: 100,
-                depletionDate: "2034-10-15",
-                depletionYear: 2034,
-                projectionYears,
-                projectionPoints: createProjectionPoints(projectionYears, selectedDeathAge, selectedDeathDate),
-                warnings: [],
-                dataGaps: []
+                layer2: {
+                  resources: {
+                    totalResourcesBeforeObligations: 600000
+                  }
+                }
               },
-              summaryCards: [
+              timelineFacts: {
+                assetsBeforeDeath: 250000 + input.projectionHorizonMonths,
+                survivorAvailableTreatedAssets: 100000,
+                coverageAdded: 500000,
+                resourcesAfterObligations: 500000,
+                monthsCovered: 100,
+                depletionDate: "2034-10-15",
+                accumulatedUnmetNeed: 0
+              },
+              warnings: [],
+              dataGaps: []
+            };
+          },
+          evaluateIncomeImpactRiskEvents(input) {
+            riskEvaluatorCalls.push(cloneJson(input));
+            return {
+              status: "complete",
+              events: [
                 {
-                  id: "yearsOfFinancialSecurity",
-                  displayValue: `${projectionYears} year scenario`,
-                  status: "complete"
+                  id: "survivor-resources-depleted",
+                  ruleId: "survivor-resources-depleted",
+                  category: "runway",
+                  severity: "critical",
+                  title: "Survivor resources deplete",
+                  summary: "Resources deplete on 2034-10-15.",
+                  date: "2034-10-15",
+                  monthIndex: 100,
+                  phase: "postDeath",
+                  evidence: [
+                    {
+                      path: "timelineFacts.monthsCovered",
+                      value: input.scenario?.timelineFacts?.monthsCovered
+                    }
+                  ],
+                  sourcePaths: ["timelineFacts.monthsCovered"]
                 }
               ],
-              timelineEvents: [
+              stableEvents: [
                 {
-                  type: "death",
-                  date: selectedDeathDate,
-                  age: selectedDeathAge,
-                  label: `Death at ${selectedDeathAge}`
+                  id: "coverage-added-at-death",
+                  ruleId: "coverage-added-at-death",
+                  category: "coverage",
+                  severity: "stable",
+                  title: "Coverage added at death",
+                  summary: "Coverage is added at the death event.",
+                  date: input.scenario?.scenario?.selectedDeathDate,
+                  monthIndex: 0,
+                  phase: "deathEvent",
+                  evidence: [
+                    {
+                      path: "deathEvent.coverageAdded",
+                      value: input.scenario?.timelineFacts?.coverageAdded
+                    }
+                  ],
+                  sourcePaths: ["deathEvent.coverageAdded"]
                 }
               ],
               dataGaps: [],
@@ -310,7 +324,8 @@ function createHarness() {
 
   return {
     readyCallback,
-    helperCalls,
+    composerCalls,
+    riskEvaluatorCalls,
     storageWrites,
     host,
     banner,
@@ -380,8 +395,13 @@ assert.match(pageSource, /value="followAssumptions"[\s\S]*Follow Assumption Cont
 assert.match(pageSource, /value="payOffMortgage"[\s\S]*Pay off mortgage/);
 assert.match(pageSource, /value="continueMortgagePayments"[\s\S]*Continue mortgage payments/);
 assert.match(displaySource, /projectionHorizonYears/);
+assert.match(displaySource, /projectionHorizonMonths/);
 assert.match(displaySource, /mortgageTreatmentOverride/);
-assert.match(displaySource, /options:\s*\{\s*scenario:\s*\{/);
+assert.match(displaySource, /composeIncomeImpactScenario/);
+assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
+assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
+assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
+assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
 assert.doesNotMatch(
   displaySource,
@@ -444,11 +464,15 @@ assert.match(
 const harness = createHarness();
 harness.readyCallback();
 
-assert.equal(harness.helperCalls.length, 1, "initial render should call helper once.");
-assert.equal(harness.helperCalls[0].selectedDeathAge, 45);
-assert.equal(harness.helperCalls[0].options.scenario.deathAge, 45);
-assert.equal(harness.helperCalls[0].options.scenario.projectionHorizonYears, 40);
-assert.equal(harness.helperCalls[0].options.scenario.mortgageTreatmentOverride, "followAssumptions");
+assert.equal(harness.composerCalls.length, 1, "initial render should call composer once.");
+assert.equal(harness.riskEvaluatorCalls.length, 1, "initial render should evaluate Layer 4 risk events once.");
+assert.equal(harness.composerCalls[0].selectedDeathAge, 45);
+assert.equal(harness.composerCalls[0].selectedDeathDate, "2026-01-01");
+assert.equal(harness.composerCalls[0].projectionHorizonMonths, 480);
+assert.equal(harness.composerCalls[0].scenarioOptions.mortgageTreatmentOverride, "followAssumptions");
+assert.equal(harness.composerCalls[0].scenarioOptions.includeDiscretionaryNeeds, true);
+assert.equal(harness.composerCalls[0].scenarioOptions.projectionCadence, "monthly");
+assert.equal(harness.riskEvaluatorCalls[0].scenario.scenario.selectedDeathAge, 45);
 assert.equal(harness.control.hidden, false);
 assert.equal(harness.sliderRow.hidden, false);
 assert.equal(harness.slider.disabled, false);
@@ -470,13 +494,18 @@ assert.equal(harness.content.hidden, false);
 assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "expanded");
 assert.equal(harness.banner.classList.contains("is-collapsed"), false);
 assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
+assert.match(harness.host.innerHTML, /data-income-impact-paused-fact="assets-before-death"/);
+assert.match(harness.host.innerHTML, /data-income-impact-paused-fact="resources-after-obligations"/);
+assert.match(harness.host.innerHTML, /Survivor resources deplete/);
+assert.match(harness.host.innerHTML, /Coverage added at death/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-svg/);
 
 harness.projectionHorizon.value = "4";
 harness.projectionHorizon.listeners.input({ target: harness.projectionHorizon });
-assert.equal(harness.helperCalls.length, 2);
-assert.equal(harness.helperCalls[1].options.scenario.projectionHorizonYears, 5);
+assert.equal(harness.composerCalls.length, 2);
+assert.equal(harness.riskEvaluatorCalls.length, 2);
+assert.equal(harness.composerCalls[1].projectionHorizonMonths, 60);
 assert.equal(harness.projectionHorizon.value, "5");
 assert.equal(harness.projectionHorizonValue.textContent, "5 years");
 assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
@@ -484,8 +513,9 @@ assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-yea
 
 harness.projectionHorizon.value = "125";
 harness.projectionHorizon.listeners.change({ target: harness.projectionHorizon });
-assert.equal(harness.helperCalls.length, 3);
-assert.equal(harness.helperCalls[2].options.scenario.projectionHorizonYears, 100);
+assert.equal(harness.composerCalls.length, 3);
+assert.equal(harness.riskEvaluatorCalls.length, 3);
+assert.equal(harness.composerCalls[2].projectionHorizonMonths, 1200);
 assert.equal(harness.projectionHorizon.value, "100");
 assert.equal(harness.projectionHorizonValue.textContent, "100 years");
 assert.match(harness.host.innerHTML, /data-income-impact-timeline-paused/);
@@ -493,14 +523,16 @@ assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-yea
 
 harness.mortgageTreatment.value = "payOffMortgage";
 harness.mortgageTreatment.listeners.change({ target: harness.mortgageTreatment });
-assert.equal(harness.helperCalls.length, 4);
-assert.equal(harness.helperCalls[3].options.scenario.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(harness.composerCalls.length, 4);
+assert.equal(harness.riskEvaluatorCalls.length, 4);
+assert.equal(harness.composerCalls[3].scenarioOptions.mortgageTreatmentOverride, "payOffMortgage");
 assert.equal(harness.mortgageTreatment.value, "payOffMortgage");
 assert.equal(harness.mortgageTreatmentValue.textContent, "Pay off mortgage");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-mortgage-treatment-label"), "Pay off mortgage");
 
 harness.toggle.listeners.click();
-assert.equal(harness.helperCalls.length, 4, "collapsing should not rerun helper.");
+assert.equal(harness.composerCalls.length, 4, "collapsing should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, 4, "collapsing should not rerun risk evaluator.");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "false");
 assert.equal(harness.toggle.textContent, "Show controls");
 assert.equal(harness.content.hidden, true);
@@ -508,7 +540,8 @@ assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "
 assert.equal(harness.banner.classList.contains("is-collapsed"), true);
 
 harness.toggle.listeners.click();
-assert.equal(harness.helperCalls.length, 4, "expanding should not rerun helper.");
+assert.equal(harness.composerCalls.length, 4, "expanding should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, 4, "expanding should not rerun risk evaluator.");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "true");
 assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
