@@ -167,6 +167,15 @@
     return normalizeString(category && category.label) || normalizeString(categoryKey) || "Debt";
   }
 
+  function getDebtTypeLabel(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const entry = findLibraryEntry(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    return normalizeString(entry && entry.label)
+      || normalizeString(safeRecord.typeKey)
+      || normalizeString(safeRecord.categoryKey)
+      || "Debt";
+  }
+
   function generateDebtId() {
     if (global.crypto && typeof global.crypto.randomUUID === "function") {
       return "debt_" + global.crypto.randomUUID().replace(/-/g, "_");
@@ -497,7 +506,7 @@
         return;
       }
 
-      controller.list.innerHTML = controller.records.map(function (record) {
+      const rowsMarkup = controller.records.map(function (record) {
         const debtId = normalizeString(record.debtId);
         const labelInputId = createInputId("pmi-debt-record", debtId, "label");
         const balanceInputId = createInputId("pmi-debt-record", debtId, "balance");
@@ -510,62 +519,77 @@
         const paymentType = normalizePaymentType(record.paymentType, DEFAULT_PAYMENT_TYPE);
         const paymentAmount = getPaymentAmountForRecord(record);
         return `
-          <div class="field-group full-width pmi-debt-record-field" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
-            <div class="pmi-asset-record-label-row pmi-debt-record-label-row">
-              <label for="${escapeHtml(labelInputId)}">Debt</label>
-              <button class="pmi-asset-record-remove pmi-debt-record-remove" type="button" data-pmi-debt-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
+          <div class="pmi-debt-record-row" role="row" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
+            <div class="pmi-debt-record-cell pmi-debt-record-type-cell" role="cell" data-column-label="Debt Type">
+              <span class="pmi-debt-record-type-label" data-pmi-debt-record-type-label>${escapeHtml(getDebtTypeLabel(record))}</span>
             </div>
-            <input id="${escapeHtml(labelInputId)}" data-pmi-debt-record-label type="text" value="${escapeHtml(record.label)}">
-            <div class="form-grid pmi-debt-record-grid">
-              <div class="field-group">
-                <label for="${escapeHtml(balanceInputId)}">Current Balance</label>
-                <div class="profile-currency-field">
-                  <input id="${escapeHtml(balanceInputId)}" data-pmi-debt-record-balance type="number" min="0" step="100" value="${escapeHtml(formatValueForInput(record.currentBalance))}">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Label / Creditor">
+              <input id="${escapeHtml(labelInputId)}" data-pmi-debt-record-label type="text" value="${escapeHtml(record.label)}" aria-label="Label / Creditor">
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Balance">
+              <div class="profile-currency-field pmi-debt-record-compact-currency">
+                <input id="${escapeHtml(balanceInputId)}" data-pmi-debt-record-balance type="number" min="0" step="100" value="${escapeHtml(formatValueForInput(record.currentBalance))}" aria-label="Balance">
+                <span class="profile-currency-suffix">USD</span>
               </div>
-              <div class="field-group">
-                <label for="${escapeHtml(paymentTypeInputId)}">Payment Type</label>
-                <select id="${escapeHtml(paymentTypeInputId)}" data-pmi-debt-record-payment-type>
-                  ${renderSelectOptions(PAYMENT_TYPE_OPTIONS, paymentType)}
-                </select>
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Type">
+              <select id="${escapeHtml(paymentTypeInputId)}" data-pmi-debt-record-payment-type aria-label="Payment Type">
+                ${renderSelectOptions(PAYMENT_TYPE_OPTIONS, paymentType)}
+              </select>
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Payment Amount">
+              <div class="profile-currency-field pmi-debt-record-compact-currency">
+                <input id="${escapeHtml(paymentInputId)}" data-pmi-debt-record-payment data-pmi-debt-record-payment-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(paymentAmount))}" aria-label="Payment Amount">
+                <span class="profile-currency-suffix">USD</span>
               </div>
-              <div class="field-group">
-                <label for="${escapeHtml(paymentInputId)}">Payment Amount</label>
-                <div class="profile-currency-field">
-                  <input id="${escapeHtml(paymentInputId)}" data-pmi-debt-record-payment data-pmi-debt-record-payment-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(paymentAmount))}">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Extra Payoff">
+              <div class="profile-currency-field pmi-debt-record-compact-currency">
+                <input id="${escapeHtml(extraPayoffInputId)}" data-pmi-debt-record-extra-payoff type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.extraPayoffAmount))}" aria-label="Extra Payoff">
+                <span class="profile-currency-suffix">USD</span>
               </div>
-              <div class="field-group">
-                <label for="${escapeHtml(extraPayoffInputId)}">Extra Payoff Amount</label>
-                <div class="profile-currency-field">
-                  <input id="${escapeHtml(extraPayoffInputId)}" data-pmi-debt-record-extra-payoff type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.extraPayoffAmount))}">
-                  <span class="profile-currency-suffix">USD</span>
-                </div>
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Remaining Term">
+              <div class="profile-currency-field pmi-debt-record-compact-currency">
+                <input id="${escapeHtml(termInputId)}" data-pmi-debt-record-term type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.remainingTermMonths))}" aria-label="Remaining Term">
+                <span class="profile-currency-suffix">Mo</span>
               </div>
-              <div class="field-group">
-                <label for="${escapeHtml(rateInputId)}">Interest Rate</label>
-                <div class="profile-currency-field">
-                  <input id="${escapeHtml(rateInputId)}" data-pmi-debt-record-rate type="number" min="0" step="0.01" value="${escapeHtml(formatValueForInput(record.interestRatePercent))}">
-                  <span class="profile-currency-suffix">%</span>
-                </div>
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Interest Rate">
+              <div class="profile-currency-field pmi-debt-record-compact-currency">
+                <input id="${escapeHtml(rateInputId)}" data-pmi-debt-record-rate type="number" min="0" step="0.01" value="${escapeHtml(formatValueForInput(record.interestRatePercent))}" aria-label="Interest Rate">
+                <span class="profile-currency-suffix">%</span>
               </div>
-              <div class="field-group">
-                <label for="${escapeHtml(termInputId)}">Remaining Term</label>
-                <div class="profile-currency-field">
-                  <input id="${escapeHtml(termInputId)}" data-pmi-debt-record-term type="number" min="0" step="1" value="${escapeHtml(formatValueForInput(record.remainingTermMonths))}">
-                  <span class="profile-currency-suffix">Months</span>
-                </div>
-              </div>
-              <div class="field-group full-width">
-                <label for="${escapeHtml(notesInputId)}">Notes</label>
-                <input id="${escapeHtml(notesInputId)}" data-pmi-debt-record-notes type="text" value="${escapeHtml(record.notes || "")}">
-              </div>
+            </div>
+            <div class="pmi-debt-record-cell" role="cell" data-column-label="Notes">
+              <input id="${escapeHtml(notesInputId)}" data-pmi-debt-record-notes type="text" value="${escapeHtml(record.notes || "")}" aria-label="Notes">
+            </div>
+            <div class="pmi-debt-record-cell pmi-debt-record-remove-cell" role="cell" data-column-label="Remove">
+              <button class="pmi-asset-record-remove pmi-debt-record-remove" type="button" data-pmi-debt-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
             </div>
           </div>
         `;
       }).join("");
+
+      controller.list.innerHTML = `
+        <div class="pmi-debt-records-table" role="table" aria-label="Debt records notebook" data-pmi-debt-records-table>
+          <div class="pmi-debt-records-header" role="row" data-pmi-debt-records-header>
+            <span role="columnheader">Debt Type</span>
+            <span role="columnheader">Label / Creditor</span>
+            <span role="columnheader">Balance</span>
+            <span role="columnheader">Payment Type</span>
+            <span role="columnheader">Payment Amount</span>
+            <span role="columnheader">Extra Payoff</span>
+            <span role="columnheader">Remaining Term</span>
+            <span role="columnheader">Interest Rate</span>
+            <span role="columnheader">Notes</span>
+            <span role="columnheader">Remove</span>
+          </div>
+          <div class="pmi-debt-records-body" role="rowgroup" data-pmi-debt-records-body>
+            ${rowsMarkup}
+          </div>
+        </div>
+      `;
     }
 
     function addDebtRecordFromLibraryEntry(entry) {

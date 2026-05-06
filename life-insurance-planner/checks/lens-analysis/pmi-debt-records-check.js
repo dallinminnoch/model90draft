@@ -34,14 +34,16 @@ function parseAttribute(markup, attributeName) {
 
 function parseRowsFromMarkup(markup) {
   const source = String(markup || "");
-  const rowPattern = /<div class="field-group full-width pmi-debt-record-field" data-pmi-debt-record-entry data-pmi-debt-id="([^"]+)">([\s\S]*?)(?=<\/div>\s*(?:<div class="field-group full-width pmi-debt-record-field"|$))/g;
-  const rows = [];
-  let match;
+  const rowPattern = /<div class="pmi-debt-record-row" role="row" data-pmi-debt-record-entry data-pmi-debt-id="([^"]+)">/g;
+  const matches = Array.from(source.matchAll(rowPattern));
 
-  while ((match = rowPattern.exec(source)) !== null) {
+  return matches.map((match, index) => {
     const debtId = decodeHtml(match[1]);
-    const rowMarkup = match[2];
-    rows.push({
+    const rowStart = match.index;
+    const nextRowStart = matches[index + 1] ? matches[index + 1].index : source.length;
+    const rowMarkup = source.slice(rowStart, nextRowStart);
+
+    return {
       getAttribute(name) {
         return name === "data-pmi-debt-id" ? debtId : null;
       },
@@ -73,10 +75,8 @@ function parseRowsFromMarkup(markup) {
         const inputMatch = rowMarkup.match(inputPattern);
         return inputMatch ? { value: parseAttribute(inputMatch[0], "value") } : null;
       }
-    });
-  }
-
-  return rows;
+    };
+  });
 }
 
 function createFakeElement() {
@@ -229,6 +229,26 @@ const controller = pmiDebtRecords.initPmiDebtRecords({ root: fakeDom.root });
 assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiDebtRecordsInitialized, "true");
 assert.equal(controller.records.length, 9, "default starter notebook rows should appear on init");
+assert.match(fakeDom.list.innerHTML, /data-pmi-debt-records-table/, "compact debt records table shell should render");
+assert.match(fakeDom.list.innerHTML, /data-pmi-debt-records-header/, "compact debt records table should render column headers");
+[
+  "Debt Type",
+  "Label / Creditor",
+  "Balance",
+  "Payment Type",
+  "Payment Amount",
+  "Extra Payoff",
+  "Remaining Term",
+  "Interest Rate",
+  "Notes",
+  "Remove"
+].forEach((header) => {
+  assert.match(fakeDom.list.innerHTML, new RegExp(`>${header}<`), `${header} column header should render`);
+});
+assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-field/, "debt rows should not render as stacked card fields");
+assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-grid/, "debt rows should not render the old stacked field grid");
+assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-label-row/, "row labels should come from column headers");
+assert.equal(parseRowsFromMarkup(fakeDom.list.innerHTML).length, 9, "starter debts should render as compact rows");
 [
   "Credit Card Debt",
   "Student Loan",
@@ -264,6 +284,7 @@ assert.match(fakeDom.list.innerHTML, /Second Vehicle Lease/);
 controller.hydrateDebtRecords([]);
 assert.equal(controller.records.length, 0, "explicit saved empty debtRecords[] should preserve removed starter rows");
 assert.equal(controller.serializeDebtRecords().length, 0);
+assert.equal(fakeDom.list.innerHTML, "", "explicit saved empty debtRecords[] should not render starter rows or table shell");
 
 const inputRecords = Object.freeze([
   Object.freeze({
