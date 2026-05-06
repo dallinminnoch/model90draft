@@ -345,6 +345,51 @@ assert.equal(
   "Coverage must stay out of pre-death Household Financial Position resources."
 );
 
+const activeCurrentDeathOutput = runTimeline(context, { selectedDeathAge: 46 });
+const activeCurrentHouseholdPosition = activeCurrentDeathOutput.financialRunway.householdPosition;
+assert.equal(activeCurrentHouseholdPosition.durationMonths, 0);
+assert.equal(activeCurrentHouseholdPosition.preTargetPoints.length, 60);
+assert.equal(activeCurrentHouseholdPosition.trace.preTargetContext.assetLedgerApplied, true);
+assert.equal(activeCurrentHouseholdPosition.trace.preTargetContext.reverseAssetGrowthApplied, true);
+assert.equal(activeCurrentHouseholdPosition.trace.preTargetContext.reverseAssetGrowthEstimated, true);
+assert.ok(
+  activeCurrentHouseholdPosition.trace.preTargetContext.reverseAssetGrowthCategoryKeys.includes("cashAndCashEquivalents")
+);
+assert.ok(
+  activeCurrentHouseholdPosition.trace.preTargetContext.reverseAssetGrowthCategoryKeys.includes("taxableBrokerageInvestments")
+);
+assert.ok(
+  activeCurrentHouseholdPosition.preTargetPoints.some(function (point) {
+    return point.growth > 0;
+  }),
+  "Current-age death should reverse-apply eligible active category growth in modeled pre-target context."
+);
+assert.ok(
+  activeCurrentHouseholdPosition.preTargetPoints.every(function (point) {
+    return point.status === "modeledBackcast"
+      && point.precision === "estimated"
+      && Array.isArray(point.assetLedger)
+      && point.assetLedger.length > 0;
+  }),
+  "Current-age active-growth pre-target points should stay estimated/modelled asset-ledger points."
+);
+const activeCurrentPreDeathPoints = activeCurrentDeathOutput.scenarioTimeline.resourceSeries.points.filter(function (point) {
+  return point.phase === "preDeath" && point.resolution === "modeledBackcastMonthly";
+});
+assert.equal(activeCurrentPreDeathPoints.length, 60);
+assert.ok(
+  activeCurrentPreDeathPoints.some(function (point) {
+    return point.growthAmount > 0;
+  }),
+  "Income Impact should preserve HFP reverse growth amounts on pre-death timeline points."
+);
+assert.equal(
+  activeCurrentHouseholdPosition.dataGaps.some(function (gap) {
+    return gap.code === "reverse-asset-growth-not-applied";
+  }),
+  false
+);
+
 const deathPoint = findDeathPoint(activeOutput);
 assert.ok(deathPoint, "Scenario timeline should include a death point.");
 assert.equal(

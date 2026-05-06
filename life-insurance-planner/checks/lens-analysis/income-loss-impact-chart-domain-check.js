@@ -66,6 +66,9 @@ function addMonths(dateText, months) {
 }
 
 function createPoint(options) {
+  const displayedBalance = Number.isFinite(Number(options.displayedBalance))
+    ? Number(options.displayedBalance)
+    : options.balance;
   return {
     id: options.id,
     date: options.date,
@@ -81,8 +84,8 @@ function createPoint(options) {
     annualShortfall: 60000,
     scheduledObligations: 0,
     endingBalance: options.balance,
-    displayedBalance: options.balance,
-    accumulatedUnmetNeed: Math.max(0, -options.balance),
+    displayedBalance,
+    accumulatedUnmetNeed: Math.max(0, -displayedBalance),
     status: options.status || "available",
     sourcePaths: ["scenarioTimeline.resourceSeries.points"]
   };
@@ -93,6 +96,9 @@ function buildScenarioPoints(options) {
   const deathDate = safeOptions.deathDate || "2026-01-01";
   const deathAge = safeOptions.deathAge || 46;
   const horizonYears = safeOptions.horizonYears || 40;
+  const deathPointBalance = Number.isFinite(Number(safeOptions.deathPointBalance))
+    ? Number(safeOptions.deathPointBalance)
+    : 420000;
   const preDeathStartBalance = Number.isFinite(Number(safeOptions.preDeathStartBalance))
     ? Number(safeOptions.preDeathStartBalance)
     : 300000;
@@ -138,7 +144,7 @@ function buildScenarioPoints(options) {
     relativeMonthIndex: 0,
     phase: "death",
     resolution: "death",
-    balance: 420000,
+    balance: deathPointBalance,
     status: "starting"
   }));
 
@@ -150,7 +156,7 @@ function buildScenarioPoints(options) {
       relativeMonthIndex: monthIndex,
       phase: "postDeath",
       resolution: "monthly",
-      balance: 420000 - monthIndex * 2000
+      balance: deathPointBalance - monthIndex * 2000
     }));
   }
 
@@ -162,7 +168,7 @@ function buildScenarioPoints(options) {
       relativeMonthIndex: yearIndex * 12,
       phase: "postDeath",
       resolution: "annual",
-      balance: 420000 - yearIndex * 24000
+      balance: deathPointBalance - yearIndex * 24000
     }));
   }
 
@@ -180,9 +186,13 @@ function createTimelineResult(options) {
     },
     financialRunway: {
       status: "complete",
-      startingResources: 500000,
+      startingResources: Number.isFinite(Number(safeOptions.startingResources))
+        ? Number(safeOptions.startingResources)
+        : 500000,
       immediateObligations: 80000,
-      netAvailableResources: 420000,
+      netAvailableResources: Number.isFinite(Number(safeOptions.netAvailableResources))
+        ? Number(safeOptions.netAvailableResources)
+        : 420000,
       annualShortfall: 60000,
       projectionYears: horizonYears,
       projectionPoints: [],
@@ -216,7 +226,10 @@ function createTimelineResult(options) {
           includePreDeathThreshold: safeOptions.includePreDeathThreshold === true,
           preDeathThresholdBalance: safeOptions.preDeathThresholdBalance,
           preDeathResolution: safeOptions.preDeathResolution,
-          preDeathStatus: safeOptions.preDeathStatus
+          preDeathStatus: safeOptions.preDeathStatus,
+          deathPointBalance: Number.isFinite(Number(safeOptions.deathPointBalance))
+            ? Number(safeOptions.deathPointBalance)
+            : (Number.isFinite(Number(safeOptions.netAvailableResources)) ? Number(safeOptions.netAvailableResources) : 420000)
         })
       },
       pivotalEvents: {
@@ -305,6 +318,7 @@ assert.match(displaySource, /resolveScenarioAxisDomainMonths/);
 assert.match(displaySource, /axis\.preDeathYears/);
 assert.match(displaySource, /RUNWAY_CHART_TOP_HEADROOM_RATIO/);
 assert.match(displaySource, /RUNWAY_CHART_BOTTOM_HEADROOM_RATIO/);
+assert.doesNotMatch(displaySource, /RUNWAY_CHART_DEATH_AVAILABLE_TOP_BUFFER/);
 assert.match(displaySource, /RUNWAY_CHART_PRIMARY_LINE_STYLE/);
 assert.match(displaySource, /resolveRunwayChartMaxBalance/);
 assert.match(displaySource, /resolveRunwayChartMinBalance/);
@@ -314,6 +328,7 @@ assert.doesNotMatch(displaySource, /<circle\b/, "Income Impact runway chart shou
 assert.doesNotMatch(displaySource, /preDeathBaselineContextPath/);
 assert.doesNotMatch(displaySource, /preDeathPositivePath/);
 assert.doesNotMatch(displaySource, /preDeathModeledContextTrendPath/);
+assert.doesNotMatch(displaySource, /calculateHouseholdFinancialPosition|projectedAssetOffset|assetLedger|taxDrag|liquidityHaircut/);
 assert.match(displaySource, /survivorRunwayPath/);
 
 const currentDeathResult = createTimelineResult({
@@ -324,12 +339,29 @@ const currentDeathResult = createTimelineResult({
 });
 const currentDeathModel = harness.buildRunwayChartModel(currentDeathResult);
 const currentDeathHtml = harness.renderFinancialRunwayChart(currentDeathResult);
+const currentDeathChartPoint = currentDeathModel.points.find(function (point) {
+  return point.id === "death-point";
+});
 
 assert.equal(currentDeathModel.minRelativeMonthIndex, -60);
 assert.equal(currentDeathModel.maxRelativeMonthIndex, 480);
+assert.ok(currentDeathChartPoint, "Current-date model should include the plotted death point.");
+assert.equal(
+  currentDeathChartPoint.displayedBalance,
+  currentDeathResult.financialRunway.netAvailableResources,
+  "Death point should use the visible after-obligation death-event balance."
+);
 assert.ok(
   currentDeathModel.maxBalance > getMaxDisplayedBalance(currentDeathModel),
   "Y-domain max should include top headroom above the max displayed balance."
+);
+assert.ok(
+  currentDeathModel.maxBalance >= currentDeathChartPoint.displayedBalance + 500000,
+  "Y-domain max should reserve at least $500,000 above the plotted death-event balance."
+);
+assert.ok(
+  currentDeathModel.maxBalance < currentDeathResult.financialRunway.startingResources + 500000,
+  "Y-domain max should not be based on pre-obligation startingResources."
 );
 assert.ok(
   getHighestPointY(currentDeathModel) >= currentDeathModel.yTop + 20,
@@ -396,14 +428,26 @@ const futurePreDeathPoints = futureDeathModel.points.filter(function (point) {
 const futureSurvivorPoints = futureDeathModel.points.filter(function (point) {
   return point.phase !== "preDeath";
 });
+const futureDeathChartPoint = futureDeathModel.points.find(function (point) {
+  return point.id === "death-point";
+});
 const priorStrictProportionalSpan = (futureDeathModel.xEnd - futureDeathModel.xStart)
   * (59 / (futureDeathModel.maxRelativeMonthIndex - futureDeathModel.minRelativeMonthIndex));
 
 assert.equal(futureDeathModel.minRelativeMonthIndex, -60);
 assert.equal(futureDeathModel.maxRelativeMonthIndex, 480);
+assert.ok(futureDeathChartPoint, "Future death model should include the plotted death point.");
 assert.ok(
   futureDeathModel.maxBalance > getMaxDisplayedBalance(futureDeathModel),
   "Future death y-domain max should include top headroom above plotted balances."
+);
+assert.ok(
+  futureDeathModel.maxBalance >= futureDeathChartPoint.displayedBalance + 500000,
+  "Future death y-domain max should reserve at least $500,000 above the plotted death-event balance."
+);
+assert.ok(
+  futureDeathModel.maxBalance < futureDeathResult.financialRunway.startingResources + 500000,
+  "Future death y-domain max should not be based on pre-obligation startingResources."
 );
 assert.ok(
   getHighestPointY(futureDeathModel) >= futureDeathModel.yTop + 20,

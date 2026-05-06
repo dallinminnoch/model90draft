@@ -153,14 +153,20 @@
       targetBalance: null,
       totalIncome: 0,
       totalExpenses: 0,
+      totalEssentialExpenses: 0,
+      totalDiscretionaryExpenses: 0,
       totalScheduledObligations: 0,
       totalAssetGrowth: 0,
+      assetLedgerStart: [],
+      assetLedgerTarget: [],
       preTargetPoints: [],
       points: [],
       inputs: {
         startingResources: normalizeInputSnapshot(input.startingResources),
         recurringIncome: normalizeInputSnapshot(input.recurringIncome),
         recurringExpenses: normalizeInputSnapshot(input.recurringExpenses),
+        cashFlow: normalizeCashFlowSnapshot(input.cashFlow),
+        assetLedger: normalizeAssetLedgerSnapshot(input.assetLedger),
         scheduledObligations: normalizeScheduledObligationSnapshot(input.scheduledObligations),
         assetGrowth: normalizeInputSnapshot(input.assetGrowth),
         options: isPlainObject(input.options) ? { ...input.options } : {}
@@ -171,19 +177,40 @@
       trace: {
         formula: [
           "current-dollar projection is used unless assetGrowth is explicitly active",
-          "targetBalance = startingResources + recurringIncome - recurringExpenses - scheduledObligations + active asset growth"
+          "targetBalance = startingResources + recurringIncome - recurringExpenses - scheduledObligations + active asset growth",
+          "assetLedger, when present, replaces scalar startingResources with the sum of included treated asset values"
         ],
         sourcePaths: [],
+        assetLedger: {
+          active: false,
+          startingBalanceSource: "startingResources.value",
+          includedCategoryKeys: [],
+          excludedCategoryKeys: [],
+          growthAppliedCategoryKeys: [],
+          cashFlowAdjustmentCategoryKey: null
+        },
         preTargetContext: {
           requested: false,
           mode: "none",
           precision: null,
           basis: null,
           months: 0,
-          assetGrowthApplied: false
+          cashFlowApplied: false,
+          assetLedgerApplied: false,
+          assetGrowthApplied: false,
+          reverseAssetGrowthApplied: false,
+          reverseAssetGrowthEstimated: false,
+          reverseAssetGrowthCategoryKeys: []
         }
       }
     };
+  }
+
+  function cloneSerializable(value) {
+    if (value == null) {
+      return value;
+    }
+    return JSON.parse(JSON.stringify(value));
   }
 
   function normalizeInputSnapshot(input) {
@@ -209,6 +236,36 @@
     }
 
     return snapshot;
+  }
+
+  function normalizeCashFlowSnapshot(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    return {
+      recurringIncome: normalizeInputSnapshot(safeInput.recurringIncome),
+      essentialExpenses: normalizeInputSnapshot(safeInput.essentialExpenses),
+      discretionaryExpenses: normalizeInputSnapshot(safeInput.discretionaryExpenses),
+      scheduledObligations: normalizeScheduledObligationSnapshot(safeInput.scheduledObligations)
+    };
+  }
+
+  function normalizeAssetLedgerSnapshot(input) {
+    return (Array.isArray(input) ? input : []).map(function (row) {
+      const safeRow = isPlainObject(row) ? row : {};
+      return {
+        categoryKey: normalizeString(safeRow.categoryKey) || null,
+        label: normalizeString(safeRow.label) || null,
+        rawValue: toOptionalNumber(safeRow.rawValue),
+        treatedValue: toOptionalNumber(safeRow.treatedValue),
+        included: safeRow.included === true || safeRow.include === true,
+        treatmentStatus: normalizeString(safeRow.treatmentStatus) || null,
+        taxDragPercent: toOptionalNumber(safeRow.taxDragPercent),
+        liquidityHaircutPercent: toOptionalNumber(safeRow.liquidityHaircutPercent),
+        annualGrowthRatePercent: toOptionalNumber(safeRow.annualGrowthRatePercent),
+        growthStatus: normalizeString(safeRow.growthStatus) || null,
+        growthEligible: safeRow.growthEligible === true,
+        sourcePaths: normalizeSourcePaths(safeRow)
+      };
+    });
   }
 
   function normalizeScheduledObligationSnapshot(input) {
@@ -280,6 +337,258 @@
     };
   }
 
+  function getCashFlowInput(safeInput, key, fallbackKey) {
+    const cashFlow = isPlainObject(safeInput.cashFlow) ? safeInput.cashFlow : {};
+    if (isPlainObject(cashFlow[key])) {
+      return cashFlow[key];
+    }
+    if (fallbackKey && isPlainObject(safeInput[fallbackKey])) {
+      return safeInput[fallbackKey];
+    }
+    return {};
+  }
+
+  function getScheduledObligationInput(safeInput) {
+    const cashFlow = isPlainObject(safeInput.cashFlow) ? safeInput.cashFlow : {};
+    return cashFlow.scheduledObligations !== undefined
+      ? cashFlow.scheduledObligations
+      : safeInput.scheduledObligations;
+  }
+
+  function isActiveLedgerGrowthStatus(value) {
+    const status = normalizeString(value).toLowerCase();
+    return status === "active"
+      || status === "method-active"
+      || status === "current-output-active";
+  }
+
+  function createLedgerSourcePath(row, index) {
+    return normalizeString(row?.sourcePath)
+      || (normalizeString(row?.categoryKey)
+        ? `assetLedger.${normalizeString(row.categoryKey)}`
+        : `assetLedger[${index}]`);
+  }
+
+  function normalizeAssetLedger(input, output) {
+    const rows = Array.isArray(input) ? input : [];
+    const normalizedRows = [];
+    const includedCategoryKeys = [];
+    const excludedCategoryKeys = [];
+    const growthAppliedCategoryKeys = [];
+
+    rows.forEach(function (row, index) {
+      if (!isPlainObject(row)) {
+        output.warnings.push(createWarning(
+          "invalid-asset-ledger-row",
+          "Asset ledger row was not an object and was skipped.",
+          { index }
+        ));
+        return;
+      }
+
+      const categoryKey = normalizeString(row.categoryKey) || `asset-ledger-row-${index + 1}`;
+      const sourcePaths = uniqueStrings(normalizeSourcePaths(row).concat(createLedgerSourcePath(row, index)));
+      const included = row.included === true || row.include === true;
+      const treatedValue = toOptionalNumber(row.treatedValue);
+      const rawValue = toOptionalNumber(row.rawValue);
+      const annualGrowthRatePercent = toOptionalNumber(row.annualGrowthRatePercent);
+      const growthStatus = normalizeString(row.growthStatus);
+      const growthEligible = row.growthEligible === true;
+      const growthActive = included
+        && growthEligible
+        && isActiveLedgerGrowthStatus(growthStatus)
+        && annualGrowthRatePercent != null
+        && annualGrowthRatePercent > 0;
+
+      if (!included) {
+        excludedCategoryKeys.push(categoryKey);
+      }
+      if (included && (treatedValue == null || treatedValue < 0)) {
+        output.dataGaps.push(createDataGap(
+          "invalid-asset-ledger-treated-value",
+          "Included asset ledger row was missing a usable treated value and was skipped.",
+          sourcePaths,
+          { categoryKey, index }
+        ));
+        return;
+      }
+
+      const balance = included ? Math.max(0, treatedValue || 0) : 0;
+      if (included) {
+        includedCategoryKeys.push(categoryKey);
+      }
+      if (growthActive) {
+        growthAppliedCategoryKeys.push(categoryKey);
+      } else if (included && growthEligible && annualGrowthRatePercent != null && annualGrowthRatePercent > 0) {
+        output.warnings.push(createWarning(
+          "asset-ledger-growth-inactive",
+          "Asset ledger row had a growth rate but was not marked active for method use.",
+          { categoryKey, growthStatus: growthStatus || null, sourcePaths }
+        ));
+      }
+
+      normalizedRows.push({
+        categoryKey,
+        label: normalizeString(row.label) || categoryKey,
+        rawValue: rawValue == null ? null : roundMoney(rawValue),
+        treatedValue: treatedValue == null ? null : roundMoney(treatedValue),
+        included,
+        treatmentStatus: normalizeString(row.treatmentStatus) || null,
+        taxDragPercent: toOptionalNumber(row.taxDragPercent),
+        liquidityHaircutPercent: toOptionalNumber(row.liquidityHaircutPercent),
+        annualGrowthRatePercent: annualGrowthRatePercent == null ? 0 : annualGrowthRatePercent,
+        growthStatus: growthStatus || (growthActive ? "method-active" : "current-dollar"),
+        growthEligible,
+        growthActive,
+        balance,
+        sourcePaths,
+        trace: isPlainObject(row.trace) ? cloneSerializable(row.trace) : null
+      });
+    });
+
+    if (rows.length && !includedCategoryKeys.length) {
+      output.warnings.push(createWarning(
+        "asset-ledger-no-included-assets",
+        "Asset ledger was provided but no included treated asset rows contributed to starting balance."
+      ));
+    }
+
+    return {
+      active: rows.length > 0,
+      rows: normalizedRows,
+      startingBalance: normalizedRows.reduce(function (total, row) {
+        return total + (row.included ? row.balance : 0);
+      }, 0),
+      sourcePaths: uniqueStrings(normalizedRows.flatMap(function (row) {
+        return row.sourcePaths;
+      })),
+      includedCategoryKeys: uniqueStrings(includedCategoryKeys),
+      excludedCategoryKeys: uniqueStrings(excludedCategoryKeys),
+      growthAppliedCategoryKeys: uniqueStrings(growthAppliedCategoryKeys)
+    };
+  }
+
+  function snapshotLedgerRows(rows) {
+    return rows.map(function (row) {
+      return {
+        categoryKey: row.categoryKey,
+        label: row.label,
+        rawValue: row.rawValue,
+        treatedValue: row.treatedValue,
+        included: row.included,
+        treatmentStatus: row.treatmentStatus,
+        taxDragPercent: row.taxDragPercent,
+        liquidityHaircutPercent: row.liquidityHaircutPercent,
+        annualGrowthRatePercent: row.annualGrowthRatePercent,
+        growthStatus: row.growthStatus,
+        growthEligible: row.growthEligible,
+        growthActive: row.growthActive,
+        balance: roundMoney(row.balance),
+        sourcePaths: row.sourcePaths.slice(),
+        trace: row.trace == null ? null : cloneSerializable(row.trace)
+      };
+    });
+  }
+
+  function cloneLedgerRows(rows) {
+    return rows.map(function (row) {
+      return {
+        ...row,
+        sourcePaths: row.sourcePaths.slice(),
+        trace: row.trace == null ? null : cloneSerializable(row.trace)
+      };
+    });
+  }
+
+  function applyLedgerGrowth(rows) {
+    let totalGrowth = 0;
+    rows.forEach(function (row) {
+      if (!row.included || !row.growthActive || row.balance <= 0) {
+        row.lastGrowth = 0;
+        return;
+      }
+      const monthlyGrowthRate = row.annualGrowthRatePercent / 100 / 12;
+      const growth = row.balance * monthlyGrowthRate;
+      row.balance += growth;
+      row.lastGrowth = growth;
+      totalGrowth += growth;
+    });
+    return totalGrowth;
+  }
+
+  function applyLedgerReverseGrowth(rows) {
+    let totalGrowth = 0;
+    const categoryKeys = [];
+
+    rows.forEach(function (row) {
+      if (!row.included || !row.growthActive || row.balance <= 0) {
+        row.lastReverseGrowth = 0;
+        return;
+      }
+
+      const monthlyGrowthRate = row.annualGrowthRatePercent / 100 / 12;
+      if (!Number.isFinite(monthlyGrowthRate) || monthlyGrowthRate <= 0) {
+        row.lastReverseGrowth = 0;
+        return;
+      }
+
+      const balanceAfterGrowth = row.balance;
+      const priorBalance = balanceAfterGrowth / (1 + monthlyGrowthRate);
+      const growth = balanceAfterGrowth - priorBalance;
+      row.balance = priorBalance;
+      row.lastReverseGrowth = growth;
+      totalGrowth += growth;
+      categoryKeys.push(row.categoryKey);
+    });
+
+    return {
+      totalGrowth,
+      categoryKeys: uniqueStrings(categoryKeys)
+    };
+  }
+
+  function applyLedgerCashFlow(rows, amount) {
+    const normalizedAmount = toOptionalNumber(amount) || 0;
+    if (!normalizedAmount) {
+      return;
+    }
+
+    let cashFlowRow = rows.find(function (row) {
+      return row.categoryKey === "householdCashFlowAdjustment";
+    });
+    if (!cashFlowRow) {
+      cashFlowRow = {
+        categoryKey: "householdCashFlowAdjustment",
+        label: "Household cash-flow surplus / deficit",
+        rawValue: null,
+        treatedValue: 0,
+        included: true,
+        treatmentStatus: "cash-flow-adjustment",
+        taxDragPercent: null,
+        liquidityHaircutPercent: null,
+        annualGrowthRatePercent: 0,
+        growthStatus: "not-growth-eligible",
+        growthEligible: false,
+        growthActive: false,
+        balance: 0,
+        sourcePaths: ["cashFlow.recurringIncome", "cashFlow.essentialExpenses", "cashFlow.discretionaryExpenses"],
+        trace: {
+          source: "household-financial-position-cash-flow-adjustment",
+          formula: "monthly income - monthly essential expenses - monthly discretionary expenses - scheduled obligations"
+        }
+      };
+      rows.push(cashFlowRow);
+    }
+    cashFlowRow.balance += normalizedAmount;
+    cashFlowRow.treatedValue = roundMoney(cashFlowRow.balance);
+  }
+
+  function sumLedgerBalance(rows) {
+    return rows.reduce(function (total, row) {
+      return total + (row.included ? row.balance : 0);
+    }, 0);
+  }
+
   function normalizeScheduledObligations(input, output) {
     const rows = Array.isArray(input) ? input : (isPlainObject(input) ? [input] : []);
     return rows
@@ -345,7 +654,7 @@
     }, 0);
   }
 
-  function normalizePreTargetContextOptions(options, output, assetGrowth, scheduledObligations) {
+  function normalizePreTargetContextOptions(options, output, assetGrowth, scheduledObligations, assetLedger) {
     const safeOptions = isPlainObject(options) ? options : {};
     const requested = safeOptions.includePreTargetContext === true;
     const mode = normalizeString(safeOptions.preTargetMode) || PRE_TARGET_CONTEXT_MODE_MODELED_BACKCAST;
@@ -360,14 +669,20 @@
     const scheduledObligationSourcePaths = scheduledObligations.flatMap(function (row) {
       return row.sourcePaths;
     });
+    const reverseAssetGrowthCategoryKeys = uniqueStrings(assetLedger?.growthAppliedCategoryKeys || []);
 
     output.trace.preTargetContext = {
       requested,
       mode: requested ? mode : "none",
       precision: requested ? "estimated" : null,
-      basis: requested ? "current income/expense assumptions reversed from asOfDate" : null,
+      basis: requested ? "current assumptions reversed from asOfDate; not historical account data" : null,
       months: requested ? months : 0,
+      cashFlowApplied: false,
+      assetLedgerApplied: false,
       assetGrowthApplied: false,
+      reverseAssetGrowthApplied: false,
+      reverseAssetGrowthEstimated: false,
+      reverseAssetGrowthCategoryKeys,
       scheduledObligationsApplied: false,
       sourcePaths: []
     };
@@ -408,21 +723,22 @@
       }
     ));
 
-    if (assetGrowth.active) {
+    if (assetGrowth.active && !reverseAssetGrowthCategoryKeys.length) {
       output.warnings.push(createWarning(
         "modeled-backcast-reverse-asset-growth-not-applied",
-        "Active forward asset growth was not applied in reverse for modeled pre-target context.",
+        "Active forward asset growth could not be applied in reverse because no eligible asset-ledger growth rows were available.",
         {
           mode,
           assetGrowthStatus: assetGrowth.status,
+          reason: "no-eligible-asset-ledger-growth-rows",
           sourcePaths: assetGrowth.sourcePaths
         }
       ));
       output.dataGaps.push(createDataGap(
         "reverse-asset-growth-not-applied",
-        "Reverse asset growth is not supported in this modeled pre-target context slice.",
+        "Reverse asset growth could not be modeled without eligible method-active asset-ledger growth rows.",
         assetGrowth.sourcePaths,
-        { mode, assetGrowthApplied: false }
+        { mode, assetGrowthApplied: false, reason: "no-eligible-asset-ledger-growth-rows" }
       ));
     }
 
@@ -431,6 +747,7 @@
       active: months > 0,
       mode,
       months,
+      reverseAssetGrowthCategoryKeys,
       scheduledObligationSourcePaths
     };
   }
@@ -441,24 +758,51 @@
     const months = safeOptions.months;
     const monthlyIncome = safeOptions.monthlyIncome;
     const monthlyExpenses = safeOptions.monthlyExpenses;
+    const monthlyEssentialExpenses = toOptionalNumber(safeOptions.monthlyEssentialExpenses);
+    const monthlyDiscretionaryExpenses = toOptionalNumber(safeOptions.monthlyDiscretionaryExpenses);
     const monthlyNetCashFlow = monthlyIncome - monthlyExpenses;
     const sourcePaths = uniqueStrings(safeOptions.sourcePaths);
     const points = [];
+    const ledgerRows = Array.isArray(safeOptions.assetLedgerRows)
+      ? cloneLedgerRows(safeOptions.assetLedgerRows)
+      : [];
+    const usesAssetLedger = ledgerRows.length > 0;
+    const reverseAssetGrowthCategoryKeys = [];
+    let totalReverseAssetGrowth = 0;
     let nextBalance = safeOptions.startingBalance;
 
     for (let monthOffset = -1; monthOffset >= -months; monthOffset -= 1) {
       const pointDate = addMonths(asOfDate.date, monthOffset);
-      const modeledBalance = nextBalance - monthlyNetCashFlow;
+      let modeledBalance;
+      let reverseGrowth = 0;
+      let assetLedgerSnapshot = [];
+
+      if (usesAssetLedger) {
+        applyLedgerCashFlow(ledgerRows, -monthlyNetCashFlow);
+        const reverseGrowthResult = applyLedgerReverseGrowth(ledgerRows);
+        reverseGrowth = reverseGrowthResult.totalGrowth;
+        totalReverseAssetGrowth += reverseGrowth;
+        reverseAssetGrowthCategoryKeys.push(...reverseGrowthResult.categoryKeys);
+        modeledBalance = sumLedgerBalance(ledgerRows);
+        assetLedgerSnapshot = snapshotLedgerRows(ledgerRows);
+      } else {
+        modeledBalance = nextBalance - monthlyNetCashFlow;
+      }
+
       points.push({
         date: formatDateOnly(pointDate),
         monthIndex: monthOffset,
         startingBalance: roundMoney(modeledBalance),
         income: roundMoney(monthlyIncome),
         expenses: roundMoney(monthlyExpenses),
+        essentialExpenses: roundMoney(monthlyEssentialExpenses == null ? monthlyExpenses : monthlyEssentialExpenses),
+        discretionaryExpenses: roundMoney(monthlyDiscretionaryExpenses || 0),
         scheduledObligations: 0,
-        growth: 0,
+        growth: roundMoney(reverseGrowth),
         netCashFlow: roundMoney(monthlyNetCashFlow),
+        netSurplusDeficit: roundMoney(monthlyNetCashFlow),
         endingBalance: roundMoney(modeledBalance),
+        assetLedger: assetLedgerSnapshot,
         status: "modeledBackcast",
         precision: "estimated",
         sourcePaths
@@ -466,7 +810,13 @@
       nextBalance = modeledBalance;
     }
 
-    return points.reverse();
+    return {
+      points: points.reverse(),
+      assetLedgerApplied: usesAssetLedger,
+      reverseAssetGrowthApplied: totalReverseAssetGrowth > 0,
+      reverseAssetGrowthCategoryKeys: uniqueStrings(reverseAssetGrowthCategoryKeys),
+      totalReverseAssetGrowth: roundMoney(totalReverseAssetGrowth)
+    };
   }
 
   function buildCurrentPositionPreTargetPoints(options) {
@@ -533,8 +883,13 @@
       return output;
     }
 
-    const startingBalance = toOptionalNumber(safeInput.startingResources?.value);
-    const startingResourcePaths = normalizeSourcePaths(safeInput.startingResources);
+    const assetLedger = normalizeAssetLedger(safeInput.assetLedger, output);
+    const usesAssetLedger = assetLedger.active;
+    const scalarStartingBalance = toOptionalNumber(safeInput.startingResources?.value);
+    const startingBalance = usesAssetLedger ? assetLedger.startingBalance : scalarStartingBalance;
+    const startingResourcePaths = usesAssetLedger
+      ? assetLedger.sourcePaths
+      : normalizeSourcePaths(safeInput.startingResources);
     if (startingBalance == null) {
       output.dataGaps.push(createDataGap(
         "missing-starting-resources",
@@ -543,11 +898,29 @@
       ));
     }
 
-    const annualIncome = normalizeAnnualAmount(safeInput.recurringIncome, "annual");
-    const recurringIncomePaths = normalizeSourcePaths(safeInput.recurringIncome);
-    if (annualIncome == null || isUnsafeIncomeInput(safeInput.recurringIncome)) {
+    output.trace.assetLedger = {
+      active: usesAssetLedger,
+      startingBalanceSource: usesAssetLedger
+        ? "assetLedger[].included treatedValue"
+        : "startingResources.value",
+      includedCategoryKeys: assetLedger.includedCategoryKeys,
+      excludedCategoryKeys: assetLedger.excludedCategoryKeys,
+      growthAppliedCategoryKeys: assetLedger.growthAppliedCategoryKeys,
+      cashFlowAdjustmentCategoryKey: usesAssetLedger ? "householdCashFlowAdjustment" : null
+    };
+    if (usesAssetLedger) {
+      output.assetLedgerStart = snapshotLedgerRows(assetLedger.rows);
+      output.trace.formula.push("assetLedger path applies category-level monthly growth before monthly net cash flow is added to householdCashFlowAdjustment.");
+    }
+
+    const recurringIncomeInput = getCashFlowInput(safeInput, "recurringIncome", "recurringIncome");
+    const essentialExpenseInput = getCashFlowInput(safeInput, "essentialExpenses", "recurringExpenses");
+    const discretionaryExpenseInput = getCashFlowInput(safeInput, "discretionaryExpenses", null);
+    const annualIncome = normalizeAnnualAmount(recurringIncomeInput, "annual");
+    const recurringIncomePaths = normalizeSourcePaths(recurringIncomeInput);
+    if (annualIncome == null || isUnsafeIncomeInput(recurringIncomeInput)) {
       output.dataGaps.push(createDataGap(
-        isUnsafeIncomeInput(safeInput.recurringIncome)
+        isUnsafeIncomeInput(recurringIncomeInput)
           ? "unsafe-recurring-income"
           : "missing-net-recurring-income",
         "Mature net recurring household income is required; gross or unavailable income was not used.",
@@ -555,17 +928,26 @@
       ));
     }
 
-    const annualExpenses = normalizeAnnualAmount(safeInput.recurringExpenses, "annual");
-    const recurringExpensePaths = normalizeSourcePaths(safeInput.recurringExpenses);
-    if (annualExpenses == null) {
+    const annualEssentialExpenses = normalizeAnnualAmount(essentialExpenseInput, "annual");
+    const annualDiscretionaryExpenses = normalizeAnnualAmount(discretionaryExpenseInput, "annual");
+    const recurringExpensePaths = normalizeSourcePaths(essentialExpenseInput);
+    const discretionaryExpensePaths = normalizeSourcePaths(discretionaryExpenseInput);
+    if (annualEssentialExpenses == null) {
       output.dataGaps.push(createDataGap(
         "missing-recurring-expenses",
         "Recurring household expenses are missing.",
         recurringExpensePaths
       ));
     }
+    if (!isPlainObject(discretionaryExpenseInput)) {
+      output.trace.formula.push("discretionaryExpenses input was not provided; discretionary expenses defaulted to 0 for compatibility.");
+    }
 
-    const scheduledObligations = normalizeScheduledObligations(safeInput.scheduledObligations, output);
+    const annualExpenses = (annualEssentialExpenses == null ? null : annualEssentialExpenses)
+      == null
+      ? null
+      : annualEssentialExpenses + (annualDiscretionaryExpenses || 0);
+    const scheduledObligations = normalizeScheduledObligations(getScheduledObligationInput(safeInput), output);
     const assetGrowth = normalizeAssetGrowthInput(safeInput.assetGrowth);
     if (!assetGrowth.active) {
       output.trace.formula.push("assetGrowth was inactive; totalAssetGrowth remains 0 in current dollars.");
@@ -574,13 +956,15 @@
       safeInput.options,
       output,
       assetGrowth,
-      scheduledObligations
+      scheduledObligations,
+      assetLedger
     );
 
     output.sourcePaths = uniqueStrings(
       startingResourcePaths
         .concat(recurringIncomePaths)
         .concat(recurringExpensePaths)
+        .concat(discretionaryExpensePaths)
         .concat(assetGrowth.sourcePaths)
         .concat(scheduledObligations.flatMap(function (row) { return row.sourcePaths; }))
     );
@@ -589,6 +973,7 @@
       startingResourcePaths
         .concat(recurringIncomePaths)
         .concat(recurringExpensePaths)
+        .concat(discretionaryExpensePaths)
         .concat(preTargetContext.scheduledObligationSourcePaths)
         .concat(assetGrowth.active ? assetGrowth.sourcePaths : [])
     );
@@ -619,20 +1004,41 @@
 
     const canUseCashFlow = !hasStartingResourceGap && !hasCashFlowGap;
     const monthlyIncome = canUseCashFlow ? annualIncome / 12 : 0;
-    const monthlyExpenses = canUseCashFlow ? annualExpenses / 12 : 0;
-    const monthlyGrowthRate = assetGrowth.active ? assetGrowth.annualRatePercent / 100 / 12 : 0;
+    const monthlyEssentialExpenses = canUseCashFlow ? annualEssentialExpenses / 12 : 0;
+    const monthlyDiscretionaryExpenses = canUseCashFlow ? (annualDiscretionaryExpenses || 0) / 12 : 0;
+    const monthlyExpenses = monthlyEssentialExpenses + monthlyDiscretionaryExpenses;
+    const monthlyGrowthRate = !usesAssetLedger && assetGrowth.active ? assetGrowth.annualRatePercent / 100 / 12 : 0;
     let runningBalance = startingBalance;
+    let runningLedger = usesAssetLedger ? cloneLedgerRows(assetLedger.rows) : [];
 
     if (preTargetContext.active && canUseCashFlow) {
-      output.preTargetPoints = buildModeledBackcastPreTargetPoints({
+      const preTargetResult = buildModeledBackcastPreTargetPoints({
         asOfDate,
         months: preTargetContext.months,
         startingBalance,
         monthlyIncome,
         monthlyExpenses,
+        monthlyEssentialExpenses,
+        monthlyDiscretionaryExpenses,
+        assetLedgerRows: usesAssetLedger ? assetLedger.rows : [],
         sourcePaths: output.trace.preTargetContext.sourcePaths
       });
-      output.trace.formula.push("preTargetPoints use modeledBackcast current-dollar reverse cash flow and are not historical account data.");
+      output.preTargetPoints = preTargetResult.points;
+      output.trace.preTargetContext.cashFlowApplied = true;
+      output.trace.preTargetContext.assetLedgerApplied = preTargetResult.assetLedgerApplied;
+      output.trace.preTargetContext.assetGrowthApplied = preTargetResult.reverseAssetGrowthApplied;
+      output.trace.preTargetContext.reverseAssetGrowthApplied = preTargetResult.reverseAssetGrowthApplied;
+      output.trace.preTargetContext.reverseAssetGrowthEstimated = preTargetResult.reverseAssetGrowthApplied;
+      output.trace.preTargetContext.reverseAssetGrowthCategoryKeys = preTargetResult.reverseAssetGrowthCategoryKeys;
+      output.trace.preTargetContext.totalReverseAssetGrowth = preTargetResult.totalReverseAssetGrowth;
+      output.trace.preTargetContext.basis = preTargetResult.assetLedgerApplied
+        ? "current treated asset ledger, mature income/expense assumptions, and eligible category growth reversed from asOfDate; not historical account data"
+        : "current income/expense assumptions reversed from asOfDate; not historical account data";
+      output.trace.formula.push(
+        preTargetResult.assetLedgerApplied
+          ? "preTargetPoints use modeledBackcast by reversing treated asset-ledger balances, monthly net cash flow, and eligible method-active category growth from asOfDate; points are estimated and not historical account data."
+          : "preTargetPoints use modeledBackcast current-dollar reverse cash flow and are not historical account data."
+      );
     } else if (preTargetContext.active && !canUseCashFlow) {
       if (!hasStartingResourceGap && durationMonths === 0) {
         output.preTargetPoints = buildCurrentPositionPreTargetPoints({
@@ -657,9 +1063,12 @@
       startingBalance: runningBalance,
       income: 0,
       expenses: 0,
+      essentialExpenses: 0,
+      discretionaryExpenses: 0,
       scheduledObligations: 0,
       growth: 0,
       endingBalance: runningBalance,
+      assetLedger: usesAssetLedger ? snapshotLedgerRows(runningLedger) : [],
       status: "starting",
       sourcePaths: output.sourcePaths
     }));
@@ -667,14 +1076,23 @@
     for (let monthIndex = 1; monthIndex <= durationMonths; monthIndex += 1) {
       const pointDate = addMonths(asOfDate.date, monthIndex);
       const pointStartingBalance = runningBalance;
-      const growth = pointStartingBalance > 0 ? pointStartingBalance * monthlyGrowthRate : 0;
+      const growth = usesAssetLedger
+        ? applyLedgerGrowth(runningLedger)
+        : (pointStartingBalance > 0 ? pointStartingBalance * monthlyGrowthRate : 0);
       const scheduledObligationAmount = getScheduledObligationAmountForMonth(scheduledObligations, monthIndex);
-      const netCashFlow = monthlyIncome - monthlyExpenses - scheduledObligationAmount;
-      const endingBalance = pointStartingBalance + growth + netCashFlow;
+      const netCashFlow = monthlyIncome - monthlyEssentialExpenses - monthlyDiscretionaryExpenses - scheduledObligationAmount;
+      if (usesAssetLedger) {
+        applyLedgerCashFlow(runningLedger, netCashFlow);
+      }
+      const endingBalance = usesAssetLedger
+        ? sumLedgerBalance(runningLedger)
+        : pointStartingBalance + growth + netCashFlow;
       runningBalance = endingBalance;
 
       output.totalIncome += monthlyIncome;
-      output.totalExpenses += monthlyExpenses;
+      output.totalEssentialExpenses += monthlyEssentialExpenses;
+      output.totalDiscretionaryExpenses += monthlyDiscretionaryExpenses;
+      output.totalExpenses += monthlyEssentialExpenses + monthlyDiscretionaryExpenses;
       output.totalScheduledObligations += scheduledObligationAmount;
       output.totalAssetGrowth += growth;
       output.points.push(createPoint({
@@ -682,10 +1100,13 @@
         monthIndex,
         startingBalance: pointStartingBalance,
         income: monthlyIncome,
-        expenses: monthlyExpenses,
+        expenses: monthlyEssentialExpenses + monthlyDiscretionaryExpenses,
+        essentialExpenses: monthlyEssentialExpenses,
+        discretionaryExpenses: monthlyDiscretionaryExpenses,
         scheduledObligations: scheduledObligationAmount,
         growth,
         endingBalance,
+        assetLedger: usesAssetLedger ? snapshotLedgerRows(runningLedger) : [],
         status: endingBalance < 0 ? "negative" : "projected",
         sourcePaths: output.sourcePaths
       }));
@@ -694,8 +1115,11 @@
     output.targetBalance = roundMoney(runningBalance);
     output.totalIncome = roundMoney(output.totalIncome);
     output.totalExpenses = roundMoney(output.totalExpenses);
+    output.totalEssentialExpenses = roundMoney(output.totalEssentialExpenses);
+    output.totalDiscretionaryExpenses = roundMoney(output.totalDiscretionaryExpenses);
     output.totalScheduledObligations = roundMoney(output.totalScheduledObligations);
     output.totalAssetGrowth = roundMoney(output.totalAssetGrowth);
+    output.assetLedgerTarget = usesAssetLedger ? snapshotLedgerRows(runningLedger) : [];
     output.status = output.dataGaps.length ? "partial" : "complete";
     finalizeOutput(output);
     return output;
@@ -709,10 +1133,14 @@
       startingBalance: roundMoney(options.startingBalance),
       income: roundMoney(options.income),
       expenses: roundMoney(options.expenses),
+      essentialExpenses: roundMoney(options.essentialExpenses == null ? options.expenses : options.essentialExpenses),
+      discretionaryExpenses: roundMoney(options.discretionaryExpenses || 0),
       scheduledObligations: roundMoney(options.scheduledObligations),
       growth: roundMoney(options.growth),
       netCashFlow: roundMoney(netCashFlow),
+      netSurplusDeficit: roundMoney(netCashFlow),
       endingBalance: roundMoney(options.endingBalance),
+      assetLedger: Array.isArray(options.assetLedger) ? cloneSerializable(options.assetLedger) : [],
       status: options.status,
       sourcePaths: uniqueStrings(options.sourcePaths)
     };

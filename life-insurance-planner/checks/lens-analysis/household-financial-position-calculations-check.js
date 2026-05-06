@@ -298,6 +298,112 @@ assert.ok(
   "Active forward growth should leave a data gap for unsupported reverse growth."
 );
 
+const assetLedgerBackcast = calculateHouseholdFinancialPosition(baseInput({
+  targetDate: "2026-01-01",
+  assetLedger: [
+    {
+      categoryKey: "traditionalRetirementAssets",
+      rawValue: 140000,
+      treatedValue: 100000,
+      included: true,
+      taxDragPercent: 25,
+      liquidityHaircutPercent: 5,
+      annualGrowthRatePercent: 12,
+      growthStatus: "method-active",
+      growthEligible: true,
+      sourcePaths: ["treatedAssetOffsets.assets[0].treatedValue"]
+    },
+    {
+      categoryKey: "primaryResidenceEquity",
+      rawValue: 999000,
+      treatedValue: 999000,
+      included: false,
+      annualGrowthRatePercent: 99,
+      growthStatus: "method-active",
+      growthEligible: true,
+      sourcePaths: ["treatedAssetOffsets.assets[1].treatedValue"]
+    }
+  ],
+  cashFlow: {
+    recurringIncome: { value: 120000, frequency: "annual", status: "net-household-income", sourcePaths: ["incomeBasis.insuredNetAnnualIncome"] },
+    essentialExpenses: { value: 60000, frequency: "annual", status: "prepared-bucket", sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"] },
+    discretionaryExpenses: { value: 12000, frequency: "annual", status: "prepared-discretionary-bucket", sourcePaths: ["ongoingSupport.annualDiscretionaryPersonalSpending"] }
+  },
+  assetGrowth: {
+    annualRatePercent: 12,
+    active: true,
+    status: "method-active",
+    sourcePaths: ["projectedAssetOffset.includedCategories[0].assumedAnnualGrowthRatePercent"]
+  },
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 12,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(assetLedgerBackcast.status, "complete");
+assert.equal(assetLedgerBackcast.durationMonths, 0);
+assert.equal(assetLedgerBackcast.startingBalance, 100000);
+assert.equal(assetLedgerBackcast.targetBalance, 100000);
+assert.equal(assetLedgerBackcast.preTargetPoints.length, 12);
+assert.equal(assetLedgerBackcast.trace.preTargetContext.assetLedgerApplied, true);
+assert.equal(assetLedgerBackcast.trace.preTargetContext.reverseAssetGrowthApplied, true);
+assert.equal(assetLedgerBackcast.trace.preTargetContext.reverseAssetGrowthEstimated, true);
+assert.ok(assetLedgerBackcast.trace.preTargetContext.reverseAssetGrowthCategoryKeys.includes("traditionalRetirementAssets"));
+assert.ok(assetLedgerBackcast.trace.preTargetContext.totalReverseAssetGrowth > 0);
+assert.ok(
+  assetLedgerBackcast.preTargetPoints.every(function (point) {
+    return point.status === "modeledBackcast"
+      && point.precision === "estimated"
+      && Array.isArray(point.assetLedger)
+      && point.assetLedger.some(function (row) { return row.categoryKey === "traditionalRetirementAssets"; });
+  }),
+  "Asset-ledger modeled backcast points should keep estimated labels and ledger snapshots."
+);
+assert.ok(assetLedgerBackcast.preTargetPoints.some(function (point) { return point.growth > 0; }));
+assert.equal(assetLedgerBackcast.preTargetPoints.at(-1).netCashFlow, 4000);
+assert.equal(assetLedgerBackcast.preTargetPoints.at(-1).discretionaryExpenses, 1000);
+assert.ok(
+  assetLedgerBackcast.preTargetPoints[0].endingBalance < assetLedgerBackcast.preTargetPoints.at(-1).endingBalance,
+  "Reverse-modeled points should reflect the monthly surplus and estimated category growth."
+);
+assert.equal(
+  assetLedgerBackcast.dataGaps.some(function (gap) { return gap.code === "reverse-asset-growth-not-applied"; }),
+  false
+);
+
+const savedOnlyLedgerBackcast = calculateHouseholdFinancialPosition(baseInput({
+  targetDate: "2026-01-01",
+  assetLedger: [
+    {
+      categoryKey: "taxableBrokerageInvestments",
+      treatedValue: 100000,
+      included: true,
+      annualGrowthRatePercent: 12,
+      growthStatus: "saved-only",
+      growthEligible: true
+    }
+  ],
+  recurringIncome: { value: 0, frequency: "annual", status: "net-household-income", sourcePaths: ["incomeBasis.insuredNetAnnualIncome"] },
+  recurringExpenses: { value: 0, frequency: "annual", status: "prepared-bucket", sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"] },
+  assetGrowth: {
+    annualRatePercent: 12,
+    active: false,
+    status: "saved-only",
+    sourcePaths: ["projectedAssetGrowth.includedCategories[0].assumedAnnualGrowthRatePercent"]
+  },
+  options: {
+    includePreTargetContext: true,
+    preTargetMonths: 12,
+    preTargetMode: "modeledBackcast"
+  }
+}));
+assert.equal(savedOnlyLedgerBackcast.preTargetPoints.length, 12);
+assert.equal(savedOnlyLedgerBackcast.trace.preTargetContext.assetLedgerApplied, true);
+assert.equal(savedOnlyLedgerBackcast.trace.preTargetContext.reverseAssetGrowthApplied, false);
+assert.ok(savedOnlyLedgerBackcast.preTargetPoints.every(function (point) { return point.growth === 0; }));
+assert.equal(savedOnlyLedgerBackcast.totalAssetGrowth, 0);
+
 const separateObligation = calculateHouseholdFinancialPosition(baseInput({
   scheduledObligations: [
     {

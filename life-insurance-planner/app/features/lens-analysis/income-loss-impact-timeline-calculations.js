@@ -389,7 +389,10 @@
             sourcePaths
           },
       warnings: Array.isArray(safeOptions.warnings) ? safeOptions.warnings.slice() : [],
-      dataGaps: Array.isArray(safeOptions.dataGaps) ? safeOptions.dataGaps.slice() : []
+      dataGaps: Array.isArray(safeOptions.dataGaps) ? safeOptions.dataGaps.slice() : [],
+      categoryGrowthRates: Array.isArray(safeOptions.categoryGrowthRates)
+        ? safeOptions.categoryGrowthRates.slice()
+        : []
     };
   }
 
@@ -735,6 +738,19 @@
       status: "method-active",
       sourcePath: "projectedAssetOffset.includedCategories",
       sourcePaths,
+      categoryGrowthRates: projectedCategories.eligibleRows.map(function (row) {
+        return {
+          categoryKey: row.categoryKey,
+          annualGrowthRatePercent: row.rate,
+          growthStatus: "method-active",
+          growthEligible: true,
+          sourcePaths: [
+            "projectedAssetOffset.includedCategories[].categoryKey",
+            "projectedAssetOffset.includedCategories[].assumedAnnualGrowthRatePercent",
+            "projectedAssetOffset.includedCategories[].treatedValue"
+          ]
+        };
+      }),
       trace: {
         active: true,
         activeGate: gate,
@@ -1613,16 +1629,108 @@
     );
   }
 
+  function resolveHouseholdPositionDiscretionaryExpenseInput(lensModel) {
+    const annualDiscretionary = firstRunwayValue(lensModel, [
+      { path: "ongoingSupport.annualDiscretionaryPersonalSpending", status: "prepared-discretionary-bucket" }
+    ]);
+    if (annualDiscretionary.value != null) {
+      return annualDiscretionary;
+    }
+
+    const monthlyDiscretionary = firstRunwayValue(lensModel, [
+      { path: "ongoingSupport.monthlyDiscretionaryPersonalSpending", status: "monthly-discretionary-bucket" }
+    ]);
+    if (monthlyDiscretionary.value != null) {
+      return createRunwayValue(
+        monthlyDiscretionary.value * 12,
+        "ongoingSupport.monthlyDiscretionaryPersonalSpending * 12",
+        monthlyDiscretionary.sourcePaths,
+        "monthly-annualized-discretionary-bucket"
+      );
+    }
+
+    return createRunwayValue(
+      0,
+      "incomeLossImpact.householdPosition.discretionaryExpenses.defaultZero",
+      annualDiscretionary.sourcePaths.concat(monthlyDiscretionary.sourcePaths),
+      "not-provided-default-zero"
+    );
+  }
+
+  function createHouseholdAssetLedgerGrowthRateMap(assetGrowth) {
+    const map = new Map();
+    (Array.isArray(assetGrowth?.categoryGrowthRates) ? assetGrowth.categoryGrowthRates : []).forEach(function (row) {
+      const categoryKey = normalizeString(row?.categoryKey);
+      const rate = toOptionalNumber(row?.annualGrowthRatePercent);
+      if (!categoryKey || rate == null || rate <= 0) {
+        return;
+      }
+      map.set(categoryKey, {
+        annualGrowthRatePercent: rate,
+        growthStatus: normalizeString(row.growthStatus) || "method-active",
+        growthEligible: row.growthEligible === true,
+        sourcePaths: uniqueStrings(row.sourcePaths)
+      });
+    });
+    return map;
+  }
+
+  function buildHouseholdPositionAssetLedgerInput(lensModel, assetGrowth) {
+    const treatedAssetOffsets = isPlainObject(lensModel?.treatedAssetOffsets)
+      ? lensModel.treatedAssetOffsets
+      : {};
+    const assets = Array.isArray(treatedAssetOffsets.assets) ? treatedAssetOffsets.assets : [];
+    const growthRateMap = createHouseholdAssetLedgerGrowthRateMap(assetGrowth);
+
+    return assets.map(function (asset, index) {
+      const categoryKey = normalizeString(asset?.categoryKey) || `treatedAssetOffsets.assets[${index}]`;
+      const growth = growthRateMap.get(categoryKey);
+      const sourcePaths = uniqueStrings([
+        `treatedAssetOffsets.assets[${index}].treatedValue`,
+        `treatedAssetOffsets.assets[${index}].include`,
+        `treatedAssetOffsets.assets[${index}].taxDragPercent`,
+        `treatedAssetOffsets.assets[${index}].liquidityDiscountPercent`
+      ].concat(growth?.sourcePaths || []));
+      return {
+        categoryKey,
+        label: normalizeString(asset?.label) || normalizeString(asset?.typeKey) || categoryKey,
+        rawValue: toOptionalNumber(asset?.rawValue),
+        treatedValue: toOptionalNumber(asset?.treatedValue),
+        included: asset?.include === true || asset?.included === true,
+        treatmentStatus: normalizeString(asset?.trace?.treatmentPreset)
+          || normalizeString(asset?.treatmentStatus)
+          || (asset?.include === true || asset?.included === true ? "included-treated" : "excluded"),
+        taxDragPercent: toOptionalNumber(asset?.taxDragPercent),
+        liquidityHaircutPercent: toOptionalNumber(asset?.liquidityDiscountPercent ?? asset?.liquidityHaircutPercent),
+        annualGrowthRatePercent: growth ? growth.annualGrowthRatePercent : 0,
+        growthStatus: growth ? growth.growthStatus : "current-dollar",
+        growthEligible: growth ? growth.growthEligible : false,
+        sourcePath: `treatedAssetOffsets.assets[${index}]`,
+        sourcePaths,
+        trace: isPlainObject(asset?.trace)
+          ? {
+              ...asset.trace,
+              growthSource: growth ? "projectedAssetOffset.includedCategories" : "none"
+            }
+          : {
+              growthSource: growth ? "projectedAssetOffset.includedCategories" : "none"
+            }
+      };
+    });
+  }
+
   function buildHouseholdFinancialPositionInput(lensModel, options) {
     const safeOptions = isPlainObject(options) ? options : {};
     const startingResources = resolveHouseholdPositionStartingResourcesInput(lensModel);
     const recurringIncome = resolveHouseholdPositionRecurringIncomeInput(lensModel);
     const recurringExpenses = resolveHouseholdPositionRecurringExpenseInput(lensModel);
+    const discretionaryExpenses = resolveHouseholdPositionDiscretionaryExpenseInput(lensModel);
     const assetGrowth = resolveHouseholdPositionAssetGrowthInput(
       lensModel,
       startingResources,
       safeOptions
     );
+    const assetLedger = buildHouseholdPositionAssetLedgerInput(lensModel, assetGrowth);
 
     return {
       asOfDate: safeOptions.asOfDate,
@@ -1647,7 +1755,32 @@
         sourcePath: recurringExpenses.sourcePath,
         sourcePaths: recurringExpenses.sourcePaths
       },
+      cashFlow: {
+        recurringIncome: {
+          value: recurringIncome.value,
+          frequency: "annual",
+          status: recurringIncome.status,
+          sourcePath: recurringIncome.sourcePath,
+          sourcePaths: recurringIncome.sourcePaths
+        },
+        essentialExpenses: {
+          value: recurringExpenses.value,
+          frequency: "annual",
+          status: recurringExpenses.status,
+          sourcePath: recurringExpenses.sourcePath,
+          sourcePaths: recurringExpenses.sourcePaths
+        },
+        discretionaryExpenses: {
+          value: discretionaryExpenses.value,
+          frequency: "annual",
+          status: discretionaryExpenses.status,
+          sourcePath: discretionaryExpenses.sourcePath,
+          sourcePaths: discretionaryExpenses.sourcePaths
+        },
+        scheduledObligations: []
+      },
       scheduledObligations: [],
+      assetLedger,
       assetGrowth,
       options: {
         product: "generic-household-position",
@@ -2203,7 +2336,7 @@
         phase: "preDeath",
         resolution: pointResolution,
         startingBalance: point.startingBalance,
-        growthAmount: 0,
+        growthAmount: point.growth,
         householdNeed: monthlyExpenses == null ? annualNeed : monthlyExpenses * 12,
         survivorIncomeOffset: null,
         annualShortfall: monthlyNetCashFlow == null ? null : Math.max(0, -monthlyNetCashFlow * 12),

@@ -272,6 +272,22 @@ const currentDatePreDeathPoints = currentDateDeathOutput.scenarioTimeline.resour
 assert.equal(currentDateDeathOutput.selectedDeath.date, "2026-06-15");
 assert.equal(currentDateDeathOutput.financialRunway.householdPosition.durationMonths, 0);
 assert.equal(currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints.length, 60);
+assert.equal(currentDateDeathOutput.financialRunway.householdPosition.trace.preTargetContext.assetLedgerApplied, true);
+assert.equal(currentDateDeathOutput.financialRunway.householdPosition.trace.preTargetContext.cashFlowApplied, true);
+assert.equal(currentDateDeathOutput.financialRunway.householdPosition.trace.preTargetContext.reverseAssetGrowthApplied, false);
+assert.ok(
+  currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints.every(function (point) {
+    return Array.isArray(point.assetLedger)
+      && point.assetLedger.some(function (row) { return row.categoryKey === "cashEquivalents"; });
+  }),
+  "Current-date death pre-target context should use treated asset ledger snapshots."
+);
+assert.ok(
+  currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints[0].endingBalance
+    < currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints.at(-1).endingBalance,
+  "Current-date modeled pre-target points should reflect household surplus or deficit, not stay flat."
+);
+assert.equal(currentDateDeathOutput.financialRunway.householdPosition.preTargetPoints.at(-1).netCashFlow, 5000);
 assert.equal(currentDatePreDeathPoints.length, 61);
 const currentDateMonthlyPreDeathPoints = currentDatePreDeathPoints.filter(function (point) {
   return point.resolution === "modeledBackcastMonthly";

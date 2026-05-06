@@ -12,6 +12,7 @@
   const RUNWAY_CHART_PRE_DEATH_SEGMENT_RATIO = 0.28;
   const RUNWAY_CHART_PRE_DEATH_MIN_WIDTH = 220;
   const RUNWAY_CHART_PRE_DEATH_MAX_RATIO = 0.36;
+  const RUNWAY_CHART_DEATH_EVENT_TOP_BUFFER = 500000;
   const RUNWAY_CHART_PRIMARY_LINE_STYLE = "fill: none; stroke: #141820; stroke-width: 4.8; stroke-linecap: round; stroke-linejoin: round; opacity: 1;";
   const MORTGAGE_TREATMENT_LABELS = Object.freeze({
     followAssumptions: "Follow Assumption Controls",
@@ -686,9 +687,13 @@
     };
   }
 
-  function resolveRunwayChartMaxBalance(maxPlottedBalance) {
+  function resolveRunwayChartMaxBalance(maxPlottedBalance, deathEventBalance) {
     const safeMaxPlottedBalance = Math.max(1, maxPlottedBalance || 0);
-    return safeMaxPlottedBalance / (1 - RUNWAY_CHART_TOP_HEADROOM_RATIO);
+    const ratioHeadroomMax = safeMaxPlottedBalance / (1 - RUNWAY_CHART_TOP_HEADROOM_RATIO);
+    const deathEventHeadroomMax = deathEventBalance == null
+      ? 0
+      : deathEventBalance + RUNWAY_CHART_DEATH_EVENT_TOP_BUFFER;
+    return Math.max(ratioHeadroomMax, deathEventHeadroomMax);
   }
 
   function resolveRunwayChartMinBalance(minPlottedBalance) {
@@ -756,11 +761,11 @@
       ? scenarioPoints
       : (Array.isArray(runway.projectionPoints) ? runway.projectionPoints : []);
     const width = 1040;
-    const height = 540;
+    const height = 680;
     const xStart = 82;
     const xEnd = width - 82;
-    const yTop = 102;
-    const yBottom = 410;
+    const yTop = 112;
+    const yBottom = 535;
     const plotWidth = xEnd - xStart;
     const relativeMonths = points
       .map(getPointRelativeMonthIndex)
@@ -791,9 +796,17 @@
         return value != null;
       })
       .concat(toOptionalNumber(runway.netAvailableResources) || 0);
+    const deathEventSourcePoint = usesScenarioSeries
+      ? points.find(function (point) {
+          return point?.id === "death-point" || point?.phase === "death";
+        })
+      : null;
+    const deathEventBalance = deathEventSourcePoint
+      ? getScenarioPointPlotBalance(deathEventSourcePoint)
+      : toOptionalNumber(runway.netAvailableResources);
     const maxPlottedBalance = Math.max(1, ...balances);
     const minPlottedBalance = Math.min(0, ...balances);
-    const maxBalance = resolveRunwayChartMaxBalance(maxPlottedBalance);
+    const maxBalance = resolveRunwayChartMaxBalance(maxPlottedBalance, deathEventBalance);
     const minBalance = resolveRunwayChartMinBalance(minPlottedBalance);
     const balanceSpan = Math.max(1, maxBalance - minBalance);
     const yFromBalance = function (balance) {
