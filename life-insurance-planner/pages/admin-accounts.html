@@ -42,6 +42,15 @@
       <div id="admin-accounts-list" class="admin-accounts-list"></div>
     </section>
 
+    <section class="admin-accounts-panel" data-household-expense-account-policy-panel>
+      <div class="admin-panel-header">
+        <div class="section-label">Planning Configuration</div>
+        <h2>Household Expense Policy</h2>
+        <p class="panel-copy">Read-only account policy status for Income Impact lifestyle ranges and expense compression reporting. Editing and saving will be added in a later admin pass.</p>
+      </div>
+      <div id="admin-household-expense-policy-status" data-household-expense-account-policy-status></div>
+    </section>
+
     <section class="admin-accounts-panel">
       <div class="admin-panel-header">
         <div class="section-label">Planning Configuration</div>
@@ -145,7 +154,13 @@
   <script src="../app/features/client-records.js"></script>
   <script src="../app/features/client-intake.js"></script>
   <script src="../app/features/client-directory.js"></script>
+  <script src="../app/features/account-settings/household-expense-account-policy-storage.js"></script>
+  <script src="../app/features/lens-analysis/expense-compression-thresholds.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-compression-policy.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-lifestyle-range-policy.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-account-policy-resolver.js"></script>
   <script src="../app.js"></script>
+  <script src="../app/features/account-settings/household-expense-account-policy-admin-display.js"></script>
   <script>
     (function () {
       const federalStorageKey = "lensFederalTaxBrackets";
