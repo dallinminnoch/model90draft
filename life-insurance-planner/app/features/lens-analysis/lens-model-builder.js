@@ -23,6 +23,7 @@
   const CASH_RESERVE_CONSUMPTION_STATUS = "saved-only";
   const CASH_RESERVE_MODE_METHOD_ACTIVE_FUTURE = "methodActiveFuture";
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
+    includeSurvivorIncome: true,
     applyStartDelay: true,
     survivorContinuesWorking: true,
     expectedSurvivorWorkReductionPercent: 25,
@@ -210,6 +211,12 @@
       defaulted: !survivorSupport,
       defaultedFields,
       survivorIncomeTreatment: {
+        includeSurvivorIncome: getBooleanAssumptionValue(
+          savedSurvivorIncomeTreatment,
+          "includeSurvivorIncome",
+          DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS.includeSurvivorIncome,
+          "analysisSettings.survivorSupportAssumptions.survivorIncomeTreatment.includeSurvivorIncome"
+        ),
         applyStartDelay: getBooleanAssumptionValue(
           savedSurvivorIncomeTreatment,
           "applyStartDelay",
@@ -1053,6 +1060,7 @@
     const survivorSupportContext = getSurvivorSupportAssumptionContext(profileRecord);
     const survivorScenarioAssumptions = survivorSupportContext.survivorScenario;
     const survivorIncomeTreatment = survivorSupportContext.survivorIncomeTreatment;
+    const includeSurvivorIncomeOffset = survivorIncomeTreatment.includeSurvivorIncome !== false;
     const survivorContinuesWorking = normalizeYesNoBoolean(
       survivorScenarioAssumptions.survivorContinuesWorking
     );
@@ -1112,7 +1120,9 @@
       );
     }
 
-    if (survivorContinuesWorking === true) {
+    if (!includeSurvivorIncomeOffset) {
+      survivorIncomeSource = "suppressed-survivor-income-offset-disabled";
+    } else if (survivorContinuesWorking === true) {
       if (spouseGrossIncome != null) {
         const reductionPercent = expectedWorkReductionPercent == null ? 0 : expectedWorkReductionPercent;
         survivorGrossIncome = Math.max(0, spouseGrossIncome * (1 - reductionPercent / 100));
@@ -1132,7 +1142,8 @@
     }
 
     if (
-      survivorContinuesWorking === true
+      includeSurvivorIncomeOffset
+      && survivorContinuesWorking === true
       && survivorGrossIncome != null
     ) {
       const calculatedSurvivorNetIncome = calculateSurvivorNetIncome(
@@ -1148,7 +1159,11 @@
       }
     }
 
-    if (survivorContinuesWorking === false) {
+    if (!includeSurvivorIncomeOffset) {
+      survivorGrossIncome = null;
+      survivorNetIncome = null;
+      survivorIncomeSource = "suppressed-survivor-income-offset-disabled";
+    } else if (survivorContinuesWorking === false) {
       survivorNetIncome = null;
       survivorIncomeSource = "suppressed-survivor-not-working";
     }
@@ -1160,6 +1175,7 @@
       : rawStartDelayMonths;
     const survivorIncomeDerivation = {
       survivorIncomeSource,
+      includeSurvivorIncomeOffset,
       rawSpouseIncome: spouseGrossIncome,
       rawSpouseIncomeSourcePath: "protectionModeling.data.spouseIncome",
       rawLegacySurvivorGrossIncome: sourceSurvivorGrossIncome,
@@ -1183,6 +1199,7 @@
       warnings: derivationWarnings,
       sourcePaths: [
         "protectionModeling.data.spouseIncome",
+        "analysisSettings.survivorSupportAssumptions.survivorIncomeTreatment.includeSurvivorIncome",
         "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorContinuesWorking",
         "analysisSettings.survivorSupportAssumptions.survivorScenario.expectedSurvivorWorkReductionPercent",
         "analysisSettings.survivorSupportAssumptions.survivorIncomeTreatment.applyStartDelay",

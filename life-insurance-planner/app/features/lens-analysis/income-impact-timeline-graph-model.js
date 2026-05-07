@@ -4,6 +4,7 @@
 
   const CALCULATION_METHOD = "income-impact-timeline-graph-model-v1";
   const DEFAULT_CURRENT_AGE_MODE = "death-event-only";
+  const COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS = 24;
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -180,6 +181,12 @@
     return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
       .filter(isPlainObject)
       .map(function (comparisonScenario, index) {
+        const kind = String(comparisonScenario.kind || "comparison").trim();
+        const pathId = normalizeComparisonPathId(
+          comparisonScenario.pathId
+          || comparisonScenario.graphPathId
+          || (kind === "stagedCompression" ? "staged-compression-post-death-resources" : "compression-post-death-resources")
+        );
         const postDeathSeries = isPlainObject(comparisonScenario.postDeathSeries)
           ? comparisonScenario.postDeathSeries
           : {};
@@ -194,8 +201,10 @@
         }
         return {
           scenarioId: String(comparisonScenario.scenarioId || `comparison-scenario-${index + 1}`),
-          kind: String(comparisonScenario.kind || "comparison"),
+          kind,
           label: String(comparisonScenario.label || "Comparison scenario"),
+          pathId,
+          pathMode: getComparisonPathMode(comparisonScenario, kind, pathId),
           sourceIndex: index,
           points,
           sourcePath: `comparisonScenarios.${index}.postDeathSeries.points`,
@@ -205,16 +214,154 @@
       .filter(Boolean);
   }
 
+  function normalizeComparisonPathId(pathId) {
+    const normalized = String(pathId || "").trim();
+    if (normalized === "staged-compression-post-death-resources") {
+      return normalized;
+    }
+    return "compression-post-death-resources";
+  }
+
+  function getComparisonPathMode(comparisonScenario, kind, pathId) {
+    const explicitMode = String(comparisonScenario?.pathMode || comparisonScenario?.renderMode || "").trim();
+    if (explicitMode === "step") {
+      return "step";
+    }
+    if (kind === "stagedCompression" || pathId === "staged-compression-post-death-resources") {
+      return "step";
+    }
+    return "smooth";
+  }
+
   function isCompleteCompressionComparison(comparisonScenario, comparisonSeries) {
     const status = String(comparisonScenario?.status || "").trim();
     const kind = String(comparisonScenario?.kind || comparisonSeries?.kind || "").trim();
     if (status && status !== "complete") {
       return false;
     }
-    return kind === "compression"
+    return (kind === "compression" || kind === "stagedCompression")
       && isPlainObject(comparisonSeries)
       && Array.isArray(comparisonSeries.points)
       && comparisonSeries.points.length >= 2;
+  }
+
+  function getLocalValueExtent(values) {
+    const numericValues = values.filter(function (value) {
+      return Number.isFinite(value);
+    });
+    if (!numericValues.length) {
+      return null;
+    }
+    let min = Math.min(...numericValues);
+    let max = Math.max(...numericValues);
+    if (min === max) {
+      const magnitude = Math.max(Math.abs(min), 1);
+      const padding = Math.max(magnitude * 0.03, 1);
+      return {
+        min: min - padding,
+        max: max + padding
+      };
+    }
+    const range = max - min;
+    const magnitude = Math.max(Math.abs(max), Math.abs(min), 1);
+    const padding = Math.max(range * 0.08, magnitude * 0.01, 1);
+    return {
+      min: min - padding,
+      max: max + padding
+    };
+  }
+
+  function getCompressionEarlyDetailSeries(comparisonPostDeathResources) {
+    const comparisonSeries = Array.isArray(comparisonPostDeathResources)
+      ? comparisonPostDeathResources
+      : [];
+    const immediateSeries = comparisonSeries.find(function (series) {
+      return series?.pathId === "compression-post-death-resources";
+    });
+    const stagedSeries = comparisonSeries.find(function (series) {
+      return series?.pathId === "staged-compression-post-death-resources";
+    });
+    const immediatePoints = Array.isArray(immediateSeries?.points) ? immediateSeries.points : [];
+    const stagedPoints = Array.isArray(stagedSeries?.points) ? stagedSeries.points : [];
+    if (immediatePoints.length < 2 || stagedPoints.length < 2) {
+      return null;
+    }
+
+    const stagedByMonth = stagedPoints.reduce(function (map, point) {
+      const monthIndex = toOptionalNumber(point?.monthIndex);
+      if (monthIndex != null) {
+        map.set(monthIndex, point);
+      }
+      return map;
+    }, new Map());
+    const detailPoints = immediatePoints
+      .map(function (immediatePoint) {
+        const monthIndex = toOptionalNumber(immediatePoint?.monthIndex);
+        if (monthIndex == null || monthIndex < 1 || monthIndex > COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS) {
+          return null;
+        }
+        const stagedPoint = stagedByMonth.get(monthIndex);
+        const immediateValue = toOptionalNumber(immediatePoint?.value);
+        const stagedValue = toOptionalNumber(stagedPoint?.value);
+        if (!stagedPoint || immediateValue == null || stagedValue == null) {
+          return null;
+        }
+        return {
+          monthIndex,
+          date: normalizeDateOnly(immediatePoint.date || stagedPoint.date),
+          immediateEndingResources: immediateValue,
+          stagedEndingResources: stagedValue,
+          difference: stagedValue - immediateValue,
+          sourcePaths: []
+            .concat(Array.isArray(immediatePoint.sourcePaths) ? clonePlainValue(immediatePoint.sourcePaths) : [])
+            .concat(Array.isArray(stagedPoint.sourcePaths) ? clonePlainValue(stagedPoint.sourcePaths) : [])
+        };
+      })
+      .filter(Boolean)
+      .sort(function (left, right) {
+        return left.monthIndex - right.monthIndex;
+      });
+
+    if (detailPoints.length < 2 || !detailPoints.some(function (point) { return point.difference !== 0; })) {
+      return null;
+    }
+
+    const minMonth = Math.min(...detailPoints.map(function (point) { return point.monthIndex; }));
+    const maxMonth = Math.max(...detailPoints.map(function (point) { return point.monthIndex; }));
+    const monthSpan = Math.max(maxMonth - minMonth, 1);
+    const yDomain = getLocalValueExtent(
+      detailPoints.reduce(function (values, point) {
+        values.push(point.immediateEndingResources, point.stagedEndingResources);
+        return values;
+      }, [])
+    );
+    if (!yDomain) {
+      return null;
+    }
+
+    return {
+      windowMonths: COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS,
+      points: detailPoints.map(function (point) {
+        return {
+          ...point,
+          xRatio: (point.monthIndex - minMonth) / monthSpan,
+          immediateYRatio: getValueRatio(point.immediateEndingResources, yDomain),
+          stagedYRatio: getValueRatio(point.stagedEndingResources, yDomain)
+        };
+      }),
+      yDomain,
+      trace: {
+        calculationMethod: "income-impact-compression-early-detail-v1",
+        source: "comparisonPostDeathResources",
+        immediatePathId: "compression-post-death-resources",
+        stagedPathId: "staged-compression-post-death-resources",
+        windowMonths: COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS,
+        localScale: true,
+        usesMainGraphYDomain: false,
+        artificialOffsetApplied: false,
+        actualValuesOnly: true
+      }
+    };
   }
 
   function makeComparisonMarker(input) {
@@ -279,6 +426,85 @@
     };
   }
 
+  function findSeriesPointForMonth(points, monthIndex) {
+    const targetMonth = toOptionalNumber(monthIndex);
+    if (targetMonth == null) {
+      return null;
+    }
+    return points.find(function (point) {
+      return toOptionalNumber(point.monthIndex) === targetMonth;
+    }) || points.find(function (point) {
+      const pointMonth = toOptionalNumber(point.monthIndex);
+      return pointMonth != null && pointMonth >= targetMonth;
+    }) || null;
+  }
+
+  function getStageComparisonMarkerType(stageEvent) {
+    const stageType = String(stageEvent?.stageType || "").trim();
+    if (stageType === "pause") {
+      return "pauseAction";
+    }
+    return "compressionAction";
+  }
+
+  function getStageComparisonMarkerLabel(stageEvent, markerType) {
+    const stageId = String(stageEvent?.stageId || "").trim();
+    if (stageId === "immediate-discretionary-compression") {
+      return "Lifestyle cuts";
+    }
+    if (stageId === "contribution-pauses") {
+      return "Contributions paused";
+    }
+    if (stageId === "flexible-essentials-compression") {
+      return "Essentials compressed";
+    }
+    if (stageId === "groceries-protected-flexible-compression") {
+      return "Groceries step down";
+    }
+    if (stageId === "transportation-utilities-pets-financial-leakage") {
+      return "Transportation review";
+    }
+    return markerType === "pauseAction" ? "Contributions paused" : "Expense compression";
+  }
+
+  function buildStageComparisonMarkers(markers, comparisonScenario, series, scenarioId, pathTarget) {
+    const stageEvents = Array.isArray(comparisonScenario?.stageEvents) ? comparisonScenario.stageEvents.filter(isPlainObject) : [];
+    let stageMarkersCreated = 0;
+    stageEvents.forEach(function (stageEvent) {
+      const actionsApplied = Array.isArray(stageEvent.actionsApplied) ? stageEvent.actionsApplied : [];
+      if (!actionsApplied.length) {
+        return;
+      }
+      const stagePoint = findSeriesPointForMonth(series.points, stageEvent.effectiveMonthAfterDeath) || series.points[0];
+      if (!stagePoint) {
+        return;
+      }
+      const markerType = getStageComparisonMarkerType(stageEvent);
+      const appliedCount = actionsApplied.length;
+      markers.push(makeComparisonMarker({
+        id: `${scenarioId}-${stageEvent.stageId || markerType}`,
+        scenarioId,
+        markerType,
+        label: getStageComparisonMarkerLabel(stageEvent, markerType),
+        summary: `${appliedCount} staged compression event${appliedCount === 1 ? "" : "s"} at month ${stageEvent.effectiveMonthAfterDeath}.`,
+        date: stagePoint.date,
+        monthIndex: stagePoint.monthIndex,
+        value: stagePoint.value,
+        pathTarget,
+        sourcePaths: [].concat(stagePoint.sourcePaths || [], ["comparisonScenarios.stageEvents"]),
+        trace: {
+          stageId: stageEvent.stageId || null,
+          stageOrder: stageEvent.stageOrder ?? null,
+          effectiveMonthAfterDeath: stageEvent.effectiveMonthAfterDeath ?? null,
+          appliedActionCount: appliedCount,
+          timingPolicy: "staged-compression-policy"
+        }
+      }));
+      stageMarkersCreated += 1;
+    });
+    return stageMarkersCreated > 0;
+  }
+
   function buildComparisonMarkers(comparisonScenarios, comparisonSeries, scenario, basePostDeathResources) {
     return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
       .filter(isPlainObject)
@@ -292,6 +518,7 @@
 
         const scenarioId = series.scenarioId;
         const firstPoint = series.points[0];
+        const pathTarget = series.pathId || "compression-post-death-resources";
         const reductionsApplied = Array.isArray(comparisonScenario.reductionsApplied)
           ? comparisonScenario.reductionsApplied
           : [];
@@ -313,8 +540,9 @@
           comparisonScenario.accumulatedUnmetNeed ?? rawPostDeathSeries.summary?.accumulatedUnmetNeed
         );
         const lastPoint = series.points.at(-1);
+        const usedStageMarkers = buildStageComparisonMarkers(markers, comparisonScenario, series, scenarioId, pathTarget);
 
-        if (reductionsApplied.length && firstPoint) {
+        if (!usedStageMarkers && reductionsApplied.length && firstPoint) {
           markers.push(makeComparisonMarker({
             id: `${scenarioId}-compression-action`,
             scenarioId,
@@ -324,7 +552,7 @@
             date: firstPoint.date,
             monthIndex: firstPoint.monthIndex,
             value: firstPoint.value,
-            pathTarget: "compression-post-death-resources",
+            pathTarget,
             sourcePaths: [].concat(firstPoint.sourcePaths || [], ["compressionScenarios.reductionsApplied"]),
             trace: {
               appliedActionCount: reductionsApplied.length,
@@ -333,7 +561,7 @@
           }));
         }
 
-        if (pausesApplied.length && firstPoint) {
+        if (!usedStageMarkers && pausesApplied.length && firstPoint) {
           markers.push(makeComparisonMarker({
             id: `${scenarioId}-pause-action`,
             scenarioId,
@@ -343,7 +571,7 @@
             date: firstPoint.date,
             monthIndex: firstPoint.monthIndex,
             value: firstPoint.value,
-            pathTarget: "compression-post-death-resources",
+            pathTarget,
             sourcePaths: [].concat(firstPoint.sourcePaths || [], ["compressionScenarios.pausesApplied"]),
             trace: {
               appliedActionCount: pausesApplied.length,
@@ -352,7 +580,7 @@
           }));
         }
 
-        if (baseDepletion) {
+        if (baseDepletion && !markers.some(function (marker) { return marker.markerType === "baseDepletion"; })) {
           markers.push(makeComparisonMarker({
             id: `${scenarioId}-base-depletion`,
             scenarioId,
@@ -375,12 +603,12 @@
             id: `${scenarioId}-compressed-depletion`,
             scenarioId,
             markerType: "compressionDepletion",
-            label: "Compressed depletion",
+            label: series.kind === "stagedCompression" ? "Staged depletion" : "Compressed depletion",
             summary: "Compression comparison depletion point.",
             date: compressionDepletion.date,
             monthIndex: compressionDepletion.monthIndex,
             value: compressionDepletion.value,
-            pathTarget: "compression-post-death-resources",
+            pathTarget,
             sourcePaths: [].concat(compressionDepletion.sourcePaths || [], ["compressionScenarios.depletion"]),
             trace: {
               baseScenarioMutated: false
@@ -400,7 +628,7 @@
               date: shortfallPoint.date,
               monthIndex: shortfallPoint.monthIndex,
               value: shortfallPoint.value,
-              pathTarget: "compression-post-death-resources",
+              pathTarget,
               sourcePaths: [].concat(shortfallPoint.sourcePaths || [], ["compressionScenarios.accumulatedUnmetNeed"]),
               trace: {
                 accumulatedUnmetNeed,
@@ -878,6 +1106,7 @@
       scenario,
       postDeathResources
     );
+    const comparisonEarlyDetail = getCompressionEarlyDetailSeries(comparisonPostDeathResources);
 
     const riskMarkers = buildMarkers(riskEvaluation.events, "risk", scenario, dates);
     const stableMarkers = buildMarkers(riskEvaluation.stableEvents, "stable", scenario, dates);
@@ -1000,6 +1229,14 @@
       result.trace.baseSeriesUnchanged = true;
       result.trace.comparisonMarkersCreated = enrichedComparisonMarkers.length > 0;
       result.trace.comparisonMarkerCount = enrichedComparisonMarkers.length;
+    }
+
+    if (comparisonEarlyDetail) {
+      result.series.comparisonEarlyDetail = comparisonEarlyDetail;
+      result.trace.comparisonEarlyDetailCreated = true;
+      result.trace.comparisonEarlyDetailWindowMonths = comparisonEarlyDetail.windowMonths;
+      result.trace.comparisonEarlyDetailUsesLocalScale = true;
+      result.trace.comparisonEarlyDetailArtificialOffsetApplied = false;
     }
 
     return result;

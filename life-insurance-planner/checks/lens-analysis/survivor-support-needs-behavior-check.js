@@ -315,6 +315,29 @@ const noStartDelayModel = buildLensModel(lensAnalysis, {
 assert.equal(noStartDelayModel.survivorScenario.survivorIncomeStartDelayMonths, 0, "applyStartDelay=false should prepare a zero survivor income delay.");
 assert.equal(noStartDelayModel.survivorScenario.survivorIncomeDerivation.applyStartDelay, false);
 
+const builderSurvivorIncomeOffModel = buildLensModel(lensAnalysis, {
+  overrides: {
+    survivorIncomeTreatment: {
+      includeSurvivorIncome: false,
+      applyStartDelay: true
+    },
+    survivorScenario: {
+      survivorContinuesWorking: true,
+      expectedSurvivorWorkReductionPercent: 25,
+      survivorIncomeStartDelayMonths: 6
+    }
+  }
+});
+assert.equal(builderSurvivorIncomeOffModel.survivorScenario.survivorGrossAnnualIncome, null, "includeSurvivorIncome=false should suppress prepared survivor gross income.");
+assert.equal(builderSurvivorIncomeOffModel.survivorScenario.survivorNetAnnualIncome, null, "includeSurvivorIncome=false should suppress prepared survivor net income.");
+assert.equal(builderSurvivorIncomeOffModel.survivorScenario.survivorContinuesWorking, true, "income-offset suppression should not rewrite the saved survivor work assumption.");
+assert.equal(builderSurvivorIncomeOffModel.survivorScenario.survivorIncomeDerivation.includeSurvivorIncomeOffset, false);
+assert.equal(
+  builderSurvivorIncomeOffModel.survivorScenario.survivorIncomeDerivation.survivorIncomeSource,
+  "suppressed-survivor-income-offset-disabled",
+  "builder derivation should trace the Analysis Setup survivor income offset switch."
+);
+
 const legacyIgnoredResult = buildLensModelResult(lensAnalysis, {
   sourceData: {
     spouseIncome: "",

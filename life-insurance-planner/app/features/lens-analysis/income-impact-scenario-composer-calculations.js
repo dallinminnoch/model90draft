@@ -856,10 +856,48 @@
     return obligations;
   }
 
+  function getSurvivorIncomeSuppressionReason(survivorScenario) {
+    const safeScenario = isPlainObject(survivorScenario) ? survivorScenario : {};
+    const derivation = isPlainObject(safeScenario.survivorIncomeDerivation)
+      ? safeScenario.survivorIncomeDerivation
+      : {};
+    const source = normalizeString(derivation.survivorIncomeSource);
+
+    if (
+      derivation.includeSurvivorIncomeOffset === false
+      || source === "suppressed-survivor-income-offset-disabled"
+    ) {
+      return "survivor-income-offset-disabled";
+    }
+
+    if (
+      safeScenario.survivorContinuesWorking === false
+      || derivation.survivorContinuesWorking === false
+      || source === "suppressed-survivor-not-working"
+    ) {
+      return "survivor-not-working";
+    }
+
+    return null;
+  }
+
   function buildSurvivorIncomeStreams(lensModel, dataGaps, sourcePaths, trace) {
     const survivorScenario = lensModel?.survivorScenario || {};
+    const suppressionReason = getSurvivorIncomeSuppressionReason(survivorScenario);
     const survivorIncome = firstNumeric(survivorScenario, ["survivorNetAnnualIncome"]);
     const delay = firstNumeric(survivorScenario, ["survivorIncomeStartDelayMonths"]);
+
+    if (suppressionReason) {
+      trace.layer3.survivorIncome = {
+        annualAmount: 0,
+        startDelayMonths: 0,
+        status: "suppressed",
+        suppressionReason,
+        sourcePaths: ["lensModel.survivorScenario.survivorIncomeDerivation"]
+      };
+      appendUnique(sourcePaths, ["lensModel.survivorScenario.survivorIncomeDerivation"]);
+      return [];
+    }
 
     if (survivorIncome.value == null) {
       addIssue(

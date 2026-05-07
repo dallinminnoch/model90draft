@@ -580,6 +580,61 @@ function runDepletionChecks() {
   assert.ok(scenario.timelineFacts.accumulatedUnmetNeed > 0, "accumulated unmet need carries through");
 }
 
+function runSurvivorIncomeOffsetGraphTrendChecks() {
+  const { composeIncomeImpactScenario } = loadComposerWithLayerSpies();
+  const enabledScenario = composeIncomeImpactScenario(createInput({
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: 30000,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "derived-from-spouse-income",
+          includeSurvivorIncomeOffset: true,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: 30000
+        }
+      }
+    }
+  }));
+  const disabledScenario = composeIncomeImpactScenario(createInput({
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: null,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "suppressed-survivor-income-offset-disabled",
+          includeSurvivorIncomeOffset: false,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: null
+        }
+      }
+    }
+  }));
+  const enabledFirstPoint = enabledScenario.postDeathSeries.points[0];
+  const disabledFirstPoint = disabledScenario.postDeathSeries.points[0];
+  const disabledGapCodes = disabledScenario.dataGaps.map(function (gap) {
+    return gap.code;
+  });
+
+  assert.ok(enabledFirstPoint.survivorIncome > 0, "enabled survivor income offset should feed the post-death graph series.");
+  assert.strictEqual(disabledFirstPoint.survivorIncome, 0, "disabled survivor income offset should feed zero income into the post-death graph series.");
+  assert.ok(
+    enabledFirstPoint.endingResources > disabledFirstPoint.endingResources,
+    "post-death graph trend values should improve when survivor income offset is enabled."
+  );
+  assert.ok(
+    !disabledGapCodes.includes("missing-survivor-net-income"),
+    "disabled survivor income offset should not create a missing survivor income data gap."
+  );
+  assert.equal(
+    disabledScenario.trace.layer3.survivorIncome.suppressionReason,
+    "survivor-income-offset-disabled",
+    "composer trace should explain why survivor income is not in the graph trend."
+  );
+}
+
 function runDeterminismChecks() {
   const context = createContext();
   const composeIncomeImpactScenario = context.LensApp.lensAnalysis.composeIncomeImpactScenario;
@@ -604,6 +659,7 @@ function runChecks() {
   runDefaultAssetTreatmentCompletenessChecks();
   runDataGapChecks();
   runDepletionChecks();
+  runSurvivorIncomeOffsetGraphTrendChecks();
   runDeterminismChecks();
   console.log("Income Impact scenario composer V1 checks passed.");
 }

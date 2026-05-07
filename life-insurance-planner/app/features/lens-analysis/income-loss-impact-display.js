@@ -15,6 +15,16 @@
     plotWidth: 884,
     plotHeight: 318
   });
+  const GRAPH_DETAIL_VIEW_BOX = Object.freeze({
+    width: 1000,
+    height: 170,
+    plotLeft: 74,
+    plotTop: 34,
+    plotWidth: 884,
+    plotHeight: 86
+  });
+  const COMPRESSION_DETAIL_MILESTONE_MONTHS = Object.freeze([1, 2, 3, 6, 9, 12, 24]);
+  const GRAPH_PATH_SMOOTHING_TENSION = 0.55;
   const MORTGAGE_TREATMENT_LABELS = Object.freeze({
     followAssumptions: "Follow Assumption Controls",
     payOffMortgage: "Pay off mortgage",
@@ -696,17 +706,124 @@
     return Math.round(GRAPH_VIEW_BOX.plotTop + ((ratio == null ? 0 : ratio) * GRAPH_VIEW_BOX.plotHeight));
   }
 
-  function buildSvgPath(points) {
-    const usablePoints = (Array.isArray(points) ? points : []).filter(function (point) {
-      return toOptionalNumber(point?.xRatio) != null && toOptionalNumber(point?.yRatio) != null;
-    });
-    if (usablePoints.length < 2) {
+  function toPlotX(xRatio, viewBox) {
+    const ratio = toOptionalNumber(xRatio);
+    return viewBox.plotLeft + ((ratio == null ? 0 : ratio) * viewBox.plotWidth);
+  }
+
+  function toPlotY(yRatio, viewBox) {
+    const ratio = toOptionalNumber(yRatio);
+    return viewBox.plotTop + ((ratio == null ? 0 : ratio) * viewBox.plotHeight);
+  }
+
+  function formatSvgCoordinate(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return "0";
+    }
+    const rounded = Math.round(number);
+    if (Math.abs(number - rounded) < 0.005) {
+      return String(rounded);
+    }
+    return number.toFixed(2).replace(/\.?0+$/, "");
+  }
+
+  function clampNumber(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function makePlotPoints(points, yRatioKey, viewBox) {
+    const key = String(yRatioKey || "yRatio");
+    return (Array.isArray(points) ? points : [])
+      .filter(function (point) {
+        return toOptionalNumber(point?.xRatio) != null && toOptionalNumber(point?.[key]) != null;
+      })
+      .map(function (point) {
+        return {
+          x: toPlotX(point.xRatio, viewBox),
+          y: toPlotY(point[key], viewBox)
+        };
+      });
+  }
+
+  function buildSmoothedSvgPath(plotPoints) {
+    const points = Array.isArray(plotPoints) ? plotPoints : [];
+    if (points.length < 2) {
       return "";
     }
-    return usablePoints.map(function (point, index) {
-      const command = index === 0 ? "M" : "L";
-      return `${command}${toGraphX(point.xRatio)} ${toGraphY(point.yRatio)}`;
-    }).join(" ");
+    const commands = [`M${formatSvgCoordinate(points[0].x)} ${formatSvgCoordinate(points[0].y)}`];
+    if (points.length === 2) {
+      commands.push(`L${formatSvgCoordinate(points[1].x)} ${formatSvgCoordinate(points[1].y)}`);
+      return commands.join(" ");
+    }
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const previous = points[index - 1] || points[index];
+      const current = points[index];
+      const next = points[index + 1];
+      const afterNext = points[index + 2] || next;
+      const minX = Math.min(current.x, next.x);
+      const maxX = Math.max(current.x, next.x);
+      const minY = Math.min(current.y, next.y);
+      const maxY = Math.max(current.y, next.y);
+      const cp1 = {
+        x: clampNumber(current.x + (((next.x - previous.x) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minX, maxX),
+        y: clampNumber(current.y + (((next.y - previous.y) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minY, maxY)
+      };
+      const cp2 = {
+        x: clampNumber(next.x - (((afterNext.x - current.x) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minX, maxX),
+        y: clampNumber(next.y - (((afterNext.y - current.y) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minY, maxY)
+      };
+      commands.push([
+        "C",
+        `${formatSvgCoordinate(cp1.x)} ${formatSvgCoordinate(cp1.y)}`,
+        `${formatSvgCoordinate(cp2.x)} ${formatSvgCoordinate(cp2.y)}`,
+        `${formatSvgCoordinate(next.x)} ${formatSvgCoordinate(next.y)}`
+      ].join(" "));
+    }
+    return commands.join(" ");
+  }
+
+  function buildStepSvgPath(plotPoints) {
+    const points = Array.isArray(plotPoints) ? plotPoints : [];
+    if (points.length < 2) {
+      return "";
+    }
+    const commands = [`M${formatSvgCoordinate(points[0].x)} ${formatSvgCoordinate(points[0].y)}`];
+    for (let index = 1; index < points.length; index += 1) {
+      const point = points[index];
+      commands.push(`H${formatSvgCoordinate(point.x)}`);
+      commands.push(`V${formatSvgCoordinate(point.y)}`);
+    }
+    return commands.join(" ");
+  }
+
+  function normalizeGraphPathMode(pathMode) {
+    return String(pathMode || "").trim() === "step" ? "step" : "smooth";
+  }
+
+  function buildSvgPath(points, pathMode = "smooth") {
+    const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX);
+    return normalizeGraphPathMode(pathMode) === "step"
+      ? buildStepSvgPath(plotPoints)
+      : buildSmoothedSvgPath(plotPoints);
+  }
+
+  function toDetailX(xRatio) {
+    const ratio = toOptionalNumber(xRatio);
+    return Math.round(GRAPH_DETAIL_VIEW_BOX.plotLeft + ((ratio == null ? 0 : ratio) * GRAPH_DETAIL_VIEW_BOX.plotWidth));
+  }
+
+  function toDetailY(yRatio) {
+    const ratio = toOptionalNumber(yRatio);
+    return Math.round(GRAPH_DETAIL_VIEW_BOX.plotTop + ((ratio == null ? 0 : ratio) * GRAPH_DETAIL_VIEW_BOX.plotHeight));
+  }
+
+  function buildDetailSvgPath(points, yRatioKey, pathMode = "smooth") {
+    const plotPoints = makePlotPoints(points, yRatioKey, GRAPH_DETAIL_VIEW_BOX);
+    return normalizeGraphPathMode(pathMode) === "step"
+      ? buildStepSvgPath(plotPoints)
+      : buildSmoothedSvgPath(plotPoints);
   }
 
   function formatAxisCurrency(value) {
@@ -797,7 +914,7 @@
         ${markers.map(function (marker) {
           const x = toGraphX(marker.xRatio);
           const y = toGraphY(marker.yRatio);
-          const radius = marker.kind === "stable" ? 5 : 7;
+          const radius = marker.kind === "stable" ? 4 : 5;
           return `
             <g
               data-income-impact-graph-marker
@@ -834,6 +951,16 @@
     return { x: 10, y: index % 2 === 0 ? -18 : 28 };
   }
 
+  function shouldRenderCompressionMarkerLabel(markerType) {
+    return markerType !== "compressionAction" && markerType !== "pauseAction";
+  }
+
+  function getCompressionMarkerTitle(marker) {
+    const label = normalizeString(marker?.label || "Compression comparison event");
+    const summary = normalizeString(marker?.summary);
+    return summary && summary !== label ? `${label}: ${summary}` : label;
+  }
+
   function renderCompressionComparisonMarkers(graphModel) {
     const markers = (Array.isArray(graphModel?.comparisonMarkers) ? graphModel.comparisonMarkers : []).filter(function (marker) {
       return marker?.positionable && toOptionalNumber(marker.xRatio) != null && toOptionalNumber(marker.yRatio) != null;
@@ -849,6 +976,7 @@
           const labelOffset = getCompressionMarkerLabelOffset(marker.markerType, index);
           const labelX = labelOffset.x;
           const labelY = labelOffset.y;
+          const renderLabel = shouldRenderCompressionMarkerLabel(marker.markerType);
           return `
             <g
               class="income-impact-compression-marker income-impact-compression-marker--${escapeHtml(marker.markerType || "event")}"
@@ -857,10 +985,10 @@
               data-income-impact-compression-marker-scenario-id="${escapeHtml(marker.scenarioId || "")}"
               transform="translate(${x} ${y})"
             >
-              <line x1="0" y1="0" x2="${labelX}" y2="${labelY}"></line>
-              <circle r="5"></circle>
-              <text x="${labelX}" y="${labelY}" text-anchor="${labelX < 0 ? "end" : "start"}">${escapeHtml(marker.label || "Compression event")}</text>
-              <title>${escapeHtml(marker.summary || marker.label || "Compression comparison event")}</title>
+              ${renderLabel ? `<line x1="0" y1="0" x2="${labelX}" y2="${labelY}"></line>` : ""}
+              <circle r="4"></circle>
+              ${renderLabel ? `<text x="${labelX}" y="${labelY}" text-anchor="${labelX < 0 ? "end" : "start"}">${escapeHtml(marker.label || "Compression event")}</text>` : ""}
+              <title>${escapeHtml(getCompressionMarkerTitle(marker))}</title>
             </g>
           `;
         }).join("")}
@@ -868,19 +996,23 @@
     `;
   }
 
-  function renderGraphPath(pathId, points, label) {
-    const path = buildSvgPath(points);
+  function renderGraphPath(pathId, points, label, pathMode = "smooth") {
+    const normalizedPathMode = normalizeGraphPathMode(pathMode);
+    const path = buildSvgPath(points, normalizedPathMode);
     if (!path) {
       return "";
     }
-    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)}" data-income-impact-graph-path="${escapeHtml(pathId)}" d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
+    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}" d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
   }
 
   function getComparisonGraphSeries(graphModel) {
     return (Array.isArray(graphModel?.series?.comparisonPostDeathResources)
       ? graphModel.series.comparisonPostDeathResources
       : []).filter(function (comparisonSeries) {
-      return isPlainObject(comparisonSeries) && buildSvgPath(comparisonSeries.points);
+      return isPlainObject(comparisonSeries) && buildSvgPath(
+        comparisonSeries.points,
+        getComparisonGraphPathMode(comparisonSeries)
+      );
     });
   }
 
@@ -889,25 +1021,146 @@
     if (!comparisonSeries.length) {
       return "";
     }
-    return comparisonSeries.map(function (series) {
+    return comparisonSeries.map(function (series, index) {
+      const pathId = getComparisonGraphPathId(series, index);
       return renderGraphPath(
-        "compression-post-death-resources",
+        pathId,
         series.points,
-        series.label || "After expense compression"
+        series.label || getComparisonGraphLabel(pathId),
+        getComparisonGraphPathMode(series, pathId)
       );
     }).join("");
   }
 
+  function getComparisonGraphPathId(series, index) {
+    const explicitPathId = normalizeString(series?.pathId || series?.graphPathId);
+    if (explicitPathId === "staged-compression-post-death-resources") {
+      return explicitPathId;
+    }
+    if (explicitPathId === "compression-post-death-resources") {
+      return explicitPathId;
+    }
+    return index > 0 && normalizeString(series?.kind) === "stagedCompression"
+      ? "staged-compression-post-death-resources"
+      : "compression-post-death-resources";
+  }
+
+  function getComparisonGraphLabel(pathId) {
+    return pathId === "staged-compression-post-death-resources"
+      ? "Staged compression"
+      : "Immediate compression";
+  }
+
+  function getComparisonGraphPathMode(series, pathId) {
+    const resolvedPathId = pathId || getComparisonGraphPathId(series, 0);
+    const explicitMode = normalizeGraphPathMode(series?.pathMode || series?.renderMode);
+    return resolvedPathId === "staged-compression-post-death-resources" ? "step" : explicitMode;
+  }
+
+  function getComparisonLegendItemKey(pathId) {
+    return pathId === "staged-compression-post-death-resources"
+      ? "staged-compression"
+      : "compression";
+  }
+
   function renderGraphLegend(graphModel) {
-    if (!getComparisonGraphSeries(graphModel).length) {
+    const comparisonSeries = getComparisonGraphSeries(graphModel);
+    if (!comparisonSeries.length) {
       return "";
     }
     return `
       <div class="income-impact-graph-legend" data-income-impact-graph-legend>
         <span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>
-        <span data-income-impact-graph-legend-item="compression"><i></i>After expense compression</span>
+        ${comparisonSeries.map(function (series, index) {
+          const pathId = getComparisonGraphPathId(series, index);
+          const label = series.label || getComparisonGraphLabel(pathId);
+          return `<span data-income-impact-graph-legend-item="${escapeHtml(getComparisonLegendItemKey(pathId))}"><i></i>${escapeHtml(label)}</span>`;
+        }).join("")}
         <p>Comparison only - base projection unchanged.</p>
       </div>
+    `;
+  }
+
+  function getCompressionEarlyDetail(graphModel) {
+    const detail = graphModel?.series?.comparisonEarlyDetail;
+    if (!isPlainObject(detail) || !Array.isArray(detail.points) || detail.points.length < 2) {
+      return null;
+    }
+    const immediatePath = buildDetailSvgPath(detail.points, "immediateYRatio", "smooth");
+    const stagedPath = buildDetailSvgPath(detail.points, "stagedYRatio", "step");
+    if (!immediatePath || !stagedPath || !detail.points.some(function (point) { return toOptionalNumber(point.difference) !== 0; })) {
+      return null;
+    }
+    return {
+      ...detail,
+      immediatePath,
+      stagedPath
+    };
+  }
+
+  function renderCompressionEarlyDetailMilestones(detail) {
+    const points = (Array.isArray(detail?.points) ? detail.points : []).filter(function (point) {
+      return COMPRESSION_DETAIL_MILESTONE_MONTHS.includes(toOptionalNumber(point?.monthIndex));
+    });
+    if (!points.length) {
+      return "";
+    }
+    return `
+      <g class="income-impact-graph-detail-points" data-income-impact-graph-detail-points>
+        ${points.map(function (point) {
+          const x = toDetailX(point.xRatio);
+          const immediateY = toDetailY(point.immediateYRatio);
+          const stagedY = toDetailY(point.stagedYRatio);
+          return `
+            <g data-income-impact-detail-point data-income-impact-detail-month="${escapeHtml(point.monthIndex)}" data-income-impact-detail-difference="${escapeHtml(point.difference)}">
+              <circle class="income-impact-graph-detail-point--immediate" cx="${x}" cy="${immediateY}" r="3"></circle>
+              <circle class="income-impact-graph-detail-point--staged" cx="${x}" cy="${stagedY}" r="3"></circle>
+              <title>Month ${escapeHtml(point.monthIndex)}: ${escapeHtml(formatCurrency(point.immediateEndingResources))} immediate, ${escapeHtml(formatCurrency(point.stagedEndingResources))} staged</title>
+            </g>
+          `;
+        }).join("")}
+      </g>
+    `;
+  }
+
+  function renderCompressionEarlyDetail(graphModel) {
+    const detail = getCompressionEarlyDetail(graphModel);
+    if (!detail) {
+      return "";
+    }
+    const minLabel = formatAxisCurrency(detail.yDomain?.min);
+    const maxLabel = formatAxisCurrency(detail.yDomain?.max);
+    const zeroY = detail.yDomain?.min < 0 && detail.yDomain?.max > 0
+      ? 1 - ((0 - detail.yDomain.min) / (detail.yDomain.max - detail.yDomain.min))
+      : null;
+    return `
+      <section class="income-impact-graph-detail" data-income-impact-graph-detail="compression-early-window" aria-label="First 24 months after death compression comparison">
+        <div class="income-impact-graph-detail-header">
+          <strong>First ${escapeHtml(detail.windowMonths || 24)} months after death</strong>
+          <span>Actual values, local scale</span>
+        </div>
+        <svg class="income-impact-graph-detail-svg" data-income-impact-graph-detail-svg viewBox="0 0 ${GRAPH_DETAIL_VIEW_BOX.width} ${GRAPH_DETAIL_VIEW_BOX.height}" role="img" aria-label="Immediate and staged compression comparison for the first 24 months after death">
+          <g class="income-impact-graph-detail-axis" data-income-impact-graph-detail-axis>
+            <line x1="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y1="${GRAPH_DETAIL_VIEW_BOX.plotTop}" x2="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y2="${GRAPH_DETAIL_VIEW_BOX.plotTop}"></line>
+            <line x1="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y1="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight}" x2="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y2="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight}"></line>
+            ${zeroY == null ? "" : `<line class="income-impact-graph-detail-zero" x1="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y1="${toDetailY(zeroY)}" x2="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y2="${toDetailY(zeroY)}"></line>`}
+            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft - 10}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + 4}" text-anchor="end">${escapeHtml(maxLabel)}</text>
+            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft - 10}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 4}" text-anchor="end">${escapeHtml(minLabel)}</text>
+            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 30}" text-anchor="start">Month 1</text>
+            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft + (GRAPH_DETAIL_VIEW_BOX.plotWidth / 2)}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 30}" text-anchor="middle">Month 12</text>
+            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 30}" text-anchor="end">Month 24</text>
+          </g>
+          <g class="income-impact-graph-detail-series" data-income-impact-graph-detail-series>
+            <path class="income-impact-graph-detail-path income-impact-graph-detail-path--immediate" data-income-impact-detail-path="immediate-compression" data-income-impact-detail-path-mode="smooth" d="${escapeHtml(detail.immediatePath)}" aria-label="Immediate compression detail path"></path>
+            <path class="income-impact-graph-detail-path income-impact-graph-detail-path--staged" data-income-impact-detail-path="staged-compression" data-income-impact-detail-path-mode="step" d="${escapeHtml(detail.stagedPath)}" aria-label="Staged compression detail path"></path>
+            ${renderCompressionEarlyDetailMilestones(detail)}
+          </g>
+        </svg>
+        <div class="income-impact-graph-detail-legend" data-income-impact-graph-detail-legend>
+          <span data-income-impact-detail-legend-item="immediate-compression"><i></i>Immediate compression</span>
+          <span data-income-impact-detail-legend-item="staged-compression"><i></i>Staged compression</span>
+        </div>
+      </section>
     `;
   }
 
@@ -1027,6 +1280,7 @@
           <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>
         </div>
         ${renderGraphSvg(graphModel)}
+        ${renderCompressionEarlyDetail(graphModel)}
         ${renderGraphLegend(graphModel)}
         ${renderGraphCallouts(graphModel)}
         ${renderSelectedGraphEvent(graphModel)}
@@ -1645,7 +1899,8 @@
         return {
           scenarioId: compressionScenario.scenarioId || "income-impact-expense-compression-alternate",
           kind: "compression",
-          label: compressionScenario.label || "After expense compression",
+          pathId: "compression-post-death-resources",
+          label: "Immediate compression",
           status: compressionScenario.status || "complete",
           reductionsApplied: Array.isArray(compressionScenario.reductionsApplied) ? compressionScenario.reductionsApplied : [],
           pausesApplied: Array.isArray(compressionScenario.pausesApplied) ? compressionScenario.pausesApplied : [],
@@ -1655,6 +1910,33 @@
           trace: isPlainObject(compressionScenario.trace) ? compressionScenario.trace : {}
         };
       });
+  }
+
+  function getStagedCompressionComparisonScenarios(stagedCompressionScenarioResult) {
+    const stagedScenario = isPlainObject(stagedCompressionScenarioResult?.stagedCompressionScenario)
+      ? stagedCompressionScenarioResult.stagedCompressionScenario
+      : null;
+    if (stagedCompressionScenarioResult?.status !== "complete" || !stagedScenario) {
+      return [];
+    }
+
+    return [
+      {
+        scenarioId: stagedScenario.scenarioId || "income-impact-staged-expense-compression-alternate",
+        kind: "stagedCompression",
+        pathId: "staged-compression-post-death-resources",
+        label: "Staged compression",
+        status: stagedScenario.status || "complete",
+        reductionsApplied: Array.isArray(stagedScenario.reductionsApplied) ? stagedScenario.reductionsApplied : [],
+        pausesApplied: Array.isArray(stagedScenario.pausesApplied) ? stagedScenario.pausesApplied : [],
+        stageEvents: Array.isArray(stagedScenario.stageEvents) ? stagedScenario.stageEvents : [],
+        markerOnlyEvents: Array.isArray(stagedScenario.markerOnlyEvents) ? stagedScenario.markerOnlyEvents : [],
+        postDeathSeries: stagedScenario.postDeathSeries,
+        depletion: stagedScenario.depletion,
+        accumulatedUnmetNeed: stagedScenario.accumulatedUnmetNeed ?? null,
+        trace: isPlainObject(stagedScenario.trace) ? stagedScenario.trace : {}
+      }
+    ];
   }
 
   function buildIncomeImpactResultFromState(state) {
@@ -1712,6 +1994,24 @@
         }
       })
       : null;
+    const stagedCompressionScenarioResult = compressionPrep
+      && typeof safeState.calculateIncomeImpactStagedCompressionScenario === "function"
+      && Array.isArray(safeState.compressionStagePolicyRules)
+      && safeState.compressionStagePolicyRules.length
+      ? safeState.calculateIncomeImpactStagedCompressionScenario({
+        scenario,
+        compressionReport: compressionPrep.compressionReport,
+        compressionPolicyRules: compressionPrep.compressionPolicyRules,
+        compressionStagePolicyRules: safeState.compressionStagePolicyRules,
+        options: {
+          mode: "stagedAlternateScenarioOnly",
+          scenarioId: "income-impact-staged-expense-compression-alternate",
+          applyPauseCandidates: true,
+          requireCompleteItemization: true,
+          includeMarkerOnlyEvents: true
+        }
+      })
+      : null;
     const triageInterventions = typeof safeState.calculateIncomeImpactTriageInterventions === "function"
       ? safeState.calculateIncomeImpactTriageInterventions({
         scenario,
@@ -1721,7 +2021,8 @@
         compressionScenarioResult
       })
       : null;
-    const comparisonScenarios = getCompressionComparisonScenarios(triageInterventions);
+    const comparisonScenarios = getCompressionComparisonScenarios(triageInterventions)
+      .concat(getStagedCompressionComparisonScenarios(stagedCompressionScenarioResult));
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario,
       riskEvaluation,
@@ -1751,12 +2052,15 @@
       compressionReporting: {
         prep: compressionPrep,
         scenario: compressionScenarioResult,
+        stagedScenario: stagedCompressionScenarioResult,
         layer5: triageInterventions,
         trace: {
           reportingOnly: true,
           displayWired: Boolean(compressionPrep && triageInterventions),
           alternateScenarioPrepared: Boolean(compressionScenarioResult),
           alternateScenarioStatus: compressionScenarioResult?.status || null,
+          stagedAlternateScenarioPrepared: Boolean(stagedCompressionScenarioResult),
+          stagedAlternateScenarioStatus: stagedCompressionScenarioResult?.status || null,
           timelineMarkersCreated: false,
           graphPathChanged: false,
           reductionsApplied: false
@@ -1876,7 +2180,9 @@
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
     const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
     const calculateIncomeImpactCompressionScenario = currentLensAnalysis.calculateIncomeImpactCompressionScenario;
+    const calculateIncomeImpactStagedCompressionScenario = currentLensAnalysis.calculateIncomeImpactStagedCompressionScenario;
     const calculateIncomeImpactTriageInterventions = currentLensAnalysis.calculateIncomeImpactTriageInterventions;
+    const getCompressionStagePolicyRules = currentLensAnalysis.householdExpenseCompressionStagePolicy?.getHouseholdExpenseCompressionStagePolicyRules;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
@@ -1935,6 +2241,8 @@
         buildIncomeImpactTimelineGraphModel,
         prepareIncomeImpactCompressionReportingInputs,
         calculateIncomeImpactCompressionScenario,
+        calculateIncomeImpactStagedCompressionScenario,
+        compressionStagePolicyRules: typeof getCompressionStagePolicyRules === "function" ? getCompressionStagePolicyRules() : [],
         calculateIncomeImpactTriageInterventions,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {

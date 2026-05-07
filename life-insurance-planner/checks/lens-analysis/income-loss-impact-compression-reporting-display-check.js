@@ -205,12 +205,14 @@ assertScriptOrder(scripts, [
   "../app/features/lens-analysis/expense-compression-threshold-resolver.js",
   "../app/features/lens-analysis/household-expense-compression-calculations.js",
   "../app/features/lens-analysis/household-expense-compression-policy.js",
+  "../app/features/lens-analysis/household-expense-compression-stage-policy.js",
   "../app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
   "../app/features/lens-analysis/income-impact-risk-event-evaluator-calculations.js",
   "../app/features/lens-analysis/income-impact-timeline-graph-model.js",
   "../app/features/lens-analysis/income-impact-triage-intervention-calculations.js",
   "../app/features/lens-analysis/income-impact-compression-reporting-prep.js",
   "../app/features/lens-analysis/income-impact-compression-scenario-calculations.js",
+  "../app/features/lens-analysis/income-impact-staged-compression-scenario-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-display.js"
 ]);
 
@@ -222,6 +224,8 @@ assert.equal(typeof harness.renderTimeline, "function", "display harness should 
 assert.match(displaySource, /prepareIncomeImpactCompressionReportingInputs/);
 assert.match(displaySource, /calculateIncomeImpactTriageInterventions/);
 assert.match(displaySource, /calculateIncomeImpactCompressionScenario/);
+assert.match(displaySource, /calculateIncomeImpactStagedCompressionScenario/);
+assert.match(displaySource, /compressionStagePolicyRules/);
 assert.match(displaySource, /compressionReport:\s*compressionPrep\?\.compressionReport/);
 assert.match(displaySource, /compressionPolicyRules:\s*compressionPrep\?\.compressionPolicyRules/);
 assert.match(displaySource, /compressionScenarioResult/);
@@ -234,6 +238,20 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /\.income-impact-compression-panel/);
 assert.match(componentsSource, /\.income-impact-compression-counts/);
+assert.match(componentsSource, /\.income-impact-graph-detail/);
+assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
+assert.match(displaySource, /buildSmoothedSvgPath/);
+assert.match(displaySource, /buildStepSvgPath/);
+assert.match(displaySource, /shouldRenderCompressionMarkerLabel/);
+assert.match(componentsSource, /vector-effect:\s*non-scaling-stroke;/);
+assert.match(componentsSource, /shape-rendering:\s*geometricPrecision;/);
+assert.match(displaySource, /data-income-impact-graph-detail="compression-early-window"/);
+assert.match(displaySource, /Actual values, local scale/);
+assert.match(displaySource, /data-income-impact-detail-path="immediate-compression"/);
+assert.match(displaySource, /data-income-impact-detail-path="staged-compression"/);
+assert.match(displaySource, /data-income-impact-graph-path-mode/);
+assert.match(displaySource, /data-income-impact-detail-path-mode="step"/);
+assert.doesNotMatch(displaySource, /fakeOffset|visualOffset|artificialVisualOffset/);
 
 const scenario = makeScenario();
 const riskEvaluation = makeRiskEvaluation();
@@ -290,6 +308,32 @@ const compressionPolicyRules = [
   { decision: "PAUSE", expenseTypeKey: "retirementContributions", compressionOrderGroup: "pauseContributions", compressionOrderRank: 4 },
   { decision: "NO", expenseTypeKey: "autoLoanPayment", compressionOrderGroup: "debtObligations", compressionOrderRank: 18 },
   { decision: "INTERVENTION", expenseTypeKey: "housingPayment", compressionOrderGroup: "majorInterventions", compressionOrderRank: 21 }
+];
+const compressionStagePolicyRules = [
+  {
+    stageId: "immediate-discretionary-compression",
+    stageName: "Immediate discretionary compression",
+    stageOrder: 1,
+    stageType: "reduction",
+    effectiveMonthAfterDeath: 1,
+    triggerMode: "fixedMonthV1",
+    decisionsAllowed: ["YES"],
+    compressionOrderGroups: ["earlyDiscretionary"],
+    appliesMath: true,
+    markerOnly: false
+  },
+  {
+    stageId: "contribution-pauses",
+    stageName: "Contribution pauses",
+    stageOrder: 2,
+    stageType: "pause",
+    effectiveMonthAfterDeath: 2,
+    triggerMode: "fixedMonthV1",
+    decisionsAllowed: ["PAUSE"],
+    compressionOrderGroups: ["pauseContributions"],
+    appliesMath: true,
+    markerOnly: false
+  }
 ];
 const layer5Output = {
   compressionOpportunities: compressionReport.opportunities,
@@ -401,6 +445,106 @@ function createCompressionScenarioResult(input) {
   };
 }
 
+function createStagedCompressionScenarioResult(input) {
+  const hasScalarItemizationGap = (Array.isArray(input.compressionReport?.dataGaps) ? input.compressionReport.dataGaps : [])
+    .some(function (gap) {
+      return gap?.code === "scalar-household-expenses-not-itemized-for-compression";
+    });
+  if (hasScalarItemizationGap) {
+    return {
+      status: "blocked",
+      stagedCompressionScenario: null,
+      dataGaps: [
+        {
+          code: "active-staged-compression-blocked-by-scalar-household-itemization-gap",
+          message: "Scalar household expenses are not fully itemized as compression-ready facts; active staged alternate compression would be misleading."
+        }
+      ],
+      warnings: [],
+      trace: {
+        calculationMethod: "income-impact-staged-compression-scenario-v1",
+        mode: "stagedAlternateScenarioOnly"
+      }
+    };
+  }
+
+  return {
+    status: "complete",
+    baseScenarioUnchanged: true,
+    stagedCompressionScenario: {
+      scenarioId: input.options?.scenarioId || "income-impact-staged-expense-compression-alternate",
+      label: "Staged expense compression alternate scenario",
+      reductionsApplied: [
+        {
+          typeKey: "diningOutRestaurants",
+          label: "Dining Out",
+          monthlyAmount: 150,
+          compressionOrderRank: 1,
+          stageId: "immediate-discretionary-compression",
+          effectiveMonthAfterDeath: 1
+        }
+      ],
+      pausesApplied: [
+        {
+          typeKey: "retirementContributions",
+          label: "Retirement Contribution",
+          monthlyAmount: 500,
+          compressionOrderRank: 4,
+          stageId: "contribution-pauses",
+          effectiveMonthAfterDeath: 2
+        }
+      ],
+      stageEvents: [
+        {
+          stageId: "immediate-discretionary-compression",
+          stageName: "Immediate discretionary compression",
+          stageType: "reduction",
+          effectiveMonthAfterDeath: 1,
+          actionsApplied: [{ typeKey: "diningOutRestaurants" }]
+        },
+        {
+          stageId: "contribution-pauses",
+          stageName: "Contribution pauses",
+          stageType: "pause",
+          effectiveMonthAfterDeath: 2,
+          actionsApplied: [{ typeKey: "retirementContributions" }]
+        }
+      ],
+      markerOnlyEvents: [],
+      postDeathSeries: {
+        points: [
+          {
+            monthIndex: 1,
+            date: "2031-06-06",
+            endingResources: 500150
+          },
+          {
+            monthIndex: 2,
+            date: "2031-07-06",
+            endingResources: 500800
+          },
+          {
+            monthIndex: 120,
+            date: "2041-05-06",
+            endingResources: 175000
+          }
+        ]
+      },
+      trace: {
+        calculationMethod: "income-impact-staged-compression-scenario-v1",
+        baseScenarioMutated: false,
+        graphPathChanged: false
+      }
+    },
+    dataGaps: [],
+    warnings: [],
+    trace: {
+      calculationMethod: "income-impact-staged-compression-scenario-v1",
+      mode: "stagedAlternateScenarioOnly"
+    }
+  };
+}
+
 function createLayer5Output(input) {
   const scenarioResult = input.compressionScenarioResult;
   const complete = scenarioResult?.status === "complete" && scenarioResult.compressionScenario;
@@ -426,9 +570,11 @@ function createLayer5Output(input) {
 
 let prepCallCount = 0;
 let compressionScenarioCallCount = 0;
+let stagedCompressionScenarioCallCount = 0;
 let layer5CallCount = 0;
 let graphCallCount = 0;
 let capturedCompressionScenarioInput = null;
+let capturedStagedCompressionScenarioInput = null;
 let capturedLayer5Input = null;
 let capturedGraphInput = null;
 const originalScenario = clone(scenario);
@@ -489,6 +635,12 @@ const result = harness.buildIncomeImpactResultFromState({
     capturedCompressionScenarioInput = input;
     return createCompressionScenarioResult(input);
   },
+  calculateIncomeImpactStagedCompressionScenario(input) {
+    stagedCompressionScenarioCallCount += 1;
+    capturedStagedCompressionScenarioInput = input;
+    return createStagedCompressionScenarioResult(input);
+  },
+  compressionStagePolicyRules,
   calculateIncomeImpactTriageInterventions(input) {
     layer5CallCount += 1;
     capturedLayer5Input = input;
@@ -498,6 +650,7 @@ const result = harness.buildIncomeImpactResultFromState({
 
 assert.equal(prepCallCount, 1, "display should prepare compression reporting inputs once");
 assert.equal(compressionScenarioCallCount, 1, "display should calculate compression scenario result once after prep");
+assert.equal(stagedCompressionScenarioCallCount, 1, "display should calculate staged compression scenario result once after prep");
 assert.equal(layer5CallCount, 1, "display should pass compression output into Layer 5 once");
 assert.equal(graphCallCount, 1, "display should build graph once");
 assert.equal(capturedCompressionScenarioInput.scenario, scenario, "compression scenario helper should receive the composed base scenario");
@@ -508,6 +661,17 @@ assert.deepEqual(clone(capturedCompressionScenarioInput.options), {
   scenarioId: "income-impact-expense-compression-alternate",
   applyPauseCandidates: true,
   requireCompleteItemization: true
+});
+assert.equal(capturedStagedCompressionScenarioInput.scenario, scenario, "staged helper should receive the composed base scenario");
+assert.equal(capturedStagedCompressionScenarioInput.compressionReport, compressionReport, "staged helper should receive prepared compressionReport");
+assert.equal(capturedStagedCompressionScenarioInput.compressionPolicyRules, compressionPolicyRules, "staged helper should receive prepared policy rules");
+assert.equal(capturedStagedCompressionScenarioInput.compressionStagePolicyRules, compressionStagePolicyRules, "staged helper should receive explicit stage policy rules");
+assert.deepEqual(clone(capturedStagedCompressionScenarioInput.options), {
+  mode: "stagedAlternateScenarioOnly",
+  scenarioId: "income-impact-staged-expense-compression-alternate",
+  applyPauseCandidates: true,
+  requireCompleteItemization: true,
+  includeMarkerOnlyEvents: true
 });
 assert.equal(capturedLayer5Input.scenario, scenario, "Layer 5 should receive the composed scenario");
 assert.equal(capturedLayer5Input.riskEvaluation, riskEvaluation, "Layer 5 should receive risk evaluation");
@@ -530,6 +694,8 @@ assert.equal(result.compressionReporting.trace.graphPathChanged, false);
 assert.equal(result.compressionReporting.trace.reductionsApplied, false);
 assert.equal(result.compressionReporting.trace.alternateScenarioPrepared, true);
 assert.equal(result.compressionReporting.trace.alternateScenarioStatus, "blocked");
+assert.equal(result.compressionReporting.trace.stagedAlternateScenarioPrepared, true);
+assert.equal(result.compressionReporting.trace.stagedAlternateScenarioStatus, "blocked");
 assert.equal(result.compressionReporting.trace.timelineMarkersCreated, false);
 assert.equal(result.dataGaps.some((gap) => gap.code === "scalar-household-expenses-not-itemized-for-compression"), false);
 assert.equal(result.dataGaps.some((gap) => gap.code === "active-compression-blocked-by-scalar-household-itemization-gap"), false);
@@ -598,17 +764,52 @@ const completeResult = harness.buildIncomeImpactResultFromState({
         ...graphModel,
         series: {
           ...graphModel.series,
-          comparisonPostDeathResources: [
-            {
-              scenarioId: input.comparisonScenarios[0].scenarioId,
-              kind: "compression",
-              label: "After expense compression",
+          comparisonPostDeathResources: input.comparisonScenarios.map(function (comparisonScenario) {
+            return {
+              scenarioId: comparisonScenario.scenarioId,
+              kind: comparisonScenario.kind,
+              pathId: comparisonScenario.pathId,
+              label: comparisonScenario.label,
               points: [
                 { date: "2031-06-06", value: 500650, xRatio: 0.3, yRatio: 0.29 },
                 { date: "2041-05-06", value: 180000, xRatio: 0.9, yRatio: 0.64 }
               ]
-            }
-          ]
+            };
+          }),
+          comparisonEarlyDetail: input.comparisonScenarios.length > 1
+            ? {
+                windowMonths: 24,
+                yDomain: { min: 499000, max: 502000 },
+                points: [
+                  {
+                    monthIndex: 1,
+                    date: "2031-06-06",
+                    immediateEndingResources: 500650,
+                    stagedEndingResources: 500150,
+                    difference: -500,
+                    xRatio: 0,
+                    immediateYRatio: 0.35,
+                    stagedYRatio: 0.52
+                  },
+                  {
+                    monthIndex: 2,
+                    date: "2031-07-06",
+                    immediateEndingResources: 501300,
+                    stagedEndingResources: 500800,
+                    difference: -500,
+                    xRatio: 1,
+                    immediateYRatio: 0.13,
+                    stagedYRatio: 0.3
+                  }
+                ],
+                trace: {
+                  localScale: true,
+                  usesMainGraphYDomain: false,
+                  artificialOffsetApplied: false,
+                  actualValuesOnly: true
+                }
+              }
+            : null
         }
       };
     }
@@ -628,6 +829,10 @@ const completeResult = harness.buildIncomeImpactResultFromState({
   calculateIncomeImpactCompressionScenario(input) {
     return createCompressionScenarioResult(input);
   },
+  calculateIncomeImpactStagedCompressionScenario(input) {
+    return createStagedCompressionScenarioResult(input);
+  },
+  compressionStagePolicyRules,
   calculateIncomeImpactTriageInterventions(input) {
     completeCapturedLayer5Input = input;
     return createLayer5Output(input);
@@ -636,15 +841,107 @@ const completeResult = harness.buildIncomeImpactResultFromState({
 assert.equal(completeCapturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should receive complete compression scenario result");
 assert.equal(completeResult.triageInterventions.compressionScenarios.length, 1, "complete compression scenario should pass through Layer 5");
 assert.equal(completeResult.triageInterventions.interventionScenarios.length, 0, "complete compression scenario should stay separate from intervention scenarios");
-assert.equal(completeCapturedGraphInput.comparisonScenarios.length, 1, "Display should pass complete compressionScenarios into the graph model as comparisonScenarios.");
+assert.equal(completeCapturedGraphInput.comparisonScenarios.length, 2, "Display should pass immediate and staged compression comparisons into the graph model.");
 assert.equal(completeCapturedGraphInput.comparisonScenarios[0].kind, "compression");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[0].pathId, "compression-post-death-resources");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[0].label, "Immediate compression");
 assert.equal(completeCapturedGraphInput.comparisonScenarios[0].postDeathSeries.points.length, 2);
+assert.equal(completeCapturedGraphInput.comparisonScenarios[1].kind, "stagedCompression");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[1].pathId, "staged-compression-post-death-resources");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[1].label, "Staged compression");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[1].postDeathSeries.points.length, 3);
 assert.deepEqual(completeResult.scenario.postDeathSeries, originalScenario.postDeathSeries, "complete alternate scenario should not mutate base postDeathSeries");
 assert.match(harness.renderTimeline(completeResult), /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-graph-path="staged-compression-post-death-resources"/);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-graph-path="staged-compression-post-death-resources"[^>]*data-income-impact-graph-path-mode="step"/);
+assert.match(harness.renderTimeline(completeResult), /Immediate compression/);
+assert.match(harness.renderTimeline(completeResult), /Staged compression/);
 assert.match(harness.renderTimeline(completeResult), /Comparison only - base projection unchanged\./);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-graph-detail="compression-early-window"/);
+assert.match(harness.renderTimeline(completeResult), /First 24 months after death/);
+assert.match(harness.renderTimeline(completeResult), /Actual values, local scale/);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-detail-path="immediate-compression"/);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-detail-path="staged-compression"/);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-detail-path="staged-compression"[^>]*data-income-impact-detail-path-mode="step"/);
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-detail-difference="-500"/);
 assert.doesNotMatch(harness.renderTimeline(result), /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.doesNotMatch(harness.renderTimeline(result), /data-income-impact-graph-path="staged-compression-post-death-resources"/);
+assert.doesNotMatch(harness.renderTimeline(result), /data-income-impact-graph-detail="compression-early-window"/);
 assert.match(harness.renderCompressionReportingPanel(completeResult), /Alternate scenario prepared/);
 assert.match(harness.renderCompressionReportingPanel(completeResult), /Prepared as a separate scenario and not applied to the base projection\./);
+
+let stagedOnlyGraphInput = null;
+const stagedOnlyResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: { id: "lens-staged-only-fixture" },
+  analysisSettings: {},
+  scenarioState: { projectionHorizonYears: 40, mortgageTreatmentOverride: "followAssumptions" },
+  deathAgeState: { hasDateOfBirth: false },
+  composeIncomeImpactScenario() { return scenario; },
+  evaluateIncomeImpactRiskEvents() { return riskEvaluation; },
+  buildIncomeImpactTimelineGraphModel(input) {
+    stagedOnlyGraphInput = input;
+    return graphModel;
+  },
+  prepareIncomeImpactCompressionReportingInputs() {
+    return {
+      compressionReport: completeCompressionReport,
+      compressionPolicyRules,
+      warnings: [],
+      dataGaps: [],
+      trace: { reportingOnly: true }
+    };
+  },
+  calculateIncomeImpactCompressionScenario() {
+    return { status: "blocked", dataGaps: [{ code: "immediate-blocked" }], warnings: [], trace: {} };
+  },
+  calculateIncomeImpactStagedCompressionScenario(input) {
+    return createStagedCompressionScenarioResult(input);
+  },
+  compressionStagePolicyRules,
+  calculateIncomeImpactTriageInterventions(input) {
+    return createLayer5Output(input);
+  }
+});
+assert.equal(stagedOnlyGraphInput.comparisonScenarios.length, 1, "Blocked immediate scenario should not suppress complete staged path.");
+assert.equal(stagedOnlyGraphInput.comparisonScenarios[0].kind, "stagedCompression");
+assert.equal(stagedOnlyResult.triageInterventions.compressionScenarios.length, 0, "Blocked immediate result should not expose Layer 5 compressionScenarios.");
+
+let immediateOnlyGraphInput = null;
+harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: { id: "lens-immediate-only-fixture" },
+  analysisSettings: {},
+  scenarioState: { projectionHorizonYears: 40, mortgageTreatmentOverride: "followAssumptions" },
+  deathAgeState: { hasDateOfBirth: false },
+  composeIncomeImpactScenario() { return scenario; },
+  evaluateIncomeImpactRiskEvents() { return riskEvaluation; },
+  buildIncomeImpactTimelineGraphModel(input) {
+    immediateOnlyGraphInput = input;
+    return graphModel;
+  },
+  prepareIncomeImpactCompressionReportingInputs() {
+    return {
+      compressionReport: completeCompressionReport,
+      compressionPolicyRules,
+      warnings: [],
+      dataGaps: [],
+      trace: { reportingOnly: true }
+    };
+  },
+  calculateIncomeImpactCompressionScenario(input) {
+    return createCompressionScenarioResult(input);
+  },
+  calculateIncomeImpactStagedCompressionScenario() {
+    return { status: "blocked", stagedCompressionScenario: null, dataGaps: [{ code: "staged-blocked" }], warnings: [], trace: {} };
+  },
+  compressionStagePolicyRules,
+  calculateIncomeImpactTriageInterventions(input) {
+    return createLayer5Output(input);
+  }
+});
+assert.equal(immediateOnlyGraphInput.comparisonScenarios.length, 1, "Blocked staged scenario should not suppress complete immediate path.");
+assert.equal(immediateOnlyGraphInput.comparisonScenarios[0].kind, "compression");
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: result });
