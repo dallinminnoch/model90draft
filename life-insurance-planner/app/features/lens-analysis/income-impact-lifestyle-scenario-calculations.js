@@ -76,6 +76,10 @@
     return issue;
   }
 
+  function hasOwn(object, key) {
+    return Object.prototype.hasOwnProperty.call(Object(object), key);
+  }
+
   function getExpenses(input) {
     if (Array.isArray(input?.expenses)) {
       return input.expenses;
@@ -157,13 +161,105 @@
     return null;
   }
 
-  function buildPolicyResolver(input) {
+  function isUsablePolicyRuleList(value) {
+    return Array.isArray(value) && value.some(function (candidate) {
+      return isPlainObject(candidate)
+        && (
+          normalizeString(candidate.expenseTypeKey)
+          || normalizeString(candidate.typeKey)
+          || normalizeString(candidate.categoryKey)
+        );
+    });
+  }
+
+  function makePolicyResolverFromRules(policyRules) {
+    const safePolicyRules = policyRules.filter(isPlainObject).map(clonePlainValue);
+    return function resolveFromRules(expenseLike) {
+      const typeKey = getTypeKey(expenseLike);
+      const categoryKey = normalizeString(expenseLike && expenseLike.categoryKey);
+      let rule = null;
+      if (typeKey) {
+        rule = safePolicyRules.find(function (candidate) {
+          return normalizeString(candidate && candidate.expenseTypeKey) === typeKey;
+        });
+      }
+      if (!rule && categoryKey) {
+        rule = safePolicyRules.find(function (candidate) {
+          return normalizeString(candidate && candidate.categoryKey) === categoryKey && candidate.sliderEligible === false;
+        }) || safePolicyRules.find(function (candidate) {
+          return normalizeString(candidate && candidate.categoryKey) === categoryKey;
+        });
+      }
+      return rule ? clonePlainValue(rule) : null;
+    };
+  }
+
+  function getExplicitResolvedLifestylePolicies(input) {
+    const candidates = [
+      { path: "resolvedLifestyleRangePolicies", owner: input },
+      { path: "resolvedHouseholdExpensePolicy.resolvedLifestyleRangePolicies", owner: input?.resolvedHouseholdExpensePolicy },
+      { path: "householdExpenseAccountPolicy.resolvedLifestyleRangePolicies", owner: input?.householdExpenseAccountPolicy },
+      { path: "accountPolicyResolution.resolvedLifestyleRangePolicies", owner: input?.accountPolicyResolution }
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (isPlainObject(candidate.owner) && hasOwn(candidate.owner, "resolvedLifestyleRangePolicies")) {
+        return {
+          provided: true,
+          path: candidate.path,
+          value: candidate.owner.resolvedLifestyleRangePolicies
+        };
+      }
+    }
+
+    return {
+      provided: false,
+      path: null,
+      value: null
+    };
+  }
+
+  function buildPolicyResolver(input, warnings, dataGaps) {
+    const explicitResolved = getExplicitResolvedLifestylePolicies(input);
+    let fallbackPolicyUsed = false;
+
+    if (explicitResolved.provided) {
+      if (isUsablePolicyRuleList(explicitResolved.value)) {
+        return {
+          resolvePolicy: makePolicyResolverFromRules(explicitResolved.value),
+          policySource: "resolvedAccountPolicy",
+          policySourcePath: explicitResolved.path,
+          fallbackPolicyUsed: false
+        };
+      }
+
+      fallbackPolicyUsed = true;
+      const issue = makeIssue(
+        "invalid-resolved-lifestyle-range-policy",
+        "Resolved lifestyle range policy input was missing or invalid; MODEL90 seed policy was used as a safe fallback.",
+        [explicitResolved.path]
+      );
+      warnings.push(clonePlainValue(issue));
+      dataGaps.push(issue);
+    }
+
     if (typeof input?.policyResolver === "function") {
-      return input.policyResolver;
+      return {
+        resolvePolicy: input.policyResolver,
+        policySource: "fallbackPolicy",
+        policySourcePath: "policyResolver",
+        fallbackPolicyUsed: true
+      };
     }
 
     if (typeof input?.resolveLifestyleRangePolicy === "function") {
-      return input.resolveLifestyleRangePolicy;
+      return {
+        resolvePolicy: input.resolveLifestyleRangePolicy,
+        policySource: "fallbackPolicy",
+        policySourcePath: "resolveLifestyleRangePolicy",
+        fallbackPolicyUsed: true
+      };
     }
 
     const policyRules = Array.isArray(input?.lifestyleRangePolicies)
@@ -173,33 +269,49 @@
         : null;
 
     if (policyRules) {
-      return function resolveFromRules(expenseLike) {
-        const typeKey = getTypeKey(expenseLike);
-        const categoryKey = normalizeString(expenseLike && expenseLike.categoryKey);
-        let rule = null;
-        if (typeKey) {
-          rule = policyRules.find(function (candidate) {
-            return normalizeString(candidate && candidate.expenseTypeKey) === typeKey;
-          });
-        }
-        if (!rule && categoryKey) {
-          rule = policyRules.find(function (candidate) {
-            return normalizeString(candidate && candidate.categoryKey) === categoryKey && candidate.sliderEligible === false;
-          }) || policyRules.find(function (candidate) {
-            return normalizeString(candidate && candidate.categoryKey) === categoryKey;
-          });
-        }
-        return rule ? clonePlainValue(rule) : null;
-      };
+      if (isUsablePolicyRuleList(policyRules)) {
+        return {
+          resolvePolicy: makePolicyResolverFromRules(policyRules),
+          policySource: "fallbackPolicy",
+          policySourcePath: Array.isArray(input?.lifestyleRangePolicies) ? "lifestyleRangePolicies" : "lifestyleRangePolicyRules",
+          fallbackPolicyUsed: true
+        };
+      }
+
+      fallbackPolicyUsed = true;
+      const issue = makeIssue(
+        "invalid-lifestyle-range-policy-rules",
+        "Lifestyle range policy rules were invalid; MODEL90 seed policy was used as a safe fallback.",
+        [Array.isArray(input?.lifestyleRangePolicies) ? "lifestyleRangePolicies" : "lifestyleRangePolicyRules"]
+      );
+      warnings.push(clonePlainValue(issue));
+      dataGaps.push(issue);
     }
 
     const policyApi = lensAnalysis.householdExpenseLifestyleRangePolicy;
     if (policyApi && typeof policyApi.resolveLifestyleRangePolicy === "function") {
-      return policyApi.resolveLifestyleRangePolicy;
+      return {
+        resolvePolicy: policyApi.resolveLifestyleRangePolicy,
+        policySource: fallbackPolicyUsed ? "fallbackPolicy" : "defaultSeedPolicy",
+        policySourcePath: "LensApp.lensAnalysis.householdExpenseLifestyleRangePolicy",
+        fallbackPolicyUsed
+      };
     }
 
-    return function missingPolicyResolver() {
-      return null;
+    const missingIssue = makeIssue(
+      "missing-lifestyle-range-policy-source",
+      "No lifestyle range policy source was available; all expenses were treated as fixed.",
+      ["resolvedLifestyleRangePolicies", "householdExpenseLifestyleRangePolicy"]
+    );
+    warnings.push(clonePlainValue(missingIssue));
+    dataGaps.push(missingIssue);
+    return {
+      resolvePolicy: function missingPolicyResolver() {
+        return null;
+      },
+      policySource: "fallbackPolicy",
+      policySourcePath: null,
+      fallbackPolicyUsed: true
     };
   }
 
@@ -217,6 +329,37 @@
       || duplicateProtectionKey.includes("debt-payment")
       || duplicateProtectionKey.includes("debtRecords")
       || categoryKey === "debtObligations";
+  }
+
+  function resolveDefaultSeedLifestylePolicy(expense, policy) {
+    const policyApi = lensAnalysis.householdExpenseLifestyleRangePolicy;
+    if (!policyApi || typeof policyApi.resolveLifestyleRangePolicy !== "function") {
+      return null;
+    }
+
+    const expenseLike = Object.assign({}, isPlainObject(expense) ? expense : {}, {
+      expenseTypeKey: getTypeKey(expense) || normalizeString(policy && policy.expenseTypeKey),
+      categoryKey: normalizeString(expense && expense.categoryKey) || normalizeString(policy && policy.categoryKey)
+    });
+    return policyApi.resolveLifestyleRangePolicy(expenseLike);
+  }
+
+  function isDefaultSeedProtectedLifestyleExpense(expense, policy) {
+    const seedPolicy = resolveDefaultSeedLifestylePolicy(expense, policy);
+    if (!seedPolicy) {
+      return false;
+    }
+
+    const seedBehavior = normalizeString(seedPolicy.rangeBehavior);
+    const seedDecision = normalizeString(seedPolicy.sourcePolicyDecision);
+    return seedPolicy.sliderEligible !== true
+      && (
+        seedBehavior === "fixed"
+        || seedBehavior === "reviewOnly"
+        || seedDecision === "NO"
+        || seedDecision === "INTERVENTION"
+        || seedDecision === "REVIEW"
+      );
   }
 
   function findThresholdRule(input, expense, policy) {
@@ -336,6 +479,10 @@
       return "housing-payment-fixed";
     }
 
+    if (isDefaultSeedProtectedLifestyleExpense(expense, policy)) {
+      return "protected-expense-fixed";
+    }
+
     const behavior = normalizeString(policy && policy.rangeBehavior);
     if (behavior === "reviewOnly") {
       return "review-only-fixed";
@@ -366,7 +513,9 @@
     const typeKey = getTypeKey(expense) || normalizeString(policy && policy.expenseTypeKey);
     const categoryKey = normalizeString(expense && expense.categoryKey) || normalizeString(policy && policy.categoryKey);
     const eligibleByPolicy = Boolean(policy && policy.sliderEligible === true);
-    const sliderEligible = eligibleByPolicy && !isGeneratedDebtExpense(expense);
+    const sliderEligible = eligibleByPolicy
+      && !isGeneratedDebtExpense(expense)
+      && !isDefaultSeedProtectedLifestyleExpense(expense, policy);
     const range = calculateRangeAmounts(expense, policy, baselineMonthlyAmount, input);
     let adjustedMonthlyAmount = baselineMonthlyAmount;
     let reasonCode = "slider-baseline";
@@ -844,9 +993,9 @@
       ));
     }
 
-    const policyResolver = buildPolicyResolver(sourceInput);
+    const policyContext = buildPolicyResolver(sourceInput, warnings, dataGaps);
     const adjustedExpenses = expenses.map(function (expense, index) {
-      const policy = policyResolver(expense);
+      const policy = policyContext.resolvePolicy(expense);
       return createAdjustedExpense(expense, policy, index, sliderValue, sourceInput, warnings);
     });
 
@@ -875,6 +1024,10 @@
       trace: {
         calculationMethod: CALCULATION_METHOD,
         mode: normalizeString(sourceInput.options && sourceInput.options.mode) || DEFAULT_MODE,
+        policySource: policyContext.policySource,
+        policySourcePath: policyContext.policySourcePath,
+        fallbackPolicyUsed: policyContext.fallbackPolicyUsed === true,
+        resolvedAccountPolicyUsed: policyContext.policySource === "resolvedAccountPolicy",
         sliderValue,
         expenseCount: adjustedExpenses.length,
         sliderEligibleExpenseCount: adjustedExpenses.filter(function (item) {

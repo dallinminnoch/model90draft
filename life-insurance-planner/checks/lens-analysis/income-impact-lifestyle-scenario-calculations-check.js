@@ -24,11 +24,18 @@ function loadScript(relativePath) {
 }
 
 loadScript("app/features/lens-analysis/household-expense-lifestyle-range-policy.js");
+loadScript("app/features/lens-analysis/household-expense-compression-policy.js");
+loadScript("app/features/lens-analysis/expense-compression-thresholds.js");
+loadScript("app/features/lens-analysis/household-expense-account-policy-resolver.js");
 const helperSource = loadScript("app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js");
 
 const policy = context.LensApp.lensAnalysis.householdExpenseLifestyleRangePolicy;
+const compressionPolicy = context.LensApp.lensAnalysis.householdExpenseCompressionPolicy;
+const thresholds = context.LensApp.lensAnalysis.expenseCompressionThresholds;
+const accountPolicyResolver = context.LensApp.lensAnalysis.householdExpenseAccountPolicyResolver;
 const calculations = context.LensApp.lensAnalysis.incomeImpactLifestyleScenarioCalculations;
 assert.ok(policy, "lifestyle range policy should load");
+assert.ok(accountPolicyResolver, "account policy resolver should load for explicit resolved policy fixture");
 assert.ok(calculations, "lifestyle scenario calculations should load");
 assert.equal(typeof calculations.calculateIncomeImpactLifestyleScenario, "function", "helper export should exist");
 assert.equal(typeof calculations.calculateIncomeImpactLifestyleComparisonScenario, "function", "comparison helper export should exist");
@@ -222,6 +229,16 @@ function byType(result, typeKey) {
   return item;
 }
 
+function resolveAccountPolicy(accountPolicy, hardGuardrails) {
+  return accountPolicyResolver.resolveHouseholdExpenseAccountPolicy({
+    defaultLifestyleRangePolicies: policy.listLifestyleRangePolicies(),
+    defaultCompressionPolicyRules: compressionPolicy.getHouseholdExpenseCompressionPolicyRules(),
+    defaultCompressionThresholdRules: thresholds.getExpenseCompressionThresholdRules(),
+    accountPolicy,
+    hardGuardrails
+  });
+}
+
 const baseline = calculate(0);
 assert.equal(baseline.status, "complete", "baseline fixture should be complete");
 assert.equal(baseline.sliderValue, 0);
@@ -231,6 +248,8 @@ baseline.adjustedExpenses.forEach((item) => {
   assert.equal(item.adjustedMonthlyAmount, item.baselineMonthlyAmount, `${item.expenseTypeKey} should preserve baseline at slider 0`);
 });
 assert.equal(baseline.trace.baselinePreservedAtZero, true, "trace should prove baseline preservation");
+assert.equal(baseline.trace.policySource, "defaultSeedPolicy", "default helper path should use seed policy source");
+assert.equal(baseline.trace.resolvedAccountPolicyUsed, false, "default helper path should not claim account policy use");
 
 const conservative = calculate(-100);
 assert.equal(byType(conservative, "groceries").adjustedMonthlyAmount, 800, "groceries should move to conservative floor");
@@ -318,6 +337,7 @@ const byRules = calculations.calculateIncomeImpactLifestyleScenario({
   lifestyleRangePolicies: rules
 });
 assert.equal(byType(byRules, "diningOutRestaurants").adjustedMonthlyAmount, 700, "helper should support explicit policy rules");
+assert.equal(byRules.trace.policySource, "fallbackPolicy", "legacy explicit policy rules should trace fallbackPolicy source");
 
 const byOverrideResolver = calculations.calculateIncomeImpactLifestyleScenario({
   expenses: [{ expenseTypeKey: "customLifestyle", categoryKey: "custom", monthlyAmount: 100 }],
@@ -342,6 +362,110 @@ const byOverrideResolver = calculations.calculateIncomeImpactLifestyleScenario({
   })
 });
 assert.equal(byType(byOverrideResolver, "customLifestyle").adjustedMonthlyAmount, 120, "helper should support resolver override");
+assert.equal(byOverrideResolver.trace.policySource, "fallbackPolicy", "custom resolver override should trace fallbackPolicy source");
+
+const resolvedAccountPolicy = resolveAccountPolicy({
+  version: 1,
+  lifestyleRangeOverrides: [
+    {
+      expenseTypeKey: "groceries",
+      conservativeFloorRatio: 0.7,
+      elevatedCeilingRatio: 1.3
+    },
+    {
+      expenseTypeKey: "diningOutRestaurants",
+      conservativeFloorRatio: 0.1,
+      elevatedCeilingRatio: 1.4
+    }
+  ]
+});
+const explicitResolvedConservative = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeFixtureExpenses(),
+  sliderValue: -100,
+  resolvedLifestyleRangePolicies: resolvedAccountPolicy.resolvedLifestyleRangePolicies
+});
+assert.equal(explicitResolvedConservative.trace.policySource, "resolvedAccountPolicy", "explicit resolved policy should trace account policy source");
+assert.equal(explicitResolvedConservative.trace.resolvedAccountPolicyUsed, true, "explicit resolved policy should be marked used");
+assert.equal(byType(explicitResolvedConservative, "groceries").adjustedMonthlyAmount, 700, "resolved account policy should change grocery floor behavior");
+assert.equal(byType(explicitResolvedConservative, "diningOutRestaurants").adjustedMonthlyAmount, 40, "resolved account policy should change dining floor behavior");
+
+const explicitResolvedElevated = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeFixtureExpenses(),
+  sliderValue: 100,
+  resolvedLifestyleRangePolicies: resolvedAccountPolicy.resolvedLifestyleRangePolicies
+});
+assert.equal(byType(explicitResolvedElevated, "groceries").adjustedMonthlyAmount, 1300, "resolved account policy should change grocery ceiling behavior");
+assert.equal(byType(explicitResolvedElevated, "diningOutRestaurants").adjustedMonthlyAmount, 560, "resolved account policy should change dining ceiling behavior");
+
+const maliciousResolvedPolicy = resolveAccountPolicy({
+  version: 1,
+  lifestyleRangeOverrides: [
+    {
+      expenseTypeKey: "rentOrMortgagePayment",
+      sliderEligible: true,
+      rangeBehavior: "expandable",
+      conservativeFloorRatio: 0,
+      elevatedCeilingRatio: 2,
+      allowBelowBaseline: true,
+      allowAboveBaseline: true
+    },
+    {
+      expenseTypeKey: "autoLoanPayment",
+      sliderEligible: true,
+      rangeBehavior: "expandable"
+    },
+    {
+      expenseTypeKey: "healthInsurancePremiums",
+      sliderEligible: true,
+      rangeBehavior: "compressible"
+    },
+    {
+      expenseTypeKey: "daycareChildcare",
+      sliderEligible: true,
+      rangeBehavior: "compressible"
+    },
+    {
+      expenseTypeKey: "charitableGiving",
+      sliderEligible: true,
+      rangeBehavior: "expandable"
+    }
+  ]
+});
+const protectedResolved = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeFixtureExpenses(),
+  sliderValue: 100,
+  resolvedLifestyleRangePolicies: maliciousResolvedPolicy.resolvedLifestyleRangePolicies
+});
+[
+  "rentOrMortgagePayment",
+  "autoLoanPayment",
+  "healthInsurancePremiums",
+  "daycareChildcare",
+  "charitableGiving"
+].forEach((typeKey) => {
+  const item = byType(protectedResolved, typeKey);
+  assert.equal(item.adjustedMonthlyAmount, item.baselineMonthlyAmount, `${typeKey} should remain fixed with resolver guardrails`);
+  assert.equal(item.sliderEligible, false, `${typeKey} should remain slider-ineligible with resolver guardrails`);
+});
+
+const corruptResolvedPolicy = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeFixtureExpenses(),
+  sliderValue: -100,
+  resolvedLifestyleRangePolicies: { bad: true }
+});
+assert.equal(corruptResolvedPolicy.trace.policySource, "fallbackPolicy", "corrupt resolved policy should trace fallbackPolicy");
+assert.equal(corruptResolvedPolicy.trace.fallbackPolicyUsed, true, "corrupt resolved policy should mark fallback used");
+assert.equal(
+  corruptResolvedPolicy.warnings.some((warning) => warning.code === "invalid-resolved-lifestyle-range-policy"),
+  true,
+  "corrupt resolved policy should warn"
+);
+assert.equal(
+  corruptResolvedPolicy.dataGaps.some((gap) => gap.code === "invalid-resolved-lifestyle-range-policy"),
+  true,
+  "corrupt resolved policy should create a data gap"
+);
+assert.equal(byType(corruptResolvedPolicy, "groceries").adjustedMonthlyAmount, 800, "corrupt resolved policy should fall back to seed grocery floor");
 
 const partialMissing = calculations.calculateIncomeImpactLifestyleScenario({ sliderValue: 0 });
 assert.equal(partialMissing.status, "partial", "missing expenses should return partial");
@@ -494,6 +618,7 @@ assert.equal(baseline.trace.inputsMutated, false, "trace should state inputs wer
   /localStorage|sessionStorage|document|querySelector|addEventListener|fetch/,
   /\brequire\s*\(/,
   /\bimport\b/,
+  /household-expense-account-policy-resolver/,
   /effectiveMonthAfterDeath|stageEvents|monthlyReliefSchedule|stepDown|step-down/i
 ].forEach((pattern) => {
   assert.equal(pattern.test(helperSource), false, `helper source should not include ${pattern}`);
