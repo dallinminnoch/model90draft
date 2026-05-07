@@ -9,6 +9,9 @@
   const MAX_PROJECTION_HORIZON_YEARS = 100;
   const MIN_LIFESTYLE_SLIDER_VALUE = -100;
   const MAX_LIFESTYLE_SLIDER_VALUE = 100;
+  const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
+  const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
+  const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const LIFESTYLE_SLIDER_LABELS = Object.freeze({
     conservative: "Conservative",
     current: "Current",
@@ -972,17 +975,17 @@
     `;
   }
 
-  function getCompressionMarkerLabelOffset(markerType, index) {
-    if (markerType === "compressionAction") {
+  function getComparisonMarkerLabelOffset(markerType, index) {
+    if (markerType === "comparisonAction") {
       return { x: 10, y: -18 };
     }
-    if (markerType === "pauseAction") {
+    if (markerType === "comparisonPause") {
       return { x: 10, y: 28 };
     }
     if (markerType === "baseDepletion") {
       return { x: -112, y: -16 };
     }
-    if (markerType === "compressionDepletion") {
+    if (markerType === "lifestyleDepletion") {
       return { x: 10, y: -34 };
     }
     if (markerType === "shortfallRemains") {
@@ -991,17 +994,17 @@
     return { x: 10, y: index % 2 === 0 ? -18 : 28 };
   }
 
-  function shouldRenderCompressionMarkerLabel(markerType) {
-    return markerType !== "compressionAction" && markerType !== "pauseAction";
+  function shouldRenderComparisonMarkerLabel(markerType) {
+    return markerType !== "comparisonAction" && markerType !== "comparisonPause";
   }
 
-  function getCompressionMarkerTitle(marker) {
-    const label = normalizeString(marker?.label || "Compression comparison event");
+  function getComparisonMarkerTitle(marker) {
+    const label = normalizeString(marker?.label || "Comparison event");
     const summary = normalizeString(marker?.summary);
     return summary && summary !== label ? `${label}: ${summary}` : label;
   }
 
-  function renderCompressionComparisonMarkers(graphModel) {
+  function renderComparisonMarkers(graphModel) {
     const markers = (Array.isArray(graphModel?.comparisonMarkers) ? graphModel.comparisonMarkers : []).filter(function (marker) {
       return marker?.positionable && toOptionalNumber(marker.xRatio) != null && toOptionalNumber(marker.yRatio) != null;
     });
@@ -1009,26 +1012,26 @@
       return "";
     }
     return `
-      <g class="income-impact-compression-markers" data-income-impact-compression-markers>
+      <g class="income-impact-comparison-markers" data-income-impact-comparison-markers>
         ${markers.map(function (marker, index) {
           const x = toGraphX(marker.xRatio);
           const y = toGraphY(marker.yRatio);
-          const labelOffset = getCompressionMarkerLabelOffset(marker.markerType, index);
+          const labelOffset = getComparisonMarkerLabelOffset(marker.markerType, index);
           const labelX = labelOffset.x;
           const labelY = labelOffset.y;
-          const renderLabel = shouldRenderCompressionMarkerLabel(marker.markerType);
+          const renderLabel = shouldRenderComparisonMarkerLabel(marker.markerType);
           return `
             <g
-              class="income-impact-compression-marker income-impact-compression-marker--${escapeHtml(marker.markerType || "event")}"
-              data-income-impact-compression-marker
-              data-income-impact-compression-marker-type="${escapeHtml(marker.markerType || "")}"
-              data-income-impact-compression-marker-scenario-id="${escapeHtml(marker.scenarioId || "")}"
+              class="income-impact-comparison-marker income-impact-comparison-marker--${escapeHtml(marker.markerType || "event")}"
+              data-income-impact-comparison-marker
+              data-income-impact-comparison-marker-type="${escapeHtml(marker.markerType || "")}"
+              data-income-impact-comparison-marker-scenario-id="${escapeHtml(marker.scenarioId || "")}"
               transform="translate(${x} ${y})"
             >
               ${renderLabel ? `<line x1="0" y1="0" x2="${labelX}" y2="${labelY}"></line>` : ""}
               <circle r="4"></circle>
-              ${renderLabel ? `<text x="${labelX}" y="${labelY}" text-anchor="${labelX < 0 ? "end" : "start"}">${escapeHtml(marker.label || "Compression event")}</text>` : ""}
-              <title>${escapeHtml(getCompressionMarkerTitle(marker))}</title>
+              ${renderLabel ? `<text x="${labelX}" y="${labelY}" text-anchor="${labelX < 0 ? "end" : "start"}">${escapeHtml(marker.label || "Comparison event")}</text>` : ""}
+              <title>${escapeHtml(getComparisonMarkerTitle(marker))}</title>
             </g>
           `;
         }).join("")}
@@ -1074,14 +1077,14 @@
 
   function getComparisonGraphPathId(series, index) {
     const explicitPathId = normalizeString(series?.pathId || series?.graphPathId);
-    if (explicitPathId === "compression-post-death-resources") {
+    if (explicitPathId === LIFESTYLE_COMPARISON_PATH_ID) {
       return explicitPathId;
     }
-    return "compression-post-death-resources";
+    return LIFESTYLE_COMPARISON_PATH_ID;
   }
 
   function getComparisonGraphLabel(pathId) {
-    return "Lifestyle-adjusted projection";
+    return LIFESTYLE_COMPARISON_LABEL;
   }
 
   function getComparisonGraphPathMode(series, pathId) {
@@ -1090,7 +1093,7 @@
   }
 
   function getComparisonLegendItemKey(pathId) {
-    return "compression";
+    return "lifestyle";
   }
 
   function renderGraphLegend(graphModel) {
@@ -1147,7 +1150,7 @@
           ${renderGraphDeathAnchor(graphModel)}
         </g>
         ${renderGraphMarkers(graphModel)}
-        ${renderCompressionComparisonMarkers(graphModel)}
+        ${renderComparisonMarkers(graphModel)}
       </svg>
     `;
   }
@@ -1448,38 +1451,6 @@
     `;
   }
 
-  function renderCompressionScenarioStatus(layer5) {
-    const trace = isPlainObject(layer5?.compressionScenarioTrace) ? layer5.compressionScenarioTrace : {};
-    const scenarios = Array.isArray(layer5?.compressionScenarios) ? layer5.compressionScenarios.filter(isPlainObject) : [];
-    const inputProvided = trace.compressionScenarioInputProvided === true;
-    const isBlocked = trace.alternateScenarioBlocked === true;
-    const status = normalizeString(trace.compressionScenarioStatus);
-    let label = "Alternate scenario not prepared";
-    let detail = "Compression reporting is visible only; no alternate scenario has been prepared for this preview.";
-    let state = "notPrepared";
-
-    if (inputProvided && scenarios.length) {
-      label = "Alternate scenario prepared";
-      detail = "Prepared as a separate scenario and not applied to the base projection.";
-      state = "complete";
-    } else if (inputProvided && isBlocked) {
-      label = "Alternate scenario blocked";
-      detail = "Not applied to the projection. Review the data limitations before using active compression.";
-      state = "blocked";
-    } else if (inputProvided) {
-      label = "Alternate scenario unavailable";
-      detail = "No alternate scenario was exposed to Layer 5 for this preview.";
-      state = status || "unavailable";
-    }
-
-    return `
-      <div class="income-impact-empty-inline" data-income-impact-compression-scenario-status="${escapeHtml(state)}">
-        <strong>${escapeHtml(label)}</strong>
-        <span>${escapeHtml(detail)}</span>
-      </div>
-    `;
-  }
-
   function renderLifestyleScenarioStatus(timelineResult) {
     const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
     const lifestyleScenario = isPlainObject(reporting.lifestyleScenario) ? reporting.lifestyleScenario : null;
@@ -1522,7 +1493,6 @@
           <p data-income-impact-compression-reporting-only>Reporting only - not applied to the projection.</p>
         </div>
         ${renderLifestyleScenarioStatus(timelineResult)}
-        ${renderCompressionScenarioStatus(layer5)}
         ${totalItems ? `
           <div class="income-impact-compression-counts" data-income-impact-compression-counts>
             <span><b>${opportunities.length}</b>Opportunities</span>
@@ -1987,6 +1957,23 @@
     };
   }
 
+  function normalizeLifestyleGraphComparisonScenario(comparisonScenario) {
+    if (!isPlainObject(comparisonScenario)) {
+      return null;
+    }
+
+    return Object.assign({}, comparisonScenario, {
+      kind: LIFESTYLE_COMPARISON_KIND,
+      pathId: LIFESTYLE_COMPARISON_PATH_ID,
+      graphPathId: LIFESTYLE_COMPARISON_PATH_ID,
+      label: normalizeString(comparisonScenario.label) || LIFESTYLE_COMPARISON_LABEL,
+      trace: Object.assign({}, isPlainObject(comparisonScenario.trace) ? comparisonScenario.trace : {}, {
+        displayComparisonKind: LIFESTYLE_COMPARISON_KIND,
+        displayGraphPathId: LIFESTYLE_COMPARISON_PATH_ID
+      })
+    });
+  }
+
   function buildIncomeImpactResultFromBaseContext(state, baseContext, sliderValueOverride) {
     const safeState = isPlainObject(state) ? state : {};
     const context = isPlainObject(baseContext) ? baseContext : buildBaseIncomeImpactContextFromState(safeState);
@@ -2003,12 +1990,14 @@
       ? safeState.calculateIncomeImpactLifestyleScenario({
         expenseFacts: safeState.lensModel?.expenseFacts,
         sliderValue: lifestyleSliderValue,
-        basePostDeathSeries: scenario?.postDeathSeries
+        basePostDeathSeries: scenario?.postDeathSeries,
+        options: {
+          comparisonPathId: LIFESTYLE_COMPARISON_PATH_ID,
+          comparisonLabel: LIFESTYLE_COMPARISON_LABEL
+        }
       })
       : null;
-    const lifestyleComparisonScenario = isPlainObject(lifestyleScenario?.comparisonScenario)
-      ? lifestyleScenario.comparisonScenario
-      : null;
+    const lifestyleComparisonScenario = normalizeLifestyleGraphComparisonScenario(lifestyleScenario?.comparisonScenario);
     const comparisonScenarios = lifestyleComparisonScenario ? [lifestyleComparisonScenario] : [];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario,

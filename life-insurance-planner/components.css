@@ -16181,7 +16181,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #227455;
 }
 
-.income-impact-graph-path--compression-post-death-resources {
+.income-impact-graph-path--lifestyle-post-death-resources {
   stroke: #1f6fb2;
   stroke-dasharray: 7 6;
   stroke-width: 1.65;
@@ -16217,7 +16217,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   border-top: 2px solid #227455;
 }
 
-.income-impact-graph-legend [data-income-impact-graph-legend-item="compression"] i {
+.income-impact-graph-legend [data-income-impact-graph-legend-item="lifestyle"] i {
   border-color: #1f6fb2;
   border-top-style: dashed;
 }
@@ -16374,11 +16374,11 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #ffffff;
 }
 
-.income-impact-compression-markers {
+.income-impact-comparison-markers {
   pointer-events: none;
 }
 
-.income-impact-compression-marker line {
+.income-impact-comparison-marker line {
   stroke: #1f6fb2;
   stroke-dasharray: 2 4;
   stroke-width: 0.85;
@@ -16386,24 +16386,24 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   vector-effect: non-scaling-stroke;
 }
 
-.income-impact-compression-marker circle {
+.income-impact-comparison-marker circle {
   fill: #ffffff;
   stroke: #1f6fb2;
   stroke-width: 1.45;
   vector-effect: non-scaling-stroke;
 }
 
-.income-impact-compression-marker--baseDepletion circle {
+.income-impact-comparison-marker--baseDepletion circle {
   stroke: #227455;
 }
 
-.income-impact-compression-marker--compressionDepletion circle,
-.income-impact-compression-marker--shortfallRemains circle {
+.income-impact-comparison-marker--lifestyleDepletion circle,
+.income-impact-comparison-marker--shortfallRemains circle {
   fill: #1f6fb2;
   stroke: #ffffff;
 }
 
-.income-impact-compression-marker text {
+.income-impact-comparison-marker text {
   fill: #1f3551;
   font-size: 0.68rem;
   font-weight: 760;

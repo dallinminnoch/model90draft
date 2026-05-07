@@ -130,7 +130,7 @@ assert.match(displaySource, /data-income-impact-graph-svg/);
 assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
 assert.match(displaySource, /buildSmoothedSvgPath/);
 assert.match(displaySource, /clampNumber/);
-assert.match(displaySource, /shouldRenderCompressionMarkerLabel/);
+assert.match(displaySource, /shouldRenderComparisonMarkerLabel/);
 assert.doesNotMatch(displaySource, /fakeOffset|visualOffset|artificialVisualOffset/);
 assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline|evaluateIncomeImpactWarningEvents|scenarioTimeline|renderFinancialRunwayChart|buildRunwayChartModel/);
 assert.doesNotMatch(displaySource, /data-income-impact-runway-svg|data-income-impact-runway-line|data-income-impact-runway-point/);
@@ -142,9 +142,9 @@ assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
-assert.match(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
+assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
-assert.match(componentsSource, /\.income-impact-compression-markers/);
+assert.match(componentsSource, /\.income-impact-comparison-markers/);
 assert.match(
   componentsSource,
   /\.income-impact-graph-path[\s\S]*stroke-width:\s*2;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
@@ -152,7 +152,7 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-path--compression-post-death-resources[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.65;/,
+  /\.income-impact-graph-path--lifestyle-post-death-resources[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.65;/,
   "Lifestyle comparison path should use a thinner, cleaner dash."
 );
 assert.match(
@@ -204,9 +204,9 @@ assert.match(timelineHtml, /data-income-impact-graph-svg/);
 assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"|data-income-impact-graph-path="compression-post-death-resources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-compression-markers/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-comparison-markers|data-income-impact-compression-markers/);
 assert.match(timelineHtml, /data-income-impact-graph-zero-baseline/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="risk"/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="stable"/);
@@ -221,8 +221,8 @@ const comparisonGraphModel = makeGraphModel();
 comparisonGraphModel.series.comparisonPostDeathResources = [
   {
     scenarioId: "income-impact-lifestyle-adjusted-comparison",
-    kind: "compression",
-    pathId: "compression-post-death-resources",
+    kind: "lifestyleComparison",
+    pathId: "lifestyle-post-death-resources",
     label: "Lifestyle-adjusted projection",
     points: [
       { date: "2032-04-29", value: 680000, xRatio: 0.33, yRatio: 0.1 },
@@ -233,31 +233,31 @@ comparisonGraphModel.series.comparisonPostDeathResources = [
 ];
 comparisonGraphModel.comparisonMarkers = [
   {
-    id: "income-impact-expense-compression-alternate-compression-action",
-    scenarioId: "income-impact-expense-compression-alternate",
-    kind: "compression",
-    markerType: "compressionAction",
-    label: "Expense compression",
-    summary: "Expense reductions applied in the alternate scenario.",
+    id: "income-impact-lifestyle-adjusted-comparison-action",
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "comparison",
+    markerType: "comparisonAction",
+    label: "Lifestyle adjustment",
+    summary: "Lifestyle adjustment represented in the comparison scenario.",
     positionable: true,
     xRatio: 0.33,
     yRatio: 0.1
   },
   {
-    id: "income-impact-expense-compression-alternate-pause-action",
-    scenarioId: "income-impact-expense-compression-alternate",
-    kind: "compression",
-    markerType: "pauseAction",
-    label: "Contributions paused",
-    summary: "Contribution pauses applied in the alternate scenario.",
+    id: "income-impact-lifestyle-adjusted-comparison-pause",
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "comparison",
+    markerType: "comparisonPause",
+    label: "Lifestyle pause",
+    summary: "Lifestyle pause represented in the comparison scenario.",
     positionable: true,
     xRatio: 0.33,
     yRatio: 0.1
   },
   {
     id: "income-impact-expense-compression-alternate-base-depletion",
-    scenarioId: "income-impact-expense-compression-alternate",
-    kind: "compression",
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "comparison",
     markerType: "baseDepletion",
     label: "Base depletion",
     summary: "Base projection depletion point.",
@@ -266,23 +266,23 @@ comparisonGraphModel.comparisonMarkers = [
     yRatio: 0.68
   },
   {
-    id: "income-impact-expense-compression-alternate-compressed-depletion",
-    scenarioId: "income-impact-expense-compression-alternate",
-    kind: "compression",
-    markerType: "compressionDepletion",
-    label: "Compressed depletion",
-    summary: "Compression comparison depletion point.",
+    id: "income-impact-lifestyle-adjusted-comparison-lifestyle-depletion",
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "comparison",
+    markerType: "lifestyleDepletion",
+    label: "Lifestyle depletion",
+    summary: "Lifestyle comparison depletion point.",
     positionable: true,
     xRatio: 0.96,
     yRatio: 0.68
   },
   {
-    id: "income-impact-expense-compression-alternate-shortfall-remains",
-    scenarioId: "income-impact-expense-compression-alternate",
-    kind: "compression",
+    id: "income-impact-lifestyle-adjusted-comparison-shortfall-remains",
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "comparison",
     markerType: "shortfallRemains",
     label: "Shortfall remains",
-    summary: "Compression comparison still shows remaining shortfall.",
+    summary: "Lifestyle comparison still shows remaining shortfall.",
     positionable: true,
     xRatio: 0.96,
     yRatio: 0.68
@@ -294,41 +294,42 @@ const comparisonTimelineHtml = harness.renderTimeline({
 });
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"[^>]*data-income-impact-graph-path-mode="smooth"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"[^>]*data-income-impact-graph-path-mode="smooth"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
 assert.match(comparisonTimelineHtml, /Base projection/);
 assert.match(comparisonTimelineHtml, /Lifestyle-adjusted projection/);
 assert.match(comparisonTimelineHtml, /Comparison only - base projection unchanged\./);
 assert.doesNotMatch(comparisonTimelineHtml, /staged-compression-post-death-resources|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path="staged-compression"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-compression-markers/);
-assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="compressionAction"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="pauseAction"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="baseDepletion"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="compressionDepletion"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="shortfallRemains"/);
-assert.match(comparisonTimelineHtml, /Expense compression/);
-assert.match(comparisonTimelineHtml, /Contributions paused/);
+assert.doesNotMatch(comparisonTimelineHtml, /compression-post-death-resources|data-income-impact-compression-markers|data-income-impact-compression-marker/);
+assert.match(comparisonTimelineHtml, /data-income-impact-comparison-markers/);
+assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="comparisonAction"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="comparisonPause"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="baseDepletion"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="lifestyleDepletion"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="shortfallRemains"/);
+assert.match(comparisonTimelineHtml, /Lifestyle adjustment/);
+assert.match(comparisonTimelineHtml, /Lifestyle pause/);
 assert.match(comparisonTimelineHtml, /Base depletion/);
-assert.match(comparisonTimelineHtml, /Compressed depletion/);
+assert.match(comparisonTimelineHtml, /Lifestyle depletion/);
 assert.match(comparisonTimelineHtml, /Shortfall remains/);
 const repeatedComparisonTimelineHtml = harness.renderTimeline({
   ...fixture,
   graphModel: comparisonGraphModel
 });
-const immediatePath = getPathD(comparisonTimelineHtml, "data-income-impact-graph-path", "compression-post-death-resources");
-const repeatedImmediatePath = getPathD(repeatedComparisonTimelineHtml, "data-income-impact-graph-path", "compression-post-death-resources");
+const immediatePath = getPathD(comparisonTimelineHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
+const repeatedImmediatePath = getPathD(repeatedComparisonTimelineHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
 assert.match(immediatePath, /^M[^"]*\sC\s/, "Lifestyle comparison path should render with deterministic cubic smoothing.");
 assert.equal(immediatePath, repeatedImmediatePath, "Smoothed comparison path output should be deterministic.");
 assert.equal(
   (comparisonTimelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
   (timelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
-  "Compression comparison markers should not be rendered as existing risk/stable graph markers."
+  "Lifestyle comparison markers should not be rendered as existing risk/stable graph markers."
 );
 assert.equal(
-  (comparisonTimelineHtml.match(/data-income-impact-compression-marker(?:\s|>)/g) || []).length,
+  (comparisonTimelineHtml.match(/data-income-impact-comparison-marker(?:\s|>)/g) || []).length,
   5,
-  "Compression marker data should be preserved even when low-value early labels are suppressed."
+  "Comparison marker data should be preserved even when low-value early labels are suppressed."
 );
 
 const currentAgeHtml = harness.renderTimeline({

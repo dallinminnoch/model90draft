@@ -152,8 +152,8 @@ function makeHelperProvidedLifestyleComparison(input, monthlyDelta) {
   });
   return {
     scenarioId: "income-impact-lifestyle-adjusted-comparison",
-    kind: "compression",
-    pathId: "compression-post-death-resources",
+    kind: "lifestyleComparison",
+    pathId: "lifestyle-post-death-resources",
     label: "Lifestyle-adjusted projection",
     status: "complete",
     reductionsApplied: [],
@@ -468,6 +468,7 @@ assert.match(displaySource, /Lifestyle-adjusted projection/);
 assert.match(displaySource, /compressionReport:\s*compressionPrep\?\.compressionReport/);
 assert.match(displaySource, /compressionScenarioResult/);
 assert.doesNotMatch(displaySource, /calculateIncomeImpactStagedCompressionScenario|compressionStagePolicyRules|staged-compression-post-death-resources|data-income-impact-detail-path="staged-compression"/);
+assert.doesNotMatch(displaySource, /compression-post-death-resources|data-income-impact-compression-marker|compressionAction|compressionDepletion|Alternate scenario prepared|Alternate scenario blocked|active compression/);
 assert.doesNotMatch(
   displaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
@@ -475,7 +476,8 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /\.income-impact-compression-panel/);
 assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle/);
-assert.match(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
+assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
 
 const scenario = makeScenario();
 const riskEvaluation = makeRiskEvaluation();
@@ -595,8 +597,8 @@ assert.equal(capturedLifestyleInput.basePostDeathSeries, scenario.postDeathSerie
 assert.equal(capturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should continue receiving the existing immediate compression scenario result");
 assert.equal(capturedGraphInput.comparisonScenarios.length, 1, "graph should receive one lifestyle-adjusted comparison scenario");
 assert.equal(capturedGraphInput.comparisonScenarios[0].scenarioId, "income-impact-lifestyle-adjusted-comparison");
-assert.equal(capturedGraphInput.comparisonScenarios[0].kind, "compression");
-assert.equal(capturedGraphInput.comparisonScenarios[0].pathId, "compression-post-death-resources");
+assert.equal(capturedGraphInput.comparisonScenarios[0].kind, "lifestyleComparison");
+assert.equal(capturedGraphInput.comparisonScenarios[0].pathId, "lifestyle-post-death-resources");
 assert.equal(capturedGraphInput.comparisonScenarios[0].label, "Lifestyle-adjusted projection");
 assert.equal(capturedGraphInput.comparisonScenarios[0].trace.helperProvidedComparisonFixture, true, "display should consume helper-provided comparison series");
 assert.deepEqual(
@@ -614,17 +616,19 @@ assert.equal(result.compressionReporting.trace.lifestyleSliderValue, 0);
 assert.equal(result.compressionReporting.trace.timelineMarkersCreated, false);
 
 const currentHtml = harness.renderTimeline(result);
-assert.match(currentHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.match(currentHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
 assert.match(currentHtml, /Lifestyle-adjusted projection/);
 assert.match(currentHtml, /Comparison only - base projection unchanged\./);
 assert.doesNotMatch(currentHtml, /staged-compression-post-death-resources|Staged compression|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path=/);
-assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker-type="compressionAction"|data-income-impact-compression-marker-type="pauseAction"/);
+assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker|data-income-impact-comparison-marker-type="comparisonAction"|data-income-impact-comparison-marker-type="comparisonPause"/);
 
 const panelHtml = harness.renderCompressionReportingPanel(result);
 assert.match(panelHtml, /data-income-impact-compression-panel/);
 assert.match(panelHtml, /Expense Compression Readiness/);
 assert.match(panelHtml, /Reporting only - not applied to the projection\./);
 assert.match(panelHtml, /Lifestyle comparison: Current/);
+assert.doesNotMatch(panelHtml, /Alternate scenario prepared|Alternate scenario blocked|active compression/);
 assert.match(panelHtml, /First reductions to review/);
 assert.match(panelHtml, /Dining Out/);
 assert.match(panelHtml, /Groceries/);
@@ -733,8 +737,8 @@ assert.deepEqual(
 );
 const cachedConservativeHtml = harness.renderTimeline(cachedConservativeResult);
 assert.equal((cachedConservativeHtml.match(/data-income-impact-graph-path="postDeathResources"/g) || []).length, 1);
-assert.equal((cachedConservativeHtml.match(/data-income-impact-graph-path="compression-post-death-resources"/g) || []).length, 1);
-assert.doesNotMatch(cachedConservativeHtml, /staged-compression-post-death-resources|data-income-impact-compression-marker-type="stage/);
+assert.equal((cachedConservativeHtml.match(/data-income-impact-graph-path="lifestyle-post-death-resources"/g) || []).length, 1);
+assert.doesNotMatch(cachedConservativeHtml, /compression-post-death-resources|staged-compression-post-death-resources|data-income-impact-compression-marker|data-income-impact-comparison-marker-type="stage/);
 const originalCacheKey = harness.getBaseRenderCacheKey(cachedState);
 cachedState.scenarioState.projectionHorizonYears = 55;
 assert.notEqual(

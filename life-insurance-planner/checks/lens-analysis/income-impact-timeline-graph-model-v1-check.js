@@ -249,13 +249,13 @@ assert.equal(
   false,
   "Comparison series should not be emitted without explicit comparisonScenarios input."
 );
-assert.deepEqual(cloneJson(fiveYearModel.comparisonMarkers), [], "Comparison markers should be empty without a complete compression comparison scenario.");
+assert.deepEqual(cloneJson(fiveYearModel.comparisonMarkers), [], "Comparison markers should be empty without a complete lifestyle comparison scenario.");
 
 const comparisonScenario = {
-  scenarioId: "income-impact-expense-compression-alternate",
-  kind: "compression",
-  pathId: "compression-post-death-resources",
-  label: "Immediate compression",
+  scenarioId: "income-impact-lifestyle-adjusted-comparison",
+  kind: "lifestyleComparison",
+  pathId: "lifestyle-post-death-resources",
+  label: "Lifestyle-adjusted projection",
   reductionsApplied: [
     {
       typeKey: "diningOutRestaurants",
@@ -320,8 +320,8 @@ const comparisonModel = buildIncomeImpactTimelineGraphModel(comparisonInput);
 assert.deepEqual(comparisonInput, comparisonInputBefore, "Graph model should not mutate comparisonScenarios.");
 assert.equal(comparisonModel.series.comparisonPostDeathResources.length, 1);
 assert.equal(comparisonModel.series.comparisonPostDeathResources[0].scenarioId, comparisonScenario.scenarioId);
-assert.equal(comparisonModel.series.comparisonPostDeathResources[0].kind, "compression");
-assert.equal(comparisonModel.series.comparisonPostDeathResources[0].pathId, "compression-post-death-resources");
+assert.equal(comparisonModel.series.comparisonPostDeathResources[0].kind, "lifestyleComparison");
+assert.equal(comparisonModel.series.comparisonPostDeathResources[0].pathId, "lifestyle-post-death-resources");
 assert.deepEqual(
   cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
   cloneJson(comparisonScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
@@ -333,25 +333,25 @@ assert.deepEqual(
   "Base postDeathResources source values should remain unchanged with comparison input."
 );
 assert.equal(comparisonModel.markers.length, fiveYearModel.markers.length, "Comparison input should not create graph markers.");
-assert.equal(comparisonModel.markers.some(function (marker) { return marker.kind === "compression"; }), false, "Compression markers must stay out of existing risk/stable markers.");
-assert.equal(comparisonModel.comparisonMarkers.length, 5, "Complete compression comparison scenario should emit separate comparison markers.");
+assert.equal(comparisonModel.markers.some(function (marker) { return marker.kind === "comparison"; }), false, "Comparison markers must stay out of existing risk/stable markers.");
+assert.equal(comparisonModel.comparisonMarkers.length, 5, "Complete lifestyle comparison scenario should emit separate comparison markers.");
 assert.deepEqual(
   cloneJson(comparisonModel.comparisonMarkers.map(function (marker) { return marker.markerType; }).sort()),
   [
     "baseDepletion",
-    "compressionAction",
-    "compressionDepletion",
-    "pauseAction",
+    "comparisonAction",
+    "comparisonPause",
+    "lifestyleDepletion",
     "shortfallRemains"
   ],
-  "Comparison markers should cover action, pause, depletion, and remaining shortfall events."
+  "Comparison markers should cover action, pause, lifestyle depletion, and remaining shortfall events."
 );
 assert.equal(
-  comparisonModel.comparisonMarkers.filter(function (marker) { return marker.markerType === "baseDepletion" || marker.markerType === "compressionDepletion"; }).length,
+  comparisonModel.comparisonMarkers.filter(function (marker) { return marker.markerType === "baseDepletion" || marker.markerType === "lifestyleDepletion"; }).length,
   2,
-  "Base depletion and compressed depletion should remain separate markers."
+  "Base depletion and lifestyle depletion should remain separate markers."
 );
-assert.ok(comparisonModel.comparisonMarkers.every(function (marker) { return marker.positionable && marker.kind === "compression" && marker.lane === "comparison"; }));
+assert.ok(comparisonModel.comparisonMarkers.every(function (marker) { return marker.positionable && marker.kind === "comparison" && marker.lane === "comparison"; }));
 assert.ok(comparisonModel.comparisonMarkers.every(function (marker) { return marker.xRatio != null && marker.yRatio != null; }));
 assert.equal(comparisonModel.trace.comparisonScenariosEnabled, true);
 assert.equal(comparisonModel.trace.comparisonScenarioCount, 1);
@@ -361,6 +361,8 @@ assert.equal(comparisonModel.trace.comparisonMarkerCount, 5);
 
 const neutralLifestyleComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {
   scenarioId: "income-impact-lifestyle-adjusted-comparison",
+  kind: "lifestyleComparison",
+  pathId: "lifestyle-post-death-resources",
   label: "Lifestyle-adjusted projection",
   reductionsApplied: [],
   pausesApplied: [],
@@ -382,6 +384,8 @@ assert.deepEqual(
 
 const adjustedLifestyleComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {
   scenarioId: "income-impact-lifestyle-adjusted-comparison",
+  kind: "lifestyleComparison",
+  pathId: "lifestyle-post-death-resources",
   label: "Lifestyle-adjusted projection",
   reductionsApplied: [],
   pausesApplied: [],
@@ -396,7 +400,7 @@ const adjustedLifestyleModel = buildIncomeImpactTimelineGraphModel(Object.assign
 }));
 assert.ok(
   adjustedLifestyleModel.comparisonMarkers.some(function (marker) {
-    return marker.markerType === "compressionDepletion" && marker.label === "Lifestyle depletion";
+    return marker.markerType === "lifestyleDepletion" && marker.label === "Lifestyle depletion";
   }),
   "Adjusted lifestyle comparison depletion marker should use lifestyle wording."
 );
@@ -406,8 +410,8 @@ const multiComparisonInput = Object.assign({}, cloneJson(fiveYearInput), {
     cloneJson(comparisonScenario),
     {
       scenarioId: "ignored-extra-comparison",
-      kind: "compression",
-      pathId: "compression-post-death-resources",
+      kind: "lifestyleComparison",
+      pathId: "lifestyle-post-death-resources",
       label: "Ignored extra comparison",
       postDeathSeries: {
         points: [
@@ -432,8 +436,8 @@ assert.deepEqual(multiComparisonInput, multiComparisonInputBefore, "Graph model 
 assert.equal(multiComparisonModel.series.comparisonPostDeathResources.length, 1, "Graph model should keep one visible comparison path.");
 assert.deepEqual(
   cloneJson(multiComparisonModel.series.comparisonPostDeathResources.map(function (series) { return series.pathId; })),
-  ["compression-post-death-resources"],
-  "Graph model should normalize the visible comparison path id."
+  ["lifestyle-post-death-resources"],
+  "Graph model should normalize the visible comparison path id to lifestyle."
 );
 assert.deepEqual(
   cloneJson(multiComparisonModel.series.comparisonPostDeathResources.map(function (series) { return series.pathMode; })),
@@ -462,11 +466,30 @@ assert.equal(
   "Early detail strip should not be created for the single lifestyle comparison path."
 );
 
+const legacyCompressionComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
+  comparisonScenarios: [
+    Object.assign({}, cloneJson(comparisonScenario), {
+      scenarioId: "income-impact-expense-compression-alternate",
+      kind: "compression",
+      pathId: "compression-post-death-resources",
+      trace: {
+        calculationMethod: "income-impact-compression-scenario-v1"
+      }
+    })
+  ]
+}));
+assert.equal(
+  Object.prototype.hasOwnProperty.call(legacyCompressionComparisonModel.series, "comparisonPostDeathResources"),
+  false,
+  "Legacy compression scenarios should not emit the visible lifestyle comparison path."
+);
+assert.deepEqual(cloneJson(legacyCompressionComparisonModel.comparisonMarkers), [], "Legacy compression scenarios should not emit visible comparison markers.");
+
 const invalidComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
   comparisonScenarios: [
     {
       scenarioId: "blocked-or-incomplete",
-      kind: "compression",
+      kind: "lifestyleComparison",
       postDeathSeries: {
         points: [
           {

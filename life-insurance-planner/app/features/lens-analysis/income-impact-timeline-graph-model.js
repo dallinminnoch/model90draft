@@ -5,6 +5,8 @@
   const CALCULATION_METHOD = "income-impact-timeline-graph-model-v1";
   const DEFAULT_CURRENT_AGE_MODE = "death-event-only";
   const COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS = 24;
+  const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
+  const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -179,14 +181,16 @@
 
   function buildComparisonSeries(comparisonScenarios) {
     return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
-      .filter(isPlainObject)
-      .slice(0, 1)
       .map(function (comparisonScenario, index) {
-        const kind = String(comparisonScenario.kind || "comparison").trim();
+        if (!isPlainObject(comparisonScenario) || !isLifestyleComparisonScenario(comparisonScenario)) {
+          return null;
+        }
+
+        const kind = normalizeComparisonKind(comparisonScenario);
         const pathId = normalizeComparisonPathId(
           comparisonScenario.pathId
           || comparisonScenario.graphPathId
-          || "compression-post-death-resources"
+          || LIFESTYLE_COMPARISON_PATH_ID
         );
         const postDeathSeries = isPlainObject(comparisonScenario.postDeathSeries)
           ? comparisonScenario.postDeathSeries
@@ -212,11 +216,18 @@
           trace: isPlainObject(comparisonScenario.trace) ? clonePlainValue(comparisonScenario.trace) : {}
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .slice(0, 1);
   }
 
   function normalizeComparisonPathId(pathId) {
-    return "compression-post-death-resources";
+    return LIFESTYLE_COMPARISON_PATH_ID;
+  }
+
+  function normalizeComparisonKind(comparisonScenario) {
+    return isLifestyleComparisonScenario(comparisonScenario)
+      ? LIFESTYLE_COMPARISON_KIND
+      : String(comparisonScenario?.kind || "comparison").trim();
   }
 
   function getComparisonPathMode(comparisonScenario, kind, pathId) {
@@ -224,20 +235,22 @@
     return "smooth";
   }
 
-  function isCompleteCompressionComparison(comparisonScenario, comparisonSeries) {
+  function isCompleteGraphComparison(comparisonScenario, comparisonSeries) {
     const status = String(comparisonScenario?.status || "").trim();
-    const kind = String(comparisonScenario?.kind || comparisonSeries?.kind || "").trim();
+    const kind = String(comparisonSeries?.kind || comparisonScenario?.kind || "").trim();
     if (status && status !== "complete") {
       return false;
     }
-    return kind === "compression"
+    return kind === LIFESTYLE_COMPARISON_KIND
       && isPlainObject(comparisonSeries)
       && Array.isArray(comparisonSeries.points)
       && comparisonSeries.points.length >= 2;
   }
 
   function isLifestyleComparisonScenario(comparisonScenario) {
-    return String(comparisonScenario?.scenarioId || "").trim() === "income-impact-lifestyle-adjusted-comparison"
+    return String(comparisonScenario?.kind || "").trim() === LIFESTYLE_COMPARISON_KIND
+      || String(comparisonScenario?.scenarioId || "").trim() === "income-impact-lifestyle-adjusted-comparison"
+      || String(comparisonScenario?.pathId || comparisonScenario?.graphPathId || "").trim() === LIFESTYLE_COMPARISON_PATH_ID
       || String(comparisonScenario?.trace?.calculationMethod || "").trim() === "income-impact-lifestyle-comparison-adapter-v1";
   }
 
@@ -274,7 +287,7 @@
     };
   }
 
-  function getCompressionEarlyDetailSeries() {
+  function getComparisonEarlyDetailSeries() {
     return null;
   }
 
@@ -282,7 +295,7 @@
     return {
       id: String(input.id || `${input.scenarioId}-${input.markerType}`),
       scenarioId: String(input.scenarioId || ""),
-      kind: "compression",
+      kind: "comparison",
       markerType: String(input.markerType || ""),
       label: String(input.label || ""),
       summary: String(input.summary || ""),
@@ -360,13 +373,13 @@
         const series = comparisonSeries.find(function (candidate) {
           return candidate.sourceIndex === index;
         });
-        if (!isCompleteCompressionComparison(comparisonScenario, series)) {
+        if (!isCompleteGraphComparison(comparisonScenario, series)) {
           return markers;
         }
 
         const scenarioId = series.scenarioId;
         const firstPoint = series.points[0];
-        const pathTarget = series.pathId || "compression-post-death-resources";
+        const pathTarget = series.pathId || LIFESTYLE_COMPARISON_PATH_ID;
         const reductionsApplied = Array.isArray(comparisonScenario.reductionsApplied)
           ? comparisonScenario.reductionsApplied
           : [];
@@ -376,7 +389,7 @@
         const rawPostDeathSeries = isPlainObject(comparisonScenario.postDeathSeries)
           ? comparisonScenario.postDeathSeries
           : {};
-        const compressionDepletion = getDepletionInfo(
+        const comparisonDepletion = getDepletionInfo(
           series.points,
           comparisonScenario.depletion || rawPostDeathSeries.depletion
         );
@@ -388,7 +401,6 @@
           comparisonScenario.accumulatedUnmetNeed ?? rawPostDeathSeries.summary?.accumulatedUnmetNeed
         );
         const lastPoint = series.points.at(-1);
-        const lifestyleComparison = isLifestyleComparisonScenario(comparisonScenario);
 
         if (isNeutralLifestyleComparison(comparisonScenario)) {
           return markers;
@@ -396,38 +408,38 @@
 
         if (reductionsApplied.length && firstPoint) {
           markers.push(makeComparisonMarker({
-            id: `${scenarioId}-compression-action`,
+            id: `${scenarioId}-comparison-action`,
             scenarioId,
-            markerType: "compressionAction",
-            label: "Expense compression",
-            summary: `${reductionsApplied.length} expense reduction${reductionsApplied.length === 1 ? "" : "s"} applied in the alternate scenario.`,
+            markerType: "comparisonAction",
+            label: "Lifestyle adjustment",
+            summary: `${reductionsApplied.length} comparison adjustment${reductionsApplied.length === 1 ? "" : "s"} represented in the lifestyle scenario.`,
             date: firstPoint.date,
             monthIndex: firstPoint.monthIndex,
             value: firstPoint.value,
             pathTarget,
-            sourcePaths: [].concat(firstPoint.sourcePaths || [], ["compressionScenarios.reductionsApplied"]),
+            sourcePaths: [].concat(firstPoint.sourcePaths || [], ["comparisonScenarios.reductionsApplied"]),
             trace: {
               appliedActionCount: reductionsApplied.length,
-              timingPolicy: "first-post-death-compression-point"
+              timingPolicy: "first-post-death-comparison-point"
             }
           }));
         }
 
         if (pausesApplied.length && firstPoint) {
           markers.push(makeComparisonMarker({
-            id: `${scenarioId}-pause-action`,
+            id: `${scenarioId}-comparison-pause`,
             scenarioId,
-            markerType: "pauseAction",
-            label: "Contributions paused",
-            summary: `${pausesApplied.length} contribution pause${pausesApplied.length === 1 ? "" : "s"} applied in the alternate scenario.`,
+            markerType: "comparisonPause",
+            label: "Lifestyle pause",
+            summary: `${pausesApplied.length} comparison pause${pausesApplied.length === 1 ? "" : "s"} represented in the lifestyle scenario.`,
             date: firstPoint.date,
             monthIndex: firstPoint.monthIndex,
             value: firstPoint.value,
             pathTarget,
-            sourcePaths: [].concat(firstPoint.sourcePaths || [], ["compressionScenarios.pausesApplied"]),
+            sourcePaths: [].concat(firstPoint.sourcePaths || [], ["comparisonScenarios.pausesApplied"]),
             trace: {
               appliedActionCount: pausesApplied.length,
-              timingPolicy: "first-post-death-compression-point"
+              timingPolicy: "first-post-death-comparison-point"
             }
           }));
         }
@@ -450,43 +462,41 @@
           }));
         }
 
-        if (compressionDepletion) {
+        if (comparisonDepletion) {
           markers.push(makeComparisonMarker({
-            id: `${scenarioId}-compressed-depletion`,
+            id: `${scenarioId}-lifestyle-depletion`,
             scenarioId,
-            markerType: "compressionDepletion",
-            label: lifestyleComparison ? "Lifestyle depletion" : "Compressed depletion",
-            summary: lifestyleComparison ? "Lifestyle comparison depletion point." : "Compression comparison depletion point.",
-            date: compressionDepletion.date,
-            monthIndex: compressionDepletion.monthIndex,
-            value: compressionDepletion.value,
+            markerType: "lifestyleDepletion",
+            label: "Lifestyle depletion",
+            summary: "Lifestyle comparison depletion point.",
+            date: comparisonDepletion.date,
+            monthIndex: comparisonDepletion.monthIndex,
+            value: comparisonDepletion.value,
             pathTarget,
-            sourcePaths: [].concat(compressionDepletion.sourcePaths || [], ["compressionScenarios.depletion"]),
+            sourcePaths: [].concat(comparisonDepletion.sourcePaths || [], ["comparisonScenarios.depletion"]),
             trace: {
               baseScenarioMutated: false
             }
           }));
         }
 
-        if (compressionDepletion || (accumulatedUnmetNeed != null && accumulatedUnmetNeed > 0)) {
-          const shortfallPoint = compressionDepletion || lastPoint;
+        if (comparisonDepletion || (accumulatedUnmetNeed != null && accumulatedUnmetNeed > 0)) {
+          const shortfallPoint = comparisonDepletion || lastPoint;
           if (shortfallPoint) {
             markers.push(makeComparisonMarker({
               id: `${scenarioId}-shortfall-remains`,
               scenarioId,
               markerType: "shortfallRemains",
               label: "Shortfall remains",
-              summary: lifestyleComparison
-                ? "Lifestyle comparison still shows remaining shortfall."
-                : "Compression comparison still shows remaining shortfall.",
+              summary: "Lifestyle comparison still shows remaining shortfall.",
               date: shortfallPoint.date,
               monthIndex: shortfallPoint.monthIndex,
               value: shortfallPoint.value,
               pathTarget,
-              sourcePaths: [].concat(shortfallPoint.sourcePaths || [], ["compressionScenarios.accumulatedUnmetNeed"]),
+              sourcePaths: [].concat(shortfallPoint.sourcePaths || [], ["comparisonScenarios.accumulatedUnmetNeed"]),
               trace: {
                 accumulatedUnmetNeed,
-                compressedScenarioDepleted: Boolean(compressionDepletion)
+                comparisonScenarioDepleted: Boolean(comparisonDepletion)
               }
             }));
           }
@@ -960,7 +970,7 @@
       scenario,
       postDeathResources
     );
-    const comparisonEarlyDetail = getCompressionEarlyDetailSeries(comparisonPostDeathResources);
+    const comparisonEarlyDetail = getComparisonEarlyDetailSeries(comparisonPostDeathResources);
 
     const riskMarkers = buildMarkers(riskEvaluation.events, "risk", scenario, dates);
     const stableMarkers = buildMarkers(riskEvaluation.stableEvents, "stable", scenario, dates);
