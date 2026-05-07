@@ -31,6 +31,7 @@ const calculations = context.LensApp.lensAnalysis.incomeImpactLifestyleScenarioC
 assert.ok(policy, "lifestyle range policy should load");
 assert.ok(calculations, "lifestyle scenario calculations should load");
 assert.equal(typeof calculations.calculateIncomeImpactLifestyleScenario, "function", "helper export should exist");
+assert.equal(typeof calculations.calculateIncomeImpactLifestyleComparisonScenario, "function", "comparison helper export should exist");
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -144,6 +145,75 @@ function calculate(sliderValue, extraInput) {
     expenses: makeFixtureExpenses(),
     sliderValue
   }, extraInput || {}));
+}
+
+function makeBasePostDeathSeries(monthIndexes) {
+  const indexes = monthIndexes || [1, 2, 3];
+  return {
+    points: indexes.map((monthIndex, index) => ({
+      monthIndex,
+      date: `2031-${String(index + 6).padStart(2, "0")}-06`,
+      survivorNeeds: 4000,
+      essentialNeeds: 3000,
+      discretionaryNeeds: 1000,
+      netUse: 3500,
+      startingResources: 100000 - (index * 2000),
+      endingResources: 98000 - (index * 2000),
+      availableResources: 98000 - (index * 2000),
+      accumulatedUnmetNeed: 0,
+      sourcePaths: ["scenario.postDeathSeries.points"]
+    })),
+    summary: {
+      totalSurvivorNeeds: 12000,
+      totalNetUse: 10500,
+      accumulatedUnmetNeed: 0
+    },
+    depletion: {
+      depleted: false,
+      depletionDate: null,
+      monthsCovered: indexes[indexes.length - 1],
+      precision: "monthly"
+    }
+  };
+}
+
+function makeSafeScalarLifestyleExpenses() {
+  return [
+    {
+      id: "scalar-food",
+      expenseTypeKey: "groceries",
+      categoryKey: "foodGroceries",
+      label: "Scalar Groceries",
+      monthlyAmount: 1000,
+      sourceKey: "foodCost",
+      sourceOwnedBy: "ongoingSupport",
+      ownedByField: "monthlyFoodCost",
+      sourcePath: "protectionModeling.data.foodCost",
+      isGeneratedExpense: true,
+      isScalarHouseholdExpense: true,
+      isCompressionEligibleSource: true,
+      metadata: {
+        normalizedSourcePath: "lensModel.ongoingSupport.monthlyFoodCost"
+      }
+    },
+    {
+      id: "scalar-travel",
+      expenseTypeKey: "vacationsTravel",
+      categoryKey: "travelVacations",
+      label: "Scalar Travel",
+      monthlyAmount: 500,
+      sourceKey: "travelDiscretionaryCost",
+      sourceOwnedBy: "ongoingSupport",
+      ownedByField: "monthlyTravelAndDiscretionaryCost",
+      sourcePath: "protectionModeling.data.travelDiscretionaryCost",
+      isGeneratedExpense: true,
+      isScalarHouseholdExpense: true,
+      isCompressionEligibleSource: true,
+      metadata: {
+        normalizedSourcePath: "lensModel.ongoingSupport.monthlyTravelAndDiscretionaryCost"
+      }
+    }
+  ];
 }
 
 function byType(result, typeKey) {
@@ -276,6 +346,134 @@ assert.equal(byType(byOverrideResolver, "customLifestyle").adjustedMonthlyAmount
 const partialMissing = calculations.calculateIncomeImpactLifestyleScenario({ sliderValue: 0 });
 assert.equal(partialMissing.status, "partial", "missing expenses should return partial");
 assert.equal(partialMissing.dataGaps.some((gap) => gap.code === "missing-lifestyle-expenses"), true, "missing expense gap should be emitted");
+
+const basePostDeathSeries = makeBasePostDeathSeries();
+const safeCurrent = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeSafeScalarLifestyleExpenses(),
+  sliderValue: 0,
+  basePostDeathSeries
+});
+assert.equal(safeCurrent.status, "complete", "current lifestyle comparison with safe scalar facts should be complete");
+assert.ok(safeCurrent.comparisonScenario, "helper should return a graph comparison scenario when base series is provided");
+assert.deepEqual(
+  safeCurrent.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  basePostDeathSeries.points.map((point) => point.endingResources),
+  "slider 0 comparison series should exactly match baseline"
+);
+assert.equal(safeCurrent.comparisonScenario.trace.graphMonthlyDelta, 0);
+assert.equal(safeCurrent.comparisonScenario.trace.noOpComparison, true);
+
+const safeConservative = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeSafeScalarLifestyleExpenses(),
+  sliderValue: -100,
+  basePostDeathSeries
+});
+assert.equal(safeConservative.status, "complete", "safe scalar lifestyle deltas should reconcile to base survivor needs");
+assert.equal(safeConservative.monthlyDelta, -700, "safe scalar fixture should reduce monthly expense total");
+assert.equal(safeConservative.comparisonScenario.trace.graphMonthlyDelta, -700, "reconciled graph delta should match safe scalar monthly delta");
+assert.equal(
+  safeConservative.comparisonScenario.trace.baseNeedReconciliation.graphAdjustmentItemCount,
+  2,
+  "both safe scalar items should be graph-adjustment eligible"
+);
+assert.deepEqual(
+  safeConservative.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  [98700, 97400, 96100],
+  "conservative comparison should apply cumulative delta by explicit monthIndex"
+);
+assert.equal(
+  safeConservative.comparisonScenario.postDeathSeries.points[2].trace.elapsedMonthIndexUsed,
+  3,
+  "comparison trace should record explicit elapsed month index"
+);
+
+const sparseBasePostDeathSeries = makeBasePostDeathSeries([1, 3, 6]);
+const sparseResult = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeSafeScalarLifestyleExpenses(),
+  sliderValue: -100,
+  basePostDeathSeries: sparseBasePostDeathSeries
+});
+assert.deepEqual(
+  sparseResult.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  [98700, 98100, 98200],
+  "sparse/non-contiguous series should use explicit monthIndex, not array position"
+);
+assert.equal(
+  sparseResult.comparisonScenario.postDeathSeries.points[2].trace.cumulativeExpenseDeltaApplied,
+  -4200,
+  "month 6 should carry six months of reconciled monthly delta"
+);
+
+const unreconciled = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeFixtureExpenses(),
+  sliderValue: -100,
+  basePostDeathSeries
+});
+assert.equal(unreconciled.status, "partial", "unreconciled graph-moving expense facts should mark output partial");
+assert.ok(
+  unreconciled.dataGaps.some((gap) => gap.code === "unreconciled-lifestyle-expense-facts-excluded-from-graph"),
+  "unreconciled expense facts should create a data gap"
+);
+assert.equal(unreconciled.comparisonScenario.trace.graphMonthlyDelta, 0, "unreconciled deltas should not move graph");
+assert.deepEqual(
+  unreconciled.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  basePostDeathSeries.points.map((point) => point.endingResources),
+  "unreconciled deltas should produce a safe baseline/no-op comparison"
+);
+
+const allFixed = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeFixtureExpenses().filter((expense) => [
+    "rentOrMortgagePayment",
+    "autoLoanPayment",
+    "daycareChildcare",
+    "federalStateLocalIncomeTaxPayments",
+    "healthInsurancePremiums",
+    "copaysCoinsurance",
+    "charitableGiving"
+  ].includes(expense.expenseTypeKey)),
+  sliderValue: 100,
+  basePostDeathSeries
+});
+assert.equal(allFixed.status, "complete", "all fixed/review-only expenses should be a safe complete no-op");
+assert.equal(allFixed.monthlyDelta, 0);
+assert.equal(allFixed.comparisonScenario.trace.noOpComparison, true);
+assert.deepEqual(
+  allFixed.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  basePostDeathSeries.points.map((point) => point.endingResources),
+  "all fixed/review-only expenses should not move the graph"
+);
+
+const missingMonthIndexSeries = cloneJson(basePostDeathSeries);
+delete missingMonthIndexSeries.points[1].monthIndex;
+const missingMonthIndex = calculations.calculateIncomeImpactLifestyleScenario({
+  expenses: makeSafeScalarLifestyleExpenses(),
+  sliderValue: -100,
+  basePostDeathSeries: missingMonthIndexSeries
+});
+assert.equal(missingMonthIndex.status, "partial", "missing monthIndex should create a partial comparison");
+assert.ok(
+  missingMonthIndex.dataGaps.some((gap) => gap.code === "missing-post-death-month-index-for-lifestyle-comparison"),
+  "missing monthIndex should create a data gap"
+);
+assert.equal(missingMonthIndex.comparisonScenario.trace.graphMonthlyDelta, 0, "missing monthIndex should keep graph adjustment no-op");
+assert.deepEqual(
+  missingMonthIndex.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  basePostDeathSeries.points.map((point) => point.endingResources),
+  "missing monthIndex should not silently move graph"
+);
+
+const comparisonDirectInput = {
+  lifestyleScenario: cloneJson(safeConservative),
+  basePostDeathSeries
+};
+const directInputBefore = cloneJson(comparisonDirectInput);
+const directComparison = calculations.calculateIncomeImpactLifestyleComparisonScenario(comparisonDirectInput);
+assert.deepEqual(comparisonDirectInput, directInputBefore, "comparison helper should not mutate input");
+assert.deepEqual(
+  directComparison.postDeathSeries.points.map((point) => point.endingResources),
+  safeConservative.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  "direct comparison helper should match embedded comparison output"
+);
 
 assert.equal(baseline.trace.projectionSeriesApplied, false, "projection series should not be applied in this pass");
 assert.equal(baseline.trace.projectionSeriesDeferred, true, "projection series should be explicitly deferred");

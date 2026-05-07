@@ -136,6 +136,41 @@ function makeScenario() {
   };
 }
 
+function makeHelperProvidedLifestyleComparison(input, monthlyDelta) {
+  const basePostDeathSeries = input.basePostDeathSeries;
+  const points = basePostDeathSeries.points.map(function (point) {
+    const monthIndex = point.monthIndex;
+    const cumulativeDelta = monthlyDelta * monthIndex;
+    return Object.assign({}, point, {
+      endingResources: point.endingResources - cumulativeDelta,
+      startingResources: point.startingResources - (monthlyDelta * Math.max(0, monthIndex - 1)),
+      trace: Object.assign({}, point.trace || {}, {
+        helperProvidedComparisonFixture: true,
+        elapsedMonthIndexUsed: monthIndex
+      })
+    });
+  });
+  return {
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "compression",
+    pathId: "compression-post-death-resources",
+    label: "Lifestyle-adjusted projection",
+    status: "complete",
+    reductionsApplied: [],
+    pausesApplied: [],
+    postDeathSeries: {
+      points,
+      summary: Object.assign({}, basePostDeathSeries.summary),
+      depletion: Object.assign({}, basePostDeathSeries.depletion)
+    },
+    trace: {
+      calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
+      graphMonthlyDelta: monthlyDelta,
+      helperProvidedComparisonFixture: true
+    }
+  };
+}
+
 function makeRiskEvaluation() {
   return {
     status: "complete",
@@ -393,7 +428,9 @@ assert.equal(typeof harness.renderTimeline, "function", "display harness should 
 
 assert.match(pageSource, /data-income-impact-lifestyle-slider/);
 assert.match(displaySource, /calculateIncomeImpactLifestyleScenario/);
-assert.match(displaySource, /buildLifestyleComparisonScenario/);
+assert.match(displaySource, /basePostDeathSeries:\s*scenario\?\.postDeathSeries/);
+assert.match(displaySource, /lifestyleScenario\?\.comparisonScenario/);
+assert.doesNotMatch(displaySource, /buildLifestyleComparisonScenario|buildLifestyleAdjustedPostDeathSeries|recalculateLifestyleDepletion/);
 assert.match(displaySource, /Lifestyle-adjusted projection/);
 assert.match(displaySource, /compressionReport:\s*compressionPrep\?\.compressionReport/);
 assert.match(displaySource, /compressionScenarioResult/);
@@ -489,6 +526,7 @@ const result = harness.buildIncomeImpactResultFromState({
   calculateIncomeImpactLifestyleScenario(input) {
     lifestyleScenarioCallCount += 1;
     capturedLifestyleInput = input;
+    const comparisonScenario = makeHelperProvidedLifestyleComparison(input, 0);
     return {
       status: "complete",
       sliderValue: input.sliderValue,
@@ -496,6 +534,7 @@ const result = harness.buildIncomeImpactResultFromState({
       totalAdjustedMonthlyExpenses: 1400,
       monthlyDelta: 0,
       adjustedExpenses: [],
+      comparisonScenario,
       warnings: [],
       dataGaps: [],
       trace: {
@@ -519,12 +558,14 @@ assert.equal(layer5CallCount, 1, "display should pass compression output into La
 assert.equal(graphCallCount, 1, "display should build graph once");
 assert.equal(capturedLifestyleInput.expenseFacts.expenses.length, 2, "lifestyle helper should receive explicit expense facts");
 assert.equal(capturedLifestyleInput.sliderValue, 0, "default slider value should be current/baseline");
+assert.equal(capturedLifestyleInput.basePostDeathSeries, scenario.postDeathSeries, "display should pass base post-death series into the lifestyle helper");
 assert.equal(capturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should continue receiving the existing immediate compression scenario result");
 assert.equal(capturedGraphInput.comparisonScenarios.length, 1, "graph should receive one lifestyle-adjusted comparison scenario");
 assert.equal(capturedGraphInput.comparisonScenarios[0].scenarioId, "income-impact-lifestyle-adjusted-comparison");
 assert.equal(capturedGraphInput.comparisonScenarios[0].kind, "compression");
 assert.equal(capturedGraphInput.comparisonScenarios[0].pathId, "compression-post-death-resources");
 assert.equal(capturedGraphInput.comparisonScenarios[0].label, "Lifestyle-adjusted projection");
+assert.equal(capturedGraphInput.comparisonScenarios[0].trace.helperProvidedComparisonFixture, true, "display should consume helper-provided comparison series");
 assert.deepEqual(
   capturedGraphInput.comparisonScenarios[0].postDeathSeries.points.map(function (point) { return point.endingResources; }),
   scenario.postDeathSeries.points.map(function (point) { return point.endingResources; }),
@@ -599,6 +640,7 @@ function runLifestyleSlider(sliderValue, monthlyDelta) {
       return createCompressionScenarioResult(input);
     },
     calculateIncomeImpactLifestyleScenario(input) {
+      const comparisonScenario = makeHelperProvidedLifestyleComparison(input, monthlyDelta);
       return {
         status: "complete",
         sliderValue: input.sliderValue,
@@ -606,6 +648,7 @@ function runLifestyleSlider(sliderValue, monthlyDelta) {
         totalAdjustedMonthlyExpenses: 1000 + monthlyDelta,
         monthlyDelta,
         adjustedExpenses: [],
+        comparisonScenario,
         warnings: [],
         dataGaps: [],
         trace: { calculationMethod: "income-impact-lifestyle-scenario-v1" }

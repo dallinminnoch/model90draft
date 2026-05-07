@@ -61,25 +61,6 @@
     return Number.isFinite(number) ? number : null;
   }
 
-  function roundMoney(value) {
-    return Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : 0;
-  }
-
-  function clonePlainValue(value) {
-    if (Array.isArray(value)) {
-      return value.map(clonePlainValue);
-    }
-
-    if (isPlainObject(value)) {
-      return Object.keys(value).reduce(function (next, key) {
-        next[key] = clonePlainValue(value[key]);
-        return next;
-      }, {});
-    }
-
-    return value;
-  }
-
   function normalizeString(value) {
     return String(value == null ? "" : value).trim();
   }
@@ -1877,125 +1858,6 @@
     ];
   }
 
-  function recalculateLifestyleDepletion(points, fallbackDate) {
-    const depletedPoint = (Array.isArray(points) ? points : []).find(function (point) {
-      const endingResources = toOptionalNumber(point?.endingResources);
-      return endingResources != null && endingResources <= 0;
-    });
-    if (!depletedPoint) {
-      return {
-        depleted: false,
-        depletionDate: null,
-        depletionMonthIndex: null,
-        monthsCovered: Array.isArray(points) ? points.length : 0,
-        precision: "monthly"
-      };
-    }
-    return {
-      depleted: true,
-      depletionDate: depletedPoint.date || fallbackDate || null,
-      depletionMonthIndex: toOptionalNumber(depletedPoint.monthIndex),
-      monthsCovered: toOptionalNumber(depletedPoint.monthIndex),
-      precision: "monthly"
-    };
-  }
-
-  function summarizeLifestylePostDeathPoints(points, baseSummary) {
-    const totals = (Array.isArray(points) ? points : []).reduce(function (next, point) {
-      next.totalSurvivorNeeds = roundMoney(next.totalSurvivorNeeds + (toOptionalNumber(point?.survivorNeeds) || 0));
-      next.totalNetUse = roundMoney(next.totalNetUse + (toOptionalNumber(point?.netUse) || 0));
-      return next;
-    }, {
-      totalSurvivorNeeds: 0,
-      totalNetUse: 0
-    });
-    const lastPoint = Array.isArray(points) ? points[points.length - 1] || {} : {};
-    return Object.assign({}, clonePlainValue(baseSummary || {}), totals, {
-      endingResources: toOptionalNumber(lastPoint.endingResources),
-      accumulatedUnmetNeed: toOptionalNumber(lastPoint.accumulatedUnmetNeed)
-    });
-  }
-
-  function buildLifestyleAdjustedPostDeathSeries(basePostDeathSeries, lifestyleScenario) {
-    const basePoints = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
-    const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta) || 0;
-    let cumulativeExpenseDelta = 0;
-    const points = basePoints.map(function (basePoint) {
-      const point = clonePlainValue(basePoint);
-      const baseSurvivorNeeds = toOptionalNumber(basePoint.survivorNeeds);
-      const baseDiscretionaryNeeds = toOptionalNumber(basePoint.discretionaryNeeds);
-      const baseNetUse = toOptionalNumber(basePoint.netUse);
-      const baseStartingResources = toOptionalNumber(basePoint.startingResources);
-      const baseEndingResources = toOptionalNumber(basePoint.endingResources);
-      const baseAvailableResources = toOptionalNumber(basePoint.availableResources);
-      cumulativeExpenseDelta = roundMoney(cumulativeExpenseDelta + monthlyDelta);
-      const endingResources = baseEndingResources == null ? null : roundMoney(baseEndingResources - cumulativeExpenseDelta);
-      const availableResources = endingResources == null
-        ? (baseAvailableResources == null ? null : roundMoney(baseAvailableResources - cumulativeExpenseDelta))
-        : roundMoney(Math.max(0, endingResources));
-      const accumulatedUnmetNeed = endingResources == null ? null : roundMoney(Math.max(0, -endingResources));
-      const survivorNeeds = baseSurvivorNeeds == null ? point.survivorNeeds : roundMoney(Math.max(0, baseSurvivorNeeds + monthlyDelta));
-      const discretionaryNeeds = baseDiscretionaryNeeds == null ? point.discretionaryNeeds : roundMoney(Math.max(0, baseDiscretionaryNeeds + monthlyDelta));
-      const netUse = baseNetUse == null ? point.netUse : roundMoney(Math.max(0, baseNetUse + monthlyDelta));
-
-      return Object.assign({}, point, {
-        startingResources: baseStartingResources == null
-          ? point.startingResources
-          : roundMoney(baseStartingResources - cumulativeExpenseDelta + monthlyDelta),
-        discretionaryNeeds,
-        survivorNeeds,
-        netUse,
-        endingResources,
-        availableResources,
-        accumulatedUnmetNeed,
-        status: endingResources != null && endingResources <= 0 ? "depleted" : "available",
-        trace: Object.assign({}, isPlainObject(point.trace) ? point.trace : {}, {
-          lifestyleScenarioApplied: true,
-          baseScenarioPointMutated: false,
-          lifestyleSliderValue: lifestyleScenario?.sliderValue ?? 0,
-          monthlyExpenseDeltaApplied: monthlyDelta,
-          cumulativeExpenseDeltaApplied: cumulativeExpenseDelta
-        }),
-        sourcePaths: Array.from(new Set([].concat(point.sourcePaths || [], ["lifestyleScenario.adjustedExpenses"])))
-      });
-    });
-    const depletion = recalculateLifestyleDepletion(points, basePostDeathSeries?.depletion?.depletionDate);
-    return {
-      points,
-      summary: summarizeLifestylePostDeathPoints(points, basePostDeathSeries?.summary),
-      depletion
-    };
-  }
-
-  function buildLifestyleComparisonScenario(scenario, lifestyleScenario) {
-    const basePostDeathSeries = isPlainObject(scenario?.postDeathSeries) ? scenario.postDeathSeries : {};
-    if (!isPlainObject(lifestyleScenario) || !Array.isArray(basePostDeathSeries.points) || basePostDeathSeries.points.length < 2) {
-      return null;
-    }
-    const postDeathSeries = buildLifestyleAdjustedPostDeathSeries(basePostDeathSeries, lifestyleScenario);
-    return {
-      scenarioId: "income-impact-lifestyle-adjusted-comparison",
-      kind: "compression",
-      pathId: "compression-post-death-resources",
-      label: "Lifestyle-adjusted projection",
-      status: lifestyleScenario.status || "complete",
-      reductionsApplied: [],
-      pausesApplied: [],
-      postDeathSeries,
-      depletion: postDeathSeries.depletion,
-      accumulatedUnmetNeed: postDeathSeries.summary.accumulatedUnmetNeed ?? null,
-      trace: {
-        calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
-        sourceCalculationMethod: lifestyleScenario.trace?.calculationMethod || null,
-        sliderValue: lifestyleScenario.sliderValue ?? 0,
-        monthlyDelta: lifestyleScenario.monthlyDelta ?? 0,
-        baseScenarioMutated: false,
-        timingApplied: false,
-        graphPathId: "compression-post-death-resources"
-      }
-    };
-  }
-
   function buildIncomeImpactResultFromState(state) {
     const safeState = isPlainObject(state) ? state : {};
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
@@ -2055,10 +1917,13 @@
     const lifestyleScenario = typeof safeState.calculateIncomeImpactLifestyleScenario === "function"
       ? safeState.calculateIncomeImpactLifestyleScenario({
         expenseFacts: safeState.lensModel?.expenseFacts,
-        sliderValue: lifestyleSliderValue
+        sliderValue: lifestyleSliderValue,
+        basePostDeathSeries: scenario?.postDeathSeries
       })
       : null;
-    const lifestyleComparisonScenario = buildLifestyleComparisonScenario(scenario, lifestyleScenario);
+    const lifestyleComparisonScenario = isPlainObject(lifestyleScenario?.comparisonScenario)
+      ? lifestyleScenario.comparisonScenario
+      : null;
     const triageInterventions = typeof safeState.calculateIncomeImpactTriageInterventions === "function"
       ? safeState.calculateIncomeImpactTriageInterventions({
         scenario,
