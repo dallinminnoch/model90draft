@@ -16246,6 +16246,42 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #ffffff;
 }
 
+.income-impact-compression-markers {
+  pointer-events: none;
+}
+
+.income-impact-compression-marker line {
+  stroke: #1f6fb2;
+  stroke-dasharray: 3 3;
+  stroke-width: 1.5;
+}
+
+.income-impact-compression-marker circle {
+  fill: #ffffff;
+  stroke: #1f6fb2;
+  stroke-width: 2.5;
+}
+
+.income-impact-compression-marker--baseDepletion circle {
+  stroke: #227455;
+}
+
+.income-impact-compression-marker--compressionDepletion circle,
+.income-impact-compression-marker--shortfallRemains circle {
+  fill: #1f6fb2;
+  stroke: #ffffff;
+}
+
+.income-impact-compression-marker text {
+  fill: #1f3551;
+  font-size: 0.72rem;
+  font-weight: 760;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-linejoin: round;
+  stroke-width: 4px;
+}
+
 .income-impact-graph-callouts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -131,6 +131,7 @@ assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
+assert.match(componentsSource, /\.income-impact-compression-markers/);
 
 const fixture = {
   selectedDeath: { date: "2031-04-29", age: 51 },
@@ -162,6 +163,7 @@ assert.match(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-compression-markers/);
 assert.match(timelineHtml, /data-income-impact-graph-zero-baseline/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="risk"/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="stable"/);
@@ -183,6 +185,63 @@ comparisonGraphModel.series.comparisonPostDeathResources = [
     ]
   }
 ];
+comparisonGraphModel.comparisonMarkers = [
+  {
+    id: "income-impact-expense-compression-alternate-compression-action",
+    scenarioId: "income-impact-expense-compression-alternate",
+    kind: "compression",
+    markerType: "compressionAction",
+    label: "Expense compression",
+    summary: "Expense reductions applied in the alternate scenario.",
+    positionable: true,
+    xRatio: 0.33,
+    yRatio: 0.1
+  },
+  {
+    id: "income-impact-expense-compression-alternate-pause-action",
+    scenarioId: "income-impact-expense-compression-alternate",
+    kind: "compression",
+    markerType: "pauseAction",
+    label: "Contributions paused",
+    summary: "Contribution pauses applied in the alternate scenario.",
+    positionable: true,
+    xRatio: 0.33,
+    yRatio: 0.1
+  },
+  {
+    id: "income-impact-expense-compression-alternate-base-depletion",
+    scenarioId: "income-impact-expense-compression-alternate",
+    kind: "compression",
+    markerType: "baseDepletion",
+    label: "Base depletion",
+    summary: "Base projection depletion point.",
+    positionable: true,
+    xRatio: 0.9,
+    yRatio: 0.68
+  },
+  {
+    id: "income-impact-expense-compression-alternate-compressed-depletion",
+    scenarioId: "income-impact-expense-compression-alternate",
+    kind: "compression",
+    markerType: "compressionDepletion",
+    label: "Compressed depletion",
+    summary: "Compression comparison depletion point.",
+    positionable: true,
+    xRatio: 0.96,
+    yRatio: 0.68
+  },
+  {
+    id: "income-impact-expense-compression-alternate-shortfall-remains",
+    scenarioId: "income-impact-expense-compression-alternate",
+    kind: "compression",
+    markerType: "shortfallRemains",
+    label: "Shortfall remains",
+    summary: "Compression comparison still shows remaining shortfall.",
+    positionable: true,
+    xRatio: 0.96,
+    yRatio: 0.68
+  }
+];
 const comparisonTimelineHtml = harness.renderTimeline({
   ...fixture,
   graphModel: comparisonGraphModel
@@ -194,10 +253,21 @@ assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
 assert.match(comparisonTimelineHtml, /Base projection/);
 assert.match(comparisonTimelineHtml, /After expense compression/);
 assert.match(comparisonTimelineHtml, /Comparison only - base projection unchanged\./);
+assert.match(comparisonTimelineHtml, /data-income-impact-compression-markers/);
+assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="compressionAction"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="pauseAction"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="baseDepletion"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="compressionDepletion"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="shortfallRemains"/);
+assert.match(comparisonTimelineHtml, /Expense compression/);
+assert.match(comparisonTimelineHtml, /Contributions paused/);
+assert.match(comparisonTimelineHtml, /Base depletion/);
+assert.match(comparisonTimelineHtml, /Compressed depletion/);
+assert.match(comparisonTimelineHtml, /Shortfall remains/);
 assert.equal(
   (comparisonTimelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
   (timelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
-  "Compression comparison path should not create timeline markers."
+  "Compression comparison markers should not be rendered as existing risk/stable graph markers."
 );
 
 const currentAgeHtml = harness.renderTimeline({

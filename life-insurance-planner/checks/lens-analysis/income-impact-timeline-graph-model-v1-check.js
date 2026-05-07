@@ -249,11 +249,26 @@ assert.equal(
   false,
   "Comparison series should not be emitted without explicit comparisonScenarios input."
 );
+assert.deepEqual(cloneJson(fiveYearModel.comparisonMarkers), [], "Comparison markers should be empty without a complete compression comparison scenario.");
 
 const comparisonScenario = {
   scenarioId: "income-impact-expense-compression-alternate",
   kind: "compression",
   label: "After expense compression",
+  reductionsApplied: [
+    {
+      typeKey: "diningOutRestaurants",
+      label: "Dining Out",
+      monthlyAmount: 240
+    }
+  ],
+  pausesApplied: [
+    {
+      typeKey: "retirementContributions",
+      label: "Retirement Contributions",
+      monthlyAmount: 500
+    }
+  ],
   postDeathSeries: {
     points: [
       {
@@ -274,8 +289,24 @@ const comparisonScenario = {
         endingResources: -20000,
         sourcePaths: ["compressionScenario.postDeathSeries.points"]
       }
-    ]
+    ],
+    depletion: {
+      depleted: true,
+      depletionDate: `${2048}-04-29`,
+      depletionMonthIndex: 204,
+      monthsCovered: 204
+    },
+    summary: {
+      accumulatedUnmetNeed: 20000
+    }
   },
+  depletion: {
+    depleted: true,
+    depletionDate: `${2048}-04-29`,
+    depletionMonthIndex: 204,
+    monthsCovered: 204
+  },
+  accumulatedUnmetNeed: 20000,
   trace: {
     baseScenarioMutated: false
   }
@@ -300,10 +331,31 @@ assert.deepEqual(
   "Base postDeathResources source values should remain unchanged with comparison input."
 );
 assert.equal(comparisonModel.markers.length, fiveYearModel.markers.length, "Comparison input should not create graph markers.");
+assert.equal(comparisonModel.markers.some(function (marker) { return marker.kind === "compression"; }), false, "Compression markers must stay out of existing risk/stable markers.");
+assert.equal(comparisonModel.comparisonMarkers.length, 5, "Complete compression comparison scenario should emit separate comparison markers.");
+assert.deepEqual(
+  cloneJson(comparisonModel.comparisonMarkers.map(function (marker) { return marker.markerType; }).sort()),
+  [
+    "baseDepletion",
+    "compressionAction",
+    "compressionDepletion",
+    "pauseAction",
+    "shortfallRemains"
+  ],
+  "Comparison markers should cover action, pause, depletion, and remaining shortfall events."
+);
+assert.equal(
+  comparisonModel.comparisonMarkers.filter(function (marker) { return marker.markerType === "baseDepletion" || marker.markerType === "compressionDepletion"; }).length,
+  2,
+  "Base depletion and compressed depletion should remain separate markers."
+);
+assert.ok(comparisonModel.comparisonMarkers.every(function (marker) { return marker.positionable && marker.kind === "compression" && marker.lane === "comparison"; }));
+assert.ok(comparisonModel.comparisonMarkers.every(function (marker) { return marker.xRatio != null && marker.yRatio != null; }));
 assert.equal(comparisonModel.trace.comparisonScenariosEnabled, true);
 assert.equal(comparisonModel.trace.comparisonScenarioCount, 1);
 assert.equal(comparisonModel.trace.baseSeriesUnchanged, true);
-assert.equal(comparisonModel.trace.noComparisonMarkersCreated, true);
+assert.equal(comparisonModel.trace.comparisonMarkersCreated, true);
+assert.equal(comparisonModel.trace.comparisonMarkerCount, 5);
 
 const invalidComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
   comparisonScenarios: [
@@ -326,6 +378,7 @@ assert.equal(
   false,
   "Blocked, partial, missing, or invalid comparison scenarios should not emit a comparison path."
 );
+assert.deepEqual(cloneJson(invalidComparisonModel.comparisonMarkers), [], "Invalid comparison scenarios should not emit comparison markers.");
 
 const currentAgeModel = buildIncomeImpactTimelineGraphModel({
   scenario: makeScenario(0),

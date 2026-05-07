@@ -196,12 +196,222 @@
           scenarioId: String(comparisonScenario.scenarioId || `comparison-scenario-${index + 1}`),
           kind: String(comparisonScenario.kind || "comparison"),
           label: String(comparisonScenario.label || "Comparison scenario"),
+          sourceIndex: index,
           points,
           sourcePath: `comparisonScenarios.${index}.postDeathSeries.points`,
           trace: isPlainObject(comparisonScenario.trace) ? clonePlainValue(comparisonScenario.trace) : {}
         };
       })
       .filter(Boolean);
+  }
+
+  function isCompleteCompressionComparison(comparisonScenario, comparisonSeries) {
+    const status = String(comparisonScenario?.status || "").trim();
+    const kind = String(comparisonScenario?.kind || comparisonSeries?.kind || "").trim();
+    if (status && status !== "complete") {
+      return false;
+    }
+    return kind === "compression"
+      && isPlainObject(comparisonSeries)
+      && Array.isArray(comparisonSeries.points)
+      && comparisonSeries.points.length >= 2;
+  }
+
+  function makeComparisonMarker(input) {
+    return {
+      id: String(input.id || `${input.scenarioId}-${input.markerType}`),
+      scenarioId: String(input.scenarioId || ""),
+      kind: "compression",
+      markerType: String(input.markerType || ""),
+      label: String(input.label || ""),
+      summary: String(input.summary || ""),
+      date: normalizeDateOnly(input.date),
+      monthIndex: input.monthIndex ?? null,
+      value: toOptionalNumber(input.value),
+      pathTarget: String(input.pathTarget || ""),
+      lane: "comparison",
+      positionable: Boolean(normalizeDateOnly(input.date) && toOptionalNumber(input.value) != null),
+      sourcePaths: Array.isArray(input.sourcePaths) ? clonePlainValue(input.sourcePaths) : [],
+      trace: isPlainObject(input.trace) ? clonePlainValue(input.trace) : {}
+    };
+  }
+
+  function findPointForDepletion(points, depletion) {
+    const depletionDate = normalizeDateOnly(depletion?.depletionDate);
+    const depletionMonthIndex = toOptionalNumber(depletion?.depletionMonthIndex ?? depletion?.monthsCovered);
+    const byDate = depletionDate
+      ? points.find(function (point) { return point.date === depletionDate; })
+      : null;
+    if (byDate) {
+      return byDate;
+    }
+    if (depletionMonthIndex != null) {
+      const byMonth = points.find(function (point) {
+        return toOptionalNumber(point.monthIndex) === depletionMonthIndex;
+      });
+      if (byMonth) {
+        return byMonth;
+      }
+    }
+    return null;
+  }
+
+  function getDepletionInfo(points, explicitDepletion) {
+    const depletion = isPlainObject(explicitDepletion) ? explicitDepletion : {};
+    const depletedPoint = findPointForDepletion(points, depletion)
+      || points.find(function (point) {
+        const value = toOptionalNumber(point.value ?? point.endingResources ?? point.availableResources);
+        return value != null && value <= 0;
+      });
+    const depleted = depletion.depleted === true || Boolean(depletedPoint);
+    if (!depleted) {
+      return null;
+    }
+    const date = normalizeDateOnly(depletion.depletionDate) || normalizeDateOnly(depletedPoint?.date);
+    if (!date) {
+      return null;
+    }
+    return {
+      date,
+      monthIndex: toOptionalNumber(depletion.depletionMonthIndex ?? depletion.monthsCovered ?? depletedPoint?.monthIndex),
+      value: 0,
+      sourcePaths: Array.isArray(depletedPoint?.sourcePaths) ? clonePlainValue(depletedPoint.sourcePaths) : []
+    };
+  }
+
+  function buildComparisonMarkers(comparisonScenarios, comparisonSeries, scenario, basePostDeathResources) {
+    return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
+      .filter(isPlainObject)
+      .reduce(function (markers, comparisonScenario, index) {
+        const series = comparisonSeries.find(function (candidate) {
+          return candidate.sourceIndex === index;
+        });
+        if (!isCompleteCompressionComparison(comparisonScenario, series)) {
+          return markers;
+        }
+
+        const scenarioId = series.scenarioId;
+        const firstPoint = series.points[0];
+        const reductionsApplied = Array.isArray(comparisonScenario.reductionsApplied)
+          ? comparisonScenario.reductionsApplied
+          : [];
+        const pausesApplied = Array.isArray(comparisonScenario.pausesApplied)
+          ? comparisonScenario.pausesApplied
+          : [];
+        const rawPostDeathSeries = isPlainObject(comparisonScenario.postDeathSeries)
+          ? comparisonScenario.postDeathSeries
+          : {};
+        const compressionDepletion = getDepletionInfo(
+          series.points,
+          comparisonScenario.depletion || rawPostDeathSeries.depletion
+        );
+        const baseDepletion = getDepletionInfo(
+          basePostDeathResources,
+          getPath(scenario, "postDeathSeries.depletion")
+        );
+        const accumulatedUnmetNeed = toOptionalNumber(
+          comparisonScenario.accumulatedUnmetNeed ?? rawPostDeathSeries.summary?.accumulatedUnmetNeed
+        );
+        const lastPoint = series.points.at(-1);
+
+        if (reductionsApplied.length && firstPoint) {
+          markers.push(makeComparisonMarker({
+            id: `${scenarioId}-compression-action`,
+            scenarioId,
+            markerType: "compressionAction",
+            label: "Expense compression",
+            summary: `${reductionsApplied.length} expense reduction${reductionsApplied.length === 1 ? "" : "s"} applied in the alternate scenario.`,
+            date: firstPoint.date,
+            monthIndex: firstPoint.monthIndex,
+            value: firstPoint.value,
+            pathTarget: "compression-post-death-resources",
+            sourcePaths: [].concat(firstPoint.sourcePaths || [], ["compressionScenarios.reductionsApplied"]),
+            trace: {
+              appliedActionCount: reductionsApplied.length,
+              timingPolicy: "first-post-death-compression-point"
+            }
+          }));
+        }
+
+        if (pausesApplied.length && firstPoint) {
+          markers.push(makeComparisonMarker({
+            id: `${scenarioId}-pause-action`,
+            scenarioId,
+            markerType: "pauseAction",
+            label: "Contributions paused",
+            summary: `${pausesApplied.length} contribution pause${pausesApplied.length === 1 ? "" : "s"} applied in the alternate scenario.`,
+            date: firstPoint.date,
+            monthIndex: firstPoint.monthIndex,
+            value: firstPoint.value,
+            pathTarget: "compression-post-death-resources",
+            sourcePaths: [].concat(firstPoint.sourcePaths || [], ["compressionScenarios.pausesApplied"]),
+            trace: {
+              appliedActionCount: pausesApplied.length,
+              timingPolicy: "first-post-death-compression-point"
+            }
+          }));
+        }
+
+        if (baseDepletion) {
+          markers.push(makeComparisonMarker({
+            id: `${scenarioId}-base-depletion`,
+            scenarioId,
+            markerType: "baseDepletion",
+            label: "Base depletion",
+            summary: "Base projection depletion point.",
+            date: baseDepletion.date,
+            monthIndex: baseDepletion.monthIndex,
+            value: baseDepletion.value,
+            pathTarget: "postDeathResources",
+            sourcePaths: [].concat(baseDepletion.sourcePaths || [], ["scenario.postDeathSeries.depletion"]),
+            trace: {
+              baseScenarioMutated: false
+            }
+          }));
+        }
+
+        if (compressionDepletion) {
+          markers.push(makeComparisonMarker({
+            id: `${scenarioId}-compressed-depletion`,
+            scenarioId,
+            markerType: "compressionDepletion",
+            label: "Compressed depletion",
+            summary: "Compression comparison depletion point.",
+            date: compressionDepletion.date,
+            monthIndex: compressionDepletion.monthIndex,
+            value: compressionDepletion.value,
+            pathTarget: "compression-post-death-resources",
+            sourcePaths: [].concat(compressionDepletion.sourcePaths || [], ["compressionScenarios.depletion"]),
+            trace: {
+              baseScenarioMutated: false
+            }
+          }));
+        }
+
+        if (compressionDepletion || (accumulatedUnmetNeed != null && accumulatedUnmetNeed > 0)) {
+          const shortfallPoint = compressionDepletion || lastPoint;
+          if (shortfallPoint) {
+            markers.push(makeComparisonMarker({
+              id: `${scenarioId}-shortfall-remains`,
+              scenarioId,
+              markerType: "shortfallRemains",
+              label: "Shortfall remains",
+              summary: "Compression comparison still shows remaining shortfall.",
+              date: shortfallPoint.date,
+              monthIndex: shortfallPoint.monthIndex,
+              value: shortfallPoint.value,
+              pathTarget: "compression-post-death-resources",
+              sourcePaths: [].concat(shortfallPoint.sourcePaths || [], ["compressionScenarios.accumulatedUnmetNeed"]),
+              trace: {
+                accumulatedUnmetNeed,
+                compressedScenarioDepleted: Boolean(compressionDepletion)
+              }
+            }));
+          }
+        }
+
+        return markers;
+      }, []);
   }
 
   function getScenarioDates(scenario) {
@@ -662,6 +872,12 @@
     const comparisonPoints = comparisonPostDeathResources.reduce(function (points, comparisonSeries) {
       return points.concat(comparisonSeries.points);
     }, []);
+    const comparisonMarkers = buildComparisonMarkers(
+      safeInput.comparisonScenarios,
+      comparisonPostDeathResources,
+      scenario,
+      postDeathResources
+    );
 
     const riskMarkers = buildMarkers(riskEvaluation.events, "risk", scenario, dates);
     const stableMarkers = buildMarkers(riskEvaluation.stableEvents, "stable", scenario, dates);
@@ -676,6 +892,7 @@
         .concat(deathTransition.date ? [deathTransition.date] : [])
         .concat(postDeathResources.map(function (point) { return point.date; }))
         .concat(comparisonPoints.map(function (point) { return point.date; }))
+        .concat(comparisonMarkers.filter(function (marker) { return marker.positionable; }).map(function (marker) { return marker.date; }))
         .concat(markers.filter(function (marker) { return marker.positionable; }).map(function (marker) { return marker.date; })),
       dates.valuationDate || dates.deathDate,
       possibleEndFromHorizon || dates.deathDate
@@ -686,6 +903,7 @@
         .concat(deathTransition.stages.map(function (stage) { return stage.value; }))
         .concat(postDeathResources.map(function (point) { return point.value; }))
         .concat(comparisonPoints.map(function (point) { return point.value; }))
+        .concat(comparisonMarkers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
         .concat(markers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
     );
 
@@ -706,6 +924,9 @@
       return enrichPoint(stage, xDomain, yDomain);
     });
     const enrichedMarkers = markers.map(function (marker) {
+      return marker.positionable ? enrichPoint(marker, xDomain, yDomain) : marker;
+    });
+    const enrichedComparisonMarkers = comparisonMarkers.map(function (marker) {
       return marker.positionable ? enrichPoint(marker, xDomain, yDomain) : marker;
     });
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
@@ -742,6 +963,7 @@
         }
       },
       markers: enrichedMarkers,
+      comparisonMarkers: enrichedComparisonMarkers,
       selectedEvent: clonePlainValue(selectEvent(enrichedMarkers, options.selectedEventId)),
       callouts: buildCallouts(scenario, dates, preDeathMode),
       warnings: []
@@ -776,7 +998,8 @@
       result.trace.comparisonScenariosEnabled = true;
       result.trace.comparisonScenarioCount = enrichedComparisonPostDeath.length;
       result.trace.baseSeriesUnchanged = true;
-      result.trace.noComparisonMarkersCreated = true;
+      result.trace.comparisonMarkersCreated = enrichedComparisonMarkers.length > 0;
+      result.trace.comparisonMarkerCount = enrichedComparisonMarkers.length;
     }
 
     return result;

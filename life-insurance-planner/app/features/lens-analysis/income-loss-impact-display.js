@@ -815,6 +815,59 @@
     `;
   }
 
+  function getCompressionMarkerLabelOffset(markerType, index) {
+    if (markerType === "compressionAction") {
+      return { x: 10, y: -18 };
+    }
+    if (markerType === "pauseAction") {
+      return { x: 10, y: 28 };
+    }
+    if (markerType === "baseDepletion") {
+      return { x: -112, y: -16 };
+    }
+    if (markerType === "compressionDepletion") {
+      return { x: 10, y: -34 };
+    }
+    if (markerType === "shortfallRemains") {
+      return { x: 10, y: 42 };
+    }
+    return { x: 10, y: index % 2 === 0 ? -18 : 28 };
+  }
+
+  function renderCompressionComparisonMarkers(graphModel) {
+    const markers = (Array.isArray(graphModel?.comparisonMarkers) ? graphModel.comparisonMarkers : []).filter(function (marker) {
+      return marker?.positionable && toOptionalNumber(marker.xRatio) != null && toOptionalNumber(marker.yRatio) != null;
+    });
+    if (!markers.length) {
+      return "";
+    }
+    return `
+      <g class="income-impact-compression-markers" data-income-impact-compression-markers>
+        ${markers.map(function (marker, index) {
+          const x = toGraphX(marker.xRatio);
+          const y = toGraphY(marker.yRatio);
+          const labelOffset = getCompressionMarkerLabelOffset(marker.markerType, index);
+          const labelX = labelOffset.x;
+          const labelY = labelOffset.y;
+          return `
+            <g
+              class="income-impact-compression-marker income-impact-compression-marker--${escapeHtml(marker.markerType || "event")}"
+              data-income-impact-compression-marker
+              data-income-impact-compression-marker-type="${escapeHtml(marker.markerType || "")}"
+              data-income-impact-compression-marker-scenario-id="${escapeHtml(marker.scenarioId || "")}"
+              transform="translate(${x} ${y})"
+            >
+              <line x1="0" y1="0" x2="${labelX}" y2="${labelY}"></line>
+              <circle r="5"></circle>
+              <text x="${labelX}" y="${labelY}" text-anchor="${labelX < 0 ? "end" : "start"}">${escapeHtml(marker.label || "Compression event")}</text>
+              <title>${escapeHtml(marker.summary || marker.label || "Compression comparison event")}</title>
+            </g>
+          `;
+        }).join("")}
+      </g>
+    `;
+  }
+
   function renderGraphPath(pathId, points, label) {
     const path = buildSvgPath(points);
     if (!path) {
@@ -894,6 +947,7 @@
           ${renderGraphDeathAnchor(graphModel)}
         </g>
         ${renderGraphMarkers(graphModel)}
+        ${renderCompressionComparisonMarkers(graphModel)}
       </svg>
     `;
   }
@@ -1592,7 +1646,12 @@
           scenarioId: compressionScenario.scenarioId || "income-impact-expense-compression-alternate",
           kind: "compression",
           label: compressionScenario.label || "After expense compression",
+          status: compressionScenario.status || "complete",
+          reductionsApplied: Array.isArray(compressionScenario.reductionsApplied) ? compressionScenario.reductionsApplied : [],
+          pausesApplied: Array.isArray(compressionScenario.pausesApplied) ? compressionScenario.pausesApplied : [],
           postDeathSeries: compressionScenario.postDeathSeries,
+          depletion: compressionScenario.depletion,
+          accumulatedUnmetNeed: compressionScenario.accumulatedUnmetNeed ?? null,
           trace: isPlainObject(compressionScenario.trace) ? compressionScenario.trace : {}
         };
       });
