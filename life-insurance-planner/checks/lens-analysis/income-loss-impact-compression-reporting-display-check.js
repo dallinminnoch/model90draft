@@ -30,7 +30,7 @@ function assertScriptOrder(scriptSources, orderedScripts) {
 function createDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactCompressionDisplayHarness = { buildIncomeImpactResultFromState, renderCompressionReportingPanel, renderIncomeImpact, renderTimeline };\n})(window);\n"
+    "\n  window.__incomeImpactCompressionDisplayHarness = { buildIncomeImpactResultFromState, buildBaseIncomeImpactContextFromState, buildIncomeImpactResultFromBaseContext, getBaseRenderCacheKey, renderCompressionReportingPanel, renderIncomeImpact, renderTimeline };\n})(window);\n"
   );
   const sandbox = {
     console,
@@ -422,6 +422,9 @@ assert.equal(scripts.includes("../app/features/lens-analysis/household-expense-c
 assert.equal(scripts.includes("../app/features/lens-analysis/income-impact-staged-compression-scenario-calculations.js"), false);
 
 assert.equal(typeof harness.buildIncomeImpactResultFromState, "function", "display harness should expose result builder");
+assert.equal(typeof harness.buildBaseIncomeImpactContextFromState, "function", "display harness should expose base context builder");
+assert.equal(typeof harness.buildIncomeImpactResultFromBaseContext, "function", "display harness should expose cached lifestyle result builder");
+assert.equal(typeof harness.getBaseRenderCacheKey, "function", "display harness should expose base cache key builder");
 assert.equal(typeof harness.renderCompressionReportingPanel, "function", "display harness should expose compression panel renderer");
 assert.equal(typeof harness.renderIncomeImpact, "function", "display harness should expose main renderer");
 assert.equal(typeof harness.renderTimeline, "function", "display harness should expose timeline renderer");
@@ -430,6 +433,36 @@ assert.match(pageSource, /data-income-impact-lifestyle-slider/);
 assert.match(displaySource, /calculateIncomeImpactLifestyleScenario/);
 assert.match(displaySource, /basePostDeathSeries:\s*scenario\?\.postDeathSeries/);
 assert.match(displaySource, /lifestyleScenario\?\.comparisonScenario/);
+assert.match(displaySource, /baseRenderCache/);
+assert.match(displaySource, /buildBaseIncomeImpactContextFromState/);
+assert.match(displaySource, /buildIncomeImpactResultFromBaseContext/);
+assert.match(displaySource, /scheduleLifestyleSliderRender/);
+assert.match(
+  displaySource,
+  /scenarioState\.lifestyleSliderValue[\s\S]{0,180}scheduleLifestyleSliderRender\(\)/,
+  "Lifestyle slider should use the slider-only render path."
+);
+assert.doesNotMatch(
+  displaySource,
+  /scenarioState\.lifestyleSliderValue[\s\S]{0,180}renderIncomeImpactFromState\(\)/,
+  "Lifestyle slider should not call the full display/result recomposition path directly."
+);
+assert.match(
+  displaySource,
+  /state\.selectedDeathAge[\s\S]{0,220}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
+  "Death age control changes should invalidate the base cache and rebuild."
+);
+assert.match(
+  displaySource,
+  /scenarioState\.projectionHorizonYears[\s\S]{0,220}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
+  "Projection horizon changes should invalidate the base cache and rebuild."
+);
+assert.match(
+  displaySource,
+  /scenarioState\.mortgageTreatmentOverride[\s\S]{0,220}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
+  "Mortgage treatment changes should invalidate the base cache and rebuild."
+);
+assert.match(displaySource, /scenarioControlsBound/, "Scenario controls should guard against duplicate event binding.");
 assert.doesNotMatch(displaySource, /buildLifestyleComparisonScenario|buildLifestyleAdjustedPostDeathSeries|recalculateLifestyleDepletion/);
 assert.match(displaySource, /Lifestyle-adjusted projection/);
 assert.match(displaySource, /compressionReport:\s*compressionPrep\?\.compressionReport/);
@@ -601,6 +634,114 @@ assert.match(panelHtml, /Protected \/ excluded items/);
 assert.match(panelHtml, /Auto Loan Payment/);
 assert.match(panelHtml, /Source-owned by Debt Records/);
 assert.match(panelHtml, /Policy summary/);
+
+let cachedComposeCallCount = 0;
+let cachedRiskCallCount = 0;
+let cachedPrepCallCount = 0;
+let cachedCompressionScenarioCallCount = 0;
+let cachedLayer5CallCount = 0;
+let cachedLifestyleCallCount = 0;
+let cachedGraphCallCount = 0;
+const cachedState = {
+  valuationDate: "2026-05-06",
+  lensModel: {
+    id: "lens-cached-slider-fixture",
+    expenseFacts: {
+      expenses: [
+        { expenseTypeKey: "groceries", categoryKey: "foodGroceries", monthlyAmount: 1000 },
+        { expenseTypeKey: "diningOutRestaurants", categoryKey: "foodGroceries", monthlyAmount: 400 }
+      ]
+    }
+  },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: 0
+  },
+  deathAgeState: { hasDateOfBirth: false },
+  composeIncomeImpactScenario() {
+    cachedComposeCallCount += 1;
+    return scenario;
+  },
+  evaluateIncomeImpactRiskEvents() {
+    cachedRiskCallCount += 1;
+    return riskEvaluation;
+  },
+  buildIncomeImpactTimelineGraphModel(input) {
+    cachedGraphCallCount += 1;
+    return makeGraphModel(input);
+  },
+  prepareIncomeImpactCompressionReportingInputs() {
+    cachedPrepCallCount += 1;
+    return {
+      compressionReport,
+      compressionPolicyRules,
+      warnings: [],
+      dataGaps: [],
+      trace: { reportingOnly: true }
+    };
+  },
+  calculateIncomeImpactCompressionScenario(input) {
+    cachedCompressionScenarioCallCount += 1;
+    return createCompressionScenarioResult(input);
+  },
+  calculateIncomeImpactLifestyleScenario(input) {
+    cachedLifestyleCallCount += 1;
+    const monthlyDelta = input.sliderValue < 0 ? -500 : (input.sliderValue > 0 ? 250 : 0);
+    return {
+      status: "complete",
+      sliderValue: input.sliderValue,
+      monthlyDelta,
+      adjustedExpenses: [],
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, monthlyDelta),
+      warnings: [],
+      dataGaps: [],
+      trace: { calculationMethod: "income-impact-lifestyle-scenario-v1" }
+    };
+  },
+  calculateIncomeImpactTriageInterventions(input) {
+    cachedLayer5CallCount += 1;
+    return createLayer5Output(input);
+  }
+};
+const cachedBaseContext = harness.buildBaseIncomeImpactContextFromState(cachedState);
+const cachedCurrentResult = harness.buildIncomeImpactResultFromBaseContext(cachedState, cachedBaseContext, 0);
+const cachedConservativeResult = harness.buildIncomeImpactResultFromBaseContext(cachedState, cachedBaseContext, -100);
+const cachedElevatedResult = harness.buildIncomeImpactResultFromBaseContext(cachedState, cachedBaseContext, 100);
+assert.equal(cachedComposeCallCount, 1, "cached lifestyle updates should reuse the composed base scenario");
+assert.equal(cachedRiskCallCount, 1, "cached lifestyle updates should reuse risk evaluation");
+assert.equal(cachedPrepCallCount, 1, "cached lifestyle updates should reuse compression reporting prep");
+assert.equal(cachedCompressionScenarioCallCount, 1, "cached lifestyle updates should reuse immediate compression scenario reporting");
+assert.equal(cachedLayer5CallCount, 1, "cached lifestyle updates should reuse Layer 5 reporting output");
+assert.equal(cachedLifestyleCallCount, 3, "cached lifestyle updates should only recalculate lifestyle scenario output");
+assert.equal(cachedGraphCallCount, 3, "cached lifestyle updates should rebuild graph data for each slider value");
+assert.deepEqual(
+  cachedCurrentResult.graphModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; }),
+  scenario.postDeathSeries.points.map(function (point) { return point.endingResources; }),
+  "Cached Current/0 lifestyle comparison should match baseline resources."
+);
+assert.deepEqual(
+  cachedConservativeResult.graphModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; }),
+  [500500, 497500, 494500],
+  "Cached Conservative lifestyle should improve the comparison resources."
+);
+assert.deepEqual(
+  cachedElevatedResult.graphModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; }),
+  [499750, 496000, 492250],
+  "Cached Elevated lifestyle should reduce the comparison resources."
+);
+const cachedConservativeHtml = harness.renderTimeline(cachedConservativeResult);
+assert.equal((cachedConservativeHtml.match(/data-income-impact-graph-path="postDeathResources"/g) || []).length, 1);
+assert.equal((cachedConservativeHtml.match(/data-income-impact-graph-path="compression-post-death-resources"/g) || []).length, 1);
+assert.doesNotMatch(cachedConservativeHtml, /staged-compression-post-death-resources|data-income-impact-compression-marker-type="stage/);
+const originalCacheKey = harness.getBaseRenderCacheKey(cachedState);
+cachedState.scenarioState.projectionHorizonYears = 55;
+assert.notEqual(
+  harness.getBaseRenderCacheKey(cachedState),
+  originalCacheKey,
+  "Base scenario controls should change the cache key so slider-only reuse cannot cross base-control changes."
+);
 
 function runLifestyleSlider(sliderValue, monthlyDelta) {
   let graphInput = null;
