@@ -570,18 +570,94 @@
 
   function renderLensPrimaryFlyout(page) {
     const lensHref = page && page.href ? page.href : "lens.html";
-    const isLensPage = document.body?.classList?.contains("lens-page");
+    const isLensStartPage = document.body?.classList?.contains("lens-start-page");
     const lensContext = renderLensContextMarkup({
-      currentStep: isLensPage ? getCurrentLensStep() : "",
-      lensHref: isLensPage ? "" : lensHref
+      currentStep: "",
+      lensHref: isLensStartPage ? "" : lensHref
     });
 
     return renderWorkspaceFlyoutPanel({
       kicker: "Workspace",
       title: "LENS Analysis",
-      sectionLabel: lensContext.isWorkflowPage ? "Analysis Workflow" : "Sections",
+      sectionLabel: "Sections",
       contextMarkup: lensContext.contextMarkup
     });
+  }
+
+  function getLensWorkflowStepById(stepId) {
+    const normalizedStepId = String(stepId || "").trim();
+    return getLensWorkflowSteps().find(function (step) {
+      return step.id === normalizedStepId;
+    }) || null;
+  }
+
+  function renderLensWorkflowTrail() {
+    const currentStepId = getCurrentLensStep();
+    const currentStep = getLensWorkflowStepById(currentStepId);
+    if (!currentStep) {
+      return "";
+    }
+
+    const workflowSteps = getLensWorkflowSteps();
+    return `
+      <nav class="lens-workflow-trail" data-lens-workflow-trail aria-label="LENS page trail">
+        <a class="lens-workflow-trail-link" href="lens.html">LENS Analysis</a>
+        <span class="lens-workflow-trail-separator" aria-hidden="true"></span>
+        <div class="lens-workflow-trail-dropdown">
+          <button class="lens-workflow-trail-trigger" type="button" aria-haspopup="true">
+            <span>Analysis Workflow</span>
+            <span class="lens-workflow-trail-trigger-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="lens-workflow-trail-menu" role="menu" aria-label="Analysis workflow pages">
+            ${workflowSteps.map(function (step) {
+              const isActive = step.id === currentStepId;
+              return `
+                <a
+                  class="lens-workflow-trail-menu-item${isActive ? " is-active" : ""}"
+                  href="${escapeHtml(step.path)}"
+                  role="menuitem"
+                  ${isActive ? ' aria-current="page"' : ""}
+                >
+                  <span class="lens-workflow-trail-menu-icon" aria-hidden="true">${getClientDetailIcon(step.icon)}</span>
+                  <span class="lens-workflow-trail-menu-label">${escapeHtml(step.label)}</span>
+                </a>
+              `;
+            }).join("")}
+          </div>
+        </div>
+        <span class="lens-workflow-trail-separator" aria-hidden="true"></span>
+        <span class="lens-workflow-trail-current" aria-current="page">${escapeHtml(currentStep.label)}</span>
+      </nav>
+    `;
+  }
+
+  function mountLensWorkflowTrail(root) {
+    const scope = root && typeof root.querySelector === "function" ? root : document;
+    const body = document.body;
+    if (!body || !body.classList.contains("lens-workflow-page")) {
+      return;
+    }
+
+    const topbarInner = scope.querySelector(".workspace-page-topbar-inner") || document.querySelector(".workspace-page-topbar-inner");
+    if (!topbarInner) {
+      return;
+    }
+
+    const trailMarkup = renderLensWorkflowTrail();
+    if (!trailMarkup) {
+      return;
+    }
+
+    topbarInner.querySelector("[data-lens-workflow-trail]")?.remove();
+    const template = document.createElement("template");
+    template.innerHTML = trailMarkup.trim();
+    const trail = template.content.firstElementChild;
+    if (!trail) {
+      return;
+    }
+
+    const actions = topbarInner.querySelector(".workspace-page-topbar-actions");
+    topbarInner.insertBefore(trail, actions || null);
   }
 
   function buildWorkspacePrimaryFlyouts(config) {
@@ -1076,6 +1152,8 @@
     scope.querySelectorAll("[data-directory-menu-column]").forEach(function (node) {
       node.innerHTML = renderDirectoryPageColumn();
     });
+
+    mountLensWorkflowTrail(scope);
   }
 
   function getStorageIdentity() {
