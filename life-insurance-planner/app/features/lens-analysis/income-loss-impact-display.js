@@ -12,6 +12,7 @@
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
+  const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
   const LIFESTYLE_SLIDER_LABELS = Object.freeze({
     conservative: "Conservative",
     current: "Current",
@@ -204,6 +205,158 @@
   function getMortgageTreatmentLabel(value) {
     const normalized = normalizeMortgageTreatmentOverride(value);
     return MORTGAGE_TREATMENT_LABELS[normalized];
+  }
+
+  function createRuntimeIssue(code, message, details) {
+    return {
+      code,
+      message,
+      details: isPlainObject(details) ? details : {}
+    };
+  }
+
+  function getWarningList(source) {
+    return Array.isArray(source?.warnings) ? source.warnings.filter(isPlainObject) : [];
+  }
+
+  function getDataGapList(source) {
+    return Array.isArray(source?.dataGaps) ? source.dataGaps.filter(isPlainObject) : [];
+  }
+
+  function getDefaultHouseholdExpensePolicyInputs(currentLensAnalysis) {
+    const api = isPlainObject(currentLensAnalysis) ? currentLensAnalysis : {};
+    const lifestylePolicy = api.householdExpenseLifestyleRangePolicy;
+    const compressionPolicy = api.householdExpenseCompressionPolicy;
+    const compressionThresholds = api.expenseCompressionThresholds;
+
+    return {
+      defaultLifestyleRangePolicies: lifestylePolicy && typeof lifestylePolicy.listLifestyleRangePolicies === "function"
+        ? lifestylePolicy.listLifestyleRangePolicies()
+        : [],
+      defaultCompressionPolicyRules: compressionPolicy && typeof compressionPolicy.getHouseholdExpenseCompressionPolicyRules === "function"
+        ? compressionPolicy.getHouseholdExpenseCompressionPolicyRules()
+        : [],
+      defaultCompressionThresholdRules: compressionThresholds && typeof compressionThresholds.getExpenseCompressionThresholdRules === "function"
+        ? compressionThresholds.getExpenseCompressionThresholdRules()
+        : []
+    };
+  }
+
+  function getAccountPolicySource(storageResult, resolutionResult) {
+    if (storageResult?.status === "loaded") {
+      return "accountOverride";
+    }
+
+    if (storageResult?.status === "fallback") {
+      return storageResult?.metadata?.fallbackReason === "missing-account-policy"
+        ? "defaultSeedPolicy"
+        : "fallbackPolicy";
+    }
+
+    return resolutionResult?.metadata?.source === "defaultPolicy"
+      ? "defaultSeedPolicy"
+      : "fallbackPolicy";
+  }
+
+  function resolveIncomeImpactHouseholdExpenseAccountPolicy(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const currentLensAnalysis = isPlainObject(safeOptions.currentLensAnalysis) ? safeOptions.currentLensAnalysis : {};
+    const accountId = TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID;
+    const storageApi = safeOptions.accountPolicyStorage;
+    const resolver = safeOptions.accountPolicyResolver;
+    const warnings = [];
+    const dataGaps = [];
+
+    let storageResult = null;
+    if (storageApi && typeof storageApi.loadHouseholdExpenseAccountPolicy === "function") {
+      storageResult = storageApi.loadHouseholdExpenseAccountPolicy({
+        accountId,
+        storage: safeOptions.storage
+      });
+      warnings.push.apply(warnings, getWarningList(storageResult));
+      dataGaps.push.apply(dataGaps, getDataGapList(storageResult));
+    } else {
+      warnings.push(createRuntimeIssue(
+        "household-expense-account-policy-storage-unavailable",
+        "Household expense account policy storage adapter was unavailable; MODEL90 seed defaults were used."
+      ));
+    }
+
+    if (typeof resolver !== "function") {
+      const issue = createRuntimeIssue(
+        "household-expense-account-policy-resolver-unavailable",
+        "Household expense account policy resolver was unavailable; helper-level seed defaults were used."
+      );
+      warnings.push(issue);
+      dataGaps.push(issue);
+      return {
+        accountId,
+        policySource: "fallbackPolicy",
+        storageResult,
+        resolvedPolicy: null,
+        resolvedAccountPolicyAvailable: false,
+        warnings,
+        dataGaps,
+        trace: {
+          source: "income-impact-display-account-policy-runtime",
+          accountId,
+          accountIdSource: "temporaryLocalDisplayFallback",
+          storageStatus: storageResult?.status || "unavailable",
+          policySource: "fallbackPolicy",
+          resolverAvailable: false
+        }
+      };
+    }
+
+    const policyInputs = getDefaultHouseholdExpensePolicyInputs(currentLensAnalysis);
+    const accountPolicy = storageResult?.status === "loaded" && isPlainObject(storageResult.accountPolicy)
+      ? storageResult.accountPolicy
+      : null;
+    const resolvedPolicy = resolver(Object.assign({}, policyInputs, { accountPolicy }));
+    warnings.push.apply(warnings, getWarningList(resolvedPolicy));
+    dataGaps.push.apply(dataGaps, getDataGapList(resolvedPolicy));
+
+    const policySource = getAccountPolicySource(storageResult, resolvedPolicy);
+    return {
+      accountId,
+      policySource,
+      storageResult,
+      resolvedPolicy,
+      resolvedAccountPolicyAvailable: policySource === "accountOverride",
+      warnings,
+      dataGaps,
+      trace: {
+        source: "income-impact-display-account-policy-runtime",
+        accountId,
+        accountIdSource: "temporaryLocalDisplayFallback",
+        storageStatus: storageResult?.status || "unavailable",
+        storageFallbackReason: storageResult?.metadata?.fallbackReason || null,
+        policySource,
+        resolverAvailable: true,
+        accountPolicyLoaded: storageResult?.status === "loaded",
+        resolvedLifestyleRangePolicyCount: Array.isArray(resolvedPolicy?.resolvedLifestyleRangePolicies)
+          ? resolvedPolicy.resolvedLifestyleRangePolicies.length
+          : 0,
+        resolvedCompressionPolicyRuleCount: Array.isArray(resolvedPolicy?.resolvedCompressionPolicyRules)
+          ? resolvedPolicy.resolvedCompressionPolicyRules.length
+          : 0,
+        resolvedCompressionThresholdRuleCount: Array.isArray(resolvedPolicy?.resolvedCompressionThresholdRules)
+          ? resolvedPolicy.resolvedCompressionThresholdRules.length
+          : 0,
+        warningCount: warnings.length,
+        dataGapCount: dataGaps.length
+      }
+    };
+  }
+
+  function getResolvedAccountPolicyInput(policyContext) {
+    if (!isPlainObject(policyContext) || policyContext.resolvedAccountPolicyAvailable !== true || !isPlainObject(policyContext.resolvedPolicy)) {
+      return {};
+    }
+
+    return {
+      accountPolicyResolution: policyContext.resolvedPolicy
+    };
   }
 
   function resolveDeathAgeControlState(lensModel, valuationDate) {
@@ -1909,15 +2062,19 @@
     const riskEvaluation = safeState.evaluateIncomeImpactRiskEvents({
       scenario
     });
+    const householdExpenseAccountPolicyContext = isPlainObject(safeState.householdExpenseAccountPolicyContext)
+      ? safeState.householdExpenseAccountPolicyContext
+      : null;
+    const resolvedAccountPolicyInput = getResolvedAccountPolicyInput(householdExpenseAccountPolicyContext);
     const compressionPrep = typeof safeState.prepareIncomeImpactCompressionReportingInputs === "function"
-      ? safeState.prepareIncomeImpactCompressionReportingInputs({
+      ? safeState.prepareIncomeImpactCompressionReportingInputs(Object.assign({
         lensModel: safeState.lensModel,
         options: {
           householdContext: "survivor",
           includeAdvisorConfirmed: false,
           includePauseCandidates: true
         }
-      })
+      }, resolvedAccountPolicyInput))
       : null;
     const compressionScenarioResult = compressionPrep && typeof safeState.calculateIncomeImpactCompressionScenario === "function"
       ? safeState.calculateIncomeImpactCompressionScenario({
@@ -1953,7 +2110,8 @@
       riskEvaluation,
       compressionPrep,
       compressionScenarioResult,
-      triageInterventions
+      triageInterventions,
+      householdExpenseAccountPolicyContext
     };
   }
 
@@ -1986,8 +2144,10 @@
     const compressionPrep = context.compressionPrep;
     const compressionScenarioResult = context.compressionScenarioResult;
     const triageInterventions = context.triageInterventions;
+    const householdExpenseAccountPolicyContext = context.householdExpenseAccountPolicyContext;
+    const resolvedAccountPolicyInput = getResolvedAccountPolicyInput(householdExpenseAccountPolicyContext);
     const lifestyleScenario = typeof safeState.calculateIncomeImpactLifestyleScenario === "function"
-      ? safeState.calculateIncomeImpactLifestyleScenario({
+      ? safeState.calculateIncomeImpactLifestyleScenario(Object.assign({
         expenseFacts: safeState.lensModel?.expenseFacts,
         sliderValue: lifestyleSliderValue,
         basePostDeathSeries: scenario?.postDeathSeries,
@@ -1995,7 +2155,7 @@
           comparisonPathId: LIFESTYLE_COMPARISON_PATH_ID,
           comparisonLabel: LIFESTYLE_COMPARISON_LABEL
         }
-      })
+      }, resolvedAccountPolicyInput))
       : null;
     const lifestyleComparisonScenario = normalizeLifestyleGraphComparisonScenario(lifestyleScenario?.comparisonScenario);
     const comparisonScenarios = lifestyleComparisonScenario ? [lifestyleComparisonScenario] : [];
@@ -2029,10 +2189,16 @@
         prep: compressionPrep,
         scenario: compressionScenarioResult,
         lifestyleScenario,
+        accountPolicy: householdExpenseAccountPolicyContext,
         layer5: triageInterventions,
         trace: {
           reportingOnly: true,
           displayWired: Boolean(compressionPrep && triageInterventions),
+          accountPolicySource: householdExpenseAccountPolicyContext?.policySource || null,
+          accountPolicyStorageStatus: householdExpenseAccountPolicyContext?.storageResult?.status || null,
+          accountPolicyStorageFallbackReason: householdExpenseAccountPolicyContext?.storageResult?.metadata?.fallbackReason || null,
+          accountPolicyResolved: Boolean(householdExpenseAccountPolicyContext?.resolvedPolicy),
+          accountPolicyAccountIdSource: householdExpenseAccountPolicyContext?.trace?.accountIdSource || null,
           alternateScenarioPrepared: Boolean(compressionScenarioResult),
           alternateScenarioStatus: compressionScenarioResult?.status || null,
           lifestyleScenarioPrepared: Boolean(lifestyleScenario),
@@ -2257,6 +2423,8 @@
     const calculateIncomeImpactCompressionScenario = currentLensAnalysis.calculateIncomeImpactCompressionScenario;
     const calculateIncomeImpactLifestyleScenario = currentLensAnalysis.incomeImpactLifestyleScenarioCalculations?.calculateIncomeImpactLifestyleScenario;
     const calculateIncomeImpactTriageInterventions = currentLensAnalysis.calculateIncomeImpactTriageInterventions;
+    const accountPolicyStorage = root.accountSettings?.householdExpenseAccountPolicyStorage;
+    const resolveHouseholdExpenseAccountPolicy = currentLensAnalysis.householdExpenseAccountPolicyResolver?.resolveHouseholdExpenseAccountPolicy;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
@@ -2304,6 +2472,12 @@
       }
 
       const valuationDate = resolveTimelineValuationDate(profileRecord, builderResult.lensModel);
+      const householdExpenseAccountPolicyContext = resolveIncomeImpactHouseholdExpenseAccountPolicy({
+        currentLensAnalysis,
+        accountPolicyStorage,
+        accountPolicyResolver: resolveHouseholdExpenseAccountPolicy,
+        storage: window.localStorage
+      });
       incomeImpactState = {
         host,
         lensModel: builderResult.lensModel,
@@ -2317,6 +2491,7 @@
         calculateIncomeImpactCompressionScenario,
         calculateIncomeImpactLifestyleScenario,
         calculateIncomeImpactTriageInterventions,
+        householdExpenseAccountPolicyContext,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,

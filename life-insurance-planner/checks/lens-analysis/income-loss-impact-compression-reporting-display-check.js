@@ -404,11 +404,13 @@ const harness = createDisplayHarness(displaySource);
 assertScriptOrder(scripts, [
   "../app/features/lens-analysis/expense-taxonomy.js",
   "../app/features/lens-analysis/expense-library.js",
+  "../app/features/account-settings/household-expense-account-policy-storage.js",
   "../app/features/lens-analysis/expense-compression-thresholds.js",
   "../app/features/lens-analysis/expense-compression-threshold-resolver.js",
   "../app/features/lens-analysis/household-expense-compression-calculations.js",
   "../app/features/lens-analysis/household-expense-compression-policy.js",
   "../app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
+  "../app/features/lens-analysis/household-expense-account-policy-resolver.js",
   "../app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
   "../app/features/lens-analysis/income-impact-risk-event-evaluator-calculations.js",
   "../app/features/lens-analysis/income-impact-timeline-graph-model.js",
@@ -431,6 +433,12 @@ assert.equal(typeof harness.renderTimeline, "function", "display harness should 
 
 assert.match(pageSource, /data-income-impact-lifestyle-slider/);
 assert.match(displaySource, /calculateIncomeImpactLifestyleScenario/);
+assert.match(displaySource, /householdExpenseAccountPolicyStorage/);
+assert.match(displaySource, /resolveHouseholdExpenseAccountPolicy/);
+assert.match(displaySource, /TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID/);
+assert.match(displaySource, /accountPolicyResolution:\s*policyContext\.resolvedPolicy/);
+assert.match(displaySource, /accountPolicySource:\s*householdExpenseAccountPolicyContext\?\.policySource/);
+assert.doesNotMatch(displaySource, /model90\.householdExpenseAccountPolicy|HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_PREFIX/);
 assert.match(displaySource, /basePostDeathSeries:\s*scenario\?\.postDeathSeries/);
 assert.match(displaySource, /lifestyleScenario\?\.comparisonScenario/);
 assert.match(displaySource, /baseRenderCache/);
@@ -474,6 +482,13 @@ assert.doesNotMatch(
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/,
   "Income Loss Impact display should not persist scenario or lifestyle state."
 );
+assert.doesNotMatch(
+  displaySource,
+  /analysisSettings\.[\s\S]{0,80}householdExpense|householdExpense[\s\S]{0,80}analysisSettings/,
+  "Income Loss Impact display should not store account household expense policy in profile Analysis Setup settings."
+);
+assert.doesNotMatch(readRepoFile("app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js"), /account-settings|householdExpenseAccountPolicyStorage|localStorage|sessionStorage/);
+assert.doesNotMatch(readRepoFile("app/features/lens-analysis/income-impact-compression-reporting-prep.js"), /account-settings|householdExpenseAccountPolicyStorage|localStorage|sessionStorage/);
 assert.match(componentsSource, /\.income-impact-compression-panel/);
 assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
@@ -497,6 +512,7 @@ let lifestyleScenarioCallCount = 0;
 let layer5CallCount = 0;
 let graphCallCount = 0;
 let capturedLifestyleInput = null;
+let capturedCompressionPrepInput = null;
 let capturedLayer5Input = null;
 let capturedGraphInput = null;
 
@@ -537,6 +553,7 @@ const result = harness.buildIncomeImpactResultFromState({
   },
   prepareIncomeImpactCompressionReportingInputs(input) {
     prepCallCount += 1;
+    capturedCompressionPrepInput = input;
     assert.deepEqual(clone(input.options), {
       householdContext: "survivor",
       includeAdvisorConfirmed: false,
@@ -594,6 +611,8 @@ assert.equal(graphCallCount, 1, "display should build graph once");
 assert.equal(capturedLifestyleInput.expenseFacts.expenses.length, 2, "lifestyle helper should receive explicit expense facts");
 assert.equal(capturedLifestyleInput.sliderValue, 0, "default slider value should be current/baseline");
 assert.equal(capturedLifestyleInput.basePostDeathSeries, scenario.postDeathSeries, "display should pass base post-death series into the lifestyle helper");
+assert.equal(capturedLifestyleInput.accountPolicyResolution, undefined, "missing account policy should leave lifestyle helper on seed fallback path");
+assert.equal(capturedCompressionPrepInput.accountPolicyResolution, undefined, "missing account policy should leave compression prep on seed fallback path");
 assert.equal(capturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should continue receiving the existing immediate compression scenario result");
 assert.equal(capturedGraphInput.comparisonScenarios.length, 1, "graph should receive one lifestyle-adjusted comparison scenario");
 assert.equal(capturedGraphInput.comparisonScenarios[0].scenarioId, "income-impact-lifestyle-adjusted-comparison");
@@ -622,6 +641,178 @@ assert.match(currentHtml, /Lifestyle-adjusted projection/);
 assert.match(currentHtml, /Comparison only - base projection unchanged\./);
 assert.doesNotMatch(currentHtml, /staged-compression-post-death-resources|Staged compression|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path=/);
 assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker|data-income-impact-comparison-marker-type="comparisonAction"|data-income-impact-comparison-marker-type="comparisonPause"/);
+
+const resolvedAccountPolicy = {
+  resolvedLifestyleRangePolicies: [
+    {
+      expenseTypeKey: "groceries",
+      categoryKey: "foodGroceries",
+      displayName: "Groceries",
+      sliderEligible: true,
+      rangeBehavior: "compressible",
+      conservativeFloorRatio: 0.7,
+      elevatedCeilingRatio: 1.2,
+      allowBelowBaseline: true,
+      allowAboveBaseline: true
+    }
+  ],
+  resolvedCompressionPolicyRules: [
+    {
+      expenseTypeKey: "groceries",
+      categoryKey: "foodGroceries",
+      decision: "YES",
+      compressionOrderRank: 80
+    }
+  ],
+  resolvedCompressionThresholdRules: [
+    {
+      thresholdId: "account-groceries-threshold",
+      expenseTypeKey: "groceries",
+      tiers: {
+        minimum: 200,
+        conservative: 300,
+        average: 450,
+        comfortable: 650
+      },
+      protectedFloor: 200
+    }
+  ],
+  warnings: [],
+  dataGaps: [],
+  trace: {
+    calculationMethod: "household-expense-account-policy-resolver-v1"
+  }
+};
+let accountPrepInput = null;
+let accountLifestyleInput = null;
+const accountPolicyResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: {
+    expenseFacts: {
+      expenses: [
+        { expenseTypeKey: "groceries", categoryKey: "foodGroceries", monthlyAmount: 1000 }
+      ]
+    }
+  },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: -100
+  },
+  deathAgeState: { hasDateOfBirth: false },
+  householdExpenseAccountPolicyContext: {
+    accountId: "temporary-local-household-expense-policy-account-v1",
+    policySource: "accountOverride",
+    resolvedAccountPolicyAvailable: true,
+    resolvedPolicy: resolvedAccountPolicy,
+    storageResult: { status: "loaded" },
+    trace: { accountIdSource: "temporaryLocalDisplayFallback" }
+  },
+  composeIncomeImpactScenario() { return scenario; },
+  evaluateIncomeImpactRiskEvents() { return riskEvaluation; },
+  buildIncomeImpactTimelineGraphModel(input) { return makeGraphModel(input); },
+  prepareIncomeImpactCompressionReportingInputs(input) {
+    accountPrepInput = input;
+    return {
+      compressionReport,
+      compressionPolicyRules,
+      warnings: [],
+      dataGaps: [],
+      trace: { reportingOnly: true }
+    };
+  },
+  calculateIncomeImpactCompressionScenario(input) {
+    return createCompressionScenarioResult(input);
+  },
+  calculateIncomeImpactLifestyleScenario(input) {
+    accountLifestyleInput = input;
+    return {
+      status: "complete",
+      sliderValue: input.sliderValue,
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, -100),
+      warnings: [],
+      dataGaps: [],
+      trace: { calculationMethod: "income-impact-lifestyle-scenario-v1" }
+    };
+  },
+  calculateIncomeImpactTriageInterventions(input) {
+    return createLayer5Output(input);
+  }
+});
+assert.equal(accountPrepInput.accountPolicyResolution, resolvedAccountPolicy, "valid saved account policy should be passed into compression prep");
+assert.equal(accountPrepInput.accountPolicyResolution.resolvedCompressionThresholdRules[0].thresholdId, "account-groceries-threshold", "resolved threshold override should reach compression prep");
+assert.equal(accountPrepInput.accountPolicyResolution.resolvedCompressionPolicyRules[0].decision, "YES", "resolved compression policy override should reach compression prep");
+assert.equal(accountLifestyleInput.accountPolicyResolution, resolvedAccountPolicy, "valid saved account policy should be passed into lifestyle scenario helper");
+assert.equal(accountLifestyleInput.accountPolicyResolution.resolvedLifestyleRangePolicies[0].conservativeFloorRatio, 0.7, "resolved lifestyle range override should reach lifestyle helper");
+assert.equal(accountPolicyResult.compressionReporting.trace.accountPolicySource, "accountOverride", "result trace should expose account override policy source");
+assert.equal(accountPolicyResult.compressionReporting.trace.accountPolicyStorageStatus, "loaded", "result trace should expose storage load status");
+assert.equal(accountPolicyResult.compressionReporting.trace.accountPolicyAccountIdSource, "temporaryLocalDisplayFallback", "result trace should expose temporary local account id source");
+
+let fallbackPrepInput = null;
+let fallbackLifestyleInput = null;
+const fallbackPolicyResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: {
+    expenseFacts: {
+      expenses: [
+        { expenseTypeKey: "groceries", categoryKey: "foodGroceries", monthlyAmount: 1000 }
+      ]
+    }
+  },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: -100
+  },
+  deathAgeState: { hasDateOfBirth: false },
+  householdExpenseAccountPolicyContext: {
+    accountId: "temporary-local-household-expense-policy-account-v1",
+    policySource: "fallbackPolicy",
+    resolvedAccountPolicyAvailable: false,
+    resolvedPolicy: resolvedAccountPolicy,
+    storageResult: {
+      status: "fallback",
+      metadata: { fallbackReason: "corrupt-account-policy-json" }
+    },
+    trace: { accountIdSource: "temporaryLocalDisplayFallback" }
+  },
+  composeIncomeImpactScenario() { return scenario; },
+  evaluateIncomeImpactRiskEvents() { return riskEvaluation; },
+  buildIncomeImpactTimelineGraphModel(input) { return makeGraphModel(input); },
+  prepareIncomeImpactCompressionReportingInputs(input) {
+    fallbackPrepInput = input;
+    return {
+      compressionReport,
+      compressionPolicyRules,
+      warnings: [],
+      dataGaps: [],
+      trace: { reportingOnly: true }
+    };
+  },
+  calculateIncomeImpactCompressionScenario(input) {
+    return createCompressionScenarioResult(input);
+  },
+  calculateIncomeImpactLifestyleScenario(input) {
+    fallbackLifestyleInput = input;
+    return {
+      status: "complete",
+      sliderValue: input.sliderValue,
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, -100),
+      warnings: [],
+      dataGaps: [],
+      trace: { calculationMethod: "income-impact-lifestyle-scenario-v1" }
+    };
+  },
+  calculateIncomeImpactTriageInterventions(input) {
+    return createLayer5Output(input);
+  }
+});
+assert.equal(fallbackPrepInput.accountPolicyResolution, undefined, "corrupt saved account policy should not pass explicit resolved policy into compression prep");
+assert.equal(fallbackLifestyleInput.accountPolicyResolution, undefined, "corrupt saved account policy should not pass explicit resolved policy into lifestyle helper");
+assert.equal(fallbackPolicyResult.compressionReporting.trace.accountPolicySource, "fallbackPolicy", "corrupt saved account policy should trace fallback policy source");
+assert.equal(fallbackPolicyResult.compressionReporting.trace.accountPolicyStorageFallbackReason, "corrupt-account-policy-json", "corrupt saved account policy should trace fallback reason");
 
 const panelHtml = harness.renderCompressionReportingPanel(result);
 assert.match(panelHtml, /data-income-impact-compression-panel/);
