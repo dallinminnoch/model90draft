@@ -823,6 +823,41 @@
     return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)}" data-income-impact-graph-path="${escapeHtml(pathId)}" d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
   }
 
+  function getComparisonGraphSeries(graphModel) {
+    return (Array.isArray(graphModel?.series?.comparisonPostDeathResources)
+      ? graphModel.series.comparisonPostDeathResources
+      : []).filter(function (comparisonSeries) {
+      return isPlainObject(comparisonSeries) && buildSvgPath(comparisonSeries.points);
+    });
+  }
+
+  function renderComparisonGraphPaths(graphModel) {
+    const comparisonSeries = getComparisonGraphSeries(graphModel);
+    if (!comparisonSeries.length) {
+      return "";
+    }
+    return comparisonSeries.map(function (series) {
+      return renderGraphPath(
+        "compression-post-death-resources",
+        series.points,
+        series.label || "After expense compression"
+      );
+    }).join("");
+  }
+
+  function renderGraphLegend(graphModel) {
+    if (!getComparisonGraphSeries(graphModel).length) {
+      return "";
+    }
+    return `
+      <div class="income-impact-graph-legend" data-income-impact-graph-legend>
+        <span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>
+        <span data-income-impact-graph-legend-item="compression"><i></i>After expense compression</span>
+        <p>Comparison only - base projection unchanged.</p>
+      </div>
+    `;
+  }
+
   function renderGraphDeathAnchor(graphModel) {
     const anchor = graphModel?.series?.currentAnchor;
     if (!anchor || toOptionalNumber(anchor.xRatio) == null || toOptionalNumber(anchor.yRatio) == null) {
@@ -840,6 +875,7 @@
     const preDeathPath = renderGraphPath("preDeathAssets", graphModel?.series?.preDeathAssets, "Projected assets before death");
     const deathPath = renderGraphPath("deathTransition", graphModel?.series?.deathTransition, "Death-event resource conversion");
     const postDeathPath = renderGraphPath("postDeathResources", graphModel?.series?.postDeathResources, "Survivor resources after death");
+    const comparisonPaths = renderComparisonGraphPaths(graphModel);
     return `
       <svg
         class="income-impact-graph-svg"
@@ -854,6 +890,7 @@
           ${preDeathPath}
           ${deathPath}
           ${postDeathPath}
+          ${comparisonPaths}
           ${renderGraphDeathAnchor(graphModel)}
         </g>
         ${renderGraphMarkers(graphModel)}
@@ -936,6 +973,7 @@
           <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>
         </div>
         ${renderGraphSvg(graphModel)}
+        ${renderGraphLegend(graphModel)}
         ${renderGraphCallouts(graphModel)}
         ${renderSelectedGraphEvent(graphModel)}
       </div>
@@ -1168,7 +1206,7 @@
 
     if (inputProvided && scenarios.length) {
       label = "Alternate scenario prepared";
-      detail = "Prepared as a separate scenario and not applied to the projection or graph.";
+      detail = "Prepared as a separate scenario and not applied to the base projection.";
       state = "complete";
     } else if (inputProvided && isBlocked) {
       label = "Alternate scenario blocked";
@@ -1546,6 +1584,20 @@
     ];
   }
 
+  function getCompressionComparisonScenarios(layer5) {
+    return (Array.isArray(layer5?.compressionScenarios) ? layer5.compressionScenarios : [])
+      .filter(isPlainObject)
+      .map(function (compressionScenario) {
+        return {
+          scenarioId: compressionScenario.scenarioId || "income-impact-expense-compression-alternate",
+          kind: "compression",
+          label: compressionScenario.label || "After expense compression",
+          postDeathSeries: compressionScenario.postDeathSeries,
+          trace: isPlainObject(compressionScenario.trace) ? compressionScenario.trace : {}
+        };
+      });
+  }
+
   function buildIncomeImpactResultFromState(state) {
     const safeState = isPlainObject(state) ? state : {};
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
@@ -1577,14 +1629,6 @@
     });
     const riskEvaluation = safeState.evaluateIncomeImpactRiskEvents({
       scenario
-    });
-    const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
-      scenario,
-      riskEvaluation,
-      options: {
-        preserveSignedResources: true,
-        currentAgeMode: "death-event-only"
-      }
     });
     const compressionPrep = typeof safeState.prepareIncomeImpactCompressionReportingInputs === "function"
       ? safeState.prepareIncomeImpactCompressionReportingInputs({
@@ -1618,6 +1662,16 @@
         compressionScenarioResult
       })
       : null;
+    const comparisonScenarios = getCompressionComparisonScenarios(triageInterventions);
+    const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
+      scenario,
+      riskEvaluation,
+      comparisonScenarios,
+      options: {
+        preserveSignedResources: true,
+        currentAgeMode: "death-event-only"
+      }
+    });
     const dataGaps = []
       .concat(Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [])
       .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : [])

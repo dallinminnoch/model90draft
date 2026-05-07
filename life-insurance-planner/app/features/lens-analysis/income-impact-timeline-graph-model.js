@@ -176,6 +176,34 @@
       .filter(Boolean);
   }
 
+  function buildComparisonSeries(comparisonScenarios) {
+    return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
+      .filter(isPlainObject)
+      .map(function (comparisonScenario, index) {
+        const postDeathSeries = isPlainObject(comparisonScenario.postDeathSeries)
+          ? comparisonScenario.postDeathSeries
+          : {};
+        const points = buildSeriesPoints(
+          postDeathSeries.points,
+          "comparisonPostDeath",
+          ["endingResources", "availableResources"],
+          `comparisonScenarios.${index}.postDeathSeries.points`
+        );
+        if (points.length < 2) {
+          return null;
+        }
+        return {
+          scenarioId: String(comparisonScenario.scenarioId || `comparison-scenario-${index + 1}`),
+          kind: String(comparisonScenario.kind || "comparison"),
+          label: String(comparisonScenario.label || "Comparison scenario"),
+          points,
+          sourcePath: `comparisonScenarios.${index}.postDeathSeries.points`,
+          trace: isPlainObject(comparisonScenario.trace) ? clonePlainValue(comparisonScenario.trace) : {}
+        };
+      })
+      .filter(Boolean);
+  }
+
   function getScenarioDates(scenario) {
     const scenarioFacts = isPlainObject(scenario?.scenario) ? scenario.scenario : {};
     const deathEvent = isPlainObject(scenario?.deathEvent) ? scenario.deathEvent : {};
@@ -630,6 +658,11 @@
       ));
     }
 
+    const comparisonPostDeathResources = buildComparisonSeries(safeInput.comparisonScenarios);
+    const comparisonPoints = comparisonPostDeathResources.reduce(function (points, comparisonSeries) {
+      return points.concat(comparisonSeries.points);
+    }, []);
+
     const riskMarkers = buildMarkers(riskEvaluation.events, "risk", scenario, dates);
     const stableMarkers = buildMarkers(riskEvaluation.stableEvents, "stable", scenario, dates);
     const markers = riskMarkers.concat(stableMarkers);
@@ -642,6 +675,7 @@
         .concat(preDeathAssets.map(function (point) { return point.date; }))
         .concat(deathTransition.date ? [deathTransition.date] : [])
         .concat(postDeathResources.map(function (point) { return point.date; }))
+        .concat(comparisonPoints.map(function (point) { return point.date; }))
         .concat(markers.filter(function (marker) { return marker.positionable; }).map(function (marker) { return marker.date; })),
       dates.valuationDate || dates.deathDate,
       possibleEndFromHorizon || dates.deathDate
@@ -651,6 +685,7 @@
         .concat(preDeathAssets.map(function (point) { return point.value; }))
         .concat(deathTransition.stages.map(function (stage) { return stage.value; }))
         .concat(postDeathResources.map(function (point) { return point.value; }))
+        .concat(comparisonPoints.map(function (point) { return point.value; }))
         .concat(markers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
     );
 
@@ -660,6 +695,13 @@
     const enrichedPostDeath = postDeathResources.map(function (point) {
       return enrichPoint(point, xDomain, yDomain);
     });
+    const enrichedComparisonPostDeath = comparisonPostDeathResources.map(function (comparisonSeries) {
+      return Object.assign({}, comparisonSeries, {
+        points: comparisonSeries.points.map(function (point) {
+          return enrichPoint(point, xDomain, yDomain);
+        })
+      });
+    });
     const enrichedDeathStages = deathTransition.stages.map(function (stage) {
       return enrichPoint(stage, xDomain, yDomain);
     });
@@ -668,7 +710,7 @@
     });
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
 
-    return {
+    const result = {
       status: usable ? (scenario.status === "complete" && !dataGaps.length ? "complete" : "partial") : "unavailable",
       phases: makePhases(dates, xDomain, enrichedPostDeath),
       series: {
@@ -728,6 +770,16 @@
         statement: "This helper builds a display-only graph model from the composed Income Impact scenario and Layer 4 risk events."
       }
     };
+
+    if (enrichedComparisonPostDeath.length) {
+      result.series.comparisonPostDeathResources = enrichedComparisonPostDeath;
+      result.trace.comparisonScenariosEnabled = true;
+      result.trace.comparisonScenarioCount = enrichedComparisonPostDeath.length;
+      result.trace.baseSeriesUnchanged = true;
+      result.trace.noComparisonMarkersCreated = true;
+    }
+
+    return result;
   }
 
   lensAnalysis.buildIncomeImpactTimelineGraphModel = buildIncomeImpactTimelineGraphModel;

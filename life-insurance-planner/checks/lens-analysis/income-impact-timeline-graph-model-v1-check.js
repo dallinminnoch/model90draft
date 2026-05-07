@@ -199,6 +199,11 @@ const fiveYearInput = {
 const fiveYearInputBefore = cloneJson(fiveYearInput);
 const fiveYearModel = buildIncomeImpactTimelineGraphModel(fiveYearInput);
 assert.deepEqual(fiveYearInput, fiveYearInputBefore, "Graph model should not mutate composer or risk outputs.");
+assert.deepEqual(
+  buildIncomeImpactTimelineGraphModel(cloneJson(fiveYearInput)),
+  fiveYearModel,
+  "Graph model output should be unchanged when comparisonScenarios is absent."
+);
 assert.equal(fiveYearModel.status, "complete");
 assert.equal(fiveYearModel.trace.calculationMethod, "income-impact-timeline-graph-model-v1");
 assert.equal(fiveYearModel.trace.noFinancialCalculationsPerformed, true);
@@ -239,6 +244,88 @@ assert.ok(fiveYearModel.callouts.some(function (callout) { return callout.id ===
 assert.doesNotThrow(function () {
   JSON.stringify(fiveYearModel);
 });
+assert.equal(
+  Object.prototype.hasOwnProperty.call(fiveYearModel.series, "comparisonPostDeathResources"),
+  false,
+  "Comparison series should not be emitted without explicit comparisonScenarios input."
+);
+
+const comparisonScenario = {
+  scenarioId: "income-impact-expense-compression-alternate",
+  kind: "compression",
+  label: "After expense compression",
+  postDeathSeries: {
+    points: [
+      {
+        date: `${2032}-04-29`,
+        monthIndex: 12,
+        endingResources: 760000,
+        sourcePaths: ["compressionScenario.postDeathSeries.points"]
+      },
+      {
+        date: `${2040}-04-29`,
+        monthIndex: 108,
+        endingResources: 260000,
+        sourcePaths: ["compressionScenario.postDeathSeries.points"]
+      },
+      {
+        date: `${2048}-04-29`,
+        monthIndex: 204,
+        endingResources: -20000,
+        sourcePaths: ["compressionScenario.postDeathSeries.points"]
+      }
+    ]
+  },
+  trace: {
+    baseScenarioMutated: false
+  }
+};
+const comparisonInput = Object.assign({}, cloneJson(fiveYearInput), {
+  comparisonScenarios: [cloneJson(comparisonScenario)]
+});
+const comparisonInputBefore = cloneJson(comparisonInput);
+const comparisonModel = buildIncomeImpactTimelineGraphModel(comparisonInput);
+assert.deepEqual(comparisonInput, comparisonInputBefore, "Graph model should not mutate comparisonScenarios.");
+assert.equal(comparisonModel.series.comparisonPostDeathResources.length, 1);
+assert.equal(comparisonModel.series.comparisonPostDeathResources[0].scenarioId, comparisonScenario.scenarioId);
+assert.equal(comparisonModel.series.comparisonPostDeathResources[0].kind, "compression");
+assert.deepEqual(
+  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
+  cloneJson(comparisonScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
+  "Comparison path should map completed alternate postDeathSeries values."
+);
+assert.deepEqual(
+  cloneJson(comparisonModel.series.postDeathResources.map(function (point) { return point.value; })),
+  cloneJson(fiveYearModel.series.postDeathResources.map(function (point) { return point.value; })),
+  "Base postDeathResources source values should remain unchanged with comparison input."
+);
+assert.equal(comparisonModel.markers.length, fiveYearModel.markers.length, "Comparison input should not create graph markers.");
+assert.equal(comparisonModel.trace.comparisonScenariosEnabled, true);
+assert.equal(comparisonModel.trace.comparisonScenarioCount, 1);
+assert.equal(comparisonModel.trace.baseSeriesUnchanged, true);
+assert.equal(comparisonModel.trace.noComparisonMarkersCreated, true);
+
+const invalidComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
+  comparisonScenarios: [
+    {
+      scenarioId: "blocked-or-incomplete",
+      kind: "compression",
+      postDeathSeries: {
+        points: [
+          {
+            date: "2032-04-29",
+            endingResources: 760000
+          }
+        ]
+      }
+    }
+  ]
+}));
+assert.equal(
+  Object.prototype.hasOwnProperty.call(invalidComparisonModel.series, "comparisonPostDeathResources"),
+  false,
+  "Blocked, partial, missing, or invalid comparison scenarios should not emit a comparison path."
+);
 
 const currentAgeModel = buildIncomeImpactTimelineGraphModel({
   scenario: makeScenario(0),

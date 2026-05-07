@@ -16170,6 +16170,49 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #227455;
 }
 
+.income-impact-graph-path--compression-post-death-resources {
+  stroke: #1f6fb2;
+  stroke-dasharray: 6 5;
+  stroke-width: 3;
+}
+
+.income-impact-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.8rem;
+  color: #536176;
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.income-impact-graph-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.income-impact-graph-legend i {
+  display: inline-block;
+  width: 1.5rem;
+  height: 0;
+  border-top: 3px solid #227455;
+}
+
+.income-impact-graph-legend [data-income-impact-graph-legend-item="compression"] i {
+  border-color: #1f6fb2;
+  border-top-style: dashed;
+}
+
+.income-impact-graph-legend p {
+  flex-basis: 100%;
+  margin: 0;
+  color: #627086;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
 .income-impact-graph-current-anchor rect {
   fill: #17202c;
   stroke: #ffffff;

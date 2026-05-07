@@ -376,7 +376,13 @@ function createCompressionScenarioResult(input) {
         points: [
           {
             monthIndex: 1,
+            date: "2031-06-06",
             endingResources: 500650
+          },
+          {
+            monthIndex: 120,
+            date: "2041-05-06",
+            endingResources: 180000
           }
         ]
       },
@@ -424,6 +430,7 @@ let layer5CallCount = 0;
 let graphCallCount = 0;
 let capturedCompressionScenarioInput = null;
 let capturedLayer5Input = null;
+let capturedGraphInput = null;
 const originalScenario = clone(scenario);
 const originalRiskEvaluation = clone(riskEvaluation);
 const originalGraphHtml = harness.renderTimeline({
@@ -454,8 +461,10 @@ const result = harness.buildIncomeImpactResultFromState({
   },
   buildIncomeImpactTimelineGraphModel(input) {
     graphCallCount += 1;
+    capturedGraphInput = input;
     assert.equal(input.scenario, scenario);
     assert.equal(input.riskEvaluation, riskEvaluation);
+    assert.deepEqual(input.comparisonScenarios, [], "Blocked compression scenario should not be passed to the graph as a comparison path.");
     return graphModel;
   },
   prepareIncomeImpactCompressionReportingInputs(input) {
@@ -505,6 +514,7 @@ assert.equal(capturedLayer5Input.riskEvaluation, riskEvaluation, "Layer 5 should
 assert.equal(capturedLayer5Input.compressionReport, compressionReport, "Layer 5 should receive prepared compressionReport");
 assert.equal(capturedLayer5Input.compressionPolicyRules, compressionPolicyRules, "Layer 5 should receive prepared policy rules");
 assert.equal(capturedLayer5Input.compressionScenarioResult.status, "blocked", "Layer 5 should receive blocked compression scenario result");
+assert.deepEqual(capturedGraphInput.comparisonScenarios, [], "Graph model should receive no comparisonScenarios for blocked compression scenario.");
 assert.deepEqual(scenario, originalScenario, "display compression reporting should not mutate scenario");
 assert.deepEqual(riskEvaluation, originalRiskEvaluation, "display compression reporting should not mutate risk evaluation");
 assert.deepEqual(result.scenario.postDeathSeries, originalScenario.postDeathSeries, "postDeathSeries should remain unchanged");
@@ -561,6 +571,7 @@ const completeCompressionReport = clone(compressionReport);
 completeCompressionReport.dataGaps = [];
 completeCompressionReport.pauseCandidates[0].possibleMonthlyPauseAmount = 500;
 let completeCapturedLayer5Input = null;
+let completeCapturedGraphInput = null;
 const completeResult = harness.buildIncomeImpactResultFromState({
   valuationDate: "2026-05-06",
   lensModel: {
@@ -580,7 +591,27 @@ const completeResult = harness.buildIncomeImpactResultFromState({
   evaluateIncomeImpactRiskEvents() {
     return riskEvaluation;
   },
-  buildIncomeImpactTimelineGraphModel() {
+  buildIncomeImpactTimelineGraphModel(input) {
+    completeCapturedGraphInput = input;
+    if (Array.isArray(input.comparisonScenarios) && input.comparisonScenarios.length) {
+      return {
+        ...graphModel,
+        series: {
+          ...graphModel.series,
+          comparisonPostDeathResources: [
+            {
+              scenarioId: input.comparisonScenarios[0].scenarioId,
+              kind: "compression",
+              label: "After expense compression",
+              points: [
+                { date: "2031-06-06", value: 500650, xRatio: 0.3, yRatio: 0.29 },
+                { date: "2041-05-06", value: 180000, xRatio: 0.9, yRatio: 0.64 }
+              ]
+            }
+          ]
+        }
+      };
+    }
     return graphModel;
   },
   prepareIncomeImpactCompressionReportingInputs() {
@@ -605,10 +636,15 @@ const completeResult = harness.buildIncomeImpactResultFromState({
 assert.equal(completeCapturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should receive complete compression scenario result");
 assert.equal(completeResult.triageInterventions.compressionScenarios.length, 1, "complete compression scenario should pass through Layer 5");
 assert.equal(completeResult.triageInterventions.interventionScenarios.length, 0, "complete compression scenario should stay separate from intervention scenarios");
+assert.equal(completeCapturedGraphInput.comparisonScenarios.length, 1, "Display should pass complete compressionScenarios into the graph model as comparisonScenarios.");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[0].kind, "compression");
+assert.equal(completeCapturedGraphInput.comparisonScenarios[0].postDeathSeries.points.length, 2);
 assert.deepEqual(completeResult.scenario.postDeathSeries, originalScenario.postDeathSeries, "complete alternate scenario should not mutate base postDeathSeries");
-assert.equal(harness.renderTimeline(completeResult), originalGraphHtml, "complete alternate scenario should not change graph/timeline output");
+assert.match(harness.renderTimeline(completeResult), /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.match(harness.renderTimeline(completeResult), /Comparison only - base projection unchanged\./);
+assert.doesNotMatch(harness.renderTimeline(result), /data-income-impact-graph-path="compression-post-death-resources"/);
 assert.match(harness.renderCompressionReportingPanel(completeResult), /Alternate scenario prepared/);
-assert.match(harness.renderCompressionReportingPanel(completeResult), /Prepared as a separate scenario and not applied to the projection or graph\./);
+assert.match(harness.renderCompressionReportingPanel(completeResult), /Prepared as a separate scenario and not applied to the base projection\./);
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: result });

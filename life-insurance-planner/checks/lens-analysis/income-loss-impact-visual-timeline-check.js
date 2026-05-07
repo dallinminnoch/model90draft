@@ -129,6 +129,8 @@ assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
+assert.match(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
+assert.match(componentsSource, /\.income-impact-graph-legend/);
 
 const fixture = {
   selectedDeath: { date: "2031-04-29", age: 51 },
@@ -158,6 +160,8 @@ assert.match(timelineHtml, /data-income-impact-graph-svg/);
 assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
 assert.match(timelineHtml, /data-income-impact-graph-zero-baseline/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="risk"/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="stable"/);
@@ -165,6 +169,36 @@ assert.match(timelineHtml, /data-income-impact-graph-selected-event/);
 assert.match(timelineHtml, /data-income-impact-graph-callout="resources-after-obligations"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-impact-runway-line/);
+
+const comparisonGraphModel = makeGraphModel();
+comparisonGraphModel.series.comparisonPostDeathResources = [
+  {
+    scenarioId: "income-impact-expense-compression-alternate",
+    kind: "compression",
+    label: "After expense compression",
+    points: [
+      { date: "2032-04-29", value: 680000, xRatio: 0.33, yRatio: 0.1 },
+      { date: "2040-04-29", value: 280000, xRatio: 0.72, yRatio: 0.44 },
+      { date: "2043-04-29", value: 60000, xRatio: 0.9, yRatio: 0.64 }
+    ]
+  }
+];
+const comparisonTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  graphModel: comparisonGraphModel
+});
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
+assert.match(comparisonTimelineHtml, /Base projection/);
+assert.match(comparisonTimelineHtml, /After expense compression/);
+assert.match(comparisonTimelineHtml, /Comparison only - base projection unchanged\./);
+assert.equal(
+  (comparisonTimelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
+  (timelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
+  "Compression comparison path should not create timeline markers."
+);
 
 const currentAgeHtml = harness.renderTimeline({
   ...fixture,
