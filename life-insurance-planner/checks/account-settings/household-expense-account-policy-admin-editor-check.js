@@ -51,6 +51,26 @@ function loadScript(context, relativePath) {
   return source;
 }
 
+function draftRowsFromModel(model, overrideByType) {
+  const overrides = overrideByType || {};
+  return model.rows.map(function (row) {
+    const override = overrides[row.expenseTypeKey] || {};
+    return {
+      expenseTypeKey: row.expenseTypeKey,
+      conservativeFloorRatio: Object.prototype.hasOwnProperty.call(override, "conservativeFloorRatio")
+        ? override.conservativeFloorRatio
+        : row.defaultConservativeFloorRatio,
+      elevatedCeilingRatio: Object.prototype.hasOwnProperty.call(override, "elevatedCeilingRatio")
+        ? override.elevatedCeilingRatio
+        : row.defaultElevatedCeilingRatio
+    };
+  });
+}
+
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 const pageSource = readRepoFile("pages/admin-accounts.html");
 const editorSource = readRepoFile("app/features/account-settings/household-expense-account-policy-admin-editor.js");
 const scripts = getScriptSources(pageSource);
@@ -72,13 +92,13 @@ assert.match(editorSource, /householdExpenseAccountPolicyStorage/);
 assert.match(editorSource, /householdExpenseAccountPolicyResolver/);
 assert.match(editorSource, /TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID/);
 assert.match(editorSource, /temporaryLocalAdminFallback/);
-assert.match(editorSource, /sparseOverridePreviewOnly:\s*true/);
-assert.match(editorSource, /editableControlsRendered:\s*false/);
-assert.match(editorSource, /saveControlsRendered:\s*false/);
-assert.match(editorSource, /storageWrites:\s*false/);
+assert.match(editorSource, /editableNamespace:\s*"lifestyleRangeOverrides"/);
+assert.match(editorSource, /editableFields:\s*\["conservativeFloorRatio",\s*"elevatedCeilingRatio"\]/);
+assert.match(editorSource, /saveHouseholdExpenseAccountPolicy/);
+assert.match(editorSource, /initializeHouseholdExpenseAccountPolicyAdminDisplay/);
 assert.doesNotMatch(
   editorSource,
-  /saveHouseholdExpenseAccountPolicy|removeHouseholdExpenseAccountPolicy|\.setItem\s*\(|\.removeItem\s*\(|analysisSettings|clientRecords|profileRecord|updateClientRecord|saveAnalysisSetupSettings/
+  /removeHouseholdExpenseAccountPolicy|\.setItem\s*\(|\.removeItem\s*\(|analysisSettings|clientRecords|profileRecord|updateClientRecord|saveAnalysisSetupSettings/
 );
 assert.doesNotMatch(
   editorSource,
@@ -86,7 +106,12 @@ assert.doesNotMatch(
 );
 
 const host = {
-  innerHTML: ""
+  innerHTML: "",
+  dataset: {},
+  addEventListener(type, handler) {
+    this.listenerType = type;
+    this.listener = handler;
+  }
 };
 const context = {
   console,
@@ -120,6 +145,7 @@ const editor = context.LensApp.accountSettings.householdExpenseAccountPolicyAdmi
 assert.ok(editor, "admin editor module should load");
 assert.equal(typeof editor.buildHouseholdExpensePolicyEditorModel, "function");
 assert.equal(typeof editor.renderHouseholdExpensePolicyEditor, "function");
+assert.equal(typeof editor.buildLifestyleRangeSavePayload, "function");
 assert.equal(typeof editor.initializeHouseholdExpenseAccountPolicyAdminEditor, "function");
 
 const defaultLifestyleRows = lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies();
@@ -148,39 +174,73 @@ assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "streamingDigit
   assert.equal(
     missingModel.rows.some((row) => row.expenseTypeKey === typeKey),
     false,
-    `${typeKey} should be excluded from the editable-preview grid`
+    `${typeKey} should be excluded from the editable grid`
   );
 });
 
 const missingHtml = editor.renderHouseholdExpensePolicyEditor(missingModel);
 assert.match(missingHtml, /Lifestyle Range Overrides/);
-assert.match(missingHtml, /Editable Preview/);
+assert.match(missingHtml, /Ratio Controls/);
+assert.match(missingHtml, /Affects all users on this account/);
 assert.match(missingHtml, /Default Floor/);
 assert.match(missingHtml, /Resolved Ceiling/);
-assert.match(missingHtml, /groceries/);
-assert.doesNotMatch(missingHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save/);
+assert.match(missingHtml, /data-household-expense-policy-save/);
+assert.match(missingHtml, /data-household-expense-policy-reset-row/);
+assert.match(missingHtml, /data-ratio-field="conservativeFloorRatio"/);
+assert.match(missingHtml, /data-ratio-field="elevatedCeilingRatio"/);
+assert.equal(
+  (missingHtml.match(/data-household-expense-policy-ratio-input/g) || []).length,
+  defaultSliderEligibleRows.length * 2,
+  "only the two ratio controls should render for each slider-eligible row"
+);
+assert.doesNotMatch(
+  missingHtml,
+  /data-ratio-field="sliderEligible"|data-ratio-field="rangeBehavior"|data-ratio-field="canPause"|data-ratio-field="canReduceToZero"|data-ratio-field="compressionOrderGroup"|data-ratio-field="compressionOrderRank"|data-ratio-field="sourcePolicyDecision"|data-ratio-field="threshold/
+);
+assert.doesNotMatch(missingHtml, /<select\b/);
 
-const validPolicy = {
+const existingAccountPolicy = {
   version: 1,
-  lifestyleRangeOverrides: [
-    {
-      expenseTypeKey: "groceries",
+  lifestyleRangeOverrides: [],
+  compressionThresholdOverrides: [{ thresholdId: "streamingDigitalSubscriptions", tiers: { average: 95 } }],
+  compressionPolicyOverrides: [{ policyId: "travelVacations", notes: "preserve me" }],
+  guardrails: { maxElevatedCeilingRatio: 1.9 },
+  metadata: { source: "existing-policy" }
+};
+
+const savePayload = editor.buildLifestyleRangeSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  rows: missingModel.rows,
+  draftRows: draftRowsFromModel(missingModel, {
+    groceries: {
       conservativeFloorRatio: 0.73,
       elevatedCeilingRatio: 1.22
     }
-  ],
-  compressionThresholdOverrides: [],
-  compressionPolicyOverrides: [],
-  guardrails: {},
-  metadata: { source: "editor-check" }
-};
+  }),
+  maxElevatedCeilingRatio: 2
+});
+assert.equal(savePayload.valid, true, "valid grocery ratio edit should be accepted");
+assert.deepEqual(plain(savePayload.accountPolicy.lifestyleRangeOverrides), [{
+  conservativeFloorRatio: 0.73,
+  elevatedCeilingRatio: 1.22,
+  expenseTypeKey: "groceries"
+}], "save payload should contain sparse lifestyleRangeOverrides only for changed rows");
+assert.deepEqual(plain(savePayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "threshold namespace should be preserved");
+assert.deepEqual(plain(savePayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "compression namespace should be preserved");
+assert.deepEqual(plain(savePayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "guardrails should be preserved");
+assert.equal(savePayload.accountPolicy.metadata.source, "existing-policy", "metadata should be preserved");
+assert.equal(savePayload.accountPolicy.metadata.lastEditedNamespace, "lifestyleRangeOverrides");
+assert.equal(savePayload.accountPolicy.lifestyleRangeOverrides.some((row) => row.expenseTypeKey === "streamingDigitalSubscriptions"), false, "unchanged rows should not be saved as overrides");
+assert.equal(JSON.parse(JSON.stringify(savePayload)).valid, true, "save payload should be JSON serializable");
 
-storage.saveHouseholdExpenseAccountPolicy({
+const saveResult = storage.saveHouseholdExpenseAccountPolicy({
   accountId,
-  accountPolicy: validPolicy,
+  accountPolicy: savePayload.accountPolicy,
   metadata: { updatedBy: "check" },
   storage: context.localStorage
 });
+assert.equal(saveResult.saved, true, "valid ratio edit should save through the storage adapter");
 
 const validModel = editor.buildHouseholdExpensePolicyEditorModel({
   accountId,
@@ -192,12 +252,90 @@ assert.equal(validModel.status.code, "accountOverride", "valid saved policy shou
 assert.equal(validGroceries.overrideStatus, "accountOverride", "valid saved override should mark row status");
 assert.equal(validGroceries.resolvedConservativeFloorRatio, 0.73, "valid saved override should affect resolved floor");
 assert.equal(validGroceries.resolvedElevatedCeilingRatio, 1.22, "valid saved override should affect resolved ceiling");
-assert.equal(JSON.stringify(validGroceries.sparseOverridePreview), JSON.stringify({
-  conservativeFloorRatio: 0.73,
-  elevatedCeilingRatio: 1.22,
-  expenseTypeKey: "groceries"
-}));
 assert.match(editor.renderHouseholdExpensePolicyEditor(validModel), /Account override/);
+
+const resetPayload = editor.buildLifestyleRangeSavePayload({
+  accountId,
+  accountPolicy: validModel.accountPolicy,
+  rows: validModel.rows,
+  draftRows: draftRowsFromModel(validModel),
+  maxElevatedCeilingRatio: 2
+});
+assert.equal(resetPayload.valid, true, "reset draft should be valid");
+assert.deepEqual(plain(resetPayload.accountPolicy.lifestyleRangeOverrides), [], "reset row should remove lifestyle range override");
+assert.deepEqual(plain(resetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "reset should preserve threshold namespace");
+assert.deepEqual(plain(resetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "reset should preserve compression namespace");
+
+const invalidPayload = editor.buildLifestyleRangeSavePayload({
+  accountId,
+  accountPolicy: missingModel.accountPolicy,
+  rows: missingModel.rows,
+  draftRows: draftRowsFromModel(missingModel, {
+    groceries: {
+      conservativeFloorRatio: 1.25,
+      elevatedCeilingRatio: 0.95
+    }
+  }),
+  maxElevatedCeilingRatio: 2
+});
+assert.equal(invalidPayload.valid, false, "invalid ratios should be rejected before save");
+assert.ok(invalidPayload.validationMessages.groceries.length >= 2, "invalid row should expose row-level validation messages");
+assert.equal(Object.prototype.hasOwnProperty.call(invalidPayload, "accountPolicy"), false, "invalid save should not produce a storage payload");
+
+const overMaxPayload = editor.buildLifestyleRangeSavePayload({
+  accountId,
+  accountPolicy: missingModel.accountPolicy,
+  rows: missingModel.rows,
+  draftRows: draftRowsFromModel(missingModel, {
+    groceries: {
+      conservativeFloorRatio: 0.7,
+      elevatedCeilingRatio: 2.2
+    }
+  }),
+  maxElevatedCeilingRatio: 2
+});
+assert.equal(overMaxPayload.valid, false, "ceiling above hard max should be rejected before save");
+
+const policyInputs = {
+  defaultLifestyleRangePolicies: lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies(),
+  defaultCompressionPolicyRules: lensAnalysis.householdExpenseCompressionPolicy.getHouseholdExpenseCompressionPolicyRules(),
+  defaultCompressionThresholdRules: lensAnalysis.expenseCompressionThresholds.getExpenseCompressionThresholdRules()
+};
+const maliciousPolicy = {
+  version: 1,
+  lifestyleRangeOverrides: [{
+    expenseTypeKey: "rentOrMortgagePayment",
+    sliderEligible: true,
+    conservativeFloorRatio: 0,
+    elevatedCeilingRatio: 2
+  }],
+  compressionThresholdOverrides: [],
+  compressionPolicyOverrides: [],
+  guardrails: {},
+  metadata: { source: "malicious-check" }
+};
+const maliciousResolved = lensAnalysis.householdExpenseAccountPolicyResolver.resolveHouseholdExpenseAccountPolicy(Object.assign({}, policyInputs, {
+  accountPolicy: maliciousPolicy
+}));
+const rentPolicy = maliciousResolved.resolvedLifestyleRangePolicies.find((row) => row.expenseTypeKey === "rentOrMortgagePayment");
+assert.ok(rentPolicy, "rent policy should resolve");
+assert.equal(rentPolicy.sliderEligible, false, "resolver should still protect mortgage/rent from malicious override");
+
+storage.saveHouseholdExpenseAccountPolicy({
+  accountId,
+  accountPolicy: maliciousPolicy,
+  metadata: { updatedBy: "check" },
+  storage: context.localStorage
+});
+const maliciousModel = editor.buildHouseholdExpensePolicyEditorModel({
+  accountId,
+  storage: context.localStorage
+});
+assert.equal(
+  maliciousModel.rows.some((row) => row.expenseTypeKey === "rentOrMortgagePayment"),
+  false,
+  "malicious protected override should not create an editable row"
+);
 
 const corruptStorage = createFakeStorage();
 const corruptKey = storage.createHouseholdExpenseAccountPolicyStorageKey(accountId);
@@ -213,7 +351,10 @@ assert.equal(corruptModel.rows.every((row) => row.overrideStatus === "defaultSee
 
 const initializeModel = editor.initializeHouseholdExpenseAccountPolicyAdminEditor();
 assert.ok(initializeModel, "initializer should return a model when host exists");
+assert.equal(host.listenerType, "click", "initializer should attach a delegated click handler once");
 assert.match(host.innerHTML, /Lifestyle Range Overrides/);
-assert.doesNotMatch(host.innerHTML, /<input\b|<select\b|<button\b|data-household-expense-policy-save/);
+assert.match(host.innerHTML, /data-household-expense-policy-save/);
+assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);
+assert.doesNotMatch(host.innerHTML, /<select\b/);
 
 console.log("household expense account policy admin editor checks passed");
