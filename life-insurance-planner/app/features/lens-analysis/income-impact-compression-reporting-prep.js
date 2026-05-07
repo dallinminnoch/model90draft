@@ -32,6 +32,10 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function hasOwn(object, key) {
+    return Object.prototype.hasOwnProperty.call(Object(object), key);
+  }
+
   function toOptionalNumber(value) {
     if (value == null || value === "") {
       return null;
@@ -50,6 +54,64 @@
       code,
       message
     }, isPlainObject(details) ? clonePlainValue(details) : {});
+  }
+
+  function isUsableRuleList(value, keyName) {
+    return Array.isArray(value) && value.some(function (candidate) {
+      return isPlainObject(candidate) && normalizeString(candidate && candidate[keyName]);
+    });
+  }
+
+  function getExplicitResolvedCompressionThresholdRules(input) {
+    const candidates = [
+      { path: "resolvedCompressionThresholdRules", owner: input },
+      { path: "resolvedHouseholdExpensePolicy.resolvedCompressionThresholdRules", owner: input?.resolvedHouseholdExpensePolicy },
+      { path: "householdExpenseAccountPolicy.resolvedCompressionThresholdRules", owner: input?.householdExpenseAccountPolicy },
+      { path: "accountPolicyResolution.resolvedCompressionThresholdRules", owner: input?.accountPolicyResolution }
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (isPlainObject(candidate.owner) && hasOwn(candidate.owner, "resolvedCompressionThresholdRules")) {
+        return {
+          provided: true,
+          path: candidate.path,
+          value: candidate.owner.resolvedCompressionThresholdRules
+        };
+      }
+    }
+
+    return {
+      provided: false,
+      path: null,
+      value: null
+    };
+  }
+
+  function getExplicitResolvedCompressionPolicyRules(input) {
+    const candidates = [
+      { path: "resolvedCompressionPolicyRules", owner: input },
+      { path: "resolvedHouseholdExpensePolicy.resolvedCompressionPolicyRules", owner: input?.resolvedHouseholdExpensePolicy },
+      { path: "householdExpenseAccountPolicy.resolvedCompressionPolicyRules", owner: input?.householdExpenseAccountPolicy },
+      { path: "accountPolicyResolution.resolvedCompressionPolicyRules", owner: input?.accountPolicyResolution }
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (isPlainObject(candidate.owner) && hasOwn(candidate.owner, "resolvedCompressionPolicyRules")) {
+        return {
+          provided: true,
+          path: candidate.path,
+          value: candidate.owner.resolvedCompressionPolicyRules
+        };
+      }
+    }
+
+    return {
+      provided: false,
+      path: null,
+      value: null
+    };
   }
 
   function getExpenseFacts(lensModel) {
@@ -214,6 +276,30 @@
   }
 
   function resolveThresholds(input, warnings, dataGaps) {
+    const explicitResolved = getExplicitResolvedCompressionThresholdRules(input);
+    if (explicitResolved.provided) {
+      if (isUsableRuleList(explicitResolved.value, "thresholdId")) {
+        return {
+          rules: clonePlainValue(explicitResolved.value),
+          metadata: {
+            source: "resolvedAccountPolicy",
+            policySource: "resolvedAccountPolicy",
+            sourcePath: explicitResolved.path,
+            precedence: ["resolvedAccountPolicy", "model90Defaults"]
+          },
+          warnings: []
+        };
+      }
+
+      const issue = createIssue(
+        "invalid-resolved-compression-threshold-rules",
+        "Resolved compression threshold rules were missing or invalid; MODEL90 seed thresholds were used as a safe fallback.",
+        { sourcePath: explicitResolved.path }
+      );
+      warnings.push(issue);
+      dataGaps.push(clonePlainValue(issue));
+    }
+
     const resolver = lensAnalysis.expenseCompressionThresholdResolver;
     const defaultThresholds = resolveDefaultThresholds(input, warnings, dataGaps);
     const advisorOverrides = isPlainObject(input?.advisorThresholdOverrides)
@@ -238,27 +324,63 @@
       return {
         rules: defaultThresholds,
         metadata: {
-          source: "model90DefaultsOnly",
+          source: explicitResolved.provided || Object.keys(advisorOverrides.rulesByThresholdId || {}).length ? "fallbackPolicy" : "defaultSeedPolicy",
+          policySource: explicitResolved.provided || Object.keys(advisorOverrides.rulesByThresholdId || {}).length ? "fallbackPolicy" : "defaultSeedPolicy",
           precedence: ["model90Defaults"]
         },
         warnings: []
       };
     }
 
-    return resolver.resolveExpenseCompressionThresholds({
+    const resolved = resolver.resolveExpenseCompressionThresholds({
       defaultThresholds,
       advisorOverrides
     });
+    const advisorOverrideCount = Object.keys(advisorOverrides.rulesByThresholdId || {}).length;
+    resolved.metadata = Object.assign({}, isPlainObject(resolved.metadata) ? resolved.metadata : {}, {
+      policySource: explicitResolved.provided || advisorOverrideCount ? "fallbackPolicy" : "defaultSeedPolicy",
+      sourcePath: explicitResolved.provided
+        ? "fallback:expenseCompressionThresholdResolver"
+        : advisorOverrideCount
+          ? "advisorThresholdOverrides"
+          : "LensApp.lensAnalysis.expenseCompressionThresholds"
+    });
+    return resolved;
   }
 
   function getExpenseLibrary(input) {
     return input?.expenseLibrary || lensAnalysis.expenseLibrary || null;
   }
 
-  function getPolicyRules(dataGaps) {
+  function getPolicyResolution(input, warnings, dataGaps) {
+    const explicitResolved = getExplicitResolvedCompressionPolicyRules(input);
+    if (explicitResolved.provided) {
+      if (isUsableRuleList(explicitResolved.value, "expenseTypeKey")) {
+        return {
+          rules: clonePlainValue(explicitResolved.value),
+          source: "resolvedAccountPolicy",
+          sourcePath: explicitResolved.path,
+          fallbackPolicyUsed: false
+        };
+      }
+
+      const issue = createIssue(
+        "invalid-resolved-compression-policy-rules",
+        "Resolved compression policy rules were missing or invalid; MODEL90 seed compression policy was used as a safe fallback.",
+        { sourcePath: explicitResolved.path }
+      );
+      warnings.push(issue);
+      dataGaps.push(clonePlainValue(issue));
+    }
+
     const policy = lensAnalysis.householdExpenseCompressionPolicy;
     if (policy && typeof policy.getHouseholdExpenseCompressionPolicyRules === "function") {
-      return policy.getHouseholdExpenseCompressionPolicyRules();
+      return {
+        rules: policy.getHouseholdExpenseCompressionPolicyRules(),
+        source: explicitResolved.provided ? "fallbackPolicy" : "defaultSeedPolicy",
+        sourcePath: "LensApp.lensAnalysis.householdExpenseCompressionPolicy",
+        fallbackPolicyUsed: explicitResolved.provided
+      };
     }
 
     dataGaps.push(createIssue(
@@ -266,7 +388,12 @@
       "Household expense compression policy rules are unavailable.",
       { sourcePath: "lensAnalysis.householdExpenseCompressionPolicy" }
     ));
-    return [];
+    return {
+      rules: [],
+      source: "fallbackPolicy",
+      sourcePath: null,
+      fallbackPolicyUsed: true
+    };
   }
 
   function getClassifier(dataGaps) {
@@ -349,14 +476,14 @@
     const householdFacts = buildHouseholdFacts(safeInput, dataGaps);
     const resolvedThresholds = resolveThresholds(safeInput, warnings, dataGaps);
     const classifier = getClassifier(dataGaps);
-    const compressionPolicyRules = getPolicyRules(dataGaps);
+    const compressionPolicyResolution = getPolicyResolution(safeInput, warnings, dataGaps);
+    const compressionPolicyRules = compressionPolicyResolution.rules;
     const scalarGap = appendScalarHouseholdItemizationGap(lensModel, expenseFacts, dataGaps);
     const classifierInput = {
       expenseFacts: {
         expenses: clonePlainValue(expenseFacts)
       },
       expenseLibrary: getExpenseLibrary(safeInput),
-      resolvedThresholds,
       householdFacts,
       options: {
         mode: "reportingOnly",
@@ -365,6 +492,14 @@
         includePauseCandidates: safeInput.options?.includePauseCandidates !== false
       }
     };
+    if (resolvedThresholds?.metadata?.policySource === "resolvedAccountPolicy" && Array.isArray(resolvedThresholds.rules)) {
+      classifierInput.resolvedCompressionThresholdRules = clonePlainValue(resolvedThresholds.rules);
+    } else if (resolvedThresholds?.metadata?.policySource !== "defaultSeedPolicy") {
+      classifierInput.resolvedThresholds = resolvedThresholds;
+    }
+    if (compressionPolicyResolution.source === "resolvedAccountPolicy") {
+      classifierInput.resolvedCompressionPolicyRules = clonePlainValue(compressionPolicyRules);
+    }
 
     const compressionReport = classifier
       ? classifier(classifierInput)
@@ -385,13 +520,23 @@
       ? compressionReport.warnings.concat(clonePlainValue(warnings))
       : clonePlainValue(warnings);
     compressionReport.trace = Object.assign({}, isPlainObject(compressionReport.trace) ? compressionReport.trace : {}, {
+      thresholdPolicySource: resolvedThresholds?.metadata?.policySource || null,
+      thresholdPolicySourcePath: resolvedThresholds?.metadata?.sourcePath || null,
+      compressionPolicySource: compressionPolicyResolution.source,
+      compressionPolicySourcePath: compressionPolicyResolution.sourcePath,
+      fallbackPolicyUsed: compressionPolicyResolution.fallbackPolicyUsed === true
+        || resolvedThresholds?.metadata?.policySource === "fallbackPolicy",
+      resolvedAccountPolicyUsed: compressionPolicyResolution.source === "resolvedAccountPolicy"
+        || resolvedThresholds?.metadata?.policySource === "resolvedAccountPolicy",
       incomeImpactCompressionPrep: {
         calculationMethod: CALCULATION_METHOD,
         reportingOnly: true,
         layer5Wired: false,
         displayWired: false,
         graphPathChanged: false,
-        reductionsApplied: false
+        reductionsApplied: false,
+        compressionPolicySource: compressionPolicyResolution.source,
+        thresholdPolicySource: resolvedThresholds?.metadata?.policySource || null
       }
     });
 
@@ -405,6 +550,14 @@
         reportingOnly: true,
         source: "explicit-input",
         thresholdSource: "MODEL90-defaults-plus-advisor-overrides",
+        thresholdPolicySource: resolvedThresholds?.metadata?.policySource || null,
+        thresholdPolicySourcePath: resolvedThresholds?.metadata?.sourcePath || null,
+        compressionPolicySource: compressionPolicyResolution.source,
+        compressionPolicySourcePath: compressionPolicyResolution.sourcePath,
+        fallbackPolicyUsed: compressionPolicyResolution.fallbackPolicyUsed === true
+          || resolvedThresholds?.metadata?.policySource === "fallbackPolicy",
+        resolvedAccountPolicyUsed: compressionPolicyResolution.source === "resolvedAccountPolicy"
+          || resolvedThresholds?.metadata?.policySource === "resolvedAccountPolicy",
         advisorOverridesSupported: true,
         caseOverridesSupported: false,
         layer5Wired: false,

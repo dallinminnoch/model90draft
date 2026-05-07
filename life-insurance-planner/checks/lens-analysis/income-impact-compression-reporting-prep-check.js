@@ -32,6 +32,7 @@ loadScript("app/features/lens-analysis/expense-compression-thresholds.js");
 loadScript("app/features/lens-analysis/expense-compression-threshold-resolver.js");
 loadScript("app/features/lens-analysis/household-expense-compression-calculations.js");
 loadScript("app/features/lens-analysis/household-expense-compression-policy.js");
+loadScript("app/features/lens-analysis/household-expense-account-policy-resolver.js");
 loadScript("app/features/lens-analysis/income-impact-triage-intervention-calculations.js");
 const prepSource = loadScript("app/features/lens-analysis/income-impact-compression-reporting-prep.js");
 
@@ -39,11 +40,13 @@ const lensAnalysis = context.LensApp.lensAnalysis;
 const prep = lensAnalysis.incomeImpactCompressionReportingPrep;
 const prepareIncomeImpactCompressionReportingInputs = lensAnalysis.prepareIncomeImpactCompressionReportingInputs;
 const calculateIncomeImpactTriageInterventions = lensAnalysis.calculateIncomeImpactTriageInterventions;
+const accountPolicyResolver = lensAnalysis.householdExpenseAccountPolicyResolver;
 
 assert.ok(prep, "prep namespace should load");
 assert.equal(typeof prep.prepareIncomeImpactCompressionReportingInputs, "function", "prep namespace export exists");
 assert.equal(typeof prepareIncomeImpactCompressionReportingInputs, "function", "top-level prep export exists");
 assert.equal(typeof calculateIncomeImpactTriageInterventions, "function", "Layer 5 helper should load");
+assert.ok(accountPolicyResolver, "account policy resolver should load for resolved policy fixtures");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -59,6 +62,19 @@ function assertNoSourceMatch(pattern, message) {
 
 function byType(items, typeKey) {
   return items.find((item) => item.typeKey === typeKey);
+}
+
+function resolveAccountPolicy(accountPolicy, hardGuardrails) {
+  return accountPolicyResolver.resolveHouseholdExpenseAccountPolicy({
+    defaultLifestyleRangePolicies: [],
+    defaultCompressionPolicyRules: lensAnalysis.householdExpenseCompressionPolicy.getHouseholdExpenseCompressionPolicyRules(),
+    defaultCompressionThresholdRules: lensAnalysis.expenseCompressionThresholds.getExpenseCompressionThresholdRules(),
+    accountPolicy,
+    hardGuardrails: hardGuardrails || {
+      minThresholdTierValue: 0,
+      maxThresholdTierValue: 2000
+    }
+  });
 }
 
 function gapCodes(items) {
@@ -288,6 +304,9 @@ assert.equal(first.trace.calculationMethod, "income-impact-compression-reporting
 assert.equal(first.trace.reportingOnly, true);
 assert.equal(first.trace.source, "explicit-input");
 assert.equal(first.trace.thresholdSource, "MODEL90-defaults-plus-advisor-overrides");
+assert.equal(first.trace.thresholdPolicySource, "fallbackPolicy", "advisor threshold overrides should trace fallback policy source");
+assert.equal(first.trace.compressionPolicySource, "defaultSeedPolicy", "missing explicit compression policy should use seed policy source");
+assert.equal(first.trace.resolvedAccountPolicyUsed, false, "default prep path should not claim resolved account policy use");
 assert.equal(first.trace.advisorOverridesSupported, true);
 assert.equal(first.trace.caseOverridesSupported, false);
 assert.equal(first.trace.layer5Wired, false);
@@ -309,9 +328,13 @@ assert.ok(Array.isArray(first.compressionPolicyRules), "policy rules should be r
 assert.ok(first.compressionPolicyRules.length > 0, "policy rules should not be empty");
 assert.ok(first.compressionPolicyRules.every((rule) => rule.decision), "policy rules should include deterministic decisions");
 assert.ok(first.compressionReport, "compressionReport should be returned");
+assert.equal(first.compressionReport.trace.thresholdPolicySource, "fallbackPolicy");
+assert.equal(first.compressionReport.trace.compressionPolicySource, "defaultSeedPolicy");
 assert.equal(first.compressionReport.trace.incomeImpactCompressionPrep.reportingOnly, true);
 assert.equal(first.compressionReport.trace.incomeImpactCompressionPrep.layer5Wired, false);
 assert.equal(first.compressionReport.trace.incomeImpactCompressionPrep.reductionsApplied, false);
+assert.equal(first.compressionReport.trace.incomeImpactCompressionPrep.thresholdPolicySource, "fallbackPolicy");
+assert.equal(first.compressionReport.trace.incomeImpactCompressionPrep.compressionPolicySource, "defaultSeedPolicy");
 assert.ok(byType(first.compressionReport.opportunities, "diningOutRestaurants"), "dining fact should become a reporting opportunity");
 assert.ok(byType(first.compressionReport.opportunities, "groceries"), "groceries should become a reporting opportunity");
 assert.equal(
@@ -334,6 +357,94 @@ const scalarGap = first.compressionReport.dataGaps.find((gap) => gap.code === "s
 assert.ok(
   scalarGap.missingScalarHouseholdSupportFields.includes("monthlyFoodCost"),
   "scalar gap should name missing ongoingSupport fields"
+);
+
+const resolvedAccountPolicy = resolveAccountPolicy({
+  version: 1,
+  compressionThresholdOverrides: [
+    {
+      expenseTypeKey: "groceries",
+      tiers: {
+        minimum: 150,
+        conservative: 250,
+        average: 350,
+        comfortable: 800
+      },
+      protectedFloor: 150
+    }
+  ],
+  compressionPolicyOverrides: [
+    {
+      expenseTypeKey: "diningOutRestaurants",
+      requiresAdvisorConfirmation: true,
+      notes: "Account review before dining compression."
+    }
+  ]
+});
+const resolvedPolicyPrep = prepareIncomeImpactCompressionReportingInputs({
+  lensModel,
+  resolvedHouseholdExpensePolicy: resolvedAccountPolicy,
+  options: {
+    householdContext: "survivor"
+  }
+});
+assert.equal(resolvedPolicyPrep.trace.thresholdPolicySource, "resolvedAccountPolicy", "resolved threshold policy should be traced");
+assert.equal(resolvedPolicyPrep.trace.thresholdPolicySourcePath, "resolvedHouseholdExpensePolicy.resolvedCompressionThresholdRules");
+assert.equal(resolvedPolicyPrep.trace.compressionPolicySource, "resolvedAccountPolicy", "resolved compression policy should be traced");
+assert.equal(resolvedPolicyPrep.trace.compressionPolicySourcePath, "resolvedHouseholdExpensePolicy.resolvedCompressionPolicyRules");
+assert.equal(resolvedPolicyPrep.trace.resolvedAccountPolicyUsed, true, "prep should mark resolved account policy use");
+assert.equal(resolvedPolicyPrep.trace.fallbackPolicyUsed, false, "valid resolved account policy should not mark fallback");
+assert.equal(resolvedPolicyPrep.compressionReport.trace.thresholdPolicySource, "resolvedAccountPolicy");
+assert.equal(resolvedPolicyPrep.compressionReport.trace.compressionPolicySource, "resolvedAccountPolicy");
+assert.equal(
+  byType(resolvedPolicyPrep.compressionReport.opportunities, "groceries"),
+  undefined,
+  "resolved account thresholds should remove grocery opportunity when within account threshold"
+);
+assert.equal(
+  byType(resolvedPolicyPrep.compressionReport.protectedItems, "groceries").thresholdMonthlyAmount,
+  2400,
+  "resolved account thresholds should change grocery threshold before reporting"
+);
+assert.equal(
+  byType(resolvedPolicyPrep.compressionReport.opportunities, "diningOutRestaurants"),
+  undefined,
+  "resolved compression policy should remove dining from auto opportunity when account policy requires review"
+);
+assert.ok(
+  byType(resolvedPolicyPrep.compressionReport.advisorReviewItems, "diningOutRestaurants"),
+  "resolved compression policy should move dining to advisor review"
+);
+
+const corruptResolvedPolicyPrep = prepareIncomeImpactCompressionReportingInputs({
+  lensModel,
+  resolvedCompressionThresholdRules: { bad: true },
+  resolvedCompressionPolicyRules: { bad: true },
+  options: {
+    householdContext: "survivor"
+  }
+});
+assert.equal(corruptResolvedPolicyPrep.trace.thresholdPolicySource, "fallbackPolicy", "corrupt resolved thresholds should fall back safely");
+assert.equal(corruptResolvedPolicyPrep.trace.compressionPolicySource, "fallbackPolicy", "corrupt resolved policy should fall back safely");
+assert.equal(corruptResolvedPolicyPrep.trace.fallbackPolicyUsed, true, "corrupt resolved policy should mark fallback");
+assert.equal(corruptResolvedPolicyPrep.trace.resolvedAccountPolicyUsed, false, "corrupt resolved policy should not mark account policy use");
+assert.equal(corruptResolvedPolicyPrep.compressionReport.trace.thresholdPolicySource, "fallbackPolicy");
+assert.equal(corruptResolvedPolicyPrep.compressionReport.trace.compressionPolicySource, "fallbackPolicy");
+assert.ok(
+  gapCodes(corruptResolvedPolicyPrep.dataGaps).includes("invalid-resolved-compression-threshold-rules"),
+  "corrupt resolved thresholds should create a data gap"
+);
+assert.ok(
+  gapCodes(corruptResolvedPolicyPrep.dataGaps).includes("invalid-resolved-compression-policy-rules"),
+  "corrupt resolved compression policy should create a data gap"
+);
+assert.ok(
+  corruptResolvedPolicyPrep.warnings.some((warning) => warning.code === "invalid-resolved-compression-threshold-rules"),
+  "corrupt resolved thresholds should warn"
+);
+assert.ok(
+  corruptResolvedPolicyPrep.warnings.some((warning) => warning.code === "invalid-resolved-compression-policy-rules"),
+  "corrupt resolved compression policy should warn"
 );
 
 const generatedScalarHouseholdFacts = [

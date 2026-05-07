@@ -29,14 +29,20 @@ function loadScript(relativePath) {
 loadScript("app/features/lens-analysis/expense-taxonomy.js");
 loadScript("app/features/lens-analysis/expense-library.js");
 loadScript("app/features/lens-analysis/expense-compression-thresholds.js");
+loadScript("app/features/lens-analysis/household-expense-compression-policy.js");
+loadScript("app/features/lens-analysis/household-expense-account-policy-resolver.js");
 const classifierSource = loadScript("app/features/lens-analysis/household-expense-compression-calculations.js");
 
 const library = context.LensApp.lensAnalysis.expenseLibrary;
 const thresholds = context.LensApp.lensAnalysis.expenseCompressionThresholds;
+const compressionPolicy = context.LensApp.lensAnalysis.householdExpenseCompressionPolicy;
+const accountPolicyResolver = context.LensApp.lensAnalysis.householdExpenseAccountPolicyResolver;
 const classifier = context.LensApp.lensAnalysis.householdExpenseCompressionCalculations;
 
 assert.ok(library, "expense library should load");
 assert.ok(thresholds, "expense threshold defaults should load");
+assert.ok(compressionPolicy, "compression policy defaults should load");
+assert.ok(accountPolicyResolver, "account policy resolver should load for resolved policy fixtures");
 assert.ok(classifier, "household expense compression classifier should load");
 assert.equal(
   typeof classifier.calculateHouseholdExpenseCompressionOpportunities,
@@ -74,6 +80,7 @@ function assertNoSourceMatch(pattern, message) {
 }
 
 const defaultRules = thresholds.getExpenseCompressionThresholdRules();
+const defaultCompressionPolicyRules = compressionPolicy.getHouseholdExpenseCompressionPolicyRules();
 const expenseFacts = {
   expenses: [
     {
@@ -229,6 +236,19 @@ const expenseFacts = {
   ]
 };
 
+function resolveAccountPolicy(accountPolicy, hardGuardrails) {
+  return accountPolicyResolver.resolveHouseholdExpenseAccountPolicy({
+    defaultLifestyleRangePolicies: [],
+    defaultCompressionPolicyRules,
+    defaultCompressionThresholdRules: defaultRules,
+    accountPolicy,
+    hardGuardrails: hardGuardrails || {
+      minThresholdTierValue: 0,
+      maxThresholdTierValue: 2000
+    }
+  });
+}
+
 const input = {
   expenseFacts,
   expenseLibrary: library,
@@ -264,6 +284,9 @@ assert.equal(firstResult.trace.mode, "reportingOnly");
 assert.equal(firstResult.trace.baseExpenseFactsMutated, false);
 assert.equal(firstResult.trace.baseScenarioMutated, false);
 assert.equal(firstResult.trace.resolvedThresholdSource, "explicit-input");
+assert.equal(firstResult.trace.thresholdPolicySource, "fallbackPolicy", "legacy explicit resolvedThresholds should trace fallbackPolicy");
+assert.equal(firstResult.trace.compressionPolicySource, "defaultSeedPolicy", "missing explicit compression policy should use seed policy source");
+assert.equal(firstResult.trace.resolvedAccountPolicyUsed, false);
 assert.equal(firstResult.trace.layer5Wired, false);
 assert.ok(
   firstResult.warnings.some((warning) => warning.code === "generated-debt-payments-forced-excluded"),
@@ -337,6 +360,110 @@ assert.ok(
 assert.ok(
   byType(missingHouseholdResult.advisorReviewItems, "groceries"),
   "missing householdMemberCount should push per-member expense to advisor review"
+);
+
+const resolvedAccountPolicy = resolveAccountPolicy({
+  version: 1,
+  compressionThresholdOverrides: [
+    {
+      expenseTypeKey: "groceries",
+      tiers: {
+        minimum: 150,
+        conservative: 250,
+        average: 350,
+        comfortable: 600
+      },
+      protectedFloor: 150
+    }
+  ],
+  compressionPolicyOverrides: [
+    {
+      expenseTypeKey: "streamingDigitalSubscriptions",
+      requiresAdvisorConfirmation: true,
+      notes: "Account review before subscription compression."
+    }
+  ]
+});
+const resolvedPolicyResult = run({
+  expenseFacts,
+  expenseLibrary: library,
+  resolvedCompressionThresholdRules: resolvedAccountPolicy.resolvedCompressionThresholdRules,
+  resolvedCompressionPolicyRules: resolvedAccountPolicy.resolvedCompressionPolicyRules,
+  householdFacts: input.householdFacts,
+  options: input.options
+});
+assert.equal(resolvedPolicyResult.trace.thresholdPolicySource, "resolvedAccountPolicy", "resolved threshold rules should trace account policy source");
+assert.equal(resolvedPolicyResult.trace.compressionPolicySource, "resolvedAccountPolicy", "resolved compression policy rules should trace account policy source");
+assert.equal(resolvedPolicyResult.trace.resolvedAccountPolicyUsed, true, "resolved account policy should be marked used");
+assert.equal(
+  byType(resolvedPolicyResult.protectedItems, "groceries").thresholdMonthlyAmount,
+  1200,
+  "resolved account thresholds should change the grocery comparison threshold"
+);
+assert.equal(
+  byType(resolvedPolicyResult.opportunities, "groceries"),
+  undefined,
+  "resolved account thresholds should remove grocery opportunity when within threshold"
+);
+assert.ok(
+  resolvedPolicyResult.advisorReviewItems.some((item) => item.expenseFactId === "generated_scalar_streaming_fact"),
+  "resolved compression policy can require advisor review for an otherwise eligible category"
+);
+
+const maliciousResolvedPolicy = resolveAccountPolicy({
+  version: 1,
+  compressionPolicyOverrides: [
+    {
+      expenseTypeKey: "autoLoanPayment",
+      decision: "YES",
+      canAutoReduce: true,
+      canPause: true,
+      canReduceToZero: true
+    },
+    {
+      expenseTypeKey: "healthInsurancePremiums",
+      decision: "YES",
+      canAutoReduce: true
+    },
+    {
+      expenseTypeKey: "federalStateLocalIncomeTaxPayments",
+      decision: "YES",
+      canAutoReduce: true
+    }
+  ]
+});
+const protectedPolicyResult = run({
+  expenseFacts,
+  expenseLibrary: library,
+  resolvedCompressionThresholdRules: maliciousResolvedPolicy.resolvedCompressionThresholdRules,
+  resolvedCompressionPolicyRules: maliciousResolvedPolicy.resolvedCompressionPolicyRules,
+  householdFacts: input.householdFacts,
+  options: input.options
+});
+assert.ok(byType(protectedPolicyResult.excludedItems, "autoLoanPayment"), "generated debt should remain excluded with resolved policy");
+assert.ok(byType(protectedPolicyResult.advisorReviewItems, "healthInsurancePremiums"), "healthcare should remain protected/review-only with resolver guardrails");
+assert.ok(byType(protectedPolicyResult.advisorReviewItems, "federalStateLocalIncomeTaxPayments"), "tax should remain protected/review-only with resolver guardrails");
+
+const corruptResolvedPolicyResult = run({
+  expenseFacts,
+  expenseLibrary: library,
+  resolvedCompressionThresholdRules: { bad: true },
+  resolvedCompressionPolicyRules: { bad: true },
+  householdFacts: input.householdFacts,
+  options: input.options
+});
+assert.equal(corruptResolvedPolicyResult.trace.thresholdPolicySource, "fallbackPolicy", "corrupt resolved threshold policy should fall back safely");
+assert.equal(corruptResolvedPolicyResult.trace.compressionPolicySource, "fallbackPolicy", "corrupt resolved compression policy should fall back safely");
+assert.equal(corruptResolvedPolicyResult.trace.fallbackPolicyUsed, true, "corrupt resolved policy should mark fallback used");
+assert.ok(hasDataGap(corruptResolvedPolicyResult, "invalid-resolved-compression-threshold-rules"), "corrupt threshold policy should create data gap");
+assert.ok(hasDataGap(corruptResolvedPolicyResult, "invalid-resolved-compression-policy-rules"), "corrupt compression policy should create data gap");
+assert.ok(
+  corruptResolvedPolicyResult.warnings.some((warning) => warning.code === "invalid-resolved-compression-threshold-rules"),
+  "corrupt threshold policy should warn"
+);
+assert.ok(
+  corruptResolvedPolicyResult.warnings.some((warning) => warning.code === "invalid-resolved-compression-policy-rules"),
+  "corrupt compression policy should warn"
 );
 
 assertNoSourceMatch(/\blocalStorage\b|\bsessionStorage\b|\bdocument\b|\bquerySelector\b|\baddEventListener\b/, "classifier should not read storage or UI");
