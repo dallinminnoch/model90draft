@@ -16890,7 +16890,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-scenario-content {
   display: grid;
-  grid-template-columns: minmax(14rem, 1.2fr) minmax(13rem, 1fr) minmax(14rem, 1fr);
+  grid-template-columns: minmax(14rem, 1.2fr) minmax(13rem, 1fr) minmax(14rem, 1fr) minmax(13rem, 1fr);
   gap: 0.42rem;
   align-items: start;
 }
@@ -16922,6 +16922,17 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   color: #17202c;
   font: inherit;
   font-size: 0.78rem;
+}
+
+.income-impact-scenario-field--lifestyle small {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  color: #627086;
+}
+
+.income-impact-scenario-field--lifestyle small b {
+  font-weight: 760;
 }
 
 .income-impact-scenario-banner.is-collapsed {
@@ -16978,7 +16989,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   }
 
   .income-impact-scenario-content {
-    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(11rem, 1.1fr);
+    grid-template-columns: repeat(2, minmax(8rem, 1fr));
   }
 
   .income-impact-scenario-field:last-child {

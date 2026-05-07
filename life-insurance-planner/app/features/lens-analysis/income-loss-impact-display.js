@@ -7,6 +7,13 @@
   const DEFAULT_PROJECTION_HORIZON_YEARS = 40;
   const MIN_PROJECTION_HORIZON_YEARS = 5;
   const MAX_PROJECTION_HORIZON_YEARS = 100;
+  const MIN_LIFESTYLE_SLIDER_VALUE = -100;
+  const MAX_LIFESTYLE_SLIDER_VALUE = 100;
+  const LIFESTYLE_SLIDER_LABELS = Object.freeze({
+    conservative: "Conservative",
+    current: "Current",
+    elevated: "Elevated"
+  });
   const GRAPH_VIEW_BOX = Object.freeze({
     width: 1000,
     height: 430,
@@ -52,6 +59,25 @@
 
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
+  }
+
+  function roundMoney(value) {
+    return Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : 0;
+  }
+
+  function clonePlainValue(value) {
+    if (Array.isArray(value)) {
+      return value.map(clonePlainValue);
+    }
+
+    if (isPlainObject(value)) {
+      return Object.keys(value).reduce(function (next, key) {
+        next[key] = clonePlainValue(value[key]);
+        return next;
+      }, {});
+    }
+
+    return value;
   }
 
   function normalizeString(value) {
@@ -165,6 +191,23 @@
     const number = toOptionalNumber(value);
     const rounded = number == null ? DEFAULT_PROJECTION_HORIZON_YEARS : Math.round(number);
     return Math.max(MIN_PROJECTION_HORIZON_YEARS, Math.min(MAX_PROJECTION_HORIZON_YEARS, rounded));
+  }
+
+  function clampLifestyleSliderValue(value) {
+    const number = toOptionalNumber(value);
+    const rounded = number == null ? 0 : Math.round(number);
+    return Math.max(MIN_LIFESTYLE_SLIDER_VALUE, Math.min(MAX_LIFESTYLE_SLIDER_VALUE, rounded));
+  }
+
+  function getLifestyleSliderLabel(value) {
+    const sliderValue = clampLifestyleSliderValue(value);
+    if (sliderValue < 0) {
+      return LIFESTYLE_SLIDER_LABELS.conservative;
+    }
+    if (sliderValue > 0) {
+      return LIFESTYLE_SLIDER_LABELS.elevated;
+    }
+    return LIFESTYLE_SLIDER_LABELS.current;
   }
 
   function normalizeMortgageTreatmentOverride(value) {
@@ -374,6 +417,8 @@
       projectionHorizonValue: banner.querySelector("[data-income-impact-projection-horizon-value]"),
       mortgageTreatment: banner.querySelector("[data-income-impact-mortgage-treatment]"),
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
+      lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
+      lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
       scenarioSummary: banner.querySelector("[data-income-impact-scenario-summary]")
     };
   }
@@ -454,6 +499,7 @@
       : {};
     const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
     const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
+    const lifestyleSliderValue = clampLifestyleSliderValue(scenarioState.lifestyleSliderValue);
     const collapsed = scenarioState.bannerCollapsed === true;
 
     elements.banner.classList.toggle("is-collapsed", collapsed);
@@ -488,8 +534,21 @@
       elements.mortgageTreatmentValue.textContent = getMortgageTreatmentLabel(mortgageTreatmentOverride);
     }
 
+    if (elements.lifestyleSlider) {
+      elements.lifestyleSlider.min = String(MIN_LIFESTYLE_SLIDER_VALUE);
+      elements.lifestyleSlider.max = String(MAX_LIFESTYLE_SLIDER_VALUE);
+      elements.lifestyleSlider.step = "1";
+      elements.lifestyleSlider.value = String(lifestyleSliderValue);
+      elements.lifestyleSlider.setAttribute("aria-valuetext", getLifestyleSliderLabel(lifestyleSliderValue));
+    }
+
+    if (elements.lifestyleValue) {
+      elements.lifestyleValue.textContent = getLifestyleSliderLabel(lifestyleSliderValue);
+    }
+
     if (elements.scenarioSummary) {
       elements.scenarioSummary.setAttribute("data-income-impact-mortgage-treatment-label", getMortgageTreatmentLabel(mortgageTreatmentOverride));
+      elements.scenarioSummary.setAttribute("data-income-impact-lifestyle-label", getLifestyleSliderLabel(lifestyleSliderValue));
     }
   }
 
@@ -1013,7 +1072,7 @@
         comparisonSeries.points,
         getComparisonGraphPathMode(comparisonSeries)
       );
-    });
+    }).slice(0, 1);
   }
 
   function renderComparisonGraphPaths(graphModel) {
@@ -1034,33 +1093,23 @@
 
   function getComparisonGraphPathId(series, index) {
     const explicitPathId = normalizeString(series?.pathId || series?.graphPathId);
-    if (explicitPathId === "staged-compression-post-death-resources") {
-      return explicitPathId;
-    }
     if (explicitPathId === "compression-post-death-resources") {
       return explicitPathId;
     }
-    return index > 0 && normalizeString(series?.kind) === "stagedCompression"
-      ? "staged-compression-post-death-resources"
-      : "compression-post-death-resources";
+    return "compression-post-death-resources";
   }
 
   function getComparisonGraphLabel(pathId) {
-    return pathId === "staged-compression-post-death-resources"
-      ? "Staged compression"
-      : "Immediate compression";
+    return "Lifestyle-adjusted projection";
   }
 
   function getComparisonGraphPathMode(series, pathId) {
-    const resolvedPathId = pathId || getComparisonGraphPathId(series, 0);
     const explicitMode = normalizeGraphPathMode(series?.pathMode || series?.renderMode);
-    return resolvedPathId === "staged-compression-post-death-resources" ? "step" : explicitMode;
+    return explicitMode;
   }
 
   function getComparisonLegendItemKey(pathId) {
-    return pathId === "staged-compression-post-death-resources"
-      ? "staged-compression"
-      : "compression";
+    return "compression";
   }
 
   function renderGraphLegend(graphModel) {
@@ -1078,89 +1127,6 @@
         }).join("")}
         <p>Comparison only - base projection unchanged.</p>
       </div>
-    `;
-  }
-
-  function getCompressionEarlyDetail(graphModel) {
-    const detail = graphModel?.series?.comparisonEarlyDetail;
-    if (!isPlainObject(detail) || !Array.isArray(detail.points) || detail.points.length < 2) {
-      return null;
-    }
-    const immediatePath = buildDetailSvgPath(detail.points, "immediateYRatio", "smooth");
-    const stagedPath = buildDetailSvgPath(detail.points, "stagedYRatio", "step");
-    if (!immediatePath || !stagedPath || !detail.points.some(function (point) { return toOptionalNumber(point.difference) !== 0; })) {
-      return null;
-    }
-    return {
-      ...detail,
-      immediatePath,
-      stagedPath
-    };
-  }
-
-  function renderCompressionEarlyDetailMilestones(detail) {
-    const points = (Array.isArray(detail?.points) ? detail.points : []).filter(function (point) {
-      return COMPRESSION_DETAIL_MILESTONE_MONTHS.includes(toOptionalNumber(point?.monthIndex));
-    });
-    if (!points.length) {
-      return "";
-    }
-    return `
-      <g class="income-impact-graph-detail-points" data-income-impact-graph-detail-points>
-        ${points.map(function (point) {
-          const x = toDetailX(point.xRatio);
-          const immediateY = toDetailY(point.immediateYRatio);
-          const stagedY = toDetailY(point.stagedYRatio);
-          return `
-            <g data-income-impact-detail-point data-income-impact-detail-month="${escapeHtml(point.monthIndex)}" data-income-impact-detail-difference="${escapeHtml(point.difference)}">
-              <circle class="income-impact-graph-detail-point--immediate" cx="${x}" cy="${immediateY}" r="3"></circle>
-              <circle class="income-impact-graph-detail-point--staged" cx="${x}" cy="${stagedY}" r="3"></circle>
-              <title>Month ${escapeHtml(point.monthIndex)}: ${escapeHtml(formatCurrency(point.immediateEndingResources))} immediate, ${escapeHtml(formatCurrency(point.stagedEndingResources))} staged</title>
-            </g>
-          `;
-        }).join("")}
-      </g>
-    `;
-  }
-
-  function renderCompressionEarlyDetail(graphModel) {
-    const detail = getCompressionEarlyDetail(graphModel);
-    if (!detail) {
-      return "";
-    }
-    const minLabel = formatAxisCurrency(detail.yDomain?.min);
-    const maxLabel = formatAxisCurrency(detail.yDomain?.max);
-    const zeroY = detail.yDomain?.min < 0 && detail.yDomain?.max > 0
-      ? 1 - ((0 - detail.yDomain.min) / (detail.yDomain.max - detail.yDomain.min))
-      : null;
-    return `
-      <section class="income-impact-graph-detail" data-income-impact-graph-detail="compression-early-window" aria-label="First 24 months after death compression comparison">
-        <div class="income-impact-graph-detail-header">
-          <strong>First ${escapeHtml(detail.windowMonths || 24)} months after death</strong>
-          <span>Actual values, local scale</span>
-        </div>
-        <svg class="income-impact-graph-detail-svg" data-income-impact-graph-detail-svg viewBox="0 0 ${GRAPH_DETAIL_VIEW_BOX.width} ${GRAPH_DETAIL_VIEW_BOX.height}" role="img" aria-label="Immediate and staged compression comparison for the first 24 months after death">
-          <g class="income-impact-graph-detail-axis" data-income-impact-graph-detail-axis>
-            <line x1="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y1="${GRAPH_DETAIL_VIEW_BOX.plotTop}" x2="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y2="${GRAPH_DETAIL_VIEW_BOX.plotTop}"></line>
-            <line x1="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y1="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight}" x2="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y2="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight}"></line>
-            ${zeroY == null ? "" : `<line class="income-impact-graph-detail-zero" x1="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y1="${toDetailY(zeroY)}" x2="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y2="${toDetailY(zeroY)}"></line>`}
-            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft - 10}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + 4}" text-anchor="end">${escapeHtml(maxLabel)}</text>
-            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft - 10}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 4}" text-anchor="end">${escapeHtml(minLabel)}</text>
-            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 30}" text-anchor="start">Month 1</text>
-            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft + (GRAPH_DETAIL_VIEW_BOX.plotWidth / 2)}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 30}" text-anchor="middle">Month 12</text>
-            <text x="${GRAPH_DETAIL_VIEW_BOX.plotLeft + GRAPH_DETAIL_VIEW_BOX.plotWidth}" y="${GRAPH_DETAIL_VIEW_BOX.plotTop + GRAPH_DETAIL_VIEW_BOX.plotHeight + 30}" text-anchor="end">Month 24</text>
-          </g>
-          <g class="income-impact-graph-detail-series" data-income-impact-graph-detail-series>
-            <path class="income-impact-graph-detail-path income-impact-graph-detail-path--immediate" data-income-impact-detail-path="immediate-compression" data-income-impact-detail-path-mode="smooth" d="${escapeHtml(detail.immediatePath)}" aria-label="Immediate compression detail path"></path>
-            <path class="income-impact-graph-detail-path income-impact-graph-detail-path--staged" data-income-impact-detail-path="staged-compression" data-income-impact-detail-path-mode="step" d="${escapeHtml(detail.stagedPath)}" aria-label="Staged compression detail path"></path>
-            ${renderCompressionEarlyDetailMilestones(detail)}
-          </g>
-        </svg>
-        <div class="income-impact-graph-detail-legend" data-income-impact-graph-detail-legend>
-          <span data-income-impact-detail-legend-item="immediate-compression"><i></i>Immediate compression</span>
-          <span data-income-impact-detail-legend-item="staged-compression"><i></i>Staged compression</span>
-        </div>
-      </section>
     `;
   }
 
@@ -1280,7 +1246,6 @@
           <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>
         </div>
         ${renderGraphSvg(graphModel)}
-        ${renderCompressionEarlyDetail(graphModel)}
         ${renderGraphLegend(graphModel)}
         ${renderGraphCallouts(graphModel)}
         ${renderSelectedGraphEvent(graphModel)}
@@ -1534,6 +1499,25 @@
     `;
   }
 
+  function renderLifestyleScenarioStatus(timelineResult) {
+    const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
+    const lifestyleScenario = isPlainObject(reporting.lifestyleScenario) ? reporting.lifestyleScenario : null;
+    const trace = isPlainObject(reporting.trace) ? reporting.trace : {};
+    const sliderValue = clampLifestyleSliderValue(trace.lifestyleSliderValue);
+    const label = lifestyleScenario
+      ? `Lifestyle comparison: ${getLifestyleSliderLabel(sliderValue)}`
+      : "Lifestyle comparison unavailable";
+    const detail = lifestyleScenario
+      ? "Controls the single comparison line; fixed and review-only expenses stay unchanged."
+      : "Lifestyle helper output is not available for this preview.";
+    return `
+      <div class="income-impact-empty-inline" data-income-impact-lifestyle-scenario-status="${escapeHtml(lifestyleScenario?.status || "unavailable")}">
+        <strong>${escapeHtml(label)}</strong>
+        <span>${escapeHtml(detail)}</span>
+      </div>
+    `;
+  }
+
   function renderCompressionReportingPanel(timelineResult) {
     const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
     const layer5 = isPlainObject(reporting.layer5) ? reporting.layer5 : {};
@@ -1556,6 +1540,7 @@
           <h3>Expense Compression Readiness</h3>
           <p data-income-impact-compression-reporting-only>Reporting only - not applied to the projection.</p>
         </div>
+        ${renderLifestyleScenarioStatus(timelineResult)}
         ${renderCompressionScenarioStatus(layer5)}
         ${totalItems ? `
           <div class="income-impact-compression-counts" data-income-impact-compression-counts>
@@ -1892,51 +1877,123 @@
     ];
   }
 
-  function getCompressionComparisonScenarios(layer5) {
-    return (Array.isArray(layer5?.compressionScenarios) ? layer5.compressionScenarios : [])
-      .filter(isPlainObject)
-      .map(function (compressionScenario) {
-        return {
-          scenarioId: compressionScenario.scenarioId || "income-impact-expense-compression-alternate",
-          kind: "compression",
-          pathId: "compression-post-death-resources",
-          label: "Immediate compression",
-          status: compressionScenario.status || "complete",
-          reductionsApplied: Array.isArray(compressionScenario.reductionsApplied) ? compressionScenario.reductionsApplied : [],
-          pausesApplied: Array.isArray(compressionScenario.pausesApplied) ? compressionScenario.pausesApplied : [],
-          postDeathSeries: compressionScenario.postDeathSeries,
-          depletion: compressionScenario.depletion,
-          accumulatedUnmetNeed: compressionScenario.accumulatedUnmetNeed ?? null,
-          trace: isPlainObject(compressionScenario.trace) ? compressionScenario.trace : {}
-        };
-      });
+  function recalculateLifestyleDepletion(points, fallbackDate) {
+    const depletedPoint = (Array.isArray(points) ? points : []).find(function (point) {
+      const endingResources = toOptionalNumber(point?.endingResources);
+      return endingResources != null && endingResources <= 0;
+    });
+    if (!depletedPoint) {
+      return {
+        depleted: false,
+        depletionDate: null,
+        depletionMonthIndex: null,
+        monthsCovered: Array.isArray(points) ? points.length : 0,
+        precision: "monthly"
+      };
+    }
+    return {
+      depleted: true,
+      depletionDate: depletedPoint.date || fallbackDate || null,
+      depletionMonthIndex: toOptionalNumber(depletedPoint.monthIndex),
+      monthsCovered: toOptionalNumber(depletedPoint.monthIndex),
+      precision: "monthly"
+    };
   }
 
-  function getStagedCompressionComparisonScenarios(stagedCompressionScenarioResult) {
-    const stagedScenario = isPlainObject(stagedCompressionScenarioResult?.stagedCompressionScenario)
-      ? stagedCompressionScenarioResult.stagedCompressionScenario
-      : null;
-    if (stagedCompressionScenarioResult?.status !== "complete" || !stagedScenario) {
-      return [];
-    }
+  function summarizeLifestylePostDeathPoints(points, baseSummary) {
+    const totals = (Array.isArray(points) ? points : []).reduce(function (next, point) {
+      next.totalSurvivorNeeds = roundMoney(next.totalSurvivorNeeds + (toOptionalNumber(point?.survivorNeeds) || 0));
+      next.totalNetUse = roundMoney(next.totalNetUse + (toOptionalNumber(point?.netUse) || 0));
+      return next;
+    }, {
+      totalSurvivorNeeds: 0,
+      totalNetUse: 0
+    });
+    const lastPoint = Array.isArray(points) ? points[points.length - 1] || {} : {};
+    return Object.assign({}, clonePlainValue(baseSummary || {}), totals, {
+      endingResources: toOptionalNumber(lastPoint.endingResources),
+      accumulatedUnmetNeed: toOptionalNumber(lastPoint.accumulatedUnmetNeed)
+    });
+  }
 
-    return [
-      {
-        scenarioId: stagedScenario.scenarioId || "income-impact-staged-expense-compression-alternate",
-        kind: "stagedCompression",
-        pathId: "staged-compression-post-death-resources",
-        label: "Staged compression",
-        status: stagedScenario.status || "complete",
-        reductionsApplied: Array.isArray(stagedScenario.reductionsApplied) ? stagedScenario.reductionsApplied : [],
-        pausesApplied: Array.isArray(stagedScenario.pausesApplied) ? stagedScenario.pausesApplied : [],
-        stageEvents: Array.isArray(stagedScenario.stageEvents) ? stagedScenario.stageEvents : [],
-        markerOnlyEvents: Array.isArray(stagedScenario.markerOnlyEvents) ? stagedScenario.markerOnlyEvents : [],
-        postDeathSeries: stagedScenario.postDeathSeries,
-        depletion: stagedScenario.depletion,
-        accumulatedUnmetNeed: stagedScenario.accumulatedUnmetNeed ?? null,
-        trace: isPlainObject(stagedScenario.trace) ? stagedScenario.trace : {}
+  function buildLifestyleAdjustedPostDeathSeries(basePostDeathSeries, lifestyleScenario) {
+    const basePoints = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
+    const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta) || 0;
+    let cumulativeExpenseDelta = 0;
+    const points = basePoints.map(function (basePoint) {
+      const point = clonePlainValue(basePoint);
+      const baseSurvivorNeeds = toOptionalNumber(basePoint.survivorNeeds);
+      const baseDiscretionaryNeeds = toOptionalNumber(basePoint.discretionaryNeeds);
+      const baseNetUse = toOptionalNumber(basePoint.netUse);
+      const baseStartingResources = toOptionalNumber(basePoint.startingResources);
+      const baseEndingResources = toOptionalNumber(basePoint.endingResources);
+      const baseAvailableResources = toOptionalNumber(basePoint.availableResources);
+      cumulativeExpenseDelta = roundMoney(cumulativeExpenseDelta + monthlyDelta);
+      const endingResources = baseEndingResources == null ? null : roundMoney(baseEndingResources - cumulativeExpenseDelta);
+      const availableResources = endingResources == null
+        ? (baseAvailableResources == null ? null : roundMoney(baseAvailableResources - cumulativeExpenseDelta))
+        : roundMoney(Math.max(0, endingResources));
+      const accumulatedUnmetNeed = endingResources == null ? null : roundMoney(Math.max(0, -endingResources));
+      const survivorNeeds = baseSurvivorNeeds == null ? point.survivorNeeds : roundMoney(Math.max(0, baseSurvivorNeeds + monthlyDelta));
+      const discretionaryNeeds = baseDiscretionaryNeeds == null ? point.discretionaryNeeds : roundMoney(Math.max(0, baseDiscretionaryNeeds + monthlyDelta));
+      const netUse = baseNetUse == null ? point.netUse : roundMoney(Math.max(0, baseNetUse + monthlyDelta));
+
+      return Object.assign({}, point, {
+        startingResources: baseStartingResources == null
+          ? point.startingResources
+          : roundMoney(baseStartingResources - cumulativeExpenseDelta + monthlyDelta),
+        discretionaryNeeds,
+        survivorNeeds,
+        netUse,
+        endingResources,
+        availableResources,
+        accumulatedUnmetNeed,
+        status: endingResources != null && endingResources <= 0 ? "depleted" : "available",
+        trace: Object.assign({}, isPlainObject(point.trace) ? point.trace : {}, {
+          lifestyleScenarioApplied: true,
+          baseScenarioPointMutated: false,
+          lifestyleSliderValue: lifestyleScenario?.sliderValue ?? 0,
+          monthlyExpenseDeltaApplied: monthlyDelta,
+          cumulativeExpenseDeltaApplied: cumulativeExpenseDelta
+        }),
+        sourcePaths: Array.from(new Set([].concat(point.sourcePaths || [], ["lifestyleScenario.adjustedExpenses"])))
+      });
+    });
+    const depletion = recalculateLifestyleDepletion(points, basePostDeathSeries?.depletion?.depletionDate);
+    return {
+      points,
+      summary: summarizeLifestylePostDeathPoints(points, basePostDeathSeries?.summary),
+      depletion
+    };
+  }
+
+  function buildLifestyleComparisonScenario(scenario, lifestyleScenario) {
+    const basePostDeathSeries = isPlainObject(scenario?.postDeathSeries) ? scenario.postDeathSeries : {};
+    if (!isPlainObject(lifestyleScenario) || !Array.isArray(basePostDeathSeries.points) || basePostDeathSeries.points.length < 2) {
+      return null;
+    }
+    const postDeathSeries = buildLifestyleAdjustedPostDeathSeries(basePostDeathSeries, lifestyleScenario);
+    return {
+      scenarioId: "income-impact-lifestyle-adjusted-comparison",
+      kind: "compression",
+      pathId: "compression-post-death-resources",
+      label: "Lifestyle-adjusted projection",
+      status: lifestyleScenario.status || "complete",
+      reductionsApplied: [],
+      pausesApplied: [],
+      postDeathSeries,
+      depletion: postDeathSeries.depletion,
+      accumulatedUnmetNeed: postDeathSeries.summary.accumulatedUnmetNeed ?? null,
+      trace: {
+        calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
+        sourceCalculationMethod: lifestyleScenario.trace?.calculationMethod || null,
+        sliderValue: lifestyleScenario.sliderValue ?? 0,
+        monthlyDelta: lifestyleScenario.monthlyDelta ?? 0,
+        baseScenarioMutated: false,
+        timingApplied: false,
+        graphPathId: "compression-post-death-resources"
       }
-    ];
+    };
   }
 
   function buildIncomeImpactResultFromState(state) {
@@ -1944,6 +2001,7 @@
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
     const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
     const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
+    const lifestyleSliderValue = clampLifestyleSliderValue(scenarioState.lifestyleSliderValue);
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
     const selectedDeathAge = deathAgeState.hasDateOfBirth
       ? clampRoundedAge(deathAgeState.selectedDeathAge, deathAgeState.minAge, deathAgeState.maxAge)
@@ -1994,24 +2052,13 @@
         }
       })
       : null;
-    const stagedCompressionScenarioResult = compressionPrep
-      && typeof safeState.calculateIncomeImpactStagedCompressionScenario === "function"
-      && Array.isArray(safeState.compressionStagePolicyRules)
-      && safeState.compressionStagePolicyRules.length
-      ? safeState.calculateIncomeImpactStagedCompressionScenario({
-        scenario,
-        compressionReport: compressionPrep.compressionReport,
-        compressionPolicyRules: compressionPrep.compressionPolicyRules,
-        compressionStagePolicyRules: safeState.compressionStagePolicyRules,
-        options: {
-          mode: "stagedAlternateScenarioOnly",
-          scenarioId: "income-impact-staged-expense-compression-alternate",
-          applyPauseCandidates: true,
-          requireCompleteItemization: true,
-          includeMarkerOnlyEvents: true
-        }
+    const lifestyleScenario = typeof safeState.calculateIncomeImpactLifestyleScenario === "function"
+      ? safeState.calculateIncomeImpactLifestyleScenario({
+        expenseFacts: safeState.lensModel?.expenseFacts,
+        sliderValue: lifestyleSliderValue
       })
       : null;
+    const lifestyleComparisonScenario = buildLifestyleComparisonScenario(scenario, lifestyleScenario);
     const triageInterventions = typeof safeState.calculateIncomeImpactTriageInterventions === "function"
       ? safeState.calculateIncomeImpactTriageInterventions({
         scenario,
@@ -2021,8 +2068,7 @@
         compressionScenarioResult
       })
       : null;
-    const comparisonScenarios = getCompressionComparisonScenarios(triageInterventions)
-      .concat(getStagedCompressionComparisonScenarios(stagedCompressionScenarioResult));
+    const comparisonScenarios = lifestyleComparisonScenario ? [lifestyleComparisonScenario] : [];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario,
       riskEvaluation,
@@ -2052,17 +2098,18 @@
       compressionReporting: {
         prep: compressionPrep,
         scenario: compressionScenarioResult,
-        stagedScenario: stagedCompressionScenarioResult,
+        lifestyleScenario,
         layer5: triageInterventions,
         trace: {
           reportingOnly: true,
           displayWired: Boolean(compressionPrep && triageInterventions),
           alternateScenarioPrepared: Boolean(compressionScenarioResult),
           alternateScenarioStatus: compressionScenarioResult?.status || null,
-          stagedAlternateScenarioPrepared: Boolean(stagedCompressionScenarioResult),
-          stagedAlternateScenarioStatus: stagedCompressionScenarioResult?.status || null,
+          lifestyleScenarioPrepared: Boolean(lifestyleScenario),
+          lifestyleScenarioStatus: lifestyleScenario?.status || null,
+          lifestyleSliderValue,
           timelineMarkersCreated: false,
-          graphPathChanged: false,
+          graphPathChanged: Boolean(lifestyleComparisonScenario),
           reductionsApplied: false
         }
       },
@@ -2153,6 +2200,20 @@
       });
     }
 
+    if (scenarioElements.lifestyleSlider) {
+      const updateLifestyleSlider = function (event) {
+        const scenarioState = incomeImpactState?.scenarioState;
+        if (!scenarioState) {
+          return;
+        }
+
+        scenarioState.lifestyleSliderValue = clampLifestyleSliderValue(event?.target?.value);
+        renderIncomeImpactFromState();
+      };
+      scenarioElements.lifestyleSlider.addEventListener("input", updateLifestyleSlider);
+      scenarioElements.lifestyleSlider.addEventListener("change", updateLifestyleSlider);
+    }
+
     if (scenarioElements.toggle) {
       scenarioElements.toggle.addEventListener("click", function () {
         const scenarioState = incomeImpactState?.scenarioState;
@@ -2180,9 +2241,8 @@
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
     const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
     const calculateIncomeImpactCompressionScenario = currentLensAnalysis.calculateIncomeImpactCompressionScenario;
-    const calculateIncomeImpactStagedCompressionScenario = currentLensAnalysis.calculateIncomeImpactStagedCompressionScenario;
+    const calculateIncomeImpactLifestyleScenario = currentLensAnalysis.incomeImpactLifestyleScenarioCalculations?.calculateIncomeImpactLifestyleScenario;
     const calculateIncomeImpactTriageInterventions = currentLensAnalysis.calculateIncomeImpactTriageInterventions;
-    const getCompressionStagePolicyRules = currentLensAnalysis.householdExpenseCompressionStagePolicy?.getHouseholdExpenseCompressionStagePolicyRules;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
@@ -2241,13 +2301,13 @@
         buildIncomeImpactTimelineGraphModel,
         prepareIncomeImpactCompressionReportingInputs,
         calculateIncomeImpactCompressionScenario,
-        calculateIncomeImpactStagedCompressionScenario,
-        compressionStagePolicyRules: typeof getCompressionStagePolicyRules === "function" ? getCompressionStagePolicyRules() : [],
+        calculateIncomeImpactLifestyleScenario,
         calculateIncomeImpactTriageInterventions,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,
           mortgageTreatmentOverride: "followAssumptions",
+          lifestyleSliderValue: 0,
           bannerCollapsed: false
         },
         builderWarnings: builderResult.warnings

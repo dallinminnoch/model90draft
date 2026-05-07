@@ -143,10 +143,8 @@ assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
-assert.match(componentsSource, /\.income-impact-graph-path--staged-compression-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-compression-markers/);
-assert.match(componentsSource, /\.income-impact-graph-detail/);
 assert.match(
   componentsSource,
   /\.income-impact-graph-path[\s\S]*stroke-width:\s*2;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
@@ -155,17 +153,7 @@ assert.match(
 assert.match(
   componentsSource,
   /\.income-impact-graph-path--compression-post-death-resources[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.65;/,
-  "Immediate compression path should use a thinner, cleaner dash."
-);
-assert.match(
-  componentsSource,
-  /\.income-impact-graph-path--staged-compression-post-death-resources[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*1\.75;/,
-  "Staged compression path should use a distinct thin step-line treatment instead of chunky dashes."
-);
-assert.match(
-  componentsSource,
-  /\.income-impact-graph-detail-path[\s\S]*stroke-width:\s*1\.45;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
-  "Detail strip paths should also use refined non-scaling strokes."
+  "Lifestyle comparison path should use a thinner, cleaner dash."
 );
 assert.match(
   componentsSource,
@@ -232,113 +220,17 @@ assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should ren
 const comparisonGraphModel = makeGraphModel();
 comparisonGraphModel.series.comparisonPostDeathResources = [
   {
-    scenarioId: "income-impact-expense-compression-alternate",
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
     kind: "compression",
     pathId: "compression-post-death-resources",
-    label: "Immediate compression",
+    label: "Lifestyle-adjusted projection",
     points: [
       { date: "2032-04-29", value: 680000, xRatio: 0.33, yRatio: 0.1 },
       { date: "2040-04-29", value: 280000, xRatio: 0.72, yRatio: 0.44 },
       { date: "2043-04-29", value: 60000, xRatio: 0.9, yRatio: 0.64 }
     ]
-  },
-  {
-    scenarioId: "income-impact-staged-expense-compression-alternate",
-    kind: "stagedCompression",
-    pathId: "staged-compression-post-death-resources",
-    label: "Staged compression",
-    points: [
-      { date: "2032-04-29", value: 670000, xRatio: 0.33, yRatio: 0.12 },
-      { date: "2040-04-29", value: 240000, xRatio: 0.72, yRatio: 0.48 },
-      { date: "2043-04-29", value: 30000, xRatio: 0.9, yRatio: 0.67 }
-    ]
   }
 ];
-comparisonGraphModel.series.comparisonEarlyDetail = {
-  windowMonths: 24,
-  yDomain: {
-    min: 30000,
-    max: 680000
-  },
-  points: [
-    {
-      monthIndex: 1,
-      date: "2032-04-29",
-      immediateEndingResources: 680000,
-      stagedEndingResources: 670000,
-      difference: -10000,
-      xRatio: 0,
-      immediateYRatio: 0,
-      stagedYRatio: 0.02
-    },
-    {
-      monthIndex: 2,
-      date: "2032-05-29",
-      immediateEndingResources: 640000,
-      stagedEndingResources: 620000,
-      difference: -20000,
-      xRatio: 0.04,
-      immediateYRatio: 0.06,
-      stagedYRatio: 0.09
-    },
-    {
-      monthIndex: 3,
-      date: "2032-06-29",
-      immediateEndingResources: 600000,
-      stagedEndingResources: 570000,
-      difference: -30000,
-      xRatio: 0.09,
-      immediateYRatio: 0.12,
-      stagedYRatio: 0.17
-    },
-    {
-      monthIndex: 6,
-      date: "2032-09-29",
-      immediateEndingResources: 480000,
-      stagedEndingResources: 440000,
-      difference: -40000,
-      xRatio: 0.22,
-      immediateYRatio: 0.31,
-      stagedYRatio: 0.37
-    },
-    {
-      monthIndex: 9,
-      date: "2032-12-29",
-      immediateEndingResources: 360000,
-      stagedEndingResources: 310000,
-      difference: -50000,
-      xRatio: 0.35,
-      immediateYRatio: 0.49,
-      stagedYRatio: 0.57
-    },
-    {
-      monthIndex: 12,
-      date: "2033-03-29",
-      immediateEndingResources: 280000,
-      stagedEndingResources: 230000,
-      difference: -50000,
-      xRatio: 0.48,
-      immediateYRatio: 0.62,
-      stagedYRatio: 0.69
-    },
-    {
-      monthIndex: 24,
-      date: "2034-03-29",
-      immediateEndingResources: 60000,
-      stagedEndingResources: 30000,
-      difference: -30000,
-      xRatio: 1,
-      immediateYRatio: 0.95,
-      stagedYRatio: 1
-    }
-  ],
-  trace: {
-    localScale: true,
-    usesMainGraphYDomain: false,
-    artificialOffsetApplied: false,
-    actualValuesOnly: true
-  }
-};
 comparisonGraphModel.comparisonMarkers = [
   {
     id: "income-impact-expense-compression-alternate-compression-action",
@@ -403,23 +295,12 @@ const comparisonTimelineHtml = harness.renderTimeline({
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="staged-compression-post-death-resources"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"[^>]*data-income-impact-graph-path-mode="smooth"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="staged-compression-post-death-resources"[^>]*data-income-impact-graph-path-mode="step"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
 assert.match(comparisonTimelineHtml, /Base projection/);
-assert.match(comparisonTimelineHtml, /Immediate compression/);
-assert.match(comparisonTimelineHtml, /Staged compression/);
+assert.match(comparisonTimelineHtml, /Lifestyle-adjusted projection/);
 assert.match(comparisonTimelineHtml, /Comparison only - base projection unchanged\./);
-assert.match(comparisonTimelineHtml, /data-income-impact-graph-detail="compression-early-window"/);
-assert.match(comparisonTimelineHtml, /First 24 months after death/);
-assert.match(comparisonTimelineHtml, /Actual values, local scale/);
-assert.match(comparisonTimelineHtml, /data-income-impact-detail-path="immediate-compression"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-detail-path="staged-compression"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-detail-path="immediate-compression"[^>]*data-income-impact-detail-path-mode="smooth"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-detail-path="staged-compression"[^>]*data-income-impact-detail-path-mode="step"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-detail-month="1"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-detail-month="24"/);
+assert.doesNotMatch(comparisonTimelineHtml, /staged-compression-post-death-resources|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path="staged-compression"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-compression-markers/);
 assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="compressionAction"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-compression-marker-type="pauseAction"/);
@@ -436,17 +317,9 @@ const repeatedComparisonTimelineHtml = harness.renderTimeline({
   graphModel: comparisonGraphModel
 });
 const immediatePath = getPathD(comparisonTimelineHtml, "data-income-impact-graph-path", "compression-post-death-resources");
-const stagedPath = getPathD(comparisonTimelineHtml, "data-income-impact-graph-path", "staged-compression-post-death-resources");
 const repeatedImmediatePath = getPathD(repeatedComparisonTimelineHtml, "data-income-impact-graph-path", "compression-post-death-resources");
-const immediateDetailPath = getPathD(comparisonTimelineHtml, "data-income-impact-detail-path", "immediate-compression");
-const stagedDetailPath = getPathD(comparisonTimelineHtml, "data-income-impact-detail-path", "staged-compression");
-assert.match(immediatePath, /^M[^"]*\sC\s/, "Immediate comparison path should render with deterministic cubic smoothing.");
-assert.match(stagedPath, /^M[^"]*\sH[0-9.-]+\sV[0-9.-]+/, "Staged comparison path should render with deterministic actual-value step segments.");
-assert.match(immediateDetailPath, /^M[^"]*\sC\s/, "Immediate detail path should render with deterministic cubic smoothing.");
-assert.match(stagedDetailPath, /^M[^"]*\sH[0-9.-]+\sV[0-9.-]+/, "Staged detail path should render with deterministic actual-value step segments.");
+assert.match(immediatePath, /^M[^"]*\sC\s/, "Lifestyle comparison path should render with deterministic cubic smoothing.");
 assert.equal(immediatePath, repeatedImmediatePath, "Smoothed comparison path output should be deterministic.");
-assert.notEqual(immediatePath, stagedPath, "Immediate and staged main paths should remain distinct when their data differs.");
-assert.notEqual(immediateDetailPath, stagedDetailPath, "Immediate and staged detail paths should remain distinct when their data differs.");
 assert.equal(
   (comparisonTimelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
   (timelineHtml.match(/data-income-impact-graph-marker/g) || []).length,

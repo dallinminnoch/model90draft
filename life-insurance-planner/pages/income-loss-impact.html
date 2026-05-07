@@ -112,6 +112,7 @@
                 <span>Date <strong data-income-impact-death-date-value>Not available</strong></span>
                 <span>Horizon <strong data-income-impact-projection-horizon-value>40 years</strong></span>
                 <span>Mortgage <strong data-income-impact-mortgage-treatment-value>Follow Assumption Controls</strong></span>
+                <span>Lifestyle <strong data-income-impact-lifestyle-value>Current</strong></span>
               </div>
               <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide controls</button>
             </div>
@@ -153,6 +154,19 @@
                 </select>
                 <small>Preview only. This does not change saved assumptions.</small>
               </label>
+              <label class="income-impact-scenario-field income-impact-scenario-field--lifestyle" for="income-impact-lifestyle-slider">
+                <span>Lifestyle</span>
+                <input
+                  id="income-impact-lifestyle-slider"
+                  type="range"
+                  min="-100"
+                  max="100"
+                  step="1"
+                  value="0"
+                  data-income-impact-lifestyle-slider
+                >
+                <small><b>Conservative</b><b>Current</b><b>Elevated</b></small>
+              </label>
             </div>
           </section>
         </div>
@@ -184,7 +198,7 @@
   <script src="../app/features/lens-analysis/expense-compression-threshold-resolver.js"></script>
   <script src="../app/features/lens-analysis/household-expense-compression-calculations.js"></script>
   <script src="../app/features/lens-analysis/household-expense-compression-policy.js"></script>
-  <script src="../app/features/lens-analysis/household-expense-compression-stage-policy.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-lifestyle-range-policy.js"></script>
   <script src="../app/features/lens-analysis/block-outputs.js"></script>
   <script src="../app/features/lens-analysis/helpers/income-tax-calculations.js"></script>
   <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
@@ -217,7 +231,7 @@
   <script src="../app/features/lens-analysis/income-impact-triage-intervention-calculations.js"></script>
   <script src="../app/features/lens-analysis/income-impact-compression-reporting-prep.js"></script>
   <script src="../app/features/lens-analysis/income-impact-compression-scenario-calculations.js"></script>
-  <script src="../app/features/lens-analysis/income-impact-staged-compression-scenario-calculations.js"></script>
+  <script src="../app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js"></script>
   <script src="../app/features/lens-analysis/income-loss-impact-display.js"></script>
   <script src="../app.js"></script>
   <script src="../lens-workflow.js"></script>
