@@ -594,11 +594,36 @@
   function renderLensWorkflowTrail() {
     const currentStepId = getCurrentLensStep();
     const currentStep = getLensWorkflowStepById(currentStepId);
-    if (!currentStep) {
+    const isLensOverviewPage = document.body?.classList?.contains("lens-start-page");
+
+    if (!currentStep && !isLensOverviewPage) {
       return "";
     }
 
     const workflowSteps = getLensWorkflowSteps();
+    const overviewContext = renderLensContextMarkup({
+      currentStep: "",
+      lensHref: ""
+    });
+
+    if (isLensOverviewPage) {
+      return `
+        <nav class="lens-workflow-trail" data-lens-workflow-trail aria-label="LENS page trail">
+          <a class="lens-workflow-trail-link" href="lens.html">LENS Analysis</a>
+          <span class="lens-workflow-trail-separator" aria-hidden="true"></span>
+          <div class="lens-workflow-trail-dropdown">
+            <button class="lens-workflow-trail-trigger" type="button" aria-haspopup="true" aria-current="page">
+              <span>Overview</span>
+              <span class="lens-workflow-trail-trigger-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="lens-workflow-trail-menu" role="menu" aria-label="LENS overview sections">
+              ${overviewContext.contextMarkup}
+            </div>
+          </div>
+        </nav>
+      `;
+    }
+
     return `
       <nav class="lens-workflow-trail" data-lens-workflow-trail aria-label="LENS page trail">
         <a class="lens-workflow-trail-link" href="lens.html">LENS Analysis</a>
@@ -634,7 +659,7 @@
   function mountLensWorkflowTrail(root) {
     const scope = root && typeof root.querySelector === "function" ? root : document;
     const body = document.body;
-    if (!body || !body.classList.contains("lens-workflow-page")) {
+    if (!body || !body.classList.contains("lens-page")) {
       return;
     }
 

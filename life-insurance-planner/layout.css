@@ -1137,7 +1137,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     left: var(--app-side-nav-screen-gap);
     bottom: 0;
     width: calc(var(--app-side-nav-collapsed-width) - var(--app-side-nav-screen-gap));
-    z-index: 30;
+    z-index: 42;
     transition: width 0.22s ease;
   }
 
@@ -1207,6 +1207,12 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
 
   body.clients-page .workspace-visible-pane {
     height: 100%;
+  }
+
+  body.lens-page .workspace-visible-pane {
+    border: 0;
+    outline: 0;
+    box-shadow: none;
   }
 
   body.lens-page .prospect-shell {
