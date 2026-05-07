@@ -217,12 +217,17 @@ function assertNoForbiddenConcepts() {
     /\bsessionStorage\b/,
     /\bdocument\b/,
     /\bdisplay\b/i,
-    /\bgraph\b/i,
     /\bpage\b/i,
     /\bchart\b/i,
     /income-loss-impact-timeline/i,
+    /income-impact-timeline-graph-model/i,
+    /buildIncomeImpactTimelineGraphModel/i,
     /income-impact-warning-events-library/i,
-    /evaluateIncomeImpactWarningEvents/i
+    /evaluateIncomeImpactWarningEvents/i,
+    /calculateHouseholdExpenseCompressionOpportunities/i,
+    /resolveExpenseCompressionThresholds/i,
+    /expense-compression-thresholds/i,
+    /household-expense-compression-policy/i
   ].forEach(function (pattern) {
     assert.ok(!pattern.test(helperSource), `Layer 5 helper source should not contain ${pattern}`);
   });
@@ -255,6 +260,28 @@ assert.deepStrictEqual(first.baseScenarioSummary, {
 });
 assert.strictEqual(first.trace.noInterventionBaseCase, true, "No-intervention base case is preserved");
 assert.strictEqual(first.trace.baseCasePreserved, true);
+assert.deepStrictEqual(first.compressionOpportunities, [], "Compression opportunities are empty without explicit input");
+assert.deepStrictEqual(first.pauseCandidates, [], "Pause candidates are empty without explicit input");
+assert.deepStrictEqual(first.protectedExpenseItems, [], "Protected expense items are empty without explicit input");
+assert.deepStrictEqual(first.excludedExpenseItems, [], "Excluded expense items are empty without explicit input");
+assert.deepStrictEqual(first.advisorReviewItems, [], "Advisor-review expense items are empty without explicit input");
+assert.deepStrictEqual(first.compressionDataGaps, [], "Compression data gaps are empty without explicit input");
+assert.strictEqual(first.compressionTrace.reportingOnly, true, "Compression trace is reporting-only");
+assert.strictEqual(first.compressionTrace.compressionReportingEnabled, false, "Compression reporting is disabled without explicit input");
+assert.strictEqual(first.compressionTrace.source, "none", "Missing compression report does not imply active reporting");
+assert.strictEqual(first.compressionTrace.reductionsApplied, false, "No compression reductions are applied");
+assert.strictEqual(first.compressionTrace.projectionMutated, false, "Compression reporting does not mutate projection");
+assert.strictEqual(first.compressionTrace.graphPathChanged, false, "Compression reporting does not change graph path");
+assert.strictEqual(first.compressionTrace.layer5AppliedCompression, false, "Layer 5 does not apply compression");
+assert.deepStrictEqual(first.policyDecisionSummary, {
+  YES: 0,
+  NO: 0,
+  PAUSE: 0,
+  INTERVENTION: 0,
+  totalRules: 0,
+  invalidDecisionCount: 0,
+  byOrderGroup: {}
+});
 
 assert.ok(
   first.triageEvents.find((event) => event.sourceEventId === "survivor-resources-depleted"),
@@ -278,6 +305,161 @@ assert.ok(
 );
 assert.strictEqual(first.interventionScenarios.length, 0, "No projection-changing intervention occurs by default");
 assert.strictEqual(first.trace.noBaseFinancialCalculationsOwned, true);
+
+const compressionReport = {
+  status: "complete",
+  opportunities: [
+    {
+      expenseTypeKey: "diningOut",
+      monthlyAmount: 600,
+      sourcePath: "expenseFacts.expenses[0]"
+    }
+  ],
+  pauseCandidates: [
+    {
+      expenseTypeKey: "retirementContributions",
+      monthlyAmount: 400,
+      sourcePath: "expenseFacts.expenses[1]"
+    }
+  ],
+  protectedItems: [
+    {
+      expenseTypeKey: "groceries",
+      monthlyAmount: 800,
+      sourcePath: "expenseFacts.expenses[2]"
+    }
+  ],
+  excludedItems: [
+    {
+      expenseTypeKey: "autoLoanPayment",
+      isGeneratedExpense: true,
+      isDebtPaymentExpense: true,
+      sourcePath: "expenseFacts.expenses[3]"
+    }
+  ],
+  advisorReviewItems: [
+    {
+      expenseTypeKey: "medicalCare",
+      monthlyAmount: 250,
+      sourcePath: "expenseFacts.expenses[4]"
+    }
+  ],
+  dataGaps: [
+    {
+      code: "missing-household-member-count",
+      message: "Household member count is required for per-member thresholds.",
+      sourcePaths: ["householdFacts.householdMemberCount"]
+    }
+  ],
+  trace: {
+    calculationMethod: "household-expense-compression-opportunities-v1",
+    mode: "reportingOnly"
+  }
+};
+const compressionPolicyRules = [
+  {
+    decision: "YES",
+    expenseTypeKey: "diningOut",
+    compressionOrderGroup: "earlyDiscretionary"
+  },
+  {
+    decision: "NO",
+    expenseTypeKey: "autoLoanPayment",
+    compressionOrderGroup: "debtObligations"
+  },
+  {
+    decision: "PAUSE",
+    expenseTypeKey: "retirementContributions",
+    compressionOrderGroup: "pauseContributions"
+  },
+  {
+    decision: "INTERVENTION",
+    expenseTypeKey: "housingPayment",
+    compressionOrderGroup: "majorInterventions"
+  },
+  {
+    decision: "MAYBE",
+    expenseTypeKey: "customExpense",
+    compressionOrderGroup: "dataQuality"
+  }
+];
+const originalCompressionReport = clone(compressionReport);
+const originalCompressionPolicyRules = clone(compressionPolicyRules);
+const compressionOutput = clone(run({
+  scenario: createScenario(),
+  riskEvaluation: createRiskEvaluation(),
+  compressionReport,
+  compressionPolicyRules
+}));
+assert.deepStrictEqual(compressionReport, originalCompressionReport, "Compression report input is not mutated");
+assert.deepStrictEqual(compressionPolicyRules, originalCompressionPolicyRules, "Compression policy rules input is not mutated");
+assert.deepStrictEqual(
+  compressionOutput.compressionOpportunities,
+  originalCompressionReport.opportunities,
+  "Compression opportunities pass through as cloned reporting output"
+);
+assert.deepStrictEqual(compressionOutput.pauseCandidates, originalCompressionReport.pauseCandidates);
+assert.deepStrictEqual(compressionOutput.protectedExpenseItems, originalCompressionReport.protectedItems);
+assert.deepStrictEqual(compressionOutput.excludedExpenseItems, originalCompressionReport.excludedItems);
+assert.deepStrictEqual(compressionOutput.advisorReviewItems, originalCompressionReport.advisorReviewItems);
+assert.deepStrictEqual(compressionOutput.compressionDataGaps, originalCompressionReport.dataGaps);
+assert.strictEqual(compressionOutput.compressionTrace.compressionReportingEnabled, true);
+assert.strictEqual(compressionOutput.compressionTrace.source, "explicit-input");
+assert.strictEqual(compressionOutput.compressionTrace.classifierStatus, "complete");
+assert.strictEqual(compressionOutput.compressionTrace.reportingOnly, true);
+assert.strictEqual(compressionOutput.compressionTrace.baseScenarioMutated, false);
+assert.strictEqual(compressionOutput.compressionTrace.projectionMutated, false);
+assert.strictEqual(compressionOutput.compressionTrace.graphPathChanged, false);
+assert.strictEqual(compressionOutput.compressionTrace.reductionsApplied, false);
+assert.strictEqual(compressionOutput.compressionTrace.layer5AppliedCompression, false);
+assert.deepStrictEqual(compressionOutput.compressionTrace.sourceTrace, originalCompressionReport.trace);
+assert.deepStrictEqual(compressionOutput.policyDecisionSummary, {
+  YES: 1,
+  NO: 1,
+  PAUSE: 1,
+  INTERVENTION: 1,
+  totalRules: 4,
+  invalidDecisionCount: 1,
+  byOrderGroup: {
+    earlyDiscretionary: {
+      YES: 1,
+      NO: 0,
+      PAUSE: 0,
+      INTERVENTION: 0,
+      totalRules: 1
+    },
+    debtObligations: {
+      YES: 0,
+      NO: 1,
+      PAUSE: 0,
+      INTERVENTION: 0,
+      totalRules: 1
+    },
+    pauseContributions: {
+      YES: 0,
+      NO: 0,
+      PAUSE: 1,
+      INTERVENTION: 0,
+      totalRules: 1
+    },
+    majorInterventions: {
+      YES: 0,
+      NO: 0,
+      PAUSE: 0,
+      INTERVENTION: 1,
+      totalRules: 1
+    }
+  }
+});
+assert.ok(
+  !compressionOutput.dataGaps.find((gap) => gap.code === "missing-household-member-count"),
+  "Compression data gaps remain separate from scenario data gaps"
+);
+assert.strictEqual(
+  compressionOutput.interventionScenarios.length,
+  0,
+  "Compression reporting does not create intervention scenarios"
+);
 
 const unconfirmedPolicy = clone(run({
   scenario: createScenario(),

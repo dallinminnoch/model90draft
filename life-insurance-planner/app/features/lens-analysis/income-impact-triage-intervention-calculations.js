@@ -16,6 +16,15 @@
     "vehicleSale",
     "returnToWork"
   ]);
+  const COMPRESSION_ARRAY_KEYS = Object.freeze({
+    opportunities: "compressionOpportunities",
+    pauseCandidates: "pauseCandidates",
+    protectedItems: "protectedExpenseItems",
+    excludedItems: "excludedExpenseItems",
+    advisorReviewItems: "advisorReviewItems",
+    dataGaps: "compressionDataGaps"
+  });
+  const COMPRESSION_POLICY_DECISIONS = Object.freeze(["YES", "NO", "PAUSE", "INTERVENTION"]);
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -76,6 +85,80 @@
         target.push(value);
       }
     });
+  }
+
+  function normalizeDecision(value) {
+    const normalized = normalizeString(value).toUpperCase();
+    return COMPRESSION_POLICY_DECISIONS.includes(normalized) ? normalized : null;
+  }
+
+  function createEmptyPolicyDecisionSummary() {
+    return {
+      YES: 0,
+      NO: 0,
+      PAUSE: 0,
+      INTERVENTION: 0,
+      totalRules: 0,
+      invalidDecisionCount: 0,
+      byOrderGroup: {}
+    };
+  }
+
+  function summarizeCompressionPolicyRules(policyRules) {
+    const summary = createEmptyPolicyDecisionSummary();
+    (Array.isArray(policyRules) ? policyRules : []).forEach(function (rule) {
+      const decision = normalizeDecision(rule?.decision);
+      if (!decision) {
+        summary.invalidDecisionCount += 1;
+        return;
+      }
+
+      summary[decision] += 1;
+      summary.totalRules += 1;
+
+      const orderGroup = normalizeString(rule?.compressionOrderGroup) || "unassigned";
+      if (!summary.byOrderGroup[orderGroup]) {
+        summary.byOrderGroup[orderGroup] = {
+          YES: 0,
+          NO: 0,
+          PAUSE: 0,
+          INTERVENTION: 0,
+          totalRules: 0
+        };
+      }
+      summary.byOrderGroup[orderGroup][decision] += 1;
+      summary.byOrderGroup[orderGroup].totalRules += 1;
+    });
+    return summary;
+  }
+
+  function buildCompressionReporting(compressionReport, compressionPolicyRules) {
+    const reportProvided = isPlainObject(compressionReport);
+    const output = Object.keys(COMPRESSION_ARRAY_KEYS).reduce(function (next, sourceKey) {
+      const outputKey = COMPRESSION_ARRAY_KEYS[sourceKey];
+      next[outputKey] = reportProvided && Array.isArray(compressionReport[sourceKey])
+        ? clonePlainValue(compressionReport[sourceKey])
+        : [];
+      return next;
+    }, {});
+
+    const reportTrace = reportProvided && isPlainObject(compressionReport.trace)
+      ? clonePlainValue(compressionReport.trace)
+      : {};
+    output.compressionTrace = {
+      reportingOnly: true,
+      compressionReportingEnabled: reportProvided,
+      source: reportProvided ? "explicit-input" : "none",
+      classifierStatus: reportProvided ? normalizeString(compressionReport.status) || null : null,
+      baseScenarioMutated: false,
+      projectionMutated: false,
+      graphPathChanged: false,
+      reductionsApplied: false,
+      layer5AppliedCompression: false,
+      sourceTrace: reportTrace
+    };
+    output.policyDecisionSummary = summarizeCompressionPolicyRules(compressionPolicyRules);
+    return output;
   }
 
   function makeIssue(code, message, sourcePaths, details) {
@@ -455,6 +538,10 @@
       deferredInterventionCategories: DEFERRED_INTERVENTION_KEYS.slice(),
       interventionScenarioIds: []
     };
+    const compressionReporting = buildCompressionReporting(
+      safeInput.compressionReport,
+      safeInput.compressionPolicyRules
+    );
 
     if (!isPlainObject(scenario)) {
       dataGaps.push(makeIssue(
@@ -531,6 +618,14 @@
       triageEvents,
       stableTriageEvents,
       interventionScenarios,
+      compressionOpportunities: compressionReporting.compressionOpportunities,
+      pauseCandidates: compressionReporting.pauseCandidates,
+      protectedExpenseItems: compressionReporting.protectedExpenseItems,
+      excludedExpenseItems: compressionReporting.excludedExpenseItems,
+      advisorReviewItems: compressionReporting.advisorReviewItems,
+      compressionDataGaps: compressionReporting.compressionDataGaps,
+      compressionTrace: compressionReporting.compressionTrace,
+      policyDecisionSummary: compressionReporting.policyDecisionSummary,
       warnings,
       dataGaps,
       trace
