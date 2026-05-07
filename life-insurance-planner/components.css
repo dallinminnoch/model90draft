@@ -16389,7 +16389,9 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-compression-gap-list li {
-  display: block;
+  display: grid;
+  justify-content: stretch;
+  gap: 0.18rem;
 }
 
 .income-impact-compression-item-list li:last-child,
@@ -16397,11 +16399,25 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   border-bottom: 0;
 }
 
-.income-impact-compression-item-list span {
+.income-impact-compression-item-main {
+  display: grid;
+  gap: 0.14rem;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.income-impact-compression-item-main span,
+.income-impact-compression-gap-list strong {
   color: #17202c;
   font-weight: 720;
-  overflow-wrap: anywhere;
+}
+
+.income-impact-compression-item-main small,
+.income-impact-compression-gap-list span {
+  color: #647286;
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.22;
 }
 
 .income-impact-compression-item-list strong {

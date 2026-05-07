@@ -44,6 +44,10 @@
     return Number.isFinite(number) ? number : null;
   }
 
+  function normalizeString(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
   function getPath(source, path) {
     return String(path || "")
       .split(".")
@@ -986,6 +990,51 @@
     return Array.isArray(layer5.compressionDataGaps) ? layer5.compressionDataGaps.filter(isPlainObject) : [];
   }
 
+  function getCompressionPolicyRules(timelineResult) {
+    const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
+    const prep = isPlainObject(reporting.prep) ? reporting.prep : {};
+    return Array.isArray(prep.compressionPolicyRules) ? prep.compressionPolicyRules.filter(isPlainObject) : [];
+  }
+
+  function buildCompressionPolicyByType(timelineResult) {
+    return getCompressionPolicyRules(timelineResult).reduce(function (next, rule, index) {
+      const typeKey = normalizeString(rule.expenseTypeKey);
+      if (!typeKey || next[typeKey]) {
+        return next;
+      }
+
+      next[typeKey] = Object.assign({}, rule, {
+        displayOrderIndex: index
+      });
+      return next;
+    }, {});
+  }
+
+  function getCompressionItemPolicy(item, policyByType) {
+    const typeKey = normalizeString(item?.typeKey || item?.expenseTypeKey);
+    return typeKey && policyByType ? policyByType[typeKey] || null : null;
+  }
+
+  function sortCompressionItemsByPolicy(items, policyByType) {
+    return items.slice().sort(function (left, right) {
+      const leftPolicy = getCompressionItemPolicy(left, policyByType);
+      const rightPolicy = getCompressionItemPolicy(right, policyByType);
+      const leftRank = toOptionalNumber(leftPolicy?.compressionOrderRank) ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = toOptionalNumber(rightPolicy?.compressionOrderRank) ?? Number.MAX_SAFE_INTEGER;
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+
+      const leftIndex = toOptionalNumber(leftPolicy?.displayOrderIndex) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = toOptionalNumber(rightPolicy?.displayOrderIndex) ?? Number.MAX_SAFE_INTEGER;
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
+      }
+
+      return getCompressionItemLabel(left).localeCompare(getCompressionItemLabel(right));
+    });
+  }
+
   function formatMonthlyCompressionAmount(item) {
     const amount = toOptionalNumber(
       item?.possibleMonthlyReduction
@@ -1000,25 +1049,72 @@
     return item?.label || item?.typeKey || item?.expenseTypeKey || "Expense item";
   }
 
-  function renderCompressionItemList(items, emptyCopy) {
-    if (!items.length) {
+  function isDebtRecordsOwnedCompressionItem(item) {
+    const reasonCode = normalizeString(item?.reasonCode);
+    const sourceKey = normalizeString(item?.sourceKey);
+    const sourcePath = normalizeString(item?.sourcePath);
+    return reasonCode === "generated-debt-payment-excluded"
+      || sourceKey === "debtRecords"
+      || sourcePath.includes("debtRecords");
+  }
+
+  function getCompressionItemDetail(item, policy) {
+    if (isDebtRecordsOwnedCompressionItem(item)) {
+      return "Source-owned by Debt Records";
+    }
+
+    const orderRank = toOptionalNumber(policy?.compressionOrderRank);
+    if (orderRank != null) {
+      return `Review order ${orderRank}`;
+    }
+
+    const reason = item?.reason || item?.reasonCode || item?.status || "";
+    if (reason) {
+      return reason;
+    }
+
+    return "";
+  }
+
+  function renderCompressionItemList(items, emptyCopy, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const policyByType = safeOptions.policyByType || {};
+    const sortedItems = sortCompressionItemsByPolicy(items, policyByType);
+
+    if (!sortedItems.length) {
       return `<div class="income-impact-empty-inline">${escapeHtml(emptyCopy)}</div>`;
     }
 
     return `
       <ul class="income-impact-compression-item-list">
-        ${items.slice(0, 4).map(function (item) {
+        ${sortedItems.slice(0, 4).map(function (item) {
+          const policy = getCompressionItemPolicy(item, policyByType);
           const amount = formatMonthlyCompressionAmount(item);
-          const reason = item.reason || item.reasonCode || item.status || "";
+          const detail = getCompressionItemDetail(item, policy);
+          const orderRank = toOptionalNumber(policy?.compressionOrderRank);
           return `
-            <li>
-              <span>${escapeHtml(getCompressionItemLabel(item))}</span>
-              <strong>${escapeHtml(amount || reason || "Review")}</strong>
+            <li${orderRank == null ? "" : ` data-income-impact-compression-order-rank="${escapeHtml(orderRank)}"`}>
+              <span class="income-impact-compression-item-main">
+                <span>${escapeHtml(getCompressionItemLabel(item))}</span>
+                ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+              </span>
+              <strong>${escapeHtml(amount || "Review")}</strong>
             </li>
           `;
         }).join("")}
       </ul>
     `;
+  }
+
+  function getCompressionGapTitle(gap) {
+    const code = normalizeString(gap?.code);
+    if (code === "scalar-household-expenses-not-itemized-for-compression") {
+      return "Scalar household itemization limitation";
+    }
+    if (code === "expense-frequency-review-required") {
+      return "Periodic policy limitation";
+    }
+    return gap?.label || gap?.code || "Compression reporting limitation";
   }
 
   function renderCompressionDataGapList(dataGaps) {
@@ -1029,7 +1125,14 @@
     return `
       <ul class="income-impact-compression-gap-list">
         ${dataGaps.slice(0, 4).map(function (gap) {
-          return `<li>${escapeHtml(gap.message || gap.label || gap.code || "Compression reporting limitation.")}</li>`;
+          const title = getCompressionGapTitle(gap);
+          const message = gap.message || gap.label || gap.code || "Compression reporting limitation.";
+          return `
+            <li>
+              <strong>${escapeHtml(title)}</strong>
+              <span>${escapeHtml(message)}</span>
+            </li>
+          `;
         }).join("")}
       </ul>
     `;
@@ -1056,6 +1159,7 @@
     const excludedItems = getCompressionItems(timelineResult, "excludedExpenseItems");
     const protectedExcludedItems = protectedItems.concat(excludedItems);
     const dataGaps = getCompressionDataGaps(timelineResult);
+    const policyByType = buildCompressionPolicyByType(timelineResult);
     const totalItems = opportunities.length + pauseCandidates.length + protectedExcludedItems.length + dataGaps.length;
     const enabled = layer5?.compressionTrace?.compressionReportingEnabled === true;
     const emptyCopy = enabled
@@ -1075,23 +1179,26 @@
             <span><b>${protectedExcludedItems.length}</b>Protected / excluded</span>
             <span><b>${dataGaps.length}</b>Data gaps</span>
           </div>
-          ${renderPolicyDecisionSummary(layer5.policyDecisionSummary)}
           <div class="income-impact-compression-groups">
-            <section data-income-impact-compression-group="opportunities">
-              <h4>Compression opportunities</h4>
-              ${renderCompressionItemList(opportunities, "No compression opportunities reported.")}
+            <section data-income-impact-compression-group="firstReductions">
+              <h4>First reductions to review</h4>
+              ${renderCompressionItemList(opportunities, "No reduction candidates reported.", { policyByType })}
             </section>
-            <section data-income-impact-compression-group="pauseCandidates">
-              <h4>Pause candidates</h4>
-              ${renderCompressionItemList(pauseCandidates, "No contribution pause candidates reported.")}
+            <section data-income-impact-compression-group="contributionPauses">
+              <h4>Contribution pauses</h4>
+              ${renderCompressionItemList(pauseCandidates, "No contribution pause candidates reported.", { policyByType })}
             </section>
             <section data-income-impact-compression-group="protectedExcluded">
               <h4>Protected / excluded items</h4>
-              ${renderCompressionItemList(protectedExcludedItems, "No protected or excluded items reported.")}
+              ${renderCompressionItemList(protectedExcludedItems, "No protected or excluded items reported.", { policyByType })}
             </section>
-            <section data-income-impact-compression-group="dataGaps">
-              <h4>Data gaps</h4>
+            <section data-income-impact-compression-group="dataLimitations">
+              <h4>Data limitations</h4>
               ${renderCompressionDataGapList(dataGaps)}
+            </section>
+            <section data-income-impact-compression-group="policySummary">
+              <h4>Policy summary</h4>
+              ${renderPolicyDecisionSummary(layer5.policyDecisionSummary)}
             </section>
           </div>
         ` : `

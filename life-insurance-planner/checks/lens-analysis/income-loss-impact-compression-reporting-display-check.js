@@ -239,6 +239,12 @@ const compressionReport = {
   status: "partial",
   opportunities: [
     {
+      typeKey: "groceries",
+      label: "Groceries",
+      currentMonthlyAmount: 2000,
+      possibleMonthlyReduction: 650
+    },
+    {
       typeKey: "diningOutRestaurants",
       label: "Dining Out",
       currentMonthlyAmount: 650,
@@ -257,6 +263,9 @@ const compressionReport = {
     {
       typeKey: "autoLoanPayment",
       label: "Auto Loan Payment",
+      reasonCode: "generated-debt-payment-excluded",
+      sourceKey: "debtRecords",
+      sourcePath: "protectionModeling.data.debtRecords[0]",
       reason: "Generated Debt Records payment facts are source-owned and excluded from expense compression."
     }
   ],
@@ -273,10 +282,11 @@ const compressionReport = {
   }
 };
 const compressionPolicyRules = [
-  { decision: "YES", expenseTypeKey: "diningOutRestaurants", compressionOrderGroup: "earlyDiscretionary" },
-  { decision: "PAUSE", expenseTypeKey: "retirementContributions", compressionOrderGroup: "pauseContributions" },
-  { decision: "NO", expenseTypeKey: "autoLoanPayment", compressionOrderGroup: "debtObligations" },
-  { decision: "INTERVENTION", expenseTypeKey: "housingPayment", compressionOrderGroup: "majorInterventions" }
+  { decision: "YES", expenseTypeKey: "diningOutRestaurants", compressionOrderGroup: "earlyDiscretionary", compressionOrderRank: 1 },
+  { decision: "YES", expenseTypeKey: "groceries", compressionOrderGroup: "groceriesAndProtectedFlexibleEssentials", compressionOrderRank: 7 },
+  { decision: "PAUSE", expenseTypeKey: "retirementContributions", compressionOrderGroup: "pauseContributions", compressionOrderRank: 4 },
+  { decision: "NO", expenseTypeKey: "autoLoanPayment", compressionOrderGroup: "debtObligations", compressionOrderRank: 18 },
+  { decision: "INTERVENTION", expenseTypeKey: "housingPayment", compressionOrderGroup: "majorInterventions", compressionOrderRank: 21 }
 ];
 const layer5Output = {
   compressionOpportunities: compressionReport.opportunities,
@@ -293,11 +303,11 @@ const layer5Output = {
     layer5AppliedCompression: false
   },
   policyDecisionSummary: {
-    YES: 1,
+    YES: 2,
     NO: 1,
     PAUSE: 1,
     INTERVENTION: 1,
-    totalRules: 4
+    totalRules: 5
   },
   interventionScenarios: [],
   baseScenarioSummary: {
@@ -402,14 +412,22 @@ const panelHtml = harness.renderCompressionReportingPanel(result);
 assert.match(panelHtml, /data-income-impact-compression-panel/);
 assert.match(panelHtml, /Expense Compression Readiness/);
 assert.match(panelHtml, /Reporting only - not applied to the projection\./);
-assert.match(panelHtml, /Compression opportunities/);
+assert.match(panelHtml, /First reductions to review/);
 assert.match(panelHtml, /Dining Out/);
-assert.match(panelHtml, /Pause candidates/);
+assert.match(panelHtml, /Groceries/);
+assert.ok(
+  panelHtml.indexOf("Dining Out") < panelHtml.indexOf("Groceries"),
+  "reduction items should be sorted by compression policy order/rank"
+);
+assert.match(panelHtml, /Contribution pauses/);
 assert.match(panelHtml, /Retirement Contribution/);
 assert.match(panelHtml, /Protected \/ excluded items/);
 assert.match(panelHtml, /Auto Loan Payment/);
-assert.match(panelHtml, /Data gaps/);
+assert.match(panelHtml, /Source-owned by Debt Records/);
+assert.match(panelHtml, /Data limitations/);
+assert.match(panelHtml, /Scalar household itemization limitation/);
 assert.match(panelHtml, /Scalar household ongoingSupport expenses are present/);
+assert.match(panelHtml, /Policy summary/);
 assert.match(panelHtml, /data-income-impact-compression-policy-summary/);
 
 const host = { innerHTML: "" };
