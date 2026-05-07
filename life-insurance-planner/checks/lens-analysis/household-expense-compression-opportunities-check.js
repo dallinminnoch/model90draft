@@ -196,6 +196,23 @@ const expenseFacts = {
       sourcePath: "test.otherFrequency"
     },
     {
+      expenseFactId: "generated_scalar_streaming_fact",
+      typeKey: "streamingDigitalSubscriptions",
+      categoryKey: "discretionaryLifestyle",
+      label: "Streaming Scalar",
+      amount: 450,
+      frequency: "monthly",
+      sourceKey: "subscriptionsCost",
+      sourceOwnedBy: "ongoingSupport",
+      sourcePath: "protectionModeling.data.subscriptionsCost",
+      ownedByField: "monthlySubscriptionsCost",
+      duplicateProtectionKey: "scalar-household-expense:subscriptionsCost",
+      isGeneratedExpense: true,
+      isScalarHouseholdExpense: true,
+      isCompressionEligibleSource: true,
+      isFormulaEligible: false
+    },
+    {
       expenseFactId: "generated_debt_fact",
       typeKey: "autoLoanPayment",
       categoryKey: "debtObligations",
@@ -262,6 +279,12 @@ assert.equal(
 
 assert.ok(byType(firstResult.opportunities, "diningOutRestaurants"), "dining out should create an opportunity");
 assert.ok(byType(firstResult.opportunities, "vacationsTravel"), "travel should create an opportunity");
+const scalarStreaming = firstResult.opportunities.find((item) => item.expenseFactId === "generated_scalar_streaming_fact");
+assert.ok(scalarStreaming, "generated scalar household subscription fact should be compression-visible");
+assert.equal(scalarStreaming.isGeneratedExpense, true);
+assert.equal(scalarStreaming.isScalarHouseholdExpense, true);
+assert.equal(scalarStreaming.sourceOwnedBy, "ongoingSupport");
+assert.equal(scalarStreaming.duplicateProtectionKey, "scalar-household-expense:subscriptionsCost");
 const groceries = byType(firstResult.opportunities, "groceries");
 assert.ok(groceries, "protected groceries above threshold should create a safe opportunity");
 assert.equal(groceries.thresholdMonthlyAmount, 900, "groceries threshold should use household member count");

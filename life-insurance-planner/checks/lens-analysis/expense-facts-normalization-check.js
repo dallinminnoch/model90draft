@@ -366,6 +366,93 @@ assert.equal(zeroAndMissingModel.expenseFacts.expenses[0].amount, 0);
 assert.equal(zeroAndMissingModel.expenseFacts.metadata.acceptedScalarExpenseCount, 1);
 assert.equal(zeroAndMissingModel.expenseFacts.totalsByBucket.funeralBurial, 0);
 
+const scalarHouseholdSource = createSourceData({
+  insuranceCost: 1200,
+  healthcareOutOfPocketCost: 300,
+  foodCost: 900,
+  transportationCost: 450,
+  childcareDependentCareCost: 400,
+  phoneInternetCost: 144,
+  householdSuppliesCost: 350,
+  otherHouseholdExpenses: 125,
+  travelDiscretionaryCost: 350,
+  subscriptionsCost: 450,
+  expenseRecords: []
+});
+const scalarHouseholdSourceSnapshot = cloneJson(scalarHouseholdSource);
+const scalarHouseholdModel = buildModel(context, scalarHouseholdSource, analysisSettings).lensModel;
+const scalarHouseholdFacts = scalarHouseholdModel.expenseFacts;
+assert.deepEqual(scalarHouseholdSource, scalarHouseholdSourceSnapshot, "scalar household expense generation should not mutate source data");
+assert.equal(scalarHouseholdSource.expenseRecords.length, 0, "generated scalar household facts should not serialize into expenseRecords");
+assert.equal(scalarHouseholdFacts.metadata.scalarHouseholdExpenseSource, "pmi-household-scalar-fields");
+assert.equal(scalarHouseholdFacts.metadata.sourceScalarHouseholdExpenseFieldCount, 10);
+assert.equal(scalarHouseholdFacts.metadata.acceptedGeneratedScalarHouseholdExpenseCount, 10);
+
+const expectedScalarHouseholdFacts = [
+  ["insuranceCost", "monthlyOtherInsuranceCost", "householdInsurancePremiums", "insurancePremiums", "insurancePremiums", 1200],
+  ["healthcareOutOfPocketCost", "monthlyHealthcareOutOfPocketCost", "healthcareOutOfPocketSupportDefault", "otherLivingExpense", "ongoingHealthcare", 300],
+  ["foodCost", "monthlyFoodCost", "groceries", "foodGroceries", "foodGroceries", 900],
+  ["transportationCost", "monthlyTransportationCost", "fuel", "transportation", "transportation", 450],
+  ["childcareDependentCareCost", "monthlyChildcareAndDependentCareCost", "childcareExpense", "childcare", "childcare", 400],
+  ["phoneInternetCost", "monthlyPhoneAndInternetCost", "internet", "utilities", "utilities", 144],
+  ["householdSuppliesCost", "monthlyHouseholdSuppliesCost", "householdConsumablesSupplies", "foodGroceries", "foodGroceries", 350],
+  ["otherHouseholdExpenses", "monthlyOtherHouseholdExpenses", "otherHouseholdExpenseDefault", "otherLivingExpense", "otherLivingExpense", 125],
+  ["travelDiscretionaryCost", "monthlyTravelAndDiscretionaryCost", "vacationsTravel", "travelVacations", "travelVacations", 350],
+  ["subscriptionsCost", "monthlySubscriptionsCost", "streamingDigitalSubscriptions", "discretionaryLifestyle", "discretionaryLifestyle", 450]
+];
+
+expectedScalarHouseholdFacts.forEach(([sourceKey, ownedByField, typeKey, categoryKey, compressionCategoryKey, amount]) => {
+  const fact = scalarHouseholdFacts.expenses.find((expense) => expense.sourceKey === sourceKey);
+  assert.ok(fact, `${sourceKey} should generate a scalar household expense fact`);
+  assert.equal(fact.typeKey, typeKey);
+  assert.equal(fact.categoryKey, categoryKey);
+  assert.equal(fact.compressionCategoryKey, compressionCategoryKey);
+  assert.equal(fact.amount, amount);
+  assert.equal(fact.frequency, "monthly");
+  assert.equal(fact.monthlyRecurringAmount, amount);
+  assert.equal(fact.monthlyAmount, amount);
+  assert.equal(fact.monthlyEquivalent, amount);
+  assert.equal(fact.annualizedAmount, amount * 12);
+  assert.equal(fact.oneTimeAmount, null);
+  assert.equal(fact.sourcePath, `protectionModeling.data.${sourceKey}`);
+  assert.equal(fact.sourceOwnedBy, "ongoingSupport");
+  assert.equal(fact.ownedByField, ownedByField);
+  assert.equal(fact.generatedSourceLabel, "Household Spending");
+  assert.equal(fact.duplicateProtectionKey, `scalar-household-expense:${sourceKey}`);
+  assert.equal(fact.isGeneratedExpense, true);
+  assert.equal(fact.isScalarHouseholdExpense, true);
+  assert.equal(fact.isCompressionEligibleSource, true);
+  assert.equal(fact.isFormulaEligible, false);
+  assert.equal(fact.isReadOnly, true);
+  assert.equal(fact.isAddable, false);
+  assert.equal(fact.metadata.recordSource, "ongoingSupport-scalar-household-field");
+  assert.equal(fact.metadata.normalizedSourcePath, `lensModel.ongoingSupport.${ownedByField}`);
+  assert.equal(fact.metadata.compressionCategoryKey, compressionCategoryKey);
+});
+
+assert.equal(scalarHouseholdFacts.totalsByBucket.foodGroceries, undefined, "generated scalar household facts should not enter formula-facing category totals");
+assert.equal(scalarHouseholdFacts.totalsByBucket.travelVacations, undefined);
+assert.equal(scalarHouseholdFacts.totalsByBucket.discretionaryLifestyle, undefined);
+assert.equal(scalarHouseholdFacts.totalsByBucket.totalAnnualRecurringExpense, null, "generated scalar household facts should not enter formula-facing recurring totals");
+assert.equal(scalarHouseholdFacts.totalsByBucket.totalFinalExpense, 45000, "final expense totals should remain unchanged");
+
+const scalarHouseholdMethodSettings = createMethodSettings(context, scalarHouseholdModel, analysisSettings);
+const scalarHouseholdModelWithoutGeneratedScalarFacts = cloneJson(scalarHouseholdModel);
+scalarHouseholdModelWithoutGeneratedScalarFacts.expenseFacts.expenses = scalarHouseholdModelWithoutGeneratedScalarFacts.expenseFacts.expenses.filter(
+  (expense) => expense.isScalarHouseholdExpense !== true
+);
+const scalarHouseholdOutput = runMethodSnapshot(context, scalarHouseholdModel, scalarHouseholdMethodSettings);
+const scalarHouseholdOutputWithoutGeneratedFacts = runMethodSnapshot(
+  context,
+  scalarHouseholdModelWithoutGeneratedScalarFacts,
+  scalarHouseholdMethodSettings
+);
+assert.deepEqual(
+  cloneJson(scalarHouseholdOutput),
+  cloneJson(scalarHouseholdOutputWithoutGeneratedFacts),
+  "Generated scalar household expense facts should not change DIME, Needs, or HLV outputs"
+);
+
 const repeatableExpenseSource = createSourceData({
   expenseRecords: [
     {

@@ -142,12 +142,16 @@
   function isGeneratedDebtPaymentItem(item) {
     const reasonCode = normalizeString(item && item.reasonCode);
     const sourceKey = normalizeString(item && item.sourceKey);
+    const sourceOwnedBy = normalizeString(item && item.sourceOwnedBy);
     const sourcePath = normalizeString(item && item.sourcePath);
     const duplicateProtectionKey = normalizeString(item && item.duplicateProtectionKey);
-    return item?.isGeneratedExpense === true
-      || item?.isDebtPaymentExpense === true
+    const categoryKey = normalizeString(item && item.categoryKey);
+    return item?.isDebtPaymentExpense === true
       || sourceKey === "debtRecords"
+      || sourceOwnedBy === "debtRecords"
       || sourcePath.includes("debtRecords")
+      || categoryKey === "debtPayment"
+      || categoryKey === "debtObligations"
       || duplicateProtectionKey.includes("debt-payment")
       || GENERATED_DEBT_REASON_CODES.includes(reasonCode);
   }

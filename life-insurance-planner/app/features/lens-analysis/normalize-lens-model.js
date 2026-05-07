@@ -46,6 +46,69 @@
       categoryKey: "otherFinalExpense"
     })
   ]);
+  const SCALAR_HOUSEHOLD_EXPENSE_SOURCE_FIELDS = Object.freeze([
+    Object.freeze({
+      sourceKey: "insuranceCost",
+      ongoingSupportField: "monthlyOtherInsuranceCost",
+      typeKey: "householdInsurancePremiums",
+      categoryKey: "insurancePremiums"
+    }),
+    Object.freeze({
+      sourceKey: "healthcareOutOfPocketCost",
+      ongoingSupportField: "monthlyHealthcareOutOfPocketCost",
+      typeKey: "healthcareOutOfPocketSupportDefault",
+      expenseFactCategoryKey: "otherLivingExpense",
+      categoryKey: "ongoingHealthcare"
+    }),
+    Object.freeze({
+      sourceKey: "foodCost",
+      ongoingSupportField: "monthlyFoodCost",
+      typeKey: "groceries",
+      categoryKey: "foodGroceries"
+    }),
+    Object.freeze({
+      sourceKey: "transportationCost",
+      ongoingSupportField: "monthlyTransportationCost",
+      typeKey: "fuel",
+      categoryKey: "transportation"
+    }),
+    Object.freeze({
+      sourceKey: "childcareDependentCareCost",
+      ongoingSupportField: "monthlyChildcareAndDependentCareCost",
+      typeKey: "childcareExpense",
+      categoryKey: "childcare"
+    }),
+    Object.freeze({
+      sourceKey: "phoneInternetCost",
+      ongoingSupportField: "monthlyPhoneAndInternetCost",
+      typeKey: "internet",
+      categoryKey: "utilities"
+    }),
+    Object.freeze({
+      sourceKey: "householdSuppliesCost",
+      ongoingSupportField: "monthlyHouseholdSuppliesCost",
+      typeKey: "householdConsumablesSupplies",
+      categoryKey: "foodGroceries"
+    }),
+    Object.freeze({
+      sourceKey: "otherHouseholdExpenses",
+      ongoingSupportField: "monthlyOtherHouseholdExpenses",
+      typeKey: "otherHouseholdExpenseDefault",
+      categoryKey: "otherLivingExpense"
+    }),
+    Object.freeze({
+      sourceKey: "travelDiscretionaryCost",
+      ongoingSupportField: "monthlyTravelAndDiscretionaryCost",
+      typeKey: "vacationsTravel",
+      categoryKey: "travelVacations"
+    }),
+    Object.freeze({
+      sourceKey: "subscriptionsCost",
+      ongoingSupportField: "monthlySubscriptionsCost",
+      typeKey: "streamingDigitalSubscriptions",
+      categoryKey: "discretionaryLifestyle"
+    })
+  ]);
   const EXPENSE_RECORDS_SOURCE_PATH = "protectionModeling.data.expenseRecords";
   const DEBT_RECORDS_SOURCE_PATH = "protectionModeling.data.debtRecords";
   const GENERATED_DEBT_PAYMENT_EXPENSE_CATEGORY_KEY = "debtPayment";
@@ -1620,6 +1683,10 @@
     return "scalar_expense_" + (normalizeExpenseRecordToken(sourceKey) || "unknown");
   }
 
+  function createScalarHouseholdExpenseFactId(sourceKey) {
+    return "generated_scalar_household_expense_" + (normalizeExpenseRecordToken(sourceKey) || "unknown");
+  }
+
   function createExpenseRecordFactId(expenseRecord, index) {
     const safeExpenseRecord = expenseRecord && typeof expenseRecord === "object" ? expenseRecord : {};
     const expenseRecordId = normalizeExpenseRecordString(safeExpenseRecord.expenseId)
@@ -2306,6 +2373,194 @@
     };
   }
 
+  function createScalarHouseholdDuplicateProtectionKey(sourceKey) {
+    return [
+      "scalar-household-expense",
+      normalizeExpenseRecordToken(sourceKey) || "unknown-field"
+    ].join(":");
+  }
+
+  function createGeneratedScalarHouseholdExpenseFact(sourceData, sourceField, index, taxonomy) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
+    const sourceKey = normalizeExpenseRecordString(safeSourceField.sourceKey);
+    const ongoingSupportField = normalizeExpenseRecordString(safeSourceField.ongoingSupportField);
+    const typeKey = normalizeExpenseRecordString(safeSourceField.typeKey);
+    const warnings = [];
+
+    if (!sourceKey || !hasUsableExpenseSourceValue(safeSourceData, sourceKey)) {
+      return {
+        expense: null,
+        warnings
+      };
+    }
+
+    const libraryEntry = getExpenseLibraryEntry(typeKey);
+    const libraryCategoryKey = normalizeExpenseRecordString(libraryEntry?.categoryKey)
+      || normalizeExpenseRecordString(safeSourceField.categoryKey);
+    const categoryKey = normalizeExpenseRecordString(safeSourceField.expenseFactCategoryKey)
+      || libraryCategoryKey;
+    const taxonomyCategory = getExpenseCategoryByKey(taxonomy, categoryKey);
+    const compressionCategoryKey = libraryCategoryKey || categoryKey;
+    const compressionTaxonomyCategory = compressionCategoryKey && compressionCategoryKey !== categoryKey
+      ? getExpenseCategoryByKey(taxonomy, compressionCategoryKey)
+      : taxonomyCategory;
+    const amount = toOptionalNumber(safeSourceData[sourceKey]);
+    const details = {
+      sourceKey,
+      ongoingSupportField: ongoingSupportField || null,
+      typeKey,
+      categoryKey: categoryKey || null,
+      compressionCategoryKey: compressionCategoryKey || null
+    };
+
+    if (!libraryEntry) {
+      warnings.push(createExpenseFactWarning(
+        "unknown-scalar-household-expense-type",
+        "Scalar household expense source typeKey is not present in the expense library.",
+        details
+      ));
+    }
+
+    if (!categoryKey) {
+      warnings.push(createExpenseFactWarning(
+        "missing-scalar-household-expense-category",
+        "Scalar household expense source metadata is missing a categoryKey.",
+        details
+      ));
+    } else if (!taxonomyCategory) {
+      warnings.push(createExpenseFactWarning(
+        "unknown-scalar-household-expense-category",
+        "Scalar household expense source categoryKey is not present in the expense taxonomy.",
+        details
+      ));
+    }
+
+    if (amount == null) {
+      warnings.push(createExpenseFactWarning(
+        "invalid-scalar-household-expense-amount",
+        "Scalar household expense source is missing a numeric amount.",
+        details
+      ));
+    } else if (amount < 0) {
+      warnings.push(createExpenseFactWarning(
+        "negative-scalar-household-expense-amount",
+        "Scalar household expense source had a negative amount and was not projected into expenseFacts.",
+        details
+      ));
+    }
+
+    if (warnings.length) {
+      return {
+        expense: null,
+        warnings
+      };
+    }
+
+    const duplicateProtectionKey = createScalarHouseholdDuplicateProtectionKey(sourceKey);
+    const sourcePath = "protectionModeling.data." + sourceKey;
+    const normalizedOngoingSupportPath = ongoingSupportField
+      ? "lensModel.ongoingSupport." + ongoingSupportField
+      : null;
+
+    return {
+      expense: {
+        expenseFactId: createScalarHouseholdExpenseFactId(sourceKey),
+        typeKey,
+        categoryKey,
+        compressionCategoryKey,
+        label: normalizeExpenseRecordString(libraryEntry?.label)
+          || normalizeExpenseRecordString(taxonomyCategory?.label)
+          || typeKey,
+        domain: normalizeExpenseRecordString(taxonomyCategory?.domain) || null,
+        amount,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: normalizeExpenseRecordString(libraryEntry?.defaultContinuationStatus) || "review",
+        continuationStatusSource: "library-default",
+        monthlyRecurringAmount: amount,
+        monthlyAmount: amount,
+        monthlyEquivalent: amount,
+        annualizedAmount: amount * 12,
+        annualAmount: amount * 12,
+        oneTimeAmount: null,
+        source: "protectionModeling.data",
+        sourceKey,
+        sourcePath,
+        sourceIndex: index,
+        sourceOwnedBy: "ongoingSupport",
+        ownedByField: ongoingSupportField || sourceKey,
+        generatedSourceLabel: "Household Spending",
+        duplicateProtectionKey,
+        isGeneratedExpense: true,
+        isScalarHouseholdExpense: true,
+        isCompressionEligibleSource: true,
+        isFormulaEligible: false,
+        isReadOnly: true,
+        isDefaultExpense: false,
+        isScalarFieldOwned: false,
+        isProtected: libraryEntry?.isProtected === true || libraryEntry?.protectedCategory === true,
+        isAddable: false,
+        isRepeatableExpenseRecord: false,
+        isCustomExpense: libraryEntry?.isCustomType === true,
+        isFinalExpenseComponent: false,
+        isHealthcareSensitive: taxonomyCategory?.isHealthcareSensitive === true,
+        defaultInflationRole: normalizeExpenseRecordString(taxonomyCategory?.defaultInflationRole) || null,
+        uiAvailability: normalizeExpenseRecordString(libraryEntry?.uiAvailability) || null,
+        metadata: {
+          sourceType: "generated-from-pmi-scalar",
+          confidence: "reported",
+          canonicalDestination: "expenseFacts.expenses",
+          recordSource: "ongoingSupport-scalar-household-field",
+          sourceIndex: index,
+          sourceKey,
+          ownedByField: ongoingSupportField || null,
+          sourcePath,
+          normalizedSourcePath: normalizedOngoingSupportPath,
+          taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          compressionCategoryKey,
+          compressionCategoryLabel: compressionTaxonomyCategory && compressionTaxonomyCategory.label ? compressionTaxonomyCategory.label : null,
+          libraryCategoryKey,
+          libraryEntryKey: normalizeExpenseRecordString(libraryEntry?.libraryEntryKey) || typeKey,
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
+          formulaActivation: "not-formula-eligible",
+          compressionEligibility: "compression-reporting-source",
+          duplicateProtectionKey
+        }
+      },
+      warnings
+    };
+  }
+
+  function createGeneratedScalarHouseholdExpenseFacts(sourceData, taxonomy) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const expenses = [];
+    const warnings = [];
+    let sourceValueCount = 0;
+
+    SCALAR_HOUSEHOLD_EXPENSE_SOURCE_FIELDS.forEach(function (sourceField, index) {
+      if (hasUsableExpenseSourceValue(safeSourceData, sourceField?.sourceKey)) {
+        sourceValueCount += 1;
+      }
+
+      const result = createGeneratedScalarHouseholdExpenseFact(safeSourceData, sourceField, index, taxonomy);
+      warnings.push.apply(warnings, result.warnings);
+
+      if (result.expense) {
+        expenses.push(result.expense);
+      }
+    });
+
+    return {
+      expenses,
+      sourceFieldCount: SCALAR_HOUSEHOLD_EXPENSE_SOURCE_FIELDS.length,
+      sourceValueCount,
+      acceptedRecordCount: expenses.length,
+      invalidRecordCount: sourceValueCount - expenses.length,
+      warnings
+    };
+  }
+
   function getExpenseFactTotalAmount(expense) {
     if (!expense || typeof expense !== "object") {
       return null;
@@ -2513,6 +2768,7 @@
     const taxonomy = getExpenseTaxonomy();
     const expenses = [];
     const scalarExpenses = [];
+    const scalarHouseholdExpenses = [];
     const warnings = [];
 
     SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.forEach(function (sourceField) {
@@ -2525,9 +2781,11 @@
       }
     });
 
+    const scalarHouseholdExpenseProjection = createGeneratedScalarHouseholdExpenseFacts(safeSourceData, taxonomy);
     const expenseRecordsProjection = createExpenseFactsFromExpenseRecords(safeSourceData, taxonomy);
     const debtPaymentExpenseProjection = createGeneratedDebtPaymentExpenseFactsFromDebtRecords(safeSourceData);
 
+    warnings.push.apply(warnings, scalarHouseholdExpenseProjection.warnings);
     warnings.push.apply(warnings, expenseRecordsProjection.warnings);
     warnings.push.apply(
       warnings,
@@ -2536,6 +2794,8 @@
         debtPaymentExpenseProjection.expenses
       )
     );
+    expenses.push.apply(expenses, scalarHouseholdExpenseProjection.expenses);
+    scalarHouseholdExpenses.push.apply(scalarHouseholdExpenses, scalarHouseholdExpenseProjection.expenses);
     expenses.push.apply(expenses, expenseRecordsProjection.expenses);
     expenses.push.apply(expenses, debtPaymentExpenseProjection.expenses);
     warnings.push.apply(warnings, debtPaymentExpenseProjection.warnings);
@@ -2548,10 +2808,17 @@
         taxonomySource: taxonomy.taxonomySource,
         librarySource: lensAnalysis.expenseLibrary ? "expense-library" : "unavailable",
         scalarExpenseSource: "final-expense-scalar-fields",
+        scalarHouseholdExpenseSource: scalarHouseholdExpenseProjection.sourceValueCount
+          ? "pmi-household-scalar-fields"
+          : null,
         expenseRecordsSource: expenseRecordsProjection.sourceRecordCount ? EXPENSE_RECORDS_SOURCE_PATH : null,
         debtPaymentExpenseSource: debtPaymentExpenseProjection.sourceRecordCount ? DEBT_RECORDS_SOURCE_PATH : null,
         scalarExpenseSourceFieldCount: SCALAR_FINAL_EXPENSE_SOURCE_FIELDS.length,
         acceptedScalarExpenseCount: scalarExpenses.length,
+        scalarHouseholdExpenseSourceFieldCount: scalarHouseholdExpenseProjection.sourceFieldCount,
+        sourceScalarHouseholdExpenseFieldCount: scalarHouseholdExpenseProjection.sourceValueCount,
+        acceptedGeneratedScalarHouseholdExpenseCount: scalarHouseholdExpenses.length,
+        invalidGeneratedScalarHouseholdExpenseCount: scalarHouseholdExpenseProjection.invalidRecordCount,
         sourceExpenseRecordCount: expenseRecordsProjection.sourceRecordCount,
         acceptedExpenseRecordCount: expenseRecordsProjection.acceptedRecordCount,
         invalidExpenseRecordCount: expenseRecordsProjection.invalidRecordCount,

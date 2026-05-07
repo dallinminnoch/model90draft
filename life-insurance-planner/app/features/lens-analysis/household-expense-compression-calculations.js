@@ -136,15 +136,23 @@
     }) || null;
   }
 
+  function getCompressionCategoryKey(expense) {
+    return normalizeString(expense && expense.compressionCategoryKey)
+      || normalizeString(expense && expense.categoryKey);
+  }
+
   function isGeneratedDebtPaymentFact(expense, libraryEntry) {
     const duplicateProtectionKey = normalizeToken(expense && expense.duplicateProtectionKey);
+    const sourceOwnedBy = normalizeString(expense && expense.sourceOwnedBy);
+    const categoryKey = getCompressionCategoryKey(expense);
     return expense && (
-      expense.isGeneratedExpense === true
-      || expense.isDebtPaymentExpense === true
+      expense.isDebtPaymentExpense === true
       || expense.sourceKey === "debtRecords"
-      || expense.sourceOwnedBy === "debtRecords"
-      || expense.generatedOnly === true
-      || (libraryEntry && (libraryEntry.sourceOwnedBy === "debtRecords" || libraryEntry.generatedOnly === true))
+      || sourceOwnedBy === "debtRecords"
+      || categoryKey === "debtPayment"
+      || categoryKey === "debtObligations"
+      || (expense.generatedOnly === true && sourceOwnedBy === "debtRecords")
+      || (libraryEntry && libraryEntry.sourceOwnedBy === "debtRecords")
       || duplicateProtectionKey.indexOf("debt-payment:") === 0
     );
   }
@@ -354,7 +362,9 @@
       expenseFactId: normalizeString(expense && expense.expenseFactId) || null,
       expenseRecordId: normalizeString(expense && expense.expenseRecordId) || null,
       typeKey: normalizeString(expense && expense.typeKey) || null,
-      categoryKey: normalizeString(expense && expense.categoryKey) || null,
+      categoryKey: getCompressionCategoryKey(expense) || null,
+      rawCategoryKey: normalizeString(expense && expense.categoryKey) || null,
+      compressionCategoryKey: normalizeString(expense && expense.compressionCategoryKey) || null,
       label: normalizeString(expense && expense.label)
         || normalizeString(entry && entry.label)
         || normalizeString(expense && expense.typeKey)
@@ -372,9 +382,15 @@
       protectedFloor: getThresholdFloor(thresholdRule, null),
       canAutoReduce: thresholdRule ? thresholdRule.canAutoReduce === true : false,
       canPause: thresholdRule ? thresholdRule.canPause === true : false,
+      isGeneratedExpense: expense?.isGeneratedExpense === true,
+      isScalarHouseholdExpense: expense?.isScalarHouseholdExpense === true,
+      isCompressionEligibleSource: expense?.isCompressionEligibleSource === true,
+      isDebtPaymentExpense: expense?.isDebtPaymentExpense === true,
+      sourceOwnedBy: normalizeString(expense && expense.sourceOwnedBy) || null,
       sourcePath: normalizeString(expense && expense.sourcePath) || null,
       sourceKey: normalizeString(expense && expense.sourceKey) || null,
       sourceIndex: Number.isInteger(expense && expense.sourceIndex) ? expense.sourceIndex : null,
+      duplicateProtectionKey: normalizeString(expense && expense.duplicateProtectionKey) || null,
       trace: {
         sourceType: normalizeString(expense && expense.metadata && expense.metadata.sourceType) || null,
         recordSource: normalizeString(expense && expense.metadata && expense.metadata.recordSource) || null,

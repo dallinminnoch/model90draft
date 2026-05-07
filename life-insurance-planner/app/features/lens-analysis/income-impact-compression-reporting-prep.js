@@ -12,12 +12,8 @@
     "monthlyPhoneAndInternetCost",
     "monthlyHouseholdSuppliesCost",
     "monthlyOtherHouseholdExpenses",
-    "monthlyNonHousingEssentialSupportCost",
-    "annualNonHousingEssentialSupportCost",
     "monthlyTravelAndDiscretionaryCost",
-    "monthlySubscriptionsCost",
-    "monthlyDiscretionaryPersonalSpending",
-    "annualDiscretionaryPersonalSpending"
+    "monthlySubscriptionsCost"
   ]);
 
   function isPlainObject(value) {

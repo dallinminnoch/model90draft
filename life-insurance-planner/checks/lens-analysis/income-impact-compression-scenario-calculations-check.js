@@ -536,6 +536,39 @@ const generatedDebtEligible = calculateIncomeImpactCompressionScenario({
 assert.equal(generatedDebtEligible.status, "blocked");
 assert.ok(codes(generatedDebtEligible.dataGaps).includes("generated-debt-payment-in-eligible-compression-opportunities"));
 
+const generatedScalarEligible = calculateIncomeImpactCompressionScenario({
+  scenario: createScenario(),
+  compressionReport: createCompressionReport({
+    opportunities: [
+      {
+        expenseFactId: "generated-scalar-groceries",
+        typeKey: "groceries",
+        label: "Groceries",
+        currentMonthlyAmount: 1800,
+        possibleMonthlyReduction: 125,
+        defaultNeedType: "essential",
+        sourceKey: "foodCost",
+        sourceOwnedBy: "ongoingSupport",
+        sourcePath: "protectionModeling.data.foodCost",
+        duplicateProtectionKey: "scalar-household-expense:foodCost",
+        isGeneratedExpense: true,
+        isScalarHouseholdExpense: true,
+        isCompressionEligibleSource: true
+      }
+    ],
+    pauseCandidates: []
+  }),
+  compressionPolicyRules: createPolicyRules(),
+  options: {
+    applyPauseCandidates: true,
+    requireCompleteItemization: true
+  }
+});
+assert.equal(generatedScalarEligible.status, "complete", "generated scalar household opportunities should not be treated as generated debt");
+assert.equal(generatedScalarEligible.compressionScenario.reductionsApplied.length, 1);
+assert.equal(generatedScalarEligible.compressionScenario.reductionsApplied[0].typeKey, "groceries");
+assert.equal(generatedScalarEligible.compressionScenario.reductionsApplied[0].monthlyAmount, 125);
+
 const missingPolicyRules = calculateIncomeImpactCompressionScenario({
   scenario: createScenario(),
   compressionReport: createCompressionReport(),
