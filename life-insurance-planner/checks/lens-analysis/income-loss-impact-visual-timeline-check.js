@@ -111,6 +111,7 @@ function makeGraphModel(mode = "forward-projection") {
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const componentsSource = readRepoFile("components.css");
+const layoutSource = readRepoFile("layout.css");
 const harness = createDisplayHarness(displaySource);
 
 assert.equal(typeof harness.renderTimeline, "function");
@@ -132,6 +133,26 @@ assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/)
 assert.match(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-compression-markers/);
+assert.match(
+  componentsSource,
+  /\.income-impact-layout[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\);/,
+  "Income Impact visual layout should make the graph row full-width."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(34rem, 72vh, 54rem\);/,
+  "Income Impact graph should use a larger viewport-aware height."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-scenario-banner[\s\S]*position:\s*sticky;[\s\S]*bottom:\s*0;[\s\S]*padding:\s*0\.5rem 0\.72rem;/,
+  "Scenario controls should remain sticky, sit flush to the viewport bottom, and stay compact while scrolling."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*padding-bottom:\s*0;[\s\S]*scroll-padding-bottom:\s*0;/,
+  "Income Impact page shell should not leave bottom padding below the sticky scenario controls."
+);
 
 const fixture = {
   selectedDeath: { date: "2031-04-29", age: 51 },
@@ -303,7 +324,7 @@ assert.match(host.innerHTML, /data-income-impact-layout-aside/);
 assert.match(host.innerHTML, /data-income-impact-graph-svg/);
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
-  "Timeline graph should render before the right-side companion panel."
+  "Timeline graph should render before the supporting risk and compression panels."
 );
 
 console.log("income-loss-impact-visual-timeline-check passed");

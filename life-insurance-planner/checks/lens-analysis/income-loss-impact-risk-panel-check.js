@@ -99,13 +99,18 @@ assert.match(componentsSource, /\.income-impact-covered-panel/);
 assert.match(componentsSource, /\.income-impact-layout/);
 assert.match(
   componentsSource,
-  /\.income-impact-layout[\s\S]*grid-template-columns:\s*minmax\(0, 2\.35fr\) minmax\(18rem, 0\.85fr\);/,
-  "Desktop Income Impact layout should place the large timeline left and companion panel right."
+  /\.income-impact-layout[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\);/,
+  "Income Impact layout should use a graph-first full-width column instead of a right-side companion column."
 );
 assert.match(
   componentsSource,
-  /@media \(max-width: 1180px\)[\s\S]*\.income-impact-layout[\s\S]*grid-template-columns: 1fr;/,
-  "Tablet and smaller Income Impact layout should stack cleanly."
+  /\.income-impact-layout-aside[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/,
+  "Supporting risk, compression, and summary cards should render below the graph without squeezing it."
+);
+assert.match(
+  componentsSource,
+  /@media \(max-width: 1180px\)[\s\S]*\.income-impact-layout,\s*\.income-impact-layout-aside[\s\S]*grid-template-columns: 1fr;/,
+  "Tablet and smaller Income Impact layout should keep graph and supporting cards stacked cleanly."
 );
 assert.doesNotMatch(pageSource, /data-income-impact-risk-panel/);
 
@@ -307,7 +312,7 @@ assert.match(host.innerHTML, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-runway-svg|data-income-impact-runway-line|data-income-impact-timeline-marker/);
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
-  "Timeline should render before the right-side companion panel in source order."
+  "Timeline should render before the supporting panels in source order."
 );
 assert.match(host.innerHTML, /data-income-impact-risk-panel/);
 assert.match(host.innerHTML, /Resources depleted/);
