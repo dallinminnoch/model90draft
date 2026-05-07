@@ -225,6 +225,8 @@ function assertNoForbiddenConcepts() {
     /income-impact-warning-events-library/i,
     /evaluateIncomeImpactWarningEvents/i,
     /calculateHouseholdExpenseCompressionOpportunities/i,
+    /calculateIncomeImpactCompressionScenario/i,
+    /income-impact-compression-scenario-calculations/i,
     /resolveExpenseCompressionThresholds/i,
     /expense-compression-thresholds/i,
     /household-expense-compression-policy/i
@@ -273,6 +275,17 @@ assert.strictEqual(first.compressionTrace.reductionsApplied, false, "No compress
 assert.strictEqual(first.compressionTrace.projectionMutated, false, "Compression reporting does not mutate projection");
 assert.strictEqual(first.compressionTrace.graphPathChanged, false, "Compression reporting does not change graph path");
 assert.strictEqual(first.compressionTrace.layer5AppliedCompression, false, "Layer 5 does not apply compression");
+assert.deepStrictEqual(first.compressionScenarios, [], "Compression scenarios are empty without explicit input");
+assert.deepStrictEqual(first.compressionScenarioDataGaps, [], "Compression scenario data gaps are empty without explicit input");
+assert.deepStrictEqual(first.compressionScenarioWarnings, [], "Compression scenario warnings are empty without explicit input");
+assert.strictEqual(first.compressionScenarioTrace.compressionScenarioInputProvided, false);
+assert.strictEqual(first.compressionScenarioTrace.source, "none");
+assert.strictEqual(first.compressionScenarioTrace.baseScenarioUnchanged, true);
+assert.strictEqual(first.compressionScenarioTrace.baseScenarioMutated, false);
+assert.strictEqual(first.compressionScenarioTrace.postDeathSeriesReplaced, false);
+assert.strictEqual(first.compressionScenarioTrace.graphPathChanged, false);
+assert.strictEqual(first.compressionScenarioTrace.layer5AppliedCompression, false);
+assert.strictEqual(first.compressionScenarioTrace.displayWired, false);
 assert.deepStrictEqual(first.policyDecisionSummary, {
   YES: 0,
   NO: 0,
@@ -460,6 +473,163 @@ assert.strictEqual(
   0,
   "Compression reporting does not create intervention scenarios"
 );
+assert.deepStrictEqual(compressionOutput.compressionScenarios, [], "Reporting-only compression does not create alternate scenarios");
+
+const completeCompressionScenarioResult = {
+  status: "complete",
+  baseScenarioUnchanged: true,
+  compressionScenario: {
+    scenarioId: "compression-alt-v1",
+    label: "Expense compression alternate scenario",
+    adjustedMonthlyNeed: 4200,
+    adjustedAnnualNeed: 50400,
+    reductionsApplied: [
+      {
+        expenseTypeKey: "diningOut",
+        possibleMonthlyReduction: 250,
+        compressionOrderRank: 10
+      }
+    ],
+    pausesApplied: [
+      {
+        expenseTypeKey: "retirementContributions",
+        possibleMonthlyPauseAmount: 400,
+        compressionOrderRank: 40
+      }
+    ],
+    postDeathSeries: {
+      points: [
+        {
+          monthIndex: 1,
+          endingResources: 8650
+        }
+      ]
+    },
+    trace: {
+      calculationMethod: "income-impact-compression-scenario-v1",
+      baseScenarioMutated: false,
+      graphPathChanged: false
+    }
+  },
+  dataGaps: [],
+  warnings: [],
+  trace: {
+    calculationMethod: "income-impact-compression-scenario-v1",
+    mode: "alternateScenarioOnly"
+  }
+};
+const originalCompleteCompressionScenarioResult = clone(completeCompressionScenarioResult);
+const completeScenarioInput = createScenario();
+const completeRiskInput = createRiskEvaluation();
+const originalCompleteScenarioInput = clone(completeScenarioInput);
+const originalCompleteRiskInput = clone(completeRiskInput);
+const rawCompleteCompressionScenarioOutput = run({
+  scenario: completeScenarioInput,
+  riskEvaluation: completeRiskInput,
+  compressionScenarioResult: completeCompressionScenarioResult
+});
+assert.notStrictEqual(
+  rawCompleteCompressionScenarioOutput.compressionScenarios[0],
+  completeCompressionScenarioResult.compressionScenario,
+  "Complete compression scenario is cloned before Layer 5 exposes it"
+);
+const completeCompressionScenarioOutput = clone(rawCompleteCompressionScenarioOutput);
+assert.deepStrictEqual(completeScenarioInput, originalCompleteScenarioInput, "Complete compression scenario pass-through does not mutate scenario");
+assert.deepStrictEqual(completeRiskInput, originalCompleteRiskInput, "Complete compression scenario pass-through does not mutate risk evaluation");
+assert.deepStrictEqual(
+  completeCompressionScenarioResult,
+  originalCompleteCompressionScenarioResult,
+  "Complete compression scenario result input is not mutated"
+);
+assert.deepStrictEqual(
+  completeCompressionScenarioOutput.compressionScenarios,
+  [originalCompleteCompressionScenarioResult.compressionScenario],
+  "Complete compression scenario result appears separately in compressionScenarios"
+);
+assert.deepStrictEqual(completeCompressionScenarioOutput.interventionScenarios, [], "Complete compression scenario does not create interventionScenarios");
+assert.deepStrictEqual(completeCompressionScenarioOutput.baseScenarioSummary, first.baseScenarioSummary, "Base scenario summary is unchanged by compression scenario pass-through");
+assert.deepStrictEqual(completeScenarioInput.postDeathSeries, originalCompleteScenarioInput.postDeathSeries, "Base postDeathSeries is unchanged");
+assert.deepStrictEqual(completeScenarioInput.timelineFacts, originalCompleteScenarioInput.timelineFacts, "Base timelineFacts are unchanged");
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.compressionScenarioInputProvided, true);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.compressionScenarioStatus, "complete");
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.alternateScenarioBlocked, false);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.baseScenarioUnchanged, true);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.baseScenarioMutated, false);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.postDeathSeriesReplaced, false);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.graphPathChanged, false);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.layer5AppliedCompression, false);
+assert.strictEqual(completeCompressionScenarioOutput.compressionScenarioTrace.displayWired, false);
+assert.deepStrictEqual(
+  completeCompressionScenarioOutput.compressionScenarioTrace.sourceTrace,
+  originalCompleteCompressionScenarioResult.trace,
+  "Compression scenario trace preserves source trace separately"
+);
+
+const blockedCompressionScenarioResult = {
+  status: "blocked",
+  dataGaps: [
+    {
+      code: "scalar-household-expenses-not-itemized-for-compression",
+      message: "Scalar household expenses are not itemized for active compression.",
+      sourcePaths: ["scenario.timelineFacts"]
+    }
+  ],
+  warnings: [
+    {
+      code: "compression-alternate-scenario-blocked",
+      message: "Alternate compression scenario was not calculated."
+    }
+  ],
+  trace: {
+    calculationMethod: "income-impact-compression-scenario-v1",
+    blockedReasons: ["scalar-household-expenses-not-itemized-for-compression"]
+  }
+};
+const originalBlockedCompressionScenarioResult = clone(blockedCompressionScenarioResult);
+const blockedScenarioInput = createScenario();
+const blockedRiskInput = createRiskEvaluation();
+const originalBlockedScenarioInput = clone(blockedScenarioInput);
+const originalBlockedRiskInput = clone(blockedRiskInput);
+const blockedCompressionScenarioOutput = clone(run({
+  scenario: blockedScenarioInput,
+  riskEvaluation: blockedRiskInput,
+  compressionScenarioResult: blockedCompressionScenarioResult
+}));
+assert.deepStrictEqual(blockedScenarioInput, originalBlockedScenarioInput, "Blocked compression scenario pass-through does not mutate scenario");
+assert.deepStrictEqual(blockedRiskInput, originalBlockedRiskInput, "Blocked compression scenario pass-through does not mutate risk evaluation");
+assert.deepStrictEqual(
+  blockedCompressionScenarioResult,
+  originalBlockedCompressionScenarioResult,
+  "Blocked compression scenario result input is not mutated"
+);
+assert.deepStrictEqual(blockedCompressionScenarioOutput.compressionScenarios, [], "Blocked compression scenario result exposes no scenario");
+assert.deepStrictEqual(
+  blockedCompressionScenarioOutput.compressionScenarioDataGaps,
+  originalBlockedCompressionScenarioResult.dataGaps,
+  "Blocked compression scenario data gaps pass through separately"
+);
+assert.deepStrictEqual(
+  blockedCompressionScenarioOutput.compressionScenarioWarnings,
+  originalBlockedCompressionScenarioResult.warnings,
+  "Blocked compression scenario warnings pass through separately"
+);
+assert.ok(
+  !blockedCompressionScenarioOutput.dataGaps.find((gap) => gap.code === "scalar-household-expenses-not-itemized-for-compression"),
+  "Compression scenario data gaps remain separate from scenario data gaps"
+);
+assert.strictEqual(
+  blockedCompressionScenarioOutput.interventionScenarios.length,
+  0,
+  "Blocked compression scenario result does not create intervention scenarios"
+);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.compressionScenarioInputProvided, true);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.compressionScenarioStatus, "blocked");
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.alternateScenarioBlocked, true);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.baseScenarioMutated, false);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.postDeathSeriesReplaced, false);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.graphPathChanged, false);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.layer5AppliedCompression, false);
+assert.strictEqual(blockedCompressionScenarioOutput.compressionScenarioTrace.displayWired, false);
 
 const unconfirmedPolicy = clone(run({
   scenario: createScenario(),

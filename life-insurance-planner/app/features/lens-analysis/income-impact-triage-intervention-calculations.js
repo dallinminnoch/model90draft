@@ -161,6 +161,40 @@
     return output;
   }
 
+  function buildCompressionScenarioPassThrough(compressionScenarioResult) {
+    const inputProvided = isPlainObject(compressionScenarioResult);
+    const status = inputProvided ? normalizeString(compressionScenarioResult.status) || null : null;
+    const hasCompleteScenario = status === "complete" && isPlainObject(compressionScenarioResult.compressionScenario);
+    const sourceTrace = inputProvided && isPlainObject(compressionScenarioResult.trace)
+      ? clonePlainValue(compressionScenarioResult.trace)
+      : {};
+
+    return {
+      compressionScenarios: hasCompleteScenario
+        ? [clonePlainValue(compressionScenarioResult.compressionScenario)]
+        : [],
+      compressionScenarioDataGaps: inputProvided && Array.isArray(compressionScenarioResult.dataGaps)
+        ? clonePlainValue(compressionScenarioResult.dataGaps)
+        : [],
+      compressionScenarioWarnings: inputProvided && Array.isArray(compressionScenarioResult.warnings)
+        ? clonePlainValue(compressionScenarioResult.warnings)
+        : [],
+      compressionScenarioTrace: {
+        compressionScenarioInputProvided: inputProvided,
+        compressionScenarioStatus: status,
+        alternateScenarioBlocked: inputProvided && !hasCompleteScenario,
+        source: inputProvided ? "explicit-input" : "none",
+        baseScenarioUnchanged: true,
+        baseScenarioMutated: false,
+        postDeathSeriesReplaced: false,
+        graphPathChanged: false,
+        layer5AppliedCompression: false,
+        displayWired: false,
+        sourceTrace
+      }
+    };
+  }
+
   function makeIssue(code, message, sourcePaths, details) {
     const issue = {
       code,
@@ -542,6 +576,9 @@
       safeInput.compressionReport,
       safeInput.compressionPolicyRules
     );
+    const compressionScenarioPassThrough = buildCompressionScenarioPassThrough(
+      safeInput.compressionScenarioResult
+    );
 
     if (!isPlainObject(scenario)) {
       dataGaps.push(makeIssue(
@@ -626,6 +663,10 @@
       compressionDataGaps: compressionReporting.compressionDataGaps,
       compressionTrace: compressionReporting.compressionTrace,
       policyDecisionSummary: compressionReporting.policyDecisionSummary,
+      compressionScenarios: compressionScenarioPassThrough.compressionScenarios,
+      compressionScenarioDataGaps: compressionScenarioPassThrough.compressionScenarioDataGaps,
+      compressionScenarioWarnings: compressionScenarioPassThrough.compressionScenarioWarnings,
+      compressionScenarioTrace: compressionScenarioPassThrough.compressionScenarioTrace,
       warnings,
       dataGaps,
       trace
