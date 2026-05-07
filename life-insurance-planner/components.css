@@ -16312,6 +16312,108 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   gap: 0.85rem;
 }
 
+.income-impact-compression-panel {
+  align-self: start;
+}
+
+.income-impact-compression-counts,
+.income-impact-compression-policy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.income-impact-compression-counts span,
+.income-impact-compression-policy span {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.48rem 0.55rem;
+  border: 1px solid rgba(223, 229, 238, 0.88);
+  border-radius: 0.42rem;
+  background: #ffffff;
+  color: #647286;
+  font-size: 0.72rem;
+  font-weight: 740;
+  line-height: 1.18;
+}
+
+.income-impact-compression-counts b,
+.income-impact-compression-policy b {
+  color: #17202c;
+  font-size: 0.95rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.income-impact-compression-groups {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.income-impact-compression-groups section {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.income-impact-compression-groups h4 {
+  margin: 0;
+  color: #17202c;
+  font-size: 0.82rem;
+  font-weight: 820;
+  line-height: 1.16;
+}
+
+.income-impact-compression-item-list,
+.income-impact-compression-gap-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.income-impact-compression-item-list li,
+.income-impact-compression-gap-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.36rem 0;
+  border-bottom: 1px solid rgba(223, 229, 238, 0.72);
+  color: #5e6c81;
+  font-size: 0.76rem;
+  line-height: 1.22;
+}
+
+.income-impact-compression-gap-list li {
+  display: block;
+}
+
+.income-impact-compression-item-list li:last-child,
+.income-impact-compression-gap-list li:last-child {
+  border-bottom: 0;
+}
+
+.income-impact-compression-item-list span {
+  min-width: 0;
+  color: #17202c;
+  font-weight: 720;
+  overflow-wrap: anywhere;
+}
+
+.income-impact-compression-item-list strong {
+  flex: 0 0 auto;
+  color: #4054b8;
+  font-size: 0.75rem;
+  font-weight: 820;
+  line-height: 1.18;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .income-impact-risk-list {
   display: grid;
   gap: 0.65rem;

@@ -974,6 +974,134 @@
     `;
   }
 
+  function getCompressionItems(timelineResult, key) {
+    const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
+    const layer5 = isPlainObject(reporting.layer5) ? reporting.layer5 : {};
+    return Array.isArray(layer5[key]) ? layer5[key].filter(isPlainObject) : [];
+  }
+
+  function getCompressionDataGaps(timelineResult) {
+    const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
+    const layer5 = isPlainObject(reporting.layer5) ? reporting.layer5 : {};
+    return Array.isArray(layer5.compressionDataGaps) ? layer5.compressionDataGaps.filter(isPlainObject) : [];
+  }
+
+  function formatMonthlyCompressionAmount(item) {
+    const amount = toOptionalNumber(
+      item?.possibleMonthlyReduction
+        ?? item?.currentMonthlyAmount
+        ?? item?.monthlyAmount
+        ?? item?.amount
+    );
+    return amount == null ? "" : `${formatCurrency(amount)}/mo`;
+  }
+
+  function getCompressionItemLabel(item) {
+    return item?.label || item?.typeKey || item?.expenseTypeKey || "Expense item";
+  }
+
+  function renderCompressionItemList(items, emptyCopy) {
+    if (!items.length) {
+      return `<div class="income-impact-empty-inline">${escapeHtml(emptyCopy)}</div>`;
+    }
+
+    return `
+      <ul class="income-impact-compression-item-list">
+        ${items.slice(0, 4).map(function (item) {
+          const amount = formatMonthlyCompressionAmount(item);
+          const reason = item.reason || item.reasonCode || item.status || "";
+          return `
+            <li>
+              <span>${escapeHtml(getCompressionItemLabel(item))}</span>
+              <strong>${escapeHtml(amount || reason || "Review")}</strong>
+            </li>
+          `;
+        }).join("")}
+      </ul>
+    `;
+  }
+
+  function renderCompressionDataGapList(dataGaps) {
+    if (!dataGaps.length) {
+      return `<div class="income-impact-empty-inline">No compression-specific data gaps reported.</div>`;
+    }
+
+    return `
+      <ul class="income-impact-compression-gap-list">
+        ${dataGaps.slice(0, 4).map(function (gap) {
+          return `<li>${escapeHtml(gap.message || gap.label || gap.code || "Compression reporting limitation.")}</li>`;
+        }).join("")}
+      </ul>
+    `;
+  }
+
+  function renderPolicyDecisionSummary(summary) {
+    const safeSummary = isPlainObject(summary) ? summary : {};
+    return `
+      <div class="income-impact-compression-policy" data-income-impact-compression-policy-summary>
+        <span><b>YES</b>${escapeHtml(safeSummary.YES ?? 0)}</span>
+        <span><b>PAUSE</b>${escapeHtml(safeSummary.PAUSE ?? 0)}</span>
+        <span><b>NO</b>${escapeHtml(safeSummary.NO ?? 0)}</span>
+        <span><b>INTERVENTION</b>${escapeHtml(safeSummary.INTERVENTION ?? 0)}</span>
+      </div>
+    `;
+  }
+
+  function renderCompressionReportingPanel(timelineResult) {
+    const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
+    const layer5 = isPlainObject(reporting.layer5) ? reporting.layer5 : {};
+    const opportunities = getCompressionItems(timelineResult, "compressionOpportunities");
+    const pauseCandidates = getCompressionItems(timelineResult, "pauseCandidates");
+    const protectedItems = getCompressionItems(timelineResult, "protectedExpenseItems");
+    const excludedItems = getCompressionItems(timelineResult, "excludedExpenseItems");
+    const protectedExcludedItems = protectedItems.concat(excludedItems);
+    const dataGaps = getCompressionDataGaps(timelineResult);
+    const totalItems = opportunities.length + pauseCandidates.length + protectedExcludedItems.length + dataGaps.length;
+    const enabled = layer5?.compressionTrace?.compressionReportingEnabled === true;
+    const emptyCopy = enabled
+      ? "No compression opportunities, pause candidates, protected items, exclusions, or compression-specific gaps were reported."
+      : "Compression reporting is not available for this preview yet.";
+
+    return `
+      <article class="income-impact-card income-impact-compression-panel" data-income-impact-compression-panel>
+        <div class="income-impact-card-header">
+          <h3>Expense Compression Readiness</h3>
+          <p data-income-impact-compression-reporting-only>Reporting only - not applied to the projection.</p>
+        </div>
+        ${totalItems ? `
+          <div class="income-impact-compression-counts" data-income-impact-compression-counts>
+            <span><b>${opportunities.length}</b>Opportunities</span>
+            <span><b>${pauseCandidates.length}</b>Pause</span>
+            <span><b>${protectedExcludedItems.length}</b>Protected / excluded</span>
+            <span><b>${dataGaps.length}</b>Data gaps</span>
+          </div>
+          ${renderPolicyDecisionSummary(layer5.policyDecisionSummary)}
+          <div class="income-impact-compression-groups">
+            <section data-income-impact-compression-group="opportunities">
+              <h4>Compression opportunities</h4>
+              ${renderCompressionItemList(opportunities, "No compression opportunities reported.")}
+            </section>
+            <section data-income-impact-compression-group="pauseCandidates">
+              <h4>Pause candidates</h4>
+              ${renderCompressionItemList(pauseCandidates, "No contribution pause candidates reported.")}
+            </section>
+            <section data-income-impact-compression-group="protectedExcluded">
+              <h4>Protected / excluded items</h4>
+              ${renderCompressionItemList(protectedExcludedItems, "No protected or excluded items reported.")}
+            </section>
+            <section data-income-impact-compression-group="dataGaps">
+              <h4>Data gaps</h4>
+              ${renderCompressionDataGapList(dataGaps)}
+            </section>
+          </div>
+        ` : `
+          <div class="income-impact-empty-inline" data-income-impact-compression-empty>${escapeHtml(emptyCopy)}</div>
+          ${renderPolicyDecisionSummary(layer5.policyDecisionSummary)}
+        `}
+      </article>
+    `;
+  }
+
   function getPivotalEvents(timelineResult) {
     const riskEvaluation = isPlainObject(timelineResult?.riskEvaluation) ? timelineResult.riskEvaluation : {};
     return {
@@ -1201,6 +1329,7 @@
         </div>
         <aside class="income-impact-layout-aside" data-income-impact-layout-aside aria-label="Income Impact supporting details">
           ${renderPivotalRiskPanel(timelineResult)}
+          ${renderCompressionReportingPanel(timelineResult)}
           ${renderFinancialSecurityCard(timelineResult)}
           <div class="income-impact-runway-metric-stack" data-income-impact-runway-metric-stack>
             ${renderFinancialRunwayCards(timelineResult)}
@@ -1311,6 +1440,24 @@
         currentAgeMode: "death-event-only"
       }
     });
+    const compressionPrep = typeof safeState.prepareIncomeImpactCompressionReportingInputs === "function"
+      ? safeState.prepareIncomeImpactCompressionReportingInputs({
+        lensModel: safeState.lensModel,
+        options: {
+          householdContext: "survivor",
+          includeAdvisorConfirmed: false,
+          includePauseCandidates: true
+        }
+      })
+      : null;
+    const triageInterventions = typeof safeState.calculateIncomeImpactTriageInterventions === "function"
+      ? safeState.calculateIncomeImpactTriageInterventions({
+        scenario,
+        riskEvaluation,
+        compressionReport: compressionPrep?.compressionReport,
+        compressionPolicyRules: compressionPrep?.compressionPolicyRules
+      })
+      : null;
     const dataGaps = []
       .concat(Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [])
       .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : [])
@@ -1327,6 +1474,17 @@
       },
       scenario,
       riskEvaluation,
+      triageInterventions,
+      compressionReporting: {
+        prep: compressionPrep,
+        layer5: triageInterventions,
+        trace: {
+          reportingOnly: true,
+          displayWired: Boolean(compressionPrep && triageInterventions),
+          graphPathChanged: false,
+          reductionsApplied: false
+        }
+      },
       graphModel,
       financialRunway: buildFinancialRunwayFromScenario(scenario, projectionHorizonYears),
       summaryCards: buildSummaryCardsFromScenario(scenario),
@@ -1439,6 +1597,8 @@
     const composeIncomeImpactScenario = currentLensAnalysis.composeIncomeImpactScenario;
     const evaluateIncomeImpactRiskEvents = currentLensAnalysis.evaluateIncomeImpactRiskEvents;
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
+    const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
+    const calculateIncomeImpactTriageInterventions = currentLensAnalysis.calculateIncomeImpactTriageInterventions;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
       renderEmptyState(host, "Income impact unavailable", "Lens saved-data builder is unavailable.");
@@ -1495,6 +1655,8 @@
         composeIncomeImpactScenario,
         evaluateIncomeImpactRiskEvents,
         buildIncomeImpactTimelineGraphModel,
+        prepareIncomeImpactCompressionReportingInputs,
+        calculateIncomeImpactTriageInterventions,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,
