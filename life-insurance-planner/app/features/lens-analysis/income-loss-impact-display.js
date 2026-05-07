@@ -987,7 +987,13 @@
   function getCompressionDataGaps(timelineResult) {
     const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
     const layer5 = isPlainObject(reporting.layer5) ? reporting.layer5 : {};
-    return Array.isArray(layer5.compressionDataGaps) ? layer5.compressionDataGaps.filter(isPlainObject) : [];
+    const reportingGaps = Array.isArray(layer5.compressionDataGaps)
+      ? layer5.compressionDataGaps.filter(isPlainObject)
+      : [];
+    const scenarioGaps = Array.isArray(layer5.compressionScenarioDataGaps)
+      ? layer5.compressionScenarioDataGaps.filter(isPlainObject)
+      : [];
+    return reportingGaps.concat(scenarioGaps);
   }
 
   function getCompressionPolicyRules(timelineResult) {
@@ -1150,6 +1156,38 @@
     `;
   }
 
+  function renderCompressionScenarioStatus(layer5) {
+    const trace = isPlainObject(layer5?.compressionScenarioTrace) ? layer5.compressionScenarioTrace : {};
+    const scenarios = Array.isArray(layer5?.compressionScenarios) ? layer5.compressionScenarios.filter(isPlainObject) : [];
+    const inputProvided = trace.compressionScenarioInputProvided === true;
+    const isBlocked = trace.alternateScenarioBlocked === true;
+    const status = normalizeString(trace.compressionScenarioStatus);
+    let label = "Alternate scenario not prepared";
+    let detail = "Compression reporting is visible only; no alternate scenario has been prepared for this preview.";
+    let state = "notPrepared";
+
+    if (inputProvided && scenarios.length) {
+      label = "Alternate scenario prepared";
+      detail = "Prepared as a separate scenario and not applied to the projection or graph.";
+      state = "complete";
+    } else if (inputProvided && isBlocked) {
+      label = "Alternate scenario blocked";
+      detail = "Not applied to the projection. Review the data limitations before using active compression.";
+      state = "blocked";
+    } else if (inputProvided) {
+      label = "Alternate scenario unavailable";
+      detail = "No alternate scenario was exposed to Layer 5 for this preview.";
+      state = status || "unavailable";
+    }
+
+    return `
+      <div class="income-impact-empty-inline" data-income-impact-compression-scenario-status="${escapeHtml(state)}">
+        <strong>${escapeHtml(label)}</strong>
+        <span>${escapeHtml(detail)}</span>
+      </div>
+    `;
+  }
+
   function renderCompressionReportingPanel(timelineResult) {
     const reporting = isPlainObject(timelineResult?.compressionReporting) ? timelineResult.compressionReporting : {};
     const layer5 = isPlainObject(reporting.layer5) ? reporting.layer5 : {};
@@ -1172,6 +1210,7 @@
           <h3>Expense Compression Readiness</h3>
           <p data-income-impact-compression-reporting-only>Reporting only - not applied to the projection.</p>
         </div>
+        ${renderCompressionScenarioStatus(layer5)}
         ${totalItems ? `
           <div class="income-impact-compression-counts" data-income-impact-compression-counts>
             <span><b>${opportunities.length}</b>Opportunities</span>
@@ -1557,12 +1596,26 @@
         }
       })
       : null;
+    const compressionScenarioResult = compressionPrep && typeof safeState.calculateIncomeImpactCompressionScenario === "function"
+      ? safeState.calculateIncomeImpactCompressionScenario({
+        scenario,
+        compressionReport: compressionPrep.compressionReport,
+        compressionPolicyRules: compressionPrep.compressionPolicyRules,
+        options: {
+          mode: "alternateScenarioOnly",
+          scenarioId: "income-impact-expense-compression-alternate",
+          applyPauseCandidates: true,
+          requireCompleteItemization: true
+        }
+      })
+      : null;
     const triageInterventions = typeof safeState.calculateIncomeImpactTriageInterventions === "function"
       ? safeState.calculateIncomeImpactTriageInterventions({
         scenario,
         riskEvaluation,
         compressionReport: compressionPrep?.compressionReport,
-        compressionPolicyRules: compressionPrep?.compressionPolicyRules
+        compressionPolicyRules: compressionPrep?.compressionPolicyRules,
+        compressionScenarioResult
       })
       : null;
     const dataGaps = []
@@ -1584,10 +1637,14 @@
       triageInterventions,
       compressionReporting: {
         prep: compressionPrep,
+        scenario: compressionScenarioResult,
         layer5: triageInterventions,
         trace: {
           reportingOnly: true,
           displayWired: Boolean(compressionPrep && triageInterventions),
+          alternateScenarioPrepared: Boolean(compressionScenarioResult),
+          alternateScenarioStatus: compressionScenarioResult?.status || null,
+          timelineMarkersCreated: false,
           graphPathChanged: false,
           reductionsApplied: false
         }
@@ -1705,6 +1762,7 @@
     const evaluateIncomeImpactRiskEvents = currentLensAnalysis.evaluateIncomeImpactRiskEvents;
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
     const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
+    const calculateIncomeImpactCompressionScenario = currentLensAnalysis.calculateIncomeImpactCompressionScenario;
     const calculateIncomeImpactTriageInterventions = currentLensAnalysis.calculateIncomeImpactTriageInterventions;
 
     if (typeof buildLensModelFromSavedProtectionModeling !== "function") {
@@ -1763,6 +1821,7 @@
         evaluateIncomeImpactRiskEvents,
         buildIncomeImpactTimelineGraphModel,
         prepareIncomeImpactCompressionReportingInputs,
+        calculateIncomeImpactCompressionScenario,
         calculateIncomeImpactTriageInterventions,
         deathAgeState: resolveDeathAgeControlState(builderResult.lensModel, valuationDate),
         scenarioState: {

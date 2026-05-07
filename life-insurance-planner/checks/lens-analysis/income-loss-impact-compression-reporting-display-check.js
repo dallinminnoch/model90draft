@@ -210,6 +210,7 @@ assertScriptOrder(scripts, [
   "../app/features/lens-analysis/income-impact-timeline-graph-model.js",
   "../app/features/lens-analysis/income-impact-triage-intervention-calculations.js",
   "../app/features/lens-analysis/income-impact-compression-reporting-prep.js",
+  "../app/features/lens-analysis/income-impact-compression-scenario-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-display.js"
 ]);
 
@@ -220,8 +221,10 @@ assert.equal(typeof harness.renderTimeline, "function", "display harness should 
 
 assert.match(displaySource, /prepareIncomeImpactCompressionReportingInputs/);
 assert.match(displaySource, /calculateIncomeImpactTriageInterventions/);
+assert.match(displaySource, /calculateIncomeImpactCompressionScenario/);
 assert.match(displaySource, /compressionReport:\s*compressionPrep\?\.compressionReport/);
 assert.match(displaySource, /compressionPolicyRules:\s*compressionPrep\?\.compressionPolicyRules/);
+assert.match(displaySource, /compressionScenarioResult/);
 assert.match(displaySource, /Expense Compression Readiness/);
 assert.match(displaySource, /Reporting only - not applied to the projection\./);
 assert.doesNotMatch(
@@ -322,9 +325,104 @@ const layer5Output = {
   dataGaps: scenario.dataGaps
 };
 
+function createCompressionScenarioResult(input) {
+  const hasScalarItemizationGap = (Array.isArray(input.compressionReport?.dataGaps) ? input.compressionReport.dataGaps : [])
+    .some(function (gap) {
+      return gap?.code === "scalar-household-expenses-not-itemized-for-compression";
+    });
+  if (hasScalarItemizationGap) {
+    return {
+      status: "blocked",
+      dataGaps: [
+        {
+          code: "active-compression-blocked-by-scalar-household-itemization-gap",
+          message: "Scalar household expenses are not fully itemized as compression-ready facts; active alternate compression would be misleading."
+        }
+      ],
+      warnings: [],
+      trace: {
+        calculationMethod: "income-impact-compression-scenario-v1",
+        mode: "alternateScenarioOnly",
+        blockedReasons: ["active-compression-blocked-by-scalar-household-itemization-gap"]
+      }
+    };
+  }
+
+  return {
+    status: "complete",
+    baseScenarioUnchanged: true,
+    compressionScenario: {
+      scenarioId: input.options?.scenarioId || "income-impact-expense-compression-alternate",
+      label: "Expense compression alternate scenario",
+      adjustedMonthlyNeed: 3350,
+      adjustedAnnualNeed: 40200,
+      reductionsApplied: [
+        {
+          typeKey: "diningOutRestaurants",
+          label: "Dining Out",
+          monthlyAmount: 150,
+          compressionOrderRank: 1
+        }
+      ],
+      pausesApplied: [
+        {
+          typeKey: "retirementContributions",
+          label: "Retirement Contribution",
+          monthlyAmount: 500,
+          compressionOrderRank: 4
+        }
+      ],
+      postDeathSeries: {
+        points: [
+          {
+            monthIndex: 1,
+            endingResources: 500650
+          }
+        ]
+      },
+      trace: {
+        calculationMethod: "income-impact-compression-scenario-v1",
+        baseScenarioMutated: false,
+        graphPathChanged: false
+      }
+    },
+    dataGaps: [],
+    warnings: [],
+    trace: {
+      calculationMethod: "income-impact-compression-scenario-v1",
+      mode: "alternateScenarioOnly"
+    }
+  };
+}
+
+function createLayer5Output(input) {
+  const scenarioResult = input.compressionScenarioResult;
+  const complete = scenarioResult?.status === "complete" && scenarioResult.compressionScenario;
+  return {
+    ...layer5Output,
+    compressionScenarios: complete ? [scenarioResult.compressionScenario] : [],
+    compressionScenarioDataGaps: Array.isArray(scenarioResult?.dataGaps) ? scenarioResult.dataGaps : [],
+    compressionScenarioWarnings: Array.isArray(scenarioResult?.warnings) ? scenarioResult.warnings : [],
+    compressionScenarioTrace: {
+      compressionScenarioInputProvided: Boolean(scenarioResult),
+      compressionScenarioStatus: scenarioResult?.status || null,
+      alternateScenarioBlocked: Boolean(scenarioResult) && !complete,
+      baseScenarioUnchanged: true,
+      baseScenarioMutated: false,
+      postDeathSeriesReplaced: false,
+      graphPathChanged: false,
+      layer5AppliedCompression: false,
+      displayWired: false
+    },
+    interventionScenarios: []
+  };
+}
+
 let prepCallCount = 0;
+let compressionScenarioCallCount = 0;
 let layer5CallCount = 0;
 let graphCallCount = 0;
+let capturedCompressionScenarioInput = null;
 let capturedLayer5Input = null;
 const originalScenario = clone(scenario);
 const originalRiskEvaluation = clone(riskEvaluation);
@@ -377,28 +475,54 @@ const result = harness.buildIncomeImpactResultFromState({
       }
     };
   },
+  calculateIncomeImpactCompressionScenario(input) {
+    compressionScenarioCallCount += 1;
+    capturedCompressionScenarioInput = input;
+    return createCompressionScenarioResult(input);
+  },
   calculateIncomeImpactTriageInterventions(input) {
     layer5CallCount += 1;
     capturedLayer5Input = input;
-    return layer5Output;
+    return createLayer5Output(input);
   }
 });
 
 assert.equal(prepCallCount, 1, "display should prepare compression reporting inputs once");
+assert.equal(compressionScenarioCallCount, 1, "display should calculate compression scenario result once after prep");
 assert.equal(layer5CallCount, 1, "display should pass compression output into Layer 5 once");
 assert.equal(graphCallCount, 1, "display should build graph once");
+assert.equal(capturedCompressionScenarioInput.scenario, scenario, "compression scenario helper should receive the composed base scenario");
+assert.equal(capturedCompressionScenarioInput.compressionReport, compressionReport, "compression scenario helper should receive prepared compressionReport");
+assert.equal(capturedCompressionScenarioInput.compressionPolicyRules, compressionPolicyRules, "compression scenario helper should receive prepared policy rules");
+assert.deepEqual(clone(capturedCompressionScenarioInput.options), {
+  mode: "alternateScenarioOnly",
+  scenarioId: "income-impact-expense-compression-alternate",
+  applyPauseCandidates: true,
+  requireCompleteItemization: true
+});
 assert.equal(capturedLayer5Input.scenario, scenario, "Layer 5 should receive the composed scenario");
 assert.equal(capturedLayer5Input.riskEvaluation, riskEvaluation, "Layer 5 should receive risk evaluation");
 assert.equal(capturedLayer5Input.compressionReport, compressionReport, "Layer 5 should receive prepared compressionReport");
 assert.equal(capturedLayer5Input.compressionPolicyRules, compressionPolicyRules, "Layer 5 should receive prepared policy rules");
+assert.equal(capturedLayer5Input.compressionScenarioResult.status, "blocked", "Layer 5 should receive blocked compression scenario result");
 assert.deepEqual(scenario, originalScenario, "display compression reporting should not mutate scenario");
 assert.deepEqual(riskEvaluation, originalRiskEvaluation, "display compression reporting should not mutate risk evaluation");
 assert.deepEqual(result.scenario.postDeathSeries, originalScenario.postDeathSeries, "postDeathSeries should remain unchanged");
 assert.equal(result.triageInterventions.interventionScenarios.length, 0, "compression reporting should not create intervention scenarios");
+assert.equal(result.triageInterventions.compressionScenarios.length, 0, "blocked compression scenario should not expose alternate scenarios");
+assert.equal(result.triageInterventions.compressionScenarioTrace.alternateScenarioBlocked, true, "blocked state should pass through Layer 5");
+assert.ok(
+  result.triageInterventions.compressionScenarioDataGaps.some((gap) => gap.code === "active-compression-blocked-by-scalar-household-itemization-gap"),
+  "blocked compression scenario data gap should pass through Layer 5"
+);
 assert.equal(result.compressionReporting.trace.reportingOnly, true);
 assert.equal(result.compressionReporting.trace.graphPathChanged, false);
 assert.equal(result.compressionReporting.trace.reductionsApplied, false);
+assert.equal(result.compressionReporting.trace.alternateScenarioPrepared, true);
+assert.equal(result.compressionReporting.trace.alternateScenarioStatus, "blocked");
+assert.equal(result.compressionReporting.trace.timelineMarkersCreated, false);
 assert.equal(result.dataGaps.some((gap) => gap.code === "scalar-household-expenses-not-itemized-for-compression"), false);
+assert.equal(result.dataGaps.some((gap) => gap.code === "active-compression-blocked-by-scalar-household-itemization-gap"), false);
 
 const graphHtmlAfterCompression = harness.renderTimeline(result);
 assert.equal(graphHtmlAfterCompression, originalGraphHtml, "graph/timeline output should be unchanged by compression reporting");
@@ -412,6 +536,8 @@ const panelHtml = harness.renderCompressionReportingPanel(result);
 assert.match(panelHtml, /data-income-impact-compression-panel/);
 assert.match(panelHtml, /Expense Compression Readiness/);
 assert.match(panelHtml, /Reporting only - not applied to the projection\./);
+assert.match(panelHtml, /Alternate scenario blocked/);
+assert.match(panelHtml, /Not applied to the projection/);
 assert.match(panelHtml, /First reductions to review/);
 assert.match(panelHtml, /Dining Out/);
 assert.match(panelHtml, /Groceries/);
@@ -427,8 +553,62 @@ assert.match(panelHtml, /Source-owned by Debt Records/);
 assert.match(panelHtml, /Data limitations/);
 assert.match(panelHtml, /Scalar household itemization limitation/);
 assert.match(panelHtml, /Scalar household ongoingSupport expenses are present/);
+assert.match(panelHtml, /active alternate compression would be misleading/);
 assert.match(panelHtml, /Policy summary/);
 assert.match(panelHtml, /data-income-impact-compression-policy-summary/);
+
+const completeCompressionReport = clone(compressionReport);
+completeCompressionReport.dataGaps = [];
+completeCompressionReport.pauseCandidates[0].possibleMonthlyPauseAmount = 500;
+let completeCapturedLayer5Input = null;
+const completeResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: {
+    id: "lens-complete-fixture"
+  },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions"
+  },
+  deathAgeState: {
+    hasDateOfBirth: false
+  },
+  composeIncomeImpactScenario() {
+    return scenario;
+  },
+  evaluateIncomeImpactRiskEvents() {
+    return riskEvaluation;
+  },
+  buildIncomeImpactTimelineGraphModel() {
+    return graphModel;
+  },
+  prepareIncomeImpactCompressionReportingInputs() {
+    return {
+      compressionReport: completeCompressionReport,
+      compressionPolicyRules,
+      warnings: [],
+      dataGaps: [],
+      trace: {
+        reportingOnly: true
+      }
+    };
+  },
+  calculateIncomeImpactCompressionScenario(input) {
+    return createCompressionScenarioResult(input);
+  },
+  calculateIncomeImpactTriageInterventions(input) {
+    completeCapturedLayer5Input = input;
+    return createLayer5Output(input);
+  }
+});
+assert.equal(completeCapturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should receive complete compression scenario result");
+assert.equal(completeResult.triageInterventions.compressionScenarios.length, 1, "complete compression scenario should pass through Layer 5");
+assert.equal(completeResult.triageInterventions.interventionScenarios.length, 0, "complete compression scenario should stay separate from intervention scenarios");
+assert.deepEqual(completeResult.scenario.postDeathSeries, originalScenario.postDeathSeries, "complete alternate scenario should not mutate base postDeathSeries");
+assert.equal(harness.renderTimeline(completeResult), originalGraphHtml, "complete alternate scenario should not change graph/timeline output");
+assert.match(harness.renderCompressionReportingPanel(completeResult), /Alternate scenario prepared/);
+assert.match(harness.renderCompressionReportingPanel(completeResult), /Prepared as a separate scenario and not applied to the projection or graph\./);
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: result });
