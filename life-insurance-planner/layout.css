@@ -537,6 +537,10 @@ body.settings-page {
   background: #ffffff;
 }
 
+body.lens-workflow-page {
+  --lens-workflow-trail-banner-height: 2rem;
+}
+
 body.clients-page .app-home-shell,
 body.lens-page .app-home-shell,
 body.settings-page .app-home-shell {

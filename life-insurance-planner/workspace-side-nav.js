@@ -638,8 +638,8 @@
       return;
     }
 
-    const topbarInner = scope.querySelector(".workspace-page-topbar-inner") || document.querySelector(".workspace-page-topbar-inner");
-    if (!topbarInner) {
+    const topbar = scope.querySelector(".workspace-page-topbar") || document.querySelector(".workspace-page-topbar");
+    if (!topbar) {
       return;
     }
 
@@ -648,16 +648,21 @@
       return;
     }
 
-    topbarInner.querySelector("[data-lens-workflow-trail]")?.remove();
+    document.querySelector("[data-lens-workflow-trail-banner]")?.remove();
     const template = document.createElement("template");
-    template.innerHTML = trailMarkup.trim();
-    const trail = template.content.firstElementChild;
-    if (!trail) {
+    template.innerHTML = `
+      <div class="lens-workflow-trail-banner" data-lens-workflow-trail-banner>
+        <div class="lens-workflow-trail-banner-inner">
+          ${trailMarkup}
+        </div>
+      </div>
+    `.trim();
+    const banner = template.content.firstElementChild;
+    if (!banner) {
       return;
     }
 
-    const actions = topbarInner.querySelector(".workspace-page-topbar-actions");
-    topbarInner.insertBefore(trail, actions || null);
+    topbar.insertAdjacentElement("afterend", banner);
   }
 
   function buildWorkspacePrimaryFlyouts(config) {

@@ -115,6 +115,192 @@ input.search-bar__input {
   height: 1.35rem;
 }
 
+.lens-workflow-trail-banner {
+  --lens-workflow-trail-banner-height: 2rem;
+  position: sticky;
+  top: var(--workspace-topbar-height, 2.2rem);
+  z-index: 35;
+  flex: 0 0 var(--lens-workflow-trail-banner-height);
+  min-height: var(--lens-workflow-trail-banner-height);
+  margin-left: var(--app-side-nav-collapsed-width, 4.5rem);
+  background: #ffffff;
+  border-top: 1px solid rgba(213, 221, 232, 0.74);
+  border-bottom: 1px solid rgba(213, 221, 232, 0.82);
+  box-sizing: border-box;
+}
+
+.lens-workflow-trail-banner-inner {
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  padding: 0 0.75rem 0 1rem;
+  box-sizing: border-box;
+}
+
+.lens-workflow-trail {
+  height: var(--lens-workflow-trail-banner-height, 2.75rem);
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.62rem;
+  margin-left: 0;
+  color: #111827;
+  font-size: 0.78rem;
+  font-weight: 680;
+  line-height: 1;
+}
+
+.lens-workflow-trail-link,
+.lens-workflow-trail-current,
+.lens-workflow-trail-trigger {
+  min-height: 100%;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.lens-workflow-trail-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.lens-workflow-trail-link:hover,
+.lens-workflow-trail-link:focus-visible {
+  color: #4f46e5;
+}
+
+.lens-workflow-trail-separator {
+  width: 0.42rem;
+  height: 0.42rem;
+  display: inline-block;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  opacity: 0.72;
+  transform: rotate(45deg);
+}
+
+.lens-workflow-trail-dropdown {
+  position: relative;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.lens-workflow-trail-dropdown::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.42rem;
+}
+
+.lens-workflow-trail-trigger {
+  appearance: none;
+  gap: 0.48rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lens-workflow-trail-trigger:hover,
+.lens-workflow-trail-trigger:focus-visible {
+  color: #4f46e5;
+  outline: none;
+}
+
+.lens-workflow-trail-trigger:focus-visible {
+  box-shadow: 0 2px 0 #4f46e5;
+}
+
+.lens-workflow-trail-trigger-chevron {
+  width: 0.42rem;
+  height: 0.42rem;
+  display: inline-block;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-0.08rem);
+}
+
+.lens-workflow-trail-current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lens-workflow-trail-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 17.5rem;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.38rem;
+  border: 1px solid rgba(213, 221, 232, 0.94);
+  border-radius: 0.42rem;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(16, 33, 52, 0.13);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.24rem);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 70;
+}
+
+.lens-workflow-trail-dropdown:hover .lens-workflow-trail-menu,
+.lens-workflow-trail-dropdown:focus-within .lens-workflow-trail-menu {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.lens-workflow-trail-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.58rem;
+  min-height: 2.36rem;
+  padding: 0.42rem 0.54rem;
+  border-radius: 0.3rem;
+  color: #344256;
+  text-decoration: none;
+}
+
+.lens-workflow-trail-menu-item:hover,
+.lens-workflow-trail-menu-item:focus-visible,
+.lens-workflow-trail-menu-item.is-active {
+  background: #f2f5f9;
+  color: #111827;
+  outline: none;
+}
+
+.lens-workflow-trail-menu-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.lens-workflow-trail-menu-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lens-workflow-trail-menu-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workspace-page-menu-panel {
   position: absolute;
   top: calc(100% + 0.45rem);
