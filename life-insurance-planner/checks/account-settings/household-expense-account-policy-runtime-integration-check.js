@@ -1,0 +1,626 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const repoRoot = path.resolve(__dirname, "..", "..");
+const ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
+
+function readRepoFile(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createFakeStorage() {
+  const values = new Map();
+  const writes = [];
+  const removes = [];
+  return {
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, value) {
+      writes.push(String(key));
+      values.set(key, String(value));
+    },
+    removeItem(key) {
+      removes.push(String(key));
+      values.delete(key);
+    },
+    setRaw(key, value) {
+      values.set(key, String(value));
+    },
+    writes() {
+      return writes.slice();
+    },
+    removes() {
+      return removes.slice();
+    },
+    snapshot() {
+      return Object.fromEntries(values.entries());
+    }
+  };
+}
+
+function loadScript(context, relativePath, transform) {
+  const source = readRepoFile(relativePath);
+  vm.runInContext(typeof transform === "function" ? transform(source) : source, context, {
+    filename: relativePath
+  });
+  return source;
+}
+
+function createRuntimeHarness() {
+  const context = {
+    console,
+    Intl,
+    URL,
+    URLSearchParams,
+    document: {
+      addEventListener() {},
+      querySelector() {
+        return null;
+      }
+    },
+    localStorage: createFakeStorage(),
+    sessionStorage: createFakeStorage(),
+    LensApp: {
+      accountSettings: {},
+      lensAnalysis: {}
+    }
+  };
+  context.window = context;
+  context.globalThis = context;
+  vm.createContext(context);
+
+  [
+    "app/features/account-settings/household-expense-account-policy-storage.js",
+    "app/features/lens-analysis/expense-taxonomy.js",
+    "app/features/lens-analysis/expense-library.js",
+    "app/features/lens-analysis/expense-compression-thresholds.js",
+    "app/features/lens-analysis/expense-compression-threshold-resolver.js",
+    "app/features/lens-analysis/household-expense-compression-calculations.js",
+    "app/features/lens-analysis/household-expense-compression-policy.js",
+    "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
+    "app/features/lens-analysis/household-expense-account-policy-resolver.js",
+    "app/features/lens-analysis/income-impact-compression-reporting-prep.js",
+    "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+    "app/features/lens-analysis/income-impact-timeline-graph-model.js"
+  ].forEach(function (relativePath) {
+    loadScript(context, relativePath);
+  });
+
+  loadScript(context, "app/features/lens-analysis/income-loss-impact-display.js", function (source) {
+    return source.replace(
+      /\n\}\)\(window\);\s*$/,
+      "\n  window.__householdExpensePolicyRuntimeHarness = { resolveIncomeImpactHouseholdExpenseAccountPolicy, buildBaseIncomeImpactContextFromState, buildIncomeImpactResultFromBaseContext, buildIncomeImpactResultFromState, renderTimeline };\n})(window);\n"
+    );
+  });
+
+  return {
+    context,
+    harness: context.__householdExpensePolicyRuntimeHarness,
+    lensAnalysis: context.LensApp.lensAnalysis,
+    storageApi: context.LensApp.accountSettings.householdExpenseAccountPolicyStorage,
+    storage: context.localStorage
+  };
+}
+
+function makeScenario() {
+  return {
+    status: "complete",
+    scenario: {
+      valuationDate: "2026-05-07",
+      selectedDeathDate: "2031-05-07",
+      selectedDeathAge: 52,
+      projectionHorizonMonths: 480
+    },
+    preDeathSeries: {
+      mode: "forward-projection",
+      precision: "monthly",
+      points: [
+        { date: "2027-05-07", monthIndex: 12, endingAssets: 520000 },
+        { date: "2031-05-07", monthIndex: 60, endingAssets: 600000 }
+      ],
+      targetPoint: { date: "2031-05-07", endingAssets: 600000 }
+    },
+    deathEvent: {
+      date: "2031-05-07",
+      age: 52,
+      assetsBeforeDeath: 600000,
+      survivorAvailableTreatedAssets: 500000,
+      coverageAdded: 250000,
+      immediateObligations: 100000,
+      resourcesAfterObligations: 650000,
+      layer2: {
+        resources: {
+          totalResourcesBeforeObligations: 750000
+        }
+      }
+    },
+    postDeathSeries: {
+      points: [
+        {
+          monthIndex: 1,
+          date: "2031-06-07",
+          survivorNeeds: 4000,
+          essentialNeeds: 3000,
+          discretionaryNeeds: 1000,
+          netUse: 3500,
+          startingResources: 653500,
+          endingResources: 650000
+        },
+        {
+          monthIndex: 2,
+          date: "2031-07-07",
+          survivorNeeds: 4000,
+          essentialNeeds: 3000,
+          discretionaryNeeds: 1000,
+          netUse: 3500,
+          startingResources: 650000,
+          endingResources: 646500
+        },
+        {
+          monthIndex: 3,
+          date: "2031-08-07",
+          survivorNeeds: 4000,
+          essentialNeeds: 3000,
+          discretionaryNeeds: 1000,
+          netUse: 3500,
+          startingResources: 646500,
+          endingResources: 643000
+        },
+        {
+          monthIndex: 12,
+          date: "2032-05-07",
+          survivorNeeds: 4000,
+          essentialNeeds: 3000,
+          discretionaryNeeds: 1000,
+          netUse: 3500,
+          startingResources: 615000,
+          endingResources: 611500
+        }
+      ],
+      summary: {
+        totalSurvivorNeeds: 48000,
+        totalSurvivorIncome: 6000,
+        accumulatedUnmetNeed: 0
+      },
+      depletion: {
+        depleted: false,
+        depletionDate: null,
+        monthsCovered: 480
+      }
+    },
+    timelineFacts: {
+      assetsBeforeDeath: 600000,
+      survivorAvailableTreatedAssets: 500000,
+      coverageAdded: 250000,
+      resourcesAfterObligations: 650000,
+      monthsCovered: 480,
+      depletionDate: null,
+      accumulatedUnmetNeed: 0
+    },
+    warnings: [],
+    dataGaps: []
+  };
+}
+
+function makeRiskEvaluation() {
+  return {
+    status: "complete",
+    events: [],
+    stableEvents: [],
+    warnings: [],
+    dataGaps: []
+  };
+}
+
+function makeReconciledExpense(expenseTypeKey, categoryKey, monthlyAmount, sourceKey) {
+  return {
+    expenseId: `${expenseTypeKey}-fixture`,
+    label: expenseTypeKey,
+    expenseTypeKey,
+    categoryKey,
+    monthlyAmount,
+    monthlyEquivalent: monthlyAmount,
+    frequency: "monthly",
+    sourceKey,
+    sourceOwnedBy: "ongoingSupport",
+    ownedByField: sourceKey,
+    sourcePath: `protectionModeling.data.${sourceKey}`,
+    metadata: {
+      normalizedSourcePath: `lensModel.ongoingSupport.${sourceKey}`
+    },
+    isGeneratedExpense: true,
+    isScalarHouseholdExpense: true,
+    isCompressionEligibleSource: true,
+    isFormulaEligible: false
+  };
+}
+
+function makeProtectedExpense(expenseTypeKey, categoryKey, monthlyAmount) {
+  return {
+    expenseId: `${expenseTypeKey}-protected-fixture`,
+    label: expenseTypeKey,
+    expenseTypeKey,
+    categoryKey,
+    monthlyAmount,
+    monthlyEquivalent: monthlyAmount,
+    frequency: "monthly",
+    sourceKey: expenseTypeKey,
+    sourceOwnedBy: expenseTypeKey === "autoLoanPayment" ? "debtRecords" : "ongoingSupport",
+    sourcePath: expenseTypeKey === "autoLoanPayment"
+      ? "protectionModeling.data.debtRecords[0]"
+      : `protectionModeling.data.${expenseTypeKey}`,
+    metadata: {
+      normalizedSourcePath: `lensModel.ongoingSupport.${expenseTypeKey}`
+    },
+    isGeneratedExpense: true,
+    isScalarHouseholdExpense: expenseTypeKey !== "autoLoanPayment",
+    isCompressionEligibleSource: expenseTypeKey !== "autoLoanPayment",
+    isFormulaEligible: false,
+    isDebtPaymentExpense: expenseTypeKey === "autoLoanPayment"
+  };
+}
+
+function makeLensModel(expenses) {
+  return {
+    id: "runtime-account-policy-fixture",
+    householdFacts: {},
+    ongoingSupport: {
+      monthlyFoodCost: 1000
+    },
+    expenseFacts: {
+      expenses: expenses.map(cloneJson)
+    }
+  };
+}
+
+function createLayer5Output(input) {
+  return {
+    compressionOpportunities: input?.compressionReport?.opportunities || [],
+    pauseCandidates: input?.compressionReport?.pauseCandidates || [],
+    protectedExpenseItems: input?.compressionReport?.protectedItems || [],
+    excludedExpenseItems: input?.compressionReport?.excludedItems || [],
+    advisorReviewItems: input?.compressionReport?.advisorReviewItems || [],
+    compressionDataGaps: input?.compressionReport?.dataGaps || [],
+    compressionTrace: { reportingOnly: true },
+    compressionScenarios: [],
+    compressionScenarioDataGaps: [],
+    compressionScenarioWarnings: [],
+    compressionScenarioTrace: {
+      graphPathChanged: false,
+      layer5AppliedCompression: false,
+      baseScenarioMutated: false
+    },
+    interventionScenarios: [],
+    baseScenarioSummary: {
+      resourcesAfterObligations: 650000,
+      monthsCovered: 480,
+      depletionDate: null,
+      accumulatedUnmetNeed: 0,
+      totalSurvivorNeeds: 48000,
+      totalSurvivorIncome: 6000
+    },
+    dataGaps: []
+  };
+}
+
+function getDefaultPolicyInputs(lensAnalysis) {
+  return {
+    defaultLifestyleRangePolicies: lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies(),
+    defaultCompressionPolicyRules: lensAnalysis.householdExpenseCompressionPolicy.getHouseholdExpenseCompressionPolicyRules(),
+    defaultCompressionThresholdRules: lensAnalysis.expenseCompressionThresholds.getExpenseCompressionThresholdRules()
+  };
+}
+
+function resolvePolicyContext(runtime, storage) {
+  return runtime.harness.resolveIncomeImpactHouseholdExpenseAccountPolicy({
+    currentLensAnalysis: runtime.lensAnalysis,
+    accountPolicyStorage: runtime.storageApi,
+    accountPolicyResolver: runtime.lensAnalysis.householdExpenseAccountPolicyResolver.resolveHouseholdExpenseAccountPolicy,
+    storage
+  });
+}
+
+function buildRuntimeState(runtime, policyContext, lensModel, capture) {
+  const scenario = makeScenario();
+  return {
+    valuationDate: "2026-05-07",
+    lensModel,
+    analysisSettings: {},
+    scenarioState: {
+      projectionHorizonYears: 40,
+      mortgageTreatmentOverride: "followAssumptions",
+      lifestyleSliderValue: 0
+    },
+    deathAgeState: { hasDateOfBirth: false },
+    householdExpenseAccountPolicyContext: policyContext,
+    composeIncomeImpactScenario() {
+      return cloneJson(scenario);
+    },
+    evaluateIncomeImpactRiskEvents() {
+      return makeRiskEvaluation();
+    },
+    buildIncomeImpactTimelineGraphModel(input) {
+      capture.graphInputs.push(cloneJson(input));
+      return runtime.lensAnalysis.buildIncomeImpactTimelineGraphModel(input);
+    },
+    prepareIncomeImpactCompressionReportingInputs(input) {
+      capture.compressionPrepInputs.push(cloneJson(input));
+      return runtime.lensAnalysis.prepareIncomeImpactCompressionReportingInputs(input);
+    },
+    calculateIncomeImpactCompressionScenario(input) {
+      capture.compressionScenarioInputs.push(cloneJson(input));
+      return {
+        status: "blocked",
+        baseScenarioUnchanged: true,
+        dataGaps: [{ code: "runtime-proof-compression-not-applied" }],
+        warnings: [],
+        trace: {
+          calculationMethod: "runtime-proof-passive-compression-scenario",
+          baseScenarioMutated: false,
+          graphPathChanged: false
+        }
+      };
+    },
+    calculateIncomeImpactLifestyleScenario(input) {
+      capture.lifestyleInputs.push(cloneJson(input));
+      const output = runtime.lensAnalysis.incomeImpactLifestyleScenarioCalculations.calculateIncomeImpactLifestyleScenario(input);
+      capture.lifestyleOutputs.push(cloneJson(output));
+      return output;
+    },
+    calculateIncomeImpactTriageInterventions(input) {
+      capture.layer5Inputs.push(cloneJson(input));
+      return createLayer5Output(input);
+    }
+  };
+}
+
+function buildResultForSlider(runtime, state, sliderValue) {
+  const baseContext = runtime.harness.buildBaseIncomeImpactContextFromState(state);
+  return runtime.harness.buildIncomeImpactResultFromBaseContext(state, baseContext, sliderValue);
+}
+
+function comparisonValues(result) {
+  const series = result?.graphModel?.series?.comparisonPostDeathResources;
+  assert.ok(Array.isArray(series), "graph model should include comparisonPostDeathResources");
+  assert.equal(series.length, 1, "graph model should include one lifestyle comparison series");
+  return series[0].points.map(function (point) {
+    return point.value;
+  });
+}
+
+function baseValues(result) {
+  return result.scenario.postDeathSeries.points.map(function (point) {
+    return point.endingResources;
+  });
+}
+
+function getPathD(html, pathId) {
+  const pattern = new RegExp(`<path\\b(?=[^>]*data-income-impact-graph-path="${pathId}")[^>]*\\bd="([^"]*)"`, "m");
+  const match = html.match(pattern);
+  assert.ok(match, `Expected graph path ${pathId}`);
+  return match[1];
+}
+
+function makeCapture() {
+  return {
+    compressionPrepInputs: [],
+    compressionScenarioInputs: [],
+    lifestyleInputs: [],
+    lifestyleOutputs: [],
+    graphInputs: [],
+    layer5Inputs: []
+  };
+}
+
+const runtime = createRuntimeHarness();
+assert.equal(typeof runtime.harness.resolveIncomeImpactHouseholdExpenseAccountPolicy, "function");
+assert.equal(typeof runtime.harness.buildBaseIncomeImpactContextFromState, "function");
+assert.equal(typeof runtime.harness.buildIncomeImpactResultFromBaseContext, "function");
+assert.equal(typeof runtime.lensAnalysis.incomeImpactLifestyleScenarioCalculations.calculateIncomeImpactLifestyleScenario, "function");
+assert.equal(typeof runtime.lensAnalysis.buildIncomeImpactTimelineGraphModel, "function");
+
+const accountPolicyOverride = {
+  version: 1,
+  lifestyleRangeOverrides: [{
+    expenseTypeKey: "groceries",
+    conservativeFloorRatio: 0.3,
+    elevatedCeilingRatio: 1.6
+  }],
+  compressionThresholdOverrides: [],
+  compressionPolicyOverrides: [],
+  guardrails: {},
+  metadata: {
+    source: "runtime-integration-check"
+  }
+};
+const accountPolicySaveResult = runtime.storageApi.saveHouseholdExpenseAccountPolicy({
+  accountId: ACCOUNT_ID,
+  accountPolicy: accountPolicyOverride,
+  metadata: { updatedBy: "runtime-integration-check" },
+  storage: runtime.storage
+});
+assert.equal(accountPolicySaveResult.saved, true, "account policy override should be saved through the storage adapter");
+assert.equal(runtime.storage.writes().length, 1, "admin-saved account override should be the only storage write before runtime proof");
+assert.match(runtime.storage.writes()[0], /^model90\.householdExpenseAccountPolicy\.v1:/);
+
+const accountPolicyContext = resolvePolicyContext(runtime, runtime.storage);
+assert.equal(accountPolicyContext.accountId, ACCOUNT_ID);
+assert.equal(accountPolicyContext.policySource, "accountOverride");
+assert.equal(accountPolicyContext.storageResult.status, "loaded");
+assert.equal(accountPolicyContext.resolvedAccountPolicyAvailable, true);
+assert.equal(accountPolicyContext.trace.accountIdSource, "temporaryLocalDisplayFallback");
+const resolvedGroceries = accountPolicyContext.resolvedPolicy.resolvedLifestyleRangePolicies.find(function (row) {
+  return row.expenseTypeKey === "groceries";
+});
+assert.ok(resolvedGroceries, "resolved account policy should include groceries");
+assert.equal(resolvedGroceries.conservativeFloorRatio, 0.3);
+assert.equal(resolvedGroceries.elevatedCeilingRatio, 1.6);
+
+const seedRuntime = createRuntimeHarness();
+const seedPolicyContext = resolvePolicyContext(seedRuntime, seedRuntime.storage);
+assert.equal(seedPolicyContext.policySource, "defaultSeedPolicy", "missing account policy should resolve to seed defaults");
+
+const groceriesExpense = makeReconciledExpense("groceries", "foodGroceries", 1000, "monthlyFoodCost");
+const seedCapture = makeCapture();
+const seedState = buildRuntimeState(seedRuntime, seedPolicyContext, makeLensModel([groceriesExpense]), seedCapture);
+const seedCurrent = buildResultForSlider(seedRuntime, seedState, 0);
+const seedConservative = buildResultForSlider(seedRuntime, seedState, -100);
+const seedElevated = buildResultForSlider(seedRuntime, seedState, 100);
+
+assert.deepEqual(comparisonValues(seedCurrent), baseValues(seedCurrent), "Current/0 seed-default comparison should exactly match baseline");
+assert.equal(seedCapture.lifestyleOutputs[0].trace.policySource, "defaultSeedPolicy");
+assert.equal(seedCapture.lifestyleInputs[0].accountPolicyResolution, undefined);
+assert.ok(comparisonValues(seedConservative)[0] > baseValues(seedConservative)[0], "Conservative seed default should improve resources");
+assert.ok(comparisonValues(seedElevated)[0] < baseValues(seedElevated)[0], "Elevated seed default should reduce resources");
+
+const accountCapture = makeCapture();
+const accountState = buildRuntimeState(runtime, accountPolicyContext, makeLensModel([groceriesExpense]), accountCapture);
+const accountCurrent = buildResultForSlider(runtime, accountState, 0);
+const accountConservative = buildResultForSlider(runtime, accountState, -100);
+const accountElevated = buildResultForSlider(runtime, accountState, 100);
+const writesAfterRuntimeSliders = runtime.storage.writes();
+
+assert.equal(writesAfterRuntimeSliders.length, 1, "Income Impact runtime and lifestyle slider evaluation should not write storage");
+assert.deepEqual(runtime.storage.removes(), [], "Income Impact runtime should not remove storage");
+const capturedCompressionPolicy = accountCapture.compressionPrepInputs[0].accountPolicyResolution;
+const capturedLifestylePolicy = accountCapture.lifestyleInputs[0].accountPolicyResolution;
+const capturedLifestyleGroceriesPolicy = capturedLifestylePolicy.resolvedLifestyleRangePolicies.find(function (row) {
+  return row.expenseTypeKey === "groceries";
+});
+assert.equal(capturedCompressionPolicy.metadata.source, "defaultPolicy-plus-accountOverride", "compression reporting prep should receive resolved account policy metadata");
+assert.equal(capturedCompressionPolicy.metadata.namespaces.lifestyleRangeOverrides, 1, "compression reporting prep should receive account override namespace counts");
+assert.equal(capturedLifestylePolicy.metadata.source, "defaultPolicy-plus-accountOverride", "lifestyle helper should receive resolved account policy metadata");
+assert.equal(capturedLifestylePolicy.metadata.namespaces.lifestyleRangeOverrides, 1, "lifestyle helper should receive account override namespace counts");
+assert.ok(capturedLifestyleGroceriesPolicy, "lifestyle helper should receive a resolved groceries policy row");
+assert.equal(capturedLifestyleGroceriesPolicy.conservativeFloorRatio, 0.3, "lifestyle helper should receive the overridden groceries conservative floor");
+assert.equal(capturedLifestyleGroceriesPolicy.elevatedCeilingRatio, 1.6, "lifestyle helper should receive the overridden groceries elevated ceiling");
+assert.equal(accountCapture.lifestyleOutputs[0].trace.policySource, "resolvedAccountPolicy");
+assert.equal(accountCapture.lifestyleOutputs[0].trace.resolvedAccountPolicyUsed, true);
+assert.deepEqual(comparisonValues(accountCurrent), baseValues(accountCurrent), "Current/0 account-policy comparison should exactly match baseline");
+assert.notDeepEqual(comparisonValues(accountConservative), comparisonValues(seedConservative), "Conservative account override should change graph comparison values differently than seed default");
+assert.notDeepEqual(comparisonValues(accountElevated), comparisonValues(seedElevated), "Elevated account override should change graph comparison values differently than seed default");
+assert.ok(comparisonValues(accountConservative)[0] > comparisonValues(seedConservative)[0], "Lower account floor should extend Conservative runway more than seed default");
+assert.ok(comparisonValues(accountElevated)[0] < comparisonValues(seedElevated)[0], "Higher account ceiling should shorten Elevated runway more than seed default");
+assert.equal(accountConservative.compressionReporting.trace.accountPolicySource, "accountOverride");
+assert.equal(accountConservative.compressionReporting.trace.accountPolicyStorageStatus, "loaded");
+assert.equal(accountConservative.compressionReporting.trace.accountPolicyResolved, true);
+assert.equal(accountConservative.compressionReporting.trace.lifestyleScenarioStatus, "complete");
+assert.equal(accountConservative.compressionReporting.trace.graphPathChanged, true);
+assert.equal(accountConservative.triageInterventions.interventionScenarios.length, 0);
+
+const currentHtml = runtime.harness.renderTimeline(accountCurrent);
+const conservativeHtml = runtime.harness.renderTimeline(accountConservative);
+const elevatedHtml = runtime.harness.renderTimeline(accountElevated);
+assert.equal(getPathD(currentHtml, "lifestyle-post-death-resources"), getPathD(currentHtml, "postDeathResources"), "Current/0 lifestyle graph path should match baseline path");
+assert.notEqual(getPathD(conservativeHtml, "lifestyle-post-death-resources"), getPathD(runtime.harness.renderTimeline(seedConservative), "lifestyle-post-death-resources"), "Conservative override should change the visible lifestyle graph path");
+assert.notEqual(getPathD(elevatedHtml, "lifestyle-post-death-resources"), getPathD(runtime.harness.renderTimeline(seedElevated), "lifestyle-post-death-resources"), "Elevated override should change the visible lifestyle graph path");
+[currentHtml, conservativeHtml, elevatedHtml].forEach(function (html) {
+  assert.match(html, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+  assert.doesNotMatch(html, /data-income-impact-graph-path="compression-post-death-resources"/);
+  assert.doesNotMatch(html, /data-income-impact-graph-path="staged-compression-post-death-resources"/);
+  assert.doesNotMatch(html, /data-income-impact-compression-marker|data-income-impact-graph-detail="compression-early-window"/);
+});
+
+const protectedKeys = [
+  ["rentOrMortgagePayment", "housingExpense"],
+  ["autoLoanPayment", "debtObligations"],
+  ["federalStateLocalIncomeTaxPayments", "taxes"],
+  ["healthInsurancePremiums", "insuranceProtection"],
+  ["daycareChildcare", "childcareDependentCare"],
+  ["lifeInsurancePremiums", "insuranceProtection"],
+  ["charitableGiving", "givingCommunity"]
+];
+const maliciousStorage = createFakeStorage();
+const maliciousPolicy = {
+  version: 1,
+  lifestyleRangeOverrides: protectedKeys.map(function ([expenseTypeKey, categoryKey]) {
+    return {
+      expenseTypeKey,
+      categoryKey,
+      sliderEligible: true,
+      rangeBehavior: "expandable",
+      allowBelowBaseline: true,
+      allowAboveBaseline: true,
+      conservativeFloorRatio: 0,
+      elevatedCeilingRatio: 2
+    };
+  }),
+  compressionThresholdOverrides: [],
+  compressionPolicyOverrides: [],
+  guardrails: {},
+  metadata: {
+    source: "malicious-runtime-integration-check"
+  }
+};
+runtime.storageApi.saveHouseholdExpenseAccountPolicy({
+  accountId: ACCOUNT_ID,
+  accountPolicy: maliciousPolicy,
+  metadata: { updatedBy: "runtime-integration-check" },
+  storage: maliciousStorage
+});
+const maliciousContext = resolvePolicyContext(runtime, maliciousStorage);
+assert.equal(maliciousContext.policySource, "accountOverride", "malicious saved policy still loads as an account override");
+protectedKeys.forEach(function ([expenseTypeKey]) {
+  const resolved = maliciousContext.resolvedPolicy.resolvedLifestyleRangePolicies.find(function (row) {
+    return row.expenseTypeKey === expenseTypeKey;
+  });
+  assert.ok(resolved, `${expenseTypeKey} should resolve`);
+  assert.equal(resolved.sliderEligible, false, `${expenseTypeKey} should remain slider-ineligible`);
+});
+
+const protectedCapture = makeCapture();
+const protectedState = buildRuntimeState(
+  runtime,
+  maliciousContext,
+  makeLensModel(protectedKeys.map(function ([expenseTypeKey, categoryKey]) {
+    return makeProtectedExpense(expenseTypeKey, categoryKey, 500);
+  })),
+  protectedCapture
+);
+const protectedResult = buildResultForSlider(runtime, protectedState, -100);
+const protectedOutput = protectedCapture.lifestyleOutputs[0];
+protectedKeys.forEach(function ([expenseTypeKey]) {
+  const adjusted = protectedOutput.adjustedExpenses.find(function (item) {
+    return item.expenseTypeKey === expenseTypeKey;
+  });
+  assert.ok(adjusted, `${expenseTypeKey} should be present in lifestyle output`);
+  assert.equal(adjusted.sliderEligible, false, `${expenseTypeKey} should stay fixed in helper output`);
+  assert.equal(adjusted.monthlyDelta, 0, `${expenseTypeKey} should not move the graph`);
+});
+assert.deepEqual(comparisonValues(protectedResult), baseValues(protectedResult), "malicious protected overrides should leave lifestyle comparison as a no-op baseline path");
+
+const forbiddenWrites = runtime.storage.writes().concat(runtime.storage.removes()).filter(function (key) {
+  return /analysisSettings|client|profile/i.test(key);
+});
+assert.deepEqual(forbiddenWrites, [], "runtime proof should not write profile/client/analysisSettings storage");
+
+console.log(JSON.stringify({
+  status: "passed",
+  accountPolicyOverride: accountPolicyOverride.lifestyleRangeOverrides[0],
+  seed: {
+    current: comparisonValues(seedCurrent),
+    conservative: comparisonValues(seedConservative),
+    elevated: comparisonValues(seedElevated)
+  },
+  accountOverride: {
+    current: comparisonValues(accountCurrent),
+    conservative: comparisonValues(accountConservative),
+    elevated: comparisonValues(accountElevated)
+  },
+  policySource: accountPolicyContext.policySource,
+  lifestylePolicySource: accountCapture.lifestyleOutputs[0].trace.policySource,
+  storageWrites: writesAfterRuntimeSliders,
+  protectedGuardrailsChecked: protectedKeys.map(function ([expenseTypeKey]) {
+    return expenseTypeKey;
+  })
+}, null, 2));
