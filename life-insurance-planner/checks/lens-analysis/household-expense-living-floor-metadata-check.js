@@ -144,11 +144,13 @@ function assertNoForbiddenDiffs() {
     .filter(Boolean)
     .filter(function (line) {
       return !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-display.js")
+        && !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-editor.js")
+        && !line.endsWith("app/features/account-settings/household-expense-account-policy-storage.js")
         && !line.endsWith("pages/admin-accounts.html");
     })
     .join("\n");
 
-  assert.equal(status, "", "runtime, storage, normalization, graph/display, policy, compression, non-display admin, non-admin page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, normalization, graph/display, policy, compression, unrelated account-settings, non-admin page, and CSS files should not have diffs");
 }
 
 function assertNoForbiddenImports() {

@@ -71,6 +71,77 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const preservedLivingFloorAssumptions = {
+  version: 1,
+  foodAtHome: {
+    planningBucketKey: "foodAtHomeConsumables",
+    source: "USDA_FOOD_PLAN",
+    sourcePeriod: "2026",
+    monthlyAmountsByBand: {
+      infantToddler: 180,
+      youngChild: 225,
+      olderChild: 285,
+      teenMale: 355,
+      teenFemale: 315,
+      adultMale: 390,
+      adultFemale: 345,
+      adultUnknown: null,
+      childUnknown: null
+    },
+    householdSizeAdjustmentFactors: {
+      "1": 1.2,
+      "2": 1,
+      "3": 0.95,
+      "4": 0.9,
+      "5": 0.85,
+      "6Plus": 0.8
+    }
+  },
+  stateCostAdjustmentMultipliers: {
+    version: 1,
+    appliesToAdjustmentClass: "moneyFloorAdjusted",
+    defaultMultiplier: 1,
+    globalStateAdjustmentMultipliersByState: {
+      CO: {
+        multiplier: 1.08,
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        notes: null
+      }
+    },
+    bucketStateAdjustmentMultipliers: {}
+  },
+  model90DefaultBucketFloors: {
+    householdConsumables: {
+      planningBucketKey: "householdConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 110,
+      monthlyPerMemberAmount: 35,
+      stateAdjustmentEnabled: true,
+      notes: null
+    },
+    communicationsConnectivity: {
+      planningBucketKey: "communicationsConnectivity",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 95,
+      monthlyPerMemberAmount: 12,
+      stateAdjustmentEnabled: true,
+      notes: null
+    },
+    transportationBasics: {
+      planningBucketKey: "transportationBasics",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 125,
+      monthlyPerAdultDriverAmount: 75,
+      stateAdjustmentEnabled: true,
+      notes: null
+    }
+  }
+};
+
 const pageSource = readRepoFile("pages/admin-accounts.html");
 const editorSource = readRepoFile("app/features/account-settings/household-expense-account-policy-admin-editor.js");
 const scripts = getScriptSources(pageSource);
@@ -214,6 +285,7 @@ const existingAccountPolicy = {
   compressionThresholdOverrides: [{ thresholdId: "streamingDigitalSubscriptions", tiers: { average: 95 } }],
   compressionPolicyOverrides: [{ policyId: "travelVacations", notes: "preserve me" }],
   guardrails: { maxElevatedCeilingRatio: 1.9 },
+  livingFloorAssumptions: plain(preservedLivingFloorAssumptions),
   metadata: { source: "existing-policy" }
 };
 
@@ -238,6 +310,7 @@ assert.deepEqual(plain(savePayload.accountPolicy.lifestyleRangeOverrides), [{
 assert.deepEqual(plain(savePayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "threshold namespace should be preserved");
 assert.deepEqual(plain(savePayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "compression namespace should be preserved");
 assert.deepEqual(plain(savePayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "guardrails should be preserved");
+assert.deepEqual(plain(savePayload.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "living-floor assumptions namespace should be preserved by ratio save payload");
 assert.equal(savePayload.accountPolicy.metadata.source, "existing-policy", "metadata should be preserved");
 assert.equal(savePayload.accountPolicy.metadata.lastEditedNamespace, "lifestyleRangeOverrides");
 assert.equal(savePayload.accountPolicy.lifestyleRangeOverrides.some((row) => row.expenseTypeKey === "streamingDigitalSubscriptions"), false, "unchanged rows should not be saved as overrides");
@@ -261,6 +334,7 @@ assert.equal(validModel.status.code, "accountOverride", "valid saved policy shou
 assert.equal(validGroceries.overrideStatus, "accountOverride", "valid saved override should mark row status");
 assert.equal(validGroceries.resolvedConservativeFloorRatio, 0.73, "valid saved override should affect resolved floor");
 assert.equal(validGroceries.resolvedElevatedCeilingRatio, 1.22, "valid saved override should affect resolved ceiling");
+assert.deepEqual(plain(validModel.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "saved ratio edit should not drop living-floor assumptions");
 assert.match(editor.renderHouseholdExpensePolicyEditor(validModel), /Account override/);
 
 const resetPayload = editor.buildLifestyleRangeSavePayload({
@@ -274,6 +348,7 @@ assert.equal(resetPayload.valid, true, "reset draft should be valid");
 assert.deepEqual(plain(resetPayload.accountPolicy.lifestyleRangeOverrides), [], "reset row should remove lifestyle range override");
 assert.deepEqual(plain(resetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "reset should preserve threshold namespace");
 assert.deepEqual(plain(resetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "reset should preserve compression namespace");
+assert.deepEqual(plain(resetPayload.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "reset row save payload should preserve living-floor assumptions");
 
 const invalidPayload = editor.buildLifestyleRangeSavePayload({
   accountId,

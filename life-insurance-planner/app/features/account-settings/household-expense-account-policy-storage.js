@@ -8,6 +8,41 @@
   const HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_VERSION = 1;
   const HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_TYPE = "householdExpensePolicy";
   const HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_PREFIX = "model90.householdExpenseAccountPolicy.v1";
+  const LIVING_FLOOR_ASSUMPTIONS_VERSION = 1;
+  const FOOD_AT_HOME_BAND_KEYS = Object.freeze([
+    "infantToddler",
+    "youngChild",
+    "olderChild",
+    "teenMale",
+    "teenFemale",
+    "adultMale",
+    "adultFemale",
+    "adultUnknown",
+    "childUnknown"
+  ]);
+  const HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS = Object.freeze(["1", "2", "3", "4", "5", "6Plus"]);
+  const MODEL90_DEFAULT_FLOOR_BUCKETS = Object.freeze({
+    householdConsumables: Object.freeze({
+      planningBucketKey: "householdConsumables",
+      perMemberField: "monthlyPerMemberAmount"
+    }),
+    communicationsConnectivity: Object.freeze({
+      planningBucketKey: "communicationsConnectivity",
+      perMemberField: "monthlyPerMemberAmount"
+    }),
+    transportationBasics: Object.freeze({
+      planningBucketKey: "transportationBasics",
+      perMemberField: "monthlyPerAdultDriverAmount"
+    })
+  });
+  const STATE_CODE_VALUES = Object.freeze([
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
+    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
+    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
+    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
+    "WY"
+  ]);
 
   function isPlainObject(value) {
     return Object.prototype.toString.call(value) === "[object Object]";
@@ -76,6 +111,168 @@
     return isPlainObject(value) ? cloneSerializable(value) : {};
   }
 
+  function asFiniteNumber(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
+  function normalizeNullableText(value) {
+    if (value == null) {
+      return null;
+    }
+
+    const text = String(value).trim();
+    return text || null;
+  }
+
+  function normalizeSource(value, fallback) {
+    const source = normalizeNullableText(value);
+    return source || fallback;
+  }
+
+  function normalizeNullableNonnegativeDollar(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    const numericValue = asFiniteNumber(value);
+    if (numericValue === null || numericValue < 0) {
+      return null;
+    }
+
+    return numericValue;
+  }
+
+  function normalizeNullableMultiplier(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    const numericValue = asFiniteNumber(value);
+    if (numericValue === null || numericValue < 0.25 || numericValue > 3) {
+      return null;
+    }
+
+    return numericValue;
+  }
+
+  function normalizeDefaultMultiplier(value) {
+    const numericValue = normalizeNullableMultiplier(value);
+    return numericValue === null ? 1 : numericValue;
+  }
+
+  function normalizeStateCode(value) {
+    const stateCode = String(value == null ? "" : value).trim().toUpperCase();
+    return STATE_CODE_VALUES.includes(stateCode) ? stateCode : "";
+  }
+
+  function createBlankMonthlyAmountsByBand(input) {
+    const values = isPlainObject(input) ? input : {};
+    return FOOD_AT_HOME_BAND_KEYS.reduce(function (monthlyAmounts, bandKey) {
+      monthlyAmounts[bandKey] = normalizeNullableNonnegativeDollar(values[bandKey]);
+      return monthlyAmounts;
+    }, {});
+  }
+
+  function createBlankHouseholdSizeAdjustmentFactors(input) {
+    const values = isPlainObject(input) ? input : {};
+    return HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.reduce(function (factors, factorKey) {
+      factors[factorKey] = normalizeNullableMultiplier(values[factorKey]);
+      return factors;
+    }, {});
+  }
+
+  function normalizeStateMultiplierRow(value) {
+    const row = isPlainObject(value) ? value : { multiplier: value };
+    return {
+      multiplier: normalizeNullableMultiplier(row.multiplier),
+      source: normalizeSource(row.source, "ADMIN_ENTERED"),
+      sourcePeriod: normalizeNullableText(row.sourcePeriod),
+      notes: normalizeNullableText(row.notes)
+    };
+  }
+
+  function normalizeStateMultiplierMap(value) {
+    const rows = isPlainObject(value) ? value : {};
+    return Object.keys(rows).sort().reduce(function (normalizedRows, stateKey) {
+      const normalizedStateKey = normalizeStateCode(stateKey);
+      if (!normalizedStateKey) {
+        return normalizedRows;
+      }
+
+      normalizedRows[normalizedStateKey] = normalizeStateMultiplierRow(rows[stateKey]);
+      return normalizedRows;
+    }, {});
+  }
+
+  function normalizeBucketStateAdjustmentMultipliers(value) {
+    const rows = isPlainObject(value) ? value : {};
+    return Object.keys(rows).sort().reduce(function (normalizedRows, bucketKey) {
+      const normalizedStateRows = normalizeStateMultiplierMap(rows[bucketKey]);
+      if (Object.keys(normalizedStateRows).length) {
+        normalizedRows[bucketKey] = normalizedStateRows;
+      }
+      return normalizedRows;
+    }, {});
+  }
+
+  function createBlankFoodAtHomeAssumptions(input) {
+    const foodAtHome = isPlainObject(input) ? input : {};
+    return {
+      planningBucketKey: "foodAtHomeConsumables",
+      source: normalizeSource(foodAtHome.source, "ADMIN_ENTERED"),
+      sourcePeriod: normalizeNullableText(foodAtHome.sourcePeriod),
+      monthlyAmountsByBand: createBlankMonthlyAmountsByBand(foodAtHome.monthlyAmountsByBand),
+      householdSizeAdjustmentFactors: createBlankHouseholdSizeAdjustmentFactors(foodAtHome.householdSizeAdjustmentFactors)
+    };
+  }
+
+  function createBlankStateCostAdjustmentMultipliers(input) {
+    const multipliers = isPlainObject(input) ? input : {};
+    const version = asFiniteNumber(multipliers.version);
+    return {
+      version: version === null ? LIVING_FLOOR_ASSUMPTIONS_VERSION : version,
+      appliesToAdjustmentClass: "moneyFloorAdjusted",
+      defaultMultiplier: normalizeDefaultMultiplier(multipliers.defaultMultiplier),
+      globalStateAdjustmentMultipliersByState: normalizeStateMultiplierMap(multipliers.globalStateAdjustmentMultipliersByState),
+      bucketStateAdjustmentMultipliers: normalizeBucketStateAdjustmentMultipliers(multipliers.bucketStateAdjustmentMultipliers)
+    };
+  }
+
+  function createBlankModel90DefaultBucketFloor(bucketKey, input) {
+    const definition = MODEL90_DEFAULT_FLOOR_BUCKETS[bucketKey];
+    const row = isPlainObject(input) ? input : {};
+    const normalized = {
+      planningBucketKey: definition.planningBucketKey,
+      source: normalizeSource(row.source, "ADMIN_ENTERED"),
+      sourcePeriod: normalizeNullableText(row.sourcePeriod),
+      monthlyBaseAmount: normalizeNullableNonnegativeDollar(row.monthlyBaseAmount),
+      stateAdjustmentEnabled: typeof row.stateAdjustmentEnabled === "boolean" ? row.stateAdjustmentEnabled : true,
+      notes: normalizeNullableText(row.notes)
+    };
+    normalized[definition.perMemberField] = normalizeNullableNonnegativeDollar(row[definition.perMemberField]);
+    return normalized;
+  }
+
+  function createBlankModel90DefaultBucketFloors(input) {
+    const rows = isPlainObject(input) ? input : {};
+    return Object.keys(MODEL90_DEFAULT_FLOOR_BUCKETS).reduce(function (bucketFloors, bucketKey) {
+      bucketFloors[bucketKey] = createBlankModel90DefaultBucketFloor(bucketKey, rows[bucketKey]);
+      return bucketFloors;
+    }, {});
+  }
+
+  function createBlankLivingFloorAssumptions(input) {
+    const assumptions = isPlainObject(input) ? input : {};
+    const version = asFiniteNumber(assumptions.version);
+    return {
+      version: version === null ? LIVING_FLOOR_ASSUMPTIONS_VERSION : version,
+      foodAtHome: createBlankFoodAtHomeAssumptions(assumptions.foodAtHome),
+      stateCostAdjustmentMultipliers: createBlankStateCostAdjustmentMultipliers(assumptions.stateCostAdjustmentMultipliers),
+      model90DefaultBucketFloors: createBlankModel90DefaultBucketFloors(assumptions.model90DefaultBucketFloors)
+    };
+  }
+
   function createEmptyHouseholdExpenseAccountPolicy(input) {
     const options = isPlainObject(input) ? input : {};
     const accountId = normalizeAccountId(options.accountId);
@@ -86,6 +283,7 @@
       compressionThresholdOverrides: [],
       compressionPolicyOverrides: [],
       guardrails: {},
+      livingFloorAssumptions: createBlankLivingFloorAssumptions(),
       metadata: {
         accountId: accountId || null,
         source: "emptyPolicy"
@@ -105,6 +303,7 @@
       compressionThresholdOverrides: normalizeArrayNamespace(policy.compressionThresholdOverrides),
       compressionPolicyOverrides: normalizeArrayNamespace(policy.compressionPolicyOverrides),
       guardrails: normalizeObjectNamespace(policy.guardrails),
+      livingFloorAssumptions: createBlankLivingFloorAssumptions(policy.livingFloorAssumptions),
       metadata: Object.assign({}, metadata, {
         accountId: normalizeAccountId(accountId) || metadata.accountId || null
       })
@@ -266,7 +465,8 @@
         namespaceCounts: {
           lifestyleRangeOverrides: normalizedEnvelope.accountPolicy.lifestyleRangeOverrides.length,
           compressionThresholdOverrides: normalizedEnvelope.accountPolicy.compressionThresholdOverrides.length,
-          compressionPolicyOverrides: normalizedEnvelope.accountPolicy.compressionPolicyOverrides.length
+          compressionPolicyOverrides: normalizedEnvelope.accountPolicy.compressionPolicyOverrides.length,
+          livingFloorAssumptions: Object.keys(normalizedEnvelope.accountPolicy.livingFloorAssumptions).length
         }
       })
     };
@@ -387,7 +587,8 @@
         namespaceCounts: {
           lifestyleRangeOverrides: envelope.accountPolicy.lifestyleRangeOverrides.length,
           compressionThresholdOverrides: envelope.accountPolicy.compressionThresholdOverrides.length,
-          compressionPolicyOverrides: envelope.accountPolicy.compressionPolicyOverrides.length
+          compressionPolicyOverrides: envelope.accountPolicy.compressionPolicyOverrides.length,
+          livingFloorAssumptions: Object.keys(envelope.accountPolicy.livingFloorAssumptions).length
         }
       })
     };

@@ -450,6 +450,9 @@
         ? clonePlainValue(existing.compressionPolicyOverrides)
         : [],
       guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
+      livingFloorAssumptions: isPlainObject(existing.livingFloorAssumptions)
+        ? clonePlainValue(existing.livingFloorAssumptions)
+        : {},
       metadata: Object.assign({}, metadata, {
         accountId: accountId || metadata.accountId || null,
         source: metadata.source || "adminLifestyleRangeEditorV1",

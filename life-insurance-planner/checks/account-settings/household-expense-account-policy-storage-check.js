@@ -93,6 +93,172 @@ function assertEmptyArray(value, message) {
   assert.equal(value.length, 0, message);
 }
 
+const FOOD_AT_HOME_BAND_KEYS = [
+  "infantToddler",
+  "youngChild",
+  "olderChild",
+  "teenMale",
+  "teenFemale",
+  "adultMale",
+  "adultFemale",
+  "adultUnknown",
+  "childUnknown"
+];
+const HOUSEHOLD_SIZE_FACTOR_KEYS = ["1", "2", "3", "4", "5", "6Plus"];
+
+function assertNoConfidenceField(value, pathLabel) {
+  if (Array.isArray(value)) {
+    value.forEach(function (item, index) {
+      assertNoConfidenceField(item, `${pathLabel}[${index}]`);
+    });
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  Object.keys(value).forEach(function (key) {
+    assert.equal(/confidence/i.test(key), false, `${pathLabel}.${key} should not preserve confidence fields`);
+    assertNoConfidenceField(value[key], `${pathLabel}.${key}`);
+  });
+}
+
+function createExpectedEmptyLivingFloorAssumptions() {
+  return {
+    version: 1,
+    foodAtHome: {
+      planningBucketKey: "foodAtHomeConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: null,
+      monthlyAmountsByBand: FOOD_AT_HOME_BAND_KEYS.reduce(function (amounts, bandKey) {
+        amounts[bandKey] = null;
+        return amounts;
+      }, {}),
+      householdSizeAdjustmentFactors: HOUSEHOLD_SIZE_FACTOR_KEYS.reduce(function (factors, factorKey) {
+        factors[factorKey] = null;
+        return factors;
+      }, {})
+    },
+    stateCostAdjustmentMultipliers: {
+      version: 1,
+      appliesToAdjustmentClass: "moneyFloorAdjusted",
+      defaultMultiplier: 1,
+      globalStateAdjustmentMultipliersByState: {},
+      bucketStateAdjustmentMultipliers: {}
+    },
+    model90DefaultBucketFloors: {
+      householdConsumables: {
+        planningBucketKey: "householdConsumables",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: null,
+        monthlyBaseAmount: null,
+        stateAdjustmentEnabled: true,
+        notes: null,
+        monthlyPerMemberAmount: null
+      },
+      communicationsConnectivity: {
+        planningBucketKey: "communicationsConnectivity",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: null,
+        monthlyBaseAmount: null,
+        stateAdjustmentEnabled: true,
+        notes: null,
+        monthlyPerMemberAmount: null
+      },
+      transportationBasics: {
+        planningBucketKey: "transportationBasics",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: null,
+        monthlyBaseAmount: null,
+        stateAdjustmentEnabled: true,
+        notes: null,
+        monthlyPerAdultDriverAmount: null
+      }
+    }
+  };
+}
+
+const validLivingFloorAssumptions = {
+  version: 1,
+  foodAtHome: {
+    planningBucketKey: "foodAtHomeConsumables",
+    source: "USDA_FOOD_PLAN",
+    sourcePeriod: "2026-01",
+    monthlyAmountsByBand: {
+      infantToddler: 180,
+      youngChild: 225,
+      olderChild: 285,
+      teenMale: 355,
+      teenFemale: 315,
+      adultMale: 390,
+      adultFemale: 345,
+      adultUnknown: null,
+      childUnknown: null
+    },
+    householdSizeAdjustmentFactors: {
+      "1": 1.2,
+      "2": 1,
+      "3": 0.95,
+      "4": 0.9,
+      "5": 0.85,
+      "6Plus": 0.8
+    }
+  },
+  stateCostAdjustmentMultipliers: {
+    version: 1,
+    appliesToAdjustmentClass: "moneyFloorAdjusted",
+    defaultMultiplier: 1,
+    globalStateAdjustmentMultipliersByState: {
+      CO: {
+        multiplier: 1.08,
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        notes: "Colorado placeholder"
+      }
+    },
+    bucketStateAdjustmentMultipliers: {
+      transportationBasics: {
+        CO: {
+          multiplier: 1.04,
+          source: "ADMIN_ENTERED",
+          sourcePeriod: "2026",
+          notes: "Transportation placeholder"
+        }
+      }
+    }
+  },
+  model90DefaultBucketFloors: {
+    householdConsumables: {
+      planningBucketKey: "householdConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 110,
+      monthlyPerMemberAmount: 35,
+      stateAdjustmentEnabled: true,
+      notes: "Household goods placeholder"
+    },
+    communicationsConnectivity: {
+      planningBucketKey: "communicationsConnectivity",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 95,
+      monthlyPerMemberAmount: 12,
+      stateAdjustmentEnabled: true,
+      notes: "Connectivity placeholder"
+    },
+    transportationBasics: {
+      planningBucketKey: "transportationBasics",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 125,
+      monthlyPerAdultDriverAmount: 75,
+      stateAdjustmentEnabled: true,
+      notes: "Transportation placeholder"
+    }
+  }
+};
+
 const keyA = storageModule.createHouseholdExpenseAccountPolicyStorageKey("account-a");
 const keyB = storageModule.createHouseholdExpenseAccountPolicyStorageKey("account-b");
 assert.notEqual(keyA, keyB, "storage keys should be account scoped");
@@ -103,6 +269,11 @@ assertEmptyArray(emptyPolicy.lifestyleRangeOverrides, "empty policy should inclu
 assertEmptyArray(emptyPolicy.compressionThresholdOverrides, "empty policy should include threshold namespace");
 assertEmptyArray(emptyPolicy.compressionPolicyOverrides, "empty policy should include compression policy namespace");
 assert.equal(Object.keys(emptyPolicy.guardrails).length, 0, "empty policy should include guardrails namespace");
+assert.deepEqual(
+  clone(emptyPolicy.livingFloorAssumptions),
+  createExpectedEmptyLivingFloorAssumptions(),
+  "empty policy should include deterministic living-floor assumptions namespace"
+);
 assert.equal(emptyPolicy.metadata.accountId, "account-a", "empty policy metadata should include account id");
 
 const fakeStorage = createFakeStorage();
@@ -120,6 +291,7 @@ const accountPolicy = {
   guardrails: {
     maxElevatedCeilingRatio: 1.8
   },
+  livingFloorAssumptions: clone(validLivingFloorAssumptions),
   metadata: {
     owner: "admin"
   }
@@ -159,8 +331,151 @@ assert.equal(loadResult.accountPolicy.lifestyleRangeOverrides.length, 1, "lifest
 assert.equal(loadResult.accountPolicy.compressionThresholdOverrides.length, 1, "threshold namespace should round trip");
 assert.equal(loadResult.accountPolicy.compressionPolicyOverrides.length, 1, "compression policy namespace should round trip");
 assert.equal(loadResult.accountPolicy.guardrails.maxElevatedCeilingRatio, 1.8, "guardrails namespace should round trip");
+assert.deepEqual(clone(loadResult.accountPolicy.livingFloorAssumptions), validLivingFloorAssumptions, "living-floor assumptions namespace should round trip");
 assert.equal(loadResult.accountPolicy.metadata.owner, "admin", "policy metadata namespace should round trip");
 assert.doesNotThrow(() => JSON.stringify(loadResult), "load output should be JSON serializable");
+assert.equal(
+  loadResult.trace.details.namespaceCounts.livingFloorAssumptions,
+  4,
+  "load trace should count living-floor assumptions namespace keys"
+);
+
+const invalidLivingFloorStorage = createFakeStorage();
+storageModule.saveHouseholdExpenseAccountPolicy({
+  accountId: "invalid-living-floor",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: {
+      version: "not-a-version",
+      confidence: "do not preserve",
+      foodAtHome: {
+        confidence: "do not preserve",
+        sourcePeriod: "",
+        monthlyAmountsByBand: {
+          infantToddler: -50,
+          youngChild: "",
+          olderChild: "275",
+          confidence: "do not preserve"
+        },
+        householdSizeAdjustmentFactors: {
+          "1": 0.1,
+          "2": 3.5,
+          "3": "1.15",
+          confidence: "do not preserve"
+        }
+      },
+      stateCostAdjustmentMultipliers: {
+        version: 1,
+        defaultMultiplier: 4,
+        globalStateAdjustmentMultipliersByState: {
+          co: {
+            multiplier: 0.1,
+            confidence: "do not preserve"
+          },
+          CA: {
+            multiplier: "1.22",
+            source: "ADMIN_ENTERED",
+            sourcePeriod: "2026"
+          },
+          ZZ: {
+            multiplier: 1.1
+          }
+        },
+        bucketStateAdjustmentMultipliers: {
+          transportationBasics: {
+            ca: {
+              multiplier: 2.5
+            },
+            ZZ: {
+              multiplier: 1.2
+            }
+          }
+        }
+      },
+      model90DefaultBucketFloors: {
+        householdConsumables: {
+          monthlyBaseAmount: -1,
+          monthlyPerMemberAmount: "12",
+          confidence: "do not preserve"
+        },
+        communicationsConnectivity: "invalid",
+        transportationBasics: {
+          monthlyBaseAmount: 125,
+          monthlyPerAdultDriverAmount: -75
+        }
+      }
+    }
+  },
+  storage: invalidLivingFloorStorage
+});
+
+const invalidLivingFloorLoad = storageModule.loadHouseholdExpenseAccountPolicy({
+  accountId: "invalid-living-floor",
+  storage: invalidLivingFloorStorage
+});
+const normalizedLivingFloor = invalidLivingFloorLoad.accountPolicy.livingFloorAssumptions;
+assert.equal(normalizedLivingFloor.version, 1, "invalid living-floor version should normalize to V1");
+assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.infantToddler, null, "negative dollar values should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.youngChild, null, "blank dollar values should remain allowed as null");
+assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.olderChild, 275, "numeric string dollar values should normalize to numbers");
+assert.equal(normalizedLivingFloor.foodAtHome.householdSizeAdjustmentFactors["1"], null, "too-low household factors should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.householdSizeAdjustmentFactors["2"], null, "too-high household factors should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.householdSizeAdjustmentFactors["3"], 1.15, "valid household factors should normalize to numbers");
+assert.equal(normalizedLivingFloor.stateCostAdjustmentMultipliers.defaultMultiplier, 1, "invalid default multiplier should fall back to 1");
+assert.deepEqual(
+  Object.keys(normalizedLivingFloor.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState),
+  ["CA", "CO"],
+  "state multiplier keys should normalize to valid uppercase USPS state codes only"
+);
+assert.equal(
+  normalizedLivingFloor.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CO.multiplier,
+  null,
+  "invalid state multipliers should normalize to null"
+);
+assert.equal(
+  normalizedLivingFloor.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CA.multiplier,
+  1.22,
+  "valid state multipliers should normalize to numbers"
+);
+assert.deepEqual(
+  Object.keys(normalizedLivingFloor.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers.transportationBasics),
+  ["CA"],
+  "bucket state multiplier keys should normalize to valid uppercase USPS state codes only"
+);
+assert.equal(
+  normalizedLivingFloor.model90DefaultBucketFloors.householdConsumables.monthlyBaseAmount,
+  null,
+  "negative MODEL90 default base amounts should normalize to null"
+);
+assert.equal(
+  normalizedLivingFloor.model90DefaultBucketFloors.householdConsumables.monthlyPerMemberAmount,
+  12,
+  "valid MODEL90 default per-member amounts should normalize to numbers"
+);
+assert.equal(
+  normalizedLivingFloor.model90DefaultBucketFloors.transportationBasics.monthlyPerAdultDriverAmount,
+  null,
+  "negative transportation per-driver amounts should normalize to null"
+);
+assertNoConfidenceField(normalizedLivingFloor, "livingFloorAssumptions");
+
+const invalidLivingFloorShapeStorage = createFakeStorage();
+storageModule.saveHouseholdExpenseAccountPolicy({
+  accountId: "invalid-living-floor-shape",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: ["invalid"]
+  },
+  storage: invalidLivingFloorShapeStorage
+});
+assert.deepEqual(
+  clone(storageModule.loadHouseholdExpenseAccountPolicy({
+    accountId: "invalid-living-floor-shape",
+    storage: invalidLivingFloorShapeStorage
+  }).accountPolicy.livingFloorAssumptions),
+  createExpectedEmptyLivingFloorAssumptions(),
+  "invalid living-floor assumptions shape should normalize to deterministic empty assumptions"
+);
 
 const missingResult = storageModule.loadHouseholdExpenseAccountPolicy({
   accountId: "missing-account",
@@ -169,6 +484,11 @@ const missingResult = storageModule.loadHouseholdExpenseAccountPolicy({
 assert.equal(missingResult.status, "fallback", "missing saved policy should fall back");
 assert.ok(hasWarning(missingResult, "missing-account-policy"), "missing saved policy should warn");
 assertEmptyArray(missingResult.accountPolicy.lifestyleRangeOverrides, "missing fallback should be empty");
+assert.deepEqual(
+  clone(missingResult.accountPolicy.livingFloorAssumptions),
+  createExpectedEmptyLivingFloorAssumptions(),
+  "missing fallback should include deterministic living-floor assumptions namespace"
+);
 assert.equal(missingResult.metadata.fallback, true, "missing fallback should include fallback metadata");
 
 const corruptStorage = createFakeStorage();
@@ -218,6 +538,11 @@ assert.equal(noStorageSaveResult.status, "notSaved", "missing storage save shoul
 assert.equal(noStorageSaveResult.saved, false, "missing storage save should report unsaved");
 assert.ok(hasWarning(noStorageSaveResult, "storage-unavailable"), "missing storage save should warn");
 assertEmptyArray(noStorageSaveResult.accountPolicy.lifestyleRangeOverrides, "missing storage save should return safe empty policy");
+assert.deepEqual(
+  clone(noStorageSaveResult.accountPolicy.livingFloorAssumptions),
+  createExpectedEmptyLivingFloorAssumptions(),
+  "missing storage save should return safe empty living-floor assumptions"
+);
 
 const throwingSaveResult = storageModule.saveHouseholdExpenseAccountPolicy({
   accountId: "account-a",
@@ -227,6 +552,11 @@ const throwingSaveResult = storageModule.saveHouseholdExpenseAccountPolicy({
 assert.equal(throwingSaveResult.status, "notSaved", "throwing storage save should not throw");
 assert.ok(hasWarning(throwingSaveResult, "storage-write-failed"), "throwing storage save should warn");
 assertEmptyArray(throwingSaveResult.accountPolicy.lifestyleRangeOverrides, "throwing storage save should return safe empty policy");
+assert.deepEqual(
+  clone(throwingSaveResult.accountPolicy.livingFloorAssumptions),
+  createExpectedEmptyLivingFloorAssumptions(),
+  "throwing storage save should return safe empty living-floor assumptions"
+);
 
 const removeResult = storageModule.removeHouseholdExpenseAccountPolicy({
   accountId: "account-a",
