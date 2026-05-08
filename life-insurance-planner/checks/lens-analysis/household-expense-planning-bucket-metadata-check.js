@@ -100,6 +100,18 @@ const EXPECTED_ENTRY_INFLATION_OVERRIDES = Object.freeze({
   solarLoanLeasePayment: "noInflationCurrentDollar"
 });
 
+const HEALTHCARE_PREMIUM_TYPE_KEYS = Object.freeze([
+  "healthInsurancePremiums",
+  "medicarePartBPremiums",
+  "medicarePartDPremiums",
+  "medigapPremiums",
+  "medicareAdvantagePremiums",
+  "cobraPremiums",
+  "dentalInsurance",
+  "visionInsurance",
+  "longTermCareInsurancePremiums"
+]);
+
 const APPROVED_PRODUCT_DECISION_METADATA = Object.freeze({
   schoolMeals: Object.freeze({
     planningBucketKey: "foodAtHomeConsumables",
@@ -143,6 +155,69 @@ const APPROVED_PRODUCT_DECISION_METADATA = Object.freeze({
     lifestyleTreatmentReason: "lifestyleFlexible",
     inflationBucketKey: "householdExpenseInflation"
   }),
+  healthInsurancePremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  medicarePartBPremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  medicarePartDPremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  medigapPremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  medicareAdvantagePremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  cobraPremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  dentalInsurance: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  visionInsurance: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  longTermCareInsurancePremiums: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
   homeownersInsurance: Object.freeze({
     planningBucketKey: "insurancePremiums",
     planningBucketLabel: "Insurance Premiums",
@@ -172,6 +247,13 @@ const APPROVED_PRODUCT_DECISION_METADATA = Object.freeze({
     inflationBucketKey: "noInflationCurrentDollar"
   }),
   investmentAdvisoryFees: Object.freeze({
+    planningBucketKey: "financialFeesTransactionCosts",
+    planningBucketLabel: "Financial Fees / Transaction Costs",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "unknownExcluded",
+    inflationBucketKey: "noInflationCurrentDollar"
+  }),
+  bookkeeping: Object.freeze({
     planningBucketKey: "financialFeesTransactionCosts",
     planningBucketLabel: "Financial Fees / Transaction Costs",
     lifestyleTreatmentIncluded: false,
@@ -261,6 +343,27 @@ const APPROVED_PRODUCT_DECISION_METADATA = Object.freeze({
     lifestyleTreatmentIncluded: false,
     lifestyleTreatmentReason: "contractualObligation",
     inflationBucketKey: "noInflationCurrentDollar"
+  }),
+  familyEventWeddingSavings: Object.freeze({
+    planningBucketKey: "savingsGoalContributions",
+    planningBucketLabel: "Savings / Goal Contributions",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "pauseableGoalContribution",
+    inflationBucketKey: "noInflationCurrentDollar"
+  }),
+  generatorBackupPower: Object.freeze({
+    planningBucketKey: "basicUtilities",
+    planningBucketLabel: "Basic Utilities",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "protectedNeed",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  businessAccountingBookkeeping: Object.freeze({
+    planningBucketKey: "businessSelfEmployment",
+    planningBucketLabel: "Business / Self-Employment",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "businessOrIncomePreserving",
+    inflationBucketKey: "generalInflation"
   })
 });
 
@@ -270,21 +373,6 @@ const GIVING_VALUES_BASED_TYPE_KEYS = Object.freeze([
   "remittancesFamilyAssistance",
   "communityDues",
   "politicalContributions"
-]);
-
-const UNRESOLVED_PRODUCT_DECISION_TYPE_KEYS = Object.freeze([
-  "healthInsurancePremiums",
-  "medicarePartBPremiums",
-  "medicarePartDPremiums",
-  "medigapPremiums",
-  "medicareAdvantagePremiums",
-  "cobraPremiums",
-  "dentalInsurance",
-  "visionInsurance",
-  "longTermCareInsurancePremiums",
-  "bookkeeping",
-  "familyEventWeddingSavings",
-  "generatorBackupPower"
 ]);
 
 const EDUCATION_CATEGORY_METADATA_EXCEPTION_TYPE_KEYS = Object.freeze([
@@ -302,7 +390,8 @@ const TAX_LEGAL_METADATA_EXCEPTION_TYPE_KEYS = Object.freeze([
   "licensingCredentialFees",
   "unionDues",
   "professionalAssociationDues",
-  "continuingEducation"
+  "continuingEducation",
+  "bookkeeping"
 ]);
 
 const FINAL_EXPENSE_CATEGORY_KEYS = Object.freeze([
@@ -368,16 +457,6 @@ function mapEntriesByType(entries, selector) {
     map[entry.typeKey] = selector(entry);
     return map;
   }, {});
-}
-
-function pickPlanningMetadata(entry) {
-  return {
-    planningBucketKey: entry.planningBucketKey,
-    planningBucketLabel: entry.planningBucketLabel,
-    lifestyleTreatmentIncluded: entry.lifestyleTreatmentIncluded,
-    lifestyleTreatmentReason: entry.lifestyleTreatmentReason,
-    inflationBucketKey: entry.inflationBucketKey
-  };
 }
 
 function assertNoForbiddenDiffs() {
@@ -548,7 +627,6 @@ const headEntries = headContext.LensApp.lensAnalysis.expenseLibrary.getExpenseLi
 const headCategoryByType = mapEntriesByType(headEntries, function (entry) {
   return entry.categoryKey;
 });
-const headPlanningMetadataByType = mapEntriesByType(headEntries, pickPlanningMetadata);
 const currentCategoryByType = mapEntriesByType(entries, function (entry) {
   return entry.categoryKey;
 });
@@ -573,7 +651,8 @@ assertEntriesWithCategory(entries, FINAL_EXPENSE_CATEGORY_KEYS, {
 entries
   .filter(function (entry) {
     return HEALTHCARE_CARE_CATEGORY_KEYS.includes(entry.categoryKey)
-      && entry.typeKey !== "hsaContributions";
+      && entry.typeKey !== "hsaContributions"
+      && !HEALTHCARE_PREMIUM_TYPE_KEYS.includes(entry.typeKey);
   })
   .forEach(function (entry) {
     assertEntry(entry, {
@@ -684,16 +763,6 @@ GIVING_VALUES_BASED_TYPE_KEYS.forEach(function (typeKey) {
     lifestyleTreatmentReason: "valuesBased",
     inflationBucketKey: "householdExpenseInflation"
   });
-});
-
-UNRESOLVED_PRODUCT_DECISION_TYPE_KEYS.forEach(function (typeKey) {
-  const entry = library.getExpenseLibraryEntry(typeKey);
-  assert.ok(entry, `${typeKey} should exist`);
-  assert.deepEqual(
-    pickPlanningMetadata(entry),
-    headPlanningMetadataByType[typeKey],
-    `${typeKey} planning metadata should remain unchanged in this pass`
-  );
 });
 
 [
