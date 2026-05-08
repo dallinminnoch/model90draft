@@ -17,6 +17,23 @@
     { label: "Insurance / protection", status: "Locked / protected" },
     { label: "Giving / remittances", status: "Review-only / values-sensitive" }
   ]);
+  const FOOD_AT_HOME_BAND_KEYS = Object.freeze([
+    "infantToddler",
+    "youngChild",
+    "olderChild",
+    "teenMale",
+    "teenFemale",
+    "adultMale",
+    "adultFemale",
+    "adultUnknown",
+    "childUnknown"
+  ]);
+  const HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS = Object.freeze(["1", "2", "3", "4", "5", "6Plus"]);
+  const MODEL90_DEFAULT_BUCKET_FLOOR_KEYS = Object.freeze([
+    "householdConsumables",
+    "communicationsConnectivity",
+    "transportationBasics"
+  ]);
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -118,6 +135,41 @@
   function formatRatio(value) {
     const numericValue = Number(value);
     return Number.isFinite(numericValue) ? numericValue.toFixed(2) : "n/a";
+  }
+
+  function asFiniteNumber(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
+  function hasTextValue(value) {
+    return typeof value === "string" && value.trim() !== "";
+  }
+
+  function hasNumericValue(value) {
+    return asFiniteNumber(value) !== null;
+  }
+
+  function formatNotSet(value) {
+    if (value == null || value === "") {
+      return "Not set";
+    }
+
+    return String(value);
+  }
+
+  function formatDollarValue(value) {
+    const numericValue = asFiniteNumber(value);
+    return numericValue === null ? "Not set" : `$${numericValue.toFixed(2)}`;
+  }
+
+  function formatMultiplierValue(value) {
+    const numericValue = asFiniteNumber(value);
+    return numericValue === null ? "Not set" : numericValue.toFixed(2);
   }
 
   function formatRatioSetSummary(ratioSets) {
@@ -325,6 +377,207 @@
     };
   }
 
+  function toFoodBandAssumptionRows(monthlyAmountsByBand) {
+    const values = isPlainObject(monthlyAmountsByBand) ? monthlyAmountsByBand : {};
+    return FOOD_AT_HOME_BAND_KEYS.map(function (bandKey) {
+      return {
+        bandKey,
+        value: hasNumericValue(values[bandKey]) ? Number(values[bandKey]) : null,
+        displayValue: formatDollarValue(values[bandKey])
+      };
+    });
+  }
+
+  function toHouseholdSizeFactorRows(householdSizeAdjustmentFactors) {
+    const values = isPlainObject(householdSizeAdjustmentFactors) ? householdSizeAdjustmentFactors : {};
+    return HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.map(function (factorKey) {
+      return {
+        factorKey,
+        value: hasNumericValue(values[factorKey]) ? Number(values[factorKey]) : null,
+        displayValue: formatMultiplierValue(values[factorKey])
+      };
+    });
+  }
+
+  function toStateMultiplierRows(stateMultipliers) {
+    const rows = isPlainObject(stateMultipliers) ? stateMultipliers : {};
+    return Object.keys(rows).sort().map(function (stateKey) {
+      const row = isPlainObject(rows[stateKey]) ? rows[stateKey] : {};
+      return {
+        stateKey,
+        multiplier: hasNumericValue(row.multiplier) ? Number(row.multiplier) : null,
+        multiplierDisplay: formatMultiplierValue(row.multiplier),
+        source: formatNotSet(row.source),
+        sourcePeriod: formatNotSet(row.sourcePeriod),
+        notes: formatNotSet(row.notes)
+      };
+    });
+  }
+
+  function toBucketStateMultiplierRows(bucketStateAdjustmentMultipliers) {
+    const buckets = isPlainObject(bucketStateAdjustmentMultipliers) ? bucketStateAdjustmentMultipliers : {};
+    return Object.keys(buckets).sort().map(function (planningBucketKey) {
+      const stateRows = toStateMultiplierRows(buckets[planningBucketKey]);
+      return {
+        planningBucketKey,
+        stateRowCount: stateRows.length,
+        stateRows
+      };
+    });
+  }
+
+  function toModel90DefaultBucketFloorRows(model90DefaultBucketFloors, bucketLabelByKey) {
+    const floors = isPlainObject(model90DefaultBucketFloors) ? model90DefaultBucketFloors : {};
+    return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.map(function (planningBucketKey) {
+      const row = isPlainObject(floors[planningBucketKey]) ? floors[planningBucketKey] : {};
+      const perMemberField = planningBucketKey === "transportationBasics"
+        ? "monthlyPerAdultDriverAmount"
+        : "monthlyPerMemberAmount";
+      return {
+        planningBucketKey,
+        planningBucketLabel: bucketLabelByKey[planningBucketKey] || planningBucketKey,
+        monthlyBaseAmount: hasNumericValue(row.monthlyBaseAmount) ? Number(row.monthlyBaseAmount) : null,
+        monthlyBaseAmountDisplay: formatDollarValue(row.monthlyBaseAmount),
+        perMemberField,
+        perMemberAmount: hasNumericValue(row[perMemberField]) ? Number(row[perMemberField]) : null,
+        perMemberAmountDisplay: formatDollarValue(row[perMemberField]),
+        stateAdjustmentEnabled: row.stateAdjustmentEnabled === true,
+        sourcePeriod: formatNotSet(row.sourcePeriod),
+        notes: formatNotSet(row.notes)
+      };
+    });
+  }
+
+  function countSavedAssumptionValues(model) {
+    let count = 0;
+    model.foodAtHome.bandRows.forEach(function (row) {
+      if (row.value !== null) {
+        count += 1;
+      }
+    });
+    model.foodAtHome.householdSizeAdjustmentFactorRows.forEach(function (row) {
+      if (row.value !== null) {
+        count += 1;
+      }
+    });
+    if (hasTextValue(model.foodAtHome.sourcePeriodRaw)) {
+      count += 1;
+    }
+    model.stateCostAdjustmentMultipliers.globalStateRows.forEach(function (row) {
+      if (row.multiplier !== null || row.sourcePeriod !== "Not set" || row.notes !== "Not set") {
+        count += 1;
+      }
+    });
+    model.stateCostAdjustmentMultipliers.bucketStateRows.forEach(function (bucketRow) {
+      bucketRow.stateRows.forEach(function (row) {
+        if (row.multiplier !== null || row.sourcePeriod !== "Not set" || row.notes !== "Not set") {
+          count += 1;
+        }
+      });
+    });
+    model.model90DefaultBucketFloors.forEach(function (row) {
+      if (
+        row.monthlyBaseAmount !== null
+        || row.perMemberAmount !== null
+        || row.sourcePeriod !== "Not set"
+        || row.notes !== "Not set"
+      ) {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function getSavedLivingFloorStatus(model) {
+    const bandCount = model.foodAtHome.bandRows.filter(function (row) {
+      return row.value !== null;
+    }).length;
+    const factorCount = model.foodAtHome.householdSizeAdjustmentFactorRows.filter(function (row) {
+      return row.value !== null;
+    }).length;
+
+    if (
+      bandCount === FOOD_AT_HOME_BAND_KEYS.length
+      && factorCount === HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.length
+    ) {
+      return {
+        code: "configured",
+        label: "Configured"
+      };
+    }
+
+    if (countSavedAssumptionValues(model) > 0) {
+      return {
+        code: "partiallyConfigured",
+        label: "Partially configured"
+      };
+    }
+
+    return {
+      code: "notConfigured",
+      label: "Not configured"
+    };
+  }
+
+  function buildSavedLivingFloorAssumptionsDisplayModel(accountPolicy, currentLensAnalysis) {
+    const bucketLabelByKey = getPlanningBucketLabelMap(currentLensAnalysis);
+    const assumptions = isPlainObject(accountPolicy?.livingFloorAssumptions)
+      ? accountPolicy.livingFloorAssumptions
+      : {};
+    const foodAtHome = isPlainObject(assumptions.foodAtHome) ? assumptions.foodAtHome : {};
+    const stateMultipliers = isPlainObject(assumptions.stateCostAdjustmentMultipliers)
+      ? assumptions.stateCostAdjustmentMultipliers
+      : {};
+
+    const model = {
+      available: true,
+      version: assumptions.version || null,
+      foodAtHome: {
+        planningBucketKey: foodAtHome.planningBucketKey || "foodAtHomeConsumables",
+        source: formatNotSet(foodAtHome.source),
+        sourcePeriod: formatNotSet(foodAtHome.sourcePeriod),
+        sourcePeriodRaw: foodAtHome.sourcePeriod || null,
+        bandRows: toFoodBandAssumptionRows(foodAtHome.monthlyAmountsByBand),
+        householdSizeAdjustmentFactorRows: toHouseholdSizeFactorRows(foodAtHome.householdSizeAdjustmentFactors)
+      },
+      stateCostAdjustmentMultipliers: {
+        version: stateMultipliers.version || null,
+        appliesToAdjustmentClass: formatNotSet(stateMultipliers.appliesToAdjustmentClass),
+        defaultMultiplier: formatMultiplierValue(stateMultipliers.defaultMultiplier),
+        globalStateRows: toStateMultiplierRows(stateMultipliers.globalStateAdjustmentMultipliersByState),
+        bucketStateRows: toBucketStateMultiplierRows(stateMultipliers.bucketStateAdjustmentMultipliers)
+      },
+      model90DefaultBucketFloors: toModel90DefaultBucketFloorRows(
+        assumptions.model90DefaultBucketFloors,
+        bucketLabelByKey
+      ),
+      trace: {
+        source: "admin-household-expense-saved-living-floor-assumptions-display",
+        readOnly: true,
+        editableControlsRendered: false,
+        saveControlsRendered: false,
+        calculationsPerformed: false
+      }
+    };
+    const status = getSavedLivingFloorStatus(model);
+    model.status = status;
+    model.counts = {
+      configuredFoodAtHomeBands: model.foodAtHome.bandRows.filter(function (row) {
+        return row.value !== null;
+      }).length,
+      requiredFoodAtHomeBands: FOOD_AT_HOME_BAND_KEYS.length,
+      configuredHouseholdSizeFactors: model.foodAtHome.householdSizeAdjustmentFactorRows.filter(function (row) {
+        return row.value !== null;
+      }).length,
+      requiredHouseholdSizeFactors: HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.length,
+      globalStateMultiplierRows: model.stateCostAdjustmentMultipliers.globalStateRows.length,
+      bucketStateMultiplierGroups: model.stateCostAdjustmentMultipliers.bucketStateRows.length,
+      model90DefaultBucketFloors: model.model90DefaultBucketFloors.length,
+      savedAssumptionValues: countSavedAssumptionValues(model)
+    };
+    return model;
+  }
+
   function getPolicyStatus(storageResult, resolvedPolicy) {
     if (storageResult?.status === "loaded") {
       return {
@@ -408,6 +661,7 @@
     const status = getPolicyStatus(storageResult, resolvedPolicy);
     const planningBucketSummary = buildPlanningBucketSummaryDisplayModel(currentLensAnalysis);
     const livingFloorMetadata = buildLivingFloorMetadataDisplayModel(currentLensAnalysis);
+    const savedLivingFloorAssumptions = buildSavedLivingFloorAssumptionsDisplayModel(loadedPolicy, currentLensAnalysis);
     if (planningBucketSummary.available !== true) {
       dataGaps.push({
         code: "household-expense-planning-bucket-summary-unavailable",
@@ -446,6 +700,7 @@
       }),
       planningBucketSummary,
       livingFloorMetadata,
+      savedLivingFloorAssumptions,
       warnings,
       dataGaps,
       trace: {
@@ -824,6 +1079,213 @@
     `;
   }
 
+  function renderSavedFoodAtHomeBandRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-saved-living-floor-food-band="${escapeHtml(row.bandKey)}">
+          <td><code>${escapeHtml(row.bandKey)}</code></td>
+          <td>${escapeHtml(row.displayValue)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderSavedHouseholdSizeFactorRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-saved-living-floor-household-size-factor="${escapeHtml(row.factorKey)}">
+          <td><code>${escapeHtml(row.factorKey)}</code></td>
+          <td>${escapeHtml(row.displayValue)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderSavedStateMultiplierRows(rows) {
+    if (!rows.length) {
+      return `
+        <tr class="admin-tax-bracket-row">
+          <td colspan="5">No saved state multiplier rows.</td>
+        </tr>
+      `;
+    }
+
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-saved-living-floor-state-multiplier="${escapeHtml(row.stateKey)}">
+          <td><code>${escapeHtml(row.stateKey)}</code></td>
+          <td>${escapeHtml(row.multiplierDisplay)}</td>
+          <td>${escapeHtml(row.source)}</td>
+          <td>${escapeHtml(row.sourcePeriod)}</td>
+          <td>${escapeHtml(row.notes)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderSavedBucketStateMultiplierRows(rows) {
+    if (!rows.length) {
+      return `
+        <tr class="admin-tax-bracket-row">
+          <td colspan="3">No saved bucket-specific state multiplier groups.</td>
+        </tr>
+      `;
+    }
+
+    return rows.map(function (row) {
+      const stateKeys = row.stateRows.map(function (stateRow) {
+        return stateRow.stateKey;
+      }).join(", ") || "Not set";
+      return `
+        <tr class="admin-tax-bracket-row" data-saved-living-floor-bucket-state-multiplier="${escapeHtml(row.planningBucketKey)}">
+          <td><code>${escapeHtml(row.planningBucketKey)}</code></td>
+          <td>${escapeHtml(row.stateRowCount)}</td>
+          <td>${escapeHtml(stateKeys)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderSavedModel90DefaultBucketFloorRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-saved-living-floor-model90-default-bucket="${escapeHtml(row.planningBucketKey)}">
+          <td>
+            <strong>${escapeHtml(row.planningBucketLabel)}</strong>
+            <span><code>${escapeHtml(row.planningBucketKey)}</code></span>
+          </td>
+          <td>${escapeHtml(row.monthlyBaseAmountDisplay)}</td>
+          <td>${escapeHtml(row.perMemberField)}</td>
+          <td>${escapeHtml(row.perMemberAmountDisplay)}</td>
+          <td>${renderBoolean(row.stateAdjustmentEnabled)}</td>
+          <td>${escapeHtml(row.sourcePeriod)}</td>
+          <td>${escapeHtml(row.notes)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderSavedLivingFloorAssumptions(summary) {
+    const safeSummary = isPlainObject(summary) ? summary : buildSavedLivingFloorAssumptionsDisplayModel();
+    const foodAtHome = isPlainObject(safeSummary.foodAtHome) ? safeSummary.foodAtHome : {};
+    const stateMultipliers = isPlainObject(safeSummary.stateCostAdjustmentMultipliers)
+      ? safeSummary.stateCostAdjustmentMultipliers
+      : {};
+    const counts = isPlainObject(safeSummary.counts) ? safeSummary.counts : {};
+    const status = isPlainObject(safeSummary.status) ? safeSummary.status : { label: "Not configured", code: "notConfigured" };
+    const bandRows = Array.isArray(foodAtHome.bandRows) ? foodAtHome.bandRows : [];
+    const factorRows = Array.isArray(foodAtHome.householdSizeAdjustmentFactorRows)
+      ? foodAtHome.householdSizeAdjustmentFactorRows
+      : [];
+    const globalStateRows = Array.isArray(stateMultipliers.globalStateRows) ? stateMultipliers.globalStateRows : [];
+    const bucketStateRows = Array.isArray(stateMultipliers.bucketStateRows) ? stateMultipliers.bucketStateRows : [];
+    const model90Rows = Array.isArray(safeSummary.model90DefaultBucketFloors) ? safeSummary.model90DefaultBucketFloors : [];
+
+    return `
+      <section class="admin-tax-bracket-group" data-household-expense-saved-living-floor-assumptions data-saved-living-floor-status="${escapeHtml(status.code || "notConfigured")}">
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">Saved Living Floor Assumptions</span>
+            <h3>${escapeHtml(status.label || "Not configured")}</h3>
+            <p class="panel-copy">Saved account-policy assumption values for future household expense floor controls. This section is read-only and does not calculate floors.</p>
+          </div>
+        </div>
+        <div class="admin-summary-grid" data-saved-living-floor-counts>
+          ${renderCountCard("Food bands set", `${counts.configuredFoodAtHomeBands || 0}/${counts.requiredFoodAtHomeBands || FOOD_AT_HOME_BAND_KEYS.length}`)}
+          ${renderCountCard("Household factors set", `${counts.configuredHouseholdSizeFactors || 0}/${counts.requiredHouseholdSizeFactors || HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.length}`)}
+          ${renderCountCard("State multiplier rows", counts.globalStateMultiplierRows || 0)}
+          ${renderCountCard("Bucket state groups", counts.bucketStateMultiplierGroups || 0)}
+          ${renderCountCard("MODEL90 bucket shells", counts.model90DefaultBucketFloors || 0)}
+        </div>
+        <section class="admin-tax-bracket-group" data-saved-living-floor-food-at-home>
+          <div class="admin-tax-bracket-toolbar">
+            <div>
+              <span class="section-label">Food at Home</span>
+              <p class="panel-copy">Source: ${escapeHtml(foodAtHome.source || "Not set")} · Source period: ${escapeHtml(foodAtHome.sourcePeriod || "Not set")}</p>
+            </div>
+          </div>
+          <table class="admin-tax-bracket-table" data-saved-living-floor-food-bands>
+            <thead>
+              <tr>
+                <th>Band</th>
+                <th>Monthly Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderSavedFoodAtHomeBandRows(bandRows)}
+            </tbody>
+          </table>
+          <table class="admin-tax-bracket-table" data-saved-living-floor-household-size-factors>
+            <thead>
+              <tr>
+                <th>Household Size</th>
+                <th>Adjustment Factor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderSavedHouseholdSizeFactorRows(factorRows)}
+            </tbody>
+          </table>
+        </section>
+        <section class="admin-tax-bracket-group" data-saved-living-floor-state-multipliers>
+          <div class="admin-tax-bracket-toolbar">
+            <div>
+              <span class="section-label">State Cost Adjustment Multipliers</span>
+              <p class="panel-copy">Applies to: ${escapeHtml(stateMultipliers.appliesToAdjustmentClass || "Not set")} · Default multiplier: ${escapeHtml(stateMultipliers.defaultMultiplier || "Not set")}</p>
+            </div>
+          </div>
+          <table class="admin-tax-bracket-table" data-saved-living-floor-global-state-multipliers>
+            <thead>
+              <tr>
+                <th>State</th>
+                <th>Multiplier</th>
+                <th>Source</th>
+                <th>Source Period</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderSavedStateMultiplierRows(globalStateRows)}
+            </tbody>
+          </table>
+          <table class="admin-tax-bracket-table" data-saved-living-floor-bucket-state-multipliers>
+            <thead>
+              <tr>
+                <th>Bucket</th>
+                <th>State Rows</th>
+                <th>States</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderSavedBucketStateMultiplierRows(bucketStateRows)}
+            </tbody>
+          </table>
+        </section>
+        <section class="admin-tax-bracket-group" data-saved-living-floor-model90-defaults>
+          <div class="admin-tax-bracket-toolbar">
+            <span class="section-label">MODEL90 Default Bucket Floors</span>
+          </div>
+          <table class="admin-tax-bracket-table">
+            <thead>
+              <tr>
+                <th>Bucket</th>
+                <th>Base Amount</th>
+                <th>Member Field</th>
+                <th>Member Amount</th>
+                <th>State Adj.</th>
+                <th>Source Period</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderSavedModel90DefaultBucketFloorRows(model90Rows)}
+            </tbody>
+          </table>
+        </section>
+      </section>
+    `;
+  }
+
   function renderHouseholdExpensePolicyDisplay(model) {
     const safeModel = isPlainObject(model) ? model : buildHouseholdExpensePolicyDisplayModel();
     const counts = isPlainObject(safeModel.counts) ? safeModel.counts : {};
@@ -854,6 +1316,7 @@
         </div>
         ${renderPlanningBucketSummary(safeModel.planningBucketSummary)}
         ${renderLivingFloorMetadataSummary(safeModel.livingFloorMetadata)}
+        ${renderSavedLivingFloorAssumptions(safeModel.savedLivingFloorAssumptions)}
         <div class="admin-tax-bracket-group" data-household-expense-policy-protected-summary>
           <div class="admin-tax-bracket-toolbar">
             <span class="section-label">Protected Categories</span>
@@ -884,7 +1347,9 @@
     PROTECTED_CATEGORY_SUMMARY,
     buildPlanningBucketSummaryDisplayModel,
     buildLivingFloorMetadataDisplayModel,
+    buildSavedLivingFloorAssumptionsDisplayModel,
     buildHouseholdExpensePolicyDisplayModel,
+    renderSavedLivingFloorAssumptions,
     renderHouseholdExpensePolicyDisplay,
     initializeHouseholdExpenseAccountPolicyAdminDisplay
   });

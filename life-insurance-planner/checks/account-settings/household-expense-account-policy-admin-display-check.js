@@ -16,6 +16,86 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const seededLivingFloorAssumptions = {
+  version: 1,
+  foodAtHome: {
+    planningBucketKey: "foodAtHomeConsumables",
+    source: "USDA_FOOD_PLAN",
+    sourcePeriod: "2026",
+    monthlyAmountsByBand: {
+      infantToddler: 180,
+      youngChild: 225,
+      olderChild: 285,
+      teenMale: 355,
+      teenFemale: 315,
+      adultMale: 390,
+      adultFemale: 345,
+      adultUnknown: 365,
+      childUnknown: 265
+    },
+    householdSizeAdjustmentFactors: {
+      "1": 1.2,
+      "2": 1,
+      "3": 0.95,
+      "4": 0.9,
+      "5": 0.85,
+      "6Plus": 0.8
+    }
+  },
+  stateCostAdjustmentMultipliers: {
+    version: 1,
+    appliesToAdjustmentClass: "moneyFloorAdjusted",
+    defaultMultiplier: 1,
+    globalStateAdjustmentMultipliersByState: {
+      CO: {
+        multiplier: 1.08,
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        notes: "Colorado placeholder"
+      }
+    },
+    bucketStateAdjustmentMultipliers: {
+      transportationBasics: {
+        CO: {
+          multiplier: 1.04,
+          source: "ADMIN_ENTERED",
+          sourcePeriod: "2026",
+          notes: "Transportation placeholder"
+        }
+      }
+    }
+  },
+  model90DefaultBucketFloors: {
+    householdConsumables: {
+      planningBucketKey: "householdConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 110,
+      monthlyPerMemberAmount: 35,
+      stateAdjustmentEnabled: true,
+      notes: "Household goods placeholder"
+    },
+    communicationsConnectivity: {
+      planningBucketKey: "communicationsConnectivity",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 95,
+      monthlyPerMemberAmount: 12,
+      stateAdjustmentEnabled: true,
+      notes: "Connectivity placeholder"
+    },
+    transportationBasics: {
+      planningBucketKey: "transportationBasics",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: 125,
+      monthlyPerAdultDriverAmount: 75,
+      stateAdjustmentEnabled: true,
+      notes: "Transportation placeholder"
+    }
+  }
+};
+
 function getScriptSources(source) {
   return Array.from(source.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*><\/script>/g))
     .map(function (match) { return match[1]; });
@@ -141,6 +221,8 @@ assert.equal(typeof adminDisplay.buildHouseholdExpensePolicyDisplayModel, "funct
 assert.equal(typeof adminDisplay.renderHouseholdExpensePolicyDisplay, "function");
 assert.equal(typeof adminDisplay.buildPlanningBucketSummaryDisplayModel, "function");
 assert.equal(typeof adminDisplay.buildLivingFloorMetadataDisplayModel, "function");
+assert.equal(typeof adminDisplay.buildSavedLivingFloorAssumptionsDisplayModel, "function");
+assert.equal(typeof adminDisplay.renderSavedLivingFloorAssumptions, "function");
 
 const accountId = adminDisplay.TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID;
 const missingModel = adminDisplay.buildHouseholdExpensePolicyDisplayModel({
@@ -159,6 +241,10 @@ assert.equal(missingModel.planningBucketSummary.available, true, "planning bucke
 assert.equal(missingModel.planningBucketSummary.lifestylePolicyRowCount, 86, "bucket summary should report lifestyle policy rows");
 assert.equal(missingModel.planningBucketSummary.sliderEligibleRowCount, 41, "bucket summary should report slider rows");
 assert.equal(missingModel.livingFloorMetadata.available, true, "living-floor metadata should be available");
+assert.equal(missingModel.savedLivingFloorAssumptions.available, true, "saved living-floor assumptions should be available");
+assert.equal(missingModel.savedLivingFloorAssumptions.status.code, "notConfigured", "empty shell should render as not configured");
+assert.equal(missingModel.savedLivingFloorAssumptions.counts.configuredFoodAtHomeBands, 0, "empty shell should have no configured food bands");
+assert.equal(missingModel.savedLivingFloorAssumptions.counts.configuredHouseholdSizeFactors, 0, "empty shell should have no configured household size factors");
 
 const cleanBucketKeys = missingModel.planningBucketSummary.cleanIncludedBuckets.map(function (row) {
   return row.planningBucketKey;
@@ -288,6 +374,13 @@ assert.match(missingHtml, /Mixed Buckets \/ Row Exceptions/);
 assert.match(missingHtml, /Locked Or Source-Owned Buckets/);
 assert.match(missingHtml, /Living Floor Metadata/);
 assert.match(missingHtml, /Expense Floor Model/);
+assert.match(missingHtml, /Saved Living Floor Assumptions/);
+assert.match(missingHtml, /Not configured/);
+assert.match(missingHtml, /Food bands set/);
+assert.match(missingHtml, /Household factors set/);
+assert.match(missingHtml, /State Cost Adjustment Multipliers/);
+assert.match(missingHtml, /MODEL90 Default Bucket Floors/);
+assert.match(missingHtml, /Not set/);
 assert.match(missingHtml, /Money-Floor Adjusted/);
 assert.match(missingHtml, /Ratio-Adjusted/);
 assert.match(missingHtml, /Excluded From Adjustment/);
@@ -306,6 +399,8 @@ assert.match(missingHtml, /savingsGoalContributions/);
 assert.match(missingHtml, /infantToddler/);
 assert.match(missingHtml, /teenMale/);
 assert.match(missingHtml, /adultUnknown/);
+assert.match(missingHtml, /childUnknown/);
+assert.match(missingHtml, /6Plus/);
 assert.match(missingHtml, /remainingHouseholdAfterInsuredDeath/);
 assert.match(missingHtml, /profileAddressState -&gt; pmiIncomeTaxState -&gt; accountDefaultState -&gt; nationalDefault/);
 assert.match(missingHtml, /communicationsConnectivity/);
@@ -340,6 +435,28 @@ const livingFloorEnd = missingHtml.indexOf("data-household-expense-policy-protec
 assert.ok(livingFloorStart >= 0 && livingFloorEnd > livingFloorStart, "living-floor metadata section should render before protected summary");
 const livingFloorHtml = missingHtml.slice(livingFloorStart, livingFloorEnd);
 assert.doesNotMatch(livingFloorHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save|data-household-expense-policy-reset-row|reset/i);
+const savedAssumptionsStart = missingHtml.indexOf("data-household-expense-saved-living-floor-assumptions");
+const savedAssumptionsEnd = missingHtml.indexOf("data-household-expense-policy-protected-summary");
+assert.ok(savedAssumptionsStart >= 0 && savedAssumptionsEnd > savedAssumptionsStart, "saved living-floor assumptions section should render before protected summary");
+const savedAssumptionsHtml = missingHtml.slice(savedAssumptionsStart, savedAssumptionsEnd);
+assert.match(savedAssumptionsHtml, /Saved Living Floor Assumptions/);
+assert.match(savedAssumptionsHtml, /Not configured/);
+assert.match(savedAssumptionsHtml, /Not set/);
+assert.match(savedAssumptionsHtml, /infantToddler/);
+assert.match(savedAssumptionsHtml, /youngChild/);
+assert.match(savedAssumptionsHtml, /olderChild/);
+assert.match(savedAssumptionsHtml, /teenMale/);
+assert.match(savedAssumptionsHtml, /teenFemale/);
+assert.match(savedAssumptionsHtml, /adultMale/);
+assert.match(savedAssumptionsHtml, /adultFemale/);
+assert.match(savedAssumptionsHtml, /adultUnknown/);
+assert.match(savedAssumptionsHtml, /childUnknown/);
+assert.match(savedAssumptionsHtml, /6Plus/);
+assert.match(savedAssumptionsHtml, /global-state-multipliers/);
+assert.match(savedAssumptionsHtml, /householdConsumables/);
+assert.match(savedAssumptionsHtml, /communicationsConnectivity/);
+assert.match(savedAssumptionsHtml, /transportationBasics/);
+assert.doesNotMatch(savedAssumptionsHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save|data-household-expense-policy-reset-row|reset/i);
 assert.equal(context.localStorage.getWriteCount(), 0, "rendering bucket summary should not write storage");
 
 const validPolicy = {
@@ -362,6 +479,7 @@ const validPolicy = {
     }
   ],
   guardrails: {},
+  livingFloorAssumptions: seededLivingFloorAssumptions,
   metadata: { source: "check-fixture" }
 };
 
@@ -371,6 +489,7 @@ storage.saveHouseholdExpenseAccountPolicy({
   metadata: { updatedBy: "check" },
   storage: context.localStorage
 });
+const writeCountAfterSeed = context.localStorage.getWriteCount();
 
 const validModel = adminDisplay.buildHouseholdExpensePolicyDisplayModel({
   accountId,
@@ -380,7 +499,25 @@ assert.equal(validModel.status.code, "accountOverride", "valid saved policy shou
 assert.equal(validModel.counts.lifestyleRangeOverrides, 1, "valid saved policy should count lifestyle overrides");
 assert.equal(validModel.counts.compressionPolicyOverrides, 1, "valid saved policy should count compression policy overrides");
 assert.equal(validModel.counts.compressionThresholdOverrides, 1, "valid saved policy should count threshold overrides");
-assert.match(adminDisplay.renderHouseholdExpensePolicyDisplay(validModel), /Saved account override/);
+assert.equal(validModel.savedLivingFloorAssumptions.status.code, "configured", "complete Food at Home values and factors should render as configured");
+assert.equal(validModel.savedLivingFloorAssumptions.counts.configuredFoodAtHomeBands, 9, "seeded policy should count all food bands");
+assert.equal(validModel.savedLivingFloorAssumptions.counts.configuredHouseholdSizeFactors, 6, "seeded policy should count all household factors");
+assert.equal(validModel.savedLivingFloorAssumptions.counts.globalStateMultiplierRows, 1, "seeded policy should count state multiplier rows");
+const validHtml = adminDisplay.renderHouseholdExpensePolicyDisplay(validModel);
+assert.equal(context.localStorage.getWriteCount(), writeCountAfterSeed, "rendering seeded saved assumptions should not write storage");
+assert.match(validHtml, /Saved account override/);
+assert.match(validHtml, /Configured/);
+assert.match(validHtml, /\$180\.00/);
+assert.match(validHtml, /\$390\.00/);
+assert.match(validHtml, /1\.08/);
+assert.match(validHtml, /CO/);
+assert.match(validHtml, /Colorado placeholder/);
+assert.match(validHtml, /Household goods placeholder/);
+assert.match(validHtml, /monthlyPerAdultDriverAmount/);
+const validSavedAssumptionsStart = validHtml.indexOf("data-household-expense-saved-living-floor-assumptions");
+const validSavedAssumptionsEnd = validHtml.indexOf("data-household-expense-policy-protected-summary");
+const validSavedAssumptionsHtml = validHtml.slice(validSavedAssumptionsStart, validSavedAssumptionsEnd);
+assert.doesNotMatch(validSavedAssumptionsHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save|data-household-expense-policy-reset-row|reset/i);
 
 const corruptStorage = createFakeStorage();
 const corruptKey = storage.createHouseholdExpenseAccountPolicyStorageKey(accountId);
