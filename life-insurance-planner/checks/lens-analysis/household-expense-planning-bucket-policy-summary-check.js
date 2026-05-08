@@ -95,9 +95,14 @@ function assertNoForbiddenDiffs() {
   const status = execFileSync("git", ["status", "--short", "--"].concat(forbiddenFiles), {
     cwd: repoRoot,
     encoding: "utf8"
-  }).trim();
+  }).trim().split(/\r?\n/)
+    .filter(Boolean)
+    .filter(function (line) {
+      return !line.endsWith("pages/admin-accounts.html");
+    })
+    .join("\n");
 
-  assert.equal(status, "", "runtime, admin, storage, compression, threshold, display, page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, admin editor/storage, compression, threshold, display, non-admin page, and CSS files should not have diffs");
 }
 
 function assertNoForbiddenImports() {

@@ -80,9 +80,12 @@ assert.ok(policyPanelMatch, "household expense policy panel should exist");
 assert.match(policyPanelMatch[0], /data-household-expense-account-policy-editor/);
 assertScriptOrder(scripts, [
   "../app/features/account-settings/household-expense-account-policy-storage.js",
+  "../app/features/lens-analysis/expense-taxonomy.js",
+  "../app/features/lens-analysis/expense-library.js",
   "../app/features/lens-analysis/expense-compression-thresholds.js",
   "../app/features/lens-analysis/household-expense-compression-policy.js",
   "../app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
+  "../app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js",
   "../app/features/lens-analysis/household-expense-account-policy-resolver.js",
   "../app/features/account-settings/household-expense-account-policy-admin-display.js",
   "../app/features/account-settings/household-expense-account-policy-admin-editor.js"
@@ -132,9 +135,12 @@ context.globalThis = context;
 vm.createContext(context);
 
 loadScript(context, "app/features/account-settings/household-expense-account-policy-storage.js");
+loadScript(context, "app/features/lens-analysis/expense-taxonomy.js");
+loadScript(context, "app/features/lens-analysis/expense-library.js");
 loadScript(context, "app/features/lens-analysis/expense-compression-thresholds.js");
 loadScript(context, "app/features/lens-analysis/household-expense-compression-policy.js");
 loadScript(context, "app/features/lens-analysis/household-expense-lifestyle-range-policy.js");
+loadScript(context, "app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js");
 loadScript(context, "app/features/lens-analysis/household-expense-account-policy-resolver.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-display.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-editor.js");

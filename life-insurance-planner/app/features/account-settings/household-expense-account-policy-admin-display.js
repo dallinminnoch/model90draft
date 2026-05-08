@@ -62,6 +62,168 @@
     return Array.isArray(accountPolicy?.[namespace]) ? accountPolicy[namespace].length : 0;
   }
 
+  function getExpenseLibraryRows(currentLensAnalysis) {
+    const library = currentLensAnalysis?.expenseLibrary;
+    return library && typeof library.getExpenseLibraryEntries === "function"
+      ? library.getExpenseLibraryEntries()
+      : [];
+  }
+
+  function getPlanningBucketSummaryApi(currentLensAnalysis) {
+    const summaryApi = currentLensAnalysis?.householdExpensePlanningBucketPolicySummary;
+    if (summaryApi && typeof summaryApi.summarizeHouseholdExpensePlanningBucketPolicy === "function") {
+      return summaryApi.summarizeHouseholdExpensePlanningBucketPolicy;
+    }
+
+    if (typeof currentLensAnalysis?.summarizeHouseholdExpensePlanningBucketPolicy === "function") {
+      return currentLensAnalysis.summarizeHouseholdExpensePlanningBucketPolicy;
+    }
+
+    return null;
+  }
+
+  function getExpenseLabelMap(libraryRows) {
+    return (Array.isArray(libraryRows) ? libraryRows : []).reduce(function (map, row) {
+      const typeKey = row && (row.typeKey || row.expenseTypeKey);
+      if (typeKey) {
+        map[typeKey] = row.label || row.displayName || typeKey;
+      }
+      return map;
+    }, {});
+  }
+
+  function formatRatio(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(2) : "n/a";
+  }
+
+  function formatRatioSetSummary(ratioSets) {
+    const rows = Array.isArray(ratioSets) ? ratioSets : [];
+    if (!rows.length) {
+      return "No policy ratio sets";
+    }
+
+    return rows.map(function (ratioSet) {
+      const rowCount = Array.isArray(ratioSet.expenseTypeKeys) ? ratioSet.expenseTypeKeys.length : 0;
+      if (ratioSet.sliderEligible === true) {
+        return `${ratioSet.rangeBehavior || "slider"} ${formatRatio(ratioSet.conservativeFloorRatio)}-${formatRatio(ratioSet.elevatedCeilingRatio)} (${rowCount})`;
+      }
+
+      return `${ratioSet.rangeBehavior || "locked"} locked (${rowCount})`;
+    }).join("; ");
+  }
+
+  function formatValueSummary(values) {
+    const list = Array.isArray(values) ? values.filter(Boolean) : [];
+    return list.length ? list.join(", ") : "n/a";
+  }
+
+  function mapExceptionLabels(exceptionCandidates, labelByType) {
+    return (Array.isArray(exceptionCandidates) ? exceptionCandidates : [])
+      .map(function (candidate) {
+        const typeKey = candidate.expenseTypeKey || "";
+        const label = labelByType[typeKey] || typeKey;
+        return {
+          expenseTypeKey: typeKey,
+          label,
+          code: candidate.code || "exception"
+        };
+      });
+  }
+
+  function toBucketDisplayRow(bucket, labelByType) {
+    const exceptionRows = mapExceptionLabels(bucket.exceptionCandidates, labelByType);
+    return {
+      planningBucketKey: bucket.planningBucketKey || "",
+      planningBucketLabel: bucket.planningBucketLabel || bucket.planningBucketKey || "Unnamed bucket",
+      lifestylePolicyRowCount: Number(bucket.lifestylePolicyRowCount) || 0,
+      sliderEligibleRowCount: Number(bucket.sliderEligibleRowCount) || 0,
+      ratioSetSummary: formatRatioSetSummary(bucket.distinctRatioSets),
+      cleanBucketCandidate: bucket.cleanBucketCandidate === true,
+      treatmentIncludedSummary: formatValueSummary(bucket.distinctLifestyleTreatmentIncludedValues),
+      treatmentReasonSummary: formatValueSummary(bucket.distinctLifestyleTreatmentReasonValues),
+      exceptionCount: exceptionRows.length,
+      exceptionRows
+    };
+  }
+
+  function toNoPolicyBucketDisplayRow(bucket) {
+    return {
+      planningBucketKey: bucket.planningBucketKey || "",
+      planningBucketLabel: bucket.planningBucketLabel || bucket.planningBucketKey || "Unnamed bucket",
+      lifestylePolicyRowCount: Number(bucket.lifestylePolicyRowCount) || 0,
+      sliderEligibleRowCount: Number(bucket.sliderEligibleRowCount) || 0,
+      treatmentIncludedSummary: String(bucket.lifestyleTreatmentIncluded),
+      treatmentReasonSummary: bucket.lifestyleTreatmentReason || "no-policy-row",
+      ratioSetSummary: "No lifestyle policy rows",
+      cleanBucketCandidate: false,
+      exceptionCount: 0,
+      exceptionRows: []
+    };
+  }
+
+  function buildPlanningBucketSummaryDisplayModel(currentLensAnalysis) {
+    const summarize = getPlanningBucketSummaryApi(currentLensAnalysis);
+    if (typeof summarize !== "function") {
+      return {
+        available: false,
+        cleanIncludedBuckets: [],
+        mixedExceptionBuckets: [],
+        lockedSourceOwnedBuckets: [],
+        trace: {
+          source: "admin-household-expense-planning-bucket-summary-display",
+          readOnly: true,
+          helperAvailable: false
+        }
+      };
+    }
+
+    const summary = summarize();
+    const buckets = Array.isArray(summary?.buckets) ? summary.buckets : [];
+    const noPolicyRows = Array.isArray(summary?.noPolicyRows) ? summary.noPolicyRows : [];
+    const labelByType = getExpenseLabelMap(getExpenseLibraryRows(currentLensAnalysis));
+
+    return {
+      available: true,
+      summaryVersion: summary.summaryVersion || null,
+      lifestylePolicyRowCount: Number(summary.lifestylePolicyRowCount) || 0,
+      sliderEligibleRowCount: Number(summary.sliderEligibleRowCount) || 0,
+      cleanIncludedBuckets: buckets
+        .filter(function (bucket) {
+          return bucket.cleanBucketCandidate === true;
+        })
+        .map(function (bucket) {
+          return toBucketDisplayRow(bucket, labelByType);
+        }),
+      mixedExceptionBuckets: buckets
+        .filter(function (bucket) {
+          return bucket.sliderEligibleRowCount > 0 && bucket.cleanBucketCandidate !== true;
+        })
+        .map(function (bucket) {
+          return toBucketDisplayRow(bucket, labelByType);
+        }),
+      lockedSourceOwnedBuckets: buckets
+        .filter(function (bucket) {
+          return bucket.sliderEligibleRowCount === 0;
+        })
+        .map(function (bucket) {
+          return toBucketDisplayRow(bucket, labelByType);
+        })
+        .concat(noPolicyRows
+          .filter(function (bucket) {
+            return bucket.lifestyleTreatmentIncluded !== true;
+          })
+          .map(toNoPolicyBucketDisplayRow)),
+      trace: {
+        source: "admin-household-expense-planning-bucket-summary-display",
+        readOnly: true,
+        helperAvailable: true,
+        editableControlsRendered: false,
+        saveControlsRendered: false
+      }
+    };
+  }
+
   function getPolicyStatus(storageResult, resolvedPolicy) {
     if (storageResult?.status === "loaded") {
       return {
@@ -143,6 +305,13 @@
     const activePolicy = isPlainObject(resolvedPolicy) ? resolvedPolicy : {};
     const loadedPolicy = isPlainObject(storageResult?.accountPolicy) ? storageResult.accountPolicy : {};
     const status = getPolicyStatus(storageResult, resolvedPolicy);
+    const planningBucketSummary = buildPlanningBucketSummaryDisplayModel(currentLensAnalysis);
+    if (planningBucketSummary.available !== true) {
+      dataGaps.push({
+        code: "household-expense-planning-bucket-summary-unavailable",
+        message: "Planning bucket policy summary helper is unavailable."
+      });
+    }
 
     return {
       accountId,
@@ -167,6 +336,7 @@
       protectedCategories: PROTECTED_CATEGORY_SUMMARY.map(function (row) {
         return Object.assign({}, row);
       }),
+      planningBucketSummary,
       warnings,
       dataGaps,
       trace: {
@@ -190,6 +360,156 @@
         <span class="section-label">${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
       </article>
+    `;
+  }
+
+  function renderBucketExceptionSummary(row) {
+    const exceptions = Array.isArray(row.exceptionRows) ? row.exceptionRows : [];
+    if (!exceptions.length) {
+      return "No drift exceptions";
+    }
+
+    return exceptions.slice(0, 4).map(function (exception) {
+      return `${exception.label} (${exception.code})`;
+    }).join("; ");
+  }
+
+  function renderBucketKeyLabel(row) {
+    return `
+      <strong>${escapeHtml(row.planningBucketLabel)}</strong>
+      <span><code>${escapeHtml(row.planningBucketKey)}</code></span>
+    `;
+  }
+
+  function renderCleanBucketRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-planning-bucket-summary-row data-planning-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>${renderBucketKeyLabel(row)}</td>
+          <td>${escapeHtml(row.lifestylePolicyRowCount)}</td>
+          <td>${escapeHtml(row.sliderEligibleRowCount)}</td>
+          <td>${escapeHtml(row.ratioSetSummary)}</td>
+          <td>${row.cleanBucketCandidate ? "Yes" : "No"}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderMixedBucketRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-planning-bucket-summary-row data-planning-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>${renderBucketKeyLabel(row)}</td>
+          <td>${escapeHtml(row.lifestylePolicyRowCount)}</td>
+          <td>${escapeHtml(row.sliderEligibleRowCount)}</td>
+          <td>${escapeHtml(row.ratioSetSummary)}</td>
+          <td>${escapeHtml(row.exceptionCount)}</td>
+          <td>${escapeHtml(renderBucketExceptionSummary(row))}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderLockedBucketRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-planning-bucket-summary-row data-planning-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>${renderBucketKeyLabel(row)}</td>
+          <td>${escapeHtml(row.lifestylePolicyRowCount)}</td>
+          <td>${escapeHtml(row.treatmentReasonSummary)}</td>
+          <td>${escapeHtml(row.ratioSetSummary)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderPlanningBucketSummaryTable(title, description, rows, columns, bodyHtml) {
+    return `
+      <section class="admin-tax-bracket-group" data-planning-bucket-summary-section="${escapeHtml(title)}">
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">${escapeHtml(title)}</span>
+            <p class="panel-copy">${escapeHtml(description)}</p>
+          </div>
+        </div>
+        <table class="admin-tax-bracket-table">
+          <thead>
+            <tr>
+              ${columns.map(function (column) {
+                return `<th>${escapeHtml(column)}</th>`;
+              }).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length ? bodyHtml : `
+              <tr class="admin-tax-bracket-row">
+                <td colspan="${escapeHtml(columns.length)}">No buckets in this group.</td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  function renderPlanningBucketSummary(summary) {
+    const safeSummary = isPlainObject(summary) ? summary : {};
+    const cleanRows = Array.isArray(safeSummary.cleanIncludedBuckets) ? safeSummary.cleanIncludedBuckets : [];
+    const mixedRows = Array.isArray(safeSummary.mixedExceptionBuckets) ? safeSummary.mixedExceptionBuckets : [];
+    const lockedRows = Array.isArray(safeSummary.lockedSourceOwnedBuckets) ? safeSummary.lockedSourceOwnedBuckets : [];
+
+    if (safeSummary.available !== true) {
+      return `
+        <section class="admin-tax-bracket-group" data-household-expense-planning-bucket-summary>
+          <div class="admin-tax-bracket-toolbar">
+            <div>
+              <span class="section-label">Planning Bucket Summary</span>
+              <h3>Unavailable</h3>
+              <p class="panel-copy">Planning bucket policy summary helper is not loaded.</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    return `
+      <section class="admin-tax-bracket-group" data-household-expense-planning-bucket-summary>
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">Planning Bucket Summary</span>
+            <h3>Read-only Bucket Policy Summary</h3>
+            <p class="panel-copy">Current type-level lifestyle policy grouped by planning bucket. Bucket-level editing is not enabled in this section.</p>
+          </div>
+        </div>
+        <div class="admin-summary-grid" data-household-expense-planning-bucket-summary-counts>
+          ${renderCountCard("Lifestyle policy rows", safeSummary.lifestylePolicyRowCount || 0)}
+          ${renderCountCard("Slider rows", safeSummary.sliderEligibleRowCount || 0)}
+          ${renderCountCard("Clean included buckets", cleanRows.length)}
+          ${renderCountCard("Mixed buckets", mixedRows.length)}
+          ${renderCountCard("Locked / source-owned buckets", lockedRows.length)}
+        </div>
+        ${renderPlanningBucketSummaryTable(
+          "Clean Included Buckets",
+          "Included buckets whose slider-eligible rows share one ratio set.",
+          cleanRows,
+          ["Bucket", "Rows", "Slider Rows", "Ratio Sets", "Clean"],
+          renderCleanBucketRows(cleanRows)
+        )}
+        ${renderPlanningBucketSummaryTable(
+          "Mixed Buckets / Row Exceptions",
+          "Included buckets that still need row-level review before bucket-level controls.",
+          mixedRows,
+          ["Bucket", "Rows", "Slider Rows", "Ratio Sets", "Exceptions", "Exception Detail"],
+          renderMixedBucketRows(mixedRows)
+        )}
+        ${renderPlanningBucketSummaryTable(
+          "Locked Or Source-Owned Buckets",
+          "Excluded, protected, source-owned, or no-policy buckets shown for admin context.",
+          lockedRows,
+          ["Bucket", "Rows", "Treatment Reason", "Policy Summary"],
+          renderLockedBucketRows(lockedRows)
+        )}
+      </section>
     `;
   }
 
@@ -221,6 +541,7 @@
             ${renderCountCard("Data gaps", counts.dataGaps || 0)}
           </div>
         </div>
+        ${renderPlanningBucketSummary(safeModel.planningBucketSummary)}
         <div class="admin-tax-bracket-group" data-household-expense-policy-protected-summary>
           <div class="admin-tax-bracket-toolbar">
             <span class="section-label">Protected Categories</span>
@@ -249,6 +570,7 @@
   accountSettings.householdExpenseAccountPolicyAdminDisplay = Object.freeze({
     TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID,
     PROTECTED_CATEGORY_SUMMARY,
+    buildPlanningBucketSummaryDisplayModel,
     buildHouseholdExpensePolicyDisplayModel,
     renderHouseholdExpensePolicyDisplay,
     initializeHouseholdExpenseAccountPolicyAdminDisplay
