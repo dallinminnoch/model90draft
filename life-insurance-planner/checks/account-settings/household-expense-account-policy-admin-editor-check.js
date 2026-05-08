@@ -103,6 +103,24 @@ function buildFoodAtHomeDraft(overrides) {
   };
 }
 
+function buildStateCostAdjustmentMultiplierDraft(overrides) {
+  const options = overrides || {};
+  return {
+    defaultMultiplier: Object.prototype.hasOwnProperty.call(options, "defaultMultiplier")
+      ? options.defaultMultiplier
+      : "1.05",
+    globalStateRows: Object.prototype.hasOwnProperty.call(options, "globalStateRows")
+      ? options.globalStateRows
+      : [{
+        stateCode: "co",
+        multiplier: "1.08",
+        source: "",
+        sourcePeriod: "2026",
+        notes: "Colorado admin assumption"
+      }]
+  };
+}
+
 const preservedLivingFloorAssumptions = {
   version: 1,
   foodAtHome: {
@@ -141,7 +159,16 @@ const preservedLivingFloorAssumptions = {
         notes: null
       }
     },
-    bucketStateAdjustmentMultipliers: {}
+    bucketStateAdjustmentMultipliers: {
+      transportationBasics: {
+        CO: {
+          multiplier: 1.12,
+          source: "ADMIN_ENTERED",
+          sourcePeriod: "2026",
+          notes: "Preserved bucket-specific draft"
+        }
+      }
+    }
   },
   model90DefaultBucketFloors: {
     householdConsumables: {
@@ -198,13 +225,21 @@ assert.match(editorSource, /householdExpenseAccountPolicyStorage/);
 assert.match(editorSource, /householdExpenseAccountPolicyResolver/);
 assert.match(editorSource, /TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID/);
 assert.match(editorSource, /temporaryLocalAdminFallback/);
-assert.match(editorSource, /editableNamespaces:\s*\["lifestyleRangeOverrides",\s*"livingFloorAssumptions\.foodAtHome"\]/);
+assert.match(editorSource, /"livingFloorAssumptions\.foodAtHome"/);
+assert.match(editorSource, /"livingFloorAssumptions\.stateCostAdjustmentMultipliers"/);
 assert.match(editorSource, /"foodAtHome\.monthlyAmountsByBand"/);
 assert.match(editorSource, /"foodAtHome\.householdSizeAdjustmentFactors"/);
+assert.match(editorSource, /"stateCostAdjustmentMultipliers\.defaultMultiplier"/);
+assert.match(editorSource, /"stateCostAdjustmentMultipliers\.globalStateAdjustmentMultipliersByState"/);
 assert.match(editorSource, /saveHouseholdExpenseAccountPolicy/);
 assert.match(editorSource, /initializeHouseholdExpenseAccountPolicyAdminDisplay/);
 assert.match(editorSource, /data-food-at-home-floor-save/);
 assert.match(editorSource, /data-food-at-home-floor-reset/);
+assert.match(editorSource, /data-state-cost-adjustment-multipliers-editor/);
+assert.match(editorSource, /data-state-cost-adjustment-default-multiplier/);
+assert.match(editorSource, /data-state-cost-adjustment-add-row/);
+assert.match(editorSource, /data-state-cost-adjustment-save/);
+assert.match(editorSource, /data-state-cost-adjustment-reset/);
 assert.doesNotMatch(
   editorSource,
   /removeHouseholdExpenseAccountPolicy|\.setItem\s*\(|\.removeItem\s*\(|analysisSettings|clientRecords|profileRecord|updateClientRecord|saveAnalysisSetupSettings/
@@ -265,11 +300,17 @@ assert.equal(typeof editor.buildHouseholdExpensePolicyEditorModel, "function");
 assert.equal(typeof editor.renderHouseholdExpensePolicyEditor, "function");
 assert.equal(typeof editor.buildLifestyleRangeSavePayload, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsEditorModel, "function");
+assert.equal(typeof editor.buildStateCostAdjustmentMultipliersEditorModel, "function");
 assert.equal(typeof editor.validateFoodAtHomeFloorAssumptionsDraft, "function");
+assert.equal(typeof editor.validateStateCostAdjustmentMultipliersDraft, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsSavePayload, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsResetPayload, "function");
+assert.equal(typeof editor.buildStateCostAdjustmentMultipliersSavePayload, "function");
+assert.equal(typeof editor.buildStateCostAdjustmentMultipliersResetPayload, "function");
 assert.equal(typeof editor.saveFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.resetFoodAtHomeFloorAssumptions, "function");
+assert.equal(typeof editor.saveStateCostAdjustmentMultipliers, "function");
+assert.equal(typeof editor.resetStateCostAdjustmentMultipliers, "function");
 assert.equal(typeof editor.initializeHouseholdExpenseAccountPolicyAdminEditor, "function");
 assert.deepEqual(plain(editor.FOOD_AT_HOME_BAND_KEYS), [
   "infantToddler",
@@ -283,6 +324,7 @@ assert.deepEqual(plain(editor.FOOD_AT_HOME_BAND_KEYS), [
   "childUnknown"
 ], "Food at Home editor should expose all nine approved band keys");
 assert.deepEqual(plain(editor.HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS), ["1", "2", "3", "4", "5", "6Plus"], "Food at Home editor should expose all six household-size factor keys");
+assert.ok(plain(editor.STATE_CODE_VALUES).includes("CO"), "State multiplier editor should expose USPS state codes");
 
 const defaultLifestyleRows = lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies();
 const defaultSliderEligibleRows = defaultLifestyleRows.filter((row) => row.sliderEligible === true);
@@ -300,6 +342,10 @@ assert.equal(missingModel.foodAtHomeFloorAssumptions.source, "ADMIN_ENTERED", "F
 assert.equal(missingModel.foodAtHomeFloorAssumptions.sourcePeriod, null, "empty Food at Home editor should have blank source period");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.bandRows.length, 9, "Food at Home editor should render nine band rows");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.householdSizeAdjustmentFactorRows.length, 6, "Food at Home editor should render six household-size factor rows");
+assert.equal(missingModel.stateCostAdjustmentMultipliers.defaultMultiplier, 1, "empty State Cost editor should default multiplier to 1");
+assert.equal(missingModel.stateCostAdjustmentMultipliers.defaultMultiplierInputValue, "1", "empty State Cost editor should render default multiplier value");
+assert.equal(missingModel.stateCostAdjustmentMultipliers.globalStateRows.length, 0, "empty State Cost editor should render no state rows");
+assert.deepEqual(plain(missingModel.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers), {}, "empty State Cost editor should have no bucket-specific state rows");
 assert.equal(
   missingModel.foodAtHomeFloorAssumptions.bandRows.every((row) => row.inputValue === ""),
   true,
@@ -351,6 +397,14 @@ assert.match(missingHtml, /data-food-at-home-band-key="infantToddler"/);
 assert.match(missingHtml, /data-food-at-home-band-key="childUnknown"/);
 assert.match(missingHtml, /data-food-at-home-household-size-factor-key="1"/);
 assert.match(missingHtml, /data-food-at-home-household-size-factor-key="6Plus"/);
+assert.match(missingHtml, /State Cost Adjustment Multipliers/);
+assert.match(missingHtml, /data-state-cost-adjustment-multipliers-editor/);
+assert.match(missingHtml, /data-state-cost-adjustment-default-multiplier/);
+assert.match(missingHtml, /data-state-cost-adjustment-save/);
+assert.match(missingHtml, /data-state-cost-adjustment-add-row/);
+assert.match(missingHtml, /data-state-cost-adjustment-reset/);
+assert.match(missingHtml, /data-state-cost-adjustment-empty-row/);
+assert.match(missingHtml, /Bucket-specific state multipliers are preserved but not editable/);
 assert.equal(
   (missingHtml.match(/data-household-expense-policy-ratio-input/g) || []).length,
   defaultSliderEligibleRows.length * 2,
@@ -365,6 +419,16 @@ assert.equal(
   (missingHtml.match(/data-food-at-home-household-size-factor-key="/g) || []).length,
   6,
   "Food at Home editor should render one input per household-size factor"
+);
+assert.equal(
+  (missingHtml.match(/data-state-cost-adjustment-default-multiplier/g) || []).length,
+  1,
+  "State Cost editor should render one default multiplier input"
+);
+assert.equal(
+  (missingHtml.match(/data-state-cost-adjustment-multiplier\b/g) || []).length,
+  0,
+  "State Cost editor should render no saved state-row multiplier inputs when empty"
 );
 assert.doesNotMatch(
   missingHtml,
@@ -460,6 +524,150 @@ assert.deepEqual(
 assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "Food at Home reset should preserve threshold namespace");
 assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "Food at Home reset should preserve compression namespace");
 assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "Food at Home reset should preserve guardrails");
+
+const stateMultiplierModel = editor.buildStateCostAdjustmentMultipliersEditorModel(existingAccountPolicy);
+assert.equal(stateMultiplierModel.defaultMultiplier, 1, "State Cost editor should read saved default multiplier");
+assert.equal(stateMultiplierModel.globalStateRows.length, 1, "State Cost editor should render saved global state rows");
+assert.equal(stateMultiplierModel.globalStateRows[0].stateCode, "CO", "State Cost editor should render saved state code");
+assert.equal(stateMultiplierModel.globalStateRows[0].multiplierInputValue, "1.08", "State Cost editor should render saved state multiplier");
+assert.deepEqual(
+  plain(stateMultiplierModel.bucketStateAdjustmentMultipliers),
+  preservedLivingFloorAssumptions.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers,
+  "State Cost editor should keep bucket-specific state multipliers in the model but not render editable inputs for them"
+);
+const stateMultiplierHtml = editor.renderStateCostAdjustmentMultipliersEditor(stateMultiplierModel);
+assert.match(stateMultiplierHtml, /data-state-cost-adjustment-state-code/);
+assert.match(stateMultiplierHtml, /value="CO"/);
+assert.match(stateMultiplierHtml, /value="1.08"/);
+assert.doesNotMatch(stateMultiplierHtml, /data-bucket-state-adjustment-multiplier-input|data-model90-default-bucket-floor-input/);
+
+const stateMultiplierPayload = editor.buildStateCostAdjustmentMultipliersSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftStateCostAdjustmentMultipliers: buildStateCostAdjustmentMultiplierDraft()
+});
+assert.equal(stateMultiplierPayload.valid, true, "valid State Cost multipliers should be accepted");
+assert.equal(stateMultiplierPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.defaultMultiplier, 1.05, "default multiplier should save");
+assert.equal(
+  stateMultiplierPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CO.multiplier,
+  1.08,
+  "lowercase state codes should normalize to uppercase before save"
+);
+assert.equal(
+  stateMultiplierPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CO.source,
+  "ADMIN_ENTERED",
+  "blank state multiplier source should default to ADMIN_ENTERED"
+);
+assert.equal(
+  stateMultiplierPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CO.sourcePeriod,
+  "2026",
+  "state multiplier source period should save"
+);
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.livingFloorAssumptions.foodAtHome), existingAccountPolicy.livingFloorAssumptions.foodAtHome, "State Cost save should preserve Food at Home assumptions");
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors), existingAccountPolicy.livingFloorAssumptions.model90DefaultBucketFloors, "State Cost save should preserve MODEL90 default bucket floors");
+assert.deepEqual(
+  plain(stateMultiplierPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers),
+  existingAccountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers,
+  "State Cost save should preserve bucket-specific state multipliers"
+);
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.lifestyleRangeOverrides), [], "State Cost save should preserve lifestyle overrides");
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "State Cost save should preserve threshold namespace");
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "State Cost save should preserve compression namespace");
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "State Cost save should preserve guardrails");
+assert.equal(stateMultiplierPayload.accountPolicy.metadata.source, "existing-policy", "State Cost save should preserve metadata source");
+assert.equal(stateMultiplierPayload.accountPolicy.metadata.lastEditedNamespace, "livingFloorAssumptions.stateCostAdjustmentMultipliers");
+assert.equal(JSON.parse(JSON.stringify(stateMultiplierPayload)).valid, true, "State Cost save payload should be JSON serializable");
+
+const stateMultiplierStorage = createFakeStorage();
+const stateMultiplierSaveResult = storage.saveHouseholdExpenseAccountPolicy({
+  accountId,
+  accountPolicy: stateMultiplierPayload.accountPolicy,
+  metadata: { updatedBy: "state-multiplier-check" },
+  storage: stateMultiplierStorage
+});
+assert.equal(stateMultiplierSaveResult.saved, true, "valid State Cost assumptions should save through the storage adapter");
+assert.deepEqual(
+  stateMultiplierStorage.getWrites().map((write) => write.key),
+  [storage.createHouseholdExpenseAccountPolicyStorageKey(accountId)],
+  "State Cost save should write only the household expense account policy key"
+);
+const stateMultiplierDisplayModel = display.buildHouseholdExpensePolicyDisplayModel({
+  accountId,
+  storage: stateMultiplierStorage
+});
+assert.equal(stateMultiplierDisplayModel.savedLivingFloorAssumptions.counts.globalStateMultiplierRows, 1, "read-only display should count saved state multiplier rows");
+assert.equal(stateMultiplierDisplayModel.savedLivingFloorAssumptions.counts.bucketStateMultiplierGroups, 1, "read-only display should preserve bucket-specific state multiplier groups");
+const stateMultiplierDisplayHtml = display.renderHouseholdExpensePolicyDisplay(stateMultiplierDisplayModel);
+assert.match(stateMultiplierDisplayHtml, /Default multiplier: 1\.05/, "read-only display should render saved default multiplier");
+assert.match(stateMultiplierDisplayHtml, /CO/, "read-only display should render saved state code");
+assert.match(stateMultiplierDisplayHtml, /1\.08/, "read-only display should render saved state multiplier");
+assert.match(stateMultiplierDisplayHtml, /transportationBasics/, "read-only display should still show preserved bucket-specific state multipliers");
+
+const stateMultiplierResetPayload = editor.buildStateCostAdjustmentMultipliersResetPayload({
+  accountId,
+  accountPolicy: stateMultiplierPayload.accountPolicy
+});
+assert.equal(stateMultiplierResetPayload.valid, true, "State Cost reset payload should be valid");
+assert.equal(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.defaultMultiplier, 1, "State Cost reset should restore default multiplier");
+assert.deepEqual(
+  plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState),
+  {},
+  "State Cost reset should clear only global state rows"
+);
+assert.deepEqual(
+  plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers),
+  preservedLivingFloorAssumptions.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers,
+  "State Cost reset should preserve bucket-specific state multipliers"
+);
+assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome), existingAccountPolicy.livingFloorAssumptions.foodAtHome, "State Cost reset should preserve Food at Home assumptions");
+assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors), existingAccountPolicy.livingFloorAssumptions.model90DefaultBucketFloors, "State Cost reset should preserve MODEL90 default bucket floors");
+assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "State Cost reset should preserve threshold namespace");
+assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "State Cost reset should preserve compression namespace");
+assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "State Cost reset should preserve guardrails");
+
+const invalidStateCodePayload = editor.buildStateCostAdjustmentMultipliersSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftStateCostAdjustmentMultipliers: buildStateCostAdjustmentMultiplierDraft({
+    globalStateRows: [{ stateCode: "ZZ", multiplier: "1.1" }]
+  })
+});
+assert.equal(invalidStateCodePayload.valid, false, "invalid state codes should be rejected before save");
+assert.match(invalidStateCodePayload.validationMessages.join(" "), /valid USPS state code/);
+assert.equal(Object.prototype.hasOwnProperty.call(invalidStateCodePayload, "accountPolicy"), false, "invalid state code payload should not produce a storage payload");
+
+const invalidLowMultiplierPayload = editor.buildStateCostAdjustmentMultipliersSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftStateCostAdjustmentMultipliers: buildStateCostAdjustmentMultiplierDraft({
+    globalStateRows: [{ stateCode: "CO", multiplier: "0.24" }]
+  })
+});
+assert.equal(invalidLowMultiplierPayload.valid, false, "state multipliers below 0.25 should be rejected before save");
+assert.match(invalidLowMultiplierPayload.validationMessages.join(" "), /between 0\.25 and 3\.00/);
+
+const invalidHighDefaultMultiplierPayload = editor.buildStateCostAdjustmentMultipliersSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftStateCostAdjustmentMultipliers: buildStateCostAdjustmentMultiplierDraft({
+    defaultMultiplier: "3.01"
+  })
+});
+assert.equal(invalidHighDefaultMultiplierPayload.valid, false, "default multipliers above 3.00 should be rejected before save");
+assert.match(invalidHighDefaultMultiplierPayload.validationMessages.join(" "), /defaultMultiplier must be between 0\.25 and 3\.00/);
+
+const duplicateStatePayload = editor.buildStateCostAdjustmentMultipliersSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftStateCostAdjustmentMultipliers: buildStateCostAdjustmentMultiplierDraft({
+    globalStateRows: [
+      { stateCode: "CO", multiplier: "1.08" },
+      { stateCode: "co", multiplier: "1.09" }
+    ]
+  })
+});
+assert.equal(duplicateStatePayload.valid, false, "duplicate state rows should be rejected before save");
+assert.match(duplicateStatePayload.validationMessages.join(" "), /duplicate state multiplier rows/);
 
 const invalidFoodAtHomeDollarPayload = editor.buildFoodAtHomeFloorAssumptionsSavePayload({
   accountId,
@@ -640,6 +848,10 @@ assert.match(host.innerHTML, /data-household-expense-policy-save/);
 assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);
 assert.match(host.innerHTML, /data-food-at-home-floor-save/);
 assert.match(host.innerHTML, /data-food-at-home-floor-reset/);
+assert.match(host.innerHTML, /State Cost Adjustment Multipliers/);
+assert.match(host.innerHTML, /data-state-cost-adjustment-save/);
+assert.match(host.innerHTML, /data-state-cost-adjustment-add-row/);
+assert.match(host.innerHTML, /data-state-cost-adjustment-reset/);
 assert.doesNotMatch(host.innerHTML, /<select\b/);
 assert.doesNotMatch(host.innerHTML, /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/);
 
