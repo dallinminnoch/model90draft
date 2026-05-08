@@ -16102,6 +16102,45 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   text-align: right;
 }
 
+.income-impact-lifestyle-impact-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.38rem 0.8rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.52rem 0.68rem;
+  border: 1px solid rgba(193, 203, 219, 0.78);
+  border-radius: 0.48rem;
+  background: rgba(255, 255, 255, 0.84);
+  color: #536176;
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.income-impact-lifestyle-impact-readout__eyebrow {
+  color: #627086;
+  font-size: 0.68rem;
+  font-weight: 840;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.income-impact-lifestyle-impact-readout strong {
+  color: #17202c;
+  font-size: 0.88rem;
+  font-weight: 840;
+}
+
+.income-impact-lifestyle-impact-readout [data-income-impact-lifestyle-impact-monthly] {
+  color: #1f6fb2;
+  font-weight: 820;
+}
+
+.income-impact-lifestyle-impact-readout [data-income-impact-lifestyle-impact-runway] {
+  color: #536176;
+}
+
 .income-impact-graph-svg {
   display: block;
   width: 100%;

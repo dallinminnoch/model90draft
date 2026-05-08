@@ -66,9 +66,9 @@ function makeGraphModel(mode = "forward-projection") {
         { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 }
       ],
       postDeathResources: [
-        { date: "2032-04-29", value: 640000, xRatio: 0.33, yRatio: 0.12 },
-        { date: "2040-04-29", value: 120000, xRatio: 0.72, yRatio: 0.58 },
-        { date: "2043-04-29", value: -80000, xRatio: 0.9, yRatio: 0.76 }
+        { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
+        { date: "2040-04-29", monthIndex: 108, value: 120000, xRatio: 0.72, yRatio: 0.58 },
+        { date: "2043-04-29", monthIndex: 144, value: -80000, xRatio: 0.9, yRatio: 0.76 }
       ]
     },
     axes: {
@@ -115,6 +115,42 @@ function makeGraphModel(mode = "forward-projection") {
   };
 }
 
+function makeLifestyleScenarioFixture({ sliderValue, monthlyDelta, depletionMonthIndex, depletionDate, points }) {
+  return {
+    status: "complete",
+    sliderValue,
+    monthlyDelta,
+    totalBaselineMonthlyExpenses: 6000,
+    totalAdjustedMonthlyExpenses: 6000 + monthlyDelta,
+    comparisonScenario: {
+      scenarioId: "income-impact-lifestyle-adjusted-comparison",
+      kind: "lifestyleComparison",
+      label: "Lifestyle-adjusted projection",
+      pathId: "lifestyle-post-death-resources",
+      postDeathSeries: {
+        points,
+        depletion: {
+          depleted: true,
+          depletionMonthIndex,
+          depletionDate
+        }
+      },
+      depletion: {
+        depleted: true,
+        depletionMonthIndex,
+        depletionDate
+      },
+      trace: {
+        calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
+        sliderValue,
+        monthlyDelta,
+        graphMonthlyDelta: monthlyDelta,
+        noOpComparison: monthlyDelta === 0
+      }
+    }
+  };
+}
+
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const componentsSource = readRepoFile("components.css");
@@ -127,6 +163,8 @@ assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-lo
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
 assert.match(displaySource, /data-income-impact-graph-svg/);
+assert.match(displaySource, /renderLifestyleImpactReadout/);
+assert.match(displaySource, /data-income-impact-lifestyle-impact-readout/);
 assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
 assert.match(displaySource, /buildSmoothedSvgPath/);
 assert.match(displaySource, /clampNumber/);
@@ -143,6 +181,7 @@ assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
 assert.match(
@@ -180,6 +219,13 @@ const fixture = {
   selectedDeath: { date: "2031-04-29", age: 51 },
   graphModel: makeGraphModel(),
   scenario: {
+    postDeathSeries: {
+      depletion: {
+        depleted: true,
+        depletionMonthIndex: 144,
+        depletionDate: "2043-04-29"
+      }
+    },
     timelineFacts: {
       assetsBeforeDeath: 600000,
       survivorAvailableTreatedAssets: 450000,
@@ -217,18 +263,53 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-imp
 const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources");
 assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
 
+const currentGraphModel = makeGraphModel();
+const currentComparisonPoints = currentGraphModel.series.postDeathResources.map((point) => ({ ...point }));
+currentGraphModel.series.comparisonPostDeathResources = [
+  {
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "lifestyleComparison",
+    pathId: "lifestyle-post-death-resources",
+    label: "Lifestyle-adjusted projection",
+    points: currentComparisonPoints
+  }
+];
+const currentTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  graphModel: currentGraphModel,
+  compressionReporting: {
+    lifestyleScenario: makeLifestyleScenarioFixture({
+      sliderValue: 0,
+      monthlyDelta: 0,
+      depletionMonthIndex: 144,
+      depletionDate: "2043-04-29",
+      points: currentComparisonPoints
+    }),
+    trace: {
+      lifestyleSliderValue: 0
+    }
+  }
+});
+assert.match(currentTimelineHtml, /data-income-impact-lifestyle-impact-readout/);
+assert.match(currentTimelineHtml, /data-income-impact-lifestyle-impact-mode="current"/);
+assert.match(currentTimelineHtml, /Matches baseline/);
+assert.match(currentTimelineHtml, /Lifestyle spend: \$0\/mo/);
+assert.match(currentTimelineHtml, /No depletion shift/);
+
 const comparisonGraphModel = makeGraphModel();
+const conservativeComparisonPoints = [
+  { date: "2032-04-29", monthIndex: 12, value: 680000, xRatio: 0.33, yRatio: 0.1 },
+  { date: "2040-04-29", monthIndex: 108, value: 280000, xRatio: 0.72, yRatio: 0.44 },
+  { date: "2043-04-29", monthIndex: 144, value: 60000, xRatio: 0.9, yRatio: 0.64 },
+  { date: "2045-04-29", monthIndex: 168, value: -20000, xRatio: 0.96, yRatio: 0.7 }
+];
 comparisonGraphModel.series.comparisonPostDeathResources = [
   {
     scenarioId: "income-impact-lifestyle-adjusted-comparison",
     kind: "lifestyleComparison",
     pathId: "lifestyle-post-death-resources",
     label: "Lifestyle-adjusted projection",
-    points: [
-      { date: "2032-04-29", value: 680000, xRatio: 0.33, yRatio: 0.1 },
-      { date: "2040-04-29", value: 280000, xRatio: 0.72, yRatio: 0.44 },
-      { date: "2043-04-29", value: 60000, xRatio: 0.9, yRatio: 0.64 }
-    ]
+    points: conservativeComparisonPoints
   }
 ];
 comparisonGraphModel.comparisonMarkers = [
@@ -290,16 +371,37 @@ comparisonGraphModel.comparisonMarkers = [
 ];
 const comparisonTimelineHtml = harness.renderTimeline({
   ...fixture,
-  graphModel: comparisonGraphModel
+  graphModel: comparisonGraphModel,
+  compressionReporting: {
+    lifestyleScenario: makeLifestyleScenarioFixture({
+      sliderValue: -100,
+      monthlyDelta: -500,
+      depletionMonthIndex: 168,
+      depletionDate: "2045-04-29",
+      points: conservativeComparisonPoints
+    }),
+    trace: {
+      lifestyleSliderValue: -100
+    }
+  }
 });
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+assert.equal(
+  (comparisonTimelineHtml.match(/data-income-impact-graph-path="lifestyle-post-death-resources"/g) || []).length,
+  1,
+  "Only one lifestyle comparison path should render."
+);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"[^>]*data-income-impact-graph-path-mode="smooth"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
 assert.match(comparisonTimelineHtml, /Base projection/);
 assert.match(comparisonTimelineHtml, /Lifestyle-adjusted projection/);
 assert.match(comparisonTimelineHtml, /Comparison only - base projection unchanged\./);
+assert.match(comparisonTimelineHtml, /data-income-impact-lifestyle-impact-mode="conservative"/);
+assert.match(comparisonTimelineHtml, /Extends runway by 24 months/);
+assert.match(comparisonTimelineHtml, /Lifestyle spend: -\$500\/mo/);
+assert.match(comparisonTimelineHtml, /Depletion shift: \+24 months/);
 assert.doesNotMatch(comparisonTimelineHtml, /staged-compression-post-death-resources|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path="staged-compression"/);
 assert.doesNotMatch(comparisonTimelineHtml, /compression-post-death-resources|data-income-impact-compression-markers|data-income-impact-compression-marker/);
 assert.match(comparisonTimelineHtml, /data-income-impact-comparison-markers/);
@@ -331,6 +433,112 @@ assert.equal(
   5,
   "Comparison marker data should be preserved even when low-value early labels are suppressed."
 );
+
+const elevatedGraphModel = makeGraphModel();
+const elevatedComparisonPoints = [
+  { date: "2032-04-29", monthIndex: 12, value: 590000, xRatio: 0.33, yRatio: 0.16 },
+  { date: "2040-04-29", monthIndex: 108, value: 30000, xRatio: 0.72, yRatio: 0.66 },
+  { date: "2042-04-29", monthIndex: 132, value: -60000, xRatio: 0.86, yRatio: 0.74 }
+];
+elevatedGraphModel.series.comparisonPostDeathResources = [
+  {
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "lifestyleComparison",
+    pathId: "lifestyle-post-death-resources",
+    label: "Lifestyle-adjusted projection",
+    points: elevatedComparisonPoints
+  }
+];
+const elevatedTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  graphModel: elevatedGraphModel,
+  compressionReporting: {
+    lifestyleScenario: makeLifestyleScenarioFixture({
+      sliderValue: 100,
+      monthlyDelta: 400,
+      depletionMonthIndex: 132,
+      depletionDate: "2042-04-29",
+      points: elevatedComparisonPoints
+    }),
+    trace: {
+      lifestyleSliderValue: 100
+    }
+  }
+});
+assert.match(elevatedTimelineHtml, /data-income-impact-lifestyle-impact-mode="elevated"/);
+assert.match(elevatedTimelineHtml, /Shortens runway by 12 months/);
+assert.match(elevatedTimelineHtml, /Lifestyle spend: \+\$400\/mo/);
+assert.match(elevatedTimelineHtml, /Depletion shift: -12 months/);
+assert.match(elevatedTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+assert.doesNotMatch(elevatedTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"|staged-compression-post-death-resources/);
+
+const noDepletionGraphModel = makeGraphModel();
+noDepletionGraphModel.series.postDeathResources = [
+  { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
+  { date: "2040-04-29", monthIndex: 108, value: 260000, xRatio: 0.72, yRatio: 0.42 },
+  { date: "2043-04-29", monthIndex: 144, value: 160000, xRatio: 0.9, yRatio: 0.54 }
+];
+const fallbackComparisonPoints = [
+  { date: "2032-04-29", monthIndex: 12, value: 660000, xRatio: 0.33, yRatio: 0.1 },
+  { date: "2040-04-29", monthIndex: 108, value: 320000, xRatio: 0.72, yRatio: 0.36 },
+  { date: "2043-04-29", monthIndex: 144, value: 240000, xRatio: 0.9, yRatio: 0.46 }
+];
+noDepletionGraphModel.series.comparisonPostDeathResources = [
+  {
+    scenarioId: "income-impact-lifestyle-adjusted-comparison",
+    kind: "lifestyleComparison",
+    pathId: "lifestyle-post-death-resources",
+    label: "Lifestyle-adjusted projection",
+    points: fallbackComparisonPoints
+  }
+];
+const fallbackTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  scenario: {
+    ...fixture.scenario,
+    postDeathSeries: {
+      depletion: {
+        depleted: false
+      }
+    }
+  },
+  graphModel: noDepletionGraphModel,
+  compressionReporting: {
+    lifestyleScenario: {
+      ...makeLifestyleScenarioFixture({
+        sliderValue: -50,
+        monthlyDelta: -250,
+        depletionMonthIndex: null,
+        depletionDate: "",
+        points: fallbackComparisonPoints
+      }),
+      comparisonScenario: {
+        ...makeLifestyleScenarioFixture({
+          sliderValue: -50,
+          monthlyDelta: -250,
+          depletionMonthIndex: null,
+          depletionDate: "",
+          points: fallbackComparisonPoints
+        }).comparisonScenario,
+        depletion: {
+          depleted: false
+        },
+        postDeathSeries: {
+          points: fallbackComparisonPoints,
+          depletion: {
+            depleted: false
+          }
+        }
+      }
+    },
+    trace: {
+      lifestyleSliderValue: -50
+    }
+  }
+});
+assert.match(fallbackTimelineHtml, /Conservative lifestyle selected/);
+assert.match(fallbackTimelineHtml, /Lifestyle spend: -\$250\/mo/);
+assert.match(fallbackTimelineHtml, /Resources difference: \+\$80,000 at horizon/);
 
 const currentAgeHtml = harness.renderTimeline({
   ...fixture,

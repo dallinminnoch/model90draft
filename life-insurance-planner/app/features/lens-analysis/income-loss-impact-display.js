@@ -1267,6 +1267,378 @@
     `;
   }
 
+  function getLifestyleImpactScenario(timelineResult) {
+    const reporting = timelineResult && isPlainObject(timelineResult.compressionReporting)
+      ? timelineResult.compressionReporting
+      : null;
+    return reporting && isPlainObject(reporting.lifestyleScenario) ? reporting.lifestyleScenario : null;
+  }
+
+  function getLifestyleImpactComparisonScenario(timelineResult) {
+    const lifestyleScenario = getLifestyleImpactScenario(timelineResult);
+    if (lifestyleScenario && isPlainObject(lifestyleScenario.comparisonScenario)) {
+      return lifestyleScenario.comparisonScenario;
+    }
+    return null;
+  }
+
+  function getSeriesPointValue(point) {
+    if (!isPlainObject(point)) {
+      return null;
+    }
+    return toOptionalNumber(
+      point.value ??
+        point.endingResources ??
+        point.availableResources ??
+        point.resourcesAfterNeed ??
+        point.postDeathResources
+    );
+  }
+
+  function getSeriesPointMonthIndex(point) {
+    if (!isPlainObject(point)) {
+      return null;
+    }
+    return toOptionalNumber(point.monthIndex ?? point.elapsedMonth ?? point.month ?? point.monthsAfterDeath);
+  }
+
+  function getSeriesPointDate(point) {
+    if (!isPlainObject(point)) {
+      return "";
+    }
+    return normalizeDateOnly(point.date ?? point.projectionDate ?? point.periodDate ?? "");
+  }
+
+  function getSeriesPoints(seriesLike) {
+    if (Array.isArray(seriesLike)) {
+      return seriesLike;
+    }
+    if (isPlainObject(seriesLike) && Array.isArray(seriesLike.points)) {
+      return seriesLike.points;
+    }
+    return [];
+  }
+
+  function getGraphBasePostDeathPoints(timelineResult) {
+    const graphModel = getGraphModel(timelineResult);
+    return getSeriesPoints(graphModel && graphModel.series ? graphModel.series.postDeathResources : null);
+  }
+
+  function getGraphLifestylePostDeathPoints(timelineResult) {
+    const graphModel = getGraphModel(timelineResult);
+    const comparisonSeries = graphModel && graphModel.series && Array.isArray(graphModel.series.comparisonPostDeathResources)
+      ? graphModel.series.comparisonPostDeathResources
+      : [];
+    const lifestyleSeries = comparisonSeries.find((series) => {
+      return series && series.pathId === LIFESTYLE_COMPARISON_PATH_ID;
+    }) || comparisonSeries[0];
+    return getSeriesPoints(lifestyleSeries);
+  }
+
+  function normalizeDepletionInfo(depletion, points) {
+    if (isPlainObject(depletion)) {
+      const explicitlyNotDepleted = depletion.depleted === false ||
+        depletion.status === "not-depleted" ||
+        depletion.status === "no-depletion";
+      if (explicitlyNotDepleted) {
+        return {
+          depleted: false,
+          monthIndex: null,
+          date: "",
+        };
+      }
+
+      const depleted = depletion.depleted === true ||
+        depletion.status === "depleted" ||
+        depletion.depletionDetected === true ||
+        Boolean(depletion.depletionDate || depletion.date);
+      const monthIndex = toOptionalNumber(
+        depletion.depletionMonthIndex ??
+          depletion.monthIndex ??
+          (depleted ? (depletion.monthsCovered ?? depletion.monthsUntilDepletion) : null)
+      );
+      const date = normalizeDateOnly(depletion.depletionDate ?? depletion.date ?? "");
+
+      if (depleted || date || monthIndex !== null) {
+        return {
+          depleted: true,
+          monthIndex,
+          date,
+        };
+      }
+    }
+
+    const safePoints = getSeriesPoints(points);
+    for (const point of safePoints) {
+      const value = getSeriesPointValue(point);
+      if (value !== null && value <= 0) {
+        return {
+          depleted: true,
+          monthIndex: getSeriesPointMonthIndex(point),
+          date: getSeriesPointDate(point),
+        };
+      }
+    }
+
+    return {
+      depleted: false,
+      monthIndex: null,
+      date: "",
+    };
+  }
+
+  function getMonthDifferenceFromDates(startDate, endDate) {
+    const start = parseDateOnlyValue(startDate);
+    const end = parseDateOnlyValue(endDate);
+    if (!start || !end) {
+      return null;
+    }
+    const diff = ((end.getUTCFullYear() - start.getUTCFullYear()) * 12) +
+      (end.getUTCMonth() - start.getUTCMonth());
+    return Number.isFinite(diff) ? diff : null;
+  }
+
+  function getLastSeriesPoint(points) {
+    const safePoints = getSeriesPoints(points);
+    return safePoints.length ? safePoints[safePoints.length - 1] : null;
+  }
+
+  function findMatchingSeriesPoint(points, targetPoint) {
+    const safePoints = getSeriesPoints(points);
+    if (!safePoints.length || !targetPoint) {
+      return null;
+    }
+    const targetMonth = getSeriesPointMonthIndex(targetPoint);
+    if (targetMonth !== null) {
+      const monthMatch = safePoints.find((point) => getSeriesPointMonthIndex(point) === targetMonth);
+      if (monthMatch) {
+        return monthMatch;
+      }
+    }
+
+    const targetDate = getSeriesPointDate(targetPoint);
+    if (targetDate) {
+      const dateMatch = safePoints.find((point) => getSeriesPointDate(point) === targetDate);
+      if (dateMatch) {
+        return dateMatch;
+      }
+    }
+
+    return getLastSeriesPoint(safePoints);
+  }
+
+  function getLifestyleResourceDifference(timelineResult) {
+    const comparisonPoints = getGraphLifestylePostDeathPoints(timelineResult);
+    const basePoints = getGraphBasePostDeathPoints(timelineResult);
+    const comparisonPoint = getLastSeriesPoint(comparisonPoints);
+    const basePoint = findMatchingSeriesPoint(basePoints, comparisonPoint);
+    const comparisonValue = getSeriesPointValue(comparisonPoint);
+    const baseValue = getSeriesPointValue(basePoint);
+
+    if (comparisonValue === null || baseValue === null) {
+      return null;
+    }
+
+    return {
+      value: comparisonValue - baseValue,
+      monthIndex: comparisonPoint ? getSeriesPointMonthIndex(comparisonPoint) : null,
+      date: comparisonPoint ? getSeriesPointDate(comparisonPoint) : "",
+    };
+  }
+
+  function getLifestyleRunwayShift(timelineResult) {
+    const baseScenario = timelineResult && isPlainObject(timelineResult.scenario) ? timelineResult.scenario : {};
+    const basePostDeathSeries = isPlainObject(baseScenario.postDeathSeries) ? baseScenario.postDeathSeries : {};
+    const comparisonScenario = getLifestyleImpactComparisonScenario(timelineResult);
+    const comparisonPostDeathSeries = comparisonScenario && isPlainObject(comparisonScenario.postDeathSeries)
+      ? comparisonScenario.postDeathSeries
+      : {};
+    const basePoints = getGraphBasePostDeathPoints(timelineResult);
+    const comparisonPoints = getGraphLifestylePostDeathPoints(timelineResult);
+    const baseDepletion = normalizeDepletionInfo(basePostDeathSeries.depletion ?? baseScenario.depletion, basePoints);
+    const comparisonDepletion = normalizeDepletionInfo(
+      comparisonScenario && comparisonScenario.depletion ? comparisonScenario.depletion : comparisonPostDeathSeries.depletion,
+      comparisonPoints
+    );
+
+    if (baseDepletion.depleted && comparisonDepletion.depleted) {
+      let monthShift = null;
+      if (baseDepletion.monthIndex !== null && comparisonDepletion.monthIndex !== null) {
+        monthShift = comparisonDepletion.monthIndex - baseDepletion.monthIndex;
+      } else if (baseDepletion.date && comparisonDepletion.date) {
+        monthShift = getMonthDifferenceFromDates(baseDepletion.date, comparisonDepletion.date);
+      }
+
+      if (monthShift !== null) {
+        return {
+          kind: "monthShift",
+          monthShift,
+          baseDepletion,
+          comparisonDepletion,
+        };
+      }
+    }
+
+    if (baseDepletion.depleted && !comparisonDepletion.depleted) {
+      return {
+        kind: "extendsBeyondHorizon",
+        baseDepletion,
+        comparisonDepletion,
+      };
+    }
+
+    if (!baseDepletion.depleted && comparisonDepletion.depleted) {
+      return {
+        kind: "shortensIntoHorizon",
+        baseDepletion,
+        comparisonDepletion,
+      };
+    }
+
+    if (!baseDepletion.depleted && !comparisonDepletion.depleted) {
+      return {
+        kind: "noVisibleDepletion",
+        baseDepletion,
+        comparisonDepletion,
+      };
+    }
+
+    return {
+      kind: "unavailable",
+      baseDepletion,
+      comparisonDepletion,
+    };
+  }
+
+  function formatMonthCount(months) {
+    const rounded = Math.max(0, Math.round(Math.abs(Number(months) || 0)));
+    return `${rounded} ${rounded === 1 ? "month" : "months"}`;
+  }
+
+  function formatSignedMonthlyAmount(value) {
+    const amount = toOptionalNumber(value);
+    if (amount === null || Math.abs(amount) < 0.5) {
+      return "$0/mo";
+    }
+    const prefix = amount > 0 ? "+" : "-";
+    return `${prefix}${formatCurrency(Math.abs(amount))}/mo`;
+  }
+
+  function formatSignedResourceDifference(value) {
+    const amount = toOptionalNumber(value);
+    if (amount === null || Math.abs(amount) < 0.5) {
+      return "$0";
+    }
+    const prefix = amount > 0 ? "+" : "-";
+    return `${prefix}${formatCurrency(Math.abs(amount))}`;
+  }
+
+  function getLifestyleImpactReadoutModel(timelineResult) {
+    const lifestyleScenario = getLifestyleImpactScenario(timelineResult);
+    const comparisonScenario = getLifestyleImpactComparisonScenario(timelineResult);
+    const reportingTrace = timelineResult && timelineResult.compressionReporting && isPlainObject(timelineResult.compressionReporting.trace)
+      ? timelineResult.compressionReporting.trace
+      : {};
+    const comparisonTrace = comparisonScenario && isPlainObject(comparisonScenario.trace) ? comparisonScenario.trace : {};
+    const sliderValue = clampLifestyleSliderValue(
+      lifestyleScenario && lifestyleScenario.sliderValue !== undefined
+        ? lifestyleScenario.sliderValue
+        : (comparisonTrace.sliderValue ?? reportingTrace.lifestyleSliderValue ?? 0)
+    );
+    const monthlyDelta = toOptionalNumber(
+      lifestyleScenario && lifestyleScenario.monthlyDelta !== undefined
+        ? lifestyleScenario.monthlyDelta
+        : (comparisonTrace.monthlyDelta ?? comparisonTrace.graphMonthlyDelta)
+    );
+    const mode = sliderValue < 0 ? "conservative" : (sliderValue > 0 ? "elevated" : "current");
+    const runwayShift = getLifestyleRunwayShift(timelineResult);
+    const resourceDifference = getLifestyleResourceDifference(timelineResult);
+    const monthlyCopy = monthlyDelta === null
+      ? "Lifestyle spend change unavailable"
+      : `Lifestyle spend: ${formatSignedMonthlyAmount(monthlyDelta)}`;
+    let headline = "Matches baseline";
+    let detail = "No depletion shift";
+    let status = "baseline";
+
+    if (mode === "current" || (monthlyDelta !== null && Math.abs(monthlyDelta) < 0.5)) {
+      return {
+        mode,
+        status,
+        headline,
+        monthlyCopy: "Lifestyle spend: $0/mo",
+        detail,
+      };
+    }
+
+    if (runwayShift.kind === "monthShift") {
+      const monthShift = Math.round(runwayShift.monthShift || 0);
+      if (monthShift > 0) {
+        headline = `Extends runway by ${formatMonthCount(monthShift)}`;
+        detail = `Depletion shift: +${formatMonthCount(monthShift)}`;
+        status = "extends";
+      } else if (monthShift < 0) {
+        headline = `Shortens runway by ${formatMonthCount(monthShift)}`;
+        detail = `Depletion shift: -${formatMonthCount(monthShift)}`;
+        status = "shortens";
+      } else {
+        headline = "No depletion shift";
+        detail = "Depletion timing is unchanged";
+        status = "unchanged";
+      }
+    } else if (runwayShift.kind === "extendsBeyondHorizon") {
+      headline = "Extends runway beyond horizon";
+      detail = "Lifestyle line stays above zero in the visible horizon";
+      status = "extends";
+    } else if (runwayShift.kind === "shortensIntoHorizon") {
+      headline = "Shortens runway into horizon";
+      detail = "Lifestyle line depletes within the visible horizon";
+      status = "shortens";
+    } else if (runwayShift.kind === "noVisibleDepletion") {
+      headline = mode === "conservative" ? "Conservative lifestyle selected" : "Elevated lifestyle selected";
+      detail = "No depletion within projection horizon";
+      status = "noVisibleDepletion";
+    } else {
+      headline = mode === "conservative" ? "Conservative lifestyle selected" : "Elevated lifestyle selected";
+      detail = "Depletion shift unavailable";
+      status = "fallback";
+    }
+
+    if ((status === "fallback" || status === "noVisibleDepletion" || status === "unchanged") &&
+      resourceDifference &&
+      Math.abs(resourceDifference.value) >= 0.5) {
+      detail = `Resources difference: ${formatSignedResourceDifference(resourceDifference.value)} at horizon`;
+    }
+
+    return {
+      mode,
+      status,
+      headline,
+      monthlyCopy,
+      detail,
+    };
+  }
+
+  function renderLifestyleImpactReadout(timelineResult) {
+    const lifestyleScenario = getLifestyleImpactScenario(timelineResult);
+    const hasLifestyleSeries = Boolean(getGraphLifestylePostDeathPoints(timelineResult).length);
+    if (!lifestyleScenario && !hasLifestyleSeries) {
+      return "";
+    }
+
+    const model = getLifestyleImpactReadoutModel(timelineResult);
+    return `
+      <div class="income-impact-lifestyle-impact-readout"
+        data-income-impact-lifestyle-impact-readout
+        data-income-impact-lifestyle-impact-mode="${escapeHtml(model.mode)}"
+        data-income-impact-lifestyle-impact-status="${escapeHtml(model.status)}">
+        <span class="income-impact-lifestyle-impact-readout__eyebrow">Lifestyle impact</span>
+        <strong data-income-impact-lifestyle-impact-primary>${escapeHtml(model.headline)}</strong>
+        <span data-income-impact-lifestyle-impact-monthly>${escapeHtml(model.monthlyCopy)}</span>
+        <span data-income-impact-lifestyle-impact-runway>${escapeHtml(model.detail)}</span>
+      </div>
+    `;
+  }
+
   function renderGraphDeathAnchor(graphModel) {
     const anchor = graphModel?.series?.currentAnchor;
     if (!anchor || toOptionalNumber(anchor.xRatio) == null || toOptionalNumber(anchor.yRatio) == null) {
@@ -1382,6 +1754,7 @@
           </div>
           <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>
         </div>
+        ${renderLifestyleImpactReadout(timelineResult)}
         ${renderGraphSvg(graphModel)}
         ${renderGraphLegend(graphModel)}
         ${renderGraphCallouts(graphModel)}
