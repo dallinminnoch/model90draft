@@ -40,6 +40,230 @@
     "generatedOnly",
     "rawReview"
   ]);
+  const EXPENSE_INFLATION_BUCKET_KEYS = Object.freeze([
+    "householdExpenseInflation",
+    "generalInflation",
+    "healthcareInflation",
+    "finalExpenseInflation",
+    "educationInflation",
+    "noInflationCurrentDollar"
+  ]);
+  const EXPENSE_LIFESTYLE_TREATMENT_REASONS = Object.freeze([
+    "lifestyleFlexible",
+    "pauseableGoalContribution",
+    "protectedNeed",
+    "contractualObligation",
+    "legalTax",
+    "sourceOwnedDebt",
+    "sourceOwnedFinalExpense",
+    "sourceOwnedHealthcare",
+    "sourceOwnedEducation",
+    "valuesBased",
+    "businessOrIncomePreserving",
+    "unknownExcluded"
+  ]);
+  const EXPENSE_PLANNING_BUCKETS = Object.freeze([
+    Object.freeze({
+      planningBucketKey: "finalExpenses",
+      planningBucketLabel: "Final Expenses",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "sourceOwnedFinalExpense",
+      inflationBucketKey: "finalExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "healthcareCare",
+      planningBucketLabel: "Healthcare Care",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "sourceOwnedHealthcare",
+      inflationBucketKey: "healthcareInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "housingCore",
+      planningBucketLabel: "Housing Core",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "protectedNeed",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "basicUtilities",
+      planningBucketLabel: "Basic Utilities",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "protectedNeed",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "communicationsConnectivity",
+      planningBucketLabel: "Communications & Connectivity",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "foodAtHomeConsumables",
+      planningBucketLabel: "Food at Home & Consumables",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "diningTakeout",
+      planningBucketLabel: "Dining / Takeout",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "transportationBasics",
+      planningBucketLabel: "Transportation Basics",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "vehicleOwnershipMaintenance",
+      planningBucketLabel: "Vehicle Ownership / Maintenance",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "contractualObligation",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "insurancePremiums",
+      planningBucketLabel: "Insurance Premiums",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "contractualObligation",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "childcareDependentSupport",
+      planningBucketLabel: "Childcare & Dependent Support",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "protectedNeed",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "educationEnrichment",
+      planningBucketLabel: "Education & Enrichment",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "sourceOwnedEducation",
+      inflationBucketKey: "educationInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "personalLivingClothing",
+      planningBucketLabel: "Personal Living / Clothing",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "householdServices",
+      planningBucketLabel: "Household Services",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "subscriptionsMemberships",
+      planningBucketLabel: "Subscriptions / Memberships",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "entertainmentRecreation",
+      planningBucketLabel: "Entertainment / Recreation",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "travelVacations",
+      planningBucketLabel: "Travel / Vacations",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "petsCoreCare",
+      planningBucketLabel: "Pet Core Care",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "protectedNeed",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "petsDiscretionary",
+      planningBucketLabel: "Pet Discretionary",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "givingCommunity",
+      planningBucketLabel: "Giving / Community",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "valuesBased",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "taxesLegalAdministrative",
+      planningBucketLabel: "Taxes / Legal / Administrative",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "legalTax",
+      inflationBucketKey: "noInflationCurrentDollar"
+    }),
+    Object.freeze({
+      planningBucketKey: "debtObligations",
+      planningBucketLabel: "Debt Obligations",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "sourceOwnedDebt",
+      inflationBucketKey: "noInflationCurrentDollar"
+    }),
+    Object.freeze({
+      planningBucketKey: "savingsGoalContributions",
+      planningBucketLabel: "Savings & Goal Contributions",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "pauseableGoalContribution",
+      inflationBucketKey: "noInflationCurrentDollar"
+    }),
+    Object.freeze({
+      planningBucketKey: "businessSelfEmployment",
+      planningBucketLabel: "Business & Self-Employment",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "businessOrIncomePreserving",
+      inflationBucketKey: "generalInflation"
+    }),
+    Object.freeze({
+      planningBucketKey: "financialFeesTransactionCosts",
+      planningBucketLabel: "Financial Fees / Transaction Costs",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "unknownExcluded",
+      inflationBucketKey: "noInflationCurrentDollar"
+    }),
+    Object.freeze({
+      planningBucketKey: "periodicSinkingFundOneTime",
+      planningBucketLabel: "Periodic / Sinking Fund / One-Time",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "unknownExcluded",
+      inflationBucketKey: "noInflationCurrentDollar"
+    }),
+    Object.freeze({
+      planningBucketKey: "customUnknown",
+      planningBucketLabel: "Custom / Unknown",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "unknownExcluded",
+      inflationBucketKey: "noInflationCurrentDollar"
+    })
+  ]);
+  const EXPENSE_PLANNING_BUCKET_KEYS = Object.freeze(
+    EXPENSE_PLANNING_BUCKETS.map(function (bucket) {
+      return bucket.planningBucketKey;
+    })
+  );
+  const EXPENSE_PLANNING_BUCKETS_BY_KEY = Object.freeze(
+    EXPENSE_PLANNING_BUCKETS.reduce(function (bucketMap, bucket) {
+      bucketMap[bucket.planningBucketKey] = bucket;
+      return bucketMap;
+    }, {})
+  );
 
   const EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY = Object.freeze({
     funeralBurialEstimate: "future",
@@ -752,6 +976,100 @@
     "otherFinalExpense"
   ]);
 
+  const HEALTHCARE_CARE_CATEGORY_KEYS = Object.freeze([
+    "ongoingHealthcare",
+    "dentalCare",
+    "visionCare",
+    "mentalHealthCare",
+    "longTermCare",
+    "homeHealthCare",
+    "medicalEquipment",
+    "otherHealthcare"
+  ]);
+
+  const DINING_TAKEOUT_TYPE_KEYS = Object.freeze([
+    "diningTakeout",
+    "diningOutRestaurants",
+    "takeoutConvenienceFood",
+    "mealDeliveryServices",
+    "groceryDeliveryFeesTips",
+    "alcoholSocialBeverages"
+  ]);
+
+  const HOUSEHOLD_SERVICES_TYPE_KEYS = Object.freeze([
+    "householdServices",
+    "houseCleaning",
+    "lawnSnowPestPoolServices",
+    "dryCleaningLaundry"
+  ]);
+
+  const HOUSEHOLD_CONSUMABLE_TYPE_KEYS = Object.freeze([
+    "householdConsumablesSupplies",
+    "householdSupplies"
+  ]);
+
+  const CHILDCARE_DEPENDENT_SUPPORT_TYPE_KEYS = Object.freeze([
+    "diapersBabySupplies",
+    "formulaInfantSupplies"
+  ]);
+
+  const COMMUNICATIONS_CONNECTIVITY_TYPE_KEYS = Object.freeze([
+    "internetPhone",
+    "internet",
+    "mobilePhone",
+    "landline",
+    "cableTv",
+    "streamingInternetBundle"
+  ]);
+
+  const VEHICLE_OWNERSHIP_MAINTENANCE_TYPE_KEYS = Object.freeze([
+    "vehicleInsurance",
+    "vehicleMaintenance",
+    "tiresMajorAutoRepair",
+    "registrationInspectionEmissions",
+    "vehicleReplacementFund",
+    "motorcycleRvBoatCosts",
+    "vehicleRvBoatStorage",
+    "vehicleMiscellaneous",
+    "annualVehicleRegistration",
+    "autoRepairReserve"
+  ]);
+
+  const SUBSCRIPTIONS_MEMBERSHIPS_TYPE_KEYS = Object.freeze([
+    "subscriptionsMemberships",
+    "streamingDigitalSubscriptions",
+    "gymFitnessMemberships",
+    "clubsSocialMemberships"
+  ]);
+
+  const PETS_DISCRETIONARY_TYPE_KEYS = Object.freeze([
+    "petBoarding",
+    "petGroomingTraining"
+  ]);
+
+  const PERIODIC_FINAL_EXPENSE_TYPE_KEYS = Object.freeze([
+    "funeralBurialCosts"
+  ]);
+
+  const PERIODIC_HEALTHCARE_TYPE_KEYS = Object.freeze([
+    "medicalDeductibleExposure"
+  ]);
+
+  const PERIODIC_EDUCATION_TYPE_KEYS = Object.freeze([
+    "annualSchoolFees",
+    "backToSchoolCosts"
+  ]);
+
+  const PERIODIC_INSURANCE_TYPE_KEYS = Object.freeze([
+    "annualInsurancePremiums"
+  ]);
+
+  const PERIODIC_TAX_LEGAL_TYPE_KEYS = Object.freeze([
+    "annualPropertyTaxes",
+    "legalSettlementJudgment",
+    "taxBillTrueUp"
+  ]);
+
   const EARLY_COMPRESSIBLE_TYPE_KEYS = Object.freeze([
     "diningTakeout",
     "diningOutRestaurants",
@@ -893,6 +1211,141 @@
   function isSavingsContributionType(typeKey, categoryKey) {
     return categoryKey === "savingsGoalContributions"
       || includesValue(SAVINGS_CONTRIBUTION_TYPE_KEYS, typeKey);
+  }
+
+  function getExpensePlanningBucketMetadata(planningBucketKey) {
+    const normalizedPlanningBucketKey = String(planningBucketKey == null ? "" : planningBucketKey).trim();
+    const bucket = EXPENSE_PLANNING_BUCKETS_BY_KEY[normalizedPlanningBucketKey] || EXPENSE_PLANNING_BUCKETS_BY_KEY.customUnknown;
+    return Object.assign({}, bucket);
+  }
+
+  function inferPlanningBucketKey(typeKey, categoryKey, category, options) {
+    const explicitPlanningBucketKey = normalizeMetadataToken(options.planningBucketKey, EXPENSE_PLANNING_BUCKET_KEYS, null);
+    if (explicitPlanningBucketKey) {
+      return explicitPlanningBucketKey;
+    }
+
+    if (isGeneratedDebtPaymentEntry(options) || categoryKey === "debtObligations") {
+      return "debtObligations";
+    }
+
+    if (includesValue(FINAL_EXPENSE_CATEGORY_KEYS, categoryKey) || includesValue(PERIODIC_FINAL_EXPENSE_TYPE_KEYS, typeKey)) {
+      return "finalExpenses";
+    }
+
+    if (includesValue(HEALTHCARE_CARE_CATEGORY_KEYS, categoryKey) || includesValue(PERIODIC_HEALTHCARE_TYPE_KEYS, typeKey)) {
+      return "healthcareCare";
+    }
+
+    if (includesValue(EDUCATION_CATEGORY_KEYS, categoryKey) || includesValue(PERIODIC_EDUCATION_TYPE_KEYS, typeKey)) {
+      return "educationEnrichment";
+    }
+
+    if (isSavingsContributionType(typeKey, categoryKey)) {
+      return "savingsGoalContributions";
+    }
+
+    if (includesValue(HOUSEHOLD_SERVICES_TYPE_KEYS, typeKey)) {
+      return "householdServices";
+    }
+
+    if (includesValue(DINING_TAKEOUT_TYPE_KEYS, typeKey)) {
+      return "diningTakeout";
+    }
+
+    if (includesValue(HOUSEHOLD_CONSUMABLE_TYPE_KEYS, typeKey)) {
+      return "foodAtHomeConsumables";
+    }
+
+    if (includesValue(CHILDCARE_DEPENDENT_SUPPORT_TYPE_KEYS, typeKey)) {
+      return "childcareDependentSupport";
+    }
+
+    if (includesValue(SUBSCRIPTIONS_MEMBERSHIPS_TYPE_KEYS, typeKey)) {
+      return "subscriptionsMemberships";
+    }
+
+    if (includesValue(PERIODIC_INSURANCE_TYPE_KEYS, typeKey) || categoryKey === "insurancePremiums") {
+      return "insurancePremiums";
+    }
+
+    if (includesValue(PERIODIC_TAX_LEGAL_TYPE_KEYS, typeKey)
+      || categoryKey === "taxes"
+      || categoryKey === "legalAdministrative") {
+      return "taxesLegalAdministrative";
+    }
+
+    if (includesValue(BUSINESS_CATEGORY_KEYS, categoryKey)) {
+      return "businessSelfEmployment";
+    }
+
+    if (categoryKey === "housingExpense") {
+      return "housingCore";
+    }
+
+    if (categoryKey === "utilities") {
+      return includesValue(COMMUNICATIONS_CONNECTIVITY_TYPE_KEYS, typeKey)
+        ? "communicationsConnectivity"
+        : "basicUtilities";
+    }
+
+    if (categoryKey === "foodGroceries") {
+      return "foodAtHomeConsumables";
+    }
+
+    if (categoryKey === "transportation") {
+      return includesValue(VEHICLE_OWNERSHIP_MAINTENANCE_TYPE_KEYS, typeKey)
+        ? "vehicleOwnershipMaintenance"
+        : "transportationBasics";
+    }
+
+    if (categoryKey === "childcare" || categoryKey === "dependentSupport" || categoryKey === "familySupport") {
+      return "childcareDependentSupport";
+    }
+
+    if (categoryKey === "personalLiving") {
+      if (typeKey === "discretionaryTravelEntertainment") {
+        return "entertainmentRecreation";
+      }
+
+      return "personalLivingClothing";
+    }
+
+    if (categoryKey === "discretionaryLifestyle") {
+      return "entertainmentRecreation";
+    }
+
+    if (categoryKey === "travelVacations") {
+      return "travelVacations";
+    }
+
+    if (categoryKey === "givingCommunity") {
+      return "givingCommunity";
+    }
+
+    if (categoryKey === "pets" || typeKey === "petCare") {
+      return includesValue(PETS_DISCRETIONARY_TYPE_KEYS, typeKey)
+        ? "petsDiscretionary"
+        : "petsCoreCare";
+    }
+
+    if (categoryKey === "bankingFinanceCharges") {
+      return "financialFeesTransactionCosts";
+    }
+
+    if (categoryKey === "periodicSinkingFund") {
+      return "periodicSinkingFundOneTime";
+    }
+
+    if (categoryKey === "customExpense") {
+      return "customUnknown";
+    }
+
+    if (category && category.domain === "business") {
+      return "businessSelfEmployment";
+    }
+
+    return "customUnknown";
   }
 
   function inferSourceOwnedBy(options) {
@@ -1094,6 +1547,9 @@
     const interventionCandidate = Object.prototype.hasOwnProperty.call(options, "interventionCandidate")
       ? options.interventionCandidate === true
       : compressionTier === "early" || compressionTier === "medium" || compressionTier === "pauseCandidate";
+    const planningBucket = getExpensePlanningBucketMetadata(
+      inferPlanningBucketKey(typeKey, categoryKey, category, options)
+    );
 
     return {
       defaultNeedType,
@@ -1107,6 +1563,11 @@
       sourceOwnedBy: inferSourceOwnedBy(options),
       generatedOnly,
       protectedCategory,
+      planningBucketKey: planningBucket.planningBucketKey,
+      planningBucketLabel: planningBucket.planningBucketLabel,
+      lifestyleTreatmentIncluded: planningBucket.lifestyleTreatmentIncluded,
+      lifestyleTreatmentReason: planningBucket.lifestyleTreatmentReason,
+      inflationBucketKey: planningBucket.inflationBucketKey,
       notes: options.notes || null
     };
   }
@@ -1182,6 +1643,11 @@
       sourceOwnedBy: behaviorMetadata.sourceOwnedBy,
       generatedOnly: behaviorMetadata.generatedOnly,
       protectedCategory: behaviorMetadata.protectedCategory,
+      planningBucketKey: behaviorMetadata.planningBucketKey,
+      planningBucketLabel: behaviorMetadata.planningBucketLabel,
+      lifestyleTreatmentIncluded: behaviorMetadata.lifestyleTreatmentIncluded,
+      lifestyleTreatmentReason: behaviorMetadata.lifestyleTreatmentReason,
+      inflationBucketKey: behaviorMetadata.inflationBucketKey,
       notes: behaviorMetadata.notes,
       sortOrder: Number.isFinite(Number(options.sortOrder)) ? Number(options.sortOrder) : (index + 1) * 10
     });
@@ -1240,18 +1706,36 @@
     return getExpenseLibraryEntry(typeKey);
   }
 
+  function getExpensePlanningBuckets() {
+    return EXPENSE_PLANNING_BUCKETS.map(function (bucket) {
+      return Object.assign({}, bucket);
+    });
+  }
+
+  function getExpensePlanningBucket(planningBucketKey) {
+    const normalizedPlanningBucketKey = String(planningBucketKey == null ? "" : planningBucketKey).trim();
+    const bucket = EXPENSE_PLANNING_BUCKETS_BY_KEY[normalizedPlanningBucketKey];
+    return bucket ? Object.assign({}, bucket) : null;
+  }
+
   lensAnalysis.expenseLibrary = Object.freeze({
     EXPENSE_UI_AVAILABILITY_VALUES,
     EXPENSE_CONTINUATION_STATUS_VALUES,
     EXPENSE_DEFAULT_NEED_TYPE_VALUES,
     EXPENSE_PRIORITY_CLASS_VALUES,
     EXPENSE_COMPRESSION_TIER_VALUES,
+    EXPENSE_INFLATION_BUCKET_KEYS,
+    EXPENSE_LIFESTYLE_TREATMENT_REASONS,
+    EXPENSE_PLANNING_BUCKET_KEYS,
+    EXPENSE_PLANNING_BUCKETS,
     EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY,
     EXPENSE_LIBRARY_ENTRIES,
     EXPENSE_LIBRARY_GROUPS,
     PROTECTED_SCALAR_EXPENSE_TYPE_KEYS,
     getExpenseLibraryEntries,
     getExpenseLibraryEntry,
-    findExpenseLibraryEntry
+    findExpenseLibraryEntry,
+    getExpensePlanningBuckets,
+    getExpensePlanningBucket
   });
 })(window);
