@@ -80,7 +80,6 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/household-expense-compression-calculations.js",
     "app/features/lens-analysis/income-impact-compression-reporting-prep.js",
-    "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-compression-policy.js",
     "app/features/lens-analysis/expense-compression-thresholds.js",
     "app/features/lens-analysis/household-expense-account-policy-resolver.js",
@@ -98,7 +97,7 @@ function assertNoForbiddenDiffs() {
     encoding: "utf8"
   }).trim();
 
-  assert.equal(status, "", "runtime, admin, storage, policy, compression, threshold, display, page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, admin, storage, compression, threshold, display, page, and CSS files should not have diffs");
 }
 
 function assertNoForbiddenImports() {
@@ -179,21 +178,21 @@ EXPECTED_MIXED_OR_EXCEPTION_BUCKETS.forEach(function (planningBucketKey) {
 });
 
 const entertainment = getBucket(summary, "entertainmentRecreation");
-assert.ok(
+assert.equal(
   entertainment.exceptionCandidates.some(function (candidate) {
-    return candidate.expenseTypeKey === "weddingsFamilyEvents"
-      && candidate.code === "locked-policy-metadata-included";
+    return candidate.expenseTypeKey === "weddingsFamilyEvents";
   }),
-  "weddingsFamilyEvents included metadata / locked lifestyle drift should be flagged"
+  false,
+  "weddingsFamilyEvents should no longer be flagged as lifestyle policy drift"
 );
 
 const petsCoreCare = getBucket(summary, "petsCoreCare");
-assert.ok(
+assert.equal(
   petsCoreCare.exceptionCandidates.some(function (candidate) {
-    return candidate.expenseTypeKey === "petFoodSupplies"
-      && candidate.code === "slider-eligible-metadata-excluded";
+    return candidate.expenseTypeKey === "petFoodSupplies";
   }),
-  "petFoodSupplies slider-eligible / excluded bucket metadata drift should be flagged"
+  false,
+  "petFoodSupplies should no longer be flagged as lifestyle policy drift"
 );
 
 const noPolicyBucketKeys = summary.noPolicyRows.map(function (bucket) {

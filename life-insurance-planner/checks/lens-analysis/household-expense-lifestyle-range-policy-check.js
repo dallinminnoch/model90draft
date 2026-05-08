@@ -200,12 +200,14 @@ assert.equal(diningTakeout.protectedFloorPolicy, diningOut.protectedFloorPolicy,
 [
   "charitableGiving",
   "tithingReligiousGiving",
-  "remittancesFamilyAssistance",
-  "weddingsFamilyEvents"
+  "remittancesFamilyAssistance"
 ].forEach(function (typeKey) {
   const rule = assertNotEligible(typeKey, reviewOnly);
   assert.equal(rule.requiresAdvisorReview, true, `${typeKey} should be values-sensitive review-only`);
 });
+
+const weddingsFamilyEvents = assertEligibleRange("weddingsFamilyEvents", { maxFloorRatio: 0, minCeilingRatio: 1.5 });
+assert.equal(weddingsFamilyEvents.rangeBehavior, "expandable", "weddingsFamilyEvents should be lifestyle-flexible event spending");
 
 [
   "federalStateLocalIncomeTaxPayments",
@@ -233,9 +235,10 @@ assert.equal(diningTakeout.protectedFloorPolicy, diningOut.protectedFloorPolicy,
   assert.equal(rule.requiresAdvisorReview, true, `${typeKey} should be health/protection review-only`);
 });
 
-const petFood = assertEligibleRange("petFoodSupplies", { maxFloorRatio: 0.85, minCeilingRatio: 1.1 });
-assert.equal(petFood.rangeBehavior, "compressible", "core pet supplies should be narrow compressible");
+const petFood = assertNotEligible("petFoodSupplies", reviewOnly);
+assert.equal(petFood.requiresAdvisorReview, true, "core pet food and supplies should be protected/review-only");
 assertEligibleRange("petGroomingTraining", { maxFloorRatio: 0, minCeilingRatio: 1.25 });
+assertEligibleRange("petBoarding", { maxFloorRatio: 0, minCeilingRatio: 1.25 });
 assertNotEligible("veterinaryCare", reviewOnly);
 assertNotEligible("petMedication", reviewOnly);
 

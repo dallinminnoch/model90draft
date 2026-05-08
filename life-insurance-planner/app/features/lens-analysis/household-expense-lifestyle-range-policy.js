@@ -486,18 +486,7 @@
     reviewPolicy("mentalHealthCare", "ongoingHealthcare", "Mental Health Care", SOURCE_POLICY_DECISIONS.NO, "Healthcare is protected/review-only in V1."),
     reviewPolicy("dentalVisionOrthodontics", "ongoingHealthcare", "Dental / Vision / Orthodontics", SOURCE_POLICY_DECISIONS.NO, "Healthcare is protected/review-only in V1."),
 
-    compressiblePolicy({
-      expenseTypeKey: "petFoodSupplies",
-      categoryKey: "pets",
-      displayName: "Pet Food & Supplies",
-      conservativeFloorRatio: 0.85,
-      elevatedCeilingRatio: 1.15,
-      floorTierKey: TIER_KEYS.CONSERVATIVE,
-      ceilingTierKey: TIER_KEYS.COMFORTABLE,
-      ceilingTierMultiplier: 1,
-      protectedFloorPolicy: "preservePetCareNeed",
-      notes: "Core pet supplies are flexible only within a narrow range."
-    }),
+    reviewPolicy("petFoodSupplies", "pets", "Pet Food & Supplies", SOURCE_POLICY_DECISIONS.NO, "Core pet food and supplies are protected/review-only."),
     expandablePolicy({
       expenseTypeKey: "petGroomingTraining",
       categoryKey: "pets",
@@ -589,7 +578,18 @@
     reviewPolicy("tithingReligiousGiving", "givingCommunity", "Tithing / Religious Giving", SOURCE_POLICY_DECISIONS.NO, "Values-sensitive giving requires advisor/client review."),
     reviewPolicy("remittancesFamilyAssistance", "givingCommunity", "Remittances / Family Assistance", SOURCE_POLICY_DECISIONS.NO, "Values-sensitive family assistance requires review."),
     reviewPolicy("charitableGiving", "givingCommunity", "Charitable Giving", SOURCE_POLICY_DECISIONS.NO, "Charitable giving is review-only in V1."),
-    reviewPolicy("weddingsFamilyEvents", "givingCommunity", "Weddings / Family Events", SOURCE_POLICY_DECISIONS.NO, "Family/values-sensitive spending requires review."),
+    expandablePolicy({
+      expenseTypeKey: "weddingsFamilyEvents",
+      categoryKey: "givingCommunity",
+      displayName: "Weddings / Family Events",
+      conservativeFloorRatio: 0,
+      elevatedCeilingRatio: 1.6,
+      floorTierKey: TIER_KEYS.MINIMUM,
+      ceilingTierKey: TIER_KEYS.COMFORTABLE,
+      ceilingTierMultiplier: 1.2,
+      protectedFloorPolicy: "allowZero",
+      notes: "Family event spending is lifestyle-flexible; values-based giving rows remain review-only."
+    }),
 
     fixedPolicy("federalStateLocalIncomeTaxPayments", "taxes", "Federal / State / Local Income Tax Payments", SOURCE_POLICY_DECISIONS.NO, "Taxes are fixed obligations."),
     fixedPolicy("quarterlyEstimatedTaxes", "taxes", "Quarterly Estimated Taxes", SOURCE_POLICY_DECISIONS.NO, "Taxes are fixed obligations."),
