@@ -29,18 +29,24 @@ function assertScriptOrder(scriptSources, orderedScripts) {
 
 function createFakeStorage() {
   const values = new Map();
+  const writes = [];
   return {
     getItem(key) {
       return values.has(key) ? values.get(key) : null;
     },
     setItem(key, value) {
+      writes.push({ op: "setItem", key: String(key) });
       values.set(key, String(value));
     },
     removeItem(key) {
+      writes.push({ op: "removeItem", key: String(key) });
       values.delete(key);
     },
     setRaw(key, value) {
       values.set(key, String(value));
+    },
+    getWrites() {
+      return writes.slice();
     }
   };
 }
@@ -69,6 +75,32 @@ function draftRowsFromModel(model, overrideByType) {
 
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function buildFoodAtHomeDraft(overrides) {
+  return {
+    source: "USDA_FOOD_PLAN",
+    sourcePeriod: "2026-01",
+    monthlyAmountsByBand: Object.assign({
+      infantToddler: "180",
+      youngChild: "225",
+      olderChild: "285",
+      teenMale: "355",
+      teenFemale: "315",
+      adultMale: "390",
+      adultFemale: "345",
+      adultUnknown: "365",
+      childUnknown: "265"
+    }, overrides?.monthlyAmountsByBand || {}),
+    householdSizeAdjustmentFactors: Object.assign({
+      "1": "1.2",
+      "2": "1",
+      "3": "0.95",
+      "4": "0.9",
+      "5": "0.85",
+      "6Plus": "0.8"
+    }, overrides?.householdSizeAdjustmentFactors || {})
+  };
 }
 
 const preservedLivingFloorAssumptions = {
@@ -166,10 +198,13 @@ assert.match(editorSource, /householdExpenseAccountPolicyStorage/);
 assert.match(editorSource, /householdExpenseAccountPolicyResolver/);
 assert.match(editorSource, /TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID/);
 assert.match(editorSource, /temporaryLocalAdminFallback/);
-assert.match(editorSource, /editableNamespace:\s*"lifestyleRangeOverrides"/);
-assert.match(editorSource, /editableFields:\s*\["conservativeFloorRatio",\s*"elevatedCeilingRatio"\]/);
+assert.match(editorSource, /editableNamespaces:\s*\["lifestyleRangeOverrides",\s*"livingFloorAssumptions\.foodAtHome"\]/);
+assert.match(editorSource, /"foodAtHome\.monthlyAmountsByBand"/);
+assert.match(editorSource, /"foodAtHome\.householdSizeAdjustmentFactors"/);
 assert.match(editorSource, /saveHouseholdExpenseAccountPolicy/);
 assert.match(editorSource, /initializeHouseholdExpenseAccountPolicyAdminDisplay/);
+assert.match(editorSource, /data-food-at-home-floor-save/);
+assert.match(editorSource, /data-food-at-home-floor-reset/);
 assert.doesNotMatch(
   editorSource,
   /removeHouseholdExpenseAccountPolicy|\.setItem\s*\(|\.removeItem\s*\(|analysisSettings|clientRecords|profileRecord|updateClientRecord|saveAnalysisSetupSettings/
@@ -177,6 +212,10 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   editorSource,
   /income-loss-impact-display|timeline-graph|graph-model|Layer 5|normalize-lens-model|formulas|methods|app\.js|styles\.css|components\.css/
+);
+assert.doesNotMatch(
+  editorSource,
+  /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/
 );
 
 const host = {
@@ -218,12 +257,32 @@ loadScript(context, "app/features/account-settings/household-expense-account-pol
 
 const lensAnalysis = context.LensApp.lensAnalysis;
 const storage = context.LensApp.accountSettings.householdExpenseAccountPolicyStorage;
+const display = context.LensApp.accountSettings.householdExpenseAccountPolicyAdminDisplay;
 const editor = context.LensApp.accountSettings.householdExpenseAccountPolicyAdminEditor;
 assert.ok(editor, "admin editor module should load");
+assert.ok(display, "admin display module should load for saved-value refresh checks");
 assert.equal(typeof editor.buildHouseholdExpensePolicyEditorModel, "function");
 assert.equal(typeof editor.renderHouseholdExpensePolicyEditor, "function");
 assert.equal(typeof editor.buildLifestyleRangeSavePayload, "function");
+assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsEditorModel, "function");
+assert.equal(typeof editor.validateFoodAtHomeFloorAssumptionsDraft, "function");
+assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsSavePayload, "function");
+assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsResetPayload, "function");
+assert.equal(typeof editor.saveFoodAtHomeFloorAssumptions, "function");
+assert.equal(typeof editor.resetFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.initializeHouseholdExpenseAccountPolicyAdminEditor, "function");
+assert.deepEqual(plain(editor.FOOD_AT_HOME_BAND_KEYS), [
+  "infantToddler",
+  "youngChild",
+  "olderChild",
+  "teenMale",
+  "teenFemale",
+  "adultMale",
+  "adultFemale",
+  "adultUnknown",
+  "childUnknown"
+], "Food at Home editor should expose all nine approved band keys");
+assert.deepEqual(plain(editor.HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS), ["1", "2", "3", "4", "5", "6Plus"], "Food at Home editor should expose all six household-size factor keys");
 
 const defaultLifestyleRows = lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies();
 const defaultSliderEligibleRows = defaultLifestyleRows.filter((row) => row.sliderEligible === true);
@@ -237,6 +296,20 @@ const missingModel = editor.buildHouseholdExpensePolicyEditorModel({
 assert.equal(missingModel.status.code, "defaultSeedPolicy", "missing saved policy should show default seed policy source");
 assert.equal(missingModel.rows.length, defaultSliderEligibleRows.length, "editor should render only seed slider-eligible rows");
 assert.equal(missingModel.rows.every((row) => row.overrideStatus === "defaultSeedPolicy"), true, "missing policy rows should be default-only");
+assert.equal(missingModel.foodAtHomeFloorAssumptions.source, "ADMIN_ENTERED", "Food at Home editor should default source to ADMIN_ENTERED");
+assert.equal(missingModel.foodAtHomeFloorAssumptions.sourcePeriod, null, "empty Food at Home editor should have blank source period");
+assert.equal(missingModel.foodAtHomeFloorAssumptions.bandRows.length, 9, "Food at Home editor should render nine band rows");
+assert.equal(missingModel.foodAtHomeFloorAssumptions.householdSizeAdjustmentFactorRows.length, 6, "Food at Home editor should render six household-size factor rows");
+assert.equal(
+  missingModel.foodAtHomeFloorAssumptions.bandRows.every((row) => row.inputValue === ""),
+  true,
+  "empty Food at Home band inputs should render blank"
+);
+assert.equal(
+  missingModel.foodAtHomeFloorAssumptions.householdSizeAdjustmentFactorRows.every((row) => row.inputValue === ""),
+  true,
+  "empty Food at Home factor inputs should render blank"
+);
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "groceries"), "slider-eligible groceries should render");
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "streamingDigitalSubscriptions"), "slider-eligible subscriptions should render");
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "diningTakeout"), "broad Dining / Takeout parent should render as an editable slider row");
@@ -268,16 +341,41 @@ assert.match(missingHtml, /data-household-expense-policy-save/);
 assert.match(missingHtml, /data-household-expense-policy-reset-row/);
 assert.match(missingHtml, /data-ratio-field="conservativeFloorRatio"/);
 assert.match(missingHtml, /data-ratio-field="elevatedCeilingRatio"/);
+assert.match(missingHtml, /Food at Home Floor Assumptions/);
+assert.match(missingHtml, /USDA-Style Band Values/);
+assert.match(missingHtml, /data-food-at-home-floor-save/);
+assert.match(missingHtml, /data-food-at-home-floor-reset/);
+assert.match(missingHtml, /data-food-at-home-floor-source/);
+assert.match(missingHtml, /data-food-at-home-floor-source-period/);
+assert.match(missingHtml, /data-food-at-home-band-key="infantToddler"/);
+assert.match(missingHtml, /data-food-at-home-band-key="childUnknown"/);
+assert.match(missingHtml, /data-food-at-home-household-size-factor-key="1"/);
+assert.match(missingHtml, /data-food-at-home-household-size-factor-key="6Plus"/);
 assert.equal(
   (missingHtml.match(/data-household-expense-policy-ratio-input/g) || []).length,
   defaultSliderEligibleRows.length * 2,
   "only the two ratio controls should render for each slider-eligible row"
+);
+assert.equal(
+  (missingHtml.match(/data-food-at-home-band-key="/g) || []).length,
+  9,
+  "Food at Home editor should render one input per band"
+);
+assert.equal(
+  (missingHtml.match(/data-food-at-home-household-size-factor-key="/g) || []).length,
+  6,
+  "Food at Home editor should render one input per household-size factor"
 );
 assert.doesNotMatch(
   missingHtml,
   /data-ratio-field="sliderEligible"|data-ratio-field="rangeBehavior"|data-ratio-field="canPause"|data-ratio-field="canReduceToZero"|data-ratio-field="compressionOrderGroup"|data-ratio-field="compressionOrderRank"|data-ratio-field="sourcePolicyDecision"|data-ratio-field="threshold/
 );
 assert.doesNotMatch(missingHtml, /<select\b/);
+assert.doesNotMatch(
+  missingHtml,
+  /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/,
+  "Food at Home slice should not render state multiplier or MODEL90 bucket floor inputs"
+);
 
 const existingAccountPolicy = {
   version: 1,
@@ -288,6 +386,106 @@ const existingAccountPolicy = {
   livingFloorAssumptions: plain(preservedLivingFloorAssumptions),
   metadata: { source: "existing-policy" }
 };
+
+const foodAtHomePayload = editor.buildFoodAtHomeFloorAssumptionsSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftFoodAtHome: buildFoodAtHomeDraft()
+});
+assert.equal(foodAtHomePayload.valid, true, "valid Food at Home assumptions should be accepted");
+assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.source, "USDA_FOOD_PLAN", "Food at Home source should save");
+assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.sourcePeriod, "2026-01", "Food at Home source period should save");
+assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.monthlyAmountsByBand.infantToddler, 180, "Food band numeric strings should normalize to dollars");
+assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.monthlyAmountsByBand.teenMale, 355, "Food band values should save by band key");
+assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.householdSizeAdjustmentFactors["6Plus"], 0.8, "Household-size factors should save by factor key");
+assert.deepEqual(plain(foodAtHomePayload.accountPolicy.lifestyleRangeOverrides), [], "Food at Home save should preserve lifestyle overrides");
+assert.deepEqual(plain(foodAtHomePayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "Food at Home save should preserve threshold namespace");
+assert.deepEqual(plain(foodAtHomePayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "Food at Home save should preserve compression namespace");
+assert.deepEqual(plain(foodAtHomePayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "Food at Home save should preserve guardrails");
+assert.deepEqual(
+  plain(foodAtHomePayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers),
+  preservedLivingFloorAssumptions.stateCostAdjustmentMultipliers,
+  "Food at Home save should preserve state multiplier assumptions"
+);
+assert.deepEqual(
+  plain(foodAtHomePayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors),
+  preservedLivingFloorAssumptions.model90DefaultBucketFloors,
+  "Food at Home save should preserve MODEL90 default bucket floor assumptions"
+);
+assert.equal(foodAtHomePayload.accountPolicy.metadata.source, "existing-policy", "Food at Home save should preserve metadata source");
+assert.equal(foodAtHomePayload.accountPolicy.metadata.lastEditedNamespace, "livingFloorAssumptions.foodAtHome");
+assert.equal(JSON.parse(JSON.stringify(foodAtHomePayload)).valid, true, "Food at Home save payload should be JSON serializable");
+
+const foodAtHomeStorage = createFakeStorage();
+const foodAtHomeSaveResult = storage.saveHouseholdExpenseAccountPolicy({
+  accountId,
+  accountPolicy: foodAtHomePayload.accountPolicy,
+  metadata: { updatedBy: "food-at-home-check" },
+  storage: foodAtHomeStorage
+});
+assert.equal(foodAtHomeSaveResult.saved, true, "valid Food at Home assumptions should save through the storage adapter");
+assert.deepEqual(
+  foodAtHomeStorage.getWrites().map((write) => write.key),
+  [storage.createHouseholdExpenseAccountPolicyStorageKey(accountId)],
+  "Food at Home save should write only the household expense account policy key"
+);
+const foodAtHomeDisplayModel = display.buildHouseholdExpensePolicyDisplayModel({
+  accountId,
+  storage: foodAtHomeStorage
+});
+assert.equal(foodAtHomeDisplayModel.savedLivingFloorAssumptions.status.code, "configured", "read-only saved assumptions display should reflect saved Food at Home values");
+assert.equal(foodAtHomeDisplayModel.savedLivingFloorAssumptions.counts.configuredFoodAtHomeBands, 9, "display should count saved Food at Home bands");
+assert.equal(foodAtHomeDisplayModel.savedLivingFloorAssumptions.counts.configuredHouseholdSizeFactors, 6, "display should count saved Food at Home factors");
+assert.match(display.renderHouseholdExpensePolicyDisplay(foodAtHomeDisplayModel), /\$180\.00/, "read-only display should render saved Food at Home dollar values");
+
+const foodAtHomeResetPayload = editor.buildFoodAtHomeFloorAssumptionsResetPayload({
+  accountId,
+  accountPolicy: foodAtHomePayload.accountPolicy
+});
+assert.equal(foodAtHomeResetPayload.valid, true, "Food at Home reset payload should be valid");
+assert.equal(foodAtHomeResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome.source, "ADMIN_ENTERED", "Food at Home reset should restore default source");
+assert.equal(foodAtHomeResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome.sourcePeriod, null, "Food at Home reset should clear source period");
+assert.equal(foodAtHomeResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome.monthlyAmountsByBand.infantToddler, null, "Food at Home reset should clear band values");
+assert.equal(foodAtHomeResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome.householdSizeAdjustmentFactors["6Plus"], null, "Food at Home reset should clear factor values");
+assert.deepEqual(
+  plain(foodAtHomeResetPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers),
+  preservedLivingFloorAssumptions.stateCostAdjustmentMultipliers,
+  "Food at Home reset should preserve state multiplier assumptions"
+);
+assert.deepEqual(
+  plain(foodAtHomeResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors),
+  preservedLivingFloorAssumptions.model90DefaultBucketFloors,
+  "Food at Home reset should preserve MODEL90 default bucket floor assumptions"
+);
+assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "Food at Home reset should preserve threshold namespace");
+assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "Food at Home reset should preserve compression namespace");
+assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "Food at Home reset should preserve guardrails");
+
+const invalidFoodAtHomeDollarPayload = editor.buildFoodAtHomeFloorAssumptionsSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftFoodAtHome: buildFoodAtHomeDraft({
+    monthlyAmountsByBand: {
+      infantToddler: "-1"
+    }
+  })
+});
+assert.equal(invalidFoodAtHomeDollarPayload.valid, false, "negative Food at Home dollar values should be rejected before save");
+assert.match(invalidFoodAtHomeDollarPayload.validationMessages.join(" "), /infantToddler monthly amount/);
+assert.equal(Object.prototype.hasOwnProperty.call(invalidFoodAtHomeDollarPayload, "accountPolicy"), false, "invalid Food at Home dollar payload should not produce a storage payload");
+
+const invalidFoodAtHomeFactorPayload = editor.buildFoodAtHomeFloorAssumptionsSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftFoodAtHome: buildFoodAtHomeDraft({
+    householdSizeAdjustmentFactors: {
+      "2": "0"
+    }
+  })
+});
+assert.equal(invalidFoodAtHomeFactorPayload.valid, false, "invalid Food at Home household factor values should be rejected before save");
+assert.match(invalidFoodAtHomeFactorPayload.validationMessages.join(" "), /2 household-size factor/);
+assert.equal(Object.prototype.hasOwnProperty.call(invalidFoodAtHomeFactorPayload, "accountPolicy"), false, "invalid Food at Home factor payload should not produce a storage payload");
 
 const savePayload = editor.buildLifestyleRangeSavePayload({
   accountId,
@@ -437,8 +635,12 @@ const initializeModel = editor.initializeHouseholdExpenseAccountPolicyAdminEdito
 assert.ok(initializeModel, "initializer should return a model when host exists");
 assert.equal(host.listenerType, "click", "initializer should attach a delegated click handler once");
 assert.match(host.innerHTML, /Lifestyle Range Overrides/);
+assert.match(host.innerHTML, /Food at Home Floor Assumptions/);
 assert.match(host.innerHTML, /data-household-expense-policy-save/);
 assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);
+assert.match(host.innerHTML, /data-food-at-home-floor-save/);
+assert.match(host.innerHTML, /data-food-at-home-floor-reset/);
 assert.doesNotMatch(host.innerHTML, /<select\b/);
+assert.doesNotMatch(host.innerHTML, /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/);
 
 console.log("household expense account policy admin editor checks passed");

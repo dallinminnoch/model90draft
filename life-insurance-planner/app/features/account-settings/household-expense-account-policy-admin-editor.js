@@ -7,6 +7,18 @@
 
   const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
   const POLICY_EDITOR_HOST_SELECTOR = "[data-household-expense-account-policy-editor]";
+  const FOOD_AT_HOME_BAND_KEYS = Object.freeze([
+    "infantToddler",
+    "youngChild",
+    "olderChild",
+    "teenMale",
+    "teenFemale",
+    "adultMale",
+    "adultFemale",
+    "adultUnknown",
+    "childUnknown"
+  ]);
+  const HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS = Object.freeze(["1", "2", "3", "4", "5", "6Plus"]);
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -63,6 +75,15 @@
     return Number.isFinite(numericValue) ? numericValue : null;
   }
 
+  function asOptionalFiniteNumber(value) {
+    if (value == null || String(value).trim() === "") {
+      return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
   function normalizeRatioForSave(value) {
     const numericValue = asFiniteNumber(value);
     return numericValue === null ? null : Number(numericValue.toFixed(4));
@@ -79,6 +100,20 @@
 
   function normalizeKey(value) {
     return String(value == null ? "" : value).trim();
+  }
+
+  function normalizeNullableText(value) {
+    const text = String(value == null ? "" : value).trim();
+    return text || null;
+  }
+
+  function normalizeFoodAtHomeSource(value) {
+    return normalizeNullableText(value) || "ADMIN_ENTERED";
+  }
+
+  function formatNumberInputValue(value) {
+    const numericValue = asOptionalFiniteNumber(value);
+    return numericValue === null ? "" : String(numericValue);
   }
 
   function getWarningList(source) {
@@ -171,6 +206,50 @@
     return Array.isArray(accountPolicy?.lifestyleRangeOverrides)
       ? accountPolicy.lifestyleRangeOverrides.filter(isPlainObject).map(clonePlainValue)
       : [];
+  }
+
+  function getLivingFloorAssumptions(accountPolicy) {
+    return isPlainObject(accountPolicy?.livingFloorAssumptions)
+      ? accountPolicy.livingFloorAssumptions
+      : {};
+  }
+
+  function getFoodAtHomeAssumptions(accountPolicy) {
+    const assumptions = getLivingFloorAssumptions(accountPolicy);
+    return isPlainObject(assumptions.foodAtHome) ? assumptions.foodAtHome : {};
+  }
+
+  function toFoodAtHomeBandEditorRows(monthlyAmountsByBand) {
+    const values = isPlainObject(monthlyAmountsByBand) ? monthlyAmountsByBand : {};
+    return FOOD_AT_HOME_BAND_KEYS.map(function (bandKey) {
+      return {
+        bandKey,
+        value: asOptionalFiniteNumber(values[bandKey]),
+        inputValue: formatNumberInputValue(values[bandKey])
+      };
+    });
+  }
+
+  function toHouseholdSizeFactorEditorRows(householdSizeAdjustmentFactors) {
+    const values = isPlainObject(householdSizeAdjustmentFactors) ? householdSizeAdjustmentFactors : {};
+    return HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.map(function (factorKey) {
+      return {
+        factorKey,
+        value: asOptionalFiniteNumber(values[factorKey]),
+        inputValue: formatNumberInputValue(values[factorKey])
+      };
+    });
+  }
+
+  function buildFoodAtHomeFloorAssumptionsEditorModel(accountPolicy) {
+    const foodAtHome = getFoodAtHomeAssumptions(accountPolicy);
+    return {
+      planningBucketKey: "foodAtHomeConsumables",
+      source: normalizeFoodAtHomeSource(foodAtHome.source),
+      sourcePeriod: normalizeNullableText(foodAtHome.sourcePeriod),
+      bandRows: toFoodAtHomeBandEditorRows(foodAtHome.monthlyAmountsByBand),
+      householdSizeAdjustmentFactorRows: toHouseholdSizeFactorEditorRows(foodAtHome.householdSizeAdjustmentFactors)
+    };
   }
 
   function rowMatchesPolicy(override, policy) {
@@ -315,6 +394,7 @@
         dataGaps: dataGaps.length
       },
       accountPolicy: accountPolicyForSave,
+      foodAtHomeFloorAssumptions: buildFoodAtHomeFloorAssumptionsEditorModel(accountPolicyForSave),
       limits: {
         maxElevatedCeilingRatio: getMaxElevatedCeilingRatio(currentLensAnalysis)
       },
@@ -328,8 +408,15 @@
         storageFallbackReason: storageResult?.metadata?.fallbackReason || null,
         policySource: status.code,
         resolverAvailable: typeof resolver === "function",
-        editableNamespace: "lifestyleRangeOverrides",
-        editableFields: ["conservativeFloorRatio", "elevatedCeilingRatio"],
+        editableNamespaces: ["lifestyleRangeOverrides", "livingFloorAssumptions.foodAtHome"],
+        editableFields: [
+          "conservativeFloorRatio",
+          "elevatedCeilingRatio",
+          "foodAtHome.source",
+          "foodAtHome.sourcePeriod",
+          "foodAtHome.monthlyAmountsByBand",
+          "foodAtHome.householdSizeAdjustmentFactors"
+        ],
         sparseOverridePayloadOnly: true
       }
     });
@@ -487,6 +574,170 @@
     });
   }
 
+  function createBlankFoodAtHomeFloorAssumptionsDraft() {
+    return {
+      source: "ADMIN_ENTERED",
+      sourcePeriod: null,
+      monthlyAmountsByBand: FOOD_AT_HOME_BAND_KEYS.reduce(function (values, bandKey) {
+        values[bandKey] = null;
+        return values;
+      }, {}),
+      householdSizeAdjustmentFactors: HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.reduce(function (values, factorKey) {
+        values[factorKey] = null;
+        return values;
+      }, {})
+    };
+  }
+
+  function normalizeOptionalDollarDraftValue(value, label, messages) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) {
+      return null;
+    }
+
+    const numericValue = asOptionalFiniteNumber(text);
+    if (numericValue === null) {
+      messages.push(`${label} must be a finite dollar amount.`);
+      return null;
+    }
+
+    if (numericValue < 0) {
+      messages.push(`${label} must be 0 or greater.`);
+      return null;
+    }
+
+    return Number(numericValue.toFixed(2));
+  }
+
+  function normalizeOptionalHouseholdFactorDraftValue(value, label, messages) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) {
+      return null;
+    }
+
+    const numericValue = asOptionalFiniteNumber(text);
+    if (numericValue === null) {
+      messages.push(`${label} must be a finite adjustment factor.`);
+      return null;
+    }
+
+    if (numericValue < 0.25 || numericValue > 3) {
+      messages.push(`${label} must be between 0.25 and 3.00.`);
+      return null;
+    }
+
+    return Number(numericValue.toFixed(4));
+  }
+
+  function validateFoodAtHomeFloorAssumptionsDraft(draft) {
+    const row = isPlainObject(draft) ? draft : {};
+    const monthlyAmountsByBand = isPlainObject(row.monthlyAmountsByBand) ? row.monthlyAmountsByBand : {};
+    const householdSizeAdjustmentFactors = isPlainObject(row.householdSizeAdjustmentFactors)
+      ? row.householdSizeAdjustmentFactors
+      : {};
+    const messages = [];
+
+    const normalizedMonthlyAmounts = FOOD_AT_HOME_BAND_KEYS.reduce(function (values, bandKey) {
+      values[bandKey] = normalizeOptionalDollarDraftValue(
+        monthlyAmountsByBand[bandKey],
+        `${bandKey} monthly amount`,
+        messages
+      );
+      return values;
+    }, {});
+
+    const normalizedHouseholdFactors = HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.reduce(function (values, factorKey) {
+      values[factorKey] = normalizeOptionalHouseholdFactorDraftValue(
+        householdSizeAdjustmentFactors[factorKey],
+        `${factorKey} household-size factor`,
+        messages
+      );
+      return values;
+    }, {});
+
+    return clonePlainValue({
+      valid: messages.length === 0,
+      foodAtHome: {
+        planningBucketKey: "foodAtHomeConsumables",
+        source: normalizeFoodAtHomeSource(row.source),
+        sourcePeriod: normalizeNullableText(row.sourcePeriod),
+        monthlyAmountsByBand: normalizedMonthlyAmounts,
+        householdSizeAdjustmentFactors: normalizedHouseholdFactors
+      },
+      validationMessages: messages,
+      trace: {
+        source: "admin-food-at-home-floor-assumptions-validation",
+        editableNamespace: "livingFloorAssumptions.foodAtHome",
+        invalidValues: messages.length
+      }
+    });
+  }
+
+  function buildAccountPolicyWithFoodAtHomeFloorAssumptions(existingAccountPolicy, foodAtHomeAssumptions, accountId) {
+    const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
+    const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
+    const existingLivingFloorAssumptions = getLivingFloorAssumptions(existing);
+    const nextLivingFloorAssumptions = Object.assign({}, clonePlainValue(existingLivingFloorAssumptions), {
+      version: Number.isFinite(Number(existingLivingFloorAssumptions.version))
+        ? Number(existingLivingFloorAssumptions.version)
+        : 1,
+      foodAtHome: clonePlainValue(foodAtHomeAssumptions)
+    });
+
+    return clonePlainValue({
+      version: Number.isFinite(Number(existing.version)) ? Number(existing.version) : 1,
+      lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
+        ? clonePlainValue(existing.lifestyleRangeOverrides)
+        : [],
+      compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
+        ? clonePlainValue(existing.compressionThresholdOverrides)
+        : [],
+      compressionPolicyOverrides: Array.isArray(existing.compressionPolicyOverrides)
+        ? clonePlainValue(existing.compressionPolicyOverrides)
+        : [],
+      guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
+      livingFloorAssumptions: nextLivingFloorAssumptions,
+      metadata: Object.assign({}, metadata, {
+        accountId: accountId || metadata.accountId || null,
+        source: metadata.source || "adminFoodAtHomeFloorEditorV1",
+        lastEditedNamespace: "livingFloorAssumptions.foodAtHome"
+      })
+    });
+  }
+
+  function buildFoodAtHomeFloorAssumptionsSavePayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    const validation = validateFoodAtHomeFloorAssumptionsDraft(options.draftFoodAtHome);
+    if (!validation.valid) {
+      return clonePlainValue({
+        valid: false,
+        validationMessages: validation.validationMessages,
+        trace: validation.trace
+      });
+    }
+
+    return clonePlainValue({
+      valid: true,
+      accountPolicy: buildAccountPolicyWithFoodAtHomeFloorAssumptions(
+        options.accountPolicy,
+        validation.foodAtHome,
+        options.accountId || TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID
+      ),
+      foodAtHome: validation.foodAtHome,
+      validationMessages: [],
+      trace: Object.assign({}, validation.trace, {
+        payloadShape: "account-policy-living-floor-food-at-home"
+      })
+    });
+  }
+
+  function buildFoodAtHomeFloorAssumptionsResetPayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    return buildFoodAtHomeFloorAssumptionsSavePayload(Object.assign({}, options, {
+      draftFoodAtHome: createBlankFoodAtHomeFloorAssumptionsDraft()
+    }));
+  }
+
   function renderOverrideStatus(status) {
     return status === "accountOverride" ? "Account override" : "Default";
   }
@@ -516,6 +767,103 @@
         <td>${renderResetButton(row)}</td>
         <td><span data-household-expense-policy-row-feedback data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}"></span></td>
       </tr>
+    `;
+  }
+
+  function renderFoodAtHomeBandEditorRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-food-at-home-floor-band-row="${escapeHtml(row.bandKey)}">
+          <td><code>${escapeHtml(row.bandKey)}</code></td>
+          <td>
+            <input class="admin-tax-bracket-input" type="number" step="0.01" min="0" value="${escapeHtml(row.inputValue)}" data-food-at-home-floor-input data-food-at-home-band-key="${escapeHtml(row.bandKey)}" aria-label="${escapeHtml(row.bandKey)} monthly amount">
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderFoodAtHomeHouseholdSizeFactorEditorRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-food-at-home-floor-household-size-row="${escapeHtml(row.factorKey)}">
+          <td><code>${escapeHtml(row.factorKey)}</code></td>
+          <td>
+            <input class="admin-tax-bracket-input" type="number" step="0.0001" min="0.25" max="3" value="${escapeHtml(row.inputValue)}" data-food-at-home-factor-input data-food-at-home-household-size-factor-key="${escapeHtml(row.factorKey)}" aria-label="${escapeHtml(row.factorKey)} household-size adjustment factor">
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderFoodAtHomeFloorAssumptionsEditor(foodAtHomeModel) {
+    const model = isPlainObject(foodAtHomeModel)
+      ? foodAtHomeModel
+      : buildFoodAtHomeFloorAssumptionsEditorModel({});
+    const bandRows = Array.isArray(model.bandRows) ? model.bandRows : [];
+    const factorRows = Array.isArray(model.householdSizeAdjustmentFactorRows)
+      ? model.householdSizeAdjustmentFactorRows
+      : [];
+
+    return `
+      <section class="admin-tax-bracket-group" data-food-at-home-floor-assumptions-editor>
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">Food at Home Floor Assumptions</span>
+            <h3>USDA-Style Band Values</h3>
+            <p class="panel-copy">Saves only <code>accountPolicy.livingFloorAssumptions.foodAtHome</code>. These values are stored for future floor calculations and are not used by runtime math yet.</p>
+          </div>
+          <div>
+            <button type="button" class="admin-action-button" data-food-at-home-floor-save>Save Food at Home</button>
+            <button type="button" class="admin-action-button" data-food-at-home-floor-reset>Clear Food at Home</button>
+          </div>
+        </div>
+        <div class="panel-copy" data-food-at-home-floor-editor-feedback role="status" aria-live="polite"></div>
+        <table class="admin-tax-bracket-table" data-food-at-home-floor-source-table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="admin-tax-bracket-row">
+              <td><code>source</code></td>
+              <td>
+                <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(model.source || "ADMIN_ENTERED")}" data-food-at-home-floor-source aria-label="Food at Home source">
+              </td>
+            </tr>
+            <tr class="admin-tax-bracket-row">
+              <td><code>sourcePeriod</code></td>
+              <td>
+                <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(model.sourcePeriod || "")}" data-food-at-home-floor-source-period aria-label="Food at Home source period">
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <table class="admin-tax-bracket-table" data-food-at-home-floor-band-inputs>
+          <thead>
+            <tr>
+              <th>Age/Sex Band</th>
+              <th>Monthly Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderFoodAtHomeBandEditorRows(bandRows)}
+          </tbody>
+        </table>
+        <table class="admin-tax-bracket-table" data-food-at-home-floor-household-size-factor-inputs>
+          <thead>
+            <tr>
+              <th>Household Size</th>
+              <th>Adjustment Factor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderFoodAtHomeHouseholdSizeFactorEditorRows(factorRows)}
+          </tbody>
+        </table>
+      </section>
     `;
   }
 
@@ -568,6 +916,7 @@
             </tbody>
           </table>
         </section>
+        ${renderFoodAtHomeFloorAssumptionsEditor(safeModel.foodAtHomeFloorAssumptions)}
       </div>
     `;
   }
@@ -586,6 +935,29 @@
     });
   }
 
+  function collectFoodAtHomeFloorDraftFromHost(host) {
+    const section = host?.querySelector?.("[data-food-at-home-floor-assumptions-editor]");
+    const monthlyAmountsByBand = {};
+    const householdSizeAdjustmentFactors = {};
+
+    FOOD_AT_HOME_BAND_KEYS.forEach(function (bandKey) {
+      const input = section?.querySelector?.(`[data-food-at-home-band-key="${bandKey}"]`);
+      monthlyAmountsByBand[bandKey] = input ? input.value : null;
+    });
+
+    HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.forEach(function (factorKey) {
+      const input = section?.querySelector?.(`[data-food-at-home-household-size-factor-key="${factorKey}"]`);
+      householdSizeAdjustmentFactors[factorKey] = input ? input.value : null;
+    });
+
+    return {
+      source: section?.querySelector?.("[data-food-at-home-floor-source]")?.value || "ADMIN_ENTERED",
+      sourcePeriod: section?.querySelector?.("[data-food-at-home-floor-source-period]")?.value || null,
+      monthlyAmountsByBand,
+      householdSizeAdjustmentFactors
+    };
+  }
+
   function clearEditorFeedback(host) {
     const sectionFeedback = host?.querySelector?.("[data-household-expense-policy-editor-feedback]");
     if (sectionFeedback) {
@@ -594,6 +966,13 @@
     Array.from(host?.querySelectorAll?.("[data-household-expense-policy-row-feedback]") || []).forEach(function (element) {
       element.textContent = "";
     });
+  }
+
+  function setFoodAtHomeFloorEditorFeedback(host, message) {
+    const sectionFeedback = host?.querySelector?.("[data-food-at-home-floor-editor-feedback]");
+    if (sectionFeedback) {
+      sectionFeedback.textContent = message || "";
+    }
   }
 
   function findRowFeedbackElement(host, expenseTypeKey) {
@@ -615,6 +994,16 @@
     if (sectionFeedback) {
       sectionFeedback.textContent = "Fix the highlighted lifestyle ratio values before saving.";
     }
+  }
+
+  function renderFoodAtHomeValidationMessages(host, validationMessages) {
+    const messages = Array.isArray(validationMessages) ? validationMessages : [];
+    setFoodAtHomeFloorEditorFeedback(
+      host,
+      messages.length
+        ? `Fix Food at Home floor assumptions before saving: ${messages.join(" ")}`
+        : ""
+    );
   }
 
   function rerenderEditorHost(host, model, message) {
@@ -757,6 +1146,107 @@
     return saveResult;
   }
 
+  function saveFoodAtHomeFloorAssumptions(host) {
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      setFoodAtHomeFloorEditorFeedback(host, "Household expense account policy storage is unavailable.");
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const payload = buildFoodAtHomeFloorAssumptionsSavePayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy,
+      draftFoodAtHome: collectFoodAtHomeFloorDraftFromHost(host)
+    });
+
+    if (!payload.valid) {
+      renderFoodAtHomeValidationMessages(host, payload.validationMessages);
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        trace: payload.trace
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-food-at-home-floor-editor"
+      },
+      storage: global.localStorage
+    });
+
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(host, nextModel);
+    setFoodAtHomeFloorEditorFeedback(
+      host,
+      saveResult?.saved
+        ? "Saved Food at Home floor assumptions."
+        : "Food at Home floor assumptions were not saved."
+    );
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
+  function resetFoodAtHomeFloorAssumptions(host) {
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      setFoodAtHomeFloorEditorFeedback(host, "Household expense account policy storage is unavailable.");
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const payload = buildFoodAtHomeFloorAssumptionsResetPayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy
+    });
+
+    if (!payload.valid) {
+      renderFoodAtHomeValidationMessages(host, payload.validationMessages);
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        trace: payload.trace
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-food-at-home-floor-editor"
+      },
+      storage: global.localStorage
+    });
+
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(host, nextModel);
+    setFoodAtHomeFloorEditorFeedback(
+      host,
+      saveResult?.saved
+        ? "Cleared Food at Home floor assumptions."
+        : "Food at Home floor assumptions were not cleared."
+    );
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
   function handleEditorClick(event) {
     const target = event?.target;
     const host = target?.closest?.(POLICY_EDITOR_HOST_SELECTOR);
@@ -768,6 +1258,20 @@
     if (saveButton) {
       event.preventDefault();
       saveLifestyleRangeEditorChanges(host);
+      return;
+    }
+
+    const foodAtHomeSaveButton = target.closest?.("[data-food-at-home-floor-save]");
+    if (foodAtHomeSaveButton) {
+      event.preventDefault();
+      saveFoodAtHomeFloorAssumptions(host);
+      return;
+    }
+
+    const foodAtHomeResetButton = target.closest?.("[data-food-at-home-floor-reset]");
+    if (foodAtHomeResetButton) {
+      event.preventDefault();
+      resetFoodAtHomeFloorAssumptions(host);
       return;
     }
 
@@ -795,14 +1299,24 @@
 
   accountSettings.householdExpenseAccountPolicyAdminEditor = Object.freeze({
     TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID,
+    FOOD_AT_HOME_BAND_KEYS,
+    HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS,
     buildLifestyleRangeEditorRows,
+    buildFoodAtHomeFloorAssumptionsEditorModel,
     validateLifestyleRatioDraftRow,
+    validateFoodAtHomeFloorAssumptionsDraft,
     buildSparseLifestyleRangeSavePlan,
     buildAccountPolicyWithLifestyleOverrides,
+    buildAccountPolicyWithFoodAtHomeFloorAssumptions,
     buildLifestyleRangeSavePayload,
+    buildFoodAtHomeFloorAssumptionsSavePayload,
+    buildFoodAtHomeFloorAssumptionsResetPayload,
     saveLifestyleRangeEditorChanges,
     resetLifestyleRangeEditorRow,
+    saveFoodAtHomeFloorAssumptions,
+    resetFoodAtHomeFloorAssumptions,
     buildHouseholdExpensePolicyEditorModel,
+    renderFoodAtHomeFloorAssumptionsEditor,
     renderHouseholdExpensePolicyEditor,
     initializeHouseholdExpenseAccountPolicyAdminEditor
   });
