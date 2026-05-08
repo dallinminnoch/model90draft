@@ -79,7 +79,7 @@
     }),
     Object.freeze({
       planningBucketKey: "housingCore",
-      planningBucketLabel: "Housing Core",
+      planningBucketLabel: "Housing",
       lifestyleTreatmentIncluded: false,
       lifestyleTreatmentReason: "protectedNeed",
       inflationBucketKey: "householdExpenseInflation"
@@ -226,7 +226,7 @@
     }),
     Object.freeze({
       planningBucketKey: "savingsGoalContributions",
-      planningBucketLabel: "Savings & Goal Contributions",
+      planningBucketLabel: "Savings / Goal Contributions",
       lifestyleTreatmentIncluded: true,
       lifestyleTreatmentReason: "pauseableGoalContribution",
       inflationBucketKey: "noInflationCurrentDollar"
@@ -1070,8 +1070,11 @@
     "annualInsurancePremiums"
   ]);
 
+  const PERIODIC_HOUSING_TYPE_KEYS = Object.freeze([
+    "annualPropertyTaxes"
+  ]);
+
   const PERIODIC_TAX_LEGAL_TYPE_KEYS = Object.freeze([
-    "annualPropertyTaxes",
     "legalSettlementJudgment",
     "taxBillTrueUp"
   ]);
@@ -1235,6 +1238,10 @@
       return "debtObligations";
     }
 
+    if (isSavingsContributionType(typeKey, categoryKey)) {
+      return "savingsGoalContributions";
+    }
+
     if (includesValue(FINAL_EXPENSE_CATEGORY_KEYS, categoryKey) || includesValue(PERIODIC_FINAL_EXPENSE_TYPE_KEYS, typeKey)) {
       return "finalExpenses";
     }
@@ -1245,10 +1252,6 @@
 
     if (includesValue(EDUCATION_CATEGORY_KEYS, categoryKey) || includesValue(PERIODIC_EDUCATION_TYPE_KEYS, typeKey)) {
       return "educationEnrichment";
-    }
-
-    if (isSavingsContributionType(typeKey, categoryKey)) {
-      return "savingsGoalContributions";
     }
 
     if (includesValue(HOUSEHOLD_SERVICES_TYPE_KEYS, typeKey)) {
@@ -1269,6 +1272,14 @@
 
     if (includesValue(SUBSCRIPTIONS_MEMBERSHIPS_TYPE_KEYS, typeKey)) {
       return "subscriptionsMemberships";
+    }
+
+    if (includesValue(PERIODIC_HOUSING_TYPE_KEYS, typeKey)) {
+      return "housingCore";
+    }
+
+    if (includesValue(VEHICLE_OWNERSHIP_MAINTENANCE_TYPE_KEYS, typeKey)) {
+      return "vehicleOwnershipMaintenance";
     }
 
     if (includesValue(PERIODIC_INSURANCE_TYPE_KEYS, typeKey) || categoryKey === "insurancePremiums") {

@@ -347,12 +347,19 @@ assertEntriesWithCategory(entries, FINAL_EXPENSE_CATEGORY_KEYS, {
   lifestyleTreatmentReason: "sourceOwnedFinalExpense",
   inflationBucketKey: "finalExpenseInflation"
 });
-assertEntriesWithCategory(entries, HEALTHCARE_CARE_CATEGORY_KEYS, {
-  planningBucketKey: "healthcareCare",
-  lifestyleTreatmentIncluded: false,
-  lifestyleTreatmentReason: "sourceOwnedHealthcare",
-  inflationBucketKey: "healthcareInflation"
-});
+entries
+  .filter(function (entry) {
+    return HEALTHCARE_CARE_CATEGORY_KEYS.includes(entry.categoryKey)
+      && entry.typeKey !== "hsaContributions";
+  })
+  .forEach(function (entry) {
+    assertEntry(entry, {
+      planningBucketKey: "healthcareCare",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "sourceOwnedHealthcare",
+      inflationBucketKey: "healthcareInflation"
+    });
+  });
 assertEntriesWithCategory(entries, EDUCATION_CATEGORY_KEYS, {
   planningBucketKey: "educationEnrichment",
   lifestyleTreatmentIncluded: false,
@@ -394,6 +401,34 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
   lifestyleTreatmentIncluded: true,
   lifestyleTreatmentReason: "pauseableGoalContribution",
   inflationBucketKey: "noInflationCurrentDollar"
+});
+
+[
+  ["hsaContributions", {
+    planningBucketKey: "savingsGoalContributions",
+    planningBucketLabel: "Savings / Goal Contributions",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "pauseableGoalContribution",
+    inflationBucketKey: "noInflationCurrentDollar"
+  }],
+  ["annualPropertyTaxes", {
+    planningBucketKey: "housingCore",
+    planningBucketLabel: "Housing",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "protectedNeed",
+    inflationBucketKey: "householdExpenseInflation"
+  }],
+  ["annualVehicleRegistration", {
+    planningBucketKey: "vehicleOwnershipMaintenance",
+    planningBucketLabel: "Vehicle Ownership / Maintenance",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }]
+].forEach(function ([typeKey, expected]) {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should exist`);
+  assertEntry(entry, expected);
 });
 
 [
@@ -448,10 +483,20 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
 });
 
 [
+  ["specialtyDietAllergyFoodPremium", "foodAtHomeConsumables", "lifestyleFlexible"],
+  ["schoolMeals", "educationEnrichment", "sourceOwnedEducation"],
+  ["earlyEducationChildcare", "educationEnrichment", "sourceOwnedEducation"],
+  ["childActivitiesSports", "educationEnrichment", "sourceOwnedEducation"],
+  ["extracurricularLessonsActivities", "childcareDependentSupport", "protectedNeed"],
+  ["youthSportsTravelSports", "childcareDependentSupport", "protectedNeed"],
   ["personalHygieneProducts", "personalLivingClothing", "lifestyleFlexible"],
   ["diapersBabySupplies", "childcareDependentSupport", "protectedNeed"],
   ["formulaInfantSupplies", "childcareDependentSupport", "protectedNeed"],
-  ["dryCleaningLaundry", "householdServices", "lifestyleFlexible"]
+  ["dryCleaningLaundry", "householdServices", "lifestyleFlexible"],
+  ["petFoodSupplies", "petsCoreCare", "protectedNeed"],
+  ["financialPlanningFees", "taxesLegalAdministrative", "legalTax"],
+  ["clientEntertainment", "businessSelfEmployment", "businessOrIncomePreserving"],
+  ["timeshareVacationClubFees", "travelVacations", "lifestyleFlexible"]
 ].forEach(function ([typeKey, planningBucketKey, lifestyleTreatmentReason]) {
   const entry = library.getExpenseLibraryEntry(typeKey);
   assert.ok(entry, `${typeKey} should exist`);
