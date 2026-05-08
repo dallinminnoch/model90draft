@@ -514,7 +514,7 @@
 
     expandablePolicy({
       expenseTypeKey: "houseCleaning",
-      categoryKey: "householdServices",
+      categoryKey: "housingExpense",
       displayName: "House Cleaning",
       conservativeFloorRatio: 0,
       elevatedCeilingRatio: 1.4,
@@ -526,7 +526,7 @@
     }),
     expandablePolicy({
       expenseTypeKey: "lawnSnowPestPoolServices",
-      categoryKey: "householdServices",
+      categoryKey: "housingExpense",
       displayName: "Lawn / Snow / Pest / Pool Services",
       conservativeFloorRatio: 0.25,
       elevatedCeilingRatio: 1.35,
@@ -538,7 +538,7 @@
     }),
     expandablePolicy({
       expenseTypeKey: "dryCleaningLaundry",
-      categoryKey: "householdServices",
+      categoryKey: "personalLiving",
       displayName: "Dry Cleaning / Laundry",
       conservativeFloorRatio: 0.25,
       elevatedCeilingRatio: 1.25,
@@ -550,7 +550,7 @@
     }),
     expandablePolicy({
       expenseTypeKey: "personalCare",
-      categoryKey: "personalCare",
+      categoryKey: "personalLiving",
       displayName: "Personal Care / Grooming",
       conservativeFloorRatio: 0.4,
       elevatedCeilingRatio: 1.25,
