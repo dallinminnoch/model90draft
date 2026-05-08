@@ -106,6 +106,13 @@
       inflationBucketKey: "householdExpenseInflation"
     }),
     Object.freeze({
+      planningBucketKey: "householdConsumables",
+      planningBucketLabel: "Household Consumables",
+      lifestyleTreatmentIncluded: true,
+      lifestyleTreatmentReason: "lifestyleFlexible",
+      inflationBucketKey: "householdExpenseInflation"
+    }),
+    Object.freeze({
       planningBucketKey: "diningTakeout",
       planningBucketLabel: "Dining / Takeout",
       lifestyleTreatmentIncluded: true,
@@ -992,7 +999,6 @@
     "diningOutRestaurants",
     "takeoutConvenienceFood",
     "mealDeliveryServices",
-    "groceryDeliveryFeesTips",
     "alcoholSocialBeverages"
   ]);
 
@@ -1254,7 +1260,7 @@
     }
 
     if (includesValue(HOUSEHOLD_CONSUMABLE_TYPE_KEYS, typeKey)) {
-      return "foodAtHomeConsumables";
+      return "householdConsumables";
     }
 
     if (includesValue(CHILDCARE_DEPENDENT_SUPPORT_TYPE_KEYS, typeKey)) {

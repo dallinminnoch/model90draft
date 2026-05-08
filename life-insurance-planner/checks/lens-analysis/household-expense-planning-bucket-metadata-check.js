@@ -16,6 +16,7 @@ const APPROVED_PLANNING_BUCKET_KEYS = Object.freeze([
   "basicUtilities",
   "communicationsConnectivity",
   "foodAtHomeConsumables",
+  "householdConsumables",
   "diningTakeout",
   "transportationBasics",
   "vehicleOwnershipMaintenance",
@@ -70,6 +71,7 @@ const EXPECTED_BUCKET_INFLATION = Object.freeze({
   basicUtilities: "householdExpenseInflation",
   communicationsConnectivity: "householdExpenseInflation",
   foodAtHomeConsumables: "householdExpenseInflation",
+  householdConsumables: "householdExpenseInflation",
   diningTakeout: "householdExpenseInflation",
   transportationBasics: "householdExpenseInflation",
   vehicleOwnershipMaintenance: "householdExpenseInflation",
@@ -396,7 +398,11 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
 
 [
   ["groceries", "foodAtHomeConsumables"],
-  ["householdConsumablesSupplies", "foodAtHomeConsumables"],
+  ["schoolLunches", "foodAtHomeConsumables"],
+  ["groceryDeliveryFeesTips", "foodAtHomeConsumables"],
+  ["specialtyDietAllergyFoodPremium", "foodAtHomeConsumables"],
+  ["householdConsumablesSupplies", "householdConsumables"],
+  ["householdSupplies", "householdConsumables"],
   ["diningTakeout", "diningTakeout"],
   ["householdServices", "householdServices"],
   ["houseCleaning", "householdServices"],
@@ -436,6 +442,22 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
   assertEntry(entry, {
     planningBucketKey,
     lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason,
+    inflationBucketKey: EXPECTED_BUCKET_INFLATION[planningBucketKey]
+  });
+});
+
+[
+  ["personalHygieneProducts", "personalLivingClothing", "lifestyleFlexible"],
+  ["diapersBabySupplies", "childcareDependentSupport", "protectedNeed"],
+  ["formulaInfantSupplies", "childcareDependentSupport", "protectedNeed"],
+  ["dryCleaningLaundry", "householdServices", "lifestyleFlexible"]
+].forEach(function ([typeKey, planningBucketKey, lifestyleTreatmentReason]) {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should exist`);
+  assertEntry(entry, {
+    planningBucketKey,
+    lifestyleTreatmentIncluded: lifestyleTreatmentReason === "lifestyleFlexible",
     lifestyleTreatmentReason,
     inflationBucketKey: EXPECTED_BUCKET_INFLATION[planningBucketKey]
   });
