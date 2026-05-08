@@ -121,6 +121,35 @@ function buildStateCostAdjustmentMultiplierDraft(overrides) {
   };
 }
 
+function buildModel90DefaultBucketFloorsDraft(overrides) {
+  return Object.assign({
+    householdConsumables: {
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: "120",
+      monthlyPerMemberAmount: "40",
+      stateAdjustmentEnabled: true,
+      notes: "Household supply default"
+    },
+    communicationsConnectivity: {
+      source: "",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: "95",
+      monthlyPerMemberAmount: "15",
+      stateAdjustmentEnabled: false,
+      notes: ""
+    },
+    transportationBasics: {
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyBaseAmount: "160",
+      monthlyPerAdultDriverAmount: "80",
+      stateAdjustmentEnabled: true,
+      notes: "Driver weighted"
+    }
+  }, overrides || {});
+}
+
 const preservedLivingFloorAssumptions = {
   version: 1,
   foodAtHome: {
@@ -231,6 +260,10 @@ assert.match(editorSource, /"foodAtHome\.monthlyAmountsByBand"/);
 assert.match(editorSource, /"foodAtHome\.householdSizeAdjustmentFactors"/);
 assert.match(editorSource, /"stateCostAdjustmentMultipliers\.defaultMultiplier"/);
 assert.match(editorSource, /"stateCostAdjustmentMultipliers\.globalStateAdjustmentMultipliersByState"/);
+assert.match(editorSource, /"model90DefaultBucketFloors\.monthlyBaseAmount"/);
+assert.match(editorSource, /"model90DefaultBucketFloors\.monthlyPerMemberAmount"/);
+assert.match(editorSource, /"model90DefaultBucketFloors\.monthlyPerAdultDriverAmount"/);
+assert.match(editorSource, /"model90DefaultBucketFloors\.stateAdjustmentEnabled"/);
 assert.match(editorSource, /saveHouseholdExpenseAccountPolicy/);
 assert.match(editorSource, /initializeHouseholdExpenseAccountPolicyAdminDisplay/);
 assert.match(editorSource, /data-food-at-home-floor-save/);
@@ -240,6 +273,11 @@ assert.match(editorSource, /data-state-cost-adjustment-default-multiplier/);
 assert.match(editorSource, /data-state-cost-adjustment-add-row/);
 assert.match(editorSource, /data-state-cost-adjustment-save/);
 assert.match(editorSource, /data-state-cost-adjustment-reset/);
+assert.match(editorSource, /data-model90-default-bucket-floors-editor/);
+assert.match(editorSource, /data-model90-default-bucket-floors-save/);
+assert.match(editorSource, /data-model90-default-bucket-floors-reset/);
+assert.match(editorSource, /data-model90-default-bucket-floor-monthly-base-amount/);
+assert.match(editorSource, /data-model90-default-bucket-floor-per-unit-amount/);
 assert.doesNotMatch(
   editorSource,
   /removeHouseholdExpenseAccountPolicy|\.setItem\s*\(|\.removeItem\s*\(|analysisSettings|clientRecords|profileRecord|updateClientRecord|saveAnalysisSetupSettings/
@@ -250,7 +288,7 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
   editorSource,
-  /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/
+  /data-state-cost-adjustment-multiplier-input|data-bucket-state-adjustment-multiplier-input/
 );
 
 const host = {
@@ -301,16 +339,22 @@ assert.equal(typeof editor.renderHouseholdExpensePolicyEditor, "function");
 assert.equal(typeof editor.buildLifestyleRangeSavePayload, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsEditorModel, "function");
 assert.equal(typeof editor.buildStateCostAdjustmentMultipliersEditorModel, "function");
+assert.equal(typeof editor.buildModel90DefaultBucketFloorsEditorModel, "function");
 assert.equal(typeof editor.validateFoodAtHomeFloorAssumptionsDraft, "function");
 assert.equal(typeof editor.validateStateCostAdjustmentMultipliersDraft, "function");
+assert.equal(typeof editor.validateModel90DefaultBucketFloorsDraft, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsSavePayload, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsResetPayload, "function");
 assert.equal(typeof editor.buildStateCostAdjustmentMultipliersSavePayload, "function");
 assert.equal(typeof editor.buildStateCostAdjustmentMultipliersResetPayload, "function");
+assert.equal(typeof editor.buildModel90DefaultBucketFloorsSavePayload, "function");
+assert.equal(typeof editor.buildModel90DefaultBucketFloorsResetPayload, "function");
 assert.equal(typeof editor.saveFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.resetFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.saveStateCostAdjustmentMultipliers, "function");
 assert.equal(typeof editor.resetStateCostAdjustmentMultipliers, "function");
+assert.equal(typeof editor.saveModel90DefaultBucketFloors, "function");
+assert.equal(typeof editor.resetModel90DefaultBucketFloors, "function");
 assert.equal(typeof editor.initializeHouseholdExpenseAccountPolicyAdminEditor, "function");
 assert.deepEqual(plain(editor.FOOD_AT_HOME_BAND_KEYS), [
   "infantToddler",
@@ -324,6 +368,11 @@ assert.deepEqual(plain(editor.FOOD_AT_HOME_BAND_KEYS), [
   "childUnknown"
 ], "Food at Home editor should expose all nine approved band keys");
 assert.deepEqual(plain(editor.HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS), ["1", "2", "3", "4", "5", "6Plus"], "Food at Home editor should expose all six household-size factor keys");
+assert.deepEqual(plain(editor.MODEL90_DEFAULT_BUCKET_FLOOR_KEYS), [
+  "householdConsumables",
+  "communicationsConnectivity",
+  "transportationBasics"
+], "MODEL90 default floor editor should expose the three money-floor default buckets");
 assert.ok(plain(editor.STATE_CODE_VALUES).includes("CO"), "State multiplier editor should expose USPS state codes");
 
 const defaultLifestyleRows = lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies();
@@ -346,6 +395,22 @@ assert.equal(missingModel.stateCostAdjustmentMultipliers.defaultMultiplier, 1, "
 assert.equal(missingModel.stateCostAdjustmentMultipliers.defaultMultiplierInputValue, "1", "empty State Cost editor should render default multiplier value");
 assert.equal(missingModel.stateCostAdjustmentMultipliers.globalStateRows.length, 0, "empty State Cost editor should render no state rows");
 assert.deepEqual(plain(missingModel.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers), {}, "empty State Cost editor should have no bucket-specific state rows");
+assert.equal(missingModel.model90DefaultBucketFloors.rows.length, 3, "empty MODEL90 default floor editor should render three bucket rows");
+assert.deepEqual(
+  plain(missingModel.model90DefaultBucketFloors.rows.map((row) => row.planningBucketKey)),
+  ["householdConsumables", "communicationsConnectivity", "transportationBasics"],
+  "MODEL90 default floor editor should render the required bucket keys"
+);
+assert.equal(
+  missingModel.model90DefaultBucketFloors.rows.every((row) => row.monthlyBaseAmountInputValue === "" && row.perUnitAmountInputValue === ""),
+  true,
+  "empty MODEL90 default floor amount inputs should render blank"
+);
+assert.equal(
+  missingModel.model90DefaultBucketFloors.rows.every((row) => row.stateAdjustmentEnabled === true),
+  true,
+  "empty MODEL90 default floor rows should default to state adjustment enabled"
+);
 assert.equal(
   missingModel.foodAtHomeFloorAssumptions.bandRows.every((row) => row.inputValue === ""),
   true,
@@ -405,6 +470,16 @@ assert.match(missingHtml, /data-state-cost-adjustment-add-row/);
 assert.match(missingHtml, /data-state-cost-adjustment-reset/);
 assert.match(missingHtml, /data-state-cost-adjustment-empty-row/);
 assert.match(missingHtml, /Bucket-specific state multipliers are preserved but not editable/);
+assert.match(missingHtml, /MODEL90 Default Floor Assumptions/);
+assert.match(missingHtml, /Money-Floor Bucket Defaults/);
+assert.match(missingHtml, /data-model90-default-bucket-floors-editor/);
+assert.match(missingHtml, /data-model90-default-bucket-floors-save/);
+assert.match(missingHtml, /data-model90-default-bucket-floors-reset/);
+assert.match(missingHtml, /data-model90-default-bucket-floor-bucket-key="householdConsumables"/);
+assert.match(missingHtml, /data-model90-default-bucket-floor-bucket-key="communicationsConnectivity"/);
+assert.match(missingHtml, /data-model90-default-bucket-floor-bucket-key="transportationBasics"/);
+assert.match(missingHtml, /data-model90-default-bucket-floor-per-unit-field="monthlyPerMemberAmount"/);
+assert.match(missingHtml, /data-model90-default-bucket-floor-per-unit-field="monthlyPerAdultDriverAmount"/);
 assert.equal(
   (missingHtml.match(/data-household-expense-policy-ratio-input/g) || []).length,
   defaultSliderEligibleRows.length * 2,
@@ -430,6 +505,21 @@ assert.equal(
   0,
   "State Cost editor should render no saved state-row multiplier inputs when empty"
 );
+assert.equal(
+  (missingHtml.match(/data-model90-default-bucket-floor-row/g) || []).length,
+  3,
+  "MODEL90 default floor editor should render one row per bucket"
+);
+assert.equal(
+  (missingHtml.match(/data-model90-default-bucket-floor-monthly-base-amount/g) || []).length,
+  3,
+  "MODEL90 default floor editor should render one monthly base input per bucket"
+);
+assert.equal(
+  (missingHtml.match(/data-model90-default-bucket-floor-per-unit-amount/g) || []).length,
+  3,
+  "MODEL90 default floor editor should render one per-unit input per bucket"
+);
 assert.doesNotMatch(
   missingHtml,
   /data-ratio-field="sliderEligible"|data-ratio-field="rangeBehavior"|data-ratio-field="canPause"|data-ratio-field="canReduceToZero"|data-ratio-field="compressionOrderGroup"|data-ratio-field="compressionOrderRank"|data-ratio-field="sourcePolicyDecision"|data-ratio-field="threshold/
@@ -437,8 +527,8 @@ assert.doesNotMatch(
 assert.doesNotMatch(missingHtml, /<select\b/);
 assert.doesNotMatch(
   missingHtml,
-  /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/,
-  "Food at Home slice should not render state multiplier or MODEL90 bucket floor inputs"
+  /data-state-cost-adjustment-multiplier-input|data-bucket-state-adjustment-multiplier-input/,
+  "Admin floor editor should not render bucket-specific state multiplier inputs"
 );
 
 const existingAccountPolicy = {
@@ -624,6 +714,109 @@ assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssu
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "State Cost reset should preserve threshold namespace");
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "State Cost reset should preserve compression namespace");
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "State Cost reset should preserve guardrails");
+
+const model90DefaultFloorsModel = editor.buildModel90DefaultBucketFloorsEditorModel(existingAccountPolicy);
+assert.equal(model90DefaultFloorsModel.rows.length, 3, "MODEL90 default floor model should render three rows");
+assert.equal(
+  model90DefaultFloorsModel.rows.find((row) => row.planningBucketKey === "householdConsumables").monthlyBaseAmountInputValue,
+  "110",
+  "MODEL90 default floor model should read saved household consumables base amount"
+);
+assert.equal(
+  model90DefaultFloorsModel.rows.find((row) => row.planningBucketKey === "transportationBasics").perUnitField,
+  "monthlyPerAdultDriverAmount",
+  "transportationBasics should use monthlyPerAdultDriverAmount"
+);
+const model90DefaultFloorsHtml = editor.renderModel90DefaultBucketFloorsEditor(model90DefaultFloorsModel);
+assert.match(model90DefaultFloorsHtml, /householdConsumables/);
+assert.match(model90DefaultFloorsHtml, /communicationsConnectivity/);
+assert.match(model90DefaultFloorsHtml, /transportationBasics/);
+assert.match(model90DefaultFloorsHtml, /value="110"/);
+assert.match(model90DefaultFloorsHtml, /monthlyPerAdultDriverAmount/);
+assert.doesNotMatch(model90DefaultFloorsHtml, /data-bucket-state-adjustment-multiplier-input/);
+
+const model90DefaultFloorsPayload = editor.buildModel90DefaultBucketFloorsSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftModel90DefaultBucketFloors: buildModel90DefaultBucketFloorsDraft()
+});
+assert.equal(model90DefaultFloorsPayload.valid, true, "valid MODEL90 default bucket floors should be accepted");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.householdConsumables.monthlyBaseAmount, 120, "householdConsumables base amount should save");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.householdConsumables.monthlyPerMemberAmount, 40, "householdConsumables per-member amount should save");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.communicationsConnectivity.monthlyBaseAmount, 95, "communications base amount should save");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.communicationsConnectivity.monthlyPerMemberAmount, 15, "communications per-member amount should save");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.communicationsConnectivity.stateAdjustmentEnabled, false, "stateAdjustmentEnabled should save as a boolean");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.communicationsConnectivity.source, "ADMIN_ENTERED", "blank MODEL90 default floor source should default to ADMIN_ENTERED");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.transportationBasics.monthlyBaseAmount, 160, "transportation base amount should save");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.transportationBasics.monthlyPerAdultDriverAmount, 80, "transportation adult-driver amount should save");
+assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.foodAtHome), existingAccountPolicy.livingFloorAssumptions.foodAtHome, "MODEL90 default floor save should preserve Food at Home assumptions");
+assert.deepEqual(
+  plain(model90DefaultFloorsPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers),
+  existingAccountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers,
+  "MODEL90 default floor save should preserve state multipliers including bucket-specific rows"
+);
+assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.lifestyleRangeOverrides), [], "MODEL90 default floor save should preserve lifestyle overrides");
+assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "MODEL90 default floor save should preserve threshold namespace");
+assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "MODEL90 default floor save should preserve compression namespace");
+assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "MODEL90 default floor save should preserve guardrails");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.metadata.source, "existing-policy", "MODEL90 default floor save should preserve metadata source");
+assert.equal(model90DefaultFloorsPayload.accountPolicy.metadata.lastEditedNamespace, "livingFloorAssumptions.model90DefaultBucketFloors");
+assert.equal(JSON.parse(JSON.stringify(model90DefaultFloorsPayload)).valid, true, "MODEL90 default floor save payload should be JSON serializable");
+
+const model90DefaultFloorsStorage = createFakeStorage();
+const model90DefaultFloorsSaveResult = storage.saveHouseholdExpenseAccountPolicy({
+  accountId,
+  accountPolicy: model90DefaultFloorsPayload.accountPolicy,
+  metadata: { updatedBy: "model90-default-floors-check" },
+  storage: model90DefaultFloorsStorage
+});
+assert.equal(model90DefaultFloorsSaveResult.saved, true, "valid MODEL90 default floors should save through the storage adapter");
+assert.deepEqual(
+  model90DefaultFloorsStorage.getWrites().map((write) => write.key),
+  [storage.createHouseholdExpenseAccountPolicyStorageKey(accountId)],
+  "MODEL90 default floor save should write only the household expense account policy key"
+);
+const model90DefaultFloorsDisplayModel = display.buildHouseholdExpensePolicyDisplayModel({
+  accountId,
+  storage: model90DefaultFloorsStorage
+});
+const model90DefaultFloorsDisplayHtml = display.renderHouseholdExpensePolicyDisplay(model90DefaultFloorsDisplayModel);
+assert.match(model90DefaultFloorsDisplayHtml, /\$120\.00/, "read-only display should render saved household consumables base amount");
+assert.match(model90DefaultFloorsDisplayHtml, /\$80\.00/, "read-only display should render saved transportation adult-driver amount");
+
+const model90DefaultFloorsResetPayload = editor.buildModel90DefaultBucketFloorsResetPayload({
+  accountId,
+  accountPolicy: model90DefaultFloorsPayload.accountPolicy
+});
+assert.equal(model90DefaultFloorsResetPayload.valid, true, "MODEL90 default floor reset payload should be valid");
+assert.equal(model90DefaultFloorsResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.householdConsumables.monthlyBaseAmount, null, "MODEL90 default floor reset should clear base amount");
+assert.equal(model90DefaultFloorsResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.householdConsumables.monthlyPerMemberAmount, null, "MODEL90 default floor reset should clear per-member amount");
+assert.equal(model90DefaultFloorsResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.transportationBasics.monthlyPerAdultDriverAmount, null, "MODEL90 default floor reset should clear adult-driver amount");
+assert.equal(model90DefaultFloorsResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors.transportationBasics.stateAdjustmentEnabled, true, "MODEL90 default floor reset should restore state adjustment enabled");
+assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome), existingAccountPolicy.livingFloorAssumptions.foodAtHome, "MODEL90 default floor reset should preserve Food at Home assumptions");
+assert.deepEqual(
+  plain(model90DefaultFloorsResetPayload.accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers),
+  existingAccountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers,
+  "MODEL90 default floor reset should preserve state multipliers including bucket-specific rows"
+);
+assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "MODEL90 default floor reset should preserve threshold namespace");
+assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "MODEL90 default floor reset should preserve compression namespace");
+assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "MODEL90 default floor reset should preserve guardrails");
+
+const invalidModel90DefaultFloorPayload = editor.buildModel90DefaultBucketFloorsSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  draftModel90DefaultBucketFloors: buildModel90DefaultBucketFloorsDraft({
+    householdConsumables: {
+      monthlyBaseAmount: "-1",
+      monthlyPerMemberAmount: "40",
+      stateAdjustmentEnabled: true
+    }
+  })
+});
+assert.equal(invalidModel90DefaultFloorPayload.valid, false, "negative MODEL90 default floor dollar values should be rejected before save");
+assert.match(invalidModel90DefaultFloorPayload.validationMessages.join(" "), /householdConsumables monthlyBaseAmount/);
+assert.equal(Object.prototype.hasOwnProperty.call(invalidModel90DefaultFloorPayload, "accountPolicy"), false, "invalid MODEL90 default floor payload should not produce a storage payload");
 
 const invalidStateCodePayload = editor.buildStateCostAdjustmentMultipliersSavePayload({
   accountId,
@@ -852,7 +1045,10 @@ assert.match(host.innerHTML, /State Cost Adjustment Multipliers/);
 assert.match(host.innerHTML, /data-state-cost-adjustment-save/);
 assert.match(host.innerHTML, /data-state-cost-adjustment-add-row/);
 assert.match(host.innerHTML, /data-state-cost-adjustment-reset/);
+assert.match(host.innerHTML, /MODEL90 Default Floor Assumptions/);
+assert.match(host.innerHTML, /data-model90-default-bucket-floors-save/);
+assert.match(host.innerHTML, /data-model90-default-bucket-floors-reset/);
 assert.doesNotMatch(host.innerHTML, /<select\b/);
-assert.doesNotMatch(host.innerHTML, /data-state-cost-adjustment-multiplier-input|data-model90-default-bucket-floor-input|data-bucket-state-adjustment-multiplier-input/);
+assert.doesNotMatch(host.innerHTML, /data-state-cost-adjustment-multiplier-input|data-bucket-state-adjustment-multiplier-input/);
 
 console.log("household expense account policy admin editor checks passed");

@@ -19,6 +19,28 @@
     "childUnknown"
   ]);
   const HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS = Object.freeze(["1", "2", "3", "4", "5", "6Plus"]);
+  const MODEL90_DEFAULT_BUCKET_FLOOR_KEYS = Object.freeze([
+    "householdConsumables",
+    "communicationsConnectivity",
+    "transportationBasics"
+  ]);
+  const MODEL90_DEFAULT_BUCKET_FLOOR_CONFIG = Object.freeze({
+    householdConsumables: Object.freeze({
+      planningBucketLabel: "Household Consumables",
+      perUnitField: "monthlyPerMemberAmount",
+      perUnitLabel: "Monthly Per Member"
+    }),
+    communicationsConnectivity: Object.freeze({
+      planningBucketLabel: "Communications / Connectivity",
+      perUnitField: "monthlyPerMemberAmount",
+      perUnitLabel: "Monthly Per Member"
+    }),
+    transportationBasics: Object.freeze({
+      planningBucketLabel: "Transportation Basics",
+      perUnitField: "monthlyPerAdultDriverAmount",
+      perUnitLabel: "Monthly Per Adult Driver"
+    })
+  });
   const STATE_CODE_VALUES = Object.freeze([
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
     "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
@@ -120,6 +142,10 @@
   }
 
   function normalizeStateMultiplierSource(value) {
+    return normalizeNullableText(value) || "ADMIN_ENTERED";
+  }
+
+  function normalizeModel90DefaultFloorSource(value) {
     return normalizeNullableText(value) || "ADMIN_ENTERED";
   }
 
@@ -252,6 +278,13 @@
       : {};
   }
 
+  function getModel90DefaultBucketFloors(accountPolicy) {
+    const assumptions = getLivingFloorAssumptions(accountPolicy);
+    return isPlainObject(assumptions.model90DefaultBucketFloors)
+      ? assumptions.model90DefaultBucketFloors
+      : {};
+  }
+
   function toFoodAtHomeBandEditorRows(monthlyAmountsByBand) {
     const values = isPlainObject(monthlyAmountsByBand) ? monthlyAmountsByBand : {};
     return FOOD_AT_HOME_BAND_KEYS.map(function (bandKey) {
@@ -314,6 +347,35 @@
       bucketStateAdjustmentMultipliers: isPlainObject(stateMultipliers.bucketStateAdjustmentMultipliers)
         ? clonePlainValue(stateMultipliers.bucketStateAdjustmentMultipliers)
         : {}
+    };
+  }
+
+  function toModel90DefaultBucketFloorEditorRows(model90DefaultBucketFloors) {
+    const floors = isPlainObject(model90DefaultBucketFloors) ? model90DefaultBucketFloors : {};
+    return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.map(function (planningBucketKey) {
+      const config = MODEL90_DEFAULT_BUCKET_FLOOR_CONFIG[planningBucketKey];
+      const row = isPlainObject(floors[planningBucketKey]) ? floors[planningBucketKey] : {};
+      const perUnitField = config.perUnitField;
+      return {
+        planningBucketKey,
+        planningBucketLabel: config.planningBucketLabel,
+        perUnitField,
+        perUnitLabel: config.perUnitLabel,
+        monthlyBaseAmount: asOptionalFiniteNumber(row.monthlyBaseAmount),
+        monthlyBaseAmountInputValue: formatNumberInputValue(row.monthlyBaseAmount),
+        perUnitAmount: asOptionalFiniteNumber(row[perUnitField]),
+        perUnitAmountInputValue: formatNumberInputValue(row[perUnitField]),
+        stateAdjustmentEnabled: row.stateAdjustmentEnabled !== false,
+        source: normalizeModel90DefaultFloorSource(row.source),
+        sourcePeriod: normalizeNullableText(row.sourcePeriod),
+        notes: normalizeNullableText(row.notes)
+      };
+    });
+  }
+
+  function buildModel90DefaultBucketFloorsEditorModel(accountPolicy) {
+    return {
+      rows: toModel90DefaultBucketFloorEditorRows(getModel90DefaultBucketFloors(accountPolicy))
     };
   }
 
@@ -461,6 +523,7 @@
       accountPolicy: accountPolicyForSave,
       foodAtHomeFloorAssumptions: buildFoodAtHomeFloorAssumptionsEditorModel(accountPolicyForSave),
       stateCostAdjustmentMultipliers: buildStateCostAdjustmentMultipliersEditorModel(accountPolicyForSave),
+      model90DefaultBucketFloors: buildModel90DefaultBucketFloorsEditorModel(accountPolicyForSave),
       limits: {
         maxElevatedCeilingRatio: getMaxElevatedCeilingRatio(currentLensAnalysis)
       },
@@ -477,7 +540,8 @@
         editableNamespaces: [
           "lifestyleRangeOverrides",
           "livingFloorAssumptions.foodAtHome",
-          "livingFloorAssumptions.stateCostAdjustmentMultipliers"
+          "livingFloorAssumptions.stateCostAdjustmentMultipliers",
+          "livingFloorAssumptions.model90DefaultBucketFloors"
         ],
         editableFields: [
           "conservativeFloorRatio",
@@ -487,7 +551,11 @@
           "foodAtHome.monthlyAmountsByBand",
           "foodAtHome.householdSizeAdjustmentFactors",
           "stateCostAdjustmentMultipliers.defaultMultiplier",
-          "stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState"
+          "stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState",
+          "model90DefaultBucketFloors.monthlyBaseAmount",
+          "model90DefaultBucketFloors.monthlyPerMemberAmount",
+          "model90DefaultBucketFloors.monthlyPerAdultDriverAmount",
+          "model90DefaultBucketFloors.stateAdjustmentEnabled"
         ],
         sparseOverridePayloadOnly: true
       }
@@ -659,6 +727,21 @@
         return values;
       }, {})
     };
+  }
+
+  function createBlankModel90DefaultBucketFloorsDraft() {
+    return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.reduce(function (floors, planningBucketKey) {
+      const config = MODEL90_DEFAULT_BUCKET_FLOOR_CONFIG[planningBucketKey];
+      floors[planningBucketKey] = {
+        source: "ADMIN_ENTERED",
+        sourcePeriod: null,
+        monthlyBaseAmount: null,
+        [config.perUnitField]: null,
+        stateAdjustmentEnabled: true,
+        notes: null
+      };
+      return floors;
+    }, {});
   }
 
   function normalizeOptionalDollarDraftValue(value, label, messages) {
@@ -900,6 +983,50 @@
     });
   }
 
+  function validateModel90DefaultBucketFloorsDraft(draft) {
+    const row = isPlainObject(draft) ? draft : {};
+    const messages = [];
+    const model90DefaultBucketFloors = MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.reduce(function (floors, planningBucketKey) {
+      const config = MODEL90_DEFAULT_BUCKET_FLOOR_CONFIG[planningBucketKey];
+      const sourceRow = isPlainObject(row[planningBucketKey]) ? row[planningBucketKey] : {};
+      const monthlyBaseAmount = normalizeOptionalDollarDraftValue(
+        sourceRow.monthlyBaseAmount,
+        `${planningBucketKey} monthlyBaseAmount`,
+        messages
+      );
+      const perUnitAmount = normalizeOptionalDollarDraftValue(
+        sourceRow[config.perUnitField],
+        `${planningBucketKey} ${config.perUnitField}`,
+        messages
+      );
+
+      floors[planningBucketKey] = {
+        planningBucketKey,
+        source: normalizeModel90DefaultFloorSource(sourceRow.source),
+        sourcePeriod: normalizeNullableText(sourceRow.sourcePeriod),
+        monthlyBaseAmount,
+        [config.perUnitField]: perUnitAmount,
+        stateAdjustmentEnabled: Object.prototype.hasOwnProperty.call(sourceRow, "stateAdjustmentEnabled")
+          ? sourceRow.stateAdjustmentEnabled === true
+          : true,
+        notes: normalizeNullableText(sourceRow.notes)
+      };
+      return floors;
+    }, {});
+
+    return clonePlainValue({
+      valid: messages.length === 0,
+      model90DefaultBucketFloors,
+      validationMessages: messages,
+      trace: {
+        source: "admin-model90-default-bucket-floors-validation",
+        editableNamespace: "livingFloorAssumptions.model90DefaultBucketFloors",
+        bucketRows: MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.length,
+        invalidValues: messages.length
+      }
+    });
+  }
+
   function buildAccountPolicyWithStateCostAdjustmentMultipliers(existingAccountPolicy, stateCostAdjustmentMultipliers, accountId) {
     const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
     const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
@@ -942,6 +1069,38 @@
     });
   }
 
+  function buildAccountPolicyWithModel90DefaultBucketFloors(existingAccountPolicy, model90DefaultBucketFloors, accountId) {
+    const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
+    const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
+    const existingLivingFloorAssumptions = getLivingFloorAssumptions(existing);
+    const nextLivingFloorAssumptions = Object.assign({}, clonePlainValue(existingLivingFloorAssumptions), {
+      version: Number.isFinite(Number(existingLivingFloorAssumptions.version))
+        ? Number(existingLivingFloorAssumptions.version)
+        : 1,
+      model90DefaultBucketFloors: clonePlainValue(model90DefaultBucketFloors)
+    });
+
+    return clonePlainValue({
+      version: Number.isFinite(Number(existing.version)) ? Number(existing.version) : 1,
+      lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
+        ? clonePlainValue(existing.lifestyleRangeOverrides)
+        : [],
+      compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
+        ? clonePlainValue(existing.compressionThresholdOverrides)
+        : [],
+      compressionPolicyOverrides: Array.isArray(existing.compressionPolicyOverrides)
+        ? clonePlainValue(existing.compressionPolicyOverrides)
+        : [],
+      guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
+      livingFloorAssumptions: nextLivingFloorAssumptions,
+      metadata: Object.assign({}, metadata, {
+        accountId: accountId || metadata.accountId || null,
+        source: metadata.source || "adminModel90DefaultBucketFloorsEditorV1",
+        lastEditedNamespace: "livingFloorAssumptions.model90DefaultBucketFloors"
+      })
+    });
+  }
+
   function buildStateCostAdjustmentMultipliersSavePayload(input) {
     const options = isPlainObject(input) ? input : {};
     const validation = validateStateCostAdjustmentMultipliersDraft(options.draftStateCostAdjustmentMultipliers);
@@ -975,6 +1134,39 @@
         defaultMultiplier: 1,
         globalStateRows: []
       }
+    }));
+  }
+
+  function buildModel90DefaultBucketFloorsSavePayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    const validation = validateModel90DefaultBucketFloorsDraft(options.draftModel90DefaultBucketFloors);
+    if (!validation.valid) {
+      return clonePlainValue({
+        valid: false,
+        validationMessages: validation.validationMessages,
+        trace: validation.trace
+      });
+    }
+
+    return clonePlainValue({
+      valid: true,
+      accountPolicy: buildAccountPolicyWithModel90DefaultBucketFloors(
+        options.accountPolicy,
+        validation.model90DefaultBucketFloors,
+        options.accountId || TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID
+      ),
+      model90DefaultBucketFloors: validation.model90DefaultBucketFloors,
+      validationMessages: [],
+      trace: Object.assign({}, validation.trace, {
+        payloadShape: "account-policy-living-floor-model90-default-bucket-floors"
+      })
+    });
+  }
+
+  function buildModel90DefaultBucketFloorsResetPayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    return buildModel90DefaultBucketFloorsSavePayload(Object.assign({}, options, {
+      draftModel90DefaultBucketFloors: createBlankModel90DefaultBucketFloorsDraft()
     }));
   }
 
@@ -1207,6 +1399,78 @@
     `;
   }
 
+  function renderModel90DefaultBucketFloorRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-model90-default-bucket-floor-row data-model90-default-bucket-floor-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>
+            <strong>${escapeHtml(row.planningBucketLabel)}</strong><br>
+            <code>${escapeHtml(row.planningBucketKey)}</code>
+          </td>
+          <td>
+            <input class="admin-tax-bracket-input" type="number" step="0.01" min="0" value="${escapeHtml(row.monthlyBaseAmountInputValue)}" data-model90-default-bucket-floor-monthly-base-amount aria-label="${escapeHtml(row.planningBucketLabel)} monthly base amount">
+          </td>
+          <td>
+            <input class="admin-tax-bracket-input" type="number" step="0.01" min="0" value="${escapeHtml(row.perUnitAmountInputValue)}" data-model90-default-bucket-floor-per-unit-amount data-model90-default-bucket-floor-per-unit-field="${escapeHtml(row.perUnitField)}" aria-label="${escapeHtml(row.planningBucketLabel)} ${escapeHtml(row.perUnitLabel)}">
+            <div class="panel-copy"><code>${escapeHtml(row.perUnitField)}</code></div>
+          </td>
+          <td>
+            <input type="checkbox" ${row.stateAdjustmentEnabled ? "checked" : ""} data-model90-default-bucket-floor-state-adjustment-enabled aria-label="${escapeHtml(row.planningBucketLabel)} state adjustment enabled">
+          </td>
+          <td>
+            <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.source || "ADMIN_ENTERED")}" data-model90-default-bucket-floor-source aria-label="${escapeHtml(row.planningBucketLabel)} source">
+          </td>
+          <td>
+            <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.sourcePeriod || "")}" data-model90-default-bucket-floor-source-period aria-label="${escapeHtml(row.planningBucketLabel)} source period">
+          </td>
+          <td>
+            <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.notes || "")}" data-model90-default-bucket-floor-notes aria-label="${escapeHtml(row.planningBucketLabel)} notes">
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderModel90DefaultBucketFloorsEditor(model90DefaultBucketFloorsModel) {
+    const model = isPlainObject(model90DefaultBucketFloorsModel)
+      ? model90DefaultBucketFloorsModel
+      : buildModel90DefaultBucketFloorsEditorModel({});
+    const rows = Array.isArray(model.rows) ? model.rows : [];
+
+    return `
+      <section class="admin-tax-bracket-group" data-model90-default-bucket-floors-editor>
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">MODEL90 Default Floor Assumptions</span>
+            <h3>Money-Floor Bucket Defaults</h3>
+            <p class="panel-copy">Saves only <code>accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors</code>. These values are stored for future living-floor calculations and are not used by runtime math yet.</p>
+          </div>
+          <div>
+            <button type="button" class="admin-action-button" data-model90-default-bucket-floors-save>Save MODEL90 Defaults</button>
+            <button type="button" class="admin-action-button" data-model90-default-bucket-floors-reset>Clear MODEL90 Defaults</button>
+          </div>
+        </div>
+        <div class="panel-copy" data-model90-default-bucket-floors-editor-feedback role="status" aria-live="polite"></div>
+        <table class="admin-tax-bracket-table" data-model90-default-bucket-floors-table>
+          <thead>
+            <tr>
+              <th>Bucket</th>
+              <th>Monthly Base</th>
+              <th>Per-Unit Amount</th>
+              <th>State Adjusted</th>
+              <th>Source</th>
+              <th>Source Period</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderModel90DefaultBucketFloorRows(rows)}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
   function renderHouseholdExpensePolicyEditor(model) {
     const safeModel = isPlainObject(model) ? model : buildHouseholdExpensePolicyEditorModel();
     const rows = Array.isArray(safeModel.rows) ? safeModel.rows : [];
@@ -1258,6 +1522,7 @@
         </section>
         ${renderFoodAtHomeFloorAssumptionsEditor(safeModel.foodAtHomeFloorAssumptions)}
         ${renderStateCostAdjustmentMultipliersEditor(safeModel.stateCostAdjustmentMultipliers)}
+        ${renderModel90DefaultBucketFloorsEditor(safeModel.model90DefaultBucketFloors)}
       </div>
     `;
   }
@@ -1319,6 +1584,23 @@
     };
   }
 
+  function collectModel90DefaultBucketFloorsDraftFromHost(host) {
+    const section = host?.querySelector?.("[data-model90-default-bucket-floors-editor]");
+    return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.reduce(function (floors, planningBucketKey) {
+      const row = section?.querySelector?.(`[data-model90-default-bucket-floor-bucket-key="${planningBucketKey}"]`);
+      const perUnitField = MODEL90_DEFAULT_BUCKET_FLOOR_CONFIG[planningBucketKey].perUnitField;
+      floors[planningBucketKey] = {
+        source: row?.querySelector?.("[data-model90-default-bucket-floor-source]")?.value || "ADMIN_ENTERED",
+        sourcePeriod: row?.querySelector?.("[data-model90-default-bucket-floor-source-period]")?.value || null,
+        monthlyBaseAmount: row?.querySelector?.("[data-model90-default-bucket-floor-monthly-base-amount]")?.value || null,
+        [perUnitField]: row?.querySelector?.("[data-model90-default-bucket-floor-per-unit-amount]")?.value || null,
+        stateAdjustmentEnabled: row?.querySelector?.("[data-model90-default-bucket-floor-state-adjustment-enabled]")?.checked === true,
+        notes: row?.querySelector?.("[data-model90-default-bucket-floor-notes]")?.value || null
+      };
+      return floors;
+    }, {});
+  }
+
   function clearEditorFeedback(host) {
     const sectionFeedback = host?.querySelector?.("[data-household-expense-policy-editor-feedback]");
     if (sectionFeedback) {
@@ -1338,6 +1620,13 @@
 
   function setStateCostAdjustmentEditorFeedback(host, message) {
     const sectionFeedback = host?.querySelector?.("[data-state-cost-adjustment-editor-feedback]");
+    if (sectionFeedback) {
+      sectionFeedback.textContent = message || "";
+    }
+  }
+
+  function setModel90DefaultBucketFloorsEditorFeedback(host, message) {
+    const sectionFeedback = host?.querySelector?.("[data-model90-default-bucket-floors-editor-feedback]");
     if (sectionFeedback) {
       sectionFeedback.textContent = message || "";
     }
@@ -1380,6 +1669,16 @@
       host,
       messages.length
         ? `Fix State Cost Adjustment Multipliers before saving: ${messages.join(" ")}`
+        : ""
+    );
+  }
+
+  function renderModel90DefaultBucketFloorsValidationMessages(host, validationMessages) {
+    const messages = Array.isArray(validationMessages) ? validationMessages : [];
+    setModel90DefaultBucketFloorsEditorFeedback(
+      host,
+      messages.length
+        ? `Fix MODEL90 Default Floor Assumptions before saving: ${messages.join(" ")}`
         : ""
     );
   }
@@ -1757,6 +2056,107 @@
     return saveResult;
   }
 
+  function saveModel90DefaultBucketFloors(host) {
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      setModel90DefaultBucketFloorsEditorFeedback(host, "Household expense account policy storage is unavailable.");
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const payload = buildModel90DefaultBucketFloorsSavePayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy,
+      draftModel90DefaultBucketFloors: collectModel90DefaultBucketFloorsDraftFromHost(host)
+    });
+
+    if (!payload.valid) {
+      renderModel90DefaultBucketFloorsValidationMessages(host, payload.validationMessages);
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        trace: payload.trace
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-model90-default-bucket-floors-editor"
+      },
+      storage: global.localStorage
+    });
+
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(host, nextModel);
+    setModel90DefaultBucketFloorsEditorFeedback(
+      host,
+      saveResult?.saved
+        ? "Saved MODEL90 default floor assumptions."
+        : "MODEL90 default floor assumptions were not saved."
+    );
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
+  function resetModel90DefaultBucketFloors(host) {
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      setModel90DefaultBucketFloorsEditorFeedback(host, "Household expense account policy storage is unavailable.");
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const payload = buildModel90DefaultBucketFloorsResetPayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy
+    });
+
+    if (!payload.valid) {
+      renderModel90DefaultBucketFloorsValidationMessages(host, payload.validationMessages);
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        trace: payload.trace
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-model90-default-bucket-floors-editor"
+      },
+      storage: global.localStorage
+    });
+
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(host, nextModel);
+    setModel90DefaultBucketFloorsEditorFeedback(
+      host,
+      saveResult?.saved
+        ? "Cleared MODEL90 default floor assumptions."
+        : "MODEL90 default floor assumptions were not cleared."
+    );
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
   function handleEditorClick(event) {
     const target = event?.target;
     const host = target?.closest?.(POLICY_EDITOR_HOST_SELECTOR);
@@ -1813,6 +2213,20 @@
       return;
     }
 
+    const model90DefaultFloorsSaveButton = target.closest?.("[data-model90-default-bucket-floors-save]");
+    if (model90DefaultFloorsSaveButton) {
+      event.preventDefault();
+      saveModel90DefaultBucketFloors(host);
+      return;
+    }
+
+    const model90DefaultFloorsResetButton = target.closest?.("[data-model90-default-bucket-floors-reset]");
+    if (model90DefaultFloorsResetButton) {
+      event.preventDefault();
+      resetModel90DefaultBucketFloors(host);
+      return;
+    }
+
     const resetButton = target.closest?.("[data-household-expense-policy-reset-row]");
     if (resetButton) {
       event.preventDefault();
@@ -1839,31 +2253,40 @@
     TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID,
     FOOD_AT_HOME_BAND_KEYS,
     HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS,
+    MODEL90_DEFAULT_BUCKET_FLOOR_KEYS,
     STATE_CODE_VALUES,
     buildLifestyleRangeEditorRows,
     buildFoodAtHomeFloorAssumptionsEditorModel,
     buildStateCostAdjustmentMultipliersEditorModel,
+    buildModel90DefaultBucketFloorsEditorModel,
     validateLifestyleRatioDraftRow,
     validateFoodAtHomeFloorAssumptionsDraft,
     validateStateCostAdjustmentMultipliersDraft,
+    validateModel90DefaultBucketFloorsDraft,
     buildSparseLifestyleRangeSavePlan,
     buildAccountPolicyWithLifestyleOverrides,
     buildAccountPolicyWithFoodAtHomeFloorAssumptions,
     buildAccountPolicyWithStateCostAdjustmentMultipliers,
+    buildAccountPolicyWithModel90DefaultBucketFloors,
     buildLifestyleRangeSavePayload,
     buildFoodAtHomeFloorAssumptionsSavePayload,
     buildFoodAtHomeFloorAssumptionsResetPayload,
     buildStateCostAdjustmentMultipliersSavePayload,
     buildStateCostAdjustmentMultipliersResetPayload,
+    buildModel90DefaultBucketFloorsSavePayload,
+    buildModel90DefaultBucketFloorsResetPayload,
     saveLifestyleRangeEditorChanges,
     resetLifestyleRangeEditorRow,
     saveFoodAtHomeFloorAssumptions,
     resetFoodAtHomeFloorAssumptions,
     saveStateCostAdjustmentMultipliers,
     resetStateCostAdjustmentMultipliers,
+    saveModel90DefaultBucketFloors,
+    resetModel90DefaultBucketFloors,
     buildHouseholdExpensePolicyEditorModel,
     renderFoodAtHomeFloorAssumptionsEditor,
     renderStateCostAdjustmentMultipliersEditor,
+    renderModel90DefaultBucketFloorsEditor,
     renderHouseholdExpensePolicyEditor,
     initializeHouseholdExpenseAccountPolicyAdminEditor
   });
