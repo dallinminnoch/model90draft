@@ -230,6 +230,7 @@ entries.forEach((entry) => {
 
 const priorityEntries = {
   groceries: "Food & Household Consumables",
+  diningTakeout: "Food & Household Consumables",
   diningOutRestaurants: "Food & Household Consumables",
   takeoutConvenienceFood: "Food & Household Consumables",
   householdConsumablesSupplies: "Food & Household Consumables",
@@ -255,11 +256,13 @@ const priorityEntries = {
   daycareChildcare: "Child, Dependent & Family Support",
   alimonyPaid: "Child, Dependent & Family Support",
   collegeTuition: "Education & Enrichment",
+  educationEnrichment: "Education & Enrichment",
   specialEducationServices: "Education & Enrichment",
   deductibleAnnualExposureReserve: "Healthcare",
   chronicConditionSupplies: "Healthcare",
   mentalHealthCare: "Healthcare",
   dryCleaningLaundry: "Personal Living",
+  householdServices: "Personal Living",
   diapersBabySupplies: "Personal Living",
   charitableGiving: "Giving, Gifts & Community Obligations",
   tithingReligiousGiving: "Giving, Gifts & Community Obligations",
@@ -282,8 +285,24 @@ Object.entries(priorityEntries).forEach(([typeKey, group]) => {
   assert.equal(entry.isAddable, true, `${typeKey} should be advisor-addable raw/library metadata`);
 });
 
+[
+  "diningTakeout",
+  "householdServices",
+  "educationEnrichment"
+].forEach((typeKey) => {
+  const entry = byType(typeKey);
+  assert.equal(entry.uiAvailability, "initial", `${typeKey} should be initial PMI-selectable`);
+  assert.equal(entry.isAddable, true, `${typeKey} should be addable by the PMI selector metadata pattern`);
+  assert.equal(entry.isProtected, false, `${typeKey} should not be protected from selection`);
+  assert.equal(entry.isScalarFieldOwned, false, `${typeKey} should not be scalar-owned`);
+  assert.equal(entry.generatedOnly, false, `${typeKey} should not be generated-only`);
+});
+
 assertSearchTerms("householdConsumablesSupplies", ["paper goods", "cleaning supplies", "toiletries", "laundry supplies"]);
+assertSearchTerms("diningTakeout", ["takeout", "restaurants", "food away from home", "meal delivery"]);
 assertSearchTerms("diningOutRestaurants", ["restaurants", "eating out"]);
+assertSearchTerms("householdServices", ["house cleaning", "lawn care", "dry cleaning"]);
+assertSearchTerms("educationEnrichment", ["education", "enrichment", "tutoring"]);
 assertSearchTerms("educationSavingsContributions", ["529", "college savings"]);
 assertSearchTerms("tithingReligiousGiving", ["tithing", "religious giving"]);
 assertSearchTerms("softwareSaasWebsiteHosting", ["saas", "hosting"]);
@@ -291,6 +310,7 @@ assertSearchTerms("softwareSaasWebsiteHosting", ["saas", "hosting"]);
 [
   "groceries",
   "householdConsumablesSupplies",
+  "educationEnrichment",
   "rentOrMortgagePayment",
   "propertyTaxes",
   "householdUtilities",
@@ -311,6 +331,7 @@ assertSearchTerms("softwareSaasWebsiteHosting", ["saas", "hosting"]);
 });
 
 [
+  "diningTakeout",
   "diningOutRestaurants",
   "takeoutConvenienceFood",
   "entertainmentRecreation",
@@ -329,10 +350,19 @@ assertSearchTerms("softwareSaasWebsiteHosting", ["saas", "hosting"]);
   assert.equal(byType(typeKey).requiresAdvisorConfirmation, false, `${typeKey} should not require advisor confirmation before ordinary discretionary triage`);
 });
 
+assertMetadata("householdServices", {
+  defaultNeedType: "flexibleEssential",
+  priorityClass: "flexible",
+  compressionTier: "late",
+  protectedCategory: false
+});
+assert.equal(byType("householdServices").notes.includes("mixed housing and personal-living service children"), true, "householdServices should document mixed-child taxonomy fit");
+
 [
   "healthInsurancePremiums",
   "medicalOutOfPocket",
   "mentalHealthCare",
+  "educationEnrichment",
   "privateSchoolTuition",
   "specialEducationServices",
   "tithingReligiousGiving",

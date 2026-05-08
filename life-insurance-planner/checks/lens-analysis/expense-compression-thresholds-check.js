@@ -134,7 +134,7 @@ assert.equal(typeof thresholdLibrary.getExpenseCompressionThresholdRuleByType, "
 assert.ok(thresholdLibrary.EXPENSE_THRESHOLD_UNIT_VALUES.includes("usdMonthly"), "usdMonthly unit should be exported");
 
 const rules = thresholdLibrary.getExpenseCompressionThresholdRules();
-assert.equal(rules.length, 30, "V1 should include the first 30 default household threshold rules");
+assert.equal(rules.length, 32, "V1 should include default household threshold rules plus the approved broad parent rows");
 assert.ok(uniqueValues(rules.map((rule) => rule.thresholdId)), "threshold ids should be unique");
 assert.ok(uniqueValues(rules.map((rule) => rule.expenseTypeKey)), "each V1 rule should target one unique expense type");
 
@@ -187,6 +187,7 @@ assert.equal(JSON.stringify(thresholdByType("groceries").tiers), JSON.stringify(
 }));
 
 [
+  "diningTakeout",
   "diningOutRestaurants",
   "takeoutConvenienceFood",
   "mealDeliveryServices",
@@ -212,6 +213,8 @@ assert.equal(JSON.stringify(thresholdByType("groceries").tiers), JSON.stringify(
   });
 });
 
+assert.equal(thresholdByType("diningTakeout").thresholdBasis, "perHouseholdMemberMonthly", "diningTakeout should use per-member food-away-from-home thresholds");
+
 [
   "fuel",
   "publicTransit",
@@ -236,6 +239,15 @@ assertRule("personalCare", {
   canAutoReduce: true,
   canReduceToZero: false
 });
+
+assertRule("householdServices", {
+  behaviorClass: "flexibleEssential",
+  thresholdBasis: "perHouseholdMonthly",
+  canAutoReduce: true,
+  canReduceToZero: false
+});
+assert.equal(thresholdByType("householdServices").categoryKey, "personalLiving", "householdServices threshold should align to the library taxonomy category");
+assert.equal(thresholdLibrary.getExpenseCompressionThresholdRuleByType("educationEnrichment"), null, "educationEnrichment should not have an auto-reduction threshold");
 
 assertRule("petGroomingTraining", {
   behaviorClass: "flexibleEssential",

@@ -84,13 +84,34 @@ const affectedRows = Object.freeze({
   })
 });
 
-assert.equal(rules.length, 83, "lifestyle policy row count should remain stable");
+const broadParentRows = Object.freeze({
+  diningTakeout: Object.freeze({
+    categoryKey: "foodGroceries",
+    sliderEligible: true,
+    conservativeFloorRatio: 0,
+    elevatedCeilingRatio: 1.75
+  }),
+  householdServices: Object.freeze({
+    categoryKey: "personalLiving",
+    sliderEligible: true,
+    conservativeFloorRatio: 0.25,
+    elevatedCeilingRatio: 1.35
+  }),
+  educationEnrichment: Object.freeze({
+    categoryKey: "educationExpense",
+    sliderEligible: false,
+    conservativeFloorRatio: 1,
+    elevatedCeilingRatio: 1
+  })
+});
+
+assert.equal(rules.length, 86, "lifestyle policy row count should add only the three approved broad parent rows");
 assert.equal(
   rules.filter(function (rule) {
     return rule.sliderEligible === true;
   }).length,
-  39,
-  "admin-editable slider-eligible row count should remain 39"
+  41,
+  "admin-editable slider-eligible row count should increase only by diningTakeout and householdServices"
 );
 
 rules.forEach(function (rule) {
@@ -125,6 +146,27 @@ Object.keys(affectedRows).forEach(function (typeKey) {
   assert.equal(rule.sliderEligible, expected.sliderEligible, `${typeKey} slider eligibility should not change`);
   assert.equal(rule.conservativeFloorRatio, expected.conservativeFloorRatio, `${typeKey} conservative floor ratio should not change`);
   assert.equal(rule.elevatedCeilingRatio, expected.elevatedCeilingRatio, `${typeKey} elevated ceiling ratio should not change`);
+});
+
+Object.keys(broadParentRows).forEach(function (typeKey) {
+  const expected = broadParentRows[typeKey];
+  const libraryEntry = libraryEntriesByType.get(typeKey);
+  const rule = rulesByType.get(typeKey);
+  const resolved = lifestylePolicy.resolveLifestyleRangePolicy({ expenseTypeKey: typeKey });
+
+  assert.ok(libraryEntry, `${typeKey} should exist in expense-library.js`);
+  assert.ok(rule, `${typeKey} should exist in lifestyle policy`);
+  assert.ok(resolved, `${typeKey} should resolve from lifestyle policy`);
+  assert.equal(rule.categoryKey, expected.categoryKey, `${typeKey} policy category should match approved taxonomy category`);
+  assert.equal(rule.categoryKey, libraryEntry.categoryKey, `${typeKey} policy category should match current library category`);
+  assert.ok(taxonomyCategoryKeys.has(rule.categoryKey), `${typeKey} category should exist in taxonomy`);
+  assert.equal(libraryEntry.uiAvailability, "initial", `${typeKey} should be initial PMI-selectable`);
+  assert.equal(libraryEntry.isAddable, true, `${typeKey} should be addable`);
+  assert.equal(libraryEntry.isProtected, false, `${typeKey} should not be protected from selection`);
+  assert.equal(libraryEntry.isScalarFieldOwned, false, `${typeKey} should not be scalar-owned`);
+  assert.equal(rule.sliderEligible, expected.sliderEligible, `${typeKey} slider eligibility should match approved behavior`);
+  assert.equal(rule.conservativeFloorRatio, expected.conservativeFloorRatio, `${typeKey} conservative floor ratio should match approved behavior`);
+  assert.equal(rule.elevatedCeilingRatio, expected.elevatedCeilingRatio, `${typeKey} elevated ceiling ratio should match approved behavior`);
 });
 
 [

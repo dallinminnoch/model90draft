@@ -171,6 +171,7 @@ rules.forEach((rule) => {
 });
 
 [
+  "diningTakeout",
   "diningOutRestaurants",
   "takeoutConvenienceFood",
   "mealDeliveryServices",
@@ -182,6 +183,18 @@ rules.forEach((rule) => {
 ].forEach((typeKey) => {
   assert.ok(rank(typeKey) < rank("groceries"), `${typeKey} should come before groceries`);
 });
+
+assertDecision("diningTakeout", decisions.YES);
+assert.equal(byType("diningTakeout").compressionOrderGroup, "foodLifestyleBeforeGroceries", "diningTakeout should use the food-away-from-home group");
+assert.equal(byType("diningTakeout").canReduceToZero, true, "diningTakeout should be reducible to zero like detailed food-away-from-home rows");
+
+assertDecision("householdServices", decisions.YES);
+assert.equal(byType("householdServices").compressionOrderGroup, "flexibleLifestyleServices", "householdServices should use the household service group");
+assert.equal(byType("householdServices").canReduceToZero, false, "householdServices should preserve the default nonzero service review posture");
+
+assertDecision("educationEnrichment", decisions.NO);
+assert.equal(byType("educationEnrichment").compressionOrderGroup, "education", "educationEnrichment should be protected education behavior");
+assert.equal(byType("educationEnrichment").canAutoReduce, false, "educationEnrichment should not auto-compress");
 
 const groceries = byType("groceries");
 assert.equal(groceries.decision, decisions.YES, "groceries should be deterministic YES");

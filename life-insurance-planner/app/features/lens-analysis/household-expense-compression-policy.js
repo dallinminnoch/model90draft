@@ -95,12 +95,14 @@
     ["travelTransportation", "Travel Transportation", "discretionary", "travelLifestyle", { canReduceToZero: true }],
     ["travelInsuranceDocumentsGear", "Travel Insurance / Documents / Gear", "discretionary", "travelLifestyle", { canReduceToZero: true }],
 
+    ["diningTakeout", "Dining / Takeout", "discretionary", "foodLifestyleBeforeGroceries", { canReduceToZero: true }],
     ["diningOutRestaurants", "Dining Out / Restaurants", "discretionary", "foodLifestyleBeforeGroceries", { canReduceToZero: true }],
     ["takeoutConvenienceFood", "Takeout / Convenience Food", "discretionary", "foodLifestyleBeforeGroceries", { canReduceToZero: true }],
     ["mealDeliveryServices", "Meal Delivery Services", "discretionary", "foodLifestyleBeforeGroceries", { canReduceToZero: true }],
     ["groceryDeliveryFeesTips", "Grocery Delivery Fees / Tips", "discretionary", "foodLifestyleBeforeGroceries", { canReduceToZero: true }],
     ["alcoholSocialBeverages", "Alcohol / Social Beverages", "discretionary", "foodLifestyleBeforeGroceries", { canReduceToZero: true }],
 
+    ["householdServices", "Household Services", "flexibleLifestyleService", "flexibleLifestyleServices"],
     ["lawnSnowPestPoolServices", "Lawn / Snow / Pest / Pool Services", "flexibleLifestyleService", "flexibleLifestyleServices"],
     ["dryCleaningLaundry", "Dry Cleaning / Laundry", "flexibleLifestyleService", "flexibleLifestyleServices"],
     ["houseCleaning", "House Cleaning", "flexibleLifestyleService", "flexibleLifestyleServices"],
@@ -183,6 +185,7 @@
     ["parentAdultChildSupport", "Parent / Adult Child Support", "dependentEssential", "childcareAndDependentSupport"],
     ["specialNeedsNonmedicalSupport", "Special Needs Nonmedical Support", "dependentEssential", "childcareAndDependentSupport"],
     ["disabilitySupportServices", "Disability Support Services", "dependentEssential", "childcareAndDependentSupport"],
+    ["educationEnrichment", "Education & Enrichment", "educationProtected", "education"],
     ["privateSchoolTuition", "Private School Tuition", "educationProtected", "education"],
     ["collegeTuition", "College Tuition", "educationProtected", "education"],
     ["collegeRoomBoard", "College Room & Board", "educationProtected", "education"],

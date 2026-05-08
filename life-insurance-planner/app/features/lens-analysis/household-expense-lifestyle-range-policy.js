@@ -187,6 +187,18 @@
       notes: "Basic household consumables are flexible but protected from deep cuts."
     }),
     expandablePolicy({
+      expenseTypeKey: "diningTakeout",
+      categoryKey: "foodGroceries",
+      displayName: "Dining / Takeout",
+      conservativeFloorRatio: 0,
+      elevatedCeilingRatio: 1.75,
+      floorTierKey: TIER_KEYS.MINIMUM,
+      ceilingTierKey: TIER_KEYS.COMFORTABLE,
+      ceilingTierMultiplier: 1.25,
+      protectedFloorPolicy: "allowZero",
+      notes: "Broad food-away-from-home parent; reuses dining-out lifestyle range for aggregate advisor entry."
+    }),
+    expandablePolicy({
       expenseTypeKey: "diningOutRestaurants",
       categoryKey: "foodGroceries",
       displayName: "Dining Out / Restaurants",
@@ -458,6 +470,7 @@
     reviewPolicy("daycareChildcare", "familySupport", "Daycare / Childcare", SOURCE_POLICY_DECISIONS.NO, "Protected dependent expense; advisor review required."),
     reviewPolicy("nannyInHomeChildcare", "familySupport", "Nanny / In-Home Childcare", SOURCE_POLICY_DECISIONS.NO, "Protected dependent expense; advisor review required."),
     reviewPolicy("afterSchoolCare", "familySupport", "After-School Care", SOURCE_POLICY_DECISIONS.NO, "Dependent support; advisor review required."),
+    reviewPolicy("educationEnrichment", "educationExpense", "Education & Enrichment", SOURCE_POLICY_DECISIONS.NO, "Broad education/enrichment parent is protected/review-only, not lifestyle slider movement."),
     reviewPolicy("privateSchoolTuition", "educationExpense", "Private School Tuition", SOURCE_POLICY_DECISIONS.NO, "Education/dependent expense is not automatic lifestyle movement."),
     reviewPolicy("collegeTuition", "educationExpense", "College Tuition", SOURCE_POLICY_DECISIONS.NO, "Education expense is not automatic lifestyle movement."),
     reviewPolicy("specialEducationServices", "educationExpense", "Special Education Services", SOURCE_POLICY_DECISIONS.NO, "Protected education expense; advisor review required."),
@@ -512,6 +525,18 @@
     reviewPolicy("veterinaryCare", "pets", "Veterinary Care", SOURCE_POLICY_DECISIONS.NO, "Core pet care is protected/review-only."),
     reviewPolicy("petMedication", "pets", "Pet Medication", SOURCE_POLICY_DECISIONS.NO, "Pet medication is protected/review-only."),
 
+    expandablePolicy({
+      expenseTypeKey: "householdServices",
+      categoryKey: "personalLiving",
+      displayName: "Household Services",
+      conservativeFloorRatio: 0.25,
+      elevatedCeilingRatio: 1.35,
+      floorTierKey: TIER_KEYS.MINIMUM,
+      ceilingTierKey: TIER_KEYS.COMFORTABLE,
+      ceilingTierMultiplier: 1.1,
+      protectedFloorPolicy: "allowLowNonzero",
+      notes: "Broad mixed-service parent for house cleaning, lawn/snow/pest/pool services, dry cleaning, and similar household services."
+    }),
     expandablePolicy({
       expenseTypeKey: "houseCleaning",
       categoryKey: "housingExpense",

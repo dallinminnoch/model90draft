@@ -162,11 +162,14 @@ assert.equal(missingModel.rows.length, defaultSliderEligibleRows.length, "editor
 assert.equal(missingModel.rows.every((row) => row.overrideStatus === "defaultSeedPolicy"), true, "missing policy rows should be default-only");
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "groceries"), "slider-eligible groceries should render");
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "streamingDigitalSubscriptions"), "slider-eligible subscriptions should render");
+assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "diningTakeout"), "broad Dining / Takeout parent should render as an editable slider row");
+assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "householdServices"), "broad Household Services parent should render as an editable slider row");
 
 [
   "rentOrMortgagePayment",
   "autoLoanPayment",
   "daycareChildcare",
+  "educationEnrichment",
   "healthInsurancePremiums",
   "charitableGiving",
   "federalStateLocalIncomeTaxPayments"

@@ -132,6 +132,7 @@ const householdConsumables = assertEligibleRange("householdConsumablesSupplies",
 assert.equal(householdConsumables.protectedFloorPolicy, "useThresholdProtectedFloor", "household consumables should preserve protected floor");
 
 [
+  "diningTakeout",
   "diningOutRestaurants",
   "takeoutConvenienceFood",
   "mealDeliveryServices",
@@ -146,6 +147,12 @@ assert.equal(householdConsumables.protectedFloorPolicy, "useThresholdProtectedFl
   const rule = assertEligibleRange(typeKey, { maxFloorRatio: 0.25, minCeilingRatio: 1.35 });
   assert.equal(rule.rangeBehavior, "expandable", `${typeKey} should be an expandable lifestyle range`);
 });
+
+const diningTakeout = byType("diningTakeout");
+const diningOut = byType("diningOutRestaurants");
+assert.equal(diningTakeout.conservativeFloorRatio, diningOut.conservativeFloorRatio, "diningTakeout should reuse dining-out floor ratio");
+assert.equal(diningTakeout.elevatedCeilingRatio, diningOut.elevatedCeilingRatio, "diningTakeout should reuse dining-out ceiling ratio");
+assert.equal(diningTakeout.protectedFloorPolicy, diningOut.protectedFloorPolicy, "diningTakeout should reuse dining-out floor policy");
 
 [
   "internet",
@@ -168,6 +175,7 @@ assert.equal(householdConsumables.protectedFloorPolicy, "useThresholdProtectedFl
   "daycareChildcare",
   "nannyInHomeChildcare",
   "afterSchoolCare",
+  "educationEnrichment",
   "privateSchoolTuition",
   "collegeTuition",
   "specialEducationServices"
@@ -232,6 +240,7 @@ assertNotEligible("veterinaryCare", reviewOnly);
 assertNotEligible("petMedication", reviewOnly);
 
 [
+  "householdServices",
   "houseCleaning",
   "lawnSnowPestPoolServices",
   "dryCleaningLaundry",
@@ -239,6 +248,12 @@ assertNotEligible("petMedication", reviewOnly);
 ].forEach(function (typeKey) {
   assert.equal(byType(typeKey).sliderEligible, true, `${typeKey} should be eligible household/service lifestyle spend`);
 });
+
+const householdServices = byType("householdServices");
+const lawnServices = byType("lawnSnowPestPoolServices");
+assert.equal(householdServices.categoryKey, "personalLiving", "householdServices should use the selected aggregate taxonomy category");
+assert.equal(householdServices.conservativeFloorRatio, lawnServices.conservativeFloorRatio, "householdServices should reuse a current household-service floor ratio");
+assert.equal(householdServices.elevatedCeilingRatio, lawnServices.elevatedCeilingRatio, "householdServices should reuse a current household-service ceiling ratio");
 
 [
   "homeRepairReserveContributions",

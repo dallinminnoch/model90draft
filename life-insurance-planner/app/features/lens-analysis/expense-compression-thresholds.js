@@ -70,6 +70,18 @@
       notes: "Covers paper goods, cleaning supplies, toiletries, laundry supplies, and basic household consumables."
     }),
     createThresholdRule({
+      thresholdId: "dining-takeout-per-member-monthly-v1",
+      expenseTypeKey: "diningTakeout",
+      categoryKey: "foodGroceries",
+      behaviorClass: "discretionary",
+      thresholdBasis: "perHouseholdMemberMonthly",
+      tiers: { minimum: 0, conservative: 75, average: 175, comfortable: 300 },
+      canAutoReduce: true,
+      canReduceToZero: true,
+      compressionOrderGroup: "early-discretionary-food",
+      notes: "Broad food-away-from-home parent for dining out, takeout, and meal-delivery aggregates."
+    }),
+    createThresholdRule({
       thresholdId: "dining-out-per-member-monthly-v1",
       expenseTypeKey: "diningOutRestaurants",
       categoryKey: "foodGroceries",
@@ -374,6 +386,19 @@
       protectedFloor: 25,
       compressionOrderGroup: "medium-personal-living",
       notes: "Flexible personal living expense; preserve basic grooming and hygiene floor."
+    }),
+    createThresholdRule({
+      thresholdId: "household-services-household-monthly-v1",
+      expenseTypeKey: "householdServices",
+      categoryKey: "personalLiving",
+      behaviorClass: "flexibleEssential",
+      thresholdBasis: "perHouseholdMonthly",
+      tiers: { minimum: 25, conservative: 75, average: 150, comfortable: 300 },
+      canAutoReduce: true,
+      canReduceToZero: false,
+      protectedFloor: 25,
+      compressionOrderGroup: "medium-personal-living",
+      notes: "Broad mixed household service parent; preserve a small floor for service needs that may not reduce to zero."
     }),
     createThresholdRule({
       thresholdId: "pet-food-supplies-household-monthly-v1",
