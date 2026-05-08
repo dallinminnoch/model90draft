@@ -95,6 +95,216 @@ const EXPECTED_BUCKET_INFLATION = Object.freeze({
   customUnknown: "noInflationCurrentDollar"
 });
 
+const EXPECTED_ENTRY_INFLATION_OVERRIDES = Object.freeze({
+  utilityArrearsPaymentPlan: "noInflationCurrentDollar",
+  solarLoanLeasePayment: "noInflationCurrentDollar"
+});
+
+const APPROVED_PRODUCT_DECISION_METADATA = Object.freeze({
+  schoolMeals: Object.freeze({
+    planningBucketKey: "foodAtHomeConsumables",
+    planningBucketLabel: "Food at Home / Consumables",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  childActivitiesSports: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  extracurricularLessonsActivities: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  youthSportsTravelSports: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  activityFieldTripFees: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  musicSportsClubEnrichment: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  homeownersInsurance: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  housingInsuranceDefault: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  vehicleInsurance: Object.freeze({
+    planningBucketKey: "insurancePremiums",
+    planningBucketLabel: "Insurance Premiums",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  financialPlanningFees: Object.freeze({
+    planningBucketKey: "financialFeesTransactionCosts",
+    planningBucketLabel: "Financial Fees / Transaction Costs",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "unknownExcluded",
+    inflationBucketKey: "noInflationCurrentDollar"
+  }),
+  investmentAdvisoryFees: Object.freeze({
+    planningBucketKey: "financialFeesTransactionCosts",
+    planningBucketLabel: "Financial Fees / Transaction Costs",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "unknownExcluded",
+    inflationBucketKey: "noInflationCurrentDollar"
+  }),
+  licensingCredentialFees: Object.freeze({
+    planningBucketKey: "businessSelfEmployment",
+    planningBucketLabel: "Business / Self-Employment",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "businessOrIncomePreserving",
+    inflationBucketKey: "generalInflation"
+  }),
+  unionDues: Object.freeze({
+    planningBucketKey: "businessSelfEmployment",
+    planningBucketLabel: "Business / Self-Employment",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "businessOrIncomePreserving",
+    inflationBucketKey: "generalInflation"
+  }),
+  professionalAssociationDues: Object.freeze({
+    planningBucketKey: "businessSelfEmployment",
+    planningBucketLabel: "Business / Self-Employment",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "businessOrIncomePreserving",
+    inflationBucketKey: "generalInflation"
+  }),
+  continuingEducation: Object.freeze({
+    planningBucketKey: "businessSelfEmployment",
+    planningBucketLabel: "Business / Self-Employment",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "businessOrIncomePreserving",
+    inflationBucketKey: "generalInflation"
+  }),
+  giftsHolidaysCelebrations: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  holidaySeasonalSpending: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  weddingsFamilyEvents: Object.freeze({
+    planningBucketKey: "entertainmentRecreation",
+    planningBucketLabel: "Entertainment / Recreation",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  homeSecurityMonitoring: Object.freeze({
+    planningBucketKey: "householdServices",
+    planningBucketLabel: "Household Services",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  securitySystem: Object.freeze({
+    planningBucketKey: "householdServices",
+    planningBucketLabel: "Household Services",
+    lifestyleTreatmentIncluded: true,
+    lifestyleTreatmentReason: "lifestyleFlexible",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  timeshareVacationClubFees: Object.freeze({
+    planningBucketKey: "travelVacations",
+    planningBucketLabel: "Travel / Vacations",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "householdExpenseInflation"
+  }),
+  utilityArrearsPaymentPlan: Object.freeze({
+    planningBucketKey: "basicUtilities",
+    planningBucketLabel: "Basic Utilities",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "noInflationCurrentDollar"
+  }),
+  solarLoanLeasePayment: Object.freeze({
+    planningBucketKey: "basicUtilities",
+    planningBucketLabel: "Basic Utilities",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "contractualObligation",
+    inflationBucketKey: "noInflationCurrentDollar"
+  })
+});
+
+const GIVING_VALUES_BASED_TYPE_KEYS = Object.freeze([
+  "charitableGiving",
+  "tithingReligiousGiving",
+  "remittancesFamilyAssistance",
+  "communityDues",
+  "politicalContributions"
+]);
+
+const UNRESOLVED_PRODUCT_DECISION_TYPE_KEYS = Object.freeze([
+  "healthInsurancePremiums",
+  "medicarePartBPremiums",
+  "medicarePartDPremiums",
+  "medigapPremiums",
+  "medicareAdvantagePremiums",
+  "cobraPremiums",
+  "dentalInsurance",
+  "visionInsurance",
+  "longTermCareInsurancePremiums",
+  "bookkeeping",
+  "familyEventWeddingSavings",
+  "generatorBackupPower"
+]);
+
+const EDUCATION_CATEGORY_METADATA_EXCEPTION_TYPE_KEYS = Object.freeze([
+  "schoolMeals",
+  "childActivitiesSports",
+  "extracurricularLessonsActivities",
+  "youthSportsTravelSports",
+  "activityFieldTripFees",
+  "musicSportsClubEnrichment"
+]);
+
+const TAX_LEGAL_METADATA_EXCEPTION_TYPE_KEYS = Object.freeze([
+  "financialPlanningFees",
+  "investmentAdvisoryFees",
+  "licensingCredentialFees",
+  "unionDues",
+  "professionalAssociationDues",
+  "continuingEducation"
+]);
+
 const FINAL_EXPENSE_CATEGORY_KEYS = Object.freeze([
   "medicalFinalExpense",
   "funeralBurial",
@@ -158,6 +368,16 @@ function mapEntriesByType(entries, selector) {
     map[entry.typeKey] = selector(entry);
     return map;
   }, {});
+}
+
+function pickPlanningMetadata(entry) {
+  return {
+    planningBucketKey: entry.planningBucketKey,
+    planningBucketLabel: entry.planningBucketLabel,
+    lifestyleTreatmentIncluded: entry.lifestyleTreatmentIncluded,
+    lifestyleTreatmentReason: entry.lifestyleTreatmentReason,
+    inflationBucketKey: entry.inflationBucketKey
+  };
 }
 
 function assertNoForbiddenDiffs() {
@@ -316,16 +536,19 @@ entries.forEach(function (entry) {
   assert.ok(APPROVED_LIFESTYLE_TREATMENT_REASONS.includes(entry.lifestyleTreatmentReason), `${entry.typeKey} should have an approved lifestyleTreatmentReason`);
   assert.notEqual(entry.lifestyleTreatmentReason, "reviewOnly", `${entry.typeKey} should not preserve reviewOnly as planning treatment`);
   assert.ok(APPROVED_INFLATION_BUCKET_KEYS.includes(entry.inflationBucketKey), `${entry.typeKey} should have an approved inflationBucketKey`);
-  assert.equal(entry.inflationBucketKey, EXPECTED_BUCKET_INFLATION[entry.planningBucketKey], `${entry.typeKey} inflationBucketKey should match its planning bucket default`);
+  assert.equal(
+    entry.inflationBucketKey,
+    EXPECTED_ENTRY_INFLATION_OVERRIDES[entry.typeKey] || EXPECTED_BUCKET_INFLATION[entry.planningBucketKey],
+    `${entry.typeKey} inflationBucketKey should match its approved bucket default or row-level exception`
+  );
 });
 
 const headContext = createLibraryContext(readHeadExpenseLibrarySource());
-const headCategoryByType = mapEntriesByType(
-  headContext.LensApp.lensAnalysis.expenseLibrary.getExpenseLibraryEntries(),
-  function (entry) {
-    return entry.categoryKey;
-  }
-);
+const headEntries = headContext.LensApp.lensAnalysis.expenseLibrary.getExpenseLibraryEntries();
+const headCategoryByType = mapEntriesByType(headEntries, function (entry) {
+  return entry.categoryKey;
+});
+const headPlanningMetadataByType = mapEntriesByType(headEntries, pickPlanningMetadata);
 const currentCategoryByType = mapEntriesByType(entries, function (entry) {
   return entry.categoryKey;
 });
@@ -360,12 +583,19 @@ entries
       inflationBucketKey: "healthcareInflation"
     });
   });
-assertEntriesWithCategory(entries, EDUCATION_CATEGORY_KEYS, {
-  planningBucketKey: "educationEnrichment",
-  lifestyleTreatmentIncluded: false,
-  lifestyleTreatmentReason: "sourceOwnedEducation",
-  inflationBucketKey: "educationInflation"
-});
+entries
+  .filter(function (entry) {
+    return EDUCATION_CATEGORY_KEYS.includes(entry.categoryKey)
+      && !EDUCATION_CATEGORY_METADATA_EXCEPTION_TYPE_KEYS.includes(entry.typeKey);
+  })
+  .forEach(function (entry) {
+    assertEntry(entry, {
+      planningBucketKey: "educationEnrichment",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "sourceOwnedEducation",
+      inflationBucketKey: "educationInflation"
+    });
+  });
 assertEntriesWithCategory(entries, ["debtObligations"], {
   planningBucketKey: "debtObligations",
   lifestyleTreatmentIncluded: false,
@@ -384,12 +614,19 @@ entries
       inflationBucketKey: "noInflationCurrentDollar"
     });
   });
-assertEntriesWithCategory(entries, ["taxes", "legalAdministrative"], {
-  planningBucketKey: "taxesLegalAdministrative",
-  lifestyleTreatmentIncluded: false,
-  lifestyleTreatmentReason: "legalTax",
-  inflationBucketKey: "noInflationCurrentDollar"
-});
+entries
+  .filter(function (entry) {
+    return ["taxes", "legalAdministrative"].includes(entry.categoryKey)
+      && !TAX_LEGAL_METADATA_EXCEPTION_TYPE_KEYS.includes(entry.typeKey);
+  })
+  .forEach(function (entry) {
+    assertEntry(entry, {
+      planningBucketKey: "taxesLegalAdministrative",
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "legalTax",
+      inflationBucketKey: "noInflationCurrentDollar"
+    });
+  });
 assertEntriesWithCategory(entries, ["insurancePremiums"], {
   planningBucketKey: "insurancePremiums",
   lifestyleTreatmentIncluded: false,
@@ -431,6 +668,34 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
   assertEntry(entry, expected);
 });
 
+Object.entries(APPROVED_PRODUCT_DECISION_METADATA).forEach(function ([typeKey, expected]) {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should exist`);
+  assertEntry(entry, expected);
+});
+
+GIVING_VALUES_BASED_TYPE_KEYS.forEach(function (typeKey) {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should exist`);
+  assertEntry(entry, {
+    planningBucketKey: "givingCommunity",
+    planningBucketLabel: "Giving / Community",
+    lifestyleTreatmentIncluded: false,
+    lifestyleTreatmentReason: "valuesBased",
+    inflationBucketKey: "householdExpenseInflation"
+  });
+});
+
+UNRESOLVED_PRODUCT_DECISION_TYPE_KEYS.forEach(function (typeKey) {
+  const entry = library.getExpenseLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should exist`);
+  assert.deepEqual(
+    pickPlanningMetadata(entry),
+    headPlanningMetadataByType[typeKey],
+    `${typeKey} planning metadata should remain unchanged in this pass`
+  );
+});
+
 [
   ["groceries", "foodAtHomeConsumables"],
   ["schoolLunches", "foodAtHomeConsumables"],
@@ -442,10 +707,15 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
   ["householdServices", "householdServices"],
   ["houseCleaning", "householdServices"],
   ["dryCleaningLaundry", "householdServices"],
+  ["homeSecurityMonitoring", "householdServices"],
+  ["securitySystem", "householdServices"],
   ["internetPhone", "communicationsConnectivity"],
   ["streamingDigitalSubscriptions", "subscriptionsMemberships"],
   ["subscriptionsMemberships", "subscriptionsMemberships"],
   ["entertainmentRecreation", "entertainmentRecreation"],
+  ["giftsHolidaysCelebrations", "entertainmentRecreation"],
+  ["holidaySeasonalSpending", "entertainmentRecreation"],
+  ["weddingsFamilyEvents", "entertainmentRecreation"],
   ["vacationsTravel", "travelVacations"],
   ["petBoarding", "petsDiscretionary"],
   ["petGroomingTraining", "petsDiscretionary"]
@@ -469,7 +739,6 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
   ["charitableGiving", "givingCommunity", "valuesBased"],
   ["officeRentCoworking", "businessSelfEmployment", "businessOrIncomePreserving"],
   ["bankFees", "financialFeesTransactionCosts", "unknownExcluded"],
-  ["holidaySeasonalSpending", "periodicSinkingFundOneTime", "unknownExcluded"],
   ["customExpenseRecord", "customUnknown", "unknownExcluded"]
 ].forEach(function ([typeKey, planningBucketKey, lifestyleTreatmentReason]) {
   const entry = library.getExpenseLibraryEntry(typeKey);
@@ -484,19 +753,22 @@ assertEntriesWithCategory(entries, ["savingsGoalContributions"], {
 
 [
   ["specialtyDietAllergyFoodPremium", "foodAtHomeConsumables", "lifestyleFlexible"],
-  ["schoolMeals", "educationEnrichment", "sourceOwnedEducation"],
+  ["schoolMeals", "foodAtHomeConsumables", "lifestyleFlexible"],
   ["earlyEducationChildcare", "educationEnrichment", "sourceOwnedEducation"],
-  ["childActivitiesSports", "educationEnrichment", "sourceOwnedEducation"],
-  ["extracurricularLessonsActivities", "childcareDependentSupport", "protectedNeed"],
-  ["youthSportsTravelSports", "childcareDependentSupport", "protectedNeed"],
+  ["childActivitiesSports", "entertainmentRecreation", "lifestyleFlexible"],
+  ["extracurricularLessonsActivities", "entertainmentRecreation", "lifestyleFlexible"],
+  ["youthSportsTravelSports", "entertainmentRecreation", "lifestyleFlexible"],
+  ["activityFieldTripFees", "entertainmentRecreation", "lifestyleFlexible"],
+  ["musicSportsClubEnrichment", "entertainmentRecreation", "lifestyleFlexible"],
   ["personalHygieneProducts", "personalLivingClothing", "lifestyleFlexible"],
   ["diapersBabySupplies", "childcareDependentSupport", "protectedNeed"],
   ["formulaInfantSupplies", "childcareDependentSupport", "protectedNeed"],
   ["dryCleaningLaundry", "householdServices", "lifestyleFlexible"],
   ["petFoodSupplies", "petsCoreCare", "protectedNeed"],
-  ["financialPlanningFees", "taxesLegalAdministrative", "legalTax"],
+  ["financialPlanningFees", "financialFeesTransactionCosts", "unknownExcluded"],
+  ["investmentAdvisoryFees", "financialFeesTransactionCosts", "unknownExcluded"],
   ["clientEntertainment", "businessSelfEmployment", "businessOrIncomePreserving"],
-  ["timeshareVacationClubFees", "travelVacations", "lifestyleFlexible"]
+  ["timeshareVacationClubFees", "travelVacations", "contractualObligation"]
 ].forEach(function ([typeKey, planningBucketKey, lifestyleTreatmentReason]) {
   const entry = library.getExpenseLibraryEntry(typeKey);
   assert.ok(entry, `${typeKey} should exist`);

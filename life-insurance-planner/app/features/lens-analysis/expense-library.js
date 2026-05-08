@@ -100,7 +100,7 @@
     }),
     Object.freeze({
       planningBucketKey: "foodAtHomeConsumables",
-      planningBucketLabel: "Food at Home & Consumables",
+      planningBucketLabel: "Food at Home / Consumables",
       lifestyleTreatmentIncluded: true,
       lifestyleTreatmentReason: "lifestyleFlexible",
       inflationBucketKey: "householdExpenseInflation"
@@ -233,7 +233,7 @@
     }),
     Object.freeze({
       planningBucketKey: "businessSelfEmployment",
-      planningBucketLabel: "Business & Self-Employment",
+      planningBucketLabel: "Business / Self-Employment",
       lifestyleTreatmentIncluded: false,
       lifestyleTreatmentReason: "businessOrIncomePreserving",
       inflationBucketKey: "generalInflation"
@@ -1006,7 +1006,9 @@
     "householdServices",
     "houseCleaning",
     "lawnSnowPestPoolServices",
-    "dryCleaningLaundry"
+    "dryCleaningLaundry",
+    "homeSecurityMonitoring",
+    "securitySystem"
   ]);
 
   const HOUSEHOLD_CONSUMABLE_TYPE_KEYS = Object.freeze([
@@ -1052,6 +1054,47 @@
     "petBoarding",
     "petGroomingTraining"
   ]);
+
+  const PLANNING_BUCKET_KEY_BY_TYPE_KEY = Object.freeze({
+    schoolMeals: "foodAtHomeConsumables",
+    childActivitiesSports: "entertainmentRecreation",
+    extracurricularLessonsActivities: "entertainmentRecreation",
+    youthSportsTravelSports: "entertainmentRecreation",
+    activityFieldTripFees: "entertainmentRecreation",
+    musicSportsClubEnrichment: "entertainmentRecreation",
+    homeownersInsurance: "insurancePremiums",
+    housingInsuranceDefault: "insurancePremiums",
+    vehicleInsurance: "insurancePremiums",
+    financialPlanningFees: "financialFeesTransactionCosts",
+    investmentAdvisoryFees: "financialFeesTransactionCosts",
+    licensingCredentialFees: "businessSelfEmployment",
+    unionDues: "businessSelfEmployment",
+    professionalAssociationDues: "businessSelfEmployment",
+    continuingEducation: "businessSelfEmployment",
+    giftsHolidaysCelebrations: "entertainmentRecreation",
+    holidaySeasonalSpending: "entertainmentRecreation",
+    weddingsFamilyEvents: "entertainmentRecreation",
+    timeshareVacationClubFees: "travelVacations",
+    utilityArrearsPaymentPlan: "basicUtilities",
+    solarLoanLeasePayment: "basicUtilities"
+  });
+
+  const PLANNING_METADATA_OVERRIDES_BY_TYPE_KEY = Object.freeze({
+    timeshareVacationClubFees: Object.freeze({
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "contractualObligation"
+    }),
+    utilityArrearsPaymentPlan: Object.freeze({
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "contractualObligation",
+      inflationBucketKey: "noInflationCurrentDollar"
+    }),
+    solarLoanLeasePayment: Object.freeze({
+      lifestyleTreatmentIncluded: false,
+      lifestyleTreatmentReason: "contractualObligation",
+      inflationBucketKey: "noInflationCurrentDollar"
+    })
+  });
 
   const PERIODIC_FINAL_EXPENSE_TYPE_KEYS = Object.freeze([
     "funeralBurialCosts"
@@ -1228,6 +1271,12 @@
     return Object.assign({}, bucket);
   }
 
+  function getExpensePlanningEntryMetadata(typeKey, planningBucketKey) {
+    const metadata = getExpensePlanningBucketMetadata(planningBucketKey);
+    const overrides = PLANNING_METADATA_OVERRIDES_BY_TYPE_KEY[typeKey];
+    return overrides ? Object.assign(metadata, overrides) : metadata;
+  }
+
   function inferPlanningBucketKey(typeKey, categoryKey, category, options) {
     const explicitPlanningBucketKey = normalizeMetadataToken(options.planningBucketKey, EXPENSE_PLANNING_BUCKET_KEYS, null);
     if (explicitPlanningBucketKey) {
@@ -1240,6 +1289,10 @@
 
     if (isSavingsContributionType(typeKey, categoryKey)) {
       return "savingsGoalContributions";
+    }
+
+    if (PLANNING_BUCKET_KEY_BY_TYPE_KEY[typeKey]) {
+      return PLANNING_BUCKET_KEY_BY_TYPE_KEY[typeKey];
     }
 
     if (includesValue(FINAL_EXPENSE_CATEGORY_KEYS, categoryKey) || includesValue(PERIODIC_FINAL_EXPENSE_TYPE_KEYS, typeKey)) {
@@ -1564,7 +1617,8 @@
     const interventionCandidate = Object.prototype.hasOwnProperty.call(options, "interventionCandidate")
       ? options.interventionCandidate === true
       : compressionTier === "early" || compressionTier === "medium" || compressionTier === "pauseCandidate";
-    const planningBucket = getExpensePlanningBucketMetadata(
+    const planningBucket = getExpensePlanningEntryMetadata(
+      typeKey,
       inferPlanningBucketKey(typeKey, categoryKey, category, options)
     );
 
