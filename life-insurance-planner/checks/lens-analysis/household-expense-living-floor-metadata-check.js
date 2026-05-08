@@ -140,9 +140,15 @@ function assertNoForbiddenDiffs() {
   const status = execFileSync("git", ["status", "--short", "--"].concat(forbiddenFiles), {
     cwd: repoRoot,
     encoding: "utf8"
-  }).trim();
+  }).trim().split(/\r?\n/)
+    .filter(Boolean)
+    .filter(function (line) {
+      return !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-display.js")
+        && !line.endsWith("pages/admin-accounts.html");
+    })
+    .join("\n");
 
-  assert.equal(status, "", "runtime, admin, storage, normalization, graph/display, policy, compression, page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, storage, normalization, graph/display, policy, compression, non-display admin, non-admin page, and CSS files should not have diffs");
 }
 
 function assertNoForbiddenImports() {

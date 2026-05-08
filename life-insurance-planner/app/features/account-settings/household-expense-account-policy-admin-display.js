@@ -82,6 +82,29 @@
     return null;
   }
 
+  function getLivingFloorMetadataApi(currentLensAnalysis) {
+    const metadataApi = currentLensAnalysis?.householdExpenseLivingFloorMetadata;
+    if (metadataApi && typeof metadataApi.getHouseholdExpenseLivingFloorMetadata === "function") {
+      return metadataApi;
+    }
+
+    return null;
+  }
+
+  function getPlanningBucketLabelMap(currentLensAnalysis) {
+    const library = currentLensAnalysis?.expenseLibrary;
+    const buckets = library && typeof library.getExpensePlanningBuckets === "function"
+      ? library.getExpensePlanningBuckets()
+      : [];
+
+    return buckets.reduce(function (map, bucket) {
+      if (bucket?.planningBucketKey) {
+        map[bucket.planningBucketKey] = bucket.planningBucketLabel || bucket.label || bucket.planningBucketKey;
+      }
+      return map;
+    }, {});
+  }
+
   function getExpenseLabelMap(libraryRows) {
     return (Array.isArray(libraryRows) ? libraryRows : []).reduce(function (map, row) {
       const typeKey = row && (row.typeKey || row.expenseTypeKey);
@@ -224,6 +247,84 @@
     };
   }
 
+  function toLivingFloorDisplayRow(row, bucketLabelByKey) {
+    return {
+      planningBucketKey: row.planningBucketKey || "",
+      planningBucketLabel: bucketLabelByKey[row.planningBucketKey] || row.planningBucketKey || "Unnamed bucket",
+      adjustmentClass: row.adjustmentClass || "",
+      minimumFloorMode: row.minimumFloorMode || "",
+      benchmarkAvailable: row.benchmarkAvailable === true,
+      benchmarkSource: row.benchmarkSource || "NONE",
+      floorSource: row.floorSource || "NONE",
+      stateAdjustmentSource: row.stateAdjustmentSource || "NONE",
+      householdSizingMethod: row.householdSizingMethod || "none",
+      adminEditable: row.adminEditable === true,
+      adminDollarInputsRequired: row.adminDollarInputsRequired === true,
+      sourceDataStatus: row.sourceDataStatus || "notApplicable",
+      usesSurvivingHousehold: row.usesSurvivingHousehold === true,
+      notes: row.notes || ""
+    };
+  }
+
+  function buildLivingFloorMetadataDisplayModel(currentLensAnalysis) {
+    const metadataApi = getLivingFloorMetadataApi(currentLensAnalysis);
+    if (!metadataApi) {
+      return {
+        available: false,
+        moneyFloorAdjustedBuckets: [],
+        ratioAdjustedBuckets: [],
+        excludedFromAdjustmentBuckets: [],
+        foodAtHomeBands: [],
+        stateSourcePriority: [],
+        householdSizingRule: null,
+        traceFields: [],
+        trace: {
+          source: "admin-household-expense-living-floor-metadata-display",
+          readOnly: true,
+          helperAvailable: false
+        }
+      };
+    }
+
+    const bucketLabelByKey = getPlanningBucketLabelMap(currentLensAnalysis);
+    const rows = metadataApi.getHouseholdExpenseLivingFloorMetadata().map(function (row) {
+      return toLivingFloorDisplayRow(row, bucketLabelByKey);
+    });
+
+    return {
+      available: true,
+      metadataVersion: metadataApi.LIVING_FLOOR_METADATA_VERSION || null,
+      moneyFloorAdjustedBuckets: rows.filter(function (row) {
+        return row.adjustmentClass === "moneyFloorAdjusted";
+      }),
+      ratioAdjustedBuckets: rows.filter(function (row) {
+        return row.adjustmentClass === "ratioAdjusted";
+      }),
+      excludedFromAdjustmentBuckets: rows.filter(function (row) {
+        return row.adjustmentClass === "excludedFromAdjustment";
+      }),
+      foodAtHomeBands: typeof metadataApi.getFoodAtHomeHouseholdMemberBands === "function"
+        ? metadataApi.getFoodAtHomeHouseholdMemberBands()
+        : [],
+      stateSourcePriority: typeof metadataApi.getHouseholdExpenseLivingFloorStateSourcePriority === "function"
+        ? metadataApi.getHouseholdExpenseLivingFloorStateSourcePriority()
+        : [],
+      householdSizingRule: typeof metadataApi.getHouseholdExpenseLivingFloorHouseholdSizingRule === "function"
+        ? metadataApi.getHouseholdExpenseLivingFloorHouseholdSizingRule()
+        : null,
+      traceFields: typeof metadataApi.getHouseholdExpenseLivingFloorTraceFields === "function"
+        ? metadataApi.getHouseholdExpenseLivingFloorTraceFields()
+        : [],
+      trace: {
+        source: "admin-household-expense-living-floor-metadata-display",
+        readOnly: true,
+        helperAvailable: true,
+        editableControlsRendered: false,
+        saveControlsRendered: false
+      }
+    };
+  }
+
   function getPolicyStatus(storageResult, resolvedPolicy) {
     if (storageResult?.status === "loaded") {
       return {
@@ -306,10 +407,17 @@
     const loadedPolicy = isPlainObject(storageResult?.accountPolicy) ? storageResult.accountPolicy : {};
     const status = getPolicyStatus(storageResult, resolvedPolicy);
     const planningBucketSummary = buildPlanningBucketSummaryDisplayModel(currentLensAnalysis);
+    const livingFloorMetadata = buildLivingFloorMetadataDisplayModel(currentLensAnalysis);
     if (planningBucketSummary.available !== true) {
       dataGaps.push({
         code: "household-expense-planning-bucket-summary-unavailable",
         message: "Planning bucket policy summary helper is unavailable."
+      });
+    }
+    if (livingFloorMetadata.available !== true) {
+      dataGaps.push({
+        code: "household-expense-living-floor-metadata-unavailable",
+        message: "Household expense living-floor metadata helper is unavailable."
       });
     }
 
@@ -337,6 +445,7 @@
         return Object.assign({}, row);
       }),
       planningBucketSummary,
+      livingFloorMetadata,
       warnings,
       dataGaps,
       trace: {
@@ -513,6 +622,208 @@
     `;
   }
 
+  function renderBoolean(value) {
+    return value === true ? "Yes" : "No";
+  }
+
+  function renderLivingFloorBucketKeyLabel(row) {
+    return `
+      <strong>${escapeHtml(row.planningBucketLabel)}</strong>
+      <span><code>${escapeHtml(row.planningBucketKey)}</code></span>
+    `;
+  }
+
+  function renderMoneyFloorRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-living-floor-row data-living-floor-adjustment-class="${escapeHtml(row.adjustmentClass)}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>${renderLivingFloorBucketKeyLabel(row)}</td>
+          <td>${escapeHtml(row.minimumFloorMode)}</td>
+          <td>${escapeHtml(row.benchmarkSource)}</td>
+          <td>${escapeHtml(row.floorSource)}</td>
+          <td>${escapeHtml(row.stateAdjustmentSource)}</td>
+          <td>${escapeHtml(row.householdSizingMethod)}</td>
+          <td>${renderBoolean(row.adminDollarInputsRequired)}</td>
+          <td>${escapeHtml(row.sourceDataStatus)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderRatioAdjustedRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-living-floor-row data-living-floor-adjustment-class="${escapeHtml(row.adjustmentClass)}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>${renderLivingFloorBucketKeyLabel(row)}</td>
+          <td>${escapeHtml(row.minimumFloorMode)}</td>
+          <td>${renderBoolean(row.adminEditable)}</td>
+          <td>${escapeHtml(row.benchmarkSource)}</td>
+          <td>${escapeHtml(row.notes || "Ratio-only adjustment")}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderExcludedAdjustmentRows(rows) {
+    return rows.map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row" data-living-floor-row data-living-floor-adjustment-class="${escapeHtml(row.adjustmentClass)}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey)}">
+          <td>${renderLivingFloorBucketKeyLabel(row)}</td>
+          <td>${escapeHtml(row.minimumFloorMode)}</td>
+          <td>${renderBoolean(row.benchmarkAvailable)}</td>
+          <td>${escapeHtml(row.benchmarkSource)}</td>
+          <td>${escapeHtml(row.householdSizingMethod)}</td>
+          <td>${renderBoolean(row.adminEditable)}</td>
+          <td>${escapeHtml(row.notes || "Excluded from adjustment")}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderLivingFloorTable(title, description, rows, columns, bodyHtml) {
+    return `
+      <section class="admin-tax-bracket-group" data-living-floor-section="${escapeHtml(title)}">
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">${escapeHtml(title)}</span>
+            <p class="panel-copy">${escapeHtml(description)}</p>
+          </div>
+        </div>
+        <table class="admin-tax-bracket-table">
+          <thead>
+            <tr>
+              ${columns.map(function (column) {
+                return `<th>${escapeHtml(column)}</th>`;
+              }).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length ? bodyHtml : `
+              <tr class="admin-tax-bracket-row">
+                <td colspan="${escapeHtml(columns.length)}">No buckets in this group.</td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  function formatBandRange(band) {
+    const minAge = band.minAge == null ? "" : String(band.minAge);
+    const maxAge = band.maxAge == null ? "+" : String(band.maxAge);
+    return `${minAge}-${maxAge}`;
+  }
+
+  function renderFoodAtHomeBandRows(bands) {
+    return bands.map(function (band) {
+      return `
+        <tr class="admin-tax-bracket-row" data-living-floor-food-band="${escapeHtml(band.bandKey)}">
+          <td><code>${escapeHtml(band.bandKey)}</code></td>
+          <td>${escapeHtml(formatBandRange(band))}</td>
+          <td>${escapeHtml(band.sex || "any")}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderFoodAtHomeSizingDetails(summary) {
+    const bands = Array.isArray(summary.foodAtHomeBands) ? summary.foodAtHomeBands : [];
+    const stateSourcePriority = Array.isArray(summary.stateSourcePriority) ? summary.stateSourcePriority : [];
+    const sizingRule = isPlainObject(summary.householdSizingRule) ? summary.householdSizingRule : {};
+
+    return `
+      <section class="admin-tax-bracket-group" data-living-floor-supporting-metadata>
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">Food at Home Sizing Details</span>
+            <p class="panel-copy">Metadata only. No dollar floors, state multipliers, or calculations are active.</p>
+          </div>
+        </div>
+        <table class="admin-tax-bracket-table" data-living-floor-food-bands>
+          <thead>
+            <tr>
+              <th>Band</th>
+              <th>Age Range</th>
+              <th>Sex</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderFoodAtHomeBandRows(bands)}
+          </tbody>
+        </table>
+        <div class="admin-summary-grid" data-living-floor-household-state-metadata>
+          ${renderCountCard("Sizing rule", sizingRule.householdSizingRuleKey || "n/a")}
+          ${renderCountCard("Deceased insured default", sizingRule.deceasedInsuredCountDefault == null ? "n/a" : sizingRule.deceasedInsuredCountDefault)}
+          ${renderCountCard("Includes current dependents", renderBoolean(sizingRule.includeCurrentDependents))}
+          ${renderCountCard("Projected dependents", sizingRule.includeProjectedFutureDependents === false ? "Excluded" : "Review")}
+          ${renderCountCard("Minimum household size", sizingRule.survivingHouseholdSizeMinimum == null ? "n/a" : sizingRule.survivingHouseholdSizeMinimum)}
+          ${renderCountCard("State priority", stateSourcePriority.join(" -> ") || "n/a")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderLivingFloorMetadataSummary(summary) {
+    const safeSummary = isPlainObject(summary) ? summary : {};
+    const moneyFloorRows = Array.isArray(safeSummary.moneyFloorAdjustedBuckets) ? safeSummary.moneyFloorAdjustedBuckets : [];
+    const ratioRows = Array.isArray(safeSummary.ratioAdjustedBuckets) ? safeSummary.ratioAdjustedBuckets : [];
+    const excludedRows = Array.isArray(safeSummary.excludedFromAdjustmentBuckets) ? safeSummary.excludedFromAdjustmentBuckets : [];
+
+    if (safeSummary.available !== true) {
+      return `
+        <section class="admin-tax-bracket-group" data-household-expense-living-floor-metadata>
+          <div class="admin-tax-bracket-toolbar">
+            <div>
+              <span class="section-label">Living Floor Metadata</span>
+              <h3>Unavailable</h3>
+              <p class="panel-copy">Household expense living-floor metadata helper is not loaded.</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    return `
+      <section class="admin-tax-bracket-group" data-household-expense-living-floor-metadata>
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">Living Floor Metadata</span>
+            <h3>Expense Floor Model</h3>
+            <p class="panel-copy">Read-only bucket classification for future dollar floors and ratio-only adjustment. No floor calculations or editable dollar inputs are active.</p>
+          </div>
+        </div>
+        <div class="admin-summary-grid" data-living-floor-class-counts>
+          ${renderCountCard("Money-floor adjusted", moneyFloorRows.length)}
+          ${renderCountCard("Ratio-adjusted", ratioRows.length)}
+          ${renderCountCard("Excluded from adjustment", excludedRows.length)}
+        </div>
+        ${renderLivingFloorTable(
+          "Money-Floor Adjusted",
+          "Buckets intended to use one estimated dollar floor after bucket-level aggregation.",
+          moneyFloorRows,
+          ["Bucket", "Floor Mode", "Benchmark", "Floor Source", "State Source", "Sizing", "Dollar Inputs", "Source Data"],
+          renderMoneyFloorRows(moneyFloorRows)
+        )}
+        ${renderLivingFloorTable(
+          "Ratio-Adjusted",
+          "Buckets that remain ratio-only, including zero-floor discretionary categories.",
+          ratioRows,
+          ["Bucket", "Floor Mode", "Admin Editable", "Benchmark", "Notes"],
+          renderRatioAdjustedRows(ratioRows)
+        )}
+        ${renderLivingFloorTable(
+          "Excluded From Adjustment",
+          "Protected, source-owned, contractual, or unknown buckets excluded from adjustment.",
+          excludedRows,
+          ["Bucket", "Floor Mode", "Benchmark Available", "Benchmark", "Sizing", "Admin Editable", "Notes"],
+          renderExcludedAdjustmentRows(excludedRows)
+        )}
+        ${renderFoodAtHomeSizingDetails(safeSummary)}
+      </section>
+    `;
+  }
+
   function renderHouseholdExpensePolicyDisplay(model) {
     const safeModel = isPlainObject(model) ? model : buildHouseholdExpensePolicyDisplayModel();
     const counts = isPlainObject(safeModel.counts) ? safeModel.counts : {};
@@ -542,6 +853,7 @@
           </div>
         </div>
         ${renderPlanningBucketSummary(safeModel.planningBucketSummary)}
+        ${renderLivingFloorMetadataSummary(safeModel.livingFloorMetadata)}
         <div class="admin-tax-bracket-group" data-household-expense-policy-protected-summary>
           <div class="admin-tax-bracket-toolbar">
             <span class="section-label">Protected Categories</span>
@@ -571,6 +883,7 @@
     TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID,
     PROTECTED_CATEGORY_SUMMARY,
     buildPlanningBucketSummaryDisplayModel,
+    buildLivingFloorMetadataDisplayModel,
     buildHouseholdExpensePolicyDisplayModel,
     renderHouseholdExpensePolicyDisplay,
     initializeHouseholdExpenseAccountPolicyAdminDisplay

@@ -12,6 +12,10 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function getScriptSources(source) {
   return Array.from(source.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*><\/script>/g))
     .map(function (match) { return match[1]; });
@@ -72,6 +76,7 @@ assertScriptOrder(scripts, [
   "../app/features/lens-analysis/household-expense-compression-policy.js",
   "../app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
   "../app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js",
+  "../app/features/lens-analysis/household-expense-living-floor-metadata.js",
   "../app/features/lens-analysis/household-expense-account-policy-resolver.js",
   "../app/features/account-settings/household-expense-account-policy-admin-display.js"
 ]);
@@ -89,6 +94,7 @@ assert.doesNotMatch(
 assert.match(adminDisplaySource, /householdExpenseAccountPolicyStorage/);
 assert.match(adminDisplaySource, /householdExpenseAccountPolicyResolver/);
 assert.match(adminDisplaySource, /householdExpensePlanningBucketPolicySummary/);
+assert.match(adminDisplaySource, /householdExpenseLivingFloorMetadata/);
 assert.match(adminDisplaySource, /TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID/);
 assert.match(adminDisplaySource, /temporaryLocalAdminFallback/);
 assert.match(adminDisplaySource, /readOnly:\s*true/);
@@ -124,6 +130,7 @@ loadScript(context, "app/features/lens-analysis/expense-compression-thresholds.j
 loadScript(context, "app/features/lens-analysis/household-expense-compression-policy.js");
 loadScript(context, "app/features/lens-analysis/household-expense-lifestyle-range-policy.js");
 loadScript(context, "app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js");
+loadScript(context, "app/features/lens-analysis/household-expense-living-floor-metadata.js");
 loadScript(context, "app/features/lens-analysis/household-expense-account-policy-resolver.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-display.js");
 
@@ -133,6 +140,7 @@ assert.ok(adminDisplay, "admin display module should load");
 assert.equal(typeof adminDisplay.buildHouseholdExpensePolicyDisplayModel, "function");
 assert.equal(typeof adminDisplay.renderHouseholdExpensePolicyDisplay, "function");
 assert.equal(typeof adminDisplay.buildPlanningBucketSummaryDisplayModel, "function");
+assert.equal(typeof adminDisplay.buildLivingFloorMetadataDisplayModel, "function");
 
 const accountId = adminDisplay.TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID;
 const missingModel = adminDisplay.buildHouseholdExpensePolicyDisplayModel({
@@ -150,6 +158,7 @@ assert.equal(missingModel.counts.compressionThresholdOverrides, 0, "missing poli
 assert.equal(missingModel.planningBucketSummary.available, true, "planning bucket summary should be available");
 assert.equal(missingModel.planningBucketSummary.lifestylePolicyRowCount, 86, "bucket summary should report lifestyle policy rows");
 assert.equal(missingModel.planningBucketSummary.sliderEligibleRowCount, 41, "bucket summary should report slider rows");
+assert.equal(missingModel.livingFloorMetadata.available, true, "living-floor metadata should be available");
 
 const cleanBucketKeys = missingModel.planningBucketSummary.cleanIncludedBuckets.map(function (row) {
   return row.planningBucketKey;
@@ -203,6 +212,71 @@ const lockedBucketKeys = missingModel.planningBucketSummary.lockedSourceOwnedBuc
   assert.ok(lockedBucketKeys.includes(planningBucketKey), `${planningBucketKey} should render as locked/source-owned context`);
 });
 
+const livingFloor = missingModel.livingFloorMetadata;
+const moneyFloorKeys = livingFloor.moneyFloorAdjustedBuckets.map(function (row) {
+  return row.planningBucketKey;
+});
+assert.deepEqual(
+  plain(moneyFloorKeys.slice().sort()),
+  [
+    "communicationsConnectivity",
+    "foodAtHomeConsumables",
+    "householdConsumables",
+    "transportationBasics"
+  ].sort(),
+  "money-floor adjusted buckets should match approved display set"
+);
+
+const livingFloorExcludedKeys = livingFloor.excludedFromAdjustmentBuckets.map(function (row) {
+  return row.planningBucketKey;
+});
+assert.ok(livingFloorExcludedKeys.includes("basicUtilities"), "basicUtilities should render as excluded from adjustment");
+assert.equal(
+  moneyFloorKeys.includes("basicUtilities"),
+  false,
+  "basicUtilities should not render as money-floor adjusted"
+);
+assert.ok(livingFloorExcludedKeys.includes("debtObligations"), "debtObligations should render as excluded from adjustment");
+const debtObligationsRow = livingFloor.excludedFromAdjustmentBuckets.find(function (row) {
+  return row.planningBucketKey === "debtObligations";
+});
+assert.equal(debtObligationsRow.adminEditable, false, "debtObligations should not be editable");
+
+const zeroFloorRatioKeys = livingFloor.ratioAdjustedBuckets
+  .filter(function (row) {
+    return row.minimumFloorMode === "zeroFloor";
+  })
+  .map(function (row) {
+    return row.planningBucketKey;
+  });
+[
+  "diningTakeout",
+  "subscriptionsMemberships",
+  "entertainmentRecreation",
+  "travelVacations",
+  "petsDiscretionary",
+  "savingsGoalContributions"
+].forEach(function (planningBucketKey) {
+  assert.ok(zeroFloorRatioKeys.includes(planningBucketKey), `${planningBucketKey} should render as zero-floor ratio adjusted`);
+});
+assert.ok(livingFloor.foodAtHomeBands.length >= 9, "food-at-home age/sex bands should be present in display model");
+assert.ok(
+  livingFloor.foodAtHomeBands.some(function (band) {
+    return band.bandKey === "teenMale";
+  }),
+  "food-at-home teenMale band should be present"
+);
+assert.equal(
+  livingFloor.householdSizingRule.householdSizingRuleKey,
+  "remainingHouseholdAfterInsuredDeath",
+  "remaining-household sizing rule should be present"
+);
+assert.deepEqual(
+  plain(livingFloor.stateSourcePriority),
+  ["profileAddressState", "pmiIncomeTaxState", "accountDefaultState", "nationalDefault"],
+  "state source priority should render in approved order"
+);
+
 const missingHtml = adminDisplay.renderHouseholdExpensePolicyDisplay(missingModel);
 assert.match(missingHtml, /Default seed policy only/);
 assert.match(missingHtml, /Lifestyle range rows/);
@@ -212,6 +286,28 @@ assert.match(missingHtml, /Planning Bucket Summary/);
 assert.match(missingHtml, /Clean Included Buckets/);
 assert.match(missingHtml, /Mixed Buckets \/ Row Exceptions/);
 assert.match(missingHtml, /Locked Or Source-Owned Buckets/);
+assert.match(missingHtml, /Living Floor Metadata/);
+assert.match(missingHtml, /Expense Floor Model/);
+assert.match(missingHtml, /Money-Floor Adjusted/);
+assert.match(missingHtml, /Ratio-Adjusted/);
+assert.match(missingHtml, /Excluded From Adjustment/);
+assert.match(missingHtml, /foodAtHomeConsumables/);
+assert.match(missingHtml, /householdConsumables/);
+assert.match(missingHtml, /communicationsConnectivity/);
+assert.match(missingHtml, /transportationBasics/);
+assert.match(missingHtml, /basicUtilities/);
+assert.match(missingHtml, /debtObligations/);
+assert.match(missingHtml, /diningTakeout/);
+assert.match(missingHtml, /subscriptionsMemberships/);
+assert.match(missingHtml, /entertainmentRecreation/);
+assert.match(missingHtml, /travelVacations/);
+assert.match(missingHtml, /petsDiscretionary/);
+assert.match(missingHtml, /savingsGoalContributions/);
+assert.match(missingHtml, /infantToddler/);
+assert.match(missingHtml, /teenMale/);
+assert.match(missingHtml, /adultUnknown/);
+assert.match(missingHtml, /remainingHouseholdAfterInsuredDeath/);
+assert.match(missingHtml, /profileAddressState -&gt; pmiIncomeTaxState -&gt; accountDefaultState -&gt; nationalDefault/);
 assert.match(missingHtml, /communicationsConnectivity/);
 assert.match(missingHtml, /householdConsumables/);
 assert.match(missingHtml, /personalLivingClothing/);
@@ -239,6 +335,11 @@ const bucketSummaryEnd = missingHtml.indexOf("data-household-expense-policy-prot
 assert.ok(bucketSummaryStart >= 0 && bucketSummaryEnd > bucketSummaryStart, "bucket summary section should render before protected summary");
 const bucketSummaryHtml = missingHtml.slice(bucketSummaryStart, bucketSummaryEnd);
 assert.doesNotMatch(bucketSummaryHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save|data-household-expense-policy-reset-row/);
+const livingFloorStart = missingHtml.indexOf("data-household-expense-living-floor-metadata");
+const livingFloorEnd = missingHtml.indexOf("data-household-expense-policy-protected-summary");
+assert.ok(livingFloorStart >= 0 && livingFloorEnd > livingFloorStart, "living-floor metadata section should render before protected summary");
+const livingFloorHtml = missingHtml.slice(livingFloorStart, livingFloorEnd);
+assert.doesNotMatch(livingFloorHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save|data-household-expense-policy-reset-row|reset/i);
 assert.equal(context.localStorage.getWriteCount(), 0, "rendering bucket summary should not write storage");
 
 const validPolicy = {
