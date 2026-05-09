@@ -582,6 +582,19 @@ assert.equal(getBucket(missingFloorResult, "householdConsumables").adjustedMonth
 assert.ok(hasIssue(missingFloorResult.warnings, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), "missing floor should warn");
 assert.ok(hasIssue(missingFloorResult.dataGaps, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), "missing floor should produce data gap");
 
+const disabledFloorResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments(createCompleteInput({
+  applyEstimatedDollarFloors: false
+}));
+const disabledFoodBucket = getBucket(disabledFloorResult, "foodAtHomeConsumables");
+assert.equal(disabledFloorResult.trace.estimatedDollarFloorsEnabled, false, "engine should trace disabled dollar floors");
+assert.equal(disabledFloorResult.trace.livingFloorCalculationPreviewUsedForDollarFloors, false, "disabled mode should not consume living floor preview for amounts");
+assert.equal(disabledFoodBucket.estimatedDollarPlanningFloorMonthly, null, "disabled mode should not expose a bucket dollar floor as applied input");
+assert.equal(disabledFoodBucket.adjustedMonthlyAmount, 400, "disabled Food floor should use ratio behavior only");
+assert.equal(disabledFoodBucket.floorApplied, false, "disabled Food floor should not be applied");
+assert.equal(disabledFoodBucket.floorSkippedReason, "estimated-dollar-floors-disabled-ratio-behavior", "disabled Food floor should trace disabled ratio behavior");
+assert.equal(getBucket(disabledFloorResult, "householdConsumables").adjustedMonthlyAmount, 75, "disabled MODEL90 default floor should use ratio behavior only");
+assert.equal(hasIssue(disabledFloorResult.dataGaps, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), false, "disabled floors should not be reported as missing floor assumptions");
+
 const positiveResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments(createCompleteInput({
   sliderValue: 50
 }));

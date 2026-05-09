@@ -281,6 +281,11 @@
     return value != null && value >= 0 ? roundMoney(value) : null;
   }
 
+  function shouldApplyEstimatedDollarFloors(input) {
+    return input?.applyEstimatedDollarFloors !== false
+      && input?.enableDollarFloors !== false;
+  }
+
   function isProtectedPlanningBucket(planningBucketKey) {
     return PROTECTED_EXCLUDED_PLANNING_BUCKET_KEYS.includes(normalizeString(planningBucketKey));
   }
@@ -446,7 +451,7 @@
     });
   }
 
-  function createBucketAdjustment(planningBucketKey, rows, input, sliderValue, warnings, dataGaps) {
+  function createBucketAdjustment(planningBucketKey, rows, input, sliderValue, warnings, dataGaps, applyEstimatedDollarFloors) {
     const baselineMonthlyAmount = roundMoney(rows.reduce(function (total, row) {
       return total + row.baselineMonthlyAmount;
     }, 0));
@@ -456,14 +461,18 @@
     const elevatedCeilingMonthlyAmount = roundMoney(rows.reduce(function (total, row) {
       return total + row.elevatedCeilingMonthlyAmount;
     }, 0));
-    const estimatedDollarPlanningFloorMonthly = getFloorAmount(input, planningBucketKey);
+    const estimatedDollarPlanningFloorMonthly = applyEstimatedDollarFloors
+      ? getFloorAmount(input, planningBucketKey)
+      : null;
     const bucketWarnings = [];
     const bucketDataGaps = [];
     let effectiveConservativeFloorMonthly = ratioFloorMonthlyAmount;
     let floorApplied = false;
     let floorSkippedReason = "not-needed";
 
-    if (estimatedDollarPlanningFloorMonthly == null) {
+    if (!applyEstimatedDollarFloors) {
+      floorSkippedReason = "estimated-dollar-floors-disabled-ratio-behavior";
+    } else if (estimatedDollarPlanningFloorMonthly == null) {
       floorSkippedReason = "missing-estimated-dollar-floor-ratio-fallback";
       const issue = createIssue(
         "money-floor-bucket-missing-dollar-floor-ratio-fallback",
@@ -497,7 +506,8 @@
     const adjustedMonthlyAmount = estimatedDollarPlanningFloorMonthly == null
       ? roundMoney(preliminaryAdjustedMonthlyAmount)
       : roundMoney(Math.max(preliminaryAdjustedMonthlyAmount, estimatedDollarPlanningFloorMonthly));
-    floorApplied = estimatedDollarPlanningFloorMonthly != null
+    floorApplied = applyEstimatedDollarFloors
+      && estimatedDollarPlanningFloorMonthly != null
       && adjustedMonthlyAmount > preliminaryAdjustedMonthlyAmount;
     if (estimatedDollarPlanningFloorMonthly != null && !floorApplied && floorSkippedReason == null) {
       floorSkippedReason = "ratio-adjusted-amount-higher-than-dollar-floor";
@@ -521,6 +531,7 @@
           : "baseline";
       row.trace = Object.assign({}, row.trace, {
         floorAppliedAtPlanningBucketLevel: floorApplied,
+        estimatedDollarFloorsEnabled: applyEstimatedDollarFloors,
         perRowDollarFloorApplied: false,
         planningBucketBaselineMonthlyAmount: baselineMonthlyAmount
       });
@@ -546,6 +557,7 @@
       dataGaps: bucketDataGaps,
       trace: {
         floorAppliedOncePerPlanningBucket: true,
+        estimatedDollarFloorsEnabled: applyEstimatedDollarFloors,
         perRowDollarFloorApplied: false,
         sliderValue
       }
@@ -642,6 +654,7 @@
     const warnings = [];
     const dataGaps = [];
     const sliderValue = clamp(toOptionalNumber(safeInput.sliderValue) ?? 0, MIN_SLIDER_VALUE, MAX_SLIDER_VALUE);
+    const applyEstimatedDollarFloors = shouldApplyEstimatedDollarFloors(safeInput);
     const streamMode = isBaseHouseholdExpenseStreamInput(safeInput);
     const inputRows = getInputExpenses(safeInput).filter(isPlainObject);
     const skippedRows = createSkippedRows(inputRows, streamMode);
@@ -661,7 +674,7 @@
 
     const moneyFloorGroups = groupRowsByPlanningBucket(rowAdjustments, "moneyFloorAdjusted");
     const bucketAdjustments = Object.keys(moneyFloorGroups).sort().map(function (planningBucketKey) {
-      return createBucketAdjustment(planningBucketKey, moneyFloorGroups[planningBucketKey], safeInput, sliderValue, warnings, dataGaps);
+      return createBucketAdjustment(planningBucketKey, moneyFloorGroups[planningBucketKey], safeInput, sliderValue, warnings, dataGaps, applyEstimatedDollarFloors);
     });
 
     const ratioGroups = groupRowsByPlanningBucket(rowAdjustments, "ratioAdjusted");
@@ -711,9 +724,11 @@
         skippedRowCount: skippedRows.length,
         resolvedGraphAdjustmentPolicyUsed: Array.isArray(safeInput?.resolvedGraphAdjustmentPolicy?.rows),
         livingFloorCalculationPreviewUsed: isPlainObject(safeInput?.livingFloorCalculationPreview?.buckets),
+        estimatedDollarFloorsEnabled: applyEstimatedDollarFloors,
+        livingFloorCalculationPreviewUsedForDollarFloors: applyEstimatedDollarFloors && isPlainObject(safeInput?.livingFloorCalculationPreview?.buckets),
         graphSeriesConstructed: false,
         graphDeltaApplied: false,
-        floorsAppliedAtPlanningBucketLevel: true,
+        floorsAppliedAtPlanningBucketLevel: applyEstimatedDollarFloors,
         perRowDollarFloorApplied: false,
         storageTouched: false,
         inputsMutated: false

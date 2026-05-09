@@ -379,6 +379,15 @@ function createStreamPreviewLensModel() {
           metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyHouseholdSuppliesCost" }
         }),
         createStreamExpenseFact({
+          expenseFactId: "dining",
+          typeKey: "diningOutRestaurants",
+          categoryKey: "foodGroceries",
+          label: "Dining",
+          monthlyAmount: 100,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        }),
+        createStreamExpenseFact({
           expenseFactId: "internet",
           typeKey: "internet",
           categoryKey: "utilities",
@@ -397,6 +406,15 @@ function createStreamPreviewLensModel() {
           metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyTransportationCost" }
         }),
         createStreamExpenseFact({
+          expenseFactId: "utility",
+          typeKey: "gasHeatingFuelPropaneOil",
+          categoryKey: "utilities",
+          label: "Gas Utility",
+          monthlyAmount: 50,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        }),
+        createStreamExpenseFact({
           expenseFactId: "healthcare",
           typeKey: "healthcareOutOfPocketSupportDefault",
           categoryKey: "otherLivingExpense",
@@ -404,6 +422,15 @@ function createStreamPreviewLensModel() {
           monthlyAmount: 150,
           ownedByField: "monthlyHealthcareOutOfPocketCost",
           metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyHealthcareOutOfPocketCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "debt",
+          typeKey: "autoLoanPayment",
+          categoryKey: "debtObligations",
+          label: "Auto Loan",
+          monthlyAmount: 50,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
         }),
         createStreamExpenseFact({
           expenseFactId: "insurance",
@@ -424,11 +451,47 @@ function createStreamPreviewLensModel() {
           metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyChildcareAndDependentCareCost" }
         }),
         createStreamExpenseFact({
+          expenseFactId: "final",
+          typeKey: "funeralBurialEstimate",
+          categoryKey: "funeralBurial",
+          label: "Funeral",
+          monthlyAmount: 25,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "education",
+          typeKey: "privateSchoolTuition",
+          categoryKey: "educationExpense",
+          label: "Education",
+          monthlyAmount: 25,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "tax",
+          typeKey: "taxPreparationFees",
+          categoryKey: "taxes",
+          label: "Tax Prep",
+          monthlyAmount: 25,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "giving",
+          typeKey: "charitableGiving",
+          categoryKey: "givingCommunity",
+          label: "Giving",
+          monthlyAmount: 25,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        }),
+        createStreamExpenseFact({
           expenseFactId: "other",
           typeKey: "otherHouseholdExpenseDefault",
           categoryKey: "otherLivingExpense",
           label: "Other Household",
-          monthlyAmount: 500,
+          monthlyAmount: 200,
           ownedByField: "monthlyOtherHouseholdExpenses",
           metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
         })
@@ -921,8 +984,14 @@ assert.ok(
 
 [
   "rentOrMortgagePayment",
+  "autoLoanPayment",
+  "gasHeatingFuelPropaneOil",
   "healthcareOutOfPocketSupportDefault",
+  "funeralBurialEstimate",
+  "privateSchoolTuition",
   "householdInsurancePremiums",
+  "taxPreparationFees",
+  "charitableGiving",
   "childcareExpense"
 ].forEach((expenseTypeKey) => {
   const row = streamPreview.householdExpenseAdjustmentResult.rowAdjustments.find((candidate) => candidate.expenseTypeKey === expenseTypeKey);
@@ -930,6 +999,216 @@ assert.ok(
   assert.equal(row.adjustedMonthlyAmount, row.baselineMonthlyAmount, `${expenseTypeKey} should stay fixed in stream preview`);
   assert.equal(row.monthlyDelta, 0, `${expenseTypeKey} should have zero preview delta`);
 });
+
+const activeGraphInput = createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments"
+});
+const activeGraphBefore = cloneJson(activeGraphInput);
+const activeGraph = calculations.calculateIncomeImpactLifestyleScenario(activeGraphInput);
+assert.deepEqual(activeGraphInput, activeGraphBefore, "active graph adjustment mode should not mutate input");
+assert.ok(activeGraph.householdExpenseStreamPreview, "active graph adjustment mode should include stream preview context");
+assert.equal(activeGraph.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, true, "active graph adjustment mode should mark stream preview as consumed");
+assert.equal(activeGraph.householdExpenseStreamPreview.trace.graphOutputChanged, true, "active graph adjustment mode should trace graph output replacement");
+assert.equal(activeGraph.householdExpenseStreamPreview.trace.estimatedDollarFloorsEnabled, false, "active graph adjustment mode should disable dollar floors");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.estimatedDollarFloorsEnabled, false, "engine should disable dollar floors for active graph adjustment mode");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.livingFloorCalculationPreviewUsedForDollarFloors, false, "living floor preview should not drive active graph amounts yet");
+assert.equal(activeGraph.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "active mode should return stream-based comparison output");
+assert.equal(activeGraph.comparisonScenario.trace.graphMonthlyDelta, activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.monthlyDelta, "active comparison graph delta should come from stream engine");
+assert.equal(activeGraph.comparisonScenario.trace.estimatedDollarFloorsEnabled, false, "active comparison should trace dollar floors disabled");
+assert.equal(activeGraph.comparisonScenario.trace.livingFloorsApplied, false, "active comparison should not apply living floors yet");
+assert.equal(activeGraph.trace.householdExpenseStreamPolicyMode, "activeGraphAdjustments", "top-level trace should identify active stream mode");
+assert.equal(activeGraph.trace.estimatedDollarFloorsEnabled, false, "top-level trace should identify dollar floors disabled");
+assert.notDeepEqual(
+  activeGraph.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  streamPreviewLegacy.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  "active graph adjustment mode should use stream-based comparison path instead of legacy comparison path"
+);
+
+const activeFoodBucket = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "foodAtHomeConsumables");
+assert.ok(activeFoodBucket, "active graph adjustment mode should include Food at Home bucket");
+assert.equal(activeFoodBucket.rowCount, 2, "active graph adjustment mode should aggregate Food at Home rows by planning bucket");
+assert.equal(activeFoodBucket.adjustedMonthlyAmount, activeFoodBucket.ratioAdjustedMonthlyAmount, "Food at Home should use ratio behavior while dollar floors are disabled");
+assert.equal(activeFoodBucket.floorSkippedReason, "estimated-dollar-floors-disabled-ratio-behavior", "Food at Home should trace disabled dollar-floor behavior");
+const activeDiningRow = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments.find((row) => row.expenseTypeKey === "diningOutRestaurants");
+assert.ok(activeDiningRow, "active fixture should include dining row");
+assert.equal(activeDiningRow.adjustedMonthlyAmount, 0, "zero-floor ratio rows should go to zero at conservative slider");
+
+const highFloorAssumptions = createCompleteLivingFloorAssumptions();
+Object.keys(highFloorAssumptions.foodAtHome.monthlyAmountsByBand).forEach((bandKey) => {
+  highFloorAssumptions.foodAtHome.monthlyAmountsByBand[bandKey] = 5000;
+});
+Object.keys(highFloorAssumptions.model90DefaultBucketFloors).forEach((bucketKey) => {
+  highFloorAssumptions.model90DefaultBucketFloors[bucketKey].monthlyBaseAmount = 5000;
+  highFloorAssumptions.model90DefaultBucketFloors[bucketKey].monthlyPerMemberAmount = 1000;
+  highFloorAssumptions.model90DefaultBucketFloors[bucketKey].monthlyPerAdultDriverAmount = 1000;
+});
+const activeHighFloors = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: highFloorAssumptions
+  }
+}));
+assert.deepEqual(
+  activeHighFloors.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  activeGraph.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  "complete/high living-floor assumptions should not affect active graph output while dollar floors are disabled"
+);
+
+const activeIncompleteFloors = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: {}
+  }
+}));
+assert.deepEqual(
+  activeIncompleteFloors.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  activeGraph.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
+  "missing living-floor assumptions should not affect active graph output while dollar floors are disabled"
+);
+
+const activeExcludeGroceries = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: createCompleteLivingFloorAssumptions(),
+    graphAdjustmentOverrides: [
+      {
+        expenseTypeKey: "groceries",
+        adjustmentClass: "excludedFromAdjustment",
+        minimumFloorMode: "notAdjusted",
+        source: "ADMIN_ENTERED"
+      }
+    ]
+  }
+}));
+const excludedGroceryRows = activeExcludeGroceries.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments.filter((row) => row.expenseTypeKey === "groceries");
+assert.ok(excludedGroceryRows.length >= 2, "grocery stream rows should be represented for exclusion override");
+excludedGroceryRows.forEach((row) => {
+  assert.equal(row.adjustedMonthlyAmount, row.baselineMonthlyAmount, "excluded grocery override should keep row fixed");
+  assert.equal(row.monthlyDelta, 0, "excluded grocery override should produce zero row delta");
+});
+assert.ok(
+  activeExcludeGroceries.comparisonScenario.trace.graphMonthlyDelta > activeGraph.comparisonScenario.trace.graphMonthlyDelta,
+  "excluding a previously adjustable row should reduce conservative graph movement"
+);
+
+const activeRatioGroceries = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: createCompleteLivingFloorAssumptions(),
+    graphAdjustmentOverrides: [
+      {
+        expenseTypeKey: "groceries",
+        adjustmentClass: "ratioAdjusted",
+        minimumFloorMode: "zeroFloor",
+        source: "ADMIN_ENTERED"
+      }
+    ]
+  }
+}));
+const ratioGroceryRows = activeRatioGroceries.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments.filter((row) => row.expenseTypeKey === "groceries");
+ratioGroceryRows.forEach((row) => {
+  assert.equal(row.adjustmentClass, "ratioAdjusted", "grocery ratio override should resolve to ratioAdjusted");
+  assert.equal(row.adjustedMonthlyAmount, 0, "grocery ratio override should use zero-floor ratio behavior");
+});
+assert.ok(
+  activeRatioGroceries.comparisonScenario.trace.graphMonthlyDelta < activeGraph.comparisonScenario.trace.graphMonthlyDelta,
+  "ratio override to zero floor should increase conservative graph movement"
+);
+
+const activeMoneyFloorDining = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: createCompleteLivingFloorAssumptions(),
+    graphAdjustmentOverrides: [
+      {
+        expenseTypeKey: "diningOutRestaurants",
+        adjustmentClass: "moneyFloorAdjusted",
+        minimumFloorMode: "estimatedDollarFloor",
+        source: "ADMIN_ENTERED"
+      }
+    ]
+  }
+}));
+const diningBucket = activeMoneyFloorDining.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "diningTakeout");
+assert.ok(diningBucket, "money-floor override should create a dining bucket adjustment");
+assert.equal(diningBucket.adjustedMonthlyAmount, diningBucket.ratioAdjustedMonthlyAmount, "money-floor override should still use ratio-only behavior while dollar floors are disabled");
+assert.equal(diningBucket.floorSkippedReason, "estimated-dollar-floors-disabled-ratio-behavior", "money-floor override should trace disabled floor behavior");
+
+const activeLifestyleOverride = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: createCompleteLivingFloorAssumptions(),
+    lifestyleRangeOverrides: [
+      {
+        expenseTypeKey: "groceries",
+        conservativeFloorRatio: 0.9,
+        elevatedCeilingRatio: 1.1
+      }
+    ]
+  }
+}));
+const lifestyleOverrideGroceries = activeLifestyleOverride.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments
+  .filter((row) => row.expenseTypeKey === "groceries")
+  .reduce((total, row) => total + row.adjustedMonthlyAmount, 0);
+assert.equal(lifestyleOverrideGroceries, 540, "lifestyleRangeOverrides should still alter active stream ratio behavior");
+
+const maliciousProtectedOverride = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: createCompleteLivingFloorAssumptions(),
+    graphAdjustmentOverrides: [
+      "rentOrMortgagePayment",
+      "autoLoanPayment",
+      "gasHeatingFuelPropaneOil",
+      "healthcareOutOfPocketSupportDefault",
+      "funeralBurialEstimate",
+      "privateSchoolTuition",
+      "householdInsurancePremiums",
+      "taxPreparationFees",
+      "charitableGiving",
+      "childcareExpense"
+    ].map((expenseTypeKey) => ({
+      expenseTypeKey,
+      adjustmentClass: "ratioAdjusted",
+      minimumFloorMode: "zeroFloor",
+      source: "ADMIN_ENTERED"
+    }))
+  }
+}));
+[
+  "rentOrMortgagePayment",
+  "autoLoanPayment",
+  "gasHeatingFuelPropaneOil",
+  "healthcareOutOfPocketSupportDefault",
+  "funeralBurialEstimate",
+  "privateSchoolTuition",
+  "householdInsurancePremiums",
+  "taxPreparationFees",
+  "charitableGiving",
+  "childcareExpense"
+].forEach((expenseTypeKey) => {
+  const row = maliciousProtectedOverride.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments.find((candidate) => candidate.expenseTypeKey === expenseTypeKey);
+  assert.ok(row, `${expenseTypeKey} should be present in protected override fixture`);
+  assert.equal(row.adjustmentClass, "excludedFromAdjustment", `${expenseTypeKey} should remain excluded despite malicious override`);
+  assert.equal(row.adjustedMonthlyAmount, row.baselineMonthlyAmount, `${expenseTypeKey} should remain fixed despite malicious override`);
+  assert.equal(row.monthlyDelta, 0, `${expenseTypeKey} should keep zero delta despite malicious override`);
+});
+
+assert.equal(activeGraph.householdExpenseStreamPreview.baseHouseholdExpenseStream.referenceRows.length, 0, "active stream fixture should have no reference rows affecting graph output");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.skippedRows.length, 0, "active stream represented fixture should not skip represented rows");
+assert.equal(activeGraph.comparisonScenario.trace.graphMonthlyDelta, activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.monthlyDelta, "active stream monthlyDelta sign should pass directly to comparison graph delta");
+assert.ok(activeGraph.comparisonScenario.trace.graphMonthlyDelta < 0, "conservative active stream adjustment should reduce expenses");
+assert.ok(
+  activeGraph.comparisonScenario.postDeathSeries.points[0].endingResources > streamPreviewLegacy.comparisonScenario.postDeathSeries.points[0].endingResources,
+  "negative active stream monthlyDelta should increase resources on comparison path"
+);
 
 assert.equal(baseline.trace.projectionSeriesApplied, false, "projection series should not be applied in this pass");
 assert.equal(baseline.trace.projectionSeriesDeferred, true, "projection series should be explicitly deferred");
