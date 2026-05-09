@@ -3,7 +3,7 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   const CALCULATION_METHOD = "income-impact-lifestyle-scenario-v1";
-  const DEFAULT_MODE = "lifestyleScenarioOnly";
+  const LEGACY_FALLBACK_TRACE_MODE = "lifestyleScenarioOnly";
   const MIN_SLIDER_VALUE = -100;
   const MAX_SLIDER_VALUE = 100;
   const DEFAULT_COMPARISON_SCENARIO_ID = "income-impact-lifestyle-adjusted-comparison";
@@ -108,7 +108,10 @@
     return Object.prototype.hasOwnProperty.call(Object(object), key);
   }
 
-  function getExpenses(input) {
+  // Explicit legacy fallback helpers. Stream activeGraphAdjustments is the default
+  // when its runtime inputs are available; these helpers remain for explicit
+  // legacy, preview-only comparisons, and traced fallback behavior.
+  function getLegacyExpenses(input) {
     if (Array.isArray(input?.expenses)) {
       return input.expenses;
     }
@@ -248,7 +251,7 @@
     };
   }
 
-  function buildPolicyResolver(input, warnings, dataGaps) {
+  function buildLegacyPolicyResolver(input, warnings, dataGaps) {
     const explicitResolved = getExplicitResolvedLifestylePolicies(input);
     let fallbackPolicyUsed = false;
 
@@ -535,7 +538,7 @@
     return baselineMonthlyAmount;
   }
 
-  function createAdjustedExpense(expense, policy, index, sliderValue, input, warnings) {
+  function createLegacyAdjustedExpense(expense, policy, index, sliderValue, input, warnings) {
     const baselineRaw = getMonthlyAmount(expense);
     const baselineMonthlyAmount = roundMoney(baselineRaw == null ? 0 : Math.max(0, baselineRaw));
     const typeKey = getTypeKey(expense) || normalizeString(policy && policy.expenseTypeKey);
@@ -1045,7 +1048,7 @@
       );
   }
 
-  function buildReconciledAdjustmentSummary(lifestyleScenario, warnings, dataGaps) {
+  function buildLegacyReconciledAdjustmentSummary(lifestyleScenario, warnings, dataGaps) {
     const adjustedExpenses = Array.isArray(lifestyleScenario?.adjustedExpenses)
       ? lifestyleScenario.adjustedExpenses
       : [];
@@ -1294,7 +1297,7 @@
     };
   }
 
-  function buildLifestyleComparisonScenario(basePostDeathSeries, lifestyleScenario, input) {
+  function buildLegacyLifestyleComparisonScenario(basePostDeathSeries, lifestyleScenario, input) {
     const warnings = [];
     const dataGaps = [];
     const basePoints = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
@@ -1347,7 +1350,7 @@
       };
     }
 
-    const reconciledSummary = buildReconciledAdjustmentSummary(lifestyleScenario, warnings, dataGaps);
+    const reconciledSummary = buildLegacyReconciledAdjustmentSummary(lifestyleScenario, warnings, dataGaps);
     const canApplyGraphDelta = validateGraphAdjustmentAgainstBaseNeeds(reconciledSummary, basePostDeathSeries, warnings, dataGaps);
     const requestedGraphMonthlyDelta = canApplyGraphDelta ? reconciledSummary.graphMonthlyDelta : 0;
     const postDeathSeries = buildAdjustedPostDeathSeries(basePostDeathSeries, requestedGraphMonthlyDelta, lifestyleScenario, warnings, dataGaps);
@@ -1399,7 +1402,7 @@
       ? sourceInput.lifestyleScenario
       : calculateIncomeImpactLifestyleScenario(sourceInput);
     const basePostDeathSeries = getInputBasePostDeathSeries(sourceInput);
-    return buildLifestyleComparisonScenario(basePostDeathSeries, lifestyleScenario, sourceInput);
+    return buildLegacyLifestyleComparisonScenario(basePostDeathSeries, lifestyleScenario, sourceInput);
   }
 
   function calculateIncomeImpactLifestyleScenario(input) {
@@ -1420,7 +1423,7 @@
       ));
     }
 
-    const expenses = getExpenses(sourceInput).filter(isPlainObject);
+    const expenses = getLegacyExpenses(sourceInput).filter(isPlainObject);
     if (!expenses.length) {
       dataGaps.push(makeIssue(
         "missing-lifestyle-expenses",
@@ -1429,10 +1432,10 @@
       ));
     }
 
-    const policyContext = buildPolicyResolver(sourceInput, warnings, dataGaps);
+    const policyContext = buildLegacyPolicyResolver(sourceInput, warnings, dataGaps);
     const adjustedExpenses = expenses.map(function (expense, index) {
       const policy = policyContext.resolvePolicy(expense);
-      return createAdjustedExpense(expense, policy, index, sliderValue, sourceInput, warnings);
+      return createLegacyAdjustedExpense(expense, policy, index, sliderValue, sourceInput, warnings);
     });
 
     const totalBaselineMonthlyExpenses = sumMonthly(adjustedExpenses, "baselineMonthlyAmount");
@@ -1459,7 +1462,7 @@
       dataGaps,
       trace: {
         calculationMethod: CALCULATION_METHOD,
-        mode: normalizeString(sourceInput.options && sourceInput.options.mode) || DEFAULT_MODE,
+        mode: normalizeString(sourceInput.options && sourceInput.options.mode) || LEGACY_FALLBACK_TRACE_MODE,
         policySource: policyContext.policySource,
         policySourcePath: policyContext.policySourcePath,
         fallbackPolicyUsed: policyContext.fallbackPolicyUsed === true,
@@ -1491,7 +1494,7 @@
     const streamPolicyMode = streamPolicyResolution.mode;
     Object.assign(output.trace, getHouseholdExpenseStreamPolicyTrace(streamPolicyResolution));
     if (basePostDeathSeries && streamPolicyMode !== "activeGraphAdjustments") {
-      const comparisonScenario = buildLifestyleComparisonScenario(basePostDeathSeries, output, sourceInput);
+      const comparisonScenario = buildLegacyLifestyleComparisonScenario(basePostDeathSeries, output, sourceInput);
       if (comparisonScenario) {
         output.comparisonScenario = comparisonScenario;
         output.warnings = output.warnings.concat(comparisonScenario.warnings || []);
