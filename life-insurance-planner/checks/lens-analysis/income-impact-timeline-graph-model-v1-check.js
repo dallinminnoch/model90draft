@@ -276,19 +276,19 @@ const comparisonScenario = {
         date: `${2032}-04-29`,
         monthIndex: 12,
         endingResources: 760000,
-        sourcePaths: ["compressionScenario.postDeathSeries.points"]
+        sourcePaths: ["streamComparisonScenario.postDeathSeries.points"]
       },
       {
         date: `${2040}-04-29`,
         monthIndex: 108,
         endingResources: 260000,
-        sourcePaths: ["compressionScenario.postDeathSeries.points"]
+        sourcePaths: ["streamComparisonScenario.postDeathSeries.points"]
       },
       {
         date: `${2048}-04-29`,
         monthIndex: 204,
         endingResources: -20000,
-        sourcePaths: ["compressionScenario.postDeathSeries.points"]
+        sourcePaths: ["streamComparisonScenario.postDeathSeries.points"]
       }
     ],
     depletion: {
@@ -359,6 +359,7 @@ assert.equal(comparisonModel.trace.baseSeriesUnchanged, true);
 assert.equal(comparisonModel.trace.comparisonMarkersCreated, true);
 assert.equal(comparisonModel.trace.comparisonMarkerCount, 5);
 
+// Intentional read-side compatibility fixture for saved pre-stream lifestyle comparison inputs.
 const neutralLifestyleComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {
   scenarioId: "income-impact-lifestyle-adjusted-comparison",
   kind: "lifestyleComparison",
@@ -382,6 +383,7 @@ assert.deepEqual(
   "Current/0 lifestyle comparison should not add duplicate comparison markers over the baseline."
 );
 
+// Intentional read-side compatibility fixture for saved pre-stream lifestyle comparison inputs.
 const adjustedLifestyleComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {
   scenarioId: "income-impact-lifestyle-adjusted-comparison",
   kind: "lifestyleComparison",

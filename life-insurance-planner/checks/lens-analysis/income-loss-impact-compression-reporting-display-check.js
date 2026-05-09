@@ -164,7 +164,7 @@ function makeHelperProvidedLifestyleComparison(input, monthlyDelta) {
       depletion: Object.assign({}, basePostDeathSeries.depletion)
     },
     trace: {
-      calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
+      calculationMethod: "income-impact-household-expense-stream-comparison-adapter-v1",
       graphMonthlyDelta: monthlyDelta,
       helperProvidedComparisonFixture: true
     }

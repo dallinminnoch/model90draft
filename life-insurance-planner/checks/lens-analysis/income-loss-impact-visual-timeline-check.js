@@ -141,7 +141,7 @@ function makeLifestyleScenarioFixture({ sliderValue, monthlyDelta, depletionMont
         depletionDate
       },
       trace: {
-        calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
+        calculationMethod: "income-impact-household-expense-stream-comparison-adapter-v1",
         sliderValue,
         monthlyDelta,
         graphMonthlyDelta: monthlyDelta,
