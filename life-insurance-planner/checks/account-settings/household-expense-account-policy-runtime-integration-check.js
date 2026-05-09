@@ -236,7 +236,9 @@ function makeReconciledExpense(expenseTypeKey, categoryKey, monthlyAmount, sourc
     expenseId: `${expenseTypeKey}-fixture`,
     label: expenseTypeKey,
     expenseTypeKey,
+    typeKey: expenseTypeKey,
     categoryKey,
+    monthlyRecurringAmount: monthlyAmount,
     monthlyAmount,
     monthlyEquivalent: monthlyAmount,
     frequency: "monthly",
@@ -259,7 +261,9 @@ function makeProtectedExpense(expenseTypeKey, categoryKey, monthlyAmount) {
     expenseId: `${expenseTypeKey}-protected-fixture`,
     label: expenseTypeKey,
     expenseTypeKey,
+    typeKey: expenseTypeKey,
     categoryKey,
+    monthlyRecurringAmount: monthlyAmount,
     monthlyAmount,
     monthlyEquivalent: monthlyAmount,
     frequency: "monthly",
@@ -280,11 +284,17 @@ function makeProtectedExpense(expenseTypeKey, categoryKey, monthlyAmount) {
 }
 
 function makeLensModel(expenses) {
+  const monthlyTotal = expenses.reduce(function (sum, expense) {
+    const value = Number(expense?.monthlyRecurringAmount ?? expense?.monthlyAmount ?? expense?.monthlyEquivalent);
+    return Number.isFinite(value) ? sum + value : sum;
+  }, 0);
   return {
     id: "runtime-account-policy-fixture",
     householdFacts: {},
     ongoingSupport: {
-      monthlyFoodCost: 1000
+      monthlyFoodCost: 1000,
+      monthlyNonHousingEssentialSupportCost: monthlyTotal,
+      monthlyTotalEssentialSupportCost: monthlyTotal
     },
     expenseFacts: {
       expenses: expenses.map(cloneJson)
@@ -555,7 +565,8 @@ const seedConservative = buildResultForSlider(seedRuntime, seedState, -100);
 const seedElevated = buildResultForSlider(seedRuntime, seedState, 100);
 
 assert.deepEqual(comparisonValues(seedCurrent), baseValues(seedCurrent), "Current/0 seed-default comparison should exactly match baseline");
-assert.equal(seedCapture.lifestyleOutputs[0].trace.policySource, "defaultSeedPolicy");
+assert.equal(seedCapture.lifestyleOutputs[0].trace.streamDefaultUsed, true, "seed default should resolve through the stream default path");
+assert.equal(seedCapture.lifestyleOutputs[0].comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1");
 assert.equal(seedCapture.lifestyleInputs[0].accountPolicyResolution, undefined);
 assert.ok(comparisonValues(seedConservative)[0] > baseValues(seedConservative)[0], "Conservative seed default should improve resources");
 assert.ok(comparisonValues(seedElevated)[0] < baseValues(seedElevated)[0], "Elevated seed default should reduce resources");
@@ -581,8 +592,8 @@ assert.equal(capturedLifestylePolicy.metadata.namespaces.lifestyleRangeOverrides
 assert.ok(capturedLifestyleGroceriesPolicy, "lifestyle helper should receive a resolved groceries policy row");
 assert.equal(capturedLifestyleGroceriesPolicy.conservativeFloorRatio, 0.3, "lifestyle helper should receive the overridden groceries conservative floor");
 assert.equal(capturedLifestyleGroceriesPolicy.elevatedCeilingRatio, 1.6, "lifestyle helper should receive the overridden groceries elevated ceiling");
-assert.equal(accountCapture.lifestyleOutputs[0].trace.policySource, "resolvedAccountPolicy");
-assert.equal(accountCapture.lifestyleOutputs[0].trace.resolvedAccountPolicyUsed, true);
+assert.equal(accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentItems[0].conservativeFloorRatio, 0.3, "account override should apply to the stream comparison output");
+assert.equal(accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentItems[0].elevatedCeilingRatio, 1.6, "account override ceiling should apply to the stream comparison output");
 assert.deepEqual(comparisonValues(accountCurrent), baseValues(accountCurrent), "Current/0 account-policy comparison should exactly match baseline");
 assert.notDeepEqual(comparisonValues(accountConservative), comparisonValues(seedConservative), "Conservative account override should change graph comparison values differently than seed default");
 assert.notDeepEqual(comparisonValues(accountElevated), comparisonValues(seedElevated), "Elevated account override should change graph comparison values differently than seed default");
@@ -591,7 +602,7 @@ assert.ok(comparisonValues(accountElevated)[0] < comparisonValues(seedElevated)[
 assert.equal(accountConservative.compressionReporting.trace.accountPolicySource, "accountOverride");
 assert.equal(accountConservative.compressionReporting.trace.accountPolicyStorageStatus, "loaded");
 assert.equal(accountConservative.compressionReporting.trace.accountPolicyResolved, true);
-assert.equal(accountConservative.compressionReporting.trace.lifestyleScenarioStatus, "complete");
+assert.equal(accountConservative.compressionReporting.trace.lifestyleScenarioStatus, "partial", "account policy without complete living-floor assumptions should stay explicit while still producing the comparison path");
 assert.equal(accountConservative.compressionReporting.trace.graphPathChanged, true);
 assert.equal(accountConservative.triageInterventions.interventionScenarios.length, 0);
 
@@ -766,13 +777,15 @@ const protectedState = buildRuntimeState(
 );
 const protectedResult = buildResultForSlider(runtime, protectedState, -100);
 const protectedOutput = protectedCapture.lifestyleOutputs[0];
+const protectedStreamRows = protectedOutput.householdExpenseStreamPreview.baseHouseholdExpenseStream.rows;
 protectedKeys.forEach(function ([expenseTypeKey]) {
-  const adjusted = protectedOutput.adjustedExpenses.find(function (item) {
+  const streamRow = protectedStreamRows.find(function (item) {
     return item.expenseTypeKey === expenseTypeKey;
   });
-  assert.ok(adjusted, `${expenseTypeKey} should be present in lifestyle output`);
-  assert.equal(adjusted.sliderEligible, false, `${expenseTypeKey} should stay fixed in helper output`);
-  assert.equal(adjusted.monthlyDelta, 0, `${expenseTypeKey} should not move the graph`);
+  assert.ok(streamRow, `${expenseTypeKey} should be present in the base household expense stream`);
+  assert.equal(streamRow.adjustmentClass, "excludedFromAdjustment", `${expenseTypeKey} should stay fixed in stream output`);
+  assert.equal(streamRow.trace.protectedOrSourceOwned, true, `${expenseTypeKey} should be traced as protected or source-owned`);
+  assert.equal(streamRow.trace.futureAdjustmentBehavior, "zero-delta", `${expenseTypeKey} should not move the graph`);
 });
 assert.deepEqual(comparisonValues(protectedResult), baseValues(protectedResult), "malicious protected overrides should leave lifestyle comparison as a no-op baseline path");
 
@@ -795,7 +808,7 @@ console.log(JSON.stringify({
     elevated: comparisonValues(accountElevated)
   },
   policySource: accountPolicyContext.policySource,
-  lifestylePolicySource: accountCapture.lifestyleOutputs[0].trace.policySource,
+  lifestyleComparisonSource: accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentSource,
   storageWrites: writesAfterRuntimeSliders,
   protectedGuardrailsChecked: protectedKeys.map(function ([expenseTypeKey]) {
     return expenseTypeKey;
