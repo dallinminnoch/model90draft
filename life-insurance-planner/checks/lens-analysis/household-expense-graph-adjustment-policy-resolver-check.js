@@ -131,9 +131,55 @@ function createCompleteLivingFloorAssumptions(overrides) {
   }, overrides || {});
 }
 
+function createBlankLivingFloorAssumptions() {
+  return {
+    version: 1,
+    foodAtHome: {
+      planningBucketKey: "foodAtHomeConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: null,
+      monthlyAmountsByBand: {
+        infantToddler: null,
+        youngChild: null,
+        olderChild: null,
+        teenMale: null,
+        teenFemale: null,
+        adultMale: null,
+        adultFemale: null,
+        adultUnknown: null,
+        childUnknown: null
+      },
+      householdSizeAdjustmentFactors: {
+        "1": null,
+        "2": null,
+        "3": null,
+        "4": null,
+        "5": null,
+        "6Plus": null
+      }
+    },
+    model90DefaultBucketFloors: {
+      householdConsumables: {
+        planningBucketKey: "householdConsumables",
+        monthlyBaseAmount: null,
+        monthlyPerMemberAmount: null
+      },
+      communicationsConnectivity: {
+        planningBucketKey: "communicationsConnectivity",
+        monthlyBaseAmount: null,
+        monthlyPerMemberAmount: null
+      },
+      transportationBasics: {
+        planningBucketKey: "transportationBasics",
+        monthlyBaseAmount: null,
+        monthlyPerAdultDriverAmount: null
+      }
+    }
+  };
+}
+
 function assertNoForbiddenDiffs() {
   const forbiddenPaths = [
-    "app/features/account-settings",
     "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
@@ -144,7 +190,6 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-living-floor-metadata.js",
-    "pages",
     "app.js",
     "styles.css"
   ];
@@ -223,6 +268,25 @@ const householdConsumables = getRow(defaultResult, "householdConsumablesSupplies
 assert.equal(householdConsumables.adjustmentClass, "moneyFloorAdjusted", "household consumables should default to money-floor adjusted");
 assert.equal(householdConsumables.floorSourceLabel, "MODEL90 default floor", "household consumables should use MODEL90 default floor source");
 assert.equal(householdConsumables.floorSourceStatus, "notConfigured", "empty MODEL90 default assumptions should be not configured");
+
+const blankShellResult = resolver.resolveHouseholdExpenseGraphAdjustmentPolicy({
+  expenseLibraryRows,
+  lifestylePolicyRows,
+  livingFloorMetadata,
+  accountPolicy: {
+    livingFloorAssumptions: createBlankLivingFloorAssumptions()
+  }
+});
+assert.equal(
+  getRow(blankShellResult, "groceries").floorSourceStatus,
+  "notConfigured",
+  "blank storage-shell Food at Home null values should be notConfigured"
+);
+assert.equal(
+  getRow(blankShellResult, "householdConsumablesSupplies").floorSourceStatus,
+  "notConfigured",
+  "blank storage-shell MODEL90 null values should be notConfigured"
+);
 
 const internet = getRow(defaultResult, "internet");
 assert.equal(internet.floorSourceLabel, "MODEL90 default floor", "communications rows should use MODEL90 default floor source");

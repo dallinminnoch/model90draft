@@ -265,6 +265,7 @@ assertScriptOrder(scripts, [
   "../app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
   "../app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js",
   "../app/features/lens-analysis/household-expense-living-floor-metadata.js",
+  "../app/features/lens-analysis/household-expense-graph-adjustment-policy-resolver.js",
   "../app/features/lens-analysis/household-expense-account-policy-resolver.js",
   "../app/features/account-settings/household-expense-account-policy-admin-display.js",
   "../app/features/account-settings/household-expense-account-policy-admin-editor.js"
@@ -272,6 +273,8 @@ assertScriptOrder(scripts, [
 
 assert.match(editorSource, /householdExpenseAccountPolicyStorage/);
 assert.match(editorSource, /householdExpenseAccountPolicyResolver/);
+assert.match(editorSource, /householdExpenseGraphAdjustmentPolicyResolver/);
+assert.match(editorSource, /resolveHouseholdExpenseGraphAdjustmentPolicy/);
 assert.match(editorSource, /TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID/);
 assert.match(editorSource, /temporaryLocalAdminFallback/);
 assert.match(editorSource, /"livingFloorAssumptions\.foodAtHome"/);
@@ -315,6 +318,11 @@ assert.doesNotMatch(
   editorSource,
   /data-state-cost-adjustment-multiplier-input|data-bucket-state-adjustment-multiplier-input/
 );
+assert.doesNotMatch(
+  editorSource,
+  /function formatMinimumFloorDisplay\(|function formatFloorStatusDisplay\(|function buildPlanningContextForPolicy\(/,
+  "admin editor should not keep duplicated local floor/status policy mapping"
+);
 
 const host = {
   innerHTML: "",
@@ -350,6 +358,7 @@ loadScript(context, "app/features/lens-analysis/household-expense-compression-po
 loadScript(context, "app/features/lens-analysis/household-expense-lifestyle-range-policy.js");
 loadScript(context, "app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js");
 loadScript(context, "app/features/lens-analysis/household-expense-living-floor-metadata.js");
+loadScript(context, "app/features/lens-analysis/household-expense-graph-adjustment-policy-resolver.js");
 loadScript(context, "app/features/lens-analysis/household-expense-account-policy-resolver.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-display.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-editor.js");
@@ -426,6 +435,14 @@ assert.equal(missingModel.rows.length, defaultSliderEligibleRows.length, "editor
 assert.equal(missingModel.rows.every((row) => row.overrideStatus === "defaultSeedPolicy"), true, "missing policy rows should be default-only");
 assert.equal(missingModel.counts.graphAdjustmentOverrides, 0, "missing policy should have no saved graph adjustment overrides");
 assert.equal(missingModel.counts.rowsWithGraphAdjustmentOverrides, 0, "missing policy should have no graph adjustment override rows");
+assert.equal(missingModel.trace.graphAdjustmentPolicyPreviewResolverAvailable, true, "admin editor should use the graph adjustment preview resolver");
+assert.equal(missingModel.trace.graphAdjustmentPolicyPreviewRows, 41, "graph adjustment preview resolver should return the 41 graph rows");
+assert.equal(missingModel.trace.graphAdjustmentPolicyPreviewActiveRuntimeConsumer, false, "graph adjustment preview should remain inactive for runtime");
+assert.equal(
+  missingModel.trace.graphAdjustmentPolicyDisplaySource,
+  "householdExpenseGraphAdjustmentPolicyResolver",
+  "display columns should be sourced from the graph adjustment preview resolver"
+);
 assert.equal(missingModel.foodAtHomeFloorAssumptions.source, "ADMIN_ENTERED", "Food at Home editor should default source to ADMIN_ENTERED");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.sourcePeriod, null, "empty Food at Home editor should have blank source period");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.bandRows.length, 9, "Food at Home editor should render nine band rows");
@@ -475,17 +492,35 @@ assert.equal(groceriesEditorRow.adjustmentClass, "moneyFloorAdjusted", "food-at-
 assert.equal(groceriesEditorRow.minimumFloorMode, "estimatedDollarFloor", "food-at-home dropdown should default to estimated dollar floor mode");
 assert.equal(groceriesEditorRow.adjustmentOverrideStatus, "defaultSeedPolicy", "food-at-home dropdown should default to seed policy status");
 assert.equal(groceriesEditorRow.adjustmentTypeDisplay, "Included with floor", "food-at-home graph rows should display money-floor adjustment context");
-assert.equal(groceriesEditorRow.minimumFloorDisplay, "Bucket-level USDA Food at Home model", "food-at-home graph rows should display the bucket-level Food at Home floor model");
+assert.equal(groceriesEditorRow.minimumFloorDisplay, "Food at Home model / USDA Food Plan", "food-at-home graph rows should display the resolver Food at Home floor model");
+assert.equal(groceriesEditorRow.floorSourceLabel, "Food at Home model / USDA Food Plan", "food-at-home floor source label should come from resolver output");
+assert.equal(groceriesEditorRow.floorSourceStatus, "notConfigured", "food-at-home floor source status should come from resolver output");
+assert.equal(groceriesEditorRow.graphAdjustable, true, "money-floor graph rows should remain graph-adjustable by default");
+assert.equal(
+  groceriesEditorRow.graphAdjustmentSourceTrace.adjustmentClassSource,
+  "livingFloorMetadata",
+  "seed adjustment class should be traced to living-floor metadata"
+);
+assert.equal(
+  groceriesEditorRow.graphAdjustmentSourceTrace.floorSourceStatusSource,
+  "livingFloorAssumptions",
+  "floor source status should be traced to living-floor assumptions"
+);
 assert.equal(diningTakeoutEditorRow.adjustmentClass, "ratioAdjusted", "zero-floor buckets should default to ratio-adjusted behavior");
 assert.equal(diningTakeoutEditorRow.minimumFloorMode, "zeroFloor", "zero-floor buckets should default to zeroFloor mode");
-assert.equal(diningTakeoutEditorRow.minimumFloorDisplay, "$0 floor", "zero-floor ratio buckets should display a $0 floor");
+assert.equal(diningTakeoutEditorRow.minimumFloorDisplay, "$0 floor / no dollar source", "zero-floor ratio buckets should display resolver zero-floor label");
 assert.equal(householdServicesEditorRow.adjustmentClass, "ratioAdjusted", "ratio-floor-only buckets should default to ratio-adjusted behavior");
 assert.equal(householdServicesEditorRow.minimumFloorMode, "ratioFloorOnly", "household services should default to ratioFloorOnly mode");
-assert.equal(householdServicesEditorRow.minimumFloorDisplay, "Ratio floor only", "ratio-floor-only buckets should display ratio-floor-only status");
+assert.equal(householdServicesEditorRow.minimumFloorDisplay, "Ratio floor only / no dollar source", "ratio-floor-only buckets should display resolver ratio-floor-only label");
 assert.equal(
   missingModel.rows.every((row) => row.adjustmentTypeDisplay && row.minimumFloorDisplay && row.floorStatusDisplay),
   true,
   "every graph adjustment row should have display-only adjustment and floor context"
+);
+assert.equal(
+  missingModel.rows.every((row) => row.graphAdjustable === true),
+  true,
+  "default 41 graph adjustment rows should render as graph-adjustable"
 );
 
 function assertEditorBucketRows(bucketKey, expected, message) {
@@ -500,8 +535,8 @@ function assertEditorBucketRows(bucketKey, expected, message) {
 
 assertEditorBucketRows("foodAtHomeConsumables", {
   adjustmentTypeDisplay: "Included with floor",
-  minimumFloorDisplay: "Bucket-level USDA Food at Home model",
-  floorStatusDisplay: "USDA Food Plan / not loaded"
+  minimumFloorDisplay: "Food at Home model / USDA Food Plan",
+  floorStatusDisplay: "Food at Home model / USDA Food Plan / not configured"
 }, "Food at Home rows");
 [
   "householdConsumables",
@@ -510,8 +545,8 @@ assertEditorBucketRows("foodAtHomeConsumables", {
 ].forEach(function (bucketKey) {
   assertEditorBucketRows(bucketKey, {
     adjustmentTypeDisplay: "Included with floor",
-    minimumFloorDisplay: "Bucket-level MODEL90 default floor",
-    floorStatusDisplay: "MODEL90 default / not loaded"
+    minimumFloorDisplay: "MODEL90 default floor",
+    floorStatusDisplay: "MODEL90 default floor / not configured"
   }, `${bucketKey} rows`);
 });
 [
@@ -523,14 +558,14 @@ assertEditorBucketRows("foodAtHomeConsumables", {
 ].forEach(function (bucketKey) {
   assertEditorBucketRows(bucketKey, {
     adjustmentTypeDisplay: "Included ratio-only",
-    minimumFloorDisplay: "$0 floor",
-    floorStatusDisplay: "No dollar source / zero floor"
+    minimumFloorDisplay: "$0 floor / no dollar source",
+    floorStatusDisplay: "$0 floor / no dollar source / not applicable"
   }, `${bucketKey} rows`);
 });
 assertEditorBucketRows("savingsGoalContributions", {
   adjustmentTypeDisplay: "Included ratio-only",
   minimumFloorDisplay: "Pauseable / $0 floor",
-  floorStatusDisplay: "No dollar source / pauseable"
+  floorStatusDisplay: "Pauseable / $0 floor / not applicable"
 }, "pauseable savings rows");
 [
   "personalLivingClothing",
@@ -538,8 +573,8 @@ assertEditorBucketRows("savingsGoalContributions", {
 ].forEach(function (bucketKey) {
   assertEditorBucketRows(bucketKey, {
     adjustmentTypeDisplay: "Included ratio-only",
-    minimumFloorDisplay: "Ratio floor only",
-    floorStatusDisplay: "No dollar source / ratio floor"
+    minimumFloorDisplay: "Ratio floor only / no dollar source",
+    floorStatusDisplay: "Ratio floor only / no dollar source / not applicable"
   }, `${bucketKey} rows`);
 });
 
@@ -568,8 +603,10 @@ assert.match(missingHtml, /Planning Bucket/);
 assert.match(missingHtml, /Adjustment Type/);
 assert.match(missingHtml, /Minimum Floor/);
 assert.match(missingHtml, /Floor Source \/ Status/);
-assert.match(missingHtml, /Bucket-level USDA Food at Home model/);
-assert.match(missingHtml, /Bucket-level MODEL90 default floor|\$0 floor|Ratio floor only/);
+assert.match(missingHtml, /Graph Adjustable/);
+assert.match(missingHtml, /Food at Home model \/ USDA Food Plan/);
+assert.match(missingHtml, /MODEL90 default floor|\$0 floor \/ no dollar source|Ratio floor only \/ no dollar source/);
+assert.match(missingHtml, /data-graph-adjustable="true"/);
 assert.doesNotMatch(missingHtml, /review/i, "graph adjustment controls should not show review as a runtime mode");
 assert.match(missingHtml, /Default Floor/);
 assert.match(missingHtml, /Resolved Ceiling/);
@@ -720,6 +757,29 @@ assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.graphAdjustmentOverr
   source: "ADMIN_ENTERED"
 }, "Included-with-floor rows should save an excluded override with notAdjusted mode");
 assert.equal(JSON.parse(JSON.stringify(graphAdjustmentPayload)).valid, true, "graph adjustment save payload should be JSON serializable");
+
+const graphAdjustmentPreviewStorage = createFakeStorage();
+storage.saveHouseholdExpenseAccountPolicy({
+  accountId,
+  accountPolicy: graphAdjustmentPayload.accountPolicy,
+  metadata: { updatedBy: "graph-adjustment-preview-check" },
+  storage: graphAdjustmentPreviewStorage
+});
+const graphAdjustmentPreviewModel = editor.buildHouseholdExpensePolicyEditorModel({
+  accountId,
+  storage: graphAdjustmentPreviewStorage
+});
+const excludedGroceriesPreviewRow = graphAdjustmentPreviewModel.rows.find((row) => row.expenseTypeKey === "groceries");
+assert.equal(excludedGroceriesPreviewRow.adjustmentOverrideStatus, "accountOverride", "saved graph adjustment override should mark resolver-backed row status");
+assert.equal(excludedGroceriesPreviewRow.adjustmentClass, "excludedFromAdjustment", "saved graph adjustment override should update resolver-backed adjustment class");
+assert.equal(excludedGroceriesPreviewRow.minimumFloorDisplay, "Not adjusted", "saved graph adjustment override should update resolver-backed floor display");
+assert.equal(excludedGroceriesPreviewRow.floorStatusDisplay, "Not adjusted / not applicable", "saved graph adjustment override should update resolver-backed floor status");
+assert.equal(excludedGroceriesPreviewRow.graphAdjustable, false, "saved excluded graph adjustment override should update resolver-backed graphAdjustable value");
+assert.match(
+  editor.renderHouseholdExpensePolicyEditor(graphAdjustmentPreviewModel),
+  /data-expense-type-key="groceries"[\s\S]*data-graph-adjustable="false"/,
+  "rendered row should expose resolver-backed graphAdjustable false state"
+);
 
 const graphAdjustmentResetPayload = editor.buildGraphAdjustmentRowResetPayload({
   accountId,

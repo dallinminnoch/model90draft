@@ -467,12 +467,6 @@
     );
   }
 
-  function findResolvedPolicy(resolvedRows, defaultPolicy) {
-    return resolvedRows.find(function (candidate) {
-      return normalizeKey(candidate.expenseTypeKey) === normalizeKey(defaultPolicy.expenseTypeKey);
-    }) || defaultPolicy;
-  }
-
   function getSparseOverridePreview(override) {
     if (!isPlainObject(override)) {
       return null;
@@ -511,8 +505,15 @@
       : [];
   }
 
-  function buildExpenseLibraryByTypeKey(currentLensAnalysis) {
-    return getExpenseLibraryRows(currentLensAnalysis).reduce(function (map, row) {
+  function getGraphAdjustmentPolicyResolver(currentLensAnalysis) {
+    const resolverApi = currentLensAnalysis?.householdExpenseGraphAdjustmentPolicyResolver;
+    return typeof resolverApi?.resolveHouseholdExpenseGraphAdjustmentPolicy === "function"
+      ? resolverApi.resolveHouseholdExpenseGraphAdjustmentPolicy
+      : null;
+  }
+
+  function buildExpenseLibraryByTypeKey(expenseLibraryRows) {
+    return (Array.isArray(expenseLibraryRows) ? expenseLibraryRows : []).reduce(function (map, row) {
       const typeKey = row?.typeKey || row?.expenseTypeKey;
       if (typeKey) {
         map[typeKey] = row;
@@ -521,17 +522,8 @@
     }, {});
   }
 
-  function buildLivingFloorMetadataByBucket(currentLensAnalysis) {
-    return getLivingFloorMetadataRows(currentLensAnalysis).reduce(function (map, row) {
-      if (row?.planningBucketKey) {
-        map[row.planningBucketKey] = row;
-      }
-      return map;
-    }, {});
-  }
-
-  function buildGraphAdjustmentOverrideByTypeKey(graphAdjustmentOverrideRows) {
-    return (Array.isArray(graphAdjustmentOverrideRows) ? graphAdjustmentOverrideRows : []).reduce(function (map, row) {
+  function buildRowsByExpenseTypeKey(rows) {
+    return (Array.isArray(rows) ? rows : []).reduce(function (map, row) {
       const expenseTypeKey = normalizeKey(row?.expenseTypeKey);
       if (expenseTypeKey) {
         map[expenseTypeKey] = row;
@@ -540,208 +532,117 @@
     }, {});
   }
 
-  function formatAdjustmentTypeDisplay(metadata, libraryEntry) {
-    if (metadata?.adjustmentClass === "moneyFloorAdjusted") {
-      return "Included with floor";
-    }
-
-    if (metadata?.adjustmentClass === "ratioAdjusted") {
-      return "Included ratio-only";
-    }
-
-    if (metadata?.adjustmentClass === "excludedFromAdjustment") {
-      return "Excluded / protected";
-    }
-
-    if (libraryEntry?.lifestyleTreatmentIncluded === true) {
-      return "Included";
-    }
-
-    if (libraryEntry?.lifestyleTreatmentIncluded === false) {
-      return "Excluded / protected";
-    }
-
-    return "Metadata unavailable";
-  }
-
-  function formatMinimumFloorDisplay(metadata, planningBucketKey) {
-    if (!metadata) {
-      return "Metadata unavailable";
-    }
-
-    if (metadata.minimumFloorMode === "estimatedDollarFloor") {
-      if (planningBucketKey === "foodAtHomeConsumables") {
-        return "Bucket-level USDA Food at Home model";
-      }
-
-      if (MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.includes(planningBucketKey)) {
-        return "Bucket-level MODEL90 default floor";
-      }
-
-      return "Bucket-level estimated dollar floor";
-    }
-
-    if (metadata.minimumFloorMode === "zeroFloor") {
-      if (planningBucketKey === "savingsGoalContributions") {
-        return "Pauseable / $0 floor";
-      }
-
-      return "$0 floor";
-    }
-
-    if (metadata.minimumFloorMode === "ratioFloorOnly") {
-      return "Ratio floor only";
-    }
-
-    if (metadata.minimumFloorMode === "notAdjusted") {
-      return "Not adjusted";
-    }
-
-    return metadata.minimumFloorMode || "Not set";
-  }
-
-  function formatFloorSourceLabel(source) {
+  function formatGraphFloorStatus(status) {
     const labels = {
-      USDA_FOOD_PLAN: "USDA Food Plan",
-      MODEL90_DEFAULT: "MODEL90 default",
-      BEA_RPP_ADJUSTED: "BEA RPP adjusted",
-      HUD_FMR: "HUD FMR",
-      HUD_LOCATION: "HUD location",
-      EPI_FAMILY_BUDGET: "EPI Family Budget",
-      MIT_LIVING_WAGE: "MIT Living Wage",
-      NONE: "No dollar source"
-    };
-
-    return labels[source] || source || "No dollar source";
-  }
-
-  function formatFloorStatusLabel(status) {
-    const labels = {
-      notLoaded: "not loaded",
-      seedLoaded: "seed loaded",
-      adminConfigured: "configured",
+      notConfigured: "not configured",
+      partiallyConfigured: "partially configured",
+      configured: "configured",
       notApplicable: "not applicable"
     };
 
     return labels[status] || status || "not applicable";
   }
 
-  function formatFloorStatusDisplay(metadata, planningBucketKey) {
-    if (!metadata) {
+  function formatMinimumFloorDisplayFromPreview(resolvedGraphRow) {
+    if (!resolvedGraphRow) {
       return "Metadata unavailable";
     }
 
-    if (metadata.adjustmentClass === "excludedFromAdjustment") {
-      return "Locked / not adjusted";
-    }
-
-    if (metadata.adjustmentClass === "ratioAdjusted") {
-      if (metadata.minimumFloorMode === "zeroFloor") {
-        return planningBucketKey === "savingsGoalContributions"
-          ? "No dollar source / pauseable"
-          : "No dollar source / zero floor";
-      }
-
-      if (metadata.minimumFloorMode === "ratioFloorOnly") {
-        return "No dollar source / ratio floor";
-      }
-
-      return "No dollar source / ratio-only";
-    }
-
-    const source = metadata.floorSource && metadata.floorSource !== "NONE"
-      ? metadata.floorSource
-      : metadata.benchmarkSource;
-    const status = metadata.sourceDataStatus || "notApplicable";
-
-    if (source && source !== "NONE") {
-      return `${formatFloorSourceLabel(source)} / ${formatFloorStatusLabel(status)}`;
-    }
-
-    return formatFloorStatusLabel(status);
+    return resolvedGraphRow.floorSourceLabel || resolvedGraphRow.minimumFloorMode || "Not set";
   }
 
-  function buildPlanningContextForPolicy(defaultPolicy, expenseLibraryByTypeKey, livingFloorMetadataByBucket, graphAdjustmentOverrideByTypeKey) {
-    const typeKey = defaultPolicy?.expenseTypeKey || null;
-    const libraryEntry = typeKey ? expenseLibraryByTypeKey[typeKey] : null;
-    const planningBucketKey = libraryEntry?.planningBucketKey || defaultPolicy?.planningBucketKey || null;
-    const metadata = planningBucketKey ? livingFloorMetadataByBucket[planningBucketKey] : null;
-    const defaultAdjustmentClass = metadata?.adjustmentClass
-      || (libraryEntry?.lifestyleTreatmentIncluded === true ? "ratioAdjusted" : null)
-      || (libraryEntry?.lifestyleTreatmentIncluded === false ? "excludedFromAdjustment" : null);
-    const defaultMinimumFloorMode = metadata?.minimumFloorMode
-      || deriveMinimumFloorModeForAdjustmentClass(defaultAdjustmentClass, {});
-    const adjustmentOverride = typeKey ? graphAdjustmentOverrideByTypeKey[typeKey] : null;
-    const overrideAdjustmentClass = normalizeAdjustmentClass(adjustmentOverride?.adjustmentClass);
-    const adjustmentClass = overrideAdjustmentClass || defaultAdjustmentClass;
-    const minimumFloorMode = deriveMinimumFloorModeForAdjustmentClass(adjustmentClass, {
-      defaultMinimumFloorMode,
-      minimumFloorMode: defaultMinimumFloorMode
-    }, overrideAdjustmentClass ? adjustmentOverride?.minimumFloorMode : defaultMinimumFloorMode);
-    const effectiveMetadata = Object.assign({}, metadata || {}, {
-      adjustmentClass,
-      minimumFloorMode
+  function formatFloorStatusDisplayFromPreview(resolvedGraphRow) {
+    if (!resolvedGraphRow) {
+      return "Metadata unavailable";
+    }
+
+    const label = resolvedGraphRow.floorSourceLabel || "No dollar source";
+    return `${label} / ${formatGraphFloorStatus(resolvedGraphRow.floorSourceStatus)}`;
+  }
+
+  function buildGraphAdjustmentPreviewPolicy(input) {
+    const options = isPlainObject(input) ? input : {};
+    const resolver = getGraphAdjustmentPolicyResolver(options.currentLensAnalysis);
+    if (typeof resolver !== "function") {
+      return {
+        rows: [],
+        warnings: [{
+          code: "graph-adjustment-preview-resolver-unavailable",
+          message: "Graph adjustment preview resolver is unavailable."
+        }],
+        dataGaps: [],
+        metadata: { activeRuntimeConsumer: false }
+      };
+    }
+
+    return resolver({
+      expenseLibraryRows: options.expenseLibraryRows,
+      lifestylePolicyRows: options.lifestylePolicyRows,
+      livingFloorMetadata: options.livingFloorMetadata,
+      accountPolicy: options.accountPolicy,
+      includeOnlyGraphRows: true
     });
-
-    return {
-      planningBucketKey,
-      planningBucketLabel: libraryEntry?.planningBucketLabel || metadata?.planningBucketLabel || planningBucketKey || "Not available",
-      adjustmentTypeDisplay: formatAdjustmentTypeDisplayFromClass(adjustmentClass),
-      minimumFloorDisplay: formatMinimumFloorDisplay(effectiveMetadata, planningBucketKey),
-      floorStatusDisplay: formatFloorStatusDisplay(effectiveMetadata, planningBucketKey),
-      adjustmentClass,
-      minimumFloorMode,
-      defaultAdjustmentClass,
-      defaultAdjustmentTypeDisplay: formatAdjustmentTypeDisplayFromClass(defaultAdjustmentClass),
-      defaultMinimumFloorMode,
-      adjustmentOverrideStatus: overrideAdjustmentClass ? "accountOverride" : "defaultSeedPolicy"
-    };
   }
 
-  function buildLifestyleRangeEditorRows(defaultRows, resolvedRows, overrideRows, currentLensAnalysis, graphAdjustmentOverrideRows) {
-    const resolvedList = Array.isArray(resolvedRows) ? resolvedRows : [];
+  function buildLifestyleRangeEditorRows(defaultRows, resolvedGraphRows, defaultGraphRows, overrideRows, currentLensAnalysis) {
+    const resolvedGraphRowsByTypeKey = buildRowsByExpenseTypeKey(resolvedGraphRows);
+    const defaultGraphRowsByTypeKey = buildRowsByExpenseTypeKey(defaultGraphRows);
     const overrides = Array.isArray(overrideRows) ? overrideRows : [];
-    const expenseLibraryByTypeKey = buildExpenseLibraryByTypeKey(currentLensAnalysis);
-    const livingFloorMetadataByBucket = buildLivingFloorMetadataByBucket(currentLensAnalysis);
-    const graphAdjustmentOverrideByTypeKey = buildGraphAdjustmentOverrideByTypeKey(graphAdjustmentOverrideRows);
+    const expenseLibraryByTypeKey = buildExpenseLibraryByTypeKey(getExpenseLibraryRows(currentLensAnalysis));
 
     return (Array.isArray(defaultRows) ? defaultRows : [])
       .filter(function (row) {
         return row && row.sliderEligible === true;
       })
       .map(function (defaultPolicy) {
-        const resolvedPolicy = findResolvedPolicy(resolvedList, defaultPolicy);
+        const expenseTypeKey = normalizeKey(defaultPolicy.expenseTypeKey);
+        const resolvedGraphRow = resolvedGraphRowsByTypeKey[expenseTypeKey] || null;
+        const defaultGraphRow = defaultGraphRowsByTypeKey[expenseTypeKey] || resolvedGraphRow || null;
         const override = overrides.find(function (candidate) {
           return rowMatchesPolicy(candidate, defaultPolicy);
         }) || null;
-        const planningContext = buildPlanningContextForPolicy(
-          defaultPolicy,
-          expenseLibraryByTypeKey,
-          livingFloorMetadataByBucket,
-          graphAdjustmentOverrideByTypeKey
-        );
+        const libraryEntry = expenseTypeKey ? expenseLibraryByTypeKey[expenseTypeKey] : null;
+        const planningBucketKey = resolvedGraphRow?.planningBucketKey || defaultGraphRow?.planningBucketKey || libraryEntry?.planningBucketKey || null;
+        const adjustmentClass = normalizeAdjustmentClass(resolvedGraphRow?.adjustmentClass) || defaultGraphRow?.adjustmentClass || null;
+        const minimumFloorMode = normalizeMinimumFloorMode(resolvedGraphRow?.minimumFloorMode) || defaultGraphRow?.minimumFloorMode || null;
+        const defaultAdjustmentClass = normalizeAdjustmentClass(defaultGraphRow?.adjustmentClass) || adjustmentClass;
+        const defaultMinimumFloorMode = normalizeMinimumFloorMode(defaultGraphRow?.minimumFloorMode) || minimumFloorMode;
+        const adjustmentOverrideStatus = resolvedGraphRow?.sourceTrace?.adjustmentClassSource === "graphAdjustmentOverrides"
+          || resolvedGraphRow?.sourceTrace?.minimumFloorModeSource === "graphAdjustmentOverrides"
+          ? "accountOverride"
+          : "defaultSeedPolicy";
+        const resolvedConservativeFloorRatio = Object.prototype.hasOwnProperty.call(resolvedGraphRow || {}, "conservativeFloorRatio")
+          ? resolvedGraphRow.conservativeFloorRatio
+          : defaultPolicy.conservativeFloorRatio;
+        const resolvedElevatedCeilingRatio = Object.prototype.hasOwnProperty.call(resolvedGraphRow || {}, "elevatedCeilingRatio")
+          ? resolvedGraphRow.elevatedCeilingRatio
+          : defaultPolicy.elevatedCeilingRatio;
 
         return {
           rangePolicyId: defaultPolicy.rangePolicyId || null,
-          displayName: defaultPolicy.displayName || defaultPolicy.expenseTypeKey || "Unnamed expense",
+          displayName: resolvedGraphRow?.label || defaultPolicy.displayName || defaultPolicy.expenseTypeKey || "Unnamed expense",
           expenseTypeKey: defaultPolicy.expenseTypeKey || null,
           categoryKey: defaultPolicy.categoryKey || null,
           rangeBehavior: defaultPolicy.rangeBehavior || null,
-          planningBucketKey: planningContext.planningBucketKey,
-          planningBucketLabel: planningContext.planningBucketLabel,
-          adjustmentTypeDisplay: planningContext.adjustmentTypeDisplay,
-          minimumFloorDisplay: planningContext.minimumFloorDisplay,
-          floorStatusDisplay: planningContext.floorStatusDisplay,
-          adjustmentClass: planningContext.adjustmentClass,
-          minimumFloorMode: planningContext.minimumFloorMode,
-          defaultAdjustmentClass: planningContext.defaultAdjustmentClass,
-          defaultAdjustmentTypeDisplay: planningContext.defaultAdjustmentTypeDisplay,
-          defaultMinimumFloorMode: planningContext.defaultMinimumFloorMode,
-          adjustmentOverrideStatus: planningContext.adjustmentOverrideStatus,
+          planningBucketKey,
+          planningBucketLabel: libraryEntry?.planningBucketLabel || planningBucketKey || "Not available",
+          adjustmentTypeDisplay: formatAdjustmentTypeDisplayFromClass(adjustmentClass),
+          minimumFloorDisplay: formatMinimumFloorDisplayFromPreview(resolvedGraphRow),
+          floorStatusDisplay: formatFloorStatusDisplayFromPreview(resolvedGraphRow),
+          floorSourceLabel: resolvedGraphRow?.floorSourceLabel || null,
+          floorSourceStatus: resolvedGraphRow?.floorSourceStatus || null,
+          graphAdjustable: resolvedGraphRow?.graphAdjustable === true,
+          graphAdjustmentSourceTrace: isPlainObject(resolvedGraphRow?.sourceTrace) ? clonePlainValue(resolvedGraphRow.sourceTrace) : {},
+          adjustmentClass,
+          minimumFloorMode,
+          defaultAdjustmentClass,
+          defaultAdjustmentTypeDisplay: formatAdjustmentTypeDisplayFromClass(defaultAdjustmentClass),
+          defaultMinimumFloorMode,
+          adjustmentOverrideStatus,
           defaultConservativeFloorRatio: defaultPolicy.conservativeFloorRatio,
           defaultElevatedCeilingRatio: defaultPolicy.elevatedCeilingRatio,
-          resolvedConservativeFloorRatio: resolvedPolicy.conservativeFloorRatio,
-          resolvedElevatedCeilingRatio: resolvedPolicy.elevatedCeilingRatio,
+          resolvedConservativeFloorRatio,
+          resolvedElevatedCeilingRatio,
           overrideStatus: override ? "accountOverride" : "defaultSeedPolicy",
           sparseOverridePreview: getSparseOverridePreview(override)
         };
@@ -791,18 +692,37 @@
       });
     }
 
-    const resolvedRows = Array.isArray(resolvedPolicy?.resolvedLifestyleRangePolicies)
-      ? resolvedPolicy.resolvedLifestyleRangePolicies
-      : policyInputs.defaultLifestyleRangePolicies;
     const overrideRows = getLifestyleOverrideRows(accountPolicy);
     const accountPolicyForSave = getAccountPolicyForSave(storageResult, accountId, storageApi);
     const graphAdjustmentOverrideRows = getGraphAdjustmentOverrideRows(accountPolicyForSave);
+    const expenseLibraryRows = getExpenseLibraryRows(currentLensAnalysis);
+    const livingFloorMetadataRows = getLivingFloorMetadataRows(currentLensAnalysis);
+    const graphAdjustmentPreviewPolicy = buildGraphAdjustmentPreviewPolicy({
+      currentLensAnalysis,
+      expenseLibraryRows,
+      lifestylePolicyRows: policyInputs.defaultLifestyleRangePolicies,
+      livingFloorMetadata: livingFloorMetadataRows,
+      accountPolicy: accountPolicyForSave
+    });
+    warnings.push.apply(warnings, getWarningList(graphAdjustmentPreviewPolicy));
+    dataGaps.push.apply(dataGaps, getDataGapList(graphAdjustmentPreviewPolicy));
+
+    const defaultGraphAdjustmentPreviewPolicy = buildGraphAdjustmentPreviewPolicy({
+      currentLensAnalysis,
+      expenseLibraryRows,
+      lifestylePolicyRows: policyInputs.defaultLifestyleRangePolicies,
+      livingFloorMetadata: livingFloorMetadataRows,
+      accountPolicy: Object.assign({}, accountPolicyForSave, {
+        lifestyleRangeOverrides: [],
+        graphAdjustmentOverrides: []
+      })
+    });
     const rows = buildLifestyleRangeEditorRows(
       policyInputs.defaultLifestyleRangePolicies,
-      resolvedRows,
+      graphAdjustmentPreviewPolicy.rows,
+      defaultGraphAdjustmentPreviewPolicy.rows,
       overrideRows,
-      currentLensAnalysis,
-      graphAdjustmentOverrideRows
+      currentLensAnalysis
     );
     const status = getPolicyStatus(storageResult, resolvedPolicy);
 
@@ -841,6 +761,12 @@
         storageFallbackReason: storageResult?.metadata?.fallbackReason || null,
         policySource: status.code,
         resolverAvailable: typeof resolver === "function",
+        graphAdjustmentPolicyPreviewResolverAvailable: Boolean(getGraphAdjustmentPolicyResolver(currentLensAnalysis)),
+        graphAdjustmentPolicyPreviewRows: Array.isArray(graphAdjustmentPreviewPolicy.rows)
+          ? graphAdjustmentPreviewPolicy.rows.length
+          : 0,
+        graphAdjustmentPolicyPreviewActiveRuntimeConsumer: graphAdjustmentPreviewPolicy.metadata?.activeRuntimeConsumer === true,
+        graphAdjustmentPolicyDisplaySource: "householdExpenseGraphAdjustmentPolicyResolver",
         editableNamespaces: [
           "lifestyleRangeOverrides",
           "graphAdjustmentOverrides",
@@ -1668,7 +1594,7 @@
 
   function renderEditorRow(row) {
     return `
-      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-graph-adjustment-override-status="${escapeHtml(row.adjustmentOverrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}" data-default-adjustment-class="${escapeHtml(row.defaultAdjustmentClass || "")}" data-default-minimum-floor-mode="${escapeHtml(row.defaultMinimumFloorMode || "")}">
+      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-graph-adjustment-override-status="${escapeHtml(row.adjustmentOverrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}" data-default-adjustment-class="${escapeHtml(row.defaultAdjustmentClass || "")}" data-default-minimum-floor-mode="${escapeHtml(row.defaultMinimumFloorMode || "")}" data-graph-adjustable="${row.graphAdjustable ? "true" : "false"}">
         <td>${escapeHtml(row.displayName)}</td>
         <td><code>${escapeHtml(row.expenseTypeKey || "")}</code></td>
         <td>
@@ -1679,6 +1605,7 @@
         <td>${renderAdjustmentTypeControl(row)}</td>
         <td>${escapeHtml(row.minimumFloorDisplay || "Metadata unavailable")}</td>
         <td>${escapeHtml(row.floorStatusDisplay || "Metadata unavailable")}</td>
+        <td>${row.graphAdjustable ? "Yes" : "No"}</td>
         <td>${escapeHtml(formatRatio(row.defaultConservativeFloorRatio))}</td>
         <td>${escapeHtml(formatRatio(row.defaultElevatedCeilingRatio))}</td>
         <td>${escapeHtml(formatRatio(row.resolvedConservativeFloorRatio))}</td>
@@ -1999,6 +1926,7 @@
                 <th>Adjustment Type</th>
                 <th>Minimum Floor</th>
                 <th>Floor Source / Status</th>
+                <th>Graph Adjustable</th>
                 <th>Default Floor</th>
                 <th>Default Ceiling</th>
                 <th>Resolved Floor</th>
@@ -2013,7 +1941,7 @@
             <tbody>
               ${rows.length ? rows.map(renderEditorRow).join("") : `
                 <tr class="admin-tax-bracket-row">
-                  <td colspan="16">No slider-eligible lifestyle range policy rows are available.</td>
+                  <td colspan="17">No slider-eligible lifestyle range policy rows are available.</td>
                 </tr>
               `}
             </tbody>

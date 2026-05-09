@@ -90,6 +90,10 @@
   }
 
   function asFiniteNumber(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
     const numericValue = Number(value);
     return Number.isFinite(numericValue) ? numericValue : null;
   }
