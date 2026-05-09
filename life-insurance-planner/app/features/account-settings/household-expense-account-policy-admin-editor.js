@@ -485,18 +485,22 @@
 
     if (metadata.minimumFloorMode === "estimatedDollarFloor") {
       if (planningBucketKey === "foodAtHomeConsumables") {
-        return "Food at Home model";
+        return "Bucket-level USDA Food at Home model";
       }
 
       if (MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.includes(planningBucketKey)) {
-        return "MODEL90 default floor";
+        return "Bucket-level MODEL90 default floor";
       }
 
-      return "Estimated dollar floor";
+      return "Bucket-level estimated dollar floor";
     }
 
     if (metadata.minimumFloorMode === "zeroFloor") {
-      return "$0";
+      if (planningBucketKey === "savingsGoalContributions") {
+        return "Pauseable / $0 floor";
+      }
+
+      return "$0 floor";
     }
 
     if (metadata.minimumFloorMode === "ratioFloorOnly") {
@@ -510,13 +514,53 @@
     return metadata.minimumFloorMode || "Not set";
   }
 
-  function formatFloorStatusDisplay(metadata) {
+  function formatFloorSourceLabel(source) {
+    const labels = {
+      USDA_FOOD_PLAN: "USDA Food Plan",
+      MODEL90_DEFAULT: "MODEL90 default",
+      BEA_RPP_ADJUSTED: "BEA RPP adjusted",
+      HUD_FMR: "HUD FMR",
+      HUD_LOCATION: "HUD location",
+      EPI_FAMILY_BUDGET: "EPI Family Budget",
+      MIT_LIVING_WAGE: "MIT Living Wage",
+      NONE: "No dollar source"
+    };
+
+    return labels[source] || source || "No dollar source";
+  }
+
+  function formatFloorStatusLabel(status) {
+    const labels = {
+      notLoaded: "not loaded",
+      seedLoaded: "seed loaded",
+      adminConfigured: "configured",
+      notApplicable: "not applicable"
+    };
+
+    return labels[status] || status || "not applicable";
+  }
+
+  function formatFloorStatusDisplay(metadata, planningBucketKey) {
     if (!metadata) {
       return "Metadata unavailable";
     }
 
     if (metadata.adjustmentClass === "excludedFromAdjustment") {
-      return "Locked";
+      return "Locked / not adjusted";
+    }
+
+    if (metadata.adjustmentClass === "ratioAdjusted") {
+      if (metadata.minimumFloorMode === "zeroFloor") {
+        return planningBucketKey === "savingsGoalContributions"
+          ? "No dollar source / pauseable"
+          : "No dollar source / zero floor";
+      }
+
+      if (metadata.minimumFloorMode === "ratioFloorOnly") {
+        return "No dollar source / ratio floor";
+      }
+
+      return "No dollar source / ratio-only";
     }
 
     const source = metadata.floorSource && metadata.floorSource !== "NONE"
@@ -525,10 +569,10 @@
     const status = metadata.sourceDataStatus || "notApplicable";
 
     if (source && source !== "NONE") {
-      return `${source} / ${status}`;
+      return `${formatFloorSourceLabel(source)} / ${formatFloorStatusLabel(status)}`;
     }
 
-    return status;
+    return formatFloorStatusLabel(status);
   }
 
   function buildPlanningContextForPolicy(defaultPolicy, expenseLibraryByTypeKey, livingFloorMetadataByBucket) {
@@ -542,7 +586,7 @@
       planningBucketLabel: libraryEntry?.planningBucketLabel || metadata?.planningBucketLabel || planningBucketKey || "Not available",
       adjustmentTypeDisplay: formatAdjustmentTypeDisplay(metadata, libraryEntry),
       minimumFloorDisplay: formatMinimumFloorDisplay(metadata, planningBucketKey),
-      floorStatusDisplay: formatFloorStatusDisplay(metadata),
+      floorStatusDisplay: formatFloorStatusDisplay(metadata, planningBucketKey),
       adjustmentClass: metadata?.adjustmentClass || null,
       minimumFloorMode: metadata?.minimumFloorMode || null
     };

@@ -380,6 +380,7 @@ assert.ok(plain(editor.STATE_CODE_VALUES).includes("CO"), "State multiplier edit
 const defaultLifestyleRows = lensAnalysis.householdExpenseLifestyleRangePolicy.listLifestyleRangePolicies();
 const defaultSliderEligibleRows = defaultLifestyleRows.filter((row) => row.sliderEligible === true);
 assert.ok(defaultSliderEligibleRows.length > 0, "seed policy should have slider-eligible rows for editor preview");
+assert.equal(defaultSliderEligibleRows.length, 41, "seed policy should preserve the 41 graph-affecting slider rows");
 
 const accountId = editor.TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID;
 const missingModel = editor.buildHouseholdExpensePolicyEditorModel({
@@ -433,14 +434,69 @@ const diningTakeoutEditorRow = missingModel.rows.find((row) => row.expenseTypeKe
 const householdServicesEditorRow = missingModel.rows.find((row) => row.expenseTypeKey === "householdServices");
 assert.equal(groceriesEditorRow.planningBucketKey, "foodAtHomeConsumables", "graph row context should include planning bucket metadata");
 assert.equal(groceriesEditorRow.adjustmentTypeDisplay, "Included with floor", "food-at-home graph rows should display money-floor adjustment context");
-assert.equal(groceriesEditorRow.minimumFloorDisplay, "Food at Home model", "food-at-home graph rows should display the Food at Home floor model");
-assert.equal(diningTakeoutEditorRow.minimumFloorDisplay, "$0", "zero-floor ratio buckets should display a $0 minimum floor");
+assert.equal(groceriesEditorRow.minimumFloorDisplay, "Bucket-level USDA Food at Home model", "food-at-home graph rows should display the bucket-level Food at Home floor model");
+assert.equal(diningTakeoutEditorRow.minimumFloorDisplay, "$0 floor", "zero-floor ratio buckets should display a $0 floor");
 assert.equal(householdServicesEditorRow.minimumFloorDisplay, "Ratio floor only", "ratio-floor-only buckets should display ratio-floor-only status");
 assert.equal(
   missingModel.rows.every((row) => row.adjustmentTypeDisplay && row.minimumFloorDisplay && row.floorStatusDisplay),
   true,
   "every graph adjustment row should have display-only adjustment and floor context"
 );
+
+function assertEditorBucketRows(bucketKey, expected, message) {
+  const rows = missingModel.rows.filter((row) => row.planningBucketKey === bucketKey);
+  assert.ok(rows.length > 0, `${bucketKey} should have graph adjustment rows`);
+  rows.forEach(function (row) {
+    assert.equal(row.adjustmentTypeDisplay, expected.adjustmentTypeDisplay, `${message}: ${row.expenseTypeKey} adjustment type`);
+    assert.equal(row.minimumFloorDisplay, expected.minimumFloorDisplay, `${message}: ${row.expenseTypeKey} minimum floor`);
+    assert.equal(row.floorStatusDisplay, expected.floorStatusDisplay, `${message}: ${row.expenseTypeKey} floor source/status`);
+  });
+}
+
+assertEditorBucketRows("foodAtHomeConsumables", {
+  adjustmentTypeDisplay: "Included with floor",
+  minimumFloorDisplay: "Bucket-level USDA Food at Home model",
+  floorStatusDisplay: "USDA Food Plan / not loaded"
+}, "Food at Home rows");
+[
+  "householdConsumables",
+  "communicationsConnectivity",
+  "transportationBasics"
+].forEach(function (bucketKey) {
+  assertEditorBucketRows(bucketKey, {
+    adjustmentTypeDisplay: "Included with floor",
+    minimumFloorDisplay: "Bucket-level MODEL90 default floor",
+    floorStatusDisplay: "MODEL90 default / not loaded"
+  }, `${bucketKey} rows`);
+});
+[
+  "diningTakeout",
+  "subscriptionsMemberships",
+  "entertainmentRecreation",
+  "travelVacations",
+  "petsDiscretionary"
+].forEach(function (bucketKey) {
+  assertEditorBucketRows(bucketKey, {
+    adjustmentTypeDisplay: "Included ratio-only",
+    minimumFloorDisplay: "$0 floor",
+    floorStatusDisplay: "No dollar source / zero floor"
+  }, `${bucketKey} rows`);
+});
+assertEditorBucketRows("savingsGoalContributions", {
+  adjustmentTypeDisplay: "Included ratio-only",
+  minimumFloorDisplay: "Pauseable / $0 floor",
+  floorStatusDisplay: "No dollar source / pauseable"
+}, "pauseable savings rows");
+[
+  "personalLivingClothing",
+  "householdServices"
+].forEach(function (bucketKey) {
+  assertEditorBucketRows(bucketKey, {
+    adjustmentTypeDisplay: "Included ratio-only",
+    minimumFloorDisplay: "Ratio floor only",
+    floorStatusDisplay: "No dollar source / ratio floor"
+  }, `${bucketKey} rows`);
+});
 
 [
   "rentOrMortgagePayment",
@@ -467,8 +523,9 @@ assert.match(missingHtml, /Planning Bucket/);
 assert.match(missingHtml, /Adjustment Type/);
 assert.match(missingHtml, /Minimum Floor/);
 assert.match(missingHtml, /Floor Source \/ Status/);
-assert.match(missingHtml, /Food at Home model/);
-assert.match(missingHtml, /MODEL90 default floor|\$0|Ratio floor only/);
+assert.match(missingHtml, /Bucket-level USDA Food at Home model/);
+assert.match(missingHtml, /Bucket-level MODEL90 default floor|\$0 floor|Ratio floor only/);
+assert.doesNotMatch(missingHtml, /review/i, "graph adjustment controls should not show review as a runtime mode");
 assert.match(missingHtml, /Default Floor/);
 assert.match(missingHtml, /Resolved Ceiling/);
 assert.match(missingHtml, /data-household-expense-policy-save/);
