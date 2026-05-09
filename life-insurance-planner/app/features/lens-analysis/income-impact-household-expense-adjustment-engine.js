@@ -685,6 +685,24 @@
     bucketAdjustments.sort(function (left, right) {
       return normalizeString(left.planningBucketKey).localeCompare(normalizeString(right.planningBucketKey));
     });
+    const moneyFloorBucketAdjustments = bucketAdjustments.filter(function (bucket) {
+      return bucket.adjustmentClass === "moneyFloorAdjusted";
+    });
+    const floorAppliedBuckets = moneyFloorBucketAdjustments.filter(function (bucket) {
+      return bucket.floorApplied === true;
+    }).map(function (bucket) {
+      return bucket.planningBucketKey;
+    });
+    const floorSkippedBuckets = moneyFloorBucketAdjustments.filter(function (bucket) {
+      return bucket.floorApplied !== true && normalizeString(bucket.floorSkippedReason);
+    }).map(function (bucket) {
+      return bucket.planningBucketKey;
+    });
+    const missingFloorBuckets = moneyFloorBucketAdjustments.filter(function (bucket) {
+      return bucket.floorSkippedReason === "missing-estimated-dollar-floor-ratio-fallback";
+    }).map(function (bucket) {
+      return bucket.planningBucketKey;
+    });
     const skippedBuckets = summarizeSkippedBuckets(skippedRows);
     const totals = summarizeTotals(rowAdjustments, bucketAdjustments);
     const streamMonthlyTotal = getStreamMonthlyTotal(safeInput);
@@ -729,6 +747,10 @@
         graphSeriesConstructed: false,
         graphDeltaApplied: false,
         floorsAppliedAtPlanningBucketLevel: applyEstimatedDollarFloors,
+        bucketAggregationApplied: true,
+        floorAppliedBuckets,
+        floorSkippedBuckets,
+        missingFloorBuckets,
         perRowDollarFloorApplied: false,
         storageTouched: false,
         inputsMutated: false

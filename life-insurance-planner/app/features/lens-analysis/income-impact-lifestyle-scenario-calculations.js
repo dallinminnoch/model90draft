@@ -757,9 +757,14 @@
         actualComparisonScenarioReplaced: policyMode === "activeGraphAdjustments",
         graphOutputChanged: policyMode === "activeGraphAdjustments",
         graphAdjustmentOverridesAppliedToGraph: policyMode === "activeGraphAdjustments",
-        livingFloorsAppliedToGraph: false,
-        floorsAppliedToGraph: false,
+        livingFloorsAppliedToGraph: policyMode === "activeGraphAdjustments" && applyEstimatedDollarFloors,
+        floorsAppliedToGraph: policyMode === "activeGraphAdjustments" && applyEstimatedDollarFloors,
         estimatedDollarFloorsEnabled: applyEstimatedDollarFloors,
+        floorAppliedBuckets: clonePlainValue(householdExpenseAdjustmentResult?.trace?.floorAppliedBuckets || []),
+        floorSkippedBuckets: clonePlainValue(householdExpenseAdjustmentResult?.trace?.floorSkippedBuckets || []),
+        missingFloorBuckets: clonePlainValue(householdExpenseAdjustmentResult?.trace?.missingFloorBuckets || []),
+        bucketAggregationApplied: householdExpenseAdjustmentResult?.trace?.bucketAggregationApplied === true,
+        perRowDollarFloorApplied: householdExpenseAdjustmentResult?.trace?.perRowDollarFloorApplied === true,
         activeRuntimeConsumer: policyMode === "activeGraphAdjustments",
         monthlyDeltaPreview: householdExpenseAdjustmentResult?.monthlyDelta ?? null,
         scenarioHandoffPreviewProduced: Boolean(scenarioHandoffPreview?.comparisonPostDeathSeries)
@@ -771,6 +776,12 @@
     });
   }
 
+  function getHouseholdExpenseAdjustmentTrace(streamPreview) {
+    return isPlainObject(streamPreview?.householdExpenseAdjustmentResult?.trace)
+      ? streamPreview.householdExpenseAdjustmentResult.trace
+      : {};
+  }
+
   function buildStreamAdjustedPostDeathSeries(basePostDeathSeries, streamPreview) {
     const handoffSeries = streamPreview?.scenarioHandoffPreview?.comparisonPostDeathSeries;
     const handoffPoints = Array.isArray(handoffSeries?.points) ? handoffSeries.points : [];
@@ -779,6 +790,11 @@
     }
 
     const monthlyDelta = toOptionalNumber(streamPreview?.householdExpenseAdjustmentResult?.monthlyDelta) || 0;
+    const adjustmentTrace = getHouseholdExpenseAdjustmentTrace(streamPreview);
+    const estimatedDollarFloorsEnabled = adjustmentTrace.estimatedDollarFloorsEnabled === true;
+    const floorAppliedBuckets = clonePlainValue(adjustmentTrace.floorAppliedBuckets || []);
+    const floorSkippedBuckets = clonePlainValue(adjustmentTrace.floorSkippedBuckets || []);
+    const missingFloorBuckets = clonePlainValue(adjustmentTrace.missingFloorBuckets || []);
     const points = handoffPoints.map(function (handoffPoint) {
       const point = clonePlainValue(handoffPoint);
       const endingResources = toOptionalNumber(point.householdExpenseAdjustedEndingResources);
@@ -794,8 +810,13 @@
           householdExpenseStreamGraphAdjustmentApplied: true,
           graphAdjustmentSource: "baseHouseholdExpenseStream",
           graphAdjustmentOverridesApplied: true,
-          livingFloorsApplied: false,
-          estimatedDollarFloorsEnabled: false,
+          livingFloorsApplied: estimatedDollarFloorsEnabled,
+          estimatedDollarFloorsEnabled,
+          floorAppliedBuckets,
+          floorSkippedBuckets,
+          missingFloorBuckets,
+          bucketAggregationApplied: adjustmentTrace.bucketAggregationApplied === true,
+          perRowDollarFloorApplied: adjustmentTrace.perRowDollarFloorApplied === true,
           monthlyExpenseDeltaApplied: monthlyDelta,
           cumulativeExpenseDeltaApplied: toOptionalNumber(point.cumulativeHouseholdExpenseDelta) || 0
         }),
@@ -814,8 +835,13 @@
         effectiveMonthlyDelta: monthlyDelta,
         monthIndexPolicy: "stream-handoff-preview-explicit-month-index",
         graphAdjustmentSource: "baseHouseholdExpenseStream",
-        livingFloorsApplied: false,
-        estimatedDollarFloorsEnabled: false
+        livingFloorsApplied: estimatedDollarFloorsEnabled,
+        estimatedDollarFloorsEnabled,
+        floorAppliedBuckets,
+        floorSkippedBuckets,
+        missingFloorBuckets,
+        bucketAggregationApplied: adjustmentTrace.bucketAggregationApplied === true,
+        perRowDollarFloorApplied: adjustmentTrace.perRowDollarFloorApplied === true
       }
     };
   }
@@ -859,6 +885,8 @@
     }
 
     const graphMonthlyDelta = postDeathSeries.trace?.effectiveMonthlyDelta ?? 0;
+    const adjustmentTrace = getHouseholdExpenseAdjustmentTrace(streamPreview);
+    const estimatedDollarFloorsEnabled = adjustmentTrace.estimatedDollarFloorsEnabled === true;
     return {
       scenarioId: normalizeString(input?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
       kind: "compression",
@@ -887,8 +915,13 @@
         bucketAdjustments: clonePlainValue(streamPreview?.householdExpenseAdjustmentResult?.bucketAdjustments || []),
         projectionSeriesApplied: graphMonthlyDelta !== 0,
         noOpComparison: graphMonthlyDelta === 0,
-        livingFloorsApplied: false,
-        estimatedDollarFloorsEnabled: false,
+        livingFloorsApplied: estimatedDollarFloorsEnabled,
+        estimatedDollarFloorsEnabled,
+        floorAppliedBuckets: clonePlainValue(adjustmentTrace.floorAppliedBuckets || []),
+        floorSkippedBuckets: clonePlainValue(adjustmentTrace.floorSkippedBuckets || []),
+        missingFloorBuckets: clonePlainValue(adjustmentTrace.missingFloorBuckets || []),
+        bucketAggregationApplied: adjustmentTrace.bucketAggregationApplied === true,
+        perRowDollarFloorApplied: adjustmentTrace.perRowDollarFloorApplied === true,
         activeGraphAdjustmentMode: true
       }
     };
@@ -1375,7 +1408,7 @@
     } else if (streamPolicyMode === "activeGraphAdjustments") {
       const streamPreview = buildHouseholdExpenseStreamPreview(sourceInput, sliderValue, basePostDeathSeries, {
         policyMode: "activeGraphAdjustments",
-        applyEstimatedDollarFloors: false
+        applyEstimatedDollarFloors: true
       });
       output.householdExpenseStreamPreview = streamPreview;
       if (basePostDeathSeries) {
@@ -1392,7 +1425,12 @@
         output.trace.unreconciledMonthlyDeltaExcluded = comparisonScenario.trace?.unreconciledMonthlyDeltaExcluded ?? null;
         output.trace.householdExpenseStreamPolicyMode = "activeGraphAdjustments";
         output.trace.householdExpenseStreamGraphPathActive = true;
-        output.trace.estimatedDollarFloorsEnabled = false;
+        output.trace.estimatedDollarFloorsEnabled = streamPreview.householdExpenseAdjustmentResult?.trace?.estimatedDollarFloorsEnabled === true;
+        output.trace.floorAppliedBuckets = clonePlainValue(streamPreview.householdExpenseAdjustmentResult?.trace?.floorAppliedBuckets || []);
+        output.trace.floorSkippedBuckets = clonePlainValue(streamPreview.householdExpenseAdjustmentResult?.trace?.floorSkippedBuckets || []);
+        output.trace.missingFloorBuckets = clonePlainValue(streamPreview.householdExpenseAdjustmentResult?.trace?.missingFloorBuckets || []);
+        output.trace.bucketAggregationApplied = streamPreview.householdExpenseAdjustmentResult?.trace?.bucketAggregationApplied === true;
+        output.trace.perRowDollarFloorApplied = streamPreview.householdExpenseAdjustmentResult?.trace?.perRowDollarFloorApplied === true;
       }
     }
 

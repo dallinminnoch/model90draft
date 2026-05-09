@@ -495,7 +495,11 @@ assert.equal(result.metadata.activeRuntimeConsumer, false, "engine should be ina
 assert.equal(result.trace.graphSeriesConstructed, false, "engine should not construct graph series");
 assert.equal(result.trace.graphDeltaApplied, false, "engine should not apply graph deltas");
 assert.equal(result.trace.floorsAppliedAtPlanningBucketLevel, true, "engine should apply money floors at planning-bucket level");
+assert.equal(result.trace.bucketAggregationApplied, true, "engine should trace bucket aggregation for floor handling");
 assert.equal(result.trace.perRowDollarFloorApplied, false, "engine should not apply dollar floors per row");
+assert.deepEqual(plain(result.trace.floorAppliedBuckets), ["foodAtHomeConsumables", "householdConsumables"], "engine should trace applied floor buckets");
+assert.deepEqual(plain(result.trace.floorSkippedBuckets), [], "complete fixture should not skip money-floor buckets");
+assert.deepEqual(plain(result.trace.missingFloorBuckets), [], "complete fixture should not have missing money-floor buckets");
 assert.equal(result.trace.baseHouseholdExpenseStreamUsed, true, "engine should accept baseHouseholdExpenseStream input");
 assert.equal(result.trace.streamMonthlyTotal, 3770, "engine should trace provided stream monthly total");
 assert.equal(result.trace.streamParityDifference, 0, "represented rows should reconcile to stream monthly total");
@@ -579,6 +583,8 @@ assert.equal(missingFoodBucket.adjustedMonthlyAmount, 400, "missing Food floor s
 assert.equal(missingFoodBucket.floorApplied, false, "missing Food floor should not be marked applied");
 assert.equal(missingFoodBucket.floorSkippedReason, "missing-estimated-dollar-floor-ratio-fallback", "missing Food floor should trace ratio fallback");
 assert.equal(getBucket(missingFloorResult, "householdConsumables").adjustedMonthlyAmount, 75, "missing MODEL90 floor should fall back to ratio behavior");
+assert.deepEqual(plain(missingFloorResult.trace.floorAppliedBuckets), [], "missing floors should not trace applied floor buckets");
+assert.deepEqual(plain(missingFloorResult.trace.missingFloorBuckets), ["foodAtHomeConsumables", "householdConsumables"], "missing floors should trace missing money-floor buckets");
 assert.ok(hasIssue(missingFloorResult.warnings, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), "missing floor should warn");
 assert.ok(hasIssue(missingFloorResult.dataGaps, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), "missing floor should produce data gap");
 
@@ -593,6 +599,9 @@ assert.equal(disabledFoodBucket.adjustedMonthlyAmount, 400, "disabled Food floor
 assert.equal(disabledFoodBucket.floorApplied, false, "disabled Food floor should not be applied");
 assert.equal(disabledFoodBucket.floorSkippedReason, "estimated-dollar-floors-disabled-ratio-behavior", "disabled Food floor should trace disabled ratio behavior");
 assert.equal(getBucket(disabledFloorResult, "householdConsumables").adjustedMonthlyAmount, 75, "disabled MODEL90 default floor should use ratio behavior only");
+assert.deepEqual(plain(disabledFloorResult.trace.floorAppliedBuckets), [], "disabled floors should not trace applied floor buckets");
+assert.deepEqual(plain(disabledFloorResult.trace.floorSkippedBuckets), ["foodAtHomeConsumables", "householdConsumables"], "disabled floors should trace skipped money-floor buckets");
+assert.deepEqual(plain(disabledFloorResult.trace.missingFloorBuckets), [], "disabled floors should not trace missing assumptions");
 assert.equal(hasIssue(disabledFloorResult.dataGaps, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), false, "disabled floors should not be reported as missing floor assumptions");
 
 const positiveResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments(createCompleteInput({

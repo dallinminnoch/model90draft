@@ -1009,15 +1009,23 @@ assert.deepEqual(activeGraphInput, activeGraphBefore, "active graph adjustment m
 assert.ok(activeGraph.householdExpenseStreamPreview, "active graph adjustment mode should include stream preview context");
 assert.equal(activeGraph.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, true, "active graph adjustment mode should mark stream preview as consumed");
 assert.equal(activeGraph.householdExpenseStreamPreview.trace.graphOutputChanged, true, "active graph adjustment mode should trace graph output replacement");
-assert.equal(activeGraph.householdExpenseStreamPreview.trace.estimatedDollarFloorsEnabled, false, "active graph adjustment mode should disable dollar floors");
-assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.estimatedDollarFloorsEnabled, false, "engine should disable dollar floors for active graph adjustment mode");
-assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.livingFloorCalculationPreviewUsedForDollarFloors, false, "living floor preview should not drive active graph amounts yet");
+assert.equal(activeGraph.householdExpenseStreamPreview.trace.estimatedDollarFloorsEnabled, true, "active graph adjustment mode should enable dollar floors");
+assert.equal(activeGraph.householdExpenseStreamPreview.trace.bucketAggregationApplied, true, "active graph adjustment mode should trace bucket aggregation");
+assert.equal(activeGraph.householdExpenseStreamPreview.trace.perRowDollarFloorApplied, false, "active graph adjustment mode should trace no per-row dollar floor");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.estimatedDollarFloorsEnabled, true, "engine should enable dollar floors for active graph adjustment mode");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.livingFloorCalculationPreviewUsedForDollarFloors, true, "living floor preview should drive active graph floor amounts");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.bucketAggregationApplied, true, "engine should trace bucket-level floor aggregation");
+assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.perRowDollarFloorApplied, false, "engine should trace no per-row dollar floors");
 assert.equal(activeGraph.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "active mode should return stream-based comparison output");
 assert.equal(activeGraph.comparisonScenario.trace.graphMonthlyDelta, activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.monthlyDelta, "active comparison graph delta should come from stream engine");
-assert.equal(activeGraph.comparisonScenario.trace.estimatedDollarFloorsEnabled, false, "active comparison should trace dollar floors disabled");
-assert.equal(activeGraph.comparisonScenario.trace.livingFloorsApplied, false, "active comparison should not apply living floors yet");
+assert.equal(activeGraph.comparisonScenario.trace.estimatedDollarFloorsEnabled, true, "active comparison should trace dollar floors enabled");
+assert.equal(activeGraph.comparisonScenario.trace.livingFloorsApplied, true, "active comparison should apply living floor previews in active graph mode");
+assert.equal(activeGraph.comparisonScenario.trace.bucketAggregationApplied, true, "active comparison should trace bucket-level floor aggregation");
+assert.equal(activeGraph.comparisonScenario.trace.perRowDollarFloorApplied, false, "active comparison should trace no per-row dollar floors");
 assert.equal(activeGraph.trace.householdExpenseStreamPolicyMode, "activeGraphAdjustments", "top-level trace should identify active stream mode");
-assert.equal(activeGraph.trace.estimatedDollarFloorsEnabled, false, "top-level trace should identify dollar floors disabled");
+assert.equal(activeGraph.trace.estimatedDollarFloorsEnabled, true, "top-level trace should identify dollar floors enabled");
+assert.equal(activeGraph.trace.bucketAggregationApplied, true, "top-level trace should identify bucket-level floor aggregation");
+assert.equal(activeGraph.trace.perRowDollarFloorApplied, false, "top-level trace should identify no per-row dollar floors");
 assert.notDeepEqual(
   activeGraph.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
   streamPreviewLegacy.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
@@ -1027,8 +1035,44 @@ assert.notDeepEqual(
 const activeFoodBucket = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "foodAtHomeConsumables");
 assert.ok(activeFoodBucket, "active graph adjustment mode should include Food at Home bucket");
 assert.equal(activeFoodBucket.rowCount, 2, "active graph adjustment mode should aggregate Food at Home rows by planning bucket");
-assert.equal(activeFoodBucket.adjustedMonthlyAmount, activeFoodBucket.ratioAdjustedMonthlyAmount, "Food at Home should use ratio behavior while dollar floors are disabled");
-assert.equal(activeFoodBucket.floorSkippedReason, "estimated-dollar-floors-disabled-ratio-behavior", "Food at Home should trace disabled dollar-floor behavior");
+assert.equal(activeFoodBucket.ratioAdjustedMonthlyAmount, 480, "Food at Home ratio amount should calculate before dollar floor overlay");
+assert.equal(activeFoodBucket.estimatedDollarPlanningFloorMonthly, 876, "Food at Home estimated floor should include household-size and state multiplier effects");
+assert.equal(activeFoodBucket.adjustedMonthlyAmount, 876, "Food at Home should use the higher bucket-level dollar floor");
+assert.equal(activeFoodBucket.floorApplied, true, "Food at Home floor should be marked applied");
+assert.equal(activeFoodBucket.floorSkippedReason, null, "Food at Home should not trace a skipped floor when the floor wins");
+const activeFoodRows = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments.filter((row) => row.planningBucketKey === "foodAtHomeConsumables");
+assert.equal(activeFoodRows.length, 2, "Food at Home should keep detailed rows while applying one bucket floor");
+assert.equal(
+  activeFoodRows.reduce((total, row) => total + row.adjustedMonthlyAmount, 0),
+  activeFoodBucket.adjustedMonthlyAmount,
+  "Food at Home row allocation should reconcile to one bucket floor"
+);
+activeFoodRows.forEach((row) => {
+  assert.equal(row.estimatedDollarPlanningFloorMonthly, null, "Food at Home rows should not carry duplicated row-level dollar floors");
+  assert.equal(row.trace.perRowDollarFloorApplied, false, "Food at Home rows should trace no per-row dollar floor");
+});
+[
+  ["householdConsumables", 210],
+  ["communicationsConnectivity", 132],
+  ["transportationBasics", 240]
+].forEach(([planningBucketKey, expectedFloor]) => {
+  const bucket = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((candidate) => candidate.planningBucketKey === planningBucketKey);
+  assert.ok(bucket, `${planningBucketKey} should have a bucket adjustment`);
+  assert.equal(bucket.estimatedDollarPlanningFloorMonthly, expectedFloor, `${planningBucketKey} should use its MODEL90 default floor preview`);
+  assert.equal(bucket.adjustedMonthlyAmount, expectedFloor, `${planningBucketKey} should apply one bucket-level MODEL90 floor`);
+  assert.equal(bucket.floorApplied, true, `${planningBucketKey} floor should be marked applied`);
+  assert.equal(bucket.trace.perRowDollarFloorApplied, false, `${planningBucketKey} should not apply a per-row dollar floor`);
+});
+assert.deepEqual(
+  cloneJson(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.floorAppliedBuckets),
+  [
+    "communicationsConnectivity",
+    "foodAtHomeConsumables",
+    "householdConsumables",
+    "transportationBasics"
+  ],
+  "active graph adjustment mode should trace each applied money-floor bucket exactly once"
+);
 const activeDiningRow = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments.find((row) => row.expenseTypeKey === "diningOutRestaurants");
 assert.ok(activeDiningRow, "active fixture should include dining row");
 assert.equal(activeDiningRow.adjustedMonthlyAmount, 0, "zero-floor ratio rows should go to zero at conservative slider");
@@ -1049,10 +1093,14 @@ const activeHighFloors = calculations.calculateIncomeImpactLifestyleScenario(cre
     livingFloorAssumptions: highFloorAssumptions
   }
 }));
-assert.deepEqual(
+assert.notDeepEqual(
   activeHighFloors.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
   activeGraph.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
-  "complete/high living-floor assumptions should not affect active graph output while dollar floors are disabled"
+  "higher living-floor assumptions should affect active graph output when dollar floors are enabled"
+);
+assert.ok(
+  activeHighFloors.comparisonScenario.trace.graphMonthlyDelta > activeGraph.comparisonScenario.trace.graphMonthlyDelta,
+  "higher bucket floors should increase the active graph monthly expense delta"
 );
 
 const activeIncompleteFloors = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
@@ -1062,10 +1110,74 @@ const activeIncompleteFloors = calculations.calculateIncomeImpactLifestyleScenar
     livingFloorAssumptions: {}
   }
 }));
-assert.deepEqual(
+assert.notDeepEqual(
   activeIncompleteFloors.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
   activeGraph.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
-  "missing living-floor assumptions should not affect active graph output while dollar floors are disabled"
+  "missing living-floor assumptions should fall back to ratio behavior instead of applying configured floors"
+);
+assert.deepEqual(
+  cloneJson(activeIncompleteFloors.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.floorAppliedBuckets),
+  [],
+  "incomplete floor assumptions should not apply any money-floor bucket"
+);
+assert.deepEqual(
+  cloneJson(activeIncompleteFloors.householdExpenseStreamPreview.householdExpenseAdjustmentResult.trace.missingFloorBuckets),
+  [
+    "communicationsConnectivity",
+    "foodAtHomeConsumables",
+    "householdConsumables",
+    "transportationBasics"
+  ],
+  "incomplete floor assumptions should trace missing money-floor buckets"
+);
+assert.ok(
+  activeIncompleteFloors.householdExpenseStreamPreview.householdExpenseAdjustmentResult.dataGaps.some((gap) => gap.code === "money-floor-bucket-missing-dollar-floor-ratio-fallback"),
+  "missing active graph floors should emit floor fallback data gaps"
+);
+
+const lowFloorAssumptions = createCompleteLivingFloorAssumptions();
+Object.keys(lowFloorAssumptions.foodAtHome.monthlyAmountsByBand).forEach((bandKey) => {
+  lowFloorAssumptions.foodAtHome.monthlyAmountsByBand[bandKey] = 10;
+});
+Object.keys(lowFloorAssumptions.model90DefaultBucketFloors).forEach((bucketKey) => {
+  lowFloorAssumptions.model90DefaultBucketFloors[bucketKey].monthlyBaseAmount = 1;
+  lowFloorAssumptions.model90DefaultBucketFloors[bucketKey].monthlyPerMemberAmount = 1;
+  lowFloorAssumptions.model90DefaultBucketFloors[bucketKey].monthlyPerAdultDriverAmount = 1;
+});
+lowFloorAssumptions.stateCostAdjustmentMultipliers.defaultMultiplier = 1;
+lowFloorAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState = {
+  CO: { multiplier: 1, source: "ADMIN_ENTERED", sourcePeriod: "2026" }
+};
+const activeLowFloors = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: lowFloorAssumptions
+  }
+}));
+const activeLowFoodBucket = activeLowFloors.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "foodAtHomeConsumables");
+assert.equal(activeLowFoodBucket.ratioAdjustedMonthlyAmount, 480, "low-floor fixture should still calculate Food ratio first");
+assert.equal(activeLowFoodBucket.estimatedDollarPlanningFloorMonthly, 30, "low-floor fixture should still calculate a Food dollar floor");
+assert.equal(activeLowFoodBucket.adjustedMonthlyAmount, 480, "ratio-adjusted amount should win when it is above the estimated floor");
+assert.equal(activeLowFoodBucket.floorApplied, false, "floorApplied should remain false when ratio amount wins");
+assert.equal(activeLowFoodBucket.floorSkippedReason, "ratio-floor-higher-than-dollar-floor", "low floor should trace ratio-wins behavior");
+
+const noStateMultiplierAssumptions = createCompleteLivingFloorAssumptions();
+noStateMultiplierAssumptions.stateCostAdjustmentMultipliers.defaultMultiplier = 1;
+noStateMultiplierAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState = {};
+const activeNoStateMultiplier = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  householdExpenseStreamPolicyMode: "activeGraphAdjustments",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: noStateMultiplierAssumptions
+  }
+}));
+const activeNoStateFoodBucket = activeNoStateMultiplier.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "foodAtHomeConsumables");
+assert.equal(activeNoStateFoodBucket.estimatedDollarPlanningFloorMonthly, 730, "floor preview should expose national Food floor before state multiplier");
+assert.equal(activeFoodBucket.estimatedDollarPlanningFloorMonthly, 876, "state-specific multiplier should change the estimated Food floor");
+assert.ok(
+  activeGraph.comparisonScenario.trace.graphMonthlyDelta > activeNoStateMultiplier.comparisonScenario.trace.graphMonthlyDelta,
+  "state multiplier should affect graph output only through the estimated floor preview"
 );
 
 const activeExcludeGroceries = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
@@ -1090,8 +1202,8 @@ excludedGroceryRows.forEach((row) => {
   assert.equal(row.monthlyDelta, 0, "excluded grocery override should produce zero row delta");
 });
 assert.ok(
-  activeExcludeGroceries.comparisonScenario.trace.graphMonthlyDelta > activeGraph.comparisonScenario.trace.graphMonthlyDelta,
-  "excluding a previously adjustable row should reduce conservative graph movement"
+  activeExcludeGroceries.comparisonScenario.trace.graphMonthlyDelta < activeGraph.comparisonScenario.trace.graphMonthlyDelta,
+  "excluding a previously money-floor-adjusted row should remove that bucket floor from graph movement"
 );
 
 const activeRatioGroceries = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
@@ -1136,8 +1248,12 @@ const activeMoneyFloorDining = calculations.calculateIncomeImpactLifestyleScenar
 }));
 const diningBucket = activeMoneyFloorDining.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "diningTakeout");
 assert.ok(diningBucket, "money-floor override should create a dining bucket adjustment");
-assert.equal(diningBucket.adjustedMonthlyAmount, diningBucket.ratioAdjustedMonthlyAmount, "money-floor override should still use ratio-only behavior while dollar floors are disabled");
-assert.equal(diningBucket.floorSkippedReason, "estimated-dollar-floors-disabled-ratio-behavior", "money-floor override should trace disabled floor behavior");
+assert.equal(diningBucket.adjustedMonthlyAmount, diningBucket.ratioAdjustedMonthlyAmount, "money-floor override without a dollar floor should fall back to ratio behavior");
+assert.equal(diningBucket.floorSkippedReason, "missing-estimated-dollar-floor-ratio-fallback", "money-floor override should trace missing floor fallback");
+assert.ok(
+  activeMoneyFloorDining.householdExpenseStreamPreview.householdExpenseAdjustmentResult.dataGaps.some((gap) => gap.code === "money-floor-bucket-missing-dollar-floor-ratio-fallback"),
+  "money-floor override without a configured floor should produce a fallback data gap"
+);
 
 const activeLifestyleOverride = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
   householdExpenseStreamPolicyMode: "activeGraphAdjustments",
@@ -1153,10 +1269,9 @@ const activeLifestyleOverride = calculations.calculateIncomeImpactLifestyleScena
     ]
   }
 }));
-const lifestyleOverrideGroceries = activeLifestyleOverride.householdExpenseStreamPreview.householdExpenseAdjustmentResult.rowAdjustments
-  .filter((row) => row.expenseTypeKey === "groceries")
-  .reduce((total, row) => total + row.adjustedMonthlyAmount, 0);
-assert.equal(lifestyleOverrideGroceries, 540, "lifestyleRangeOverrides should still alter active stream ratio behavior");
+const lifestyleOverrideFoodBucket = activeLifestyleOverride.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "foodAtHomeConsumables");
+assert.equal(lifestyleOverrideFoodBucket.ratioAdjustedMonthlyAmount, 540, "lifestyleRangeOverrides should still alter active stream ratio behavior");
+assert.equal(lifestyleOverrideFoodBucket.adjustedMonthlyAmount, 876, "configured dollar floor should still win when it is above the overridden ratio amount");
 
 const maliciousProtectedOverride = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
   householdExpenseStreamPolicyMode: "activeGraphAdjustments",
@@ -1204,10 +1319,10 @@ const maliciousProtectedOverride = calculations.calculateIncomeImpactLifestyleSc
 assert.equal(activeGraph.householdExpenseStreamPreview.baseHouseholdExpenseStream.referenceRows.length, 0, "active stream fixture should have no reference rows affecting graph output");
 assert.equal(activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.skippedRows.length, 0, "active stream represented fixture should not skip represented rows");
 assert.equal(activeGraph.comparisonScenario.trace.graphMonthlyDelta, activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.monthlyDelta, "active stream monthlyDelta sign should pass directly to comparison graph delta");
-assert.ok(activeGraph.comparisonScenario.trace.graphMonthlyDelta < 0, "conservative active stream adjustment should reduce expenses");
+assert.ok(activeGraph.comparisonScenario.trace.graphMonthlyDelta > 0, "active stream dollar floors can increase expenses when floors exceed ratio amounts");
 assert.ok(
-  activeGraph.comparisonScenario.postDeathSeries.points[0].endingResources > streamPreviewLegacy.comparisonScenario.postDeathSeries.points[0].endingResources,
-  "negative active stream monthlyDelta should increase resources on comparison path"
+  activeGraph.comparisonScenario.postDeathSeries.points[0].endingResources < streamPreviewLegacy.comparisonScenario.postDeathSeries.points[0].endingResources,
+  "positive active stream monthlyDelta should decrease resources on comparison path"
 );
 
 assert.equal(baseline.trace.projectionSeriesApplied, false, "projection series should not be applied in this pass");
