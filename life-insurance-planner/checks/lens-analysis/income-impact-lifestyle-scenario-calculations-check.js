@@ -151,7 +151,8 @@ function makeFixtureExpenses() {
 function calculate(sliderValue, extraInput) {
   return calculations.calculateIncomeImpactLifestyleScenario(Object.assign({
     expenses: makeFixtureExpenses(),
-    sliderValue
+    sliderValue,
+    householdExpenseStreamPolicyMode: "legacy"
   }, extraInput || {}));
 }
 
@@ -765,6 +766,7 @@ const basePostDeathSeries = makeBasePostDeathSeries();
 const safeCurrent = calculations.calculateIncomeImpactLifestyleScenario({
   expenses: makeSafeScalarLifestyleExpenses(),
   sliderValue: 0,
+  householdExpenseStreamPolicyMode: "legacy",
   basePostDeathSeries
 });
 assert.equal(safeCurrent.status, "complete", "current lifestyle comparison with safe scalar facts should be complete");
@@ -780,6 +782,7 @@ assert.equal(safeCurrent.comparisonScenario.trace.noOpComparison, true);
 const safeConservative = calculations.calculateIncomeImpactLifestyleScenario({
   expenses: makeSafeScalarLifestyleExpenses(),
   sliderValue: -100,
+  householdExpenseStreamPolicyMode: "legacy",
   basePostDeathSeries
 });
 assert.equal(safeConservative.status, "complete", "safe scalar lifestyle deltas should reconcile to base survivor needs");
@@ -805,6 +808,7 @@ const sparseBasePostDeathSeries = makeBasePostDeathSeries([1, 3, 6]);
 const sparseResult = calculations.calculateIncomeImpactLifestyleScenario({
   expenses: makeSafeScalarLifestyleExpenses(),
   sliderValue: -100,
+  householdExpenseStreamPolicyMode: "legacy",
   basePostDeathSeries: sparseBasePostDeathSeries
 });
 assert.deepEqual(
@@ -821,6 +825,7 @@ assert.equal(
 const unreconciled = calculations.calculateIncomeImpactLifestyleScenario({
   expenses: makeFixtureExpenses(),
   sliderValue: -100,
+  householdExpenseStreamPolicyMode: "legacy",
   basePostDeathSeries
 });
 assert.equal(unreconciled.status, "partial", "unreconciled graph-moving expense facts should mark output partial");
@@ -846,6 +851,7 @@ const allFixed = calculations.calculateIncomeImpactLifestyleScenario({
     "charitableGiving"
   ].includes(expense.expenseTypeKey)),
   sliderValue: 100,
+  householdExpenseStreamPolicyMode: "legacy",
   basePostDeathSeries
 });
 assert.equal(allFixed.status, "complete", "all fixed/review-only expenses should be a safe complete no-op");
@@ -862,6 +868,7 @@ delete missingMonthIndexSeries.points[1].monthIndex;
 const missingMonthIndex = calculations.calculateIncomeImpactLifestyleScenario({
   expenses: makeSafeScalarLifestyleExpenses(),
   sliderValue: -100,
+  householdExpenseStreamPolicyMode: "legacy",
   basePostDeathSeries: missingMonthIndexSeries
 });
 assert.equal(missingMonthIndex.status, "partial", "missing monthIndex should create a partial comparison");
@@ -898,13 +905,25 @@ const streamPreviewLegacy = calculations.calculateIncomeImpactLifestyleScenario(
   useStreamHouseholdExpenseAdjustments: false
 }));
 assert.deepEqual(streamPreviewBaseInput, streamPreviewBaseBefore, "stream preview parity fixture should not be mutated by default fallback call");
-assert.equal(streamPreviewFallbackBeforeDeps.trace.householdExpenseStreamPolicyModeResolved, "legacy", "missing mode should fall back to legacy before stream helpers are loaded");
-assert.equal(streamPreviewFallbackBeforeDeps.trace.legacyFallbackUsed, true, "missing mode fallback should be explicit before stream helpers are loaded");
-assert.match(streamPreviewFallbackBeforeDeps.trace.legacyFallbackReason, /missingHelper:incomeImpactHouseholdExpensePolicyRuntimeAdapter/, "missing helper fallback reason should be traced");
+assert.equal(streamPreviewFallbackBeforeDeps.trace.householdExpenseStreamPolicyModeResolved, "streamUnavailable", "missing mode should report unavailable stream inputs before stream helpers are loaded");
+assert.equal(streamPreviewFallbackBeforeDeps.trace.streamInputMissing, true, "missing stream inputs should be traced before stream helpers are loaded");
+assert.ok(
+  streamPreviewFallbackBeforeDeps.trace.streamInputMissingReasons.includes("missingHelper:incomeImpactHouseholdExpensePolicyRuntimeAdapter"),
+  "missing helper reason should be traced"
+);
+assert.equal(streamPreviewFallbackBeforeDeps.trace.legacyFallbackUsed, false, "missing mode should not silently fall back to legacy before stream helpers are loaded");
+assert.equal(streamPreviewFallbackBeforeDeps.trace.legacyFallbackReason, null, "missing mode should not report a legacy fallback reason");
+assert.ok(
+  streamPreviewFallbackBeforeDeps.dataGaps.some((gap) => gap.code === "missing-household-expense-stream-inputs"),
+  "missing stream inputs should create an explicit data gap"
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(streamPreviewFallbackBeforeDeps, "comparisonScenario"),
+  false,
+  "missing stream inputs should not create a legacy comparison scenario"
+);
 assert.equal(streamPreviewLegacy.trace.householdExpenseStreamPolicyModeResolved, "legacy", "explicit legacy should resolve to legacy mode");
 assert.equal(streamPreviewLegacy.trace.legacyFallbackUsed, false, "explicit legacy should not be marked as default fallback");
-assert.deepEqual(streamPreviewFallbackBeforeDeps.adjustedExpenses, streamPreviewLegacy.adjustedExpenses, "default fallback should keep legacy adjusted expenses before helpers are loaded");
-assert.deepEqual(streamPreviewFallbackBeforeDeps.comparisonScenario, streamPreviewLegacy.comparisonScenario, "default fallback should keep legacy comparison before helpers are loaded");
 assert.equal(
   Object.prototype.hasOwnProperty.call(streamPreviewLegacy, "householdExpenseStreamPreview"),
   false,
@@ -923,13 +942,23 @@ const missingStreamInputAfterDeps = createStreamPreviewInput();
 delete missingStreamInputAfterDeps.householdExpenseStreamPolicyMode;
 delete missingStreamInputAfterDeps.lensModel.ongoingSupport.monthlyTotalEssentialSupportCost;
 const missingStreamFallbackAfterDeps = calculations.calculateIncomeImpactLifestyleScenario(missingStreamInputAfterDeps);
-assert.equal(missingStreamFallbackAfterDeps.trace.householdExpenseStreamPolicyModeResolved, "legacy", "missing required stream inputs should fall back to legacy");
-assert.equal(missingStreamFallbackAfterDeps.trace.legacyFallbackUsed, true, "missing required stream input fallback should be explicit");
-assert.match(missingStreamFallbackAfterDeps.trace.legacyFallbackReason, /missingOngoingSupportMonthlyTotal/, "missing required stream input reason should be traced");
+assert.equal(missingStreamFallbackAfterDeps.trace.householdExpenseStreamPolicyModeResolved, "streamUnavailable", "missing required stream inputs should report unavailable stream mode");
+assert.equal(missingStreamFallbackAfterDeps.trace.streamInputMissing, true, "missing required stream inputs should be explicitly traced");
+assert.ok(missingStreamFallbackAfterDeps.trace.streamInputMissingReasons.includes("missingOngoingSupportMonthlyTotal"), "missing required stream input reason should be traced");
+assert.equal(missingStreamFallbackAfterDeps.trace.legacyFallbackUsed, false, "missing required stream inputs should not fall back to legacy");
+assert.ok(
+  missingStreamFallbackAfterDeps.dataGaps.some((gap) => gap.code === "missing-household-expense-stream-inputs"),
+  "missing required stream inputs should produce a data gap"
+);
 assert.equal(
   Object.prototype.hasOwnProperty.call(missingStreamFallbackAfterDeps, "householdExpenseStreamPreview"),
   false,
   "missing required stream inputs should not pretend stream mode ran"
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(missingStreamFallbackAfterDeps, "comparisonScenario"),
+  false,
+  "missing required stream inputs should not create a legacy comparison scenario"
 );
 
 const streamPreviewEnabledInput = createStreamPreviewInput();
@@ -951,18 +980,13 @@ assert.equal(
 );
 assert.deepEqual(
   streamPreviewEnabled.comparisonScenario,
-  streamPreviewLegacy.comparisonScenario,
-  "enabled stream preview should not replace the legacy comparison scenario"
+  streamDefaultAfterDeps.comparisonScenario,
+  "enabled stream preview should preserve the default stream comparison scenario"
 );
 assert.equal(
-  streamPreviewEnabled.monthlyDelta,
-  streamPreviewLegacy.monthlyDelta,
-  "enabled stream preview should not change legacy scenario monthlyDelta"
-);
-assert.deepEqual(
-  streamPreviewEnabled.adjustedExpenses,
-  streamPreviewLegacy.adjustedExpenses,
-  "enabled stream preview should not change legacy adjusted expense rows"
+  streamPreviewEnabled.comparisonScenario.trace.calculationMethod,
+  "income-impact-household-expense-stream-comparison-adapter-v1",
+  "enabled stream preview should not depend on the legacy comparison adapter"
 );
 
 const streamPreview = streamPreviewEnabled.householdExpenseStreamPreview;

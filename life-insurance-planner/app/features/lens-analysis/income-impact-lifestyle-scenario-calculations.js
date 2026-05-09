@@ -110,7 +110,7 @@
 
   // Explicit legacy fallback helpers. Stream activeGraphAdjustments is the default
   // when its runtime inputs are available; these helpers remain for explicit
-  // legacy, preview-only comparisons, and traced fallback behavior.
+  // legacy and direct legacy comparison checks during the transition.
   function getLegacyExpenses(input) {
     if (Array.isArray(input?.expenses)) {
       return input.expenses;
@@ -730,23 +730,49 @@
     }
 
     return {
-      mode: "legacy",
+      mode: "streamUnavailable",
       requestedMode: null,
       streamDefaultUsed: false,
-      legacyFallbackUsed: true,
-      legacyFallbackReason: missingDefaultReasons.join(";")
+      legacyFallbackUsed: false,
+      legacyFallbackReason: null,
+      streamInputMissing: true,
+      streamInputMissingReasons: missingDefaultReasons
     };
   }
 
   function getHouseholdExpenseStreamPolicyTrace(policyResolution) {
     const resolution = isPlainObject(policyResolution) ? policyResolution : {};
+    const streamInputMissingReasons = Array.isArray(resolution.streamInputMissingReasons)
+      ? clonePlainValue(resolution.streamInputMissingReasons)
+      : [];
     return {
       householdExpenseStreamPolicyModeResolved: normalizeString(resolution.mode) || "legacy",
       householdExpenseStreamPolicyModeRequested: normalizeString(resolution.requestedMode) || null,
       streamDefaultUsed: resolution.streamDefaultUsed === true,
+      streamInputMissing: resolution.streamInputMissing === true,
+      streamInputMissingReasons,
       legacyFallbackUsed: resolution.legacyFallbackUsed === true,
       legacyFallbackReason: normalizeString(resolution.legacyFallbackReason) || null
     };
+  }
+
+  function makeMissingStreamInputIssue(reasons, requestedMode) {
+    const safeReasons = uniqueStrings(reasons);
+    return makeIssue(
+      "missing-household-expense-stream-inputs",
+      "Stream household expense graph adjustment could not run because required stream inputs or helpers were unavailable.",
+      [
+        "basePostDeathSeries.points",
+        "expenseFacts.expenses",
+        "lensModel.expenseFacts.expenses",
+        "lensModel.ongoingSupport.monthlyTotalEssentialSupportCost",
+        "LensApp.lensAnalysis"
+      ],
+      {
+        requestedMode: normalizeString(requestedMode) || null,
+        missingReasons: safeReasons
+      }
+    );
   }
 
   function getHelperFunction(namespaceKey, functionKey) {
@@ -1493,7 +1519,18 @@
     const streamPolicyResolution = resolveHouseholdExpenseStreamPolicyMode(sourceInput);
     const streamPolicyMode = streamPolicyResolution.mode;
     Object.assign(output.trace, getHouseholdExpenseStreamPolicyTrace(streamPolicyResolution));
-    if (basePostDeathSeries && streamPolicyMode !== "activeGraphAdjustments") {
+    if (streamPolicyMode === "streamUnavailable") {
+      const issue = makeMissingStreamInputIssue(streamPolicyResolution.streamInputMissingReasons, streamPolicyResolution.requestedMode);
+      output.warnings.push(clonePlainValue(issue));
+      output.dataGaps.push(issue);
+      output.status = "partial";
+      output.trace.projectionSeriesApplied = false;
+      output.trace.projectionSeriesDeferred = true;
+      output.trace.graphPathChanged = false;
+      output.trace.comparisonScenarioStatus = null;
+    }
+
+    if (basePostDeathSeries && streamPolicyMode === "legacy") {
       const comparisonScenario = buildLegacyLifestyleComparisonScenario(basePostDeathSeries, output, sourceInput);
       if (comparisonScenario) {
         output.comparisonScenario = comparisonScenario;
@@ -1515,6 +1552,37 @@
         policyMode: "preview",
         applyEstimatedDollarFloors: true
       });
+      const missingPreviewComparisonReasons = getMissingActiveGraphDefaultReasons(sourceInput);
+      if (basePostDeathSeries && !missingPreviewComparisonReasons.length) {
+        const streamComparisonPreview = buildHouseholdExpenseStreamPreview(sourceInput, sliderValue, basePostDeathSeries, {
+          policyMode: "activeGraphAdjustments",
+          applyEstimatedDollarFloors: true
+        });
+        const comparisonScenario = buildHouseholdExpenseStreamComparisonScenario(basePostDeathSeries, streamComparisonPreview, sourceInput);
+        output.comparisonScenario = comparisonScenario;
+        output.warnings = output.warnings.concat(comparisonScenario.warnings || []);
+        output.dataGaps = output.dataGaps.concat(comparisonScenario.dataGaps || []);
+        output.status = output.dataGaps.length ? "partial" : output.status;
+        output.trace.projectionSeriesApplied = comparisonScenario.trace?.projectionSeriesApplied === true;
+        output.trace.projectionSeriesDeferred = false;
+        output.trace.graphPathChanged = Boolean(comparisonScenario);
+        output.trace.comparisonScenarioStatus = comparisonScenario.status || null;
+        output.trace.graphMonthlyDelta = comparisonScenario.trace?.graphMonthlyDelta ?? null;
+        output.trace.unreconciledMonthlyDeltaExcluded = comparisonScenario.trace?.unreconciledMonthlyDeltaExcluded ?? null;
+        output.trace.previewComparisonScenarioSource = "activeGraphAdjustments";
+      } else if (basePostDeathSeries) {
+        const issue = makeMissingStreamInputIssue(missingPreviewComparisonReasons, "preview");
+        output.warnings.push(clonePlainValue(issue));
+        output.dataGaps.push(issue);
+        output.status = "partial";
+        output.trace.streamInputMissing = true;
+        output.trace.streamInputMissingReasons = clonePlainValue(missingPreviewComparisonReasons);
+        output.trace.projectionSeriesApplied = false;
+        output.trace.projectionSeriesDeferred = true;
+        output.trace.graphPathChanged = false;
+        output.trace.comparisonScenarioStatus = null;
+        output.trace.previewComparisonScenarioSource = null;
+      }
     } else if (streamPolicyMode === "activeGraphAdjustments") {
       const streamPreview = buildHouseholdExpenseStreamPreview(sourceInput, sliderValue, basePostDeathSeries, {
         policyMode: "activeGraphAdjustments",
