@@ -76,6 +76,34 @@
     return issue;
   }
 
+  function issueWithPreviewSource(source, issue) {
+    return Object.assign({
+      previewSource: source
+    }, clonePlainValue(issue));
+  }
+
+  function collectPreviewIssues(source, result, warnings, dataGaps) {
+    if (Array.isArray(result?.warnings)) {
+      result.warnings.forEach(function (warning) {
+        warnings.push(issueWithPreviewSource(source, warning));
+      });
+    }
+
+    if (Array.isArray(result?.dataGaps)) {
+      result.dataGaps.forEach(function (gap) {
+        dataGaps.push(issueWithPreviewSource(source, gap));
+      });
+    }
+  }
+
+  function addMissingPreviewHelperIssue(helperName, dataGaps) {
+    dataGaps.push(makeIssue(
+      "missing-" + helperName,
+      "Stream household expense preview could not run because " + helperName + " was unavailable.",
+      ["LensApp.lensAnalysis." + helperName]
+    ));
+  }
+
   function hasOwn(object, key) {
     return Object.prototype.hasOwnProperty.call(Object(object), key);
   }
@@ -596,6 +624,144 @@
     return null;
   }
 
+  function getHouseholdExpenseStreamPolicyMode(input) {
+    if (input?.useStreamHouseholdExpenseAdjustments === true || input?.options?.useStreamHouseholdExpenseAdjustments === true) {
+      return "preview";
+    }
+
+    const mode = normalizeString(input?.householdExpenseStreamPolicyMode || input?.options?.householdExpenseStreamPolicyMode).toLowerCase();
+    if (mode === "preview" || mode === "stream-preview" || mode === "streampreview") {
+      return "preview";
+    }
+
+    return "legacy";
+  }
+
+  function getHelperFunction(namespaceKey, functionKey) {
+    const api = lensAnalysis[namespaceKey];
+    return api && typeof api[functionKey] === "function" ? api[functionKey] : null;
+  }
+
+  function buildStreamInput(sourceInput) {
+    const lensModel = isPlainObject(sourceInput.lensModel) ? sourceInput.lensModel : undefined;
+    const explicitExpenseFacts = isPlainObject(sourceInput.expenseFacts) || Array.isArray(sourceInput.expenseFacts)
+      ? sourceInput.expenseFacts
+      : undefined;
+    const hasNormalizedExpenseFacts = Boolean(
+      explicitExpenseFacts
+      || Array.isArray(lensModel?.expenseFacts?.expenses)
+    );
+
+    return clonePlainValue({
+      lensModel,
+      expenseFacts: explicitExpenseFacts,
+      expenses: !hasNormalizedExpenseFacts && Array.isArray(sourceInput.expenses) ? sourceInput.expenses : undefined,
+      ongoingSupport: isPlainObject(sourceInput.ongoingSupport) ? sourceInput.ongoingSupport : undefined,
+      expenseLibraryRows: Array.isArray(sourceInput.expenseLibraryRows) ? sourceInput.expenseLibraryRows : undefined,
+      livingFloorMetadata: Array.isArray(sourceInput.livingFloorMetadata) ? sourceInput.livingFloorMetadata : undefined
+    });
+  }
+
+  function buildPolicyPreviewInput(sourceInput) {
+    return Object.assign({}, clonePlainValue(sourceInput), {
+      includeOnlyGraphRows: false
+    });
+  }
+
+  function buildHouseholdExpenseStreamPreview(sourceInput, sliderValue, basePostDeathSeries) {
+    const warnings = [];
+    const dataGaps = [];
+    const policyPreviewFn = getHelperFunction(
+      "incomeImpactHouseholdExpensePolicyRuntimeAdapter",
+      "prepareIncomeImpactHouseholdExpensePolicyPreview"
+    );
+    const streamFn = getHelperFunction(
+      "incomeImpactBaseHouseholdExpenseStream",
+      "prepareIncomeImpactBaseHouseholdExpenseStream"
+    );
+    const adjustmentFn = getHelperFunction(
+      "incomeImpactHouseholdExpenseAdjustmentEngine",
+      "calculateIncomeImpactHouseholdExpenseAdjustments"
+    );
+    const handoffFn = getHelperFunction(
+      "incomeImpactHouseholdExpenseScenarioHandoffPreview",
+      "previewIncomeImpactHouseholdExpenseScenarioHandoff"
+    );
+
+    let policyPreview = null;
+    let baseHouseholdExpenseStream = null;
+    let householdExpenseAdjustmentResult = null;
+    let scenarioHandoffPreview = null;
+
+    if (policyPreviewFn) {
+      policyPreview = policyPreviewFn(buildPolicyPreviewInput(sourceInput));
+      collectPreviewIssues("incomeImpactHouseholdExpensePolicyRuntimeAdapter", policyPreview, warnings, dataGaps);
+    } else {
+      addMissingPreviewHelperIssue("incomeImpactHouseholdExpensePolicyRuntimeAdapter", dataGaps);
+    }
+
+    if (streamFn) {
+      baseHouseholdExpenseStream = streamFn(buildStreamInput(sourceInput));
+      collectPreviewIssues("incomeImpactBaseHouseholdExpenseStream", baseHouseholdExpenseStream, warnings, dataGaps);
+    } else {
+      addMissingPreviewHelperIssue("incomeImpactBaseHouseholdExpenseStream", dataGaps);
+    }
+
+    if (adjustmentFn && baseHouseholdExpenseStream) {
+      householdExpenseAdjustmentResult = adjustmentFn({
+        baseHouseholdExpenseStream,
+        resolvedGraphAdjustmentPolicy: policyPreview?.resolvedGraphAdjustmentPolicy || sourceInput.resolvedGraphAdjustmentPolicy,
+        livingFloorCalculationPreview: policyPreview?.livingFloorCalculationPreview || sourceInput.livingFloorCalculationPreview,
+        sliderValue
+      });
+      collectPreviewIssues("incomeImpactHouseholdExpenseAdjustmentEngine", householdExpenseAdjustmentResult, warnings, dataGaps);
+    } else if (!adjustmentFn) {
+      addMissingPreviewHelperIssue("incomeImpactHouseholdExpenseAdjustmentEngine", dataGaps);
+    }
+
+    if (handoffFn) {
+      scenarioHandoffPreview = handoffFn({
+        basePostDeathSeries,
+        householdExpenseAdjustmentResult: householdExpenseAdjustmentResult || {},
+        options: {
+          previewLabel: "Stream household expense adjustment preview"
+        }
+      });
+      collectPreviewIssues("incomeImpactHouseholdExpenseScenarioHandoffPreview", scenarioHandoffPreview, warnings, dataGaps);
+    } else {
+      addMissingPreviewHelperIssue("incomeImpactHouseholdExpenseScenarioHandoffPreview", dataGaps);
+    }
+
+    return clonePlainValue({
+      policyMode: "preview",
+      baseHouseholdExpenseStream,
+      resolvedGraphAdjustmentPolicy: policyPreview?.resolvedGraphAdjustmentPolicy || null,
+      livingFloorContext: policyPreview?.livingFloorContext || null,
+      livingFloorCalculationPreview: policyPreview?.livingFloorCalculationPreview || null,
+      readinessNotices: policyPreview?.readinessNotices || null,
+      householdExpenseAdjustmentResult,
+      scenarioHandoffPreview,
+      warnings,
+      dataGaps,
+      trace: {
+        calculationMethod: "income-impact-household-expense-stream-policy-preview-v1",
+        legacyScenarioOutputReplaced: false,
+        actualComparisonScenarioReplaced: false,
+        graphOutputChanged: false,
+        graphAdjustmentOverridesAppliedToGraph: false,
+        livingFloorsAppliedToGraph: false,
+        floorsAppliedToGraph: false,
+        activeRuntimeConsumer: false,
+        monthlyDeltaPreview: householdExpenseAdjustmentResult?.monthlyDelta ?? null,
+        scenarioHandoffPreviewProduced: Boolean(scenarioHandoffPreview?.comparisonPostDeathSeries)
+      },
+      metadata: {
+        activeRuntimeConsumer: false,
+        previewOnly: true
+      }
+    });
+  }
+
   function isOngoingSupportReconciledExpense(item) {
     const sourceOwnedBy = normalizeString(item && item.sourceOwnedBy);
     const normalizedSourcePath = normalizeString(item && item.normalizedSourcePath);
@@ -1066,6 +1232,10 @@
         output.trace.unreconciledMonthlyDeltaExcluded = comparisonScenario.trace?.unreconciledMonthlyDeltaExcluded ?? null;
         output.trace.baseNeedReconciliationStatus = comparisonScenario.trace?.baseNeedReconciliation?.status || null;
       }
+    }
+
+    if (getHouseholdExpenseStreamPolicyMode(sourceInput) === "preview") {
+      output.householdExpenseStreamPreview = buildHouseholdExpenseStreamPreview(sourceInput, sliderValue, basePostDeathSeries);
     }
 
     return output;

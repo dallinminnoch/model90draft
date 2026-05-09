@@ -14,6 +14,7 @@ const context = {
   console
 };
 context.globalThis = context;
+context.window = context;
 vm.createContext(context);
 
 function loadScript(relativePath) {
@@ -237,6 +238,232 @@ function resolveAccountPolicy(accountPolicy, hardGuardrails) {
     accountPolicy,
     hardGuardrails
   });
+}
+
+function loadStreamPreviewDependencies() {
+  [
+    "app/features/lens-analysis/expense-library.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-graph-adjustment-policy-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
+    "app/features/lens-analysis/income-impact-base-household-expense-stream.js",
+    "app/features/lens-analysis/income-impact-household-expense-adjustment-engine.js",
+    "app/features/lens-analysis/income-impact-household-expense-scenario-handoff-preview.js"
+  ].forEach(loadScript);
+}
+
+function createCompleteLivingFloorAssumptions() {
+  return {
+    version: 1,
+    foodAtHome: {
+      planningBucketKey: "foodAtHomeConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyAmountsByBand: {
+        infantToddler: 100,
+        youngChild: 200,
+        olderChild: 210,
+        teenMale: 300,
+        teenFemale: 280,
+        adultMale: 300,
+        adultFemale: 250,
+        adultUnknown: 275,
+        childUnknown: 190
+      },
+      householdSizeAdjustmentFactors: {
+        "1": 1.1,
+        "2": 1.05,
+        "3": 1,
+        "4": 0.95,
+        "5": 0.9,
+        "6Plus": 0.85
+      }
+    },
+    stateCostAdjustmentMultipliers: {
+      version: 1,
+      appliesToAdjustmentClass: "moneyFloorAdjusted",
+      defaultMultiplier: 1.1,
+      globalStateAdjustmentMultipliersByState: {
+        CO: { multiplier: 1.2, source: "ADMIN_ENTERED", sourcePeriod: "2026" }
+      },
+      bucketStateAdjustmentMultipliers: {}
+    },
+    model90DefaultBucketFloors: {
+      householdConsumables: {
+        planningBucketKey: "householdConsumables",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        monthlyBaseAmount: 100,
+        monthlyPerMemberAmount: 25,
+        stateAdjustmentEnabled: true,
+        notes: null
+      },
+      communicationsConnectivity: {
+        planningBucketKey: "communicationsConnectivity",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        monthlyBaseAmount: 80,
+        monthlyPerMemberAmount: 10,
+        stateAdjustmentEnabled: true,
+        notes: null
+      },
+      transportationBasics: {
+        planningBucketKey: "transportationBasics",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        monthlyBaseAmount: 150,
+        monthlyPerAdultDriverAmount: 50,
+        stateAdjustmentEnabled: true,
+        notes: null
+      }
+    }
+  };
+}
+
+function createStreamExpenseFact(overrides) {
+  return Object.assign({
+    source: "protectionModeling.data",
+    sourceOwnedBy: "ongoingSupport",
+    frequency: "monthly"
+  }, overrides);
+}
+
+function createStreamPreviewLensModel() {
+  return {
+    valuationDate: "2026-01-01",
+    ongoingSupport: {
+      monthlyHousingSupportCost: 500,
+      monthlyNonHousingEssentialSupportCost: 2100,
+      monthlyTotalEssentialSupportCost: 2600,
+      annualTotalEssentialSupportCost: 31200
+    },
+    expenseFacts: {
+      expenses: [
+        createStreamExpenseFact({
+          expenseFactId: "housing",
+          typeKey: "rentOrMortgagePayment",
+          categoryKey: "housingExpense",
+          label: "Mortgage",
+          monthlyAmount: 500,
+          ownedByField: "monthlyHousingSupportCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyHousingSupportCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "food",
+          typeKey: "groceries",
+          categoryKey: "foodGroceries",
+          label: "Groceries",
+          monthlyAmount: 500,
+          ownedByField: "monthlyFoodCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyFoodCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "school-meals",
+          typeKey: "groceries",
+          categoryKey: "foodGroceries",
+          label: "School Meals",
+          monthlyAmount: 100,
+          ownedByField: "monthlyFoodCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyFoodCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "supplies",
+          typeKey: "householdConsumablesSupplies",
+          categoryKey: "foodGroceries",
+          label: "Household Supplies",
+          monthlyAmount: 100,
+          ownedByField: "monthlyHouseholdSuppliesCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyHouseholdSuppliesCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "internet",
+          typeKey: "internet",
+          categoryKey: "utilities",
+          label: "Internet",
+          monthlyAmount: 100,
+          ownedByField: "monthlyPhoneAndInternetCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyPhoneAndInternetCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "fuel",
+          typeKey: "fuel",
+          categoryKey: "transportation",
+          label: "Fuel",
+          monthlyAmount: 200,
+          ownedByField: "monthlyTransportationCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyTransportationCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "healthcare",
+          typeKey: "healthcareOutOfPocketSupportDefault",
+          categoryKey: "otherLivingExpense",
+          label: "Healthcare",
+          monthlyAmount: 150,
+          ownedByField: "monthlyHealthcareOutOfPocketCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyHealthcareOutOfPocketCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "insurance",
+          typeKey: "householdInsurancePremiums",
+          categoryKey: "insurancePremiums",
+          label: "Insurance",
+          monthlyAmount: 150,
+          ownedByField: "monthlyOtherInsuranceCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherInsuranceCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "childcare",
+          typeKey: "childcareExpense",
+          categoryKey: "childcare",
+          label: "Childcare",
+          monthlyAmount: 300,
+          ownedByField: "monthlyChildcareAndDependentCareCost",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyChildcareAndDependentCareCost" }
+        }),
+        createStreamExpenseFact({
+          expenseFactId: "other",
+          typeKey: "otherHouseholdExpenseDefault",
+          categoryKey: "otherLivingExpense",
+          label: "Other Household",
+          monthlyAmount: 500,
+          ownedByField: "monthlyOtherHouseholdExpenses",
+          metadata: { normalizedSourcePath: "lensModel.ongoingSupport.monthlyOtherHouseholdExpenses" }
+        })
+      ]
+    }
+  };
+}
+
+function createStreamPreviewInput(overrides) {
+  return Object.assign({
+    expenses: makeFixtureExpenses(),
+    sliderValue: -100,
+    basePostDeathSeries: makeBasePostDeathSeries(),
+    householdExpenseStreamPolicyMode: "preview",
+    lensModel: createStreamPreviewLensModel(),
+    accountPolicy: {
+      version: 1,
+      livingFloorAssumptions: createCompleteLivingFloorAssumptions()
+    },
+    profileRecord: {
+      state: "co",
+      maritalStatus: "Married",
+      spouseDateOfBirth: "1986-06-15",
+      spouseGender: "female",
+      dependentDetails: [
+        { id: "young", dateOfBirth: "2018-05-01", sex: "male" },
+        { id: "teen", age: 15, sex: "female" }
+      ]
+    },
+    pmiFacts: {
+      stateOfResidence: "co"
+    },
+    valuationDate: "2026-01-01",
+    adultDriverCount: 1
+  }, overrides || {});
 }
 
 const baseline = calculate(0);
@@ -598,6 +825,111 @@ assert.deepEqual(
   safeConservative.comparisonScenario.postDeathSeries.points.map((point) => point.endingResources),
   "direct comparison helper should match embedded comparison output"
 );
+
+const streamPreviewBaseInput = createStreamPreviewInput();
+delete streamPreviewBaseInput.householdExpenseStreamPolicyMode;
+const streamPreviewBaseBefore = cloneJson(streamPreviewBaseInput);
+const streamPreviewLegacy = calculations.calculateIncomeImpactLifestyleScenario(cloneJson(streamPreviewBaseInput));
+const streamPreviewDisabled = calculations.calculateIncomeImpactLifestyleScenario(Object.assign(cloneJson(streamPreviewBaseInput), {
+  householdExpenseStreamPolicyMode: "legacy",
+  useStreamHouseholdExpenseAdjustments: false
+}));
+assert.deepEqual(streamPreviewBaseInput, streamPreviewBaseBefore, "stream preview parity fixture should not be mutated by legacy call");
+assert.deepEqual(streamPreviewDisabled, streamPreviewLegacy, "disabled stream policy flag should preserve exact legacy output");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(streamPreviewLegacy, "householdExpenseStreamPreview"),
+  false,
+  "missing stream preview flag should not add preview output"
+);
+
+loadStreamPreviewDependencies();
+const streamPreviewMissingFlagAfterDeps = calculations.calculateIncomeImpactLifestyleScenario(cloneJson(streamPreviewBaseInput));
+assert.deepEqual(streamPreviewMissingFlagAfterDeps, streamPreviewLegacy, "loading stream preview helpers should not change missing-flag output");
+
+const streamPreviewEnabledInput = createStreamPreviewInput();
+const streamPreviewEnabledBefore = cloneJson(streamPreviewEnabledInput);
+const streamPreviewEnabled = calculations.calculateIncomeImpactLifestyleScenario(streamPreviewEnabledInput);
+assert.deepEqual(streamPreviewEnabledInput, streamPreviewEnabledBefore, "enabled stream preview should not mutate input");
+assert.ok(streamPreviewEnabled.householdExpenseStreamPreview, "enabled stream preview mode should include preview field");
+assert.equal(streamPreviewEnabled.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, false, "stream preview should remain inactive");
+assert.equal(streamPreviewEnabled.householdExpenseStreamPreview.metadata.previewOnly, true, "stream preview should be marked preview-only");
+assert.equal(
+  streamPreviewEnabled.householdExpenseStreamPreview.trace.actualComparisonScenarioReplaced,
+  false,
+  "stream preview should not replace actual comparison scenario"
+);
+assert.equal(
+  streamPreviewEnabled.householdExpenseStreamPreview.trace.graphOutputChanged,
+  false,
+  "stream preview should not change graph output"
+);
+assert.deepEqual(
+  streamPreviewEnabled.comparisonScenario,
+  streamPreviewLegacy.comparisonScenario,
+  "enabled stream preview should not replace the legacy comparison scenario"
+);
+assert.equal(
+  streamPreviewEnabled.monthlyDelta,
+  streamPreviewLegacy.monthlyDelta,
+  "enabled stream preview should not change legacy scenario monthlyDelta"
+);
+assert.deepEqual(
+  streamPreviewEnabled.adjustedExpenses,
+  streamPreviewLegacy.adjustedExpenses,
+  "enabled stream preview should not change legacy adjusted expense rows"
+);
+
+const streamPreview = streamPreviewEnabled.householdExpenseStreamPreview;
+assert.equal(streamPreview.baseHouseholdExpenseStream.monthlyTotal, 2600, "stream preview should prepare the base household expense stream");
+assert.equal(streamPreview.baseHouseholdExpenseStream.parity.difference, 0, "stream preview base stream should reconcile to ongoingSupport total");
+assert.equal(streamPreview.resolvedGraphAdjustmentPolicy.metadata.activeRuntimeConsumer, false, "resolved graph policy preview should remain inactive");
+assert.equal(streamPreview.livingFloorCalculationPreview.metadata.activeRuntimeConsumer, false, "living-floor calculation preview should remain inactive");
+assert.equal(streamPreview.householdExpenseAdjustmentResult.metadata.activeRuntimeConsumer, false, "adjustment engine preview should remain inactive");
+assert.equal(streamPreview.scenarioHandoffPreview.metadata.activeRuntimeConsumer, false, "scenario handoff preview should remain inactive");
+assert.equal(
+  streamPreview.scenarioHandoffPreview.monthlyDelta,
+  streamPreview.householdExpenseAdjustmentResult.monthlyDelta,
+  "scenario handoff preview should use the engine monthlyDelta"
+);
+assert.equal(
+  streamPreview.trace.monthlyDeltaPreview,
+  streamPreview.householdExpenseAdjustmentResult.monthlyDelta,
+  "stream preview trace should expose the engine monthlyDelta"
+);
+assert.ok(streamPreview.householdExpenseAdjustmentResult.monthlyDelta !== streamPreviewEnabled.monthlyDelta, "stream preview monthlyDelta should be separate from legacy scenario monthlyDelta");
+
+const foodBucketPreview = streamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((bucket) => bucket.planningBucketKey === "foodAtHomeConsumables");
+assert.ok(foodBucketPreview, "stream preview should include Food at Home bucket adjustment");
+assert.equal(foodBucketPreview.rowCount, 2, "Food at Home stream rows should aggregate into one planning-bucket adjustment");
+assert.equal(foodBucketPreview.trace.floorAppliedOncePerPlanningBucket, true, "Food at Home floor should be previewed once at bucket level");
+assert.equal(foodBucketPreview.trace.perRowDollarFloorApplied, false, "Food at Home floor should not be applied per row");
+
+const incompletePreview = calculations.calculateIncomeImpactLifestyleScenario(createStreamPreviewInput({
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: {}
+  }
+})).householdExpenseStreamPreview;
+assert.ok(
+  incompletePreview.householdExpenseAdjustmentResult.dataGaps.some((gap) => gap.code === "money-floor-bucket-missing-dollar-floor-ratio-fallback"),
+  "missing floor assumptions should produce preview data gaps"
+);
+assert.ok(
+  incompletePreview.readinessNotices.notices.some((notice) => notice.code === "livingFloorAssumptionsIncomplete"),
+  "missing floor assumptions should produce readiness notices inside preview"
+);
+
+[
+  "rentOrMortgagePayment",
+  "healthcareOutOfPocketSupportDefault",
+  "householdInsurancePremiums",
+  "childcareExpense"
+].forEach((expenseTypeKey) => {
+  const row = streamPreview.householdExpenseAdjustmentResult.rowAdjustments.find((candidate) => candidate.expenseTypeKey === expenseTypeKey);
+  assert.ok(row, `${expenseTypeKey} should be represented in stream preview`);
+  assert.equal(row.adjustedMonthlyAmount, row.baselineMonthlyAmount, `${expenseTypeKey} should stay fixed in stream preview`);
+  assert.equal(row.monthlyDelta, 0, `${expenseTypeKey} should have zero preview delta`);
+});
 
 assert.equal(baseline.trace.projectionSeriesApplied, false, "projection series should not be applied in this pass");
 assert.equal(baseline.trace.projectionSeriesDeferred, true, "projection series should be explicitly deferred");

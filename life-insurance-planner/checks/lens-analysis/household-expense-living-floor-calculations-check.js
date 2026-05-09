@@ -81,7 +81,6 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-compression-policy.js",
     "app/features/lens-analysis/expense-compression-thresholds.js",
-    "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/household-expense-compression-calculations.js",
     "app/features/lens-analysis/normalize-lens-model.js",
     "app/features/lens-analysis/pmi-expense-records.js",

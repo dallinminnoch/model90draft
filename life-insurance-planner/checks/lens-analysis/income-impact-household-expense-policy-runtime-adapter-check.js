@@ -240,7 +240,6 @@ function createScenarioExpenses() {
 
 function assertNoForbiddenDiffs() {
   const forbiddenPaths = [
-    "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
     "app/features/lens-analysis/income-impact-compression-reporting-prep.js",
