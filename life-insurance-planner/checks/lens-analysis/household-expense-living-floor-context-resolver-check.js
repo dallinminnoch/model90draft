@@ -60,6 +60,10 @@ function plain(value) {
 }
 
 function assertNoForbiddenDiffs() {
+  const allowedDisplayFiles = new Set([
+    "app/features/lens-analysis/analysis-setup.js",
+    "pages/analysis-setup.html"
+  ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/household-expense-living-floor-metadata.js",
@@ -84,9 +88,12 @@ function assertNoForbiddenDiffs() {
     encoding: "utf8"
   }).trim().split(/\r?\n/)
     .filter(Boolean)
+    .filter(function (line) {
+      return !allowedDisplayFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
+    })
     .join("\n");
 
-  assert.equal(status, "", "runtime, admin, storage, normalization, display, policy, compression, page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, admin, storage, normalization, policy, compression, unapproved page, and CSS files should not have diffs");
 }
 
 function assertNoForbiddenImports() {

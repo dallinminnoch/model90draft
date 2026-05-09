@@ -967,6 +967,13 @@
   const MAX_EDUCATION_START_AGE = 30;
   const MIN_RECOMMENDATION_PERCENT = 0;
   const MAX_RECOMMENDATION_PERCENT = 100;
+  const HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
+  const MAX_LIVING_FLOOR_READINESS_NOTICE_COUNT = 4;
+  const LIVING_FLOOR_READINESS_SEVERITY_LABELS = Object.freeze({
+    info: "Info",
+    warning: "Warning",
+    blocking: "Action needed"
+  });
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -1078,6 +1085,324 @@
     }
 
     return record || null;
+  }
+
+  function createLivingFloorReadinessNotice(code, severity, title, message, affectedBucketKeys) {
+    return {
+      code,
+      severity,
+      title,
+      message,
+      affectedBucketKeys: Array.isArray(affectedBucketKeys) ? affectedBucketKeys.slice() : [],
+      trace: {}
+    };
+  }
+
+  function getHouseholdExpenseAccountPolicyStorageApi(options) {
+    return options?.storageApi || LensApp.accountSettings?.householdExpenseAccountPolicyStorage || null;
+  }
+
+  function getLivingFloorHelperApis(options) {
+    return {
+      contextResolver: options?.contextResolver || LensApp.lensAnalysis?.householdExpenseLivingFloorContextResolver || null,
+      calculator: options?.calculator || LensApp.lensAnalysis?.householdExpenseLivingFloorCalculations || null,
+      warningBuilder: options?.warningBuilder || LensApp.lensAnalysis?.householdExpenseLivingFloorReadinessWarnings || null
+    };
+  }
+
+  function getLivingFloorReadinessStorage(options) {
+    if (Object.prototype.hasOwnProperty.call(options || {}, "storage")) {
+      return options.storage;
+    }
+
+    return window.localStorage;
+  }
+
+  function loadLivingFloorAssumptionsForReadiness(options) {
+    const storageApi = getHouseholdExpenseAccountPolicyStorageApi(options);
+    const accountId = options?.accountId || HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID;
+    if (!storageApi || typeof storageApi.loadHouseholdExpenseAccountPolicy !== "function") {
+      return {
+        livingFloorAssumptions: {},
+        warnings: [
+          createLivingFloorReadinessNotice(
+            "livingFloorAssumptionStorageUnavailable",
+            "warning",
+            "Living floor assumptions are unavailable",
+            "Saved household expense floor assumptions could not be read on this device.",
+            []
+          )
+        ],
+        metadata: {
+          accountId,
+          storageStatus: "unavailable"
+        }
+      };
+    }
+
+    try {
+      const storageResult = storageApi.loadHouseholdExpenseAccountPolicy({
+        accountId,
+        storage: getLivingFloorReadinessStorage(options || {})
+      });
+      const accountPolicy = isPlainObject(storageResult?.accountPolicy)
+        ? storageResult.accountPolicy
+        : {};
+      return {
+        livingFloorAssumptions: isPlainObject(accountPolicy.livingFloorAssumptions)
+          ? accountPolicy.livingFloorAssumptions
+          : {},
+        warnings: [],
+        metadata: {
+          accountId,
+          storageStatus: storageResult?.status || "unknown",
+          storageWarningCount: Array.isArray(storageResult?.warnings) ? storageResult.warnings.length : 0
+        }
+      };
+    } catch (_error) {
+      return {
+        livingFloorAssumptions: {},
+        warnings: [
+          createLivingFloorReadinessNotice(
+            "livingFloorAssumptionStorageReadFailed",
+            "warning",
+            "Living floor assumptions could not be read",
+            "Saved household expense floor assumptions could not be loaded, so readiness notes use blank assumptions.",
+            []
+          )
+        ],
+        metadata: {
+          accountId,
+          storageStatus: "readFailed"
+        }
+      };
+    }
+  }
+
+  function getLivingFloorReadinessContextInput(record) {
+    const safeRecord = isPlainObject(record) ? record : {};
+    const analysisSettings = isPlainObject(safeRecord.analysisSettings) ? safeRecord.analysisSettings : {};
+    const valuationDateResult = resolveAnalysisValuationDateForSave(analysisSettings);
+    const pmiFacts = Object.assign(
+      {},
+      safeRecord,
+      isPlainObject(safeRecord.pmiFacts) ? safeRecord.pmiFacts : {}
+    );
+    const taxContext = isPlainObject(safeRecord.taxContext)
+      ? safeRecord.taxContext
+      : isPlainObject(safeRecord.assumptions?.taxContext)
+        ? safeRecord.assumptions.taxContext
+        : isPlainObject(analysisSettings.taxContext)
+          ? analysisSettings.taxContext
+          : {};
+
+    return {
+      profileRecord: safeRecord,
+      profileFacts: safeRecord,
+      pmiFacts,
+      taxContext,
+      stateOfResidence: safeRecord.stateOfResidence,
+      adultDriverCount: safeRecord.adultDriverCount || safeRecord.householdAdultDriverCount || safeRecord.transportationAdultDriverCount,
+      valuationDate: valuationDateResult.valuationDate
+    };
+  }
+
+  function getReadinessNoticeCounts(notices) {
+    return notices.reduce(function (counts, notice) {
+      const severity = String(notice?.severity || "info").trim();
+      if (severity === "blocking") {
+        counts.blocking += 1;
+      } else if (severity === "warning") {
+        counts.warning += 1;
+      } else {
+        counts.info += 1;
+      }
+      return counts;
+    }, {
+      info: 0,
+      warning: 0,
+      blocking: 0
+    });
+  }
+
+  function getLivingFloorReadinessStatus(notices, hasLinkedRecord) {
+    if (!hasLinkedRecord) {
+      return {
+        text: "Link a profile to prepare readiness notes.",
+        tone: "warning"
+      };
+    }
+
+    const counts = getReadinessNoticeCounts(notices);
+    if (counts.blocking > 0) {
+      return {
+        text: "Review required before relying on future floor estimates.",
+        tone: "blocking"
+      };
+    }
+
+    if (counts.warning > 0) {
+      return {
+        text: "Review assumption gaps before relying on future floor estimates.",
+        tone: "warning"
+      };
+    }
+
+    return {
+      text: "Living floor assumptions are ready for inactive review.",
+      tone: "info"
+    };
+  }
+
+  function buildHouseholdExpenseLivingFloorReadinessNoticeModel(record, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    if (!isPlainObject(record)) {
+      const notices = [
+        createLivingFloorReadinessNotice(
+          "linkedProfileMissing",
+          "warning",
+          "Linked profile unavailable",
+          "Link a client profile to prepare Income Impact living floor readiness notes.",
+          []
+        )
+      ];
+      return {
+        status: getLivingFloorReadinessStatus(notices, false),
+        notices,
+        counts: getReadinessNoticeCounts(notices),
+        metadata: {
+          activeRuntimeConsumer: false,
+          source: "analysis-setup-read-only-notice",
+          linkedProfileAvailable: false
+        }
+      };
+    }
+
+    const apis = getLivingFloorHelperApis(safeOptions);
+    if (
+      !apis.contextResolver
+      || typeof apis.contextResolver.resolveHouseholdExpenseLivingFloorContext !== "function"
+      || !apis.calculator
+      || typeof apis.calculator.calculateHouseholdExpenseLivingFloors !== "function"
+      || !apis.warningBuilder
+      || typeof apis.warningBuilder.buildHouseholdExpenseLivingFloorReadinessWarnings !== "function"
+    ) {
+      const notices = [
+        createLivingFloorReadinessNotice(
+          "livingFloorReadinessHelpersUnavailable",
+          "warning",
+          "Living floor readiness helpers are unavailable",
+          "Income Impact readiness notes could not be prepared because one or more inactive living floor helpers are unavailable.",
+          []
+        )
+      ];
+      return {
+        status: getLivingFloorReadinessStatus(notices, true),
+        notices,
+        counts: getReadinessNoticeCounts(notices),
+        metadata: {
+          activeRuntimeConsumer: false,
+          source: "analysis-setup-read-only-notice",
+          linkedProfileAvailable: true
+        }
+      };
+    }
+
+    const loadedAssumptions = Object.prototype.hasOwnProperty.call(safeOptions, "livingFloorAssumptions")
+      ? {
+          livingFloorAssumptions: isPlainObject(safeOptions.livingFloorAssumptions)
+            ? safeOptions.livingFloorAssumptions
+            : {},
+          warnings: [],
+          metadata: {
+            accountId: safeOptions.accountId || HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID,
+            storageStatus: "provided"
+          }
+        }
+      : loadLivingFloorAssumptionsForReadiness(safeOptions);
+    const contextResult = apis.contextResolver.resolveHouseholdExpenseLivingFloorContext(
+      getLivingFloorReadinessContextInput(record)
+    );
+    const calculationResult = apis.calculator.calculateHouseholdExpenseLivingFloors({
+      livingFloorAssumptions: loadedAssumptions.livingFloorAssumptions,
+      stateContext: contextResult.stateContext,
+      householdContext: contextResult.householdContext
+    });
+    const readinessResult = apis.warningBuilder.buildHouseholdExpenseLivingFloorReadinessWarnings({
+      livingFloorAssumptions: loadedAssumptions.livingFloorAssumptions,
+      stateContext: contextResult.stateContext,
+      householdContext: contextResult.householdContext,
+      livingFloorCalculationResult: calculationResult
+    });
+    const notices = loadedAssumptions.warnings.concat(
+      Array.isArray(readinessResult?.notices) ? readinessResult.notices : []
+    );
+
+    return {
+      status: getLivingFloorReadinessStatus(notices, true),
+      notices,
+      counts: getReadinessNoticeCounts(notices),
+      metadata: {
+        activeRuntimeConsumer: false,
+        source: "analysis-setup-read-only-notice",
+        linkedProfileAvailable: true,
+        storageStatus: loadedAssumptions.metadata.storageStatus,
+        accountId: loadedAssumptions.metadata.accountId,
+        resolvedStateSource: contextResult.stateContext?.stateSource || null,
+        calculatedBucketKeys: calculationResult.metadata?.calculatedBucketKeys || []
+      }
+    };
+  }
+
+  function renderLivingFloorReadinessNoticeModel(host, model) {
+    if (!host) {
+      return;
+    }
+
+    const statusElement = host.querySelector("[data-analysis-living-floor-readiness-status]");
+    const listElement = host.querySelector("[data-analysis-living-floor-readiness-list]");
+    const status = isPlainObject(model?.status)
+      ? model.status
+      : { text: "Readiness notes unavailable.", tone: "warning" };
+    const notices = Array.isArray(model?.notices) ? model.notices : [];
+    const visibleNotices = notices.slice(0, MAX_LIVING_FLOOR_READINESS_NOTICE_COUNT);
+    const additionalCount = Math.max(0, notices.length - visibleNotices.length);
+
+    host.hidden = false;
+    host.dataset.readinessTone = status.tone || "info";
+    if (statusElement) {
+      statusElement.textContent = status.text || "Readiness notes unavailable.";
+    }
+    if (!listElement) {
+      return;
+    }
+
+    listElement.replaceChildren();
+    visibleNotices.forEach(function (notice) {
+      const paragraph = document.createElement("p");
+      const severity = String(notice?.severity || "info").trim() || "info";
+      const severityLabel = LIVING_FLOOR_READINESS_SEVERITY_LABELS[severity] || LIVING_FLOOR_READINESS_SEVERITY_LABELS.info;
+      const title = String(notice?.title || "Readiness note").trim();
+      const message = String(notice?.message || "").trim();
+      paragraph.dataset.readinessNoticeSeverity = severity;
+      paragraph.textContent = message
+        ? `${severityLabel}: ${title}. ${message}`
+        : `${severityLabel}: ${title}.`;
+      listElement.appendChild(paragraph);
+    });
+
+    if (additionalCount > 0) {
+      const paragraph = document.createElement("p");
+      paragraph.dataset.readinessNoticeSeverity = "info";
+      paragraph.textContent = `${additionalCount} additional readiness ${additionalCount === 1 ? "note" : "notes"} available.`;
+      listElement.appendChild(paragraph);
+    }
+  }
+
+  function renderLivingFloorReadinessNotices(host, record, options) {
+    const model = buildHouseholdExpenseLivingFloorReadinessNoticeModel(record, options);
+    renderLivingFloorReadinessNoticeModel(host, model);
+    return model;
   }
 
   function normalizeRateValue(value, fallback) {
@@ -7942,6 +8267,7 @@
     const statusMessage = document.querySelector("[data-analysis-setup-status]");
     const validationMessage = document.querySelector("[data-analysis-setup-validation]");
     const linkedState = document.querySelector("[data-analysis-setup-linked-state]");
+    const livingFloorReadinessHost = document.querySelector("[data-analysis-living-floor-readiness]");
     const assumptionsProfileName = document.querySelector("[data-lens-assumptions-profile-name]");
     const viewTabs = Array.from(document.querySelectorAll("[data-analysis-setup-view-tab]"));
     const viewPanels = Array.from(document.querySelectorAll("[data-analysis-setup-view-panel]"));
@@ -8196,6 +8522,7 @@
     populateSurvivorSupportFields(survivorSupportFields, getSurvivorSupportAssumptions(linkedRecord), linkedRecord);
     populateEducationFields(educationFields, getEducationAssumptions(linkedRecord), linkedRecord);
     populateRecommendationGuardrailFields(recommendationGuardrailFields, getRecommendationGuardrails(linkedRecord));
+    renderLivingFloorReadinessNotices(livingFloorReadinessHost, linkedRecord);
 
     if (!linkedRecord) {
       setFieldsDisabled(fields, sliders, true);
@@ -8277,6 +8604,7 @@
       if (updatedRecord) {
         linkedRecord = updatedRecord;
         syncLinkedProfileDisplay(linkedRecord);
+        renderLivingFloorReadinessNotices(livingFloorReadinessHost, linkedRecord);
         hasUnsavedAnalysisSetupChanges = false;
       }
       return updatedRecord;
@@ -9019,6 +9347,8 @@
     getDebtTreatmentAssumptions,
     getSurvivorSupportAssumptions,
     getEducationAssumptions,
-    getRecommendationGuardrails
+    getRecommendationGuardrails,
+    buildHouseholdExpenseLivingFloorReadinessNoticeModel,
+    renderLivingFloorReadinessNoticeModel
   });
 })();

@@ -107,6 +107,11 @@
               <button class="analysis-setup-action" type="button" data-lens-assumptions-open aria-controls="lens-assumptions-overlay" aria-expanded="false">Review LENS Assumptions</button>
               <button class="analysis-setup-action" type="button" data-lens-result-proceed data-analysis-setup-apply aria-describedby="analysis-setup-status">Continue to Income Impact</button>
             </div>
+            <div class="analysis-setup-entry-summary-card" data-analysis-living-floor-readiness aria-live="polite">
+              <span>Income Impact readiness notes</span>
+              <strong data-analysis-living-floor-readiness-status>Preparing readiness notes</strong>
+              <div data-analysis-living-floor-readiness-list></div>
+            </div>
           </div>
           <div class="analysis-setup-entry-summary" aria-label="LENS setup readiness summary">
             <article class="analysis-setup-entry-summary-card">
@@ -1196,6 +1201,11 @@
   <script src="../app/features/client-directory.js"></script>
   <script src="../app/features/coverage/coverage-policy-utils.js"></script>
   <script src="../app/features/lens-analysis/existing-coverage-treatment-calculations.js"></script>
+  <script src="../app/features/account-settings/household-expense-account-policy-storage.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-living-floor-metadata.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-living-floor-context-resolver.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-living-floor-calculations.js"></script>
+  <script src="../app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js"></script>
   <script src="../app/features/lens-analysis/asset-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/debt-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/debt-library.js"></script>

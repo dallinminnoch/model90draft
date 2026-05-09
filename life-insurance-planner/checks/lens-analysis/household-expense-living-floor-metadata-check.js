@@ -120,6 +120,10 @@ function loadContext() {
 }
 
 function assertNoForbiddenDiffs() {
+  const allowedAnalysisSetupDisplayFiles = new Set([
+    "app/features/lens-analysis/analysis-setup.js",
+    "pages/analysis-setup.html"
+  ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js",
@@ -143,14 +147,16 @@ function assertNoForbiddenDiffs() {
   }).trim().split(/\r?\n/)
     .filter(Boolean)
     .filter(function (line) {
-      return !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-display.js")
+      const filePath = line.replace(/^[ MADRCU?!]+/, "").trim();
+      return !allowedAnalysisSetupDisplayFiles.has(filePath)
+        && !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-display.js")
         && !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-editor.js")
         && !line.endsWith("app/features/account-settings/household-expense-account-policy-storage.js")
         && !line.endsWith("pages/admin-accounts.html");
     })
     .join("\n");
 
-  assert.equal(status, "", "runtime, normalization, graph/display, policy, compression, unrelated account-settings, non-admin page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, normalization, graph/display, policy, compression, unrelated account-settings, unapproved page, and CSS files should not have diffs");
 }
 
 function assertNoForbiddenImports() {
