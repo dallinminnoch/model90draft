@@ -6,7 +6,8 @@
   const MIN_SLIDER_VALUE = -100;
   const MAX_SLIDER_VALUE = 100;
   const DEFAULT_COMPARISON_SCENARIO_ID = "income-impact-lifestyle-adjusted-comparison";
-  const DEFAULT_COMPARISON_PATH_ID = "compression-post-death-resources";
+  const DEFAULT_COMPARISON_KIND = "lifestyleComparison";
+  const DEFAULT_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -494,7 +495,7 @@
       const basePoints = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
       return {
         scenarioId: normalizeString(input?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
-        kind: "compression",
+        kind: DEFAULT_COMPARISON_KIND,
         pathId: normalizeString(input?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
         label: normalizeString(input?.options?.comparisonLabel) || "Lifestyle-adjusted projection",
         status: "partial",
@@ -529,7 +530,7 @@
     const estimatedDollarFloorsEnabled = adjustmentTrace.estimatedDollarFloorsEnabled === true;
     return {
       scenarioId: normalizeString(input?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
-      kind: "compression",
+      kind: DEFAULT_COMPARISON_KIND,
       pathId: normalizeString(input?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
       label: normalizeString(input?.options?.comparisonLabel) || "Lifestyle-adjusted projection",
       status: dataGaps.length ? "partial" : "complete",
@@ -613,7 +614,7 @@
     const issue = makeRetiredLegacyModeIssue();
     return {
       scenarioId: normalizeString(sourceInput?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
-      kind: "lifestyleComparison",
+      kind: DEFAULT_COMPARISON_KIND,
       pathId: normalizeString(sourceInput?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
       label: normalizeString(sourceInput?.options?.comparisonLabel) || "Lifestyle-adjusted projection",
       status: "partial",

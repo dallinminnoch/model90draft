@@ -49,6 +49,11 @@ assert.doesNotMatch(
   /legacyScenarioOutputReplaced/,
   "stream preview trace should not carry stale legacy replacement labels"
 );
+assert.doesNotMatch(
+  helperSource,
+  /DEFAULT_COMPARISON_PATH_ID\s*=\s*"compression-post-death-resources"/,
+  "stream lifestyle helper defaults should not use retired compression graph path naming"
+);
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -429,6 +434,8 @@ assert.equal(streamDefault.trace.legacyFallbackUsed, false);
 assert.ok(streamDefault.householdExpenseStreamPreview, "default stream mode should include consumed stream context");
 assert.equal(streamDefault.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, true);
 assert.equal(streamDefault.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1");
+assert.equal(streamDefault.comparisonScenario.kind, "lifestyleComparison", "stream comparison should use the lifestyle comparison kind");
+assert.equal(streamDefault.comparisonScenario.pathId, "lifestyle-post-death-resources", "stream comparison should use the lifestyle graph path");
 assert.equal(streamDefault.comparisonScenario.trace.graphAdjustmentSource, "baseHouseholdExpenseStream");
 assert.equal(
   streamDefault.monthlyDelta,
