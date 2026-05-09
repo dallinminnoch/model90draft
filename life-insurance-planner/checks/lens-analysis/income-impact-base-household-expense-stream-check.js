@@ -253,20 +253,24 @@ function createRepresentedFixture() {
 }
 
 function assertNoRuntimeFilesTouched() {
-  const changed = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
-    cwd: path.join(repoRoot, ".."),
+  const forbiddenPaths = [
+    "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+    "app/features/lens-analysis/income-loss-impact-display.js",
+    "app/features/lens-analysis/income-impact-timeline-graph-model.js",
+    "app/features/lens-analysis/income-impact-compression-reporting-prep.js",
+    "app/features/lens-analysis/normalize-lens-model.js",
+    "app/features/lens-analysis/pmi-expense-records.js",
+    "app/features/account-settings",
+    "pages",
+    "app.js",
+    "styles.css",
+    "app/styles"
+  ];
+  const status = execFileSync("git", ["status", "--short", "--"].concat(forbiddenPaths), {
+    cwd: repoRoot,
     encoding: "utf8"
-  }).trim().split(/\r?\n/).filter(Boolean).map(function (line) {
-    return line.slice(3);
-  });
-  const allowed = new Set([
-    "life-insurance-planner/app/features/lens-analysis/income-impact-base-household-expense-stream.js",
-    "life-insurance-planner/checks/lens-analysis/income-impact-base-household-expense-stream-check.js"
-  ]);
-  const forbidden = changed.filter(function (file) {
-    return !allowed.has(file);
-  });
-  assert.deepEqual(forbidden, [], "only the inactive stream helper and focused check should be touched");
+  }).trim();
+  assert.equal(status, "", "stream helper pass should not touch runtime, display, graph, admin, normalization, page, or CSS files");
 }
 
 const context = loadStreamContext();

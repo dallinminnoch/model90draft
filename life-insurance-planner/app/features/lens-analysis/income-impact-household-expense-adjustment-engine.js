@@ -89,6 +89,22 @@
   }
 
   function getInputExpenses(input) {
+    if (Array.isArray(input?.baseHouseholdExpenseStream?.rows)) {
+      return input.baseHouseholdExpenseStream.rows;
+    }
+
+    if (Array.isArray(input?.baseHouseholdExpenseStream?.representedRows)) {
+      return input.baseHouseholdExpenseStream.representedRows;
+    }
+
+    if (Array.isArray(input?.baseHouseholdExpenseStreamRows)) {
+      return input.baseHouseholdExpenseStreamRows;
+    }
+
+    if (Array.isArray(input?.representedRows)) {
+      return input.representedRows;
+    }
+
     if (Array.isArray(input?.expenses)) {
       return input.expenses;
     }
@@ -104,12 +120,67 @@
     return [];
   }
 
+  function isBaseHouseholdExpenseStreamInput(input) {
+    return Array.isArray(input?.baseHouseholdExpenseStream?.rows)
+      || Array.isArray(input?.baseHouseholdExpenseStream?.representedRows)
+      || Array.isArray(input?.baseHouseholdExpenseStreamRows)
+      || Array.isArray(input?.representedRows);
+  }
+
+  function getStreamMonthlyTotal(input) {
+    return toOptionalNumber(input?.baseHouseholdExpenseStream?.monthlyTotal);
+  }
+
+  function isRepresentedStreamRow(row, streamMode) {
+    if (!streamMode) {
+      return true;
+    }
+
+    return row?.representedInBase === true;
+  }
+
+  function createSkippedRow(row, index, reason) {
+    return {
+      expenseId: getExpenseId(row, index),
+      expenseTypeKey: getExpenseTypeKey(row) || null,
+      label: normalizeString(row?.label || row?.displayName || row?.name) || getExpenseTypeKey(row) || "Expense " + (index + 1),
+      planningBucketKey: normalizeString(row?.planningBucketKey) || null,
+      categoryKey: normalizeString(row?.categoryKey) || null,
+      baselineMonthlyAmount: roundMoney(getMonthlyAmount(row) ?? 0),
+      representedInBase: row?.representedInBase === true,
+      skippedReason: reason,
+      trace: {
+        source: "baseHouseholdExpenseStream",
+        totalsAffected: false,
+        graphDeltaAffected: false
+      }
+    };
+  }
+
+  function createSkippedRows(rows, streamMode) {
+    if (!streamMode) {
+      return [];
+    }
+
+    return rows.filter(function (row) {
+      return isPlainObject(row) && row.representedInBase !== true;
+    }).map(function (row, index) {
+      return createSkippedRow(row, index, "not-represented-in-base");
+    });
+  }
+
   function getExpenseTypeKey(expense) {
     return normalizeString(expense && (expense.expenseTypeKey || expense.typeKey));
   }
 
   function getExpenseId(expense, index) {
-    return normalizeString(expense && (expense.expenseId || expense.id || expense.recordId || expense.sourceId))
+    return normalizeString(expense && (
+      expense.expenseId
+      || expense.expenseFactId
+      || expense.id
+      || expense.recordId
+      || expense.sourceId
+    ))
       || "expense-" + (index + 1);
   }
 
@@ -232,7 +303,7 @@
   }
 
   function getProtectedReason(expense, planningBucketKey) {
-    const sourceOwnedBy = normalizeString(expense && expense.sourceOwnedBy);
+    const sourceOwnedBy = normalizeString(expense && (expense.sourceOwnedBy || expense.sourceOwner));
     const sourceKey = normalizeString(expense && expense.sourceKey);
     const sourcePath = normalizeString(expense && expense.sourcePath);
     const categoryKey = normalizeString(expense && expense.categoryKey);
@@ -244,6 +315,9 @@
     }
     if (sourceOwnedBy === "debtRecords" || sourceKey === "debtRecords" || sourcePath.includes("debtRecords")) {
       return "debt-source-owned";
+    }
+    if (sourceOwnedBy === "scalarOngoingSupport") {
+      return "scalar-ongoing-support-reconciliation";
     }
     return "";
   }
@@ -278,7 +352,7 @@
       ));
     }
 
-    if (!policyRow) {
+    if (!policyRow && !protectedReason && normalizeString(expense?.adjustmentClass) !== "excludedFromAdjustment") {
       rowDataGaps.push(createIssue(
         "missing-resolved-graph-policy-row",
         "Expense did not have a resolved graph adjustment policy row and was treated as excluded.",
@@ -320,14 +394,17 @@
       floorSourceLabel: normalizeString(policyRow?.floorSourceLabel) || null,
       floorSourceStatus: normalizeString(policyRow?.floorSourceStatus) || null,
       sourceKey: normalizeString(expense && expense.sourceKey) || null,
-      sourceOwnedBy: normalizeString(expense && expense.sourceOwnedBy) || null,
+      sourceOwnedBy: normalizeString(expense && (expense.sourceOwnedBy || expense.sourceOwner)) || null,
       sourcePath: normalizeString(expense && expense.sourcePath) || null,
+      representedInBase: expense?.representedInBase === true,
       reasonCode: protectedReason || (policyRow ? "policy-resolved" : "missing-policy-row"),
       warnings: rowWarnings,
       dataGaps: rowDataGaps,
       trace: {
         policySource: policyRow ? "resolvedGraphAdjustmentPolicy" : "missing",
         adjustmentClassSource: protectedReason ? "protectedBucketGuardrail" : "resolvedGraphAdjustmentPolicy",
+        streamRowSource: normalizeString(expense?.trace?.rowSource) || null,
+        sourceOwner: normalizeString(expense && (expense.sourceOwnedBy || expense.sourceOwner)) || null,
         floorAppliedAtPlanningBucketLevel: false,
         perRowDollarFloorApplied: false,
         sliderValue
@@ -399,8 +476,9 @@
       dataGaps.push(clonePlainValue(issue));
     } else {
       effectiveConservativeFloorMonthly = roundMoney(Math.max(ratioFloorMonthlyAmount, estimatedDollarPlanningFloorMonthly));
-      floorApplied = estimatedDollarPlanningFloorMonthly > ratioFloorMonthlyAmount;
-      floorSkippedReason = floorApplied ? null : "ratio-floor-higher-than-dollar-floor";
+      floorSkippedReason = estimatedDollarPlanningFloorMonthly > ratioFloorMonthlyAmount
+        ? null
+        : "ratio-floor-higher-than-dollar-floor";
     }
 
     const preliminaryAdjustedRows = rows.map(function (row) {
@@ -416,14 +494,14 @@
     const preliminaryAdjustedMonthlyAmount = roundMoney(preliminaryAdjustedRows.reduce(function (total, row) {
       return total + row.preliminaryAdjustedMonthlyAmount;
     }, 0));
-    const adjustedMonthlyAmount = sliderValue < 0
-      ? roundMoney(calculateLinearAdjustment(
-        baselineMonthlyAmount,
-        effectiveConservativeFloorMonthly,
-        elevatedCeilingMonthlyAmount,
-        sliderValue
-      ))
-      : roundMoney(preliminaryAdjustedMonthlyAmount);
+    const adjustedMonthlyAmount = estimatedDollarPlanningFloorMonthly == null
+      ? roundMoney(preliminaryAdjustedMonthlyAmount)
+      : roundMoney(Math.max(preliminaryAdjustedMonthlyAmount, estimatedDollarPlanningFloorMonthly));
+    floorApplied = estimatedDollarPlanningFloorMonthly != null
+      && adjustedMonthlyAmount > preliminaryAdjustedMonthlyAmount;
+    if (estimatedDollarPlanningFloorMonthly != null && !floorApplied && floorSkippedReason == null) {
+      floorSkippedReason = "ratio-adjusted-amount-higher-than-dollar-floor";
+    }
     const bucketFloorUpliftMonthly = roundMoney(Math.max(0, adjustedMonthlyAmount - preliminaryAdjustedMonthlyAmount));
 
     rows.forEach(function (row) {
@@ -437,9 +515,9 @@
       row.bucketFloorApplied = floorApplied;
       row.allocatedBucketFloorUpliftMonthly = allocatedUplift;
       row.reasonCode = sliderValue < 0
-        ? (floorApplied ? "money-floor-adjusted-conservative" : "money-floor-ratio-fallback-conservative")
+        ? (floorApplied ? "money-floor-applied-conservative" : "money-floor-ratio-behavior-conservative")
         : sliderValue > 0
-          ? "money-floor-adjusted-elevated"
+          ? (floorApplied ? "money-floor-applied-elevated" : "money-floor-ratio-behavior-elevated")
           : "baseline";
       row.trace = Object.assign({}, row.trace, {
         floorAppliedAtPlanningBucketLevel: floorApplied,
@@ -457,6 +535,7 @@
       adjustedMonthlyAmount,
       monthlyDelta: roundMoney(adjustedMonthlyAmount - baselineMonthlyAmount),
       ratioFloorMonthlyAmount,
+      ratioAdjustedMonthlyAmount: preliminaryAdjustedMonthlyAmount,
       estimatedDollarPlanningFloorMonthly,
       effectiveConservativeFloorMonthly,
       elevatedCeilingMonthlyAmount,
@@ -509,16 +588,18 @@
   }
 
   function summarizeTotals(rowAdjustments, bucketAdjustments) {
-    const totalBaselineMonthlyExpenses = roundMoney(rowAdjustments.reduce(function (total, row) {
+    const baselineMonthlyTotal = roundMoney(rowAdjustments.reduce(function (total, row) {
       return total + row.baselineMonthlyAmount;
     }, 0));
-    const totalAdjustedMonthlyExpenses = roundMoney(rowAdjustments.reduce(function (total, row) {
+    const adjustedMonthlyTotal = roundMoney(rowAdjustments.reduce(function (total, row) {
       return total + row.adjustedMonthlyAmount;
     }, 0));
     return {
-      totalBaselineMonthlyExpenses,
-      totalAdjustedMonthlyExpenses,
-      monthlyDelta: roundMoney(totalAdjustedMonthlyExpenses - totalBaselineMonthlyExpenses),
+      baselineMonthlyTotal,
+      adjustedMonthlyTotal,
+      monthlyDelta: roundMoney(adjustedMonthlyTotal - baselineMonthlyTotal),
+      totalBaselineMonthlyExpenses: baselineMonthlyTotal,
+      totalAdjustedMonthlyExpenses: adjustedMonthlyTotal,
       adjustedRowCount: rowAdjustments.length,
       adjustableRowCount: rowAdjustments.filter(function (row) {
         return row.adjustmentClass !== "excludedFromAdjustment";
@@ -532,13 +613,42 @@
     };
   }
 
+  function summarizeSkippedBuckets(skippedRows) {
+    return Object.keys(skippedRows.reduce(function (groups, row) {
+      const planningBucketKey = normalizeString(row.planningBucketKey) || "unknown";
+      if (!groups[planningBucketKey]) {
+        groups[planningBucketKey] = [];
+      }
+      groups[planningBucketKey].push(row);
+      return groups;
+    }, {})).sort().map(function (planningBucketKey) {
+      const rows = skippedRows.filter(function (row) {
+        return (normalizeString(row.planningBucketKey) || "unknown") === planningBucketKey;
+      });
+      return {
+        planningBucketKey,
+        rowCount: rows.length,
+        baselineMonthlyAmount: roundMoney(rows.reduce(function (total, row) {
+          return total + row.baselineMonthlyAmount;
+        }, 0)),
+        skippedReason: "not-represented-in-base",
+        totalsAffected: false
+      };
+    });
+  }
+
   function calculateIncomeImpactHouseholdExpenseAdjustments(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const warnings = [];
     const dataGaps = [];
     const sliderValue = clamp(toOptionalNumber(safeInput.sliderValue) ?? 0, MIN_SLIDER_VALUE, MAX_SLIDER_VALUE);
+    const streamMode = isBaseHouseholdExpenseStreamInput(safeInput);
+    const inputRows = getInputExpenses(safeInput).filter(isPlainObject);
+    const skippedRows = createSkippedRows(inputRows, streamMode);
     const policyByTypeKey = getPolicyByTypeKey(safeInput);
-    const rowAdjustments = getInputExpenses(safeInput).filter(isPlainObject).map(function (expense, index) {
+    const rowAdjustments = inputRows.filter(function (expense) {
+      return isRepresentedStreamRow(expense, streamMode);
+    }).map(function (expense, index) {
       const policyRow = policyByTypeKey[getExpenseTypeKey(expense)] || null;
       const row = createBaseRowAdjustment(expense, index, policyRow, sliderValue, warnings);
       row.dataGaps.forEach(function (gap) {
@@ -562,16 +672,43 @@
     bucketAdjustments.sort(function (left, right) {
       return normalizeString(left.planningBucketKey).localeCompare(normalizeString(right.planningBucketKey));
     });
+    const skippedBuckets = summarizeSkippedBuckets(skippedRows);
+    const totals = summarizeTotals(rowAdjustments, bucketAdjustments);
+    const streamMonthlyTotal = getStreamMonthlyTotal(safeInput);
+    const streamParityDifference = streamMonthlyTotal == null
+      ? null
+      : roundMoney(totals.baselineMonthlyTotal - streamMonthlyTotal);
+    if (streamMode && streamMonthlyTotal != null && streamParityDifference !== 0) {
+      dataGaps.push(createIssue(
+        "base-household-expense-stream-total-mismatch",
+        "Represented stream row baseline total does not match the provided baseHouseholdExpenseStream monthly total.",
+        {
+          baselineMonthlyTotal: totals.baselineMonthlyTotal,
+          streamMonthlyTotal,
+          difference: streamParityDifference
+        }
+      ));
+    }
 
     return clonePlainValue({
       rowAdjustments,
       bucketAdjustments,
-      totals: summarizeTotals(rowAdjustments, bucketAdjustments),
+      skippedRows,
+      skippedBuckets,
+      baselineMonthlyTotal: totals.baselineMonthlyTotal,
+      adjustedMonthlyTotal: totals.adjustedMonthlyTotal,
+      monthlyDelta: totals.monthlyDelta,
+      totals,
       warnings,
       dataGaps,
       trace: {
         calculationMethod: "income-impact-household-expense-adjustment-engine-v1",
         sliderValue,
+        baseHouseholdExpenseStreamUsed: streamMode,
+        streamMonthlyTotal,
+        streamParityDifference,
+        representedRowCount: rowAdjustments.length,
+        skippedRowCount: skippedRows.length,
         resolvedGraphAdjustmentPolicyUsed: Array.isArray(safeInput?.resolvedGraphAdjustmentPolicy?.rows),
         livingFloorCalculationPreviewUsed: isPlainObject(safeInput?.livingFloorCalculationPreview?.buckets),
         graphSeriesConstructed: false,

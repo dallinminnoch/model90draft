@@ -86,69 +86,6 @@ function hasIssue(list, code) {
   });
 }
 
-function createExpenses() {
-  return [
-    {
-      id: "groceries-1",
-      expenseTypeKey: "groceries",
-      categoryKey: "foodGroceries",
-      label: "Groceries",
-      monthlyAmount: 600
-    },
-    {
-      id: "school-meals-1",
-      expenseTypeKey: "schoolMeals",
-      categoryKey: "foodGroceries",
-      label: "School meals",
-      monthlyAmount: 200
-    },
-    {
-      id: "dining-1",
-      expenseTypeKey: "diningOutRestaurants",
-      categoryKey: "foodGroceries",
-      label: "Dining",
-      monthlyAmount: 300
-    },
-    {
-      id: "streaming-1",
-      expenseTypeKey: "streamingDigitalSubscriptions",
-      categoryKey: "discretionaryLifestyle",
-      label: "Streaming",
-      monthlyAmount: 120
-    },
-    {
-      id: "clothing-1",
-      expenseTypeKey: "adultClothingShoes",
-      categoryKey: "personalLivingClothing",
-      label: "Clothing",
-      monthlyAmount: 250
-    },
-    {
-      id: "debt-1",
-      expenseTypeKey: "autoLoanPayment",
-      categoryKey: "debtObligations",
-      label: "Auto loan",
-      monthlyAmount: 500,
-      sourceOwnedBy: "debtRecords",
-      isDebtPaymentExpense: true
-    },
-    {
-      id: "housing-1",
-      expenseTypeKey: "rentOrMortgagePayment",
-      categoryKey: "housingExpense",
-      label: "Mortgage",
-      monthlyAmount: 2000
-    },
-    {
-      id: "healthcare-1",
-      expenseTypeKey: "copaysCoinsurance",
-      categoryKey: "ongoingHealthcare",
-      label: "Copays",
-      monthlyAmount: 100
-    }
-  ];
-}
-
 function createResolvedPolicyRows() {
   return [
     {
@@ -172,6 +109,18 @@ function createResolvedPolicyRows() {
       conservativeFloorRatio: 0.5,
       elevatedCeilingRatio: 1.1,
       floorSourceLabel: "Food at Home model / USDA Food Plan",
+      floorSourceStatus: "configured",
+      graphAdjustable: true
+    },
+    {
+      expenseTypeKey: "householdConsumablesSupplies",
+      label: "Household Supplies",
+      planningBucketKey: "householdConsumables",
+      adjustmentClass: "moneyFloorAdjusted",
+      minimumFloorMode: "estimatedDollarFloor",
+      conservativeFloorRatio: 0.5,
+      elevatedCeilingRatio: 1.1,
+      floorSourceLabel: "MODEL90 default floor",
       floorSourceStatus: "configured",
       graphAdjustable: true
     },
@@ -250,11 +199,203 @@ function createResolvedPolicyRows() {
   ];
 }
 
+function createBaseHouseholdExpenseStream() {
+  const representedRows = [
+    {
+      expenseTypeKey: "groceries",
+      planningBucketKey: "foodAtHomeConsumables",
+      categoryKey: "foodGroceries",
+      label: "Groceries",
+      baselineMonthlyAmount: 600,
+      representedInBase: true,
+      adjustmentClass: "moneyFloorAdjusted",
+      minimumFloorMode: "estimatedDollarFloor",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "schoolMeals",
+      planningBucketKey: "foodAtHomeConsumables",
+      categoryKey: "foodGroceries",
+      label: "School meals",
+      baselineMonthlyAmount: 200,
+      representedInBase: true,
+      adjustmentClass: "moneyFloorAdjusted",
+      minimumFloorMode: "estimatedDollarFloor",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "householdConsumablesSupplies",
+      planningBucketKey: "householdConsumables",
+      categoryKey: "foodGroceries",
+      label: "Household Supplies",
+      baselineMonthlyAmount: 150,
+      representedInBase: true,
+      adjustmentClass: "moneyFloorAdjusted",
+      minimumFloorMode: "estimatedDollarFloor",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "diningOutRestaurants",
+      planningBucketKey: "diningTakeout",
+      categoryKey: "foodGroceries",
+      label: "Dining",
+      baselineMonthlyAmount: 300,
+      representedInBase: true,
+      adjustmentClass: "ratioAdjusted",
+      minimumFloorMode: "zeroFloor",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "streamingDigitalSubscriptions",
+      planningBucketKey: "subscriptionsMemberships",
+      categoryKey: "discretionaryLifestyle",
+      label: "Streaming",
+      baselineMonthlyAmount: 120,
+      representedInBase: true,
+      adjustmentClass: "ratioAdjusted",
+      minimumFloorMode: "zeroFloor",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "adultClothingShoes",
+      planningBucketKey: "personalLivingClothing",
+      categoryKey: "personalLivingClothing",
+      label: "Clothing",
+      baselineMonthlyAmount: 250,
+      representedInBase: true,
+      adjustmentClass: "ratioAdjusted",
+      minimumFloorMode: "ratioFloorOnly",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "autoLoanPayment",
+      planningBucketKey: "debtObligations",
+      categoryKey: "debtObligations",
+      label: "Auto loan",
+      baselineMonthlyAmount: 500,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      sourceOwner: "debtRecords",
+      isDebtPaymentExpense: true,
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "ongoingSupportHousingReconciliation",
+      planningBucketKey: "housingCore",
+      categoryKey: "housingExpense",
+      label: "Housing support reconciliation",
+      baselineMonthlyAmount: 1000,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      sourceOwner: "scalarOngoingSupport",
+      trace: { rowSource: "scalar-ongoing-support-reconciliation" }
+    },
+    {
+      expenseTypeKey: "gasHeatingFuelPropaneOil",
+      planningBucketKey: "basicUtilities",
+      categoryKey: "utilities",
+      label: "Gas Utility",
+      baselineMonthlyAmount: 140,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "copaysCoinsurance",
+      planningBucketKey: "healthcareCare",
+      categoryKey: "ongoingHealthcare",
+      label: "Copays",
+      baselineMonthlyAmount: 100,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "funeralBurialEstimate",
+      planningBucketKey: "finalExpenses",
+      categoryKey: "funeralBurial",
+      label: "Funeral",
+      baselineMonthlyAmount: 80,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "privateSchoolTuition",
+      planningBucketKey: "educationEnrichment",
+      categoryKey: "education",
+      label: "Education",
+      baselineMonthlyAmount: 90,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "householdInsurancePremiums",
+      planningBucketKey: "insurancePremiums",
+      categoryKey: "insurancePremiums",
+      label: "Insurance",
+      baselineMonthlyAmount: 110,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "taxPreparationFees",
+      planningBucketKey: "taxesLegalAdministrative",
+      categoryKey: "taxes",
+      label: "Tax preparation",
+      baselineMonthlyAmount: 70,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    },
+    {
+      expenseTypeKey: "charitableGiving",
+      planningBucketKey: "givingCommunity",
+      categoryKey: "givingCommunity",
+      label: "Giving",
+      baselineMonthlyAmount: 60,
+      representedInBase: true,
+      adjustmentClass: "excludedFromAdjustment",
+      minimumFloorMode: "notAdjusted",
+      trace: { rowSource: "expenseFacts" }
+    }
+  ];
+
+  const referenceRows = [
+    {
+      expenseTypeKey: "vacationsTravel",
+      planningBucketKey: "travelVacations",
+      categoryKey: "travelVacations",
+      label: "Travel",
+      baselineMonthlyAmount: 1000,
+      representedInBase: false,
+      adjustmentClass: "ratioAdjusted",
+      minimumFloorMode: "zeroFloor",
+      trace: { rowSource: "expenseFacts" }
+    }
+  ];
+
+  return {
+    rows: representedRows.concat(referenceRows),
+    representedRows,
+    referenceRows,
+    monthlyTotal: 3770
+  };
+}
+
 function createCompleteInput(overrides) {
   return Object.assign({
-    expenseFacts: {
-      expenses: createExpenses()
-    },
+    baseHouseholdExpenseStream: createBaseHouseholdExpenseStream(),
     resolvedGraphAdjustmentPolicy: {
       rows: createResolvedPolicyRows()
     },
@@ -264,6 +405,12 @@ function createCompleteInput(overrides) {
           planningBucketKey: "foodAtHomeConsumables",
           floorAmountMonthly: 500,
           floorSource: "USDA_FOOD_PLAN",
+          stateAdjustmentMultiplier: 1.2
+        },
+        householdConsumables: {
+          planningBucketKey: "householdConsumables",
+          floorAmountMonthly: 100,
+          floorSource: "MODEL90_DEFAULT",
           stateAdjustmentMultiplier: 1.2
         }
       }
@@ -350,17 +497,33 @@ assert.equal(result.trace.graphSeriesConstructed, false, "engine should not cons
 assert.equal(result.trace.graphDeltaApplied, false, "engine should not apply graph deltas");
 assert.equal(result.trace.floorsAppliedAtPlanningBucketLevel, true, "engine should apply money floors at planning-bucket level");
 assert.equal(result.trace.perRowDollarFloorApplied, false, "engine should not apply dollar floors per row");
+assert.equal(result.trace.baseHouseholdExpenseStreamUsed, true, "engine should accept baseHouseholdExpenseStream input");
+assert.equal(result.trace.streamMonthlyTotal, 3770, "engine should trace provided stream monthly total");
+assert.equal(result.trace.streamParityDifference, 0, "represented rows should reconcile to stream monthly total");
 
-assert.equal(result.rowAdjustments.length, 8, "all fixture rows should be represented");
+assert.equal(result.rowAdjustments.length, 15, "only represented stream rows should be adjusted");
+assert.equal(result.skippedRows.length, 1, "reference rows should be skipped");
+assert.equal(result.skippedRows[0].expenseTypeKey, "vacationsTravel", "reference row should be retained in skipped rows");
+assert.equal(result.skippedRows[0].baselineMonthlyAmount, 1000, "reference row baseline should be traced but excluded from totals");
+assert.equal(result.baselineMonthlyTotal, 3770, "top-level baseline should match stream represented monthly total");
+assert.equal(result.totals.baselineMonthlyTotal, 3770, "totals baseline should match stream represented monthly total");
+assert.equal(result.totals.totalBaselineMonthlyExpenses, 3770, "legacy total baseline alias should remain populated");
 const foodBucket = getBucket(result, "foodAtHomeConsumables");
 assert.equal(foodBucket.rowCount, 2, "Food at Home bucket should aggregate two rows");
 assert.equal(foodBucket.baselineMonthlyAmount, 800, "Food at Home baseline should aggregate row baselines");
 assert.equal(foodBucket.ratioFloorMonthlyAmount, 400, "Food at Home ratio floor should aggregate row ratio floors");
+assert.equal(foodBucket.ratioAdjustedMonthlyAmount, 400, "Food at Home ratio-adjusted amount should be calculated before dollar floor overlay");
 assert.equal(foodBucket.estimatedDollarPlanningFloorMonthly, 500, "Food at Home dollar floor should apply once at bucket level");
 assert.equal(foodBucket.effectiveConservativeFloorMonthly, 500, "Food at Home effective floor should use higher dollar floor");
-assert.equal(foodBucket.adjustedMonthlyAmount, 500, "Food at Home bucket should adjust to one bucket-level floor at -100 slider");
+assert.equal(foodBucket.adjustedMonthlyAmount, 500, "Food at Home bucket should use max of ratio-adjusted amount and one bucket-level floor");
 assert.equal(foodBucket.floorApplied, true, "Food at Home bucket floor should be marked applied");
 assert.equal(foodBucket.trace.floorAppliedOncePerPlanningBucket, true, "Food floor should be traced as bucket-level");
+const householdBucket = getBucket(result, "householdConsumables");
+assert.equal(householdBucket.rowCount, 1, "MODEL90 default floor bucket should use one household row");
+assert.equal(householdBucket.baselineMonthlyAmount, 150, "household consumables baseline should be represented");
+assert.equal(householdBucket.ratioAdjustedMonthlyAmount, 75, "household consumables ratio amount should be calculated before floor overlay");
+assert.equal(householdBucket.adjustedMonthlyAmount, 100, "MODEL90 default floor should apply once at bucket level");
+assert.equal(householdBucket.floorApplied, true, "MODEL90 default floor should be marked applied");
 
 const groceryRow = getRow(result, "groceries");
 const schoolMealsRow = getRow(result, "schoolMeals");
@@ -369,6 +532,9 @@ assert.equal(groceryRow.estimatedDollarPlanningFloorMonthly, null, "Food dollar 
 assert.equal(schoolMealsRow.estimatedDollarPlanningFloorMonthly, null, "Food dollar floor should not duplicate per detailed row");
 assert.equal(groceryRow.trace.perRowDollarFloorApplied, false, "Food row should trace no per-row dollar floor");
 assert.equal(schoolMealsRow.trace.perRowDollarFloorApplied, false, "Second Food row should trace no per-row dollar floor");
+const householdSuppliesRow = getRow(result, "householdConsumablesSupplies");
+assert.equal(householdSuppliesRow.adjustedMonthlyAmount, 100, "MODEL90 floor uplift should stay at bucket level and allocate to represented row");
+assert.equal(householdSuppliesRow.trace.perRowDollarFloorApplied, false, "MODEL90 floor should not be treated as a per-row dollar floor");
 
 const diningRow = getRow(result, "diningOutRestaurants");
 assert.equal(diningRow.adjustmentClass, "ratioAdjusted", "dining should be ratio adjusted");
@@ -380,22 +546,29 @@ const clothingRow = getRow(result, "adultClothingShoes");
 assert.equal(clothingRow.minimumFloorMode, "ratioFloorOnly", "clothing should be ratio-floor only");
 assert.equal(clothingRow.adjustedMonthlyAmount, 100, "ratio-floor-only row should adjust to its ratio floor");
 
-const debtRow = getRow(result, "autoLoanPayment");
-assert.equal(debtRow.adjustmentClass, "excludedFromAdjustment", "debt should remain excluded");
-assert.equal(debtRow.adjustedMonthlyAmount, debtRow.baselineMonthlyAmount, "debt should not move");
-assert.equal(debtRow.graphAdjustable, false, "debt should not be graph adjustable");
-const housingRow = getRow(result, "rentOrMortgagePayment");
-assert.equal(housingRow.adjustmentClass, "excludedFromAdjustment", "housing should be hard protected even if policy row is adjustable");
-assert.equal(housingRow.adjustedMonthlyAmount, housingRow.baselineMonthlyAmount, "housing should not move");
-assert.equal(housingRow.reasonCode, "protected-planning-bucket", "housing should trace protected planning bucket");
-const healthcareRow = getRow(result, "copaysCoinsurance");
-assert.equal(healthcareRow.adjustmentClass, "excludedFromAdjustment", "healthcare should be hard protected");
-assert.equal(healthcareRow.adjustedMonthlyAmount, healthcareRow.baselineMonthlyAmount, "healthcare should not move");
-assert.ok(hasIssue(result.warnings, "protected-bucket-adjustment-ignored"), "protected adjustable policy rows should warn when ignored");
+[
+  ["autoLoanPayment", "debt should remain fixed"],
+  ["ongoingSupportHousingReconciliation", "scalar housing reconciliation should remain fixed"],
+  ["gasHeatingFuelPropaneOil", "basic utilities should remain fixed"],
+  ["copaysCoinsurance", "healthcare should remain fixed"],
+  ["funeralBurialEstimate", "final expense should remain fixed"],
+  ["privateSchoolTuition", "education should remain fixed"],
+  ["householdInsurancePremiums", "insurance should remain fixed"],
+  ["taxPreparationFees", "tax/legal should remain fixed"],
+  ["charitableGiving", "giving should remain fixed"]
+].forEach(function (entry) {
+  const row = getRow(result, entry[0]);
+  assert.equal(row.adjustmentClass, "excludedFromAdjustment", entry[1]);
+  assert.equal(row.minimumFloorMode, "notAdjusted", entry[1]);
+  assert.equal(row.adjustedMonthlyAmount, row.baselineMonthlyAmount, entry[1]);
+  assert.equal(row.monthlyDelta, 0, entry[1]);
+  assert.equal(row.graphAdjustable, false, entry[1]);
+});
 
-assert.equal(result.totals.totalBaselineMonthlyExpenses, 4070, "total baseline should sum rows");
-assert.equal(result.totals.totalAdjustedMonthlyExpenses, 3200, "total adjusted should sum row outputs");
-assert.equal(result.totals.floorAppliedBucketCount, 1, "only Food at Home should have a dollar floor applied");
+assert.equal(result.adjustedMonthlyTotal, 2850, "top-level adjusted total should sum represented row outputs");
+assert.equal(result.monthlyDelta, -920, "negative monthlyDelta should mean lower expenses");
+assert.equal(result.totals.totalAdjustedMonthlyExpenses, 2850, "legacy adjusted total alias should remain populated");
+assert.equal(result.totals.floorAppliedBucketCount, 2, "Food and household consumables should each have one bucket-level floor applied");
 
 const missingFloorResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments(createCompleteInput({
   livingFloorCalculationPreview: {
@@ -406,15 +579,23 @@ const missingFoodBucket = getBucket(missingFloorResult, "foodAtHomeConsumables")
 assert.equal(missingFoodBucket.adjustedMonthlyAmount, 400, "missing Food floor should fall back to ratio floor");
 assert.equal(missingFoodBucket.floorApplied, false, "missing Food floor should not be marked applied");
 assert.equal(missingFoodBucket.floorSkippedReason, "missing-estimated-dollar-floor-ratio-fallback", "missing Food floor should trace ratio fallback");
+assert.equal(getBucket(missingFloorResult, "householdConsumables").adjustedMonthlyAmount, 75, "missing MODEL90 floor should fall back to ratio behavior");
 assert.ok(hasIssue(missingFloorResult.warnings, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), "missing floor should warn");
 assert.ok(hasIssue(missingFloorResult.dataGaps, "money-floor-bucket-missing-dollar-floor-ratio-fallback"), "missing floor should produce data gap");
 
 const positiveResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments(createCompleteInput({
   sliderValue: 50
 }));
-assert.equal(getBucket(positiveResult, "foodAtHomeConsumables").floorApplied, true, "floor availability should remain traced on elevated scenario");
+assert.equal(getBucket(positiveResult, "foodAtHomeConsumables").floorApplied, false, "floorApplied should mean floor changed the adjusted amount");
 assert.equal(getBucket(positiveResult, "foodAtHomeConsumables").adjustedMonthlyAmount, 840, "positive slider should use elevated row ceilings, not conservative floor movement");
 assert.equal(getRow(positiveResult, "diningOutRestaurants").adjustedMonthlyAmount, 330, "ratio-only row should increase toward ceiling on positive slider");
+assert.equal(positiveResult.monthlyDelta, 102, "positive monthlyDelta should mean higher expenses");
+
+const partialFloorResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments(createCompleteInput({
+  sliderValue: -50
+}));
+assert.equal(getBucket(partialFloorResult, "foodAtHomeConsumables").ratioAdjustedMonthlyAmount, 600, "partial conservative slider should calculate ratio-adjusted amount first");
+assert.equal(getBucket(partialFloorResult, "foodAtHomeConsumables").adjustedMonthlyAmount, 600, "bucket floor should not pull partial conservative movement below the ratio-adjusted amount");
 
 const missingPolicyResult = engineApi.calculateIncomeImpactHouseholdExpenseAdjustments({
   expenses: [
