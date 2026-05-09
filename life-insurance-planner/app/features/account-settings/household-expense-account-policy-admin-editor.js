@@ -421,9 +421,138 @@
     return Number.isFinite(value) && value >= 1 ? value : 2;
   }
 
-  function buildLifestyleRangeEditorRows(defaultRows, resolvedRows, overrideRows) {
+  function getExpenseLibraryRows(currentLensAnalysis) {
+    const libraryApi = currentLensAnalysis?.expenseLibrary;
+    return libraryApi && typeof libraryApi.getExpenseLibraryEntries === "function"
+      ? libraryApi.getExpenseLibraryEntries()
+      : [];
+  }
+
+  function getLivingFloorMetadataRows(currentLensAnalysis) {
+    const metadataApi = currentLensAnalysis?.householdExpenseLivingFloorMetadata;
+    return metadataApi && typeof metadataApi.getHouseholdExpenseLivingFloorMetadata === "function"
+      ? metadataApi.getHouseholdExpenseLivingFloorMetadata()
+      : [];
+  }
+
+  function buildExpenseLibraryByTypeKey(currentLensAnalysis) {
+    return getExpenseLibraryRows(currentLensAnalysis).reduce(function (map, row) {
+      const typeKey = row?.typeKey || row?.expenseTypeKey;
+      if (typeKey) {
+        map[typeKey] = row;
+      }
+      return map;
+    }, {});
+  }
+
+  function buildLivingFloorMetadataByBucket(currentLensAnalysis) {
+    return getLivingFloorMetadataRows(currentLensAnalysis).reduce(function (map, row) {
+      if (row?.planningBucketKey) {
+        map[row.planningBucketKey] = row;
+      }
+      return map;
+    }, {});
+  }
+
+  function formatAdjustmentTypeDisplay(metadata, libraryEntry) {
+    if (metadata?.adjustmentClass === "moneyFloorAdjusted") {
+      return "Included with floor";
+    }
+
+    if (metadata?.adjustmentClass === "ratioAdjusted") {
+      return "Included ratio-only";
+    }
+
+    if (metadata?.adjustmentClass === "excludedFromAdjustment") {
+      return "Excluded / protected";
+    }
+
+    if (libraryEntry?.lifestyleTreatmentIncluded === true) {
+      return "Included";
+    }
+
+    if (libraryEntry?.lifestyleTreatmentIncluded === false) {
+      return "Excluded / protected";
+    }
+
+    return "Metadata unavailable";
+  }
+
+  function formatMinimumFloorDisplay(metadata, planningBucketKey) {
+    if (!metadata) {
+      return "Metadata unavailable";
+    }
+
+    if (metadata.minimumFloorMode === "estimatedDollarFloor") {
+      if (planningBucketKey === "foodAtHomeConsumables") {
+        return "Food at Home model";
+      }
+
+      if (MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.includes(planningBucketKey)) {
+        return "MODEL90 default floor";
+      }
+
+      return "Estimated dollar floor";
+    }
+
+    if (metadata.minimumFloorMode === "zeroFloor") {
+      return "$0";
+    }
+
+    if (metadata.minimumFloorMode === "ratioFloorOnly") {
+      return "Ratio floor only";
+    }
+
+    if (metadata.minimumFloorMode === "notAdjusted") {
+      return "Not adjusted";
+    }
+
+    return metadata.minimumFloorMode || "Not set";
+  }
+
+  function formatFloorStatusDisplay(metadata) {
+    if (!metadata) {
+      return "Metadata unavailable";
+    }
+
+    if (metadata.adjustmentClass === "excludedFromAdjustment") {
+      return "Locked";
+    }
+
+    const source = metadata.floorSource && metadata.floorSource !== "NONE"
+      ? metadata.floorSource
+      : metadata.benchmarkSource;
+    const status = metadata.sourceDataStatus || "notApplicable";
+
+    if (source && source !== "NONE") {
+      return `${source} / ${status}`;
+    }
+
+    return status;
+  }
+
+  function buildPlanningContextForPolicy(defaultPolicy, expenseLibraryByTypeKey, livingFloorMetadataByBucket) {
+    const typeKey = defaultPolicy?.expenseTypeKey || null;
+    const libraryEntry = typeKey ? expenseLibraryByTypeKey[typeKey] : null;
+    const planningBucketKey = libraryEntry?.planningBucketKey || defaultPolicy?.planningBucketKey || null;
+    const metadata = planningBucketKey ? livingFloorMetadataByBucket[planningBucketKey] : null;
+
+    return {
+      planningBucketKey,
+      planningBucketLabel: libraryEntry?.planningBucketLabel || metadata?.planningBucketLabel || planningBucketKey || "Not available",
+      adjustmentTypeDisplay: formatAdjustmentTypeDisplay(metadata, libraryEntry),
+      minimumFloorDisplay: formatMinimumFloorDisplay(metadata, planningBucketKey),
+      floorStatusDisplay: formatFloorStatusDisplay(metadata),
+      adjustmentClass: metadata?.adjustmentClass || null,
+      minimumFloorMode: metadata?.minimumFloorMode || null
+    };
+  }
+
+  function buildLifestyleRangeEditorRows(defaultRows, resolvedRows, overrideRows, currentLensAnalysis) {
     const resolvedList = Array.isArray(resolvedRows) ? resolvedRows : [];
     const overrides = Array.isArray(overrideRows) ? overrideRows : [];
+    const expenseLibraryByTypeKey = buildExpenseLibraryByTypeKey(currentLensAnalysis);
+    const livingFloorMetadataByBucket = buildLivingFloorMetadataByBucket(currentLensAnalysis);
 
     return (Array.isArray(defaultRows) ? defaultRows : [])
       .filter(function (row) {
@@ -434,6 +563,11 @@
         const override = overrides.find(function (candidate) {
           return rowMatchesPolicy(candidate, defaultPolicy);
         }) || null;
+        const planningContext = buildPlanningContextForPolicy(
+          defaultPolicy,
+          expenseLibraryByTypeKey,
+          livingFloorMetadataByBucket
+        );
 
         return {
           rangePolicyId: defaultPolicy.rangePolicyId || null,
@@ -441,6 +575,13 @@
           expenseTypeKey: defaultPolicy.expenseTypeKey || null,
           categoryKey: defaultPolicy.categoryKey || null,
           rangeBehavior: defaultPolicy.rangeBehavior || null,
+          planningBucketKey: planningContext.planningBucketKey,
+          planningBucketLabel: planningContext.planningBucketLabel,
+          adjustmentTypeDisplay: planningContext.adjustmentTypeDisplay,
+          minimumFloorDisplay: planningContext.minimumFloorDisplay,
+          floorStatusDisplay: planningContext.floorStatusDisplay,
+          adjustmentClass: planningContext.adjustmentClass,
+          minimumFloorMode: planningContext.minimumFloorMode,
           defaultConservativeFloorRatio: defaultPolicy.conservativeFloorRatio,
           defaultElevatedCeilingRatio: defaultPolicy.elevatedCeilingRatio,
           resolvedConservativeFloorRatio: resolvedPolicy.conservativeFloorRatio,
@@ -502,7 +643,8 @@
     const rows = buildLifestyleRangeEditorRows(
       policyInputs.defaultLifestyleRangePolicies,
       resolvedRows,
-      overrideRows
+      overrideRows,
+      currentLensAnalysis
     );
     const status = getPolicyStatus(storageResult, resolvedPolicy);
 
@@ -1181,10 +1323,17 @@
 
   function renderEditorRow(row) {
     return `
-      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}">
+      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}">
         <td>${escapeHtml(row.displayName)}</td>
         <td><code>${escapeHtml(row.expenseTypeKey || "")}</code></td>
+        <td>
+          <strong>${escapeHtml(row.planningBucketLabel || "Not available")}</strong><br>
+          <code>${escapeHtml(row.planningBucketKey || "")}</code>
+        </td>
         <td>${escapeHtml(row.rangeBehavior || "")}</td>
+        <td>${escapeHtml(row.adjustmentTypeDisplay || "Metadata unavailable")}</td>
+        <td>${escapeHtml(row.minimumFloorDisplay || "Metadata unavailable")}</td>
+        <td>${escapeHtml(row.floorStatusDisplay || "Metadata unavailable")}</td>
         <td>${escapeHtml(formatRatio(row.defaultConservativeFloorRatio))}</td>
         <td>${escapeHtml(formatRatio(row.defaultElevatedCeilingRatio))}</td>
         <td>${escapeHtml(formatRatio(row.resolvedConservativeFloorRatio))}</td>
@@ -1480,13 +1629,13 @@
 
     return `
       <div class="admin-household-expense-policy-editor-shell" data-household-expense-account-policy-editor-shell data-policy-status="${escapeHtml(status.code || "unknown")}">
-        <section class="admin-tax-bracket-group">
+        <section class="admin-tax-bracket-group" data-household-expense-graph-adjustment-controls>
           <div class="admin-tax-bracket-toolbar">
             <div>
-              <span class="section-label">Lifestyle Range Overrides</span>
-              <h3>Ratio Controls</h3>
-              <p class="panel-copy"><strong>Affects all users on this account.</strong> V1 edits are limited to seed-approved lifestyle slider rows and only save changed floor/ceiling ratios.</p>
-              <p class="panel-copy">Policy source: ${escapeHtml(status.label || "Policy unavailable")} · Rows: ${escapeHtml(counts.previewRows || 0)} · Overrides: ${escapeHtml(counts.rowsWithOverrides || 0)} · Warnings: ${escapeHtml(counts.warnings || 0)}</p>
+              <span class="section-label">Income Impact Adjustment Controls</span>
+              <h3>Graph-Affecting Ratio Controls</h3>
+              <p class="panel-copy"><strong>Affects all users on this account.</strong> All seed-approved graph adjustment rows remain editable here. This pass only adds display-only adjustment and floor context.</p>
+              <p class="panel-copy">Policy source: ${escapeHtml(status.label || "Policy unavailable")} · Graph rows: ${escapeHtml(counts.previewRows || 0)} · Overrides: ${escapeHtml(counts.rowsWithOverrides || 0)} · Warnings: ${escapeHtml(counts.warnings || 0)}</p>
             </div>
             <div>
               <button type="button" class="admin-action-button" data-household-expense-policy-save>Save changes</button>
@@ -1499,7 +1648,11 @@
               <tr>
                 <th>Expense</th>
                 <th>Type Key</th>
+                <th>Planning Bucket</th>
                 <th>Behavior</th>
+                <th>Adjustment Type</th>
+                <th>Minimum Floor</th>
+                <th>Floor Source / Status</th>
                 <th>Default Floor</th>
                 <th>Default Ceiling</th>
                 <th>Resolved Floor</th>
@@ -1514,7 +1667,7 @@
             <tbody>
               ${rows.length ? rows.map(renderEditorRow).join("") : `
                 <tr class="admin-tax-bracket-row">
-                  <td colspan="11">No slider-eligible lifestyle range policy rows are available.</td>
+                  <td colspan="16">No slider-eligible lifestyle range policy rows are available.</td>
                 </tr>
               `}
             </tbody>

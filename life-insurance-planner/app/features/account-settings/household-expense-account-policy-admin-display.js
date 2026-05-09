@@ -15,7 +15,7 @@
     { label: "Healthcare", status: "Locked / protected" },
     { label: "Childcare / dependent care", status: "Locked / protected" },
     { label: "Insurance / protection", status: "Locked / protected" },
-    { label: "Giving / remittances", status: "Review-only / values-sensitive" }
+    { label: "Giving / remittances", status: "Locked / values-sensitive" }
   ]);
   const FOOD_AT_HOME_BAND_KEYS = Object.freeze([
     "infantToddler",
@@ -1294,39 +1294,48 @@
 
     return `
       <div class="admin-household-expense-policy-readonly" data-household-expense-account-policy-readonly data-policy-status="${escapeHtml(status.code || "unknown")}">
-        <div class="admin-tax-bracket-group">
-          <div class="admin-tax-bracket-toolbar">
-            <div>
-              <span class="section-label">Policy Source</span>
-              <h3>${escapeHtml(status.label || "Policy unavailable")}</h3>
-              <p class="panel-copy">${escapeHtml(status.message || "Household expense policy status is unavailable.")}</p>
-              <p class="panel-copy">Account scope: ${escapeHtml(safeModel.accountId || "Not available")} (${escapeHtml(safeModel.accountIdSource || "unknown")})</p>
+        <details class="admin-tax-bracket-group" data-household-expense-policy-diagnostics>
+          <summary class="admin-tax-bracket-toolbar" data-household-expense-policy-diagnostics-summary>
+            <span class="section-label">Advanced / Diagnostics</span>
+            <strong>Policy diagnostics and read-only metadata</strong>
+            <span>Policy source, bucket summaries, living-floor metadata, saved assumptions, and protected categories remain available here.</span>
+          </summary>
+          <div data-household-expense-policy-diagnostics-body>
+            <div class="admin-tax-bracket-group" data-household-expense-policy-source-summary>
+              <div class="admin-tax-bracket-toolbar">
+                <div>
+                  <span class="section-label">Policy Source</span>
+                  <h3>${escapeHtml(status.label || "Policy unavailable")}</h3>
+                  <p class="panel-copy">${escapeHtml(status.message || "Household expense policy status is unavailable.")}</p>
+                  <p class="panel-copy">Account scope: ${escapeHtml(safeModel.accountId || "Not available")} (${escapeHtml(safeModel.accountIdSource || "unknown")})</p>
+                </div>
+              </div>
+              <div class="admin-summary-grid" data-household-expense-policy-counts>
+                ${renderCountCard("Lifestyle range rows", counts.lifestyleRangePolicyRows || 0)}
+                ${renderCountCard("Compression policy rows", counts.compressionPolicyRows || 0)}
+                ${renderCountCard("Compression threshold rows", counts.compressionThresholdRows || 0)}
+                ${renderCountCard("Lifestyle overrides", counts.lifestyleRangeOverrides || 0)}
+                ${renderCountCard("Compression overrides", counts.compressionPolicyOverrides || 0)}
+                ${renderCountCard("Threshold overrides", counts.compressionThresholdOverrides || 0)}
+                ${renderCountCard("Warnings", counts.warnings || 0)}
+                ${renderCountCard("Data gaps", counts.dataGaps || 0)}
+              </div>
+            </div>
+            ${renderPlanningBucketSummary(safeModel.planningBucketSummary)}
+            ${renderLivingFloorMetadataSummary(safeModel.livingFloorMetadata)}
+            ${renderSavedLivingFloorAssumptions(safeModel.savedLivingFloorAssumptions)}
+            <div class="admin-tax-bracket-group" data-household-expense-policy-protected-summary>
+              <div class="admin-tax-bracket-toolbar">
+                <span class="section-label">Protected Categories</span>
+              </div>
+              <ul class="admin-tax-bracket-list">
+                ${protectedRows.map(function (row) {
+                  return `<li><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.status)}</span></li>`;
+                }).join("")}
+              </ul>
             </div>
           </div>
-          <div class="admin-summary-grid" data-household-expense-policy-counts>
-            ${renderCountCard("Lifestyle range rows", counts.lifestyleRangePolicyRows || 0)}
-            ${renderCountCard("Compression policy rows", counts.compressionPolicyRows || 0)}
-            ${renderCountCard("Compression threshold rows", counts.compressionThresholdRows || 0)}
-            ${renderCountCard("Lifestyle overrides", counts.lifestyleRangeOverrides || 0)}
-            ${renderCountCard("Compression overrides", counts.compressionPolicyOverrides || 0)}
-            ${renderCountCard("Threshold overrides", counts.compressionThresholdOverrides || 0)}
-            ${renderCountCard("Warnings", counts.warnings || 0)}
-            ${renderCountCard("Data gaps", counts.dataGaps || 0)}
-          </div>
-        </div>
-        ${renderPlanningBucketSummary(safeModel.planningBucketSummary)}
-        ${renderLivingFloorMetadataSummary(safeModel.livingFloorMetadata)}
-        ${renderSavedLivingFloorAssumptions(safeModel.savedLivingFloorAssumptions)}
-        <div class="admin-tax-bracket-group" data-household-expense-policy-protected-summary>
-          <div class="admin-tax-bracket-toolbar">
-            <span class="section-label">Protected Categories</span>
-          </div>
-          <ul class="admin-tax-bracket-list">
-            ${protectedRows.map(function (row) {
-              return `<li><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.status)}</span></li>`;
-            }).join("")}
-          </ul>
-        </div>
+        </details>
       </div>
     `;
   }

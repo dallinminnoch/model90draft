@@ -245,6 +245,7 @@ assertScriptOrder(scripts, [
   "../app/features/lens-analysis/household-expense-compression-policy.js",
   "../app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
   "../app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js",
+  "../app/features/lens-analysis/household-expense-living-floor-metadata.js",
   "../app/features/lens-analysis/household-expense-account-policy-resolver.js",
   "../app/features/account-settings/household-expense-account-policy-admin-display.js",
   "../app/features/account-settings/household-expense-account-policy-admin-editor.js"
@@ -324,6 +325,7 @@ loadScript(context, "app/features/lens-analysis/expense-compression-thresholds.j
 loadScript(context, "app/features/lens-analysis/household-expense-compression-policy.js");
 loadScript(context, "app/features/lens-analysis/household-expense-lifestyle-range-policy.js");
 loadScript(context, "app/features/lens-analysis/household-expense-planning-bucket-policy-summary.js");
+loadScript(context, "app/features/lens-analysis/household-expense-living-floor-metadata.js");
 loadScript(context, "app/features/lens-analysis/household-expense-account-policy-resolver.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-display.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-editor.js");
@@ -426,6 +428,20 @@ assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "streamingDigit
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "diningTakeout"), "broad Dining / Takeout parent should render as an editable slider row");
 assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "householdServices"), "broad Household Services parent should render as an editable slider row");
 
+const groceriesEditorRow = missingModel.rows.find((row) => row.expenseTypeKey === "groceries");
+const diningTakeoutEditorRow = missingModel.rows.find((row) => row.expenseTypeKey === "diningTakeout");
+const householdServicesEditorRow = missingModel.rows.find((row) => row.expenseTypeKey === "householdServices");
+assert.equal(groceriesEditorRow.planningBucketKey, "foodAtHomeConsumables", "graph row context should include planning bucket metadata");
+assert.equal(groceriesEditorRow.adjustmentTypeDisplay, "Included with floor", "food-at-home graph rows should display money-floor adjustment context");
+assert.equal(groceriesEditorRow.minimumFloorDisplay, "Food at Home model", "food-at-home graph rows should display the Food at Home floor model");
+assert.equal(diningTakeoutEditorRow.minimumFloorDisplay, "$0", "zero-floor ratio buckets should display a $0 minimum floor");
+assert.equal(householdServicesEditorRow.minimumFloorDisplay, "Ratio floor only", "ratio-floor-only buckets should display ratio-floor-only status");
+assert.equal(
+  missingModel.rows.every((row) => row.adjustmentTypeDisplay && row.minimumFloorDisplay && row.floorStatusDisplay),
+  true,
+  "every graph adjustment row should have display-only adjustment and floor context"
+);
+
 [
   "rentOrMortgagePayment",
   "autoLoanPayment",
@@ -443,9 +459,16 @@ assert.ok(missingModel.rows.some((row) => row.expenseTypeKey === "householdServi
 });
 
 const missingHtml = editor.renderHouseholdExpensePolicyEditor(missingModel);
-assert.match(missingHtml, /Lifestyle Range Overrides/);
-assert.match(missingHtml, /Ratio Controls/);
+assert.match(missingHtml, /Income Impact Adjustment Controls/);
+assert.match(missingHtml, /Graph-Affecting Ratio Controls/);
 assert.match(missingHtml, /Affects all users on this account/);
+assert.match(missingHtml, /data-household-expense-graph-adjustment-controls/);
+assert.match(missingHtml, /Planning Bucket/);
+assert.match(missingHtml, /Adjustment Type/);
+assert.match(missingHtml, /Minimum Floor/);
+assert.match(missingHtml, /Floor Source \/ Status/);
+assert.match(missingHtml, /Food at Home model/);
+assert.match(missingHtml, /MODEL90 default floor|\$0|Ratio floor only/);
 assert.match(missingHtml, /Default Floor/);
 assert.match(missingHtml, /Resolved Ceiling/);
 assert.match(missingHtml, /data-household-expense-policy-save/);
@@ -1035,7 +1058,7 @@ assert.equal(corruptModel.rows.every((row) => row.overrideStatus === "defaultSee
 const initializeModel = editor.initializeHouseholdExpenseAccountPolicyAdminEditor();
 assert.ok(initializeModel, "initializer should return a model when host exists");
 assert.equal(host.listenerType, "click", "initializer should attach a delegated click handler once");
-assert.match(host.innerHTML, /Lifestyle Range Overrides/);
+assert.match(host.innerHTML, /Income Impact Adjustment Controls/);
 assert.match(host.innerHTML, /Food at Home Floor Assumptions/);
 assert.match(host.innerHTML, /data-household-expense-policy-save/);
 assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);

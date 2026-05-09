@@ -364,6 +364,11 @@ assert.deepEqual(
 );
 
 const missingHtml = adminDisplay.renderHouseholdExpensePolicyDisplay(missingModel);
+assert.match(missingHtml, /data-household-expense-policy-diagnostics/);
+assert.match(missingHtml, /Advanced \/ Diagnostics/);
+assert.match(missingHtml, /data-household-expense-policy-diagnostics-body/);
+assert.match(missingHtml, /data-household-expense-policy-source-summary/);
+assert.doesNotMatch(missingHtml, /<details\b[^>]*data-household-expense-policy-diagnostics[^>]*\bopen\b/);
 assert.match(missingHtml, /Default seed policy only/);
 assert.match(missingHtml, /Lifestyle range rows/);
 assert.match(missingHtml, /Compression policy rows/);
@@ -424,6 +429,7 @@ assert.match(missingHtml, /Healthcare/);
 assert.match(missingHtml, /Childcare/);
 assert.match(missingHtml, /Insurance/);
 assert.match(missingHtml, /Giving/);
+assert.doesNotMatch(missingHtml, /Review-only/);
 assert.doesNotMatch(missingHtml, /<input\b|<select\b|<button\b|data-household-expense-policy-save/);
 const bucketSummaryStart = missingHtml.indexOf("data-household-expense-planning-bucket-summary");
 const bucketSummaryEnd = missingHtml.indexOf("data-household-expense-policy-protected-summary");
