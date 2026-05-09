@@ -3,7 +3,6 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   const CALCULATION_METHOD = "income-impact-lifestyle-scenario-v1";
-  const LEGACY_FALLBACK_TRACE_MODE = "lifestyleScenarioOnly";
   const MIN_SLIDER_VALUE = -100;
   const MAX_SLIDER_VALUE = 100;
   const DEFAULT_COMPARISON_SCENARIO_ID = "income-impact-lifestyle-adjusted-comparison";
@@ -104,516 +103,6 @@
     ));
   }
 
-  function hasOwn(object, key) {
-    return Object.prototype.hasOwnProperty.call(Object(object), key);
-  }
-
-  // Explicit legacy fallback helpers. Stream activeGraphAdjustments is the default
-  // when its runtime inputs are available; these helpers remain for explicit
-  // legacy and direct legacy comparison checks during the transition.
-  function getLegacyExpenses(input) {
-    if (Array.isArray(input?.expenses)) {
-      return input.expenses;
-    }
-
-    if (Array.isArray(input?.baselineExpenses)) {
-      return input.baselineExpenses;
-    }
-
-    if (Array.isArray(input?.expenseRecords)) {
-      return input.expenseRecords;
-    }
-
-    if (Array.isArray(input?.expenseFacts?.expenses)) {
-      return input.expenseFacts.expenses;
-    }
-
-    return [];
-  }
-
-  function getTypeKey(expense) {
-    return normalizeString(expense && (expense.expenseTypeKey || expense.typeKey));
-  }
-
-  function getExpenseId(expense, index) {
-    return normalizeString(expense && (expense.expenseId || expense.id || expense.recordId || expense.sourceId))
-      || `expense-${index + 1}`;
-  }
-
-  function getExpenseLabel(expense, policy, index) {
-    return normalizeString(expense && (expense.label || expense.displayName || expense.name))
-      || normalizeString(policy && policy.displayName)
-      || getTypeKey(expense)
-      || `Expense ${index + 1}`;
-  }
-
-  function getMonthlyAmount(expense) {
-    const direct = [
-      expense && expense.monthlyAmount,
-      expense && expense.monthlyEquivalent,
-      expense && expense.monthlyEquivalentAmount,
-      expense && expense.currentMonthlyAmount,
-      expense && expense.baselineMonthlyAmount,
-      expense && expense.amountMonthly
-    ];
-
-    for (let index = 0; index < direct.length; index += 1) {
-      const value = toOptionalNumber(direct[index]);
-      if (value != null) {
-        return value;
-      }
-    }
-
-    const amount = toOptionalNumber(expense && expense.amount);
-    if (amount == null) {
-      return null;
-    }
-
-    const frequency = normalizeString(expense && expense.frequency).toLowerCase();
-    if (!frequency || frequency === "monthly" || frequency === "month") {
-      return amount;
-    }
-    if (frequency === "annual" || frequency === "yearly" || frequency === "year") {
-      return amount / 12;
-    }
-    if (frequency === "quarterly" || frequency === "quarter") {
-      return amount / 3;
-    }
-    if (frequency === "weekly" || frequency === "week") {
-      return amount * 52 / 12;
-    }
-    if (frequency === "biweekly" || frequency === "bi-weekly") {
-      return amount * 26 / 12;
-    }
-    if (frequency === "semimonthly" || frequency === "semi-monthly") {
-      return amount * 2;
-    }
-
-    return null;
-  }
-
-  function isUsablePolicyRuleList(value) {
-    return Array.isArray(value) && value.some(function (candidate) {
-      return isPlainObject(candidate)
-        && (
-          normalizeString(candidate.expenseTypeKey)
-          || normalizeString(candidate.typeKey)
-          || normalizeString(candidate.categoryKey)
-        );
-    });
-  }
-
-  function makePolicyResolverFromRules(policyRules) {
-    const safePolicyRules = policyRules.filter(isPlainObject).map(clonePlainValue);
-    return function resolveFromRules(expenseLike) {
-      const typeKey = getTypeKey(expenseLike);
-      const categoryKey = normalizeString(expenseLike && expenseLike.categoryKey);
-      let rule = null;
-      if (typeKey) {
-        rule = safePolicyRules.find(function (candidate) {
-          return normalizeString(candidate && candidate.expenseTypeKey) === typeKey;
-        });
-      }
-      if (!rule && categoryKey) {
-        rule = safePolicyRules.find(function (candidate) {
-          return normalizeString(candidate && candidate.categoryKey) === categoryKey && candidate.sliderEligible === false;
-        }) || safePolicyRules.find(function (candidate) {
-          return normalizeString(candidate && candidate.categoryKey) === categoryKey;
-        });
-      }
-      return rule ? clonePlainValue(rule) : null;
-    };
-  }
-
-  function getExplicitResolvedLifestylePolicies(input) {
-    const candidates = [
-      { path: "resolvedLifestyleRangePolicies", owner: input },
-      { path: "resolvedHouseholdExpensePolicy.resolvedLifestyleRangePolicies", owner: input?.resolvedHouseholdExpensePolicy },
-      { path: "householdExpenseAccountPolicy.resolvedLifestyleRangePolicies", owner: input?.householdExpenseAccountPolicy },
-      { path: "accountPolicyResolution.resolvedLifestyleRangePolicies", owner: input?.accountPolicyResolution }
-    ];
-
-    for (let index = 0; index < candidates.length; index += 1) {
-      const candidate = candidates[index];
-      if (isPlainObject(candidate.owner) && hasOwn(candidate.owner, "resolvedLifestyleRangePolicies")) {
-        return {
-          provided: true,
-          path: candidate.path,
-          value: candidate.owner.resolvedLifestyleRangePolicies
-        };
-      }
-    }
-
-    return {
-      provided: false,
-      path: null,
-      value: null
-    };
-  }
-
-  function buildLegacyPolicyResolver(input, warnings, dataGaps) {
-    const explicitResolved = getExplicitResolvedLifestylePolicies(input);
-    let fallbackPolicyUsed = false;
-
-    if (explicitResolved.provided) {
-      if (isUsablePolicyRuleList(explicitResolved.value)) {
-        return {
-          resolvePolicy: makePolicyResolverFromRules(explicitResolved.value),
-          policySource: "resolvedAccountPolicy",
-          policySourcePath: explicitResolved.path,
-          fallbackPolicyUsed: false
-        };
-      }
-
-      fallbackPolicyUsed = true;
-      const issue = makeIssue(
-        "invalid-resolved-lifestyle-range-policy",
-        "Resolved lifestyle range policy input was missing or invalid; MODEL90 seed policy was used as a safe fallback.",
-        [explicitResolved.path]
-      );
-      warnings.push(clonePlainValue(issue));
-      dataGaps.push(issue);
-    }
-
-    if (typeof input?.policyResolver === "function") {
-      return {
-        resolvePolicy: input.policyResolver,
-        policySource: "fallbackPolicy",
-        policySourcePath: "policyResolver",
-        fallbackPolicyUsed: true
-      };
-    }
-
-    if (typeof input?.resolveLifestyleRangePolicy === "function") {
-      return {
-        resolvePolicy: input.resolveLifestyleRangePolicy,
-        policySource: "fallbackPolicy",
-        policySourcePath: "resolveLifestyleRangePolicy",
-        fallbackPolicyUsed: true
-      };
-    }
-
-    const policyRules = Array.isArray(input?.lifestyleRangePolicies)
-      ? input.lifestyleRangePolicies
-      : Array.isArray(input?.lifestyleRangePolicyRules)
-        ? input.lifestyleRangePolicyRules
-        : null;
-
-    if (policyRules) {
-      if (isUsablePolicyRuleList(policyRules)) {
-        return {
-          resolvePolicy: makePolicyResolverFromRules(policyRules),
-          policySource: "fallbackPolicy",
-          policySourcePath: Array.isArray(input?.lifestyleRangePolicies) ? "lifestyleRangePolicies" : "lifestyleRangePolicyRules",
-          fallbackPolicyUsed: true
-        };
-      }
-
-      fallbackPolicyUsed = true;
-      const issue = makeIssue(
-        "invalid-lifestyle-range-policy-rules",
-        "Lifestyle range policy rules were invalid; MODEL90 seed policy was used as a safe fallback.",
-        [Array.isArray(input?.lifestyleRangePolicies) ? "lifestyleRangePolicies" : "lifestyleRangePolicyRules"]
-      );
-      warnings.push(clonePlainValue(issue));
-      dataGaps.push(issue);
-    }
-
-    const policyApi = lensAnalysis.householdExpenseLifestyleRangePolicy;
-    if (policyApi && typeof policyApi.resolveLifestyleRangePolicy === "function") {
-      return {
-        resolvePolicy: policyApi.resolveLifestyleRangePolicy,
-        policySource: fallbackPolicyUsed ? "fallbackPolicy" : "defaultSeedPolicy",
-        policySourcePath: "LensApp.lensAnalysis.householdExpenseLifestyleRangePolicy",
-        fallbackPolicyUsed
-      };
-    }
-
-    const missingIssue = makeIssue(
-      "missing-lifestyle-range-policy-source",
-      "No lifestyle range policy source was available; all expenses were treated as fixed.",
-      ["resolvedLifestyleRangePolicies", "householdExpenseLifestyleRangePolicy"]
-    );
-    warnings.push(clonePlainValue(missingIssue));
-    dataGaps.push(missingIssue);
-    return {
-      resolvePolicy: function missingPolicyResolver() {
-        return null;
-      },
-      policySource: "fallbackPolicy",
-      policySourcePath: null,
-      fallbackPolicyUsed: true
-    };
-  }
-
-  function isGeneratedDebtExpense(expense) {
-    const sourceOwnedBy = normalizeString(expense && expense.sourceOwnedBy);
-    const sourceKey = normalizeString(expense && expense.sourceKey);
-    const sourcePath = normalizeString(expense && expense.sourcePath);
-    const duplicateProtectionKey = normalizeString(expense && expense.duplicateProtectionKey);
-    const categoryKey = normalizeString(expense && expense.categoryKey);
-    return expense?.isDebtPaymentExpense === true
-      || expense?.generatedOnly === true && categoryKey === "debtObligations"
-      || sourceOwnedBy === "debtRecords"
-      || sourceKey === "debtRecords"
-      || sourcePath.includes("debtRecords")
-      || duplicateProtectionKey.includes("debt-payment")
-      || duplicateProtectionKey.includes("debtRecords")
-      || categoryKey === "debtObligations";
-  }
-
-  function resolveDefaultSeedLifestylePolicy(expense, policy) {
-    const policyApi = lensAnalysis.householdExpenseLifestyleRangePolicy;
-    if (!policyApi || typeof policyApi.resolveLifestyleRangePolicy !== "function") {
-      return null;
-    }
-
-    const expenseLike = Object.assign({}, isPlainObject(expense) ? expense : {}, {
-      expenseTypeKey: getTypeKey(expense) || normalizeString(policy && policy.expenseTypeKey),
-      categoryKey: normalizeString(expense && expense.categoryKey) || normalizeString(policy && policy.categoryKey)
-    });
-    return policyApi.resolveLifestyleRangePolicy(expenseLike);
-  }
-
-  function isDefaultSeedProtectedLifestyleExpense(expense, policy) {
-    const seedPolicy = resolveDefaultSeedLifestylePolicy(expense, policy);
-    if (!seedPolicy) {
-      return false;
-    }
-
-    const seedBehavior = normalizeString(seedPolicy.rangeBehavior);
-    const seedDecision = normalizeString(seedPolicy.sourcePolicyDecision);
-    return seedPolicy.sliderEligible !== true
-      && (
-        seedBehavior === "fixed"
-        || seedBehavior === "reviewOnly"
-        || seedDecision === "NO"
-        || seedDecision === "INTERVENTION"
-        || seedDecision === "REVIEW"
-      );
-  }
-
-  function findThresholdRule(input, expense, policy) {
-    const thresholdRules = Array.isArray(input?.resolvedThresholds)
-      ? input.resolvedThresholds
-      : Array.isArray(input?.thresholdRules)
-        ? input.thresholdRules
-        : Array.isArray(input?.defaultThresholds)
-          ? input.defaultThresholds
-          : [];
-    const typeKey = getTypeKey(expense) || normalizeString(policy && policy.expenseTypeKey);
-    const categoryKey = normalizeString(expense && expense.categoryKey) || normalizeString(policy && policy.categoryKey);
-
-    return thresholdRules.find(function (rule) {
-      return normalizeString(rule && rule.expenseTypeKey) === typeKey;
-    }) || thresholdRules.find(function (rule) {
-      return normalizeString(rule && rule.categoryKey) === categoryKey;
-    }) || null;
-  }
-
-  function resolveThresholdMonthlyAmount(rule, tierKey, input) {
-    if (!isPlainObject(rule) || !tierKey || tierKey === "notApplicable") {
-      return null;
-    }
-
-    const tierValue = toOptionalNumber(rule.tiers && rule.tiers[tierKey]);
-    if (tierValue == null) {
-      return null;
-    }
-
-    const householdFacts = input?.householdFacts || {};
-    const basis = normalizeString(rule.thresholdBasis);
-    if (basis === "perHouseholdMemberMonthly") {
-      const count = toOptionalNumber(householdFacts.householdMemberCount);
-      return count && count > 0 ? tierValue * count : null;
-    }
-    if (basis === "perDependentMonthly") {
-      const count = toOptionalNumber(householdFacts.dependentCount);
-      return count && count > 0 ? tierValue * count : null;
-    }
-    if (basis === "percentOfIncome") {
-      const annualIncome = toOptionalNumber(householdFacts.netAnnualIncome || householdFacts.survivorNetAnnualIncome);
-      return annualIncome && annualIncome > 0 ? annualIncome * tierValue / 100 / 12 : null;
-    }
-    if (
-      basis === "perHouseholdMonthly"
-      || basis === "fixedMonthly"
-      || basis === "advisorDefined"
-      || !basis
-    ) {
-      return tierValue;
-    }
-
-    return null;
-  }
-
-  function getProtectedFloorAmount(rule) {
-    const value = toOptionalNumber(rule && rule.protectedFloor);
-    return value != null && value >= 0 ? value : null;
-  }
-
-  function calculateRangeAmounts(expense, policy, baselineMonthlyAmount, input) {
-    const floorRatio = toOptionalNumber(policy && policy.conservativeFloorRatio);
-    const ceilingRatio = toOptionalNumber(policy && policy.elevatedCeilingRatio);
-    const thresholdRule = findThresholdRule(input, expense, policy);
-    const thresholdFloor = resolveThresholdMonthlyAmount(thresholdRule, policy && policy.floorTierKey, input);
-    const thresholdCeiling = resolveThresholdMonthlyAmount(thresholdRule, policy && policy.ceilingTierKey, input);
-    const protectedFloor = getProtectedFloorAmount(thresholdRule);
-    let floorMonthlyAmount = baselineMonthlyAmount;
-    let ceilingMonthlyAmount = baselineMonthlyAmount;
-    const floorSources = [];
-    const ceilingSources = [];
-
-    if (policy && policy.allowBelowBaseline === true) {
-      floorMonthlyAmount = baselineMonthlyAmount * (floorRatio == null ? 1 : floorRatio);
-      floorSources.push("conservativeFloorRatio");
-      if (thresholdFloor != null) {
-        floorMonthlyAmount = Math.max(floorMonthlyAmount, thresholdFloor);
-        floorSources.push("floorTierKey");
-      }
-      if (protectedFloor != null && normalizeString(policy.protectedFloorPolicy).includes("Threshold")) {
-        floorMonthlyAmount = Math.max(floorMonthlyAmount, protectedFloor);
-        floorSources.push("protectedFloor");
-      }
-    }
-
-    if (policy && policy.allowAboveBaseline === true) {
-      ceilingMonthlyAmount = baselineMonthlyAmount * (ceilingRatio == null ? 1 : ceilingRatio);
-      ceilingSources.push("elevatedCeilingRatio");
-      if (thresholdCeiling != null) {
-        const multiplier = toOptionalNumber(policy.ceilingTierMultiplier) || 1;
-        const tierCeiling = thresholdCeiling * multiplier;
-        ceilingMonthlyAmount = Math.min(ceilingMonthlyAmount, tierCeiling);
-        ceilingSources.push("ceilingTierKey");
-      }
-    }
-
-    floorMonthlyAmount = Math.min(baselineMonthlyAmount, Math.max(0, floorMonthlyAmount));
-    ceilingMonthlyAmount = Math.max(baselineMonthlyAmount, ceilingMonthlyAmount);
-
-    return {
-      floorMonthlyAmount: roundMoney(floorMonthlyAmount),
-      ceilingMonthlyAmount: roundMoney(ceilingMonthlyAmount),
-      floorSource: floorSources.length ? floorSources.join("+") : "baseline",
-      ceilingSource: ceilingSources.length ? ceilingSources.join("+") : "baseline",
-      thresholdId: normalizeString(thresholdRule && thresholdRule.thresholdId) || null
-    };
-  }
-
-  function getFixedReasonCode(expense, policy) {
-    if (isGeneratedDebtExpense(expense)) {
-      return "generated-debt-fixed";
-    }
-
-    const typeKey = getTypeKey(expense);
-    if (typeKey === "rentOrMortgagePayment") {
-      return "housing-payment-fixed";
-    }
-
-    if (isDefaultSeedProtectedLifestyleExpense(expense, policy)) {
-      return "protected-expense-fixed";
-    }
-
-    const behavior = normalizeString(policy && policy.rangeBehavior);
-    if (behavior === "reviewOnly") {
-      return "review-only-fixed";
-    }
-    if (behavior === "fixed") {
-      return "fixed-expense";
-    }
-    if (!policy) {
-      return "missing-lifestyle-range-policy";
-    }
-
-    return "slider-ineligible";
-  }
-
-  function adjustEligibleExpense(baselineMonthlyAmount, range, sliderValue) {
-    if (sliderValue < 0) {
-      return baselineMonthlyAmount - ((baselineMonthlyAmount - range.floorMonthlyAmount) * Math.abs(sliderValue) / 100);
-    }
-    if (sliderValue > 0) {
-      return baselineMonthlyAmount + ((range.ceilingMonthlyAmount - baselineMonthlyAmount) * sliderValue / 100);
-    }
-    return baselineMonthlyAmount;
-  }
-
-  function createLegacyAdjustedExpense(expense, policy, index, sliderValue, input, warnings) {
-    const baselineRaw = getMonthlyAmount(expense);
-    const baselineMonthlyAmount = roundMoney(baselineRaw == null ? 0 : Math.max(0, baselineRaw));
-    const typeKey = getTypeKey(expense) || normalizeString(policy && policy.expenseTypeKey);
-    const categoryKey = normalizeString(expense && expense.categoryKey) || normalizeString(policy && policy.categoryKey);
-    const eligibleByPolicy = Boolean(policy && policy.sliderEligible === true);
-    const sliderEligible = eligibleByPolicy
-      && !isGeneratedDebtExpense(expense)
-      && !isDefaultSeedProtectedLifestyleExpense(expense, policy);
-    const range = calculateRangeAmounts(expense, policy, baselineMonthlyAmount, input);
-    let adjustedMonthlyAmount = baselineMonthlyAmount;
-    let reasonCode = "slider-baseline";
-
-    if (baselineRaw == null) {
-      warnings.push(makeIssue(
-        "missing-monthly-expense-amount",
-        "Expense did not include a usable monthly amount; it was treated as zero for lifestyle range output.",
-        [expense && expense.sourcePath],
-        {
-          expenseTypeKey: typeKey || null,
-          expenseId: getExpenseId(expense, index)
-        }
-      ));
-    }
-
-    if (sliderEligible) {
-      adjustedMonthlyAmount = adjustEligibleExpense(baselineMonthlyAmount, range, sliderValue);
-      adjustedMonthlyAmount = clamp(adjustedMonthlyAmount, range.floorMonthlyAmount, range.ceilingMonthlyAmount);
-      reasonCode = sliderValue < 0
-        ? "slider-conservative-range"
-        : sliderValue > 0
-          ? "slider-elevated-range"
-          : "slider-baseline";
-    } else {
-      reasonCode = getFixedReasonCode(expense, policy);
-    }
-
-    adjustedMonthlyAmount = roundMoney(adjustedMonthlyAmount);
-
-    return {
-      expenseId: getExpenseId(expense, index),
-      label: getExpenseLabel(expense, policy, index),
-      expenseTypeKey: typeKey || null,
-      categoryKey: categoryKey || null,
-      sourceKey: normalizeString(expense && expense.sourceKey) || null,
-      sourceOwnedBy: normalizeString(expense && expense.sourceOwnedBy) || null,
-      ownedByField: normalizeString(expense && expense.ownedByField) || null,
-      sourcePath: normalizeString(expense && expense.sourcePath) || null,
-      normalizedSourcePath: normalizeString(expense && expense.metadata && expense.metadata.normalizedSourcePath) || null,
-      duplicateProtectionKey: normalizeString(expense && expense.duplicateProtectionKey) || null,
-      baselineMonthlyAmount,
-      adjustedMonthlyAmount,
-      monthlyDelta: roundMoney(adjustedMonthlyAmount - baselineMonthlyAmount),
-      sliderEligible,
-      rangeBehavior: normalizeString(policy && policy.rangeBehavior) || "fixed",
-      conservativeFloorRatio: policy && typeof policy.conservativeFloorRatio === "number" ? policy.conservativeFloorRatio : null,
-      elevatedCeilingRatio: policy && typeof policy.elevatedCeilingRatio === "number" ? policy.elevatedCeilingRatio : null,
-      floorMonthlyAmount: range.floorMonthlyAmount,
-      ceilingMonthlyAmount: range.ceilingMonthlyAmount,
-      floorSource: range.floorSource,
-      ceilingSource: range.ceilingSource,
-      thresholdId: range.thresholdId,
-      isGeneratedExpense: expense?.isGeneratedExpense === true,
-      isScalarHouseholdExpense: expense?.isScalarHouseholdExpense === true,
-      isCompressionEligibleSource: expense?.isCompressionEligibleSource === true,
-      isDebtPaymentExpense: expense?.isDebtPaymentExpense === true,
-      reasonCode
-    };
-  }
-
-  function sumMonthly(items, key) {
-    return roundMoney(items.reduce(function (total, item) {
-      return total + (toOptionalNumber(item && item[key]) || 0);
-    }, 0));
-  }
-
   function getInputBasePostDeathSeries(input) {
     if (isPlainObject(input?.basePostDeathSeries)) {
       return input.basePostDeathSeries;
@@ -679,11 +168,14 @@
 
     if (input?.useStreamHouseholdExpenseAdjustments === false || input?.options?.useStreamHouseholdExpenseAdjustments === false) {
       return {
-        mode: "legacy",
+        mode: "streamUnavailable",
         requestedMode: "legacy",
         streamDefaultUsed: false,
         legacyFallbackUsed: false,
-        legacyFallbackReason: null
+        legacyFallbackReason: null,
+        streamInputMissing: false,
+        streamInputMissingReasons: [],
+        legacyModeRetired: true
       };
     }
 
@@ -710,11 +202,14 @@
 
     if (mode === "legacy") {
       return {
-        mode: "legacy",
+        mode: "streamUnavailable",
         requestedMode: "legacy",
         streamDefaultUsed: false,
         legacyFallbackUsed: false,
-        legacyFallbackReason: null
+        legacyFallbackReason: null,
+        streamInputMissing: false,
+        streamInputMissingReasons: [],
+        legacyModeRetired: true
       };
     }
 
@@ -751,9 +246,21 @@
       streamDefaultUsed: resolution.streamDefaultUsed === true,
       streamInputMissing: resolution.streamInputMissing === true,
       streamInputMissingReasons,
+      legacyModeRetired: resolution.legacyModeRetired === true,
       legacyFallbackUsed: resolution.legacyFallbackUsed === true,
       legacyFallbackReason: normalizeString(resolution.legacyFallbackReason) || null
     };
+  }
+
+  function makeRetiredLegacyModeIssue() {
+    return makeIssue(
+      "retired-household-expense-legacy-mode",
+      "Legacy household expense lifestyle scenario mode has been retired; stream inputs are required for graph adjustment output.",
+      ["householdExpenseStreamPolicyMode"],
+      {
+        requestedMode: "legacy"
+      }
+    );
   }
 
   function makeMissingStreamInputIssue(reasons, requestedMode) {
@@ -1061,162 +568,6 @@
     };
   }
 
-  function isOngoingSupportReconciledExpense(item) {
-    const sourceOwnedBy = normalizeString(item && item.sourceOwnedBy);
-    const normalizedSourcePath = normalizeString(item && item.normalizedSourcePath);
-    return sourceOwnedBy === "ongoingSupport"
-      && item?.isScalarHouseholdExpense === true
-      && item?.isCompressionEligibleSource === true
-      && (
-        Boolean(normalizedSourcePath && normalizedSourcePath.includes("lensModel.ongoingSupport."))
-        || Boolean(normalizeString(item && item.ownedByField))
-        || Boolean(normalizeString(item && item.sourceKey))
-      );
-  }
-
-  function buildLegacyReconciledAdjustmentSummary(lifestyleScenario, warnings, dataGaps) {
-    const adjustedExpenses = Array.isArray(lifestyleScenario?.adjustedExpenses)
-      ? lifestyleScenario.adjustedExpenses
-      : [];
-    const graphAdjustmentItems = [];
-    const unreconciledItems = [];
-    let graphMonthlyDelta = 0;
-    let graphBaselineMonthlyTotal = 0;
-
-    adjustedExpenses.forEach(function (item) {
-      const monthlyDelta = toOptionalNumber(item?.monthlyDelta) || 0;
-      const baselineMonthlyAmount = toOptionalNumber(item?.baselineMonthlyAmount) || 0;
-      const next = clonePlainValue(item);
-      next.graphMonthlyDelta = 0;
-      next.baseNeedReconciliationStatus = "not-required";
-      next.baseNeedReconciliationReason = "no-graph-moving-delta";
-
-      if (item?.sliderEligible === true && monthlyDelta !== 0) {
-        if (isOngoingSupportReconciledExpense(item)) {
-          next.graphMonthlyDelta = roundMoney(monthlyDelta);
-          next.baseNeedReconciliationStatus = "reconciled";
-          next.baseNeedReconciliationReason = "source-owned-ongoing-support-scalar";
-          graphMonthlyDelta = roundMoney(graphMonthlyDelta + monthlyDelta);
-          graphBaselineMonthlyTotal = roundMoney(graphBaselineMonthlyTotal + baselineMonthlyAmount);
-        } else {
-          next.baseNeedReconciliationStatus = "unreconciled";
-          next.baseNeedReconciliationReason = "not-proven-in-base-survivor-need-stream";
-          unreconciledItems.push(next);
-        }
-      }
-
-      graphAdjustmentItems.push(next);
-    });
-
-    if (unreconciledItems.length) {
-      const sourcePaths = uniqueStrings(unreconciledItems.map(function (item) {
-        return item.sourcePath;
-      }));
-      const details = {
-        expenseCount: unreconciledItems.length,
-        monthlyDeltaExcluded: roundMoney(unreconciledItems.reduce(function (total, item) {
-          return total + (toOptionalNumber(item.monthlyDelta) || 0);
-        }, 0)),
-        expenseTypeKeys: uniqueStrings(unreconciledItems.map(function (item) {
-          return item.expenseTypeKey;
-        }))
-      };
-      const issue = makeIssue(
-        "unreconciled-lifestyle-expense-facts-excluded-from-graph",
-        "Lifestyle expense facts with slider movement were not proven to be represented in the base survivor need stream, so their deltas were excluded from graph adjustment.",
-        sourcePaths,
-        details
-      );
-      dataGaps.push(issue);
-      warnings.push(clonePlainValue(issue));
-    }
-
-    return {
-      graphMonthlyDelta: roundMoney(graphMonthlyDelta),
-      graphBaselineMonthlyTotal: roundMoney(graphBaselineMonthlyTotal),
-      graphAdjustmentItems,
-      unreconciledItems
-    };
-  }
-
-  function getBaseMonthlySurvivorNeed(basePostDeathSeries) {
-    const points = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
-    const point = points.find(function (candidate) {
-      return toOptionalNumber(candidate?.survivorNeeds) != null
-        || toOptionalNumber(candidate?.essentialNeeds) != null
-        || toOptionalNumber(candidate?.discretionaryNeeds) != null;
-    });
-    if (!point) {
-      return {
-        value: null,
-        sourcePath: null
-      };
-    }
-
-    const survivorNeeds = toOptionalNumber(point.survivorNeeds);
-    if (survivorNeeds != null) {
-      return {
-        value: roundMoney(survivorNeeds),
-        sourcePath: "basePostDeathSeries.points.survivorNeeds"
-      };
-    }
-
-    return {
-      value: roundMoney((toOptionalNumber(point.essentialNeeds) || 0) + (toOptionalNumber(point.discretionaryNeeds) || 0)),
-      sourcePath: "basePostDeathSeries.points.essentialNeeds+discretionaryNeeds"
-    };
-  }
-
-  function validateGraphAdjustmentAgainstBaseNeeds(reconciledSummary, basePostDeathSeries, warnings, dataGaps) {
-    if (!reconciledSummary || reconciledSummary.graphMonthlyDelta === 0) {
-      return true;
-    }
-
-    const baseNeed = getBaseMonthlySurvivorNeed(basePostDeathSeries);
-    if (baseNeed.value == null) {
-      const issue = makeIssue(
-        "missing-base-survivor-need-for-lifestyle-reconciliation",
-        "Base post-death survivor need values were unavailable, so lifestyle graph adjustment was kept as a no-op.",
-        ["basePostDeathSeries.points.survivorNeeds", "basePostDeathSeries.points.essentialNeeds", "basePostDeathSeries.points.discretionaryNeeds"]
-      );
-      dataGaps.push(issue);
-      warnings.push(clonePlainValue(issue));
-      return false;
-    }
-
-    if (reconciledSummary.graphBaselineMonthlyTotal > roundMoney(baseNeed.value + 1)) {
-      const issue = makeIssue(
-        "lifestyle-reconciled-expenses-exceed-base-survivor-needs",
-        "Reconciled lifestyle expense facts exceed the base survivor need stream, so graph adjustment was kept as a no-op.",
-        [baseNeed.sourcePath],
-        {
-          reconciledExpenseBaseline: reconciledSummary.graphBaselineMonthlyTotal,
-          baseMonthlySurvivorNeed: baseNeed.value
-        }
-      );
-      dataGaps.push(issue);
-      warnings.push(clonePlainValue(issue));
-      return false;
-    }
-
-    return true;
-  }
-
-  function getPointMonthIndex(point, index, warnings, dataGaps) {
-    const monthIndex = toOptionalNumber(point && point.monthIndex);
-    if (monthIndex != null && monthIndex >= 0) {
-      return monthIndex;
-    }
-    const issue = makeIssue(
-      "missing-post-death-month-index-for-lifestyle-comparison",
-      "A post-death point was missing an explicit monthIndex, so lifestyle graph adjustment was kept as a no-op.",
-      [`basePostDeathSeries.points.${index}.monthIndex`]
-    );
-    dataGaps.push(issue);
-    warnings.push(clonePlainValue(issue));
-    return null;
-  }
-
   function recalculateLifestyleDepletion(points, fallbackDate) {
     const safePoints = Array.isArray(points) ? points : [];
     const depletedPoint = safePoints.find(function (point) {
@@ -1258,177 +609,77 @@
     });
   }
 
-  function buildAdjustedPostDeathSeries(basePostDeathSeries, monthlyDelta, lifestyleScenario, warnings, dataGaps) {
-    const basePoints = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
-    const canUseMonthIndexes = basePoints.every(function (basePoint, index) {
-      return getPointMonthIndex(basePoint, index, warnings, dataGaps) != null;
-    });
-    const effectiveMonthlyDelta = canUseMonthIndexes ? monthlyDelta : 0;
-
-    const points = basePoints.map(function (basePoint, index) {
-      const point = clonePlainValue(basePoint);
-      const monthIndex = canUseMonthIndexes ? getPointMonthIndex(basePoint, index, warnings, dataGaps) : 0;
-      const elapsedMonths = Math.max(0, monthIndex || 0);
-      const priorElapsedMonths = Math.max(0, elapsedMonths - 1);
-      const cumulativeExpenseDelta = roundMoney(effectiveMonthlyDelta * elapsedMonths);
-      const priorCumulativeExpenseDelta = roundMoney(effectiveMonthlyDelta * priorElapsedMonths);
-      const baseSurvivorNeeds = toOptionalNumber(basePoint.survivorNeeds);
-      const baseDiscretionaryNeeds = toOptionalNumber(basePoint.discretionaryNeeds);
-      const baseNetUse = toOptionalNumber(basePoint.netUse);
-      const baseStartingResources = toOptionalNumber(basePoint.startingResources);
-      const baseEndingResources = toOptionalNumber(basePoint.endingResources);
-      const baseAvailableResources = toOptionalNumber(basePoint.availableResources);
-      const endingResources = baseEndingResources == null ? null : roundMoney(baseEndingResources - cumulativeExpenseDelta);
-      const availableResources = endingResources == null
-        ? (baseAvailableResources == null ? null : roundMoney(baseAvailableResources - cumulativeExpenseDelta))
-        : roundMoney(Math.max(0, endingResources));
-      const accumulatedUnmetNeed = endingResources == null ? null : roundMoney(Math.max(0, -endingResources));
-      const survivorNeeds = baseSurvivorNeeds == null ? point.survivorNeeds : roundMoney(Math.max(0, baseSurvivorNeeds + effectiveMonthlyDelta));
-      const discretionaryNeeds = baseDiscretionaryNeeds == null ? point.discretionaryNeeds : roundMoney(Math.max(0, baseDiscretionaryNeeds + effectiveMonthlyDelta));
-      const netUse = baseNetUse == null ? point.netUse : roundMoney(Math.max(0, baseNetUse + effectiveMonthlyDelta));
-
-      return Object.assign({}, point, {
-        startingResources: baseStartingResources == null
-          ? point.startingResources
-          : roundMoney(baseStartingResources - priorCumulativeExpenseDelta),
-        discretionaryNeeds,
-        survivorNeeds,
-        netUse,
-        endingResources,
-        availableResources,
-        accumulatedUnmetNeed,
-        status: endingResources != null && endingResources <= 0 ? "depleted" : "available",
-        trace: Object.assign({}, isPlainObject(point.trace) ? point.trace : {}, {
-          lifestyleScenarioApplied: effectiveMonthlyDelta !== 0,
-          baseScenarioPointMutated: false,
-          lifestyleSliderValue: lifestyleScenario?.sliderValue ?? 0,
-          monthlyExpenseDeltaApplied: effectiveMonthlyDelta,
-          cumulativeExpenseDeltaApplied: cumulativeExpenseDelta,
-          elapsedMonthIndexUsed: elapsedMonths,
-          graphAdjustmentSource: "reconciled-lifestyle-expense-facts"
-        }),
-        sourcePaths: uniqueStrings([].concat(point.sourcePaths || [], ["lifestyleScenario.adjustedExpenses"]))
-      });
-    });
-
-    const depletion = recalculateLifestyleDepletion(points, basePostDeathSeries?.depletion?.depletionDate);
-    return {
-      points,
-      summary: summarizeLifestylePostDeathPoints(points, basePostDeathSeries?.summary),
-      depletion,
-      trace: {
-        effectiveMonthlyDelta,
-        monthIndexPolicy: canUseMonthIndexes ? "explicit-monthIndex" : "no-op-missing-monthIndex"
-      }
-    };
-  }
-
-  function buildLegacyLifestyleComparisonScenario(basePostDeathSeries, lifestyleScenario, input) {
-    const warnings = [];
-    const dataGaps = [];
-    const basePoints = Array.isArray(basePostDeathSeries?.points) ? basePostDeathSeries.points : [];
-    if (!isPlainObject(lifestyleScenario) || basePoints.length < 2) {
-      const issue = makeIssue(
-        "missing-base-post-death-series-for-lifestyle-comparison",
-        "Lifestyle comparison requires at least two base post-death points.",
-        ["basePostDeathSeries.points"]
-      );
-      dataGaps.push(issue);
-      warnings.push(clonePlainValue(issue));
-      return {
-        scenarioId: normalizeString(input?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
-        kind: "compression",
-        pathId: normalizeString(input?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
-        label: normalizeString(input?.options?.comparisonLabel) || "Lifestyle-adjusted projection",
-        status: "partial",
-        reductionsApplied: [],
-        pausesApplied: [],
-        postDeathSeries: {
-          points: clonePlainValue(basePoints),
-          summary: clonePlainValue(basePostDeathSeries?.summary || {}),
-          depletion: clonePlainValue(basePostDeathSeries?.depletion || {})
-        },
-        depletion: clonePlainValue(basePostDeathSeries?.depletion || {}),
-        accumulatedUnmetNeed: toOptionalNumber(basePostDeathSeries?.summary?.accumulatedUnmetNeed),
-        warnings,
-        dataGaps,
-        trace: {
-          calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
-          sourceCalculationMethod: lifestyleScenario?.trace?.calculationMethod || null,
-          sliderValue: lifestyleScenario?.sliderValue ?? 0,
-          monthlyDelta: lifestyleScenario?.monthlyDelta ?? 0,
-          graphMonthlyDelta: 0,
-          unreconciledMonthlyDeltaExcluded: lifestyleScenario?.monthlyDelta ?? 0,
-          baseScenarioMutated: false,
-          timingApplied: false,
-          graphPathId: normalizeString(input?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
-          baseNeedReconciliation: {
-            status: "partial",
-            policy: "base post-death series required",
-            graphAdjustmentItemCount: 0,
-            unreconciledItemCount: 0,
-            graphBaselineMonthlyTotal: 0
-          },
-          graphAdjustmentItems: [],
-          projectionSeriesApplied: false,
-          noOpComparison: true
-        }
-      };
-    }
-
-    const reconciledSummary = buildLegacyReconciledAdjustmentSummary(lifestyleScenario, warnings, dataGaps);
-    const canApplyGraphDelta = validateGraphAdjustmentAgainstBaseNeeds(reconciledSummary, basePostDeathSeries, warnings, dataGaps);
-    const requestedGraphMonthlyDelta = canApplyGraphDelta ? reconciledSummary.graphMonthlyDelta : 0;
-    const postDeathSeries = buildAdjustedPostDeathSeries(basePostDeathSeries, requestedGraphMonthlyDelta, lifestyleScenario, warnings, dataGaps);
-    const graphMonthlyDelta = postDeathSeries.trace?.effectiveMonthlyDelta ?? 0;
-    const status = dataGaps.length ? "partial" : (lifestyleScenario.status || "complete");
-
-    return {
-      scenarioId: normalizeString(input?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
-      kind: "compression",
-      pathId: normalizeString(input?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
-      label: normalizeString(input?.options?.comparisonLabel) || "Lifestyle-adjusted projection",
-      status,
-      reductionsApplied: [],
-      pausesApplied: [],
-      postDeathSeries,
-      depletion: postDeathSeries.depletion,
-      accumulatedUnmetNeed: postDeathSeries.summary.accumulatedUnmetNeed ?? null,
-      warnings,
-      dataGaps,
-      trace: {
-        calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
-        sourceCalculationMethod: lifestyleScenario.trace?.calculationMethod || null,
-        sliderValue: lifestyleScenario.sliderValue ?? 0,
-        monthlyDelta: lifestyleScenario.monthlyDelta ?? 0,
-        graphMonthlyDelta,
-        unreconciledMonthlyDeltaExcluded: roundMoney((lifestyleScenario.monthlyDelta || 0) - graphMonthlyDelta),
-        baseScenarioMutated: false,
-        timingApplied: false,
-        graphPathId: normalizeString(input?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
-        baseNeedReconciliation: {
-          status: dataGaps.length ? "partial" : "complete",
-          policy: "only source-owned ongoingSupport scalar household expense facts can move the graph",
-          graphAdjustmentItemCount: reconciledSummary.graphAdjustmentItems.filter(function (item) {
-            return toOptionalNumber(item.graphMonthlyDelta) !== 0;
-          }).length,
-          unreconciledItemCount: reconciledSummary.unreconciledItems.length,
-          graphBaselineMonthlyTotal: reconciledSummary.graphBaselineMonthlyTotal
-        },
-        graphAdjustmentItems: reconciledSummary.graphAdjustmentItems,
-        projectionSeriesApplied: graphMonthlyDelta !== 0,
-        noOpComparison: graphMonthlyDelta === 0
-      }
-    };
-  }
-
   function calculateIncomeImpactLifestyleComparisonScenario(input) {
     const sourceInput = isPlainObject(input) ? input : {};
-    const lifestyleScenario = isPlainObject(sourceInput.lifestyleScenario)
-      ? sourceInput.lifestyleScenario
-      : calculateIncomeImpactLifestyleScenario(sourceInput);
-    const basePostDeathSeries = getInputBasePostDeathSeries(sourceInput);
-    return buildLegacyLifestyleComparisonScenario(basePostDeathSeries, lifestyleScenario, sourceInput);
+    const issue = makeRetiredLegacyModeIssue();
+    return {
+      scenarioId: normalizeString(sourceInput?.options?.comparisonScenarioId) || DEFAULT_COMPARISON_SCENARIO_ID,
+      kind: "lifestyleComparison",
+      pathId: normalizeString(sourceInput?.options?.comparisonPathId) || DEFAULT_COMPARISON_PATH_ID,
+      label: normalizeString(sourceInput?.options?.comparisonLabel) || "Lifestyle-adjusted projection",
+      status: "partial",
+      reductionsApplied: [],
+      pausesApplied: [],
+      warnings: [clonePlainValue(issue)],
+      dataGaps: [issue],
+      trace: {
+        calculationMethod: "income-impact-lifestyle-comparison-retired-v1",
+        legacyModeRetired: true,
+        baseScenarioMutated: false,
+        projectionSeriesApplied: false,
+        noOpComparison: true
+      }
+    };
+  }
+
+  function buildStreamAdjustedExpenseRows(streamPreview) {
+    const rowAdjustments = Array.isArray(streamPreview?.householdExpenseAdjustmentResult?.rowAdjustments)
+      ? streamPreview.householdExpenseAdjustmentResult.rowAdjustments
+      : [];
+    return rowAdjustments.map(function (row) {
+      return Object.assign({}, clonePlainValue(row), {
+        sliderEligible: row?.graphAdjustable === true,
+        rangeBehavior: normalizeString(row?.adjustmentClass) || null
+      });
+    });
+  }
+
+  function sumStreamRows(rows, predicate) {
+    return roundMoney((Array.isArray(rows) ? rows : []).reduce(function (total, row) {
+      return total + (predicate(row) ? (toOptionalNumber(row?.baselineMonthlyAmount) || 0) : 0);
+    }, 0));
+  }
+
+  function applyStreamAdjustmentSummaryToOutput(output, streamPreview) {
+    const adjustmentResult = isPlainObject(streamPreview?.householdExpenseAdjustmentResult)
+      ? streamPreview.householdExpenseAdjustmentResult
+      : {};
+    const adjustedExpenses = buildStreamAdjustedExpenseRows(streamPreview);
+    const totalBaselineMonthlyExpenses = toOptionalNumber(adjustmentResult.totalBaselineMonthlyExpenses ?? adjustmentResult.baselineMonthlyTotal);
+    const totalAdjustedMonthlyExpenses = toOptionalNumber(adjustmentResult.totalAdjustedMonthlyExpenses ?? adjustmentResult.adjustedMonthlyTotal);
+    output.adjustedExpenses = adjustedExpenses;
+    output.totalBaselineMonthlyExpenses = totalBaselineMonthlyExpenses;
+    output.totalAdjustedMonthlyExpenses = totalAdjustedMonthlyExpenses;
+    output.monthlyDelta = toOptionalNumber(adjustmentResult.monthlyDelta) || 0;
+    output.fixedExpensesTotal = sumStreamRows(adjustedExpenses, function (row) {
+      return row?.graphAdjustable !== true;
+    });
+    output.sliderEligibleExpensesTotal = sumStreamRows(adjustedExpenses, function (row) {
+      return row?.graphAdjustable === true;
+    });
+    output.conservativeFloorTotal = null;
+    output.elevatedCeilingTotal = null;
+    output.trace.expenseCount = adjustedExpenses.length;
+    output.trace.sliderEligibleExpenseCount = adjustedExpenses.filter(function (item) {
+      return item.sliderEligible === true;
+    }).length;
+    output.trace.fixedExpenseCount = adjustedExpenses.filter(function (item) {
+      return item.sliderEligible !== true;
+    }).length;
+    output.trace.streamAdjustmentSummaryApplied = true;
+    output.trace.baselinePreservedAtZero = output.sliderValue === 0
+      ? totalBaselineMonthlyExpenses === totalAdjustedMonthlyExpenses
+      : null;
   }
 
   function calculateIncomeImpactLifestyleScenario(input) {
@@ -1449,61 +700,26 @@
       ));
     }
 
-    const expenses = getLegacyExpenses(sourceInput).filter(isPlainObject);
-    if (!expenses.length) {
-      dataGaps.push(makeIssue(
-        "missing-lifestyle-expenses",
-        "Lifestyle scenario requires expense facts or baseline expense records.",
-        ["expenses", "expenseFacts.expenses", "baselineExpenses"]
-      ));
-    }
-
-    const policyContext = buildLegacyPolicyResolver(sourceInput, warnings, dataGaps);
-    const adjustedExpenses = expenses.map(function (expense, index) {
-      const policy = policyContext.resolvePolicy(expense);
-      return createLegacyAdjustedExpense(expense, policy, index, sliderValue, sourceInput, warnings);
-    });
-
-    const totalBaselineMonthlyExpenses = sumMonthly(adjustedExpenses, "baselineMonthlyAmount");
-    const totalAdjustedMonthlyExpenses = sumMonthly(adjustedExpenses, "adjustedMonthlyAmount");
-    const sliderEligibleExpensesTotal = roundMoney(adjustedExpenses.reduce(function (total, item) {
-      return total + (item.sliderEligible ? item.baselineMonthlyAmount : 0);
-    }, 0));
-    const fixedExpensesTotal = roundMoney(totalBaselineMonthlyExpenses - sliderEligibleExpensesTotal);
-    const conservativeFloorTotal = sumMonthly(adjustedExpenses, "floorMonthlyAmount");
-    const elevatedCeilingTotal = sumMonthly(adjustedExpenses, "ceilingMonthlyAmount");
-
     const output = {
       status: dataGaps.length ? "partial" : "complete",
       sliderValue,
-      totalBaselineMonthlyExpenses,
-      totalAdjustedMonthlyExpenses,
-      monthlyDelta: roundMoney(totalAdjustedMonthlyExpenses - totalBaselineMonthlyExpenses),
-      adjustedExpenses,
-      fixedExpensesTotal,
-      sliderEligibleExpensesTotal,
-      conservativeFloorTotal,
-      elevatedCeilingTotal,
+      totalBaselineMonthlyExpenses: null,
+      totalAdjustedMonthlyExpenses: null,
+      monthlyDelta: 0,
+      fixedExpensesTotal: null,
+      sliderEligibleExpensesTotal: null,
+      conservativeFloorTotal: null,
+      elevatedCeilingTotal: null,
       warnings,
       dataGaps,
       trace: {
         calculationMethod: CALCULATION_METHOD,
-        mode: normalizeString(sourceInput.options && sourceInput.options.mode) || LEGACY_FALLBACK_TRACE_MODE,
-        policySource: policyContext.policySource,
-        policySourcePath: policyContext.policySourcePath,
-        fallbackPolicyUsed: policyContext.fallbackPolicyUsed === true,
-        resolvedAccountPolicyUsed: policyContext.policySource === "resolvedAccountPolicy",
+        mode: normalizeString(sourceInput.options && sourceInput.options.mode) || "householdExpenseStream",
         sliderValue,
-        expenseCount: adjustedExpenses.length,
-        sliderEligibleExpenseCount: adjustedExpenses.filter(function (item) {
-          return item.sliderEligible;
-        }).length,
-        fixedExpenseCount: adjustedExpenses.filter(function (item) {
-          return !item.sliderEligible;
-        }).length,
-        baselinePreservedAtZero: sliderValue === 0
-          ? totalBaselineMonthlyExpenses === totalAdjustedMonthlyExpenses
-          : null,
+        expenseCount: 0,
+        sliderEligibleExpenseCount: 0,
+        fixedExpenseCount: 0,
+        baselinePreservedAtZero: null,
         projectionSeriesApplied: false,
         projectionSeriesDeferred: true,
         timingApplied: false,
@@ -1520,7 +736,9 @@
     const streamPolicyMode = streamPolicyResolution.mode;
     Object.assign(output.trace, getHouseholdExpenseStreamPolicyTrace(streamPolicyResolution));
     if (streamPolicyMode === "streamUnavailable") {
-      const issue = makeMissingStreamInputIssue(streamPolicyResolution.streamInputMissingReasons, streamPolicyResolution.requestedMode);
+      const issue = streamPolicyResolution.legacyModeRetired === true
+        ? makeRetiredLegacyModeIssue()
+        : makeMissingStreamInputIssue(streamPolicyResolution.streamInputMissingReasons, streamPolicyResolution.requestedMode);
       output.warnings.push(clonePlainValue(issue));
       output.dataGaps.push(issue);
       output.status = "partial";
@@ -1528,23 +746,6 @@
       output.trace.projectionSeriesDeferred = true;
       output.trace.graphPathChanged = false;
       output.trace.comparisonScenarioStatus = null;
-    }
-
-    if (basePostDeathSeries && streamPolicyMode === "legacy") {
-      const comparisonScenario = buildLegacyLifestyleComparisonScenario(basePostDeathSeries, output, sourceInput);
-      if (comparisonScenario) {
-        output.comparisonScenario = comparisonScenario;
-        output.warnings = output.warnings.concat(comparisonScenario.warnings || []);
-        output.dataGaps = output.dataGaps.concat(comparisonScenario.dataGaps || []);
-        output.status = output.dataGaps.length ? "partial" : output.status;
-        output.trace.projectionSeriesApplied = comparisonScenario.trace?.projectionSeriesApplied === true;
-        output.trace.projectionSeriesDeferred = false;
-        output.trace.graphPathChanged = Boolean(comparisonScenario);
-        output.trace.comparisonScenarioStatus = comparisonScenario.status || null;
-        output.trace.graphMonthlyDelta = comparisonScenario.trace?.graphMonthlyDelta ?? null;
-        output.trace.unreconciledMonthlyDeltaExcluded = comparisonScenario.trace?.unreconciledMonthlyDeltaExcluded ?? null;
-        output.trace.baseNeedReconciliationStatus = comparisonScenario.trace?.baseNeedReconciliation?.status || null;
-      }
     }
 
     if (streamPolicyMode === "preview") {
@@ -1558,6 +759,7 @@
           policyMode: "activeGraphAdjustments",
           applyEstimatedDollarFloors: true
         });
+        applyStreamAdjustmentSummaryToOutput(output, streamComparisonPreview);
         const comparisonScenario = buildHouseholdExpenseStreamComparisonScenario(basePostDeathSeries, streamComparisonPreview, sourceInput);
         output.comparisonScenario = comparisonScenario;
         output.warnings = output.warnings.concat(comparisonScenario.warnings || []);
@@ -1589,6 +791,7 @@
         applyEstimatedDollarFloors: true
       });
       output.householdExpenseStreamPreview = streamPreview;
+      applyStreamAdjustmentSummaryToOutput(output, streamPreview);
       if (basePostDeathSeries) {
         const comparisonScenario = buildHouseholdExpenseStreamComparisonScenario(basePostDeathSeries, streamPreview, sourceInput);
         output.comparisonScenario = comparisonScenario;
