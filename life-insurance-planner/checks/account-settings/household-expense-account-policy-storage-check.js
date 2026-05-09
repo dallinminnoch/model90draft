@@ -266,6 +266,7 @@ assert.ok(keyA.includes(encodeURIComponent("account-a")), "storage key should in
 
 const emptyPolicy = storageModule.createEmptyHouseholdExpenseAccountPolicy({ accountId: "account-a" });
 assertEmptyArray(emptyPolicy.lifestyleRangeOverrides, "empty policy should include lifestyle namespace");
+assertEmptyArray(emptyPolicy.graphAdjustmentOverrides, "empty policy should include graph adjustment namespace");
 assertEmptyArray(emptyPolicy.compressionThresholdOverrides, "empty policy should include threshold namespace");
 assertEmptyArray(emptyPolicy.compressionPolicyOverrides, "empty policy should include compression policy namespace");
 assert.equal(Object.keys(emptyPolicy.guardrails).length, 0, "empty policy should include guardrails namespace");
@@ -281,6 +282,15 @@ const accountPolicy = {
   version: 7,
   lifestyleRangeOverrides: [
     { expenseTypeKey: "groceries", conservativeFloorRatio: 0.72 }
+  ],
+  graphAdjustmentOverrides: [
+    {
+      expenseTypeKey: "groceries",
+      adjustmentClass: "ratioAdjusted",
+      minimumFloorMode: "zeroFloor",
+      source: "ADMIN_ENTERED",
+      updatedAt: "2026-05-07T00:00:00.000Z"
+    }
   ],
   compressionThresholdOverrides: [
     { expenseTypeKey: "groceries", tiers: { minimum: 175 } }
@@ -328,12 +338,22 @@ assert.equal(loadResult.status, "loaded", "load should succeed after save");
 assert.equal(loadResult.accountId, "account-a", "load should return account id");
 assert.equal(loadResult.accountPolicy.version, 7, "policy version namespace should be preserved");
 assert.equal(loadResult.accountPolicy.lifestyleRangeOverrides.length, 1, "lifestyle namespace should round trip");
+assert.deepEqual(
+  clone(loadResult.accountPolicy.graphAdjustmentOverrides),
+  clone(accountPolicy.graphAdjustmentOverrides),
+  "graph adjustment namespace should round trip"
+);
 assert.equal(loadResult.accountPolicy.compressionThresholdOverrides.length, 1, "threshold namespace should round trip");
 assert.equal(loadResult.accountPolicy.compressionPolicyOverrides.length, 1, "compression policy namespace should round trip");
 assert.equal(loadResult.accountPolicy.guardrails.maxElevatedCeilingRatio, 1.8, "guardrails namespace should round trip");
 assert.deepEqual(clone(loadResult.accountPolicy.livingFloorAssumptions), validLivingFloorAssumptions, "living-floor assumptions namespace should round trip");
 assert.equal(loadResult.accountPolicy.metadata.owner, "admin", "policy metadata namespace should round trip");
 assert.doesNotThrow(() => JSON.stringify(loadResult), "load output should be JSON serializable");
+assert.equal(
+  loadResult.trace.details.namespaceCounts.graphAdjustmentOverrides,
+  1,
+  "load trace should count graph adjustment overrides"
+);
 assert.equal(
   loadResult.trace.details.namespaceCounts.livingFloorAssumptions,
   4,
@@ -345,6 +365,40 @@ storageModule.saveHouseholdExpenseAccountPolicy({
   accountId: "invalid-living-floor",
   accountPolicy: {
     version: 1,
+    graphAdjustmentOverrides: [
+      {
+        expenseTypeKey: "",
+        adjustmentClass: "moneyFloorAdjusted"
+      },
+      {
+        expenseTypeKey: "groceries",
+        adjustmentClass: "reviewOnly",
+        minimumFloorMode: "estimatedDollarFloor",
+        confidence: "do not preserve"
+      },
+      {
+        expenseTypeKey: "personalCare",
+        adjustmentClass: "ratioAdjusted",
+        minimumFloorMode: "ratioFloorOnly",
+        confidence: "do not preserve"
+      },
+      {
+        expenseTypeKey: "groceries",
+        adjustmentClass: "ratioAdjusted",
+        minimumFloorMode: "ratioFloorOnly"
+      },
+      {
+        expenseTypeKey: "groceries",
+        adjustmentClass: "excludedFromAdjustment",
+        minimumFloorMode: "zeroFloor",
+        source: ""
+      },
+      {
+        expenseTypeKey: "diningTakeout",
+        adjustmentClass: "moneyFloorAdjusted",
+        minimumFloorMode: "zeroFloor"
+      }
+    ],
     livingFloorAssumptions: {
       version: "not-a-version",
       confidence: "do not preserve",
@@ -413,6 +467,19 @@ const invalidLivingFloorLoad = storageModule.loadHouseholdExpenseAccountPolicy({
   accountId: "invalid-living-floor",
   storage: invalidLivingFloorStorage
 });
+const normalizedGraphAdjustments = invalidLivingFloorLoad.accountPolicy.graphAdjustmentOverrides;
+assert.deepEqual(
+  clone(normalizedGraphAdjustments.map((row) => row.expenseTypeKey)),
+  ["diningTakeout", "groceries", "personalCare"],
+  "graph adjustment overrides should drop invalid rows, de-dupe by expense type, and sort deterministically"
+);
+assert.equal(normalizedGraphAdjustments[0].adjustmentClass, "moneyFloorAdjusted", "money-floor adjustment class should be preserved");
+assert.equal(normalizedGraphAdjustments[0].minimumFloorMode, "estimatedDollarFloor", "money-floor adjustment should force estimated dollar floor mode");
+assert.equal(normalizedGraphAdjustments[1].adjustmentClass, "excludedFromAdjustment", "duplicate graph adjustment rows should use the last valid row");
+assert.equal(normalizedGraphAdjustments[1].minimumFloorMode, "notAdjusted", "excluded graph adjustments should force notAdjusted mode");
+assert.equal(normalizedGraphAdjustments[1].source, "ADMIN_ENTERED", "blank graph adjustment source should default to ADMIN_ENTERED");
+assert.equal(normalizedGraphAdjustments[2].minimumFloorMode, "ratioFloorOnly", "ratio graph adjustments should preserve ratioFloorOnly mode");
+assertNoConfidenceField(normalizedGraphAdjustments, "graphAdjustmentOverrides");
 const normalizedLivingFloor = invalidLivingFloorLoad.accountPolicy.livingFloorAssumptions;
 assert.equal(normalizedLivingFloor.version, 1, "invalid living-floor version should normalize to V1");
 assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.infantToddler, null, "negative dollar values should normalize to null");
@@ -484,6 +551,7 @@ const missingResult = storageModule.loadHouseholdExpenseAccountPolicy({
 assert.equal(missingResult.status, "fallback", "missing saved policy should fall back");
 assert.ok(hasWarning(missingResult, "missing-account-policy"), "missing saved policy should warn");
 assertEmptyArray(missingResult.accountPolicy.lifestyleRangeOverrides, "missing fallback should be empty");
+assertEmptyArray(missingResult.accountPolicy.graphAdjustmentOverrides, "missing fallback should include empty graph adjustments");
 assert.deepEqual(
   clone(missingResult.accountPolicy.livingFloorAssumptions),
   createExpectedEmptyLivingFloorAssumptions(),

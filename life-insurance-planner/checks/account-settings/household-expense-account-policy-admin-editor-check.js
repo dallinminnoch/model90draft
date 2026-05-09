@@ -73,6 +73,25 @@ function draftRowsFromModel(model, overrideByType) {
   });
 }
 
+function draftGraphAdjustmentRowsFromModel(model, overrideByType) {
+  const overrides = overrideByType || {};
+  return model.rows.map(function (row) {
+    const override = overrides[row.expenseTypeKey] || {};
+    return {
+      expenseTypeKey: row.expenseTypeKey,
+      adjustmentClass: Object.prototype.hasOwnProperty.call(override, "adjustmentClass")
+        ? override.adjustmentClass
+        : row.adjustmentClass,
+      minimumFloorMode: Object.prototype.hasOwnProperty.call(override, "minimumFloorMode")
+        ? override.minimumFloorMode
+        : row.minimumFloorMode,
+      source: Object.prototype.hasOwnProperty.call(override, "source")
+        ? override.source
+        : "ADMIN_ENTERED"
+    };
+  });
+}
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -279,6 +298,11 @@ assert.match(editorSource, /data-model90-default-bucket-floors-save/);
 assert.match(editorSource, /data-model90-default-bucket-floors-reset/);
 assert.match(editorSource, /data-model90-default-bucket-floor-monthly-base-amount/);
 assert.match(editorSource, /data-model90-default-bucket-floor-per-unit-amount/);
+assert.match(editorSource, /"graphAdjustmentOverrides"/);
+assert.match(editorSource, /data-graph-adjustment-type-input/);
+assert.match(editorSource, /data-graph-adjustment-save/);
+assert.match(editorSource, /data-graph-adjustment-reset-row/);
+assert.match(editorSource, /buildGraphAdjustmentSavePayload/);
 assert.doesNotMatch(
   editorSource,
   /removeHouseholdExpenseAccountPolicy|\.setItem\s*\(|\.removeItem\s*\(|analysisSettings|clientRecords|profileRecord|updateClientRecord|saveAnalysisSetupSettings/
@@ -351,13 +375,23 @@ assert.equal(typeof editor.buildStateCostAdjustmentMultipliersSavePayload, "func
 assert.equal(typeof editor.buildStateCostAdjustmentMultipliersResetPayload, "function");
 assert.equal(typeof editor.buildModel90DefaultBucketFloorsSavePayload, "function");
 assert.equal(typeof editor.buildModel90DefaultBucketFloorsResetPayload, "function");
+assert.equal(typeof editor.buildSparseGraphAdjustmentSavePlan, "function");
+assert.equal(typeof editor.buildGraphAdjustmentSavePayload, "function");
+assert.equal(typeof editor.buildGraphAdjustmentRowResetPayload, "function");
 assert.equal(typeof editor.saveFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.resetFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.saveStateCostAdjustmentMultipliers, "function");
 assert.equal(typeof editor.resetStateCostAdjustmentMultipliers, "function");
 assert.equal(typeof editor.saveModel90DefaultBucketFloors, "function");
 assert.equal(typeof editor.resetModel90DefaultBucketFloors, "function");
+assert.equal(typeof editor.saveGraphAdjustmentTypeChanges, "function");
+assert.equal(typeof editor.resetGraphAdjustmentTypeRow, "function");
 assert.equal(typeof editor.initializeHouseholdExpenseAccountPolicyAdminEditor, "function");
+assert.deepEqual(plain(editor.GRAPH_ADJUSTMENT_TYPE_OPTIONS.map((option) => option.label)), [
+  "Included with floor",
+  "Included ratio-only",
+  "Excluded / protected"
+], "graph adjustment editor should expose the three approved adjustment type labels");
 assert.deepEqual(plain(editor.FOOD_AT_HOME_BAND_KEYS), [
   "infantToddler",
   "youngChild",
@@ -390,6 +424,8 @@ const missingModel = editor.buildHouseholdExpensePolicyEditorModel({
 assert.equal(missingModel.status.code, "defaultSeedPolicy", "missing saved policy should show default seed policy source");
 assert.equal(missingModel.rows.length, defaultSliderEligibleRows.length, "editor should render only seed slider-eligible rows");
 assert.equal(missingModel.rows.every((row) => row.overrideStatus === "defaultSeedPolicy"), true, "missing policy rows should be default-only");
+assert.equal(missingModel.counts.graphAdjustmentOverrides, 0, "missing policy should have no saved graph adjustment overrides");
+assert.equal(missingModel.counts.rowsWithGraphAdjustmentOverrides, 0, "missing policy should have no graph adjustment override rows");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.source, "ADMIN_ENTERED", "Food at Home editor should default source to ADMIN_ENTERED");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.sourcePeriod, null, "empty Food at Home editor should have blank source period");
 assert.equal(missingModel.foodAtHomeFloorAssumptions.bandRows.length, 9, "Food at Home editor should render nine band rows");
@@ -433,9 +469,18 @@ const groceriesEditorRow = missingModel.rows.find((row) => row.expenseTypeKey ==
 const diningTakeoutEditorRow = missingModel.rows.find((row) => row.expenseTypeKey === "diningTakeout");
 const householdServicesEditorRow = missingModel.rows.find((row) => row.expenseTypeKey === "householdServices");
 assert.equal(groceriesEditorRow.planningBucketKey, "foodAtHomeConsumables", "graph row context should include planning bucket metadata");
+assert.equal(groceriesEditorRow.defaultAdjustmentClass, "moneyFloorAdjusted", "food-at-home seed adjustment class should come from living-floor metadata");
+assert.equal(groceriesEditorRow.defaultMinimumFloorMode, "estimatedDollarFloor", "food-at-home seed minimum floor mode should come from living-floor metadata");
+assert.equal(groceriesEditorRow.adjustmentClass, "moneyFloorAdjusted", "food-at-home dropdown should default to included-with-floor behavior");
+assert.equal(groceriesEditorRow.minimumFloorMode, "estimatedDollarFloor", "food-at-home dropdown should default to estimated dollar floor mode");
+assert.equal(groceriesEditorRow.adjustmentOverrideStatus, "defaultSeedPolicy", "food-at-home dropdown should default to seed policy status");
 assert.equal(groceriesEditorRow.adjustmentTypeDisplay, "Included with floor", "food-at-home graph rows should display money-floor adjustment context");
 assert.equal(groceriesEditorRow.minimumFloorDisplay, "Bucket-level USDA Food at Home model", "food-at-home graph rows should display the bucket-level Food at Home floor model");
+assert.equal(diningTakeoutEditorRow.adjustmentClass, "ratioAdjusted", "zero-floor buckets should default to ratio-adjusted behavior");
+assert.equal(diningTakeoutEditorRow.minimumFloorMode, "zeroFloor", "zero-floor buckets should default to zeroFloor mode");
 assert.equal(diningTakeoutEditorRow.minimumFloorDisplay, "$0 floor", "zero-floor ratio buckets should display a $0 floor");
+assert.equal(householdServicesEditorRow.adjustmentClass, "ratioAdjusted", "ratio-floor-only buckets should default to ratio-adjusted behavior");
+assert.equal(householdServicesEditorRow.minimumFloorMode, "ratioFloorOnly", "household services should default to ratioFloorOnly mode");
 assert.equal(householdServicesEditorRow.minimumFloorDisplay, "Ratio floor only", "ratio-floor-only buckets should display ratio-floor-only status");
 assert.equal(
   missingModel.rows.every((row) => row.adjustmentTypeDisplay && row.minimumFloorDisplay && row.floorStatusDisplay),
@@ -529,7 +574,10 @@ assert.doesNotMatch(missingHtml, /review/i, "graph adjustment controls should no
 assert.match(missingHtml, /Default Floor/);
 assert.match(missingHtml, /Resolved Ceiling/);
 assert.match(missingHtml, /data-household-expense-policy-save/);
+assert.match(missingHtml, /data-graph-adjustment-save/);
+assert.match(missingHtml, /Save Adjustment Types/);
 assert.match(missingHtml, /data-household-expense-policy-reset-row/);
+assert.match(missingHtml, /data-graph-adjustment-reset-row/);
 assert.match(missingHtml, /data-ratio-field="conservativeFloorRatio"/);
 assert.match(missingHtml, /data-ratio-field="elevatedCeilingRatio"/);
 assert.match(missingHtml, /Food at Home Floor Assumptions/);
@@ -564,6 +612,16 @@ assert.equal(
   (missingHtml.match(/data-household-expense-policy-ratio-input/g) || []).length,
   defaultSliderEligibleRows.length * 2,
   "only the two ratio controls should render for each slider-eligible row"
+);
+assert.equal(
+  (missingHtml.match(/data-graph-adjustment-type-input/g) || []).length,
+  defaultSliderEligibleRows.length,
+  "each slider-eligible graph row should render exactly one adjustment type dropdown"
+);
+assert.equal(
+  (missingHtml.match(/data-graph-adjustment-reset-row/g) || []).length,
+  defaultSliderEligibleRows.length,
+  "each slider-eligible graph row should render one adjustment type reset control"
 );
 assert.equal(
   (missingHtml.match(/data-food-at-home-band-key="/g) || []).length,
@@ -604,7 +662,11 @@ assert.doesNotMatch(
   missingHtml,
   /data-ratio-field="sliderEligible"|data-ratio-field="rangeBehavior"|data-ratio-field="canPause"|data-ratio-field="canReduceToZero"|data-ratio-field="compressionOrderGroup"|data-ratio-field="compressionOrderRank"|data-ratio-field="sourcePolicyDecision"|data-ratio-field="threshold/
 );
-assert.doesNotMatch(missingHtml, /<select\b/);
+assert.equal(
+  (missingHtml.match(/<select\b/g) || []).length,
+  defaultSliderEligibleRows.length,
+  "only the 41 graph adjustment type dropdowns should render as selects in the editor"
+);
 assert.doesNotMatch(
   missingHtml,
   /data-state-cost-adjustment-multiplier-input|data-bucket-state-adjustment-multiplier-input/,
@@ -614,12 +676,89 @@ assert.doesNotMatch(
 const existingAccountPolicy = {
   version: 1,
   lifestyleRangeOverrides: [],
+  graphAdjustmentOverrides: [{
+    expenseTypeKey: "diningTakeout",
+    adjustmentClass: "excludedFromAdjustment",
+    minimumFloorMode: "notAdjusted",
+    updatedAt: "2026-05-09T00:00:00.000Z",
+    source: "ADMIN_ENTERED"
+  }],
   compressionThresholdOverrides: [{ thresholdId: "streamingDigitalSubscriptions", tiers: { average: 95 } }],
   compressionPolicyOverrides: [{ policyId: "travelVacations", notes: "preserve me" }],
   guardrails: { maxElevatedCeilingRatio: 1.9 },
   livingFloorAssumptions: plain(preservedLivingFloorAssumptions),
   metadata: { source: "existing-policy" }
 };
+
+const graphAdjustmentPayload = editor.buildGraphAdjustmentSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  rows: missingModel.rows,
+  draftRows: draftGraphAdjustmentRowsFromModel(missingModel, {
+    groceries: {
+      adjustmentClass: "excludedFromAdjustment"
+    },
+    householdServices: {
+      adjustmentClass: "ratioAdjusted"
+    }
+  }),
+  updatedAt: "2026-05-09T00:00:00.000Z"
+});
+assert.equal(graphAdjustmentPayload.valid, true, "valid graph adjustment type edits should be accepted");
+assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.lifestyleRangeOverrides), [], "graph adjustment save should preserve ratio namespace");
+assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "graph adjustment save should preserve threshold namespace");
+assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "graph adjustment save should preserve compression namespace");
+assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "graph adjustment save should preserve guardrails");
+assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "graph adjustment save should preserve living-floor assumptions");
+assert.equal(graphAdjustmentPayload.accountPolicy.metadata.lastEditedNamespace, "graphAdjustmentOverrides", "graph adjustment save should mark the edited namespace");
+assert.equal(graphAdjustmentPayload.accountPolicy.graphAdjustmentOverrides.length, 1, "graph adjustment save should store sparse row-level behavior overrides only");
+assert.deepEqual(plain(graphAdjustmentPayload.accountPolicy.graphAdjustmentOverrides[0]), {
+  expenseTypeKey: "groceries",
+  adjustmentClass: "excludedFromAdjustment",
+  minimumFloorMode: "notAdjusted",
+  updatedAt: "2026-05-09T00:00:00.000Z",
+  source: "ADMIN_ENTERED"
+}, "Included-with-floor rows should save an excluded override with notAdjusted mode");
+assert.equal(JSON.parse(JSON.stringify(graphAdjustmentPayload)).valid, true, "graph adjustment save payload should be JSON serializable");
+
+const graphAdjustmentResetPayload = editor.buildGraphAdjustmentRowResetPayload({
+  accountId,
+  accountPolicy: graphAdjustmentPayload.accountPolicy,
+  rows: missingModel.rows,
+  expenseTypeKey: "groceries"
+});
+assert.equal(graphAdjustmentResetPayload.valid, true, "graph adjustment row reset payload should be valid");
+assert.deepEqual(plain(graphAdjustmentResetPayload.accountPolicy.graphAdjustmentOverrides), [], "graph adjustment row reset should restore seed/default adjustment type");
+assert.deepEqual(plain(graphAdjustmentResetPayload.accountPolicy.lifestyleRangeOverrides), [], "graph adjustment row reset should preserve ratio namespace");
+assert.deepEqual(plain(graphAdjustmentResetPayload.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "graph adjustment row reset should preserve living-floor assumptions");
+
+const invalidGraphAdjustmentPayload = editor.buildGraphAdjustmentSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  rows: missingModel.rows,
+  draftRows: draftGraphAdjustmentRowsFromModel(missingModel, {
+    groceries: {
+      adjustmentClass: "reviewOnly"
+    }
+  }),
+  updatedAt: "2026-05-09T00:00:00.000Z"
+});
+assert.equal(invalidGraphAdjustmentPayload.valid, false, "invalid graph adjustment classes should be rejected before save");
+assert.match(invalidGraphAdjustmentPayload.validationMessages.groceries.join(" "), /valid adjustment type/);
+assert.equal(Object.prototype.hasOwnProperty.call(invalidGraphAdjustmentPayload, "accountPolicy"), false, "invalid graph adjustment payload should not produce a storage payload");
+
+const unknownGraphAdjustmentPayload = editor.buildGraphAdjustmentSavePayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  rows: missingModel.rows,
+  draftRows: [{
+    expenseTypeKey: "notASeedGraphRow",
+    adjustmentClass: "excludedFromAdjustment"
+  }],
+  updatedAt: "2026-05-09T00:00:00.000Z"
+});
+assert.equal(unknownGraphAdjustmentPayload.valid, true, "unknown graph adjustment rows should be ignored safely");
+assert.deepEqual(plain(unknownGraphAdjustmentPayload.accountPolicy.graphAdjustmentOverrides), [], "unknown graph adjustment rows should not create saved overrides");
 
 const foodAtHomePayload = editor.buildFoodAtHomeFloorAssumptionsSavePayload({
   accountId,
@@ -633,6 +772,7 @@ assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.m
 assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.monthlyAmountsByBand.teenMale, 355, "Food band values should save by band key");
 assert.equal(foodAtHomePayload.accountPolicy.livingFloorAssumptions.foodAtHome.householdSizeAdjustmentFactors["6Plus"], 0.8, "Household-size factors should save by factor key");
 assert.deepEqual(plain(foodAtHomePayload.accountPolicy.lifestyleRangeOverrides), [], "Food at Home save should preserve lifestyle overrides");
+assert.deepEqual(plain(foodAtHomePayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "Food at Home save should preserve graph adjustment overrides");
 assert.deepEqual(plain(foodAtHomePayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "Food at Home save should preserve threshold namespace");
 assert.deepEqual(plain(foodAtHomePayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "Food at Home save should preserve compression namespace");
 assert.deepEqual(plain(foodAtHomePayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "Food at Home save should preserve guardrails");
@@ -691,6 +831,7 @@ assert.deepEqual(
   preservedLivingFloorAssumptions.model90DefaultBucketFloors,
   "Food at Home reset should preserve MODEL90 default bucket floor assumptions"
 );
+assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "Food at Home reset should preserve graph adjustment overrides");
 assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "Food at Home reset should preserve threshold namespace");
 assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "Food at Home reset should preserve compression namespace");
 assert.deepEqual(plain(foodAtHomeResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "Food at Home reset should preserve guardrails");
@@ -741,6 +882,7 @@ assert.deepEqual(
   "State Cost save should preserve bucket-specific state multipliers"
 );
 assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.lifestyleRangeOverrides), [], "State Cost save should preserve lifestyle overrides");
+assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "State Cost save should preserve graph adjustment overrides");
 assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "State Cost save should preserve threshold namespace");
 assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "State Cost save should preserve compression namespace");
 assert.deepEqual(plain(stateMultiplierPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "State Cost save should preserve guardrails");
@@ -791,6 +933,7 @@ assert.deepEqual(
 );
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.foodAtHome), existingAccountPolicy.livingFloorAssumptions.foodAtHome, "State Cost reset should preserve Food at Home assumptions");
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors), existingAccountPolicy.livingFloorAssumptions.model90DefaultBucketFloors, "State Cost reset should preserve MODEL90 default bucket floors");
+assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "State Cost reset should preserve graph adjustment overrides");
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "State Cost reset should preserve threshold namespace");
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "State Cost reset should preserve compression namespace");
 assert.deepEqual(plain(stateMultiplierResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "State Cost reset should preserve guardrails");
@@ -836,6 +979,7 @@ assert.deepEqual(
   "MODEL90 default floor save should preserve state multipliers including bucket-specific rows"
 );
 assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.lifestyleRangeOverrides), [], "MODEL90 default floor save should preserve lifestyle overrides");
+assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "MODEL90 default floor save should preserve graph adjustment overrides");
 assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "MODEL90 default floor save should preserve threshold namespace");
 assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "MODEL90 default floor save should preserve compression namespace");
 assert.deepEqual(plain(model90DefaultFloorsPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "MODEL90 default floor save should preserve guardrails");
@@ -879,6 +1023,7 @@ assert.deepEqual(
   existingAccountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers,
   "MODEL90 default floor reset should preserve state multipliers including bucket-specific rows"
 );
+assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "MODEL90 default floor reset should preserve graph adjustment overrides");
 assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "MODEL90 default floor reset should preserve threshold namespace");
 assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "MODEL90 default floor reset should preserve compression namespace");
 assert.deepEqual(plain(model90DefaultFloorsResetPayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "MODEL90 default floor reset should preserve guardrails");
@@ -989,6 +1134,7 @@ assert.deepEqual(plain(savePayload.accountPolicy.lifestyleRangeOverrides), [{
 assert.deepEqual(plain(savePayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "threshold namespace should be preserved");
 assert.deepEqual(plain(savePayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "compression namespace should be preserved");
 assert.deepEqual(plain(savePayload.accountPolicy.guardrails), existingAccountPolicy.guardrails, "guardrails should be preserved");
+assert.deepEqual(plain(savePayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "ratio save payload should preserve graph adjustment overrides");
 assert.deepEqual(plain(savePayload.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "living-floor assumptions namespace should be preserved by ratio save payload");
 assert.equal(savePayload.accountPolicy.metadata.source, "existing-policy", "metadata should be preserved");
 assert.equal(savePayload.accountPolicy.metadata.lastEditedNamespace, "lifestyleRangeOverrides");
@@ -1014,6 +1160,7 @@ assert.equal(validGroceries.overrideStatus, "accountOverride", "valid saved over
 assert.equal(validGroceries.resolvedConservativeFloorRatio, 0.73, "valid saved override should affect resolved floor");
 assert.equal(validGroceries.resolvedElevatedCeilingRatio, 1.22, "valid saved override should affect resolved ceiling");
 assert.deepEqual(plain(validModel.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "saved ratio edit should not drop living-floor assumptions");
+assert.deepEqual(plain(validModel.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "saved ratio edit should not drop graph adjustment overrides");
 assert.match(editor.renderHouseholdExpensePolicyEditor(validModel), /Account override/);
 
 const resetPayload = editor.buildLifestyleRangeSavePayload({
@@ -1028,6 +1175,7 @@ assert.deepEqual(plain(resetPayload.accountPolicy.lifestyleRangeOverrides), [], 
 assert.deepEqual(plain(resetPayload.accountPolicy.compressionThresholdOverrides), existingAccountPolicy.compressionThresholdOverrides, "reset should preserve threshold namespace");
 assert.deepEqual(plain(resetPayload.accountPolicy.compressionPolicyOverrides), existingAccountPolicy.compressionPolicyOverrides, "reset should preserve compression namespace");
 assert.deepEqual(plain(resetPayload.accountPolicy.livingFloorAssumptions), preservedLivingFloorAssumptions, "reset row save payload should preserve living-floor assumptions");
+assert.deepEqual(plain(resetPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "reset row save payload should preserve graph adjustment overrides");
 
 const invalidPayload = editor.buildLifestyleRangeSavePayload({
   accountId,
@@ -1119,6 +1267,9 @@ assert.match(host.innerHTML, /Income Impact Adjustment Controls/);
 assert.match(host.innerHTML, /Food at Home Floor Assumptions/);
 assert.match(host.innerHTML, /data-household-expense-policy-save/);
 assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);
+assert.match(host.innerHTML, /data-graph-adjustment-type-input/);
+assert.match(host.innerHTML, /data-graph-adjustment-save/);
+assert.match(host.innerHTML, /data-graph-adjustment-reset-row/);
 assert.match(host.innerHTML, /data-food-at-home-floor-save/);
 assert.match(host.innerHTML, /data-food-at-home-floor-reset/);
 assert.match(host.innerHTML, /State Cost Adjustment Multipliers/);
@@ -1128,7 +1279,11 @@ assert.match(host.innerHTML, /data-state-cost-adjustment-reset/);
 assert.match(host.innerHTML, /MODEL90 Default Floor Assumptions/);
 assert.match(host.innerHTML, /data-model90-default-bucket-floors-save/);
 assert.match(host.innerHTML, /data-model90-default-bucket-floors-reset/);
-assert.doesNotMatch(host.innerHTML, /<select\b/);
+assert.equal(
+  (host.innerHTML.match(/data-graph-adjustment-type-input/g) || []).length,
+  defaultSliderEligibleRows.length,
+  "initializer should render one graph adjustment dropdown per graph-affecting row"
+);
 assert.doesNotMatch(host.innerHTML, /data-state-cost-adjustment-multiplier-input|data-bucket-state-adjustment-multiplier-input/);
 
 console.log("household expense account policy admin editor checks passed");

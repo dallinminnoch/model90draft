@@ -49,6 +49,29 @@
     "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
     "WY"
   ]);
+  const GRAPH_ADJUSTMENT_TYPE_OPTIONS = Object.freeze([
+    Object.freeze({
+      adjustmentClass: "moneyFloorAdjusted",
+      label: "Included with floor"
+    }),
+    Object.freeze({
+      adjustmentClass: "ratioAdjusted",
+      label: "Included ratio-only"
+    }),
+    Object.freeze({
+      adjustmentClass: "excludedFromAdjustment",
+      label: "Excluded / protected"
+    })
+  ]);
+  const GRAPH_ADJUSTMENT_CLASS_VALUES = Object.freeze(GRAPH_ADJUSTMENT_TYPE_OPTIONS.map(function (option) {
+    return option.adjustmentClass;
+  }));
+  const GRAPH_MINIMUM_FLOOR_MODE_VALUES = Object.freeze([
+    "estimatedDollarFloor",
+    "zeroFloor",
+    "ratioFloorOnly",
+    "notAdjusted"
+  ]);
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -149,6 +172,52 @@
     return normalizeNullableText(value) || "ADMIN_ENTERED";
   }
 
+  function normalizeAdjustmentSource(value) {
+    return normalizeNullableText(value) || "ADMIN_ENTERED";
+  }
+
+  function normalizeAdjustmentClass(value) {
+    const adjustmentClass = normalizeNullableText(value);
+    return GRAPH_ADJUSTMENT_CLASS_VALUES.includes(adjustmentClass) ? adjustmentClass : null;
+  }
+
+  function normalizeMinimumFloorMode(value) {
+    const minimumFloorMode = normalizeNullableText(value);
+    return GRAPH_MINIMUM_FLOOR_MODE_VALUES.includes(minimumFloorMode) ? minimumFloorMode : null;
+  }
+
+  function deriveMinimumFloorModeForAdjustmentClass(adjustmentClass, sourceRow, requestedMinimumFloorMode) {
+    const requestedMode = normalizeMinimumFloorMode(requestedMinimumFloorMode);
+
+    if (adjustmentClass === "moneyFloorAdjusted") {
+      return "estimatedDollarFloor";
+    }
+
+    if (adjustmentClass === "excludedFromAdjustment") {
+      return "notAdjusted";
+    }
+
+    if (adjustmentClass === "ratioAdjusted") {
+      if (requestedMode === "ratioFloorOnly" || requestedMode === "zeroFloor") {
+        return requestedMode;
+      }
+
+      return sourceRow?.defaultMinimumFloorMode === "ratioFloorOnly" || sourceRow?.minimumFloorMode === "ratioFloorOnly"
+        ? "ratioFloorOnly"
+        : "zeroFloor";
+    }
+
+    return null;
+  }
+
+  function formatAdjustmentTypeDisplayFromClass(adjustmentClass) {
+    const option = GRAPH_ADJUSTMENT_TYPE_OPTIONS.find(function (candidate) {
+      return candidate.adjustmentClass === adjustmentClass;
+    });
+
+    return option ? option.label : "Metadata unavailable";
+  }
+
   function normalizeStateCode(value) {
     const stateCode = String(value == null ? "" : value).trim().toUpperCase();
     return STATE_CODE_VALUES.includes(stateCode) ? stateCode : "";
@@ -237,6 +306,7 @@
     return {
       version: 1,
       lifestyleRangeOverrides: [],
+      graphAdjustmentOverrides: [],
       compressionThresholdOverrides: [],
       compressionPolicyOverrides: [],
       guardrails: {},
@@ -257,6 +327,12 @@
   function getLifestyleOverrideRows(accountPolicy) {
     return Array.isArray(accountPolicy?.lifestyleRangeOverrides)
       ? accountPolicy.lifestyleRangeOverrides.filter(isPlainObject).map(clonePlainValue)
+      : [];
+  }
+
+  function getGraphAdjustmentOverrideRows(accountPolicy) {
+    return Array.isArray(accountPolicy?.graphAdjustmentOverrides)
+      ? accountPolicy.graphAdjustmentOverrides.filter(isPlainObject).map(clonePlainValue)
       : [];
   }
 
@@ -454,6 +530,16 @@
     }, {});
   }
 
+  function buildGraphAdjustmentOverrideByTypeKey(graphAdjustmentOverrideRows) {
+    return (Array.isArray(graphAdjustmentOverrideRows) ? graphAdjustmentOverrideRows : []).reduce(function (map, row) {
+      const expenseTypeKey = normalizeKey(row?.expenseTypeKey);
+      if (expenseTypeKey) {
+        map[expenseTypeKey] = row;
+      }
+      return map;
+    }, {});
+  }
+
   function formatAdjustmentTypeDisplay(metadata, libraryEntry) {
     if (metadata?.adjustmentClass === "moneyFloorAdjusted") {
       return "Included with floor";
@@ -575,28 +661,49 @@
     return formatFloorStatusLabel(status);
   }
 
-  function buildPlanningContextForPolicy(defaultPolicy, expenseLibraryByTypeKey, livingFloorMetadataByBucket) {
+  function buildPlanningContextForPolicy(defaultPolicy, expenseLibraryByTypeKey, livingFloorMetadataByBucket, graphAdjustmentOverrideByTypeKey) {
     const typeKey = defaultPolicy?.expenseTypeKey || null;
     const libraryEntry = typeKey ? expenseLibraryByTypeKey[typeKey] : null;
     const planningBucketKey = libraryEntry?.planningBucketKey || defaultPolicy?.planningBucketKey || null;
     const metadata = planningBucketKey ? livingFloorMetadataByBucket[planningBucketKey] : null;
+    const defaultAdjustmentClass = metadata?.adjustmentClass
+      || (libraryEntry?.lifestyleTreatmentIncluded === true ? "ratioAdjusted" : null)
+      || (libraryEntry?.lifestyleTreatmentIncluded === false ? "excludedFromAdjustment" : null);
+    const defaultMinimumFloorMode = metadata?.minimumFloorMode
+      || deriveMinimumFloorModeForAdjustmentClass(defaultAdjustmentClass, {});
+    const adjustmentOverride = typeKey ? graphAdjustmentOverrideByTypeKey[typeKey] : null;
+    const overrideAdjustmentClass = normalizeAdjustmentClass(adjustmentOverride?.adjustmentClass);
+    const adjustmentClass = overrideAdjustmentClass || defaultAdjustmentClass;
+    const minimumFloorMode = deriveMinimumFloorModeForAdjustmentClass(adjustmentClass, {
+      defaultMinimumFloorMode,
+      minimumFloorMode: defaultMinimumFloorMode
+    }, overrideAdjustmentClass ? adjustmentOverride?.minimumFloorMode : defaultMinimumFloorMode);
+    const effectiveMetadata = Object.assign({}, metadata || {}, {
+      adjustmentClass,
+      minimumFloorMode
+    });
 
     return {
       planningBucketKey,
       planningBucketLabel: libraryEntry?.planningBucketLabel || metadata?.planningBucketLabel || planningBucketKey || "Not available",
-      adjustmentTypeDisplay: formatAdjustmentTypeDisplay(metadata, libraryEntry),
-      minimumFloorDisplay: formatMinimumFloorDisplay(metadata, planningBucketKey),
-      floorStatusDisplay: formatFloorStatusDisplay(metadata, planningBucketKey),
-      adjustmentClass: metadata?.adjustmentClass || null,
-      minimumFloorMode: metadata?.minimumFloorMode || null
+      adjustmentTypeDisplay: formatAdjustmentTypeDisplayFromClass(adjustmentClass),
+      minimumFloorDisplay: formatMinimumFloorDisplay(effectiveMetadata, planningBucketKey),
+      floorStatusDisplay: formatFloorStatusDisplay(effectiveMetadata, planningBucketKey),
+      adjustmentClass,
+      minimumFloorMode,
+      defaultAdjustmentClass,
+      defaultAdjustmentTypeDisplay: formatAdjustmentTypeDisplayFromClass(defaultAdjustmentClass),
+      defaultMinimumFloorMode,
+      adjustmentOverrideStatus: overrideAdjustmentClass ? "accountOverride" : "defaultSeedPolicy"
     };
   }
 
-  function buildLifestyleRangeEditorRows(defaultRows, resolvedRows, overrideRows, currentLensAnalysis) {
+  function buildLifestyleRangeEditorRows(defaultRows, resolvedRows, overrideRows, currentLensAnalysis, graphAdjustmentOverrideRows) {
     const resolvedList = Array.isArray(resolvedRows) ? resolvedRows : [];
     const overrides = Array.isArray(overrideRows) ? overrideRows : [];
     const expenseLibraryByTypeKey = buildExpenseLibraryByTypeKey(currentLensAnalysis);
     const livingFloorMetadataByBucket = buildLivingFloorMetadataByBucket(currentLensAnalysis);
+    const graphAdjustmentOverrideByTypeKey = buildGraphAdjustmentOverrideByTypeKey(graphAdjustmentOverrideRows);
 
     return (Array.isArray(defaultRows) ? defaultRows : [])
       .filter(function (row) {
@@ -610,7 +717,8 @@
         const planningContext = buildPlanningContextForPolicy(
           defaultPolicy,
           expenseLibraryByTypeKey,
-          livingFloorMetadataByBucket
+          livingFloorMetadataByBucket,
+          graphAdjustmentOverrideByTypeKey
         );
 
         return {
@@ -626,6 +734,10 @@
           floorStatusDisplay: planningContext.floorStatusDisplay,
           adjustmentClass: planningContext.adjustmentClass,
           minimumFloorMode: planningContext.minimumFloorMode,
+          defaultAdjustmentClass: planningContext.defaultAdjustmentClass,
+          defaultAdjustmentTypeDisplay: planningContext.defaultAdjustmentTypeDisplay,
+          defaultMinimumFloorMode: planningContext.defaultMinimumFloorMode,
+          adjustmentOverrideStatus: planningContext.adjustmentOverrideStatus,
           defaultConservativeFloorRatio: defaultPolicy.conservativeFloorRatio,
           defaultElevatedCeilingRatio: defaultPolicy.elevatedCeilingRatio,
           resolvedConservativeFloorRatio: resolvedPolicy.conservativeFloorRatio,
@@ -684,11 +796,13 @@
       : policyInputs.defaultLifestyleRangePolicies;
     const overrideRows = getLifestyleOverrideRows(accountPolicy);
     const accountPolicyForSave = getAccountPolicyForSave(storageResult, accountId, storageApi);
+    const graphAdjustmentOverrideRows = getGraphAdjustmentOverrideRows(accountPolicyForSave);
     const rows = buildLifestyleRangeEditorRows(
       policyInputs.defaultLifestyleRangePolicies,
       resolvedRows,
       overrideRows,
-      currentLensAnalysis
+      currentLensAnalysis,
+      graphAdjustmentOverrideRows
     );
     const status = getPolicyStatus(storageResult, resolvedPolicy);
 
@@ -702,6 +816,10 @@
         lifestyleRangeOverrides: status.code === "accountOverride" ? overrideRows.length : 0,
         rowsWithOverrides: rows.filter(function (row) {
           return row.overrideStatus === "accountOverride";
+        }).length,
+        graphAdjustmentOverrides: graphAdjustmentOverrideRows.length,
+        rowsWithGraphAdjustmentOverrides: rows.filter(function (row) {
+          return row.adjustmentOverrideStatus === "accountOverride";
         }).length,
         warnings: warnings.length,
         dataGaps: dataGaps.length
@@ -725,6 +843,7 @@
         resolverAvailable: typeof resolver === "function",
         editableNamespaces: [
           "lifestyleRangeOverrides",
+          "graphAdjustmentOverrides",
           "livingFloorAssumptions.foodAtHome",
           "livingFloorAssumptions.stateCostAdjustmentMultipliers",
           "livingFloorAssumptions.model90DefaultBucketFloors"
@@ -732,6 +851,8 @@
         editableFields: [
           "conservativeFloorRatio",
           "elevatedCeilingRatio",
+          "graphAdjustmentOverrides.adjustmentClass",
+          "graphAdjustmentOverrides.minimumFloorMode",
           "foodAtHome.source",
           "foodAtHome.sourcePeriod",
           "foodAtHome.monthlyAmountsByBand",
@@ -856,6 +977,7 @@
       lifestyleRangeOverrides: Array.isArray(sparseLifestyleRangeOverrides)
         ? sparseLifestyleRangeOverrides.map(clonePlainValue)
         : [],
+      graphAdjustmentOverrides: getGraphAdjustmentOverrideRows(existing),
       compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
         ? clonePlainValue(existing.compressionThresholdOverrides)
         : [],
@@ -897,6 +1019,164 @@
       trace: Object.assign({}, plan.trace, {
         payloadShape: "sparse-account-policy-override"
       })
+    });
+  }
+
+  function buildSparseGraphAdjustmentSavePlan(input) {
+    const options = isPlainObject(input) ? input : {};
+    const sourceRows = Array.isArray(options.rows) ? options.rows : [];
+    const draftRows = Array.isArray(options.draftRows) ? options.draftRows : [];
+    const draftByTypeKey = draftRows.reduce(function (map, draftRow) {
+      const expenseTypeKey = normalizeKey(draftRow?.expenseTypeKey);
+      if (expenseTypeKey) {
+        map[expenseTypeKey] = draftRow;
+      }
+      return map;
+    }, {});
+    const validationMessages = {};
+    const sparseOverrides = [];
+    const updatedAt = normalizeNullableText(options.updatedAt);
+
+    sourceRows.forEach(function (sourceRow) {
+      const expenseTypeKey = normalizeKey(sourceRow?.expenseTypeKey);
+      if (!expenseTypeKey) {
+        return;
+      }
+
+      const draftRow = draftByTypeKey[expenseTypeKey] || {};
+      const adjustmentClass = normalizeAdjustmentClass(draftRow.adjustmentClass || sourceRow.adjustmentClass);
+      if (!adjustmentClass) {
+        validationMessages[expenseTypeKey] = ["Choose a valid adjustment type."];
+        return;
+      }
+
+      const minimumFloorMode = deriveMinimumFloorModeForAdjustmentClass(adjustmentClass, sourceRow, draftRow.minimumFloorMode);
+      if (!minimumFloorMode) {
+        validationMessages[expenseTypeKey] = ["Choose a valid minimum floor mode for the adjustment type."];
+        return;
+      }
+
+      const isDefaultAdjustment = adjustmentClass === sourceRow.defaultAdjustmentClass
+        && minimumFloorMode === sourceRow.defaultMinimumFloorMode;
+      if (!isDefaultAdjustment) {
+        sparseOverrides.push({
+          expenseTypeKey,
+          adjustmentClass,
+          minimumFloorMode,
+          updatedAt,
+          source: normalizeAdjustmentSource(draftRow.source)
+        });
+      }
+    });
+
+    return clonePlainValue({
+      valid: Object.keys(validationMessages).length === 0,
+      sparseGraphAdjustmentOverrides: sparseOverrides,
+      validationMessages,
+      trace: {
+        source: "admin-graph-adjustment-type-save-plan",
+        draftRows: draftRows.length,
+        sparseOverrides: sparseOverrides.length,
+        invalidRows: Object.keys(validationMessages).length
+      }
+    });
+  }
+
+  function buildAccountPolicyWithGraphAdjustmentOverrides(existingAccountPolicy, sparseGraphAdjustmentOverrides, accountId) {
+    const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
+    const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
+
+    return clonePlainValue({
+      version: Number.isFinite(Number(existing.version)) ? Number(existing.version) : 1,
+      lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
+        ? clonePlainValue(existing.lifestyleRangeOverrides)
+        : [],
+      graphAdjustmentOverrides: Array.isArray(sparseGraphAdjustmentOverrides)
+        ? sparseGraphAdjustmentOverrides.map(clonePlainValue)
+        : [],
+      compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
+        ? clonePlainValue(existing.compressionThresholdOverrides)
+        : [],
+      compressionPolicyOverrides: Array.isArray(existing.compressionPolicyOverrides)
+        ? clonePlainValue(existing.compressionPolicyOverrides)
+        : [],
+      guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
+      livingFloorAssumptions: isPlainObject(existing.livingFloorAssumptions)
+        ? clonePlainValue(existing.livingFloorAssumptions)
+        : {},
+      metadata: Object.assign({}, metadata, {
+        accountId: accountId || metadata.accountId || null,
+        source: metadata.source || "adminGraphAdjustmentEditorV1",
+        lastEditedNamespace: "graphAdjustmentOverrides"
+      })
+    });
+  }
+
+  function buildGraphAdjustmentSavePayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    const plan = buildSparseGraphAdjustmentSavePlan(options);
+    if (!plan.valid) {
+      return clonePlainValue({
+        valid: false,
+        validationMessages: plan.validationMessages,
+        trace: plan.trace
+      });
+    }
+
+    return clonePlainValue({
+      valid: true,
+      accountPolicy: buildAccountPolicyWithGraphAdjustmentOverrides(
+        options.accountPolicy,
+        plan.sparseGraphAdjustmentOverrides,
+        options.accountId || TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID
+      ),
+      sparseGraphAdjustmentOverrides: plan.sparseGraphAdjustmentOverrides,
+      validationMessages: {},
+      trace: Object.assign({}, plan.trace, {
+        payloadShape: "sparse-account-policy-graph-adjustment-override"
+      })
+    });
+  }
+
+  function buildGraphAdjustmentRowResetPayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    const expenseTypeKey = normalizeKey(options.expenseTypeKey);
+    const rows = Array.isArray(options.rows) ? options.rows : [];
+    const rowExists = rows.some(function (row) {
+      return normalizeKey(row?.expenseTypeKey) === expenseTypeKey;
+    });
+
+    if (!expenseTypeKey || !rowExists) {
+      return clonePlainValue({
+        valid: false,
+        validationMessages: {
+          [expenseTypeKey || "missing-expense-type-key"]: ["Choose a valid graph adjustment row to reset."]
+        },
+        trace: {
+          source: "admin-graph-adjustment-type-reset-plan",
+          invalidRows: 1
+        }
+      });
+    }
+
+    const remainingOverrides = getGraphAdjustmentOverrideRows(options.accountPolicy).filter(function (override) {
+      return normalizeKey(override.expenseTypeKey) !== expenseTypeKey;
+    });
+
+    return clonePlainValue({
+      valid: true,
+      accountPolicy: buildAccountPolicyWithGraphAdjustmentOverrides(
+        options.accountPolicy,
+        remainingOverrides,
+        options.accountId || TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID
+      ),
+      sparseGraphAdjustmentOverrides: remainingOverrides,
+      validationMessages: {},
+      trace: {
+        source: "admin-graph-adjustment-type-reset-plan",
+        resetExpenseTypeKey: expenseTypeKey,
+        sparseOverrides: remainingOverrides.length
+      }
     });
   }
 
@@ -1046,6 +1326,7 @@
       lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
         ? clonePlainValue(existing.lifestyleRangeOverrides)
         : [],
+      graphAdjustmentOverrides: getGraphAdjustmentOverrideRows(existing),
       compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
         ? clonePlainValue(existing.compressionThresholdOverrides)
         : [],
@@ -1239,6 +1520,7 @@
       lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
         ? clonePlainValue(existing.lifestyleRangeOverrides)
         : [],
+      graphAdjustmentOverrides: getGraphAdjustmentOverrideRows(existing),
       compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
         ? clonePlainValue(existing.compressionThresholdOverrides)
         : [],
@@ -1271,6 +1553,7 @@
       lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
         ? clonePlainValue(existing.lifestyleRangeOverrides)
         : [],
+      graphAdjustmentOverrides: getGraphAdjustmentOverrideRows(existing),
       compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
         ? clonePlainValue(existing.compressionThresholdOverrides)
         : [],
@@ -1365,9 +1648,27 @@
     return `<button type="button" class="admin-action-button" data-household-expense-policy-reset-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}"${disabledAttribute}>Reset to default</button>`;
   }
 
+  function renderAdjustmentTypeOptions(row) {
+    return GRAPH_ADJUSTMENT_TYPE_OPTIONS.map(function (option) {
+      const selectedAttribute = option.adjustmentClass === row.adjustmentClass ? " selected" : "";
+      return `<option value="${escapeHtml(option.adjustmentClass)}"${selectedAttribute}>${escapeHtml(option.label)}</option>`;
+    }).join("");
+  }
+
+  function renderAdjustmentTypeControl(row) {
+    const resetDisabledAttribute = row.adjustmentOverrideStatus === "accountOverride" ? "" : " disabled";
+    return `
+      <select class="admin-tax-bracket-input" data-graph-adjustment-type-input data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" aria-label="${escapeHtml(row.displayName)} adjustment type">
+        ${renderAdjustmentTypeOptions(row)}
+      </select>
+      <div class="panel-copy">Default: ${escapeHtml(row.defaultAdjustmentTypeDisplay || "Metadata unavailable")}</div>
+      <button type="button" class="admin-action-button" data-graph-adjustment-reset-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}"${resetDisabledAttribute}>Reset type</button>
+    `;
+  }
+
   function renderEditorRow(row) {
     return `
-      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}">
+      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-graph-adjustment-override-status="${escapeHtml(row.adjustmentOverrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}" data-default-adjustment-class="${escapeHtml(row.defaultAdjustmentClass || "")}" data-default-minimum-floor-mode="${escapeHtml(row.defaultMinimumFloorMode || "")}">
         <td>${escapeHtml(row.displayName)}</td>
         <td><code>${escapeHtml(row.expenseTypeKey || "")}</code></td>
         <td>
@@ -1375,7 +1676,7 @@
           <code>${escapeHtml(row.planningBucketKey || "")}</code>
         </td>
         <td>${escapeHtml(row.rangeBehavior || "")}</td>
-        <td>${escapeHtml(row.adjustmentTypeDisplay || "Metadata unavailable")}</td>
+        <td>${renderAdjustmentTypeControl(row)}</td>
         <td>${escapeHtml(row.minimumFloorDisplay || "Metadata unavailable")}</td>
         <td>${escapeHtml(row.floorStatusDisplay || "Metadata unavailable")}</td>
         <td>${escapeHtml(formatRatio(row.defaultConservativeFloorRatio))}</td>
@@ -1678,11 +1979,12 @@
             <div>
               <span class="section-label">Income Impact Adjustment Controls</span>
               <h3>Graph-Affecting Ratio Controls</h3>
-              <p class="panel-copy"><strong>Affects all users on this account.</strong> All seed-approved graph adjustment rows remain editable here. This pass only adds display-only adjustment and floor context.</p>
-              <p class="panel-copy">Policy source: ${escapeHtml(status.label || "Policy unavailable")} · Graph rows: ${escapeHtml(counts.previewRows || 0)} · Overrides: ${escapeHtml(counts.rowsWithOverrides || 0)} · Warnings: ${escapeHtml(counts.warnings || 0)}</p>
+              <p class="panel-copy"><strong>Affects all users on this account.</strong> All seed-approved graph adjustment rows remain editable here. Adjustment type overrides are saved for admin policy only and are not consumed by runtime math yet.</p>
+              <p class="panel-copy">Policy source: ${escapeHtml(status.label || "Policy unavailable")} · Graph rows: ${escapeHtml(counts.previewRows || 0)} · Ratio overrides: ${escapeHtml(counts.rowsWithOverrides || 0)} · Type overrides: ${escapeHtml(counts.rowsWithGraphAdjustmentOverrides || 0)} · Warnings: ${escapeHtml(counts.warnings || 0)}</p>
             </div>
             <div>
-              <button type="button" class="admin-action-button" data-household-expense-policy-save>Save changes</button>
+              <button type="button" class="admin-action-button" data-household-expense-policy-save>Save Ratios</button>
+              <button type="button" class="admin-action-button" data-graph-adjustment-save>Save Adjustment Types</button>
             </div>
           </div>
           <p class="panel-copy">Allowed values: floor 0.00-1.00, ceiling 1.00-${escapeHtml(formatRatio(limits.maxElevatedCeilingRatio || 2))}.</p>
@@ -1734,6 +2036,19 @@
         expenseTypeKey,
         conservativeFloorRatio: floorInput ? floorInput.value : null,
         elevatedCeilingRatio: ceilingInput ? ceilingInput.value : null
+      };
+    });
+  }
+
+  function collectGraphAdjustmentDraftRowsFromHost(host) {
+    const rows = Array.from(host?.querySelectorAll?.("[data-household-expense-policy-editor-row]") || []);
+    return rows.map(function (row) {
+      const expenseTypeKey = normalizeKey(row.getAttribute("data-expense-type-key"));
+      const adjustmentInput = row.querySelector("[data-graph-adjustment-type-input]");
+      return {
+        expenseTypeKey,
+        adjustmentClass: adjustmentInput ? adjustmentInput.value : row.getAttribute("data-adjustment-class"),
+        source: "ADMIN_ENTERED"
       };
     });
   }
@@ -1847,6 +2162,21 @@
     const sectionFeedback = host?.querySelector?.("[data-household-expense-policy-editor-feedback]");
     if (sectionFeedback) {
       sectionFeedback.textContent = "Fix the highlighted lifestyle ratio values before saving.";
+    }
+  }
+
+  function renderGraphAdjustmentValidationMessages(host, validationMessages) {
+    clearEditorFeedback(host);
+    Object.keys(validationMessages || {}).forEach(function (expenseTypeKey) {
+      const rowFeedback = findRowFeedbackElement(host, expenseTypeKey);
+      if (rowFeedback) {
+        rowFeedback.textContent = validationMessages[expenseTypeKey].join(" ");
+      }
+    });
+
+    const sectionFeedback = host?.querySelector?.("[data-household-expense-policy-editor-feedback]");
+    if (sectionFeedback) {
+      sectionFeedback.textContent = "Fix the highlighted adjustment type values before saving.";
     }
   }
 
@@ -2047,6 +2377,115 @@
     });
     const nextModel = buildHouseholdExpensePolicyEditorModel();
     rerenderEditorHost(host, nextModel, `Reset ${normalizedExpenseTypeKey} to default lifestyle ratios.`);
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
+  function saveGraphAdjustmentTypeChanges(host) {
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      const sectionFeedback = host?.querySelector?.("[data-household-expense-policy-editor-feedback]");
+      if (sectionFeedback) {
+        sectionFeedback.textContent = "Household expense account policy storage is unavailable.";
+      }
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const payload = buildGraphAdjustmentSavePayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy,
+      rows: model.rows,
+      draftRows: collectGraphAdjustmentDraftRowsFromHost(host),
+      updatedAt: new Date().toISOString()
+    });
+
+    if (!payload.valid) {
+      renderGraphAdjustmentValidationMessages(host, payload.validationMessages);
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        trace: payload.trace
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-graph-adjustment-type-editor"
+      },
+      storage: global.localStorage
+    });
+
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(
+      host,
+      nextModel,
+      saveResult?.saved
+        ? `Saved adjustment type overrides. Active type overrides: ${nextModel.counts.rowsWithGraphAdjustmentOverrides}.`
+        : "Adjustment type changes were not saved."
+    );
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
+  function resetGraphAdjustmentTypeRow(host, expenseTypeKey) {
+    const normalizedExpenseTypeKey = normalizeKey(expenseTypeKey);
+    if (!normalizedExpenseTypeKey) {
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "missing-expense-type-key" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const payload = buildGraphAdjustmentRowResetPayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy,
+      rows: model.rows,
+      expenseTypeKey: normalizedExpenseTypeKey
+    });
+
+    if (!payload.valid) {
+      renderGraphAdjustmentValidationMessages(host, payload.validationMessages);
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        trace: payload.trace
+      };
+    }
+
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-graph-adjustment-type-editor"
+      },
+      storage: global.localStorage
+    });
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(host, nextModel, `Reset ${normalizedExpenseTypeKey} to default adjustment type.`);
     refreshReadOnlyPolicySummary();
     return saveResult;
   }
@@ -2368,6 +2807,13 @@
       return;
     }
 
+    const graphAdjustmentSaveButton = target.closest?.("[data-graph-adjustment-save]");
+    if (graphAdjustmentSaveButton) {
+      event.preventDefault();
+      saveGraphAdjustmentTypeChanges(host);
+      return;
+    }
+
     const foodAtHomeSaveButton = target.closest?.("[data-food-at-home-floor-save]");
     if (foodAtHomeSaveButton) {
       event.preventDefault();
@@ -2428,6 +2874,13 @@
     if (resetButton) {
       event.preventDefault();
       resetLifestyleRangeEditorRow(host, resetButton.getAttribute("data-expense-type-key"));
+      return;
+    }
+
+    const graphAdjustmentResetButton = target.closest?.("[data-graph-adjustment-reset-row]");
+    if (graphAdjustmentResetButton) {
+      event.preventDefault();
+      resetGraphAdjustmentTypeRow(host, graphAdjustmentResetButton.getAttribute("data-expense-type-key"));
     }
   }
 
@@ -2452,6 +2905,7 @@
     HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS,
     MODEL90_DEFAULT_BUCKET_FLOOR_KEYS,
     STATE_CODE_VALUES,
+    GRAPH_ADJUSTMENT_TYPE_OPTIONS,
     buildLifestyleRangeEditorRows,
     buildFoodAtHomeFloorAssumptionsEditorModel,
     buildStateCostAdjustmentMultipliersEditorModel,
@@ -2462,10 +2916,14 @@
     validateModel90DefaultBucketFloorsDraft,
     buildSparseLifestyleRangeSavePlan,
     buildAccountPolicyWithLifestyleOverrides,
+    buildSparseGraphAdjustmentSavePlan,
+    buildAccountPolicyWithGraphAdjustmentOverrides,
     buildAccountPolicyWithFoodAtHomeFloorAssumptions,
     buildAccountPolicyWithStateCostAdjustmentMultipliers,
     buildAccountPolicyWithModel90DefaultBucketFloors,
     buildLifestyleRangeSavePayload,
+    buildGraphAdjustmentSavePayload,
+    buildGraphAdjustmentRowResetPayload,
     buildFoodAtHomeFloorAssumptionsSavePayload,
     buildFoodAtHomeFloorAssumptionsResetPayload,
     buildStateCostAdjustmentMultipliersSavePayload,
@@ -2474,6 +2932,8 @@
     buildModel90DefaultBucketFloorsResetPayload,
     saveLifestyleRangeEditorChanges,
     resetLifestyleRangeEditorRow,
+    saveGraphAdjustmentTypeChanges,
+    resetGraphAdjustmentTypeRow,
     saveFoodAtHomeFloorAssumptions,
     resetFoodAtHomeFloorAssumptions,
     saveStateCostAdjustmentMultipliers,

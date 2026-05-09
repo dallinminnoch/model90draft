@@ -9,6 +9,17 @@
   const HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_TYPE = "householdExpensePolicy";
   const HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_PREFIX = "model90.householdExpenseAccountPolicy.v1";
   const LIVING_FLOOR_ASSUMPTIONS_VERSION = 1;
+  const GRAPH_ADJUSTMENT_CLASS_VALUES = Object.freeze([
+    "moneyFloorAdjusted",
+    "ratioAdjusted",
+    "excludedFromAdjustment"
+  ]);
+  const GRAPH_MINIMUM_FLOOR_MODE_VALUES = Object.freeze([
+    "estimatedDollarFloor",
+    "zeroFloor",
+    "ratioFloorOnly",
+    "notAdjusted"
+  ]);
   const FOOD_AT_HOME_BAND_KEYS = Object.freeze([
     "infantToddler",
     "youngChild",
@@ -111,6 +122,11 @@
     return isPlainObject(value) ? cloneSerializable(value) : {};
   }
 
+  function normalizeExpenseTypeKey(value) {
+    const key = normalizeNullableText(value);
+    return key ? key.slice(0, 160) : null;
+  }
+
   function asFiniteNumber(value) {
     const numericValue = Number(value);
     return Number.isFinite(numericValue) ? numericValue : null;
@@ -128,6 +144,64 @@
   function normalizeSource(value, fallback) {
     const source = normalizeNullableText(value);
     return source || fallback;
+  }
+
+  function normalizeGraphAdjustmentClass(value) {
+    const adjustmentClass = normalizeNullableText(value);
+    return GRAPH_ADJUSTMENT_CLASS_VALUES.includes(adjustmentClass) ? adjustmentClass : null;
+  }
+
+  function normalizeMinimumFloorModeForAdjustmentClass(value, adjustmentClass) {
+    const requestedMode = normalizeNullableText(value);
+    const mode = GRAPH_MINIMUM_FLOOR_MODE_VALUES.includes(requestedMode) ? requestedMode : null;
+
+    if (adjustmentClass === "moneyFloorAdjusted") {
+      return "estimatedDollarFloor";
+    }
+
+    if (adjustmentClass === "excludedFromAdjustment") {
+      return "notAdjusted";
+    }
+
+    if (adjustmentClass === "ratioAdjusted") {
+      return mode === "ratioFloorOnly" ? "ratioFloorOnly" : "zeroFloor";
+    }
+
+    return mode;
+  }
+
+  function normalizeGraphAdjustmentOverride(row) {
+    const override = isPlainObject(row) ? row : {};
+    const expenseTypeKey = normalizeExpenseTypeKey(override.expenseTypeKey);
+    const adjustmentClass = normalizeGraphAdjustmentClass(override.adjustmentClass);
+
+    if (!expenseTypeKey || !adjustmentClass) {
+      return null;
+    }
+
+    return {
+      expenseTypeKey,
+      adjustmentClass,
+      minimumFloorMode: normalizeMinimumFloorModeForAdjustmentClass(override.minimumFloorMode, adjustmentClass),
+      source: normalizeSource(override.source, "ADMIN_ENTERED"),
+      updatedAt: normalizeNullableText(override.updatedAt)
+    };
+  }
+
+  function normalizeGraphAdjustmentOverrides(value) {
+    const rows = Array.isArray(value) ? value : [];
+    const normalizedByTypeKey = {};
+
+    rows.forEach(function (row) {
+      const normalizedRow = normalizeGraphAdjustmentOverride(row);
+      if (normalizedRow) {
+        normalizedByTypeKey[normalizedRow.expenseTypeKey] = normalizedRow;
+      }
+    });
+
+    return Object.keys(normalizedByTypeKey).sort().map(function (expenseTypeKey) {
+      return normalizedByTypeKey[expenseTypeKey];
+    });
   }
 
   function normalizeNullableNonnegativeDollar(value) {
@@ -280,6 +354,7 @@
     return {
       version: HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_VERSION,
       lifestyleRangeOverrides: [],
+      graphAdjustmentOverrides: [],
       compressionThresholdOverrides: [],
       compressionPolicyOverrides: [],
       guardrails: {},
@@ -300,6 +375,7 @@
         ? Number(policy.version)
         : HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_VERSION,
       lifestyleRangeOverrides: normalizeArrayNamespace(policy.lifestyleRangeOverrides),
+      graphAdjustmentOverrides: normalizeGraphAdjustmentOverrides(policy.graphAdjustmentOverrides),
       compressionThresholdOverrides: normalizeArrayNamespace(policy.compressionThresholdOverrides),
       compressionPolicyOverrides: normalizeArrayNamespace(policy.compressionPolicyOverrides),
       guardrails: normalizeObjectNamespace(policy.guardrails),
@@ -464,6 +540,7 @@
       trace: makeTrace("load", normalizedEnvelope.accountId, "loaded", {
         namespaceCounts: {
           lifestyleRangeOverrides: normalizedEnvelope.accountPolicy.lifestyleRangeOverrides.length,
+          graphAdjustmentOverrides: normalizedEnvelope.accountPolicy.graphAdjustmentOverrides.length,
           compressionThresholdOverrides: normalizedEnvelope.accountPolicy.compressionThresholdOverrides.length,
           compressionPolicyOverrides: normalizedEnvelope.accountPolicy.compressionPolicyOverrides.length,
           livingFloorAssumptions: Object.keys(normalizedEnvelope.accountPolicy.livingFloorAssumptions).length
@@ -586,6 +663,7 @@
       trace: makeTrace("save", envelope.accountId, "saved", {
         namespaceCounts: {
           lifestyleRangeOverrides: envelope.accountPolicy.lifestyleRangeOverrides.length,
+          graphAdjustmentOverrides: envelope.accountPolicy.graphAdjustmentOverrides.length,
           compressionThresholdOverrides: envelope.accountPolicy.compressionThresholdOverrides.length,
           compressionPolicyOverrides: envelope.accountPolicy.compressionPolicyOverrides.length,
           livingFloorAssumptions: Object.keys(envelope.accountPolicy.livingFloorAssumptions).length
