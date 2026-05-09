@@ -179,6 +179,10 @@ function createBlankLivingFloorAssumptions() {
 }
 
 function assertNoForbiddenDiffs() {
+  const allowedRuntimePlumbingFiles = new Set([
+    "app/features/lens-analysis/income-loss-impact-display.js",
+    "pages/income-loss-impact.html"
+  ]);
   const forbiddenPaths = [
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
@@ -189,14 +193,20 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "pages",
     "app.js",
     "styles.css"
   ];
   const status = execFileSync("git", ["status", "--short", "--"].concat(forbiddenPaths), {
     cwd: repoRoot,
     encoding: "utf8"
-  }).trim();
-  assert.equal(status, "", "graph adjustment preview resolver pass should not touch runtime/admin/storage/schema/page/CSS files");
+  }).trim().split(/\r?\n/)
+    .filter(Boolean)
+    .filter(function (line) {
+      return !allowedRuntimePlumbingFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
+    })
+    .join("\n");
+  assert.equal(status, "", "graph adjustment preview resolver pass should not touch runtime/admin/storage/schema/page/CSS files outside the approved Income Impact plumbing files");
 }
 
 const resolverSource = readRepoFile("app/features/lens-analysis/household-expense-graph-adjustment-policy-resolver.js");

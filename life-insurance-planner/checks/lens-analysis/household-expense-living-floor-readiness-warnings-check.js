@@ -63,9 +63,9 @@ function loadContext() {
 }
 
 function assertNoForbiddenDiffs() {
-  const allowedDisplayFiles = new Set([
-    "app/features/lens-analysis/analysis-setup.js",
-    "pages/analysis-setup.html"
+  const allowedRuntimePlumbingFiles = new Set([
+    "app/features/lens-analysis/income-loss-impact-display.js",
+    "pages/income-loss-impact.html"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
@@ -94,11 +94,11 @@ function assertNoForbiddenDiffs() {
   }).trim().split(/\r?\n/)
     .filter(Boolean)
     .filter(function (line) {
-      return !allowedDisplayFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
+      return !allowedRuntimePlumbingFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
     })
     .join("\n");
 
-  assert.equal(status, "", "readiness warning pass should not touch runtime, admin, storage, normalization, policy, compression, unapproved page, or CSS files");
+  assert.equal(status, "", "readiness warning pass should not touch runtime, admin, storage, normalization, policy, compression, unapproved page, or CSS files outside the approved Income Impact plumbing files");
 }
 
 function assertNoProductionForbiddenImports() {

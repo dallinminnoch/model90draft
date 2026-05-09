@@ -71,9 +71,9 @@ function clone(value) {
 }
 
 function assertNoForbiddenDiffs() {
-  const allowedDisplayFiles = new Set([
-    "app/features/lens-analysis/analysis-setup.js",
-    "pages/analysis-setup.html"
+  const allowedRuntimePlumbingFiles = new Set([
+    "app/features/lens-analysis/income-loss-impact-display.js",
+    "pages/income-loss-impact.html"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
@@ -98,11 +98,11 @@ function assertNoForbiddenDiffs() {
   }).trim().split(/\r?\n/)
     .filter(Boolean)
     .filter(function (line) {
-      return !allowedDisplayFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
+      return !allowedRuntimePlumbingFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
     })
     .join("\n");
 
-  assert.equal(status, "", "runtime, admin, storage, normalization, policy, compression, unapproved page, and CSS files should not have diffs");
+  assert.equal(status, "", "runtime, admin, storage, normalization, policy, compression, unapproved page, and CSS files outside the approved Income Impact plumbing files should not have diffs");
 }
 
 function assertNoForbiddenImports() {

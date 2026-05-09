@@ -359,6 +359,91 @@
     };
   }
 
+  function getLoadedHouseholdExpenseAccountPolicy(policyContext) {
+    if (isPlainObject(policyContext?.storageResult?.accountPolicy)) {
+      return policyContext.storageResult.accountPolicy;
+    }
+
+    if (isPlainObject(policyContext?.accountPolicy)) {
+      return policyContext.accountPolicy;
+    }
+
+    return null;
+  }
+
+  function normalizeHouseholdExpenseStreamPolicyMode(value) {
+    const mode = normalizeString(value);
+    const normalizedMode = mode.toLowerCase();
+    if (normalizedMode === "activegraphadjustments" || normalizedMode === "active-graph-adjustments" || normalizedMode === "active_graph_adjustments") {
+      return "activeGraphAdjustments";
+    }
+
+    if (normalizedMode === "preview" || normalizedMode === "stream-preview" || normalizedMode === "streampreview") {
+      return "preview";
+    }
+
+    if (normalizedMode === "legacy") {
+      return "legacy";
+    }
+
+    return null;
+  }
+
+  function getHouseholdExpenseStreamPolicyModeInput(state) {
+    const requestedMode = normalizeHouseholdExpenseStreamPolicyMode(
+      state?.scenarioState?.householdExpenseStreamPolicyMode
+      || state?.householdExpenseStreamPolicyMode
+    );
+
+    return requestedMode ? { householdExpenseStreamPolicyMode: requestedMode } : {};
+  }
+
+  function buildHouseholdExpenseScenarioContext(scenario, controls) {
+    const scenarioFacts = isPlainObject(scenario?.scenario) ? scenario.scenario : {};
+    return {
+      valuationDate: scenarioFacts.valuationDate || null,
+      selectedDeathDate: scenarioFacts.selectedDeathDate || controls?.selectedDeathDate || null,
+      selectedDeathAge: scenarioFacts.selectedDeathAge ?? controls?.selectedDeathAge ?? null,
+      projectionHorizonMonths: scenarioFacts.projectionHorizonMonths ?? null,
+      deceasedInsuredCount: 1,
+      deceasedInsuredRole: "client",
+      source: "incomeImpactScenario"
+    };
+  }
+
+  function buildLifestyleScenarioRuntimeInput(state, context, lifestyleSliderValue, resolvedAccountPolicyInput) {
+    const safeState = isPlainObject(state) ? state : {};
+    const safeContext = isPlainObject(context) ? context : {};
+    const lensModel = isPlainObject(safeState.lensModel) ? safeState.lensModel : {};
+    const householdExpenseAccountPolicyContext = safeContext.householdExpenseAccountPolicyContext;
+    const loadedAccountPolicy = getLoadedHouseholdExpenseAccountPolicy(householdExpenseAccountPolicyContext);
+    const input = Object.assign({
+      expenseFacts: lensModel.expenseFacts,
+      lensModel,
+      ongoingSupport: lensModel.ongoingSupport,
+      profileRecord: safeState.profileRecord,
+      profileFacts: lensModel.profileFacts,
+      pmiFacts: lensModel.pmiFacts || lensModel.protectionModeling?.pmiFacts,
+      taxContext: lensModel.taxContext,
+      assumptions: safeState.analysisSettings,
+      valuationDate: safeState.valuationDate,
+      scenarioContext: buildHouseholdExpenseScenarioContext(safeContext.scenario, safeContext.controls),
+      accountPolicyContext: householdExpenseAccountPolicyContext,
+      sliderValue: lifestyleSliderValue,
+      basePostDeathSeries: safeContext.scenario?.postDeathSeries,
+      options: {
+        comparisonPathId: LIFESTYLE_COMPARISON_PATH_ID,
+        comparisonLabel: LIFESTYLE_COMPARISON_LABEL
+      }
+    }, resolvedAccountPolicyInput, getHouseholdExpenseStreamPolicyModeInput(safeState));
+
+    if (loadedAccountPolicy) {
+      input.accountPolicy = loadedAccountPolicy;
+    }
+
+    return input;
+  }
+
   function resolveDeathAgeControlState(lensModel, valuationDate) {
     const dateOfBirth = parseDateOnlyValue(getPath(lensModel, "profileFacts.clientDateOfBirth"));
     const asOfDate = parseDateOnlyValue(valuationDate);
@@ -2520,15 +2605,12 @@
     const householdExpenseAccountPolicyContext = context.householdExpenseAccountPolicyContext;
     const resolvedAccountPolicyInput = getResolvedAccountPolicyInput(householdExpenseAccountPolicyContext);
     const lifestyleScenario = typeof safeState.calculateIncomeImpactLifestyleScenario === "function"
-      ? safeState.calculateIncomeImpactLifestyleScenario(Object.assign({
-        expenseFacts: safeState.lensModel?.expenseFacts,
-        sliderValue: lifestyleSliderValue,
-        basePostDeathSeries: scenario?.postDeathSeries,
-        options: {
-          comparisonPathId: LIFESTYLE_COMPARISON_PATH_ID,
-          comparisonLabel: LIFESTYLE_COMPARISON_LABEL
-        }
-      }, resolvedAccountPolicyInput))
+      ? safeState.calculateIncomeImpactLifestyleScenario(buildLifestyleScenarioRuntimeInput(
+        safeState,
+        context,
+        lifestyleSliderValue,
+        resolvedAccountPolicyInput
+      ))
       : null;
     const lifestyleComparisonScenario = normalizeLifestyleGraphComparisonScenario(lifestyleScenario?.comparisonScenario);
     const comparisonScenarios = lifestyleComparisonScenario ? [lifestyleComparisonScenario] : [];

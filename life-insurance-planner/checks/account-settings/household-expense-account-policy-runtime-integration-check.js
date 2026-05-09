@@ -89,7 +89,16 @@ function createRuntimeHarness() {
     "app/features/lens-analysis/household-expense-compression-policy.js",
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-account-policy-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-graph-adjustment-policy-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
     "app/features/lens-analysis/income-impact-compression-reporting-prep.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
+    "app/features/lens-analysis/income-impact-base-household-expense-stream.js",
+    "app/features/lens-analysis/income-impact-household-expense-adjustment-engine.js",
+    "app/features/lens-analysis/income-impact-household-expense-scenario-handoff-preview.js",
     "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js"
   ].forEach(function (relativePath) {
@@ -279,6 +288,74 @@ function makeLensModel(expenses) {
     },
     expenseFacts: {
       expenses: expenses.map(cloneJson)
+    }
+  };
+}
+
+function makeCompleteLivingFloorAssumptions() {
+  return {
+    version: 1,
+    foodAtHome: {
+      planningBucketKey: "foodAtHomeConsumables",
+      source: "ADMIN_ENTERED",
+      sourcePeriod: "2026",
+      monthlyAmountsByBand: {
+        infantToddler: 100,
+        youngChild: 200,
+        olderChild: 210,
+        teenMale: 300,
+        teenFemale: 280,
+        adultMale: 300,
+        adultFemale: 250,
+        adultUnknown: 275,
+        childUnknown: 190
+      },
+      householdSizeAdjustmentFactors: {
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6Plus": 1
+      }
+    },
+    stateCostAdjustmentMultipliers: {
+      version: 1,
+      appliesToAdjustmentClass: "moneyFloorAdjusted",
+      defaultMultiplier: 1,
+      globalStateAdjustmentMultipliersByState: {
+        CO: { multiplier: 1, source: "ADMIN_ENTERED", sourcePeriod: "2026" }
+      },
+      bucketStateAdjustmentMultipliers: {}
+    },
+    model90DefaultBucketFloors: {
+      householdConsumables: {
+        planningBucketKey: "householdConsumables",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        monthlyBaseAmount: 100,
+        monthlyPerMemberAmount: 25,
+        stateAdjustmentEnabled: true,
+        notes: null
+      },
+      communicationsConnectivity: {
+        planningBucketKey: "communicationsConnectivity",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        monthlyBaseAmount: 80,
+        monthlyPerMemberAmount: 10,
+        stateAdjustmentEnabled: true,
+        notes: null
+      },
+      transportationBasics: {
+        planningBucketKey: "transportationBasics",
+        source: "ADMIN_ENTERED",
+        sourcePeriod: "2026",
+        monthlyBaseAmount: 150,
+        monthlyPerAdultDriverAmount: 50,
+        stateAdjustmentEnabled: true,
+        notes: null
+      }
     }
   };
 }
@@ -530,6 +607,82 @@ assert.notEqual(getPathD(elevatedHtml, "lifestyle-post-death-resources"), getPat
   assert.doesNotMatch(html, /data-income-impact-graph-path="staged-compression-post-death-resources"/);
   assert.doesNotMatch(html, /data-income-impact-compression-marker|data-income-impact-graph-detail="compression-early-window"/);
 });
+
+const activeStorage = createFakeStorage();
+const activeAccountPolicy = {
+  version: 1,
+  lifestyleRangeOverrides: [{
+    expenseTypeKey: "groceries",
+    conservativeFloorRatio: 0.3,
+    elevatedCeilingRatio: 1.6
+  }],
+  compressionThresholdOverrides: [],
+  compressionPolicyOverrides: [],
+  guardrails: {},
+  graphAdjustmentOverrides: [{
+    expenseTypeKey: "groceries",
+    adjustmentClass: "moneyFloorAdjusted",
+    minimumFloorMode: "estimatedDollarFloor",
+    source: "ADMIN_ENTERED"
+  }],
+  livingFloorAssumptions: makeCompleteLivingFloorAssumptions(),
+  metadata: {
+    source: "active-graph-runtime-integration-check"
+  }
+};
+runtime.storageApi.saveHouseholdExpenseAccountPolicy({
+  accountId: ACCOUNT_ID,
+  accountPolicy: activeAccountPolicy,
+  metadata: { updatedBy: "runtime-integration-check" },
+  storage: activeStorage
+});
+const activePolicyContext = resolvePolicyContext(runtime, activeStorage);
+const activeCapture = makeCapture();
+const activeLensModel = makeLensModel([groceriesExpense]);
+activeLensModel.ongoingSupport.monthlyFoodCost = 1000;
+activeLensModel.ongoingSupport.monthlyNonHousingEssentialSupportCost = 1000;
+activeLensModel.ongoingSupport.monthlyTotalEssentialSupportCost = 1000;
+activeLensModel.profileFacts = {
+  addressState: "CO",
+  maritalStatus: "Married",
+  spouseAge: 40,
+  spouseGender: "female"
+};
+activeLensModel.pmiFacts = {
+  stateOfResidence: "CO"
+};
+const activeState = buildRuntimeState(runtime, activePolicyContext, activeLensModel, activeCapture);
+activeState.profileRecord = {
+  state: "CO",
+  maritalStatus: "Married",
+  spouseAge: 40,
+  spouseGender: "female"
+};
+activeState.scenarioState.householdExpenseStreamPolicyMode = "activeGraphAdjustments";
+const activeStreamResult = buildResultForSlider(runtime, activeState, -100);
+const activeLifestyleInput = activeCapture.lifestyleInputs[0];
+const activeLifestyleOutput = activeCapture.lifestyleOutputs[0];
+
+assert.equal(activeStorage.writes().length, 1, "active stream runtime proof should only include the seeded account policy write");
+assert.equal(activeLifestyleInput.householdExpenseStreamPolicyMode, "activeGraphAdjustments", "display path should pass explicit active graph stream mode when requested internally");
+assert.equal(activeLifestyleInput.accountPolicy.graphAdjustmentOverrides[0].expenseTypeKey, "groceries", "active stream input should receive raw graph adjustment overrides from saved account policy");
+assert.equal(activeLifestyleInput.accountPolicy.livingFloorAssumptions.foodAtHome.monthlyAmountsByBand.adultFemale, 250, "active stream input should receive raw living-floor assumptions from saved account policy");
+assert.equal(activeLifestyleInput.accountPolicyContext.storageResult.accountPolicy.graphAdjustmentOverrides[0].expenseTypeKey, "groceries", "active stream input should carry raw account policy context");
+assert.equal(activeLifestyleInput.lensModel.ongoingSupport.monthlyTotalEssentialSupportCost, 1000, "active stream input should receive full lensModel support totals");
+assert.equal(activeLifestyleInput.ongoingSupport.monthlyTotalEssentialSupportCost, 1000, "active stream input should receive explicit ongoingSupport");
+assert.equal(activeLifestyleInput.profileRecord.state, "CO", "active stream input should receive profile state");
+assert.equal(activeLifestyleInput.profileFacts.addressState, "CO", "active stream input should receive profile facts state");
+assert.equal(activeLifestyleInput.pmiFacts.stateOfResidence, "CO", "active stream input should receive PMI state context");
+assert.equal(activeLifestyleInput.valuationDate, "2026-05-07", "active stream input should receive valuation date");
+assert.equal(activeLifestyleInput.scenarioContext.deceasedInsuredRole, "client", "active stream input should receive remaining-household scenario context");
+assert.equal(activeLifestyleOutput.trace.householdExpenseStreamPolicyMode, "activeGraphAdjustments", "explicit active mode should be used by the lifestyle helper");
+assert.equal(activeLifestyleOutput.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, true, "explicit active mode should consume stream preview output");
+assert.equal(activeLifestyleOutput.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "explicit active mode should produce stream comparison path");
+assert.equal(activeLifestyleOutput.comparisonScenario.trace.estimatedDollarFloorsEnabled, true, "explicit active mode should keep dollar floors enabled");
+assert.equal(activeLifestyleOutput.comparisonScenario.trace.bucketAggregationApplied, true, "explicit active mode should use bucket-level floor aggregation");
+assert.equal(activeLifestyleOutput.comparisonScenario.trace.perRowDollarFloorApplied, false, "explicit active mode should not apply per-row dollar floors");
+assert.equal(activeCapture.graphInputs[0].comparisonScenarios[0].trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "graph should receive the helper-provided stream comparison when explicit active mode is requested");
+assert.notDeepEqual(comparisonValues(activeStreamResult), baseValues(activeStreamResult), "explicit active graph mode should be able to move the comparison path");
 
 const protectedKeys = [
   ["rentOrMortgagePayment", "housingExpense"],
