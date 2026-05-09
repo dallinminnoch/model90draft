@@ -241,7 +241,7 @@
       ? clonePlainValue(resolution.streamInputMissingReasons)
       : [];
     return {
-      householdExpenseStreamPolicyModeResolved: normalizeString(resolution.mode) || "legacy",
+      householdExpenseStreamPolicyModeResolved: normalizeString(resolution.mode) || "streamUnavailable",
       householdExpenseStreamPolicyModeRequested: normalizeString(resolution.requestedMode) || null,
       streamDefaultUsed: resolution.streamDefaultUsed === true,
       streamInputMissing: resolution.streamInputMissing === true,
@@ -394,7 +394,6 @@
       dataGaps,
       trace: {
         calculationMethod: "income-impact-household-expense-stream-policy-preview-v1",
-        legacyScenarioOutputReplaced: false,
         actualComparisonScenarioReplaced: policyMode === "activeGraphAdjustments",
         graphOutputChanged: policyMode === "activeGraphAdjustments",
         graphAdjustmentOverridesAppliedToGraph: policyMode === "activeGraphAdjustments",

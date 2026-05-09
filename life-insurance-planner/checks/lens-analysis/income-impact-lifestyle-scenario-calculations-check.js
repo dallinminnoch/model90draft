@@ -39,6 +39,16 @@ assert.doesNotMatch(
   /getLegacy|buildLegacy|createLegacy|isDefaultSeedProtectedLifestyleExpense|income-impact-lifestyle-comparison-adapter-v1|baseNeedReconciliation|\breviewOnly\b/,
   "legacy lifestyle helper internals should be removed"
 );
+assert.doesNotMatch(
+  helperSource,
+  /householdExpenseStreamPolicyModeResolved:\s*normalizeString\(resolution\.mode\)\s*\|\|\s*"legacy"/,
+  "mode trace fallback should not default to legacy"
+);
+assert.doesNotMatch(
+  helperSource,
+  /legacyScenarioOutputReplaced/,
+  "stream preview trace should not carry stale legacy replacement labels"
+);
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
