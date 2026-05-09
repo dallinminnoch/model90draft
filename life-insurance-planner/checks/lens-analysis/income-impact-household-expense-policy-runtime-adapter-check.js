@@ -441,7 +441,8 @@ const parityContext = loadScenarioParityContext();
 const scenarioApi = parityContext.LensApp.lensAnalysis.incomeImpactLifestyleScenarioCalculations;
 const scenarioInput = {
   expenses: createScenarioExpenses(),
-  sliderValue: -50
+  sliderValue: -50,
+  householdExpenseStreamPolicyMode: "legacy"
 };
 const beforeAdapterImport = scenarioApi.calculateIncomeImpactLifestyleScenario(clone(scenarioInput));
 [

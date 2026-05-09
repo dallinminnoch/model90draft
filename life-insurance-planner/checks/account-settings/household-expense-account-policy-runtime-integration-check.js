@@ -651,6 +651,29 @@ activeLensModel.profileFacts = {
 activeLensModel.pmiFacts = {
   stateOfResidence: "CO"
 };
+const defaultStreamCapture = makeCapture();
+const defaultStreamState = buildRuntimeState(runtime, activePolicyContext, activeLensModel, defaultStreamCapture);
+defaultStreamState.profileRecord = {
+  state: "CO",
+  maritalStatus: "Married",
+  spouseAge: 40,
+  spouseGender: "female"
+};
+const defaultStreamResult = buildResultForSlider(runtime, defaultStreamState, -100);
+const defaultStreamLifestyleInput = defaultStreamCapture.lifestyleInputs[0];
+const defaultStreamLifestyleOutput = defaultStreamCapture.lifestyleOutputs[0];
+
+assert.equal(defaultStreamLifestyleInput.householdExpenseStreamPolicyMode, undefined, "display path should leave default stream mode resolution to the lifestyle helper");
+assert.equal(defaultStreamLifestyleOutput.trace.householdExpenseStreamPolicyModeResolved, "activeGraphAdjustments", "missing mode should resolve to active stream graph adjustments when runtime inputs are complete");
+assert.equal(defaultStreamLifestyleOutput.trace.streamDefaultUsed, true, "default stream graph mode should be traced as the resolved default");
+assert.equal(defaultStreamLifestyleOutput.trace.legacyFallbackUsed, false, "complete runtime inputs should not use legacy fallback");
+assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "default stream mode should produce stream comparison path");
+assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.estimatedDollarFloorsEnabled, true, "default stream mode should keep dollar floors enabled");
+assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.bucketAggregationApplied, true, "default stream mode should use bucket-level floor aggregation");
+assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.perRowDollarFloorApplied, false, "default stream mode should not apply per-row dollar floors");
+assert.equal(defaultStreamCapture.graphInputs[0].comparisonScenarios[0].trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "graph should receive the stream comparison when default stream mode is resolved");
+assert.notDeepEqual(comparisonValues(defaultStreamResult), baseValues(defaultStreamResult), "default stream graph mode should be able to move the comparison path");
+
 const activeState = buildRuntimeState(runtime, activePolicyContext, activeLensModel, activeCapture);
 activeState.profileRecord = {
   state: "CO",
@@ -683,6 +706,7 @@ assert.equal(activeLifestyleOutput.comparisonScenario.trace.bucketAggregationApp
 assert.equal(activeLifestyleOutput.comparisonScenario.trace.perRowDollarFloorApplied, false, "explicit active mode should not apply per-row dollar floors");
 assert.equal(activeCapture.graphInputs[0].comparisonScenarios[0].trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "graph should receive the helper-provided stream comparison when explicit active mode is requested");
 assert.notDeepEqual(comparisonValues(activeStreamResult), baseValues(activeStreamResult), "explicit active graph mode should be able to move the comparison path");
+assert.deepEqual(comparisonValues(defaultStreamResult), comparisonValues(activeStreamResult), "default stream graph mode should match explicit active graph mode");
 
 const protectedKeys = [
   ["rentOrMortgagePayment", "housingExpense"],

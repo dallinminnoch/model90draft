@@ -379,6 +379,7 @@ const afterScenarioContext = loadScenarioContext(true);
 const beforeScenarioApi = beforeScenarioContext.LensApp.lensAnalysis.incomeImpactLifestyleScenarioCalculations;
 const afterScenarioApi = afterScenarioContext.LensApp.lensAnalysis.incomeImpactLifestyleScenarioCalculations;
 const scenarioInput = createScenarioFixture();
+scenarioInput.householdExpenseStreamPolicyMode = "legacy";
 const beforeScenario = plain(beforeScenarioApi.calculateIncomeImpactLifestyleScenario(clone(scenarioInput)));
 afterScenarioContext.LensApp.lensAnalysis.incomeImpactHouseholdExpenseScenarioHandoffPreview
   .previewIncomeImpactHouseholdExpenseScenarioHandoff({

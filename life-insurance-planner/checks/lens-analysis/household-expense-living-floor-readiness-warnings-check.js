@@ -64,6 +64,7 @@ function loadContext() {
 
 function assertNoForbiddenDiffs() {
   const allowedRuntimePlumbingFiles = new Set([
+    "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
     "pages/income-loss-impact.html"
   ]);

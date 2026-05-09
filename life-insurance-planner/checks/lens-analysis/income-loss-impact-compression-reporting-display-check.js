@@ -623,7 +623,7 @@ assert.equal(graphCallCount, 1, "display should build graph once");
 assert.equal(capturedLifestyleInput.expenseFacts.expenses.length, 2, "lifestyle helper should receive explicit expense facts");
 assert.equal(capturedLifestyleInput.sliderValue, 0, "default slider value should be current/baseline");
 assert.equal(capturedLifestyleInput.basePostDeathSeries, scenario.postDeathSeries, "display should pass base post-death series into the lifestyle helper");
-assert.equal(capturedLifestyleInput.householdExpenseStreamPolicyMode, undefined, "default display call should not request stream mode");
+assert.equal(capturedLifestyleInput.householdExpenseStreamPolicyMode, undefined, "default display call should leave stream mode resolution to the lifestyle helper");
 assert.equal(capturedLifestyleInput.accountPolicyResolution, undefined, "missing account policy should leave lifestyle helper on seed fallback path");
 assert.equal(capturedCompressionPrepInput.accountPolicyResolution, undefined, "missing account policy should leave compression prep on seed fallback path");
 assert.equal(capturedLayer5Input.compressionScenarioResult.status, "complete", "Layer 5 should continue receiving the existing immediate compression scenario result");
@@ -800,7 +800,7 @@ assert.equal(accountLifestyleInput.profileFacts.addressState, "CO", "lifestyle h
 assert.equal(accountLifestyleInput.pmiFacts.stateOfResidence, "CO", "lifestyle helper input should carry PMI/tax state context");
 assert.equal(accountLifestyleInput.valuationDate, "2026-05-06", "lifestyle helper input should carry valuation date");
 assert.equal(accountLifestyleInput.scenarioContext.deceasedInsuredRole, "client", "lifestyle helper input should carry remaining-household scenario context");
-assert.equal(accountLifestyleInput.householdExpenseStreamPolicyMode, undefined, "valid saved policy should not make stream mode the default");
+assert.equal(accountLifestyleInput.householdExpenseStreamPolicyMode, undefined, "display should pass complete inputs without hard-coding the stream mode default");
 assert.equal(accountPolicyResult.compressionReporting.trace.accountPolicySource, "accountOverride", "result trace should expose account override policy source");
 assert.equal(accountPolicyResult.compressionReporting.trace.accountPolicyStorageStatus, "loaded", "result trace should expose storage load status");
 assert.equal(accountPolicyResult.compressionReporting.trace.accountPolicyAccountIdSource, "temporaryLocalDisplayFallback", "result trace should expose temporary local account id source");

@@ -624,21 +624,126 @@
     return null;
   }
 
-  function getHouseholdExpenseStreamPolicyMode(input) {
+  function getMissingActiveGraphDefaultReasons(input) {
+    const reasons = [];
+    const basePostDeathSeries = getInputBasePostDeathSeries(input);
+    const lensModel = isPlainObject(input?.lensModel) ? input.lensModel : {};
+    const ongoingSupport = isPlainObject(input?.ongoingSupport)
+      ? input.ongoingSupport
+      : lensModel.ongoingSupport;
+    const helperRequirements = [
+      ["incomeImpactHouseholdExpensePolicyRuntimeAdapter", "prepareIncomeImpactHouseholdExpensePolicyPreview"],
+      ["incomeImpactBaseHouseholdExpenseStream", "prepareIncomeImpactBaseHouseholdExpenseStream"],
+      ["incomeImpactHouseholdExpenseAdjustmentEngine", "calculateIncomeImpactHouseholdExpenseAdjustments"],
+      ["incomeImpactHouseholdExpenseScenarioHandoffPreview", "previewIncomeImpactHouseholdExpenseScenarioHandoff"]
+    ];
+    const hasExpenseFacts = Array.isArray(input?.expenseFacts)
+      || Array.isArray(input?.expenseFacts?.expenses)
+      || Array.isArray(lensModel?.expenseFacts?.expenses)
+      || Array.isArray(input?.expenses);
+
+    if (!Array.isArray(basePostDeathSeries?.points) || !basePostDeathSeries.points.length) {
+      reasons.push("missingBasePostDeathSeries");
+    }
+
+    if (!hasExpenseFacts) {
+      reasons.push("missingExpenseFacts");
+    }
+
+    if (!isPlainObject(ongoingSupport) || toOptionalNumber(ongoingSupport.monthlyTotalEssentialSupportCost) == null) {
+      reasons.push("missingOngoingSupportMonthlyTotal");
+    }
+
+    helperRequirements.forEach(function ([namespaceKey, functionKey]) {
+      if (!getHelperFunction(namespaceKey, functionKey)) {
+        reasons.push("missingHelper:" + namespaceKey);
+      }
+    });
+
+    return reasons;
+  }
+
+  function resolveHouseholdExpenseStreamPolicyMode(input) {
     if (input?.useStreamHouseholdExpenseAdjustments === true || input?.options?.useStreamHouseholdExpenseAdjustments === true) {
-      return "preview";
+      return {
+        mode: "preview",
+        requestedMode: "preview",
+        streamDefaultUsed: false,
+        legacyFallbackUsed: false,
+        legacyFallbackReason: null
+      };
+    }
+
+    if (input?.useStreamHouseholdExpenseAdjustments === false || input?.options?.useStreamHouseholdExpenseAdjustments === false) {
+      return {
+        mode: "legacy",
+        requestedMode: "legacy",
+        streamDefaultUsed: false,
+        legacyFallbackUsed: false,
+        legacyFallbackReason: null
+      };
     }
 
     const mode = normalizeString(input?.householdExpenseStreamPolicyMode || input?.options?.householdExpenseStreamPolicyMode).toLowerCase();
     if (mode === "activegraphadjustments" || mode === "active-graph-adjustments" || mode === "active_graph_adjustments") {
-      return "activeGraphAdjustments";
+      return {
+        mode: "activeGraphAdjustments",
+        requestedMode: "activeGraphAdjustments",
+        streamDefaultUsed: false,
+        legacyFallbackUsed: false,
+        legacyFallbackReason: null
+      };
     }
 
     if (mode === "preview" || mode === "stream-preview" || mode === "streampreview") {
-      return "preview";
+      return {
+        mode: "preview",
+        requestedMode: "preview",
+        streamDefaultUsed: false,
+        legacyFallbackUsed: false,
+        legacyFallbackReason: null
+      };
     }
 
-    return "legacy";
+    if (mode === "legacy") {
+      return {
+        mode: "legacy",
+        requestedMode: "legacy",
+        streamDefaultUsed: false,
+        legacyFallbackUsed: false,
+        legacyFallbackReason: null
+      };
+    }
+
+    const missingDefaultReasons = getMissingActiveGraphDefaultReasons(input);
+    if (!missingDefaultReasons.length) {
+      return {
+        mode: "activeGraphAdjustments",
+        requestedMode: null,
+        streamDefaultUsed: true,
+        legacyFallbackUsed: false,
+        legacyFallbackReason: null
+      };
+    }
+
+    return {
+      mode: "legacy",
+      requestedMode: null,
+      streamDefaultUsed: false,
+      legacyFallbackUsed: true,
+      legacyFallbackReason: missingDefaultReasons.join(";")
+    };
+  }
+
+  function getHouseholdExpenseStreamPolicyTrace(policyResolution) {
+    const resolution = isPlainObject(policyResolution) ? policyResolution : {};
+    return {
+      householdExpenseStreamPolicyModeResolved: normalizeString(resolution.mode) || "legacy",
+      householdExpenseStreamPolicyModeRequested: normalizeString(resolution.requestedMode) || null,
+      streamDefaultUsed: resolution.streamDefaultUsed === true,
+      legacyFallbackUsed: resolution.legacyFallbackUsed === true,
+      legacyFallbackReason: normalizeString(resolution.legacyFallbackReason) || null
+    };
   }
 
   function getHelperFunction(namespaceKey, functionKey) {
@@ -1382,7 +1487,9 @@
     };
 
     const basePostDeathSeries = getInputBasePostDeathSeries(sourceInput);
-    const streamPolicyMode = getHouseholdExpenseStreamPolicyMode(sourceInput);
+    const streamPolicyResolution = resolveHouseholdExpenseStreamPolicyMode(sourceInput);
+    const streamPolicyMode = streamPolicyResolution.mode;
+    Object.assign(output.trace, getHouseholdExpenseStreamPolicyTrace(streamPolicyResolution));
     if (basePostDeathSeries && streamPolicyMode !== "activeGraphAdjustments") {
       const comparisonScenario = buildLifestyleComparisonScenario(basePostDeathSeries, output, sourceInput);
       if (comparisonScenario) {

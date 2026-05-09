@@ -409,7 +409,8 @@ const scenarioInput = {
       monthlyAmount: 500
     }
   ],
-  sliderValue: -50
+  sliderValue: -50,
+  householdExpenseStreamPolicyMode: "legacy"
 };
 const scenarioContextBefore = loadScenarioContext(false);
 const scenarioBefore = plain(

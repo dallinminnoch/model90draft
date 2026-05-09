@@ -892,22 +892,45 @@ assert.deepEqual(
 const streamPreviewBaseInput = createStreamPreviewInput();
 delete streamPreviewBaseInput.householdExpenseStreamPolicyMode;
 const streamPreviewBaseBefore = cloneJson(streamPreviewBaseInput);
-const streamPreviewLegacy = calculations.calculateIncomeImpactLifestyleScenario(cloneJson(streamPreviewBaseInput));
-const streamPreviewDisabled = calculations.calculateIncomeImpactLifestyleScenario(Object.assign(cloneJson(streamPreviewBaseInput), {
+const streamPreviewFallbackBeforeDeps = calculations.calculateIncomeImpactLifestyleScenario(cloneJson(streamPreviewBaseInput));
+const streamPreviewLegacy = calculations.calculateIncomeImpactLifestyleScenario(Object.assign(cloneJson(streamPreviewBaseInput), {
   householdExpenseStreamPolicyMode: "legacy",
   useStreamHouseholdExpenseAdjustments: false
 }));
-assert.deepEqual(streamPreviewBaseInput, streamPreviewBaseBefore, "stream preview parity fixture should not be mutated by legacy call");
-assert.deepEqual(streamPreviewDisabled, streamPreviewLegacy, "disabled stream policy flag should preserve exact legacy output");
+assert.deepEqual(streamPreviewBaseInput, streamPreviewBaseBefore, "stream preview parity fixture should not be mutated by default fallback call");
+assert.equal(streamPreviewFallbackBeforeDeps.trace.householdExpenseStreamPolicyModeResolved, "legacy", "missing mode should fall back to legacy before stream helpers are loaded");
+assert.equal(streamPreviewFallbackBeforeDeps.trace.legacyFallbackUsed, true, "missing mode fallback should be explicit before stream helpers are loaded");
+assert.match(streamPreviewFallbackBeforeDeps.trace.legacyFallbackReason, /missingHelper:incomeImpactHouseholdExpensePolicyRuntimeAdapter/, "missing helper fallback reason should be traced");
+assert.equal(streamPreviewLegacy.trace.householdExpenseStreamPolicyModeResolved, "legacy", "explicit legacy should resolve to legacy mode");
+assert.equal(streamPreviewLegacy.trace.legacyFallbackUsed, false, "explicit legacy should not be marked as default fallback");
+assert.deepEqual(streamPreviewFallbackBeforeDeps.adjustedExpenses, streamPreviewLegacy.adjustedExpenses, "default fallback should keep legacy adjusted expenses before helpers are loaded");
+assert.deepEqual(streamPreviewFallbackBeforeDeps.comparisonScenario, streamPreviewLegacy.comparisonScenario, "default fallback should keep legacy comparison before helpers are loaded");
 assert.equal(
   Object.prototype.hasOwnProperty.call(streamPreviewLegacy, "householdExpenseStreamPreview"),
   false,
-  "missing stream preview flag should not add preview output"
+  "explicit legacy should not add stream preview output"
 );
 
 loadStreamPreviewDependencies();
-const streamPreviewMissingFlagAfterDeps = calculations.calculateIncomeImpactLifestyleScenario(cloneJson(streamPreviewBaseInput));
-assert.deepEqual(streamPreviewMissingFlagAfterDeps, streamPreviewLegacy, "loading stream preview helpers should not change missing-flag output");
+const streamDefaultAfterDeps = calculations.calculateIncomeImpactLifestyleScenario(cloneJson(streamPreviewBaseInput));
+assert.equal(streamDefaultAfterDeps.trace.householdExpenseStreamPolicyModeResolved, "activeGraphAdjustments", "missing mode should default to active stream mode when required stream inputs and helpers are available");
+assert.equal(streamDefaultAfterDeps.trace.streamDefaultUsed, true, "default active stream mode should be traced");
+assert.equal(streamDefaultAfterDeps.trace.legacyFallbackUsed, false, "default active stream mode should not use legacy fallback");
+assert.ok(streamDefaultAfterDeps.householdExpenseStreamPreview, "default active stream mode should include consumed stream preview context");
+assert.equal(streamDefaultAfterDeps.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, true, "default active stream mode should consume stream preview output");
+assert.equal(streamDefaultAfterDeps.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "default active stream mode should replace comparison output with stream handoff");
+const missingStreamInputAfterDeps = createStreamPreviewInput();
+delete missingStreamInputAfterDeps.householdExpenseStreamPolicyMode;
+delete missingStreamInputAfterDeps.lensModel.ongoingSupport.monthlyTotalEssentialSupportCost;
+const missingStreamFallbackAfterDeps = calculations.calculateIncomeImpactLifestyleScenario(missingStreamInputAfterDeps);
+assert.equal(missingStreamFallbackAfterDeps.trace.householdExpenseStreamPolicyModeResolved, "legacy", "missing required stream inputs should fall back to legacy");
+assert.equal(missingStreamFallbackAfterDeps.trace.legacyFallbackUsed, true, "missing required stream input fallback should be explicit");
+assert.match(missingStreamFallbackAfterDeps.trace.legacyFallbackReason, /missingOngoingSupportMonthlyTotal/, "missing required stream input reason should be traced");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(missingStreamFallbackAfterDeps, "householdExpenseStreamPreview"),
+  false,
+  "missing required stream inputs should not pretend stream mode ran"
+);
 
 const streamPreviewEnabledInput = createStreamPreviewInput();
 const streamPreviewEnabledBefore = cloneJson(streamPreviewEnabledInput);
@@ -1006,6 +1029,12 @@ const activeGraphInput = createStreamPreviewInput({
 const activeGraphBefore = cloneJson(activeGraphInput);
 const activeGraph = calculations.calculateIncomeImpactLifestyleScenario(activeGraphInput);
 assert.deepEqual(activeGraphInput, activeGraphBefore, "active graph adjustment mode should not mutate input");
+assert.deepEqual(streamDefaultAfterDeps.comparisonScenario, activeGraph.comparisonScenario, "missing mode default stream output should match explicit activeGraphAdjustments comparison output");
+assert.deepEqual(
+  streamDefaultAfterDeps.householdExpenseStreamPreview.householdExpenseAdjustmentResult,
+  activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult,
+  "missing mode default stream adjustment result should match explicit activeGraphAdjustments"
+);
 assert.ok(activeGraph.householdExpenseStreamPreview, "active graph adjustment mode should include stream preview context");
 assert.equal(activeGraph.householdExpenseStreamPreview.metadata.activeRuntimeConsumer, true, "active graph adjustment mode should mark stream preview as consumed");
 assert.equal(activeGraph.householdExpenseStreamPreview.trace.graphOutputChanged, true, "active graph adjustment mode should trace graph output replacement");
