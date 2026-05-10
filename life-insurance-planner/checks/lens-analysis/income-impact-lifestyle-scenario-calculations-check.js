@@ -424,6 +424,11 @@ assert.equal(streamDefault.householdExpenseStreamPreview.metadata.activeRuntimeC
 assert.equal(streamDefault.comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1");
 assert.equal(streamDefault.comparisonScenario.kind, "lifestyleComparison", "stream comparison should use the lifestyle comparison kind");
 assert.equal(streamDefault.comparisonScenario.pathId, "lifestyle-post-death-resources", "stream comparison should use the lifestyle graph path");
+assert.equal(
+  JSON.stringify(streamDefault).includes("compression-post-death-resources"),
+  false,
+  "active stream output should not emit the retired compression graph path"
+);
 assert.equal(streamDefault.comparisonScenario.trace.graphAdjustmentSource, "baseHouseholdExpenseStream");
 assert.equal(
   streamDefault.monthlyDelta,

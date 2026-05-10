@@ -424,7 +424,7 @@ const scenarioAfter = plain(
   scenarioContextAfter.LensApp.lensAnalysis.incomeImpactLifestyleScenarioCalculations
     .calculateIncomeImpactLifestyleScenario(clone(scenarioInput))
 );
-assert.deepEqual(scenarioAfter, scenarioBefore, "importing/calling inactive stream helper must not change Income Impact output");
+assert.deepEqual(scenarioAfter, scenarioBefore, "importing/calling standalone stream helper must not change retired Income Impact output");
 
 assertNoRuntimeFilesTouched();
 

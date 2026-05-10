@@ -387,6 +387,6 @@ afterScenarioContext.LensApp.lensAnalysis.incomeImpactHouseholdExpenseScenarioHa
     householdExpenseAdjustmentResult: { monthlyDelta: -100 }
   });
 const afterScenario = plain(afterScenarioApi.calculateIncomeImpactLifestyleScenario(clone(scenarioInput)));
-assert.deepEqual(afterScenario, beforeScenario, "importing/calling inactive handoff preview should not change existing Income Impact lifestyle output");
+assert.deepEqual(afterScenario, beforeScenario, "importing/calling standalone handoff preview should not change retired Income Impact lifestyle output");
 
 console.log("income-impact-household-expense-scenario-handoff-preview-check passed");

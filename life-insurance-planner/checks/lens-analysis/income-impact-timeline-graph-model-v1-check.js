@@ -468,7 +468,7 @@ assert.equal(
   "Early detail strip should not be created for the single lifestyle comparison path."
 );
 
-const legacyCompressionComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
+const retiredCompressionPathComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
   comparisonScenarios: [
     Object.assign({}, cloneJson(comparisonScenario), {
       scenarioId: "income-impact-expense-compression-alternate",
@@ -481,11 +481,11 @@ const legacyCompressionComparisonModel = buildIncomeImpactTimelineGraphModel(Obj
   ]
 }));
 assert.equal(
-  Object.prototype.hasOwnProperty.call(legacyCompressionComparisonModel.series, "comparisonPostDeathResources"),
+  Object.prototype.hasOwnProperty.call(retiredCompressionPathComparisonModel.series, "comparisonPostDeathResources"),
   false,
-  "Legacy compression scenarios should not emit the visible lifestyle comparison path."
+  "Retired compression graph-path scenarios should not emit the visible lifestyle comparison path."
 );
-assert.deepEqual(cloneJson(legacyCompressionComparisonModel.comparisonMarkers), [], "Legacy compression scenarios should not emit visible comparison markers.");
+assert.deepEqual(cloneJson(retiredCompressionPathComparisonModel.comparisonMarkers), [], "Retired compression graph-path scenarios should not emit visible comparison markers.");
 
 const invalidComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
   comparisonScenarios: [

@@ -497,6 +497,13 @@ const engineApi = context.LensApp.lensAnalysis.incomeImpactHouseholdExpenseAdjus
 assert.ok(engineApi, "adjustment engine module should load");
 assert.equal(engineApi.ADJUSTMENT_ENGINE_VERSION, 1, "adjustment engine should expose V1");
 assert.equal(typeof engineApi.calculateIncomeImpactHouseholdExpenseAdjustments, "function", "adjustment engine function should export");
+loadScript(context, "app/features/lens-analysis/income-impact-base-household-expense-stream.js");
+const baseStreamApi = context.LensApp.lensAnalysis.incomeImpactBaseHouseholdExpenseStream;
+assert.deepEqual(
+  plain(baseStreamApi.PROTECTED_EXCLUDED_PLANNING_BUCKET_KEYS).sort(),
+  plain(engineApi.PROTECTED_EXCLUDED_PLANNING_BUCKET_KEYS).sort(),
+  "base stream and adjustment engine should keep protected/source-owned planning-bucket guardrails aligned until they have a shared owner"
+);
 
 const input = createCompleteInput();
 const originalInput = clone(input);
