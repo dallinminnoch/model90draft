@@ -46,14 +46,6 @@
       perMemberField: "monthlyPerAdultDriverAmount"
     })
   });
-  const STATE_CODE_VALUES = Object.freeze([
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
-    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
-    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
-    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
-    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
-    "WY"
-  ]);
 
   function isPlainObject(value) {
     return Object.prototype.toString.call(value) === "[object Object]";
@@ -230,16 +222,6 @@
     return numericValue;
   }
 
-  function normalizeDefaultMultiplier(value) {
-    const numericValue = normalizeNullableMultiplier(value);
-    return numericValue === null ? 1 : numericValue;
-  }
-
-  function normalizeStateCode(value) {
-    const stateCode = String(value == null ? "" : value).trim().toUpperCase();
-    return STATE_CODE_VALUES.includes(stateCode) ? stateCode : "";
-  }
-
   function createBlankMonthlyAmountsByBand(input) {
     const values = isPlainObject(input) ? input : {};
     return FOOD_AT_HOME_BAND_KEYS.reduce(function (monthlyAmounts, bandKey) {
@@ -256,40 +238,6 @@
     }, {});
   }
 
-  function normalizeStateMultiplierRow(value) {
-    const row = isPlainObject(value) ? value : { multiplier: value };
-    return {
-      multiplier: normalizeNullableMultiplier(row.multiplier),
-      source: normalizeSource(row.source, "ADMIN_ENTERED"),
-      sourcePeriod: normalizeNullableText(row.sourcePeriod),
-      notes: normalizeNullableText(row.notes)
-    };
-  }
-
-  function normalizeStateMultiplierMap(value) {
-    const rows = isPlainObject(value) ? value : {};
-    return Object.keys(rows).sort().reduce(function (normalizedRows, stateKey) {
-      const normalizedStateKey = normalizeStateCode(stateKey);
-      if (!normalizedStateKey) {
-        return normalizedRows;
-      }
-
-      normalizedRows[normalizedStateKey] = normalizeStateMultiplierRow(rows[stateKey]);
-      return normalizedRows;
-    }, {});
-  }
-
-  function normalizeBucketStateAdjustmentMultipliers(value) {
-    const rows = isPlainObject(value) ? value : {};
-    return Object.keys(rows).sort().reduce(function (normalizedRows, bucketKey) {
-      const normalizedStateRows = normalizeStateMultiplierMap(rows[bucketKey]);
-      if (Object.keys(normalizedStateRows).length) {
-        normalizedRows[bucketKey] = normalizedStateRows;
-      }
-      return normalizedRows;
-    }, {});
-  }
-
   function createBlankFoodAtHomeAssumptions(input) {
     const foodAtHome = isPlainObject(input) ? input : {};
     return {
@@ -301,18 +249,6 @@
     };
   }
 
-  function createBlankStateCostAdjustmentMultipliers(input) {
-    const multipliers = isPlainObject(input) ? input : {};
-    const version = asFiniteNumber(multipliers.version);
-    return {
-      version: version === null ? LIVING_FLOOR_ASSUMPTIONS_VERSION : version,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: normalizeDefaultMultiplier(multipliers.defaultMultiplier),
-      globalStateAdjustmentMultipliersByState: normalizeStateMultiplierMap(multipliers.globalStateAdjustmentMultipliersByState),
-      bucketStateAdjustmentMultipliers: normalizeBucketStateAdjustmentMultipliers(multipliers.bucketStateAdjustmentMultipliers)
-    };
-  }
-
   function createBlankModel90DefaultBucketFloor(bucketKey, input) {
     const definition = MODEL90_DEFAULT_FLOOR_BUCKETS[bucketKey];
     const row = isPlainObject(input) ? input : {};
@@ -321,7 +257,6 @@
       source: normalizeSource(row.source, "ADMIN_ENTERED"),
       sourcePeriod: normalizeNullableText(row.sourcePeriod),
       monthlyBaseAmount: normalizeNullableNonnegativeDollar(row.monthlyBaseAmount),
-      stateAdjustmentEnabled: typeof row.stateAdjustmentEnabled === "boolean" ? row.stateAdjustmentEnabled : true,
       notes: normalizeNullableText(row.notes)
     };
     normalized[definition.perMemberField] = normalizeNullableNonnegativeDollar(row[definition.perMemberField]);
@@ -342,7 +277,6 @@
     return {
       version: version === null ? LIVING_FLOOR_ASSUMPTIONS_VERSION : version,
       foodAtHome: createBlankFoodAtHomeAssumptions(assumptions.foodAtHome),
-      stateCostAdjustmentMultipliers: createBlankStateCostAdjustmentMultipliers(assumptions.stateCostAdjustmentMultipliers),
       model90DefaultBucketFloors: createBlankModel90DefaultBucketFloors(assumptions.model90DefaultBucketFloors)
     };
   }

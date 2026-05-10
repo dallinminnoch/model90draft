@@ -8,9 +8,6 @@
 
   const CALCULATION_VERSION = 1;
   const CALCULATED_AT_MODE = "inactive-helper";
-  const DEFAULT_STATE_MULTIPLIER = 1;
-  const MIN_VALID_STATE_MULTIPLIER = 0.25;
-  const MAX_VALID_STATE_MULTIPLIER = 3;
 
   const MONEY_FLOOR_BUCKET_KEYS = Object.freeze([
     "foodAtHomeConsumables",
@@ -54,28 +51,24 @@
       planningBucketKey: "foodAtHomeConsumables",
       adjustmentClass: "moneyFloorAdjusted",
       floorSource: "USDA_FOOD_PLAN",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "usdaAgeSexBandWeighted"
     }),
     householdConsumables: Object.freeze({
       planningBucketKey: "householdConsumables",
       adjustmentClass: "moneyFloorAdjusted",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "householdBasePlusMember"
     }),
     communicationsConnectivity: Object.freeze({
       planningBucketKey: "communicationsConnectivity",
       adjustmentClass: "moneyFloorAdjusted",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "fixedHouseholdPlusMember"
     }),
     transportationBasics: Object.freeze({
       planningBucketKey: "transportationBasics",
       adjustmentClass: "moneyFloorAdjusted",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "adultDriverWeighted"
     })
   });
@@ -140,11 +133,6 @@
 
   function roundMoney(value) {
     return Number.isFinite(value) ? Number(value.toFixed(2)) : null;
-  }
-
-  function normalizeStateCode(value) {
-    const stateCode = normalizeKey(value).toUpperCase();
-    return /^[A-Z]{2}$/.test(stateCode) ? stateCode : "";
   }
 
   function createIssue(code, message, details) {
@@ -218,82 +206,6 @@
     }, []);
   }
 
-  function getStateContext(input) {
-    const stateContext = isPlainObject(input.stateContext) ? input.stateContext : {};
-    const householdContext = isPlainObject(input.householdContext) ? input.householdContext : {};
-    return {
-      stateUsed: normalizeStateCode(stateContext.stateUsed || householdContext.stateUsed),
-      stateSource: normalizeKey(stateContext.stateSource || householdContext.stateSource) || null
-    };
-  }
-
-  function isValidStateMultiplier(value) {
-    return Number.isFinite(value)
-      && value >= MIN_VALID_STATE_MULTIPLIER
-      && value <= MAX_VALID_STATE_MULTIPLIER;
-  }
-
-  function getStateMultiplierRowMultiplier(row) {
-    if (isPlainObject(row)) {
-      const parsed = toOptionalNumber(row.multiplier);
-      return isValidStateMultiplier(parsed) ? parsed : null;
-    }
-
-    const parsed = toOptionalNumber(row);
-    return isValidStateMultiplier(parsed) ? parsed : null;
-  }
-
-  function resolveStateMultiplier(livingFloorAssumptions, stateContext, stateAdjustmentEnabled) {
-    if (stateAdjustmentEnabled === false) {
-      return {
-        multiplier: DEFAULT_STATE_MULTIPLIER,
-        source: "stateAdjustmentDisabled",
-        stateUsed: stateContext.stateUsed || null,
-        stateSource: stateContext.stateSource || null,
-        applied: false
-      };
-    }
-
-    const multipliers = isPlainObject(livingFloorAssumptions.stateCostAdjustmentMultipliers)
-      ? livingFloorAssumptions.stateCostAdjustmentMultipliers
-      : {};
-    const stateRows = isPlainObject(multipliers.globalStateAdjustmentMultipliersByState)
-      ? multipliers.globalStateAdjustmentMultipliersByState
-      : {};
-    const stateRowMultiplier = stateContext.stateUsed
-      ? getStateMultiplierRowMultiplier(stateRows[stateContext.stateUsed])
-      : null;
-
-    if (stateRowMultiplier !== null) {
-      return {
-        multiplier: stateRowMultiplier,
-        source: "stateSpecific",
-        stateUsed: stateContext.stateUsed,
-        stateSource: stateContext.stateSource,
-        applied: true
-      };
-    }
-
-    const defaultMultiplier = toOptionalNumber(multipliers.defaultMultiplier);
-    if (isValidStateMultiplier(defaultMultiplier)) {
-      return {
-        multiplier: defaultMultiplier,
-        source: "defaultMultiplier",
-        stateUsed: stateContext.stateUsed || null,
-        stateSource: stateContext.stateSource || null,
-        applied: true
-      };
-    }
-
-    return {
-      multiplier: DEFAULT_STATE_MULTIPLIER,
-      source: "fallbackOne",
-      stateUsed: stateContext.stateUsed || null,
-      stateSource: stateContext.stateSource || null,
-      applied: true
-    };
-  }
-
   function getSurvivingHouseholdMembers(householdContext, warnings) {
     const count = toNonnegativeNumber(householdContext.survivingHouseholdMembers);
     if (count === null) {
@@ -330,21 +242,16 @@
     }, {});
   }
 
-  function createBucketResult(planningBucketKey, metadata, stateMultiplier, householdContext) {
+  function createBucketResult(planningBucketKey, metadata, householdContext) {
     return {
       planningBucketKey,
       floorAmountMonthly: null,
       floorAmountAnnual: null,
       floorSource: metadata.floorSource || "NONE",
-      stateAdjustmentMultiplier: stateMultiplier.multiplier,
-      stateAdjustmentSource: stateMultiplier.source,
       householdSizingMethod: metadata.householdSizingMethod || "none",
       warnings: [],
       dataGaps: [],
       trace: {
-        stateUsed: stateMultiplier.stateUsed,
-        stateSource: stateMultiplier.stateSource,
-        stateAdjustmentApplied: stateMultiplier.applied,
         survivingHouseholdMembers: householdContext.survivingHouseholdMembers == null
           ? null
           : clonePlainValue(householdContext.survivingHouseholdMembers),
@@ -356,16 +263,14 @@
     };
   }
 
-  function finalizeBucketResult(result, nationalOrAdminFloor, stateMultiplier) {
-    const monthly = nationalOrAdminFloor * stateMultiplier.multiplier;
-    result.floorAmountMonthly = roundMoney(monthly);
-    result.floorAmountAnnual = roundMoney(monthly * 12);
-    result.trace.nationalOrAdminFloor = roundMoney(nationalOrAdminFloor);
-    result.trace.stateAdjustedFloor = result.floorAmountMonthly;
+  function finalizeBucketResult(result, floorAmountMonthly) {
+    result.floorAmountMonthly = roundMoney(floorAmountMonthly);
+    result.floorAmountAnnual = roundMoney(floorAmountMonthly * 12);
+    result.trace.floorAmountMonthly = result.floorAmountMonthly;
     return result;
   }
 
-  function calculateFoodAtHomeFloor(livingFloorAssumptions, householdContext, stateContext, metadata, topWarnings, topDataGaps) {
+  function calculateFoodAtHomeFloor(livingFloorAssumptions, householdContext, metadata, topWarnings, topDataGaps) {
     const foodAtHome = isPlainObject(livingFloorAssumptions.foodAtHome) ? livingFloorAssumptions.foodAtHome : {};
     const monthlyAmountsByBand = isPlainObject(foodAtHome.monthlyAmountsByBand) ? foodAtHome.monthlyAmountsByBand : {};
     const householdSizeAdjustmentFactors = isPlainObject(foodAtHome.householdSizeAdjustmentFactors)
@@ -373,8 +278,7 @@
       : {};
     const localWarnings = [];
     const survivingHouseholdMembers = getSurvivingHouseholdMembers(householdContext, localWarnings);
-    const stateMultiplier = resolveStateMultiplier(livingFloorAssumptions, stateContext, true);
-    const result = createBucketResult("foodAtHomeConsumables", metadata, stateMultiplier, householdContext);
+    const result = createBucketResult("foodAtHomeConsumables", metadata, householdContext);
     result.warnings = localWarnings;
     localWarnings.forEach(function (warning) {
       topWarnings.push(Object.assign({ planningBucketKey: result.planningBucketKey }, warning));
@@ -447,7 +351,7 @@
       return result;
     }
 
-    return finalizeBucketResult(result, subtotal * householdSizeFactor, stateMultiplier);
+    return finalizeBucketResult(result, subtotal * householdSizeFactor);
   }
 
   function getModel90DefaultBucketFloors(livingFloorAssumptions) {
@@ -456,12 +360,11 @@
       : {};
   }
 
-  function calculateBasePlusMemberFloor(planningBucketKey, livingFloorAssumptions, householdContext, stateContext, metadata, topWarnings, topDataGaps) {
+  function calculateBasePlusMemberFloor(planningBucketKey, livingFloorAssumptions, householdContext, metadata, topWarnings, topDataGaps) {
     const bucketRows = getModel90DefaultBucketFloors(livingFloorAssumptions);
     const config = MODEL90_DEFAULT_BUCKET_CONFIG[planningBucketKey];
     const row = isPlainObject(bucketRows[planningBucketKey]) ? bucketRows[planningBucketKey] : {};
-    const stateMultiplier = resolveStateMultiplier(livingFloorAssumptions, stateContext, row.stateAdjustmentEnabled !== false);
-    const result = createBucketResult(planningBucketKey, metadata, stateMultiplier, householdContext);
+    const result = createBucketResult(planningBucketKey, metadata, householdContext);
     const monthlyBaseAmount = toNonnegativeNumber(row.monthlyBaseAmount);
     const monthlyPerMemberAmount = toNonnegativeNumber(row[config.perUnitField]);
     const survivingHouseholdMembers = getSurvivingHouseholdMembers(householdContext, result.warnings);
@@ -503,7 +406,6 @@
 
     result.trace.monthlyBaseAmount = monthlyBaseAmount;
     result.trace[config.perUnitField] = monthlyPerMemberAmount;
-    result.trace.stateAdjustmentEnabled = row.stateAdjustmentEnabled !== false;
 
     if (result.dataGaps.length) {
       return result;
@@ -511,8 +413,7 @@
 
     return finalizeBucketResult(
       result,
-      monthlyBaseAmount + monthlyPerMemberAmount * survivingHouseholdMembers,
-      stateMultiplier
+      monthlyBaseAmount + monthlyPerMemberAmount * survivingHouseholdMembers
     );
   }
 
@@ -562,11 +463,10 @@
     };
   }
 
-  function calculateTransportationBasicsFloor(livingFloorAssumptions, householdContext, stateContext, metadata, topWarnings, topDataGaps) {
+  function calculateTransportationBasicsFloor(livingFloorAssumptions, householdContext, metadata, topWarnings, topDataGaps) {
     const bucketRows = getModel90DefaultBucketFloors(livingFloorAssumptions);
     const row = isPlainObject(bucketRows.transportationBasics) ? bucketRows.transportationBasics : {};
-    const stateMultiplier = resolveStateMultiplier(livingFloorAssumptions, stateContext, row.stateAdjustmentEnabled !== false);
-    const result = createBucketResult("transportationBasics", metadata, stateMultiplier, householdContext);
+    const result = createBucketResult("transportationBasics", metadata, householdContext);
     const monthlyBaseAmount = toNonnegativeNumber(row.monthlyBaseAmount);
     const monthlyPerAdultDriverAmount = toNonnegativeNumber(row.monthlyPerAdultDriverAmount);
     const adultDriver = getAdultDriverCount(householdContext, result.warnings);
@@ -599,7 +499,6 @@
     result.trace.monthlyPerAdultDriverAmount = monthlyPerAdultDriverAmount;
     result.trace.adultDriverCount = adultDriver.count;
     result.trace.adultDriverCountSource = adultDriver.source;
-    result.trace.stateAdjustmentEnabled = row.stateAdjustmentEnabled !== false;
 
     if (result.dataGaps.length) {
       return result;
@@ -607,15 +506,12 @@
 
     return finalizeBucketResult(
       result,
-      monthlyBaseAmount + monthlyPerAdultDriverAmount * adultDriver.count,
-      stateMultiplier
+      monthlyBaseAmount + monthlyPerAdultDriverAmount * adultDriver.count
     );
   }
 
-  function createTopLevelTrace(input, stateContext, householdContext, survivingHouseholdMembers) {
+  function createTopLevelTrace(input, householdContext, survivingHouseholdMembers) {
     return {
-      stateUsed: stateContext.stateUsed || null,
-      stateSource: stateContext.stateSource || null,
       survivingHouseholdMembers,
       householdMemberBandCounts: clonePlainValue(householdContext.householdMemberBandCounts || {}),
       noSurvivingAdultDetected: householdContext.noSurvivingAdultDetected === true,
@@ -634,7 +530,6 @@
       ? safeInput.livingFloorAssumptions
       : {};
     const householdContext = isPlainObject(safeInput.householdContext) ? safeInput.householdContext : {};
-    const stateContext = getStateContext(safeInput);
     const warnings = [];
     const dataGaps = [];
     const metadataByKey = getMoneyBucketMetadataByKey();
@@ -651,7 +546,6 @@
         bucketResults[planningBucketKey] = calculateFoodAtHomeFloor(
           livingFloorAssumptions,
           householdContext,
-          stateContext,
           metadata,
           warnings,
           dataGaps
@@ -663,7 +557,6 @@
         bucketResults[planningBucketKey] = calculateTransportationBasicsFloor(
           livingFloorAssumptions,
           householdContext,
-          stateContext,
           metadata,
           warnings,
           dataGaps
@@ -676,7 +569,6 @@
           planningBucketKey,
           livingFloorAssumptions,
           householdContext,
-          stateContext,
           metadata,
           warnings,
           dataGaps
@@ -690,7 +582,7 @@
       buckets,
       warnings,
       dataGaps,
-      trace: createTopLevelTrace(safeInput, stateContext, householdContext, survivingHouseholdMembers),
+      trace: createTopLevelTrace(safeInput, householdContext, survivingHouseholdMembers),
       metadata: {
         calculationVersion: CALCULATION_VERSION,
         activeRuntimeConsumer: false,

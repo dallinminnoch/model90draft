@@ -727,12 +727,8 @@ const accountPolicyResult = harness.buildIncomeImpactResultFromState({
       monthlyNonHousingEssentialSupportCost: 1000,
       monthlyTotalEssentialSupportCost: 1000
     },
-    profileFacts: {
-      addressState: "CO"
-    },
-    pmiFacts: {
-      stateOfResidence: "CO"
-    },
+    profileFacts: {},
+    pmiFacts: {},
     expenseFacts: {
       expenses: [
         { expenseTypeKey: "groceries", categoryKey: "foodGroceries", monthlyAmount: 1000 }
@@ -796,8 +792,8 @@ assert.equal(accountLifestyleInput.accountPolicy.livingFloorAssumptions.foodAtHo
 assert.equal(accountLifestyleInput.accountPolicyContext.storageResult.accountPolicy, rawSavedAccountPolicy, "account policy context should carry the raw saved account policy");
 assert.equal(accountLifestyleInput.lensModel.ongoingSupport.monthlyTotalEssentialSupportCost, 1000, "lifestyle helper input should carry full lensModel support totals");
 assert.equal(accountLifestyleInput.ongoingSupport.monthlyFoodCost, 1000, "lifestyle helper input should carry ongoingSupport directly");
-assert.equal(accountLifestyleInput.profileFacts.addressState, "CO", "lifestyle helper input should carry profile facts for state context");
-assert.equal(accountLifestyleInput.pmiFacts.stateOfResidence, "CO", "lifestyle helper input should carry PMI/tax state context");
+assert.deepEqual(accountLifestyleInput.profileFacts, {}, "lifestyle helper input should not require profile state for living-floor assumptions");
+assert.deepEqual(accountLifestyleInput.pmiFacts, {}, "lifestyle helper input should not require PMI/tax state for living-floor assumptions");
 assert.equal(accountLifestyleInput.valuationDate, "2026-05-06", "lifestyle helper input should carry valuation date");
 assert.equal(accountLifestyleInput.scenarioContext.deceasedInsuredRole, "client", "lifestyle helper input should carry remaining-household scenario context");
 assert.equal(accountLifestyleInput.householdExpenseStreamPolicyMode, undefined, "display should pass complete inputs without hard-coding the stream mode default");

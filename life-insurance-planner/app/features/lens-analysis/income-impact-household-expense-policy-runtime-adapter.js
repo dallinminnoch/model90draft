@@ -169,10 +169,6 @@
 
   function buildContextInput(options) {
     const lensModel = isPlainObject(options.lensModel) ? options.lensModel : {};
-    const accountPolicyContext = isPlainObject(options.accountPolicyContext)
-      ? options.accountPolicyContext
-      : {};
-
     return clonePlainValue({
       profileRecord: getFirstPlainObject([
         options.profileRecord,
@@ -194,12 +190,6 @@
         getNestedValue(lensModel, ["taxContext"]),
         getNestedValue(lensModel, ["assumptions", "taxContext"])
       ]),
-      accountDefaultState: options.accountDefaultState
-        || getNestedValue(accountPolicyContext, ["metadata", "accountDefaultState"])
-        || getNestedValue(accountPolicyContext, ["trace", "accountDefaultState"])
-        || null,
-      stateOfResidence: options.stateOfResidence || null,
-      profileAddressState: options.profileAddressState || null,
       valuationDate: options.valuationDate
         || getNestedValue(lensModel, ["valuationDate"])
         || getNestedValue(lensModel, ["metadata", "valuationDate"])
@@ -258,7 +248,6 @@
     if (!contextResolverApi || typeof contextResolverApi.resolveHouseholdExpenseLivingFloorContext !== "function") {
       addMissingHelperIssue(warnings, "householdExpenseLivingFloorContextResolver");
       return {
-        stateContext: {},
         householdContext: {},
         warnings: [],
         dataGaps: [],
@@ -294,7 +283,6 @@
 
     const calculationInput = {
       livingFloorAssumptions,
-      stateContext: livingFloorContext.stateContext,
       householdContext: livingFloorContext.householdContext
     };
 
@@ -324,7 +312,6 @@
 
     const result = readinessApi.buildHouseholdExpenseLivingFloorReadinessWarnings({
       livingFloorAssumptions,
-      stateContext: livingFloorContext.stateContext,
       householdContext: livingFloorContext.householdContext,
       livingFloorCalculationResult: livingFloorCalculationPreview
     });

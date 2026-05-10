@@ -73,11 +73,19 @@ function clone(value) {
 function assertNoForbiddenDiffs() {
   const allowedRuntimePlumbingFiles = new Set([
     "app/features/lens-analysis/income-loss-impact-display.js",
-    "pages/income-loss-impact.html"
+    "pages/income-loss-impact.html",
+    "app/features/account-settings/household-expense-account-policy-admin-display.js",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "app/features/account-settings/household-expense-account-policy-storage.js",
+    "app/features/lens-analysis/analysis-setup.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
-    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-compression-policy.js",
     "app/features/lens-analysis/expense-compression-thresholds.js",
@@ -86,7 +94,6 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/pmi-expense-records.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
-    "app/features/account-settings",
     "pages",
     "app.js",
     "styles.css",
@@ -152,20 +159,6 @@ function createCompleteAssumptions(overrides) {
         "6Plus": 0.85
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1.1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: {
-          multiplier: 1.2,
-          source: "ADMIN_ENTERED",
-          sourcePeriod: "2026",
-          notes: "Colorado"
-        }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
@@ -173,7 +166,6 @@ function createCompleteAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
         monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true,
         notes: "Household supplies"
       },
       communicationsConnectivity: {
@@ -182,7 +174,6 @@ function createCompleteAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
         monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true,
         notes: "Connectivity"
       },
       transportationBasics: {
@@ -191,7 +182,6 @@ function createCompleteAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
         monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true,
         notes: "Basic transportation"
       }
     }
@@ -227,10 +217,6 @@ function createHouseholdContext(overrides) {
 function calculate(api, input) {
   return api.calculateHouseholdExpenseLivingFloors(Object.assign({
     livingFloorAssumptions: createCompleteAssumptions(),
-    stateContext: {
-      stateUsed: "CO",
-      stateSource: "profileAddressState"
-    },
     householdContext: createHouseholdContext()
   }, input || {}));
 }
@@ -260,10 +246,6 @@ assert.deepEqual(plain(api.MONEY_FLOOR_BUCKET_KEYS), EXPECTED_MONEY_FLOOR_BUCKET
 
 const input = {
   livingFloorAssumptions: createCompleteAssumptions(),
-  stateContext: {
-    stateUsed: "CO",
-    stateSource: "profileAddressState"
-  },
   householdContext: createHouseholdContext()
 };
 const inputBefore = JSON.stringify(input);
@@ -279,21 +261,19 @@ assert.deepEqual(
 assert.deepEqual(Object.keys(completeResult.buckets), EXPECTED_MONEY_FLOOR_BUCKETS, "default calculation should include only money-floor buckets");
 assert.equal(completeResult.metadata.activeRuntimeConsumer, false, "helper must remain inactive for runtime");
 assert.equal(completeResult.trace.calculatedAtMode, "inactive-helper", "helper trace should mark inactive mode");
-assert.equal(completeResult.trace.stateUsed, "CO", "trace should include state used");
-assert.equal(completeResult.trace.stateSource, "profileAddressState", "trace should include state source");
 assert.equal(completeResult.trace.survivingHouseholdMembers, 4, "trace should include surviving household size");
 assert.equal(completeResult.trace.householdMemberBandCounts.adultMale, 1, "trace should include band counts");
 
-assert.equal(completeResult.buckets.foodAtHomeConsumables.floorAmountMonthly, 969, "food floor should use band subtotal, household factor, and state multiplier");
-assert.equal(completeResult.buckets.foodAtHomeConsumables.floorAmountAnnual, 11628, "food annual floor should be monthly floor times 12");
+assert.equal(completeResult.buckets.foodAtHomeConsumables.floorAmountMonthly, 807.5, "food floor should use band subtotal and household factor without state multiplication");
+assert.equal(completeResult.buckets.foodAtHomeConsumables.floorAmountAnnual, 9690, "food annual floor should be monthly floor times 12");
 assert.equal(completeResult.buckets.foodAtHomeConsumables.trace.foodBandSubtotal, 850, "food trace should include band subtotal");
 assert.equal(completeResult.buckets.foodAtHomeConsumables.trace.householdSizeAdjustmentFactor, 0.95, "food trace should include household-size factor");
-assert.equal(completeResult.buckets.foodAtHomeConsumables.stateAdjustmentMultiplier, 1.2, "food floor should apply state-specific multiplier");
-assert.equal(completeResult.buckets.foodAtHomeConsumables.stateAdjustmentSource, "stateSpecific", "food floor should trace state-specific multiplier");
+assert.equal(Object.prototype.hasOwnProperty.call(completeResult.buckets.foodAtHomeConsumables, "stateAdjustmentMultiplier"), false, "food floor should not expose a state multiplier field");
+assert.equal(Object.prototype.hasOwnProperty.call(completeResult.buckets.foodAtHomeConsumables.trace, "stateAdjustedFloor"), false, "food trace should not include a state-adjusted floor");
 
-assert.equal(completeResult.buckets.householdConsumables.floorAmountMonthly, 240, "householdConsumables should calculate base plus per member with state multiplier");
-assert.equal(completeResult.buckets.communicationsConnectivity.floorAmountMonthly, 144, "communicationsConnectivity should calculate base plus per member with state multiplier");
-assert.equal(completeResult.buckets.transportationBasics.floorAmountMonthly, 300, "transportationBasics should calculate base plus per adult driver with state multiplier");
+assert.equal(completeResult.buckets.householdConsumables.floorAmountMonthly, 200, "householdConsumables should calculate direct base plus per member");
+assert.equal(completeResult.buckets.communicationsConnectivity.floorAmountMonthly, 120, "communicationsConnectivity should calculate direct base plus per member");
+assert.equal(completeResult.buckets.transportationBasics.floorAmountMonthly, 250, "transportationBasics should calculate direct base plus per adult driver");
 assert.equal(completeResult.buckets.transportationBasics.trace.adultDriverCount, 2, "transportation trace should include adult driver count");
 assert.equal(completeResult.buckets.transportationBasics.trace.adultDriverCountSource, "adultDriverCount", "transportation should prefer explicit adultDriverCount");
 
@@ -309,34 +289,20 @@ const missingFactorResult = calculate(api, { livingFloorAssumptions: missingFact
 assert.equal(missingFactorResult.buckets.foodAtHomeConsumables.floorAmountMonthly, null, "missing household-size factor should produce null food floor");
 assert.ok(getDataGapCodes(missingFactorResult, "foodAtHomeConsumables").includes("missing-food-household-size-adjustment-factor"), "missing household-size factor should produce data gap");
 
-const defaultMultiplierResult = calculate(api, {
-  stateContext: {
-    stateUsed: "NY",
-    stateSource: "profileAddressState"
-  },
+const retiredStateAssumptions = createCompleteAssumptions();
+retiredStateAssumptions.stateCostAdjustmentMultipliers = {
+  defaultMultiplier: 3,
+  globalStateAdjustmentMultipliersByState: {
+    CO: { multiplier: 3 }
+  }
+};
+retiredStateAssumptions.model90DefaultBucketFloors.householdConsumables.stateAdjustmentEnabled = false;
+const retiredStateResult = calculate(api, {
+  livingFloorAssumptions: retiredStateAssumptions,
   planningBucketKeys: ["householdConsumables"]
 });
-assert.equal(defaultMultiplierResult.buckets.householdConsumables.floorAmountMonthly, 220, "default multiplier should apply when no state row exists");
-assert.equal(defaultMultiplierResult.buckets.householdConsumables.stateAdjustmentSource, "defaultMultiplier", "default multiplier source should be traced");
-
-const fallbackMultiplierAssumptions = createCompleteAssumptions();
-fallbackMultiplierAssumptions.stateCostAdjustmentMultipliers = {};
-const fallbackMultiplierResult = calculate(api, {
-  livingFloorAssumptions: fallbackMultiplierAssumptions,
-  planningBucketKeys: ["householdConsumables"]
-});
-assert.equal(fallbackMultiplierResult.buckets.householdConsumables.floorAmountMonthly, 200, "fallback multiplier one should apply when multiplier data is missing");
-assert.equal(fallbackMultiplierResult.buckets.householdConsumables.stateAdjustmentSource, "fallbackOne", "fallback multiplier source should be traced");
-
-const disabledStateAssumptions = createCompleteAssumptions();
-disabledStateAssumptions.model90DefaultBucketFloors.householdConsumables.stateAdjustmentEnabled = false;
-const disabledStateResult = calculate(api, {
-  livingFloorAssumptions: disabledStateAssumptions,
-  planningBucketKeys: ["householdConsumables"]
-});
-assert.equal(disabledStateResult.buckets.householdConsumables.floorAmountMonthly, 200, "stateAdjustmentEnabled false should prevent state multiplier application");
-assert.equal(disabledStateResult.buckets.householdConsumables.stateAdjustmentMultiplier, 1, "disabled state adjustment should use multiplier one");
-assert.equal(disabledStateResult.buckets.householdConsumables.stateAdjustmentSource, "stateAdjustmentDisabled", "disabled state adjustment should be traced");
+assert.equal(retiredStateResult.buckets.householdConsumables.floorAmountMonthly, 200, "retired state multiplier data should not affect direct MODEL90 floors");
+assert.equal(Object.prototype.hasOwnProperty.call(retiredStateResult.buckets.householdConsumables, "stateAdjustmentSource"), false, "retired state multiplier source should not be traced");
 
 const survivingAdultFallbackResult = calculate(api, {
   householdContext: createHouseholdContext({
@@ -346,7 +312,7 @@ const survivingAdultFallbackResult = calculate(api, {
   }),
   planningBucketKeys: ["transportationBasics"]
 });
-assert.equal(survivingAdultFallbackResult.buckets.transportationBasics.floorAmountMonthly, 300, "transportation should fall back to survivingAdultCount");
+assert.equal(survivingAdultFallbackResult.buckets.transportationBasics.floorAmountMonthly, 250, "transportation should fall back to survivingAdultCount");
 assert.equal(survivingAdultFallbackResult.buckets.transportationBasics.trace.adultDriverCountSource, "survivingAdultCount", "transportation fallback source should be survivingAdultCount");
 assert.ok(getWarningCodes(survivingAdultFallbackResult, "transportationBasics").includes("adult-driver-count-fallback"), "transportation fallback should warn");
 
@@ -358,7 +324,7 @@ const adultCountFallbackResult = calculate(api, {
   }),
   planningBucketKeys: ["transportationBasics"]
 });
-assert.equal(adultCountFallbackResult.buckets.transportationBasics.floorAmountMonthly, 360, "transportation should fall back to adultCount");
+assert.equal(adultCountFallbackResult.buckets.transportationBasics.floorAmountMonthly, 300, "transportation should fall back to adultCount");
 assert.equal(adultCountFallbackResult.buckets.transportationBasics.trace.adultDriverCountSource, "adultCount", "transportation fallback source should be adultCount");
 
 const fallbackOneDriverResult = calculate(api, {
@@ -369,7 +335,7 @@ const fallbackOneDriverResult = calculate(api, {
   }),
   planningBucketKeys: ["transportationBasics"]
 });
-assert.equal(fallbackOneDriverResult.buckets.transportationBasics.floorAmountMonthly, 240, "transportation should fall back to one driver when all driver counts are missing");
+assert.equal(fallbackOneDriverResult.buckets.transportationBasics.floorAmountMonthly, 200, "transportation should fall back to one driver when all driver counts are missing");
 assert.equal(fallbackOneDriverResult.buckets.transportationBasics.trace.adultDriverCountSource, "fallbackOne", "transportation fallback source should be fallbackOne");
 assert.ok(getWarningCodes(fallbackOneDriverResult, "transportationBasics").includes("adult-driver-count-fallback"), "fallbackOne driver count should warn");
 
@@ -426,16 +392,8 @@ const blankShellResult = api.calculateHouseholdExpenseLivingFloors({
       monthlyAmountsByBand: {},
       householdSizeAdjustmentFactors: {}
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: null,
-      globalStateAdjustmentMultipliersByState: {},
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {}
   },
-  stateContext: {},
   householdContext: {
     survivingHouseholdMembers: 2,
     householdMemberBandCounts: {
@@ -456,7 +414,6 @@ const noRuntimeReadApi = noRuntimeReadContext.LensApp.lensAnalysis.householdExpe
 assert.doesNotThrow(function () {
   noRuntimeReadApi.calculateHouseholdExpenseLivingFloors({
     livingFloorAssumptions: createCompleteAssumptions(),
-    stateContext: { stateUsed: "CO" },
     householdContext: createHouseholdContext()
   });
 }, "helper should not require storage, DOM, profile, client, or app runtime state");

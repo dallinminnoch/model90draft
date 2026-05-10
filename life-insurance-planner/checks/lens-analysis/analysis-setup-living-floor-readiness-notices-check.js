@@ -154,15 +154,6 @@ function createLivingFloorAssumptions(overrides) {
         "6Plus": 0.85
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1.1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: { multiplier: 1.2, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "Colorado" }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
@@ -170,7 +161,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
         monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true,
         notes: "Household supplies"
       },
       communicationsConnectivity: {
@@ -179,7 +169,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
         monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true,
         notes: "Connectivity"
       },
       transportationBasics: {
@@ -188,7 +177,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
         monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true,
         notes: "Basic transportation"
       }
     }
@@ -234,8 +222,6 @@ function createLinkedRecord(overrides) {
     id: "client-1",
     caseRef: "CASE-1",
     displayName: "Client One",
-    state: "CO",
-    stateOfResidence: "CO",
     maritalStatus: "Married",
     spouseDateOfBirth: "1986-06-15",
     spouseGender: "female",
@@ -314,6 +300,18 @@ assert.doesNotMatch(readinessSection, /updateClientRecordByCaseRef/);
 assert.doesNotMatch(readinessSection, /window\.location\.href/);
 
 const changedFiles = getChangedFiles();
+const allowedChangedFiles = new Set([
+  "app/features/account-settings/household-expense-account-policy-admin-display.js",
+  "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+  "app/features/account-settings/household-expense-account-policy-storage.js",
+  "app/features/lens-analysis/analysis-setup.js",
+  "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+  "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+  "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+  "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+  "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
+  "components.css"
+]);
 [
   "app/features/lens-analysis/income-loss-impact-display.js",
   "app/features/lens-analysis/income-impact-timeline-graph-model.js",
@@ -331,7 +329,11 @@ const changedFiles = getChangedFiles();
   "components.css",
   "app.js"
 ].forEach(function (relativePath) {
-  assert.equal(changedFiles.includes(relativePath), false, `${relativePath} should not change in readiness notice display pass`);
+  assert.equal(
+    changedFiles.includes(relativePath) && !allowedChangedFiles.has(relativePath),
+    false,
+    `${relativePath} should not change outside the state multiplier removal pass`
+  );
 });
 
 const context = loadContext();
@@ -360,17 +362,19 @@ assertHasNotice(missingModel, "livingFloorAssumptionsIncomplete");
 assert.equal(missingModel.status.tone, "warning", "missing assumptions should render warning status");
 assert.equal(missingStorage.writes.length, 0, "missing-assumption readiness render should not write storage");
 
-const mismatchStorage = createStorageForAssumptions(context, createLivingFloorAssumptions());
-const mismatchModel = buildModel(
+const stateOnlyStorage = createStorageForAssumptions(context, createLivingFloorAssumptions());
+const stateOnlyModel = buildModel(
   context,
   createLinkedRecord({
     state: "CO",
     stateOfResidence: "NY"
   }),
-  mismatchStorage
+  stateOnlyStorage
 );
-assertHasNotice(mismatchModel, "stateMismatchDetected");
-assert.equal(mismatchStorage.writes.length, 0, "state mismatch readiness render should not write storage");
+assertNoNotice(stateOnlyModel, "stateMismatchDetected");
+assertNoNotice(stateOnlyModel, "stateMultiplierMissing");
+assertNoNotice(stateOnlyModel, "stateMultiplierDefaultUsed");
+assert.equal(stateOnlyStorage.writes.length, 0, "state-only readiness render should not write storage");
 
 const fallbackStorage = createStorageForAssumptions(context, createLivingFloorAssumptions());
 const fallbackModel = buildModel(

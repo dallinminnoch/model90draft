@@ -64,9 +64,16 @@ function loadContext() {
 
 function assertNoForbiddenDiffs() {
   const allowedRuntimePlumbingFiles = new Set([
-    "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
-    "app/features/lens-analysis/income-loss-impact-display.js",
-    "pages/income-loss-impact.html"
+    "app/features/account-settings/household-expense-account-policy-admin-display.js",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "app/features/account-settings/household-expense-account-policy-storage.js",
+    "app/features/lens-analysis/analysis-setup.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
+    "components.css"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
@@ -84,6 +91,7 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
     "app/features/account-settings",
+    "components.css",
     "pages",
     "app.js",
     "styles.css",
@@ -161,16 +169,6 @@ function createLivingFloorAssumptions(overrides) {
         "6Plus": 0.85
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1.1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: { multiplier: 1.2, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "Colorado" },
-        CA: { multiplier: 1.3, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "California" }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
@@ -178,7 +176,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
         monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true,
         notes: "Household supplies"
       },
       communicationsConnectivity: {
@@ -187,7 +184,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
         monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true,
         notes: "Connectivity"
       },
       transportationBasics: {
@@ -196,7 +192,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
         monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true,
         notes: "Basic transportation"
       }
     }
@@ -210,7 +205,6 @@ function createMarriedFixture(overrides) {
     valuationDate: "2026-01-01",
     adultDriverCount: 1,
     profileRecord: {
-      state: "co",
       maritalStatus: "Married",
       spouseDateOfBirth: "1986-06-15",
       spouseGender: "female",
@@ -219,9 +213,7 @@ function createMarriedFixture(overrides) {
         { id: "older", age: 10 }
       ]
     },
-    pmiFacts: {
-      stateOfResidence: "CO"
-    }
+    pmiFacts: {}
   }, overrides || {});
 }
 
@@ -229,7 +221,6 @@ function resolveThenCalculate(resolverApi, calculationApi, contextInput, livingF
   const resolvedContext = resolverApi.resolveHouseholdExpenseLivingFloorContext(contextInput);
   const calculationResult = calculationApi.calculateHouseholdExpenseLivingFloors({
     livingFloorAssumptions,
-    stateContext: resolvedContext.stateContext,
     householdContext: resolvedContext.householdContext,
     planningBucketKeys
   });
@@ -243,7 +234,6 @@ function resolveThenCalculate(resolverApi, calculationApi, contextInput, livingF
 function buildReadiness(builderApi, integration, livingFloorAssumptions) {
   return builderApi.buildHouseholdExpenseLivingFloorReadinessWarnings({
     livingFloorAssumptions,
-    stateContext: integration.resolvedContext.stateContext,
     householdContext: integration.resolvedContext.householdContext,
     livingFloorCalculationResult: integration.calculationResult
   });
@@ -303,7 +293,14 @@ assert.equal(readyResult.metadata.activeRuntimeConsumer, false, "readiness build
 assertNotice(readyResult, "livingFloorAssumptionsReady", "complete assumptions should produce ready info notice");
 assert.equal(getNotice(readyResult, "livingFloorAssumptionsReady").severity, "info", "ready notice should be informational");
 assertNoNotice(readyResult, "foodAtHomeBandValuesMissing", "complete assumptions should not report missing food bands");
-assertNoNotice(readyResult, "stateMultiplierMissing", "state-specific multiplier should avoid missing multiplier warning");
+[
+  "stateMultiplierMissing",
+  "stateMultiplierDefaultUsed",
+  "stateFallbackNationalDefault",
+  "stateMismatchDetected"
+].forEach(function (code) {
+  assertNoNotice(readyResult, code, `${code} should not be emitted after state multiplier retirement`);
+});
 
 const missingBandAssumptions = clone(completeAssumptions);
 missingBandAssumptions.foodAtHome.monthlyAmountsByBand.adultFemale = null;
@@ -319,64 +316,6 @@ const missingFactorIntegration = resolveThenCalculate(resolverApi, calculationAp
 const missingFactorResult = buildReadiness(builderApi, missingFactorIntegration, missingFactorAssumptions);
 assertNotice(missingFactorResult, "foodAtHomeHouseholdSizeFactorsMissing", "missing household-size factor should be reported");
 assert.ok(getNotice(missingFactorResult, "foodAtHomeHouseholdSizeFactorsMissing").trace.missingHouseholdSizeFactorKeys.includes("3"), "missing factor trace should name the factor");
-
-const nationalFallbackIntegration = resolveThenCalculate(
-  resolverApi,
-  calculationApi,
-  createMarriedFixture({
-    profileRecord: {
-      maritalStatus: "Married",
-      spouseAge: 40,
-      spouseGender: "female",
-      dependentDetails: [{ age: 10 }]
-    },
-    pmiFacts: {}
-  }),
-  completeAssumptions
-);
-const nationalFallbackResult = buildReadiness(builderApi, nationalFallbackIntegration, completeAssumptions);
-assertNotice(nationalFallbackResult, "stateFallbackNationalDefault", "national fallback state should be reported");
-
-const mismatchIntegration = resolveThenCalculate(
-  resolverApi,
-  calculationApi,
-  createMarriedFixture({
-    pmiFacts: { stateOfResidence: "NY" }
-  }),
-  completeAssumptions
-);
-const mismatchResult = buildReadiness(builderApi, mismatchIntegration, completeAssumptions);
-assertNotice(mismatchResult, "stateMismatchDetected", "profile/PMI state mismatch should be reported");
-assert.equal(getNotice(mismatchResult, "stateMismatchDetected").trace.profileAddressState, "CO", "mismatch trace should include profile state");
-assert.equal(getNotice(mismatchResult, "stateMismatchDetected").trace.pmiIncomeTaxState, "NY", "mismatch trace should include PMI state");
-
-const missingMultiplierAssumptions = clone(completeAssumptions);
-missingMultiplierAssumptions.stateCostAdjustmentMultipliers.defaultMultiplier = null;
-missingMultiplierAssumptions.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState = {};
-const missingMultiplierIntegration = resolveThenCalculate(resolverApi, calculationApi, completeInput, missingMultiplierAssumptions);
-const missingMultiplierResult = buildReadiness(builderApi, missingMultiplierIntegration, missingMultiplierAssumptions);
-assertNotice(missingMultiplierResult, "stateMultiplierMissing", "fallback multiplier 1 should be reported when multiplier data is missing");
-assert.equal(getNotice(missingMultiplierResult, "stateMultiplierMissing").severity, "warning", "missing multiplier should be a warning");
-
-const defaultMultiplierIntegration = resolveThenCalculate(
-  resolverApi,
-  calculationApi,
-  createMarriedFixture({
-    profileRecord: {
-      state: "NY",
-      maritalStatus: "Married",
-      spouseAge: 40,
-      spouseGender: "female",
-      dependentDetails: [{ age: 10 }]
-    },
-    pmiFacts: { stateOfResidence: "NY" }
-  }),
-  completeAssumptions,
-  ["householdConsumables"]
-);
-const defaultMultiplierResult = buildReadiness(builderApi, defaultMultiplierIntegration, completeAssumptions);
-assertNotice(defaultMultiplierResult, "stateMultiplierDefaultUsed", "default multiplier use should be reported");
-assert.equal(getNotice(defaultMultiplierResult, "stateMultiplierDefaultUsed").severity, "info", "default multiplier should be informational");
 
 const missingAgeIntegration = resolveThenCalculate(
   resolverApi,

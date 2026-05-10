@@ -63,8 +63,17 @@ function loadContext() {
 
 function assertNoForbiddenDiffs() {
   const allowedDisplayFiles = new Set([
+    "app/features/account-settings/household-expense-account-policy-admin-display.js",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "app/features/account-settings/household-expense-account-policy-storage.js",
     "app/features/lens-analysis/analysis-setup.js",
-    "pages/analysis-setup.html"
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
+    "pages/analysis-setup.html",
+    "components.css"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
@@ -157,16 +166,6 @@ function createLivingFloorAssumptions(overrides) {
         "6Plus": 0.85
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1.1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: { multiplier: 1.2, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "Colorado" },
-        CA: { multiplier: 1.3, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "California" }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
@@ -174,7 +173,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
         monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true,
         notes: "Household supplies"
       },
       communicationsConnectivity: {
@@ -183,7 +181,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
         monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true,
         notes: "Connectivity"
       },
       transportationBasics: {
@@ -192,7 +189,6 @@ function createLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
         monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true,
         notes: "Basic transportation"
       }
     }
@@ -206,7 +202,6 @@ function createMarriedFixture(overrides) {
     valuationDate: "2026-01-01",
     adultDriverCount: 1,
     profileRecord: {
-      state: "co",
       maritalStatus: "Married",
       spouseDateOfBirth: "1986-06-15",
       spouseGender: "female",
@@ -215,9 +210,7 @@ function createMarriedFixture(overrides) {
         { id: "older", age: 10 }
       ]
     },
-    pmiFacts: {
-      stateOfResidence: "NY"
-    }
+    pmiFacts: {}
   }, overrides || {});
 }
 
@@ -237,7 +230,6 @@ function resolveThenCalculate(resolverApi, calculationApi, contextInput, livingF
   const resolvedContext = resolverApi.resolveHouseholdExpenseLivingFloorContext(contextInput);
   const calculationResult = calculationApi.calculateHouseholdExpenseLivingFloors({
     livingFloorAssumptions,
-    stateContext: resolvedContext.stateContext,
     householdContext: resolvedContext.householdContext,
     planningBucketKeys
   });
@@ -280,22 +272,21 @@ assert.deepEqual(
 );
 assert.deepEqual(plain(marriedIntegration), JSON.parse(JSON.stringify(marriedIntegration)), "integration output should be JSON-serializable");
 
-assert.equal(marriedIntegration.resolvedContext.stateContext.stateUsed, "CO", "profile state should drive integrated calculation context");
-assert.equal(marriedIntegration.resolvedContext.stateContext.stateSource, "profileAddressState", "profile state source should be traced");
+assert.equal(Object.prototype.hasOwnProperty.call(marriedIntegration.resolvedContext, "stateContext"), false, "integrated living-floor context should not include retired state context");
 assert.equal(marriedIntegration.resolvedContext.householdContext.survivingHouseholdMembers, 3, "remaining household should include spouse plus two current dependents");
 assert.equal(marriedIntegration.resolvedContext.householdContext.deceasedInsuredCount, 1, "deceased client should be removed by V1 default");
 assert.equal(marriedIntegration.resolvedContext.householdContext.householdMemberBandCounts.adultFemale, 1, "spouse should feed adult female band");
 assert.equal(marriedIntegration.resolvedContext.householdContext.householdMemberBandCounts.infantToddler, 1, "dependent DOB should feed infant/toddler band");
 assert.equal(marriedIntegration.resolvedContext.householdContext.householdMemberBandCounts.olderChild, 1, "dependent explicit age should feed older child band");
 
-assert.equal(marriedIntegration.calculationResult.buckets.foodAtHomeConsumables.floorAmountMonthly, 672, "food floor should calculate from resolver band counts");
-assert.equal(marriedIntegration.calculationResult.buckets.householdConsumables.floorAmountMonthly, 210, "household consumables should calculate from resolver household size");
-assert.equal(marriedIntegration.calculationResult.buckets.communicationsConnectivity.floorAmountMonthly, 132, "communications should calculate from resolver household size");
-assert.equal(marriedIntegration.calculationResult.buckets.transportationBasics.floorAmountMonthly, 240, "transportation should calculate from resolver driver count");
+assert.equal(marriedIntegration.calculationResult.buckets.foodAtHomeConsumables.floorAmountMonthly, 560, "food floor should calculate from resolver band counts without state multiplication");
+assert.equal(marriedIntegration.calculationResult.buckets.householdConsumables.floorAmountMonthly, 175, "household consumables should calculate direct floor from resolver household size");
+assert.equal(marriedIntegration.calculationResult.buckets.communicationsConnectivity.floorAmountMonthly, 110, "communications should calculate direct floor from resolver household size");
+assert.equal(marriedIntegration.calculationResult.buckets.transportationBasics.floorAmountMonthly, 200, "transportation should calculate direct floor from resolver driver count");
 assert.equal(marriedIntegration.calculationResult.metadata.activeRuntimeConsumer, false, "calculator should remain inactive");
 assert.equal(marriedIntegration.resolvedContext.metadata.activeRuntimeConsumer, false, "resolver should remain inactive");
 
-const pmiStateIntegration = resolveThenCalculate(
+const noProfileStateIntegration = resolveThenCalculate(
   resolverApi,
   calculationApi,
   createMarriedFixture({
@@ -304,29 +295,13 @@ const pmiStateIntegration = resolveThenCalculate(
       spouseAge: 40,
       spouseGender: "female",
       dependentDetails: [{ age: 10 }]
-    },
-    pmiFacts: {
-      stateOfResidence: "ca"
     }
   }),
   completeAssumptions,
   ["householdConsumables"]
 );
-assert.equal(pmiStateIntegration.resolvedContext.stateContext.stateUsed, "CA", "PMI state should be used when profile state is missing");
-assert.equal(pmiStateIntegration.resolvedContext.stateContext.stateSource, "pmiIncomeTaxState", "PMI state source should feed calculator");
-assert.equal(pmiStateIntegration.calculationResult.buckets.householdConsumables.stateAdjustmentMultiplier, 1.3, "PMI state multiplier should apply");
-assert.equal(pmiStateIntegration.calculationResult.buckets.householdConsumables.floorAmountMonthly, 195, "PMI state multiplier should change calculated floor");
-
-const mismatchIntegration = resolveThenCalculate(
-  resolverApi,
-  calculationApi,
-  createMarriedFixture(),
-  completeAssumptions,
-  ["foodAtHomeConsumables"]
-);
-assert.equal(mismatchIntegration.resolvedContext.stateContext.stateUsed, "CO", "profile state should win on mismatch");
-assert.equal(mismatchIntegration.resolvedContext.stateContext.stateMismatchWarning, "profile-pmi-state-mismatch", "state mismatch should be traced");
-assert.ok(getWarningCodes(mismatchIntegration.resolvedContext).includes("profile-pmi-state-mismatch"), "state mismatch warning should be emitted");
+assert.equal(Object.prototype.hasOwnProperty.call(noProfileStateIntegration.resolvedContext, "stateContext"), false, "state inputs should not be required for floor integration");
+assert.equal(noProfileStateIntegration.calculationResult.buckets.householdConsumables.floorAmountMonthly, 150, "state-free fixture should use direct floor value");
 
 const singleParentIntegration = resolveThenCalculate(
   resolverApi,
@@ -334,7 +309,6 @@ const singleParentIntegration = resolveThenCalculate(
   {
     valuationDate: "2026-01-01",
     profileRecord: {
-      state: "CO",
       maritalStatus: "Single",
       dependentDetails: [{ age: 5 }]
     }
@@ -346,7 +320,7 @@ assert.equal(singleParentIntegration.resolvedContext.householdContext.noSurvivin
 assert.equal(singleParentIntegration.resolvedContext.householdContext.adultEquivalentFallbackUsed, true, "single parent scenario should use adult-equivalent fallback");
 assert.equal(singleParentIntegration.resolvedContext.householdContext.householdMemberBandCounts.youngChild, 1, "dependent should remain in child food band");
 assert.equal(singleParentIntegration.resolvedContext.householdContext.householdMemberBandCounts.adultUnknown, 1, "adult-equivalent fallback should feed adultUnknown band");
-assert.equal(singleParentIntegration.calculationResult.buckets.foodAtHomeConsumables.floorAmountMonthly, 598.5, "food calculation should proceed with adult-equivalent fallback");
+assert.equal(singleParentIntegration.calculationResult.buckets.foodAtHomeConsumables.floorAmountMonthly, 498.75, "food calculation should proceed with adult-equivalent fallback without state multiplication");
 
 const incompleteAssumptions = createLivingFloorAssumptions();
 incompleteAssumptions.model90DefaultBucketFloors.householdConsumables.monthlyPerMemberAmount = null;
@@ -359,7 +333,7 @@ const incompleteIntegration = resolveThenCalculate(
 );
 assert.equal(incompleteIntegration.calculationResult.buckets.householdConsumables.floorAmountMonthly, null, "incomplete assumptions should produce null floor");
 assert.ok(getDataGapCodes(incompleteIntegration.calculationResult).includes("missing-model90-per-member-amount"), "incomplete assumptions should create data gap");
-assert.equal(incompleteIntegration.calculationResult.buckets.householdConsumables.trace.stateAdjustedFloor, undefined, "incomplete assumptions should not invent fake fallback floor");
+assert.equal(incompleteIntegration.calculationResult.buckets.householdConsumables.trace.stateAdjustedFloor, undefined, "incomplete assumptions should not invent retired state-adjusted floor");
 
 const excludedBucketIntegration = resolveThenCalculate(
   resolverApi,

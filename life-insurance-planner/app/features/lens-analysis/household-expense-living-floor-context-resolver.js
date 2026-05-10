@@ -10,15 +10,6 @@
   const ACTIVE_RUNTIME_CONSUMER = false;
   const DECEASED_INSURED_COUNT_DEFAULT = 1;
 
-  const STATE_CODE_VALUES = Object.freeze([
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
-    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
-    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
-    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
-    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
-    "WY"
-  ]);
-
   const FOOD_AT_HOME_BAND_KEYS = Object.freeze([
     "infantToddler",
     "youngChild",
@@ -29,13 +20,6 @@
     "adultFemale",
     "adultUnknown",
     "childUnknown"
-  ]);
-
-  const STATE_SOURCE_PRIORITY = Object.freeze([
-    "profileAddressState",
-    "pmiIncomeTaxState",
-    "accountDefaultState",
-    "nationalDefault"
   ]);
 
   function isPlainObject(value) {
@@ -103,10 +87,6 @@
     warnings.push(createIssue(code, message, details));
   }
 
-  function addDataGap(dataGaps, code, message, details) {
-    dataGaps.push(createIssue(code, message, details));
-  }
-
   function getNestedValue(source, path) {
     if (!isPlainObject(source)) {
       return undefined;
@@ -125,116 +105,6 @@
       }
     }
     return null;
-  }
-
-  function normalizeStateCode(value) {
-    const stateCode = normalizeString(value).toUpperCase();
-    return STATE_CODE_VALUES.includes(stateCode) ? stateCode : "";
-  }
-
-  function resolveStateCandidate(label, value, warnings) {
-    const rawValue = normalizeString(value);
-    if (!rawValue) {
-      return {
-        rawValue: null,
-        stateCode: null
-      };
-    }
-
-    const stateCode = normalizeStateCode(rawValue);
-    if (!stateCode) {
-      addWarning(
-        warnings,
-        "invalid-state-code-ignored",
-        "State value was ignored because it was not a valid USPS code.",
-        { stateSource: label, received: rawValue }
-      );
-      return {
-        rawValue,
-        stateCode: null
-      };
-    }
-
-    return {
-      rawValue,
-      stateCode
-    };
-  }
-
-  function resolveStateContext(input, warnings, dataGaps) {
-    const profileRecord = isPlainObject(input.profileRecord) ? input.profileRecord : {};
-    const profileFacts = isPlainObject(input.profileFacts) ? input.profileFacts : {};
-    const pmiFacts = isPlainObject(input.pmiFacts) ? input.pmiFacts : {};
-    const taxContext = isPlainObject(input.taxContext) ? input.taxContext : {};
-    const accountContext = isPlainObject(input.accountContext) ? input.accountContext : {};
-
-    const profileCandidate = resolveStateCandidate("profileAddressState", getFirstPresent([
-      input.profileAddressState,
-      profileRecord.state,
-      profileRecord.addressState,
-      getNestedValue(profileRecord, ["address", "state"]),
-      profileFacts.state,
-      profileFacts.addressState
-    ]), warnings);
-
-    const pmiCandidate = resolveStateCandidate("pmiIncomeTaxState", getFirstPresent([
-      input.stateOfResidence,
-      pmiFacts.stateOfResidence,
-      taxContext.stateOfResidence,
-      getNestedValue(profileFacts, ["taxContext", "stateOfResidence"])
-    ]), warnings);
-
-    const accountCandidate = resolveStateCandidate("accountDefaultState", getFirstPresent([
-      input.accountDefaultState,
-      accountContext.defaultState,
-      accountContext.accountDefaultState
-    ]), warnings);
-
-    const stateMismatchWarning = profileCandidate.stateCode && pmiCandidate.stateCode && profileCandidate.stateCode !== pmiCandidate.stateCode
-      ? "profile-pmi-state-mismatch"
-      : null;
-    if (stateMismatchWarning) {
-      addWarning(
-        warnings,
-        stateMismatchWarning,
-        "Profile address state and PMI income/tax state differ; profile address state was used by priority.",
-        {
-          profileAddressState: profileCandidate.stateCode,
-          pmiIncomeTaxState: pmiCandidate.stateCode
-        }
-      );
-    }
-
-    const stateUsed = profileCandidate.stateCode
-      || pmiCandidate.stateCode
-      || accountCandidate.stateCode
-      || "nationalDefault";
-    const stateSource = profileCandidate.stateCode
-      ? "profileAddressState"
-      : pmiCandidate.stateCode
-        ? "pmiIncomeTaxState"
-        : accountCandidate.stateCode
-          ? "accountDefaultState"
-          : "nationalDefault";
-    const nationalFallbackUsed = stateSource === "nationalDefault";
-
-    if (nationalFallbackUsed) {
-      addDataGap(
-        dataGaps,
-        "state-national-default-used",
-        "No valid profile, PMI income/tax, or account default state was available; national default was used."
-      );
-    }
-
-    return {
-      profileAddressState: profileCandidate.stateCode,
-      pmiIncomeTaxState: pmiCandidate.stateCode,
-      accountDefaultState: accountCandidate.stateCode,
-      stateUsed,
-      stateSource,
-      stateMismatchWarning,
-      nationalFallbackUsed
-    };
   }
 
   function parseDateOnly(value) {
@@ -704,7 +574,6 @@
         safeInput.childrenNeedingFunding
       ])) || 0
     };
-    const stateContext = resolveStateContext(safeInput, warnings, dataGaps);
     const valuationDate = resolveValuationDate(safeInput);
     const deceasedInsuredRole = getDeceasedInsuredRole(safeInput);
     const deceasedInsuredCount = resolveDeceasedInsuredCount(safeInput);
@@ -814,7 +683,6 @@
     };
 
     return {
-      stateContext,
       householdContext,
       warnings,
       dataGaps,
@@ -827,8 +695,7 @@
         excludedProjectedDependentsCount: trace.excludedProjectedDependentsCount,
         remainingHouseholdMemberRoles: survivingMembers.map(function (member) {
           return member.role;
-        }),
-        stateSourcePriority: STATE_SOURCE_PRIORITY.slice()
+        })
       }),
       metadata: {
         resolverVersion: CONTEXT_RESOLVER_VERSION,
@@ -841,9 +708,7 @@
   lensAnalysis.householdExpenseLivingFloorContextResolver = Object.freeze({
     CONTEXT_RESOLVER_VERSION,
     DECEASED_INSURED_COUNT_DEFAULT,
-    STATE_CODE_VALUES,
     FOOD_AT_HOME_BAND_KEYS,
-    STATE_SOURCE_PRIORITY,
     resolveHouseholdExpenseLivingFloorContext
   });
 })(globalThis);

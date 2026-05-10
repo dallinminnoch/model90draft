@@ -61,27 +61,14 @@ const EXPECTED_FOOD_BAND_KEYS = Object.freeze([
   "childUnknown"
 ]);
 
-const EXPECTED_STATE_SOURCE_PRIORITY = Object.freeze([
-  "profileAddressState",
-  "pmiIncomeTaxState",
-  "accountDefaultState",
-  "nationalDefault"
-]);
-
 const EXPECTED_TRACE_FIELDS = Object.freeze([
-  "profileAddressState",
-  "pmiIncomeTaxState",
-  "stateUsed",
-  "stateSource",
-  "stateMismatchWarning",
   "totalCurrentHouseholdMembers",
   "survivingHouseholdMembers",
   "deceasedInsuredCount",
   "householdMemberBandCounts",
   "noSurvivingAdultDetected",
   "missingAgeFallbackUsed",
-  "missingSexFallbackUsed",
-  "nationalFallbackUsed"
+  "missingSexFallbackUsed"
 ]);
 
 function readRepoFile(relativePath) {
@@ -122,7 +109,12 @@ function loadContext() {
 function assertNoForbiddenDiffs() {
   const allowedAnalysisSetupDisplayFiles = new Set([
     "app/features/lens-analysis/analysis-setup.js",
-    "pages/analysis-setup.html"
+    "pages/analysis-setup.html",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
@@ -199,7 +191,7 @@ function assertValidValues(row, api) {
   assert.equal(typeof row.benchmarkAvailable, "boolean", `${row.planningBucketKey} benchmarkAvailable should be boolean`);
   assert.ok(api.BENCHMARK_SOURCE_VALUES.includes(row.benchmarkSource), `${row.planningBucketKey} benchmarkSource should be valid`);
   assert.ok(api.BENCHMARK_SOURCE_VALUES.includes(row.floorSource), `${row.planningBucketKey} floorSource should be valid`);
-  assert.ok(api.STATE_ADJUSTMENT_SOURCE_VALUES.includes(row.stateAdjustmentSource), `${row.planningBucketKey} stateAdjustmentSource should be valid`);
+  assert.equal(Object.prototype.hasOwnProperty.call(row, "stateAdjustmentSource"), false, `${row.planningBucketKey} should not expose retired state adjustment metadata`);
   assert.equal(typeof row.adminEditable, "boolean", `${row.planningBucketKey} adminEditable should be boolean`);
   assert.equal(typeof row.adminDollarInputsRequired, "boolean", `${row.planningBucketKey} adminDollarInputsRequired should be boolean`);
   assert.ok(api.SOURCE_DATA_STATUS_VALUES.includes(row.sourceDataStatus), `${row.planningBucketKey} sourceDataStatus should be valid`);
@@ -309,7 +301,6 @@ EXPECTED_ZERO_FLOOR_RATIO_BUCKETS.forEach(function (bucketKey) {
   assert.equal(row.benchmarkAvailable, false, `${bucketKey} should not have benchmark metadata`);
   assert.equal(row.benchmarkSource, "NONE", `${bucketKey} benchmark source should be NONE`);
   assert.equal(row.floorSource, "NONE", `${bucketKey} floor source should be NONE`);
-  assert.equal(row.stateAdjustmentSource, "NONE", `${bucketKey} state adjustment source should be NONE`);
   assert.equal(row.householdSizingMethod, "none", `${bucketKey} should not use household sizing`);
   assert.equal(row.adminEditable, true, `${bucketKey} should be adjustment editable`);
   assert.equal(row.adminDollarInputsRequired, false, `${bucketKey} should not require dollar inputs`);
@@ -338,7 +329,7 @@ const foodAtHome = metadataMap.get("foodAtHomeConsumables");
 assert.equal(foodAtHome.householdSizingMethod, "usdaAgeSexBandWeighted", "foodAtHomeConsumables should use USDA age/sex weighted sizing");
 assert.equal(foodAtHome.benchmarkSource, "USDA_FOOD_PLAN", "foodAtHomeConsumables should use USDA food plan benchmark");
 assert.equal(foodAtHome.floorSource, "USDA_FOOD_PLAN", "foodAtHomeConsumables floor source should be USDA food plan");
-assert.equal(foodAtHome.stateAdjustmentSource, "BEA_RPP_ADJUSTED", "foodAtHomeConsumables should use BEA state adjustment metadata");
+assert.match(foodAtHome.notes, /national baseline/i, "foodAtHomeConsumables should describe national baseline USDA values");
 assert.equal(foodAtHome.sourceDataStatus, "notLoaded", "foodAtHomeConsumables source data should not be loaded");
 assert.equal(foodAtHome.adminDollarInputsRequired, true, "foodAtHomeConsumables should require future admin dollar inputs");
 
@@ -357,12 +348,6 @@ assert.deepEqual(plain(bands[5]), { bandKey: "adultMale", minAge: 19, maxAge: nu
 assert.deepEqual(plain(bands[6]), { bandKey: "adultFemale", minAge: 19, maxAge: null, sex: "female" }, "adultFemale band should cover ages 19+ female");
 assert.deepEqual(plain(bands[7]), { bandKey: "adultUnknown", minAge: 19, maxAge: null, sex: "unknown" }, "adultUnknown band should cover ages 19+ unknown sex");
 assert.deepEqual(plain(bands[8]), { bandKey: "childUnknown", minAge: 0, maxAge: 18, sex: "unknown" }, "childUnknown band should cover under-19 fallback");
-
-assert.deepEqual(
-  plain(livingFloorApi.getHouseholdExpenseLivingFloorStateSourcePriority()),
-  EXPECTED_STATE_SOURCE_PRIORITY,
-  "state source priority should prefer profile address, then PMI income/tax, then account default, then national default"
-);
 
 const sizingRule = livingFloorApi.getHouseholdExpenseLivingFloorHouseholdSizingRule();
 assert.equal(sizingRule.householdSizingRuleKey, "remainingHouseholdAfterInsuredDeath", "household sizing should use remaining-household rule");
@@ -385,14 +370,12 @@ assert.deepEqual(
 const serializedA = JSON.stringify({
   metadataRows,
   bands,
-  stateSourcePriority: livingFloorApi.getHouseholdExpenseLivingFloorStateSourcePriority(),
   sizingRule,
   traceFields: livingFloorApi.getHouseholdExpenseLivingFloorTraceFields()
 });
 const serializedB = JSON.stringify({
   metadataRows: livingFloorApi.getHouseholdExpenseLivingFloorMetadata(),
   bands: livingFloorApi.getFoodAtHomeHouseholdMemberBands(),
-  stateSourcePriority: livingFloorApi.getHouseholdExpenseLivingFloorStateSourcePriority(),
   sizingRule: livingFloorApi.getHouseholdExpenseLivingFloorHouseholdSizingRule(),
   traceFields: livingFloorApi.getHouseholdExpenseLivingFloorTraceFields()
 });

@@ -63,12 +63,19 @@ function assertNoForbiddenDiffs() {
   const allowedRuntimePlumbingFiles = new Set([
     "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
-    "pages/income-loss-impact.html"
+    "pages/income-loss-impact.html",
+    "app/features/account-settings/household-expense-account-policy-admin-display.js",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "app/features/account-settings/household-expense-account-policy-storage.js",
+    "app/features/lens-analysis/analysis-setup.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js"
   ]);
   const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
-    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
-    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-compression-policy.js",
     "app/features/lens-analysis/expense-compression-thresholds.js",
@@ -78,7 +85,6 @@ function assertNoForbiddenDiffs() {
     "app/features/lens-analysis/pmi-expense-records.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
-    "app/features/account-settings",
     "pages",
     "app.js",
     "styles.css",
@@ -129,7 +135,6 @@ function createMarriedInput(overrides) {
   return Object.assign({
     valuationDate: "2026-01-01",
     profileRecord: {
-      state: "co",
       maritalStatus: "Married",
       spouseDateOfBirth: "1986-06-15",
       spouseGender: "female",
@@ -139,9 +144,7 @@ function createMarriedInput(overrides) {
       ],
       projectedDependentsCount: 2
     },
-    pmiFacts: {
-      stateOfResidence: "NY"
-    }
+    pmiFacts: {}
   }, overrides || {});
 }
 
@@ -164,31 +167,8 @@ assert.deepEqual(plain(result), JSON.parse(JSON.stringify(result)), "context res
 assert.deepEqual(plain(resolve(api, input)), plain(result), "context resolver output should be deterministic");
 assert.equal(result.metadata.activeRuntimeConsumer, false, "context resolver must remain inactive for runtime");
 
-assert.equal(result.stateContext.profileAddressState, "CO", "profile state should normalize to uppercase");
-assert.equal(result.stateContext.pmiIncomeTaxState, "NY", "PMI state should normalize to uppercase");
-assert.equal(result.stateContext.stateUsed, "CO", "profile address state should win over PMI state");
-assert.equal(result.stateContext.stateSource, "profileAddressState", "state source should trace profile priority");
-assert.equal(result.stateContext.stateMismatchWarning, "profile-pmi-state-mismatch", "state mismatch should be traced");
-assert.ok(getWarningCodes(result).includes("profile-pmi-state-mismatch"), "state mismatch should emit warning");
-assert.equal(result.stateContext.nationalFallbackUsed, false, "national fallback should not be used when profile state exists");
-
-const pmiStateResult = resolve(api, {
-  pmiFacts: { stateOfResidence: "ca" },
-  profileRecord: {},
-  valuationDate: "2026-01-01"
-});
-assert.equal(pmiStateResult.stateContext.stateUsed, "CA", "PMI state should be used when profile state is missing");
-assert.equal(pmiStateResult.stateContext.stateSource, "pmiIncomeTaxState", "PMI state source should be traced");
-
-const nationalResult = resolve(api, {
-  profileRecord: { state: "Colorado" },
-  pmiFacts: { stateOfResidence: "" }
-});
-assert.equal(nationalResult.stateContext.stateUsed, "nationalDefault", "national default should be used when no valid state exists");
-assert.equal(nationalResult.stateContext.stateSource, "nationalDefault", "national fallback source should be traced");
-assert.equal(nationalResult.stateContext.nationalFallbackUsed, true, "national fallback flag should be true");
-assert.ok(getWarningCodes(nationalResult).includes("invalid-state-code-ignored"), "invalid free-text state should be rejected");
-assert.ok(nationalResult.dataGaps.some(function (gap) { return gap.code === "state-national-default-used"; }), "national fallback should create data gap");
+assert.equal(Object.prototype.hasOwnProperty.call(result, "stateContext"), false, "context resolver should not emit retired state multiplier context");
+assert.equal(getWarningCodes(result).includes("profile-pmi-state-mismatch"), false, "state mismatch warnings should be retired");
 
 assert.equal(result.householdContext.deceasedInsuredCount, 1, "deceased insured count should default to one");
 assert.equal(result.householdContext.deceasedInsuredRole, "client", "client should be default deceased insured");

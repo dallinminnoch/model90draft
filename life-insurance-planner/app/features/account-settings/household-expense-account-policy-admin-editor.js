@@ -41,14 +41,6 @@
       perUnitLabel: "Monthly Per Adult Driver"
     })
   });
-  const STATE_CODE_VALUES = Object.freeze([
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
-    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
-    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
-    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
-    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
-    "WY"
-  ]);
   const GRAPH_ADJUSTMENT_TYPE_OPTIONS = Object.freeze([
     Object.freeze({
       adjustmentClass: "moneyFloorAdjusted",
@@ -164,10 +156,6 @@
     return normalizeNullableText(value) || "ADMIN_ENTERED";
   }
 
-  function normalizeStateMultiplierSource(value) {
-    return normalizeNullableText(value) || "ADMIN_ENTERED";
-  }
-
   function normalizeModel90DefaultFloorSource(value) {
     return normalizeNullableText(value) || "ADMIN_ENTERED";
   }
@@ -218,23 +206,9 @@
     return option ? option.label : "Metadata unavailable";
   }
 
-  function normalizeStateCode(value) {
-    const stateCode = String(value == null ? "" : value).trim().toUpperCase();
-    return STATE_CODE_VALUES.includes(stateCode) ? stateCode : "";
-  }
-
   function formatNumberInputValue(value) {
     const numericValue = asOptionalFiniteNumber(value);
     return numericValue === null ? "" : String(numericValue);
-  }
-
-  function formatMultiplierInputValue(value, fallback) {
-    const numericValue = asOptionalFiniteNumber(value);
-    if (numericValue !== null) {
-      return String(numericValue);
-    }
-
-    return fallback == null ? "" : String(fallback);
   }
 
   function getWarningList(source) {
@@ -347,13 +321,6 @@
     return isPlainObject(assumptions.foodAtHome) ? assumptions.foodAtHome : {};
   }
 
-  function getStateCostAdjustmentMultipliers(accountPolicy) {
-    const assumptions = getLivingFloorAssumptions(accountPolicy);
-    return isPlainObject(assumptions.stateCostAdjustmentMultipliers)
-      ? assumptions.stateCostAdjustmentMultipliers
-      : {};
-  }
-
   function getModel90DefaultBucketFloors(accountPolicy) {
     const assumptions = getLivingFloorAssumptions(accountPolicy);
     return isPlainObject(assumptions.model90DefaultBucketFloors)
@@ -394,38 +361,6 @@
     };
   }
 
-  function toStateCostAdjustmentMultiplierEditorRows(globalStateAdjustmentMultipliersByState) {
-    const rows = isPlainObject(globalStateAdjustmentMultipliersByState)
-      ? globalStateAdjustmentMultipliersByState
-      : {};
-
-    return Object.keys(rows).sort().map(function (stateKey) {
-      const row = isPlainObject(rows[stateKey]) ? rows[stateKey] : {};
-      return {
-        stateCode: normalizeStateCode(stateKey) || String(stateKey || "").trim().toUpperCase(),
-        multiplier: asOptionalFiniteNumber(row.multiplier),
-        multiplierInputValue: formatMultiplierInputValue(row.multiplier),
-        source: normalizeStateMultiplierSource(row.source),
-        sourcePeriod: normalizeNullableText(row.sourcePeriod),
-        notes: normalizeNullableText(row.notes)
-      };
-    });
-  }
-
-  function buildStateCostAdjustmentMultipliersEditorModel(accountPolicy) {
-    const stateMultipliers = getStateCostAdjustmentMultipliers(accountPolicy);
-    return {
-      version: Number.isFinite(Number(stateMultipliers.version)) ? Number(stateMultipliers.version) : 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: asOptionalFiniteNumber(stateMultipliers.defaultMultiplier) || 1,
-      defaultMultiplierInputValue: formatMultiplierInputValue(stateMultipliers.defaultMultiplier, 1),
-      globalStateRows: toStateCostAdjustmentMultiplierEditorRows(stateMultipliers.globalStateAdjustmentMultipliersByState),
-      bucketStateAdjustmentMultipliers: isPlainObject(stateMultipliers.bucketStateAdjustmentMultipliers)
-        ? clonePlainValue(stateMultipliers.bucketStateAdjustmentMultipliers)
-        : {}
-    };
-  }
-
   function toModel90DefaultBucketFloorEditorRows(model90DefaultBucketFloors) {
     const floors = isPlainObject(model90DefaultBucketFloors) ? model90DefaultBucketFloors : {};
     return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.map(function (planningBucketKey) {
@@ -441,7 +376,6 @@
         monthlyBaseAmountInputValue: formatNumberInputValue(row.monthlyBaseAmount),
         perUnitAmount: asOptionalFiniteNumber(row[perUnitField]),
         perUnitAmountInputValue: formatNumberInputValue(row[perUnitField]),
-        stateAdjustmentEnabled: row.stateAdjustmentEnabled !== false,
         source: normalizeModel90DefaultFloorSource(row.source),
         sourcePeriod: normalizeNullableText(row.sourcePeriod),
         notes: normalizeNullableText(row.notes)
@@ -746,7 +680,6 @@
       },
       accountPolicy: accountPolicyForSave,
       foodAtHomeFloorAssumptions: buildFoodAtHomeFloorAssumptionsEditorModel(accountPolicyForSave),
-      stateCostAdjustmentMultipliers: buildStateCostAdjustmentMultipliersEditorModel(accountPolicyForSave),
       model90DefaultBucketFloors: buildModel90DefaultBucketFloorsEditorModel(accountPolicyForSave),
       limits: {
         maxElevatedCeilingRatio: getMaxElevatedCeilingRatio(currentLensAnalysis)
@@ -771,7 +704,6 @@
           "lifestyleRangeOverrides",
           "graphAdjustmentOverrides",
           "livingFloorAssumptions.foodAtHome",
-          "livingFloorAssumptions.stateCostAdjustmentMultipliers",
           "livingFloorAssumptions.model90DefaultBucketFloors"
         ],
         editableFields: [
@@ -783,12 +715,9 @@
           "foodAtHome.sourcePeriod",
           "foodAtHome.monthlyAmountsByBand",
           "foodAtHome.householdSizeAdjustmentFactors",
-          "stateCostAdjustmentMultipliers.defaultMultiplier",
-          "stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState",
           "model90DefaultBucketFloors.monthlyBaseAmount",
           "model90DefaultBucketFloors.monthlyPerMemberAmount",
-          "model90DefaultBucketFloors.monthlyPerAdultDriverAmount",
-          "model90DefaultBucketFloors.stateAdjustmentEnabled"
+          "model90DefaultBucketFloors.monthlyPerAdultDriverAmount"
         ],
         sparseOverridePayloadOnly: true
       }
@@ -911,9 +840,7 @@
         ? clonePlainValue(existing.compressionPolicyOverrides)
         : [],
       guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
-      livingFloorAssumptions: isPlainObject(existing.livingFloorAssumptions)
-        ? clonePlainValue(existing.livingFloorAssumptions)
-        : {},
+      livingFloorAssumptions: cloneLivingFloorAssumptionsForSave(existing.livingFloorAssumptions),
       metadata: Object.assign({}, metadata, {
         accountId: accountId || metadata.accountId || null,
         source: metadata.source || "adminLifestyleRangeEditorV1",
@@ -1027,9 +954,7 @@
         ? clonePlainValue(existing.compressionPolicyOverrides)
         : [],
       guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
-      livingFloorAssumptions: isPlainObject(existing.livingFloorAssumptions)
-        ? clonePlainValue(existing.livingFloorAssumptions)
-        : {},
+      livingFloorAssumptions: cloneLivingFloorAssumptionsForSave(existing.livingFloorAssumptions),
       metadata: Object.assign({}, metadata, {
         accountId: accountId || metadata.accountId || null,
         source: metadata.source || "adminGraphAdjustmentEditorV1",
@@ -1129,7 +1054,6 @@
         sourcePeriod: null,
         monthlyBaseAmount: null,
         [config.perUnitField]: null,
-        stateAdjustmentEnabled: true,
         notes: null
       };
       return floors;
@@ -1165,22 +1089,6 @@
     const numericValue = asOptionalFiniteNumber(text);
     if (numericValue === null) {
       messages.push(`${label} must be a finite adjustment factor.`);
-      return null;
-    }
-
-    if (numericValue < 0.25 || numericValue > 3) {
-      messages.push(`${label} must be between 0.25 and 3.00.`);
-      return null;
-    }
-
-    return Number(numericValue.toFixed(4));
-  }
-
-  function normalizeRequiredMultiplierDraftValue(value, label, messages) {
-    const text = String(value == null ? "" : value).trim();
-    const numericValue = asOptionalFiniteNumber(text);
-    if (numericValue === null) {
-      messages.push(`${label} must be a finite multiplier.`);
       return null;
     }
 
@@ -1236,11 +1144,19 @@
     });
   }
 
+  function cloneLivingFloorAssumptionsForSave(existingLivingFloorAssumptions) {
+    const nextLivingFloorAssumptions = isPlainObject(existingLivingFloorAssumptions)
+      ? clonePlainValue(existingLivingFloorAssumptions)
+      : {};
+    delete nextLivingFloorAssumptions.stateCostAdjustmentMultipliers;
+    return nextLivingFloorAssumptions;
+  }
+
   function buildAccountPolicyWithFoodAtHomeFloorAssumptions(existingAccountPolicy, foodAtHomeAssumptions, accountId) {
     const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
     const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
     const existingLivingFloorAssumptions = getLivingFloorAssumptions(existing);
-    const nextLivingFloorAssumptions = Object.assign({}, clonePlainValue(existingLivingFloorAssumptions), {
+    const nextLivingFloorAssumptions = Object.assign({}, cloneLivingFloorAssumptionsForSave(existingLivingFloorAssumptions), {
       version: Number.isFinite(Number(existingLivingFloorAssumptions.version))
         ? Number(existingLivingFloorAssumptions.version)
         : 1,
@@ -1302,80 +1218,6 @@
     }));
   }
 
-  function isBlankStateMultiplierDraftRow(row) {
-    const draftRow = isPlainObject(row) ? row : {};
-    return !normalizeKey(draftRow.stateCode)
-      && !normalizeKey(draftRow.multiplier)
-      && !normalizeKey(draftRow.sourcePeriod)
-      && !normalizeKey(draftRow.notes);
-  }
-
-  function validateStateCostAdjustmentMultipliersDraft(draft) {
-    const row = isPlainObject(draft) ? draft : {};
-    const messages = [];
-    const defaultMultiplier = normalizeRequiredMultiplierDraftValue(
-      row.defaultMultiplier,
-      "defaultMultiplier",
-      messages
-    );
-    const globalRows = Array.isArray(row.globalStateRows) ? row.globalStateRows : [];
-    const seenStateCodes = new Set();
-    const globalStateAdjustmentMultipliersByState = {};
-
-    globalRows.forEach(function (draftRow, index) {
-      if (isBlankStateMultiplierDraftRow(draftRow)) {
-        return;
-      }
-
-      const rawStateCode = normalizeKey(draftRow?.stateCode).toUpperCase();
-      const stateCode = normalizeStateCode(rawStateCode);
-      if (!stateCode) {
-        messages.push(`Row ${index + 1} state code must be a valid USPS state code.`);
-        return;
-      }
-
-      if (seenStateCodes.has(stateCode)) {
-        messages.push(`${stateCode} has duplicate state multiplier rows.`);
-        return;
-      }
-      seenStateCodes.add(stateCode);
-
-      const multiplier = normalizeRequiredMultiplierDraftValue(
-        draftRow?.multiplier,
-        `${stateCode} multiplier`,
-        messages
-      );
-      if (multiplier === null) {
-        return;
-      }
-
-      globalStateAdjustmentMultipliersByState[stateCode] = {
-        multiplier,
-        source: normalizeStateMultiplierSource(draftRow?.source),
-        sourcePeriod: normalizeNullableText(draftRow?.sourcePeriod),
-        notes: normalizeNullableText(draftRow?.notes)
-      };
-    });
-
-    return clonePlainValue({
-      valid: messages.length === 0,
-      stateCostAdjustmentMultipliers: {
-        version: 1,
-        appliesToAdjustmentClass: "moneyFloorAdjusted",
-        defaultMultiplier: defaultMultiplier === null ? 1 : defaultMultiplier,
-        globalStateAdjustmentMultipliersByState,
-        bucketStateAdjustmentMultipliers: {}
-      },
-      validationMessages: messages,
-      trace: {
-        source: "admin-state-cost-adjustment-multipliers-validation",
-        editableNamespace: "livingFloorAssumptions.stateCostAdjustmentMultipliers",
-        globalStateRows: Object.keys(globalStateAdjustmentMultipliersByState).length,
-        invalidValues: messages.length
-      }
-    });
-  }
-
   function validateModel90DefaultBucketFloorsDraft(draft) {
     const row = isPlainObject(draft) ? draft : {};
     const messages = [];
@@ -1399,9 +1241,6 @@
         sourcePeriod: normalizeNullableText(sourceRow.sourcePeriod),
         monthlyBaseAmount,
         [config.perUnitField]: perUnitAmount,
-        stateAdjustmentEnabled: Object.prototype.hasOwnProperty.call(sourceRow, "stateAdjustmentEnabled")
-          ? sourceRow.stateAdjustmentEnabled === true
-          : true,
         notes: normalizeNullableText(sourceRow.notes)
       };
       return floors;
@@ -1420,54 +1259,11 @@
     });
   }
 
-  function buildAccountPolicyWithStateCostAdjustmentMultipliers(existingAccountPolicy, stateCostAdjustmentMultipliers, accountId) {
-    const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
-    const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
-    const existingLivingFloorAssumptions = getLivingFloorAssumptions(existing);
-    const existingStateMultipliers = getStateCostAdjustmentMultipliers(existing);
-    const nextStateMultipliers = {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: stateCostAdjustmentMultipliers.defaultMultiplier,
-      globalStateAdjustmentMultipliersByState: clonePlainValue(stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState),
-      bucketStateAdjustmentMultipliers: isPlainObject(existingStateMultipliers.bucketStateAdjustmentMultipliers)
-        ? clonePlainValue(existingStateMultipliers.bucketStateAdjustmentMultipliers)
-        : {}
-    };
-    const nextLivingFloorAssumptions = Object.assign({}, clonePlainValue(existingLivingFloorAssumptions), {
-      version: Number.isFinite(Number(existingLivingFloorAssumptions.version))
-        ? Number(existingLivingFloorAssumptions.version)
-        : 1,
-      stateCostAdjustmentMultipliers: nextStateMultipliers
-    });
-
-    return clonePlainValue({
-      version: Number.isFinite(Number(existing.version)) ? Number(existing.version) : 1,
-      lifestyleRangeOverrides: Array.isArray(existing.lifestyleRangeOverrides)
-        ? clonePlainValue(existing.lifestyleRangeOverrides)
-        : [],
-      graphAdjustmentOverrides: getGraphAdjustmentOverrideRows(existing),
-      compressionThresholdOverrides: Array.isArray(existing.compressionThresholdOverrides)
-        ? clonePlainValue(existing.compressionThresholdOverrides)
-        : [],
-      compressionPolicyOverrides: Array.isArray(existing.compressionPolicyOverrides)
-        ? clonePlainValue(existing.compressionPolicyOverrides)
-        : [],
-      guardrails: isPlainObject(existing.guardrails) ? clonePlainValue(existing.guardrails) : {},
-      livingFloorAssumptions: nextLivingFloorAssumptions,
-      metadata: Object.assign({}, metadata, {
-        accountId: accountId || metadata.accountId || null,
-        source: metadata.source || "adminStateCostAdjustmentEditorV1",
-        lastEditedNamespace: "livingFloorAssumptions.stateCostAdjustmentMultipliers"
-      })
-    });
-  }
-
   function buildAccountPolicyWithModel90DefaultBucketFloors(existingAccountPolicy, model90DefaultBucketFloors, accountId) {
     const existing = isPlainObject(existingAccountPolicy) ? existingAccountPolicy : {};
     const metadata = isPlainObject(existing.metadata) ? clonePlainValue(existing.metadata) : {};
     const existingLivingFloorAssumptions = getLivingFloorAssumptions(existing);
-    const nextLivingFloorAssumptions = Object.assign({}, clonePlainValue(existingLivingFloorAssumptions), {
+    const nextLivingFloorAssumptions = Object.assign({}, cloneLivingFloorAssumptionsForSave(existingLivingFloorAssumptions), {
       version: Number.isFinite(Number(existingLivingFloorAssumptions.version))
         ? Number(existingLivingFloorAssumptions.version)
         : 1,
@@ -1494,42 +1290,6 @@
         lastEditedNamespace: "livingFloorAssumptions.model90DefaultBucketFloors"
       })
     });
-  }
-
-  function buildStateCostAdjustmentMultipliersSavePayload(input) {
-    const options = isPlainObject(input) ? input : {};
-    const validation = validateStateCostAdjustmentMultipliersDraft(options.draftStateCostAdjustmentMultipliers);
-    if (!validation.valid) {
-      return clonePlainValue({
-        valid: false,
-        validationMessages: validation.validationMessages,
-        trace: validation.trace
-      });
-    }
-
-    return clonePlainValue({
-      valid: true,
-      accountPolicy: buildAccountPolicyWithStateCostAdjustmentMultipliers(
-        options.accountPolicy,
-        validation.stateCostAdjustmentMultipliers,
-        options.accountId || TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID
-      ),
-      stateCostAdjustmentMultipliers: validation.stateCostAdjustmentMultipliers,
-      validationMessages: [],
-      trace: Object.assign({}, validation.trace, {
-        payloadShape: "account-policy-living-floor-state-cost-adjustment"
-      })
-    });
-  }
-
-  function buildStateCostAdjustmentMultipliersResetPayload(input) {
-    const options = isPlainObject(input) ? input : {};
-    return buildStateCostAdjustmentMultipliersSavePayload(Object.assign({}, options, {
-      draftStateCostAdjustmentMultipliers: {
-        defaultMultiplier: 1,
-        globalStateRows: []
-      }
-    }));
   }
 
   function buildModel90DefaultBucketFloorsSavePayload(input) {
@@ -1587,39 +1347,91 @@
       <select class="admin-tax-bracket-input" data-graph-adjustment-type-input data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" aria-label="${escapeHtml(row.displayName)} adjustment type">
         ${renderAdjustmentTypeOptions(row)}
       </select>
-      <div class="panel-copy">Default: ${escapeHtml(row.defaultAdjustmentTypeDisplay || "Metadata unavailable")}</div>
+      <div class="admin-household-expense-policy-field-note">Default: ${escapeHtml(row.defaultAdjustmentTypeDisplay || "Metadata unavailable")}</div>
       <button type="button" class="admin-action-button" data-graph-adjustment-reset-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}"${resetDisabledAttribute}>Reset type</button>
+    `;
+  }
+
+  function renderPolicyReadout(label, value, options) {
+    const settings = isPlainObject(options) ? options : {};
+    const valueClass = settings.code ? "admin-household-expense-policy-readout-value is-code" : "admin-household-expense-policy-readout-value";
+    const safeValue = value == null || value === "" ? "Not available" : value;
+    return `
+      <div class="admin-household-expense-policy-readout">
+        <span class="admin-household-expense-policy-readout-label">${escapeHtml(label)}</span>
+        <span class="${valueClass}">${settings.code ? `<code>${escapeHtml(safeValue)}</code>` : escapeHtml(safeValue)}</span>
+      </div>
+    `;
+  }
+
+  function renderRatioInputControl(row, field, label, min, max) {
+    const value = field === "conservativeFloorRatio"
+      ? row.resolvedConservativeFloorRatio
+      : row.resolvedElevatedCeilingRatio;
+    return `
+      <label class="admin-household-expense-policy-input-field">
+        <span>${escapeHtml(label)}</span>
+        <input class="admin-tax-bracket-input" type="number" step="0.01" min="${escapeHtml(min)}" max="${escapeHtml(max)}" value="${escapeHtml(formatRatioInputValue(value))}" data-household-expense-policy-ratio-input data-ratio-field="${escapeHtml(field)}" data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" aria-label="${escapeHtml(row.displayName)} ${escapeHtml(label.toLowerCase())}">
+      </label>
     `;
   }
 
   function renderEditorRow(row) {
     return `
-      <tr class="admin-tax-bracket-row" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-graph-adjustment-override-status="${escapeHtml(row.adjustmentOverrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}" data-default-adjustment-class="${escapeHtml(row.defaultAdjustmentClass || "")}" data-default-minimum-floor-mode="${escapeHtml(row.defaultMinimumFloorMode || "")}" data-graph-adjustable="${row.graphAdjustable ? "true" : "false"}">
-        <td>${escapeHtml(row.displayName)}</td>
-        <td><code>${escapeHtml(row.expenseTypeKey || "")}</code></td>
-        <td>
-          <strong>${escapeHtml(row.planningBucketLabel || "Not available")}</strong><br>
-          <code>${escapeHtml(row.planningBucketKey || "")}</code>
-        </td>
-        <td>${escapeHtml(row.rangeBehavior || "")}</td>
-        <td>${renderAdjustmentTypeControl(row)}</td>
-        <td>${escapeHtml(row.minimumFloorDisplay || "Metadata unavailable")}</td>
-        <td>${escapeHtml(row.floorStatusDisplay || "Metadata unavailable")}</td>
-        <td>${row.graphAdjustable ? "Yes" : "No"}</td>
-        <td>${escapeHtml(formatRatio(row.defaultConservativeFloorRatio))}</td>
-        <td>${escapeHtml(formatRatio(row.defaultElevatedCeilingRatio))}</td>
-        <td>${escapeHtml(formatRatio(row.resolvedConservativeFloorRatio))}</td>
-        <td>${escapeHtml(formatRatio(row.resolvedElevatedCeilingRatio))}</td>
-        <td>
-          <input class="admin-tax-bracket-input" type="number" step="0.01" min="0" max="1" value="${escapeHtml(formatRatioInputValue(row.resolvedConservativeFloorRatio))}" data-household-expense-policy-ratio-input data-ratio-field="conservativeFloorRatio" data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" aria-label="${escapeHtml(row.displayName)} conservative floor ratio">
-        </td>
-        <td>
-          <input class="admin-tax-bracket-input" type="number" step="0.01" min="1" max="2" value="${escapeHtml(formatRatioInputValue(row.resolvedElevatedCeilingRatio))}" data-household-expense-policy-ratio-input data-ratio-field="elevatedCeilingRatio" data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" aria-label="${escapeHtml(row.displayName)} elevated ceiling ratio">
-        </td>
-        <td>${escapeHtml(renderOverrideStatus(row.overrideStatus))}</td>
-        <td>${renderResetButton(row)}</td>
-        <td><span data-household-expense-policy-row-feedback data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}"></span></td>
-      </tr>
+      <details class="admin-household-expense-policy-row-card" data-household-expense-policy-editor-row data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" data-override-status="${escapeHtml(row.overrideStatus || "defaultSeedPolicy")}" data-graph-adjustment-override-status="${escapeHtml(row.adjustmentOverrideStatus || "defaultSeedPolicy")}" data-planning-bucket-key="${escapeHtml(row.planningBucketKey || "")}" data-adjustment-class="${escapeHtml(row.adjustmentClass || "")}" data-minimum-floor-mode="${escapeHtml(row.minimumFloorMode || "")}" data-default-adjustment-class="${escapeHtml(row.defaultAdjustmentClass || "")}" data-default-minimum-floor-mode="${escapeHtml(row.defaultMinimumFloorMode || "")}" data-graph-adjustable="${row.graphAdjustable ? "true" : "false"}">
+        <summary class="admin-household-expense-policy-row-summary">
+          <span class="admin-household-expense-policy-row-title">${escapeHtml(row.displayName)}</span>
+        </summary>
+        <div class="admin-household-expense-policy-card-body">
+          <div class="admin-household-expense-policy-row-header">
+            <div class="admin-household-expense-policy-keyline">
+              <code>${escapeHtml(row.expenseTypeKey || "")}</code>
+              <span>Planning Bucket: ${escapeHtml(row.planningBucketLabel || "Unavailable")}</span>
+              <code>${escapeHtml(row.planningBucketKey || "")}</code>
+            </div>
+            <div class="admin-household-expense-policy-status-stack">
+              <span class="admin-status-badge ${row.graphAdjustable ? "is-active" : "is-disabled"}">Graph Adjustable: ${row.graphAdjustable ? "Yes" : "No"}</span>
+              <span class="admin-household-expense-policy-status-text">Status: ${escapeHtml(renderOverrideStatus(row.overrideStatus))}</span>
+            </div>
+          </div>
+          <div class="admin-household-expense-policy-card-grid">
+          <section class="admin-household-expense-policy-card-section">
+            <h5>Policy</h5>
+            <div class="admin-household-expense-policy-control-stack">
+              <div class="admin-household-expense-policy-input-field">
+                <span>Adjustment Type</span>
+                ${renderAdjustmentTypeControl(row)}
+              </div>
+            </div>
+            <div class="admin-household-expense-policy-readout-grid">
+              ${renderPolicyReadout("Behavior", row.rangeBehavior || "Not available")}
+              ${renderPolicyReadout("Minimum Floor", row.minimumFloorDisplay || "Metadata unavailable")}
+              ${renderPolicyReadout("Floor Source / Status", row.floorStatusDisplay || "Metadata unavailable")}
+            </div>
+          </section>
+          <section class="admin-household-expense-policy-card-section">
+            <h5>Ratio</h5>
+            <div class="admin-household-expense-policy-readout-grid">
+              ${renderPolicyReadout("Default Floor", formatRatio(row.defaultConservativeFloorRatio))}
+              ${renderPolicyReadout("Default Ceiling", formatRatio(row.defaultElevatedCeilingRatio))}
+              ${renderPolicyReadout("Resolved Floor", formatRatio(row.resolvedConservativeFloorRatio))}
+              ${renderPolicyReadout("Resolved Ceiling", formatRatio(row.resolvedElevatedCeilingRatio))}
+            </div>
+            <div class="admin-household-expense-policy-ratio-editors">
+              ${renderRatioInputControl(row, "conservativeFloorRatio", "Edit Floor", "0", "1")}
+              ${renderRatioInputControl(row, "elevatedCeilingRatio", "Edit Ceiling", "1", "2")}
+            </div>
+          </section>
+          <section class="admin-household-expense-policy-card-section is-actions">
+            <h5>Actions</h5>
+            <div class="admin-household-expense-policy-action-stack">
+              ${renderResetButton(row)}
+              <span data-household-expense-policy-row-feedback data-expense-type-key="${escapeHtml(row.expenseTypeKey || "")}" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+        </div>
+        </div>
+      </details>
     `;
   }
 
@@ -1720,106 +1532,6 @@
     `;
   }
 
-  function renderStateCostAdjustmentMultiplierRow(row) {
-    const stateCode = row?.stateCode || "";
-    const multiplierInputValue = row?.multiplierInputValue || "";
-    const source = row?.source || "ADMIN_ENTERED";
-    const sourcePeriod = row?.sourcePeriod || "";
-    const notes = row?.notes || "";
-
-    return `
-      <tr class="admin-tax-bracket-row" data-state-cost-adjustment-row>
-        <td>
-          <input class="admin-tax-bracket-input" type="text" maxlength="2" value="${escapeHtml(stateCode)}" data-state-cost-adjustment-state-code aria-label="State cost adjustment state code">
-        </td>
-        <td>
-          <input class="admin-tax-bracket-input" type="number" step="0.0001" min="0.25" max="3" value="${escapeHtml(multiplierInputValue)}" data-state-cost-adjustment-multiplier aria-label="State cost adjustment multiplier">
-        </td>
-        <td>
-          <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(source)}" data-state-cost-adjustment-source aria-label="State cost adjustment source">
-        </td>
-        <td>
-          <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(sourcePeriod)}" data-state-cost-adjustment-source-period aria-label="State cost adjustment source period">
-        </td>
-        <td>
-          <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(notes)}" data-state-cost-adjustment-notes aria-label="State cost adjustment notes">
-        </td>
-        <td>
-          <button type="button" class="admin-action-button" data-state-cost-adjustment-remove-row>Remove row</button>
-        </td>
-      </tr>
-    `;
-  }
-
-  function renderStateCostAdjustmentMultiplierRows(rows) {
-    if (!rows.length) {
-      return `
-        <tr class="admin-tax-bracket-row" data-state-cost-adjustment-empty-row>
-          <td colspan="6">No saved global state multiplier rows.</td>
-        </tr>
-      `;
-    }
-
-    return rows.map(renderStateCostAdjustmentMultiplierRow).join("");
-  }
-
-  function renderStateCostAdjustmentMultipliersEditor(stateMultiplierModel) {
-    const model = isPlainObject(stateMultiplierModel)
-      ? stateMultiplierModel
-      : buildStateCostAdjustmentMultipliersEditorModel({});
-    const rows = Array.isArray(model.globalStateRows) ? model.globalStateRows : [];
-
-    return `
-      <section class="admin-tax-bracket-group" data-state-cost-adjustment-multipliers-editor>
-        <div class="admin-tax-bracket-toolbar">
-          <div>
-            <span class="section-label">State Cost Adjustment Multipliers</span>
-            <h3>Global State Multipliers</h3>
-            <p class="panel-copy">Saves only <code>accountPolicy.livingFloorAssumptions.stateCostAdjustmentMultipliers</code>. Future floor calculations will apply these only to money-floor adjusted buckets.</p>
-            <p class="panel-copy">Applies to adjustment class: <code>moneyFloorAdjusted</code>. Bucket-specific state multipliers are preserved but not editable in this pass.</p>
-          </div>
-          <div>
-            <button type="button" class="admin-action-button" data-state-cost-adjustment-save>Save State Multipliers</button>
-            <button type="button" class="admin-action-button" data-state-cost-adjustment-add-row>Add State Row</button>
-            <button type="button" class="admin-action-button" data-state-cost-adjustment-reset>Clear State Multipliers</button>
-          </div>
-        </div>
-        <div class="panel-copy" data-state-cost-adjustment-editor-feedback role="status" aria-live="polite"></div>
-        <table class="admin-tax-bracket-table" data-state-cost-adjustment-default-table>
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="admin-tax-bracket-row">
-              <td><code>defaultMultiplier</code></td>
-              <td>
-                <input class="admin-tax-bracket-input" type="number" step="0.0001" min="0.25" max="3" value="${escapeHtml(model.defaultMultiplierInputValue || "1")}" data-state-cost-adjustment-default-multiplier aria-label="Default state cost adjustment multiplier">
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <table class="admin-tax-bracket-table" data-state-cost-adjustment-global-state-table>
-          <thead>
-            <tr>
-              <th>State</th>
-              <th>Multiplier</th>
-              <th>Source</th>
-              <th>Source Period</th>
-              <th>Notes</th>
-              <th>Remove</th>
-            </tr>
-          </thead>
-          <tbody data-state-cost-adjustment-global-state-rows>
-            ${renderStateCostAdjustmentMultiplierRows(rows)}
-          </tbody>
-        </table>
-      </section>
-    `;
-  }
-
   function renderModel90DefaultBucketFloorRows(rows) {
     return rows.map(function (row) {
       return `
@@ -1834,9 +1546,6 @@
           <td>
             <input class="admin-tax-bracket-input" type="number" step="0.01" min="0" value="${escapeHtml(row.perUnitAmountInputValue)}" data-model90-default-bucket-floor-per-unit-amount data-model90-default-bucket-floor-per-unit-field="${escapeHtml(row.perUnitField)}" aria-label="${escapeHtml(row.planningBucketLabel)} ${escapeHtml(row.perUnitLabel)}">
             <div class="panel-copy"><code>${escapeHtml(row.perUnitField)}</code></div>
-          </td>
-          <td>
-            <input type="checkbox" ${row.stateAdjustmentEnabled ? "checked" : ""} data-model90-default-bucket-floor-state-adjustment-enabled aria-label="${escapeHtml(row.planningBucketLabel)} state adjustment enabled">
           </td>
           <td>
             <input class="admin-tax-bracket-input" type="text" value="${escapeHtml(row.source || "ADMIN_ENTERED")}" data-model90-default-bucket-floor-source aria-label="${escapeHtml(row.planningBucketLabel)} source">
@@ -1878,7 +1587,6 @@
               <th>Bucket</th>
               <th>Monthly Base</th>
               <th>Per-Unit Amount</th>
-              <th>State Adjusted</th>
               <th>Source</th>
               <th>Source Period</th>
               <th>Notes</th>
@@ -1916,39 +1624,18 @@
           </div>
           <p class="panel-copy">Allowed values: floor 0.00-1.00, ceiling 1.00-${escapeHtml(formatRatio(limits.maxElevatedCeilingRatio || 2))}.</p>
           <div class="panel-copy" data-household-expense-policy-editor-feedback role="status" aria-live="polite"></div>
-          <table class="admin-tax-bracket-table" data-household-expense-lifestyle-range-editor-table>
-            <thead>
-              <tr>
-                <th>Expense</th>
-                <th>Type Key</th>
-                <th>Planning Bucket</th>
-                <th>Behavior</th>
-                <th>Adjustment Type</th>
-                <th>Minimum Floor</th>
-                <th>Floor Source / Status</th>
-                <th>Graph Adjustable</th>
-                <th>Default Floor</th>
-                <th>Default Ceiling</th>
-                <th>Resolved Floor</th>
-                <th>Resolved Ceiling</th>
-                <th>Edit Floor</th>
-                <th>Edit Ceiling</th>
-                <th>Status</th>
-                <th>Reset</th>
-                <th>Validation</th>
-              </tr>
-            </thead>
-            <tbody>
+          <details class="admin-household-expense-policy-control-group" data-household-expense-compressed-controls>
+            <summary class="admin-household-expense-policy-control-group-summary" data-household-expense-compressed-controls-summary>
+              <span>Compressed Expenses Controls</span>
+            </summary>
+            <div class="admin-household-expense-policy-row-list" data-household-expense-lifestyle-range-editor-list>
               ${rows.length ? rows.map(renderEditorRow).join("") : `
-                <tr class="admin-tax-bracket-row">
-                  <td colspan="17">No slider-eligible lifestyle range policy rows are available.</td>
-                </tr>
+                <div class="admin-empty-state">No slider-eligible lifestyle range policy rows are available.</div>
               `}
-            </tbody>
-          </table>
+            </div>
+          </details>
         </section>
         ${renderFoodAtHomeFloorAssumptionsEditor(safeModel.foodAtHomeFloorAssumptions)}
-        ${renderStateCostAdjustmentMultipliersEditor(safeModel.stateCostAdjustmentMultipliers)}
         ${renderModel90DefaultBucketFloorsEditor(safeModel.model90DefaultBucketFloors)}
       </div>
     `;
@@ -2004,26 +1691,6 @@
     };
   }
 
-  function collectStateCostAdjustmentMultipliersDraftFromHost(host) {
-    const section = host?.querySelector?.("[data-state-cost-adjustment-multipliers-editor]");
-    const defaultMultiplierInput = section?.querySelector?.("[data-state-cost-adjustment-default-multiplier]");
-    const globalStateRows = Array.from(section?.querySelectorAll?.("[data-state-cost-adjustment-row]") || [])
-      .map(function (row) {
-        return {
-          stateCode: row.querySelector?.("[data-state-cost-adjustment-state-code]")?.value || "",
-          multiplier: row.querySelector?.("[data-state-cost-adjustment-multiplier]")?.value || "",
-          source: row.querySelector?.("[data-state-cost-adjustment-source]")?.value || "",
-          sourcePeriod: row.querySelector?.("[data-state-cost-adjustment-source-period]")?.value || "",
-          notes: row.querySelector?.("[data-state-cost-adjustment-notes]")?.value || ""
-        };
-      });
-
-    return {
-      defaultMultiplier: defaultMultiplierInput ? defaultMultiplierInput.value : 1,
-      globalStateRows
-    };
-  }
-
   function collectModel90DefaultBucketFloorsDraftFromHost(host) {
     const section = host?.querySelector?.("[data-model90-default-bucket-floors-editor]");
     return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.reduce(function (floors, planningBucketKey) {
@@ -2034,7 +1701,6 @@
         sourcePeriod: row?.querySelector?.("[data-model90-default-bucket-floor-source-period]")?.value || null,
         monthlyBaseAmount: row?.querySelector?.("[data-model90-default-bucket-floor-monthly-base-amount]")?.value || null,
         [perUnitField]: row?.querySelector?.("[data-model90-default-bucket-floor-per-unit-amount]")?.value || null,
-        stateAdjustmentEnabled: row?.querySelector?.("[data-model90-default-bucket-floor-state-adjustment-enabled]")?.checked === true,
         notes: row?.querySelector?.("[data-model90-default-bucket-floor-notes]")?.value || null
       };
       return floors;
@@ -2053,13 +1719,6 @@
 
   function setFoodAtHomeFloorEditorFeedback(host, message) {
     const sectionFeedback = host?.querySelector?.("[data-food-at-home-floor-editor-feedback]");
-    if (sectionFeedback) {
-      sectionFeedback.textContent = message || "";
-    }
-  }
-
-  function setStateCostAdjustmentEditorFeedback(host, message) {
-    const sectionFeedback = host?.querySelector?.("[data-state-cost-adjustment-editor-feedback]");
     if (sectionFeedback) {
       sectionFeedback.textContent = message || "";
     }
@@ -2118,16 +1777,6 @@
     );
   }
 
-  function renderStateCostAdjustmentValidationMessages(host, validationMessages) {
-    const messages = Array.isArray(validationMessages) ? validationMessages : [];
-    setStateCostAdjustmentEditorFeedback(
-      host,
-      messages.length
-        ? `Fix State Cost Adjustment Multipliers before saving: ${messages.join(" ")}`
-        : ""
-    );
-  }
-
   function renderModel90DefaultBucketFloorsValidationMessages(host, validationMessages) {
     const messages = Array.isArray(validationMessages) ? validationMessages : [];
     setModel90DefaultBucketFloorsEditorFeedback(
@@ -2136,37 +1785,6 @@
         ? `Fix MODEL90 Default Floor Assumptions before saving: ${messages.join(" ")}`
         : ""
     );
-  }
-
-  function addStateCostAdjustmentMultiplierRow(host) {
-    const body = host?.querySelector?.("[data-state-cost-adjustment-global-state-rows]");
-    if (!body) {
-      return null;
-    }
-
-    const emptyRow = body.querySelector?.("[data-state-cost-adjustment-empty-row]");
-    if (emptyRow) {
-      emptyRow.remove();
-    }
-
-    body.insertAdjacentHTML("beforeend", renderStateCostAdjustmentMultiplierRow({
-      stateCode: "",
-      multiplierInputValue: "",
-      source: "ADMIN_ENTERED",
-      sourcePeriod: "",
-      notes: ""
-    }));
-    setStateCostAdjustmentEditorFeedback(host, "Added a blank state multiplier row.");
-    return body.querySelector?.("[data-state-cost-adjustment-row]:last-child") || null;
-  }
-
-  function removeStateCostAdjustmentMultiplierRow(host, row) {
-    const body = host?.querySelector?.("[data-state-cost-adjustment-global-state-rows]");
-    row?.remove?.();
-    if (body && !body.querySelector("[data-state-cost-adjustment-row]")) {
-      body.innerHTML = renderStateCostAdjustmentMultiplierRows([]);
-    }
-    setStateCostAdjustmentEditorFeedback(host, "Removed state multiplier row from the draft. Save to persist.");
   }
 
   function rerenderEditorHost(host, model, message) {
@@ -2519,107 +2137,6 @@
     return saveResult;
   }
 
-  function saveStateCostAdjustmentMultipliers(host) {
-    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
-    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
-      setStateCostAdjustmentEditorFeedback(host, "Household expense account policy storage is unavailable.");
-      return {
-        status: "notSaved",
-        saved: false,
-        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
-      };
-    }
-
-    const model = buildHouseholdExpensePolicyEditorModel();
-    const payload = buildStateCostAdjustmentMultipliersSavePayload({
-      accountId: model.accountId,
-      accountPolicy: model.accountPolicy,
-      draftStateCostAdjustmentMultipliers: collectStateCostAdjustmentMultipliersDraftFromHost(host)
-    });
-
-    if (!payload.valid) {
-      renderStateCostAdjustmentValidationMessages(host, payload.validationMessages);
-      return {
-        status: "validationFailed",
-        saved: false,
-        validationMessages: payload.validationMessages,
-        trace: payload.trace
-      };
-    }
-
-    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
-      accountId: model.accountId,
-      accountPolicy: payload.accountPolicy,
-      metadata: {
-        source: "browserLocalV1",
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin-state-cost-adjustment-editor"
-      },
-      storage: global.localStorage
-    });
-
-    const nextModel = buildHouseholdExpensePolicyEditorModel();
-    rerenderEditorHost(host, nextModel);
-    setStateCostAdjustmentEditorFeedback(
-      host,
-      saveResult?.saved
-        ? "Saved state cost adjustment multipliers."
-        : "State cost adjustment multipliers were not saved."
-    );
-    refreshReadOnlyPolicySummary();
-    return saveResult;
-  }
-
-  function resetStateCostAdjustmentMultipliers(host) {
-    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
-    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
-      setStateCostAdjustmentEditorFeedback(host, "Household expense account policy storage is unavailable.");
-      return {
-        status: "notSaved",
-        saved: false,
-        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
-      };
-    }
-
-    const model = buildHouseholdExpensePolicyEditorModel();
-    const payload = buildStateCostAdjustmentMultipliersResetPayload({
-      accountId: model.accountId,
-      accountPolicy: model.accountPolicy
-    });
-
-    if (!payload.valid) {
-      renderStateCostAdjustmentValidationMessages(host, payload.validationMessages);
-      return {
-        status: "validationFailed",
-        saved: false,
-        validationMessages: payload.validationMessages,
-        trace: payload.trace
-      };
-    }
-
-    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
-      accountId: model.accountId,
-      accountPolicy: payload.accountPolicy,
-      metadata: {
-        source: "browserLocalV1",
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin-state-cost-adjustment-editor"
-      },
-      storage: global.localStorage
-    });
-
-    const nextModel = buildHouseholdExpensePolicyEditorModel();
-    rerenderEditorHost(host, nextModel);
-    setStateCostAdjustmentEditorFeedback(
-      host,
-      saveResult?.saved
-        ? "Cleared state cost adjustment multipliers."
-        : "State cost adjustment multipliers were not cleared."
-    );
-    refreshReadOnlyPolicySummary();
-    return saveResult;
-  }
-
   function saveModel90DefaultBucketFloors(host) {
     const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
     if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
@@ -2756,34 +2273,6 @@
       return;
     }
 
-    const stateMultiplierSaveButton = target.closest?.("[data-state-cost-adjustment-save]");
-    if (stateMultiplierSaveButton) {
-      event.preventDefault();
-      saveStateCostAdjustmentMultipliers(host);
-      return;
-    }
-
-    const stateMultiplierAddButton = target.closest?.("[data-state-cost-adjustment-add-row]");
-    if (stateMultiplierAddButton) {
-      event.preventDefault();
-      addStateCostAdjustmentMultiplierRow(host);
-      return;
-    }
-
-    const stateMultiplierResetButton = target.closest?.("[data-state-cost-adjustment-reset]");
-    if (stateMultiplierResetButton) {
-      event.preventDefault();
-      resetStateCostAdjustmentMultipliers(host);
-      return;
-    }
-
-    const stateMultiplierRemoveButton = target.closest?.("[data-state-cost-adjustment-remove-row]");
-    if (stateMultiplierRemoveButton) {
-      event.preventDefault();
-      removeStateCostAdjustmentMultiplierRow(host, stateMultiplierRemoveButton.closest("[data-state-cost-adjustment-row]"));
-      return;
-    }
-
     const model90DefaultFloorsSaveButton = target.closest?.("[data-model90-default-bucket-floors-save]");
     if (model90DefaultFloorsSaveButton) {
       event.preventDefault();
@@ -2832,30 +2321,24 @@
     FOOD_AT_HOME_BAND_KEYS,
     HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS,
     MODEL90_DEFAULT_BUCKET_FLOOR_KEYS,
-    STATE_CODE_VALUES,
     GRAPH_ADJUSTMENT_TYPE_OPTIONS,
     buildLifestyleRangeEditorRows,
     buildFoodAtHomeFloorAssumptionsEditorModel,
-    buildStateCostAdjustmentMultipliersEditorModel,
     buildModel90DefaultBucketFloorsEditorModel,
     validateLifestyleRatioDraftRow,
     validateFoodAtHomeFloorAssumptionsDraft,
-    validateStateCostAdjustmentMultipliersDraft,
     validateModel90DefaultBucketFloorsDraft,
     buildSparseLifestyleRangeSavePlan,
     buildAccountPolicyWithLifestyleOverrides,
     buildSparseGraphAdjustmentSavePlan,
     buildAccountPolicyWithGraphAdjustmentOverrides,
     buildAccountPolicyWithFoodAtHomeFloorAssumptions,
-    buildAccountPolicyWithStateCostAdjustmentMultipliers,
     buildAccountPolicyWithModel90DefaultBucketFloors,
     buildLifestyleRangeSavePayload,
     buildGraphAdjustmentSavePayload,
     buildGraphAdjustmentRowResetPayload,
     buildFoodAtHomeFloorAssumptionsSavePayload,
     buildFoodAtHomeFloorAssumptionsResetPayload,
-    buildStateCostAdjustmentMultipliersSavePayload,
-    buildStateCostAdjustmentMultipliersResetPayload,
     buildModel90DefaultBucketFloorsSavePayload,
     buildModel90DefaultBucketFloorsResetPayload,
     saveLifestyleRangeEditorChanges,
@@ -2864,13 +2347,10 @@
     resetGraphAdjustmentTypeRow,
     saveFoodAtHomeFloorAssumptions,
     resetFoodAtHomeFloorAssumptions,
-    saveStateCostAdjustmentMultipliers,
-    resetStateCostAdjustmentMultipliers,
     saveModel90DefaultBucketFloors,
     resetModel90DefaultBucketFloors,
     buildHouseholdExpensePolicyEditorModel,
     renderFoodAtHomeFloorAssumptionsEditor,
-    renderStateCostAdjustmentMultipliersEditor,
     renderModel90DefaultBucketFloorsEditor,
     renderHouseholdExpensePolicyEditor,
     initializeHouseholdExpenseAccountPolicyAdminEditor

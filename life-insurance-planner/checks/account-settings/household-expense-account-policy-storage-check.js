@@ -140,20 +140,12 @@ function createExpectedEmptyLivingFloorAssumptions() {
         return factors;
       }, {})
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1,
-      globalStateAdjustmentMultipliersByState: {},
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
         source: "ADMIN_ENTERED",
         sourcePeriod: null,
         monthlyBaseAmount: null,
-        stateAdjustmentEnabled: true,
         notes: null,
         monthlyPerMemberAmount: null
       },
@@ -162,7 +154,6 @@ function createExpectedEmptyLivingFloorAssumptions() {
         source: "ADMIN_ENTERED",
         sourcePeriod: null,
         monthlyBaseAmount: null,
-        stateAdjustmentEnabled: true,
         notes: null,
         monthlyPerMemberAmount: null
       },
@@ -171,7 +162,6 @@ function createExpectedEmptyLivingFloorAssumptions() {
         source: "ADMIN_ENTERED",
         sourcePeriod: null,
         monthlyBaseAmount: null,
-        stateAdjustmentEnabled: true,
         notes: null,
         monthlyPerAdultDriverAmount: null
       }
@@ -205,29 +195,6 @@ const validLivingFloorAssumptions = {
       "6Plus": 0.8
     }
   },
-  stateCostAdjustmentMultipliers: {
-    version: 1,
-    appliesToAdjustmentClass: "moneyFloorAdjusted",
-    defaultMultiplier: 1,
-    globalStateAdjustmentMultipliersByState: {
-      CO: {
-        multiplier: 1.08,
-        source: "ADMIN_ENTERED",
-        sourcePeriod: "2026",
-        notes: "Colorado placeholder"
-      }
-    },
-    bucketStateAdjustmentMultipliers: {
-      transportationBasics: {
-        CO: {
-          multiplier: 1.04,
-          source: "ADMIN_ENTERED",
-          sourcePeriod: "2026",
-          notes: "Transportation placeholder"
-        }
-      }
-    }
-  },
   model90DefaultBucketFloors: {
     householdConsumables: {
       planningBucketKey: "householdConsumables",
@@ -235,7 +202,6 @@ const validLivingFloorAssumptions = {
       sourcePeriod: "2026",
       monthlyBaseAmount: 110,
       monthlyPerMemberAmount: 35,
-      stateAdjustmentEnabled: true,
       notes: "Household goods placeholder"
     },
     communicationsConnectivity: {
@@ -244,7 +210,6 @@ const validLivingFloorAssumptions = {
       sourcePeriod: "2026",
       monthlyBaseAmount: 95,
       monthlyPerMemberAmount: 12,
-      stateAdjustmentEnabled: true,
       notes: "Connectivity placeholder"
     },
     transportationBasics: {
@@ -253,7 +218,6 @@ const validLivingFloorAssumptions = {
       sourcePeriod: "2026",
       monthlyBaseAmount: 125,
       monthlyPerAdultDriverAmount: 75,
-      stateAdjustmentEnabled: true,
       notes: "Transportation placeholder"
     }
   }
@@ -356,7 +320,7 @@ assert.equal(
 );
 assert.equal(
   loadResult.trace.details.namespaceCounts.livingFloorAssumptions,
-  4,
+  3,
   "load trace should count living-floor assumptions namespace keys"
 );
 
@@ -419,31 +383,9 @@ storageModule.saveHouseholdExpenseAccountPolicy({
         }
       },
       stateCostAdjustmentMultipliers: {
-        version: 1,
-        defaultMultiplier: 4,
+        defaultMultiplier: 1.25,
         globalStateAdjustmentMultipliersByState: {
-          co: {
-            multiplier: 0.1,
-            confidence: "do not preserve"
-          },
-          CA: {
-            multiplier: "1.22",
-            source: "ADMIN_ENTERED",
-            sourcePeriod: "2026"
-          },
-          ZZ: {
-            multiplier: 1.1
-          }
-        },
-        bucketStateAdjustmentMultipliers: {
-          transportationBasics: {
-            ca: {
-              multiplier: 2.5
-            },
-            ZZ: {
-              multiplier: 1.2
-            }
-          }
+          CO: { multiplier: 1.2 }
         }
       },
       model90DefaultBucketFloors: {
@@ -488,26 +430,10 @@ assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.olderChild, 2
 assert.equal(normalizedLivingFloor.foodAtHome.householdSizeAdjustmentFactors["1"], null, "too-low household factors should normalize to null");
 assert.equal(normalizedLivingFloor.foodAtHome.householdSizeAdjustmentFactors["2"], null, "too-high household factors should normalize to null");
 assert.equal(normalizedLivingFloor.foodAtHome.householdSizeAdjustmentFactors["3"], 1.15, "valid household factors should normalize to numbers");
-assert.equal(normalizedLivingFloor.stateCostAdjustmentMultipliers.defaultMultiplier, 1, "invalid default multiplier should fall back to 1");
-assert.deepEqual(
-  Object.keys(normalizedLivingFloor.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState),
-  ["CA", "CO"],
-  "state multiplier keys should normalize to valid uppercase USPS state codes only"
-);
 assert.equal(
-  normalizedLivingFloor.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CO.multiplier,
-  null,
-  "invalid state multipliers should normalize to null"
-);
-assert.equal(
-  normalizedLivingFloor.stateCostAdjustmentMultipliers.globalStateAdjustmentMultipliersByState.CA.multiplier,
-  1.22,
-  "valid state multipliers should normalize to numbers"
-);
-assert.deepEqual(
-  Object.keys(normalizedLivingFloor.stateCostAdjustmentMultipliers.bucketStateAdjustmentMultipliers.transportationBasics),
-  ["CA"],
-  "bucket state multiplier keys should normalize to valid uppercase USPS state codes only"
+  Object.prototype.hasOwnProperty.call(normalizedLivingFloor, "stateCostAdjustmentMultipliers"),
+  false,
+  "retired state multiplier data should be dropped during normalization"
 );
 assert.equal(
   normalizedLivingFloor.model90DefaultBucketFloors.householdConsumables.monthlyBaseAmount,

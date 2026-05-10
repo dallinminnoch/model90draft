@@ -1167,6 +1167,272 @@ input.search-bar__input {
   text-align: right;
 }
 
+.admin-household-expense-policy-row-list {
+  display: grid;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.admin-household-expense-policy-control-group {
+  margin-top: var(--space-md);
+  border: 1px solid rgba(213, 221, 232, 0.9);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.admin-household-expense-policy-control-group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0.95rem clamp(0.95rem, 1.6vw, 1.25rem);
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-household-expense-policy-control-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-household-expense-policy-control-group-summary::before {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(213, 221, 232, 0.95);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-household-expense-policy-control-group[open] .admin-household-expense-policy-control-group-summary::before {
+  content: "-";
+}
+
+.admin-household-expense-policy-control-group-summary span:first-of-type {
+  flex: 1;
+  min-width: 0;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-household-expense-policy-control-group .admin-household-expense-policy-row-list {
+  padding: 0 clamp(0.95rem, 1.6vw, 1.25rem) clamp(0.95rem, 1.6vw, 1.25rem);
+}
+
+.admin-household-expense-policy-row-card {
+  display: grid;
+  gap: var(--space-md);
+  padding: clamp(0.95rem, 1.6vw, 1.25rem);
+  border: 1px solid rgba(213, 221, 232, 0.9);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.admin-household-expense-policy-row-card[open] {
+  background: rgba(248, 250, 252, 0.98);
+}
+
+.admin-household-expense-policy-row-summary {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-household-expense-policy-row-summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-household-expense-policy-row-summary::before {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: start;
+  margin-top: 0.1rem;
+  border: 1px solid rgba(213, 221, 232, 0.95);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-household-expense-policy-row-card[open] .admin-household-expense-policy-row-summary::before {
+  content: "-";
+}
+
+.admin-household-expense-policy-row-title {
+  display: block;
+  min-width: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.admin-household-expense-policy-row-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.admin-household-expense-policy-keyline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.admin-household-expense-policy-keyline code,
+.admin-household-expense-policy-readout-value code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.admin-household-expense-policy-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+  min-width: min(14rem, 100%);
+}
+
+.admin-household-expense-policy-card-body {
+  display: grid;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid rgba(223, 228, 236, 0.9);
+}
+
+.admin-household-expense-policy-status-text,
+.admin-household-expense-policy-field-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.admin-household-expense-policy-card-grid {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1.1fr) minmax(18rem, 1fr) minmax(10rem, 0.55fr);
+  gap: var(--space-md);
+  align-items: stretch;
+}
+
+.admin-household-expense-policy-card-section {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(223, 228, 236, 0.9);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.admin-household-expense-policy-card-section h5 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.admin-household-expense-policy-control-stack,
+.admin-household-expense-policy-action-stack {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.admin-household-expense-policy-readout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.admin-household-expense-policy-readout {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.admin-household-expense-policy-readout-label,
+.admin-household-expense-policy-input-field > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.admin-household-expense-policy-readout-value {
+  min-width: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-household-expense-policy-input-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.admin-household-expense-policy-input-field .admin-tax-bracket-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-household-expense-policy-ratio-editors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+@media (max-width: 1120px) {
+  .admin-household-expense-policy-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-household-expense-policy-control-group-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-household-expense-policy-row-header {
+    display: grid;
+  }
+
+  .admin-household-expense-policy-status-stack {
+    align-items: flex-start;
+  }
+
+  .admin-household-expense-policy-readout-grid,
+  .admin-household-expense-policy-ratio-editors {
+    grid-template-columns: 1fr;
+  }
+}
+
 .entry-mode-panel {
   display: grid;
   justify-items: center;

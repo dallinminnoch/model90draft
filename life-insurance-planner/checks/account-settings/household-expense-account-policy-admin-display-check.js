@@ -42,29 +42,6 @@ const seededLivingFloorAssumptions = {
       "6Plus": 0.8
     }
   },
-  stateCostAdjustmentMultipliers: {
-    version: 1,
-    appliesToAdjustmentClass: "moneyFloorAdjusted",
-    defaultMultiplier: 1,
-    globalStateAdjustmentMultipliersByState: {
-      CO: {
-        multiplier: 1.08,
-        source: "ADMIN_ENTERED",
-        sourcePeriod: "2026",
-        notes: "Colorado placeholder"
-      }
-    },
-    bucketStateAdjustmentMultipliers: {
-      transportationBasics: {
-        CO: {
-          multiplier: 1.04,
-          source: "ADMIN_ENTERED",
-          sourcePeriod: "2026",
-          notes: "Transportation placeholder"
-        }
-      }
-    }
-  },
   model90DefaultBucketFloors: {
     householdConsumables: {
       planningBucketKey: "householdConsumables",
@@ -72,7 +49,6 @@ const seededLivingFloorAssumptions = {
       sourcePeriod: "2026",
       monthlyBaseAmount: 110,
       monthlyPerMemberAmount: 35,
-      stateAdjustmentEnabled: true,
       notes: "Household goods placeholder"
     },
     communicationsConnectivity: {
@@ -81,7 +57,6 @@ const seededLivingFloorAssumptions = {
       sourcePeriod: "2026",
       monthlyBaseAmount: 95,
       monthlyPerMemberAmount: 12,
-      stateAdjustmentEnabled: true,
       notes: "Connectivity placeholder"
     },
     transportationBasics: {
@@ -90,7 +65,6 @@ const seededLivingFloorAssumptions = {
       sourcePeriod: "2026",
       monthlyBaseAmount: 125,
       monthlyPerAdultDriverAmount: 75,
-      stateAdjustmentEnabled: true,
       notes: "Transportation placeholder"
     }
   }
@@ -357,11 +331,7 @@ assert.equal(
   "remainingHouseholdAfterInsuredDeath",
   "remaining-household sizing rule should be present"
 );
-assert.deepEqual(
-  plain(livingFloor.stateSourcePriority),
-  ["profileAddressState", "pmiIncomeTaxState", "accountDefaultState", "nationalDefault"],
-  "state source priority should render in approved order"
-);
+assert.equal(Object.prototype.hasOwnProperty.call(livingFloor, "stateSourcePriority"), false, "living-floor metadata should not expose retired state source priority");
 
 const missingHtml = adminDisplay.renderHouseholdExpensePolicyDisplay(missingModel);
 assert.match(missingHtml, /data-household-expense-policy-diagnostics/);
@@ -383,7 +353,7 @@ assert.match(missingHtml, /Saved Living Floor Assumptions/);
 assert.match(missingHtml, /Not configured/);
 assert.match(missingHtml, /Food bands set/);
 assert.match(missingHtml, /Household factors set/);
-assert.match(missingHtml, /State Cost Adjustment Multipliers/);
+assert.doesNotMatch(missingHtml, /State Cost Adjustment Multipliers/);
 assert.match(missingHtml, /MODEL90 Default Bucket Floors/);
 assert.match(missingHtml, /Not set/);
 assert.match(missingHtml, /Money-Floor Adjusted/);
@@ -407,7 +377,7 @@ assert.match(missingHtml, /adultUnknown/);
 assert.match(missingHtml, /childUnknown/);
 assert.match(missingHtml, /6Plus/);
 assert.match(missingHtml, /remainingHouseholdAfterInsuredDeath/);
-assert.match(missingHtml, /profileAddressState -&gt; pmiIncomeTaxState -&gt; accountDefaultState -&gt; nationalDefault/);
+assert.doesNotMatch(missingHtml, /profileAddressState -&gt; pmiIncomeTaxState -&gt; accountDefaultState -&gt; nationalDefault/);
 assert.match(missingHtml, /communicationsConnectivity/);
 assert.match(missingHtml, /householdConsumables/);
 assert.match(missingHtml, /personalLivingClothing/);
@@ -458,7 +428,7 @@ assert.match(savedAssumptionsHtml, /adultFemale/);
 assert.match(savedAssumptionsHtml, /adultUnknown/);
 assert.match(savedAssumptionsHtml, /childUnknown/);
 assert.match(savedAssumptionsHtml, /6Plus/);
-assert.match(savedAssumptionsHtml, /global-state-multipliers/);
+assert.doesNotMatch(savedAssumptionsHtml, /global-state-multipliers/);
 assert.match(savedAssumptionsHtml, /householdConsumables/);
 assert.match(savedAssumptionsHtml, /communicationsConnectivity/);
 assert.match(savedAssumptionsHtml, /transportationBasics/);
@@ -508,16 +478,15 @@ assert.equal(validModel.counts.compressionThresholdOverrides, 1, "valid saved po
 assert.equal(validModel.savedLivingFloorAssumptions.status.code, "configured", "complete Food at Home values and factors should render as configured");
 assert.equal(validModel.savedLivingFloorAssumptions.counts.configuredFoodAtHomeBands, 9, "seeded policy should count all food bands");
 assert.equal(validModel.savedLivingFloorAssumptions.counts.configuredHouseholdSizeFactors, 6, "seeded policy should count all household factors");
-assert.equal(validModel.savedLivingFloorAssumptions.counts.globalStateMultiplierRows, 1, "seeded policy should count state multiplier rows");
+assert.equal(Object.prototype.hasOwnProperty.call(validModel.savedLivingFloorAssumptions.counts, "globalStateMultiplierRows"), false, "saved living-floor counts should not include retired state multiplier rows");
 const validHtml = adminDisplay.renderHouseholdExpensePolicyDisplay(validModel);
 assert.equal(context.localStorage.getWriteCount(), writeCountAfterSeed, "rendering seeded saved assumptions should not write storage");
 assert.match(validHtml, /Saved account override/);
 assert.match(validHtml, /Configured/);
 assert.match(validHtml, /\$180\.00/);
 assert.match(validHtml, /\$390\.00/);
-assert.match(validHtml, /1\.08/);
-assert.match(validHtml, /CO/);
-assert.match(validHtml, /Colorado placeholder/);
+assert.doesNotMatch(validHtml, /1\.08/);
+assert.doesNotMatch(validHtml, /Colorado placeholder/);
 assert.match(validHtml, /Household goods placeholder/);
 assert.match(validHtml, /monthlyPerAdultDriverAmount/);
 const validSavedAssumptionsStart = validHtml.indexOf("data-household-expense-saved-living-floor-assumptions");

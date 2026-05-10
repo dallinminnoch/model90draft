@@ -1325,12 +1325,10 @@
     );
     const calculationResult = apis.calculator.calculateHouseholdExpenseLivingFloors({
       livingFloorAssumptions: loadedAssumptions.livingFloorAssumptions,
-      stateContext: contextResult.stateContext,
       householdContext: contextResult.householdContext
     });
     const readinessResult = apis.warningBuilder.buildHouseholdExpenseLivingFloorReadinessWarnings({
       livingFloorAssumptions: loadedAssumptions.livingFloorAssumptions,
-      stateContext: contextResult.stateContext,
       householdContext: contextResult.householdContext,
       livingFloorCalculationResult: calculationResult
     });
@@ -1348,7 +1346,6 @@
         linkedProfileAvailable: true,
         storageStatus: loadedAssumptions.metadata.storageStatus,
         accountId: loadedAssumptions.metadata.accountId,
-        resolvedStateSource: contextResult.stateContext?.stateSource || null,
         calculatedBucketKeys: calculationResult.metadata?.calculatedBucketKeys || []
       }
     };

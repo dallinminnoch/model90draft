@@ -308,7 +308,6 @@
       benchmarkAvailable: row.benchmarkAvailable === true,
       benchmarkSource: row.benchmarkSource || "NONE",
       floorSource: row.floorSource || "NONE",
-      stateAdjustmentSource: row.stateAdjustmentSource || "NONE",
       householdSizingMethod: row.householdSizingMethod || "none",
       adminEditable: row.adminEditable === true,
       adminDollarInputsRequired: row.adminDollarInputsRequired === true,
@@ -327,7 +326,6 @@
         ratioAdjustedBuckets: [],
         excludedFromAdjustmentBuckets: [],
         foodAtHomeBands: [],
-        stateSourcePriority: [],
         householdSizingRule: null,
         traceFields: [],
         trace: {
@@ -357,9 +355,6 @@
       }),
       foodAtHomeBands: typeof metadataApi.getFoodAtHomeHouseholdMemberBands === "function"
         ? metadataApi.getFoodAtHomeHouseholdMemberBands()
-        : [],
-      stateSourcePriority: typeof metadataApi.getHouseholdExpenseLivingFloorStateSourcePriority === "function"
-        ? metadataApi.getHouseholdExpenseLivingFloorStateSourcePriority()
         : [],
       householdSizingRule: typeof metadataApi.getHouseholdExpenseLivingFloorHouseholdSizingRule === "function"
         ? metadataApi.getHouseholdExpenseLivingFloorHouseholdSizingRule()
@@ -399,33 +394,6 @@
     });
   }
 
-  function toStateMultiplierRows(stateMultipliers) {
-    const rows = isPlainObject(stateMultipliers) ? stateMultipliers : {};
-    return Object.keys(rows).sort().map(function (stateKey) {
-      const row = isPlainObject(rows[stateKey]) ? rows[stateKey] : {};
-      return {
-        stateKey,
-        multiplier: hasNumericValue(row.multiplier) ? Number(row.multiplier) : null,
-        multiplierDisplay: formatMultiplierValue(row.multiplier),
-        source: formatNotSet(row.source),
-        sourcePeriod: formatNotSet(row.sourcePeriod),
-        notes: formatNotSet(row.notes)
-      };
-    });
-  }
-
-  function toBucketStateMultiplierRows(bucketStateAdjustmentMultipliers) {
-    const buckets = isPlainObject(bucketStateAdjustmentMultipliers) ? bucketStateAdjustmentMultipliers : {};
-    return Object.keys(buckets).sort().map(function (planningBucketKey) {
-      const stateRows = toStateMultiplierRows(buckets[planningBucketKey]);
-      return {
-        planningBucketKey,
-        stateRowCount: stateRows.length,
-        stateRows
-      };
-    });
-  }
-
   function toModel90DefaultBucketFloorRows(model90DefaultBucketFloors, bucketLabelByKey) {
     const floors = isPlainObject(model90DefaultBucketFloors) ? model90DefaultBucketFloors : {};
     return MODEL90_DEFAULT_BUCKET_FLOOR_KEYS.map(function (planningBucketKey) {
@@ -441,7 +409,6 @@
         perMemberField,
         perMemberAmount: hasNumericValue(row[perMemberField]) ? Number(row[perMemberField]) : null,
         perMemberAmountDisplay: formatDollarValue(row[perMemberField]),
-        stateAdjustmentEnabled: row.stateAdjustmentEnabled === true,
         sourcePeriod: formatNotSet(row.sourcePeriod),
         notes: formatNotSet(row.notes)
       };
@@ -463,18 +430,6 @@
     if (hasTextValue(model.foodAtHome.sourcePeriodRaw)) {
       count += 1;
     }
-    model.stateCostAdjustmentMultipliers.globalStateRows.forEach(function (row) {
-      if (row.multiplier !== null || row.sourcePeriod !== "Not set" || row.notes !== "Not set") {
-        count += 1;
-      }
-    });
-    model.stateCostAdjustmentMultipliers.bucketStateRows.forEach(function (bucketRow) {
-      bucketRow.stateRows.forEach(function (row) {
-        if (row.multiplier !== null || row.sourcePeriod !== "Not set" || row.notes !== "Not set") {
-          count += 1;
-        }
-      });
-    });
     model.model90DefaultBucketFloors.forEach(function (row) {
       if (
         row.monthlyBaseAmount !== null
@@ -525,10 +480,6 @@
       ? accountPolicy.livingFloorAssumptions
       : {};
     const foodAtHome = isPlainObject(assumptions.foodAtHome) ? assumptions.foodAtHome : {};
-    const stateMultipliers = isPlainObject(assumptions.stateCostAdjustmentMultipliers)
-      ? assumptions.stateCostAdjustmentMultipliers
-      : {};
-
     const model = {
       available: true,
       version: assumptions.version || null,
@@ -539,13 +490,6 @@
         sourcePeriodRaw: foodAtHome.sourcePeriod || null,
         bandRows: toFoodBandAssumptionRows(foodAtHome.monthlyAmountsByBand),
         householdSizeAdjustmentFactorRows: toHouseholdSizeFactorRows(foodAtHome.householdSizeAdjustmentFactors)
-      },
-      stateCostAdjustmentMultipliers: {
-        version: stateMultipliers.version || null,
-        appliesToAdjustmentClass: formatNotSet(stateMultipliers.appliesToAdjustmentClass),
-        defaultMultiplier: formatMultiplierValue(stateMultipliers.defaultMultiplier),
-        globalStateRows: toStateMultiplierRows(stateMultipliers.globalStateAdjustmentMultipliersByState),
-        bucketStateRows: toBucketStateMultiplierRows(stateMultipliers.bucketStateAdjustmentMultipliers)
       },
       model90DefaultBucketFloors: toModel90DefaultBucketFloorRows(
         assumptions.model90DefaultBucketFloors,
@@ -570,8 +514,6 @@
         return row.value !== null;
       }).length,
       requiredHouseholdSizeFactors: HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.length,
-      globalStateMultiplierRows: model.stateCostAdjustmentMultipliers.globalStateRows.length,
-      bucketStateMultiplierGroups: model.stateCostAdjustmentMultipliers.bucketStateRows.length,
       model90DefaultBucketFloors: model.model90DefaultBucketFloors.length,
       savedAssumptionValues: countSavedAssumptionValues(model)
     };
@@ -825,8 +767,6 @@
     if (safeSummary.available !== true) {
       return `
         <section class="admin-tax-bracket-group" data-household-expense-planning-bucket-summary>
-          <div class="admin-tax-bracket-toolbar">
-            <div>
               <span class="section-label">Planning Bucket Summary</span>
               <h3>Unavailable</h3>
               <p class="panel-copy">Planning bucket policy summary helper is not loaded.</p>
@@ -896,7 +836,6 @@
           <td>${escapeHtml(row.minimumFloorMode)}</td>
           <td>${escapeHtml(row.benchmarkSource)}</td>
           <td>${escapeHtml(row.floorSource)}</td>
-          <td>${escapeHtml(row.stateAdjustmentSource)}</td>
           <td>${escapeHtml(row.householdSizingMethod)}</td>
           <td>${renderBoolean(row.adminDollarInputsRequired)}</td>
           <td>${escapeHtml(row.sourceDataStatus)}</td>
@@ -984,7 +923,6 @@
 
   function renderFoodAtHomeSizingDetails(summary) {
     const bands = Array.isArray(summary.foodAtHomeBands) ? summary.foodAtHomeBands : [];
-    const stateSourcePriority = Array.isArray(summary.stateSourcePriority) ? summary.stateSourcePriority : [];
     const sizingRule = isPlainObject(summary.householdSizingRule) ? summary.householdSizingRule : {};
 
     return `
@@ -992,7 +930,7 @@
         <div class="admin-tax-bracket-toolbar">
           <div>
             <span class="section-label">Food at Home Sizing Details</span>
-            <p class="panel-copy">Metadata only. No dollar floors, state multipliers, or calculations are active.</p>
+            <p class="panel-copy">Metadata only. Food at Home uses national baseline dollars sized by household-size factor.</p>
           </div>
         </div>
         <table class="admin-tax-bracket-table" data-living-floor-food-bands>
@@ -1013,7 +951,6 @@
           ${renderCountCard("Includes current dependents", renderBoolean(sizingRule.includeCurrentDependents))}
           ${renderCountCard("Projected dependents", sizingRule.includeProjectedFutureDependents === false ? "Excluded" : "Review")}
           ${renderCountCard("Minimum household size", sizingRule.survivingHouseholdSizeMinimum == null ? "n/a" : sizingRule.survivingHouseholdSizeMinimum)}
-          ${renderCountCard("State priority", stateSourcePriority.join(" -> ") || "n/a")}
         </div>
       </section>
     `;
@@ -1057,7 +994,7 @@
           "Money-Floor Adjusted",
           "Buckets intended to use one estimated dollar floor after bucket-level aggregation.",
           moneyFloorRows,
-          ["Bucket", "Floor Mode", "Benchmark", "Floor Source", "State Source", "Sizing", "Dollar Inputs", "Source Data"],
+          ["Bucket", "Floor Mode", "Benchmark", "Floor Source", "Sizing", "Dollar Inputs", "Source Data"],
           renderMoneyFloorRows(moneyFloorRows)
         )}
         ${renderLivingFloorTable(
@@ -1101,51 +1038,6 @@
     }).join("");
   }
 
-  function renderSavedStateMultiplierRows(rows) {
-    if (!rows.length) {
-      return `
-        <tr class="admin-tax-bracket-row">
-          <td colspan="5">No saved state multiplier rows.</td>
-        </tr>
-      `;
-    }
-
-    return rows.map(function (row) {
-      return `
-        <tr class="admin-tax-bracket-row" data-saved-living-floor-state-multiplier="${escapeHtml(row.stateKey)}">
-          <td><code>${escapeHtml(row.stateKey)}</code></td>
-          <td>${escapeHtml(row.multiplierDisplay)}</td>
-          <td>${escapeHtml(row.source)}</td>
-          <td>${escapeHtml(row.sourcePeriod)}</td>
-          <td>${escapeHtml(row.notes)}</td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  function renderSavedBucketStateMultiplierRows(rows) {
-    if (!rows.length) {
-      return `
-        <tr class="admin-tax-bracket-row">
-          <td colspan="3">No saved bucket-specific state multiplier groups.</td>
-        </tr>
-      `;
-    }
-
-    return rows.map(function (row) {
-      const stateKeys = row.stateRows.map(function (stateRow) {
-        return stateRow.stateKey;
-      }).join(", ") || "Not set";
-      return `
-        <tr class="admin-tax-bracket-row" data-saved-living-floor-bucket-state-multiplier="${escapeHtml(row.planningBucketKey)}">
-          <td><code>${escapeHtml(row.planningBucketKey)}</code></td>
-          <td>${escapeHtml(row.stateRowCount)}</td>
-          <td>${escapeHtml(stateKeys)}</td>
-        </tr>
-      `;
-    }).join("");
-  }
-
   function renderSavedModel90DefaultBucketFloorRows(rows) {
     return rows.map(function (row) {
       return `
@@ -1157,7 +1049,6 @@
           <td>${escapeHtml(row.monthlyBaseAmountDisplay)}</td>
           <td>${escapeHtml(row.perMemberField)}</td>
           <td>${escapeHtml(row.perMemberAmountDisplay)}</td>
-          <td>${renderBoolean(row.stateAdjustmentEnabled)}</td>
           <td>${escapeHtml(row.sourcePeriod)}</td>
           <td>${escapeHtml(row.notes)}</td>
         </tr>
@@ -1168,17 +1059,12 @@
   function renderSavedLivingFloorAssumptions(summary) {
     const safeSummary = isPlainObject(summary) ? summary : buildSavedLivingFloorAssumptionsDisplayModel();
     const foodAtHome = isPlainObject(safeSummary.foodAtHome) ? safeSummary.foodAtHome : {};
-    const stateMultipliers = isPlainObject(safeSummary.stateCostAdjustmentMultipliers)
-      ? safeSummary.stateCostAdjustmentMultipliers
-      : {};
     const counts = isPlainObject(safeSummary.counts) ? safeSummary.counts : {};
     const status = isPlainObject(safeSummary.status) ? safeSummary.status : { label: "Not configured", code: "notConfigured" };
     const bandRows = Array.isArray(foodAtHome.bandRows) ? foodAtHome.bandRows : [];
     const factorRows = Array.isArray(foodAtHome.householdSizeAdjustmentFactorRows)
       ? foodAtHome.householdSizeAdjustmentFactorRows
       : [];
-    const globalStateRows = Array.isArray(stateMultipliers.globalStateRows) ? stateMultipliers.globalStateRows : [];
-    const bucketStateRows = Array.isArray(stateMultipliers.bucketStateRows) ? stateMultipliers.bucketStateRows : [];
     const model90Rows = Array.isArray(safeSummary.model90DefaultBucketFloors) ? safeSummary.model90DefaultBucketFloors : [];
 
     return `
@@ -1193,8 +1079,6 @@
         <div class="admin-summary-grid" data-saved-living-floor-counts>
           ${renderCountCard("Food bands set", `${counts.configuredFoodAtHomeBands || 0}/${counts.requiredFoodAtHomeBands || FOOD_AT_HOME_BAND_KEYS.length}`)}
           ${renderCountCard("Household factors set", `${counts.configuredHouseholdSizeFactors || 0}/${counts.requiredHouseholdSizeFactors || HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.length}`)}
-          ${renderCountCard("State multiplier rows", counts.globalStateMultiplierRows || 0)}
-          ${renderCountCard("Bucket state groups", counts.bucketStateMultiplierGroups || 0)}
           ${renderCountCard("MODEL90 bucket shells", counts.model90DefaultBucketFloors || 0)}
         </div>
         <section class="admin-tax-bracket-group" data-saved-living-floor-food-at-home>
@@ -1227,40 +1111,6 @@
             </tbody>
           </table>
         </section>
-        <section class="admin-tax-bracket-group" data-saved-living-floor-state-multipliers>
-          <div class="admin-tax-bracket-toolbar">
-            <div>
-              <span class="section-label">State Cost Adjustment Multipliers</span>
-              <p class="panel-copy">Applies to: ${escapeHtml(stateMultipliers.appliesToAdjustmentClass || "Not set")} · Default multiplier: ${escapeHtml(stateMultipliers.defaultMultiplier || "Not set")}</p>
-            </div>
-          </div>
-          <table class="admin-tax-bracket-table" data-saved-living-floor-global-state-multipliers>
-            <thead>
-              <tr>
-                <th>State</th>
-                <th>Multiplier</th>
-                <th>Source</th>
-                <th>Source Period</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${renderSavedStateMultiplierRows(globalStateRows)}
-            </tbody>
-          </table>
-          <table class="admin-tax-bracket-table" data-saved-living-floor-bucket-state-multipliers>
-            <thead>
-              <tr>
-                <th>Bucket</th>
-                <th>State Rows</th>
-                <th>States</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${renderSavedBucketStateMultiplierRows(bucketStateRows)}
-            </tbody>
-          </table>
-        </section>
         <section class="admin-tax-bracket-group" data-saved-living-floor-model90-defaults>
           <div class="admin-tax-bracket-toolbar">
             <span class="section-label">MODEL90 Default Bucket Floors</span>
@@ -1272,7 +1122,6 @@
                 <th>Base Amount</th>
                 <th>Member Field</th>
                 <th>Member Amount</th>
-                <th>State Adj.</th>
                 <th>Source Period</th>
                 <th>Notes</th>
               </tr>

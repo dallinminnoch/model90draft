@@ -131,39 +131,27 @@ function createCompleteLivingFloorAssumptions() {
         "6Plus": 0.85
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1.1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: { multiplier: 1.2, source: "ADMIN_ENTERED", sourcePeriod: "2026" }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
         source: "ADMIN_ENTERED",
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
-        monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true
+        monthlyPerMemberAmount: 25
       },
       communicationsConnectivity: {
         planningBucketKey: "communicationsConnectivity",
         source: "ADMIN_ENTERED",
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
-        monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true
+        monthlyPerMemberAmount: 10
       },
       transportationBasics: {
         planningBucketKey: "transportationBasics",
         source: "ADMIN_ENTERED",
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
-        monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true
+        monthlyPerAdultDriverAmount: 50
       }
     }
   };
@@ -492,9 +480,9 @@ assert.equal(foodBucket.trace.floorAppliedOncePerPlanningBucket, true, "Food at 
 assert.equal(foodBucket.trace.perRowDollarFloorApplied, false, "Food at Home floor should not apply per row");
 
 [
-  ["householdConsumables", 210],
-  ["communicationsConnectivity", 132],
-  ["transportationBasics", 240]
+  ["householdConsumables", 175],
+  ["communicationsConnectivity", 110],
+  ["transportationBasics", 200]
 ].forEach(([planningBucketKey, expectedFloor]) => {
   const bucket = activeGraph.householdExpenseStreamPreview.householdExpenseAdjustmentResult.bucketAdjustments.find((candidate) => candidate.planningBucketKey === planningBucketKey);
   assert.ok(bucket, `${planningBucketKey} should have a bucket adjustment`);

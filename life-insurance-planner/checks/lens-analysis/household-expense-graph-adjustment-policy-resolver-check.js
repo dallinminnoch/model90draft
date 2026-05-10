@@ -180,8 +180,18 @@ function createBlankLivingFloorAssumptions() {
 
 function assertNoForbiddenDiffs() {
   const allowedRuntimePlumbingFiles = new Set([
+    "app/features/account-settings/household-expense-account-policy-admin-display.js",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "app/features/account-settings/household-expense-account-policy-storage.js",
+    "app/features/lens-analysis/analysis-setup.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
-    "pages/income-loss-impact.html"
+    "pages/income-loss-impact.html",
+    "components.css"
   ]);
   const forbiddenPaths = [
     "app/features/lens-analysis/income-loss-impact-display.js",

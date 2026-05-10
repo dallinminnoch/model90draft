@@ -22,17 +22,10 @@
 
   const BENCHMARK_SOURCE_VALUES = Object.freeze([
     "USDA_FOOD_PLAN",
-    "BEA_RPP_ADJUSTED",
     "HUD_FMR",
     "EPI_FAMILY_BUDGET",
     "MIT_LIVING_WAGE",
     "MODEL90_DEFAULT",
-    "NONE"
-  ]);
-
-  const STATE_ADJUSTMENT_SOURCE_VALUES = Object.freeze([
-    "BEA_RPP_ADJUSTED",
-    "HUD_LOCATION",
     "NONE"
   ]);
 
@@ -55,27 +48,14 @@
     Object.freeze({ bandKey: "childUnknown", minAge: 0, maxAge: 18, sex: "unknown" })
   ]);
 
-  const STATE_SOURCE_PRIORITY = Object.freeze([
-    "profileAddressState",
-    "pmiIncomeTaxState",
-    "accountDefaultState",
-    "nationalDefault"
-  ]);
-
   const LIVING_FLOOR_TRACE_FIELDS = Object.freeze([
-    "profileAddressState",
-    "pmiIncomeTaxState",
-    "stateUsed",
-    "stateSource",
-    "stateMismatchWarning",
     "totalCurrentHouseholdMembers",
     "survivingHouseholdMembers",
     "deceasedInsuredCount",
     "householdMemberBandCounts",
     "noSurvivingAdultDetected",
     "missingAgeFallbackUsed",
-    "missingSexFallbackUsed",
-    "nationalFallbackUsed"
+    "missingSexFallbackUsed"
   ]);
 
   const HOUSEHOLD_SIZING_RULE = Object.freeze({
@@ -127,7 +107,6 @@
       benchmarkAvailable: false,
       benchmarkSource: "NONE",
       floorSource: "NONE",
-      stateAdjustmentSource: "NONE",
       householdSizingMethod: "none",
       adminEditable: false,
       adminDollarInputsRequired: false,
@@ -172,30 +151,26 @@
     moneyFloorBucket("foodAtHomeConsumables", {
       benchmarkSource: "USDA_FOOD_PLAN",
       floorSource: "USDA_FOOD_PLAN",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "usdaAgeSexBandWeighted",
-      notes: "USDA dollar values will be entered/imported later through admin controls."
+      notes: "USDA national baseline dollar values are entered or imported through admin controls and sized by household-size factor."
     }),
     moneyFloorBucket("householdConsumables", {
       benchmarkSource: "MODEL90_DEFAULT",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "householdBasePlusMember",
-      notes: "Household goods and supplies floor, separate from food-at-home USDA logic."
+      notes: "Direct MODEL90/admin-entered household goods and supplies floor, separate from food-at-home USDA logic."
     }),
     moneyFloorBucket("communicationsConnectivity", {
       benchmarkSource: "MODEL90_DEFAULT",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "fixedHouseholdPlusMember",
-      notes: "Basic connectivity floor for remaining household support."
+      notes: "Direct MODEL90/admin-entered basic connectivity floor for remaining household support."
     }),
     moneyFloorBucket("transportationBasics", {
       benchmarkSource: "MODEL90_DEFAULT",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "adultDriverWeighted",
-      notes: "Basic transportation floor; vehicle obligations remain excluded elsewhere."
+      notes: "Direct MODEL90/admin-entered basic transportation floor; vehicle obligations remain excluded elsewhere."
     }),
 
     ratioBucket("diningTakeout", "zeroFloor"),
@@ -223,7 +198,6 @@
       benchmarkAvailable: true,
       benchmarkSource: "HUD_FMR",
       floorSource: "HUD_FMR",
-      stateAdjustmentSource: "HUD_LOCATION",
       householdSizingMethod: "householdSizeBand",
       sourceDataStatus: "notLoaded",
       usesSurvivingHousehold: true,
@@ -233,7 +207,6 @@
       benchmarkAvailable: true,
       benchmarkSource: "MODEL90_DEFAULT",
       floorSource: "MODEL90_DEFAULT",
-      stateAdjustmentSource: "BEA_RPP_ADJUSTED",
       householdSizingMethod: "householdSizeBand",
       sourceDataStatus: "notLoaded",
       usesSurvivingHousehold: true,
@@ -304,10 +277,6 @@
     return FOOD_AT_HOME_HOUSEHOLD_MEMBER_BANDS.map(clonePlainValue);
   }
 
-  function getHouseholdExpenseLivingFloorStateSourcePriority() {
-    return STATE_SOURCE_PRIORITY.slice();
-  }
-
   function getHouseholdExpenseLivingFloorHouseholdSizingRule() {
     return clonePlainValue(HOUSEHOLD_SIZING_RULE);
   }
@@ -321,17 +290,14 @@
     ADJUSTMENT_CLASS_VALUES,
     MINIMUM_FLOOR_MODE_VALUES,
     BENCHMARK_SOURCE_VALUES,
-    STATE_ADJUSTMENT_SOURCE_VALUES,
     SOURCE_DATA_STATUS_VALUES,
     FOOD_AT_HOME_HOUSEHOLD_MEMBER_BANDS,
-    STATE_SOURCE_PRIORITY,
     HOUSEHOLD_SIZING_RULE,
     LIVING_FLOOR_TRACE_FIELDS,
     LIVING_FLOOR_BUCKET_METADATA,
     getHouseholdExpenseLivingFloorMetadata,
     getHouseholdExpenseLivingFloorMetadataByBucket,
     getFoodAtHomeHouseholdMemberBands,
-    getHouseholdExpenseLivingFloorStateSourcePriority,
     getHouseholdExpenseLivingFloorHouseholdSizingRule,
     getHouseholdExpenseLivingFloorTraceFields
   });

@@ -3,7 +3,7 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   // Owner: inactive living-floor readiness notice builder.
-  // Non-goals: no floor calculation, state parsing, profile reads, DOM access,
+  // Non-goals: no floor calculation, profile reads, DOM access,
   // persistence, Analysis Setup rendering, or runtime graph consumption.
 
   const READINESS_WARNING_BUILDER_VERSION = 1;
@@ -18,10 +18,6 @@
   const NOTICE_CODE_VALUES = Object.freeze([
     "foodAtHomeBandValuesMissing",
     "foodAtHomeHouseholdSizeFactorsMissing",
-    "stateMultiplierMissing",
-    "stateMultiplierDefaultUsed",
-    "stateFallbackNationalDefault",
-    "stateMismatchDetected",
     "missingAgeFallbackUsed",
     "missingSexFallbackUsed",
     "noSurvivingAdultDetected",
@@ -298,13 +294,6 @@
     });
   }
 
-  function getStateAdjustmentSourceBuckets(livingFloorCalculationResult, moneyBucketKeys, source) {
-    return moneyBucketKeys.filter(function (bucketKey) {
-      const bucket = getBucketResult(livingFloorCalculationResult, bucketKey);
-      return bucket && bucket.stateAdjustmentSource === source;
-    });
-  }
-
   function hasInputAssumptionGaps(livingFloorAssumptions) {
     if (!isPlainObject(livingFloorAssumptions)) {
       return true;
@@ -361,67 +350,6 @@
         ["foodAtHomeConsumables"],
         { missingHouseholdSizeFactorKeys: missingFactorKeys },
         { dataGap: true }
-      );
-    }
-  }
-
-  function addStateNotices(state, stateContext, livingFloorCalculationResult, moneyBucketKeys) {
-    if (stateContext.nationalFallbackUsed || stateContext.stateSource === "nationalDefault" || stateContext.stateUsed === "nationalDefault") {
-      addNotice(
-        state,
-        "stateFallbackNationalDefault",
-        "warning",
-        "National fallback state is being used",
-        "No valid profile, PMI, or account state was available, so future floor estimates would use the national default.",
-        moneyBucketKeys,
-        {
-          stateUsed: stateContext.stateUsed || null,
-          stateSource: stateContext.stateSource || null
-        },
-        { dataGap: true }
-      );
-    }
-
-    if (stateContext.stateMismatchWarning || (stateContext.profileAddressState && stateContext.pmiIncomeTaxState && stateContext.profileAddressState !== stateContext.pmiIncomeTaxState)) {
-      addNotice(
-        state,
-        "stateMismatchDetected",
-        "warning",
-        "Profile and PMI states differ",
-        "Profile address state and PMI income/tax state differ; the state resolver uses profile address state by priority.",
-        moneyBucketKeys,
-        {
-          profileAddressState: stateContext.profileAddressState || null,
-          pmiIncomeTaxState: stateContext.pmiIncomeTaxState || null,
-          stateUsed: stateContext.stateUsed || null
-        }
-      );
-    }
-
-    const fallbackOneBucketKeys = getStateAdjustmentSourceBuckets(livingFloorCalculationResult, moneyBucketKeys, "fallbackOne");
-    if (fallbackOneBucketKeys.length) {
-      addNotice(
-        state,
-        "stateMultiplierMissing",
-        "warning",
-        "State cost multiplier is missing",
-        "A state cost adjustment multiplier was not available, so the inactive floor calculator used a neutral multiplier of 1.",
-        fallbackOneBucketKeys,
-        { stateAdjustmentSource: "fallbackOne" },
-        { dataGap: true }
-      );
-    }
-
-    const defaultMultiplierBucketKeys = getStateAdjustmentSourceBuckets(livingFloorCalculationResult, moneyBucketKeys, "defaultMultiplier");
-    if (defaultMultiplierBucketKeys.length) {
-      addNotice(
-        state,
-        "stateMultiplierDefaultUsed",
-        "info",
-        "Default state multiplier is being used",
-        "No state-specific multiplier matched the resolved state, so the default multiplier would be used for future floor estimates.",
-        defaultMultiplierBucketKeys,
-        { stateAdjustmentSource: "defaultMultiplier" }
       );
     }
   }
@@ -567,7 +495,6 @@
     const livingFloorAssumptions = isPlainObject(safeInput.livingFloorAssumptions)
       ? safeInput.livingFloorAssumptions
       : {};
-    const stateContext = isPlainObject(safeInput.stateContext) ? safeInput.stateContext : {};
     const householdContext = isPlainObject(safeInput.householdContext) ? safeInput.householdContext : {};
     const livingFloorCalculationResult = isPlainObject(safeInput.livingFloorCalculationResult)
       ? safeInput.livingFloorCalculationResult
@@ -581,7 +508,6 @@
     };
 
     addFoodAssumptionNotices(state, livingFloorAssumptions);
-    addStateNotices(state, stateContext, livingFloorCalculationResult, moneyBucketKeys);
     addHouseholdContextNotices(state, householdContext, moneyBucketKeys);
     addCalculationNotices(state, livingFloorCalculationResult, moneyBucketKeys);
     addAssumptionCompletenessNotices(state, livingFloorAssumptions, livingFloorCalculationResult, moneyBucketKeys);

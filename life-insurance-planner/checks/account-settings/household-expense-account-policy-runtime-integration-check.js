@@ -329,15 +329,6 @@ function makeCompleteLivingFloorAssumptions() {
         "6Plus": 1
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: { multiplier: 1, source: "ADMIN_ENTERED", sourcePeriod: "2026" }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
@@ -345,7 +336,6 @@ function makeCompleteLivingFloorAssumptions() {
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
         monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true,
         notes: null
       },
       communicationsConnectivity: {
@@ -354,7 +344,6 @@ function makeCompleteLivingFloorAssumptions() {
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
         monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true,
         notes: null
       },
       transportationBasics: {
@@ -363,7 +352,6 @@ function makeCompleteLivingFloorAssumptions() {
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
         monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true,
         notes: null
       }
     }
@@ -706,7 +694,6 @@ assert.equal(activeLifestyleInput.lensModel.ongoingSupport.monthlyTotalEssential
 assert.equal(activeLifestyleInput.ongoingSupport.monthlyTotalEssentialSupportCost, 1000, "active stream input should receive explicit ongoingSupport");
 assert.equal(activeLifestyleInput.profileRecord.state, "CO", "active stream input should receive profile state");
 assert.equal(activeLifestyleInput.profileFacts.addressState, "CO", "active stream input should receive profile facts state");
-assert.equal(activeLifestyleInput.pmiFacts.stateOfResidence, "CO", "active stream input should receive PMI state context");
 assert.equal(activeLifestyleInput.valuationDate, "2026-05-07", "active stream input should receive valuation date");
 assert.equal(activeLifestyleInput.scenarioContext.deceasedInsuredRole, "client", "active stream input should receive remaining-household scenario context");
 assert.equal(activeLifestyleOutput.trace.householdExpenseStreamPolicyMode, "activeGraphAdjustments", "explicit active mode should be used by the lifestyle helper");

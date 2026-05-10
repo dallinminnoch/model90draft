@@ -145,16 +145,6 @@ function createCompleteLivingFloorAssumptions(overrides) {
         "6Plus": 0.85
       }
     },
-    stateCostAdjustmentMultipliers: {
-      version: 1,
-      appliesToAdjustmentClass: "moneyFloorAdjusted",
-      defaultMultiplier: 1.1,
-      globalStateAdjustmentMultipliersByState: {
-        CO: { multiplier: 1.2, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "Colorado" },
-        NY: { multiplier: 1.25, source: "ADMIN_ENTERED", sourcePeriod: "2026", notes: "New York" }
-      },
-      bucketStateAdjustmentMultipliers: {}
-    },
     model90DefaultBucketFloors: {
       householdConsumables: {
         planningBucketKey: "householdConsumables",
@@ -162,7 +152,6 @@ function createCompleteLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 100,
         monthlyPerMemberAmount: 25,
-        stateAdjustmentEnabled: true,
         notes: "Household supplies"
       },
       communicationsConnectivity: {
@@ -171,7 +160,6 @@ function createCompleteLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 80,
         monthlyPerMemberAmount: 10,
-        stateAdjustmentEnabled: true,
         notes: "Connectivity"
       },
       transportationBasics: {
@@ -180,7 +168,6 @@ function createCompleteLivingFloorAssumptions(overrides) {
         sourcePeriod: "2026",
         monthlyBaseAmount: 150,
         monthlyPerAdultDriverAmount: 50,
-        stateAdjustmentEnabled: true,
         notes: "Basic transportation"
       }
     }
@@ -192,7 +179,6 @@ function createMarriedFixture(overrides) {
     valuationDate: "2026-01-01",
     adultDriverCount: 1,
     profileRecord: {
-      state: "co",
       maritalStatus: "Married",
       spouseDateOfBirth: "1986-06-15",
       spouseGender: "female",
@@ -201,9 +187,7 @@ function createMarriedFixture(overrides) {
         { id: "teen", age: 15, sex: "female" }
       ]
     },
-    pmiFacts: {
-      stateOfResidence: "ny"
-    }
+    pmiFacts: {}
   }, overrides || {});
 }
 
@@ -240,8 +224,18 @@ function createScenarioExpenses() {
 
 function assertNoForbiddenDiffs() {
   const allowedRuntimePlumbingFiles = new Set([
+    "app/features/account-settings/household-expense-account-policy-admin-display.js",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "app/features/account-settings/household-expense-account-policy-storage.js",
+    "app/features/lens-analysis/analysis-setup.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
-    "pages/income-loss-impact.html"
+    "pages/income-loss-impact.html",
+    "components.css"
   ]);
   const forbiddenPaths = [
     "app/features/lens-analysis/income-loss-impact-display.js",
@@ -363,9 +357,7 @@ assert.equal(diningRow.adjustmentClass, "excludedFromAdjustment", "graph adjustm
 assert.equal(diningRow.minimumFloorMode, "notAdjusted", "graph adjustment override minimum floor should flow into preview");
 
 assert.equal(completeResult.livingFloorContext.metadata.activeRuntimeConsumer, false, "context resolver output should remain inactive");
-assert.equal(completeResult.livingFloorContext.stateContext.stateUsed, "CO", "profile state should win over PMI state");
-assert.equal(completeResult.livingFloorContext.stateContext.stateSource, "profileAddressState", "state source should be profile address");
-assert.ok(completeResult.livingFloorContext.stateContext.stateMismatchWarning, "state mismatch should be traced");
+assert.equal(Object.prototype.hasOwnProperty.call(completeResult.livingFloorContext, "stateContext"), false, "context resolver output should not include retired state context");
 assert.equal(completeResult.livingFloorContext.householdContext.survivingHouseholdMembers, 3, "remaining household should include spouse plus dependents, not one survivor only");
 assert.equal(completeResult.livingFloorContext.householdContext.dependentCount, 2, "remaining household should count current dependents");
 
@@ -380,10 +372,10 @@ assert.deepEqual(
   ],
   "adapter should calculate preview floors only for money-floor buckets"
 );
-assert.equal(getBucket(completeResult, "foodAtHomeConsumables").floorAmountMonthly, 876, "Food at Home preview should calculate with band counts, household-size factor, and state multiplier");
-assert.equal(getBucket(completeResult, "householdConsumables").floorAmountMonthly, 210, "householdConsumables preview should use base + per member with state multiplier");
-assert.equal(getBucket(completeResult, "communicationsConnectivity").floorAmountMonthly, 132, "communicationsConnectivity preview should use base + per member with state multiplier");
-assert.equal(getBucket(completeResult, "transportationBasics").floorAmountMonthly, 240, "transportationBasics preview should use base + per adult driver with state multiplier");
+assert.equal(getBucket(completeResult, "foodAtHomeConsumables").floorAmountMonthly, 730, "Food at Home preview should calculate with band counts and household-size factor only");
+assert.equal(getBucket(completeResult, "householdConsumables").floorAmountMonthly, 175, "householdConsumables preview should use direct base + per member amounts");
+assert.equal(getBucket(completeResult, "communicationsConnectivity").floorAmountMonthly, 110, "communicationsConnectivity preview should use direct base + per member amounts");
+assert.equal(getBucket(completeResult, "transportationBasics").floorAmountMonthly, 200, "transportationBasics preview should use direct base + per adult driver amounts");
 assert.equal(completeResult.readinessNotices.metadata.activeRuntimeConsumer, false, "readiness notices should remain inactive");
 assert.ok(getNoticeCodes(completeResult).includes("livingFloorAssumptionsReady"), "complete preview should include readiness info notice");
 assert.equal(hasIssue(completeResult.livingFloorCalculationPreview.buckets, "basicUtilities"), false, "basicUtilities should not be calculated");
@@ -409,21 +401,16 @@ assert.ok(getNoticeCodes(emptyResult).includes("foodAtHomeBandValuesMissing"), "
 assert.ok(getNoticeCodes(emptyResult).includes("foodAtHomeHouseholdSizeFactorsMissing"), "empty policy should report missing Food at Home household-size factors");
 assert.equal(getBucket(emptyResult, "foodAtHomeConsumables").floorAmountMonthly, null, "incomplete Food at Home assumptions should produce null preview floor");
 
-const pmiStateResult = adapterApi.prepareIncomeImpactHouseholdExpensePolicyPreview({
+const singleParentResult = adapterApi.prepareIncomeImpactHouseholdExpensePolicyPreview({
   accountPolicy: completeAccountPolicy,
   valuationDate: "2026-01-01",
   profileRecord: {
     maritalStatus: "Single",
     dependentDetails: [{ age: 8 }]
-  },
-  pmiFacts: {
-    stateOfResidence: "ny"
   }
 });
-assert.equal(pmiStateResult.livingFloorContext.stateContext.stateUsed, "NY", "PMI state should be used when profile state is missing");
-assert.equal(pmiStateResult.livingFloorContext.stateContext.stateSource, "pmiIncomeTaxState", "PMI state source should be traced");
-assert.equal(getBucket(pmiStateResult, "householdConsumables").stateAdjustmentMultiplier, 1.25, "PMI-state multiplier should apply to preview floors");
-assert.equal(pmiStateResult.livingFloorContext.householdContext.noSurvivingAdultDetected, true, "single parent with dependents should trace no surviving adult");
+assert.equal(Object.prototype.hasOwnProperty.call(singleParentResult.livingFloorContext, "stateContext"), false, "PMI/profile state should not affect living-floor preview after multiplier retirement");
+assert.equal(singleParentResult.livingFloorContext.householdContext.noSurvivingAdultDetected, true, "single parent with dependents should trace no surviving adult");
 
 const accountPolicyContextResult = adapterApi.prepareIncomeImpactHouseholdExpensePolicyPreview(Object.assign(createMarriedFixture(), {
   accountPolicyContext: {
@@ -435,7 +422,7 @@ const accountPolicyContextResult = adapterApi.prepareIncomeImpactHouseholdExpens
 }));
 assert.equal(accountPolicyContextResult.trace.accountPolicySource, "accountPolicyContext.storageResult.accountPolicy", "adapter should accept current runtime account policy context shape");
 assert.equal(accountPolicyContextResult.trace.livingFloorAssumptionsSource, "accountPolicy.livingFloorAssumptions", "adapter should source assumptions from account policy context");
-assert.equal(getBucket(accountPolicyContextResult, "foodAtHomeConsumables").floorAmountMonthly, 876, "account policy context assumptions should calculate floor previews");
+assert.equal(getBucket(accountPolicyContextResult, "foodAtHomeConsumables").floorAmountMonthly, 730, "account policy context assumptions should calculate floor previews");
 
 const parityContext = loadScenarioParityContext();
 const scenarioApi = parityContext.LensApp.lensAnalysis.incomeImpactLifestyleScenarioCalculations;
