@@ -18,6 +18,9 @@ function cloneJson(value) {
 
 function getRenderableGraphModel(model) {
   const clone = cloneJson(model);
+  if (clone.series) {
+    delete clone.series.appliedRunwayScenarios;
+  }
   delete clone.trace;
   return clone;
 }
@@ -342,6 +345,48 @@ assert.equal(
   false,
   "One applied scenario should keep the existing single postDeathResources output."
 );
+assert.equal(appliedSingleModel.series.appliedRunwayScenarios.length, 1, "One applied scenario should emit one runway contract.");
+const appliedSingleRunway = appliedSingleModel.series.appliedRunwayScenarios[0];
+assert.equal(appliedSingleRunway.scenarioId, "income-impact-current-scenario");
+assert.equal(appliedSingleRunway.label, "Death at age 51");
+assert.equal(appliedSingleRunway.selected, true);
+assert.equal(appliedSingleRunway.pathId, "postDeathResources");
+assert.deepEqual(
+  cloneJson(appliedSingleRunway.rawPoints.map(function (point) { return point.value; })),
+  cloneJson(fiveYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
+  "Runway raw points should preserve signed source resource values."
+);
+assert.deepEqual(
+  cloneJson(appliedSingleRunway.rawPoints.map(function (point) { return point.date; })),
+  cloneJson(fiveYearScenario.postDeathSeries.points.map(function (point) { return point.date; })),
+  "Runway raw points should preserve source dates."
+);
+assert.equal(appliedSingleRunway.trace.rawValuesPreserved, true);
+assert.equal(appliedSingleRunway.trace.depletionDatePreserved, true);
+assert.equal(appliedSingleRunway.depletionPoint.date, fiveYearScenario.postDeathSeries.depletion.depletionDate);
+assert.equal(appliedSingleRunway.depletionPoint.value, 0);
+assert.equal(appliedSingleRunway.depletionPoint.trace.visualInterpolation, true);
+assert.equal(appliedSingleRunway.depletionPoint.trace.interpolationKind, "zeroCrossing");
+assert.equal(
+  appliedSingleRunway.rawPoints.some(function (point) { return point.trace && point.trace.visualInterpolation; }),
+  false,
+  "Visual interpolation points should not replace raw source points."
+);
+assert.equal(
+  appliedSingleRunway.fundedRunwayPoints.at(-1).value,
+  0,
+  "Funded runway should stop at the scenario depletion boundary."
+);
+assert.equal(
+  appliedSingleRunway.fundedRunwayPoints.some(function (point) { return point.value < 0; }),
+  false,
+  "Funded runway should not include below-zero resource points."
+);
+assert.equal(
+  appliedSingleRunway.deficitPoints.some(function (point) { return point.value < 0 && point.deficitValue > 0; }),
+  true,
+  "Deficit continuation should separate below-zero resource points with positive deficit values."
+);
 
 const tenYearScenario = makeScenario(10);
 const appliedMultiInput = {
@@ -401,6 +446,7 @@ assert.deepEqual(
   "Applied scenario path IDs should be deterministic and keep the selected scenario on the compatibility path."
 );
 assert.equal(appliedMultiModel.series.appliedPostDeathResources.length, 2, "Two applied scenarios should produce two renderable resource paths.");
+assert.equal(appliedMultiModel.series.appliedRunwayScenarios.length, 2, "Two applied scenarios should produce two runway contracts.");
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.label; })),
   ["Death in 10 years", "Death tomorrow"],
@@ -413,6 +459,26 @@ assert.deepEqual(
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.selected; })),
   [true, false]
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.selected; })),
+  [true, false],
+  "Runway contracts should preserve selected and non-selected scenario state."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.pathId; })),
+  ["postDeathResources", "postDeathResources--scenario-2"],
+  "Runway contracts should preserve deterministic applied scenario path IDs."
+);
+assert.equal(
+  appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.date,
+  tenYearScenario.postDeathSeries.depletion.depletionDate,
+  "Selected runway contract should preserve its own depletion date."
+);
+assert.equal(
+  appliedMultiModel.series.appliedRunwayScenarios[1].depletionPoint.date,
+  fiveYearScenario.postDeathSeries.depletion.depletionDate,
+  "Non-selected runway contract should preserve its own depletion date."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.postDeathResources.map(function (point) { return point.value; })),

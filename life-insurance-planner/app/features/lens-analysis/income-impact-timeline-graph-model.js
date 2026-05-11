@@ -170,12 +170,13 @@
         if (!date || valueResult.value == null) {
           return null;
         }
-        return {
+        const seriesPoint = {
           id: `${phase}-${index + 1}`,
           date,
           monthIndex: toOptionalNumber(point.monthIndex) ?? index + 1,
           phase,
           value: valueResult.value,
+          rawValue: valueResult.value,
           displayedValue: valueResult.value,
           sourcePath: `${sourcePath}.${index}.${valueResult.sourcePath || "value"}`,
           sourcePaths: Array.isArray(point.sourcePaths) ? clonePlainValue(point.sourcePaths) : [],
@@ -183,6 +184,17 @@
           precision: point.precision || null,
           trace: isPlainObject(point.trace) ? clonePlainValue(point.trace) : {}
         };
+        [
+          ["endingResources", point.endingResources],
+          ["availableResources", point.availableResources],
+          ["accumulatedUnmetNeed", point.accumulatedUnmetNeed]
+        ].forEach(function (entry) {
+          const rawValue = toOptionalNumber(entry[1]);
+          if (rawValue != null) {
+            seriesPoint[entry[0]] = rawValue;
+          }
+        });
+        return seriesPoint;
       })
       .filter(Boolean);
   }
@@ -377,6 +389,7 @@
           sourceIndex,
           sourcePath,
           points,
+          depletion: getDepletionInfo(points, getPath(appliedScenario.scenario, "postDeathSeries.depletion")),
           trace: {
             selectedScenario: selected,
             sourcePath
@@ -405,6 +418,179 @@
         pathMode: "smooth",
         renderIndex
       });
+    });
+  }
+
+  function getRunwayResourceValue(point) {
+    return toOptionalNumber(point?.endingResources ?? point?.value);
+  }
+
+  function getRunwayDeficitValue(point) {
+    const unmetNeed = toOptionalNumber(point?.accumulatedUnmetNeed);
+    if (unmetNeed != null) {
+      return Math.max(0, unmetNeed);
+    }
+    const resourceValue = getRunwayResourceValue(point);
+    return resourceValue != null && resourceValue < 0 ? Math.abs(resourceValue) : 0;
+  }
+
+  function getRunwayDeficitSource(point) {
+    return toOptionalNumber(point?.accumulatedUnmetNeed) != null
+      ? "accumulatedUnmetNeed"
+      : "signedEndingResources";
+  }
+
+  function cloneRunwayPoint(point) {
+    return clonePlainValue(point);
+  }
+
+  function cloneDeficitPoint(point) {
+    const cloned = clonePlainValue(point);
+    cloned.deficitValue = getRunwayDeficitValue(point);
+    cloned.deficitSource = getRunwayDeficitSource(point);
+    return cloned;
+  }
+
+  function getZeroCrossingRatio(previousPoint, currentPoint) {
+    const previousValue = getRunwayResourceValue(previousPoint);
+    const currentValue = getRunwayResourceValue(currentPoint);
+    if (previousValue == null || currentValue == null || previousValue <= 0 || currentValue > 0) {
+      return null;
+    }
+    const span = previousValue - currentValue;
+    if (span <= 0) {
+      return null;
+    }
+    return Math.max(0, Math.min(1, previousValue / span));
+  }
+
+  function interpolateDateOnly(previousPoint, currentPoint, ratio) {
+    const previousDate = parseDateOnly(previousPoint?.date);
+    const currentDate = parseDateOnly(currentPoint?.date);
+    if (!previousDate || !currentDate || ratio == null) {
+      return normalizeDateOnly(currentPoint?.date || previousPoint?.date);
+    }
+    const timestamp = previousDate.getTime() + ((currentDate.getTime() - previousDate.getTime()) * ratio);
+    return normalizeDateOnly(new Date(timestamp));
+  }
+
+  function interpolateNumber(previousValue, currentValue, ratio) {
+    const previousNumber = toOptionalNumber(previousValue);
+    const currentNumber = toOptionalNumber(currentValue);
+    if (previousNumber == null || currentNumber == null || ratio == null) {
+      return currentNumber ?? previousNumber ?? null;
+    }
+    return previousNumber + ((currentNumber - previousNumber) * ratio);
+  }
+
+  function makeZeroCrossingPoint(previousPoint, currentPoint, series, xDomain, yDomain) {
+    const ratio = getZeroCrossingRatio(previousPoint, currentPoint);
+    const explicitDepletion = isPlainObject(series?.depletion) ? series.depletion : {};
+    const explicitDate = normalizeDateOnly(explicitDepletion.date);
+    const date = explicitDate || interpolateDateOnly(previousPoint, currentPoint, ratio);
+    const monthIndex = toOptionalNumber(explicitDepletion.monthIndex)
+      ?? interpolateNumber(previousPoint?.monthIndex, currentPoint?.monthIndex, ratio);
+    const sourcePaths = [];
+    appendUnique(sourcePaths, Array.isArray(previousPoint?.sourcePaths) ? previousPoint.sourcePaths : []);
+    appendUnique(sourcePaths, Array.isArray(currentPoint?.sourcePaths) ? currentPoint.sourcePaths : []);
+    appendUnique(sourcePaths, Array.isArray(explicitDepletion.sourcePaths) ? explicitDepletion.sourcePaths : []);
+    const interpolatedX = interpolateNumber(previousPoint?.xRatio, currentPoint?.xRatio, ratio);
+    return {
+      id: `${series.pathId || series.scenarioId || "applied-scenario"}-zero-crossing`,
+      date,
+      monthIndex,
+      phase: "postDeath",
+      value: 0,
+      rawValue: 0,
+      displayedValue: 0,
+      endingResources: 0,
+      availableResources: 0,
+      accumulatedUnmetNeed: 0,
+      xRatio: getDateRatio(date, xDomain) ?? interpolatedX,
+      yRatio: getValueRatio(0, yDomain),
+      sourcePath: `${series.sourcePath}.zeroCrossing`,
+      sourcePaths,
+      status: "depleted",
+      precision: null,
+      trace: {
+        visualInterpolation: true,
+        interpolationKind: "zeroCrossing",
+        interpolationReason: "runwayDepletionBoundary",
+        depletionDatePreserved: !explicitDate || explicitDate === date,
+        sourcePointIds: [previousPoint?.id, currentPoint?.id].filter(Boolean)
+      }
+    };
+  }
+
+  function buildAppliedRunwayScenario(series, xDomain, yDomain) {
+    const rawPoints = Array.isArray(series?.points)
+      ? series.points.map(cloneRunwayPoint)
+      : [];
+    const fundedRunwayPoints = [];
+    const deficitPoints = [];
+    let depletionPoint = null;
+    let previousPoint = null;
+    let visualInterpolationPointCount = 0;
+
+    rawPoints.forEach(function (point) {
+      const resourceValue = getRunwayResourceValue(point);
+      if (resourceValue == null) {
+        previousPoint = point;
+        return;
+      }
+
+      if (!depletionPoint && resourceValue > 0) {
+        fundedRunwayPoints.push(cloneRunwayPoint(point));
+        previousPoint = point;
+        return;
+      }
+
+      if (!depletionPoint && resourceValue === 0) {
+        depletionPoint = cloneRunwayPoint(point);
+        fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
+        deficitPoints.push(cloneDeficitPoint(depletionPoint));
+        previousPoint = point;
+        return;
+      }
+
+      if (!depletionPoint && resourceValue < 0) {
+        depletionPoint = makeZeroCrossingPoint(previousPoint, point, series, xDomain, yDomain);
+        visualInterpolationPointCount += 1;
+        fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
+        deficitPoints.push(cloneDeficitPoint(depletionPoint));
+      }
+
+      if (depletionPoint) {
+        deficitPoints.push(cloneDeficitPoint(point));
+      }
+      previousPoint = point;
+    });
+
+    return {
+      scenarioId: series.scenarioId,
+      label: series.label,
+      selected: Boolean(series.selected),
+      pathId: series.pathId,
+      rawPoints,
+      fundedRunwayPoints,
+      deficitPoints,
+      depletionPoint: depletionPoint ? cloneRunwayPoint(depletionPoint) : null,
+      trace: {
+        rawValuesPreserved: true,
+        rawPointCount: rawPoints.length,
+        depletionDatePreserved: !series.depletion?.date
+          || !depletionPoint
+          || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
+        visualInterpolationPointCount,
+        visualInterpolationKinds: visualInterpolationPointCount ? ["zeroCrossing"] : [],
+        sourcePath: series.sourcePath
+      }
+    };
+  }
+
+  function buildAppliedRunwayScenarios(appliedSeries, xDomain, yDomain) {
+    return (Array.isArray(appliedSeries) ? appliedSeries : []).map(function (series) {
+      return buildAppliedRunwayScenario(series, xDomain, yDomain);
     });
   }
 
@@ -1296,6 +1482,7 @@
     const enrichedComparisonMarkers = comparisonMarkers.map(function (marker) {
       return marker.positionable ? enrichPoint(marker, xDomain, yDomain) : marker;
     });
+    const appliedRunwayScenarios = buildAppliedRunwayScenarios(enrichedAppliedPostDeath, xDomain, yDomain);
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
 
     const result = {
@@ -1374,6 +1561,12 @@
       result.trace.baseSeriesUnchanged = true;
       result.trace.comparisonMarkersCreated = enrichedComparisonMarkers.length > 0;
       result.trace.comparisonMarkerCount = enrichedComparisonMarkers.length;
+    }
+
+    if (appliedRunwayScenarios.length) {
+      result.series.appliedRunwayScenarios = appliedRunwayScenarios;
+      result.trace.appliedRunwayScenarioCount = appliedRunwayScenarios.length;
+      result.trace.appliedRunwayContractEnabled = true;
     }
 
     if (enrichedAppliedPostDeath.length > 1) {
