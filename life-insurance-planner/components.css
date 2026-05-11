@@ -16419,6 +16419,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-graph-phase {
   fill: #f8fafc;
+  pointer-events: none;
 }
 
 .income-impact-graph-phase--pre-death {
@@ -16472,6 +16473,14 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   shape-rendering: geometricPrecision;
 }
 
+.income-impact-graph-deficit-area {
+  fill: rgba(185, 70, 48, 0.16);
+  pointer-events: none;
+  stroke: rgba(185, 70, 48, 0.28);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
 .income-impact-graph-path--preDeathAssets {
   stroke: #4054b8;
 }
@@ -16498,6 +16507,11 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {
   stroke-width: 2.45;
+}
+
+.income-impact-graph-path[data-income-impact-applied-scenario-selected="false"] {
+  opacity: 0.58;
+  stroke-width: 1.65;
 }
 
 .income-impact-graph-path--lifestyle-post-death-resources {

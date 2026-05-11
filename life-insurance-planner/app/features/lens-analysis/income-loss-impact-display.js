@@ -12,6 +12,7 @@
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
+  const SELECTED_DEFICIT_AREA_ID = "postDeathDeficitArea--selected";
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
@@ -1124,6 +1125,27 @@
       : buildSmoothedSvgPath(plotPoints);
   }
 
+  function buildDeficitAreaSvgPath(points, zeroYRatio) {
+    const zeroRatio = toOptionalNumber(zeroYRatio);
+    const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX);
+    if (zeroRatio == null || plotPoints.length < 2) {
+      return "";
+    }
+    const zeroY = toPlotY(zeroRatio, GRAPH_VIEW_BOX);
+    const first = plotPoints[0];
+    const last = plotPoints[plotPoints.length - 1];
+    const commands = [
+      `M${formatSvgCoordinate(first.x)} ${formatSvgCoordinate(zeroY)}`,
+      `L${formatSvgCoordinate(first.x)} ${formatSvgCoordinate(first.y)}`
+    ];
+    plotPoints.slice(1).forEach(function (point) {
+      commands.push(`L${formatSvgCoordinate(point.x)} ${formatSvgCoordinate(point.y)}`);
+    });
+    commands.push(`L${formatSvgCoordinate(last.x)} ${formatSvgCoordinate(zeroY)}`);
+    commands.push("Z");
+    return commands.join(" ");
+  }
+
   function toDetailX(xRatio) {
     const ratio = toOptionalNumber(xRatio);
     return Math.round(GRAPH_DETAIL_VIEW_BOX.plotLeft + ((ratio == null ? 0 : ratio) * GRAPH_DETAIL_VIEW_BOX.plotWidth));
@@ -1347,6 +1369,29 @@
   }
 
   function getAppliedGraphSeries(graphModel) {
+    const runwaySeries = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
+      ? graphModel.series.appliedRunwayScenarios
+      : [];
+    if (runwaySeries.length) {
+      return runwaySeries
+        .map(function (series, index) {
+          return Object.assign({}, series, {
+            pathId: normalizeString(series.pathId) || (index === 0
+              ? POST_DEATH_RESOURCES_PATH_ID
+              : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`),
+            points: Array.isArray(series.fundedRunwayPoints) ? series.fundedRunwayPoints : [],
+            pathMode: normalizeGraphPathMode(series.pathMode),
+            trace: Object.assign({}, isPlainObject(series.trace) ? series.trace : {}, {
+              renderSource: "fundedRunwayPoints"
+            })
+          });
+        })
+        .filter(function (series) {
+          return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
+        })
+        .slice(0, 2);
+    }
+
     const appliedSeries = Array.isArray(graphModel?.series?.appliedPostDeathResources)
       ? graphModel.series.appliedPostDeathResources
       : [];
@@ -1364,6 +1409,63 @@
     return candidates.filter(function (series) {
       return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
     }).slice(0, 2);
+  }
+
+  function getSelectedAppliedGraphSeries(graphModel, selectedScenarioId = "") {
+    const appliedSeries = getAppliedGraphSeries(graphModel);
+    const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
+    return (normalizedSelectedScenarioId
+      ? appliedSeries.find(function (series) {
+        return normalizeString(series?.scenarioId) === normalizedSelectedScenarioId;
+      })
+      : null) || appliedSeries.find(function (series) {
+      return series?.selected === true;
+    }) || null;
+  }
+
+  function renderSelectedScenarioDeficitArea(graphModel, selectedScenarioId = "") {
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, selectedScenarioId);
+    if (!selectedSeries || !Array.isArray(selectedSeries.deficitPoints) || selectedSeries.deficitPoints.length < 2) {
+      return "";
+    }
+
+    const areaPath = buildDeficitAreaSvgPath(selectedSeries.deficitPoints, graphModel?.axes?.y?.zeroYRatio);
+    if (!areaPath) {
+      return "";
+    }
+
+    const label = "Required support after resources run out";
+    return `
+      <path
+        id="${escapeHtml(SELECTED_DEFICIT_AREA_ID)}"
+        class="income-impact-graph-deficit-area"
+        data-income-impact-graph-deficit-area="${escapeHtml(SELECTED_DEFICIT_AREA_ID)}"
+        data-income-impact-graph-deficit-source="deficitPoints"
+        data-income-impact-applied-scenario-id="${escapeHtml(selectedSeries.scenarioId || "")}"
+        data-income-impact-applied-scenario-selected="true"
+        d="${escapeHtml(areaPath)}"
+        aria-label="${escapeHtml(label)}"
+      ><title>${escapeHtml(label)}</title></path>
+    `;
+  }
+
+  function syncSelectedScenarioDeficitAreaDom(host, graphModel, selectedScenarioId) {
+    if (!host || typeof host.querySelector !== "function") {
+      return;
+    }
+    const seriesGroup = host.querySelector("[data-income-impact-graph-series]");
+    if (!seriesGroup || typeof seriesGroup.insertAdjacentHTML !== "function") {
+      return;
+    }
+
+    Array.from(seriesGroup.querySelectorAll("[data-income-impact-graph-deficit-area]")).forEach(function (area) {
+      area.remove();
+    });
+
+    const nextArea = renderSelectedScenarioDeficitArea(graphModel, selectedScenarioId);
+    if (nextArea) {
+      seriesGroup.insertAdjacentHTML("afterbegin", nextArea);
+    }
   }
 
   function renderAppliedScenarioGraphPaths(graphModel) {
@@ -1386,6 +1488,7 @@
           "data-income-impact-applied-scenario-id": series.scenarioId || "",
           "data-income-impact-applied-scenario-label": label,
           "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false",
+          "data-income-impact-runway-source": series.trace?.renderSource || "",
           "role": "button",
           "tabindex": "0",
           "aria-pressed": series.selected === true ? "true" : "false"
@@ -1881,6 +1984,7 @@
         ${renderGraphPhases(graphModel)}
         ${renderGraphAxis(graphModel)}
         <g class="income-impact-graph-series" data-income-impact-graph-series>
+          ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
           ${preDeathPath}
           ${deathPath}
           ${appliedScenarioPaths}
@@ -3219,6 +3323,11 @@
     }
 
     syncScenarioSelectionDom(incomeImpactState.host, incomeImpactState.selectedScenarioId);
+    syncSelectedScenarioDeficitAreaDom(
+      incomeImpactState.host,
+      incomeImpactState.latestTimelineResult?.graphModel,
+      incomeImpactState.selectedScenarioId
+    );
     updateScenarioControls(incomeImpactState.latestTimelineResult);
   }
 

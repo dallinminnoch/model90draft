@@ -42,6 +42,16 @@ function getPathD(html, dataAttributeName, dataAttributeValue) {
   return match[1];
 }
 
+function getPathYValues(pathD) {
+  const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
+  return numbers
+    .map(Number)
+    .filter(Number.isFinite)
+    .filter(function (_number, index) {
+      return index % 2 === 1;
+    });
+}
+
 function makeGraphModel(mode = "forward-projection") {
   return {
     status: "complete",
@@ -168,6 +178,10 @@ assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-lo
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
 assert.match(displaySource, /data-income-impact-graph-svg/);
+assert.match(displaySource, /appliedRunwayScenarios/);
+assert.match(displaySource, /fundedRunwayPoints/);
+assert.match(displaySource, /deficitPoints/);
+assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderLifestyleImpactReadout/);
 assert.match(displaySource, /data-income-impact-lifestyle-impact-readout/);
 assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
@@ -187,6 +201,10 @@ assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
+assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
+assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-deficit-area[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /data-income-impact-applied-scenario-selected="false"[\s\S]*opacity:\s*0\.58;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
@@ -276,24 +294,58 @@ const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path"
 assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
 
 const multiAppliedGraphModel = makeGraphModel();
+const selectedZeroPoint = { date: "2042-04-29", monthIndex: 132, value: 0, xRatio: 0.84, yRatio: multiAppliedGraphModel.axes.y.zeroYRatio };
+const selectedRawPoints = multiAppliedGraphModel.series.postDeathResources;
+const secondRawPoints = [
+  { date: "2027-04-29", monthIndex: 12, value: 610000, xRatio: 0.2, yRatio: 0.16 },
+  { date: "2036-04-29", monthIndex: 120, value: 90000, xRatio: 0.68, yRatio: 0.6 },
+  { date: "2041-04-29", monthIndex: 180, value: -130000, xRatio: 0.86, yRatio: 0.78 }
+];
+const secondZeroPoint = { date: "2039-04-29", monthIndex: 156, value: 0, xRatio: 0.78, yRatio: multiAppliedGraphModel.axes.y.zeroYRatio };
 multiAppliedGraphModel.series.appliedPostDeathResources = [
   {
     scenarioId: "income-impact-death-in-5-years",
     label: "Death in 5 years",
     pathId: "postDeathResources",
     selected: true,
-    points: multiAppliedGraphModel.series.postDeathResources
+    points: selectedRawPoints
   },
   {
     scenarioId: "income-impact-current-scenario",
     label: "Death tomorrow",
     pathId: "postDeathResources--scenario-2",
     selected: false,
-    points: [
-      { date: "2027-04-29", monthIndex: 12, value: 610000, xRatio: 0.2, yRatio: 0.16 },
-      { date: "2036-04-29", monthIndex: 120, value: 90000, xRatio: 0.68, yRatio: 0.6 },
-      { date: "2041-04-29", monthIndex: 180, value: -130000, xRatio: 0.86, yRatio: 0.78 }
-    ]
+    points: secondRawPoints
+  }
+];
+multiAppliedGraphModel.series.appliedRunwayScenarios = [
+  {
+    scenarioId: "income-impact-death-in-5-years",
+    label: "Death in 5 years",
+    pathId: "postDeathResources",
+    selected: true,
+    rawPoints: selectedRawPoints,
+    fundedRunwayPoints: selectedRawPoints.slice(0, 2).concat([selectedZeroPoint]),
+    deficitPoints: [selectedZeroPoint, selectedRawPoints[2]],
+    depletionPoint: selectedZeroPoint,
+    trace: {
+      rawValuesPreserved: true,
+      depletionDatePreserved: true
+    }
+  },
+  {
+    scenarioId: "income-impact-current-scenario",
+    label: "Death tomorrow",
+    pathId: "postDeathResources--scenario-2",
+    selected: false,
+    rawPoints: secondRawPoints,
+    fundedRunwayPoints: secondRawPoints.slice(0, 2).concat([secondZeroPoint]),
+    deficitPoints: [secondZeroPoint, secondRawPoints[2]],
+    depletionPoint: secondZeroPoint,
+    trace: {
+      rawValuesPreserved: true,
+      depletionDatePreserved: true
+    }
   }
 ];
 const multiAppliedTimelineHtml = harness.renderTimeline({
@@ -302,10 +354,36 @@ const multiAppliedTimelineHtml = harness.renderTimeline({
 });
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-source="fundedRunwayPoints"/);
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
   2,
   "Two applied scenario paths should render when the graph model provides them."
+);
+const selectedRunwayPath = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-path", "postDeathResources");
+const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
+const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 318);
+assert.ok(
+  Math.max(...selectedRunwayYValues) <= zeroY + 0.75,
+  "Selected funded runway path should stop at zero and should not include below-zero y coordinates."
+);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-area="postDeathDeficitArea--selected"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-source="deficitPoints"/);
+assert.match(multiAppliedTimelineHtml, /Required support after resources run out/);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-graph-deficit-area="postDeathDeficitArea--selected"[\s\S]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years"/,
+  "Only the selected applied scenario should own the filled deficit area."
+);
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-graph-deficit-area=/g) || []).length,
+  1,
+  "V1 should render one selected-scenario deficit area, not a filled area for every scenario."
+);
+assert.equal(
+  multiAppliedGraphModel.series.appliedRunwayScenarios[0].rawPoints.some(function (point) { return point.value < 0; }),
+  true,
+  "Raw negative values should remain preserved in the graph model contract."
 );
 assert.match(multiAppliedTimelineHtml, /data-income-impact-scenario-select="income-impact-death-in-5-years"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-scenario-select="income-impact-current-scenario"/);
