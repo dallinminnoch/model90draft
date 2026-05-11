@@ -534,7 +534,16 @@ assert.equal(
   "mortgage treatment control should exist exactly once."
 );
 assert.match(pageSource, /Scenario Controls/);
-assert.match(pageSource, /Preview only\. These controls do not change the LENS recommendation\./);
+assert.match(
+  pageSource,
+  /Preview only — LENS recommendation unchanged\./,
+  "scenario banner should use the shortened preview disclaimer."
+);
+assert.doesNotMatch(
+  pageSource,
+  /Preview only\. These controls do not change the LENS recommendation\./,
+  "scenario banner should not restore the old longer preview disclaimer."
+);
 assert.doesNotMatch(pageSource, /Death Age Scenario/);
 assert.match(
   pageSource,

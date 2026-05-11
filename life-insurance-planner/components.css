@@ -17462,11 +17462,15 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   }
 
   .income-impact-scenario-field:last-child {
-    grid-column: auto;
+    grid-column: 1 / -1;
   }
 
   .income-impact-scenario-field small {
     display: none;
+  }
+
+  .income-impact-scenario-field[data-income-impact-reevaluate-state="active"] [data-income-impact-reevaluate-action] {
+    display: block;
   }
 
   .income-impact-scenario-toggle {

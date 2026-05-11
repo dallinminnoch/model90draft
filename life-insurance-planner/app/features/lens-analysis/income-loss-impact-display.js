@@ -1285,7 +1285,6 @@
         ` : ""}
         ${postStart != null && postStart < 1 ? `
           <rect class="income-impact-graph-phase income-impact-graph-phase--post-death" x="${toGraphX(postStart)}" y="${GRAPH_VIEW_BOX.plotTop}" width="${Math.max(0, GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - toGraphX(postStart))}" height="${GRAPH_VIEW_BOX.plotHeight}"></rect>
-          <text x="${toGraphX(postStart) + 14}" y="${GRAPH_VIEW_BOX.plotTop + 24}">After death</text>
         ` : ""}
         ${deathX != null ? `
           <line class="income-impact-graph-death-axis" data-income-impact-graph-death-axis x1="${toGraphX(deathX)}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${toGraphX(deathX)}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
@@ -2235,7 +2234,7 @@
             <span>${escapeHtml(eyebrowLabel)}</span>
             <strong>Remaining resources timeline</strong>
           </div>
-          <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>
+          <p>Projected resources and required support after death.</p>
         </div>
         ${renderLifestyleImpactReadout(timelineResult)}
         ${renderGraphSvg(graphModel)}
