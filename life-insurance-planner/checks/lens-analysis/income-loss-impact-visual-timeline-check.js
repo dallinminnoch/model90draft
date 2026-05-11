@@ -42,6 +42,15 @@ function getPathD(html, dataAttributeName, dataAttributeValue) {
   return match[1];
 }
 
+function getRunwayDepletionMarkerTag(html, scenarioId) {
+  const tags = html.match(/<g\b(?=[^>]*data-income-impact-runway-depletion-marker)[^>]*>/g) || [];
+  const tag = tags.find(function (candidate) {
+    return candidate.includes(`data-income-impact-applied-scenario-id="${scenarioId}"`);
+  });
+  assert.ok(tag, `Expected depletion marker for ${scenarioId}`);
+  return tag;
+}
+
 function getPathYValues(pathD) {
   const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
   return numbers
@@ -182,6 +191,8 @@ assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
 assert.match(displaySource, /deficitPoints/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
+assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
+assert.match(displaySource, /data-income-impact-runway-depletion-marker/);
 assert.match(displaySource, /renderLifestyleImpactReadout/);
 assert.match(displaySource, /data-income-impact-lifestyle-impact-readout/);
 assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
@@ -202,9 +213,14 @@ assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/)
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
+assert.match(componentsSource, /\.income-impact-graph-deficit-label/);
+assert.match(componentsSource, /\.income-impact-runway-depletion-marker/);
+assert.match(componentsSource, /\.income-impact-runway-depletion-label/);
 assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /data-income-impact-applied-scenario-selected="false"[\s\S]*opacity:\s*0\.58;/);
+assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="true"\][\s\S]*circle/);
+assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="false"\][\s\S]*opacity:\s*0\.62;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
@@ -370,6 +386,8 @@ assert.ok(
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-area="postDeathDeficitArea--selected"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-source="deficitPoints"/);
 assert.match(multiAppliedTimelineHtml, /Required support after resources run out/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-label/);
+assert.match(multiAppliedTimelineHtml, /Required support[\s\S]*after resources run out/);
 assert.match(
   multiAppliedTimelineHtml,
   /data-income-impact-graph-deficit-area="postDeathDeficitArea--selected"[\s\S]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years"/,
@@ -380,6 +398,26 @@ assert.equal(
   1,
   "V1 should render one selected-scenario deficit area, not a filled area for every scenario."
 );
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-runway-depletion-marker(?:\s|>)/g) || []).length,
+  2,
+  "Each depleted applied scenario should render one depletion marker."
+);
+const selectedDepletionMarkerTag = getRunwayDepletionMarkerTag(
+  multiAppliedTimelineHtml,
+  "income-impact-death-in-5-years"
+);
+assert.match(selectedDepletionMarkerTag, /data-income-impact-applied-scenario-label="Death in 5 years"/);
+assert.match(selectedDepletionMarkerTag, /data-income-impact-applied-scenario-selected="true"/);
+const mutedDepletionMarkerTag = getRunwayDepletionMarkerTag(
+  multiAppliedTimelineHtml,
+  "income-impact-current-scenario"
+);
+assert.match(mutedDepletionMarkerTag, /data-income-impact-applied-scenario-label="Death tomorrow"/);
+assert.match(mutedDepletionMarkerTag, /data-income-impact-applied-scenario-selected="false"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-depletion-label[\s\S]*Runs out/);
+assert.match(multiAppliedTimelineHtml, /aria-label="Death in 5 years: Resources depleted"/);
+assert.match(multiAppliedTimelineHtml, /aria-label="Death tomorrow: Resources depleted"/);
 assert.equal(
   multiAppliedGraphModel.series.appliedRunwayScenarios[0].rawPoints.some(function (point) { return point.value < 0; }),
   true,
@@ -404,6 +442,31 @@ assert.match(multiAppliedTimelineHtml, /Death tomorrow/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-legend/);
 assert.doesNotMatch(multiAppliedTimelineHtml, /Comparison only - base projection unchanged\./);
 assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+
+multiAppliedGraphModel.series.appliedRunwayScenarios[0].selected = false;
+multiAppliedGraphModel.series.appliedRunwayScenarios[1].selected = true;
+multiAppliedGraphModel.trace = Object.assign({}, multiAppliedGraphModel.trace, {
+  selectedScenarioId: "income-impact-current-scenario"
+});
+const switchedSelectedTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  graphModel: multiAppliedGraphModel
+});
+assert.match(
+  switchedSelectedTimelineHtml,
+  /data-income-impact-graph-deficit-area="postDeathDeficitArea--selected"[\s\S]*data-income-impact-applied-scenario-id="income-impact-current-scenario"/,
+  "Selected deficit area should move when the selected applied scenario changes."
+);
+assert.match(
+  getRunwayDepletionMarkerTag(switchedSelectedTimelineHtml, "income-impact-current-scenario"),
+  /data-income-impact-applied-scenario-selected="true"/,
+  "Selected depletion marker should move when the selected applied scenario changes."
+);
+assert.match(
+  getRunwayDepletionMarkerTag(switchedSelectedTimelineHtml, "income-impact-death-in-5-years"),
+  /data-income-impact-applied-scenario-selected="false"/,
+  "Previously selected depletion marker should become muted when another scenario is selected."
+);
 
 const currentGraphModel = makeGraphModel();
 const currentComparisonPoints = currentGraphModel.series.postDeathResources.map((point) => ({ ...point }));

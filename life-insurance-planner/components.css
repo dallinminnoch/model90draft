@@ -16481,6 +16481,22 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   vector-effect: non-scaling-stroke;
 }
 
+.income-impact-graph-deficit-label,
+.income-impact-runway-depletion-label {
+  fill: #7b2f24;
+  font-size: 0.68rem;
+  font-weight: 820;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: #ffffff;
+  stroke-linejoin: round;
+  stroke-width: 3px;
+}
+
+.income-impact-graph-deficit-label {
+  fill: #8f382a;
+}
+
 .income-impact-graph-path--preDeathAssets {
   stroke: #4054b8;
 }
@@ -16728,6 +16744,35 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   fill: #227455;
   opacity: 0.72;
   stroke: #ffffff;
+}
+
+.income-impact-runway-depletion-marker {
+  cursor: pointer;
+}
+
+.income-impact-runway-depletion-marker line {
+  opacity: 0.72;
+  stroke: rgba(185, 70, 48, 0.72);
+  stroke-dasharray: 2 4;
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-runway-depletion-marker circle {
+  fill: #ffffff;
+  stroke: #8f382a;
+  stroke-width: 1.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-runway-depletion-marker[data-income-impact-applied-scenario-selected="true"] circle {
+  fill: #b94630;
+  stroke: #ffffff;
+  stroke-width: 2.2;
+}
+
+.income-impact-runway-depletion-marker[data-income-impact-applied-scenario-selected="false"] {
+  opacity: 0.62;
 }
 
 .income-impact-comparison-markers {
