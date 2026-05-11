@@ -2597,22 +2597,11 @@
     return JSON.stringify(getBaseRenderControlSnapshot(state));
   }
 
-  function clearLifestyleSliderRenderFrame() {
-    const frameId = incomeImpactState?.pendingLifestyleSliderFrameId;
-    if (frameId == null || typeof window.cancelAnimationFrame !== "function") {
-      return;
-    }
-
-    window.cancelAnimationFrame(frameId);
-    incomeImpactState.pendingLifestyleSliderFrameId = null;
-  }
-
   function invalidateIncomeImpactBaseRenderCache() {
     if (!incomeImpactState) {
       return;
     }
 
-    clearLifestyleSliderRenderFrame();
     incomeImpactState.baseRenderCache = null;
   }
 
@@ -2938,7 +2927,6 @@
       return;
     }
 
-    clearLifestyleSliderRenderFrame();
     const baseContext = buildBaseIncomeImpactContextFromState(incomeImpactState);
     incomeImpactState.baseRenderCache = {
       key: baseContext.cacheKey,
@@ -2947,61 +2935,6 @@
     const timelineResult = buildIncomeImpactResultFromBaseContext(incomeImpactState, baseContext);
     upsertInitialAppliedScenarioFromTimelineResult(incomeImpactState, baseContext, timelineResult);
     renderIncomeImpactTimelineResult(timelineResult);
-  }
-
-  function renderLifestyleSliderFromState() {
-    if (
-      !incomeImpactState?.host
-      || typeof incomeImpactState.calculateIncomeImpactLifestyleScenario !== "function"
-      || typeof incomeImpactState.buildIncomeImpactTimelineGraphModel !== "function"
-    ) {
-      renderIncomeImpactFromState();
-      return false;
-    }
-
-    const scenarioState = isPlainObject(incomeImpactState.scenarioState)
-      ? incomeImpactState.scenarioState
-      : {};
-    const lifestyleSliderValue = clampLifestyleSliderValue(scenarioState.lifestyleSliderValue);
-    if (
-      isPlainObject(incomeImpactState.latestTimelineResult)
-      && incomeImpactState.latestTimelineResult?.compressionReporting?.trace?.lifestyleSliderValue === lifestyleSliderValue
-      && getCachedBaseRenderContext(incomeImpactState)
-    ) {
-      updateScenarioControls(incomeImpactState.latestTimelineResult);
-      return true;
-    }
-
-    const baseContext = getCachedBaseRenderContext(incomeImpactState);
-    if (!baseContext) {
-      renderIncomeImpactFromState();
-      return false;
-    }
-
-    const timelineResult = buildIncomeImpactResultFromBaseContext(incomeImpactState, baseContext, lifestyleSliderValue);
-    upsertInitialAppliedScenarioFromTimelineResult(incomeImpactState, baseContext, timelineResult);
-    renderIncomeImpactTimelineResult(timelineResult);
-    return true;
-  }
-
-  function scheduleLifestyleSliderRender() {
-    if (!incomeImpactState) {
-      return;
-    }
-
-    if (incomeImpactState.pendingLifestyleSliderFrameId != null) {
-      return;
-    }
-
-    if (typeof window.requestAnimationFrame !== "function") {
-      renderLifestyleSliderFromState();
-      return;
-    }
-
-    incomeImpactState.pendingLifestyleSliderFrameId = window.requestAnimationFrame(function () {
-      incomeImpactState.pendingLifestyleSliderFrameId = null;
-      renderLifestyleSliderFromState();
-    });
   }
 
   function bindScenarioControls() {
@@ -3206,7 +3139,6 @@
         appliedScenarios: [],
         selectedScenarioId: INITIAL_APPLIED_SCENARIO_ID,
         baseRenderCache: null,
-        pendingLifestyleSliderFrameId: null,
         scenarioControlsBound: false,
         builderWarnings: builderResult.warnings
       };

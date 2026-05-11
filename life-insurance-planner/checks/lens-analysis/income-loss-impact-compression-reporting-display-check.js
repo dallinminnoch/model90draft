@@ -473,6 +473,11 @@ assert.doesNotMatch(
   /controls\.lifestyleSliderValue[\s\S]{0,220}(?:scheduleLifestyleSliderRender|renderIncomeImpactFromState)\(\)/,
   "Lifestyle slider draft changes should not use the old live graph mutation path."
 );
+assert.doesNotMatch(
+  displaySource,
+  /renderLifestyleSliderFromState|scheduleLifestyleSliderRender|clearLifestyleSliderRenderFrame|pendingLifestyleSliderFrameId/,
+  "Obsolete lifestyle slider live-render helpers should stay removed after Reevaluate draft/apply behavior."
+);
 assert.match(
   displaySource,
   /controls\.selectedDeathAge[\s\S]{0,180}setDraftScenarioControls\(incomeImpactState, controls\);[\s\S]{0,80}updateScenarioControls\(incomeImpactState\.latestTimelineResult\)/,
