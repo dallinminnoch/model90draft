@@ -1259,7 +1259,7 @@
               data-income-impact-graph-x-tick-date="${escapeHtml(tick.date || "")}"
               data-income-impact-graph-x-tick-relative-years="${escapeHtml(tick.relativeYears == null ? "" : tick.relativeYears)}"
             >
-              <line x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${x}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
+              <line x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}" x2="${x}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 8}"></line>
               <text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 28}" text-anchor="middle">${escapeHtml(tick.label || "")}</text>
               ${secondaryLabel ? `<text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 48}" text-anchor="middle">${escapeHtml(secondaryLabel)}</text>` : ""}
             </g>
@@ -1520,7 +1520,7 @@
             data-income-impact-graph-deficit-label
             x="${labelPosition.x}"
             y="${labelPosition.y}"
-          ><tspan x="${labelPosition.x}">Required support </tspan><tspan x="${labelPosition.x}" dy="1.12em">after resources run out</tspan></text>
+          >Required support</text>
         ` : ""}
       </g>
     `;
@@ -2125,7 +2125,7 @@
     }
     return `
       <g class="income-impact-graph-current-anchor" data-income-impact-graph-current-anchor transform="translate(${toGraphX(anchor.xRatio)} ${toGraphY(anchor.yRatio)})">
-        <rect x="-5" y="-5" width="10" height="10" rx="2"></rect>
+        <rect x="-4" y="-4" width="8" height="8" rx="1" transform="rotate(45)"></rect>
         <title>Current asset value at selected death date</title>
       </g>
     `;
@@ -2226,11 +2226,13 @@
     if (!isPlainObject(graphModel) || !graphModel.status || graphModel.status === "unavailable" || !isPlainObject(graphModel.axes)) {
       return renderTimelineUnavailableState(timelineResult);
     }
+    const selectedGraphSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    const eyebrowLabel = normalizeString(selectedGraphSeries?.label) || "Selected scenario";
     return `
       <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(graphModel.status || "partial")}">
         <div class="income-impact-graph-header">
           <div>
-            <span>Selected scenario</span>
+            <span>${escapeHtml(eyebrowLabel)}</span>
             <strong>Remaining resources timeline</strong>
           </div>
           <p>Before-death projection, death-event conversion, and survivor runway from the composed Income Impact scenario.</p>

@@ -218,7 +218,7 @@ assert.match(componentsSource, /\.income-impact-runway-depletion-marker/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-label/);
 assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area[\s\S]*pointer-events:\s*none;/);
-assert.match(componentsSource, /data-income-impact-applied-scenario-selected="false"[\s\S]*opacity:\s*0\.58;/);
+assert.match(componentsSource, /data-income-impact-applied-scenario-selected="false"[\s\S]*opacity:\s*0\.38;/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="true"\][\s\S]*circle/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="false"\][\s\S]*opacity:\s*0\.62;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);

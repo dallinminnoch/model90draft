@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node checks/lens-analysis/income-loss-impact-scenario-banner-check.js)",
+      "PowerShell(Get-Command node -ErrorAction SilentlyContinue; $env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })",
+      "Bash(python -m http.server 7421 --directory .)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:7421/pages/income-loss-impact.html\")",
+      "Bash(python -c \"import playwright; print\\('playwright ok'\\)\")",
+      "Bash(python -m playwright --version)",
+      "Bash(pip show *)",
+      "Bash(pip3 show *)",
+      "Bash(pip install *)",
+      "Bash(python -m playwright install chromium --quiet)",
+      "Bash(python -m playwright install chromium)",
+      "Bash(pkill -f \"python -m http.server 7421\")"
+    ]
+  }
+}
