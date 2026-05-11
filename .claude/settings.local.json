@@ -12,7 +12,9 @@
       "Bash(pip install *)",
       "Bash(python -m playwright install chromium --quiet)",
       "Bash(python -m playwright install chromium)",
-      "Bash(pkill -f \"python -m http.server 7421\")"
+      "Bash(pkill -f \"python -m http.server 7421\")",
+      "Bash(python -m http.server 7430 --directory .)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:7430/pages/income-loss-impact.html\")"
     ]
   }
 }

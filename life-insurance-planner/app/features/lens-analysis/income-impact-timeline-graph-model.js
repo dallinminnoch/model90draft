@@ -10,6 +10,11 @@
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const MAX_RENDERED_APPLIED_SCENARIOS = 2;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
+  const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
+  const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
+  const DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS = 5;
+  const MONTHS_PER_YEAR = 12;
+  const DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
   const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30]);
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
@@ -92,6 +97,17 @@
     const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
     target.setDate(Math.min(date.getDate(), lastDayOfTargetMonth));
     return target;
+  }
+
+  function getApproximateMonthDelta(startDateValue, endDateValue) {
+    const startDate = parseDateOnly(startDateValue);
+    const endDate = parseDateOnly(endDateValue);
+    if (!startDate || !endDate) {
+      return null;
+    }
+    const wholeMonths = ((endDate.getFullYear() - startDate.getFullYear()) * MONTHS_PER_YEAR)
+      + (endDate.getMonth() - startDate.getMonth());
+    return wholeMonths + ((endDate.getDate() - startDate.getDate()) / 30.4375);
   }
 
   function appendUnique(target, values) {
@@ -382,17 +398,22 @@
           return null;
         }
 
+        const scenarioDates = getScenarioDates(appliedScenario.scenario);
         return {
           scenarioId,
           label: getAppliedScenarioLabel(appliedScenario, sourceIndex),
           selected,
           sourceIndex,
           sourcePath,
+          deathDate: scenarioDates.deathDate,
+          valuationDate: scenarioDates.valuationDate,
+          projectionHorizonMonths: scenarioDates.projectionHorizonMonths,
           points,
           depletion: getDepletionInfo(points, getPath(appliedScenario.scenario, "postDeathSeries.depletion")),
           trace: {
             selectedScenario: selected,
-            sourcePath
+            sourcePath,
+            rawDatesPreserved: true
           }
         };
       })
@@ -483,7 +504,7 @@
     return previousNumber + ((currentNumber - previousNumber) * ratio);
   }
 
-  function makeZeroCrossingPoint(previousPoint, currentPoint, series, xDomain, yDomain) {
+  function makeZeroCrossingPoint(previousPoint, currentPoint, series, xDomain, yDomain, projection) {
     const ratio = getZeroCrossingRatio(previousPoint, currentPoint);
     const explicitDepletion = isPlainObject(series?.depletion) ? series.depletion : {};
     const explicitDate = normalizeDateOnly(explicitDepletion.date);
@@ -495,6 +516,9 @@
     appendUnique(sourcePaths, Array.isArray(currentPoint?.sourcePaths) ? currentPoint.sourcePaths : []);
     appendUnique(sourcePaths, Array.isArray(explicitDepletion.sourcePaths) ? explicitDepletion.sourcePaths : []);
     const interpolatedX = interpolateNumber(previousPoint?.xRatio, currentPoint?.xRatio, ratio);
+    const relativeMonthsFromDeath = isPlainObject(projection)
+      ? getPointRelativeMonthsFromDeath({ date, monthIndex, phase: "postDeath" }, projection, "postDeath")
+      : null;
     return {
       id: `${series.pathId || series.scenarioId || "applied-scenario"}-zero-crossing`,
       date,
@@ -506,8 +530,10 @@
       endingResources: 0,
       availableResources: 0,
       accumulatedUnmetNeed: 0,
-      xRatio: getDateRatio(date, xDomain) ?? interpolatedX,
+      xRatio: getDeathRelativeXRatio(relativeMonthsFromDeath, projection) ?? getDateRatio(date, xDomain) ?? interpolatedX,
       yRatio: getValueRatio(0, yDomain),
+      relativeMonthsFromDeath,
+      relativeYearsFromDeath: relativeMonthsFromDeath == null ? null : relativeMonthsFromDeath / MONTHS_PER_YEAR,
       sourcePath: `${series.sourcePath}.zeroCrossing`,
       sourcePaths,
       status: "depleted",
@@ -517,12 +543,14 @@
         interpolationKind: "zeroCrossing",
         interpolationReason: "runwayDepletionBoundary",
         depletionDatePreserved: !explicitDate || explicitDate === date,
+        xProjectionMode: isPlainObject(projection) ? projection.mode : null,
+        rawDatePreserved: true,
         sourcePointIds: [previousPoint?.id, currentPoint?.id].filter(Boolean)
       }
     };
   }
 
-  function buildAppliedRunwayScenario(series, xDomain, yDomain) {
+  function buildAppliedRunwayScenario(series, xDomain, yDomain, projection) {
     const rawPoints = Array.isArray(series?.points)
       ? series.points.map(cloneRunwayPoint)
       : [];
@@ -554,7 +582,7 @@
       }
 
       if (!depletionPoint && resourceValue < 0) {
-        depletionPoint = makeZeroCrossingPoint(previousPoint, point, series, xDomain, yDomain);
+        depletionPoint = makeZeroCrossingPoint(previousPoint, point, series, xDomain, yDomain, projection);
         visualInterpolationPointCount += 1;
         fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
         deficitPoints.push(cloneDeficitPoint(depletionPoint));
@@ -571,6 +599,8 @@
       label: series.label,
       selected: Boolean(series.selected),
       pathId: series.pathId,
+      deathDate: normalizeDateOnly(projection?.deathDate || series.deathDate),
+      deathXRatio: toOptionalNumber(projection?.deathXRatio),
       rawPoints,
       fundedRunwayPoints,
       deficitPoints,
@@ -583,14 +613,18 @@
           || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
         visualInterpolationPointCount,
         visualInterpolationKinds: visualInterpolationPointCount ? ["zeroCrossing"] : [],
-        sourcePath: series.sourcePath
+        sourcePath: series.sourcePath,
+        rawDatesPreserved: true,
+        deathAlignedToSharedAnchor: isPlainObject(projection),
+        calculationHorizonPreserved: true,
+        xProjectionMode: isPlainObject(projection) ? projection.mode : null
       }
     };
   }
 
   function buildAppliedRunwayScenarios(appliedSeries, xDomain, yDomain) {
     return (Array.isArray(appliedSeries) ? appliedSeries : []).map(function (series) {
-      return buildAppliedRunwayScenario(series, xDomain, yDomain);
+      return buildAppliedRunwayScenario(series, xDomain, yDomain, series?.xProjection);
     });
   }
 
@@ -1156,6 +1190,81 @@
     return Math.max(0, Math.min(1, (date.getTime() - domain.min.getTime()) / span));
   }
 
+  function clampRatio(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return null;
+    }
+    return Math.max(0, Math.min(1, number));
+  }
+
+  function makeDeathRelativeRunwayProjection(dates) {
+    const safeDates = isPlainObject(dates) ? dates : {};
+    const calculationHorizonMonths = toOptionalNumber(safeDates.projectionHorizonMonths);
+    const postDeathDisplayHorizonMonths = calculationHorizonMonths != null && calculationHorizonMonths > 0
+      ? calculationHorizonMonths
+      : DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS;
+    return {
+      mode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
+      xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
+      deathXRatio: DEATH_RELATIVE_DEATH_X_RATIO,
+      preDeathContextYears: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS,
+      preDeathContextMonths: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS * MONTHS_PER_YEAR,
+      postDeathDisplayHorizonMonths,
+      calculationHorizonMonths,
+      deathDate: normalizeDateOnly(safeDates.deathDate),
+      valuationDate: normalizeDateOnly(safeDates.valuationDate),
+      trace: {
+        rawDatesPreserved: true,
+        deathAlignedToSharedAnchor: true,
+        calculationHorizonPreserved: true,
+        displayHorizonAutoSized: false
+      }
+    };
+  }
+
+  function getDeathRelativeXRatio(relativeMonths, projection) {
+    const months = toOptionalNumber(relativeMonths);
+    if (months == null || !isPlainObject(projection)) {
+      return null;
+    }
+    const deathXRatio = toOptionalNumber(projection.deathXRatio) ?? DEATH_RELATIVE_DEATH_X_RATIO;
+    if (months < 0) {
+      const preDeathMonths = Math.max(
+        toOptionalNumber(projection.preDeathContextMonths) || (DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS * MONTHS_PER_YEAR),
+        1
+      );
+      return clampRatio(deathXRatio - (Math.min(Math.abs(months), preDeathMonths) / preDeathMonths * deathXRatio));
+    }
+    const postDeathMonths = Math.max(
+      toOptionalNumber(projection.postDeathDisplayHorizonMonths) || DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS,
+      1
+    );
+    return clampRatio(deathXRatio + (Math.min(months, postDeathMonths) / postDeathMonths * (1 - deathXRatio)));
+  }
+
+  function getPointRelativeMonthsFromDeath(point, projection, phaseFallback) {
+    if (!isPlainObject(point) || !isPlainObject(projection)) {
+      return null;
+    }
+    const phase = normalizeString(point.phase || phaseFallback);
+    const pointMonthIndex = toOptionalNumber(point.monthIndex);
+    if (phase === "deathEvent") {
+      return 0;
+    }
+    if (phase === "postDeath" || phase === "appliedPostDeath") {
+      if (pointMonthIndex != null) {
+        return pointMonthIndex;
+      }
+    }
+    const deathDate = normalizeDateOnly(projection.deathDate);
+    const pointDate = normalizeDateOnly(point.date);
+    if (deathDate && pointDate) {
+      return getApproximateMonthDelta(deathDate, pointDate);
+    }
+    return pointMonthIndex;
+  }
+
   function getValueRatio(value, domain) {
     const number = toOptionalNumber(value);
     if (number == null) {
@@ -1168,12 +1277,28 @@
     return Math.max(0, Math.min(1, 1 - ((number - domain.min) / span)));
   }
 
-  function enrichPoint(point, xDomain, yDomain) {
-    return {
+  function enrichPoint(point, xDomain, yDomain, projection, phaseFallback) {
+    const relativeMonthsFromDeath = isPlainObject(projection)
+      ? getPointRelativeMonthsFromDeath(point, projection, phaseFallback)
+      : null;
+    const projectedXRatio = isPlainObject(projection)
+      ? getDeathRelativeXRatio(relativeMonthsFromDeath, projection)
+      : null;
+    const enriched = {
       ...point,
-      xRatio: getDateRatio(point.date, xDomain),
+      xRatio: projectedXRatio ?? getDateRatio(point.date, xDomain),
       yRatio: getValueRatio(point.value, yDomain)
     };
+    if (relativeMonthsFromDeath != null) {
+      enriched.relativeMonthsFromDeath = relativeMonthsFromDeath;
+      enriched.relativeYearsFromDeath = relativeMonthsFromDeath / MONTHS_PER_YEAR;
+      enriched.trace = Object.assign({}, isPlainObject(point.trace) ? point.trace : {}, {
+        xProjectionMode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
+        rawDatePreserved: true,
+        rawValuePreserved: true
+      });
+    }
+    return enriched;
   }
 
   function makeYTicks(domain) {
@@ -1216,30 +1341,35 @@
       && parsedDate.getTime() <= domainMax.getTime();
   }
 
-  function createDeathRelativeXTick(input, xDomain) {
+  function createDeathRelativeXTick(input, xDomain, projection) {
     const date = normalizeDateOnly(input.date);
-    if (!date || !dateIsWithinDomain(date, xDomain)) {
+    if (!date || (!isPlainObject(projection) && !dateIsWithinDomain(date, xDomain))) {
       return null;
     }
 
     const relativeYears = toOptionalNumber(input.relativeYears);
+    const relativeMonths = relativeYears == null ? null : relativeYears * MONTHS_PER_YEAR;
+    const xRatio = isPlainObject(projection)
+      ? getDeathRelativeXRatio(relativeMonths ?? -projection.preDeathContextMonths, projection)
+      : getDateRatio(date, xDomain);
     return {
       id: input.id,
       key: input.id,
       label: input.label,
       date,
-      xRatio: getDateRatio(date, xDomain),
+      xRatio,
       relativeYears,
-      relativeMonths: relativeYears == null ? null : relativeYears * 12,
+      relativeMonths,
       axisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
       trace: {
         displayOnlyAxisLabel: true,
-        rawDatePreserved: true
+        rawDatePreserved: true,
+        projectionMode: isPlainObject(projection) ? projection.mode : null
       }
     };
   }
 
-  function makeXTicks(dates, xDomain) {
+  function makeXTicks(dates, xDomain, projection) {
     const deathDate = normalizeDateOnly(dates.deathDate);
     if (!deathDate || !parseDateOnly(deathDate)) {
       return [];
@@ -1253,7 +1383,7 @@
         label: "Before death",
         date: domainStart,
         relativeYears: null
-      }, xDomain);
+      }, xDomain, projection);
       if (preDeathTick) {
         ticks.push(preDeathTick);
       }
@@ -1264,20 +1394,26 @@
       label: "Death",
       date: deathDate,
       relativeYears: 0
-    }, xDomain);
+    }, xDomain, projection);
     if (deathTick) {
       ticks.push(deathTick);
     }
 
     const parsedDeathDate = parseDateOnly(deathDate);
+    const displayHorizonMonths = isPlainObject(projection)
+      ? toOptionalNumber(projection.postDeathDisplayHorizonMonths)
+      : null;
     DEATH_RELATIVE_X_TICK_YEARS.forEach(function (relativeYears) {
-      const tickDate = addMonths(parsedDeathDate, relativeYears * 12);
+      if (displayHorizonMonths != null && relativeYears * MONTHS_PER_YEAR > displayHorizonMonths) {
+        return;
+      }
+      const tickDate = addMonths(parsedDeathDate, relativeYears * MONTHS_PER_YEAR);
       const tick = createDeathRelativeXTick({
         id: `plus-${relativeYears}`,
         label: `+${relativeYears} years`,
         date: tickDate,
         relativeYears
-      }, xDomain);
+      }, xDomain, projection);
       if (tick) {
         ticks.push(tick);
       }
@@ -1286,8 +1422,10 @@
     return ticks;
   }
 
-  function makePhases(dates, xDomain, postDeathPoints) {
-    const deathX = getDateRatio(dates.deathDate, xDomain);
+  function makePhases(dates, xDomain, postDeathPoints, projection) {
+    const deathX = isPlainObject(projection)
+      ? projection.deathXRatio
+      : getDateRatio(dates.deathDate, xDomain);
     const startDate = normalizeDateOnly(xDomain.min);
     const endDate = normalizeDateOnly(xDomain.max);
     const preAvailable = Boolean(dates.valuationDate && dates.deathDate && dates.valuationDate !== dates.deathDate);
@@ -1377,6 +1515,7 @@
     }
 
     const dates = getScenarioDates(scenario);
+    const deathRelativeProjection = makeDeathRelativeRunwayProjection(dates);
     const preDeath = isPlainObject(scenario.preDeathSeries) ? scenario.preDeathSeries : {};
     const preDeathMode = String(preDeath.mode || "").trim();
     const currentPointOnly = preDeathMode === "current-point-only"
@@ -1454,40 +1593,47 @@
     );
 
     const enrichedPreDeath = preDeathAssets.map(function (point) {
-      return enrichPoint(point, xDomain, yDomain);
+      return enrichPoint(point, xDomain, yDomain, deathRelativeProjection, "preDeath");
     });
     const enrichedPostDeath = postDeathResources.map(function (point) {
-      return enrichPoint(point, xDomain, yDomain);
+      return enrichPoint(point, xDomain, yDomain, deathRelativeProjection, "postDeath");
     });
     const enrichedAppliedPostDeath = appliedPostDeathResources.map(function (appliedSeries) {
+      const seriesProjection = makeDeathRelativeRunwayProjection({
+        valuationDate: appliedSeries.valuationDate || dates.valuationDate,
+        deathDate: appliedSeries.deathDate || dates.deathDate,
+        projectionHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths
+      });
       return Object.assign({}, appliedSeries, {
+        xProjection: seriesProjection,
         points: appliedSeries.points.map(function (point) {
-          return enrichPoint(point, xDomain, yDomain);
+          return enrichPoint(point, xDomain, yDomain, seriesProjection, "postDeath");
         })
       });
     });
     const enrichedComparisonPostDeath = comparisonPostDeathResources.map(function (comparisonSeries) {
       return Object.assign({}, comparisonSeries, {
         points: comparisonSeries.points.map(function (point) {
-          return enrichPoint(point, xDomain, yDomain);
+          return enrichPoint(point, xDomain, yDomain, deathRelativeProjection, "postDeath");
         })
       });
     });
     const enrichedDeathStages = deathTransition.stages.map(function (stage) {
-      return enrichPoint(stage, xDomain, yDomain);
+      return enrichPoint(stage, xDomain, yDomain, deathRelativeProjection, "deathEvent");
     });
     const enrichedMarkers = markers.map(function (marker) {
-      return marker.positionable ? enrichPoint(marker, xDomain, yDomain) : marker;
+      return marker.positionable ? enrichPoint(marker, xDomain, yDomain, deathRelativeProjection, marker.phase) : marker;
     });
     const enrichedComparisonMarkers = comparisonMarkers.map(function (marker) {
-      return marker.positionable ? enrichPoint(marker, xDomain, yDomain) : marker;
+      return marker.positionable ? enrichPoint(marker, xDomain, yDomain, deathRelativeProjection, marker.phase || "postDeath") : marker;
     });
     const appliedRunwayScenarios = buildAppliedRunwayScenarios(enrichedAppliedPostDeath, xDomain, yDomain);
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
 
     const result = {
       status: usable ? (scenario.status === "complete" && !dataGaps.length ? "complete" : "partial") : "unavailable",
-      phases: makePhases(dates, xDomain, enrichedPostDeath),
+      projection: clonePlainValue(deathRelativeProjection),
+      phases: makePhases(dates, xDomain, enrichedPostDeath, deathRelativeProjection),
       series: {
         preDeathAssets: enrichedPreDeath,
         currentAnchor: currentPointOnly && enrichedDeathStages.length
@@ -1507,7 +1653,10 @@
           domainStart: normalizeDateOnly(xDomain.min),
           domainEnd: normalizeDateOnly(xDomain.max),
           deathDate: dates.deathDate,
-          ticks: makeXTicks(dates, xDomain)
+          deathXRatio: deathRelativeProjection.deathXRatio,
+          projectionMode: deathRelativeProjection.mode,
+          postDeathDisplayHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths,
+          ticks: makeXTicks(dates, xDomain, deathRelativeProjection)
         },
         y: {
           min: yDomain.min,
@@ -1544,6 +1693,10 @@
         selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
         selectedAppliedScenario: scenarioInput.selectedAppliedScenario,
         xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
+        projectionMode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
+        rawDatesPreserved: true,
+        deathAlignedToSharedAnchor: true,
+        calculationHorizonPreserved: true,
         preDeathMode,
         currentAgeMode: options.currentAgeMode || DEFAULT_CURRENT_AGE_MODE,
         noFinancialCalculationsPerformed: true,

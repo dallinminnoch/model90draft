@@ -16,6 +16,13 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function assertApproxEqual(actual, expected, message, epsilon = 0.000001) {
+  assert.ok(
+    Math.abs(actual - expected) <= epsilon,
+    `${message} Expected ${expected}, received ${actual}.`
+  );
+}
+
 function getRenderableGraphModel(model) {
   const clone = cloneJson(model);
   if (clone.series) {
@@ -237,12 +244,41 @@ assert.deepEqual(
 );
 assert.equal(fiveYearModel.series.postDeathResources.length, fiveYearScenario.postDeathSeries.points.length);
 assert.equal(fiveYearModel.series.postDeathResources[0].value, fiveYearScenario.postDeathSeries.points[0].endingResources);
+assert.equal(fiveYearModel.series.postDeathResources[0].date, fiveYearScenario.postDeathSeries.points[0].date);
+assert.equal(fiveYearModel.series.postDeathResources[0].relativeMonthsFromDeath, fiveYearScenario.postDeathSeries.points[0].monthIndex);
+assertApproxEqual(
+  fiveYearModel.series.postDeathResources[0].xRatio,
+  fiveYearModel.projection.deathXRatio
+    + (fiveYearScenario.postDeathSeries.points[0].monthIndex / fiveYearModel.projection.postDeathDisplayHorizonMonths)
+      * (1 - fiveYearModel.projection.deathXRatio),
+  "Selected scenario post-death point should map by months after death."
+);
 assert.equal(fiveYearModel.axes.x.xAxisMode, "deathRelativeYears");
 assert.equal(fiveYearModel.trace.xAxisMode, "deathRelativeYears");
+assert.equal(fiveYearModel.projection.mode, "deathRelativeRunway");
+assert.equal(fiveYearModel.projection.xAxisMode, "deathRelativeYears");
+assert.equal(fiveYearModel.projection.trace.rawDatesPreserved, true);
+assert.equal(fiveYearModel.projection.trace.deathAlignedToSharedAnchor, true);
+assert.equal(fiveYearModel.projection.trace.calculationHorizonPreserved, true);
+assert.equal(fiveYearModel.projection.trace.displayHorizonAutoSized, false);
+assert.equal(fiveYearModel.trace.projectionMode, "deathRelativeRunway");
+assert.equal(fiveYearModel.trace.rawDatesPreserved, true);
+assert.equal(fiveYearModel.trace.deathAlignedToSharedAnchor, true);
+assert.equal(fiveYearModel.trace.calculationHorizonPreserved, true);
+assertApproxEqual(
+  fiveYearModel.phases.deathEvent.xRatio,
+  fiveYearModel.projection.deathXRatio,
+  "Death event phase should use the fixed death-relative runway anchor."
+);
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.x.ticks.map(function (tick) { return tick.label; })),
   ["Before death", "Death", "+5 years", "+10 years", "+15 years", "+20 years", "+30 years"],
   "Graph x-axis should use death-relative runway labels instead of calendar axis labels."
+);
+assertApproxEqual(
+  fiveYearModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).xRatio,
+  fiveYearModel.projection.deathXRatio,
+  "Death axis tick should use the fixed death-relative runway anchor."
 );
 assert.equal(
   fiveYearModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).date,
@@ -289,6 +325,12 @@ const tenYearHorizonModel = buildIncomeImpactTimelineGraphModel({
     currentAgeMode: "death-event-only"
   }
 });
+assert.equal(tenYearHorizonScenario.scenario.projectionHorizonMonths, 120);
+assert.equal(
+  tenYearHorizonModel.projection.calculationHorizonMonths,
+  120,
+  "Projection horizon calculation metadata should remain unchanged in the graph model."
+);
 assert.deepEqual(
   cloneJson(tenYearHorizonModel.axes.x.ticks.map(function (tick) { return tick.label; })),
   ["Before death", "Death", "+5 years", "+10 years"],
@@ -362,7 +404,16 @@ assert.deepEqual(
   "Runway raw points should preserve source dates."
 );
 assert.equal(appliedSingleRunway.trace.rawValuesPreserved, true);
+assert.equal(appliedSingleRunway.trace.rawDatesPreserved, true);
+assert.equal(appliedSingleRunway.trace.deathAlignedToSharedAnchor, true);
+assert.equal(appliedSingleRunway.trace.calculationHorizonPreserved, true);
+assert.equal(appliedSingleRunway.trace.xProjectionMode, "deathRelativeRunway");
 assert.equal(appliedSingleRunway.trace.depletionDatePreserved, true);
+assertApproxEqual(
+  appliedSingleRunway.deathXRatio,
+  appliedSingleModel.projection.deathXRatio,
+  "Applied runway scenario should carry the shared death anchor."
+);
 assert.equal(appliedSingleRunway.depletionPoint.date, fiveYearScenario.postDeathSeries.depletion.depletionDate);
 assert.equal(appliedSingleRunway.depletionPoint.value, 0);
 assert.equal(appliedSingleRunway.depletionPoint.trace.visualInterpolation, true);
@@ -500,10 +551,51 @@ assert.deepEqual(
   cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.date; })),
   "Selected applied scenario dates should remain raw composer dates."
 );
+assert.notEqual(
+  appliedMultiModel.series.appliedPostDeathResources[0].deathDate,
+  appliedMultiModel.series.appliedPostDeathResources[1].deathDate,
+  "Fixture should prove applied scenarios can carry different raw death dates."
+);
+assertApproxEqual(
+  appliedMultiModel.series.appliedRunwayScenarios[0].deathXRatio,
+  appliedMultiModel.projection.deathXRatio,
+  "Selected applied scenario should align to the shared death x-coordinate."
+);
+assertApproxEqual(
+  appliedMultiModel.series.appliedRunwayScenarios[1].deathXRatio,
+  appliedMultiModel.projection.deathXRatio,
+  "Non-selected applied scenario should align to the shared death x-coordinate."
+);
+assertApproxEqual(
+  appliedMultiModel.series.appliedPostDeathResources[0].points[0].xRatio,
+  appliedMultiModel.series.appliedPostDeathResources[1].points[0].xRatio,
+  "Equal months after each scenario's own death date should map to the same x-coordinate."
+);
+assert.equal(appliedMultiModel.series.appliedPostDeathResources[0].points[0].relativeMonthsFromDeath, 12);
+assert.equal(appliedMultiModel.series.appliedPostDeathResources[1].points[0].relativeMonthsFromDeath, 12);
+assert.notEqual(
+  appliedMultiModel.series.appliedPostDeathResources[0].points[0].date,
+  appliedMultiModel.series.appliedPostDeathResources[1].points[0].date,
+  "Relative x-coordinate alignment must not overwrite raw scenario dates."
+);
+assertApproxEqual(
+  appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.xRatio,
+  appliedMultiModel.series.appliedRunwayScenarios[1].depletionPoint.xRatio,
+  "Equal depletion month counts should align visually even when raw depletion dates differ."
+);
+assert.equal(appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.relativeMonthsFromDeath, 144);
+assert.equal(appliedMultiModel.series.appliedRunwayScenarios[1].depletionPoint.relativeMonthsFromDeath, 144);
 assert.equal(appliedMultiModel.axes.x.xAxisMode, "deathRelativeYears");
 assert.ok(
   appliedMultiModel.axes.x.ticks.some(function (tick) { return tick.label === "+15 years"; }),
   "Multi-scenario graph should use one shared death-relative axis."
+);
+assert.equal(appliedMultiModel.projection.mode, "deathRelativeRunway");
+assert.equal(appliedMultiModel.projection.trace.deathAlignedToSharedAnchor, true);
+assertApproxEqual(
+  appliedMultiModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).xRatio,
+  appliedMultiModel.projection.deathXRatio,
+  "Multi-scenario death tick should remain at the shared anchor."
 );
 assert.equal(
   appliedMultiModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).date,
