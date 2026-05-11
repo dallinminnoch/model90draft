@@ -654,11 +654,13 @@
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
+      reevaluateButton: banner.querySelector("[data-income-impact-reevaluate]"),
+      draftStatus: banner.querySelector("[data-income-impact-draft-status]"),
       scenarioSummary: banner.querySelector("[data-income-impact-scenario-summary]")
     };
   }
 
-  function updateDeathAgeControl(timelineResult, deathAgeState) {
+  function updateDeathAgeControl(timelineResult, deathAgeState, controls) {
     const elements = getDeathAgeControlElements();
     if (!elements) {
       return;
@@ -696,7 +698,11 @@
       return;
     }
 
-    const selectedDeathAge = clampRoundedAge(state.selectedDeathAge, state.minAge, state.maxAge);
+    const selectedDeathAge = clampRoundedAge(
+      controls?.selectedDeathAge ?? state.selectedDeathAge,
+      state.minAge,
+      state.maxAge
+    );
     control.setAttribute("data-income-impact-death-age-status", "available");
     if (sliderRow) {
       sliderRow.hidden = false;
@@ -713,7 +719,7 @@
       ageValue.textContent = String(selectedDeathAge);
     }
     if (dateValue) {
-      dateValue.textContent = timelineResult?.selectedDeath?.date || UNAVAILABLE_COPY;
+      dateValue.textContent = controls?.selectedDeathDate || timelineResult?.selectedDeath?.date || UNAVAILABLE_COPY;
     }
     if (warning) {
       warning.hidden = true;
@@ -722,7 +728,8 @@
   }
 
   function updateScenarioControls(timelineResult) {
-    updateDeathAgeControl(timelineResult, incomeImpactState?.deathAgeState);
+    const draftControls = getDraftScenarioControlsSnapshot(incomeImpactState);
+    updateDeathAgeControl(timelineResult, incomeImpactState?.deathAgeState, draftControls);
 
     const elements = getScenarioBannerElements();
     if (!elements) {
@@ -732,13 +739,15 @@
     const scenarioState = isPlainObject(incomeImpactState?.scenarioState)
       ? incomeImpactState.scenarioState
       : {};
-    const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
-    const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
-    const lifestyleSliderValue = clampLifestyleSliderValue(scenarioState.lifestyleSliderValue);
+    const projectionHorizonYears = draftControls.projectionHorizonYears;
+    const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
+    const lifestyleSliderValue = draftControls.lifestyleSliderValue;
     const collapsed = scenarioState.bannerCollapsed === true;
+    const hasPendingDraft = hasDraftScenarioChanges(incomeImpactState);
 
     elements.banner.classList.toggle("is-collapsed", collapsed);
     elements.banner.setAttribute("data-income-impact-scenario-state", collapsed ? "collapsed" : "expanded");
+    elements.banner.setAttribute("data-income-impact-draft-state", hasPendingDraft ? "dirty" : "applied");
 
     if (elements.toggle) {
       elements.toggle.setAttribute("aria-expanded", String(!collapsed));
@@ -779,6 +788,16 @@
 
     if (elements.lifestyleValue) {
       elements.lifestyleValue.textContent = getLifestyleSliderLabel(lifestyleSliderValue);
+    }
+
+    if (elements.reevaluateButton) {
+      elements.reevaluateButton.disabled = !hasPendingDraft;
+      elements.reevaluateButton.setAttribute("aria-disabled", String(!hasPendingDraft));
+    }
+
+    if (elements.draftStatus) {
+      elements.draftStatus.textContent = hasPendingDraft ? "Draft changes not applied" : "Scenario applied";
+      elements.draftStatus.setAttribute("data-income-impact-draft-status-state", hasPendingDraft ? "dirty" : "applied");
     }
 
     if (elements.scenarioSummary) {
@@ -2452,27 +2471,51 @@
     ];
   }
 
-  function getDraftScenarioControlsSnapshot(state) {
+  function normalizeScenarioControlsForState(state, controls) {
     const safeState = isPlainObject(state) ? state : {};
+    const sourceControls = isPlainObject(controls) ? controls : {};
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
     const selectedDeathAge = deathAgeState.hasDateOfBirth
-      ? clampRoundedAge(deathAgeState.selectedDeathAge, deathAgeState.minAge, deathAgeState.maxAge)
+      ? clampRoundedAge(sourceControls.selectedDeathAge ?? deathAgeState.selectedDeathAge, deathAgeState.minAge, deathAgeState.maxAge)
       : null;
-    const selectedDeathDate = resolveSelectedDeathDate(safeState.valuationDate, deathAgeState);
-    const controls = {
+    const selectedDeathDate = resolveSelectedDeathDate(
+      safeState.valuationDate,
+      Object.assign({}, deathAgeState, { selectedDeathAge })
+    );
+    const normalizedControls = {
       selectedDeathAge,
       selectedDeathDate,
-      projectionHorizonYears: clampProjectionHorizonYears(scenarioState.projectionHorizonYears),
-      mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride),
-      lifestyleSliderValue: clampLifestyleSliderValue(scenarioState.lifestyleSliderValue)
+      projectionHorizonYears: clampProjectionHorizonYears(sourceControls.projectionHorizonYears ?? scenarioState.projectionHorizonYears),
+      mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(sourceControls.mortgageTreatmentOverride ?? scenarioState.mortgageTreatmentOverride),
+      lifestyleSliderValue: clampLifestyleSliderValue(sourceControls.lifestyleSliderValue ?? scenarioState.lifestyleSliderValue)
     };
-    const householdExpenseStreamPolicyMode = normalizeString(scenarioState.householdExpenseStreamPolicyMode);
+    const householdExpenseStreamPolicyMode = normalizeString(
+      sourceControls.householdExpenseStreamPolicyMode ?? scenarioState.householdExpenseStreamPolicyMode
+    );
     if (householdExpenseStreamPolicyMode) {
-      controls.householdExpenseStreamPolicyMode = householdExpenseStreamPolicyMode;
+      normalizedControls.householdExpenseStreamPolicyMode = householdExpenseStreamPolicyMode;
     }
 
-    return controls;
+    return normalizedControls;
+  }
+
+  function getRuntimeScenarioControlsSnapshot(state) {
+    return normalizeScenarioControlsForState(state, null);
+  }
+
+  function getDraftScenarioControlsSnapshot(state) {
+    const draftControls = isPlainObject(state?.draftScenarioControls) ? state.draftScenarioControls : null;
+    return normalizeScenarioControlsForState(state, draftControls);
+  }
+
+  function setDraftScenarioControls(state, controls) {
+    if (!isPlainObject(state)) {
+      return null;
+    }
+
+    state.draftScenarioControls = normalizeScenarioControlsForState(state, controls);
+    return state.draftScenarioControls;
   }
 
   function syncDraftScenarioControlsFromState(state) {
@@ -2480,13 +2523,66 @@
       return null;
     }
 
-    state.draftScenarioControls = getDraftScenarioControlsSnapshot(state);
+    state.draftScenarioControls = getRuntimeScenarioControlsSnapshot(state);
     return state.draftScenarioControls;
+  }
+
+  function getSelectedAppliedScenario(state) {
+    const scenarios = Array.isArray(state?.appliedScenarios) ? state.appliedScenarios : [];
+    if (!scenarios.length) {
+      return null;
+    }
+
+    return scenarios.find(function (scenario) {
+      return scenario?.scenarioId === state?.selectedScenarioId;
+    }) || scenarios[0];
+  }
+
+  function scenarioControlsAreEqual(left, right) {
+    return JSON.stringify(left || {}) === JSON.stringify(right || {});
+  }
+
+  function getAppliedScenarioSettingsSnapshot(state) {
+    const selectedScenario = getSelectedAppliedScenario(state);
+    return normalizeScenarioControlsForState(
+      state,
+      isPlainObject(selectedScenario?.settings) ? selectedScenario.settings : getRuntimeScenarioControlsSnapshot(state)
+    );
+  }
+
+  function hasDraftScenarioChanges(state) {
+    if (!isPlainObject(state)) {
+      return false;
+    }
+
+    return !scenarioControlsAreEqual(getDraftScenarioControlsSnapshot(state), getAppliedScenarioSettingsSnapshot(state));
+  }
+
+  function applyDraftScenarioControlsToRuntimeState(state) {
+    if (!isPlainObject(state)) {
+      return null;
+    }
+
+    const controls = getDraftScenarioControlsSnapshot(state);
+    const scenarioState = isPlainObject(state.scenarioState) ? state.scenarioState : {};
+    const deathAgeState = isPlainObject(state.deathAgeState) ? state.deathAgeState : {};
+    scenarioState.projectionHorizonYears = controls.projectionHorizonYears;
+    scenarioState.mortgageTreatmentOverride = controls.mortgageTreatmentOverride;
+    scenarioState.lifestyleSliderValue = controls.lifestyleSliderValue;
+    if (controls.householdExpenseStreamPolicyMode) {
+      scenarioState.householdExpenseStreamPolicyMode = controls.householdExpenseStreamPolicyMode;
+    }
+    if (deathAgeState.hasDateOfBirth) {
+      deathAgeState.selectedDeathAge = controls.selectedDeathAge;
+    }
+    state.scenarioState = scenarioState;
+    state.draftScenarioControls = clonePlainValue(controls);
+    return controls;
   }
 
   function getBaseRenderControlSnapshot(state) {
     const safeState = isPlainObject(state) ? state : {};
-    const controls = getDraftScenarioControlsSnapshot(safeState);
+    const controls = getRuntimeScenarioControlsSnapshot(safeState);
 
     return {
       valuationDate: safeState.valuationDate || null,
@@ -2743,7 +2839,7 @@
 
   function buildAppliedScenarioRecordFromInputs(state, baseContext, inputs) {
     const safeInputs = isPlainObject(inputs) ? inputs : {};
-    const settings = getDraftScenarioControlsSnapshot(state);
+    const settings = getRuntimeScenarioControlsSnapshot(state);
     const lifestyleScenario = safeInputs.lifestyleScenario;
     const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta);
     return {
@@ -2795,7 +2891,6 @@
       return null;
     }
 
-    syncDraftScenarioControlsFromState(state);
     state.appliedScenarios = Array.isArray(state.appliedScenarios) ? state.appliedScenarios : [];
     const existingIndex = state.appliedScenarios.findIndex(function (scenario) {
       return scenario?.scenarioId === record.scenarioId;
@@ -2922,14 +3017,10 @@
         return;
       }
 
-      state.selectedDeathAge = clampRoundedAge(
-        event?.target?.value,
-        state.minAge,
-        state.maxAge
-      );
-      syncDraftScenarioControlsFromState(incomeImpactState);
-      invalidateIncomeImpactBaseRenderCache();
-      renderIncomeImpactFromState();
+      const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+      controls.selectedDeathAge = clampRoundedAge(event?.target?.value, state.minAge, state.maxAge);
+      setDraftScenarioControls(incomeImpactState, controls);
+      updateScenarioControls(incomeImpactState.latestTimelineResult);
     }
 
     if (elements?.slider) {
@@ -2944,15 +3035,14 @@
 
     if (scenarioElements.projectionHorizon) {
       const updateProjectionHorizon = function (event) {
-        const scenarioState = incomeImpactState?.scenarioState;
-        if (!scenarioState) {
+        if (!incomeImpactState) {
           return;
         }
 
-        scenarioState.projectionHorizonYears = clampProjectionHorizonYears(event?.target?.value);
-        syncDraftScenarioControlsFromState(incomeImpactState);
-        invalidateIncomeImpactBaseRenderCache();
-        renderIncomeImpactFromState();
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.projectionHorizonYears = clampProjectionHorizonYears(event?.target?.value);
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
       };
       scenarioElements.projectionHorizon.addEventListener("input", updateProjectionHorizon);
       scenarioElements.projectionHorizon.addEventListener("change", updateProjectionHorizon);
@@ -2960,31 +3050,47 @@
 
     if (scenarioElements.mortgageTreatment) {
       scenarioElements.mortgageTreatment.addEventListener("change", function (event) {
-        const scenarioState = incomeImpactState?.scenarioState;
-        if (!scenarioState) {
+        if (!incomeImpactState) {
           return;
         }
 
-        scenarioState.mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(event?.target?.value);
-        syncDraftScenarioControlsFromState(incomeImpactState);
-        invalidateIncomeImpactBaseRenderCache();
-        renderIncomeImpactFromState();
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(event?.target?.value);
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
       });
     }
 
     if (scenarioElements.lifestyleSlider) {
       const updateLifestyleSlider = function (event) {
-        const scenarioState = incomeImpactState?.scenarioState;
-        if (!scenarioState) {
+        if (!incomeImpactState) {
           return;
         }
 
-        scenarioState.lifestyleSliderValue = clampLifestyleSliderValue(event?.target?.value);
-        syncDraftScenarioControlsFromState(incomeImpactState);
-        scheduleLifestyleSliderRender();
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.lifestyleSliderValue = clampLifestyleSliderValue(event?.target?.value);
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
       };
       scenarioElements.lifestyleSlider.addEventListener("input", updateLifestyleSlider);
       scenarioElements.lifestyleSlider.addEventListener("change", updateLifestyleSlider);
+    }
+
+    if (scenarioElements.reevaluateButton) {
+      scenarioElements.reevaluateButton.addEventListener("click", function () {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        if (!hasDraftScenarioChanges(incomeImpactState)) {
+          updateScenarioControls(incomeImpactState.latestTimelineResult);
+          return;
+        }
+
+        applyDraftScenarioControlsToRuntimeState(incomeImpactState);
+        invalidateIncomeImpactBaseRenderCache();
+        renderIncomeImpactFromState();
+      });
     }
 
     if (scenarioElements.toggle) {
@@ -3128,7 +3234,8 @@
       return clonePlainValue({
         draftScenarioControls: incomeImpactState.draftScenarioControls || null,
         appliedScenarios: Array.isArray(incomeImpactState.appliedScenarios) ? incomeImpactState.appliedScenarios : [],
-        selectedScenarioId: incomeImpactState.selectedScenarioId || null
+        selectedScenarioId: incomeImpactState.selectedScenarioId || null,
+        hasDraftChanges: hasDraftScenarioChanges(incomeImpactState)
       });
     }
   };

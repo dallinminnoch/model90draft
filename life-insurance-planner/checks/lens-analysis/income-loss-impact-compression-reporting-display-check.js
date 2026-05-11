@@ -463,31 +463,35 @@ assert.match(displaySource, /lifestyleScenario\?\.comparisonScenario/);
 assert.match(displaySource, /baseRenderCache/);
 assert.match(displaySource, /buildBaseIncomeImpactContextFromState/);
 assert.match(displaySource, /buildIncomeImpactResultFromBaseContext/);
-assert.match(displaySource, /scheduleLifestyleSliderRender/);
 assert.match(
   displaySource,
-  /scenarioState\.lifestyleSliderValue[\s\S]{0,180}scheduleLifestyleSliderRender\(\)/,
-  "Lifestyle slider should use the slider-only render path."
+  /controls\.lifestyleSliderValue[\s\S]{0,180}setDraftScenarioControls\(incomeImpactState, controls\);[\s\S]{0,80}updateScenarioControls\(incomeImpactState\.latestTimelineResult\)/,
+  "Lifestyle slider should update draft controls without rebuilding the graph before Reevaluate."
 );
 assert.doesNotMatch(
   displaySource,
-  /scenarioState\.lifestyleSliderValue[\s\S]{0,180}renderIncomeImpactFromState\(\)/,
-  "Lifestyle slider should not call the full display/result recomposition path directly."
+  /controls\.lifestyleSliderValue[\s\S]{0,220}(?:scheduleLifestyleSliderRender|renderIncomeImpactFromState)\(\)/,
+  "Lifestyle slider draft changes should not use the old live graph mutation path."
 );
 assert.match(
   displaySource,
-  /state\.selectedDeathAge[\s\S]{0,220}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
-  "Death age control changes should invalidate the base cache and rebuild."
+  /controls\.selectedDeathAge[\s\S]{0,180}setDraftScenarioControls\(incomeImpactState, controls\);[\s\S]{0,80}updateScenarioControls\(incomeImpactState\.latestTimelineResult\)/,
+  "Death age control changes should update draft controls before Reevaluate."
 );
 assert.match(
   displaySource,
-  /scenarioState\.projectionHorizonYears[\s\S]{0,220}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
-  "Projection horizon changes should invalidate the base cache and rebuild."
+  /controls\.projectionHorizonYears[\s\S]{0,180}setDraftScenarioControls\(incomeImpactState, controls\);[\s\S]{0,80}updateScenarioControls\(incomeImpactState\.latestTimelineResult\)/,
+  "Projection horizon changes should update draft controls before Reevaluate."
 );
 assert.match(
   displaySource,
-  /scenarioState\.mortgageTreatmentOverride[\s\S]{0,220}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
-  "Mortgage treatment changes should invalidate the base cache and rebuild."
+  /controls\.mortgageTreatmentOverride[\s\S]{0,180}setDraftScenarioControls\(incomeImpactState, controls\);[\s\S]{0,80}updateScenarioControls\(incomeImpactState\.latestTimelineResult\)/,
+  "Mortgage treatment changes should update draft controls before Reevaluate."
+);
+assert.match(
+  displaySource,
+  /applyDraftScenarioControlsToRuntimeState\(incomeImpactState\);[\s\S]{0,120}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
+  "Reevaluate should apply draft controls, invalidate the base cache, and rebuild."
 );
 assert.match(displaySource, /scenarioControlsBound/, "Scenario controls should guard against duplicate event binding.");
 assert.doesNotMatch(displaySource, /buildLifestyleComparisonScenario|buildLifestyleAdjustedPostDeathSeries|recalculateLifestyleDepletion/);

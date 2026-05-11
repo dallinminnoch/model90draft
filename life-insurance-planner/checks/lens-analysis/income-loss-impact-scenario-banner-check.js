@@ -142,6 +142,10 @@ function createHarness() {
   const projectionHorizonValue = createElement({ textContent: "40 years" });
   const mortgageTreatment = createElement({ value: "followAssumptions" });
   const mortgageTreatmentValue = createElement({ textContent: "Follow Assumption Controls" });
+  const lifestyleSlider = createElement({ value: "0" });
+  const lifestyleValue = createElement({ textContent: "Current" });
+  const reevaluateButton = createElement({ disabled: true, textContent: "Reevaluate" });
+  const draftStatus = createElement({ textContent: "Scenario applied" });
   const scenarioSummary = createElement();
   const banner = createElement({
     children: {
@@ -151,6 +155,10 @@ function createHarness() {
       "[data-income-impact-projection-horizon-value]": projectionHorizonValue,
       "[data-income-impact-mortgage-treatment]": mortgageTreatment,
       "[data-income-impact-mortgage-treatment-value]": mortgageTreatmentValue,
+      "[data-income-impact-lifestyle-slider]": lifestyleSlider,
+      "[data-income-impact-lifestyle-value]": lifestyleValue,
+      "[data-income-impact-reevaluate]": reevaluateButton,
+      "[data-income-impact-draft-status]": draftStatus,
       "[data-income-impact-scenario-summary]": scenarioSummary
     }
   });
@@ -402,6 +410,10 @@ function createHarness() {
     projectionHorizonValue,
     mortgageTreatment,
     mortgageTreatmentValue,
+    lifestyleSlider,
+    lifestyleValue,
+    reevaluateButton,
+    draftStatus,
     scenarioSummary,
     getScenarioComparisonStateSnapshot() {
       return cloneJson(
@@ -426,6 +438,10 @@ const scenarioLayoutBlock = layoutSource.match(
   "data-income-impact-projection-horizon",
   "data-income-impact-projection-horizon-value",
   "data-income-impact-mortgage-treatment",
+  "data-income-impact-lifestyle-slider",
+  "data-income-impact-lifestyle-value",
+  "data-income-impact-reevaluate",
+  "data-income-impact-draft-status",
   "data-income-impact-death-age-control",
   "data-income-impact-death-age-slider",
   "data-income-impact-death-age-value",
@@ -466,10 +482,13 @@ assert.match(displaySource, /mortgageTreatmentOverride/);
 assert.match(displaySource, /draftScenarioControls/);
 assert.match(displaySource, /appliedScenarios/);
 assert.match(displaySource, /selectedScenarioId/);
+assert.match(displaySource, /applyDraftScenarioControlsToRuntimeState/);
+assert.match(displaySource, /hasDraftScenarioChanges/);
 assert.match(displaySource, /composeIncomeImpactScenario/);
 assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
 assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
-assert.doesNotMatch(pageSource, /Reevaluate|data-income-impact-reevaluate/, "Scenario comparison state foundation should not add Reevaluate UI yet.");
+assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*disabled[\s\S]*Reevaluate|disabled[\s\S]*data-income-impact-reevaluate[\s\S]*Reevaluate/);
+assert.match(pageSource, /data-income-impact-draft-status[\s\S]*Scenario applied/);
 assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
 assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
@@ -572,6 +591,7 @@ assert.equal(initialScenarioComparisonState.appliedScenarios[0].scenario.scenari
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].riskEvaluation.events[0].ruleId, "survivor-resources-depleted");
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.sliderValue, 0);
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.label, "Current");
+assert.equal(initialScenarioComparisonState.hasDraftChanges, false);
 assert.equal(harness.control.hidden, false);
 assert.equal(harness.sliderRow.hidden, false);
 assert.equal(harness.slider.disabled, false);
@@ -587,10 +607,17 @@ assert.equal(harness.projectionHorizon.value, "40");
 assert.equal(harness.projectionHorizonValue.textContent, "40 years");
 assert.equal(harness.mortgageTreatment.value, "followAssumptions");
 assert.equal(harness.mortgageTreatmentValue.textContent, "Follow Assumption Controls");
+assert.equal(harness.lifestyleSlider.value, "0");
+assert.equal(harness.lifestyleValue.textContent, "Current");
+assert.equal(harness.reevaluateButton.disabled, true);
+assert.equal(harness.reevaluateButton.getAttribute("aria-disabled"), "true");
+assert.equal(harness.draftStatus.textContent, "Scenario applied");
+assert.equal(harness.draftStatus.getAttribute("data-income-impact-draft-status-state"), "applied");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "true");
 assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
 assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "expanded");
+assert.equal(harness.banner.getAttribute("data-income-impact-draft-state"), "applied");
 assert.equal(harness.banner.classList.contains("is-collapsed"), false);
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.match(harness.host.innerHTML, /data-income-impact-graph-svg/);
@@ -600,58 +627,133 @@ assert.match(harness.host.innerHTML, /Coverage added at death/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-svg/);
 
-harness.projectionHorizon.value = "4";
-harness.projectionHorizon.listeners.input({ target: harness.projectionHorizon });
-assert.equal(harness.composerCalls.length, 2);
+harness.slider.value = "50";
+harness.slider.listeners.input({ target: harness.slider });
+assert.equal(harness.composerCalls.length, 1, "draft death age should not rerun composer before Reevaluate.");
+assert.equal(harness.riskEvaluatorCalls.length, 1, "draft death age should not rerun risk evaluator before Reevaluate.");
+assert.equal(harness.graphModelCalls.length, 1, "draft death age should not rebuild graph before Reevaluate.");
+assert.equal(harness.slider.value, "50");
+assert.equal(harness.ageValue.textContent, "50");
+assert.equal(harness.dateValue.textContent, "2030-06-15");
+let draftState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(draftState.draftScenarioControls.selectedDeathAge, 50);
+assert.equal(draftState.appliedScenarios[0].settings.selectedDeathAge, 45);
+assert.equal(draftState.hasDraftChanges, true);
+assert.equal(harness.reevaluateButton.disabled, false);
+assert.equal(harness.reevaluateButton.getAttribute("aria-disabled"), "false");
+assert.equal(harness.draftStatus.textContent, "Draft changes not applied");
+assert.equal(harness.banner.getAttribute("data-income-impact-draft-state"), "dirty");
+
+harness.reevaluateButton.listeners.click();
+assert.equal(harness.composerCalls.length, 2, "Reevaluate should apply draft death age.");
 assert.equal(harness.riskEvaluatorCalls.length, 2);
 assert.equal(harness.graphModelCalls.length, 2);
-assert.equal(harness.composerCalls[1].projectionHorizonMonths, 60);
-assert.equal(harness.graphModelCalls[1].selectedScenarioId, "income-impact-current-scenario");
-assert.equal(harness.graphModelCalls[1].appliedScenarios[0].settings.projectionHorizonYears, 5);
+assert.equal(harness.composerCalls[1].selectedDeathAge, 50);
+assert.equal(harness.composerCalls[1].selectedDeathDate, "2030-06-15");
+draftState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(draftState.appliedScenarios[0].settings.selectedDeathAge, 50);
+assert.equal(draftState.appliedScenarios[0].scenario.scenario.selectedDeathAge, 50);
+assert.equal(draftState.selectedScenarioId, "income-impact-current-scenario");
+assert.equal(draftState.appliedScenarios.length, 1);
+assert.equal(draftState.hasDraftChanges, false);
+assert.equal(harness.reevaluateButton.disabled, true);
+assert.equal(harness.draftStatus.textContent, "Scenario applied");
+
+harness.projectionHorizon.value = "4";
+harness.projectionHorizon.listeners.input({ target: harness.projectionHorizon });
+assert.equal(harness.composerCalls.length, 2, "draft projection horizon should not rerun composer before Reevaluate.");
+assert.equal(harness.riskEvaluatorCalls.length, 2);
+assert.equal(harness.graphModelCalls.length, 2);
 assert.equal(harness.projectionHorizon.value, "5");
 assert.equal(harness.projectionHorizonValue.textContent, "5 years");
 const minimumHorizonScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.equal(minimumHorizonScenarioComparisonState.draftScenarioControls.projectionHorizonYears, 5);
-assert.equal(minimumHorizonScenarioComparisonState.appliedScenarios[0].settings.projectionHorizonYears, 5);
+assert.equal(minimumHorizonScenarioComparisonState.appliedScenarios[0].settings.projectionHorizonYears, 40);
 assert.equal(minimumHorizonScenarioComparisonState.selectedScenarioId, "income-impact-current-scenario");
+assert.equal(minimumHorizonScenarioComparisonState.hasDraftChanges, true);
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
-harness.projectionHorizon.value = "125";
-harness.projectionHorizon.listeners.change({ target: harness.projectionHorizon });
-assert.equal(harness.composerCalls.length, 3);
+harness.reevaluateButton.listeners.click();
+assert.equal(harness.composerCalls.length, 3, "Reevaluate should apply draft projection horizon.");
 assert.equal(harness.riskEvaluatorCalls.length, 3);
 assert.equal(harness.graphModelCalls.length, 3);
-assert.equal(harness.composerCalls[2].projectionHorizonMonths, 1200);
+assert.equal(harness.composerCalls[2].projectionHorizonMonths, 60);
+assert.equal(harness.graphModelCalls[2].selectedScenarioId, "income-impact-current-scenario");
+assert.equal(harness.graphModelCalls[2].appliedScenarios[0].settings.projectionHorizonYears, 5);
+assert.equal(harness.getScenarioComparisonStateSnapshot().hasDraftChanges, false);
+
+harness.projectionHorizon.value = "125";
+harness.projectionHorizon.listeners.change({ target: harness.projectionHorizon });
+assert.equal(harness.composerCalls.length, 3, "draft maximum horizon should not rerun composer before Reevaluate.");
+assert.equal(harness.riskEvaluatorCalls.length, 3);
+assert.equal(harness.graphModelCalls.length, 3);
 assert.equal(harness.projectionHorizon.value, "100");
 assert.equal(harness.projectionHorizonValue.textContent, "100 years");
 const maximumHorizonScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.equal(maximumHorizonScenarioComparisonState.draftScenarioControls.projectionHorizonYears, 100);
-assert.equal(maximumHorizonScenarioComparisonState.appliedScenarios[0].settings.projectionHorizonYears, 100);
+assert.equal(maximumHorizonScenarioComparisonState.appliedScenarios[0].settings.projectionHorizonYears, 5);
 assert.equal(maximumHorizonScenarioComparisonState.appliedScenarios.length, 1);
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
-harness.mortgageTreatment.value = "payOffMortgage";
-harness.mortgageTreatment.listeners.change({ target: harness.mortgageTreatment });
-assert.equal(harness.composerCalls.length, 4);
+harness.reevaluateButton.listeners.click();
+assert.equal(harness.composerCalls.length, 4, "Reevaluate should apply draft maximum horizon.");
 assert.equal(harness.riskEvaluatorCalls.length, 4);
 assert.equal(harness.graphModelCalls.length, 4);
-assert.equal(harness.composerCalls[3].scenarioOptions.mortgageTreatmentOverride, "payOffMortgage");
-assert.equal(harness.graphModelCalls[3].selectedScenarioId, "income-impact-current-scenario");
-assert.equal(harness.graphModelCalls[3].appliedScenarios[0].settings.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(harness.composerCalls[3].projectionHorizonMonths, 1200);
+assert.equal(harness.getScenarioComparisonStateSnapshot().appliedScenarios[0].settings.projectionHorizonYears, 100);
+
+harness.mortgageTreatment.value = "payOffMortgage";
+harness.mortgageTreatment.listeners.change({ target: harness.mortgageTreatment });
+assert.equal(harness.composerCalls.length, 4, "draft mortgage treatment should not rerun composer before Reevaluate.");
+assert.equal(harness.riskEvaluatorCalls.length, 4);
+assert.equal(harness.graphModelCalls.length, 4);
 assert.equal(harness.mortgageTreatment.value, "payOffMortgage");
 assert.equal(harness.mortgageTreatmentValue.textContent, "Pay off mortgage");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-mortgage-treatment-label"), "Pay off mortgage");
 const mortgageScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.equal(mortgageScenarioComparisonState.draftScenarioControls.mortgageTreatmentOverride, "payOffMortgage");
-assert.equal(mortgageScenarioComparisonState.appliedScenarios[0].settings.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(mortgageScenarioComparisonState.appliedScenarios[0].settings.mortgageTreatmentOverride, "followAssumptions");
 assert.equal(mortgageScenarioComparisonState.appliedScenarios.length, 1);
 
+harness.reevaluateButton.listeners.click();
+assert.equal(harness.composerCalls.length, 5, "Reevaluate should apply draft mortgage treatment.");
+assert.equal(harness.riskEvaluatorCalls.length, 5);
+assert.equal(harness.graphModelCalls.length, 5);
+assert.equal(harness.composerCalls[4].scenarioOptions.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(harness.graphModelCalls[4].selectedScenarioId, "income-impact-current-scenario");
+assert.equal(harness.graphModelCalls[4].appliedScenarios[0].settings.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(harness.getScenarioComparisonStateSnapshot().hasDraftChanges, false);
+
+harness.lifestyleSlider.value = "-100";
+harness.lifestyleSlider.listeners.input({ target: harness.lifestyleSlider });
+assert.equal(harness.composerCalls.length, 5, "draft lifestyle slider should not rerun composer before Reevaluate.");
+assert.equal(harness.riskEvaluatorCalls.length, 5);
+assert.equal(harness.graphModelCalls.length, 5);
+assert.equal(harness.lifestyleSlider.value, "-100");
+assert.equal(harness.lifestyleValue.textContent, "Conservative");
+assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-lifestyle-label"), "Conservative");
+const lifestyleDraftScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(lifestyleDraftScenarioComparisonState.draftScenarioControls.lifestyleSliderValue, -100);
+assert.equal(lifestyleDraftScenarioComparisonState.appliedScenarios[0].settings.lifestyleSliderValue, 0);
+assert.equal(lifestyleDraftScenarioComparisonState.hasDraftChanges, true);
+
+harness.reevaluateButton.listeners.click();
+assert.equal(harness.composerCalls.length, 6, "Reevaluate should apply draft lifestyle slider.");
+assert.equal(harness.riskEvaluatorCalls.length, 6);
+assert.equal(harness.graphModelCalls.length, 6);
+const lifestyleAppliedScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(lifestyleAppliedScenarioComparisonState.appliedScenarios[0].settings.lifestyleSliderValue, -100);
+assert.equal(lifestyleAppliedScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.sliderValue, -100);
+assert.equal(lifestyleAppliedScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.label, "Conservative");
+assert.equal(lifestyleAppliedScenarioComparisonState.appliedScenarios.length, 1, "Reevaluate should update the selected scenario, not add another line yet.");
+assert.equal(lifestyleAppliedScenarioComparisonState.hasDraftChanges, false);
+
 harness.toggle.listeners.click();
-assert.equal(harness.composerCalls.length, 4, "collapsing should not rerun composer.");
-assert.equal(harness.riskEvaluatorCalls.length, 4, "collapsing should not rerun risk evaluator.");
-assert.equal(harness.graphModelCalls.length, 4, "collapsing should not rebuild the graph model.");
+assert.equal(harness.composerCalls.length, 6, "collapsing should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, 6, "collapsing should not rerun risk evaluator.");
+assert.equal(harness.graphModelCalls.length, 6, "collapsing should not rebuild the graph model.");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "false");
 assert.equal(harness.toggle.textContent, "Show controls");
 assert.equal(harness.content.hidden, true);
@@ -659,9 +761,9 @@ assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "
 assert.equal(harness.banner.classList.contains("is-collapsed"), true);
 
 harness.toggle.listeners.click();
-assert.equal(harness.composerCalls.length, 4, "expanding should not rerun composer.");
-assert.equal(harness.riskEvaluatorCalls.length, 4, "expanding should not rerun risk evaluator.");
-assert.equal(harness.graphModelCalls.length, 4, "expanding should not rebuild the graph model.");
+assert.equal(harness.composerCalls.length, 6, "expanding should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, 6, "expanding should not rerun risk evaluator.");
+assert.equal(harness.graphModelCalls.length, 6, "expanding should not rebuild the graph model.");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "true");
 assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
@@ -670,7 +772,6 @@ assert.equal(harness.banner.classList.contains("is-collapsed"), false);
 assert.deepEqual(harness.storageWrites, [], "scenario controls should not write browser storage.");
 
 const protectedChanges = getChangedFiles([
-  "pages/income-loss-impact.html",
   "styles.css",
   "layout.css",
   "components.css",
@@ -695,7 +796,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Scenario banner check should not see page, CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
+  "Scenario banner check should not see CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
 );
 
 console.log("income-loss-impact-scenario-banner-check passed");
