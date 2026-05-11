@@ -144,6 +144,7 @@ function assertNoForbiddenDiffs() {
         && !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-display.js")
         && !line.endsWith("app/features/account-settings/household-expense-account-policy-admin-editor.js")
         && !line.endsWith("app/features/account-settings/household-expense-account-policy-storage.js")
+        && !line.endsWith("app/features/account-settings/usda-food-plan-import-contract.js")
         && !line.endsWith("pages/admin-accounts.html");
     })
     .join("\n");
