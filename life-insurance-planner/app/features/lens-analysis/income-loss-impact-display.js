@@ -12,6 +12,7 @@
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
+  const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
   const LIFESTYLE_SLIDER_LABELS = Object.freeze({
     conservative: "Conservative",
@@ -45,6 +46,18 @@
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+
+  function clonePlainValue(value) {
+    if (value == null) {
+      return value;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (error) {
+      return null;
+    }
   }
 
   function escapeHtml(value) {
@@ -2439,23 +2452,48 @@
     ];
   }
 
-  function getBaseRenderControlSnapshot(state) {
+  function getDraftScenarioControlsSnapshot(state) {
     const safeState = isPlainObject(state) ? state : {};
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
-    const projectionHorizonYears = clampProjectionHorizonYears(scenarioState.projectionHorizonYears);
-    const mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride);
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
     const selectedDeathAge = deathAgeState.hasDateOfBirth
       ? clampRoundedAge(deathAgeState.selectedDeathAge, deathAgeState.minAge, deathAgeState.maxAge)
       : null;
     const selectedDeathDate = resolveSelectedDeathDate(safeState.valuationDate, deathAgeState);
+    const controls = {
+      selectedDeathAge,
+      selectedDeathDate,
+      projectionHorizonYears: clampProjectionHorizonYears(scenarioState.projectionHorizonYears),
+      mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(scenarioState.mortgageTreatmentOverride),
+      lifestyleSliderValue: clampLifestyleSliderValue(scenarioState.lifestyleSliderValue)
+    };
+    const householdExpenseStreamPolicyMode = normalizeString(scenarioState.householdExpenseStreamPolicyMode);
+    if (householdExpenseStreamPolicyMode) {
+      controls.householdExpenseStreamPolicyMode = householdExpenseStreamPolicyMode;
+    }
+
+    return controls;
+  }
+
+  function syncDraftScenarioControlsFromState(state) {
+    if (!isPlainObject(state)) {
+      return null;
+    }
+
+    state.draftScenarioControls = getDraftScenarioControlsSnapshot(state);
+    return state.draftScenarioControls;
+  }
+
+  function getBaseRenderControlSnapshot(state) {
+    const safeState = isPlainObject(state) ? state : {};
+    const controls = getDraftScenarioControlsSnapshot(safeState);
 
     return {
       valuationDate: safeState.valuationDate || null,
-      projectionHorizonYears,
-      mortgageTreatmentOverride,
-      selectedDeathAge,
-      selectedDeathDate
+      projectionHorizonYears: controls.projectionHorizonYears,
+      mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
+      selectedDeathAge: controls.selectedDeathAge,
+      selectedDeathDate: controls.selectedDeathDate
     };
   }
 
@@ -2683,6 +2721,65 @@
     return buildIncomeImpactResultFromBaseContext(state, baseContext);
   }
 
+  function getAppliedScenarioLabel(settings) {
+    const selectedDeathAge = toOptionalNumber(settings?.selectedDeathAge);
+    if (selectedDeathAge != null) {
+      return `Death at age ${selectedDeathAge}`;
+    }
+
+    return "Current evaluated scenario";
+  }
+
+  function buildAppliedScenarioRecord(state, baseContext, timelineResult) {
+    const settings = getDraftScenarioControlsSnapshot(state);
+    const lifestyleScenario = timelineResult?.compressionReporting?.lifestyleScenario;
+    const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta);
+    return {
+      scenarioId: INITIAL_APPLIED_SCENARIO_ID,
+      label: getAppliedScenarioLabel(settings),
+      settings: clonePlainValue(settings),
+      scenario: clonePlainValue(timelineResult?.scenario || baseContext?.scenario || null),
+      riskEvaluation: clonePlainValue(timelineResult?.riskEvaluation || baseContext?.riskEvaluation || null),
+      lifestyleAdjustment: {
+        sliderValue: settings.lifestyleSliderValue,
+        label: getLifestyleSliderLabel(settings.lifestyleSliderValue),
+        status: lifestyleScenario?.status || null,
+        monthlyDelta
+      },
+      comparisonTrace: clonePlainValue(
+        lifestyleScenario?.comparisonScenario?.trace
+        || timelineResult?.compressionReporting?.trace
+        || {}
+      ),
+      trace: {
+        source: "income-impact-display-scenario-state",
+        liveBehaviorPreserved: true
+      }
+    };
+  }
+
+  function upsertInitialAppliedScenarioFromTimelineResult(state, baseContext, timelineResult) {
+    if (!isPlainObject(state) || !isPlainObject(timelineResult)) {
+      return null;
+    }
+
+    syncDraftScenarioControlsFromState(state);
+    const record = buildAppliedScenarioRecord(state, baseContext, timelineResult);
+    state.appliedScenarios = Array.isArray(state.appliedScenarios) ? state.appliedScenarios : [];
+    const existingIndex = state.appliedScenarios.findIndex(function (scenario) {
+      return scenario?.scenarioId === record.scenarioId;
+    });
+    if (existingIndex >= 0) {
+      state.appliedScenarios[existingIndex] = record;
+    } else {
+      state.appliedScenarios.unshift(record);
+    }
+    if (!state.selectedScenarioId) {
+      state.selectedScenarioId = record.scenarioId;
+    }
+    return record;
+  }
+
   function renderIncomeImpactTimelineResult(timelineResult) {
     if (!incomeImpactState?.host || !isPlainObject(timelineResult)) {
       return;
@@ -2713,7 +2810,9 @@
       key: baseContext.cacheKey,
       baseContext
     };
-    renderIncomeImpactTimelineResult(buildIncomeImpactResultFromBaseContext(incomeImpactState, baseContext));
+    const timelineResult = buildIncomeImpactResultFromBaseContext(incomeImpactState, baseContext);
+    upsertInitialAppliedScenarioFromTimelineResult(incomeImpactState, baseContext, timelineResult);
+    renderIncomeImpactTimelineResult(timelineResult);
   }
 
   function renderLifestyleSliderFromState() {
@@ -2745,9 +2844,9 @@
       return false;
     }
 
-    renderIncomeImpactTimelineResult(
-      buildIncomeImpactResultFromBaseContext(incomeImpactState, baseContext, lifestyleSliderValue)
-    );
+    const timelineResult = buildIncomeImpactResultFromBaseContext(incomeImpactState, baseContext, lifestyleSliderValue);
+    upsertInitialAppliedScenarioFromTimelineResult(incomeImpactState, baseContext, timelineResult);
+    renderIncomeImpactTimelineResult(timelineResult);
     return true;
   }
 
@@ -2789,6 +2888,7 @@
         state.minAge,
         state.maxAge
       );
+      syncDraftScenarioControlsFromState(incomeImpactState);
       invalidateIncomeImpactBaseRenderCache();
       renderIncomeImpactFromState();
     }
@@ -2811,6 +2911,7 @@
         }
 
         scenarioState.projectionHorizonYears = clampProjectionHorizonYears(event?.target?.value);
+        syncDraftScenarioControlsFromState(incomeImpactState);
         invalidateIncomeImpactBaseRenderCache();
         renderIncomeImpactFromState();
       };
@@ -2826,6 +2927,7 @@
         }
 
         scenarioState.mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(event?.target?.value);
+        syncDraftScenarioControlsFromState(incomeImpactState);
         invalidateIncomeImpactBaseRenderCache();
         renderIncomeImpactFromState();
       });
@@ -2839,6 +2941,7 @@
         }
 
         scenarioState.lifestyleSliderValue = clampLifestyleSliderValue(event?.target?.value);
+        syncDraftScenarioControlsFromState(incomeImpactState);
         scheduleLifestyleSliderRender();
       };
       scenarioElements.lifestyleSlider.addEventListener("input", updateLifestyleSlider);
@@ -2954,12 +3057,16 @@
           lifestyleSliderValue: 0,
           bannerCollapsed: false
         },
+        draftScenarioControls: null,
+        appliedScenarios: [],
+        selectedScenarioId: INITIAL_APPLIED_SCENARIO_ID,
         baseRenderCache: null,
         pendingLifestyleSliderFrameId: null,
         scenarioControlsBound: false,
         builderWarnings: builderResult.warnings
       };
 
+      syncDraftScenarioControlsFromState(incomeImpactState);
       renderIncomeImpactFromState();
       bindScenarioControls();
     } catch (error) {
@@ -2969,7 +3076,22 @@
   }
 
   lensAnalysis.incomeLossImpactDisplay = {
-    initializeIncomeLossImpactDisplay
+    initializeIncomeLossImpactDisplay,
+    getScenarioComparisonStateSnapshot: function () {
+      if (!incomeImpactState) {
+        return {
+          draftScenarioControls: null,
+          appliedScenarios: [],
+          selectedScenarioId: null
+        };
+      }
+
+      return clonePlainValue({
+        draftScenarioControls: incomeImpactState.draftScenarioControls || null,
+        appliedScenarios: Array.isArray(incomeImpactState.appliedScenarios) ? incomeImpactState.appliedScenarios : [],
+        selectedScenarioId: incomeImpactState.selectedScenarioId || null
+      });
+    }
   };
 
   document.addEventListener("DOMContentLoaded", initializeIncomeLossImpactDisplay);

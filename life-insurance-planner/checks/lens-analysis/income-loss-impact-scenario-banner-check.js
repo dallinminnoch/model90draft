@@ -402,7 +402,12 @@ function createHarness() {
     projectionHorizonValue,
     mortgageTreatment,
     mortgageTreatmentValue,
-    scenarioSummary
+    scenarioSummary,
+    getScenarioComparisonStateSnapshot() {
+      return cloneJson(
+        sandbox.window.LensApp.lensAnalysis.incomeLossImpactDisplay.getScenarioComparisonStateSnapshot()
+      );
+    }
   };
 }
 
@@ -458,9 +463,13 @@ assert.match(pageSource, /value="continueMortgagePayments"[\s\S]*Continue mortga
 assert.match(displaySource, /projectionHorizonYears/);
 assert.match(displaySource, /projectionHorizonMonths/);
 assert.match(displaySource, /mortgageTreatmentOverride/);
+assert.match(displaySource, /draftScenarioControls/);
+assert.match(displaySource, /appliedScenarios/);
+assert.match(displaySource, /selectedScenarioId/);
 assert.match(displaySource, /composeIncomeImpactScenario/);
 assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
 assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
+assert.doesNotMatch(pageSource, /Reevaluate|data-income-impact-reevaluate/, "Scenario comparison state foundation should not add Reevaluate UI yet.");
 assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
 assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
@@ -486,13 +495,13 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*scroll-padding-bottom:\s*1rem;/,
-  "Income Impact content should use normal scroll padding now that controls are inline."
+  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*padding-bottom:\s*0;[\s\S]*scroll-padding-bottom:\s*0;/,
+  "Income Impact content should not reserve bottom space now that controls are inline."
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.actions-row[\s\S]*margin-bottom:\s*0\.75rem;[\s\S]*scroll-margin-bottom:\s*1rem;/,
-  "Income Impact actions should use normal spacing before the inline scenario controls."
+  /body\[data-step="income-impact"\] \.actions-row[\s\S]*margin-bottom:\s*0;[\s\S]*scroll-margin-bottom:\s*0;/,
+  "Income Impact actions should not reserve bottom-banner spacing before the inline scenario controls."
 );
 assert.match(
   layoutSource,
@@ -503,12 +512,12 @@ assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
 assert.match(
   componentsSource,
-  /@media \(max-width: 980px\)[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns: minmax\(8rem, 1fr\) minmax\(8rem, 1fr\) minmax\(11rem, 1\.1fr\);/,
-  "Tablet scenario controls should use a compact three-column layout."
+  /@media \(max-width: 980px\)[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(8rem, 1fr\)\);/,
+  "Tablet scenario controls should use the committed compact two-column layout."
 );
 assert.match(
   componentsSource,
-  /@media \(min-width: 721px\) and \(max-height: 700px\)[\s\S]*\.income-impact-scenario-banner[\s\S]*padding: 0\.58rem 0\.72rem;/,
+  /@media \(min-width: 721px\) and \(max-height: 700px\)[\s\S]*\.income-impact-scenario-banner[\s\S]*padding: 0\.44rem 0\.64rem;/,
   "Short-height scenario banner should use tighter spacing."
 );
 assert.match(
@@ -535,6 +544,27 @@ assert.equal(harness.composerCalls[0].scenarioOptions.mortgageTreatmentOverride,
 assert.equal(harness.composerCalls[0].scenarioOptions.includeDiscretionaryNeeds, true);
 assert.equal(harness.composerCalls[0].scenarioOptions.projectionCadence, "monthly");
 assert.equal(harness.riskEvaluatorCalls[0].scenario.scenario.selectedDeathAge, 45);
+const initialScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
+assert.deepEqual(
+  initialScenarioComparisonState.draftScenarioControls,
+  {
+    selectedDeathAge: 45,
+    selectedDeathDate: "2026-01-01",
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: 0
+  },
+  "initial draft scenario controls should mirror the currently evaluated control defaults."
+);
+assert.equal(initialScenarioComparisonState.appliedScenarios.length, 1, "initial evaluated scenario should be stored as appliedScenarios[0].");
+assert.equal(initialScenarioComparisonState.appliedScenarios[0].scenarioId, "income-impact-current-scenario");
+assert.equal(initialScenarioComparisonState.selectedScenarioId, initialScenarioComparisonState.appliedScenarios[0].scenarioId);
+assert.equal(initialScenarioComparisonState.appliedScenarios[0].label, "Death at age 45");
+assert.deepEqual(initialScenarioComparisonState.appliedScenarios[0].settings, initialScenarioComparisonState.draftScenarioControls);
+assert.equal(initialScenarioComparisonState.appliedScenarios[0].scenario.scenario.selectedDeathAge, 45);
+assert.equal(initialScenarioComparisonState.appliedScenarios[0].riskEvaluation.events[0].ruleId, "survivor-resources-depleted");
+assert.equal(initialScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.sliderValue, 0);
+assert.equal(initialScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.label, "Current");
 assert.equal(harness.control.hidden, false);
 assert.equal(harness.sliderRow.hidden, false);
 assert.equal(harness.slider.disabled, false);
@@ -571,6 +601,10 @@ assert.equal(harness.graphModelCalls.length, 2);
 assert.equal(harness.composerCalls[1].projectionHorizonMonths, 60);
 assert.equal(harness.projectionHorizon.value, "5");
 assert.equal(harness.projectionHorizonValue.textContent, "5 years");
+const minimumHorizonScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(minimumHorizonScenarioComparisonState.draftScenarioControls.projectionHorizonYears, 5);
+assert.equal(minimumHorizonScenarioComparisonState.appliedScenarios[0].settings.projectionHorizonYears, 5);
+assert.equal(minimumHorizonScenarioComparisonState.selectedScenarioId, "income-impact-current-scenario");
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
@@ -582,6 +616,10 @@ assert.equal(harness.graphModelCalls.length, 3);
 assert.equal(harness.composerCalls[2].projectionHorizonMonths, 1200);
 assert.equal(harness.projectionHorizon.value, "100");
 assert.equal(harness.projectionHorizonValue.textContent, "100 years");
+const maximumHorizonScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(maximumHorizonScenarioComparisonState.draftScenarioControls.projectionHorizonYears, 100);
+assert.equal(maximumHorizonScenarioComparisonState.appliedScenarios[0].settings.projectionHorizonYears, 100);
+assert.equal(maximumHorizonScenarioComparisonState.appliedScenarios.length, 1);
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
@@ -594,6 +632,10 @@ assert.equal(harness.composerCalls[3].scenarioOptions.mortgageTreatmentOverride,
 assert.equal(harness.mortgageTreatment.value, "payOffMortgage");
 assert.equal(harness.mortgageTreatmentValue.textContent, "Pay off mortgage");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-mortgage-treatment-label"), "Pay off mortgage");
+const mortgageScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(mortgageScenarioComparisonState.draftScenarioControls.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(mortgageScenarioComparisonState.appliedScenarios[0].settings.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(mortgageScenarioComparisonState.appliedScenarios.length, 1);
 
 harness.toggle.listeners.click();
 assert.equal(harness.composerCalls.length, 4, "collapsing should not rerun composer.");
@@ -617,10 +659,20 @@ assert.equal(harness.banner.classList.contains("is-collapsed"), false);
 assert.deepEqual(harness.storageWrites, [], "scenario controls should not write browser storage.");
 
 const protectedChanges = getChangedFiles([
+  "pages/income-loss-impact.html",
   "styles.css",
+  "layout.css",
+  "components.css",
+  "app.js",
+  "app/features/account-settings/household-expense-account-policy-storage.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
+  "app/features/lens-analysis/income-impact-timeline-graph-model.js",
+  "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+  "app/features/lens-analysis/income-impact-base-household-expense-stream.js",
+  "app/features/lens-analysis/income-impact-household-expense-adjustment-engine.js",
+  "app/features/lens-analysis/normalize-lens-model.js",
   "app/features/lens-analysis/step-three-analysis-display.js",
   "pages/analysis-estimate.html",
   "pages/dime-entry.html",
