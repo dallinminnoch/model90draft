@@ -135,13 +135,10 @@ assert.doesNotMatch(
 assert.match(incomeLossHtml, /<body[^>]*data-step='income-impact'/);
 assert.match(incomeLossHtml, /<h1>Income Loss Impact<\/h1>/);
 assert.match(incomeLossHtml, /Step 3: Income Impact Review/);
-assert.match(
+assert.doesNotMatch(
   incomeLossHtml,
-  /This preview uses linked profile and Protection Modeling facts to show what household finances may look like if death occurs at the selected age\/date\./
-);
-assert.match(
-  incomeLossHtml,
-  /It does not change the LENS recommendation\./
+  /This preview uses linked profile and Protection Modeling facts/,
+  "Income Impact should not show the deleted intro copy."
 );
 assert.match(
   incomeLossHtml,

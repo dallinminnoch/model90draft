@@ -1382,9 +1382,13 @@
         label,
         normalizeGraphPathMode(series.pathMode),
         {
+          "data-income-impact-scenario-select": series.scenarioId || "",
           "data-income-impact-applied-scenario-id": series.scenarioId || "",
           "data-income-impact-applied-scenario-label": label,
-          "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false"
+          "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false",
+          "role": "button",
+          "tabindex": "0",
+          "aria-pressed": series.selected === true ? "true" : "false"
         }
       );
     }).join("");
@@ -1454,7 +1458,16 @@
         ${renderAppliedScenarioLegend
           ? appliedSeries.map(function (series, index) {
             const label = normalizeString(series.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`);
-            return `<span data-income-impact-graph-legend-item="${escapeHtml(getAppliedScenarioLegendItemKey(series, index))}" data-income-impact-applied-scenario-label="${escapeHtml(label)}"><i></i>${escapeHtml(label)}</span>`;
+            return `
+              <span
+                data-income-impact-graph-legend-item="${escapeHtml(getAppliedScenarioLegendItemKey(series, index))}"
+                data-income-impact-scenario-select="${escapeHtml(series.scenarioId || "")}"
+                data-income-impact-applied-scenario-id="${escapeHtml(series.scenarioId || "")}"
+                data-income-impact-applied-scenario-label="${escapeHtml(label)}"
+                data-income-impact-applied-scenario-selected="${series.selected === true ? "true" : "false"}"
+                role="button"
+                tabindex="0"
+                aria-pressed="${series.selected === true ? "true" : "false"}"><i></i>${escapeHtml(label)}</span>`;
           }).join("")
           : `<span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>`}
         ${comparisonSeries.map(function (series, index) {
@@ -2621,6 +2634,46 @@
     }) || scenarios[0];
   }
 
+  function findAppliedScenarioSelection(state, scenarioId) {
+    const normalizedScenarioId = normalizeString(scenarioId);
+    const scenarios = Array.isArray(state?.appliedScenarios) ? state.appliedScenarios : [];
+    if (!normalizedScenarioId || !scenarios.length) {
+      return null;
+    }
+
+    for (let index = 0; index < scenarios.length; index += 1) {
+      const appliedScenario = scenarios[index];
+      const appliedScenarioId = getAppliedScenarioId(appliedScenario, index);
+      if (appliedScenarioId === normalizedScenarioId) {
+        return {
+          scenario: appliedScenario,
+          scenarioId: appliedScenarioId,
+          index
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function selectAppliedScenario(state, scenarioId) {
+    if (!isPlainObject(state)) {
+      return null;
+    }
+
+    const selection = findAppliedScenarioSelection(state, scenarioId);
+    if (!selection) {
+      return null;
+    }
+
+    state.selectedScenarioId = selection.scenarioId;
+    state.draftScenarioControls = normalizeScenarioControlsForState(
+      state,
+      isPlainObject(selection.scenario?.settings) ? selection.scenario.settings : null
+    );
+    return selection;
+  }
+
   function scenarioControlsAreEqual(left, right) {
     return getScenarioSettingsKey(left) === getScenarioSettingsKey(right);
   }
@@ -3098,6 +3151,86 @@
     return upsertAppliedScenarioRecord(state, buildAppliedScenarioRecord(state, baseContext, timelineResult));
   }
 
+  function getScenarioSelectionTarget(event) {
+    const target = event?.target;
+    if (!target) {
+      return null;
+    }
+
+    if (typeof target.closest === "function") {
+      return target.closest("[data-income-impact-scenario-select]");
+    }
+
+    if (
+      typeof target.getAttribute === "function"
+      && target.getAttribute("data-income-impact-scenario-select") != null
+    ) {
+      return target;
+    }
+
+    return null;
+  }
+
+  function getScenarioSelectionTargetId(target) {
+    if (!target || typeof target.getAttribute !== "function") {
+      return "";
+    }
+
+    return normalizeString(
+      target.getAttribute("data-income-impact-scenario-select")
+      || target.getAttribute("data-income-impact-applied-scenario-id")
+    );
+  }
+
+  function syncScenarioSelectionDom(host, selectedScenarioId) {
+    if (!host || typeof host.querySelectorAll !== "function") {
+      return;
+    }
+
+    const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
+    Array.from(host.querySelectorAll("[data-income-impact-applied-scenario-id]")).forEach(function (target) {
+      if (!target || typeof target.getAttribute !== "function" || typeof target.setAttribute !== "function") {
+        return;
+      }
+
+      const scenarioId = normalizeString(target.getAttribute("data-income-impact-applied-scenario-id"));
+      const selected = Boolean(normalizedSelectedScenarioId && scenarioId === normalizedSelectedScenarioId);
+      target.setAttribute("data-income-impact-applied-scenario-selected", selected ? "true" : "false");
+      if (target.getAttribute("data-income-impact-scenario-select") != null) {
+        target.setAttribute("aria-pressed", selected ? "true" : "false");
+      }
+    });
+  }
+
+  function handleScenarioSelectionEvent(event) {
+    const target = getScenarioSelectionTarget(event);
+    const scenarioId = getScenarioSelectionTargetId(target);
+    if (!scenarioId || !incomeImpactState) {
+      return;
+    }
+
+    const selection = selectAppliedScenario(incomeImpactState, scenarioId);
+    if (!selection) {
+      return;
+    }
+
+    if (typeof event?.preventDefault === "function") {
+      event.preventDefault();
+    }
+
+    syncScenarioSelectionDom(incomeImpactState.host, incomeImpactState.selectedScenarioId);
+    updateScenarioControls(incomeImpactState.latestTimelineResult);
+  }
+
+  function handleScenarioSelectionKeydown(event) {
+    const key = String(event?.key || "");
+    if (key !== "Enter" && key !== " ") {
+      return;
+    }
+
+    handleScenarioSelectionEvent(event);
+  }
+
   function renderIncomeImpactTimelineResult(timelineResult) {
     if (!incomeImpactState?.host || !isPlainObject(timelineResult)) {
       return;
@@ -3110,6 +3243,7 @@
       builderWarnings: incomeImpactState.builderWarnings
     });
     updateScenarioControls(timelineResult);
+    syncScenarioSelectionDom(incomeImpactState.host, incomeImpactState.selectedScenarioId);
   }
 
   function renderIncomeImpactFromState() {
@@ -3231,6 +3365,11 @@
         scenarioState.bannerCollapsed = !scenarioState.bannerCollapsed;
         updateScenarioControls(incomeImpactState.latestTimelineResult);
       });
+    }
+
+    if (incomeImpactState?.host) {
+      incomeImpactState.host.addEventListener("click", handleScenarioSelectionEvent);
+      incomeImpactState.host.addEventListener("keydown", handleScenarioSelectionKeydown);
     }
 
     if (incomeImpactState) {

@@ -87,6 +87,7 @@ function createElement(initial = {}) {
     value: initial.value || "",
     attributes: Object.assign({}, initial.attributes || {}),
     children: Object.assign({}, initial.children || {}),
+    selectorResults: Object.assign({}, initial.selectorResults || {}),
     classList: createClassList(),
     listeners,
     setAttribute(name, value) {
@@ -100,11 +101,20 @@ function createElement(initial = {}) {
     addEventListener(eventName, callback) {
       listeners[eventName] = callback;
     },
+    matches(selector) {
+      if (selector === "[data-income-impact-scenario-select]") {
+        return this.getAttribute("data-income-impact-scenario-select") != null;
+      }
+      return false;
+    },
+    closest(selector) {
+      return this.matches(selector) ? this : null;
+    },
     querySelector(selector) {
       return this.children[selector] || null;
     },
-    querySelectorAll() {
-      return [];
+    querySelectorAll(selector) {
+      return this.selectorResults[selector] || [];
     }
   };
 }
@@ -525,6 +535,8 @@ assert.match(displaySource, /mortgageTreatmentOverride/);
 assert.match(displaySource, /draftScenarioControls/);
 assert.match(displaySource, /appliedScenarios/);
 assert.match(displaySource, /selectedScenarioId/);
+assert.match(displaySource, /data-income-impact-scenario-select/);
+assert.match(displaySource, /selectAppliedScenario/);
 assert.match(displaySource, /applyDraftScenarioControlsToRuntimeState/);
 assert.match(displaySource, /hasDraftScenarioChanges/);
 assert.match(displaySource, /composeIncomeImpactScenario/);
@@ -572,6 +584,8 @@ assert.match(
 );
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
+assert.match(componentsSource, /data-income-impact-scenario-select/);
+assert.match(componentsSource, /data-income-impact-applied-scenario-selected="true"/);
 assert.match(
   componentsSource,
   /@media \(max-width: 980px\)[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(8rem, 1fr\)\);/,
@@ -714,11 +728,84 @@ assert.equal(
   2,
   "Reevaluate with a second applied scenario should render both scenario resource paths."
 );
+assert.match(harness.host.innerHTML, /data-income-impact-scenario-select="income-impact-current-scenario"/);
+assert.match(harness.host.innerHTML, new RegExp(`data-income-impact-scenario-select="${selectedSecondScenario.scenarioId}"`));
+assert.match(harness.host.innerHTML, /data-income-impact-applied-scenario-selected="true"/);
 assert.match(harness.host.innerHTML, /Death in 5 years/);
 assert.match(harness.host.innerHTML, /Death tomorrow/);
 assert.equal(draftState.hasDraftChanges, false);
 assert.equal(harness.reevaluateButton.disabled, true);
 assert.equal(harness.draftStatus.textContent, "Scenario applied");
+
+assert.equal(typeof harness.host.listeners.click, "function", "scenario selection should be delegated from the graph host.");
+assert.equal(typeof harness.host.listeners.keydown, "function", "scenario selection should support keyboard activation.");
+const originalScenarioSelectionTarget = createElement({
+  attributes: {
+    "data-income-impact-scenario-select": "income-impact-current-scenario",
+    "data-income-impact-applied-scenario-id": "income-impact-current-scenario",
+    "data-income-impact-applied-scenario-selected": "false",
+    "aria-pressed": "false"
+  }
+});
+const secondScenarioSelectionTarget = createElement({
+  attributes: {
+    "data-income-impact-scenario-select": selectedSecondScenario.scenarioId,
+    "data-income-impact-applied-scenario-id": selectedSecondScenario.scenarioId,
+    "data-income-impact-applied-scenario-selected": "true",
+    "aria-pressed": "true"
+  }
+});
+harness.host.selectorResults["[data-income-impact-applied-scenario-id]"] = [
+  originalScenarioSelectionTarget,
+  secondScenarioSelectionTarget
+];
+const countsBeforeScenarioSelection = {
+  composer: harness.composerCalls.length,
+  risk: harness.riskEvaluatorCalls.length,
+  graph: harness.graphModelCalls.length
+};
+let scenarioSelectionDefaultPrevented = false;
+harness.host.listeners.click({
+  target: originalScenarioSelectionTarget,
+  preventDefault() {
+    scenarioSelectionDefaultPrevented = true;
+  }
+});
+assert.equal(scenarioSelectionDefaultPrevented, true, "valid scenario selection should prevent default path interaction.");
+assert.equal(harness.composerCalls.length, countsBeforeScenarioSelection.composer, "selecting a scenario should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, countsBeforeScenarioSelection.risk, "selecting a scenario should not rerun risk evaluator.");
+assert.equal(harness.graphModelCalls.length, countsBeforeScenarioSelection.graph, "selecting a scenario should not rebuild the graph.");
+let selectedOriginalState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(selectedOriginalState.selectedScenarioId, "income-impact-current-scenario");
+assert.equal(selectedOriginalState.draftScenarioControls.selectedDeathAge, 45);
+assert.equal(selectedOriginalState.draftScenarioControls.lifestyleSliderValue, 0);
+assert.equal(selectedOriginalState.hasDraftChanges, false);
+assert.equal(harness.slider.value, "45");
+assert.equal(harness.ageValue.textContent, "45");
+assert.equal(harness.lifestyleSlider.value, "0");
+assert.equal(harness.lifestyleValue.textContent, "Current");
+assert.equal(originalScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "true");
+assert.equal(originalScenarioSelectionTarget.getAttribute("aria-pressed"), "true");
+assert.equal(secondScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "false");
+assert.equal(secondScenarioSelectionTarget.getAttribute("aria-pressed"), "false");
+
+harness.host.listeners.keydown({
+  key: "Enter",
+  target: secondScenarioSelectionTarget,
+  preventDefault() {}
+});
+draftState = harness.getScenarioComparisonStateSnapshot();
+assert.equal(draftState.selectedScenarioId, selectedSecondScenario.scenarioId);
+assert.equal(draftState.draftScenarioControls.selectedDeathAge, 50);
+assert.equal(draftState.draftScenarioControls.lifestyleSliderValue, 0);
+assert.equal(draftState.hasDraftChanges, false);
+assert.equal(harness.slider.value, "50");
+assert.equal(harness.ageValue.textContent, "50");
+assert.equal(secondScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "true");
+assert.equal(originalScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "false");
+assert.equal(harness.composerCalls.length, countsBeforeScenarioSelection.composer, "keyboard scenario selection should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, countsBeforeScenarioSelection.risk);
+assert.equal(harness.graphModelCalls.length, countsBeforeScenarioSelection.graph);
 
 const graphCallCountBeforeDuplicateReevaluate = harness.graphModelCalls.length;
 harness.reevaluateButton.listeners.click();
@@ -808,6 +895,7 @@ assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-lifestyle-
 const lifestyleDraftScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.equal(lifestyleDraftScenarioComparisonState.draftScenarioControls.lifestyleSliderValue, -100);
 assert.equal(getSelectedAppliedScenario(lifestyleDraftScenarioComparisonState).settings.lifestyleSliderValue, 0);
+assert.equal(getInitialAppliedScenario(lifestyleDraftScenarioComparisonState).settings.lifestyleSliderValue, 0);
 assert.equal(lifestyleDraftScenarioComparisonState.hasDraftChanges, true);
 
 harness.reevaluateButton.listeners.click();
@@ -816,9 +904,12 @@ assert.equal(harness.riskEvaluatorCalls.length, 6);
 assert.equal(harness.graphModelCalls.length, 6);
 const lifestyleAppliedScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 const selectedLifestyleScenario = getSelectedAppliedScenario(lifestyleAppliedScenarioComparisonState);
+const nonSelectedLifestyleScenario = getInitialAppliedScenario(lifestyleAppliedScenarioComparisonState);
 assert.equal(selectedLifestyleScenario.settings.lifestyleSliderValue, -100);
 assert.equal(selectedLifestyleScenario.lifestyleAdjustment.sliderValue, -100);
 assert.equal(selectedLifestyleScenario.lifestyleAdjustment.label, "Conservative");
+assert.equal(nonSelectedLifestyleScenario.settings.lifestyleSliderValue, 0, "non-selected scenario lifestyle setting should remain unchanged.");
+assert.equal(nonSelectedLifestyleScenario.lifestyleAdjustment.sliderValue, 0, "non-selected scenario lifestyle adjustment should remain unchanged.");
 assert.equal(lifestyleAppliedScenarioComparisonState.appliedScenarios.length, 2, "Reevaluate should keep V1 capped at two applied scenarios.");
 assert.equal(lifestyleAppliedScenarioComparisonState.hasDraftChanges, false);
 

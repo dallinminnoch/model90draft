@@ -16492,6 +16492,14 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke-width: 1.85;
 }
 
+.income-impact-graph-path[data-income-impact-scenario-select] {
+  cursor: pointer;
+}
+
+.income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {
+  stroke-width: 2.45;
+}
+
 .income-impact-graph-path--lifestyle-post-death-resources {
   stroke: #1f6fb2;
   stroke-dasharray: 7 6;
@@ -16519,6 +16527,24 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
+}
+
+.income-impact-graph-legend [data-income-impact-scenario-select] {
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  padding: 0.08rem 0.3rem;
+}
+
+.income-impact-graph-legend [data-income-impact-scenario-select]:focus-visible {
+  outline: 2px solid rgba(34, 116, 85, 0.32);
+  outline-offset: 2px;
+}
+
+.income-impact-graph-legend [data-income-impact-applied-scenario-selected="true"] {
+  background: rgba(34, 116, 85, 0.08);
+  border-color: rgba(34, 116, 85, 0.24);
+  color: #17202c;
 }
 
 .income-impact-graph-legend i {

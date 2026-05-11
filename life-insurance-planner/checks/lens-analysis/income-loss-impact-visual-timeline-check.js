@@ -307,8 +307,20 @@ assert.equal(
   2,
   "Two applied scenario paths should render when the graph model provides them."
 );
+assert.match(multiAppliedTimelineHtml, /data-income-impact-scenario-select="income-impact-death-in-5-years"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-scenario-select="income-impact-current-scenario"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-applied-scenario-id="income-impact-death-in-5-years"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-applied-scenario-id="income-impact-current-scenario"/);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-applied-scenario-id="income-impact-death-in-5-years"[^>]*data-income-impact-applied-scenario-selected="true"/,
+  "Selected scenario path should be marked for visible active-state styling."
+);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-applied-scenario-id="income-impact-current-scenario"[^>]*data-income-impact-applied-scenario-selected="false"/,
+  "Non-selected scenario path should remain visually distinguishable but inactive."
+);
 assert.match(multiAppliedTimelineHtml, /Death in 5 years/);
 assert.match(multiAppliedTimelineHtml, /Death tomorrow/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-legend/);
