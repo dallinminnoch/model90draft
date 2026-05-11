@@ -109,10 +109,7 @@
               <div class="income-impact-scenario-summary" data-income-impact-scenario-summary>
                 <span data-income-impact-selected-scenario-chip>Selected <strong data-income-impact-selected-scenario-label>Not selected</strong></span>
                 <span>Age <strong data-income-impact-death-age-value>Not available</strong></span>
-                <span>Date <strong data-income-impact-death-date-value>Not available</strong></span>
                 <span>Horizon <strong data-income-impact-projection-horizon-value>40 years</strong></span>
-                <span>Mortgage <strong data-income-impact-mortgage-treatment-value>Follow Assumption Controls</strong></span>
-                <span>Lifestyle <strong data-income-impact-lifestyle-value>Current</strong></span>
               </div>
               <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide controls</button>
             </div>
@@ -132,6 +129,7 @@
                   >
                 </div>
                 <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
+                <span data-income-impact-death-date-value hidden>Not available</span>
               </div>
               <label class="income-impact-scenario-field" for="income-impact-projection-horizon">
                 <span>Projection horizon</span>
@@ -152,10 +150,9 @@
                   <option value="payOffMortgage">Pay off mortgage</option>
                   <option value="continueMortgagePayments">Continue mortgage payments</option>
                 </select>
-                <small>Preview only. This does not change saved assumptions.</small>
               </label>
               <label class="income-impact-scenario-field income-impact-scenario-field--lifestyle" for="income-impact-lifestyle-slider">
-                <span>Lifestyle</span>
+                <span>Lifestyle <strong data-income-impact-lifestyle-value>Current</strong></span>
                 <input
                   id="income-impact-lifestyle-slider"
                   type="range"

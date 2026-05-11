@@ -831,7 +831,7 @@
     }
 
     if (elements.draftStatus) {
-      elements.draftStatus.textContent = hasPendingDraft ? "Draft changes not applied" : "Applied";
+      elements.draftStatus.textContent = hasPendingDraft ? "Pending" : "Applied";
       elements.draftStatus.setAttribute("data-income-impact-draft-status-state", hasPendingDraft ? "dirty" : "applied");
     }
 

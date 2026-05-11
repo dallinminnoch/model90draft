@@ -734,7 +734,7 @@ assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluat
 assert.equal(harness.reevaluateControl.getAttribute("data-income-impact-reevaluate-state"), "active");
 assert.equal(harness.reevaluateAction.textContent, "Adds comparison scenario");
 assert.equal(harness.reevaluateAction.getAttribute("data-income-impact-reevaluate-action-state"), "active");
-assert.equal(harness.draftStatus.textContent, "Draft changes not applied");
+assert.equal(harness.draftStatus.textContent, "Pending");
 assert.equal(harness.banner.getAttribute("data-income-impact-draft-state"), "dirty");
 assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-label"), "Adds comparison scenario");
 
@@ -871,7 +871,7 @@ assert.equal(minimumHorizonScenarioComparisonState.draftScenarioControls.project
 assert.equal(getSelectedAppliedScenario(minimumHorizonScenarioComparisonState).settings.projectionHorizonYears, 40);
 assert.notEqual(minimumHorizonScenarioComparisonState.selectedScenarioId, "income-impact-current-scenario");
 assert.equal(minimumHorizonScenarioComparisonState.hasDraftChanges, true);
-assert.equal(harness.draftStatus.textContent, "Draft changes not applied");
+assert.equal(harness.draftStatus.textContent, "Pending");
 assert.equal(harness.reevaluateAction.textContent, "Updates selected scenario");
 assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-label"), "Updates selected scenario");
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
