@@ -260,7 +260,28 @@ assert.equal(fiveYearModel.projection.xAxisMode, "deathRelativeYears");
 assert.equal(fiveYearModel.projection.trace.rawDatesPreserved, true);
 assert.equal(fiveYearModel.projection.trace.deathAlignedToSharedAnchor, true);
 assert.equal(fiveYearModel.projection.trace.calculationHorizonPreserved, true);
-assert.equal(fiveYearModel.projection.trace.displayHorizonAutoSized, false);
+assert.equal(fiveYearModel.projection.trace.displayHorizonAutoSized, true);
+assert.equal(fiveYearModel.projection.displayHorizonMode, "autoFromAppliedScenarioDepletion");
+assert.equal(fiveYearModel.projection.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
+assert.equal(fiveYearModel.projection.displayHorizonMonths, 180);
+assert.equal(fiveYearModel.projection.displayHorizonYears, 15);
+assert.equal(fiveYearModel.projection.displayHorizonEndDate, "2046-04-29");
+assert.equal(fiveYearModel.projection.displayHorizonReason, "latest-visible-applied-scenario-depletion");
+assert.equal(fiveYearModel.projection.calculationHorizonEndDate, "2071-04-29");
+assert.equal(fiveYearModel.projection.latestAppliedScenarioDepletionMonths, 144);
+assert.equal(fiveYearModel.projection.latestVisibleAppliedScenarioDepletionMonths, 144);
+assert.equal(fiveYearModel.axes.x.displayHorizonMode, "autoFromAppliedScenarioDepletion");
+assert.equal(fiveYearModel.axes.x.displayHorizonMonths, 180);
+assert.equal(fiveYearModel.axes.x.displayHorizonEndDate, "2046-04-29");
+assert.equal(fiveYearModel.axes.x.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
+assert.equal(fiveYearModel.axes.x.calculationHorizonEndDate, "2071-04-29");
+assert.equal(fiveYearModel.axes.x.latestAppliedScenarioDepletionMonths, 144);
+assert.equal(fiveYearModel.trace.displayHorizonMode, "autoFromAppliedScenarioDepletion");
+assert.equal(fiveYearModel.trace.displayHorizonAutoSized, true);
+assert.equal(fiveYearModel.trace.displayHorizonMonths, 180);
+assert.equal(fiveYearModel.trace.displayHorizonEndDate, "2046-04-29");
+assert.equal(fiveYearModel.trace.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
+assert.equal(fiveYearModel.trace.calculationHorizonEndDate, "2071-04-29");
 assert.equal(fiveYearModel.trace.projectionMode, "deathRelativeRunway");
 assert.equal(fiveYearModel.trace.rawDatesPreserved, true);
 assert.equal(fiveYearModel.trace.deathAlignedToSharedAnchor, true);
@@ -272,8 +293,8 @@ assertApproxEqual(
 );
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.x.ticks.map(function (tick) { return tick.label; })),
-  ["Before death", "Death", "+5 years", "+10 years", "+15 years", "+20 years", "+30 years"],
-  "Graph x-axis should use death-relative runway labels instead of calendar axis labels."
+  ["Before death", "Death", "+5 years", "+10 years", "+15 years"],
+  "Graph x-axis should use the auto-sized death-relative display horizon instead of the full calculation horizon."
 );
 assertApproxEqual(
   fiveYearModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).xRatio,
@@ -331,11 +352,133 @@ assert.equal(
   120,
   "Projection horizon calculation metadata should remain unchanged in the graph model."
 );
+assert.equal(
+  tenYearHorizonModel.projection.displayHorizonMonths,
+  120,
+  "A depletion beyond available calculation output should not extend the display horizon."
+);
+assert.equal(
+  tenYearHorizonModel.projection.displayHorizonReason,
+  "depletion-beyond-calculation-horizon-fallback-to-calculation-horizon",
+  "A beyond-horizon depletion should be reported as a display fallback reason."
+);
+assert.equal(tenYearHorizonModel.projection.trace.displayHorizonAutoSized, false);
 assert.deepEqual(
   cloneJson(tenYearHorizonModel.axes.x.ticks.map(function (tick) { return tick.label; })),
   ["Before death", "Death", "+5 years", "+10 years"],
   "A 10-year visible horizon should not emit crowded +15/+20/+30 labels."
 );
+
+const earlyDepletionScenario = cloneJson(fiveYearScenario);
+earlyDepletionScenario.postDeathSeries.points = [
+  {
+    date: "2032-04-29",
+    monthIndex: 12,
+    endingResources: 650000,
+    sourcePaths: ["layer3.points"]
+  },
+  {
+    date: "2035-04-29",
+    monthIndex: 48,
+    endingResources: -50000,
+    sourcePaths: ["layer3.points"]
+  }
+];
+earlyDepletionScenario.postDeathSeries.depletion = {
+  depleted: true,
+  depletionDate: "2034-04-29",
+  monthsCovered: 36
+};
+const earlyDepletionModel = buildIncomeImpactTimelineGraphModel({
+  scenario: earlyDepletionScenario,
+  riskEvaluation: cloneJson(riskEvaluation),
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(
+  earlyDepletionModel.projection.displayHorizonMonths,
+  120,
+  "Auto display horizon should keep the 10-year minimum when depletion is early."
+);
+assert.equal(earlyDepletionModel.projection.latestAppliedScenarioDepletionMonths, 36);
+assert.deepEqual(
+  cloneJson(earlyDepletionModel.axes.x.ticks.map(function (tick) { return tick.label; })),
+  ["Before death", "Death", "+5 years", "+10 years"],
+  "Minimum display horizon should drive death-relative tick filtering."
+);
+
+const maxDisplayScenario = cloneJson(fiveYearScenario);
+maxDisplayScenario.scenario.projectionHorizonMonths = 720;
+maxDisplayScenario.postDeathSeries.points = [
+  {
+    date: "2032-04-29",
+    monthIndex: 12,
+    endingResources: 650000,
+    sourcePaths: ["layer3.points"]
+  },
+  {
+    date: "2066-04-29",
+    monthIndex: 420,
+    endingResources: 100000,
+    sourcePaths: ["layer3.points"]
+  },
+  {
+    date: "2081-04-29",
+    monthIndex: 600,
+    endingResources: -50000,
+    sourcePaths: ["layer3.points"]
+  }
+];
+maxDisplayScenario.postDeathSeries.depletion = {
+  depleted: true,
+  depletionDate: "2081-04-29",
+  monthsCovered: 600
+};
+const maxDisplayModel = buildIncomeImpactTimelineGraphModel({
+  scenario: maxDisplayScenario,
+  riskEvaluation: cloneJson(riskEvaluation),
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(
+  maxDisplayModel.projection.displayHorizonMonths,
+  480,
+  "Auto display horizon should keep the 40-year maximum cap."
+);
+assert.equal(maxDisplayModel.projection.calculationHorizonMonths, 720);
+assert.equal(maxDisplayModel.projection.latestAppliedScenarioDepletionMonths, 600);
+assert.equal(maxDisplayModel.projection.trace.displayHorizonAutoSized, true);
+
+const noDepletionScenario = cloneJson(fiveYearScenario);
+noDepletionScenario.postDeathSeries.points = noDepletionScenario.postDeathSeries.points.map(function (point) {
+  return Object.assign({}, point, {
+    endingResources: Math.abs(point.endingResources) + 500000
+  });
+});
+delete noDepletionScenario.postDeathSeries.depletion;
+const noDepletionModel = buildIncomeImpactTimelineGraphModel({
+  scenario: noDepletionScenario,
+  riskEvaluation: cloneJson(riskEvaluation),
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(
+  noDepletionModel.projection.displayHorizonMonths,
+  noDepletionScenario.scenario.projectionHorizonMonths,
+  "No-depletion scenarios should fall back to the calculation horizon."
+);
+assert.equal(
+  noDepletionModel.projection.displayHorizonReason,
+  "no-visible-applied-scenario-depletion-fallback-to-calculation-horizon"
+);
+assert.equal(noDepletionModel.projection.latestAppliedScenarioDepletionMonths, null);
+assert.equal(noDepletionModel.projection.trace.displayHorizonAutoSized, false);
 
 const appliedSingleInput = {
   appliedScenarios: [

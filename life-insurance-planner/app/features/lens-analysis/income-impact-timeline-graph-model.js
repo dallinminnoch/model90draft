@@ -11,9 +11,14 @@
   const MAX_RENDERED_APPLIED_SCENARIOS = 2;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
+  const DISPLAY_HORIZON_MODE_AUTO_DEPLETION = "autoFromAppliedScenarioDepletion";
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
   const DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS = 5;
   const MONTHS_PER_YEAR = 12;
+  const MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 10 * MONTHS_PER_YEAR;
+  const MAX_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
+  const POST_DEPLETION_DISPLAY_PADDING_MONTHS = 24;
+  const DISPLAY_HORIZON_ROUNDING_MONTHS = 5 * MONTHS_PER_YEAR;
   const DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
   const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30]);
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
@@ -1198,27 +1203,138 @@
     return Math.max(0, Math.min(1, number));
   }
 
-  function makeDeathRelativeRunwayProjection(dates) {
+  function clampDisplayHorizonMonths(value) {
+    const months = toOptionalNumber(value);
+    if (months == null || months <= 0) {
+      return DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS;
+    }
+    return Math.max(
+      MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS,
+      Math.min(MAX_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS, months)
+    );
+  }
+
+  function roundDisplayHorizonMonths(value) {
+    const months = toOptionalNumber(value);
+    if (months == null || months <= 0) {
+      return DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS;
+    }
+    const rounded = Math.ceil(months / DISPLAY_HORIZON_ROUNDING_MONTHS) * DISPLAY_HORIZON_ROUNDING_MONTHS;
+    return clampDisplayHorizonMonths(rounded);
+  }
+
+  function getSeriesDepletionMonths(series) {
+    if (!isPlainObject(series?.depletion)) {
+      return null;
+    }
+    const explicitMonth = toOptionalNumber(series.depletion.monthIndex);
+    if (explicitMonth != null && explicitMonth >= 0) {
+      return explicitMonth;
+    }
+    const deathDate = normalizeDateOnly(series.deathDate);
+    const depletionDate = normalizeDateOnly(series.depletion.date);
+    if (deathDate && depletionDate) {
+      const dateMonth = getApproximateMonthDelta(deathDate, depletionDate);
+      return dateMonth != null && dateMonth >= 0 ? dateMonth : null;
+    }
+    return null;
+  }
+
+  function resolveDeathRelativeDisplayHorizon(dates, activeSeries) {
     const safeDates = isPlainObject(dates) ? dates : {};
     const calculationHorizonMonths = toOptionalNumber(safeDates.projectionHorizonMonths);
-    const postDeathDisplayHorizonMonths = calculationHorizonMonths != null && calculationHorizonMonths > 0
-      ? calculationHorizonMonths
-      : DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS;
+    const fallbackHorizonMonths = clampDisplayHorizonMonths(
+      calculationHorizonMonths != null && calculationHorizonMonths > 0
+        ? calculationHorizonMonths
+        : DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS
+    );
+    const depletionMonths = (Array.isArray(activeSeries) ? activeSeries : [])
+      .map(getSeriesDepletionMonths)
+      .filter(function (month) {
+        return month != null && month >= 0;
+      });
+    const latestAppliedScenarioDepletionMonths = depletionMonths.length
+      ? Math.max(...depletionMonths)
+      : null;
+    const visibleDepletionMonths = depletionMonths.filter(function (month) {
+      return calculationHorizonMonths == null || calculationHorizonMonths <= 0 || month <= calculationHorizonMonths;
+    });
+    const latestVisibleAppliedScenarioDepletionMonths = visibleDepletionMonths.length
+      ? Math.max(...visibleDepletionMonths)
+      : null;
+
+    if (latestVisibleAppliedScenarioDepletionMonths != null) {
+      const paddedHorizon = latestVisibleAppliedScenarioDepletionMonths + POST_DEPLETION_DISPLAY_PADDING_MONTHS;
+      const roundedHorizon = roundDisplayHorizonMonths(paddedHorizon);
+      const displayHorizonMonths = calculationHorizonMonths != null && calculationHorizonMonths > 0
+        ? Math.min(roundedHorizon, calculationHorizonMonths)
+        : roundedHorizon;
+      return {
+        displayHorizonMode: DISPLAY_HORIZON_MODE_AUTO_DEPLETION,
+        displayHorizonMonths: clampDisplayHorizonMonths(displayHorizonMonths),
+        displayHorizonReason: "latest-visible-applied-scenario-depletion",
+        calculationHorizonMonths,
+        latestAppliedScenarioDepletionMonths,
+        latestVisibleAppliedScenarioDepletionMonths,
+        displayHorizonAutoSized: true
+      };
+    }
+
+    const hasBeyondCalculationHorizon = calculationHorizonMonths != null
+      && calculationHorizonMonths > 0
+      && depletionMonths.some(function (month) {
+        return month > calculationHorizonMonths;
+      });
+    return {
+      displayHorizonMode: DISPLAY_HORIZON_MODE_AUTO_DEPLETION,
+      displayHorizonMonths: fallbackHorizonMonths,
+      displayHorizonReason: hasBeyondCalculationHorizon
+        ? "depletion-beyond-calculation-horizon-fallback-to-calculation-horizon"
+        : "no-visible-applied-scenario-depletion-fallback-to-calculation-horizon",
+      calculationHorizonMonths,
+      latestAppliedScenarioDepletionMonths,
+      latestVisibleAppliedScenarioDepletionMonths: null,
+      displayHorizonAutoSized: false
+    };
+  }
+
+  function makeDeathRelativeRunwayProjection(dates, activeSeries) {
+    const safeDates = isPlainObject(dates) ? dates : {};
+    const displayHorizon = resolveDeathRelativeDisplayHorizon(safeDates, activeSeries);
+    const postDeathDisplayHorizonMonths = displayHorizon.displayHorizonMonths;
+    const calculationHorizonMonths = displayHorizon.calculationHorizonMonths;
+    const deathDate = normalizeDateOnly(safeDates.deathDate);
+    const parsedDeathDate = parseDateOnly(deathDate);
+    const displayHorizonEndDate = parsedDeathDate
+      ? normalizeDateOnly(addMonths(parsedDeathDate, postDeathDisplayHorizonMonths))
+      : "";
+    const calculationHorizonEndDate = parsedDeathDate && calculationHorizonMonths != null
+      ? normalizeDateOnly(addMonths(parsedDeathDate, calculationHorizonMonths))
+      : "";
     return {
       mode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
       xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
       deathXRatio: DEATH_RELATIVE_DEATH_X_RATIO,
       preDeathContextYears: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS,
       preDeathContextMonths: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS * MONTHS_PER_YEAR,
+      displayHorizonMode: displayHorizon.displayHorizonMode,
+      displayHorizonYears: postDeathDisplayHorizonMonths / MONTHS_PER_YEAR,
+      displayHorizonMonths: postDeathDisplayHorizonMonths,
+      displayHorizonReason: displayHorizon.displayHorizonReason,
+      displayHorizonEndDate,
       postDeathDisplayHorizonMonths,
       calculationHorizonMonths,
-      deathDate: normalizeDateOnly(safeDates.deathDate),
+      calculationHorizonYears: calculationHorizonMonths == null ? null : calculationHorizonMonths / MONTHS_PER_YEAR,
+      calculationHorizonEndDate,
+      latestAppliedScenarioDepletionMonths: displayHorizon.latestAppliedScenarioDepletionMonths,
+      latestVisibleAppliedScenarioDepletionMonths: displayHorizon.latestVisibleAppliedScenarioDepletionMonths,
+      deathDate,
       valuationDate: normalizeDateOnly(safeDates.valuationDate),
       trace: {
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,
         calculationHorizonPreserved: true,
-        displayHorizonAutoSized: false
+        displayHorizonAutoSized: displayHorizon.displayHorizonAutoSized
       }
     };
   }
@@ -1515,7 +1631,6 @@
     }
 
     const dates = getScenarioDates(scenario);
-    const deathRelativeProjection = makeDeathRelativeRunwayProjection(dates);
     const preDeath = isPlainObject(scenario.preDeathSeries) ? scenario.preDeathSeries : {};
     const preDeathMode = String(preDeath.mode || "").trim();
     const currentPointOnly = preDeathMode === "current-point-only"
@@ -1547,6 +1662,15 @@
     }
 
     const appliedPostDeathResources = buildAppliedPostDeathSeries(scenarioInput, postDeathResources);
+    const basePostDeathDisplaySeries = {
+      deathDate: dates.deathDate,
+      projectionHorizonMonths: dates.projectionHorizonMonths,
+      depletion: getDepletionInfo(postDeathResources, getPath(scenario, "postDeathSeries.depletion"))
+    };
+    const deathRelativeProjection = makeDeathRelativeRunwayProjection(
+      dates,
+      appliedPostDeathResources.length ? appliedPostDeathResources : [basePostDeathDisplaySeries]
+    );
     const appliedPostDeathPoints = appliedPostDeathResources.reduce(function (points, appliedSeries) {
       return points.concat(appliedSeries.points);
     }, []);
@@ -1655,7 +1779,15 @@
           deathDate: dates.deathDate,
           deathXRatio: deathRelativeProjection.deathXRatio,
           projectionMode: deathRelativeProjection.mode,
+          displayHorizonMode: deathRelativeProjection.displayHorizonMode,
+          displayHorizonYears: deathRelativeProjection.displayHorizonYears,
+          displayHorizonMonths: deathRelativeProjection.displayHorizonMonths,
+          displayHorizonReason: deathRelativeProjection.displayHorizonReason,
+          displayHorizonEndDate: deathRelativeProjection.displayHorizonEndDate,
           postDeathDisplayHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths,
+          calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
+          calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
+          latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
           ticks: makeXTicks(dates, xDomain, deathRelativeProjection)
         },
         y: {
@@ -1694,6 +1826,15 @@
         selectedAppliedScenario: scenarioInput.selectedAppliedScenario,
         xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
         projectionMode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
+        displayHorizonMode: deathRelativeProjection.displayHorizonMode,
+        displayHorizonYears: deathRelativeProjection.displayHorizonYears,
+        displayHorizonMonths: deathRelativeProjection.displayHorizonMonths,
+        displayHorizonReason: deathRelativeProjection.displayHorizonReason,
+        displayHorizonEndDate: deathRelativeProjection.displayHorizonEndDate,
+        displayHorizonAutoSized: deathRelativeProjection.trace.displayHorizonAutoSized,
+        calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
+        calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
+        latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,
         calculationHorizonPreserved: true,
