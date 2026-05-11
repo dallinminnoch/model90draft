@@ -16410,7 +16410,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-graph-svg {
   display: block;
   width: 100%;
-  min-height: clamp(34rem, 72vh, 54rem);
+  min-height: clamp(22rem, 48vh, 38rem);
   max-width: 100%;
   border: 1px solid rgba(223, 229, 238, 0.9);
   border-radius: 0.5rem;
@@ -16474,17 +16474,17 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-graph-deficit-area {
-  fill: rgba(185, 70, 48, 0.16);
+  fill: rgba(185, 70, 48, 0.22);
   pointer-events: none;
-  stroke: rgba(185, 70, 48, 0.28);
-  stroke-width: 0.8;
+  stroke: rgba(185, 70, 48, 0.42);
+  stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
 }
 
 .income-impact-graph-deficit-label,
 .income-impact-runway-depletion-label {
   fill: #7b2f24;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 820;
   paint-order: stroke;
   pointer-events: none;
@@ -16522,12 +16522,12 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {
-  stroke-width: 2.45;
+  stroke-width: 3.2;
 }
 
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="false"] {
-  opacity: 0.58;
-  stroke-width: 1.65;
+  opacity: 0.38;
+  stroke-width: 1.25;
 }
 
 .income-impact-graph-path--lifestyle-post-death-resources {
@@ -16569,6 +16569,11 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-graph-legend [data-income-impact-scenario-select]:focus-visible {
   outline: 2px solid rgba(34, 116, 85, 0.32);
   outline-offset: 2px;
+}
+
+.income-impact-graph-legend [data-income-impact-scenario-select]:hover {
+  background: rgba(34, 116, 85, 0.12);
+  border-color: rgba(34, 116, 85, 0.32);
 }
 
 .income-impact-graph-legend [data-income-impact-applied-scenario-selected="true"] {
@@ -16751,10 +16756,10 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-runway-depletion-marker line {
-  opacity: 0.72;
-  stroke: rgba(185, 70, 48, 0.72);
-  stroke-dasharray: 2 4;
-  stroke-width: 0.9;
+  opacity: 1;
+  stroke: rgba(185, 70, 48, 0.8);
+  stroke-dasharray: 5 4;
+  stroke-width: 1.4;
   vector-effect: non-scaling-stroke;
 }
 
@@ -17360,6 +17365,11 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-scenario-field[data-income-impact-reevaluate-state="active"] [data-income-impact-draft-status] {
   background: rgba(185, 70, 48, 0.1);
   color: #8f382a;
+}
+
+.income-impact-scenario-field[data-income-impact-reevaluate-state="idle"] [data-income-impact-draft-status],
+.income-impact-scenario-field[data-income-impact-reevaluate-state="idle"] [data-income-impact-reevaluate-action] {
+  opacity: 0.55;
 }
 
 .income-impact-scenario-field[data-income-impact-reevaluate-control] [data-income-impact-reevaluate-action] {
