@@ -180,6 +180,7 @@ assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
+assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
@@ -262,6 +263,46 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-impact-runway-line/);
 const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources");
 assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
+
+const multiAppliedGraphModel = makeGraphModel();
+multiAppliedGraphModel.series.appliedPostDeathResources = [
+  {
+    scenarioId: "income-impact-death-in-5-years",
+    label: "Death in 5 years",
+    pathId: "postDeathResources",
+    selected: true,
+    points: multiAppliedGraphModel.series.postDeathResources
+  },
+  {
+    scenarioId: "income-impact-current-scenario",
+    label: "Death tomorrow",
+    pathId: "postDeathResources--scenario-2",
+    selected: false,
+    points: [
+      { date: "2027-04-29", monthIndex: 12, value: 610000, xRatio: 0.2, yRatio: 0.16 },
+      { date: "2036-04-29", monthIndex: 120, value: 90000, xRatio: 0.68, yRatio: 0.6 },
+      { date: "2041-04-29", monthIndex: 180, value: -130000, xRatio: 0.86, yRatio: 0.78 }
+    ]
+  }
+];
+const multiAppliedTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  graphModel: multiAppliedGraphModel
+});
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
+  2,
+  "Two applied scenario paths should render when the graph model provides them."
+);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-applied-scenario-id="income-impact-death-in-5-years"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-applied-scenario-id="income-impact-current-scenario"/);
+assert.match(multiAppliedTimelineHtml, /Death in 5 years/);
+assert.match(multiAppliedTimelineHtml, /Death tomorrow/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-legend/);
+assert.doesNotMatch(multiAppliedTimelineHtml, /Comparison only - base projection unchanged\./);
+assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
 
 const currentGraphModel = makeGraphModel();
 const currentComparisonPoints = currentGraphModel.series.postDeathResources.map((point) => ({ ...point }));

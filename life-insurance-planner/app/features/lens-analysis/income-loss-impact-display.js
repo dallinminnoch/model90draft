@@ -11,6 +11,7 @@
   const MAX_LIFESTYLE_SLIDER_VALUE = 100;
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
+  const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
@@ -1310,13 +1311,69 @@
     `;
   }
 
-  function renderGraphPath(pathId, points, label, pathMode = "smooth") {
+  function renderGraphPathAttributes(attributes) {
+    if (!isPlainObject(attributes)) {
+      return "";
+    }
+    return Object.entries(attributes).map(function ([name, value]) {
+      if (value == null || value === false) {
+        return "";
+      }
+      return ` ${escapeHtml(name)}="${escapeHtml(value)}"`;
+    }).join("");
+  }
+
+  function renderGraphPath(pathId, points, label, pathMode = "smooth", attributes = null) {
     const normalizedPathMode = normalizeGraphPathMode(pathMode);
     const path = buildSvgPath(points, normalizedPathMode);
     if (!path) {
       return "";
     }
-    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}" d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
+    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}"${renderGraphPathAttributes(attributes)} d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
+  }
+
+  function getAppliedGraphSeries(graphModel) {
+    const appliedSeries = Array.isArray(graphModel?.series?.appliedPostDeathResources)
+      ? graphModel.series.appliedPostDeathResources
+      : [];
+    const candidates = appliedSeries.length
+      ? appliedSeries
+      : [
+          {
+            pathId: POST_DEATH_RESOURCES_PATH_ID,
+            label: "Survivor resources after death",
+            selected: true,
+            points: graphModel?.series?.postDeathResources
+          }
+        ];
+
+    return candidates.filter(function (series) {
+      return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
+    }).slice(0, 2);
+  }
+
+  function renderAppliedScenarioGraphPaths(graphModel) {
+    const appliedSeries = getAppliedGraphSeries(graphModel);
+    if (!appliedSeries.length) {
+      return "";
+    }
+    return appliedSeries.map(function (series, index) {
+      const pathId = normalizeString(series.pathId) || (index === 0
+        ? POST_DEATH_RESOURCES_PATH_ID
+        : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`);
+      const label = normalizeString(series.label) || "Survivor resources after death";
+      return renderGraphPath(
+        pathId,
+        series.points,
+        label,
+        normalizeGraphPathMode(series.pathMode),
+        {
+          "data-income-impact-applied-scenario-id": series.scenarioId || "",
+          "data-income-impact-applied-scenario-label": label,
+          "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false"
+        }
+      );
+    }).join("");
   }
 
   function getComparisonGraphSeries(graphModel) {
@@ -1367,20 +1424,31 @@
     return "lifestyle";
   }
 
+  function getAppliedScenarioLegendItemKey(series, index) {
+    return index === 0 ? "base" : `applied-scenario-${index + 1}`;
+  }
+
   function renderGraphLegend(graphModel) {
+    const appliedSeries = getAppliedGraphSeries(graphModel);
     const comparisonSeries = getComparisonGraphSeries(graphModel);
-    if (!comparisonSeries.length) {
+    const renderAppliedScenarioLegend = appliedSeries.length > 1;
+    if (!renderAppliedScenarioLegend && !comparisonSeries.length) {
       return "";
     }
     return `
       <div class="income-impact-graph-legend" data-income-impact-graph-legend>
-        <span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>
+        ${renderAppliedScenarioLegend
+          ? appliedSeries.map(function (series, index) {
+            const label = normalizeString(series.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`);
+            return `<span data-income-impact-graph-legend-item="${escapeHtml(getAppliedScenarioLegendItemKey(series, index))}" data-income-impact-applied-scenario-label="${escapeHtml(label)}"><i></i>${escapeHtml(label)}</span>`;
+          }).join("")
+          : `<span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>`}
         ${comparisonSeries.map(function (series, index) {
           const pathId = getComparisonGraphPathId(series, index);
           const label = series.label || getComparisonGraphLabel(pathId);
           return `<span data-income-impact-graph-legend-item="${escapeHtml(getComparisonLegendItemKey(pathId))}"><i></i>${escapeHtml(label)}</span>`;
         }).join("")}
-        <p>Comparison only - base projection unchanged.</p>
+        ${comparisonSeries.length ? "<p>Comparison only - base projection unchanged.</p>" : ""}
       </div>
     `;
   }
@@ -1773,7 +1841,7 @@
   function renderGraphSvg(graphModel) {
     const preDeathPath = renderGraphPath("preDeathAssets", graphModel?.series?.preDeathAssets, "Projected assets before death");
     const deathPath = renderGraphPath("deathTransition", graphModel?.series?.deathTransition, "Death-event resource conversion");
-    const postDeathPath = renderGraphPath("postDeathResources", graphModel?.series?.postDeathResources, "Survivor resources after death");
+    const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
     return `
       <svg
@@ -1788,7 +1856,7 @@
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${preDeathPath}
           ${deathPath}
-          ${postDeathPath}
+          ${appliedScenarioPaths}
           ${comparisonPaths}
           ${renderGraphDeathAnchor(graphModel)}
         </g>

@@ -305,6 +305,129 @@ assert.equal(appliedSingleModel.trace.selectedAppliedScenario.label, "Death at a
 assert.equal(appliedSingleModel.trace.selectedAppliedScenario.settings.selectedDeathAge, 51);
 assert.equal(appliedSingleModel.trace.selectedAppliedScenario.lifestyleAdjustment.label, "Current");
 assert.equal(appliedSingleModel.trace.selectedAppliedScenario.comparisonTrace.source, "scenario-comparison-foundation-check");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(appliedSingleModel.series, "appliedPostDeathResources"),
+  false,
+  "One applied scenario should keep the existing single postDeathResources output."
+);
+
+const tenYearScenario = makeScenario(10);
+const appliedMultiInput = {
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-current-scenario",
+      label: "Death tomorrow",
+      settings: {
+        selectedDeathAge: 46,
+        selectedDeathDate: fiveYearScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(fiveYearScenario),
+      riskEvaluation: cloneJson(riskEvaluation),
+      lifestyleAdjustment: {
+        sliderValue: 0,
+        label: "Current"
+      }
+    },
+    {
+      scenarioId: "income-impact-death-in-10-years",
+      label: "Death in 10 years",
+      settings: {
+        selectedDeathAge: 56,
+        selectedDeathDate: tenYearScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(tenYearScenario),
+      riskEvaluation: cloneJson(riskEvaluation),
+      lifestyleAdjustment: {
+        sliderValue: 0,
+        label: "Current"
+      }
+    }
+  ],
+  selectedScenarioId: "income-impact-death-in-10-years",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+};
+const appliedMultiInputBefore = cloneJson(appliedMultiInput);
+const appliedMultiModel = buildIncomeImpactTimelineGraphModel(appliedMultiInput);
+assert.deepEqual(appliedMultiInput, appliedMultiInputBefore, "Graph model should not mutate multi appliedScenarios input.");
+assert.equal(appliedMultiModel.trace.scenarioModelMode, "appliedScenarios");
+assert.equal(appliedMultiModel.trace.appliedScenarioCount, 2);
+assert.equal(appliedMultiModel.trace.renderedAppliedScenarioCount, 2);
+assert.equal(appliedMultiModel.trace.selectedScenarioId, "income-impact-death-in-10-years");
+assert.equal(appliedMultiModel.trace.selectedAppliedScenarioId, "income-impact-death-in-10-years");
+assert.deepEqual(
+  cloneJson(appliedMultiModel.trace.appliedScenarioPathIds),
+  ["postDeathResources", "postDeathResources--scenario-2"],
+  "Applied scenario path IDs should be deterministic and keep the selected scenario on the compatibility path."
+);
+assert.equal(appliedMultiModel.series.appliedPostDeathResources.length, 2, "Two applied scenarios should produce two renderable resource paths.");
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.label; })),
+  ["Death in 10 years", "Death tomorrow"],
+  "Applied scenario path labels should preserve scenario labels with the selected scenario first."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.pathId; })),
+  ["postDeathResources", "postDeathResources--scenario-2"]
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.selected; })),
+  [true, false]
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.postDeathResources.map(function (point) { return point.value; })),
+  cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
+  "The compatibility postDeathResources path should continue to represent the selected applied scenario."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedPostDeathResources[0].points.map(function (point) { return point.value; })),
+  cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
+  "Selected applied scenario resource values should remain raw composer values."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedPostDeathResources[1].points.map(function (point) { return point.value; })),
+  cloneJson(fiveYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
+  "Second applied scenario resource values should remain raw composer values."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedPostDeathResources[0].points.map(function (point) { return point.date; })),
+  cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.date; })),
+  "Selected applied scenario dates should remain raw composer dates."
+);
+
+const overLimitAppliedModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(appliedMultiInput), {
+  appliedScenarios: appliedMultiInput.appliedScenarios.concat([
+    {
+      scenarioId: "income-impact-death-in-20-years",
+      label: "Death in 20 years",
+      settings: {
+        selectedDeathAge: 66,
+        selectedDeathDate: makeScenario(20).scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: makeScenario(20),
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ]),
+  selectedScenarioId: "income-impact-death-in-20-years"
+}));
+assert.equal(overLimitAppliedModel.trace.appliedScenarioCount, 3);
+assert.equal(overLimitAppliedModel.trace.renderedAppliedScenarioCount, 2, "Graph model should render no more than two applied scenario paths.");
+assert.deepEqual(
+  cloneJson(overLimitAppliedModel.series.appliedPostDeathResources.map(function (series) { return series.label; })),
+  ["Death in 20 years", "Death tomorrow"],
+  "When over limit, the selected scenario should render first and only one comparison scenario should be retained."
+);
 
 const comparisonScenario = {
   scenarioId: "income-impact-lifestyle-adjusted-comparison",

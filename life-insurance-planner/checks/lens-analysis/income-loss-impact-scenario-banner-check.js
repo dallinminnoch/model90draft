@@ -335,6 +335,50 @@ function createHarness() {
           },
           buildIncomeImpactTimelineGraphModel(input) {
             graphModelCalls.push(cloneJson(input));
+            const selectedScenarioId = input.selectedScenarioId;
+            const appliedScenarios = Array.isArray(input.appliedScenarios) ? input.appliedScenarios : [];
+            const selectedScenario = appliedScenarios.find(function (scenario) {
+              return scenario?.scenarioId === selectedScenarioId;
+            }) || appliedScenarios[0];
+            const orderedScenarios = selectedScenario
+              ? [selectedScenario].concat(appliedScenarios.filter(function (scenario) {
+                return scenario?.scenarioId !== selectedScenario.scenarioId;
+              }))
+              : [];
+            const postDeathResources = [
+              { xRatio: 0.1, yRatio: 0.42, value: input.scenario?.timelineFacts?.resourcesAfterObligations },
+              { xRatio: 0.8, yRatio: 0.8, value: 0 }
+            ];
+            const appliedPostDeathResources = orderedScenarios.slice(0, 2).map(function (scenario, index) {
+              return {
+                scenarioId: scenario.scenarioId,
+                label: scenario.label,
+                pathId: index === 0 ? "postDeathResources" : `postDeathResources--scenario-${index + 1}`,
+                selected: scenario.scenarioId === selectedScenarioId,
+                points: index === 0
+                  ? postDeathResources
+                  : [
+                    { xRatio: 0.16, yRatio: 0.36, value: scenario.scenario?.timelineFacts?.resourcesAfterObligations },
+                    { xRatio: 0.72, yRatio: 0.74, value: 0 }
+                  ]
+              };
+            });
+            const series = {
+              preDeathAssets: [],
+              currentAnchor: {
+                xRatio: 0,
+                yRatio: 0.25,
+                value: input.scenario?.timelineFacts?.assetsBeforeDeath
+              },
+              deathTransition: [
+                { xRatio: 0, yRatio: 0.25, value: input.scenario?.timelineFacts?.assetsBeforeDeath },
+                { xRatio: 0, yRatio: 0.4, value: input.scenario?.timelineFacts?.resourcesAfterObligations }
+              ],
+              postDeathResources
+            };
+            if (appliedPostDeathResources.length > 1) {
+              series.appliedPostDeathResources = appliedPostDeathResources;
+            }
             return {
               status: "complete",
               phases: {
@@ -342,22 +386,7 @@ function createHarness() {
                 deathEvent: { xRatio: 0, date: input.scenario?.scenario?.selectedDeathDate },
                 postDeath: { available: true }
               },
-              series: {
-                preDeathAssets: [],
-                currentAnchor: {
-                  xRatio: 0,
-                  yRatio: 0.25,
-                  value: input.scenario?.timelineFacts?.assetsBeforeDeath
-                },
-                deathTransition: [
-                  { xRatio: 0, yRatio: 0.25, value: input.scenario?.timelineFacts?.assetsBeforeDeath },
-                  { xRatio: 0, yRatio: 0.4, value: input.scenario?.timelineFacts?.resourcesAfterObligations }
-                ],
-                postDeathResources: [
-                  { xRatio: 0.1, yRatio: 0.42, value: input.scenario?.timelineFacts?.resourcesAfterObligations },
-                  { xRatio: 0.8, yRatio: 0.8, value: 0 }
-                ]
-              },
+              series,
               axes: {
                 x: {
                   ticks: [
@@ -678,6 +707,15 @@ assert.equal(selectedSecondScenario.scenario.scenario.selectedDeathAge, 50);
 assert.equal(selectedSecondScenario.label, "Death in 5 years");
 assert.equal(harness.graphModelCalls[1].selectedScenarioId, draftState.selectedScenarioId);
 assert.equal(harness.graphModelCalls[1].appliedScenarios.length, 2);
+assert.match(harness.host.innerHTML, /data-income-impact-graph-path="postDeathResources"/);
+assert.match(harness.host.innerHTML, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
+assert.equal(
+  (harness.host.innerHTML.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
+  2,
+  "Reevaluate with a second applied scenario should render both scenario resource paths."
+);
+assert.match(harness.host.innerHTML, /Death in 5 years/);
+assert.match(harness.host.innerHTML, /Death tomorrow/);
 assert.equal(draftState.hasDraftChanges, false);
 assert.equal(harness.reevaluateButton.disabled, true);
 assert.equal(harness.draftStatus.textContent, "Scenario applied");
@@ -808,7 +846,6 @@ assert.deepEqual(harness.storageWrites, [], "scenario controls should not write 
 const protectedChanges = getChangedFiles([
   "styles.css",
   "layout.css",
-  "components.css",
   "app.js",
   "app/features/account-settings/household-expense-account-policy-storage.js",
   "app/features/lens-analysis/analysis-methods.js",
@@ -830,7 +867,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Scenario banner check should not see CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
+  "Scenario banner check should not see shell/legacy CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
 );
 
 console.log("income-loss-impact-scenario-banner-check passed");

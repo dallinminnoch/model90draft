@@ -7,6 +7,8 @@
   const COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS = 24;
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
+  const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
+  const MAX_RENDERED_APPLIED_SCENARIOS = 2;
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -271,6 +273,17 @@
     };
   }
 
+  function getAppliedScenarioLabel(appliedScenario, index) {
+    return normalizeString(appliedScenario?.label)
+      || (index === 0 ? "Current scenario" : `Scenario ${index + 1}`);
+  }
+
+  function getAppliedScenarioPostDeathPathId(renderIndex) {
+    return renderIndex === 0
+      ? POST_DEATH_RESOURCES_PATH_ID
+      : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${renderIndex + 1}`;
+  }
+
   function normalizeGraphModelScenarioInput(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const options = isPlainObject(safeInput.options) ? safeInput.options : {};
@@ -286,8 +299,10 @@
         riskEvaluation: isPlainObject(safeInput.riskEvaluation) ? safeInput.riskEvaluation : {},
         comparisonScenarios: safeInput.comparisonScenarios,
         appliedScenarioCount: 0,
+        appliedScenarios: [],
         selectedScenarioId: selectedScenarioId || null,
         selectedAppliedScenarioId: null,
+        selectedAppliedScenarioIndex: -1,
         selectedAppliedScenario: null
       };
     }
@@ -310,10 +325,85 @@
         ? selectedAppliedScenario.comparisonScenarios
         : safeInput.comparisonScenarios,
       appliedScenarioCount: appliedScenarios.length,
+      appliedScenarios: clonePlainValue(appliedScenarios),
       selectedScenarioId: selectedScenarioId || selectedAppliedScenarioId,
       selectedAppliedScenarioId,
+      selectedAppliedScenarioIndex: selected.index,
       selectedAppliedScenario: getAppliedScenarioTrace(selectedAppliedScenario, selected.index)
     };
+  }
+
+  function buildAppliedPostDeathSeries(scenarioInput, selectedPostDeathResources) {
+    const appliedScenarios = Array.isArray(scenarioInput?.appliedScenarios)
+      ? scenarioInput.appliedScenarios
+      : [];
+    if (!appliedScenarios.length) {
+      return [];
+    }
+
+    const selectedAppliedScenarioId = normalizeString(
+      scenarioInput.selectedAppliedScenarioId || scenarioInput.selectedScenarioId
+    );
+    const seriesRecords = appliedScenarios
+      .map(function (appliedScenario, sourceIndex) {
+        if (!isPlainObject(appliedScenario) || !isPlainObject(appliedScenario.scenario)) {
+          return null;
+        }
+
+        const scenarioId = getAppliedScenarioId(appliedScenario, sourceIndex);
+        const selected = selectedAppliedScenarioId
+          ? scenarioId === selectedAppliedScenarioId
+          : sourceIndex === 0;
+        const sourcePath = `appliedScenarios.${sourceIndex}.scenario.postDeathSeries.points`;
+        const points = selected && Array.isArray(selectedPostDeathResources)
+          ? selectedPostDeathResources
+          : buildSeriesPoints(
+            getPath(appliedScenario.scenario, "postDeathSeries.points"),
+            "appliedPostDeath",
+            ["endingResources", "availableResources"],
+            sourcePath
+          );
+
+        if (!points.length) {
+          return null;
+        }
+
+        return {
+          scenarioId,
+          label: getAppliedScenarioLabel(appliedScenario, sourceIndex),
+          selected,
+          sourceIndex,
+          sourcePath,
+          points,
+          trace: {
+            selectedScenario: selected,
+            sourcePath
+          }
+        };
+      })
+      .filter(Boolean);
+
+    if (!seriesRecords.length) {
+      return [];
+    }
+
+    const selectedRecord = seriesRecords.find(function (series) {
+      return series.selected;
+    });
+    const orderedRecords = (selectedRecord
+      ? [selectedRecord].concat(seriesRecords.filter(function (series) {
+        return series.scenarioId !== selectedRecord.scenarioId;
+      }))
+      : seriesRecords
+    ).slice(0, MAX_RENDERED_APPLIED_SCENARIOS);
+
+    return orderedRecords.map(function (series, renderIndex) {
+      return Object.assign({}, series, {
+        pathId: getAppliedScenarioPostDeathPathId(renderIndex),
+        pathMode: "smooth",
+        renderIndex
+      });
+    });
   }
 
   function normalizeComparisonPathId(pathId) {
@@ -1061,6 +1151,10 @@
       ));
     }
 
+    const appliedPostDeathResources = buildAppliedPostDeathSeries(scenarioInput, postDeathResources);
+    const appliedPostDeathPoints = appliedPostDeathResources.reduce(function (points, appliedSeries) {
+      return points.concat(appliedSeries.points);
+    }, []);
     const comparisonPostDeathResources = buildComparisonSeries(scenarioInput.comparisonScenarios);
     const comparisonPoints = comparisonPostDeathResources.reduce(function (points, comparisonSeries) {
       return points.concat(comparisonSeries.points);
@@ -1085,6 +1179,7 @@
         .concat(preDeathAssets.map(function (point) { return point.date; }))
         .concat(deathTransition.date ? [deathTransition.date] : [])
         .concat(postDeathResources.map(function (point) { return point.date; }))
+        .concat(appliedPostDeathPoints.map(function (point) { return point.date; }))
         .concat(comparisonPoints.map(function (point) { return point.date; }))
         .concat(comparisonMarkers.filter(function (marker) { return marker.positionable; }).map(function (marker) { return marker.date; }))
         .concat(markers.filter(function (marker) { return marker.positionable; }).map(function (marker) { return marker.date; })),
@@ -1096,6 +1191,7 @@
         .concat(preDeathAssets.map(function (point) { return point.value; }))
         .concat(deathTransition.stages.map(function (stage) { return stage.value; }))
         .concat(postDeathResources.map(function (point) { return point.value; }))
+        .concat(appliedPostDeathPoints.map(function (point) { return point.value; }))
         .concat(comparisonPoints.map(function (point) { return point.value; }))
         .concat(comparisonMarkers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
         .concat(markers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
@@ -1106,6 +1202,13 @@
     });
     const enrichedPostDeath = postDeathResources.map(function (point) {
       return enrichPoint(point, xDomain, yDomain);
+    });
+    const enrichedAppliedPostDeath = appliedPostDeathResources.map(function (appliedSeries) {
+      return Object.assign({}, appliedSeries, {
+        points: appliedSeries.points.map(function (point) {
+          return enrichPoint(point, xDomain, yDomain);
+        })
+      });
     });
     const enrichedComparisonPostDeath = comparisonPostDeathResources.map(function (comparisonSeries) {
       return Object.assign({}, comparisonSeries, {
@@ -1199,6 +1302,16 @@
       result.trace.baseSeriesUnchanged = true;
       result.trace.comparisonMarkersCreated = enrichedComparisonMarkers.length > 0;
       result.trace.comparisonMarkerCount = enrichedComparisonMarkers.length;
+    }
+
+    if (enrichedAppliedPostDeath.length > 1) {
+      result.series.appliedPostDeathResources = enrichedAppliedPostDeath;
+      result.trace.appliedScenarioPathsEnabled = true;
+      result.trace.renderedAppliedScenarioCount = enrichedAppliedPostDeath.length;
+      result.trace.appliedScenarioPathIds = enrichedAppliedPostDeath.map(function (series) {
+        return series.pathId;
+      });
+      result.trace.selectedAppliedScenarioPathId = POST_DEATH_RESOURCES_PATH_ID;
     }
 
     if (comparisonEarlyDetail) {
