@@ -16,6 +16,12 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function getRenderableGraphModel(model) {
+  const clone = cloneJson(model);
+  delete clone.trace;
+  return clone;
+}
+
 function loadGraphModel() {
   const source = readRepoFile("app/features/lens-analysis/income-impact-timeline-graph-model.js");
   const sandbox = {
@@ -206,6 +212,9 @@ assert.deepEqual(
 );
 assert.equal(fiveYearModel.status, "complete");
 assert.equal(fiveYearModel.trace.calculationMethod, "income-impact-timeline-graph-model-v1");
+assert.equal(fiveYearModel.trace.scenarioModelMode, "singleScenario");
+assert.equal(fiveYearModel.trace.appliedScenarioCount, 0);
+assert.equal(fiveYearModel.trace.selectedScenarioId, null);
 assert.equal(fiveYearModel.trace.noFinancialCalculationsPerformed, true);
 assert.equal(fiveYearModel.trace.noFakePoints, true);
 assert.equal(fiveYearModel.series.preDeathAssets.length, fiveYearScenario.preDeathSeries.points.length);
@@ -250,6 +259,52 @@ assert.equal(
   "Comparison series should not be emitted without explicit comparisonScenarios input."
 );
 assert.deepEqual(cloneJson(fiveYearModel.comparisonMarkers), [], "Comparison markers should be empty without a complete lifestyle comparison scenario.");
+
+const appliedSingleInput = {
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-current-scenario",
+      label: "Death at age 51",
+      settings: {
+        selectedDeathAge: 51,
+        selectedDeathDate: fiveYearScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(fiveYearScenario),
+      riskEvaluation: cloneJson(riskEvaluation),
+      lifestyleAdjustment: {
+        sliderValue: 0,
+        label: "Current"
+      },
+      comparisonTrace: {
+        source: "scenario-comparison-foundation-check"
+      }
+    }
+  ],
+  selectedScenarioId: "income-impact-current-scenario",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+};
+const appliedSingleInputBefore = cloneJson(appliedSingleInput);
+const appliedSingleModel = buildIncomeImpactTimelineGraphModel(appliedSingleInput);
+assert.deepEqual(appliedSingleInput, appliedSingleInputBefore, "Graph model should not mutate appliedScenarios input.");
+assert.deepEqual(
+  getRenderableGraphModel(appliedSingleModel),
+  getRenderableGraphModel(fiveYearModel),
+  "One applied scenario should produce the same renderable graph output as the existing single-scenario input."
+);
+assert.equal(appliedSingleModel.trace.scenarioModelMode, "appliedScenarios");
+assert.equal(appliedSingleModel.trace.appliedScenarioCount, 1);
+assert.equal(appliedSingleModel.trace.selectedScenarioId, "income-impact-current-scenario");
+assert.equal(appliedSingleModel.trace.selectedAppliedScenarioId, "income-impact-current-scenario");
+assert.equal(appliedSingleModel.trace.selectedAppliedScenario.label, "Death at age 51");
+assert.equal(appliedSingleModel.trace.selectedAppliedScenario.settings.selectedDeathAge, 51);
+assert.equal(appliedSingleModel.trace.selectedAppliedScenario.lifestyleAdjustment.label, "Current");
+assert.equal(appliedSingleModel.trace.selectedAppliedScenario.comparisonTrace.source, "scenario-comparison-foundation-check");
 
 const comparisonScenario = {
   scenarioId: "income-impact-lifestyle-adjusted-comparison",
@@ -358,6 +413,50 @@ assert.equal(comparisonModel.trace.comparisonScenarioCount, 1);
 assert.equal(comparisonModel.trace.baseSeriesUnchanged, true);
 assert.equal(comparisonModel.trace.comparisonMarkersCreated, true);
 assert.equal(comparisonModel.trace.comparisonMarkerCount, 5);
+
+const appliedComparisonInput = {
+  appliedScenarios: [
+    {
+      scenarioId: "scenario-with-lifestyle-comparison",
+      label: "Death at age 51",
+      settings: {
+        selectedDeathAge: 51,
+        selectedDeathDate: fiveYearScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: -100
+      },
+      scenario: cloneJson(fiveYearScenario),
+      riskEvaluation: cloneJson(riskEvaluation),
+      comparisonScenarios: [cloneJson(comparisonScenario)],
+      lifestyleAdjustment: {
+        sliderValue: -100,
+        label: "Conservative"
+      },
+      comparisonTrace: {
+        graphPathId: "lifestyle-post-death-resources"
+      }
+    }
+  ],
+  selectedScenarioId: "scenario-with-lifestyle-comparison",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+};
+const appliedComparisonModel = buildIncomeImpactTimelineGraphModel(appliedComparisonInput);
+assert.deepEqual(
+  getRenderableGraphModel(appliedComparisonModel),
+  getRenderableGraphModel(comparisonModel),
+  "Applied scenario comparison input should preserve the existing lifestyle comparison renderable output."
+);
+assert.equal(appliedComparisonModel.trace.scenarioModelMode, "appliedScenarios");
+assert.equal(appliedComparisonModel.trace.appliedScenarioCount, 1);
+assert.equal(appliedComparisonModel.trace.selectedScenarioId, "scenario-with-lifestyle-comparison");
+assert.equal(appliedComparisonModel.trace.selectedAppliedScenarioId, "scenario-with-lifestyle-comparison");
+assert.equal(appliedComparisonModel.trace.comparisonScenariosEnabled, true);
+assert.equal(appliedComparisonModel.series.comparisonPostDeathResources[0].pathId, "lifestyle-post-death-resources");
+assert.equal(appliedComparisonModel.series.comparisonPostDeathResources[0].scenarioId, comparisonScenario.scenarioId);
 
 // Intentional read-side compatibility fixture for saved pre-stream lifestyle comparison inputs.
 const neutralLifestyleComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {

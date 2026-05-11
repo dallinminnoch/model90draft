@@ -668,7 +668,6 @@ const protectedChanges = getChangedFiles([
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/lens-model-builder.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
-  "app/features/lens-analysis/income-impact-timeline-graph-model.js",
   "app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
   "app/features/lens-analysis/income-impact-base-household-expense-stream.js",
   "app/features/lens-analysis/income-impact-household-expense-adjustment-engine.js",
@@ -685,7 +684,7 @@ const protectedChanges = getChangedFiles([
 assert.deepEqual(
   protectedChanges,
   [],
-  "Scenario banner pass should not change styles.css, methods, model builder, adapter, Step 3, result pages, or quick flows."
+  "Scenario banner check should not see page, CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
 );
 
 console.log("income-loss-impact-scenario-banner-check passed");

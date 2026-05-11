@@ -18,6 +18,10 @@
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
 
+  function normalizeString(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
   function clonePlainValue(value) {
     if (value == null) {
       return value;
@@ -218,6 +222,98 @@
       })
       .filter(Boolean)
       .slice(0, 1);
+  }
+
+  function getAppliedScenarioId(appliedScenario, index) {
+    return normalizeString(appliedScenario?.scenarioId) || `applied-scenario-${index + 1}`;
+  }
+
+  function getSelectedAppliedScenario(appliedScenarios, selectedScenarioId) {
+    const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
+    if (!normalizedSelectedScenarioId) {
+      return {
+        scenario: appliedScenarios[0] || null,
+        index: appliedScenarios.length ? 0 : -1
+      };
+    }
+
+    const matchedIndex = appliedScenarios.findIndex(function (appliedScenario, index) {
+      return getAppliedScenarioId(appliedScenario, index) === normalizedSelectedScenarioId;
+    });
+    if (matchedIndex >= 0) {
+      return {
+        scenario: appliedScenarios[matchedIndex],
+        index: matchedIndex
+      };
+    }
+
+    return {
+      scenario: appliedScenarios[0] || null,
+      index: appliedScenarios.length ? 0 : -1
+    };
+  }
+
+  function getAppliedScenarioTrace(appliedScenario, index) {
+    if (!isPlainObject(appliedScenario)) {
+      return null;
+    }
+
+    return {
+      scenarioId: getAppliedScenarioId(appliedScenario, index),
+      label: normalizeString(appliedScenario.label) || null,
+      settings: isPlainObject(appliedScenario.settings) ? clonePlainValue(appliedScenario.settings) : null,
+      lifestyleAdjustment: isPlainObject(appliedScenario.lifestyleAdjustment)
+        ? clonePlainValue(appliedScenario.lifestyleAdjustment)
+        : null,
+      comparisonTrace: isPlainObject(appliedScenario.comparisonTrace)
+        ? clonePlainValue(appliedScenario.comparisonTrace)
+        : null
+    };
+  }
+
+  function normalizeGraphModelScenarioInput(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    const options = isPlainObject(safeInput.options) ? safeInput.options : {};
+    const selectedScenarioId = normalizeString(safeInput.selectedScenarioId || options.selectedScenarioId);
+    const appliedScenarios = Array.isArray(safeInput.appliedScenarios)
+      ? safeInput.appliedScenarios.filter(isPlainObject)
+      : [];
+
+    if (!appliedScenarios.length) {
+      return {
+        scenarioModelMode: "singleScenario",
+        scenario: safeInput.scenario,
+        riskEvaluation: isPlainObject(safeInput.riskEvaluation) ? safeInput.riskEvaluation : {},
+        comparisonScenarios: safeInput.comparisonScenarios,
+        appliedScenarioCount: 0,
+        selectedScenarioId: selectedScenarioId || null,
+        selectedAppliedScenarioId: null,
+        selectedAppliedScenario: null
+      };
+    }
+
+    const selected = getSelectedAppliedScenario(appliedScenarios, selectedScenarioId);
+    const selectedAppliedScenario = selected.scenario;
+    const selectedAppliedScenarioId = selectedAppliedScenario
+      ? getAppliedScenarioId(selectedAppliedScenario, selected.index)
+      : null;
+
+    return {
+      scenarioModelMode: "appliedScenarios",
+      scenario: isPlainObject(selectedAppliedScenario?.scenario)
+        ? selectedAppliedScenario.scenario
+        : safeInput.scenario,
+      riskEvaluation: isPlainObject(selectedAppliedScenario?.riskEvaluation)
+        ? selectedAppliedScenario.riskEvaluation
+        : (isPlainObject(safeInput.riskEvaluation) ? safeInput.riskEvaluation : {}),
+      comparisonScenarios: Array.isArray(selectedAppliedScenario?.comparisonScenarios)
+        ? selectedAppliedScenario.comparisonScenarios
+        : safeInput.comparisonScenarios,
+      appliedScenarioCount: appliedScenarios.length,
+      selectedScenarioId: selectedScenarioId || selectedAppliedScenarioId,
+      selectedAppliedScenarioId,
+      selectedAppliedScenario: getAppliedScenarioTrace(selectedAppliedScenario, selected.index)
+    };
   }
 
   function normalizeComparisonPathId(pathId) {
@@ -895,8 +991,9 @@
 
   function buildIncomeImpactTimelineGraphModel(input) {
     const safeInput = isPlainObject(input) ? input : {};
-    const scenario = safeInput.scenario;
-    const riskEvaluation = isPlainObject(safeInput.riskEvaluation) ? safeInput.riskEvaluation : {};
+    const scenarioInput = normalizeGraphModelScenarioInput(safeInput);
+    const scenario = scenarioInput.scenario;
+    const riskEvaluation = scenarioInput.riskEvaluation;
     const options = isPlainObject(safeInput.options) ? safeInput.options : {};
     const dataGaps = [];
     const warnings = [];
@@ -923,6 +1020,10 @@
         dataGaps,
         trace: {
           calculationMethod: CALCULATION_METHOD,
+          scenarioModelMode: scenarioInput.scenarioModelMode,
+          appliedScenarioCount: scenarioInput.appliedScenarioCount,
+          selectedScenarioId: scenarioInput.selectedScenarioId,
+          selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
           noFinancialCalculationsPerformed: true,
           statement: "The graph model only maps composer and risk-evaluator output for display."
         }
@@ -960,12 +1061,12 @@
       ));
     }
 
-    const comparisonPostDeathResources = buildComparisonSeries(safeInput.comparisonScenarios);
+    const comparisonPostDeathResources = buildComparisonSeries(scenarioInput.comparisonScenarios);
     const comparisonPoints = comparisonPostDeathResources.reduce(function (points, comparisonSeries) {
       return points.concat(comparisonSeries.points);
     }, []);
     const comparisonMarkers = buildComparisonMarkers(
-      safeInput.comparisonScenarios,
+      scenarioInput.comparisonScenarios,
       comparisonPostDeathResources,
       scenario,
       postDeathResources
@@ -1076,6 +1177,11 @@
           "evaluateIncomeImpactRiskEvents.events",
           "evaluateIncomeImpactRiskEvents.stableEvents"
         ],
+        scenarioModelMode: scenarioInput.scenarioModelMode,
+        appliedScenarioCount: scenarioInput.appliedScenarioCount,
+        selectedScenarioId: scenarioInput.selectedScenarioId,
+        selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
+        selectedAppliedScenario: scenarioInput.selectedAppliedScenario,
         preDeathMode,
         currentAgeMode: options.currentAgeMode || DEFAULT_CURRENT_AGE_MODE,
         noFinancialCalculationsPerformed: true,
