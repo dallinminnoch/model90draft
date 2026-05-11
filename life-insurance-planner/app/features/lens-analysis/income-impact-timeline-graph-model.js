@@ -9,6 +9,8 @@
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const MAX_RENDERED_APPLIED_SCENARIOS = 2;
+  const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
+  const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30]);
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -1011,23 +1013,91 @@
     });
   }
 
+  function dateIsBefore(left, right) {
+    const leftDate = parseDateOnly(left);
+    const rightDate = parseDateOnly(right);
+    return Boolean(leftDate && rightDate && leftDate.getTime() < rightDate.getTime());
+  }
+
+  function dateIsWithinDomain(date, xDomain) {
+    const parsedDate = parseDateOnly(date);
+    const domainMin = parseDateOnly(xDomain?.min);
+    const domainMax = parseDateOnly(xDomain?.max);
+    if (!parsedDate || !domainMin || !domainMax) {
+      return false;
+    }
+    return parsedDate.getTime() >= domainMin.getTime()
+      && parsedDate.getTime() <= domainMax.getTime();
+  }
+
+  function createDeathRelativeXTick(input, xDomain) {
+    const date = normalizeDateOnly(input.date);
+    if (!date || !dateIsWithinDomain(date, xDomain)) {
+      return null;
+    }
+
+    const relativeYears = toOptionalNumber(input.relativeYears);
+    return {
+      id: input.id,
+      key: input.id,
+      label: input.label,
+      date,
+      xRatio: getDateRatio(date, xDomain),
+      relativeYears,
+      relativeMonths: relativeYears == null ? null : relativeYears * 12,
+      axisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
+      trace: {
+        displayOnlyAxisLabel: true,
+        rawDatePreserved: true
+      }
+    };
+  }
+
   function makeXTicks(dates, xDomain) {
-    const values = [
-      { id: "valuation", label: "Valuation", date: dates.valuationDate },
-      { id: "death", label: "Death", date: dates.deathDate }
-    ];
-    const projectionEnd = normalizeDateOnly(xDomain.max);
-    values.push({ id: "horizon", label: "Horizon", date: projectionEnd });
-    return values
-      .filter(function (tick) {
-        return Boolean(tick.date);
-      })
-      .map(function (tick) {
-        return {
-          ...tick,
-          xRatio: getDateRatio(tick.date, xDomain)
-        };
-      });
+    const deathDate = normalizeDateOnly(dates.deathDate);
+    if (!deathDate || !parseDateOnly(deathDate)) {
+      return [];
+    }
+
+    const ticks = [];
+    const domainStart = normalizeDateOnly(xDomain.min);
+    if (domainStart && dateIsBefore(domainStart, deathDate)) {
+      const preDeathTick = createDeathRelativeXTick({
+        id: "before-death",
+        label: "Before death",
+        date: domainStart,
+        relativeYears: null
+      }, xDomain);
+      if (preDeathTick) {
+        ticks.push(preDeathTick);
+      }
+    }
+
+    const deathTick = createDeathRelativeXTick({
+      id: "death",
+      label: "Death",
+      date: deathDate,
+      relativeYears: 0
+    }, xDomain);
+    if (deathTick) {
+      ticks.push(deathTick);
+    }
+
+    const parsedDeathDate = parseDateOnly(deathDate);
+    DEATH_RELATIVE_X_TICK_YEARS.forEach(function (relativeYears) {
+      const tickDate = addMonths(parsedDeathDate, relativeYears * 12);
+      const tick = createDeathRelativeXTick({
+        id: `plus-${relativeYears}`,
+        label: `+${relativeYears} years`,
+        date: tickDate,
+        relativeYears
+      }, xDomain);
+      if (tick) {
+        ticks.push(tick);
+      }
+    });
+
+    return ticks;
   }
 
   function makePhases(dates, xDomain, postDeathPoints) {
@@ -1246,6 +1316,7 @@
       },
       axes: {
         x: {
+          xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
           domainStart: normalizeDateOnly(xDomain.min),
           domainEnd: normalizeDateOnly(xDomain.max),
           deathDate: dates.deathDate,
@@ -1285,6 +1356,7 @@
         selectedScenarioId: scenarioInput.selectedScenarioId,
         selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
         selectedAppliedScenario: scenarioInput.selectedAppliedScenario,
+        xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
         preDeathMode,
         currentAgeMode: options.currentAgeMode || DEFAULT_CURRENT_AGE_MODE,
         noFinancialCalculationsPerformed: true,

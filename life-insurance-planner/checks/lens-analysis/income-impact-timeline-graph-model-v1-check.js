@@ -234,6 +234,21 @@ assert.deepEqual(
 );
 assert.equal(fiveYearModel.series.postDeathResources.length, fiveYearScenario.postDeathSeries.points.length);
 assert.equal(fiveYearModel.series.postDeathResources[0].value, fiveYearScenario.postDeathSeries.points[0].endingResources);
+assert.equal(fiveYearModel.axes.x.xAxisMode, "deathRelativeYears");
+assert.equal(fiveYearModel.trace.xAxisMode, "deathRelativeYears");
+assert.deepEqual(
+  cloneJson(fiveYearModel.axes.x.ticks.map(function (tick) { return tick.label; })),
+  ["Before death", "Death", "+5 years", "+10 years", "+15 years", "+20 years", "+30 years"],
+  "Graph x-axis should use death-relative runway labels instead of calendar axis labels."
+);
+assert.equal(
+  fiveYearModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).date,
+  fiveYearScenario.scenario.selectedDeathDate,
+  "Relative death tick should retain the raw death date as metadata."
+);
+assert.ok(fiveYearModel.axes.x.ticks.every(function (tick) {
+  return tick.axisMode === "deathRelativeYears" && tick.trace.rawDatePreserved === true;
+}));
 assert.equal(fiveYearModel.axes.y.signed, true);
 assert.ok(fiveYearModel.axes.y.zeroYRatio > 0 && fiveYearModel.axes.y.zeroYRatio < 1);
 assert.equal(fiveYearModel.markers.filter(function (marker) { return marker.kind === "risk"; }).length, 2);
@@ -259,6 +274,23 @@ assert.equal(
   "Comparison series should not be emitted without explicit comparisonScenarios input."
 );
 assert.deepEqual(cloneJson(fiveYearModel.comparisonMarkers), [], "Comparison markers should be empty without a complete lifestyle comparison scenario.");
+
+const tenYearHorizonScenario = cloneJson(fiveYearScenario);
+tenYearHorizonScenario.scenario.projectionHorizonMonths = 120;
+tenYearHorizonScenario.postDeathSeries.points = tenYearHorizonScenario.postDeathSeries.points.slice(0, 2);
+const tenYearHorizonModel = buildIncomeImpactTimelineGraphModel({
+  scenario: tenYearHorizonScenario,
+  riskEvaluation: cloneJson(riskEvaluation),
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.deepEqual(
+  cloneJson(tenYearHorizonModel.axes.x.ticks.map(function (tick) { return tick.label; })),
+  ["Before death", "Death", "+5 years", "+10 years"],
+  "A 10-year visible horizon should not emit crowded +15/+20/+30 labels."
+);
 
 const appliedSingleInput = {
   appliedScenarios: [
@@ -401,6 +433,16 @@ assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedPostDeathResources[0].points.map(function (point) { return point.date; })),
   cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.date; })),
   "Selected applied scenario dates should remain raw composer dates."
+);
+assert.equal(appliedMultiModel.axes.x.xAxisMode, "deathRelativeYears");
+assert.ok(
+  appliedMultiModel.axes.x.ticks.some(function (tick) { return tick.label === "+15 years"; }),
+  "Multi-scenario graph should use one shared death-relative axis."
+);
+assert.equal(
+  appliedMultiModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).date,
+  tenYearScenario.scenario.selectedDeathDate,
+  "The shared relative axis should preserve the selected scenario death date metadata."
 );
 
 const overLimitAppliedModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(appliedMultiInput), {

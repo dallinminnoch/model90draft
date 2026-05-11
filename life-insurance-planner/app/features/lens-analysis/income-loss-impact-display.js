@@ -1157,9 +1157,17 @@
     return `${prefix}$${Math.round(absolute)}`;
   }
 
+  function getGraphXAxisSecondaryLabel(tick, xAxisMode) {
+    if (xAxisMode === "deathRelativeYears") {
+      return normalizeString(tick?.secondaryLabel);
+    }
+    return normalizeString(tick?.secondaryLabel || tick?.date);
+  }
+
   function renderGraphAxis(graphModel) {
     const yTicks = Array.isArray(graphModel?.axes?.y?.ticks) ? graphModel.axes.y.ticks : [];
     const xTicks = Array.isArray(graphModel?.axes?.x?.ticks) ? graphModel.axes.x.ticks : [];
+    const xAxisMode = normalizeString(graphModel?.axes?.x?.xAxisMode || graphModel?.trace?.xAxisMode);
     const zeroYRatio = toOptionalNumber(graphModel?.axes?.y?.zeroYRatio);
     return `
       <g class="income-impact-graph-axis" data-income-impact-graph-axis="y">
@@ -1179,11 +1187,17 @@
       <g class="income-impact-graph-axis" data-income-impact-graph-axis="x">
         ${xTicks.map(function (tick) {
           const x = toGraphX(tick.xRatio);
+          const secondaryLabel = getGraphXAxisSecondaryLabel(tick, xAxisMode);
           return `
-            <g data-income-impact-graph-x-tick="${escapeHtml(tick.id || "")}">
+            <g
+              data-income-impact-graph-x-tick="${escapeHtml(tick.id || "")}"
+              data-income-impact-graph-x-tick-label="${escapeHtml(tick.label || "")}"
+              data-income-impact-graph-x-tick-date="${escapeHtml(tick.date || "")}"
+              data-income-impact-graph-x-tick-relative-years="${escapeHtml(tick.relativeYears == null ? "" : tick.relativeYears)}"
+            >
               <line x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${x}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
               <text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 28}" text-anchor="middle">${escapeHtml(tick.label || "")}</text>
-              <text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 48}" text-anchor="middle">${escapeHtml(tick.date || "")}</text>
+              ${secondaryLabel ? `<text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 48}" text-anchor="middle">${escapeHtml(secondaryLabel)}</text>` : ""}
             </g>
           `;
         }).join("")}

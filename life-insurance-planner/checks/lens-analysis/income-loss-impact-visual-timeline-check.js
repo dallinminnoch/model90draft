@@ -73,10 +73,15 @@ function makeGraphModel(mode = "forward-projection") {
     },
     axes: {
       x: {
+        xAxisMode: "deathRelativeYears",
         ticks: [
-          { id: "valuation", label: "Valuation", date: "2026-04-29", xRatio: 0 },
-          { id: "death", label: "Death", date: "2031-04-29", xRatio: mode === "current-point-only" ? 0 : 0.25 },
-          { id: "horizon", label: "Horizon", date: "2071-04-29", xRatio: 1 }
+          ...(mode === "current-point-only" ? [] : [
+            { id: "before-death", label: "Before death", date: "2026-04-29", relativeYears: null, xRatio: 0 }
+          ]),
+          { id: "death", label: "Death", date: "2031-04-29", relativeYears: 0, xRatio: mode === "current-point-only" ? 0 : 0.25 },
+          { id: "plus-5", label: "+5 years", date: "2036-04-29", relativeYears: 5, xRatio: 0.42 },
+          { id: "plus-10", label: "+10 years", date: "2041-04-29", relativeYears: 10, xRatio: 0.62 },
+          { id: "plus-15", label: "+15 years", date: "2046-04-29", relativeYears: 15, xRatio: 0.82 }
         ]
       },
       y: {
@@ -254,6 +259,12 @@ assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/)
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"|data-income-impact-graph-path="compression-post-death-resources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-comparison-markers|data-income-impact-compression-markers/);
+assert.match(timelineHtml, /data-income-impact-graph-x-tick="death"[\s\S]*Death/);
+assert.match(timelineHtml, /data-income-impact-graph-x-tick="plus-5"[\s\S]*\+5 years/);
+assert.match(timelineHtml, /data-income-impact-graph-x-tick="plus-10"[\s\S]*\+10 years/);
+assert.match(timelineHtml, /data-income-impact-graph-x-tick="plus-15"[\s\S]*\+15 years/);
+assert.match(timelineHtml, /data-income-impact-graph-x-tick-date="2031-04-29"/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-x-tick="valuation"|data-income-impact-graph-x-tick="horizon"/);
 assert.match(timelineHtml, /data-income-impact-graph-zero-baseline/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="risk"/);
 assert.match(timelineHtml, /data-income-impact-graph-marker-kind="stable"/);
