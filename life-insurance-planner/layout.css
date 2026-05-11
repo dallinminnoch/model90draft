@@ -15,8 +15,13 @@
 .client-directory-menu-column {
   min-width: 0;
   min-height: 0;
+  box-sizing: border-box;
   background: #ffffff;
+  border-left: 1px solid rgba(213, 221, 232, 0.78);
+  border-top: 1px solid rgba(213, 221, 232, 0.78);
   border-right: 0;
+  border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+  border-radius: 0.65rem 0 0 0.65rem;
   box-shadow: inset -1px 0 0 rgba(213, 221, 232, 0.78);
   overflow: hidden;
 }

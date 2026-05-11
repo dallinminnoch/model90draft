@@ -56,9 +56,7 @@ body {
   */
   color: var(--text);
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(47, 107, 82, 0.12), transparent 30%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  background: #ffffff;
 }
 
 a {
@@ -6308,15 +6306,11 @@ body[data-step] {
 }
 
 body.lens-intake-page {
-  background:
-    radial-gradient(circle at top left, rgba(102, 135, 202, 0.06) 0%, rgba(102, 135, 202, 0) 26%),
-    linear-gradient(180deg, #f6f8fb 0%, #eff3f8 100%);
+  background: #ffffff;
 }
 
 body.lens-start-page {
-  background:
-    radial-gradient(circle at top left, rgba(102, 135, 202, 0.06) 0%, rgba(102, 135, 202, 0) 26%),
-    linear-gradient(180deg, #f6f8fb 0%, #eff3f8 100%);
+  background: #ffffff;
 }
 
 body.lens-start-page #start-planning {
