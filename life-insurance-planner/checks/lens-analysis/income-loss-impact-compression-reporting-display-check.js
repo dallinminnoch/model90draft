@@ -652,7 +652,7 @@ assert.equal(capturedGraphInput.comparisonScenarios[0].trace.helperProvidedCompa
 assert.equal(capturedGraphInput.selectedScenarioId, "income-impact-current-scenario", "display should pass the selected applied scenario id into the graph model");
 assert.equal(capturedGraphInput.appliedScenarios.length, 1, "display should pass the current applied scenario into the graph model");
 assert.equal(capturedGraphInput.appliedScenarios[0].scenarioId, "income-impact-current-scenario");
-assert.equal(capturedGraphInput.appliedScenarios[0].label, "Current evaluated scenario");
+assert.equal(capturedGraphInput.appliedScenarios[0].label, "Death tomorrow");
 assert.deepEqual(clone(capturedGraphInput.appliedScenarios[0].scenario), clone(scenario), "applied graph scenario should carry the current composed scenario");
 assert.deepEqual(clone(capturedGraphInput.appliedScenarios[0].riskEvaluation), clone(riskEvaluation), "applied graph scenario should carry the current risk evaluation");
 assert.deepEqual(clone(capturedGraphInput.appliedScenarios[0].comparisonScenarios), clone(capturedGraphInput.comparisonScenarios), "applied graph scenario should carry the current lifestyle comparison path contract");

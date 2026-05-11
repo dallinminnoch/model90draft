@@ -13,6 +13,7 @@
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
+  const MAX_APPLIED_SCENARIOS = 2;
   const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
   const LIFESTYLE_SLIDER_LABELS = Object.freeze({
     conservative: "Conservative",
@@ -2533,13 +2534,25 @@
       return null;
     }
 
-    return scenarios.find(function (scenario) {
-      return scenario?.scenarioId === state?.selectedScenarioId;
+    return scenarios.find(function (scenario, index) {
+      return getAppliedScenarioId(scenario, index) === state?.selectedScenarioId;
     }) || scenarios[0];
   }
 
   function scenarioControlsAreEqual(left, right) {
-    return JSON.stringify(left || {}) === JSON.stringify(right || {});
+    return getScenarioSettingsKey(left) === getScenarioSettingsKey(right);
+  }
+
+  function getScenarioSettingsKey(settings) {
+    const safeSettings = isPlainObject(settings) ? settings : {};
+    return JSON.stringify({
+      selectedDeathAge: toOptionalNumber(safeSettings.selectedDeathAge),
+      selectedDeathDate: normalizeString(safeSettings.selectedDeathDate) || null,
+      projectionHorizonYears: clampProjectionHorizonYears(safeSettings.projectionHorizonYears),
+      mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
+      lifestyleSliderValue: clampLifestyleSliderValue(safeSettings.lifestyleSliderValue),
+      householdExpenseStreamPolicyMode: normalizeString(safeSettings.householdExpenseStreamPolicyMode) || null
+    });
   }
 
   function getAppliedScenarioSettingsSnapshot(state) {
@@ -2817,13 +2830,90 @@
     return buildIncomeImpactResultFromBaseContext(state, baseContext);
   }
 
-  function getAppliedScenarioLabel(settings) {
+  function getAppliedScenarioId(appliedScenario, index) {
+    return normalizeString(appliedScenario?.scenarioId) || `income-impact-scenario-${index + 1}`;
+  }
+
+  function getAppliedScenarioSettingsKey(appliedScenario) {
+    return normalizeString(appliedScenario?.trace?.settingsKey) || getScenarioSettingsKey(appliedScenario?.settings);
+  }
+
+  function findAppliedScenarioIndexBySettings(appliedScenarios, settingsKey) {
+    return (Array.isArray(appliedScenarios) ? appliedScenarios : []).findIndex(function (appliedScenario) {
+      return getAppliedScenarioSettingsKey(appliedScenario) === settingsKey;
+    });
+  }
+
+  function findAppliedScenarioBySettings(appliedScenarios, settings) {
+    const settingsKey = getScenarioSettingsKey(settings);
+    const index = findAppliedScenarioIndexBySettings(appliedScenarios, settingsKey);
+    return index >= 0 ? appliedScenarios[index] : null;
+  }
+
+  function createAppliedScenarioId(settings, existingScenarios) {
+    const safeSettings = isPlainObject(settings) ? settings : {};
+    const selectedDeathAge = toOptionalNumber(safeSettings.selectedDeathAge);
+    const selectedDeathDate = normalizeString(safeSettings.selectedDeathDate).replace(/[^0-9]/g, "");
+    const agePart = selectedDeathAge == null ? (selectedDeathDate || "custom") : `age-${selectedDeathAge}`;
+    const baseId = [
+      "income-impact-scenario",
+      agePart,
+      `horizon-${clampProjectionHorizonYears(safeSettings.projectionHorizonYears)}`,
+      normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
+      `lifestyle-${clampLifestyleSliderValue(safeSettings.lifestyleSliderValue)}`
+    ].join("-").replace(/[^a-zA-Z0-9-]/g, "-").replace(/-+/g, "-").toLowerCase();
+    const existingIds = new Set((Array.isArray(existingScenarios) ? existingScenarios : []).map(getAppliedScenarioId));
+    let candidate = baseId;
+    let suffix = 2;
+    while (existingIds.has(candidate)) {
+      candidate = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+    return candidate;
+  }
+
+  function getDaysBetweenDateOnly(startDateValue, endDateValue) {
+    const startDate = parseDateOnlyValue(startDateValue);
+    const endDate = parseDateOnlyValue(endDateValue);
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    return Math.round((endDate.getTime() - startDate.getTime()) / 86400000);
+  }
+
+  function isNearTermDeathScenario(state, settings) {
+    const daysUntilDeath = getDaysBetweenDateOnly(state?.valuationDate, settings?.selectedDeathDate);
+    return daysUntilDeath != null && daysUntilDeath >= 0 && daysUntilDeath <= 1;
+  }
+
+  function getAppliedScenarioLabel(state, settings) {
+    if (isNearTermDeathScenario(state, settings)) {
+      return "Death tomorrow";
+    }
+
     const selectedDeathAge = toOptionalNumber(settings?.selectedDeathAge);
+    const currentAge = toOptionalNumber(state?.deathAgeState?.currentAge);
+    if (selectedDeathAge != null && currentAge != null && selectedDeathAge > currentAge) {
+      const yearsUntilDeath = Math.max(1, selectedDeathAge - currentAge);
+      return `Death in ${yearsUntilDeath} ${yearsUntilDeath === 1 ? "year" : "years"}`;
+    }
+
     if (selectedDeathAge != null) {
       return `Death at age ${selectedDeathAge}`;
     }
 
-    return "Current evaluated scenario";
+    return "Current scenario";
+  }
+
+  function setAppliedScenarioRecordIdentity(record, scenarioId, settingsKey) {
+    return Object.assign({}, record, {
+      scenarioId,
+      trace: Object.assign({}, isPlainObject(record.trace) ? record.trace : {}, {
+        settingsKey,
+        maxAppliedScenarioCount: MAX_APPLIED_SCENARIOS
+      })
+    });
   }
 
   function buildAppliedScenarioRecordFromInputs(state, baseContext, inputs) {
@@ -2833,7 +2923,7 @@
     const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta);
     return {
       scenarioId: INITIAL_APPLIED_SCENARIO_ID,
-      label: getAppliedScenarioLabel(settings),
+      label: getAppliedScenarioLabel(state, settings),
       settings: clonePlainValue(settings),
       scenario: clonePlainValue(safeInputs.scenario || baseContext?.scenario || null),
       riskEvaluation: clonePlainValue(safeInputs.riskEvaluation || baseContext?.riskEvaluation || null),
@@ -2853,16 +2943,17 @@
       ),
       trace: {
         source: "income-impact-display-scenario-state",
-        liveBehaviorPreserved: true
+        liveBehaviorPreserved: true,
+        settingsKey: getScenarioSettingsKey(settings),
+        maxAppliedScenarioCount: MAX_APPLIED_SCENARIOS
       }
     };
   }
 
   function buildAppliedScenarioRecord(state, baseContext, timelineResult) {
+    const settings = getRuntimeScenarioControlsSnapshot(state);
     const existingScenario = Array.isArray(state?.appliedScenarios)
-      ? state.appliedScenarios.find(function (scenario) {
-          return scenario?.scenarioId === INITIAL_APPLIED_SCENARIO_ID;
-        })
+      ? findAppliedScenarioBySettings(state.appliedScenarios, settings)
       : null;
     return buildAppliedScenarioRecordFromInputs(state, baseContext, {
       scenario: timelineResult?.scenario,
@@ -2881,18 +2972,40 @@
     }
 
     state.appliedScenarios = Array.isArray(state.appliedScenarios) ? state.appliedScenarios : [];
-    const existingIndex = state.appliedScenarios.findIndex(function (scenario) {
-      return scenario?.scenarioId === record.scenarioId;
+    const settingsKey = getScenarioSettingsKey(record.settings);
+    const matchingSettingsIndex = findAppliedScenarioIndexBySettings(state.appliedScenarios, settingsKey);
+    if (matchingSettingsIndex >= 0) {
+      const scenarioId = getAppliedScenarioId(state.appliedScenarios[matchingSettingsIndex], matchingSettingsIndex);
+      const nextRecord = setAppliedScenarioRecordIdentity(record, scenarioId, settingsKey);
+      state.appliedScenarios[matchingSettingsIndex] = nextRecord;
+      state.selectedScenarioId = scenarioId;
+      return nextRecord;
+    }
+
+    if (!state.appliedScenarios.length) {
+      const nextRecord = setAppliedScenarioRecordIdentity(record, INITIAL_APPLIED_SCENARIO_ID, settingsKey);
+      state.appliedScenarios.push(nextRecord);
+      state.selectedScenarioId = nextRecord.scenarioId;
+      return nextRecord;
+    }
+
+    if (state.appliedScenarios.length < MAX_APPLIED_SCENARIOS) {
+      const scenarioId = createAppliedScenarioId(record.settings, state.appliedScenarios);
+      const nextRecord = setAppliedScenarioRecordIdentity(record, scenarioId, settingsKey);
+      state.appliedScenarios.push(nextRecord);
+      state.selectedScenarioId = scenarioId;
+      return nextRecord;
+    }
+
+    const selectedIndex = state.appliedScenarios.findIndex(function (scenario, index) {
+      return getAppliedScenarioId(scenario, index) === state.selectedScenarioId;
     });
-    if (existingIndex >= 0) {
-      state.appliedScenarios[existingIndex] = record;
-    } else {
-      state.appliedScenarios.unshift(record);
-    }
-    if (!state.selectedScenarioId) {
-      state.selectedScenarioId = record.scenarioId;
-    }
-    return record;
+    const replacementIndex = selectedIndex >= 0 ? selectedIndex : state.appliedScenarios.length - 1;
+    const replacementScenarioId = getAppliedScenarioId(state.appliedScenarios[replacementIndex], replacementIndex);
+    const nextRecord = setAppliedScenarioRecordIdentity(record, replacementScenarioId, settingsKey);
+    state.appliedScenarios[replacementIndex] = nextRecord;
+    state.selectedScenarioId = replacementScenarioId;
+    return nextRecord;
   }
 
   function upsertInitialAppliedScenarioFromTimelineResult(state, baseContext, timelineResult) {
