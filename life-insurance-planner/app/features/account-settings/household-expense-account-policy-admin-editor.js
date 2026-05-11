@@ -156,6 +156,14 @@
     return normalizeNullableText(value) || "ADMIN_ENTERED";
   }
 
+  function getUsdaFoodPlanImportContract() {
+    const contract = global.LensApp?.accountSettings?.usdaFoodPlanImportContract;
+    return contract && typeof contract.validateUsdaFoodPlanImportPreview === "function"
+      && typeof contract.mapUsdaFoodPlanPreviewToFoodAtHomeAssumptions === "function"
+      ? contract
+      : null;
+  }
+
   function normalizeModel90DefaultFloorSource(value) {
     return normalizeNullableText(value) || "ADMIN_ENTERED";
   }
@@ -1218,6 +1226,166 @@
     }));
   }
 
+  function buildUsdaFoodPlanImportPreviewState(input) {
+    const options = isPlainObject(input) ? input : {};
+    const contract = options.contract || getUsdaFoodPlanImportContract();
+    const previewJson = String(options.previewJson == null ? "" : options.previewJson).trim();
+
+    if (!contract) {
+      return clonePlainValue({
+        valid: false,
+        foodAtHome: null,
+        normalizedPreview: null,
+        warnings: [],
+        dataGaps: [{
+          code: "usda-food-plan-import-contract-unavailable",
+          message: "USDA Food Plan import contract is unavailable."
+        }],
+        validationMessages: ["USDA Food Plan import contract is unavailable."],
+        trace: {
+          source: "admin-usda-food-plan-import-preview",
+          status: "contractUnavailable"
+        }
+      });
+    }
+
+    if (!previewJson) {
+      return clonePlainValue({
+        valid: false,
+        foodAtHome: null,
+        normalizedPreview: null,
+        warnings: [],
+        dataGaps: [{
+          code: "missing-backend-preview-json",
+          message: "Paste backend USDA preview JSON before validating."
+        }],
+        validationMessages: ["Paste backend USDA preview JSON before validating."],
+        trace: {
+          source: "admin-usda-food-plan-import-preview",
+          status: "empty"
+        }
+      });
+    }
+
+    let parsedPreview;
+    try {
+      parsedPreview = JSON.parse(previewJson);
+    } catch (error) {
+      return clonePlainValue({
+        valid: false,
+        foodAtHome: null,
+        normalizedPreview: null,
+        warnings: [],
+        dataGaps: [{
+          code: "invalid-backend-preview-json",
+          message: "Backend USDA preview JSON could not be parsed.",
+          details: {
+            error: error?.message || "Invalid JSON."
+          }
+        }],
+        validationMessages: [`Backend USDA preview JSON could not be parsed: ${error?.message || "Invalid JSON."}`],
+        trace: {
+          source: "admin-usda-food-plan-import-preview",
+          status: "parseFailed"
+        }
+      });
+    }
+
+    const validation = contract.validateUsdaFoodPlanImportPreview(parsedPreview);
+    if (!validation.valid) {
+      return clonePlainValue({
+        valid: false,
+        foodAtHome: null,
+        normalizedPreview: validation.normalizedPreview || null,
+        warnings: Array.isArray(validation.warnings) ? validation.warnings : [],
+        dataGaps: Array.isArray(validation.dataGaps) ? validation.dataGaps : [],
+        validationMessages: (Array.isArray(validation.dataGaps) ? validation.dataGaps : []).map(function (dataGap) {
+          return dataGap?.message || "USDA Food Plan preview has a data gap.";
+        }),
+        trace: Object.assign({}, validation.trace || {}, {
+          source: "admin-usda-food-plan-import-preview",
+          status: "validationFailed"
+        })
+      });
+    }
+
+    const mapped = contract.mapUsdaFoodPlanPreviewToFoodAtHomeAssumptions(parsedPreview);
+    if (!mapped.valid) {
+      return clonePlainValue({
+        valid: false,
+        foodAtHome: null,
+        normalizedPreview: validation.normalizedPreview || null,
+        warnings: Array.isArray(mapped.warnings) ? mapped.warnings : [],
+        dataGaps: Array.isArray(mapped.dataGaps) ? mapped.dataGaps : [],
+        validationMessages: (Array.isArray(mapped.dataGaps) ? mapped.dataGaps : []).map(function (dataGap) {
+          return dataGap?.message || "USDA Food Plan preview could not be mapped.";
+        }),
+        trace: Object.assign({}, mapped.trace || {}, {
+          source: "admin-usda-food-plan-import-preview",
+          status: "mappingFailed"
+        })
+      });
+    }
+
+    return clonePlainValue({
+      valid: true,
+      foodAtHome: mapped.foodAtHome,
+      normalizedPreview: validation.normalizedPreview || null,
+      warnings: Array.isArray(mapped.warnings) ? mapped.warnings : [],
+      dataGaps: [],
+      validationMessages: [],
+      trace: Object.assign({}, mapped.trace || {}, {
+        source: "admin-usda-food-plan-import-preview",
+        status: "valid"
+      })
+    });
+  }
+
+  function buildUsdaFoodPlanImportApprovalPayload(input) {
+    const options = isPlainObject(input) ? input : {};
+    const previewState = buildUsdaFoodPlanImportPreviewState({
+      contract: options.contract,
+      previewJson: options.previewJson
+    });
+
+    if (!previewState.valid) {
+      return clonePlainValue({
+        valid: false,
+        foodAtHome: null,
+        validationMessages: previewState.validationMessages,
+        warnings: previewState.warnings,
+        dataGaps: previewState.dataGaps,
+        trace: Object.assign({}, previewState.trace || {}, {
+          source: "admin-usda-food-plan-import-approval",
+          approved: false
+        })
+      });
+    }
+
+    const foodAtHome = clonePlainValue(previewState.foodAtHome);
+    if (!normalizeNullableText(foodAtHome.approvedAt)) {
+      foodAtHome.approvedAt = normalizeNullableText(options.approvedAt);
+    }
+
+    return clonePlainValue({
+      valid: true,
+      accountPolicy: buildAccountPolicyWithFoodAtHomeFloorAssumptions(
+        options.accountPolicy,
+        foodAtHome,
+        options.accountId || TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID
+      ),
+      foodAtHome,
+      validationMessages: [],
+      warnings: previewState.warnings,
+      dataGaps: [],
+      trace: Object.assign({}, previewState.trace || {}, {
+        source: "admin-usda-food-plan-import-approval",
+        approved: true,
+        payloadShape: "account-policy-living-floor-food-at-home"
+      })
+    });
+  }
+
   function validateModel90DefaultBucketFloorsDraft(draft) {
     const row = isPlainObject(draft) ? draft : {};
     const messages = [];
@@ -1461,6 +1629,163 @@
     }).join("");
   }
 
+  function renderUsdaFoodPlanImportIssueList(label, issues, attributeName) {
+    const safeIssues = Array.isArray(issues) ? issues : [];
+    if (!safeIssues.length) {
+      return "";
+    }
+
+    return `
+      <div class="panel-copy" ${attributeName}>
+        <strong>${escapeHtml(label)}</strong>
+        <ul>
+          ${safeIssues.map(function (issue) {
+            return `<li><code>${escapeHtml(issue.code || "usda-food-plan-import-issue")}</code>: ${escapeHtml(issue.message || "USDA Food Plan import issue.")}</li>`;
+          }).join("")}
+        </ul>
+      </div>
+    `;
+  }
+
+  function renderUsdaFoodPlanImportMetadataRows(foodAtHome) {
+    const source = isPlainObject(foodAtHome) ? foodAtHome : {};
+    return [
+      ["sourcePeriod", source.sourcePeriod],
+      ["planLevel", source.planLevel],
+      ["sourceFileName", source.sourceFileName],
+      ["sourceUrl", source.sourceUrl],
+      ["importedAt", source.importedAt],
+      ["approvedAt", source.approvedAt]
+    ].map(function (row) {
+      return `
+        <tr class="admin-tax-bracket-row">
+          <td><code>${escapeHtml(row[0])}</code></td>
+          <td>${escapeHtml(normalizeNullableText(row[1]) || "Not set")}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderUsdaFoodPlanImportBandRows(monthlyAmountsByBand) {
+    const values = isPlainObject(monthlyAmountsByBand) ? monthlyAmountsByBand : {};
+    return FOOD_AT_HOME_BAND_KEYS.map(function (bandKey) {
+      return `
+        <tr class="admin-tax-bracket-row">
+          <td><code>${escapeHtml(bandKey)}</code></td>
+          <td>${escapeHtml(formatNumberInputValue(values[bandKey]) || "Not set")}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderUsdaFoodPlanImportFactorRows(householdSizeAdjustmentFactors) {
+    const values = isPlainObject(householdSizeAdjustmentFactors) ? householdSizeAdjustmentFactors : {};
+    return HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS.map(function (factorKey) {
+      return `
+        <tr class="admin-tax-bracket-row">
+          <td><code>${escapeHtml(factorKey)}</code></td>
+          <td>${escapeHtml(formatNumberInputValue(values[factorKey]) || "Not set")}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderUsdaFoodPlanImportPreviewOutput(previewState) {
+    if (!isPlainObject(previewState)) {
+      return "";
+    }
+
+    const warningsHtml = renderUsdaFoodPlanImportIssueList(
+      "Warnings",
+      previewState.warnings,
+      "data-usda-food-plan-preview-warnings"
+    );
+    const dataGapsHtml = renderUsdaFoodPlanImportIssueList(
+      "Data gaps",
+      previewState.dataGaps,
+      "data-usda-food-plan-preview-data-gaps"
+    );
+
+    if (!previewState.valid) {
+      const messages = Array.isArray(previewState.validationMessages) && previewState.validationMessages.length
+        ? previewState.validationMessages
+        : ["USDA Food Plan preview is not valid."];
+      return `
+        <div data-usda-food-plan-preview-result data-usda-food-plan-preview-status="invalid">
+          <p class="panel-copy"><strong>Preview not approved.</strong> ${escapeHtml(messages.join(" "))}</p>
+          ${warningsHtml}
+          ${dataGapsHtml}
+        </div>
+      `;
+    }
+
+    const foodAtHome = isPlainObject(previewState.foodAtHome) ? previewState.foodAtHome : {};
+    return `
+      <div data-usda-food-plan-preview-result data-usda-food-plan-preview-status="valid">
+        <p class="panel-copy"><strong>Preview validated.</strong> Approval has not saved these values yet.</p>
+        ${warningsHtml}
+        <table class="admin-tax-bracket-table" data-usda-food-plan-preview-metadata>
+          <thead>
+            <tr>
+              <th>Metadata</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderUsdaFoodPlanImportMetadataRows(foodAtHome)}
+          </tbody>
+        </table>
+        <table class="admin-tax-bracket-table" data-usda-food-plan-preview-band-values>
+          <thead>
+            <tr>
+              <th>Age/Sex Band</th>
+              <th>Monthly Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderUsdaFoodPlanImportBandRows(foodAtHome.monthlyAmountsByBand)}
+          </tbody>
+        </table>
+        <table class="admin-tax-bracket-table" data-usda-food-plan-preview-household-size-factors>
+          <thead>
+            <tr>
+              <th>Household Size</th>
+              <th>Adjustment Factor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderUsdaFoodPlanImportFactorRows(foodAtHome.householdSizeAdjustmentFactors)}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderUsdaFoodPlanImportPreviewSection() {
+    const contractAvailable = Boolean(getUsdaFoodPlanImportContract());
+    const validateDisabledAttribute = contractAvailable ? "" : " disabled";
+    return `
+      <section class="admin-tax-bracket-group" data-usda-food-plan-import-preview-section>
+        <div class="admin-tax-bracket-toolbar">
+          <div>
+            <span class="section-label">USDA Food Plan Import Preview</span>
+            <h3>Backend Preview JSON</h3>
+            <p class="panel-copy">Paste backend USDA preview JSON. Live USDA fetch will be added when backend import service exists.</p>
+          </div>
+          <div>
+            <button type="button" class="admin-action-button" data-usda-food-plan-preview-validate${validateDisabledAttribute}>Validate Preview</button>
+            <button type="button" class="admin-action-button" data-usda-food-plan-preview-clear>Clear Preview</button>
+            <button type="button" class="admin-action-button" data-usda-food-plan-preview-approve disabled>Approve Imported Values</button>
+          </div>
+        </div>
+        <textarea class="admin-tax-bracket-input" rows="8" data-usda-food-plan-preview-json aria-label="Backend USDA Food Plan preview JSON"></textarea>
+        <textarea hidden data-usda-food-plan-preview-mapped-json aria-hidden="true"></textarea>
+        <div class="panel-copy" data-usda-food-plan-preview-feedback role="status" aria-live="polite">${contractAvailable ? "" : "USDA Food Plan import contract is unavailable."}</div>
+        <div data-usda-food-plan-preview-output></div>
+      </section>
+    `;
+  }
+
   function renderFoodAtHomeFloorAssumptionsEditor(foodAtHomeModel) {
     const model = isPlainObject(foodAtHomeModel)
       ? foodAtHomeModel
@@ -1528,6 +1853,7 @@
             ${renderFoodAtHomeHouseholdSizeFactorEditorRows(factorRows)}
           </tbody>
         </table>
+        ${renderUsdaFoodPlanImportPreviewSection()}
       </section>
     `;
   }
@@ -1720,6 +2046,107 @@
     if (sectionFeedback) {
       sectionFeedback.textContent = message || "";
     }
+  }
+
+  function getUsdaFoodPlanImportPreviewSection(host) {
+    return host?.querySelector?.("[data-usda-food-plan-import-preview-section]") || null;
+  }
+
+  function setUsdaFoodPlanImportPreviewFeedback(host, message) {
+    const sectionFeedback = host?.querySelector?.("[data-usda-food-plan-preview-feedback]");
+    if (sectionFeedback) {
+      sectionFeedback.textContent = message || "";
+    }
+  }
+
+  function renderUsdaFoodPlanImportPreviewStateToHost(host, previewState) {
+    const section = getUsdaFoodPlanImportPreviewSection(host);
+    const output = section?.querySelector?.("[data-usda-food-plan-preview-output]");
+    const mappedJson = section?.querySelector?.("[data-usda-food-plan-preview-mapped-json]");
+    const approveButton = section?.querySelector?.("[data-usda-food-plan-preview-approve]");
+
+    if (output) {
+      output.innerHTML = renderUsdaFoodPlanImportPreviewOutput(previewState);
+    }
+
+    if (mappedJson) {
+      mappedJson.value = previewState?.valid && previewState.foodAtHome
+        ? JSON.stringify(previewState.foodAtHome)
+        : "";
+    }
+
+    if (approveButton) {
+      approveButton.disabled = !(previewState?.valid && previewState.foodAtHome);
+    }
+
+    setUsdaFoodPlanImportPreviewFeedback(
+      host,
+      previewState?.valid
+        ? "USDA Food Plan preview is valid. Approval has not saved these values yet."
+        : "USDA Food Plan preview is not ready for approval."
+    );
+  }
+
+  function validateUsdaFoodPlanImportPreviewFromHost(host) {
+    const section = getUsdaFoodPlanImportPreviewSection(host);
+    const previewJson = section?.querySelector?.("[data-usda-food-plan-preview-json]")?.value || "";
+    const previewState = buildUsdaFoodPlanImportPreviewState({ previewJson });
+    renderUsdaFoodPlanImportPreviewStateToHost(host, previewState);
+    return previewState;
+  }
+
+  function clearUsdaFoodPlanImportPreview(host) {
+    const section = getUsdaFoodPlanImportPreviewSection(host);
+    const previewJson = section?.querySelector?.("[data-usda-food-plan-preview-json]");
+    const output = section?.querySelector?.("[data-usda-food-plan-preview-output]");
+    const mappedJson = section?.querySelector?.("[data-usda-food-plan-preview-mapped-json]");
+    const approveButton = section?.querySelector?.("[data-usda-food-plan-preview-approve]");
+
+    if (previewJson) {
+      previewJson.value = "";
+    }
+
+    if (output) {
+      output.innerHTML = "";
+    }
+
+    if (mappedJson) {
+      mappedJson.value = "";
+    }
+
+    if (approveButton) {
+      approveButton.disabled = true;
+    }
+
+    setUsdaFoodPlanImportPreviewFeedback(host, "Cleared USDA import preview. Saved Food at Home assumptions were not changed.");
+    return {
+      status: "cleared",
+      saved: false,
+      trace: {
+        source: "admin-usda-food-plan-import-preview-clear"
+      }
+    };
+  }
+
+  function resetUsdaFoodPlanImportPreviewAfterInput(host) {
+    const section = getUsdaFoodPlanImportPreviewSection(host);
+    const output = section?.querySelector?.("[data-usda-food-plan-preview-output]");
+    const mappedJson = section?.querySelector?.("[data-usda-food-plan-preview-mapped-json]");
+    const approveButton = section?.querySelector?.("[data-usda-food-plan-preview-approve]");
+
+    if (output) {
+      output.innerHTML = "";
+    }
+
+    if (mappedJson) {
+      mappedJson.value = "";
+    }
+
+    if (approveButton) {
+      approveButton.disabled = true;
+    }
+
+    setUsdaFoodPlanImportPreviewFeedback(host, "Validate preview before approving imported values.");
   }
 
   function setModel90DefaultBucketFloorsEditorFeedback(host, message) {
@@ -2135,6 +2562,68 @@
     return saveResult;
   }
 
+  function approveUsdaFoodPlanImportPreview(host) {
+    const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
+    if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
+      setUsdaFoodPlanImportPreviewFeedback(host, "Household expense account policy storage is unavailable.");
+      return {
+        status: "notSaved",
+        saved: false,
+        warnings: [{ code: "household-expense-policy-storage-unavailable" }]
+      };
+    }
+
+    const model = buildHouseholdExpensePolicyEditorModel();
+    const section = getUsdaFoodPlanImportPreviewSection(host);
+    const previewJson = section?.querySelector?.("[data-usda-food-plan-preview-json]")?.value || "";
+    const payload = buildUsdaFoodPlanImportApprovalPayload({
+      accountId: model.accountId,
+      accountPolicy: model.accountPolicy,
+      previewJson,
+      approvedAt: new Date().toISOString()
+    });
+
+    if (!payload.valid) {
+      renderUsdaFoodPlanImportPreviewStateToHost(host, {
+        valid: false,
+        foodAtHome: null,
+        warnings: payload.warnings,
+        dataGaps: payload.dataGaps,
+        validationMessages: payload.validationMessages
+      });
+      return {
+        status: "validationFailed",
+        saved: false,
+        validationMessages: payload.validationMessages,
+        warnings: payload.warnings,
+        dataGaps: payload.dataGaps,
+        trace: payload.trace
+      };
+    }
+
+    const saveResult = storageApi.saveHouseholdExpenseAccountPolicy({
+      accountId: model.accountId,
+      accountPolicy: payload.accountPolicy,
+      metadata: {
+        source: "browserLocalV1",
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin-usda-food-plan-import-preview"
+      },
+      storage: global.localStorage
+    });
+
+    const nextModel = buildHouseholdExpensePolicyEditorModel();
+    rerenderEditorHost(host, nextModel);
+    setUsdaFoodPlanImportPreviewFeedback(
+      host,
+      saveResult?.saved
+        ? "Approved USDA Food Plan values and saved Food at Home assumptions."
+        : "USDA Food Plan values were not saved."
+    );
+    refreshReadOnlyPolicySummary();
+    return saveResult;
+  }
+
   function saveModel90DefaultBucketFloors(host) {
     const storageApi = global.LensApp?.accountSettings?.householdExpenseAccountPolicyStorage;
     if (!storageApi || typeof storageApi.saveHouseholdExpenseAccountPolicy !== "function") {
@@ -2271,6 +2760,27 @@
       return;
     }
 
+    const usdaFoodPlanPreviewValidateButton = target.closest?.("[data-usda-food-plan-preview-validate]");
+    if (usdaFoodPlanPreviewValidateButton) {
+      event.preventDefault();
+      validateUsdaFoodPlanImportPreviewFromHost(host);
+      return;
+    }
+
+    const usdaFoodPlanPreviewClearButton = target.closest?.("[data-usda-food-plan-preview-clear]");
+    if (usdaFoodPlanPreviewClearButton) {
+      event.preventDefault();
+      clearUsdaFoodPlanImportPreview(host);
+      return;
+    }
+
+    const usdaFoodPlanPreviewApproveButton = target.closest?.("[data-usda-food-plan-preview-approve]");
+    if (usdaFoodPlanPreviewApproveButton) {
+      event.preventDefault();
+      approveUsdaFoodPlanImportPreview(host);
+      return;
+    }
+
     const model90DefaultFloorsSaveButton = target.closest?.("[data-model90-default-bucket-floors-save]");
     if (model90DefaultFloorsSaveButton) {
       event.preventDefault();
@@ -2299,6 +2809,18 @@
     }
   }
 
+  function handleEditorInput(event) {
+    const target = event?.target;
+    const host = target?.closest?.(POLICY_EDITOR_HOST_SELECTOR);
+    if (!host) {
+      return;
+    }
+
+    if (target.closest?.("[data-usda-food-plan-preview-json]")) {
+      resetUsdaFoodPlanImportPreviewAfterInput(host);
+    }
+  }
+
   function initializeHouseholdExpenseAccountPolicyAdminEditor() {
     const host = global.document?.querySelector?.(POLICY_EDITOR_HOST_SELECTOR);
     if (!host) {
@@ -2310,6 +2832,10 @@
     if (host.dataset && host.dataset.householdExpensePolicyEditorBound !== "true") {
       host.addEventListener?.("click", handleEditorClick);
       host.dataset.householdExpensePolicyEditorBound = "true";
+    }
+    if (host.dataset && host.dataset.householdExpensePolicyEditorInputBound !== "true") {
+      host.addEventListener?.("input", handleEditorInput);
+      host.dataset.householdExpensePolicyEditorInputBound = "true";
     }
     return model;
   }
@@ -2337,6 +2863,8 @@
     buildGraphAdjustmentRowResetPayload,
     buildFoodAtHomeFloorAssumptionsSavePayload,
     buildFoodAtHomeFloorAssumptionsResetPayload,
+    buildUsdaFoodPlanImportPreviewState,
+    buildUsdaFoodPlanImportApprovalPayload,
     buildModel90DefaultBucketFloorsSavePayload,
     buildModel90DefaultBucketFloorsResetPayload,
     saveLifestyleRangeEditorChanges,
@@ -2345,10 +2873,15 @@
     resetGraphAdjustmentTypeRow,
     saveFoodAtHomeFloorAssumptions,
     resetFoodAtHomeFloorAssumptions,
+    validateUsdaFoodPlanImportPreviewFromHost,
+    clearUsdaFoodPlanImportPreview,
+    approveUsdaFoodPlanImportPreview,
     saveModel90DefaultBucketFloors,
     resetModel90DefaultBucketFloors,
     buildHouseholdExpensePolicyEditorModel,
     renderFoodAtHomeFloorAssumptionsEditor,
+    renderUsdaFoodPlanImportPreviewSection,
+    renderUsdaFoodPlanImportPreviewOutput,
     renderModel90DefaultBucketFloorsEditor,
     renderHouseholdExpensePolicyEditor,
     initializeHouseholdExpenseAccountPolicyAdminEditor

@@ -122,6 +122,63 @@ function buildFoodAtHomeDraft(overrides) {
   };
 }
 
+function buildUsdaFoodPlanPreview(overrides) {
+  return Object.assign({
+    sourceFormat: "MODEL90_USDA_FOOD_PLAN_PREVIEW_V1",
+    planLevel: "lowCost",
+    sourcePeriod: "2026-02",
+    sourceUrl: "https://fns-prod.azureedge.us/sites/default/files/resource-files/usda-lowcostplan-sept2007-present.xlsx",
+    sourceFileName: "usda-lowcostplan-sept2007-present.xlsx",
+    importedAt: "2026-05-10T18:30:00.000Z",
+    monthlyAmountsByBand: {
+      infantToddler: "165.25",
+      youngChild: 216.5,
+      olderChild: "288.40",
+      teenMale: 316.9,
+      teenFemale: 266.2,
+      adultMale: 312.5,
+      adultFemale: 271.4,
+      adultUnknown: 291.95,
+      childUnknown: 260.1
+    },
+    householdSizeAdjustmentFactors: {
+      "1": 1.2,
+      "2": 1.1,
+      "3": 1.05,
+      "4": 1,
+      "5": 0.95,
+      "6Plus": 0.9
+    },
+    warnings: [{
+      code: "representative-adult-row",
+      message: "Adult values use the USDA 20-50 row in this preview."
+    }]
+  }, overrides || {});
+}
+
+function createUsdaPreviewHost(previewJson) {
+  const elements = {
+    "[data-usda-food-plan-preview-json]": { value: previewJson || "" },
+    "[data-usda-food-plan-preview-output]": { innerHTML: "" },
+    "[data-usda-food-plan-preview-mapped-json]": { value: "" },
+    "[data-usda-food-plan-preview-approve]": { disabled: true },
+    "[data-usda-food-plan-preview-feedback]": { textContent: "" }
+  };
+  const section = {
+    querySelector(selector) {
+      return elements[selector] || null;
+    }
+  };
+  return {
+    elements,
+    host: {
+      querySelector(selector) {
+        return selector === "[data-usda-food-plan-import-preview-section]" ? section : elements[selector] || null;
+      }
+    }
+  };
+}
+
 function buildModel90DefaultBucketFloorsDraft(overrides) {
   return Object.assign({
     householdConsumables: {
@@ -154,6 +211,11 @@ const preservedLivingFloorAssumptions = {
     planningBucketKey: "foodAtHomeConsumables",
     source: "USDA_FOOD_PLAN",
     sourcePeriod: "2026",
+    planLevel: null,
+    sourceUrl: null,
+    sourceFileName: null,
+    importedAt: null,
+    approvedAt: null,
     monthlyAmountsByBand: {
       infantToddler: 180,
       youngChild: 225,
@@ -211,6 +273,7 @@ assert.ok(policyPanelMatch, "household expense policy panel should exist");
 assert.match(policyPanelMatch[0], /data-household-expense-account-policy-editor/);
 assertScriptOrder(scripts, [
   "../app/features/account-settings/household-expense-account-policy-storage.js",
+  "../app/features/account-settings/usda-food-plan-import-contract.js",
   "../app/features/lens-analysis/expense-taxonomy.js",
   "../app/features/lens-analysis/expense-library.js",
   "../app/features/lens-analysis/expense-compression-thresholds.js",
@@ -240,6 +303,13 @@ assert.match(editorSource, /saveHouseholdExpenseAccountPolicy/);
 assert.match(editorSource, /initializeHouseholdExpenseAccountPolicyAdminDisplay/);
 assert.match(editorSource, /data-food-at-home-floor-save/);
 assert.match(editorSource, /data-food-at-home-floor-reset/);
+assert.match(editorSource, /usdaFoodPlanImportContract/);
+assert.match(editorSource, /Paste backend USDA preview JSON/);
+assert.match(editorSource, /Live USDA fetch will be added when backend import service exists/);
+assert.match(editorSource, /data-usda-food-plan-import-preview-section/);
+assert.match(editorSource, /data-usda-food-plan-preview-validate/);
+assert.match(editorSource, /data-usda-food-plan-preview-approve/);
+assert.doesNotMatch(editorSource, /fetch\s*\(|XMLHttpRequest|\.open\s*\(|\.send\s*\(/);
 assert.match(editorSource, /data-model90-default-bucket-floors-editor/);
 assert.match(editorSource, /data-model90-default-bucket-floors-save/);
 assert.match(editorSource, /data-model90-default-bucket-floors-reset/);
@@ -271,13 +341,26 @@ assert.doesNotMatch(
 const host = {
   innerHTML: "",
   dataset: {},
+  listeners: {},
   addEventListener(type, handler) {
-    this.listenerType = type;
-    this.listener = handler;
+    this.listeners[type] = handler;
+    if (type === "click") {
+      this.listenerType = type;
+      this.listener = handler;
+    }
   }
 };
+let fetchCallCount = 0;
 const context = {
   console,
+  fetch() {
+    fetchCallCount += 1;
+    throw new Error("Admin USDA preview checks must not call fetch");
+  },
+  XMLHttpRequest: function XMLHttpRequest() {
+    fetchCallCount += 1;
+    throw new Error("Admin USDA preview checks must not create XMLHttpRequest");
+  },
   document: {
     addEventListener() {},
     querySelector(selector) {
@@ -304,6 +387,7 @@ loadScript(context, "app/features/lens-analysis/household-expense-planning-bucke
 loadScript(context, "app/features/lens-analysis/household-expense-living-floor-metadata.js");
 loadScript(context, "app/features/lens-analysis/household-expense-graph-adjustment-policy-resolver.js");
 loadScript(context, "app/features/lens-analysis/household-expense-account-policy-resolver.js");
+loadScript(context, "app/features/account-settings/usda-food-plan-import-contract.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-display.js");
 loadScript(context, "app/features/account-settings/household-expense-account-policy-admin-editor.js");
 
@@ -311,8 +395,10 @@ const lensAnalysis = context.LensApp.lensAnalysis;
 const storage = context.LensApp.accountSettings.householdExpenseAccountPolicyStorage;
 const display = context.LensApp.accountSettings.householdExpenseAccountPolicyAdminDisplay;
 const editor = context.LensApp.accountSettings.householdExpenseAccountPolicyAdminEditor;
+const usdaImportContract = context.LensApp.accountSettings.usdaFoodPlanImportContract;
 assert.ok(editor, "admin editor module should load");
 assert.ok(display, "admin display module should load for saved-value refresh checks");
+assert.ok(usdaImportContract, "USDA Food Plan import contract should load before the admin editor");
 assert.equal(typeof editor.buildHouseholdExpensePolicyEditorModel, "function");
 assert.equal(typeof editor.renderHouseholdExpensePolicyEditor, "function");
 assert.equal(typeof editor.buildLifestyleRangeSavePayload, "function");
@@ -322,6 +408,8 @@ assert.equal(typeof editor.validateFoodAtHomeFloorAssumptionsDraft, "function");
 assert.equal(typeof editor.validateModel90DefaultBucketFloorsDraft, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsSavePayload, "function");
 assert.equal(typeof editor.buildFoodAtHomeFloorAssumptionsResetPayload, "function");
+assert.equal(typeof editor.buildUsdaFoodPlanImportPreviewState, "function");
+assert.equal(typeof editor.buildUsdaFoodPlanImportApprovalPayload, "function");
 assert.equal(typeof editor.buildModel90DefaultBucketFloorsSavePayload, "function");
 assert.equal(typeof editor.buildModel90DefaultBucketFloorsResetPayload, "function");
 assert.equal(typeof editor.buildSparseGraphAdjustmentSavePlan, "function");
@@ -329,6 +417,9 @@ assert.equal(typeof editor.buildGraphAdjustmentSavePayload, "function");
 assert.equal(typeof editor.buildGraphAdjustmentRowResetPayload, "function");
 assert.equal(typeof editor.saveFoodAtHomeFloorAssumptions, "function");
 assert.equal(typeof editor.resetFoodAtHomeFloorAssumptions, "function");
+assert.equal(typeof editor.validateUsdaFoodPlanImportPreviewFromHost, "function");
+assert.equal(typeof editor.clearUsdaFoodPlanImportPreview, "function");
+assert.equal(typeof editor.approveUsdaFoodPlanImportPreview, "function");
 assert.equal(typeof editor.saveModel90DefaultBucketFloors, "function");
 assert.equal(typeof editor.resetModel90DefaultBucketFloors, "function");
 assert.equal(typeof editor.saveGraphAdjustmentTypeChanges, "function");
@@ -547,7 +638,7 @@ assert.match(missingHtml, /Graph Adjustable/);
 assert.match(missingHtml, /Food at Home model \/ USDA Food Plan/);
 assert.match(missingHtml, /MODEL90 default floor|\$0 floor \/ no dollar source|Ratio floor only \/ no dollar source/);
 assert.match(missingHtml, /data-graph-adjustable="true"/);
-assert.doesNotMatch(missingHtml, /review/i, "graph adjustment controls should not show review as a runtime mode");
+assert.doesNotMatch(missingHtml, /reviewOnly|Review only|review mode/i, "graph adjustment controls should not show review as a runtime mode");
 assert.match(missingHtml, /Default Floor/);
 assert.match(missingHtml, /Resolved Ceiling/);
 assert.match(missingHtml, /data-household-expense-policy-save/);
@@ -589,6 +680,15 @@ assert.match(missingHtml, /data-food-at-home-band-key="infantToddler"/);
 assert.match(missingHtml, /data-food-at-home-band-key="childUnknown"/);
 assert.match(missingHtml, /data-food-at-home-household-size-factor-key="1"/);
 assert.match(missingHtml, /data-food-at-home-household-size-factor-key="6Plus"/);
+assert.match(missingHtml, /USDA Food Plan Import Preview/);
+assert.match(missingHtml, /Paste backend USDA preview JSON/);
+assert.match(missingHtml, /Live USDA fetch will be added when backend import service exists/);
+assert.match(missingHtml, /data-usda-food-plan-import-preview-section/);
+assert.match(missingHtml, /data-usda-food-plan-preview-json/);
+assert.match(missingHtml, /data-usda-food-plan-preview-validate/);
+assert.match(missingHtml, /data-usda-food-plan-preview-clear/);
+assert.match(missingHtml, /data-usda-food-plan-preview-approve disabled/);
+assert.doesNotMatch(missingHtml, /Fetch USDA/);
 assert.doesNotMatch(missingHtml, /State Cost Adjustment Multipliers/);
 assert.doesNotMatch(missingHtml, /data-state-cost-adjustment/);
 assert.doesNotMatch(missingHtml, /Bucket-specific state multipliers/);
@@ -824,6 +924,120 @@ assert.equal(foodAtHomeDisplayModel.savedLivingFloorAssumptions.status.code, "co
 assert.equal(foodAtHomeDisplayModel.savedLivingFloorAssumptions.counts.configuredFoodAtHomeBands, 9, "display should count saved Food at Home bands");
 assert.equal(foodAtHomeDisplayModel.savedLivingFloorAssumptions.counts.configuredHouseholdSizeFactors, 6, "display should count saved Food at Home factors");
 assert.match(display.renderHouseholdExpensePolicyDisplay(foodAtHomeDisplayModel), /\$180\.00/, "read-only display should render saved Food at Home dollar values");
+
+const usdaPreviewJson = JSON.stringify(buildUsdaFoodPlanPreview());
+const writesBeforeUsdaPreview = context.localStorage.getWrites().length;
+const usdaPreviewState = editor.buildUsdaFoodPlanImportPreviewState({
+  contract: usdaImportContract,
+  previewJson: usdaPreviewJson
+});
+assert.equal(usdaPreviewState.valid, true, "valid backend USDA preview JSON should validate in the admin editor");
+assert.equal(usdaPreviewState.foodAtHome.source, "USDA_FOOD_PLAN", "valid USDA preview should map to USDA Food at Home source");
+assert.equal(usdaPreviewState.foodAtHome.sourcePeriod, "2026-02", "USDA preview should preserve source period");
+assert.equal(usdaPreviewState.foodAtHome.planLevel, "lowCost", "USDA preview should preserve plan level");
+assert.equal(usdaPreviewState.foodAtHome.sourceFileName, "usda-lowcostplan-sept2007-present.xlsx", "USDA preview should preserve source filename");
+assert.equal(usdaPreviewState.foodAtHome.importedAt, "2026-05-10T18:30:00.000Z", "USDA preview should preserve importedAt");
+assert.equal(usdaPreviewState.foodAtHome.monthlyAmountsByBand.infantToddler, 165.25, "USDA preview should map monthly food bands");
+assert.equal(usdaPreviewState.foodAtHome.householdSizeAdjustmentFactors["6Plus"], 0.9, "USDA preview should map household-size factors");
+assert.equal(usdaPreviewState.warnings.length, 1, "USDA preview should preserve backend warnings");
+const usdaPreviewHtml = editor.renderUsdaFoodPlanImportPreviewOutput(usdaPreviewState);
+assert.match(usdaPreviewHtml, /data-usda-food-plan-preview-status="valid"/);
+assert.match(usdaPreviewHtml, /data-usda-food-plan-preview-metadata/);
+assert.match(usdaPreviewHtml, /lowCost/);
+assert.match(usdaPreviewHtml, /usda-lowcostplan-sept2007-present\.xlsx/);
+assert.match(usdaPreviewHtml, /data-usda-food-plan-preview-band-values/);
+assert.match(usdaPreviewHtml, /165\.25/);
+assert.match(usdaPreviewHtml, /data-usda-food-plan-preview-household-size-factors/);
+assert.equal(context.localStorage.getWrites().length, writesBeforeUsdaPreview, "USDA preview validation should not write storage");
+assert.equal(fetchCallCount, 0, "USDA preview validation should not make network calls");
+
+const usdaHost = createUsdaPreviewHost(usdaPreviewJson);
+const hostPreviewState = editor.validateUsdaFoodPlanImportPreviewFromHost(usdaHost.host);
+assert.equal(hostPreviewState.valid, true, "host USDA preview validation should return a valid preview");
+assert.equal(usdaHost.elements["[data-usda-food-plan-preview-approve]"].disabled, false, "approve button should enable only after valid preview");
+assert.match(usdaHost.elements["[data-usda-food-plan-preview-output]"].innerHTML, /lowCost/, "host preview should render mapped plan level");
+assert.match(usdaHost.elements["[data-usda-food-plan-preview-mapped-json]"].value, /USDA_FOOD_PLAN/, "host preview should keep mapped values in DOM state");
+assert.equal(context.localStorage.getWrites().length, writesBeforeUsdaPreview, "host USDA preview validation should not write storage");
+assert.equal(fetchCallCount, 0, "host USDA preview validation should not make network calls");
+
+const usdaApprovalPayload = editor.buildUsdaFoodPlanImportApprovalPayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  contract: usdaImportContract,
+  previewJson: usdaPreviewJson,
+  approvedAt: "2026-05-10T20:00:00.000Z"
+});
+assert.equal(usdaApprovalPayload.valid, true, "valid USDA preview should produce an approval payload");
+assert.equal(usdaApprovalPayload.foodAtHome.approvedAt, "2026-05-10T20:00:00.000Z", "admin approval should set approvedAt when backend preview omits it");
+assert.equal(usdaApprovalPayload.accountPolicy.livingFloorAssumptions.foodAtHome.source, "USDA_FOOD_PLAN", "USDA approval should save Food at Home source");
+assert.equal(usdaApprovalPayload.accountPolicy.livingFloorAssumptions.foodAtHome.planLevel, "lowCost", "USDA approval should save plan level");
+assert.equal(usdaApprovalPayload.accountPolicy.livingFloorAssumptions.foodAtHome.sourceUrl, buildUsdaFoodPlanPreview().sourceUrl, "USDA approval should save source URL");
+assert.equal(usdaApprovalPayload.accountPolicy.livingFloorAssumptions.foodAtHome.approvedAt, "2026-05-10T20:00:00.000Z", "USDA approval should save approvedAt");
+assert.deepEqual(plain(usdaApprovalPayload.accountPolicy.graphAdjustmentOverrides), existingAccountPolicy.graphAdjustmentOverrides, "USDA approval should preserve graph adjustment overrides");
+assert.deepEqual(
+  plain(usdaApprovalPayload.accountPolicy.livingFloorAssumptions.model90DefaultBucketFloors),
+  preservedLivingFloorAssumptions.model90DefaultBucketFloors,
+  "USDA approval should preserve MODEL90 default bucket floor assumptions"
+);
+assert.equal(Object.prototype.hasOwnProperty.call(usdaApprovalPayload.accountPolicy.livingFloorAssumptions, "stateCostAdjustmentMultipliers"), false, "USDA approval should not restore retired state multipliers");
+
+const usdaApprovalStorage = createFakeStorage();
+const usdaApprovalSaveResult = storage.saveHouseholdExpenseAccountPolicy({
+  accountId,
+  accountPolicy: usdaApprovalPayload.accountPolicy,
+  metadata: { updatedBy: "usda-food-plan-approval-check" },
+  storage: usdaApprovalStorage
+});
+assert.equal(usdaApprovalSaveResult.saved, true, "USDA approval payload should save through the storage adapter");
+assert.deepEqual(
+  usdaApprovalStorage.getWrites().map((write) => write.key),
+  [storage.createHouseholdExpenseAccountPolicyStorageKey(accountId)],
+  "USDA approval should write only the household expense account policy key"
+);
+const usdaApprovalDisplayHtml = display.renderHouseholdExpensePolicyDisplay(display.buildHouseholdExpensePolicyDisplayModel({
+  accountId,
+  storage: usdaApprovalStorage
+}));
+assert.match(usdaApprovalDisplayHtml, /data-saved-living-floor-food-source-metadata/, "saved USDA metadata should render in diagnostics display");
+assert.match(usdaApprovalDisplayHtml, /lowCost/, "saved USDA metadata display should include plan level");
+assert.match(usdaApprovalDisplayHtml, /2026-05-10T20:00:00\.000Z/, "saved USDA metadata display should include approval timestamp");
+
+const invalidUsdaPreviewJson = JSON.stringify(buildUsdaFoodPlanPreview({ planLevel: "economy" }));
+const invalidUsdaStorage = createFakeStorage();
+const invalidUsdaPreviewState = editor.buildUsdaFoodPlanImportPreviewState({
+  contract: usdaImportContract,
+  previewJson: invalidUsdaPreviewJson
+});
+assert.equal(invalidUsdaPreviewState.valid, false, "invalid USDA preview should not validate");
+assert.equal(invalidUsdaPreviewState.dataGaps.some((gap) => gap.code === "invalid-plan-level"), true, "invalid USDA preview should expose invalid plan-level data gap");
+assert.match(editor.renderUsdaFoodPlanImportPreviewOutput(invalidUsdaPreviewState), /data-usda-food-plan-preview-status="invalid"/);
+const invalidUsdaApprovalPayload = editor.buildUsdaFoodPlanImportApprovalPayload({
+  accountId,
+  accountPolicy: existingAccountPolicy,
+  contract: usdaImportContract,
+  previewJson: invalidUsdaPreviewJson,
+  approvedAt: "2026-05-10T20:00:00.000Z"
+});
+assert.equal(invalidUsdaApprovalPayload.valid, false, "invalid USDA preview should not produce approval payload");
+assert.equal(Object.prototype.hasOwnProperty.call(invalidUsdaApprovalPayload, "accountPolicy"), false, "invalid USDA approval should not expose storage payload");
+assert.deepEqual(invalidUsdaStorage.getWrites(), [], "invalid USDA preview should not write storage");
+assert.equal(fetchCallCount, 0, "USDA invalid preview path should not make network calls");
+
+const clearUsdaHost = createUsdaPreviewHost(usdaPreviewJson);
+editor.validateUsdaFoodPlanImportPreviewFromHost(clearUsdaHost.host);
+const writesBeforeUsdaClear = foodAtHomeStorage.getWrites().length;
+const clearUsdaResult = editor.clearUsdaFoodPlanImportPreview(clearUsdaHost.host);
+assert.equal(clearUsdaResult.saved, false, "clearing USDA preview should not save");
+assert.equal(clearUsdaHost.elements["[data-usda-food-plan-preview-json]"].value, "", "clearing USDA preview should clear pasted JSON only");
+assert.equal(clearUsdaHost.elements["[data-usda-food-plan-preview-output]"].innerHTML, "", "clearing USDA preview should clear rendered preview");
+assert.equal(clearUsdaHost.elements["[data-usda-food-plan-preview-mapped-json]"].value, "", "clearing USDA preview should clear DOM mapped state");
+assert.equal(clearUsdaHost.elements["[data-usda-food-plan-preview-approve]"].disabled, true, "clearing USDA preview should disable approval");
+assert.equal(foodAtHomeStorage.getWrites().length, writesBeforeUsdaClear, "clearing USDA preview should not write Food at Home storage");
+assert.equal(
+  storage.loadHouseholdExpenseAccountPolicy({ accountId, storage: foodAtHomeStorage }).accountPolicy.livingFloorAssumptions.foodAtHome.monthlyAmountsByBand.infantToddler,
+  180,
+  "clearing USDA preview should not clear saved Food at Home assumptions"
+);
 
 const foodAtHomeResetPayload = editor.buildFoodAtHomeFloorAssumptionsResetPayload({
   accountId,
@@ -1117,8 +1331,12 @@ assert.equal(corruptModel.rows.every((row) => row.overrideStatus === "defaultSee
 const initializeModel = editor.initializeHouseholdExpenseAccountPolicyAdminEditor();
 assert.ok(initializeModel, "initializer should return a model when host exists");
 assert.equal(host.listenerType, "click", "initializer should attach a delegated click handler once");
+assert.equal(typeof host.listeners.input, "function", "initializer should attach delegated input handler for USDA preview state");
 assert.doesNotMatch(host.innerHTML, /Income Impact Adjustment Controls/);
 assert.match(host.innerHTML, /Food at Home Floor Assumptions/);
+assert.match(host.innerHTML, /USDA Food Plan Import Preview/);
+assert.match(host.innerHTML, /Paste backend USDA preview JSON/);
+assert.doesNotMatch(host.innerHTML, /Fetch USDA/);
 assert.match(host.innerHTML, /data-household-expense-policy-save/);
 assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);
 assert.match(host.innerHTML, /data-graph-adjustment-type-input/);
@@ -1126,6 +1344,8 @@ assert.match(host.innerHTML, /data-graph-adjustment-save/);
 assert.match(host.innerHTML, /data-graph-adjustment-reset-row/);
 assert.match(host.innerHTML, /data-food-at-home-floor-save/);
 assert.match(host.innerHTML, /data-food-at-home-floor-reset/);
+assert.match(host.innerHTML, /data-usda-food-plan-preview-validate/);
+assert.match(host.innerHTML, /data-usda-food-plan-preview-approve disabled/);
 assert.doesNotMatch(host.innerHTML, /State Cost Adjustment Multipliers/);
 assert.doesNotMatch(host.innerHTML, /data-state-cost-adjustment/);
 assert.match(host.innerHTML, /MODEL90 Default Floor Assumptions/);

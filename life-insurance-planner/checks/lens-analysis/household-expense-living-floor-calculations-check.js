@@ -71,29 +71,31 @@ function clone(value) {
 }
 
 function assertNoForbiddenDiffs() {
-  const allowedRuntimePlumbingFiles = new Set([
-    "app/features/lens-analysis/income-loss-impact-display.js",
-    "pages/income-loss-impact.html",
+  const allowedAdminWorkflowFiles = new Set([
+    "pages/admin-accounts.html",
+    "app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    "checks/account-settings/household-expense-account-policy-admin-editor-check.js",
+    "checks/lens-analysis/household-expense-living-floor-calculations-check.js"
+  ]);
+  const forbiddenFiles = [
     "app/features/account-settings/household-expense-account-policy-admin-display.js",
     "app/features/account-settings/household-expense-account-policy-admin-editor.js",
     "app/features/account-settings/household-expense-account-policy-storage.js",
-    "app/features/lens-analysis/analysis-setup.js",
-    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
-    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
-    "app/features/lens-analysis/household-expense-living-floor-metadata.js",
-    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
-    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js"
-  ]);
-  const forbiddenFiles = [
     "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/household-expense-lifestyle-range-policy.js",
     "app/features/lens-analysis/household-expense-compression-policy.js",
     "app/features/lens-analysis/expense-compression-thresholds.js",
     "app/features/lens-analysis/household-expense-compression-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-calculations.js",
+    "app/features/lens-analysis/household-expense-living-floor-context-resolver.js",
+    "app/features/lens-analysis/household-expense-living-floor-readiness-warnings.js",
+    "app/features/lens-analysis/income-impact-household-expense-policy-runtime-adapter.js",
     "app/features/lens-analysis/normalize-lens-model.js",
     "app/features/lens-analysis/pmi-expense-records.js",
     "app/features/lens-analysis/income-loss-impact-display.js",
     "app/features/lens-analysis/income-impact-timeline-graph-model.js",
+    "checks/account-settings/household-expense-account-policy-admin-editor-check.js",
+    "checks/lens-analysis/household-expense-living-floor-calculations-check.js",
     "pages",
     "app.js",
     "styles.css",
@@ -105,11 +107,11 @@ function assertNoForbiddenDiffs() {
   }).trim().split(/\r?\n/)
     .filter(Boolean)
     .filter(function (line) {
-      return !allowedRuntimePlumbingFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
+      return !allowedAdminWorkflowFiles.has(line.replace(/^[ MADRCU?!]+/, "").trim());
     })
     .join("\n");
 
-  assert.equal(status, "", "runtime, admin, storage, normalization, policy, compression, unapproved page, and CSS files outside the approved Income Impact plumbing files should not have diffs");
+  assert.equal(status, "", "runtime, storage, normalization, policy, compression, graph, unapproved admin/page, and CSS files outside the approved USDA admin workflow files should not have diffs");
 }
 
 function assertNoForbiddenImports() {
