@@ -658,9 +658,27 @@
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
       reevaluateButton: banner.querySelector("[data-income-impact-reevaluate]"),
+      reevaluateControl: banner.querySelector("[data-income-impact-reevaluate-control]"),
+      reevaluateAction: banner.querySelector("[data-income-impact-reevaluate-action]"),
       draftStatus: banner.querySelector("[data-income-impact-draft-status]"),
+      selectedScenarioChip: banner.querySelector("[data-income-impact-selected-scenario-chip]"),
+      selectedScenarioLabel: banner.querySelector("[data-income-impact-selected-scenario-label]"),
       scenarioSummary: banner.querySelector("[data-income-impact-scenario-summary]")
     };
+  }
+
+  function getSelectedScenarioDisplayLabel(state) {
+    const selectedScenario = getSelectedAppliedScenario(state);
+    return normalizeString(selectedScenario?.label) || "Selected scenario";
+  }
+
+  function getReevaluateActionLabel(state, hasPendingDraft) {
+    if (!hasPendingDraft) {
+      return "No pending changes";
+    }
+
+    const scenarioCount = Array.isArray(state?.appliedScenarios) ? state.appliedScenarios.length : 0;
+    return scenarioCount < 2 ? "Adds comparison scenario" : "Updates selected scenario";
   }
 
   function updateDeathAgeControl(timelineResult, deathAgeState, controls) {
@@ -747,10 +765,14 @@
     const lifestyleSliderValue = draftControls.lifestyleSliderValue;
     const collapsed = scenarioState.bannerCollapsed === true;
     const hasPendingDraft = hasDraftScenarioChanges(incomeImpactState);
+    const selectedScenarioLabel = getSelectedScenarioDisplayLabel(incomeImpactState);
+    const reevaluateActionLabel = getReevaluateActionLabel(incomeImpactState, hasPendingDraft);
 
     elements.banner.classList.toggle("is-collapsed", collapsed);
     elements.banner.setAttribute("data-income-impact-scenario-state", collapsed ? "collapsed" : "expanded");
     elements.banner.setAttribute("data-income-impact-draft-state", hasPendingDraft ? "dirty" : "applied");
+    elements.banner.setAttribute("data-income-impact-selected-scenario-id", normalizeString(incomeImpactState?.selectedScenarioId));
+    elements.banner.setAttribute("data-income-impact-reevaluate-action-label", reevaluateActionLabel);
 
     if (elements.toggle) {
       elements.toggle.setAttribute("aria-expanded", String(!collapsed));
@@ -796,16 +818,36 @@
     if (elements.reevaluateButton) {
       elements.reevaluateButton.disabled = !hasPendingDraft;
       elements.reevaluateButton.setAttribute("aria-disabled", String(!hasPendingDraft));
+      elements.reevaluateButton.setAttribute("data-income-impact-reevaluate-state", hasPendingDraft ? "active" : "idle");
+    }
+
+    if (elements.reevaluateControl) {
+      elements.reevaluateControl.setAttribute("data-income-impact-reevaluate-state", hasPendingDraft ? "active" : "idle");
+    }
+
+    if (elements.reevaluateAction) {
+      elements.reevaluateAction.textContent = reevaluateActionLabel;
+      elements.reevaluateAction.setAttribute("data-income-impact-reevaluate-action-state", hasPendingDraft ? "active" : "idle");
     }
 
     if (elements.draftStatus) {
-      elements.draftStatus.textContent = hasPendingDraft ? "Draft changes not applied" : "Scenario applied";
+      elements.draftStatus.textContent = hasPendingDraft ? "Draft changes not applied" : "Applied";
       elements.draftStatus.setAttribute("data-income-impact-draft-status-state", hasPendingDraft ? "dirty" : "applied");
+    }
+
+    if (elements.selectedScenarioLabel) {
+      elements.selectedScenarioLabel.textContent = selectedScenarioLabel;
+    }
+
+    if (elements.selectedScenarioChip) {
+      elements.selectedScenarioChip.setAttribute("data-income-impact-applied-scenario-id", normalizeString(incomeImpactState?.selectedScenarioId));
+      elements.selectedScenarioChip.setAttribute("data-income-impact-applied-scenario-selected", "true");
     }
 
     if (elements.scenarioSummary) {
       elements.scenarioSummary.setAttribute("data-income-impact-mortgage-treatment-label", getMortgageTreatmentLabel(mortgageTreatmentOverride));
       elements.scenarioSummary.setAttribute("data-income-impact-lifestyle-label", getLifestyleSliderLabel(lifestyleSliderValue));
+      elements.scenarioSummary.setAttribute("data-income-impact-selected-scenario-summary-label", selectedScenarioLabel);
     }
   }
 

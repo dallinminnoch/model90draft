@@ -17264,6 +17264,12 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   white-space: nowrap;
 }
 
+.income-impact-scenario-summary [data-income-impact-selected-scenario-chip] {
+  border-color: rgba(34, 116, 85, 0.24);
+  background: rgba(34, 116, 85, 0.08);
+  color: #227455;
+}
+
 .income-impact-scenario-summary strong {
   color: #17202c;
   font-size: 0.74rem;
@@ -17291,7 +17297,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-scenario-content {
   display: grid;
-  grid-template-columns: minmax(14rem, 1.2fr) minmax(13rem, 1fr) minmax(14rem, 1fr) minmax(13rem, 1fr);
+  grid-template-columns: minmax(12rem, 1.08fr) minmax(11rem, 0.92fr) minmax(12rem, 0.95fr) minmax(12rem, 1fr) minmax(10rem, 0.82fr);
   gap: 0.42rem;
   align-items: start;
 }
@@ -17334,6 +17340,48 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-scenario-field--lifestyle small b {
   font-weight: 760;
+}
+
+.income-impact-scenario-field[data-income-impact-reevaluate-control] {
+  align-content: start;
+}
+
+.income-impact-scenario-field[data-income-impact-reevaluate-control] [data-income-impact-draft-status] {
+  width: fit-content;
+  padding: 0.14rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(34, 116, 85, 0.09);
+  color: #227455;
+  font-size: 0.68rem;
+  font-weight: 840;
+  line-height: 1.2;
+}
+
+.income-impact-scenario-field[data-income-impact-reevaluate-state="active"] [data-income-impact-draft-status] {
+  background: rgba(185, 70, 48, 0.1);
+  color: #8f382a;
+}
+
+.income-impact-scenario-field[data-income-impact-reevaluate-control] [data-income-impact-reevaluate-action] {
+  color: #536176;
+  font-size: 0.69rem;
+  font-weight: 760;
+}
+
+.income-impact-scenario-field [data-income-impact-reevaluate] {
+  width: fit-content;
+  min-height: 1.9rem;
+}
+
+.income-impact-scenario-banner[data-income-impact-draft-state="dirty"] [data-income-impact-reevaluate] {
+  border-color: #17202c;
+  background: #17202c;
+  color: #ffffff;
+  box-shadow: 0 0.35rem 0.9rem rgba(23, 32, 44, 0.16);
+}
+
+.income-impact-scenario-banner[data-income-impact-draft-state="applied"] [data-income-impact-reevaluate] {
+  opacity: 0.68;
 }
 
 .income-impact-scenario-banner.is-collapsed {

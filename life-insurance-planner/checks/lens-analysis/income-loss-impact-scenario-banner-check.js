@@ -169,7 +169,11 @@ function createHarness() {
   const lifestyleSlider = createElement({ value: "0" });
   const lifestyleValue = createElement({ textContent: "Current" });
   const reevaluateButton = createElement({ disabled: true, textContent: "Reevaluate" });
-  const draftStatus = createElement({ textContent: "Scenario applied" });
+  const reevaluateControl = createElement();
+  const reevaluateAction = createElement({ textContent: "No pending changes" });
+  const draftStatus = createElement({ textContent: "Applied" });
+  const selectedScenarioChip = createElement();
+  const selectedScenarioLabel = createElement({ textContent: "Not selected" });
   const scenarioSummary = createElement();
   const banner = createElement({
     children: {
@@ -182,7 +186,11 @@ function createHarness() {
       "[data-income-impact-lifestyle-slider]": lifestyleSlider,
       "[data-income-impact-lifestyle-value]": lifestyleValue,
       "[data-income-impact-reevaluate]": reevaluateButton,
+      "[data-income-impact-reevaluate-control]": reevaluateControl,
+      "[data-income-impact-reevaluate-action]": reevaluateAction,
       "[data-income-impact-draft-status]": draftStatus,
+      "[data-income-impact-selected-scenario-chip]": selectedScenarioChip,
+      "[data-income-impact-selected-scenario-label]": selectedScenarioLabel,
       "[data-income-impact-scenario-summary]": scenarioSummary
     }
   });
@@ -466,7 +474,11 @@ function createHarness() {
     lifestyleSlider,
     lifestyleValue,
     reevaluateButton,
+    reevaluateControl,
+    reevaluateAction,
     draftStatus,
+    selectedScenarioChip,
+    selectedScenarioLabel,
     scenarioSummary,
     getScenarioComparisonStateSnapshot() {
       return cloneJson(
@@ -494,7 +506,10 @@ const scenarioLayoutBlock = layoutSource.match(
   "data-income-impact-lifestyle-slider",
   "data-income-impact-lifestyle-value",
   "data-income-impact-reevaluate",
+  "data-income-impact-reevaluate-action",
   "data-income-impact-draft-status",
+  "data-income-impact-selected-scenario-chip",
+  "data-income-impact-selected-scenario-label",
   "data-income-impact-death-age-control",
   "data-income-impact-death-age-slider",
   "data-income-impact-death-age-value",
@@ -535,6 +550,8 @@ assert.match(displaySource, /mortgageTreatmentOverride/);
 assert.match(displaySource, /draftScenarioControls/);
 assert.match(displaySource, /appliedScenarios/);
 assert.match(displaySource, /selectedScenarioId/);
+assert.match(displaySource, /getSelectedScenarioDisplayLabel/);
+assert.match(displaySource, /getReevaluateActionLabel/);
 assert.match(displaySource, /data-income-impact-scenario-select/);
 assert.match(displaySource, /selectAppliedScenario/);
 assert.match(displaySource, /applyDraftScenarioControlsToRuntimeState/);
@@ -543,7 +560,9 @@ assert.match(displaySource, /composeIncomeImpactScenario/);
 assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
 assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
 assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*disabled[\s\S]*Reevaluate|disabled[\s\S]*data-income-impact-reevaluate[\s\S]*Reevaluate/);
-assert.match(pageSource, /data-income-impact-draft-status[\s\S]*Scenario applied/);
+assert.match(pageSource, /data-income-impact-draft-status[\s\S]*Applied/);
+assert.match(pageSource, /data-income-impact-reevaluate-action[\s\S]*No pending changes/);
+assert.match(pageSource, /data-income-impact-selected-scenario-label[\s\S]*Not selected/);
 assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline/);
 assert.doesNotMatch(displaySource, /evaluateIncomeImpactWarningEvents/);
 assert.doesNotMatch(displaySource, /runNeedsAnalysis|needsResult/);
@@ -584,6 +603,9 @@ assert.match(
 );
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
+assert.match(componentsSource, /data-income-impact-selected-scenario-chip/);
+assert.match(componentsSource, /data-income-impact-reevaluate-state="active"/);
+assert.match(componentsSource, /data-income-impact-draft-state="dirty"[\s\S]*data-income-impact-reevaluate/);
 assert.match(componentsSource, /data-income-impact-scenario-select/);
 assert.match(componentsSource, /data-income-impact-applied-scenario-selected="true"/);
 assert.match(
@@ -668,13 +690,23 @@ assert.equal(harness.lifestyleSlider.value, "0");
 assert.equal(harness.lifestyleValue.textContent, "Current");
 assert.equal(harness.reevaluateButton.disabled, true);
 assert.equal(harness.reevaluateButton.getAttribute("aria-disabled"), "true");
-assert.equal(harness.draftStatus.textContent, "Scenario applied");
+assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluate-state"), "idle");
+assert.equal(harness.reevaluateControl.getAttribute("data-income-impact-reevaluate-state"), "idle");
+assert.equal(harness.reevaluateAction.textContent, "No pending changes");
+assert.equal(harness.reevaluateAction.getAttribute("data-income-impact-reevaluate-action-state"), "idle");
+assert.equal(harness.draftStatus.textContent, "Applied");
 assert.equal(harness.draftStatus.getAttribute("data-income-impact-draft-status-state"), "applied");
+assert.equal(harness.selectedScenarioLabel.textContent, "Death tomorrow");
+assert.equal(harness.selectedScenarioChip.getAttribute("data-income-impact-applied-scenario-id"), "income-impact-current-scenario");
+assert.equal(harness.selectedScenarioChip.getAttribute("data-income-impact-applied-scenario-selected"), "true");
+assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-selected-scenario-summary-label"), "Death tomorrow");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "true");
 assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
 assert.equal(harness.banner.getAttribute("data-income-impact-scenario-state"), "expanded");
 assert.equal(harness.banner.getAttribute("data-income-impact-draft-state"), "applied");
+assert.equal(harness.banner.getAttribute("data-income-impact-selected-scenario-id"), "income-impact-current-scenario");
+assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-label"), "No pending changes");
 assert.equal(harness.banner.classList.contains("is-collapsed"), false);
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.match(harness.host.innerHTML, /data-income-impact-graph-svg/);
@@ -698,8 +730,13 @@ assert.equal(draftState.appliedScenarios[0].settings.selectedDeathAge, 45);
 assert.equal(draftState.hasDraftChanges, true);
 assert.equal(harness.reevaluateButton.disabled, false);
 assert.equal(harness.reevaluateButton.getAttribute("aria-disabled"), "false");
+assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluate-state"), "active");
+assert.equal(harness.reevaluateControl.getAttribute("data-income-impact-reevaluate-state"), "active");
+assert.equal(harness.reevaluateAction.textContent, "Adds comparison scenario");
+assert.equal(harness.reevaluateAction.getAttribute("data-income-impact-reevaluate-action-state"), "active");
 assert.equal(harness.draftStatus.textContent, "Draft changes not applied");
 assert.equal(harness.banner.getAttribute("data-income-impact-draft-state"), "dirty");
+assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-label"), "Adds comparison scenario");
 
 harness.reevaluateButton.listeners.click();
 assert.equal(harness.composerCalls.length, 2, "Reevaluate should apply draft death age.");
@@ -735,7 +772,10 @@ assert.match(harness.host.innerHTML, /Death in 5 years/);
 assert.match(harness.host.innerHTML, /Death tomorrow/);
 assert.equal(draftState.hasDraftChanges, false);
 assert.equal(harness.reevaluateButton.disabled, true);
-assert.equal(harness.draftStatus.textContent, "Scenario applied");
+assert.equal(harness.draftStatus.textContent, "Applied");
+assert.equal(harness.reevaluateAction.textContent, "No pending changes");
+assert.equal(harness.selectedScenarioLabel.textContent, "Death in 5 years");
+assert.equal(harness.banner.getAttribute("data-income-impact-selected-scenario-id"), selectedSecondScenario.scenarioId);
 
 assert.equal(typeof harness.host.listeners.click, "function", "scenario selection should be delegated from the graph host.");
 assert.equal(typeof harness.host.listeners.keydown, "function", "scenario selection should support keyboard activation.");
@@ -784,6 +824,9 @@ assert.equal(harness.slider.value, "45");
 assert.equal(harness.ageValue.textContent, "45");
 assert.equal(harness.lifestyleSlider.value, "0");
 assert.equal(harness.lifestyleValue.textContent, "Current");
+assert.equal(harness.selectedScenarioLabel.textContent, "Death tomorrow");
+assert.equal(harness.banner.getAttribute("data-income-impact-selected-scenario-id"), "income-impact-current-scenario");
+assert.equal(harness.reevaluateAction.textContent, "No pending changes");
 assert.equal(originalScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "true");
 assert.equal(originalScenarioSelectionTarget.getAttribute("aria-pressed"), "true");
 assert.equal(secondScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "false");
@@ -801,6 +844,8 @@ assert.equal(draftState.draftScenarioControls.lifestyleSliderValue, 0);
 assert.equal(draftState.hasDraftChanges, false);
 assert.equal(harness.slider.value, "50");
 assert.equal(harness.ageValue.textContent, "50");
+assert.equal(harness.selectedScenarioLabel.textContent, "Death in 5 years");
+assert.equal(harness.banner.getAttribute("data-income-impact-selected-scenario-id"), selectedSecondScenario.scenarioId);
 assert.equal(secondScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "true");
 assert.equal(originalScenarioSelectionTarget.getAttribute("data-income-impact-applied-scenario-selected"), "false");
 assert.equal(harness.composerCalls.length, countsBeforeScenarioSelection.composer, "keyboard scenario selection should not rerun composer.");
@@ -826,6 +871,9 @@ assert.equal(minimumHorizonScenarioComparisonState.draftScenarioControls.project
 assert.equal(getSelectedAppliedScenario(minimumHorizonScenarioComparisonState).settings.projectionHorizonYears, 40);
 assert.notEqual(minimumHorizonScenarioComparisonState.selectedScenarioId, "income-impact-current-scenario");
 assert.equal(minimumHorizonScenarioComparisonState.hasDraftChanges, true);
+assert.equal(harness.draftStatus.textContent, "Draft changes not applied");
+assert.equal(harness.reevaluateAction.textContent, "Updates selected scenario");
+assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-label"), "Updates selected scenario");
 assert.match(harness.host.innerHTML, /data-income-impact-graph/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 
@@ -838,6 +886,8 @@ assert.equal(harness.graphModelCalls[2].selectedScenarioId, draftState.selectedS
 assert.equal(harness.graphModelCalls[2].appliedScenarios.length, 2);
 assert.equal(getSelectedAppliedScenario({ appliedScenarios: harness.graphModelCalls[2].appliedScenarios, selectedScenarioId: harness.graphModelCalls[2].selectedScenarioId }).settings.projectionHorizonYears, 5);
 assert.equal(harness.getScenarioComparisonStateSnapshot().hasDraftChanges, false);
+assert.equal(harness.draftStatus.textContent, "Applied");
+assert.equal(harness.reevaluateAction.textContent, "No pending changes");
 
 harness.projectionHorizon.value = "125";
 harness.projectionHorizon.listeners.change({ target: harness.projectionHorizon });
