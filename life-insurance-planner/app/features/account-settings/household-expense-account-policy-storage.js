@@ -32,6 +32,12 @@
     "childUnknown"
   ]);
   const HOUSEHOLD_SIZE_ADJUSTMENT_FACTOR_KEYS = Object.freeze(["1", "2", "3", "4", "5", "6Plus"]);
+  const USDA_FOOD_PLAN_LEVEL_VALUES = Object.freeze([
+    "thrifty",
+    "lowCost",
+    "moderateCost",
+    "liberal"
+  ]);
   const MODEL90_DEFAULT_FLOOR_BUCKETS = Object.freeze({
     householdConsumables: Object.freeze({
       planningBucketKey: "householdConsumables",
@@ -136,6 +142,11 @@
   function normalizeSource(value, fallback) {
     const source = normalizeNullableText(value);
     return source || fallback;
+  }
+
+  function normalizeUsdaFoodPlanLevel(value) {
+    const planLevel = normalizeNullableText(value);
+    return USDA_FOOD_PLAN_LEVEL_VALUES.includes(planLevel) ? planLevel : null;
   }
 
   function normalizeGraphAdjustmentClass(value) {
@@ -244,6 +255,11 @@
       planningBucketKey: "foodAtHomeConsumables",
       source: normalizeSource(foodAtHome.source, "ADMIN_ENTERED"),
       sourcePeriod: normalizeNullableText(foodAtHome.sourcePeriod),
+      planLevel: normalizeUsdaFoodPlanLevel(foodAtHome.planLevel),
+      sourceUrl: normalizeNullableText(foodAtHome.sourceUrl),
+      sourceFileName: normalizeNullableText(foodAtHome.sourceFileName),
+      importedAt: normalizeNullableText(foodAtHome.importedAt),
+      approvedAt: normalizeNullableText(foodAtHome.approvedAt),
       monthlyAmountsByBand: createBlankMonthlyAmountsByBand(foodAtHome.monthlyAmountsByBand),
       householdSizeAdjustmentFactors: createBlankHouseholdSizeAdjustmentFactors(foodAtHome.householdSizeAdjustmentFactors)
     };

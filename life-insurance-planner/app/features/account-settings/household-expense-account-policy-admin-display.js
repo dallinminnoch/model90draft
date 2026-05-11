@@ -488,6 +488,11 @@
         source: formatNotSet(foodAtHome.source),
         sourcePeriod: formatNotSet(foodAtHome.sourcePeriod),
         sourcePeriodRaw: foodAtHome.sourcePeriod || null,
+        planLevel: formatNotSet(foodAtHome.planLevel),
+        sourceUrl: formatNotSet(foodAtHome.sourceUrl),
+        sourceFileName: formatNotSet(foodAtHome.sourceFileName),
+        importedAt: formatNotSet(foodAtHome.importedAt),
+        approvedAt: formatNotSet(foodAtHome.approvedAt),
         bandRows: toFoodBandAssumptionRows(foodAtHome.monthlyAmountsByBand),
         householdSizeAdjustmentFactorRows: toHouseholdSizeFactorRows(foodAtHome.householdSizeAdjustmentFactors)
       },
@@ -1038,6 +1043,57 @@
     }).join("");
   }
 
+  function hasSavedFoodAtHomeSourceMetadata(foodAtHome) {
+    return [
+      foodAtHome.planLevel,
+      foodAtHome.sourceUrl,
+      foodAtHome.sourceFileName,
+      foodAtHome.importedAt,
+      foodAtHome.approvedAt
+    ].some(function (value) {
+      return value && value !== "Not set";
+    });
+  }
+
+  function renderSavedFoodAtHomeSourceMetadata(foodAtHome) {
+    if (!hasSavedFoodAtHomeSourceMetadata(foodAtHome)) {
+      return "";
+    }
+
+    return `
+      <table class="admin-tax-bracket-table" data-saved-living-floor-food-source-metadata>
+        <thead>
+          <tr>
+            <th>Metadata</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="admin-tax-bracket-row">
+            <td><code>planLevel</code></td>
+            <td>${escapeHtml(foodAtHome.planLevel)}</td>
+          </tr>
+          <tr class="admin-tax-bracket-row">
+            <td><code>sourceFileName</code></td>
+            <td>${escapeHtml(foodAtHome.sourceFileName)}</td>
+          </tr>
+          <tr class="admin-tax-bracket-row">
+            <td><code>sourceUrl</code></td>
+            <td>${escapeHtml(foodAtHome.sourceUrl)}</td>
+          </tr>
+          <tr class="admin-tax-bracket-row">
+            <td><code>importedAt</code></td>
+            <td>${escapeHtml(foodAtHome.importedAt)}</td>
+          </tr>
+          <tr class="admin-tax-bracket-row">
+            <td><code>approvedAt</code></td>
+            <td>${escapeHtml(foodAtHome.approvedAt)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  }
+
   function renderSavedModel90DefaultBucketFloorRows(rows) {
     return rows.map(function (row) {
       return `
@@ -1088,6 +1144,7 @@
               <p class="panel-copy">Source: ${escapeHtml(foodAtHome.source || "Not set")} · Source period: ${escapeHtml(foodAtHome.sourcePeriod || "Not set")}</p>
             </div>
           </div>
+          ${renderSavedFoodAtHomeSourceMetadata(foodAtHome)}
           <table class="admin-tax-bracket-table" data-saved-living-floor-food-bands>
             <thead>
               <tr>

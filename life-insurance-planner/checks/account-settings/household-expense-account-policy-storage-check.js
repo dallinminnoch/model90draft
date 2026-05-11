@@ -14,7 +14,15 @@ const storagePath = path.join(
   "account-settings",
   "household-expense-account-policy-storage.js"
 );
+const usdaImportContractPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "account-settings",
+  "usda-food-plan-import-contract.js"
+);
 const storageSource = fs.readFileSync(storagePath, "utf8");
+const usdaImportContractSource = fs.readFileSync(usdaImportContractPath, "utf8");
 
 const context = {
   LensApp: {
@@ -25,9 +33,12 @@ const context = {
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(storageSource, context, { filename: storagePath });
+vm.runInContext(usdaImportContractSource, context, { filename: usdaImportContractPath });
 
 const storageModule = context.LensApp.accountSettings.householdExpenseAccountPolicyStorage;
+const usdaImportContract = context.LensApp.accountSettings.usdaFoodPlanImportContract;
 assert.ok(storageModule, "household expense account policy storage should load");
+assert.ok(usdaImportContract, "USDA Food Plan import contract should load");
 
 [
   "HOUSEHOLD_EXPENSE_ACCOUNT_POLICY_STORAGE_VERSION",
@@ -131,6 +142,11 @@ function createExpectedEmptyLivingFloorAssumptions() {
       planningBucketKey: "foodAtHomeConsumables",
       source: "ADMIN_ENTERED",
       sourcePeriod: null,
+      planLevel: null,
+      sourceUrl: null,
+      sourceFileName: null,
+      importedAt: null,
+      approvedAt: null,
       monthlyAmountsByBand: FOOD_AT_HOME_BAND_KEYS.reduce(function (amounts, bandKey) {
         amounts[bandKey] = null;
         return amounts;
@@ -175,6 +191,11 @@ const validLivingFloorAssumptions = {
     planningBucketKey: "foodAtHomeConsumables",
     source: "USDA_FOOD_PLAN",
     sourcePeriod: "2026-01",
+    planLevel: "lowCost",
+    sourceUrl: "https://fns-prod.azureedge.us/sites/default/files/resource-files/usda-lowcostplan-sept2007-present.xlsx",
+    sourceFileName: "usda-lowcostplan-sept2007-present.xlsx",
+    importedAt: "2026-05-10T18:30:00.000Z",
+    approvedAt: "2026-05-10T18:35:00.000Z",
     monthlyAmountsByBand: {
       infantToddler: 180,
       youngChild: 225,
@@ -222,6 +243,37 @@ const validLivingFloorAssumptions = {
     }
   }
 };
+
+function createUsdaFoodPlanPreview() {
+  return {
+    sourceFormat: "MODEL90_USDA_FOOD_PLAN_PREVIEW_V1",
+    planLevel: "moderateCost",
+    sourcePeriod: "2026-02",
+    sourceUrl: "https://fns-prod.azureedge.us/sites/default/files/resource-files/usda-moderatecostplan-sept2007-present.xlsx",
+    sourceFileName: "usda-moderatecostplan-sept2007-present.xlsx",
+    importedAt: "2026-05-10T19:30:00.000Z",
+    approvedAt: "2026-05-10T19:35:00.000Z",
+    monthlyAmountsByBand: {
+      infantToddler: 190,
+      youngChild: 240,
+      olderChild: 310,
+      teenMale: 385,
+      teenFemale: 340,
+      adultMale: 420,
+      adultFemale: 370,
+      adultUnknown: 395,
+      childUnknown: 285
+    },
+    householdSizeAdjustmentFactors: {
+      "1": 1.2,
+      "2": 1.1,
+      "3": 1.05,
+      "4": 1,
+      "5": 0.95,
+      "6Plus": 0.9
+    }
+  };
+}
 
 const keyA = storageModule.createHouseholdExpenseAccountPolicyStorageKey("account-a");
 const keyB = storageModule.createHouseholdExpenseAccountPolicyStorageKey("account-b");
@@ -324,6 +376,30 @@ assert.equal(
   "load trace should count living-floor assumptions namespace keys"
 );
 
+const mappedUsdaFoodAtHome = usdaImportContract.mapUsdaFoodPlanPreviewToFoodAtHomeAssumptions(createUsdaFoodPlanPreview());
+assert.equal(mappedUsdaFoodAtHome.valid, true, "USDA contract fixture should map before storage normalization");
+const usdaContractStorage = createFakeStorage();
+storageModule.saveHouseholdExpenseAccountPolicy({
+  accountId: "usda-contract-policy",
+  accountPolicy: {
+    version: 1,
+    livingFloorAssumptions: {
+      version: 1,
+      foodAtHome: mappedUsdaFoodAtHome.foodAtHome
+    }
+  },
+  storage: usdaContractStorage
+});
+const usdaContractLoad = storageModule.loadHouseholdExpenseAccountPolicy({
+  accountId: "usda-contract-policy",
+  storage: usdaContractStorage
+});
+assert.deepEqual(
+  clone(usdaContractLoad.accountPolicy.livingFloorAssumptions.foodAtHome),
+  clone(mappedUsdaFoodAtHome.foodAtHome),
+  "USDA contract mapper output should survive storage normalization"
+);
+
 const invalidLivingFloorStorage = createFakeStorage();
 storageModule.saveHouseholdExpenseAccountPolicy({
   accountId: "invalid-living-floor",
@@ -369,6 +445,12 @@ storageModule.saveHouseholdExpenseAccountPolicy({
       foodAtHome: {
         confidence: "do not preserve",
         sourcePeriod: "",
+        planLevel: "not-a-usda-plan-level",
+        sourceUrl: "",
+        sourceFileName: "",
+        importedAt: "",
+        approvedAt: "",
+        sourceDocumentUrl: "do-not-preserve",
         monthlyAmountsByBand: {
           infantToddler: -50,
           youngChild: "",
@@ -424,6 +506,16 @@ assert.equal(normalizedGraphAdjustments[2].minimumFloorMode, "ratioFloorOnly", "
 assertNoConfidenceField(normalizedGraphAdjustments, "graphAdjustmentOverrides");
 const normalizedLivingFloor = invalidLivingFloorLoad.accountPolicy.livingFloorAssumptions;
 assert.equal(normalizedLivingFloor.version, 1, "invalid living-floor version should normalize to V1");
+assert.equal(normalizedLivingFloor.foodAtHome.planLevel, null, "invalid USDA Food Plan level should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.sourceUrl, null, "blank sourceUrl should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.sourceFileName, null, "blank sourceFileName should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.importedAt, null, "blank importedAt should normalize to null");
+assert.equal(normalizedLivingFloor.foodAtHome.approvedAt, null, "blank approvedAt should normalize to null");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(normalizedLivingFloor.foodAtHome, "sourceDocumentUrl"),
+  false,
+  "unsupported Food at Home source metadata should be dropped"
+);
 assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.infantToddler, null, "negative dollar values should normalize to null");
 assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.youngChild, null, "blank dollar values should remain allowed as null");
 assert.equal(normalizedLivingFloor.foodAtHome.monthlyAmountsByBand.olderChild, 275, "numeric string dollar values should normalize to numbers");

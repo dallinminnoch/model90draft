@@ -22,6 +22,11 @@ const seededLivingFloorAssumptions = {
     planningBucketKey: "foodAtHomeConsumables",
     source: "USDA_FOOD_PLAN",
     sourcePeriod: "2026",
+    planLevel: "lowCost",
+    sourceUrl: "https://fns-prod.azureedge.us/sites/default/files/resource-files/usda-lowcostplan-sept2007-present.xlsx",
+    sourceFileName: "usda-lowcostplan-sept2007-present.xlsx",
+    importedAt: "2026-05-10T18:30:00.000Z",
+    approvedAt: "2026-05-10T18:35:00.000Z",
     monthlyAmountsByBand: {
       infantToddler: 180,
       youngChild: 225,
@@ -351,6 +356,7 @@ assert.match(missingHtml, /Living Floor Metadata/);
 assert.match(missingHtml, /Expense Floor Model/);
 assert.match(missingHtml, /Saved Living Floor Assumptions/);
 assert.match(missingHtml, /Not configured/);
+assert.doesNotMatch(missingHtml, /data-saved-living-floor-food-source-metadata/);
 assert.match(missingHtml, /Food bands set/);
 assert.match(missingHtml, /Household factors set/);
 assert.doesNotMatch(missingHtml, /State Cost Adjustment Multipliers/);
@@ -479,12 +485,22 @@ assert.equal(validModel.savedLivingFloorAssumptions.status.code, "configured", "
 assert.equal(validModel.savedLivingFloorAssumptions.counts.configuredFoodAtHomeBands, 9, "seeded policy should count all food bands");
 assert.equal(validModel.savedLivingFloorAssumptions.counts.configuredHouseholdSizeFactors, 6, "seeded policy should count all household factors");
 assert.equal(Object.prototype.hasOwnProperty.call(validModel.savedLivingFloorAssumptions.counts, "globalStateMultiplierRows"), false, "saved living-floor counts should not include retired state multiplier rows");
+assert.equal(validModel.savedLivingFloorAssumptions.foodAtHome.planLevel, "lowCost", "display model should preserve USDA plan level");
+assert.equal(validModel.savedLivingFloorAssumptions.foodAtHome.sourceFileName, "usda-lowcostplan-sept2007-present.xlsx", "display model should preserve USDA source filename");
 const validHtml = adminDisplay.renderHouseholdExpensePolicyDisplay(validModel);
 assert.equal(context.localStorage.getWriteCount(), writeCountAfterSeed, "rendering seeded saved assumptions should not write storage");
 assert.match(validHtml, /Saved account override/);
 assert.match(validHtml, /Configured/);
 assert.match(validHtml, /\$180\.00/);
 assert.match(validHtml, /\$390\.00/);
+assert.match(validHtml, /data-saved-living-floor-food-source-metadata/);
+assert.match(validHtml, /planLevel/);
+assert.match(validHtml, /lowCost/);
+assert.match(validHtml, /sourceFileName/);
+assert.match(validHtml, /usda-lowcostplan-sept2007-present\.xlsx/);
+assert.match(validHtml, /importedAt/);
+assert.match(validHtml, /2026-05-10T18:30:00\.000Z/);
+assert.match(validHtml, /approvedAt/);
 assert.doesNotMatch(validHtml, /1\.08/);
 assert.doesNotMatch(validHtml, /Colorado placeholder/);
 assert.match(validHtml, /Household goods placeholder/);
