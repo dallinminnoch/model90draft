@@ -2652,10 +2652,21 @@
       : null;
     const lifestyleComparisonScenario = normalizeLifestyleGraphComparisonScenario(lifestyleScenario?.comparisonScenario);
     const comparisonScenarios = lifestyleComparisonScenario ? [lifestyleComparisonScenario] : [];
+    const appliedScenarioRecord = buildAppliedScenarioRecordFromInputs(safeState, context, {
+      scenario,
+      riskEvaluation,
+      comparisonScenarios,
+      lifestyleScenario
+    });
+    upsertAppliedScenarioRecord(safeState, appliedScenarioRecord);
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario,
       riskEvaluation,
       comparisonScenarios,
+      appliedScenarios: Array.isArray(safeState.appliedScenarios)
+        ? clonePlainValue(safeState.appliedScenarios)
+        : [clonePlainValue(appliedScenarioRecord)],
+      selectedScenarioId: safeState.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID,
       options: {
         preserveSignedResources: true,
         currentAgeMode: "death-event-only"
@@ -2730,16 +2741,20 @@
     return "Current evaluated scenario";
   }
 
-  function buildAppliedScenarioRecord(state, baseContext, timelineResult) {
+  function buildAppliedScenarioRecordFromInputs(state, baseContext, inputs) {
+    const safeInputs = isPlainObject(inputs) ? inputs : {};
     const settings = getDraftScenarioControlsSnapshot(state);
-    const lifestyleScenario = timelineResult?.compressionReporting?.lifestyleScenario;
+    const lifestyleScenario = safeInputs.lifestyleScenario;
     const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta);
     return {
       scenarioId: INITIAL_APPLIED_SCENARIO_ID,
       label: getAppliedScenarioLabel(settings),
       settings: clonePlainValue(settings),
-      scenario: clonePlainValue(timelineResult?.scenario || baseContext?.scenario || null),
-      riskEvaluation: clonePlainValue(timelineResult?.riskEvaluation || baseContext?.riskEvaluation || null),
+      scenario: clonePlainValue(safeInputs.scenario || baseContext?.scenario || null),
+      riskEvaluation: clonePlainValue(safeInputs.riskEvaluation || baseContext?.riskEvaluation || null),
+      comparisonScenarios: Array.isArray(safeInputs.comparisonScenarios)
+        ? clonePlainValue(safeInputs.comparisonScenarios)
+        : [],
       lifestyleAdjustment: {
         sliderValue: settings.lifestyleSliderValue,
         label: getLifestyleSliderLabel(settings.lifestyleSliderValue),
@@ -2748,7 +2763,7 @@
       },
       comparisonTrace: clonePlainValue(
         lifestyleScenario?.comparisonScenario?.trace
-        || timelineResult?.compressionReporting?.trace
+        || safeInputs.comparisonTrace
         || {}
       ),
       trace: {
@@ -2758,13 +2773,29 @@
     };
   }
 
-  function upsertInitialAppliedScenarioFromTimelineResult(state, baseContext, timelineResult) {
-    if (!isPlainObject(state) || !isPlainObject(timelineResult)) {
+  function buildAppliedScenarioRecord(state, baseContext, timelineResult) {
+    const existingScenario = Array.isArray(state?.appliedScenarios)
+      ? state.appliedScenarios.find(function (scenario) {
+          return scenario?.scenarioId === INITIAL_APPLIED_SCENARIO_ID;
+        })
+      : null;
+    return buildAppliedScenarioRecordFromInputs(state, baseContext, {
+      scenario: timelineResult?.scenario,
+      riskEvaluation: timelineResult?.riskEvaluation,
+      lifestyleScenario: timelineResult?.compressionReporting?.lifestyleScenario,
+      comparisonTrace: timelineResult?.compressionReporting?.trace,
+      comparisonScenarios: Array.isArray(existingScenario?.comparisonScenarios)
+        ? existingScenario.comparisonScenarios
+        : []
+    });
+  }
+
+  function upsertAppliedScenarioRecord(state, record) {
+    if (!isPlainObject(state) || !isPlainObject(record)) {
       return null;
     }
 
     syncDraftScenarioControlsFromState(state);
-    const record = buildAppliedScenarioRecord(state, baseContext, timelineResult);
     state.appliedScenarios = Array.isArray(state.appliedScenarios) ? state.appliedScenarios : [];
     const existingIndex = state.appliedScenarios.findIndex(function (scenario) {
       return scenario?.scenarioId === record.scenarioId;
@@ -2778,6 +2809,14 @@
       state.selectedScenarioId = record.scenarioId;
     }
     return record;
+  }
+
+  function upsertInitialAppliedScenarioFromTimelineResult(state, baseContext, timelineResult) {
+    if (!isPlainObject(state) || !isPlainObject(timelineResult)) {
+      return null;
+    }
+
+    return upsertAppliedScenarioRecord(state, buildAppliedScenarioRecord(state, baseContext, timelineResult));
   }
 
   function renderIncomeImpactTimelineResult(timelineResult) {

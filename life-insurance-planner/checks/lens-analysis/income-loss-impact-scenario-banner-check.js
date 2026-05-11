@@ -544,6 +544,13 @@ assert.equal(harness.composerCalls[0].scenarioOptions.mortgageTreatmentOverride,
 assert.equal(harness.composerCalls[0].scenarioOptions.includeDiscretionaryNeeds, true);
 assert.equal(harness.composerCalls[0].scenarioOptions.projectionCadence, "monthly");
 assert.equal(harness.riskEvaluatorCalls[0].scenario.scenario.selectedDeathAge, 45);
+assert.equal(harness.graphModelCalls[0].selectedScenarioId, "income-impact-current-scenario");
+assert.equal(harness.graphModelCalls[0].appliedScenarios.length, 1, "display should pass appliedScenarios into the graph model.");
+assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenarioId, "income-impact-current-scenario");
+assert.equal(harness.graphModelCalls[0].appliedScenarios[0].label, "Death at age 45");
+assert.equal(harness.graphModelCalls[0].appliedScenarios[0].settings.selectedDeathAge, 45);
+assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenario.scenario.selectedDeathAge, 45);
+assert.deepEqual(harness.graphModelCalls[0].appliedScenarios[0].comparisonScenarios, []);
 const initialScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.deepEqual(
   initialScenarioComparisonState.draftScenarioControls,
@@ -599,6 +606,8 @@ assert.equal(harness.composerCalls.length, 2);
 assert.equal(harness.riskEvaluatorCalls.length, 2);
 assert.equal(harness.graphModelCalls.length, 2);
 assert.equal(harness.composerCalls[1].projectionHorizonMonths, 60);
+assert.equal(harness.graphModelCalls[1].selectedScenarioId, "income-impact-current-scenario");
+assert.equal(harness.graphModelCalls[1].appliedScenarios[0].settings.projectionHorizonYears, 5);
 assert.equal(harness.projectionHorizon.value, "5");
 assert.equal(harness.projectionHorizonValue.textContent, "5 years");
 const minimumHorizonScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
@@ -629,6 +638,8 @@ assert.equal(harness.composerCalls.length, 4);
 assert.equal(harness.riskEvaluatorCalls.length, 4);
 assert.equal(harness.graphModelCalls.length, 4);
 assert.equal(harness.composerCalls[3].scenarioOptions.mortgageTreatmentOverride, "payOffMortgage");
+assert.equal(harness.graphModelCalls[3].selectedScenarioId, "income-impact-current-scenario");
+assert.equal(harness.graphModelCalls[3].appliedScenarios[0].settings.mortgageTreatmentOverride, "payOffMortgage");
 assert.equal(harness.mortgageTreatment.value, "payOffMortgage");
 assert.equal(harness.mortgageTreatmentValue.textContent, "Pay off mortgage");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-mortgage-treatment-label"), "Pay off mortgage");

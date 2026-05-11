@@ -265,7 +265,14 @@ function makeGraphModel(input) {
       { id: "resources-after-obligations", label: "Resources after obligations", value: 500000, kind: "currency", phase: "deathEvent" }
     ],
     warnings: [],
-    dataGaps: []
+    dataGaps: [],
+    trace: {
+      scenarioModelMode: Array.isArray(input?.appliedScenarios) && input.appliedScenarios.length
+        ? "appliedScenarios"
+        : "singleScenario",
+      appliedScenarioCount: Array.isArray(input?.appliedScenarios) ? input.appliedScenarios.length : 0,
+      selectedScenarioId: input?.selectedScenarioId || null
+    }
   };
 }
 
@@ -633,11 +640,21 @@ assert.equal(capturedGraphInput.comparisonScenarios[0].kind, "lifestyleCompariso
 assert.equal(capturedGraphInput.comparisonScenarios[0].pathId, "lifestyle-post-death-resources");
 assert.equal(capturedGraphInput.comparisonScenarios[0].label, "Lifestyle-adjusted projection");
 assert.equal(capturedGraphInput.comparisonScenarios[0].trace.helperProvidedComparisonFixture, true, "display should consume helper-provided comparison series");
+assert.equal(capturedGraphInput.selectedScenarioId, "income-impact-current-scenario", "display should pass the selected applied scenario id into the graph model");
+assert.equal(capturedGraphInput.appliedScenarios.length, 1, "display should pass the current applied scenario into the graph model");
+assert.equal(capturedGraphInput.appliedScenarios[0].scenarioId, "income-impact-current-scenario");
+assert.equal(capturedGraphInput.appliedScenarios[0].label, "Current evaluated scenario");
+assert.deepEqual(clone(capturedGraphInput.appliedScenarios[0].scenario), clone(scenario), "applied graph scenario should carry the current composed scenario");
+assert.deepEqual(clone(capturedGraphInput.appliedScenarios[0].riskEvaluation), clone(riskEvaluation), "applied graph scenario should carry the current risk evaluation");
+assert.deepEqual(clone(capturedGraphInput.appliedScenarios[0].comparisonScenarios), clone(capturedGraphInput.comparisonScenarios), "applied graph scenario should carry the current lifestyle comparison path contract");
 assert.deepEqual(
   capturedGraphInput.comparisonScenarios[0].postDeathSeries.points.map(function (point) { return point.endingResources; }),
   scenario.postDeathSeries.points.map(function (point) { return point.endingResources; }),
   "slider 0 lifestyle comparison should match baseline post-death resources"
 );
+assert.equal(result.graphModel.trace.scenarioModelMode, "appliedScenarios", "display graph path should report applied-scenario mode");
+assert.equal(result.graphModel.trace.appliedScenarioCount, 1);
+assert.equal(result.graphModel.trace.selectedScenarioId, "income-impact-current-scenario");
 assert.deepEqual(scenario, originalScenario, "display lifestyle wiring should not mutate scenario");
 assert.deepEqual(riskEvaluation, originalRiskEvaluation, "display lifestyle wiring should not mutate risk evaluation");
 assert.deepEqual(result.scenario.postDeathSeries, originalScenario.postDeathSeries, "base postDeathSeries should remain unchanged");

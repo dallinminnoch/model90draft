@@ -552,7 +552,14 @@ const seedCurrent = buildResultForSlider(seedRuntime, seedState, 0);
 const seedConservative = buildResultForSlider(seedRuntime, seedState, -100);
 const seedElevated = buildResultForSlider(seedRuntime, seedState, 100);
 
-assert.deepEqual(comparisonValues(seedCurrent), baseValues(seedCurrent), "Current/0 seed-default comparison should exactly match baseline");
+assert.equal(seedCapture.graphInputs[0].selectedScenarioId, "income-impact-current-scenario", "display runtime should pass selectedScenarioId into the graph model");
+assert.equal(seedCapture.graphInputs[0].appliedScenarios.length, 1, "display runtime should pass the current applied scenario into the graph model");
+assert.equal(seedCapture.graphInputs[0].appliedScenarios[0].scenarioId, "income-impact-current-scenario");
+assert.equal(seedCapture.graphInputs[0].appliedScenarios[0].comparisonScenarios.length, 1, "applied runtime scenario should carry the lifestyle comparison graph contract");
+assert.equal(seedCurrent.graphModel.trace.scenarioModelMode, "appliedScenarios", "live display graph model path should report applied-scenario mode");
+assert.equal(seedCurrent.graphModel.trace.appliedScenarioCount, 1);
+assert.equal(seedCurrent.graphModel.trace.selectedScenarioId, "income-impact-current-scenario");
+assert.deepEqual(cloneJson(comparisonValues(seedCurrent)), cloneJson(baseValues(seedCurrent)), "Current/0 seed-default comparison should exactly match baseline");
 assert.equal(seedCapture.lifestyleOutputs[0].trace.streamDefaultUsed, true, "seed default should resolve through the stream default path");
 assert.equal(seedCapture.lifestyleOutputs[0].comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1");
 assert.equal(seedCapture.lifestyleInputs[0].accountPolicyResolution, undefined);
@@ -582,9 +589,9 @@ assert.equal(capturedLifestyleGroceriesPolicy.conservativeFloorRatio, 0.3, "life
 assert.equal(capturedLifestyleGroceriesPolicy.elevatedCeilingRatio, 1.6, "lifestyle helper should receive the overridden groceries elevated ceiling");
 assert.equal(accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentItems[0].conservativeFloorRatio, 0.3, "account override should apply to the stream comparison output");
 assert.equal(accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentItems[0].elevatedCeilingRatio, 1.6, "account override ceiling should apply to the stream comparison output");
-assert.deepEqual(comparisonValues(accountCurrent), baseValues(accountCurrent), "Current/0 account-policy comparison should exactly match baseline");
-assert.notDeepEqual(comparisonValues(accountConservative), comparisonValues(seedConservative), "Conservative account override should change graph comparison values differently than seed default");
-assert.notDeepEqual(comparisonValues(accountElevated), comparisonValues(seedElevated), "Elevated account override should change graph comparison values differently than seed default");
+assert.deepEqual(cloneJson(comparisonValues(accountCurrent)), cloneJson(baseValues(accountCurrent)), "Current/0 account-policy comparison should exactly match baseline");
+assert.notDeepEqual(cloneJson(comparisonValues(accountConservative)), cloneJson(comparisonValues(seedConservative)), "Conservative account override should change graph comparison values differently than seed default");
+assert.notDeepEqual(cloneJson(comparisonValues(accountElevated)), cloneJson(comparisonValues(seedElevated)), "Elevated account override should change graph comparison values differently than seed default");
 assert.ok(comparisonValues(accountConservative)[0] > comparisonValues(seedConservative)[0], "Lower account floor should extend Conservative runway more than seed default");
 assert.ok(comparisonValues(accountElevated)[0] < comparisonValues(seedElevated)[0], "Higher account ceiling should shorten Elevated runway more than seed default");
 assert.equal(accountConservative.compressionReporting.trace.accountPolicySource, "accountOverride");
@@ -671,7 +678,7 @@ assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.estimatedDoll
 assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.bucketAggregationApplied, true, "default stream mode should use bucket-level floor aggregation");
 assert.equal(defaultStreamLifestyleOutput.comparisonScenario.trace.perRowDollarFloorApplied, false, "default stream mode should not apply per-row dollar floors");
 assert.equal(defaultStreamCapture.graphInputs[0].comparisonScenarios[0].trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "graph should receive the stream comparison when default stream mode is resolved");
-assert.notDeepEqual(comparisonValues(defaultStreamResult), baseValues(defaultStreamResult), "default stream graph mode should be able to move the comparison path");
+assert.notDeepEqual(cloneJson(comparisonValues(defaultStreamResult)), cloneJson(baseValues(defaultStreamResult)), "default stream graph mode should be able to move the comparison path");
 
 const activeState = buildRuntimeState(runtime, activePolicyContext, activeLensModel, activeCapture);
 activeState.profileRecord = {
@@ -703,8 +710,8 @@ assert.equal(activeLifestyleOutput.comparisonScenario.trace.estimatedDollarFloor
 assert.equal(activeLifestyleOutput.comparisonScenario.trace.bucketAggregationApplied, true, "explicit active mode should use bucket-level floor aggregation");
 assert.equal(activeLifestyleOutput.comparisonScenario.trace.perRowDollarFloorApplied, false, "explicit active mode should not apply per-row dollar floors");
 assert.equal(activeCapture.graphInputs[0].comparisonScenarios[0].trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1", "graph should receive the helper-provided stream comparison when explicit active mode is requested");
-assert.notDeepEqual(comparisonValues(activeStreamResult), baseValues(activeStreamResult), "explicit active graph mode should be able to move the comparison path");
-assert.deepEqual(comparisonValues(defaultStreamResult), comparisonValues(activeStreamResult), "default stream graph mode should match explicit active graph mode");
+assert.notDeepEqual(cloneJson(comparisonValues(activeStreamResult)), cloneJson(baseValues(activeStreamResult)), "explicit active graph mode should be able to move the comparison path");
+assert.deepEqual(cloneJson(comparisonValues(defaultStreamResult)), cloneJson(comparisonValues(activeStreamResult)), "default stream graph mode should match explicit active graph mode");
 
 const protectedKeys = [
   ["rentOrMortgagePayment", "housingExpense"],
@@ -774,7 +781,7 @@ protectedKeys.forEach(function ([expenseTypeKey]) {
   assert.equal(streamRow.trace.protectedOrSourceOwned, true, `${expenseTypeKey} should be traced as protected or source-owned`);
   assert.equal(streamRow.trace.futureAdjustmentBehavior, "zero-delta", `${expenseTypeKey} should not move the graph`);
 });
-assert.deepEqual(comparisonValues(protectedResult), baseValues(protectedResult), "malicious protected overrides should leave lifestyle comparison as a no-op baseline path");
+assert.deepEqual(cloneJson(comparisonValues(protectedResult)), cloneJson(baseValues(protectedResult)), "malicious protected overrides should leave lifestyle comparison as a no-op baseline path");
 
 const forbiddenWrites = runtime.storage.writes().concat(runtime.storage.removes()).filter(function (key) {
   return /analysisSettings|client|profile/i.test(key);
