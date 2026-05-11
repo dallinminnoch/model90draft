@@ -1612,8 +1612,6 @@
         <section class="admin-tax-bracket-group" data-household-expense-graph-adjustment-controls>
           <div class="admin-tax-bracket-toolbar">
             <div>
-              <span class="section-label">Income Impact Adjustment Controls</span>
-              <h3>Graph-Affecting Ratio Controls</h3>
               <p class="panel-copy"><strong>Affects all users on this account.</strong> All seed-approved graph adjustment rows remain editable here. Adjustment type overrides are saved for admin policy only and are not consumed by runtime math yet.</p>
               <p class="panel-copy">Policy source: ${escapeHtml(status.label || "Policy unavailable")} · Graph rows: ${escapeHtml(counts.previewRows || 0)} · Ratio overrides: ${escapeHtml(counts.rowsWithOverrides || 0)} · Type overrides: ${escapeHtml(counts.rowsWithGraphAdjustmentOverrides || 0)} · Warnings: ${escapeHtml(counts.warnings || 0)}</p>
             </div>

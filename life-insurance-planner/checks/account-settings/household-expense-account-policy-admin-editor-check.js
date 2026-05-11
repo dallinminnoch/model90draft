@@ -530,8 +530,8 @@ assertEditorBucketRows("savingsGoalContributions", {
 });
 
 const missingHtml = editor.renderHouseholdExpensePolicyEditor(missingModel);
-assert.match(missingHtml, /Income Impact Adjustment Controls/);
-assert.match(missingHtml, /Graph-Affecting Ratio Controls/);
+assert.doesNotMatch(missingHtml, /Income Impact Adjustment Controls/);
+assert.doesNotMatch(missingHtml, /Graph-Affecting Ratio Controls/);
 assert.match(missingHtml, /Affects all users on this account/);
 assert.match(missingHtml, /data-household-expense-graph-adjustment-controls/);
 assert.match(missingHtml, /data-household-expense-compressed-controls/);
@@ -1117,7 +1117,7 @@ assert.equal(corruptModel.rows.every((row) => row.overrideStatus === "defaultSee
 const initializeModel = editor.initializeHouseholdExpenseAccountPolicyAdminEditor();
 assert.ok(initializeModel, "initializer should return a model when host exists");
 assert.equal(host.listenerType, "click", "initializer should attach a delegated click handler once");
-assert.match(host.innerHTML, /Income Impact Adjustment Controls/);
+assert.doesNotMatch(host.innerHTML, /Income Impact Adjustment Controls/);
 assert.match(host.innerHTML, /Food at Home Floor Assumptions/);
 assert.match(host.innerHTML, /data-household-expense-policy-save/);
 assert.match(host.innerHTML, /data-household-expense-policy-ratio-input/);
