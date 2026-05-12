@@ -16535,12 +16535,29 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #4054b8;
 }
 
-.income-impact-graph-path--deathTransition {
-  display: none;
-}
-
 .income-impact-graph-path--postDeathResources {
   stroke: #227455;
+}
+
+.income-impact-death-conversion {
+  pointer-events: none;
+}
+
+.income-impact-death-conversion-spine {
+  filter: drop-shadow(0 4px 10px rgba(47, 143, 199, 0.2));
+  stroke: url("#income-impact-death-conversion-gradient");
+  stroke-linecap: round;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-death-conversion-chevron {
+  fill: none;
+  stroke: url("#income-impact-death-conversion-gradient");
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
 }
 
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {

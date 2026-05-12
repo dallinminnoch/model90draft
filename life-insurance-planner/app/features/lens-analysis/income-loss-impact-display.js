@@ -14,6 +14,8 @@
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const SELECTED_DEFICIT_AREA_ID = "postDeathDeficitArea--selected";
+  const DEATH_CONVERSION_GRADIENT_ID = "income-impact-death-conversion-gradient";
+  const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
@@ -1535,6 +1537,20 @@
     return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}"${renderGraphPathAttributes(attributes)} d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
   }
 
+  function hasGraphPosition(point) {
+    return isPlainObject(point)
+      && toOptionalNumber(point.xRatio) != null
+      && toOptionalNumber(point.yRatio) != null;
+  }
+
+  function getLastPositionedPoint(points) {
+    return (Array.isArray(points) ? points : []).slice().reverse().find(hasGraphPosition) || null;
+  }
+
+  function getFirstPositionedPoint(points) {
+    return (Array.isArray(points) ? points : []).find(hasGraphPosition) || null;
+  }
+
   function getAppliedGraphSeries(graphModel) {
     function selectVisibleSeries(seriesList) {
       const safeSeries = Array.isArray(seriesList) ? seriesList : [];
@@ -1812,6 +1828,132 @@
         }
       );
     }).join("");
+  }
+
+  function getSelectedRunwayScenario(graphModel, selectedScenarioId = "") {
+    const scenarios = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
+      ? graphModel.series.appliedRunwayScenarios
+      : [];
+    if (!scenarios.length) {
+      return null;
+    }
+    const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
+    return (normalizedSelectedScenarioId
+      ? scenarios.find(function (scenario) {
+        return normalizeString(scenario?.scenarioId) === normalizedSelectedScenarioId;
+      })
+      : null) || scenarios.find(function (scenario) {
+        return scenario?.selected === true;
+      }) || scenarios[0];
+  }
+
+  function getDeathConversionConnector(graphModel) {
+    const selectedScenarioId = graphModel?.trace?.selectedScenarioId;
+    const selectedRunwayScenario = getSelectedRunwayScenario(graphModel, selectedScenarioId);
+    const deathXRatio = toOptionalNumber(graphModel?.phases?.deathEvent?.xRatio);
+    if (selectedRunwayScenario) {
+      const startPoint = hasGraphPosition(selectedRunwayScenario.deathLineAnchor)
+        ? selectedRunwayScenario.deathLineAnchor
+        : getLastPositionedPoint(selectedRunwayScenario.preDeathContextPoints);
+      const endPoint = hasGraphPosition(selectedRunwayScenario.survivorResourcesAtDeathPoint)
+        ? selectedRunwayScenario.survivorResourcesAtDeathPoint
+        : getFirstPositionedPoint(selectedRunwayScenario.fundedRunwayPoints);
+      if (startPoint && endPoint) {
+        const xRatio = toOptionalNumber(endPoint.xRatio) ?? toOptionalNumber(startPoint.xRatio) ?? deathXRatio;
+        return {
+          scenarioId: selectedRunwayScenario.scenarioId || "",
+          label: normalizeString(selectedRunwayScenario.deathLineLabel || selectedRunwayScenario.label || "Selected scenario"),
+          xRatio,
+          startYRatio: toOptionalNumber(startPoint.yRatio),
+          endYRatio: toOptionalNumber(endPoint.yRatio),
+          source: "selectedAppliedScenario"
+        };
+      }
+    }
+
+    const preDeathPoint = getLastPositionedPoint(graphModel?.series?.preDeathAssets);
+    const transitionStages = Array.isArray(graphModel?.series?.deathTransition)
+      ? graphModel.series.deathTransition.filter(hasGraphPosition)
+      : [];
+    const transitionEndPoint = transitionStages.length ? transitionStages[transitionStages.length - 1] : null;
+    if (!preDeathPoint || !transitionEndPoint) {
+      return null;
+    }
+    return {
+      scenarioId: "",
+      label: "Base scenario",
+      xRatio: toOptionalNumber(transitionEndPoint.xRatio) ?? toOptionalNumber(preDeathPoint.xRatio) ?? deathXRatio,
+      startYRatio: toOptionalNumber(preDeathPoint.yRatio),
+      endYRatio: toOptionalNumber(transitionEndPoint.yRatio),
+      source: "baseDeathTransition"
+    };
+  }
+
+  function renderDeathConversionGradient(connector, x, y1, y2) {
+    return `
+      <defs>
+        <linearGradient id="${DEATH_CONVERSION_GRADIENT_ID}" data-income-impact-death-conversion-gradient gradientUnits="userSpaceOnUse" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}">
+          <stop offset="0%" stop-color="#4054b8"></stop>
+          <stop offset="48%" stop-color="#2f8fc7"></stop>
+          <stop offset="100%" stop-color="#227455"></stop>
+        </linearGradient>
+      </defs>
+    `;
+  }
+
+  function renderDeathConversionArrows(x, y1, y2) {
+    const rotation = y2 >= y1 ? 0 : 180;
+    return DEATH_CONVERSION_ARROW_POSITION_RATIOS.map(function (positionRatio) {
+      const y = y1 + ((y2 - y1) * positionRatio);
+      return `
+        <path
+          class="income-impact-death-conversion-chevron"
+          data-income-impact-death-conversion-chevron
+          data-income-impact-death-conversion-chevron-position-ratio="${escapeHtml(positionRatio)}"
+          d="M -7 -4 L 0 4 L 7 -4"
+          transform="translate(${x} ${formatSvgCoordinate(y)}) rotate(${rotation})"
+        ></path>
+      `;
+    }).join("");
+  }
+
+  function renderDeathEventConversionConnector(graphModel) {
+    const connector = getDeathConversionConnector(graphModel);
+    if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
+      return "";
+    }
+    const x = toGraphX(connector.xRatio);
+    const y1 = toGraphY(connector.startYRatio);
+    const y2 = toGraphY(connector.endYRatio);
+    if (y1 === y2) {
+      return "";
+    }
+    const topY = Math.min(y1, y2);
+    const bottomY = Math.max(y1, y2);
+    const label = `${connector.label || "Selected scenario"} death-event conversion`;
+    return `
+      ${renderDeathConversionGradient(connector, x, y1, y2)}
+      <g
+        class="income-impact-death-conversion"
+        data-income-impact-death-conversion
+        data-income-impact-death-conversion-source="${escapeHtml(connector.source)}"
+        data-income-impact-applied-scenario-id="${escapeHtml(connector.scenarioId)}"
+        aria-label="${escapeHtml(label)}"
+      >
+        <line
+          class="income-impact-death-conversion-spine"
+          data-income-impact-death-conversion-spine
+          x1="${x}"
+          y1="${topY}"
+          x2="${x}"
+          y2="${bottomY}"
+        ></line>
+        <g class="income-impact-death-conversion-chevrons" data-income-impact-death-conversion-chevrons>
+          ${renderDeathConversionArrows(x, y1, y2)}
+        </g>
+        <title>${escapeHtml(label)}</title>
+      </g>
+    `;
   }
 
   function getSurvivorResourcesRenderStartPoint(graphModel, pathId) {
@@ -2367,6 +2509,7 @@
     const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
     const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
+    const deathConversionConnector = renderDeathEventConversionConnector(graphModel);
     return `
       <svg
         class="income-impact-graph-svg"
@@ -2380,6 +2523,7 @@
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
           ${preDeathPath}
+          ${deathConversionConnector}
           ${appliedScenarioPaths}
           ${comparisonPaths}
           ${deathLineAnchors || renderGraphDeathAnchor(graphModel)}

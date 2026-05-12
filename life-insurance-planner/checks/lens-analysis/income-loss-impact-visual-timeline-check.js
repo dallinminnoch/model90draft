@@ -51,6 +51,12 @@ function getRunwayDepletionMarkerTag(html, scenarioId) {
   return tag;
 }
 
+function getDeathConversionConnectorTag(html) {
+  const tags = html.match(/<g\b(?=[^>]*data-income-impact-death-conversion(?:\s|>))[^>]*>/g) || [];
+  assert.equal(tags.length, 1, "Expected exactly one death-event conversion connector.");
+  return tags[0];
+}
+
 function getPathYValues(pathD) {
   const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
   return numbers
@@ -197,6 +203,10 @@ assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
 assert.match(displaySource, /data-income-impact-runway-depletion-marker/);
+assert.match(displaySource, /renderDeathEventConversionConnector/);
+assert.match(displaySource, /DEATH_CONVERSION_ARROW_POSITION_RATIOS/);
+assert.match(displaySource, /data-income-impact-death-conversion-spine/);
+assert.match(displaySource, /data-income-impact-death-conversion-chevron-position-ratio/);
 assert.doesNotMatch(displaySource, /annotationGeometry/);
 assert.doesNotMatch(displaySource, /getSelectedDeathEventBridge|renderDeathEventBridge/);
 assert.doesNotMatch(displaySource, /data-income-impact-death-event-bridge/);
@@ -225,7 +235,9 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
-assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
+assert.match(componentsSource, /\.income-impact-death-conversion-spine[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*4;/);
+assert.match(componentsSource, /\.income-impact-death-conversion-chevron[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*3;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-bridge/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-net-worth/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-survivor-resources/);
@@ -322,6 +334,20 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-death-event-survivor-resou
 assert.doesNotMatch(timelineHtml, /data-income-impact-death-event-conversion/);
 assert.doesNotMatch(timelineHtml, /Conversion at death|Net worth at death|Starting funds after conversion/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
+assert.match(timelineHtml, /data-income-impact-death-conversion/);
+assert.match(timelineHtml, /data-income-impact-death-conversion-gradient/);
+assert.match(timelineHtml, /data-income-impact-death-conversion-spine/);
+assert.match(timelineHtml, /data-income-impact-death-conversion-chevrons/);
+assert.equal(
+  (timelineHtml.match(/data-income-impact-death-conversion-chevron(?:\s|>)/g) || []).length,
+  2,
+  "Death-event conversion connector should render separate repositionable chevrons."
+);
+assert.doesNotMatch(
+  timelineHtml,
+  /data-income-impact-death-conversion[\s\S]*stroke-dasharray/,
+  "Death-event conversion connector should not use the retired dotted path treatment."
+);
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"|data-income-impact-graph-path="compression-post-death-resources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
@@ -496,6 +522,21 @@ assert.doesNotMatch(
   /data-income-impact-death-event-bridge|data-income-impact-death-event-conversion|Conversion at death|Net worth at death|Starting funds after conversion/,
   "Death-event conversion annotation should not render for selected or non-selected scenarios."
 );
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-death-conversion(?:\s|>)/g) || []).length,
+  1,
+  "Only the selected applied scenario should render one death-event conversion connector."
+);
+assert.match(
+  getDeathConversionConnectorTag(multiAppliedTimelineHtml),
+  /data-income-impact-applied-scenario-id="income-impact-death-in-5-years"/,
+  "Selected applied scenario should own the visible death-event conversion connector."
+);
+assert.doesNotMatch(
+  getDeathConversionConnectorTag(multiAppliedTimelineHtml),
+  /data-income-impact-applied-scenario-id="income-impact-current-scenario"/,
+  "Hidden applied scenarios should not render extra death-event conversion connectors."
+);
 {
   const selectedAppliedPathD = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-path", "postDeathResources");
   const selectedAppliedPathStartX = Number((selectedAppliedPathD.match(/^M(-?\d+(?:\.\d+)?)/) || [])[1]);
@@ -660,6 +701,16 @@ assert.doesNotMatch(
   "Previously selected depletion marker should leave the graph when another scenario is selected."
 );
 assert.doesNotMatch(switchedSelectedTimelineHtml, /data-income-impact-death-event-bridge/);
+assert.match(
+  getDeathConversionConnectorTag(switchedSelectedTimelineHtml),
+  /data-income-impact-applied-scenario-id="income-impact-current-scenario"/,
+  "Death-event conversion connector should move when the selected applied scenario changes."
+);
+assert.equal(
+  (switchedSelectedTimelineHtml.match(/data-income-impact-death-conversion(?:\s|>)/g) || []).length,
+  1,
+  "Switching the selected scenario should still render only one death-event conversion connector."
+);
 
 const currentGraphModel = makeGraphModel();
 const currentComparisonPoints = currentGraphModel.series.postDeathResources.map((point) => ({ ...point }));
@@ -958,6 +1009,7 @@ assert.match(currentAgeHtml, /data-income-impact-graph-current-anchor/);
 assert.match(currentAgeHtml, /No prior modeled trend for current-age death\./);
 assert.doesNotMatch(currentAgeHtml, /data-income-impact-death-event-bridge/);
 assert.doesNotMatch(currentAgeHtml, /data-income-impact-graph-path="deathTransition"/);
+assert.doesNotMatch(currentAgeHtml, /data-income-impact-death-conversion/);
 assert.match(currentAgeHtml, /data-income-impact-graph-path="postDeathResources"/);
 
 const unavailableHtml = harness.renderTimeline({
