@@ -16619,6 +16619,12 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   color: #17202c;
 }
 
+.income-impact-graph-legend [aria-current="true"] {
+  border-color: rgba(34, 116, 85, 0.5);
+  outline: 2px solid rgba(34, 116, 85, 0.16);
+  outline-offset: 1px;
+}
+
 .income-impact-graph-legend i {
   display: inline-block;
   width: 1.5rem;

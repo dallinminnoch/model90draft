@@ -9,7 +9,7 @@
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
-  const MAX_RENDERED_APPLIED_SCENARIOS = 2;
+  const MAX_VISIBLE_APPLIED_GRAPH_SCENARIOS = 1;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
   const GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON = "survivorRunwayComparison";
@@ -317,6 +317,25 @@
     };
   }
 
+  function getAppliedScenarioKeyItems(appliedScenarios, selectedScenarioId) {
+    const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
+    return (Array.isArray(appliedScenarios) ? appliedScenarios : [])
+      .map(function (appliedScenario, index) {
+        const trace = getAppliedScenarioTrace(appliedScenario, index);
+        if (!trace) {
+          return null;
+        }
+        const scenarioId = trace.scenarioId;
+        return Object.assign({}, trace, {
+          index,
+          selected: normalizedSelectedScenarioId
+            ? scenarioId === normalizedSelectedScenarioId
+            : index === 0
+        });
+      })
+      .filter(Boolean);
+  }
+
   function getAppliedScenarioLabel(appliedScenario, index) {
     return normalizeString(appliedScenario?.label)
       || (index === 0 ? "Current scenario" : `Scenario ${index + 1}`);
@@ -540,6 +559,10 @@
         : safeInput.comparisonScenarios,
       appliedScenarioCount: appliedScenarios.length,
       appliedScenarios: clonePlainValue(appliedScenarios),
+      visibleAppliedScenarios: selectedAppliedScenario
+        ? [clonePlainValue(selectedAppliedScenario)]
+        : [],
+      appliedScenarioKeyItems: getAppliedScenarioKeyItems(appliedScenarios, selectedAppliedScenarioId),
       selectedScenarioId: selectedScenarioId || selectedAppliedScenarioId,
       selectedAppliedScenarioId,
       selectedAppliedScenarioIndex: selected.index,
@@ -558,17 +581,25 @@
     const selectedAppliedScenarioId = normalizeString(
       scenarioInput.selectedAppliedScenarioId || scenarioInput.selectedScenarioId
     );
-    const seriesRecords = appliedScenarios
-      .map(function (appliedScenario, sourceIndex) {
+    const visibleAppliedScenarios = Array.isArray(scenarioInput?.visibleAppliedScenarios)
+      && scenarioInput.visibleAppliedScenarios.length
+      ? scenarioInput.visibleAppliedScenarios
+      : appliedScenarios;
+    const seriesRecords = visibleAppliedScenarios
+      .map(function (appliedScenario) {
         if (!isPlainObject(appliedScenario) || !isPlainObject(appliedScenario.scenario)) {
           return null;
         }
 
-        const scenarioId = getAppliedScenarioId(appliedScenario, sourceIndex);
+        const sourceIndex = appliedScenarios.findIndex(function (candidate, index) {
+          return getAppliedScenarioId(candidate, index) === getAppliedScenarioId(appliedScenario, index);
+        });
+        const appliedScenarioIndex = sourceIndex >= 0 ? sourceIndex : 0;
+        const scenarioId = getAppliedScenarioId(appliedScenario, appliedScenarioIndex);
         const selected = selectedAppliedScenarioId
           ? scenarioId === selectedAppliedScenarioId
-          : sourceIndex === 0;
-        const sourcePath = `appliedScenarios.${sourceIndex}.scenario.postDeathSeries.points`;
+          : appliedScenarioIndex === 0;
+        const sourcePath = `appliedScenarios.${appliedScenarioIndex}.scenario.postDeathSeries.points`;
         const points = selected && Array.isArray(selectedPostDeathResources)
           ? selectedPostDeathResources
           : buildSeriesPoints(
@@ -583,7 +614,7 @@
         }
 
         const scenarioDates = getScenarioDates(appliedScenario.scenario);
-        const preDeathContextRawPoints = buildAppliedPreDeathContextPoints(appliedScenario, sourceIndex, scenarioDates);
+        const preDeathContextRawPoints = buildAppliedPreDeathContextPoints(appliedScenario, appliedScenarioIndex, scenarioDates);
         const projectedNetWorthAtDeath = preDeathContextRawPoints.length
           ? toOptionalNumber(preDeathContextRawPoints[preDeathContextRawPoints.length - 1].value)
           : null;
@@ -599,9 +630,9 @@
           : `${sourcePath}.0`;
         return {
           scenarioId,
-          label: getAppliedScenarioLabel(appliedScenario, sourceIndex),
+          label: getAppliedScenarioLabel(appliedScenario, appliedScenarioIndex),
           selected,
-          sourceIndex,
+          sourceIndex: appliedScenarioIndex,
           sourcePath,
           deathDate: scenarioDates.deathDate,
           valuationDate: scenarioDates.valuationDate,
@@ -611,12 +642,12 @@
           projectedNetWorthAtDeath,
           survivorResourcesAtDeath,
           survivorResourcesAtDeathSourcePath,
-          deathLineLabel: getAppliedScenarioLabel(appliedScenario, sourceIndex),
+          deathLineLabel: getAppliedScenarioLabel(appliedScenario, appliedScenarioIndex),
           depletion: getDepletionInfo(points, getPath(appliedScenario.scenario, "postDeathSeries.depletion")),
           trace: {
             selectedScenario: selected,
             sourcePath,
-            preDeathContextSourcePath: `appliedScenarios.${sourceIndex}.scenario.preDeathSeries`,
+            preDeathContextSourcePath: `appliedScenarios.${appliedScenarioIndex}.scenario.preDeathSeries`,
             survivorResourcesAtDeathSourcePath,
             rawDatesPreserved: true
           }
@@ -628,13 +659,13 @@
       return [];
     }
 
-    return seriesRecords.slice(0, MAX_RENDERED_APPLIED_SCENARIOS).map(function (series, renderIndex) {
+    return seriesRecords.slice(0, MAX_VISIBLE_APPLIED_GRAPH_SCENARIOS).map(function (series, renderIndex) {
       return Object.assign({}, series, {
         pathId: getAppliedScenarioPostDeathPathId(renderIndex),
         preDeathPathId: getAppliedScenarioPreDeathPathId(renderIndex),
         pathMode: "linear",
         preDeathPathMode: "linear",
-        scenarioRole: renderIndex === 0 ? "baseline" : "comparison",
+        scenarioRole: "selected",
         renderIndex
       });
     });
@@ -2455,7 +2486,10 @@
         series: {
           preDeathAssets: [],
           deathTransition: [],
-          postDeathResources: []
+          postDeathResources: [],
+          appliedScenarioKeyItems: Array.isArray(scenarioInput.appliedScenarioKeyItems)
+            ? clonePlainValue(scenarioInput.appliedScenarioKeyItems)
+            : []
         },
         axes: {},
         markers: [],
@@ -2467,6 +2501,7 @@
           calculationMethod: CALCULATION_METHOD,
           scenarioModelMode: scenarioInput.scenarioModelMode,
           appliedScenarioCount: scenarioInput.appliedScenarioCount,
+          visibleAppliedScenarioCount: 0,
           selectedScenarioId: scenarioInput.selectedScenarioId,
           selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
           noFinancialCalculationsPerformed: true,
@@ -2645,7 +2680,10 @@
             }
           : null,
         deathTransition: enrichedDeathStages,
-        postDeathResources: enrichedPostDeath
+        postDeathResources: enrichedPostDeath,
+        appliedScenarioKeyItems: Array.isArray(scenarioInput.appliedScenarioKeyItems)
+          ? clonePlainValue(scenarioInput.appliedScenarioKeyItems)
+          : []
       },
       axes: {
         x: {
@@ -2714,6 +2752,8 @@
         scenarioModelMode: scenarioInput.scenarioModelMode,
         graphContractMode: GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON,
         appliedScenarioCount: scenarioInput.appliedScenarioCount,
+        visibleAppliedScenarioCount: appliedRunwayScenarios.length,
+        hiddenAppliedScenarioCount: Math.max((scenarioInput.appliedScenarioCount || 0) - appliedRunwayScenarios.length, 0),
         selectedScenarioId: scenarioInput.selectedScenarioId,
         selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
         selectedAppliedScenario: scenarioInput.selectedAppliedScenario,

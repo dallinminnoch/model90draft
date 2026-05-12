@@ -679,7 +679,7 @@
     }
 
     const scenarioCount = Array.isArray(state?.appliedScenarios) ? state.appliedScenarios.length : 0;
-    return scenarioCount < 2 ? "Adds comparison scenario" : "Updates selected scenario";
+    return scenarioCount < 2 ? "Adds scenario to key" : "Updates selected scenario";
   }
 
   function updateDeathAgeControl(timelineResult, deathAgeState, controls) {
@@ -1365,15 +1365,18 @@
         return anchor
           && toOptionalNumber(anchor.xRatio) != null
           && toOptionalNumber(anchor.yRatio) != null;
-      })
-      .slice(0, 2);
-    if (!anchors.length) {
+      });
+    const selectedAnchor = anchors.find(function (anchor) {
+      return anchor.selected === true;
+    });
+    const visibleAnchors = (selectedAnchor ? [selectedAnchor] : anchors).slice(0, 1);
+    if (!visibleAnchors.length) {
       return "";
     }
 
     return `
       <g class="income-impact-death-line-anchors" data-income-impact-death-line-anchors>
-        ${anchors.map(function (anchor, index) {
+        ${visibleAnchors.map(function (anchor, index) {
           const label = normalizeString(anchor.label) || "Scenario";
           const position = getDeathLineAnchorLabelPosition(anchor, index);
           const selected = anchor.selected === true;
@@ -1381,14 +1384,10 @@
             <g
               class="income-impact-death-line-anchor"
               data-income-impact-death-line-anchor
-              data-income-impact-scenario-select="${escapeHtml(anchor.scenarioId || "")}"
               data-income-impact-applied-scenario-id="${escapeHtml(anchor.scenarioId || "")}"
               data-income-impact-applied-scenario-label="${escapeHtml(label)}"
               data-income-impact-applied-scenario-selected="${selected ? "true" : "false"}"
               data-income-impact-death-line-anchor-role="${escapeHtml(anchor.scenarioRole || "")}"
-              role="button"
-              tabindex="0"
-              aria-pressed="${selected ? "true" : "false"}"
               aria-label="${escapeHtml(label)} at the death line"
             >
               <line x1="${position.x}" y1="${position.y}" x2="${position.connectorX}" y2="${position.connectorY}"></line>
@@ -1537,11 +1536,23 @@
   }
 
   function getAppliedGraphSeries(graphModel) {
+    function selectVisibleSeries(seriesList) {
+      const safeSeries = Array.isArray(seriesList) ? seriesList : [];
+      const selectedSeries = safeSeries.find(function (series) {
+        return series?.selected === true;
+      });
+      return (selectedSeries ? [selectedSeries] : safeSeries).slice(0, 1).map(function (series) {
+        return Object.assign({}, series, {
+          pathId: POST_DEATH_RESOURCES_PATH_ID
+        });
+      });
+    }
+
     const runwaySeries = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
       ? graphModel.series.appliedRunwayScenarios
       : [];
     if (runwaySeries.length) {
-      return runwaySeries
+      const preparedSeries = runwaySeries
         .map(function (series, index) {
           return Object.assign({}, series, {
             pathId: normalizeString(series.pathId) || (index === 0
@@ -1556,8 +1567,8 @@
         })
         .filter(function (series) {
           return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
-        })
-        .slice(0, 2);
+        });
+      return selectVisibleSeries(preparedSeries);
     }
 
     const appliedSeries = Array.isArray(graphModel?.series?.appliedPostDeathResources)
@@ -1574,16 +1585,16 @@
           }
         ];
 
-    return candidates.filter(function (series) {
+    return selectVisibleSeries(candidates.filter(function (series) {
       return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
-    }).slice(0, 2);
+    }));
   }
 
   function getAppliedPreDeathGraphSeries(graphModel) {
     const runwaySeries = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
       ? graphModel.series.appliedRunwayScenarios
       : [];
-    return runwaySeries
+    const preparedSeries = runwaySeries
       .map(function (series, index) {
         return Object.assign({}, series, {
           pathId: normalizeString(series.preDeathPathId) || (index === 0
@@ -1598,8 +1609,15 @@
       })
       .filter(function (series) {
         return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
-      })
-      .slice(0, 2);
+      });
+    const selectedSeries = preparedSeries.find(function (series) {
+      return series?.selected === true;
+    });
+    return (selectedSeries ? [selectedSeries] : preparedSeries).slice(0, 1).map(function (series) {
+      return Object.assign({}, series, {
+        pathId: PRE_DEATH_ASSETS_PATH_ID
+      });
+    });
   }
 
   function getSelectedAppliedGraphSeries(graphModel, selectedScenarioId = "") {
@@ -1677,15 +1695,7 @@
 
   function getAppliedScenarioDepletionMarkers(graphModel, selectedScenarioId = "") {
     const selectedId = normalizeString(selectedScenarioId || graphModel?.trace?.selectedScenarioId);
-    const markerSeries = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
-      ? graphModel.series.appliedRunwayScenarios.map(function (series, index) {
-        return Object.assign({}, series, {
-          pathId: normalizeString(series?.pathId) || (index === 0
-            ? POST_DEATH_RESOURCES_PATH_ID
-            : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`)
-        });
-      }).slice(0, 2)
-      : getAppliedGraphSeries(graphModel);
+    const markerSeries = getAppliedGraphSeries(graphModel);
     return markerSeries.map(function (series) {
       const depletionPoint = isPlainObject(series?.depletionPoint) ? series.depletionPoint : null;
       const xRatio = toOptionalNumber(depletionPoint?.xRatio);
@@ -1736,14 +1746,10 @@
             <g
               class="income-impact-runway-depletion-marker"
               data-income-impact-runway-depletion-marker
-              data-income-impact-scenario-select="${escapeHtml(marker.scenarioId)}"
               data-income-impact-applied-scenario-id="${escapeHtml(marker.scenarioId)}"
               data-income-impact-applied-scenario-label="${escapeHtml(marker.label)}"
               data-income-impact-applied-scenario-selected="${marker.selected ? "true" : "false"}"
               data-income-impact-depletion-marker-path-id="${escapeHtml(marker.pathId)}"
-              role="button"
-              tabindex="0"
-              aria-pressed="${marker.selected ? "true" : "false"}"
               aria-label="${escapeHtml(markerLabel)}"
               transform="translate(${x} ${y})"
             >
@@ -1755,29 +1761,6 @@
         }).join("")}
       </g>
     `;
-  }
-
-  function syncSelectedScenarioRunwayDom(host, graphModel, selectedScenarioId) {
-    if (!host || typeof host.querySelector !== "function") {
-      return;
-    }
-    const seriesGroup = host.querySelector("[data-income-impact-graph-series]");
-    if (!seriesGroup || typeof seriesGroup.insertAdjacentHTML !== "function") {
-      return;
-    }
-
-    Array.from(seriesGroup.querySelectorAll("[data-income-impact-graph-deficit-layer], [data-income-impact-graph-deficit-area], [data-income-impact-runway-depletion-markers]")).forEach(function (node) {
-      node.remove();
-    });
-
-    const nextArea = renderSelectedScenarioDeficitArea(graphModel, selectedScenarioId);
-    if (nextArea) {
-      seriesGroup.insertAdjacentHTML("afterbegin", nextArea);
-    }
-    const nextMarkers = renderAppliedScenarioDepletionMarkers(graphModel, selectedScenarioId);
-    if (nextMarkers) {
-      seriesGroup.insertAdjacentHTML("beforeend", nextMarkers);
-    }
   }
 
   function renderAppliedScenarioGraphPaths(graphModel) {
@@ -1796,14 +1779,10 @@
         label,
         normalizeGraphPathMode(series.pathMode),
         {
-          "data-income-impact-scenario-select": series.scenarioId || "",
           "data-income-impact-applied-scenario-id": series.scenarioId || "",
           "data-income-impact-applied-scenario-label": label,
           "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false",
-          "data-income-impact-runway-source": series.trace?.renderSource || "",
-          "role": "button",
-          "tabindex": "0",
-          "aria-pressed": series.selected === true ? "true" : "false"
+          "data-income-impact-runway-source": series.trace?.renderSource || ""
         }
       );
     }).join("");
@@ -1825,15 +1804,11 @@
         `${label} net worth before death`,
         normalizeGraphPathMode(series.pathMode),
         {
-          "data-income-impact-scenario-select": series.scenarioId || "",
           "data-income-impact-applied-scenario-id": series.scenarioId || "",
           "data-income-impact-applied-scenario-label": label,
           "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false",
           "data-income-impact-pre-death-source": series.trace?.renderSource || "preDeathContextPoints",
-          "data-income-impact-death-line-label": series.deathLineLabel || label,
-          "role": "button",
-          "tabindex": "0",
-          "aria-pressed": series.selected === true ? "true" : "false"
+          "data-income-impact-death-line-label": series.deathLineLabel || label
         }
       );
     }).join("");
@@ -1939,28 +1914,55 @@
     return index === 0 ? "base" : `applied-scenario-${index + 1}`;
   }
 
+  function getAppliedScenarioLegendItems(graphModel) {
+    const keyItems = Array.isArray(graphModel?.series?.appliedScenarioKeyItems)
+      ? graphModel.series.appliedScenarioKeyItems
+      : [];
+    if (keyItems.length) {
+      return keyItems.map(function (item, index) {
+        return Object.assign({}, item, {
+          scenarioId: normalizeString(item.scenarioId),
+          label: normalizeString(item.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`),
+          selected: item.selected === true
+        });
+      }).filter(function (item) {
+        return Boolean(item.scenarioId);
+      });
+    }
+
+    return getAppliedGraphSeries(graphModel).map(function (series, index) {
+      return {
+        scenarioId: normalizeString(series.scenarioId),
+        label: normalizeString(series.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`),
+        selected: series.selected === true
+      };
+    }).filter(function (item) {
+      return Boolean(item.scenarioId);
+    });
+  }
+
   function renderGraphLegend(graphModel) {
-    const appliedSeries = getAppliedGraphSeries(graphModel);
+    const appliedItems = getAppliedScenarioLegendItems(graphModel);
     const comparisonSeries = getComparisonGraphSeries(graphModel);
-    const renderAppliedScenarioLegend = appliedSeries.length > 1;
-    if (!renderAppliedScenarioLegend && !comparisonSeries.length) {
+    if (!appliedItems.length && !comparisonSeries.length) {
       return "";
     }
     return `
       <div class="income-impact-graph-legend" data-income-impact-graph-legend>
-        ${renderAppliedScenarioLegend
-          ? appliedSeries.map(function (series, index) {
-            const label = normalizeString(series.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`);
+        ${appliedItems.length
+          ? appliedItems.map(function (item, index) {
+            const label = normalizeString(item.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`);
             return `
               <span
-                data-income-impact-graph-legend-item="${escapeHtml(getAppliedScenarioLegendItemKey(series, index))}"
-                data-income-impact-scenario-select="${escapeHtml(series.scenarioId || "")}"
-                data-income-impact-applied-scenario-id="${escapeHtml(series.scenarioId || "")}"
+                data-income-impact-graph-legend-item="${escapeHtml(getAppliedScenarioLegendItemKey(item, index))}"
+                data-income-impact-scenario-select="${escapeHtml(item.scenarioId || "")}"
+                data-income-impact-applied-scenario-id="${escapeHtml(item.scenarioId || "")}"
                 data-income-impact-applied-scenario-label="${escapeHtml(label)}"
-                data-income-impact-applied-scenario-selected="${series.selected === true ? "true" : "false"}"
+                data-income-impact-applied-scenario-selected="${item.selected === true ? "true" : "false"}"
                 role="button"
                 tabindex="0"
-                aria-pressed="${series.selected === true ? "true" : "false"}"><i></i>${escapeHtml(label)}</span>`;
+                aria-pressed="${item.selected === true ? "true" : "false"}"
+                aria-current="${item.selected === true ? "true" : "false"}"><i></i>${escapeHtml(label)}</span>`;
           }).join("")
           : `<span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>`}
         ${comparisonSeries.map(function (series, index) {
@@ -3463,6 +3465,84 @@
     return buildIncomeImpactResultFromBaseContext(state, baseContext);
   }
 
+  function buildIncomeImpactResultFromSelectedAppliedScenario(state) {
+    const safeState = isPlainObject(state) ? state : {};
+    const selectedScenario = getSelectedAppliedScenario(safeState);
+    if (!isPlainObject(selectedScenario?.scenario)) {
+      return isPlainObject(safeState.latestTimelineResult) ? safeState.latestTimelineResult : null;
+    }
+
+    const scenario = selectedScenario.scenario;
+    const riskEvaluation = isPlainObject(selectedScenario.riskEvaluation) ? selectedScenario.riskEvaluation : {};
+    const comparisonScenarios = Array.isArray(selectedScenario.comparisonScenarios)
+      ? clonePlainValue(selectedScenario.comparisonScenarios)
+      : [];
+    const lifestyleScenario = isPlainObject(selectedScenario.lifestyleScenario)
+      ? clonePlainValue(selectedScenario.lifestyleScenario)
+      : null;
+    const settings = normalizeScenarioControlsForState(
+      safeState,
+      isPlainObject(selectedScenario.settings) ? selectedScenario.settings : null
+    );
+    const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
+      scenario,
+      riskEvaluation,
+      comparisonScenarios,
+      appliedScenarios: Array.isArray(safeState.appliedScenarios)
+        ? clonePlainValue(safeState.appliedScenarios)
+        : [clonePlainValue(selectedScenario)],
+      selectedScenarioId: safeState.selectedScenarioId || getAppliedScenarioId(selectedScenario, 0),
+      options: {
+        preserveSignedResources: true,
+        currentAgeMode: "death-event-only"
+      }
+    });
+    const dataGaps = []
+      .concat(Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [])
+      .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : [])
+      .concat(Array.isArray(graphModel?.dataGaps) ? graphModel.dataGaps : []);
+    const warnings = []
+      .concat(Array.isArray(scenario?.warnings) ? scenario.warnings : [])
+      .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : [])
+      .concat(Array.isArray(graphModel?.warnings) ? graphModel.warnings : []);
+
+    return {
+      selectedDeath: {
+        date: scenario?.scenario?.selectedDeathDate || settings.selectedDeathDate || null,
+        age: scenario?.scenario?.selectedDeathAge ?? settings.selectedDeathAge ?? null
+      },
+      scenario,
+      riskEvaluation,
+      triageInterventions: null,
+      compressionReporting: {
+        prep: null,
+        scenario: null,
+        lifestyleScenario,
+        accountPolicy: safeState.householdExpenseAccountPolicyContext || null,
+        layer5: null,
+        trace: Object.assign({}, isPlainObject(selectedScenario.comparisonTrace) ? selectedScenario.comparisonTrace : {}, {
+          reportingOnly: true,
+          selectedAppliedScenarioRender: true,
+          lifestyleSliderValue: settings.lifestyleSliderValue,
+          graphPathChanged: comparisonScenarios.length > 0,
+          reductionsApplied: false
+        })
+      },
+      graphModel,
+      financialRunway: buildFinancialRunwayFromScenario(scenario, settings.projectionHorizonYears),
+      summaryCards: buildSummaryCardsFromScenario(scenario),
+      dataGaps,
+      warnings,
+      trace: {
+        source: "income-impact-display-selected-applied-scenario",
+        composerStatus: scenario?.status || null,
+        riskEvaluatorStatus: riskEvaluation?.status || null,
+        selectedScenarioId: safeState.selectedScenarioId || null,
+        retiredTimelineChartRendered: false
+      }
+    };
+  }
+
   function getAppliedScenarioId(appliedScenario, index) {
     return normalizeString(appliedScenario?.scenarioId) || `income-impact-scenario-${index + 1}`;
   }
@@ -3569,6 +3649,7 @@
         status: lifestyleScenario?.status || null,
         monthlyDelta
       },
+      lifestyleScenario: clonePlainValue(lifestyleScenario || null),
       comparisonTrace: clonePlainValue(
         lifestyleScenario?.comparisonScenario?.trace
         || safeInputs.comparisonTrace
@@ -3716,13 +3797,13 @@
       event.preventDefault();
     }
 
-    syncScenarioSelectionDom(incomeImpactState.host, incomeImpactState.selectedScenarioId);
-    syncSelectedScenarioRunwayDom(
-      incomeImpactState.host,
-      incomeImpactState.latestTimelineResult?.graphModel,
-      incomeImpactState.selectedScenarioId
-    );
-    updateScenarioControls(incomeImpactState.latestTimelineResult);
+    const timelineResult = buildIncomeImpactResultFromSelectedAppliedScenario(incomeImpactState);
+    if (timelineResult) {
+      renderIncomeImpactTimelineResult(timelineResult);
+    } else {
+      syncScenarioSelectionDom(incomeImpactState.host, incomeImpactState.selectedScenarioId);
+      updateScenarioControls(incomeImpactState.latestTimelineResult);
+    }
   }
 
   function handleScenarioSelectionKeydown(event) {

@@ -1028,69 +1028,67 @@ const appliedMultiModel = buildIncomeImpactTimelineGraphModel(appliedMultiInput)
 assert.deepEqual(appliedMultiInput, appliedMultiInputBefore, "Graph model should not mutate multi appliedScenarios input.");
 assert.equal(appliedMultiModel.trace.scenarioModelMode, "appliedScenarios");
 assert.equal(appliedMultiModel.trace.appliedScenarioCount, 2);
-assert.equal(appliedMultiModel.trace.renderedAppliedScenarioCount, 2);
+assert.equal(appliedMultiModel.trace.renderedAppliedScenarioCount, 1);
+assert.equal(appliedMultiModel.trace.visibleAppliedScenarioCount, 1);
+assert.equal(appliedMultiModel.trace.hiddenAppliedScenarioCount, 1);
 assert.equal(appliedMultiModel.trace.selectedScenarioId, "income-impact-death-in-10-years");
 assert.equal(appliedMultiModel.trace.selectedAppliedScenarioId, "income-impact-death-in-10-years");
 assert.deepEqual(
   cloneJson(appliedMultiModel.trace.appliedScenarioPathIds),
-  ["postDeathResources", "postDeathResources--scenario-2"],
-  "Applied scenario path IDs should be deterministic by baseline/comparison slot."
+  ["postDeathResources"],
+  "Only the selected applied scenario should receive a visible graph path ID."
 );
-assert.equal(appliedMultiModel.series.appliedPostDeathResources.length, 2, "Two applied scenarios should produce two renderable resource paths.");
-assert.equal(appliedMultiModel.series.appliedRunwayScenarios.length, 2, "Two applied scenarios should produce two runway contracts.");
+assert.equal(
+  Object.hasOwn(appliedMultiModel.series, "appliedPostDeathResources"),
+  false,
+  "Multi-applied input should not emit the retired simultaneous appliedPostDeathResources path list."
+);
+assert.equal(appliedMultiModel.series.appliedRunwayScenarios.length, 1, "Only the selected applied scenario should produce a runway contract.");
+assert.equal(appliedMultiModel.series.appliedScenarioKeyItems.length, 2, "All applied scenarios should remain available to the graph key.");
 assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.label; })),
+  cloneJson(appliedMultiModel.series.appliedScenarioKeyItems.map(function (item) { return item.label; })),
   ["Death tomorrow", "Death in 10 years"],
-  "Applied scenario path labels should preserve stable baseline/comparison ordering."
+  "Applied scenario key labels should preserve stable list ordering."
 );
 assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.pathId; })),
-  ["postDeathResources", "postDeathResources--scenario-2"]
-);
-assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedPostDeathResources.map(function (series) { return series.selected; })),
+  cloneJson(appliedMultiModel.series.appliedScenarioKeyItems.map(function (item) { return item.selected; })),
   [false, true]
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.selected; })),
-  [false, true],
-  "Runway contracts should preserve selected and non-selected scenario state."
+  [true],
+  "Runway contracts should include only the selected scenario state."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.scenarioRole; })),
-  ["baseline", "comparison"],
-  "Runway contracts should identify baseline and comparison scenario roles."
+  ["selected"],
+  "Runway contracts should identify the visible selected scenario role."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.pathId; })),
-  ["postDeathResources", "postDeathResources--scenario-2"],
-  "Runway contracts should preserve deterministic applied scenario path IDs."
+  ["postDeathResources"],
+  "Runway contracts should expose only the selected scenario path ID."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.preDeathPathId; })),
-  ["preDeathAssets", "preDeathAssets--scenario-2"],
-  "Runway contracts should preserve deterministic applied scenario pre-death path IDs."
+  ["preDeathAssets"],
+  "Runway contracts should expose only the selected scenario pre-death path ID."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.deathLineLabel; })),
-  ["Death tomorrow", "Death in 10 years"],
-  "Runway contracts should carry scenario death-line labels."
+  ["Death in 10 years"],
+  "Runway contracts should carry the selected scenario death-line label."
 );
 assert.equal(
   appliedMultiModel.series.appliedRunwayScenarios[0].projectedNetWorthAtDeath,
-  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
-  "Baseline future-death scenario should preserve projected net worth at death."
-);
-assert.equal(
-  appliedMultiModel.series.appliedRunwayScenarios[1].projectedNetWorthAtDeath,
   tenYearScenario.preDeathSeries.targetPoint.endingAssets,
-  "Comparison future-death scenario should preserve projected net worth at death."
+  "Selected future-death scenario should preserve projected net worth at death."
 );
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
     return Array.isArray(series.preDeathContextPoints) && series.preDeathContextPoints.length === 2;
   }),
-  "Each applied scenario should expose a display-only pre-death context line."
+  "The selected applied scenario should expose a display-only pre-death context line."
 );
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
@@ -1104,54 +1102,29 @@ assert.ok(
       && series.preDeathContextPoints[0].trace.preDeathContextDisplayOnly === true
       && series.preDeathContextPoints[0].trace.preDeathContextGrowthSource === "flatFallback";
   }),
-  "Each applied scenario pre-death context should be clearly marked as display-only flat fallback context."
+  "The selected applied scenario pre-death context should be clearly marked as display-only flat fallback context."
 );
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
     return Math.abs(series.preDeathContextPoints.at(-1).xRatio - appliedMultiModel.projection.deathXRatio) <= 0.000001;
   }),
-  "Each applied pre-death context should end at the shared death anchor."
+  "The selected applied pre-death context should end at the shared death anchor."
 );
 assert.equal(appliedMultiModel.trace.appliedPreDeathContextEnabled, true);
 assert.deepEqual(
   cloneJson(appliedMultiModel.trace.appliedPreDeathContextPathIds),
-  ["preDeathAssets", "preDeathAssets--scenario-2"],
-  "Trace should expose renderable pre-death context path IDs."
+  ["preDeathAssets"],
+  "Trace should expose only the selected renderable pre-death context path ID."
 );
 assert.equal(
   appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.date,
-  fiveYearScenario.postDeathSeries.depletion.depletionDate,
-  "Baseline runway contract should preserve its own depletion date."
-);
-assert.equal(
-  appliedMultiModel.series.appliedRunwayScenarios[1].depletionPoint.date,
   tenYearScenario.postDeathSeries.depletion.depletionDate,
-  "Comparison runway contract should preserve its own depletion date."
+  "Selected runway contract should preserve its own depletion date."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.postDeathResources.map(function (point) { return point.value; })),
   cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
   "The compatibility postDeathResources path should continue to represent the selected applied scenario."
-);
-assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedPostDeathResources[0].points.map(function (point) { return point.value; })),
-  cloneJson(fiveYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
-  "Baseline applied scenario resource values should remain raw composer values."
-);
-assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedPostDeathResources[1].points.map(function (point) { return point.value; })),
-  cloneJson(tenYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
-  "Comparison applied scenario resource values should remain raw composer values."
-);
-assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedPostDeathResources[0].points.map(function (point) { return point.date; })),
-  cloneJson(fiveYearScenario.postDeathSeries.points.map(function (point) { return point.date; })),
-  "Baseline applied scenario dates should remain raw composer dates."
-);
-assert.notEqual(
-  appliedMultiModel.series.appliedPostDeathResources[0].deathDate,
-  appliedMultiModel.series.appliedPostDeathResources[1].deathDate,
-  "Fixture should prove applied scenarios can carry different raw death dates."
 );
 assertApproxEqual(
   appliedMultiModel.series.appliedRunwayScenarios[0].deathXRatio,
@@ -1159,29 +1132,13 @@ assertApproxEqual(
   "Selected applied scenario should align to the shared death x-coordinate."
 );
 assertApproxEqual(
-  appliedMultiModel.series.appliedRunwayScenarios[1].deathXRatio,
-  appliedMultiModel.projection.deathXRatio,
-  "Non-selected applied scenario should align to the shared death x-coordinate."
-);
-assertApproxEqual(
-  appliedMultiModel.series.appliedPostDeathResources[0].points[0].xRatio,
-  appliedMultiModel.series.appliedPostDeathResources[1].points[0].xRatio,
-  "Equal months after each scenario's own death date should map to the same x-coordinate."
-);
-assert.equal(appliedMultiModel.series.appliedPostDeathResources[0].points[0].relativeMonthsFromDeath, 12);
-assert.equal(appliedMultiModel.series.appliedPostDeathResources[1].points[0].relativeMonthsFromDeath, 12);
-assert.notEqual(
-  appliedMultiModel.series.appliedPostDeathResources[0].points[0].date,
-  appliedMultiModel.series.appliedPostDeathResources[1].points[0].date,
-  "Relative x-coordinate alignment must not overwrite raw scenario dates."
-);
-assertApproxEqual(
-  appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.xRatio,
-  appliedMultiModel.series.appliedRunwayScenarios[1].depletionPoint.xRatio,
-  "Equal depletion month counts should align visually even when raw depletion dates differ."
+  appliedMultiModel.series.appliedRunwayScenarios[0].rawPoints[0].xRatio,
+  appliedMultiModel.projection.postDeathRunwayStartXRatio
+    + (12 / appliedMultiModel.projection.postDeathDisplayHorizonMonths)
+      * (1 - appliedMultiModel.projection.postDeathRunwayStartXRatio),
+  "Selected scenario months after death should map to the selected graph horizon."
 );
 assert.equal(appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.relativeMonthsFromDeath, 144);
-assert.equal(appliedMultiModel.series.appliedRunwayScenarios[1].depletionPoint.relativeMonthsFromDeath, 144);
 assert.equal(appliedMultiModel.axes.x.xAxisMode, "deathRelativeYears");
 assert.ok(
   appliedMultiModel.axes.x.ticks.some(function (tick) { return tick.label === "+15 years"; }),
@@ -1218,7 +1175,7 @@ assert.equal(
   "Trace should not report removed death-event conversion bridge mode."
 );
 assertApproxEqual(
-  appliedMultiModel.series.appliedRunwayScenarios[1].survivorResourcesAtDeathPoint.xRatio,
+  appliedMultiModel.series.appliedRunwayScenarios[0].survivorResourcesAtDeathPoint.xRatio,
   appliedMultiModel.projection.deathXRatio,
   "Selected scenario runway start should remain on the fixed death line after removing conversion annotations."
 );
@@ -1226,7 +1183,7 @@ assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
     return series.deathLineAnchor && series.deathLineAnchor.xRatio === appliedMultiModel.projection.deathXRatio;
   }),
-  "Each applied scenario should expose a label anchor at the shared death line."
+  "The selected applied scenario should expose a label anchor at the shared death line."
 );
 
 const overLimitAppliedModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(appliedMultiInput), {
@@ -1248,11 +1205,66 @@ const overLimitAppliedModel = buildIncomeImpactTimelineGraphModel(Object.assign(
   selectedScenarioId: "income-impact-death-in-20-years"
 }));
 assert.equal(overLimitAppliedModel.trace.appliedScenarioCount, 3);
-assert.equal(overLimitAppliedModel.trace.renderedAppliedScenarioCount, 2, "Graph model should render no more than two applied scenario paths.");
+assert.equal(overLimitAppliedModel.trace.renderedAppliedScenarioCount, 1, "Graph model should render only the selected applied scenario path.");
+assert.equal(overLimitAppliedModel.trace.hiddenAppliedScenarioCount, 2);
+assert.equal(overLimitAppliedModel.series.appliedScenarioKeyItems.length, 3, "Graph key should preserve all applied scenario entries provided to the model.");
 assert.deepEqual(
-  cloneJson(overLimitAppliedModel.series.appliedPostDeathResources.map(function (series) { return series.label; })),
-  ["Death tomorrow", "Death in 10 years"],
-  "When over limit, the graph model should retain the first two baseline/comparison scenarios deterministically."
+  cloneJson(overLimitAppliedModel.series.appliedRunwayScenarios.map(function (series) { return series.label; })),
+  ["Death in 20 years"],
+  "When more than two records are supplied, the graph model should still show only the selected scenario."
+);
+assert.deepEqual(
+  cloneJson(overLimitAppliedModel.series.appliedScenarioKeyItems.map(function (item) { return item.selected; })),
+  [false, false, true],
+  "The key should mark the selected scenario even when hidden scenarios remain available."
+);
+
+const selectedAutosizeScenario = cloneJson(fiveYearScenario);
+selectedAutosizeScenario.postDeathSeries.depletion = {
+  depleted: true,
+  depletionDate: "2036-04-29",
+  depletionMonthIndex: 48,
+  monthsCovered: 48
+};
+const hiddenLongAutosizeScenario = cloneJson(tenYearScenario);
+hiddenLongAutosizeScenario.postDeathSeries.depletion = {
+  depleted: true,
+  depletionDate: "2066-04-29",
+  depletionMonthIndex: 360,
+  monthsCovered: 360
+};
+const autosizeSelectedOnlyModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "selected-short-runway",
+      label: "Selected short runway",
+      settings: appliedMultiInput.appliedScenarios[0].settings,
+      scenario: selectedAutosizeScenario,
+      riskEvaluation: cloneJson(riskEvaluation)
+    },
+    {
+      scenarioId: "hidden-long-runway",
+      label: "Hidden long runway",
+      settings: appliedMultiInput.appliedScenarios[1].settings,
+      scenario: hiddenLongAutosizeScenario,
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "selected-short-runway",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(
+  autosizeSelectedOnlyModel.projection.latestAppliedScenarioDepletionMonths,
+  48,
+  "Graph horizon autosizing should use the selected visible applied scenario depletion, not hidden scenarios."
+);
+assert.equal(autosizeSelectedOnlyModel.trace.hiddenAppliedScenarioCount, 1);
+assert.ok(
+  autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths < 360,
+  "Hidden applied scenarios should not expand the visible graph horizon."
 );
 
 const comparisonScenario = {

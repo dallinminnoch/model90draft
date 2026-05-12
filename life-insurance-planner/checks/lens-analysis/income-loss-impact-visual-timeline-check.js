@@ -469,12 +469,24 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
     }
   }
 ];
+multiAppliedGraphModel.series.appliedScenarioKeyItems = [
+  {
+    scenarioId: "income-impact-death-in-5-years",
+    label: "Death in 5 years",
+    selected: true
+  },
+  {
+    scenarioId: "income-impact-current-scenario",
+    label: "Death tomorrow",
+    selected: false
+  }
+];
 const multiAppliedTimelineHtml = harness.renderTimeline({
   ...fixture,
   graphModel: multiAppliedGraphModel
 });
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
-assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
+assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-source="fundedRunwayPoints"/);
 assert.doesNotMatch(
   multiAppliedTimelineHtml,
@@ -491,26 +503,25 @@ assert.doesNotMatch(
   );
 }
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
-assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets--scenario-2"/);
+assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets--scenario-2"/);
 assert.match(
   multiAppliedTimelineHtml,
   /data-income-impact-graph-path="preDeathAssets"[\s\S]*data-income-impact-pre-death-source="preDeathContextPoints"/,
   "Selected applied scenario should render its pre-death net worth context from the runway contract."
 );
-assert.match(
-  multiAppliedTimelineHtml,
-  /data-income-impact-graph-path="preDeathAssets--scenario-2"[\s\S]*data-income-impact-pre-death-source="preDeathContextPoints"/,
-  "Second applied scenario should render its own pre-death net worth context."
-);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death in 5 years"/);
-assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death tomorrow"/);
+assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death tomorrow"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-anchor[\s\S]*Death in 5 years/);
-assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-anchor[\s\S]*Death tomorrow/);
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-death-line-anchor(?:\s|>)/g) || []).length,
+  1,
+  "Only the selected applied scenario should render a death-line anchor."
+);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path-mode="linear"/);
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
-  2,
-  "Two applied scenario paths should render when the graph model provides them."
+  1,
+  "Only one selected applied scenario path should render even when multiple applied scenarios exist."
 );
 const selectedRunwayPath = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-path", "postDeathResources");
 const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
@@ -582,8 +593,8 @@ assert.equal(
 );
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-runway-depletion-marker(?:\s|>)/g) || []).length,
-  2,
-  "Each depleted applied scenario should render one depletion marker."
+  1,
+  "Only the selected depleted applied scenario should render one depletion marker."
 );
 const selectedDepletionMarkerTag = getRunwayDepletionMarkerTag(
   multiAppliedTimelineHtml,
@@ -591,15 +602,9 @@ const selectedDepletionMarkerTag = getRunwayDepletionMarkerTag(
 );
 assert.match(selectedDepletionMarkerTag, /data-income-impact-applied-scenario-label="Death in 5 years"/);
 assert.match(selectedDepletionMarkerTag, /data-income-impact-applied-scenario-selected="true"/);
-const mutedDepletionMarkerTag = getRunwayDepletionMarkerTag(
-  multiAppliedTimelineHtml,
-  "income-impact-current-scenario"
-);
-assert.match(mutedDepletionMarkerTag, /data-income-impact-applied-scenario-label="Death tomorrow"/);
-assert.match(mutedDepletionMarkerTag, /data-income-impact-applied-scenario-selected="false"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-depletion-label[\s\S]*Runs out/);
 assert.match(multiAppliedTimelineHtml, /aria-label="Death in 5 years: Resources depleted"/);
-assert.match(multiAppliedTimelineHtml, /aria-label="Death tomorrow: Resources depleted"/);
+assert.doesNotMatch(multiAppliedTimelineHtml, /aria-label="Death tomorrow: Resources depleted"/);
 assert.equal(
   multiAppliedGraphModel.series.appliedRunwayScenarios[0].rawPoints.some(function (point) { return point.value < 0; }),
   true,
@@ -617,7 +622,7 @@ assert.match(
 assert.match(
   multiAppliedTimelineHtml,
   /data-income-impact-applied-scenario-id="income-impact-current-scenario"[^>]*data-income-impact-applied-scenario-selected="false"/,
-  "Non-selected scenario path should remain visually distinguishable but inactive."
+  "Non-selected scenario key item should remain available but inactive."
 );
 assert.match(multiAppliedTimelineHtml, /Death in 5 years/);
 assert.match(multiAppliedTimelineHtml, /Death tomorrow/);
@@ -627,6 +632,8 @@ assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="li
 
 multiAppliedGraphModel.series.appliedRunwayScenarios[0].selected = false;
 multiAppliedGraphModel.series.appliedRunwayScenarios[1].selected = true;
+multiAppliedGraphModel.series.appliedScenarioKeyItems[0].selected = false;
+multiAppliedGraphModel.series.appliedScenarioKeyItems[1].selected = true;
 multiAppliedGraphModel.trace = Object.assign({}, multiAppliedGraphModel.trace, {
   selectedScenarioId: "income-impact-current-scenario"
 });
@@ -644,10 +651,10 @@ assert.match(
   /data-income-impact-applied-scenario-selected="true"/,
   "Selected depletion marker should move when the selected applied scenario changes."
 );
-assert.match(
-  getRunwayDepletionMarkerTag(switchedSelectedTimelineHtml, "income-impact-death-in-5-years"),
-  /data-income-impact-applied-scenario-selected="false"/,
-  "Previously selected depletion marker should become muted when another scenario is selected."
+assert.doesNotMatch(
+  switchedSelectedTimelineHtml,
+  /<g\b(?=[^>]*data-income-impact-runway-depletion-marker)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years")/,
+  "Previously selected depletion marker should leave the graph when another scenario is selected."
 );
 assert.doesNotMatch(switchedSelectedTimelineHtml, /data-income-impact-death-event-bridge/);
 
