@@ -229,10 +229,41 @@
       .filter(Boolean);
   }
 
-  function buildComparisonSeries(comparisonScenarios) {
+  function getComparableSeriesPointValue(point) {
+    return toOptionalNumber(point?.value ?? point?.endingResources ?? point?.availableResources);
+  }
+
+  function areEquivalentSeriesPoints(leftPoint, rightPoint) {
+    const leftValue = getComparableSeriesPointValue(leftPoint);
+    const rightValue = getComparableSeriesPointValue(rightPoint);
+    const leftMonth = toOptionalNumber(leftPoint?.monthIndex);
+    const rightMonth = toOptionalNumber(rightPoint?.monthIndex);
+    const leftDate = normalizeDateOnly(leftPoint?.date);
+    const rightDate = normalizeDateOnly(rightPoint?.date);
+    return leftValue != null
+      && rightValue != null
+      && Math.abs(leftValue - rightValue) <= 0.000001
+      && (leftMonth == null || rightMonth == null || leftMonth === rightMonth)
+      && (!leftDate || !rightDate || leftDate === rightDate);
+  }
+
+  function areEquivalentSeries(pointSet, basePointSet) {
+    const points = Array.isArray(pointSet) ? pointSet : [];
+    const basePoints = Array.isArray(basePointSet) ? basePointSet : [];
+    return points.length >= 2
+      && points.length === basePoints.length
+      && points.every(function (point, index) {
+        return areEquivalentSeriesPoints(point, basePoints[index]);
+      });
+  }
+
+  function buildComparisonSeries(comparisonScenarios, basePostDeathResources) {
     return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
       .map(function (comparisonScenario, index) {
         if (!isPlainObject(comparisonScenario) || !isLifestyleComparisonScenario(comparisonScenario)) {
+          return null;
+        }
+        if (isNeutralLifestyleComparison(comparisonScenario)) {
           return null;
         }
 
@@ -252,6 +283,9 @@
           `comparisonScenarios.${index}.postDeathSeries.points`
         );
         if (points.length < 2) {
+          return null;
+        }
+        if (areEquivalentSeries(points, basePostDeathResources)) {
           return null;
         }
         return {
@@ -759,6 +793,12 @@
     return cloned;
   }
 
+  function hasSameVisualXRatio(leftPoint, rightPoint) {
+    const leftX = toOptionalNumber(leftPoint?.xRatio);
+    const rightX = toOptionalNumber(rightPoint?.xRatio);
+    return leftX != null && rightX != null && Math.abs(leftX - rightX) <= 0.000001;
+  }
+
   function getZeroCrossingRatio(previousPoint, currentPoint) {
     const previousValue = getRunwayResourceValue(previousPoint);
     const currentValue = getRunwayResourceValue(currentPoint);
@@ -912,6 +952,7 @@
     let depletionPoint = null;
     let previousPoint = null;
     let visualInterpolationPointCount = 0;
+    let skippedSharedXDeficitPointCount = 0;
     const visualInterpolationKinds = [];
 
     if (survivorResourcesAtDeathPoint) {
@@ -954,7 +995,15 @@
       }
 
       if (depletionPoint) {
-        deficitPoints.push(cloneDeficitPoint(point, yDomain));
+        if (
+          deficitPoints.length === 1
+          && hasSameVisualXRatio(point, depletionPoint)
+          && getRunwayDeficitValue(point) > 0
+        ) {
+          skippedSharedXDeficitPointCount += 1;
+        } else {
+          deficitPoints.push(cloneDeficitPoint(point, yDomain));
+        }
       }
       previousPoint = point;
     });
@@ -1001,6 +1050,8 @@
           || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
         visualInterpolationPointCount,
         visualInterpolationKinds,
+        skippedSharedXDeficitPointCount,
+        sharedDepletionAnchorForFundedAndDeficit: Boolean(depletionPoint && deficitPoints[0]),
         sourcePath: series.sourcePath,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: isPlainObject(projection),
@@ -2555,7 +2606,7 @@
     const appliedPostDeathPoints = appliedPostDeathResources.reduce(function (points, appliedSeries) {
       return points.concat(appliedSeries.points);
     }, []);
-    const comparisonPostDeathResources = buildComparisonSeries(scenarioInput.comparisonScenarios);
+    const comparisonPostDeathResources = buildComparisonSeries(scenarioInput.comparisonScenarios, postDeathResources);
     const comparisonPoints = comparisonPostDeathResources.reduce(function (points, comparisonSeries) {
       return points.concat(comparisonSeries.points);
     }, []);

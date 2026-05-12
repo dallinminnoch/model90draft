@@ -674,10 +674,13 @@ assert.equal(result.compressionReporting.trace.lifestyleSliderValue, 0);
 assert.equal(result.compressionReporting.trace.timelineMarkersCreated, false);
 
 const currentHtml = harness.renderTimeline(result);
-assert.match(currentHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
+assert.doesNotMatch(
+  currentHtml,
+  /data-income-impact-graph-path="lifestyle-post-death-resources"/,
+  "Slider 0 lifestyle comparison should not render a duplicate dashed graph path."
+);
 assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
-assert.match(currentHtml, /Lifestyle-adjusted projection/);
-assert.match(currentHtml, /Comparison only - base projection unchanged\./);
+assert.doesNotMatch(currentHtml, /Comparison only - base projection unchanged\./);
 assert.doesNotMatch(currentHtml, /staged-compression-post-death-resources|Staged compression|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path=/);
 assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker|data-income-impact-comparison-marker-type="comparisonAction"|data-income-impact-comparison-marker-type="comparisonPause"/);
 

@@ -576,6 +576,21 @@ assert.ok(
 );
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-area="postDeathDeficitArea--selected"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-source="deficitPoints"/);
+{
+  const selectedDeficitPath = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
+  const selectedRunwayCoordinates = (selectedRunwayPath.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  const selectedDeficitCoordinates = (selectedDeficitPath.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  assert.equal(
+    selectedDeficitCoordinates[0],
+    selectedRunwayCoordinates[selectedRunwayCoordinates.length - 2],
+    "Deficit area should start from the same depletion x-coordinate as the funded runway endpoint."
+  );
+  assert.equal(
+    selectedDeficitCoordinates[1],
+    selectedRunwayCoordinates[selectedRunwayCoordinates.length - 1],
+    "Deficit area should start from the same depletion y-coordinate as the funded runway endpoint."
+  );
+}
 assert.match(multiAppliedTimelineHtml, /Required support after resources run out/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-deficit-label/);
 assert.match(multiAppliedTimelineHtml, /Required support[\s\S]*after resources run out/);
@@ -745,6 +760,16 @@ assert.match(currentTimelineHtml, /data-income-impact-lifestyle-impact-mode="cur
 assert.match(currentTimelineHtml, /Matches baseline/);
 assert.match(currentTimelineHtml, /Lifestyle spend: \$0\/mo/);
 assert.match(currentTimelineHtml, /No depletion shift/);
+assert.doesNotMatch(
+  currentTimelineHtml,
+  /data-income-impact-graph-path="lifestyle-post-death-resources"/,
+  "Neutral/equivalent lifestyle comparison should not render a dashed duplicate path."
+);
+assert.doesNotMatch(
+  currentTimelineHtml,
+  /Comparison only - base projection unchanged\./,
+  "Neutral/equivalent lifestyle comparison should not add comparison legend copy."
+);
 
 const comparisonGraphModel = makeGraphModel();
 const conservativeComparisonPoints = [

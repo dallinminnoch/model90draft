@@ -839,6 +839,16 @@ assert.equal(
   "Funded runway should stop at the scenario depletion boundary."
 );
 assert.equal(
+  appliedSingleRunway.fundedRunwayPoints.at(-1).id,
+  appliedSingleRunway.depletionPoint.id,
+  "Funded runway should end on the shared depletion anchor."
+);
+assert.equal(
+  appliedSingleRunway.deficitPoints[0].id,
+  appliedSingleRunway.depletionPoint.id,
+  "Deficit continuation should start from the shared depletion anchor."
+);
+assert.equal(
   appliedSingleRunway.fundedRunwayPoints.some(function (point) { return point.value < 0; }),
   false,
   "Funded runway should not include below-zero resource points."
@@ -859,6 +869,67 @@ assert.ok(
     return point.yRatio >= appliedSingleModel.axes.y.zeroYRatio;
   }),
   "Applied deficit continuation points should render below or on the fixed zero baseline."
+);
+assert.equal(appliedSingleRunway.trace.sharedDepletionAnchorForFundedAndDeficit, true);
+
+const sameXDepletionScenario = cloneJson(fiveYearScenario);
+sameXDepletionScenario.postDeathSeries.points = [
+  {
+    date: "2032-04-29",
+    monthIndex: 12,
+    endingResources: 120000,
+    sourcePaths: ["sameX.points.0"]
+  },
+  {
+    date: "2033-04-29",
+    monthIndex: 24,
+    endingResources: -12000,
+    accumulatedUnmetNeed: 12000,
+    sourcePaths: ["sameX.points.1"]
+  },
+  {
+    date: "2034-04-29",
+    monthIndex: 36,
+    endingResources: -24000,
+    accumulatedUnmetNeed: 24000,
+    sourcePaths: ["sameX.points.2"]
+  }
+];
+sameXDepletionScenario.postDeathSeries.depletion = {
+  depleted: true,
+  depletionDate: "2033-04-29",
+  depletionMonthIndex: 24,
+  monthsCovered: 24
+};
+const sameXDepletionModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "same-x-depletion",
+      label: "Same X depletion",
+      settings: {
+        selectedDeathAge: 51,
+        selectedDeathDate: fiveYearScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: sameXDepletionScenario,
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "same-x-depletion",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+const sameXRunway = sameXDepletionModel.series.appliedRunwayScenarios[0];
+assert.equal(sameXRunway.depletionPoint.date, "2033-04-29");
+assert.equal(sameXRunway.trace.skippedSharedXDeficitPointCount, 1);
+assert.equal(sameXRunway.deficitPoints[0].id, sameXRunway.depletionPoint.id);
+assert.ok(
+  sameXRunway.deficitPoints[1].xRatio > sameXRunway.deficitPoints[0].xRatio,
+  "Deficit continuation should skip same-x below-zero points so the visual continues forward from depletion."
 );
 
 const immediateDeathScenario = makeScenario(0);
@@ -1453,7 +1524,13 @@ const neutralLifestyleComparisonScenario = Object.assign({}, cloneJson(compariso
 const neutralLifestyleModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
   comparisonScenarios: [neutralLifestyleComparisonScenario]
 }));
-assert.equal(neutralLifestyleModel.series.comparisonPostDeathResources.length, 1, "Neutral lifestyle comparison should still emit the one comparison path.");
+assert.equal(
+  Array.isArray(neutralLifestyleModel.series.comparisonPostDeathResources)
+    ? neutralLifestyleModel.series.comparisonPostDeathResources.length
+    : 0,
+  0,
+  "Neutral lifestyle comparison should not emit a duplicate comparison path."
+);
 assert.deepEqual(
   cloneJson(neutralLifestyleModel.comparisonMarkers),
   [],
@@ -1477,6 +1554,11 @@ const adjustedLifestyleComparisonScenario = Object.assign({}, cloneJson(comparis
 const adjustedLifestyleModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
   comparisonScenarios: [adjustedLifestyleComparisonScenario]
 }));
+assert.equal(
+  adjustedLifestyleModel.series.comparisonPostDeathResources.length,
+  1,
+  "Adjusted lifestyle comparison should still emit a visible comparison path."
+);
 assert.ok(
   adjustedLifestyleModel.comparisonMarkers.some(function (marker) {
     return marker.markerType === "lifestyleDepletion" && marker.label === "Lifestyle depletion";

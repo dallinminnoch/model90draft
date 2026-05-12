@@ -1996,14 +1996,65 @@
     return startPoint ? [startPoint].concat(points) : points;
   }
 
+  function areGraphSeriesPointSetsEquivalent(leftPoints, rightPoints) {
+    const left = Array.isArray(leftPoints) ? leftPoints : [];
+    const right = Array.isArray(rightPoints) ? rightPoints : [];
+    return left.length >= 2
+      && left.length === right.length
+      && left.every(function (point, index) {
+        const otherPoint = right[index];
+        const pointValue = getSeriesPointValue(point);
+        const otherValue = getSeriesPointValue(otherPoint);
+        const pointMonth = getSeriesPointMonthIndex(point);
+        const otherMonth = getSeriesPointMonthIndex(otherPoint);
+        const pointDate = getSeriesPointDate(point);
+        const otherDate = getSeriesPointDate(otherPoint);
+        return pointValue != null
+          && otherValue != null
+          && Math.abs(pointValue - otherValue) <= 0.000001
+          && (pointMonth == null || otherMonth == null || pointMonth === otherMonth)
+          && (!pointDate || !otherDate || pointDate === otherDate);
+      });
+  }
+
+  function getSelectedBaseComparisonPoints(graphModel) {
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    if (Array.isArray(selectedSeries?.rawPoints) && selectedSeries.rawPoints.length) {
+      return selectedSeries.rawPoints;
+    }
+    if (Array.isArray(selectedSeries?.points) && selectedSeries.points.length) {
+      return selectedSeries.points;
+    }
+    return Array.isArray(graphModel?.series?.postDeathResources) ? graphModel.series.postDeathResources : [];
+  }
+
+  function isNeutralComparisonGraphSeries(series) {
+    const trace = isPlainObject(series?.trace) ? series.trace : {};
+    const monthlyDelta = toOptionalNumber(trace.monthlyDelta ?? trace.graphMonthlyDelta);
+    return monthlyDelta != null && monthlyDelta === 0;
+  }
+
+  function shouldRenderComparisonGraphSeries(graphModel, comparisonSeries) {
+    if (!isPlainObject(comparisonSeries)) {
+      return false;
+    }
+    if (isNeutralComparisonGraphSeries(comparisonSeries)) {
+      return false;
+    }
+    if (areGraphSeriesPointSetsEquivalent(comparisonSeries.points, getSelectedBaseComparisonPoints(graphModel))) {
+      return false;
+    }
+    return Boolean(buildSvgPath(
+      getComparisonRenderPoints(graphModel, comparisonSeries),
+      getComparisonGraphPathMode(comparisonSeries)
+    ));
+  }
+
   function getComparisonGraphSeries(graphModel) {
     return (Array.isArray(graphModel?.series?.comparisonPostDeathResources)
       ? graphModel.series.comparisonPostDeathResources
       : []).filter(function (comparisonSeries) {
-      return isPlainObject(comparisonSeries) && buildSvgPath(
-        getComparisonRenderPoints(graphModel, comparisonSeries),
-        getComparisonGraphPathMode(comparisonSeries)
-      );
+      return shouldRenderComparisonGraphSeries(graphModel, comparisonSeries);
     }).map(function (comparisonSeries) {
       return Object.assign({}, comparisonSeries, {
         points: getComparisonRenderPoints(graphModel, comparisonSeries),

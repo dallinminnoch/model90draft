@@ -473,10 +473,19 @@ function comparisonValues(result) {
   });
 }
 
+function comparisonSeriesCount(result) {
+  const series = result?.graphModel?.series?.comparisonPostDeathResources;
+  return Array.isArray(series) ? series.length : 0;
+}
+
 function baseValues(result) {
   return result.scenario.postDeathSeries.points.map(function (point) {
     return point.endingResources;
   });
+}
+
+function renderedGraphValues(result) {
+  return comparisonSeriesCount(result) ? comparisonValues(result) : baseValues(result);
 }
 
 function getPathD(html, pathId) {
@@ -559,7 +568,7 @@ assert.equal(seedCapture.graphInputs[0].appliedScenarios[0].comparisonScenarios.
 assert.equal(seedCurrent.graphModel.trace.scenarioModelMode, "appliedScenarios", "live display graph model path should report applied-scenario mode");
 assert.equal(seedCurrent.graphModel.trace.appliedScenarioCount, 1);
 assert.equal(seedCurrent.graphModel.trace.selectedScenarioId, "income-impact-current-scenario");
-assert.deepEqual(cloneJson(comparisonValues(seedCurrent)), cloneJson(baseValues(seedCurrent)), "Current/0 seed-default comparison should exactly match baseline");
+assert.equal(comparisonSeriesCount(seedCurrent), 0, "Current/0 seed-default comparison should not render a duplicate graph series");
 assert.equal(seedCapture.lifestyleOutputs[0].trace.streamDefaultUsed, true, "seed default should resolve through the stream default path");
 assert.equal(seedCapture.lifestyleOutputs[0].comparisonScenario.trace.calculationMethod, "income-impact-household-expense-stream-comparison-adapter-v1");
 assert.equal(seedCapture.lifestyleInputs[0].accountPolicyResolution, undefined);
@@ -589,7 +598,7 @@ assert.equal(capturedLifestyleGroceriesPolicy.conservativeFloorRatio, 0.3, "life
 assert.equal(capturedLifestyleGroceriesPolicy.elevatedCeilingRatio, 1.6, "lifestyle helper should receive the overridden groceries elevated ceiling");
 assert.equal(accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentItems[0].conservativeFloorRatio, 0.3, "account override should apply to the stream comparison output");
 assert.equal(accountCapture.lifestyleOutputs[0].comparisonScenario.trace.graphAdjustmentItems[0].elevatedCeilingRatio, 1.6, "account override ceiling should apply to the stream comparison output");
-assert.deepEqual(cloneJson(comparisonValues(accountCurrent)), cloneJson(baseValues(accountCurrent)), "Current/0 account-policy comparison should exactly match baseline");
+assert.equal(comparisonSeriesCount(accountCurrent), 0, "Current/0 account-policy comparison should not render a duplicate graph series");
 assert.notDeepEqual(cloneJson(comparisonValues(accountConservative)), cloneJson(comparisonValues(seedConservative)), "Conservative account override should change graph comparison values differently than seed default");
 assert.notDeepEqual(cloneJson(comparisonValues(accountElevated)), cloneJson(comparisonValues(seedElevated)), "Elevated account override should change graph comparison values differently than seed default");
 assert.ok(comparisonValues(accountConservative)[0] > comparisonValues(seedConservative)[0], "Lower account floor should extend Conservative runway more than seed default");
@@ -604,15 +613,18 @@ assert.equal(accountConservative.triageInterventions.interventionScenarios.lengt
 const currentHtml = runtime.harness.renderTimeline(accountCurrent);
 const conservativeHtml = runtime.harness.renderTimeline(accountConservative);
 const elevatedHtml = runtime.harness.renderTimeline(accountElevated);
-assert.equal(getPathD(currentHtml, "lifestyle-post-death-resources"), getPathD(currentHtml, "postDeathResources"), "Current/0 lifestyle graph path should match baseline path");
+assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/, "Current/0 lifestyle graph path should not render as a duplicate baseline overlay");
 assert.notEqual(getPathD(conservativeHtml, "lifestyle-post-death-resources"), getPathD(runtime.harness.renderTimeline(seedConservative), "lifestyle-post-death-resources"), "Conservative override should change the visible lifestyle graph path");
 assert.notEqual(getPathD(elevatedHtml, "lifestyle-post-death-resources"), getPathD(runtime.harness.renderTimeline(seedElevated), "lifestyle-post-death-resources"), "Elevated override should change the visible lifestyle graph path");
-[currentHtml, conservativeHtml, elevatedHtml].forEach(function (html) {
+[conservativeHtml, elevatedHtml].forEach(function (html) {
   assert.match(html, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
   assert.doesNotMatch(html, /data-income-impact-graph-path="compression-post-death-resources"/);
   assert.doesNotMatch(html, /data-income-impact-graph-path="staged-compression-post-death-resources"/);
   assert.doesNotMatch(html, /data-income-impact-compression-marker|data-income-impact-graph-detail="compression-early-window"/);
 });
+assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
+assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="staged-compression-post-death-resources"/);
+assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker|data-income-impact-graph-detail="compression-early-window"/);
 
 const activeStorage = createFakeStorage();
 const activeAccountPolicy = {
@@ -781,7 +793,7 @@ protectedKeys.forEach(function ([expenseTypeKey]) {
   assert.equal(streamRow.trace.protectedOrSourceOwned, true, `${expenseTypeKey} should be traced as protected or source-owned`);
   assert.equal(streamRow.trace.futureAdjustmentBehavior, "zero-delta", `${expenseTypeKey} should not move the graph`);
 });
-assert.deepEqual(cloneJson(comparisonValues(protectedResult)), cloneJson(baseValues(protectedResult)), "malicious protected overrides should leave lifestyle comparison as a no-op baseline path");
+assert.equal(comparisonSeriesCount(protectedResult), 0, "malicious protected overrides should not render a no-op lifestyle comparison path");
 
 const forbiddenWrites = runtime.storage.writes().concat(runtime.storage.removes()).filter(function (key) {
   return /analysisSettings|client|profile/i.test(key);
@@ -792,12 +804,12 @@ console.log(JSON.stringify({
   status: "passed",
   accountPolicyOverride: accountPolicyOverride.lifestyleRangeOverrides[0],
   seed: {
-    current: comparisonValues(seedCurrent),
+    current: renderedGraphValues(seedCurrent),
     conservative: comparisonValues(seedConservative),
     elevated: comparisonValues(seedElevated)
   },
   accountOverride: {
-    current: comparisonValues(accountCurrent),
+    current: renderedGraphValues(accountCurrent),
     conservative: comparisonValues(accountConservative),
     elevated: comparisonValues(accountElevated)
   },
