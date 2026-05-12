@@ -62,12 +62,15 @@ function getPathYValues(pathD) {
 }
 
 function makeGraphModel(mode = "forward-projection") {
+  const deathXRatio = mode === "current-point-only" ? 0 : 0.25;
+  const survivorResourcesXRatio = deathXRatio;
+  const conversionBracketXRatio = Math.min(1, deathXRatio + 0.032);
   return {
     status: "complete",
     phases: {
-      preDeath: { id: "preDeath", startXRatio: 0, endXRatio: mode === "current-point-only" ? 0 : 0.25, available: mode !== "current-point-only" },
-      deathEvent: { id: "deathEvent", date: "2031-04-29", xRatio: mode === "current-point-only" ? 0 : 0.25 },
-      postDeath: { id: "postDeath", startXRatio: mode === "current-point-only" ? 0 : 0.25, endXRatio: 1, available: true }
+      preDeath: { id: "preDeath", startXRatio: 0, endXRatio: deathXRatio, available: mode !== "current-point-only" },
+      deathEvent: { id: "deathEvent", date: "2031-04-29", xRatio: deathXRatio },
+      postDeath: { id: "postDeath", startXRatio: deathXRatio, endXRatio: 1, available: true }
     },
     series: {
       preDeathAssets: mode === "current-point-only" ? [] : [
@@ -79,26 +82,42 @@ function makeGraphModel(mode = "forward-projection") {
         ? { date: "2026-04-29", value: 500000, xRatio: 0, yRatio: 0.24 }
         : null,
       deathTransition: [
-        { id: "assets-before-death", value: 600000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.14 },
-        { id: "treated-assets", value: 450000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.3 },
-        { id: "before-obligations", value: 850000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.04 },
-        { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 }
+        { id: "assets-before-death", value: 600000, xRatio: deathXRatio, yRatio: 0.14 },
+        { id: "treated-assets", value: 450000, xRatio: deathXRatio, yRatio: 0.3 },
+        { id: "before-obligations", value: 850000, xRatio: deathXRatio, yRatio: 0.04 },
+        { id: "after-obligations", value: 720000, xRatio: deathXRatio, yRatio: 0.09 }
       ],
       deathEventBridge: {
         id: "deathEventBridge",
-        mode: "deathEventResourceBridge",
+        mode: "deathEventConversionAnnotation",
         date: "2031-04-29",
-        xRatio: mode === "current-point-only" ? 0 : 0.25,
-        startPoint: { id: "assets-before-death", value: 600000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.14 },
-        endPoint: { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 },
+        xRatio: deathXRatio,
+        survivorResourcesXRatio,
+        postDeathRunwayStartXRatio: survivorResourcesXRatio,
+        annotationGeometry: {
+          mode: "rightSideConversionBracket",
+          deathXRatio,
+          netWorthAtDeathXRatio: deathXRatio,
+          survivorResourcesXRatio,
+          bracketXRatio: conversionBracketXRatio,
+          postDeathRunwayStartXRatio: survivorResourcesXRatio,
+          labelSide: "right",
+          annotationOnly: true
+        },
+        netWorthAtDeathPoint: { id: "assets-before-death", value: 600000, xRatio: deathXRatio, yRatio: 0.14 },
+        survivorResourcesPoint: { id: "after-obligations", value: 720000, xRatio: survivorResourcesXRatio, yRatio: 0.09 },
+        startPoint: { id: "assets-before-death", value: 600000, xRatio: deathXRatio, yRatio: 0.14 },
+        endPoint: { id: "after-obligations", value: 720000, xRatio: survivorResourcesXRatio, yRatio: 0.09 },
         stages: [
-          { id: "assets-before-death", value: 600000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.14 },
-          { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 }
+          { id: "assets-before-death", value: 600000, xRatio: deathXRatio, yRatio: 0.14 },
+          { id: "after-obligations", value: 720000, xRatio: survivorResourcesXRatio, yRatio: 0.09 }
         ],
         trace: {
           displayBridge: true,
+          conversionBridgeAnnotationOnly: true,
           replacesRawDeathTransitionPath: true,
-          rawValuesPreserved: true
+          rawValuesPreserved: true,
+          postDeathRunwayStartsAtSurvivorResourcesPoint: true
         }
       },
       postDeathResources: [
@@ -114,7 +133,7 @@ function makeGraphModel(mode = "forward-projection") {
           ...(mode === "current-point-only" ? [] : [
             { id: "before-death", label: "Before death", date: "2026-04-29", relativeYears: null, xRatio: 0 }
           ]),
-          { id: "death", label: "Death", date: "2031-04-29", relativeYears: 0, xRatio: mode === "current-point-only" ? 0 : 0.25 },
+          { id: "death", label: "Death", date: "2031-04-29", relativeYears: 0, xRatio: deathXRatio },
           { id: "plus-5", label: "+5 years", date: "2036-04-29", relativeYears: 5, xRatio: 0.42 },
           { id: "plus-10", label: "+10 years", date: "2041-04-29", relativeYears: 10, xRatio: 0.62 },
           { id: "plus-15", label: "+15 years", date: "2046-04-29", relativeYears: 15, xRatio: 0.82 }
@@ -133,7 +152,8 @@ function makeGraphModel(mode = "forward-projection") {
     },
     markers: [
       { id: "depleted", ruleId: "survivor-resources-depleted", kind: "risk", severity: "critical", title: "Resources depleted", summary: "Resources deplete.", positionable: true, xRatio: 0.84, yRatio: 0.68 },
-      { id: "coverage", ruleId: "coverage-added-at-death", kind: "stable", severity: "stable", title: "Coverage added", summary: "Coverage is added.", positionable: true, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 }
+      { id: "coverage", ruleId: "coverage-added-at-death", kind: "stable", severity: "stable", title: "Coverage added", summary: "Coverage is added.", positionable: true, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 },
+      { id: "unmet-need", ruleId: "accumulated-unmet-need", kind: "risk", severity: "at-risk", title: "Unmet need accumulates", markerLabel: "Unmet need", summary: "Required support continues after resources run out.", positionable: true, xRatio: 0.9, yRatio: 0.76 }
     ],
     selectedEvent: {
       id: "depleted",
@@ -212,11 +232,21 @@ assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
 assert.match(displaySource, /data-income-impact-runway-depletion-marker/);
+assert.match(displaySource, /getSelectedDeathEventBridge/);
+assert.match(displaySource, /selectedSeries\?\.deathEventBridge/);
 assert.match(displaySource, /renderDeathEventBridge/);
 assert.match(displaySource, /data-income-impact-death-event-bridge/);
+assert.match(displaySource, /data-income-impact-applied-scenario-id/);
+assert.match(displaySource, /data-income-impact-applied-scenario-selected/);
 assert.match(displaySource, /data-income-impact-death-event-net-worth/);
 assert.match(displaySource, /data-income-impact-death-event-survivor-resources/);
+assert.match(displaySource, /data-income-impact-death-event-survivor-resources-x-ratio/);
 assert.match(displaySource, /data-income-impact-death-event-conversion-bridge/);
+assert.match(displaySource, /data-income-impact-death-event-conversion-bridge-layout="right-side-bracket"/);
+assert.match(displaySource, /data-income-impact-death-event-conversion-node/);
+assert.match(displaySource, /data-income-impact-death-event-survivor-resources-leader/);
+assert.match(displaySource, /\[data-income-impact-death-event-bridge\]/);
+assert.match(displaySource, /annotationGeometry/);
 assert.match(displaySource, /Conversion at death/);
 assert.match(displaySource, /Starting funds after conversion/);
 assert.match(displaySource, /renderAppliedScenarioDeathLineAnchors/);
@@ -244,6 +274,7 @@ assert.match(componentsSource, /\.income-impact-death-event-bridge/);
 assert.match(componentsSource, /\.income-impact-death-event-net-worth/);
 assert.match(componentsSource, /\.income-impact-death-event-survivor-resources/);
 assert.match(componentsSource, /\.income-impact-death-event-conversion-bracket/);
+assert.match(componentsSource, /\.income-impact-death-event-conversion-node/);
 assert.match(componentsSource, /\.income-impact-death-event-label/);
 assert.match(componentsSource, /\.income-impact-death-line-anchor/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
@@ -328,7 +359,17 @@ assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(timelineHtml, /data-income-impact-death-event-bridge="deathEventBridge"/);
 assert.match(timelineHtml, /data-income-impact-death-event-net-worth/);
 assert.match(timelineHtml, /data-income-impact-death-event-survivor-resources/);
+assert.match(timelineHtml, /data-income-impact-death-event-conversion-layout="rightSideConversionBracket"/);
+assert.match(timelineHtml, /data-income-impact-death-event-net-worth-x-ratio="0\.25"/);
+assert.match(timelineHtml, /data-income-impact-death-event-survivor-resources-x-ratio="0\.25"/);
 assert.match(timelineHtml, /data-income-impact-death-event-conversion-bridge/);
+assert.match(timelineHtml, /data-income-impact-death-event-conversion-node/);
+assert.match(timelineHtml, /data-income-impact-death-event-survivor-resources-leader/);
+assert.match(
+  timelineHtml,
+  /data-income-impact-death-event-conversion-bridge[\s\S]*d="[^"]*\sQ\s[^"]*\sM[^"]*"/,
+  "Conversion bridge should render a curved top corner and interrupt the vertical line for the hollow survivor-resources node."
+);
 assert.match(timelineHtml, /Conversion at death/);
 assert.match(timelineHtml, /Net worth at death/);
 assert.match(timelineHtml, /Survivor resources/);
@@ -348,6 +389,12 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-graph-x-tick="valuation"|d
 assert.match(timelineHtml, /data-income-impact-graph-zero-baseline/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-marker-rule-id="survivor-resources-depleted"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-marker-rule-id="coverage-added-at-death"/);
+assert.doesNotMatch(
+  timelineHtml,
+  /data-income-impact-graph-marker-rule-id="accumulated-unmet-need"/,
+  "Accumulated unmet-need should be represented by the deficit area, not by a separate orange graph marker."
+);
+assert.doesNotMatch(timelineHtml, /Unmet need accumulates/);
 assert.match(timelineHtml, /data-income-impact-graph-selected-event/);
 assert.match(timelineHtml, /data-income-impact-graph-callout="resources-after-obligations"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
@@ -356,12 +403,67 @@ const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path"
 assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
 
 const multiAppliedGraphModel = makeGraphModel();
+const survivorResourcesStartXRatio = multiAppliedGraphModel.series.deathEventBridge.survivorResourcesPoint.xRatio;
+const conversionBracketXRatio = Math.min(1, multiAppliedGraphModel.phases.deathEvent.xRatio + 0.032);
+const selectedSurvivorResourcesPoint = {
+  id: "postDeathResources-survivor-resources-at-death",
+  date: "2042-04-29",
+  monthIndex: 0,
+  value: 720000,
+  xRatio: survivorResourcesStartXRatio,
+  yRatio: multiAppliedGraphModel.series.deathEventBridge.survivorResourcesPoint.yRatio,
+  trace: {
+    visualStartPoint: true,
+    displayRole: "startingFundsAfterConversion"
+  }
+};
+function makeAppliedDeathEventBridgeFixture(input) {
+  return {
+    id: `${input.scenarioId}-deathEventBridge`,
+    mode: "deathEventConversionAnnotation",
+    scenarioId: input.scenarioId,
+    label: input.label,
+    selected: input.selected,
+    date: input.date,
+    xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio,
+    survivorResourcesXRatio: survivorResourcesStartXRatio,
+    postDeathRunwayStartXRatio: survivorResourcesStartXRatio,
+    annotationGeometry: {
+      mode: "rightSideConversionBracket",
+      deathXRatio: multiAppliedGraphModel.phases.deathEvent.xRatio,
+      netWorthAtDeathXRatio: multiAppliedGraphModel.phases.deathEvent.xRatio,
+      survivorResourcesXRatio: survivorResourcesStartXRatio,
+      bracketXRatio: conversionBracketXRatio,
+      postDeathRunwayStartXRatio: survivorResourcesStartXRatio,
+      labelSide: "right",
+      annotationOnly: true
+    },
+    netWorthAtDeathPoint: input.netWorthPoint,
+    survivorResourcesPoint: input.survivorResourcesPoint,
+    startPoint: input.netWorthPoint,
+    endPoint: input.survivorResourcesPoint,
+    trace: {
+      conversionBridgeAnnotationOnly: true,
+      rawValuesPreserved: true,
+      rawDatesPreserved: true,
+      postDeathRunwayStartsAtSurvivorResourcesPoint: true
+    }
+  };
+}
 const selectedZeroPoint = { date: "2042-04-29", monthIndex: 132, value: 0, xRatio: 0.84, yRatio: multiAppliedGraphModel.axes.y.zeroYRatio };
 const selectedRawPoints = multiAppliedGraphModel.series.postDeathResources;
 const selectedPreDeathContextPoints = [
   { date: "2037-04-29", monthIndex: 72, value: 620000, xRatio: 0.04, yRatio: 0.19 },
   { date: "2042-04-29", monthIndex: 132, value: 760000, xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio, yRatio: 0.12 }
 ];
+const selectedDeathEventBridge = makeAppliedDeathEventBridgeFixture({
+  scenarioId: "income-impact-death-in-5-years",
+  label: "Death in 5 years",
+  selected: true,
+  date: "2042-04-29",
+  netWorthPoint: selectedPreDeathContextPoints.at(-1),
+  survivorResourcesPoint: selectedSurvivorResourcesPoint
+});
 const secondRawPoints = [
   { date: "2027-04-29", monthIndex: 12, value: 610000, xRatio: 0.2, yRatio: 0.16 },
   { date: "2036-04-29", monthIndex: 120, value: 90000, xRatio: 0.68, yRatio: 0.6 },
@@ -372,6 +474,26 @@ const secondPreDeathContextPoints = [
   { date: "2026-04-29", monthIndex: 0, value: 500000, xRatio: 0.02, yRatio: 0.24 },
   { date: "2031-04-29", monthIndex: 60, value: 600000, xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio, yRatio: 0.14 }
 ];
+const secondSurvivorResourcesPoint = {
+  id: "postDeathResources--scenario-2-survivor-resources-at-death",
+  date: "2031-04-29",
+  monthIndex: 0,
+  value: 610000,
+  xRatio: survivorResourcesStartXRatio,
+  yRatio: 0.16,
+  trace: {
+    visualStartPoint: true,
+    displayRole: "startingFundsAfterConversion"
+  }
+};
+const secondDeathEventBridge = makeAppliedDeathEventBridgeFixture({
+  scenarioId: "income-impact-current-scenario",
+  label: "Death tomorrow",
+  selected: false,
+  date: "2031-04-29",
+  netWorthPoint: secondPreDeathContextPoints.at(-1),
+  survivorResourcesPoint: secondSurvivorResourcesPoint
+});
 multiAppliedGraphModel.series.appliedPostDeathResources = [
   {
     scenarioId: "income-impact-death-in-5-years",
@@ -412,7 +534,9 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
       value: 760000,
       date: "2042-04-29"
     },
-    fundedRunwayPoints: selectedRawPoints.slice(0, 2).concat([selectedZeroPoint]),
+    survivorResourcesAtDeathPoint: selectedSurvivorResourcesPoint,
+    deathEventBridge: selectedDeathEventBridge,
+    fundedRunwayPoints: [selectedSurvivorResourcesPoint].concat(selectedRawPoints.slice(0, 2), [selectedZeroPoint]),
     deficitPoints: [selectedZeroPoint, selectedRawPoints[2]],
     depletionPoint: selectedZeroPoint,
     trace: {
@@ -443,7 +567,9 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
       value: 600000,
       date: "2031-04-29"
     },
-    fundedRunwayPoints: secondRawPoints.slice(0, 2).concat([secondZeroPoint]),
+    survivorResourcesAtDeathPoint: secondSurvivorResourcesPoint,
+    deathEventBridge: secondDeathEventBridge,
+    fundedRunwayPoints: [secondSurvivorResourcesPoint].concat(secondRawPoints.slice(0, 2), [secondZeroPoint]),
     deficitPoints: [secondZeroPoint, secondRawPoints[2]],
     depletionPoint: secondZeroPoint,
     trace: {
@@ -459,6 +585,25 @@ const multiAppliedTimelineHtml = harness.renderTimeline({
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-source="fundedRunwayPoints"/);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-death-event-bridge="income-impact-death-in-5-years-deathEventBridge"[\s\S]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years"[\s\S]*data-income-impact-applied-scenario-selected="true"/,
+  "Selected scenario should render its own death-event conversion bridge."
+);
+assert.doesNotMatch(
+  multiAppliedTimelineHtml,
+  /data-income-impact-death-event-bridge="income-impact-current-scenario-deathEventBridge"/,
+  "Non-selected scenario bridge should not render as the active death-event conversion section."
+);
+{
+  const selectedAppliedPathD = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-path", "postDeathResources");
+  const selectedAppliedPathStartX = Number((selectedAppliedPathD.match(/^M(-?\d+(?:\.\d+)?)/) || [])[1]);
+  const expectedSurvivorStartX = 74 + (884 * survivorResourcesStartXRatio);
+  assert.ok(
+    Number.isFinite(selectedAppliedPathStartX) && Math.abs(selectedAppliedPathStartX - expectedSurvivorStartX) <= 0.12,
+    "Selected post-death runway should start from the survivor-resources point on the fixed death axis."
+  );
+}
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets--scenario-2"/);
 assert.match(
@@ -596,6 +741,8 @@ assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="li
 
 multiAppliedGraphModel.series.appliedRunwayScenarios[0].selected = false;
 multiAppliedGraphModel.series.appliedRunwayScenarios[1].selected = true;
+multiAppliedGraphModel.series.appliedRunwayScenarios[0].deathEventBridge.selected = false;
+multiAppliedGraphModel.series.appliedRunwayScenarios[1].deathEventBridge.selected = true;
 multiAppliedGraphModel.trace = Object.assign({}, multiAppliedGraphModel.trace, {
   selectedScenarioId: "income-impact-current-scenario"
 });
@@ -617,6 +764,11 @@ assert.match(
   getRunwayDepletionMarkerTag(switchedSelectedTimelineHtml, "income-impact-death-in-5-years"),
   /data-income-impact-applied-scenario-selected="false"/,
   "Previously selected depletion marker should become muted when another scenario is selected."
+);
+assert.match(
+  switchedSelectedTimelineHtml,
+  /data-income-impact-death-event-bridge="income-impact-current-scenario-deathEventBridge"[\s\S]*data-income-impact-applied-scenario-id="income-impact-current-scenario"[\s\S]*data-income-impact-applied-scenario-selected="true"/,
+  "Death-event conversion bridge should move with the selected applied scenario."
 );
 
 const currentGraphModel = makeGraphModel();
@@ -767,12 +919,16 @@ assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type=
 assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="comparisonPause"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="baseDepletion"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="lifestyleDepletion"/);
-assert.match(comparisonTimelineHtml, /data-income-impact-comparison-marker-type="shortfallRemains"/);
+assert.doesNotMatch(
+  comparisonTimelineHtml,
+  /data-income-impact-comparison-marker-type="shortfallRemains"/,
+  "Accumulated unmet-need/shortfall marker should not render a separate graph dot."
+);
 assert.match(comparisonTimelineHtml, /Lifestyle adjustment/);
 assert.match(comparisonTimelineHtml, /Lifestyle pause/);
 assert.match(comparisonTimelineHtml, /Base depletion/);
 assert.match(comparisonTimelineHtml, /Lifestyle depletion/);
-assert.match(comparisonTimelineHtml, /Shortfall remains/);
+assert.doesNotMatch(comparisonTimelineHtml, /Shortfall remains/);
 const repeatedComparisonTimelineHtml = harness.renderTimeline({
   ...fixture,
   graphModel: comparisonGraphModel
@@ -788,8 +944,8 @@ assert.equal(
 );
 assert.equal(
   (comparisonTimelineHtml.match(/data-income-impact-comparison-marker(?:\s|>)/g) || []).length,
-  5,
-  "Comparison marker data should be preserved even when low-value early labels are suppressed."
+  4,
+  "Rendered comparison markers should omit the accumulated unmet-need/shortfall dot while preserving the other comparison markers."
 );
 
 const elevatedGraphModel = makeGraphModel();

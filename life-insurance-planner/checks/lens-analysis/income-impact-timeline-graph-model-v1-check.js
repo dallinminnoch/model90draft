@@ -248,9 +248,9 @@ assert.equal(fiveYearModel.series.postDeathResources[0].date, fiveYearScenario.p
 assert.equal(fiveYearModel.series.postDeathResources[0].relativeMonthsFromDeath, fiveYearScenario.postDeathSeries.points[0].monthIndex);
 assertApproxEqual(
   fiveYearModel.series.postDeathResources[0].xRatio,
-  fiveYearModel.projection.deathXRatio
+  fiveYearModel.projection.postDeathRunwayStartXRatio
     + (fiveYearScenario.postDeathSeries.points[0].monthIndex / fiveYearModel.projection.postDeathDisplayHorizonMonths)
-      * (1 - fiveYearModel.projection.deathXRatio),
+      * (1 - fiveYearModel.projection.postDeathRunwayStartXRatio),
   "Selected scenario post-death point should map by months after death."
 );
 assert.equal(fiveYearModel.axes.x.xAxisMode, "deathRelativeYears");
@@ -260,7 +260,17 @@ assert.equal(fiveYearModel.projection.xAxisMode, "deathRelativeYears");
 assert.equal(fiveYearModel.projection.trace.rawDatesPreserved, true);
 assert.equal(fiveYearModel.projection.trace.deathAlignedToSharedAnchor, true);
 assert.equal(fiveYearModel.projection.trace.calculationHorizonPreserved, true);
+assert.equal(fiveYearModel.projection.trace.postDeathRunwayStartsAtSurvivorResourcesPoint, true);
 assert.equal(fiveYearModel.projection.trace.displayHorizonAutoSized, true);
+assertApproxEqual(
+  fiveYearModel.projection.postDeathRunwayStartXRatio,
+  fiveYearModel.projection.deathXRatio,
+  "Post-death runway should start on the fixed death event line."
+);
+assert.ok(
+  fiveYearModel.projection.deathEventConversionBracketXRatio > fiveYearModel.projection.deathXRatio,
+  "The conversion annotation bracket can sit to the right while the runway starts on the death line."
+);
 assert.equal(fiveYearModel.projection.displayHorizonMode, "autoFromAppliedScenarioDepletion");
 assert.equal(fiveYearModel.projection.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
 assert.equal(fiveYearModel.projection.displayHorizonMonths, 180);
@@ -328,13 +338,27 @@ assert.equal(fiveYearModel.trace.deficitVisualScaleCapped, false);
 assert.equal(fiveYearModel.trace.negativeValuesCompressFundedRunway, false);
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.y.ticks.map(function (tick) { return tick.zone; })),
-  ["fundedRunway", "fundedRunway", "zero", "deficit"],
-  "Fixed-zero runway y-axis ticks should separate funded runway labels from the deficit label."
+  ["fundedRunway", "fundedRunway", "fundedRunway", "fundedRunway", "zero", "deficit", "deficit"],
+  "Fixed-zero runway y-axis ticks should add sub-increments while separating funded runway labels from deficit labels."
 );
 assert.equal(
   fiveYearModel.axes.y.ticks.filter(function (tick) { return tick.zone === "deficit"; }).length,
-  1,
-  "Deficit zone should avoid crowded linear-domain labels."
+  2,
+  "Deficit zone should show a midpoint and a visual max label without returning to crowded linear-domain labels."
+);
+assert.deepEqual(
+  cloneJson(fiveYearModel.axes.y.ticks
+    .filter(function (tick) { return tick.zone === "fundedRunway"; })
+    .map(function (tick) { return tick.trace.tickRatio; })),
+  [1, 0.75, 0.5, 0.25],
+  "Funded runway ticks should expose predictable quarter sub-increments."
+);
+assert.deepEqual(
+  cloneJson(fiveYearModel.axes.y.ticks
+    .filter(function (tick) { return tick.zone === "deficit"; })
+    .map(function (tick) { return tick.trace.tickRatio; })),
+  [0.5, 1],
+  "Deficit ticks should expose a midpoint and the visible deficit max."
 );
 assert.ok(
   fiveYearModel.axes.y.ticks
@@ -443,9 +467,15 @@ earlyDepletionScenario.postDeathSeries.points = [
     sourcePaths: ["layer3.points"]
   },
   {
-    date: "2035-04-29",
-    monthIndex: 48,
-    endingResources: -50000,
+    date: "2036-04-29",
+    monthIndex: 60,
+    endingResources: -650000,
+    sourcePaths: ["layer3.points"]
+  },
+  {
+    date: "2041-04-29",
+    monthIndex: 120,
+    endingResources: -900000,
     sourcePaths: ["layer3.points"]
   }
 ];
@@ -464,14 +494,73 @@ const earlyDepletionModel = buildIncomeImpactTimelineGraphModel({
 });
 assert.equal(
   earlyDepletionModel.projection.displayHorizonMonths,
-  120,
-  "Auto display horizon should keep the 10-year minimum when depletion is early."
+  48,
+  "Auto display horizon should adapt down so an early depletion runway uses most of the graph length."
 );
 assert.equal(earlyDepletionModel.projection.latestAppliedScenarioDepletionMonths, 36);
+assert.equal(earlyDepletionModel.projection.postDepletionDisplayPaddingMonths, 9);
+assert.equal(earlyDepletionModel.projection.displayHorizonRoundingMonths, 6);
+assert.equal(earlyDepletionModel.projection.displayHorizonTargetRunwayRatio, 0.8);
+assert.ok(
+  earlyDepletionModel.projection.postDeathRunwayStartXRatio
+    + ((earlyDepletionModel.projection.latestAppliedScenarioDepletionMonths / earlyDepletionModel.projection.postDeathDisplayHorizonMonths)
+      * (1 - earlyDepletionModel.projection.postDeathRunwayStartXRatio)) > 0.75,
+  "Early depletion should map into the majority of the post-death graph width instead of looking tiny."
+);
+assertApproxEqual(
+  earlyDepletionModel.phases.deathEvent.xRatio,
+  earlyDepletionModel.projection.deathXRatio,
+  "Adaptive x-axis scaling must not move the fixed death line."
+);
 assert.deepEqual(
   cloneJson(earlyDepletionModel.axes.x.ticks.map(function (tick) { return tick.label; })),
-  ["Before death", "Death", "+5 years", "+10 years"],
-  "Minimum display horizon should drive death-relative tick filtering."
+  ["Before death", "Death", "+1 year", "+2 years", "+3 years", "+4 years"],
+  "Short runways should emit adaptive death-relative ticks instead of fixed +5/+10 labels."
+);
+const earlyAppliedClipModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-early-depletion",
+      label: "Death tomorrow",
+      settings: {
+        selectedDeathAge: 46,
+        selectedDeathDate: earlyDepletionScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(earlyDepletionScenario),
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "income-impact-early-depletion",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+const earlyDepletionRunway = earlyAppliedClipModel.series.appliedRunwayScenarios[0];
+assert.deepEqual(
+  cloneJson(earlyDepletionRunway.rawPoints.map(function (point) { return point.monthIndex; })),
+  [12, 60, 120],
+  "Display-horizon clipping should preserve the raw source runway points."
+);
+assert.equal(
+  earlyDepletionRunway.deficitPoints.filter(function (point) {
+    return point.xRatio === 1;
+  }).length,
+  1,
+  "Renderable deficit points should not stack multiple post-horizon points at the right edge."
+);
+assert.equal(
+  earlyDepletionRunway.deficitPoints.at(-1).trace.displayHorizonClip,
+  true,
+  "The right-edge deficit endpoint should be a display-horizon clip interpolation."
+);
+assert.equal(
+  earlyDepletionRunway.deficitPoints.at(-1).relativeMonthsFromDeath,
+  earlyAppliedClipModel.projection.displayHorizonMonths,
+  "The display-horizon clip point should end at the visible graph boundary."
 );
 
 const maxDisplayScenario = cloneJson(fiveYearScenario);
@@ -646,8 +735,14 @@ assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.displayRole
 assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.noFinancialCalculationChanged, true);
 assertApproxEqual(
   appliedSingleRunway.survivorResourcesAtDeathPoint.xRatio,
+  appliedSingleModel.projection.postDeathRunwayStartXRatio,
+  "Survivor resources start point should sit at the fixed death-line runway origin."
+);
+assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.displayXOffsetFromDeathAxis, false);
+assertApproxEqual(
+  appliedSingleRunway.survivorResourcesAtDeathPoint.trace.deathXRatio,
   appliedSingleModel.projection.deathXRatio,
-  "Survivor resources start point should sit at the shared death anchor."
+  "Survivor resources start point trace should keep the fixed death axis anchor."
 );
 assert.equal(
   appliedSingleRunway.fundedRunwayPoints[0].id,
@@ -850,12 +945,12 @@ assertApproxEqual(
   "Deficit visual max should be capped relative to funded runway max."
 );
 assert.ok(
-  Math.abs(hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.zone === "deficit"; }).value)
+  Math.abs(hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).value)
     < hugeDeficitModel.axes.y.rawDeficitMax,
   "Deficit axis label should reflect visual scale instead of the raw multi-million accumulated deficit."
 );
 assert.equal(
-  hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.zone === "deficit"; }).rawValue,
+  hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).rawValue,
   -3000000,
   "Deficit axis tick should retain raw deficit metadata when visual scale is capped."
 );
@@ -1109,6 +1204,22 @@ assert.equal(appliedMultiModel.trace.deathEventBridgeMode, "deathEventConversion
 assert.equal(appliedMultiModel.series.deathEventBridge.mode, "deathEventConversionAnnotation");
 assert.equal(appliedMultiModel.series.deathEventBridge.trace.conversionBridgeAnnotationOnly, true);
 assert.equal(appliedMultiModel.series.deathEventBridge.trace.rawVerticalDeathTransitionPathRendered, false);
+assert.equal(appliedMultiModel.series.deathEventBridge.annotationGeometry.mode, "rightSideConversionBracket");
+assertApproxEqual(
+  appliedMultiModel.series.deathEventBridge.netWorthAtDeathPoint.xRatio,
+  appliedMultiModel.projection.deathXRatio,
+  "Net-worth-at-death marker should remain on the fixed death axis."
+);
+assertApproxEqual(
+  appliedMultiModel.series.deathEventBridge.survivorResourcesPoint.xRatio,
+  appliedMultiModel.projection.postDeathRunwayStartXRatio,
+  "Survivor resources marker should use the fixed death-line runway origin."
+);
+assert.equal(
+  appliedMultiModel.series.deathEventBridge.trace.postDeathRunwayStartsAtSurvivorResourcesPoint,
+  true,
+  "Death-event bridge trace should identify the survivor resources point as the runway origin."
+);
 assert.equal(
   appliedMultiModel.series.deathEventBridge.netWorthAtDeathPoint.value,
   tenYearScenario.deathEvent.assetsBeforeDeath,
@@ -1118,6 +1229,48 @@ assert.equal(
   appliedMultiModel.series.deathEventBridge.survivorResourcesPoint.value,
   tenYearScenario.deathEvent.resourcesAfterObligations,
   "Death-event bridge should expose one survivor-resources point."
+);
+assert.ok(
+  appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
+    return series.deathEventBridge
+      && series.deathEventBridge.mode === "deathEventConversionAnnotation"
+      && series.deathEventBridge.scenarioId === series.scenarioId;
+  }),
+  "Each applied runway scenario should carry its own death-event conversion bridge."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) {
+    return series.deathEventBridge.id;
+  })),
+  ["income-impact-current-scenario-deathEventBridge", "income-impact-death-in-10-years-deathEventBridge"],
+  "Per-scenario death-event bridge IDs should be deterministic."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) {
+    return series.deathEventBridge.selected;
+  })),
+  [false, true],
+  "Per-scenario death-event bridges should preserve selected state."
+);
+assertApproxEqual(
+  appliedMultiModel.series.appliedRunwayScenarios[0].deathEventBridge.netWorthAtDeathPoint.xRatio,
+  appliedMultiModel.projection.deathXRatio,
+  "Baseline scenario bridge net-worth point should remain on the shared death axis."
+);
+assertApproxEqual(
+  appliedMultiModel.series.appliedRunwayScenarios[1].deathEventBridge.survivorResourcesPoint.xRatio,
+  appliedMultiModel.projection.postDeathRunwayStartXRatio,
+  "Selected scenario bridge survivor-resources point should stay on the fixed death-line runway origin."
+);
+assert.equal(
+  appliedMultiModel.series.appliedRunwayScenarios[0].deathEventBridge.netWorthAtDeathPoint.value,
+  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
+  "Baseline scenario bridge should preserve that scenario's net worth at death."
+);
+assert.equal(
+  appliedMultiModel.series.appliedRunwayScenarios[1].deathEventBridge.survivorResourcesPoint.value,
+  tenYearScenario.deathEvent.resourcesAfterObligations,
+  "Selected scenario bridge should preserve that scenario's survivor resources."
 );
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
@@ -1224,9 +1377,21 @@ assert.equal(comparisonModel.series.comparisonPostDeathResources[0].scenarioId, 
 assert.equal(comparisonModel.series.comparisonPostDeathResources[0].kind, "lifestyleComparison");
 assert.equal(comparisonModel.series.comparisonPostDeathResources[0].pathId, "lifestyle-post-death-resources");
 assert.deepEqual(
-  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
+  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].rawPoints.map(function (point) { return point.value; })),
   cloneJson(comparisonScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
-  "Comparison path should map completed alternate postDeathSeries values."
+  "Comparison raw points should preserve completed alternate postDeathSeries values."
+);
+assert.equal(
+  comparisonModel.series.comparisonPostDeathResources[0].points.filter(function (point) {
+    return point.xRatio === 1;
+  }).length,
+  1,
+  "Comparison render points should not stack multiple post-horizon values at the right edge."
+);
+assert.equal(
+  comparisonModel.series.comparisonPostDeathResources[0].points.at(-1).trace.displayHorizonClip,
+  true,
+  "Comparison render points should end with a display-horizon clip interpolation when the raw path extends past the visible horizon."
 );
 assert.deepEqual(
   cloneJson(comparisonModel.series.postDeathResources.map(function (point) { return point.value; })),
@@ -1292,13 +1457,13 @@ const appliedComparisonInput = {
 };
 const appliedComparisonModel = buildIncomeImpactTimelineGraphModel(appliedComparisonInput);
 assert.deepEqual(
-  cloneJson(appliedComparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
-  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
+  cloneJson(appliedComparisonModel.series.comparisonPostDeathResources[0].rawPoints.map(function (point) { return point.value; })),
+  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].rawPoints.map(function (point) { return point.value; })),
   "Applied scenario comparison input should preserve lifestyle comparison source values."
 );
 assert.deepEqual(
-  cloneJson(appliedComparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.date; })),
-  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.date; })),
+  cloneJson(appliedComparisonModel.series.comparisonPostDeathResources[0].rawPoints.map(function (point) { return point.date; })),
+  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].rawPoints.map(function (point) { return point.date; })),
   "Applied scenario comparison input should preserve lifestyle comparison source dates."
 );
 assert.equal(appliedComparisonModel.trace.scenarioModelMode, "appliedScenarios");
@@ -1397,7 +1562,7 @@ assert.deepEqual(
   "The single comparison path should render as truthful straight segments."
 );
 assert.deepEqual(
-  cloneJson(multiComparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
+  cloneJson(multiComparisonModel.series.comparisonPostDeathResources[0].rawPoints.map(function (point) { return point.value; })),
   cloneJson(comparisonScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
   "First comparison values should remain unchanged when extra comparison input is present."
 );

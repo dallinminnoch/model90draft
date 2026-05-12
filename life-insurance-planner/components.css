@@ -16471,8 +16471,8 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-death-event-conversion-bracket,
 .income-impact-death-event-conversion-leader {
   fill: none;
-  stroke: rgba(83, 97, 118, 0.72);
-  stroke-width: 1.25;
+  stroke: rgba(83, 97, 118, 0.55);
+  stroke-width: 1.1;
   vector-effect: non-scaling-stroke;
 }
 
@@ -16486,6 +16486,13 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke-linecap: round;
 }
 
+.income-impact-death-event-conversion-node {
+  fill: #ffffff;
+  stroke: rgba(83, 97, 118, 0.82);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
 .income-impact-death-event-net-worth {
   fill: #17202c;
   stroke: #ffffff;
@@ -16494,10 +16501,10 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-death-event-survivor-resources {
-  fill: #16835d;
+  fill: #227455;
   stroke: #ffffff;
   stroke-width: 2.4;
-  filter: drop-shadow(0 3px 8px rgba(22, 131, 93, 0.22));
+  filter: drop-shadow(0 3px 8px rgba(34, 116, 85, 0.22));
   vector-effect: non-scaling-stroke;
 }
 
@@ -16514,24 +16521,11 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-death-event-label--heading {
   fill: #253246;
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 820;
 }
 
 .income-impact-death-event-label--muted {
   fill: #627086;
-}
-
-.income-impact-death-event-bridge-point {
-  fill: #ffffff;
-  stroke: #17202c;
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-}
-
-.income-impact-death-event-bridge-point--end {
-  fill: #227455;
-  stroke: #ffffff;
-  stroke-width: 2;
 }
 
 .income-impact-death-line-anchor {
@@ -16542,13 +16536,6 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-death-line-anchor line {
   stroke: rgba(83, 97, 118, 0.62);
   stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.income-impact-death-line-anchor circle {
-  fill: #ffffff;
-  stroke: #536176;
-  stroke-width: 1.6;
   vector-effect: non-scaling-stroke;
 }
 
@@ -16568,12 +16555,6 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-death-line-anchor[data-income-impact-applied-scenario-selected="false"] {
   opacity: 0.55;
-}
-
-.income-impact-death-line-anchor[data-income-impact-applied-scenario-selected="true"] circle {
-  fill: #227455;
-  stroke: #ffffff;
-  stroke-width: 2.2;
 }
 
 .income-impact-death-line-anchor[data-income-impact-applied-scenario-selected="true"] rect {
@@ -16923,8 +16904,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #227455;
 }
 
-.income-impact-comparison-marker--lifestyleDepletion circle,
-.income-impact-comparison-marker--shortfallRemains circle {
+.income-impact-comparison-marker--lifestyleDepletion circle {
   fill: #1f6fb2;
   stroke: #ffffff;
 }
