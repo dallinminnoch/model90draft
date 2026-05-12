@@ -16348,8 +16348,8 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   width: fit-content;
   padding: 0.22rem 0.5rem;
   border-radius: 999px;
-  background: rgba(64, 84, 184, 0.1);
-  color: #4054b8;
+  background: rgba(34, 116, 85, 0.1);
+  color: #1a5e40;
   font-size: 0.68rem;
   font-weight: 840;
   letter-spacing: 0.04em;
@@ -16410,7 +16410,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 .income-impact-graph-svg {
   display: block;
   width: 100%;
-  min-height: clamp(22rem, 48vh, 38rem);
+  min-height: clamp(20rem, 44vh, 32rem);
   max-width: 100%;
   border: 1px solid rgba(223, 229, 238, 0.9);
   border-radius: 0.5rem;
@@ -16454,7 +16454,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-graph-death-axis {
   stroke: #17202c;
-  stroke-dasharray: 6 7;
+  stroke-dasharray: 5 5;
   stroke-width: 1.4;
 }
 
@@ -16469,9 +16469,9 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-death-event-bridge line {
-  stroke: rgba(23, 32, 44, 0.5);
-  stroke-dasharray: 3 4;
-  stroke-width: 1.1;
+  stroke: rgba(23, 32, 44, 0.68);
+  stroke-dasharray: 4 3;
+  stroke-width: 1.4;
   vector-effect: non-scaling-stroke;
 }
 
@@ -16494,7 +16494,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-death-line-anchor line {
-  stroke: rgba(83, 97, 118, 0.34);
+  stroke: rgba(83, 97, 118, 0.62);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
@@ -16515,9 +16515,13 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 
 .income-impact-death-line-anchor text {
   fill: #17202c;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 820;
   pointer-events: none;
+}
+
+.income-impact-death-line-anchor[data-income-impact-applied-scenario-selected="false"] {
+  opacity: 0.55;
 }
 
 .income-impact-death-line-anchor[data-income-impact-applied-scenario-selected="true"] circle {
@@ -16527,7 +16531,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 }
 
 .income-impact-death-line-anchor[data-income-impact-applied-scenario-selected="true"] rect {
-  border-color: #227455;
+  fill: rgba(34, 116, 85, 0.06);
   stroke: rgba(34, 116, 85, 0.52);
 }
 

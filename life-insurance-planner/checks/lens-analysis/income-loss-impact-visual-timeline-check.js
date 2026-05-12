@@ -268,7 +268,7 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(22rem, 48vh, 38rem\);/,
+  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(20rem, 44vh, 32rem\);/,
   "Income Impact graph should use a tighter viewport-aware height to reduce letterboxing."
 );
 assert.match(
