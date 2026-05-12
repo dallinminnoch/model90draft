@@ -1157,15 +1157,40 @@
     return commands.join(" ");
   }
 
+  function buildLinearSvgPath(plotPoints) {
+    const points = Array.isArray(plotPoints) ? plotPoints : [];
+    if (points.length < 2) {
+      return "";
+    }
+    const commands = [`M${formatSvgCoordinate(points[0].x)} ${formatSvgCoordinate(points[0].y)}`];
+    for (let index = 1; index < points.length; index += 1) {
+      const point = points[index];
+      commands.push(`L${formatSvgCoordinate(point.x)} ${formatSvgCoordinate(point.y)}`);
+    }
+    return commands.join(" ");
+  }
+
   function normalizeGraphPathMode(pathMode) {
-    return String(pathMode || "").trim() === "step" ? "step" : "smooth";
+    const normalized = String(pathMode || "").trim();
+    if (normalized === "step") {
+      return "step";
+    }
+    if (normalized === "linear") {
+      return "linear";
+    }
+    return "smooth";
   }
 
   function buildSvgPath(points, pathMode = "smooth") {
     const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX);
-    return normalizeGraphPathMode(pathMode) === "step"
-      ? buildStepSvgPath(plotPoints)
-      : buildSmoothedSvgPath(plotPoints);
+    const normalizedPathMode = normalizeGraphPathMode(pathMode);
+    if (normalizedPathMode === "step") {
+      return buildStepSvgPath(plotPoints);
+    }
+    if (normalizedPathMode === "linear") {
+      return buildLinearSvgPath(plotPoints);
+    }
+    return buildSmoothedSvgPath(plotPoints);
   }
 
   function buildDeficitAreaSvgPath(points, zeroYRatio) {
@@ -1298,6 +1323,114 @@
           <line class="income-impact-graph-death-axis" data-income-impact-graph-death-axis x1="${toGraphX(deathX)}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${toGraphX(deathX)}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
           <text class="income-impact-graph-death-label" x="${toGraphX(deathX)}" y="${GRAPH_VIEW_BOX.plotTop - 12}" text-anchor="middle">Death event</text>
         ` : ""}
+      </g>
+    `;
+  }
+
+  function renderDeathEventBridge(graphModel) {
+    const bridge = isPlainObject(graphModel?.series?.deathEventBridge) ? graphModel.series.deathEventBridge : null;
+    const startPoint = isPlainObject(bridge?.startPoint) ? bridge.startPoint : null;
+    const endPoint = isPlainObject(bridge?.endPoint) ? bridge.endPoint : null;
+    const xRatio = toOptionalNumber(bridge?.xRatio);
+    const startYRatio = toOptionalNumber(startPoint?.yRatio);
+    const endYRatio = toOptionalNumber(endPoint?.yRatio);
+    if (!bridge || xRatio == null || startYRatio == null || endYRatio == null) {
+      return "";
+    }
+
+    const x = toGraphX(xRatio) + 8;
+    const startY = toGraphY(startYRatio);
+    const endY = toGraphY(endYRatio);
+    const topY = Math.min(startY, endY);
+    const bottomY = Math.max(startY, endY);
+    const title = "Death event resource bridge: assets and coverage convert into survivor resources.";
+    return `
+      <g
+        class="income-impact-death-event-bridge"
+        data-income-impact-death-event-bridge="${escapeHtml(bridge.id || "deathEventBridge")}"
+        data-income-impact-death-event-bridge-mode="${escapeHtml(bridge.mode || "")}"
+        data-income-impact-death-event-bridge-date="${escapeHtml(bridge.date || "")}"
+        transform="translate(${x} 0)"
+      >
+        <line x1="0" y1="${topY}" x2="0" y2="${bottomY}"></line>
+        <circle class="income-impact-death-event-bridge-point income-impact-death-event-bridge-point--start" data-income-impact-death-event-bridge-point="start" cx="0" cy="${startY}" r="3.4"></circle>
+        <circle class="income-impact-death-event-bridge-point income-impact-death-event-bridge-point--end" data-income-impact-death-event-bridge-point="end" cx="0" cy="${endY}" r="4.2"></circle>
+        <title>${escapeHtml(title)}</title>
+      </g>
+    `;
+  }
+
+  function getDeathLineAnchorLabelPosition(anchor, index) {
+    const x = toGraphX(anchor.xRatio);
+    const y = toGraphY(anchor.yRatio);
+    const label = normalizeString(anchor.label) || "Scenario";
+    const width = Math.min(164, Math.max(86, 18 + (label.length * 7)));
+    const labelX = Math.min(
+      GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - width - 8,
+      Math.max(GRAPH_VIEW_BOX.plotLeft + 6, x + 14)
+    );
+    const labelY = clampNumber(
+      y + (index % 2 === 0 ? -22 : 24),
+      GRAPH_VIEW_BOX.plotTop + 12,
+      GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 16
+    );
+    return {
+      x,
+      y,
+      labelX,
+      labelY,
+      width,
+      height: 20,
+      connectorX: labelX,
+      connectorY: labelY - 6
+    };
+  }
+
+  function renderAppliedScenarioDeathLineAnchors(graphModel) {
+    const anchors = (Array.isArray(graphModel?.series?.appliedRunwayScenarios)
+      ? graphModel.series.appliedRunwayScenarios
+      : [])
+      .map(function (series) {
+        return isPlainObject(series?.deathLineAnchor) ? series.deathLineAnchor : null;
+      })
+      .filter(function (anchor) {
+        return anchor
+          && toOptionalNumber(anchor.xRatio) != null
+          && toOptionalNumber(anchor.yRatio) != null;
+      })
+      .slice(0, 2);
+    if (!anchors.length) {
+      return "";
+    }
+
+    return `
+      <g class="income-impact-death-line-anchors" data-income-impact-death-line-anchors>
+        ${anchors.map(function (anchor, index) {
+          const label = normalizeString(anchor.label) || "Scenario";
+          const position = getDeathLineAnchorLabelPosition(anchor, index);
+          const selected = anchor.selected === true;
+          return `
+            <g
+              class="income-impact-death-line-anchor"
+              data-income-impact-death-line-anchor
+              data-income-impact-scenario-select="${escapeHtml(anchor.scenarioId || "")}"
+              data-income-impact-applied-scenario-id="${escapeHtml(anchor.scenarioId || "")}"
+              data-income-impact-applied-scenario-label="${escapeHtml(label)}"
+              data-income-impact-applied-scenario-selected="${selected ? "true" : "false"}"
+              data-income-impact-death-line-anchor-role="${escapeHtml(anchor.scenarioRole || "")}"
+              role="button"
+              tabindex="0"
+              aria-pressed="${selected ? "true" : "false"}"
+              aria-label="${escapeHtml(label)} at the death line"
+            >
+              <line x1="${position.x}" y1="${position.y}" x2="${position.connectorX}" y2="${position.connectorY}"></line>
+              <circle cx="${position.x}" cy="${position.y}" r="${selected ? "4.6" : "3.8"}"></circle>
+              <rect x="${position.labelX}" y="${position.labelY - 18}" width="${position.width}" height="${position.height}" rx="6"></rect>
+              <text data-income-impact-death-line-label x="${position.labelX + 9}" y="${position.labelY - 4}">${escapeHtml(label)}</text>
+              <title>${escapeHtml(label)} death-line anchor</title>
+            </g>
+          `;
+        }).join("")}
       </g>
     `;
   }
@@ -2195,9 +2328,10 @@
     const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
     const preDeathPath = appliedPreDeathPaths
       || renderGraphPath(PRE_DEATH_ASSETS_PATH_ID, graphModel?.series?.preDeathAssets, "Projected assets before death");
-    const deathPath = renderGraphPath("deathTransition", graphModel?.series?.deathTransition, "Death-event resource conversion");
+    const deathEventBridge = renderDeathEventBridge(graphModel);
     const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
+    const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
     return `
       <svg
         class="income-impact-graph-svg"
@@ -2211,10 +2345,10 @@
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
           ${preDeathPath}
-          ${deathPath}
+          ${deathEventBridge}
           ${appliedScenarioPaths}
           ${comparisonPaths}
-          ${renderGraphDeathAnchor(graphModel)}
+          ${deathLineAnchors || renderGraphDeathAnchor(graphModel)}
           ${renderAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId)}
         </g>
         ${renderGraphMarkers(graphModel)}

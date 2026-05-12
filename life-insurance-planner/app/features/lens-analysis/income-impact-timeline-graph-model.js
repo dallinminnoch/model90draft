@@ -9,9 +9,11 @@
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
+  const DEATH_EVENT_BRIDGE_ID = "deathEventBridge";
   const MAX_RENDERED_APPLIED_SCENARIOS = 2;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
+  const GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON = "survivorRunwayComparison";
   const DISPLAY_HORIZON_MODE_AUTO_DEPLETION = "autoFromAppliedScenarioDepletion";
   const VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY = "fixedZeroRunway";
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
@@ -26,7 +28,7 @@
   const POST_DEPLETION_DISPLAY_PADDING_MONTHS = 24;
   const DISPLAY_HORIZON_ROUNDING_MONTHS = 5 * MONTHS_PER_YEAR;
   const DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
-  const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30]);
+  const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30, 40]);
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -612,21 +614,13 @@
       return [];
     }
 
-    const selectedRecord = seriesRecords.find(function (series) {
-      return series.selected;
-    });
-    const orderedRecords = (selectedRecord
-      ? [selectedRecord].concat(seriesRecords.filter(function (series) {
-        return series.scenarioId !== selectedRecord.scenarioId;
-      }))
-      : seriesRecords
-    ).slice(0, MAX_RENDERED_APPLIED_SCENARIOS);
-
-    return orderedRecords.map(function (series, renderIndex) {
+    return seriesRecords.slice(0, MAX_RENDERED_APPLIED_SCENARIOS).map(function (series, renderIndex) {
       return Object.assign({}, series, {
         pathId: getAppliedScenarioPostDeathPathId(renderIndex),
         preDeathPathId: getAppliedScenarioPreDeathPathId(renderIndex),
-        pathMode: "smooth",
+        pathMode: "linear",
+        preDeathPathMode: "linear",
+        scenarioRole: renderIndex === 0 ? "baseline" : "comparison",
         renderIndex
       });
     });
@@ -653,6 +647,51 @@
 
   function cloneRunwayPoint(point) {
     return clonePlainValue(point);
+  }
+
+  function buildScenarioDeathLineAnchor(series, yDomain, projection) {
+    const contextPoints = Array.isArray(series?.preDeathContextPoints) ? series.preDeathContextPoints : [];
+    const contextTarget = contextPoints.length ? contextPoints[contextPoints.length - 1] : null;
+    const deathValue = toOptionalNumber(
+      series?.projectedNetWorthAtDeath
+        ?? contextTarget?.value
+        ?? series?.points?.[0]?.value
+    );
+    const deathXRatio = toOptionalNumber(projection?.deathXRatio) ?? DEATH_RELATIVE_DEATH_X_RATIO;
+    const deathDate = normalizeDateOnly(projection?.deathDate || series?.deathDate || contextTarget?.date);
+    if (deathValue == null || !deathDate) {
+      return null;
+    }
+
+    return {
+      id: `${series.scenarioId || "applied-scenario"}-death-line-anchor`,
+      scenarioId: series.scenarioId,
+      label: normalizeString(series.deathLineLabel || series.label) || "Applied scenario",
+      scenarioRole: series.scenarioRole || null,
+      selected: Boolean(series.selected),
+      pathId: series.pathId || null,
+      preDeathPathId: series.preDeathPathId || null,
+      date: deathDate,
+      phase: "deathEvent",
+      value: deathValue,
+      rawValue: deathValue,
+      displayedValue: deathValue,
+      xRatio: deathXRatio,
+      yRatio: getValueRatio(deathValue, yDomain),
+      relativeMonthsFromDeath: 0,
+      relativeYearsFromDeath: 0,
+      sourcePath: contextTarget?.sourcePath || series?.sourcePath || null,
+      sourcePaths: Array.isArray(contextTarget?.sourcePaths) ? clonePlainValue(contextTarget.sourcePaths) : [],
+      trace: {
+        identityAnchor: true,
+        displayOnlyScenarioLabel: true,
+        preDeathContextDisplayOnly: contextTarget?.trace?.preDeathContextDisplayOnly === true,
+        rawDatePreserved: true,
+        rawValuePreserved: true,
+        deathAlignedToSharedAnchor: true,
+        xProjectionMode: projection?.mode || null
+      }
+    };
   }
 
   function cloneDeficitPoint(point, yDomain) {
@@ -822,6 +861,10 @@
       fundedRunwayPoints,
       deficitPoints,
       depletionPoint: depletionPoint ? cloneRunwayPoint(depletionPoint) : null,
+      deathLineAnchor: buildScenarioDeathLineAnchor(series, yDomain, projection),
+      pathMode: series.pathMode || "linear",
+      preDeathPathMode: series.preDeathPathMode || "linear",
+      scenarioRole: series.scenarioRole || null,
       trace: {
         rawValuesPreserved: true,
         rawPointCount: rawPoints.length,
@@ -841,7 +884,8 @@
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: isPlainObject(projection),
         calculationHorizonPreserved: true,
-        xProjectionMode: isPlainObject(projection) ? projection.mode : null
+        xProjectionMode: isPlainObject(projection) ? projection.mode : null,
+        graphContractMode: GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON
       }
     };
   }
@@ -863,8 +907,7 @@
   }
 
   function getComparisonPathMode(comparisonScenario, kind, pathId) {
-    const explicitMode = String(comparisonScenario?.pathMode || comparisonScenario?.renderMode || "").trim();
-    return "smooth";
+    return "linear";
   }
 
   function isCompleteGraphComparison(comparisonScenario, comparisonSeries) {
@@ -1218,6 +1261,44 @@
     };
   }
 
+  function buildDeathEventBridge(deathTransition, stages, projection) {
+    const enrichedStages = (Array.isArray(stages) ? stages : []).filter(function (stage) {
+      return isPlainObject(stage)
+        && toOptionalNumber(stage.value) != null
+        && toOptionalNumber(stage.yRatio) != null;
+    });
+    if (!enrichedStages.length) {
+      return null;
+    }
+
+    const firstStage = enrichedStages[0];
+    const lastStage = enrichedStages[enrichedStages.length - 1];
+    const deathXRatio = toOptionalNumber(projection?.deathXRatio) ?? toOptionalNumber(firstStage.xRatio);
+    if (deathXRatio == null) {
+      return null;
+    }
+
+    return {
+      id: DEATH_EVENT_BRIDGE_ID,
+      mode: "deathEventResourceBridge",
+      date: normalizeDateOnly(projection?.deathDate || deathTransition?.date || firstStage.date),
+      age: deathTransition?.age ?? null,
+      xRatio: deathXRatio,
+      startPoint: clonePlainValue(firstStage),
+      endPoint: clonePlainValue(lastStage),
+      stages: enrichedStages.map(clonePlainValue),
+      sourcePaths: Array.isArray(deathTransition?.sourcePaths) ? clonePlainValue(deathTransition.sourcePaths) : [],
+      trace: {
+        displayBridge: true,
+        replacesRawDeathTransitionPath: true,
+        rawValuesPreserved: true,
+        rawDatesPreserved: true,
+        deathAlignedToSharedAnchor: true,
+        xProjectionMode: projection?.mode || null
+      }
+    };
+  }
+
   function buildCallouts(scenario, dates, preDeathMode) {
     const deathEvent = isPlainObject(scenario?.deathEvent) ? scenario.deathEvent : {};
     const facts = isPlainObject(scenario?.timelineFacts) ? scenario.timelineFacts : {};
@@ -1559,6 +1640,35 @@
     return null;
   }
 
+  function getSeriesRunwayEndMonths(series) {
+    if (!isPlainObject(series)) {
+      return null;
+    }
+    const points = Array.isArray(series.points) ? series.points : [];
+    const pointMonths = points
+      .map(function (point) {
+        const monthIndex = toOptionalNumber(point?.monthIndex);
+        if (monthIndex != null && monthIndex >= 0) {
+          return monthIndex;
+        }
+        const deathDate = normalizeDateOnly(series.deathDate);
+        const pointDate = normalizeDateOnly(point?.date);
+        if (deathDate && pointDate) {
+          const dateMonth = getApproximateMonthDelta(deathDate, pointDate);
+          return dateMonth != null && dateMonth >= 0 ? dateMonth : null;
+        }
+        return null;
+      })
+      .filter(function (month) {
+        return month != null && month >= 0;
+      });
+    if (pointMonths.length) {
+      return Math.max(...pointMonths);
+    }
+    const projectionHorizonMonths = toOptionalNumber(series.projectionHorizonMonths);
+    return projectionHorizonMonths != null && projectionHorizonMonths > 0 ? projectionHorizonMonths : null;
+  }
+
   function resolveDeathRelativeDisplayHorizon(dates, activeSeries) {
     const safeDates = isPlainObject(dates) ? dates : {};
     const calculationHorizonMonths = toOptionalNumber(safeDates.projectionHorizonMonths);
@@ -1575,8 +1685,16 @@
     const latestAppliedScenarioDepletionMonths = depletionMonths.length
       ? Math.max(...depletionMonths)
       : null;
+    const runwayEndMonths = (Array.isArray(activeSeries) ? activeSeries : [])
+      .map(getSeriesRunwayEndMonths)
+      .filter(function (month) {
+        return month != null && month >= 0;
+      });
+    const latestAppliedScenarioRunwayEndMonths = runwayEndMonths.length
+      ? Math.max(...runwayEndMonths)
+      : null;
     const visibleDepletionMonths = depletionMonths.filter(function (month) {
-      return calculationHorizonMonths == null || calculationHorizonMonths <= 0 || month <= calculationHorizonMonths;
+      return latestAppliedScenarioRunwayEndMonths == null || month <= latestAppliedScenarioRunwayEndMonths;
     });
     const latestVisibleAppliedScenarioDepletionMonths = visibleDepletionMonths.length
       ? Math.max(...visibleDepletionMonths)
@@ -1585,16 +1703,17 @@
     if (latestVisibleAppliedScenarioDepletionMonths != null) {
       const paddedHorizon = latestVisibleAppliedScenarioDepletionMonths + POST_DEPLETION_DISPLAY_PADDING_MONTHS;
       const roundedHorizon = roundDisplayHorizonMonths(paddedHorizon);
-      const displayHorizonMonths = calculationHorizonMonths != null && calculationHorizonMonths > 0
-        ? Math.min(roundedHorizon, calculationHorizonMonths)
-        : roundedHorizon;
       return {
         displayHorizonMode: DISPLAY_HORIZON_MODE_AUTO_DEPLETION,
-        displayHorizonMonths: clampDisplayHorizonMonths(displayHorizonMonths),
+        displayHorizonMonths: clampDisplayHorizonMonths(roundedHorizon),
         displayHorizonReason: "latest-visible-applied-scenario-depletion",
         calculationHorizonMonths,
         latestAppliedScenarioDepletionMonths,
         latestVisibleAppliedScenarioDepletionMonths,
+        latestAppliedScenarioRunwayEndMonths,
+        displayHorizonBasis: "latestVisibleAppliedScenarioDepletion",
+        postDepletionDisplayPaddingMonths: POST_DEPLETION_DISPLAY_PADDING_MONTHS,
+        displayHorizonRoundingMonths: DISPLAY_HORIZON_ROUNDING_MONTHS,
         displayHorizonAutoSized: true
       };
     }
@@ -1604,6 +1723,22 @@
       && depletionMonths.some(function (month) {
         return month > calculationHorizonMonths;
       });
+    if (latestAppliedScenarioRunwayEndMonths != null) {
+      return {
+        displayHorizonMode: DISPLAY_HORIZON_MODE_AUTO_DEPLETION,
+        displayHorizonMonths: roundDisplayHorizonMonths(latestAppliedScenarioRunwayEndMonths),
+        displayHorizonReason: "latest-visible-applied-scenario-runway-end",
+        calculationHorizonMonths,
+        latestAppliedScenarioDepletionMonths,
+        latestVisibleAppliedScenarioDepletionMonths: null,
+        latestAppliedScenarioRunwayEndMonths,
+        displayHorizonBasis: "latestAppliedScenarioRunwayEnd",
+        postDepletionDisplayPaddingMonths: POST_DEPLETION_DISPLAY_PADDING_MONTHS,
+        displayHorizonRoundingMonths: DISPLAY_HORIZON_ROUNDING_MONTHS,
+        displayHorizonAutoSized: true
+      };
+    }
+
     return {
       displayHorizonMode: DISPLAY_HORIZON_MODE_AUTO_DEPLETION,
       displayHorizonMonths: fallbackHorizonMonths,
@@ -1613,6 +1748,10 @@
       calculationHorizonMonths,
       latestAppliedScenarioDepletionMonths,
       latestVisibleAppliedScenarioDepletionMonths: null,
+      latestAppliedScenarioRunwayEndMonths,
+      displayHorizonBasis: "calculationHorizonFallback",
+      postDepletionDisplayPaddingMonths: POST_DEPLETION_DISPLAY_PADDING_MONTHS,
+      displayHorizonRoundingMonths: DISPLAY_HORIZON_ROUNDING_MONTHS,
       displayHorizonAutoSized: false
     };
   }
@@ -1647,6 +1786,10 @@
       calculationHorizonEndDate,
       latestAppliedScenarioDepletionMonths: displayHorizon.latestAppliedScenarioDepletionMonths,
       latestVisibleAppliedScenarioDepletionMonths: displayHorizon.latestVisibleAppliedScenarioDepletionMonths,
+      latestAppliedScenarioRunwayEndMonths: displayHorizon.latestAppliedScenarioRunwayEndMonths,
+      displayHorizonBasis: displayHorizon.displayHorizonBasis,
+      postDepletionDisplayPaddingMonths: displayHorizon.postDepletionDisplayPaddingMonths,
+      displayHorizonRoundingMonths: displayHorizon.displayHorizonRoundingMonths,
       deathDate,
       valuationDate: normalizeDateOnly(safeDates.valuationDate),
       trace: {
@@ -2050,6 +2193,7 @@
     const basePostDeathDisplaySeries = {
       deathDate: dates.deathDate,
       projectionHorizonMonths: dates.projectionHorizonMonths,
+      points: postDeathResources,
       depletion: getDepletionInfo(postDeathResources, getPath(scenario, "postDeathSeries.depletion"))
     };
     const deathRelativeProjection = makeDeathRelativeRunwayProjection(
@@ -2139,6 +2283,7 @@
       return marker.positionable ? enrichPoint(marker, xDomain, yDomain, deathRelativeProjection, marker.phase || "postDeath") : marker;
     });
     const appliedRunwayScenarios = buildAppliedRunwayScenarios(enrichedAppliedPostDeath, xDomain, yDomain);
+    const deathEventBridge = buildDeathEventBridge(deathTransition, enrichedDeathStages, deathRelativeProjection);
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
 
     const result = {
@@ -2156,6 +2301,7 @@
             }
           : null,
         deathTransition: enrichedDeathStages,
+        deathEventBridge,
         postDeathResources: enrichedPostDeath
       },
       axes: {
@@ -2175,6 +2321,10 @@
           calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
           calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
           latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
+          latestAppliedScenarioRunwayEndMonths: deathRelativeProjection.latestAppliedScenarioRunwayEndMonths,
+          displayHorizonBasis: deathRelativeProjection.displayHorizonBasis,
+          postDepletionDisplayPaddingMonths: deathRelativeProjection.postDepletionDisplayPaddingMonths,
+          displayHorizonRoundingMonths: deathRelativeProjection.displayHorizonRoundingMonths,
           ticks: makeXTicks(dates, xDomain, deathRelativeProjection)
         },
         y: {
@@ -2218,6 +2368,7 @@
           "evaluateIncomeImpactRiskEvents.stableEvents"
         ],
         scenarioModelMode: scenarioInput.scenarioModelMode,
+        graphContractMode: GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON,
         appliedScenarioCount: scenarioInput.appliedScenarioCount,
         selectedScenarioId: scenarioInput.selectedScenarioId,
         selectedAppliedScenarioId: scenarioInput.selectedAppliedScenarioId,
@@ -2233,6 +2384,10 @@
         calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
         calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
         latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
+        latestAppliedScenarioRunwayEndMonths: deathRelativeProjection.latestAppliedScenarioRunwayEndMonths,
+        displayHorizonBasis: deathRelativeProjection.displayHorizonBasis,
+        postDepletionDisplayPaddingMonths: deathRelativeProjection.postDepletionDisplayPaddingMonths,
+        displayHorizonRoundingMonths: deathRelativeProjection.displayHorizonRoundingMonths,
         verticalScaleMode: yDomain.verticalScaleMode,
         zeroYRatio: yDomain.zeroYRatio,
         fundedRunwayHeightRatio: yDomain.fundedRunwayHeightRatio,
@@ -2250,6 +2405,8 @@
         noFinancialCalculationsPerformed: true,
         noFakePoints: true,
         noBackcast: true,
+        deathEventBridgeMode: deathEventBridge?.mode || null,
+        rawDeathTransitionPathRendered: false,
         noLocalScaleOverlay: true,
         statement: "This helper builds a display-only graph model from the composed Income Impact scenario and Layer 4 risk events."
       }
@@ -2267,6 +2424,11 @@
     if (appliedRunwayScenarios.length) {
       result.series.appliedRunwayScenarios = appliedRunwayScenarios;
       result.trace.appliedRunwayScenarioCount = appliedRunwayScenarios.length;
+      result.trace.renderedAppliedScenarioCount = appliedRunwayScenarios.length;
+      result.trace.stableAppliedScenarioOrder = true;
+      result.trace.appliedScenarioPathIds = appliedRunwayScenarios.map(function (series) {
+        return series.pathId;
+      });
       result.trace.appliedRunwayContractEnabled = true;
       result.trace.appliedPreDeathContextEnabled = appliedRunwayScenarios.some(function (series) {
         return Array.isArray(series.preDeathContextPoints) && series.preDeathContextPoints.length > 0;
@@ -2287,7 +2449,9 @@
       result.trace.appliedScenarioPathIds = enrichedAppliedPostDeath.map(function (series) {
         return series.pathId;
       });
-      result.trace.selectedAppliedScenarioPathId = POST_DEATH_RESOURCES_PATH_ID;
+      result.trace.selectedAppliedScenarioPathId = (enrichedAppliedPostDeath.find(function (series) {
+        return series.selected === true;
+      }) || enrichedAppliedPostDeath[0])?.pathId || null;
     }
 
     if (comparisonEarlyDetail) {

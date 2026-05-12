@@ -84,6 +84,23 @@ function makeGraphModel(mode = "forward-projection") {
         { id: "before-obligations", value: 850000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.04 },
         { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 }
       ],
+      deathEventBridge: {
+        id: "deathEventBridge",
+        mode: "deathEventResourceBridge",
+        date: "2031-04-29",
+        xRatio: mode === "current-point-only" ? 0 : 0.25,
+        startPoint: { id: "assets-before-death", value: 600000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.14 },
+        endPoint: { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 },
+        stages: [
+          { id: "assets-before-death", value: 600000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.14 },
+          { id: "after-obligations", value: 720000, xRatio: mode === "current-point-only" ? 0 : 0.25, yRatio: 0.09 }
+        ],
+        trace: {
+          displayBridge: true,
+          replacesRawDeathTransitionPath: true,
+          rawValuesPreserved: true
+        }
+      },
       postDeathResources: [
         { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
         { date: "2040-04-29", monthIndex: 108, value: 120000, xRatio: 0.72, yRatio: 0.58 },
@@ -195,6 +212,11 @@ assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
 assert.match(displaySource, /data-income-impact-runway-depletion-marker/);
+assert.match(displaySource, /renderDeathEventBridge/);
+assert.match(displaySource, /data-income-impact-death-event-bridge/);
+assert.match(displaySource, /renderAppliedScenarioDeathLineAnchors/);
+assert.match(displaySource, /data-income-impact-death-line-anchor/);
+assert.match(displaySource, /buildLinearSvgPath/);
 assert.match(displaySource, /renderLifestyleImpactReadout/);
 assert.match(displaySource, /data-income-impact-lifestyle-impact-readout/);
 assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
@@ -212,6 +234,8 @@ assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
+assert.match(componentsSource, /\.income-impact-death-event-bridge/);
+assert.match(componentsSource, /\.income-impact-death-line-anchor/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
@@ -291,7 +315,8 @@ const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /data-income-impact-graph/);
 assert.match(timelineHtml, /data-income-impact-graph-svg/);
 assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
-assert.match(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
+assert.match(timelineHtml, /data-income-impact-death-event-bridge="deathEventBridge"/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"|data-income-impact-graph-path="compression-post-death-resources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
@@ -351,11 +376,24 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
     label: "Death in 5 years",
     pathId: "postDeathResources",
     preDeathPathId: "preDeathAssets",
+    pathMode: "linear",
+    preDeathPathMode: "linear",
+    scenarioRole: "baseline",
     selected: true,
     rawPoints: selectedRawPoints,
     preDeathContextPoints: selectedPreDeathContextPoints,
     projectedNetWorthAtDeath: 760000,
     deathLineLabel: "Death in 5 years",
+    deathLineAnchor: {
+      scenarioId: "income-impact-death-in-5-years",
+      label: "Death in 5 years",
+      scenarioRole: "baseline",
+      selected: true,
+      xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio,
+      yRatio: 0.12,
+      value: 760000,
+      date: "2042-04-29"
+    },
     fundedRunwayPoints: selectedRawPoints.slice(0, 2).concat([selectedZeroPoint]),
     deficitPoints: [selectedZeroPoint, selectedRawPoints[2]],
     depletionPoint: selectedZeroPoint,
@@ -369,11 +407,24 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
     label: "Death tomorrow",
     pathId: "postDeathResources--scenario-2",
     preDeathPathId: "preDeathAssets--scenario-2",
+    pathMode: "linear",
+    preDeathPathMode: "linear",
+    scenarioRole: "comparison",
     selected: false,
     rawPoints: secondRawPoints,
     preDeathContextPoints: secondPreDeathContextPoints,
     projectedNetWorthAtDeath: 600000,
     deathLineLabel: "Death tomorrow",
+    deathLineAnchor: {
+      scenarioId: "income-impact-current-scenario",
+      label: "Death tomorrow",
+      scenarioRole: "comparison",
+      selected: false,
+      xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio,
+      yRatio: 0.14,
+      value: 600000,
+      date: "2031-04-29"
+    },
     fundedRunwayPoints: secondRawPoints.slice(0, 2).concat([secondZeroPoint]),
     deficitPoints: [secondZeroPoint, secondRawPoints[2]],
     depletionPoint: secondZeroPoint,
@@ -404,6 +455,9 @@ assert.match(
 );
 assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death in 5 years"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death tomorrow"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-anchor[\s\S]*Death in 5 years/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-anchor[\s\S]*Death tomorrow/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path-mode="linear"/);
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
   2,
@@ -555,6 +609,7 @@ currentGraphModel.series.comparisonPostDeathResources = [
     kind: "lifestyleComparison",
     pathId: "lifestyle-post-death-resources",
     label: "Lifestyle-adjusted projection",
+    pathMode: "linear",
     points: currentComparisonPoints
   }
 ];
@@ -593,6 +648,7 @@ comparisonGraphModel.series.comparisonPostDeathResources = [
     kind: "lifestyleComparison",
     pathId: "lifestyle-post-death-resources",
     label: "Lifestyle-adjusted projection",
+    pathMode: "linear",
     points: conservativeComparisonPoints
   }
 ];
@@ -677,7 +733,7 @@ assert.equal(
   1,
   "Only one lifestyle comparison path should render."
 );
-assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"[^>]*data-income-impact-graph-path-mode="smooth"/);
+assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"[^>]*data-income-impact-graph-path-mode="linear"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
 assert.match(comparisonTimelineHtml, /Base projection/);
 assert.match(comparisonTimelineHtml, /Lifestyle-adjusted projection/);
@@ -705,8 +761,8 @@ const repeatedComparisonTimelineHtml = harness.renderTimeline({
 });
 const immediatePath = getPathD(comparisonTimelineHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
 const repeatedImmediatePath = getPathD(repeatedComparisonTimelineHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
-assert.match(immediatePath, /^M[^"]*\sC\s/, "Lifestyle comparison path should render with deterministic cubic smoothing.");
-assert.equal(immediatePath, repeatedImmediatePath, "Smoothed comparison path output should be deterministic.");
+assert.match(immediatePath, /^M[^"]*\sL[0-9.-]/, "Lifestyle comparison path should render as truthful straight segments.");
+assert.equal(immediatePath, repeatedImmediatePath, "Linear comparison path output should be deterministic.");
 assert.equal(
   (comparisonTimelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
   (timelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
@@ -836,7 +892,8 @@ const currentAgeHtml = harness.renderTimeline({
 assert.doesNotMatch(currentAgeHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.match(currentAgeHtml, /data-income-impact-graph-current-anchor/);
 assert.match(currentAgeHtml, /No prior modeled trend for current-age death\./);
-assert.match(currentAgeHtml, /data-income-impact-graph-path="deathTransition"/);
+assert.match(currentAgeHtml, /data-income-impact-death-event-bridge="deathEventBridge"/);
+assert.doesNotMatch(currentAgeHtml, /data-income-impact-graph-path="deathTransition"/);
 assert.match(currentAgeHtml, /data-income-impact-graph-path="postDeathResources"/);
 
 const unavailableHtml = harness.renderTimeline({
