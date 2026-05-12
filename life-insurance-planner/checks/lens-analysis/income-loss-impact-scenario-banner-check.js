@@ -354,29 +354,10 @@ function createHarness() {
             const selectedScenario = appliedScenarios.find(function (scenario) {
               return scenario?.scenarioId === selectedScenarioId;
             }) || appliedScenarios[0];
-            const orderedScenarios = selectedScenario
-              ? [selectedScenario].concat(appliedScenarios.filter(function (scenario) {
-                return scenario?.scenarioId !== selectedScenario.scenarioId;
-              }))
-              : [];
             const postDeathResources = [
               { xRatio: 0.1, yRatio: 0.42, value: input.scenario?.timelineFacts?.resourcesAfterObligations },
               { xRatio: 0.8, yRatio: 0.8, value: 0 }
             ];
-            const appliedPostDeathResources = orderedScenarios.slice(0, 2).map(function (scenario, index) {
-              return {
-                scenarioId: scenario.scenarioId,
-                label: scenario.label,
-                pathId: index === 0 ? "postDeathResources" : `postDeathResources--scenario-${index + 1}`,
-                selected: scenario.scenarioId === selectedScenarioId,
-                points: index === 0
-                  ? postDeathResources
-                  : [
-                    { xRatio: 0.16, yRatio: 0.36, value: scenario.scenario?.timelineFacts?.resourcesAfterObligations },
-                    { xRatio: 0.72, yRatio: 0.74, value: 0 }
-                  ]
-              };
-            });
             const series = {
               preDeathAssets: [],
               currentAnchor: {
@@ -389,6 +370,21 @@ function createHarness() {
                 { xRatio: 0, yRatio: 0.4, value: input.scenario?.timelineFacts?.resourcesAfterObligations }
               ],
               postDeathResources,
+              appliedRunwayScenarios: selectedScenario
+                ? [
+                    {
+                      scenarioId: selectedScenario.scenarioId,
+                      label: selectedScenario.label,
+                      pathId: "postDeathResources",
+                      selected: true,
+                      fundedRunwayPoints: postDeathResources,
+                      trace: {
+                        renderSource: "fundedRunwayPoints",
+                        selectedOnlyHarness: true
+                      }
+                    }
+                  ]
+                : [],
               appliedScenarioKeyItems: appliedScenarios.map(function (scenario) {
                 return {
                   scenarioId: scenario.scenarioId,
@@ -397,9 +393,6 @@ function createHarness() {
                 };
               })
             };
-            if (appliedPostDeathResources.length > 1) {
-              series.appliedPostDeathResources = appliedPostDeathResources;
-            }
             return {
               status: "complete",
               phases: {
@@ -613,6 +606,11 @@ assert.match(componentsSource, /data-income-impact-reevaluate-state="active"/);
 assert.match(componentsSource, /data-income-impact-draft-state="dirty"[\s\S]*data-income-impact-reevaluate/);
 assert.match(componentsSource, /data-income-impact-scenario-select/);
 assert.match(componentsSource, /data-income-impact-applied-scenario-selected="true"/);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-graph-path--preDeathAssets--scenario-2|\.income-impact-graph-path--postDeathResources--scenario-2|\.income-impact-graph-path\[data-income-impact-scenario-select\]/,
+  "Selected-only graph behavior should not restore retired simultaneous scenario path styling or path-click affordances."
+);
 assert.match(
   componentsSource,
   /@media \(max-width: 980px\)[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(8rem, 1fr\)\);/,

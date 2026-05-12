@@ -225,7 +225,6 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
-assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-bridge/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-net-worth/);
@@ -235,7 +234,6 @@ assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-no
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-label/);
 assert.match(componentsSource, /\.income-impact-death-line-anchor/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
-assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-label/);
@@ -249,6 +247,11 @@ assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-in
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-graph-path--preDeathAssets--scenario-2|\.income-impact-graph-path--postDeathResources--scenario-2|\.income-impact-graph-path\[data-income-impact-scenario-select\]/,
+  "Selected-only graph behavior should not restore retired simultaneous scenario path styling or path-click affordances."
+);
 assert.match(
   componentsSource,
   /\.income-impact-graph-path[\s\S]*stroke-width:\s*2;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
