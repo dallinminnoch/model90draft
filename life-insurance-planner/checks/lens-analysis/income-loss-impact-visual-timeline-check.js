@@ -190,6 +190,8 @@ assert.match(displaySource, /data-income-impact-graph-svg/);
 assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
 assert.match(displaySource, /deficitPoints/);
+assert.match(displaySource, /preDeathContextPoints/);
+assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
 assert.match(displaySource, /data-income-impact-runway-depletion-marker/);
@@ -208,6 +210,7 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
+assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets--scenario-2/);
 assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources--scenario-2/);
@@ -312,12 +315,20 @@ assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should ren
 const multiAppliedGraphModel = makeGraphModel();
 const selectedZeroPoint = { date: "2042-04-29", monthIndex: 132, value: 0, xRatio: 0.84, yRatio: multiAppliedGraphModel.axes.y.zeroYRatio };
 const selectedRawPoints = multiAppliedGraphModel.series.postDeathResources;
+const selectedPreDeathContextPoints = [
+  { date: "2037-04-29", monthIndex: 72, value: 620000, xRatio: 0.04, yRatio: 0.19 },
+  { date: "2042-04-29", monthIndex: 132, value: 760000, xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio, yRatio: 0.12 }
+];
 const secondRawPoints = [
   { date: "2027-04-29", monthIndex: 12, value: 610000, xRatio: 0.2, yRatio: 0.16 },
   { date: "2036-04-29", monthIndex: 120, value: 90000, xRatio: 0.68, yRatio: 0.6 },
   { date: "2041-04-29", monthIndex: 180, value: -130000, xRatio: 0.86, yRatio: 0.78 }
 ];
 const secondZeroPoint = { date: "2039-04-29", monthIndex: 156, value: 0, xRatio: 0.78, yRatio: multiAppliedGraphModel.axes.y.zeroYRatio };
+const secondPreDeathContextPoints = [
+  { date: "2026-04-29", monthIndex: 0, value: 500000, xRatio: 0.02, yRatio: 0.24 },
+  { date: "2031-04-29", monthIndex: 60, value: 600000, xRatio: multiAppliedGraphModel.phases.deathEvent.xRatio, yRatio: 0.14 }
+];
 multiAppliedGraphModel.series.appliedPostDeathResources = [
   {
     scenarioId: "income-impact-death-in-5-years",
@@ -339,8 +350,12 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
     scenarioId: "income-impact-death-in-5-years",
     label: "Death in 5 years",
     pathId: "postDeathResources",
+    preDeathPathId: "preDeathAssets",
     selected: true,
     rawPoints: selectedRawPoints,
+    preDeathContextPoints: selectedPreDeathContextPoints,
+    projectedNetWorthAtDeath: 760000,
+    deathLineLabel: "Death in 5 years",
     fundedRunwayPoints: selectedRawPoints.slice(0, 2).concat([selectedZeroPoint]),
     deficitPoints: [selectedZeroPoint, selectedRawPoints[2]],
     depletionPoint: selectedZeroPoint,
@@ -353,8 +368,12 @@ multiAppliedGraphModel.series.appliedRunwayScenarios = [
     scenarioId: "income-impact-current-scenario",
     label: "Death tomorrow",
     pathId: "postDeathResources--scenario-2",
+    preDeathPathId: "preDeathAssets--scenario-2",
     selected: false,
     rawPoints: secondRawPoints,
+    preDeathContextPoints: secondPreDeathContextPoints,
+    projectedNetWorthAtDeath: 600000,
+    deathLineLabel: "Death tomorrow",
     fundedRunwayPoints: secondRawPoints.slice(0, 2).concat([secondZeroPoint]),
     deficitPoints: [secondZeroPoint, secondRawPoints[2]],
     depletionPoint: secondZeroPoint,
@@ -371,6 +390,20 @@ const multiAppliedTimelineHtml = harness.renderTimeline({
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-source="fundedRunwayPoints"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets--scenario-2"/);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-graph-path="preDeathAssets"[\s\S]*data-income-impact-pre-death-source="preDeathContextPoints"/,
+  "Selected applied scenario should render its pre-death net worth context from the runway contract."
+);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-graph-path="preDeathAssets--scenario-2"[\s\S]*data-income-impact-pre-death-source="preDeathContextPoints"/,
+  "Second applied scenario should render its own pre-death net worth context."
+);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death in 5 years"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death tomorrow"/);
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
   2,
@@ -397,6 +430,52 @@ assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-deficit-area=/g) || []).length,
   1,
   "V1 should render one selected-scenario deficit area, not a filled area for every scenario."
+);
+const clippedDeficitGraphModel = makeGraphModel();
+const clippedDeficitZeroPoint = { date: "2038-04-29", monthIndex: 84, value: 0, xRatio: 0.6, yRatio: clippedDeficitGraphModel.axes.y.zeroYRatio };
+clippedDeficitGraphModel.series.appliedRunwayScenarios = [
+  {
+    scenarioId: "income-impact-clipped-deficit",
+    label: "Clipped deficit",
+    pathId: "postDeathResources",
+    selected: true,
+    rawPoints: [
+      { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
+      clippedDeficitZeroPoint,
+      { date: "2039-04-29", monthIndex: 96, value: -900000, xRatio: 0.72, yRatio: 1, deficitVisualClipped: true },
+      { date: "2040-04-29", monthIndex: 108, value: -1500000, xRatio: 0.84, yRatio: 1, deficitVisualClipped: true },
+      { date: "2041-04-29", monthIndex: 120, value: -2400000, xRatio: 0.96, yRatio: 1, deficitVisualClipped: true }
+    ],
+    fundedRunwayPoints: [
+      { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
+      clippedDeficitZeroPoint
+    ],
+    deficitPoints: [
+      clippedDeficitZeroPoint,
+      { date: "2039-04-29", monthIndex: 96, value: -900000, xRatio: 0.72, yRatio: 1, deficitVisualClipped: true },
+      { date: "2040-04-29", monthIndex: 108, value: -1500000, xRatio: 0.84, yRatio: 1, deficitVisualClipped: true },
+      { date: "2041-04-29", monthIndex: 120, value: -2400000, xRatio: 0.96, yRatio: 1, deficitVisualClipped: true }
+    ],
+    depletionPoint: clippedDeficitZeroPoint,
+    trace: {
+      rawValuesPreserved: true,
+      depletionDatePreserved: true
+    }
+  }
+];
+const clippedDeficitTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  graphModel: clippedDeficitGraphModel
+});
+const clippedDeficitAreaPath = getPathD(clippedDeficitTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
+const clippedDeficitBottomY = 36 + 318;
+const clippedDeficitBottomYCount = getPathYValues(clippedDeficitAreaPath).filter(function (value) {
+  return Math.abs(value - clippedDeficitBottomY) < 0.01;
+}).length;
+assert.equal(
+  clippedDeficitBottomYCount,
+  1,
+  "Over-cap deficit area should end at the first clipped boundary point instead of drawing a flat bottom rail."
 );
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-runway-depletion-marker(?:\s|>)/g) || []).length,

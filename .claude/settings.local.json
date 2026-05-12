@@ -14,7 +14,12 @@
       "Bash(python -m playwright install chromium)",
       "Bash(pkill -f \"python -m http.server 7421\")",
       "Bash(python -m http.server 7430 --directory .)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:7430/pages/income-loss-impact.html\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:7430/pages/income-loss-impact.html\")",
+      "Bash(/c/Users/dalli/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe --check app/features/lens-analysis/income-loss-impact-display.js)",
+      "Bash(/c/Users/dalli/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe --check checks/lens-analysis/income-loss-impact-scenario-banner-check.js)",
+      "Bash(/c/Users/dalli/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe checks/lens-analysis/income-loss-impact-scenario-banner-check.js)",
+      "Bash(/c/Users/dalli/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe checks/lens-analysis/income-loss-impact-visual-timeline-check.js)",
+      "Bash(/c/Users/dalli/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe checks/lens-analysis/income-loss-impact-compression-reporting-display-check.js)"
     ]
   }
 }

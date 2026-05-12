@@ -11,6 +11,7 @@
   const MAX_LIFESTYLE_SLIDER_VALUE = 100;
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
+  const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const SELECTED_DEFICIT_AREA_ID = "postDeathDeficitArea--selected";
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
@@ -1169,7 +1170,14 @@
 
   function buildDeficitAreaSvgPath(points, zeroYRatio) {
     const zeroRatio = toOptionalNumber(zeroYRatio);
-    const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX);
+    const sourcePoints = Array.isArray(points) ? points : [];
+    const firstClippedIndex = sourcePoints.findIndex(function (point) {
+      return point?.deficitVisualClipped === true;
+    });
+    const pathPoints = firstClippedIndex >= 0
+      ? sourcePoints.slice(0, firstClippedIndex + 1)
+      : sourcePoints;
+    const plotPoints = makePlotPoints(pathPoints, "yRatio", GRAPH_VIEW_BOX);
     if (zeroRatio == null || plotPoints.length < 2) {
       return "";
     }
@@ -1452,6 +1460,29 @@
     }).slice(0, 2);
   }
 
+  function getAppliedPreDeathGraphSeries(graphModel) {
+    const runwaySeries = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
+      ? graphModel.series.appliedRunwayScenarios
+      : [];
+    return runwaySeries
+      .map(function (series, index) {
+        return Object.assign({}, series, {
+          pathId: normalizeString(series.preDeathPathId) || (index === 0
+            ? PRE_DEATH_ASSETS_PATH_ID
+            : `${PRE_DEATH_ASSETS_PATH_ID}--scenario-${index + 1}`),
+          points: Array.isArray(series.preDeathContextPoints) ? series.preDeathContextPoints : [],
+          pathMode: normalizeGraphPathMode(series.preDeathPathMode || "smooth"),
+          trace: Object.assign({}, isPlainObject(series.trace) ? series.trace : {}, {
+            renderSource: "preDeathContextPoints"
+          })
+        });
+      })
+      .filter(function (series) {
+        return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode));
+      })
+      .slice(0, 2);
+  }
+
   function getSelectedAppliedGraphSeries(graphModel, selectedScenarioId = "") {
     const appliedSeries = getAppliedGraphSeries(graphModel);
     const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
@@ -1651,6 +1682,36 @@
           "data-income-impact-applied-scenario-label": label,
           "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false",
           "data-income-impact-runway-source": series.trace?.renderSource || "",
+          "role": "button",
+          "tabindex": "0",
+          "aria-pressed": series.selected === true ? "true" : "false"
+        }
+      );
+    }).join("");
+  }
+
+  function renderAppliedScenarioPreDeathGraphPaths(graphModel) {
+    const appliedSeries = getAppliedPreDeathGraphSeries(graphModel);
+    if (!appliedSeries.length) {
+      return "";
+    }
+    return appliedSeries.map(function (series, index) {
+      const pathId = normalizeString(series.pathId) || (index === 0
+        ? PRE_DEATH_ASSETS_PATH_ID
+        : `${PRE_DEATH_ASSETS_PATH_ID}--scenario-${index + 1}`);
+      const label = normalizeString(series.deathLineLabel || series.label) || "Projected assets before death";
+      return renderGraphPath(
+        pathId,
+        series.points,
+        `${label} net worth before death`,
+        normalizeGraphPathMode(series.pathMode),
+        {
+          "data-income-impact-scenario-select": series.scenarioId || "",
+          "data-income-impact-applied-scenario-id": series.scenarioId || "",
+          "data-income-impact-applied-scenario-label": label,
+          "data-income-impact-applied-scenario-selected": series.selected === true ? "true" : "false",
+          "data-income-impact-pre-death-source": series.trace?.renderSource || "preDeathContextPoints",
+          "data-income-impact-death-line-label": series.deathLineLabel || label,
           "role": "button",
           "tabindex": "0",
           "aria-pressed": series.selected === true ? "true" : "false"
@@ -2131,7 +2192,9 @@
   }
 
   function renderGraphSvg(graphModel) {
-    const preDeathPath = renderGraphPath("preDeathAssets", graphModel?.series?.preDeathAssets, "Projected assets before death");
+    const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
+    const preDeathPath = appliedPreDeathPaths
+      || renderGraphPath(PRE_DEATH_ASSETS_PATH_ID, graphModel?.series?.preDeathAssets, "Projected assets before death");
     const deathPath = renderGraphPath("deathTransition", graphModel?.series?.deathTransition, "Death-event resource conversion");
     const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);

@@ -310,7 +310,63 @@ assert.ok(fiveYearModel.axes.x.ticks.every(function (tick) {
   return tick.axisMode === "deathRelativeYears" && tick.trace.rawDatePreserved === true;
 }));
 assert.equal(fiveYearModel.axes.y.signed, true);
-assert.ok(fiveYearModel.axes.y.zeroYRatio > 0 && fiveYearModel.axes.y.zeroYRatio < 1);
+assert.equal(fiveYearModel.axes.y.verticalScaleMode, "fixedZeroRunway");
+assertApproxEqual(fiveYearModel.axes.y.zeroYRatio, 0.82, "$0 should stay fixed near the bottom of the graph.");
+assertApproxEqual(fiveYearModel.axes.y.fundedRunwayHeightRatio, 0.82, "Funded runway should get most of the graph height.");
+assertApproxEqual(fiveYearModel.axes.y.deficitHeightRatio, 0.18, "Deficit runway should stay visually secondary.");
+assert.equal(fiveYearModel.axes.y.trace.negativeValuesCompressFundedRunway, false);
+assert.equal(fiveYearModel.axes.y.rawDeficitMax, 150000);
+assert.equal(fiveYearModel.axes.y.deficitVisualMax, 150000);
+assert.equal(fiveYearModel.axes.y.deficitVisualScaleMode, "cappedRelativeToFundedRunway");
+assert.equal(fiveYearModel.axes.y.deficitVisualScaleCapped, false);
+assert.equal(fiveYearModel.trace.verticalScaleMode, "fixedZeroRunway");
+assertApproxEqual(fiveYearModel.trace.zeroYRatio, 0.82, "Trace should report the fixed zero baseline.");
+assert.equal(fiveYearModel.trace.rawDeficitMax, 150000);
+assert.equal(fiveYearModel.trace.deficitVisualMax, 150000);
+assert.equal(fiveYearModel.trace.deficitVisualScaleMode, "cappedRelativeToFundedRunway");
+assert.equal(fiveYearModel.trace.deficitVisualScaleCapped, false);
+assert.equal(fiveYearModel.trace.negativeValuesCompressFundedRunway, false);
+assert.deepEqual(
+  cloneJson(fiveYearModel.axes.y.ticks.map(function (tick) { return tick.zone; })),
+  ["fundedRunway", "fundedRunway", "zero", "deficit"],
+  "Fixed-zero runway y-axis ticks should separate funded runway labels from the deficit label."
+);
+assert.equal(
+  fiveYearModel.axes.y.ticks.filter(function (tick) { return tick.zone === "deficit"; }).length,
+  1,
+  "Deficit zone should avoid crowded linear-domain labels."
+);
+assert.ok(
+  fiveYearModel.axes.y.ticks
+    .filter(function (tick) { return tick.zone === "fundedRunway"; })
+    .every(function (tick) { return tick.yRatio < fiveYearModel.axes.y.zeroYRatio; }),
+  "Funded runway y-axis ticks should stay above the fixed zero baseline."
+);
+assert.ok(
+  fiveYearModel.axes.y.ticks
+    .filter(function (tick) { return tick.zone === "deficit"; })
+    .every(function (tick) { return tick.yRatio > fiveYearModel.axes.y.zeroYRatio; }),
+  "Deficit y-axis ticks should stay below the fixed zero baseline."
+);
+assert.ok(
+  fiveYearModel.series.postDeathResources
+    .filter(function (point) { return point.value > 0; })
+    .every(function (point) { return point.yRatio < fiveYearModel.axes.y.zeroYRatio; }),
+  "Positive runway points should map above the fixed zero baseline."
+);
+assert.ok(
+  fiveYearModel.series.postDeathResources
+    .filter(function (point) { return point.value < 0; })
+    .every(function (point) { return point.yRatio > fiveYearModel.axes.y.zeroYRatio; }),
+  "Negative runway values should map into the lower deficit zone."
+);
+const fiveYearPositiveRunwayYRatios = fiveYearModel.series.postDeathResources
+  .filter(function (point) { return point.value > 0; })
+  .map(function (point) { return point.yRatio; });
+assert.ok(
+  Math.max(...fiveYearPositiveRunwayYRatios) - Math.min(...fiveYearPositiveRunwayYRatios) > 0.5,
+  "The current survivor runway should use meaningful vertical space."
+);
 assert.equal(fiveYearModel.markers.filter(function (marker) { return marker.kind === "risk"; }).length, 2);
 assert.equal(fiveYearModel.markers.filter(function (marker) { return marker.kind === "stable"; }).length, 1);
 assert.equal(
@@ -479,6 +535,15 @@ assert.equal(
 );
 assert.equal(noDepletionModel.projection.latestAppliedScenarioDepletionMonths, null);
 assert.equal(noDepletionModel.projection.trace.displayHorizonAutoSized, false);
+assert.equal(noDepletionModel.axes.y.verticalScaleMode, "fixedZeroRunway");
+assertApproxEqual(noDepletionModel.axes.y.zeroYRatio, 0.82, "No-depletion scenarios should keep the fixed zero baseline.");
+assert.equal(noDepletionModel.axes.y.signed, false);
+assert.ok(noDepletionModel.axes.y.deficitMax > 0, "No-depletion scenarios should keep a small documented deficit reserve.");
+assert.equal(
+  noDepletionModel.axes.y.ticks.some(function (tick) { return tick.zone === "deficit"; }),
+  false,
+  "No-depletion scenarios should not show a deficit axis label."
+);
 
 const appliedSingleInput = {
   appliedScenarios: [
@@ -536,6 +601,57 @@ assert.equal(appliedSingleRunway.scenarioId, "income-impact-current-scenario");
 assert.equal(appliedSingleRunway.label, "Death at age 51");
 assert.equal(appliedSingleRunway.selected, true);
 assert.equal(appliedSingleRunway.pathId, "postDeathResources");
+assert.equal(appliedSingleRunway.preDeathPathId, "preDeathAssets");
+assert.equal(appliedSingleRunway.deathLineLabel, "Death at age 51");
+assert.equal(appliedSingleRunway.preDeathContextMode, "reverseCalculatedFromDeathValue");
+assert.equal(appliedSingleRunway.preDeathContextDisplayOnly, true);
+assert.equal(appliedSingleRunway.preDeathContextYears, 5);
+assert.equal(appliedSingleRunway.preDeathContextGrowthSource, "flatFallback");
+assert.equal(
+  appliedSingleRunway.projectedNetWorthAtDeath,
+  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
+  "Applied runway contract should preserve projected net worth at death."
+);
+assert.ok(
+  Array.isArray(appliedSingleRunway.preDeathContextPoints) && appliedSingleRunway.preDeathContextPoints.length === 2,
+  "Future-death applied scenario should carry a display-only five-year pre-death context line."
+);
+assert.equal(appliedSingleRunway.preDeathContextPoints[0].trace.preDeathContextMode, "reverseCalculatedFromDeathValue");
+assert.equal(appliedSingleRunway.preDeathContextPoints[0].trace.preDeathContextDisplayOnly, true);
+assert.equal(appliedSingleRunway.preDeathContextPoints[0].trace.preDeathContextYears, 5);
+assert.equal(appliedSingleRunway.preDeathContextPoints[0].trace.preDeathContextGrowthSource, "flatFallback");
+assert.equal(appliedSingleRunway.preDeathContextPoints[0].trace.noFinancialCalculationChanged, true);
+assert.equal(
+  appliedSingleRunway.preDeathContextPoints[0].relativeMonthsFromDeath,
+  -60,
+  "Display-only pre-death context should start five years before the scenario death date."
+);
+assertApproxEqual(
+  appliedSingleRunway.preDeathContextPoints[0].xRatio,
+  0,
+  "Five-year pre-death context should fill the left-side context zone."
+);
+assert.equal(
+  appliedSingleRunway.preDeathContextPoints[0].value,
+  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
+  "Flat fallback context should reverse-fill from the death-event value."
+);
+assertApproxEqual(
+  appliedSingleRunway.preDeathContextPoints.at(-1).xRatio,
+  appliedSingleModel.projection.deathXRatio,
+  "Applied pre-death context should end at the shared death anchor."
+);
+assert.equal(
+  appliedSingleRunway.preDeathContextPoints.at(-1).value,
+  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
+  "Applied pre-death context should end at the scenario's projected net worth at death."
+);
+assert.equal(
+  appliedSingleRunway.preDeathContextPoints.at(-1).trace.rawValuePreserved,
+  true,
+  "Applied pre-death context should preserve raw projected net worth values."
+);
+assert.equal(appliedSingleRunway.preDeathContextPoints.at(-1).trace.preDeathContextDisplayOnly, true);
 assert.deepEqual(
   cloneJson(appliedSingleRunway.rawPoints.map(function (point) { return point.value; })),
   cloneJson(fiveYearScenario.postDeathSeries.points.map(function (point) { return point.endingResources; })),
@@ -548,6 +664,13 @@ assert.deepEqual(
 );
 assert.equal(appliedSingleRunway.trace.rawValuesPreserved, true);
 assert.equal(appliedSingleRunway.trace.rawDatesPreserved, true);
+assert.equal(appliedSingleRunway.trace.preDeathContextPointCount, appliedSingleRunway.preDeathContextPoints.length);
+assert.equal(appliedSingleRunway.trace.preDeathContextMode, "reverseCalculatedFromDeathValue");
+assert.equal(appliedSingleRunway.trace.preDeathContextDisplayOnly, true);
+assert.equal(appliedSingleRunway.trace.preDeathContextYears, 5);
+assert.equal(appliedSingleRunway.trace.preDeathContextGrowthSource, "flatFallback");
+assert.equal(appliedSingleRunway.trace.projectedNetWorthAtDeathPreserved, true);
+assert.equal(appliedSingleRunway.trace.deathLineLabelPreserved, true);
 assert.equal(appliedSingleRunway.trace.deathAlignedToSharedAnchor, true);
 assert.equal(appliedSingleRunway.trace.calculationHorizonPreserved, true);
 assert.equal(appliedSingleRunway.trace.xProjectionMode, "deathRelativeRunway");
@@ -576,10 +699,140 @@ assert.equal(
   false,
   "Funded runway should not include below-zero resource points."
 );
+assert.ok(
+  appliedSingleRunway.fundedRunwayPoints.every(function (point) {
+    return point.yRatio <= appliedSingleModel.axes.y.zeroYRatio;
+  }),
+  "Applied funded runway points should render above or on the fixed zero baseline."
+);
 assert.equal(
   appliedSingleRunway.deficitPoints.some(function (point) { return point.value < 0 && point.deficitValue > 0; }),
   true,
   "Deficit continuation should separate below-zero resource points with positive deficit values."
+);
+assert.ok(
+  appliedSingleRunway.deficitPoints.every(function (point) {
+    return point.yRatio >= appliedSingleModel.axes.y.zeroYRatio;
+  }),
+  "Applied deficit continuation points should render below or on the fixed zero baseline."
+);
+
+const immediateDeathScenario = makeScenario(0);
+const immediateDeathModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-death-tomorrow",
+      label: "Death tomorrow",
+      settings: {
+        selectedDeathAge: 46,
+        selectedDeathDate: immediateDeathScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(immediateDeathScenario),
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "income-impact-death-tomorrow",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+const immediateDeathRunway = immediateDeathModel.series.appliedRunwayScenarios[0];
+assert.equal(
+  immediateDeathRunway.preDeathContextPoints.length,
+  2,
+  "Death-tomorrow scenarios should still expose a visible display-only pre-death context line."
+);
+assert.equal(immediateDeathRunway.preDeathContextPoints[0].trace.preDeathContextMode, "reverseCalculatedFromDeathValue");
+assert.equal(immediateDeathRunway.preDeathContextPoints[0].trace.preDeathContextDisplayOnly, true);
+assert.equal(immediateDeathRunway.preDeathContextPoints[0].trace.preDeathContextGrowthSource, "flatFallback");
+assert.equal(
+  immediateDeathRunway.preDeathContextPoints[0].relativeMonthsFromDeath,
+  -60,
+  "Death-tomorrow display context should still start five years before the fixed death line."
+);
+assertApproxEqual(
+  immediateDeathRunway.preDeathContextPoints.at(-1).xRatio,
+  immediateDeathModel.projection.deathXRatio,
+  "Death-tomorrow pre-death anchor should sit on the shared death line."
+);
+assert.equal(
+  immediateDeathRunway.projectedNetWorthAtDeath,
+  immediateDeathScenario.preDeathSeries.targetPoint.endingAssets,
+  "Death-tomorrow projected net worth at death should be preserved."
+);
+
+const hugeDeficitScenario = cloneJson(fiveYearScenario);
+hugeDeficitScenario.postDeathSeries.points[2].endingResources = -150000;
+hugeDeficitScenario.postDeathSeries.points[2].accumulatedUnmetNeed = 3000000;
+const hugeDeficitModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-huge-deficit-scenario",
+      label: "Huge deficit scenario",
+      settings: {
+        selectedDeathAge: 51,
+        selectedDeathDate: hugeDeficitScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(hugeDeficitScenario),
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "income-impact-huge-deficit-scenario",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(hugeDeficitModel.axes.y.rawDeficitMax, 3000000, "Raw accumulated deficit should remain preserved.");
+assert.equal(
+  hugeDeficitModel.axes.y.deficitVisualScaleCapped,
+  true,
+  "Large raw deficits should be visually capped relative to the funded runway."
+);
+assertApproxEqual(
+  hugeDeficitModel.axes.y.deficitVisualMax,
+  hugeDeficitModel.axes.y.rawPositiveMax * 0.75,
+  "Deficit visual max should be capped relative to funded runway max."
+);
+assert.ok(
+  Math.abs(hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.zone === "deficit"; }).value)
+    < hugeDeficitModel.axes.y.rawDeficitMax,
+  "Deficit axis label should reflect visual scale instead of the raw multi-million accumulated deficit."
+);
+assert.equal(
+  hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.zone === "deficit"; }).rawValue,
+  -3000000,
+  "Deficit axis tick should retain raw deficit metadata when visual scale is capped."
+);
+const hugeDeficitRunway = hugeDeficitModel.series.appliedRunwayScenarios[0];
+const hugeDeficitFinalPoint = hugeDeficitRunway.deficitPoints.at(-1);
+assert.equal(hugeDeficitFinalPoint.deficitValue, 3000000);
+assert.equal(hugeDeficitFinalPoint.accumulatedUnmetNeed, 3000000);
+assert.equal(hugeDeficitFinalPoint.value, -150000);
+assert.equal(hugeDeficitFinalPoint.deficitVisualScaleCapped, true);
+assert.equal(hugeDeficitFinalPoint.deficitVisualClipped, true);
+assert.equal(hugeDeficitFinalPoint.trace.deficitVisualClipped, true);
+assertApproxEqual(
+  hugeDeficitFinalPoint.yRatio,
+  1,
+  "Deficit values beyond the visual cap should be projected to the clipping boundary."
+);
+assert.equal(
+  hugeDeficitRunway.rawPoints.at(-1).accumulatedUnmetNeed,
+  3000000,
+  "Runway raw points should preserve accumulated unmet need."
+);
+assert.equal(
+  hugeDeficitRunway.rawPoints.at(-1).value,
+  -150000,
+  "Runway raw points should preserve signed ending resources."
 );
 
 const tenYearScenario = makeScenario(10);
@@ -663,6 +916,58 @@ assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.pathId; })),
   ["postDeathResources", "postDeathResources--scenario-2"],
   "Runway contracts should preserve deterministic applied scenario path IDs."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.preDeathPathId; })),
+  ["preDeathAssets", "preDeathAssets--scenario-2"],
+  "Runway contracts should preserve deterministic applied scenario pre-death path IDs."
+);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.deathLineLabel; })),
+  ["Death in 10 years", "Death tomorrow"],
+  "Runway contracts should carry scenario death-line labels."
+);
+assert.equal(
+  appliedMultiModel.series.appliedRunwayScenarios[0].projectedNetWorthAtDeath,
+  tenYearScenario.preDeathSeries.targetPoint.endingAssets,
+  "Selected future-death scenario should preserve projected net worth at death."
+);
+assert.equal(
+  appliedMultiModel.series.appliedRunwayScenarios[1].projectedNetWorthAtDeath,
+  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
+  "Non-selected future-death scenario should preserve projected net worth at death."
+);
+assert.ok(
+  appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
+    return Array.isArray(series.preDeathContextPoints) && series.preDeathContextPoints.length === 2;
+  }),
+  "Each applied scenario should expose a display-only pre-death context line."
+);
+assert.ok(
+  appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
+    return series.preDeathContextPoints[0].relativeMonthsFromDeath === -appliedMultiModel.projection.preDeathContextMonths;
+  }),
+  "Visible pre-death context should start at the configured before-death window."
+);
+assert.ok(
+  appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
+    return series.preDeathContextPoints[0].trace.preDeathContextMode === "reverseCalculatedFromDeathValue"
+      && series.preDeathContextPoints[0].trace.preDeathContextDisplayOnly === true
+      && series.preDeathContextPoints[0].trace.preDeathContextGrowthSource === "flatFallback";
+  }),
+  "Each applied scenario pre-death context should be clearly marked as display-only flat fallback context."
+);
+assert.ok(
+  appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
+    return Math.abs(series.preDeathContextPoints.at(-1).xRatio - appliedMultiModel.projection.deathXRatio) <= 0.000001;
+  }),
+  "Each applied pre-death context should end at the shared death anchor."
+);
+assert.equal(appliedMultiModel.trace.appliedPreDeathContextEnabled, true);
+assert.deepEqual(
+  cloneJson(appliedMultiModel.trace.appliedPreDeathContextPathIds),
+  ["preDeathAssets", "preDeathAssets--scenario-2"],
+  "Trace should expose renderable pre-death context path IDs."
 );
 assert.equal(
   appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.date,

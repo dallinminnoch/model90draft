@@ -16501,6 +16501,11 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   stroke: #4054b8;
 }
 
+.income-impact-graph-path--preDeathAssets--scenario-2 {
+  stroke: #a15c12;
+  stroke-dasharray: 5 4;
+}
+
 .income-impact-graph-path--deathTransition {
   stroke: #17202c;
   stroke-dasharray: 6 6;

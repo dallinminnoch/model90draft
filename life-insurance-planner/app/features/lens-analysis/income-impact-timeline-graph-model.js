@@ -7,12 +7,18 @@
   const COMPRESSION_EARLY_DETAIL_WINDOW_MONTHS = 24;
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
+  const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const MAX_RENDERED_APPLIED_SCENARIOS = 2;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
   const DISPLAY_HORIZON_MODE_AUTO_DEPLETION = "autoFromAppliedScenarioDepletion";
+  const VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY = "fixedZeroRunway";
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
+  const FIXED_ZERO_Y_RATIO = 0.82;
+  const FUNDED_RUNWAY_HEIGHT_RATIO = FIXED_ZERO_Y_RATIO;
+  const DEFICIT_HEIGHT_RATIO = 1 - FIXED_ZERO_Y_RATIO;
+  const DEFICIT_VISUAL_MAX_TO_FUNDED_RATIO = 0.75;
   const DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS = 5;
   const MONTHS_PER_YEAR = 12;
   const MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 10 * MONTHS_PER_YEAR;
@@ -319,6 +325,176 @@
       : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${renderIndex + 1}`;
   }
 
+  function getAppliedScenarioPreDeathPathId(renderIndex) {
+    return renderIndex === 0
+      ? PRE_DEATH_ASSETS_PATH_ID
+      : `${PRE_DEATH_ASSETS_PATH_ID}--scenario-${renderIndex + 1}`;
+  }
+
+  function buildAppliedPreDeathTargetPoint(appliedScenario, sourceIndex, scenarioDates) {
+    const scenario = isPlainObject(appliedScenario?.scenario) ? appliedScenario.scenario : {};
+    const preDeathSeries = isPlainObject(scenario.preDeathSeries) ? scenario.preDeathSeries : {};
+    const targetPoint = isPlainObject(preDeathSeries.targetPoint) ? preDeathSeries.targetPoint : {};
+    const targetValue = readPointValue(targetPoint, ["endingAssets"]);
+    const fallbackValue = getFirstNumber(scenario, ["deathEvent.assetsBeforeDeath", "timelineFacts.assetsBeforeDeath"]);
+    const value = targetValue.value != null ? targetValue.value : fallbackValue.value;
+    const sourceProjectionPointDate = normalizeDateOnly(targetPoint.date);
+    const date = normalizeDateOnly(
+      scenarioDates.deathDate
+        || getPath(scenario, "deathEvent.date")
+        || getPath(scenario, "scenario.selectedDeathDate")
+        || sourceProjectionPointDate
+    );
+    if (!date || value == null) {
+      return null;
+    }
+    const sourcePath = targetValue.value != null
+      ? `appliedScenarios.${sourceIndex}.scenario.preDeathSeries.targetPoint.${targetValue.sourcePath || "endingAssets"}`
+      : `appliedScenarios.${sourceIndex}.scenario.${fallbackValue.sourcePath || "deathEvent.assetsBeforeDeath"}`;
+    return {
+      id: `${getAppliedScenarioId(appliedScenario, sourceIndex)}-pre-death-target`,
+      date,
+      monthIndex: toOptionalNumber(targetPoint.monthIndex),
+      phase: "deathEvent",
+      value,
+      rawValue: value,
+      displayedValue: value,
+      endingAssets: value,
+      sourcePath,
+      sourcePaths: Array.isArray(targetPoint.sourcePaths) ? clonePlainValue(targetPoint.sourcePaths) : [],
+      status: "death-line-anchor",
+      precision: targetPoint.precision || null,
+      trace: Object.assign({}, isPlainObject(targetPoint.trace) ? targetPoint.trace : {}, {
+        preDeathContextTarget: true,
+        sourceProjectionPointDate: sourceProjectionPointDate || null,
+        rawDatePreserved: true,
+        rawValuePreserved: true
+      })
+    };
+  }
+
+  function getPreDeathContextGrowthModel(appliedScenario, sourceIndex) {
+    const scenario = isPlainObject(appliedScenario?.scenario) ? appliedScenario.scenario : {};
+    const trace = isPlainObject(scenario.trace) ? scenario.trace : {};
+    const explicitGrowth = getFirstNumber(trace, [
+      "preDeathContextGrowthRate",
+      "displayPreDeathContextGrowthRate",
+      "layer1.preDeathContextGrowthRate",
+      "layer1.displayAnnualGrowthRate"
+    ]);
+    if (explicitGrowth.value != null) {
+      const annualGrowthRate = explicitGrowth.value > 1 ? explicitGrowth.value / 100 : explicitGrowth.value;
+      return {
+        annualGrowthRate,
+        source: "scenarioTrace",
+        sourcePath: `appliedScenarios.${sourceIndex}.scenario.trace.${explicitGrowth.sourcePath}`
+      };
+    }
+    return {
+      annualGrowthRate: 0,
+      source: "flatFallback",
+      sourcePath: null
+    };
+  }
+
+  function makeDisplayOnlyPreDeathContextPoint(config) {
+    const value = toOptionalNumber(config?.value);
+    if (!config?.date || value == null) {
+      return null;
+    }
+    return {
+      id: config.id,
+      date: config.date,
+      monthIndex: config.monthIndex,
+      phase: config.phase || "appliedPreDeath",
+      value,
+      rawValue: config.rawValue == null ? value : config.rawValue,
+      displayedValue: value,
+      endingAssets: value,
+      sourcePath: config.sourcePath,
+      sourcePaths: Array.isArray(config.sourcePaths) ? clonePlainValue(config.sourcePaths) : [],
+      status: config.status || "display-only-pre-death-context",
+      precision: "display-context",
+      trace: Object.assign({}, isPlainObject(config.trace) ? config.trace : {}, {
+        preDeathContextMode: "reverseCalculatedFromDeathValue",
+        preDeathContextDisplayOnly: true,
+        preDeathContextYears: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS,
+        preDeathContextGrowthSource: config.growthSource || "flatFallback",
+        preDeathContextGrowthSourcePath: config.growthSourcePath || null,
+        noFinancialCalculationChanged: true
+      })
+    };
+  }
+
+  function buildAppliedPreDeathContextPoints(appliedScenario, sourceIndex, scenarioDates) {
+    if (!isPlainObject(appliedScenario) || !isPlainObject(appliedScenario.scenario)) {
+      return [];
+    }
+    const targetPoint = buildAppliedPreDeathTargetPoint(appliedScenario, sourceIndex, scenarioDates);
+    if (!targetPoint) {
+      return [];
+    }
+    const parsedDeathDate = parseDateOnly(targetPoint.date);
+    if (!parsedDeathDate) {
+      return [targetPoint];
+    }
+    const growth = getPreDeathContextGrowthModel(appliedScenario, sourceIndex);
+    const contextMonths = DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS * MONTHS_PER_YEAR;
+    const startDate = normalizeDateOnly(addMonths(parsedDeathDate, -contextMonths));
+    const deathValue = toOptionalNumber(targetPoint.value);
+    const startValue = growth.annualGrowthRate
+      ? deathValue / Math.pow(1 + growth.annualGrowthRate, DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS)
+      : deathValue;
+    const scenarioId = getAppliedScenarioId(appliedScenario, sourceIndex);
+    const baseTrace = {
+      preDeathContextMode: "reverseCalculatedFromDeathValue",
+      preDeathContextDisplayOnly: true,
+      preDeathContextYears: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS,
+      preDeathContextGrowthSource: growth.source,
+      preDeathContextGrowthSourcePath: growth.sourcePath,
+      sourceDeathValuePath: targetPoint.sourcePath,
+      noFinancialCalculationChanged: true
+    };
+    return [
+      makeDisplayOnlyPreDeathContextPoint({
+        id: `${scenarioId}-pre-death-context-start`,
+        date: startDate,
+        monthIndex: null,
+        phase: "appliedPreDeath",
+        value: startValue,
+        rawValue: deathValue,
+        sourcePath: targetPoint.sourcePath,
+        sourcePaths: targetPoint.sourcePaths,
+        growthSource: growth.source,
+        growthSourcePath: growth.sourcePath,
+        trace: Object.assign({}, baseTrace, {
+          displayDateCalculated: true,
+          displayValueReverseCalculated: true,
+          rawDatePreserved: false,
+          rawValuePreserved: false
+        })
+      }),
+      makeDisplayOnlyPreDeathContextPoint({
+        id: targetPoint.id,
+        date: targetPoint.date,
+        monthIndex: targetPoint.monthIndex,
+        phase: "deathEvent",
+        value: deathValue,
+        rawValue: deathValue,
+        sourcePath: targetPoint.sourcePath,
+        sourcePaths: targetPoint.sourcePaths,
+        status: "death-line-anchor",
+        growthSource: growth.source,
+        growthSourcePath: growth.sourcePath,
+        trace: Object.assign({}, targetPoint.trace, baseTrace, {
+          preDeathContextTarget: true,
+          rawDatePreserved: true,
+          rawValuePreserved: true
+        })
+      })
+    ].filter(Boolean);
+  }
+
   function normalizeGraphModelScenarioInput(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const options = isPlainObject(safeInput.options) ? safeInput.options : {};
@@ -404,6 +580,10 @@
         }
 
         const scenarioDates = getScenarioDates(appliedScenario.scenario);
+        const preDeathContextRawPoints = buildAppliedPreDeathContextPoints(appliedScenario, sourceIndex, scenarioDates);
+        const projectedNetWorthAtDeath = preDeathContextRawPoints.length
+          ? toOptionalNumber(preDeathContextRawPoints[preDeathContextRawPoints.length - 1].value)
+          : null;
         return {
           scenarioId,
           label: getAppliedScenarioLabel(appliedScenario, sourceIndex),
@@ -414,10 +594,14 @@
           valuationDate: scenarioDates.valuationDate,
           projectionHorizonMonths: scenarioDates.projectionHorizonMonths,
           points,
+          preDeathContextRawPoints,
+          projectedNetWorthAtDeath,
+          deathLineLabel: getAppliedScenarioLabel(appliedScenario, sourceIndex),
           depletion: getDepletionInfo(points, getPath(appliedScenario.scenario, "postDeathSeries.depletion")),
           trace: {
             selectedScenario: selected,
             sourcePath,
+            preDeathContextSourcePath: `appliedScenarios.${sourceIndex}.scenario.preDeathSeries`,
             rawDatesPreserved: true
           }
         };
@@ -441,6 +625,7 @@
     return orderedRecords.map(function (series, renderIndex) {
       return Object.assign({}, series, {
         pathId: getAppliedScenarioPostDeathPathId(renderIndex),
+        preDeathPathId: getAppliedScenarioPreDeathPathId(renderIndex),
         pathMode: "smooth",
         renderIndex
       });
@@ -470,10 +655,23 @@
     return clonePlainValue(point);
   }
 
-  function cloneDeficitPoint(point) {
+  function cloneDeficitPoint(point, yDomain) {
     const cloned = clonePlainValue(point);
-    cloned.deficitValue = getRunwayDeficitValue(point);
+    const deficitValue = getRunwayDeficitValue(point);
+    const visualMax = Math.max(toOptionalNumber(yDomain?.deficitVisualMax ?? yDomain?.deficitMax) || 1, 1);
+    cloned.deficitValue = deficitValue;
     cloned.deficitSource = getRunwayDeficitSource(point);
+    cloned.deficitVisualValue = Math.min(deficitValue, visualMax);
+    cloned.deficitVisualScaleCapped = deficitValue > visualMax;
+    cloned.deficitVisualClipped = cloned.deficitVisualScaleCapped;
+    cloned.yRatio = getValueRatio(-deficitValue, yDomain);
+    cloned.deficitYRatio = cloned.yRatio;
+    cloned.trace = Object.assign({}, isPlainObject(cloned.trace) ? cloned.trace : {}, {
+      rawDeficitValuePreserved: true,
+      deficitVisualScaleMode: yDomain?.deficitVisualScaleMode || null,
+      deficitVisualScaleCapped: cloned.deficitVisualScaleCapped,
+      deficitVisualClipped: cloned.deficitVisualClipped
+    });
     return cloned;
   }
 
@@ -559,6 +757,12 @@
     const rawPoints = Array.isArray(series?.points)
       ? series.points.map(cloneRunwayPoint)
       : [];
+    const preDeathContextPoints = Array.isArray(series?.preDeathContextPoints)
+      ? series.preDeathContextPoints.map(cloneRunwayPoint)
+      : [];
+    const projectedNetWorthAtDeath = toOptionalNumber(series?.projectedNetWorthAtDeath);
+    const deathLineLabel = normalizeString(series?.deathLineLabel || series?.label);
+    const preDeathContextTrace = isPlainObject(preDeathContextPoints[0]?.trace) ? preDeathContextPoints[0].trace : {};
     const fundedRunwayPoints = [];
     const deficitPoints = [];
     let depletionPoint = null;
@@ -581,7 +785,7 @@
       if (!depletionPoint && resourceValue === 0) {
         depletionPoint = cloneRunwayPoint(point);
         fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
-        deficitPoints.push(cloneDeficitPoint(depletionPoint));
+        deficitPoints.push(cloneDeficitPoint(depletionPoint, yDomain));
         previousPoint = point;
         return;
       }
@@ -590,11 +794,11 @@
         depletionPoint = makeZeroCrossingPoint(previousPoint, point, series, xDomain, yDomain, projection);
         visualInterpolationPointCount += 1;
         fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
-        deficitPoints.push(cloneDeficitPoint(depletionPoint));
+        deficitPoints.push(cloneDeficitPoint(depletionPoint, yDomain));
       }
 
       if (depletionPoint) {
-        deficitPoints.push(cloneDeficitPoint(point));
+        deficitPoints.push(cloneDeficitPoint(point, yDomain));
       }
       previousPoint = point;
     });
@@ -604,15 +808,30 @@
       label: series.label,
       selected: Boolean(series.selected),
       pathId: series.pathId,
+      preDeathPathId: series.preDeathPathId,
       deathDate: normalizeDateOnly(projection?.deathDate || series.deathDate),
       deathXRatio: toOptionalNumber(projection?.deathXRatio),
+      projectedNetWorthAtDeath,
+      deathLineLabel,
+      preDeathContextMode: preDeathContextTrace.preDeathContextMode || null,
+      preDeathContextDisplayOnly: preDeathContextTrace.preDeathContextDisplayOnly === true,
+      preDeathContextYears: preDeathContextTrace.preDeathContextYears ?? null,
+      preDeathContextGrowthSource: preDeathContextTrace.preDeathContextGrowthSource || null,
       rawPoints,
+      preDeathContextPoints,
       fundedRunwayPoints,
       deficitPoints,
       depletionPoint: depletionPoint ? cloneRunwayPoint(depletionPoint) : null,
       trace: {
         rawValuesPreserved: true,
         rawPointCount: rawPoints.length,
+        preDeathContextPointCount: preDeathContextPoints.length,
+        preDeathContextMode: preDeathContextTrace.preDeathContextMode || null,
+        preDeathContextDisplayOnly: preDeathContextTrace.preDeathContextDisplayOnly === true,
+        preDeathContextYears: preDeathContextTrace.preDeathContextYears ?? null,
+        preDeathContextGrowthSource: preDeathContextTrace.preDeathContextGrowthSource || null,
+        projectedNetWorthAtDeathPreserved: projectedNetWorthAtDeath != null,
+        deathLineLabelPreserved: Boolean(deathLineLabel),
         depletionDatePreserved: !series.depletion?.date
           || !depletionPoint
           || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
@@ -1183,6 +1402,106 @@
     };
   }
 
+  function getPositiveRunwayValues(seriesList) {
+    return (Array.isArray(seriesList) ? seriesList : [])
+      .reduce(function (values, series) {
+        if (!isPlainObject(series)) {
+          return values;
+        }
+        []
+          .concat(Array.isArray(series.preDeathContextRawPoints) ? series.preDeathContextRawPoints : [])
+          .concat(Array.isArray(series.points) ? series.points : [])
+          .forEach(function (point) {
+            const value = getRunwayResourceValue(point);
+            if (value != null && value > 0) {
+              values.push(value);
+            }
+          });
+        return values;
+      }, []);
+  }
+
+  function getSelectedRunwaySeries(seriesList) {
+    const safeSeries = Array.isArray(seriesList) ? seriesList.filter(isPlainObject) : [];
+    return safeSeries.find(function (series) {
+      return series.selected;
+    }) || safeSeries[0] || null;
+  }
+
+  function getSelectedDeficitValues(series) {
+    if (!isPlainObject(series) || !Array.isArray(series.points)) {
+      return [];
+    }
+    return series.points
+      .map(getRunwayDeficitValue)
+      .filter(function (value) {
+        return value != null && value > 0;
+      });
+  }
+
+  function addRunwayPadding(value, ratio) {
+    const number = toOptionalNumber(value);
+    if (number == null || number <= 0) {
+      return 1;
+    }
+    return number + Math.max(number * ratio, 1);
+  }
+
+  function getDeficitVisualMax(rawDeficitMax, rawPositiveMax, positiveMax) {
+    const rawDeficit = toOptionalNumber(rawDeficitMax) || 0;
+    if (rawDeficit <= 0) {
+      return Math.max((toOptionalNumber(positiveMax) || 1) * 0.02, 1);
+    }
+    const fundedReference = Math.max(
+      toOptionalNumber(rawPositiveMax) || 0,
+      rawPositiveMax > 0 ? 0 : (toOptionalNumber(positiveMax) || 0),
+      1
+    );
+    const relativeCap = Math.max(fundedReference * DEFICIT_VISUAL_MAX_TO_FUNDED_RATIO, 1);
+    return Math.min(rawDeficit, relativeCap);
+  }
+
+  function getRunwayValueDomain(input) {
+    const appliedSeries = Array.isArray(input?.appliedPostDeathResources) && input.appliedPostDeathResources.length
+      ? input.appliedPostDeathResources
+      : [{
+          scenarioId: "selected-post-death-resources",
+          selected: true,
+          points: Array.isArray(input?.postDeathResources) ? input.postDeathResources : []
+        }];
+    const selectedSeries = getSelectedRunwaySeries(appliedSeries);
+    const positiveValues = getPositiveRunwayValues(appliedSeries);
+    const selectedDeficitValues = getSelectedDeficitValues(selectedSeries);
+    const rawPositiveMax = positiveValues.length ? Math.max(...positiveValues) : 0;
+    const rawDeficitMax = selectedDeficitValues.length ? Math.max(...selectedDeficitValues) : 0;
+    const positiveMax = addRunwayPadding(rawPositiveMax, 0.08);
+    const deficitVisualMax = getDeficitVisualMax(rawDeficitMax, rawPositiveMax, positiveMax);
+    const deficitVisualScaleCapped = rawDeficitMax > deficitVisualMax;
+    return {
+      min: -deficitVisualMax,
+      max: positiveMax,
+      signed: rawDeficitMax > 0,
+      verticalScaleMode: VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY,
+      zeroYRatio: FIXED_ZERO_Y_RATIO,
+      fundedRunwayHeightRatio: FUNDED_RUNWAY_HEIGHT_RATIO,
+      deficitHeightRatio: DEFICIT_HEIGHT_RATIO,
+      positiveMax,
+      deficitMax: deficitVisualMax,
+      deficitVisualMax,
+      deficitVisualScaleMode: "cappedRelativeToFundedRunway",
+      deficitVisualScaleCapped,
+      rawPositiveMax,
+      rawDeficitMax,
+      trace: {
+        positiveDomainSource: "activeAppliedScenarioFundedRunway",
+        deficitDomainSource: "selectedAppliedScenarioDeficit",
+        negativeValuesCompressFundedRunway: false,
+        fixedZeroRatioApplied: true,
+        rawDeficitValuesPreserved: true
+      }
+    };
+  }
+
   function getDateRatio(dateValue, domain) {
     const date = parseDateOnly(dateValue);
     if (!date || Number.isNaN(date.getTime())) {
@@ -1381,10 +1700,30 @@
     return pointMonthIndex;
   }
 
+  function getPreDeathContextWindowPoints(points, projection) {
+    const contextMonths = Math.max(
+      toOptionalNumber(projection?.preDeathContextMonths) || (DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS * MONTHS_PER_YEAR),
+      1
+    );
+    return (Array.isArray(points) ? points : []).filter(function (point) {
+      const relativeMonths = toOptionalNumber(point?.relativeMonthsFromDeath);
+      return relativeMonths == null || relativeMonths >= -contextMonths;
+    });
+  }
+
   function getValueRatio(value, domain) {
     const number = toOptionalNumber(value);
     if (number == null) {
       return null;
+    }
+    if (domain?.verticalScaleMode === VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY) {
+      const zeroYRatio = toOptionalNumber(domain.zeroYRatio) ?? FIXED_ZERO_Y_RATIO;
+      if (number >= 0) {
+        const positiveMax = Math.max(toOptionalNumber(domain.positiveMax) || 1, 1);
+        return clampRatio(zeroYRatio - (Math.min(number, positiveMax) / positiveMax * zeroYRatio));
+      }
+      const deficitMax = Math.max(toOptionalNumber(domain.deficitVisualMax ?? domain.deficitMax) || 1, 1);
+      return clampRatio(zeroYRatio + (Math.min(Math.abs(number), deficitMax) / deficitMax * (1 - zeroYRatio)));
     }
     const span = domain.max - domain.min;
     if (span <= 0) {
@@ -1406,18 +1745,64 @@
       yRatio: getValueRatio(point.value, yDomain)
     };
     if (relativeMonthsFromDeath != null) {
+      const pointTrace = isPlainObject(point.trace) ? point.trace : {};
       enriched.relativeMonthsFromDeath = relativeMonthsFromDeath;
       enriched.relativeYearsFromDeath = relativeMonthsFromDeath / MONTHS_PER_YEAR;
-      enriched.trace = Object.assign({}, isPlainObject(point.trace) ? point.trace : {}, {
+      enriched.trace = Object.assign({}, pointTrace, {
         xProjectionMode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
-        rawDatePreserved: true,
-        rawValuePreserved: true
+        rawDatePreserved: pointTrace.rawDatePreserved === false ? false : true,
+        rawValuePreserved: pointTrace.rawValuePreserved === false ? false : true
       });
     }
     return enriched;
   }
 
+  function makeFixedZeroRunwayYTicks(domain) {
+    const ticks = [];
+    const rawPositiveMax = toOptionalNumber(domain?.rawPositiveMax) || 0;
+    const rawDeficitMax = toOptionalNumber(domain?.rawDeficitMax) || 0;
+    const deficitVisualMax = toOptionalNumber(domain?.deficitVisualMax ?? domain?.deficitMax) || 0;
+    if (rawPositiveMax > 0) {
+      ticks.push({
+        key: "funded-runway-max",
+        zone: "fundedRunway",
+        value: rawPositiveMax,
+        yRatio: getValueRatio(rawPositiveMax, domain)
+      });
+      ticks.push({
+        key: "funded-runway-mid",
+        zone: "fundedRunway",
+        value: rawPositiveMax / 2,
+        yRatio: getValueRatio(rawPositiveMax / 2, domain)
+      });
+    }
+    ticks.push({
+      key: "zero",
+      zone: "zero",
+      value: 0,
+      yRatio: getValueRatio(0, domain),
+      baseline: true
+    });
+    if (rawDeficitMax > 0 && deficitVisualMax > 0) {
+      ticks.push({
+        key: "deficit-max",
+        zone: "deficit",
+        value: -deficitVisualMax,
+        rawValue: -rawDeficitMax,
+        yRatio: getValueRatio(-deficitVisualMax, domain),
+        trace: {
+          rawDeficitMax,
+          deficitVisualScaleCapped: rawDeficitMax > deficitVisualMax
+        }
+      });
+    }
+    return ticks;
+  }
+
   function makeYTicks(domain) {
+    if (domain?.verticalScaleMode === VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY) {
+      return makeFixedZeroRunwayYTicks(domain);
+    }
     const ticks = [];
     const count = 5;
     const step = (domain.max - domain.min) / (count - 1);
@@ -1705,16 +2090,10 @@
       dates.valuationDate || dates.deathDate,
       possibleEndFromHorizon || dates.deathDate
     );
-    const yDomain = getValueExtent(
-      []
-        .concat(preDeathAssets.map(function (point) { return point.value; }))
-        .concat(deathTransition.stages.map(function (stage) { return stage.value; }))
-        .concat(postDeathResources.map(function (point) { return point.value; }))
-        .concat(appliedPostDeathPoints.map(function (point) { return point.value; }))
-        .concat(comparisonPoints.map(function (point) { return point.value; }))
-        .concat(comparisonMarkers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
-        .concat(markers.filter(function (marker) { return marker.positionable && marker.value != null; }).map(function (marker) { return marker.value; }))
-    );
+    const yDomain = getRunwayValueDomain({
+      appliedPostDeathResources,
+      postDeathResources
+    });
 
     const enrichedPreDeath = preDeathAssets.map(function (point) {
       return enrichPoint(point, xDomain, yDomain, deathRelativeProjection, "preDeath");
@@ -1728,8 +2107,16 @@
         deathDate: appliedSeries.deathDate || dates.deathDate,
         projectionHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths
       });
+      const preDeathContextPoints = getPreDeathContextWindowPoints(
+        (Array.isArray(appliedSeries.preDeathContextRawPoints) ? appliedSeries.preDeathContextRawPoints : [])
+          .map(function (point) {
+            return enrichPoint(point, xDomain, yDomain, seriesProjection, point.phase || "appliedPreDeath");
+          }),
+        seriesProjection
+      );
       return Object.assign({}, appliedSeries, {
         xProjection: seriesProjection,
+        preDeathContextPoints,
         points: appliedSeries.points.map(function (point) {
           return enrichPoint(point, xDomain, yDomain, seriesProjection, "postDeath");
         })
@@ -1793,8 +2180,19 @@
         y: {
           min: yDomain.min,
           max: yDomain.max,
-          signed: yDomain.min < 0,
-          zeroYRatio: getValueRatio(0, yDomain),
+          signed: yDomain.signed,
+          verticalScaleMode: yDomain.verticalScaleMode,
+          zeroYRatio: yDomain.zeroYRatio,
+          fundedRunwayHeightRatio: yDomain.fundedRunwayHeightRatio,
+          deficitHeightRatio: yDomain.deficitHeightRatio,
+          positiveMax: yDomain.positiveMax,
+          deficitMax: yDomain.deficitMax,
+          deficitVisualMax: yDomain.deficitVisualMax,
+          deficitVisualScaleMode: yDomain.deficitVisualScaleMode,
+          deficitVisualScaleCapped: yDomain.deficitVisualScaleCapped,
+          rawPositiveMax: yDomain.rawPositiveMax,
+          rawDeficitMax: yDomain.rawDeficitMax,
+          trace: clonePlainValue(yDomain.trace),
           ticks: makeYTicks(yDomain)
         }
       },
@@ -1835,6 +2233,15 @@
         calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
         calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
         latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
+        verticalScaleMode: yDomain.verticalScaleMode,
+        zeroYRatio: yDomain.zeroYRatio,
+        fundedRunwayHeightRatio: yDomain.fundedRunwayHeightRatio,
+        deficitHeightRatio: yDomain.deficitHeightRatio,
+        rawDeficitMax: yDomain.rawDeficitMax,
+        deficitVisualMax: yDomain.deficitVisualMax,
+        deficitVisualScaleMode: yDomain.deficitVisualScaleMode,
+        deficitVisualScaleCapped: yDomain.deficitVisualScaleCapped,
+        negativeValuesCompressFundedRunway: false,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,
         calculationHorizonPreserved: true,
@@ -1861,6 +2268,16 @@
       result.series.appliedRunwayScenarios = appliedRunwayScenarios;
       result.trace.appliedRunwayScenarioCount = appliedRunwayScenarios.length;
       result.trace.appliedRunwayContractEnabled = true;
+      result.trace.appliedPreDeathContextEnabled = appliedRunwayScenarios.some(function (series) {
+        return Array.isArray(series.preDeathContextPoints) && series.preDeathContextPoints.length > 0;
+      });
+      result.trace.appliedPreDeathContextPathIds = appliedRunwayScenarios
+        .filter(function (series) {
+          return Array.isArray(series.preDeathContextPoints) && series.preDeathContextPoints.length > 0;
+        })
+        .map(function (series) {
+          return series.preDeathPathId;
+        });
     }
 
     if (enrichedAppliedPostDeath.length > 1) {
