@@ -588,9 +588,19 @@ const appliedSingleInputBefore = cloneJson(appliedSingleInput);
 const appliedSingleModel = buildIncomeImpactTimelineGraphModel(appliedSingleInput);
 assert.deepEqual(appliedSingleInput, appliedSingleInputBefore, "Graph model should not mutate appliedScenarios input.");
 assert.deepEqual(
-  getRenderableGraphModel(appliedSingleModel),
-  getRenderableGraphModel(fiveYearModel),
-  "One applied scenario should produce the same renderable graph output as the existing single-scenario input."
+  cloneJson(appliedSingleModel.series.postDeathResources.map(function (point) { return point.value; })),
+  cloneJson(fiveYearModel.series.postDeathResources.map(function (point) { return point.value; })),
+  "One applied scenario should preserve the compatibility postDeathResources raw values."
+);
+assert.deepEqual(
+  cloneJson(appliedSingleModel.series.postDeathResources.map(function (point) { return point.date; })),
+  cloneJson(fiveYearModel.series.postDeathResources.map(function (point) { return point.date; })),
+  "One applied scenario should preserve the compatibility postDeathResources raw dates."
+);
+assert.equal(
+  appliedSingleModel.trace.rawDeathTransitionPathRendered,
+  false,
+  "Applied scenario graph should continue to avoid rendering the raw death-transition path."
 );
 assert.equal(appliedSingleModel.trace.scenarioModelMode, "appliedScenarios");
 assert.equal(appliedSingleModel.trace.appliedScenarioCount, 1);
@@ -621,6 +631,33 @@ assert.equal(
   appliedSingleRunway.projectedNetWorthAtDeath,
   fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
   "Applied runway contract should preserve projected net worth at death."
+);
+assert.equal(
+  appliedSingleRunway.survivorResourcesAtDeath,
+  fiveYearScenario.deathEvent.resourcesAfterObligations,
+  "Applied runway contract should preserve survivor resources available at death."
+);
+assert.ok(
+  appliedSingleRunway.survivorResourcesAtDeathPoint,
+  "Applied runway contract should expose a dedicated survivor resources point at the death line."
+);
+assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.interpolationKind, "survivorResourcesAtDeathStart");
+assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.displayRole, "startingFundsAfterConversion");
+assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.noFinancialCalculationChanged, true);
+assertApproxEqual(
+  appliedSingleRunway.survivorResourcesAtDeathPoint.xRatio,
+  appliedSingleModel.projection.deathXRatio,
+  "Survivor resources start point should sit at the shared death anchor."
+);
+assert.equal(
+  appliedSingleRunway.fundedRunwayPoints[0].id,
+  appliedSingleRunway.survivorResourcesAtDeathPoint.id,
+  "Post-death funded runway should start from survivor resources after conversion."
+);
+assert.equal(
+  appliedSingleRunway.fundedRunwayPoints[0].value,
+  fiveYearScenario.deathEvent.resourcesAfterObligations,
+  "Post-death funded runway should begin at the death-event survivor resources value."
 );
 assert.ok(
   Array.isArray(appliedSingleRunway.preDeathContextPoints) && appliedSingleRunway.preDeathContextPoints.length === 2,
@@ -680,6 +717,7 @@ assert.equal(appliedSingleRunway.trace.preDeathContextDisplayOnly, true);
 assert.equal(appliedSingleRunway.trace.preDeathContextYears, 5);
 assert.equal(appliedSingleRunway.trace.preDeathContextGrowthSource, "flatFallback");
 assert.equal(appliedSingleRunway.trace.projectedNetWorthAtDeathPreserved, true);
+assert.equal(appliedSingleRunway.trace.survivorResourcesAtDeathPreserved, true);
 assert.equal(appliedSingleRunway.trace.deathLineLabelPreserved, true);
 assert.equal(appliedSingleRunway.trace.deathAlignedToSharedAnchor, true);
 assert.equal(appliedSingleRunway.trace.calculationHorizonPreserved, true);
@@ -1067,8 +1105,20 @@ assert.equal(
 );
 assert.equal(appliedMultiModel.trace.graphContractMode, "survivorRunwayComparison");
 assert.equal(appliedMultiModel.trace.rawDeathTransitionPathRendered, false);
-assert.equal(appliedMultiModel.trace.deathEventBridgeMode, "deathEventResourceBridge");
-assert.equal(appliedMultiModel.series.deathEventBridge.mode, "deathEventResourceBridge");
+assert.equal(appliedMultiModel.trace.deathEventBridgeMode, "deathEventConversionAnnotation");
+assert.equal(appliedMultiModel.series.deathEventBridge.mode, "deathEventConversionAnnotation");
+assert.equal(appliedMultiModel.series.deathEventBridge.trace.conversionBridgeAnnotationOnly, true);
+assert.equal(appliedMultiModel.series.deathEventBridge.trace.rawVerticalDeathTransitionPathRendered, false);
+assert.equal(
+  appliedMultiModel.series.deathEventBridge.netWorthAtDeathPoint.value,
+  tenYearScenario.deathEvent.assetsBeforeDeath,
+  "Death-event bridge should expose one net-worth-at-death point."
+);
+assert.equal(
+  appliedMultiModel.series.deathEventBridge.survivorResourcesPoint.value,
+  tenYearScenario.deathEvent.resourcesAfterObligations,
+  "Death-event bridge should expose one survivor-resources point."
+);
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
     return series.deathLineAnchor && series.deathLineAnchor.xRatio === appliedMultiModel.projection.deathXRatio;
@@ -1242,9 +1292,14 @@ const appliedComparisonInput = {
 };
 const appliedComparisonModel = buildIncomeImpactTimelineGraphModel(appliedComparisonInput);
 assert.deepEqual(
-  getRenderableGraphModel(appliedComparisonModel),
-  getRenderableGraphModel(comparisonModel),
-  "Applied scenario comparison input should preserve the existing lifestyle comparison renderable output."
+  cloneJson(appliedComparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
+  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.value; })),
+  "Applied scenario comparison input should preserve lifestyle comparison source values."
+);
+assert.deepEqual(
+  cloneJson(appliedComparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.date; })),
+  cloneJson(comparisonModel.series.comparisonPostDeathResources[0].points.map(function (point) { return point.date; })),
+  "Applied scenario comparison input should preserve lifestyle comparison source dates."
 );
 assert.equal(appliedComparisonModel.trace.scenarioModelMode, "appliedScenarios");
 assert.equal(appliedComparisonModel.trace.appliedScenarioCount, 1);

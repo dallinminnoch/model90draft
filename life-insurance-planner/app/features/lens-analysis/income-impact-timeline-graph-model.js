@@ -586,6 +586,16 @@
         const projectedNetWorthAtDeath = preDeathContextRawPoints.length
           ? toOptionalNumber(preDeathContextRawPoints[preDeathContextRawPoints.length - 1].value)
           : null;
+        const survivorResourcesSource = getFirstNumber(appliedScenario.scenario, [
+          "deathEvent.resourcesAfterObligations",
+          "timelineFacts.resourcesAfterObligations"
+        ]);
+        const survivorResourcesAtDeath = survivorResourcesSource.value != null
+          ? survivorResourcesSource.value
+          : getRunwayResourceValue(points[0]);
+        const survivorResourcesAtDeathSourcePath = survivorResourcesSource.value != null
+          ? `appliedScenarios.${sourceIndex}.scenario.${survivorResourcesSource.sourcePath || "deathEvent.resourcesAfterObligations"}`
+          : `${sourcePath}.0`;
         return {
           scenarioId,
           label: getAppliedScenarioLabel(appliedScenario, sourceIndex),
@@ -598,12 +608,15 @@
           points,
           preDeathContextRawPoints,
           projectedNetWorthAtDeath,
+          survivorResourcesAtDeath,
+          survivorResourcesAtDeathSourcePath,
           deathLineLabel: getAppliedScenarioLabel(appliedScenario, sourceIndex),
           depletion: getDepletionInfo(points, getPath(appliedScenario.scenario, "postDeathSeries.depletion")),
           trace: {
             selectedScenario: selected,
             sourcePath,
             preDeathContextSourcePath: `appliedScenarios.${sourceIndex}.scenario.preDeathSeries`,
+            survivorResourcesAtDeathSourcePath,
             rawDatesPreserved: true
           }
         };
@@ -792,6 +805,52 @@
     };
   }
 
+  function makeSurvivorResourcesAtDeathStartPoint(series, yDomain, projection) {
+    const value = toOptionalNumber(series?.survivorResourcesAtDeath);
+    const deathDate = normalizeDateOnly(projection?.deathDate || series?.deathDate);
+    const deathXRatio = toOptionalNumber(projection?.deathXRatio) ?? DEATH_RELATIVE_DEATH_X_RATIO;
+    if (value == null || !deathDate || deathXRatio == null) {
+      return null;
+    }
+
+    const sourcePath = normalizeString(series?.survivorResourcesAtDeathSourcePath)
+      || `${series?.sourcePath || "appliedScenario"}.survivorResourcesAtDeath`;
+    return {
+      id: `${series?.pathId || series?.scenarioId || "applied-scenario"}-survivor-resources-at-death`,
+      date: deathDate,
+      monthIndex: 0,
+      phase: "deathEvent",
+      value,
+      rawValue: value,
+      displayedValue: value,
+      endingResources: value,
+      availableResources: value,
+      xRatio: deathXRatio,
+      yRatio: getValueRatio(value, yDomain),
+      relativeMonthsFromDeath: 0,
+      relativeYearsFromDeath: 0,
+      sourcePath,
+      sourcePaths: [sourcePath],
+      status: "starting-funds-after-conversion",
+      precision: "display-context",
+      trace: {
+        visualStartPoint: true,
+        visualInterpolation: true,
+        interpolationKind: "survivorResourcesAtDeathStart",
+        interpolationReason: "runwayStartAtDeathEventConversion",
+        displayRole: "startingFundsAfterConversion",
+        rawValuesPreserved: true,
+        rawDatesPreserved: true,
+        rawValuePreserved: true,
+        rawDatePreserved: true,
+        deathAlignedToSharedAnchor: true,
+        xProjectionMode: isPlainObject(projection) ? projection.mode : null,
+        noFinancialCalculationChanged: true,
+        sourcePointIds: []
+      }
+    };
+  }
+
   function buildAppliedRunwayScenario(series, xDomain, yDomain, projection) {
     const rawPoints = Array.isArray(series?.points)
       ? series.points.map(cloneRunwayPoint)
@@ -800,6 +859,8 @@
       ? series.preDeathContextPoints.map(cloneRunwayPoint)
       : [];
     const projectedNetWorthAtDeath = toOptionalNumber(series?.projectedNetWorthAtDeath);
+    const survivorResourcesAtDeath = toOptionalNumber(series?.survivorResourcesAtDeath);
+    const survivorResourcesAtDeathPoint = makeSurvivorResourcesAtDeathStartPoint(series, yDomain, projection);
     const deathLineLabel = normalizeString(series?.deathLineLabel || series?.label);
     const preDeathContextTrace = isPlainObject(preDeathContextPoints[0]?.trace) ? preDeathContextPoints[0].trace : {};
     const fundedRunwayPoints = [];
@@ -807,6 +868,17 @@
     let depletionPoint = null;
     let previousPoint = null;
     let visualInterpolationPointCount = 0;
+    const visualInterpolationKinds = [];
+
+    if (survivorResourcesAtDeathPoint) {
+      const survivorValue = getRunwayResourceValue(survivorResourcesAtDeathPoint);
+      if (survivorValue != null && survivorValue >= 0) {
+        fundedRunwayPoints.push(cloneRunwayPoint(survivorResourcesAtDeathPoint));
+        previousPoint = survivorResourcesAtDeathPoint;
+        visualInterpolationPointCount += 1;
+        visualInterpolationKinds.push("survivorResourcesAtDeathStart");
+      }
+    }
 
     rawPoints.forEach(function (point) {
       const resourceValue = getRunwayResourceValue(point);
@@ -832,6 +904,7 @@
       if (!depletionPoint && resourceValue < 0) {
         depletionPoint = makeZeroCrossingPoint(previousPoint, point, series, xDomain, yDomain, projection);
         visualInterpolationPointCount += 1;
+        appendUnique(visualInterpolationKinds, ["zeroCrossing"]);
         fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
         deficitPoints.push(cloneDeficitPoint(depletionPoint, yDomain));
       }
@@ -851,6 +924,8 @@
       deathDate: normalizeDateOnly(projection?.deathDate || series.deathDate),
       deathXRatio: toOptionalNumber(projection?.deathXRatio),
       projectedNetWorthAtDeath,
+      survivorResourcesAtDeath,
+      survivorResourcesAtDeathPoint: survivorResourcesAtDeathPoint ? cloneRunwayPoint(survivorResourcesAtDeathPoint) : null,
       deathLineLabel,
       preDeathContextMode: preDeathContextTrace.preDeathContextMode || null,
       preDeathContextDisplayOnly: preDeathContextTrace.preDeathContextDisplayOnly === true,
@@ -869,6 +944,8 @@
         rawValuesPreserved: true,
         rawPointCount: rawPoints.length,
         preDeathContextPointCount: preDeathContextPoints.length,
+        survivorResourcesAtDeathPreserved: survivorResourcesAtDeath != null,
+        survivorResourcesAtDeathSourcePath: normalizeString(series?.survivorResourcesAtDeathSourcePath) || null,
         preDeathContextMode: preDeathContextTrace.preDeathContextMode || null,
         preDeathContextDisplayOnly: preDeathContextTrace.preDeathContextDisplayOnly === true,
         preDeathContextYears: preDeathContextTrace.preDeathContextYears ?? null,
@@ -879,7 +956,7 @@
           || !depletionPoint
           || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
         visualInterpolationPointCount,
-        visualInterpolationKinds: visualInterpolationPointCount ? ["zeroCrossing"] : [],
+        visualInterpolationKinds,
         sourcePath: series.sourcePath,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: isPlainObject(projection),
@@ -1277,22 +1354,38 @@
     if (deathXRatio == null) {
       return null;
     }
+    const netWorthAtDeathPoint = clonePlainValue(firstStage);
+    const survivorResourcesPoint = clonePlainValue(lastStage);
 
     return {
       id: DEATH_EVENT_BRIDGE_ID,
-      mode: "deathEventResourceBridge",
+      mode: "deathEventConversionAnnotation",
       date: normalizeDateOnly(projection?.deathDate || deathTransition?.date || firstStage.date),
       age: deathTransition?.age ?? null,
       xRatio: deathXRatio,
-      startPoint: clonePlainValue(firstStage),
-      endPoint: clonePlainValue(lastStage),
+      netWorthAtDeathPoint,
+      survivorResourcesPoint,
+      startPoint: netWorthAtDeathPoint,
+      endPoint: survivorResourcesPoint,
+      labels: {
+        deathEvent: "Death event",
+        conversionAtDeath: "Conversion at death",
+        netWorthAtDeath: "Net worth at death",
+        survivorResources: "Survivor resources",
+        startingFundsAfterConversion: "Starting funds after conversion"
+      },
       stages: enrichedStages.map(clonePlainValue),
       sourcePaths: Array.isArray(deathTransition?.sourcePaths) ? clonePlainValue(deathTransition.sourcePaths) : [],
       trace: {
         displayBridge: true,
+        displayMode: "mockupDeathConversionSection",
+        conversionBridgeAnnotationOnly: true,
+        rawVerticalDeathTransitionPathRendered: false,
         replacesRawDeathTransitionPath: true,
         rawValuesPreserved: true,
         rawDatesPreserved: true,
+        netWorthAtDeathValuePreserved: true,
+        survivorResourcesValuePreserved: true,
         deathAlignedToSharedAnchor: true,
         xProjectionMode: projection?.mode || null
       }
@@ -1488,6 +1581,10 @@
       .reduce(function (values, series) {
         if (!isPlainObject(series)) {
           return values;
+        }
+        const survivorResourcesAtDeath = toOptionalNumber(series.survivorResourcesAtDeath);
+        if (survivorResourcesAtDeath != null && survivorResourcesAtDeath > 0) {
+          values.push(survivorResourcesAtDeath);
         }
         []
           .concat(Array.isArray(series.preDeathContextRawPoints) ? series.preDeathContextRawPoints : [])

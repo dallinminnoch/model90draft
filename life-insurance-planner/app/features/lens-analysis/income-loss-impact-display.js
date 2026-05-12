@@ -1329,32 +1329,78 @@
 
   function renderDeathEventBridge(graphModel) {
     const bridge = isPlainObject(graphModel?.series?.deathEventBridge) ? graphModel.series.deathEventBridge : null;
-    const startPoint = isPlainObject(bridge?.startPoint) ? bridge.startPoint : null;
-    const endPoint = isPlainObject(bridge?.endPoint) ? bridge.endPoint : null;
+    const netWorthPoint = isPlainObject(bridge?.netWorthAtDeathPoint)
+      ? bridge.netWorthAtDeathPoint
+      : (isPlainObject(bridge?.startPoint) ? bridge.startPoint : null);
+    const survivorPoint = isPlainObject(bridge?.survivorResourcesPoint)
+      ? bridge.survivorResourcesPoint
+      : (isPlainObject(bridge?.endPoint) ? bridge.endPoint : null);
     const xRatio = toOptionalNumber(bridge?.xRatio);
-    const startYRatio = toOptionalNumber(startPoint?.yRatio);
-    const endYRatio = toOptionalNumber(endPoint?.yRatio);
-    if (!bridge || xRatio == null || startYRatio == null || endYRatio == null) {
+    const netWorthYRatio = toOptionalNumber(netWorthPoint?.yRatio);
+    const survivorYRatio = toOptionalNumber(survivorPoint?.yRatio);
+    if (!bridge || xRatio == null || netWorthYRatio == null || survivorYRatio == null) {
       return "";
     }
 
-    const x = toGraphX(xRatio) + 8;
-    const startY = toGraphY(startYRatio);
-    const endY = toGraphY(endYRatio);
-    const topY = Math.min(startY, endY);
-    const bottomY = Math.max(startY, endY);
-    const title = "Death event resource bridge: assets and coverage convert into survivor resources.";
+    const x = toGraphX(xRatio);
+    const netWorthY = toGraphY(netWorthYRatio);
+    const survivorY = toGraphY(survivorYRatio);
+    const bracketX = clampNumber(x + 28, GRAPH_VIEW_BOX.plotLeft + 18, GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - 230);
+    const labelX = bracketX + 34;
+    const conversionLabelY = clampNumber(
+      Math.min(netWorthY + 22, survivorY - 52),
+      GRAPH_VIEW_BOX.plotTop + 30,
+      GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 78
+    );
+    const survivorLabelY = clampNumber(
+      Math.max(survivorY - 8, conversionLabelY + 58),
+      GRAPH_VIEW_BOX.plotTop + 62,
+      GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 36
+    );
+    const survivorLeaderEndX = Math.max(x + 10, bracketX - 16);
+    const title = "Death event conversion: net worth at death becomes survivor resources after conversion.";
     return `
       <g
         class="income-impact-death-event-bridge"
         data-income-impact-death-event-bridge="${escapeHtml(bridge.id || "deathEventBridge")}"
         data-income-impact-death-event-bridge-mode="${escapeHtml(bridge.mode || "")}"
         data-income-impact-death-event-bridge-date="${escapeHtml(bridge.date || "")}"
-        transform="translate(${x} 0)"
       >
-        <line x1="0" y1="${topY}" x2="0" y2="${bottomY}"></line>
-        <circle class="income-impact-death-event-bridge-point income-impact-death-event-bridge-point--start" data-income-impact-death-event-bridge-point="start" cx="0" cy="${startY}" r="3.4"></circle>
-        <circle class="income-impact-death-event-bridge-point income-impact-death-event-bridge-point--end" data-income-impact-death-event-bridge-point="end" cx="0" cy="${endY}" r="4.2"></circle>
+        <rect
+          class="income-impact-death-event-net-worth"
+          data-income-impact-death-event-net-worth
+          data-income-impact-death-event-net-worth-value="${escapeHtml(netWorthPoint?.value ?? "")}"
+          x="${x - 4.8}"
+          y="${netWorthY - 4.8}"
+          width="9.6"
+          height="9.6"
+          rx="1"
+          transform="rotate(45 ${x} ${netWorthY})"
+        ></rect>
+        <path
+          class="income-impact-death-event-conversion-bracket"
+          data-income-impact-death-event-conversion-bridge
+          d="M${bracketX - 12} ${netWorthY} H${bracketX} V${survivorY} H${bracketX - 12}"
+        ></path>
+        <line
+          class="income-impact-death-event-conversion-leader"
+          x1="${bracketX - 12}"
+          y1="${survivorY}"
+          x2="${survivorLeaderEndX}"
+          y2="${survivorY}"
+        ></line>
+        <circle
+          class="income-impact-death-event-survivor-resources"
+          data-income-impact-death-event-survivor-resources
+          data-income-impact-death-event-survivor-resources-value="${escapeHtml(survivorPoint?.value ?? "")}"
+          cx="${x}"
+          cy="${survivorY}"
+          r="5.4"
+        ></circle>
+        <text class="income-impact-death-event-label income-impact-death-event-label--heading" data-income-impact-death-event-label="conversion" x="${labelX}" y="${conversionLabelY}">Conversion at death</text>
+        <text class="income-impact-death-event-label income-impact-death-event-label--muted" data-income-impact-death-event-label="net-worth" x="${labelX}" y="${conversionLabelY + 16}">Net worth at death</text>
+        <text class="income-impact-death-event-label income-impact-death-event-label--heading" data-income-impact-death-event-label="survivor-resources" x="${labelX}" y="${survivorLabelY}">Survivor resources</text>
+        <text class="income-impact-death-event-label income-impact-death-event-label--muted" data-income-impact-death-event-label="starting-funds" x="${labelX}" y="${survivorLabelY + 16}">Starting funds after conversion</text>
         <title>${escapeHtml(title)}</title>
       </g>
     `;
@@ -1362,21 +1408,22 @@
 
   function getDeathLineAnchorLabelPosition(anchor, index) {
     const x = toGraphX(anchor.xRatio);
-    const y = toGraphY(anchor.yRatio);
     const label = normalizeString(anchor.label) || "Scenario";
     const width = Math.min(164, Math.max(86, 18 + (label.length * 7)));
+    const plotBottom = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight;
+    const y = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 26 - (index * 28);
     const labelX = Math.min(
       GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - width - 8,
-      Math.max(GRAPH_VIEW_BOX.plotLeft + 6, x + 14)
+      Math.max(GRAPH_VIEW_BOX.plotLeft + 6, x + 14 + (index * 178))
     );
     const labelY = clampNumber(
-      y + (index % 2 === 0 ? -22 : 24),
-      GRAPH_VIEW_BOX.plotTop + 12,
-      GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 16
+      GRAPH_VIEW_BOX.height - 10,
+      plotBottom + 36,
+      GRAPH_VIEW_BOX.height - 6
     );
     return {
       x,
-      y,
+      y: plotBottom + 8,
       labelX,
       labelY,
       width,
@@ -1424,7 +1471,6 @@
               aria-label="${escapeHtml(label)} at the death line"
             >
               <line x1="${position.x}" y1="${position.y}" x2="${position.connectorX}" y2="${position.connectorY}"></line>
-              <circle cx="${position.x}" cy="${position.y}" r="${selected ? "4.6" : "3.8"}"></circle>
               <rect x="${position.labelX}" y="${position.labelY - 18}" width="${position.width}" height="${position.height}" rx="6"></rect>
               <text data-income-impact-death-line-label x="${position.labelX + 9}" y="${position.labelY - 4}">${escapeHtml(label)}</text>
               <title>${escapeHtml(label)} death-line anchor</title>
@@ -1435,9 +1481,20 @@
     `;
   }
 
+  function shouldRenderGraphMarker(marker) {
+    const ruleId = normalizeString(marker?.ruleId || marker?.id);
+    const phase = normalizeString(marker?.phase);
+    return phase !== "deathEvent"
+      && ruleId !== "coverage-added-at-death"
+      && ruleId !== "survivor-resources-depleted";
+  }
+
   function renderGraphMarkers(graphModel) {
     const markers = (Array.isArray(graphModel?.markers) ? graphModel.markers : []).filter(function (marker) {
-      return marker?.positionable && toOptionalNumber(marker.xRatio) != null && toOptionalNumber(marker.yRatio) != null;
+      return shouldRenderGraphMarker(marker)
+        && marker?.positionable
+        && toOptionalNumber(marker.xRatio) != null
+        && toOptionalNumber(marker.yRatio) != null;
     });
     if (!markers.length) {
       return "";
@@ -1853,14 +1910,58 @@
     }).join("");
   }
 
+  function getSurvivorResourcesRenderStartPoint(graphModel, pathId) {
+    const bridge = isPlainObject(graphModel?.series?.deathEventBridge) ? graphModel.series.deathEventBridge : null;
+    const survivorPoint = isPlainObject(bridge?.survivorResourcesPoint)
+      ? bridge.survivorResourcesPoint
+      : (isPlainObject(bridge?.endPoint) ? bridge.endPoint : null);
+    const xRatio = toOptionalNumber(bridge?.xRatio ?? survivorPoint?.xRatio);
+    const yRatio = toOptionalNumber(survivorPoint?.yRatio);
+    if (!survivorPoint || xRatio == null || yRatio == null) {
+      return null;
+    }
+    return Object.assign({}, survivorPoint, {
+      id: `${pathId || "comparison"}-survivor-resources-at-death`,
+      phase: "deathEvent",
+      xRatio,
+      yRatio,
+      relativeMonthsFromDeath: 0,
+      relativeYearsFromDeath: 0,
+      trace: Object.assign({}, isPlainObject(survivorPoint.trace) ? survivorPoint.trace : {}, {
+        visualStartPoint: true,
+        interpolationKind: "survivorResourcesAtDeathStart",
+        displayRole: "startingFundsAfterConversion",
+        renderOnly: true,
+        rawComparisonPointsPreserved: true
+      })
+    });
+  }
+
+  function getComparisonRenderPoints(graphModel, series) {
+    const points = Array.isArray(series?.points) ? series.points : [];
+    if (!points.length || toOptionalNumber(points[0]?.relativeMonthsFromDeath) === 0) {
+      return points;
+    }
+    const startPoint = getSurvivorResourcesRenderStartPoint(graphModel, series?.pathId || series?.scenarioId);
+    return startPoint ? [startPoint].concat(points) : points;
+  }
+
   function getComparisonGraphSeries(graphModel) {
     return (Array.isArray(graphModel?.series?.comparisonPostDeathResources)
       ? graphModel.series.comparisonPostDeathResources
       : []).filter(function (comparisonSeries) {
       return isPlainObject(comparisonSeries) && buildSvgPath(
-        comparisonSeries.points,
+        getComparisonRenderPoints(graphModel, comparisonSeries),
         getComparisonGraphPathMode(comparisonSeries)
       );
+    }).map(function (comparisonSeries) {
+      return Object.assign({}, comparisonSeries, {
+        points: getComparisonRenderPoints(graphModel, comparisonSeries),
+        trace: Object.assign({}, isPlainObject(comparisonSeries.trace) ? comparisonSeries.trace : {}, {
+          renderSource: "comparisonPointsWithSurvivorResourcesAtDeathStart",
+          rawComparisonPointsPreserved: true
+        })
+      });
     }).slice(0, 1);
   }
 
@@ -2345,9 +2446,9 @@
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
           ${preDeathPath}
-          ${deathEventBridge}
           ${appliedScenarioPaths}
           ${comparisonPaths}
+          ${deathEventBridge}
           ${deathLineAnchors || renderGraphDeathAnchor(graphModel)}
           ${renderAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId)}
         </g>
