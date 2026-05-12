@@ -9,7 +9,6 @@
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
-  const DEATH_EVENT_BRIDGE_ID = "deathEventBridge";
   const MAX_RENDERED_APPLIED_SCENARIOS = 2;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
@@ -17,7 +16,6 @@
   const DISPLAY_HORIZON_MODE_AUTO_DEPLETION = "autoFromAppliedScenarioDepletion";
   const VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY = "fixedZeroRunway";
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
-  const DEATH_EVENT_CONVERSION_BRACKET_X_OFFSET_RATIO = 0.032;
   const FIXED_ZERO_Y_RATIO = 0.82;
   const FUNDED_RUNWAY_HEIGHT_RATIO = FIXED_ZERO_Y_RATIO;
   const DEFICIT_HEIGHT_RATIO = 1 - FIXED_ZERO_Y_RATIO;
@@ -843,8 +841,8 @@
         visualStartPoint: true,
         visualInterpolation: true,
         interpolationKind: "survivorResourcesAtDeathStart",
-        interpolationReason: "runwayStartAtDeathEventConversion",
-        displayRole: "startingFundsAfterConversion",
+        interpolationReason: "postDeathRunwayStartsAtDeathLine",
+        displayRole: "postDeathRunwayStart",
         rawValuesPreserved: true,
         rawDatesPreserved: true,
         rawValuePreserved: true,
@@ -857,134 +855,6 @@
         xProjectionMode: isPlainObject(projection) ? projection.mode : null,
         noFinancialCalculationChanged: true,
         sourcePointIds: []
-      }
-    };
-  }
-
-  function makeAppliedScenarioDeathEventBridge(series, preDeathContextPoints, survivorResourcesPoint, yDomain, projection) {
-    const safeSeries = isPlainObject(series) ? series : {};
-    const deathXRatio = toOptionalNumber(projection?.deathXRatio) ?? DEATH_RELATIVE_DEATH_X_RATIO;
-    const survivorResourcesXRatio = toOptionalNumber(survivorResourcesPoint?.xRatio)
-      ?? toOptionalNumber(projection?.survivorResourcesXRatio)
-      ?? toOptionalNumber(projection?.postDeathRunwayStartXRatio)
-      ?? deathXRatio;
-    const bracketXRatio = toOptionalNumber(projection?.conversionAnnotationGeometry?.bracketXRatio)
-      ?? toOptionalNumber(projection?.deathEventConversionBracketXRatio)
-      ?? survivorResourcesXRatio;
-    const deathDate = normalizeDateOnly(projection?.deathDate || safeSeries.deathDate);
-    const projectedNetWorthAtDeath = toOptionalNumber(safeSeries.projectedNetWorthAtDeath);
-    const preDeathTargetPoint = (Array.isArray(preDeathContextPoints) ? preDeathContextPoints : [])
-      .slice()
-      .reverse()
-      .find(function (point) {
-        return isPlainObject(point) && toOptionalNumber(point.value) != null;
-      });
-    const netWorthAtDeathPoint = preDeathTargetPoint
-      ? cloneRunwayPoint(preDeathTargetPoint)
-      : (projectedNetWorthAtDeath == null ? null : {
-          id: `${safeSeries.scenarioId || "applied-scenario"}-net-worth-at-death`,
-          date: deathDate,
-          monthIndex: 0,
-          phase: "deathEvent",
-          value: projectedNetWorthAtDeath,
-          rawValue: projectedNetWorthAtDeath,
-          displayedValue: projectedNetWorthAtDeath,
-          endingAssets: projectedNetWorthAtDeath,
-          xRatio: deathXRatio,
-          yRatio: getValueRatio(projectedNetWorthAtDeath, yDomain),
-          relativeMonthsFromDeath: 0,
-          relativeYearsFromDeath: 0,
-          status: "net-worth-at-death",
-          precision: "display-context",
-          sourcePath: safeSeries.sourcePath ? `${safeSeries.sourcePath}.projectedNetWorthAtDeath` : null,
-          sourcePaths: [],
-          trace: {
-            displayRole: "netWorthAtDeath",
-            rawValuesPreserved: true,
-            rawDatesPreserved: true,
-            deathAlignedToSharedAnchor: true,
-            noFinancialCalculationChanged: true
-          }
-        });
-    if (!netWorthAtDeathPoint || !survivorResourcesPoint) {
-      return null;
-    }
-
-    const normalizedNetWorthPoint = Object.assign({}, cloneRunwayPoint(netWorthAtDeathPoint), {
-      xRatio: deathXRatio,
-      relativeMonthsFromDeath: 0,
-      relativeYearsFromDeath: 0,
-      trace: Object.assign({}, isPlainObject(netWorthAtDeathPoint.trace) ? netWorthAtDeathPoint.trace : {}, {
-        displayRole: "netWorthAtDeath",
-        deathAlignedToSharedAnchor: true,
-        rawValuesPreserved: true,
-        rawDatesPreserved: true,
-        noFinancialCalculationChanged: true
-      })
-    });
-    const normalizedSurvivorPoint = Object.assign({}, cloneRunwayPoint(survivorResourcesPoint), {
-      xRatio: survivorResourcesXRatio,
-      relativeMonthsFromDeath: 0,
-      relativeYearsFromDeath: 0,
-      trace: Object.assign({}, isPlainObject(survivorResourcesPoint.trace) ? survivorResourcesPoint.trace : {}, {
-        displayRole: "startingFundsAfterConversion",
-        deathAlignedToSharedAnchor: true,
-        deathXRatio,
-        postDeathRunwayStartXRatio: survivorResourcesXRatio,
-        survivorResourcesXRatio,
-        displayXOffsetFromDeathAxis: survivorResourcesXRatio !== deathXRatio,
-        rawValuesPreserved: true,
-        rawDatesPreserved: true,
-        noFinancialCalculationChanged: true
-      })
-    });
-
-    return {
-      id: `${safeSeries.scenarioId || "applied-scenario"}-deathEventBridge`,
-      mode: "deathEventConversionAnnotation",
-      scenarioId: safeSeries.scenarioId || null,
-      label: safeSeries.label || safeSeries.deathLineLabel || null,
-      selected: Boolean(safeSeries.selected),
-      date: deathDate,
-      xRatio: deathXRatio,
-      survivorResourcesXRatio,
-      postDeathRunwayStartXRatio: survivorResourcesXRatio,
-      annotationGeometry: {
-        mode: "rightSideConversionBracket",
-        deathXRatio,
-        netWorthAtDeathXRatio: deathXRatio,
-        survivorResourcesXRatio,
-        bracketXRatio,
-        postDeathRunwayStartXRatio: survivorResourcesXRatio,
-        labelSide: "right",
-        annotationOnly: true
-      },
-      netWorthAtDeathPoint: normalizedNetWorthPoint,
-      survivorResourcesPoint: normalizedSurvivorPoint,
-      startPoint: normalizedNetWorthPoint,
-      endPoint: normalizedSurvivorPoint,
-      labels: {
-        deathEvent: "Death event",
-        conversionAtDeath: "Conversion at death",
-        netWorthAtDeath: "Net worth at death",
-        survivorResources: "Survivor resources",
-        startingFundsAfterConversion: "Starting funds after conversion"
-      },
-      trace: {
-        displayBridge: true,
-        displayMode: "selectedAppliedScenarioDeathConversionSection",
-        conversionBridgeAnnotationOnly: true,
-        replacesRawDeathTransitionPath: true,
-        rawVerticalDeathTransitionPathRendered: false,
-        rawValuesPreserved: true,
-        rawDatesPreserved: true,
-        netWorthAtDeathValuePreserved: true,
-        survivorResourcesValuePreserved: true,
-        deathAlignedToSharedAnchor: true,
-        postDeathRunwayStartsAtSurvivorResourcesPoint: true,
-        displayXOffsetFromDeathAxis: survivorResourcesXRatio !== deathXRatio,
-        xProjectionMode: projection?.mode || null,
-        noFinancialCalculationChanged: true
       }
     };
   }
@@ -1004,13 +874,6 @@
     const projectedNetWorthAtDeath = toOptionalNumber(series?.projectedNetWorthAtDeath);
     const survivorResourcesAtDeath = toOptionalNumber(series?.survivorResourcesAtDeath);
     const survivorResourcesAtDeathPoint = makeSurvivorResourcesAtDeathStartPoint(series, yDomain, projection);
-    const deathEventBridge = makeAppliedScenarioDeathEventBridge(
-      series,
-      preDeathContextPoints,
-      survivorResourcesAtDeathPoint,
-      yDomain,
-      projection
-    );
     const deathLineLabel = normalizeString(series?.deathLineLabel || series?.label);
     const preDeathContextTrace = isPlainObject(preDeathContextPoints[0]?.trace) ? preDeathContextPoints[0].trace : {};
     const fundedRunwayPoints = [];
@@ -1076,7 +939,6 @@
       projectedNetWorthAtDeath,
       survivorResourcesAtDeath,
       survivorResourcesAtDeathPoint: survivorResourcesAtDeathPoint ? cloneRunwayPoint(survivorResourcesAtDeathPoint) : null,
-      deathEventBridge: deathEventBridge ? clonePlainValue(deathEventBridge) : null,
       deathLineLabel,
       preDeathContextMode: preDeathContextTrace.preDeathContextMode || null,
       preDeathContextDisplayOnly: preDeathContextTrace.preDeathContextDisplayOnly === true,
@@ -1096,8 +958,6 @@
         rawPointCount: rawPoints.length,
         preDeathContextPointCount: preDeathContextPoints.length,
         survivorResourcesAtDeathPreserved: survivorResourcesAtDeath != null,
-        deathEventBridgeAvailable: Boolean(deathEventBridge),
-        deathEventBridgeScenarioId: deathEventBridge?.scenarioId || null,
         survivorResourcesAtDeathSourcePath: normalizeString(series?.survivorResourcesAtDeathSourcePath) || null,
         preDeathContextMode: preDeathContextTrace.preDeathContextMode || null,
         preDeathContextDisplayOnly: preDeathContextTrace.preDeathContextDisplayOnly === true,
@@ -1457,15 +1317,15 @@
     if (!dates.deathDate) {
       dataGaps.push(makeIssue(
         "missing-death-event-date",
-        "A selected death date is required to position the death-event bridge.",
+        "A selected death date is required to position the death event.",
         ["scenario.scenario.selectedDeathDate", "scenario.deathEvent.date"]
       ));
     }
 
     if (stages.length < 2) {
       dataGaps.push(makeIssue(
-        "missing-death-event-bridge-values",
-        "Death-event resource values are incomplete, so the bridge cannot be fully rendered.",
+        "missing-death-event-transition-values",
+        "Death-event resource values are incomplete, so the transition cannot be fully modeled.",
         ["scenario.deathEvent"]
       ));
     }
@@ -1488,97 +1348,6 @@
         "scenario.deathEvent.layer2.resources.totalResourcesBeforeObligations",
         "scenario.deathEvent.resourcesAfterObligations"
       ]
-    };
-  }
-
-  function buildDeathEventBridge(deathTransition, stages, projection) {
-    const enrichedStages = (Array.isArray(stages) ? stages : []).filter(function (stage) {
-      return isPlainObject(stage)
-        && toOptionalNumber(stage.value) != null
-        && toOptionalNumber(stage.yRatio) != null;
-    });
-    if (!enrichedStages.length) {
-      return null;
-    }
-
-    const firstStage = enrichedStages[0];
-    const lastStage = enrichedStages[enrichedStages.length - 1];
-    const deathXRatio = toOptionalNumber(projection?.deathXRatio) ?? toOptionalNumber(firstStage.xRatio);
-    if (deathXRatio == null) {
-      return null;
-    }
-    const netWorthAtDeathPoint = clonePlainValue(firstStage);
-    netWorthAtDeathPoint.xRatio = deathXRatio;
-    const survivorResourcesXRatio = toOptionalNumber(projection?.survivorResourcesXRatio)
-      ?? toOptionalNumber(projection?.postDeathRunwayStartXRatio)
-      ?? deathXRatio;
-    const bracketXRatio = toOptionalNumber(projection?.conversionAnnotationGeometry?.bracketXRatio)
-      ?? toOptionalNumber(projection?.deathEventConversionBracketXRatio)
-      ?? survivorResourcesXRatio;
-    const survivorResourcesPoint = Object.assign({}, clonePlainValue(lastStage), {
-      xRatio: survivorResourcesXRatio,
-      relativeMonthsFromDeath: 0,
-      relativeYearsFromDeath: 0,
-      trace: Object.assign({}, isPlainObject(lastStage.trace) ? lastStage.trace : {}, {
-        displayRole: "startingFundsAfterConversion",
-        deathAlignedToSharedAnchor: true,
-        deathXRatio,
-        postDeathRunwayStartXRatio: survivorResourcesXRatio,
-        survivorResourcesXRatio,
-        displayXOffsetFromDeathAxis: survivorResourcesXRatio !== deathXRatio,
-        rawValuesPreserved: true,
-        rawDatesPreserved: true,
-        noFinancialCalculationChanged: true
-      })
-    });
-    const annotationGeometry = {
-      mode: "rightSideConversionBracket",
-      deathXRatio,
-      netWorthAtDeathXRatio: deathXRatio,
-      survivorResourcesXRatio,
-      bracketXRatio,
-      postDeathRunwayStartXRatio: survivorResourcesXRatio,
-      labelSide: "right",
-      annotationOnly: true
-    };
-
-    return {
-      id: DEATH_EVENT_BRIDGE_ID,
-      mode: "deathEventConversionAnnotation",
-      date: normalizeDateOnly(projection?.deathDate || deathTransition?.date || firstStage.date),
-      age: deathTransition?.age ?? null,
-      xRatio: deathXRatio,
-      survivorResourcesXRatio,
-      postDeathRunwayStartXRatio: survivorResourcesXRatio,
-      annotationGeometry,
-      netWorthAtDeathPoint,
-      survivorResourcesPoint,
-      startPoint: netWorthAtDeathPoint,
-      endPoint: survivorResourcesPoint,
-      labels: {
-        deathEvent: "Death event",
-        conversionAtDeath: "Conversion at death",
-        netWorthAtDeath: "Net worth at death",
-        survivorResources: "Survivor resources",
-        startingFundsAfterConversion: "Starting funds after conversion"
-      },
-      stages: enrichedStages.map(clonePlainValue),
-      sourcePaths: Array.isArray(deathTransition?.sourcePaths) ? clonePlainValue(deathTransition.sourcePaths) : [],
-      trace: {
-        displayBridge: true,
-        displayMode: "mockupDeathConversionSection",
-        conversionBridgeAnnotationOnly: true,
-        rawVerticalDeathTransitionPathRendered: false,
-        replacesRawDeathTransitionPath: true,
-        rawValuesPreserved: true,
-        rawDatesPreserved: true,
-        netWorthAtDeathValuePreserved: true,
-        survivorResourcesValuePreserved: true,
-        deathAlignedToSharedAnchor: true,
-        postDeathRunwayStartsAtSurvivorResourcesPoint: true,
-        displayXOffsetFromDeathAxis: survivorResourcesXRatio !== deathXRatio,
-        xProjectionMode: projection?.mode || null
-      }
     };
   }
 
@@ -2108,14 +1877,10 @@
       : "";
     const deathXRatio = DEATH_RELATIVE_DEATH_X_RATIO;
     const postDeathRunwayStartXRatio = deathXRatio;
-    const deathEventConversionBracketXRatio = clampRatio(deathXRatio + DEATH_EVENT_CONVERSION_BRACKET_X_OFFSET_RATIO);
     return {
       mode: PROJECTION_MODE_DEATH_RELATIVE_RUNWAY,
       xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
       deathXRatio,
-      deathEventConversionXOffsetRatio: 0,
-      deathEventConversionBracketXOffsetRatio: DEATH_EVENT_CONVERSION_BRACKET_X_OFFSET_RATIO,
-      deathEventConversionBracketXRatio,
       survivorResourcesXRatio: postDeathRunwayStartXRatio,
       postDeathRunwayStartXRatio,
       preDeathContextYears: DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS,
@@ -2138,21 +1903,11 @@
       displayHorizonTargetRunwayRatio: displayHorizon.displayHorizonTargetRunwayRatio,
       deathDate,
       valuationDate: normalizeDateOnly(safeDates.valuationDate),
-      conversionAnnotationGeometry: {
-        mode: "rightSideConversionBracket",
-        deathXRatio,
-        survivorResourcesXRatio: postDeathRunwayStartXRatio,
-        bracketXRatio: deathEventConversionBracketXRatio,
-        postDeathRunwayStartXRatio,
-        labelSide: "right",
-        annotationOnly: true
-      },
       trace: {
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,
         calculationHorizonPreserved: true,
-        deathEventConversionAnnotationOnly: true,
-        postDeathRunwayStartsAtSurvivorResourcesPoint: true,
+        postDeathRunwayStartsAtDeathLine: true,
         displayHorizonAutoSized: displayHorizon.displayHorizonAutoSized,
         displayHorizonTargetRunwayRatio: displayHorizon.displayHorizonTargetRunwayRatio,
         adaptiveDisplayHorizonApplied: true
@@ -2873,7 +2628,6 @@
       return marker.positionable ? enrichPoint(marker, xDomain, yDomain, deathRelativeProjection, marker.phase || "postDeath") : marker;
     });
     const appliedRunwayScenarios = buildAppliedRunwayScenarios(enrichedAppliedPostDeath, xDomain, yDomain);
-    const deathEventBridge = buildDeathEventBridge(deathTransition, enrichedDeathStages, deathRelativeProjection);
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
 
     const result = {
@@ -2891,7 +2645,6 @@
             }
           : null,
         deathTransition: enrichedDeathStages,
-        deathEventBridge,
         postDeathResources: enrichedPostDeath
       },
       axes: {
@@ -2997,7 +2750,6 @@
         noFinancialCalculationsPerformed: true,
         noFakePoints: true,
         noBackcast: true,
-        deathEventBridgeMode: deathEventBridge?.mode || null,
         rawDeathTransitionPathRendered: false,
         noLocalScaleOverlay: true,
         statement: "This helper builds a display-only graph model from the composed Income Impact scenario and Layer 4 risk events."

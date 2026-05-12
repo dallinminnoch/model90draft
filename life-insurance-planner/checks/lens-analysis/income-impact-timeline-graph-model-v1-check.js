@@ -260,16 +260,17 @@ assert.equal(fiveYearModel.projection.xAxisMode, "deathRelativeYears");
 assert.equal(fiveYearModel.projection.trace.rawDatesPreserved, true);
 assert.equal(fiveYearModel.projection.trace.deathAlignedToSharedAnchor, true);
 assert.equal(fiveYearModel.projection.trace.calculationHorizonPreserved, true);
-assert.equal(fiveYearModel.projection.trace.postDeathRunwayStartsAtSurvivorResourcesPoint, true);
+assert.equal(fiveYearModel.projection.trace.postDeathRunwayStartsAtDeathLine, true);
 assert.equal(fiveYearModel.projection.trace.displayHorizonAutoSized, true);
 assertApproxEqual(
   fiveYearModel.projection.postDeathRunwayStartXRatio,
   fiveYearModel.projection.deathXRatio,
   "Post-death runway should start on the fixed death event line."
 );
-assert.ok(
-  fiveYearModel.projection.deathEventConversionBracketXRatio > fiveYearModel.projection.deathXRatio,
-  "The conversion annotation bracket can sit to the right while the runway starts on the death line."
+assert.equal(
+  fiveYearModel.projection.deathEventConversionBracketXRatio,
+  undefined,
+  "Death-event conversion annotation metadata should not be emitted."
 );
 assert.equal(fiveYearModel.projection.displayHorizonMode, "autoFromAppliedScenarioDepletion");
 assert.equal(fiveYearModel.projection.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
@@ -731,7 +732,7 @@ assert.ok(
   "Applied runway contract should expose a dedicated survivor resources point at the death line."
 );
 assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.interpolationKind, "survivorResourcesAtDeathStart");
-assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.displayRole, "startingFundsAfterConversion");
+assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.displayRole, "postDeathRunwayStart");
 assert.equal(appliedSingleRunway.survivorResourcesAtDeathPoint.trace.noFinancialCalculationChanged, true);
 assertApproxEqual(
   appliedSingleRunway.survivorResourcesAtDeathPoint.xRatio,
@@ -1200,77 +1201,26 @@ assert.equal(
 );
 assert.equal(appliedMultiModel.trace.graphContractMode, "survivorRunwayComparison");
 assert.equal(appliedMultiModel.trace.rawDeathTransitionPathRendered, false);
-assert.equal(appliedMultiModel.trace.deathEventBridgeMode, "deathEventConversionAnnotation");
-assert.equal(appliedMultiModel.series.deathEventBridge.mode, "deathEventConversionAnnotation");
-assert.equal(appliedMultiModel.series.deathEventBridge.trace.conversionBridgeAnnotationOnly, true);
-assert.equal(appliedMultiModel.series.deathEventBridge.trace.rawVerticalDeathTransitionPathRendered, false);
-assert.equal(appliedMultiModel.series.deathEventBridge.annotationGeometry.mode, "rightSideConversionBracket");
-assertApproxEqual(
-  appliedMultiModel.series.deathEventBridge.netWorthAtDeathPoint.xRatio,
-  appliedMultiModel.projection.deathXRatio,
-  "Net-worth-at-death marker should remain on the fixed death axis."
-);
-assertApproxEqual(
-  appliedMultiModel.series.deathEventBridge.survivorResourcesPoint.xRatio,
-  appliedMultiModel.projection.postDeathRunwayStartXRatio,
-  "Survivor resources marker should use the fixed death-line runway origin."
-);
 assert.equal(
-  appliedMultiModel.series.deathEventBridge.trace.postDeathRunwayStartsAtSurvivorResourcesPoint,
-  true,
-  "Death-event bridge trace should identify the survivor resources point as the runway origin."
-);
-assert.equal(
-  appliedMultiModel.series.deathEventBridge.netWorthAtDeathPoint.value,
-  tenYearScenario.deathEvent.assetsBeforeDeath,
-  "Death-event bridge should expose one net-worth-at-death point."
-);
-assert.equal(
-  appliedMultiModel.series.deathEventBridge.survivorResourcesPoint.value,
-  tenYearScenario.deathEvent.resourcesAfterObligations,
-  "Death-event bridge should expose one survivor-resources point."
+  Object.hasOwn(appliedMultiModel.series, "deathEventBridge"),
+  false,
+  "Death-event conversion bridge annotations should be removed from the graph model."
 );
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
-    return series.deathEventBridge
-      && series.deathEventBridge.mode === "deathEventConversionAnnotation"
-      && series.deathEventBridge.scenarioId === series.scenarioId;
+    return !Object.hasOwn(series, "deathEventBridge");
   }),
-  "Each applied runway scenario should carry its own death-event conversion bridge."
+  "Applied runway scenarios should not carry per-scenario death-event conversion bridge annotations."
 );
-assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) {
-    return series.deathEventBridge.id;
-  })),
-  ["income-impact-current-scenario-deathEventBridge", "income-impact-death-in-10-years-deathEventBridge"],
-  "Per-scenario death-event bridge IDs should be deterministic."
-);
-assert.deepEqual(
-  cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) {
-    return series.deathEventBridge.selected;
-  })),
-  [false, true],
-  "Per-scenario death-event bridges should preserve selected state."
+assert.equal(
+  Object.hasOwn(appliedMultiModel.trace, "deathEventBridgeMode"),
+  false,
+  "Trace should not report removed death-event conversion bridge mode."
 );
 assertApproxEqual(
-  appliedMultiModel.series.appliedRunwayScenarios[0].deathEventBridge.netWorthAtDeathPoint.xRatio,
+  appliedMultiModel.series.appliedRunwayScenarios[1].survivorResourcesAtDeathPoint.xRatio,
   appliedMultiModel.projection.deathXRatio,
-  "Baseline scenario bridge net-worth point should remain on the shared death axis."
-);
-assertApproxEqual(
-  appliedMultiModel.series.appliedRunwayScenarios[1].deathEventBridge.survivorResourcesPoint.xRatio,
-  appliedMultiModel.projection.postDeathRunwayStartXRatio,
-  "Selected scenario bridge survivor-resources point should stay on the fixed death-line runway origin."
-);
-assert.equal(
-  appliedMultiModel.series.appliedRunwayScenarios[0].deathEventBridge.netWorthAtDeathPoint.value,
-  fiveYearScenario.preDeathSeries.targetPoint.endingAssets,
-  "Baseline scenario bridge should preserve that scenario's net worth at death."
-);
-assert.equal(
-  appliedMultiModel.series.appliedRunwayScenarios[1].deathEventBridge.survivorResourcesPoint.value,
-  tenYearScenario.deathEvent.resourcesAfterObligations,
-  "Selected scenario bridge should preserve that scenario's survivor resources."
+  "Selected scenario runway start should remain on the fixed death line after removing conversion annotations."
 );
 assert.ok(
   appliedMultiModel.series.appliedRunwayScenarios.every(function (series) {
