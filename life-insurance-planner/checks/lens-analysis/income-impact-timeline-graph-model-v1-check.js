@@ -23,6 +23,12 @@ function assertApproxEqual(actual, expected, message, epsilon = 0.000001) {
   );
 }
 
+function getAxisYRatio(value, axis) {
+  const span = axis.max - axis.min;
+  assert.ok(span > 0, "Y-axis domain should have a positive span.");
+  return Math.max(0, Math.min(1, 1 - ((value - axis.min) / span)));
+}
+
 function getRenderableGraphModel(model) {
   const clone = cloneJson(model);
   if (clone.series) {
@@ -149,6 +155,8 @@ assert.doesNotMatch(source, /scenarioTimeline|financialRunway|income-loss-impact
 assert.doesNotMatch(source, /RUNWAY_CHART_|renderFinancialRunwayChart|buildRunwayChartModel/);
 assert.doesNotMatch(source, /localStorage|sessionStorage|document\.|querySelector|<svg|<path|<circle/);
 assert.doesNotMatch(source, /height.*500000|500000.*height|dynamic.*height/i);
+assert.doesNotMatch(source, /cappedRelativeToFundedRunway|DEFICIT_VISUAL_MAX_TO_FUNDED_RATIO|FIXED_ZERO_Y_RATIO|fixedZeroRunway/);
+assert.match(source, /continuousLinear/);
 
 const riskEvaluation = {
   events: [
@@ -321,31 +329,64 @@ assert.ok(fiveYearModel.axes.x.ticks.every(function (tick) {
   return tick.axisMode === "deathRelativeYears" && tick.trace.rawDatePreserved === true;
 }));
 assert.equal(fiveYearModel.axes.y.signed, true);
-assert.equal(fiveYearModel.axes.y.verticalScaleMode, "fixedZeroRunway");
-assertApproxEqual(fiveYearModel.axes.y.zeroYRatio, 0.82, "$0 should stay fixed near the bottom of the graph.");
-assertApproxEqual(fiveYearModel.axes.y.fundedRunwayHeightRatio, 0.82, "Funded runway should get most of the graph height.");
-assertApproxEqual(fiveYearModel.axes.y.deficitHeightRatio, 0.18, "Deficit runway should stay visually secondary.");
+assert.equal(fiveYearModel.axes.y.verticalScaleMode, "continuousLinear");
+assertApproxEqual(
+  fiveYearModel.axes.y.zeroYRatio,
+  getAxisYRatio(0, fiveYearModel.axes.y),
+  "$0 should be placed by the same continuous y-scale as every other value."
+);
+assertApproxEqual(
+  fiveYearModel.axes.y.fundedRunwayHeightRatio,
+  fiveYearModel.axes.y.zeroYRatio,
+  "Funded runway height should derive from the continuous zero crossing."
+);
+assertApproxEqual(
+  fiveYearModel.axes.y.deficitHeightRatio,
+  1 - fiveYearModel.axes.y.zeroYRatio,
+  "Deficit height should derive from the continuous zero crossing."
+);
 assert.equal(fiveYearModel.axes.y.trace.negativeValuesCompressFundedRunway, false);
+assert.equal(fiveYearModel.axes.y.trace.continuousLinearScaleApplied, true);
+assert.equal(fiveYearModel.axes.y.trace.selectedScenarioOnlyScale, true);
+assert.equal(fiveYearModel.axes.y.trace.deficitVisualCompressionRemoved, true);
 assert.equal(fiveYearModel.axes.y.rawDeficitMax, 150000);
 assert.equal(fiveYearModel.axes.y.deficitVisualMax, 150000);
-assert.equal(fiveYearModel.axes.y.deficitVisualScaleMode, "cappedRelativeToFundedRunway");
+assert.equal(fiveYearModel.axes.y.deficitVisualScaleMode, "continuousLinear");
 assert.equal(fiveYearModel.axes.y.deficitVisualScaleCapped, false);
-assert.equal(fiveYearModel.trace.verticalScaleMode, "fixedZeroRunway");
-assertApproxEqual(fiveYearModel.trace.zeroYRatio, 0.82, "Trace should report the fixed zero baseline.");
+assert.equal(fiveYearModel.trace.verticalScaleMode, "continuousLinear");
+assertApproxEqual(fiveYearModel.trace.zeroYRatio, fiveYearModel.axes.y.zeroYRatio, "Trace should report the continuous zero crossing.");
 assert.equal(fiveYearModel.trace.rawDeficitMax, 150000);
 assert.equal(fiveYearModel.trace.deficitVisualMax, 150000);
-assert.equal(fiveYearModel.trace.deficitVisualScaleMode, "cappedRelativeToFundedRunway");
+assert.equal(fiveYearModel.trace.deficitVisualScaleMode, "continuousLinear");
 assert.equal(fiveYearModel.trace.deficitVisualScaleCapped, false);
 assert.equal(fiveYearModel.trace.negativeValuesCompressFundedRunway, false);
+{
+  const equalMagnitude = 100000;
+  const zeroRatio = getAxisYRatio(0, fiveYearModel.axes.y);
+  const positiveDistance = Math.abs(getAxisYRatio(equalMagnitude, fiveYearModel.axes.y) - zeroRatio);
+  const negativeDistance = Math.abs(getAxisYRatio(-equalMagnitude, fiveYearModel.axes.y) - zeroRatio);
+  assertApproxEqual(
+    positiveDistance,
+    negativeDistance,
+    "Equal positive and negative dollar magnitudes should be equidistant from zero on the y-axis."
+  );
+  const positiveDelta = Math.abs(getAxisYRatio(200000, fiveYearModel.axes.y) - getAxisYRatio(100000, fiveYearModel.axes.y));
+  const negativeDelta = Math.abs(getAxisYRatio(-50000, fiveYearModel.axes.y) - getAxisYRatio(-150000, fiveYearModel.axes.y));
+  assertApproxEqual(
+    positiveDelta,
+    negativeDelta,
+    "The same dollar delta above and below zero should map to the same y-distance."
+  );
+}
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.y.ticks.map(function (tick) { return tick.zone; })),
   ["fundedRunway", "fundedRunway", "fundedRunway", "fundedRunway", "zero", "deficit", "deficit"],
-  "Fixed-zero runway y-axis ticks should add sub-increments while separating funded runway labels from deficit labels."
+  "Continuous runway y-axis ticks should keep funded, zero, and deficit labels on the same scale."
 );
 assert.equal(
   fiveYearModel.axes.y.ticks.filter(function (tick) { return tick.zone === "deficit"; }).length,
   2,
-  "Deficit zone should show a midpoint and a visual max label without returning to crowded linear-domain labels."
+  "Deficit zone should show a midpoint and raw deficit max label without capped visual labels."
 );
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.y.ticks
@@ -359,7 +400,7 @@ assert.deepEqual(
     .filter(function (tick) { return tick.zone === "deficit"; })
     .map(function (tick) { return tick.trace.tickRatio; })),
   [0.5, 1],
-  "Deficit ticks should expose a midpoint and the visible deficit max."
+  "Deficit ticks should expose a midpoint and the raw deficit max."
 );
 assert.ok(
   fiveYearModel.axes.y.ticks
@@ -635,10 +676,14 @@ assert.equal(
 assert.equal(noDepletionModel.projection.displayHorizonBasis, "latestAppliedScenarioRunwayEnd");
 assert.equal(noDepletionModel.projection.latestAppliedScenarioDepletionMonths, null);
 assert.equal(noDepletionModel.projection.trace.displayHorizonAutoSized, true);
-assert.equal(noDepletionModel.axes.y.verticalScaleMode, "fixedZeroRunway");
-assertApproxEqual(noDepletionModel.axes.y.zeroYRatio, 0.82, "No-depletion scenarios should keep the fixed zero baseline.");
+assert.equal(noDepletionModel.axes.y.verticalScaleMode, "continuousLinear");
+assertApproxEqual(
+  noDepletionModel.axes.y.zeroYRatio,
+  getAxisYRatio(0, noDepletionModel.axes.y),
+  "No-depletion scenarios should still place zero through the continuous y-scale."
+);
 assert.equal(noDepletionModel.axes.y.signed, false);
-assert.ok(noDepletionModel.axes.y.deficitMax > 0, "No-depletion scenarios should keep a small documented deficit reserve.");
+assert.ok(noDepletionModel.axes.y.deficitMax > 0, "No-depletion scenarios should retain lower padding without showing deficit data.");
 assert.equal(
   noDepletionModel.axes.y.ticks.some(function (tick) { return tick.zone === "deficit"; }),
   false,
@@ -1008,36 +1053,36 @@ const hugeDeficitModel = buildIncomeImpactTimelineGraphModel({
 assert.equal(hugeDeficitModel.axes.y.rawDeficitMax, 3000000, "Raw accumulated deficit should remain preserved.");
 assert.equal(
   hugeDeficitModel.axes.y.deficitVisualScaleCapped,
-  true,
-  "Large raw deficits should be visually capped relative to the funded runway."
+  false,
+  "Large raw deficits should not be visually capped when the y-axis is continuous."
 );
 assertApproxEqual(
   hugeDeficitModel.axes.y.deficitVisualMax,
-  hugeDeficitModel.axes.y.rawPositiveMax * 0.75,
-  "Deficit visual max should be capped relative to funded runway max."
+  hugeDeficitModel.axes.y.rawDeficitMax,
+  "Deficit visual max should equal the raw deficit max on the continuous y-axis."
 );
-assert.ok(
-  Math.abs(hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).value)
-    < hugeDeficitModel.axes.y.rawDeficitMax,
-  "Deficit axis label should reflect visual scale instead of the raw multi-million accumulated deficit."
+assert.equal(
+  Math.abs(hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).value),
+  hugeDeficitModel.axes.y.rawDeficitMax,
+  "Deficit axis label should use the raw multi-million accumulated deficit without visual compression."
 );
 assert.equal(
   hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).rawValue,
   -3000000,
-  "Deficit axis tick should retain raw deficit metadata when visual scale is capped."
+  "Deficit axis tick should retain raw deficit metadata."
 );
 const hugeDeficitRunway = hugeDeficitModel.series.appliedRunwayScenarios[0];
 const hugeDeficitFinalPoint = hugeDeficitRunway.deficitPoints.at(-1);
 assert.equal(hugeDeficitFinalPoint.deficitValue, 3000000);
 assert.equal(hugeDeficitFinalPoint.accumulatedUnmetNeed, 3000000);
 assert.equal(hugeDeficitFinalPoint.value, -150000);
-assert.equal(hugeDeficitFinalPoint.deficitVisualScaleCapped, true);
-assert.equal(hugeDeficitFinalPoint.deficitVisualClipped, true);
-assert.equal(hugeDeficitFinalPoint.trace.deficitVisualClipped, true);
+assert.equal(hugeDeficitFinalPoint.deficitVisualScaleCapped, false);
+assert.equal(hugeDeficitFinalPoint.deficitVisualClipped, false);
+assert.equal(hugeDeficitFinalPoint.trace.deficitVisualClipped, false);
 assertApproxEqual(
   hugeDeficitFinalPoint.yRatio,
-  1,
-  "Deficit values beyond the visual cap should be projected to the clipping boundary."
+  getAxisYRatio(-3000000, hugeDeficitModel.axes.y),
+  "Large deficit values should be projected through the same continuous y-scale instead of a clipping boundary."
 );
 assert.equal(
   hugeDeficitRunway.rawPoints.at(-1).accumulatedUnmetNeed,
@@ -1336,6 +1381,15 @@ assert.equal(autosizeSelectedOnlyModel.trace.hiddenAppliedScenarioCount, 1);
 assert.ok(
   autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths < 360,
   "Hidden applied scenarios should not expand the visible graph horizon."
+);
+assert.ok(
+  autosizeSelectedOnlyModel.axes.y.rawPositiveMax < hiddenLongAutosizeScenario.deathEvent.resourcesAfterObligations,
+  "Hidden applied scenarios should not expand the selected scenario y-domain."
+);
+assert.equal(
+  autosizeSelectedOnlyModel.axes.y.trace.selectedScenarioOnlyScale,
+  true,
+  "Y-axis trace should identify selected-only scale ownership."
 );
 
 const comparisonScenario = {

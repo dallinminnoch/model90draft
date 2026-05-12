@@ -14,12 +14,8 @@
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
   const GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON = "survivorRunwayComparison";
   const DISPLAY_HORIZON_MODE_AUTO_DEPLETION = "autoFromAppliedScenarioDepletion";
-  const VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY = "fixedZeroRunway";
+  const VERTICAL_SCALE_MODE_CONTINUOUS_LINEAR = "continuousLinear";
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
-  const FIXED_ZERO_Y_RATIO = 0.82;
-  const FUNDED_RUNWAY_HEIGHT_RATIO = FIXED_ZERO_Y_RATIO;
-  const DEFICIT_HEIGHT_RATIO = 1 - FIXED_ZERO_Y_RATIO;
-  const DEFICIT_VISUAL_MAX_TO_FUNDED_RATIO = 0.75;
   const DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS = 5;
   const MONTHS_PER_YEAR = 12;
   const MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = MONTHS_PER_YEAR;
@@ -1658,28 +1654,6 @@
       });
   }
 
-  function addRunwayPadding(value, ratio) {
-    const number = toOptionalNumber(value);
-    if (number == null || number <= 0) {
-      return 1;
-    }
-    return number + Math.max(number * ratio, 1);
-  }
-
-  function getDeficitVisualMax(rawDeficitMax, rawPositiveMax, positiveMax) {
-    const rawDeficit = toOptionalNumber(rawDeficitMax) || 0;
-    if (rawDeficit <= 0) {
-      return Math.max((toOptionalNumber(positiveMax) || 1) * 0.02, 1);
-    }
-    const fundedReference = Math.max(
-      toOptionalNumber(rawPositiveMax) || 0,
-      rawPositiveMax > 0 ? 0 : (toOptionalNumber(positiveMax) || 0),
-      1
-    );
-    const relativeCap = Math.max(fundedReference * DEFICIT_VISUAL_MAX_TO_FUNDED_RATIO, 1);
-    return Math.min(rawDeficit, relativeCap);
-  }
-
   function getRunwayValueDomain(input) {
     const appliedSeries = Array.isArray(input?.appliedPostDeathResources) && input.appliedPostDeathResources.length
       ? input.appliedPostDeathResources
@@ -1689,34 +1663,44 @@
           points: Array.isArray(input?.postDeathResources) ? input.postDeathResources : []
         }];
     const selectedSeries = getSelectedRunwaySeries(appliedSeries);
-    const positiveValues = getPositiveRunwayValues(appliedSeries);
+    const positiveValues = getPositiveRunwayValues(selectedSeries ? [selectedSeries] : []);
     const selectedDeficitValues = getSelectedDeficitValues(selectedSeries);
     const rawPositiveMax = positiveValues.length ? Math.max(...positiveValues) : 0;
     const rawDeficitMax = selectedDeficitValues.length ? Math.max(...selectedDeficitValues) : 0;
-    const positiveMax = addRunwayPadding(rawPositiveMax, 0.08);
-    const deficitVisualMax = getDeficitVisualMax(rawDeficitMax, rawPositiveMax, positiveMax);
-    const deficitVisualScaleCapped = rawDeficitMax > deficitVisualMax;
+    const paddedDomain = getValueExtent([
+      rawPositiveMax > 0 ? rawPositiveMax : 0,
+      rawDeficitMax > 0 ? -rawDeficitMax : 0
+    ]);
+    const span = paddedDomain.max - paddedDomain.min;
+    const zeroYRatio = span > 0
+      ? clampRatio(1 - ((0 - paddedDomain.min) / span))
+      : 0.5;
+    const positiveMax = paddedDomain.max;
+    const deficitMax = Math.abs(Math.min(paddedDomain.min, 0));
     return {
-      min: -deficitVisualMax,
-      max: positiveMax,
+      min: paddedDomain.min,
+      max: paddedDomain.max,
       signed: rawDeficitMax > 0,
-      verticalScaleMode: VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY,
-      zeroYRatio: FIXED_ZERO_Y_RATIO,
-      fundedRunwayHeightRatio: FUNDED_RUNWAY_HEIGHT_RATIO,
-      deficitHeightRatio: DEFICIT_HEIGHT_RATIO,
+      verticalScaleMode: VERTICAL_SCALE_MODE_CONTINUOUS_LINEAR,
+      zeroYRatio,
+      fundedRunwayHeightRatio: zeroYRatio,
+      deficitHeightRatio: 1 - zeroYRatio,
       positiveMax,
-      deficitMax: deficitVisualMax,
-      deficitVisualMax,
-      deficitVisualScaleMode: "cappedRelativeToFundedRunway",
-      deficitVisualScaleCapped,
+      deficitMax,
+      deficitVisualMax: rawDeficitMax,
+      deficitVisualScaleMode: "continuousLinear",
+      deficitVisualScaleCapped: false,
       rawPositiveMax,
       rawDeficitMax,
       trace: {
-        positiveDomainSource: "activeAppliedScenarioFundedRunway",
+        positiveDomainSource: "selectedAppliedScenarioFundedRunway",
         deficitDomainSource: "selectedAppliedScenarioDeficit",
         negativeValuesCompressFundedRunway: false,
-        fixedZeroRatioApplied: true,
-        rawDeficitValuesPreserved: true
+        fixedZeroRatioApplied: false,
+        continuousLinearScaleApplied: true,
+        selectedScenarioOnlyScale: true,
+        rawDeficitValuesPreserved: true,
+        deficitVisualCompressionRemoved: true
       }
     };
   }
@@ -2061,15 +2045,6 @@
     if (number == null) {
       return null;
     }
-    if (domain?.verticalScaleMode === VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY) {
-      const zeroYRatio = toOptionalNumber(domain.zeroYRatio) ?? FIXED_ZERO_Y_RATIO;
-      if (number >= 0) {
-        const positiveMax = Math.max(toOptionalNumber(domain.positiveMax) || 1, 1);
-        return clampRatio(zeroYRatio - (Math.min(number, positiveMax) / positiveMax * zeroYRatio));
-      }
-      const deficitMax = Math.max(toOptionalNumber(domain.deficitVisualMax ?? domain.deficitMax) || 1, 1);
-      return clampRatio(zeroYRatio + (Math.min(Math.abs(number), deficitMax) / deficitMax * (1 - zeroYRatio)));
-    }
     const span = domain.max - domain.min;
     if (span <= 0) {
       return 0.5;
@@ -2243,11 +2218,10 @@
     };
   }
 
-  function makeFixedZeroRunwayYTicks(domain) {
+  function makeContinuousLinearYTicks(domain) {
     const ticks = [];
     const rawPositiveMax = toOptionalNumber(domain?.rawPositiveMax) || 0;
     const rawDeficitMax = toOptionalNumber(domain?.rawDeficitMax) || 0;
-    const deficitVisualMax = toOptionalNumber(domain?.deficitVisualMax ?? domain?.deficitMax) || 0;
     if (rawPositiveMax > 0) {
       [1, 0.75, 0.5, 0.25].forEach(function (ratio) {
         const value = rawPositiveMax * ratio;
@@ -2270,9 +2244,9 @@
       yRatio: getValueRatio(0, domain),
       baseline: true
     });
-    if (rawDeficitMax > 0 && deficitVisualMax > 0) {
+    if (rawDeficitMax > 0) {
       [0.5, 1].forEach(function (ratio) {
-        const value = -deficitVisualMax * ratio;
+        const value = -rawDeficitMax * ratio;
         ticks.push({
           key: `deficit-${Math.round(ratio * 100)}`,
           zone: "deficit",
@@ -2283,7 +2257,8 @@
             tickRatio: ratio,
             subIncrement: ratio !== 1,
             rawDeficitMax,
-            deficitVisualScaleCapped: rawDeficitMax > deficitVisualMax
+            deficitVisualScaleCapped: false,
+            continuousLinearScaleApplied: true
           }
         });
       });
@@ -2292,8 +2267,8 @@
   }
 
   function makeYTicks(domain) {
-    if (domain?.verticalScaleMode === VERTICAL_SCALE_MODE_FIXED_ZERO_RUNWAY) {
-      return makeFixedZeroRunwayYTicks(domain);
+    if (domain?.verticalScaleMode === VERTICAL_SCALE_MODE_CONTINUOUS_LINEAR) {
+      return makeContinuousLinearYTicks(domain);
     }
     const ticks = [];
     const count = 5;

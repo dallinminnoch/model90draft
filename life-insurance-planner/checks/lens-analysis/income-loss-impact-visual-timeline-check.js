@@ -604,51 +604,52 @@ assert.equal(
   1,
   "V1 should render one selected-scenario deficit area, not a filled area for every scenario."
 );
-const clippedDeficitGraphModel = makeGraphModel();
-const clippedDeficitZeroPoint = { date: "2038-04-29", monthIndex: 84, value: 0, xRatio: 0.6, yRatio: clippedDeficitGraphModel.axes.y.zeroYRatio };
-clippedDeficitGraphModel.series.appliedRunwayScenarios = [
+const continuousDeficitGraphModel = makeGraphModel();
+continuousDeficitGraphModel.axes.y.zeroYRatio = 0.5;
+const continuousDeficitZeroPoint = { date: "2038-04-29", monthIndex: 84, value: 0, xRatio: 0.6, yRatio: continuousDeficitGraphModel.axes.y.zeroYRatio };
+continuousDeficitGraphModel.series.appliedRunwayScenarios = [
   {
-    scenarioId: "income-impact-clipped-deficit",
-    label: "Clipped deficit",
+    scenarioId: "income-impact-continuous-deficit",
+    label: "Continuous deficit",
     pathId: "postDeathResources",
     selected: true,
     rawPoints: [
       { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
-      clippedDeficitZeroPoint,
-      { date: "2039-04-29", monthIndex: 96, value: -900000, xRatio: 0.72, yRatio: 1, deficitVisualClipped: true },
-      { date: "2040-04-29", monthIndex: 108, value: -1500000, xRatio: 0.84, yRatio: 1, deficitVisualClipped: true },
-      { date: "2041-04-29", monthIndex: 120, value: -2400000, xRatio: 0.96, yRatio: 1, deficitVisualClipped: true }
+      continuousDeficitZeroPoint,
+      { date: "2039-04-29", monthIndex: 96, value: -900000, xRatio: 0.72, yRatio: 0.62 },
+      { date: "2040-04-29", monthIndex: 108, value: -1500000, xRatio: 0.84, yRatio: 0.78 },
+      { date: "2041-04-29", monthIndex: 120, value: -2400000, xRatio: 0.96, yRatio: 0.94 }
     ],
     fundedRunwayPoints: [
       { date: "2032-04-29", monthIndex: 12, value: 640000, xRatio: 0.33, yRatio: 0.12 },
-      clippedDeficitZeroPoint
+      continuousDeficitZeroPoint
     ],
     deficitPoints: [
-      clippedDeficitZeroPoint,
-      { date: "2039-04-29", monthIndex: 96, value: -900000, xRatio: 0.72, yRatio: 1, deficitVisualClipped: true },
-      { date: "2040-04-29", monthIndex: 108, value: -1500000, xRatio: 0.84, yRatio: 1, deficitVisualClipped: true },
-      { date: "2041-04-29", monthIndex: 120, value: -2400000, xRatio: 0.96, yRatio: 1, deficitVisualClipped: true }
+      continuousDeficitZeroPoint,
+      { date: "2039-04-29", monthIndex: 96, value: -900000, xRatio: 0.72, yRatio: 0.62 },
+      { date: "2040-04-29", monthIndex: 108, value: -1500000, xRatio: 0.84, yRatio: 0.78 },
+      { date: "2041-04-29", monthIndex: 120, value: -2400000, xRatio: 0.96, yRatio: 0.94 }
     ],
-    depletionPoint: clippedDeficitZeroPoint,
+    depletionPoint: continuousDeficitZeroPoint,
     trace: {
       rawValuesPreserved: true,
       depletionDatePreserved: true
     }
   }
 ];
-const clippedDeficitTimelineHtml = harness.renderTimeline({
+const continuousDeficitTimelineHtml = harness.renderTimeline({
   ...fixture,
-  graphModel: clippedDeficitGraphModel
+  graphModel: continuousDeficitGraphModel
 });
-const clippedDeficitAreaPath = getPathD(clippedDeficitTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
-const clippedDeficitBottomY = 36 + 318;
-const clippedDeficitBottomYCount = getPathYValues(clippedDeficitAreaPath).filter(function (value) {
-  return Math.abs(value - clippedDeficitBottomY) < 0.01;
+const continuousDeficitAreaPath = getPathD(continuousDeficitTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
+const continuousDeficitFinalY = 36 + (0.94 * 318);
+const continuousDeficitFinalYCount = getPathYValues(continuousDeficitAreaPath).filter(function (value) {
+  return Math.abs(value - continuousDeficitFinalY) < 0.01;
 }).length;
 assert.equal(
-  clippedDeficitBottomYCount,
+  continuousDeficitFinalYCount,
   1,
-  "Over-cap deficit area should end at the first clipped boundary point instead of drawing a flat bottom rail."
+  "Continuous deficit area should include the final raw deficit point instead of stopping at a compressed clipping boundary."
 );
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-runway-depletion-marker(?:\s|>)/g) || []).length,
