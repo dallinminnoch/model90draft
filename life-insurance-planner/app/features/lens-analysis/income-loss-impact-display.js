@@ -16,6 +16,7 @@
   const SELECTED_DEFICIT_AREA_ID = "postDeathDeficitArea--selected";
   const DEATH_CONVERSION_GRADIENT_ID = "income-impact-death-conversion-gradient";
   const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
+  const DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP = 1;
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
@@ -1931,6 +1932,31 @@
     }).join("");
   }
 
+  function renderDeathConversionMarkers(x, topY, bottomY) {
+    const circleY = topY + ((bottomY - topY) * DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP);
+    return `
+      <g class="income-impact-death-conversion-markers" data-income-impact-death-conversion-markers>
+        <rect
+          class="income-impact-death-conversion-diamond"
+          data-income-impact-death-conversion-diamond
+          x="${formatSvgCoordinate(x - 6)}"
+          y="${formatSvgCoordinate(topY - 6)}"
+          width="12"
+          height="12"
+          transform="rotate(45 ${formatSvgCoordinate(x)} ${formatSvgCoordinate(topY)})"
+        ></rect>
+        <circle
+          class="income-impact-death-conversion-circle"
+          data-income-impact-death-conversion-circle
+          data-income-impact-death-conversion-circle-position-ratio="${escapeHtml(DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP)}"
+          cx="${x}"
+          cy="${formatSvgCoordinate(circleY)}"
+          r="6.5"
+        ></circle>
+      </g>
+    `;
+  }
+
   function renderDeathEventConversionConnector(graphModel) {
     const connector = getDeathConversionConnector(graphModel);
     if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
@@ -1965,6 +1991,7 @@
         <g class="income-impact-death-conversion-chevrons" data-income-impact-death-conversion-chevrons>
           ${renderDeathConversionArrows(x, y1, y2)}
         </g>
+        ${renderDeathConversionMarkers(x, topY, bottomY)}
         <title>${escapeHtml(label)}</title>
       </g>
     `;
@@ -2588,9 +2615,9 @@
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
           ${preDeathPath}
-          ${deathConversionConnector}
           ${appliedScenarioPaths}
           ${comparisonPaths}
+          ${deathConversionConnector}
           ${deathLineAnchors || renderGraphDeathAnchor(graphModel)}
           ${renderAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId)}
         </g>

@@ -205,8 +205,16 @@ assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
 assert.match(displaySource, /data-income-impact-runway-depletion-marker/);
 assert.match(displaySource, /renderDeathEventConversionConnector/);
 assert.match(displaySource, /DEATH_CONVERSION_ARROW_POSITION_RATIOS/);
+assert.match(displaySource, /DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP/);
 assert.match(displaySource, /data-income-impact-death-conversion-spine/);
 assert.match(displaySource, /data-income-impact-death-conversion-chevron-position-ratio/);
+assert.match(displaySource, /data-income-impact-death-conversion-diamond/);
+assert.match(displaySource, /data-income-impact-death-conversion-circle/);
+assert.match(
+  displaySource,
+  /\$\{appliedScenarioPaths\}[\s\S]*\$\{comparisonPaths\}[\s\S]*\$\{deathConversionConnector\}/,
+  "Death-event connector markers should paint above the runway paths."
+);
 assert.doesNotMatch(displaySource, /annotationGeometry/);
 assert.doesNotMatch(displaySource, /getSelectedDeathEventBridge|renderDeathEventBridge/);
 assert.doesNotMatch(displaySource, /data-income-impact-death-event-bridge/);
@@ -238,6 +246,8 @@ assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-death-conversion-spine[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*4;/);
 assert.match(componentsSource, /\.income-impact-death-conversion-chevron[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*3;/);
+assert.match(componentsSource, /\.income-impact-death-conversion-diamond[\s\S]*fill:\s*#4054b8;[\s\S]*stroke:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-death-conversion-circle[\s\S]*fill:\s*#ffffff;[\s\S]*stroke:\s*#2f8fc7;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-bridge/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-net-worth/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-survivor-resources/);
@@ -338,6 +348,22 @@ assert.match(timelineHtml, /data-income-impact-death-conversion/);
 assert.match(timelineHtml, /data-income-impact-death-conversion-gradient/);
 assert.match(timelineHtml, /data-income-impact-death-conversion-spine/);
 assert.match(timelineHtml, /data-income-impact-death-conversion-chevrons/);
+assert.match(timelineHtml, /data-income-impact-death-conversion-markers/);
+assert.equal(
+  (timelineHtml.match(/data-income-impact-death-conversion-diamond(?:\s|>)/g) || []).length,
+  1,
+  "Death-event conversion connector should render one separate top diamond marker."
+);
+assert.equal(
+  (timelineHtml.match(/data-income-impact-death-conversion-circle(?:\s|>)/g) || []).length,
+  1,
+  "Death-event conversion connector should render one separate circle marker."
+);
+assert.match(
+  timelineHtml,
+  /data-income-impact-death-conversion-circle-position-ratio="1"/,
+  "Death-event conversion circle marker should sit at the bottom anchor of the connector."
+);
 assert.equal(
   (timelineHtml.match(/data-income-impact-death-conversion-chevron(?:\s|>)/g) || []).length,
   2,
@@ -541,6 +567,16 @@ assert.equal(
   1,
   "Only the selected applied scenario should render one death-event conversion connector."
 );
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-death-conversion-diamond(?:\s|>)/g) || []).length,
+  1,
+  "Hidden applied scenarios should not create extra conversion diamond markers."
+);
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-death-conversion-circle(?:\s|>)/g) || []).length,
+  1,
+  "Hidden applied scenarios should not create extra conversion circle markers."
+);
 assert.match(
   getDeathConversionConnectorTag(multiAppliedTimelineHtml),
   /data-income-impact-applied-scenario-id="income-impact-death-in-5-years"/,
@@ -740,6 +776,16 @@ assert.equal(
   (switchedSelectedTimelineHtml.match(/data-income-impact-death-conversion(?:\s|>)/g) || []).length,
   1,
   "Switching the selected scenario should still render only one death-event conversion connector."
+);
+assert.equal(
+  (switchedSelectedTimelineHtml.match(/data-income-impact-death-conversion-diamond(?:\s|>)/g) || []).length,
+  1,
+  "Switching the selected scenario should still render only one conversion diamond marker."
+);
+assert.equal(
+  (switchedSelectedTimelineHtml.match(/data-income-impact-death-conversion-circle(?:\s|>)/g) || []).length,
+  1,
+  "Switching the selected scenario should still render only one conversion circle marker."
 );
 
 const currentGraphModel = makeGraphModel();

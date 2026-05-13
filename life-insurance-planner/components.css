@@ -16560,6 +16560,20 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
   vector-effect: non-scaling-stroke;
 }
 
+.income-impact-death-conversion-diamond {
+  fill: #4054b8;
+  stroke: #ffffff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-death-conversion-circle {
+  fill: #ffffff;
+  stroke: #2f8fc7;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {
   stroke-width: 3.2;
 }
