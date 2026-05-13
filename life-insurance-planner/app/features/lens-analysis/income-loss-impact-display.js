@@ -1240,8 +1240,22 @@
       : buildSmoothedSvgPath(plotPoints);
   }
 
-  function formatAxisCurrency(value) {
+  function roundAxisTickToNearestFiveThousand(value) {
     const number = toOptionalNumber(value);
+    if (number == null) {
+      return null;
+    }
+    if (Math.abs(number) < 1e-6) {
+      return 0;
+    }
+
+    const increment = 5000;
+    const sign = number < 0 ? -1 : 1;
+    return sign * Math.round(Math.abs(number) / increment) * increment;
+  }
+
+  function formatAxisCurrency(value) {
+    const number = roundAxisTickToNearestFiveThousand(value);
     if (number == null) {
       return "";
     }

@@ -114,10 +114,10 @@ function makeGraphModel(mode = "forward-projection") {
         signed: true,
         zeroYRatio: 0.68,
         ticks: [
-          { value: -100000, yRatio: 0.8 },
+          { value: -123000, yRatio: 0.8 },
           { value: 0, yRatio: 0.68 },
-          { value: 500000, yRatio: 0.24 },
-          { value: 900000, yRatio: 0.02 }
+          { value: 457900, yRatio: 0.24 },
+          { value: 452300, yRatio: 0.02 }
         ]
       }
     },
@@ -373,6 +373,20 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-impact-runway-line/);
 const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources");
 assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
+assert.match(
+  displaySource,
+  /function roundAxisTickToNearestFiveThousand/,
+  "Income Impact display should keep y-axis label rounding in an explicit helper."
+);
+assert.match(timelineHtml, />-\$125k</, "Negative y-axis labels should round to the nearest $5k increment.");
+assert.match(timelineHtml, />\$0</, "$0 should remain exact on the y-axis.");
+assert.match(timelineHtml, />\$460k</, "Positive y-axis labels should round up to the nearest $5k increment.");
+assert.match(timelineHtml, />\$450k</, "Positive y-axis labels should round down to the nearest $5k increment.");
+assert.doesNotMatch(
+  timelineHtml,
+  />-\$123k|>\$458k|>\$452k/,
+  "Y-axis labels should not expose unrounded compact tick values."
+);
 
 const multiAppliedGraphModel = makeGraphModel();
 const survivorResourcesStartXRatio = multiAppliedGraphModel.phases.deathEvent.xRatio;
