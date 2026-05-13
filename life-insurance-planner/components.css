@@ -16304,26 +16304,22 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 .income-impact-depletion-story-lane {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0;
   min-width: 0;
+  min-height: 3.6rem;
+  border-top: 1px solid rgba(213, 220, 233, 0.9);
+  border-bottom: 1px solid rgba(238, 242, 247, 0.95);
 }
 
 .income-impact-depletion-story-slot {
-  display: grid;
-  align-items: center;
-  min-height: 5.25rem;
-  padding: 0.75rem;
-  border: 1px dashed rgba(153, 166, 186, 0.72);
-  border-radius: 0.5rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.58));
-  color: #627086;
+  position: relative;
+  min-height: 3.6rem;
+  border-right: 1px solid rgba(223, 229, 238, 0.88);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.68), rgba(255, 255, 255, 0));
 }
 
-.income-impact-depletion-story-slot span {
-  font-size: 0.72rem;
-  font-weight: 820;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.income-impact-depletion-story-slot:last-child {
+  border-right: 0;
 }
 
 .income-impact-card {
@@ -16574,19 +16570,47 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-weight: 780;
 }
 
-.income-impact-graph-axis line {
-  stroke: rgba(213, 220, 233, 0.62);
+.income-impact-graph-y-grid-line {
+  stroke: rgba(83, 97, 118, 0.22);
+  stroke-dasharray: 8 12;
+  stroke-linecap: round;
   stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-graph-x-grid-line {
+  stroke: rgba(83, 97, 118, 0.16);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .income-impact-graph-axis text {
-  fill: #627086;
-  font-size: 0.68rem;
-  font-weight: 720;
+  fill: #536176;
+  font-size: 0.78rem;
+  font-weight: 620;
+}
+
+.income-impact-graph-y-tick-label {
+  fill: #536176;
+}
+
+.income-impact-graph-y-tick-marker circle,
+.income-impact-graph-x-tick-dot {
+  fill: #080a16;
+}
+
+.income-impact-graph-y-tick-marker path {
+  fill: none;
+  stroke: #080a16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
 }
 
 .income-impact-graph-zero-baseline {
-  stroke: rgba(23, 32, 44, 0.34) !important;
+  stroke: rgba(23, 32, 44, 0.3) !important;
+  stroke-dasharray: 8 12;
   stroke-width: 1.2 !important;
 }
 
@@ -16736,7 +16760,8 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-graph-hover-grid-line {
-  stroke: rgba(23, 32, 51, 0.1);
+  opacity: 0;
+  stroke: transparent;
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
   pointer-events: none;

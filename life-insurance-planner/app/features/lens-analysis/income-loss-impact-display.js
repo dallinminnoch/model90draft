@@ -1665,8 +1665,12 @@
           const y = toGraphY(tick.yRatio);
           return `
             <g data-income-impact-graph-y-tick>
-              <line x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${y}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${y}"></line>
-              <text x="${GRAPH_VIEW_BOX.plotLeft - 10}" y="${y + 4}" text-anchor="end">${escapeHtml(formatAxisCurrency(tick.value))}</text>
+              <line class="income-impact-graph-y-grid-line" data-income-impact-graph-y-grid-line x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${y}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${y}"></line>
+              <text class="income-impact-graph-y-tick-label" x="${GRAPH_VIEW_BOX.plotLeft - 28}" y="${y + 4}" text-anchor="end">${escapeHtml(formatAxisCurrency(tick.value))}</text>
+              <g class="income-impact-graph-y-tick-marker" data-income-impact-graph-y-tick-marker aria-hidden="true">
+                <circle cx="${GRAPH_VIEW_BOX.plotLeft - 18}" cy="${y}" r="3.3"></circle>
+                <path d="M ${GRAPH_VIEW_BOX.plotLeft - 12} ${y} L ${GRAPH_VIEW_BOX.plotLeft - 2} ${y} M ${GRAPH_VIEW_BOX.plotLeft - 7} ${y - 5} L ${GRAPH_VIEW_BOX.plotLeft - 2} ${y} L ${GRAPH_VIEW_BOX.plotLeft - 7} ${y + 5}"></path>
+              </g>
             </g>
           `;
         }).join("")}
@@ -1685,7 +1689,8 @@
               data-income-impact-graph-x-tick-date="${escapeHtml(tick.date || "")}"
               data-income-impact-graph-x-tick-relative-years="${escapeHtml(tick.relativeYears == null ? "" : tick.relativeYears)}"
             >
-              <line x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}" x2="${x}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 8}"></line>
+              <line class="income-impact-graph-x-grid-line" data-income-impact-graph-x-grid-line x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${x}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
+              <circle class="income-impact-graph-x-tick-dot" data-income-impact-graph-x-tick-dot cx="${x}" cy="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 16}" r="4"></circle>
               <text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 28}" text-anchor="middle">${escapeHtml(tick.label || "")}</text>
               ${secondaryLabel ? `<text x="${x}" y="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight + 48}" text-anchor="middle">${escapeHtml(secondaryLabel)}</text>` : ""}
             </g>
@@ -3109,20 +3114,12 @@
     return `
       <section class="income-impact-depletion-story" data-income-impact-depletion-story aria-label="Financial Depletion Story">
         <div class="income-impact-section-header">
-          <span class="section-label">Story scaffold</span>
           <h3>Financial Depletion Story</h3>
-          <p>Reserved for the future sequence of income-loss events, pressure points, and depletion milestones.</p>
         </div>
-        <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane>
-          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="starting-resources">
-            <span>Starting resources</span>
-          </div>
-          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="runway-pressure">
-            <span>Runway pressure</span>
-          </div>
-          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="depletion-outcome">
-            <span>Depletion outcome</span>
-          </div>
+        <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane aria-hidden="true">
+          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="starting-resources"></div>
+          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="runway-pressure"></div>
+          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="depletion-outcome"></div>
         </div>
       </section>
     `;
@@ -3627,9 +3624,7 @@
     return `
       <section class="income-impact-chart-section" data-income-impact-helper-timeline data-income-impact-chart-section>
         <div class="income-impact-section-header">
-          <span class="section-label">Timeline graph</span>
           <h3>Remaining Resources Timeline</h3>
-          <p>Fact-based runway from linked profile and Protection Modeling information for the selected death age/date.</p>
         </div>
         <div class="income-impact-timeline" aria-label="Fact-based household impact timeline">
           ${renderIncomeImpactTimelineGraph(timelineResult)}

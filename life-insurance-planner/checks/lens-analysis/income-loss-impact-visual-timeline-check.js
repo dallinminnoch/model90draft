@@ -225,6 +225,8 @@ assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
+assert.match(pageSource, /Preview only &mdash; LENS recommendation unchanged\./);
+assert.match(pageSource, /<p>Adjust the selected scenario\.<\/p>/);
 assert.match(pageSource, /data-income-impact-scenario-banner/);
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
@@ -233,6 +235,10 @@ assert.match(displaySource, /data-income-impact-summary-strip/);
 assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
 assert.match(displaySource, /data-income-impact-depletion-story/);
 assert.match(displaySource, /data-income-impact-depletion-story-slot="starting-resources"/);
+assert.match(displaySource, /data-income-impact-depletion-story-lane aria-hidden="true"/);
+assert.doesNotMatch(displaySource, />Story scaffold</);
+assert.doesNotMatch(displaySource, /Reserved for the future sequence/);
+assert.doesNotMatch(displaySource, />Starting resources<|>Runway pressure<|>Depletion outcome</);
 assert.match(displaySource, /data-income-impact-chart-section/);
 assert.match(displaySource, /data-income-impact-graph-svg/);
 assert.match(displaySource, /appliedRunwayScenarios/);
@@ -262,6 +268,10 @@ assert.match(displaySource, /data-income-impact-graph-hover-slot/);
 assert.match(displaySource, /data-income-impact-graph-hover-active-line/);
 assert.match(displaySource, /data-income-impact-graph-hover-value/);
 assert.match(displaySource, /data-income-impact-graph-hover-readout/);
+assert.match(displaySource, /data-income-impact-graph-y-grid-line/);
+assert.match(displaySource, /data-income-impact-graph-y-tick-marker/);
+assert.match(displaySource, /data-income-impact-graph-x-grid-line/);
+assert.match(displaySource, /data-income-impact-graph-x-tick-dot/);
 assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
@@ -322,7 +332,8 @@ assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*tran
 assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*background:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
-assert.match(componentsSource, /\.income-impact-depletion-story-slot[\s\S]*border:\s*1px dashed rgba\(153,\s*166,\s*186,\s*0\.72\);/);
+assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
+assert.match(componentsSource, /\.income-impact-depletion-story-slot[\s\S]*border-right:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.88\);/);
 assert.match(componentsSource, /\.income-impact-graph\s*\{[\s\S]*padding:\s*0;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-svg/);
@@ -355,8 +366,13 @@ assert.match(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*point
 assert.match(componentsSource, /\.income-impact-graph-hover-underlay--pre-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-pre-death-gradient"\);/);
 assert.match(componentsSource, /\.income-impact-graph-hover-underlay--post-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-post-death-gradient"\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.095\);/);
-assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);[\s\S]*stroke-width:\s*1;/);
-assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line\s*\{[^}]*opacity\s*:/);
+assert.match(componentsSource, /\.income-impact-graph-y-grid-line[\s\S]*stroke:\s*rgba\(83,\s*97,\s*118,\s*0\.22\);[\s\S]*stroke-dasharray:\s*8 12;/);
+assert.match(componentsSource, /\.income-impact-graph-x-grid-line[\s\S]*stroke:\s*rgba\(83,\s*97,\s*118,\s*0\.16\);[\s\S]*stroke-width:\s*1;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-marker circle,[\s\S]*\.income-impact-graph-x-tick-dot[\s\S]*fill:\s*#080a16;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-marker path[\s\S]*stroke:\s*#080a16;[\s\S]*stroke-width:\s*2\.2;/);
+assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#536176;[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*620;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*transparent;[\s\S]*stroke-width:\s*1;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);/);
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*pointer-events:\s*all;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-active-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*rgba\(47,\s*143,\s*199,\s*0\.28\);[\s\S]*stroke-width:\s*1;/);
@@ -1366,16 +1382,17 @@ assert.match(host.innerHTML, /data-income-impact-depletion-story-slot="starting-
 assert.match(host.innerHTML, /data-income-impact-depletion-story-slot="runway-pressure"/);
 assert.match(host.innerHTML, /data-income-impact-depletion-story-slot="depletion-outcome"/);
 assert.match(host.innerHTML, /data-income-impact-chart-section/);
+assert.doesNotMatch(host.innerHTML, /Story scaffold|Reserved for the future|Starting resources|Runway pressure|Depletion outcome|coming soon|to be filled/i);
 assert.match(host.innerHTML, /data-income-impact-layout-main/);
 assert.match(host.innerHTML, /data-income-impact-layout-aside/);
 assert.match(host.innerHTML, /data-income-impact-graph-svg/);
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-summary-strip") < host.innerHTML.indexOf("data-income-impact-depletion-story"),
-  "Top summary strip should render before the depletion story scaffold."
+  "Top summary strip should render before the depletion story section."
 );
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-depletion-story") < host.innerHTML.indexOf("data-income-impact-helper-timeline"),
-  "Financial Depletion Story scaffold should render above the timeline chart."
+  "Financial Depletion Story should render above the timeline chart."
 );
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),

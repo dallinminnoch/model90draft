@@ -589,8 +589,13 @@ assert.equal(
 assert.match(pageSource, /Scenario Controls/);
 assert.match(
   pageSource,
-  /Preview only — LENS recommendation unchanged\./,
-  "scenario banner should use the shortened preview disclaimer."
+  /Preview only &mdash; LENS recommendation unchanged\./,
+  "Income Impact page title should use the shortened preview disclaimer."
+);
+assert.match(
+  pageSource,
+  /Adjust the selected scenario\./,
+  "Scenario banner should use compact dashboard-style control copy."
 );
 assert.doesNotMatch(
   pageSource,
