@@ -1095,6 +1095,102 @@ assert.equal(
   "Runway raw points should preserve signed ending resources."
 );
 
+const offWindowDeficitScenario = cloneJson(fiveYearScenario);
+offWindowDeficitScenario.postDeathSeries.points.push({
+  date: "2061-04-29",
+  monthIndex: 360,
+  endingResources: -4000000,
+  accumulatedUnmetNeed: 4000000,
+  sourcePaths: ["layer3.points"]
+});
+const offWindowDeficitModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-off-window-deficit-scenario",
+      label: "Off-window deficit scenario",
+      settings: {
+        selectedDeathAge: 51,
+        selectedDeathDate: offWindowDeficitScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(offWindowDeficitScenario),
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "income-impact-off-window-deficit-scenario",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(offWindowDeficitModel.projection.postDeathDisplayHorizonMonths, 180);
+assert.equal(
+  offWindowDeficitModel.axes.y.rawDeficitMax,
+  150000,
+  "Off-window far-future deficit continuation should not expand the visible y-domain."
+);
+assert.equal(offWindowDeficitModel.axes.y.trace.yDomainWindowSource, "selectedVisibleDisplayHorizon");
+assert.equal(offWindowDeficitModel.axes.y.trace.displayHorizonMonths, 180);
+assert.equal(offWindowDeficitModel.axes.y.visibleDomainBoundaryPointIncluded, false);
+assert.ok(
+  offWindowDeficitModel.axes.y.min > -4000000,
+  "Visible y-domain should exclude hidden far-future negative continuation values."
+);
+assert.equal(
+  offWindowDeficitModel.series.appliedRunwayScenarios[0].rawPoints.at(-1).accumulatedUnmetNeed,
+  4000000,
+  "Raw far-future deficit continuation should remain preserved outside visible y-domain ownership."
+);
+
+const boundaryDeficitScenario = cloneJson(fiveYearScenario);
+boundaryDeficitScenario.postDeathSeries.points = boundaryDeficitScenario.postDeathSeries.points.slice(0, 2);
+boundaryDeficitScenario.postDeathSeries.points.push({
+  date: "2061-04-29",
+  monthIndex: 360,
+  endingResources: -4000000,
+  accumulatedUnmetNeed: 4000000,
+  sourcePaths: ["layer3.points"]
+});
+const boundaryDeficitModel = buildIncomeImpactTimelineGraphModel({
+  appliedScenarios: [
+    {
+      scenarioId: "income-impact-boundary-deficit-scenario",
+      label: "Boundary deficit scenario",
+      settings: {
+        selectedDeathAge: 51,
+        selectedDeathDate: boundaryDeficitScenario.scenario.selectedDeathDate,
+        projectionHorizonYears: 40,
+        mortgageTreatmentOverride: "followAssumptions",
+        lifestyleSliderValue: 0
+      },
+      scenario: cloneJson(boundaryDeficitScenario),
+      riskEvaluation: cloneJson(riskEvaluation)
+    }
+  ],
+  selectedScenarioId: "income-impact-boundary-deficit-scenario",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(boundaryDeficitModel.projection.postDeathDisplayHorizonMonths, 180);
+assert.equal(
+  boundaryDeficitModel.axes.y.visibleDomainBoundaryPointIncluded,
+  true,
+  "A segment crossing the visible horizon should add an interpolated boundary point to y-domain calculation."
+);
+assert.ok(
+  boundaryDeficitModel.axes.y.rawDeficitMax > 900000
+    && boundaryDeficitModel.axes.y.rawDeficitMax < 1100000,
+  "Visible y-domain should include the interpolated boundary deficit, not the full off-window deficit."
+);
+assert.ok(
+  boundaryDeficitModel.axes.y.rawDeficitMax < 4000000,
+  "Boundary interpolation should prevent far-future off-window deficit values from crushing the visible graph."
+);
+
 const tenYearScenario = makeScenario(10);
 const appliedMultiInput = {
   appliedScenarios: [

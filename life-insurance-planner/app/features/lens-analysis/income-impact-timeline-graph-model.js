@@ -1654,6 +1654,100 @@
       });
   }
 
+  function getVisibleDomainPointMonth(point, series) {
+    const monthIndex = toOptionalNumber(point?.monthIndex);
+    if (monthIndex != null && monthIndex >= 0) {
+      return monthIndex;
+    }
+    const deathDate = normalizeDateOnly(series?.deathDate);
+    const pointDate = normalizeDateOnly(point?.date);
+    if (deathDate && pointDate) {
+      const dateMonth = getApproximateMonthDelta(deathDate, pointDate);
+      return dateMonth != null && dateMonth >= 0 ? dateMonth : null;
+    }
+    return null;
+  }
+
+  function makeVisibleDomainBoundaryPoint(previousPoint, currentPoint, series, displayHorizonMonths) {
+    const previousMonths = getVisibleDomainPointMonth(previousPoint, series);
+    const currentMonths = getVisibleDomainPointMonth(currentPoint, series);
+    if (
+      displayHorizonMonths == null
+      || previousMonths == null
+      || currentMonths == null
+      || currentMonths === previousMonths
+      || displayHorizonMonths < previousMonths
+      || displayHorizonMonths > currentMonths
+    ) {
+      return null;
+    }
+
+    const interpolationRatio = (displayHorizonMonths - previousMonths) / (currentMonths - previousMonths);
+    const value = interpolateNumber(
+      getRunwayResourceValue(previousPoint),
+      getRunwayResourceValue(currentPoint),
+      interpolationRatio
+    );
+    if (value == null) {
+      return null;
+    }
+    const deathDate = parseDateOnly(series?.deathDate);
+    const accumulatedUnmetNeed = interpolateNumber(
+      previousPoint?.accumulatedUnmetNeed ?? 0,
+      currentPoint?.accumulatedUnmetNeed,
+      interpolationRatio
+    );
+    const boundaryPoint = Object.assign({}, clonePlainValue(currentPoint), {
+      id: `${normalizeString(series?.scenarioId || series?.pathId) || "selected-scenario"}-visible-domain-boundary`,
+      date: normalizeDateOnly(addMonths(deathDate, displayHorizonMonths))
+        || interpolateDateOnly(previousPoint, currentPoint, interpolationRatio),
+      monthIndex: displayHorizonMonths,
+      value,
+      rawValue: value,
+      displayedValue: value,
+      endingResources: value,
+      availableResources: value,
+      trace: Object.assign({}, isPlainObject(currentPoint?.trace) ? currentPoint.trace : {}, {
+        visibleWindowDomainBoundary: true,
+        displayHorizonMonths,
+        sourcePointIds: [previousPoint?.id, currentPoint?.id].filter(Boolean),
+        noFinancialCalculationChanged: true
+      })
+    });
+    if (accumulatedUnmetNeed != null) {
+      boundaryPoint.accumulatedUnmetNeed = accumulatedUnmetNeed;
+    }
+    return boundaryPoint;
+  }
+
+  function getVisibleWindowDomainPoints(series, displayHorizonMonths) {
+    const sourcePoints = Array.isArray(series?.points) ? series.points : [];
+    const horizonMonths = toOptionalNumber(displayHorizonMonths);
+    if (horizonMonths == null || !sourcePoints.length) {
+      return sourcePoints.map(cloneRunwayPoint);
+    }
+    const visiblePoints = [];
+    let previousPoint = null;
+    for (let index = 0; index < sourcePoints.length; index += 1) {
+      const point = sourcePoints[index];
+      const month = getVisibleDomainPointMonth(point, series);
+      if (month == null || month <= horizonMonths) {
+        visiblePoints.push(cloneRunwayPoint(point));
+        previousPoint = point;
+        continue;
+      }
+      const previousMonth = getVisibleDomainPointMonth(previousPoint, series);
+      if (previousPoint && previousMonth != null && previousMonth < horizonMonths) {
+        const boundaryPoint = makeVisibleDomainBoundaryPoint(previousPoint, point, series, horizonMonths);
+        if (boundaryPoint) {
+          visiblePoints.push(boundaryPoint);
+        }
+      }
+      break;
+    }
+    return visiblePoints;
+  }
+
   function getRunwayValueDomain(input) {
     const appliedSeries = Array.isArray(input?.appliedPostDeathResources) && input.appliedPostDeathResources.length
       ? input.appliedPostDeathResources
@@ -1663,8 +1757,13 @@
           points: Array.isArray(input?.postDeathResources) ? input.postDeathResources : []
         }];
     const selectedSeries = getSelectedRunwaySeries(appliedSeries);
-    const positiveValues = getPositiveRunwayValues(selectedSeries ? [selectedSeries] : []);
-    const selectedDeficitValues = getSelectedDeficitValues(selectedSeries);
+    const selectedVisibleSeries = selectedSeries
+      ? Object.assign({}, selectedSeries, {
+          points: getVisibleWindowDomainPoints(selectedSeries, input?.displayHorizonMonths)
+        })
+      : null;
+    const positiveValues = getPositiveRunwayValues(selectedVisibleSeries ? [selectedVisibleSeries] : []);
+    const selectedDeficitValues = getSelectedDeficitValues(selectedVisibleSeries);
     const rawPositiveMax = positiveValues.length ? Math.max(...positiveValues) : 0;
     const rawDeficitMax = selectedDeficitValues.length ? Math.max(...selectedDeficitValues) : 0;
     const paddedDomain = getValueExtent([
@@ -1692,9 +1791,15 @@
       deficitVisualScaleCapped: false,
       rawPositiveMax,
       rawDeficitMax,
+      visibleDomainPointCount: Array.isArray(selectedVisibleSeries?.points) ? selectedVisibleSeries.points.length : 0,
+      visibleDomainBoundaryPointIncluded: Boolean(selectedVisibleSeries?.points?.some(function (point) {
+        return point?.trace?.visibleWindowDomainBoundary === true;
+      })),
       trace: {
         positiveDomainSource: "selectedAppliedScenarioFundedRunway",
         deficitDomainSource: "selectedAppliedScenarioDeficit",
+        yDomainWindowSource: "selectedVisibleDisplayHorizon",
+        displayHorizonMonths: toOptionalNumber(input?.displayHorizonMonths),
         negativeValuesCompressFundedRunway: false,
         fixedZeroRatioApplied: false,
         continuousLinearScaleApplied: true,
@@ -2614,7 +2719,8 @@
     );
     const yDomain = getRunwayValueDomain({
       appliedPostDeathResources,
-      postDeathResources
+      postDeathResources,
+      displayHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths
     });
 
     const enrichedPreDeath = preDeathAssets.map(function (point) {
@@ -2750,6 +2856,8 @@
           deficitVisualScaleCapped: yDomain.deficitVisualScaleCapped,
           rawPositiveMax: yDomain.rawPositiveMax,
           rawDeficitMax: yDomain.rawDeficitMax,
+          visibleDomainPointCount: yDomain.visibleDomainPointCount,
+          visibleDomainBoundaryPointIncluded: yDomain.visibleDomainBoundaryPointIncluded,
           trace: clonePlainValue(yDomain.trace),
           ticks: makeYTicks(yDomain)
         }
@@ -2807,6 +2915,9 @@
         deficitVisualMax: yDomain.deficitVisualMax,
         deficitVisualScaleMode: yDomain.deficitVisualScaleMode,
         deficitVisualScaleCapped: yDomain.deficitVisualScaleCapped,
+        visibleDomainPointCount: yDomain.visibleDomainPointCount,
+        visibleDomainBoundaryPointIncluded: yDomain.visibleDomainBoundaryPointIncluded,
+        yDomainWindowSource: yDomain.trace.yDomainWindowSource,
         negativeValuesCompressFundedRunway: false,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,
