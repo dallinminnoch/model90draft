@@ -6,7 +6,7 @@
   <title data-i18n="pageTitle.clients">Clients | Advisor Planning Suite</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles.css">
 </head>
 <body class="home-page clients-page" data-local-client-directory="true">
@@ -319,6 +319,95 @@
             </nav>
           </div>
         </header>
+
+        <section class="client-directory-action-row" aria-label="Client directory actions">
+          <div class="client-directory-toolbar-actions">
+            <div class="client-export-dropdown" data-export-dropdown>
+              <button class="client-header-action client-header-action-secondary" type="button" data-export-button aria-expanded="false">Export</button>
+              <div class="client-export-menu directory-menu__panel" role="menu" aria-label="Export actions">
+                <div class="directory-command-menu-section">
+                  <button class="directory-menu__option" type="button" data-directory-command-action="import-package" role="menuitem">
+                    <span class="directory-command-option-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="none">
+                        <path d="M10 3.85v8.35" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                        <path d="m6.6 8.9 3.4 3.4 3.4-3.4" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M4 15.35h12" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>Import Advisor Package</span>
+                  </button>
+                  <button class="directory-menu__option" type="button" data-directory-command-action="export-view" role="menuitem">
+                    <span class="directory-command-option-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="none">
+                        <path d="M10 12.45V4.1" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                        <path d="m13.4 7.5-3.4-3.4-3.4 3.4" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M4 15.35h12" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>Export Current View</span>
+                  </button>
+                  <button class="directory-menu__option" type="button" data-directory-command-action="export-selected" data-directory-export-selected role="menuitem">
+                    <span class="directory-command-option-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="none">
+                        <path d="M4.6 10.1 7.85 13.2 15.4 5.65" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16.1 10.55v4.5a1.2 1.2 0 0 1-1.2 1.2H5.1a1.2 1.2 0 0 1-1.2-1.2V5.25a1.2 1.2 0 0 1 1.2-1.2h6.1" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                    <span>Export Selected Profiles</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- CODE NOTE: Directory sort controls now prioritize the shared Close Index engine. -->
+            <div class="client-items-dropdown client-order-dropdown" data-order-dropdown>
+              <button class="client-toolbar-button client-order-trigger" type="button" data-order-trigger aria-expanded="false">
+                Order: Close Index
+              </button>
+              <div class="client-items-menu client-order-menu">
+                <button class="client-items-option is-active" type="button" data-order-option="opportunity-score">Close Index</button>
+                <button class="client-items-option" type="button" data-order-option="alphabetical">Alphabetical</button>
+              </div>
+            </div>
+            <div class="client-add-dropdown" data-add-client-dropdown>
+              <button class="client-header-action client-header-action-primary" type="button" data-add-client-trigger aria-expanded="false">
+                <span class="client-add-icon" aria-hidden="true">+</span>
+                <span>Add New</span>
+              </button>
+              <div class="client-add-menu directory-menu__panel" role="menu" aria-label="Add new profile">
+                <div class="directory-command-menu-section">
+                  <button class="directory-menu__option" type="button" data-directory-command-action="new-individual" role="menuitem">
+                    <span class="directory-command-option-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="6.5" r="2.35" stroke="currentColor" stroke-width="1.55"/>
+                        <path d="M5.2 15.2c.56-2.34 2.35-3.75 4.8-3.75s4.24 1.41 4.8 3.75" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>New Individual</span>
+                  </button>
+                  <button class="directory-menu__option" type="button" data-directory-command-action="new-household" role="menuitem">
+                    <span class="directory-command-option-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="none">
+                        <path d="M3.7 8.4 10 3.7l6.3 4.7v7.1a1.3 1.3 0 0 1-1.3 1.3H5a1.3 1.3 0 0 1-1.3-1.3V8.4Z" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+                        <path d="M7.65 16.8v-4.15h4.7v4.15" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                    <span>New Household</span>
+                  </button>
+                  <button class="directory-menu__option" type="button" data-directory-command-action="new-business" role="menuitem">
+                    <span class="directory-command-option-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" fill="none">
+                        <path d="M4.2 16.75V7.55a1.2 1.2 0 0 1 1.2-1.2h9.2a1.2 1.2 0 0 1 1.2 1.2v9.2" stroke="currentColor" stroke-width="1.55"/>
+                        <path d="M7 6.35V4.7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1.65" stroke="currentColor" stroke-width="1.55"/>
+                        <path d="M8 10.05h1.5M8 12.95h1.5M11.55 10.05h1.45M11.55 12.95h1.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>New Business</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section class="client-directory-summary" data-directory-summary aria-label="Client directory summary">
           <article class="client-directory-summary-card client-directory-summary-card-recommended-actions" data-summary-card="recommended-actions">
@@ -751,127 +840,38 @@
           <form class="client-table-search" role="search">
             <input class="client-table-search-input" type="text" placeholder="Search for Clients">
           </form>
-          <div class="client-directory-filter-bar">
-            <div class="client-directory-toolbar-actions">
-              <div class="client-export-dropdown" data-export-dropdown>
-                <button class="client-header-action client-header-action-secondary" type="button" data-export-button aria-expanded="false">Export</button>
-                <div class="client-export-menu directory-menu__panel" role="menu" aria-label="Export actions">
-                  <div class="directory-command-menu-section">
-                    <button class="directory-menu__option" type="button" data-directory-command-action="import-package" role="menuitem">
-                      <span class="directory-command-option-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="none">
-                          <path d="M10 3.85v8.35" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                          <path d="m6.6 8.9 3.4 3.4 3.4-3.4" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path d="M4 15.35h12" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                        </svg>
-                      </span>
-                      <span>Import Advisor Package</span>
-                    </button>
-                    <button class="directory-menu__option" type="button" data-directory-command-action="export-view" role="menuitem">
-                      <span class="directory-command-option-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="none">
-                          <path d="M10 12.45V4.1" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                          <path d="m13.4 7.5-3.4-3.4-3.4 3.4" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path d="M4 15.35h12" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                        </svg>
-                      </span>
-                      <span>Export Current View</span>
-                    </button>
-                    <button class="directory-menu__option" type="button" data-directory-command-action="export-selected" data-directory-export-selected role="menuitem">
-                      <span class="directory-command-option-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="none">
-                          <path d="M4.6 10.1 7.85 13.2 15.4 5.65" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path d="M16.1 10.55v4.5a1.2 1.2 0 0 1-1.2 1.2H5.1a1.2 1.2 0 0 1-1.2-1.2V5.25a1.2 1.2 0 0 1 1.2-1.2h6.1" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                      </span>
-                      <span>Export Selected Profiles</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <!-- CODE NOTE: Directory sort controls now prioritize the shared Close Index engine. -->
-              <div class="client-items-dropdown client-order-dropdown" data-order-dropdown>
-                <button class="client-toolbar-button client-order-trigger" type="button" data-order-trigger aria-expanded="false">
-                  Order: Close Index
-                </button>
-                <div class="client-items-menu client-order-menu">
-                  <button class="client-items-option is-active" type="button" data-order-option="opportunity-score">Close Index</button>
-                  <button class="client-items-option" type="button" data-order-option="alphabetical">Alphabetical</button>
-                </div>
-              </div>
-              <div class="client-add-dropdown" data-add-client-dropdown>
-                <button class="client-header-action client-header-action-primary" type="button" data-add-client-trigger aria-expanded="false">
-                  <span class="client-add-icon" aria-hidden="true">+</span>
-                  <span>Add New</span>
-                </button>
-                <div class="client-add-menu directory-menu__panel" role="menu" aria-label="Add new profile">
-                  <div class="directory-command-menu-section">
-                    <button class="directory-menu__option" type="button" data-directory-command-action="new-individual" role="menuitem">
-                      <span class="directory-command-option-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="none">
-                          <circle cx="10" cy="6.5" r="2.35" stroke="currentColor" stroke-width="1.55"/>
-                          <path d="M5.2 15.2c.56-2.34 2.35-3.75 4.8-3.75s4.24 1.41 4.8 3.75" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                        </svg>
-                      </span>
-                      <span>New Individual</span>
-                    </button>
-                    <button class="directory-menu__option" type="button" data-directory-command-action="new-household" role="menuitem">
-                      <span class="directory-command-option-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="none">
-                          <path d="M3.7 8.4 10 3.7l6.3 4.7v7.1a1.3 1.3 0 0 1-1.3 1.3H5a1.3 1.3 0 0 1-1.3-1.3V8.4Z" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
-                          <path d="M7.65 16.8v-4.15h4.7v4.15" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
-                        </svg>
-                      </span>
-                      <span>New Household</span>
-                    </button>
-                    <button class="directory-menu__option" type="button" data-directory-command-action="new-business" role="menuitem">
-                      <span class="directory-command-option-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="none">
-                          <path d="M4.2 16.75V7.55a1.2 1.2 0 0 1 1.2-1.2h9.2a1.2 1.2 0 0 1 1.2 1.2v9.2" stroke="currentColor" stroke-width="1.55"/>
-                          <path d="M7 6.35V4.7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1.65" stroke="currentColor" stroke-width="1.55"/>
-                          <path d="M8 10.05h1.5M8 12.95h1.5M11.55 10.05h1.45M11.55 12.95h1.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                        </svg>
-                      </span>
-                      <span>New Business</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+          <nav class="client-directory-rail" aria-label="Browse clients by last name letter">
+            <div class="client-directory-rail-chip">
+              <button class="client-rail-button is-active" type="button" data-client-letter="all">All</button>
+              <button class="client-rail-button" type="button" data-client-letter="A">A</button>
+              <button class="client-rail-button" type="button" data-client-letter="B">B</button>
+              <button class="client-rail-button" type="button" data-client-letter="C">C</button>
+              <button class="client-rail-button" type="button" data-client-letter="D">D</button>
+              <button class="client-rail-button" type="button" data-client-letter="E">E</button>
+              <button class="client-rail-button" type="button" data-client-letter="F">F</button>
+              <button class="client-rail-button" type="button" data-client-letter="G">G</button>
+              <button class="client-rail-button" type="button" data-client-letter="H">H</button>
+              <button class="client-rail-button" type="button" data-client-letter="I">I</button>
+              <button class="client-rail-button" type="button" data-client-letter="J">J</button>
+              <button class="client-rail-button" type="button" data-client-letter="K">K</button>
+              <button class="client-rail-button" type="button" data-client-letter="L">L</button>
+              <button class="client-rail-button" type="button" data-client-letter="M">M</button>
+              <button class="client-rail-button" type="button" data-client-letter="N">N</button>
+              <button class="client-rail-button" type="button" data-client-letter="O">O</button>
+              <button class="client-rail-button" type="button" data-client-letter="P">P</button>
+              <button class="client-rail-button" type="button" data-client-letter="Q">Q</button>
+              <button class="client-rail-button" type="button" data-client-letter="R">R</button>
+              <button class="client-rail-button" type="button" data-client-letter="S">S</button>
+              <button class="client-rail-button" type="button" data-client-letter="T">T</button>
+              <button class="client-rail-button" type="button" data-client-letter="U">U</button>
+              <button class="client-rail-button" type="button" data-client-letter="V">V</button>
+              <button class="client-rail-button" type="button" data-client-letter="W">W</button>
+              <button class="client-rail-button" type="button" data-client-letter="X">X</button>
+              <button class="client-rail-button" type="button" data-client-letter="Y">Y</button>
+              <button class="client-rail-button" type="button" data-client-letter="Z">Z</button>
             </div>
-          </div>
+          </nav>
         </section>
-
-        <nav class="client-directory-rail" aria-label="Browse clients by last name letter">
-          <div class="client-directory-rail-chip">
-            <button class="client-rail-button is-active" type="button" data-client-letter="all">All</button>
-            <button class="client-rail-button" type="button" data-client-letter="A">A</button>
-            <button class="client-rail-button" type="button" data-client-letter="B">B</button>
-            <button class="client-rail-button" type="button" data-client-letter="C">C</button>
-            <button class="client-rail-button" type="button" data-client-letter="D">D</button>
-            <button class="client-rail-button" type="button" data-client-letter="E">E</button>
-            <button class="client-rail-button" type="button" data-client-letter="F">F</button>
-            <button class="client-rail-button" type="button" data-client-letter="G">G</button>
-            <button class="client-rail-button" type="button" data-client-letter="H">H</button>
-            <button class="client-rail-button" type="button" data-client-letter="I">I</button>
-            <button class="client-rail-button" type="button" data-client-letter="J">J</button>
-            <button class="client-rail-button" type="button" data-client-letter="K">K</button>
-            <button class="client-rail-button" type="button" data-client-letter="L">L</button>
-            <button class="client-rail-button" type="button" data-client-letter="M">M</button>
-            <button class="client-rail-button" type="button" data-client-letter="N">N</button>
-            <button class="client-rail-button" type="button" data-client-letter="O">O</button>
-            <button class="client-rail-button" type="button" data-client-letter="P">P</button>
-            <button class="client-rail-button" type="button" data-client-letter="Q">Q</button>
-            <button class="client-rail-button" type="button" data-client-letter="R">R</button>
-            <button class="client-rail-button" type="button" data-client-letter="S">S</button>
-            <button class="client-rail-button" type="button" data-client-letter="T">T</button>
-            <button class="client-rail-button" type="button" data-client-letter="U">U</button>
-            <button class="client-rail-button" type="button" data-client-letter="V">V</button>
-            <button class="client-rail-button" type="button" data-client-letter="W">W</button>
-            <button class="client-rail-button" type="button" data-client-letter="X">X</button>
-            <button class="client-rail-button" type="button" data-client-letter="Y">Y</button>
-            <button class="client-rail-button" type="button" data-client-letter="Z">Z</button>
-          </div>
-        </nav>
 
           <section class="client-table-card directory-list-shell">
           <div class="client-table-body">
