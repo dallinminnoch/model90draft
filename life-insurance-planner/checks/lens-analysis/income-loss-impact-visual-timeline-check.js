@@ -330,10 +330,10 @@ assert.doesNotMatch(
 );
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;[\s\S]*border-bottom:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.86\);/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro > div[\s\S]*display:\s*grid;[\s\S]*gap:\s*0\.22rem;[\s\S]*max-width:\s*46rem;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-size:\s*clamp\(1\.34rem,\s*1\.75vw,\s*1\.72rem\);[\s\S]*font-weight:\s*840;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Lora",\s*serif;[\s\S]*font-size:\s*clamp\(1\.34rem,\s*1\.75vw,\s*1\.72rem\);[\s\S]*font-weight:\s*840;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-size:\s*0\.82rem;[\s\S]*line-height:\s*1\.38;/);
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-size:\s*clamp\(1\.34rem,\s*1\.75vw,\s*1\.72rem\);[\s\S]*font-weight:\s*840;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Lora",\s*serif;[\s\S]*font-size:\s*clamp\(1\.34rem,\s*1\.75vw,\s*1\.72rem\);[\s\S]*font-weight:\s*840;/);
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-size:\s*0\.82rem;[\s\S]*line-height:\s*1\.38;/);
 assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*background:\s*#ffffff;/);

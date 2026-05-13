@@ -92,6 +92,7 @@ function isAllowedIncomeImpactTitleStyleOverride() {
     "max-width: none;",
     "margin: 0;",
     "color: #17202c;",
+    "font-family: \"Lora\", serif;",
     "font-size: clamp(1.34rem, 1.75vw, 1.72rem);",
     "font-weight: 840;",
     "letter-spacing: 0;",
