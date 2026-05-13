@@ -7916,3 +7916,42 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
   color: #ffffff;
 }
 }
+
+@layer overrides {
+body[data-step="income-impact"] .income-impact-page-intro {
+  display: block;
+  margin: 0 0 0.65rem;
+  padding-bottom: 0.72rem;
+  border-bottom: 1px solid rgba(223, 229, 238, 0.86);
+}
+
+body[data-step="income-impact"] .income-impact-page-intro > div {
+  display: grid;
+  gap: 0.22rem;
+  max-width: 46rem;
+}
+
+body[data-step="income-impact"] .income-impact-page-intro .section-label {
+  color: #647184;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+body[data-step="income-impact"] .income-impact-page-intro h1 {
+  max-width: none;
+  margin: 0;
+  color: #17202c;
+  font-size: clamp(1.34rem, 1.75vw, 1.72rem);
+  font-weight: 840;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+body[data-step="income-impact"] .income-impact-page-intro p {
+  max-width: 36rem;
+  margin: 0;
+  color: #627086;
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+}

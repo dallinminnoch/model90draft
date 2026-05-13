@@ -57,6 +57,15 @@ function getDeathConversionConnectorTag(html) {
   return tags[0];
 }
 
+function getGraphHoverGridLineTag(html, x) {
+  const tags = html.match(/<line\b(?=[^>]*data-income-impact-graph-hover-grid-line)[^>]*>/g) || [];
+  const tag = tags.find(function (candidate) {
+    return candidate.includes(`x1="${x}"`);
+  });
+  assert.ok(tag, `Expected hover grid line at x="${x}"`);
+  return tag;
+}
+
 function getPathYValues(pathD) {
   const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
   return numbers
@@ -65,6 +74,27 @@ function getPathYValues(pathD) {
     .filter(function (_number, index) {
       return index % 2 === 1;
     });
+}
+
+function getNumericAttributeValues(html, attributeName) {
+  const pattern = new RegExp(`${attributeName}="([^"]+)"`, "g");
+  const values = [];
+  let match = pattern.exec(html);
+  while (match) {
+    const value = Number(match[1]);
+    if (Number.isFinite(value)) {
+      values.push(value);
+    }
+    match = pattern.exec(html);
+  }
+  return values;
+}
+
+function assertAllEqual(values, expected, message) {
+  assert.ok(values.length > 0, message);
+  values.forEach(function (value) {
+    assert.equal(value, expected, message);
+  });
 }
 
 function makeGraphModel(mode = "forward-projection") {
@@ -187,18 +217,51 @@ const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impac
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const componentsSource = readRepoFile("components.css");
 const layoutSource = readRepoFile("layout.css");
+const stylesSource = readRepoFile("styles.css");
 const harness = createDisplayHarness(displaySource);
 
 assert.equal(typeof harness.renderTimeline, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
+assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
+assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
+assert.match(pageSource, /data-income-impact-scenario-banner/);
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
+assert.match(displaySource, /renderTopSummaryStrip/);
+assert.match(displaySource, /data-income-impact-summary-strip/);
+assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
+assert.match(displaySource, /data-income-impact-depletion-story/);
+assert.match(displaySource, /data-income-impact-depletion-story-slot="starting-resources"/);
+assert.match(displaySource, /data-income-impact-chart-section/);
 assert.match(displaySource, /data-income-impact-graph-svg/);
 assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
 assert.match(displaySource, /deficitPoints/);
 assert.match(displaySource, /preDeathContextPoints/);
+assert.match(displaySource, /renderGraphHoverLayer/);
+assert.match(displaySource, /getSelectedScenarioHoverPoints/);
+assert.match(displaySource, /getInterpolatedGraphHoverInterval/);
+assert.match(displaySource, /getInterpolatedGraphHoverPointAtXRatio/);
+assert.match(displaySource, /getGraphHoverInspectionIntervals/);
+assert.match(displaySource, /buildGraphHoverUnderTrendlineTintPath/);
+assert.match(displaySource, /getGraphHoverUnderTrendlineTintSegments/);
+assert.match(displaySource, /GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-pre-death-gradient"/);
+assert.match(displaySource, /GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-post-death-gradient"/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="preDeath"/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox"/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox"/);
+assert.match(displaySource, /stop-color="#4054b8" stop-opacity="0\.13"[\s\S]*offset="38%" stop-color="#4054b8" stop-opacity="0\.035"[\s\S]*offset="72%" stop-color="#4054b8" stop-opacity="0"[\s\S]*offset="100%" stop-color="#4054b8" stop-opacity="0"/);
+assert.match(displaySource, /stop-color="#2f8fc7" stop-opacity="0\.13"[\s\S]*offset="38%" stop-color="#2f8fc7" stop-opacity="0\.035"[\s\S]*offset="72%" stop-color="#2f8fc7" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2f8fc7" stop-opacity="0"/);
+assert.match(displaySource, /GRAPH_HOVER_GRID_SPACING = 8/);
+assert.match(displaySource, /data-income-impact-graph-hover-interval/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay="selected-trendline"/);
+assert.match(displaySource, /data-income-impact-graph-hover-grid-line/);
+assert.match(displaySource, /data-income-impact-graph-hover-slot/);
+assert.match(displaySource, /data-income-impact-graph-hover-active-line/);
+assert.match(displaySource, /data-income-impact-graph-hover-value/);
+assert.match(displaySource, /data-income-impact-graph-hover-readout/);
 assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
@@ -210,10 +273,17 @@ assert.match(displaySource, /data-income-impact-death-conversion-spine/);
 assert.match(displaySource, /data-income-impact-death-conversion-chevron-position-ratio/);
 assert.match(displaySource, /data-income-impact-death-conversion-diamond/);
 assert.match(displaySource, /data-income-impact-death-conversion-circle/);
+assert.match(displaySource, /data-income-impact-death-conversion-gradient[\s\S]*<stop offset="100%" stop-color="#2f8fc7"><\/stop>/);
+assert.doesNotMatch(displaySource, /<stop offset="100%" stop-color="#227455"><\/stop>/);
 assert.match(
   displaySource,
   /\$\{appliedScenarioPaths\}[\s\S]*\$\{comparisonPaths\}[\s\S]*\$\{deathConversionConnector\}/,
   "Death-event connector markers should paint above the runway paths."
+);
+assert.match(
+  displaySource,
+  /\$\{renderSelectedScenarioDeficitArea\(graphModel, graphModel\?\.trace\?\.selectedScenarioId\)\}[\s\S]*\$\{hoverLayer\}[\s\S]*\$\{preDeathPath\}[\s\S]*\$\{appliedScenarioPaths\}/,
+  "Hover inspection grid should paint behind the main graph paths."
 );
 assert.doesNotMatch(displaySource, /annotationGeometry/);
 assert.doesNotMatch(displaySource, /getSelectedDeathEventBridge|renderDeathEventBridge/);
@@ -241,7 +311,27 @@ assert.doesNotMatch(
   displaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/
 );
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;[\s\S]*border-bottom:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.86\);/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro > div[\s\S]*display:\s*grid;[\s\S]*gap:\s*0\.22rem;[\s\S]*max-width:\s*46rem;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-size:\s*clamp\(1\.34rem,\s*1\.75vw,\s*1\.72rem\);[\s\S]*font-weight:\s*840;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-size:\s*0\.82rem;[\s\S]*line-height:\s*1\.38;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-size:\s*clamp\(1\.34rem,\s*1\.75vw,\s*1\.72rem\);[\s\S]*font-weight:\s*840;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-size:\s*0\.82rem;[\s\S]*line-height:\s*1\.38;/);
+assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
+assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
+assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
+assert.match(componentsSource, /\.income-impact-depletion-story-slot[\s\S]*border:\s*1px dashed rgba\(153,\s*166,\s*186,\s*0\.72\);/);
+assert.match(componentsSource, /\.income-impact-graph\s*\{[\s\S]*padding:\s*0;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-svg/);
+assert.match(componentsSource, /\.income-impact-graph\s*\{[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-graph-phase--pre-death[\s\S]*fill:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-graph-phase--post-death[\s\S]*fill:\s*#ffffff;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--pre-death[\s\S]*fill:\s*rgba\(64,\s*84,\s*184,\s*0\.06\);/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--post-death[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.045\);/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-death-conversion-spine[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*4;/);
@@ -255,13 +345,27 @@ assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-br
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-node/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-label/);
 assert.match(componentsSource, /\.income-impact-death-line-anchor/);
-assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
+assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*#2f8fc7;/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-label/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-label/);
-assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-underlay--pre-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-pre-death-gradient"\);/);
+assert.match(componentsSource, /\.income-impact-graph-hover-underlay--post-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-post-death-gradient"\);/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.095\);/);
+assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);[\s\S]*stroke-width:\s*1;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line\s*\{[^}]*opacity\s*:/);
+assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*pointer-events:\s*all;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-active-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*rgba\(47,\s*143,\s*199,\s*0\.28\);[\s\S]*stroke-width:\s*1;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-readout[\s\S]*opacity:\s*0;/);
+assert.match(componentsSource, /\.income-impact-graph-legend i[\s\S]*border-top:\s*2px solid #2f8fc7;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-active-line,[\s\S]*opacity:\s*1;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-readout,[\s\S]*\.income-impact-graph-hover-interval:focus \.income-impact-graph-hover-readout[\s\S]*opacity:\s*1;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-bar|\.income-impact-graph-hover-hit-zone|\.income-impact-graph-hover-band|\.income-impact-graph-hover-divider/);
+assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*fill:\s*#ffffff;[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /data-income-impact-applied-scenario-selected="false"[\s\S]*opacity:\s*0\.38;/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="true"\][\s\S]*circle/);
@@ -296,13 +400,13 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-scenario-banner[\s\S]*position:\s*sticky;[\s\S]*bottom:\s*0;[\s\S]*padding:\s*0\.5rem 0\.72rem;/,
-  "Scenario controls should remain sticky, sit flush to the viewport bottom, and stay compact while scrolling."
+  /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*padding:\s*0\.5rem 0\.72rem;[\s\S]*box-shadow:\s*none;/,
+  "Scenario controls should sit in the bottom controls section without sticky card shadow treatment."
 );
 assert.match(
   layoutSource,
   /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*padding-bottom:\s*0;[\s\S]*scroll-padding-bottom:\s*0;/,
-  "Income Impact page shell should not leave bottom padding below the sticky scenario controls."
+  "Income Impact page shell should not reserve extra bottom padding for the scenario controls."
 );
 
 const fixture = {
@@ -399,6 +503,84 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-impact-runway-line/);
 const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources");
 assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
+assert.match(timelineHtml, /data-income-impact-graph-hover-layer/);
+const baseHoverGridLineCount = (timelineHtml.match(/data-income-impact-graph-hover-grid-line(?:\s|>)/g) || []).length;
+const baseHoverIntervalCount = (timelineHtml.match(/data-income-impact-graph-hover-interval(?:\s|>)/g) || []).length;
+assert.ok(baseHoverGridLineCount > 50, "Base timeline should render a dense inspection grid.");
+assert.ok(baseHoverIntervalCount > 50, "Base timeline should render dense hover slots.");
+assert.equal(baseHoverGridLineCount, baseHoverIntervalCount + 1, "Inspection grid lines should bracket fixed-width hover slots.");
+assert.equal(
+  (timelineHtml.match(/data-income-impact-graph-hover-readout(?:\s|>)/g) || []).length,
+  baseHoverIntervalCount,
+  "Each hover interval should carry a transient dollar readout."
+);
+assertAllEqual(
+  getNumericAttributeValues(timelineHtml, "data-income-impact-graph-hover-interval-width"),
+  8,
+  "Hover interval width should remain fixed in SVG coordinates."
+);
+const baseGridLineY1Values = getNumericAttributeValues(timelineHtml, "data-income-impact-graph-hover-grid-line-y1");
+const baseGridLineY2Values = getNumericAttributeValues(timelineHtml, "data-income-impact-graph-hover-grid-line-y2");
+assert.equal(baseGridLineY1Values.length, baseHoverGridLineCount);
+assert.equal(baseGridLineY2Values.length, baseHoverGridLineCount);
+baseGridLineY1Values.forEach(function (y1, index) {
+  assert.ok(y1 > 36, "Default inspection grid segments should start at the selected trendline, not at plot top.");
+  assert.equal(baseGridLineY2Values[index], 354, "Default inspection grid segments should extend down to the plot bottom.");
+  assert.ok(y1 < baseGridLineY2Values[index], "Default inspection grid segments should be visible below the selected trendline.");
+});
+assert.equal(
+  (timelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
+  baseHoverIntervalCount,
+  "Each selected-scenario inspection interval should render a local gradient tint segment."
+);
+assert.ok(
+  (timelineHtml.match(/data-income-impact-graph-hover-underlay-phase="postDeath"/g) || []).length > 0,
+  "Under-trendline tint should render green-family post-death segments."
+);
+const underTrendlineTintPath = getPathD(timelineHtml, "data-income-impact-graph-hover-underlay", "selected-trendline");
+const underTrendlineTintNumbers = String(underTrendlineTintPath).match(/-?\d+(?:\.\d+)?/g).map(Number);
+assert.equal(
+  underTrendlineTintNumbers[1],
+  baseGridLineY1Values[0],
+  "Under-trendline tint should start on the same selected trendline boundary as the first grid segment."
+);
+assert.equal(
+  underTrendlineTintNumbers[underTrendlineTintNumbers.length - 1],
+  354,
+  "Under-trendline tint should close at plot bottom, not above the selected trendline."
+);
+assert.equal(
+  underTrendlineTintNumbers[underTrendlineTintNumbers.length - 3],
+  354,
+  "Under-trendline tint should extend downward through the plot area."
+);
+assert.match(timelineHtml, /data-income-impact-graph-hover-grid-line/);
+assert.match(timelineHtml, /data-income-impact-graph-hover-slot/);
+assert.match(timelineHtml, /data-income-impact-graph-hover-active-line/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-hover-band/);
+assert.match(timelineHtml, /tabindex="0"[\s\S]*role="button"/);
+const shiftedRangeFixture = JSON.parse(JSON.stringify(fixture));
+shiftedRangeFixture.selectedDeath = { date: "2036-04-29", age: 56 };
+shiftedRangeFixture.graphModel.phases.deathEvent = { id: "deathEvent", date: "2036-04-29", xRatio: 0.42 };
+shiftedRangeFixture.graphModel.series.postDeathResources = [
+  { date: "2037-04-29", monthIndex: 12, value: 640000, xRatio: 0.48, yRatio: 0.12 },
+  { date: "2044-04-29", monthIndex: 96, value: 120000, xRatio: 0.68, yRatio: 0.58 },
+  { date: "2047-04-29", monthIndex: 132, value: -80000, xRatio: 0.84, yRatio: 0.76 }
+];
+const shiftedRangeHtml = harness.renderTimeline(shiftedRangeFixture);
+assertAllEqual(
+  getNumericAttributeValues(shiftedRangeHtml, "data-income-impact-graph-hover-interval-width"),
+  8,
+  "Hover interval width should remain fixed after the chart range changes."
+);
+const negativeIntervalFixture = JSON.parse(JSON.stringify(fixture));
+negativeIntervalFixture.graphModel.series.postDeathResources = [
+  { date: "2040-04-29", monthIndex: 108, value: -10000, xRatio: 0.72, yRatio: 0.7 },
+  { date: "2043-04-29", monthIndex: 144, value: -90000, xRatio: 0.8647963801, yRatio: 0.82 }
+];
+const negativeIntervalHtml = harness.renderTimeline(negativeIntervalFixture);
+assert.match(negativeIntervalHtml, /data-income-impact-graph-hover-value="-\d/);
+assert.match(negativeIntervalHtml, /data-income-impact-graph-hover-label="-\$[0-9,]+"/);
 assert.match(
   displaySource,
   /function roundAxisTickToNearestFiveThousand/,
@@ -576,6 +758,48 @@ assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-death-conversion-circle(?:\s|>)/g) || []).length,
   1,
   "Hidden applied scenarios should not create extra conversion circle markers."
+);
+const multiAppliedHoverGridLineCount = (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-grid-line(?:\s|>)/g) || []).length;
+const multiAppliedHoverIntervalCount = (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-interval(?:\s|>)/g) || []).length;
+assert.ok(multiAppliedHoverGridLineCount > 50, "Only the selected applied scenario should render a dense inspection grid.");
+assert.ok(multiAppliedHoverIntervalCount > 50, "Only the selected applied scenario should render dense hover slots.");
+assert.equal(
+  multiAppliedHoverGridLineCount,
+  multiAppliedHoverIntervalCount + 1,
+  "Selected scenario grid lines should bracket fixed-width hover slots."
+);
+assert.equal(
+  (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
+  multiAppliedHoverIntervalCount,
+  "Hidden scenarios should not create extra under-trendline tint segments."
+);
+assert.ok(
+  (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay-phase="preDeath"/g) || []).length > 0,
+  "Selected applied scenario tint should render blue-family pre-death segments."
+);
+assert.ok(
+  (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay-phase="postDeath"/g) || []).length > 0,
+  "Selected applied scenario tint should render green-family post-death segments."
+);
+assert.match(
+  getGraphHoverGridLineTag(multiAppliedTimelineHtml, 290),
+  /data-income-impact-graph-hover-grid-line-y1="75"/,
+  "Pre-death hover grid boundary should follow the selected blue pre-death trendline before the death line."
+);
+assert.match(
+  getGraphHoverGridLineTag(multiAppliedTimelineHtml, 298),
+  /data-income-impact-graph-hover-grid-line-y1="65"/,
+  "Post-death hover grid boundary should switch to the selected green runway trendline at/after death."
+);
+assert.match(
+  multiAppliedTimelineHtml,
+  /<g\b(?=[^>]*data-income-impact-graph-hover-interval)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years")/,
+  "Selected scenario should own the visible hover layer."
+);
+assert.doesNotMatch(
+  multiAppliedTimelineHtml,
+  /<g\b(?=[^>]*data-income-impact-graph-hover-interval)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-current-scenario")/,
+  "Hidden scenarios should not create extra hover intervals."
 );
 assert.match(
   getDeathConversionConnectorTag(multiAppliedTimelineHtml),
@@ -786,6 +1010,30 @@ assert.equal(
   (switchedSelectedTimelineHtml.match(/data-income-impact-death-conversion-circle(?:\s|>)/g) || []).length,
   1,
   "Switching the selected scenario should still render only one conversion circle marker."
+);
+const switchedSelectedHoverGridLineCount = (switchedSelectedTimelineHtml.match(/data-income-impact-graph-hover-grid-line(?:\s|>)/g) || []).length;
+const switchedSelectedHoverIntervalCount = (switchedSelectedTimelineHtml.match(/data-income-impact-graph-hover-interval(?:\s|>)/g) || []).length;
+assert.ok(switchedSelectedHoverGridLineCount > 50, "Switching the selected scenario should refresh a dense inspection grid.");
+assert.ok(switchedSelectedHoverIntervalCount > 50, "Switching the selected scenario should refresh dense hover slots.");
+assert.equal(
+  switchedSelectedHoverGridLineCount,
+  switchedSelectedHoverIntervalCount + 1,
+  "Switched selected scenario grid lines should bracket fixed-width hover slots."
+);
+assert.equal(
+  (switchedSelectedTimelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
+  switchedSelectedHoverIntervalCount,
+  "Switching selected scenarios should refresh the selected scenario tint segments."
+);
+assert.match(
+  switchedSelectedTimelineHtml,
+  /<g\b(?=[^>]*data-income-impact-graph-hover-interval)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-current-scenario")/,
+  "Hover intervals should move to the newly selected scenario."
+);
+assert.doesNotMatch(
+  switchedSelectedTimelineHtml,
+  /<g\b(?=[^>]*data-income-impact-graph-hover-interval)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years")/,
+  "Previously selected scenarios should not keep hover intervals after selection changes."
 );
 
 const currentGraphModel = makeGraphModel();
@@ -1111,9 +1359,24 @@ assert.doesNotMatch(unavailableHtml, /data-income-impact-graph-svg/);
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: fixture });
+assert.match(host.innerHTML, /data-income-impact-summary-strip/);
+assert.match(host.innerHTML, /data-income-impact-depletion-story/);
+assert.match(host.innerHTML, /Financial Depletion Story/);
+assert.match(host.innerHTML, /data-income-impact-depletion-story-slot="starting-resources"/);
+assert.match(host.innerHTML, /data-income-impact-depletion-story-slot="runway-pressure"/);
+assert.match(host.innerHTML, /data-income-impact-depletion-story-slot="depletion-outcome"/);
+assert.match(host.innerHTML, /data-income-impact-chart-section/);
 assert.match(host.innerHTML, /data-income-impact-layout-main/);
 assert.match(host.innerHTML, /data-income-impact-layout-aside/);
 assert.match(host.innerHTML, /data-income-impact-graph-svg/);
+assert.ok(
+  host.innerHTML.indexOf("data-income-impact-summary-strip") < host.innerHTML.indexOf("data-income-impact-depletion-story"),
+  "Top summary strip should render before the depletion story scaffold."
+);
+assert.ok(
+  host.innerHTML.indexOf("data-income-impact-depletion-story") < host.innerHTML.indexOf("data-income-impact-helper-timeline"),
+  "Financial Depletion Story scaffold should render above the timeline chart."
+);
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
   "Timeline graph should render before the supporting risk and compression panels."

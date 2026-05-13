@@ -15,8 +15,12 @@
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
   const SELECTED_DEFICIT_AREA_ID = "postDeathDeficitArea--selected";
   const DEATH_CONVERSION_GRADIENT_ID = "income-impact-death-conversion-gradient";
+  const GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-pre-death-gradient";
+  const GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-post-death-gradient";
   const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
   const DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP = 1;
+  const GRAPH_HOVER_READOUT_WIDTH = 108;
+  const GRAPH_HOVER_GRID_SPACING = 8;
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
@@ -1063,6 +1067,14 @@
     return Math.round(GRAPH_VIEW_BOX.plotLeft + ((ratio == null ? 0 : ratio) * GRAPH_VIEW_BOX.plotWidth));
   }
 
+  function toGraphXRatio(x) {
+    const coordinate = toOptionalNumber(x);
+    if (coordinate == null || GRAPH_VIEW_BOX.plotWidth <= 0) {
+      return 0;
+    }
+    return clampNumber((coordinate - GRAPH_VIEW_BOX.plotLeft) / GRAPH_VIEW_BOX.plotWidth, 0, 1);
+  }
+
   function toGraphY(yRatio) {
     const ratio = toOptionalNumber(yRatio);
     return Math.round(GRAPH_VIEW_BOX.plotTop + ((ratio == null ? 0 : ratio) * GRAPH_VIEW_BOX.plotHeight));
@@ -1269,6 +1281,370 @@
       return `${prefix}$${Math.round(absolute / 1000)}k`;
     }
     return `${prefix}$${Math.round(absolute)}`;
+  }
+
+  function getGraphHoverPointValue(point) {
+    return toOptionalNumber(
+      point?.value
+        ?? point?.endingResources
+        ?? point?.availableResources
+        ?? point?.endingAssets
+        ?? point?.projectedValue
+    );
+  }
+
+  function getGraphHoverPointKey(point) {
+    const xRatio = toOptionalNumber(point?.xRatio);
+    if (xRatio == null) {
+      return "";
+    }
+    return xRatio.toFixed(6);
+  }
+
+  function getSelectedScenarioHoverPoints(graphModel) {
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    if (!selectedSeries) {
+      return [];
+    }
+
+    const preDeathPoints = Array.isArray(selectedSeries.preDeathContextPoints) ? selectedSeries.preDeathContextPoints : [];
+    const fundedRunwayPoints = Array.isArray(selectedSeries.fundedRunwayPoints) ? selectedSeries.fundedRunwayPoints : [];
+    const deficitPoints = Array.isArray(selectedSeries.deficitPoints) ? selectedSeries.deficitPoints : [];
+    const fallbackPoints = (!preDeathPoints.length && !fundedRunwayPoints.length && !deficitPoints.length && Array.isArray(selectedSeries.points))
+      ? selectedSeries.points
+      : [];
+    const pointsByX = new Map();
+    function addHoverPoints(points, phase, phaseOrder) {
+      points.forEach(function (point) {
+        if (!hasGraphPosition(point)) {
+          return;
+        }
+        const value = getGraphHoverPointValue(point);
+        if (value == null) {
+          return;
+        }
+        const key = getGraphHoverPointKey(point);
+        if (!key) {
+          return;
+        }
+        pointsByX.set(`${phase}:${key}`, Object.assign({}, point, {
+          value,
+          scenarioId: selectedSeries.scenarioId || "",
+          scenarioLabel: normalizeString(selectedSeries.label) || "Selected scenario",
+          hoverPhase: phase,
+          hoverPhaseOrder: phaseOrder
+        }));
+      });
+    }
+
+    addHoverPoints(preDeathPoints, "preDeath", 0);
+    addHoverPoints(fundedRunwayPoints, "postDeath", 1);
+    addHoverPoints(deficitPoints, "deficit", 2);
+    addHoverPoints(fallbackPoints, "fallback", 1);
+
+    const points = Array.from(pointsByX.values()).sort(function (left, right) {
+      const xDelta = toOptionalNumber(left.xRatio) - toOptionalNumber(right.xRatio);
+      if (Math.abs(xDelta) > 0.000001) {
+        return xDelta;
+      }
+      return (toOptionalNumber(left.hoverPhaseOrder) || 0) - (toOptionalNumber(right.hoverPhaseOrder) || 0);
+    });
+    return points;
+  }
+
+  function getInterpolatedGraphHoverPointAtXRatio(points, xRatio) {
+    if (!Array.isArray(points) || points.length < 1) {
+      return null;
+    }
+    const targetXRatio = toOptionalNumber(xRatio);
+    if (targetXRatio == null) {
+      return null;
+    }
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    if (targetXRatio <= toOptionalNumber(firstPoint?.xRatio)) {
+      return firstPoint;
+    }
+    if (targetXRatio >= toOptionalNumber(lastPoint?.xRatio)) {
+      return lastPoint;
+    }
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const startPoint = points[index];
+      const endPoint = points[index + 1];
+      const startXRatio = toOptionalNumber(startPoint?.xRatio);
+      const endXRatio = toOptionalNumber(endPoint?.xRatio);
+      if (startXRatio == null || endXRatio == null || endXRatio <= startXRatio) {
+        continue;
+      }
+      if (targetXRatio < startXRatio || targetXRatio >= endXRatio) {
+        continue;
+      }
+
+      const startYRatio = toOptionalNumber(startPoint?.yRatio);
+      const endYRatio = toOptionalNumber(endPoint?.yRatio);
+      const startValue = getGraphHoverPointValue(startPoint);
+      const endValue = getGraphHoverPointValue(endPoint);
+      if (startYRatio == null || endYRatio == null || startValue == null || endValue == null) {
+        return null;
+      }
+      const progress = (targetXRatio - startXRatio) / (endXRatio - startXRatio);
+      return {
+        xRatio: targetXRatio,
+        yRatio: startYRatio + ((endYRatio - startYRatio) * progress),
+        value: startValue + ((endValue - startValue) * progress),
+        scenarioId: startPoint.scenarioId || endPoint.scenarioId || "",
+        scenarioLabel: normalizeString(startPoint.scenarioLabel || endPoint.scenarioLabel) || "Selected scenario",
+        hoverPhase: normalizeString(startPoint.hoverPhase || endPoint.hoverPhase),
+        date: normalizeString(endPoint.date || startPoint.date)
+      };
+    }
+
+    return null;
+  }
+
+  function getInterpolatedGraphHoverInterval(points, startX, endX) {
+    const startCoordinate = toOptionalNumber(startX);
+    const endCoordinate = toOptionalNumber(endX);
+    if (startCoordinate == null || endCoordinate == null || endCoordinate <= startCoordinate) {
+      return null;
+    }
+    const x = startCoordinate + ((endCoordinate - startCoordinate) / 2);
+    const point = getInterpolatedGraphHoverPointAtXRatio(points, toGraphXRatio(x));
+    if (!point) {
+      return null;
+    }
+    const y = toGraphY(point.yRatio);
+    return Object.assign({}, point, {
+      pointY: clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
+      x,
+      startX: startCoordinate,
+      endX: endCoordinate,
+      intervalWidth: endCoordinate - startCoordinate
+    });
+  }
+
+  function getGraphHoverInspectionIntervals(points) {
+    if (!Array.isArray(points) || points.length < 2) {
+      return [];
+    }
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    const sourceStartX = toGraphX(firstPoint.xRatio);
+    const sourceEndX = toGraphX(lastPoint.xRatio);
+    if (sourceEndX - sourceStartX < GRAPH_HOVER_GRID_SPACING) {
+      return [];
+    }
+
+    const gridOffset = sourceStartX - GRAPH_VIEW_BOX.plotLeft;
+    const firstBoundaryX = GRAPH_VIEW_BOX.plotLeft + (Math.ceil(gridOffset / GRAPH_HOVER_GRID_SPACING) * GRAPH_HOVER_GRID_SPACING);
+    const intervals = [];
+    for (
+      let startX = firstBoundaryX;
+      startX + GRAPH_HOVER_GRID_SPACING <= sourceEndX;
+      startX += GRAPH_HOVER_GRID_SPACING
+    ) {
+      const interval = getInterpolatedGraphHoverInterval(points, startX, startX + GRAPH_HOVER_GRID_SPACING);
+      if (interval) {
+        intervals.push(interval);
+      }
+    }
+    return intervals;
+  }
+
+  function getGraphHoverDividers(intervals, points) {
+    if (!Array.isArray(intervals) || !intervals.length) {
+      return [];
+    }
+    const buildDivider = function (x, scenarioId) {
+      const point = getInterpolatedGraphHoverPointAtXRatio(points, toGraphXRatio(x));
+      const y = toGraphY(point?.yRatio);
+      return {
+        x,
+        pointY: clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
+        scenarioId: scenarioId || point?.scenarioId || "",
+        hoverPhase: normalizeString(point?.hoverPhase)
+      };
+    };
+    const dividers = intervals.map(function (interval) {
+      return buildDivider(interval.startX, interval.scenarioId);
+    });
+    const lastInterval = intervals[intervals.length - 1];
+    dividers.push(buildDivider(lastInterval.endX, lastInterval.scenarioId));
+    return dividers;
+  }
+
+  function getGraphHoverUnderlayPhase(point) {
+    return normalizeString(point?.hoverPhase) === "preDeath" ? "preDeath" : "postDeath";
+  }
+
+  function getGraphHoverUnderlayPhaseClass(phase) {
+    return phase === "preDeath" ? "pre-death" : "post-death";
+  }
+
+  function buildGraphHoverUnderTrendlineTintPath(startDivider, endDivider, plotBottom) {
+    if (!isPlainObject(startDivider) || !isPlainObject(endDivider)) {
+      return "";
+    }
+    return [
+      `M${formatSvgCoordinate(startDivider.x)} ${formatSvgCoordinate(startDivider.pointY)}`,
+      `L${formatSvgCoordinate(endDivider.x)} ${formatSvgCoordinate(endDivider.pointY)}`,
+      `L${formatSvgCoordinate(endDivider.x)} ${formatSvgCoordinate(plotBottom)}`,
+      `L${formatSvgCoordinate(startDivider.x)} ${formatSvgCoordinate(plotBottom)}`,
+      "Z"
+    ].join(" ");
+  }
+
+  function getGraphHoverUnderTrendlineTintSegments(intervals, dividers, plotBottom) {
+    if (!Array.isArray(intervals) || !Array.isArray(dividers) || dividers.length < 2) {
+      return [];
+    }
+    return intervals.map(function (interval, index) {
+      const startDivider = dividers[index];
+      const endDivider = dividers[index + 1];
+      const phase = getGraphHoverUnderlayPhase(interval);
+      return {
+        index,
+        phase,
+        phaseClass: getGraphHoverUnderlayPhaseClass(phase),
+        scenarioId: interval.scenarioId || startDivider?.scenarioId || endDivider?.scenarioId || "",
+        d: buildGraphHoverUnderTrendlineTintPath(startDivider, endDivider, plotBottom)
+      };
+    }).filter(function (segment) {
+      return Boolean(segment.d);
+    });
+  }
+
+  function renderGraphHoverUnderlayGradient() {
+    return `
+      <defs>
+        <linearGradient id="${GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4054b8" stop-opacity="0.13"></stop>
+          <stop offset="38%" stop-color="#4054b8" stop-opacity="0.035"></stop>
+          <stop offset="72%" stop-color="#4054b8" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="#4054b8" stop-opacity="0"></stop>
+        </linearGradient>
+        <linearGradient id="${GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2f8fc7" stop-opacity="0.13"></stop>
+          <stop offset="38%" stop-color="#2f8fc7" stop-opacity="0.035"></stop>
+          <stop offset="72%" stop-color="#2f8fc7" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="#2f8fc7" stop-opacity="0"></stop>
+        </linearGradient>
+      </defs>
+    `;
+  }
+
+  function renderGraphHoverLayer(graphModel) {
+    const hoverPoints = getSelectedScenarioHoverPoints(graphModel);
+    if (hoverPoints.length < 2) {
+      return "";
+    }
+
+    const plotBottom = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight;
+    const readoutHalfWidth = GRAPH_HOVER_READOUT_WIDTH / 2;
+    const intervals = getGraphHoverInspectionIntervals(hoverPoints);
+    if (!intervals.length) {
+      return "";
+    }
+    const dividers = getGraphHoverDividers(intervals, hoverPoints);
+    const tintSegments = getGraphHoverUnderTrendlineTintSegments(intervals, dividers, plotBottom);
+
+    return `
+      <g class="income-impact-graph-hover-layer" data-income-impact-graph-hover-layer>
+        ${tintSegments.length ? `
+          <g class="income-impact-graph-hover-underlays" data-income-impact-graph-hover-underlays>
+            ${tintSegments.map(function (segment) {
+              return `
+                <path
+                  class="income-impact-graph-hover-underlay income-impact-graph-hover-underlay--${escapeHtml(segment.phaseClass)}"
+                  data-income-impact-graph-hover-underlay="selected-trendline"
+                  data-income-impact-graph-hover-underlay-phase="${escapeHtml(segment.phase)}"
+                  data-income-impact-graph-hover-underlay-index="${segment.index}"
+                  data-income-impact-applied-scenario-id="${escapeHtml(segment.scenarioId)}"
+                  d="${escapeHtml(segment.d)}"
+                ></path>
+              `;
+            }).join("")}
+          </g>
+        ` : ""}
+        <g class="income-impact-graph-hover-grid" data-income-impact-graph-hover-grid>
+          ${dividers.map(function (divider, index) {
+          const scenarioId = normalizeString(divider.scenarioId);
+          return `
+            <line
+              class="income-impact-graph-hover-grid-line"
+              data-income-impact-graph-hover-grid-line
+              data-income-impact-applied-scenario-id="${escapeHtml(scenarioId)}"
+              data-income-impact-graph-hover-grid-line-index="${index}"
+              data-income-impact-graph-hover-grid-line-y1="${escapeHtml(divider.pointY)}"
+              data-income-impact-graph-hover-grid-line-y2="${plotBottom}"
+              x1="${formatSvgCoordinate(divider.x)}"
+              x2="${formatSvgCoordinate(divider.x)}"
+              y1="${formatSvgCoordinate(divider.pointY)}"
+              y2="${plotBottom}"
+            ></line>
+          `;
+        }).join("")}
+        </g>
+        <g class="income-impact-graph-hover-intervals" data-income-impact-graph-hover-intervals>
+          ${intervals.map(function (interval, index) {
+          const readoutX = clampNumber(
+            interval.x,
+            GRAPH_VIEW_BOX.plotLeft + readoutHalfWidth,
+            GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - readoutHalfWidth
+          );
+          const readoutY = clampNumber(interval.pointY - 14, GRAPH_VIEW_BOX.plotTop + 18, plotBottom - 10);
+          const value = getGraphHoverPointValue(interval);
+          const valueLabel = formatCurrency(value);
+          const dateLabel = normalizeString(interval.date);
+          const scenarioId = normalizeString(interval.scenarioId);
+          const ariaLabel = `${interval.scenarioLabel}: ${valueLabel} remaining${dateLabel ? ` near ${dateLabel}` : ""}`;
+          return `
+            <g
+              class="income-impact-graph-hover-interval"
+              data-income-impact-graph-hover-interval
+              data-income-impact-applied-scenario-id="${escapeHtml(scenarioId)}"
+              data-income-impact-graph-hover-index="${index}"
+              data-income-impact-graph-hover-value="${escapeHtml(value)}"
+              data-income-impact-graph-hover-label="${escapeHtml(valueLabel)}"
+              data-income-impact-graph-hover-x-ratio="${escapeHtml(interval.xRatio)}"
+              data-income-impact-graph-hover-y-ratio="${escapeHtml(interval.yRatio)}"
+              data-income-impact-graph-hover-interval-width="${escapeHtml(interval.intervalWidth)}"
+              data-income-impact-graph-hover-point-y="${escapeHtml(interval.pointY)}"
+              tabindex="0"
+              role="button"
+              aria-label="${escapeHtml(ariaLabel)}"
+            >
+              <rect
+                class="income-impact-graph-hover-slot"
+                data-income-impact-graph-hover-slot
+                x="${formatSvgCoordinate(interval.startX)}"
+                y="${GRAPH_VIEW_BOX.plotTop}"
+                width="${formatSvgCoordinate(interval.intervalWidth)}"
+                height="${GRAPH_VIEW_BOX.plotHeight}"
+              ></rect>
+              <line
+                class="income-impact-graph-hover-active-line"
+                data-income-impact-graph-hover-active-line
+                x1="${formatSvgCoordinate(interval.x)}"
+                x2="${formatSvgCoordinate(interval.x)}"
+                y1="${GRAPH_VIEW_BOX.plotTop}"
+                y2="${plotBottom}"
+              ></line>
+              <g
+                class="income-impact-graph-hover-readout"
+                data-income-impact-graph-hover-readout
+                transform="translate(${formatSvgCoordinate(readoutX)} ${formatSvgCoordinate(readoutY)})"
+              >
+                <rect x="${formatSvgCoordinate(-readoutHalfWidth)}" y="-24" width="${GRAPH_HOVER_READOUT_WIDTH}" height="22" rx="6"></rect>
+                <text y="-9" text-anchor="middle">${escapeHtml(valueLabel)}</text>
+              </g>
+            </g>
+          `;
+        }).join("")}
+        </g>
+      </g>
+    `;
   }
 
   function getGraphXAxisSecondaryLabel(tick, xAxisMode) {
@@ -1910,7 +2286,7 @@
         <linearGradient id="${DEATH_CONVERSION_GRADIENT_ID}" data-income-impact-death-conversion-gradient gradientUnits="userSpaceOnUse" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}">
           <stop offset="0%" stop-color="#4054b8"></stop>
           <stop offset="48%" stop-color="#2f8fc7"></stop>
-          <stop offset="100%" stop-color="#227455"></stop>
+          <stop offset="100%" stop-color="#2f8fc7"></stop>
         </linearGradient>
       </defs>
     `;
@@ -2602,6 +2978,7 @@
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
     const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
     const deathConversionConnector = renderDeathEventConversionConnector(graphModel);
+    const hoverLayer = renderGraphHoverLayer(graphModel);
     return `
       <svg
         class="income-impact-graph-svg"
@@ -2610,10 +2987,12 @@
         role="img"
         aria-label="Income Impact timeline graph"
       >
+        ${renderGraphHoverUnderlayGradient()}
         ${renderGraphPhases(graphModel)}
         ${renderGraphAxis(graphModel)}
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
+          ${hoverLayer}
           ${preDeathPath}
           ${appliedScenarioPaths}
           ${comparisonPaths}
@@ -2699,7 +3078,6 @@
         <div class="income-impact-graph-header">
           <div>
             <span>${escapeHtml(eyebrowLabel)}</span>
-            <strong>Remaining resources timeline</strong>
           </div>
           <p>Projected resources and required support after death.</p>
         </div>
@@ -2709,6 +3087,44 @@
         ${renderGraphCallouts(graphModel)}
         ${renderSelectedGraphEvent(graphModel)}
       </div>
+    `;
+  }
+
+  function renderTopSummaryStrip(timelineResult) {
+    const lifestyleReadout = renderLifestyleImpactReadout(timelineResult);
+    return `
+      <section class="income-impact-summary-strip" data-income-impact-summary-strip aria-label="Income Impact summary">
+        ${lifestyleReadout || `
+          <div class="income-impact-summary-placeholder" data-income-impact-summary-placeholder>
+            <span class="income-impact-summary-placeholder__eyebrow">Lifestyle impact</span>
+            <strong>Current scenario baseline</strong>
+            <span>Adjust lifestyle assumptions below, then reevaluate to compare the selected scenario.</span>
+          </div>
+        `}
+      </section>
+    `;
+  }
+
+  function renderFinancialDepletionStoryScaffold() {
+    return `
+      <section class="income-impact-depletion-story" data-income-impact-depletion-story aria-label="Financial Depletion Story">
+        <div class="income-impact-section-header">
+          <span class="section-label">Story scaffold</span>
+          <h3>Financial Depletion Story</h3>
+          <p>Reserved for the future sequence of income-loss events, pressure points, and depletion milestones.</p>
+        </div>
+        <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane>
+          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="starting-resources">
+            <span>Starting resources</span>
+          </div>
+          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="runway-pressure">
+            <span>Runway pressure</span>
+          </div>
+          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="depletion-outcome">
+            <span>Depletion outcome</span>
+          </div>
+        </div>
+      </section>
     `;
   }
 
@@ -3209,9 +3625,10 @@
 
   function renderTimeline(timelineResult) {
     return `
-      <article class="income-impact-card income-impact-card--wide" data-income-impact-helper-timeline>
-        <div class="income-impact-card-header">
-          <h3>Financial Runway if Death Occurs at Selected Age</h3>
+      <section class="income-impact-chart-section" data-income-impact-helper-timeline data-income-impact-chart-section>
+        <div class="income-impact-section-header">
+          <span class="section-label">Timeline graph</span>
+          <h3>Remaining Resources Timeline</h3>
           <p>Fact-based runway from linked profile and Protection Modeling information for the selected death age/date.</p>
         </div>
         <div class="income-impact-timeline" aria-label="Fact-based household impact timeline">
@@ -3219,7 +3636,7 @@
           ${renderDataGaps(timelineResult)}
           ${renderWarnings(timelineResult)}
         </div>
-      </article>
+      </section>
     `;
   }
 
@@ -3227,6 +3644,8 @@
     const timelineResult = isPlainObject(context?.timelineResult) ? context.timelineResult : {};
     host.innerHTML = `
       <div class="income-impact-layout" data-income-impact-layout>
+        ${renderTopSummaryStrip(timelineResult)}
+        ${renderFinancialDepletionStoryScaffold()}
         <div class="income-impact-layout-main" data-income-impact-layout-main>
           ${renderTimeline(timelineResult)}
         </div>
