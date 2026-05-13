@@ -87,78 +87,82 @@
           </div>
         </section>
 
-        <div class="panel-stack">
-          <section class="income-impact-section" data-income-impact-display aria-live="polite">
-            <div class="income-impact-empty-state">
-              <div class="section-label">Income Impact Review</div>
-              <h2>Preparing income impact view</h2>
-              <p>Link a client profile with saved Protection Modeling Inputs to preview income loss and household impact.</p>
-            </div>
-          </section>
+        <div class="income-impact-workspace-shell" data-income-impact-controls-layout>
+          <div class="panel-stack income-impact-content-stack">
+            <section class="income-impact-section" data-income-impact-display aria-live="polite">
+              <div class="income-impact-empty-state">
+                <div class="section-label">Income Impact Review</div>
+                <h2>Preparing income impact view</h2>
+                <p>Link a client profile with saved Protection Modeling Inputs to preview income loss and household impact.</p>
+              </div>
+            </section>
 
-          <div class="actions-row">
-            <a class="btn btn-secondary" href="analysis-setup.html" data-income-impact-route-link>Back to Assumptions</a>
-            <a class="btn btn-primary" href="analysis-estimate.html" data-income-impact-route-link>Continue to LENS Result</a>
+            <div class="actions-row">
+              <a class="btn btn-secondary" href="analysis-setup.html" data-income-impact-route-link>Back to Assumptions</a>
+              <a class="btn btn-primary" href="analysis-estimate.html" data-income-impact-route-link>Continue to LENS Result</a>
+            </div>
           </div>
 
-          <section class="income-impact-scenario-banner" data-income-impact-scenario-banner>
-            <div class="income-impact-scenario-header">
-              <div class="income-impact-scenario-title">
-                <span class="section-label">Scenario Controls</span>
-                <p>Adjust the selected scenario.</p>
+          <aside class="income-impact-controls-panel" data-income-impact-controls-panel aria-label="Income Impact controls">
+            <section class="income-impact-scenario-banner" data-income-impact-scenario-banner>
+              <div class="income-impact-scenario-header">
+                <div class="income-impact-scenario-title">
+                  <span class="section-label">Scenario Controls</span>
+                  <p>Adjust the selected scenario.</p>
+                </div>
+                <div class="income-impact-scenario-summary" data-income-impact-scenario-summary>
+                  <span data-income-impact-selected-scenario-chip>Selected <strong data-income-impact-selected-scenario-label>Not selected</strong></span>
+                  <span>Age <strong data-income-impact-death-age-value>Not available</strong></span>
+                </div>
+                <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide controls</button>
               </div>
-              <div class="income-impact-scenario-summary" data-income-impact-scenario-summary>
-                <span data-income-impact-selected-scenario-chip>Selected <strong data-income-impact-selected-scenario-label>Not selected</strong></span>
-                <span>Age <strong data-income-impact-death-age-value>Not available</strong></span>
-              </div>
-              <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide controls</button>
-            </div>
-            <div class="income-impact-scenario-content" data-income-impact-scenario-content>
-              <div class="income-impact-scenario-field" data-income-impact-death-age-control>
-                <label for="income-impact-death-age-slider">Death age</label>
-                <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
+              <div class="income-impact-scenario-content" data-income-impact-scenario-content>
+                <div class="income-impact-scenario-field" data-income-impact-death-age-control>
+                  <label for="income-impact-death-age-slider">Death age</label>
+                  <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
+                    <input
+                      id="income-impact-death-age-slider"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value="0"
+                      data-income-impact-death-age-slider
+                      disabled
+                    >
+                  </div>
+                  <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
+                  <span data-income-impact-death-date-value hidden>Not available</span>
+                </div>
+                <label class="income-impact-scenario-field" for="income-impact-mortgage-treatment">
+                  <span>Mortgage treatment</span>
+                  <select id="income-impact-mortgage-treatment" data-income-impact-mortgage-treatment>
+                    <option value="followAssumptions">Follow Assumption Controls</option>
+                    <option value="payOffMortgage">Pay off mortgage</option>
+                    <option value="continueMortgagePayments">Continue mortgage payments</option>
+                  </select>
+                </label>
+                <label class="income-impact-scenario-field income-impact-scenario-field--lifestyle" for="income-impact-lifestyle-slider">
+                  <span>Lifestyle <strong data-income-impact-lifestyle-value>Current</strong></span>
                   <input
-                    id="income-impact-death-age-slider"
+                    id="income-impact-lifestyle-slider"
                     type="range"
-                    min="0"
+                    min="-100"
                     max="100"
                     step="1"
                     value="0"
-                    data-income-impact-death-age-slider
-                    disabled
+                    data-income-impact-lifestyle-slider
                   >
+                  <small><b>Conservative</b><b>Current</b><b>Elevated</b></small>
+                </label>
+                <div class="income-impact-scenario-field" data-income-impact-reevaluate-control>
+                  <span data-income-impact-draft-status>Applied</span>
+                  <small data-income-impact-reevaluate-action>No pending changes</small>
+                  <button class="btn btn-secondary" type="button" data-income-impact-reevaluate disabled>Reevaluate</button>
                 </div>
-                <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
-                <span data-income-impact-death-date-value hidden>Not available</span>
               </div>
-              <label class="income-impact-scenario-field" for="income-impact-mortgage-treatment">
-                <span>Mortgage treatment</span>
-                <select id="income-impact-mortgage-treatment" data-income-impact-mortgage-treatment>
-                  <option value="followAssumptions">Follow Assumption Controls</option>
-                  <option value="payOffMortgage">Pay off mortgage</option>
-                  <option value="continueMortgagePayments">Continue mortgage payments</option>
-                </select>
-              </label>
-              <label class="income-impact-scenario-field income-impact-scenario-field--lifestyle" for="income-impact-lifestyle-slider">
-                <span>Lifestyle <strong data-income-impact-lifestyle-value>Current</strong></span>
-                <input
-                  id="income-impact-lifestyle-slider"
-                  type="range"
-                  min="-100"
-                  max="100"
-                  step="1"
-                  value="0"
-                  data-income-impact-lifestyle-slider
-                >
-                <small><b>Conservative</b><b>Current</b><b>Elevated</b></small>
-              </label>
-              <div class="income-impact-scenario-field" data-income-impact-reevaluate-control>
-                <span data-income-impact-draft-status>Applied</span>
-                <small data-income-impact-reevaluate-action>No pending changes</small>
-                <button class="btn btn-secondary" type="button" data-income-impact-reevaluate disabled>Reevaluate</button>
-              </div>
-            </div>
-          </section>
+            </section>
+          </aside>
         </div>
       </section>
     </section>

@@ -1272,6 +1272,25 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     scroll-margin-bottom: 0;
   }
 
+  body[data-step="income-impact"] .income-impact-workspace-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);
+    gap: 1rem;
+    align-items: start;
+    min-height: 0;
+  }
+
+  body[data-step="income-impact"] .income-impact-controls-panel {
+    position: sticky;
+    top: clamp(0.75rem, 2vw, 1.2rem);
+    align-self: start;
+    min-width: 0;
+  }
+
+  body[data-step="income-impact"] .income-impact-content-stack {
+    min-width: 0;
+  }
+
   body[data-step="income-impact"] .income-impact-scenario-banner {
     position: static;
     max-height: none;
@@ -1319,7 +1338,18 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     scroll-margin-bottom: 0;
   }
 
-  /* Mobile keeps scenario controls inline so they do not cover the chart or route actions. */
+  /* Mobile stacks scenario controls above the chart so they do not cover route actions. */
+  body[data-step="income-impact"] .income-impact-workspace-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  body[data-step="income-impact"] .income-impact-controls-panel {
+    order: -1;
+    position: static;
+  }
+
   body[data-step="income-impact"] .income-impact-scenario-banner {
     position: static;
     left: auto;

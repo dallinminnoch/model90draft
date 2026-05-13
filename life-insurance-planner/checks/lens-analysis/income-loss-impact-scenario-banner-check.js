@@ -111,6 +111,46 @@ function isAllowedIncomeImpactTitleStyleOverride() {
   });
 }
 
+function isAllowedIncomeImpactSidePanelLayoutChange() {
+  const diff = getGitDiff("layout.css");
+  const changedLines = diff
+    .split(/\r?\n/)
+    .filter(function (line) {
+      return (/^[+-]/).test(line) && !line.startsWith("+++") && !line.startsWith("---");
+    });
+  if (!changedLines.length) {
+    return false;
+  }
+  const allowedDeclarations = new Set([
+    "",
+    "}",
+    "grid-template-columns: minmax(13.5rem, 18rem) minmax(0, 1fr);",
+    "display: grid;",
+    "grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);",
+    "grid-template-columns: 1fr;",
+    "gap: 1rem;",
+    "align-items: start;",
+    "min-height: 0;",
+    "order: -1;",
+    "position: sticky;",
+    "position: static;",
+    "top: clamp(0.75rem, 2vw, 1.2rem);",
+    "align-self: start;",
+    "min-width: 0;"
+  ]);
+  const allowedSelectors = new Set([
+    "body[data-step=\"income-impact\"] .income-impact-workspace-shell {",
+    "body[data-step=\"income-impact\"] .income-impact-controls-panel {",
+    "body[data-step=\"income-impact\"] .income-impact-content-stack {",
+    "/* Mobile keeps scenario controls inline so they do not cover the chart or route actions. */",
+    "/* Mobile stacks scenario controls above the chart so they do not cover route actions. */"
+  ]);
+  return changedLines.every(function (line) {
+    const text = line.slice(1).trim();
+    return allowedDeclarations.has(text) || allowedSelectors.has(text);
+  });
+}
+
 function createClassList() {
   const values = new Set();
   return {
@@ -587,6 +627,13 @@ assert.equal(
   "mortgage treatment control should exist exactly once."
 );
 assert.match(pageSource, /Scenario Controls/);
+assert.match(pageSource, /data-income-impact-controls-layout/);
+assert.match(pageSource, /data-income-impact-controls-panel/);
+assert.match(
+  pageSource,
+  /data-income-impact-display[\s\S]*data-income-impact-controls-panel[\s\S]*data-income-impact-scenario-banner/,
+  "Main Income Impact display should render before the mirrored right-side scenario controls panel."
+);
 assert.match(
   pageSource,
   /Preview only &mdash; LENS recommendation unchanged\./,
@@ -648,7 +695,17 @@ assert.doesNotMatch(
 assert.match(
   scenarioLayoutBlock,
   /position: static;[\s\S]*max-height: none;[\s\S]*overflow: visible;/,
-  "Desktop/tablet scenario controls should render inline so they do not overlap the chart."
+  "Scenario controls should remain statically placed inside the side panel, not fixed over the chart."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(13\.5rem,\s*18rem\);/,
+  "Desktop/tablet Income Impact layout should place controls in a mirrored right-side panel next to the main display."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-controls-panel[\s\S]*position:\s*sticky;[\s\S]*top:\s*clamp\(0\.75rem,\s*2vw,\s*1\.2rem\);/,
+  "Income Impact controls side panel should behave like a stable side panel while the chart scrolls."
 );
 assert.match(
   layoutSource,
@@ -662,10 +719,13 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /Mobile keeps scenario controls inline[\s\S]*body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*position: static;[\s\S]*left: auto;[\s\S]*right: auto;[\s\S]*max-height: none;[\s\S]*overflow: visible;/,
-  "Mobile scenario banner behavior should be explicit and inline."
+  /Mobile stacks scenario controls above the chart[\s\S]*body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*1fr;[\s\S]*body\[data-step="income-impact"\] \.income-impact-controls-panel[\s\S]*order:\s*-1;[\s\S]*position:\s*static;[\s\S]*body\[data-step="income-impact"\] \.income-impact-scenario-banner[\s\S]*position: static;[\s\S]*left: auto;[\s\S]*right: auto;[\s\S]*max-height: none;[\s\S]*overflow: visible;/,
+  "Mobile scenario controls should stack above the chart instead of using the desktop sticky side panel."
 );
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
+assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-banner[\s\S]*padding:\s*0\.72rem;[\s\S]*border-radius:\s*0\.7rem;/);
+assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-header,[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-content[\s\S]*grid-template-columns:\s*1fr;/);
+assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-summary[\s\S]*display:\s*grid;/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
 assert.match(componentsSource, /data-income-impact-selected-scenario-chip/);
 assert.match(componentsSource, /data-income-impact-reevaluate-state="active"/);
@@ -1020,11 +1080,13 @@ const protectedChanges = getChangedFiles([
   "pages/hlv-results.html"
 ]).filter(function (file) {
   return file !== "life-insurance-planner/styles.css" || !isAllowedIncomeImpactTitleStyleOverride();
+}).filter(function (file) {
+  return file !== "life-insurance-planner/layout.css" || !isAllowedIncomeImpactSidePanelLayoutChange();
 });
 assert.deepEqual(
   protectedChanges,
   [],
-  "Scenario banner check should not see shell/legacy CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
+  "Scenario banner check should not see unrelated shell/legacy CSS, app, storage, admin-adjacent, calculation, normalization, Step 3, result-page, or quick-flow changes."
 );
 
 console.log("income-loss-impact-scenario-banner-check passed");

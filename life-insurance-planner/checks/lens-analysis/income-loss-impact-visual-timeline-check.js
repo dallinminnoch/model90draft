@@ -227,6 +227,13 @@ assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
 assert.match(pageSource, /Preview only &mdash; LENS recommendation unchanged\./);
 assert.match(pageSource, /<p>Adjust the selected scenario\.<\/p>/);
+assert.match(pageSource, /data-income-impact-controls-layout/);
+assert.match(pageSource, /data-income-impact-controls-panel/);
+assert.match(
+  pageSource,
+  /data-income-impact-display[\s\S]*data-income-impact-controls-panel[\s\S]*data-income-impact-scenario-banner/,
+  "Main Income Impact display should render before the mirrored right-side scenario controls panel."
+);
 assert.match(pageSource, /data-income-impact-scenario-banner/);
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
@@ -417,7 +424,17 @@ assert.match(
 assert.match(
   componentsSource,
   /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*padding:\s*0\.5rem 0\.72rem;[\s\S]*box-shadow:\s*none;/,
-  "Scenario controls should sit in the bottom controls section without sticky card shadow treatment."
+  "Scenario controls should keep their base static treatment before side-panel shaping."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-header,[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-content[\s\S]*grid-template-columns:\s*1fr;/,
+  "Scenario controls should become a single-column side-panel control stack."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(13\.5rem,\s*18rem\);/,
+  "Income Impact page shell should place scenario controls in a mirrored right-side panel beside the main display."
 );
 assert.match(
   layoutSource,
