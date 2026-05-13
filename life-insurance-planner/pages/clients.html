@@ -84,6 +84,60 @@
         <header class="client-directory-header">
           <div class="client-directory-header-main">
             <input class="client-directory-import-input" type="file" accept=".json,application/json" data-directory-import-input hidden>
+            <div class="client-directory-title-block">
+              <span class="client-directory-eyebrow">CLIENT DIRECTORY</span>
+              <h1 class="client-directory-page-title">Views &amp; Filters</h1>
+            </div>
+            <div class="client-directory-title-actions client-directory-toolbar-actions" aria-label="Client directory primary actions">
+              <!-- CODE NOTE: Directory sort controls now prioritize the shared Close Index engine. -->
+              <div class="client-items-dropdown client-order-dropdown" data-order-dropdown>
+                <button class="client-toolbar-button client-order-trigger" type="button" data-order-trigger aria-expanded="false">
+                  Order: Close Index
+                </button>
+                <div class="client-items-menu client-order-menu">
+                  <button class="client-items-option is-active" type="button" data-order-option="opportunity-score">Close Index</button>
+                  <button class="client-items-option" type="button" data-order-option="alphabetical">Alphabetical</button>
+                </div>
+              </div>
+              <div class="client-add-dropdown" data-add-client-dropdown>
+                <button class="client-header-action client-header-action-primary" type="button" data-add-client-trigger aria-expanded="false">
+                  <span class="client-add-icon" aria-hidden="true">+</span>
+                  <span>Add New</span>
+                </button>
+                <div class="client-add-menu directory-menu__panel" role="menu" aria-label="Add new profile">
+                  <div class="directory-command-menu-section">
+                    <button class="directory-menu__option" type="button" data-directory-command-action="new-individual" role="menuitem">
+                      <span class="directory-command-option-icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="none">
+                          <circle cx="10" cy="6.5" r="2.35" stroke="currentColor" stroke-width="1.55"/>
+                          <path d="M5.2 15.2c.56-2.34 2.35-3.75 4.8-3.75s4.24 1.41 4.8 3.75" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                        </svg>
+                      </span>
+                      <span>New Individual</span>
+                    </button>
+                    <button class="directory-menu__option" type="button" data-directory-command-action="new-household" role="menuitem">
+                      <span class="directory-command-option-icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="none">
+                          <path d="M3.7 8.4 10 3.7l6.3 4.7v7.1a1.3 1.3 0 0 1-1.3 1.3H5a1.3 1.3 0 0 1-1.3-1.3V8.4Z" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+                          <path d="M7.65 16.8v-4.15h4.7v4.15" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+                        </svg>
+                      </span>
+                      <span>New Household</span>
+                    </button>
+                    <button class="directory-menu__option" type="button" data-directory-command-action="new-business" role="menuitem">
+                      <span class="directory-command-option-icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="none">
+                          <path d="M4.2 16.75V7.55a1.2 1.2 0 0 1 1.2-1.2h9.2a1.2 1.2 0 0 1 1.2 1.2v9.2" stroke="currentColor" stroke-width="1.55"/>
+                          <path d="M7 6.35V4.7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1.65" stroke="currentColor" stroke-width="1.55"/>
+                          <path d="M8 10.05h1.5M8 12.95h1.5M11.55 10.05h1.45M11.55 12.95h1.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+                        </svg>
+                      </span>
+                      <span>New Business</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="client-directory-utility-actions" aria-label="Client directory utilities">
               <button class="client-directory-utility-button" type="button" data-directory-utility="trash" data-label="Trash" aria-label="Trash">
                 <span class="client-directory-utility-icon" aria-hidden="true">
@@ -354,54 +408,6 @@
                       </svg>
                     </span>
                     <span>Export Selected Profiles</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <!-- CODE NOTE: Directory sort controls now prioritize the shared Close Index engine. -->
-            <div class="client-items-dropdown client-order-dropdown" data-order-dropdown>
-              <button class="client-toolbar-button client-order-trigger" type="button" data-order-trigger aria-expanded="false">
-                Order: Close Index
-              </button>
-              <div class="client-items-menu client-order-menu">
-                <button class="client-items-option is-active" type="button" data-order-option="opportunity-score">Close Index</button>
-                <button class="client-items-option" type="button" data-order-option="alphabetical">Alphabetical</button>
-              </div>
-            </div>
-            <div class="client-add-dropdown" data-add-client-dropdown>
-              <button class="client-header-action client-header-action-primary" type="button" data-add-client-trigger aria-expanded="false">
-                <span class="client-add-icon" aria-hidden="true">+</span>
-                <span>Add New</span>
-              </button>
-              <div class="client-add-menu directory-menu__panel" role="menu" aria-label="Add new profile">
-                <div class="directory-command-menu-section">
-                  <button class="directory-menu__option" type="button" data-directory-command-action="new-individual" role="menuitem">
-                    <span class="directory-command-option-icon" aria-hidden="true">
-                      <svg viewBox="0 0 20 20" fill="none">
-                        <circle cx="10" cy="6.5" r="2.35" stroke="currentColor" stroke-width="1.55"/>
-                        <path d="M5.2 15.2c.56-2.34 2.35-3.75 4.8-3.75s4.24 1.41 4.8 3.75" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                      </svg>
-                    </span>
-                    <span>New Individual</span>
-                  </button>
-                  <button class="directory-menu__option" type="button" data-directory-command-action="new-household" role="menuitem">
-                    <span class="directory-command-option-icon" aria-hidden="true">
-                      <svg viewBox="0 0 20 20" fill="none">
-                        <path d="M3.7 8.4 10 3.7l6.3 4.7v7.1a1.3 1.3 0 0 1-1.3 1.3H5a1.3 1.3 0 0 1-1.3-1.3V8.4Z" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
-                        <path d="M7.65 16.8v-4.15h4.7v4.15" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
-                      </svg>
-                    </span>
-                    <span>New Household</span>
-                  </button>
-                  <button class="directory-menu__option" type="button" data-directory-command-action="new-business" role="menuitem">
-                    <span class="directory-command-option-icon" aria-hidden="true">
-                      <svg viewBox="0 0 20 20" fill="none">
-                        <path d="M4.2 16.75V7.55a1.2 1.2 0 0 1 1.2-1.2h9.2a1.2 1.2 0 0 1 1.2 1.2v9.2" stroke="currentColor" stroke-width="1.55"/>
-                        <path d="M7 6.35V4.7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1.65" stroke="currentColor" stroke-width="1.55"/>
-                        <path d="M8 10.05h1.5M8 12.95h1.5M11.55 10.05h1.45M11.55 12.95h1.45" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
-                      </svg>
-                    </span>
-                    <span>New Business</span>
                   </button>
                 </div>
               </div>
