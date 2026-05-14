@@ -152,6 +152,22 @@ const mechanicalVisibleSuppressedIds = [
   "survivor-runway-begins"
 ];
 
+const removedVisibleEventIds = [
+  "protection-gap-appears-immediately",
+  "protection-gap-appears",
+  "retirement-security-reduced",
+  "retirement-security-is-reduced",
+  "home-equity-becomes-last-resort",
+  "current-lifestyle-no-longer-sustainable"
+];
+
+const removedVisibleEventLabels = [
+  "Protection Gap Appears Immediately",
+  "Retirement Security Is Reduced",
+  "Home Equity Becomes Last Resort",
+  "Current Lifestyle No Longer Sustainable"
+];
+
 const richInput = makeRichInput();
 const originalInput = cloneJson(richInput);
 const result = buildIncomeImpactFinancialStorylineCandidates(richInput);
@@ -190,6 +206,15 @@ assert.ok(ids(result.safeRenderableEvents).includes("resources-run-out"));
 assert.ok(ids(result.safeRenderableEvents).includes("monthly-support-gap-begins"));
 assert.ok(ids(result.safeRenderableEvents).includes("unfunded-need-accumulates"));
 assert.ok(ids(result.safeRenderableEvents).includes("missing-data-limits-timeline"));
+
+assert.ok(ids(result.safeRenderableEvents).includes("protection-gap-appears-immediately"));
+assert.equal(getCandidate(result, "protection-gap-appears-immediately").storyRole, "detail");
+removedVisibleEventIds.forEach(function (id) {
+  assert.ok(!ids(result.majorStoryCandidates).includes(id), `${id} should not enter majorStoryCandidates.`);
+  assert.ok(!ids(result.majorGraphDotCandidates).includes(id), `${id} should not enter majorGraphDotCandidates.`);
+  assert.ok(!ids(result.microGraphDotCandidates).includes(id), `${id} should not enter microGraphDotCandidates.`);
+  assert.ok(!ids(result.graphDotCandidates).includes(id), `${id} should not enter combined graphDotCandidates.`);
+});
 
 mechanicalVisibleSuppressedIds.forEach(function (id) {
   assert.ok(ids(result.safeRenderableEvents).includes(id), `${id} should remain safe renderable when supported.`);
@@ -230,8 +255,9 @@ assert.ok(result.majorStoryCandidates.every(function (candidate) {
 assert.ok(result.graphDotCandidates.every(function (candidate) {
   return candidate.storyRole === "emotional" || candidate.storyRole === "data-gap";
 }));
-assert.equal(result.trace.mechanicalDetailSuppressedCount, mechanicalVisibleSuppressedIds.length);
+assert.equal(result.trace.mechanicalDetailSuppressedCount, mechanicalVisibleSuppressedIds.length + 1);
 assert.equal(result.trace.storyRoleCounts.mechanical, mechanicalVisibleSuppressedIds.length);
+assert.equal(result.trace.storyRoleCounts.detail, 1);
 assert.ok(result.trace.visibleEmotionalEventIds.includes("resources-run-out"));
 assert.ok(
   result.suppressedCandidates.some(function (candidate) {
@@ -239,6 +265,13 @@ assert.ok(
       && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
   }),
   "Mechanical/detail events should be suppressed from visible storyline selections."
+);
+assert.ok(
+  result.suppressedCandidates.some(function (candidate) {
+    return candidate.id === "protection-gap-appears-immediately"
+      && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
+  }),
+  "Removed visible events should be suppressed from visible storyline selections."
 );
 
 const selectedFamilies = result.majorStoryCandidates.slice(1).map(function (candidate) {
@@ -505,6 +538,7 @@ assert.deepEqual(waterfallInput, waterfallSnapshot, "Waterfall integration shoul
 
 assert.equal(getCandidate(waterfallResult, "cash-savings-depleted").evidenceLevel, "calculated");
 assert.equal(getCandidate(waterfallResult, "cash-savings-depleted").storyRole, "emotional");
+assert.equal(getCandidate(waterfallResult, "home-equity-becomes-last-resort").storyRole, "detail");
 assert.equal(getCandidate(waterfallResult, "emergency-fund-depleted").evidenceLevel, "estimated");
 assert.equal(getCandidate(waterfallResult, "education-savings-used-for-living-needs").evidenceLevel, "assumption-backed");
 assert.ok(
@@ -530,10 +564,13 @@ assert.ok(waterfallResult.graphDotCandidates.every(function (candidate) {
 }));
 assert.ok(
   ids(waterfallResult.majorStoryCandidates).includes("education-savings-used-for-living-needs")
-    || ids(waterfallResult.majorStoryCandidates).includes("retirement-assets-tapped")
-    || ids(waterfallResult.majorStoryCandidates).includes("home-equity-becomes-last-resort"),
+    || ids(waterfallResult.majorStoryCandidates).includes("retirement-assets-tapped"),
   "Waterfall-backed events should be eligible for major story cards when diversity allows."
 );
+assert.ok(!ids(waterfallResult.majorStoryCandidates).includes("home-equity-becomes-last-resort"));
+assert.ok(!ids(waterfallResult.majorGraphDotCandidates).includes("home-equity-becomes-last-resort"));
+assert.ok(!ids(waterfallResult.microGraphDotCandidates).includes("home-equity-becomes-last-resort"));
+assert.ok(!ids(waterfallResult.graphDotCandidates).includes("home-equity-becomes-last-resort"));
 assert.equal(waterfallResult.majorStoryCandidates[0].id, "death-income-stops");
 assert.ok(waterfallResult.majorStoryCandidates.length <= 6);
 assert.ok(waterfallResult.majorGraphDotCandidates.length <= 6);
@@ -879,18 +916,6 @@ selectorResult.majorStoryCandidates.concat(selectorResult.graphDotCandidates).fo
 assert.ok(
   selectorMajorIds.some(function (id) {
     return [
-      "life-insurance-proceeds-applied",
-      "protection-gap-appears-immediately",
-      "immediate-obligations-paid",
-      "mortgage-is-paid-off",
-      "mortgage-payments-continue"
-    ].includes(id);
-  }),
-  "Major selector should include an insurance/context event when available."
-);
-assert.ok(
-  selectorMajorIds.some(function (id) {
-    return [
       "cash-savings-depleted",
       "emergency-fund-depleted",
       "liquid-investments-depleted",
@@ -914,8 +939,7 @@ assert.ok(
   selectorMajorIds.some(function (id) {
     return [
       "retirement-assets-tapped",
-      "retirement-assets-depleted",
-      "home-equity-becomes-last-resort"
+      "retirement-assets-depleted"
     ].includes(id);
   }),
   "Major selector should include a long-term sacrifice event when available."
@@ -946,6 +970,19 @@ assert.ok(!selectorMajorIds.includes("missing-data-limits-timeline"), "Support f
 assert.ok(selectorMajorIds.includes("housing-payment-at-risk") || selectorMajorIds.includes("housing-stability-at-risk"));
 assert.ok(!selectorMajorIds.includes("housing-risk-unknown"), "Proven housing risk should outrank housing-risk-unknown.");
 assert.ok(selectorMajorIds.includes("retirement-assets-tapped"), "Retirement Assets Tapped should be selectable as long-term sacrifice.");
+removedVisibleEventIds.forEach(function (id) {
+  assert.ok(!selectorMajorIds.includes(id), `${id} should not enter selector major stories.`);
+  assert.ok(!selectorMajorGraphIds.includes(id), `${id} should not enter selector major graph dots.`);
+  assert.ok(!selectorMicroGraphIds.includes(id), `${id} should not enter selector micro graph dots.`);
+  assert.ok(!selectorGraphIds.includes(id), `${id} should not enter selector graph dots.`);
+});
+removedVisibleEventLabels.forEach(function (label) {
+  selectorResult.majorStoryCandidates.concat(selectorResult.graphDotCandidates).forEach(function (candidate) {
+    assert.notEqual(candidate.displayLabel, label, `${label} should not appear in visible candidates.`);
+    assert.notEqual(candidate.cardTitle, label, `${label} should not appear in visible candidates.`);
+    assert.notEqual(candidate.graphLabel, label, `${label} should not appear in visible candidates.`);
+  });
+});
 assert.ok(
   selectorResult.suppressedCandidates.some(function (candidate) {
     return candidate.selectionSuppressionReason === "major-card-cap";
@@ -953,11 +990,12 @@ assert.ok(
   "Selector should record major card cap suppression."
 );
 assert.ok(
-  selectorResult.suppressedCandidates.some(function (candidate) {
-    return candidate.selectionSuppressionReason === "graph-dot-cap"
-      || candidate.selectionSuppressionReason === "micro-graph-dot-cap";
-  }),
-  "Selector should record graph dot cap suppression."
+  selectorGraphIds.length < 16
+    || selectorResult.suppressedCandidates.some(function (candidate) {
+      return candidate.selectionSuppressionReason === "graph-dot-cap"
+        || candidate.selectionSuppressionReason === "micro-graph-dot-cap";
+    }),
+  "Selector should allow fewer graph dots when approved emotional events do not exceed the cap."
 );
 assert.ok(
   selectorResult.suppressedCandidates.some(function (candidate) {

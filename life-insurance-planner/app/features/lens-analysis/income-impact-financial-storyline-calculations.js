@@ -78,8 +78,6 @@
 
   const EMOTIONAL_VISIBLE_EVENT_IDS = Object.freeze([
     "death-income-stops",
-    "protection-gap-appears-immediately",
-    "protection-gap-appears",
     "survivor-income-not-enough-alone",
     "cash-savings-depleted",
     "checking-savings-depleted",
@@ -95,9 +93,6 @@
     "childcare-support-at-risk",
     "retirement-assets-tapped",
     "retirement-assets-depleted",
-    "retirement-security-reduced",
-    "retirement-security-is-reduced",
-    "home-equity-becomes-last-resort",
     "housing-payment-pressure-begins",
     "housing-payment-at-risk",
     "housing-stability-at-risk",
@@ -105,7 +100,6 @@
     "vehicle-payment-at-risk",
     "transportation-stability-at-risk",
     "debt-payments-become-unsupported",
-    "current-lifestyle-no-longer-sustainable",
     "lifestyle-cuts-begin",
     "essential-needs-become-unfunded",
     "care-expenses-become-unfunded",
@@ -554,7 +548,6 @@
 
   const INSURANCE_CONTEXT_IDS = Object.freeze([
     "life-insurance-proceeds-applied",
-    "protection-gap-appears-immediately",
     "immediate-obligations-paid",
     "final-expenses-paid",
     "debt-payoff-consumes-liquidity",
@@ -583,10 +576,7 @@
 
   const LONG_TERM_SACRIFICE_IDS = Object.freeze([
     "retirement-assets-tapped",
-    "retirement-assets-depleted",
-    "home-equity-becomes-last-resort",
-    "home-equity-depleted",
-    "retirement-security-is-reduced"
+    "retirement-assets-depleted"
   ]);
 
   const SUPPORT_FAILURE_IDS = Object.freeze([
@@ -1784,8 +1774,6 @@
         return 16;
       case "retirement-assets-depleted":
         return 15;
-      case "home-equity-becomes-last-resort":
-        return 14;
       case "resources-run-out":
         return 18;
       case "unfunded-need-accumulates":
