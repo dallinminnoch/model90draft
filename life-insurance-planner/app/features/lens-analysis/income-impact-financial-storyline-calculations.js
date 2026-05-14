@@ -11,6 +11,8 @@
     calculated: "calculated",
     traceBacked: "trace-backed",
     assumptionBacked: "assumption-backed",
+    estimated: "estimated",
+    insufficientData: "insufficient-data",
     dataGap: "data-gap",
     displayOnly: "display-only",
     waterfallNeeded: "waterfall-needed",
@@ -354,6 +356,63 @@
     deferred: DEFERRED_CANDIDATE_DEFINITIONS.map(clonePlainValue)
   });
 
+  const WATERFALL_EVENT_MAPPINGS = Object.freeze({
+    "cash:bucket-depleted": Object.freeze({
+      candidateId: "cash-savings-depleted",
+      priority: 52,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "emergencyFund:bucket-depleted": Object.freeze({
+      candidateId: "emergency-fund-depleted",
+      priority: 54,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "otherLiquid:bucket-depleted": Object.freeze({
+      candidateId: "liquid-investments-depleted",
+      priority: 56,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false
+    }),
+    "taxableInvestments:bucket-depleted": Object.freeze({
+      candidateId: "taxable-assets-depleted",
+      priority: 57,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false
+    }),
+    "educationSavings:bucket-reached": Object.freeze({
+      candidateId: "education-savings-used-for-living-needs",
+      priority: 60,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "educationSavings:bucket-depleted": Object.freeze({
+      candidateId: "education-savings-depleted",
+      priority: 61,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "retirementAssets:bucket-reached": Object.freeze({
+      candidateId: "retirement-assets-tapped",
+      priority: 64,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "retirementAssets:bucket-depleted": Object.freeze({
+      candidateId: "retirement-assets-depleted",
+      priority: 66,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "homeEquity:bucket-reached": Object.freeze({
+      candidateId: "home-equity-becomes-last-resort",
+      priority: 72,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    })
+  });
+
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
@@ -549,6 +608,12 @@
 
   function findDefinition(id) {
     return SAFE_EVENT_DEFINITIONS.find(function (definition) {
+      return definition.id === id;
+    });
+  }
+
+  function findDeferredDefinition(id) {
+    return DEFERRED_CANDIDATE_DEFINITIONS.find(function (definition) {
       return definition.id === id;
     });
   }
@@ -865,6 +930,230 @@
     return dedupeCandidates(candidates);
   }
 
+  function getWaterfallEvents(resourceWaterfall) {
+    if (!isPlainObject(resourceWaterfall)) {
+      return [];
+    }
+    const seen = new Set();
+    return []
+      .concat(Array.isArray(resourceWaterfall.timelineEvents) ? resourceWaterfall.timelineEvents : [])
+      .concat(Array.isArray(resourceWaterfall.depletionEvents) ? resourceWaterfall.depletionEvents : [])
+      .filter(isPlainObject)
+      .filter(function (event) {
+        const key = normalizeString(event.id)
+          || [
+            normalizeString(event.bucketId),
+            normalizeString(event.family),
+            normalizeString(event.eventType),
+            normalizeString(event.displayLabel),
+            normalizeString(event.sourcePath)
+          ].join(":");
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function normalizeWaterfallEvidenceLevel(event) {
+    const level = normalizeString(event?.evidenceLevel);
+    if (level === EVIDENCE_LEVELS.calculated) {
+      return EVIDENCE_LEVELS.calculated;
+    }
+    if (level === EVIDENCE_LEVELS.estimated) {
+      return EVIDENCE_LEVELS.estimated;
+    }
+    if (level === EVIDENCE_LEVELS.assumptionBacked) {
+      return EVIDENCE_LEVELS.assumptionBacked;
+    }
+    if (level === EVIDENCE_LEVELS.traceBacked) {
+      return EVIDENCE_LEVELS.traceBacked;
+    }
+    if (level === EVIDENCE_LEVELS.insufficientData) {
+      return EVIDENCE_LEVELS.insufficientData;
+    }
+    return level || EVIDENCE_LEVELS.insufficientData;
+  }
+
+  function getWaterfallEventAmount(event) {
+    if (!isPlainObject(event)) {
+      return null;
+    }
+    const amountSource = isPlainObject(event.amount) ? event.amount : { value: event.amount };
+    const value = toOptionalNumber(amountSource.value);
+    if (value == null) {
+      return null;
+    }
+    return {
+      value,
+      sourcePath: normalizeString(amountSource.sourcePath || event.sourcePath || event.trace?.bucketSourcePath)
+    };
+  }
+
+  function getWaterfallEventSourcePaths(event) {
+    if (!isPlainObject(event)) {
+      return [];
+    }
+    return uniqueStrings([
+      event.sourcePath,
+      event.trace?.bucketSourcePath,
+      event.trace?.burnRateSourcePath,
+      event.trace?.dateSourcePath,
+      isPlainObject(event.amount) ? event.amount.sourcePath : null
+    ]);
+  }
+
+  function isForbiddenWaterfallLabel(event) {
+    const text = normalizeString(event?.displayLabel).toLowerCase();
+    return /\b(foreclosure|eviction|credit crisis|bankruptcy)\b/.test(text);
+  }
+
+  function makeSuppressedWaterfallCandidate(event, reason) {
+    const sourcePaths = getWaterfallEventSourcePaths(event);
+    return {
+      id: normalizeString(event?.id) || [
+        normalizeString(event?.bucketId) || "resource-waterfall-event",
+        normalizeString(event?.eventType) || "unsupported"
+      ].join("."),
+      family: normalizeString(event?.family),
+      displayLabel: normalizeString(event?.displayLabel),
+      graphLabel: normalizeString(event?.displayLabel),
+      cardTitle: normalizeString(event?.displayLabel),
+      description: normalizeString(reason),
+      severity: "deferred",
+      evidenceLevel: normalizeWaterfallEvidenceLevel(event),
+      status: STATUSES.deferred,
+      safeToRender: false,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: false,
+      timing: makeTiming("month-offset", {
+        monthOffset: event?.monthOffset,
+        date: event?.date,
+        label: normalizeString(event?.date) || (event?.monthOffset != null ? `Month ${event.monthOffset}` : ""),
+        sourcePath: normalizeString(event?.sourcePath)
+      }),
+      amount: getWaterfallEventAmount(event) || makeEmptyAmount(),
+      sources: sourcePaths.map(function (sourcePath) {
+        return {
+          sourcePath,
+          evidenceLevel: normalizeWaterfallEvidenceLevel(event)
+        };
+      }),
+      confidence: 0,
+      lifeInsuranceRelevance: 0,
+      emotionalWeight: 0,
+      advisorUsefulness: 0,
+      suppressionKeys: ["resource-waterfall-insufficient"],
+      deferredReason: reason,
+      warnings: compactObjects(event?.warnings).map(clonePlainValue),
+      priority: 999
+    };
+  }
+
+  function buildWaterfallBackedCandidates(resourceWaterfall, warnings) {
+    if (!isPlainObject(resourceWaterfall)) {
+      return {
+        candidates: [],
+        suppressedCandidates: []
+      };
+    }
+
+    const candidates = [];
+    const suppressedCandidates = [];
+    getWaterfallEvents(resourceWaterfall).forEach(function (event) {
+      const key = `${normalizeString(event.family)}:${normalizeString(event.eventType)}`;
+      const mapping = WATERFALL_EVENT_MAPPINGS[key];
+      const eventEvidence = normalizeWaterfallEvidenceLevel(event);
+      const amount = getWaterfallEventAmount(event);
+      const hasTiming = toOptionalNumber(event.monthOffset) != null
+        || Boolean(normalizeString(event.date))
+        || Boolean(normalizeString(event.timing?.label));
+      const sourcePaths = getWaterfallEventSourcePaths(event);
+      const unsupportedReason = !mapping
+        ? "Resource waterfall event does not map to a safe storyline candidate in this pass."
+        : isForbiddenWaterfallLabel(event)
+          ? "Resource waterfall event label is reserved for a future risk helper."
+          : event.safeToRender !== true
+            ? "Resource waterfall event is not marked safe to render."
+            : eventEvidence === EVIDENCE_LEVELS.insufficientData
+              ? "Resource waterfall event has insufficient evidence."
+              : !hasTiming
+                ? "Resource waterfall event has no usable timing."
+                : !amount || amount.value == null
+                  ? "Resource waterfall event has no usable amount."
+                  : !sourcePaths.length
+                    ? "Resource waterfall event has no traceable source path."
+                    : "";
+
+      if (unsupportedReason) {
+        suppressedCandidates.push(makeSuppressedWaterfallCandidate(event, unsupportedReason));
+        warnings.push(makeWarning(
+          "waterfall-event-not-activated",
+          unsupportedReason,
+          sourcePaths.length ? sourcePaths : [normalizeString(event.sourcePath)].filter(Boolean),
+          {
+            eventId: normalizeString(event.id),
+            family: normalizeString(event.family),
+            eventType: normalizeString(event.eventType),
+            displayLabel: normalizeString(event.displayLabel)
+          }
+        ));
+        return;
+      }
+
+      const definition = findDeferredDefinition(mapping.candidateId);
+      if (!definition) {
+        warnings.push(makeWarning(
+          "missing-waterfall-storyline-definition",
+          "A supported resource waterfall event did not have a matching storyline registry candidate.",
+          sourcePaths,
+          {
+            candidateId: mapping.candidateId,
+            eventId: normalizeString(event.id)
+          }
+        ));
+        suppressedCandidates.push(makeSuppressedWaterfallCandidate(
+          event,
+          "No matching storyline registry candidate exists."
+        ));
+        return;
+      }
+
+      candidates.push(makeCandidate(definition, {
+        status: STATUSES.safeNow,
+        safeToRender: true,
+        evidenceLevel: eventEvidence,
+        eligibleForGraphDot: mapping.eligibleForGraphDot === true,
+        eligibleForMajorCard: mapping.eligibleForMajorCard === true,
+        timingKind: "month-offset",
+        timing: {
+          monthOffset: event.monthOffset,
+          date: event.date,
+          label: normalizeString(event.date) || (event.monthOffset != null ? `Month ${event.monthOffset}` : ""),
+          sourcePath: normalizeString(event.sourcePath || event.trace?.dateSourcePath)
+        },
+        amount,
+        sourcePaths,
+        confidence: eventEvidence === EVIDENCE_LEVELS.calculated
+          ? 0.9
+          : eventEvidence === EVIDENCE_LEVELS.traceBacked
+            ? 0.84
+            : eventEvidence === EVIDENCE_LEVELS.estimated
+              ? 0.72
+              : 0.68,
+        priority: mapping.priority,
+        warnings: compactObjects(event.warnings),
+        suppressionKeys: [`resource-waterfall:${normalizeString(event.bucketId || event.family)}`]
+      }));
+    });
+
+    return {
+      candidates: dedupeCandidates(candidates),
+      suppressedCandidates
+    };
+  }
+
   function dedupeCandidates(candidates) {
     const seen = new Set();
     return candidates.filter(function (candidate) {
@@ -954,7 +1243,8 @@
       ));
     }
 
-    const safeCandidates = buildSafeCandidates(safeInput, warnings);
+    const waterfallBacked = buildWaterfallBackedCandidates(safeInput.resourceWaterfall, warnings);
+    const safeCandidates = buildSafeCandidates(safeInput, warnings).concat(waterfallBacked.candidates);
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
       return candidate.safeToRender === true
         && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution);
@@ -984,6 +1274,23 @@
         })).slice(0, MAX_MAJOR_STORY_CANDIDATES)
       : selectedMajor;
     const allCandidates = safeCandidates.concat(deferredCandidates);
+    const trace = {
+      source: SOURCE,
+      generatedAt: null,
+      evidenceSummary: summarizeEvidence(allCandidates),
+      registryVersion: VERSION,
+      safeRegistryCandidateIds: SAFE_EVENT_DEFINITIONS.map(function (definition) { return definition.id; }),
+      deferredRegistryCandidateIds: DEFERRED_CANDIDATE_DEFINITIONS.map(function (definition) { return definition.id; }),
+      selectedScenarioId: normalizeString(safeInput.selectedScenarioId),
+      safeRenderableCount: safeRenderableEvents.length,
+      deferredCount: deferredCandidates.length,
+      majorStoryCandidateLimit: MAX_MAJOR_STORY_CANDIDATES,
+      graphDotCandidateLimit: MAX_GRAPH_DOT_CANDIDATES
+    };
+    if (isPlainObject(safeInput.resourceWaterfall)) {
+      trace.activatedWaterfallCandidateIds = waterfallBacked.candidates.map(function (candidate) { return candidate.id; });
+      trace.suppressedWaterfallCandidateCount = waterfallBacked.suppressedCandidates.length;
+    }
 
     return {
       version: VERSION,
@@ -992,21 +1299,9 @@
       deferredCandidates,
       majorStoryCandidates,
       graphDotCandidates,
-      suppressedCandidates: [],
+      suppressedCandidates: waterfallBacked.suppressedCandidates,
       warnings,
-      trace: {
-        source: SOURCE,
-        generatedAt: null,
-        evidenceSummary: summarizeEvidence(allCandidates),
-        registryVersion: VERSION,
-        safeRegistryCandidateIds: SAFE_EVENT_DEFINITIONS.map(function (definition) { return definition.id; }),
-        deferredRegistryCandidateIds: DEFERRED_CANDIDATE_DEFINITIONS.map(function (definition) { return definition.id; }),
-        selectedScenarioId: normalizeString(safeInput.selectedScenarioId),
-        safeRenderableCount: safeRenderableEvents.length,
-        deferredCount: deferredCandidates.length,
-        majorStoryCandidateLimit: MAX_MAJOR_STORY_CANDIDATES,
-        graphDotCandidateLimit: MAX_GRAPH_DOT_CANDIDATES
-      }
+      trace
     };
   }
 
