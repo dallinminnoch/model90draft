@@ -34,6 +34,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Income Impact saved profile asset bucket flow",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/income-impact-saved-profile-asset-bucket-flow-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Income Impact resource waterfall",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/income-impact-resource-waterfall-check.js")],
