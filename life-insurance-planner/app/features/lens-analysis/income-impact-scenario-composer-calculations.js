@@ -6,6 +6,24 @@
   const DEFAULT_PROJECTION_HORIZON_MONTHS = 480;
   const MONTHLY_CADENCE = "monthly";
   const CASH_FLOW_ROW_ID = "cashFlowContribution";
+  const ASSET_CATEGORY_TO_LEDGER_FAMILY = Object.freeze({
+    cashAndCashEquivalents: "cash",
+    emergencyFund: "emergencyFund",
+    taxableBrokerageInvestments: "taxableInvestments",
+    traditionalRetirementAssets: "retirementAssets",
+    rothTaxAdvantagedRetirementAssets: "retirementAssets",
+    qualifiedAnnuities: "retirementAssets",
+    educationSpecificSavings: "educationSavings",
+    primaryResidenceEquity: "homeEquity",
+    otherRealEstateEquity: "homeEquity",
+    businessPrivateCompanyValue: "businessAssets",
+    trustRestrictedAssets: "otherIlliquid",
+    stockCompensationDeferredCompensation: "otherIlliquid",
+    digitalAssetsCrypto: "otherIlliquid",
+    nonqualifiedAnnuities: "otherIlliquid",
+    otherCustomAsset: "unknown",
+    [CASH_FLOW_ROW_ID]: "cash"
+  });
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -992,6 +1010,195 @@
     };
   }
 
+  function getAssetLedgerFamily(row) {
+    const treatmentCategory = normalizeString(row?.treatmentCategoryKey);
+    const category = normalizeString(row?.categoryKey);
+    return ASSET_CATEGORY_TO_LEDGER_FAMILY[treatmentCategory]
+      || ASSET_CATEGORY_TO_LEDGER_FAMILY[category]
+      || "unknown";
+  }
+
+  function buildAssetLedgerDiagnosticBuckets(layer2Output) {
+    return (Array.isArray(layer2Output?.assetTreatmentAtDeath?.rows) ? layer2Output.assetTreatmentAtDeath.rows : [])
+      .map(function (row, index) {
+        const safeRow = isPlainObject(row) ? row : {};
+        const id = normalizeString(safeRow.id) || `treated-asset-${index + 1}`;
+        const sourcePaths = readSourcePaths(safeRow, `layer2.assetTreatmentAtDeath.rows.${index}`);
+        const treatedValue = toOptionalNumber(safeRow.treatedValue);
+        return {
+          id,
+          family: getAssetLedgerFamily(safeRow),
+          label: normalizeString(safeRow.label) || id,
+          startingValue: treatedValue == null ? 0 : roundMoney(treatedValue),
+          included: safeRow.included === true && (treatedValue || 0) > 0,
+          liquidityTier: normalizeString(safeRow.liquidityTier),
+          growthActive: false,
+          monthlyGrowthRate: 0,
+          sourcePath: sourcePaths[0] || `layer2.assetTreatmentAtDeath.rows.${index}`,
+          evidenceLevel: "trace-backed",
+          trace: {
+            source: "layer2.assetTreatmentAtDeath.rows",
+            categoryKey: normalizeString(safeRow.categoryKey),
+            treatmentCategoryKey: normalizeString(safeRow.treatmentCategoryKey),
+            treatmentStatus: normalizeString(safeRow.treatmentStatus),
+            projectedValue: toOptionalNumber(safeRow.projectedValue),
+            rawValue: toOptionalNumber(safeRow.rawValue),
+            treatedValue: treatedValue == null ? null : roundMoney(treatedValue)
+          }
+        };
+      });
+  }
+
+  function buildAssetLedgerDiagnosticCoverageBucket(layer2Output) {
+    const amount = toOptionalNumber(
+      layer2Output?.existingCoverage?.treatedCoverageAmount
+        ?? layer2Output?.resources?.existingCoverage
+    );
+    if (amount == null || amount <= 0) {
+      return null;
+    }
+    const sourcePaths = readSourcePaths(layer2Output?.existingCoverage, "layer2.existingCoverage.treatedCoverageAmount");
+    return {
+      id: "existing-coverage",
+      family: "existingCoverage",
+      label: "Existing coverage proceeds",
+      startingValue: roundMoney(amount),
+      included: true,
+      liquidityTier: "liquid",
+      growthActive: false,
+      monthlyGrowthRate: 0,
+      sourcePath: sourcePaths[0] || "layer2.existingCoverage.treatedCoverageAmount",
+      evidenceLevel: "calculated",
+      trace: {
+        source: "layer2.existingCoverage",
+        mechanicalOnly: true,
+        visibleStorylineEligible: false
+      }
+    };
+  }
+
+  function buildMonthlyLedgerSeriesFromLayer3(layer3Output, fieldName) {
+    return (Array.isArray(layer3Output?.points) ? layer3Output.points : []).map(function (point, index) {
+      const monthIndex = toWholeMonthCount(point?.monthIndex);
+      return {
+        monthIndex: monthIndex == null ? index : monthIndex,
+        amount: roundMoney(Math.max(toOptionalNumber(point?.[fieldName]) || 0, 0)),
+        sourcePath: `layer3.points.${index}.${fieldName}`
+      };
+    });
+  }
+
+  function buildScheduledLedgerObligationsFromLayer3(layer3Output) {
+    return (Array.isArray(layer3Output?.points) ? layer3Output.points : [])
+      .map(function (point, index) {
+        const amount = toOptionalNumber(point?.scheduledObligations);
+        if (amount == null || amount <= 0) {
+          return null;
+        }
+        const monthIndex = toWholeMonthCount(point?.monthIndex);
+        return {
+          monthIndex: monthIndex == null ? index : monthIndex,
+          amount: roundMoney(amount),
+          label: "Layer 3 scheduled obligations",
+          sourcePath: `layer3.points.${index}.scheduledObligations`
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function summarizeAssetLedgerParity(ledgerResult, layer3Output) {
+    const points = Array.isArray(layer3Output?.points) ? layer3Output.points : [];
+    const months = Array.isArray(ledgerResult?.ledgerMonths) ? ledgerResult.ledgerMonths : [];
+    const tolerance = 0.02;
+    let maxAbsoluteDifference = 0;
+    let firstMismatch = null;
+    const comparedMonths = Math.min(points.length, months.length);
+
+    for (let index = 0; index < comparedMonths; index += 1) {
+      const aggregateEndingResources = roundMoney(Math.max(toOptionalNumber(points[index]?.endingResources) || 0, 0));
+      const ledgerResources = roundMoney(months[index]?.totalAvailableResources || 0);
+      const difference = roundMoney(ledgerResources - aggregateEndingResources);
+      const absoluteDifference = Math.abs(difference);
+      if (absoluteDifference > maxAbsoluteDifference) {
+        maxAbsoluteDifference = absoluteDifference;
+      }
+      if (!firstMismatch && absoluteDifference > tolerance) {
+        firstMismatch = {
+          monthIndex: months[index]?.monthIndex ?? points[index]?.monthIndex ?? index,
+          aggregateEndingResources,
+          ledgerResources,
+          difference
+        };
+      }
+    }
+
+    return {
+      basis: "ledger totalAvailableResources vs max(layer3.points[].endingResources, 0)",
+      tolerance,
+      comparedMonths,
+      matchedWithinTolerance: firstMismatch == null,
+      maxAbsoluteDifference: roundMoney(maxAbsoluteDifference),
+      firstMismatch
+    };
+  }
+
+  function buildAssetDepletionLedgerDiagnostic(layer2Output, layer3Input, layer3Output) {
+    const helper = lensAnalysis.buildIncomeImpactAssetDepletionLedger;
+    const baseMetadata = {
+      usedForGraph: false,
+      usedForStoryline: false,
+      aggregateRunwayPreserved: true,
+      growthPolicy: "none"
+    };
+    if (typeof helper !== "function") {
+      return Object.assign({
+        version: "income-impact-asset-depletion-ledger-diagnostic-v1",
+        status: "not-available",
+        warnings: [makeIssue(
+          "asset-depletion-ledger-helper-unavailable",
+          "Asset depletion ledger helper was unavailable; aggregate survivor runway was preserved.",
+          ["LensApp.lensAnalysis.buildIncomeImpactAssetDepletionLedger"]
+        )],
+        trace: {
+          source: CALCULATION_METHOD,
+          helper: "missing"
+        }
+      }, baseMetadata);
+    }
+
+    const ledgerInput = {
+      startingBuckets: buildAssetLedgerDiagnosticBuckets(layer2Output),
+      monthlyNeeds: buildMonthlyLedgerSeriesFromLayer3(layer3Output, "survivorNeeds"),
+      monthlyIncome: buildMonthlyLedgerSeriesFromLayer3(layer3Output, "survivorIncome"),
+      scheduledObligations: buildScheduledLedgerObligationsFromLayer3(layer3Output),
+      existingCoverageBucket: buildAssetLedgerDiagnosticCoverageBucket(layer2Output),
+      immediateObligations: layer2Output?.immediateObligations?.totalImmediateObligations,
+      options: {
+        maxMonths: Array.isArray(layer3Output?.points)
+          ? layer3Output.points.length
+          : layer3Input?.projectionHorizonMonths,
+        allowEducationSavingsRedirect: false,
+        includeUnknownAssets: false,
+        includeIlliquidAssets: false,
+        growthPolicy: "none",
+        withdrawalTiming: "beginning-growth-then-end-withdrawal"
+      }
+    };
+    const ledgerResult = helper(ledgerInput);
+    return Object.assign({}, clonePlainValue(ledgerResult), baseMetadata, {
+      inputSummary: {
+        startingBucketCount: ledgerInput.startingBuckets.length,
+        existingCoverageBucketIncluded: Boolean(ledgerInput.existingCoverageBucket),
+        immediateObligations: roundMoney(toOptionalNumber(ledgerInput.immediateObligations) || 0),
+        monthlyNeedsSource: "layer3.points[].survivorNeeds",
+        monthlyIncomeSource: "layer3.points[].survivorIncome",
+        scheduledObligationMonthCount: ledgerInput.scheduledObligations.length,
+        educationRedirectAllowed: false
+      },
+      reconciliation: summarizeAssetLedgerParity(ledgerResult, layer3Output)
+    });
+  }
+
   function createUnavailableLayerOutput(methodName, code, message) {
     return {
       status: "not-available",
@@ -1100,6 +1307,7 @@
       "missing-layer-3-helper",
       "Layer 3 survivor runway helper was unavailable."
     );
+    trace.layer3.assetDepletionLedgerDiagnostic = buildAssetDepletionLedgerDiagnostic(layer2, layer3Input, layer3);
 
     collectLayerItems(warnings, layer1.warnings);
     collectLayerItems(warnings, layer2.warnings);
