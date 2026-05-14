@@ -918,13 +918,21 @@
         treatment: fromContinueOverride ? "continuePayments" : "support",
         treatmentMode: fromContinueOverride ? "continuePayments" : "support",
         mortgageTreatmentOverride: fromContinueOverride ? overrideMode : null,
-        alreadyIncludedInNeeds: row.alreadyIncludedInNeeds === true,
+        alreadyIncludedInNeeds: true,
+        alreadyIncludedInSurvivorNeeds: true,
+        riskOnlyObligation: true,
+        cashFlowIncluded: false,
         sourcePaths: paths,
         trace: {
           source: fromContinueOverride
             ? "income-impact scenario mortgage treatment override"
             : "lensModel.treatedDebtPayoff mortgage support row",
           deferredFromLayer2: true,
+          accountingTreatment: "risk-only-already-in-survivor-needs",
+          alreadyIncludedInNeeds: true,
+          alreadyIncludedInSurvivorNeeds: true,
+          riskOnlyObligation: true,
+          cashFlowIncluded: false,
           overrideApplied: fromContinueOverride,
           mortgageTreatmentOverride: fromContinueOverride ? overrideMode : null,
           originalMortgageTreatmentMode: normalizeString(row.mortgageTreatmentMode || row.treatmentMode) || null,
@@ -948,6 +956,46 @@
     }
 
     return obligations;
+  }
+
+  function getRiskOnlyScheduledObligations(layer3Input) {
+    return (Array.isArray(layer3Input?.scheduledObligations) ? layer3Input.scheduledObligations : [])
+      .filter(function (obligation) {
+        return obligation?.riskOnlyObligation === true;
+      })
+      .map(clonePlainValue);
+  }
+
+  function attachLayer3InputDiagnostics(layer3Output, layer3Input) {
+    if (!isPlainObject(layer3Output)) {
+      return;
+    }
+
+    const riskOnlyScheduledObligations = getRiskOnlyScheduledObligations(layer3Input);
+    if (!riskOnlyScheduledObligations.length) {
+      return;
+    }
+
+    layer3Output.input = Object.assign({}, isPlainObject(layer3Output.input) ? layer3Output.input : {}, {
+      scheduledObligations: riskOnlyScheduledObligations
+    });
+    layer3Output.trace = Object.assign({}, isPlainObject(layer3Output.trace) ? layer3Output.trace : {}, {
+      riskOnlyScheduledObligations: riskOnlyScheduledObligations.map(function (obligation) {
+        return {
+          id: obligation.id || null,
+          category: obligation.category || null,
+          type: obligation.type || null,
+          treatment: obligation.treatment || obligation.treatmentMode || null,
+          monthlyAmount: obligation.monthlyAmount ?? obligation.monthlyPayment ?? obligation.amount ?? null,
+          termMonths: obligation.termMonths ?? obligation.remainingMonths ?? null,
+          alreadyIncludedInNeeds: obligation.alreadyIncludedInNeeds === true,
+          alreadyIncludedInSurvivorNeeds: obligation.alreadyIncludedInSurvivorNeeds === true,
+          riskOnlyObligation: obligation.riskOnlyObligation === true,
+          cashFlowIncluded: obligation.cashFlowIncluded === true,
+          sourcePaths: uniqueStrings(obligation.sourcePaths)
+        };
+      })
+    });
   }
 
   function getSurvivorIncomeSuppressionReason(survivorScenario) {
@@ -1384,6 +1432,7 @@
       "missing-layer-3-helper",
       "Layer 3 survivor runway helper was unavailable."
     );
+    attachLayer3InputDiagnostics(layer3, layer3Input);
     trace.layer3.assetDepletionLedgerDiagnostic = buildAssetDepletionLedgerDiagnostic(layer2, layer3Input, layer3);
 
     collectLayerItems(warnings, layer1.warnings);

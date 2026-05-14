@@ -70,6 +70,11 @@ function baseInput(mortgageTreatmentOverride) {
         spouseOrPartnerNetAnnualIncome: 30000
       },
       ongoingSupport: {
+        monthlyMortgagePayment: 2400,
+        mortgageRemainingTermMonths: 240,
+        monthlyHousingSupportCost: 3000,
+        monthlyNonHousingEssentialSupportCost: 2000,
+        monthlyTotalEssentialSupportCost: 5000,
         annualTotalEssentialSupportCost: 60000,
         annualDiscretionaryPersonalSpending: 12000
       },
@@ -78,7 +83,7 @@ function baseInput(mortgageTreatmentOverride) {
         survivorIncomeStartDelayMonths: 0
       },
       treatedExistingCoverageOffset: {
-        totalTreatedCoverageOffset: 400000,
+        totalTreatedCoverageOffset: 50000,
         includedPolicyCount: 1,
         excludedPolicyCount: 0
       },
@@ -142,6 +147,13 @@ function getScheduledMortgageSupport(scenario) {
     });
 }
 
+function getRiskOnlyMortgageSupport(scenario) {
+  return (scenario?.postDeathSeries?.layer3?.input?.scheduledObligations || [])
+    .filter(function (obligation) {
+      return obligation.category === "mortgageSupport";
+    });
+}
+
 function housingEventTypes(result) {
   return result.timelineEvents.map(function (event) {
     return event.eventType;
@@ -196,25 +208,50 @@ assert.equal(
 );
 
 const continueMortgage = composeIncomeImpactScenario(withMortgageRow("continueMortgagePayments"));
-const continueMortgageSupports = getScheduledMortgageSupport(continueMortgage);
+const continueMortgageSupports = getRiskOnlyMortgageSupport(continueMortgage);
 assert.equal(continueMortgageSupports.length, 1);
 assert.equal(continueMortgageSupports[0].id, "primary-mortgage");
 assert.equal(continueMortgageSupports[0].monthlyAmount, 2400);
+assert.equal(baseInput("continueMortgagePayments").lensModel.ongoingSupport.monthlyHousingSupportCost, 3000);
+assert.notEqual(
+  continueMortgageSupports[0].monthlyAmount,
+  baseInput("continueMortgagePayments").lensModel.ongoingSupport.monthlyHousingSupportCost,
+  "mortgage support identity should use the mortgage-only payment, not utilities, tax, insurance, HOA, or maintenance"
+);
 assert.equal(continueMortgageSupports[0].termMonths, 240);
+assert.equal(continueMortgageSupports[0].alreadyIncludedInNeeds, true);
+assert.equal(continueMortgageSupports[0].alreadyIncludedInSurvivorNeeds, true);
+assert.equal(continueMortgageSupports[0].riskOnlyObligation, true);
+assert.equal(continueMortgageSupports[0].cashFlowIncluded, false);
 assert.ok(
   continueMortgageSupports[0].sourcePaths.includes("scenarioOptions.mortgageTreatmentOverride"),
-  "continueMortgagePayments support schedule should preserve override source trace"
+  "continueMortgagePayments support identity should preserve override source trace"
 );
 assert.ok(
   continueMortgageSupports[0].sourcePaths.includes("lensModel.treatedDebtPayoff.debts.primary-mortgage"),
-  "continueMortgagePayments support schedule should preserve mortgage row source trace"
+  "continueMortgagePayments support identity should preserve mortgage row source trace"
 );
 assert.equal(
   continueMortgage.postDeathSeries.points.some(function (point) {
     return point.scheduledObligations > 0;
   }),
-  true,
-  "continueMortgagePayments should affect Layer 3 scheduled obligations"
+  false,
+  "continueMortgagePayments should not add a second mortgage payment to Layer 3 scheduled obligations"
+);
+assert.equal(continueMortgage.postDeathSeries.summary.totalScheduledObligations, 0);
+assert.equal(continueMortgage.postDeathSeries.points[0].survivorNeeds, 6000);
+assert.equal(continueMortgage.postDeathSeries.points[0].netUse, 3500);
+assert.ok(
+  continueMortgage.postDeathSeries.layer3.warnings.some(function (warning) {
+    return warning.code === "scheduled-obligation-already-included-in-needs";
+  }),
+  "risk-only mortgage obligations should be skipped by cash-flow math because survivor needs already include housing"
+);
+assert.ok(
+  continueMortgage.postDeathSeries.layer3.trace.riskOnlyScheduledObligations.some(function (obligation) {
+    return obligation.id === "primary-mortgage" && obligation.cashFlowIncluded === false;
+  }),
+  "risk-only mortgage identity should remain available in Layer 3 trace"
 );
 
 const supportMortgage = composeIncomeImpactScenario(withMortgageRow("followAssumptions", {
@@ -227,10 +264,14 @@ const supportMortgage = composeIncomeImpactScenario(withMortgageRow("followAssum
     remainingTermMonthsSourcePath: "lensModel.ongoingSupport.mortgageRemainingTermMonths"
   }
 }));
-const supportMortgageSupports = getScheduledMortgageSupport(supportMortgage);
+const supportMortgageSupports = getRiskOnlyMortgageSupport(supportMortgage);
 assert.equal(supportMortgageSupports.length, 1);
 assert.equal(supportMortgageSupports[0].monthlyAmount, 1800);
 assert.equal(supportMortgageSupports[0].termMonths, 36);
+assert.equal(supportMortgageSupports[0].alreadyIncludedInNeeds, true);
+assert.equal(supportMortgageSupports[0].riskOnlyObligation, true);
+assert.equal(supportMortgage.postDeathSeries.summary.totalScheduledObligations, 0);
+assert.equal(supportMortgage.postDeathSeries.points[0].netUse, 3500);
 assert.equal(
   supportMortgageSupports[0].sourcePaths.includes("scenarioOptions.mortgageTreatmentOverride"),
   false,
@@ -242,6 +283,7 @@ const missingSchedule = composeIncomeImpactScenario(withMortgageRow("continueMor
   remainingTermMonths: null
 }));
 assert.equal(getScheduledMortgageSupport(missingSchedule).length, 0);
+assert.equal(getRiskOnlyMortgageSupport(missingSchedule).length, 0);
 assert.ok(
   missingSchedule.dataGaps.some(function (gap) {
     return gap.code === "mortgage-continue-override-schedule-missing";
