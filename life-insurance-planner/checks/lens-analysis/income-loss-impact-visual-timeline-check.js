@@ -473,6 +473,11 @@ assert.match(displaySource, /data-income-impact-graph-hover-slot/);
 assert.match(displaySource, /data-income-impact-graph-hover-active-line/);
 assert.match(displaySource, /data-income-impact-graph-hover-value/);
 assert.match(displaySource, /data-income-impact-graph-hover-readout/);
+assert.match(displaySource, /renderGraphStorylineEventDots/);
+assert.match(displaySource, /data-income-impact-storyline-dot/);
+assert.match(displaySource, /data-income-impact-storyline-event-id/);
+assert.match(displaySource, /data-income-impact-storyline-event-lane/);
+assert.match(displaySource, /GRAPH_STORYLINE_EVENT_DOT_LIMIT = 10/);
 assert.match(displaySource, /data-income-impact-graph-y-grid-line/);
 assert.match(displaySource, /data-income-impact-graph-y-tick-marker/);
 assert.match(displaySource, /data-income-impact-graph-x-grid-line/);
@@ -591,6 +596,10 @@ assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#6
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*transparent;[\s\S]*stroke-width:\s*1;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);/);
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-storyline-event-lane/);
+assert.match(componentsSource, /\.income-impact-storyline-dot/);
+assert.match(componentsSource, /\.income-impact-storyline-dot-readout/);
+assert.match(componentsSource, /\.income-impact-storyline-dot:hover[\s\S]*\.income-impact-storyline-dot-readout/);
 assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*pointer-events:\s*all;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-active-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*rgba\(59,\s*130,\s*246,\s*0\.28\);[\s\S]*stroke-width:\s*1;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-readout[\s\S]*opacity:\s*0;/);
@@ -840,6 +849,93 @@ assert.match(timelineHtml, /data-income-impact-graph-hover-slot/);
 assert.match(timelineHtml, /data-income-impact-graph-hover-active-line/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-hover-band/);
 assert.match(timelineHtml, /tabindex="0"[\s\S]*role="button"/);
+assert.doesNotMatch(
+  timelineHtml,
+  /data-income-impact-storyline-dot(?:\s|>)/,
+  "Graph storyline dots should not render when financialStoryline graph dot candidates are missing."
+);
+const storylineDotFixture = JSON.parse(JSON.stringify(fixture));
+storylineDotFixture.financialStoryline = {
+  graphDotCandidates: [
+    {
+      id: "death-income-stops",
+      family: "trigger",
+      severity: "critical",
+      graphLabel: "Death",
+      displayLabel: "Death & Income Stops",
+      evidenceLevel: "trace-backed",
+      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" }
+    },
+    {
+      id: "cash-savings-depleted",
+      family: "liquidity",
+      severity: "caution",
+      graphLabel: "Cash depleted",
+      displayLabel: "Cash Savings Depleted",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 12, date: "2032-04-29", label: "Month 12" },
+      amount: { value: 50000, label: "$50,000" }
+    },
+    {
+      id: "housing-payment-at-risk",
+      family: "housing",
+      severity: "at-risk",
+      graphLabel: "Housing at risk",
+      displayLabel: "Housing Payment At Risk",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 24, date: "2033-04-29", label: "Month 24" },
+      amount: { value: 2400, label: "$2,400/mo" }
+    }
+  ]
+};
+const storylineDotTimelineHtml = harness.renderTimeline(storylineDotFixture);
+assert.equal(
+  (storylineDotTimelineHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
+  3,
+  "Graph should render one SVG event dot for each storyline graph dot candidate."
+);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-event-lane/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-event-id="cash-savings-depleted"/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-family="housing"/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-severity="at-risk"/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-evidence-level="estimated"/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-month-offset="24"/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-date="2033-04-29"/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot-readout/);
+assert.match(storylineDotTimelineHtml, /Cash depleted/);
+assert.match(storylineDotTimelineHtml, /Month 24/);
+assert.match(storylineDotTimelineHtml, /\$2,400\/mo/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot[\s\S]*tabindex="0"[\s\S]*role="button"/);
+assert.doesNotMatch(storylineDotTimelineHtml, /data-income-impact-story-card|data-income-impact-story-card-connector/);
+assert.doesNotMatch(storylineDotTimelineHtml, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
+const cappedStorylineDotFixture = JSON.parse(JSON.stringify(fixture));
+cappedStorylineDotFixture.financialStoryline = {
+  graphDotCandidates: Array.from({ length: 12 }, function (_, index) {
+    return {
+      id: `storyline-dot-${index + 1}`,
+      family: index % 2 === 0 ? "liquidity" : "support",
+      severity: "caution",
+      graphLabel: `Event ${index + 1}`,
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: (index + 1) * 6, label: `Month ${(index + 1) * 6}` }
+    };
+  })
+};
+const cappedStorylineDotHtml = harness.renderTimeline(cappedStorylineDotFixture);
+assert.equal(
+  (cappedStorylineDotHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
+  10,
+  "Graph storyline dots should respect the candidate output cap."
+);
+const emptyStorylineDotHtml = harness.renderTimeline({
+  ...fixture,
+  financialStoryline: { graphDotCandidates: [] }
+});
+assert.doesNotMatch(
+  emptyStorylineDotHtml,
+  /data-income-impact-storyline-dot(?:\s|>)/,
+  "Graph storyline dots should not render when graphDotCandidates is empty."
+);
 const shiftedRangeFixture = JSON.parse(JSON.stringify(fixture));
 shiftedRangeFixture.selectedDeath = { date: "2036-04-29", age: 56 };
 shiftedRangeFixture.graphModel.phases.deathEvent = { id: "deathEvent", date: "2036-04-29", xRatio: 0.42 };

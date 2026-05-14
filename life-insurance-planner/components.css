@@ -17947,6 +17947,97 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   opacity: 1;
 }
 
+.income-impact-storyline-event-lane {
+  pointer-events: none;
+}
+
+.income-impact-storyline-event-lane > line {
+  opacity: 0.42;
+  stroke: rgba(148, 163, 184, 0.34);
+  stroke-dasharray: 3 8;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-storyline-dot {
+  cursor: pointer;
+  outline: none;
+  pointer-events: all;
+}
+
+.income-impact-storyline-dot-hit {
+  fill: rgba(37, 99, 235, 0.001);
+}
+
+.income-impact-storyline-dot-core {
+  fill: #ffffff;
+  stroke: #64748b;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 3px 8px rgba(15, 23, 42, 0.12));
+  transition: r 0.14s ease, stroke-width 0.14s ease, filter 0.14s ease;
+}
+
+.income-impact-storyline-dot--severity-critical .income-impact-storyline-dot-core {
+  stroke: #dc2626;
+}
+
+.income-impact-storyline-dot--severity-caution .income-impact-storyline-dot-core,
+.income-impact-storyline-dot--severity-at-risk .income-impact-storyline-dot-core {
+  stroke: #d97706;
+}
+
+.income-impact-storyline-dot--severity-positive .income-impact-storyline-dot-core {
+  stroke: #2563eb;
+}
+
+.income-impact-storyline-dot:hover .income-impact-storyline-dot-core,
+.income-impact-storyline-dot:focus .income-impact-storyline-dot-core {
+  r: 5.8;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 5px 11px rgba(15, 23, 42, 0.18));
+}
+
+.income-impact-storyline-dot-readout {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.income-impact-storyline-dot:hover .income-impact-storyline-dot-readout,
+.income-impact-storyline-dot:focus .income-impact-storyline-dot-readout {
+  opacity: 1;
+}
+
+.income-impact-storyline-dot-readout rect {
+  fill: #ffffff;
+  stroke: rgba(203, 213, 225, 0.92);
+  stroke-width: 1;
+  filter: drop-shadow(0 10px 22px rgba(15, 23, 42, 0.14));
+}
+
+.income-impact-storyline-dot-readout text {
+  font-family: "Inter", sans-serif;
+  font-weight: 650;
+}
+
+.income-impact-storyline-dot-readout-title {
+  fill: #172033;
+  font-size: 0.68rem;
+}
+
+.income-impact-storyline-dot-readout-time,
+.income-impact-storyline-dot-readout-evidence {
+  fill: #7d88a0;
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.income-impact-storyline-dot-readout-amount {
+  fill: #2563eb;
+  font-size: 0.64rem;
+}
+
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {
   stroke-width: 2.2;
 }

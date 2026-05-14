@@ -40,6 +40,10 @@
     plotWidth: 884,
     plotHeight: 318
   });
+  const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 10;
+  const GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET = 38;
+  const GRAPH_STORYLINE_EVENT_LANE_STAGGER = 12;
+  const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
   const GRAPH_DETAIL_VIEW_BOX = Object.freeze({
     width: 1000,
     height: 170,
@@ -1914,6 +1918,286 @@
     `;
   }
 
+  function getStorylineCandidateTiming(candidate) {
+    return isPlainObject(candidate?.timing) ? candidate.timing : {};
+  }
+
+  function getStorylineCandidateAmount(candidate) {
+    return isPlainObject(candidate?.amount) ? candidate.amount : {};
+  }
+
+  function getGraphStorylineEventDate(candidate) {
+    return normalizeDateOnly(getStorylineCandidateTiming(candidate).date || candidate?.date || "");
+  }
+
+  function getGraphStorylineEventMonthOffset(candidate, graphModel) {
+    const timing = getStorylineCandidateTiming(candidate);
+    const explicitMonth = toOptionalNumber(timing.monthOffset ?? candidate?.monthOffset);
+    if (explicitMonth != null) {
+      return explicitMonth;
+    }
+    if (candidate?.id === "death-income-stops" || normalizeString(timing.kind) === "death-event") {
+      return 0;
+    }
+    const eventDate = getGraphStorylineEventDate(candidate);
+    const deathDate = normalizeDateOnly(graphModel?.phases?.deathEvent?.date || graphModel?.axes?.x?.deathDate || "");
+    if (!eventDate || !deathDate) {
+      return null;
+    }
+    return getMonthDifferenceFromDates(deathDate, eventDate);
+  }
+
+  function addGraphStorylineTimelineAnchor(anchorsByMonth, monthOffset, xRatio, date) {
+    const month = toOptionalNumber(monthOffset);
+    const x = toOptionalNumber(xRatio);
+    if (month == null || x == null) {
+      return;
+    }
+    const key = String(month);
+    if (!anchorsByMonth.has(key)) {
+      anchorsByMonth.set(key, {
+        monthOffset: month,
+        xRatio: clampNumber(x, 0, 1),
+        date: normalizeDateOnly(date || "")
+      });
+    }
+  }
+
+  function getGraphStorylineTimelineAnchors(graphModel) {
+    const anchorsByMonth = new Map();
+    addGraphStorylineTimelineAnchor(
+      anchorsByMonth,
+      0,
+      graphModel?.phases?.deathEvent?.xRatio ?? graphModel?.axes?.x?.deathXRatio,
+      graphModel?.phases?.deathEvent?.date ?? graphModel?.axes?.x?.deathDate
+    );
+
+    (Array.isArray(graphModel?.axes?.x?.ticks) ? graphModel.axes.x.ticks : []).forEach(function (tick) {
+      const relativeMonths = toOptionalNumber(tick?.relativeMonths ?? (
+        toOptionalNumber(tick?.relativeYears) == null ? null : toOptionalNumber(tick.relativeYears) * 12
+      ));
+      addGraphStorylineTimelineAnchor(anchorsByMonth, relativeMonths, tick?.xRatio, tick?.date);
+    });
+
+    const seriesBuckets = [
+      graphModel?.series?.preDeathAssets,
+      graphModel?.series?.postDeathResources,
+      graphModel?.series?.currentAnchor ? [graphModel.series.currentAnchor] : [],
+      graphModel?.series?.appliedRunwayScenarios?.flatMap(function (series) {
+        return []
+          .concat(Array.isArray(series?.preDeathContextPoints) ? series.preDeathContextPoints : [])
+          .concat(series?.survivorResourcesAtDeathPoint ? [series.survivorResourcesAtDeathPoint] : [])
+          .concat(Array.isArray(series?.fundedRunwayPoints) ? series.fundedRunwayPoints : [])
+          .concat(Array.isArray(series?.deficitPoints) ? series.deficitPoints : []);
+      })
+    ];
+
+    seriesBuckets.flat().filter(Boolean).forEach(function (point) {
+      const relativeMonths = toOptionalNumber(
+        point?.relativeMonthsFromDeath ??
+          point?.monthOffset ??
+          point?.monthIndex ??
+          point?.monthsAfterDeath
+      );
+      addGraphStorylineTimelineAnchor(anchorsByMonth, relativeMonths, point?.xRatio, point?.date);
+    });
+
+    return Array.from(anchorsByMonth.values()).sort(function (left, right) {
+      return left.monthOffset - right.monthOffset;
+    });
+  }
+
+  function getGraphStorylineDotXRatio(candidate, graphModel, anchors) {
+    const explicitXRatio = toOptionalNumber(candidate?.xRatio ?? candidate?.timing?.xRatio);
+    if (explicitXRatio != null) {
+      return clampNumber(explicitXRatio, 0, 1);
+    }
+
+    const monthOffset = getGraphStorylineEventMonthOffset(candidate, graphModel);
+    if (monthOffset == null) {
+      return null;
+    }
+    if (!Array.isArray(anchors) || !anchors.length) {
+      return monthOffset === 0 ? toOptionalNumber(graphModel?.phases?.deathEvent?.xRatio) : null;
+    }
+
+    const exactAnchor = anchors.find(function (anchor) {
+      return Math.abs(anchor.monthOffset - monthOffset) <= 0.000001;
+    });
+    if (exactAnchor) {
+      return exactAnchor.xRatio;
+    }
+
+    if (monthOffset <= anchors[0].monthOffset) {
+      return anchors[0].xRatio;
+    }
+    if (monthOffset >= anchors[anchors.length - 1].monthOffset) {
+      return anchors[anchors.length - 1].xRatio;
+    }
+
+    for (let index = 0; index < anchors.length - 1; index += 1) {
+      const start = anchors[index];
+      const end = anchors[index + 1];
+      if (monthOffset < start.monthOffset || monthOffset > end.monthOffset || end.monthOffset <= start.monthOffset) {
+        continue;
+      }
+      const progress = (monthOffset - start.monthOffset) / (end.monthOffset - start.monthOffset);
+      return start.xRatio + ((end.xRatio - start.xRatio) * progress);
+    }
+    return null;
+  }
+
+  function getGraphStorylineDotTimeLabel(candidate) {
+    const timing = getStorylineCandidateTiming(candidate);
+    const label = normalizeString(timing.label);
+    if (label) {
+      return label;
+    }
+    const monthOffset = toOptionalNumber(timing.monthOffset ?? candidate?.monthOffset);
+    if (monthOffset != null) {
+      if (monthOffset === 0) {
+        return "At death";
+      }
+      const roundedMonth = Math.max(0, Math.round(monthOffset));
+      return `Month ${roundedMonth}`;
+    }
+    const date = getGraphStorylineEventDate(candidate);
+    return date || "Timeline event";
+  }
+
+  function getGraphStorylineDotAmountLabel(candidate) {
+    const amount = getStorylineCandidateAmount(candidate);
+    return normalizeString(amount.label) || (toOptionalNumber(amount.value) == null ? "" : formatCurrency(amount.value));
+  }
+
+  function getGraphStorylineDotEvidenceLabel(candidate) {
+    const evidence = normalizeString(candidate?.evidenceLevel);
+    if (!evidence) {
+      return "";
+    }
+    return evidence
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+  }
+
+  function getGraphStorylineDotTitle(candidate) {
+    return normalizeString(candidate?.graphLabel || candidate?.displayLabel || candidate?.cardTitle || candidate?.id) || "Storyline event";
+  }
+
+  function getGraphStorylineEventDots(timelineResult, graphModel) {
+    const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
+      ? timelineResult.financialStoryline.graphDotCandidates
+      : [];
+    if (!candidates.length) {
+      return [];
+    }
+    const anchors = getGraphStorylineTimelineAnchors(graphModel);
+    return candidates.slice(0, GRAPH_STORYLINE_EVENT_DOT_LIMIT).map(function (candidate, index) {
+      if (!isPlainObject(candidate)) {
+        return null;
+      }
+      const xRatio = getGraphStorylineDotXRatio(candidate, graphModel, anchors);
+      if (xRatio == null) {
+        return null;
+      }
+      const laneY = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET;
+      const y = clampNumber(
+        laneY - ((index % 3) * GRAPH_STORYLINE_EVENT_LANE_STAGGER),
+        GRAPH_VIEW_BOX.plotTop + 24,
+        GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 18
+      );
+      const title = getGraphStorylineDotTitle(candidate);
+      const timeLabel = getGraphStorylineDotTimeLabel(candidate);
+      const amountLabel = getGraphStorylineDotAmountLabel(candidate);
+      const evidenceLabel = getGraphStorylineDotEvidenceLabel(candidate);
+      return {
+        candidate,
+        index,
+        x: toGraphX(xRatio),
+        y,
+        title,
+        timeLabel,
+        amountLabel,
+        evidenceLabel,
+        monthOffset: getGraphStorylineEventMonthOffset(candidate, graphModel),
+        date: getGraphStorylineEventDate(candidate)
+      };
+    }).filter(Boolean);
+  }
+
+  function getGraphStorylineReadoutPosition(dot) {
+    const readoutHalfWidth = GRAPH_STORYLINE_EVENT_READOUT_WIDTH / 2;
+    const x = clampNumber(
+      dot.x,
+      GRAPH_VIEW_BOX.plotLeft + readoutHalfWidth,
+      GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - readoutHalfWidth
+    );
+    const y = clampNumber(dot.y - 22, GRAPH_VIEW_BOX.plotTop + 42, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 16);
+    return { x, y };
+  }
+
+  function renderGraphStorylineEventDots(timelineResult, graphModel) {
+    const dots = getGraphStorylineEventDots(timelineResult, graphModel);
+    if (!dots.length) {
+      return "";
+    }
+    const laneY = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET;
+    return `
+      <g class="income-impact-storyline-event-lane" data-income-impact-storyline-event-lane aria-label="Financial storyline graph events">
+        <line x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${formatSvgCoordinate(laneY)}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${formatSvgCoordinate(laneY)}"></line>
+        ${dots.map(function (dot) {
+          const candidate = dot.candidate;
+          const readout = getGraphStorylineReadoutPosition(dot);
+          const readoutHeight = dot.amountLabel && dot.evidenceLabel ? 54 : (dot.amountLabel || dot.evidenceLabel ? 40 : 28);
+          const readoutTop = -readoutHeight - 2;
+          const titleY = readoutTop + 15;
+          const timeY = titleY + 13;
+          const amountY = timeY + 13;
+          const evidenceY = dot.amountLabel ? amountY + 12 : amountY;
+          const amountLine = dot.amountLabel ? `<text class="income-impact-storyline-dot-readout-amount" x="0" y="${formatSvgCoordinate(amountY)}" text-anchor="middle">${escapeHtml(dot.amountLabel)}</text>` : "";
+          const evidenceLine = dot.evidenceLabel ? `<text class="income-impact-storyline-dot-readout-evidence" x="0" y="${formatSvgCoordinate(evidenceY)}" text-anchor="middle">${escapeHtml(dot.evidenceLabel)}</text>` : "";
+          const ariaLabel = [
+            dot.title,
+            dot.timeLabel,
+            dot.amountLabel
+          ].filter(Boolean).join(", ");
+          return `
+            <g
+              class="income-impact-storyline-dot income-impact-storyline-dot--severity-${escapeHtml(normalizeString(candidate.severity) || "info")} income-impact-storyline-dot--family-${escapeHtml(normalizeString(candidate.family) || "event")}"
+              data-income-impact-storyline-dot
+              data-income-impact-storyline-event-id="${escapeHtml(candidate.id || "")}"
+              data-income-impact-storyline-family="${escapeHtml(candidate.family || "")}"
+              data-income-impact-storyline-severity="${escapeHtml(candidate.severity || "")}"
+              data-income-impact-storyline-evidence-level="${escapeHtml(candidate.evidenceLevel || "")}"
+              data-income-impact-storyline-timing-label="${escapeHtml(dot.timeLabel)}"
+              data-income-impact-storyline-month-offset="${escapeHtml(dot.monthOffset == null ? "" : dot.monthOffset)}"
+              data-income-impact-storyline-date="${escapeHtml(dot.date)}"
+              transform="translate(${formatSvgCoordinate(dot.x)} ${formatSvgCoordinate(dot.y)})"
+              tabindex="0"
+              role="button"
+              aria-label="${escapeHtml(ariaLabel)}"
+            >
+              <circle class="income-impact-storyline-dot-hit" data-income-impact-storyline-dot-hit r="11"></circle>
+              <circle class="income-impact-storyline-dot-core" data-income-impact-storyline-dot-core r="4.6"></circle>
+              <g
+                class="income-impact-storyline-dot-readout"
+                data-income-impact-storyline-dot-readout
+                transform="translate(${formatSvgCoordinate(readout.x - dot.x)} ${formatSvgCoordinate(readout.y - dot.y)})"
+              >
+                <rect x="${formatSvgCoordinate(-(GRAPH_STORYLINE_EVENT_READOUT_WIDTH / 2))}" y="${formatSvgCoordinate(readoutTop)}" width="${GRAPH_STORYLINE_EVENT_READOUT_WIDTH}" height="${readoutHeight}" rx="6"></rect>
+                <text class="income-impact-storyline-dot-readout-title" x="0" y="${formatSvgCoordinate(titleY)}" text-anchor="middle">${escapeHtml(dot.title)}</text>
+                <text class="income-impact-storyline-dot-readout-time" x="0" y="${formatSvgCoordinate(timeY)}" text-anchor="middle">${escapeHtml(dot.timeLabel)}</text>
+                ${amountLine}
+                ${evidenceLine}
+              </g>
+              <title>${escapeHtml(ariaLabel)}</title>
+            </g>
+          `;
+        }).join("")}
+      </g>
+    `;
+  }
+
   function renderGraphPathAttributes(attributes) {
     if (!isPlainObject(attributes)) {
       return "";
@@ -3001,7 +3285,7 @@
     `;
   }
 
-  function renderGraphSvg(graphModel) {
+  function renderGraphSvg(graphModel, timelineResult) {
     const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
     const preDeathPath = appliedPreDeathPaths
       || renderGraphPath(PRE_DEATH_ASSETS_PATH_ID, graphModel?.series?.preDeathAssets, "Projected assets before death");
@@ -3010,6 +3294,7 @@
     const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
     const deathConversionConnector = renderDeathEventConversionConnector(graphModel);
     const hoverLayer = renderGraphHoverLayer(graphModel);
+    const storylineEventDots = renderGraphStorylineEventDots(timelineResult, graphModel);
     return `
       <svg
         class="income-impact-graph-svg"
@@ -3033,6 +3318,7 @@
         </g>
         ${renderGraphMarkers(graphModel)}
         ${renderComparisonMarkers(graphModel)}
+        ${storylineEventDots}
       </svg>
     `;
   }
@@ -3113,7 +3399,7 @@
           <p>Projected resources and required support after death.</p>
         </div>
         ${renderLifestyleImpactReadout(timelineResult)}
-        ${renderGraphSvg(graphModel)}
+          ${renderGraphSvg(graphModel, timelineResult)}
         ${renderGraphLegend(graphModel)}
         ${renderGraphCallouts(graphModel)}
         ${renderSelectedGraphEvent(graphModel)}
