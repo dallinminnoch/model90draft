@@ -17376,6 +17376,123 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   line-height: 1.35;
 }
 
+.income-impact-major-story {
+  min-width: 0;
+  width: 100%;
+}
+
+.income-impact-major-story__list {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(8.2rem, 1fr));
+  gap: 0.58rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 0.05rem;
+  scrollbar-width: thin;
+}
+
+.income-impact-major-story-card {
+  display: grid;
+  align-content: start;
+  gap: 0.34rem;
+  min-width: 0;
+  min-height: 7.1rem;
+  padding: 0.64rem 0.68rem 0.7rem;
+  border: 1px solid rgba(213, 220, 233, 0.92);
+  border-top: 0.18rem solid #94a3b8;
+  border-radius: 0.58rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 0.08rem 0.32rem rgba(15, 23, 42, 0.055);
+}
+
+.income-impact-major-story-card--severity-critical {
+  border-top-color: #dc2626;
+}
+
+.income-impact-major-story-card--severity-caution,
+.income-impact-major-story-card--severity-at-risk {
+  border-top-color: #d97706;
+}
+
+.income-impact-major-story-card--severity-positive {
+  border-top-color: #2563eb;
+}
+
+.income-impact-major-story-card__eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+  color: #8b98ad;
+  font-family: "Inter", sans-serif;
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.income-impact-major-story-card__eyebrow span {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.15rem;
+  border-radius: 0.35rem;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 0.6rem;
+  letter-spacing: 0;
+}
+
+.income-impact-major-story-card__eyebrow small {
+  min-width: 0;
+  overflow: hidden;
+  font: inherit;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.income-impact-major-story-card__title {
+  margin: 0;
+  color: #101828;
+  font-family: "Inter", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 760;
+  line-height: 1.18;
+}
+
+.income-impact-major-story-card__meta,
+.income-impact-major-story-card__amount,
+.income-impact-major-story-card__description {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  line-height: 1.28;
+}
+
+.income-impact-major-story-card__meta {
+  color: #8390a5;
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
+.income-impact-major-story-card__amount {
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 780;
+}
+
+.income-impact-major-story-card__description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #667085;
+  font-size: 0.66rem;
+  font-weight: 520;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .income-impact-card {
   display: grid;
   gap: 0.75rem;

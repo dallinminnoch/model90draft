@@ -44,6 +44,7 @@
   const GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET = 38;
   const GRAPH_STORYLINE_EVENT_LANE_STAGGER = 12;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
+  const FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT = 6;
   const GRAPH_DETAIL_VIEW_BOX = Object.freeze({
     width: 1000,
     height: 170,
@@ -3422,7 +3423,61 @@
     `;
   }
 
-  function renderFinancialDepletionStoryScaffold() {
+  function getFinancialStorylineMajorCandidates(timelineResult) {
+    return (Array.isArray(timelineResult?.financialStoryline?.majorStoryCandidates)
+      ? timelineResult.financialStoryline.majorStoryCandidates
+      : []
+    ).filter(isPlainObject).slice(0, FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT);
+  }
+
+  function getMajorStoryCardTitle(candidate) {
+    return normalizeString(candidate?.cardTitle || candidate?.displayLabel || candidate?.graphLabel || candidate?.id) || "Storyline event";
+  }
+
+  function getMajorStoryCardDescription(candidate) {
+    return normalizeString(candidate?.description || candidate?.summary || "");
+  }
+
+  function renderMajorStoryCard(candidate, index) {
+    const title = getMajorStoryCardTitle(candidate);
+    const timeLabel = getGraphStorylineDotTimeLabel(candidate);
+    const amountLabel = getGraphStorylineDotAmountLabel(candidate);
+    const evidenceLabel = getGraphStorylineDotEvidenceLabel(candidate);
+    const description = getMajorStoryCardDescription(candidate);
+    const sequence = String(index + 1).padStart(2, "0");
+    const severity = normalizeString(candidate?.severity) || "info";
+    const family = normalizeString(candidate?.family) || "event";
+    const metaItems = [timeLabel, evidenceLabel].filter(Boolean);
+    const ariaLabel = [
+      `Frame ${index + 1}`,
+      title,
+      timeLabel,
+      amountLabel
+    ].filter(Boolean).join(", ");
+
+    return `
+      <article
+        class="income-impact-major-story-card income-impact-major-story-card--severity-${escapeHtml(severity)} income-impact-major-story-card--family-${escapeHtml(family)}"
+        data-income-impact-major-story-card
+        data-income-impact-major-story-event-id="${escapeHtml(candidate?.id || "")}"
+        data-income-impact-major-story-family="${escapeHtml(candidate?.family || "")}"
+        data-income-impact-major-story-severity="${escapeHtml(candidate?.severity || "")}"
+        aria-label="${escapeHtml(ariaLabel)}"
+      >
+        <div class="income-impact-major-story-card__eyebrow">
+          <span>${escapeHtml(sequence)}</span>
+          <small>${escapeHtml(family.replace(/-/g, " "))}</small>
+        </div>
+        <h4 class="income-impact-major-story-card__title">${escapeHtml(title)}</h4>
+        ${metaItems.length ? `<p class="income-impact-major-story-card__meta">${metaItems.map(escapeHtml).join(" &middot; ")}</p>` : ""}
+        ${amountLabel ? `<p class="income-impact-major-story-card__amount">${escapeHtml(amountLabel)}</p>` : ""}
+        ${description ? `<p class="income-impact-major-story-card__description">${escapeHtml(description)}</p>` : ""}
+      </article>
+    `;
+  }
+
+  function renderFinancialDepletionStoryScaffold(timelineResult) {
+    const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
     return `
       <section class="income-impact-depletion-story" data-income-impact-depletion-story aria-label="Financial Depletion Story">
         <div class="income-impact-depletion-story-header">
@@ -3432,9 +3487,17 @@
           </h3>
         </div>
         <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane>
-          <p class="income-impact-depletion-story-empty" data-income-impact-depletion-story-empty>
-            Storyline events will appear here once verified timeline drivers are available.
-          </p>
+          ${majorStoryCandidates.length ? `
+            <div class="income-impact-major-story" data-income-impact-major-story>
+              <div class="income-impact-major-story__list" data-income-impact-major-story-list>
+                ${majorStoryCandidates.map(renderMajorStoryCard).join("")}
+              </div>
+            </div>
+          ` : `
+            <p class="income-impact-depletion-story-empty" data-income-impact-depletion-story-empty>
+              Storyline events will appear here once verified timeline drivers are available.
+            </p>
+          `}
         </div>
       </section>
     `;

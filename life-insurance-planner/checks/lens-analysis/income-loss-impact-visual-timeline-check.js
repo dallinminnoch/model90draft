@@ -291,6 +291,11 @@ assert.match(displaySource, /data-income-impact-summary-strip/);
 assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
 assert.match(displaySource, /data-income-impact-depletion-story/);
 assert.match(displaySource, /data-income-impact-depletion-story-empty/);
+assert.match(displaySource, /data-income-impact-major-story-card/);
+assert.match(displaySource, /data-income-impact-major-story-event-id/);
+assert.match(displaySource, /data-income-impact-major-story-family/);
+assert.match(displaySource, /data-income-impact-major-story-severity/);
+assert.match(displaySource, /FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT = 6/);
 assert.match(displaySource, /Storyline events will appear here once verified timeline drivers are available\./);
 assert.doesNotMatch(displaySource, /getFinancialDepletionStoryItems|renderFinancialDepletionStoryItem|renderFinancialDepletionStoryIcon|formatStoryOffsetFromMonths/);
 assert.doesNotMatch(displaySource, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
@@ -551,6 +556,9 @@ assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-
 assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*justify-content:\s*space-between;/);
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*color:\s*#8a97b0;[\s\S]*font-family:\s*"Inter",\s*sans-serif;/);
+assert.match(componentsSource, /\.income-impact-major-story__list[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(8\.2rem,\s*1fr\)\);/);
+assert.match(componentsSource, /\.income-impact-major-story-card[\s\S]*border-top:\s*0\.18rem solid #94a3b8;/);
+assert.match(componentsSource, /\.income-impact-major-story-card--severity-critical[\s\S]*border-top-color:\s*#dc2626;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story-card|\.income-impact-depletion-story-dot|\.income-impact-depletion-story-icon|\.income-impact-depletion-story-legend/);
 assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-header[\s\S]*display:\s*none;/);
@@ -1763,5 +1771,136 @@ assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
   "Timeline graph should render before the supporting risk and compression panels."
 );
+
+const majorStoryFixture = JSON.parse(JSON.stringify(fixture));
+majorStoryFixture.financialStoryline = {
+  majorStoryCandidates: [
+    {
+      id: "death-income-stops",
+      family: "trigger",
+      severity: "critical",
+      cardTitle: "Death & Income Stops",
+      description: "Household income stops at the modeled death event.",
+      evidenceLevel: "trace-backed",
+      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" }
+    },
+    {
+      id: "life-insurance-proceeds-applied",
+      family: "insurance",
+      severity: "positive",
+      cardTitle: "Life Insurance Proceeds Applied",
+      description: "Available coverage is added to survivor resources.",
+      evidenceLevel: "calculated",
+      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" },
+      amount: { value: 400000, label: "$400,000" }
+    },
+    {
+      id: "cash-savings-depleted",
+      family: "liquidity",
+      severity: "caution",
+      cardTitle: "Cash Savings Depleted",
+      description: "Cash reserves are exhausted by projected survivor support.",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 12, date: "2032-04-29", label: "Month 12" },
+      amount: { value: 50000, label: "$50,000" }
+    },
+    {
+      id: "housing-payment-at-risk",
+      family: "housing",
+      severity: "at-risk",
+      cardTitle: "Housing Payment At Risk",
+      description: "Housing payments continue beyond projected liquid resources.",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 24, date: "2033-04-29", label: "Month 24" },
+      amount: { value: 2400, label: "$2,400/mo" }
+    },
+    {
+      id: "retirement-assets-tapped",
+      family: "retirement",
+      severity: "caution",
+      cardTitle: "Retirement Assets Tapped",
+      description: "Long-term assets are reached after liquid reserves.",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 36, date: "2034-04-29", label: "Month 36" }
+    },
+    {
+      id: "resources-run-out",
+      family: "support",
+      severity: "critical",
+      cardTitle: "Resources Run Out",
+      description: "Modeled survivor resources reach the depletion point.",
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 144, date: "2043-04-29", label: "Month 144" }
+    },
+    {
+      id: "lower-priority-over-cap",
+      family: "support",
+      severity: "caution",
+      cardTitle: "Lower Priority Event",
+      description: "This seventh candidate should not render in the six-frame shell.",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 150, label: "Month 150" }
+    }
+  ],
+  graphDotCandidates: [
+    {
+      id: "death-income-stops",
+      family: "trigger",
+      severity: "critical",
+      graphLabel: "Death",
+      displayLabel: "Death & Income Stops",
+      evidenceLevel: "trace-backed",
+      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" }
+    },
+    {
+      id: "resources-run-out",
+      family: "support",
+      severity: "critical",
+      graphLabel: "Resources run out",
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 144, date: "2043-04-29", label: "Month 144" }
+    }
+  ]
+};
+const majorStoryHost = { innerHTML: "" };
+harness.renderIncomeImpact(majorStoryHost, { timelineResult: majorStoryFixture });
+assert.equal(
+  (majorStoryHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
+  6,
+  "Financial Depletion Story should render no more than six major story cards."
+);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-depletion-story-empty/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-event-id="death-income-stops"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-family="housing"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-severity="at-risk"/);
+assert.match(majorStoryHost.innerHTML, /Death &amp; Income Stops/);
+assert.match(majorStoryHost.innerHTML, /At death/);
+assert.match(majorStoryHost.innerHTML, /\$400,000/);
+assert.match(majorStoryHost.innerHTML, /Housing payments continue beyond projected liquid resources\./);
+assert.ok(
+  majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="death-income-stops"') <
+    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="life-insurance-proceeds-applied"') &&
+    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="life-insurance-proceeds-applied"') <
+    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="cash-savings-depleted"'),
+  "Major story cards should preserve selector order with death first when supplied first."
+);
+assert.doesNotMatch(majorStoryHost.innerHTML, /lower-priority-over-cap|Lower Priority Event/);
+assert.equal(
+  (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
+  2,
+  "Rendering major story cards should not alter existing graph dot rendering."
+);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-story-card-connector|data-income-impact-major-story-connector/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
+
+const emptyMajorStoryHost = { innerHTML: "" };
+harness.renderIncomeImpact(emptyMajorStoryHost, {
+  timelineResult: {
+    ...fixture,
+    financialStoryline: { majorStoryCandidates: [] }
+  }
+});
+assert.match(emptyMajorStoryHost.innerHTML, /data-income-impact-depletion-story-empty/);
+assert.doesNotMatch(emptyMajorStoryHost.innerHTML, /data-income-impact-major-story-card(?:\s|>)/);
 
 console.log("income-loss-impact-visual-timeline-check passed");
