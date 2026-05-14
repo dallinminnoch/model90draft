@@ -633,7 +633,7 @@ assert.match(pageSource, /data-income-impact-controls-panel/);
 assert.match(
   pageSource,
   /data-income-impact-display[\s\S]*data-income-impact-controls-panel[\s\S]*data-income-impact-scenario-banner/,
-  "Main Income Impact display should render before the mirrored right-side scenario controls panel."
+  "Income Impact workspace should include the main display and scenario controls panel."
 );
 assert.match(
   pageSource,
@@ -700,13 +700,18 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(13\.5rem,\s*18rem\);/,
-  "Desktop/tablet Income Impact layout should place controls in a mirrored right-side panel next to the main display."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\);[^}]*\}/,
+  "Desktop/tablet Income Impact layout should place scenario controls in the left rail next to the main display."
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-controls-panel[\s\S]*position:\s*sticky;[\s\S]*top:\s*clamp\(0\.75rem,\s*2vw,\s*1\.2rem\);/,
-  "Income Impact controls side panel should behave like a stable side panel while the chart scrolls."
+  /body\[data-step="income-impact"\] \.income-impact-controls-panel\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;[^}]*position:\s*static;[^}]*align-self:\s*stretch;[^}]*\}/,
+  "Income Impact controls panel should occupy the stable left rail, not a floating or sticky overlay."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-content-stack\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*\}/,
+  "Income Impact main display should occupy the scrollable right content column."
 );
 assert.match(
   layoutSource,
@@ -724,9 +729,21 @@ assert.match(
   "Mobile scenario controls should stack above the chart instead of using the desktop sticky side panel."
 );
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
-assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-banner[\s\S]*padding:\s*0\.72rem;[\s\S]*border-radius:\s*0\.7rem;/);
-assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-header,[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-content[\s\S]*grid-template-columns:\s*1fr;/);
-assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-summary[\s\S]*display:\s*grid;/);
+assert.match(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/,
+  "Scenario controls should read as an integrated side panel, not a nested card."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-header,[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-content\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}/
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-header\s*\{[^}]*padding:\s*0\.84rem 0\.72rem 0\.68rem;[^}]*border-bottom:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.9\);[^}]*\}/,
+  "Scenario controls header should provide the side-menu section boundary."
+);
+assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-summary\s*\{[^}]*display:\s*grid;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
 assert.match(componentsSource, /data-income-impact-selected-scenario-chip/);
 assert.match(componentsSource, /data-income-impact-reevaluate-state="active"/);
