@@ -1519,16 +1519,16 @@
     return `
       <defs>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#4054b8" stop-opacity="0.13"></stop>
-          <stop offset="38%" stop-color="#4054b8" stop-opacity="0.035"></stop>
-          <stop offset="72%" stop-color="#4054b8" stop-opacity="0"></stop>
-          <stop offset="100%" stop-color="#4054b8" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.1"></stop>
+          <stop offset="38%" stop-color="#3b82f6" stop-opacity="0.025"></stop>
+          <stop offset="72%" stop-color="#3b82f6" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"></stop>
         </linearGradient>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2f8fc7" stop-opacity="0.13"></stop>
-          <stop offset="38%" stop-color="#2f8fc7" stop-opacity="0.035"></stop>
-          <stop offset="72%" stop-color="#2f8fc7" stop-opacity="0"></stop>
-          <stop offset="100%" stop-color="#2f8fc7" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.1"></stop>
+          <stop offset="38%" stop-color="#3b82f6" stop-opacity="0.025"></stop>
+          <stop offset="72%" stop-color="#3b82f6" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"></stop>
         </linearGradient>
       </defs>
     `;
@@ -2289,9 +2289,9 @@
     return `
       <defs>
         <linearGradient id="${DEATH_CONVERSION_GRADIENT_ID}" data-income-impact-death-conversion-gradient gradientUnits="userSpaceOnUse" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}">
-          <stop offset="0%" stop-color="#4054b8"></stop>
-          <stop offset="48%" stop-color="#2f8fc7"></stop>
-          <stop offset="100%" stop-color="#2f8fc7"></stop>
+          <stop offset="0%" stop-color="#2563eb"></stop>
+          <stop offset="48%" stop-color="#3b82f6"></stop>
+          <stop offset="100%" stop-color="#3b82f6"></stop>
         </linearGradient>
       </defs>
     `;
@@ -2876,11 +2876,15 @@
     const mode = sliderValue < 0 ? "conservative" : (sliderValue > 0 ? "elevated" : "current");
     const runwayShift = getLifestyleRunwayShift(timelineResult);
     const resourceDifference = getLifestyleResourceDifference(timelineResult);
+    const monthlyValue = monthlyDelta === null
+      ? UNAVAILABLE_COPY
+      : formatSignedMonthlyAmount(monthlyDelta);
     const monthlyCopy = monthlyDelta === null
       ? "Lifestyle spend change unavailable"
-      : `Lifestyle spend: ${formatSignedMonthlyAmount(monthlyDelta)}`;
+      : `Lifestyle spend: ${monthlyValue}`;
     let headline = "Matches baseline";
     let detail = "No depletion shift";
+    let shiftValue = "$0";
     let status = "baseline";
 
     if (mode === "current" || (monthlyDelta !== null && Math.abs(monthlyDelta) < 0.5)) {
@@ -2888,7 +2892,9 @@
         mode,
         status,
         headline,
+        monthlyValue: "$0/mo",
         monthlyCopy: "Lifestyle spend: $0/mo",
+        shiftValue: "$0",
         detail,
       };
     }
@@ -2898,31 +2904,38 @@
       if (monthShift > 0) {
         headline = `Extends runway by ${formatMonthCount(monthShift)}`;
         detail = `Depletion shift: +${formatMonthCount(monthShift)}`;
+        shiftValue = `+${formatMonthCount(monthShift)}`;
         status = "extends";
       } else if (monthShift < 0) {
         headline = `Shortens runway by ${formatMonthCount(monthShift)}`;
         detail = `Depletion shift: -${formatMonthCount(monthShift)}`;
+        shiftValue = `-${formatMonthCount(monthShift)}`;
         status = "shortens";
       } else {
         headline = "No depletion shift";
         detail = "Depletion timing is unchanged";
+        shiftValue = "$0";
         status = "unchanged";
       }
     } else if (runwayShift.kind === "extendsBeyondHorizon") {
       headline = "Extends runway beyond horizon";
       detail = "Lifestyle line stays above zero in the visible horizon";
+      shiftValue = "Beyond horizon";
       status = "extends";
     } else if (runwayShift.kind === "shortensIntoHorizon") {
       headline = "Shortens runway into horizon";
       detail = "Lifestyle line depletes within the visible horizon";
+      shiftValue = "Within horizon";
       status = "shortens";
     } else if (runwayShift.kind === "noVisibleDepletion") {
       headline = mode === "conservative" ? "Conservative lifestyle selected" : "Elevated lifestyle selected";
       detail = "No depletion within projection horizon";
+      shiftValue = "No depletion";
       status = "noVisibleDepletion";
     } else {
       headline = mode === "conservative" ? "Conservative lifestyle selected" : "Elevated lifestyle selected";
       detail = "Depletion shift unavailable";
+      shiftValue = UNAVAILABLE_COPY;
       status = "fallback";
     }
 
@@ -2936,7 +2949,9 @@
       mode,
       status,
       headline,
+      monthlyValue,
       monthlyCopy,
+      shiftValue,
       detail,
     };
   }
@@ -2955,9 +2970,18 @@
         data-income-impact-lifestyle-impact-mode="${escapeHtml(model.mode)}"
         data-income-impact-lifestyle-impact-status="${escapeHtml(model.status)}">
         <span class="income-impact-lifestyle-impact-readout__eyebrow">Lifestyle impact</span>
-        <strong data-income-impact-lifestyle-impact-primary>${escapeHtml(model.headline)}</strong>
-        <span data-income-impact-lifestyle-impact-monthly>${escapeHtml(model.monthlyCopy)}</span>
-        <span data-income-impact-lifestyle-impact-runway>${escapeHtml(model.detail)}</span>
+        <span class="income-impact-lifestyle-impact-readout__stat">
+          <span>Lifestyle Spend</span>
+          <strong data-income-impact-lifestyle-impact-monthly aria-label="${escapeHtml(model.monthlyCopy)}">${escapeHtml(model.monthlyValue)}</strong>
+        </span>
+        <span class="income-impact-lifestyle-impact-readout__stat">
+          <span>Depletion Shift</span>
+          <strong data-income-impact-lifestyle-impact-runway aria-label="${escapeHtml(model.detail)}">${escapeHtml(model.shiftValue)}</strong>
+        </span>
+        <strong class="income-impact-lifestyle-impact-readout__status" data-income-impact-lifestyle-impact-primary>
+          <svg aria-hidden="true" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 9.5v-8M2 5.5l3.5-4 3.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          ${escapeHtml(model.headline)}
+        </strong>
       </div>
     `;
   }
@@ -3110,16 +3134,143 @@
     `;
   }
 
-  function renderFinancialDepletionStoryScaffold() {
+  function formatStoryOffsetFromMonths(months, fallbackValue) {
+    const monthCount = toOptionalNumber(months);
+    if (monthCount == null) {
+      return fallbackValue;
+    }
+
+    const roundedMonths = Math.max(1, Math.round(monthCount));
+    if (roundedMonths < 2) {
+      return "+6 Weeks";
+    }
+    if (roundedMonths < 12) {
+      return `+${roundedMonths} Months`;
+    }
+
+    const years = Math.floor(roundedMonths / 12);
+    const remainder = roundedMonths % 12;
+    if (!remainder) {
+      return `+${years} ${years === 1 ? "Year" : "Years"}`;
+    }
+    return `+${years}Y ${remainder}M`;
+  }
+
+  function getFinancialDepletionStoryItems(timelineResult) {
+    const facts = getTimelineFacts(timelineResult);
+    const runway = getFinancialRunway(timelineResult);
+    const depletion = isPlainObject(timelineResult?.scenario?.postDeathSeries?.depletion)
+      ? timelineResult.scenario.postDeathSeries.depletion
+      : {};
+    const startingResources = facts.resourcesAfterObligations
+      ?? facts.survivorAvailableTreatedAssets
+      ?? runway.startingResources
+      ?? facts.assetsBeforeDeath;
+    const annualShortfall = toOptionalNumber(runway.annualShortfall);
+    const monthlyShortfall = annualShortfall == null ? null : annualShortfall / 12;
+    const monthsCovered = toOptionalNumber(facts.monthsCovered ?? depletion.depletionMonthIndex ?? runway.monthsCovered);
+
+    return [
+      {
+        id: "death-event",
+        tone: "blue",
+        time: "Day 1",
+        title: "Death Event",
+        description: `Income stops. ${formatCurrency(startingResources)} in available resources remain.`,
+        icon: "clock"
+      },
+      {
+        id: "savings-depleted",
+        tone: "indigo",
+        time: "+6 Weeks",
+        title: "Emergency Savings Depleted",
+        description: monthlyShortfall == null
+          ? "Cash buffer begins absorbing the household shortfall."
+          : `Monthly deficit reaches ${formatCurrency(monthlyShortfall)}.`,
+        icon: "briefcase"
+      },
+      {
+        id: "retirement-tapped",
+        tone: "amber",
+        time: formatStoryOffsetFromMonths(monthsCovered == null ? null : monthsCovered * 0.33, "+3 Months"),
+        title: "Retirement Accounts Tapped",
+        description: "Long-term reserves may be needed to keep the plan funded.",
+        icon: "clock"
+      },
+      {
+        id: "home-equity-risk",
+        tone: "orange",
+        time: formatStoryOffsetFromMonths(monthsCovered == null ? null : monthsCovered * 0.55, "+5 Months"),
+        title: "Home Equity at Risk",
+        description: "Housing and credit options become part of the runway pressure.",
+        icon: "home"
+      },
+      {
+        id: "credit-crisis",
+        tone: "red",
+        time: formatStoryOffsetFromMonths(monthsCovered == null ? null : monthsCovered * 0.78, "+7 Months"),
+        title: "Credit Crisis",
+        description: "Available resources are nearing depletion.",
+        icon: "card"
+      },
+      {
+        id: "financial-collapse",
+        tone: "maroon",
+        time: formatStoryOffsetFromMonths(monthsCovered, "+10 Months"),
+        title: depletion.depleted === false ? "Runway Extends" : "Total Financial Collapse",
+        description: depletion.depleted === false
+          ? "Resources continue through the visible timeline."
+          : "Assets fully depleted. Required support begins.",
+        icon: "warning"
+      }
+    ];
+  }
+
+  function renderFinancialDepletionStoryIcon(icon) {
+    if (icon === "briefcase") {
+      return `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"></rect><path d="M4.5 5V4a2.5 2.5 0 0 1 5 0v1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path><circle cx="7" cy="8.5" r=".9" fill="currentColor"></circle></svg>`;
+    }
+    if (icon === "home") {
+      return `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L7 2.5 12 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path><path d="M4 7v5h2V9h2v3h2V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path></svg>`;
+    }
+    if (icon === "card") {
+      return `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="3.5" width="11" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3"></rect><line x1="1.5" y1="6.5" x2="12.5" y2="6.5" stroke="currentColor" stroke-width="1.3"></line><path d="M3.5 9h2M8.5 9h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"></path></svg>`;
+    }
+    if (icon === "warning") {
+      return `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L1 12.5h12L7 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path><line x1="7" y1="5.5" x2="7" y2="9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></line><circle cx="7" cy="10.5" r=".75" fill="currentColor"></circle></svg>`;
+    }
+    return `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"></circle><path d="M7 4.5v3l2 1.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>`;
+  }
+
+  function renderFinancialDepletionStoryItem(item) {
+    return `
+      <article class="income-impact-depletion-story-card income-impact-depletion-story-card--${escapeHtml(item.tone)}" data-income-impact-depletion-story-card="${escapeHtml(item.id)}">
+        <span class="income-impact-depletion-story-time">${escapeHtml(item.time)}</span>
+        <span class="income-impact-depletion-story-icon">${renderFinancialDepletionStoryIcon(item.icon)}</span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <p>${escapeHtml(item.description)}</p>
+        <span class="income-impact-depletion-story-dot" aria-hidden="true"></span>
+      </article>
+    `;
+  }
+
+  function renderFinancialDepletionStoryScaffold(timelineResult) {
+    const storyItems = getFinancialDepletionStoryItems(timelineResult);
     return `
       <section class="income-impact-depletion-story" data-income-impact-depletion-story aria-label="Financial Depletion Story">
-        <div class="income-impact-section-header">
-          <h3>Financial Depletion Story</h3>
+        <div class="income-impact-depletion-story-header">
+          <h3>
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 10.5L3.6 7.5L6.2 9L9.2 4.2L12 5.8" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            Financial Depletion Story
+          </h3>
+          <div class="income-impact-depletion-story-legend" aria-label="Timeline legend">
+            <span data-income-impact-depletion-story-legend="remaining-assets"><i></i>Remaining assets</span>
+            <span data-income-impact-depletion-story-legend="pre-event-baseline"><i></i>Pre-event baseline</span>
+            <span data-income-impact-depletion-story-legend="required-support"><i></i>Required support</span>
+          </div>
         </div>
-        <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane aria-hidden="true">
-          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="starting-resources"></div>
-          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="runway-pressure"></div>
-          <div class="income-impact-depletion-story-slot" data-income-impact-depletion-story-slot="depletion-outcome"></div>
+        <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane>
+          ${storyItems.map(renderFinancialDepletionStoryItem).join("")}
         </div>
       </section>
     `;
@@ -3640,10 +3791,12 @@
     host.innerHTML = `
       <div class="income-impact-layout" data-income-impact-layout>
         ${renderTopSummaryStrip(timelineResult)}
-        ${renderFinancialDepletionStoryScaffold()}
-        <div class="income-impact-layout-main" data-income-impact-layout-main>
-          ${renderTimeline(timelineResult)}
-        </div>
+        <section class="income-impact-story-chart-card" data-income-impact-story-chart-card>
+          ${renderFinancialDepletionStoryScaffold(timelineResult)}
+          <div class="income-impact-layout-main" data-income-impact-layout-main>
+            ${renderTimeline(timelineResult)}
+          </div>
+        </section>
         <aside class="income-impact-layout-aside" data-income-impact-layout-aside aria-label="Income Impact supporting details">
           ${renderPivotalRiskPanel(timelineResult)}
           ${renderCompressionReportingPanel(timelineResult)}

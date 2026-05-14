@@ -312,8 +312,8 @@ assertApproxEqual(
 );
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.x.ticks.map(function (tick) { return tick.label; })),
-  ["Before death", "Death", "+5 years", "+10 years", "+15 years"],
-  "Graph x-axis should use the auto-sized death-relative display horizon instead of the full calculation horizon."
+  ["Before death", "Death", "+2 years", "+4 years", "+6 years", "+8 years", "+10 years", "+12 years", "+14 years", "+15 years"],
+  "Graph x-axis should use denser death-relative increments inside the auto-sized display horizon."
 );
 assertApproxEqual(
   fiveYearModel.axes.x.ticks.find(function (tick) { return tick.id === "death"; }).xRatio,
@@ -496,8 +496,8 @@ assert.equal(
 );
 assert.deepEqual(
   cloneJson(tenYearHorizonModel.axes.x.ticks.map(function (tick) { return tick.label; })),
-  ["Before death", "Death", "+5 years", "+10 years"],
-  "A 10-year visible horizon should not emit crowded +15/+20/+30 labels."
+  ["Before death", "Death", "+2 years", "+4 years", "+6 years", "+8 years", "+10 years"],
+  "A 10-year visible horizon should emit denser in-window labels without +15/+20/+30 labels."
 );
 
 const earlyDepletionScenario = cloneJson(fiveYearScenario);

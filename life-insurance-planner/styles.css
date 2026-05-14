@@ -33,9 +33,9 @@
   --space-2xl: clamp(1.5rem, 3vw, 2.5rem);
   --control-height: clamp(2.5rem, 4vw, 3rem);
   --app-side-nav-width: 17.75rem;
-  --app-side-nav-collapsed-width: 4.75rem;
+  --app-side-nav-collapsed-width: 3.75rem;
   --app-side-nav-gap: 1rem;
-  --app-side-nav-screen-gap: 0.5rem;
+  --app-side-nav-screen-gap: 0.35rem;
   --app-side-nav-top-offset: calc(clamp(4rem, 6vw, 4.75rem) + 0.7rem);
   --workspace-topbar-height: 3.15rem;
   --app-side-nav-toggle-top-offset: calc(var(--workspace-topbar-height) + 0.75rem);
@@ -7421,7 +7421,7 @@ body[data-step] .step-item:focus-visible .step-title {
   .client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-toggle {
     top: 0.76rem;
     right: auto;
-    left: calc((3.55rem - 1.45rem) / 2);
+    left: calc((var(--workspace-side-nav-primary-rail-width, 3.05rem) - 1.45rem) / 2);
   }
 
   .workspace-side-nav-host[data-workspace-side-nav] .workspace-side-nav-shell .workspace-side-nav-toggle-glyph,
@@ -7893,8 +7893,8 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
 }
 
 .client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-rail {
-  width: 3.55rem;
-  padding: 2.7rem 0.24rem 0.9rem;
+  width: 3.05rem;
+  padding: 2.7rem 0.14rem 0.9rem;
 }
 
 .client-profile-shell.is-collapsed .workspace-side-nav-shell .workspace-side-nav-primary-items {
@@ -7932,6 +7932,7 @@ body[data-step="income-impact"] .income-impact-page-intro > div {
 }
 
 body[data-step="income-impact"] .income-impact-page-intro .section-label {
+  display: none;
   color: #647184;
   font-size: 0.64rem;
   letter-spacing: 0.08em;
@@ -7940,19 +7941,20 @@ body[data-step="income-impact"] .income-impact-page-intro .section-label {
 body[data-step="income-impact"] .income-impact-page-intro h1 {
   max-width: none;
   margin: 0;
-  color: #17202c;
+  color: #0f172a;
   font-family: "Lora", serif;
-  font-size: clamp(1.34rem, 1.75vw, 1.72rem);
-  font-weight: 840;
-  letter-spacing: 0;
-  line-height: 1.08;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
 }
 
 body[data-step="income-impact"] .income-impact-page-intro p {
   max-width: 36rem;
   margin: 0;
-  color: #627086;
-  font-size: 0.82rem;
-  line-height: 1.38;
+  color: #94a3b8;
+  font-family: "Inter", sans-serif;
+  font-size: 10.5px;
+  line-height: 1.25;
 }
 }

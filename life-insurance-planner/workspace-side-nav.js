@@ -674,6 +674,25 @@
     }
 
     document.querySelector("[data-lens-workflow-trail-banner]")?.remove();
+    document.querySelector("[data-lens-workflow-trail]")?.remove();
+    if (body.dataset.step === "income-impact") {
+      const topbarInner = topbar.querySelector(".workspace-page-topbar-inner");
+      if (!topbarInner) {
+        return;
+      }
+
+      const template = document.createElement("template");
+      template.innerHTML = trailMarkup.trim();
+      const trail = template.content.firstElementChild;
+      if (!trail) {
+        return;
+      }
+
+      const topbarActions = topbarInner.querySelector(".workspace-page-topbar-actions");
+      topbarInner.insertBefore(trail, topbarActions || null);
+      return;
+    }
+
     const template = document.createElement("template");
     template.innerHTML = `
       <div class="lens-workflow-trail-banner" data-lens-workflow-trail-banner>

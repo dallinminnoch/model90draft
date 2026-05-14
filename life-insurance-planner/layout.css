@@ -1261,8 +1261,13 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
   }
 
   body[data-step="income-impact"] .lens-workflow-pane {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    padding: 0;
     padding-bottom: 0;
     scroll-padding-bottom: 0;
+    overflow: hidden;
+    background: #f1f4f9;
   }
 
   body[data-step="income-impact"] .actions-row {
@@ -1272,21 +1277,36 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
 
   body[data-step="income-impact"] .income-impact-workspace-shell {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);
-    gap: 1rem;
-    align-items: start;
+    grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr);
+    gap: 0;
+    align-items: stretch;
+    height: 100%;
     min-height: 0;
+    overflow: hidden;
+    background: #f1f4f9;
   }
 
   body[data-step="income-impact"] .income-impact-controls-panel {
-    position: sticky;
-    top: clamp(0.75rem, 2vw, 1.2rem);
-    align-self: start;
+    grid-column: 1;
+    grid-row: 1;
+    position: static;
+    align-self: stretch;
     min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow-y: auto;
   }
 
   body[data-step="income-impact"] .income-impact-content-stack {
+    grid-column: 2;
+    grid-row: 1;
     min-width: 0;
+    min-height: 0;
+    height: 100%;
+    padding: 0.7rem clamp(0.95rem, 1.45vw, 1.15rem) 0 1rem;
+    background: #f1f4f9;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   body[data-step="income-impact"] .income-impact-scenario-banner {
@@ -1327,8 +1347,12 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
 
 @media (max-width: 720px) {
   body[data-step="income-impact"] .lens-workflow-pane {
+    display: block;
     padding-bottom: 0;
     scroll-padding-bottom: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #f1f4f9;
   }
 
   body[data-step="income-impact"] .actions-row {
@@ -1341,11 +1365,21 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
+    height: auto;
+    overflow: visible;
   }
 
   body[data-step="income-impact"] .income-impact-controls-panel {
     order: -1;
     position: static;
+    height: auto;
+    overflow: visible;
+  }
+
+  body[data-step="income-impact"] .income-impact-content-stack {
+    height: auto;
+    padding: 0;
+    overflow: visible;
   }
 
   body[data-step="income-impact"] .income-impact-scenario-banner {

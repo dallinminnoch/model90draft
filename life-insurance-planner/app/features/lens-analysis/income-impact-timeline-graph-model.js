@@ -2474,7 +2474,7 @@
     } else if (horizonMonths <= 60) {
       stepMonths = MONTHS_PER_YEAR;
     } else if (horizonMonths <= 240) {
-      stepMonths = 60;
+      stepMonths = 24;
     } else {
       return DEATH_RELATIVE_X_TICK_YEARS
         .map(function (years) {
@@ -2488,6 +2488,9 @@
     const ticks = [];
     for (let month = stepMonths; month <= horizonMonths; month += stepMonths) {
       ticks.push(month);
+    }
+    if (horizonMonths > 0 && ticks[ticks.length - 1] !== horizonMonths) {
+      ticks.push(horizonMonths);
     }
     return ticks;
   }
