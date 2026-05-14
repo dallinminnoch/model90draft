@@ -64,6 +64,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Mortgage treatment payment plan",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/mortgage-treatment-payment-plan-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Income Loss Impact visual timeline",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/income-loss-impact-visual-timeline-check.js")],

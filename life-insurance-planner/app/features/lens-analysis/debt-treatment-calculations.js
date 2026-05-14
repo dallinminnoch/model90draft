@@ -768,6 +768,333 @@
     };
   }
 
+  function getFirstAvailableMortgagePlanValue(sources) {
+    const items = Array.isArray(sources) ? sources : [];
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      const source = isPlainObject(item?.source) ? item.source : {};
+      const fieldNames = Array.isArray(item?.fields) ? item.fields : [];
+      for (let fieldIndex = 0; fieldIndex < fieldNames.length; fieldIndex += 1) {
+        const fieldName = fieldNames[fieldIndex];
+        if (Object.prototype.hasOwnProperty.call(source, fieldName)) {
+          return {
+            value: source[fieldName],
+            sourcePath: item.sourcePathPrefix ? `${item.sourcePathPrefix}.${fieldName}` : fieldName
+          };
+        }
+      }
+    }
+    return { value: null, sourcePath: null };
+  }
+
+  function normalizeMortgagePlanMode(mortgageTreatment) {
+    const mode = toTrimmedString(mortgageTreatment?.mode);
+    if (mode === "payoff" || mode === "payOff" || mode === "payOffMortgage") {
+      return "payOff";
+    }
+    if (mode === "support" || mode === "continuePayments" || mode === "continueMortgagePayments") {
+      return "continuePayments";
+    }
+    return "unavailable";
+  }
+
+  function normalizeMortgagePlanPayoffPercent(mortgageTreatment) {
+    const value = toOptionalNumber(mortgageTreatment?.payoffPercent);
+    if (value == null) {
+      return 0;
+    }
+    return Math.min(100, Math.max(0, value));
+  }
+
+  function getManualMortgagePlanTermOverride(mortgageTreatment, options, warnings) {
+    const monthsCandidate = getFirstAvailableMortgagePlanValue([
+      {
+        source: options,
+        sourcePathPrefix: "options",
+        fields: ["manualRemainingTermMonths", "manualTermMonths", "finalRemainingTermMonths"]
+      },
+      {
+        source: mortgageTreatment,
+        sourcePathPrefix: "mortgageTreatment",
+        fields: ["manualRemainingTermMonths", "manualTermMonths", "finalRemainingTermMonths"]
+      }
+    ]);
+    const months = toOptionalNumber(monthsCandidate.value);
+    if (months != null) {
+      if (months >= 12 && months <= 360) {
+        return {
+          value: Math.round(months),
+          source: "manualOverride",
+          sourcePath: monthsCandidate.sourcePath
+        };
+      }
+      pushWarning(
+        warnings,
+        "mortgage-payment-plan-manual-term-invalid",
+        "Manual mortgage remaining term override was outside the supported 12-360 month range and was ignored.",
+        {
+          field: monthsCandidate.sourcePath,
+          received: monthsCandidate.value
+        }
+      );
+    }
+
+    const yearsCandidate = getFirstAvailableMortgagePlanValue([
+      {
+        source: options,
+        sourcePathPrefix: "options",
+        fields: ["manualYearsRemaining", "manualYearsRemainingOverride", "finalYearsRemaining"]
+      },
+      {
+        source: mortgageTreatment,
+        sourcePathPrefix: "mortgageTreatment",
+        fields: ["manualYearsRemaining", "manualYearsRemainingOverride", "finalYearsRemaining"]
+      }
+    ]);
+    const years = toOptionalNumber(yearsCandidate.value);
+    if (years != null) {
+      if (years >= 1 && years <= 30) {
+        return {
+          value: Math.round(years * 12),
+          source: "manualOverride",
+          sourcePath: yearsCandidate.sourcePath
+        };
+      }
+      pushWarning(
+        warnings,
+        "mortgage-payment-plan-manual-years-invalid",
+        "Manual mortgage years remaining override was outside the supported 1-30 year range and was ignored.",
+        {
+          field: yearsCandidate.sourcePath,
+          received: yearsCandidate.value
+        }
+      );
+    }
+
+    return null;
+  }
+
+  function calculateMortgagePlanPayment(principal, termMonths, interestRatePercent, warnings) {
+    const safePrincipal = toOptionalNumber(principal);
+    const safeTermMonths = toOptionalNumber(termMonths);
+    if (safePrincipal == null || safePrincipal < 0 || safeTermMonths == null || safeTermMonths <= 0) {
+      return {
+        payment: null,
+        source: "unavailable"
+      };
+    }
+    if (safePrincipal === 0) {
+      return {
+        payment: 0,
+        source: "calculatedAmortization"
+      };
+    }
+
+    const rate = toOptionalNumber(interestRatePercent);
+    if (rate == null || rate <= 0) {
+      pushWarning(
+        warnings,
+        "mortgage-payment-plan-interest-rate-fallback",
+        "Mortgage payment plan used straight-line principal fallback because interest rate was missing or zero.",
+        {
+          interestRatePercent: interestRatePercent ?? null
+        }
+      );
+      return {
+        payment: roundMoney(safePrincipal / safeTermMonths),
+        source: "straightLineFallback"
+      };
+    }
+
+    const monthlyRate = rate / 1200;
+    return {
+      payment: roundMoney(safePrincipal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -safeTermMonths)))),
+      source: "calculatedAmortization"
+    };
+  }
+
+  function calculateTreatedMortgagePaymentPlan(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    const mortgageTreatment = isPlainObject(safeInput.mortgageTreatment) ? safeInput.mortgageTreatment : {};
+    const mortgageFacts = isPlainObject(safeInput.mortgageFacts) ? safeInput.mortgageFacts : {};
+    const ongoingSupport = isPlainObject(safeInput.ongoingSupport) ? safeInput.ongoingSupport : {};
+    const options = isPlainObject(safeInput.options) ? safeInput.options : {};
+    const warnings = [];
+    const sourcePaths = [];
+    const mode = normalizeMortgagePlanMode(mortgageTreatment);
+    const payoffPercent = normalizeMortgagePlanPayoffPercent(mortgageTreatment);
+    const balanceValue = getFirstAvailableMortgagePlanValue([
+      {
+        source: mortgageFacts,
+        sourcePathPrefix: "mortgageFacts",
+        fields: ["mortgageBalance", "originalBalance", "currentBalance", "balance"]
+      }
+    ]);
+    const paymentValue = getFirstAvailableMortgagePlanValue([
+      {
+        source: ongoingSupport,
+        sourcePathPrefix: "ongoingSupport",
+        fields: ["monthlyMortgagePayment"]
+      }
+    ]);
+    const termValue = getFirstAvailableMortgagePlanValue([
+      {
+        source: ongoingSupport,
+        sourcePathPrefix: "ongoingSupport",
+        fields: ["mortgageRemainingTermMonths", "remainingTermMonths"]
+      }
+    ]);
+    const rateValue = getFirstAvailableMortgagePlanValue([
+      {
+        source: ongoingSupport,
+        sourcePathPrefix: "ongoingSupport",
+        fields: ["mortgageInterestRatePercent", "interestRatePercent"]
+      },
+      {
+        source: mortgageFacts,
+        sourcePathPrefix: "mortgageFacts",
+        fields: ["mortgageInterestRatePercent", "interestRatePercent", "mortgageInterestRate"]
+      }
+    ]);
+    [
+      balanceValue.sourcePath,
+      paymentValue.sourcePath,
+      termValue.sourcePath,
+      rateValue.sourcePath,
+      "mortgageTreatment.payoffPercent"
+    ].filter(Boolean).forEach(function (sourcePath) {
+      if (sourcePaths.indexOf(sourcePath) === -1) {
+        sourcePaths.push(sourcePath);
+      }
+    });
+
+    const originalBalance = toOptionalNumber(balanceValue.value);
+    const originalMonthlyMortgagePayment = toOptionalNumber(paymentValue.value);
+    const originalRemainingTermMonths = toOptionalNumber(termValue.value);
+    const interestRatePercent = toOptionalNumber(rateValue.value);
+    const mortgagePaymentAlreadyInNeeds = originalMonthlyMortgagePayment != null && originalMonthlyMortgagePayment > 0;
+    const baseOutput = {
+      version: "treated-mortgage-payment-plan-v1",
+      mode,
+      originalBalance,
+      immediatePayoffAmount: null,
+      payoffPercent,
+      remainingPrincipalAfterPayoff: null,
+      originalMonthlyMortgagePayment,
+      finalMonthlyMortgagePayment: null,
+      originalRemainingTermMonths,
+      finalRemainingTermMonths: null,
+      interestRatePercent,
+      yearsRemainingSource: "unavailable",
+      paymentSource: "unavailable",
+      mortgagePaymentRemovedFromNeeds: false,
+      mortgagePaymentAlreadyInNeeds,
+      associatedHousingCostsPreserved: true,
+      warnings,
+      trace: {
+        source: "debt-treatment-calculations.calculateTreatedMortgagePaymentPlan",
+        sourcePaths,
+        calculationInputs: {
+          mode: mortgageTreatment.mode ?? null,
+          payoffPercent: mortgageTreatment.payoffPercent ?? null,
+          originalBalance: balanceValue.value ?? null,
+          originalMonthlyMortgagePayment: paymentValue.value ?? null,
+          originalRemainingTermMonths: termValue.value ?? null,
+          interestRatePercent: rateValue.value ?? null,
+          ignoredHousingSupportCost: ongoingSupport.monthlyHousingSupportCost ?? null,
+          ignoredCalculatedMonthlyMortgagePayment: ongoingSupport.calculatedMonthlyMortgagePayment
+            ?? mortgageFacts.calculatedMonthlyMortgagePayment
+            ?? null
+        }
+      }
+    };
+
+    if (mode === "unavailable") {
+      pushWarning(
+        warnings,
+        "mortgage-payment-plan-mode-unavailable",
+        "Mortgage treatment mode was missing or unsupported for payment-plan calculation.",
+        {
+          field: "mortgageTreatment.mode",
+          received: mortgageTreatment.mode ?? null
+        }
+      );
+      return baseOutput;
+    }
+
+    if (originalBalance == null || originalBalance < 0) {
+      pushWarning(
+        warnings,
+        "mortgage-payment-plan-principal-unavailable",
+        "Mortgage payment plan requires a valid mortgage principal and did not invent one.",
+        {
+          field: balanceValue.sourcePath,
+          received: balanceValue.value ?? null
+        }
+      );
+      return Object.assign({}, baseOutput, {
+        mode: "unavailable"
+      });
+    }
+
+    const immediatePayoffAmount = roundMoney(originalBalance * (payoffPercent / 100));
+    const remainingPrincipalAfterPayoff = roundMoney(Math.max(originalBalance - immediatePayoffAmount, 0));
+    baseOutput.immediatePayoffAmount = immediatePayoffAmount;
+    baseOutput.remainingPrincipalAfterPayoff = remainingPrincipalAfterPayoff;
+
+    if (mode === "payOff") {
+      return Object.assign({}, baseOutput, {
+        finalMonthlyMortgagePayment: remainingPrincipalAfterPayoff === 0 ? 0 : null,
+        finalRemainingTermMonths: remainingPrincipalAfterPayoff === 0 ? 0 : null,
+        yearsRemainingSource: remainingPrincipalAfterPayoff === 0 ? "pmiCalculated" : "unavailable",
+        paymentSource: remainingPrincipalAfterPayoff === 0 ? "calculatedAmortization" : "unavailable",
+        mortgagePaymentRemovedFromNeeds: true
+      });
+    }
+
+    const manualTerm = getManualMortgagePlanTermOverride(mortgageTreatment, options, warnings);
+    if (manualTerm && manualTerm.sourcePath && sourcePaths.indexOf(manualTerm.sourcePath) === -1) {
+      sourcePaths.push(manualTerm.sourcePath);
+    }
+    const finalRemainingTermMonths = manualTerm
+      ? manualTerm.value
+      : (originalRemainingTermMonths != null && originalRemainingTermMonths > 0 ? Math.round(originalRemainingTermMonths) : null);
+    const yearsRemainingSource = manualTerm ? "manualOverride" : (finalRemainingTermMonths == null ? "unavailable" : "pmiCalculated");
+
+    if (finalRemainingTermMonths == null || finalRemainingTermMonths <= 0) {
+      pushWarning(
+        warnings,
+        "mortgage-payment-plan-term-unavailable",
+        "Mortgage payment plan requires a valid remaining term and did not invent one.",
+        {
+          field: termValue.sourcePath,
+          received: termValue.value ?? null
+        }
+      );
+      return Object.assign({}, baseOutput, {
+        mode: "unavailable",
+        immediatePayoffAmount,
+        remainingPrincipalAfterPayoff,
+        yearsRemainingSource
+      });
+    }
+
+    const payment = calculateMortgagePlanPayment(
+      remainingPrincipalAfterPayoff,
+      finalRemainingTermMonths,
+      interestRatePercent,
+      warnings
+    );
+
+    return Object.assign({}, baseOutput, {
+      finalMonthlyMortgagePayment: payment.payment,
+      finalRemainingTermMonths,
+      yearsRemainingSource,
+      paymentSource: payment.source,
+      mortgagePaymentRemovedFromNeeds: false
+    });
+  }
+
   function applyMortgageSupportFallback(result, rawBalance, warnings, code, message, details, traceFields) {
     const warning = pushWarning(warnings, code, message, details);
     result.warningCodes.push(warning.code);
@@ -1117,4 +1444,5 @@
   lensAnalysis.RAW_EQUIVALENT_DEBT_TREATMENT_ASSUMPTIONS = RAW_EQUIVALENT_DEBT_TREATMENT_ASSUMPTIONS;
   lensAnalysis.normalizeDebtTreatmentAssumptions = normalizeDebtTreatmentAssumptions;
   lensAnalysis.calculateDebtTreatment = calculateDebtTreatment;
+  lensAnalysis.calculateTreatedMortgagePaymentPlan = calculateTreatedMortgagePaymentPlan;
 })(typeof window !== "undefined" ? window : globalThis);
