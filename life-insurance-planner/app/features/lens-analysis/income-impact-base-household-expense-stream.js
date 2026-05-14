@@ -8,6 +8,8 @@
   const STREAM_VERSION = 1;
   const ACTIVE_RUNTIME_CONSUMER = false;
   const MONEY_EPSILON = 0.005;
+  const RAW_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.ongoingSupport.monthlyTotalEssentialSupportCost";
+  const TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.treatedOngoingSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost";
 
   const BASELINE_NON_HOUSING_ONGOING_SUPPORT_FIELDS = Object.freeze([
     "monthlyOtherInsuranceCost",
@@ -141,6 +143,63 @@
     }
 
     return {};
+  }
+
+  function getTreatedOngoingSupport(input) {
+    if (isPlainObject(input?.treatedOngoingSupport)) {
+      return input.treatedOngoingSupport;
+    }
+
+    if (isPlainObject(input?.lensModel?.treatedOngoingSupport)) {
+      return input.lensModel.treatedOngoingSupport;
+    }
+
+    return null;
+  }
+
+  function resolveIncomeImpactOngoingSupportBasis(input, warnings) {
+    const rawOngoingSupport = getOngoingSupport(input);
+    const treatedOngoingSupport = getTreatedOngoingSupport(input);
+    const mortgageAdjusted = isPlainObject(treatedOngoingSupport?.mortgageAdjusted)
+      ? treatedOngoingSupport.mortgageAdjusted
+      : {};
+    const treatedMonthlyTotal = toOptionalNumber(mortgageAdjusted.monthlyTotalEssentialSupportCost);
+    const treatedReady = treatedOngoingSupport?.status === "ready" && treatedMonthlyTotal != null;
+
+    if (treatedReady) {
+      return {
+        supportBasis: "treatedOngoingSupport",
+        ongoingSupport: Object.assign({}, rawOngoingSupport, {
+          monthlyMortgagePayment: mortgageAdjusted.monthlyMortgagePayment,
+          monthlyHousingSupportCost: mortgageAdjusted.monthlyHousingSupportCost,
+          monthlyTotalEssentialSupportCost: mortgageAdjusted.monthlyTotalEssentialSupportCost,
+          annualTotalEssentialSupportCost: mortgageAdjusted.annualTotalEssentialSupportCost
+        }),
+        sourcePath: TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+        treatedOngoingSupportFallbackUsed: false,
+        treatedOngoingSupportStatus: treatedOngoingSupport.status
+      };
+    }
+
+    if (treatedOngoingSupport) {
+      warnings.push(createIssue(
+        "treated-ongoing-support-unavailable-for-base-expense-stream",
+        "Base household expense stream used raw ongoingSupport because treatedOngoingSupport was unavailable or missing a valid monthly total.",
+        {
+          sourcePath: TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+          fallbackSourcePath: RAW_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+          treatedOngoingSupportStatus: treatedOngoingSupport.status || null
+        }
+      ));
+    }
+
+    return {
+      supportBasis: treatedOngoingSupport ? "ongoingSupportFallback" : "ongoingSupport",
+      ongoingSupport: rawOngoingSupport,
+      sourcePath: RAW_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+      treatedOngoingSupportFallbackUsed: Boolean(treatedOngoingSupport),
+      treatedOngoingSupportStatus: treatedOngoingSupport?.status || null
+    };
   }
 
   function getExpenseLibraryRows(input) {
@@ -281,7 +340,7 @@
     return null;
   }
 
-  function getRepresentedInBase(expense) {
+  function getRepresentedInBase(expense, context) {
     if (expense?.representedInBase === true) {
       return {
         representedInBase: true,
@@ -297,6 +356,16 @@
     }
 
     const ongoingSupportField = getOngoingSupportField(expense);
+    if (
+      context?.supportBasis?.supportBasis === "treatedOngoingSupport"
+      && ongoingSupportField === "monthlyHousingSupportCost"
+    ) {
+      return {
+        representedInBase: false,
+        reason: "raw-housing-support-replaced-by-treated-ongoing-support"
+      };
+    }
+
     if (ongoingSupportField && includesValue(BASELINE_ONGOING_SUPPORT_FIELDS, ongoingSupportField)) {
       return {
         representedInBase: true,
@@ -348,7 +417,7 @@
     const planningBucketKey = normalizeString(expense?.planningBucketKey) || libraryPlanningBucketKey || "customUnknown";
     const categoryKey = normalizeString(expense?.categoryKey) || normalizeString(libraryEntry?.categoryKey) || null;
     const livingFloorMetadata = getAdjustmentMetadata(planningBucketKey, context.livingFloorMetadataByBucket);
-    const represented = getRepresentedInBase(expense);
+    const represented = getRepresentedInBase(expense, context);
     const monthlyAmount = getMonthlyAmount(expense);
     const protectedOrSourceOwned = isProtectedOrSourceOwned(expense, planningBucketKey);
     const adjustmentClass = protectedOrSourceOwned
@@ -449,7 +518,8 @@
     };
   }
 
-  function addScalarReconciliationRows(rows, ongoingSupport, dataGaps) {
+  function addScalarReconciliationRows(rows, supportBasis, dataGaps) {
+    const ongoingSupport = supportBasis.ongoingSupport || {};
     const reconciliationRows = [];
     const housingTarget = toOptionalNumber(ongoingSupport?.monthlyHousingSupportCost);
     if (housingTarget != null && housingTarget > MONEY_EPSILON) {
@@ -462,15 +532,25 @@
           expenseTypeKey: "ongoingSupportHousingReconciliation",
           planningBucketKey: "housingCore",
           categoryKey: "housingExpense",
-          label: "Housing support reconciliation",
+          label: supportBasis.supportBasis === "treatedOngoingSupport"
+            ? "Treated housing support reconciliation"
+            : "Housing support reconciliation",
           amount: housingGap,
-          sourcePath: "lensModel.ongoingSupport.monthlyHousingSupportCost",
+          sourcePath: supportBasis.supportBasis === "treatedOngoingSupport"
+            ? "lensModel.treatedOngoingSupport.mortgageAdjusted.monthlyHousingSupportCost"
+            : "lensModel.ongoingSupport.monthlyHousingSupportCost",
           ongoingSupportField: "monthlyHousingSupportCost"
         }));
         dataGaps.push(createIssue(
           "base-household-expense-stream-scalar-reconciliation-row-created",
-          "A protected scalar ongoingSupport reconciliation row was created to preserve current housing baseline parity pending richer expense stream ownership.",
-          { planningBucketKey: "housingCore", amount: housingGap }
+          supportBasis.supportBasis === "treatedOngoingSupport"
+            ? "A protected scalar treatedOngoingSupport reconciliation row was created to preserve treated housing baseline parity pending richer expense stream ownership."
+            : "A protected scalar ongoingSupport reconciliation row was created to preserve current housing baseline parity pending richer expense stream ownership.",
+          {
+            planningBucketKey: "housingCore",
+            amount: housingGap,
+            supportBasis: supportBasis.supportBasis
+          }
         ));
       } else if (housingGap < -MONEY_EPSILON) {
         dataGaps.push(createIssue(
@@ -547,17 +627,19 @@
     const dataGaps = [];
     const expenseLibraryByKey = createMapByKeys(getExpenseLibraryRows(options), ["typeKey", "libraryEntryKey"]);
     const livingFloorMetadataByBucket = createLivingFloorMetadataByBucket(getLivingFloorMetadataRows(options));
-    const ongoingSupport = getOngoingSupport(options);
+    const supportBasis = resolveIncomeImpactOngoingSupportBasis(options, warnings);
+    const ongoingSupport = supportBasis.ongoingSupport;
     const expenseFacts = getExpenseFacts(options);
 
     let rows = expenseFacts.map(function (expense, index) {
       return createStreamRow(expense, index, {
         expenseLibraryByKey,
-        livingFloorMetadataByBucket
+        livingFloorMetadataByBucket,
+        supportBasis
       });
     });
 
-    rows = addScalarReconciliationRows(rows, ongoingSupport, dataGaps);
+    rows = addScalarReconciliationRows(rows, supportBasis, dataGaps);
     collectRowDataGaps(rows, dataGaps);
 
     const representedRows = rows.filter(function (row) {
@@ -575,17 +657,18 @@
     if (ongoingSupportMonthlyTotal == null) {
       dataGaps.push(createIssue(
         "base-household-expense-stream-missing-ongoing-support-total",
-        "Current ongoingSupport monthly total was not available for baseline parity comparison.",
-        { sourcePath: "lensModel.ongoingSupport.monthlyTotalEssentialSupportCost" }
+        "Ongoing support monthly total was not available for baseline parity comparison.",
+        { sourcePath: supportBasis.sourcePath }
       ));
     } else if (Math.abs(parityDifference) > MONEY_EPSILON) {
       dataGaps.push(createIssue(
         "base-household-expense-stream-parity-difference",
-        "Represented stream rows do not match the current ongoingSupport monthly total.",
+        "Represented stream rows do not match the selected ongoing support monthly total.",
         {
           monthlyTotal,
           ongoingSupportMonthlyTotal,
-          difference: parityDifference
+          difference: parityDifference,
+          supportBasis: supportBasis.supportBasis
         }
       ));
     }
@@ -605,6 +688,10 @@
         sourceExpenseFactCount: expenseFacts.length,
         representedRowCount: representedRows.length,
         referenceRowCount: referenceRows.length,
+        supportBasis: supportBasis.supportBasis,
+        supportBasisSourcePath: supportBasis.sourcePath,
+        treatedOngoingSupportFallbackUsed: supportBasis.treatedOngoingSupportFallbackUsed,
+        treatedOngoingSupportStatus: supportBasis.treatedOngoingSupportStatus,
         scalarReconciliationRowCount: rows.filter(function (row) {
           return row.trace?.rowSource === "scalar-ongoing-support-reconciliation";
         }).length,

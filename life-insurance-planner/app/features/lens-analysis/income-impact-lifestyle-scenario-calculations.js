@@ -8,6 +8,7 @@
   const DEFAULT_COMPARISON_SCENARIO_ID = "income-impact-lifestyle-adjusted-comparison";
   const DEFAULT_COMPARISON_KIND = "lifestyleComparison";
   const DEFAULT_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
+  const TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.treatedOngoingSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost";
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -117,13 +118,37 @@
     return null;
   }
 
+  function resolveOngoingSupportMonthlyTotalForStream(input) {
+    const lensModel = isPlainObject(input?.lensModel) ? input.lensModel : {};
+    const treatedOngoingSupport = isPlainObject(input?.treatedOngoingSupport)
+      ? input.treatedOngoingSupport
+      : lensModel.treatedOngoingSupport;
+    const treatedMonthlyTotal = toOptionalNumber(
+      treatedOngoingSupport?.mortgageAdjusted?.monthlyTotalEssentialSupportCost
+    );
+    if (treatedOngoingSupport?.status === "ready" && treatedMonthlyTotal != null) {
+      return {
+        value: treatedMonthlyTotal,
+        supportBasis: "treatedOngoingSupport",
+        sourcePath: TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH
+      };
+    }
+
+    const ongoingSupport = isPlainObject(input?.ongoingSupport)
+      ? input.ongoingSupport
+      : lensModel.ongoingSupport;
+    return {
+      value: toOptionalNumber(ongoingSupport?.monthlyTotalEssentialSupportCost),
+      supportBasis: treatedOngoingSupport ? "ongoingSupportFallback" : "ongoingSupport",
+      sourcePath: "lensModel.ongoingSupport.monthlyTotalEssentialSupportCost"
+    };
+  }
+
   function getMissingActiveGraphDefaultReasons(input) {
     const reasons = [];
     const basePostDeathSeries = getInputBasePostDeathSeries(input);
     const lensModel = isPlainObject(input?.lensModel) ? input.lensModel : {};
-    const ongoingSupport = isPlainObject(input?.ongoingSupport)
-      ? input.ongoingSupport
-      : lensModel.ongoingSupport;
+    const supportBasis = resolveOngoingSupportMonthlyTotalForStream(input);
     const helperRequirements = [
       ["incomeImpactHouseholdExpensePolicyRuntimeAdapter", "prepareIncomeImpactHouseholdExpensePolicyPreview"],
       ["incomeImpactBaseHouseholdExpenseStream", "prepareIncomeImpactBaseHouseholdExpenseStream"],
@@ -143,7 +168,7 @@
       reasons.push("missingExpenseFacts");
     }
 
-    if (!isPlainObject(ongoingSupport) || toOptionalNumber(ongoingSupport.monthlyTotalEssentialSupportCost) == null) {
+    if (supportBasis.value == null) {
       reasons.push("missingOngoingSupportMonthlyTotal");
     }
 

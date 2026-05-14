@@ -88,6 +88,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Income Impact treated ongoing support consumption",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Income Loss Impact visual timeline",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/income-loss-impact-visual-timeline-check.js")],

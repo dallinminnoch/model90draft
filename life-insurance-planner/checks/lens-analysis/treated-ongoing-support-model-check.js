@@ -238,6 +238,15 @@ function isAllowedTreatedOngoingSupportMethodConsumption() {
     && diff.includes("methodLabel: \"LENS Needs\"");
 }
 
+function isAllowedIncomeImpactTreatedSupportConsumption() {
+  const diff = getGitDiff("app/features/lens-analysis/income-impact-scenario-composer-calculations.js");
+  return diff.includes("resolveIncomeImpactOngoingSupportBasis")
+    && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+    && diff.includes("treatedMortgagePaymentPlan.finalMonthlyMortgagePayment")
+    && diff.includes("riskOnlyObligation: true")
+    && diff.includes("cashFlowIncluded: false");
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-methods.js",
@@ -263,6 +272,9 @@ function assertNoProtectedDiffs() {
     }
     if (filePath === "app/features/lens-analysis/analysis-methods.js") {
       return !isAllowedTreatedOngoingSupportMethodConsumption();
+    }
+    if (filePath === "app/features/lens-analysis/income-impact-scenario-composer-calculations.js") {
+      return !isAllowedIncomeImpactTreatedSupportConsumption();
     }
     return true;
   });

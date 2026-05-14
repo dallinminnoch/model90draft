@@ -190,6 +190,26 @@ function isAllowedTreatedOngoingSupportMethodConsumption() {
     && diff.includes("createSimpleNeedsEssentialSupportComponent");
 }
 
+function isAllowedIncomeImpactTreatedSupportConsumption(filePath) {
+  const diff = getGitDiff(filePath.replace(/^life-insurance-planner\//, "./"));
+  if (filePath === "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js") {
+    return diff.includes("resolveIncomeImpactOngoingSupportBasis")
+      && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+      && diff.includes("treatedMortgagePaymentPlan.finalMonthlyMortgagePayment")
+      && diff.includes("cashFlowIncluded: false");
+  }
+  if (filePath === "life-insurance-planner/app/features/lens-analysis/income-impact-base-household-expense-stream.js") {
+    return diff.includes("resolveIncomeImpactOngoingSupportBasis")
+      && diff.includes("raw-housing-support-replaced-by-treated-ongoing-support")
+      && diff.includes("lensModel.treatedOngoingSupport.mortgageAdjusted.monthlyHousingSupportCost");
+  }
+  if (filePath === "life-insurance-planner/app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js") {
+    return diff.includes("resolveOngoingSupportMonthlyTotalForStream")
+      && diff.includes("treatedOngoingSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost");
+  }
+  return false;
+}
+
 function createClassList() {
   const values = new Set();
   return {
@@ -1162,6 +1182,8 @@ const protectedChanges = getChangedFiles([
 }).filter(function (file) {
   return file !== "life-insurance-planner/app/features/lens-analysis/analysis-methods.js"
     || !isAllowedTreatedOngoingSupportMethodConsumption();
+}).filter(function (file) {
+  return !isAllowedIncomeImpactTreatedSupportConsumption(file);
 });
 assert.deepEqual(
   protectedChanges,

@@ -6,6 +6,10 @@
   const DEFAULT_PROJECTION_HORIZON_MONTHS = 480;
   const MONTHLY_CADENCE = "monthly";
   const CASH_FLOW_ROW_ID = "cashFlowContribution";
+  const RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH = "lensModel.ongoingSupport.annualTotalEssentialSupportCost";
+  const RAW_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.ongoingSupport.monthlyTotalEssentialSupportCost";
+  const TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH = "lensModel.treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost";
+  const TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.treatedOngoingSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost";
   const ASSET_CATEGORY_TO_LEDGER_FAMILY = Object.freeze({
     cashAndCashEquivalents: "cash",
     emergencyFund: "emergencyFund",
@@ -510,10 +514,68 @@
     }];
   }
 
-  function buildExpenseStreams(lensModel, scenarioOptions, dataGaps, sourcePaths, trace, owner) {
+  function resolveIncomeImpactOngoingSupportBasis(lensModel, warnings, owner) {
     const ongoingSupport = lensModel?.ongoingSupport || {};
+    const treatedOngoingSupport = isPlainObject(lensModel?.treatedOngoingSupport)
+      ? lensModel.treatedOngoingSupport
+      : null;
+    const mortgageAdjusted = isPlainObject(treatedOngoingSupport?.mortgageAdjusted)
+      ? treatedOngoingSupport.mortgageAdjusted
+      : {};
+    const treatedAnnual = toOptionalNumber(mortgageAdjusted.annualTotalEssentialSupportCost);
+    const treatedMonthly = toOptionalNumber(mortgageAdjusted.monthlyTotalEssentialSupportCost);
+    const treatedReady = treatedOngoingSupport?.status === "ready" && treatedAnnual != null;
+
+    if (treatedReady) {
+      return {
+        supportBasis: "treatedOngoingSupport",
+        sourcePath: TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+        monthlySourcePath: TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+        annualTotalEssentialSupportCost: treatedAnnual,
+        monthlyTotalEssentialSupportCost: treatedMonthly,
+        monthlyHousingSupportCost: toOptionalNumber(mortgageAdjusted.monthlyHousingSupportCost),
+        monthlyMortgagePayment: toOptionalNumber(mortgageAdjusted.monthlyMortgagePayment),
+        fallbackUsed: false,
+        fallbackReason: null,
+        treatedOngoingSupportStatus: treatedOngoingSupport.status
+      };
+    }
+
+    if (treatedOngoingSupport) {
+      addIssue(
+        warnings,
+        "treated-ongoing-support-unavailable-for-income-impact",
+        `${owner === "layer3" ? "Layer 3 survivor needs" : "Layer 1 household expenses"} used raw ongoingSupport because treatedOngoingSupport was unavailable or missing a valid annual total.`,
+        [TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH, RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH],
+        {
+          supportBasis: "ongoingSupportFallback",
+          treatedOngoingSupportStatus: treatedOngoingSupport.status || null
+        }
+      );
+    }
+
+    return {
+      supportBasis: treatedOngoingSupport ? "ongoingSupportFallback" : "ongoingSupport",
+      sourcePath: RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+      monthlySourcePath: RAW_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+      annualTotalEssentialSupportCost: getPath(lensModel, "ongoingSupport.annualTotalEssentialSupportCost"),
+      monthlyTotalEssentialSupportCost: getPath(lensModel, "ongoingSupport.monthlyTotalEssentialSupportCost"),
+      monthlyHousingSupportCost: getPath(lensModel, "ongoingSupport.monthlyHousingSupportCost"),
+      monthlyMortgagePayment: getPath(lensModel, "ongoingSupport.monthlyMortgagePayment"),
+      fallbackUsed: Boolean(treatedOngoingSupport),
+      fallbackReason: treatedOngoingSupport ? "treated-ongoing-support-unavailable" : null,
+      treatedOngoingSupportStatus: treatedOngoingSupport?.status || null
+    };
+  }
+
+  function buildExpenseStreams(lensModel, scenarioOptions, dataGaps, warnings, sourcePaths, trace, owner) {
+    const ongoingSupport = lensModel?.ongoingSupport || {};
+    const supportBasis = resolveIncomeImpactOngoingSupportBasis(lensModel, warnings, owner);
     const streams = [];
-    const essential = firstNumeric(ongoingSupport, ["annualTotalEssentialSupportCost"]);
+    const essential = {
+      value: toOptionalNumber(supportBasis.annualTotalEssentialSupportCost),
+      path: supportBasis.sourcePath
+    };
     const includeDiscretionary = scenarioOptions?.includeDiscretionaryNeeds === true;
     const discretionary = firstNumeric(ongoingSupport, ["annualDiscretionaryPersonalSpending"]);
 
@@ -524,10 +586,10 @@
         owner === "layer3"
           ? "Survivor essential needs are required for Layer 3."
           : "Essential household expenses are required for Layer 1.",
-        ["lensModel.ongoingSupport.annualTotalEssentialSupportCost"]
+        [supportBasis.sourcePath]
       );
     } else {
-      appendUnique(sourcePaths, [`lensModel.ongoingSupport.${essential.path}`]);
+      appendUnique(sourcePaths, [supportBasis.sourcePath]);
       streams.push({
         id: owner === "layer3" ? "survivor-essential-needs" : "household-essential-expenses",
         label: owner === "layer3" ? "Survivor essential needs" : "Household essential expenses",
@@ -537,7 +599,13 @@
         expenseType: "essential",
         needType: "essential",
         status: "active",
-        sourcePaths: [`lensModel.ongoingSupport.${essential.path}`]
+        sourcePaths: [supportBasis.sourcePath],
+        trace: {
+          supportBasis: supportBasis.supportBasis,
+          supportBasisSourcePath: supportBasis.sourcePath,
+          monthlySupportBasisSourcePath: supportBasis.monthlySourcePath,
+          treatedOngoingSupportFallbackUsed: supportBasis.fallbackUsed
+        }
       });
     }
 
@@ -568,20 +636,29 @@
     }
 
     trace[owner].expensePolicy = {
-      essentialSource: essential.path ? `lensModel.ongoingSupport.${essential.path}` : null,
+      essentialSource: essential.path || null,
+      essentialMonthlySource: supportBasis.monthlySourcePath || null,
+      supportBasis: supportBasis.supportBasis,
+      treatedOngoingSupportFallbackUsed: supportBasis.fallbackUsed,
+      fallbackReason: supportBasis.fallbackReason,
+      treatedOngoingSupportStatus: supportBasis.treatedOngoingSupportStatus,
+      monthlyTotalEssentialSupportCost: toOptionalNumber(supportBasis.monthlyTotalEssentialSupportCost),
+      monthlyHousingSupportCost: toOptionalNumber(supportBasis.monthlyHousingSupportCost),
+      monthlyMortgagePayment: toOptionalNumber(supportBasis.monthlyMortgagePayment),
       discretionaryIncluded: includeDiscretionary,
       discretionarySource: discretionary.path ? `lensModel.ongoingSupport.${discretionary.path}` : null
     };
     return streams;
   }
 
-  function buildLayer1Input(input, dataGaps, trace, sourcePaths) {
+  function buildLayer1Input(input, dataGaps, warnings, trace, sourcePaths) {
     const assetLedger = buildLayer1AssetLedger(input.lensModel, input.analysisSettings, dataGaps, trace, sourcePaths);
     const incomeStreams = buildHouseholdIncomeStream(input.lensModel, dataGaps, sourcePaths, trace);
     const expenseStreams = buildExpenseStreams(
       input.lensModel,
       input.scenarioOptions,
       dataGaps,
+      warnings,
       sourcePaths,
       trace,
       "layer1"
@@ -868,8 +945,84 @@
     return rows.filter(isMortgageSupportRow);
   }
 
-  function buildMortgageSupportObligations(debtTreatment, layer2Output, dataGaps, sourcePaths, mortgageTreatmentOverride) {
+  function buildTreatedMortgagePaymentPlanObligation(treatedMortgagePaymentPlan, mortgageTreatmentOverride, sourcePaths) {
+    if (!isPlainObject(treatedMortgagePaymentPlan) || treatedMortgagePaymentPlan.status !== "ready") {
+      return null;
+    }
     const overrideMode = normalizeString(mortgageTreatmentOverride) || "followAssumptions";
+    if (overrideMode === "payOffMortgage") {
+      return null;
+    }
+    const finalMonthlyPayment = toOptionalNumber(treatedMortgagePaymentPlan.finalMonthlyMortgagePayment);
+    const finalTermMonths = toWholeMonthCount(treatedMortgagePaymentPlan.finalRemainingTermMonths);
+    if (finalMonthlyPayment == null || finalMonthlyPayment <= 0 || finalTermMonths == null || finalTermMonths <= 0) {
+      return null;
+    }
+    const paths = uniqueStrings([
+      "lensModel.treatedMortgagePaymentPlan.finalMonthlyMortgagePayment",
+      "lensModel.treatedMortgagePaymentPlan.finalRemainingTermMonths",
+      overrideMode === "continueMortgagePayments" ? "scenarioOptions.mortgageTreatmentOverride" : null
+    ]);
+    appendUnique(sourcePaths, paths);
+    return {
+      id: "treated-mortgage-payment-plan",
+      label: "Treated mortgage payment plan",
+      amount: roundMoney(finalMonthlyPayment),
+      monthlyAmount: roundMoney(finalMonthlyPayment),
+      monthlyPayment: roundMoney(finalMonthlyPayment),
+      frequency: "monthly",
+      termMonths: finalTermMonths,
+      remainingMonths: finalTermMonths,
+      category: "mortgageSupport",
+      status: "scheduled",
+      type: "mortgage",
+      treatment: treatedMortgagePaymentPlan.mode || "continuePayments",
+      treatmentMode: treatedMortgagePaymentPlan.mode || "continuePayments",
+      mortgageTreatmentOverride: overrideMode === "continueMortgagePayments" ? overrideMode : null,
+      alreadyIncludedInNeeds: true,
+      alreadyIncludedInSurvivorNeeds: true,
+      riskOnlyObligation: true,
+      cashFlowIncluded: false,
+      sourcePaths: paths,
+      trace: {
+        source: "lensModel.treatedMortgagePaymentPlan",
+        accountingTreatment: "risk-only-already-in-survivor-needs",
+        alreadyIncludedInNeeds: true,
+        alreadyIncludedInSurvivorNeeds: true,
+        riskOnlyObligation: true,
+        cashFlowIncluded: false,
+        overrideApplied: overrideMode === "continueMortgagePayments",
+        mortgageTreatmentOverride: overrideMode === "continueMortgagePayments" ? overrideMode : null,
+        originalMortgageTreatmentMode: treatedMortgagePaymentPlan.mode || null,
+        monthlyMortgagePaymentUsed: roundMoney(finalMonthlyPayment),
+        supportMonthsUsed: finalTermMonths,
+        sourcePaths: paths,
+        monthlyMortgagePaymentSourcePath: "lensModel.treatedMortgagePaymentPlan.finalMonthlyMortgagePayment",
+        remainingTermMonthsSourcePath: "lensModel.treatedMortgagePaymentPlan.finalRemainingTermMonths"
+      }
+    };
+  }
+
+  function buildMortgageSupportObligations(
+    debtTreatment,
+    layer2Output,
+    dataGaps,
+    sourcePaths,
+    mortgageTreatmentOverride,
+    treatedMortgagePaymentPlan
+  ) {
+    const overrideMode = normalizeString(mortgageTreatmentOverride) || "followAssumptions";
+    const treatedPlanObligation = buildTreatedMortgagePaymentPlanObligation(
+      treatedMortgagePaymentPlan,
+      overrideMode,
+      sourcePaths
+    );
+    if (treatedPlanObligation) {
+      return [treatedPlanObligation];
+    }
+    if (isPlainObject(treatedMortgagePaymentPlan) && treatedMortgagePaymentPlan.status === "ready" && overrideMode !== "continueMortgagePayments") {
+      return [];
+    }
     const rows = getMortgageSupportRows(debtTreatment, overrideMode);
     const obligations = [];
 
@@ -1074,11 +1227,12 @@
     }];
   }
 
-  function buildLayer3Input(input, layer2Output, dataGaps, trace, sourcePaths) {
+  function buildLayer3Input(input, layer2Output, dataGaps, warnings, trace, sourcePaths) {
     const survivorNeedStreams = buildExpenseStreams(
       input.lensModel,
       input.scenarioOptions,
       dataGaps,
+      warnings,
       sourcePaths,
       trace,
       "layer3"
@@ -1102,14 +1256,15 @@
       layer2Output,
       dataGaps,
       sourcePaths,
-      input.scenarioOptions?.mortgageTreatmentOverride
+      input.scenarioOptions?.mortgageTreatmentOverride,
+      input.lensModel?.treatedMortgagePaymentPlan
     );
     const resourcesAfterObligations = toOptionalNumber(layer2Output?.resources?.resourcesAfterObligations);
 
     trace.layer3.inputMapping = {
       startingResources: "Layer 2 resources.resourcesAfterObligations",
       survivorIncome: "lensModel.survivorScenario.survivorNetAnnualIncome",
-      survivorNeeds: "lensModel.ongoingSupport annual support fields",
+      survivorNeeds: trace.layer3.expensePolicy?.essentialSource || "lensModel.ongoingSupport annual support fields",
       scheduledObligations: scheduledObligations.map(function (row) { return row.id; }),
       educationAndHealthcarePolicy: "explicit-only-deferred-in-v1"
     };
@@ -1390,7 +1545,7 @@
       scenarioOptions
     };
 
-    const layer1Input = buildLayer1Input(normalizedInput, dataGaps, trace, sourcePaths);
+    const layer1Input = buildLayer1Input(normalizedInput, dataGaps, warnings, trace, sourcePaths);
     const layer1Helper = lensAnalysis.calculateHouseholdWealthProjection;
     const layer1 = runLayer(
       layer1Helper,
@@ -1424,7 +1579,7 @@
       "Layer 2 death-event availability helper was unavailable."
     );
 
-    const layer3Input = buildLayer3Input(normalizedInput, layer2, dataGaps, trace, sourcePaths);
+    const layer3Input = buildLayer3Input(normalizedInput, layer2, dataGaps, warnings, trace, sourcePaths);
     const layer3Helper = lensAnalysis.calculateHouseholdSurvivorRunway;
     const layer3 = runLayer(
       layer3Helper,
@@ -1503,7 +1658,7 @@
           layer1: {
             assetLedger: "lensModel.assetFacts.assets current gross values",
             incomeStreams: "lensModel.incomeBasis net annual income fields",
-            expenseStreams: "lensModel.ongoingSupport annual support fields",
+            expenseStreams: trace.layer1.expensePolicy?.essentialSource || "lensModel.ongoingSupport annual support fields",
             growth: "method-active projected offset categories only"
           },
           layer2: trace.layer2.inputMapping,

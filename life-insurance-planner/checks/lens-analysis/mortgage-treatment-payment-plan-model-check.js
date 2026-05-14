@@ -181,6 +181,22 @@ function assertClose(actual, expected, message) {
   assert.ok(Math.abs(actual - expected) <= 0.01, message || `Expected ${actual} to be within 0.01 of ${expected}.`);
 }
 
+function getGitDiff(relativePath) {
+  return execFileSync("git", ["diff", "--", `./${relativePath}`], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+}
+
+function isAllowedIncomeImpactTreatedSupportConsumption() {
+  const diff = getGitDiff("app/features/lens-analysis/income-impact-scenario-composer-calculations.js");
+  return diff.includes("resolveIncomeImpactOngoingSupportBasis")
+    && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+    && diff.includes("treatedMortgagePaymentPlan.finalMonthlyMortgagePayment")
+    && diff.includes("riskOnlyObligation: true")
+    && diff.includes("cashFlowIncluded: false");
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/debt-treatment-calculations.js",
@@ -199,7 +215,15 @@ function assertNoProtectedDiffs() {
   }).split(/\r?\n/).filter(Boolean).map((line) => {
     return line.slice(3).trim().replace(/^life-insurance-planner\//, "");
   });
-  const protectedDiffs = changedFiles.filter((filePath) => protectedFiles.has(filePath));
+  const protectedDiffs = changedFiles.filter((filePath) => {
+    if (!protectedFiles.has(filePath)) {
+      return false;
+    }
+    if (filePath === "app/features/lens-analysis/income-impact-scenario-composer-calculations.js") {
+      return !isAllowedIncomeImpactTreatedSupportConsumption();
+    }
+    return true;
+  });
 
   assert.deepEqual(protectedDiffs, [], "Out-of-scope UI, display, helper, and app files should not change.");
 }
