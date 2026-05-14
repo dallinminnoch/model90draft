@@ -676,6 +676,7 @@
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
+      autoCompressBaseline: banner.querySelector("[data-income-impact-auto-compress-baseline]"),
       reevaluateButton: banner.querySelector("[data-income-impact-reevaluate]"),
       reevaluateControl: banner.querySelector("[data-income-impact-reevaluate-control]"),
       reevaluateAction: banner.querySelector("[data-income-impact-reevaluate-action]"),
@@ -782,6 +783,7 @@
     const projectionHorizonYears = draftControls.projectionHorizonYears;
     const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
     const lifestyleSliderValue = draftControls.lifestyleSliderValue;
+    const autoCompressBaselineEnabled = draftControls.autoCompressBaselineEnabled !== false;
     const collapsed = scenarioState.bannerCollapsed === true;
     const hasPendingDraft = hasDraftScenarioChanges(incomeImpactState);
     const selectedScenarioLabel = getSelectedScenarioDisplayLabel(incomeImpactState);
@@ -832,6 +834,11 @@
 
     if (elements.lifestyleValue) {
       elements.lifestyleValue.textContent = getLifestyleSliderLabel(lifestyleSliderValue);
+    }
+
+    if (elements.autoCompressBaseline) {
+      elements.autoCompressBaseline.checked = autoCompressBaselineEnabled;
+      elements.autoCompressBaseline.setAttribute("aria-checked", String(autoCompressBaselineEnabled));
     }
 
     if (elements.reevaluateButton) {
@@ -2306,6 +2313,27 @@
     return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}"${renderGraphPathAttributes(attributes)} d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
   }
 
+  function getPrimaryGraphPathLabel(timelineResult, fallbackLabel) {
+    const contract = isPlainObject(timelineResult?.baselineContract) ? timelineResult.baselineContract : {};
+    if (contract.visibleBaselineMode === "autoCompressed" && contract.autoCompressionApplied === true) {
+      return AUTO_COMPRESSED_BASELINE_LABEL;
+    }
+    if (contract.visibleBaselineMode === "unadjusted" || contract.autoCompressionApplied === false) {
+      return "Unadjusted baseline";
+    }
+    return normalizeString(fallbackLabel) || "Projected path";
+  }
+
+  function getSeriesDisplayLabel(series, timelineResult, fallbackLabel) {
+    const selectedScenarioId = normalizeString(timelineResult?.graphModel?.trace?.selectedScenarioId);
+    const seriesScenarioId = normalizeString(series?.scenarioId);
+    const selected = series?.selected === true || (selectedScenarioId && selectedScenarioId === seriesScenarioId);
+    if (selected) {
+      return getPrimaryGraphPathLabel(timelineResult, fallbackLabel || series?.label);
+    }
+    return normalizeString(series?.label || fallbackLabel) || "Scenario projection";
+  }
+
   function hasGraphPosition(point) {
     return isPlainObject(point)
       && toOptionalNumber(point.xRatio) != null
@@ -2514,7 +2542,7 @@
     };
   }
 
-  function renderAppliedScenarioDepletionMarkers(graphModel, selectedScenarioId = "") {
+  function renderAppliedScenarioDepletionMarkers(graphModel, selectedScenarioId = "", timelineResult = null) {
     const markers = getAppliedScenarioDepletionMarkers(graphModel, selectedScenarioId);
     if (!markers.length) {
       return "";
@@ -2526,13 +2554,16 @@
           const x = toGraphX(marker.xRatio);
           const y = toGraphY(marker.yRatio);
           const labelPosition = getDepletionMarkerLabelPosition(marker, index);
-          const markerLabel = `${marker.label}: Resources depleted`;
+          const displayLabel = marker.selected
+            ? getPrimaryGraphPathLabel(timelineResult, marker.label)
+            : marker.label;
+          const markerLabel = `${displayLabel}: Resources depleted`;
           return `
             <g
               class="income-impact-runway-depletion-marker"
               data-income-impact-runway-depletion-marker
               data-income-impact-applied-scenario-id="${escapeHtml(marker.scenarioId)}"
-              data-income-impact-applied-scenario-label="${escapeHtml(marker.label)}"
+              data-income-impact-applied-scenario-label="${escapeHtml(displayLabel)}"
               data-income-impact-applied-scenario-selected="${marker.selected ? "true" : "false"}"
               data-income-impact-depletion-marker-path-id="${escapeHtml(marker.pathId)}"
               aria-label="${escapeHtml(markerLabel)}"
@@ -2548,7 +2579,7 @@
     `;
   }
 
-  function renderAppliedScenarioGraphPaths(graphModel) {
+  function renderAppliedScenarioGraphPaths(graphModel, timelineResult = null) {
     const appliedSeries = getAppliedGraphSeries(graphModel);
     if (!appliedSeries.length) {
       return "";
@@ -2557,7 +2588,7 @@
       const pathId = normalizeString(series.pathId) || (index === 0
         ? POST_DEATH_RESOURCES_PATH_ID
         : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`);
-      const label = normalizeString(series.label) || "Survivor resources after death";
+      const label = getSeriesDisplayLabel(series, timelineResult, "Survivor resources after death");
       return renderGraphPath(
         pathId,
         series.points,
@@ -2902,16 +2933,19 @@
     return index === 0 ? "base" : `applied-scenario-${index + 1}`;
   }
 
-  function getAppliedScenarioLegendItems(graphModel) {
+  function getAppliedScenarioLegendItems(graphModel, timelineResult = null) {
     const keyItems = Array.isArray(graphModel?.series?.appliedScenarioKeyItems)
       ? graphModel.series.appliedScenarioKeyItems
       : [];
     if (keyItems.length) {
       return keyItems.map(function (item, index) {
+        const selected = item.selected === true;
         return Object.assign({}, item, {
           scenarioId: normalizeString(item.scenarioId),
-          label: normalizeString(item.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`),
-          selected: item.selected === true
+          label: selected
+            ? getPrimaryGraphPathLabel(timelineResult, item.label)
+            : (normalizeString(item.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`)),
+          selected
         });
       }).filter(function (item) {
         return Boolean(item.scenarioId);
@@ -2919,19 +2953,23 @@
     }
 
     return getAppliedGraphSeries(graphModel).map(function (series, index) {
+      const selected = series.selected === true;
       return {
         scenarioId: normalizeString(series.scenarioId),
-        label: normalizeString(series.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`),
-        selected: series.selected === true
+        label: selected
+          ? getPrimaryGraphPathLabel(timelineResult, series.label)
+          : (normalizeString(series.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`)),
+        selected
       };
     }).filter(function (item) {
       return Boolean(item.scenarioId);
     });
   }
 
-  function renderGraphLegend(graphModel) {
-    const appliedItems = getAppliedScenarioLegendItems(graphModel);
+  function renderGraphLegend(graphModel, timelineResult = null) {
+    const appliedItems = getAppliedScenarioLegendItems(graphModel, timelineResult);
     const comparisonSeries = getComparisonGraphSeries(graphModel);
+    const fallbackPrimaryLabel = getPrimaryGraphPathLabel(timelineResult, "Projected path");
     if (!appliedItems.length && !comparisonSeries.length) {
       return "";
     }
@@ -2952,13 +2990,13 @@
                 aria-pressed="${item.selected === true ? "true" : "false"}"
                 aria-current="${item.selected === true ? "true" : "false"}"><i></i>${escapeHtml(label)}</span>`;
           }).join("")
-          : `<span data-income-impact-graph-legend-item="base"><i></i>Base projection</span>`}
+          : `<span data-income-impact-graph-legend-item="base"><i></i>${escapeHtml(fallbackPrimaryLabel)}</span>`}
         ${comparisonSeries.map(function (series, index) {
           const pathId = getComparisonGraphPathId(series, index);
           const label = series.label || getComparisonGraphLabel(pathId);
           return `<span data-income-impact-graph-legend-item="${escapeHtml(getComparisonLegendItemKey(pathId))}"><i></i>${escapeHtml(label)}</span>`;
         }).join("")}
-        ${comparisonSeries.length ? "<p>Comparison only - base projection unchanged.</p>" : ""}
+        ${comparisonSeries.length ? "<p>Manual lifestyle comparison only - primary path unchanged.</p>" : ""}
       </div>
     `;
   }
@@ -3376,7 +3414,7 @@
     const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
     const preDeathPath = appliedPreDeathPaths
       || renderGraphPath(PRE_DEATH_ASSETS_PATH_ID, graphModel?.series?.preDeathAssets, "Projected assets before death");
-    const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel);
+    const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel, timelineResult);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
     const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
     const deathConversionConnector = renderDeathEventConversionConnector(graphModel);
@@ -3403,7 +3441,7 @@
           ${comparisonPaths}
           ${deathConversionConnector}
           ${deathLineAnchors || renderGraphDeathAnchor(graphModel)}
-          ${renderAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId)}
+          ${renderAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId, timelineResult)}
         </g>
         ${renderGraphMarkers(graphModel)}
         ${renderComparisonMarkers(graphModel)}
@@ -3478,7 +3516,7 @@
       return renderTimelineUnavailableState(timelineResult);
     }
     const selectedGraphSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
-    const eyebrowLabel = normalizeString(selectedGraphSeries?.label) || "Selected scenario";
+    const eyebrowLabel = getPrimaryGraphPathLabel(timelineResult, selectedGraphSeries?.label || "Selected scenario");
     return `
       <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(graphModel.status || "partial")}">
         <div class="income-impact-graph-header">
@@ -3489,7 +3527,7 @@
         </div>
         ${renderLifestyleImpactReadout(timelineResult)}
           ${renderGraphSvg(graphModel, timelineResult)}
-        ${renderGraphLegend(graphModel)}
+        ${renderGraphLegend(graphModel, timelineResult)}
         ${renderGraphCallouts(graphModel)}
         ${renderSelectedGraphEvent(graphModel)}
       </div>
@@ -3498,12 +3536,13 @@
 
   function renderTopSummaryStrip(timelineResult) {
     const lifestyleReadout = renderLifestyleImpactReadout(timelineResult);
+    const primaryPathLabel = getPrimaryGraphPathLabel(timelineResult, "Current scenario projection");
     return `
       <section class="income-impact-summary-strip" data-income-impact-summary-strip aria-label="Income Impact summary">
         ${lifestyleReadout || `
           <div class="income-impact-summary-placeholder" data-income-impact-summary-placeholder>
             <span class="income-impact-summary-placeholder__eyebrow">Lifestyle impact</span>
-            <strong>Current scenario baseline</strong>
+            <strong>${escapeHtml(primaryPathLabel)}</strong>
             <span>Adjust lifestyle assumptions below, then reevaluate to compare the selected scenario.</span>
           </div>
         `}
@@ -5587,6 +5626,19 @@
       };
       scenarioElements.lifestyleSlider.addEventListener("input", updateLifestyleSlider);
       scenarioElements.lifestyleSlider.addEventListener("change", updateLifestyleSlider);
+    }
+
+    if (scenarioElements.autoCompressBaseline) {
+      scenarioElements.autoCompressBaseline.addEventListener("change", function (event) {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.autoCompressBaselineEnabled = event?.target?.checked === true;
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
     }
 
     if (scenarioElements.reevaluateButton) {

@@ -19046,6 +19046,19 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-weight: 760;
 }
 
+.income-impact-scenario-field--auto-compress > span {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.income-impact-scenario-field--auto-compress input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
 .income-impact-scenario-field[data-income-impact-reevaluate-control] {
   align-content: start;
 }

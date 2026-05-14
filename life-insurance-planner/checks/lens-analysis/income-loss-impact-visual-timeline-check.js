@@ -1362,7 +1362,7 @@ assert.match(
 assert.match(multiAppliedTimelineHtml, /Death in 5 years/);
 assert.match(multiAppliedTimelineHtml, /Death tomorrow/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-legend/);
-assert.doesNotMatch(multiAppliedTimelineHtml, /Comparison only - base projection unchanged\./);
+assert.doesNotMatch(multiAppliedTimelineHtml, /Manual lifestyle comparison only - primary path unchanged\./);
 assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
 
 multiAppliedGraphModel.series.appliedRunwayScenarios[0].selected = false;
@@ -1477,7 +1477,7 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
   currentTimelineHtml,
-  /Comparison only - base projection unchanged\./,
+  /Manual lifestyle comparison only - primary path unchanged\./,
   "Neutral/equivalent lifestyle comparison should not add comparison legend copy."
 );
 
@@ -1581,9 +1581,9 @@ assert.equal(
 );
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"[^>]*data-income-impact-graph-path-mode="linear"/);
 assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
-assert.match(comparisonTimelineHtml, /Base projection/);
+assert.match(comparisonTimelineHtml, /Projected path/);
 assert.match(comparisonTimelineHtml, /Lifestyle-adjusted projection/);
-assert.match(comparisonTimelineHtml, /Comparison only - base projection unchanged\./);
+assert.match(comparisonTimelineHtml, /Manual lifestyle comparison only - primary path unchanged\./);
 assert.match(comparisonTimelineHtml, /data-income-impact-lifestyle-impact-mode="conservative"/);
 assert.match(comparisonTimelineHtml, /Extends runway by 24 months/);
 assert.match(comparisonTimelineHtml, /Lifestyle spend: -\$500\/mo/);

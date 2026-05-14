@@ -449,6 +449,14 @@ assert.equal(typeof harness.renderIncomeImpact, "function", "display harness sho
 assert.equal(typeof harness.renderTimeline, "function", "display harness should expose timeline renderer");
 
 assert.match(pageSource, /data-income-impact-lifestyle-slider/);
+assert.match(pageSource, /data-income-impact-auto-compress-baseline/);
+assert.match(
+  pageSource,
+  /data-income-impact-auto-compress-baseline[\s\S]{0,80}checked|checked[\s\S]{0,160}data-income-impact-auto-compress-baseline/,
+  "auto-compress scenario control should be checked by default in static markup"
+);
+assert.match(pageSource, /Auto-compress survivor lifestyle/);
+assert.match(pageSource, /Gradually reduces lifestyle spending toward conservative assumptions over the projected runway\./);
 assert.match(displaySource, /calculateIncomeImpactLifestyleScenario/);
 assert.match(displaySource, /householdExpenseAccountPolicyStorage/);
 assert.match(displaySource, /resolveHouseholdExpenseAccountPolicy/);
@@ -496,6 +504,11 @@ assert.match(
 );
 assert.match(
   displaySource,
+  /controls\.autoCompressBaselineEnabled\s*=\s*event\?\.target\?\.checked\s*===\s*true;[\s\S]{0,180}setDraftScenarioControls\(incomeImpactState, controls\);[\s\S]{0,80}updateScenarioControls\(incomeImpactState\.latestTimelineResult\)/,
+  "Auto-compress checkbox changes should update draft controls before Reevaluate."
+);
+assert.match(
+  displaySource,
   /applyDraftScenarioControlsToRuntimeState\(incomeImpactState\);[\s\S]{0,120}invalidateIncomeImpactBaseRenderCache\(\);[\s\S]{0,80}renderIncomeImpactFromState\(\)/,
   "Reevaluate should apply draft controls, invalidate the base cache, and rebuild."
 );
@@ -509,6 +522,9 @@ assert.match(displaySource, /rawBaselineScenario/);
 assert.match(displaySource, /primaryScenario/);
 assert.match(displaySource, /autoCompressedBaselineScenario/);
 assert.match(displaySource, /baselineContract/);
+assert.match(displaySource, /Auto-compressed survivor lifestyle/);
+assert.match(displaySource, /Unadjusted baseline/);
+assert.match(displaySource, /Manual lifestyle comparison only - primary path unchanged\./);
 assert.doesNotMatch(displaySource, /calculateIncomeImpactStagedCompressionScenario|compressionStagePolicyRules|staged-compression-post-death-resources|data-income-impact-detail-path="staged-compression"/);
 assert.doesNotMatch(displaySource, /compression-post-death-resources|data-income-impact-compression-marker|compressionAction|compressionDepletion|Alternate scenario prepared|Alternate scenario blocked|active compression/);
 assert.doesNotMatch(
@@ -525,6 +541,7 @@ assert.doesNotMatch(readRepoFile("app/features/lens-analysis/income-impact-lifes
 assert.doesNotMatch(readRepoFile("app/features/lens-analysis/income-impact-compression-reporting-prep.js"), /account-settings|householdExpenseAccountPolicyStorage|localStorage|sessionStorage/);
 assert.match(componentsSource, /\.income-impact-compression-panel/);
 assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle/);
+assert.match(componentsSource, /\.income-impact-scenario-field--auto-compress/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--compression-post-death-resources/);
 
@@ -686,7 +703,7 @@ assert.doesNotMatch(
   "Slider 0 lifestyle comparison should not render a duplicate dashed graph path."
 );
 assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="compression-post-death-resources"/);
-assert.doesNotMatch(currentHtml, /Comparison only - base projection unchanged\./);
+assert.doesNotMatch(currentHtml, /Manual lifestyle comparison only - primary path unchanged\./);
 assert.doesNotMatch(currentHtml, /staged-compression-post-death-resources|Staged compression|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path=/);
 assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker|data-income-impact-comparison-marker-type="comparisonAction"|data-income-impact-comparison-marker-type="comparisonPause"/);
 
@@ -765,14 +782,15 @@ const autoResult = harness.buildIncomeImpactResultFromState({
   },
   calculateIncomeImpactLifestyleScenario(input) {
     autoLifestyleCalls.push(input.sliderValue);
+    const monthlyDelta = input.sliderValue === -100 ? -500 : (input.sliderValue > 0 ? 250 : 0);
     return {
       status: "complete",
       sliderValue: input.sliderValue,
       totalBaselineMonthlyExpenses: 1400,
-      totalAdjustedMonthlyExpenses: input.sliderValue === -100 ? 900 : 1400,
-      monthlyDelta: input.sliderValue === -100 ? -500 : 0,
+      totalAdjustedMonthlyExpenses: 1400 + monthlyDelta,
+      monthlyDelta,
       adjustedExpenses: [],
-      comparisonScenario: makeHelperProvidedLifestyleComparison(input, input.sliderValue === -100 ? -500 : 0),
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, monthlyDelta),
       warnings: [],
       dataGaps: [],
       trace: {
@@ -802,6 +820,10 @@ assert.equal(autoResult.baselineContract.manualLifestyleComparisonPreserved, tru
 assert.equal(autoResult.compressionReporting.trace.visibleBaselineMode, "autoCompressed");
 assert.equal(autoResult.compressionReporting.trace.autoCompressionApplied, true);
 assert.equal(autoResult.financialStoryline.trace.rendered, false, "storyline bridge should remain non-rendering");
+const autoTimelineHtml = harness.renderTimeline(autoResult);
+assert.match(autoTimelineHtml, /Auto-compressed survivor lifestyle/, "auto-compressed primary graph label should be truthful");
+assert.doesNotMatch(autoTimelineHtml, /Unadjusted baseline/, "auto-compressed primary graph should not be labeled as unadjusted");
+assert.match(autoTimelineHtml, /Manual lifestyle comparison only - primary path unchanged\./, "manual lifestyle comparison copy should refer to the primary path");
 
 let disabledGraphInput = null;
 let disabledHelperCalled = false;
@@ -853,6 +875,9 @@ assert.equal(disabledResult.baselineContract.visibleBaselineMode, "unadjusted");
 assert.equal(disabledResult.baselineContract.autoCompressionEnabled, false);
 assert.equal(disabledResult.primaryScenario, autoRawScenario);
 assert.equal(disabledResult.autoCompressedBaselineScenario, null);
+const disabledTimelineHtml = harness.renderTimeline(disabledResult);
+assert.match(disabledTimelineHtml, /Unadjusted baseline/, "disabled auto-compression should label the primary graph as unadjusted");
+assert.doesNotMatch(disabledTimelineHtml, /Auto-compressed survivor lifestyle/, "disabled auto-compression should not label the primary graph as auto-compressed");
 
 let fallbackGraphInput = null;
 const fallbackResult = harness.buildIncomeImpactResultFromState({
@@ -911,6 +936,9 @@ assert.equal(fallbackResult.baselineContract.autoCompressionApplied, false);
 assert.ok(fallbackResult.warnings.some(function (warning) {
   return warning.code === "missing-conservative-lifestyle-target";
 }), "helper fallback warnings should surface on the timeline result");
+const fallbackTimelineHtml = harness.renderTimeline(fallbackResult);
+assert.match(fallbackTimelineHtml, /Unadjusted baseline/, "fallback primary graph label should stay unadjusted");
+assert.doesNotMatch(fallbackTimelineHtml, /Auto-compressed survivor lifestyle/, "fallback should not falsely label the graph as auto-compressed");
 
 const resolvedAccountPolicy = {
   resolvedLifestyleRangePolicies: [
