@@ -296,6 +296,9 @@ assert.match(displaySource, /data-income-impact-major-story-event-id/);
 assert.match(displaySource, /data-income-impact-major-story-family/);
 assert.match(displaySource, /data-income-impact-major-story-severity/);
 assert.match(displaySource, /FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT = 6/);
+assert.match(displaySource, /renderGraphStorylineConnectors/);
+assert.match(displaySource, /data-income-impact-storyline-connector/);
+assert.match(displaySource, /data-income-impact-storyline-connector-event-id/);
 assert.match(displaySource, /Storyline events will appear here once verified timeline drivers are available\./);
 assert.doesNotMatch(displaySource, /getFinancialDepletionStoryItems|renderFinancialDepletionStoryItem|renderFinancialDepletionStoryIcon|formatStoryOffsetFromMonths/);
 assert.doesNotMatch(displaySource, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
@@ -559,6 +562,8 @@ assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*colo
 assert.match(componentsSource, /\.income-impact-major-story__list[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(8\.2rem,\s*1fr\)\);/);
 assert.match(componentsSource, /\.income-impact-major-story-card[\s\S]*border-top:\s*0\.18rem solid #94a3b8;/);
 assert.match(componentsSource, /\.income-impact-major-story-card--severity-critical[\s\S]*border-top-color:\s*#dc2626;/);
+assert.match(componentsSource, /\.income-impact-storyline-connectors[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-storyline-connector[\s\S]*stroke-dasharray:\s*4 6;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story-card|\.income-impact-depletion-story-dot|\.income-impact-depletion-story-icon|\.income-impact-depletion-story-legend/);
 assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-header[\s\S]*display:\s*none;/);
@@ -1890,6 +1895,17 @@ assert.equal(
   2,
   "Rendering major story cards should not alter existing graph dot rendering."
 );
+assert.equal(
+  (majorStoryHost.innerHTML.match(/data-income-impact-storyline-connector(?:\s|>)/g) || []).length,
+  2,
+  "Storyline connectors should render only for major cards with matching graph dots."
+);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connectors/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="death-income-stops"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="resources-run-out"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-family="support"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-severity="critical"/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="cash-savings-depleted"/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-story-card-connector|data-income-impact-major-story-connector/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
 
@@ -1902,5 +1918,26 @@ harness.renderIncomeImpact(emptyMajorStoryHost, {
 });
 assert.match(emptyMajorStoryHost.innerHTML, /data-income-impact-depletion-story-empty/);
 assert.doesNotMatch(emptyMajorStoryHost.innerHTML, /data-income-impact-major-story-card(?:\s|>)/);
+
+const noConnectorDotHost = { innerHTML: "" };
+harness.renderIncomeImpact(noConnectorDotHost, {
+  timelineResult: {
+    ...majorStoryFixture,
+    financialStoryline: {
+      ...majorStoryFixture.financialStoryline,
+      graphDotCandidates: []
+    }
+  }
+});
+assert.equal(
+  (noConnectorDotHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
+  6,
+  "Major story cards should still render when graph dot candidates are missing."
+);
+assert.doesNotMatch(
+  noConnectorDotHost.innerHTML,
+  /data-income-impact-storyline-connector(?:\s|>)/,
+  "Storyline connectors should not render when graph dot candidates are empty."
+);
 
 console.log("income-loss-impact-visual-timeline-check passed");

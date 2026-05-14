@@ -2199,6 +2199,73 @@
     `;
   }
 
+  function getGraphStorylineConnectors(timelineResult, graphModel) {
+    const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
+    if (!majorStoryCandidates.length) {
+      return [];
+    }
+    const dotsByEventId = new Map();
+    getGraphStorylineEventDots(timelineResult, graphModel).forEach(function (dot) {
+      const eventId = normalizeString(dot?.candidate?.id);
+      if (eventId && !dotsByEventId.has(eventId)) {
+        dotsByEventId.set(eventId, dot);
+      }
+    });
+    if (!dotsByEventId.size) {
+      return [];
+    }
+
+    return majorStoryCandidates.map(function (candidate, index) {
+      const eventId = normalizeString(candidate?.id);
+      const dot = eventId ? dotsByEventId.get(eventId) : null;
+      if (!dot) {
+        return null;
+      }
+      const cardAnchorX = ((index + 0.5) / FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT) * GRAPH_VIEW_BOX.width;
+      const startY = GRAPH_VIEW_BOX.plotTop - 8;
+      const endY = Math.max(startY + 20, dot.y - 12);
+      return {
+        candidate,
+        dot,
+        eventId,
+        family: normalizeString(candidate?.family || dot?.candidate?.family) || "event",
+        severity: normalizeString(candidate?.severity || dot?.candidate?.severity) || "info",
+        cardIndex: index,
+        path: [
+          `M ${formatSvgCoordinate(cardAnchorX)} ${formatSvgCoordinate(startY)}`,
+          `C ${formatSvgCoordinate(cardAnchorX)} ${formatSvgCoordinate(startY + 52)}`,
+          `${formatSvgCoordinate(dot.x)} ${formatSvgCoordinate(endY - 54)}`,
+          `${formatSvgCoordinate(dot.x)} ${formatSvgCoordinate(endY)}`
+        ].join(" ")
+      };
+    }).filter(Boolean);
+  }
+
+  function renderGraphStorylineConnectors(timelineResult, graphModel) {
+    const connectors = getGraphStorylineConnectors(timelineResult, graphModel);
+    if (!connectors.length) {
+      return "";
+    }
+
+    return `
+      <g class="income-impact-storyline-connectors" data-income-impact-storyline-connectors aria-hidden="true">
+        ${connectors.map(function (connector) {
+          return `
+            <path
+              class="income-impact-storyline-connector income-impact-storyline-connector--severity-${escapeHtml(connector.severity)} income-impact-storyline-connector--family-${escapeHtml(connector.family)}"
+              data-income-impact-storyline-connector
+              data-income-impact-storyline-connector-event-id="${escapeHtml(connector.eventId)}"
+              data-income-impact-storyline-connector-family="${escapeHtml(connector.family)}"
+              data-income-impact-storyline-connector-severity="${escapeHtml(connector.severity)}"
+              data-income-impact-storyline-connector-card-index="${escapeHtml(connector.cardIndex)}"
+              d="${connector.path}"
+            ></path>
+          `;
+        }).join("")}
+      </g>
+    `;
+  }
+
   function renderGraphPathAttributes(attributes) {
     if (!isPlainObject(attributes)) {
       return "";
@@ -3295,6 +3362,7 @@
     const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
     const deathConversionConnector = renderDeathEventConversionConnector(graphModel);
     const hoverLayer = renderGraphHoverLayer(graphModel);
+    const storylineConnectors = renderGraphStorylineConnectors(timelineResult, graphModel);
     const storylineEventDots = renderGraphStorylineEventDots(timelineResult, graphModel);
     return `
       <svg
@@ -3310,6 +3378,7 @@
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
           ${hoverLayer}
+          ${storylineConnectors}
           ${preDeathPath}
           ${appliedScenarioPaths}
           ${comparisonPaths}

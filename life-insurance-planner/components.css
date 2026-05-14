@@ -17493,6 +17493,36 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   -webkit-line-clamp: 2;
 }
 
+.income-impact-storyline-connectors {
+  pointer-events: none;
+}
+
+.income-impact-storyline-connector {
+  fill: none;
+  opacity: 0.34;
+  stroke: #64748b;
+  stroke-dasharray: 4 6;
+  stroke-linecap: round;
+  stroke-width: 1.15;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-storyline-connector--severity-critical {
+  stroke: #dc2626;
+  opacity: 0.3;
+}
+
+.income-impact-storyline-connector--severity-caution,
+.income-impact-storyline-connector--severity-at-risk {
+  stroke: #d97706;
+  opacity: 0.31;
+}
+
+.income-impact-storyline-connector--severity-positive {
+  stroke: #2563eb;
+  opacity: 0.3;
+}
+
 .income-impact-card {
   display: grid;
   gap: 0.75rem;
