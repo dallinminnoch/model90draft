@@ -17354,193 +17354,26 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   flex: 0 0 auto;
 }
 
-.income-impact-depletion-story-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.55rem 1rem;
-  min-width: 0;
-  color: #8a97b0;
-  font-family: "Inter", sans-serif;
-  font-size: 0.78rem;
-  font-weight: 520;
-}
-
-.income-impact-depletion-story-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  white-space: nowrap;
-}
-
-.income-impact-depletion-story-legend i {
-  width: 1.05rem;
-  height: 0;
-  border-top: 2px solid #3b82f6;
-  border-radius: 999px;
-}
-
-.income-impact-depletion-story-legend [data-income-impact-depletion-story-legend="pre-event-baseline"] i {
-  border-color: rgba(59, 130, 246, 0.28);
-}
-
-.income-impact-depletion-story-legend [data-income-impact-depletion-story-legend="required-support"] i {
-  border-color: #dc2626;
-  border-top-style: dashed;
-}
-
 .income-impact-depletion-story-lane {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
+  align-items: center;
+  gap: 0.35rem;
   min-width: 0;
-  min-height: 8.2rem;
+  min-height: 3.35rem;
   position: relative;
+  padding: 0.72rem 1.05rem;
   border-top: 1px solid rgba(213, 220, 233, 0.9);
   border-bottom: 1px solid rgba(238, 242, 247, 0.95);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.62), rgba(255, 255, 255, 0));
 }
 
-.income-impact-depletion-story-lane::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 2;
-  height: 0.18rem;
-  background: linear-gradient(
-    90deg,
-    #3b82f6 0%,
-    #3b82f6 16.6%,
-    #1d4ed8 16.6%,
-    #1d4ed8 33.2%,
-    #d97706 33.2%,
-    #d97706 49.8%,
-    #ea580c 49.8%,
-    #ea580c 66.4%,
-    #dc2626 66.4%,
-    #dc2626 83%,
-    #7f1d1d 83%,
-    #7f1d1d 100%
-  );
-  opacity: 0.68;
-}
-
-.income-impact-depletion-story-card {
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 0.38rem;
-  min-height: 8.2rem;
-  padding: 0.7rem 0.78rem 1.1rem;
-  border-right: 1px solid rgba(223, 229, 238, 0.88);
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.56), rgba(255, 255, 255, 0));
-}
-
-.income-impact-depletion-story-card:last-child {
-  border-right: 0;
-}
-
-.income-impact-depletion-story-time {
-  color: currentColor;
-  font-family: "Inter", sans-serif;
-  font-size: 0.68rem;
-  font-weight: 780;
-  letter-spacing: 0.075em;
-  line-height: 1.15;
-  text-transform: uppercase;
-}
-
-.income-impact-depletion-story-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 0.45rem;
-  background: currentColor;
-  color: inherit;
-}
-
-.income-impact-depletion-story-icon svg {
-  display: block;
-}
-
-.income-impact-depletion-story-card strong {
-  color: currentColor;
-  font-size: 0.78rem;
-  font-weight: 820;
-  line-height: 1.25;
-}
-
-.income-impact-depletion-story-card p {
+.income-impact-depletion-story-empty {
   margin: 0;
   color: #8a97b0;
-  font-size: 0.7rem;
+  font-family: "Inter", sans-serif;
+  font-size: 0.74rem;
   font-weight: 560;
-  line-height: 1.45;
-}
-
-.income-impact-depletion-story-dot {
-  position: absolute;
-  bottom: -0.32rem;
-  left: 50%;
-  z-index: 3;
-  width: 0.66rem;
-  height: 0.66rem;
-  border: 2px solid #ffffff;
-  border-radius: 999px;
-  background: currentColor;
-  transform: translateX(-50%);
-}
-
-.income-impact-depletion-story-card--blue {
-  color: #2563eb;
-}
-
-.income-impact-depletion-story-card--blue .income-impact-depletion-story-icon {
-  background: #eff6ff;
-}
-
-.income-impact-depletion-story-card--indigo {
-  color: #1d4ed8;
-}
-
-.income-impact-depletion-story-card--indigo .income-impact-depletion-story-icon {
-  background: #dbeafe;
-}
-
-.income-impact-depletion-story-card--amber {
-  color: #d97706;
-}
-
-.income-impact-depletion-story-card--amber .income-impact-depletion-story-icon {
-  background: #fffbeb;
-}
-
-.income-impact-depletion-story-card--orange {
-  color: #ea580c;
-}
-
-.income-impact-depletion-story-card--orange .income-impact-depletion-story-icon {
-  background: #fff7ed;
-}
-
-.income-impact-depletion-story-card--red {
-  color: #dc2626;
-}
-
-.income-impact-depletion-story-card--red .income-impact-depletion-story-icon {
-  background: #fef2f2;
-}
-
-.income-impact-depletion-story-card--maroon {
-  color: #7f1d1d;
-}
-
-.income-impact-depletion-story-card--maroon .income-impact-depletion-story-icon {
-  background: #fee2e2;
+  line-height: 1.35;
 }
 
 .income-impact-card {
