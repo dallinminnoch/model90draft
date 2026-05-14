@@ -1,0 +1,1026 @@
+(function (global) {
+  const root = global.LensApp = global.LensApp || {};
+  const lensAnalysis = root.lensAnalysis = root.lensAnalysis || {};
+
+  const VERSION = "financial-storyline-candidates-v1";
+  const SOURCE = "income-impact-financial-storyline-calculations";
+  const MAX_GRAPH_DOT_CANDIDATES = 10;
+  const MAX_MAJOR_STORY_CANDIDATES = 6;
+
+  const EVIDENCE_LEVELS = Object.freeze({
+    calculated: "calculated",
+    traceBacked: "trace-backed",
+    assumptionBacked: "assumption-backed",
+    dataGap: "data-gap",
+    displayOnly: "display-only",
+    waterfallNeeded: "waterfall-needed",
+    riskModelNeeded: "risk-model-needed",
+    unsupported: "unsupported",
+    deferred: "deferred"
+  });
+
+  const STATUSES = Object.freeze({
+    safeNow: "safe-now",
+    caution: "caution",
+    deferred: "deferred",
+    unsupported: "unsupported"
+  });
+
+  const EVENT_FAMILIES = Object.freeze({
+    trigger: "trigger",
+    coverage: "coverage",
+    gap: "gap",
+    obligations: "obligations",
+    mortgage: "mortgage",
+    income: "income",
+    runway: "runway",
+    unmetNeed: "unmet-need",
+    dataQuality: "data-quality",
+    cashWaterfall: "cash-waterfall",
+    educationWaterfall: "education-waterfall",
+    retirementWaterfall: "retirement-waterfall",
+    housingRisk: "housing-risk",
+    vehicleRisk: "vehicle-risk",
+    debtRisk: "debt-risk",
+    lifestyleRisk: "lifestyle-risk",
+    careRisk: "care-risk"
+  });
+
+  const SAFE_EVENT_DEFINITIONS = Object.freeze([
+    {
+      id: "death-income-stops",
+      family: EVENT_FAMILIES.trigger,
+      displayLabel: "Death & Income Stops",
+      graphLabel: "Death",
+      cardTitle: "Death & Income Stops",
+      description: "The selected death event starts the survivor resources timeline.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.traceBacked,
+      priority: 0,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 1,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 1
+    },
+    {
+      id: "life-insurance-proceeds-applied",
+      family: EVENT_FAMILIES.coverage,
+      displayLabel: "Life Insurance Proceeds Applied",
+      graphLabel: "Coverage applied",
+      cardTitle: "Life Insurance Proceeds Applied",
+      description: "Existing coverage is included in the immediate resources available at death.",
+      severity: "positive",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 10,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 1,
+      emotionalWeight: 0.56,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "protection-gap-appears-immediately",
+      family: EVENT_FAMILIES.gap,
+      displayLabel: "Protection Gap Appears Immediately",
+      graphLabel: "Protection gap",
+      cardTitle: "Protection Gap Appears Immediately",
+      description: "The current scenario still shows a shortfall after available resources and income are considered.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 20,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 1,
+      emotionalWeight: 0.7,
+      advisorUsefulness: 0.95
+    },
+    {
+      id: "immediate-obligations-paid",
+      family: EVENT_FAMILIES.obligations,
+      displayLabel: "Immediate Obligations Are Paid",
+      graphLabel: "Obligations paid",
+      cardTitle: "Immediate Obligations Are Paid",
+      description: "Prepared immediate obligations reduce available liquidity at the death event.",
+      severity: "info",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 30,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.84,
+      emotionalWeight: 0.5,
+      advisorUsefulness: 0.88
+    },
+    {
+      id: "final-expenses-paid",
+      family: EVENT_FAMILIES.obligations,
+      displayLabel: "Final Expenses Are Paid",
+      graphLabel: "Final expenses",
+      cardTitle: "Final Expenses Are Paid",
+      description: "Final expense funding is separately present in the immediate obligation source.",
+      severity: "info",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 34,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.82,
+      emotionalWeight: 0.48,
+      advisorUsefulness: 0.84
+    },
+    {
+      id: "debt-payoff-consumes-liquidity",
+      family: EVENT_FAMILIES.obligations,
+      displayLabel: "Debt Payoff Consumes Liquidity",
+      graphLabel: "Debt payoff",
+      cardTitle: "Debt Payoff Consumes Liquidity",
+      description: "A separately calculated debt payoff amount reduces immediate survivor resources.",
+      severity: "info",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 38,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.8,
+      emotionalWeight: 0.54,
+      advisorUsefulness: 0.86
+    },
+    {
+      id: "mortgage-is-paid-off",
+      family: EVENT_FAMILIES.mortgage,
+      displayLabel: "Mortgage Is Paid Off",
+      graphLabel: "Mortgage payoff",
+      cardTitle: "Mortgage Is Paid Off",
+      description: "The selected mortgage treatment resolves to paying off the mortgage at death.",
+      severity: "info",
+      evidenceLevel: EVIDENCE_LEVELS.assumptionBacked,
+      priority: 42,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.5,
+      advisorUsefulness: 0.8
+    },
+    {
+      id: "mortgage-payments-continue",
+      family: EVENT_FAMILIES.mortgage,
+      displayLabel: "Mortgage Payments Continue",
+      graphLabel: "Mortgage support",
+      cardTitle: "Mortgage Payments Continue",
+      description: "A valid mortgage support schedule is included in the survivor runway.",
+      severity: "info",
+      evidenceLevel: EVIDENCE_LEVELS.traceBacked,
+      priority: 44,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.76,
+      emotionalWeight: 0.48,
+      advisorUsefulness: 0.82
+    },
+    {
+      id: "survivor-income-helps-offset-need",
+      family: EVENT_FAMILIES.income,
+      displayLabel: "Survivor Income Helps Offset Need",
+      graphLabel: "Income offset",
+      cardTitle: "Survivor Income Helps Offset Need",
+      description: "Survivor income is included as an offset in the post-death runway.",
+      severity: "positive",
+      evidenceLevel: EVIDENCE_LEVELS.traceBacked,
+      priority: 50,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.7,
+      emotionalWeight: 0.42,
+      advisorUsefulness: 0.78
+    },
+    {
+      id: "survivor-income-not-enough-alone",
+      family: EVENT_FAMILIES.gap,
+      displayLabel: "Survivor Income Is Not Enough Alone",
+      graphLabel: "Income gap",
+      cardTitle: "Survivor Income Is Not Enough Alone",
+      description: "Survivor income exists, but the scenario still shows a support gap.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 54,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.62,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "survivor-runway-begins",
+      family: EVENT_FAMILIES.runway,
+      displayLabel: "Survivor Runway Begins",
+      graphLabel: "Runway begins",
+      cardTitle: "Survivor Runway Begins",
+      description: "The post-death resource runway begins from calculated available resources.",
+      severity: "info",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 60,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.74,
+      emotionalWeight: 0.44,
+      advisorUsefulness: 0.86
+    },
+    {
+      id: "resources-run-out",
+      family: EVENT_FAMILIES.runway,
+      displayLabel: "Resources Run Out",
+      graphLabel: "Runs out",
+      cardTitle: "Resources Run Out",
+      description: "The selected scenario has a calculated depletion point.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 70,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.96,
+      emotionalWeight: 0.82,
+      advisorUsefulness: 0.96
+    },
+    {
+      id: "monthly-support-gap-begins",
+      family: EVENT_FAMILIES.gap,
+      displayLabel: "Monthly Support Gap Begins",
+      graphLabel: "Support gap",
+      cardTitle: "Monthly Support Gap Begins",
+      description: "The scenario has a calculated recurring support gap.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 74,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.7,
+      advisorUsefulness: 0.94
+    },
+    {
+      id: "unfunded-need-accumulates",
+      family: EVENT_FAMILIES.unmetNeed,
+      displayLabel: "Unfunded Need Accumulates",
+      graphLabel: "Unfunded need",
+      cardTitle: "Unfunded Need Accumulates",
+      description: "The current scenario accumulates unmet need after available resources are exhausted.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 80,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.98,
+      emotionalWeight: 0.86,
+      advisorUsefulness: 0.98
+    },
+    {
+      id: "missing-data-limits-timeline",
+      family: EVENT_FAMILIES.dataQuality,
+      displayLabel: "Missing Data Limits the Timeline",
+      graphLabel: "Data needed",
+      cardTitle: "Missing Data Limits the Timeline",
+      description: "Existing warnings or data gaps limit the confidence of the timeline.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.dataGap,
+      priority: 90,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.5,
+      emotionalWeight: 0.34,
+      advisorUsefulness: 0.88
+    }
+  ]);
+
+  const DEFERRED_CANDIDATE_DEFINITIONS = Object.freeze([
+    ["cash-savings-depleted", EVENT_FAMILIES.cashWaterfall, "Cash Savings Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["checking-savings-depleted", EVENT_FAMILIES.cashWaterfall, "Checking & Savings Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["emergency-fund-depleted", EVENT_FAMILIES.cashWaterfall, "Emergency Fund Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["liquid-investments-depleted", EVENT_FAMILIES.cashWaterfall, "Liquid Investments Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["taxable-assets-depleted", EVENT_FAMILIES.cashWaterfall, "Taxable Assets Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["education-savings-used-for-living-needs", EVENT_FAMILIES.educationWaterfall, "Education Savings Used for Living Needs", EVIDENCE_LEVELS.waterfallNeeded],
+    ["education-savings-depleted", EVENT_FAMILIES.educationWaterfall, "Education Savings Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["education-funding-may-be-redirected", EVENT_FAMILIES.educationWaterfall, "Education Funding May Be Redirected", EVIDENCE_LEVELS.waterfallNeeded],
+    ["dependent-support-gap-begins", EVENT_FAMILIES.careRisk, "Dependent Support Gap Begins", EVIDENCE_LEVELS.riskModelNeeded],
+    ["childcare-support-at-risk", EVENT_FAMILIES.careRisk, "Childcare Support At Risk", EVIDENCE_LEVELS.riskModelNeeded],
+    ["retirement-assets-tapped", EVENT_FAMILIES.retirementWaterfall, "Retirement Assets Tapped", EVIDENCE_LEVELS.waterfallNeeded],
+    ["retirement-assets-depleted", EVENT_FAMILIES.retirementWaterfall, "Retirement Assets Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["retirement-security-is-reduced", EVENT_FAMILIES.retirementWaterfall, "Retirement Security Is Reduced", EVIDENCE_LEVELS.waterfallNeeded],
+    ["home-equity-becomes-last-resort", EVENT_FAMILIES.housingRisk, "Home Equity Becomes Last Resort", EVIDENCE_LEVELS.waterfallNeeded],
+    ["home-equity-depleted", EVENT_FAMILIES.housingRisk, "Home Equity Depleted", EVIDENCE_LEVELS.waterfallNeeded],
+    ["housing-payment-pressure-begins", EVENT_FAMILIES.housingRisk, "Housing Payment Pressure Begins", EVIDENCE_LEVELS.riskModelNeeded],
+    ["housing-payment-at-risk", EVENT_FAMILIES.housingRisk, "Housing Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
+    ["foreclosure-risk-window-opens", EVENT_FAMILIES.housingRisk, "Foreclosure Risk Window Opens", EVIDENCE_LEVELS.riskModelNeeded],
+    ["rent-payment-pressure-begins", EVENT_FAMILIES.housingRisk, "Rent Payment Pressure Begins", EVIDENCE_LEVELS.riskModelNeeded],
+    ["eviction-risk-window-opens", EVENT_FAMILIES.housingRisk, "Eviction Risk Window Opens", EVIDENCE_LEVELS.riskModelNeeded],
+    ["housing-stability-at-risk", EVENT_FAMILIES.housingRisk, "Housing Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
+    ["vehicle-payment-at-risk", EVENT_FAMILIES.vehicleRisk, "Vehicle Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
+    ["transportation-stability-at-risk", EVENT_FAMILIES.vehicleRisk, "Transportation Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
+    ["debt-payments-become-unsupported", EVENT_FAMILIES.debtRisk, "Debt Payments Become Unsupported", EVIDENCE_LEVELS.riskModelNeeded],
+    ["current-lifestyle-no-longer-sustainable", EVENT_FAMILIES.lifestyleRisk, "Current Lifestyle No Longer Sustainable", EVIDENCE_LEVELS.riskModelNeeded],
+    ["lifestyle-cuts-begin", EVENT_FAMILIES.lifestyleRisk, "Lifestyle Cuts Begin", EVIDENCE_LEVELS.riskModelNeeded],
+    ["essential-needs-become-unfunded", EVENT_FAMILIES.careRisk, "Essential Needs Become Unfunded", EVIDENCE_LEVELS.riskModelNeeded],
+    ["healthcare-costs-reduce-runway", EVENT_FAMILIES.careRisk, "Healthcare Costs Reduce Runway", EVIDENCE_LEVELS.waterfallNeeded],
+    ["care-expenses-become-unfunded", EVENT_FAMILIES.careRisk, "Care Expenses Become Unfunded", EVIDENCE_LEVELS.riskModelNeeded]
+  ]).map(function (definition) {
+    return Object.freeze({
+      id: definition[0],
+      family: definition[1],
+      displayLabel: definition[2],
+      graphLabel: definition[2],
+      cardTitle: definition[2],
+      description: "Deferred until a verified resource waterfall or risk model can support this event.",
+      severity: "deferred",
+      evidenceLevel: definition[3],
+      status: STATUSES.deferred,
+      safeToRender: false,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: false,
+      timing: makeEmptyTiming("model-needed"),
+      amount: makeEmptyAmount(),
+      sources: [],
+      confidence: 0,
+      lifeInsuranceRelevance: 0.7,
+      emotionalWeight: 0.7,
+      advisorUsefulness: 0.7,
+      suppressionKeys: ["model-needed"],
+      deferredReason: definition[3] === EVIDENCE_LEVELS.waterfallNeeded
+        ? "Requires a verified resource waterfall before it can be rendered."
+        : "Requires a verified risk model before it can be rendered.",
+      warnings: []
+    });
+  });
+
+  const CANDIDATE_REGISTRY = Object.freeze({
+    version: VERSION,
+    safeNow: SAFE_EVENT_DEFINITIONS.map(clonePlainValue),
+    deferred: DEFERRED_CANDIDATE_DEFINITIONS.map(clonePlainValue)
+  });
+
+  function isPlainObject(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+
+  function clonePlainValue(value) {
+    if (Array.isArray(value)) {
+      return value.map(clonePlainValue);
+    }
+    if (isPlainObject(value)) {
+      return Object.keys(value).reduce(function (next, key) {
+        next[key] = clonePlainValue(value[key]);
+        return next;
+      }, {});
+    }
+    return value;
+  }
+
+  function normalizeString(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
+  function toOptionalNumber(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+    const normalized = String(value).replace(/[$,%\s,]/g, "");
+    if (!normalized) {
+      return null;
+    }
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function getPath(source, path) {
+    const normalizedPath = normalizeString(path);
+    if (!normalizedPath) {
+      return undefined;
+    }
+    return normalizedPath.split(".").reduce(function (current, key) {
+      if (current == null) {
+        return undefined;
+      }
+      if (Array.isArray(current) && /^\d+$/.test(key)) {
+        return current[Number(key)];
+      }
+      return current[key];
+    }, source);
+  }
+
+  function uniqueStrings(values) {
+    return Array.from(new Set((Array.isArray(values) ? values : [])
+      .map(normalizeString)
+      .filter(Boolean)));
+  }
+
+  function compactObjects(values) {
+    return (Array.isArray(values) ? values : []).filter(isPlainObject);
+  }
+
+  function makeWarning(code, message, sourcePaths, details) {
+    const warning = {
+      code,
+      message
+    };
+    const paths = uniqueStrings(sourcePaths);
+    if (paths.length) {
+      warning.sourcePaths = paths;
+    }
+    if (isPlainObject(details)) {
+      warning.details = clonePlainValue(details);
+    }
+    return warning;
+  }
+
+  function makeEmptyTiming(kind) {
+    return {
+      kind: kind || "not-modeled",
+      monthOffset: null,
+      date: null,
+      label: "",
+      sourcePath: ""
+    };
+  }
+
+  function makeEmptyAmount() {
+    return {
+      value: null,
+      label: "",
+      sourcePath: ""
+    };
+  }
+
+  function formatCurrencyLabel(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return "";
+    }
+    const rounded = Math.round(number);
+    const sign = rounded < 0 ? "-" : "";
+    return `${sign}$${Math.abs(rounded).toLocaleString("en-US")}`;
+  }
+
+  function firstNumberAtPath(rootSource, paths) {
+    for (let index = 0; index < paths.length; index += 1) {
+      const path = paths[index];
+      const value = toOptionalNumber(getPath(rootSource, path));
+      if (value != null) {
+        return {
+          value,
+          sourcePath: path
+        };
+      }
+    }
+    return null;
+  }
+
+  function firstValueAtPath(rootSource, paths) {
+    for (let index = 0; index < paths.length; index += 1) {
+      const path = paths[index];
+      const value = getPath(rootSource, path);
+      if (value != null && value !== "") {
+        return {
+          value,
+          sourcePath: path
+        };
+      }
+    }
+    return null;
+  }
+
+  function makeTiming(kind, config) {
+    const safeConfig = isPlainObject(config) ? config : {};
+    const monthOffset = toOptionalNumber(safeConfig.monthOffset);
+    return {
+      kind: kind || "event",
+      monthOffset,
+      date: normalizeString(safeConfig.date) || null,
+      label: normalizeString(safeConfig.label),
+      sourcePath: normalizeString(safeConfig.sourcePath)
+    };
+  }
+
+  function makeAmount(config) {
+    const safeConfig = isPlainObject(config) ? config : {};
+    const value = toOptionalNumber(safeConfig.value);
+    return {
+      value,
+      label: normalizeString(safeConfig.label) || formatCurrencyLabel(value),
+      sourcePath: normalizeString(safeConfig.sourcePath)
+    };
+  }
+
+  function makeCandidate(definition, overrides) {
+    const safeDefinition = isPlainObject(definition) ? definition : {};
+    const safeOverrides = isPlainObject(overrides) ? overrides : {};
+    const evidenceLevel = safeOverrides.evidenceLevel || safeDefinition.evidenceLevel || EVIDENCE_LEVELS.traceBacked;
+    const status = safeOverrides.status || safeDefinition.status || STATUSES.safeNow;
+    const sourcePaths = uniqueStrings(safeOverrides.sourcePaths);
+    return {
+      id: normalizeString(safeOverrides.id || safeDefinition.id),
+      family: normalizeString(safeOverrides.family || safeDefinition.family),
+      displayLabel: normalizeString(safeOverrides.displayLabel || safeDefinition.displayLabel),
+      graphLabel: normalizeString(safeOverrides.graphLabel || safeDefinition.graphLabel || safeDefinition.displayLabel),
+      cardTitle: normalizeString(safeOverrides.cardTitle || safeDefinition.cardTitle || safeDefinition.displayLabel),
+      description: normalizeString(safeOverrides.description || safeDefinition.description),
+      severity: normalizeString(safeOverrides.severity || safeDefinition.severity || "info"),
+      evidenceLevel,
+      status,
+      safeToRender: safeOverrides.safeToRender != null ? safeOverrides.safeToRender === true : status === STATUSES.safeNow,
+      eligibleForGraphDot: safeOverrides.eligibleForGraphDot != null ? safeOverrides.eligibleForGraphDot === true : safeDefinition.eligibleForGraphDot === true,
+      eligibleForMajorCard: safeOverrides.eligibleForMajorCard != null ? safeOverrides.eligibleForMajorCard === true : safeDefinition.eligibleForMajorCard === true,
+      timing: makeTiming(safeOverrides.timingKind || "event", safeOverrides.timing),
+      amount: makeAmount(safeOverrides.amount),
+      sources: sourcePaths.map(function (sourcePath) {
+        return {
+          sourcePath,
+          evidenceLevel
+        };
+      }),
+      confidence: toOptionalNumber(safeOverrides.confidence ?? safeDefinition.confidence) ?? (status === STATUSES.safeNow ? 0.84 : 0),
+      lifeInsuranceRelevance: toOptionalNumber(safeOverrides.lifeInsuranceRelevance ?? safeDefinition.lifeInsuranceRelevance) ?? 0.5,
+      emotionalWeight: toOptionalNumber(safeOverrides.emotionalWeight ?? safeDefinition.emotionalWeight) ?? 0.5,
+      advisorUsefulness: toOptionalNumber(safeOverrides.advisorUsefulness ?? safeDefinition.advisorUsefulness) ?? 0.5,
+      suppressionKeys: uniqueStrings(safeOverrides.suppressionKeys || safeDefinition.suppressionKeys),
+      deferredReason: normalizeString(safeOverrides.deferredReason || safeDefinition.deferredReason),
+      warnings: compactObjects(safeOverrides.warnings).map(clonePlainValue),
+      priority: toOptionalNumber(safeOverrides.priority ?? safeDefinition.priority) ?? 999
+    };
+  }
+
+  function findDefinition(id) {
+    return SAFE_EVENT_DEFINITIONS.find(function (definition) {
+      return definition.id === id;
+    });
+  }
+
+  function getDeathTiming(rootSource) {
+    const date = firstValueAtPath(rootSource, [
+      "scenario.scenario.selectedDeathDate",
+      "scenario.deathEvent.date",
+      "graphModel.dates.deathDate",
+      "selectedDeath.date"
+    ]);
+    return date
+      ? makeTiming("death-event", {
+          monthOffset: 0,
+          date: date.value,
+          label: "At death",
+          sourcePath: date.sourcePath
+        })
+      : null;
+  }
+
+  function getDepletionTiming(rootSource) {
+    const date = firstValueAtPath(rootSource, [
+      "scenario.timelineFacts.depletionDate",
+      "scenario.postDeathSeries.depletion.depletionDate",
+      "scenario.postDeathSeries.depletion.date",
+      "graphModel.series.appliedRunwayScenarios.0.depletionPoint.date"
+    ]);
+    const month = firstNumberAtPath(rootSource, [
+      "scenario.postDeathSeries.depletion.depletionMonthIndex",
+      "scenario.postDeathSeries.depletion.monthIndex",
+      "scenario.postDeathSeries.depletion.monthsCovered",
+      "scenario.timelineFacts.monthsCovered",
+      "graphModel.series.appliedRunwayScenarios.0.depletionPoint.monthIndex"
+    ]);
+    if (!date && !month) {
+      return null;
+    }
+    return makeTiming("month-offset", {
+      monthOffset: month?.value ?? null,
+      date: date?.value ?? null,
+      label: "Runs out",
+      sourcePath: date?.sourcePath || month?.sourcePath || ""
+    });
+  }
+
+  function getRunwayStartTiming(rootSource) {
+    const deathTiming = getDeathTiming(rootSource);
+    return deathTiming || makeTiming("death-event", {
+      monthOffset: 0,
+      label: "Runway begins",
+      sourcePath: "scenario.deathEvent"
+    });
+  }
+
+  function getInputIssues(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    return []
+      .concat(compactObjects(safeInput.warnings))
+      .concat(compactObjects(safeInput.dataGaps))
+      .concat(compactObjects(safeInput.scenario?.warnings))
+      .concat(compactObjects(safeInput.scenario?.dataGaps))
+      .concat(compactObjects(safeInput.riskEvaluation?.warnings))
+      .concat(compactObjects(safeInput.riskEvaluation?.dataGaps))
+      .concat(compactObjects(safeInput.graphModel?.warnings))
+      .concat(compactObjects(safeInput.graphModel?.dataGaps));
+  }
+
+  function hasIssueSignal(input) {
+    return getInputIssues(input).length > 0;
+  }
+
+  function hasMortgageSupportSchedule(rootSource) {
+    const schedules = [
+      getPath(rootSource, "scenario.postDeathSeries.layer3.scheduledObligations"),
+      getPath(rootSource, "scenario.postDeathSeries.layer3.input.scheduledObligations"),
+      getPath(rootSource, "scenario.postDeathSeries.layer3.trace.scheduledObligations")
+    ];
+    return schedules.some(function (items) {
+      return Array.isArray(items) && items.some(function (item) {
+        if (typeof item === "string") {
+          return item.toLowerCase().includes("mortgage");
+        }
+        return item?.category === "mortgageSupport" || normalizeString(item?.id).toLowerCase().includes("mortgage");
+      });
+    });
+  }
+
+  function getSurvivorIncomeAmount(rootSource) {
+    return firstNumberAtPath(rootSource, [
+      "scenario.trace.layer3.survivorIncome.annualAmount",
+      "scenario.postDeathSeries.layer3.trace.survivorIncome.annualAmount",
+      "scenario.postDeathSeries.layer3.summary.annualSurvivorIncome",
+      "financialRunway.annualSurvivorIncome"
+    ]);
+  }
+
+  function getSupportGapAmount(rootSource) {
+    return firstNumberAtPath(rootSource, [
+      "financialRunway.annualShortfall",
+      "scenario.postDeathSeries.layer3.summary.annualShortfall",
+      "scenario.postDeathSeries.summary.annualShortfall",
+      "scenario.timelineFacts.annualShortfall"
+    ]);
+  }
+
+  function buildSafeCandidates(input, warnings) {
+    const rootSource = isPlainObject(input) ? input : {};
+    const candidates = [];
+    const deathTiming = getDeathTiming(rootSource);
+    if (!deathTiming) {
+      warnings.push(makeWarning(
+        "missing-death-event-storyline-input",
+        "Death & Income Stops was not created because no selected death date or death event date was available.",
+        ["scenario.scenario.selectedDeathDate", "scenario.deathEvent.date"]
+      ));
+    } else {
+      candidates.push(makeCandidate(findDefinition("death-income-stops"), {
+        timing: deathTiming,
+        sourcePaths: [deathTiming.sourcePath],
+        confidence: 0.94
+      }));
+    }
+
+    const coverage = firstNumberAtPath(rootSource, [
+      "scenario.timelineFacts.coverageAdded",
+      "scenario.deathEvent.coverageAdded",
+      "financialRunway.existingCoverage"
+    ]);
+    if (coverage && coverage.value > 0) {
+      candidates.push(makeCandidate(findDefinition("life-insurance-proceeds-applied"), {
+        timing: deathTiming || getRunwayStartTiming(rootSource),
+        amount: {
+          value: coverage.value,
+          sourcePath: coverage.sourcePath
+        },
+        sourcePaths: [coverage.sourcePath]
+      }));
+    }
+
+    const immediateObligations = firstNumberAtPath(rootSource, [
+      "scenario.deathEvent.immediateObligations",
+      "financialRunway.immediateObligations"
+    ]);
+    if (immediateObligations && immediateObligations.value > 0) {
+      candidates.push(makeCandidate(findDefinition("immediate-obligations-paid"), {
+        timing: deathTiming || getRunwayStartTiming(rootSource),
+        amount: {
+          value: immediateObligations.value,
+          sourcePath: immediateObligations.sourcePath
+        },
+        sourcePaths: [immediateObligations.sourcePath]
+      }));
+    }
+
+    const finalExpenses = firstNumberAtPath(rootSource, [
+      "scenario.deathEvent.layer2.immediateObligations.finalExpenses.value",
+      "scenario.deathEvent.layer2.resources.finalExpenses",
+      "scenario.deathEvent.layer2.resources.finalExpenseAmount"
+    ]);
+    if (finalExpenses && finalExpenses.value > 0) {
+      candidates.push(makeCandidate(findDefinition("final-expenses-paid"), {
+        timing: deathTiming || getRunwayStartTiming(rootSource),
+        amount: {
+          value: finalExpenses.value,
+          sourcePath: finalExpenses.sourcePath
+        },
+        sourcePaths: [finalExpenses.sourcePath]
+      }));
+    }
+
+    const debtPayoff = firstNumberAtPath(rootSource, [
+      "scenario.deathEvent.layer2.immediateObligations.debtPayoff.value",
+      "scenario.deathEvent.layer2.resources.debtPayoff",
+      "scenario.deathEvent.layer2.resources.treatedDebtPayoff",
+      "scenario.deathEvent.layer2.resources.debtPayoffAmount"
+    ]);
+    if (debtPayoff && debtPayoff.value > 0) {
+      candidates.push(makeCandidate(findDefinition("debt-payoff-consumes-liquidity"), {
+        timing: deathTiming || getRunwayStartTiming(rootSource),
+        amount: {
+          value: debtPayoff.value,
+          sourcePath: debtPayoff.sourcePath
+        },
+        sourcePaths: [debtPayoff.sourcePath]
+      }));
+    }
+
+    const mortgageTreatment = firstValueAtPath(rootSource, [
+      "scenario.scenario.mortgageTreatmentOverride",
+      "options.mortgageTreatmentOverride"
+    ]);
+    if (normalizeString(mortgageTreatment?.value) === "payOffMortgage") {
+      candidates.push(makeCandidate(findDefinition("mortgage-is-paid-off"), {
+        timing: deathTiming || getRunwayStartTiming(rootSource),
+        sourcePaths: [mortgageTreatment.sourcePath],
+        confidence: 0.72
+      }));
+    }
+    if (hasMortgageSupportSchedule(rootSource)) {
+      candidates.push(makeCandidate(findDefinition("mortgage-payments-continue"), {
+        timing: getRunwayStartTiming(rootSource),
+        sourcePaths: ["scenario.postDeathSeries.layer3.scheduledObligations"],
+        confidence: 0.78
+      }));
+    }
+
+    const survivorIncome = getSurvivorIncomeAmount(rootSource);
+    if (survivorIncome && survivorIncome.value > 0) {
+      candidates.push(makeCandidate(findDefinition("survivor-income-helps-offset-need"), {
+        timing: getRunwayStartTiming(rootSource),
+        amount: {
+          value: survivorIncome.value,
+          sourcePath: survivorIncome.sourcePath
+        },
+        sourcePaths: [survivorIncome.sourcePath]
+      }));
+    }
+
+    const supportGap = getSupportGapAmount(rootSource);
+    const accumulatedUnmetNeed = firstNumberAtPath(rootSource, [
+      "scenario.timelineFacts.accumulatedUnmetNeed",
+      "scenario.postDeathSeries.summary.accumulatedUnmetNeed",
+      "scenario.postDeathSeries.layer3.summary.accumulatedUnmetNeed"
+    ]);
+    if ((supportGap && supportGap.value > 0) || (accumulatedUnmetNeed && accumulatedUnmetNeed.value > 0)) {
+      const source = supportGap || accumulatedUnmetNeed;
+      candidates.push(makeCandidate(findDefinition("protection-gap-appears-immediately"), {
+        timing: getRunwayStartTiming(rootSource),
+        amount: {
+          value: source.value,
+          sourcePath: source.sourcePath
+        },
+        sourcePaths: [source.sourcePath]
+      }));
+      if (supportGap && supportGap.value > 0) {
+        candidates.push(makeCandidate(findDefinition("monthly-support-gap-begins"), {
+          timing: getRunwayStartTiming(rootSource),
+          amount: {
+            value: supportGap.value,
+            sourcePath: supportGap.sourcePath
+          },
+          sourcePaths: [supportGap.sourcePath]
+        }));
+      }
+      if (survivorIncome && survivorIncome.value > 0) {
+        candidates.push(makeCandidate(findDefinition("survivor-income-not-enough-alone"), {
+          timing: getRunwayStartTiming(rootSource),
+          amount: {
+            value: source.value,
+            sourcePath: source.sourcePath
+          },
+          sourcePaths: [survivorIncome.sourcePath, source.sourcePath]
+        }));
+      }
+    }
+
+    const startingResources = firstNumberAtPath(rootSource, [
+      "scenario.timelineFacts.resourcesAfterObligations",
+      "scenario.deathEvent.resourcesAfterObligations",
+      "financialRunway.netAvailableResources"
+    ]);
+    const postDeathPoints = getPath(rootSource, "scenario.postDeathSeries.points");
+    if ((startingResources && startingResources.value >= 0) || (Array.isArray(postDeathPoints) && postDeathPoints.length > 0)) {
+      candidates.push(makeCandidate(findDefinition("survivor-runway-begins"), {
+        timing: getRunwayStartTiming(rootSource),
+        amount: startingResources
+          ? {
+              value: startingResources.value,
+              sourcePath: startingResources.sourcePath
+            }
+          : null,
+        sourcePaths: [startingResources?.sourcePath || "scenario.postDeathSeries.points"]
+      }));
+    }
+
+    const depletionTiming = getDepletionTiming(rootSource);
+    const depletionFlag = getPath(rootSource, "scenario.postDeathSeries.depletion.depleted");
+    if (depletionTiming && depletionFlag !== false) {
+      candidates.push(makeCandidate(findDefinition("resources-run-out"), {
+        timing: depletionTiming,
+        amount: makeEmptyAmount(),
+        sourcePaths: [depletionTiming.sourcePath || "scenario.postDeathSeries.depletion"]
+      }));
+    }
+
+    if (accumulatedUnmetNeed && accumulatedUnmetNeed.value > 0) {
+      candidates.push(makeCandidate(findDefinition("unfunded-need-accumulates"), {
+        timing: depletionTiming || getRunwayStartTiming(rootSource),
+        amount: {
+          value: accumulatedUnmetNeed.value,
+          sourcePath: accumulatedUnmetNeed.sourcePath
+        },
+        sourcePaths: [accumulatedUnmetNeed.sourcePath]
+      }));
+    }
+
+    if (hasIssueSignal(rootSource)) {
+      candidates.push(makeCandidate(findDefinition("missing-data-limits-timeline"), {
+        status: STATUSES.caution,
+        safeToRender: true,
+        timingKind: "data-quality",
+        timing: {
+          label: "Data needed",
+          sourcePath: "warnings"
+        },
+        sourcePaths: getInputIssues(rootSource).flatMap(function (issue) {
+          return Array.isArray(issue.sourcePaths) ? issue.sourcePaths : [];
+        }).concat(["warnings", "dataGaps"]),
+        warnings: getInputIssues(rootSource)
+      }));
+    }
+
+    return dedupeCandidates(candidates);
+  }
+
+  function dedupeCandidates(candidates) {
+    const seen = new Set();
+    return candidates.filter(function (candidate) {
+      if (!candidate.id || seen.has(candidate.id)) {
+        return false;
+      }
+      seen.add(candidate.id);
+      return true;
+    });
+  }
+
+  function sortCandidates(candidates) {
+    return candidates.slice().sort(function (left, right) {
+      return (left.priority - right.priority)
+        || right.lifeInsuranceRelevance - left.lifeInsuranceRelevance
+        || right.advisorUsefulness - left.advisorUsefulness
+        || left.id.localeCompare(right.id);
+    });
+  }
+
+  function hasAlternativeFamily(candidates, selected, family) {
+    const selectedIds = new Set(selected.map(function (candidate) { return candidate.id; }));
+    return candidates.some(function (candidate) {
+      return !selectedIds.has(candidate.id) && candidate.family !== family;
+    });
+  }
+
+  function selectCandidates(candidates, limit, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const sorted = sortCandidates(dedupeCandidates(candidates));
+    const selected = [];
+    const skipped = [];
+    const familyCounts = {};
+
+    function trySelect(candidate, allowFamilyOverflow) {
+      if (selected.length >= limit) {
+        return;
+      }
+      const family = candidate.family;
+      const currentCount = familyCounts[family] || 0;
+      if (
+        safeOptions.enforceDiversity !== false
+        && !allowFamilyOverflow
+        && candidate.id !== "death-income-stops"
+        && currentCount >= 2
+        && hasAlternativeFamily(sorted, selected, family)
+      ) {
+        skipped.push(candidate);
+        return;
+      }
+      selected.push(candidate);
+      familyCounts[family] = currentCount + 1;
+    }
+
+    sorted.forEach(function (candidate) {
+      trySelect(candidate, false);
+    });
+    skipped.forEach(function (candidate) {
+      trySelect(candidate, true);
+    });
+    return selected.slice(0, limit);
+  }
+
+  function summarizeEvidence(candidates) {
+    return candidates.reduce(function (summary, candidate) {
+      const key = candidate.evidenceLevel || "unknown";
+      summary[key] = (summary[key] || 0) + 1;
+      return summary;
+    }, {});
+  }
+
+  function buildIncomeImpactFinancialStorylineCandidates(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    const warnings = [];
+    if (!isPlainObject(input)) {
+      warnings.push(makeWarning(
+        "invalid-storyline-input",
+        "Financial storyline candidates require a plain input object.",
+        ["input"]
+      ));
+    }
+    if (!isPlainObject(safeInput.scenario)) {
+      warnings.push(makeWarning(
+        "missing-storyline-scenario",
+        "No composed Income Impact scenario was provided to the storyline helper.",
+        ["scenario"]
+      ));
+    }
+
+    const safeCandidates = buildSafeCandidates(safeInput, warnings);
+    const safeRenderableEvents = safeCandidates.filter(function (candidate) {
+      return candidate.safeToRender === true
+        && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution);
+    });
+    const deferredCandidates = DEFERRED_CANDIDATE_DEFINITIONS.map(clonePlainValue);
+    const graphDotCandidates = selectCandidates(
+      safeRenderableEvents.filter(function (candidate) { return candidate.eligibleForGraphDot; }),
+      MAX_GRAPH_DOT_CANDIDATES,
+      safeInput.options
+    );
+    const majorPool = safeRenderableEvents.filter(function (candidate) {
+      return candidate.eligibleForMajorCard;
+    });
+    const deathCandidate = majorPool.find(function (candidate) {
+      return candidate.id === "death-income-stops";
+    });
+    const selectedMajor = selectCandidates(
+      deathCandidate
+        ? [deathCandidate].concat(majorPool.filter(function (candidate) { return candidate.id !== deathCandidate.id; }))
+        : majorPool,
+      MAX_MAJOR_STORY_CANDIDATES,
+      safeInput.options
+    );
+    const majorStoryCandidates = deathCandidate
+      ? [deathCandidate].concat(selectedMajor.filter(function (candidate) {
+          return candidate.id !== deathCandidate.id;
+        })).slice(0, MAX_MAJOR_STORY_CANDIDATES)
+      : selectedMajor;
+    const allCandidates = safeCandidates.concat(deferredCandidates);
+
+    return {
+      version: VERSION,
+      allCandidates,
+      safeRenderableEvents,
+      deferredCandidates,
+      majorStoryCandidates,
+      graphDotCandidates,
+      suppressedCandidates: [],
+      warnings,
+      trace: {
+        source: SOURCE,
+        generatedAt: null,
+        evidenceSummary: summarizeEvidence(allCandidates),
+        registryVersion: VERSION,
+        safeRegistryCandidateIds: SAFE_EVENT_DEFINITIONS.map(function (definition) { return definition.id; }),
+        deferredRegistryCandidateIds: DEFERRED_CANDIDATE_DEFINITIONS.map(function (definition) { return definition.id; }),
+        selectedScenarioId: normalizeString(safeInput.selectedScenarioId),
+        safeRenderableCount: safeRenderableEvents.length,
+        deferredCount: deferredCandidates.length,
+        majorStoryCandidateLimit: MAX_MAJOR_STORY_CANDIDATES,
+        graphDotCandidateLimit: MAX_GRAPH_DOT_CANDIDATES
+      }
+    };
+  }
+
+  const api = {
+    buildIncomeImpactFinancialStorylineCandidates,
+    incomeImpactFinancialStorylineCandidateRegistry: CANDIDATE_REGISTRY,
+    INCOME_IMPACT_FINANCIAL_STORYLINE_EVIDENCE_LEVELS: EVIDENCE_LEVELS,
+    INCOME_IMPACT_FINANCIAL_STORYLINE_STATUSES: STATUSES,
+    INCOME_IMPACT_FINANCIAL_STORYLINE_EVENT_FAMILIES: EVENT_FAMILIES
+  };
+
+  Object.assign(lensAnalysis, api);
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = api;
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this);
