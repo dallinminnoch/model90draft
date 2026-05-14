@@ -40,7 +40,7 @@
     plotWidth: 884,
     plotHeight: 318
   });
-  const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 10;
+  const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16;
   const GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET = 38;
   const GRAPH_STORYLINE_EVENT_LANE_STAGGER = 12;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
@@ -2085,6 +2085,16 @@
     return normalizeString(candidate?.graphLabel || candidate?.displayLabel || candidate?.cardTitle || candidate?.id) || "Storyline event";
   }
 
+  function getGraphStorylineDotTier(candidate) {
+    return normalizeString(candidate?.dotTier) === "major" ? "major" : "micro";
+  }
+
+  function isGraphStorylineConnectorEligible(candidate) {
+    return getGraphStorylineDotTier(candidate) === "major"
+      && candidate?.connectedToMajorCard === true
+      && candidate?.eligibleForConnector === true;
+  }
+
   function getGraphStorylineEventDots(timelineResult, graphModel) {
     const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
       ? timelineResult.financialStoryline.graphDotCandidates
@@ -2111,11 +2121,13 @@
       const timeLabel = getGraphStorylineDotTimeLabel(candidate);
       const amountLabel = getGraphStorylineDotAmountLabel(candidate);
       const evidenceLabel = getGraphStorylineDotEvidenceLabel(candidate);
+      const dotTier = getGraphStorylineDotTier(candidate);
       return {
         candidate,
         index,
         x: toGraphX(xRatio),
         y,
+        dotTier,
         title,
         timeLabel,
         amountLabel,
@@ -2164,9 +2176,12 @@
           ].filter(Boolean).join(", ");
           return `
             <g
-              class="income-impact-storyline-dot income-impact-storyline-dot--severity-${escapeHtml(normalizeString(candidate.severity) || "info")} income-impact-storyline-dot--family-${escapeHtml(normalizeString(candidate.family) || "event")}"
+              class="income-impact-storyline-dot income-impact-storyline-dot--${escapeHtml(dot.dotTier)} income-impact-storyline-dot--severity-${escapeHtml(normalizeString(candidate.severity) || "info")} income-impact-storyline-dot--family-${escapeHtml(normalizeString(candidate.family) || "event")}"
               data-income-impact-storyline-dot
               data-income-impact-storyline-event-id="${escapeHtml(candidate.id || "")}"
+              data-income-impact-storyline-dot-tier="${escapeHtml(dot.dotTier)}"
+              data-income-impact-storyline-connected-to-major-card="${candidate.connectedToMajorCard === true ? "true" : "false"}"
+              data-income-impact-storyline-eligible-for-connector="${candidate.eligibleForConnector === true ? "true" : "false"}"
               data-income-impact-storyline-family="${escapeHtml(candidate.family || "")}"
               data-income-impact-storyline-severity="${escapeHtml(candidate.severity || "")}"
               data-income-impact-storyline-evidence-level="${escapeHtml(candidate.evidenceLevel || "")}"
@@ -2207,7 +2222,7 @@
     const dotsByEventId = new Map();
     getGraphStorylineEventDots(timelineResult, graphModel).forEach(function (dot) {
       const eventId = normalizeString(dot?.candidate?.id);
-      if (eventId && !dotsByEventId.has(eventId)) {
+      if (eventId && isGraphStorylineConnectorEligible(dot?.candidate) && !dotsByEventId.has(eventId)) {
         dotsByEventId.set(eventId, dot);
       }
     });
@@ -4490,6 +4505,8 @@
       safeRenderableEvents: [],
       deferredCandidates: [],
       majorStoryCandidates: [],
+      majorGraphDotCandidates: [],
+      microGraphDotCandidates: [],
       graphDotCandidates: [],
       suppressedCandidates: [],
       warnings: [
@@ -4518,6 +4535,8 @@
       safeRenderableEvents: Array.isArray(source.safeRenderableEvents) ? source.safeRenderableEvents : [],
       deferredCandidates: Array.isArray(source.deferredCandidates) ? source.deferredCandidates : [],
       majorStoryCandidates: Array.isArray(source.majorStoryCandidates) ? source.majorStoryCandidates : [],
+      majorGraphDotCandidates: Array.isArray(source.majorGraphDotCandidates) ? source.majorGraphDotCandidates : [],
+      microGraphDotCandidates: Array.isArray(source.microGraphDotCandidates) ? source.microGraphDotCandidates : [],
       graphDotCandidates: Array.isArray(source.graphDotCandidates) ? source.graphDotCandidates : [],
       suppressedCandidates: Array.isArray(source.suppressedCandidates) ? source.suppressedCandidates : [],
       warnings: Array.isArray(source.warnings) ? source.warnings : [],

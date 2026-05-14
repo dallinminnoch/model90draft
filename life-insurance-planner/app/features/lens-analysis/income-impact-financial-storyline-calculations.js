@@ -4,8 +4,10 @@
 
   const VERSION = "financial-storyline-candidates-v1";
   const SOURCE = "income-impact-financial-storyline-calculations";
-  const MAX_GRAPH_DOT_CANDIDATES = 10;
   const MAX_MAJOR_STORY_CANDIDATES = 6;
+  const MAX_MAJOR_GRAPH_DOT_CANDIDATES = 6;
+  const MAX_MICRO_GRAPH_DOT_CANDIDATES = 10;
+  const MAX_GRAPH_DOT_CANDIDATES = MAX_MAJOR_GRAPH_DOT_CANDIDATES + MAX_MICRO_GRAPH_DOT_CANDIDATES;
   const SELECTOR_POLICY_VERSION = "storyline-selector-v1";
 
   const EVIDENCE_LEVELS = Object.freeze({
@@ -48,6 +50,69 @@
     lifestyleRisk: "lifestyle-risk",
     careRisk: "care-risk"
   });
+
+  const STORY_EVENT_ROLES = Object.freeze({
+    emotional: "emotional",
+    mechanical: "mechanical",
+    detail: "detail",
+    dataGap: "data-gap"
+  });
+
+  const MECHANICAL_DETAIL_EVENT_IDS = Object.freeze([
+    "coverage-proceeds-applied",
+    "life-insurance-proceeds-applied",
+    "coverage-not-counted",
+    "final-expenses-paid",
+    "medical-final-expenses-paid",
+    "transition-needs-paid",
+    "immediate-obligations-paid",
+    "debt-payoff-consumes-liquidity",
+    "mortgage-is-paid-off",
+    "mortgage-paid-off",
+    "mortgage-payments-continue",
+    "survivor-income-helps-offset-need",
+    "survivor-runway-begins",
+    "monthly-support-need-begins",
+    "healthcare-costs-reduce-runway"
+  ]);
+
+  const EMOTIONAL_VISIBLE_EVENT_IDS = Object.freeze([
+    "death-income-stops",
+    "protection-gap-appears-immediately",
+    "protection-gap-appears",
+    "survivor-income-not-enough-alone",
+    "cash-savings-depleted",
+    "checking-savings-depleted",
+    "emergency-fund-depleted",
+    "liquid-investments-depleted",
+    "taxable-assets-depleted",
+    "education-savings-used-for-living-needs",
+    "education-savings-depleted",
+    "education-funding-interrupted",
+    "education-funding-may-be-redirected",
+    "dependent-support-gap",
+    "dependent-support-gap-begins",
+    "childcare-support-at-risk",
+    "retirement-assets-tapped",
+    "retirement-assets-depleted",
+    "retirement-security-reduced",
+    "retirement-security-is-reduced",
+    "home-equity-becomes-last-resort",
+    "housing-payment-pressure-begins",
+    "housing-payment-at-risk",
+    "housing-stability-at-risk",
+    "rent-payment-pressure-begins",
+    "vehicle-payment-at-risk",
+    "transportation-stability-at-risk",
+    "debt-payments-become-unsupported",
+    "current-lifestyle-no-longer-sustainable",
+    "lifestyle-cuts-begin",
+    "essential-needs-become-unfunded",
+    "care-expenses-become-unfunded",
+    "resources-run-out",
+    "monthly-support-gap-begins",
+    "unfunded-need-accumulates"
+  ]);
 
   const SAFE_EVENT_DEFINITIONS = Object.freeze([
     {
@@ -334,6 +399,13 @@
       severity: "deferred",
       evidenceLevel: definition[3],
       status: STATUSES.deferred,
+      storyRole: definition[3] === EVIDENCE_LEVELS.dataGap
+        ? STORY_EVENT_ROLES.dataGap
+        : includesValue(MECHANICAL_DETAIL_EVENT_IDS, definition[0])
+          ? STORY_EVENT_ROLES.mechanical
+          : includesValue(EMOTIONAL_VISIBLE_EVENT_IDS, definition[0])
+            ? STORY_EVENT_ROLES.emotional
+            : STORY_EVENT_ROLES.detail,
       safeToRender: false,
       eligibleForGraphDot: false,
       eligibleForMajorCard: false,
@@ -701,6 +773,12 @@
       severity: normalizeString(safeOverrides.severity || safeDefinition.severity || "info"),
       evidenceLevel,
       status,
+      storyRole: normalizeString(safeOverrides.storyRole || safeDefinition.storyRole)
+        || resolveStoryRole({
+          id: normalizeString(safeOverrides.id || safeDefinition.id),
+          family: normalizeString(safeOverrides.family || safeDefinition.family),
+          evidenceLevel
+        }),
       safeToRender: safeOverrides.safeToRender != null ? safeOverrides.safeToRender === true : status === STATUSES.safeNow,
       eligibleForGraphDot: safeOverrides.eligibleForGraphDot != null ? safeOverrides.eligibleForGraphDot === true : safeDefinition.eligibleForGraphDot === true,
       eligibleForMajorCard: safeOverrides.eligibleForMajorCard != null ? safeOverrides.eligibleForMajorCard === true : safeDefinition.eligibleForMajorCard === true,
@@ -737,6 +815,29 @@
 
   function findAnyDefinition(id) {
     return findDefinition(id) || findDeferredDefinition(id);
+  }
+
+  function resolveStoryRole(candidate) {
+    const id = normalizeString(candidate?.id);
+    if (includesValue(MECHANICAL_DETAIL_EVENT_IDS, id)) {
+      return STORY_EVENT_ROLES.mechanical;
+    }
+    if (
+      includesValue(DATA_QUALITY_IDS, id)
+      || candidate?.family === EVENT_FAMILIES.dataQuality
+      || candidate?.evidenceLevel === EVIDENCE_LEVELS.dataGap
+    ) {
+      return STORY_EVENT_ROLES.dataGap;
+    }
+    if (includesValue(EMOTIONAL_VISIBLE_EVENT_IDS, id)) {
+      return STORY_EVENT_ROLES.emotional;
+    }
+    return STORY_EVENT_ROLES.detail;
+  }
+
+  function isVisibleStorylineCandidate(candidate) {
+    const storyRole = normalizeString(candidate?.storyRole) || resolveStoryRole(candidate);
+    return storyRole === STORY_EVENT_ROLES.emotional || storyRole === STORY_EVENT_ROLES.dataGap;
   }
 
   function getDeathTiming(rootSource) {
@@ -1818,7 +1919,9 @@
 
   function selectMajorStoryCandidates(candidates, options) {
     const pool = sortByMajorScore(dedupeCandidates(candidates).filter(function (candidate) {
-      return isSelectableRenderable(candidate) && candidate.eligibleForMajorCard === true;
+      return isSelectableRenderable(candidate)
+        && isVisibleStorylineCandidate(candidate)
+        && candidate.eligibleForMajorCard === true;
     }));
     const selected = [];
     const deathCandidate = pool.find(function (candidate) {
@@ -1875,25 +1978,82 @@
     };
   }
 
-  function selectGraphDotCandidates(candidates) {
-    const eligible = dedupeCandidates(candidates).filter(function (candidate) {
+  function makeGraphDotCandidate(candidate, tier, metadata) {
+    return Object.assign({}, clonePlainValue(candidate), {
+      dotTier: tier,
+      connectedToMajorCard: tier === "major",
+      majorCardIndex: tier === "major" ? toOptionalNumber(metadata?.majorCardIndex) : null,
+      eligibleForConnector: tier === "major"
+    });
+  }
+
+  function selectMajorGraphDotCandidates(majorStoryCandidates) {
+    const candidates = Array.isArray(majorStoryCandidates) ? majorStoryCandidates : [];
+    const eligible = candidates.filter(function (candidate) {
       return isSelectableRenderable(candidate) && candidate.eligibleForGraphDot === true;
     });
     const missingTiming = eligible.filter(function (candidate) {
       return !graphTimingIsUsable(candidate);
     });
-    const timedPool = sortByGraphScore(eligible.filter(function (candidate) {
+    const timedPool = eligible.filter(function (candidate) {
+      return graphTimingIsUsable(candidate);
+    });
+    const selected = timedPool.slice(0, MAX_MAJOR_GRAPH_DOT_CANDIDATES).map(function (candidate) {
+      return makeGraphDotCandidate(candidate, "major", {
+        majorCardIndex: candidates.findIndex(function (item) {
+          return item.id === candidate.id;
+        })
+      });
+    });
+    const selectedIds = new Set(selected.map(function (candidate) { return candidate.id; }));
+    const capSuppressed = timedPool
+      .filter(function (candidate) { return !selectedIds.has(candidate.id); })
+      .map(function (candidate) {
+        return makeSelectionSuppressedCandidate(candidate, "major-graph-dot-cap", "major-graph-dot");
+      });
+    const timingSuppressed = missingTiming.map(function (candidate) {
+      return makeSelectionSuppressedCandidate(candidate, "missing-timing-for-major-dot", "major-graph-dot");
+    });
+    return {
+      selected,
+      suppressed: timingSuppressed.concat(capSuppressed)
+    };
+  }
+
+  function selectMicroGraphDotCandidates(candidates, majorStoryCandidates) {
+    const eligible = dedupeCandidates(candidates).filter(function (candidate) {
+      return isSelectableRenderable(candidate)
+        && isVisibleStorylineCandidate(candidate)
+        && candidate.eligibleForGraphDot === true;
+    });
+    const majorIds = new Set((Array.isArray(majorStoryCandidates) ? majorStoryCandidates : []).map(function (candidate) {
+      return normalizeString(candidate.id);
+    }).filter(Boolean));
+    const duplicateMajorCandidates = eligible.filter(function (candidate) {
+      return majorIds.has(normalizeString(candidate.id));
+    });
+    const microEligible = eligible.filter(function (candidate) {
+      return !majorIds.has(normalizeString(candidate.id));
+    });
+    const missingTiming = microEligible.filter(function (candidate) {
+      return !graphTimingIsUsable(candidate);
+    });
+    const timedPool = sortByGraphScore(microEligible.filter(function (candidate) {
       return graphTimingIsUsable(candidate);
     }));
-    const selected = timedPool.slice(0, MAX_GRAPH_DOT_CANDIDATES);
-    const suppressed = missingTiming.map(function (candidate) {
+    const selected = timedPool.slice(0, MAX_MICRO_GRAPH_DOT_CANDIDATES).map(function (candidate) {
+      return makeGraphDotCandidate(candidate, "micro");
+    });
+    const suppressed = duplicateMajorCandidates.map(function (candidate) {
+      return makeSelectionSuppressedCandidate(candidate, "duplicate-major-dot", "micro-graph-dot");
+    }).concat(missingTiming.map(function (candidate) {
       return makeSelectionSuppressedCandidate(candidate, "missing-timing-for-graph", "graph-dot");
-    }).concat(suppressUnselected(timedPool, selected, function (candidate) {
+    })).concat(suppressUnselected(timedPool, selected, function (candidate) {
       if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap) {
         return "data-gap-lower-priority";
       }
-      return timedPool.length > MAX_GRAPH_DOT_CANDIDATES ? "graph-dot-cap" : "lower-priority";
-    }, "graph-dot"));
+      return timedPool.length > MAX_MICRO_GRAPH_DOT_CANDIDATES ? "micro-graph-dot-cap" : "lower-priority";
+    }, "micro-graph-dot"));
 
     return {
       selected,
@@ -1904,6 +2064,16 @@
   function countSuppressionReasons(candidates) {
     return countBy(candidates, function (candidate) {
       return candidate.selectionSuppressionReason || candidate.deferredReason || "unknown";
+    });
+  }
+
+  function selectStoryVisibilitySuppressedCandidates(candidates) {
+    return dedupeCandidates(candidates).filter(function (candidate) {
+      return isSelectableRenderable(candidate)
+        && !isVisibleStorylineCandidate(candidate)
+        && (candidate.eligibleForMajorCard === true || candidate.eligibleForGraphDot === true);
+    }).map(function (candidate) {
+      return makeSelectionSuppressedCandidate(candidate, "mechanical-detail-hidden", "visible-storyline");
     });
   }
 
@@ -1945,11 +2115,18 @@
         && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution);
     });
     const deferredCandidates = DEFERRED_CANDIDATE_DEFINITIONS.map(clonePlainValue);
-    const graphDotSelection = selectGraphDotCandidates(safeRenderableEvents, safeInput.options);
     const majorStorySelection = selectMajorStoryCandidates(safeRenderableEvents, safeInput.options);
-    const graphDotCandidates = graphDotSelection.selected;
     const majorStoryCandidates = majorStorySelection.selected;
-    const selectionSuppressedCandidates = majorStorySelection.suppressed.concat(graphDotSelection.suppressed);
+    const majorGraphDotSelection = selectMajorGraphDotCandidates(majorStoryCandidates);
+    const microGraphDotSelection = selectMicroGraphDotCandidates(safeRenderableEvents, majorStoryCandidates);
+    const majorGraphDotCandidates = majorGraphDotSelection.selected;
+    const microGraphDotCandidates = microGraphDotSelection.selected;
+    const graphDotCandidates = majorGraphDotCandidates.concat(microGraphDotCandidates).slice(0, MAX_GRAPH_DOT_CANDIDATES);
+    const visibilitySuppressedCandidates = selectStoryVisibilitySuppressedCandidates(safeRenderableEvents);
+    const selectionSuppressedCandidates = majorStorySelection.suppressed
+      .concat(majorGraphDotSelection.suppressed)
+      .concat(microGraphDotSelection.suppressed)
+      .concat(visibilitySuppressedCandidates);
     const allCandidates = safeCandidates.concat(deferredCandidates);
     const trace = {
       source: SOURCE,
@@ -1962,10 +2139,20 @@
       safeRenderableCount: safeRenderableEvents.length,
       deferredCount: deferredCandidates.length,
       majorStoryCandidateLimit: MAX_MAJOR_STORY_CANDIDATES,
+      majorGraphDotCandidateLimit: MAX_MAJOR_GRAPH_DOT_CANDIDATES,
+      microGraphDotCandidateLimit: MAX_MICRO_GRAPH_DOT_CANDIDATES,
       graphDotCandidateLimit: MAX_GRAPH_DOT_CANDIDATES,
       selectorPolicyVersion: SELECTOR_POLICY_VERSION,
       selectedMajorCandidateIds: majorStoryCandidates.map(function (candidate) { return candidate.id; }),
+      selectedMajorGraphDotCandidateIds: majorGraphDotCandidates.map(function (candidate) { return candidate.id; }),
+      selectedMicroGraphDotCandidateIds: microGraphDotCandidates.map(function (candidate) { return candidate.id; }),
       selectedGraphDotCandidateIds: graphDotCandidates.map(function (candidate) { return candidate.id; }),
+      visibleEmotionalEventIds: safeRenderableEvents.filter(function (candidate) {
+        return normalizeString(candidate.storyRole) === STORY_EVENT_ROLES.emotional;
+      }).map(function (candidate) { return candidate.id; }),
+      mechanicalDetailSuppressedCount: visibilitySuppressedCandidates.length,
+      storyRoleCounts: countBy(safeRenderableEvents, function (candidate) { return candidate.storyRole; }),
+      graphDotTierCounts: countBy(graphDotCandidates, function (candidate) { return candidate.dotTier; }),
       majorStoryFamilyCounts: countBy(majorStoryCandidates, function (candidate) { return candidate.family; }),
       graphDotFamilyCounts: countBy(graphDotCandidates, function (candidate) { return candidate.family; }),
       selectorSuppressedCountsByReason: countSuppressionReasons(selectionSuppressedCandidates)
@@ -1985,6 +2172,8 @@
       safeRenderableEvents,
       deferredCandidates,
       majorStoryCandidates,
+      majorGraphDotCandidates,
+      microGraphDotCandidates,
       graphDotCandidates,
       suppressedCandidates: waterfallBacked.suppressedCandidates
         .concat(housingRiskBacked.suppressedCandidates)
