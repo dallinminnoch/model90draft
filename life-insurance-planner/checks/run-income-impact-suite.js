@@ -34,6 +34,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Income Impact housing risk",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/income-impact-housing-risk-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Income Loss Impact visual timeline",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/income-loss-impact-visual-timeline-check.js")],
