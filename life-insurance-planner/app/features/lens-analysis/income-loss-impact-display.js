@@ -17,6 +17,8 @@
   const DEATH_CONVERSION_GRADIENT_ID = "income-impact-death-conversion-gradient";
   const GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-pre-death-gradient";
   const GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-post-death-gradient";
+  const INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE =
+    "income-impact-display-financial-storyline-bridge";
   const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
   const DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP = 1;
   const GRAPH_HOVER_READOUT_WIDTH = 108;
@@ -4040,6 +4042,235 @@
     });
   }
 
+  function getDisplayStorylineHelper(state, helperName) {
+    if (typeof state?.[helperName] === "function") {
+      return state[helperName];
+    }
+    if (typeof lensAnalysis?.[helperName] === "function") {
+      return lensAnalysis[helperName];
+    }
+    return null;
+  }
+
+  function getTimelineResultDeathDate(timelineResult, controls) {
+    return timelineResult?.selectedDeath?.date
+      || timelineResult?.scenario?.scenario?.selectedDeathDate
+      || controls?.selectedDeathDate
+      || null;
+  }
+
+  function createFinancialStorylineBridgeWarning(code, message, details) {
+    return createRuntimeIssue(code, message, Object.assign({
+      source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE
+    }, isPlainObject(details) ? details : {}));
+  }
+
+  function makeFinancialStorylineUnavailableResult(reason, details) {
+    return {
+      version: "financial-storyline-candidates-v1",
+      allCandidates: [],
+      safeRenderableEvents: [],
+      deferredCandidates: [],
+      majorStoryCandidates: [],
+      graphDotCandidates: [],
+      suppressedCandidates: [],
+      warnings: [
+        createFinancialStorylineBridgeWarning(
+          "financial-storyline-unavailable",
+          "Financial storyline candidates were not built.",
+          Object.assign({ reason }, isPlainObject(details) ? details : {})
+        )
+      ],
+      trace: {
+        source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+        generatedAt: null,
+        rendered: false,
+        resourceWaterfallStatus: "not-built",
+        housingRiskStatus: "not-built",
+        evidenceSummary: {}
+      }
+    };
+  }
+
+  function normalizeFinancialStorylineArrays(financialStoryline) {
+    const source = isPlainObject(financialStoryline) ? financialStoryline : {};
+    return Object.assign({}, source, {
+      version: source.version || "financial-storyline-candidates-v1",
+      allCandidates: Array.isArray(source.allCandidates) ? source.allCandidates : [],
+      safeRenderableEvents: Array.isArray(source.safeRenderableEvents) ? source.safeRenderableEvents : [],
+      deferredCandidates: Array.isArray(source.deferredCandidates) ? source.deferredCandidates : [],
+      majorStoryCandidates: Array.isArray(source.majorStoryCandidates) ? source.majorStoryCandidates : [],
+      graphDotCandidates: Array.isArray(source.graphDotCandidates) ? source.graphDotCandidates : [],
+      suppressedCandidates: Array.isArray(source.suppressedCandidates) ? source.suppressedCandidates : [],
+      warnings: Array.isArray(source.warnings) ? source.warnings : [],
+      trace: isPlainObject(source.trace) ? source.trace : {}
+    });
+  }
+
+  function buildDisplayResourceWaterfallForStoryline(state, timelineResult, controls) {
+    const builder = getDisplayStorylineHelper(state, "buildIncomeImpactResourceWaterfall");
+    if (typeof builder !== "function") {
+      return {
+        value: null,
+        status: "helper-unavailable",
+        warnings: [
+          createFinancialStorylineBridgeWarning(
+            "resource-waterfall-helper-unavailable",
+            "Resource waterfall inputs were not built because the helper is not available."
+          )
+        ]
+      };
+    }
+
+    try {
+      return {
+        value: builder({
+          scenario: timelineResult?.scenario,
+          financialRunway: timelineResult?.financialRunway,
+          postDeathSeries: timelineResult?.scenario?.postDeathSeries,
+          timelineFacts: timelineResult?.scenario?.timelineFacts,
+          options: {
+            selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
+            projectionHorizonYears: controls?.projectionHorizonYears
+          }
+        }),
+        status: "built",
+        warnings: []
+      };
+    } catch (error) {
+      return {
+        value: null,
+        status: "error",
+        warnings: [
+          createFinancialStorylineBridgeWarning(
+            "resource-waterfall-build-failed",
+            "Resource waterfall inputs could not be built.",
+            { error: error?.message || String(error) }
+          )
+        ]
+      };
+    }
+  }
+
+  function buildDisplayHousingRiskForStoryline(state, timelineResult, controls, resourceWaterfall) {
+    const builder = getDisplayStorylineHelper(state, "buildIncomeImpactHousingRisk");
+    if (typeof builder !== "function") {
+      return {
+        value: null,
+        status: "helper-unavailable",
+        warnings: [
+          createFinancialStorylineBridgeWarning(
+            "housing-risk-helper-unavailable",
+            "Housing-risk inputs were not built because the helper is not available."
+          )
+        ]
+      };
+    }
+
+    try {
+      return {
+        value: builder({
+          scenario: timelineResult?.scenario,
+          financialRunway: timelineResult?.financialRunway,
+          postDeathSeries: timelineResult?.scenario?.postDeathSeries,
+          mortgageTreatment: controls?.mortgageTreatmentOverride
+            || timelineResult?.scenario?.scenario?.mortgageTreatmentOverride
+            || null,
+          resourceWaterfall,
+          options: {
+            selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
+            projectionHorizonYears: controls?.projectionHorizonYears
+          }
+        }),
+        status: "built",
+        warnings: []
+      };
+    } catch (error) {
+      return {
+        value: null,
+        status: "error",
+        warnings: [
+          createFinancialStorylineBridgeWarning(
+            "housing-risk-build-failed",
+            "Housing-risk inputs could not be built.",
+            { error: error?.message || String(error) }
+          )
+        ]
+      };
+    }
+  }
+
+  function buildFinancialStorylineForTimelineResult(state, timelineResult, context) {
+    const safeContext = isPlainObject(context) ? context : {};
+    const controls = isPlainObject(safeContext.controls) ? safeContext.controls : {};
+    const storylineBuilder = getDisplayStorylineHelper(state, "buildIncomeImpactFinancialStorylineCandidates");
+    const resourceWaterfallBuild = buildDisplayResourceWaterfallForStoryline(state, timelineResult, controls);
+    const housingRiskBuild = buildDisplayHousingRiskForStoryline(
+      state,
+      timelineResult,
+      controls,
+      resourceWaterfallBuild.value
+    );
+    const bridgeWarnings = []
+      .concat(Array.isArray(resourceWaterfallBuild.warnings) ? resourceWaterfallBuild.warnings : [])
+      .concat(Array.isArray(housingRiskBuild.warnings) ? housingRiskBuild.warnings : []);
+
+    if (typeof storylineBuilder !== "function") {
+      const unavailable = makeFinancialStorylineUnavailableResult("storyline-helper-unavailable", {
+        resourceWaterfallStatus: resourceWaterfallBuild.status,
+        housingRiskStatus: housingRiskBuild.status
+      });
+      unavailable.warnings = unavailable.warnings.concat(bridgeWarnings);
+      unavailable.trace.resourceWaterfallStatus = resourceWaterfallBuild.status;
+      unavailable.trace.housingRiskStatus = housingRiskBuild.status;
+      return unavailable;
+    }
+
+    try {
+      const financialStoryline = normalizeFinancialStorylineArrays(storylineBuilder({
+        scenario: timelineResult?.scenario,
+        graphModel: timelineResult?.graphModel,
+        riskEvaluation: timelineResult?.riskEvaluation,
+        comparisonScenarios: Array.isArray(safeContext.comparisonScenarios)
+          ? clonePlainValue(safeContext.comparisonScenarios)
+          : [],
+        appliedScenarios: Array.isArray(safeContext.appliedScenarios)
+          ? clonePlainValue(safeContext.appliedScenarios)
+          : [],
+        selectedScenarioId: safeContext.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID,
+        warnings: Array.isArray(timelineResult?.warnings) ? clonePlainValue(timelineResult.warnings) : [],
+        dataGaps: Array.isArray(timelineResult?.dataGaps) ? clonePlainValue(timelineResult.dataGaps) : [],
+        resourceWaterfall: resourceWaterfallBuild.value,
+        housingRisk: housingRiskBuild.value,
+        options: {
+          selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
+          projectionHorizonYears: controls?.projectionHorizonYears,
+          source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE
+        }
+      }));
+
+      return Object.assign({}, financialStoryline, {
+        warnings: financialStoryline.warnings.concat(bridgeWarnings),
+        trace: Object.assign({}, financialStoryline.trace, {
+          displayBridgeSource: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+          rendered: false,
+          resourceWaterfallStatus: resourceWaterfallBuild.status,
+          housingRiskStatus: housingRiskBuild.status
+        })
+      });
+    } catch (error) {
+      const unavailable = makeFinancialStorylineUnavailableResult("storyline-build-failed", {
+        error: error?.message || String(error),
+        resourceWaterfallStatus: resourceWaterfallBuild.status,
+        housingRiskStatus: housingRiskBuild.status
+      });
+      unavailable.warnings = unavailable.warnings.concat(bridgeWarnings);
+      unavailable.trace.resourceWaterfallStatus = resourceWaterfallBuild.status;
+      unavailable.trace.housingRiskStatus = housingRiskBuild.status;
+      return unavailable;
+    }
+  }
+
   function buildIncomeImpactResultFromBaseContext(state, baseContext, sliderValueOverride) {
     const safeState = isPlainObject(state) ? state : {};
     const context = isPlainObject(baseContext) ? baseContext : buildBaseIncomeImpactContextFromState(safeState);
@@ -4071,14 +4302,16 @@
       lifestyleScenario
     });
     upsertAppliedScenarioRecord(safeState, appliedScenarioRecord);
+    const selectedScenarioId = safeState.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID;
+    const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
+      ? clonePlainValue(safeState.appliedScenarios)
+      : [clonePlainValue(appliedScenarioRecord)];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario,
       riskEvaluation,
       comparisonScenarios,
-      appliedScenarios: Array.isArray(safeState.appliedScenarios)
-        ? clonePlainValue(safeState.appliedScenarios)
-        : [clonePlainValue(appliedScenarioRecord)],
-      selectedScenarioId: safeState.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID,
+      appliedScenarios: appliedScenariosSnapshot,
+      selectedScenarioId,
       options: {
         preserveSignedResources: true,
         currentAgeMode: "death-event-only"
@@ -4093,7 +4326,7 @@
       .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : [])
       .concat(Array.isArray(graphModel?.warnings) ? graphModel.warnings : []);
 
-    return {
+    const timelineResult = {
       selectedDeath: {
         date: context.selectedDeath?.date || scenario?.scenario?.selectedDeathDate || context.controls?.selectedDeathDate || null,
         age: context.selectedDeath?.age ?? scenario?.scenario?.selectedDeathAge ?? context.controls?.selectedDeathAge ?? null
@@ -4137,6 +4370,13 @@
         retiredTimelineChartRendered: false
       }
     };
+    timelineResult.financialStoryline = buildFinancialStorylineForTimelineResult(safeState, timelineResult, {
+      comparisonScenarios,
+      appliedScenarios: appliedScenariosSnapshot,
+      selectedScenarioId,
+      controls: context.controls
+    });
+    return timelineResult;
   }
 
   function buildIncomeImpactResultFromState(state) {
@@ -4163,14 +4403,16 @@
       safeState,
       isPlainObject(selectedScenario.settings) ? selectedScenario.settings : null
     );
+    const selectedScenarioId = safeState.selectedScenarioId || getAppliedScenarioId(selectedScenario, 0);
+    const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
+      ? clonePlainValue(safeState.appliedScenarios)
+      : [clonePlainValue(selectedScenario)];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario,
       riskEvaluation,
       comparisonScenarios,
-      appliedScenarios: Array.isArray(safeState.appliedScenarios)
-        ? clonePlainValue(safeState.appliedScenarios)
-        : [clonePlainValue(selectedScenario)],
-      selectedScenarioId: safeState.selectedScenarioId || getAppliedScenarioId(selectedScenario, 0),
+      appliedScenarios: appliedScenariosSnapshot,
+      selectedScenarioId,
       options: {
         preserveSignedResources: true,
         currentAgeMode: "death-event-only"
@@ -4185,7 +4427,7 @@
       .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : [])
       .concat(Array.isArray(graphModel?.warnings) ? graphModel.warnings : []);
 
-    return {
+    const timelineResult = {
       selectedDeath: {
         date: scenario?.scenario?.selectedDeathDate || settings.selectedDeathDate || null,
         age: scenario?.scenario?.selectedDeathAge ?? settings.selectedDeathAge ?? null
@@ -4220,6 +4462,13 @@
         retiredTimelineChartRendered: false
       }
     };
+    timelineResult.financialStoryline = buildFinancialStorylineForTimelineResult(safeState, timelineResult, {
+      comparisonScenarios,
+      appliedScenarios: appliedScenariosSnapshot,
+      selectedScenarioId,
+      controls: settings
+    });
+    return timelineResult;
   }
 
   function getAppliedScenarioId(appliedScenario, index) {
@@ -4652,6 +4901,9 @@
     const composeIncomeImpactScenario = currentLensAnalysis.composeIncomeImpactScenario;
     const evaluateIncomeImpactRiskEvents = currentLensAnalysis.evaluateIncomeImpactRiskEvents;
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
+    const buildIncomeImpactFinancialStorylineCandidates = currentLensAnalysis.buildIncomeImpactFinancialStorylineCandidates;
+    const buildIncomeImpactResourceWaterfall = currentLensAnalysis.buildIncomeImpactResourceWaterfall;
+    const buildIncomeImpactHousingRisk = currentLensAnalysis.buildIncomeImpactHousingRisk;
     const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
     const calculateIncomeImpactCompressionScenario = currentLensAnalysis.calculateIncomeImpactCompressionScenario;
     const calculateIncomeImpactLifestyleScenario = currentLensAnalysis.incomeImpactLifestyleScenarioCalculations?.calculateIncomeImpactLifestyleScenario;
@@ -4720,6 +4972,9 @@
         composeIncomeImpactScenario,
         evaluateIncomeImpactRiskEvents,
         buildIncomeImpactTimelineGraphModel,
+        buildIncomeImpactFinancialStorylineCandidates,
+        buildIncomeImpactResourceWaterfall,
+        buildIncomeImpactHousingRisk,
         prepareIncomeImpactCompressionReportingInputs,
         calculateIncomeImpactCompressionScenario,
         calculateIncomeImpactLifestyleScenario,

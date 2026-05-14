@@ -15,7 +15,7 @@ function readRepoFile(relativePath) {
 function createDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact };\n})(window);\n"
+    "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact, buildFinancialStorylineForTimelineResult };\n})(window);\n"
   );
   const sandbox = {
     console,
@@ -33,6 +33,20 @@ function createDisplayHarness(source) {
     filename: "income-loss-impact-display.js"
   });
   return sandbox.window.__incomeImpactVisualTimelineHarness;
+}
+
+function createBrowserGlobalHelperHarness(sources) {
+  const sandbox = {
+    console
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  sources.forEach(function (source) {
+    vm.runInNewContext(source, sandbox, {
+      filename: "income-impact-storyline-helper.js"
+    });
+  });
+  return sandbox.LensApp?.lensAnalysis || {};
 }
 
 function getPathD(html, dataAttributeName, dataAttributeValue) {
@@ -214,16 +228,33 @@ function makeLifestyleScenarioFixture({ sliderValue, monthlyDelta, depletionMont
 }
 
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+const resourceWaterfallSource = readRepoFile("app/features/lens-analysis/income-impact-resource-waterfall-calculations.js");
+const housingRiskSource = readRepoFile("app/features/lens-analysis/income-impact-housing-risk-calculations.js");
+const financialStorylineSource = readRepoFile("app/features/lens-analysis/income-impact-financial-storyline-calculations.js");
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const componentsSource = readRepoFile("components.css");
 const layoutSource = readRepoFile("layout.css");
 const stylesSource = readRepoFile("styles.css");
 const workspaceSideNavSource = readRepoFile("workspace-side-nav.js");
 const harness = createDisplayHarness(displaySource);
+const browserGlobalHelpers = createBrowserGlobalHelperHarness([
+  resourceWaterfallSource,
+  housingRiskSource,
+  financialStorylineSource
+]);
 
 assert.equal(typeof harness.renderTimeline, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
+assert.equal(typeof harness.buildFinancialStorylineForTimelineResult, "function");
+assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceWaterfall, "function");
+assert.equal(typeof browserGlobalHelpers.buildIncomeImpactHousingRisk, "function");
+assert.equal(typeof browserGlobalHelpers.buildIncomeImpactFinancialStorylineCandidates, "function");
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
+assert.match(
+  pageSource,
+  /income-impact-resource-waterfall-calculations\.js[\s\S]*income-impact-housing-risk-calculations\.js[\s\S]*income-impact-financial-storyline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
+  "Income Impact page should load pure storyline helpers before the display bridge."
+);
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
 assert.match(pageSource, /Preview only &mdash; LENS recommendation unchanged\./);
@@ -245,6 +276,11 @@ assert.match(
 );
 assert.match(pageSource, /data-income-impact-scenario-banner/);
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
+assert.match(displaySource, /buildIncomeImpactFinancialStorylineCandidates/);
+assert.match(displaySource, /buildIncomeImpactResourceWaterfall/);
+assert.match(displaySource, /buildIncomeImpactHousingRisk/);
+assert.match(displaySource, /financialStoryline/);
+assert.match(displaySource, /rendered:\s*false/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
 assert.match(displaySource, /renderTopSummaryStrip/);
 assert.match(displaySource, /data-income-impact-summary-strip/);
@@ -258,6 +294,153 @@ assert.doesNotMatch(displaySource, />Story scaffold</);
 assert.doesNotMatch(displaySource, /Reserved for the future sequence/);
 assert.doesNotMatch(displaySource, />Starting resources<|>Runway pressure<|>Depletion outcome</);
 assert.match(displaySource, /data-income-impact-chart-section/);
+
+const storylineTimelineResult = {
+  selectedDeath: { date: "2031-04-29", age: 46 },
+  scenario: {
+    status: "complete",
+    scenario: { selectedDeathDate: "2031-04-29", selectedDeathAge: 46 },
+    deathEvent: { immediateObligations: 15000 },
+    timelineFacts: {
+      monthsCovered: 36,
+      depletionDate: "2034-04-29",
+      resourcesAfterObligations: 180000
+    },
+    postDeathSeries: {
+      depletion: {
+        depleted: true,
+        depletionMonthIndex: 36,
+        depletionDate: "2034-04-29"
+      }
+    },
+    warnings: [],
+    dataGaps: []
+  },
+  riskEvaluation: { status: "complete", warnings: [], dataGaps: [] },
+  graphModel: makeGraphModel(),
+  financialRunway: {
+    totalMonthsOfSecurity: 36,
+    depletionDate: "2034-04-29"
+  },
+  warnings: [],
+  dataGaps: []
+};
+const storylineTimelineSnapshot = JSON.parse(JSON.stringify(storylineTimelineResult));
+const bridgeCalls = {
+  storyline: [],
+  resourceWaterfall: [],
+  housingRisk: []
+};
+const storylineState = {
+  buildIncomeImpactResourceWaterfall(input) {
+    bridgeCalls.resourceWaterfall.push(JSON.parse(JSON.stringify(input)));
+    return {
+      version: "income-impact-resource-waterfall-v1",
+      depletionEvents: [
+        {
+          id: "cash-depleted",
+          bucketId: "cash",
+          eventType: "bucket-depleted",
+          family: "cash",
+          displayLabel: "Cash Savings Depleted",
+          monthOffset: 10,
+          amount: { value: 50000, sourcePath: "resourceBuckets[0].startingValue" },
+          evidenceLevel: "estimated",
+          safeToRender: true,
+          sourcePath: "resourceBuckets[0]",
+          trace: { source: "test-waterfall" }
+        }
+      ],
+      timelineEvents: [],
+      warnings: [],
+      trace: { source: "test-waterfall" }
+    };
+  },
+  buildIncomeImpactHousingRisk(input) {
+    bridgeCalls.housingRisk.push(JSON.parse(JSON.stringify(input)));
+    return {
+      version: "income-impact-housing-risk-v1",
+      riskEvents: [
+        {
+          id: "housing-payment-at-risk",
+          family: "housing",
+          eventType: "housing-payment-at-risk",
+          displayLabel: "Housing Payment At Risk",
+          monthOffset: 18,
+          amount: { value: 2400, sourcePath: "housingObligations[0].monthlyPayment" },
+          evidenceLevel: "estimated",
+          safeToRender: true,
+          sourcePath: "housingObligations[0]",
+          trace: { source: "test-housing-risk" }
+        }
+      ],
+      timelineEvents: [],
+      warnings: [],
+      trace: { source: "test-housing-risk" }
+    };
+  },
+  buildIncomeImpactFinancialStorylineCandidates(input) {
+    bridgeCalls.storyline.push(JSON.parse(JSON.stringify(input)));
+    return {
+      version: "financial-storyline-candidates-v1",
+      allCandidates: [],
+      safeRenderableEvents: [
+        { id: "death-income-stops", safeToRender: true },
+        { id: "cash-savings-depleted", safeToRender: true },
+        { id: "housing-payment-at-risk", safeToRender: true }
+      ],
+      deferredCandidates: [{ id: "retirement-assets-tapped", safeToRender: false }],
+      majorStoryCandidates: [{ id: "death-income-stops" }],
+      graphDotCandidates: [{ id: "cash-savings-depleted" }],
+      suppressedCandidates: [{ id: "housing-payment-at-risk", suppressionReason: "major-card-cap" }],
+      warnings: [],
+      trace: {
+        source: "income-impact-financial-storyline-calculations",
+        selectorPolicy: "storyline-selector-v1"
+      }
+    };
+  }
+};
+const wiredFinancialStoryline = harness.buildFinancialStorylineForTimelineResult(
+  storylineState,
+  storylineTimelineResult,
+  {
+    comparisonScenarios: [],
+    appliedScenarios: [{ scenarioId: "income-impact-current-scenario" }],
+    selectedScenarioId: "income-impact-current-scenario",
+    controls: { selectedDeathDate: "2031-04-29", projectionHorizonYears: 40 }
+  }
+);
+assert.equal(wiredFinancialStoryline.trace.displayBridgeSource, "income-impact-display-financial-storyline-bridge");
+assert.equal(wiredFinancialStoryline.trace.rendered, false);
+assert.equal(wiredFinancialStoryline.trace.resourceWaterfallStatus, "built");
+assert.equal(wiredFinancialStoryline.trace.housingRiskStatus, "built");
+assert.ok(Array.isArray(wiredFinancialStoryline.majorStoryCandidates));
+assert.ok(Array.isArray(wiredFinancialStoryline.graphDotCandidates));
+assert.ok(Array.isArray(wiredFinancialStoryline.suppressedCandidates));
+assert.ok(Array.isArray(wiredFinancialStoryline.deferredCandidates));
+assert.equal(bridgeCalls.resourceWaterfall.length, 1);
+assert.equal(bridgeCalls.housingRisk.length, 1);
+assert.equal(bridgeCalls.storyline.length, 1);
+assert.equal(bridgeCalls.storyline[0].scenario.scenario.selectedDeathDate, "2031-04-29");
+assert.equal(bridgeCalls.storyline[0].resourceWaterfall.depletionEvents[0].id, "cash-depleted");
+assert.equal(bridgeCalls.storyline[0].housingRisk.riskEvents[0].id, "housing-payment-at-risk");
+assert.deepEqual(storylineTimelineResult, storylineTimelineSnapshot);
+
+const unavailableFinancialStoryline = harness.buildFinancialStorylineForTimelineResult(
+  {},
+  storylineTimelineResult,
+  { controls: { selectedDeathDate: "2031-04-29" } }
+);
+assert.ok(Array.isArray(unavailableFinancialStoryline.majorStoryCandidates));
+assert.ok(Array.isArray(unavailableFinancialStoryline.graphDotCandidates));
+assert.ok(Array.isArray(unavailableFinancialStoryline.suppressedCandidates));
+assert.ok(Array.isArray(unavailableFinancialStoryline.deferredCandidates));
+assert.match(
+  unavailableFinancialStoryline.warnings.map(function (warning) { return warning.code; }).join(" "),
+  /financial-storyline-unavailable/
+);
+
 assert.match(displaySource, /data-income-impact-graph-svg/);
 assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
@@ -1460,6 +1643,7 @@ assert.match(host.innerHTML, /Financial Depletion Story/);
 assert.match(host.innerHTML, /data-income-impact-depletion-story-empty/);
 assert.match(host.innerHTML, /Storyline events will appear here once verified timeline drivers are available\./);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-depletion-story-card/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-graph-story-dot|data-income-impact-story-card/);
 assert.doesNotMatch(host.innerHTML, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
 assert.doesNotMatch(host.innerHTML, /Remaining assets|Pre-event baseline|Required support/);
 assert.match(host.innerHTML, /data-income-impact-chart-section/);
