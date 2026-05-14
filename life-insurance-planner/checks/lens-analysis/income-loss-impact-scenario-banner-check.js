@@ -180,6 +180,16 @@ function isAllowedLensModelBuilderContractExposure() {
     && (isMortgagePaymentPlanExposure || isTreatedOngoingSupportExposure);
 }
 
+function isAllowedTreatedOngoingSupportMethodConsumption() {
+  const diff = getGitDiff("./app/features/lens-analysis/analysis-methods.js");
+  return diff.includes("resolveMethodReadyOngoingSupport")
+    && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+    && diff.includes("treated-ongoing-support-unavailable-for-method")
+    && diff.includes("supportBasis: \"treatedOngoingSupport\"")
+    && diff.includes("methodLabel: \"LENS Needs\"")
+    && diff.includes("createSimpleNeedsEssentialSupportComponent");
+}
+
 function createClassList() {
   const values = new Set();
   return {
@@ -1149,6 +1159,9 @@ const protectedChanges = getChangedFiles([
 }).filter(function (file) {
   return file !== "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js"
     || !isAllowedLensModelBuilderContractExposure();
+}).filter(function (file) {
+  return file !== "life-insurance-planner/app/features/lens-analysis/analysis-methods.js"
+    || !isAllowedTreatedOngoingSupportMethodConsumption();
 });
 assert.deepEqual(
   protectedChanges,

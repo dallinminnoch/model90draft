@@ -41,6 +41,9 @@
   const TREATED_DEBT_DIME_NON_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.nonMortgageDebtAmount";
   const TREATED_DEBT_DIME_MORTGAGE_SOURCE_PATH = "treatedDebtPayoff.dime.mortgageAmount";
   const TREATED_DEBT_NEEDS_TOTAL_SOURCE_PATH = "treatedDebtPayoff.needs.debtPayoffAmount";
+  const RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH = "ongoingSupport.annualTotalEssentialSupportCost";
+  const TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH = "treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost";
+  const TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "treatedOngoingSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost";
   const HEALTHCARE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.healthcareInflationRatePercent";
   const HEALTHCARE_EXPENSE_DEFAULTS_SOURCE_PATH = "internalHealthcareExpenseDefaults";
   const FINAL_EXPENSE_INFLATION_RATE_SOURCE_PATH = "settings.inflationAssumptions.finalExpenseInflationRatePercent";
@@ -1490,6 +1493,58 @@
     return values;
   }
 
+  function resolveMethodReadyOngoingSupport(model, warnings, options) {
+    const normalizedOptions = isPlainObject(options) ? options : {};
+    const methodLabel = normalizedOptions.methodLabel || "method";
+    const treatedOngoingSupport = getPath(model, "treatedOngoingSupport");
+    const hasTreatedOngoingSupport = isPlainObject(treatedOngoingSupport);
+    const treatedAnnualSupport = toOptionalNumber(getPath(model, TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH));
+    const treatedMonthlySupport = toOptionalNumber(getPath(model, TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH));
+    const treatedReady = hasTreatedOngoingSupport
+      && treatedOngoingSupport.status === "ready"
+      && treatedAnnualSupport != null;
+
+    if (treatedReady) {
+      return {
+        supportBasis: "treatedOngoingSupport",
+        sourcePath: TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+        monthlySourcePath: TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH,
+        annualTotalEssentialSupportCost: treatedAnnualSupport,
+        monthlyTotalEssentialSupportCost: treatedMonthlySupport,
+        fallbackUsed: false,
+        fallbackReason: null,
+        treatedOngoingSupportStatus: treatedOngoingSupport.status,
+        treatedOngoingSupportWarnings: Array.isArray(treatedOngoingSupport.warnings)
+          ? treatedOngoingSupport.warnings
+          : []
+      };
+    }
+
+    if (hasTreatedOngoingSupport) {
+      addWarning(
+        warnings,
+        "treated-ongoing-support-unavailable-for-method",
+        `${methodLabel} used raw ongoing support because treatedOngoingSupport was unavailable or missing a valid annual total.`,
+        "warning",
+        [TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH, RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH]
+      );
+    }
+
+    return {
+      supportBasis: hasTreatedOngoingSupport ? "ongoingSupportFallback" : "ongoingSupport",
+      sourcePath: RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+      monthlySourcePath: "ongoingSupport.monthlyTotalEssentialSupportCost",
+      annualTotalEssentialSupportCost: getPath(model, RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH),
+      monthlyTotalEssentialSupportCost: getPath(model, "ongoingSupport.monthlyTotalEssentialSupportCost"),
+      fallbackUsed: hasTreatedOngoingSupport,
+      fallbackReason: hasTreatedOngoingSupport ? "treated-ongoing-support-unavailable" : null,
+      treatedOngoingSupportStatus: hasTreatedOngoingSupport ? treatedOngoingSupport.status || null : null,
+      treatedOngoingSupportWarnings: hasTreatedOngoingSupport && Array.isArray(treatedOngoingSupport.warnings)
+        ? treatedOngoingSupport.warnings
+        : []
+    };
+  }
+
   function resolveEssentialSupportInflationSettings(settings) {
     const inflationAssumptions = isPlainObject(settings.inflationAssumptions)
       ? settings.inflationAssumptions
@@ -1553,7 +1608,13 @@
     return total;
   }
 
-  function calculateEssentialSupportInflationProjection(amount, durationYears, settings) {
+  function calculateEssentialSupportInflationProjection(amount, durationYears, settings, supportBasis) {
+    const supportSourcePath = isPlainObject(supportBasis) && supportBasis.sourcePath
+      ? supportBasis.sourcePath
+      : RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH;
+    const supportBasisName = isPlainObject(supportBasis) && supportBasis.supportBasis
+      ? supportBasis.supportBasis
+      : "ongoingSupport";
     const currentDollarTotal = amount * durationYears;
     const currentDollarAnnualValues = buildCurrentDollarAnnualSupportValues(amount, durationYears);
     const inflationSettings = resolveEssentialSupportInflationSettings(settings);
@@ -1570,9 +1631,10 @@
       rateSource: inflationSettings.rateSource,
       currentDollarTotal,
       projectedTotal: currentDollarTotal,
+      supportBasis: supportBasisName,
       source: inflationSettings.source,
       sourcePaths: [
-        "ongoingSupport.annualTotalEssentialSupportCost",
+        supportSourcePath,
         ...inflationSettings.sourcePaths
       ],
       helperWarnings: []
@@ -1597,7 +1659,7 @@
         applied: false,
         trace: {
           ...baseTrace,
-          sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"],
+          sourcePaths: [supportSourcePath],
           reason: "inflation-helper-unavailable",
           helperWarnings: [
             {
@@ -1644,8 +1706,15 @@
     settings,
     durationYears,
     annualAmount,
-    includeSurvivorIncomeOffset
+    includeSurvivorIncomeOffset,
+    supportBasis
   ) {
+    const supportSourcePath = isPlainObject(supportBasis) && supportBasis.sourcePath
+      ? supportBasis.sourcePath
+      : RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH;
+    const supportBasisName = isPlainObject(supportBasis) && supportBasis.supportBasis
+      ? supportBasis.supportBasis
+      : "ongoingSupport";
     const inflationSettings = resolveEssentialSupportInflationSettings(settings);
     const normalizedAnnualAmount = toOptionalNumber(annualAmount);
     const currentDollarTotal = normalizedAnnualAmount == null ? 0 : normalizedAnnualAmount * durationYears;
@@ -1662,10 +1731,11 @@
       rateSource: inflationSettings.rateSource,
       currentDollarTotal,
       projectedTotal: currentDollarTotal,
+      supportBasis: supportBasisName,
       source: inflationSettings.source,
       sourcePaths: [
         "settings.includeEssentialSupport",
-        "ongoingSupport.annualTotalEssentialSupportCost",
+        supportSourcePath,
         ...inflationSettings.sourcePaths
       ],
       helperWarnings: [],
@@ -2309,9 +2379,12 @@
     includeEssentialSupport,
     warnings
   ) {
+    const methodReadySupport = resolveMethodReadyOngoingSupport(model, warnings, {
+      methodLabel: "LENS Needs"
+    });
     const annualSupport = normalizeNonNegativeNumber(
-      getPath(model, "ongoingSupport.annualTotalEssentialSupportCost"),
-      "ongoingSupport.annualTotalEssentialSupportCost",
+      methodReadySupport.annualTotalEssentialSupportCost,
+      methodReadySupport.sourcePath,
       warnings,
       {
         negativeCode: "negative-value-treated-as-zero",
@@ -2325,7 +2398,8 @@
       const supportProjection = calculateEssentialSupportInflationProjection(
         annualSupport.value,
         needsSupportDurationYears,
-        settings
+        settings,
+        methodReadySupport
       );
       const grossSupportNeed = supportProjection.projectedTotal;
       const currentDollarGrossSupportNeed = supportProjection.trace.currentDollarTotal;
@@ -2361,6 +2435,9 @@
           inputs: {
             includeEssentialSupport: false,
             annualTotalEssentialSupportCost: annualSupport.value,
+            supportBasis: methodReadySupport.supportBasis,
+            supportBasisSourcePath: methodReadySupport.sourcePath,
+            treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
             needsSupportDurationYears,
             essentialSupportRawAmount: annualSupport.value,
             essentialSupportPreExclusionAmount: grossSupportNeed,
@@ -2378,6 +2455,9 @@
             monthlySupportNeed,
             totalSupportMonths,
             annualTotalEssentialSupportCost: annualSupport.value,
+            supportBasis: methodReadySupport.supportBasis,
+            supportBasisSourcePath: methodReadySupport.sourcePath,
+            treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
             survivorNetAnnualIncome: null,
             monthlySurvivorIncome: 0,
             survivorIncomeStartDelayMonths: 0,
@@ -2404,11 +2484,14 @@
       if (!includeSurvivorIncomeOffset) {
         return {
           value: grossSupportNeed,
-          source: "ongoingSupport.annualTotalEssentialSupportCost",
+          source: methodReadySupport.sourcePath,
           formula: essentialSupportFormula,
           inputs: {
             includeEssentialSupport: true,
             annualTotalEssentialSupportCost: annualSupport.value,
+            supportBasis: methodReadySupport.supportBasis,
+            supportBasisSourcePath: methodReadySupport.sourcePath,
+            treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
             needsSupportDurationYears,
             includeSurvivorIncomeOffset,
             essentialSupportRawAmount: annualSupport.value,
@@ -2425,6 +2508,9 @@
             monthlySupportNeed,
             totalSupportMonths,
             annualTotalEssentialSupportCost: annualSupport.value,
+            supportBasis: methodReadySupport.supportBasis,
+            supportBasisSourcePath: methodReadySupport.sourcePath,
+            treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
             survivorNetAnnualIncome: null,
             monthlySurvivorIncome: 0,
             survivorIncomeStartDelayMonths: 0,
@@ -2544,13 +2630,16 @@
 
       return {
         value: essentialSupport,
-        source: "ongoingSupport.annualTotalEssentialSupportCost",
+        source: methodReadySupport.sourcePath,
         formula: supportProjection.applied
           ? "projected support during survivor-income delay + projected post-delay support gap"
           : "support during survivor-income delay + post-delay monthly support gap",
         inputs: {
           includeEssentialSupport: true,
           annualTotalEssentialSupportCost: annualSupport.value,
+          supportBasis: methodReadySupport.supportBasis,
+          supportBasisSourcePath: methodReadySupport.sourcePath,
+          treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
           needsSupportDurationYears,
           totalSupportMonths,
           survivorNetAnnualIncome: survivorIncome.hasValue ? survivorNetAnnualIncome : null,
@@ -2571,11 +2660,11 @@
           inflation: supportProjection.trace
         },
         sourcePaths: [
-          "ongoingSupport.annualTotalEssentialSupportCost",
+          methodReadySupport.sourcePath,
           "survivorScenario.survivorNetAnnualIncome",
           "survivorScenario.survivorIncomeStartDelayMonths",
           ...supportProjection.trace.sourcePaths.filter(function (sourcePath) {
-            return sourcePath !== "ongoingSupport.annualTotalEssentialSupportCost";
+            return sourcePath !== methodReadySupport.sourcePath;
           })
         ],
         survivorIncomeOffset,
@@ -2584,6 +2673,9 @@
           monthlySupportNeed,
           totalSupportMonths,
           annualTotalEssentialSupportCost: annualSupport.value,
+          supportBasis: methodReadySupport.supportBasis,
+          supportBasisSourcePath: methodReadySupport.sourcePath,
+          treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
           survivorNetAnnualIncome: survivorIncome.hasValue ? survivorNetAnnualIncome : null,
           monthlySurvivorIncome,
           survivorIncomeStartDelayMonths: delayMonths,
@@ -2612,7 +2704,8 @@
         settings,
         needsSupportDurationYears,
         null,
-        includeSurvivorIncomeOffset
+        includeSurvivorIncomeOffset,
+        methodReadySupport
       );
 
       return {
@@ -2622,6 +2715,9 @@
         inputs: {
           includeEssentialSupport: false,
           annualTotalEssentialSupportCost: null,
+          supportBasis: methodReadySupport.supportBasis,
+          supportBasisSourcePath: methodReadySupport.sourcePath,
+          treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
           needsSupportDurationYears,
           essentialSupportRawAmount: null,
           essentialSupportPreExclusionAmount: 0,
@@ -2639,6 +2735,9 @@
           monthlySupportNeed: null,
           totalSupportMonths: needsSupportDurationYears * 12,
           annualTotalEssentialSupportCost: null,
+          supportBasis: methodReadySupport.supportBasis,
+          supportBasisSourcePath: methodReadySupport.sourcePath,
+          treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
           survivorNetAnnualIncome: null,
           monthlySurvivorIncome: 0,
           survivorIncomeStartDelayMonths: 0,
@@ -2679,7 +2778,7 @@
           "essential-support-income-fallback-used",
           "LENS Analysis used annualIncomeReplacementBase because annualTotalEssentialSupportCost was missing and allowIncomeFallback was true.",
           "warning",
-          ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase"]
+          [methodReadySupport.sourcePath, "incomeBasis.annualIncomeReplacementBase"]
         );
 
         return {
@@ -2700,7 +2799,7 @@
       "missing-essential-support-cost",
       "annualTotalEssentialSupportCost was missing; LENS Analysis essential support component defaulted to 0.",
       "warning",
-      ["ongoingSupport.annualTotalEssentialSupportCost"]
+      [methodReadySupport.sourcePath]
     );
 
     return {
@@ -2711,7 +2810,7 @@
         annualTotalEssentialSupportCost: null,
         needsSupportDurationYears
       },
-      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
+      sourcePaths: [methodReadySupport.sourcePath]
     };
   }
 
@@ -3256,6 +3355,10 @@
   }
 
   function createSimpleNeedsEssentialSupportComponent(model, supportYears, includeEssentialSupport, warnings) {
+    const methodReadySupport = resolveMethodReadyOngoingSupport(model, warnings, {
+      methodLabel: "Simple Needs"
+    });
+
     if (!includeEssentialSupport) {
       return {
         value: 0,
@@ -3271,8 +3374,8 @@
     }
 
     const annualSupport = normalizeNonNegativeNumber(
-      getPath(model, "ongoingSupport.annualTotalEssentialSupportCost"),
-      "ongoingSupport.annualTotalEssentialSupportCost",
+      methodReadySupport.annualTotalEssentialSupportCost,
+      methodReadySupport.sourcePath,
       warnings,
       {
         negativeCode: "negative-value-treated-as-zero",
@@ -3285,13 +3388,16 @@
         value: annualSupport.value * supportYears,
         annualValue: annualSupport.value,
         formula: "annualTotalEssentialSupportCost x supportYears",
-        source: "ongoingSupport.annualTotalEssentialSupportCost",
+        source: methodReadySupport.sourcePath,
         inputs: {
           included: true,
           annualTotalEssentialSupportCost: annualSupport.value,
+          supportBasis: methodReadySupport.supportBasis,
+          supportBasisSourcePath: methodReadySupport.sourcePath,
+          treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
           supportYears
         },
-        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "settings.supportYears"]
+        sourcePaths: [methodReadySupport.sourcePath, "settings.supportYears"]
       };
     }
 
@@ -3311,7 +3417,7 @@
         "simple-needs-essential-support-income-fallback-used",
         "Simple Needs used annualIncomeReplacementBase because annualTotalEssentialSupportCost was missing.",
         "warning",
-        ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase"]
+        [methodReadySupport.sourcePath, "incomeBasis.annualIncomeReplacementBase"]
       );
 
       return {
@@ -3333,7 +3439,7 @@
       "missing-simple-needs-essential-support-basis",
       "annualTotalEssentialSupportCost and annualIncomeReplacementBase were missing; Simple Needs essential support defaulted to 0.",
       "warning",
-      ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase"]
+      [methodReadySupport.sourcePath, "incomeBasis.annualIncomeReplacementBase"]
     );
 
     return {
@@ -3344,10 +3450,13 @@
       inputs: {
         included: true,
         annualTotalEssentialSupportCost: null,
+        supportBasis: methodReadySupport.supportBasis,
+        supportBasisSourcePath: methodReadySupport.sourcePath,
+        treatedOngoingSupportFallbackUsed: methodReadySupport.fallbackUsed,
         annualIncomeReplacementBase: null,
         supportYears
       },
-      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "incomeBasis.annualIncomeReplacementBase", "settings.supportYears"]
+      sourcePaths: [methodReadySupport.sourcePath, "incomeBasis.annualIncomeReplacementBase", "settings.supportYears"]
     };
   }
 
@@ -4062,9 +4171,10 @@
     trace.push(createTraceRow({
       key: "grossAnnualHouseholdSupportNeed",
       label: "Gross Annual Household Support Need",
-      formula: "ongoingSupport.annualTotalEssentialSupportCost",
+      formula: supportDetails.supportBasisSourcePath || RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
       inputs: {
         includeEssentialSupport,
+        supportBasis: supportDetails.supportBasis || null,
         annualTotalEssentialSupportCost: supportDetails.annualTotalEssentialSupportCost == null
           ? null
           : supportDetails.annualTotalEssentialSupportCost
@@ -4072,7 +4182,7 @@
       value: supportDetails.annualTotalEssentialSupportCost == null
         ? null
         : supportDetails.annualTotalEssentialSupportCost,
-      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
+      sourcePaths: [supportDetails.supportBasisSourcePath || RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH]
     }));
     trace.push(createTraceRow({
       key: "supportDuration",
@@ -4140,7 +4250,10 @@
         survivorIncomeStartDelayMonths: supportDetails.survivorIncomeStartDelayMonths
       },
       value: supportDetails.supportNeedDuringDelay == null ? null : supportDetails.supportNeedDuringDelay,
-      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "survivorScenario.survivorIncomeStartDelayMonths"]
+      sourcePaths: [
+        supportDetails.supportBasisSourcePath || RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+        "survivorScenario.survivorIncomeStartDelayMonths"
+      ]
     }));
     trace.push(createTraceRow({
       key: "supportGapAfterSurvivorIncomeStarts",
@@ -4153,7 +4266,10 @@
       value: supportDetails.monthlySupportGapAfterIncomeStarts == null
         ? null
         : supportDetails.monthlySupportGapAfterIncomeStarts,
-      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "survivorScenario.survivorNetAnnualIncome"]
+      sourcePaths: [
+        supportDetails.supportBasisSourcePath || RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+        "survivorScenario.survivorNetAnnualIncome"
+      ]
     }));
     trace.push(createTraceRow({
       key: "supportNeedAfterSurvivorIncomeStarts",
@@ -4166,7 +4282,10 @@
       value: supportDetails.supportNeedAfterIncomeStarts == null
         ? null
         : supportDetails.supportNeedAfterIncomeStarts,
-      sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost", "survivorScenario.survivorNetAnnualIncome"]
+      sourcePaths: [
+        supportDetails.supportBasisSourcePath || RAW_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH,
+        "survivorScenario.survivorNetAnnualIncome"
+      ]
     }));
     trace.push(createTraceRow({
       key: "education",

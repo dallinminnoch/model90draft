@@ -221,6 +221,23 @@ function findTrace(result, key) {
     : null;
 }
 
+function getGitDiff(relativePath) {
+  return execFileSync("git", ["diff", "--", `./${relativePath}`], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+}
+
+function isAllowedTreatedOngoingSupportMethodConsumption() {
+  const diff = getGitDiff("app/features/lens-analysis/analysis-methods.js");
+  return diff.includes("resolveMethodReadyOngoingSupport")
+    && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+    && diff.includes("treated-ongoing-support-unavailable-for-method")
+    && diff.includes("supportBasis: \"treatedOngoingSupport\"")
+    && diff.includes("createSimpleNeedsEssentialSupportComponent")
+    && diff.includes("methodLabel: \"LENS Needs\"");
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-methods.js",
@@ -240,7 +257,15 @@ function assertNoProtectedDiffs() {
   }).split(/\r?\n/).filter(Boolean).map((line) => {
     return line.slice(3).trim().replace(/^life-insurance-planner\//, "");
   });
-  const protectedDiffs = changedFiles.filter((filePath) => protectedFiles.has(filePath));
+  const protectedDiffs = changedFiles.filter((filePath) => {
+    if (!protectedFiles.has(filePath)) {
+      return false;
+    }
+    if (filePath === "app/features/lens-analysis/analysis-methods.js") {
+      return !isAllowedTreatedOngoingSupportMethodConsumption();
+    }
+    return true;
+  });
 
   assert.deepEqual(protectedDiffs, [], "Out-of-scope method, UI, display, helper, page, and app files should not change.");
 }
@@ -372,7 +397,8 @@ assert.doesNotMatch(treatedSupportSlice, /payoffPercent|manualYears|manualTerm|r
 assert.match(treatedSupportSlice, /finalMonthlyMortgagePayment/);
 
 const methodsSource = readRepoFile("app/features/lens-analysis/analysis-methods.js");
-assert.equal(methodsSource.includes("treatedOngoingSupport"), false, "Current methods should not consume treatedOngoingSupport.");
+assert.match(methodsSource, /resolveMethodReadyOngoingSupport/);
+assert.match(methodsSource, /treatedOngoingSupport\.mortgageAdjusted\.annualTotalEssentialSupportCost/);
 const methodResults = lensAnalysis.analysisMethods.runAnalysisMethods(payoffModel, {
   includeExistingCoverageOffset: false,
   includeOffsetAssets: false,
@@ -385,9 +411,9 @@ const methodResults = lensAnalysis.analysisMethods.runAnalysisMethods(payoffMode
 });
 const needsEssentialTrace = findTrace(methodResults.needsAnalysis, "essentialSupport");
 assert.ok(needsEssentialTrace, "Needs Analysis should expose an essentialSupport trace.");
-assert.match(JSON.stringify(needsEssentialTrace), /ongoingSupport\.annualTotalEssentialSupportCost/);
-assert.equal(JSON.stringify(needsEssentialTrace).includes("treatedOngoingSupport"), false);
-assert.equal(JSON.stringify(methodResults).includes("treatedOngoingSupport"), false);
+assert.match(JSON.stringify(needsEssentialTrace), /treatedOngoingSupport\.mortgageAdjusted\.annualTotalEssentialSupportCost/);
+assert.equal(JSON.stringify(methodResults.dime).includes("treatedOngoingSupport"), false);
+assert.equal(JSON.stringify(methodResults.humanLifeValue).includes("treatedOngoingSupport"), false);
 
 assertNoProtectedDiffs();
 
