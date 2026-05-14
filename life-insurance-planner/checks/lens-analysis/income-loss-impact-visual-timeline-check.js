@@ -149,9 +149,13 @@ function makeGraphModel(mode = "forward-projection") {
             { id: "before-death", label: "Before death", date: "2026-04-29", relativeYears: null, xRatio: 0 }
           ]),
           { id: "death", label: "Death", date: "2031-04-29", relativeYears: 0, xRatio: deathXRatio },
-          { id: "plus-5", label: "+5 years", date: "2036-04-29", relativeYears: 5, xRatio: 0.42 },
-          { id: "plus-10", label: "+10 years", date: "2041-04-29", relativeYears: 10, xRatio: 0.62 },
-          { id: "plus-15", label: "+15 years", date: "2046-04-29", relativeYears: 15, xRatio: 0.82 }
+          { id: "plus-12", label: "+1 year", date: "2032-04-29", relativeYears: 1, xRatio: 0.31 },
+          { id: "plus-24", label: "+2 years", date: "2033-04-29", relativeYears: 2, xRatio: 0.37 },
+          { id: "plus-36", label: "+3 years", date: "2034-04-29", relativeYears: 3, xRatio: 0.43 },
+          { id: "plus-60", label: "+5 years", date: "2036-04-29", relativeYears: 5, xRatio: 0.52 },
+          { id: "plus-84", label: "+7 years", date: "2038-04-29", relativeYears: 7, xRatio: 0.6 },
+          { id: "plus-120", label: "+10 years", date: "2041-04-29", relativeYears: 10, xRatio: 0.72 },
+          { id: "plus-180", label: "+15 years", date: "2046-04-29", relativeYears: 15, xRatio: 0.9 }
         ]
       },
       y: {
@@ -543,17 +547,17 @@ assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*jus
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*color:\s*#8a97b0;[\s\S]*font-family:\s*"Inter",\s*sans-serif;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story-card|\.income-impact-depletion-story-dot|\.income-impact-depletion-story-icon|\.income-impact-depletion-story-legend/);
-assert.match(componentsSource, /\.income-impact-graph\s*\{[\s\S]*padding:\s*0;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-header[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-story-chart-card \.income-impact-graph > \.income-impact-lifestyle-impact-readout,[\s\S]*\.income-impact-story-chart-card \.income-impact-chart-section > \.income-impact-section-header[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-svg/);
-assert.match(componentsSource, /\.income-impact-graph\s*\{[\s\S]*background:\s*#ffffff;/);
-assert.match(componentsSource, /\.income-impact-graph-phase--pre-death[\s\S]*fill:\s*#ffffff;/);
-assert.match(componentsSource, /\.income-impact-graph-phase--post-death[\s\S]*fill:\s*#ffffff;/);
-assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);/);
-assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--pre-death[\s\S]*fill:\s*rgba\(64,\s*84,\s*184,\s*0\.06\);/);
-assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--post-death[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.045\);/);
+assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*#ffffff;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[^}]*\}/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*rgba\(64,\s*84,\s*184,\s*0\.06\);[^}]*\}/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.045\);[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-death-conversion-spine[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*3\.2;/);
