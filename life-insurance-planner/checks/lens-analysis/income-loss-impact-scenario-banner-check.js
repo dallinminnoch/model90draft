@@ -152,7 +152,7 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
   });
 }
 
-function isAllowedMortgagePaymentPlanModelExposure() {
+function isAllowedLensModelBuilderContractExposure() {
   const diff = getGitDiff("app/features/lens-analysis/lens-model-builder.js");
   const changedLines = diff
     .split(/\r?\n/)
@@ -162,14 +162,22 @@ function isAllowedMortgagePaymentPlanModelExposure() {
   const hasRemovedLines = changedLines.some(function (line) {
     return line.startsWith("-");
   });
-
-  return changedLines.length > 0
-    && !hasRemovedLines
-    && diff.includes("treatedMortgagePaymentPlan")
+  const isMortgagePaymentPlanExposure = diff.includes("treatedMortgagePaymentPlan")
     && diff.includes("createPreparedTreatedMortgagePaymentPlan")
     && diff.includes("calculateTreatedMortgagePaymentPlan")
     && diff.includes("consumedByMethods: false")
     && diff.includes("formulaActive: false");
+  const isTreatedOngoingSupportExposure = diff.includes("treatedOngoingSupport")
+    && diff.includes("createPreparedTreatedOngoingSupport")
+    && diff.includes("treatedMortgagePaymentPlan.finalMonthlyMortgagePayment")
+    && diff.includes("mortgageTreatmentRecalculated: false")
+    && diff.includes("consumedByMethods: false")
+    && diff.includes("mortgageTreatmentConsumed: false")
+    && diff.includes("associatedHousingCostsPreserved: true");
+
+  return changedLines.length > 0
+    && !hasRemovedLines
+    && (isMortgagePaymentPlanExposure || isTreatedOngoingSupportExposure);
 }
 
 function createClassList() {
@@ -1140,7 +1148,7 @@ const protectedChanges = getChangedFiles([
   return file !== "life-insurance-planner/layout.css" || !isAllowedIncomeImpactSidePanelLayoutChange();
 }).filter(function (file) {
   return file !== "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js"
-    || !isAllowedMortgagePaymentPlanModelExposure();
+    || !isAllowedLensModelBuilderContractExposure();
 });
 assert.deepEqual(
   protectedChanges,

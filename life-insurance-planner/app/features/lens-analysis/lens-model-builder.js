@@ -27,6 +27,14 @@
     "income-impact",
     "survivor-needs-accounting"
   ]);
+  const TREATED_ONGOING_SUPPORT_VERSION = "treated-ongoing-support-v1";
+  const TREATED_ONGOING_SUPPORT_ASSOCIATED_HOUSING_FIELDS = Object.freeze([
+    "monthlyPropertyTax",
+    "monthlyHousingInsurance",
+    "monthlyHoaCost",
+    "monthlyUtilities",
+    "monthlyMaintenanceAndRepairs"
+  ]);
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
     includeSurvivorIncome: true,
     applyStartDelay: true,
@@ -115,6 +123,11 @@
 
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function roundMoney(value) {
+    const number = toOptionalNumber(value);
+    return number == null ? null : Math.round((number + Number.EPSILON) * 100) / 100;
   }
 
   function getFirstPresent(source, fieldNames) {
@@ -2601,6 +2614,194 @@
     };
   }
 
+  function sumOptionalSupportValues(values) {
+    const safeValues = Array.isArray(values) ? values : [];
+    let hasValue = false;
+    let total = 0;
+
+    safeValues.forEach(function (value) {
+      const number = toOptionalNumber(value);
+      if (number == null) {
+        return;
+      }
+      hasValue = true;
+      total += number;
+    });
+
+    return hasValue ? roundMoney(total) : null;
+  }
+
+  function createTreatedOngoingSupportWarning(code, message, details) {
+    return createWarning(code, message, details);
+  }
+
+  function resolveAssociatedHousingCostForTreatedSupport(ongoingSupport, warnings) {
+    const safeOngoingSupport = isPlainObject(ongoingSupport) ? ongoingSupport : {};
+    const granularComponents = TREATED_ONGOING_SUPPORT_ASSOCIATED_HOUSING_FIELDS
+      .map(function (fieldName) {
+        return {
+          fieldName,
+          sourcePath: `ongoingSupport.${fieldName}`,
+          value: toOptionalNumber(safeOngoingSupport[fieldName])
+        };
+      })
+      .filter(function (component) {
+        return component.value != null;
+      });
+
+    if (granularComponents.length) {
+      return {
+        value: sumOptionalSupportValues(granularComponents.map(function (component) { return component.value; })),
+        source: "granular-associated-housing-fields",
+        sourcePaths: granularComponents.map(function (component) { return component.sourcePath; }),
+        formula: granularComponents.map(function (component) { return component.sourcePath; }).join(" + "),
+        fallbackUsed: false
+      };
+    }
+
+    const originalHousingSupport = toOptionalNumber(safeOngoingSupport.monthlyHousingSupportCost);
+    const originalMortgagePayment = toOptionalNumber(safeOngoingSupport.monthlyMortgagePayment);
+    if (originalHousingSupport != null && originalMortgagePayment != null) {
+      const difference = roundMoney(originalHousingSupport - originalMortgagePayment);
+      const associatedHousingCost = roundMoney(Math.max(difference, 0));
+      warnings.push(createTreatedOngoingSupportWarning(
+        "treated-ongoing-support-associated-housing-fallback",
+        "Treated ongoing support used monthly housing support minus mortgage-only payment because granular associated housing fields were unavailable.",
+        {
+          monthlyHousingSupportCost: originalHousingSupport,
+          monthlyMortgagePayment: originalMortgagePayment,
+          unclampedAssociatedHousingCost: difference
+        }
+      ));
+      return {
+        value: associatedHousingCost,
+        source: "monthly-housing-minus-mortgage-fallback",
+        sourcePaths: [
+          "ongoingSupport.monthlyHousingSupportCost",
+          "ongoingSupport.monthlyMortgagePayment"
+        ],
+        formula: "ongoingSupport.monthlyHousingSupportCost - ongoingSupport.monthlyMortgagePayment",
+        fallbackUsed: true
+      };
+    }
+
+    warnings.push(createTreatedOngoingSupportWarning(
+      "treated-ongoing-support-associated-housing-unavailable",
+      "Treated ongoing support could not determine associated housing costs from granular fields or housing-minus-mortgage fallback.",
+      {
+        monthlyHousingSupportCost: originalHousingSupport,
+        monthlyMortgagePayment: originalMortgagePayment
+      }
+    ));
+    return {
+      value: null,
+      source: "unavailable",
+      sourcePaths: [],
+      formula: null,
+      fallbackUsed: false
+    };
+  }
+
+  function createPreparedTreatedOngoingSupport(lensModel) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const ongoingSupport = isPlainObject(safeLensModel.ongoingSupport) ? safeLensModel.ongoingSupport : {};
+    const treatedMortgagePaymentPlan = isPlainObject(safeLensModel.treatedMortgagePaymentPlan)
+      ? safeLensModel.treatedMortgagePaymentPlan
+      : {};
+    const warnings = [];
+    const originalMonthlyMortgagePayment = toOptionalNumber(ongoingSupport.monthlyMortgagePayment);
+    const originalMonthlyHousingSupportCost = toOptionalNumber(ongoingSupport.monthlyHousingSupportCost);
+    const originalMonthlyNonHousingEssentialSupportCost = toOptionalNumber(
+      ongoingSupport.monthlyNonHousingEssentialSupportCost
+    );
+    const originalMonthlyTotalEssentialSupportCost = toOptionalNumber(ongoingSupport.monthlyTotalEssentialSupportCost);
+    const originalAnnualTotalEssentialSupportCost = toOptionalNumber(ongoingSupport.annualTotalEssentialSupportCost);
+    const associatedHousing = resolveAssociatedHousingCostForTreatedSupport(ongoingSupport, warnings);
+    const finalMortgagePayment = toOptionalNumber(treatedMortgagePaymentPlan.finalMonthlyMortgagePayment);
+    const mortgagePlanWarnings = Array.isArray(treatedMortgagePaymentPlan.warnings)
+      ? treatedMortgagePaymentPlan.warnings
+      : [];
+    let status = "ready";
+    let treatedMonthlyMortgagePayment = null;
+    let treatedMonthlyHousingSupportCost = null;
+    let treatedMonthlyTotalEssentialSupportCost = null;
+    let treatedAnnualTotalEssentialSupportCost = null;
+
+    if (finalMortgagePayment == null) {
+      status = "unavailable";
+      warnings.push(createTreatedOngoingSupportWarning(
+        "treated-ongoing-support-final-mortgage-payment-unavailable",
+        "Treated ongoing support did not invent an adjusted mortgage payment because treatedMortgagePaymentPlan.finalMonthlyMortgagePayment was unavailable.",
+        {
+          mortgagePaymentPlanSourcePath: "treatedMortgagePaymentPlan.finalMonthlyMortgagePayment",
+          treatedMortgagePaymentPlanMode: treatedMortgagePaymentPlan.mode || null
+        }
+      ));
+    } else if (associatedHousing.value == null) {
+      status = "unavailable";
+    } else {
+      treatedMonthlyMortgagePayment = roundMoney(finalMortgagePayment);
+      treatedMonthlyHousingSupportCost = roundMoney(associatedHousing.value + treatedMonthlyMortgagePayment);
+      treatedMonthlyTotalEssentialSupportCost = sumOptionalSupportValues([
+        treatedMonthlyHousingSupportCost,
+        originalMonthlyNonHousingEssentialSupportCost
+      ]);
+      treatedAnnualTotalEssentialSupportCost = treatedMonthlyTotalEssentialSupportCost == null
+        ? null
+        : roundMoney(treatedMonthlyTotalEssentialSupportCost * 12);
+    }
+
+    return {
+      version: TREATED_ONGOING_SUPPORT_VERSION,
+      status,
+      consumedByMethods: false,
+      mortgageTreatmentConsumed: false,
+      original: {
+        monthlyMortgagePayment: originalMonthlyMortgagePayment,
+        monthlyHousingSupportCost: originalMonthlyHousingSupportCost,
+        monthlyNonHousingEssentialSupportCost: originalMonthlyNonHousingEssentialSupportCost,
+        monthlyTotalEssentialSupportCost: originalMonthlyTotalEssentialSupportCost,
+        annualTotalEssentialSupportCost: originalAnnualTotalEssentialSupportCost
+      },
+      mortgageAdjusted: {
+        monthlyMortgagePayment: treatedMonthlyMortgagePayment,
+        monthlyAssociatedHousingCost: associatedHousing.value,
+        monthlyHousingSupportCost: treatedMonthlyHousingSupportCost,
+        monthlyNonHousingEssentialSupportCost: originalMonthlyNonHousingEssentialSupportCost,
+        monthlyTotalEssentialSupportCost: treatedMonthlyTotalEssentialSupportCost,
+        annualTotalEssentialSupportCost: treatedAnnualTotalEssentialSupportCost
+      },
+      mortgagePaymentPlanSourcePath: "treatedMortgagePaymentPlan",
+      associatedHousingCostsPreserved: true,
+      warnings,
+      trace: {
+        treatmentSource: "treatedMortgagePaymentPlan",
+        accountingSource: "lens-model-builder.treatedOngoingSupport",
+        source: "lens-model-builder.treatedOngoingSupport",
+        mortgageTreatmentRecalculated: false,
+        treatmentSourcePath: "treatedMortgagePaymentPlan",
+        originalMortgagePaymentSourcePath: "ongoingSupport.monthlyMortgagePayment",
+        finalMortgagePaymentSourcePath: "treatedMortgagePaymentPlan.finalMonthlyMortgagePayment",
+        associatedHousingCostSource: associatedHousing.source,
+        associatedHousingCostSourcePaths: associatedHousing.sourcePaths,
+        associatedHousingCostFormula: associatedHousing.formula,
+        associatedHousingCostFallbackUsed: associatedHousing.fallbackUsed,
+        nonMortgageHousingCostsPreserved: true,
+        nonHousingEssentialSupportPreserved: true,
+        nonHousingEssentialSupportSourcePath: "ongoingSupport.monthlyNonHousingEssentialSupportCost",
+        monthlyTotalEssentialSupportFormula:
+          "mortgageAdjusted.monthlyHousingSupportCost + original monthlyNonHousingEssentialSupportCost",
+        annualTotalEssentialSupportFormula:
+          "mortgageAdjusted.monthlyTotalEssentialSupportCost * 12",
+        treatedMortgagePaymentPlanStatus: treatedMortgagePaymentPlan.status || null,
+        treatedMortgagePaymentPlanMode: treatedMortgagePaymentPlan.mode || null,
+        treatedMortgagePaymentPlanWarningCodes: mortgagePlanWarnings.map(function (warning) {
+          return warning?.code || null;
+        }).filter(Boolean)
+      }
+    };
+  }
+
   function attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const blockSourceObjects = isPlainObject(sourceResult?.blockSourceObjects)
@@ -2654,6 +2855,7 @@
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
         lensModel.treatedDebtPayoff = createPreparedTreatedDebtPayoff(lensModel, builderInput);
         lensModel.treatedMortgagePaymentPlan = createPreparedTreatedMortgagePaymentPlan(lensModel, builderInput);
+        lensModel.treatedOngoingSupport = createPreparedTreatedOngoingSupport(lensModel);
       }
     }
 
