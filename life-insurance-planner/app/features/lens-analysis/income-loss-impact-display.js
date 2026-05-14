@@ -4806,6 +4806,46 @@
     });
   }
 
+  function buildDisplayResourceBucketsForStoryline(state) {
+    const adapter = getDisplayStorylineHelper(state, "buildIncomeImpactResourceBucketsFromLensModel");
+    if (typeof adapter !== "function") {
+      return {
+        value: null,
+        status: "helper-unavailable",
+        warnings: [
+          createFinancialStorylineBridgeWarning(
+            "resource-bucket-adapter-helper-unavailable",
+            "Lens asset buckets were not built because the resource bucket adapter is not available."
+          )
+        ]
+      };
+    }
+
+    try {
+      const result = adapter({
+        assetFacts: state?.lensModel?.assetFacts,
+        treatedAssetOffsets: state?.lensModel?.treatedAssetOffsets
+      });
+      return {
+        value: result,
+        status: "built",
+        warnings: Array.isArray(result?.warnings) ? clonePlainValue(result.warnings) : []
+      };
+    } catch (error) {
+      return {
+        value: null,
+        status: "error",
+        warnings: [
+          createFinancialStorylineBridgeWarning(
+            "resource-bucket-adapter-build-failed",
+            "Lens asset buckets could not be built for the resource waterfall.",
+            { error: error?.message || String(error) }
+          )
+        ]
+      };
+    }
+  }
+
   function buildDisplayResourceWaterfallForStoryline(state, timelineResult, controls) {
     const builder = getDisplayStorylineHelper(state, "buildIncomeImpactResourceWaterfall");
     if (typeof builder !== "function") {
@@ -4822,19 +4862,39 @@
     }
 
     try {
+      const resourceBucketBuild = buildDisplayResourceBucketsForStoryline(state);
+      const resourceBuckets = Array.isArray(resourceBucketBuild.value?.resourceBuckets)
+        ? resourceBucketBuild.value.resourceBuckets
+        : [];
+      const adapterWarnings = Array.isArray(resourceBucketBuild.warnings)
+        ? resourceBucketBuild.warnings
+        : [];
+      const value = builder({
+        resourceBuckets,
+        scenario: timelineResult?.scenario,
+        financialRunway: timelineResult?.financialRunway,
+        postDeathSeries: timelineResult?.scenario?.postDeathSeries,
+        timelineFacts: timelineResult?.scenario?.timelineFacts,
+        options: {
+          selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
+          projectionHorizonYears: controls?.projectionHorizonYears
+        }
+      });
+      const waterfallWarnings = Array.isArray(value?.warnings) ? value.warnings : [];
       return {
-        value: builder({
-          scenario: timelineResult?.scenario,
-          financialRunway: timelineResult?.financialRunway,
-          postDeathSeries: timelineResult?.scenario?.postDeathSeries,
-          timelineFacts: timelineResult?.scenario?.timelineFacts,
-          options: {
-            selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
-            projectionHorizonYears: controls?.projectionHorizonYears
-          }
-        }),
+        value: isPlainObject(value)
+          ? Object.assign({}, value, {
+            warnings: waterfallWarnings.concat(adapterWarnings),
+            trace: Object.assign({}, isPlainObject(value.trace) ? value.trace : {}, {
+              resourceBucketAdapterStatus: resourceBucketBuild.status,
+              resourceBucketAdapterTrace: isPlainObject(resourceBucketBuild.value?.trace)
+                ? clonePlainValue(resourceBucketBuild.value.trace)
+                : null
+            })
+          })
+          : value,
         status: "built",
-        warnings: []
+        warnings: adapterWarnings
       };
     } catch (error) {
       return {
@@ -5682,6 +5742,7 @@
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
     const buildIncomeImpactAutoCompressedBaseline = currentLensAnalysis.buildIncomeImpactAutoCompressedBaseline;
     const buildIncomeImpactFinancialStorylineCandidates = currentLensAnalysis.buildIncomeImpactFinancialStorylineCandidates;
+    const buildIncomeImpactResourceBucketsFromLensModel = currentLensAnalysis.buildIncomeImpactResourceBucketsFromLensModel;
     const buildIncomeImpactResourceWaterfall = currentLensAnalysis.buildIncomeImpactResourceWaterfall;
     const buildIncomeImpactHousingRisk = currentLensAnalysis.buildIncomeImpactHousingRisk;
     const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
@@ -5754,6 +5815,7 @@
         buildIncomeImpactTimelineGraphModel,
         buildIncomeImpactAutoCompressedBaseline,
         buildIncomeImpactFinancialStorylineCandidates,
+        buildIncomeImpactResourceBucketsFromLensModel,
         buildIncomeImpactResourceWaterfall,
         buildIncomeImpactHousingRisk,
         prepareIncomeImpactCompressionReportingInputs,

@@ -232,6 +232,7 @@ function makeLifestyleScenarioFixture({ sliderValue, monthlyDelta, depletionMont
 }
 
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+const resourceBucketAdapterSource = readRepoFile("app/features/lens-analysis/income-impact-resource-bucket-adapter.js");
 const resourceWaterfallSource = readRepoFile("app/features/lens-analysis/income-impact-resource-waterfall-calculations.js");
 const housingRiskSource = readRepoFile("app/features/lens-analysis/income-impact-housing-risk-calculations.js");
 const financialStorylineSource = readRepoFile("app/features/lens-analysis/income-impact-financial-storyline-calculations.js");
@@ -242,6 +243,7 @@ const stylesSource = readRepoFile("styles.css");
 const workspaceSideNavSource = readRepoFile("workspace-side-nav.js");
 const harness = createDisplayHarness(displaySource);
 const browserGlobalHelpers = createBrowserGlobalHelperHarness([
+  resourceBucketAdapterSource,
   resourceWaterfallSource,
   housingRiskSource,
   financialStorylineSource
@@ -250,13 +252,14 @@ const browserGlobalHelpers = createBrowserGlobalHelperHarness([
 assert.equal(typeof harness.renderTimeline, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.equal(typeof harness.buildFinancialStorylineForTimelineResult, "function");
+assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceBucketsFromLensModel, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceWaterfall, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactHousingRisk, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactFinancialStorylineCandidates, "function");
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
 assert.match(
   pageSource,
-  /income-impact-resource-waterfall-calculations\.js[\s\S]*income-impact-housing-risk-calculations\.js[\s\S]*income-impact-financial-storyline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
+  /income-impact-resource-bucket-adapter\.js[\s\S]*income-impact-resource-waterfall-calculations\.js[\s\S]*income-impact-housing-risk-calculations\.js[\s\S]*income-impact-financial-storyline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
   "Income Impact page should load pure storyline helpers before the display bridge."
 );
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
@@ -281,6 +284,7 @@ assert.match(
 assert.match(pageSource, /data-income-impact-scenario-banner/);
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /buildIncomeImpactFinancialStorylineCandidates/);
+assert.match(displaySource, /buildIncomeImpactResourceBucketsFromLensModel/);
 assert.match(displaySource, /buildIncomeImpactResourceWaterfall/);
 assert.match(displaySource, /buildIncomeImpactHousingRisk/);
 assert.match(displaySource, /financialStoryline/);
@@ -342,11 +346,42 @@ const storylineTimelineResult = {
 };
 const storylineTimelineSnapshot = JSON.parse(JSON.stringify(storylineTimelineResult));
 const bridgeCalls = {
+  resourceBuckets: [],
   storyline: [],
   resourceWaterfall: [],
   housingRisk: []
 };
 const storylineState = {
+  lensModel: {
+    assetFacts: {
+      assets: [
+        {
+          assetId: "cash-checking",
+          categoryKey: "cashAndCashEquivalents",
+          typeKey: "checkingAccount",
+          label: "Checking Account",
+          currentValue: 50000
+        },
+        {
+          assetId: "emergency",
+          categoryKey: "emergencyFund",
+          typeKey: "emergencyFundReserve",
+          label: "Emergency Fund",
+          currentValue: 25000
+        }
+      ]
+    },
+    treatedAssetOffsets: {
+      assets: [
+        { assetId: "cash-checking", categoryKey: "cashAndCashEquivalents", typeKey: "checkingAccount", include: true, treatedValue: 48000 },
+        { assetId: "emergency", categoryKey: "emergencyFund", typeKey: "emergencyFundReserve", include: true, treatedValue: 25000 }
+      ]
+    }
+  },
+  buildIncomeImpactResourceBucketsFromLensModel(input) {
+    bridgeCalls.resourceBuckets.push(JSON.parse(JSON.stringify(input)));
+    return browserGlobalHelpers.buildIncomeImpactResourceBucketsFromLensModel(input);
+  },
   buildIncomeImpactResourceWaterfall(input) {
     bridgeCalls.resourceWaterfall.push(JSON.parse(JSON.stringify(input)));
     return {
@@ -434,9 +469,23 @@ assert.ok(Array.isArray(wiredFinancialStoryline.majorStoryCandidates));
 assert.ok(Array.isArray(wiredFinancialStoryline.graphDotCandidates));
 assert.ok(Array.isArray(wiredFinancialStoryline.suppressedCandidates));
 assert.ok(Array.isArray(wiredFinancialStoryline.deferredCandidates));
+assert.equal(bridgeCalls.resourceBuckets.length, 1);
 assert.equal(bridgeCalls.resourceWaterfall.length, 1);
 assert.equal(bridgeCalls.housingRisk.length, 1);
 assert.equal(bridgeCalls.storyline.length, 1);
+assert.equal(bridgeCalls.resourceBuckets[0].assetFacts.assets.length, 2);
+assert.equal(bridgeCalls.resourceBuckets[0].treatedAssetOffsets.assets.length, 2);
+assert.equal(bridgeCalls.resourceWaterfall[0].resourceBuckets.length, 2);
+assert.deepEqual(
+  bridgeCalls.resourceWaterfall[0].resourceBuckets.map(function (bucket) { return bucket.family; }),
+  ["cash", "emergencyFund"],
+  "display bridge should pass explicit Lens asset resource buckets to the waterfall helper"
+);
+assert.equal(
+  bridgeCalls.resourceWaterfall[0].resourceBuckets[0].startingValue,
+  48000,
+  "display bridge should pass treated spendable asset value into the waterfall helper"
+);
 assert.equal(bridgeCalls.storyline[0].scenario.scenario.selectedDeathDate, "2031-04-29");
 assert.equal(bridgeCalls.storyline[0].resourceWaterfall.depletionEvents[0].id, "cash-depleted");
 assert.equal(bridgeCalls.storyline[0].housingRisk.riskEvents[0].id, "housing-payment-at-risk");
@@ -549,11 +598,11 @@ assert.doesNotMatch(
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;[\s\S]*border-bottom:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.86\);/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro > div[\s\S]*display:\s*grid;[\s\S]*gap:\s*0\.22rem;[\s\S]*max-width:\s*46rem;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label[\s\S]*display:\s*none;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Lora",\s*serif;[\s\S]*font-size:\s*18px;[\s\S]*font-weight:\s*600;[\s\S]*letter-spacing:\s*-0\.02em;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Montserrat",\s*sans-serif;[\s\S]*font-size:\s*18px;[\s\S]*font-weight:\s*600;[\s\S]*letter-spacing:\s*-0\.02em;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*10\.5px;[\s\S]*line-height:\s*1\.25;/);
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;/);
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label[\s\S]*display:\s*none;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Lora",\s*serif;[\s\S]*font-size:\s*18px;[\s\S]*font-weight:\s*600;[\s\S]*letter-spacing:\s*-0\.02em;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Montserrat",\s*sans-serif;[\s\S]*font-size:\s*18px;[\s\S]*font-weight:\s*600;[\s\S]*letter-spacing:\s*-0\.02em;/);
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*10\.5px;[\s\S]*line-height:\s*1\.25;/);
 assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*padding:\s*0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);

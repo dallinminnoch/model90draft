@@ -28,6 +28,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Income Impact resource bucket adapter",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/income-impact-resource-bucket-adapter-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Income Impact resource waterfall",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/income-impact-resource-waterfall-check.js")],

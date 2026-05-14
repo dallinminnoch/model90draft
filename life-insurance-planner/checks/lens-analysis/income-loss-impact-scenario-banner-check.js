@@ -92,7 +92,7 @@ function isAllowedIncomeImpactTitleStyleOverride() {
     "max-width: none;",
     "margin: 0;",
     "color: #17202c;",
-    "font-family: \"Lora\", serif;",
+    "font-family: \"Montserrat\", sans-serif;",
     "font-size: clamp(1.34rem, 1.75vw, 1.72rem);",
     "font-weight: 840;",
     "letter-spacing: 0;",
@@ -104,7 +104,7 @@ function isAllowedIncomeImpactTitleStyleOverride() {
   ]);
   return changedLines.every(function (line) {
     if (line.startsWith("-")) {
-      return false;
+      return line.slice(1).trim() === "font-family: \"Lora\", serif;";
     }
     const text = line.slice(1).trim();
     return text.startsWith('body[data-step="income-impact"] .income-impact-page-intro')

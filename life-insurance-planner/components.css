@@ -12995,7 +12995,7 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar-
 /* Client Directory premium surface polish: component-only, current layout preserved. */
 body.clients-page {
   --client-directory-ui-font: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --client-directory-heading-font: "Lora", Georgia, "Times New Roman", serif;
+  --client-directory-heading-font: "Montserrat", "Inter", sans-serif;
   --client-directory-premium-border: rgba(203, 213, 225, 0.78);
   --client-directory-premium-shadow: 0 0.62rem 1.25rem rgba(31, 41, 55, 0.04);
   font-family: var(--client-directory-ui-font);
@@ -16995,7 +16995,7 @@ body[data-step="income-impact"] .income-impact-page-intro h1 {
   max-width: none;
   margin: 0;
   color: #0f172a;
-  font-family: "Lora", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -19194,7 +19194,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 
 .income-impact-controls-panel .income-impact-scenario-title p {
   color: #0f172a;
-  font-family: "Lora", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 0.94rem;
   font-weight: 600;
   line-height: 1.08;
