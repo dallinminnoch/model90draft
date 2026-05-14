@@ -1,8 +1,8 @@
 .client-directory-shell-layout {
   width: 100%;
   display: grid;
-  --client-directory-side-collapsed-width: 5.5rem;
-  --client-directory-side-expanded-width: 16rem;
+  --client-directory-side-collapsed-width: 13rem;
+  --client-directory-side-expanded-width: 13rem;
   grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) var(--client-directory-side-collapsed-width);
   min-height: calc(100vh - 140px);
   background: rgba(255, 255, 255, 0.97);
@@ -41,35 +41,33 @@
   min-height: 0;
   background: #ffffff;
   border-left: 1px solid rgba(213, 221, 232, 0.78);
-  overflow: visible;
+  border-top: 1px solid rgba(213, 221, 232, 0.78);
+  border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+  overflow: hidden;
 }
 
 .client-directory-side-panel-inner {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--client-directory-side-collapsed-width);
-  display: grid;
-  align-content: start;
-  gap: 0.82rem;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
   min-height: 100%;
   background: #ffffff;
-  padding: 1rem 0.86rem;
-  overflow-y: auto;
+  padding: 0;
+  overflow-y: hidden;
   overflow-x: hidden;
-  transition: width 0.18s ease, box-shadow 0.18s ease;
+  transition: none;
 }
 
 .client-directory-side-panel:hover,
 .client-directory-side-panel:focus-within {
-  z-index: 42;
+  z-index: 24;
 }
 
 .client-directory-side-panel:hover .client-directory-side-panel-inner,
 .client-directory-side-panel:focus-within .client-directory-side-panel-inner {
-  width: var(--client-directory-side-expanded-width);
-  box-shadow: -18px 0 38px rgba(16, 33, 52, 0.14);
+  width: 100%;
+  box-shadow: none;
 }
 
 .client-directory-workspace {
@@ -306,28 +304,28 @@
 
 @media (min-width: 721px) and (max-width: 1180px) {
   body.clients-page .client-directory-shell-layout {
-    grid-template-columns: minmax(9.25rem, 10rem) minmax(0, 1fr);
+    grid-template-columns: minmax(9.25rem, 10rem) minmax(0, 1fr) minmax(12rem, var(--client-directory-side-collapsed-width));
   }
 
   body.clients-page .client-directory-side-panel {
-    grid-column: 2;
-    border-left: 0;
+    grid-column: auto;
+    border-left: 1px solid rgba(213, 221, 232, 0.78);
     border-top: 1px solid rgba(213, 221, 232, 0.78);
   }
 
   body.clients-page .client-directory-side-panel-inner {
-    position: static;
-    width: auto;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    min-height: 0;
-    padding: 0.82rem;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    padding: 0;
     box-shadow: none;
-    overflow: visible;
+    overflow: hidden;
   }
 
   body.clients-page .client-directory-side-panel:hover .client-directory-side-panel-inner,
   body.clients-page .client-directory-side-panel:focus-within .client-directory-side-panel-inner {
-    width: auto;
+    width: 100%;
     box-shadow: none;
   }
 }

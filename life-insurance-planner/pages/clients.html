@@ -85,8 +85,7 @@
           <div class="client-directory-header-main">
             <input class="client-directory-import-input" type="file" accept=".json,application/json" data-directory-import-input hidden>
             <div class="client-directory-title-block">
-              <span class="client-directory-eyebrow">CLIENT DIRECTORY</span>
-              <h1 class="client-directory-page-title">Views &amp; Filters</h1>
+              <h1 class="client-directory-page-title">Client Directory</h1>
             </div>
             <div class="client-directory-title-actions client-directory-toolbar-actions" aria-label="Client directory primary actions">
               <!-- CODE NOTE: Directory sort controls now prioritize the shared Close Index engine. -->
@@ -889,124 +888,123 @@
       </section>
       <aside class="client-directory-side-panel" aria-label="Client directory schedule and messages" tabindex="0">
         <div class="client-directory-side-panel-inner">
-          <h2 class="client-directory-side-panel-title" aria-label="Notification Center">
-            <span class="client-directory-side-panel-title-icon" aria-hidden="true">
-              <img src="../Images/bell.svg" alt="">
-            </span>
-            <span class="client-directory-side-panel-title-text">Notification Center</span>
-          </h2>
-          <section class="client-directory-side-widget" aria-labelledby="client-directory-meetings-title">
-            <header class="client-directory-side-widget-header">
-              <span class="client-directory-side-widget-icon" aria-hidden="true">
-                <img src="../Images/schedulemeeting.svg" alt="">
+          <section class="client-directory-notification-panel" aria-labelledby="client-directory-notification-title">
+            <header class="client-directory-notification-header">
+              <h2 class="client-directory-notification-title" id="client-directory-notification-title">Schedule &amp; Alerts</h2>
+              <span class="client-directory-notification-bell" aria-hidden="true">
+                <img src="../Images/bell.svg" alt="">
+                <span class="client-directory-notification-pip"></span>
               </span>
-              <div class="client-directory-side-widget-title-group">
-                <span class="client-directory-side-widget-kicker">Today</span>
-                <h2 id="client-directory-meetings-title">Scheduled Meetings</h2>
-              </div>
-              <span class="client-directory-side-widget-count">3</span>
             </header>
-            <div class="client-directory-side-list">
-              <article class="client-directory-side-item">
-                <time class="client-directory-side-item-time" datetime="10:30">10:30 AM</time>
-                <span class="client-directory-side-item-compact-name">Smith</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Smith Household Review</strong>
-                  <span>Coverage gap follow-up</span>
-                </div>
-              </article>
-              <article class="client-directory-side-item">
-                <time class="client-directory-side-item-time" datetime="13:00">1:00 PM</time>
-                <span class="client-directory-side-item-compact-name">Garcia</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Garcia Policy Delivery</strong>
-                  <span>Placement handoff</span>
-                </div>
-              </article>
-              <article class="client-directory-side-item">
-                <time class="client-directory-side-item-time" datetime="15:45">3:45 PM</time>
-                <span class="client-directory-side-item-compact-name">Nguyen</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Nguyen Underwriting</strong>
-                  <span>APS status review</span>
-                </div>
-              </article>
-            </div>
-          </section>
 
-          <section class="client-directory-side-widget" aria-labelledby="client-directory-inbox-title">
-            <header class="client-directory-side-widget-header">
-              <span class="client-directory-side-widget-icon" aria-hidden="true">
-                <img src="../Images/email.svg" alt="">
-              </span>
-              <div class="client-directory-side-widget-title-group">
-                <span class="client-directory-side-widget-kicker">Unread</span>
-                <h2 id="client-directory-inbox-title">Inbox</h2>
-              </div>
-              <span class="client-directory-side-widget-count">5</span>
-            </header>
-            <div class="client-directory-side-list">
-              <article class="client-directory-side-item">
-                <span class="client-directory-side-item-time">Today</span>
-                <span class="client-directory-side-item-compact-name">Minnoch</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Carrier approval received</strong>
-                  <span>Minnoch case ready for delivery</span>
-                </div>
-              </article>
-              <article class="client-directory-side-item">
-                <span class="client-directory-side-item-time">Today</span>
-                <span class="client-directory-side-item-compact-name">Smith</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Missing financial input</strong>
-                  <span>Janet Smith needs follow-up</span>
-                </div>
-              </article>
-              <article class="client-directory-side-item">
-                <span class="client-directory-side-item-time">Tue</span>
-                <span class="client-directory-side-item-compact-name">Rober</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Signed illustration uploaded</strong>
-                  <span>Rober household package</span>
-                </div>
-              </article>
-            </div>
-          </section>
+            <div class="client-directory-notification-body">
+              <div class="client-directory-notification-day is-today">Today</div>
 
-          <section class="client-directory-side-widget" aria-labelledby="client-directory-reminders-title">
-            <header class="client-directory-side-widget-header">
-              <span class="client-directory-side-widget-icon" aria-hidden="true">
-                <img src="../Images/reminder.svg" alt="">
-              </span>
-              <div class="client-directory-side-widget-title-group">
-                <span class="client-directory-side-widget-kicker">Due Soon</span>
-                <h2 id="client-directory-reminders-title">Reminders</h2>
-              </div>
-              <span class="client-directory-side-widget-count">4</span>
-            </header>
-            <div class="client-directory-side-list">
-              <article class="client-directory-side-item is-urgent">
-                <span class="client-directory-side-item-time">Due</span>
-                <span class="client-directory-side-item-compact-name">Elkhorn</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Call Elkhorn Household</strong>
-                  <span>Decision follow-up today</span>
+              <article class="client-directory-notification-row is-unread">
+                <time class="client-directory-notification-time" datetime="10:30">10:30 AM</time>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Smith, James</strong>
+                  <span class="client-directory-notification-sub">Annual review call</span>
                 </div>
               </article>
-              <article class="client-directory-side-item">
-                <span class="client-directory-side-item-time">Fri</span>
-                <span class="client-directory-side-item-compact-name">Policy</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Send policy comparison</strong>
-                  <span>Term conversion options</span>
+
+              <article class="client-directory-notification-row is-unread">
+                <time class="client-directory-notification-time" datetime="13:00">1:00 PM</time>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Garcia, Roberto</strong>
+                  <span class="client-directory-notification-sub">Proposal presentation</span>
                 </div>
               </article>
-              <article class="client-directory-side-item">
-                <span class="client-directory-side-item-time">Mon</span>
-                <span class="client-directory-side-item-compact-name">Bottleneck</span>
-                <div class="client-directory-side-item-copy">
-                  <strong>Review bottleneck cases</strong>
-                  <span>Four profiles need updates</span>
+
+              <article class="client-directory-notification-row">
+                <time class="client-directory-notification-time" datetime="15:45">3:45 PM</time>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Nguyen, Thi</strong>
+                  <span class="client-directory-notification-sub">Policy review follow-up</span>
+                </div>
+              </article>
+
+              <div class="client-directory-notification-divider"></div>
+
+              <div class="client-directory-notification-day is-today">Alerts</div>
+
+              <article class="client-directory-notification-row is-unread">
+                <span class="client-directory-notification-time is-ok">Today</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Minnoch, Dallin</strong>
+                  <span class="client-directory-notification-sub">54 days in stage - follow up</span>
+                </div>
+              </article>
+
+              <article class="client-directory-notification-row is-unread">
+                <span class="client-directory-notification-time is-ok">Today</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Smith Household</strong>
+                  <span class="client-directory-notification-sub">Coverage gap updated</span>
+                </div>
+              </article>
+
+              <div class="client-directory-notification-divider"></div>
+
+              <div class="client-directory-notification-day">Upcoming</div>
+
+              <article class="client-directory-notification-row is-future">
+                <span class="client-directory-notification-time">Tue</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Rober, Michael</strong>
+                  <span class="client-directory-notification-sub">Underwriting check-in</span>
+                </div>
+              </article>
+
+              <article class="client-directory-notification-row is-overdue">
+                <span class="client-directory-notification-time">Due</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Elkhorn, Patricia</strong>
+                  <span class="client-directory-notification-sub">Application submitted - overdue</span>
+                </div>
+              </article>
+
+              <article class="client-directory-notification-row is-future">
+                <span class="client-directory-notification-time">Fri</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Policy Review</strong>
+                  <span class="client-directory-notification-sub">Thompson, William</span>
+                </div>
+              </article>
+
+              <article class="client-directory-notification-row is-future">
+                <span class="client-directory-notification-time">Mon</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Bottle, Andre</strong>
+                  <span class="client-directory-notification-sub">New client intake call</span>
+                </div>
+              </article>
+
+              <div class="client-directory-notification-divider"></div>
+
+              <div class="client-directory-notification-day">Next Week</div>
+
+              <article class="client-directory-notification-row is-future">
+                <span class="client-directory-notification-time">Wed</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Charlton, Sienna</strong>
+                  <span class="client-directory-notification-sub">Needs analysis session</span>
+                </div>
+              </article>
+
+              <article class="client-directory-notification-row is-future">
+                <span class="client-directory-notification-time">Thu</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Hansen, Rob</strong>
+                  <span class="client-directory-notification-sub">DIME calculation review</span>
+                </div>
+              </article>
+
+              <article class="client-directory-notification-row is-future">
+                <span class="client-directory-notification-time">Fri</span>
+                <div class="client-directory-notification-info">
+                  <strong class="client-directory-notification-name">Garcia Household</strong>
+                  <span class="client-directory-notification-sub">Close meeting - high priority</span>
                 </div>
               </article>
             </div>
