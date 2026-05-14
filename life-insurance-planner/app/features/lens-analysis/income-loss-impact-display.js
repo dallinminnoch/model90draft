@@ -5420,20 +5420,8 @@
     return upsertAppliedScenarioRecord(state, buildAppliedScenarioRecord(state, baseContext, timelineResult));
   }
 
-  function stripFoundationOnlyScenarioControls(value) {
-    if (Array.isArray(value)) {
-      return value.map(stripFoundationOnlyScenarioControls);
-    }
-    if (!isPlainObject(value)) {
-      return value;
-    }
-    return Object.keys(value).reduce(function (next, key) {
-      if (key === "autoCompressBaselineEnabled") {
-        return next;
-      }
-      next[key] = stripFoundationOnlyScenarioControls(value[key]);
-      return next;
-    }, {});
+  function cloneVisibleScenarioControlSnapshot(value) {
+    return clonePlainValue(value);
   }
 
   function getScenarioSelectionTarget(event) {
@@ -5810,8 +5798,8 @@
       }
 
       return clonePlainValue({
-        draftScenarioControls: stripFoundationOnlyScenarioControls(incomeImpactState.draftScenarioControls || null),
-        appliedScenarios: stripFoundationOnlyScenarioControls(
+        draftScenarioControls: cloneVisibleScenarioControlSnapshot(incomeImpactState.draftScenarioControls || null),
+        appliedScenarios: cloneVisibleScenarioControlSnapshot(
           Array.isArray(incomeImpactState.appliedScenarios) ? incomeImpactState.appliedScenarios : []
         ),
         selectedScenarioId: incomeImpactState.selectedScenarioId || null,

@@ -662,6 +662,13 @@ assert.match(displaySource, /mortgageTreatmentOverride/);
 assert.match(displaySource, /draftScenarioControls/);
 assert.match(displaySource, /appliedScenarios/);
 assert.match(displaySource, /selectedScenarioId/);
+assert.match(displaySource, /autoCompressBaselineEnabled/);
+assert.match(displaySource, /cloneVisibleScenarioControlSnapshot/);
+assert.doesNotMatch(
+  displaySource,
+  /stripFoundationOnlyScenarioControls/,
+  "Visible scenario-control snapshots should not use the stale foundation-only strip helper."
+);
 assert.match(displaySource, /getSelectedScenarioDisplayLabel/);
 assert.match(displaySource, /getReevaluateActionLabel/);
 assert.match(displaySource, /data-income-impact-scenario-select/);
@@ -804,7 +811,8 @@ assert.deepEqual(
     selectedDeathDate: "2026-01-01",
     projectionHorizonYears: 40,
     mortgageTreatmentOverride: "followAssumptions",
-    lifestyleSliderValue: 0
+    lifestyleSliderValue: 0,
+    autoCompressBaselineEnabled: true
   },
   "initial draft scenario controls should mirror the currently evaluated control defaults."
 );
@@ -813,6 +821,16 @@ assert.equal(initialScenarioComparisonState.appliedScenarios[0].scenarioId, "inc
 assert.equal(initialScenarioComparisonState.selectedScenarioId, initialScenarioComparisonState.appliedScenarios[0].scenarioId);
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].label, "Death tomorrow");
 assert.deepEqual(initialScenarioComparisonState.appliedScenarios[0].settings, initialScenarioComparisonState.draftScenarioControls);
+assert.equal(
+  initialScenarioComparisonState.draftScenarioControls.autoCompressBaselineEnabled,
+  true,
+  "visible auto-compression control should appear in the public scenario-control snapshot."
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(initialScenarioComparisonState.draftScenarioControls, "bannerCollapsed"),
+  false,
+  "internal banner-collapse state should stay out of visible scenario-control snapshots."
+);
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].scenario.scenario.selectedDeathAge, 45);
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].riskEvaluation.events[0].ruleId, "survivor-resources-depleted");
 assert.equal(initialScenarioComparisonState.appliedScenarios[0].lifestyleAdjustment.sliderValue, 0);

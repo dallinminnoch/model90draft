@@ -4,7 +4,7 @@
 
   const VERSION = "income-impact-auto-compressed-baseline-v1";
   const CALCULATION_SOURCE = "income-impact-auto-compressed-baseline-calculations";
-  const FORMULA = "linear-monthly-slider-ramp";
+  const FORMULA = "ease-in-monthly-slider-ramp";
   const START_SLIDER_VALUE = 0;
   const CONSERVATIVE_SLIDER_VALUE = -100;
 
@@ -64,6 +64,11 @@
 
   function clamp(value, minimum, maximum) {
     return Math.min(Math.max(value, minimum), maximum);
+  }
+
+  function getEaseInCompressionProgress(monthIndex, horizonMonths) {
+    const rawProgress = horizonMonths > 0 ? clamp(monthIndex / horizonMonths, 0, 1) : 1;
+    return clamp(rawProgress * rawProgress, 0, 1);
   }
 
   function getPostDeathSeries(input) {
@@ -247,7 +252,7 @@
     const monthlyDeltaAtConservative = compressionPolicy.monthlyDeltaAtConservative;
     const points = basePoints.map(function (basePoint, index) {
       const monthIndex = getPointMonthIndex(basePoint, index);
-      const progress = horizonMonths > 0 ? clamp(monthIndex / horizonMonths, 0, 1) : 1;
+      const progress = getEaseInCompressionProgress(monthIndex, horizonMonths);
       const sliderValue = roundMoney(
         compressionPolicy.currentSliderValue
         + ((compressionPolicy.conservativeSliderValue - compressionPolicy.currentSliderValue) * progress)
