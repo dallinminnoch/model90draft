@@ -481,6 +481,64 @@
     })
   });
 
+  const ASSET_DEPLETION_LEDGER_EVENT_MAPPINGS = Object.freeze({
+    "cash:bucket-depleted": Object.freeze({
+      candidateId: "cash-savings-depleted",
+      priority: 52,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "emergencyFund:bucket-depleted": Object.freeze({
+      candidateId: "emergency-fund-depleted",
+      priority: 54,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "otherLiquid:bucket-depleted": Object.freeze({
+      candidateId: "liquid-investments-depleted",
+      priority: 56,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false
+    }),
+    "taxableInvestments:bucket-depleted": Object.freeze({
+      candidateId: "taxable-assets-depleted",
+      priority: 57,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false
+    }),
+    "educationSavings:bucket-tapped": Object.freeze({
+      candidateId: "education-savings-used-for-living-needs",
+      priority: 60,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "educationSavings:bucket-depleted": Object.freeze({
+      candidateId: "education-savings-depleted",
+      priority: 61,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "retirementAssets:bucket-tapped": Object.freeze({
+      candidateId: "retirement-assets-tapped",
+      priority: 64,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "retirementAssets:bucket-depleted": Object.freeze({
+      candidateId: "retirement-assets-depleted",
+      priority: 66,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    })
+  });
+
+  const LEDGER_SUPPRESSED_VISIBLE_FAMILIES = Object.freeze([
+    "existingCoverage",
+    "homeEquity",
+    "businessAssets",
+    "unknown"
+  ]);
+
   const HOUSING_RISK_EVENT_MAPPINGS = Object.freeze({
     "mortgage-payments-continue": Object.freeze({
       candidateId: "mortgage-payments-continue",
@@ -1366,6 +1424,265 @@
     };
   }
 
+  function getAssetDepletionLedgerStatus(assetDepletionLedger) {
+    return normalizeString(assetDepletionLedger?.status) || "not-provided";
+  }
+
+  function isReadyAssetDepletionLedger(assetDepletionLedger) {
+    return isPlainObject(assetDepletionLedger)
+      && getAssetDepletionLedgerStatus(assetDepletionLedger) === "ready"
+      && Array.isArray(assetDepletionLedger.bucketEvents);
+  }
+
+  function getAssetDepletionLedgerEvents(assetDepletionLedger) {
+    if (!isReadyAssetDepletionLedger(assetDepletionLedger)) {
+      return [];
+    }
+    const seen = new Set();
+    return assetDepletionLedger.bucketEvents.filter(isPlainObject).filter(function (event) {
+      const key = [
+        normalizeString(event.bucketId),
+        normalizeString(event.family),
+        normalizeString(event.eventType),
+        normalizeString(event.monthIndex)
+      ].join(":");
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function normalizeLedgerEvidenceLevel(event) {
+    return normalizeString(event?.evidenceLevel) === EVIDENCE_LEVELS.calculated
+      ? EVIDENCE_LEVELS.calculated
+      : EVIDENCE_LEVELS.traceBacked;
+  }
+
+  function getLedgerEventSourcePaths(event) {
+    if (!isPlainObject(event)) {
+      return [];
+    }
+    return uniqueStrings([
+      event.sourcePath,
+      event.trace?.sourcePath,
+      event.trace?.bucketSourcePath,
+      event.trace?.source
+    ]);
+  }
+
+  function getLedgerEventAmount(event) {
+    if (!isPlainObject(event)) {
+      return null;
+    }
+    const value = normalizeString(event.eventType) === "bucket-tapped"
+      ? toOptionalNumber(event.amountAtTap)
+      : toOptionalNumber(event.amountDepleted);
+    if (value == null) {
+      return null;
+    }
+    return {
+      value,
+      sourcePath: normalizeString(event.sourcePath)
+    };
+  }
+
+  function makeSuppressedLedgerCandidate(event, reason) {
+    const evidenceLevel = normalizeLedgerEvidenceLevel(event);
+    const sourcePaths = getLedgerEventSourcePaths(event);
+    const monthIndex = toOptionalNumber(event?.monthIndex);
+    return {
+      id: [
+        "asset-depletion-ledger",
+        normalizeString(event?.bucketId) || normalizeString(event?.family) || "bucket",
+        normalizeString(event?.eventType) || "unsupported"
+      ].join("."),
+      family: normalizeString(event?.family),
+      displayLabel: normalizeString(event?.displayLabel),
+      graphLabel: normalizeString(event?.displayLabel),
+      cardTitle: normalizeString(event?.displayLabel),
+      description: normalizeString(reason),
+      severity: "deferred",
+      evidenceLevel,
+      status: STATUSES.deferred,
+      safeToRender: false,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: false,
+      timing: makeTiming("month-offset", {
+        monthOffset: monthIndex,
+        date: event?.date,
+        label: normalizeString(event?.date) || (monthIndex != null ? `Month ${monthIndex}` : ""),
+        sourcePath: normalizeString(event?.sourcePath)
+      }),
+      amount: getLedgerEventAmount(event) || makeEmptyAmount(),
+      sources: sourcePaths.map(function (sourcePath) {
+        return {
+          sourcePath,
+          evidenceLevel
+        };
+      }),
+      confidence: 0,
+      lifeInsuranceRelevance: 0,
+      emotionalWeight: 0,
+      advisorUsefulness: 0,
+      suppressionKeys: ["asset-depletion-ledger-hidden"],
+      deferredReason: reason,
+      warnings: compactObjects(event?.warnings).map(clonePlainValue),
+      priority: 999,
+      candidateSource: "asset-depletion-ledger",
+      trace: {
+        candidateSource: "asset-depletion-ledger",
+        bucketId: normalizeString(event?.bucketId),
+        family: normalizeString(event?.family),
+        ledgerEventType: normalizeString(event?.eventType)
+      }
+    };
+  }
+
+  function buildAssetDepletionLedgerBackedCandidates(assetDepletionLedger, warnings) {
+    const ledgerStatus = getAssetDepletionLedgerStatus(assetDepletionLedger);
+    if (!isReadyAssetDepletionLedger(assetDepletionLedger)) {
+      return {
+        candidates: [],
+        suppressedCandidates: [],
+        ledgerStatus,
+        usedForStoryline: false
+      };
+    }
+
+    const candidates = [];
+    const suppressedCandidates = [];
+    getAssetDepletionLedgerEvents(assetDepletionLedger).forEach(function (event) {
+      const family = normalizeString(event.family);
+      const eventType = normalizeString(event.eventType);
+      const key = `${family}:${eventType}`;
+      const mapping = ASSET_DEPLETION_LEDGER_EVENT_MAPPINGS[key];
+      const monthIndex = toOptionalNumber(event.monthIndex);
+      const sourcePaths = getLedgerEventSourcePaths(event);
+      const amount = getLedgerEventAmount(event);
+      const unsupportedReason = includesValue(LEDGER_SUPPRESSED_VISIBLE_FAMILIES, family)
+        ? "Asset depletion ledger event is mechanical or not visible-storyline eligible."
+        : !mapping
+          ? "Asset depletion ledger event does not map to a safe emotional storyline candidate in this pass."
+          : monthIndex == null && !normalizeString(event.date)
+            ? "Asset depletion ledger event has no usable timing."
+            : !amount || amount.value == null
+              ? "Asset depletion ledger event has no usable amount."
+              : !sourcePaths.length
+                ? "Asset depletion ledger event has no traceable source path."
+                : "";
+
+      if (unsupportedReason) {
+        suppressedCandidates.push(makeSuppressedLedgerCandidate(event, unsupportedReason));
+        warnings.push(makeWarning(
+          "asset-depletion-ledger-event-not-activated",
+          unsupportedReason,
+          sourcePaths.length ? sourcePaths : [normalizeString(event.sourcePath)].filter(Boolean),
+          {
+            bucketId: normalizeString(event.bucketId),
+            family,
+            eventType,
+            ledgerStatus
+          }
+        ));
+        return;
+      }
+
+      const definition = findDeferredDefinition(mapping.candidateId);
+      if (!definition) {
+        warnings.push(makeWarning(
+          "missing-ledger-storyline-definition",
+          "A supported asset depletion ledger event did not have a matching storyline registry candidate.",
+          sourcePaths,
+          {
+            candidateId: mapping.candidateId,
+            bucketId: normalizeString(event.bucketId)
+          }
+        ));
+        suppressedCandidates.push(makeSuppressedLedgerCandidate(
+          event,
+          "No matching storyline registry candidate exists."
+        ));
+        return;
+      }
+
+      const evidenceLevel = normalizeLedgerEvidenceLevel(event);
+      const candidate = makeCandidate(definition, {
+        status: STATUSES.safeNow,
+        safeToRender: true,
+        evidenceLevel,
+        eligibleForGraphDot: mapping.eligibleForGraphDot === true,
+        eligibleForMajorCard: mapping.eligibleForMajorCard === true,
+        timingKind: "month-offset",
+        timing: {
+          monthOffset: monthIndex,
+          date: event.date,
+          label: normalizeString(event.date) || (monthIndex != null ? `Month ${monthIndex}` : ""),
+          sourcePath: normalizeString(event.sourcePath)
+        },
+        amount,
+        sourcePaths,
+        confidence: evidenceLevel === EVIDENCE_LEVELS.calculated ? 0.9 : 0.84,
+        priority: mapping.priority,
+        warnings: compactObjects(event.warnings),
+        suppressionKeys: [`asset-depletion-ledger:${normalizeString(event.bucketId || family)}`]
+      });
+      candidate.candidateSource = "asset-depletion-ledger";
+      candidate.trace = {
+        candidateSource: "asset-depletion-ledger",
+        bucketId: normalizeString(event.bucketId),
+        family,
+        ledgerEventType: eventType,
+        monthIndex,
+        date: normalizeString(event.date) || null,
+        sourcePath: normalizeString(event.sourcePath),
+        amountAtTap: toOptionalNumber(event.amountAtTap),
+        amountDepleted: toOptionalNumber(event.amountDepleted),
+        withdrawalAmount: toOptionalNumber(event.withdrawalAmount ?? event.trace?.withdrawalAmount),
+        balanceBeforeWithdrawal: toOptionalNumber(event.balanceBeforeWithdrawal ?? event.trace?.balanceBeforeWithdrawal),
+        evidenceLevel,
+        ledgerStatus,
+        ledgerReconciliationStatus: isPlainObject(assetDepletionLedger.trace?.totalResourcesReconciliation)
+          ? clonePlainValue(assetDepletionLedger.trace.totalResourcesReconciliation)
+          : null,
+        aggregateRunwayPreserved: true,
+        graphLineSource: "aggregate-survivor-runway"
+      };
+      candidates.push(candidate);
+    });
+
+    const dedupedCandidates = dedupeCandidates(candidates);
+    return {
+      candidates: dedupedCandidates,
+      suppressedCandidates,
+      ledgerStatus,
+      usedForStoryline: dedupedCandidates.length > 0
+    };
+  }
+
+  function suppressWaterfallCandidatesSupersededByLedger(waterfallBacked) {
+    const candidates = (Array.isArray(waterfallBacked?.candidates) ? waterfallBacked.candidates : []);
+    const suppressedCandidates = (Array.isArray(waterfallBacked?.suppressedCandidates)
+      ? waterfallBacked.suppressedCandidates
+      : []).slice();
+    const supersededCandidateIds = [];
+    candidates.forEach(function (candidate) {
+      const id = normalizeString(candidate.id);
+      supersededCandidateIds.push(id);
+      suppressedCandidates.push(makeSelectionSuppressedCandidate(
+        candidate,
+        "superseded-by-asset-depletion-ledger",
+        "resource-waterfall"
+      ));
+    });
+    return {
+      candidates: [],
+      suppressedCandidates,
+      supersededCandidateIds: Array.from(new Set(supersededCandidateIds))
+    };
+  }
+
   function getHousingRiskEvents(housingRisk) {
     if (!isPlainObject(housingRisk)) {
       return [];
@@ -2091,10 +2408,15 @@
       ));
     }
 
-    const waterfallBacked = buildWaterfallBackedCandidates(safeInput.resourceWaterfall, warnings);
+    const ledgerBacked = buildAssetDepletionLedgerBackedCandidates(safeInput.assetDepletionLedger, warnings);
+    const rawWaterfallBacked = buildWaterfallBackedCandidates(safeInput.resourceWaterfall, warnings);
+    const waterfallBacked = ledgerBacked.usedForStoryline
+      ? suppressWaterfallCandidatesSupersededByLedger(rawWaterfallBacked)
+      : Object.assign({}, rawWaterfallBacked, { supersededCandidateIds: [] });
     const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
     const safeCandidates = dedupeCandidates(
       buildSafeCandidates(safeInput, warnings)
+        .concat(ledgerBacked.candidates)
         .concat(waterfallBacked.candidates)
         .concat(housingRiskBacked.candidates)
     );
@@ -2143,11 +2465,20 @@
       graphDotTierCounts: countBy(graphDotCandidates, function (candidate) { return candidate.dotTier; }),
       majorStoryFamilyCounts: countBy(majorStoryCandidates, function (candidate) { return candidate.family; }),
       graphDotFamilyCounts: countBy(graphDotCandidates, function (candidate) { return candidate.family; }),
-      selectorSuppressedCountsByReason: countSuppressionReasons(selectionSuppressedCandidates)
+      selectorSuppressedCountsByReason: countSuppressionReasons(selectionSuppressedCandidates),
+      assetDepletionLedgerUsedForStoryline: ledgerBacked.usedForStoryline,
+      assetDepletionLedgerStatus: ledgerBacked.ledgerStatus,
+      ledgerBackedCandidateIds: ledgerBacked.candidates.map(function (candidate) { return candidate.id; }),
+      waterfallFallbackUsed: !ledgerBacked.usedForStoryline && isPlainObject(safeInput.resourceWaterfall),
+      supersededWaterfallCandidateIds: waterfallBacked.supersededCandidateIds || [],
+      graphLineSource: "aggregate-survivor-runway"
     };
     if (isPlainObject(safeInput.resourceWaterfall)) {
       trace.activatedWaterfallCandidateIds = waterfallBacked.candidates.map(function (candidate) { return candidate.id; });
       trace.suppressedWaterfallCandidateCount = waterfallBacked.suppressedCandidates.length;
+    }
+    if (isPlainObject(safeInput.assetDepletionLedger)) {
+      trace.suppressedAssetDepletionLedgerCandidateCount = ledgerBacked.suppressedCandidates.length;
     }
     if (isPlainObject(safeInput.housingRisk)) {
       trace.activatedHousingRiskCandidateIds = housingRiskBacked.candidates.map(function (candidate) { return candidate.id; });
@@ -2163,7 +2494,8 @@
       majorGraphDotCandidates,
       microGraphDotCandidates,
       graphDotCandidates,
-      suppressedCandidates: waterfallBacked.suppressedCandidates
+      suppressedCandidates: ledgerBacked.suppressedCandidates
+        .concat(waterfallBacked.suppressedCandidates)
         .concat(housingRiskBacked.suppressedCandidates)
         .concat(selectionSuppressedCandidates),
       warnings,

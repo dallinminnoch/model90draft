@@ -303,6 +303,8 @@ assert.match(displaySource, /buildIncomeImpactFinancialStorylineCandidates/);
 assert.match(displaySource, /buildIncomeImpactResourceBucketsFromLensModel/);
 assert.match(displaySource, /buildIncomeImpactResourceWaterfall/);
 assert.match(displaySource, /buildIncomeImpactHousingRisk/);
+assert.match(displaySource, /assetDepletionLedgerDiagnostic/);
+assert.match(displaySource, /assetDepletionLedger:\s*assetDepletionLedger \? clonePlainValue\(assetDepletionLedger\) : null/);
 assert.match(displaySource, /financialStoryline/);
 assert.match(displaySource, /rendered:\s*false/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);

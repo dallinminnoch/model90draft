@@ -5180,6 +5180,12 @@
     const controls = isPlainObject(safeContext.controls) ? safeContext.controls : {};
     const storylineBuilder = getDisplayStorylineHelper(state, "buildIncomeImpactFinancialStorylineCandidates");
     const resourceWaterfallBuild = buildDisplayResourceWaterfallForStoryline(state, timelineResult, controls);
+    const assetDepletionLedger = isPlainObject(timelineResult?.scenario?.trace?.layer3?.assetDepletionLedgerDiagnostic)
+      ? timelineResult.scenario.trace.layer3.assetDepletionLedgerDiagnostic
+      : null;
+    const assetDepletionLedgerStatus = isPlainObject(assetDepletionLedger)
+      ? normalizeString(assetDepletionLedger.status) || "unknown"
+      : "not-provided";
     const housingRiskBuild = buildDisplayHousingRiskForStoryline(
       state,
       timelineResult,
@@ -5193,10 +5199,12 @@
     if (typeof storylineBuilder !== "function") {
       const unavailable = makeFinancialStorylineUnavailableResult("storyline-helper-unavailable", {
         resourceWaterfallStatus: resourceWaterfallBuild.status,
+        assetDepletionLedgerStatus,
         housingRiskStatus: housingRiskBuild.status
       });
       unavailable.warnings = unavailable.warnings.concat(bridgeWarnings);
       unavailable.trace.resourceWaterfallStatus = resourceWaterfallBuild.status;
+      unavailable.trace.assetDepletionLedgerStatus = assetDepletionLedgerStatus;
       unavailable.trace.housingRiskStatus = housingRiskBuild.status;
       return unavailable;
     }
@@ -5215,6 +5223,7 @@
         selectedScenarioId: safeContext.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID,
         warnings: Array.isArray(timelineResult?.warnings) ? clonePlainValue(timelineResult.warnings) : [],
         dataGaps: Array.isArray(timelineResult?.dataGaps) ? clonePlainValue(timelineResult.dataGaps) : [],
+        assetDepletionLedger: assetDepletionLedger ? clonePlainValue(assetDepletionLedger) : null,
         resourceWaterfall: resourceWaterfallBuild.value,
         housingRisk: housingRiskBuild.value,
         options: {
@@ -5230,6 +5239,7 @@
           displayBridgeSource: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
           rendered: false,
           resourceWaterfallStatus: resourceWaterfallBuild.status,
+          assetDepletionLedgerStatus,
           housingRiskStatus: housingRiskBuild.status
         })
       });
@@ -5237,10 +5247,12 @@
       const unavailable = makeFinancialStorylineUnavailableResult("storyline-build-failed", {
         error: error?.message || String(error),
         resourceWaterfallStatus: resourceWaterfallBuild.status,
+        assetDepletionLedgerStatus,
         housingRiskStatus: housingRiskBuild.status
       });
       unavailable.warnings = unavailable.warnings.concat(bridgeWarnings);
       unavailable.trace.resourceWaterfallStatus = resourceWaterfallBuild.status;
+      unavailable.trace.assetDepletionLedgerStatus = assetDepletionLedgerStatus;
       unavailable.trace.housingRiskStatus = housingRiskBuild.status;
       return unavailable;
     }

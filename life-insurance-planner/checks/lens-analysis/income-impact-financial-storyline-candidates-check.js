@@ -391,6 +391,34 @@ function makeWaterfallEvent(config) {
   return event;
 }
 
+function makeLedgerEvent(config) {
+  const trace = Object.assign({
+    source: "income-impact-asset-depletion-ledger",
+    visibleStorylineEligible: false
+  }, config.trace || {});
+  if (config.withdrawalAmount != null) {
+    trace.withdrawalAmount = config.withdrawalAmount;
+  }
+  if (config.balanceBeforeWithdrawal != null) {
+    trace.balanceBeforeWithdrawal = config.balanceBeforeWithdrawal;
+  }
+  const event = {
+    eventType: config.eventType,
+    bucketId: config.bucketId,
+    family: config.family,
+    monthIndex: config.monthIndex,
+    amountAtTap: config.amountAtTap == null ? null : config.amountAtTap,
+    amountDepleted: config.amountDepleted == null ? null : config.amountDepleted,
+    sourcePath: config.sourcePath || `assetDepletionLedger.buckets.${config.bucketId}`,
+    evidenceLevel: config.evidenceLevel || "trace-backed",
+    trace
+  };
+  if (config.date != null) {
+    event.date = config.date;
+  }
+  return event;
+}
+
 const waterfallInput = {
   scenario: {
     scenario: {
@@ -611,6 +639,215 @@ assert.ok(
   }),
   "Suppressed waterfall events should surface warnings."
 );
+
+const ledgerInput = cloneJson(waterfallInput);
+ledgerInput.assetDepletionLedger = {
+  version: "income-impact-asset-depletion-ledger-v1",
+  status: "ready",
+  bucketEvents: [
+    makeLedgerEvent({
+      bucketId: "coverage",
+      family: "existingCoverage",
+      eventType: "bucket-depleted",
+      monthIndex: 0,
+      amountDepleted: 450000,
+      sourcePath: "assetDepletionLedger.buckets.coverage"
+    }),
+    makeLedgerEvent({
+      bucketId: "cash",
+      family: "cash",
+      eventType: "bucket-depleted",
+      monthIndex: 1,
+      amountDepleted: 12000,
+      evidenceLevel: "calculated",
+      sourcePath: "assetDepletionLedger.buckets.cash",
+      withdrawalAmount: 12000,
+      balanceBeforeWithdrawal: 12000
+    }),
+    makeLedgerEvent({
+      bucketId: "emergency",
+      family: "emergencyFund",
+      eventType: "bucket-depleted",
+      monthIndex: 3,
+      amountDepleted: 18000,
+      evidenceLevel: "estimated",
+      sourcePath: "assetDepletionLedger.buckets.emergency"
+    }),
+    makeLedgerEvent({
+      bucketId: "taxable",
+      family: "taxableInvestments",
+      eventType: "bucket-depleted",
+      monthIndex: 4,
+      amountDepleted: 36000,
+      sourcePath: "assetDepletionLedger.buckets.taxable"
+    }),
+    makeLedgerEvent({
+      bucketId: "other-liquid",
+      family: "otherLiquid",
+      eventType: "bucket-depleted",
+      monthIndex: 5,
+      amountDepleted: 9000,
+      sourcePath: "assetDepletionLedger.buckets.otherLiquid"
+    }),
+    makeLedgerEvent({
+      bucketId: "education",
+      family: "educationSavings",
+      eventType: "bucket-tapped",
+      monthIndex: 6,
+      amountAtTap: 24000,
+      sourcePath: "assetDepletionLedger.buckets.education"
+    }),
+    makeLedgerEvent({
+      bucketId: "education",
+      family: "educationSavings",
+      eventType: "bucket-depleted",
+      monthIndex: 8,
+      amountDepleted: 12000,
+      sourcePath: "assetDepletionLedger.buckets.education"
+    }),
+    makeLedgerEvent({
+      bucketId: "retirement",
+      family: "retirementAssets",
+      eventType: "bucket-tapped",
+      monthIndex: 9,
+      amountAtTap: 64000,
+      sourcePath: "assetDepletionLedger.buckets.retirement"
+    }),
+    makeLedgerEvent({
+      bucketId: "retirement",
+      family: "retirementAssets",
+      eventType: "bucket-depleted",
+      monthIndex: 14,
+      amountDepleted: 32000,
+      sourcePath: "assetDepletionLedger.buckets.retirement"
+    }),
+    makeLedgerEvent({
+      bucketId: "home",
+      family: "homeEquity",
+      eventType: "bucket-depleted",
+      monthIndex: 15,
+      amountDepleted: 90000,
+      sourcePath: "assetDepletionLedger.buckets.home"
+    }),
+    makeLedgerEvent({
+      bucketId: "business",
+      family: "businessAssets",
+      eventType: "bucket-depleted",
+      monthIndex: 16,
+      amountDepleted: 50000,
+      sourcePath: "assetDepletionLedger.buckets.business"
+    }),
+    makeLedgerEvent({
+      bucketId: "custom",
+      family: "unknown",
+      eventType: "bucket-depleted",
+      monthIndex: 17,
+      amountDepleted: 20000,
+      sourcePath: "assetDepletionLedger.buckets.custom"
+    })
+  ],
+  trace: {
+    totalResourcesReconciliation: {
+      verified: true,
+      monthsChecked: 18
+    }
+  }
+};
+const ledgerSnapshot = cloneJson(ledgerInput);
+const ledgerResult = buildIncomeImpactFinancialStorylineCandidates(ledgerInput);
+const ledgerCandidateIds = [
+  "cash-savings-depleted",
+  "emergency-fund-depleted",
+  "taxable-assets-depleted",
+  "liquid-investments-depleted",
+  "education-savings-used-for-living-needs",
+  "education-savings-depleted",
+  "retirement-assets-tapped",
+  "retirement-assets-depleted"
+];
+assert.deepEqual(ledgerInput, ledgerSnapshot, "Ledger integration should not mutate input objects.");
+ledgerCandidateIds.forEach(function (id) {
+  const candidate = getCandidate(ledgerResult, id);
+  assert.equal(candidate.safeToRender, true, `${id} should activate from ready asset depletion ledger events.`);
+  assert.equal(candidate.status, "safe-now", `${id} should become safe-now from ledger evidence.`);
+  assert.equal(candidate.candidateSource, "asset-depletion-ledger", `${id} should prefer the ledger-backed candidate source.`);
+  assert.equal(candidate.trace.candidateSource, "asset-depletion-ledger", `${id} should preserve ledger trace metadata.`);
+  assert.ok(ids(ledgerResult.safeRenderableEvents).includes(id), `${id} should be safe renderable from the ledger.`);
+});
+assert.equal(getCandidate(ledgerResult, "cash-savings-depleted").evidenceLevel, "calculated");
+assert.equal(getCandidate(ledgerResult, "emergency-fund-depleted").evidenceLevel, "trace-backed");
+assert.equal(getCandidate(ledgerResult, "education-savings-used-for-living-needs").trace.ledgerEventType, "bucket-tapped");
+assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.aggregateRunwayPreserved, true);
+assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.graphLineSource, "aggregate-survivor-runway");
+assert.deepEqual(
+  getCandidate(ledgerResult, "cash-savings-depleted").trace.ledgerReconciliationStatus,
+  { verified: true, monthsChecked: 18 },
+  "Ledger-backed candidate trace should preserve reconciliation status."
+);
+assert.ok(!ledgerResult.safeRenderableEvents.some(function (candidate) {
+  return candidate.candidateSource === "asset-depletion-ledger"
+    && ["existingCoverage", "homeEquity", "businessAssets", "unknown"].includes(candidate.trace?.family);
+}), "Existing coverage, home equity, business, and unknown ledger events should not create visible candidates.");
+assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
+  return candidate.candidateSource === "asset-depletion-ledger"
+    && candidate.trace?.family === "existingCoverage";
+}), "Existing coverage ledger events should be suppressed as mechanical/non-visible.");
+assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
+  return candidate.candidateSource === "asset-depletion-ledger"
+    && candidate.trace?.family === "homeEquity";
+}), "Home equity ledger events should be suppressed from visible storyline candidates.");
+removedVisibleEventIds.forEach(function (id) {
+  assert.ok(!ids(ledgerResult.majorStoryCandidates).includes(id), `${id} should remain absent from ledger-backed major cards.`);
+  assert.ok(!ids(ledgerResult.majorGraphDotCandidates).includes(id), `${id} should remain absent from ledger-backed major graph dots.`);
+  assert.ok(!ids(ledgerResult.microGraphDotCandidates).includes(id), `${id} should remain absent from ledger-backed micro graph dots.`);
+  assert.ok(!ids(ledgerResult.graphDotCandidates).includes(id), `${id} should remain absent from ledger-backed graph dots.`);
+});
+mechanicalVisibleSuppressedIds.forEach(function (id) {
+  assert.ok(!ids(ledgerResult.majorStoryCandidates).includes(id), `${id} should remain absent from ledger-backed major cards.`);
+  assert.ok(!ids(ledgerResult.graphDotCandidates).includes(id), `${id} should remain absent from ledger-backed graph dots.`);
+});
+assert.equal(ledgerResult.trace.assetDepletionLedgerUsedForStoryline, true);
+assert.equal(ledgerResult.trace.assetDepletionLedgerStatus, "ready");
+ledgerCandidateIds.forEach(function (id) {
+  assert.ok(ledgerResult.trace.ledgerBackedCandidateIds.includes(id), `${id} should be listed as ledger-backed.`);
+});
+assert.equal(ledgerResult.trace.waterfallFallbackUsed, false);
+assert.deepEqual(
+  ledgerResult.trace.supersededWaterfallCandidateIds.slice().sort(),
+  [
+    "cash-savings-depleted",
+    "education-savings-depleted",
+    "education-savings-used-for-living-needs",
+    "emergency-fund-depleted",
+    "home-equity-becomes-last-resort",
+    "retirement-assets-depleted",
+    "retirement-assets-tapped"
+  ],
+  "Ready ledger should suppress static waterfall candidates so the waterfall remains fallback-only."
+);
+assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
+  return candidate.id === "cash-savings-depleted"
+    && candidate.selectionSuppressionReason === "superseded-by-asset-depletion-ledger";
+}), "Duplicate waterfall candidates should be suppressed with a specific ledger supersession reason.");
+assert.deepEqual(ledgerResult.trace.activatedWaterfallCandidateIds, []);
+assert.equal(ledgerResult.trace.graphLineSource, "aggregate-survivor-runway");
+assert.equal(new Set(ids(ledgerResult.safeRenderableEvents)).size, ids(ledgerResult.safeRenderableEvents).length);
+assert.ok(ledgerResult.majorGraphDotCandidates.length <= 6);
+assert.ok(ledgerResult.microGraphDotCandidates.length <= 10);
+assert.ok(ledgerResult.graphDotCandidates.length <= 16);
+assert.equal(ledgerResult.majorStoryCandidates[0].id, "death-income-stops");
+
+const staticFallbackResult = buildIncomeImpactFinancialStorylineCandidates(Object.assign({}, waterfallInput, {
+  assetDepletionLedger: {
+    version: "income-impact-asset-depletion-ledger-v1",
+    status: "insufficient-data",
+    bucketEvents: ledgerInput.assetDepletionLedger.bucketEvents
+  }
+}));
+assert.equal(staticFallbackResult.trace.assetDepletionLedgerUsedForStoryline, false);
+assert.equal(staticFallbackResult.trace.assetDepletionLedgerStatus, "insufficient-data");
+assert.equal(staticFallbackResult.trace.waterfallFallbackUsed, true);
+assert.ok(staticFallbackResult.trace.activatedWaterfallCandidateIds.includes("cash-savings-depleted"));
 
 function makeHousingRiskEvent(config) {
   const event = {
