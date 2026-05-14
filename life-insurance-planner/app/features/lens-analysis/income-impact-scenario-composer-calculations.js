@@ -817,30 +817,89 @@
     return row?.isMortgage === true && mode === "support" && row.included !== false;
   }
 
-  function buildMortgageSupportObligations(debtTreatment, layer2Output, dataGaps, sourcePaths) {
-    const rows = getDebtRows(debtTreatment).filter(isMortgageSupportRow);
+  function isIncludedMortgageRow(row) {
+    return row?.isMortgage === true && row.included !== false;
+  }
+
+  function getMortgageMonthlyPayment(row) {
+    const trace = isPlainObject(row?.mortgageSupportTrace) ? row.mortgageSupportTrace : {};
+    return toOptionalNumber(
+      trace.monthlyMortgagePaymentUsed
+      ?? trace.monthlyMortgagePayment
+      ?? row?.monthlyMortgagePaymentUsed
+      ?? row?.monthlyMortgagePayment
+      ?? row?.minimumMonthlyPayment
+      ?? row?.monthlyPayment
+      ?? row?.payment
+    );
+  }
+
+  function getMortgageTermMonths(row) {
+    const trace = isPlainObject(row?.mortgageSupportTrace) ? row.mortgageSupportTrace : {};
+    return toWholeMonthCount(
+      trace.supportMonthsUsed
+      ?? trace.supportMonthsRequested
+      ?? trace.remainingTermMonths
+      ?? row?.supportMonthsUsed
+      ?? row?.supportMonths
+      ?? row?.remainingTermMonths
+      ?? row?.mortgageRemainingTermMonths
+      ?? row?.termMonths
+      ?? row?.durationMonths
+    );
+  }
+
+  function getMortgageSupportRows(debtTreatment, mortgageTreatmentOverride) {
+    const rows = getDebtRows(debtTreatment);
+    if (mortgageTreatmentOverride === "continueMortgagePayments") {
+      const seenMortgageIds = new Set();
+      return rows.filter(isIncludedMortgageRow).filter(function (row, index) {
+        const key = normalizeString(row.debtFactId || row.id) || `mortgage-row-${index}`;
+        if (seenMortgageIds.has(key)) {
+          return false;
+        }
+        seenMortgageIds.add(key);
+        return true;
+      });
+    }
+    if (mortgageTreatmentOverride === "payOffMortgage") {
+      return [];
+    }
+    return rows.filter(isMortgageSupportRow);
+  }
+
+  function buildMortgageSupportObligations(debtTreatment, layer2Output, dataGaps, sourcePaths, mortgageTreatmentOverride) {
+    const overrideMode = normalizeString(mortgageTreatmentOverride) || "followAssumptions";
+    const rows = getMortgageSupportRows(debtTreatment, overrideMode);
     const obligations = [];
 
     rows.forEach(function (row, index) {
       const trace = isPlainObject(row.mortgageSupportTrace) ? row.mortgageSupportTrace : {};
-      const monthlyAmount = toOptionalNumber(
-        trace.monthlyMortgagePaymentUsed
-        ?? row.monthlyMortgagePaymentUsed
-        ?? row.monthlyPayment
-        ?? row.payment
-      );
-      const termMonths = toWholeMonthCount(
-        trace.supportMonthsUsed
-        ?? trace.supportMonthsRequested
-        ?? row.supportMonthsUsed
-        ?? row.supportMonths
-        ?? row.termMonths
-      );
-      const paths = readSourcePaths(row, `lensModel.treatedDebtPayoff.debts.${index}`);
+      const monthlyAmount = getMortgageMonthlyPayment(row);
+      const termMonths = getMortgageTermMonths(row);
+      const fromContinueOverride = overrideMode === "continueMortgagePayments";
+      const paths = fromContinueOverride
+        ? uniqueStrings(readSourcePaths(row, `lensModel.treatedDebtPayoff.debts.${index}`)
+          .concat(["scenarioOptions.mortgageTreatmentOverride"]))
+        : readSourcePaths(row, `lensModel.treatedDebtPayoff.debts.${index}`);
 
       appendUnique(sourcePaths, paths);
 
       if (monthlyAmount == null || monthlyAmount <= 0 || termMonths == null || termMonths <= 0) {
+        if (fromContinueOverride) {
+          addIssue(
+            dataGaps,
+            "mortgage-continue-override-schedule-missing",
+            "Continue mortgage payments was selected, but an eligible mortgage row was missing a positive payment or remaining term.",
+            paths,
+            {
+              mortgageTreatmentOverride: overrideMode,
+              rowId: normalizeString(row.debtFactId || row.id),
+              hasMonthlyPayment: monthlyAmount != null && monthlyAmount > 0,
+              hasTermMonths: termMonths != null && termMonths > 0
+            }
+          );
+        }
         return;
       }
 
@@ -848,15 +907,32 @@
         id: normalizeString(row.debtFactId || row.id) || `mortgage-support-${index + 1}`,
         label: normalizeString(row.label || row.name) || "Mortgage support",
         amount: roundMoney(monthlyAmount),
+        monthlyAmount: roundMoney(monthlyAmount),
+        monthlyPayment: roundMoney(monthlyAmount),
         frequency: "monthly",
         termMonths,
+        remainingMonths: termMonths,
         category: "mortgageSupport",
         status: "scheduled",
+        type: "mortgage",
+        treatment: fromContinueOverride ? "continuePayments" : "support",
+        treatmentMode: fromContinueOverride ? "continuePayments" : "support",
+        mortgageTreatmentOverride: fromContinueOverride ? overrideMode : null,
         alreadyIncludedInNeeds: row.alreadyIncludedInNeeds === true,
         sourcePaths: paths,
         trace: {
-          source: "lensModel.treatedDebtPayoff mortgage support row",
-          deferredFromLayer2: true
+          source: fromContinueOverride
+            ? "income-impact scenario mortgage treatment override"
+            : "lensModel.treatedDebtPayoff mortgage support row",
+          deferredFromLayer2: true,
+          overrideApplied: fromContinueOverride,
+          mortgageTreatmentOverride: fromContinueOverride ? overrideMode : null,
+          originalMortgageTreatmentMode: normalizeString(row.mortgageTreatmentMode || row.treatmentMode) || null,
+          monthlyMortgagePaymentUsed: roundMoney(monthlyAmount),
+          supportMonthsUsed: termMonths,
+          sourcePaths: paths,
+          monthlyMortgagePaymentSourcePath: normalizeString(trace.monthlyMortgagePaymentSourcePath) || null,
+          remainingTermMonthsSourcePath: normalizeString(trace.remainingTermMonthsSourcePath) || null
         }
       });
     });
@@ -977,7 +1053,8 @@
       input.lensModel?.treatedDebtPayoff || input.lensModel?.debtTreatment || {},
       layer2Output,
       dataGaps,
-      sourcePaths
+      sourcePaths,
+      input.scenarioOptions?.mortgageTreatmentOverride
     );
     const resourcesAfterObligations = toOptionalNumber(layer2Output?.resources?.resourcesAfterObligations);
 
