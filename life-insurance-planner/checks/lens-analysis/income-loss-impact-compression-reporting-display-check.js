@@ -434,6 +434,7 @@ assertScriptOrder(scripts, [
   "../app/features/lens-analysis/income-impact-household-expense-adjustment-engine.js",
   "../app/features/lens-analysis/income-impact-household-expense-scenario-handoff-preview.js",
   "../app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+  "../app/features/lens-analysis/income-impact-auto-compressed-baseline-calculations.js",
   "../app/features/lens-analysis/income-loss-impact-display.js"
 ]);
 assert.equal(scripts.includes("../app/features/lens-analysis/household-expense-compression-stage-policy.js"), false);
@@ -503,6 +504,11 @@ assert.doesNotMatch(displaySource, /buildLifestyleComparisonScenario|buildLifest
 assert.match(displaySource, /Lifestyle-adjusted projection/);
 assert.match(displaySource, /compressionReport:\s*compressionPrep\?\.compressionReport/);
 assert.match(displaySource, /compressionScenarioResult/);
+assert.match(displaySource, /buildDisplayAutoCompressedBaselineForPrimaryScenario/);
+assert.match(displaySource, /rawBaselineScenario/);
+assert.match(displaySource, /primaryScenario/);
+assert.match(displaySource, /autoCompressedBaselineScenario/);
+assert.match(displaySource, /baselineContract/);
 assert.doesNotMatch(displaySource, /calculateIncomeImpactStagedCompressionScenario|compressionStagePolicyRules|staged-compression-post-death-resources|data-income-impact-detail-path="staged-compression"/);
 assert.doesNotMatch(displaySource, /compression-post-death-resources|data-income-impact-compression-marker|compressionAction|compressionDepletion|Alternate scenario prepared|Alternate scenario blocked|active compression/);
 assert.doesNotMatch(
@@ -683,6 +689,228 @@ assert.doesNotMatch(currentHtml, /data-income-impact-graph-path="compression-pos
 assert.doesNotMatch(currentHtml, /Comparison only - base projection unchanged\./);
 assert.doesNotMatch(currentHtml, /staged-compression-post-death-resources|Staged compression|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path=/);
 assert.doesNotMatch(currentHtml, /data-income-impact-compression-marker|data-income-impact-comparison-marker-type="comparisonAction"|data-income-impact-comparison-marker-type="comparisonPause"/);
+
+const autoRawScenario = makeScenario();
+const autoRawBefore = clone(autoRawScenario);
+const autoRiskEvaluation = makeRiskEvaluation();
+let autoGraphInput = null;
+let autoHelperInput = null;
+let autoLifestyleCalls = [];
+const autoResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: {
+    id: "lens-fixture",
+    expenseFacts: {
+      expenses: [
+        { expenseTypeKey: "groceries", categoryKey: "foodGroceries", monthlyAmount: 1000 }
+      ]
+    }
+  },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: 25,
+    autoCompressBaselineEnabled: true
+  },
+  deathAgeState: {
+    hasDateOfBirth: false
+  },
+  composeIncomeImpactScenario() {
+    return autoRawScenario;
+  },
+  evaluateIncomeImpactRiskEvents(input) {
+    assert.equal(input.scenario, autoRawScenario);
+    return autoRiskEvaluation;
+  },
+  buildIncomeImpactTimelineGraphModel(input) {
+    autoGraphInput = input;
+    return makeGraphModel(input);
+  },
+  buildIncomeImpactAutoCompressedBaseline(input) {
+    autoHelperInput = input;
+    const adjustedScenario = Object.assign({}, clone(input.rawBaselineScenario), {
+      scenarioId: "income-impact-auto-compressed-baseline",
+      kind: "autoCompressedBaseline",
+      label: "Auto-compressed survivor lifestyle",
+      postDeathSeries: Object.assign({}, clone(input.rawBaselineScenario.postDeathSeries), {
+        points: input.rawBaselineScenario.postDeathSeries.points.map(function (point) {
+          return Object.assign({}, point, {
+            endingResources: point.endingResources + 1000,
+            autoCompressedFixture: true
+          });
+        })
+      }),
+      trace: Object.assign({}, clone(input.rawBaselineScenario.trace || {}), {
+        autoCompressedBaselineApplied: true
+      })
+    });
+    return {
+      version: "income-impact-auto-compressed-baseline-v1",
+      status: "ready",
+      autoCompressionEnabled: true,
+      compressionHorizon: { source: "rawBaselineDepletionMonth", months: 120 },
+      compressionPath: { formula: "linear-monthly-slider-ramp" },
+      autoCompressedScenario: adjustedScenario,
+      warnings: [],
+      trace: {
+        source: "fixture-auto-compressed-baseline",
+        rawBaselineMutated: false,
+        manualLifestyleComparisonPreserved: true,
+        visibleBaselineReplacement: false,
+        formula: "linear-monthly-slider-ramp",
+        horizonSource: "rawBaselineDepletionMonth"
+      }
+    };
+  },
+  calculateIncomeImpactLifestyleScenario(input) {
+    autoLifestyleCalls.push(input.sliderValue);
+    return {
+      status: "complete",
+      sliderValue: input.sliderValue,
+      totalBaselineMonthlyExpenses: 1400,
+      totalAdjustedMonthlyExpenses: input.sliderValue === -100 ? 900 : 1400,
+      monthlyDelta: input.sliderValue === -100 ? -500 : 0,
+      adjustedExpenses: [],
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, input.sliderValue === -100 ? -500 : 0),
+      warnings: [],
+      dataGaps: [],
+      trace: {
+        calculationMethod: "income-impact-lifestyle-scenario-v1",
+        graphPathChanged: input.sliderValue !== 0
+      }
+    };
+  }
+});
+
+assert.deepEqual(autoRawScenario, autoRawBefore, "auto-compressed display wiring should not mutate the raw baseline scenario");
+assert.equal(autoHelperInput.rawBaselineScenario, autoRawScenario, "auto helper should receive the raw baseline scenario");
+assert.equal(autoHelperInput.options.autoCompressionEnabled, true, "auto helper should be enabled from default scenario controls");
+assert.equal(autoHelperInput.compressionPolicy.monthlyDeltaAtConservative, -500, "auto helper should receive the conservative lifestyle policy delta");
+assert.deepEqual(autoLifestyleCalls, [25, -100], "manual lifestyle comparison and conservative auto-compression policy should stay separate");
+assert.equal(autoGraphInput.scenario.kind, "autoCompressedBaseline", "graph primary scenario should use the auto-compressed baseline when ready");
+assert.equal(autoGraphInput.comparisonScenarios.length, 1, "manual lifestyle slider should remain a separate comparison line");
+assert.equal(autoGraphInput.comparisonScenarios[0].kind, "lifestyleComparison");
+assert.equal(autoResult.rawBaselineScenario, autoRawScenario, "timeline result should preserve the raw unadjusted baseline");
+assert.equal(autoResult.primaryScenario.kind, "autoCompressedBaseline", "timeline result should expose the visible primary scenario");
+assert.equal(autoResult.autoCompressedBaselineScenario.kind, "autoCompressedBaseline", "timeline result should expose the derived auto-compressed scenario");
+assert.equal(autoResult.baselineContract.visibleBaselineMode, "autoCompressed");
+assert.equal(autoResult.baselineContract.autoCompressionEnabled, true);
+assert.equal(autoResult.baselineContract.autoCompressionApplied, true);
+assert.equal(autoResult.baselineContract.rawBaselinePreserved, true);
+assert.equal(autoResult.baselineContract.manualLifestyleComparisonPreserved, true);
+assert.equal(autoResult.compressionReporting.trace.visibleBaselineMode, "autoCompressed");
+assert.equal(autoResult.compressionReporting.trace.autoCompressionApplied, true);
+assert.equal(autoResult.financialStoryline.trace.rendered, false, "storyline bridge should remain non-rendering");
+
+let disabledGraphInput = null;
+let disabledHelperCalled = false;
+const disabledResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: { id: "lens-fixture" },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: 0,
+    autoCompressBaselineEnabled: false
+  },
+  deathAgeState: {
+    hasDateOfBirth: false
+  },
+  composeIncomeImpactScenario() {
+    return autoRawScenario;
+  },
+  evaluateIncomeImpactRiskEvents() {
+    return autoRiskEvaluation;
+  },
+  buildIncomeImpactTimelineGraphModel(input) {
+    disabledGraphInput = input;
+    return makeGraphModel(input);
+  },
+  buildIncomeImpactAutoCompressedBaseline() {
+    disabledHelperCalled = true;
+    throw new Error("disabled path should not build auto-compression");
+  },
+  calculateIncomeImpactLifestyleScenario(input) {
+    return {
+      status: "complete",
+      sliderValue: input.sliderValue,
+      totalBaselineMonthlyExpenses: 1400,
+      totalAdjustedMonthlyExpenses: 1400,
+      monthlyDelta: 0,
+      adjustedExpenses: [],
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, 0),
+      warnings: [],
+      dataGaps: [],
+      trace: {}
+    };
+  }
+});
+assert.equal(disabledHelperCalled, false, "disabled auto-compression should not invoke the auto helper");
+assert.equal(disabledGraphInput.scenario, autoRawScenario, "disabled auto-compression should keep raw baseline as graph primary");
+assert.equal(disabledResult.baselineContract.visibleBaselineMode, "unadjusted");
+assert.equal(disabledResult.baselineContract.autoCompressionEnabled, false);
+assert.equal(disabledResult.primaryScenario, autoRawScenario);
+assert.equal(disabledResult.autoCompressedBaselineScenario, null);
+
+let fallbackGraphInput = null;
+const fallbackResult = harness.buildIncomeImpactResultFromState({
+  valuationDate: "2026-05-06",
+  lensModel: { id: "lens-fixture" },
+  analysisSettings: {},
+  scenarioState: {
+    projectionHorizonYears: 40,
+    mortgageTreatmentOverride: "followAssumptions",
+    lifestyleSliderValue: 0,
+    autoCompressBaselineEnabled: true
+  },
+  deathAgeState: {
+    hasDateOfBirth: false
+  },
+  composeIncomeImpactScenario() {
+    return autoRawScenario;
+  },
+  evaluateIncomeImpactRiskEvents() {
+    return autoRiskEvaluation;
+  },
+  buildIncomeImpactTimelineGraphModel(input) {
+    fallbackGraphInput = input;
+    return makeGraphModel(input);
+  },
+  buildIncomeImpactAutoCompressedBaseline() {
+    return {
+      version: "income-impact-auto-compressed-baseline-v1",
+      status: "insufficient-data",
+      autoCompressedScenario: null,
+      warnings: [{ code: "missing-conservative-lifestyle-target", message: "Missing policy." }],
+      compressionHorizon: { source: "unavailable", months: null },
+      compressionPath: { formula: "linear-monthly-slider-ramp" },
+      trace: {}
+    };
+  },
+  calculateIncomeImpactLifestyleScenario(input) {
+    return {
+      status: "complete",
+      sliderValue: input.sliderValue,
+      totalBaselineMonthlyExpenses: 1400,
+      totalAdjustedMonthlyExpenses: 1400,
+      monthlyDelta: 0,
+      adjustedExpenses: [],
+      comparisonScenario: makeHelperProvidedLifestyleComparison(input, 0),
+      warnings: [],
+      dataGaps: [],
+      trace: {}
+    };
+  }
+});
+assert.equal(fallbackGraphInput.scenario, autoRawScenario, "auto helper fallback should keep raw baseline primary");
+assert.equal(fallbackResult.baselineContract.visibleBaselineMode, "unadjusted");
+assert.equal(fallbackResult.baselineContract.autoCompressionEnabled, true);
+assert.equal(fallbackResult.baselineContract.autoCompressionApplied, false);
+assert.ok(fallbackResult.warnings.some(function (warning) {
+  return warning.code === "missing-conservative-lifestyle-target";
+}), "helper fallback warnings should surface on the timeline result");
 
 const resolvedAccountPolicy = {
   resolvedLifestyleRangePolicies: [

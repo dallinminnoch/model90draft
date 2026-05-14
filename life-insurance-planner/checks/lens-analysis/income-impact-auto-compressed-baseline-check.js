@@ -113,6 +113,10 @@ const displaySource = fs.readFileSync(
   path.join(repoRoot, "app/features/lens-analysis/income-loss-impact-display.js"),
   "utf8"
 );
+const pageSource = fs.readFileSync(
+  path.join(repoRoot, "pages/income-loss-impact.html"),
+  "utf8"
+);
 const calculations = context.LensApp.lensAnalysis.incomeImpactAutoCompressedBaselineCalculations;
 const directHelper = context.LensApp.lensAnalysis.buildIncomeImpactAutoCompressedBaseline;
 
@@ -247,10 +251,25 @@ assert.match(
   /autoCompressBaselineEnabled:\s*true,\s*bannerCollapsed:\s*false/s,
   "initial scenario state should default autoCompressBaselineEnabled to true"
 );
-assert.doesNotMatch(
+assert.match(
   displaySource,
-  /buildIncomeImpactAutoCompressedBaseline\(/,
-  "foundation pass should not make the graph or display use the auto-compressed scenario yet"
+  /buildDisplayAutoCompressedBaselineForPrimaryScenario/,
+  "display composition should wire the auto-compressed baseline helper into primary scenario selection"
+);
+assert.match(
+  displaySource,
+  /visibleBaselineMode:\s*applied\s*\?\s*"autoCompressed"\s*:\s*"unadjusted"/,
+  "display composition should expose whether the visible baseline is auto-compressed or unadjusted"
+);
+assert.match(
+  displaySource,
+  /rawBaselineScenario[\s\S]*primaryScenario[\s\S]*autoCompressedBaselineScenario[\s\S]*baselineContract/,
+  "timeline result should preserve raw baseline, primary scenario, auto-compressed scenario, and baseline contract"
+);
+assert.ok(
+  pageSource.indexOf("../app/features/lens-analysis/income-impact-auto-compressed-baseline-calculations.js")
+    < pageSource.indexOf("../app/features/lens-analysis/income-loss-impact-display.js"),
+  "auto-compressed baseline helper should load before the Income Impact display script"
 );
 
 console.log("income-impact-auto-compressed-baseline-check passed");

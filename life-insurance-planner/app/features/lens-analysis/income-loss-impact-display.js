@@ -24,6 +24,10 @@
   const GRAPH_HOVER_READOUT_WIDTH = 108;
   const GRAPH_HOVER_GRID_SPACING = 8;
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
+  const AUTO_COMPRESSED_BASELINE_SCENARIO_ID = "income-impact-auto-compressed-baseline";
+  const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
+  const INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE =
+    "income-impact-display-auto-compressed-baseline-bridge";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
   const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
@@ -4478,7 +4482,7 @@
     });
   }
 
-  function getDisplayStorylineHelper(state, helperName) {
+  function getDisplayLensAnalysisHelper(state, helperName) {
     if (typeof state?.[helperName] === "function") {
       return state[helperName];
     }
@@ -4486,6 +4490,222 @@
       return lensAnalysis[helperName];
     }
     return null;
+  }
+
+  function getDisplayStorylineHelper(state, helperName) {
+    return getDisplayLensAnalysisHelper(state, helperName);
+  }
+
+  function createAutoCompressedBaselineWarning(code, message, details) {
+    return createRuntimeIssue(code, message, Object.assign({
+      source: INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE
+    }, isPlainObject(details) ? details : {}));
+  }
+
+  function getLifestyleScenarioMonthlyDelta(lifestyleScenario) {
+    return toOptionalNumber(
+      lifestyleScenario?.monthlyDelta
+      ?? lifestyleScenario?.comparisonScenario?.trace?.graphMonthlyDelta
+      ?? lifestyleScenario?.comparisonScenario?.trace?.monthlyDelta
+    );
+  }
+
+  function buildAutoCompressedBaselineCompressionPolicy(rawBaselineScenario, conservativeLifestyleScenario) {
+    const postDeathPoints = Array.isArray(rawBaselineScenario?.postDeathSeries?.points)
+      ? rawBaselineScenario.postDeathSeries.points
+      : [];
+    const firstPostDeathPoint = postDeathPoints[0] || {};
+    const currentMonthlySurvivorNeed = toOptionalNumber(
+      firstPostDeathPoint.survivorNeeds
+      ?? firstPostDeathPoint.netUse
+      ?? conservativeLifestyleScenario?.totalBaselineMonthlyExpenses
+    );
+    const monthlyDeltaAtConservative = getLifestyleScenarioMonthlyDelta(conservativeLifestyleScenario);
+    const conservativeMonthlySurvivorNeed = currentMonthlySurvivorNeed == null || monthlyDeltaAtConservative == null
+      ? null
+      : Math.max(0, Number((currentMonthlySurvivorNeed + monthlyDeltaAtConservative).toFixed(2)));
+
+    return {
+      source: "income-impact-display-conservative-lifestyle-scenario",
+      currentSliderValue: 0,
+      conservativeSliderValue: MIN_LIFESTYLE_SLIDER_VALUE,
+      monthlyDeltaAtConservative,
+      currentMonthlySurvivorNeed,
+      conservativeMonthlySurvivorNeed
+    };
+  }
+
+  function makeBaselineContract(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    return {
+      visibleBaselineMode: safeOptions.visibleBaselineMode || "unadjusted",
+      autoCompressionEnabled: safeOptions.autoCompressionEnabled === true,
+      autoCompressionApplied: safeOptions.autoCompressionApplied === true,
+      autoCompressionStatus: safeOptions.autoCompressionStatus || null,
+      rawBaselinePreserved: true,
+      manualLifestyleComparisonPreserved: true,
+      rawBaselineScenarioId: safeOptions.rawBaselineScenarioId || null,
+      primaryScenarioId: safeOptions.primaryScenarioId || null,
+      autoCompressedBaselineScenarioId: safeOptions.autoCompressedBaselineScenarioId || null,
+      warnings: Array.isArray(safeOptions.warnings) ? clonePlainValue(safeOptions.warnings) : [],
+      trace: Object.assign({
+        source: INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE,
+        rawBaselineMutated: false,
+        helperAvailable: safeOptions.helperAvailable === true,
+        conservativePolicyAvailable: safeOptions.conservativePolicyAvailable === true,
+        formula: safeOptions.formula || null,
+        horizonSource: safeOptions.horizonSource || null
+      }, isPlainObject(safeOptions.trace) ? safeOptions.trace : {})
+    };
+  }
+
+  function buildDisplayAutoCompressedBaselineForPrimaryScenario(state, context, controls, resolvedAccountPolicyInput) {
+    const safeState = isPlainObject(state) ? state : {};
+    const safeContext = isPlainObject(context) ? context : {};
+    const rawBaselineScenario = safeContext.scenario;
+    const enabled = controls?.autoCompressBaselineEnabled !== false;
+    const builder = getDisplayLensAnalysisHelper(safeState, "buildIncomeImpactAutoCompressedBaseline");
+    const baseResult = {
+      rawBaselineScenario,
+      primaryScenario: rawBaselineScenario,
+      autoCompressedBaselineScenario: null,
+      autoCompressedBaselineResult: null,
+      warnings: [],
+      baselineContract: null
+    };
+
+    if (!enabled) {
+      baseResult.baselineContract = makeBaselineContract({
+        visibleBaselineMode: "unadjusted",
+        autoCompressionEnabled: false,
+        autoCompressionApplied: false,
+        autoCompressionStatus: "disabled",
+        helperAvailable: typeof builder === "function",
+        rawBaselineScenarioId: rawBaselineScenario?.scenarioId || null,
+        primaryScenarioId: rawBaselineScenario?.scenarioId || null
+      });
+      return baseResult;
+    }
+
+    if (typeof builder !== "function") {
+      const warnings = [
+        createAutoCompressedBaselineWarning(
+          "auto-compressed-baseline-helper-unavailable",
+          "Auto-compressed baseline was not built because the helper is unavailable."
+        )
+      ];
+      baseResult.warnings = warnings;
+      baseResult.baselineContract = makeBaselineContract({
+        visibleBaselineMode: "unadjusted",
+        autoCompressionEnabled: true,
+        autoCompressionApplied: false,
+        autoCompressionStatus: "helper-unavailable",
+        helperAvailable: false,
+        rawBaselineScenarioId: rawBaselineScenario?.scenarioId || null,
+        primaryScenarioId: rawBaselineScenario?.scenarioId || null,
+        warnings
+      });
+      return baseResult;
+    }
+
+    let conservativeLifestyleScenario = null;
+    let conservativeWarnings = [];
+    if (typeof safeState.calculateIncomeImpactLifestyleScenario === "function") {
+      try {
+        conservativeLifestyleScenario = safeState.calculateIncomeImpactLifestyleScenario(
+          buildLifestyleScenarioRuntimeInput(
+            safeState,
+            safeContext,
+            MIN_LIFESTYLE_SLIDER_VALUE,
+            resolvedAccountPolicyInput
+          )
+        );
+      } catch (error) {
+        conservativeWarnings = [
+          createAutoCompressedBaselineWarning(
+            "auto-compressed-baseline-policy-build-failed",
+            "Auto-compressed baseline could not prepare the conservative lifestyle policy.",
+            { error: error?.message || String(error) }
+          )
+        ];
+      }
+    } else {
+      conservativeWarnings = [
+        createAutoCompressedBaselineWarning(
+          "auto-compressed-baseline-policy-helper-unavailable",
+          "Auto-compressed baseline could not prepare a conservative lifestyle policy because the lifestyle helper is unavailable."
+        )
+      ];
+    }
+
+    const compressionPolicy = buildAutoCompressedBaselineCompressionPolicy(
+      rawBaselineScenario,
+      conservativeLifestyleScenario
+    );
+    let autoCompressedBaselineResult = null;
+    let autoCompressedBaselineScenario = null;
+    let helperWarnings = [];
+
+    try {
+      autoCompressedBaselineResult = builder({
+        rawBaselineScenario,
+        postDeathSeries: rawBaselineScenario?.postDeathSeries,
+        compressionPolicy,
+        options: {
+          autoCompressionEnabled: true,
+          projectionHorizonMonths: controls?.projectionHorizonYears
+            ? controls.projectionHorizonYears * 12
+            : null,
+          scenarioId: AUTO_COMPRESSED_BASELINE_SCENARIO_ID,
+          label: AUTO_COMPRESSED_BASELINE_LABEL
+        }
+      });
+      helperWarnings = Array.isArray(autoCompressedBaselineResult?.warnings)
+        ? clonePlainValue(autoCompressedBaselineResult.warnings)
+        : [];
+      if (autoCompressedBaselineResult?.status === "ready" && isPlainObject(autoCompressedBaselineResult.autoCompressedScenario)) {
+        autoCompressedBaselineScenario = autoCompressedBaselineResult.autoCompressedScenario;
+        baseResult.primaryScenario = autoCompressedBaselineScenario;
+        baseResult.autoCompressedBaselineScenario = autoCompressedBaselineScenario;
+      }
+    } catch (error) {
+      helperWarnings = [
+        createAutoCompressedBaselineWarning(
+          "auto-compressed-baseline-build-failed",
+          "Auto-compressed baseline could not be built.",
+          { error: error?.message || String(error) }
+        )
+      ];
+    }
+
+    const warnings = conservativeWarnings.concat(helperWarnings);
+    const applied = Boolean(autoCompressedBaselineScenario);
+    baseResult.autoCompressedBaselineResult = autoCompressedBaselineResult;
+    baseResult.warnings = warnings;
+    baseResult.baselineContract = makeBaselineContract({
+      visibleBaselineMode: applied ? "autoCompressed" : "unadjusted",
+      autoCompressionEnabled: true,
+      autoCompressionApplied: applied,
+      autoCompressionStatus: autoCompressedBaselineResult?.status || "error",
+      helperAvailable: true,
+      conservativePolicyAvailable: getLifestyleScenarioMonthlyDelta(conservativeLifestyleScenario) != null,
+      rawBaselineScenarioId: rawBaselineScenario?.scenarioId || null,
+      primaryScenarioId: baseResult.primaryScenario?.scenarioId || null,
+      autoCompressedBaselineScenarioId: autoCompressedBaselineScenario?.scenarioId || null,
+      warnings,
+      formula: autoCompressedBaselineResult?.compressionPath?.formula || autoCompressedBaselineResult?.trace?.formula || null,
+      horizonSource: autoCompressedBaselineResult?.compressionHorizon?.source || autoCompressedBaselineResult?.trace?.horizonSource || null,
+      trace: {
+        status: autoCompressedBaselineResult?.status || "error",
+        helperStatus: autoCompressedBaselineResult?.status || "error",
+        visibleBaselineReplacement: applied,
+        compressionHorizon: clonePlainValue(autoCompressedBaselineResult?.compressionHorizon || null),
+        compressionPath: clonePlainValue(autoCompressedBaselineResult?.compressionPath || null),
+        monthlyDeltaAtConservative: compressionPolicy.monthlyDeltaAtConservative,
+        conservativeLifestyleScenarioStatus: conservativeLifestyleScenario?.status || null
+      }
+    });
+    return baseResult;
   }
 
   function getTimelineResultDeathDate(timelineResult, controls) {
@@ -4715,6 +4935,7 @@
     const safeState = isPlainObject(state) ? state : {};
     const context = isPlainObject(baseContext) ? baseContext : buildBaseIncomeImpactContextFromState(safeState);
     const scenarioState = isPlainObject(safeState.scenarioState) ? safeState.scenarioState : {};
+    const controls = getRuntimeScenarioControlsSnapshot(safeState);
     const lifestyleSliderValue = clampLifestyleSliderValue(
       sliderValueOverride == null ? scenarioState.lifestyleSliderValue : sliderValueOverride
     );
@@ -4735,8 +4956,22 @@
       : null;
     const lifestyleComparisonScenario = normalizeLifestyleGraphComparisonScenario(lifestyleScenario?.comparisonScenario);
     const comparisonScenarios = lifestyleComparisonScenario ? [lifestyleComparisonScenario] : [];
+    const baselineComposition = buildDisplayAutoCompressedBaselineForPrimaryScenario(
+      safeState,
+      context,
+      controls,
+      resolvedAccountPolicyInput
+    );
+    const rawBaselineScenario = baselineComposition.rawBaselineScenario || scenario;
+    const primaryScenario = baselineComposition.primaryScenario || scenario;
+    const autoCompressedBaselineScenario = baselineComposition.autoCompressedBaselineScenario || null;
+    const baselineContract = baselineComposition.baselineContract;
     const appliedScenarioRecord = buildAppliedScenarioRecordFromInputs(safeState, context, {
-      scenario,
+      scenario: primaryScenario,
+      rawBaselineScenario,
+      primaryScenario,
+      autoCompressedBaselineScenario,
+      baselineContract,
       riskEvaluation,
       comparisonScenarios,
       lifestyleScenario
@@ -4747,7 +4982,7 @@
       ? clonePlainValue(safeState.appliedScenarios)
       : [clonePlainValue(appliedScenarioRecord)];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
-      scenario,
+      scenario: primaryScenario,
       riskEvaluation,
       comparisonScenarios,
       appliedScenarios: appliedScenariosSnapshot,
@@ -4758,20 +4993,25 @@
       }
     });
     const dataGaps = []
-      .concat(Array.isArray(scenario?.dataGaps) ? scenario.dataGaps : [])
+      .concat(Array.isArray(primaryScenario?.dataGaps) ? primaryScenario.dataGaps : [])
       .concat(Array.isArray(riskEvaluation?.dataGaps) ? riskEvaluation.dataGaps : [])
       .concat(Array.isArray(graphModel?.dataGaps) ? graphModel.dataGaps : []);
     const warnings = []
-      .concat(Array.isArray(scenario?.warnings) ? scenario.warnings : [])
+      .concat(Array.isArray(primaryScenario?.warnings) ? primaryScenario.warnings : [])
       .concat(Array.isArray(riskEvaluation?.warnings) ? riskEvaluation.warnings : [])
-      .concat(Array.isArray(graphModel?.warnings) ? graphModel.warnings : []);
+      .concat(Array.isArray(graphModel?.warnings) ? graphModel.warnings : [])
+      .concat(Array.isArray(baselineComposition.warnings) ? baselineComposition.warnings : []);
 
     const timelineResult = {
       selectedDeath: {
-        date: context.selectedDeath?.date || scenario?.scenario?.selectedDeathDate || context.controls?.selectedDeathDate || null,
-        age: context.selectedDeath?.age ?? scenario?.scenario?.selectedDeathAge ?? context.controls?.selectedDeathAge ?? null
+        date: context.selectedDeath?.date || primaryScenario?.scenario?.selectedDeathDate || controls.selectedDeathDate || null,
+        age: context.selectedDeath?.age ?? primaryScenario?.scenario?.selectedDeathAge ?? controls.selectedDeathAge ?? null
       },
-      scenario,
+      scenario: primaryScenario,
+      rawBaselineScenario,
+      primaryScenario,
+      autoCompressedBaselineScenario,
+      baselineContract,
       riskEvaluation,
       triageInterventions,
       compressionReporting: {
@@ -4793,20 +5033,24 @@
           lifestyleScenarioPrepared: Boolean(lifestyleScenario),
           lifestyleScenarioStatus: lifestyleScenario?.status || null,
           lifestyleSliderValue,
+          baselineContract: clonePlainValue(baselineContract),
+          autoCompressionApplied: baselineContract?.autoCompressionApplied === true,
+          visibleBaselineMode: baselineContract?.visibleBaselineMode || "unadjusted",
           timelineMarkersCreated: false,
           graphPathChanged: Boolean(lifestyleComparisonScenario),
           reductionsApplied: false
         }
       },
       graphModel,
-      financialRunway: buildFinancialRunwayFromScenario(scenario, context.controls?.projectionHorizonYears),
-      summaryCards: buildSummaryCardsFromScenario(scenario),
+      financialRunway: buildFinancialRunwayFromScenario(primaryScenario, controls.projectionHorizonYears),
+      summaryCards: buildSummaryCardsFromScenario(primaryScenario),
       dataGaps,
       warnings,
       trace: {
         source: "income-impact-display-composer-risk-bridge",
-        composerStatus: scenario?.status || null,
+        composerStatus: primaryScenario?.status || null,
         riskEvaluatorStatus: riskEvaluation?.status || null,
+        baselineContract: clonePlainValue(baselineContract),
         retiredTimelineChartRendered: false
       }
     };
@@ -4814,7 +5058,7 @@
       comparisonScenarios,
       appliedScenarios: appliedScenariosSnapshot,
       selectedScenarioId,
-      controls: context.controls
+      controls
     });
     return timelineResult;
   }
@@ -4832,6 +5076,29 @@
     }
 
     const scenario = selectedScenario.scenario;
+    const rawBaselineScenario = isPlainObject(selectedScenario.rawBaselineScenario)
+      ? selectedScenario.rawBaselineScenario
+      : scenario;
+    const primaryScenario = isPlainObject(selectedScenario.primaryScenario)
+      ? selectedScenario.primaryScenario
+      : scenario;
+    const autoCompressedBaselineScenario = isPlainObject(selectedScenario.autoCompressedBaselineScenario)
+      ? selectedScenario.autoCompressedBaselineScenario
+      : null;
+    const settings = normalizeScenarioControlsForState(
+      safeState,
+      isPlainObject(selectedScenario.settings) ? selectedScenario.settings : null
+    );
+    const baselineContract = isPlainObject(selectedScenario.baselineContract)
+      ? selectedScenario.baselineContract
+      : makeBaselineContract({
+          visibleBaselineMode: "unadjusted",
+          autoCompressionEnabled: settings?.autoCompressBaselineEnabled !== false,
+          autoCompressionApplied: false,
+          autoCompressionStatus: "selected-scenario-unadjusted",
+          rawBaselineScenarioId: rawBaselineScenario?.scenarioId || null,
+          primaryScenarioId: primaryScenario?.scenarioId || null
+        });
     const riskEvaluation = isPlainObject(selectedScenario.riskEvaluation) ? selectedScenario.riskEvaluation : {};
     const comparisonScenarios = Array.isArray(selectedScenario.comparisonScenarios)
       ? clonePlainValue(selectedScenario.comparisonScenarios)
@@ -4839,16 +5106,12 @@
     const lifestyleScenario = isPlainObject(selectedScenario.lifestyleScenario)
       ? clonePlainValue(selectedScenario.lifestyleScenario)
       : null;
-    const settings = normalizeScenarioControlsForState(
-      safeState,
-      isPlainObject(selectedScenario.settings) ? selectedScenario.settings : null
-    );
     const selectedScenarioId = safeState.selectedScenarioId || getAppliedScenarioId(selectedScenario, 0);
     const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
       ? clonePlainValue(safeState.appliedScenarios)
       : [clonePlainValue(selectedScenario)];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
-      scenario,
+      scenario: primaryScenario,
       riskEvaluation,
       comparisonScenarios,
       appliedScenarios: appliedScenariosSnapshot,
@@ -4869,10 +5132,14 @@
 
     const timelineResult = {
       selectedDeath: {
-        date: scenario?.scenario?.selectedDeathDate || settings.selectedDeathDate || null,
-        age: scenario?.scenario?.selectedDeathAge ?? settings.selectedDeathAge ?? null
+        date: primaryScenario?.scenario?.selectedDeathDate || settings.selectedDeathDate || null,
+        age: primaryScenario?.scenario?.selectedDeathAge ?? settings.selectedDeathAge ?? null
       },
-      scenario,
+      scenario: primaryScenario,
+      rawBaselineScenario,
+      primaryScenario,
+      autoCompressedBaselineScenario,
+      baselineContract,
       riskEvaluation,
       triageInterventions: null,
       compressionReporting: {
@@ -4885,20 +5152,24 @@
           reportingOnly: true,
           selectedAppliedScenarioRender: true,
           lifestyleSliderValue: settings.lifestyleSliderValue,
+          baselineContract: clonePlainValue(baselineContract),
+          autoCompressionApplied: baselineContract?.autoCompressionApplied === true,
+          visibleBaselineMode: baselineContract?.visibleBaselineMode || "unadjusted",
           graphPathChanged: comparisonScenarios.length > 0,
           reductionsApplied: false
         })
       },
       graphModel,
-      financialRunway: buildFinancialRunwayFromScenario(scenario, settings.projectionHorizonYears),
-      summaryCards: buildSummaryCardsFromScenario(scenario),
+      financialRunway: buildFinancialRunwayFromScenario(primaryScenario, settings.projectionHorizonYears),
+      summaryCards: buildSummaryCardsFromScenario(primaryScenario),
       dataGaps,
       warnings,
       trace: {
         source: "income-impact-display-selected-applied-scenario",
-        composerStatus: scenario?.status || null,
+        composerStatus: primaryScenario?.status || null,
         riskEvaluatorStatus: riskEvaluation?.status || null,
         selectedScenarioId: safeState.selectedScenarioId || null,
+        baselineContract: clonePlainValue(baselineContract),
         retiredTimelineChartRendered: false
       }
     };
@@ -5008,6 +5279,10 @@
       label: getAppliedScenarioLabel(state, settings),
       settings: clonePlainValue(settings),
       scenario: clonePlainValue(safeInputs.scenario || baseContext?.scenario || null),
+      rawBaselineScenario: clonePlainValue(safeInputs.rawBaselineScenario || baseContext?.scenario || null),
+      primaryScenario: clonePlainValue(safeInputs.primaryScenario || safeInputs.scenario || baseContext?.scenario || null),
+      autoCompressedBaselineScenario: clonePlainValue(safeInputs.autoCompressedBaselineScenario || null),
+      baselineContract: clonePlainValue(safeInputs.baselineContract || null),
       riskEvaluation: clonePlainValue(safeInputs.riskEvaluation || baseContext?.riskEvaluation || null),
       comparisonScenarios: Array.isArray(safeInputs.comparisonScenarios)
         ? clonePlainValue(safeInputs.comparisonScenarios)
@@ -5027,6 +5302,9 @@
       trace: {
         source: "income-impact-display-scenario-state",
         liveBehaviorPreserved: true,
+        visibleBaselineMode: safeInputs.baselineContract?.visibleBaselineMode || "unadjusted",
+        autoCompressionApplied: safeInputs.baselineContract?.autoCompressionApplied === true,
+        rawBaselinePreserved: safeInputs.baselineContract?.rawBaselinePreserved === true,
         settingsKey: getScenarioSettingsKey(settings),
         maxAppliedScenarioCount: MAX_APPLIED_SCENARIOS
       }
@@ -5040,6 +5318,10 @@
       : null;
     return buildAppliedScenarioRecordFromInputs(state, baseContext, {
       scenario: timelineResult?.scenario,
+      rawBaselineScenario: timelineResult?.rawBaselineScenario,
+      primaryScenario: timelineResult?.primaryScenario,
+      autoCompressedBaselineScenario: timelineResult?.autoCompressedBaselineScenario,
+      baselineContract: timelineResult?.baselineContract,
       riskEvaluation: timelineResult?.riskEvaluation,
       lifestyleScenario: timelineResult?.compressionReporting?.lifestyleScenario,
       comparisonTrace: timelineResult?.compressionReporting?.trace,
@@ -5358,6 +5640,7 @@
     const composeIncomeImpactScenario = currentLensAnalysis.composeIncomeImpactScenario;
     const evaluateIncomeImpactRiskEvents = currentLensAnalysis.evaluateIncomeImpactRiskEvents;
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
+    const buildIncomeImpactAutoCompressedBaseline = currentLensAnalysis.buildIncomeImpactAutoCompressedBaseline;
     const buildIncomeImpactFinancialStorylineCandidates = currentLensAnalysis.buildIncomeImpactFinancialStorylineCandidates;
     const buildIncomeImpactResourceWaterfall = currentLensAnalysis.buildIncomeImpactResourceWaterfall;
     const buildIncomeImpactHousingRisk = currentLensAnalysis.buildIncomeImpactHousingRisk;
@@ -5429,6 +5712,7 @@
         composeIncomeImpactScenario,
         evaluateIncomeImpactRiskEvents,
         buildIncomeImpactTimelineGraphModel,
+        buildIncomeImpactAutoCompressedBaseline,
         buildIncomeImpactFinancialStorylineCandidates,
         buildIncomeImpactResourceWaterfall,
         buildIncomeImpactHousingRisk,
