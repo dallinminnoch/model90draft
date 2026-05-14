@@ -18094,16 +18094,8 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   opacity: 1;
 }
 
-.income-impact-storyline-event-lane {
+.income-impact-storyline-trendline-markers {
   pointer-events: none;
-}
-
-.income-impact-storyline-event-lane > line {
-  opacity: 0.42;
-  stroke: rgba(148, 163, 184, 0.34);
-  stroke-dasharray: 3 8;
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
 }
 
 .income-impact-storyline-dot {

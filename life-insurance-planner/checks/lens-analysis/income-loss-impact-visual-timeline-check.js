@@ -71,6 +71,22 @@ function getDeathConversionConnectorTag(html) {
   return tags[0];
 }
 
+function getSvgGroupTagByAttribute(html, attributeName, attributeValue) {
+  const pattern = new RegExp(`<g\\b(?=[^>]*${attributeName}="${attributeValue}")[^>]*>`, "g");
+  const tags = html.match(pattern) || [];
+  assert.equal(tags.length, 1, `Expected one SVG group with ${attributeName}="${attributeValue}".`);
+  return tags[0];
+}
+
+function getTranslateCoordinates(tag) {
+  const match = String(tag || "").match(/transform="translate\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)"/);
+  assert.ok(match, "Expected SVG group to include translate coordinates.");
+  return {
+    x: Number(match[1]),
+    y: Number(match[2])
+  };
+}
+
 function getGraphHoverGridLineTag(html, x) {
   const tags = html.match(/<line\b(?=[^>]*data-income-impact-graph-hover-grid-line)[^>]*>/g) || [];
   const tag = tags.find(function (candidate) {
@@ -536,7 +552,11 @@ assert.match(displaySource, /data-income-impact-graph-hover-readout/);
 assert.match(displaySource, /renderGraphStorylineEventDots/);
 assert.match(displaySource, /data-income-impact-storyline-dot/);
 assert.match(displaySource, /data-income-impact-storyline-event-id/);
-assert.match(displaySource, /data-income-impact-storyline-event-lane/);
+assert.match(displaySource, /data-income-impact-storyline-trendline-markers/);
+assert.match(displaySource, /data-income-impact-storyline-coordinate-source/);
+assert.match(displaySource, /death-conversion-diamond/);
+assert.match(displaySource, /runway-depletion-marker/);
+assert.doesNotMatch(displaySource, /GRAPH_STORYLINE_EVENT_LANE_/);
 assert.match(displaySource, /GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16/);
 assert.match(displaySource, /data-income-impact-graph-y-grid-line/);
 assert.match(displaySource, /data-income-impact-graph-y-tick-marker/);
@@ -661,7 +681,8 @@ assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#6
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*transparent;[\s\S]*stroke-width:\s*1;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);/);
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
-assert.match(componentsSource, /\.income-impact-storyline-event-lane/);
+assert.match(componentsSource, /\.income-impact-storyline-trendline-markers/);
+assert.doesNotMatch(componentsSource, /\.income-impact-storyline-event-lane/);
 assert.match(componentsSource, /\.income-impact-storyline-dot/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--major \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--micro \.income-impact-storyline-dot-core/);
@@ -958,10 +979,12 @@ storylineDotFixture.financialStoryline = {
 const storylineDotTimelineHtml = harness.renderTimeline(storylineDotFixture);
 assert.equal(
   (storylineDotTimelineHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
-  3,
-  "Graph should render one SVG event dot for each storyline graph dot candidate."
+  2,
+  "Graph should render timed storyline graph dot candidates and reuse the death diamond instead of duplicating death."
 );
-assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-event-lane/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-trendline-markers/);
+assert.match(storylineDotTimelineHtml, /data-income-impact-death-conversion-diamond[\s\S]*data-income-impact-storyline-event-id="death-income-stops"/);
+assert.doesNotMatch(storylineDotTimelineHtml, /<g\b(?=[^>]*data-income-impact-storyline-dot(?:\s|>))(?=[^>]*data-income-impact-storyline-event-id="death-income-stops")/);
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-event-id="cash-savings-depleted"/);
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot-tier="micro"/);
 assert.match(storylineDotTimelineHtml, /income-impact-storyline-dot--micro/);
@@ -975,6 +998,17 @@ assert.match(storylineDotTimelineHtml, /Cash depleted/);
 assert.match(storylineDotTimelineHtml, /Month 24/);
 assert.match(storylineDotTimelineHtml, /\$2,400\/mo/);
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot[\s\S]*tabindex="0"[\s\S]*role="button"/);
+const cashStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "cash-savings-depleted");
+const cashStorylineDotPosition = getTranslateCoordinates(cashStorylineDot);
+assert.equal(cashStorylineDotPosition.x, 366, "Cash depletion dot should sit on the visible remaining-resources trendline x coordinate.");
+assert.equal(cashStorylineDotPosition.y, 74, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
+assert.match(cashStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
+const housingStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "housing-payment-at-risk");
+const housingStorylineDotPosition = getTranslateCoordinates(housingStorylineDot);
+assert.equal(housingStorylineDotPosition.x, 401, "Housing pressure dot should interpolate its x coordinate from the graph timeline.");
+assert.equal(housingStorylineDotPosition.y, 92, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
+assert.match(housingStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-interpolated"/);
+assert.notEqual(cashStorylineDotPosition.y, 316, "Storyline dots should not use the retired fixed lower event lane.");
 assert.doesNotMatch(storylineDotTimelineHtml, /data-income-impact-story-card|data-income-impact-story-card-connector/);
 assert.doesNotMatch(storylineDotTimelineHtml, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
 const cappedStorylineDotFixture = JSON.parse(JSON.stringify(fixture));
@@ -990,7 +1024,7 @@ cappedStorylineDotFixture.financialStoryline = {
       majorCardIndex: null,
       graphLabel: `Event ${index + 1}`,
       evidenceLevel: "estimated",
-      timing: { kind: "month-offset", monthOffset: (index + 1) * 6, label: `Month ${(index + 1) * 6}` }
+      timing: { kind: "month-offset", monthOffset: 12 + (index * 6), label: `Month ${12 + (index * 6)}` }
     };
   })
 };
@@ -1008,6 +1042,29 @@ assert.doesNotMatch(
   emptyStorylineDotHtml,
   /data-income-impact-storyline-dot(?:\s|>)/,
   "Graph storyline dots should not render when graphDotCandidates is empty."
+);
+const unpositionedStorylineDotHtml = harness.renderTimeline({
+  ...fixture,
+  financialStoryline: {
+    graphDotCandidates: [
+      {
+        id: "unpositioned-storyline-event",
+        family: "liquidity",
+        severity: "caution",
+        dotTier: "micro",
+        connectedToMajorCard: false,
+        eligibleForConnector: false,
+        graphLabel: "Unpositioned event",
+        evidenceLevel: "estimated",
+        timing: { kind: "month-offset", monthOffset: 6, label: "Month 6" }
+      }
+    ]
+  }
+});
+assert.doesNotMatch(
+  unpositionedStorylineDotHtml,
+  /data-income-impact-storyline-dot(?:\s|>)/,
+  "Graph storyline dots should suppress candidates without a trustworthy remaining-resources coordinate."
 );
 const shiftedRangeFixture = JSON.parse(JSON.stringify(fixture));
 shiftedRangeFixture.selectedDeath = { date: "2036-04-29", age: 56 };
@@ -1850,16 +1907,6 @@ majorStoryFixture.financialStoryline = {
       timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" }
     },
     {
-      id: "life-insurance-proceeds-applied",
-      family: "insurance",
-      severity: "positive",
-      cardTitle: "Life Insurance Proceeds Applied",
-      description: "Available coverage is added to survivor resources.",
-      evidenceLevel: "calculated",
-      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" },
-      amount: { value: 400000, label: "$400,000" }
-    },
-    {
       id: "cash-savings-depleted",
       family: "liquidity",
       severity: "caution",
@@ -1887,6 +1934,15 @@ majorStoryFixture.financialStoryline = {
       description: "Long-term assets are reached after liquid reserves.",
       evidenceLevel: "estimated",
       timing: { kind: "month-offset", monthOffset: 36, date: "2034-04-29", label: "Month 36" }
+    },
+    {
+      id: "education-savings-depleted",
+      family: "education",
+      severity: "at-risk",
+      cardTitle: "Education Savings Depleted",
+      description: "Education savings are exhausted by living needs.",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 60, date: "2036-04-29", label: "Month 60" }
     },
     {
       id: "resources-run-out",
@@ -1922,26 +1978,13 @@ majorStoryFixture.financialStoryline = {
       timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" }
     },
     {
-      id: "life-insurance-proceeds-applied",
-      family: "insurance",
-      severity: "positive",
-      dotTier: "major",
-      connectedToMajorCard: true,
-      eligibleForConnector: true,
-      majorCardIndex: 1,
-      graphLabel: "Coverage applied",
-      evidenceLevel: "calculated",
-      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" },
-      amount: { value: 400000, label: "$400,000" }
-    },
-    {
       id: "cash-savings-depleted",
       family: "liquidity",
       severity: "caution",
       dotTier: "major",
       connectedToMajorCard: true,
       eligibleForConnector: true,
-      majorCardIndex: 2,
+      majorCardIndex: 1,
       graphLabel: "Cash depleted",
       evidenceLevel: "estimated",
       timing: { kind: "month-offset", monthOffset: 12, date: "2032-04-29", label: "Month 12" },
@@ -1954,7 +1997,7 @@ majorStoryFixture.financialStoryline = {
       dotTier: "major",
       connectedToMajorCard: true,
       eligibleForConnector: true,
-      majorCardIndex: 3,
+      majorCardIndex: 2,
       graphLabel: "Housing at risk",
       evidenceLevel: "estimated",
       timing: { kind: "month-offset", monthOffset: 24, date: "2033-04-29", label: "Month 24" },
@@ -1967,10 +2010,22 @@ majorStoryFixture.financialStoryline = {
       dotTier: "major",
       connectedToMajorCard: true,
       eligibleForConnector: true,
-      majorCardIndex: 4,
+      majorCardIndex: 3,
       graphLabel: "Retirement tapped",
       evidenceLevel: "estimated",
       timing: { kind: "month-offset", monthOffset: 36, date: "2034-04-29", label: "Month 36" }
+    },
+    {
+      id: "education-savings-depleted",
+      family: "education",
+      severity: "at-risk",
+      dotTier: "major",
+      connectedToMajorCard: true,
+      eligibleForConnector: true,
+      majorCardIndex: 4,
+      graphLabel: "Education depleted",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 60, date: "2036-04-29", label: "Month 60" }
     },
     {
       id: "resources-run-out",
@@ -2013,20 +2068,20 @@ assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-family="h
 assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-severity="at-risk"/);
 assert.match(majorStoryHost.innerHTML, /Death &amp; Income Stops/);
 assert.match(majorStoryHost.innerHTML, /At death/);
-assert.match(majorStoryHost.innerHTML, /\$400,000/);
+assert.match(majorStoryHost.innerHTML, /\$50,000/);
 assert.match(majorStoryHost.innerHTML, /Housing payments continue beyond projected liquid resources\./);
 assert.ok(
   majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="death-income-stops"') <
-    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="life-insurance-proceeds-applied"') &&
-    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="life-insurance-proceeds-applied"') <
-    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="cash-savings-depleted"'),
+    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="cash-savings-depleted"') &&
+    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="cash-savings-depleted"') <
+    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="housing-payment-at-risk"'),
   "Major story cards should preserve selector order with death first when supplied first."
 );
 assert.doesNotMatch(majorStoryHost.innerHTML, /lower-priority-over-cap|Lower Priority Event/);
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
-  16,
-  "Rendering major story cards should not alter existing graph dot rendering."
+  15,
+  "Rendering major story cards should render non-death graph dots while reusing the death diamond marker."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-connector(?:\s|>)/g) || []).length,
@@ -2047,17 +2102,82 @@ assert.match(majorStoryHost.innerHTML, /income-impact-storyline-dot--major/);
 assert.match(majorStoryHost.innerHTML, /income-impact-storyline-dot--micro/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-dot-readout/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connectors/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-death-conversion-diamond[\s\S]*data-income-impact-storyline-event-id="death-income-stops"/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /<g\b(?=[^>]*data-income-impact-storyline-dot(?:\s|>))(?=[^>]*data-income-impact-storyline-event-id="death-income-stops")/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="death-income-stops"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="life-insurance-proceeds-applied"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-target-source="death-conversion-diamond"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="cash-savings-depleted"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="housing-payment-at-risk"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="retirement-assets-tapped"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="education-savings-depleted"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="resources-run-out"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-family="support"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-severity="critical"/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="micro-storyline-event-/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-story-card-connector|data-income-impact-major-story-connector/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
+
+const reusedRunOutMarkerFixture = JSON.parse(JSON.stringify(fixture));
+reusedRunOutMarkerFixture.graphModel = JSON.parse(JSON.stringify(multiAppliedGraphModel));
+reusedRunOutMarkerFixture.financialStoryline = {
+  majorStoryCandidates: [
+    {
+      id: "death-income-stops",
+      family: "trigger",
+      severity: "critical",
+      cardTitle: "Death & Income Stops",
+      evidenceLevel: "trace-backed",
+      timing: { kind: "death-event", monthOffset: 0, label: "At death" }
+    },
+    {
+      id: "resources-run-out",
+      family: "support",
+      severity: "critical",
+      cardTitle: "Resources Run Out",
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 156, label: "Month 156" }
+    }
+  ],
+  graphDotCandidates: [
+    {
+      id: "death-income-stops",
+      family: "trigger",
+      severity: "critical",
+      dotTier: "major",
+      connectedToMajorCard: true,
+      eligibleForConnector: true,
+      majorCardIndex: 0,
+      graphLabel: "Death",
+      evidenceLevel: "trace-backed",
+      timing: { kind: "death-event", monthOffset: 0, label: "At death" }
+    },
+    {
+      id: "resources-run-out",
+      family: "support",
+      severity: "critical",
+      dotTier: "major",
+      connectedToMajorCard: true,
+      eligibleForConnector: true,
+      majorCardIndex: 1,
+      graphLabel: "Resources run out",
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 156, label: "Month 156" }
+    }
+  ]
+};
+const reusedRunOutMarkerHtml = harness.renderTimeline(reusedRunOutMarkerFixture);
+assert.doesNotMatch(
+  reusedRunOutMarkerHtml,
+  /<g\b(?=[^>]*data-income-impact-storyline-dot(?:\s|>))(?=[^>]*data-income-impact-storyline-event-id="resources-run-out")/,
+  "Resources run out should reuse the existing selected depletion marker instead of rendering a duplicate storyline dot."
+);
+assert.match(
+  reusedRunOutMarkerHtml,
+  /data-income-impact-runway-depletion-marker[\s\S]*data-income-impact-storyline-event-id="resources-run-out"/,
+  "Selected depletion marker should serve as the resources-run-out storyline marker when available."
+);
+assert.match(reusedRunOutMarkerHtml, /data-income-impact-storyline-connector-event-id="resources-run-out"/);
+assert.match(reusedRunOutMarkerHtml, /data-income-impact-storyline-connector-target-source="runway-depletion-marker"/);
 
 const emptyMajorStoryHost = { innerHTML: "" };
 harness.renderIncomeImpact(emptyMajorStoryHost, {

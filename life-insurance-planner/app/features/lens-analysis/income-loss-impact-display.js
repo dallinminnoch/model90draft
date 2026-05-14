@@ -45,8 +45,6 @@
     plotHeight: 318
   });
   const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16;
-  const GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET = 38;
-  const GRAPH_STORYLINE_EVENT_LANE_STAGGER = 12;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
   const FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT = 6;
   const GRAPH_DETAIL_VIEW_BOX = Object.freeze({
@@ -2106,6 +2104,58 @@
       && candidate?.eligibleForConnector === true;
   }
 
+  function isDeathStorylineCandidate(candidate) {
+    return normalizeString(candidate?.id) === "death-income-stops";
+  }
+
+  function isRunOutStorylineCandidate(candidate) {
+    return normalizeString(candidate?.id) === "resources-run-out";
+  }
+
+  function getFinancialStorylineCandidateById(timelineResult, eventId) {
+    const normalizedId = normalizeString(eventId);
+    if (!normalizedId) {
+      return null;
+    }
+    const storyline = isPlainObject(timelineResult?.financialStoryline)
+      ? timelineResult.financialStoryline
+      : {};
+    const lists = [
+      storyline.graphDotCandidates,
+      storyline.majorGraphDotCandidates,
+      storyline.majorStoryCandidates
+    ];
+    for (const list of lists) {
+      const match = (Array.isArray(list) ? list : []).find(function (candidate) {
+        return normalizeString(candidate?.id) === normalizedId;
+      });
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  }
+
+  function getReusableDepletionStorylineTarget(candidate, graphModel) {
+    if (!isRunOutStorylineCandidate(candidate)) {
+      return null;
+    }
+    const markers = getAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId);
+    const marker = markers.find(function (candidateMarker) {
+      return candidateMarker?.selected === true;
+    }) || markers[0] || null;
+    if (!marker || toOptionalNumber(marker.xRatio) == null || toOptionalNumber(marker.yRatio) == null) {
+      return null;
+    }
+    return {
+      x: toGraphX(marker.xRatio),
+      y: toGraphY(marker.yRatio),
+      xRatio: marker.xRatio,
+      yRatio: marker.yRatio,
+      source: "runway-depletion-marker"
+    };
+  }
+
   function getGraphStorylineEventDots(timelineResult, graphModel) {
     const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
       ? timelineResult.financialStoryline.graphDotCandidates
@@ -2118,16 +2168,16 @@
       if (!isPlainObject(candidate)) {
         return null;
       }
-      const xRatio = getGraphStorylineDotXRatio(candidate, graphModel, anchors);
-      if (xRatio == null) {
+      if (isDeathStorylineCandidate(candidate)) {
         return null;
       }
-      const laneY = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET;
-      const y = clampNumber(
-        laneY - ((index % 3) * GRAPH_STORYLINE_EVENT_LANE_STAGGER),
-        GRAPH_VIEW_BOX.plotTop + 24,
-        GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 18
-      );
+      if (getReusableDepletionStorylineTarget(candidate, graphModel)) {
+        return null;
+      }
+      const trendlineCoordinate = getGraphStorylineTrendlineCoordinate(candidate, graphModel, anchors);
+      if (!trendlineCoordinate || trendlineCoordinate.xRatio == null || trendlineCoordinate.yRatio == null) {
+        return null;
+      }
       const title = getGraphStorylineDotTitle(candidate);
       const timeLabel = getGraphStorylineDotTimeLabel(candidate);
       const amountLabel = getGraphStorylineDotAmountLabel(candidate);
@@ -2136,13 +2186,14 @@
       return {
         candidate,
         index,
-        x: toGraphX(xRatio),
-        y,
+        x: toGraphX(trendlineCoordinate.xRatio),
+        y: toGraphY(trendlineCoordinate.yRatio),
         dotTier,
         title,
         timeLabel,
         amountLabel,
         evidenceLabel,
+        coordinateSource: trendlineCoordinate.source,
         monthOffset: getGraphStorylineEventMonthOffset(candidate, graphModel),
         date: getGraphStorylineEventDate(candidate)
       };
@@ -2165,10 +2216,8 @@
     if (!dots.length) {
       return "";
     }
-    const laneY = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - GRAPH_STORYLINE_EVENT_LANE_Y_OFFSET;
     return `
-      <g class="income-impact-storyline-event-lane" data-income-impact-storyline-event-lane aria-label="Financial storyline graph events">
-        <line x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${formatSvgCoordinate(laneY)}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${formatSvgCoordinate(laneY)}"></line>
+      <g class="income-impact-storyline-trendline-markers" data-income-impact-storyline-trendline-markers aria-label="Financial storyline graph events">
         ${dots.map(function (dot) {
           const candidate = dot.candidate;
           const readout = getGraphStorylineReadoutPosition(dot);
@@ -2199,6 +2248,7 @@
               data-income-impact-storyline-timing-label="${escapeHtml(dot.timeLabel)}"
               data-income-impact-storyline-month-offset="${escapeHtml(dot.monthOffset == null ? "" : dot.monthOffset)}"
               data-income-impact-storyline-date="${escapeHtml(dot.date)}"
+              data-income-impact-storyline-coordinate-source="${escapeHtml(dot.coordinateSource || "")}"
               transform="translate(${formatSvgCoordinate(dot.x)} ${formatSvgCoordinate(dot.y)})"
               tabindex="0"
               role="button"
@@ -2225,43 +2275,93 @@
     `;
   }
 
+  function getDeathStorylineMarkerTarget(candidate, graphModel) {
+    if (!isDeathStorylineCandidate(candidate)) {
+      return null;
+    }
+    const connector = getDeathConversionConnector(graphModel);
+    if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
+      return null;
+    }
+    const x = toGraphX(connector.xRatio);
+    const y1 = toGraphY(connector.startYRatio);
+    const y2 = toGraphY(connector.endYRatio);
+    return {
+      x,
+      y: Math.min(y1, y2),
+      source: "death-conversion-diamond"
+    };
+  }
+
+  function getGraphStorylineConnectorTargets(timelineResult, graphModel) {
+    const targetsByEventId = new Map();
+    getGraphStorylineEventDots(timelineResult, graphModel).forEach(function (dot) {
+      const eventId = normalizeString(dot?.candidate?.id);
+      if (eventId && isGraphStorylineConnectorEligible(dot?.candidate) && !targetsByEventId.has(eventId)) {
+        targetsByEventId.set(eventId, Object.assign({}, dot, {
+          source: dot.coordinateSource || "primary-trendline-marker"
+        }));
+      }
+    });
+
+    const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
+      ? timelineResult.financialStoryline.graphDotCandidates
+      : [];
+    candidates.forEach(function (candidate) {
+      const eventId = normalizeString(candidate?.id);
+      if (!eventId || !isGraphStorylineConnectorEligible(candidate) || targetsByEventId.has(eventId)) {
+        return;
+      }
+      const reusableTarget = getDeathStorylineMarkerTarget(candidate, graphModel)
+        || getReusableDepletionStorylineTarget(candidate, graphModel);
+      if (reusableTarget) {
+        targetsByEventId.set(eventId, {
+          candidate,
+          x: reusableTarget.x,
+          y: reusableTarget.y,
+          dotTier: getGraphStorylineDotTier(candidate),
+          source: reusableTarget.source,
+          monthOffset: getGraphStorylineEventMonthOffset(candidate, graphModel),
+          date: getGraphStorylineEventDate(candidate)
+        });
+      }
+    });
+
+    return targetsByEventId;
+  }
+
   function getGraphStorylineConnectors(timelineResult, graphModel) {
     const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
     if (!majorStoryCandidates.length) {
       return [];
     }
-    const dotsByEventId = new Map();
-    getGraphStorylineEventDots(timelineResult, graphModel).forEach(function (dot) {
-      const eventId = normalizeString(dot?.candidate?.id);
-      if (eventId && isGraphStorylineConnectorEligible(dot?.candidate) && !dotsByEventId.has(eventId)) {
-        dotsByEventId.set(eventId, dot);
-      }
-    });
-    if (!dotsByEventId.size) {
+    const targetsByEventId = getGraphStorylineConnectorTargets(timelineResult, graphModel);
+    if (!targetsByEventId.size) {
       return [];
     }
 
     return majorStoryCandidates.map(function (candidate, index) {
       const eventId = normalizeString(candidate?.id);
-      const dot = eventId ? dotsByEventId.get(eventId) : null;
-      if (!dot) {
+      const target = eventId ? targetsByEventId.get(eventId) : null;
+      if (!target) {
         return null;
       }
       const cardAnchorX = ((index + 0.5) / FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT) * GRAPH_VIEW_BOX.width;
       const startY = GRAPH_VIEW_BOX.plotTop - 8;
-      const endY = Math.max(startY + 20, dot.y - 12);
+      const endY = Math.max(startY + 20, target.y - 12);
       return {
         candidate,
-        dot,
+        dot: target,
         eventId,
-        family: normalizeString(candidate?.family || dot?.candidate?.family) || "event",
-        severity: normalizeString(candidate?.severity || dot?.candidate?.severity) || "info",
+        family: normalizeString(candidate?.family || target?.candidate?.family) || "event",
+        severity: normalizeString(candidate?.severity || target?.candidate?.severity) || "info",
         cardIndex: index,
+        targetSource: target.source || "primary-trendline-marker",
         path: [
           `M ${formatSvgCoordinate(cardAnchorX)} ${formatSvgCoordinate(startY)}`,
           `C ${formatSvgCoordinate(cardAnchorX)} ${formatSvgCoordinate(startY + 52)}`,
-          `${formatSvgCoordinate(dot.x)} ${formatSvgCoordinate(endY - 54)}`,
-          `${formatSvgCoordinate(dot.x)} ${formatSvgCoordinate(endY)}`
+          `${formatSvgCoordinate(target.x)} ${formatSvgCoordinate(endY - 54)}`,
+          `${formatSvgCoordinate(target.x)} ${formatSvgCoordinate(endY)}`
         ].join(" ")
       };
     }).filter(Boolean);
@@ -2284,6 +2384,7 @@
               data-income-impact-storyline-connector-family="${escapeHtml(connector.family)}"
               data-income-impact-storyline-connector-severity="${escapeHtml(connector.severity)}"
               data-income-impact-storyline-connector-card-index="${escapeHtml(connector.cardIndex)}"
+              data-income-impact-storyline-connector-target-source="${escapeHtml(connector.targetSource)}"
               d="${connector.path}"
             ></path>
           `;
@@ -2547,6 +2648,7 @@
     if (!markers.length) {
       return "";
     }
+    const runOutStorylineCandidate = getFinancialStorylineCandidateById(timelineResult, "resources-run-out");
 
     return `
       <g class="income-impact-runway-depletion-markers" data-income-impact-runway-depletion-markers>
@@ -2566,6 +2668,12 @@
               data-income-impact-applied-scenario-label="${escapeHtml(displayLabel)}"
               data-income-impact-applied-scenario-selected="${marker.selected ? "true" : "false"}"
               data-income-impact-depletion-marker-path-id="${escapeHtml(marker.pathId)}"
+              ${runOutStorylineCandidate && marker.selected ? `
+              data-income-impact-storyline-event-id="resources-run-out"
+              data-income-impact-storyline-dot-tier="${escapeHtml(getGraphStorylineDotTier(runOutStorylineCandidate))}"
+              data-income-impact-storyline-connected-to-major-card="${runOutStorylineCandidate.connectedToMajorCard === true ? "true" : "false"}"
+              data-income-impact-storyline-eligible-for-connector="${runOutStorylineCandidate.eligibleForConnector === true ? "true" : "false"}"
+              data-income-impact-storyline-marker-source="runway-depletion-marker"` : ""}
               aria-label="${escapeHtml(markerLabel)}"
               transform="translate(${x} ${y})"
             >
@@ -2717,13 +2825,20 @@
     }).join("");
   }
 
-  function renderDeathConversionMarkers(x, topY, bottomY) {
+  function renderDeathConversionMarkers(x, topY, bottomY, storylineCandidate = null) {
     const circleY = topY + ((bottomY - topY) * DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP);
+    const diamondStorylineAttributes = storylineCandidate ? `
+          data-income-impact-storyline-event-id="death-income-stops"
+          data-income-impact-storyline-dot-tier="${escapeHtml(getGraphStorylineDotTier(storylineCandidate))}"
+          data-income-impact-storyline-connected-to-major-card="${storylineCandidate.connectedToMajorCard === true ? "true" : "false"}"
+          data-income-impact-storyline-eligible-for-connector="${storylineCandidate.eligibleForConnector === true ? "true" : "false"}"
+          data-income-impact-storyline-marker-source="death-conversion-diamond"` : "";
     return `
       <g class="income-impact-death-conversion-markers" data-income-impact-death-conversion-markers>
         <rect
           class="income-impact-death-conversion-diamond"
           data-income-impact-death-conversion-diamond
+          ${diamondStorylineAttributes}
           x="${formatSvgCoordinate(x - 6)}"
           y="${formatSvgCoordinate(topY - 6)}"
           width="12"
@@ -2742,7 +2857,7 @@
     `;
   }
 
-  function renderDeathEventConversionConnector(graphModel) {
+  function renderDeathEventConversionConnector(graphModel, timelineResult = null) {
     const connector = getDeathConversionConnector(graphModel);
     if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
       return "";
@@ -2756,6 +2871,7 @@
     const topY = Math.min(y1, y2);
     const bottomY = Math.max(y1, y2);
     const label = `${connector.label || "Selected scenario"} death-event conversion`;
+    const deathStorylineCandidate = getFinancialStorylineCandidateById(timelineResult, "death-income-stops");
     return `
       ${renderDeathConversionGradient(connector, x, y1, y2)}
       <g
@@ -2776,7 +2892,7 @@
         <g class="income-impact-death-conversion-chevrons" data-income-impact-death-conversion-chevrons>
           ${renderDeathConversionArrows(x, y1, y2)}
         </g>
-        ${renderDeathConversionMarkers(x, topY, bottomY)}
+        ${renderDeathConversionMarkers(x, topY, bottomY, deathStorylineCandidate)}
         <title>${escapeHtml(label)}</title>
       </g>
     `;
@@ -3417,7 +3533,7 @@
     const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel, timelineResult);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
     const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
-    const deathConversionConnector = renderDeathEventConversionConnector(graphModel);
+    const deathConversionConnector = renderDeathEventConversionConnector(graphModel, timelineResult);
     const hoverLayer = renderGraphHoverLayer(graphModel);
     const storylineConnectors = renderGraphStorylineConnectors(timelineResult, graphModel);
     const storylineEventDots = renderGraphStorylineEventDots(timelineResult, graphModel);
@@ -4527,6 +4643,106 @@
     }
     if (typeof lensAnalysis?.[helperName] === "function") {
       return lensAnalysis[helperName];
+    }
+    return null;
+  }
+
+  function getGraphStorylinePointMonthOffset(point) {
+    return toOptionalNumber(
+      point?.relativeMonthsFromDeath ??
+        point?.monthOffset ??
+        point?.monthIndex ??
+        point?.monthsAfterDeath
+    );
+  }
+
+  function normalizeGraphStorylineTrendlinePoint(point) {
+    if (!hasGraphPosition(point)) {
+      return null;
+    }
+    const monthOffset = getGraphStorylinePointMonthOffset(point);
+    if (monthOffset == null) {
+      return null;
+    }
+    return {
+      monthOffset,
+      xRatio: clampNumber(toOptionalNumber(point.xRatio), 0, 1),
+      yRatio: clampNumber(toOptionalNumber(point.yRatio), 0, 1),
+      date: normalizeDateOnly(point.date || "")
+    };
+  }
+
+  function getGraphStorylinePrimaryTrendlinePoints(graphModel) {
+    const selectedSeries = getSelectedRunwayScenario(graphModel, graphModel?.trace?.selectedScenarioId);
+    const selectedRunwayPoints = selectedSeries
+      ? []
+        .concat(selectedSeries.survivorResourcesAtDeathPoint ? [selectedSeries.survivorResourcesAtDeathPoint] : [])
+        .concat(Array.isArray(selectedSeries.fundedRunwayPoints) ? selectedSeries.fundedRunwayPoints : [])
+        .concat(Array.isArray(selectedSeries.deficitPoints) ? selectedSeries.deficitPoints : [])
+      : [];
+    const selectedAppliedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    const fallbackPoints = Array.isArray(selectedAppliedSeries?.points) ? selectedAppliedSeries.points : [];
+    const points = (selectedRunwayPoints.length ? selectedRunwayPoints : fallbackPoints)
+      .map(normalizeGraphStorylineTrendlinePoint)
+      .filter(Boolean)
+      .sort(function (left, right) {
+        const monthDelta = left.monthOffset - right.monthOffset;
+        return monthDelta || left.xRatio - right.xRatio;
+      });
+
+    return points.reduce(function (unique, point) {
+      const duplicate = unique.find(function (candidate) {
+        return Math.abs(candidate.monthOffset - point.monthOffset) <= 0.000001;
+      });
+      if (!duplicate) {
+        unique.push(point);
+      }
+      return unique;
+    }, []);
+  }
+
+  function getGraphStorylineTrendlineCoordinate(candidate, graphModel, anchors) {
+    const monthOffset = getGraphStorylineEventMonthOffset(candidate, graphModel);
+    if (monthOffset == null) {
+      return null;
+    }
+    const points = getGraphStorylinePrimaryTrendlinePoints(graphModel);
+    if (!points.length) {
+      return null;
+    }
+
+    const exactPoint = points.find(function (point) {
+      return Math.abs(point.monthOffset - monthOffset) <= 0.000001;
+    });
+    if (exactPoint) {
+      return {
+        xRatio: exactPoint.xRatio,
+        yRatio: exactPoint.yRatio,
+        source: "primary-trendline-exact",
+        monthOffset
+      };
+    }
+
+    if (monthOffset < points[0].monthOffset || monthOffset > points[points.length - 1].monthOffset) {
+      return null;
+    }
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (monthOffset < start.monthOffset || monthOffset > end.monthOffset || end.monthOffset <= start.monthOffset) {
+        continue;
+      }
+      const progress = (monthOffset - start.monthOffset) / (end.monthOffset - start.monthOffset);
+      const fallbackXRatio = getGraphStorylineDotXRatio(candidate, graphModel, anchors);
+      return {
+        xRatio: fallbackXRatio == null
+          ? start.xRatio + ((end.xRatio - start.xRatio) * progress)
+          : fallbackXRatio,
+        yRatio: start.yRatio + ((end.yRatio - start.yRatio) * progress),
+        source: "primary-trendline-interpolated",
+        monthOffset
+      };
     }
     return null;
   }

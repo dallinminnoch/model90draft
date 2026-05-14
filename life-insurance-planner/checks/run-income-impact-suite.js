@@ -34,6 +34,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Income Impact asset depletion ledger",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/income-impact-asset-depletion-ledger-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Income Impact saved profile asset bucket flow",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/income-impact-saved-profile-asset-bucket-flow-check.js")],
