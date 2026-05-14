@@ -313,6 +313,7 @@
     ["rent-payment-pressure-begins", EVENT_FAMILIES.housingRisk, "Rent Payment Pressure Begins", EVIDENCE_LEVELS.riskModelNeeded],
     ["eviction-risk-window-opens", EVENT_FAMILIES.housingRisk, "Eviction Risk Window Opens", EVIDENCE_LEVELS.riskModelNeeded],
     ["housing-stability-at-risk", EVENT_FAMILIES.housingRisk, "Housing Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
+    ["housing-risk-unknown", EVENT_FAMILIES.housingRisk, "Housing Risk Unknown", EVIDENCE_LEVELS.dataGap],
     ["vehicle-payment-at-risk", EVENT_FAMILIES.vehicleRisk, "Vehicle Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
     ["transportation-stability-at-risk", EVENT_FAMILIES.vehicleRisk, "Transportation Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
     ["debt-payments-become-unsupported", EVENT_FAMILIES.debtRisk, "Debt Payments Become Unsupported", EVIDENCE_LEVELS.riskModelNeeded],
@@ -410,6 +411,52 @@
       priority: 72,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
+    })
+  });
+
+  const HOUSING_RISK_EVENT_MAPPINGS = Object.freeze({
+    "mortgage-payments-continue": Object.freeze({
+      candidateId: "mortgage-payments-continue",
+      priority: 43,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "mortgage-paid-off": Object.freeze({
+      candidateId: "mortgage-is-paid-off",
+      priority: 41,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "housing-payment-pressure-begins": Object.freeze({
+      candidateId: "housing-payment-pressure-begins",
+      priority: 58,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "housing-payment-at-risk": Object.freeze({
+      candidateId: "housing-payment-at-risk",
+      priority: 62,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "housing-stability-at-risk": Object.freeze({
+      candidateId: "housing-stability-at-risk",
+      priority: 63,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "rent-payment-pressure-begins": Object.freeze({
+      candidateId: "rent-payment-pressure-begins",
+      priority: 59,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "housing-risk-unknown": Object.freeze({
+      candidateId: "housing-risk-unknown",
+      priority: 88,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      dataGapOnly: true
     })
   });
 
@@ -616,6 +663,10 @@
     return DEFERRED_CANDIDATE_DEFINITIONS.find(function (definition) {
       return definition.id === id;
     });
+  }
+
+  function findAnyDefinition(id) {
+    return findDefinition(id) || findDeferredDefinition(id);
   }
 
   function getDeathTiming(rootSource) {
@@ -1154,6 +1205,266 @@
     };
   }
 
+  function getHousingRiskEvents(housingRisk) {
+    if (!isPlainObject(housingRisk)) {
+      return [];
+    }
+    const seen = new Set();
+    return []
+      .concat(Array.isArray(housingRisk.timelineEvents) ? housingRisk.timelineEvents : [])
+      .concat(Array.isArray(housingRisk.riskEvents) ? housingRisk.riskEvents : [])
+      .filter(isPlainObject)
+      .filter(function (event) {
+        const key = normalizeString(event.id)
+          || [
+            normalizeString(event.family),
+            normalizeString(event.eventType),
+            normalizeString(event.displayLabel),
+            normalizeString(event.sourcePath)
+          ].join(":");
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function normalizeHousingEvidenceLevel(event) {
+    const level = normalizeString(event?.evidenceLevel);
+    if (level === EVIDENCE_LEVELS.calculated) {
+      return EVIDENCE_LEVELS.calculated;
+    }
+    if (level === EVIDENCE_LEVELS.traceBacked) {
+      return EVIDENCE_LEVELS.traceBacked;
+    }
+    if (level === EVIDENCE_LEVELS.assumptionBacked) {
+      return EVIDENCE_LEVELS.assumptionBacked;
+    }
+    if (level === EVIDENCE_LEVELS.estimated) {
+      return EVIDENCE_LEVELS.estimated;
+    }
+    if (level === EVIDENCE_LEVELS.dataGap) {
+      return EVIDENCE_LEVELS.dataGap;
+    }
+    if (level === EVIDENCE_LEVELS.insufficientData) {
+      return EVIDENCE_LEVELS.insufficientData;
+    }
+    return level || EVIDENCE_LEVELS.insufficientData;
+  }
+
+  function getHousingEventAmount(event) {
+    if (!isPlainObject(event)) {
+      return null;
+    }
+    const amountSource = isPlainObject(event.amount) ? event.amount : { value: event.amount };
+    const value = toOptionalNumber(amountSource.value);
+    if (value == null) {
+      return null;
+    }
+    return {
+      value,
+      sourcePath: normalizeString(amountSource.sourcePath || event.sourcePath || event.trace?.paymentSourcePath)
+    };
+  }
+
+  function getHousingEventTraceSourcePaths(event) {
+    if (!isPlainObject(event?.trace)) {
+      return [];
+    }
+    return Object.keys(event.trace).reduce(function (paths, key) {
+      if (/sourcepath$/i.test(key) && normalizeString(event.trace[key])) {
+        paths.push(event.trace[key]);
+      }
+      return paths;
+    }, []);
+  }
+
+  function getHousingEventSourcePaths(event) {
+    if (!isPlainObject(event)) {
+      return [];
+    }
+    return uniqueStrings([
+      event.sourcePath,
+      isPlainObject(event.amount) ? event.amount.sourcePath : null
+    ].concat(getHousingEventTraceSourcePaths(event)));
+  }
+
+  function isForbiddenHousingRiskEvent(event) {
+    const text = [
+      normalizeString(event?.eventType),
+      normalizeString(event?.displayLabel),
+      normalizeString(event?.graphLabel),
+      normalizeString(event?.cardTitle)
+    ].join(" ").toLowerCase();
+    return /\b(foreclosure|eviction|bankruptcy|credit[-\s]?crisis|forced[-\s]?(home[-\s]?)?sale|legal[-\s]?default)\b/.test(text);
+  }
+
+  function makeSuppressedHousingRiskCandidate(event, reason) {
+    const sourcePaths = getHousingEventSourcePaths(event);
+    return {
+      id: normalizeString(event?.id) || [
+        "housing-risk-event",
+        normalizeString(event?.eventType) || "unsupported"
+      ].join("."),
+      family: normalizeString(event?.family || EVENT_FAMILIES.housingRisk),
+      displayLabel: normalizeString(event?.displayLabel),
+      graphLabel: normalizeString(event?.displayLabel),
+      cardTitle: normalizeString(event?.displayLabel),
+      description: normalizeString(reason),
+      severity: "deferred",
+      evidenceLevel: normalizeHousingEvidenceLevel(event),
+      status: STATUSES.deferred,
+      safeToRender: false,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: false,
+      timing: makeTiming("month-offset", {
+        monthOffset: event?.monthOffset,
+        date: event?.date,
+        label: normalizeString(event?.date) || (event?.monthOffset != null ? `Month ${event.monthOffset}` : ""),
+        sourcePath: normalizeString(event?.sourcePath)
+      }),
+      amount: getHousingEventAmount(event) || makeEmptyAmount(),
+      sources: sourcePaths.map(function (sourcePath) {
+        return {
+          sourcePath,
+          evidenceLevel: normalizeHousingEvidenceLevel(event)
+        };
+      }),
+      confidence: 0,
+      lifeInsuranceRelevance: 0,
+      emotionalWeight: 0,
+      advisorUsefulness: 0,
+      suppressionKeys: ["housing-risk-insufficient"],
+      deferredReason: reason,
+      warnings: compactObjects(event?.warnings).map(clonePlainValue),
+      priority: 999
+    };
+  }
+
+  function buildHousingRiskBackedCandidates(housingRisk, warnings) {
+    if (!isPlainObject(housingRisk)) {
+      return {
+        candidates: [],
+        suppressedCandidates: []
+      };
+    }
+
+    const events = getHousingRiskEvents(housingRisk);
+    const candidates = [];
+    const suppressedCandidates = [];
+    const hasStrongerHousingEvent = events.some(function (event) {
+      const eventType = normalizeString(event.eventType);
+      const eventEvidence = normalizeHousingEvidenceLevel(event);
+      return eventType !== "housing-risk-unknown"
+        && HOUSING_RISK_EVENT_MAPPINGS[eventType]
+        && event.safeToRender === true
+        && eventEvidence !== EVIDENCE_LEVELS.insufficientData
+        && !isForbiddenHousingRiskEvent(event);
+    });
+
+    events.forEach(function (event) {
+      const eventType = normalizeString(event.eventType);
+      const mapping = HOUSING_RISK_EVENT_MAPPINGS[eventType];
+      const eventEvidence = normalizeHousingEvidenceLevel(event);
+      const amount = getHousingEventAmount(event);
+      const hasTiming = toOptionalNumber(event.monthOffset) != null
+        || Boolean(normalizeString(event.date))
+        || Boolean(normalizeString(event.timing?.label));
+      const sourcePaths = getHousingEventSourcePaths(event);
+      const isUnknown = eventType === "housing-risk-unknown";
+      const dataGapWarrantsUnknown = isUnknown
+        && eventEvidence === EVIDENCE_LEVELS.dataGap
+        && compactObjects(event.warnings).length > 0
+        && !hasStrongerHousingEvent;
+      const unsupportedReason = !mapping
+        ? "Housing-risk event does not map to a safe storyline candidate in this pass."
+        : isForbiddenHousingRiskEvent(event)
+          ? "Housing-risk event is reserved for a future legal/default risk model."
+          : event.safeToRender !== true
+            ? "Housing-risk event is not marked safe to render."
+            : eventEvidence === EVIDENCE_LEVELS.insufficientData
+              ? "Housing-risk event has insufficient evidence."
+              : mapping.dataGapOnly === true && !dataGapWarrantsUnknown
+                ? "Housing-risk unknown event did not meet data-gap caution requirements."
+                : !hasTiming
+                  ? "Housing-risk event has no usable timing."
+                  : !amount && !isUnknown
+                    ? "Housing-risk event has no usable amount."
+                    : !sourcePaths.length
+                      ? "Housing-risk event has no traceable source path."
+                      : "";
+
+      if (unsupportedReason) {
+        suppressedCandidates.push(makeSuppressedHousingRiskCandidate(event, unsupportedReason));
+        warnings.push(makeWarning(
+          "housing-risk-event-not-activated",
+          unsupportedReason,
+          sourcePaths.length ? sourcePaths : [normalizeString(event.sourcePath)].filter(Boolean),
+          {
+            eventId: normalizeString(event.id),
+            eventType,
+            displayLabel: normalizeString(event.displayLabel)
+          }
+        ));
+        return;
+      }
+
+      const definition = findAnyDefinition(mapping.candidateId);
+      if (!definition) {
+        warnings.push(makeWarning(
+          "missing-housing-risk-storyline-definition",
+          "A supported housing-risk event did not have a matching storyline registry candidate.",
+          sourcePaths,
+          {
+            candidateId: mapping.candidateId,
+            eventId: normalizeString(event.id)
+          }
+        ));
+        suppressedCandidates.push(makeSuppressedHousingRiskCandidate(
+          event,
+          "No matching storyline registry candidate exists."
+        ));
+        return;
+      }
+
+      const status = eventEvidence === EVIDENCE_LEVELS.dataGap ? STATUSES.caution : STATUSES.safeNow;
+      candidates.push(makeCandidate(definition, {
+        status,
+        safeToRender: true,
+        evidenceLevel: eventEvidence,
+        eligibleForGraphDot: mapping.eligibleForGraphDot === true,
+        eligibleForMajorCard: mapping.eligibleForMajorCard === true,
+        timingKind: "month-offset",
+        timing: {
+          monthOffset: event.monthOffset,
+          date: event.date,
+          label: normalizeString(event.date) || (event.monthOffset != null ? `Month ${event.monthOffset}` : ""),
+          sourcePath: normalizeString(event.sourcePath)
+        },
+        amount: amount || makeEmptyAmount(),
+        sourcePaths,
+        confidence: eventEvidence === EVIDENCE_LEVELS.calculated
+          ? 0.9
+          : eventEvidence === EVIDENCE_LEVELS.traceBacked
+            ? 0.84
+            : eventEvidence === EVIDENCE_LEVELS.estimated
+              ? 0.72
+              : eventEvidence === EVIDENCE_LEVELS.dataGap
+                ? 0.42
+                : 0.68,
+        priority: mapping.priority,
+        warnings: compactObjects(event.warnings),
+        suppressionKeys: [`housing-risk:${eventType}`]
+      }));
+    });
+
+    return {
+      candidates: dedupeCandidates(candidates),
+      suppressedCandidates
+    };
+  }
+
   function dedupeCandidates(candidates) {
     const seen = new Set();
     return candidates.filter(function (candidate) {
@@ -1244,7 +1555,12 @@
     }
 
     const waterfallBacked = buildWaterfallBackedCandidates(safeInput.resourceWaterfall, warnings);
-    const safeCandidates = buildSafeCandidates(safeInput, warnings).concat(waterfallBacked.candidates);
+    const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
+    const safeCandidates = dedupeCandidates(
+      buildSafeCandidates(safeInput, warnings)
+        .concat(waterfallBacked.candidates)
+        .concat(housingRiskBacked.candidates)
+    );
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
       return candidate.safeToRender === true
         && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution);
@@ -1291,6 +1607,10 @@
       trace.activatedWaterfallCandidateIds = waterfallBacked.candidates.map(function (candidate) { return candidate.id; });
       trace.suppressedWaterfallCandidateCount = waterfallBacked.suppressedCandidates.length;
     }
+    if (isPlainObject(safeInput.housingRisk)) {
+      trace.activatedHousingRiskCandidateIds = housingRiskBacked.candidates.map(function (candidate) { return candidate.id; });
+      trace.suppressedHousingRiskCandidateCount = housingRiskBacked.suppressedCandidates.length;
+    }
 
     return {
       version: VERSION,
@@ -1299,7 +1619,7 @@
       deferredCandidates,
       majorStoryCandidates,
       graphDotCandidates,
-      suppressedCandidates: waterfallBacked.suppressedCandidates,
+      suppressedCandidates: waterfallBacked.suppressedCandidates.concat(housingRiskBacked.suppressedCandidates),
       warnings,
       trace
     };

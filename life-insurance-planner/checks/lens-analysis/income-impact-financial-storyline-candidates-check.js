@@ -154,6 +154,11 @@ assert.equal(
   false,
   "No-waterfall behavior should not add waterfall trace fields."
 );
+assert.equal(
+  Object.prototype.hasOwnProperty.call(result.trace, "activatedHousingRiskCandidateIds"),
+  false,
+  "No-housing-risk behavior should not add housing-risk trace fields."
+);
 assert.deepEqual(richInput, originalInput, "Helper should not mutate input objects.");
 
 assert.equal(result.safeRenderableEvents[0].id, "death-income-stops");
@@ -471,6 +476,243 @@ assert.ok(
     return warning.code === "waterfall-event-not-activated";
   }),
   "Suppressed waterfall events should surface warnings."
+);
+
+function makeHousingRiskEvent(config) {
+  const event = {
+    id: config.id || `housing.${config.eventType}`,
+    family: "housing-risk",
+    eventType: config.eventType,
+    displayLabel: config.displayLabel,
+    monthOffset: config.monthOffset,
+    amount: config.amount,
+    evidenceLevel: config.evidenceLevel || "estimated",
+    safeToRender: config.safeToRender !== false,
+    sourcePath: config.sourcePath || "housingRisk.obligations.primary",
+    warnings: config.warnings || [],
+    trace: Object.assign({
+      obligationId: "primary-housing",
+      obligationSourcePath: config.sourcePath || "housingRisk.obligations.primary"
+    }, config.trace || {})
+  };
+  if (config.date != null) {
+    event.date = config.date;
+  }
+  return Object.assign(event, config.extra || {});
+}
+
+const housingInput = {
+  scenario: {
+    scenario: {
+      selectedDeathDate: "2036-05-14"
+    },
+    deathEvent: {
+      date: "2036-05-14"
+    }
+  },
+  housingRisk: {
+    version: "income-impact-housing-risk-v1",
+    timelineEvents: [
+      makeHousingRiskEvent({
+        id: "mortgage-payoff",
+        eventType: "mortgage-paid-off",
+        displayLabel: "Mortgage Is Paid Off",
+        monthOffset: 0,
+        date: "2036-05-14",
+        amount: 385000,
+        evidenceLevel: "trace-backed",
+        sourcePath: "housingRisk.obligations.mortgagePayoff"
+      }),
+      makeHousingRiskEvent({
+        id: "mortgage-support",
+        eventType: "mortgage-payments-continue",
+        displayLabel: "Mortgage Payments Continue",
+        monthOffset: 0,
+        date: "2036-05-14",
+        amount: 2400,
+        evidenceLevel: "assumption-backed",
+        sourcePath: "housingRisk.obligations.mortgageSupport"
+      }),
+      makeHousingRiskEvent({
+        id: "rent-pressure",
+        eventType: "rent-payment-pressure-begins",
+        displayLabel: "Rent Payment Pressure Begins",
+        monthOffset: 1,
+        date: "2036-06-14",
+        amount: 2100,
+        evidenceLevel: "estimated",
+        sourcePath: "housingRisk.obligations.rent"
+      }),
+      makeHousingRiskEvent({
+        id: "legal-default",
+        eventType: "foreclosure-risk-window",
+        displayLabel: "Foreclosure Risk Window Opens",
+        monthOffset: 8,
+        amount: 2400,
+        evidenceLevel: "estimated",
+        sourcePath: "housingRisk.obligations.legal"
+      }),
+      makeHousingRiskEvent({
+        id: "insufficient-housing",
+        eventType: "housing-payment-at-risk",
+        displayLabel: "Housing Payment At Risk",
+        monthOffset: 8,
+        amount: 2400,
+        evidenceLevel: "insufficient-data",
+        safeToRender: false,
+        sourcePath: "housingRisk.obligations.insufficient"
+      })
+    ],
+    riskEvents: [
+      makeHousingRiskEvent({
+        id: "housing-pressure",
+        eventType: "housing-payment-pressure-begins",
+        displayLabel: "Housing Payment Pressure Begins",
+        monthOffset: 1,
+        date: "2036-06-14",
+        amount: 2400,
+        evidenceLevel: "calculated",
+        sourcePath: "housingRisk.obligations.primary"
+      }),
+      makeHousingRiskEvent({
+        id: "housing-at-risk",
+        eventType: "housing-payment-at-risk",
+        displayLabel: "Housing Payment At Risk",
+        monthOffset: 8,
+        date: "2037-01-14",
+        amount: 2400,
+        evidenceLevel: "estimated",
+        sourcePath: "housingRisk.obligations.primary"
+      }),
+      makeHousingRiskEvent({
+        id: "housing-stability",
+        eventType: "housing-stability-at-risk",
+        displayLabel: "Housing Stability At Risk",
+        monthOffset: 8,
+        date: "2037-01-14",
+        amount: 2400,
+        evidenceLevel: "estimated",
+        sourcePath: "housingRisk.obligations.primary"
+      })
+    ]
+  }
+};
+const housingSnapshot = cloneJson(housingInput);
+const housingResult = buildIncomeImpactFinancialStorylineCandidates(housingInput);
+assert.deepEqual(housingInput, housingSnapshot, "Housing-risk integration should not mutate input objects.");
+
+[
+  "mortgage-is-paid-off",
+  "mortgage-payments-continue",
+  "housing-payment-pressure-begins",
+  "housing-payment-at-risk",
+  "housing-stability-at-risk",
+  "rent-payment-pressure-begins"
+].forEach(function (id) {
+  const candidate = getCandidate(housingResult, id);
+  assert.equal(candidate.safeToRender, true, `${id} should activate from supported housing-risk evidence.`);
+  assert.equal(candidate.status, "safe-now", `${id} should become safe-now from housing-risk evidence.`);
+  assert.ok(ids(housingResult.safeRenderableEvents).includes(id), `${id} should be in safeRenderableEvents.`);
+});
+
+assert.equal(getCandidate(housingResult, "mortgage-is-paid-off").evidenceLevel, "trace-backed");
+assert.equal(getCandidate(housingResult, "housing-payment-pressure-begins").evidenceLevel, "calculated");
+assert.equal(getCandidate(housingResult, "housing-payment-at-risk").evidenceLevel, "estimated");
+assert.equal(getCandidate(housingResult, "housing-payment-at-risk").timing.monthOffset, 8);
+assert.equal(getCandidate(housingResult, "housing-payment-at-risk").amount.value, 2400);
+assert.ok(
+  getCandidate(housingResult, "housing-payment-at-risk").sources.some(function (source) {
+    return source.sourcePath === "housingRisk.obligations.primary";
+  }),
+  "Housing-risk source paths should be preserved."
+);
+assert.ok(ids(housingResult.graphDotCandidates).includes("housing-payment-at-risk"));
+assert.ok(ids(housingResult.majorStoryCandidates).includes("housing-payment-at-risk")
+  || ids(housingResult.majorStoryCandidates).includes("housing-stability-at-risk"));
+assert.equal(housingResult.majorStoryCandidates[0].id, "death-income-stops");
+assert.ok(housingResult.majorStoryCandidates.length <= 6);
+assert.ok(housingResult.graphDotCandidates.length <= 10);
+assert.ok(housingResult.trace.activatedHousingRiskCandidateIds.includes("housing-payment-at-risk"));
+assert.ok(housingResult.trace.activatedHousingRiskCandidateIds.includes("rent-payment-pressure-begins"));
+
+["foreclosure", "eviction", "bankruptcy", "credit crisis", "forced sale"].forEach(function (label) {
+  assert.equal(
+    housingResult.safeRenderableEvents.some(function (candidate) {
+      return candidate.displayLabel.toLowerCase().includes(label);
+    }),
+    false,
+    `${label} should not become safe renderable from housing-risk evidence.`
+  );
+});
+assert.ok(
+  housingResult.suppressedCandidates.some(function (candidate) {
+    return candidate.displayLabel === "Foreclosure Risk Window Opens";
+  }),
+  "Forbidden housing-risk labels should be suppressed instead of activated."
+);
+assert.ok(
+  housingResult.suppressedCandidates.some(function (candidate) {
+    return candidate.evidenceLevel === "insufficient-data";
+  }),
+  "Insufficient-data housing-risk events should be suppressed."
+);
+
+const housingUnknownInput = {
+  scenario: {
+    scenario: {
+      selectedDeathDate: "2036-05-14"
+    },
+    deathEvent: {
+      date: "2036-05-14"
+    }
+  },
+  housingRisk: {
+    riskEvents: [
+      makeHousingRiskEvent({
+        id: "housing-unknown",
+        eventType: "housing-risk-unknown",
+        displayLabel: "Housing Risk Unknown",
+        monthOffset: 0,
+        date: "2036-05-14",
+        amount: 1,
+        evidenceLevel: "data-gap",
+        sourcePath: "housingRisk.warnings.missingPayment",
+        warnings: [{ code: "missing-housing-payment", message: "Missing housing payment." }]
+      })
+    ]
+  }
+};
+const housingUnknownResult = buildIncomeImpactFinancialStorylineCandidates(housingUnknownInput);
+const unknownCandidate = getCandidate(housingUnknownResult, "housing-risk-unknown");
+assert.equal(unknownCandidate.safeToRender, true);
+assert.equal(unknownCandidate.status, "caution");
+assert.equal(unknownCandidate.evidenceLevel, "data-gap");
+assert.ok(ids(housingUnknownResult.graphDotCandidates).includes("housing-risk-unknown"));
+assert.ok(ids(housingUnknownResult.majorStoryCandidates).includes("housing-risk-unknown"));
+
+const housingUnknownWithStrongerResult = buildIncomeImpactFinancialStorylineCandidates({
+  scenario: housingUnknownInput.scenario,
+  housingRisk: {
+    riskEvents: housingUnknownInput.housingRisk.riskEvents.concat([
+      makeHousingRiskEvent({
+        id: "stronger-housing-risk",
+        eventType: "housing-payment-at-risk",
+        displayLabel: "Housing Payment At Risk",
+        monthOffset: 8,
+        amount: 2400,
+        evidenceLevel: "estimated",
+        sourcePath: "housingRisk.obligations.primary"
+      })
+    ])
+  }
+});
+assert.equal(getCandidate(housingUnknownWithStrongerResult, "housing-risk-unknown").safeToRender, false);
+assert.ok(ids(housingUnknownWithStrongerResult.safeRenderableEvents).includes("housing-payment-at-risk"));
+assert.ok(
+  housingUnknownWithStrongerResult.warnings.some(function (warning) {
+    return warning.code === "housing-risk-event-not-activated";
+  }),
+  "Suppressed housing-risk events should surface warnings."
 );
 
 const missingResult = buildIncomeImpactFinancialStorylineCandidates({});
