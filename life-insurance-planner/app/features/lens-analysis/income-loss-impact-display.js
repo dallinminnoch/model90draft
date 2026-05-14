@@ -2094,6 +2094,15 @@
     return normalizeString(candidate?.graphLabel || candidate?.displayLabel || candidate?.cardTitle || candidate?.id) || "Storyline event";
   }
 
+  function getGraphStorylineReadoutSafeLabel(value, maxLength) {
+    const label = normalizeString(value);
+    const limit = Math.max(12, Number(maxLength) || 34);
+    if (label.length <= limit) {
+      return label;
+    }
+    return `${label.slice(0, limit - 1).trim()}...`;
+  }
+
   function getGraphStorylineDotTier(candidate) {
     return normalizeString(candidate?.dotTier) === "major" ? "major" : "micro";
   }
@@ -2110,6 +2119,194 @@
 
   function isRunOutStorylineCandidate(candidate) {
     return normalizeString(candidate?.id) === "resources-run-out";
+  }
+
+  function getLedgerStorylineTrace(candidate) {
+    const trace = isPlainObject(candidate?.trace) ? candidate.trace : {};
+    if (normalizeString(candidate?.candidateSource) === "asset-depletion-ledger"
+      || normalizeString(trace.candidateSource) === "asset-depletion-ledger"
+      || normalizeString(trace.ledgerEventType)) {
+      return trace;
+    }
+    return null;
+  }
+
+  function getLedgerStorylineEventActionLabel(candidate) {
+    const ledgerEventType = normalizeString(getLedgerStorylineTrace(candidate)?.ledgerEventType);
+    if (ledgerEventType === "bucket-tapped") {
+      return "Bucket tapped";
+    }
+    if (ledgerEventType === "bucket-depleted") {
+      return "Bucket depleted";
+    }
+    return "";
+  }
+
+  function getLedgerStorylineBucketLabel(candidate) {
+    const trace = getLedgerStorylineTrace(candidate);
+    if (!trace) {
+      return "";
+    }
+    const family = normalizeString(trace.family || candidate?.bucketFamily || candidate?.family);
+    const labels = {
+      cash: "Cash reserve",
+      cashWaterfall: "Cash reserve",
+      "cash-waterfall": "Cash reserve",
+      emergencyFund: "Emergency fund",
+      taxableInvestments: "Taxable assets",
+      taxableInvestment: "Taxable assets",
+      otherLiquid: "Liquid assets",
+      educationSavings: "Education savings",
+      "education-waterfall": "Education savings",
+      retirementAssets: "Retirement assets",
+      "retirement-waterfall": "Retirement assets"
+    };
+    return labels[family] || getGraphStorylineReadoutSafeLabel(family.replace(/-/g, " "), 26);
+  }
+
+  function getLedgerStorylineAmountLabels(candidate) {
+    const trace = getLedgerStorylineTrace(candidate);
+    if (!trace) {
+      return [];
+    }
+    const action = getLedgerStorylineEventActionLabel(candidate);
+    const labels = [];
+    const amountAtTap = toOptionalNumber(trace.amountAtTap);
+    const amountDepleted = toOptionalNumber(trace.amountDepleted);
+    const withdrawalAmount = toOptionalNumber(trace.withdrawalAmount);
+    const balanceBeforeWithdrawal = toOptionalNumber(trace.balanceBeforeWithdrawal);
+    if (action === "Bucket tapped" && amountAtTap != null) {
+      labels.push(`Available at tap: ${formatCurrency(amountAtTap)}`);
+    }
+    if (action === "Bucket depleted") {
+      if (balanceBeforeWithdrawal != null) {
+        labels.push(`Balance before: ${formatCurrency(balanceBeforeWithdrawal)}`);
+      }
+      if (amountDepleted != null) {
+        labels.push(`Depleted: ${formatCurrency(amountDepleted)}`);
+      }
+    }
+    if (withdrawalAmount != null) {
+      labels.push(`Withdrawal: ${formatCurrency(withdrawalAmount)}`);
+    }
+    return labels.filter(Boolean).slice(0, 2);
+  }
+
+  function getLedgerStorylineSummaryLabel(candidate) {
+    const action = getLedgerStorylineEventActionLabel(candidate);
+    if (!action) {
+      return "";
+    }
+    const bucketLabel = getLedgerStorylineBucketLabel(candidate);
+    const amountLabels = getLedgerStorylineAmountLabels(candidate);
+    const amountLabel = amountLabels.length
+      ? amountLabels[0].replace(/^Available at tap: /, "").replace(/^Balance before: /, "").replace(/^Depleted: /, "")
+      : getGraphStorylineDotAmountLabel(candidate);
+    return [action, bucketLabel, amountLabel].filter(Boolean).join(" - ");
+  }
+
+  function getGraphStorylineEventGroupKey(dot) {
+    const monthKey = dot.monthOffset == null ? normalizeString(dot.date) : String(Math.round(dot.monthOffset * 1000) / 1000);
+    return [
+      monthKey,
+      Math.round(dot.x * 10) / 10,
+      Math.round(dot.y * 10) / 10
+    ].join("|");
+  }
+
+  function getPrimaryGraphStorylineGroupDot(dots) {
+    return dots.slice().sort(function (left, right) {
+      const tierDelta = (right.dotTier === "major" ? 1 : 0) - (left.dotTier === "major" ? 1 : 0);
+      return tierDelta || left.index - right.index;
+    })[0];
+  }
+
+  function getGraphStorylineEventDotGroups(dots) {
+    const groupsByKey = new Map();
+    dots.forEach(function (dot) {
+      const key = getGraphStorylineEventGroupKey(dot);
+      const groupDots = groupsByKey.get(key) || [];
+      groupDots.push(dot);
+      groupsByKey.set(key, groupDots);
+    });
+    return Array.from(groupsByKey.values()).map(function (groupDots) {
+      const primaryDot = getPrimaryGraphStorylineGroupDot(groupDots);
+      const orderedDots = groupDots.slice().sort(function (left, right) {
+        const tierDelta = (right.dotTier === "major" ? 1 : 0) - (left.dotTier === "major" ? 1 : 0);
+        return tierDelta || left.index - right.index;
+      });
+      return {
+        dots: orderedDots,
+        primaryDot,
+        count: orderedDots.length,
+        grouped: orderedDots.length > 1,
+        dotTier: orderedDots.some(function (dot) { return dot.dotTier === "major"; }) ? "major" : "micro"
+      };
+    }).sort(function (left, right) {
+      return left.primaryDot.index - right.primaryDot.index;
+    });
+  }
+
+  function getGraphStorylineGroupReadoutLines(group) {
+    const primaryDot = group.primaryDot;
+    if (group.grouped) {
+      const monthLabel = primaryDot.timeLabel || "this point";
+      return [
+        {
+          className: "income-impact-storyline-dot-readout-title",
+          text: `${group.count} events in ${monthLabel}`
+        }
+      ].concat(group.dots.flatMap(function (dot) {
+        const title = getGraphStorylineReadoutSafeLabel(dot.title, 34);
+        const ledgerSummary = getGraphStorylineReadoutSafeLabel(getLedgerStorylineSummaryLabel(dot.candidate), 44);
+        return [
+          {
+            className: "income-impact-storyline-dot-readout-group-item",
+            text: title
+          },
+          {
+            className: "income-impact-storyline-dot-readout-group-meta",
+            text: ledgerSummary || dot.amountLabel || dot.evidenceLabel || dot.timeLabel
+          }
+        ].filter(function (line) { return normalizeString(line.text); });
+      }));
+    }
+
+    const candidate = primaryDot.candidate;
+    const action = getLedgerStorylineEventActionLabel(candidate);
+    const bucketLabel = getLedgerStorylineBucketLabel(candidate);
+    const ledgerAmountLabels = getLedgerStorylineAmountLabels(candidate);
+    return [
+      {
+        className: "income-impact-storyline-dot-readout-title",
+        text: getGraphStorylineReadoutSafeLabel(primaryDot.title, 34)
+      },
+      {
+        className: "income-impact-storyline-dot-readout-time",
+        text: primaryDot.timeLabel
+      },
+      {
+        className: "income-impact-storyline-dot-readout-action",
+        text: [action, bucketLabel].filter(Boolean).join(" - ")
+      }
+    ].concat(
+      ledgerAmountLabels.map(function (label) {
+        return {
+          className: "income-impact-storyline-dot-readout-amount",
+          text: getGraphStorylineReadoutSafeLabel(label, 42)
+        };
+      }),
+      ledgerAmountLabels.length ? [] : [{
+        className: "income-impact-storyline-dot-readout-amount",
+        text: primaryDot.amountLabel
+      }],
+      [{
+        className: "income-impact-storyline-dot-readout-evidence",
+        text: primaryDot.evidenceLabel
+      }]
+    ).filter(function (line) {
+      return normalizeString(line.text);
+    });
   }
 
   function getFinancialStorylineCandidateById(timelineResult, eventId) {
@@ -2216,34 +2413,51 @@
     if (!dots.length) {
       return "";
     }
+    const dotGroups = getGraphStorylineEventDotGroups(dots);
     return `
       <g class="income-impact-storyline-trendline-markers" data-income-impact-storyline-trendline-markers aria-label="Financial storyline graph events">
-        ${dots.map(function (dot) {
+        ${dotGroups.map(function (group) {
+          const dot = group.primaryDot;
           const candidate = dot.candidate;
           const readout = getGraphStorylineReadoutPosition(dot);
-          const readoutHeight = dot.amountLabel && dot.evidenceLabel ? 54 : (dot.amountLabel || dot.evidenceLabel ? 40 : 28);
+          const readoutLines = getGraphStorylineGroupReadoutLines(group);
+          const readoutHeight = Math.max(28, 14 + (readoutLines.length * 12));
           const readoutTop = -readoutHeight - 2;
-          const titleY = readoutTop + 15;
-          const timeY = titleY + 13;
-          const amountY = timeY + 13;
-          const evidenceY = dot.amountLabel ? amountY + 12 : amountY;
-          const amountLine = dot.amountLabel ? `<text class="income-impact-storyline-dot-readout-amount" x="0" y="${formatSvgCoordinate(amountY)}" text-anchor="middle">${escapeHtml(dot.amountLabel)}</text>` : "";
-          const evidenceLine = dot.evidenceLabel ? `<text class="income-impact-storyline-dot-readout-evidence" x="0" y="${formatSvgCoordinate(evidenceY)}" text-anchor="middle">${escapeHtml(dot.evidenceLabel)}</text>` : "";
+          const readoutLineMarkup = readoutLines.map(function (line, lineIndex) {
+            const y = readoutTop + 15 + (lineIndex * 12);
+            return `<text class="${escapeHtml(line.className)}" x="0" y="${formatSvgCoordinate(y)}" text-anchor="middle">${escapeHtml(line.text)}</text>`;
+          }).join("");
+          const eventIds = group.dots.map(function (groupDot) {
+            return normalizeString(groupDot?.candidate?.id);
+          }).filter(Boolean);
+          const groupFamilies = group.dots.map(function (groupDot) {
+            return normalizeString(groupDot?.candidate?.family);
+          }).filter(Boolean);
+          const groupSeverities = group.dots.map(function (groupDot) {
+            return normalizeString(groupDot?.candidate?.severity);
+          }).filter(Boolean);
           const ariaLabel = [
-            dot.title,
+            group.grouped ? `${group.count} events` : dot.title,
             dot.timeLabel,
-            dot.amountLabel
+            group.grouped
+              ? group.dots.map(function (groupDot) { return groupDot.title; }).join("; ")
+              : dot.amountLabel
           ].filter(Boolean).join(", ");
           return `
             <g
-              class="income-impact-storyline-dot income-impact-storyline-dot--${escapeHtml(dot.dotTier)} income-impact-storyline-dot--severity-${escapeHtml(normalizeString(candidate.severity) || "info")} income-impact-storyline-dot--family-${escapeHtml(normalizeString(candidate.family) || "event")}"
+              class="income-impact-storyline-dot income-impact-storyline-dot--${escapeHtml(group.dotTier)}${group.grouped ? " income-impact-storyline-dot--grouped" : ""} income-impact-storyline-dot--severity-${escapeHtml(normalizeString(candidate.severity) || "info")} income-impact-storyline-dot--family-${escapeHtml(normalizeString(candidate.family) || "event")}"
               data-income-impact-storyline-dot
               data-income-impact-storyline-event-id="${escapeHtml(candidate.id || "")}"
-              data-income-impact-storyline-dot-tier="${escapeHtml(dot.dotTier)}"
+              data-income-impact-storyline-event-ids="${escapeHtml(eventIds.join(" "))}"
+              data-income-impact-storyline-dot-tier="${escapeHtml(group.dotTier)}"
+              data-income-impact-storyline-grouped="${group.grouped ? "true" : "false"}"
+              data-income-impact-storyline-group-count="${escapeHtml(group.count)}"
               data-income-impact-storyline-connected-to-major-card="${candidate.connectedToMajorCard === true ? "true" : "false"}"
               data-income-impact-storyline-eligible-for-connector="${candidate.eligibleForConnector === true ? "true" : "false"}"
               data-income-impact-storyline-family="${escapeHtml(candidate.family || "")}"
+              data-income-impact-storyline-group-families="${escapeHtml(groupFamilies.join(" "))}"
               data-income-impact-storyline-severity="${escapeHtml(candidate.severity || "")}"
+              data-income-impact-storyline-group-severities="${escapeHtml(groupSeverities.join(" "))}"
               data-income-impact-storyline-evidence-level="${escapeHtml(candidate.evidenceLevel || "")}"
               data-income-impact-storyline-timing-label="${escapeHtml(dot.timeLabel)}"
               data-income-impact-storyline-month-offset="${escapeHtml(dot.monthOffset == null ? "" : dot.monthOffset)}"
@@ -2255,17 +2469,16 @@
               aria-label="${escapeHtml(ariaLabel)}"
             >
               <circle class="income-impact-storyline-dot-hit" data-income-impact-storyline-dot-hit r="11"></circle>
+              ${group.grouped ? `<circle class="income-impact-storyline-dot-group-ring" data-income-impact-storyline-dot-group-ring r="7.2"></circle>` : ""}
               <circle class="income-impact-storyline-dot-core" data-income-impact-storyline-dot-core r="4.6"></circle>
+              ${group.grouped ? `<text class="income-impact-storyline-dot-count-badge" data-income-impact-storyline-dot-count-badge x="8.5" y="-6.5" text-anchor="middle">${escapeHtml(group.count)}</text>` : ""}
               <g
                 class="income-impact-storyline-dot-readout"
                 data-income-impact-storyline-dot-readout
                 transform="translate(${formatSvgCoordinate(readout.x - dot.x)} ${formatSvgCoordinate(readout.y - dot.y)})"
               >
                 <rect x="${formatSvgCoordinate(-(GRAPH_STORYLINE_EVENT_READOUT_WIDTH / 2))}" y="${formatSvgCoordinate(readoutTop)}" width="${GRAPH_STORYLINE_EVENT_READOUT_WIDTH}" height="${readoutHeight}" rx="6"></rect>
-                <text class="income-impact-storyline-dot-readout-title" x="0" y="${formatSvgCoordinate(titleY)}" text-anchor="middle">${escapeHtml(dot.title)}</text>
-                <text class="income-impact-storyline-dot-readout-time" x="0" y="${formatSvgCoordinate(timeY)}" text-anchor="middle">${escapeHtml(dot.timeLabel)}</text>
-                ${amountLine}
-                ${evidenceLine}
+                ${readoutLineMarkup}
               </g>
               <title>${escapeHtml(ariaLabel)}</title>
             </g>

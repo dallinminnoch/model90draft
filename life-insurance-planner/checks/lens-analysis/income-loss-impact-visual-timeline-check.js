@@ -322,6 +322,9 @@ assert.match(displaySource, /renderGraphStorylineConnectors/);
 assert.match(displaySource, /data-income-impact-storyline-connector/);
 assert.match(displaySource, /data-income-impact-storyline-connector-event-id/);
 assert.match(displaySource, /data-income-impact-storyline-dot-tier/);
+assert.match(displaySource, /getGraphStorylineEventDotGroups/);
+assert.match(displaySource, /data-income-impact-storyline-group-count/);
+assert.match(displaySource, /getLedgerStorylineEventActionLabel/);
 assert.match(displaySource, /data-income-impact-storyline-connected-to-major-card/);
 assert.match(displaySource, /data-income-impact-storyline-eligible-for-connector/);
 assert.match(displaySource, /Storyline events will appear here once verified timeline drivers are available\./);
@@ -688,7 +691,11 @@ assert.doesNotMatch(componentsSource, /\.income-impact-storyline-event-lane/);
 assert.match(componentsSource, /\.income-impact-storyline-dot/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--major \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--micro \.income-impact-storyline-dot-core/);
+assert.match(componentsSource, /\.income-impact-storyline-dot-group-ring/);
+assert.match(componentsSource, /\.income-impact-storyline-dot-count-badge/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout/);
+assert.match(componentsSource, /\.income-impact-storyline-dot-readout-action/);
+assert.match(componentsSource, /\.income-impact-storyline-dot-readout-group-item/);
 assert.match(componentsSource, /\.income-impact-storyline-dot:hover[\s\S]*\.income-impact-storyline-dot-readout/);
 assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*pointer-events:\s*all;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-active-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*rgba\(59,\s*130,\s*246,\s*0\.28\);[\s\S]*stroke-width:\s*1;/);
@@ -1013,6 +1020,95 @@ assert.match(housingStorylineDot, /data-income-impact-storyline-coordinate-sourc
 assert.notEqual(cashStorylineDotPosition.y, 316, "Storyline dots should not use the retired fixed lower event lane.");
 assert.doesNotMatch(storylineDotTimelineHtml, /data-income-impact-story-card|data-income-impact-story-card-connector/);
 assert.doesNotMatch(storylineDotTimelineHtml, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
+const sameMonthStorylineDotFixture = JSON.parse(JSON.stringify(fixture));
+sameMonthStorylineDotFixture.financialStoryline = {
+  majorStoryCandidates: [
+    {
+      id: "taxable-assets-depleted",
+      family: "liquidity",
+      severity: "caution",
+      cardTitle: "Taxable Assets Depleted",
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 36, label: "Month 36" }
+    }
+  ],
+  graphDotCandidates: [
+    {
+      id: "taxable-assets-depleted",
+      family: "liquidity",
+      severity: "caution",
+      dotTier: "major",
+      connectedToMajorCard: true,
+      eligibleForConnector: true,
+      majorCardIndex: 0,
+      graphLabel: "Taxable Assets Depleted",
+      evidenceLevel: "calculated",
+      candidateSource: "asset-depletion-ledger",
+      timing: { kind: "month-offset", monthOffset: 36, label: "Month 36" },
+      amount: { value: 12000, label: "$12,000" },
+      trace: {
+        candidateSource: "asset-depletion-ledger",
+        bucketId: "taxable-brokerage",
+        family: "taxableInvestments",
+        ledgerEventType: "bucket-depleted",
+        amountDepleted: 12000,
+        withdrawalAmount: 8500,
+        balanceBeforeWithdrawal: 12000
+      }
+    },
+    {
+      id: "education-savings-used-for-living-needs",
+      family: "education",
+      severity: "caution",
+      dotTier: "micro",
+      connectedToMajorCard: false,
+      eligibleForConnector: false,
+      majorCardIndex: null,
+      graphLabel: "Education Savings Used",
+      evidenceLevel: "calculated",
+      candidateSource: "asset-depletion-ledger",
+      timing: { kind: "month-offset", monthOffset: 36, label: "Month 36" },
+      amount: { value: 24000, label: "$24,000" },
+      trace: {
+        candidateSource: "asset-depletion-ledger",
+        bucketId: "education-529",
+        family: "educationSavings",
+        ledgerEventType: "bucket-tapped",
+        amountAtTap: 24000,
+        withdrawalAmount: 6500,
+        balanceBeforeWithdrawal: 24000
+      }
+    }
+  ]
+};
+const sameMonthStorylineDotHtml = harness.renderTimeline(sameMonthStorylineDotFixture);
+assert.equal(
+  (sameMonthStorylineDotHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
+  1,
+  "Same-month ledger events should render as one grouped marker at the true graph coordinate instead of fake x-offset dots."
+);
+const sameMonthGroupTag = getSvgGroupTagByAttribute(sameMonthStorylineDotHtml, "data-income-impact-storyline-event-id", "taxable-assets-depleted");
+assert.match(sameMonthGroupTag, /data-income-impact-storyline-event-ids="taxable-assets-depleted education-savings-used-for-living-needs"/);
+assert.match(sameMonthGroupTag, /data-income-impact-storyline-grouped="true"/);
+assert.match(sameMonthGroupTag, /data-income-impact-storyline-group-count="2"/);
+assert.match(sameMonthGroupTag, /data-income-impact-storyline-dot-tier="major"/);
+assert.match(sameMonthStorylineDotHtml, /data-income-impact-storyline-dot-group-ring/);
+assert.match(sameMonthStorylineDotHtml, /data-income-impact-storyline-dot-count-badge[^>]*>2<\/text>/);
+assert.match(sameMonthStorylineDotHtml, /2 events in Month 36/);
+assert.match(sameMonthStorylineDotHtml, /Taxable Assets Depleted/);
+assert.match(sameMonthStorylineDotHtml, /Education Savings Used/);
+assert.match(sameMonthStorylineDotHtml, /Bucket depleted/);
+assert.match(sameMonthStorylineDotHtml, /Bucket tapped/);
+assert.match(sameMonthStorylineDotHtml, /Taxable assets/);
+assert.match(sameMonthStorylineDotHtml, /Education savings/);
+assert.match(sameMonthStorylineDotHtml, /\$12,000/);
+assert.match(sameMonthStorylineDotHtml, /\$24,000/);
+assert.match(sameMonthStorylineDotHtml, /data-income-impact-storyline-connector-event-id="taxable-assets-depleted"/);
+assert.doesNotMatch(
+  sameMonthStorylineDotHtml,
+  /data-income-impact-storyline-connector-event-id="education-savings-used-for-living-needs"/,
+  "Micro ledger events should not receive story-card connectors when grouped with a major marker."
+);
 const cappedStorylineDotFixture = JSON.parse(JSON.stringify(fixture));
 cappedStorylineDotFixture.financialStoryline = {
   graphDotCandidates: Array.from({ length: 18 }, function (_, index) {
@@ -2082,8 +2178,8 @@ assert.ok(
 assert.doesNotMatch(majorStoryHost.innerHTML, /lower-priority-over-cap|Lower Priority Event/);
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
-  15,
-  "Rendering major story cards should render non-death graph dots while reusing the death diamond marker."
+  14,
+  "Rendering major story cards should group same-month graph events while reusing the death diamond marker."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-connector(?:\s|>)/g) || []).length,
@@ -2097,8 +2193,13 @@ assert.equal(
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot-tier="micro"/g) || []).length,
-  10,
-  "Ten graph dots should be marked as secondary micro events."
+  9,
+  "Standalone micro markers should remain secondary when a same-month micro event is carried by a grouped major marker."
+);
+assert.match(
+  majorStoryHost.innerHTML,
+  /data-income-impact-storyline-event-ids="education-savings-depleted micro-storyline-event-4"/,
+  "Same-month micro events should remain represented in the grouped marker event-id list."
 );
 assert.match(majorStoryHost.innerHTML, /income-impact-storyline-dot--major/);
 assert.match(majorStoryHost.innerHTML, /income-impact-storyline-dot--micro/);
