@@ -715,6 +715,211 @@ assert.ok(
   "Suppressed housing-risk events should surface warnings."
 );
 
+const selectorInput = cloneJson(richInput);
+selectorInput.resourceWaterfall = cloneJson(waterfallInput.resourceWaterfall);
+selectorInput.housingRisk = cloneJson(housingInput.housingRisk);
+const selectorSnapshot = cloneJson(selectorInput);
+const selectorResult = buildIncomeImpactFinancialStorylineCandidates(selectorInput);
+const selectorResultAgain = buildIncomeImpactFinancialStorylineCandidates(cloneJson(selectorInput));
+assert.deepEqual(selectorInput, selectorSnapshot, "Selector policy should not mutate input objects.");
+assert.deepEqual(selectorResult, selectorResultAgain, "Selector output should be deterministic across repeated calls.");
+
+const selectorMajorIds = ids(selectorResult.majorStoryCandidates);
+const selectorGraphIds = ids(selectorResult.graphDotCandidates);
+assert.equal(selectorMajorIds[0], "death-income-stops");
+assert.ok(selectorMajorIds.length <= 6);
+assert.ok(selectorGraphIds.length <= 10);
+assert.equal(selectorResult.trace.selectorPolicyVersion, "storyline-selector-v1");
+assert.deepEqual(selectorResult.trace.selectedMajorCandidateIds, selectorMajorIds);
+assert.deepEqual(selectorResult.trace.selectedGraphDotCandidateIds, selectorGraphIds);
+assert.ok(selectorResult.trace.majorStoryFamilyCounts.trigger >= 1);
+assert.ok(Object.keys(selectorResult.trace.selectorSuppressedCountsByReason).length > 0);
+
+selectorResult.majorStoryCandidates.concat(selectorResult.graphDotCandidates).forEach(function (candidate) {
+  assert.notEqual(candidate.status, "deferred");
+  assert.notEqual(candidate.status, "unsupported");
+  assert.notEqual(candidate.evidenceLevel, "insufficient-data");
+  assert.equal(candidate.safeToRender, true);
+});
+
+assert.ok(
+  selectorMajorIds.some(function (id) {
+    return [
+      "life-insurance-proceeds-applied",
+      "protection-gap-appears-immediately",
+      "immediate-obligations-paid",
+      "mortgage-is-paid-off",
+      "mortgage-payments-continue"
+    ].includes(id);
+  }),
+  "Major selector should include an insurance/context event when available."
+);
+assert.ok(
+  selectorMajorIds.some(function (id) {
+    return [
+      "cash-savings-depleted",
+      "emergency-fund-depleted",
+      "liquid-investments-depleted",
+      "taxable-assets-depleted"
+    ].includes(id);
+  }),
+  "Major selector should include a liquidity crisis event when available."
+);
+assert.ok(
+  selectorMajorIds.some(function (id) {
+    return [
+      "housing-payment-at-risk",
+      "housing-stability-at-risk",
+      "education-savings-depleted",
+      "education-savings-used-for-living-needs"
+    ].includes(id);
+  }),
+  "Major selector should include a family stability event when available."
+);
+assert.ok(
+  selectorMajorIds.some(function (id) {
+    return [
+      "retirement-assets-tapped",
+      "retirement-assets-depleted",
+      "home-equity-becomes-last-resort"
+    ].includes(id);
+  }),
+  "Major selector should include a long-term sacrifice event when available."
+);
+assert.ok(
+  selectorMajorIds.some(function (id) {
+    return [
+      "resources-run-out",
+      "monthly-support-gap-begins",
+      "unfunded-need-accumulates"
+    ].includes(id);
+  }),
+  "Major selector should include a support failure event when available."
+);
+
+const selectorMajorFamiliesAfterDeath = selectorResult.majorStoryCandidates.slice(1).map(function (candidate) {
+  return candidate.family;
+});
+["cash-waterfall", "housing-risk", "runway", "gap"].forEach(function (family) {
+  assert.ok(
+    selectorMajorFamiliesAfterDeath.filter(function (candidateFamily) {
+      return candidateFamily === family;
+    }).length <= 2,
+    `Major selector should not let ${family} dominate when alternatives exist.`
+  );
+});
+assert.ok(!selectorMajorIds.includes("missing-data-limits-timeline"), "Support failure should outrank weaker data gaps.");
+assert.ok(selectorMajorIds.includes("housing-payment-at-risk") || selectorMajorIds.includes("housing-stability-at-risk"));
+assert.ok(!selectorMajorIds.includes("housing-risk-unknown"), "Proven housing risk should outrank housing-risk-unknown.");
+assert.ok(selectorMajorIds.includes("retirement-assets-tapped"), "Retirement Assets Tapped should be selectable as long-term sacrifice.");
+assert.ok(
+  selectorResult.suppressedCandidates.some(function (candidate) {
+    return candidate.selectionSuppressionReason === "major-card-cap";
+  }),
+  "Selector should record major card cap suppression."
+);
+assert.ok(
+  selectorResult.suppressedCandidates.some(function (candidate) {
+    return candidate.selectionSuppressionReason === "graph-dot-cap";
+  }),
+  "Selector should record graph dot cap suppression."
+);
+assert.ok(
+  selectorResult.suppressedCandidates.some(function (candidate) {
+    return candidate.selectionSuppressionReason === "data-gap-lower-priority";
+  }),
+  "Selector should record data-gap lower-priority suppression."
+);
+
+const missingGraphTimingResult = buildIncomeImpactFinancialStorylineCandidates({
+  scenario: {
+    scenario: {
+      selectedDeathDate: "2036-05-14"
+    },
+    deathEvent: {
+      date: "2036-05-14"
+    }
+  },
+  housingRisk: {
+    riskEvents: [
+      makeHousingRiskEvent({
+        id: "housing-at-risk-untimed",
+        eventType: "housing-payment-at-risk",
+        displayLabel: "Housing Payment At Risk",
+        amount: 2400,
+        evidenceLevel: "estimated",
+        sourcePath: "housingRisk.obligations.untimed",
+        extra: {
+          timing: {
+            label: "Payment risk timing label"
+          }
+        }
+      })
+    ]
+  }
+});
+assert.ok(ids(missingGraphTimingResult.safeRenderableEvents).includes("housing-payment-at-risk"));
+assert.ok(ids(missingGraphTimingResult.majorStoryCandidates).includes("housing-payment-at-risk"));
+assert.ok(!ids(missingGraphTimingResult.graphDotCandidates).includes("housing-payment-at-risk"));
+assert.ok(
+  missingGraphTimingResult.suppressedCandidates.some(function (candidate) {
+    return candidate.id === "housing-payment-at-risk"
+      && candidate.selectionSuppressionReason === "missing-timing-for-graph";
+  }),
+  "Events missing graph timing should be suppressed from graph dots with a clear reason."
+);
+
+const liquidityRankingResult = buildIncomeImpactFinancialStorylineCandidates({
+  scenario: {
+    scenario: {
+      selectedDeathDate: "2036-05-14"
+    },
+    deathEvent: {
+      date: "2036-05-14"
+    }
+  },
+  resourceWaterfall: {
+    timelineEvents: [
+      makeWaterfallEvent({
+        bucketId: "emergency",
+        eventType: "bucket-depleted",
+        displayLabel: "Emergency Fund Depleted",
+        family: "emergencyFund",
+        monthOffset: 3,
+        amount: 18000,
+        evidenceLevel: "estimated",
+        sourcePath: "resourceWaterfall.buckets.emergency"
+      }),
+      makeWaterfallEvent({
+        bucketId: "liquid",
+        eventType: "bucket-depleted",
+        displayLabel: "Liquid Investments Depleted",
+        family: "otherLiquid",
+        monthOffset: 4,
+        amount: 15000,
+        evidenceLevel: "estimated",
+        sourcePath: "resourceWaterfall.buckets.liquid"
+      }),
+      makeWaterfallEvent({
+        bucketId: "taxable",
+        eventType: "bucket-depleted",
+        displayLabel: "Taxable Assets Depleted",
+        family: "taxableInvestments",
+        monthOffset: 5,
+        amount: 15000,
+        evidenceLevel: "estimated",
+        sourcePath: "resourceWaterfall.buckets.taxable"
+      })
+    ]
+  }
+});
+const liquidityMajorIds = ids(liquidityRankingResult.majorStoryCandidates);
+const liquidityGraphIds = ids(liquidityRankingResult.graphDotCandidates);
+assert.ok(liquidityMajorIds.includes("emergency-fund-depleted"));
+assert.ok(liquidityGraphIds.includes("emergency-fund-depleted"));
+assert.ok(liquidityGraphIds.indexOf("emergency-fund-depleted") < liquidityGraphIds.indexOf("liquid-investments-depleted"));
+assert.ok(liquidityGraphIds.indexOf("emergency-fund-depleted") < liquidityGraphIds.indexOf("taxable-assets-depleted"));
+
 const missingResult = buildIncomeImpactFinancialStorylineCandidates({});
 assert.ok(missingResult.warnings.some(function (warning) {
   return warning.code === "missing-storyline-scenario";

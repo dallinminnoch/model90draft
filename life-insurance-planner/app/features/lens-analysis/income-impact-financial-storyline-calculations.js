@@ -6,6 +6,7 @@
   const SOURCE = "income-impact-financial-storyline-calculations";
   const MAX_GRAPH_DOT_CANDIDATES = 10;
   const MAX_MAJOR_STORY_CANDIDATES = 6;
+  const SELECTOR_POLICY_VERSION = "storyline-selector-v1";
 
   const EVIDENCE_LEVELS = Object.freeze({
     calculated: "calculated",
@@ -459,6 +460,75 @@
       dataGapOnly: true
     })
   });
+
+  const STORY_ROLES = Object.freeze({
+    trigger: "trigger",
+    insuranceContext: "insurance-context",
+    liquidityCrisis: "liquidity-crisis",
+    familyStability: "family-stability",
+    longTermSacrifice: "long-term-sacrifice",
+    supportFailure: "support-failure",
+    dataQuality: "data-quality",
+    other: "other"
+  });
+
+  const MAJOR_STORY_ROLE_ORDER = Object.freeze([
+    STORY_ROLES.insuranceContext,
+    STORY_ROLES.liquidityCrisis,
+    STORY_ROLES.familyStability,
+    STORY_ROLES.longTermSacrifice,
+    STORY_ROLES.supportFailure
+  ]);
+
+  const INSURANCE_CONTEXT_IDS = Object.freeze([
+    "life-insurance-proceeds-applied",
+    "protection-gap-appears-immediately",
+    "immediate-obligations-paid",
+    "final-expenses-paid",
+    "debt-payoff-consumes-liquidity",
+    "mortgage-is-paid-off",
+    "mortgage-payments-continue"
+  ]);
+
+  const LIQUIDITY_CRISIS_IDS = Object.freeze([
+    "emergency-fund-depleted",
+    "cash-savings-depleted",
+    "checking-savings-depleted",
+    "liquid-investments-depleted",
+    "taxable-assets-depleted"
+  ]);
+
+  const FAMILY_STABILITY_IDS = Object.freeze([
+    "housing-payment-at-risk",
+    "housing-stability-at-risk",
+    "housing-payment-pressure-begins",
+    "rent-payment-pressure-begins",
+    "education-savings-depleted",
+    "education-savings-used-for-living-needs",
+    "dependent-support-gap-begins",
+    "childcare-support-at-risk"
+  ]);
+
+  const LONG_TERM_SACRIFICE_IDS = Object.freeze([
+    "retirement-assets-tapped",
+    "retirement-assets-depleted",
+    "home-equity-becomes-last-resort",
+    "home-equity-depleted",
+    "retirement-security-is-reduced"
+  ]);
+
+  const SUPPORT_FAILURE_IDS = Object.freeze([
+    "resources-run-out",
+    "monthly-support-gap-begins",
+    "unfunded-need-accumulates",
+    "survivor-income-not-enough-alone",
+    "survivor-runway-begins"
+  ]);
+
+  const DATA_QUALITY_IDS = Object.freeze([
+    "missing-data-limits-timeline",
+    "housing-risk-unknown"
+  ]);
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -1476,56 +1546,365 @@
     });
   }
 
-  function sortCandidates(candidates) {
-    return candidates.slice().sort(function (left, right) {
-      return (left.priority - right.priority)
-        || right.lifeInsuranceRelevance - left.lifeInsuranceRelevance
-        || right.advisorUsefulness - left.advisorUsefulness
-        || left.id.localeCompare(right.id);
-    });
+  function includesValue(items, value) {
+    return Array.isArray(items) && items.includes(value);
   }
 
-  function hasAlternativeFamily(candidates, selected, family) {
+  function getStoryRole(candidate) {
+    const id = normalizeString(candidate?.id);
+    if (id === "death-income-stops") {
+      return STORY_ROLES.trigger;
+    }
+    if (includesValue(INSURANCE_CONTEXT_IDS, id)) {
+      return STORY_ROLES.insuranceContext;
+    }
+    if (includesValue(LIQUIDITY_CRISIS_IDS, id)) {
+      return STORY_ROLES.liquidityCrisis;
+    }
+    if (includesValue(FAMILY_STABILITY_IDS, id)) {
+      return STORY_ROLES.familyStability;
+    }
+    if (includesValue(LONG_TERM_SACRIFICE_IDS, id)) {
+      return STORY_ROLES.longTermSacrifice;
+    }
+    if (includesValue(SUPPORT_FAILURE_IDS, id)) {
+      return STORY_ROLES.supportFailure;
+    }
+    if (includesValue(DATA_QUALITY_IDS, id) || candidate?.family === EVENT_FAMILIES.dataQuality) {
+      return STORY_ROLES.dataQuality;
+    }
+    return STORY_ROLES.other;
+  }
+
+  function hasUsableTiming(candidate) {
+    if (!candidate || !isPlainObject(candidate.timing)) {
+      return false;
+    }
+    return toOptionalNumber(candidate.timing.monthOffset) != null
+      || Boolean(normalizeString(candidate.timing.date))
+      || Boolean(normalizeString(candidate.timing.label))
+      || candidate.timing.kind === "death-event";
+  }
+
+  function graphTimingIsUsable(candidate) {
+    if (!candidate || !isPlainObject(candidate.timing)) {
+      return false;
+    }
+    return toOptionalNumber(candidate.timing.monthOffset) != null
+      || Boolean(normalizeString(candidate.timing.date))
+      || candidate.timing.kind === "death-event";
+  }
+
+  function timingSortValue(candidate) {
+    const monthOffset = toOptionalNumber(candidate?.timing?.monthOffset);
+    if (monthOffset != null) {
+      return monthOffset;
+    }
+    if (candidate?.id === "death-income-stops" || candidate?.timing?.kind === "death-event") {
+      return 0;
+    }
+    return 999999;
+  }
+
+  function evidenceScore(candidate) {
+    switch (candidate?.evidenceLevel) {
+      case EVIDENCE_LEVELS.calculated:
+        return 32;
+      case EVIDENCE_LEVELS.traceBacked:
+        return 28;
+      case EVIDENCE_LEVELS.assumptionBacked:
+        return 22;
+      case EVIDENCE_LEVELS.estimated:
+        return 14;
+      case EVIDENCE_LEVELS.dataGap:
+        return -18;
+      default:
+        return -80;
+    }
+  }
+
+  function severityScore(candidate) {
+    switch (candidate?.severity) {
+      case "critical":
+        return 20;
+      case "caution":
+        return 12;
+      case "positive":
+        return 9;
+      case "info":
+        return 7;
+      default:
+        return 0;
+    }
+  }
+
+  function roleScore(candidate) {
+    switch (getStoryRole(candidate)) {
+      case STORY_ROLES.insuranceContext:
+        return 24;
+      case STORY_ROLES.liquidityCrisis:
+        return 23;
+      case STORY_ROLES.familyStability:
+        return 22;
+      case STORY_ROLES.longTermSacrifice:
+        return 21;
+      case STORY_ROLES.supportFailure:
+        return 24;
+      case STORY_ROLES.dataQuality:
+        return -16;
+      default:
+        return 4;
+    }
+  }
+
+  function idSpecificScore(candidate) {
+    switch (candidate?.id) {
+      case "death-income-stops":
+        return 1000;
+      case "emergency-fund-depleted":
+        return 18;
+      case "cash-savings-depleted":
+        return 14;
+      case "checking-savings-depleted":
+        return 12;
+      case "liquid-investments-depleted":
+        return 6;
+      case "taxable-assets-depleted":
+        return 5;
+      case "housing-payment-at-risk":
+        return 40;
+      case "housing-stability-at-risk":
+        return 38;
+      case "housing-payment-pressure-begins":
+        return 5;
+      case "housing-risk-unknown":
+        return -24;
+      case "retirement-assets-tapped":
+        return 16;
+      case "retirement-assets-depleted":
+        return 15;
+      case "home-equity-becomes-last-resort":
+        return 14;
+      case "resources-run-out":
+        return 18;
+      case "unfunded-need-accumulates":
+        return 17;
+      case "monthly-support-gap-begins":
+        return 16;
+      default:
+        return 0;
+    }
+  }
+
+  function isSelectableRenderable(candidate) {
+    return candidate?.safeToRender === true
+      && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution)
+      && candidate.evidenceLevel !== EVIDENCE_LEVELS.insufficientData
+      && candidate.evidenceLevel !== EVIDENCE_LEVELS.unsupported
+      && candidate.evidenceLevel !== EVIDENCE_LEVELS.deferred
+      && candidate.evidenceLevel !== EVIDENCE_LEVELS.waterfallNeeded
+      && candidate.evidenceLevel !== EVIDENCE_LEVELS.riskModelNeeded
+      && candidate.evidenceLevel !== EVIDENCE_LEVELS.displayOnly;
+  }
+
+  function scoreCandidateForMajorStory(candidate) {
+    if (!isSelectableRenderable(candidate)) {
+      return -9999;
+    }
+    const basePriority = Math.max(0, 120 - (toOptionalNumber(candidate.priority) ?? 999));
+    const metadata = ((toOptionalNumber(candidate.lifeInsuranceRelevance) ?? 0) * 18)
+      + ((toOptionalNumber(candidate.emotionalWeight) ?? 0) * 18)
+      + ((toOptionalNumber(candidate.advisorUsefulness) ?? 0) * 18)
+      + ((toOptionalNumber(candidate.confidence) ?? 0) * 12);
+    return basePriority
+      + metadata
+      + evidenceScore(candidate)
+      + severityScore(candidate)
+      + roleScore(candidate)
+      + idSpecificScore(candidate)
+      + (hasUsableTiming(candidate) ? 5 : -4)
+      + (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap ? -20 : 0);
+  }
+
+  function scoreCandidateForGraphDot(candidate) {
+    if (!isSelectableRenderable(candidate) || !candidate.eligibleForGraphDot) {
+      return -9999;
+    }
+    if (!graphTimingIsUsable(candidate)) {
+      return -9999;
+    }
+    const basePriority = Math.max(0, 110 - (toOptionalNumber(candidate.priority) ?? 999));
+    return basePriority
+      + evidenceScore(candidate)
+      + severityScore(candidate)
+      + idSpecificScore(candidate)
+      + ((toOptionalNumber(candidate.lifeInsuranceRelevance) ?? 0) * 12)
+      + ((toOptionalNumber(candidate.advisorUsefulness) ?? 0) * 10)
+      + ((toOptionalNumber(candidate.confidence) ?? 0) * 8)
+      + (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap ? -24 : 0)
+      - Math.min(timingSortValue(candidate), 120) * 0.08;
+  }
+
+  function compareCandidatesForScore(scoreFn) {
+    return function (left, right) {
+      return scoreFn(right) - scoreFn(left)
+        || (toOptionalNumber(left.priority) ?? 999) - (toOptionalNumber(right.priority) ?? 999)
+        || timingSortValue(left) - timingSortValue(right)
+        || normalizeString(left.id).localeCompare(normalizeString(right.id));
+    };
+  }
+
+  function countBy(items, keyFn) {
+    return items.reduce(function (counts, item) {
+      const key = keyFn(item) || "unknown";
+      counts[key] = (counts[key] || 0) + 1;
+      return counts;
+    }, {});
+  }
+
+  function familyCount(selected, family) {
+    return selected.filter(function (candidate) {
+      return candidate.family === family;
+    }).length;
+  }
+
+  function hasUnselectedAlternativeFamily(pool, selected, family) {
     const selectedIds = new Set(selected.map(function (candidate) { return candidate.id; }));
-    return candidates.some(function (candidate) {
+    return pool.some(function (candidate) {
       return !selectedIds.has(candidate.id) && candidate.family !== family;
     });
   }
 
-  function selectCandidates(candidates, limit, options) {
+  function canSelectForMajor(candidate, selected, pool, options) {
     const safeOptions = isPlainObject(options) ? options : {};
-    const sorted = sortCandidates(dedupeCandidates(candidates));
-    const selected = [];
-    const skipped = [];
-    const familyCounts = {};
+    if (selected.some(function (item) { return item.id === candidate.id; })) {
+      return false;
+    }
+    if (safeOptions.enforceDiversity === false || candidate.id === "death-income-stops") {
+      return true;
+    }
+    return familyCount(selected, candidate.family) < 2
+      || !hasUnselectedAlternativeFamily(pool, selected, candidate.family);
+  }
 
-    function trySelect(candidate, allowFamilyOverflow) {
-      if (selected.length >= limit) {
-        return;
-      }
-      const family = candidate.family;
-      const currentCount = familyCounts[family] || 0;
-      if (
-        safeOptions.enforceDiversity !== false
-        && !allowFamilyOverflow
-        && candidate.id !== "death-income-stops"
-        && currentCount >= 2
-        && hasAlternativeFamily(sorted, selected, family)
-      ) {
-        skipped.push(candidate);
-        return;
-      }
-      selected.push(candidate);
-      familyCounts[family] = currentCount + 1;
+  function sortByMajorScore(candidates) {
+    return candidates.slice().sort(compareCandidatesForScore(scoreCandidateForMajorStory));
+  }
+
+  function sortByGraphScore(candidates) {
+    return candidates.slice().sort(compareCandidatesForScore(scoreCandidateForGraphDot));
+  }
+
+  function makeSelectionSuppressedCandidate(candidate, reason, surface) {
+    const copy = clonePlainValue(candidate);
+    copy.safeToRender = false;
+    copy.eligibleForGraphDot = surface === "graph-dot" ? false : copy.eligibleForGraphDot;
+    copy.eligibleForMajorCard = surface === "major-story" ? false : copy.eligibleForMajorCard;
+    copy.selectionSurface = surface;
+    copy.selectionSuppressionReason = reason;
+    copy.suppressionKeys = uniqueStrings([copy.suppressionKeys, reason].flat());
+    copy.deferredReason = reason;
+    return copy;
+  }
+
+  function suppressUnselected(pool, selected, reasonForCandidate, surface) {
+    const selectedIds = new Set(selected.map(function (candidate) { return candidate.id; }));
+    return pool
+      .filter(function (candidate) { return !selectedIds.has(candidate.id); })
+      .map(function (candidate) {
+        return makeSelectionSuppressedCandidate(candidate, reasonForCandidate(candidate), surface);
+      });
+  }
+
+  function selectMajorStoryCandidates(candidates, options) {
+    const pool = sortByMajorScore(dedupeCandidates(candidates).filter(function (candidate) {
+      return isSelectableRenderable(candidate) && candidate.eligibleForMajorCard === true;
+    }));
+    const selected = [];
+    const deathCandidate = pool.find(function (candidate) {
+      return candidate.id === "death-income-stops";
+    });
+    if (deathCandidate) {
+      selected.push(deathCandidate);
     }
 
-    sorted.forEach(function (candidate) {
-      trySelect(candidate, false);
+    MAJOR_STORY_ROLE_ORDER.forEach(function (role) {
+      if (selected.length >= MAX_MAJOR_STORY_CANDIDATES) {
+        return;
+      }
+      const candidate = pool.find(function (item) {
+        return getStoryRole(item) === role && canSelectForMajor(item, selected, pool, options);
+      });
+      if (candidate) {
+        selected.push(candidate);
+      }
     });
-    skipped.forEach(function (candidate) {
-      trySelect(candidate, true);
+
+    pool.forEach(function (candidate) {
+      if (selected.length >= MAX_MAJOR_STORY_CANDIDATES) {
+        return;
+      }
+      if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap) {
+        const strongerRemaining = pool.some(function (item) {
+          return item.id !== candidate.id
+            && !selected.some(function (selectedCandidate) { return selectedCandidate.id === item.id; })
+            && item.evidenceLevel !== EVIDENCE_LEVELS.dataGap;
+        });
+        if (strongerRemaining) {
+          return;
+        }
+      }
+      if (canSelectForMajor(candidate, selected, pool, options)) {
+        selected.push(candidate);
+      }
     });
-    return selected.slice(0, limit);
+
+    const suppressed = suppressUnselected(pool, selected, function (candidate) {
+      if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap) {
+        return "data-gap-lower-priority";
+      }
+      if (!canSelectForMajor(candidate, selected, pool, options)) {
+        return "family-diversity";
+      }
+      return selected.length >= MAX_MAJOR_STORY_CANDIDATES ? "major-card-cap" : "lower-priority";
+    }, "major-story");
+
+    return {
+      selected,
+      suppressed
+    };
+  }
+
+  function selectGraphDotCandidates(candidates) {
+    const eligible = dedupeCandidates(candidates).filter(function (candidate) {
+      return isSelectableRenderable(candidate) && candidate.eligibleForGraphDot === true;
+    });
+    const missingTiming = eligible.filter(function (candidate) {
+      return !graphTimingIsUsable(candidate);
+    });
+    const timedPool = sortByGraphScore(eligible.filter(function (candidate) {
+      return graphTimingIsUsable(candidate);
+    }));
+    const selected = timedPool.slice(0, MAX_GRAPH_DOT_CANDIDATES);
+    const suppressed = missingTiming.map(function (candidate) {
+      return makeSelectionSuppressedCandidate(candidate, "missing-timing-for-graph", "graph-dot");
+    }).concat(suppressUnselected(timedPool, selected, function (candidate) {
+      if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap) {
+        return "data-gap-lower-priority";
+      }
+      return timedPool.length > MAX_GRAPH_DOT_CANDIDATES ? "graph-dot-cap" : "lower-priority";
+    }, "graph-dot"));
+
+    return {
+      selected,
+      suppressed
+    };
+  }
+
+  function countSuppressionReasons(candidates) {
+    return countBy(candidates, function (candidate) {
+      return candidate.selectionSuppressionReason || candidate.deferredReason || "unknown";
+    });
   }
 
   function summarizeEvidence(candidates) {
@@ -1566,29 +1945,11 @@
         && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution);
     });
     const deferredCandidates = DEFERRED_CANDIDATE_DEFINITIONS.map(clonePlainValue);
-    const graphDotCandidates = selectCandidates(
-      safeRenderableEvents.filter(function (candidate) { return candidate.eligibleForGraphDot; }),
-      MAX_GRAPH_DOT_CANDIDATES,
-      safeInput.options
-    );
-    const majorPool = safeRenderableEvents.filter(function (candidate) {
-      return candidate.eligibleForMajorCard;
-    });
-    const deathCandidate = majorPool.find(function (candidate) {
-      return candidate.id === "death-income-stops";
-    });
-    const selectedMajor = selectCandidates(
-      deathCandidate
-        ? [deathCandidate].concat(majorPool.filter(function (candidate) { return candidate.id !== deathCandidate.id; }))
-        : majorPool,
-      MAX_MAJOR_STORY_CANDIDATES,
-      safeInput.options
-    );
-    const majorStoryCandidates = deathCandidate
-      ? [deathCandidate].concat(selectedMajor.filter(function (candidate) {
-          return candidate.id !== deathCandidate.id;
-        })).slice(0, MAX_MAJOR_STORY_CANDIDATES)
-      : selectedMajor;
+    const graphDotSelection = selectGraphDotCandidates(safeRenderableEvents, safeInput.options);
+    const majorStorySelection = selectMajorStoryCandidates(safeRenderableEvents, safeInput.options);
+    const graphDotCandidates = graphDotSelection.selected;
+    const majorStoryCandidates = majorStorySelection.selected;
+    const selectionSuppressedCandidates = majorStorySelection.suppressed.concat(graphDotSelection.suppressed);
     const allCandidates = safeCandidates.concat(deferredCandidates);
     const trace = {
       source: SOURCE,
@@ -1601,7 +1962,13 @@
       safeRenderableCount: safeRenderableEvents.length,
       deferredCount: deferredCandidates.length,
       majorStoryCandidateLimit: MAX_MAJOR_STORY_CANDIDATES,
-      graphDotCandidateLimit: MAX_GRAPH_DOT_CANDIDATES
+      graphDotCandidateLimit: MAX_GRAPH_DOT_CANDIDATES,
+      selectorPolicyVersion: SELECTOR_POLICY_VERSION,
+      selectedMajorCandidateIds: majorStoryCandidates.map(function (candidate) { return candidate.id; }),
+      selectedGraphDotCandidateIds: graphDotCandidates.map(function (candidate) { return candidate.id; }),
+      majorStoryFamilyCounts: countBy(majorStoryCandidates, function (candidate) { return candidate.family; }),
+      graphDotFamilyCounts: countBy(graphDotCandidates, function (candidate) { return candidate.family; }),
+      selectorSuppressedCountsByReason: countSuppressionReasons(selectionSuppressedCandidates)
     };
     if (isPlainObject(safeInput.resourceWaterfall)) {
       trace.activatedWaterfallCandidateIds = waterfallBacked.candidates.map(function (candidate) { return candidate.id; });
@@ -1619,7 +1986,9 @@
       deferredCandidates,
       majorStoryCandidates,
       graphDotCandidates,
-      suppressedCandidates: waterfallBacked.suppressedCandidates.concat(housingRiskBacked.suppressedCandidates),
+      suppressedCandidates: waterfallBacked.suppressedCandidates
+        .concat(housingRiskBacked.suppressedCandidates)
+        .concat(selectionSuppressedCandidates),
       warnings,
       trace
     };
