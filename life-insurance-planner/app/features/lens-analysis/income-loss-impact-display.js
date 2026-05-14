@@ -4198,7 +4198,8 @@
       selectedDeathDate,
       projectionHorizonYears: clampProjectionHorizonYears(sourceControls.projectionHorizonYears ?? scenarioState.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(sourceControls.mortgageTreatmentOverride ?? scenarioState.mortgageTreatmentOverride),
-      lifestyleSliderValue: clampLifestyleSliderValue(sourceControls.lifestyleSliderValue ?? scenarioState.lifestyleSliderValue)
+      lifestyleSliderValue: clampLifestyleSliderValue(sourceControls.lifestyleSliderValue ?? scenarioState.lifestyleSliderValue),
+      autoCompressBaselineEnabled: (sourceControls.autoCompressBaselineEnabled ?? scenarioState.autoCompressBaselineEnabled) !== false
     };
     const householdExpenseStreamPolicyMode = normalizeString(
       sourceControls.householdExpenseStreamPolicyMode ?? scenarioState.householdExpenseStreamPolicyMode
@@ -4300,6 +4301,7 @@
       projectionHorizonYears: clampProjectionHorizonYears(safeSettings.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
       lifestyleSliderValue: clampLifestyleSliderValue(safeSettings.lifestyleSliderValue),
+      autoCompressBaselineEnabled: safeSettings.autoCompressBaselineEnabled !== false,
       householdExpenseStreamPolicyMode: normalizeString(safeSettings.householdExpenseStreamPolicyMode) || null
     });
   }
@@ -4331,6 +4333,7 @@
     scenarioState.projectionHorizonYears = controls.projectionHorizonYears;
     scenarioState.mortgageTreatmentOverride = controls.mortgageTreatmentOverride;
     scenarioState.lifestyleSliderValue = controls.lifestyleSliderValue;
+    scenarioState.autoCompressBaselineEnabled = controls.autoCompressBaselineEnabled !== false;
     if (controls.householdExpenseStreamPolicyMode) {
       scenarioState.householdExpenseStreamPolicyMode = controls.householdExpenseStreamPolicyMode;
     }
@@ -4938,7 +4941,8 @@
       agePart,
       `horizon-${clampProjectionHorizonYears(safeSettings.projectionHorizonYears)}`,
       normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
-      `lifestyle-${clampLifestyleSliderValue(safeSettings.lifestyleSliderValue)}`
+      `lifestyle-${clampLifestyleSliderValue(safeSettings.lifestyleSliderValue)}`,
+      `auto-compress-${safeSettings.autoCompressBaselineEnabled !== false ? "on" : "off"}`
     ].join("-").replace(/[^a-zA-Z0-9-]/g, "-").replace(/-+/g, "-").toLowerCase();
     const existingIds = new Set((Array.isArray(existingScenarios) ? existingScenarios : []).map(getAppliedScenarioId));
     let candidate = baseId;
@@ -5093,6 +5097,22 @@
     }
 
     return upsertAppliedScenarioRecord(state, buildAppliedScenarioRecord(state, baseContext, timelineResult));
+  }
+
+  function stripFoundationOnlyScenarioControls(value) {
+    if (Array.isArray(value)) {
+      return value.map(stripFoundationOnlyScenarioControls);
+    }
+    if (!isPlainObject(value)) {
+      return value;
+    }
+    return Object.keys(value).reduce(function (next, key) {
+      if (key === "autoCompressBaselineEnabled") {
+        return next;
+      }
+      next[key] = stripFoundationOnlyScenarioControls(value[key]);
+      return next;
+    }, {});
   }
 
   function getScenarioSelectionTarget(event) {
@@ -5422,6 +5442,7 @@
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,
           mortgageTreatmentOverride: "followAssumptions",
           lifestyleSliderValue: 0,
+          autoCompressBaselineEnabled: true,
           bannerCollapsed: false
         },
         draftScenarioControls: null,
@@ -5453,8 +5474,10 @@
       }
 
       return clonePlainValue({
-        draftScenarioControls: incomeImpactState.draftScenarioControls || null,
-        appliedScenarios: Array.isArray(incomeImpactState.appliedScenarios) ? incomeImpactState.appliedScenarios : [],
+        draftScenarioControls: stripFoundationOnlyScenarioControls(incomeImpactState.draftScenarioControls || null),
+        appliedScenarios: stripFoundationOnlyScenarioControls(
+          Array.isArray(incomeImpactState.appliedScenarios) ? incomeImpactState.appliedScenarios : []
+        ),
         selectedScenarioId: incomeImpactState.selectedScenarioId || null,
         hasDraftChanges: hasDraftScenarioChanges(incomeImpactState)
       });

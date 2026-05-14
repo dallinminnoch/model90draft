@@ -64,6 +64,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Income Impact auto-compressed baseline",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/income-impact-auto-compressed-baseline-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Household expense account policy runtime integration",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/account-settings/household-expense-account-policy-runtime-integration-check.js")],
