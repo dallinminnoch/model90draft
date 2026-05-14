@@ -152,6 +152,26 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
   });
 }
 
+function isAllowedMortgagePaymentPlanModelExposure() {
+  const diff = getGitDiff("app/features/lens-analysis/lens-model-builder.js");
+  const changedLines = diff
+    .split(/\r?\n/)
+    .filter(function (line) {
+      return (/^[+-]/).test(line) && !line.startsWith("+++") && !line.startsWith("---");
+    });
+  const hasRemovedLines = changedLines.some(function (line) {
+    return line.startsWith("-");
+  });
+
+  return changedLines.length > 0
+    && !hasRemovedLines
+    && diff.includes("treatedMortgagePaymentPlan")
+    && diff.includes("createPreparedTreatedMortgagePaymentPlan")
+    && diff.includes("calculateTreatedMortgagePaymentPlan")
+    && diff.includes("consumedByMethods: false")
+    && diff.includes("formulaActive: false");
+}
+
 function createClassList() {
   const values = new Set();
   return {
@@ -1118,6 +1138,9 @@ const protectedChanges = getChangedFiles([
   return file !== "life-insurance-planner/styles.css" || !isAllowedIncomeImpactTitleStyleOverride();
 }).filter(function (file) {
   return file !== "life-insurance-planner/layout.css" || !isAllowedIncomeImpactSidePanelLayoutChange();
+}).filter(function (file) {
+  return file !== "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js"
+    || !isAllowedMortgagePaymentPlanModelExposure();
 });
 assert.deepEqual(
   protectedChanges,

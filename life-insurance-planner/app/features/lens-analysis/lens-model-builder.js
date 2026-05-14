@@ -22,6 +22,11 @@
   const ASSET_GROWTH_PROJECTION_CONSUMPTION_STATUS = "saved-only";
   const CASH_RESERVE_CONSUMPTION_STATUS = "saved-only";
   const CASH_RESERVE_MODE_METHOD_ACTIVE_FUTURE = "methodActiveFuture";
+  const TREATED_MORTGAGE_PAYMENT_PLAN_PREPARED_FOR = Object.freeze([
+    "lens-result",
+    "income-impact",
+    "survivor-needs-accounting"
+  ]);
   const DEFAULT_MODEL_SURVIVOR_INCOME_PREP_ASSUMPTIONS = Object.freeze({
     includeSurvivorIncome: true,
     applyStartDelay: true,
@@ -1455,6 +1460,71 @@
     };
   }
 
+  function createEmptyTreatedMortgagePaymentPlan(warnings, metadata) {
+    const safeWarnings = Array.isArray(warnings) ? warnings : [];
+    const safeMetadata = isPlainObject(metadata) ? metadata : {};
+
+    return {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "unavailable",
+      originalBalance: null,
+      immediatePayoffAmount: null,
+      payoffPercent: null,
+      remainingPrincipalAfterPayoff: null,
+      originalMonthlyMortgagePayment: null,
+      finalMonthlyMortgagePayment: null,
+      originalRemainingTermMonths: null,
+      finalRemainingTermMonths: null,
+      interestRatePercent: null,
+      yearsRemainingSource: "unavailable",
+      paymentSource: "unavailable",
+      mortgagePaymentRemovedFromNeeds: false,
+      mortgagePaymentAlreadyInNeeds: false,
+      associatedHousingCostsPreserved: true,
+      warnings: safeWarnings,
+      trace: {
+        source: "lens-model-preparation",
+        sourcePaths: [],
+        calculationInputs: {}
+      },
+      metadata: {
+        ...safeMetadata,
+        source: "lens-model-preparation",
+        preparationSource: "lens-model-preparation",
+        calculationSource: "debt-treatment-calculations.calculateTreatedMortgagePaymentPlan",
+        consumedByMethods: false,
+        formulaActive: false,
+        preparedFor: cloneSerializable(TREATED_MORTGAGE_PAYMENT_PLAN_PREPARED_FOR),
+        warnings: safeWarnings
+      }
+    };
+  }
+
+  function createMortgagePaymentPlanFacts(lensModel) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const debtPayoff = isPlainObject(safeLensModel.debtPayoff) ? safeLensModel.debtPayoff : {};
+
+    return {
+      mortgageBalance: debtPayoff.mortgageBalance,
+      mortgageBalanceSourcePath: "debtPayoff.mortgageBalance"
+    };
+  }
+
+  function createMortgagePaymentPlanOngoingSupport(lensModel) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const ongoingSupport = isPlainObject(safeLensModel.ongoingSupport)
+      ? safeLensModel.ongoingSupport
+      : {};
+
+    return {
+      monthlyMortgagePayment: ongoingSupport.monthlyMortgagePayment,
+      mortgageRemainingTermMonths: ongoingSupport.mortgageRemainingTermMonths,
+      mortgageInterestRatePercent: ongoingSupport.mortgageInterestRatePercent,
+      monthlyHousingSupportCost: ongoingSupport.monthlyHousingSupportCost,
+      calculatedMonthlyMortgagePayment: ongoingSupport.calculatedMonthlyMortgagePayment
+    };
+  }
+
   function resolveAnalysisSettings(input) {
     const builderInput = input && typeof input === "object" ? input : {};
     const directAnalysisSettings = isPlainObject(builderInput.analysisSettings)
@@ -2463,6 +2533,74 @@
     };
   }
 
+  function createPreparedTreatedMortgagePaymentPlan(lensModel, input) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const debtTreatmentAssumptions = resolveDebtTreatmentAssumptions(input);
+    const mortgageTreatment = isPlainObject(debtTreatmentAssumptions.mortgageTreatment)
+      ? debtTreatmentAssumptions.mortgageTreatment
+      : {};
+    const calculateTreatedMortgagePaymentPlan = lensAnalysis.calculateTreatedMortgagePaymentPlan;
+
+    if (typeof calculateTreatedMortgagePaymentPlan !== "function") {
+      return createEmptyTreatedMortgagePaymentPlan(
+        [
+          createWarning(
+            "missing-treated-mortgage-payment-plan-helper",
+            "calculateTreatedMortgagePaymentPlan is unavailable; treated mortgage payment plan values were not prepared."
+          )
+        ],
+        {
+          reason: "missing-treated-mortgage-payment-plan-helper"
+        }
+      );
+    }
+
+    const result = calculateTreatedMortgagePaymentPlan({
+      mortgageTreatment: cloneSerializable(mortgageTreatment),
+      mortgageFacts: createMortgagePaymentPlanFacts(safeLensModel),
+      ongoingSupport: createMortgagePaymentPlanOngoingSupport(safeLensModel),
+      options: {
+        source: "lens-model-preparation"
+      }
+    });
+    const preparedResult = isPlainObject(result)
+      ? cloneSerializable(result)
+      : createEmptyTreatedMortgagePaymentPlan(
+        [
+          createWarning(
+            "invalid-treated-mortgage-payment-plan-result",
+            "calculateTreatedMortgagePaymentPlan returned an invalid result; treated mortgage payment plan values were not prepared."
+          )
+        ],
+        {
+          reason: "invalid-treated-mortgage-payment-plan-result"
+        }
+      );
+    const resultWarnings = Array.isArray(preparedResult.warnings)
+      ? preparedResult.warnings
+      : [];
+    const resultTrace = isPlainObject(preparedResult.trace)
+      ? preparedResult.trace
+      : {};
+
+    return {
+      ...preparedResult,
+      associatedHousingCostsPreserved: preparedResult.associatedHousingCostsPreserved === true,
+      warnings: resultWarnings,
+      trace: resultTrace,
+      metadata: {
+        source: "lens-model-preparation",
+        preparationSource: "lens-model-preparation",
+        calculationSource: "debt-treatment-calculations.calculateTreatedMortgagePaymentPlan",
+        consumedByMethods: false,
+        formulaActive: false,
+        preparedFor: cloneSerializable(TREATED_MORTGAGE_PAYMENT_PLAN_PREPARED_FOR),
+        mortgagePaymentPlanSourcePath: "treatedMortgagePaymentPlan",
+        warnings: resultWarnings
+      }
+    };
+  }
+
   function attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const blockSourceObjects = isPlainObject(sourceResult?.blockSourceObjects)
@@ -2515,6 +2653,7 @@
         lensModel.cashReserveProjection = createPreparedCashReserveProjection(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);
         lensModel.treatedDebtPayoff = createPreparedTreatedDebtPayoff(lensModel, builderInput);
+        lensModel.treatedMortgagePaymentPlan = createPreparedTreatedMortgagePaymentPlan(lensModel, builderInput);
       }
     }
 
