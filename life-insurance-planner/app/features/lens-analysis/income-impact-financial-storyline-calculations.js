@@ -596,14 +596,6 @@
     other: "other"
   });
 
-  const MAJOR_STORY_ROLE_ORDER = Object.freeze([
-    STORY_ROLES.insuranceContext,
-    STORY_ROLES.liquidityCrisis,
-    STORY_ROLES.familyStability,
-    STORY_ROLES.longTermSacrifice,
-    STORY_ROLES.supportFailure
-  ]);
-
   const INSURANCE_CONTEXT_IDS = Object.freeze([
     "life-insurance-proceeds-applied",
     "immediate-obligations-paid",
@@ -646,9 +638,62 @@
   ]);
 
   const DATA_QUALITY_IDS = Object.freeze([
-    "missing-data-limits-timeline",
-    "housing-risk-unknown"
+    "survivor-income-unknown",
+    "housing-risk-unknown",
+    "coverage-details-missing",
+    "asset-liquidity-unknown",
+    "mortgage-details-missing",
+    "education-timing-unknown",
+    "data-gaps-limit-story",
+    "missing-data-limits-timeline"
   ]);
+
+  const MAJOR_STORY_TIERS = Object.freeze({
+    locked: "locked",
+    tier1: "tier-1",
+    tier2: "tier-2",
+    tier3: "tier-3",
+    dataConfidence: "data-confidence",
+    notMajor: "not-major"
+  });
+
+  const MAJOR_STORY_TIER_1_IDS = Object.freeze([
+    "emergency-fund-depleted",
+    "education-savings-depleted",
+    "retirement-assets-tapped",
+    "housing-payment-at-risk",
+    "essential-needs-become-unfunded",
+    "monthly-support-gap-begins"
+  ]);
+
+  const MAJOR_STORY_TIER_2_IDS = Object.freeze([
+    "cash-savings-depleted",
+    "housing-stability-at-risk",
+    "debt-payments-become-unsupported",
+    "childcare-support-at-risk",
+    "vehicle-payment-at-risk",
+    "care-expenses-become-unfunded",
+    "unfunded-need-accumulates"
+  ]);
+
+  const MAJOR_STORY_TIER_3_IDS = Object.freeze([
+    "checking-savings-depleted",
+    "liquid-investments-depleted",
+    "taxable-assets-depleted",
+    "education-savings-used-for-living-needs",
+    "education-funding-interrupted",
+    "education-funding-may-be-redirected",
+    "dependent-support-gap",
+    "dependent-support-gap-begins",
+    "retirement-assets-depleted",
+    "housing-payment-pressure-begins",
+    "rent-payment-pressure-begins",
+    "transportation-stability-at-risk",
+    "lifestyle-cuts-begin",
+    "resources-run-out"
+  ]);
+
+  const MICRO_GRAPH_DOT_FAMILY_LIMIT = 3;
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -827,6 +872,18 @@
           family: normalizeString(safeOverrides.family || safeDefinition.family),
           evidenceLevel
         }),
+      eventCategory: normalizeString(safeOverrides.eventCategory || safeDefinition.eventCategory)
+        || resolveStoryRole({
+          id: normalizeString(safeOverrides.id || safeDefinition.id),
+          family: normalizeString(safeOverrides.family || safeDefinition.family),
+          evidenceLevel
+        }),
+      majorTier: normalizeString(safeOverrides.majorTier || safeDefinition.majorTier)
+        || getMajorStoryTier({
+          id: normalizeString(safeOverrides.id || safeDefinition.id),
+          family: normalizeString(safeOverrides.family || safeDefinition.family),
+          evidenceLevel
+        }),
       safeToRender: safeOverrides.safeToRender != null ? safeOverrides.safeToRender === true : status === STATUSES.safeNow,
       eligibleForGraphDot: safeOverrides.eligibleForGraphDot != null ? safeOverrides.eligibleForGraphDot === true : safeDefinition.eligibleForGraphDot === true,
       eligibleForMajorCard: safeOverrides.eligibleForMajorCard != null ? safeOverrides.eligibleForMajorCard === true : safeDefinition.eligibleForMajorCard === true,
@@ -881,6 +938,43 @@
       return STORY_EVENT_ROLES.emotional;
     }
     return STORY_EVENT_ROLES.detail;
+  }
+
+  function getMajorStoryTier(candidate) {
+    const id = normalizeString(candidate?.id);
+    if (id === "death-income-stops") {
+      return MAJOR_STORY_TIERS.locked;
+    }
+    if (includesValue(MAJOR_STORY_TIER_1_IDS, id)) {
+      return MAJOR_STORY_TIERS.tier1;
+    }
+    if (includesValue(MAJOR_STORY_TIER_2_IDS, id)) {
+      return MAJOR_STORY_TIERS.tier2;
+    }
+    if (includesValue(MAJOR_STORY_TIER_3_IDS, id)) {
+      return MAJOR_STORY_TIERS.tier3;
+    }
+    if (includesValue(DATA_QUALITY_IDS, id) || candidate?.family === EVENT_FAMILIES.dataQuality) {
+      return MAJOR_STORY_TIERS.dataConfidence;
+    }
+    return MAJOR_STORY_TIERS.notMajor;
+  }
+
+  function majorStoryTierScore(candidate) {
+    switch (getMajorStoryTier(candidate)) {
+      case MAJOR_STORY_TIERS.locked:
+        return 1000;
+      case MAJOR_STORY_TIERS.tier1:
+        return 220;
+      case MAJOR_STORY_TIERS.tier2:
+        return 160;
+      case MAJOR_STORY_TIERS.tier3:
+        return 100;
+      case MAJOR_STORY_TIERS.dataConfidence:
+        return -60;
+      default:
+        return 0;
+    }
   }
 
   function isVisibleStorylineCandidate(candidate) {
@@ -2070,15 +2164,21 @@
       case "death-income-stops":
         return 1000;
       case "emergency-fund-depleted":
-        return 18;
+        return 42;
+      case "education-savings-depleted":
+        return 40;
+      case "retirement-assets-tapped":
+        return 38;
       case "cash-savings-depleted":
-        return 14;
+        return 28;
       case "checking-savings-depleted":
-        return 12;
+        return 10;
       case "liquid-investments-depleted":
-        return 6;
+        return 8;
       case "taxable-assets-depleted":
-        return 5;
+        return 7;
+      case "education-savings-used-for-living-needs":
+        return 12;
       case "housing-payment-at-risk":
         return 40;
       case "housing-stability-at-risk":
@@ -2087,16 +2187,14 @@
         return 5;
       case "housing-risk-unknown":
         return -24;
-      case "retirement-assets-tapped":
-        return 16;
       case "retirement-assets-depleted":
-        return 15;
-      case "resources-run-out":
         return 18;
-      case "unfunded-need-accumulates":
-        return 17;
       case "monthly-support-gap-begins":
-        return 16;
+        return 36;
+      case "unfunded-need-accumulates":
+        return 30;
+      case "resources-run-out":
+        return 12;
       default:
         return 0;
     }
@@ -2123,6 +2221,7 @@
       + ((toOptionalNumber(candidate.advisorUsefulness) ?? 0) * 18)
       + ((toOptionalNumber(candidate.confidence) ?? 0) * 12);
     return basePriority
+      + majorStoryTierScore(candidate)
       + metadata
       + evidenceScore(candidate)
       + severityScore(candidate)
@@ -2174,10 +2273,51 @@
     }).length;
   }
 
-  function hasUnselectedAlternativeFamily(pool, selected, family) {
+  function storyRoleCount(selected, role) {
+    return selected.filter(function (candidate) {
+      return getStoryRole(candidate) === role;
+    }).length;
+  }
+
+  function hasUnrepresentedAlternativeFamily(pool, selected) {
+    const selectedIds = new Set(selected.map(function (candidate) { return candidate.id; }));
+    const selectedFamilies = new Set(selected.map(function (candidate) { return candidate.family; }));
+    return pool.some(function (candidate) {
+      return !selectedIds.has(candidate.id) && !selectedFamilies.has(candidate.family);
+    });
+  }
+
+  function hasUnselectedAlternativeStoryRole(pool, selected, role) {
     const selectedIds = new Set(selected.map(function (candidate) { return candidate.id; }));
     return pool.some(function (candidate) {
-      return !selectedIds.has(candidate.id) && candidate.family !== family;
+      return !selectedIds.has(candidate.id) && getStoryRole(candidate) !== role;
+    });
+  }
+
+  function severityRank(candidate) {
+    switch (candidate?.severity) {
+      case "critical":
+        return 4;
+      case "caution":
+        return 3;
+      case "positive":
+        return 2;
+      case "info":
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  function isMateriallyLaterAndMoreSevere(candidate, selectedSameGroup) {
+    if (!Array.isArray(selectedSameGroup) || !selectedSameGroup.length) {
+      return false;
+    }
+    const candidateTiming = timingSortValue(candidate);
+    const candidateSeverity = severityRank(candidate);
+    return selectedSameGroup.some(function (selectedCandidate) {
+      return candidateTiming >= timingSortValue(selectedCandidate) + 3
+        && candidateSeverity > severityRank(selectedCandidate);
     });
   }
 
@@ -2189,8 +2329,28 @@
     if (safeOptions.enforceDiversity === false || candidate.id === "death-income-stops") {
       return true;
     }
-    return familyCount(selected, candidate.family) < 2
-      || !hasUnselectedAlternativeFamily(pool, selected, candidate.family);
+    const selectedSameFamily = selected.filter(function (item) {
+      return item.family === candidate.family;
+    });
+    const candidateRole = getStoryRole(candidate);
+    const selectedSameRole = selected.filter(function (item) {
+      return getStoryRole(item) === candidateRole;
+    });
+    if (
+      candidateRole === STORY_ROLES.supportFailure
+      && storyRoleCount(selected, candidateRole) >= 1
+      && hasUnselectedAlternativeStoryRole(pool, selected, candidateRole)
+      && !isMateriallyLaterAndMoreSevere(candidate, selectedSameRole)
+    ) {
+      return false;
+    }
+    if (!familyCount(selected, candidate.family)) {
+      return true;
+    }
+    if (!hasUnrepresentedAlternativeFamily(pool, selected)) {
+      return selectedSameFamily.length < 2;
+    }
+    return selectedSameFamily.length < 2 && isMateriallyLaterAndMoreSevere(candidate, selectedSameFamily);
   }
 
   function sortByMajorScore(candidates) {
@@ -2206,8 +2366,15 @@
     copy.safeToRender = false;
     copy.eligibleForGraphDot = surface === "graph-dot" ? false : copy.eligibleForGraphDot;
     copy.eligibleForMajorCard = surface === "major-story" ? false : copy.eligibleForMajorCard;
+    copy.eventCategory = copy.eventCategory || resolveStoryRole(copy);
+    copy.majorTier = copy.majorTier || getMajorStoryTier(copy);
+    copy.selectedAs = "suppressed";
     copy.selectionSurface = surface;
     copy.selectionSuppressionReason = reason;
+    copy.suppressionReason = reason;
+    if (reason === "family-diversity") {
+      copy.familyDiversityReason = "family already represented by a selected major story candidate while alternatives exist";
+    }
     copy.suppressionKeys = uniqueStrings([copy.suppressionKeys, reason].flat());
     copy.deferredReason = reason;
     return copy;
@@ -2236,27 +2403,33 @@
       selected.push(deathCandidate);
     }
 
-    MAJOR_STORY_ROLE_ORDER.forEach(function (role) {
-      if (selected.length >= MAX_MAJOR_STORY_CANDIDATES) {
-        return;
-      }
-      const candidate = pool.find(function (item) {
-        return getStoryRole(item) === role && canSelectForMajor(item, selected, pool, options);
+    [
+      MAJOR_STORY_TIERS.tier1,
+      MAJOR_STORY_TIERS.tier2,
+      MAJOR_STORY_TIERS.tier3
+    ].forEach(function (tier) {
+      sortByMajorScore(pool.filter(function (candidate) {
+        return getMajorStoryTier(candidate) === tier;
+      })).forEach(function (candidate) {
+        if (selected.length >= MAX_MAJOR_STORY_CANDIDATES) {
+          return;
+        }
+        if (canSelectForMajor(candidate, selected, pool, options)) {
+          selected.push(candidate);
+        }
       });
-      if (candidate) {
-        selected.push(candidate);
-      }
     });
 
     pool.forEach(function (candidate) {
       if (selected.length >= MAX_MAJOR_STORY_CANDIDATES) {
         return;
       }
-      if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap) {
+      if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap || getMajorStoryTier(candidate) === MAJOR_STORY_TIERS.dataConfidence) {
         const strongerRemaining = pool.some(function (item) {
           return item.id !== candidate.id
             && !selected.some(function (selectedCandidate) { return selectedCandidate.id === item.id; })
-            && item.evidenceLevel !== EVIDENCE_LEVELS.dataGap;
+            && item.evidenceLevel !== EVIDENCE_LEVELS.dataGap
+            && getMajorStoryTier(item) !== MAJOR_STORY_TIERS.dataConfidence;
         });
         if (strongerRemaining) {
           return;
@@ -2278,7 +2451,13 @@
     }, "major-story");
 
     return {
-      selected,
+      selected: selected.map(function (candidate) {
+        return Object.assign({}, clonePlainValue(candidate), {
+          eventCategory: candidate.eventCategory || resolveStoryRole(candidate),
+          majorTier: candidate.majorTier || getMajorStoryTier(candidate),
+          selectedAs: "major"
+        });
+      }),
       suppressed
     };
   }
@@ -2288,7 +2467,10 @@
       dotTier: tier,
       connectedToMajorCard: tier === "major",
       majorCardIndex: tier === "major" ? toOptionalNumber(metadata?.majorCardIndex) : null,
-      eligibleForConnector: tier === "major"
+      eligibleForConnector: tier === "major",
+      eventCategory: candidate.eventCategory || resolveStoryRole(candidate),
+      majorTier: candidate.majorTier || getMajorStoryTier(candidate),
+      selectedAs: tier
     });
   }
 
@@ -2346,8 +2528,19 @@
     const timedPool = sortByGraphScore(microEligible.filter(function (candidate) {
       return graphTimingIsUsable(candidate);
     }));
-    const selected = timedPool.slice(0, MAX_MICRO_GRAPH_DOT_CANDIDATES).map(function (candidate) {
-      return makeGraphDotCandidate(candidate, "micro");
+    const selected = [];
+    const selectedFamilyCounts = {};
+    timedPool.forEach(function (candidate) {
+      if (selected.length >= MAX_MICRO_GRAPH_DOT_CANDIDATES) {
+        return;
+      }
+      const family = normalizeString(candidate.family);
+      const currentCount = selectedFamilyCounts[family] || 0;
+      if (currentCount >= MICRO_GRAPH_DOT_FAMILY_LIMIT) {
+        return;
+      }
+      selected.push(makeGraphDotCandidate(candidate, "micro"));
+      selectedFamilyCounts[family] = currentCount + 1;
     });
     const suppressed = duplicateMajorCandidates.map(function (candidate) {
       return makeSelectionSuppressedCandidate(candidate, "duplicate-major-dot", "micro-graph-dot");
@@ -2356,6 +2549,9 @@
     })).concat(suppressUnselected(timedPool, selected, function (candidate) {
       if (candidate.evidenceLevel === EVIDENCE_LEVELS.dataGap) {
         return "data-gap-lower-priority";
+      }
+      if ((selectedFamilyCounts[normalizeString(candidate.family)] || 0) >= MICRO_GRAPH_DOT_FAMILY_LIMIT) {
+        return "micro-family-cap";
       }
       return timedPool.length > MAX_MICRO_GRAPH_DOT_CANDIDATES ? "micro-graph-dot-cap" : "lower-priority";
     }, "micro-graph-dot"));
@@ -2463,6 +2659,8 @@
       mechanicalDetailSuppressedCount: visibilitySuppressedCandidates.length,
       storyRoleCounts: countBy(safeRenderableEvents, function (candidate) { return candidate.storyRole; }),
       graphDotTierCounts: countBy(graphDotCandidates, function (candidate) { return candidate.dotTier; }),
+      majorStoryTierCounts: countBy(majorStoryCandidates, function (candidate) { return candidate.majorTier; }),
+      selectedAsCounts: countBy(majorStoryCandidates.concat(microGraphDotCandidates), function (candidate) { return candidate.selectedAs; }),
       majorStoryFamilyCounts: countBy(majorStoryCandidates, function (candidate) { return candidate.family; }),
       graphDotFamilyCounts: countBy(graphDotCandidates, function (candidate) { return candidate.family; }),
       selectorSuppressedCountsByReason: countSuppressionReasons(selectionSuppressedCandidates),

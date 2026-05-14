@@ -777,6 +777,9 @@ ledgerCandidateIds.forEach(function (id) {
 assert.equal(getCandidate(ledgerResult, "cash-savings-depleted").evidenceLevel, "calculated");
 assert.equal(getCandidate(ledgerResult, "emergency-fund-depleted").evidenceLevel, "trace-backed");
 assert.equal(getCandidate(ledgerResult, "education-savings-used-for-living-needs").trace.ledgerEventType, "bucket-tapped");
+assert.equal(getCandidate(ledgerResult, "education-savings-depleted").trace.ledgerEventType, "bucket-depleted");
+assert.equal(getCandidate(ledgerResult, "retirement-assets-tapped").trace.ledgerEventType, "bucket-tapped");
+assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.ledgerEventType, "bucket-depleted");
 assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.aggregateRunwayPreserved, true);
 assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.graphLineSource, "aggregate-survivor-runway");
 assert.deepEqual(
@@ -831,11 +834,72 @@ assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
 }), "Duplicate waterfall candidates should be suppressed with a specific ledger supersession reason.");
 assert.deepEqual(ledgerResult.trace.activatedWaterfallCandidateIds, []);
 assert.equal(ledgerResult.trace.graphLineSource, "aggregate-survivor-runway");
+assert.ok(ledgerResult.trace.majorStoryTierCounts["tier-1"] >= 1);
+assert.equal(ledgerResult.trace.selectedAsCounts.major, ledgerResult.majorStoryCandidates.length);
+assert.equal(ledgerResult.trace.selectedAsCounts.micro, ledgerResult.microGraphDotCandidates.length);
 assert.equal(new Set(ids(ledgerResult.safeRenderableEvents)).size, ids(ledgerResult.safeRenderableEvents).length);
 assert.ok(ledgerResult.majorGraphDotCandidates.length <= 6);
 assert.ok(ledgerResult.microGraphDotCandidates.length <= 10);
 assert.ok(ledgerResult.graphDotCandidates.length <= 16);
 assert.equal(ledgerResult.majorStoryCandidates[0].id, "death-income-stops");
+assert.ok(ledgerResult.majorStoryCandidates.every(function (candidate) {
+  return candidate.selectedAs === "major" && candidate.eventCategory;
+}), "Major story cards should carry major selection taxonomy metadata.");
+assert.ok(ledgerResult.microGraphDotCandidates.every(function (candidate) {
+  return candidate.selectedAs === "micro" && candidate.eventCategory;
+}), "Micro dots should carry micro selection taxonomy metadata.");
+const ledgerMajorIds = ids(ledgerResult.majorStoryCandidates);
+assert.ok(ledgerMajorIds.includes("retirement-assets-tapped"), "Retirement Assets Tapped should outrank retirement depletion for major cards.");
+if (ledgerMajorIds.includes("retirement-assets-depleted")) {
+  assert.ok(
+    ledgerMajorIds.indexOf("retirement-assets-tapped") < ledgerMajorIds.indexOf("retirement-assets-depleted"),
+    "Retirement Assets Tapped should rank ahead of Retirement Assets Depleted."
+  );
+}
+assert.ok(ledgerMajorIds.includes("education-savings-depleted"), "Education Savings Depleted should be selected when proven.");
+if (ledgerMajorIds.includes("education-savings-used-for-living-needs")) {
+  assert.ok(
+    ledgerMajorIds.indexOf("education-savings-depleted") < ledgerMajorIds.indexOf("education-savings-used-for-living-needs"),
+    "Education Savings Depleted should rank ahead of the education tap event for major cards."
+  );
+}
+assert.ok(
+  ledgerMajorIds.indexOf("emergency-fund-depleted") !== -1
+    && (
+      !ledgerMajorIds.includes("cash-savings-depleted")
+      || ledgerMajorIds.indexOf("emergency-fund-depleted") < ledgerMajorIds.indexOf("cash-savings-depleted")
+    ),
+  "Emergency Fund Depleted should outrank weaker liquidity events."
+);
+const ledgerMicroCashFamilyCount = ledgerResult.microGraphDotCandidates.filter(function (candidate) {
+  return candidate.family === "cash-waterfall";
+}).length;
+assert.ok(
+  ledgerMicroCashFamilyCount >= 2 && ledgerMicroCashFamilyCount <= 3,
+  "Micro dots should allow additional same-family events while capping repetition."
+);
+
+const ledgerWithSupportInput = cloneJson(richInput);
+ledgerWithSupportInput.assetDepletionLedger = cloneJson(ledgerInput.assetDepletionLedger);
+const ledgerWithSupportResult = buildIncomeImpactFinancialStorylineCandidates(ledgerWithSupportInput);
+const ledgerWithSupportMajorIds = ids(ledgerWithSupportResult.majorStoryCandidates);
+const ledgerWithSupportMicroIds = ids(ledgerWithSupportResult.microGraphDotCandidates);
+assert.ok(ledgerWithSupportMajorIds.includes("education-savings-depleted"));
+assert.ok(ledgerWithSupportMicroIds.includes("education-savings-used-for-living-needs"));
+assert.ok(ledgerWithSupportMajorIds.includes("retirement-assets-tapped"));
+assert.ok(ledgerWithSupportMicroIds.includes("retirement-assets-depleted"));
+assert.ok(
+  ledgerWithSupportResult.majorStoryCandidates.slice(1).filter(function (candidate) {
+    return candidate.family === "education-waterfall";
+  }).length <= 1,
+  "Family diversity should keep the paired education tap out of major cards when stronger alternatives exist."
+);
+assert.ok(
+  ledgerWithSupportResult.majorStoryCandidates.slice(1).filter(function (candidate) {
+    return ["runway", "gap", "unmet-need"].includes(candidate.family);
+  }).length <= 2,
+  "Runway failure should not crowd out the major-card set."
+);
 
 const staticFallbackResult = buildIncomeImpactFinancialStorylineCandidates(Object.assign({}, waterfallInput, {
   assetDepletionLedger: {
