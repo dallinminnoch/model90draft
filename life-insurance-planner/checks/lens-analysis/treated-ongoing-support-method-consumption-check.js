@@ -225,6 +225,17 @@ function isAllowedIncomeImpactTreatedSupportConsumption(filePath) {
   return false;
 }
 
+function isAllowedStepThreeTreatedSupportDisplay(filePath) {
+  if (filePath !== "app/features/lens-analysis/step-three-analysis-display.js") {
+    return false;
+  }
+  const diff = getGitDiff(filePath);
+  return diff.includes("renderNeedsTreatedOngoingSupportDetails")
+    && diff.includes("Mortgage treatment applied to support need")
+    && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+    && diff.includes("Treated support unavailable; raw ongoing support was used");
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
@@ -250,6 +261,9 @@ function assertNoProtectedDiffs() {
       return false;
     }
     if (isAllowedIncomeImpactTreatedSupportConsumption(filePath)) {
+      return false;
+    }
+    if (isAllowedStepThreeTreatedSupportDisplay(filePath)) {
       return false;
     }
     return true;

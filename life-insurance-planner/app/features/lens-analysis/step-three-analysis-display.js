@@ -773,6 +773,160 @@
     return parts.length ? parts.join(" / ") : "Not set";
   }
 
+  function formatRemainingMortgageTerm(months) {
+    const numericMonths = toDisplayNumber(months);
+    if (numericMonths == null) {
+      return "Not set";
+    }
+
+    const roundedMonths = Math.max(Math.round(numericMonths), 0);
+    const years = Math.floor(roundedMonths / 12);
+    const remainingMonths = roundedMonths % 12;
+    const parts = [];
+    if (years) {
+      parts.push(formatYears(years));
+    }
+    if (remainingMonths) {
+      parts.push(formatMonths(remainingMonths));
+    }
+
+    const yearMonthLabel = parts.length ? parts.join(" ") : formatMonths(roundedMonths);
+    return `${yearMonthLabel} / ${formatMonths(roundedMonths)}`;
+  }
+
+  function formatMortgageTreatmentMode(mode) {
+    const normalized = String(mode || "").trim();
+    if (normalized === "payOff") {
+      return "Pay Off";
+    }
+    if (normalized === "continuePayments") {
+      return "Continue Payments";
+    }
+    if (normalized === "unavailable") {
+      return "Unavailable";
+    }
+
+    return normalized ? formatTraceReason(normalized) : "Unavailable";
+  }
+
+  function formatSupportBasisLabel(supportBasis) {
+    const normalized = String(supportBasis || "").trim();
+    if (normalized === "treatedOngoingSupport") {
+      return "Treated ongoing support";
+    }
+    if (normalized === "ongoingSupportFallback") {
+      return "Raw ongoing support fallback";
+    }
+    if (normalized === "ongoingSupport") {
+      return "Raw ongoing support";
+    }
+
+    return normalized ? formatTraceReason(normalized) : "Not set";
+  }
+
+  function getNeedsSupportTrace(needsResult) {
+    return findTrace(needsResult, "grossAnnualHouseholdSupportNeed")
+      || findTrace(needsResult, "essentialSupport");
+  }
+
+  function getSupportTraceInput(needsResult, inputKey) {
+    const supportTrace = getNeedsSupportTrace(needsResult);
+    return getTraceInput(supportTrace, inputKey);
+  }
+
+  function getTreatedOngoingSupportRows(needsResult, lensModel) {
+    const treatedOngoingSupport = isPlainObject(lensModel?.treatedOngoingSupport)
+      ? lensModel.treatedOngoingSupport
+      : null;
+    const treatedMortgagePaymentPlan = isPlainObject(lensModel?.treatedMortgagePaymentPlan)
+      ? lensModel.treatedMortgagePaymentPlan
+      : null;
+    const ongoingSupport = isPlainObject(lensModel?.ongoingSupport) ? lensModel.ongoingSupport : {};
+    const supportBasis = getSupportTraceInput(needsResult, "supportBasis");
+    const sourcePath = getSupportTraceInput(needsResult, "supportBasisSourcePath")
+      || getTraceSourcePath(getNeedsSupportTrace(needsResult), "treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost", "ongoingSupport.annualTotalEssentialSupportCost");
+
+    if (!treatedOngoingSupport && !treatedMortgagePaymentPlan && !supportBasis) {
+      return [];
+    }
+
+    const original = isPlainObject(treatedOngoingSupport?.original) ? treatedOngoingSupport.original : {};
+    const mortgageAdjusted = isPlainObject(treatedOngoingSupport?.mortgageAdjusted)
+      ? treatedOngoingSupport.mortgageAdjusted
+      : {};
+    const rows = [
+      { label: "Support basis", value: formatSupportBasisLabel(supportBasis) },
+      { label: "Source", value: sourcePath || "Not set" },
+      { label: "Treatment status", value: formatTraceReason(treatedOngoingSupport?.status || "unavailable") },
+      {
+        label: "Mortgage treatment mode",
+        value: formatMortgageTreatmentMode(treatedMortgagePaymentPlan?.mode)
+      },
+      {
+        label: "Payment source",
+        value: formatTraceReason(treatedMortgagePaymentPlan?.paymentSource || "unavailable")
+      },
+      {
+        label: "Years source",
+        value: formatTraceReason(treatedMortgagePaymentPlan?.yearsRemainingSource || "unavailable")
+      },
+      {
+        label: "Final years / months remaining",
+        value: formatRemainingMortgageTerm(treatedMortgagePaymentPlan?.finalRemainingTermMonths)
+      },
+      {
+        label: "Associated housing costs",
+        value: treatedOngoingSupport?.associatedHousingCostsPreserved === true
+          ? "Preserved: property tax, insurance, HOA, utilities, and maintenance remain in housing support"
+          : "Not confirmed"
+      }
+    ];
+
+    pushOptionalMoneyRow(
+      rows,
+      "Original mortgage payment",
+      original.monthlyMortgagePayment ?? ongoingSupport.monthlyMortgagePayment
+    );
+    pushOptionalMoneyRow(
+      rows,
+      "Treated mortgage payment",
+      mortgageAdjusted.monthlyMortgagePayment ?? treatedMortgagePaymentPlan?.finalMonthlyMortgagePayment
+    );
+    pushOptionalMoneyRow(
+      rows,
+      "Original monthly housing support",
+      original.monthlyHousingSupportCost ?? ongoingSupport.monthlyHousingSupportCost
+    );
+    pushOptionalMoneyRow(rows, "Treated monthly housing support", mortgageAdjusted.monthlyHousingSupportCost);
+    pushOptionalMoneyRow(
+      rows,
+      "Original monthly essential support",
+      original.monthlyTotalEssentialSupportCost ?? ongoingSupport.monthlyTotalEssentialSupportCost
+    );
+    pushOptionalMoneyRow(rows, "Treated monthly essential support", mortgageAdjusted.monthlyTotalEssentialSupportCost);
+
+    if (
+      supportBasis === "ongoingSupportFallback"
+      || getSupportTraceInput(needsResult, "treatedOngoingSupportFallbackUsed") === true
+    ) {
+      rows.push({
+        label: "Fallback",
+        value: "Treated support unavailable; raw ongoing support was used"
+      });
+    }
+
+    return rows;
+  }
+
+  function renderNeedsTreatedOngoingSupportDetails(needsResult, lensModel) {
+    const rows = getTreatedOngoingSupportRows(needsResult, lensModel);
+    if (!rows.length) {
+      return "";
+    }
+
+    return renderProjectionDetailSection("Mortgage treatment applied to support need", rows);
+  }
+
   function pushMortgageSupportTraceRows(rows, supportTrace) {
     if (!isMortgageSupportTrace(supportTrace)) {
       return;
@@ -1896,6 +2050,7 @@
       ${renderAssetOffsetDetails(needsResult)}
       ${renderProjectedAssetOffsetDetails(needsResult, lensModel)}
       ${renderNeedsDebtTreatmentDetails(needsResult, lensModel)}
+      ${renderNeedsTreatedOngoingSupportDetails(needsResult, lensModel)}
       <div class="analysis-result-eyebrow">Support Reduction</div>
       ${renderMoneyList([
         { label: "Survivor Income Applied to Support", value: offsets.survivorIncomeOffset }

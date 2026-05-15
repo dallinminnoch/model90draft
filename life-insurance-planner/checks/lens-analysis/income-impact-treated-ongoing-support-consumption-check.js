@@ -261,9 +261,11 @@ function assertNoForbiddenSourceChanges() {
     "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-base-household-expense-stream.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+    "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js",
     "life-insurance-planner/checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
     "life-insurance-planner/checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
+    "life-insurance-planner/checks/lens-analysis/step-three-treated-ongoing-support-display-check.js",
     "life-insurance-planner/checks/lens-analysis/treated-ongoing-support-method-consumption-check.js",
     "life-insurance-planner/checks/lens-analysis/treated-ongoing-support-model-check.js",
     "life-insurance-planner/checks/run-income-impact-suite.js"

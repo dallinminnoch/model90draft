@@ -210,6 +210,17 @@ function isAllowedIncomeImpactTreatedSupportConsumption(filePath) {
   return false;
 }
 
+function isAllowedStepThreeTreatedSupportDisplay(filePath) {
+  if (filePath !== "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js") {
+    return false;
+  }
+  const diff = getGitDiff("./app/features/lens-analysis/step-three-analysis-display.js");
+  return diff.includes("renderNeedsTreatedOngoingSupportDetails")
+    && diff.includes("Mortgage treatment applied to support need")
+    && diff.includes("treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost")
+    && diff.includes("Treated support unavailable; raw ongoing support was used");
+}
+
 function createClassList() {
   const values = new Set();
   return {
@@ -1184,6 +1195,8 @@ const protectedChanges = getChangedFiles([
     || !isAllowedTreatedOngoingSupportMethodConsumption();
 }).filter(function (file) {
   return !isAllowedIncomeImpactTreatedSupportConsumption(file);
+}).filter(function (file) {
+  return !isAllowedStepThreeTreatedSupportDisplay(file);
 });
 assert.deepEqual(
   protectedChanges,
