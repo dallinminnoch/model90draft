@@ -240,6 +240,16 @@ function outputSnapshot(results) {
 const html = readRepoFile("pages/analysis-setup.html");
 assert.match(html, /data-analysis-inflation-field="finalExpenseTargetAge"/);
 assert.match(html, /Final expense target age \(LENS only\)/);
+const inflationSectionStart = html.indexOf('data-analysis-setup-scroll-section="inflation-assumptions"');
+const calculationInclusionSectionStart = html.indexOf('data-analysis-setup-scroll-section="calculation-inclusion"');
+const methodDefaultsSectionStart = html.indexOf('data-analysis-setup-scroll-section="method-defaults"');
+const policyReturnSectionStart = html.indexOf('data-analysis-setup-scroll-section="policy-return-assumptions"');
+assert.ok(inflationSectionStart >= 0 && calculationInclusionSectionStart > inflationSectionStart);
+assert.ok(methodDefaultsSectionStart >= 0 && policyReturnSectionStart > methodDefaultsSectionStart);
+const inflationSection = html.slice(inflationSectionStart, calculationInclusionSectionStart);
+const methodDefaultsSection = html.slice(methodDefaultsSectionStart, policyReturnSectionStart);
+assert.doesNotMatch(inflationSection, /data-analysis-inflation-field="finalExpenseTargetAge"/);
+assert.match(methodDefaultsSection, /data-analysis-inflation-field="finalExpenseTargetAge"/);
 
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;
