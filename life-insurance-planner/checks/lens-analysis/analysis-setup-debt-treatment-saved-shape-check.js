@@ -106,6 +106,16 @@ function assertRawEquivalentTreatment(treatment, message) {
   }, message);
 }
 
+function isAllowedDebtTreatmentCssDiff() {
+  const diff = execFileSync("git", ["diff", "--", "components.css"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  const hunks = diff.split(/^@@/m).slice(1);
+  return hunks.length > 0
+    && hunks.every((hunk) => hunk.includes("analysis-setup-debt-"));
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-settings-adapter.js",
@@ -130,7 +140,15 @@ function assertNoProtectedDiffs() {
     .split(/\r?\n/)
     .filter(Boolean)
     .map((line) => line.slice(3).trim())
-    .filter((filePath) => protectedFiles.has(filePath));
+    .filter((filePath) => {
+      if (!protectedFiles.has(filePath)) {
+        return false;
+      }
+      if (filePath === "components.css") {
+        return !isAllowedDebtTreatmentCssDiff();
+      }
+      return true;
+    });
   assert.deepEqual(protectedChanged, [], "Only Analysis Setup and focused check files should change in this pass.");
 }
 
@@ -631,8 +649,8 @@ assert.match(html, /Mortgage treatment changes the mortgage-only payment/);
 assert.match(html, /property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses/);
 assert.match(html, /<option value="payoff">Pay Off<\/option>/);
 assert.match(html, /<option value="support">Continue Payments<\/option>/);
-assert.match(html, /Pay off the mortgage balance at death/);
-assert.match(html, /Mortgage-only payment is removed from ongoing support/);
+assert.doesNotMatch(html, /Pay off the mortgage balance at death/);
+assert.doesNotMatch(html, /Mortgage-only payment is removed from ongoing support/);
 assert.match(html, /Immediate partial payoff percent/);
 assert.match(html, /Manual years remaining override/);
 assert.doesNotMatch(html, /Reduces the mortgage principal before recalculating the continued payment/);

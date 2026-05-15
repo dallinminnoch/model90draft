@@ -15838,12 +15838,13 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 
 .analysis-setup-debt-mortgage-card {
   display: grid;
-  gap: 0.38rem;
+  gap: 0;
   min-width: 0;
-  padding: 0.44rem;
+  padding: 0;
   border: 1px solid rgba(211, 219, 231, 0.92);
-  border-radius: 0.38rem;
-  background: #f8fafc;
+  border-radius: 0.56rem;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .analysis-setup-debt-mortgage-head {
@@ -15852,82 +15853,137 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   justify-content: space-between;
   gap: 0.55rem;
   min-width: 0;
+  padding: 0.72rem 0.95rem;
+  border-bottom: 1px solid rgba(229, 233, 240, 0.95);
 }
 
 .analysis-setup-debt-mortgage-head > span:first-child {
-  color: #17202c;
-  font-size: 0.74rem;
+  color: #020b1a;
+  font-size: 1rem;
   font-weight: 820;
   line-height: 1.12;
 }
 
+.analysis-setup-debt-mortgage-head .analysis-setup-treatment-preview {
+  min-height: 2rem;
+  min-width: 7.6rem;
+  padding: 0.28rem 0.74rem;
+  border-color: rgba(211, 219, 231, 0.95);
+  border-radius: 0.52rem;
+  background: #f8fafc;
+  color: #020b1a;
+  font-size: 0.96rem;
+  font-weight: 830;
+  white-space: nowrap;
+}
+
 .analysis-setup-debt-mortgage-grid {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) auto auto auto;
+  grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1.1fr);
   align-items: center;
-  gap: 0.34rem;
+  gap: 0.72rem 1.15rem;
   min-width: 0;
+  padding: 0.88rem 0.95rem 1.02rem;
+  border-bottom: 1px solid rgba(229, 233, 240, 0.95);
 }
 
 .analysis-setup-debt-mortgage-grid label,
 .analysis-setup-debt-switch,
 .analysis-setup-debt-percent,
 .analysis-setup-debt-years {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
   min-width: 0;
   margin: 0;
-  gap: 0.34rem;
+  gap: 0.64rem;
 }
 
 .analysis-setup-debt-mortgage-grid label > span:first-child,
 .analysis-setup-debt-switch > span:first-child,
 .analysis-setup-debt-percent > span:first-child,
 .analysis-setup-debt-years > span:first-child {
-  color: #5e6c81;
-  font-size: 0.66rem;
-  font-weight: 780;
+  color: #66758a;
+  font-size: 0.84rem;
+  font-weight: 760;
   line-height: 1.12;
   white-space: nowrap;
+}
+
+.analysis-setup-debt-mortgage-grid .analysis-setup-asset-select {
+  width: min(100%, 12.5rem);
+  min-height: 2.08rem;
+  padding: 0.3rem 1.62rem 0.3rem 0.72rem;
+  border-radius: 0.42rem;
+  background-color: #f8fafc;
+  color: #020b1a;
+  font-size: 0.9rem;
+  font-weight: 680;
+}
+
+.analysis-setup-debt-mortgage-grid .analysis-setup-asset-percent {
+  justify-content: flex-start;
+  min-width: 0;
+  gap: 0.42rem;
+  color: #97a2b3;
+  font-size: 0.84rem;
+  font-weight: 740;
+}
+
+.analysis-setup-debt-mortgage-grid .analysis-setup-asset-percent-input {
+  width: 4.5rem;
+  min-height: 2rem;
+  padding: 0.22rem 0.48rem;
+  border-radius: 0.42rem;
+  background: #f8fafc;
+  color: #020b1a;
+  font-size: 0.9rem;
+  font-weight: 820;
 }
 
 .analysis-setup-debt-years > span:last-child {
   display: inline-flex;
   align-items: center;
-  gap: 0.18rem;
-  color: #5e6c81;
-  font-size: 0.68rem;
-  font-weight: 760;
+  gap: 0.42rem;
+  color: #97a2b3;
+  font-size: 0.84rem;
+  font-weight: 740;
 }
 
 .analysis-setup-debt-table {
   display: grid;
-  gap: 0.32rem;
   min-width: 0;
   max-height: min(24rem, calc(100vh - 27rem));
   overflow-y: auto;
-  padding-right: 0.12rem;
+  border: 1px solid rgba(211, 219, 231, 0.92);
+  border-radius: 0.56rem;
+  background: #ffffff;
 }
 
 .analysis-setup-debt-row {
   display: grid;
-  grid-template-columns: minmax(8.8rem, 1fr) 2.55rem minmax(6.4rem, 0.7fr) 3.2rem minmax(5.4rem, 0.55fr);
+  grid-template-columns: minmax(9rem, 1fr) 4.2rem minmax(7.2rem, 0.72fr) 5.4rem minmax(5.8rem, 0.58fr);
   align-items: center;
-  gap: 0.28rem;
+  gap: 0.58rem;
   min-width: 0;
-  min-height: 2.02rem;
-  padding: 0.3rem 0.45rem;
-  border: 1px solid rgba(211, 219, 231, 0.92);
-  border-radius: 0.38rem;
-  background: #f8fafc;
+  min-height: 2.7rem;
+  padding: 0.42rem 0.9rem;
+  border-bottom: 1px solid rgba(229, 233, 240, 0.95);
+  background: #ffffff;
 }
 
 .analysis-setup-debt-row--head {
-  min-height: 1.35rem;
-  padding-top: 0;
-  padding-bottom: 0;
-  border-color: transparent;
-  background: transparent;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 2.1rem;
+  padding-top: 0.46rem;
+  padding-bottom: 0.4rem;
+  background: #f8fafc;
+}
+
+.analysis-setup-debt-row:last-child {
+  border-bottom: 0;
 }
 
 .analysis-setup-debt-row > span {
@@ -15939,18 +15995,64 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 }
 
 .analysis-setup-debt-row--head span {
-  color: #5e6c81;
-  font-size: 0.62rem;
-  font-weight: 800;
+  color: #9aa5b6;
+  font-size: 0.68rem;
+  font-weight: 820;
+  letter-spacing: 0.06em;
   line-height: 1.1;
   text-transform: uppercase;
 }
 
 .analysis-setup-debt-label {
-  color: #17202c;
-  font-size: 0.75rem;
+  color: #020b1a;
+  font-size: 0.84rem;
   font-weight: 760;
   line-height: 1.15;
+}
+
+.analysis-setup-debt-row .analysis-setup-asset-select {
+  min-height: 1.9rem;
+  padding: 0.28rem 1.42rem 0.28rem 0.58rem;
+  border-radius: 0.4rem;
+  background-color: #f8fafc;
+  color: #020b1a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.analysis-setup-debt-row .analysis-setup-asset-percent {
+  justify-content: flex-start;
+  min-width: 0;
+  gap: 0.3rem;
+  color: #97a2b3;
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.analysis-setup-debt-row .analysis-setup-asset-percent-input {
+  width: 3.55rem;
+  min-height: 1.88rem;
+  border-radius: 0.4rem;
+  background: #f8fafc;
+  color: #020b1a;
+  font-size: 0.8rem;
+}
+
+.analysis-setup-debt-row .analysis-setup-treatment-preview {
+  justify-content: flex-end;
+  min-height: auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7a8798;
+  font-size: 0.72rem;
+  font-weight: 680;
+  text-align: right;
+}
+
+.analysis-setup-debt-row .analysis-setup-mini-switch .settings-switch-track {
+  background: rgba(228, 233, 241, 0.95);
 }
 
 .analysis-setup-debt-preview {
@@ -15958,6 +16060,15 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.38rem;
   min-width: 0;
+}
+
+.analysis-setup-debt-mortgage-card > .analysis-setup-debt-preview {
+  gap: 0.58rem 0.72rem;
+  padding: 0.98rem 0.95rem 0.72rem;
+}
+
+.analysis-setup-debt-table + .analysis-setup-debt-preview {
+  gap: 0.58rem;
 }
 
 .analysis-setup-debt-preview div {
@@ -15971,12 +16082,42 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   background: #f8fafc;
 }
 
+.analysis-setup-debt-mortgage-card > .analysis-setup-debt-preview div {
+  min-height: 3.45rem;
+  padding: 0.56rem 0.78rem;
+  border-color: rgba(211, 219, 231, 0.95);
+  border-radius: 0.46rem;
+  background: #ffffff;
+}
+
+.analysis-setup-debt-table + .analysis-setup-debt-preview div {
+  min-height: 3rem;
+  padding: 0.56rem 0.78rem;
+  border-color: rgba(211, 219, 231, 0.95);
+  border-radius: 0.46rem;
+  background: #ffffff;
+}
+
 .analysis-setup-debt-preview span {
   color: #5e6c81;
   font-size: 0.62rem;
   font-weight: 780;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.analysis-setup-debt-mortgage-card > .analysis-setup-debt-preview span {
+  color: #9aa5b6;
+  font-size: 0.68rem;
+  font-weight: 820;
+  letter-spacing: 0.06em;
+}
+
+.analysis-setup-debt-table + .analysis-setup-debt-preview span {
+  color: #9aa5b6;
+  font-size: 0.68rem;
+  font-weight: 820;
+  letter-spacing: 0.06em;
 }
 
 .analysis-setup-debt-preview strong {
@@ -15987,11 +16128,53 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   line-height: 1.1;
 }
 
+.analysis-setup-debt-mortgage-card > .analysis-setup-debt-preview strong {
+  color: #020b1a;
+  font-size: 0.94rem;
+  font-weight: 820;
+}
+
+.analysis-setup-debt-table + .analysis-setup-debt-preview strong {
+  color: #020b1a;
+  font-size: 0.94rem;
+  font-weight: 820;
+}
+
 .analysis-setup-debt-preview-note {
   margin: -0.08rem 0 0;
   color: #627086;
   font-size: 0.64rem;
   line-height: 1.25;
+}
+
+.analysis-setup-debt-mortgage-card > .analysis-setup-debt-preview-note {
+  margin: 0;
+  padding: 0.18rem 0.95rem 0.92rem;
+  color: #97a2b3;
+  font-size: 0.76rem;
+  line-height: 1.28;
+}
+
+@media (max-width: 760px) {
+  .analysis-setup-debt-mortgage-grid,
+  .analysis-setup-debt-mortgage-card > .analysis-setup-debt-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-setup-debt-mortgage-grid label,
+  .analysis-setup-debt-switch,
+  .analysis-setup-debt-percent,
+  .analysis-setup-debt-years {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-setup-debt-table {
+    overflow-x: auto;
+  }
+
+  .analysis-setup-debt-row {
+    min-width: 42rem;
+  }
 }
 
 .analysis-setup-control-group--debt .settings-switch input:disabled + .settings-switch-track {
