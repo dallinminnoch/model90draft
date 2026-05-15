@@ -279,11 +279,6 @@ const componentsCss = readRepoFile("components.css");
 const assetTreatmentSection = getSection(
   html,
   'data-analysis-setup-scroll-section="asset-treatment"',
-  'data-analysis-setup-scroll-section="cash-reserve"'
-);
-const cashReserveSection = getSection(
-  html,
-  'data-analysis-setup-scroll-section="cash-reserve"',
   'id="analysis-setup-coverage-treatment"'
 );
 const calculationSectionBeforeAssetTreatment = getSection(
@@ -293,18 +288,15 @@ const calculationSectionBeforeAssetTreatment = getSection(
 );
 
 assert.doesNotMatch(assetTreatmentSection, /data-analysis-cash-reserve-controls|Cash Reserve Assumptions/i);
-assert.doesNotMatch(cashReserveSection, /data-analysis-setup-view-panel/);
-assert.match(cashReserveSection, /id="analysis-setup-cash-reserve"/);
-assert.match(cashReserveSection, /Cash Reserve \/ Emergency Fund/);
-assert.match(cashReserveSection, /data-analysis-cash-reserve-controls/);
 assert.equal(
   (html.match(/data-analysis-cash-reserve-controls/g) || []).length,
-  1,
-  "Cash Reserve controls should render once"
+  0,
+  "Cash Reserve controls should not render in Assumption Controls"
 );
-assert.match(cashReserveSection, /Saved for future reporting\/modeling/i);
-assert.match(cashReserveSection, /do not affect current DIME, LENS, or HLV outputs/i);
-assert.match(cashReserveSection, /current asset offsets remain current-dollar\/current treatment based/i);
+assert.doesNotMatch(html, /data-analysis-setup-scroll-target="cash-reserve"/);
+assert.doesNotMatch(html, /data-analysis-setup-scroll-section="cash-reserve"/);
+assert.doesNotMatch(html, /id="analysis-setup-cash-reserve"/);
+assert.doesNotMatch(html, /Cash Reserve \/ Emergency Fund/);
 assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
 assert.doesNotMatch(calculationSectionBeforeAssetTreatment, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
 
@@ -317,22 +309,14 @@ assert.doesNotMatch(calculationSectionBeforeAssetTreatment, /data-analysis-cash-
   "data-analysis-cash-reserve-asset-scope",
   "data-analysis-cash-reserve-exclude-emergency-fund"
 ].forEach(function (needle) {
-  assert.match(cashReserveSection, new RegExp(needle), `${needle} should render`);
+  assert.doesNotMatch(html, new RegExp(needle), `${needle} should not render`);
 });
 
-assert.match(cashReserveSection, /Months of essential expenses/);
-assert.match(cashReserveSection, /Fixed dollar amount/);
-assert.match(cashReserveSection, /Essential support only/);
-assert.match(cashReserveSection, /Essential \+ healthcare/);
-assert.match(cashReserveSection, /Essential \+ healthcare \+ discretionary/);
-assert.match(cashReserveSection, /Cash and cash equivalents/);
-assert.match(cashReserveSection, /Liquid assets - future \/ inactive/);
-assert.match(cashReserveSection, /Selected assets - future \/ inactive/);
-assert.match(cashReserveSection, /<option value="liquidAssetsFuture" disabled>/);
-assert.match(cashReserveSection, /<option value="selectedAssetsFuture" disabled>/);
-assert.doesNotMatch(cashReserveSection, /data-analysis-cash-reserve-include-healthcare/);
-assert.doesNotMatch(cashReserveSection, /data-analysis-cash-reserve-include-discretionary/);
-assert.match(componentsCss, /analysis-setup-cash-reserve-controls/);
+assert.doesNotMatch(html, /<option value="liquidAssetsFuture" disabled>/);
+assert.doesNotMatch(html, /<option value="selectedAssetsFuture" disabled>/);
+assert.doesNotMatch(html, /data-analysis-cash-reserve-include-healthcare/);
+assert.doesNotMatch(html, /data-analysis-cash-reserve-include-discretionary/);
+assert.doesNotMatch(componentsCss, /analysis-setup-cash-reserve-controls/);
 
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;

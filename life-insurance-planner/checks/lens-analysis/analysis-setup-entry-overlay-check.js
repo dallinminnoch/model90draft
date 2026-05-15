@@ -85,7 +85,6 @@ assert.match(overlaySection, /data-analysis-setup-scroll-target="inflation-assum
 assert.match(overlaySection, /data-analysis-setup-scroll-target="method-defaults"[^>]*>Method defaults<\/button>/);
 assert.match(overlaySection, /data-analysis-setup-scroll-target="policy-return-assumptions"[^>]*>Policy return assumptions<\/button>/);
 assert.match(overlaySection, /data-analysis-setup-scroll-target="asset-treatment"[^>]*>Asset treatment<\/button>/);
-assert.match(overlaySection, /data-analysis-setup-scroll-target="cash-reserve"[^>]*>Cash reserve<\/button>/);
 assert.match(overlaySection, /data-analysis-setup-scroll-target="existing-coverage-treatment"[^>]*>Existing coverage treatment<\/button>/);
 assert.match(overlaySection, /data-analysis-setup-scroll-target="debt-mortgage"[^>]*>Debt &amp; mortgage<\/button>/);
 assert.match(overlaySection, /data-analysis-setup-scroll-target="survivor-support"[^>]*>Survivor &amp; support<\/button>/);
@@ -96,6 +95,8 @@ assert.match(overlaySection, /data-analysis-setup-scroll-section="inflation-assu
 assert.match(overlaySection, /data-analysis-setup-scroll-section="asset-treatment"/);
 assert.match(overlaySection, /data-analysis-setup-scroll-section="debt-mortgage"/);
 assert.match(overlaySection, /data-analysis-setup-scroll-section="recommendation-guardrails"/);
+assert.doesNotMatch(overlaySection, /data-analysis-setup-scroll-target="cash-reserve"/);
+assert.doesNotMatch(overlaySection, /data-analysis-setup-scroll-section="cash-reserve"/);
 assert.doesNotMatch(overlaySection, /data-analysis-setup-view-panel/);
 assert.doesNotMatch(overlaySection, /data-analysis-setup-view-tab/);
 assert.doesNotMatch(overlaySection, /data-analysis-setup-current-view/);
@@ -146,8 +147,8 @@ assert.equal(countOccurrences(html, /data-lens-assumptions-save-exit/g), 1);
 assert.equal(countOccurrences(html, /data-analysis-setup-view-tab=/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-setup-view-panel=/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-setup-current-view=/g), 0);
-assert.equal(countOccurrences(html, /data-analysis-setup-scroll-target=/g), 11);
-assert.equal(countOccurrences(html, /data-analysis-setup-scroll-section=/g), 11);
+assert.equal(countOccurrences(html, /data-analysis-setup-scroll-target=/g), 10);
+assert.equal(countOccurrences(html, /data-analysis-setup-scroll-section=/g), 10);
 assert.equal(countOccurrences(html, /data-analysis-projected-asset-offset-enabled/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-asset-growth-projection-mode/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-asset-growth-projection-years/g), 0);

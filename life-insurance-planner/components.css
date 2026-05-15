@@ -15125,137 +15125,6 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   cursor: not-allowed;
 }
 
-.analysis-setup-cash-reserve-controls {
-  overflow: hidden;
-  min-width: 0;
-  border: 1px solid rgba(211, 219, 231, 0.92);
-  border-radius: 0.38rem;
-  background: #ffffff;
-}
-
-.analysis-setup-cash-reserve-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-width: 0;
-  padding: 0.72rem 1.12rem 0.7rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-}
-
-.analysis-setup-cash-reserve-head h3 {
-  margin: 0 0 0.12rem;
-  color: #020617;
-  font-family: "Montserrat", sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.analysis-setup-cash-reserve-head p {
-  max-width: 42rem;
-  margin: 0;
-  color: #8b94a6;
-  font-family: "Inter", sans-serif;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.45;
-}
-
-.analysis-setup-cash-reserve-fields {
-  display: grid;
-  min-width: 0;
-}
-
-.analysis-setup-cash-reserve-switch,
-.analysis-setup-cash-reserve-field,
-.analysis-setup-cash-reserve-checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-width: 0;
-  margin: 0;
-  padding: 0.58rem 1.12rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.72);
-  color: #647083;
-  font-family: "Inter", sans-serif;
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.15;
-}
-
-.analysis-setup-cash-reserve-field:hover,
-.analysis-setup-cash-reserve-switch:hover,
-.analysis-setup-cash-reserve-checkbox:hover {
-  background: #f8fafc;
-}
-
-.analysis-setup-cash-reserve-fields > :last-child,
-.analysis-setup-cash-reserve-switch {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.72);
-}
-
-.analysis-setup-cash-reserve-switch {
-  color: #020617;
-}
-
-.analysis-setup-cash-reserve-field > span:first-child,
-.analysis-setup-cash-reserve-checkbox > span:first-child {
-  min-width: 0;
-}
-
-.analysis-setup-cash-reserve-field-control {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.38rem;
-}
-
-.analysis-setup-cash-reserve-field select {
-  min-width: 10rem;
-  width: auto;
-  max-width: 18rem;
-  padding-top: 0.28rem;
-  padding-bottom: 0.28rem;
-  border-radius: 0.38rem;
-  background-color: #f8fafc;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.analysis-setup-cash-reserve-number {
-  width: 4rem;
-  min-height: 1.92rem;
-  padding: 0.28rem 0.45rem;
-  border-radius: 0.38rem;
-  background-color: #f8fafc;
-  font-family: "Inter", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.analysis-setup-cash-reserve-number--wide {
-  width: 7.5rem;
-}
-
-.analysis-setup-cash-reserve-unit {
-  color: #98a1b2;
-  font-family: "Inter", sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-@media (max-width: 900px) {
-  .analysis-setup-cash-reserve-switch,
-  .analysis-setup-cash-reserve-field,
-  .analysis-setup-cash-reserve-checkbox {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
 .analysis-setup-asset-table {
   display: grid;
   grid-auto-flow: row;
@@ -17344,9 +17213,6 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 .analysis-setup-rate-control > label,
 .analysis-setup-method-row > span:first-child,
 .analysis-setup-asset-defaults-label,
-.analysis-setup-cash-reserve-switch,
-.analysis-setup-cash-reserve-field,
-.analysis-setup-cash-reserve-checkbox,
 .analysis-setup-coverage-row > span:first-child,
 .analysis-setup-debt-mortgage-grid label > span:first-child,
 .analysis-setup-debt-switch > span:first-child,
@@ -17363,7 +17229,6 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 .analysis-setup-toggle-control small,
 .analysis-setup-toggle-control .settings-toggle-note,
 .analysis-setup-return-basis-note,
-.analysis-setup-cash-reserve-field small,
 .analysis-setup-debt-preview-note,
 .analysis-setup-survivor-control-row small,
 .analysis-setup-education-control-row small,
