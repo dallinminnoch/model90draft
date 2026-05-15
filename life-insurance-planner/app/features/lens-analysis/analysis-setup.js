@@ -5267,6 +5267,214 @@
     return null;
   }
 
+  function getDebtSourceRawValue(linkedRecord, sourceField) {
+    const sourceData = getLinkedProtectionModelingData(linkedRecord);
+    if (sourceField && Object.prototype.hasOwnProperty.call(sourceData, sourceField)) {
+      return sourceData[sourceField];
+    }
+
+    if (sourceField && Object.prototype.hasOwnProperty.call(linkedRecord || {}, sourceField)) {
+      return linkedRecord[sourceField];
+    }
+
+    return null;
+  }
+
+  function getFirstDebtMoneySourceValue(linkedRecord, sourceFields) {
+    const safeFields = Array.isArray(sourceFields) ? sourceFields : [];
+    for (let index = 0; index < safeFields.length; index += 1) {
+      const value = parseOptionalMoneyValue(getDebtSourceRawValue(linkedRecord, safeFields[index]));
+      if (value !== null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  function getFirstDebtNumberSourceValue(linkedRecord, sourceFields) {
+    const safeFields = Array.isArray(sourceFields) ? sourceFields : [];
+    for (let index = 0; index < safeFields.length; index += 1) {
+      const value = parseOptionalNumberValue(getDebtSourceRawValue(linkedRecord, safeFields[index]));
+      if (value !== null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  function getMortgagePaymentPlanPreviewHosts() {
+    return {
+      treatment: document.querySelector("[data-analysis-debt-mortgage-plan-treatment]"),
+      payoff: document.querySelector("[data-analysis-debt-mortgage-plan-payoff]"),
+      principal: document.querySelector("[data-analysis-debt-mortgage-plan-principal]"),
+      term: document.querySelector("[data-analysis-debt-mortgage-plan-term]"),
+      yearsSource: document.querySelector("[data-analysis-debt-mortgage-plan-years-source]"),
+      payment: document.querySelector("[data-analysis-debt-mortgage-plan-payment]"),
+      paymentSource: document.querySelector("[data-analysis-debt-mortgage-plan-payment-source]"),
+      associatedCosts: document.querySelector("[data-analysis-debt-mortgage-plan-associated-costs]"),
+      note: document.querySelector("[data-analysis-debt-mortgage-payment-plan-note]")
+    };
+  }
+
+  function setMortgagePaymentPlanPreviewText(hosts, key, value) {
+    if (hosts[key]) {
+      hosts[key].textContent = value;
+    }
+  }
+
+  function formatMortgagePlanTerm(months) {
+    const number = Number(months);
+    if (!Number.isFinite(number) || number < 0) {
+      return "Unavailable";
+    }
+
+    const roundedMonths = Math.round(number);
+    const years = Math.floor(roundedMonths / 12);
+    const remainingMonths = roundedMonths % 12;
+    if (roundedMonths === 0) {
+      return "0 years / 0 months";
+    }
+    if (remainingMonths === 0) {
+      return `${years} years / ${roundedMonths} months`;
+    }
+    return `${years} years ${remainingMonths} months / ${roundedMonths} months`;
+  }
+
+  function formatMortgagePlanSource(value) {
+    const source = String(value || "").trim();
+    if (source === "manualOverride") {
+      return "Manual override";
+    }
+    if (source === "pmiCalculated") {
+      return "PMI remaining term";
+    }
+    if (source === "calculatedAmortization") {
+      return "Calculated amortization";
+    }
+    if (source === "straightLineFallback") {
+      return "Straight-line fallback";
+    }
+    if (source === "pmiOriginal") {
+      return "Original PMI";
+    }
+    return "Unavailable";
+  }
+
+  function getMortgagePaymentPlanPreviewInput(linkedRecord, assumptions, fields) {
+    const mortgageTreatment = assumptions.mortgageTreatment || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment;
+    const previewTreatment = { ...mortgageTreatment };
+    const rawManualYears = String(fields.mortgage?.manualYearsRemainingOverride?.value || "").trim();
+    if (mortgageTreatment.mode === "support" && rawManualYears) {
+      previewTreatment.manualYearsRemainingOverride = rawManualYears;
+    }
+
+    const rawTermMonths = getFirstDebtNumberSourceValue(linkedRecord, [
+      "mortgageRemainingTermMonths",
+      "mortgageTermRemainingMonths"
+    ]);
+    const rawTermYears = getFirstDebtNumberSourceValue(linkedRecord, [
+      "mortgageTermRemainingYears"
+    ]);
+
+    return {
+      mortgageTreatment: previewTreatment,
+      mortgageFacts: {
+        mortgageBalance: getDebtSourceValue(linkedRecord, "mortgageBalance"),
+        mortgageInterestRatePercent: getFirstDebtNumberSourceValue(linkedRecord, [
+          "mortgageInterestRatePercent",
+          "mortgageInterestRate"
+        ])
+      },
+      ongoingSupport: {
+        monthlyMortgagePayment: getFirstDebtMoneySourceValue(linkedRecord, [
+          "monthlyMortgagePayment",
+          "monthlyMortgagePaymentOnly"
+        ]),
+        mortgageRemainingTermMonths: rawTermMonths !== null
+          ? rawTermMonths
+          : (rawTermYears !== null ? rawTermYears * 12 : null),
+        mortgageInterestRatePercent: getFirstDebtNumberSourceValue(linkedRecord, [
+          "mortgageInterestRatePercent",
+          "mortgageInterestRate"
+        ]),
+        monthlyHousingSupportCost: getFirstDebtMoneySourceValue(linkedRecord, [
+          "monthlyHousingSupportCost",
+          "monthlyHousingCost"
+        ])
+      },
+      options: {}
+    };
+  }
+
+  function syncMortgagePaymentPlanPreview(fields, linkedRecord, assumptions) {
+    const hosts = getMortgagePaymentPlanPreviewHosts();
+    if (!hosts.treatment && !hosts.payment) {
+      return;
+    }
+
+    const helper = LensApp.lensAnalysis?.calculateTreatedMortgagePaymentPlan;
+    if (typeof helper !== "function") {
+      ["treatment", "payoff", "principal", "term", "yearsSource", "payment", "paymentSource"].forEach(function (key) {
+        setMortgagePaymentPlanPreviewText(hosts, key, "Preview unavailable");
+      });
+      setMortgagePaymentPlanPreviewText(hosts, "associatedCosts", "Remain ongoing");
+      setMortgagePaymentPlanPreviewText(
+        hosts,
+        "note",
+        "Mortgage payment preview unavailable because the payment-plan helper is not loaded. Mortgage-only payment is treated; associated housing costs remain ongoing."
+      );
+      return;
+    }
+
+    const input = getMortgagePaymentPlanPreviewInput(linkedRecord, assumptions, fields);
+    const result = helper(input);
+    const treatmentLabel = result.mode === "payOff"
+      ? "Pay Off"
+      : (result.mode === "continuePayments" ? "Continue Payments" : "Preview unavailable");
+    const warningText = (Array.isArray(result.warnings) ? result.warnings : [])
+      .map(function (warning) {
+        return warning.message;
+      })
+      .filter(Boolean)
+      .join(" ");
+    const payoffPercent = Number.isFinite(Number(result.payoffPercent))
+      ? `${formatHaircutInputValue(result.payoffPercent)}%`
+      : "Unavailable";
+    const immediatePayoff = result.immediatePayoffAmount === null
+      ? "Preview unavailable"
+      : `${formatCurrencyValue(result.immediatePayoffAmount)} (${payoffPercent})`;
+
+    setMortgagePaymentPlanPreviewText(hosts, "treatment", treatmentLabel);
+    setMortgagePaymentPlanPreviewText(hosts, "payoff", immediatePayoff);
+    setMortgagePaymentPlanPreviewText(
+      hosts,
+      "principal",
+      result.remainingPrincipalAfterPayoff === null
+        ? "Preview unavailable"
+        : formatCurrencyValue(result.remainingPrincipalAfterPayoff)
+    );
+    setMortgagePaymentPlanPreviewText(hosts, "term", formatMortgagePlanTerm(result.finalRemainingTermMonths));
+    setMortgagePaymentPlanPreviewText(hosts, "yearsSource", formatMortgagePlanSource(result.yearsRemainingSource));
+    setMortgagePaymentPlanPreviewText(
+      hosts,
+      "payment",
+      result.finalMonthlyMortgagePayment === null
+        ? "Preview unavailable"
+        : `${formatCurrencyValue(result.finalMonthlyMortgagePayment)}/mo`
+    );
+    setMortgagePaymentPlanPreviewText(hosts, "paymentSource", formatMortgagePlanSource(result.paymentSource));
+    setMortgagePaymentPlanPreviewText(hosts, "associatedCosts", "Remain ongoing");
+    setMortgagePaymentPlanPreviewText(
+      hosts,
+      "note",
+      warningText
+        ? `Preview warning: ${warningText} Mortgage-only payment is treated; property tax, insurance, HOA, utilities, and maintenance remain ongoing.`
+        : "Mortgage-only payment is treated. Property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses."
+    );
+  }
+
   function getDebtCategorySourceValue(linkedRecord, item) {
     const sourceFields = Array.isArray(item?.sourceFields) ? item.sourceFields : [];
     let hasSource = false;
@@ -5565,6 +5773,7 @@
         ? "Continue Payments uses the treated mortgage payment plan. Immediate partial payoff reduces principal, and a manual years remaining override changes the final term when supplied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses."
         : "Setup preview of saved assumption effects. DIME and LENS use treated debt in Step 3; HLV remains unchanged. Non-mortgage custom treatment remains warning-backed until formulas are defined.";
     }
+    syncMortgagePaymentPlanPreview(fields, linkedRecord, assumptions);
   }
 
   function syncSurvivorSupportPreview(fields, linkedRecord) {

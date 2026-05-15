@@ -35,9 +35,15 @@ function createContext() {
   vm.createContext(context);
 
   loadScript(context, "app/features/lens-analysis/debt-taxonomy.js");
+  loadScript(context, "app/features/lens-analysis/debt-treatment-calculations.js");
   loadScript(context, "app/features/lens-analysis/analysis-setup.js");
 
   return context;
+}
+
+function monthlyPayment(principal, annualRatePercent, months) {
+  const monthlyRate = annualRatePercent / 1200;
+  return Math.round((principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -months)))) * 100) / 100;
 }
 
 function toPlainObject(value) {
@@ -100,10 +106,13 @@ function assertNoProtectedDiffs() {
 const context = createContext();
 const analysisSetup = context.LensApp.analysisSetup;
 const taxonomy = context.LensApp.lensAnalysis.debtTaxonomy;
+const paymentPlanHelper = context.LensApp.lensAnalysis.calculateTreatedMortgagePaymentPlan;
 const source = readRepoFile("app/features/lens-analysis/analysis-setup.js");
+const html = readRepoFile("pages/analysis-setup.html");
 
 assert.equal(typeof analysisSetup.getDebtTreatmentAssumptions, "function");
 assert.equal(typeof analysisSetup.getDebtCategoryTreatmentItems, "function");
+assert.equal(typeof paymentPlanHelper, "function", "Analysis Setup context should load the mortgage payment-plan helper.");
 
 const expectedCategoryKeys = toPlainObject(taxonomy.DEFAULT_DEBT_CATEGORY_KEYS);
 const defaultAssumptions = analysisSetup.DEFAULT_DEBT_TREATMENT_ASSUMPTIONS;
@@ -259,6 +268,135 @@ assert.equal(payoffNormalized.payoffPercent, 100);
 assert.equal(payoffNormalized.manualYearsRemainingOverride, null);
 assert.equal(payoffNormalized.paymentSupportYears, 9);
 
+const previewPayoff = paymentPlanHelper({
+  mortgageTreatment: payoffNormalized,
+  mortgageFacts: { mortgageBalance: 240000 },
+  ongoingSupport: {
+    monthlyMortgagePayment: 1600,
+    mortgageRemainingTermMonths: 300,
+    mortgageInterestRatePercent: 5.5,
+    monthlyHousingSupportCost: 2800
+  }
+});
+assert.equal(previewPayoff.mode, "payOff");
+assert.equal(previewPayoff.immediatePayoffAmount, 240000);
+assert.equal(previewPayoff.finalMonthlyMortgagePayment, 0, "Pay Off preview should produce a $0 final mortgage-only payment.");
+assert.equal(previewPayoff.finalRemainingTermMonths, 0);
+assert.equal(previewPayoff.associatedHousingCostsPreserved, true);
+
+const previewContinueRaw = paymentPlanHelper({
+  mortgageTreatment: {
+    mode: "support",
+    include: true,
+    payoffPercent: 0,
+    paymentSupportYears: null,
+    manualYearsRemainingOverride: null
+  },
+  mortgageFacts: { mortgageBalance: 240000 },
+  ongoingSupport: {
+    monthlyMortgagePayment: 1600,
+    mortgageRemainingTermMonths: 300,
+    mortgageInterestRatePercent: 5.5,
+    monthlyHousingSupportCost: 2800
+  }
+});
+assert.equal(previewContinueRaw.mode, "continuePayments");
+assert.equal(previewContinueRaw.finalRemainingTermMonths, 300);
+assert.equal(previewContinueRaw.yearsRemainingSource, "pmiCalculated");
+assert.equal(previewContinueRaw.finalMonthlyMortgagePayment, monthlyPayment(240000, 5.5, 300));
+
+const previewContinuePartial = paymentPlanHelper({
+  mortgageTreatment: {
+    mode: "support",
+    include: true,
+    payoffPercent: 25,
+    paymentSupportYears: null,
+    manualYearsRemainingOverride: null
+  },
+  mortgageFacts: { mortgageBalance: 240000 },
+  ongoingSupport: {
+    monthlyMortgagePayment: 1600,
+    mortgageRemainingTermMonths: 300,
+    mortgageInterestRatePercent: 5.5,
+    monthlyHousingSupportCost: 2800
+  }
+});
+assert.equal(previewContinuePartial.immediatePayoffAmount, 60000);
+assert.equal(previewContinuePartial.remainingPrincipalAfterPayoff, 180000);
+assert.ok(
+  previewContinuePartial.finalMonthlyMortgagePayment < previewContinueRaw.finalMonthlyMortgagePayment,
+  "Partial payoff should lower the helper-derived final payment."
+);
+
+const previewManualOverride = paymentPlanHelper({
+  mortgageTreatment: {
+    mode: "support",
+    include: true,
+    payoffPercent: 25,
+    paymentSupportYears: null,
+    manualYearsRemainingOverride: 15
+  },
+  mortgageFacts: { mortgageBalance: 240000 },
+  ongoingSupport: {
+    monthlyMortgagePayment: 1600,
+    mortgageRemainingTermMonths: 300,
+    mortgageInterestRatePercent: 5.5,
+    monthlyHousingSupportCost: 2800
+  }
+});
+assert.equal(previewManualOverride.finalRemainingTermMonths, 180);
+assert.equal(previewManualOverride.yearsRemainingSource, "manualOverride");
+assert.notEqual(
+  previewManualOverride.finalMonthlyMortgagePayment,
+  previewContinuePartial.finalMonthlyMortgagePayment,
+  "Manual years override should change the helper-derived final payment."
+);
+
+const previewInvalidManual = paymentPlanHelper({
+  mortgageTreatment: {
+    mode: "support",
+    include: true,
+    payoffPercent: 25,
+    paymentSupportYears: null,
+    manualYearsRemainingOverride: 35
+  },
+  mortgageFacts: { mortgageBalance: 240000 },
+  ongoingSupport: {
+    monthlyMortgagePayment: 1600,
+    mortgageRemainingTermMonths: 300,
+    mortgageInterestRatePercent: 5.5,
+    monthlyHousingSupportCost: 2800
+  }
+});
+assert.equal(previewInvalidManual.finalRemainingTermMonths, 300);
+assert.equal(previewInvalidManual.yearsRemainingSource, "pmiCalculated");
+assert.match(
+  previewInvalidManual.warnings.map((warning) => warning.code).join(" "),
+  /mortgage-payment-plan-manual-years-invalid/
+);
+
+const previewStraightLine = paymentPlanHelper({
+  mortgageTreatment: {
+    mode: "support",
+    include: true,
+    payoffPercent: 0,
+    paymentSupportYears: null,
+    manualYearsRemainingOverride: null
+  },
+  mortgageFacts: { mortgageBalance: 240000 },
+  ongoingSupport: {
+    monthlyMortgagePayment: 1600,
+    mortgageRemainingTermMonths: 300,
+    mortgageInterestRatePercent: 0,
+    monthlyHousingSupportCost: 2800
+  }
+});
+assert.equal(previewStraightLine.paymentSource, "straightLineFallback");
+assert.match(
+  previewStraightLine.warnings.map((warning) => warning.code).join(" "),
+  /mortgage-payment-plan-interest-rate-fallback/
+);
+
 const legacySaved = analysisSetup.getDebtTreatmentAssumptions({
   analysisSettings: {
     debtTreatmentAssumptions: {
@@ -355,8 +493,27 @@ assert.match(source, /paymentSupportYears,\s*\n\s*manualYearsRemainingOverride/)
 assert.doesNotMatch(source, /manualYearsRemainingOverride:\s*normalizeDebtSupportYears\(\s*safeSource\.paymentSupportYears/);
 assert.match(source, /Mortgage treatment must be Payoff or Support\./);
 assert.doesNotMatch(source, /Mortgage treatment must be Payoff, Support, or Custom\./);
+assert.match(source, /LensApp\.lensAnalysis\?\.calculateTreatedMortgagePaymentPlan/);
+assert.match(source, /syncMortgagePaymentPlanPreview\(fields, linkedRecord, assumptions\)/);
+assert.match(source, /getMortgagePaymentPlanPreviewInput/);
+assert.match(source, /previewTreatment\.manualYearsRemainingOverride\s*=\s*rawManualYears/);
+assert.match(source, /monthlyMortgagePaymentOnly/);
+assert.match(source, /mortgageTermRemainingYears/);
+assert.match(source, /formatMortgagePlanSource\(result\.yearsRemainingSource\)/);
+assert.doesNotMatch(source, /Math\.pow/);
+assert.doesNotMatch(source, /monthlyRate/);
+assert.doesNotMatch(saveBody, /finalMonthlyMortgagePayment/);
+assert.doesNotMatch(saveBody, /finalRemainingTermMonths/);
 
-const html = readRepoFile("pages/analysis-setup.html");
+const debtHelperScriptIndex = html.indexOf("debt-treatment-calculations.js");
+const analysisSetupScriptIndex = html.indexOf("analysis-setup.js");
+assert.ok(debtHelperScriptIndex >= 0, "Analysis Setup should load debt-treatment-calculations.js.");
+assert.ok(analysisSetupScriptIndex >= 0, "Analysis Setup should load analysis-setup.js.");
+assert.ok(
+  debtHelperScriptIndex < analysisSetupScriptIndex,
+  "Analysis Setup should load debt-treatment-calculations.js before analysis-setup.js."
+);
+
 assert.match(html, /Used by DIME and LENS/);
 assert.match(html, /HLV is unchanged/);
 assert.match(html, /Mortgage treatment changes the mortgage-only payment/);
@@ -375,6 +532,19 @@ assert.match(html, /data-analysis-debt-mortgage-partial-payoff-row hidden/);
 assert.match(html, /data-analysis-debt-mortgage-manual-years-row hidden/);
 assert.match(html, /data-analysis-debt-mortgage-legacy-include-row hidden/);
 assert.match(html, /data-analysis-debt-support-years-row hidden/);
+assert.match(html, /Mortgage payment preview/);
+assert.match(html, /data-analysis-debt-mortgage-payment-plan-preview/);
+assert.match(html, /data-analysis-debt-mortgage-plan-treatment/);
+assert.match(html, /data-analysis-debt-mortgage-plan-payoff/);
+assert.match(html, /data-analysis-debt-mortgage-plan-principal/);
+assert.match(html, /data-analysis-debt-mortgage-plan-term/);
+assert.match(html, /data-analysis-debt-mortgage-plan-years-source/);
+assert.match(html, /data-analysis-debt-mortgage-plan-payment/);
+assert.match(html, /data-analysis-debt-mortgage-plan-payment-source/);
+assert.match(html, /data-analysis-debt-mortgage-plan-associated-costs/);
+assert.match(html, /Mortgage-only payment is treated/);
+assert.doesNotMatch(html, /data-analysis-debt-mortgage-field="finalMonthlyMortgagePayment"/);
+assert.doesNotMatch(html, /data-analysis-debt-mortgage-field="finalRemainingTermMonths"/);
 assert.doesNotMatch(html, /<option value="custom">Custom \(deferred\)<\/option>/);
 assert.doesNotMatch(html, /Support \(deferred\)/);
 assert.doesNotMatch(html, /Support years \(deferred\)/);

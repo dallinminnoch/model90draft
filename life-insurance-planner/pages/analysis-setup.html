@@ -732,6 +732,41 @@
                         </span>
                       </label>
                     </div>
+                    <div class="analysis-setup-debt-preview" aria-label="Mortgage payment preview" data-analysis-debt-mortgage-payment-plan-preview>
+                      <div>
+                        <span>Treatment</span>
+                        <strong data-analysis-debt-mortgage-plan-treatment>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Immediate payoff</span>
+                        <strong data-analysis-debt-mortgage-plan-payoff>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Remaining principal</span>
+                        <strong data-analysis-debt-mortgage-plan-principal>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Final years / months used</span>
+                        <strong data-analysis-debt-mortgage-plan-term>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Years source</span>
+                        <strong data-analysis-debt-mortgage-plan-years-source>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Final mortgage payment</span>
+                        <strong data-analysis-debt-mortgage-plan-payment>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Payment source</span>
+                        <strong data-analysis-debt-mortgage-plan-payment-source>Preview unavailable</strong>
+                      </div>
+                      <div>
+                        <span>Associated housing costs</span>
+                        <strong data-analysis-debt-mortgage-plan-associated-costs>Remain ongoing</strong>
+                      </div>
+                    </div>
+                    <p class="analysis-setup-debt-preview-note" data-analysis-debt-mortgage-payment-plan-note>Mortgage-only payment is treated. Property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses.</p>
                   </div>
 
                   <div class="analysis-setup-debt-table" role="table" aria-label="Non-mortgage debt treatment preview" data-analysis-debt-table>
@@ -1220,6 +1255,7 @@
   <script src="../app/features/lens-analysis/asset-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/debt-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/debt-library.js"></script>
+  <script src="../app/features/lens-analysis/debt-treatment-calculations.js"></script>
   <script src="../app/features/lens-analysis/normalize-lens-model.js"></script>
   <script src="../app/features/lens-analysis/analysis-setup.js"></script>
   <script src="../app.js"></script>

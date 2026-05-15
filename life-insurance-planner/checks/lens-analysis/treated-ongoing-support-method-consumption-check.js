@@ -241,12 +241,18 @@ function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     return false;
   }
   const diff = getGitDiff(filePath);
-  return diff.includes("Continue Payments")
+  const redesignDiff = diff.includes("Continue Payments")
     && diff.includes("Mortgage treatment changes the mortgage-only payment")
     && diff.includes("data-analysis-debt-mortgage-partial-payoff-row")
     && diff.includes("data-analysis-debt-mortgage-manual-years-row")
     && diff.includes("data-analysis-debt-mortgage-legacy-include-row")
     && diff.includes("Legacy payment support years");
+  const previewDiff = diff.includes("debt-treatment-calculations.js")
+    && diff.includes("Mortgage payment preview")
+    && diff.includes("data-analysis-debt-mortgage-payment-plan-preview")
+    && diff.includes("data-analysis-debt-mortgage-plan-payment")
+    && diff.includes("Mortgage-only payment is treated");
+  return redesignDiff || previewDiff;
 }
 
 function assertNoProtectedDiffs() {
