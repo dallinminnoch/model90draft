@@ -213,12 +213,18 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     && diff.includes("data-analysis-debt-mortgage-manual-years-row")
     && diff.includes("data-analysis-debt-mortgage-legacy-include-row")
     && diff.includes("Legacy payment support years");
+  const legacyCleanupDiff = diff.includes("-                      <label class=\"analysis-setup-debt-switch\" data-analysis-debt-mortgage-legacy-include-row hidden>")
+    && diff.includes("-                        <span>Include mortgage payoff</span>")
+    && diff.includes("-                      <label class=\"analysis-setup-debt-years\" for=\"analysis-setup-mortgage-support-years\" data-analysis-debt-support-years-row hidden>")
+    && diff.includes("-                        <span>Legacy payment support years</span>")
+    && !diff.includes("+                      <label class=\"analysis-setup-debt-switch\" data-analysis-debt-mortgage-legacy-include-row hidden>")
+    && !diff.includes("+                      <label class=\"analysis-setup-debt-years\" for=\"analysis-setup-mortgage-support-years\" data-analysis-debt-support-years-row hidden>");
   const previewDiff = diff.includes("debt-treatment-calculations.js")
     && diff.includes("Mortgage payment preview")
     && diff.includes("data-analysis-debt-mortgage-payment-plan-preview")
     && diff.includes("data-analysis-debt-mortgage-plan-payment")
     && diff.includes("Mortgage-only payment is treated");
-  return redesignDiff || previewDiff;
+  return redesignDiff || previewDiff || legacyCleanupDiff;
 }
 
 function assertNoProtectedDiffs() {

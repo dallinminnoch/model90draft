@@ -646,9 +646,7 @@
     globalTreatmentProfile: "balanced",
     mortgageTreatment: Object.freeze({
       mode: "payoff",
-      include: true,
       payoffPercent: 100,
-      paymentSupportYears: null,
       manualYearsRemainingOverride: null
     }),
     debtCategoryTreatment: createDefaultDebtCategoryTreatmentMap(),
@@ -1921,35 +1919,23 @@
       ? defaults
       : DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment;
     const mode = normalizeMortgageTreatmentMode(safeSource.mode, safeDefaults.mode || "payoff");
-    const include = typeof safeSource.include === "boolean"
-      ? safeSource.include
-      : safeDefaults.include !== false;
-    const paymentSupportYears = normalizeDebtSupportYears(
-      safeSource.paymentSupportYears,
-      safeDefaults.paymentSupportYears
-    );
 
     if (mode === "payoff") {
       return {
         mode,
-        include,
         payoffPercent: 100,
-        paymentSupportYears,
         manualYearsRemainingOverride: null
       };
     }
 
     return {
       mode,
-      include,
       payoffPercent: normalizeDebtPayoffPercent(
         safeSource.payoffPercent,
         safeDefaults.mode === "support"
           ? normalizeDebtPayoffPercent(safeDefaults.payoffPercent, 0)
           : 0
       ),
-      // Legacy support-duration field only. It is not a mortgage term override.
-      paymentSupportYears,
       manualYearsRemainingOverride: normalizeMortgageManualYearsRemainingOverride(
         safeSource.manualYearsRemainingOverride
       )
@@ -4526,14 +4512,9 @@
       globalTreatmentProfile: getDebtTreatmentDefaultProfile(fields),
       mortgageTreatment: normalizeMortgageTreatmentAssumption({
         mode: mortgageMode,
-        include: readDebtDraftBoolean(fields.mortgage?.include, currentMortgageTreatment.include),
         payoffPercent: readDebtDraftPercent(
           fields.mortgage?.payoffPercent,
           currentMortgageTreatment.payoffPercent
-        ),
-        paymentSupportYears: readDebtDraftSupportYears(
-          fields.mortgage?.paymentSupportYears,
-          currentMortgageTreatment.paymentSupportYears
         ),
         manualYearsRemainingOverride: readDebtDraftManualYearsRemainingOverride(
           fields.mortgage?.manualYearsRemainingOverride,
@@ -5388,6 +5369,29 @@
     }
   }
 
+  function getMortgageRemainingTermMonthsForPreview(linkedRecord) {
+    const canonicalTermMonths = getFirstDebtNumberSourceValue(linkedRecord, [
+      "mortgageRemainingTermMonths"
+    ]);
+    if (canonicalTermMonths !== null) {
+      return canonicalTermMonths;
+    }
+
+    const rawTermYears = getFirstDebtNumberSourceValue(linkedRecord, [
+      "mortgageTermRemainingYears"
+    ]);
+    const rawTermMonths = getFirstDebtNumberSourceValue(linkedRecord, [
+      "mortgageTermRemainingMonths"
+    ]);
+    if (rawTermYears === null && rawTermMonths === null) {
+      return null;
+    }
+
+    const years = rawTermYears === null ? 0 : Math.max(0, Math.round(rawTermYears));
+    const months = rawTermMonths === null ? 0 : Math.min(11, Math.max(0, Math.round(rawTermMonths)));
+    return (years * 12) + months;
+  }
+
   function formatMortgagePlanTerm(months) {
     const number = Number(months);
     if (!Number.isFinite(number) || number < 0) {
@@ -5434,14 +5438,6 @@
       previewTreatment.manualYearsRemainingOverride = rawManualYears;
     }
 
-    const rawTermMonths = getFirstDebtNumberSourceValue(linkedRecord, [
-      "mortgageRemainingTermMonths",
-      "mortgageTermRemainingMonths"
-    ]);
-    const rawTermYears = getFirstDebtNumberSourceValue(linkedRecord, [
-      "mortgageTermRemainingYears"
-    ]);
-
     return {
       mortgageTreatment: previewTreatment,
       mortgageFacts: {
@@ -5456,9 +5452,7 @@
           "monthlyMortgagePayment",
           "monthlyMortgagePaymentOnly"
         ]),
-        mortgageRemainingTermMonths: rawTermMonths !== null
-          ? rawTermMonths
-          : (rawTermYears !== null ? rawTermYears * 12 : null),
+        mortgageRemainingTermMonths: getMortgageRemainingTermMonthsForPreview(linkedRecord),
         mortgageInterestRatePercent: getFirstDebtNumberSourceValue(linkedRecord, [
           "mortgageInterestRatePercent",
           "mortgageInterestRate"
@@ -5760,7 +5754,7 @@
       hasSource = true;
       if (mortgageTreatment.mode === "support") {
         mortgageHandledThroughSupport = true;
-      } else if (mortgageTreatment.include) {
+      } else {
         adjustedTotal += Math.max(0, mortgageBalance) * (normalizeDebtPayoffPercent(
           mortgageTreatment.payoffPercent,
           DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment.payoffPercent
@@ -6057,10 +6051,7 @@
     const isContinuePayments = mode === "support";
     const partialPayoffRow = document.querySelector("[data-analysis-debt-mortgage-partial-payoff-row]");
     const manualYearsRow = document.querySelector("[data-analysis-debt-mortgage-manual-years-row]");
-    const legacySupportYearsRow = document.querySelector("[data-analysis-debt-support-years-row]");
-    const legacyIncludeRow = document.querySelector("[data-analysis-debt-mortgage-legacy-include-row]");
     const payoffCopy = document.querySelector("[data-analysis-debt-mortgage-payoff-copy]");
-    const supportCopy = document.querySelector("[data-analysis-debt-mortgage-support-copy]");
 
     if (partialPayoffRow) {
       partialPayoffRow.hidden = !isContinuePayments;
@@ -6068,17 +6059,8 @@
     if (manualYearsRow) {
       manualYearsRow.hidden = !isContinuePayments;
     }
-    if (legacySupportYearsRow) {
-      legacySupportYearsRow.hidden = true;
-    }
-    if (legacyIncludeRow) {
-      legacyIncludeRow.hidden = true;
-    }
     if (payoffCopy) {
       payoffCopy.hidden = isContinuePayments;
-    }
-    if (supportCopy) {
-      supportCopy.hidden = !isContinuePayments;
     }
   }
 
@@ -6088,9 +6070,7 @@
     if (fields.mortgage.mode) {
       fields.mortgage.mode.value = assumptions.mortgageTreatment.mode;
     }
-    setDebtMortgageValue(fields, "include", assumptions.mortgageTreatment.include);
     setDebtMortgageValue(fields, "payoffPercent", assumptions.mortgageTreatment.payoffPercent);
-    setDebtMortgageValue(fields, "paymentSupportYears", assumptions.mortgageTreatment.paymentSupportYears);
     setDebtMortgageValue(fields, "manualYearsRemainingOverride", assumptions.mortgageTreatment.manualYearsRemainingOverride);
 
     getDebtCategoryTreatmentItems().forEach(function (item) {
@@ -7672,11 +7652,6 @@
       return mortgagePayoff;
     }
 
-    const supportYears = readOptionalDebtSupportYears(fields.mortgage?.paymentSupportYears);
-    if (supportYears.error) {
-      return supportYears;
-    }
-
     const manualYearsRemainingOverride = mortgageMode === "support"
       ? readOptionalMortgageManualYearsRemainingOverride(fields.mortgage?.manualYearsRemainingOverride)
       : { value: null };
@@ -7690,9 +7665,7 @@
       globalTreatmentProfile: defaultProfile,
       mortgageTreatment: normalizeMortgageTreatmentAssumption({
         mode: mortgageMode,
-        include: Boolean(fields.mortgage?.include?.checked),
         payoffPercent: mortgagePayoff.value,
-        paymentSupportYears: supportYears.value,
         manualYearsRemainingOverride: manualYearsRemainingOverride.value
       }, DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.mortgageTreatment),
       debtCategoryTreatment: {}
@@ -8372,18 +8345,16 @@
     }
 
     if (shouldSaveDebtTreatment) {
-      ["payoffPercent", "paymentSupportYears", "manualYearsRemainingOverride"].forEach(function (fieldName) {
+      ["payoffPercent", "manualYearsRemainingOverride"].forEach(function (fieldName) {
         const field = debtTreatmentFields.mortgage[fieldName];
         const rawValue = String(field?.value || "").trim();
         const number = Number(rawValue);
         const minValue = fieldName === "manualYearsRemainingOverride"
           ? MIN_MORTGAGE_MANUAL_YEARS_REMAINING_OVERRIDE
           : 0;
-        const maxValue = fieldName === "paymentSupportYears"
-          ? MAX_DEBT_SUPPORT_YEARS
-          : (fieldName === "manualYearsRemainingOverride"
-              ? MAX_MORTGAGE_MANUAL_YEARS_REMAINING_OVERRIDE
-              : MAX_DEBT_PAYOFF_PERCENT);
+        const maxValue = fieldName === "manualYearsRemainingOverride"
+          ? MAX_MORTGAGE_MANUAL_YEARS_REMAINING_OVERRIDE
+          : MAX_DEBT_PAYOFF_PERCENT;
         if (field && rawValue && Number.isFinite(number) && number >= minValue && number <= maxValue) {
           field.value = formatHaircutInputValue(number);
         }
@@ -9360,7 +9331,7 @@
       };
 
       field.addEventListener("input", function () {
-        if (fieldName === "paymentSupportYears" || fieldName === "manualYearsRemainingOverride") {
+        if (fieldName === "manualYearsRemainingOverride") {
           const sanitizedValue = sanitizeNumericTextValue(field.value);
           if (field.value !== sanitizedValue) {
             field.value = sanitizedValue;
@@ -9373,16 +9344,10 @@
         if (fieldName === "mode") {
           const mode = String(field.value || "").trim();
           if (mode === "support") {
-            if (debtTreatmentFields.mortgage.include) {
-              debtTreatmentFields.mortgage.include.checked = false;
-            }
             if (debtTreatmentFields.mortgage.payoffPercent) {
               debtTreatmentFields.mortgage.payoffPercent.value = "0";
             }
           } else if (mode === "payoff") {
-            if (debtTreatmentFields.mortgage.include) {
-              debtTreatmentFields.mortgage.include.checked = true;
-            }
             if (debtTreatmentFields.mortgage.payoffPercent) {
               debtTreatmentFields.mortgage.payoffPercent.value = "100";
             }
@@ -9397,11 +9362,9 @@
         const minValue = fieldName === "manualYearsRemainingOverride"
           ? MIN_MORTGAGE_MANUAL_YEARS_REMAINING_OVERRIDE
           : 0;
-        const maxValue = fieldName === "paymentSupportYears"
-          ? MAX_DEBT_SUPPORT_YEARS
-          : (fieldName === "manualYearsRemainingOverride"
-              ? MAX_MORTGAGE_MANUAL_YEARS_REMAINING_OVERRIDE
-              : MAX_DEBT_PAYOFF_PERCENT);
+        const maxValue = fieldName === "manualYearsRemainingOverride"
+          ? MAX_MORTGAGE_MANUAL_YEARS_REMAINING_OVERRIDE
+          : MAX_DEBT_PAYOFF_PERCENT;
         if (field.type !== "checkbox" && rawValue && Number.isFinite(number) && number >= minValue && number <= maxValue) {
           field.value = formatHaircutInputValue(number);
         }

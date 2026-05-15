@@ -710,35 +710,18 @@
                           <option value="support">Continue Payments</option>
                         </select>
                       </label>
-                      <label class="analysis-setup-debt-switch" data-analysis-debt-mortgage-legacy-include-row hidden>
-                        <span>Include mortgage payoff</span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Include mortgage payoff" data-analysis-debt-mortgage-field="include">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
                       <p data-analysis-debt-mortgage-payoff-copy>Pay off the mortgage balance at death. Mortgage-only payment is removed from ongoing support; property tax, insurance, HOA, utilities, and maintenance remain.</p>
-                      <p data-analysis-debt-mortgage-support-copy hidden>The final monthly mortgage payment will be recalculated from remaining principal, interest rate, and final term. Associated housing costs remain ongoing expenses.</p>
                       <label class="analysis-setup-debt-percent" for="analysis-setup-mortgage-payoff-percent" data-analysis-debt-mortgage-partial-payoff-row hidden>
                         <span>Immediate partial payoff percent</span>
                         <span class="analysis-setup-asset-percent">
                           <input id="analysis-setup-mortgage-payoff-percent" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" data-analysis-debt-mortgage-field="payoffPercent">
                           <span aria-hidden="true">%</span>
                         </span>
-                        <small>Reduces the mortgage principal before recalculating the continued payment.</small>
                       </label>
                       <label class="analysis-setup-debt-years" for="analysis-setup-mortgage-manual-years-remaining" data-analysis-debt-mortgage-manual-years-row hidden>
                         <span>Manual years remaining override</span>
                         <span>
                           <input id="analysis-setup-mortgage-manual-years-remaining" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-debt-mortgage-field="manualYearsRemainingOverride">
-                          <span>years</span>
-                        </span>
-                        <small>Leave blank to use PMI remaining term. Valid range: 1-30 years.</small>
-                      </label>
-                      <label class="analysis-setup-debt-years" for="analysis-setup-mortgage-support-years" data-analysis-debt-support-years-row hidden>
-                        <span>Legacy payment support years</span>
-                        <span>
-                          <input id="analysis-setup-mortgage-support-years" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-debt-mortgage-field="paymentSupportYears">
                           <span>years</span>
                         </span>
                       </label>
