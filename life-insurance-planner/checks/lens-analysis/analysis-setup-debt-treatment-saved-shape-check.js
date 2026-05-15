@@ -328,9 +328,9 @@ assert.doesNotMatch(profileBody, /nonMortgageDebtTreatment/);
 const previewBody = extractFunctionBody(source, "syncDebtTreatmentPreview", "syncSurvivorSupportPreview");
 assert.match(previewBody, /DIME and LENS use treated debt/);
 assert.match(previewBody, /HLV remains unchanged/);
-assert.match(previewBody, /Support mode uses the current monthly mortgage payment from PMI/);
-assert.match(previewBody, /remaining mortgage term when reliable term data is available/);
-assert.match(previewBody, /No inflation or discounting is applied/);
+assert.match(previewBody, /Continue Payments uses the treated mortgage payment plan/);
+assert.match(previewBody, /Immediate partial payoff reduces principal/);
+assert.match(previewBody, /manual years remaining override changes the final term/);
 assert.match(previewBody, /Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses/);
 assert.match(previewBody, /Non-mortgage custom treatment remains warning-backed until formulas are defined/);
 assert.doesNotMatch(previewBody, /Mortgage support mode is deferred/);
@@ -338,13 +338,16 @@ assert.doesNotMatch(previewBody, /Support and custom modes use warning-backed ra
 assert.doesNotMatch(previewBody, /current DIME, Needs, HLV/);
 assert.doesNotMatch(previewBody, /current methods still use raw debt payoff values/);
 
-const supportYearsVisibilityBody = extractFunctionBody(
+const mortgageTreatmentVisibilityBody = extractFunctionBody(
   source,
-  "syncDebtSupportYearsVisibility",
+  "syncMortgageTreatmentControlsVisibility",
   "populateDebtTreatmentFields"
 );
-assert.match(supportYearsVisibilityBody, /row\.hidden\s*=\s*mode\s*!==\s*"support"/);
-assert.doesNotMatch(supportYearsVisibilityBody, /mode === "custom"/);
+assert.match(mortgageTreatmentVisibilityBody, /partialPayoffRow\.hidden\s*=\s*!isContinuePayments/);
+assert.match(mortgageTreatmentVisibilityBody, /manualYearsRow\.hidden\s*=\s*!isContinuePayments/);
+assert.match(mortgageTreatmentVisibilityBody, /legacySupportYearsRow\.hidden\s*=\s*true/);
+assert.match(mortgageTreatmentVisibilityBody, /legacyIncludeRow\.hidden\s*=\s*true/);
+assert.doesNotMatch(mortgageTreatmentVisibilityBody, /mode === "custom"/);
 
 assert.match(source, /const MORTGAGE_TREATMENT_MODES = Object\.freeze\(\["payoff", "support"\]\)/);
 assert.match(source, /manualYearsRemainingOverride:\s*null/);
@@ -356,16 +359,27 @@ assert.doesNotMatch(source, /Mortgage treatment must be Payoff, Support, or Cust
 const html = readRepoFile("pages/analysis-setup.html");
 assert.match(html, /Used by DIME and LENS/);
 assert.match(html, /HLV is unchanged/);
-assert.match(html, /Mortgage support uses the current PMI mortgage payment for the selected support period/);
-assert.match(html, /Support mode uses the current monthly mortgage payment from PMI/);
-assert.match(html, /remaining mortgage term when reliable term data is available/);
-assert.match(html, /No inflation or discounting is applied/);
-assert.match(html, /Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses/);
-assert.match(html, /<option value="payoff">Payoff<\/option>/);
-assert.match(html, /<option value="support">Support<\/option>/);
+assert.match(html, /Mortgage treatment changes the mortgage-only payment/);
+assert.match(html, /property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses/);
+assert.match(html, /<option value="payoff">Pay Off<\/option>/);
+assert.match(html, /<option value="support">Continue Payments<\/option>/);
+assert.match(html, /Pay off the mortgage balance at death/);
+assert.match(html, /Mortgage-only payment is removed from ongoing support/);
+assert.match(html, /Immediate partial payoff percent/);
+assert.match(html, /Reduces the mortgage principal before recalculating the continued payment/);
+assert.match(html, /Manual years remaining override/);
+assert.match(html, /Leave blank to use PMI remaining term\. Valid range: 1-30 years/);
+assert.match(html, /Continue Payments uses the treated mortgage payment plan/);
+assert.match(html, /Associated housing costs remain ongoing expenses/);
+assert.match(html, /data-analysis-debt-mortgage-partial-payoff-row hidden/);
+assert.match(html, /data-analysis-debt-mortgage-manual-years-row hidden/);
+assert.match(html, /data-analysis-debt-mortgage-legacy-include-row hidden/);
+assert.match(html, /data-analysis-debt-support-years-row hidden/);
 assert.doesNotMatch(html, /<option value="custom">Custom \(deferred\)<\/option>/);
 assert.doesNotMatch(html, /Support \(deferred\)/);
 assert.doesNotMatch(html, /Support years \(deferred\)/);
+assert.doesNotMatch(html, /Support mode uses the current monthly mortgage payment from PMI/);
+assert.doesNotMatch(html, /selected support period/);
 assert.doesNotMatch(html, /Support and custom modes are deferred and warning-backed/);
 assert.doesNotMatch(html, /Support and custom modes use warning-backed raw-equivalent behavior/);
 assert.doesNotMatch(html, /Current DIME, Needs, and HLV outputs still use raw debt payoff values/);

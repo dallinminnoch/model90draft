@@ -255,6 +255,16 @@ function isAllowedStepThreeTreatedSupportDisplay() {
     && diff.includes("Treated support unavailable; raw ongoing support was used");
 }
 
+function isAllowedAnalysisSetupMortgageTreatmentUi() {
+  const diff = getGitDiff("pages/analysis-setup.html");
+  return diff.includes("Continue Payments")
+    && diff.includes("Mortgage treatment changes the mortgage-only payment")
+    && diff.includes("data-analysis-debt-mortgage-partial-payoff-row")
+    && diff.includes("data-analysis-debt-mortgage-manual-years-row")
+    && diff.includes("data-analysis-debt-mortgage-legacy-include-row")
+    && diff.includes("Legacy payment support years");
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-methods.js",
@@ -286,6 +296,9 @@ function assertNoProtectedDiffs() {
     }
     if (filePath === "app/features/lens-analysis/step-three-analysis-display.js") {
       return !isAllowedStepThreeTreatedSupportDisplay();
+    }
+    if (filePath === "pages/analysis-setup.html") {
+      return !isAllowedAnalysisSetupMortgageTreatmentUi();
     }
     return true;
   });

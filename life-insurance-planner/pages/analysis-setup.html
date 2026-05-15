@@ -673,7 +673,7 @@
                   <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-debt-treatment">Debt &amp; Mortgage Treatment</h3>
-                    <p>Used by DIME and LENS. These assumptions affect DIME Debt, DIME Mortgage, and LENS Debt Payoff. Mortgage support uses the current PMI mortgage payment for the selected support period. HLV is unchanged.</p>
+                    <p>Used by DIME and LENS. These assumptions affect DIME Debt, DIME Mortgage, and LENS Debt Payoff. Mortgage treatment changes the mortgage-only payment; property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses. HLV is unchanged.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-debt-defaults" aria-label="Debt and mortgage treatment default settings">
@@ -695,26 +695,37 @@
                       <label>
                         <span>Treatment mode</span>
                         <select class="analysis-setup-asset-select analysis-setup-debt-field" data-analysis-debt-mortgage-field="mode" aria-label="Mortgage treatment mode">
-                          <option value="payoff">Payoff</option>
-                          <option value="support">Support</option>
+                          <option value="payoff">Pay Off</option>
+                          <option value="support">Continue Payments</option>
                         </select>
                       </label>
-                      <label class="analysis-setup-debt-switch">
+                      <label class="analysis-setup-debt-switch" data-analysis-debt-mortgage-legacy-include-row hidden>
                         <span>Include mortgage payoff</span>
                         <span class="settings-switch analysis-setup-mini-switch">
                           <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Include mortgage payoff" data-analysis-debt-mortgage-field="include">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
                       </label>
-                      <label class="analysis-setup-debt-percent" for="analysis-setup-mortgage-payoff-percent">
-                        <span>Payoff percent</span>
+                      <p data-analysis-debt-mortgage-payoff-copy>Pay off the mortgage balance at death. Mortgage-only payment is removed from ongoing support; property tax, insurance, HOA, utilities, and maintenance remain.</p>
+                      <p data-analysis-debt-mortgage-support-copy hidden>The final monthly mortgage payment will be recalculated from remaining principal, interest rate, and final term. Associated housing costs remain ongoing expenses.</p>
+                      <label class="analysis-setup-debt-percent" for="analysis-setup-mortgage-payoff-percent" data-analysis-debt-mortgage-partial-payoff-row hidden>
+                        <span>Immediate partial payoff percent</span>
                         <span class="analysis-setup-asset-percent">
                           <input id="analysis-setup-mortgage-payoff-percent" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" data-analysis-debt-mortgage-field="payoffPercent">
                           <span aria-hidden="true">%</span>
                         </span>
+                        <small>Reduces the mortgage principal before recalculating the continued payment.</small>
+                      </label>
+                      <label class="analysis-setup-debt-years" for="analysis-setup-mortgage-manual-years-remaining" data-analysis-debt-mortgage-manual-years-row hidden>
+                        <span>Manual years remaining override</span>
+                        <span>
+                          <input id="analysis-setup-mortgage-manual-years-remaining" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" placeholder="Blank" data-analysis-debt-mortgage-field="manualYearsRemainingOverride">
+                          <span>years</span>
+                        </span>
+                        <small>Leave blank to use PMI remaining term. Valid range: 1-30 years.</small>
                       </label>
                       <label class="analysis-setup-debt-years" for="analysis-setup-mortgage-support-years" data-analysis-debt-support-years-row hidden>
-                        <span>Support years</span>
+                        <span>Legacy payment support years</span>
                         <span>
                           <input id="analysis-setup-mortgage-support-years" class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-debt-mortgage-field="paymentSupportYears">
                           <span>years</span>
@@ -743,7 +754,7 @@
                       <strong data-analysis-debt-adjusted-preview>No saved debt data found</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Support mode uses the current monthly mortgage payment from PMI for the selected support period. It caps support at the remaining mortgage term when reliable term data is available. No inflation or discounting is applied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses.</p>
+                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Continue Payments uses the treated mortgage payment plan. Immediate partial payoff reduces principal, and a manual years remaining override changes the final term when supplied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses.</p>
                   </section>
                 </div>
 

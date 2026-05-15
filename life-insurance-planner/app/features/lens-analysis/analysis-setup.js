@@ -5562,7 +5562,7 @@
     }
     if (fields.previewNote) {
       fields.previewNote.textContent = adjustedPreview.mortgageHandledThroughSupport
-        ? "Support mode uses the current monthly mortgage payment from PMI for the selected support period. It caps support at the remaining mortgage term when reliable term data is available. No inflation or discounting is applied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses."
+        ? "Continue Payments uses the treated mortgage payment plan. Immediate partial payoff reduces principal, and a manual years remaining override changes the final term when supplied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses."
         : "Setup preview of saved assumption effects. DIME and LENS use treated debt in Step 3; HLV remains unchanged. Non-mortgage custom treatment remains warning-backed until formulas are defined.";
     }
   }
@@ -5779,14 +5779,34 @@
     syncExistingCoveragePreview(fields, linkedRecord);
   }
 
-  function syncDebtSupportYearsVisibility(fields) {
-    const row = document.querySelector("[data-analysis-debt-support-years-row]");
-    if (!row) {
-      return;
-    }
-
+  function syncMortgageTreatmentControlsVisibility(fields) {
     const mode = String(fields.mortgage?.mode?.value || "").trim();
-    row.hidden = mode !== "support";
+    const isContinuePayments = mode === "support";
+    const partialPayoffRow = document.querySelector("[data-analysis-debt-mortgage-partial-payoff-row]");
+    const manualYearsRow = document.querySelector("[data-analysis-debt-mortgage-manual-years-row]");
+    const legacySupportYearsRow = document.querySelector("[data-analysis-debt-support-years-row]");
+    const legacyIncludeRow = document.querySelector("[data-analysis-debt-mortgage-legacy-include-row]");
+    const payoffCopy = document.querySelector("[data-analysis-debt-mortgage-payoff-copy]");
+    const supportCopy = document.querySelector("[data-analysis-debt-mortgage-support-copy]");
+
+    if (partialPayoffRow) {
+      partialPayoffRow.hidden = !isContinuePayments;
+    }
+    if (manualYearsRow) {
+      manualYearsRow.hidden = !isContinuePayments;
+    }
+    if (legacySupportYearsRow) {
+      legacySupportYearsRow.hidden = true;
+    }
+    if (legacyIncludeRow) {
+      legacyIncludeRow.hidden = true;
+    }
+    if (payoffCopy) {
+      payoffCopy.hidden = isContinuePayments;
+    }
+    if (supportCopy) {
+      supportCopy.hidden = !isContinuePayments;
+    }
   }
 
   function populateDebtTreatmentFields(fields, assumptions, linkedRecord) {
@@ -5811,7 +5831,7 @@
       setDebtCategoryValue(fields, "payoff", item.key, assumption.payoffPercent);
     });
 
-    syncDebtSupportYearsVisibility(fields);
+    syncMortgageTreatmentControlsVisibility(fields);
     syncDebtTreatmentPreview(fields, linkedRecord);
   }
 
@@ -9043,13 +9063,13 @@
 
       const syncDebtChange = function () {
         setDebtTreatmentDefaultProfile(debtTreatmentFields, "custom");
-        syncDebtSupportYearsVisibility(debtTreatmentFields);
+        syncMortgageTreatmentControlsVisibility(debtTreatmentFields);
         syncDebtTreatmentPreview(debtTreatmentFields, linkedRecord);
         markUnsaved();
       };
 
       field.addEventListener("input", function () {
-        if (fieldName === "paymentSupportYears") {
+        if (fieldName === "paymentSupportYears" || fieldName === "manualYearsRemainingOverride") {
           const sanitizedValue = sanitizeNumericTextValue(field.value);
           if (field.value !== sanitizedValue) {
             field.value = sanitizedValue;
@@ -9074,6 +9094,9 @@
             }
             if (debtTreatmentFields.mortgage.payoffPercent) {
               debtTreatmentFields.mortgage.payoffPercent.value = "100";
+            }
+            if (debtTreatmentFields.mortgage.manualYearsRemainingOverride) {
+              debtTreatmentFields.mortgage.manualYearsRemainingOverride.value = "";
             }
           }
         }

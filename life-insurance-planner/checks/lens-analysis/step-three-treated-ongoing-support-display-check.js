@@ -277,6 +277,22 @@ function renderScenario(options = {}) {
 }
 
 function assertNoProtectedDiffs() {
+  function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
+    if (filePath !== "pages/analysis-setup.html") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", "./pages/analysis-setup.html"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return diff.includes("Continue Payments")
+      && diff.includes("Mortgage treatment changes the mortgage-only payment")
+      && diff.includes("data-analysis-debt-mortgage-partial-payoff-row")
+      && diff.includes("data-analysis-debt-mortgage-manual-years-row")
+      && diff.includes("data-analysis-debt-mortgage-legacy-include-row")
+      && diff.includes("Legacy payment support years");
+  }
+
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
@@ -295,7 +311,9 @@ function assertNoProtectedDiffs() {
   }).split(/\r?\n/).filter(Boolean).map((line) => {
     return line.slice(3).trim().replace(/^life-insurance-planner\//, "");
   });
-  const protectedDiffs = changedFiles.filter((filePath) => !allowedDiffs.has(filePath));
+  const protectedDiffs = changedFiles.filter((filePath) => {
+    return !allowedDiffs.has(filePath) && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath);
+  });
 
   assert.deepEqual(protectedDiffs, [], "Only Step 3 treated ongoing support display files should change.");
 }
