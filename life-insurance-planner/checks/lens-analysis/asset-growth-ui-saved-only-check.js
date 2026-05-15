@@ -287,20 +287,20 @@ const analysisSetupHtml = readRepoFile("pages/analysis-setup.html");
 const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 const componentsCss = readRepoFile("components.css");
 
-assert.match(analysisSetupHtml, /Assumed annual growth/);
+assert.match(analysisSetupHtml, /Assumed growth/);
 assert.doesNotMatch(`${analysisSetupHtml}\n${analysisSetupSource}\n${componentsCss}`, /Predicted annual growth/i);
 assert.doesNotMatch(analysisSetupHtml, /saved for future projected asset treatment/i);
 assert.doesNotMatch(analysisSetupHtml, /current DIME, LENS, and HLV outputs are unaffected/i);
 assert.match(analysisSetupHtml, /current asset offsets remain current-dollar\/current treatment based/i);
 assert.doesNotMatch(analysisSetupHtml, /Review-only categories need advisor judgment/i);
-assert.match(analysisSetupHtml, /<span role="columnheader">Assumed annual growth<\/span>/);
+assert.match(analysisSetupHtml, /<span role="columnheader">Assumed growth<\/span>/);
 assert.match(analysisSetupSource, /data-analysis-asset-treatment-growth="/);
 assert.match(analysisSetupSource, /data-analysis-asset-treatment-growth-slider="/);
 assert.match(analysisSetupSource, /MIN_ASSET_GROWTH_RATE_PERCENT/);
 assert.match(analysisSetupSource, /MAX_ASSET_GROWTH_RATE_PERCENT/);
 assert.match(analysisSetupSource, /step="0\.25"/);
 assert.match(componentsCss, /analysis-setup-asset-growth-control/);
-assert.match(componentsCss, /grid-template-columns:\s*minmax\(7\.2rem,[^;]+minmax\(5\.9rem/s);
+assert.match(componentsCss, /grid-template-columns:\s*minmax\(7\.2rem,[^;]+minmax\(5\.85rem/s);
 assert.match(componentsCss, /overflow-x:\s*auto/);
 assert.doesNotMatch(analysisSetupSource, /asset growth method-active|projected asset value/i);
 

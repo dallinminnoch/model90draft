@@ -3257,6 +3257,7 @@
           </span>
           <span role="cell">
             <span class="analysis-setup-asset-growth-control" aria-label="${safeLabel} assumed annual growth">
+              <span class="analysis-setup-asset-growth-hover-plane" aria-hidden="true"></span>
               <input class="analysis-setup-asset-growth-slider analysis-setup-asset-field" type="range" min="${MIN_ASSET_GROWTH_RATE_PERCENT}" max="${MAX_ASSET_GROWTH_RATE_PERCENT}" step="0.25" value="${growthValue}" aria-label="${safeLabel} assumed annual growth slider" data-analysis-asset-treatment-growth-slider="${safeKey}" data-analysis-asset-growth-source="${growthFields.assumedAnnualGrowthRateSource}" data-analysis-asset-growth-profile="${growthFields.assumedAnnualGrowthRateProfile}">
               <span class="analysis-setup-asset-percent analysis-setup-asset-growth-percent">
                 <input class="analysis-setup-asset-percent-input analysis-setup-asset-growth-input analysis-setup-asset-field" type="text" inputmode="decimal" value="${growthValue}" aria-label="${safeLabel} assumed annual growth percentage" data-analysis-asset-treatment-growth="${safeKey}" data-analysis-asset-growth-source="${growthFields.assumedAnnualGrowthRateSource}" data-analysis-asset-growth-profile="${growthFields.assumedAnnualGrowthRateProfile}">
@@ -9573,6 +9574,16 @@
       });
 
       getAssetTreatmentFieldList(assetTreatmentFields, "growthSlider", itemKey).forEach(function (field) {
+        const growthControl = field.closest(".analysis-setup-asset-growth-control");
+        if (growthControl) {
+          field.addEventListener("mouseenter", function () {
+            growthControl.classList.add("is-growth-slider-expanded");
+          });
+          growthControl.addEventListener("mouseleave", function () {
+            growthControl.classList.remove("is-growth-slider-expanded");
+          });
+        }
+
         const syncFromSlider = function () {
           const number = Number(field.value);
           const growthValue = normalizeAssetGrowthRatePercent(number, 0);

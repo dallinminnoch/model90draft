@@ -289,11 +289,15 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("data-analysis-setup-view-tab")
       && diff.includes("data-analysis-setup-view-panel")
       && diff.includes("data-analysis-setup-scroll-target=\"calculation-inclusion\"");
+    const assumptionControlsFontImportDiff = diff.includes("family=Montserrat:wght@500;600;700")
+      && diff.includes("family=Inter:wght@300;400;500;600;700")
+      && diff.includes("Plus+Jakarta+Sans");
     return redesignDiff
       || previewDiff
       || legacyCleanupDiff
       || debtRecordTableHeaderDiff
-      || assumptionControlsScrollContractDiff;
+      || assumptionControlsScrollContractDiff
+      || assumptionControlsFontImportDiff;
   }
 
   const allowed = new Set([
