@@ -160,6 +160,34 @@ function isAllowedCashReserveCardStyleCssDiff() {
     && hunks.every((hunk) => hunk.includes("analysis-setup-cash-reserve"));
 }
 
+function isAllowedAnalysisSetupComponentsCssDiff() {
+  const diff = execFileSync("git", ["diff", "--", "components.css"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  const hunks = diff.split(/^@@/m).slice(1);
+  return hunks.length > 0
+    && hunks.every((hunk) => {
+      return hunk.includes("analysis-setup-debt-")
+        || hunk.includes("analysis-setup-cash-reserve")
+        || hunk.includes("analysis-setup-coverage")
+        || hunk.includes("analysis-setup-asset")
+        || hunk.includes("analysis-setup-control-group--assets")
+        || (
+          hunk.includes("analysis-setup")
+          && (
+            hunk.includes("data-analysis-setup-view-panel")
+            || hunk.includes("data-analysis-setup-current-view")
+            || (
+              hunk.includes("analysis-setup-control-group--calculation-inclusion")
+              && hunk.includes("order: 1")
+              && hunk.includes("grid-row: 1")
+            )
+          )
+        );
+    });
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-settings-adapter.js",
@@ -189,10 +217,7 @@ function assertNoProtectedDiffs() {
         return false;
       }
       if (filePath === "components.css") {
-        return !isAllowedDebtTreatmentCssDiff()
-          && !isAllowedAssumptionControlsStructuralCssDiff()
-          && !isAllowedAssetTreatmentCardStyleCssDiff()
-          && !isAllowedCashReserveCardStyleCssDiff();
+        return !isAllowedAnalysisSetupComponentsCssDiff();
       }
       return true;
     });

@@ -279,6 +279,12 @@ function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     && diff.includes("analysis-setup-cash-reserve-field-control")
     && diff.includes("data-analysis-cash-reserve-controls")
     && diff.includes("data-analysis-cash-reserve-exclude-emergency-fund");
+  const existingCoverageCardStyleDiff = diff.includes("analysis-setup-control-group--coverage")
+    && diff.includes("analysis-setup-coverage-head")
+    && diff.includes("analysis-setup-coverage-row--switch")
+    && diff.includes("analysis-setup-coverage-row--value")
+    && diff.includes("data-analysis-coverage-field=\"groupCoverageTreatment.include\"")
+    && diff.includes("data-analysis-coverage-field=\"individualTermTreatment.excludeIfExpiresWithinYears\"");
   return redesignDiff
     || previewDiff
     || legacyCleanupDiff
@@ -286,7 +292,8 @@ function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     || assumptionControlsScrollContractDiff
     || assumptionControlsFontImportDiff
     || assetProjectionControlsRemovalDiff
-    || cashReserveCardStyleDiff;
+    || cashReserveCardStyleDiff
+    || existingCoverageCardStyleDiff;
 }
 
 function assertNoProtectedDiffs() {

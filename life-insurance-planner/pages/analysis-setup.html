@@ -364,9 +364,11 @@
 
                 <div class="analysis-setup-treatment-row">
                   <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment" data-analysis-setup-scroll-section="existing-coverage-treatment">
-                  <div class="analysis-setup-control-heading">
-                    <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
-                    <p>Saved for future treatment modeling and preview only. Current DIME, LENS, and HLV offsets use linked profile coverage when Include Existing Coverage Offset is on.</p>
+                  <div class="analysis-setup-coverage-head">
+                    <div>
+                      <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
+                      <p>Saved for future treatment modeling and preview only. Current DIME, LENS, and HLV offsets use linked profile coverage when Include Existing Coverage Offset is on.</p>
+                    </div>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-coverage-defaults" aria-label="Existing coverage treatment default settings">
@@ -380,59 +382,53 @@
                   </div>
 
                   <div class="analysis-setup-coverage-grid" aria-label="Existing coverage treatment assumptions">
-                    <div class="analysis-setup-coverage-row analysis-setup-coverage-row--discount">
-                      <span class="analysis-setup-coverage-title">Group / employer coverage</span>
-                      <div class="analysis-setup-coverage-control-line">
-                        <label class="analysis-setup-coverage-switch analysis-setup-coverage-switch--compact">
-                          <span class="sr-only">Include group or employer coverage</span>
-                          <span class="settings-switch analysis-setup-mini-switch">
-                            <input type="checkbox" role="switch" aria-label="Include group or employer coverage" data-analysis-coverage-field="groupCoverageTreatment.include">
-                            <span class="settings-switch-track" aria-hidden="true"></span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-coverage-percent" for="analysis-setup-group-coverage-discount">
-                          <span>Reliability discount</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-group-coverage-discount" class="analysis-setup-asset-percent-input" type="text" inputmode="decimal" data-analysis-coverage-field="groupCoverageTreatment.reliabilityDiscountPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </div>
-                      <p>Saved for future treatment modeling and preview; not used by current method offsets.</p>
-                    </div>
+                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--switch">
+                      <span>Group / employer coverage</span>
+                      <span class="settings-switch analysis-setup-mini-switch">
+                        <input type="checkbox" role="switch" aria-label="Include group or employer coverage" data-analysis-coverage-field="groupCoverageTreatment.include">
+                        <span class="settings-switch-track" aria-hidden="true"></span>
+                      </span>
+                    </label>
 
-                    <div class="analysis-setup-coverage-row">
-                      <label class="analysis-setup-coverage-switch">
-                        <span>Pending coverage</span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input type="checkbox" role="switch" aria-label="Include pending coverage" data-analysis-coverage-field="pendingCoverageTreatment.include">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <p>Future effective-date policies only; saved for future treatment modeling and preview, not current method offsets.</p>
-                    </div>
+                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--value" for="analysis-setup-group-coverage-discount">
+                      <span>
+                        <span class="analysis-setup-coverage-title">Reliability discount</span>
+                        <span class="analysis-setup-coverage-note">Saved for future treatment modeling and preview; not used by current method offsets.</span>
+                      </span>
+                      <span class="analysis-setup-asset-percent">
+                        <input id="analysis-setup-group-coverage-discount" class="analysis-setup-asset-percent-input" type="text" inputmode="decimal" data-analysis-coverage-field="groupCoverageTreatment.reliabilityDiscountPercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </label>
 
-                    <div class="analysis-setup-coverage-row analysis-setup-coverage-row--discount">
-                      <span class="analysis-setup-coverage-title">Unknown coverage</span>
-                      <div class="analysis-setup-coverage-control-line">
-                        <label class="analysis-setup-coverage-switch analysis-setup-coverage-switch--compact">
-                          <span class="sr-only">Include unknown coverage</span>
-                          <span class="settings-switch analysis-setup-mini-switch">
-                            <input type="checkbox" role="switch" aria-label="Include unknown coverage" data-analysis-coverage-field="unknownCoverageTreatment.include">
-                            <span class="settings-switch-track" aria-hidden="true"></span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-coverage-percent" for="analysis-setup-unknown-coverage-discount">
-                          <span>Reliability discount</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-unknown-coverage-discount" class="analysis-setup-asset-percent-input" type="text" inputmode="decimal" data-analysis-coverage-field="unknownCoverageTreatment.reliabilityDiscountPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </div>
-                    </div>
+                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--switch">
+                      <span>
+                        <span class="analysis-setup-coverage-title">Pending coverage</span>
+                        <span class="analysis-setup-coverage-note">Future effective-date policies only; saved for future treatment modeling and preview, not current method offsets.</span>
+                      </span>
+                      <span class="settings-switch analysis-setup-mini-switch">
+                        <input type="checkbox" role="switch" aria-label="Include pending coverage" data-analysis-coverage-field="pendingCoverageTreatment.include">
+                        <span class="settings-switch-track" aria-hidden="true"></span>
+                      </span>
+                    </label>
 
-                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--inline" for="analysis-setup-term-expiration-guardrail">
+                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--switch">
+                      <span>Unknown coverage</span>
+                      <span class="settings-switch analysis-setup-mini-switch">
+                        <input type="checkbox" role="switch" aria-label="Include unknown coverage" data-analysis-coverage-field="unknownCoverageTreatment.include">
+                        <span class="settings-switch-track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+
+                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--value" for="analysis-setup-unknown-coverage-discount">
+                      <span>Reliability discount</span>
+                      <span class="analysis-setup-asset-percent">
+                        <input id="analysis-setup-unknown-coverage-discount" class="analysis-setup-asset-percent-input" type="text" inputmode="decimal" data-analysis-coverage-field="unknownCoverageTreatment.reliabilityDiscountPercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </label>
+
+                    <label class="analysis-setup-coverage-row analysis-setup-coverage-row--value" for="analysis-setup-term-expiration-guardrail">
                       <span>Term expiration guardrail</span>
                       <span class="analysis-setup-coverage-years">
                         <input id="analysis-setup-term-expiration-guardrail" class="analysis-setup-asset-percent-input" type="text" inputmode="numeric" placeholder="Blank" data-analysis-coverage-field="individualTermTreatment.excludeIfExpiresWithinYears">
