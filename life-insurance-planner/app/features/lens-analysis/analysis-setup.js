@@ -270,8 +270,7 @@
   const ASSET_GROWTH_CONSUMPTION_STATUS_SAVED_ONLY = "saved-only";
   const ASSET_GROWTH_PROJECTION_MODES = Object.freeze([
     "currentDollarOnly",
-    "reportingOnly",
-    "projectedOffsets"
+    "reportingOnly"
   ]);
   const CASH_RESERVE_ASSUMPTION_MODES = Object.freeze([
     "reportingOnly",
@@ -3382,9 +3381,12 @@
 
   function getMethodFieldMap() {
     const fields = {
-      resetButton: document.querySelector("[data-analysis-method-reset]"),
-      projectedAssetOffsetEnabled: document.querySelector("[data-analysis-projected-asset-offset-enabled]")
+      resetButton: document.querySelector("[data-analysis-method-reset]")
     };
+    const projectedAssetOffsetEnabled = document.querySelector("[data-analysis-projected-asset-offset-enabled]");
+    if (projectedAssetOffsetEnabled) {
+      fields.projectedAssetOffsetEnabled = projectedAssetOffsetEnabled;
+    }
     Array.from(document.querySelectorAll("[data-analysis-method-field]")).forEach(function (field) {
       fields[field.getAttribute("data-analysis-method-field")] = field;
     });
@@ -3934,6 +3936,10 @@
     );
     const modeField = fields?.assetGrowthProjection?.mode;
     const projectionYearsField = fields?.assetGrowthProjection?.projectionYears;
+    const hasProjectionFields = Boolean(modeField || projectionYearsField);
+    if (!hasProjectionFields) {
+      return getAssetGrowthProjectionAssumptions(DEFAULT_ASSET_GROWTH_PROJECTION_ASSUMPTIONS);
+    }
 
     return getAssetGrowthProjectionAssumptions({
       mode: modeField
@@ -6315,7 +6321,9 @@
 
   function setMethodFieldsDisabled(fields, disabled) {
     Object.keys(fields).forEach(function (fieldName) {
-      fields[fieldName].disabled = Boolean(disabled);
+      if (fields[fieldName]) {
+        fields[fieldName].disabled = Boolean(disabled);
+      }
     });
   }
 
@@ -7014,10 +7022,6 @@
     const nextProjectionAssumptions = getAssetGrowthProjectionAssumptions(
       nextAssumptions.assetGrowthProjectionAssumptions
     );
-
-    if (projectedAssetOffsetAssumptions?.enabled === true) {
-      nextProjectionAssumptions.mode = "projectedOffsets";
-    }
 
     return {
       ...nextAssumptions,

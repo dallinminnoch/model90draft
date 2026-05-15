@@ -284,12 +284,19 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
   const assumptionControlsFontImportDiff = diff.includes("family=Montserrat:wght@500;600;700")
     && diff.includes("family=Inter:wght@300;400;500;600;700")
     && diff.includes("Plus+Jakarta+Sans");
+  const assetProjectionControlsRemovalDiff = diff.includes("-                          <span class=\"settings-toggle-label\">Use Projected Asset Offset in LENS</span>")
+    && diff.includes("-                      <select id=\"analysis-setup-asset-growth-projection-mode\"")
+    && diff.includes("-                      <input id=\"analysis-setup-asset-growth-projection-years\"")
+    && !diff.includes("+                          <span class=\"settings-toggle-label\">Use Projected Asset Offset in LENS</span>")
+    && !diff.includes("+                      <select id=\"analysis-setup-asset-growth-projection-mode\"")
+    && !diff.includes("+                      <input id=\"analysis-setup-asset-growth-projection-years\"");
   return redesignDiff
     || previewDiff
     || legacyCleanupDiff
     || debtRecordTableHeaderDiff
     || assumptionControlsScrollContractDiff
-    || assumptionControlsFontImportDiff;
+    || assumptionControlsFontImportDiff
+    || assetProjectionControlsRemovalDiff;
 }
 
 function assertNoProtectedDiffs() {

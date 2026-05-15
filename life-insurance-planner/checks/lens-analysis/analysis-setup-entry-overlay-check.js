@@ -148,16 +148,14 @@ assert.equal(countOccurrences(html, /data-analysis-setup-view-panel=/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-setup-current-view=/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-setup-scroll-target=/g), 11);
 assert.equal(countOccurrences(html, /data-analysis-setup-scroll-section=/g), 11);
-assert.equal(countOccurrences(html, /data-analysis-projected-asset-offset-enabled/g), 1);
-assert.equal(countOccurrences(html, /data-analysis-asset-growth-projection-mode/g), 1);
-assert.equal(countOccurrences(html, /data-analysis-asset-growth-projection-years/g), 1);
+assert.equal(countOccurrences(html, /data-analysis-projected-asset-offset-enabled/g), 0);
+assert.equal(countOccurrences(html, /data-analysis-asset-growth-projection-mode/g), 0);
+assert.equal(countOccurrences(html, /data-analysis-asset-growth-projection-years/g), 0);
 assert.equal(countOccurrences(html, /data-analysis-recommendation-enabled/g), 1);
 
 [
   /data-analysis-inflation-field="enabled"/,
   /data-analysis-method-field="needsIncludeOffsetAssets"/,
-  /data-analysis-projected-asset-offset-enabled/,
-  /data-analysis-asset-growth-projection-mode/,
   /data-analysis-asset-treatment-table/,
   /data-analysis-coverage-field/,
   /data-analysis-debt-table/,

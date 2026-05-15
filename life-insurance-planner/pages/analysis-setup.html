@@ -195,16 +195,6 @@
                       </label>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
                         <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Use Projected Asset Offset in LENS</span>
-                          <span class="settings-toggle-note">Requires Asset Offsets in Needs.</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input type="checkbox" role="switch" aria-label="Use Projected Asset Offset in LENS" data-analysis-projected-asset-offset-enabled data-analysis-calculation-inclusion-control>
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
-                        <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include Survivor Income Offset</span>
                         </span>
                         <span class="settings-switch analysis-setup-mini-switch">
@@ -357,28 +347,6 @@
                       <button class="analysis-setup-asset-default-button" type="button" data-analysis-asset-default-profile="aggressive" aria-pressed="false">Aggressive</button>
                       <button class="analysis-setup-asset-default-button" type="button" data-analysis-asset-default-profile="custom" aria-pressed="false">Custom</button>
                     </div>
-                  </div>
-
-                  <div class="analysis-setup-asset-growth-projection-controls" aria-label="Asset growth projection source-mode controls" data-analysis-asset-growth-projection-controls>
-                    <div class="analysis-setup-asset-growth-projection-copy">
-                      <span class="analysis-setup-asset-defaults-label">Asset Growth Projection:</span>
-                      <p>Projection mode controls reporting-only growth context. The LENS projected offset is activated only by Use Projected Asset Offset in LENS above; DIME, HLV, and Simple Needs remain unchanged.</p>
-                      <div class="analysis-setup-asset-growth-projection-impact" data-analysis-asset-growth-projection-impact-status aria-live="polite">
-                        <span class="analysis-setup-asset-defaults-label" data-analysis-asset-growth-projection-impact-label>Recommendation impact: Reporting only.</span>
-                        <p data-analysis-asset-growth-projection-impact-copy>Projected asset growth is shown for insight only and does not change the LENS recommendation. To apply projected growth to LENS, enable "Use Projected Asset Offset in LENS" in Calculation Inclusion Controls.</p>
-                      </div>
-                    </div>
-                    <label class="analysis-setup-asset-growth-projection-field" for="analysis-setup-asset-growth-projection-mode">
-                      <span>Projection mode</span>
-                      <select id="analysis-setup-asset-growth-projection-mode" class="analysis-setup-asset-select" data-analysis-asset-growth-projection-mode>
-                        <option value="currentDollarOnly">Current-dollar only</option>
-                        <option value="reportingOnly">Reporting only</option>
-                      </select>
-                    </label>
-                    <label class="analysis-setup-asset-growth-projection-field" for="analysis-setup-asset-growth-projection-years">
-                      <span>Projection years</span>
-                      <input id="analysis-setup-asset-growth-projection-years" class="analysis-setup-card-input analysis-setup-asset-growth-projection-years" type="number" min="0" max="60" step="1" inputmode="numeric" value="0" data-analysis-asset-growth-projection-years>
-                    </label>
                   </div>
 
                   <div class="analysis-setup-asset-table" role="table" aria-label="Asset treatment assumptions" data-analysis-asset-treatment-table>

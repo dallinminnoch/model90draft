@@ -316,25 +316,25 @@ const inflationAndMethodSection = getSection(
   'id="analysis-setup-asset-treatment"'
 );
 
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-controls/);
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-controls/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
 assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
 assert.doesNotMatch(inflationAndMethodSection, /data-analysis-asset-growth-projection-/);
-assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/i);
-assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/i);
-assert.match(assetTreatmentSection, /DIME, HLV, and Simple Needs remain unchanged/i);
+assert.doesNotMatch(assetTreatmentSection, /Projection mode controls reporting-only growth context/i);
+assert.doesNotMatch(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/i);
+assert.doesNotMatch(assetTreatmentSection, /DIME, HLV, and Simple Needs remain unchanged/i);
 assert.doesNotMatch(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/i);
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
-assert.match(assetTreatmentSection, /Recommendation impact: Reporting only\./);
-assert.match(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
-assert.match(assetTreatmentSection, /Current-dollar only/);
-assert.match(assetTreatmentSection, /Reporting only/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
+assert.doesNotMatch(assetTreatmentSection, /Recommendation impact: Reporting only\./);
+assert.doesNotMatch(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
+assert.doesNotMatch(assetTreatmentSection, /Current-dollar only/);
+assert.doesNotMatch(assetTreatmentSection, /Reporting only/);
 assert.doesNotMatch(assetTreatmentSection, /Projected offsets - future \/ inactive/);
 assert.doesNotMatch(assetTreatmentSection, /<option value="projectedOffsets"/);
 assert.doesNotMatch(assetTreatmentSection, /data-analysis-projected-asset-offset-enabled/);
 assert.doesNotMatch(`${html}\n${analysisSetupSource}\n${componentsCss}`, /Predicted annual growth/i);
-assert.match(componentsCss, /analysis-setup-asset-growth-projection-controls/);
+assert.doesNotMatch(componentsCss, /analysis-setup-asset-growth-projection-controls/);
 
 const setupContext = createAnalysisSetupContext();
 const analysisSetup = setupContext.LensApp.analysisSetup;
@@ -391,13 +391,13 @@ const projectedOffsetsFields = createTreatmentFields(savedProjectedOffsetsAssump
 harness.populateAssetTreatmentFields(projectedOffsetsFields, savedProjectedOffsetsAssumptions, {});
 assert.equal(
   projectedOffsetsFields.assetGrowthProjection.mode.value,
-  "reportingOnly",
-  "Old saved projectedOffsets records should not expose a duplicate activation option in Asset Treatment"
+  "currentDollarOnly",
+  "Old saved projectedOffsets records should normalize back to current-dollar treatment in Analysis Setup"
 );
 assert.equal(projectedOffsetsFields.assetGrowthProjection.projectionYears.value, "45");
 const savedProjectedOffsets = harness.readValidatedAssetTreatmentAssumptions(projectedOffsetsFields).value;
 assert.deepEqual(cloneJson(savedProjectedOffsets.assetGrowthProjectionAssumptions), {
-  mode: "reportingOnly",
+  mode: "currentDollarOnly",
   projectionYears: 45,
   projectionYearsSource: "analysis-setup",
   source: "analysis-setup",

@@ -162,10 +162,13 @@ function createCheckbox(checked) {
 
 function createMethodFields(options) {
   const normalizedOptions = options && typeof options === "object" ? options : {};
-  return {
-    needsIncludeOffsetAssets: createCheckbox(normalizedOptions.includeAssetOffsets !== false),
-    projectedAssetOffsetEnabled: createCheckbox(normalizedOptions.projectedEnabled === true)
+  const fields = {
+    needsIncludeOffsetAssets: createCheckbox(normalizedOptions.includeAssetOffsets !== false)
   };
+  if (normalizedOptions.omitProjectedAssetOffsetField !== true) {
+    fields.projectedAssetOffsetEnabled = createCheckbox(normalizedOptions.projectedEnabled === true);
+  }
+  return fields;
 }
 
 function createImpactElement() {
@@ -278,7 +281,7 @@ function createAnalysisSettings(options) {
       needsIncludeOffsetAssets: includeAssetOffsets
     },
     assetTreatmentAssumptions: createAssetTreatmentAssumptions(11, {
-      mode: projectedEnabled ? "projectedOffsets" : "reportingOnly",
+      mode: "reportingOnly",
       projectionYears: 30
     }),
     projectedAssetOffsetAssumptions: projectedEnabled
@@ -332,43 +335,33 @@ const inclusionSection = getSection(
 );
 assert.match(inclusionSection, /settings-toggle-row analysis-setup-toggle-control/);
 assert.match(inclusionSection, /settings-switch analysis-setup-mini-switch/);
-assert.match(inclusionSection, /data-analysis-projected-asset-offset-enabled/);
-assert.match(inclusionSection, /Use Projected Asset Offset in LENS/);
-assert.match(inclusionSection, /Requires Asset Offsets in Needs\./);
+assert.doesNotMatch(inclusionSection, /data-analysis-projected-asset-offset-enabled/);
+assert.doesNotMatch(inclusionSection, /Use Projected Asset Offset in LENS/);
+assert.doesNotMatch(inclusionSection, /Requires Asset Offsets in Needs\./);
 assert.doesNotMatch(inclusionSection, /subtract linked profile coverage as the current coverage offset/);
 assert.doesNotMatch(inclusionSection, /Turns asset offsets on or off for the LENS method only/);
 assert.doesNotMatch(inclusionSection, /treated eligible assets plus incremental projected growth/);
 assert.doesNotMatch(inclusionSection, /DIME, HLV, and Simple Needs are unchanged/);
 assert.doesNotMatch(inclusionSection, /Step 3 shows the effective offset, exclusions, and any fallback/);
-assert.ok(
-  inclusionSection.indexOf("Use Projected Asset Offset in LENS")
-    > inclusionSection.indexOf("Include Asset Offsets in Needs"),
-  "Projected asset offset toggle should follow Include Asset Offsets in Needs"
-);
-assert.ok(
-  inclusionSection.indexOf("Use Projected Asset Offset in LENS")
-    < inclusionSection.indexOf("Include Survivor Income Offset"),
-  "Projected asset offset toggle should stay with the master inclusion controls"
-);
 
 const assetTreatmentSection = getSection(
   html,
   'id="analysis-setup-asset-treatment"',
   'id="analysis-setup-existing-coverage-treatment"'
 );
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
-assert.match(assetTreatmentSection, /Current-dollar only/);
-assert.match(assetTreatmentSection, /Reporting only/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
+assert.doesNotMatch(assetTreatmentSection, /Current-dollar only/);
+assert.doesNotMatch(assetTreatmentSection, /Reporting only/);
 assert.doesNotMatch(assetTreatmentSection, /<option value="projectedOffsets"/);
 assert.doesNotMatch(assetTreatmentSection, /Projected offsets - future \/ inactive/);
 assert.doesNotMatch(assetTreatmentSection, /data-analysis-projected-asset-offset-enabled/);
-assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/);
-assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/);
+assert.doesNotMatch(assetTreatmentSection, /Projection mode controls reporting-only growth context/);
+assert.doesNotMatch(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/);
 assert.doesNotMatch(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/);
-assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
-assert.match(assetTreatmentSection, /Recommendation impact: Reporting only\./);
-assert.match(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
+assert.doesNotMatch(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
+assert.doesNotMatch(assetTreatmentSection, /Recommendation impact: Reporting only\./);
+assert.doesNotMatch(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
 assert.match(setupSource, /data-analysis-asset-treatment-growth/);
 assert.match(setupSource, /data-analysis-asset-treatment-growth-slider/);
 
@@ -446,15 +439,15 @@ assert.deepEqual(
 assert.deepEqual(
   cloneJson(harness.readValidatedProjectedAssetOffsetAssumptions(createMethodFields({
     includeAssetOffsets: true,
-    projectedEnabled: true
+    omitProjectedAssetOffsetField: true
   })).value),
   {
-    enabled: true,
-    consumptionStatus: "method-active",
-    activationVersion: 1,
+    enabled: false,
+    consumptionStatus: "saved-only",
+    activationVersion: 0,
     source: "analysis-setup"
   },
-  "Enabled master toggle should save the explicit active marker"
+  "Removed projected offset UI should not save an active marker"
 );
 
 assert.deepEqual(
@@ -500,7 +493,7 @@ const activeAssetTreatment = harness.applyProjectedAssetOffsetModeToAssetTreatme
     activationVersion: 1
   }
 );
-assert.equal(activeAssetTreatment.assetGrowthProjectionAssumptions.mode, "projectedOffsets");
+assert.equal(activeAssetTreatment.assetGrowthProjectionAssumptions.mode, "reportingOnly");
 assert.equal(activeAssetTreatment.assetGrowthProjectionAssumptions.projectionYears, 18);
 assert.equal(activeAssetTreatment.assets.cashAndCashEquivalents.assumedAnnualGrowthRatePercent, 7);
 
@@ -554,7 +547,7 @@ const offsetsOffSettings = adapter.createAnalysisMethodSettings({
   lensModel: buildLensModel(analysisContext, offsetsOffAnalysisSettings)
 });
 
-assert.equal(activeSettings.needsAnalysisSettings.assetGrowthProjectionAssumptions.mode, "projectedOffsets");
+assert.equal(activeSettings.needsAnalysisSettings.assetGrowthProjectionAssumptions.mode, "reportingOnly");
 assert.deepEqual(
   cloneJson(activeSettings.needsAnalysisSettings.projectedAssetOffsetAssumptions),
   {
@@ -563,7 +556,7 @@ assert.deepEqual(
     activationVersion: 1,
     source: "analysis-setup"
   },
-  "Adapter should pass the active marker only into LENS settings"
+  "Adapter can carry a direct active marker, but Analysis Setup no longer exposes the source mode needed to consume it"
 );
 assert.equal(activeSettings.dimeSettings.projectedAssetOffsetAssumptions, undefined);
 assert.equal(activeSettings.humanLifeValueSettings.projectedAssetOffsetAssumptions, undefined);
@@ -571,15 +564,10 @@ assert.equal(offsetsOffSettings.needsAnalysisSettings.includeOffsetAssets, false
 
 const inactiveOutputs = runMethods(analysisContext, activeModel, inactiveSettings);
 const activeOutputs = runMethods(analysisContext, activeModel, activeSettings);
-assert.notDeepEqual(
+assert.deepEqual(
   cloneJson(activeOutputs.needs),
   cloneJson(inactiveOutputs.needs),
-  "LENS output should change when the master toggle produces a valid active marker"
-);
-assert.equal(
-  activeOutputs.needs.commonOffsets.assetOffset,
-  activeModel.projectedAssetOffset.effectiveProjectedAssetOffset,
-  "LENS should consume projectedAssetOffset.effectiveProjectedAssetOffset after UI activation"
+  "LENS output should not change from projected growth when Analysis Setup keeps source mode reporting-only"
 );
 assert.deepEqual(cloneJson(activeOutputs.dime), cloneJson(inactiveOutputs.dime));
 assert.deepEqual(cloneJson(activeOutputs.hlv), cloneJson(inactiveOutputs.hlv));
