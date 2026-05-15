@@ -150,6 +150,16 @@ function isAllowedAssetTreatmentCardStyleCssDiff() {
     });
 }
 
+function isAllowedCashReserveCardStyleCssDiff() {
+  const diff = execFileSync("git", ["diff", "--", "components.css"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  const hunks = diff.split(/^@@/m).slice(1);
+  return hunks.length > 0
+    && hunks.every((hunk) => hunk.includes("analysis-setup-cash-reserve"));
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-settings-adapter.js",
@@ -181,7 +191,8 @@ function assertNoProtectedDiffs() {
       if (filePath === "components.css") {
         return !isAllowedDebtTreatmentCssDiff()
           && !isAllowedAssumptionControlsStructuralCssDiff()
-          && !isAllowedAssetTreatmentCardStyleCssDiff();
+          && !isAllowedAssetTreatmentCardStyleCssDiff()
+          && !isAllowedCashReserveCardStyleCssDiff();
       }
       return true;
     });

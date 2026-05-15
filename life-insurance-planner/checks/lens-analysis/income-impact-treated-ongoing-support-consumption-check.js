@@ -298,13 +298,19 @@ function assertNoForbiddenSourceChanges() {
       && !diff.includes("+                          <span class=\"settings-toggle-label\">Use Projected Asset Offset in LENS</span>")
       && !diff.includes("+                      <select id=\"analysis-setup-asset-growth-projection-mode\"")
       && !diff.includes("+                      <input id=\"analysis-setup-asset-growth-projection-years\"");
+    const cashReserveCardStyleDiff = diff.includes("analysis-setup-control-group--cash-reserve")
+      && diff.includes("analysis-setup-cash-reserve-head")
+      && diff.includes("analysis-setup-cash-reserve-field-control")
+      && diff.includes("data-analysis-cash-reserve-controls")
+      && diff.includes("data-analysis-cash-reserve-exclude-emergency-fund");
     return redesignDiff
       || previewDiff
       || legacyCleanupDiff
       || debtRecordTableHeaderDiff
       || assumptionControlsScrollContractDiff
       || assumptionControlsFontImportDiff
-      || assetProjectionControlsRemovalDiff;
+      || assetProjectionControlsRemovalDiff
+      || cashReserveCardStyleDiff;
   }
 
   const allowed = new Set([

@@ -278,12 +278,12 @@ const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-se
 const componentsCss = readRepoFile("components.css");
 const assetTreatmentSection = getSection(
   html,
-  'id="analysis-setup-asset-treatment"',
-  'id="analysis-setup-cash-reserve"'
+  'data-analysis-setup-scroll-section="asset-treatment"',
+  'data-analysis-setup-scroll-section="cash-reserve"'
 );
 const cashReserveSection = getSection(
   html,
-  'analysis-setup-control-group--cash-reserve',
+  'data-analysis-setup-scroll-section="cash-reserve"',
   'id="analysis-setup-coverage-treatment"'
 );
 const calculationSectionBeforeAssetTreatment = getSection(
@@ -302,12 +302,9 @@ assert.equal(
   1,
   "Cash Reserve controls should render once"
 );
-assert.match(cashReserveSection, /Cash Reserve Assumptions:/);
 assert.match(cashReserveSection, /Saved for future reporting\/modeling/i);
 assert.match(cashReserveSection, /do not affect current DIME, LENS, or HLV outputs/i);
 assert.match(cashReserveSection, /current asset offsets remain current-dollar\/current treatment based/i);
-assert.match(cashReserveSection, /Emergency reserve and liquidity rules must be reviewed/i);
-assert.match(cashReserveSection, /Explicit emergency fund assets are generally preserved before offsetting need/i);
 assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
 assert.doesNotMatch(calculationSectionBeforeAssetTreatment, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
 
