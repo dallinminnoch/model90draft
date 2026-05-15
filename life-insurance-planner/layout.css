@@ -1630,12 +1630,6 @@ body.analysis-setup-assumptions-open {
   padding-inline: 0;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"],
-.analysis-setup-panel-grid[data-analysis-setup-current-view="offset"],
-.analysis-setup-panel-grid[data-analysis-setup-current-view="planning"] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .analysis-setup-left-stack {
   display: grid;
   grid-column: 1;
@@ -1645,14 +1639,14 @@ body.analysis-setup-assumptions-open {
   min-width: 0;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack {
+.analysis-setup-left-stack {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: clamp(0.82rem, 1vw, 1.2rem);
   grid-template-rows: none;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults {
+.analysis-setup-control-group--method-defaults {
   order: 3;
   grid-column: 1;
   grid-row: auto;
@@ -1660,28 +1654,8 @@ body.analysis-setup-assumptions-open {
   min-height: 0;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--calculation-inclusion {
-  order: 1;
-  grid-column: 1;
-  grid-row: 1;
-  align-self: stretch;
-  min-height: 0;
-}
-
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--inflation {
-  order: 2;
-  grid-column: 1;
-  grid-row: auto;
-}
-
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--growth {
+.analysis-setup-control-group--growth {
   order: 4;
-  grid-column: 1;
-  grid-row: auto;
-}
-
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns {
-  order: 5;
   grid-column: 1;
   grid-row: auto;
 }
@@ -1704,19 +1678,20 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
   grid-row: auto;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="offset"] .analysis-setup-control-group--assets,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="offset"] .analysis-setup-treatment-row,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="planning"] .analysis-setup-control-group--survivor-support,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="planning"] .analysis-setup-control-group--education,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="planning"] .analysis-setup-control-group--recommendation {
+.analysis-setup-left-stack,
+.analysis-setup-control-group--assets,
+.analysis-setup-treatment-row,
+.analysis-setup-control-group--survivor-support,
+.analysis-setup-control-group--education,
+.analysis-setup-control-group--recommendation {
   grid-column: 1 / -1;
   grid-row: auto;
 }
 
 .analysis-setup-control-group--survivor-support,
 .analysis-setup-control-group--education,
-.analysis-setup-control-group--recommendation {
+.analysis-setup-control-group--recommendation,
+.analysis-setup-control-group--policy-returns {
   grid-column: 1 / -1;
 }
 
@@ -1749,13 +1724,8 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
     grid-row: auto;
   }
 
-  .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack {
+  .analysis-setup-left-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns {
-    grid-column: 1 / -1;
-    grid-row: auto;
   }
 }
 
@@ -1793,13 +1763,8 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
     grid-row: auto;
   }
 
-  .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack {
+  .analysis-setup-left-stack {
     grid-template-columns: 1fr;
-  }
-
-  .analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns {
-    grid-column: auto;
-    grid-row: auto;
   }
 
   .analysis-setup-treatment-row {

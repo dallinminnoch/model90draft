@@ -284,7 +284,16 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("Mortgage-only payment is treated");
     const debtRecordTableHeaderDiff = diff.includes("-                      <span role=\"columnheader\">Source balance</span>")
       && diff.includes("+                      <span role=\"columnheader\">Balance / payment</span>");
-    return redesignDiff || previewDiff || legacyCleanupDiff || debtRecordTableHeaderDiff;
+    const assumptionControlsScrollContractDiff = diff.includes("-                <div class=\"analysis-setup-panel-grid\" data-analysis-setup-view-grid data-analysis-setup-current-view=\"calculation\">")
+      && diff.includes("+                <div class=\"analysis-setup-panel-grid\" data-analysis-setup-view-grid>")
+      && diff.includes("data-analysis-setup-view-tab")
+      && diff.includes("data-analysis-setup-view-panel")
+      && diff.includes("data-analysis-setup-scroll-target=\"calculation-inclusion\"");
+    return redesignDiff
+      || previewDiff
+      || legacyCleanupDiff
+      || debtRecordTableHeaderDiff
+      || assumptionControlsScrollContractDiff;
   }
 
   const allowed = new Set([
@@ -292,8 +301,15 @@ function assertNoForbiddenSourceChanges() {
     "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-base-household-expense-stream.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+    "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
+    "life-insurance-planner/checks/lens-analysis/analysis-setup-entry-overlay-check.js",
     "life-insurance-planner/checks/lens-analysis/analysis-setup-debt-record-table-check.js",
     "life-insurance-planner/checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
+    "life-insurance-planner/checks/lens-analysis/asset-growth-projection-source-mode-ui-check.js",
+    "life-insurance-planner/checks/lens-analysis/asset-growth-ui-saved-only-check.js",
+    "life-insurance-planner/checks/lens-analysis/cash-reserve-assumptions-ui-check.js",
+    "life-insurance-planner/checks/lens-analysis/final-expense-inflation-prep-check.js",
+    "life-insurance-planner/checks/lens-analysis/projected-asset-offset-analysis-setup-ui-check.js",
     "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js",
     "life-insurance-planner/checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
@@ -301,7 +317,9 @@ function assertNoForbiddenSourceChanges() {
     "life-insurance-planner/checks/lens-analysis/step-three-treated-ongoing-support-display-check.js",
     "life-insurance-planner/checks/lens-analysis/treated-ongoing-support-method-consumption-check.js",
     "life-insurance-planner/checks/lens-analysis/treated-ongoing-support-model-check.js",
-    "life-insurance-planner/checks/run-income-impact-suite.js"
+    "life-insurance-planner/checks/run-income-impact-suite.js",
+    "life-insurance-planner/components.css",
+    "life-insurance-planner/layout.css"
   ]);
   const changed = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
     cwd: path.resolve(repoRoot, ".."),

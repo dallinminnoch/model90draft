@@ -152,6 +152,16 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
   });
 }
 
+function isAllowedAssumptionControlsLayoutContractChange() {
+  const diff = getGitDiff("layout.css");
+  const hunks = diff.split(/^@@/m).slice(1);
+  return hunks.length > 0
+    && hunks.every(function (hunk) {
+      return hunk.includes("analysis-setup")
+        && hunk.includes("data-analysis-setup-current-view");
+    });
+}
+
 function isAllowedLensModelBuilderContractExposure() {
   const diff = getGitDiff("app/features/lens-analysis/lens-model-builder.js");
   const changedLines = diff
@@ -1187,6 +1197,8 @@ const protectedChanges = getChangedFiles([
   return file !== "life-insurance-planner/styles.css" || !isAllowedIncomeImpactTitleStyleOverride();
 }).filter(function (file) {
   return file !== "life-insurance-planner/layout.css" || !isAllowedIncomeImpactSidePanelLayoutChange();
+}).filter(function (file) {
+  return file !== "life-insurance-planner/layout.css" || !isAllowedAssumptionControlsLayoutContractChange();
 }).filter(function (file) {
   return file !== "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js"
     || !isAllowedLensModelBuilderContractExposure();

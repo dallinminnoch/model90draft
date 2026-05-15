@@ -304,21 +304,38 @@ function assertNoProtectedDiffs() {
       && diff.includes("Mortgage-only payment is treated");
     const debtRecordTableHeaderDiff = diff.includes("-                      <span role=\"columnheader\">Source balance</span>")
       && diff.includes("+                      <span role=\"columnheader\">Balance / payment</span>");
-    return redesignDiff || previewDiff || legacyCleanupDiff || debtRecordTableHeaderDiff;
+    const assumptionControlsScrollContractDiff = diff.includes("-                <div class=\"analysis-setup-panel-grid\" data-analysis-setup-view-grid data-analysis-setup-current-view=\"calculation\">")
+      && diff.includes("+                <div class=\"analysis-setup-panel-grid\" data-analysis-setup-view-grid>")
+      && diff.includes("data-analysis-setup-view-tab")
+      && diff.includes("data-analysis-setup-view-panel")
+      && diff.includes("data-analysis-setup-scroll-target=\"calculation-inclusion\"");
+    return redesignDiff
+      || previewDiff
+      || legacyCleanupDiff
+      || debtRecordTableHeaderDiff
+      || assumptionControlsScrollContractDiff;
   }
 
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
+    "checks/lens-analysis/analysis-setup-entry-overlay-check.js",
     "checks/lens-analysis/analysis-setup-debt-record-table-check.js",
     "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
+    "checks/lens-analysis/asset-growth-projection-source-mode-ui-check.js",
+    "checks/lens-analysis/asset-growth-ui-saved-only-check.js",
+    "checks/lens-analysis/cash-reserve-assumptions-ui-check.js",
+    "checks/lens-analysis/final-expense-inflation-prep-check.js",
+    "checks/lens-analysis/projected-asset-offset-analysis-setup-ui-check.js",
     "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
     "checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
     "checks/lens-analysis/step-three-treated-ongoing-support-display-check.js",
     "checks/lens-analysis/treated-ongoing-support-method-consumption-check.js",
     "checks/lens-analysis/treated-ongoing-support-model-check.js",
-    "checks/run-income-impact-suite.js"
+    "checks/run-income-impact-suite.js",
+    "components.css",
+    "layout.css"
   ]);
   const changedFiles = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
     cwd: repoRoot,

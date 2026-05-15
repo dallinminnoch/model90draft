@@ -14401,10 +14401,6 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
     0 0 0 2px rgba(74, 98, 189, 0.28);
 }
 
-.analysis-setup-panel-grid [data-analysis-setup-view-panel][hidden] {
-  display: none !important;
-}
-
 .analysis-setup-panel-header p {
   margin: 0.2rem 0 0;
   max-width: 42rem;
@@ -14485,21 +14481,18 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   background: #ffffff;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-left-stack .analysis-setup-control-group {
+.analysis-setup-left-stack .analysis-setup-control-group {
   border-color: #e5e7eb;
   background: #ffffff;
   box-shadow: none;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults {
+.analysis-setup-control-group--method-defaults {
   align-content: stretch;
   grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--calculation-inclusion {
-  order: 1;
-  grid-column: 1;
-  grid-row: 1;
+.analysis-setup-control-group--calculation-inclusion {
   gap: 0;
   padding: 0;
   border-color: #e5e7eb;
@@ -14537,13 +14530,13 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   line-height: 1.35;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--inflation,
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--growth {
+.analysis-setup-control-group--inflation,
+.analysis-setup-control-group--growth {
   padding-right: 0;
   padding-left: 0;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--policy-returns {
+.analysis-setup-control-group--policy-returns {
   padding-right: 0.05rem;
 }
 
@@ -16874,13 +16867,13 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   background: #ffffff;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults .analysis-setup-method-row {
+.analysis-setup-control-group--method-defaults .analysis-setup-method-row {
   padding: 0.9rem 1.9rem;
   border-bottom-color: #f3f4f6;
   background: #ffffff;
 }
 
-.analysis-setup-panel-grid[data-analysis-setup-current-view="calculation"] .analysis-setup-control-group--method-defaults .analysis-setup-method-list {
+.analysis-setup-control-group--method-defaults .analysis-setup-method-list {
   align-self: stretch;
   align-content: start;
   gap: 0;

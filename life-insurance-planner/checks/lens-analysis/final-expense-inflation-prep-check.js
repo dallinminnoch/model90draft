@@ -243,11 +243,14 @@ assert.match(html, /Final expense target age \(LENS only\)/);
 const inflationSectionStart = html.indexOf('data-analysis-setup-scroll-section="inflation-assumptions"');
 const calculationInclusionSectionStart = html.indexOf('data-analysis-setup-scroll-section="calculation-inclusion"');
 const methodDefaultsSectionStart = html.indexOf('data-analysis-setup-scroll-section="method-defaults"');
+const assetTreatmentSectionStart = html.indexOf('data-analysis-setup-scroll-section="asset-treatment"');
+const recommendationSectionStart = html.indexOf('data-analysis-setup-scroll-section="recommendation-guardrails"');
 const policyReturnSectionStart = html.indexOf('data-analysis-setup-scroll-section="policy-return-assumptions"');
-assert.ok(inflationSectionStart >= 0 && calculationInclusionSectionStart > inflationSectionStart);
-assert.ok(methodDefaultsSectionStart >= 0 && policyReturnSectionStart > methodDefaultsSectionStart);
-const inflationSection = html.slice(inflationSectionStart, calculationInclusionSectionStart);
-const methodDefaultsSection = html.slice(methodDefaultsSectionStart, policyReturnSectionStart);
+assert.ok(calculationInclusionSectionStart >= 0 && inflationSectionStart > calculationInclusionSectionStart);
+assert.ok(methodDefaultsSectionStart > inflationSectionStart && assetTreatmentSectionStart > methodDefaultsSectionStart);
+assert.ok(policyReturnSectionStart > recommendationSectionStart);
+const inflationSection = html.slice(inflationSectionStart, methodDefaultsSectionStart);
+const methodDefaultsSection = html.slice(methodDefaultsSectionStart, assetTreatmentSectionStart);
 assert.doesNotMatch(inflationSection, /data-analysis-inflation-field="finalExpenseTargetAge"/);
 assert.match(methodDefaultsSection, /data-analysis-inflation-field="finalExpenseTargetAge"/);
 

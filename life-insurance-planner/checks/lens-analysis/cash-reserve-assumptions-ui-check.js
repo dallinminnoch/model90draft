@@ -286,14 +286,14 @@ const cashReserveSection = getSection(
   'analysis-setup-control-group--cash-reserve',
   'id="analysis-setup-coverage-treatment"'
 );
-const calculationSectionBeforePolicyReturns = getSection(
+const calculationSectionBeforeAssetTreatment = getSection(
   html,
   'id="analysis-setup-inflation"',
-  'id="analysis-setup-policy-returns"'
+  'id="analysis-setup-asset-treatment"'
 );
 
 assert.doesNotMatch(assetTreatmentSection, /data-analysis-cash-reserve-controls|Cash Reserve Assumptions/i);
-assert.match(cashReserveSection, /data-analysis-setup-view-panel="offset"/);
+assert.doesNotMatch(cashReserveSection, /data-analysis-setup-view-panel/);
 assert.match(cashReserveSection, /id="analysis-setup-cash-reserve"/);
 assert.match(cashReserveSection, /Cash Reserve \/ Emergency Fund/);
 assert.match(cashReserveSection, /data-analysis-cash-reserve-controls/);
@@ -309,7 +309,7 @@ assert.match(cashReserveSection, /current asset offsets remain current-dollar\/c
 assert.match(cashReserveSection, /Emergency reserve and liquidity rules must be reviewed/i);
 assert.match(cashReserveSection, /Explicit emergency fund assets are generally preserved before offsetting need/i);
 assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
-assert.doesNotMatch(calculationSectionBeforePolicyReturns, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
+assert.doesNotMatch(calculationSectionBeforeAssetTreatment, /data-analysis-cash-reserve|Cash Reserve Assumptions/i);
 
 [
   "data-analysis-cash-reserve-enabled",

@@ -276,7 +276,16 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     && diff.includes("Mortgage-only payment is treated");
   const debtRecordTableHeaderDiff = diff.includes("-                      <span role=\"columnheader\">Source balance</span>")
     && diff.includes("+                      <span role=\"columnheader\">Balance / payment</span>");
-  return redesignDiff || previewDiff || legacyCleanupDiff || debtRecordTableHeaderDiff;
+  const assumptionControlsScrollContractDiff = diff.includes("-                <div class=\"analysis-setup-panel-grid\" data-analysis-setup-view-grid data-analysis-setup-current-view=\"calculation\">")
+    && diff.includes("+                <div class=\"analysis-setup-panel-grid\" data-analysis-setup-view-grid>")
+    && diff.includes("data-analysis-setup-view-tab")
+    && diff.includes("data-analysis-setup-view-panel")
+    && diff.includes("data-analysis-setup-scroll-target=\"calculation-inclusion\"");
+  return redesignDiff
+    || previewDiff
+    || legacyCleanupDiff
+    || debtRecordTableHeaderDiff
+    || assumptionControlsScrollContractDiff;
 }
 
 function assertNoProtectedDiffs() {

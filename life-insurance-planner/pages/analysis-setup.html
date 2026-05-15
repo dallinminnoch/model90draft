@@ -149,98 +149,24 @@
             <div class="analysis-setup-view-frame">
               <nav class="analysis-setup-view-nav" aria-label="Assumption sections">
                 <span class="analysis-setup-view-nav-section">Section 1</span>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="calculation-inclusion" aria-pressed="true" data-active="true">Calculation inclusion controls</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="inflation-assumptions" aria-pressed="false">Inflation assumptions</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="method-defaults" aria-pressed="false">Method defaults</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="policy-return-assumptions" aria-pressed="false">Policy return assumptions</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="calculation-inclusion" aria-pressed="true" data-active="true">Calculation inclusion controls</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="inflation-assumptions" aria-pressed="false">Inflation assumptions</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="method-defaults" aria-pressed="false">Method defaults</button>
                 <span class="analysis-setup-view-nav-section">Section 2</span>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="asset-treatment" aria-pressed="false">Asset treatment</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="cash-reserve" aria-pressed="false">Cash reserve</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="existing-coverage-treatment" aria-pressed="false">Existing coverage treatment</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="debt-mortgage" aria-pressed="false">Debt &amp; mortgage</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="asset-treatment" aria-pressed="false">Asset treatment</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="cash-reserve" aria-pressed="false">Cash reserve</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="existing-coverage-treatment" aria-pressed="false">Existing coverage treatment</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="debt-mortgage" aria-pressed="false">Debt &amp; mortgage</button>
                 <span class="analysis-setup-view-nav-section">Section 3</span>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" data-analysis-setup-scroll-target="survivor-support" aria-pressed="false">Survivor &amp; support</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" data-analysis-setup-scroll-target="education-assumptions" aria-pressed="false">Education assumptions</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" data-analysis-setup-scroll-target="recommendation-guardrails" aria-pressed="false">Recommendation guardrails</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="survivor-support" aria-pressed="false">Survivor &amp; support</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="education-assumptions" aria-pressed="false">Education assumptions</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="recommendation-guardrails" aria-pressed="false">Recommendation guardrails</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-scroll-target="policy-return-assumptions" aria-pressed="false">Policy return assumptions</button>
               </nav>
 
               <div class="analysis-setup-panel-body">
-                <div class="analysis-setup-panel-grid" data-analysis-setup-view-grid data-analysis-setup-current-view="calculation">
-                <div class="analysis-setup-left-stack" data-analysis-setup-view-panel="calculation" data-active="true">
-                  <section class="analysis-setup-control-group analysis-setup-control-group--inflation" aria-labelledby="analysis-setup-inflation" data-analysis-setup-scroll-section="inflation-assumptions">
-                  <div class="analysis-setup-method-header">
-                    <div class="analysis-setup-control-heading">
-                      <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
-                      <p>Household, education, healthcare, and final expense rates affect current LENS where enabled. General is a fallback; DIME and HLV are unaffected.</p>
-                    </div>
-                    <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
-                  </div>
-
-                  <label class="settings-toggle-row analysis-setup-toggle-control">
-                    <span class="settings-toggle-copy">
-                      <span class="settings-toggle-label">Enable inflation adjustments</span>
-                      <span class="settings-toggle-note">Turning this off may understate long-term planning needs.</span>
-                    </span>
-                    <span class="settings-switch">
-                      <input
-                        type="checkbox"
-                        role="switch"
-                        aria-label="Enable inflation adjustments"
-                        checked
-                        data-analysis-inflation-field="enabled">
-                      <span class="settings-switch-track" aria-hidden="true"></span>
-                    </span>
-                  </label>
-
-                  <div class="analysis-setup-rate-grid">
-                    <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-general-inflation-label" for="analysis-setup-general-inflation-value">General inflation fallback</label>
-                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-general-inflation-label" data-analysis-inflation-slider="generalInflationRatePercent">
-                      <span class="analysis-setup-percent-input">
-                        <input id="analysis-setup-general-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-general-inflation-label" data-analysis-inflation-field="generalInflationRatePercent">
-                        <span aria-hidden="true">%</span>
-                      </span>
-                    </div>
-
-                    <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-household-inflation-label" for="analysis-setup-household-inflation-value">Household expense inflation</label>
-                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-household-inflation-label" data-analysis-inflation-slider="householdExpenseInflationRatePercent">
-                      <span class="analysis-setup-percent-input">
-                        <input id="analysis-setup-household-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-household-inflation-label" data-analysis-inflation-field="householdExpenseInflationRatePercent">
-                        <span aria-hidden="true">%</span>
-                      </span>
-                    </div>
-
-                    <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-education-inflation-label" for="analysis-setup-education-inflation-value">Education inflation</label>
-                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-education-inflation-label" data-analysis-inflation-slider="educationInflationRatePercent">
-                      <span class="analysis-setup-percent-input">
-                        <input id="analysis-setup-education-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-education-inflation-label" data-analysis-inflation-field="educationInflationRatePercent">
-                        <span aria-hidden="true">%</span>
-                      </span>
-                    </div>
-
-                    <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-healthcare-inflation-label" for="analysis-setup-healthcare-inflation-value">Healthcare inflation</label>
-                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-slider="healthcareInflationRatePercent">
-                      <span class="analysis-setup-percent-input">
-                        <input id="analysis-setup-healthcare-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-field="healthcareInflationRatePercent">
-                        <span aria-hidden="true">%</span>
-                      </span>
-                    </div>
-
-                    <div class="analysis-setup-rate-control">
-                      <label class="analysis-setup-rate-label" id="analysis-setup-final-expense-inflation-label" for="analysis-setup-final-expense-inflation-value">Final expense inflation</label>
-                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-slider="finalExpenseInflationRatePercent">
-                      <span class="analysis-setup-percent-input">
-                        <input id="analysis-setup-final-expense-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-field="finalExpenseInflationRatePercent">
-                        <span aria-hidden="true">%</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  </section>
-
+                <div class="analysis-setup-panel-grid" data-analysis-setup-view-grid>
+                <div class="analysis-setup-left-stack">
                   <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion" data-analysis-setup-scroll-section="calculation-inclusion">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">
@@ -317,12 +243,85 @@
                     <p class="analysis-setup-calculation-inclusion-note">Additional inclusion switches will appear here as their calculation hooks are added.</p>
                   </section>
 
+                  <section class="analysis-setup-control-group analysis-setup-control-group--inflation" aria-labelledby="analysis-setup-inflation" data-analysis-setup-scroll-section="inflation-assumptions">
+                  <div class="analysis-setup-method-header">
+                    <div class="analysis-setup-control-heading">
+                      <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
+                      <p>Household, education, healthcare, and final expense rates affect current LENS where enabled. General is a fallback; DIME and HLV are unaffected.</p>
+                    </div>
+                    <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
+                  </div>
+
+                  <label class="settings-toggle-row analysis-setup-toggle-control">
+                    <span class="settings-toggle-copy">
+                      <span class="settings-toggle-label">Enable inflation adjustments</span>
+                      <span class="settings-toggle-note">Turning this off may understate long-term planning needs.</span>
+                    </span>
+                    <span class="settings-switch">
+                      <input
+                        type="checkbox"
+                        role="switch"
+                        aria-label="Enable inflation adjustments"
+                        checked
+                        data-analysis-inflation-field="enabled">
+                      <span class="settings-switch-track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+
+                  <div class="analysis-setup-rate-grid">
+                    <div class="analysis-setup-rate-control">
+                      <label class="analysis-setup-rate-label" id="analysis-setup-general-inflation-label" for="analysis-setup-general-inflation-value">General inflation fallback</label>
+                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-general-inflation-label" data-analysis-inflation-slider="generalInflationRatePercent">
+                      <span class="analysis-setup-percent-input">
+                        <input id="analysis-setup-general-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-general-inflation-label" data-analysis-inflation-field="generalInflationRatePercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </div>
+
+                    <div class="analysis-setup-rate-control">
+                      <label class="analysis-setup-rate-label" id="analysis-setup-household-inflation-label" for="analysis-setup-household-inflation-value">Household expense inflation</label>
+                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-household-inflation-label" data-analysis-inflation-slider="householdExpenseInflationRatePercent">
+                      <span class="analysis-setup-percent-input">
+                        <input id="analysis-setup-household-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-household-inflation-label" data-analysis-inflation-field="householdExpenseInflationRatePercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </div>
+
+                    <div class="analysis-setup-rate-control">
+                      <label class="analysis-setup-rate-label" id="analysis-setup-education-inflation-label" for="analysis-setup-education-inflation-value">Education inflation</label>
+                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-education-inflation-label" data-analysis-inflation-slider="educationInflationRatePercent">
+                      <span class="analysis-setup-percent-input">
+                        <input id="analysis-setup-education-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-education-inflation-label" data-analysis-inflation-field="educationInflationRatePercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </div>
+
+                    <div class="analysis-setup-rate-control">
+                      <label class="analysis-setup-rate-label" id="analysis-setup-healthcare-inflation-label" for="analysis-setup-healthcare-inflation-value">Healthcare inflation</label>
+                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-slider="healthcareInflationRatePercent">
+                      <span class="analysis-setup-percent-input">
+                        <input id="analysis-setup-healthcare-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-healthcare-inflation-label" data-analysis-inflation-field="healthcareInflationRatePercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </div>
+
+                    <div class="analysis-setup-rate-control">
+                      <label class="analysis-setup-rate-label" id="analysis-setup-final-expense-inflation-label" for="analysis-setup-final-expense-inflation-value">Final expense inflation</label>
+                      <input class="analysis-setup-rate-slider" type="range" min="0" max="10" step="0.25" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-slider="finalExpenseInflationRatePercent">
+                      <span class="analysis-setup-percent-input">
+                        <input id="analysis-setup-final-expense-inflation-value" type="text" inputmode="decimal" aria-labelledby="analysis-setup-final-expense-inflation-label" data-analysis-inflation-field="finalExpenseInflationRatePercent">
+                        <span aria-hidden="true">%</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  </section>
+
                   <section class="analysis-setup-control-group analysis-setup-control-group--method-defaults" aria-labelledby="analysis-setup-method-defaults" data-analysis-setup-scroll-section="method-defaults">
                     <div class="analysis-setup-method-header">
                       <h3 id="analysis-setup-method-defaults">Method Defaults</h3>
                       <button class="analysis-setup-reset-button" type="button" data-analysis-method-reset>Reset to Default</button>
                     </div>
-                    <p class="analysis-setup-method-copy">Income replacement planning in the U.S. often centers on roughly 10 to 12 years of support. Use these defaults to set the baseline planning horizon for each method.</p>
                     <div class="analysis-setup-method-list">
                       <label class="analysis-setup-method-row" for="analysis-setup-dime-income-years">
                         <span>DIME Income Years</span>
@@ -343,149 +342,11 @@
                     </div>
                   </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--policy-returns" aria-labelledby="analysis-setup-policy-returns" data-analysis-setup-scroll-section="policy-return-assumptions">
-                    <div class="analysis-setup-method-header">
-                      <div class="analysis-setup-control-heading">
-                        <h3 id="analysis-setup-policy-returns">Policy Type Return Assumptions</h3>
-                      </div>
-                      <button class="analysis-setup-reset-button" type="button" data-analysis-policy-return-reset>Reset to Default</button>
-                    </div>
-
-                    <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-policy-return-toggle">
-                      <span class="settings-toggle-copy">
-                        <span class="settings-toggle-label">Enable policy return assumptions</span>
-                      </span>
-                      <span class="settings-switch">
-                        <input
-                          type="checkbox"
-                          role="switch"
-                          aria-label="Enable policy type return assumptions"
-                          data-analysis-policy-return-enabled>
-                        <span class="settings-switch-track" aria-hidden="true"></span>
-                      </span>
-                    </label>
-
-                    <label class="analysis-setup-method-row analysis-setup-policy-return-profile" for="analysis-setup-policy-return-profile">
-                      <span>Return profile</span>
-                      <select id="analysis-setup-policy-return-profile" class="analysis-setup-method-select" data-analysis-policy-return-profile>
-                        <option value="conservative">Conservative</option>
-                        <option value="balanced">Balanced</option>
-                        <option value="aggressive">Aggressive</option>
-                        <option value="custom">Custom</option>
-                      </select>
-                    </label>
-
-                    <div class="analysis-setup-policy-return-grid" aria-label="Policy type return assumptions">
-                      <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-term">
-                        <h4 id="analysis-setup-policy-return-term">Term Life</h4>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-term-cash-value-return">
-                          <span>Cash value return</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-term-cash-value-return" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" data-analysis-policy-return-field="termLife.cashValueReturnPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </section>
-
-                      <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-whole">
-                        <h4 id="analysis-setup-policy-return-whole">Whole Life</h4>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-whole-guaranteed-growth">
-                          <span>Guaranteed growth</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-whole-guaranteed-growth" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="wholeLife.guaranteedGrowthPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-whole-dividend-credit">
-                          <span>Dividend credit</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-whole-dividend-credit" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="wholeLife.dividendCreditPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </section>
-
-                      <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-universal">
-                        <h4 id="analysis-setup-policy-return-universal">Universal Life</h4>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-ul-current-crediting">
-                          <span>Current crediting</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-ul-current-crediting" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="universalLife.currentCreditingPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-ul-guaranteed-crediting">
-                          <span>Guaranteed crediting</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-ul-guaranteed-crediting" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="universalLife.guaranteedCreditingPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </section>
-
-                      <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-indexed">
-                        <h4 id="analysis-setup-policy-return-indexed">Indexed Universal Life</h4>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-assumed-crediting">
-                          <span>Assumed crediting</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-iul-assumed-crediting" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="indexedUniversalLife.assumedCreditingPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-cap-rate">
-                          <span>Cap rate</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-iul-cap-rate" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="indexedUniversalLife.capRatePercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-participation-rate">
-                          <span>Participation rate</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-iul-participation-rate" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="indexedUniversalLife.participationRatePercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-floor-rate">
-                          <span>Floor rate</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-iul-floor-rate" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" data-analysis-policy-return-field="indexedUniversalLife.floorRatePercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </section>
-
-                      <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-variable">
-                        <h4 id="analysis-setup-policy-return-variable">Variable Universal Life</h4>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-vul-gross-return">
-                          <span>Gross return</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-vul-gross-return" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="variableUniversalLife.grossReturnPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                        <label class="analysis-setup-policy-return-field" for="analysis-setup-vul-net-return">
-                          <span>Net return</span>
-                          <span class="analysis-setup-asset-percent">
-                            <input id="analysis-setup-vul-net-return" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="variableUniversalLife.netReturnPercent">
-                            <span aria-hidden="true">%</span>
-                          </span>
-                        </label>
-                      </section>
-                    </div>
-                  </section>
-
                 </div>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-view-panel="offset" data-analysis-setup-scroll-section="asset-treatment" data-active="true">
+                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-scroll-section="asset-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-asset-treatment">Asset Treatment</h3>
-                    <p>Set how treated asset offsets are prepared from raw asset values. Asset values are still collected in Protection Modeling Inputs.</p>
-                    <p class="analysis-setup-asset-note">Rows use category-level treatment. Assets in the same category share treatment assumptions.</p>
-                    <p class="analysis-setup-asset-note">Tax drag estimates taxes if the asset is used. Haircut estimates liquidity, timing, marketability, and planning risk before counting the asset as available.</p>
-                    <p class="analysis-setup-asset-note">Preview amounts are not necessarily method offsets; LENS uses treated offsets when asset offsets are included and treated totals are available.</p>
-                    <p class="analysis-setup-asset-note">Step-up eligible assets may have little capital-gains tax drag at death. Retirement and annuity assets may be taxable when distributed.</p>
-                    <p class="analysis-setup-asset-note">Assumed annual growth is an assumption, not a prediction. Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on; otherwise they remain reporting-only saved assumptions. Review-only categories need advisor judgment.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults" aria-label="Asset treatment default settings">
@@ -534,7 +395,7 @@
                   </div>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--cash-reserve" aria-labelledby="analysis-setup-cash-reserve" data-analysis-setup-view-panel="offset" data-analysis-setup-scroll-section="cash-reserve" data-active="true">
+                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--cash-reserve" aria-labelledby="analysis-setup-cash-reserve" data-analysis-setup-scroll-section="cash-reserve">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-cash-reserve">Cash Reserve / Emergency Fund</h3>
                   </div>
@@ -590,7 +451,7 @@
                   </div>
                 </section>
 
-                <div class="analysis-setup-treatment-row" data-analysis-setup-view-panel="offset" data-active="true">
+                <div class="analysis-setup-treatment-row">
                   <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment" data-analysis-setup-scroll-section="existing-coverage-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
@@ -786,7 +647,7 @@
                   </section>
                 </div>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-view-panel="planning" data-analysis-setup-scroll-section="survivor-support" data-active="true">
+                <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-scroll-section="survivor-support">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-survivor-support-treatment">Survivor &amp; Support Assumptions</h3>
                     <p>PMI captures current spouse income facts. These assumptions control how survivor income is treated after death. Balanced assumes the survivor continues working with a temporary 25% reduction and a 3-month income delay.</p>
@@ -978,7 +839,7 @@
                   <p class="analysis-setup-survivor-preview-note">LENS uses Analysis Setup survivor assumptions with raw spouse income from PMI/profile. Survivor income growth and horizon are saved for future projections.</p>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning" data-analysis-setup-scroll-section="education-assumptions" data-active="true">
+                <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-scroll-section="education-assumptions">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-education-treatment">Education Assumptions</h3>
                     <p>Current LENS uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
@@ -1068,7 +929,7 @@
                   <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current LENS may use education funding, projected dependents, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning" data-analysis-setup-scroll-section="recommendation-guardrails" data-active="true">
+                <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-scroll-section="recommendation-guardrails">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-recommendation-guardrails">Recommendation Guardrails</h3>
                     <p>Set how future LENS recommendations should be shaped and risk-flagged. These settings are saved for future recommendation logic and are not applied to current DIME, LENS, or HLV results yet.</p>
@@ -1207,6 +1068,138 @@
                     </div>
                   </div>
                   <p class="analysis-setup-recommendation-preview-note">Preview only. Current LENS, DIME, HLV, and recommendation results are unchanged.</p>
+                </section>
+
+                <section class="analysis-setup-control-group analysis-setup-control-group--policy-returns" aria-labelledby="analysis-setup-policy-returns" data-analysis-setup-scroll-section="policy-return-assumptions">
+                  <div class="analysis-setup-method-header">
+                    <div class="analysis-setup-control-heading">
+                      <h3 id="analysis-setup-policy-returns">Policy Type Return Assumptions</h3>
+                    </div>
+                    <button class="analysis-setup-reset-button" type="button" data-analysis-policy-return-reset>Reset to Default</button>
+                  </div>
+
+                  <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-policy-return-toggle">
+                    <span class="settings-toggle-copy">
+                      <span class="settings-toggle-label">Enable policy return assumptions</span>
+                    </span>
+                    <span class="settings-switch">
+                      <input
+                        type="checkbox"
+                        role="switch"
+                        aria-label="Enable policy type return assumptions"
+                        data-analysis-policy-return-enabled>
+                      <span class="settings-switch-track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+
+                  <label class="analysis-setup-method-row analysis-setup-policy-return-profile" for="analysis-setup-policy-return-profile">
+                    <span>Return profile</span>
+                    <select id="analysis-setup-policy-return-profile" class="analysis-setup-method-select" data-analysis-policy-return-profile>
+                      <option value="conservative">Conservative</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="aggressive">Aggressive</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+
+                  <div class="analysis-setup-policy-return-grid" aria-label="Policy type return assumptions">
+                    <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-term">
+                      <h4 id="analysis-setup-policy-return-term">Term Life</h4>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-term-cash-value-return">
+                        <span>Cash value return</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-term-cash-value-return" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" data-analysis-policy-return-field="termLife.cashValueReturnPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                    </section>
+
+                    <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-whole">
+                      <h4 id="analysis-setup-policy-return-whole">Whole Life</h4>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-whole-guaranteed-growth">
+                        <span>Guaranteed growth</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-whole-guaranteed-growth" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="wholeLife.guaranteedGrowthPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-whole-dividend-credit">
+                        <span>Dividend credit</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-whole-dividend-credit" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="wholeLife.dividendCreditPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                    </section>
+
+                    <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-universal">
+                      <h4 id="analysis-setup-policy-return-universal">Universal Life</h4>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-ul-current-crediting">
+                        <span>Current crediting</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-ul-current-crediting" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="universalLife.currentCreditingPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-ul-guaranteed-crediting">
+                        <span>Guaranteed crediting</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-ul-guaranteed-crediting" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="universalLife.guaranteedCreditingPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                    </section>
+
+                    <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-indexed">
+                      <h4 id="analysis-setup-policy-return-indexed">Indexed Universal Life</h4>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-assumed-crediting">
+                        <span>Assumed crediting</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-iul-assumed-crediting" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="indexedUniversalLife.assumedCreditingPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-cap-rate">
+                        <span>Cap rate</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-iul-cap-rate" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="indexedUniversalLife.capRatePercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-participation-rate">
+                        <span>Participation rate</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-iul-participation-rate" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="indexedUniversalLife.participationRatePercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-iul-floor-rate">
+                        <span>Floor rate</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-iul-floor-rate" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" data-analysis-policy-return-field="indexedUniversalLife.floorRatePercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                    </section>
+
+                    <section class="analysis-setup-policy-return-section" aria-labelledby="analysis-setup-policy-return-variable">
+                      <h4 id="analysis-setup-policy-return-variable">Variable Universal Life</h4>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-vul-gross-return">
+                        <span>Gross return</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-vul-gross-return" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="variableUniversalLife.grossReturnPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                      <label class="analysis-setup-policy-return-field" for="analysis-setup-vul-net-return">
+                        <span>Net return</span>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-vul-net-return" class="analysis-setup-asset-percent-input analysis-setup-policy-return-input" type="text" inputmode="decimal" placeholder="Blank" data-analysis-policy-return-field="variableUniversalLife.netReturnPercent">
+                          <span aria-hidden="true">%</span>
+                        </span>
+                      </label>
+                    </section>
+                  </div>
                 </section>
 
                 </div>

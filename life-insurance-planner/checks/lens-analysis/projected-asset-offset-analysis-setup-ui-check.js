@@ -365,7 +365,7 @@ assert.doesNotMatch(assetTreatmentSection, /Projected offsets - future \/ inacti
 assert.doesNotMatch(assetTreatmentSection, /data-analysis-projected-asset-offset-enabled/);
 assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/);
 assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/);
-assert.match(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/);
+assert.doesNotMatch(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
 assert.match(assetTreatmentSection, /Recommendation impact: Reporting only\./);
 assert.match(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);

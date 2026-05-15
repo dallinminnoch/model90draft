@@ -289,11 +289,10 @@ const componentsCss = readRepoFile("components.css");
 
 assert.match(analysisSetupHtml, /Assumed annual growth/);
 assert.doesNotMatch(`${analysisSetupHtml}\n${analysisSetupSource}\n${componentsCss}`, /Predicted annual growth/i);
-assert.match(analysisSetupHtml, /assumption, not a prediction/i);
-assert.match(analysisSetupHtml, /saved for future projected asset treatment/i);
-assert.match(analysisSetupHtml, /current DIME, LENS, and HLV outputs are unaffected/i);
+assert.doesNotMatch(analysisSetupHtml, /saved for future projected asset treatment/i);
+assert.doesNotMatch(analysisSetupHtml, /current DIME, LENS, and HLV outputs are unaffected/i);
 assert.match(analysisSetupHtml, /current asset offsets remain current-dollar\/current treatment based/i);
-assert.match(analysisSetupHtml, /Review-only categories need advisor judgment/i);
+assert.doesNotMatch(analysisSetupHtml, /Review-only categories need advisor judgment/i);
 assert.match(analysisSetupHtml, /<span role="columnheader">Assumed annual growth<\/span>/);
 assert.match(analysisSetupSource, /data-analysis-asset-treatment-growth="/);
 assert.match(analysisSetupSource, /data-analysis-asset-treatment-growth-slider="/);

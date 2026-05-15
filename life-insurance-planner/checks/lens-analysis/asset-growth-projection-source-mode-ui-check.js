@@ -310,21 +310,21 @@ const assetTreatmentSection = getSection(
   'id="analysis-setup-asset-treatment"',
   'id="analysis-setup-existing-coverage-treatment"'
 );
-const calculationSectionBeforePolicyReturns = getSection(
+const inflationAndMethodSection = getSection(
   html,
   'id="analysis-setup-inflation"',
-  'id="analysis-setup-policy-returns"'
+  'id="analysis-setup-asset-treatment"'
 );
 
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-controls/);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-mode/);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-years/);
 assert.doesNotMatch(html, /id="analysis-setup-growth-return"/);
-assert.doesNotMatch(calculationSectionBeforePolicyReturns, /data-analysis-asset-growth-projection-/);
+assert.doesNotMatch(inflationAndMethodSection, /data-analysis-asset-growth-projection-/);
 assert.match(assetTreatmentSection, /Projection mode controls reporting-only growth context/i);
 assert.match(assetTreatmentSection, /activated only by Use Projected Asset Offset in LENS/i);
 assert.match(assetTreatmentSection, /DIME, HLV, and Simple Needs remain unchanged/i);
-assert.match(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/i);
+assert.doesNotMatch(assetTreatmentSection, /Return inputs affect LENS recommendations only when Use Projected Asset Offset in LENS is on/i);
 assert.match(assetTreatmentSection, /data-analysis-asset-growth-projection-impact-status/);
 assert.match(assetTreatmentSection, /Recommendation impact: Reporting only\./);
 assert.match(assetTreatmentSection, /Projected asset growth is shown for insight only and does not change the LENS recommendation/);
