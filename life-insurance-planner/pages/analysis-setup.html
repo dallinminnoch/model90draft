@@ -148,15 +148,26 @@
 
             <div class="analysis-setup-view-frame">
               <nav class="analysis-setup-view-nav" aria-label="Assumption sections">
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" aria-pressed="true" data-active="true">Calculation Assumptions</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" aria-pressed="false">Offset &amp; Balance Sheet Treatment</button>
-                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" aria-pressed="false">Planning Goals &amp; Guardrails</button>
+                <span class="analysis-setup-view-nav-section">Section 1</span>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="calculation-inclusion" aria-pressed="true" data-active="true">Calculation inclusion controls</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="inflation-assumptions" aria-pressed="false">Inflation assumptions</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="method-defaults" aria-pressed="false">Method defaults</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="calculation" data-analysis-setup-scroll-target="policy-return-assumptions" aria-pressed="false">Policy return assumptions</button>
+                <span class="analysis-setup-view-nav-section">Section 2</span>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="asset-treatment" aria-pressed="false">Asset treatment</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="cash-reserve" aria-pressed="false">Cash reserve</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="existing-coverage-treatment" aria-pressed="false">Existing coverage treatment</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="offset" data-analysis-setup-scroll-target="debt-mortgage" aria-pressed="false">Debt &amp; mortgage</button>
+                <span class="analysis-setup-view-nav-section">Section 3</span>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" data-analysis-setup-scroll-target="survivor-support" aria-pressed="false">Survivor &amp; support</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" data-analysis-setup-scroll-target="education-assumptions" aria-pressed="false">Education assumptions</button>
+                <button class="analysis-setup-view-nav-item" type="button" data-analysis-setup-view-tab="planning" data-analysis-setup-scroll-target="recommendation-guardrails" aria-pressed="false">Recommendation guardrails</button>
               </nav>
 
               <div class="analysis-setup-panel-body">
                 <div class="analysis-setup-panel-grid" data-analysis-setup-view-grid data-analysis-setup-current-view="calculation">
                 <div class="analysis-setup-left-stack" data-analysis-setup-view-panel="calculation" data-active="true">
-                  <section class="analysis-setup-control-group analysis-setup-control-group--inflation" aria-labelledby="analysis-setup-inflation">
+                  <section class="analysis-setup-control-group analysis-setup-control-group--inflation" aria-labelledby="analysis-setup-inflation" data-analysis-setup-scroll-section="inflation-assumptions">
                   <div class="analysis-setup-method-header">
                     <div class="analysis-setup-control-heading">
                       <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
@@ -234,7 +245,7 @@
                   </label>
                   </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion">
+                  <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion" data-analysis-setup-scroll-section="calculation-inclusion">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">
                         <h3 id="analysis-setup-calculation-inclusion">Calculation Inclusion Controls</h3>
@@ -310,7 +321,7 @@
                     <p class="analysis-setup-calculation-inclusion-note">Additional inclusion switches will appear here as their calculation hooks are added.</p>
                   </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--method-defaults" aria-labelledby="analysis-setup-method-defaults">
+                  <section class="analysis-setup-control-group analysis-setup-control-group--method-defaults" aria-labelledby="analysis-setup-method-defaults" data-analysis-setup-scroll-section="method-defaults">
                     <div class="analysis-setup-method-header">
                       <h3 id="analysis-setup-method-defaults">Method Defaults</h3>
                       <button class="analysis-setup-reset-button" type="button" data-analysis-method-reset>Reset to Default</button>
@@ -332,7 +343,7 @@
                     </div>
                   </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--policy-returns" aria-labelledby="analysis-setup-policy-returns">
+                  <section class="analysis-setup-control-group analysis-setup-control-group--policy-returns" aria-labelledby="analysis-setup-policy-returns" data-analysis-setup-scroll-section="policy-return-assumptions">
                     <div class="analysis-setup-method-header">
                       <div class="analysis-setup-control-heading">
                         <h3 id="analysis-setup-policy-returns">Policy Type Return Assumptions</h3>
@@ -466,7 +477,7 @@
 
                 </div>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-view-panel="offset" data-active="false" hidden>
+                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--assets" aria-labelledby="analysis-setup-asset-treatment" data-analysis-setup-view-panel="offset" data-analysis-setup-scroll-section="asset-treatment" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-asset-treatment">Asset Treatment</h3>
                     <p>Set how treated asset offsets are prepared from raw asset values. Asset values are still collected in Protection Modeling Inputs.</p>
@@ -523,7 +534,7 @@
                   </div>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--cash-reserve" aria-labelledby="analysis-setup-cash-reserve" data-analysis-setup-view-panel="offset" data-active="false" hidden>
+                <section class="analysis-setup-control-group analysis-setup-control-group--wide analysis-setup-control-group--cash-reserve" aria-labelledby="analysis-setup-cash-reserve" data-analysis-setup-view-panel="offset" data-analysis-setup-scroll-section="cash-reserve" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-cash-reserve">Cash Reserve / Emergency Fund</h3>
                   </div>
@@ -580,7 +591,7 @@
                 </section>
 
                 <div class="analysis-setup-treatment-row" data-analysis-setup-view-panel="offset" data-active="false" hidden>
-                  <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment">
+                  <section class="analysis-setup-control-group analysis-setup-control-group--coverage" aria-labelledby="analysis-setup-coverage-treatment" data-analysis-setup-scroll-section="existing-coverage-treatment">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-coverage-treatment">Existing Coverage Treatment</h3>
                     <p>Saved for future treatment modeling and preview only. Current DIME, LENS, and HLV offsets use linked profile coverage when Include Existing Coverage Offset is on.</p>
@@ -670,7 +681,7 @@
                   </div>
                 </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment">
+                  <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment" data-analysis-setup-scroll-section="debt-mortgage">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-debt-treatment">Debt &amp; Mortgage Treatment</h3>
                     <p>Used by DIME and LENS. These assumptions affect DIME Debt, DIME Mortgage, and LENS Debt Payoff. Mortgage treatment changes the mortgage-only payment; property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses. HLV is unchanged.</p>
@@ -793,7 +804,7 @@
                   </section>
                 </div>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-view-panel="planning" data-active="false" hidden>
+                <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-view-panel="planning" data-analysis-setup-scroll-section="survivor-support" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-survivor-support-treatment">Survivor &amp; Support Assumptions</h3>
                     <p>PMI captures current spouse income facts. These assumptions control how survivor income is treated after death. Balanced assumes the survivor continues working with a temporary 25% reduction and a 3-month income delay.</p>
@@ -985,7 +996,7 @@
                   <p class="analysis-setup-survivor-preview-note">LENS uses Analysis Setup survivor assumptions with raw spouse income from PMI/profile. Survivor income growth and horizon are saved for future projections.</p>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning" data-active="false" hidden>
+                <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-view-panel="planning" data-analysis-setup-scroll-section="education-assumptions" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-education-treatment">Education Assumptions</h3>
                     <p>Current LENS uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
@@ -1075,7 +1086,7 @@
                   <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current LENS may use education funding, projected dependents, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
-                <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning" data-active="false" hidden>
+                <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-view-panel="planning" data-analysis-setup-scroll-section="recommendation-guardrails" data-active="false" hidden>
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-recommendation-guardrails">Recommendation Guardrails</h3>
                     <p>Set how future LENS recommendations should be shaped and risk-flagged. These settings are saved for future recommendation logic and are not applied to current DIME, LENS, or HLV results yet.</p>

@@ -3756,9 +3756,30 @@
     }) || null;
   }
 
+  function getAnalysisSetupMenuTargetForView(viewName, viewTabs) {
+    const selectedView = normalizeAnalysisSetupView(viewName);
+    const matchingTab = (viewTabs || []).find(function (tab) {
+      return normalizeAnalysisSetupView(tab.getAttribute("data-analysis-setup-view-tab")) === selectedView
+        && tab.getAttribute("data-analysis-setup-scroll-target");
+    });
+    return matchingTab?.getAttribute("data-analysis-setup-scroll-target") || "";
+  }
+
+  function getAnalysisSetupScrollTarget(scrollTarget, viewName, viewPanels) {
+    const targetName = String(scrollTarget || "").trim();
+    if (targetName) {
+      const target = document.querySelector(`[data-analysis-setup-scroll-section="${targetName}"]`);
+      if (target) {
+        return target;
+      }
+    }
+
+    return getAnalysisSetupViewTarget(viewName, viewPanels);
+  }
+
   function scrollAnalysisSetupViewIntoPlace(viewName, viewPanels, viewGrid, options) {
     const scrollContainer = getAnalysisSetupScrollContainer(viewGrid);
-    const targetPanel = getAnalysisSetupViewTarget(viewName, viewPanels);
+    const targetPanel = getAnalysisSetupScrollTarget(options?.scrollTarget, viewName, viewPanels);
     if (!scrollContainer || !targetPanel) {
       return;
     }
@@ -3779,6 +3800,9 @@
 
   function setAnalysisSetupView(viewName, viewTabs, viewPanels, viewGrid, options) {
     const selectedView = normalizeAnalysisSetupView(viewName);
+    const selectedTarget = String(
+      options?.scrollTarget || getAnalysisSetupMenuTargetForView(selectedView, viewTabs) || ""
+    ).trim();
 
     if (viewGrid) {
       viewGrid.dataset.analysisSetupCurrentView = selectedView;
@@ -3786,16 +3810,17 @@
 
     (viewTabs || []).forEach(function (tab) {
       const tabView = normalizeAnalysisSetupView(tab.getAttribute("data-analysis-setup-view-tab"));
-      const isSelected = tabView === selectedView;
+      const tabTarget = String(tab.getAttribute("data-analysis-setup-scroll-target") || "").trim();
+      const isSelected = tabTarget
+        ? tabTarget === selectedTarget
+        : tabView === selectedView;
       tab.setAttribute("aria-pressed", isSelected ? "true" : "false");
       tab.dataset.active = isSelected ? "true" : "false";
     });
 
     (viewPanels || []).forEach(function (panel) {
-      const panelView = normalizeAnalysisSetupView(panel.getAttribute("data-analysis-setup-view-panel"));
-      const isSelected = panelView === selectedView;
-      panel.hidden = !isSelected;
-      panel.dataset.active = isSelected ? "true" : "false";
+      panel.hidden = false;
+      panel.dataset.active = "true";
     });
 
     if (options?.updateHash) {
@@ -3805,6 +3830,45 @@
     if (options?.scrollToView) {
       scrollAnalysisSetupViewIntoPlace(selectedView, viewPanels, viewGrid, options);
     }
+  }
+
+  function syncAnalysisSetupMenuSelectionFromScroll(viewTabs, viewGrid) {
+    const scrollContainer = getAnalysisSetupScrollContainer(viewGrid);
+    const selectedView = normalizeAnalysisSetupView(viewGrid?.dataset?.analysisSetupCurrentView);
+    if (!scrollContainer || !selectedView) {
+      return;
+    }
+
+    const menuItems = (viewTabs || []).filter(function (tab) {
+      return tab.getAttribute("data-analysis-setup-scroll-target");
+    });
+    if (!menuItems.length) {
+      return;
+    }
+
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const activationTop = containerRect.top + Math.min(140, containerRect.height * 0.25);
+    let selectedTarget = menuItems[0].getAttribute("data-analysis-setup-scroll-target");
+
+    menuItems.forEach(function (item) {
+      const targetName = item.getAttribute("data-analysis-setup-scroll-target");
+      const target = targetName
+        ? document.querySelector(`[data-analysis-setup-scroll-section="${targetName}"]`)
+        : null;
+      if (!target || target.hidden || target.offsetParent === null) {
+        return;
+      }
+
+      if (target.getBoundingClientRect().top <= activationTop) {
+        selectedTarget = targetName;
+      }
+    });
+
+    menuItems.forEach(function (item) {
+      const isSelected = item.getAttribute("data-analysis-setup-scroll-target") === selectedTarget;
+      item.setAttribute("aria-pressed", isSelected ? "true" : "false");
+      item.dataset.active = isSelected ? "true" : "false";
+    });
   }
 
   function setAssetDefaultProfile(fields, profile) {
@@ -8639,6 +8703,7 @@
     let hasUnsavedAnalysisSetupChanges = false;
     let assumptionsOverlayReturnFocus = null;
     let protectedAssumptionsOverlayBackground = [];
+    let analysisSetupViewScrollFrame = null;
     const syncAnalysisSetupViewFromHash = function (options) {
       setAnalysisSetupView(
         getAnalysisSetupViewFromHash(),
@@ -8663,10 +8728,27 @@
           viewTabs,
           viewPanels,
           viewGrid,
-          { updateHash: true, scrollToView: true }
+          {
+            updateHash: true,
+            scrollToView: true,
+            scrollTarget: tab.getAttribute("data-analysis-setup-scroll-target")
+          }
         );
       });
     });
+    const analysisSetupScrollContainer = getAnalysisSetupScrollContainer(viewGrid);
+    if (analysisSetupScrollContainer) {
+      analysisSetupScrollContainer.addEventListener("scroll", function () {
+        if (analysisSetupViewScrollFrame) {
+          return;
+        }
+
+        analysisSetupViewScrollFrame = window.requestAnimationFrame(function () {
+          analysisSetupViewScrollFrame = null;
+          syncAnalysisSetupMenuSelectionFromScroll(viewTabs, viewGrid);
+        });
+      }, { passive: true });
+    }
     window.addEventListener("hashchange", function () {
       syncAnalysisSetupViewFromHash({ scrollToView: true });
     });
