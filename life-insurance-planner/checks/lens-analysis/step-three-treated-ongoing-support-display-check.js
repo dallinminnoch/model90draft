@@ -302,12 +302,15 @@ function assertNoProtectedDiffs() {
       && diff.includes("data-analysis-debt-mortgage-payment-plan-preview")
       && diff.includes("data-analysis-debt-mortgage-plan-payment")
       && diff.includes("Mortgage-only payment is treated");
-    return redesignDiff || previewDiff || legacyCleanupDiff;
+    const debtRecordTableHeaderDiff = diff.includes("-                      <span role=\"columnheader\">Source balance</span>")
+      && diff.includes("+                      <span role=\"columnheader\">Balance / payment</span>");
+    return redesignDiff || previewDiff || legacyCleanupDiff || debtRecordTableHeaderDiff;
   }
 
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
+    "checks/lens-analysis/analysis-setup-debt-record-table-check.js",
     "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
     "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "checks/lens-analysis/income-loss-impact-scenario-banner-check.js",

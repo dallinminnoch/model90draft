@@ -258,7 +258,9 @@ function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     && diff.includes("data-analysis-debt-mortgage-payment-plan-preview")
     && diff.includes("data-analysis-debt-mortgage-plan-payment")
     && diff.includes("Mortgage-only payment is treated");
-  return redesignDiff || previewDiff || legacyCleanupDiff;
+  const debtRecordTableHeaderDiff = diff.includes("-                      <span role=\"columnheader\">Source balance</span>")
+    && diff.includes("+                      <span role=\"columnheader\">Balance / payment</span>");
+  return redesignDiff || previewDiff || legacyCleanupDiff || debtRecordTableHeaderDiff;
 }
 
 function assertNoProtectedDiffs() {

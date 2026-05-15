@@ -282,7 +282,9 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("data-analysis-debt-mortgage-payment-plan-preview")
       && diff.includes("data-analysis-debt-mortgage-plan-payment")
       && diff.includes("Mortgage-only payment is treated");
-    return redesignDiff || previewDiff || legacyCleanupDiff;
+    const debtRecordTableHeaderDiff = diff.includes("-                      <span role=\"columnheader\">Source balance</span>")
+      && diff.includes("+                      <span role=\"columnheader\">Balance / payment</span>");
+    return redesignDiff || previewDiff || legacyCleanupDiff || debtRecordTableHeaderDiff;
   }
 
   const allowed = new Set([
@@ -290,6 +292,7 @@ function assertNoForbiddenSourceChanges() {
     "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-base-household-expense-stream.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+    "life-insurance-planner/checks/lens-analysis/analysis-setup-debt-record-table-check.js",
     "life-insurance-planner/checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
     "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js",
     "life-insurance-planner/checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",

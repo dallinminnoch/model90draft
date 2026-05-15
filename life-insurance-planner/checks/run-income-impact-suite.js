@@ -70,6 +70,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Analysis Setup debt record table",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/analysis-setup-debt-record-table-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Mortgage treatment payment plan",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/mortgage-treatment-payment-plan-check.js")],

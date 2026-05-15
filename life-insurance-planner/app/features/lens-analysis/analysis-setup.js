@@ -700,6 +700,91 @@
     });
   }
 
+  function getDebtTaxonomyCategoryLabel(categoryKey) {
+    const safeCategoryKey = String(categoryKey || "").trim();
+    if (!safeCategoryKey) {
+      return "";
+    }
+
+    const taxonomyCategories = Array.isArray(LensApp.lensAnalysis?.debtTaxonomy?.DEFAULT_DEBT_CATEGORIES)
+      ? LensApp.lensAnalysis.debtTaxonomy.DEFAULT_DEBT_CATEGORIES
+      : [];
+    const taxonomyCategory = taxonomyCategories.find(function (category) {
+      return category && category.categoryKey === safeCategoryKey;
+    });
+    const fallbackItem = getFallbackDebtCategoryTreatmentItem(safeCategoryKey);
+    return String(taxonomyCategory?.label || fallbackItem?.label || safeCategoryKey).trim();
+  }
+
+  function getSavedDebtRecordsFromLinkedRecord(linkedRecord) {
+    const sourceData = getLinkedProtectionModelingData(linkedRecord);
+    return Array.isArray(sourceData.debtRecords) ? sourceData.debtRecords : [];
+  }
+
+  function normalizeDebtRecordText(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
+  function isPrimaryResidenceMortgageDebtRecord(debtRecord) {
+    const typeKey = normalizeDebtRecordText(debtRecord?.typeKey);
+    const sourceKey = normalizeDebtRecordText(debtRecord?.sourceKey);
+    const securedBy = normalizeDebtRecordText(debtRecord?.securedBy).toLowerCase();
+    const owner = normalizeDebtRecordText(debtRecord?.metadata?.owner || debtRecord?.metadata?.ownedBy).toLowerCase();
+    return typeKey === "primaryResidenceMortgage"
+      || sourceKey === "mortgageBalance"
+      || owner === "housing-home-costs"
+      || owner === "housing"
+      || securedBy === "primary residence"
+      || securedBy === "primaryResidence";
+  }
+
+  function createDebtRecordTreatmentRow(debtRecord, index) {
+    const safeDebtRecord = isPlainObject(debtRecord) ? debtRecord : {};
+    const categoryKey = normalizeDebtRecordText(safeDebtRecord.categoryKey);
+    const debtId = normalizeDebtRecordText(safeDebtRecord.debtId);
+    const currentBalance = parseOptionalMoneyValue(safeDebtRecord.currentBalance);
+
+    if (!debtId || !categoryKey || currentBalance === null || currentBalance <= 0 || isPrimaryResidenceMortgageDebtRecord(safeDebtRecord)) {
+      return null;
+    }
+
+    const typeKey = normalizeDebtRecordText(safeDebtRecord.typeKey);
+    const categoryLabel = getDebtTaxonomyCategoryLabel(categoryKey);
+    const label = normalizeDebtRecordText(safeDebtRecord.label)
+      || normalizeDebtRecordText(safeDebtRecord.typeLabel)
+      || typeKey
+      || categoryLabel
+      || `Debt ${index + 1}`;
+    const paymentAmount = parseOptionalMoneyValue(
+      safeDebtRecord.minimumMonthlyPayment ?? safeDebtRecord.paymentAmount
+    );
+    const paymentFrequency = normalizeDebtRecordText(safeDebtRecord.paymentFrequency || safeDebtRecord.paymentType);
+    const paymentText = paymentAmount === null
+      ? ""
+      : `${formatCurrencyValue(paymentAmount)}${paymentFrequency ? ` ${paymentFrequency}` : "/mo"}`;
+
+    return {
+      rowKey: debtId,
+      treatmentKey: categoryKey,
+      label,
+      categoryLabel,
+      typeKey,
+      currentBalance,
+      paymentText,
+      sourcePreviewText: paymentText
+        ? `${formatCurrencyValue(currentBalance)} - ${paymentText}`
+        : formatCurrencyValue(currentBalance)
+    };
+  }
+
+  function resolveAnalysisSetupDebtRecordTreatmentRows(profileRecord, _analysisSettings) {
+    return getSavedDebtRecordsFromLinkedRecord(profileRecord)
+      .map(function (debtRecord, index) {
+        return createDebtRecordTreatmentRow(debtRecord, index);
+      })
+      .filter(Boolean);
+  }
+
   const SURVIVOR_SUPPORT_PROFILE_LABELS = Object.freeze({
     conservative: "Conservative",
     balanced: "Balanced",
@@ -3239,38 +3324,56 @@
     }).join("");
   }
 
-  function renderDebtTreatmentRows() {
+  function renderDebtTreatmentRows(linkedRecord) {
     const table = document.querySelector("[data-analysis-debt-table]");
     if (!table || table.dataset.rendered === "true") {
       return;
     }
 
-    getDebtCategoryTreatmentItems().forEach(function (item) {
-      const defaults = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+    const renderRows = resolveAnalysisSetupDebtRecordTreatmentRows(
+      linkedRecord,
+      linkedRecord?.analysisSettings
+    );
+
+    if (!renderRows.length) {
+      table.insertAdjacentHTML("beforeend", `
+        <div class="analysis-setup-debt-row analysis-setup-debt-row--empty" role="row" data-analysis-debt-empty-state>
+          <span role="cell">No debts entered in PMI. Add debts in Preliminary / Protection Modeling to apply payoff treatment.</span>
+        </div>
+      `);
+      table.dataset.rendered = "true";
+      return;
+    }
+
+    renderRows.forEach(function (item) {
+      const defaults = DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.treatmentKey]
         || createDefaultDebtCategoryTreatment();
       table.insertAdjacentHTML("beforeend", `
-        <div class="analysis-setup-debt-row" role="row" data-analysis-debt-row="${item.key}">
-          <span class="analysis-setup-debt-label" role="cell">${item.label}</span>
+        <div class="analysis-setup-debt-row" role="row" data-analysis-debt-row="${escapeHtml(item.rowKey)}" data-analysis-debt-treatment-key="${escapeHtml(item.treatmentKey)}">
+          <span class="analysis-setup-debt-label" role="cell">
+            ${escapeHtml(item.label)}
+            <small>${escapeHtml(item.categoryLabel || item.typeKey || item.treatmentKey)}</small>
+          </span>
           <span role="cell">
-            <label class="analysis-setup-asset-include" aria-label="Include ${item.label}">
+            <label class="analysis-setup-asset-include" aria-label="Include ${escapeHtml(item.label)}">
               <span class="settings-switch analysis-setup-mini-switch">
-                <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Include ${item.label}" data-analysis-debt-include="${item.key}">
+                <input class="analysis-setup-debt-field" type="checkbox" role="switch" aria-label="Include ${escapeHtml(item.label)}" data-analysis-debt-include="${escapeHtml(item.treatmentKey)}">
                 <span class="settings-switch-track" aria-hidden="true"></span>
               </span>
             </label>
           </span>
           <span role="cell">
-            <select class="analysis-setup-asset-select analysis-setup-debt-field" aria-label="${item.label} debt treatment mode" data-analysis-debt-mode="${item.key}">
+            <select class="analysis-setup-asset-select analysis-setup-debt-field" aria-label="${escapeHtml(item.label)} debt treatment mode" data-analysis-debt-mode="${escapeHtml(item.treatmentKey)}">
               ${getDebtCategoryModeOptionsMarkup(defaults.mode)}
             </select>
           </span>
           <span role="cell">
             <span class="analysis-setup-asset-percent">
-              <input class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" value="${defaults.payoffPercent}" aria-label="${item.label} payoff percentage" data-analysis-debt-payoff="${item.key}">
+              <input class="analysis-setup-asset-percent-input analysis-setup-debt-field" type="text" inputmode="decimal" value="${defaults.payoffPercent}" aria-label="${escapeHtml(item.label)} payoff percentage" data-analysis-debt-payoff="${escapeHtml(item.treatmentKey)}">
               <span aria-hidden="true">%</span>
             </span>
           </span>
-          <span role="cell"><span class="analysis-setup-treatment-preview" data-analysis-debt-source-preview="${item.key}">No source value</span></span>
+          <span role="cell"><span class="analysis-setup-treatment-preview" data-analysis-debt-source-preview="${escapeHtml(item.rowKey)}">${escapeHtml(item.sourcePreviewText)}</span></span>
         </div>
       `);
     });
@@ -5723,19 +5826,9 @@
   }
 
   function getDebtSourceTotals(linkedRecord) {
-    const sourceFields = ["mortgageBalance"].concat(
-      getDebtCategoryTreatmentItems().reduce(function (fields, item) {
-        return fields.concat(item.sourceFields || []);
-      }, [])
-    );
-    return sourceFields.reduce(function (totals, sourceField) {
-      const sourceValue = getDebtSourceValue(linkedRecord, sourceField);
-      if (sourceValue === null) {
-        return totals;
-      }
-
+    return resolveAnalysisSetupDebtRecordTreatmentRows(linkedRecord).reduce(function (totals, row) {
       totals.hasSource = true;
-      totals.rawTotal += Math.max(0, sourceValue);
+      totals.rawTotal += Math.max(0, row.currentBalance);
       return totals;
     }, {
       hasSource: false,
@@ -5762,23 +5855,18 @@
       }
     }
 
-    getDebtCategoryTreatmentItems().forEach(function (item) {
-      const sourceValue = getDebtCategorySourceValue(linkedRecord, item);
-      if (sourceValue === null) {
-        return;
-      }
-
+    resolveAnalysisSetupDebtRecordTreatmentRows(linkedRecord).forEach(function (item) {
       hasSource = true;
-      const treatment = assumptions.debtCategoryTreatment?.[item.key]
-        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+      const treatment = assumptions.debtCategoryTreatment?.[item.treatmentKey]
+        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.treatmentKey]
         || createDefaultDebtCategoryTreatment();
       if (!treatment.include || treatment.mode === "exclude") {
         return;
       }
 
-      adjustedTotal += Math.max(0, sourceValue) * (normalizeDebtPayoffPercent(
+      adjustedTotal += Math.max(0, item.currentBalance) * (normalizeDebtPayoffPercent(
         treatment.payoffPercent,
-        DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]?.payoffPercent || 100
+        DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.treatmentKey]?.payoffPercent || 100
       ) / 100);
     });
 
@@ -5793,16 +5881,13 @@
     const assumptions = getDebtTreatmentDraftAssumptions(fields);
     fields.currentAssumptions = assumptions;
 
-    getDebtCategoryTreatmentItems().forEach(function (item) {
-      const preview = fields.sourcePreview?.[item.key];
+    resolveAnalysisSetupDebtRecordTreatmentRows(linkedRecord).forEach(function (item) {
+      const preview = fields.sourcePreview?.[item.rowKey];
       if (!preview) {
         return;
       }
 
-      const sourceValue = getDebtCategorySourceValue(linkedRecord, item);
-      preview.textContent = sourceValue === null
-        ? "No source value"
-        : formatCurrencyValue(sourceValue);
+      preview.textContent = item.sourcePreviewText;
     });
 
     const mortgagePreview = document.querySelector("[data-analysis-debt-mortgage-preview]");
@@ -7674,6 +7759,15 @@
     const debtCategoryTreatmentItems = getDebtCategoryTreatmentItems();
     for (let index = 0; index < debtCategoryTreatmentItems.length; index += 1) {
       const item = debtCategoryTreatmentItems[index];
+      const hasVisibleTreatmentRow = Boolean(fields.include[item.key] || fields.mode[item.key] || fields.payoff[item.key]);
+      const currentTreatment = fields.currentAssumptions?.debtCategoryTreatment?.[item.key]
+        || DEFAULT_DEBT_TREATMENT_ASSUMPTIONS.debtCategoryTreatment[item.key]
+        || createDefaultDebtCategoryTreatment();
+      if (!hasVisibleTreatmentRow) {
+        nextAssumptions.debtCategoryTreatment[item.key] = currentTreatment;
+        continue;
+      }
+
       const mode = String(fields.mode[item.key]?.value || "").trim();
       if (!DEBT_CATEGORY_TREATMENT_MODES.includes(mode)) {
         return {
@@ -8642,7 +8736,7 @@
 
     let linkedRecord = resolveLinkedProfileRecord();
     renderAssetTreatmentRows(linkedRecord);
-    renderDebtTreatmentRows();
+    renderDebtTreatmentRows(linkedRecord);
 
     const fields = getFieldMap();
     const sliders = getSliderMap();
@@ -9758,6 +9852,7 @@
     getAssetTreatmentAssumptions,
     getExistingCoverageAssumptions,
     getDebtCategoryTreatmentItems,
+    resolveAnalysisSetupDebtRecordTreatmentRows,
     normalizeMortgageTreatmentAssumption,
     normalizeMortgageManualYearsRemainingOverride,
     getDebtTreatmentAssumptions,
