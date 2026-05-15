@@ -3270,7 +3270,7 @@
             </select>
           </span>
           <span role="cell">
-            <span class="analysis-setup-tax-treatment-pill" data-analysis-asset-treatment-tax-treatment="${safeKey}">${TAX_TREATMENT_LABELS[defaults.taxTreatment]}</span>
+            <span class="analysis-setup-tax-treatment-pill" data-analysis-asset-treatment-tax-treatment="${safeKey}" data-analysis-asset-tax-treatment-key="${defaults.taxTreatment}">${TAX_TREATMENT_LABELS[defaults.taxTreatment]}</span>
           </span>
           <span role="cell">
             <span class="analysis-setup-asset-percent">
@@ -5913,6 +5913,9 @@
 
     const normalizedTaxTreatment = normalizeTaxTreatment(taxTreatment, "custom");
     pill.textContent = TAX_TREATMENT_LABELS[normalizedTaxTreatment] || TAX_TREATMENT_LABELS.custom;
+    if (typeof pill.setAttribute === "function") {
+      pill.setAttribute("data-analysis-asset-tax-treatment-key", normalizedTaxTreatment);
+    }
   }
 
   function syncAssetTreatmentPreview(fields, itemKey, linkedRecord) {
