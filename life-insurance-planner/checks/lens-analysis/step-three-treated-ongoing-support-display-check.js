@@ -276,16 +276,11 @@ function renderScenario(options = {}) {
   };
 }
 
-function getGitDiff(relativePath) {
-  return execFileSync("git", ["diff", "--", `./${relativePath}`], {
-    cwd: repoRoot,
-    encoding: "utf8"
-  });
-}
-
 function assertNoProtectedDiffs() {
   const allowedDiffs = new Set([
+    "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
+    "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
     "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
     "checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
@@ -388,10 +383,8 @@ assert.doesNotMatch(
   "Step 3 display should not duplicate mortgage treatment calculation logic."
 );
 
-assert.ok(
-  getGitDiff("app/features/lens-analysis/step-three-analysis-display.js").includes("Mortgage treatment applied to support need"),
-  "Display diff should be limited to treated support truthfulness output."
-);
+assert.match(displaySource, /Mortgage treatment applied to support need/);
+assert.match(displaySource, /renderNeedsTreatedOngoingSupportDetails/);
 
 assertNoProtectedDiffs();
 

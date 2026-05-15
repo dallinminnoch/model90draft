@@ -64,6 +64,12 @@ const steps = [
     cwd: projectRoot
   },
   {
+    label: "Analysis Setup mortgage treatment saved shape",
+    command: process.execPath,
+    args: [path.join(projectRoot, "checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js")],
+    cwd: projectRoot
+  },
+  {
     label: "Mortgage treatment payment plan",
     command: process.execPath,
     args: [path.join(projectRoot, "checks/lens-analysis/mortgage-treatment-payment-plan-check.js")],

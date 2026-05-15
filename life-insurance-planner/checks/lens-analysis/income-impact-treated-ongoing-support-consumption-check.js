@@ -258,9 +258,11 @@ function warningCodes(result) {
 
 function assertNoForbiddenSourceChanges() {
   const allowed = new Set([
+    "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-base-household-expense-stream.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-lifestyle-scenario-calculations.js",
+    "life-insurance-planner/checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js",
     "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js",
     "life-insurance-planner/checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js",

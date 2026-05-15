@@ -110,7 +110,10 @@ const defaultAssumptions = analysisSetup.DEFAULT_DEBT_TREATMENT_ASSUMPTIONS;
 assert.equal(defaultAssumptions.schemaVersion, 2);
 assert.equal(defaultAssumptions.enabled, true, "Debt treatment assumptions should be active for DIME and Needs.");
 assert.equal(defaultAssumptions.mortgageTreatment.mode, "payoff");
+assert.equal(defaultAssumptions.mortgageTreatment.include, true);
+assert.equal(defaultAssumptions.mortgageTreatment.payoffPercent, 100);
 assert.equal(defaultAssumptions.mortgageTreatment.paymentSupportYears, null);
+assert.equal(defaultAssumptions.mortgageTreatment.manualYearsRemainingOverride, null);
 assert.ok(defaultAssumptions.debtCategoryTreatment, "default assumptions should expose debtCategoryTreatment");
 assert.equal(
   Object.prototype.hasOwnProperty.call(defaultAssumptions, "nonMortgageDebtTreatment"),
@@ -164,6 +167,98 @@ assert.equal(
   "normalized assumptions should not carry scalar-era nonMortgageDebtTreatment"
 );
 
+const oldPayoffMortgage = analysisSetup.getDebtTreatmentAssumptions({
+  analysisSettings: {
+    debtTreatmentAssumptions: {
+      schemaVersion: 2,
+      mortgageTreatment: {
+        include: false,
+        mode: "payoff",
+        payoffPercent: 25,
+        paymentSupportYears: 12,
+        manualYearsRemainingOverride: 20
+      },
+      source: "analysis-setup"
+    }
+  }
+}).mortgageTreatment;
+assert.equal(oldPayoffMortgage.mode, "payoff", "old payoff mode should remain payoff.");
+assert.equal(oldPayoffMortgage.include, false, "mortgage include should be preserved for compatibility.");
+assert.equal(oldPayoffMortgage.payoffPercent, 100, "payoff mode should normalize to full payoff.");
+assert.equal(oldPayoffMortgage.paymentSupportYears, 12, "legacy support duration should be preserved as legacy data.");
+assert.equal(oldPayoffMortgage.manualYearsRemainingOverride, null, "payoff mode should clear manual mortgage term override.");
+
+const oldSupportMortgage = analysisSetup.getDebtTreatmentAssumptions({
+  analysisSettings: {
+    debtTreatmentAssumptions: {
+      schemaVersion: 2,
+      mortgageTreatment: {
+        include: true,
+        mode: "support",
+        payoffPercent: 35,
+        paymentSupportYears: 7
+      },
+      source: "analysis-setup"
+    }
+  }
+}).mortgageTreatment;
+assert.equal(oldSupportMortgage.mode, "support", "old support mode should remain support for future Continue Payments.");
+assert.equal(oldSupportMortgage.include, true);
+assert.equal(oldSupportMortgage.payoffPercent, 35, "support mode payoffPercent should remain an immediate partial payoff percent.");
+assert.equal(oldSupportMortgage.paymentSupportYears, 7, "legacy paymentSupportYears should be preserved.");
+assert.equal(oldSupportMortgage.manualYearsRemainingOverride, null, "paymentSupportYears must not map to manualYearsRemainingOverride.");
+
+assert.equal(typeof analysisSetup.normalizeMortgageTreatmentAssumption, "function");
+assert.equal(typeof analysisSetup.normalizeMortgageManualYearsRemainingOverride, "function");
+
+const supportWithManualMin = analysisSetup.normalizeMortgageTreatmentAssumption({
+  mode: "support",
+  include: false,
+  payoffPercent: 0,
+  paymentSupportYears: 15,
+  manualYearsRemainingOverride: 1
+}, defaultAssumptions.mortgageTreatment);
+assert.equal(supportWithManualMin.mode, "support");
+assert.equal(supportWithManualMin.include, false);
+assert.equal(supportWithManualMin.payoffPercent, 0);
+assert.equal(supportWithManualMin.paymentSupportYears, 15);
+assert.equal(supportWithManualMin.manualYearsRemainingOverride, 1);
+
+const supportWithManualMax = analysisSetup.normalizeMortgageTreatmentAssumption({
+  mode: "support",
+  payoffPercent: 99.999,
+  manualYearsRemainingOverride: 30
+}, defaultAssumptions.mortgageTreatment);
+assert.equal(supportWithManualMax.payoffPercent, 99.999);
+assert.equal(supportWithManualMax.manualYearsRemainingOverride, 30);
+
+[
+  0,
+  -1,
+  30.01,
+  31,
+  "abc",
+  "",
+  null
+].forEach((value) => {
+  assert.equal(
+    analysisSetup.normalizeMortgageManualYearsRemainingOverride(value),
+    null,
+    `manual years override ${String(value)} should normalize to null.`
+  );
+});
+
+const payoffNormalized = analysisSetup.normalizeMortgageTreatmentAssumption({
+  mode: "payoff",
+  include: true,
+  payoffPercent: 5,
+  paymentSupportYears: 9,
+  manualYearsRemainingOverride: 12
+}, defaultAssumptions.mortgageTreatment);
+assert.equal(payoffNormalized.payoffPercent, 100);
+assert.equal(payoffNormalized.manualYearsRemainingOverride, null);
+assert.equal(payoffNormalized.paymentSupportYears, 9);
+
 const legacySaved = analysisSetup.getDebtTreatmentAssumptions({
   analysisSettings: {
     debtTreatmentAssumptions: {
@@ -211,6 +306,10 @@ const saveBody = extractFunctionBody(
 assert.match(saveBody, /schemaVersion:\s*DEBT_TREATMENT_SCHEMA_VERSION/);
 assert.match(saveBody, /enabled:\s*true/);
 assert.match(saveBody, /debtCategoryTreatment:\s*\{\}/);
+assert.match(saveBody, /normalizeMortgageTreatmentAssumption/);
+assert.match(saveBody, /manualYearsRemainingOverride/);
+assert.match(saveBody, /mortgageMode === "payoff"\s*\?\s*\{\s*value:\s*100\s*\}/);
+assert.match(saveBody, /readOptionalMortgageManualYearsRemainingOverride/);
 assert.doesNotMatch(
   saveBody,
   /nonMortgageDebtTreatment/,
@@ -248,6 +347,9 @@ assert.match(supportYearsVisibilityBody, /row\.hidden\s*=\s*mode\s*!==\s*"suppor
 assert.doesNotMatch(supportYearsVisibilityBody, /mode === "custom"/);
 
 assert.match(source, /const MORTGAGE_TREATMENT_MODES = Object\.freeze\(\["payoff", "support"\]\)/);
+assert.match(source, /manualYearsRemainingOverride:\s*null/);
+assert.match(source, /paymentSupportYears,\s*\n\s*manualYearsRemainingOverride/);
+assert.doesNotMatch(source, /manualYearsRemainingOverride:\s*normalizeDebtSupportYears\(\s*safeSource\.paymentSupportYears/);
 assert.match(source, /Mortgage treatment must be Payoff or Support\./);
 assert.doesNotMatch(source, /Mortgage treatment must be Payoff, Support, or Custom\./);
 
