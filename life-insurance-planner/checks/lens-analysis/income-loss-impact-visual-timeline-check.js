@@ -102,6 +102,20 @@ function getGraphHoverGridLineTag(html, x) {
   return tag;
 }
 
+function getSvgTag(html, tagName, attributeName) {
+  const pattern = new RegExp(`<${tagName}\\b(?=[^>]*${attributeName})[^>]*>`, "m");
+  const match = html.match(pattern);
+  assert.ok(match, `Expected <${tagName}> with ${attributeName}.`);
+  return match[0];
+}
+
+function getSvgNumericAttribute(tag, attributeName) {
+  const pattern = new RegExp(`${attributeName}="(-?\\d+(?:\\.\\d+)?)"`);
+  const match = String(tag || "").match(pattern);
+  assert.ok(match, `Expected ${attributeName} on SVG tag.`);
+  return Number(match[1]);
+}
+
 function getPathYValues(pathD) {
   const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
   return numbers
@@ -215,6 +229,35 @@ function makeGraphModel(mode = "forward-projection") {
       calculationMethod: "income-impact-timeline-graph-model-v1"
     }
   };
+}
+
+function attachStableLayoutFrame(graphModel, overrides = {}) {
+  graphModel.layoutFrame = Object.assign({
+    mode: "stableRunoutAnchoredFrame",
+    plotLeft: 74,
+    plotRight: 958,
+    plotTop: 36,
+    plotBottom: 354,
+    deathXRatio: 0.125,
+    zeroYRatio: 0.72,
+    runoutAnchorXRatio: 0.8,
+    negativeSupportBandRatio: 0.28,
+    xDomainMonths: 180,
+    yDomain: {
+      min: -125000,
+      max: 720000,
+      signed: true,
+      source: "axes.y"
+    },
+    zeroCrossingAnchorScenarioId: "selected",
+    zeroCrossingAnchorMonth: 144,
+    zeroCrossingAnchorSource: "current-rendered-scenario-depletion",
+    trace: {
+      source: "income-impact-timeline-graph-model.layoutFrame",
+      rendererConsumesLayoutFrame: false
+    }
+  }, overrides);
+  return graphModel;
 }
 
 function makeLifestyleScenarioFixture({ sliderValue, monthlyDelta, depletionMonthIndex, depletionDate, points }) {
@@ -895,6 +938,142 @@ assert.ok(
 assert.match(timelineHtml, /data-income-impact-graph-x-tick-date="2031-04-29"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-x-tick="valuation"|data-income-impact-graph-x-tick="horizon"/);
 assert.match(timelineHtml, /data-income-impact-graph-zero-baseline/);
+assert.doesNotMatch(
+  timelineHtml,
+  /data-income-impact-layout-frame-mode/,
+  "Renderer should preserve legacy graph behavior when layoutFrame is absent."
+);
+{
+  const stableGraphModel = attachStableLayoutFrame(makeGraphModel());
+  stableGraphModel.phases.deathEvent.xRatio = 0.42;
+  stableGraphModel.phases.preDeath.endXRatio = 0.42;
+  stableGraphModel.phases.postDeath.startXRatio = 0.42;
+  stableGraphModel.axes.y.zeroYRatio = 0.48;
+  stableGraphModel.axes.y.ticks = [
+    { value: -125000, yRatio: 0.9 },
+    { value: 0, yRatio: 0.48 },
+    { value: 360000, yRatio: 0.18 },
+    { value: 720000, yRatio: 0.02 }
+  ];
+  stableGraphModel.series.postDeathResources = [
+    { date: "2031-04-29", monthIndex: 0, value: 720000, xRatio: 0.42, yRatio: 0.02 },
+    { date: "2037-04-29", monthIndex: 72, value: 360000, xRatio: 0.58, yRatio: 0.18 },
+    { date: "2043-04-29", monthIndex: 144, value: 0, xRatio: 0.84, yRatio: 0.48 }
+  ];
+  const stableHtml = harness.renderTimeline({
+    ...fixture,
+    graphModel: stableGraphModel
+  });
+  const stableDeathAxis = getSvgTag(stableHtml, "line", "data-income-impact-graph-death-axis");
+  const stableZeroBaseline = getSvgTag(stableHtml, "line", "data-income-impact-graph-zero-baseline");
+  assert.match(stableHtml, /data-income-impact-layout-frame-mode="stableRunoutAnchoredFrame"/);
+  assert.equal(
+    getSvgNumericAttribute(stableDeathAxis, "x1"),
+    185,
+    "Renderer should consume layoutFrame deathXRatio instead of dynamic phase death x."
+  );
+  assert.equal(
+    getSvgNumericAttribute(stableZeroBaseline, "y1"),
+    265,
+    "Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y."
+  );
+  const stablePath = getPathD(stableHtml, "data-income-impact-graph-path", "postDeathResources");
+  assert.match(
+    stablePath,
+    /781 265/,
+    "Furthest visible depletion should render at the stable runout anchor zone."
+  );
+
+  const stableRisingGraphModel = attachStableLayoutFrame(makeGraphModel(), {
+    zeroCrossingAnchorScenarioId: null,
+    zeroCrossingAnchorMonth: null,
+    zeroCrossingAnchorSource: "projection-horizon",
+    xDomainMonths: 240,
+    yDomain: {
+      min: -50000,
+      max: 900000,
+      signed: true,
+      source: "axes.y"
+    }
+  });
+  stableRisingGraphModel.phases.deathEvent.xRatio = 0.31;
+  stableRisingGraphModel.axes.y.zeroYRatio = 0.91;
+  stableRisingGraphModel.axes.y.ticks = [
+    { value: 0, yRatio: 0.91 },
+    { value: 450000, yRatio: 0.44 },
+    { value: 900000, yRatio: 0.08 }
+  ];
+  stableRisingGraphModel.series.postDeathResources = [
+    { date: "2031-04-29", monthIndex: 0, value: 600000, xRatio: 0.31, yRatio: 0.24 },
+    { date: "2036-04-29", monthIndex: 60, value: 760000, xRatio: 0.52, yRatio: 0.18 },
+    { date: "2041-04-29", monthIndex: 120, value: 880000, xRatio: 0.72, yRatio: 0.12 }
+  ];
+  const stableRisingHtml = harness.renderTimeline({
+    ...fixture,
+    graphModel: stableRisingGraphModel
+  });
+  assert.equal(
+    getSvgNumericAttribute(getSvgTag(stableRisingHtml, "line", "data-income-impact-graph-death-axis"), "x1"),
+    185,
+    "Death marker should remain stable for rising/no-depletion resource lines."
+  );
+  assert.equal(
+    getSvgNumericAttribute(getSvgTag(stableRisingHtml, "line", "data-income-impact-graph-zero-baseline"), "y1"),
+    265,
+    "Zero line should remain stable for rising/no-depletion resource lines."
+  );
+  assert.match(stableRisingHtml, />\$900k</, "Axis tick labels should still reflect the dynamic model domain.");
+
+  const stableComparisonGraphModel = attachStableLayoutFrame(makeGraphModel(), {
+    zeroCrossingAnchorScenarioId: "income-impact-lifestyle-adjusted-comparison",
+    zeroCrossingAnchorMonth: 168,
+    zeroCrossingAnchorSource: "manual-lifestyle-comparison-depletion",
+    xDomainMonths: 210
+  });
+  stableComparisonGraphModel.series.postDeathResources = [
+    { date: "2031-04-29", monthIndex: 0, value: 720000, xRatio: 0.25, yRatio: 0.02 },
+    { date: "2043-04-29", monthIndex: 144, value: 0, xRatio: 0.9, yRatio: 0.48 }
+  ];
+  stableComparisonGraphModel.series.comparisonPostDeathResources = [
+    {
+      scenarioId: "income-impact-lifestyle-adjusted-comparison",
+      kind: "lifestyleComparison",
+      pathId: "lifestyle-post-death-resources",
+      label: "Lifestyle-adjusted projection",
+      pathMode: "linear",
+      points: [
+        { date: "2031-04-29", monthIndex: 0, value: 720000, xRatio: 0.25, yRatio: 0.02 },
+        { date: "2045-04-29", monthIndex: 168, value: 0, xRatio: 0.96, yRatio: 0.48 }
+      ]
+    }
+  ];
+  const stableComparisonHtml = harness.renderTimeline({
+    ...fixture,
+    graphModel: stableComparisonGraphModel,
+    compressionReporting: {
+      lifestyleScenario: makeLifestyleScenarioFixture({
+        sliderValue: -100,
+        monthlyDelta: -500,
+        depletionMonthIndex: 168,
+        depletionDate: "2045-04-29",
+        points: stableComparisonGraphModel.series.comparisonPostDeathResources[0].points
+      })
+    }
+  });
+  const stableBasePath = getPathD(stableComparisonHtml, "data-income-impact-graph-path", "postDeathResources");
+  const stableComparisonPath = getPathD(stableComparisonHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
+  const stableBaseNumbers = (stableBasePath.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  const stableComparisonNumbers = (stableComparisonPath.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  assert.ok(
+    stableBaseNumbers[stableBaseNumbers.length - 2] < stableComparisonNumbers[stableComparisonNumbers.length - 2],
+    "Baseline should cross zero before the stable runout anchor when lifestyle runs longer."
+  );
+  assert.equal(
+    stableComparisonNumbers[stableComparisonNumbers.length - 2],
+    781,
+    "Later-running lifestyle comparison should cross zero at the stable runout anchor zone."
+  );
+}
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-marker-rule-id="survivor-resources-depleted"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-marker-rule-id="coverage-added-at-death"/);
 assert.doesNotMatch(

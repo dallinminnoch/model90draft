@@ -468,6 +468,35 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("survivor surplus rising-resource scenario");
   }
 
+  function isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath) {
+    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"
+      && filePath !== "life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", `./${filePath}`], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    if (filePath === "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js") {
+      return diff.includes("STABLE_GRAPH_LAYOUT_FRAME_MODE")
+        && diff.includes("getStableGraphLayoutFrame")
+        && diff.includes("getLayoutFrameXRatio")
+        && diff.includes("getLayoutFrameYRatio")
+        && diff.includes("layoutFrame.deathXRatio")
+        && diff.includes("layoutFrame.zeroYRatio")
+        && diff.includes("layoutFrame.runoutAnchorXRatio")
+        && diff.includes("zeroCrossingAnchorMonth")
+        && diff.includes("data-income-impact-layout-frame-mode");
+    }
+
+    return diff.includes("attachStableLayoutFrame")
+      && diff.includes("Renderer should consume layoutFrame deathXRatio instead of dynamic phase death x.")
+      && diff.includes("Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y.")
+      && diff.includes("Furthest visible depletion should render at the stable runout anchor zone.")
+      && diff.includes("Later-running lifestyle comparison should cross zero at the stable runout anchor zone.");
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -597,6 +626,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath)
       && !isAllowedAssetDepletionLedgerSurplusDepositPass(filePath)
       && !isAllowedIncomeImpactGraphLayoutFramePass(filePath)
+      && !isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);

@@ -305,6 +305,19 @@ function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
   return originalDiagnosticDiff || diagnosticDepthDiff || diagnosticLifestyleComparisonDiff || diagnosticLifestyleShapeDiff;
 }
 
+function isAllowedIncomeLossImpactLayoutFrameRendererConsumption() {
+  const diff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
+  return diff.includes("STABLE_GRAPH_LAYOUT_FRAME_MODE")
+    && diff.includes("getStableGraphLayoutFrame")
+    && diff.includes("getLayoutFrameXRatio")
+    && diff.includes("getLayoutFrameYRatio")
+    && diff.includes("layoutFrame.deathXRatio")
+    && diff.includes("layoutFrame.zeroYRatio")
+    && diff.includes("layoutFrame.runoutAnchorXRatio")
+    && diff.includes("zeroCrossingAnchorMonth")
+    && diff.includes("data-income-impact-layout-frame-mode");
+}
+
 function isAllowedAnalysisSetupMortgageTreatmentUi() {
   const diff = getGitDiff("pages/analysis-setup.html");
   const html = readRepoFile("pages/analysis-setup.html");
@@ -419,7 +432,8 @@ function assertNoProtectedDiffs() {
     }
     if (filePath === "app/features/lens-analysis/income-loss-impact-display.js") {
       return !(isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap()
-        || isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot());
+        || isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot()
+        || isAllowedIncomeLossImpactLayoutFrameRendererConsumption());
     }
     if (filePath === "pages/analysis-setup.html") {
       return !(isAllowedAnalysisSetupMortgageTreatmentUi()
