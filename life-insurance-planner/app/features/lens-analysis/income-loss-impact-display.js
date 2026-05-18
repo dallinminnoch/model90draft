@@ -6159,20 +6159,61 @@
     };
   }
 
-  function summarizeSurvivorDiagnosticComparisonScenario(scenario, delayMonths) {
+  function getLastSurvivorDiagnosticPoint(points) {
+    return Array.isArray(points) && points.length ? points[points.length - 1] : null;
+  }
+
+  function getSurvivorDiagnosticPointEndingResources(point) {
+    return toOptionalNumber(point?.endingResources ?? point?.availableResources);
+  }
+
+  function summarizeSurvivorDiagnosticComparisonScenario(scenario, delayMonths, primaryScenario) {
+    const pointsSample = pickSurvivorDiagnosticPoints(scenario, 24);
+    const pointsAroundDelay = pickSurvivorDiagnosticPointWindow(scenario, delayMonths, 2, 6);
+    const primaryPointsSample = pickSurvivorDiagnosticPoints(primaryScenario, 24);
+    const comparisonLastPoint = getLastSurvivorDiagnosticPoint(pointsSample);
+    const primaryLastPoint = getLastSurvivorDiagnosticPoint(primaryPointsSample);
+    const comparisonAfterDelayPoint = pointsAroundDelay.find(function (point) {
+      const monthIndex = toOptionalNumber(point?.monthIndex);
+      const delay = toOptionalNumber(delayMonths);
+      return delay == null ? (toOptionalNumber(point?.survivorIncome) || 0) > 0 : monthIndex != null && monthIndex > delay;
+    }) || null;
     return {
       scenarioId: scenario?.scenarioId || scenario?.pathId || null,
+      type: scenario?.kind || scenario?.type || scenario?.trace?.displayComparisonKind || null,
       label: scenario?.label || null,
       firstPoints: pickSurvivorDiagnosticPoints(scenario, 8),
-      pointsSample: pickSurvivorDiagnosticPoints(scenario, 24),
-      pointsAroundDelay: pickSurvivorDiagnosticPointWindow(scenario, delayMonths, 2, 6),
+      pointsSample,
+      pointsAroundDelay,
       fullPointCount: getSurvivorDiagnosticPointCount(scenario),
       depletionMonth: getScenarioDepletionMonth(scenario),
+      netUseAfterDelay: toOptionalNumber(comparisonAfterDelayPoint?.netUse),
+      endingResourcesAfterDelay: getSurvivorDiagnosticPointEndingResources(comparisonAfterDelayPoint),
       hasSurvivorIncomeAfterDelay: hasPositiveSurvivorIncomeAfterDelay({
-        rawBaselinePointsAroundDelay: pickSurvivorDiagnosticPointWindow(scenario, delayMonths, 2, 6),
-        rawBaselinePointsSample: pickSurvivorDiagnosticPoints(scenario, 24)
-      }, delayMonths)
+        rawBaselinePointsAroundDelay: pointsAroundDelay,
+        rawBaselinePointsSample: pointsSample
+      }, delayMonths),
+      lineValuesDifferFromPrimary: getSurvivorDiagnosticPointEndingResources(comparisonLastPoint)
+        !== getSurvivorDiagnosticPointEndingResources(primaryLastPoint)
     };
+  }
+
+  function getSurvivorDiagnosticComparisonScenarios(timelineResult) {
+    const comparisonScenarios = [];
+    if (Array.isArray(timelineResult?.comparisonScenarios)) {
+      comparisonScenarios.push(...timelineResult.comparisonScenarios);
+    }
+    const lifestyleComparison = getLifestyleImpactComparisonScenario(timelineResult);
+    if (isPlainObject(lifestyleComparison)) {
+      const existingId = lifestyleComparison.scenarioId || lifestyleComparison.pathId || null;
+      const exists = comparisonScenarios.some(function (scenario) {
+        return (scenario?.scenarioId || scenario?.pathId || null) === existingId;
+      });
+      if (!exists) {
+        comparisonScenarios.push(lifestyleComparison);
+      }
+    }
+    return comparisonScenarios;
   }
 
   function summarizeSurvivorDiagnosticTimelineResult(timelineResult, delayMonths) {
@@ -6183,9 +6224,13 @@
     const baselineContract = isPlainObject(timelineResult?.baselineContract) ? timelineResult.baselineContract : {};
     const scenarioDepletionMonth = getScenarioDepletionMonth(scenario);
     const rawBaselineDepletionMonth = getScenarioDepletionMonth(rawBaselineScenario);
-    const comparisonScenarios = Array.isArray(timelineResult?.comparisonScenarios)
-      ? timelineResult.comparisonScenarios
-      : [];
+    const comparisonScenarios = getSurvivorDiagnosticComparisonScenarios(timelineResult);
+    const lifestyleComparisonScenario = getLifestyleImpactComparisonScenario(timelineResult);
+    const lifestyleComparisonSummary = summarizeSurvivorDiagnosticComparisonScenario(
+      lifestyleComparisonScenario,
+      delayMonths,
+      rawBaselineScenario
+    );
 
     return {
       scenarioId: scenario.scenarioId || null,
@@ -6208,8 +6253,21 @@
         return row?.scenarioId || row?.pathId || null;
       }).filter(Boolean),
       comparisonScenarios: comparisonScenarios.map(function (row) {
-        return summarizeSurvivorDiagnosticComparisonScenario(row, delayMonths);
+        return summarizeSurvivorDiagnosticComparisonScenario(row, delayMonths, rawBaselineScenario);
       }),
+      lifestyleComparison: {
+        active: isPlainObject(lifestyleComparisonScenario),
+        scenarioId: lifestyleComparisonSummary.scenarioId,
+        type: lifestyleComparisonSummary.type,
+        label: lifestyleComparisonSummary.label,
+        pointsAroundDelay: lifestyleComparisonSummary.pointsAroundDelay,
+        pointsSample: lifestyleComparisonSummary.pointsSample,
+        fullPointCount: lifestyleComparisonSummary.fullPointCount,
+        hasSurvivorIncomeAfterDelay: lifestyleComparisonSummary.hasSurvivorIncomeAfterDelay,
+        netUseAfterDelay: lifestyleComparisonSummary.netUseAfterDelay,
+        endingResourcesAfterDelay: lifestyleComparisonSummary.endingResourcesAfterDelay,
+        lineValuesDifferFromPrimary: lifestyleComparisonSummary.lineValuesDifferFromPrimary
+      },
       dataGapCodes: (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []).map(function (gap) {
         return gap?.code || null;
       }).filter(Boolean),
@@ -6341,7 +6399,12 @@
           || included.rawBaselineDepletionMonth !== excluded.rawBaselineDepletionMonth,
         graphLineValuesDiffer: included.graph.firstPointValue !== excluded.graph.firstPointValue
           || included.graph.lastPointValue !== excluded.graph.lastPointValue,
-        currentRenderedUsesAutoCompressedBaseline: currentRendered.autoCompressionApplied === true
+        currentRenderedUsesAutoCompressedBaseline: currentRendered.autoCompressionApplied === true,
+        lifestyleComparisonActive: currentRendered.lifestyleComparison?.active === true,
+        lifestyleComparisonHasSurvivorIncomeAfterDelay: currentRendered.lifestyleComparison?.active === true
+          && currentRendered.lifestyleComparison?.hasSurvivorIncomeAfterDelay === true,
+        lifestyleComparisonLineDiffersFromPrimary: currentRendered.lifestyleComparison?.active === true
+          && currentRendered.lifestyleComparison?.lineValuesDifferFromPrimary === true
       }
     });
   }

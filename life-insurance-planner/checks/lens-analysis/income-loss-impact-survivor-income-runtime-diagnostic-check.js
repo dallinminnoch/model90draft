@@ -123,7 +123,51 @@ function makePostDeathSeries(includeSurvivorIncome) {
   };
 }
 
-function createHarness() {
+function makeLifestyleComparisonScenario(input) {
+  const basePoints = Array.isArray(input?.basePostDeathSeries?.points) ? input.basePostDeathSeries.points : [];
+  let endingResources = 120000;
+  const points = basePoints.map(function (point) {
+    const survivorIncome = point.survivorIncome || 0;
+    const survivorNeeds = (point.survivorNeeds || 0) + 1000;
+    const netUse = survivorNeeds - survivorIncome;
+    endingResources = Math.round((endingResources - netUse) * 100) / 100;
+    return {
+      date: point.date,
+      monthIndex: point.monthIndex,
+      survivorIncome,
+      survivorNeeds,
+      scheduledObligations: point.scheduledObligations || 0,
+      netUse,
+      endingResources,
+      availableResources: Math.max(0, endingResources)
+    };
+  });
+  return {
+    status: "complete",
+    sliderValue: input?.sliderValue ?? 0,
+    monthlyDelta: 1000,
+    comparisonScenario: {
+      scenarioId: "diagnostic-lifestyle-comparison",
+      kind: "lifestyleComparison",
+      label: "Diagnostic lifestyle comparison",
+      postDeathSeries: {
+        points,
+        depletion: {
+          depleted: false,
+          depletionMonthIndex: null,
+          monthsCovered: points.length,
+          precision: "monthly"
+        }
+      },
+      trace: {
+        monthlyDelta: 1000,
+        graphMonthlyDelta: 1000
+      }
+    }
+  };
+}
+
+function createHarness(options = {}) {
   const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
   const composerCalls = [];
   const graphModelCalls = [];
@@ -330,36 +374,41 @@ function createHarness() {
                 monthIndex: point.monthIndex
               };
             });
-            const comparisonPoints = points.map(function (point) {
+            const comparisonPostDeathResources = (input.comparisonScenarios || []).map(function (scenario) {
               return {
-                ...point,
-                value: Math.max(0, point.value - 5000),
-                endingResources: Math.max(0, point.endingResources - 5000),
-                availableResources: Math.max(0, point.availableResources - 5000)
+                scenarioId: scenario.scenarioId,
+                pathId: scenario.pathId || scenario.graphPathId || "diagnostic-lifestyle-comparison-path",
+                label: scenario.label,
+                points: (scenario.postDeathSeries?.points || []).map(function (point) {
+                  return {
+                    value: point.endingResources,
+                    endingResources: point.endingResources,
+                    availableResources: point.availableResources,
+                    monthIndex: point.monthIndex
+                  };
+                })
               };
             });
             return {
               status: "complete",
               series: {
                 postDeathResources: points,
-                comparisonPostDeathResources: [
-                  {
-                    scenarioId: "diagnostic-lifestyle-comparison",
-                    pathId: "diagnostic-lifestyle-comparison-path",
-                    label: "Diagnostic lifestyle comparison",
-                    points: comparisonPoints
-                  }
-                ]
+                comparisonPostDeathResources
               },
               trace: {
                 selectedAppliedScenarioPathId: "postDeathResources",
-                comparisonScenariosEnabled: true,
-                comparisonScenarioCount: 1
+                comparisonScenariosEnabled: comparisonPostDeathResources.length > 0,
+                comparisonScenarioCount: comparisonPostDeathResources.length
               },
               dataGaps: [],
               warnings: []
             };
-          }
+          },
+          incomeImpactLifestyleScenarioCalculations: options.lifestyleComparison
+            ? {
+                calculateIncomeImpactLifestyleScenario: makeLifestyleComparisonScenario
+              }
+            : null
         }
       }
     }
@@ -428,11 +477,12 @@ assert.equal(snapshot.conclusions.excludedScenarioHasSurvivorIncome, false);
 assert.equal(snapshot.conclusions.diagnosticPointWindowCoversSurvivorDelay, true);
 assert.equal(snapshot.conclusions.includedExcludedDiffer, true);
 assert.equal(snapshot.conclusions.graphLineValuesDiffer, true);
-assert.deepEqual(Array.from(snapshot.included.graph.comparisonScenarioIds), ["diagnostic-lifestyle-comparison"]);
-assert.equal(snapshot.included.graph.comparisonScenarios[0].pointCount, 30);
-assert.equal(snapshot.included.graph.comparisonScenarios[0].pointsSample.length, 24);
-assert.ok(snapshot.included.graph.comparisonScenarios[0].pointsAroundDelay.some((point) => point.monthIndex === 13));
-assert.equal(snapshot.included.graph.comparisonScenarios[0].lineValuesDifferFromPrimary, true);
+assert.equal(snapshot.conclusions.lifestyleComparisonActive, false);
+assert.equal(snapshot.conclusions.lifestyleComparisonHasSurvivorIncomeAfterDelay, false);
+assert.equal(snapshot.conclusions.lifestyleComparisonLineDiffersFromPrimary, false);
+assert.deepEqual(Array.from(snapshot.currentRendered.comparisonScenarioIds), []);
+assert.equal(snapshot.currentRendered.lifestyleComparison.active, false);
+assert.deepEqual(Array.from(snapshot.included.graph.comparisonScenarioIds), []);
 assert.equal(snapshot.included.graph.firstPointValue, 111000);
 assert.notEqual(snapshot.included.graph.lastPointValue, snapshot.excluded.graph.lastPointValue);
 assert.ok(harness.composerCalls.some(function (call) {
@@ -441,5 +491,43 @@ assert.ok(harness.composerCalls.some(function (call) {
 assert.ok(harness.composerCalls.some(function (call) {
   return call.scenarioOptions?.includeSurvivorIncome === false;
 }));
+
+const lifestyleHarness = createHarness({ lifestyleComparison: true });
+lifestyleHarness.readyCallback();
+const lifestyleSnapshot = lifestyleHarness.debug.getSurvivorIncomeSnapshot();
+
+assert.equal(lifestyleSnapshot.conclusions.lifestyleComparisonActive, true);
+assert.equal(lifestyleSnapshot.conclusions.lifestyleComparisonHasSurvivorIncomeAfterDelay, true);
+assert.equal(lifestyleSnapshot.conclusions.lifestyleComparisonLineDiffersFromPrimary, true);
+assert.deepEqual(Array.from(lifestyleSnapshot.currentRendered.comparisonScenarioIds), ["diagnostic-lifestyle-comparison"]);
+assert.equal(lifestyleSnapshot.currentRendered.lifestyleComparison.active, true);
+assert.equal(lifestyleSnapshot.currentRendered.lifestyleComparison.scenarioId, "diagnostic-lifestyle-comparison");
+assert.ok(
+  lifestyleSnapshot.currentRendered.lifestyleComparison.pointsAroundDelay.some(function (point) {
+    return point.monthIndex === 13 && point.survivorIncome === 7500;
+  }),
+  "Lifestyle comparison should preserve survivor income after the delay when included."
+);
+assert.equal(
+  lifestyleSnapshot.currentRendered.lifestyleComparison.pointsAroundDelay.find((point) => point.monthIndex === 13).netUse,
+  2500,
+  "Lifestyle comparison netUse should reflect adjusted needs minus survivor income."
+);
+assert.equal(lifestyleSnapshot.currentRendered.lifestyleComparison.lineValuesDifferFromPrimary, true);
+assert.deepEqual(Array.from(lifestyleSnapshot.currentRendered.graph.comparisonScenarioIds), ["diagnostic-lifestyle-comparison"]);
+assert.equal(lifestyleSnapshot.currentRendered.graph.comparisonScenarios[0].lineValuesDifferFromPrimary, true);
+
+assert.ok(
+  lifestyleSnapshot.excluded.lifestyleComparison.pointsAroundDelay.every(function (point) {
+    return (point.survivorIncome || 0) === 0;
+  }),
+  "Lifestyle comparison should remove survivor income when survivor income is excluded."
+);
+assert.equal(lifestyleSnapshot.excluded.lifestyleComparison.hasSurvivorIncomeAfterDelay, false);
+assert.equal(
+  lifestyleSnapshot.excluded.lifestyleComparison.pointsAroundDelay.find((point) => point.monthIndex === 13).netUse,
+  10000,
+  "Excluded lifestyle comparison netUse should include adjusted needs without survivor income."
+);
 
 console.log("income-loss-impact-survivor-income-runtime-diagnostic-check passed");

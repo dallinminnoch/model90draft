@@ -244,7 +244,14 @@ function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
     && diff.includes("diagnosticPointWindowCoversSurvivorDelay")
     && diff.includes("comparisonScenarioIds")
     && diff.includes("comparisonScenarios");
-  return originalDiagnosticDiff || diagnosticDepthDiff;
+  const diagnosticLifestyleComparisonDiff = diff.includes("getSurvivorDiagnosticComparisonScenarios")
+    && diff.includes("lifestyleComparison")
+    && diff.includes("lifestyleComparisonActive")
+    && diff.includes("lifestyleComparisonHasSurvivorIncomeAfterDelay")
+    && diff.includes("lifestyleComparisonLineDiffersFromPrimary")
+    && diff.includes("netUseAfterDelay")
+    && diff.includes("endingResourcesAfterDelay");
+  return originalDiagnosticDiff || diagnosticDepthDiff || diagnosticLifestyleComparisonDiff;
 }
 
 function isAllowedAnalysisSetupMortgageTreatmentUi() {
