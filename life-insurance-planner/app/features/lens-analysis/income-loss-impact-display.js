@@ -4535,6 +4535,22 @@
     return {};
   }
 
+  function resolveAnalysisSettingsSource(profileRecord, protectionModelingPayload, analysisSettings) {
+    if (!isPlainObject(analysisSettings)) {
+      return "unavailable";
+    }
+
+    if (analysisSettings === profileRecord?.analysisSettings) {
+      return "profileRecord.analysisSettings";
+    }
+
+    if (analysisSettings === protectionModelingPayload?.analysisSettings) {
+      return "protectionModelingPayload.analysisSettings";
+    }
+
+    return Object.keys(analysisSettings).length ? "resolved-analysisSettings" : "defaults";
+  }
+
   function buildFinancialRunwayFromScenario(scenario, projectionHorizonYears) {
     const facts = isPlainObject(scenario?.timelineFacts) ? scenario.timelineFacts : {};
     const deathEvent = isPlainObject(scenario?.deathEvent) ? scenario.deathEvent : {};
@@ -6006,6 +6022,182 @@
     return clonePlainValue(value);
   }
 
+  function pickSurvivorDiagnosticPoints(scenario, limit) {
+    return (Array.isArray(scenario?.postDeathSeries?.points) ? scenario.postDeathSeries.points : [])
+      .slice(0, Math.max(toOptionalNumber(limit) || 8, 0))
+      .map(function (point) {
+        return {
+          monthIndex: toOptionalNumber(point?.monthIndex),
+          survivorIncome: toOptionalNumber(point?.survivorIncome),
+          survivorNeeds: toOptionalNumber(point?.survivorNeeds),
+          scheduledObligations: toOptionalNumber(point?.scheduledObligations),
+          netUse: toOptionalNumber(point?.netUse),
+          endingResources: toOptionalNumber(point?.endingResources)
+        };
+      });
+  }
+
+  function getScenarioDepletionMonth(scenario) {
+    return toOptionalNumber(
+      scenario?.postDeathSeries?.depletion?.depletionMonthIndex
+      ?? scenario?.postDeathSeries?.depletion?.monthsCovered
+      ?? scenario?.timelineFacts?.monthsCovered
+    );
+  }
+
+  function getGraphPointValue(point) {
+    return toOptionalNumber(point?.value ?? point?.endingResources ?? point?.availableResources);
+  }
+
+  function summarizeSurvivorDiagnosticGraph(graphModel) {
+    const series = isPlainObject(graphModel?.series) ? graphModel.series : {};
+    const postDeathPoints = Array.isArray(series.postDeathResources) ? series.postDeathResources : [];
+    const appliedSeries = Array.isArray(series.appliedPostDeathResources) ? series.appliedPostDeathResources : [];
+    const selectedApplied = appliedSeries.find(function (row) {
+      return row?.selected === true;
+    }) || appliedSeries[0] || null;
+    const selectedPoints = Array.isArray(selectedApplied?.points) ? selectedApplied.points : [];
+    const primaryPoints = selectedPoints.length ? selectedPoints : postDeathPoints;
+    const firstPoint = primaryPoints[0] || null;
+    const lastPoint = primaryPoints.length ? primaryPoints[primaryPoints.length - 1] : null;
+
+    return {
+      status: graphModel?.status || null,
+      primaryPointCount: primaryPoints.length,
+      firstPointValue: getGraphPointValue(firstPoint),
+      lastPointValue: getGraphPointValue(lastPoint),
+      selectedAppliedScenarioPathId: graphModel?.trace?.selectedAppliedScenarioPathId || selectedApplied?.pathId || null,
+      renderedAppliedScenarioCount: toOptionalNumber(graphModel?.trace?.renderedAppliedScenarioCount),
+      appliedScenarioPathsEnabled: graphModel?.trace?.appliedScenarioPathsEnabled === true
+    };
+  }
+
+  function summarizeSurvivorDiagnosticTimelineResult(timelineResult) {
+    const scenario = isPlainObject(timelineResult?.scenario) ? timelineResult.scenario : {};
+    const rawBaselineScenario = isPlainObject(timelineResult?.rawBaselineScenario)
+      ? timelineResult.rawBaselineScenario
+      : scenario;
+    const baselineContract = isPlainObject(timelineResult?.baselineContract) ? timelineResult.baselineContract : {};
+
+    return {
+      scenarioId: scenario.scenarioId || null,
+      rawBaselineScenarioId: rawBaselineScenario.scenarioId || null,
+      visibleBaselineMode: baselineContract.visibleBaselineMode || "unadjusted",
+      autoCompressionApplied: baselineContract.autoCompressionApplied === true,
+      firstPoints: pickSurvivorDiagnosticPoints(scenario, 8),
+      rawBaselineFirstPoints: pickSurvivorDiagnosticPoints(rawBaselineScenario, 8),
+      depletionMonth: getScenarioDepletionMonth(scenario),
+      rawBaselineDepletionMonth: getScenarioDepletionMonth(rawBaselineScenario),
+      dataGapCodes: (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []).map(function (gap) {
+        return gap?.code || null;
+      }).filter(Boolean),
+      warningCodes: (Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : []).map(function (warning) {
+        return warning?.code || null;
+      }).filter(Boolean),
+      graph: summarizeSurvivorDiagnosticGraph(timelineResult?.graphModel)
+    };
+  }
+
+  function makeSurvivorDiagnosticState(state, includeSurvivorIncome) {
+    const safeState = isPlainObject(state) ? state : {};
+    const controls = getRuntimeScenarioControlsSnapshot(safeState);
+    return Object.assign({}, safeState, {
+      deathAgeState: clonePlainValue(safeState.deathAgeState || {}),
+      scenarioState: Object.assign({}, safeState.scenarioState || {}, controls, {
+        includeSurvivorIncome: includeSurvivorIncome !== false
+      }),
+      draftScenarioControls: null,
+      appliedScenarios: [],
+      selectedScenarioId: INITIAL_APPLIED_SCENARIO_ID,
+      baseRenderCache: null
+    });
+  }
+
+  function buildSurvivorDiagnosticScenarioSummary(state, includeSurvivorIncome) {
+    const diagnosticState = makeSurvivorDiagnosticState(state, includeSurvivorIncome);
+    const baseContext = buildBaseIncomeImpactContextFromState(diagnosticState);
+    const timelineResult = buildIncomeImpactResultFromBaseContext(diagnosticState, baseContext);
+    return summarizeSurvivorDiagnosticTimelineResult(timelineResult);
+  }
+
+  function hasPositiveSurvivorIncomeAfterDelay(summary) {
+    return (Array.isArray(summary?.rawBaselineFirstPoints) ? summary.rawBaselineFirstPoints : [])
+      .some(function (point) {
+        return (toOptionalNumber(point?.survivorIncome) || 0) > 0;
+      });
+  }
+
+  function scenarioNetUseSignature(summary) {
+    return (Array.isArray(summary?.rawBaselineFirstPoints) ? summary.rawBaselineFirstPoints : [])
+      .map(function (point) {
+        return [
+          toOptionalNumber(point?.monthIndex),
+          toOptionalNumber(point?.survivorIncome),
+          toOptionalNumber(point?.netUse),
+          toOptionalNumber(point?.endingResources)
+        ].join(":");
+      })
+      .join("|");
+  }
+
+  function getIncomeImpactSurvivorIncomeSnapshot() {
+    if (!incomeImpactState) {
+      return {
+        status: "unavailable",
+        reason: "income-impact-state-unavailable"
+      };
+    }
+
+    const survivorScenario = isPlainObject(incomeImpactState.lensModel?.survivorScenario)
+      ? incomeImpactState.lensModel.survivorScenario
+      : {};
+    const derivation = isPlainObject(survivorScenario.survivorIncomeDerivation)
+      ? survivorScenario.survivorIncomeDerivation
+      : {};
+    const draftControls = getDraftScenarioControlsSnapshot(incomeImpactState);
+    const appliedControls = getAppliedScenarioSettingsSnapshot(incomeImpactState);
+    const included = buildSurvivorDiagnosticScenarioSummary(incomeImpactState, true);
+    const excluded = buildSurvivorDiagnosticScenarioSummary(incomeImpactState, false);
+    const currentRendered = summarizeSurvivorDiagnosticTimelineResult(incomeImpactState.latestTimelineResult || {});
+    const survivorNetAnnualIncome = toOptionalNumber(survivorScenario.survivorNetAnnualIncome);
+
+    return clonePlainValue({
+      status: "ready",
+      linkedProfile: {
+        id: incomeImpactState.profileRecord?.id || null,
+        name: incomeImpactState.profileRecord?.displayName || incomeImpactState.profileRecord?.clientName || null,
+        caseRef: incomeImpactState.profileRecord?.caseRef || null
+      },
+      analysisSettings: {
+        source: incomeImpactState.analysisSettingsSource || null
+      },
+      survivorScenario: {
+        survivorNetAnnualIncome,
+        survivorIncomeStartDelayMonths: toOptionalNumber(survivorScenario.survivorIncomeStartDelayMonths),
+        survivorIncomeDerivation: clonePlainValue(derivation),
+        survivorSupportSettingsSource: derivation.survivorSupportSettingsSource || null,
+        survivorSupportAssumptionsSourcePath: derivation.survivorSupportAssumptionsSourcePath || null
+      },
+      scenarioControls: {
+        draft: draftControls,
+        applied: appliedControls
+      },
+      included,
+      excluded,
+      currentRendered,
+      conclusions: {
+        survivorNetAnnualIncomePositive: survivorNetAnnualIncome != null && survivorNetAnnualIncome > 0,
+        includedScenarioHasSurvivorIncomeAfterDelay: hasPositiveSurvivorIncomeAfterDelay(included),
+        excludedScenarioHasSurvivorIncome: hasPositiveSurvivorIncomeAfterDelay(excluded),
+        includedExcludedDiffer: scenarioNetUseSignature(included) !== scenarioNetUseSignature(excluded)
+          || included.rawBaselineDepletionMonth !== excluded.rawBaselineDepletionMonth,
+        graphLineValuesDiffer: included.graph.firstPointValue !== excluded.graph.firstPointValue
+          || included.graph.lastPointValue !== excluded.graph.lastPointValue,
+        currentRenderedUsesAutoCompressedBaseline: currentRendered.autoCompressionApplied === true
+      }
+    });
+  }
+
   function getScenarioSelectionTarget(event) {
     const target = event?.target;
     if (!target) {
@@ -6321,6 +6513,11 @@
 
     try {
       const analysisSettings = resolveAnalysisSettings(profileRecord, { protectionModelingPayload });
+      const analysisSettingsSource = resolveAnalysisSettingsSource(
+        profileRecord,
+        protectionModelingPayload,
+        analysisSettings
+      );
       const builderInput = {
         profileRecord,
         protectionModelingPayload,
@@ -6345,7 +6542,9 @@
         host,
         lensModel: builderResult.lensModel,
         profileRecord,
+        protectionModelingPayload,
         analysisSettings,
+        analysisSettingsSource,
         valuationDate,
         composeIncomeImpactScenario,
         evaluateIncomeImpactRiskEvents,
@@ -6388,6 +6587,7 @@
 
   lensAnalysis.incomeLossImpactDisplay = {
     initializeIncomeLossImpactDisplay,
+    getSurvivorIncomeSnapshot: getIncomeImpactSurvivorIncomeSnapshot,
     getScenarioComparisonStateSnapshot: function () {
       if (!incomeImpactState) {
         return {
@@ -6407,6 +6607,14 @@
       });
     }
   };
+
+  window.__MODEL90_INCOME_IMPACT_DEBUG__ = Object.assign(
+    {},
+    isPlainObject(window.__MODEL90_INCOME_IMPACT_DEBUG__) ? window.__MODEL90_INCOME_IMPACT_DEBUG__ : {},
+    {
+      getSurvivorIncomeSnapshot: getIncomeImpactSurvivorIncomeSnapshot
+    }
+  );
 
   document.addEventListener("DOMContentLoaded", initializeIncomeLossImpactDisplay);
 })(window);

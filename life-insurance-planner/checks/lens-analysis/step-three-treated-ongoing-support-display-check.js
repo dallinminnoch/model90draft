@@ -356,6 +356,26 @@ function assertNoProtectedDiffs() {
       && source.includes("taxConfig: createSavedDataTaxConfig()");
   }
 
+  function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath) {
+    if (filePath !== "app/features/lens-analysis/income-loss-impact-display.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", filePath], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return diff.includes("__MODEL90_INCOME_IMPACT_DEBUG__")
+      && diff.includes("getSurvivorIncomeSnapshot")
+      && diff.includes("getIncomeImpactSurvivorIncomeSnapshot")
+      && diff.includes("buildSurvivorDiagnosticScenarioSummary")
+      && diff.includes("survivorNetAnnualIncomePositive")
+      && diff.includes("includedScenarioHasSurvivorIncomeAfterDelay")
+      && diff.includes("includedExcludedDiffer")
+      && diff.includes("graphLineValuesDiffer")
+      && diff.includes("resolveAnalysisSettingsSource")
+      && diff.includes("analysisSettingsSource");
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "pages/analysis-setup.html") {
       return false;
@@ -454,6 +474,7 @@ function assertNoProtectedDiffs() {
     "checks/lens-analysis/final-expense-inflation-prep-check.js",
     "checks/lens-analysis/projected-asset-offset-analysis-setup-ui-check.js",
     "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
+    "checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js",
     "checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
     "checks/lens-analysis/analysis-setup-style-guard-utils.js",
     "checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
@@ -475,6 +496,7 @@ function assertNoProtectedDiffs() {
       && !isAllowedSurvivorIncomeSourceFix(filePath)
       && !isAllowedVisualTimelineStaleAssertionCorrection(filePath)
       && !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath)
+      && !isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);

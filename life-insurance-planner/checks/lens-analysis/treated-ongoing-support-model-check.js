@@ -271,6 +271,20 @@ function isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap() {
     && source.includes("taxConfig: createSavedDataTaxConfig()");
 }
 
+function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
+  const diff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
+  return diff.includes("__MODEL90_INCOME_IMPACT_DEBUG__")
+    && diff.includes("getSurvivorIncomeSnapshot")
+    && diff.includes("getIncomeImpactSurvivorIncomeSnapshot")
+    && diff.includes("buildSurvivorDiagnosticScenarioSummary")
+    && diff.includes("survivorNetAnnualIncomePositive")
+    && diff.includes("includedScenarioHasSurvivorIncomeAfterDelay")
+    && diff.includes("includedExcludedDiffer")
+    && diff.includes("graphLineValuesDiffer")
+    && diff.includes("resolveAnalysisSettingsSource")
+    && diff.includes("analysisSettingsSource");
+}
+
 function isAllowedAnalysisSetupMortgageTreatmentUi() {
   const diff = getGitDiff("pages/analysis-setup.html");
   const html = readRepoFile("pages/analysis-setup.html");
@@ -384,7 +398,8 @@ function assertNoProtectedDiffs() {
       return !isAllowedStepThreeTreatedSupportDisplay();
     }
     if (filePath === "app/features/lens-analysis/income-loss-impact-display.js") {
-      return !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap();
+      return !(isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap()
+        || isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot());
     }
     if (filePath === "pages/analysis-setup.html") {
       return !(isAllowedAnalysisSetupMortgageTreatmentUi()
