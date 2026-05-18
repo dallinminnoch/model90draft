@@ -382,7 +382,7 @@ function assertNoProtectedDiffs() {
       cwd: repoRoot,
       encoding: "utf8"
     });
-    return diff.includes("__MODEL90_INCOME_IMPACT_DEBUG__")
+    const originalDiagnosticDiff = diff.includes("__MODEL90_INCOME_IMPACT_DEBUG__")
       && diff.includes("getSurvivorIncomeSnapshot")
       && diff.includes("getIncomeImpactSurvivorIncomeSnapshot")
       && diff.includes("buildSurvivorDiagnosticScenarioSummary")
@@ -390,8 +390,20 @@ function assertNoProtectedDiffs() {
       && diff.includes("includedScenarioHasSurvivorIncomeAfterDelay")
       && diff.includes("includedExcludedDiffer")
       && diff.includes("graphLineValuesDiffer")
+      && diff.includes("rawBaselinePointsAroundDelay")
+      && diff.includes("rawBaselinePointsSample")
+      && diff.includes("diagnosticPointWindowCoversSurvivorDelay")
+      && diff.includes("comparisonScenarios")
       && diff.includes("resolveAnalysisSettingsSource")
       && diff.includes("analysisSettingsSource");
+    const diagnosticDepthDiff = diff.includes("pickSurvivorDiagnosticPointWindow")
+      && diff.includes("rawBaselinePointsAroundDelay")
+      && diff.includes("rawBaselinePointsSample")
+      && diff.includes("pointsAroundDepletion")
+      && diff.includes("diagnosticPointWindowCoversSurvivorDelay")
+      && diff.includes("comparisonScenarioIds")
+      && diff.includes("comparisonScenarios");
+    return originalDiagnosticDiff || diagnosticDepthDiff;
   }
 
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {

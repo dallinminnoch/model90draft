@@ -6022,19 +6022,44 @@
     return clonePlainValue(value);
   }
 
+  function mapSurvivorDiagnosticPoint(point) {
+    return {
+      monthIndex: toOptionalNumber(point?.monthIndex),
+      survivorIncome: toOptionalNumber(point?.survivorIncome),
+      survivorNeeds: toOptionalNumber(point?.survivorNeeds),
+      scheduledObligations: toOptionalNumber(point?.scheduledObligations),
+      netUse: toOptionalNumber(point?.netUse),
+      endingResources: toOptionalNumber(point?.endingResources)
+    };
+  }
+
+  function getSurvivorDiagnosticScenarioPoints(scenario) {
+    return Array.isArray(scenario?.postDeathSeries?.points) ? scenario.postDeathSeries.points : [];
+  }
+
   function pickSurvivorDiagnosticPoints(scenario, limit) {
-    return (Array.isArray(scenario?.postDeathSeries?.points) ? scenario.postDeathSeries.points : [])
+    return getSurvivorDiagnosticScenarioPoints(scenario)
       .slice(0, Math.max(toOptionalNumber(limit) || 8, 0))
-      .map(function (point) {
-        return {
-          monthIndex: toOptionalNumber(point?.monthIndex),
-          survivorIncome: toOptionalNumber(point?.survivorIncome),
-          survivorNeeds: toOptionalNumber(point?.survivorNeeds),
-          scheduledObligations: toOptionalNumber(point?.scheduledObligations),
-          netUse: toOptionalNumber(point?.netUse),
-          endingResources: toOptionalNumber(point?.endingResources)
-        };
-      });
+      .map(mapSurvivorDiagnosticPoint);
+  }
+
+  function pickSurvivorDiagnosticPointWindow(scenario, centerMonth, monthsBefore, monthsAfter) {
+    const center = toOptionalNumber(centerMonth);
+    if (center == null) {
+      return [];
+    }
+    const startMonth = Math.max(1, center - (toOptionalNumber(monthsBefore) ?? 0));
+    const endMonth = center + (toOptionalNumber(monthsAfter) ?? 0);
+    return getSurvivorDiagnosticScenarioPoints(scenario)
+      .filter(function (point, index) {
+        const monthIndex = toOptionalNumber(point?.monthIndex) ?? index + 1;
+        return monthIndex >= startMonth && monthIndex <= endMonth;
+      })
+      .map(mapSurvivorDiagnosticPoint);
+  }
+
+  function getSurvivorDiagnosticPointCount(scenario) {
+    return getSurvivorDiagnosticScenarioPoints(scenario).length;
   }
 
   function getScenarioDepletionMonth(scenario) {
@@ -6049,10 +6074,60 @@
     return toOptionalNumber(point?.value ?? point?.endingResources ?? point?.availableResources);
   }
 
-  function summarizeSurvivorDiagnosticGraph(graphModel) {
+  function mapSurvivorDiagnosticGraphPoint(point) {
+    return {
+      monthIndex: toOptionalNumber(point?.monthIndex),
+      value: getGraphPointValue(point),
+      endingResources: toOptionalNumber(point?.endingResources),
+      availableResources: toOptionalNumber(point?.availableResources)
+    };
+  }
+
+  function pickSurvivorDiagnosticGraphPoints(points, limit) {
+    return (Array.isArray(points) ? points : [])
+      .slice(0, Math.max(toOptionalNumber(limit) || 24, 0))
+      .map(mapSurvivorDiagnosticGraphPoint);
+  }
+
+  function pickSurvivorDiagnosticGraphPointWindow(points, centerMonth, monthsBefore, monthsAfter) {
+    const center = toOptionalNumber(centerMonth);
+    if (center == null) {
+      return [];
+    }
+    const startMonth = Math.max(1, center - (toOptionalNumber(monthsBefore) ?? 0));
+    const endMonth = center + (toOptionalNumber(monthsAfter) ?? 0);
+    return (Array.isArray(points) ? points : [])
+      .filter(function (point, index) {
+        const monthIndex = toOptionalNumber(point?.monthIndex) ?? index + 1;
+        return monthIndex >= startMonth && monthIndex <= endMonth;
+      })
+      .map(mapSurvivorDiagnosticGraphPoint);
+  }
+
+  function summarizeSurvivorDiagnosticComparisonGraphSeries(series, primaryFirstValue, primaryLastValue, delayMonths) {
+    const points = Array.isArray(series?.points) ? series.points : [];
+    const firstPoint = points[0] || null;
+    const lastPoint = points.length ? points[points.length - 1] : null;
+    const firstPointValue = getGraphPointValue(firstPoint);
+    const lastPointValue = getGraphPointValue(lastPoint);
+    return {
+      scenarioId: series?.scenarioId || null,
+      pathId: series?.pathId || null,
+      label: series?.label || null,
+      pointCount: points.length,
+      pointsSample: pickSurvivorDiagnosticGraphPoints(points, 24),
+      pointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(points, delayMonths, 2, 6),
+      firstPointValue,
+      lastPointValue,
+      lineValuesDifferFromPrimary: firstPointValue !== primaryFirstValue || lastPointValue !== primaryLastValue
+    };
+  }
+
+  function summarizeSurvivorDiagnosticGraph(graphModel, delayMonths) {
     const series = isPlainObject(graphModel?.series) ? graphModel.series : {};
     const postDeathPoints = Array.isArray(series.postDeathResources) ? series.postDeathResources : [];
     const appliedSeries = Array.isArray(series.appliedPostDeathResources) ? series.appliedPostDeathResources : [];
+    const comparisonSeries = Array.isArray(series.comparisonPostDeathResources) ? series.comparisonPostDeathResources : [];
     const selectedApplied = appliedSeries.find(function (row) {
       return row?.selected === true;
     }) || appliedSeries[0] || null;
@@ -6068,16 +6143,49 @@
       lastPointValue: getGraphPointValue(lastPoint),
       selectedAppliedScenarioPathId: graphModel?.trace?.selectedAppliedScenarioPathId || selectedApplied?.pathId || null,
       renderedAppliedScenarioCount: toOptionalNumber(graphModel?.trace?.renderedAppliedScenarioCount),
-      appliedScenarioPathsEnabled: graphModel?.trace?.appliedScenarioPathsEnabled === true
+      appliedScenarioPathsEnabled: graphModel?.trace?.appliedScenarioPathsEnabled === true,
+      comparisonScenarioIds: comparisonSeries.map(function (row) {
+        return row?.scenarioId || row?.pathId || null;
+      }).filter(Boolean),
+      comparisonScenarioCount: comparisonSeries.length,
+      comparisonScenarios: comparisonSeries.map(function (row) {
+        return summarizeSurvivorDiagnosticComparisonGraphSeries(
+          row,
+          getGraphPointValue(firstPoint),
+          getGraphPointValue(lastPoint),
+          delayMonths
+        );
+      })
     };
   }
 
-  function summarizeSurvivorDiagnosticTimelineResult(timelineResult) {
+  function summarizeSurvivorDiagnosticComparisonScenario(scenario, delayMonths) {
+    return {
+      scenarioId: scenario?.scenarioId || scenario?.pathId || null,
+      label: scenario?.label || null,
+      firstPoints: pickSurvivorDiagnosticPoints(scenario, 8),
+      pointsSample: pickSurvivorDiagnosticPoints(scenario, 24),
+      pointsAroundDelay: pickSurvivorDiagnosticPointWindow(scenario, delayMonths, 2, 6),
+      fullPointCount: getSurvivorDiagnosticPointCount(scenario),
+      depletionMonth: getScenarioDepletionMonth(scenario),
+      hasSurvivorIncomeAfterDelay: hasPositiveSurvivorIncomeAfterDelay({
+        rawBaselinePointsAroundDelay: pickSurvivorDiagnosticPointWindow(scenario, delayMonths, 2, 6),
+        rawBaselinePointsSample: pickSurvivorDiagnosticPoints(scenario, 24)
+      }, delayMonths)
+    };
+  }
+
+  function summarizeSurvivorDiagnosticTimelineResult(timelineResult, delayMonths) {
     const scenario = isPlainObject(timelineResult?.scenario) ? timelineResult.scenario : {};
     const rawBaselineScenario = isPlainObject(timelineResult?.rawBaselineScenario)
       ? timelineResult.rawBaselineScenario
       : scenario;
     const baselineContract = isPlainObject(timelineResult?.baselineContract) ? timelineResult.baselineContract : {};
+    const scenarioDepletionMonth = getScenarioDepletionMonth(scenario);
+    const rawBaselineDepletionMonth = getScenarioDepletionMonth(rawBaselineScenario);
+    const comparisonScenarios = Array.isArray(timelineResult?.comparisonScenarios)
+      ? timelineResult.comparisonScenarios
+      : [];
 
     return {
       scenarioId: scenario.scenarioId || null,
@@ -6086,15 +6194,29 @@
       autoCompressionApplied: baselineContract.autoCompressionApplied === true,
       firstPoints: pickSurvivorDiagnosticPoints(scenario, 8),
       rawBaselineFirstPoints: pickSurvivorDiagnosticPoints(rawBaselineScenario, 8),
-      depletionMonth: getScenarioDepletionMonth(scenario),
-      rawBaselineDepletionMonth: getScenarioDepletionMonth(rawBaselineScenario),
+      pointsSample: pickSurvivorDiagnosticPoints(scenario, 24),
+      rawBaselinePointsSample: pickSurvivorDiagnosticPoints(rawBaselineScenario, 24),
+      pointsAroundDelay: pickSurvivorDiagnosticPointWindow(scenario, delayMonths, 2, 6),
+      rawBaselinePointsAroundDelay: pickSurvivorDiagnosticPointWindow(rawBaselineScenario, delayMonths, 2, 6),
+      pointsAroundDepletion: pickSurvivorDiagnosticPointWindow(scenario, scenarioDepletionMonth, 2, 3),
+      rawBaselinePointsAroundDepletion: pickSurvivorDiagnosticPointWindow(rawBaselineScenario, rawBaselineDepletionMonth, 2, 3),
+      fullPointCount: getSurvivorDiagnosticPointCount(scenario),
+      rawBaselineFullPointCount: getSurvivorDiagnosticPointCount(rawBaselineScenario),
+      depletionMonth: scenarioDepletionMonth,
+      rawBaselineDepletionMonth,
+      comparisonScenarioIds: comparisonScenarios.map(function (row) {
+        return row?.scenarioId || row?.pathId || null;
+      }).filter(Boolean),
+      comparisonScenarios: comparisonScenarios.map(function (row) {
+        return summarizeSurvivorDiagnosticComparisonScenario(row, delayMonths);
+      }),
       dataGapCodes: (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []).map(function (gap) {
         return gap?.code || null;
       }).filter(Boolean),
       warningCodes: (Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : []).map(function (warning) {
         return warning?.code || null;
       }).filter(Boolean),
-      graph: summarizeSurvivorDiagnosticGraph(timelineResult?.graphModel)
+      graph: summarizeSurvivorDiagnosticGraph(timelineResult?.graphModel, delayMonths)
     };
   }
 
@@ -6117,18 +6239,42 @@
     const diagnosticState = makeSurvivorDiagnosticState(state, includeSurvivorIncome);
     const baseContext = buildBaseIncomeImpactContextFromState(diagnosticState);
     const timelineResult = buildIncomeImpactResultFromBaseContext(diagnosticState, baseContext);
-    return summarizeSurvivorDiagnosticTimelineResult(timelineResult);
+    return summarizeSurvivorDiagnosticTimelineResult(timelineResult, diagnosticState.lensModel?.survivorScenario?.survivorIncomeStartDelayMonths);
   }
 
-  function hasPositiveSurvivorIncomeAfterDelay(summary) {
-    return (Array.isArray(summary?.rawBaselineFirstPoints) ? summary.rawBaselineFirstPoints : [])
+  function hasPositiveSurvivorIncomeAfterDelay(summary, delayMonths) {
+    const delay = toOptionalNumber(delayMonths);
+    return []
+      .concat(Array.isArray(summary?.rawBaselinePointsAroundDelay) ? summary.rawBaselinePointsAroundDelay : [])
+      .concat(Array.isArray(summary?.rawBaselinePointsSample) ? summary.rawBaselinePointsSample : [])
+      .concat(Array.isArray(summary?.rawBaselineFirstPoints) ? summary.rawBaselineFirstPoints : [])
       .some(function (point) {
+        const monthIndex = toOptionalNumber(point?.monthIndex);
+        if (delay != null && monthIndex != null && monthIndex <= delay) {
+          return false;
+        }
         return (toOptionalNumber(point?.survivorIncome) || 0) > 0;
       });
   }
 
+  function diagnosticPointWindowCoversSurvivorDelay(summary, delayMonths) {
+    const delay = toOptionalNumber(delayMonths);
+    if (delay == null) {
+      return false;
+    }
+    return []
+      .concat(Array.isArray(summary?.rawBaselinePointsAroundDelay) ? summary.rawBaselinePointsAroundDelay : [])
+      .concat(Array.isArray(summary?.rawBaselinePointsSample) ? summary.rawBaselinePointsSample : [])
+      .some(function (point) {
+        const monthIndex = toOptionalNumber(point?.monthIndex);
+        return monthIndex != null && monthIndex > delay;
+      });
+  }
+
   function scenarioNetUseSignature(summary) {
-    return (Array.isArray(summary?.rawBaselineFirstPoints) ? summary.rawBaselineFirstPoints : [])
+    return []
+      .concat(Array.isArray(summary?.rawBaselinePointsSample) ? summary.rawBaselinePointsSample : [])
+      .concat(Array.isArray(summary?.rawBaselineFirstPoints) ? summary.rawBaselineFirstPoints : [])
       .map(function (point) {
         return [
           toOptionalNumber(point?.monthIndex),
@@ -6158,7 +6304,8 @@
     const appliedControls = getAppliedScenarioSettingsSnapshot(incomeImpactState);
     const included = buildSurvivorDiagnosticScenarioSummary(incomeImpactState, true);
     const excluded = buildSurvivorDiagnosticScenarioSummary(incomeImpactState, false);
-    const currentRendered = summarizeSurvivorDiagnosticTimelineResult(incomeImpactState.latestTimelineResult || {});
+    const delayMonths = toOptionalNumber(survivorScenario.survivorIncomeStartDelayMonths);
+    const currentRendered = summarizeSurvivorDiagnosticTimelineResult(incomeImpactState.latestTimelineResult || {}, delayMonths);
     const survivorNetAnnualIncome = toOptionalNumber(survivorScenario.survivorNetAnnualIncome);
 
     return clonePlainValue({
@@ -6187,8 +6334,9 @@
       currentRendered,
       conclusions: {
         survivorNetAnnualIncomePositive: survivorNetAnnualIncome != null && survivorNetAnnualIncome > 0,
-        includedScenarioHasSurvivorIncomeAfterDelay: hasPositiveSurvivorIncomeAfterDelay(included),
-        excludedScenarioHasSurvivorIncome: hasPositiveSurvivorIncomeAfterDelay(excluded),
+        includedScenarioHasSurvivorIncomeAfterDelay: hasPositiveSurvivorIncomeAfterDelay(included, delayMonths),
+        excludedScenarioHasSurvivorIncome: hasPositiveSurvivorIncomeAfterDelay(excluded, delayMonths),
+        diagnosticPointWindowCoversSurvivorDelay: diagnosticPointWindowCoversSurvivorDelay(included, delayMonths),
         includedExcludedDiffer: scenarioNetUseSignature(included) !== scenarioNetUseSignature(excluded)
           || included.rawBaselineDepletionMonth !== excluded.rawBaselineDepletionMonth,
         graphLineValuesDiffer: included.graph.firstPointValue !== excluded.graph.firstPointValue

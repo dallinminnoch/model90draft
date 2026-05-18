@@ -273,7 +273,7 @@ function isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap() {
 
 function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
   const diff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
-  return diff.includes("__MODEL90_INCOME_IMPACT_DEBUG__")
+  const originalDiagnosticDiff = diff.includes("__MODEL90_INCOME_IMPACT_DEBUG__")
     && diff.includes("getSurvivorIncomeSnapshot")
     && diff.includes("getIncomeImpactSurvivorIncomeSnapshot")
     && diff.includes("buildSurvivorDiagnosticScenarioSummary")
@@ -281,8 +281,20 @@ function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
     && diff.includes("includedScenarioHasSurvivorIncomeAfterDelay")
     && diff.includes("includedExcludedDiffer")
     && diff.includes("graphLineValuesDiffer")
+    && diff.includes("rawBaselinePointsAroundDelay")
+    && diff.includes("rawBaselinePointsSample")
+    && diff.includes("diagnosticPointWindowCoversSurvivorDelay")
+    && diff.includes("comparisonScenarios")
     && diff.includes("resolveAnalysisSettingsSource")
     && diff.includes("analysisSettingsSource");
+  const diagnosticDepthDiff = diff.includes("pickSurvivorDiagnosticPointWindow")
+    && diff.includes("rawBaselinePointsAroundDelay")
+    && diff.includes("rawBaselinePointsSample")
+    && diff.includes("pointsAroundDepletion")
+    && diff.includes("diagnosticPointWindowCoversSurvivorDelay")
+    && diff.includes("comparisonScenarioIds")
+    && diff.includes("comparisonScenarios");
+  return originalDiagnosticDiff || diagnosticDepthDiff;
 }
 
 function isAllowedAnalysisSetupMortgageTreatmentUi() {

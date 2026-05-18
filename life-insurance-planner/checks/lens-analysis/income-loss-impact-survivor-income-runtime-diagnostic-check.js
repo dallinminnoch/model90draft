@@ -90,11 +90,11 @@ function makePostDeathSeries(includeSurvivorIncome) {
   const startingResources = 120000;
   const survivorNeeds = 9000;
   const monthlySurvivorIncome = includeSurvivorIncome ? 7500 : 0;
-  const startDelayMonths = 3;
+  const startDelayMonths = 12;
   let endingResources = startingResources;
   const points = [];
 
-  for (let monthIndex = 1; monthIndex <= 12; monthIndex += 1) {
+  for (let monthIndex = 1; monthIndex <= 30; monthIndex += 1) {
     const survivorIncome = includeSurvivorIncome && monthIndex > startDelayMonths
       ? monthlySurvivorIncome
       : 0;
@@ -141,7 +141,7 @@ function createHarness() {
         survivorScenario: {
           survivorContinuesWorking: true,
           expectedSurvivorWorkReductionPercent: 25,
-          survivorIncomeStartDelayMonths: 3
+          survivorIncomeStartDelayMonths: 12
         }
       }
     },
@@ -158,7 +158,7 @@ function createHarness() {
     },
     survivorScenario: {
       survivorNetAnnualIncome: 90000,
-      survivorIncomeStartDelayMonths: 3,
+      survivorIncomeStartDelayMonths: 12,
       survivorIncomeDerivation: {
         survivorIncomeSource: "derived-from-spouse-income",
         includeSurvivorIncomeOffset: true,
@@ -168,6 +168,7 @@ function createHarness() {
         expectedSurvivorWorkReductionPercent: 25,
         adjustedSurvivorGrossIncome: 90000,
         survivorNetAnnualIncomePrepared: 90000,
+        survivorIncomeStartDelayMonths: 12,
         survivorSupportSettingsSource: "profileRecord.analysisSettings",
         survivorSupportAssumptionsSourcePath: "profileRecord.analysisSettings.survivorSupportAssumptions"
       }
@@ -329,13 +330,31 @@ function createHarness() {
                 monthIndex: point.monthIndex
               };
             });
+            const comparisonPoints = points.map(function (point) {
+              return {
+                ...point,
+                value: Math.max(0, point.value - 5000),
+                endingResources: Math.max(0, point.endingResources - 5000),
+                availableResources: Math.max(0, point.availableResources - 5000)
+              };
+            });
             return {
               status: "complete",
               series: {
-                postDeathResources: points
+                postDeathResources: points,
+                comparisonPostDeathResources: [
+                  {
+                    scenarioId: "diagnostic-lifestyle-comparison",
+                    pathId: "diagnostic-lifestyle-comparison-path",
+                    label: "Diagnostic lifestyle comparison",
+                    points: comparisonPoints
+                  }
+                ]
               },
               trace: {
-                selectedAppliedScenarioPathId: "postDeathResources"
+                selectedAppliedScenarioPathId: "postDeathResources",
+                comparisonScenariosEnabled: true,
+                comparisonScenarioCount: 1
               },
               dataGaps: [],
               warnings: []
@@ -380,7 +399,7 @@ assert.equal(snapshot.linkedProfile.name, "Runtime Diagnostic Profile");
 assert.equal(snapshot.linkedProfile.caseRef, "CL/DIAG");
 assert.equal(snapshot.analysisSettings.source, "profileRecord.analysisSettings");
 assert.equal(snapshot.survivorScenario.survivorNetAnnualIncome, 90000);
-assert.equal(snapshot.survivorScenario.survivorIncomeStartDelayMonths, 3);
+assert.equal(snapshot.survivorScenario.survivorIncomeStartDelayMonths, 12);
 assert.equal(snapshot.survivorScenario.survivorSupportSettingsSource, "profileRecord.analysisSettings");
 assert.equal(
   snapshot.survivorScenario.survivorSupportAssumptionsSourcePath,
@@ -388,17 +407,32 @@ assert.equal(
 );
 
 assert.equal(snapshot.included.rawBaselineFirstPoints[0].survivorIncome, 0, "month 1 can be zero before the start delay.");
-assert.equal(snapshot.included.rawBaselineFirstPoints[2].survivorIncome, 0, "month 3 can still be zero with a 3-month delay.");
-assert.equal(snapshot.included.rawBaselineFirstPoints[3].survivorIncome, 7500, "month 4 should show survivor income after the delay.");
-assert.equal(snapshot.excluded.rawBaselineFirstPoints[3].survivorIncome, 0, "excluded scenario should have no survivor income.");
-assert.equal(snapshot.included.rawBaselineFirstPoints[3].netUse, 1500);
-assert.equal(snapshot.excluded.rawBaselineFirstPoints[3].netUse, 9000);
+assert.equal(snapshot.included.rawBaselineFirstPoints[7].survivorIncome, 0, "first 8 points can all be zero with a 12-month delay.");
+assert.equal(snapshot.included.rawBaselineFullPointCount, 30);
+assert.equal(snapshot.included.rawBaselinePointsSample.length, 24);
+assert.ok(
+  snapshot.included.rawBaselinePointsAroundDelay.some(function (point) {
+    return point.monthIndex === 13 && point.survivorIncome === 7500;
+  }),
+  "pointsAroundDelay should expose survivor income after a 12-month delay."
+);
+assert.equal(snapshot.excluded.rawBaselinePointsAroundDelay.find((point) => point.monthIndex === 13).survivorIncome, 0);
+assert.equal(snapshot.included.rawBaselinePointsAroundDelay.find((point) => point.monthIndex === 13).netUse, 1500);
+assert.equal(snapshot.excluded.rawBaselinePointsAroundDelay.find((point) => point.monthIndex === 13).netUse, 9000);
+assert.equal(snapshot.currentRendered.rawBaselineFullPointCount, 30);
+assert.ok(snapshot.currentRendered.rawBaselinePointsAroundDelay.some((point) => point.monthIndex === 13));
 assert.notEqual(snapshot.included.rawBaselineDepletionMonth, snapshot.excluded.rawBaselineDepletionMonth);
 assert.equal(snapshot.conclusions.survivorNetAnnualIncomePositive, true);
 assert.equal(snapshot.conclusions.includedScenarioHasSurvivorIncomeAfterDelay, true);
 assert.equal(snapshot.conclusions.excludedScenarioHasSurvivorIncome, false);
+assert.equal(snapshot.conclusions.diagnosticPointWindowCoversSurvivorDelay, true);
 assert.equal(snapshot.conclusions.includedExcludedDiffer, true);
 assert.equal(snapshot.conclusions.graphLineValuesDiffer, true);
+assert.deepEqual(Array.from(snapshot.included.graph.comparisonScenarioIds), ["diagnostic-lifestyle-comparison"]);
+assert.equal(snapshot.included.graph.comparisonScenarios[0].pointCount, 30);
+assert.equal(snapshot.included.graph.comparisonScenarios[0].pointsSample.length, 24);
+assert.ok(snapshot.included.graph.comparisonScenarios[0].pointsAroundDelay.some((point) => point.monthIndex === 13));
+assert.equal(snapshot.included.graph.comparisonScenarios[0].lineValuesDifferFromPrimary, true);
 assert.equal(snapshot.included.graph.firstPointValue, 111000);
 assert.notEqual(snapshot.included.graph.lastPointValue, snapshot.excluded.graph.lastPointValue);
 assert.ok(harness.composerCalls.some(function (call) {
