@@ -482,6 +482,7 @@ assert.equal(snapshot.conclusions.lifestyleComparisonHasSurvivorIncomeAfterDelay
 assert.equal(snapshot.conclusions.lifestyleComparisonLineDiffersFromPrimary, false);
 assert.deepEqual(Array.from(snapshot.currentRendered.comparisonScenarioIds), []);
 assert.equal(snapshot.currentRendered.lifestyleComparison.active, false);
+assert.equal(snapshot.lifestyleComparison.active, false);
 assert.deepEqual(Array.from(snapshot.included.graph.comparisonScenarioIds), []);
 assert.equal(snapshot.included.graph.firstPointValue, 111000);
 assert.notEqual(snapshot.included.graph.lastPointValue, snapshot.excluded.graph.lastPointValue);
@@ -502,8 +503,12 @@ assert.equal(lifestyleSnapshot.conclusions.lifestyleComparisonLineDiffersFromPri
 assert.deepEqual(Array.from(lifestyleSnapshot.currentRendered.comparisonScenarioIds), ["diagnostic-lifestyle-comparison"]);
 assert.equal(lifestyleSnapshot.currentRendered.lifestyleComparison.active, true);
 assert.equal(lifestyleSnapshot.currentRendered.lifestyleComparison.scenarioId, "diagnostic-lifestyle-comparison");
+assert.equal(lifestyleSnapshot.lifestyleComparison.active, true);
+assert.equal(lifestyleSnapshot.lifestyleComparison.scenarioId, "diagnostic-lifestyle-comparison");
+assert.equal(lifestyleSnapshot.lifestyleComparison.hasSurvivorIncomeAfterDelay, true);
+assert.equal(lifestyleSnapshot.lifestyleComparison.lineValuesDifferFromPrimary, true);
 assert.ok(
-  lifestyleSnapshot.currentRendered.lifestyleComparison.pointsAroundDelay.some(function (point) {
+  lifestyleSnapshot.lifestyleComparison.pointsAroundDelay.some(function (point) {
     return point.monthIndex === 13 && point.survivorIncome === 7500;
   }),
   "Lifestyle comparison should preserve survivor income after the delay when included."

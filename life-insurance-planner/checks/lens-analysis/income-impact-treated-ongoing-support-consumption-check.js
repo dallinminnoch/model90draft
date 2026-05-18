@@ -392,7 +392,8 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("lifestyleComparisonLineDiffersFromPrimary")
       && diff.includes("netUseAfterDelay")
       && diff.includes("endingResourcesAfterDelay");
-    return originalDiagnosticDiff || diagnosticDepthDiff || diagnosticLifestyleComparisonDiff;
+    const diagnosticLifestyleShapeDiff = diff.includes("lifestyleComparison: clonePlainValue(currentRendered.lifestyleComparison || { active: false })");
+    return originalDiagnosticDiff || diagnosticDepthDiff || diagnosticLifestyleComparisonDiff || diagnosticLifestyleShapeDiff;
   }
 
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {

@@ -6390,6 +6390,7 @@
       included,
       excluded,
       currentRendered,
+      lifestyleComparison: clonePlainValue(currentRendered.lifestyleComparison || { active: false }),
       conclusions: {
         survivorNetAnnualIncomePositive: survivorNetAnnualIncome != null && survivorNetAnnualIncome > 0,
         includedScenarioHasSurvivorIncomeAfterDelay: hasPositiveSurvivorIncomeAfterDelay(included, delayMonths),
