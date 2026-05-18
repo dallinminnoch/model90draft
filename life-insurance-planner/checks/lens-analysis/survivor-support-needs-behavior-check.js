@@ -196,14 +196,19 @@ function buildLensModelResult(lensAnalysis, options = {}) {
   if (options.omitSurvivorSupportAssumptions) {
     delete analysisSettings.survivorSupportAssumptions;
   }
+  const profileAnalysisSettings = Object.prototype.hasOwnProperty.call(options, "profileAnalysisSettings")
+    ? options.profileAnalysisSettings
+    : analysisSettings;
   const input = {
     sourceData: createBuilderSourceData(options.sourceData || {}),
-    analysisSettings,
     profileRecord: {
-      analysisSettings,
+      analysisSettings: profileAnalysisSettings,
       coveragePolicies: []
     }
   };
+  if (!options.omitDirectAnalysisSettings) {
+    input.analysisSettings = analysisSettings;
+  }
   const inputBefore = cloneJson(input);
   const result = lensAnalysis.buildLensModelFromSavedProtectionModeling(input);
   assert.deepEqual(cloneJson(input), inputBefore, "Lens model builder must not mutate survivor support inputs.");
@@ -298,6 +303,16 @@ assert.equal(
   derivedModel.survivorScenario.survivorNetAnnualIncome ?? null,
   "Survivor derivation metadata should match the model-prepared survivor net income when available."
 );
+assert.equal(
+  derivedModel.survivorScenario.survivorIncomeDerivation.survivorSupportAssumptionsSource,
+  "input.analysisSettings",
+  "Direct builder analysisSettings should be the survivor assumptions source when supplied."
+);
+assert.equal(
+  derivedModel.survivorScenario.survivorIncomeDerivation.survivorSupportAssumptionsSourcePath,
+  "input.analysisSettings.survivorSupportAssumptions",
+  "Survivor assumptions trace should identify the direct settings source path."
+);
 
 const noStartDelayModel = buildLensModel(lensAnalysis, {
   overrides: {
@@ -336,6 +351,66 @@ assert.equal(
   builderSurvivorIncomeOffModel.survivorScenario.survivorIncomeDerivation.survivorIncomeSource,
   "suppressed-survivor-income-offset-disabled",
   "builder derivation should trace the Analysis Setup survivor income offset switch."
+);
+
+const profileOnlySurvivorIncomeOffModel = buildLensModel(lensAnalysis, {
+  omitDirectAnalysisSettings: true,
+  profileAnalysisSettings: createAnalysisSettings({
+    survivorIncomeTreatment: {
+      includeSurvivorIncome: false,
+      applyStartDelay: true
+    },
+    survivorScenario: {
+      survivorContinuesWorking: true,
+      expectedSurvivorWorkReductionPercent: 25,
+      survivorIncomeStartDelayMonths: 6
+    }
+  })
+});
+assert.equal(
+  profileOnlySurvivorIncomeOffModel.survivorScenario.survivorIncomeDerivation.includeSurvivorIncomeOffset,
+  false,
+  "profileRecord.analysisSettings survivor assumptions should continue to work when direct settings are absent."
+);
+assert.equal(
+  profileOnlySurvivorIncomeOffModel.survivorScenario.survivorIncomeDerivation.survivorSupportAssumptionsSource,
+  "profileRecord.analysisSettings",
+  "Profile analysis settings should be traced when they are the resolved settings source."
+);
+
+const directPrecedenceModel = buildLensModel(lensAnalysis, {
+  profileAnalysisSettings: createAnalysisSettings({
+    survivorIncomeTreatment: {
+      includeSurvivorIncome: true,
+      applyStartDelay: true
+    },
+    survivorScenario: {
+      survivorContinuesWorking: true,
+      expectedSurvivorWorkReductionPercent: 0,
+      survivorIncomeStartDelayMonths: 1
+    }
+  }),
+  overrides: {
+    survivorIncomeTreatment: {
+      includeSurvivorIncome: false,
+      applyStartDelay: true
+    },
+    survivorScenario: {
+      survivorContinuesWorking: true,
+      expectedSurvivorWorkReductionPercent: 25,
+      survivorIncomeStartDelayMonths: 6
+    }
+  }
+});
+assert.equal(
+  directPrecedenceModel.survivorScenario.survivorIncomeDerivation.includeSurvivorIncomeOffset,
+  false,
+  "direct input.analysisSettings should take precedence over profileRecord.analysisSettings."
+);
+assert.equal(
+  directPrecedenceModel.survivorScenario.survivorIncomeDerivation.survivorSupportAssumptionsSource,
+  "input.analysisSettings",
+  "Direct settings precedence should be reflected in survivor derivation trace."
 );
 
 const legacyIgnoredResult = buildLensModelResult(lensAnalysis, {

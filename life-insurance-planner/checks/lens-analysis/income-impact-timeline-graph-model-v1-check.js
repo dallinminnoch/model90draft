@@ -1445,6 +1445,14 @@ comparisonLongAutosizeScenario.postDeathSeries.depletion = {
   depletionMonthIndex: 360,
   monthsCovered: 360
 };
+comparisonLongAutosizeScenario.postDeathSeries.points = comparisonLongAutosizeScenario.postDeathSeries.points.concat([
+  {
+    date: "2066-04-29",
+    monthIndex: 360,
+    endingResources: 0,
+    sourcePaths: ["layer3.points.comparison-visible-depletion"]
+  }
+]);
 const autosizeSelectedOnlyModel = buildIncomeImpactTimelineGraphModel({
   appliedScenarios: [
     {

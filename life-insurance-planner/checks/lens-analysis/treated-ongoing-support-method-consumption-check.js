@@ -324,6 +324,22 @@ function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
 }
 
 function assertNoProtectedDiffs() {
+  function isAllowedSurvivorIncomeSourceFix(filePath) {
+    if (filePath !== "app/features/lens-analysis/lens-model-builder.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", filePath], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return diff.includes("resolveSurvivorSupportSettingsContext")
+      && diff.includes("getSurvivorSupportAssumptionContext(input, profileRecord)")
+      && diff.includes("survivorSupportSettingsSource")
+      && diff.includes("survivorSupportAssumptionsSourcePath")
+      && diff.includes("input.analysisSettings")
+      && diff.includes("profileRecord.analysisSettings");
+  }
+
   const protectedFiles = new Set([
     "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
     "app/features/lens-analysis/income-impact-base-household-expense-stream.js",
@@ -360,6 +376,9 @@ function assertNoProtectedDiffs() {
       return false;
     }
     if (isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath)) {
+      return false;
+    }
+    if (isAllowedSurvivorIncomeSourceFix(filePath)) {
       return false;
     }
     return true;

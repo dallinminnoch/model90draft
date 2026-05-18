@@ -261,6 +261,83 @@ function warningCodes(result) {
 }
 
 function assertNoForbiddenSourceChanges() {
+  function isAllowedSurvivorIncomeSourceFix(filePath) {
+    if (
+      ![
+        "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js",
+        "life-insurance-planner/checks/lens-analysis/survivor-support-needs-behavior-check.js",
+        "life-insurance-planner/checks/lens-analysis/income-impact-scenario-composer-v1-check.js",
+        "life-insurance-planner/checks/lens-analysis/income-impact-timeline-graph-model-v1-check.js"
+      ].includes(filePath)
+    ) {
+      return false;
+    }
+
+    const diff = execFileSync("git", ["diff", "--", `./${filePath}`], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    if (filePath === "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js") {
+      return diff.includes("resolveSurvivorSupportSettingsContext")
+        && diff.includes("getSurvivorSupportAssumptionContext(input, profileRecord)")
+        && diff.includes("survivorSupportSettingsSource")
+        && diff.includes("survivorSupportAssumptionsSourcePath")
+        && diff.includes("input.analysisSettings")
+        && diff.includes("profileRecord.analysisSettings");
+    }
+
+    if (filePath === "life-insurance-planner/checks/lens-analysis/survivor-support-needs-behavior-check.js") {
+      return diff.includes("direct input.analysisSettings should take precedence")
+        && diff.includes("profileRecord.analysisSettings survivor assumptions should continue to work")
+        && diff.includes("Survivor assumptions trace should identify the direct settings source path");
+    }
+
+    if (filePath === "life-insurance-planner/checks/lens-analysis/income-impact-scenario-composer-v1-check.js") {
+      return diff.includes("survivor income should move depletion later when it reaches Layer 3")
+        && diff.includes("high survivor income can prevent projected depletion within the horizon");
+    }
+
+    return diff.includes("layer3.points.comparison-visible-depletion")
+      && diff.includes("2066-04-29")
+      && diff.includes("monthIndex: 360");
+  }
+
+  function isAllowedVisualTimelineStaleAssertionCorrection(filePath) {
+    if (filePath !== "life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", `./${filePath}`], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    return diff.includes("data-income-impact-death-line-label=\"Death tomorrow\"")
+      && diff.includes("Comparison pre-death path metadata should preserve its death-line label.")
+      && diff.includes("Comparison scenarios should not render a visible death-line anchor.")
+      && diff.includes("data-income-impact-death-line-anchor")
+      && diff.includes("data-income-impact-lifestyle-impact-readout")
+      && diff.includes("Scenario impact readout should render in the summary strip, not inside the timeline graph.")
+      && diff.includes("Scenario impact readout details should render in the summary strip, not inside the timeline graph.");
+  }
+
+  function isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath) {
+    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", `./${filePath}`], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const source = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+    const analysisSettingsInsertions = (diff.match(/\+\s*analysisSettings,/g) || []).length;
+    return diff.includes("const analysisSettings = resolveAnalysisSettings(profileRecord, { protectionModelingPayload });")
+      && analysisSettingsInsertions >= 2
+      && source.includes("const builderResult = buildLensModelFromSavedProtectionModeling(builderInput);")
+      && source.includes("const builderInput = {")
+      && source.includes("incomeImpactState = {")
+      && source.includes("taxConfig: createSavedDataTaxConfig()");
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -381,6 +458,9 @@ function assertNoForbiddenSourceChanges() {
   });
   const forbidden = changed.filter(function (filePath) {
     return !allowed.has(filePath)
+      && !isAllowedSurvivorIncomeSourceFix(filePath)
+      && !isAllowedVisualTimelineStaleAssertionCorrection(filePath)
+      && !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);

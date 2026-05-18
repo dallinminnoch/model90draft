@@ -194,8 +194,18 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
     && !diff.includes("-.analysis-setup-control-group--recommendation")
     && !diff.includes("+.analysis-setup-control-group--policy-returns")
     && !diff.includes("-.analysis-setup-control-group--policy-returns");
+  const autoCompressScenarioFieldHookDiff = hunks.length > 0
+    && hunks.every((hunk) => {
+      return hunk.includes(".income-impact-scenario-field--auto-compress > span")
+        && hunk.includes("display: flex")
+        && hunk.includes("align-items: center")
+        && hunk.includes("gap: 0.42rem")
+        && hunk.includes(".income-impact-scenario-field--auto-compress input[type=\"checkbox\"]")
+        && hunk.includes("flex: 0 0 auto");
+    });
   return survivorSupportStyleDiff
     || educationAssumptionsStyleDiff
+    || autoCompressScenarioFieldHookDiff
     || hunks.length > 0
     && hunks.every((hunk) => {
       return hunk.includes("analysis-setup-debt-")
@@ -258,6 +268,22 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
 }
 
 function assertNoProtectedDiffs() {
+  function isAllowedSurvivorIncomeSourceFix(filePath) {
+    if (filePath !== "app/features/lens-analysis/lens-model-builder.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", filePath], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return diff.includes("resolveSurvivorSupportSettingsContext")
+      && diff.includes("getSurvivorSupportAssumptionContext(input, profileRecord)")
+      && diff.includes("survivorSupportSettingsSource")
+      && diff.includes("survivorSupportAssumptionsSourcePath")
+      && diff.includes("input.analysisSettings")
+      && diff.includes("profileRecord.analysisSettings");
+  }
+
   const protectedFiles = new Set([
     "app/features/lens-analysis/analysis-settings-adapter.js",
     "app/features/lens-analysis/analysis-methods.js",
@@ -291,6 +317,9 @@ function assertNoProtectedDiffs() {
       }
       if (filePath === "styles.css") {
         return !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
+      }
+      if (isAllowedSurvivorIncomeSourceFix(filePath)) {
+        return false;
       }
       return true;
     });

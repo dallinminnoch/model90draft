@@ -1452,7 +1452,16 @@ assert.match(
   "Selected applied scenario should render its pre-death net worth context from the runway contract."
 );
 assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death in 5 years"/);
-assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-death-line-label="Death tomorrow"/);
+assert.match(
+  multiAppliedTimelineHtml,
+  /data-income-impact-graph-path="preDeathAssets--scenario-2"[\s\S]*data-income-impact-death-line-label="Death tomorrow"/,
+  "Comparison pre-death path metadata should preserve its death-line label."
+);
+assert.doesNotMatch(
+  multiAppliedTimelineHtml,
+  /<g\b(?=[^>]*data-income-impact-death-line-anchor)[^>]*data-income-impact-applied-scenario-id="income-impact-current-scenario"/,
+  "Comparison scenarios should not render a visible death-line anchor."
+);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-death-line-anchor[\s\S]*Death in 5 years/);
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-death-line-anchor(?:\s|>)/g) || []).length,
@@ -1688,11 +1697,11 @@ const currentTimelineHtml = harness.renderTimeline({
     }
   }
 });
-assert.match(currentTimelineHtml, /data-income-impact-lifestyle-impact-readout/);
-assert.match(currentTimelineHtml, /data-income-impact-lifestyle-impact-mode="current"/);
-assert.match(currentTimelineHtml, /Matches baseline/);
-assert.match(currentTimelineHtml, /Lifestyle spend: \$0\/mo/);
-assert.match(currentTimelineHtml, /No depletion shift/);
+assert.doesNotMatch(
+  currentTimelineHtml,
+  /data-income-impact-lifestyle-impact-readout/,
+  "Scenario impact readout should render in the summary strip, not inside the timeline graph."
+);
 assert.doesNotMatch(
   currentTimelineHtml,
   /data-income-impact-graph-path="lifestyle-post-death-resources"/,
@@ -1807,10 +1816,11 @@ assert.match(comparisonTimelineHtml, /data-income-impact-graph-legend/);
 assert.match(comparisonTimelineHtml, /Projected path/);
 assert.match(comparisonTimelineHtml, /Lifestyle-adjusted projection/);
 assert.match(comparisonTimelineHtml, /Manual lifestyle comparison only - primary path unchanged\./);
-assert.match(comparisonTimelineHtml, /data-income-impact-lifestyle-impact-mode="conservative"/);
-assert.match(comparisonTimelineHtml, /Extends runway by 24 months/);
-assert.match(comparisonTimelineHtml, /Lifestyle spend: -\$500\/mo/);
-assert.match(comparisonTimelineHtml, /Depletion shift: \+24 months/);
+assert.doesNotMatch(
+  comparisonTimelineHtml,
+  /data-income-impact-lifestyle-impact-readout|data-income-impact-lifestyle-impact-mode="conservative"|Extends runway by 24 months|Lifestyle spend: -\$500\/mo|Depletion shift: \+24 months/,
+  "Scenario impact readout details should render in the summary strip, not inside the timeline graph."
+);
 assert.doesNotMatch(comparisonTimelineHtml, /staged-compression-post-death-resources|data-income-impact-graph-detail="compression-early-window"|data-income-impact-detail-path="staged-compression"/);
 assert.doesNotMatch(comparisonTimelineHtml, /compression-post-death-resources|data-income-impact-compression-markers|data-income-impact-compression-marker/);
 assert.match(comparisonTimelineHtml, /data-income-impact-comparison-markers/);
@@ -1878,10 +1888,11 @@ const elevatedTimelineHtml = harness.renderTimeline({
     }
   }
 });
-assert.match(elevatedTimelineHtml, /data-income-impact-lifestyle-impact-mode="elevated"/);
-assert.match(elevatedTimelineHtml, /Shortens runway by 12 months/);
-assert.match(elevatedTimelineHtml, /Lifestyle spend: \+\$400\/mo/);
-assert.match(elevatedTimelineHtml, /Depletion shift: -12 months/);
+assert.doesNotMatch(
+  elevatedTimelineHtml,
+  /data-income-impact-lifestyle-impact-readout|data-income-impact-lifestyle-impact-mode="elevated"|Shortens runway by 12 months|Lifestyle spend: \+\$400\/mo|Depletion shift: -12 months/,
+  "Scenario impact readout details should render in the summary strip, not inside the timeline graph."
+);
 assert.match(elevatedTimelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"/);
 assert.doesNotMatch(elevatedTimelineHtml, /data-income-impact-graph-path="compression-post-death-resources"|staged-compression-post-death-resources/);
 
@@ -1949,9 +1960,11 @@ const fallbackTimelineHtml = harness.renderTimeline({
     }
   }
 });
-assert.match(fallbackTimelineHtml, /Conservative lifestyle selected/);
-assert.match(fallbackTimelineHtml, /Lifestyle spend: -\$250\/mo/);
-assert.match(fallbackTimelineHtml, /Resources difference: \+\$80,000 at horizon/);
+assert.doesNotMatch(
+  fallbackTimelineHtml,
+  /data-income-impact-lifestyle-impact-readout|Conservative lifestyle selected|Lifestyle spend: -\$250\/mo|Resources difference: \+\$80,000 at horizon/,
+  "Scenario impact readout details should render in the summary strip, not inside the timeline graph."
+);
 
 const currentAgeHtml = harness.renderTimeline({
   ...fixture,

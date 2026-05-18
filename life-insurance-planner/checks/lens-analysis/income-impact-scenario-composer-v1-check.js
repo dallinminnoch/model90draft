@@ -648,6 +648,60 @@ function runSurvivorIncomeOffsetGraphTrendChecks() {
       }
     }
   }));
+  const depletionWithoutSurvivorIncome = composeIncomeImpactScenario(createInput({
+    input: {
+      projectionHorizonMonths: 180
+    },
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: null,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "suppressed-survivor-income-offset-disabled",
+          includeSurvivorIncomeOffset: false,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: null
+        }
+      }
+    }
+  }));
+  const depletionWithSurvivorIncome = composeIncomeImpactScenario(createInput({
+    input: {
+      projectionHorizonMonths: 180
+    },
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: 15000,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "derived-from-spouse-income",
+          includeSurvivorIncomeOffset: true,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: 15000
+        }
+      }
+    }
+  }));
+  const highSurvivorIncomeScenario = composeIncomeImpactScenario(createInput({
+    input: {
+      projectionHorizonMonths: 180
+    },
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: 90000,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "derived-from-spouse-income",
+          includeSurvivorIncomeOffset: true,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: 90000
+        }
+      }
+    }
+  }));
   const enabledFirstPoint = enabledScenario.postDeathSeries.points[0];
   const disabledFirstPoint = disabledScenario.postDeathSeries.points[0];
   const overrideOffFirstPoint = scenarioOverrideOff.postDeathSeries.points[0];
@@ -694,6 +748,24 @@ function runSurvivorIncomeOffsetGraphTrendChecks() {
     scenarioOverrideOff.scenario.includeSurvivorIncome,
     false,
     "scenario metadata should expose survivor-income override state."
+  );
+  assert.ok(
+    depletionWithoutSurvivorIncome.postDeathSeries.depletion.depleted,
+    "scenario without survivor income should deplete under the long-horizon fixture."
+  );
+  assert.ok(
+    depletionWithSurvivorIncome.postDeathSeries.depletion.depleted,
+    "lower survivor income should still permit depletion under the long-horizon fixture."
+  );
+  assert.ok(
+    depletionWithSurvivorIncome.postDeathSeries.depletion.monthsCovered
+      > depletionWithoutSurvivorIncome.postDeathSeries.depletion.monthsCovered,
+    "survivor income should move depletion later when it reaches Layer 3."
+  );
+  assert.equal(
+    highSurvivorIncomeScenario.postDeathSeries.depletion.depleted,
+    false,
+    "high survivor income can prevent projected depletion within the horizon."
   );
 }
 

@@ -209,6 +209,18 @@ function isAllowedStepThreeTreatedSupportDisplay() {
     && diff.includes("Treated support unavailable; raw ongoing support was used");
 }
 
+function isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap() {
+  const diff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
+  const source = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+  const analysisSettingsInsertions = (diff.match(/\+\s*analysisSettings,/g) || []).length;
+  return diff.includes("const analysisSettings = resolveAnalysisSettings(profileRecord, { protectionModelingPayload });")
+    && analysisSettingsInsertions >= 2
+    && source.includes("const builderResult = buildLensModelFromSavedProtectionModeling(builderInput);")
+    && source.includes("const builderInput = {")
+    && source.includes("incomeImpactState = {")
+    && source.includes("taxConfig: createSavedDataTaxConfig()");
+}
+
 function isAllowedAnalysisSetupMortgageTreatmentUi() {
   const diff = getGitDiff("pages/analysis-setup.html");
   const html = readRepoFile("pages/analysis-setup.html");
@@ -316,6 +328,9 @@ function assertNoProtectedDiffs() {
     }
     if (filePath === "app/features/lens-analysis/step-three-analysis-display.js") {
       return !isAllowedStepThreeTreatedSupportDisplay();
+    }
+    if (filePath === "app/features/lens-analysis/income-loss-impact-display.js") {
+      return !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap();
     }
     if (filePath === "pages/analysis-setup.html") {
       return !(isAllowedAnalysisSetupMortgageTreatmentUi()

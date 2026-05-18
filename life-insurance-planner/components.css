@@ -20023,6 +20023,16 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   transform: translateX(0.74rem);
 }
 
+.income-impact-scenario-field--auto-compress > span {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.income-impact-scenario-field--auto-compress input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+
 .income-impact-scenario-field[data-income-impact-reevaluate-control] {
   align-content: start;
 }

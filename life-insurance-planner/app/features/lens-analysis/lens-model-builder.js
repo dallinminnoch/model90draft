@@ -178,17 +178,52 @@
     return Math.min(100, Math.max(0, number));
   }
 
-  function getSavedSurvivorSupportAssumptions(profileRecord) {
-    const analysisSettings = isPlainObject(profileRecord?.analysisSettings)
-      ? profileRecord.analysisSettings
+  function getSavedSurvivorSupportAssumptions(analysisSettings) {
+    const safeAnalysisSettings = isPlainObject(analysisSettings)
+      ? analysisSettings
       : {};
-    return isPlainObject(analysisSettings.survivorSupportAssumptions)
-      ? analysisSettings.survivorSupportAssumptions
+    return isPlainObject(safeAnalysisSettings.survivorSupportAssumptions)
+      ? safeAnalysisSettings.survivorSupportAssumptions
       : null;
   }
 
-  function getSurvivorSupportAssumptionContext(profileRecord) {
-    const survivorSupport = getSavedSurvivorSupportAssumptions(profileRecord);
+  function resolveSurvivorSupportSettingsContext(input, profileRecord) {
+    const options = input && typeof input === "object" ? input : {};
+    const directAnalysisSettings = isPlainObject(options.analysisSettings)
+      ? options.analysisSettings
+      : null;
+    const safeProfileRecord = isPlainObject(profileRecord) ? profileRecord : {};
+    const profileAnalysisSettings = isPlainObject(safeProfileRecord.analysisSettings)
+      ? safeProfileRecord.analysisSettings
+      : null;
+    const analysisSettings = resolveAnalysisSettings(options);
+
+    if (directAnalysisSettings) {
+      return {
+        analysisSettings,
+        settingsSource: "input.analysisSettings",
+        survivorSupportSourcePath: "input.analysisSettings.survivorSupportAssumptions"
+      };
+    }
+
+    if (profileAnalysisSettings) {
+      return {
+        analysisSettings,
+        settingsSource: "profileRecord.analysisSettings",
+        survivorSupportSourcePath: "profileRecord.analysisSettings.survivorSupportAssumptions"
+      };
+    }
+
+    return {
+      analysisSettings,
+      settingsSource: "defaulted-analysis-setup-survivor-support",
+      survivorSupportSourcePath: "analysisSettings.survivorSupportAssumptions"
+    };
+  }
+
+  function getSurvivorSupportAssumptionContext(input, profileRecord) {
+    const settingsContext = resolveSurvivorSupportSettingsContext(input, profileRecord);
+    const survivorSupport = getSavedSurvivorSupportAssumptions(settingsContext.analysisSettings);
     const savedSurvivorScenario = isPlainObject(survivorSupport?.survivorScenario)
       ? survivorSupport.survivorScenario
       : {};
@@ -224,8 +259,12 @@
 
     return {
       source: survivorSupport
-        ? "analysis-setup"
+        ? settingsContext.settingsSource
         : "defaulted-analysis-setup-survivor-support",
+      settingsSource: settingsContext.settingsSource,
+      survivorSupportSourcePath: survivorSupport
+        ? settingsContext.survivorSupportSourcePath
+        : "analysisSettings.survivorSupportAssumptions",
       defaulted: !survivorSupport,
       defaultedFields,
       survivorIncomeTreatment: {
@@ -1075,7 +1114,7 @@
   }
 
   function createSurvivorScenarioSource(input, sourceData, profileRecord, warnings) {
-    const survivorSupportContext = getSurvivorSupportAssumptionContext(profileRecord);
+    const survivorSupportContext = getSurvivorSupportAssumptionContext(input, profileRecord);
     const survivorScenarioAssumptions = survivorSupportContext.survivorScenario;
     const survivorIncomeTreatment = survivorSupportContext.survivorIncomeTreatment;
     const includeSurvivorIncomeOffset = survivorIncomeTreatment.includeSurvivorIncome !== false;
@@ -1207,6 +1246,8 @@
       survivorNetIncomeManualOverride: false,
       scenarioAssumptionsApplied: true,
       survivorSupportAssumptionsSource: survivorSupportContext.source,
+      survivorSupportSettingsSource: survivorSupportContext.settingsSource,
+      survivorSupportAssumptionsSourcePath: survivorSupportContext.survivorSupportSourcePath,
       survivorSupportAssumptionsDefaulted: survivorSupportContext.defaulted,
       defaultedSurvivorSupportFields: survivorSupportContext.defaultedFields,
       ignoredLegacySurvivorFields,

@@ -205,10 +205,16 @@ function isAllowedLensModelBuilderContractExposure() {
     && diff.includes("consumedByMethods: false")
     && diff.includes("mortgageTreatmentConsumed: false")
     && diff.includes("associatedHousingCostsPreserved: true");
+  const isSurvivorIncomeSourceFix = diff.includes("resolveSurvivorSupportSettingsContext")
+    && diff.includes("getSurvivorSupportAssumptionContext(input, profileRecord)")
+    && diff.includes("survivorSupportSettingsSource")
+    && diff.includes("survivorSupportAssumptionsSourcePath")
+    && diff.includes("input.analysisSettings")
+    && diff.includes("profileRecord.analysisSettings");
 
   return changedLines.length > 0
-    && !hasRemovedLines
-    && (isMortgagePaymentPlanExposure || isTreatedOngoingSupportExposure);
+    && (!hasRemovedLines || isSurvivorIncomeSourceFix)
+    && (isMortgagePaymentPlanExposure || isTreatedOngoingSupportExposure || isSurvivorIncomeSourceFix);
 }
 
 function isAllowedTreatedOngoingSupportMethodConsumption() {

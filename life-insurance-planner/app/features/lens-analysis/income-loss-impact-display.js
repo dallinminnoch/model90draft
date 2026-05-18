@@ -6320,9 +6320,11 @@
     }
 
     try {
+      const analysisSettings = resolveAnalysisSettings(profileRecord, { protectionModelingPayload });
       const builderInput = {
         profileRecord,
         protectionModelingPayload,
+        analysisSettings,
         taxConfig: createSavedDataTaxConfig()
       };
       const builderResult = buildLensModelFromSavedProtectionModeling(builderInput);
@@ -6343,7 +6345,7 @@
         host,
         lensModel: builderResult.lensModel,
         profileRecord,
-        analysisSettings: resolveAnalysisSettings(profileRecord, builderInput),
+        analysisSettings,
         valuationDate,
         composeIncomeImpactScenario,
         evaluateIncomeImpactRiskEvents,
