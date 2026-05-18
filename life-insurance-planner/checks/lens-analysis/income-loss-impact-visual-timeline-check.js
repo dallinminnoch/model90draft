@@ -640,7 +640,12 @@ assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impac
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*10\.5px;[\s\S]*line-height:\s*1\.25;/);
 assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*padding:\s*0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*border-radius:\s*0\.7rem;[\s\S]*overflow:\s*hidden;/);
+assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*grid-template-columns:\s*minmax\(14rem,\s*0\.82fr\) minmax\(20rem,\s*1\.18fr\);/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \.income-impact-card[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*padding:\s*0\.5rem 0\.95rem;[\s\S]*border:\s*1px solid #e2e8f0;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eff6ff;[\s\S]*color:\s*#2563eb;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/);
+assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*border-radius:\s*0\.55rem;[\s\S]*box-shadow:\s*none;[\s\S]*overflow:\s*hidden;/);
 assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*justify-content:\s*space-between;/);
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
@@ -653,7 +658,7 @@ assert.match(componentsSource, /\.income-impact-storyline-connector[\s\S]*stroke
 assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story-card|\.income-impact-depletion-story-dot|\.income-impact-depletion-story-icon|\.income-impact-depletion-story-legend/);
 assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-header[\s\S]*display:\s*none;/);
-assert.match(componentsSource, /\.income-impact-story-chart-card \.income-impact-graph > \.income-impact-lifestyle-impact-readout,[\s\S]*\.income-impact-story-chart-card \.income-impact-chart-section > \.income-impact-section-header[\s\S]*display:\s*none;/);
+assert.match(componentsSource, /\.income-impact-story-chart-card \.income-impact-chart-section > \.income-impact-section-header[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*#ffffff;[^}]*\}/);
@@ -727,8 +732,8 @@ assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
 assert.doesNotMatch(
   componentsSource,
-  /\.income-impact-graph-path--preDeathAssets--scenario-2|\.income-impact-graph-path--postDeathResources--scenario-2|\.income-impact-graph-path\[data-income-impact-scenario-select\]/,
-  "Selected-only graph behavior should not restore retired simultaneous scenario path styling or path-click affordances."
+  /\.income-impact-graph-path\[data-income-impact-scenario-select\]/,
+  "Scenario graph paths should not restore retired path-click affordances."
 );
 assert.match(
   componentsSource,
@@ -757,8 +762,8 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-controls-panel\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[\s\S]*border-right:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);/,
-  "Income Impact controls panel should be the white side-menu rail, not a card inside the content."
+  /\.income-impact-controls-panel\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[\s\S]*border:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[\s\S]*border-radius:\s*0\.65rem 0 0 0\.65rem;/,
+  "Income Impact controls panel should be the white framed side-menu rail, not a card inside the content."
 );
 assert.match(
   componentsSource,
@@ -782,8 +787,8 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*background:\s*#f1f4f9;/,
-  "Income Impact workspace shell should keep the reference grey background around the content and side menu."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*background:\s*transparent;/,
+  "Income Impact workspace shell should let the framed rail and center surfaces define the visible Client Directory-style frame."
 );
 assert.match(
   layoutSource,
@@ -792,7 +797,7 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*grid-column:\s*2;[\s\S]*height:\s*100%;[\s\S]*padding:\s*0\.7rem clamp\(0\.95rem,\s*1\.45vw,\s*1\.15rem\) 0 1rem;[\s\S]*background:\s*#f1f4f9;[\s\S]*overflow-y:\s*auto;/,
+  /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*grid-column:\s*2;[\s\S]*height:\s*100%;[\s\S]*padding:\s*0\.9rem clamp\(0\.95rem,\s*1\.45vw,\s*1\.15rem\) 0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow-y:\s*auto;/,
   "Income Impact content should render to the right of the fixed side menu and own vertical scrolling."
 );
 assert.match(
@@ -1356,7 +1361,7 @@ const multiAppliedTimelineHtml = harness.renderTimeline({
   graphModel: multiAppliedGraphModel
 });
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources"/);
-assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="postDeathResources--scenario-2"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-source="fundedRunwayPoints"/);
 assert.doesNotMatch(
   multiAppliedTimelineHtml,
@@ -1390,7 +1395,7 @@ assert.equal(
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
   multiAppliedHoverIntervalCount,
-  "Hidden scenarios should not create extra under-trendline tint segments."
+  "Comparison scenarios should not create extra under-trendline tint segments."
 );
 assert.ok(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay-phase="preDeath"/g) || []).length > 0,
@@ -1418,7 +1423,7 @@ assert.match(
 assert.doesNotMatch(
   multiAppliedTimelineHtml,
   /<g\b(?=[^>]*data-income-impact-graph-hover-interval)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-current-scenario")/,
-  "Hidden scenarios should not create extra hover intervals."
+  "Comparison scenarios should not create extra hover intervals."
 );
 assert.match(
   getDeathConversionConnectorTag(multiAppliedTimelineHtml),
@@ -1440,7 +1445,7 @@ assert.doesNotMatch(
   );
 }
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
-assert.doesNotMatch(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets--scenario-2"/);
+assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path="preDeathAssets--scenario-2"/);
 assert.match(
   multiAppliedTimelineHtml,
   /data-income-impact-graph-path="preDeathAssets"[\s\S]*data-income-impact-pre-death-source="preDeathContextPoints"/,
@@ -1457,8 +1462,8 @@ assert.equal(
 assert.match(multiAppliedTimelineHtml, /data-income-impact-graph-path-mode="linear"/);
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-path="postDeathResources(?:--scenario-2)?"/g) || []).length,
-  1,
-  "Only one selected applied scenario path should render even when multiple applied scenarios exist."
+  2,
+  "Selected and comparison applied scenario paths should render together."
 );
 const selectedRunwayPath = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-path", "postDeathResources");
 const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
@@ -1546,8 +1551,8 @@ assert.equal(
 );
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-runway-depletion-marker(?:\s|>)/g) || []).length,
-  1,
-  "Only the selected depleted applied scenario should render one depletion marker."
+  2,
+  "Selected and comparison depleted applied scenarios should render depletion markers."
 );
 const selectedDepletionMarkerTag = getRunwayDepletionMarkerTag(
   multiAppliedTimelineHtml,
@@ -1557,7 +1562,7 @@ assert.match(selectedDepletionMarkerTag, /data-income-impact-applied-scenario-la
 assert.match(selectedDepletionMarkerTag, /data-income-impact-applied-scenario-selected="true"/);
 assert.match(multiAppliedTimelineHtml, /data-income-impact-runway-depletion-label[\s\S]*Runs out/);
 assert.match(multiAppliedTimelineHtml, /aria-label="Death in 5 years: Resources depleted"/);
-assert.doesNotMatch(multiAppliedTimelineHtml, /aria-label="Death tomorrow: Resources depleted"/);
+assert.match(multiAppliedTimelineHtml, /aria-label="Death tomorrow: Resources depleted"/);
 assert.equal(
   multiAppliedGraphModel.series.appliedRunwayScenarios[0].rawPoints.some(function (point) { return point.value < 0; }),
   true,
@@ -1606,8 +1611,8 @@ assert.match(
 );
 assert.doesNotMatch(
   switchedSelectedTimelineHtml,
-  /<g\b(?=[^>]*data-income-impact-runway-depletion-marker)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years")/,
-  "Previously selected depletion marker should leave the graph when another scenario is selected."
+  /<g\b(?=[^>]*data-income-impact-runway-depletion-marker)(?=[^>]*data-income-impact-applied-scenario-id="income-impact-death-in-5-years")(?=[^>]*data-income-impact-applied-scenario-selected="true")/,
+  "Previously selected depletion marker should remain only as an inactive comparison marker after selection changes."
 );
 assert.doesNotMatch(switchedSelectedTimelineHtml, /data-income-impact-death-event-bridge/);
 assert.match(
@@ -1978,11 +1983,13 @@ assert.doesNotMatch(unavailableHtml, /data-income-impact-graph-svg/);
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: fixture });
-assert.doesNotMatch(host.innerHTML, /data-income-impact-summary-strip/);
+assert.match(host.innerHTML, /data-income-impact-summary-strip/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /data-income-impact-resource-outlook/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /Resource Outlook/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /Remaining resources/);
 assert.match(host.innerHTML, /data-income-impact-story-chart-card/);
+assert.match(host.innerHTML, /data-income-impact-financial-security-card/);
+assert.doesNotMatch(host.innerHTML, /Existing coverage \+ available assets|divided by estimated annual household shortfall|Partial runway estimate|Time until available assets are projected to reach zero|This estimate uses the available saved facts|How long available resources are projected to last after death/);
 assert.match(host.innerHTML, /data-income-impact-depletion-story/);
 assert.match(host.innerHTML, /Financial Depletion Story/);
 assert.match(host.innerHTML, /data-income-impact-depletion-story-empty/);
@@ -1997,6 +2004,14 @@ assert.match(host.innerHTML, /data-income-impact-layout-main/);
 assert.match(host.innerHTML, /data-income-impact-layout-aside/);
 assert.match(host.innerHTML, /data-income-impact-graph-svg/);
 assert.ok(
+  host.innerHTML.indexOf("data-income-impact-summary-strip") < host.innerHTML.indexOf("data-income-impact-story-chart-card"),
+  "Years of Financial Security and Scenario Impact should render outside and above the shared story/chart card."
+);
+assert.ok(
+  host.innerHTML.indexOf("data-income-impact-financial-security-card") < host.innerHTML.indexOf("data-income-impact-story-chart-card"),
+  "Years of Financial Security should render in the summary strip, not inside the shared story/chart card."
+);
+assert.ok(
   host.innerHTML.indexOf("data-income-impact-depletion-story") < host.innerHTML.indexOf("data-income-impact-helper-timeline"),
   "Financial Depletion Story should render above the timeline chart."
 );
@@ -2004,6 +2019,47 @@ assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
   "Timeline graph should render before the supporting risk and compression panels."
 );
+
+const noShortfallHost = { innerHTML: "" };
+harness.renderIncomeImpact(noShortfallHost, {
+  timelineResult: {
+    ...fixture,
+    financialRunway: {
+      ...fixture.financialRunway,
+      status: "no-shortfall",
+      yearsOfSecurity: null,
+      monthsOfSecurity: null
+    }
+  }
+});
+assert.match(noShortfallHost.innerHTML, /Financial crisis unlikely/);
+assert.match(noShortfallHost.innerHTML, /Available resources are not projected to run out in this scenario\./);
+
+const lifestyleImpactHost = { innerHTML: "" };
+harness.renderIncomeImpact(lifestyleImpactHost, {
+  timelineResult: {
+    ...fixture,
+    compressionReporting: {
+      lifestyleScenario: {
+        sliderValue: 25,
+        monthlyDelta: 420
+      }
+    }
+  }
+});
+assert.match(lifestyleImpactHost.innerHTML, /data-income-impact-lifestyle-impact-readout/);
+assert.match(lifestyleImpactHost.innerHTML, /Scenario impact/);
+assert.equal(
+  (lifestyleImpactHost.innerHTML.match(/data-income-impact-lifestyle-impact-readout/g) || []).length,
+  1,
+  "Scenario Impact should render once in the summary strip, not as a hidden duplicate inside the graph."
+);
+assert.ok(
+  lifestyleImpactHost.innerHTML.indexOf("data-income-impact-financial-security-card") < lifestyleImpactHost.innerHTML.indexOf("data-income-impact-lifestyle-impact-readout")
+    && lifestyleImpactHost.innerHTML.indexOf("data-income-impact-lifestyle-impact-readout") < lifestyleImpactHost.innerHTML.indexOf("data-income-impact-story-chart-card"),
+  "Scenario Impact should render in the summary strip with Years of Financial Security, outside the shared story/chart card."
+);
+assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /data-income-impact-lifestyle-impact-readout|Scenario impact/);
 
 const majorStoryFixture = JSON.parse(JSON.stringify(fixture));
 majorStoryFixture.financialStoryline = {

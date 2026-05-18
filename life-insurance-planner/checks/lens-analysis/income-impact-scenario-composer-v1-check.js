@@ -612,8 +612,46 @@ function runSurvivorIncomeOffsetGraphTrendChecks() {
       }
     }
   }));
+  const scenarioOverrideOff = composeIncomeImpactScenario(createInput({
+    scenarioOptions: {
+      includeSurvivorIncome: false
+    },
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: 30000,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "derived-from-spouse-income",
+          includeSurvivorIncomeOffset: true,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: 30000
+        }
+      }
+    }
+  }));
+  const scenarioOverrideOn = composeIncomeImpactScenario(createInput({
+    scenarioOptions: {
+      includeSurvivorIncome: true
+    },
+    lensModel: {
+      survivorScenario: {
+        survivorContinuesWorking: true,
+        survivorNetAnnualIncome: 30000,
+        survivorIncomeStartDelayMonths: 0,
+        survivorIncomeDerivation: {
+          survivorIncomeSource: "suppressed-survivor-income-offset-disabled",
+          includeSurvivorIncomeOffset: false,
+          survivorContinuesWorking: true,
+          survivorNetAnnualIncomePrepared: 30000
+        }
+      }
+    }
+  }));
   const enabledFirstPoint = enabledScenario.postDeathSeries.points[0];
   const disabledFirstPoint = disabledScenario.postDeathSeries.points[0];
+  const overrideOffFirstPoint = scenarioOverrideOff.postDeathSeries.points[0];
+  const overrideOnFirstPoint = scenarioOverrideOn.postDeathSeries.points[0];
   const disabledGapCodes = disabledScenario.dataGaps.map(function (gap) {
     return gap.code;
   });
@@ -632,6 +670,30 @@ function runSurvivorIncomeOffsetGraphTrendChecks() {
     disabledScenario.trace.layer3.survivorIncome.suppressionReason,
     "survivor-income-offset-disabled",
     "composer trace should explain why survivor income is not in the graph trend."
+  );
+  assert.strictEqual(
+    overrideOffFirstPoint.survivorIncome,
+    0,
+    "scenario includeSurvivorIncome=false should remove survivor income from the post-death graph series."
+  );
+  assert.equal(
+    scenarioOverrideOff.trace.layer3.survivorIncome.suppressionReason,
+    "scenario-survivor-income-disabled",
+    "scenario override trace should explain runtime survivor-income exclusion."
+  );
+  assert.ok(
+    overrideOnFirstPoint.survivorIncome > 0,
+    "scenario includeSurvivorIncome=true should use prepared net survivor income when available."
+  );
+  assert.equal(
+    scenarioOverrideOn.trace.layer3.survivorIncome.scenarioOverride,
+    true,
+    "scenario override trace should preserve runtime survivor-income inclusion."
+  );
+  assert.equal(
+    scenarioOverrideOff.scenario.includeSurvivorIncome,
+    false,
+    "scenario metadata should expose survivor-income override state."
   );
 }
 

@@ -1283,7 +1283,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    background: #f1f4f9;
+    background: transparent;
   }
 
   body[data-step="income-impact"] .income-impact-controls-panel {
@@ -1303,8 +1303,8 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     min-width: 0;
     min-height: 0;
     height: 100%;
-    padding: 0.7rem clamp(0.95rem, 1.45vw, 1.15rem) 0 1rem;
-    background: #f1f4f9;
+    padding: 0.9rem clamp(0.95rem, 1.45vw, 1.15rem) 0;
+    background: #ffffff;
     overflow-y: auto;
     overflow-x: hidden;
   }

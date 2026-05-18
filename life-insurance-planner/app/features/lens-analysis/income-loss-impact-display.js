@@ -673,6 +673,8 @@
       projectionHorizonValue: banner.querySelector("[data-income-impact-projection-horizon-value]"),
       mortgageTreatment: banner.querySelector("[data-income-impact-mortgage-treatment]"),
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
+      survivorIncome: banner.querySelector("[data-income-impact-survivor-income]"),
+      survivorIncomeValue: banner.querySelector("[data-income-impact-survivor-income-value]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
       autoCompressBaseline: banner.querySelector("[data-income-impact-auto-compress-baseline]"),
@@ -781,6 +783,7 @@
       : {};
     const projectionHorizonYears = draftControls.projectionHorizonYears;
     const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
+    const includeSurvivorIncome = draftControls.includeSurvivorIncome !== false;
     const lifestyleSliderValue = draftControls.lifestyleSliderValue;
     const autoCompressBaselineEnabled = draftControls.autoCompressBaselineEnabled !== false;
     const collapsed = scenarioState.bannerCollapsed === true;
@@ -821,6 +824,15 @@
 
     if (elements.mortgageTreatmentValue) {
       elements.mortgageTreatmentValue.textContent = getMortgageTreatmentLabel(mortgageTreatmentOverride);
+    }
+
+    if (elements.survivorIncome) {
+      elements.survivorIncome.checked = includeSurvivorIncome;
+      elements.survivorIncome.setAttribute("aria-checked", String(includeSurvivorIncome));
+    }
+
+    if (elements.survivorIncomeValue) {
+      elements.survivorIncomeValue.textContent = includeSurvivorIncome ? "Included" : "Excluded";
     }
 
     if (elements.lifestyleSlider) {
@@ -871,6 +883,7 @@
 
     if (elements.scenarioSummary) {
       elements.scenarioSummary.setAttribute("data-income-impact-mortgage-treatment-label", getMortgageTreatmentLabel(mortgageTreatmentOverride));
+      elements.scenarioSummary.setAttribute("data-income-impact-survivor-income-label", includeSurvivorIncome ? "Survivor income included" : "Survivor income excluded");
       elements.scenarioSummary.setAttribute("data-income-impact-lifestyle-label", getLifestyleSliderLabel(lifestyleSliderValue));
       elements.scenarioSummary.setAttribute("data-income-impact-selected-scenario-summary-label", selectedScenarioLabel);
     }
@@ -931,27 +944,23 @@
     const runway = getFinancialRunway(timelineResult);
     const status = normalizeRunwayStatus(runway.status || card?.status);
     const computedDisplayValue = formatYearsMonthsFromRunway(runway, card?.displayValue);
+    const hasRunwayValue = computedDisplayValue && computedDisplayValue !== "Not available";
     const displayValue = status === "no-shortfall"
-      ? "No shortfall identified"
-      : (status === "partial-estimate"
-        ? "Partial runway estimate"
-        : (status === "complete" ? computedDisplayValue : "Runway estimate unavailable"));
+      ? "Financial crisis unlikely"
+      : (hasRunwayValue ? computedDisplayValue : "Runway estimate unavailable");
     const warnings = Array.isArray(runway.warnings) ? runway.warnings : (Array.isArray(timelineResult?.warnings) ? timelineResult.warnings : []);
     const dataGaps = Array.isArray(runway.dataGaps) ? runway.dataGaps : (Array.isArray(timelineResult?.dataGaps) ? timelineResult.dataGaps : []);
-    const unavailableReason = status === "complete"
+    const unavailableReason = status === "complete" || status === "no-shortfall" || status === "partial-estimate"
       ? ""
-      : (status === "partial-estimate"
-        ? `This preview is using the facts currently available. Add the missing items below to improve the estimate. Current estimate: ${computedDisplayValue}.`
-        : findRunwayReason(warnings, dataGaps));
+      : findRunwayReason(warnings, dataGaps);
 
     return `
       <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card data-income-impact-summary-card-id="yearsOfFinancialSecurity" data-income-impact-summary-status="${escapeHtml(status)}">
         <div class="income-impact-card-header">
           <h2>Years of Financial Security</h2>
-          <p>Fact-based runway estimate from linked profile and Protection Modeling information. It does not change the LENS recommendation.</p>
         </div>
         <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value data-income-impact-helper-summary-card="yearsOfFinancialSecurity">${escapeHtml(displayValue)}</strong>
-        <p data-income-impact-financial-security-explanation>Existing coverage + available assets, less immediate obligations, divided by estimated annual household shortfall.</p>
+        ${status === "no-shortfall" ? `<p data-income-impact-financial-security-explanation>Available resources are not projected to run out in this scenario.</p>` : ""}
         ${unavailableReason ? `<p data-income-impact-financial-security-reason>${escapeHtml(unavailableReason)}</p>` : ""}
       </article>
     `;
@@ -2669,11 +2678,10 @@
       const selectedSeries = safeSeries.find(function (series) {
         return series?.selected === true;
       });
-      return (selectedSeries ? [selectedSeries] : safeSeries).slice(0, 1).map(function (series) {
-        return Object.assign({}, series, {
-          pathId: POST_DEATH_RESOURCES_PATH_ID
-        });
+      const comparisonSeries = safeSeries.filter(function (series) {
+        return series !== selectedSeries;
       });
+      return (selectedSeries ? [selectedSeries].concat(comparisonSeries) : safeSeries).slice(0, 2);
     }
 
     const runwaySeries = Array.isArray(graphModel?.series?.appliedRunwayScenarios)
@@ -2741,11 +2749,10 @@
     const selectedSeries = preparedSeries.find(function (series) {
       return series?.selected === true;
     });
-    return (selectedSeries ? [selectedSeries] : preparedSeries).slice(0, 1).map(function (series) {
-      return Object.assign({}, series, {
-        pathId: PRE_DEATH_ASSETS_PATH_ID
-      });
+    const comparisonSeries = preparedSeries.filter(function (series) {
+      return series !== selectedSeries;
     });
+    return (selectedSeries ? [selectedSeries].concat(comparisonSeries) : preparedSeries).slice(0, 2);
   }
 
   function getSelectedAppliedGraphSeries(graphModel, selectedScenarioId = "") {
@@ -3855,7 +3862,6 @@
           </div>
           <p>Projected resources and required support after death.</p>
         </div>
-        ${renderLifestyleImpactReadout(timelineResult)}
           ${renderGraphSvg(graphModel, timelineResult)}
         ${renderGraphLegend(graphModel, timelineResult)}
         ${renderGraphCallouts(graphModel)}
@@ -3866,22 +3872,15 @@
 
   function renderTopSummaryStrip(timelineResult) {
     const lifestyleReadout = renderLifestyleImpactReadout(timelineResult);
-    const primaryPathLabel = getPrimaryGraphPathLabel(timelineResult, "Current scenario projection");
     return `
       <section class="income-impact-summary-strip" data-income-impact-summary-strip aria-label="Income Impact summary">
-        ${lifestyleReadout || `
-          <div class="income-impact-summary-placeholder" data-income-impact-summary-placeholder>
-            <span class="income-impact-summary-placeholder__eyebrow">Lifestyle impact</span>
-            <strong>${escapeHtml(primaryPathLabel)}</strong>
-            <span>Adjust lifestyle assumptions below, then reevaluate to compare the selected scenario.</span>
-          </div>
-        `}
+        ${renderFinancialSecurityCard(timelineResult)}
+        ${lifestyleReadout}
       </section>
     `;
   }
 
   function renderResourceOutlookPanel(timelineResult) {
-    const lifestyleReadout = renderLifestyleImpactReadout(timelineResult);
     const primaryPathLabel = getPrimaryGraphPathLabel(timelineResult, "Current scenario projection");
     return `
       <section class="income-impact-resource-outlook" data-income-impact-resource-outlook>
@@ -3890,13 +3889,11 @@
           <strong>Remaining resources</strong>
           <p>Scenario effects on projected survivor resources.</p>
         </div>
-        ${lifestyleReadout || `
-          <div class="income-impact-resource-outlook__placeholder" data-income-impact-resource-outlook-placeholder>
-            <span>Selected scenario</span>
-            <strong>${escapeHtml(primaryPathLabel)}</strong>
-            <p>Adjust scenario controls, then reevaluate to compare the projected runway.</p>
-          </div>
-        `}
+        <div class="income-impact-resource-outlook__placeholder" data-income-impact-resource-outlook-placeholder>
+          <span>Selected scenario</span>
+          <strong>${escapeHtml(primaryPathLabel)}</strong>
+          <p>Adjust scenario controls, then reevaluate to compare the projected runway.</p>
+        </div>
       </section>
     `;
   }
@@ -4507,6 +4504,7 @@
     syncResourceOutlookPanel(timelineResult);
     host.innerHTML = `
       <div class="income-impact-layout" data-income-impact-layout>
+        ${renderTopSummaryStrip(timelineResult)}
         <section class="income-impact-story-chart-card" data-income-impact-story-chart-card>
           ${renderFinancialDepletionStoryScaffold(timelineResult)}
           <div class="income-impact-layout-main" data-income-impact-layout-main>
@@ -4516,7 +4514,6 @@
         <aside class="income-impact-layout-aside" data-income-impact-layout-aside aria-label="Income Impact supporting details">
           ${renderPivotalRiskPanel(timelineResult)}
           ${renderCompressionReportingPanel(timelineResult)}
-          ${renderFinancialSecurityCard(timelineResult)}
           <div class="income-impact-runway-metric-stack" data-income-impact-runway-metric-stack>
             ${renderFinancialRunwayCards(timelineResult)}
           </div>
@@ -4586,6 +4583,47 @@
     ];
   }
 
+  function normalizeBooleanScenarioControl(value, fallbackValue) {
+    if (value === true || value === false) {
+      return value;
+    }
+    const normalized = normalizeString(value).toLowerCase();
+    if (["true", "on", "yes", "include", "included"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "off", "no", "exclude", "excluded"].includes(normalized)) {
+      return false;
+    }
+    return fallbackValue !== false;
+  }
+
+  function getAssumptionSurvivorIncomeEnabled(lensModel) {
+    const survivorScenario = isPlainObject(lensModel?.survivorScenario) ? lensModel.survivorScenario : {};
+    const derivation = isPlainObject(survivorScenario.survivorIncomeDerivation)
+      ? survivorScenario.survivorIncomeDerivation
+      : {};
+    const source = normalizeString(derivation.survivorIncomeSource);
+    if (
+      derivation.includeSurvivorIncomeOffset === false
+      || source === "suppressed-survivor-income-offset-disabled"
+      || survivorScenario.survivorContinuesWorking === false
+      || derivation.survivorContinuesWorking === false
+      || source === "suppressed-survivor-not-working"
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  function getSurvivorIncomeScenarioLabelSuffix(state, settings) {
+    const includeSurvivorIncome = normalizeBooleanScenarioControl(settings?.includeSurvivorIncome, true);
+    const assumptionDefault = getAssumptionSurvivorIncomeEnabled(state?.lensModel);
+    if (includeSurvivorIncome === assumptionDefault) {
+      return "";
+    }
+    return includeSurvivorIncome ? " - survivor income on" : " - no survivor income";
+  }
+
   function normalizeScenarioControlsForState(state, controls) {
     const safeState = isPlainObject(state) ? state : {};
     const sourceControls = isPlainObject(controls) ? controls : {};
@@ -4603,6 +4641,10 @@
       selectedDeathDate,
       projectionHorizonYears: clampProjectionHorizonYears(sourceControls.projectionHorizonYears ?? scenarioState.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(sourceControls.mortgageTreatmentOverride ?? scenarioState.mortgageTreatmentOverride),
+      includeSurvivorIncome: normalizeBooleanScenarioControl(
+        sourceControls.includeSurvivorIncome ?? scenarioState.includeSurvivorIncome,
+        getAssumptionSurvivorIncomeEnabled(safeState.lensModel)
+      ),
       lifestyleSliderValue: clampLifestyleSliderValue(sourceControls.lifestyleSliderValue ?? scenarioState.lifestyleSliderValue),
       autoCompressBaselineEnabled: (sourceControls.autoCompressBaselineEnabled ?? scenarioState.autoCompressBaselineEnabled) !== false
     };
@@ -4705,6 +4747,7 @@
       selectedDeathDate: normalizeString(safeSettings.selectedDeathDate) || null,
       projectionHorizonYears: clampProjectionHorizonYears(safeSettings.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
+      includeSurvivorIncome: normalizeBooleanScenarioControl(safeSettings.includeSurvivorIncome, true),
       lifestyleSliderValue: clampLifestyleSliderValue(safeSettings.lifestyleSliderValue),
       autoCompressBaselineEnabled: safeSettings.autoCompressBaselineEnabled !== false,
       householdExpenseStreamPolicyMode: normalizeString(safeSettings.householdExpenseStreamPolicyMode) || null
@@ -4737,6 +4780,7 @@
     const deathAgeState = isPlainObject(state.deathAgeState) ? state.deathAgeState : {};
     scenarioState.projectionHorizonYears = controls.projectionHorizonYears;
     scenarioState.mortgageTreatmentOverride = controls.mortgageTreatmentOverride;
+    scenarioState.includeSurvivorIncome = controls.includeSurvivorIncome !== false;
     scenarioState.lifestyleSliderValue = controls.lifestyleSliderValue;
     scenarioState.autoCompressBaselineEnabled = controls.autoCompressBaselineEnabled !== false;
     if (controls.householdExpenseStreamPolicyMode) {
@@ -4758,6 +4802,7 @@
       valuationDate: safeState.valuationDate || null,
       projectionHorizonYears: controls.projectionHorizonYears,
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
+      includeSurvivorIncome: controls.includeSurvivorIncome !== false,
       selectedDeathAge: controls.selectedDeathAge,
       selectedDeathDate: controls.selectedDeathDate
     };
@@ -4793,6 +4838,7 @@
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
     const scenarioOptions = {
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
+      includeSurvivorIncome: controls.includeSurvivorIncome !== false,
       includeDiscretionaryNeeds: true,
       projectionCadence: "monthly"
     };
@@ -5785,6 +5831,7 @@
       agePart,
       `horizon-${clampProjectionHorizonYears(safeSettings.projectionHorizonYears)}`,
       normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
+      `survivor-income-${safeSettings.includeSurvivorIncome === false ? "off" : "on"}`,
       `lifestyle-${clampLifestyleSliderValue(safeSettings.lifestyleSliderValue)}`,
       `auto-compress-${safeSettings.autoCompressBaselineEnabled !== false ? "on" : "off"}`
     ].join("-").replace(/[^a-zA-Z0-9-]/g, "-").replace(/-+/g, "-").toLowerCase();
@@ -5814,22 +5861,23 @@
   }
 
   function getAppliedScenarioLabel(state, settings) {
+    const survivorIncomeSuffix = getSurvivorIncomeScenarioLabelSuffix(state, settings);
     if (isNearTermDeathScenario(state, settings)) {
-      return "Death tomorrow";
+      return `Death tomorrow${survivorIncomeSuffix}`;
     }
 
     const selectedDeathAge = toOptionalNumber(settings?.selectedDeathAge);
     const currentAge = toOptionalNumber(state?.deathAgeState?.currentAge);
     if (selectedDeathAge != null && currentAge != null && selectedDeathAge > currentAge) {
       const yearsUntilDeath = Math.max(1, selectedDeathAge - currentAge);
-      return `Death in ${yearsUntilDeath} ${yearsUntilDeath === 1 ? "year" : "years"}`;
+      return `Death in ${yearsUntilDeath} ${yearsUntilDeath === 1 ? "year" : "years"}${survivorIncomeSuffix}`;
     }
 
     if (selectedDeathAge != null) {
-      return `Death at age ${selectedDeathAge}`;
+      return `Death at age ${selectedDeathAge}${survivorIncomeSuffix}`;
     }
 
-    return "Current scenario";
+    return `Current scenario${survivorIncomeSuffix}`;
   }
 
   function setAppliedScenarioRecordIdentity(record, scenarioId, settingsKey) {
@@ -6135,6 +6183,19 @@
       });
     }
 
+    if (scenarioElements.survivorIncome) {
+      scenarioElements.survivorIncome.addEventListener("change", function (event) {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.includeSurvivorIncome = event?.target?.checked === true;
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    }
+
     if (scenarioElements.lifestyleSlider) {
       const updateLifestyleSlider = function (event) {
         if (!incomeImpactState) {
@@ -6301,6 +6362,7 @@
         scenarioState: {
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,
           mortgageTreatmentOverride: "followAssumptions",
+          includeSurvivorIncome: getAssumptionSurvivorIncomeEnabled(builderResult.lensModel),
           lifestyleSliderValue: 0,
           autoCompressBaselineEnabled: true,
           bannerCollapsed: false

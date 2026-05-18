@@ -1176,18 +1176,52 @@
     return null;
   }
 
-  function buildSurvivorIncomeStreams(lensModel, dataGaps, sourcePaths, trace) {
+  function resolveSurvivorIncomeScenarioOverride(scenarioOptions) {
+    if (!isPlainObject(scenarioOptions) || !Object.prototype.hasOwnProperty.call(scenarioOptions, "includeSurvivorIncome")) {
+      return null;
+    }
+
+    if (scenarioOptions.includeSurvivorIncome === true || scenarioOptions.includeSurvivorIncome === false) {
+      return scenarioOptions.includeSurvivorIncome;
+    }
+
+    const normalized = normalizeStatus(scenarioOptions.includeSurvivorIncome);
+    if (["true", "include", "included", "on", "yes"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "exclude", "excluded", "off", "no"].includes(normalized)) {
+      return false;
+    }
+    return null;
+  }
+
+  function buildSurvivorIncomeStreams(lensModel, dataGaps, sourcePaths, trace, scenarioOptions) {
     const survivorScenario = lensModel?.survivorScenario || {};
+    const scenarioOverride = resolveSurvivorIncomeScenarioOverride(scenarioOptions);
     const suppressionReason = getSurvivorIncomeSuppressionReason(survivorScenario);
     const survivorIncome = firstNumeric(survivorScenario, ["survivorNetAnnualIncome"]);
     const delay = firstNumeric(survivorScenario, ["survivorIncomeStartDelayMonths"]);
 
-    if (suppressionReason) {
+    if (scenarioOverride === false) {
+      trace.layer3.survivorIncome = {
+        annualAmount: 0,
+        startDelayMonths: 0,
+        status: "suppressed",
+        suppressionReason: "scenario-survivor-income-disabled",
+        scenarioOverride: false,
+        sourcePaths: ["scenarioOptions.includeSurvivorIncome"]
+      };
+      appendUnique(sourcePaths, ["scenarioOptions.includeSurvivorIncome"]);
+      return [];
+    }
+
+    if (suppressionReason && !(scenarioOverride === true && suppressionReason === "survivor-income-offset-disabled")) {
       trace.layer3.survivorIncome = {
         annualAmount: 0,
         startDelayMonths: 0,
         status: "suppressed",
         suppressionReason,
+        scenarioOverride,
         sourcePaths: ["lensModel.survivorScenario.survivorIncomeDerivation"]
       };
       appendUnique(sourcePaths, ["lensModel.survivorScenario.survivorIncomeDerivation"]);
@@ -1209,6 +1243,7 @@
     trace.layer3.survivorIncome = {
       annualAmount: roundMoney(survivorIncome.value),
       startDelayMonths: delay.value == null ? 0 : Math.max(0, Math.floor(delay.value)),
+      scenarioOverride,
       sourcePaths: paths
     };
 
@@ -1250,7 +1285,7 @@
         }
       };
     });
-    const survivorIncomeStreams = buildSurvivorIncomeStreams(input.lensModel, dataGaps, sourcePaths, trace);
+    const survivorIncomeStreams = buildSurvivorIncomeStreams(input.lensModel, dataGaps, sourcePaths, trace, input.scenarioOptions);
     const scheduledObligations = buildMortgageSupportObligations(
       input.lensModel?.treatedDebtPayoff || input.lensModel?.debtTreatment || {},
       layer2Output,
@@ -1264,6 +1299,7 @@
     trace.layer3.inputMapping = {
       startingResources: "Layer 2 resources.resourcesAfterObligations",
       survivorIncome: "lensModel.survivorScenario.survivorNetAnnualIncome",
+      survivorIncomeScenarioOption: "scenarioOptions.includeSurvivorIncome",
       survivorNeeds: trace.layer3.expensePolicy?.essentialSource || "lensModel.ongoingSupport annual support fields",
       scheduledObligations: scheduledObligations.map(function (row) { return row.id; }),
       educationAndHealthcarePolicy: "explicit-only-deferred-in-v1"
@@ -1615,7 +1651,8 @@
         selectedDeathDate: normalizedInput.selectedDeathDate,
         selectedDeathAge: normalizedInput.selectedDeathAge,
         projectionHorizonMonths,
-        mortgageTreatmentOverride: scenarioOptions.mortgageTreatmentOverride || null
+        mortgageTreatmentOverride: scenarioOptions.mortgageTreatmentOverride || null,
+        includeSurvivorIncome: resolveSurvivorIncomeScenarioOverride(scenarioOptions)
       },
       preDeathSeries: {
         mode: currentPointOnly ? "current-point-only" : "forward-projection",

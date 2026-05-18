@@ -9,7 +9,7 @@
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
   const POST_DEATH_RESOURCES_PATH_ID = "postDeathResources";
-  const MAX_VISIBLE_APPLIED_GRAPH_SCENARIOS = 1;
+  const MAX_VISIBLE_APPLIED_GRAPH_SCENARIOS = 2;
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
   const GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON = "survivorRunwayComparison";
@@ -589,9 +589,7 @@
         : safeInput.comparisonScenarios,
       appliedScenarioCount: appliedScenarios.length,
       appliedScenarios: clonePlainValue(appliedScenarios),
-      visibleAppliedScenarios: selectedAppliedScenario
-        ? [clonePlainValue(selectedAppliedScenario)]
-        : [],
+      visibleAppliedScenarios: clonePlainValue(appliedScenarios),
       appliedScenarioKeyItems: getAppliedScenarioKeyItems(appliedScenarios, selectedAppliedScenarioId),
       selectedScenarioId: selectedScenarioId || selectedAppliedScenarioId,
       selectedAppliedScenarioId,
@@ -689,13 +687,22 @@
       return [];
     }
 
-    return seriesRecords.slice(0, MAX_VISIBLE_APPLIED_GRAPH_SCENARIOS).map(function (series, renderIndex) {
+    const selectedRecords = seriesRecords.filter(function (series) {
+      return series.selected === true;
+    });
+    const comparisonRecords = seriesRecords.filter(function (series) {
+      return series.selected !== true;
+    });
+    const visibleRecords = (selectedRecords.length ? selectedRecords.concat(comparisonRecords) : seriesRecords)
+      .slice(0, MAX_VISIBLE_APPLIED_GRAPH_SCENARIOS);
+
+    return visibleRecords.map(function (series, renderIndex) {
       return Object.assign({}, series, {
         pathId: getAppliedScenarioPostDeathPathId(renderIndex),
         preDeathPathId: getAppliedScenarioPreDeathPathId(renderIndex),
         pathMode: "linear",
         preDeathPathMode: "linear",
-        scenarioRole: "selected",
+        scenarioRole: series.selected ? "selected" : "comparison",
         renderIndex
       });
     });

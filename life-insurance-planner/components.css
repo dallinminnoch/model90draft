@@ -17938,6 +17938,8 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   align-items: start;
   width: 100%;
   max-width: 100%;
+  min-height: 100%;
+  background: #ffffff;
 }
 
 .income-impact-layout-main,
@@ -17962,9 +17964,9 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-summary-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.82fr) minmax(20rem, 1.18fr);
+  align-items: stretch;
   gap: 0.85rem;
   min-width: 0;
   padding: 0;
@@ -17973,9 +17975,103 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   background: transparent;
 }
 
+.income-impact-summary-strip > .income-impact-card {
+  min-width: 0;
+  min-height: 100%;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 0.55rem;
+  background: #ffffff;
+}
+
+.income-impact-summary-strip > .income-impact-card--wide {
+  grid-column: auto;
+}
+
+.income-impact-summary-strip > .income-impact-card:only-child {
+  grid-column: 1 / -1;
+}
+
 .income-impact-summary-strip .income-impact-lifestyle-impact-readout {
   width: 100%;
   max-width: none;
+  min-height: 100%;
+}
+
+.income-impact-summary-strip > [data-income-impact-financial-security-card] {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.56rem;
+  background: #ffffff;
+  color: #536176;
+  font-family: "Inter", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 520;
+  line-height: 1.1;
+}
+
+.income-impact-summary-strip > [data-income-impact-financial-security-card] .income-impact-card-header {
+  flex: 0 0 auto;
+  display: block;
+  margin-right: 0.9rem;
+}
+
+.income-impact-summary-strip > [data-income-impact-financial-security-card] .income-impact-card-header h2 {
+  margin: 0;
+  padding: 0.14rem 0.55rem;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 0.28rem;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.income-impact-summary-strip > [data-income-impact-financial-security-card] .income-impact-financial-security-value {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 0.9rem;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.income-impact-summary-strip > [data-income-impact-financial-security-card] p {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: min(19rem, 45%);
+  margin: 0 0 0 auto;
+  padding: 0.28rem 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(5, 150, 105, 0.18);
+  border-radius: 0.4rem;
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 0.68rem;
+  font-weight: 760;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.income-impact-summary-strip > [data-income-impact-financial-security-card][data-income-impact-summary-status="not-available"] p {
+  border-color: rgba(220, 38, 38, 0.18);
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .income-impact-summary-placeholder {
@@ -18003,11 +18099,20 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-weight: 720;
 }
 
+.income-impact-content-stack {
+  min-width: 0;
+  border-top: 1px solid rgba(213, 221, 232, 0.78);
+  border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+}
+
 .income-impact-insights-panel {
   min-width: 0;
   color: #263246;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-left: 1px solid rgba(226, 232, 240, 0.95);
+  border: 1px solid rgba(213, 221, 232, 0.78);
+  border-left-color: rgba(226, 232, 240, 0.95);
+  border-radius: 0 0.65rem 0.65rem 0;
+  box-shadow: inset 1px 0 0 rgba(213, 221, 232, 0.36);
 }
 
 .income-impact-resource-outlook {
@@ -18103,9 +18208,9 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   display: grid;
   min-width: 0;
   border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: 0.7rem;
+  border-radius: 0.55rem;
   background: #ffffff;
-  box-shadow: 0 0.15rem 0.65rem rgba(15, 23, 42, 0.055);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -18608,7 +18713,6 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   display: none;
 }
 
-.income-impact-story-chart-card .income-impact-graph > .income-impact-lifestyle-impact-readout,
 .income-impact-story-chart-card .income-impact-chart-section > .income-impact-section-header {
   display: none;
 }
@@ -18780,6 +18884,10 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-graph-path--postDeathResources {
+  stroke: #3b82f6;
+}
+
+.income-impact-graph-path[data-income-impact-applied-scenario-id] {
   stroke: #3b82f6;
 }
 
@@ -19868,17 +19976,51 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-weight: 760;
 }
 
-.income-impact-scenario-field--auto-compress > span {
+.income-impact-scenario-field--survivor-income > span {
   display: flex;
   align-items: center;
   gap: 0.42rem;
 }
 
-.income-impact-scenario-field--auto-compress input[type="checkbox"] {
-  width: 0.9rem;
-  height: 0.9rem;
+.income-impact-scenario-field--survivor-income strong {
+  margin-left: auto;
+  color: #2563eb;
+  font-size: 0.62rem;
+  font-weight: 760;
+}
+
+.income-impact-scenario-field--survivor-income input[type="checkbox"] {
+  width: 1.7rem;
+  height: 0.94rem;
   margin: 0;
+  appearance: none;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 999px;
+  background: #dbe4f2;
   accent-color: #2563eb;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.income-impact-scenario-field--survivor-income input[type="checkbox"]::before {
+  content: "";
+  display: block;
+  width: 0.68rem;
+  height: 0.68rem;
+  margin: 0.08rem;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0.06rem 0.16rem rgba(15, 23, 42, 0.16);
+  transition: transform 0.18s ease;
+}
+
+.income-impact-scenario-field--survivor-income input[type="checkbox"]:checked {
+  border-color: rgba(37, 99, 235, 0.42);
+  background: #2563eb;
+}
+
+.income-impact-scenario-field--survivor-income input[type="checkbox"]:checked::before {
+  transform: translateX(0.74rem);
 }
 
 .income-impact-scenario-field[data-income-impact-reevaluate-control] {
@@ -19936,7 +20078,10 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   min-width: 0;
   color: #263246;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-right: 1px solid rgba(226, 232, 240, 0.95);
+  border: 1px solid rgba(213, 221, 232, 0.78);
+  border-right-color: rgba(226, 232, 240, 0.95);
+  border-radius: 0.65rem 0 0 0.65rem;
+  box-shadow: inset -1px 0 0 rgba(213, 221, 232, 0.36);
 }
 
 .income-impact-controls-panel .income-impact-scenario-banner {
@@ -20185,6 +20330,14 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 @media (max-width: 720px) {
+  .income-impact-controls-panel,
+  .income-impact-content-stack,
+  .income-impact-insights-panel {
+    border: 1px solid rgba(213, 221, 232, 0.78);
+    border-radius: 0.65rem;
+    box-shadow: none;
+  }
+
   .income-impact-scenario-banner {
     border-radius: 0.55rem;
     box-shadow: none;
@@ -20192,6 +20345,20 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 
   .income-impact-graph-svg {
     min-height: 24rem;
+  }
+
+  .income-impact-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .income-impact-summary-strip > [data-income-impact-financial-security-card] {
+    flex-wrap: wrap;
+    row-gap: 0.42rem;
+  }
+
+  .income-impact-summary-strip > [data-income-impact-financial-security-card] p {
+    max-width: 100%;
+    margin-left: 0;
   }
 
   .income-impact-scenario-header,

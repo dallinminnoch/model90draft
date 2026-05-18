@@ -1240,22 +1240,22 @@ const appliedMultiModel = buildIncomeImpactTimelineGraphModel(appliedMultiInput)
 assert.deepEqual(appliedMultiInput, appliedMultiInputBefore, "Graph model should not mutate multi appliedScenarios input.");
 assert.equal(appliedMultiModel.trace.scenarioModelMode, "appliedScenarios");
 assert.equal(appliedMultiModel.trace.appliedScenarioCount, 2);
-assert.equal(appliedMultiModel.trace.renderedAppliedScenarioCount, 1);
-assert.equal(appliedMultiModel.trace.visibleAppliedScenarioCount, 1);
-assert.equal(appliedMultiModel.trace.hiddenAppliedScenarioCount, 1);
+assert.equal(appliedMultiModel.trace.renderedAppliedScenarioCount, 2);
+assert.equal(appliedMultiModel.trace.visibleAppliedScenarioCount, 2);
+assert.equal(appliedMultiModel.trace.hiddenAppliedScenarioCount, 0);
 assert.equal(appliedMultiModel.trace.selectedScenarioId, "income-impact-death-in-10-years");
 assert.equal(appliedMultiModel.trace.selectedAppliedScenarioId, "income-impact-death-in-10-years");
 assert.deepEqual(
   cloneJson(appliedMultiModel.trace.appliedScenarioPathIds),
-  ["postDeathResources"],
-  "Only the selected applied scenario should receive a visible graph path ID."
+  ["postDeathResources", "postDeathResources--scenario-2"],
+  "Applied scenarios should receive visible graph path IDs for comparison."
 );
 assert.equal(
   Object.hasOwn(appliedMultiModel.series, "appliedPostDeathResources"),
-  false,
-  "Multi-applied input should not emit the retired simultaneous appliedPostDeathResources path list."
+  true,
+  "Multi-applied input should expose the simultaneous applied path list."
 );
-assert.equal(appliedMultiModel.series.appliedRunwayScenarios.length, 1, "Only the selected applied scenario should produce a runway contract.");
+assert.equal(appliedMultiModel.series.appliedRunwayScenarios.length, 2, "Applied scenarios should produce runway contracts for comparison.");
 assert.equal(appliedMultiModel.series.appliedScenarioKeyItems.length, 2, "All applied scenarios should remain available to the graph key.");
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedScenarioKeyItems.map(function (item) { return item.label; })),
@@ -1268,28 +1268,28 @@ assert.deepEqual(
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.selected; })),
-  [true],
-  "Runway contracts should include only the selected scenario state."
+  [true, false],
+  "Runway contracts should preserve selected state across visible comparison paths."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.scenarioRole; })),
-  ["selected"],
-  "Runway contracts should identify the visible selected scenario role."
+  ["selected", "comparison"],
+  "Runway contracts should identify renderable applied scenario roles."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.pathId; })),
-  ["postDeathResources"],
-  "Runway contracts should expose only the selected scenario path ID."
+  ["postDeathResources", "postDeathResources--scenario-2"],
+  "Runway contracts should expose all visible scenario path IDs."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.preDeathPathId; })),
-  ["preDeathAssets"],
-  "Runway contracts should expose only the selected scenario pre-death path ID."
+  ["preDeathAssets", "preDeathAssets--scenario-2"],
+  "Runway contracts should expose all visible scenario pre-death path IDs."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.appliedRunwayScenarios.map(function (series) { return series.deathLineLabel; })),
-  ["Death in 10 years"],
-  "Runway contracts should carry the selected scenario death-line label."
+  ["Death in 10 years", "Death tomorrow"],
+  "Runway contracts should carry scenario death-line labels."
 );
 assert.equal(
   appliedMultiModel.series.appliedRunwayScenarios[0].projectedNetWorthAtDeath,
@@ -1325,8 +1325,8 @@ assert.ok(
 assert.equal(appliedMultiModel.trace.appliedPreDeathContextEnabled, true);
 assert.deepEqual(
   cloneJson(appliedMultiModel.trace.appliedPreDeathContextPathIds),
-  ["preDeathAssets"],
-  "Trace should expose only the selected renderable pre-death context path ID."
+  ["preDeathAssets", "preDeathAssets--scenario-2"],
+  "Trace should expose selected and comparison pre-death context path IDs."
 );
 assert.equal(
   appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.date,
@@ -1417,13 +1417,13 @@ const overLimitAppliedModel = buildIncomeImpactTimelineGraphModel(Object.assign(
   selectedScenarioId: "income-impact-death-in-20-years"
 }));
 assert.equal(overLimitAppliedModel.trace.appliedScenarioCount, 3);
-assert.equal(overLimitAppliedModel.trace.renderedAppliedScenarioCount, 1, "Graph model should render only the selected applied scenario path.");
-assert.equal(overLimitAppliedModel.trace.hiddenAppliedScenarioCount, 2);
+assert.equal(overLimitAppliedModel.trace.renderedAppliedScenarioCount, 2, "Graph model should render the selected applied scenario plus one comparison path.");
+assert.equal(overLimitAppliedModel.trace.hiddenAppliedScenarioCount, 1);
 assert.equal(overLimitAppliedModel.series.appliedScenarioKeyItems.length, 3, "Graph key should preserve all applied scenario entries provided to the model.");
 assert.deepEqual(
   cloneJson(overLimitAppliedModel.series.appliedRunwayScenarios.map(function (series) { return series.label; })),
-  ["Death in 20 years"],
-  "When more than two records are supplied, the graph model should still show only the selected scenario."
+  ["Death in 20 years", "Death tomorrow"],
+  "When more than two records are supplied, the graph model should keep the selected scenario visible with one comparison."
 );
 assert.deepEqual(
   cloneJson(overLimitAppliedModel.series.appliedScenarioKeyItems.map(function (item) { return item.selected; })),
@@ -1438,8 +1438,8 @@ selectedAutosizeScenario.postDeathSeries.depletion = {
   depletionMonthIndex: 48,
   monthsCovered: 48
 };
-const hiddenLongAutosizeScenario = cloneJson(tenYearScenario);
-hiddenLongAutosizeScenario.postDeathSeries.depletion = {
+const comparisonLongAutosizeScenario = cloneJson(tenYearScenario);
+comparisonLongAutosizeScenario.postDeathSeries.depletion = {
   depleted: true,
   depletionDate: "2066-04-29",
   depletionMonthIndex: 360,
@@ -1458,7 +1458,7 @@ const autosizeSelectedOnlyModel = buildIncomeImpactTimelineGraphModel({
       scenarioId: "hidden-long-runway",
       label: "Hidden long runway",
       settings: appliedMultiInput.appliedScenarios[1].settings,
-      scenario: hiddenLongAutosizeScenario,
+      scenario: comparisonLongAutosizeScenario,
       riskEvaluation: cloneJson(riskEvaluation)
     }
   ],
@@ -1470,17 +1470,17 @@ const autosizeSelectedOnlyModel = buildIncomeImpactTimelineGraphModel({
 });
 assert.equal(
   autosizeSelectedOnlyModel.projection.latestAppliedScenarioDepletionMonths,
-  48,
-  "Graph horizon autosizing should use the selected visible applied scenario depletion, not hidden scenarios."
+  360,
+  "Graph horizon autosizing should include the visible comparison scenario depletion."
 );
-assert.equal(autosizeSelectedOnlyModel.trace.hiddenAppliedScenarioCount, 1);
+assert.equal(autosizeSelectedOnlyModel.trace.hiddenAppliedScenarioCount, 0);
 assert.ok(
-  autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths < 360,
-  "Hidden applied scenarios should not expand the visible graph horizon."
+  autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths >= 360,
+  "Visible comparison scenarios should be allowed to expand the graph horizon."
 );
 assert.ok(
-  autosizeSelectedOnlyModel.axes.y.rawPositiveMax < hiddenLongAutosizeScenario.deathEvent.resourcesAfterObligations,
-  "Hidden applied scenarios should not expand the selected scenario y-domain."
+  autosizeSelectedOnlyModel.axes.y.rawPositiveMax <= selectedAutosizeScenario.deathEvent.resourcesAfterObligations,
+  "Comparison paths should not change selected-scenario y-domain ownership."
 );
 assert.equal(
   autosizeSelectedOnlyModel.axes.y.trace.selectedScenarioOnlyScale,
