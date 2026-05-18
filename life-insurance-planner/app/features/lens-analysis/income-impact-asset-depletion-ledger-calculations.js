@@ -444,6 +444,84 @@
     }).filter(Boolean);
   }
 
+  function createSyntheticSurplusBucket() {
+    return {
+      id: "survivor-income-surplus-reserve",
+      family: "cash",
+      label: "Survivor income surplus reserve",
+      startingValue: 0,
+      included: true,
+      liquidityTier: "liquid",
+      growthActive: false,
+      monthlyGrowthRate: 0,
+      sourcePath: "layer3.points[].survivorIncome",
+      evidenceLevel: "trace-backed",
+      trace: {
+        source: SOURCE,
+        visibleStorylineEligible: false,
+        syntheticSurplusBucket: true
+      },
+      balance: 0,
+      tapped: false,
+      depleted: false,
+      source: "survivorIncomeSurplus",
+      growthStoppedAfterTap: false
+    };
+  }
+
+  function hasPotentialSurplusMonth(input, options) {
+    for (let monthIndex = 0; monthIndex < options.maxMonths; monthIndex += 1) {
+      const monthlyNeeds = Math.max(getSeriesValue(input.monthlyNeeds, monthIndex, 0), 0);
+      const monthlyIncome = Math.max(getSeriesValue(input.monthlyIncome, monthIndex, 0), 0);
+      const scheduledObligations = getScheduledObligationTotal(input.scheduledObligations, monthIndex);
+      if (roundMoney(monthlyIncome - monthlyNeeds - scheduledObligations) > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function findSurplusDepositBucket(buckets) {
+    return buckets.find(function (bucket) {
+      return bucket.family === "cash" && bucket.included !== false;
+    }) || null;
+  }
+
+  function applySurplusDeposit(buckets, amount) {
+    const surplusAmount = roundMoney(Math.max(amount, 0));
+    if (surplusAmount <= 0) {
+      return {
+        surplusDepositsByBucket: [],
+        surplusDepositedToBucketId: null,
+        surplusDepositedToBucketFamily: null
+      };
+    }
+    const bucket = findSurplusDepositBucket(buckets);
+    if (!bucket) {
+      return {
+        surplusDepositsByBucket: [],
+        surplusDepositedToBucketId: null,
+        surplusDepositedToBucketFamily: null
+      };
+    }
+    const balanceBeforeDeposit = roundMoney(bucket.balance);
+    bucket.balance = roundMoney(bucket.balance + surplusAmount);
+    if (bucket.balance > 0 && bucket.depleted) {
+      bucket.depleted = false;
+    }
+    return {
+      surplusDepositsByBucket: [{
+        bucketId: bucket.id,
+        family: bucket.family,
+        amount: surplusAmount,
+        balanceBeforeDeposit,
+        balanceAfterDeposit: roundMoney(bucket.balance)
+      }],
+      surplusDepositedToBucketId: bucket.id,
+      surplusDepositedToBucketFamily: bucket.family
+    };
+  }
+
   function buildIncomeImpactAssetDepletionLedger(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const options = normalizeOptions(safeInput);
@@ -460,7 +538,16 @@
       },
       assumptions: [
         "startingBucket.startingValue is treated as the already-treated spendable balance"
-      ]
+      ],
+      totalSurplusDeposited: 0,
+      surplusDepositPolicy: {
+        mode: "existing-cash-first",
+        fallbackBucketId: "survivor-income-surplus-reserve",
+        fallbackBucketFamily: "cash",
+        emergencyFundDepositDefault: false,
+        growthOnSurplusDeposits: false
+      },
+      syntheticSurplusBucketCreated: false
     };
 
     const hasMonthlyNeeds = safeInput.monthlyNeeds != null;
@@ -492,6 +579,21 @@
         excludedBuckets.push(result.excluded);
       }
     });
+
+    if (!normalizedBuckets.some(function (bucket) { return bucket.family === "cash"; }) && hasPotentialSurplusMonth(safeInput, options)) {
+      const syntheticSurplusBucket = createSyntheticSurplusBucket();
+      normalizedBuckets.push(syntheticSurplusBucket);
+      trace.syntheticSurplusBucketCreated = true;
+      trace.syntheticSurplusBucket = {
+        id: syntheticSurplusBucket.id,
+        family: syntheticSurplusBucket.family,
+        included: syntheticSurplusBucket.included,
+        growthActive: syntheticSurplusBucket.growthActive,
+        sourcePath: syntheticSurplusBucket.sourcePath,
+        visibleStorylineEligible: syntheticSurplusBucket.trace.visibleStorylineEligible,
+        syntheticSurplusBucket: syntheticSurplusBucket.trace.syntheticSurplusBucket
+      };
+    }
 
     if (!normalizedBuckets.length) {
       warnings.push(makeWarning(
@@ -527,7 +629,11 @@
       const monthlyNeeds = Math.max(getSeriesValue(safeInput.monthlyNeeds, monthIndex, 0), 0);
       const monthlyIncome = Math.max(getSeriesValue(safeInput.monthlyIncome, monthIndex, 0), 0);
       const scheduledObligations = getScheduledObligationTotal(safeInput.scheduledObligations, monthIndex);
-      const monthlyNetUse = roundMoney(Math.max(monthlyNeeds + scheduledObligations - monthlyIncome, 0));
+      const monthlyNetCashFlow = roundMoney(monthlyIncome - monthlyNeeds - scheduledObligations);
+      const monthlyNetUse = roundMoney(Math.max(-monthlyNetCashFlow, 0));
+      const surplusAmount = roundMoney(Math.max(monthlyNetCashFlow, 0));
+      const surplusDepositResult = applySurplusDeposit(buckets, surplusAmount);
+      trace.totalSurplusDeposited = roundMoney(trace.totalSurplusDeposited + surplusAmount);
       const withdrawalResult = applyWithdrawal(buckets, depletionOrder, monthlyNetUse, monthIndex, bucketEvents);
       const endingBuckets = snapshotBuckets(buckets);
       const totalAvailableResources = sumBucketBalances(buckets);
@@ -547,7 +653,12 @@
         monthlyNeeds,
         monthlyIncome,
         scheduledObligations,
+        monthlyNetCashFlow,
         monthlyNetUse,
+        surplusAmount,
+        surplusDepositsByBucket: surplusDepositResult.surplusDepositsByBucket,
+        surplusDepositedToBucketId: surplusDepositResult.surplusDepositedToBucketId,
+        surplusDepositedToBucketFamily: surplusDepositResult.surplusDepositedToBucketFamily,
         unmetNeed: withdrawalResult.unmetNeed
       });
     }

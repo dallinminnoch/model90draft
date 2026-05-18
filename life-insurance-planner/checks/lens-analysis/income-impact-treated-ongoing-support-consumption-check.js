@@ -396,6 +396,44 @@ function assertNoForbiddenSourceChanges() {
     return originalDiagnosticDiff || diagnosticDepthDiff || diagnosticLifestyleComparisonDiff || diagnosticLifestyleShapeDiff;
   }
 
+  function isAllowedAssetDepletionLedgerSurplusDepositPass(filePath) {
+    const allowedFiles = new Set([
+      "life-insurance-planner/app/features/lens-analysis/income-impact-asset-depletion-ledger-calculations.js",
+      "life-insurance-planner/checks/lens-analysis/income-impact-asset-depletion-ledger-check.js",
+      "life-insurance-planner/checks/lens-analysis/income-impact-asset-depletion-ledger-diagnostic-integration-check.js"
+    ]);
+    if (!allowedFiles.has(filePath)) {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", `./${filePath}`], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    if (filePath === "life-insurance-planner/app/features/lens-analysis/income-impact-asset-depletion-ledger-calculations.js") {
+      return diff.includes("monthlyNetCashFlow")
+        && diff.includes("surplusAmount")
+        && diff.includes("surplusDepositsByBucket")
+        && diff.includes("survivor-income-surplus-reserve")
+        && diff.includes("syntheticSurplusBucket")
+        && diff.includes("totalSurplusDeposited")
+        && diff.includes("surplusDepositPolicy");
+    }
+
+    if (filePath === "life-insurance-planner/checks/lens-analysis/income-impact-asset-depletion-ledger-check.js") {
+      return diff.includes("surplusCashResult")
+        && diff.includes("surplus months without cash should create a synthetic cash reserve bucket")
+        && diff.includes("survivor-income-surplus-reserve")
+        && diff.includes("later deficits should draw from the surplus-refilled cash bucket before lower-priority buckets")
+        && diff.includes("balanceAfterDeposit");
+    }
+
+    return diff.includes("makeRisingLayer3Output")
+      && diff.includes("ledger totals should match rising Layer 3 resources when survivor income creates surplus")
+      && diff.includes("surplusDepositedToBucketId")
+      && diff.includes("totalSurplusDeposited");
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -523,6 +561,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedVisualTimelineStaleAssertionCorrection(filePath)
       && !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath)
       && !isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath)
+      && !isAllowedAssetDepletionLedgerSurplusDepositPass(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);

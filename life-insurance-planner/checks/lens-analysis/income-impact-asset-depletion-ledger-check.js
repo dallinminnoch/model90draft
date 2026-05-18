@@ -285,6 +285,97 @@ const scheduledObligationResult = buildIncomeImpactAssetDepletionLedger({
 });
 assert.equal(scheduledObligationResult.ledgerMonths[0].monthlyNetUse, 65);
 assert.equal(scheduledObligationResult.ledgerMonths[1].monthlyNetUse, 0);
+assert.equal(scheduledObligationResult.ledgerMonths[1].monthlyNetCashFlow, 10);
+assert.equal(scheduledObligationResult.ledgerMonths[1].surplusAmount, 10);
+assert.equal(scheduledObligationResult.ledgerMonths[1].surplusDepositedToBucketId, "cash");
+assert.equal(scheduledObligationResult.ledgerMonths[1].withdrawalsByBucket.length, 0);
+assert.equal(scheduledObligationResult.trace.totalSurplusDeposited, 10);
+
+const surplusCashResult = buildIncomeImpactAssetDepletionLedger({
+  startingBuckets: [
+    { id: "cash", family: "cash", startingValue: 100 },
+    { id: "emergency", family: "emergencyFund", startingValue: 250 }
+  ],
+  monthlyNeeds: 50,
+  monthlyIncome: 125,
+  options: { maxMonths: 1 }
+});
+assert.equal(surplusCashResult.ledgerMonths[0].monthlyNetCashFlow, 75);
+assert.equal(surplusCashResult.ledgerMonths[0].monthlyNetUse, 0);
+assert.equal(surplusCashResult.ledgerMonths[0].surplusAmount, 75);
+assert.equal(surplusCashResult.ledgerMonths[0].surplusDepositedToBucketId, "cash");
+assert.equal(surplusCashResult.ledgerMonths[0].surplusDepositedToBucketFamily, "cash");
+assert.equal(surplusCashResult.ledgerMonths[0].surplusDepositsByBucket[0].balanceBeforeDeposit, 100);
+assert.equal(surplusCashResult.ledgerMonths[0].surplusDepositsByBucket[0].balanceAfterDeposit, 175);
+assert.equal(surplusCashResult.ledgerMonths[0].endingBuckets.find((bucket) => bucket.id === "cash").balance, 175);
+assert.equal(surplusCashResult.ledgerMonths[0].endingBuckets.find((bucket) => bucket.id === "emergency").balance, 250);
+assert.equal(surplusCashResult.ledgerMonths[0].totalAvailableResources, 425);
+assert.equal(surplusCashResult.ledgerMonths[0].withdrawalsByBucket.length, 0);
+assert.equal(surplusCashResult.bucketEvents.length, 0);
+assert.equal(surplusCashResult.trace.totalSurplusDeposited, 75);
+assert.equal(surplusCashResult.trace.syntheticSurplusBucketCreated, false);
+assert.equal(surplusCashResult.trace.surplusDepositPolicy.emergencyFundDepositDefault, false);
+assertLedgerReconciles(surplusCashResult);
+
+const syntheticSurplusResult = buildIncomeImpactAssetDepletionLedger({
+  startingBuckets: [
+    { id: "taxable", family: "taxableInvestments", startingValue: 100 }
+  ],
+  monthlyNeeds: 20,
+  monthlyIncome: 80,
+  options: { maxMonths: 1 }
+});
+const syntheticBucket = syntheticSurplusResult.ledgerMonths[0].endingBuckets.find((bucket) => {
+  return bucket.id === "survivor-income-surplus-reserve";
+});
+assert.ok(syntheticBucket, "surplus months without cash should create a synthetic cash reserve bucket");
+assert.equal(syntheticBucket.family, "cash");
+assert.equal(syntheticBucket.balance, 60);
+assert.equal(syntheticSurplusResult.ledgerMonths[0].surplusDepositedToBucketId, "survivor-income-surplus-reserve");
+assert.equal(syntheticSurplusResult.ledgerMonths[0].surplusDepositedToBucketFamily, "cash");
+assert.equal(syntheticSurplusResult.ledgerMonths[0].totalAvailableResources, 160);
+assert.equal(syntheticSurplusResult.trace.syntheticSurplusBucketCreated, true);
+assert.equal(syntheticSurplusResult.trace.totalSurplusDeposited, 60);
+assert.equal(syntheticSurplusResult.trace.syntheticSurplusBucket.family, "cash");
+assert.equal(syntheticSurplusResult.trace.syntheticSurplusBucket.included, true);
+assert.equal(syntheticSurplusResult.trace.syntheticSurplusBucket.growthActive, false);
+assert.equal(syntheticSurplusResult.trace.syntheticSurplusBucket.visibleStorylineEligible, false);
+assert.equal(syntheticSurplusResult.trace.syntheticSurplusBucket.syntheticSurplusBucket, true);
+assert.equal(
+  syntheticSurplusResult.ledgerMonths[0].startingBuckets.find((bucket) => bucket.id === "survivor-income-surplus-reserve").sourcePath,
+  "layer3.points[].survivorIncome"
+);
+assert.equal(
+  syntheticSurplusResult.ledgerMonths[0].growthAppliedByBucket.some((growth) => growth.bucketId === "survivor-income-surplus-reserve"),
+  false,
+  "synthetic surplus bucket should not receive growth in v1"
+);
+assert.equal(
+  syntheticSurplusResult.bucketEvents.some((event) => event.bucketId === "survivor-income-surplus-reserve"),
+  false,
+  "synthetic surplus deposits should not create visible ledger events"
+);
+assertLedgerReconciles(syntheticSurplusResult);
+
+const mixedSurplusDeficitResult = buildIncomeImpactAssetDepletionLedger({
+  startingBuckets: [
+    { id: "cash", family: "cash", startingValue: 10 },
+    { id: "retirement", family: "retirementAssets", startingValue: 100 }
+  ],
+  monthlyNeeds: [50, 70],
+  monthlyIncome: [100, 0],
+  options: { maxMonths: 2 }
+});
+assert.equal(mixedSurplusDeficitResult.ledgerMonths[0].surplusAmount, 50);
+assert.equal(mixedSurplusDeficitResult.ledgerMonths[0].endingBuckets.find((bucket) => bucket.id === "cash").balance, 60);
+assert.deepEqual(
+  mixedSurplusDeficitResult.ledgerMonths[1].withdrawalsByBucket.map((withdrawal) => `${withdrawal.bucketId}:${withdrawal.amount}`),
+  ["cash:60", "retirement:10"],
+  "later deficits should draw from the surplus-refilled cash bucket before lower-priority buckets"
+);
+assert.equal(mixedSurplusDeficitResult.ledgerMonths[1].totalAvailableResources, 90);
+assert.equal(mixedSurplusDeficitResult.trace.totalSurplusDeposited, 50);
+assertLedgerReconciles(mixedSurplusDeficitResult);
 
 const insufficientResult = buildIncomeImpactAssetDepletionLedger({
   startingBuckets: [

@@ -196,6 +196,43 @@ function makeLayer3Output(startingResources) {
   };
 }
 
+function makeRisingLayer3Output(startingResources) {
+  let resources = startingResources;
+  const points = Array.from({ length: 4 }, function (_, monthIndex) {
+    const survivorNeeds = 100;
+    const survivorIncome = 225;
+    const scheduledObligations = monthIndex === 2 ? 25 : 0;
+    const netUse = survivorNeeds + scheduledObligations - survivorIncome;
+    resources = Number((resources - netUse).toFixed(2));
+    return {
+      monthIndex,
+      date: `2031-${String(monthIndex + 1).padStart(2, "0")}-01`,
+      startingResources: Number((resources + netUse).toFixed(2)),
+      survivorIncome,
+      survivorNeeds,
+      scheduledObligations,
+      netUse,
+      endingResources: resources,
+      accumulatedUnmetNeed: 0
+    };
+  });
+  return {
+    status: "complete",
+    points,
+    summary: {
+      accumulatedUnmetNeed: 0
+    },
+    depletion: {
+      depleted: false,
+      monthsCovered: points.length,
+      precision: "monthly"
+    },
+    warnings: [],
+    dataGaps: [],
+    sourcePaths: []
+  };
+}
+
 function makeInput() {
   return {
     valuationDate: "2026-01-01",
@@ -235,12 +272,12 @@ function makeInput() {
   };
 }
 
-function composeWithFixture(layer2Output) {
+function composeWithFixture(layer2Output, layer3OutputOverride) {
   const context = createContext();
   const lensAnalysis = context.LensApp.lensAnalysis;
   const captured = {};
   const startingResources = layer2Output.resources.resourcesAfterObligations;
-  const layer3Output = makeLayer3Output(startingResources);
+  const layer3Output = layer3OutputOverride || makeLayer3Output(startingResources);
 
   lensAnalysis.calculateHouseholdWealthProjection = function (input) {
     captured.layer1Input = cloneJson(input);
@@ -330,6 +367,42 @@ assert.equal(
   "immediate obligations should be subtracted exactly once before monthly runway use"
 );
 assert.doesNotMatch(JSON.stringify(main.scenario), /majorGraphDotCandidates|microGraphDotCandidates|graphDotCandidates/);
+
+const risingLayer2 = makeLayer2Output({
+  existingCoverage: 0,
+  immediateObligations: 0,
+  assetRows: [
+    {
+      id: "cash",
+      categoryKey: "cashAndCashEquivalents",
+      label: "Cash",
+      projectedValue: 100,
+      included: true,
+      treatedValue: 100,
+      treatmentStatus: "treated",
+      sourcePaths: ["layer2.cash"]
+    }
+  ]
+});
+const risingLayer3 = makeRisingLayer3Output(risingLayer2.resources.resourcesAfterObligations);
+const rising = composeWithFixture(risingLayer2, risingLayer3);
+const risingDiagnostic = rising.scenario.trace.layer3.assetDepletionLedgerDiagnostic;
+assert.equal(risingDiagnostic.reconciliation.matchedWithinTolerance, true);
+assert.equal(
+  JSON.stringify(risingDiagnostic.ledgerMonths.map((month) => month.totalAvailableResources)),
+  JSON.stringify(risingLayer3.points.map((point) => point.endingResources)),
+  "ledger totals should match rising Layer 3 resources when survivor income creates surplus"
+);
+assert.equal(
+  JSON.stringify(risingDiagnostic.ledgerMonths.map((month) => month.monthlyNetCashFlow)),
+  JSON.stringify([125, 125, 100, 125]),
+  "ledger diagnostic should preserve signed monthly cash flow from Layer 3 income, needs, and obligations"
+);
+assert.equal(risingDiagnostic.ledgerMonths[0].surplusDepositedToBucketId, "cash");
+assert.equal(risingDiagnostic.ledgerMonths[2].scheduledObligations, 25);
+assert.equal(risingDiagnostic.ledgerMonths[2].surplusAmount, 100);
+assert.equal(risingDiagnostic.trace.totalSurplusDeposited, 475);
+assert.equal(risingDiagnostic.bucketEvents.length, 0);
 
 const educationLayer2 = makeLayer2Output({
   assetRows: makeLayer2Output().assetTreatmentAtDeath.rows.concat([
