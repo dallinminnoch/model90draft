@@ -38,6 +38,16 @@ function getRenderableGraphModel(model) {
   return clone;
 }
 
+function assertStableLayoutFrame(model, message) {
+  assert.ok(model.layoutFrame, `${message}: layoutFrame should exist.`);
+  assert.equal(model.layoutFrame.mode, "stableRunoutAnchoredFrame", `${message}: layoutFrame mode should be stable.`);
+  assertApproxEqual(model.layoutFrame.deathXRatio, 0.125, `${message}: death x ratio should stay fixed.`);
+  assertApproxEqual(model.layoutFrame.zeroYRatio, 0.72, `${message}: zero y ratio should stay fixed.`);
+  assertApproxEqual(model.layoutFrame.runoutAnchorXRatio, 0.8, `${message}: runout anchor ratio should stay fixed.`);
+  assertApproxEqual(model.layoutFrame.negativeSupportBandRatio, 0.28, `${message}: negative support band should match the fixed zero ratio.`);
+  assert.equal(model.layoutFrame.trace.rendererConsumesLayoutFrame, false, `${message}: renderer should not consume layoutFrame in this pass.`);
+}
+
 function loadGraphModel() {
   const source = readRepoFile("app/features/lens-analysis/income-impact-timeline-graph-model.js");
   const sandbox = {
@@ -305,6 +315,14 @@ assert.equal(fiveYearModel.trace.projectionMode, "deathRelativeRunway");
 assert.equal(fiveYearModel.trace.rawDatesPreserved, true);
 assert.equal(fiveYearModel.trace.deathAlignedToSharedAnchor, true);
 assert.equal(fiveYearModel.trace.calculationHorizonPreserved, true);
+assertStableLayoutFrame(fiveYearModel, "normal depletion scenario");
+assert.equal(fiveYearModel.layoutFrame.zeroCrossingAnchorScenarioId, "selected");
+assert.equal(fiveYearModel.layoutFrame.zeroCrossingAnchorMonth, 144);
+assert.equal(fiveYearModel.layoutFrame.zeroCrossingAnchorSource, "current-rendered-scenario-depletion");
+assert.equal(fiveYearModel.layoutFrame.xDomainMonths, 180);
+assert.equal(fiveYearModel.trace.layoutFrameMode, "stableRunoutAnchoredFrame");
+assertApproxEqual(fiveYearModel.trace.layoutFrameZeroYRatio, 0.72, "Trace should expose the stable layoutFrame zero ratio.");
+assertApproxEqual(fiveYearModel.trace.layoutFrameRunoutAnchorXRatio, 0.8, "Trace should expose the stable layoutFrame runout anchor ratio.");
 assertApproxEqual(
   fiveYearModel.phases.deathEvent.xRatio,
   fiveYearModel.projection.deathXRatio,
@@ -500,6 +518,34 @@ assert.deepEqual(
   "A 10-year visible horizon should emit denser in-window labels without +15/+20/+30 labels."
 );
 
+const higherResourceScenario = cloneJson(fiveYearScenario);
+higherResourceScenario.deathEvent.resourcesAfterObligations += 250000;
+higherResourceScenario.timelineFacts.resourcesAfterObligations += 250000;
+higherResourceScenario.postDeathSeries.points = higherResourceScenario.postDeathSeries.points.map(function (point, index) {
+  return Object.assign({}, point, {
+    endingResources: point.endingResources + (index === 2 ? 50000 : 250000)
+  });
+});
+const higherResourceModel = buildIncomeImpactTimelineGraphModel({
+  scenario: higherResourceScenario,
+  riskEvaluation: cloneJson(riskEvaluation),
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assertStableLayoutFrame(higherResourceModel, "higher-resource scenario");
+assertApproxEqual(
+  higherResourceModel.layoutFrame.zeroYRatio,
+  fiveYearModel.layoutFrame.zeroYRatio,
+  "Higher-resource scenario should keep the stable layoutFrame zero line."
+);
+assert.notEqual(
+  higherResourceModel.axes.y.max,
+  fiveYearModel.axes.y.max,
+  "Axis domain may change while the layoutFrame ratios remain stable."
+);
+
 const earlyDepletionScenario = cloneJson(fiveYearScenario);
 earlyDepletionScenario.postDeathSeries.points = [
   {
@@ -689,6 +735,52 @@ assert.equal(
   false,
   "No-depletion scenarios should not show a deficit axis label."
 );
+assertStableLayoutFrame(noDepletionModel, "no-depletion scenario");
+assert.equal(noDepletionModel.layoutFrame.zeroCrossingAnchorScenarioId, null);
+assert.equal(noDepletionModel.layoutFrame.zeroCrossingAnchorMonth, null);
+assert.equal(noDepletionModel.layoutFrame.zeroCrossingAnchorSource, "projection-horizon");
+assert.equal(noDepletionModel.layoutFrame.xDomainMonths, noDepletionModel.projection.postDeathDisplayHorizonMonths);
+
+const survivorSurplusScenario = cloneJson(noDepletionScenario);
+survivorSurplusScenario.postDeathSeries.points = [
+  {
+    date: "2032-04-29",
+    monthIndex: 12,
+    endingResources: 800000,
+    survivorIncome: 9000,
+    netUse: -2500,
+    sourcePaths: ["layer3.points.survivor-surplus"]
+  },
+  {
+    date: "2037-04-29",
+    monthIndex: 72,
+    endingResources: 950000,
+    survivorIncome: 9000,
+    netUse: -2500,
+    sourcePaths: ["layer3.points.survivor-surplus"]
+  },
+  {
+    date: "2046-04-29",
+    monthIndex: 180,
+    endingResources: 1220000,
+    survivorIncome: 9000,
+    netUse: -2500,
+    sourcePaths: ["layer3.points.survivor-surplus"]
+  }
+];
+delete survivorSurplusScenario.postDeathSeries.depletion;
+const survivorSurplusModel = buildIncomeImpactTimelineGraphModel({
+  scenario: survivorSurplusScenario,
+  riskEvaluation: cloneJson(riskEvaluation),
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assertStableLayoutFrame(survivorSurplusModel, "survivor surplus rising-resource scenario");
+assert.equal(survivorSurplusModel.layoutFrame.zeroCrossingAnchorScenarioId, null);
+assert.equal(survivorSurplusModel.layoutFrame.zeroCrossingAnchorSource, "projection-horizon");
+assert.equal(survivorSurplusModel.series.postDeathResources.at(-1).value > survivorSurplusModel.series.postDeathResources[0].value, true);
 
 const appliedSingleInput = {
   appliedScenarios: [
@@ -1486,6 +1578,14 @@ assert.ok(
   autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths >= 360,
   "Visible comparison scenarios should be allowed to expand the graph horizon."
 );
+assertStableLayoutFrame(autosizeSelectedOnlyModel, "applied visible comparison later depletion scenario");
+assert.equal(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorScenarioId, "hidden-long-runway");
+assert.equal(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorMonth, 360);
+assert.equal(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorSource, "visible-applied-comparison-depletion");
+assert.ok(
+  autosizeSelectedOnlyModel.layoutFrame.xDomainMonths >= 360,
+  "Stable layoutFrame domain should include the furthest visible applied depletion."
+);
 assert.ok(
   autosizeSelectedOnlyModel.axes.y.rawPositiveMax <= selectedAutosizeScenario.deathEvent.resourcesAfterObligations,
   "Comparison paths should not change selected-scenario y-domain ownership."
@@ -1615,6 +1715,54 @@ assert.equal(comparisonModel.trace.comparisonScenarioCount, 1);
 assert.equal(comparisonModel.trace.baseSeriesUnchanged, true);
 assert.equal(comparisonModel.trace.comparisonMarkersCreated, true);
 assert.equal(comparisonModel.trace.comparisonMarkerCount, 5);
+assertStableLayoutFrame(comparisonModel, "manual lifestyle comparison later depletion scenario");
+assert.equal(comparisonModel.layoutFrame.zeroCrossingAnchorScenarioId, comparisonScenario.scenarioId);
+assert.equal(comparisonModel.layoutFrame.zeroCrossingAnchorMonth, 204);
+assert.equal(comparisonModel.layoutFrame.zeroCrossingAnchorSource, "manual-lifestyle-comparison-depletion");
+assert.equal(comparisonModel.layoutFrame.trace.manualLifestyleComparisonIncluded, true);
+assert.ok(
+  comparisonModel.layoutFrame.xDomainMonths >= comparisonScenario.depletion.depletionMonthIndex,
+  "Manual lifestyle comparison later depletion should be included in the stable layoutFrame horizon."
+);
+
+const earlierComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {
+  scenarioId: "income-impact-lifestyle-earlier-comparison",
+  postDeathSeries: {
+    points: [
+      {
+        date: "2032-04-29",
+        monthIndex: 12,
+        endingResources: 300000,
+        sourcePaths: ["earlierComparison.points"]
+      },
+      {
+        date: "2035-04-29",
+        monthIndex: 48,
+        endingResources: -20000,
+        sourcePaths: ["earlierComparison.points"]
+      }
+    ],
+    depletion: {
+      depleted: true,
+      depletionDate: "2035-04-29",
+      depletionMonthIndex: 48,
+      monthsCovered: 48
+    }
+  },
+  depletion: {
+    depleted: true,
+    depletionDate: "2035-04-29",
+    depletionMonthIndex: 48,
+    monthsCovered: 48
+  }
+});
+const earlierComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign({}, cloneJson(fiveYearInput), {
+  comparisonScenarios: [earlierComparisonScenario]
+}));
+assertStableLayoutFrame(earlierComparisonModel, "manual lifestyle comparison earlier depletion scenario");
+assert.equal(earlierComparisonModel.layoutFrame.zeroCrossingAnchorScenarioId, "selected");
+assert.equal(earlierComparisonModel.layoutFrame.zeroCrossingAnchorMonth, 144);
+assert.equal(earlierComparisonModel.layoutFrame.zeroCrossingAnchorSource, "current-rendered-scenario-depletion");
 
 const appliedComparisonInput = {
   appliedScenarios: [

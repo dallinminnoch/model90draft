@@ -26,6 +26,17 @@
   const DISPLAY_HORIZON_ROUNDING_MONTHS = 5 * MONTHS_PER_YEAR;
   const DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
   const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30, 40]);
+  const STABLE_LAYOUT_FRAME_MODE = "stableRunoutAnchoredFrame";
+  const STABLE_LAYOUT_FRAME = Object.freeze({
+    plotLeft: 74,
+    plotRight: 958,
+    plotTop: 36,
+    plotBottom: 354,
+    deathXRatio: DEATH_RELATIVE_DEATH_X_RATIO,
+    zeroYRatio: 0.72,
+    runoutAnchorXRatio: 0.8,
+    negativeSupportBandRatio: 0.28
+  });
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -293,6 +304,7 @@
           sourceIndex: index,
           points,
           sourcePath: `comparisonScenarios.${index}.postDeathSeries.points`,
+          depletion: getDepletionInfo(points, comparisonScenario.depletion || postDeathSeries.depletion),
           trace: isPlainObject(comparisonScenario.trace) ? clonePlainValue(comparisonScenario.trace) : {}
         };
       })
@@ -2093,6 +2105,119 @@
     };
   }
 
+  function getStableLayoutFrameLineSource(series) {
+    if (series?.trace?.layoutFrameLineSource) {
+      return normalizeString(series.trace.layoutFrameLineSource);
+    }
+    if (series?.kind === LIFESTYLE_COMPARISON_KIND || series?.pathId === LIFESTYLE_COMPARISON_PATH_ID) {
+      return "manual-lifestyle-comparison-depletion";
+    }
+    if (series?.scenarioRole === "comparison" || series?.selected === false) {
+      return "visible-applied-comparison-depletion";
+    }
+    if (series?.selected === true) {
+      return "selected-scenario-depletion";
+    }
+    return "current-rendered-scenario-depletion";
+  }
+
+  function makeStableLayoutFrameLine(series, fallbackRole) {
+    if (!isPlainObject(series)) {
+      return null;
+    }
+    const depletionMonth = getSeriesDepletionMonths(series);
+    const runwayEndMonth = getSeriesRunwayEndMonths(series);
+    return {
+      scenarioId: normalizeString(series.scenarioId || series.pathId || fallbackRole) || fallbackRole,
+      label: normalizeString(series.label) || fallbackRole,
+      pathId: normalizeString(series.pathId),
+      role: normalizeString(series.scenarioRole || fallbackRole),
+      selected: series.selected === true,
+      depletionMonth,
+      runwayEndMonth,
+      anchorEligible: depletionMonth != null && depletionMonth >= 0,
+      source: getStableLayoutFrameLineSource(series),
+      sourcePath: normalizeString(series.sourcePath)
+    };
+  }
+
+  function buildStableLayoutFrame(input) {
+    const selectedSeries = Array.isArray(input?.appliedPostDeathResources) && input.appliedPostDeathResources.length
+      ? input.appliedPostDeathResources
+      : (isPlainObject(input?.basePostDeathDisplaySeries) ? [input.basePostDeathDisplaySeries] : []);
+    const manualComparisonSeries = Array.isArray(input?.comparisonPostDeathResources)
+      ? input.comparisonPostDeathResources
+      : [];
+    const consideredLines = []
+      .concat(selectedSeries.map(function (series) {
+        return makeStableLayoutFrameLine(series, series?.selected === false ? "applied-comparison" : "selected");
+      }))
+      .concat(manualComparisonSeries.map(function (series) {
+        return makeStableLayoutFrameLine(series, "manual-lifestyle-comparison");
+      }))
+      .filter(Boolean);
+    const depletionAnchors = consideredLines.filter(function (line) {
+      return line.anchorEligible === true;
+    });
+    const zeroCrossingAnchor = depletionAnchors.length
+      ? depletionAnchors.reduce(function (winner, line) {
+          if (!winner || line.depletionMonth > winner.depletionMonth) {
+            return line;
+          }
+          return winner;
+        }, null)
+      : null;
+    const projectionHorizonMonths = toOptionalNumber(input?.projection?.postDeathDisplayHorizonMonths)
+      ?? toOptionalNumber(input?.projection?.displayHorizonMonths)
+      ?? toOptionalNumber(input?.dates?.projectionHorizonMonths)
+      ?? DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS;
+    const anchorDomainMonths = zeroCrossingAnchor
+      ? Math.max(
+          zeroCrossingAnchor.depletionMonth,
+          Math.ceil(zeroCrossingAnchor.depletionMonth / STABLE_LAYOUT_FRAME.runoutAnchorXRatio)
+        )
+      : projectionHorizonMonths;
+    const xDomainMonths = clampDisplayHorizonMonths(anchorDomainMonths);
+
+    return {
+      mode: STABLE_LAYOUT_FRAME_MODE,
+      plotLeft: STABLE_LAYOUT_FRAME.plotLeft,
+      plotRight: STABLE_LAYOUT_FRAME.plotRight,
+      plotTop: STABLE_LAYOUT_FRAME.plotTop,
+      plotBottom: STABLE_LAYOUT_FRAME.plotBottom,
+      deathXRatio: STABLE_LAYOUT_FRAME.deathXRatio,
+      zeroYRatio: STABLE_LAYOUT_FRAME.zeroYRatio,
+      runoutAnchorXRatio: STABLE_LAYOUT_FRAME.runoutAnchorXRatio,
+      negativeSupportBandRatio: STABLE_LAYOUT_FRAME.negativeSupportBandRatio,
+      xDomainMonths,
+      yDomain: {
+        min: input?.yDomain?.min ?? null,
+        max: input?.yDomain?.max ?? null,
+        signed: input?.yDomain?.signed === true,
+        verticalScaleMode: input?.yDomain?.verticalScaleMode || null,
+        source: "axes.y"
+      },
+      zeroCrossingAnchorScenarioId: zeroCrossingAnchor?.scenarioId || null,
+      zeroCrossingAnchorMonth: zeroCrossingAnchor?.depletionMonth ?? null,
+      zeroCrossingAnchorSource: zeroCrossingAnchor?.source || "projection-horizon",
+      trace: {
+        source: "income-impact-timeline-graph-model.layoutFrame",
+        rendererConsumesLayoutFrame: false,
+        frameCoordinatesSource: "income-loss-impact-display fixed SVG frame",
+        consideredVisibleResourceLines: clonePlainValue(consideredLines),
+        consideredLineCount: consideredLines.length,
+        depletionAnchorCount: depletionAnchors.length,
+        projectionHorizonMonths,
+        anchorDomainMonths,
+        ratiosStableAcrossScenarios: true,
+        manualLifestyleComparisonIncluded: manualComparisonSeries.length > 0,
+        appliedComparisonIncluded: selectedSeries.some(function (series) {
+          return series?.scenarioRole === "comparison" || series?.selected === false;
+        })
+      }
+    };
+  }
+
   function getDeathRelativeXRatio(relativeMonths, projection) {
     const months = toOptionalNumber(relativeMonths);
     if (months == null || !isPlainObject(projection)) {
@@ -2732,6 +2857,16 @@
       postDeathResources,
       displayHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths
     });
+    const layoutFrame = buildStableLayoutFrame({
+      dates,
+      projection: deathRelativeProjection,
+      yDomain,
+      appliedPostDeathResources: appliedPostDeathResources.length
+        ? appliedPostDeathResources
+        : [basePostDeathDisplaySeries],
+      comparisonPostDeathResources,
+      basePostDeathDisplaySeries
+    });
 
     const enrichedPreDeath = preDeathAssets.map(function (point) {
       return enrichPoint(point, xDomain, yDomain, deathRelativeProjection, "preDeath");
@@ -2810,6 +2945,7 @@
     const result = {
       status: usable ? (scenario.status === "complete" && !dataGaps.length ? "complete" : "partial") : "unavailable",
       projection: clonePlainValue(deathRelativeProjection),
+      layoutFrame,
       phases: makePhases(dates, xDomain, enrichedPostDeath, deathRelativeProjection),
       series: {
         preDeathAssets: enrichedPreDeath,
@@ -2928,6 +3064,11 @@
         visibleDomainPointCount: yDomain.visibleDomainPointCount,
         visibleDomainBoundaryPointIncluded: yDomain.visibleDomainBoundaryPointIncluded,
         yDomainWindowSource: yDomain.trace.yDomainWindowSource,
+        layoutFrameMode: layoutFrame.mode,
+        layoutFrameZeroYRatio: layoutFrame.zeroYRatio,
+        layoutFrameRunoutAnchorXRatio: layoutFrame.runoutAnchorXRatio,
+        layoutFrameAnchorScenarioId: layoutFrame.zeroCrossingAnchorScenarioId,
+        layoutFrameAnchorMonth: layoutFrame.zeroCrossingAnchorMonth,
         negativeValuesCompressFundedRunway: false,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,

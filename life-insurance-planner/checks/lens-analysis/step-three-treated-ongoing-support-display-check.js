@@ -452,6 +452,40 @@ function assertNoProtectedDiffs() {
       && diff.includes("totalSurplusDeposited");
   }
 
+  function isAllowedIncomeImpactGraphLayoutFramePass(filePath) {
+    const allowedFiles = new Set([
+      "app/features/lens-analysis/income-impact-timeline-graph-model.js",
+      "checks/lens-analysis/income-impact-timeline-graph-model-v1-check.js"
+    ]);
+    if (!allowedFiles.has(filePath)) {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", filePath], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+
+    if (filePath === "app/features/lens-analysis/income-impact-timeline-graph-model.js") {
+      return diff.includes("layoutFrame")
+        && diff.includes("stableRunoutAnchoredFrame")
+        && diff.includes("deathXRatio")
+        && diff.includes("zeroYRatio")
+        && diff.includes("runoutAnchorXRatio")
+        && diff.includes("negativeSupportBandRatio")
+        && diff.includes("zeroCrossingAnchorScenarioId")
+        && diff.includes("zeroCrossingAnchorMonth")
+        && diff.includes("consideredVisibleResourceLines");
+    }
+
+    return diff.includes("assertStableLayoutFrame")
+      && diff.includes("manual lifestyle comparison later depletion scenario")
+      && diff.includes("Manual lifestyle comparison later depletion should be included in the stable layoutFrame horizon.")
+      && diff.includes("manual lifestyle comparison earlier depletion scenario")
+      && diff.includes("no-depletion scenario")
+      && diff.includes("projection-horizon")
+      && diff.includes("survivor surplus rising-resource scenario");
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "pages/analysis-setup.html") {
       return false;
@@ -576,6 +610,7 @@ function assertNoProtectedDiffs() {
       && !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath)
       && !isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath)
       && !isAllowedAssetDepletionLedgerSurplusDepositPass(filePath)
+      && !isAllowedIncomeImpactGraphLayoutFramePass(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
