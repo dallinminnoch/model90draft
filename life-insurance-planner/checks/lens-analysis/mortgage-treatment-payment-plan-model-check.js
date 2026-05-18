@@ -207,6 +207,7 @@ function isAllowedStepThreeTreatedSupportDisplay() {
 
 function isAllowedAnalysisSetupMortgageTreatmentUi() {
   const diff = getGitDiff("pages/analysis-setup.html");
+  const html = readRepoFile("pages/analysis-setup.html");
   const redesignDiff = diff.includes("Continue Payments")
     && diff.includes("Mortgage treatment changes the mortgage-only payment")
     && diff.includes("data-analysis-debt-mortgage-partial-payoff-row")
@@ -251,6 +252,13 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     && diff.includes("analysis-setup-coverage-row--value")
     && diff.includes("data-analysis-coverage-field=\"groupCoverageTreatment.include\"")
     && diff.includes("data-analysis-coverage-field=\"individualTermTreatment.excludeIfExpiresWithinYears\"");
+  const debtMortgageSeparateCardsDiff = diff.includes("+                  <section class=\"analysis-setup-control-group analysis-setup-debt-mortgage-card\"")
+    && diff.includes("+                  <section class=\"analysis-setup-control-group analysis-setup-debt-record-card\"")
+    && html.includes("id=\"analysis-setup-debt-record-treatment\"")
+    && html.includes("class=\"analysis-setup-asset-defaults analysis-setup-debt-defaults\"")
+    && html.includes("data-analysis-debt-mortgage-payment-plan-preview")
+    && html.includes("data-analysis-debt-table")
+    && html.includes("data-analysis-debt-profile=\"balanced\"");
   return redesignDiff
     || previewDiff
     || legacyCleanupDiff
@@ -259,7 +267,8 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     || assumptionControlsFontImportDiff
     || assetProjectionControlsRemovalDiff
     || cashReserveCardStyleDiff
-    || existingCoverageCardStyleDiff;
+    || existingCoverageCardStyleDiff
+    || debtMortgageSeparateCardsDiff;
 }
 
 function assertNoProtectedDiffs() {

@@ -449,25 +449,9 @@
                   </div>
                 </section>
 
-                  <section class="analysis-setup-control-group analysis-setup-control-group--debt" aria-labelledby="analysis-setup-debt-treatment" data-analysis-setup-scroll-section="debt-mortgage">
-                  <div class="analysis-setup-control-heading">
-                    <h3 id="analysis-setup-debt-treatment">Debt &amp; Mortgage Treatment</h3>
-                    <p>Used by DIME and LENS. These assumptions affect DIME Debt, DIME Mortgage, and LENS Debt Payoff. Mortgage treatment changes the mortgage-only payment; property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses. HLV is unchanged.</p>
-                  </div>
-
-                  <div class="analysis-setup-asset-defaults analysis-setup-debt-defaults" aria-label="Debt and mortgage treatment default settings">
-                    <span class="analysis-setup-asset-defaults-label">Treatment Defaults:</span>
-                    <div class="analysis-setup-asset-default-buttons" role="group" aria-label="Debt and mortgage treatment profile">
-                      <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="conservative" aria-pressed="false">Conservative</button>
-                      <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="balanced" aria-pressed="true">Balanced</button>
-                      <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="aggressive" aria-pressed="false">Aggressive</button>
-                      <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="custom" aria-pressed="false">Custom</button>
-                    </div>
-                  </div>
-
-                  <div class="analysis-setup-debt-mortgage-card" aria-label="Mortgage treatment">
+                  <section class="analysis-setup-control-group analysis-setup-debt-mortgage-card" aria-labelledby="analysis-setup-debt-treatment" data-analysis-setup-scroll-section="debt-mortgage">
                     <div class="analysis-setup-debt-mortgage-head">
-                      <span>Mortgage treatment</span>
+                      <h3 id="analysis-setup-debt-treatment">Mortgage treatment</h3>
                       <span class="analysis-setup-treatment-preview" data-analysis-debt-mortgage-preview>No source value</span>
                     </div>
                     <div class="analysis-setup-debt-mortgage-grid">
@@ -528,29 +512,44 @@
                       </div>
                     </div>
                     <p class="analysis-setup-debt-preview-note" data-analysis-debt-mortgage-payment-plan-note>Mortgage-only payment is treated. Property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses.</p>
-                  </div>
+                  </section>
 
-                  <div class="analysis-setup-debt-table" role="table" aria-label="Non-mortgage debt treatment preview" data-analysis-debt-table>
-                    <div class="analysis-setup-debt-row analysis-setup-debt-row--head" role="row">
-                      <span role="columnheader">Debt</span>
-                      <span role="columnheader">Include</span>
-                      <span role="columnheader">Treatment mode</span>
-                      <span role="columnheader">Preview payoff</span>
-                      <span role="columnheader">Balance / payment</span>
+                  <section class="analysis-setup-control-group analysis-setup-debt-record-card" aria-labelledby="analysis-setup-debt-record-treatment">
+                    <div class="analysis-setup-debt-record-head">
+                      <h3 id="analysis-setup-debt-record-treatment">Debt treatment</h3>
                     </div>
-                  </div>
 
-                  <div class="analysis-setup-debt-preview" aria-label="Debt treatment setup preview">
-                    <div>
-                      <span>Raw debt payoff total</span>
-                      <strong data-analysis-debt-raw-preview>No saved debt data found</strong>
+                    <div class="analysis-setup-asset-defaults analysis-setup-debt-defaults" aria-label="Debt treatment default settings">
+                      <span class="analysis-setup-asset-defaults-label">Treatment Defaults:</span>
+                      <div class="analysis-setup-asset-default-buttons" role="group" aria-label="Debt treatment profile">
+                        <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="conservative" aria-pressed="false">Conservative</button>
+                        <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="balanced" aria-pressed="true">Balanced</button>
+                        <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="aggressive" aria-pressed="false">Aggressive</button>
+                        <button class="analysis-setup-asset-default-button" type="button" data-analysis-debt-profile="custom" aria-pressed="false">Custom</button>
+                      </div>
                     </div>
-                    <div>
-                      <span>Debt treatment setup preview</span>
-                      <strong data-analysis-debt-adjusted-preview>No saved debt data found</strong>
+
+                    <div class="analysis-setup-debt-table" role="table" aria-label="Non-mortgage debt treatment preview" data-analysis-debt-table>
+                      <div class="analysis-setup-debt-row analysis-setup-debt-row--head" role="row">
+                        <span role="columnheader">Debt</span>
+                        <span role="columnheader">Include</span>
+                        <span role="columnheader">Treatment mode</span>
+                        <span role="columnheader">Preview payoff</span>
+                        <span role="columnheader">Balance / payment</span>
+                      </div>
                     </div>
-                  </div>
-                  <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Continue Payments uses the treated mortgage payment plan. Immediate partial payoff reduces principal, and a manual years remaining override changes the final term when supplied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses.</p>
+
+                    <div class="analysis-setup-debt-preview" aria-label="Debt treatment setup preview">
+                      <div>
+                        <span>Raw debt payoff total</span>
+                        <strong data-analysis-debt-raw-preview>No saved debt data found</strong>
+                      </div>
+                      <div>
+                        <span>Debt treatment setup preview</span>
+                        <strong data-analysis-debt-adjusted-preview>No saved debt data found</strong>
+                      </div>
+                    </div>
+                    <p class="analysis-setup-debt-preview-note" data-analysis-debt-preview-note>Continue Payments uses the treated mortgage payment plan. Immediate partial payoff reduces principal, and a manual years remaining override changes the final term when supplied. Taxes, insurance, HOA, utilities, and maintenance stay in ongoing household expenses.</p>
                   </section>
                 </div>
 

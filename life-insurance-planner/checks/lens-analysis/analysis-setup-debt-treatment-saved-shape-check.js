@@ -173,6 +173,8 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
         || hunk.includes("analysis-setup-coverage")
         || hunk.includes("analysis-setup-asset")
         || hunk.includes("analysis-setup-control-group--assets")
+        || hunk.includes("analysis-setup-survivor")
+        || hunk.includes("analysis-setup-control-group--survivor-support")
         || (
           hunk.includes("analysis-setup")
           && (
@@ -715,10 +717,10 @@ assert.ok(
   "Analysis Setup should load debt-treatment-calculations.js before analysis-setup.js."
 );
 
-assert.match(html, /Used by DIME and LENS/);
-assert.match(html, /HLV is unchanged/);
-assert.match(html, /Mortgage treatment changes the mortgage-only payment/);
-assert.match(html, /property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses/);
+assert.match(html, /Property tax, insurance, HOA, utilities, and maintenance remain ongoing housing expenses/);
+assert.doesNotMatch(html, /analysis-setup-control-group--debt/);
+assert.match(html, /class="analysis-setup-control-group analysis-setup-debt-mortgage-card"/);
+assert.match(html, /class="analysis-setup-control-group analysis-setup-debt-record-card"/);
 assert.match(html, /<option value="payoff">Pay Off<\/option>/);
 assert.match(html, /<option value="support">Continue Payments<\/option>/);
 assert.doesNotMatch(html, /Pay off the mortgage balance at death/);
