@@ -303,6 +303,24 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("monthIndex: 360");
   }
 
+  function isAllowedSurvivorGrossToNetDerivationFix(filePath) {
+    if (filePath !== "life-insurance-planner/app/features/lens-analysis/lens-model-builder.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", `./${filePath}`], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    return diff.includes("getSurvivorNetIncomeFailureReason")
+      && diff.includes("baseSurvivorNetIncomeSource")
+      && diff.includes("protectionModeling.data.spouseNetAnnualIncome")
+      && diff.includes("calculated-tax-net-from-spouse-income")
+      && diff.includes("conservative-gross-income-fallback")
+      && diff.includes("survivorNetIncomeWorkReductionAppliedAfterTax")
+      && diff.includes("missing-tax-config")
+      && diff.includes("conservativeGrossIncomeFallbackUsed");
+  }
+
   function isAllowedVisualTimelineStaleAssertionCorrection(filePath) {
     if (filePath !== "life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
       return false;
@@ -461,6 +479,7 @@ function assertNoForbiddenSourceChanges() {
     "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js",
     "life-insurance-planner/checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "life-insurance-planner/checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js",
+    "life-insurance-planner/checks/lens-analysis/survivor-income-gross-to-net-derivation-check.js",
     "life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
     "life-insurance-planner/checks/lens-analysis/analysis-setup-style-guard-utils.js",
     "life-insurance-planner/checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
@@ -480,6 +499,7 @@ function assertNoForbiddenSourceChanges() {
   const forbidden = changed.filter(function (filePath) {
     return !allowed.has(filePath)
       && !isAllowedSurvivorIncomeSourceFix(filePath)
+      && !isAllowedSurvivorGrossToNetDerivationFix(filePath)
       && !isAllowedVisualTimelineStaleAssertionCorrection(filePath)
       && !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath)
       && !isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath)

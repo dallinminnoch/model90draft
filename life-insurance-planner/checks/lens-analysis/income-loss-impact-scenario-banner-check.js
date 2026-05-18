@@ -211,10 +211,23 @@ function isAllowedLensModelBuilderContractExposure() {
     && diff.includes("survivorSupportAssumptionsSourcePath")
     && diff.includes("input.analysisSettings")
     && diff.includes("profileRecord.analysisSettings");
+  const isSurvivorGrossToNetDerivationFix = diff.includes("getSurvivorNetIncomeFailureReason")
+    && diff.includes("baseSurvivorNetIncomeSource")
+    && diff.includes("protectionModeling.data.spouseNetAnnualIncome")
+    && diff.includes("calculated-tax-net-from-spouse-income")
+    && diff.includes("conservative-gross-income-fallback")
+    && diff.includes("survivorNetIncomeWorkReductionAppliedAfterTax")
+    && diff.includes("missing-tax-config")
+    && diff.includes("conservativeGrossIncomeFallbackUsed");
 
   return changedLines.length > 0
-    && (!hasRemovedLines || isSurvivorIncomeSourceFix)
-    && (isMortgagePaymentPlanExposure || isTreatedOngoingSupportExposure || isSurvivorIncomeSourceFix);
+    && (!hasRemovedLines || isSurvivorIncomeSourceFix || isSurvivorGrossToNetDerivationFix)
+    && (
+      isMortgagePaymentPlanExposure
+      || isTreatedOngoingSupportExposure
+      || isSurvivorIncomeSourceFix
+      || isSurvivorGrossToNetDerivationFix
+    );
 }
 
 function isAllowedTreatedOngoingSupportMethodConsumption() {

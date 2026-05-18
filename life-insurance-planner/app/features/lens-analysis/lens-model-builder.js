@@ -628,6 +628,26 @@
     };
   }
 
+  function getSurvivorNetIncomeFailureReason(result, taxConfig) {
+    if (!isPlainObject(taxConfig)) {
+      return "missing-tax-config";
+    }
+
+    const resultWarnings = Array.isArray(result?.warnings) ? result.warnings : [];
+    const recomputationWarning = resultWarnings.find(function (warning) {
+      return warning?.code === "tax-recomputation-unavailable";
+    });
+
+    if (recomputationWarning) {
+      const missing = Array.isArray(recomputationWarning?.details?.missing)
+        ? recomputationWarning.details.missing
+        : [];
+      return missing.length > 0 ? "missing-tax-config" : "tax-calculation-failed";
+    }
+
+    return "spouse-net-income-unavailable";
+  }
+
   function calculateSurvivorNetIncome(input, sourceData, profileRecord, grossIncome, warnings) {
     const incomeTaxCalculations = getIncomeTaxCalculations();
     if (typeof incomeTaxCalculations.calculateSurvivorNetIncome !== "function") {
@@ -635,20 +655,29 @@
         warnings,
         "tax-recomputation-unavailable",
         "Survivor net-income recomputation was skipped because the shared income-tax helper is unavailable.",
-        { context: "survivor-scenario" }
+          { context: "survivor-scenario" }
       );
-      return null;
+      return {
+        netAnnualIncome: null,
+        failureReason: "tax-calculation-failed"
+      };
     }
 
+    const taxConfig = resolveTaxConfig(input);
     const result = incomeTaxCalculations.calculateSurvivorNetIncome({
       sourceData,
       profileRecord,
       grossIncome,
       filingStatus: SURVIVOR_NET_INCOME_TAX_BASIS,
-      taxConfig: resolveTaxConfig(input)
+      taxConfig
     });
     pushResultWarnings(warnings, result);
-    return result?.netAnnualIncome ?? null;
+    const netAnnualIncome = toOptionalNumber(result?.netAnnualIncome);
+    return {
+      netAnnualIncome,
+      failureReason: netAnnualIncome == null ? getSurvivorNetIncomeFailureReason(result, taxConfig) : null,
+      warnings: Array.isArray(result?.warnings) ? result.warnings : []
+    };
   }
 
   function calculateTotalDebtPayoffNeed(sourceData) {
@@ -1125,14 +1154,20 @@
       survivorScenarioAssumptions.expectedSurvivorWorkReductionPercent
     );
     const spouseGrossIncome = toOptionalNumber(sourceData.spouseIncome);
+    const spouseNetIncome = toOptionalNumber(sourceData.spouseNetAnnualIncome);
+    const hasExplicitSpouseNetIncome = spouseNetIncome != null && spouseNetIncome > 0;
     const sourceSurvivorGrossIncome = toOptionalNumber(sourceData.survivorIncome);
     const sourceSurvivorNetIncome = toOptionalNumber(sourceData.survivorNetAnnualIncome);
     const ignoredLegacySurvivorFields = collectIgnoredLegacySurvivorFields(sourceData);
     let survivorGrossIncome = null;
     let survivorNetIncome = null;
+    let baseSurvivorNetIncome = null;
+    let baseSurvivorNetIncomeSource = "unavailable";
+    let survivorNetIncomeFailureReason = null;
     let survivorIncomeSource = "missing-spouse-income";
     let survivorIncomeDerivedFromSpouseIncome = false;
     const legacySurvivorIncomeFallbackUsed = false;
+    let conservativeGrossIncomeFallbackUsed = false;
     const fallbackReasons = [];
     const derivationWarnings = [];
 
@@ -1185,6 +1220,9 @@
         survivorGrossIncome = Math.max(0, spouseGrossIncome * (1 - reductionPercent / 100));
         survivorIncomeSource = "derived-from-spouse-income";
         survivorIncomeDerivedFromSpouseIncome = true;
+      } else if (hasExplicitSpouseNetIncome) {
+        survivorIncomeSource = "derived-from-spouse-net-income";
+        survivorIncomeDerivedFromSpouseIncome = true;
       } else {
         fallbackReasons.push("missing-spouse-income");
         addDerivationWarning(
@@ -1201,18 +1239,56 @@
     if (
       includeSurvivorIncomeOffset
       && survivorContinuesWorking === true
-      && survivorGrossIncome != null
+      && (spouseGrossIncome != null || hasExplicitSpouseNetIncome)
     ) {
-      const calculatedSurvivorNetIncome = calculateSurvivorNetIncome(
-        input,
-        sourceData,
-        profileRecord,
-        survivorGrossIncome,
-        warnings
-      );
+      if (hasExplicitSpouseNetIncome) {
+        baseSurvivorNetIncome = spouseNetIncome;
+        baseSurvivorNetIncomeSource = "protectionModeling.data.spouseNetAnnualIncome";
+      } else {
+        const calculatedSurvivorNetIncome = calculateSurvivorNetIncome(
+          input,
+          sourceData,
+          profileRecord,
+          spouseGrossIncome,
+          warnings
+        );
 
-      if (calculatedSurvivorNetIncome != null) {
-        survivorNetIncome = calculatedSurvivorNetIncome;
+        if (calculatedSurvivorNetIncome.netAnnualIncome != null) {
+          baseSurvivorNetIncome = calculatedSurvivorNetIncome.netAnnualIncome;
+          baseSurvivorNetIncomeSource = "calculated-tax-net-from-spouse-income";
+        } else {
+          survivorNetIncomeFailureReason = calculatedSurvivorNetIncome.failureReason
+            || "spouse-net-income-unavailable";
+          fallbackReasons.push(survivorNetIncomeFailureReason);
+          addDerivationWarning(
+            survivorNetIncomeFailureReason,
+            "Survivor net income could not be calculated from spouse gross income.",
+            {
+              sourcePath: "protectionModeling.data.spouseIncome",
+              missingTaxInputs: Array.isArray(calculatedSurvivorNetIncome.warnings?.[0]?.details?.missing)
+                ? calculatedSurvivorNetIncome.warnings[0].details.missing
+                : []
+            }
+          );
+          if (spouseGrossIncome > 0) {
+            baseSurvivorNetIncome = spouseGrossIncome * 0.75;
+            baseSurvivorNetIncomeSource = "conservative-gross-income-fallback";
+            conservativeGrossIncomeFallbackUsed = true;
+            addDerivationWarning(
+              "conservative-survivor-net-income-fallback-used",
+              "Survivor net income used a conservative gross-income fallback because tax calculation was unavailable.",
+              {
+                sourcePath: "protectionModeling.data.spouseIncome",
+                fallbackMultiplier: 0.75
+              }
+            );
+          }
+        }
+      }
+
+      if (baseSurvivorNetIncome != null) {
+        const reductionPercent = expectedWorkReductionPercent == null ? 0 : expectedWorkReductionPercent;
+        survivorNetIncome = Math.max(0, baseSurvivorNetIncome * (1 - reductionPercent / 100));
       }
     }
 
@@ -1235,13 +1311,20 @@
       includeSurvivorIncomeOffset,
       rawSpouseIncome: spouseGrossIncome,
       rawSpouseIncomeSourcePath: "protectionModeling.data.spouseIncome",
+      rawSpouseNetAnnualIncome: spouseNetIncome,
+      rawSpouseNetAnnualIncomeSourcePath: "protectionModeling.data.spouseNetAnnualIncome",
       rawLegacySurvivorGrossIncome: sourceSurvivorGrossIncome,
       rawLegacySurvivorNetIncome: sourceSurvivorNetIncome,
       survivorIncomeDerivedFromSpouseIncome,
       legacySurvivorIncomeFallbackUsed,
+      conservativeGrossIncomeFallbackUsed,
       survivorContinuesWorking,
       expectedSurvivorWorkReductionPercent: expectedWorkReductionPercent,
       adjustedSurvivorGrossIncome: survivorGrossIncome,
+      baseSurvivorNetAnnualIncomeBeforeWorkReduction: baseSurvivorNetIncome,
+      baseSurvivorNetIncomeSource,
+      survivorNetIncomeFailureReason,
+      survivorNetIncomeWorkReductionAppliedAfterTax: true,
       survivorNetAnnualIncomePrepared: survivorNetIncome == null ? null : toOptionalNumber(survivorNetIncome),
       survivorNetIncomeManualOverride: false,
       scenarioAssumptionsApplied: true,
@@ -1258,6 +1341,7 @@
       warnings: derivationWarnings,
       sourcePaths: [
         "protectionModeling.data.spouseIncome",
+        "protectionModeling.data.spouseNetAnnualIncome",
         "analysisSettings.survivorSupportAssumptions.survivorIncomeTreatment.includeSurvivorIncome",
         "analysisSettings.survivorSupportAssumptions.survivorScenario.survivorContinuesWorking",
         "analysisSettings.survivorSupportAssumptions.survivorScenario.expectedSurvivorWorkReductionPercent",

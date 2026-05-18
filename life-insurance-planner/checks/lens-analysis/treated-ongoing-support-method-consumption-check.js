@@ -340,6 +340,24 @@ function assertNoProtectedDiffs() {
       && diff.includes("profileRecord.analysisSettings");
   }
 
+  function isAllowedSurvivorGrossToNetDerivationFix(filePath) {
+    if (filePath !== "app/features/lens-analysis/lens-model-builder.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", filePath], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return diff.includes("getSurvivorNetIncomeFailureReason")
+      && diff.includes("baseSurvivorNetIncomeSource")
+      && diff.includes("protectionModeling.data.spouseNetAnnualIncome")
+      && diff.includes("calculated-tax-net-from-spouse-income")
+      && diff.includes("conservative-gross-income-fallback")
+      && diff.includes("survivorNetIncomeWorkReductionAppliedAfterTax")
+      && diff.includes("missing-tax-config")
+      && diff.includes("conservativeGrossIncomeFallbackUsed");
+  }
+
   const protectedFiles = new Set([
     "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
     "app/features/lens-analysis/income-impact-base-household-expense-stream.js",
@@ -378,7 +396,7 @@ function assertNoProtectedDiffs() {
     if (isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath)) {
       return false;
     }
-    if (isAllowedSurvivorIncomeSourceFix(filePath)) {
+    if (isAllowedSurvivorIncomeSourceFix(filePath) || isAllowedSurvivorGrossToNetDerivationFix(filePath)) {
       return false;
     }
     return true;

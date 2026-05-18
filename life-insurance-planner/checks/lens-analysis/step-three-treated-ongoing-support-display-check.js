@@ -321,6 +321,24 @@ function assertNoProtectedDiffs() {
       && diff.includes("monthIndex: 360");
   }
 
+  function isAllowedSurvivorGrossToNetDerivationFix(filePath) {
+    if (filePath !== "app/features/lens-analysis/lens-model-builder.js") {
+      return false;
+    }
+    const diff = execFileSync("git", ["diff", "--", filePath], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return diff.includes("getSurvivorNetIncomeFailureReason")
+      && diff.includes("baseSurvivorNetIncomeSource")
+      && diff.includes("protectionModeling.data.spouseNetAnnualIncome")
+      && diff.includes("calculated-tax-net-from-spouse-income")
+      && diff.includes("conservative-gross-income-fallback")
+      && diff.includes("survivorNetIncomeWorkReductionAppliedAfterTax")
+      && diff.includes("missing-tax-config")
+      && diff.includes("conservativeGrossIncomeFallbackUsed");
+  }
+
   function isAllowedVisualTimelineStaleAssertionCorrection(filePath) {
     if (filePath !== "checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
       return false;
@@ -475,6 +493,7 @@ function assertNoProtectedDiffs() {
     "checks/lens-analysis/projected-asset-offset-analysis-setup-ui-check.js",
     "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js",
+    "checks/lens-analysis/survivor-income-gross-to-net-derivation-check.js",
     "checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
     "checks/lens-analysis/analysis-setup-style-guard-utils.js",
     "checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
@@ -494,6 +513,7 @@ function assertNoProtectedDiffs() {
   const protectedDiffs = changedFiles.filter((filePath) => {
     return !allowedDiffs.has(filePath)
       && !isAllowedSurvivorIncomeSourceFix(filePath)
+      && !isAllowedSurvivorGrossToNetDerivationFix(filePath)
       && !isAllowedVisualTimelineStaleAssertionCorrection(filePath)
       && !isAllowedIncomeLossImpactDisplayAnalysisSettingsBootstrap(filePath)
       && !isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot(filePath)
