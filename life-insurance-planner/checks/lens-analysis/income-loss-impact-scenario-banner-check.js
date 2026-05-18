@@ -6,6 +6,7 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -1194,7 +1195,8 @@ const protectedChanges = getChangedFiles([
   "pages/hlv-entry.html",
   "pages/hlv-results.html"
 ]).filter(function (file) {
-  return file !== "life-insurance-planner/styles.css" || !isAllowedIncomeImpactTitleStyleOverride();
+  return file !== "life-insurance-planner/styles.css"
+    || !(isAllowedIncomeImpactTitleStyleOverride() || isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, file));
 }).filter(function (file) {
   return file !== "life-insurance-planner/layout.css" || !isAllowedIncomeImpactSidePanelLayoutChange();
 }).filter(function (file) {

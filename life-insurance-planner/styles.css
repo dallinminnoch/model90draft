@@ -7957,4 +7957,13 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-size: 10.5px;
   line-height: 1.25;
 }
+
+.analysis-setup-assumption-panel label:not(.analysis-setup-rate-label) {
+  color: var(--analysis-setup-control-label-color);
+  font-family: var(--analysis-setup-control-label-font-family);
+  font-size: var(--analysis-setup-control-label-font-size);
+  font-weight: var(--analysis-setup-control-label-font-weight);
+  letter-spacing: var(--analysis-setup-control-label-letter-spacing);
+  line-height: var(--analysis-setup-control-label-line-height);
+}
 }

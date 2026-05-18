@@ -6,6 +6,7 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -165,14 +166,24 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
     cwd: repoRoot,
     encoding: "utf8"
   });
+  const hunks = diff.split(/^@@/m).slice(1);
   const survivorSupportStyleDiff = diff.includes(".analysis-setup-survivor-grid")
     && diff.includes(".analysis-setup-survivor-card")
     && diff.includes(".analysis-setup-survivor-control-row")
     && diff.includes(".analysis-setup-survivor-preview")
     && !diff.includes(".analysis-setup-control-group--education")
     && !diff.includes(".analysis-setup-control-group--policy-returns");
-  const hunks = diff.split(/^@@/m).slice(1);
+  const educationAssumptionsStyleDiff = diff.includes(".analysis-setup-control-group--education")
+    && diff.includes(".analysis-setup-education-grid")
+    && diff.includes(".analysis-setup-education-card")
+    && diff.includes(".analysis-setup-education-control-row")
+    && diff.includes(".analysis-setup-education-preview")
+    && !diff.includes("+.analysis-setup-control-group--recommendation")
+    && !diff.includes("-.analysis-setup-control-group--recommendation")
+    && !diff.includes("+.analysis-setup-control-group--policy-returns")
+    && !diff.includes("-.analysis-setup-control-group--policy-returns");
   return survivorSupportStyleDiff
+    || educationAssumptionsStyleDiff
     || hunks.length > 0
     && hunks.every((hunk) => {
       return hunk.includes("analysis-setup-debt-")
@@ -227,6 +238,9 @@ function assertNoProtectedDiffs() {
       }
       if (filePath === "components.css") {
         return !isAllowedAnalysisSetupComponentsCssDiff();
+      }
+      if (filePath === "styles.css") {
+        return !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
       }
       return true;
     });

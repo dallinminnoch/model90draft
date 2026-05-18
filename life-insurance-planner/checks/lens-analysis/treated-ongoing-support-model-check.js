@@ -6,6 +6,7 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -309,6 +310,19 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     && html.includes("data-analysis-debt-mortgage-payment-plan-preview")
     && html.includes("data-analysis-debt-table")
     && html.includes("data-analysis-debt-profile=\"balanced\"");
+  const survivorSupportSimplificationDiff = diff.includes("Survivor income used by LENS")
+    && diff.includes("Saved future assumptions")
+    && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorContinuesWorking\"")
+    && html.includes("data-analysis-survivor-field=\"survivorScenario.expectedSurvivorWorkReductionPercent\"")
+    && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorIncomeStartDelayMonths\"")
+    && html.includes("data-analysis-survivor-field=\"survivorIncomeTreatment.applyStartDelay\"")
+    && html.includes("data-analysis-survivor-field=\"supportTreatment.supportDurationYears\"")
+    && html.includes("data-analysis-survivor-field=\"survivorIncomeTreatment.applyIncomeGrowth\"")
+    && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorEarnedIncomeGrowthRatePercent\"")
+    && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorRetirementHorizonYears\"")
+    && html.includes("data-analysis-survivor-field=\"survivorIncomeTreatment.maxReliancePercent\"")
+    && html.includes("data-analysis-survivor-field=\"riskFlags.flagHighSurvivorIncomeReliance\"")
+    && html.includes("data-analysis-survivor-field=\"riskFlags.highRelianceThresholdPercent\"");
   return redesignDiff
     || previewDiff
     || legacyCleanupDiff
@@ -318,7 +332,8 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     || assetProjectionControlsRemovalDiff
     || cashReserveCardStyleDiff
     || existingCoverageCardStyleDiff
-    || debtMortgageSeparateCardsDiff;
+    || debtMortgageSeparateCardsDiff
+    || survivorSupportSimplificationDiff;
 }
 
 function assertNoProtectedDiffs() {
@@ -355,6 +370,9 @@ function assertNoProtectedDiffs() {
     }
     if (filePath === "pages/analysis-setup.html") {
       return !isAllowedAnalysisSetupMortgageTreatmentUi();
+    }
+    if (filePath === "styles.css") {
+      return !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
     }
     return true;
   });

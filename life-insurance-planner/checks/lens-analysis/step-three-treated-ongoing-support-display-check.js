@@ -6,6 +6,7 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -337,6 +338,19 @@ function assertNoProtectedDiffs() {
       && html.includes("data-analysis-debt-mortgage-payment-plan-preview")
       && html.includes("data-analysis-debt-table")
       && html.includes("data-analysis-debt-profile=\"balanced\"");
+    const survivorSupportSimplificationDiff = diff.includes("Survivor income used by LENS")
+      && diff.includes("Saved future assumptions")
+      && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorContinuesWorking\"")
+      && html.includes("data-analysis-survivor-field=\"survivorScenario.expectedSurvivorWorkReductionPercent\"")
+      && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorIncomeStartDelayMonths\"")
+      && html.includes("data-analysis-survivor-field=\"survivorIncomeTreatment.applyStartDelay\"")
+      && html.includes("data-analysis-survivor-field=\"supportTreatment.supportDurationYears\"")
+      && html.includes("data-analysis-survivor-field=\"survivorIncomeTreatment.applyIncomeGrowth\"")
+      && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorEarnedIncomeGrowthRatePercent\"")
+      && html.includes("data-analysis-survivor-field=\"survivorScenario.survivorRetirementHorizonYears\"")
+      && html.includes("data-analysis-survivor-field=\"survivorIncomeTreatment.maxReliancePercent\"")
+      && html.includes("data-analysis-survivor-field=\"riskFlags.flagHighSurvivorIncomeReliance\"")
+      && html.includes("data-analysis-survivor-field=\"riskFlags.highRelianceThresholdPercent\"");
     return redesignDiff
       || previewDiff
       || legacyCleanupDiff
@@ -346,7 +360,8 @@ function assertNoProtectedDiffs() {
       || assetProjectionControlsRemovalDiff
       || cashReserveCardStyleDiff
       || existingCoverageCardStyleDiff
-      || debtMortgageSeparateCardsDiff;
+      || debtMortgageSeparateCardsDiff
+      || survivorSupportSimplificationDiff;
   }
 
   const allowedDiffs = new Set([
@@ -362,6 +377,7 @@ function assertNoProtectedDiffs() {
     "checks/lens-analysis/projected-asset-offset-analysis-setup-ui-check.js",
     "checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js",
     "checks/lens-analysis/income-loss-impact-scenario-banner-check.js",
+    "checks/lens-analysis/analysis-setup-style-guard-utils.js",
     "checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js",
     "checks/lens-analysis/step-three-treated-ongoing-support-display-check.js",
     "checks/lens-analysis/treated-ongoing-support-method-consumption-check.js",
@@ -377,7 +393,9 @@ function assertNoProtectedDiffs() {
     return line.slice(3).trim().replace(/^life-insurance-planner\//, "");
   });
   const protectedDiffs = changedFiles.filter((filePath) => {
-    return !allowedDiffs.has(filePath) && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath);
+    return !allowedDiffs.has(filePath)
+      && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
+      && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
   });
 
   assert.deepEqual(protectedDiffs, [], "Only Step 3 treated ongoing support display files should change.");

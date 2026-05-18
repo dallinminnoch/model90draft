@@ -556,7 +556,6 @@
                 <section class="analysis-setup-control-group analysis-setup-control-group--survivor-support" aria-labelledby="analysis-setup-survivor-support-treatment" data-analysis-setup-scroll-section="survivor-support">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-survivor-support-treatment">Survivor &amp; Support Assumptions</h3>
-                    <p>PMI captures current spouse income facts. These assumptions control how survivor income is treated after death. Balanced assumes the survivor continues working with a temporary 25% reduction and a 3-month income delay.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-survivor-defaults" aria-label="Survivor and support treatment default settings">
@@ -573,65 +572,18 @@
                   <div class="analysis-setup-survivor-grid" aria-label="Survivor and support treatment controls">
                     <div class="analysis-setup-survivor-card">
                       <div class="analysis-setup-survivor-card-head">
-                        <h4>Survivor income treatment</h4>
+                        <h4>Survivor income used by LENS</h4>
                         <div class="analysis-setup-survivor-help">
-                          <span class="analysis-setup-survivor-help-trigger" tabindex="0" aria-describedby="analysis-setup-survivor-income-treatment-help">
-                            <span class="sr-only">Survivor income treatment field help</span>
+                          <span class="analysis-setup-survivor-help-trigger" tabindex="0" aria-describedby="analysis-setup-survivor-current-help">
+                            <span class="sr-only">Survivor income used by LENS field help</span>
                             <span class="analysis-setup-survivor-help-icon" aria-hidden="true">?</span>
                           </span>
-                          <div id="analysis-setup-survivor-income-treatment-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
-                            <ul>
-                              <li><strong>Apply survivor income start delay:</strong> delays when survivor income begins reducing support need.</li>
-                              <li><strong>Apply survivor income growth:</strong> saves a future-use growth assumption; current LENS does not project it.</li>
-                              <li><strong>Maximum reliance:</strong> saves a future-use cap; current LENS does not cap survivor income.</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Apply survivor income start delay</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Apply survivor income start delay" data-analysis-survivor-field="survivorIncomeTreatment.applyStartDelay">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
-                        <span class="settings-toggle-copy">
-                          <span class="settings-toggle-label">Apply survivor income growth</span>
-                          <span class="settings-toggle-note">Saved for future projections; not applied yet.</span>
-                        </span>
-                        <span class="settings-switch analysis-setup-mini-switch">
-                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Apply survivor income growth" data-analysis-survivor-field="survivorIncomeTreatment.applyIncomeGrowth">
-                          <span class="settings-switch-track" aria-hidden="true"></span>
-                        </span>
-                      </label>
-                      <div class="analysis-setup-survivor-control-row">
-                        <label for="analysis-setup-survivor-max-reliance">Future survivor income reliance cap</label>
-                        <span class="analysis-setup-asset-percent">
-                          <input id="analysis-setup-survivor-max-reliance" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="decimal" data-analysis-survivor-field="survivorIncomeTreatment.maxReliancePercent">
-                          <span aria-hidden="true">%</span>
-                        </span>
-                        <p>Saved for future cap modeling; current LENS does not cap survivor income.</p>
-                      </div>
-                    </div>
-
-                    <div class="analysis-setup-survivor-card">
-                      <div class="analysis-setup-survivor-card-head">
-                        <h4>Survivor scenario</h4>
-                        <div class="analysis-setup-survivor-help">
-                          <span class="analysis-setup-survivor-help-trigger" tabindex="0" aria-describedby="analysis-setup-survivor-scenario-help">
-                            <span class="sr-only">Survivor scenario field help</span>
-                            <span class="analysis-setup-survivor-help-icon" aria-hidden="true">?</span>
-                          </span>
-                          <div id="analysis-setup-survivor-scenario-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
+                          <div id="analysis-setup-survivor-current-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
                             <ul>
                               <li><strong>Survivor continues working:</strong> sets whether survivor income should be considered after death.</li>
                               <li><strong>Expected work reduction:</strong> reduces survivor income for caregiving, transition, or schedule changes.</li>
-                              <li><strong>Start delay:</strong> sets how many months pass before survivor income is applied.</li>
-                              <li><strong>Income growth:</strong> saves a future-use survivor income growth rate.</li>
-                              <li><strong>Income horizon:</strong> saves a future-use duration assumption; current LENS does not limit survivor income by horizon.</li>
+                              <li><strong>Start delay:</strong> sets and applies the delay before survivor income reduces the need.</li>
+                              <li><strong>Support duration override:</strong> replaces the Method Defaults support duration for this plan.</li>
                             </ul>
                           </div>
                         </div>
@@ -658,6 +610,52 @@
                           <span>months</span>
                         </span>
                       </div>
+                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
+                        <span class="settings-toggle-copy">
+                          <span class="settings-toggle-label">Apply survivor income start delay</span>
+                        </span>
+                        <span class="settings-switch analysis-setup-mini-switch">
+                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Apply survivor income start delay" data-analysis-survivor-field="survivorIncomeTreatment.applyStartDelay">
+                          <span class="settings-switch-track" aria-hidden="true"></span>
+                        </span>
+                      </label>
+                      <div class="analysis-setup-survivor-control-row">
+                        <label for="analysis-setup-survivor-support-duration">Support duration override</label>
+                        <span class="analysis-setup-survivor-years">
+                          <input id="analysis-setup-survivor-support-duration" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-survivor-field="supportTreatment.supportDurationYears">
+                          <span>years</span>
+                        </span>
+                        <p>Blank uses Method Defaults.</p>
+                      </div>
+                    </div>
+
+                    <div class="analysis-setup-survivor-card">
+                      <div class="analysis-setup-survivor-card-head">
+                        <h4>Saved future assumptions</h4>
+                        <div class="analysis-setup-survivor-help">
+                          <span class="analysis-setup-survivor-help-trigger" tabindex="0" aria-describedby="analysis-setup-survivor-future-help">
+                            <span class="sr-only">Saved future survivor assumptions field help</span>
+                            <span class="analysis-setup-survivor-help-icon" aria-hidden="true">?</span>
+                          </span>
+                          <div id="analysis-setup-survivor-future-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
+                            <ul>
+                              <li><strong>Income growth and horizon:</strong> saved for future projections; current LENS does not apply them.</li>
+                              <li><strong>Reliance cap and flag:</strong> saved for future recommendation guardrails; current LENS does not cap survivor income.</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      <p>These values are saved assumptions for future projections and guardrails. They do not change current DIME, LENS, HLV, or recommendations.</p>
+                      <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
+                        <span class="settings-toggle-copy">
+                          <span class="settings-toggle-label">Apply survivor income growth</span>
+                          <span class="settings-toggle-note">Saved for future projections; not applied yet.</span>
+                        </span>
+                        <span class="settings-switch analysis-setup-mini-switch">
+                          <input class="analysis-setup-survivor-field" type="checkbox" role="switch" aria-label="Apply survivor income growth" data-analysis-survivor-field="survivorIncomeTreatment.applyIncomeGrowth">
+                          <span class="settings-switch-track" aria-hidden="true"></span>
+                        </span>
+                      </label>
                       <div class="analysis-setup-survivor-control-row">
                         <label for="analysis-setup-survivor-income-growth">Survivor income growth</label>
                         <span class="analysis-setup-asset-percent">
@@ -674,37 +672,14 @@
                         </span>
                         <p>Saved for future duration modeling; current LENS does not limit survivor income by horizon.</p>
                       </div>
-                    </div>
-
-                    <div class="analysis-setup-survivor-card">
-                      <div class="analysis-setup-survivor-card-head">
-                        <h4>Support treatment</h4>
-                        <div class="analysis-setup-survivor-help">
-                          <span class="analysis-setup-survivor-help-trigger" tabindex="0" aria-describedby="analysis-setup-survivor-support-treatment-help">
-                            <span class="sr-only">Support treatment field help</span>
-                            <span class="analysis-setup-survivor-help-icon" aria-hidden="true">?</span>
-                          </span>
-                          <div id="analysis-setup-survivor-support-treatment-help" class="analysis-setup-survivor-help-tooltip" role="tooltip">
-                            <ul>
-                              <li><strong>Inclusion switches:</strong> use Calculation Inclusion Controls above.</li>
-                              <li><strong>Support duration override:</strong> replaces the Method Defaults support duration for this plan.</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
                       <div class="analysis-setup-survivor-control-row">
-                        <label for="analysis-setup-survivor-support-duration">Support duration override</label>
-                        <span class="analysis-setup-survivor-years">
-                          <input id="analysis-setup-survivor-support-duration" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="numeric" placeholder="Blank" data-analysis-survivor-field="supportTreatment.supportDurationYears">
-                          <span>years</span>
+                        <label for="analysis-setup-survivor-max-reliance">Future survivor income reliance cap</label>
+                        <span class="analysis-setup-asset-percent">
+                          <input id="analysis-setup-survivor-max-reliance" class="analysis-setup-card-input analysis-setup-survivor-field" type="text" inputmode="decimal" data-analysis-survivor-field="survivorIncomeTreatment.maxReliancePercent">
+                          <span aria-hidden="true">%</span>
                         </span>
-                        <p>Blank uses Method Defaults.</p>
+                        <p>Saved for future cap modeling; current LENS does not cap survivor income.</p>
                       </div>
-                    </div>
-
-                    <div class="analysis-setup-survivor-card">
-                      <h4>Future risk flags</h4>
-                      <p>Saved for future recommendation guardrails; not applied to current DIME, LENS, HLV, or recommendations.</p>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-survivor-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Save high survivor income reliance flag</span>
