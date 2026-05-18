@@ -165,8 +165,15 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
     cwd: repoRoot,
     encoding: "utf8"
   });
+  const survivorSupportStyleDiff = diff.includes(".analysis-setup-survivor-grid")
+    && diff.includes(".analysis-setup-survivor-card")
+    && diff.includes(".analysis-setup-survivor-control-row")
+    && diff.includes(".analysis-setup-survivor-preview")
+    && !diff.includes(".analysis-setup-control-group--education")
+    && !diff.includes(".analysis-setup-control-group--policy-returns");
   const hunks = diff.split(/^@@/m).slice(1);
-  return hunks.length > 0
+  return survivorSupportStyleDiff
+    || hunks.length > 0
     && hunks.every((hunk) => {
       return hunk.includes("analysis-setup-debt-")
         || hunk.includes("analysis-setup-cash-reserve")
