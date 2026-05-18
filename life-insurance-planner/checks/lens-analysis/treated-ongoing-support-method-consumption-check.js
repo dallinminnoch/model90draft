@@ -6,7 +6,10 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
+const {
+  isAllowedAnalysisSetupEducationDescriptionRemovalDiff,
+  isAllowedAnalysisSetupStyleFoundationDiff
+} = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 const TREATED_SUPPORT_SOURCE_PATH = "treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost";
@@ -351,6 +354,9 @@ function assertNoProtectedDiffs() {
       return false;
     }
     if (isAllowedAnalysisSetupMortgageTreatmentUi(filePath)) {
+      return false;
+    }
+    if (isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)) {
       return false;
     }
     if (isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath)) {

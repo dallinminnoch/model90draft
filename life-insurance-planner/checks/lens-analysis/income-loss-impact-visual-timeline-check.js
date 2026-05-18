@@ -17,10 +17,14 @@ function createDisplayHarness(source) {
     /\n\}\)\(window\);\s*$/,
     "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact, buildFinancialStorylineForTimelineResult };\n})(window);\n"
   );
+  const resourceOutlookPanel = { innerHTML: "" };
   const sandbox = {
     console,
     document: {
-      addEventListener() {}
+      addEventListener() {},
+      querySelector(selector) {
+        return selector === "[data-income-impact-insights-panel]" ? resourceOutlookPanel : null;
+      }
     },
     Intl,
     URL,
@@ -32,7 +36,9 @@ function createDisplayHarness(source) {
   vm.runInNewContext(instrumentedSource, sandbox, {
     filename: "income-loss-impact-display.js"
   });
-  return sandbox.window.__incomeImpactVisualTimelineHarness;
+  const harness = sandbox.window.__incomeImpactVisualTimelineHarness;
+  harness.resourceOutlookPanel = resourceOutlookPanel;
+  return harness;
 }
 
 function createBrowserGlobalHelperHarness(sources) {
@@ -310,6 +316,9 @@ assert.match(displaySource, /rendered:\s*false/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
 assert.match(displaySource, /renderTopSummaryStrip/);
 assert.match(displaySource, /data-income-impact-summary-strip/);
+assert.match(displaySource, /renderResourceOutlookPanel/);
+assert.match(displaySource, /syncResourceOutlookPanel/);
+assert.match(displaySource, /data-income-impact-resource-outlook/);
 assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
 assert.match(displaySource, /data-income-impact-depletion-story/);
 assert.match(displaySource, /data-income-impact-depletion-story-empty/);
@@ -763,8 +772,8 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\);[\s\S]*align-items:\s*stretch;/,
-  "Income Impact page shell should place scenario controls in a client-directory-style left side-menu column beside the main display."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[\s\S]*align-items:\s*stretch;/,
+  "Income Impact page shell should place scenario controls, the main display, and resource outlook in three stable columns."
 );
 assert.match(
   layoutSource,
@@ -785,6 +794,11 @@ assert.match(
   layoutSource,
   /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*grid-column:\s*2;[\s\S]*height:\s*100%;[\s\S]*padding:\s*0\.7rem clamp\(0\.95rem,\s*1\.45vw,\s*1\.15rem\) 0 1rem;[\s\S]*background:\s*#f1f4f9;[\s\S]*overflow-y:\s*auto;/,
   "Income Impact content should render to the right of the fixed side menu and own vertical scrolling."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-insights-panel[\s\S]*grid-column:\s*3;[\s\S]*grid-row:\s*1;[\s\S]*height:\s*100%;[\s\S]*overflow-y:\s*auto;/,
+  "Income Impact resource outlook should occupy the right rail and own its vertical scrolling."
 );
 assert.match(
   layoutSource,
@@ -1964,7 +1978,10 @@ assert.doesNotMatch(unavailableHtml, /data-income-impact-graph-svg/);
 
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: fixture });
-assert.match(host.innerHTML, /data-income-impact-summary-strip/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-summary-strip/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /data-income-impact-resource-outlook/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /Resource Outlook/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /Remaining resources/);
 assert.match(host.innerHTML, /data-income-impact-story-chart-card/);
 assert.match(host.innerHTML, /data-income-impact-depletion-story/);
 assert.match(host.innerHTML, /Financial Depletion Story/);
@@ -1979,10 +1996,6 @@ assert.doesNotMatch(host.innerHTML, /Story scaffold|Reserved for the future|Star
 assert.match(host.innerHTML, /data-income-impact-layout-main/);
 assert.match(host.innerHTML, /data-income-impact-layout-aside/);
 assert.match(host.innerHTML, /data-income-impact-graph-svg/);
-assert.ok(
-  host.innerHTML.indexOf("data-income-impact-summary-strip") < host.innerHTML.indexOf("data-income-impact-depletion-story"),
-  "Top summary strip should render before the depletion story section."
-);
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-depletion-story") < host.innerHTML.indexOf("data-income-impact-helper-timeline"),
   "Financial Depletion Story should render above the timeline chart."

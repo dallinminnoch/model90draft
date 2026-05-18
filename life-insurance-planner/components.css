@@ -14568,6 +14568,7 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   padding-bottom: 1.05rem;
 }
 
+.analysis-setup-control-group--calculation-inclusion .analysis-setup-control-heading h3,
 .analysis-setup-control-group--inflation .analysis-setup-control-heading h3,
 .analysis-setup-control-group--growth .analysis-setup-control-heading h3 {
   font-size: 0.92rem;
@@ -14972,13 +14973,13 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   grid-column: 1;
   grid-row: 1;
   align-self: center;
-  color: #6b7280;
+  color: #374151;
   font-family: "Inter", sans-serif;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  line-height: 1.1;
-  text-transform: uppercase;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-transform: none;
   white-space: normal;
 }
 
@@ -14988,6 +14989,12 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   grid-row: 1;
   align-self: center;
   transform: none;
+}
+
+.analysis-setup-control-group--inflation .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) .analysis-setup-rate-slider {
+  justify-self: end;
+  width: 50%;
+  inline-size: 50%;
 }
 
 .analysis-setup-control-group--inflation .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) .analysis-setup-percent-input,
@@ -15009,6 +15016,9 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   .analysis-setup-control-group--growth .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) .analysis-setup-rate-slider {
     grid-column: 1 / 3;
     grid-row: 2;
+    justify-self: stretch;
+    width: 100%;
+    inline-size: 100%;
   }
 
   .analysis-setup-control-group--inflation .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) .analysis-setup-percent-input,
@@ -15129,6 +15139,27 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 .analysis-setup-asset-default-button:disabled {
   opacity: 0.62;
   cursor: not-allowed;
+}
+
+.analysis-setup-inflation-defaults .analysis-setup-reset-button,
+.analysis-setup-method-defaults-actions .analysis-setup-reset-button {
+  min-height: 1.86rem;
+  padding: 0.28rem 0.64rem;
+  border-color: rgba(211, 219, 231, 0.92);
+  border-radius: 0.42rem;
+  background: #f8fafc;
+  color: #66758a;
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.analysis-setup-inflation-defaults .analysis-setup-reset-button:hover,
+.analysis-setup-inflation-defaults .analysis-setup-reset-button:focus,
+.analysis-setup-method-defaults-actions .analysis-setup-reset-button:hover,
+.analysis-setup-method-defaults-actions .analysis-setup-reset-button:focus {
+  border-color: #d1d9e6;
+  background: #ffffff;
+  color: #17202c;
 }
 
 .analysis-setup-asset-table {
@@ -15971,7 +16002,8 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 
 .analysis-setup-debt-mortgage-grid {
   display: grid;
-  grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1.1fr);
+  grid-template-columns: max-content max-content max-content;
+  justify-content: space-between;
   align-items: center;
   gap: 0.72rem 1.15rem;
   min-width: 0;
@@ -16031,6 +16063,10 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   color: #020b1a;
   font-size: 0.9rem;
   font-weight: 820;
+}
+
+.analysis-setup-debt-mortgage-grid select.analysis-setup-debt-field {
+  width: min(100%, 10.4rem);
 }
 
 .analysis-setup-debt-years > span:last-child {
@@ -16593,6 +16629,7 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 }
 
 .analysis-setup-control-group--education {
+  --analysis-setup-education-control-rail-width: 6.8rem;
   gap: 0;
   padding: 0;
   border-color: #e5e7eb;
@@ -16650,12 +16687,29 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 }
 
 .analysis-setup-education-toggle {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) var(--analysis-setup-education-control-rail-width);
+  align-items: center;
+  gap: 0.24rem 0.72rem;
   min-height: 3rem;
   padding: 0.7rem 0.96rem;
   border: 0;
   border-bottom: 1px solid rgba(229, 233, 240, 0.95);
   border-radius: 0;
   background: #ffffff;
+}
+
+.analysis-setup-education-toggle .settings-toggle-copy {
+  grid-column: 1;
+}
+
+.analysis-setup-education-toggle .settings-switch {
+  grid-column: 2;
+  justify-self: end;
+}
+
+.analysis-setup-education-card .settings-toggle-row + .settings-toggle-row {
+  border-top: 0;
 }
 
 .analysis-setup-education-toggle .settings-toggle-label {
@@ -16676,7 +16730,7 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
 
 .analysis-setup-education-control-row {
   display: grid;
-  grid-template-columns: minmax(13rem, 1fr) minmax(8rem, auto);
+  grid-template-columns: minmax(13rem, 1fr) var(--analysis-setup-education-control-rail-width);
   align-items: center;
   gap: 0.24rem 0.72rem;
   min-width: 0;
@@ -16725,11 +16779,19 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   display: inline-flex;
   align-items: center;
   justify-self: end;
+  justify-content: flex-end;
   gap: 0.18rem;
-  min-width: 5.35rem;
+  min-width: 0;
+  width: var(--analysis-setup-education-control-rail-width);
   color: #8b96a8;
   font-size: 0.72rem;
   font-weight: 760;
+}
+
+.analysis-setup-education-control-row .analysis-setup-asset-percent {
+  justify-self: end;
+  justify-content: flex-end;
+  width: var(--analysis-setup-education-control-rail-width);
 }
 
 .analysis-setup-education-money {
@@ -17405,7 +17467,6 @@ body.clients-page .client-directory-side-item.is-urgent .client-directory-side-i
   font-weight: 400;
 }
 
-.analysis-setup-control-group--inflation .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) > label,
 .analysis-setup-control-group--growth .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) > label,
 .analysis-setup-asset-row--head span,
 .analysis-setup-debt-row--head span,
@@ -17940,6 +18001,102 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   color: #17202c;
   font-size: 0.82rem;
   font-weight: 720;
+}
+
+.income-impact-insights-panel {
+  min-width: 0;
+  color: #263246;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-left: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.income-impact-resource-outlook {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.income-impact-resource-outlook__header {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.84rem 0.72rem 0.68rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.income-impact-resource-outlook__header > span {
+  color: #7d88a0;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.income-impact-resource-outlook__header strong {
+  color: #0f172a;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.08;
+}
+
+.income-impact-resource-outlook__header p,
+.income-impact-resource-outlook__placeholder p {
+  margin: 0;
+  color: #7d88a0;
+  font-size: 0.64rem;
+  line-height: 1.3;
+}
+
+.income-impact-resource-outlook__placeholder {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border-bottom: 1px solid rgba(241, 245, 249, 0.92);
+}
+
+.income-impact-resource-outlook__placeholder span {
+  color: #7d88a0;
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.income-impact-resource-outlook__placeholder strong {
+  color: #0f172a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
+.income-impact-insights-panel .income-impact-lifestyle-impact-readout {
+  display: grid;
+  gap: 0.42rem;
+  width: 100%;
+  max-width: none;
+  padding: 0.72rem;
+  border: 0;
+  border-bottom: 1px solid rgba(241, 245, 249, 0.92);
+  border-radius: 0;
+  background: transparent;
+}
+
+.income-impact-insights-panel .income-impact-lifestyle-impact-readout__eyebrow {
+  width: fit-content;
+  margin-right: 0;
+}
+
+.income-impact-insights-panel .income-impact-lifestyle-impact-readout__stat {
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.income-impact-insights-panel .income-impact-lifestyle-impact-readout__status {
+  justify-content: center;
+  width: 100%;
 }
 
 .income-impact-story-chart-card {

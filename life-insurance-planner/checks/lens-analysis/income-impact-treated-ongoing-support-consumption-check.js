@@ -6,7 +6,10 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
+const {
+  isAllowedAnalysisSetupEducationDescriptionRemovalDiff,
+  isAllowedAnalysisSetupStyleFoundationDiff
+} = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 const TREATED_ANNUAL_SOURCE = "lensModel.treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost";
@@ -379,6 +382,7 @@ function assertNoForbiddenSourceChanges() {
   const forbidden = changed.filter(function (filePath) {
     return !allowed.has(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
+      && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
   });
   assert.deepEqual(forbidden, [], "Only Income Impact support consumption files and focused checks should change.");

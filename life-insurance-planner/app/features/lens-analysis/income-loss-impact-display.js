@@ -633,6 +633,7 @@
   }
 
   function renderEmptyState(host, title, message) {
+    syncResourceOutlookPanel({});
     host.innerHTML = `
       <div class="income-impact-empty-state">
         <div class="section-label">Income Impact Review</div>
@@ -3709,7 +3710,7 @@
         data-income-impact-lifestyle-impact-readout
         data-income-impact-lifestyle-impact-mode="${escapeHtml(model.mode)}"
         data-income-impact-lifestyle-impact-status="${escapeHtml(model.status)}">
-        <span class="income-impact-lifestyle-impact-readout__eyebrow">Lifestyle impact</span>
+        <span class="income-impact-lifestyle-impact-readout__eyebrow">Scenario impact</span>
         <span class="income-impact-lifestyle-impact-readout__stat">
           <span>Lifestyle Spend</span>
           <strong data-income-impact-lifestyle-impact-monthly aria-label="${escapeHtml(model.monthlyCopy)}">${escapeHtml(model.monthlyValue)}</strong>
@@ -3877,6 +3878,38 @@
         `}
       </section>
     `;
+  }
+
+  function renderResourceOutlookPanel(timelineResult) {
+    const lifestyleReadout = renderLifestyleImpactReadout(timelineResult);
+    const primaryPathLabel = getPrimaryGraphPathLabel(timelineResult, "Current scenario projection");
+    return `
+      <section class="income-impact-resource-outlook" data-income-impact-resource-outlook>
+        <div class="income-impact-resource-outlook__header">
+          <span>Resource Outlook</span>
+          <strong>Remaining resources</strong>
+          <p>Scenario effects on projected survivor resources.</p>
+        </div>
+        ${lifestyleReadout || `
+          <div class="income-impact-resource-outlook__placeholder" data-income-impact-resource-outlook-placeholder>
+            <span>Selected scenario</span>
+            <strong>${escapeHtml(primaryPathLabel)}</strong>
+            <p>Adjust scenario controls, then reevaluate to compare the projected runway.</p>
+          </div>
+        `}
+      </section>
+    `;
+  }
+
+  function syncResourceOutlookPanel(timelineResult) {
+    if (typeof document === "undefined" || typeof document.querySelector !== "function") {
+      return;
+    }
+    const panel = document.querySelector("[data-income-impact-insights-panel]");
+    if (!panel) {
+      return;
+    }
+    panel.innerHTML = renderResourceOutlookPanel(isPlainObject(timelineResult) ? timelineResult : {});
   }
 
   function getFinancialStorylineMajorCandidates(timelineResult) {
@@ -4471,9 +4504,9 @@
 
   function renderIncomeImpact(host, context) {
     const timelineResult = isPlainObject(context?.timelineResult) ? context.timelineResult : {};
+    syncResourceOutlookPanel(timelineResult);
     host.innerHTML = `
       <div class="income-impact-layout" data-income-impact-layout>
-        ${renderTopSummaryStrip(timelineResult)}
         <section class="income-impact-story-chart-card" data-income-impact-story-chart-card>
           ${renderFinancialDepletionStoryScaffold(timelineResult)}
           <div class="income-impact-layout-main" data-income-impact-layout-main>

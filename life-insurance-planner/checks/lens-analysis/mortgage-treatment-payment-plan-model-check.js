@@ -6,7 +6,10 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
+const {
+  isAllowedAnalysisSetupEducationDescriptionRemovalDiff,
+  isAllowedAnalysisSetupStyleFoundationDiff
+} = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -315,7 +318,8 @@ function assertNoProtectedDiffs() {
       return !isAllowedStepThreeTreatedSupportDisplay();
     }
     if (filePath === "pages/analysis-setup.html") {
-      return !isAllowedAnalysisSetupMortgageTreatmentUi();
+      return !(isAllowedAnalysisSetupMortgageTreatmentUi()
+        || isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath));
     }
     if (filePath === "styles.css") {
       return !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);

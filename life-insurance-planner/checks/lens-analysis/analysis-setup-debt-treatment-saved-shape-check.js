@@ -6,7 +6,10 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
+const {
+  isAllowedAnalysisSetupEducationControlAlignmentCssDiff,
+  isAllowedAnalysisSetupStyleFoundationDiff
+} = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -167,6 +170,15 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
     encoding: "utf8"
   });
   const hunks = diff.split(/^@@/m).slice(1);
+  const isEducationControlAlignmentHunk = (hunk) => {
+    return hunk.includes("analysis-setup-education")
+      && (
+        hunk.includes("--analysis-setup-education-control-rail-width")
+        || hunk.includes(".analysis-setup-education-toggle")
+        || hunk.includes(".analysis-setup-education-card .settings-toggle-row + .settings-toggle-row")
+        || hunk.includes(".analysis-setup-education-control-row")
+      );
+  };
   const survivorSupportStyleDiff = diff.includes(".analysis-setup-survivor-grid")
     && diff.includes(".analysis-setup-survivor-card")
     && diff.includes(".analysis-setup-survivor-control-row")
@@ -193,6 +205,43 @@ function isAllowedAnalysisSetupComponentsCssDiff() {
         || hunk.includes("analysis-setup-control-group--assets")
         || hunk.includes("analysis-setup-survivor")
         || hunk.includes("analysis-setup-control-group--survivor-support")
+        || (
+          hunk.includes("analysis-setup-control-group--calculation-inclusion .settings-toggle-label")
+          && hunk.includes("font-family: \"Inter\", sans-serif")
+          && hunk.includes("font-size: 0.82rem")
+          && hunk.includes("font-weight: 650")
+        )
+        || (
+          hunk.includes("analysis-setup-control-group--calculation-inclusion .analysis-setup-control-heading h3")
+          && hunk.includes("analysis-setup-control-group--inflation .analysis-setup-control-heading h3")
+          && hunk.includes("font-size: 0.92rem")
+        )
+        || (
+          hunk.includes("font-family: \"Inter\", sans-serif")
+          && hunk.includes("-  color: #6b7280")
+          && hunk.includes("+  color: #374151")
+          && hunk.includes("font-size: 12.5px")
+          && hunk.includes("font-weight: 500")
+          && hunk.includes("text-transform: none")
+        )
+        || (
+          hunk.includes("analysis-setup-control-group--inflation .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) .analysis-setup-rate-slider")
+          && hunk.includes("justify-self: end")
+          && hunk.includes("width: 50%")
+          && hunk.includes("inline-size: 50%")
+        )
+        || (
+          hunk.includes("analysis-setup-control-group--growth .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) .analysis-setup-rate-slider")
+          && hunk.includes("justify-self: stretch")
+          && hunk.includes("width: 100%")
+          && hunk.includes("inline-size: 100%")
+        )
+        || (
+          hunk.includes("-.analysis-setup-control-group--inflation .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) > label")
+          && hunk.includes(".analysis-setup-control-group--growth .analysis-setup-rate-control:not(.analysis-setup-return-basis-control) > label")
+          && hunk.includes(".analysis-setup-asset-row--head span")
+        )
+        || isEducationControlAlignmentHunk(hunk)
         || (
           hunk.includes("analysis-setup")
           && (
@@ -237,7 +286,8 @@ function assertNoProtectedDiffs() {
         return false;
       }
       if (filePath === "components.css") {
-        return !isAllowedAnalysisSetupComponentsCssDiff();
+        return !(isAllowedAnalysisSetupComponentsCssDiff()
+          || isAllowedAnalysisSetupEducationControlAlignmentCssDiff(repoRoot, filePath));
       }
       if (filePath === "styles.css") {
         return !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);

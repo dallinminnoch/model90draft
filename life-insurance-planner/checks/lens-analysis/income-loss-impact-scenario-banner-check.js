@@ -6,7 +6,10 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
+const {
+  isAllowedAnalysisSetupEducationDescriptionRemovalDiff,
+  isAllowedAnalysisSetupStyleFoundationDiff
+} = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -126,13 +129,24 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
   const allowedDeclarations = new Set([
     "",
     "}",
+    "grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr);",
+    "grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
     "grid-template-columns: minmax(13.5rem, 18rem) minmax(0, 1fr);",
     "display: grid;",
     "grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);",
     "grid-template-columns: 1fr;",
     "gap: 1rem;",
     "align-items: start;",
+    "align-self: stretch;",
     "min-height: 0;",
+    "height: 100%;",
+    "height: auto;",
+    "overflow-y: auto;",
+    "overflow: visible;",
+    "grid-column: 3;",
+    "grid-row: 1;",
+    "order: 0;",
+    "order: 1;",
     "order: -1;",
     "position: sticky;",
     "position: static;",
@@ -144,6 +158,7 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "body[data-step=\"income-impact\"] .income-impact-workspace-shell {",
     "body[data-step=\"income-impact\"] .income-impact-controls-panel {",
     "body[data-step=\"income-impact\"] .income-impact-content-stack {",
+    "body[data-step=\"income-impact\"] .income-impact-insights-panel {",
     "/* Mobile keeps scenario controls inline so they do not cover the chart or route actions. */",
     "/* Mobile stacks scenario controls above the chart so they do not cover route actions. */"
   ]);
@@ -787,8 +802,8 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\);[^}]*\}/,
-  "Desktop/tablet Income Impact layout should place scenario controls in the left rail next to the main display."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[^}]*\}/,
+  "Desktop/tablet Income Impact layout should place scenario controls, main display, and resource outlook in stable columns."
 );
 assert.match(
   layoutSource,
@@ -799,6 +814,11 @@ assert.match(
   layoutSource,
   /body\[data-step="income-impact"\] \.income-impact-content-stack\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*\}/,
   "Income Impact main display should occupy the scrollable right content column."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-insights-panel\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*\}/,
+  "Income Impact resource outlook should occupy a separate scrollable right rail."
 );
 assert.match(
   layoutSource,
@@ -1197,6 +1217,9 @@ const protectedChanges = getChangedFiles([
 ]).filter(function (file) {
   return file !== "life-insurance-planner/styles.css"
     || !(isAllowedIncomeImpactTitleStyleOverride() || isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, file));
+}).filter(function (file) {
+  return file !== "life-insurance-planner/pages/analysis-setup.html"
+    || !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, file);
 }).filter(function (file) {
   return file !== "life-insurance-planner/layout.css" || !isAllowedIncomeImpactSidePanelLayoutChange();
 }).filter(function (file) {

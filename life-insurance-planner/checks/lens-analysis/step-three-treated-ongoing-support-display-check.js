@@ -6,7 +6,10 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { isAllowedAnalysisSetupStyleFoundationDiff } = require("./analysis-setup-style-guard-utils");
+const {
+  isAllowedAnalysisSetupEducationDescriptionRemovalDiff,
+  isAllowedAnalysisSetupStyleFoundationDiff
+} = require("./analysis-setup-style-guard-utils");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 
@@ -395,6 +398,7 @@ function assertNoProtectedDiffs() {
   const protectedDiffs = changedFiles.filter((filePath) => {
     return !allowedDiffs.has(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
+      && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
   });
 

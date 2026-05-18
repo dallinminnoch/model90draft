@@ -167,11 +167,8 @@
                 <div class="analysis-setup-panel-grid" data-analysis-setup-view-grid>
                 <div class="analysis-setup-left-stack">
                   <section class="analysis-setup-control-group analysis-setup-control-group--calculation-inclusion" aria-labelledby="analysis-setup-calculation-inclusion" data-analysis-setup-scroll-section="calculation-inclusion">
-                    <div class="analysis-setup-method-header">
-                      <div class="analysis-setup-control-heading">
-                        <h3 id="analysis-setup-calculation-inclusion">Calculation Inclusion Controls</h3>
-                        <p>Use these switches to include or exclude supported planning components without changing the underlying assumptions.</p>
-                      </div>
+                    <div class="analysis-setup-control-heading">
+                      <h3 id="analysis-setup-calculation-inclusion">Calculation Inclusion Controls</h3>
                     </div>
                     <div class="analysis-setup-calculation-inclusion-list" aria-label="Supported calculation inclusion controls">
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-calculation-inclusion-toggle">
@@ -229,17 +226,18 @@
                         </span>
                       </label>
                     </div>
-                    <p class="analysis-setup-calculation-inclusion-note">Additional inclusion switches will appear here as their calculation hooks are added.</p>
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--inflation" aria-labelledby="analysis-setup-inflation" data-analysis-setup-scroll-section="inflation-assumptions">
-                  <div class="analysis-setup-method-header">
                     <div class="analysis-setup-control-heading">
                       <h3 id="analysis-setup-inflation">Inflation Assumptions</h3>
-                      <p>Household, education, healthcare, and final expense rates affect current LENS where enabled. General is a fallback; DIME and HLV are unaffected.</p>
                     </div>
-                    <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
-                  </div>
+                    <div class="analysis-setup-asset-defaults analysis-setup-inflation-defaults" aria-label="Inflation assumption default settings">
+                      <span class="analysis-setup-asset-defaults-label">Default Settings:</span>
+                      <div class="analysis-setup-asset-default-buttons">
+                        <button class="analysis-setup-reset-button" type="button" data-analysis-inflation-reset>Reset to Default</button>
+                      </div>
+                    </div>
 
                   <label class="settings-toggle-row analysis-setup-toggle-control">
                     <span class="settings-toggle-copy">
@@ -307,9 +305,14 @@
                   </section>
 
                   <section class="analysis-setup-control-group analysis-setup-control-group--method-defaults" aria-labelledby="analysis-setup-method-defaults" data-analysis-setup-scroll-section="method-defaults">
-                    <div class="analysis-setup-method-header">
+                    <div class="analysis-setup-control-heading">
                       <h3 id="analysis-setup-method-defaults">Method Defaults</h3>
-                      <button class="analysis-setup-reset-button" type="button" data-analysis-method-reset>Reset to Default</button>
+                    </div>
+                    <div class="analysis-setup-asset-defaults analysis-setup-method-defaults-actions" aria-label="Method default settings">
+                      <span class="analysis-setup-asset-defaults-label">Default Settings:</span>
+                      <div class="analysis-setup-asset-default-buttons">
+                        <button class="analysis-setup-reset-button" type="button" data-analysis-method-reset>Reset to Default</button>
+                      </div>
                     </div>
                     <div class="analysis-setup-method-list">
                       <label class="analysis-setup-method-row" for="analysis-setup-dime-income-years">
@@ -723,7 +726,6 @@
                 <section class="analysis-setup-control-group analysis-setup-control-group--education" aria-labelledby="analysis-setup-education-treatment" data-analysis-setup-scroll-section="education-assumptions">
                   <div class="analysis-setup-control-heading">
                     <h3 id="analysis-setup-education-treatment">Education Assumptions</h3>
-                    <p>Current LENS uses saved education funding. Education inflation and start age can affect current dependents with valid birthdates; target adjustments are saved for future modeling. Education-specific savings are handled in Asset Treatment.</p>
                   </div>
 
                   <div class="analysis-setup-asset-defaults analysis-setup-education-defaults" aria-label="Education treatment default settings">
@@ -742,9 +744,8 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Use education funding treatment</span>
-                          <span class="settings-toggle-note">Controls whether LENS includes education funding. When off, LENS education is $0.</span>
                         </span>
-                        <span class="settings-switch">
+                        <span class="settings-switch analysis-setup-mini-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Use education funding treatment" data-analysis-education-field="fundingTreatment.includeEducationFunding">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
@@ -755,14 +756,12 @@
                           <input id="analysis-setup-education-funding-target" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="decimal" data-analysis-education-field="fundingTreatment.fundingTargetPercent">
                           <span aria-hidden="true">%</span>
                         </span>
-                        <p>Saved for future target adjustments; current LENS uses saved education amounts.</p>
                       </div>
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Include projected dependents</span>
-                          <span class="settings-toggle-note">Planned-dependent targets may be included as current-dollar amounts; timing and inflation are not applied yet.</span>
                         </span>
-                        <span class="settings-switch">
+                        <span class="settings-switch analysis-setup-mini-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Include projected dependents" data-analysis-education-field="fundingTreatment.includeProjectedDependents">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
@@ -770,9 +769,8 @@
                       <label class="settings-toggle-row analysis-setup-toggle-control analysis-setup-education-toggle">
                         <span class="settings-toggle-copy">
                           <span class="settings-toggle-label">Apply education inflation</span>
-                          <span class="settings-toggle-note">Applies in LENS to current dependents with valid birthdates; planned dependents remain current-dollar.</span>
                         </span>
-                        <span class="settings-switch">
+                        <span class="settings-switch analysis-setup-mini-switch">
                           <input class="analysis-setup-education-field" type="checkbox" role="switch" aria-label="Apply education inflation" data-analysis-education-field="fundingTreatment.applyEducationInflation">
                           <span class="settings-switch-track" aria-hidden="true"></span>
                         </span>
@@ -781,9 +779,7 @@
                         <label for="analysis-setup-education-start-age">Education start age</label>
                         <span class="analysis-setup-education-years">
                           <input id="analysis-setup-education-start-age" class="analysis-setup-card-input analysis-setup-education-field" type="text" inputmode="numeric" data-analysis-education-field="fundingTreatment.educationStartAge">
-                          <span>age</span>
                         </span>
-                        <p>Used to project education funding for current dependents with valid birthdates. Planned dependents remain current-dollar until timing is added.</p>
                       </div>
                     </div>
 
@@ -807,7 +803,6 @@
                       <strong data-analysis-education-preview="costPerChild">No saved education data found</strong>
                     </div>
                   </div>
-                  <p class="analysis-setup-education-preview-note">Preview only for saved source values. Current LENS may use education funding, projected dependents, inflation, and start-age settings; DIME, HLV, and recommendation results are unchanged.</p>
                 </section>
 
                 <section class="analysis-setup-control-group analysis-setup-control-group--recommendation" aria-labelledby="analysis-setup-recommendation-guardrails" data-analysis-setup-scroll-section="recommendation-guardrails">
