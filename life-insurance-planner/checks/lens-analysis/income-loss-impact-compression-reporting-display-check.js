@@ -456,7 +456,7 @@ assert.match(
   "auto-compress scenario control should be checked by default in static markup"
 );
 assert.match(pageSource, /Auto-compress survivor lifestyle/);
-assert.match(pageSource, /Gradually reduces lifestyle spending toward conservative assumptions over the projected runway\./);
+assert.doesNotMatch(pageSource, /Gradually reduces lifestyle spending toward conservative assumptions over the projected runway\./);
 assert.match(displaySource, /calculateIncomeImpactLifestyleScenario/);
 assert.match(displaySource, /householdExpenseAccountPolicyStorage/);
 assert.match(displaySource, /resolveHouseholdExpenseAccountPolicy/);

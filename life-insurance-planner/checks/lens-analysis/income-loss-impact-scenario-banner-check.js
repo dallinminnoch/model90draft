@@ -146,6 +146,9 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr);",
     "grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
     "grid-template-columns: minmax(14.75rem, 15.25rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
+    "grid-template-columns: minmax(14rem, 14.5rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
+    "grid-template-columns: minmax(13.5rem, 14rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
+    "grid-template-columns: minmax(10.5rem, 12rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
     "grid-template-columns: minmax(13.5rem, 18rem) minmax(0, 1fr);",
     "display: grid;",
     "grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);",
@@ -161,6 +164,9 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "background: #f1f4f9;",
     "background: transparent;",
     "background: #ffffff;",
+    "background:",
+    "radial-gradient(circle at 18% 0%, rgba(92, 63, 214, 0.035), transparent 21rem),",
+    "linear-gradient(180deg, #fafbfe 0%, #f3f6fb 100%);",
     "padding: 0.7rem clamp(0.95rem, 1.45vw, 1.15rem) 0 1rem;",
     "padding: 0.9rem clamp(0.95rem, 1.45vw, 1.15rem) 0;",
     "grid-column: 3;",
@@ -912,8 +918,8 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(14\.75rem,\s*15\.25rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[^}]*\}/,
-  "Desktop/tablet Income Impact layout should reserve the reference-width scenario controls rail."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(10\.5rem,\s*12rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[^}]*\}/,
+  "Desktop/tablet Income Impact layout should give scenario controls the same width as the planning alerts rail."
 );
 assert.match(
   layoutSource,
@@ -924,6 +930,11 @@ assert.match(
   layoutSource,
   /body\[data-step="income-impact"\] \.income-impact-content-stack\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*\}/,
   "Income Impact main display should occupy the scrollable right content column."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-content-stack\s*\{[^}]*background:\s*radial-gradient\(circle at 18% 0%, rgba\(92,\s*63,\s*214,\s*0\.035\), transparent 21rem\),\s*linear-gradient\(180deg,\s*#fafbfe 0%,\s*#f3f6fb 100%\);[^}]*\}/,
+  "Income Impact main content surface should match the Client Directory main content background."
 );
 assert.match(
   layoutSource,
@@ -948,7 +959,7 @@ assert.match(
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(
   componentsSource,
-  /\.income-impact-controls-panel\s*\{[^}]*padding:\s*0;[^}]*background:\s*#ffffff;[^}]*border-left:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-top:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-right:\s*0;[^}]*border-bottom:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-radius:\s*0\.65rem 0 0 0\.65rem;[^}]*box-shadow:\s*inset -1px 0 0 rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*\}/,
+  /\.income-impact-controls-panel\s*\{[^}]*padding:\s*0;[^}]*background:\s*#ffffff;[^}]*border-left:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-top:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-right:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-bottom:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-radius:\s*0\.65rem 0 0 0\.65rem;[^}]*box-shadow:\s*inset -1px 0 0 rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*\}/,
   "Scenario controls rail should use the same side-column frame as the Client Directory views and filters column."
 );
 assert.match(
@@ -973,9 +984,10 @@ assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type
 assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field\[data-income-impact-death-age-control\],[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-field--lifestyle\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-scenario-field\[data-income-impact-death-age-control\] \.income-impact-scenario-section-label span,[\s\S]*\.income-impact-scenario-field--lifestyle \.income-impact-scenario-section-label span\s*\{[^}]*display:\s*none;/);
-assert.match(
+assert.doesNotMatch(
   componentsSource,
-  /\.income-impact-scenario-header::before\s*\{[\s\S]*background:\s*linear-gradient\(90deg,\s*var\(--income-impact-scenario-blue\),\s*#6366f1,\s*#7c3aed\);/
+  /\.income-impact-scenario-header::before/,
+  "Scenario controls should not render a blue top accent strip."
 );
 assert.match(
   componentsSource,
