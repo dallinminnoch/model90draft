@@ -397,28 +397,29 @@ assert.equal(fiveYearModel.trace.negativeValuesCompressFundedRunway, false);
   );
 }
 assert.deepEqual(
-  cloneJson(fiveYearModel.axes.y.ticks.map(function (tick) { return tick.zone; })),
-  ["fundedRunway", "fundedRunway", "fundedRunway", "fundedRunway", "zero", "deficit", "deficit"],
-  "Continuous runway y-axis ticks should keep funded, zero, and deficit labels on the same scale."
+  Array.from(new Set(fiveYearModel.axes.y.ticks.map(function (tick) { return tick.zone; }))),
+  ["fundedRunway", "zero", "deficit"],
+  "Continuous runway y-axis ticks should keep funded, zero, and deficit labels on the same axis."
 );
-assert.equal(
-  fiveYearModel.axes.y.ticks.filter(function (tick) { return tick.zone === "deficit"; }).length,
-  2,
-  "Deficit zone should show a midpoint and raw deficit max label without capped visual labels."
+const fundedTickSteps = fiveYearModel.axes.y.ticks
+  .filter(function (tick) { return tick.zone === "fundedRunway"; })
+  .map(function (tick) { return tick.trace.tickStep; });
+const deficitTickSteps = fiveYearModel.axes.y.ticks
+  .filter(function (tick) { return tick.zone === "deficit"; })
+  .map(function (tick) { return tick.trace.tickStep; });
+assert.ok(fundedTickSteps.length > 0, "Funded runway ticks should exist.");
+assert.ok(deficitTickSteps.length > 0, "Deficit ticks should exist.");
+assert.ok(
+  fundedTickSteps.concat(deficitTickSteps).every(function (step) {
+    return step === fundedTickSteps[0];
+  }),
+  "Funded and deficit ticks should use the same dollar increment above and below zero."
 );
-assert.deepEqual(
-  cloneJson(fiveYearModel.axes.y.ticks
-    .filter(function (tick) { return tick.zone === "fundedRunway"; })
-    .map(function (tick) { return tick.trace.tickRatio; })),
-  [1, 0.75, 0.5, 0.25],
-  "Funded runway ticks should expose predictable quarter sub-increments."
-);
-assert.deepEqual(
-  cloneJson(fiveYearModel.axes.y.ticks
-    .filter(function (tick) { return tick.zone === "deficit"; })
-    .map(function (tick) { return tick.trace.tickRatio; })),
-  [0.5, 1],
-  "Deficit ticks should expose a midpoint and the raw deficit max."
+assert.ok(
+  fiveYearModel.axes.y.ticks
+    .filter(function (tick) { return tick.zone === "fundedRunway" || tick.zone === "deficit"; })
+    .every(function (tick) { return tick.trace.sharedPositiveNegativeIncrement === true; }),
+  "Y-axis tick trace should identify the shared positive/negative increment contract."
 );
 assert.ok(
   fiveYearModel.axes.y.ticks
@@ -1153,15 +1154,19 @@ assertApproxEqual(
   hugeDeficitModel.axes.y.rawDeficitMax,
   "Deficit visual max should equal the raw deficit max on the continuous y-axis."
 );
-assert.equal(
-  Math.abs(hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).value),
-  hugeDeficitModel.axes.y.rawDeficitMax,
-  "Deficit axis label should use the raw multi-million accumulated deficit without visual compression."
+const hugeDeficitAxisTick = hugeDeficitModel.axes.y.ticks
+  .filter(function (tick) { return tick.zone === "deficit"; })
+  .at(-1);
+assert.ok(hugeDeficitAxisTick, "Huge deficit model should include deficit y-axis ticks.");
+assert.ok(
+  hugeDeficitModel.axes.y.rawDeficitMax > Math.abs(hugeDeficitAxisTick.value),
+  "Deficit axis labels may stop at the last shared increment below the raw deficit max."
 );
-assert.equal(
-  hugeDeficitModel.axes.y.ticks.find(function (tick) { return tick.key === "deficit-100"; }).rawValue,
-  -3000000,
-  "Deficit axis tick should retain raw deficit metadata."
+assert.ok(
+  hugeDeficitModel.axes.y.ticks
+    .filter(function (tick) { return tick.zone === "fundedRunway" || tick.zone === "deficit"; })
+    .every(function (tick) { return tick.trace.sharedPositiveNegativeIncrement === true; }),
+  "Large deficit y-axis labels should still use shared increments above and below zero."
 );
 const hugeDeficitRunway = hugeDeficitModel.series.appliedRunwayScenarios[0];
 const hugeDeficitFinalPoint = hugeDeficitRunway.deficitPoints.at(-1);

@@ -18810,6 +18810,74 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-weight: 820;
 }
 
+.income-impact-transition-outlook-annotation {
+  pointer-events: none;
+}
+
+.income-impact-transition-outlook-annotation__line {
+  stroke: rgba(15, 23, 42, 0.24);
+  stroke-linecap: round;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-transition-outlook-annotation__label-shell {
+  fill: #ffffff;
+  stroke: rgba(148, 163, 184, 0.4);
+  stroke-width: 1;
+  filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.08));
+  vector-effect: non-scaling-stroke;
+}
+
+.income-impact-transition-outlook-annotation__label {
+  fill: #475569;
+  font-size: 0.7rem;
+  font-weight: 820;
+  letter-spacing: 0.02em;
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="stable"] .income-impact-transition-outlook-annotation__line {
+  stroke: rgba(5, 150, 105, 0.34);
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="stable"] .income-impact-transition-outlook-annotation__label-shell {
+  fill: #ecfdf5;
+  stroke: rgba(5, 150, 105, 0.28);
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="stable"] .income-impact-transition-outlook-annotation__label {
+  fill: #047857;
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="caution"] .income-impact-transition-outlook-annotation__line,
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="atRisk"] .income-impact-transition-outlook-annotation__line {
+  stroke: rgba(217, 119, 6, 0.36);
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="caution"] .income-impact-transition-outlook-annotation__label-shell,
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="atRisk"] .income-impact-transition-outlook-annotation__label-shell {
+  fill: #fffbeb;
+  stroke: rgba(217, 119, 6, 0.28);
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="caution"] .income-impact-transition-outlook-annotation__label,
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="atRisk"] .income-impact-transition-outlook-annotation__label {
+  fill: #b45309;
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="likelyFailure"] .income-impact-transition-outlook-annotation__line {
+  stroke: rgba(220, 38, 38, 0.34);
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="likelyFailure"] .income-impact-transition-outlook-annotation__label-shell {
+  fill: #fef2f2;
+  stroke: rgba(220, 38, 38, 0.28);
+}
+
+.income-impact-transition-outlook-annotation[data-income-impact-transition-outlook-status="likelyFailure"] .income-impact-transition-outlook-annotation__label {
+  fill: #b91c1c;
+}
+
 .income-impact-death-line-anchor {
   cursor: pointer;
   pointer-events: all;

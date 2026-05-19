@@ -1643,44 +1643,64 @@
     return dividers;
   }
 
-  function getGraphHoverUnderlayPhase(point) {
-    return normalizeString(point?.hoverPhase) === "preDeath" ? "preDeath" : "postDeath";
-  }
-
-  function getGraphHoverUnderlayPhaseClass(phase) {
-    return phase === "preDeath" ? "pre-death" : "post-death";
-  }
-
-  function buildGraphHoverUnderTrendlineTintPath(startDivider, endDivider, plotBottom) {
-    if (!isPlainObject(startDivider) || !isPlainObject(endDivider)) {
+  function buildGraphAreaUnderSvgPath(points, pathMode, graphModel, plotBottom) {
+    const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX, graphModel);
+    if (plotPoints.length < 2) {
       return "";
     }
+    const normalizedPathMode = normalizeGraphPathMode(pathMode);
+    const trendlinePath = normalizedPathMode === "step"
+      ? buildStepSvgPath(plotPoints)
+      : normalizedPathMode === "linear"
+        ? buildLinearSvgPath(plotPoints)
+        : buildSmoothedSvgPath(plotPoints);
+    if (!trendlinePath) {
+      return "";
+    }
+    const first = plotPoints[0];
+    const last = plotPoints[plotPoints.length - 1];
     return [
-      `M${formatSvgCoordinate(startDivider.x)} ${formatSvgCoordinate(startDivider.pointY)}`,
-      `L${formatSvgCoordinate(endDivider.x)} ${formatSvgCoordinate(endDivider.pointY)}`,
-      `L${formatSvgCoordinate(endDivider.x)} ${formatSvgCoordinate(plotBottom)}`,
-      `L${formatSvgCoordinate(startDivider.x)} ${formatSvgCoordinate(plotBottom)}`,
+      trendlinePath,
+      `L${formatSvgCoordinate(last.x)} ${formatSvgCoordinate(plotBottom)}`,
+      `L${formatSvgCoordinate(first.x)} ${formatSvgCoordinate(plotBottom)}`,
       "Z"
     ].join(" ");
   }
 
-  function getGraphHoverUnderTrendlineTintSegments(intervals, dividers, plotBottom) {
-    if (!Array.isArray(intervals) || !Array.isArray(dividers) || dividers.length < 2) {
+  function getGraphHoverUnderTrendlineTintAreas(graphModel, plotBottom) {
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    if (!selectedSeries) {
       return [];
     }
-    return intervals.map(function (interval, index) {
-      const startDivider = dividers[index];
-      const endDivider = dividers[index + 1];
-      const phase = getGraphHoverUnderlayPhase(interval);
+    return [
+      {
+        phase: "preDeath",
+        phaseClass: "pre-death",
+        scenarioId: selectedSeries.scenarioId || "",
+        points: Array.isArray(selectedSeries.preDeathContextPoints) && selectedSeries.preDeathContextPoints.length
+          ? selectedSeries.preDeathContextPoints
+          : (Array.isArray(graphModel?.series?.preDeathAssets) ? graphModel.series.preDeathAssets : []),
+        pathMode: selectedSeries.preDeathPathMode || selectedSeries.pathMode
+      },
+      {
+        phase: "postDeath",
+        phaseClass: "post-death",
+        scenarioId: selectedSeries.scenarioId || "",
+        points: Array.isArray(selectedSeries.fundedRunwayPoints) && selectedSeries.fundedRunwayPoints.length
+          ? selectedSeries.fundedRunwayPoints
+          : (Array.isArray(selectedSeries.points) ? selectedSeries.points : []),
+        pathMode: selectedSeries.pathMode
+      }
+    ].map(function (area, index) {
       return {
         index,
-        phase,
-        phaseClass: getGraphHoverUnderlayPhaseClass(phase),
-        scenarioId: interval.scenarioId || startDivider?.scenarioId || endDivider?.scenarioId || "",
-        d: buildGraphHoverUnderTrendlineTintPath(startDivider, endDivider, plotBottom)
+        phase: area.phase,
+        phaseClass: area.phaseClass,
+        scenarioId: area.scenarioId,
+        d: buildGraphAreaUnderSvgPath(area.points, area.pathMode, graphModel, plotBottom)
       };
-    }).filter(function (segment) {
-      return Boolean(segment.d);
+    }).filter(function (area) {
+      return Boolean(area.d);
     });
   }
 
@@ -1716,7 +1736,7 @@
       return "";
     }
     const dividers = getGraphHoverDividers(intervals, hoverPoints);
-    const tintSegments = getGraphHoverUnderTrendlineTintSegments(intervals, dividers, plotBottom);
+    const tintSegments = getGraphHoverUnderTrendlineTintAreas(graphModel, plotBottom);
 
     return `
       <g class="income-impact-graph-hover-layer" data-income-impact-graph-hover-layer>
@@ -3902,6 +3922,47 @@
     `;
   }
 
+  function renderGraphTransitionOutlookAnnotation(timelineResult, graphModel) {
+    const outlook = getTransitionOutlook(timelineResult);
+    const status = normalizeTransitionOutlookStatus(outlook?.status);
+    const label = getTransitionOutlookCompactLabel(outlook?.status);
+    const frame = getGraphPlotFrame(graphModel);
+    const lineY = frame.plotTop + 20;
+    const labelY = lineY - 2;
+    const labelWidth = Math.max(70, Math.min(132, (label.length * 7.2) + 24));
+    const labelHeight = 24;
+    const labelX = frame.plotLeft + (frame.plotWidth / 2);
+    const lineInset = 18;
+    return `
+      <g class="income-impact-transition-outlook-annotation"
+        data-income-impact-transition-outlook-graph-annotation
+        data-income-impact-transition-outlook-status="${escapeHtml(status)}"
+        aria-label="90-Day Transition Outlook: ${escapeHtml(label)}">
+        <line
+          class="income-impact-transition-outlook-annotation__line"
+          data-income-impact-transition-outlook-annotation-line
+          x1="${formatSvgCoordinate(frame.plotLeft + lineInset)}"
+          x2="${formatSvgCoordinate(frame.plotRight - lineInset)}"
+          y1="${formatSvgCoordinate(lineY)}"
+          y2="${formatSvgCoordinate(lineY)}"></line>
+        <rect
+          class="income-impact-transition-outlook-annotation__label-shell"
+          data-income-impact-transition-outlook-annotation-label-shell
+          x="${formatSvgCoordinate(labelX - (labelWidth / 2))}"
+          y="${formatSvgCoordinate(labelY - labelHeight + 4)}"
+          width="${formatSvgCoordinate(labelWidth)}"
+          height="${formatSvgCoordinate(labelHeight)}"
+          rx="6"></rect>
+        <text
+          class="income-impact-transition-outlook-annotation__label"
+          data-income-impact-transition-outlook-annotation-label
+          x="${formatSvgCoordinate(labelX)}"
+          y="${formatSvgCoordinate(labelY - 4)}"
+          text-anchor="middle">${escapeHtml(label)}</text>
+      </g>
+    `;
+  }
+
   function renderGraphSvg(graphModel, timelineResult) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
@@ -3943,6 +4004,7 @@
         </g>
         ${renderGraphMarkers(graphModel)}
         ${renderComparisonMarkers(graphModel)}
+        ${renderGraphTransitionOutlookAnnotation(timelineResult, graphModel)}
         ${storylineEventDots}
       </svg>
     `;
@@ -4080,6 +4142,21 @@
         return "90-day cash gap";
       default:
         return "90-day outlook unavailable";
+    }
+  }
+
+  function getTransitionOutlookCompactLabel(status) {
+    switch (normalizeTransitionOutlookStatus(status)) {
+      case "stable":
+        return "Stable";
+      case "caution":
+        return "Caution";
+      case "atRisk":
+        return "At Risk";
+      case "likelyFailure":
+        return "Likely Failure";
+      default:
+        return "Unavailable";
     }
   }
 
