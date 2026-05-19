@@ -1,2 +1,0 @@
-Codex commit permission test.
-This file can be deleted after the test.
