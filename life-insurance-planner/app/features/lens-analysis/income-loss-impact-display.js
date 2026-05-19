@@ -4041,20 +4041,92 @@
     `;
   }
 
+  function getTransitionOutlook(timelineResult) {
+    if (isPlainObject(timelineResult?.transitionOutlook)) {
+      return timelineResult.transitionOutlook;
+    }
+    if (isPlainObject(timelineResult?.scenario?.transitionOutlook)) {
+      return timelineResult.scenario.transitionOutlook;
+    }
+    return null;
+  }
+
+  function normalizeTransitionOutlookStatus(value) {
+    const normalized = normalizeString(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (normalized === "stable") {
+      return "stable";
+    }
+    if (normalized === "caution") {
+      return "caution";
+    }
+    if (normalized === "atrisk") {
+      return "atRisk";
+    }
+    if (normalized === "likelyfailure") {
+      return "likelyFailure";
+    }
+    return "unavailable";
+  }
+
+  function getTransitionOutlookStatusCopy(status) {
+    switch (normalizeTransitionOutlookStatus(status)) {
+      case "stable":
+        return "90-day cash need covered";
+      case "caution":
+        return "Cash coverage is thin";
+      case "atRisk":
+        return "Cash shortfall likely";
+      case "likelyFailure":
+        return "90-day cash gap";
+      default:
+        return "90-day outlook unavailable";
+    }
+  }
+
+  function formatTransitionOutlookRatio(value) {
+    const number = toOptionalNumber(value);
+    return number == null ? UNAVAILABLE_COPY : `${number.toFixed(2)}x`;
+  }
+
+  function renderTransitionOutlookReadout(timelineResult) {
+    const outlook = getTransitionOutlook(timelineResult);
+    const status = normalizeTransitionOutlookStatus(outlook?.status);
+    const statusCopy = getTransitionOutlookStatusCopy(outlook?.status);
+    return `
+      <div class="income-impact-resource-outlook__placeholder"
+        data-income-impact-transition-outlook
+        data-income-impact-transition-outlook-status="${escapeHtml(status)}">
+        <span>90-day status</span>
+        <strong data-income-impact-transition-outlook-primary>${escapeHtml(statusCopy)}</strong>
+        <p>Cash and emergency fund only.</p>
+      </div>
+      <div class="income-impact-resource-outlook__placeholder" data-income-impact-transition-outlook-metric="fast-access-cash">
+        <span>Fast-access cash</span>
+        <strong data-income-impact-transition-outlook-fast-access>${escapeHtml(formatCurrency(outlook?.fastAccessResources))}</strong>
+        <p>Cash and emergency fund currently counted for the first 90 days.</p>
+      </div>
+      <div class="income-impact-resource-outlook__placeholder" data-income-impact-transition-outlook-metric="need">
+        <span>90-day need</span>
+        <strong data-income-impact-transition-outlook-need>${escapeHtml(formatCurrency(outlook?.transitionNeed90Days))}</strong>
+        <p>First three post-death months of survivor needs and scheduled obligations.</p>
+      </div>
+      <div class="income-impact-resource-outlook__placeholder" data-income-impact-transition-outlook-metric="coverage-ratio">
+        <span>Coverage ratio</span>
+        <strong data-income-impact-transition-outlook-ratio>${escapeHtml(formatTransitionOutlookRatio(outlook?.fastAccessCoverageRatio))}</strong>
+        <p>Excludes life insurance proceeds, brokerage, retirement, home equity, business value, and other delayed or illiquid assets.</p>
+      </div>
+    `;
+  }
+
   function renderResourceOutlookPanel(timelineResult) {
-    const primaryPathLabel = getPrimaryGraphPathLabel(timelineResult, "Current scenario projection");
     return `
       <section class="income-impact-resource-outlook" data-income-impact-resource-outlook>
         <div class="income-impact-resource-outlook__header">
           <span>Resource Outlook</span>
-          <strong>Remaining resources</strong>
-          <p>Scenario effects on projected survivor resources.</p>
+          <strong>90-Day Transition Outlook</strong>
+          <p>Can the household cover the first 90 days using cash and emergency fund only?</p>
         </div>
-        <div class="income-impact-resource-outlook__placeholder" data-income-impact-resource-outlook-placeholder>
-          <span>Selected scenario</span>
-          <strong>${escapeHtml(primaryPathLabel)}</strong>
-          <p>Adjust scenario controls, then reevaluate to compare the projected runway.</p>
-        </div>
+        ${renderTransitionOutlookReadout(timelineResult)}
       </section>
     `;
   }

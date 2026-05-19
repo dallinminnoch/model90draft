@@ -872,6 +872,17 @@ const fixture = {
       resourcesAfterObligations: 720000,
       monthsCovered: 144,
       depletionDate: "2043-04-29"
+    },
+    transitionOutlook: {
+      windowDays: 90,
+      windowMonths: 3,
+      status: "Stable",
+      fastAccessResources: 125000,
+      nearTermResources: 250000,
+      excludedResources: 900000,
+      transitionNeed90Days: 100000,
+      fastAccessCoverageRatio: 1.25,
+      nearTermCoverageRatio: 3.75
     }
   },
   riskEvaluation: {
@@ -2178,7 +2189,48 @@ harness.renderIncomeImpact(host, { timelineResult: fixture });
 assert.match(host.innerHTML, /data-income-impact-summary-strip/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /data-income-impact-resource-outlook/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /Resource Outlook/);
-assert.match(harness.resourceOutlookPanel.innerHTML, /Remaining resources/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /90-Day Transition Outlook/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /Can the household cover the first 90 days using cash and emergency fund only\?/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /data-income-impact-transition-outlook/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /90-day cash need covered/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /Fast-access cash[\s\S]*\$125,000/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /90-day need[\s\S]*\$100,000/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /Coverage ratio[\s\S]*1\.25x/);
+assert.match(
+  harness.resourceOutlookPanel.innerHTML,
+  /Excludes life insurance proceeds, brokerage, retirement, home equity, business value, and other delayed or illiquid assets\./
+);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-transition-outlook/);
+assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /data-income-impact-transition-outlook-near-term|nearTermResources|nearTermCoverageRatio|excludedResources/);
+assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /\$250,000|\$900,000/);
+assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /life insurance proceeds included|existing coverage included/i);
+assert.doesNotMatch(
+  `${host.innerHTML}\n${harness.resourceOutlookPanel.innerHTML}`,
+  /data-income-impact-transition-band|data-income-impact-transition-marker|data-income-impact-transition-slider|Transition period after death|transitionPeriodMonths|data-analysis-survivor-transition/
+);
+[
+  ["Stable", "90-day cash need covered"],
+  ["Caution", "Cash coverage is thin"],
+  ["At Risk", "Cash shortfall likely"],
+  ["Likely Failure", "90-day cash gap"],
+  ["insufficientData", "90-day outlook unavailable"],
+  ["not-available", "90-day outlook unavailable"]
+].forEach(function ([status, copy]) {
+  const statusHost = { innerHTML: "" };
+  harness.renderIncomeImpact(statusHost, {
+    timelineResult: {
+      ...fixture,
+      scenario: {
+        ...fixture.scenario,
+        transitionOutlook: {
+          ...fixture.scenario.transitionOutlook,
+          status
+        }
+      }
+    }
+  });
+  assert.match(harness.resourceOutlookPanel.innerHTML, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
 assert.match(host.innerHTML, /data-income-impact-story-chart-card/);
 assert.match(host.innerHTML, /data-income-impact-financial-security-card/);
 assert.doesNotMatch(host.innerHTML, /Existing coverage \+ available assets|divided by estimated annual household shortfall|Partial runway estimate|Time until available assets are projected to reach zero|This estimate uses the available saved facts|How long available resources are projected to last after death/);
