@@ -350,6 +350,33 @@ function isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath)
     && diagnosticCheckProvesGraphContract;
 }
 
+function isAllowedIncomeLossImpactTransitionBandRendererDiff(filePath) {
+  if (filePath !== "app/features/lens-analysis/income-loss-impact-display.js"
+    && filePath !== "checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
+    return false;
+  }
+
+  const displayDiff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
+  const visualCheckDiff = getGitDiff("checks/lens-analysis/income-loss-impact-visual-timeline-check.js");
+
+  const displayRendersTransitionBand = displayDiff.includes("getGraphTransitionBridgePoints")
+    && displayDiff.includes("renderGraphTransitionPeriodBand")
+    && displayDiff.includes("data-income-impact-transition-band")
+    && displayDiff.includes("data-income-impact-transition-bridge-start-x")
+    && displayDiff.includes("data-income-impact-transition-bridge-end-x")
+    && displayDiff.includes("data-income-impact-transition-band-label")
+    && displayDiff.includes("Transition period");
+
+  const visualCheckProvesTransitionBand = visualCheckDiff.includes("0-month transition should not render a transition band")
+    && visualCheckDiff.includes("data-income-impact-transition-band")
+    && visualCheckDiff.includes("Transition band should start at the bridge start/death marker")
+    && visualCheckDiff.includes("Transition band should end at the visual bridge end")
+    && visualCheckDiff.includes("Transition band should render behind primary graph paths and markers")
+    && visualCheckDiff.includes("data-income-impact-transition-band-label");
+
+  return displayRendersTransitionBand && visualCheckProvesTransitionBand;
+}
+
 function isAllowedStepThreeTreatedSupportDisplay(filePath) {
   if (filePath !== "app/features/lens-analysis/step-three-analysis-display.js") {
     return false;
@@ -553,6 +580,9 @@ function assertNoProtectedDiffs() {
       return false;
     }
     if (isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath)) {
+      return false;
+    }
+    if (isAllowedIncomeLossImpactTransitionBandRendererDiff(filePath)) {
       return false;
     }
     if (isAllowedStepThreeTreatedSupportDisplay(filePath)) {

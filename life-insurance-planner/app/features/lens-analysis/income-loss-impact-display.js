@@ -4052,6 +4052,103 @@
     `;
   }
 
+  function getGraphTransitionBridgePoints(graphModel) {
+    const explicitBridgePoints = Array.isArray(graphModel?.series?.transitionBridge)
+      ? graphModel.series.transitionBridge
+      : (Array.isArray(graphModel?.series?.transitionBridgePoints)
+        ? graphModel.series.transitionBridgePoints
+        : []);
+    if (explicitBridgePoints.length >= 2) {
+      return explicitBridgePoints;
+    }
+
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    const selectedBridgePoints = Array.isArray(selectedSeries?.transitionBridgePoints)
+      ? selectedSeries.transitionBridgePoints
+      : [];
+    if (selectedBridgePoints.length >= 2) {
+      return selectedBridgePoints;
+    }
+
+    return (Array.isArray(selectedSeries?.fundedRunwayPoints) ? selectedSeries.fundedRunwayPoints : [])
+      .filter(function (point) {
+        return point?.transitionBridge === true;
+      });
+  }
+
+  function renderGraphTransitionPeriodBand(graphModel) {
+    const transitionMonths = getGraphTransitionPeriodMonths(graphModel);
+    if (transitionMonths <= 0) {
+      return "";
+    }
+
+    const bridgePoints = getGraphTransitionBridgePoints(graphModel);
+    if (bridgePoints.length < 2) {
+      return "";
+    }
+
+    const startPoint = bridgePoints[0];
+    const endPoint = bridgePoints[bridgePoints.length - 1];
+    const startX = toGraphX(startPoint.xRatio, graphModel, startPoint);
+    const endX = toGraphX(endPoint.xRatio, graphModel, endPoint);
+    const bandX = Math.min(startX, endX);
+    const bandWidth = Math.abs(endX - startX);
+    if (!Number.isFinite(bandWidth) || bandWidth < 1) {
+      return "";
+    }
+
+    const frame = getGraphPlotFrame(graphModel);
+    const labelX = clampNumber(bandX + (bandWidth / 2), frame.plotLeft + 56, frame.plotRight - 56);
+    const labelY = frame.plotTop + 18;
+    return `
+      <g
+        class="income-impact-graph-transition-band"
+        data-income-impact-transition-band
+        data-income-impact-transition-months="${escapeHtml(transitionMonths)}"
+        data-income-impact-transition-bridge-start-x="${escapeHtml(startX)}"
+        data-income-impact-transition-bridge-end-x="${escapeHtml(endX)}"
+        data-income-impact-transition-band-x="${escapeHtml(bandX)}"
+        data-income-impact-transition-band-width="${escapeHtml(bandWidth)}"
+        aria-label="Transition period"
+      >
+        <rect
+          data-income-impact-transition-band-rect
+          x="${formatSvgCoordinate(bandX)}"
+          y="${formatSvgCoordinate(frame.plotTop)}"
+          width="${formatSvgCoordinate(bandWidth)}"
+          height="${formatSvgCoordinate(frame.plotHeight)}"
+          rx="0"
+          fill="#eef2ff"
+          fill-opacity="0.44"
+          stroke="#c7d2fe"
+          stroke-opacity="0.72"
+          stroke-width="1"
+        ></rect>
+        <line
+          data-income-impact-transition-band-end
+          x1="${formatSvgCoordinate(endX)}"
+          y1="${formatSvgCoordinate(frame.plotTop)}"
+          x2="${formatSvgCoordinate(endX)}"
+          y2="${formatSvgCoordinate(frame.plotBottom)}"
+          stroke="#a5b4fc"
+          stroke-opacity="0.78"
+          stroke-width="1"
+          stroke-dasharray="4 5"
+        ></line>
+        <text
+          data-income-impact-transition-band-label
+          x="${formatSvgCoordinate(labelX)}"
+          y="${formatSvgCoordinate(labelY)}"
+          text-anchor="middle"
+          fill="#4f46e5"
+          font-size="11"
+          font-weight="700"
+          letter-spacing="0"
+        >Transition period</text>
+      </g>
+    `;
+  }
+
   function renderGraphSvg(graphModel, timelineResult) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
@@ -4079,6 +4176,7 @@
       >
         ${renderGraphHoverUnderlayGradient()}
         ${renderGraphPhases(graphModel)}
+        ${renderGraphTransitionPeriodBand(graphModel)}
         ${renderGraphAxis(graphModel)}
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}

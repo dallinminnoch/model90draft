@@ -703,6 +703,39 @@ function assertNoForbiddenSourceChanges() {
       && diagnosticCheckProvesGraphContract;
   }
 
+  function isAllowedIncomeLossImpactTransitionBandRendererDiff(filePath) {
+    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"
+      && filePath !== "life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
+      return false;
+    }
+
+    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const visualCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    const displayRendersTransitionBand = displayDiff.includes("getGraphTransitionBridgePoints")
+      && displayDiff.includes("renderGraphTransitionPeriodBand")
+      && displayDiff.includes("data-income-impact-transition-band")
+      && displayDiff.includes("data-income-impact-transition-bridge-start-x")
+      && displayDiff.includes("data-income-impact-transition-bridge-end-x")
+      && displayDiff.includes("data-income-impact-transition-band-label")
+      && displayDiff.includes("Transition period");
+
+    const visualCheckProvesTransitionBand = visualCheckDiff.includes("0-month transition should not render a transition band")
+      && visualCheckDiff.includes("data-income-impact-transition-band")
+      && visualCheckDiff.includes("Transition band should start at the bridge start/death marker")
+      && visualCheckDiff.includes("Transition band should end at the visual bridge end")
+      && visualCheckDiff.includes("Transition band should render behind primary graph paths and markers")
+      && visualCheckDiff.includes("data-income-impact-transition-band-label");
+
+    return displayRendersTransitionBand && visualCheckProvesTransitionBand;
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -887,6 +920,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath)
       && !isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff(filePath)
       && !isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath)
+      && !isAllowedIncomeLossImpactTransitionBandRendererDiff(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)

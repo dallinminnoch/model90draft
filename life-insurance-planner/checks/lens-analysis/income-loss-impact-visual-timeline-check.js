@@ -579,6 +579,10 @@ assert.match(
 );
 
 assert.match(displaySource, /data-income-impact-graph-svg/);
+assert.match(displaySource, /renderGraphTransitionPeriodBand/);
+assert.match(displaySource, /data-income-impact-transition-band/);
+assert.match(displaySource, /data-income-impact-transition-band-label/);
+assert.match(displaySource, /Transition period/);
 assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
 assert.match(displaySource, /deficitPoints/);
@@ -1150,6 +1154,25 @@ assert.doesNotMatch(
   };
   const transitionHtml = harness.renderTimeline(transitionFixture);
   const transitionPath = getPathD(transitionHtml, "data-income-impact-graph-path", "postDeathResources");
+  const transitionBandTag = getSvgTag(transitionHtml, "g", "data-income-impact-transition-band");
+  const transitionBandRectTag = getSvgTag(transitionHtml, "rect", "data-income-impact-transition-band-rect");
+  assert.match(transitionHtml, /data-income-impact-transition-band-label[\s\S]*>Transition period<\/text>/);
+  assert.equal(
+    getSvgNumericAttribute(transitionBandTag, "data-income-impact-transition-bridge-start-x"),
+    185,
+    "Transition band should start at the bridge start/death marker."
+  );
+  assert.equal(
+    getSvgNumericAttribute(transitionBandTag, "data-income-impact-transition-bridge-end-x"),
+    304,
+    "Transition band should end at the visual bridge end."
+  );
+  assert.equal(getSvgNumericAttribute(transitionBandRectTag, "x"), 185);
+  assert.equal(getSvgNumericAttribute(transitionBandRectTag, "width"), 119);
+  assert.ok(
+    transitionHtml.indexOf("data-income-impact-transition-band") < transitionHtml.indexOf("data-income-impact-graph-series"),
+    "Transition band should render behind primary graph paths and markers."
+  );
   assert.match(
     transitionPath,
     /^M185 36 L304 36 L324 42 L781 265$/,
@@ -1195,6 +1218,11 @@ assert.doesNotMatch(
     ...fixture,
     graphModel: zeroTransitionGraphModel
   });
+  assert.doesNotMatch(
+    zeroTransitionHtml,
+    /data-income-impact-transition-band/,
+    "0-month transition should not render a transition band."
+  );
   const zeroTransitionPath = getPathD(zeroTransitionHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     zeroTransitionPath,
