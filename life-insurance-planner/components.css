@@ -21166,15 +21166,21 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   height: 1.08rem;
   flex: 0 0 auto;
   filter: brightness(0) invert(1);
+  transform: scale(1);
+  transform-origin: center;
 }
 
 .income-impact-reevaluate-button[data-income-impact-reevaluate-state="reevaluating"] img {
-  animation: income-impact-reevaluate-spin 0.85s linear infinite;
+  animation: income-impact-reevaluate-spin 0.75s linear both;
 }
 
 @keyframes income-impact-reevaluate-spin {
+  from {
+    transform: scale(1.18) rotate(0deg);
+  }
+
   to {
-    transform: rotate(360deg);
+    transform: scale(1.18) rotate(360deg);
   }
 }
 

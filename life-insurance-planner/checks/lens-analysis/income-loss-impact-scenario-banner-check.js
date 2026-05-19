@@ -782,6 +782,12 @@ function createHarness() {
         timer.callback();
       });
     },
+    flushNextReevaluateTimer() {
+      const timer = reevaluateTimers.shift();
+      if (timer) {
+        timer.callback();
+      }
+    },
     getScenarioComparisonStateSnapshot() {
       return cloneJson(
         sandbox.window.LensApp.lensAnalysis.incomeLossImpactDisplay.getScenarioComparisonStateSnapshot()
@@ -1001,9 +1007,12 @@ assert.match(componentsSource, /\.income-impact-lifestyle-slider-labels/);
 assert.match(componentsSource, /\.income-impact-toggle input:checked \+ span::after/);
 assert.match(componentsSource, /\.income-impact-reevaluate-button\s*\{[^}]*font-size:\s*0\.92rem;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-reevaluate-button img\s*\{[^}]*order:\s*2;[^}]*width:\s*1\.08rem;[^}]*height:\s*1\.08rem;[^}]*filter:\s*brightness\(0\) invert\(1\);[^}]*\}/);
-assert.match(componentsSource, /data-income-impact-reevaluate-state="reevaluating"[\s\S]*animation:\s*income-impact-reevaluate-spin 0\.85s linear infinite;/);
-assert.match(displaySource, /REEVALUATE_GRAPH_UPDATE_DELAY_MS\s*=\s*1500/);
+assert.match(componentsSource, /data-income-impact-reevaluate-state="reevaluating"[\s\S]*animation:\s*income-impact-reevaluate-spin 0\.75s linear both;/);
+assert.match(componentsSource, /@keyframes income-impact-reevaluate-spin[\s\S]*transform:\s*scale\(1\.18\) rotate\(360deg\);/);
+assert.match(displaySource, /REEVALUATE_SPIN_DURATION_MS\s*=\s*750/);
+assert.match(displaySource, /REEVALUATE_GRAPH_UPDATE_DELAY_MS\s*=\s*50/);
 assert.match(displaySource, /scheduleReevaluate\(applyReevaluate,\s*REEVALUATE_GRAPH_UPDATE_DELAY_MS\)/);
+assert.match(displaySource, /scheduleReevaluate\(markReevaluateSpinComplete,\s*REEVALUATE_SPIN_DURATION_MS\)/);
 assert.match(displaySource, /getDraftLifestyleMonthlyDeltaLabel/);
 assert.match(displaySource, /formatSignedMonthlyAmount\(monthlyDelta\)/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
@@ -1171,16 +1180,20 @@ assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-l
 
 harness.reevaluateButton.listeners.click();
 assert.equal(harness.composerCalls.length, 1, "Reevaluate should delay graph recomposition before applying draft death age.");
-assert.equal(harness.reevaluateTimers.at(-1).delay, 1500, "Reevaluate should wait 1.5 seconds before updating the graph.");
+assert.equal(harness.reevaluateTimers.at(-2).delay, 50, "Reevaluate should start the graph update while the icon is still spinning.");
+assert.equal(harness.reevaluateTimers.at(-1).delay, 750, "Reevaluate should keep the icon state active for the 0.75 second spin.");
 assert.equal(harness.reevaluateButton.disabled, true);
 assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluate-state"), "reevaluating");
 assert.equal(harness.reevaluateControl.getAttribute("data-income-impact-reevaluate-state"), "reevaluating");
 assert.equal(harness.reevaluateAction.textContent, "Updating graph");
 assert.equal(harness.draftStatus.textContent, "Updating");
-harness.flushReevaluateTimers();
-assert.equal(harness.composerCalls.length, 2, "Reevaluate should apply draft death age.");
+harness.flushNextReevaluateTimer();
+assert.equal(harness.composerCalls.length, 2, "Reevaluate should apply draft death age before the spin completes.");
 assert.equal(harness.riskEvaluatorCalls.length, 2);
 assert.equal(harness.graphModelCalls.length, 2);
+assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluate-state"), "reevaluating");
+assert.equal(harness.reevaluateAction.textContent, "Updating graph");
+harness.flushNextReevaluateTimer();
 assert.equal(harness.composerCalls[1].selectedDeathAge, 50);
 assert.equal(harness.composerCalls[1].selectedDeathDate, "2030-06-15");
 draftState = harness.getScenarioComparisonStateSnapshot();

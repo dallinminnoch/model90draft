@@ -30,7 +30,8 @@
     "income-impact-display-auto-compressed-baseline-bridge";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
-  const REEVALUATE_GRAPH_UPDATE_DELAY_MS = 1500;
+  const REEVALUATE_SPIN_DURATION_MS = 750;
+  const REEVALUATE_GRAPH_UPDATE_DELAY_MS = 50;
   const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
   const LIFESTYLE_SLIDER_LABELS = Object.freeze({
     conservative: "Conservative",
@@ -1662,7 +1663,6 @@
       commands.push(`L${formatSvgCoordinate(point.x)} ${formatSvgCoordinate(point.y)}`);
     });
     commands.push(`L${formatSvgCoordinate(last.x)} ${formatSvgCoordinate(zeroY)}`);
-    commands.push("Z");
     return commands.join(" ");
   }
 
@@ -3284,6 +3284,10 @@
         yRatio,
         value: getSeriesPointValue(depletionPoint),
         date: normalizeString(depletionPoint.date),
+        monthIndex: toOptionalNumber(depletionPoint.monthIndex),
+        relativeMonthsFromDeath: toOptionalNumber(depletionPoint.relativeMonthsFromDeath),
+        relativeYearsFromDeath: toOptionalNumber(depletionPoint.relativeYearsFromDeath),
+        phase: normalizeString(depletionPoint.phase),
         selected: selectedId ? scenarioId === selectedId : series.selected === true
       };
     }).filter(Boolean);
@@ -7416,21 +7420,38 @@
         setScenarioReevaluating(true);
         updateScenarioControls(incomeImpactState.latestTimelineResult);
 
+        let hasAppliedReevaluate = false;
+        let hasCompletedReevaluateSpin = false;
+        const finishReevaluateWhenReady = function () {
+          if (!hasAppliedReevaluate || !hasCompletedReevaluateSpin || !incomeImpactState) {
+            return;
+          }
+
+          setScenarioReevaluating(false);
+          updateScenarioControls(incomeImpactState.latestTimelineResult);
+        };
+        const markReevaluateSpinComplete = function () {
+          hasCompletedReevaluateSpin = true;
+          finishReevaluateWhenReady();
+        };
         const applyReevaluate = function () {
           if (!incomeImpactState) {
             return;
           }
 
-          setScenarioReevaluating(false);
           applyDraftScenarioControlsToRuntimeState(incomeImpactState);
           invalidateIncomeImpactBaseRenderCache();
           renderIncomeImpactFromState();
+          hasAppliedReevaluate = true;
+          finishReevaluateWhenReady();
         };
         const scheduleReevaluate = getReevaluateScheduler();
         if (scheduleReevaluate) {
           scheduleReevaluate(applyReevaluate, REEVALUATE_GRAPH_UPDATE_DELAY_MS);
+          scheduleReevaluate(markReevaluateSpinComplete, REEVALUATE_SPIN_DURATION_MS);
         } else {
           applyReevaluate();
+          markReevaluateSpinComplete();
         }
       });
     }
