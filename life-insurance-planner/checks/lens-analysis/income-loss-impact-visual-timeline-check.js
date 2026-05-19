@@ -916,7 +916,7 @@ assert.match(timelineHtml, /data-income-impact-transition-outlook-status="stable
 assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-line/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-label/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-window-months="3"/);
-assert.match(timelineHtml, />Stable<\/text>/);
+assert.match(timelineHtml, />First 3 Months: Stable<\/text>/);
 const transitionOutlookLineTag = getSvgTag(timelineHtml, "line", "data-income-impact-transition-outlook-annotation-line");
 const transitionOutlookLineStartX = getSvgNumericAttribute(transitionOutlookLineTag, "x1");
 const transitionOutlookLineEndX = getSvgNumericAttribute(transitionOutlookLineTag, "x2");
@@ -973,11 +973,11 @@ assert.doesNotMatch(
 );
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 [
-  ["Caution", "caution", "Caution"],
-  ["at-risk", "atRisk", "At Risk"],
-  ["likely-failure", "likelyFailure", "Likely Failure"],
-  ["insufficientData", "unavailable", "Unavailable"],
-  ["not-available", "unavailable", "Unavailable"]
+  ["Caution", "caution", "First 3 Months: Caution"],
+  ["at-risk", "atRisk", "First 3 Months: At Risk"],
+  ["likely-failure", "likelyFailure", "First 3 Months: Likely Failure"],
+  ["insufficientData", "unavailable", "First 3 Months: Unavailable"],
+  ["not-available", "unavailable", "First 3 Months: Unavailable"]
 ].forEach(function ([status, normalizedStatus, label]) {
   const statusTimelineHtml = harness.renderTimeline({
     ...fixture,
@@ -1002,7 +1002,7 @@ const noOutlookTimelineHtml = harness.renderTimeline({
     transitionOutlook: null
   }
 });
-assert.match(noOutlookTimelineHtml, /data-income-impact-transition-outlook-status="unavailable"[\s\S]*>Unavailable<\/text>/);
+assert.match(noOutlookTimelineHtml, /data-income-impact-transition-outlook-status="unavailable"[\s\S]*>First 3 Months: Unavailable<\/text>/);
 assert.equal(
   getPathD(noOutlookTimelineHtml, "data-income-impact-graph-path", "postDeathResources"),
   getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources"),
@@ -2282,7 +2282,7 @@ assert.match(
   /Excludes life insurance proceeds, brokerage, retirement, home equity, business value, and other delayed or illiquid assets\./
 );
 assert.match(host.innerHTML, /data-income-impact-transition-outlook-graph-annotation/);
-assert.match(host.innerHTML, /data-income-impact-transition-outlook-status="stable"[\s\S]*>Stable<\/text>/);
+assert.match(host.innerHTML, /data-income-impact-transition-outlook-status="stable"[\s\S]*>First 3 Months: Stable<\/text>/);
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /data-income-impact-transition-outlook-near-term|nearTermResources|nearTermCoverageRatio|excludedResources/);
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /\$250,000|\$900,000/);
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /life insurance proceeds included|existing coverage included/i);

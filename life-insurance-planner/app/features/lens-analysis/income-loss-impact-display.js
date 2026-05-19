@@ -4080,11 +4080,12 @@
   function renderGraphTransitionOutlookAnnotation(timelineResult, graphModel) {
     const outlook = getTransitionOutlook(timelineResult);
     const status = normalizeTransitionOutlookStatus(outlook?.status);
-    const label = getTransitionOutlookCompactLabel(outlook?.status);
+    const statusLabel = getTransitionOutlookCompactLabel(outlook?.status);
+    const label = `First 3 Months: ${statusLabel}`;
     const frame = getGraphPlotFrame(graphModel);
     const lineY = frame.plotTop + 20;
     const labelY = lineY + 4;
-    const labelWidth = Math.max(70, Math.min(132, (label.length * 7.2) + 24));
+    const labelWidth = Math.max(152, Math.min(240, (label.length * 7.2) + 24));
     const labelHeight = 24;
     const windowMonths = Math.max(1, toOptionalNumber(outlook?.windowMonths) ?? 3);
     const lineStartX = resolveGraphMonthX(graphModel, 0);
