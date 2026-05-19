@@ -4087,6 +4087,34 @@ body.clients-page *::-webkit-scrollbar-corner {
   background: transparent;
 }
 
+body[data-step="income-impact"],
+body[data-step="income-impact"] * {
+  scrollbar-color: #e5e7eb transparent;
+  scrollbar-width: thin;
+}
+
+body[data-step="income-impact"]::-webkit-scrollbar,
+body[data-step="income-impact"] *::-webkit-scrollbar {
+  width: 1px;
+  height: 1px;
+}
+
+body[data-step="income-impact"]::-webkit-scrollbar-track,
+body[data-step="income-impact"] *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body[data-step="income-impact"]::-webkit-scrollbar-thumb,
+body[data-step="income-impact"] *::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 999px;
+}
+
+body[data-step="income-impact"]::-webkit-scrollbar-corner,
+body[data-step="income-impact"] *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .client-directory-side-panel-title {
   display: flex;
   position: sticky;

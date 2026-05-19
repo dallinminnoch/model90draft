@@ -703,6 +703,10 @@ assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-
 assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*justify-content:\s*space-between;/);
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*color:\s*#8a97b0;[\s\S]*font-family:\s*"Inter",\s*sans-serif;/);
+assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar\s*\{[\s\S]*width:\s*1px;[\s\S]*height:\s*1px;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar-thumb,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar-thumb\s*\{[\s\S]*background:\s*#e5e7eb;[\s\S]*border-radius:\s*999px;/);
 assert.match(componentsSource, /\.income-impact-major-story__list[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(8\.2rem,\s*1fr\)\);/);
 assert.match(componentsSource, /\.income-impact-major-story-card[\s\S]*border-top:\s*0\.18rem solid #94a3b8;/);
 assert.match(componentsSource, /\.income-impact-major-story-card--severity-critical[\s\S]*border-top-color:\s*#dc2626;/);
