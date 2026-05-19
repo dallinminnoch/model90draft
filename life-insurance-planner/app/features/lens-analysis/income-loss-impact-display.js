@@ -6419,13 +6419,18 @@
   }
 
   function summarizeSurvivorDiagnosticTransitionBridge(graphModel) {
-    const bridgePoints = Array.isArray(graphModel?.series?.transitionBridgePoints)
-      ? graphModel.series.transitionBridgePoints
-      : [];
+    const bridgePoints = Array.isArray(graphModel?.series?.transitionBridge)
+      ? graphModel.series.transitionBridge
+      : (Array.isArray(graphModel?.series?.transitionBridgePoints)
+        ? graphModel.series.transitionBridgePoints
+        : []);
     const mappedPoints = pickSurvivorDiagnosticGraphPoints(bridgePoints, bridgePoints.length || 2, graphModel);
     const firstBridgePoint = mappedPoints[0] || null;
     const lastBridgePoint = mappedPoints.length ? mappedPoints[mappedPoints.length - 1] : null;
     return {
+      source: Array.isArray(graphModel?.series?.transitionBridge)
+        ? "series.transitionBridge"
+        : (Array.isArray(graphModel?.series?.transitionBridgePoints) ? "series.transitionBridgePoints" : null),
       pointCount: bridgePoints.length,
       points: mappedPoints,
       startX: toOptionalNumber(firstBridgePoint?.x),
@@ -6476,6 +6481,7 @@
       transitionBridgeStartX: bridgeSummary.startX,
       transitionBridgeEndX: bridgeSummary.endX,
       transitionBridgeVisible: bridgeSummary.visible,
+      transitionBridgeSource: bridgeSummary.source,
       transitionBridgePoints: bridgeSummary.points,
       firstPointValue: primaryFirstValue,
       lastPointValue: primaryLastValue,

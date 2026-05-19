@@ -420,11 +420,16 @@ function assertNoProtectedDiffs() {
       && diff.includes("transitionBridgeVisible")
       && diff.includes("rawMonthIndex")
       && diff.includes("visualMonthIndex");
+    const diagnosticTransitionBridgeSourceDiff = diff.includes("transitionBridgeSource")
+      && diff.includes("series.transitionBridge")
+      && diff.includes("series.transitionBridgePoints")
+      && diff.includes("transitionBridgeVisible");
     return originalDiagnosticDiff
       || diagnosticDepthDiff
       || diagnosticLifestyleComparisonDiff
       || diagnosticLifestyleShapeDiff
-      || diagnosticRenderedCoordinateDiff;
+      || diagnosticRenderedCoordinateDiff
+      || diagnosticTransitionBridgeSourceDiff;
   }
 
   function isAllowedAssetDepletionLedgerSurplusDepositPass(filePath) {

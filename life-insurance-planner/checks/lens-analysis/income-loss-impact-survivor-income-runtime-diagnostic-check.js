@@ -482,7 +482,7 @@ function createHarness(options = {}) {
               },
               series: {
                 postDeathResources: points,
-                transitionBridgePoints,
+                transitionBridge: transitionBridgePoints,
                 comparisonPostDeathResources,
                 appliedRunwayScenarios: [
                   {
@@ -591,6 +591,7 @@ assert.equal(snapshot.currentRendered.graph.primaryRenderSource, "appliedRunwayS
 assert.equal(snapshot.currentRendered.graph.primaryPathId, "postDeathResources");
 assert.match(snapshot.currentRendered.graph.primaryPathD, /^M/);
 assert.equal(snapshot.currentRendered.graph.transitionBridgeVisible, true);
+assert.equal(snapshot.currentRendered.graph.transitionBridgeSource, "series.transitionBridge");
 assert.ok(snapshot.currentRendered.graph.transitionBridgeEndX > snapshot.currentRendered.graph.transitionBridgeStartX);
 assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[0].transitionBridge, true);
 assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[0].visualMonthIndex, 0);
