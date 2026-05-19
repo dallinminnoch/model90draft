@@ -393,25 +393,10 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("netUseAfterDelay")
       && diff.includes("endingResourcesAfterDelay");
     const diagnosticLifestyleShapeDiff = diff.includes("lifestyleComparison: clonePlainValue(currentRendered.lifestyleComparison || { active: false })");
-    const diagnosticRenderedCoordinateDiff = diff.includes("primaryRenderSource")
-      && diff.includes("appliedRunwayScenarios.fundedRunwayPoints")
-      && diff.includes("primaryPathD")
-      && diff.includes("firstRenderedGraphPoints")
-      && diff.includes("transitionBridgeStartX")
-      && diff.includes("transitionBridgeEndX")
-      && diff.includes("transitionBridgeVisible")
-      && diff.includes("rawMonthIndex")
-      && diff.includes("visualMonthIndex");
-    const diagnosticTransitionBridgeSourceDiff = diff.includes("transitionBridgeSource")
-      && diff.includes("series.transitionBridge")
-      && diff.includes("series.transitionBridgePoints")
-      && diff.includes("transitionBridgeVisible");
     return originalDiagnosticDiff
       || diagnosticDepthDiff
       || diagnosticLifestyleComparisonDiff
-      || diagnosticLifestyleShapeDiff
-      || diagnosticRenderedCoordinateDiff
-      || diagnosticTransitionBridgeSourceDiff;
+      || diagnosticLifestyleShapeDiff;
   }
 
   function isAllowedAssetDepletionLedgerSurplusDepositPass(filePath) {
@@ -475,15 +460,7 @@ function assertNoForbiddenSourceChanges() {
         && diff.includes("zeroCrossingAnchorScenarioId")
         && diff.includes("zeroCrossingAnchorMonth")
         && diff.includes("consideredVisibleResourceLines");
-      const transitionVisualMonthMappingDiff = diff.includes("DEFAULT_TRANSITION_PERIOD_MONTHS = 0")
-        && diff.includes("resolveTransitionPeriodContract")
-        && diff.includes("applyTransitionPeriodToRunwayPoint")
-        && diff.includes("visualMonthIndex")
-        && diff.includes("transitionBridgePoints")
-        && diff.includes("zeroCrossingAnchorRawMonth")
-        && diff.includes("zeroCrossingAnchorVisualMonth")
-        && diff.includes("transitionNoFinancialCalculationChanged");
-      return stableFrameContractDiff || transitionVisualMonthMappingDiff;
+      return stableFrameContractDiff;
     }
 
     const stableFrameCheckDiff = diff.includes("assertStableLayoutFrame")
@@ -493,13 +470,7 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("no-depletion scenario")
       && diff.includes("projection-horizon")
       && diff.includes("survivor surplus rising-resource scenario");
-    const transitionVisualMonthMappingCheckDiff = diff.includes("makeTransitionScenario")
-      && diff.includes("Raw runway month 1 should visually map to month 7")
-      && diff.includes("Raw depletion month 24 should visually map to month 30")
-      && diff.includes("No-depletion visual horizon should include the shifted runway end.")
-      && diff.includes("Later lifestyle depletion should become anchor after transition shift.")
-      && diff.includes("Earlier lifestyle depletion should stay before the later selected anchor.");
-    return stableFrameCheckDiff || transitionVisualMonthMappingCheckDiff;
+    return stableFrameCheckDiff;
   }
 
   function isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath) {
@@ -522,16 +493,7 @@ function assertNoForbiddenSourceChanges() {
         && diff.includes("layoutFrame.runoutAnchorXRatio")
         && diff.includes("zeroCrossingAnchorMonth")
         && diff.includes("data-income-impact-layout-frame-mode");
-      const transitionBridgeRendererDiff = diff.includes("getGraphTransitionPeriodMonths")
-        && diff.includes("visualMonthIndex")
-        && diff.includes("visualDepletionMonth")
-        && diff.includes("visualMonthOffset")
-        && diff.includes("transitionPeriodMonths")
-        && diff.includes("transitionBridgeMode")
-        && diff.includes("getGraphStorylineEventMonthOffset")
-        && diff.includes("getGraphStorylinePointMonthOffset")
-        && diff.includes("depletionPoint.visualMonthIndex");
-      return stableLayoutFrameRendererDiff || transitionBridgeRendererDiff;
+      return stableLayoutFrameRendererDiff;
     }
 
     const stableLayoutFrameCheckDiff = diff.includes("attachStableLayoutFrame")
@@ -539,201 +501,7 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y.")
       && diff.includes("Furthest visible depletion should render at the stable runout anchor zone.")
       && diff.includes("Later-running lifestyle comparison should cross zero at the stable runout anchor zone.");
-    const transitionBridgeCheckDiff = diff.includes("Transition bridge should render flat after death before the shifted raw runway point.")
-      && diff.includes("Death marker should remain fixed while the transition bridge renders.")
-      && diff.includes("Depletion marker should use shifted visual depletion month.")
-      && diff.includes("Post-death storyline dots should shift with the visual transition mapping.")
-      && diff.includes("0-month transition should preserve the unshifted visual runway coordinates.");
-    return stableLayoutFrameCheckDiff || transitionBridgeCheckDiff;
-  }
-
-  function isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath) {
-    const allowedFiles = new Set([
-      "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
-      "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js",
-      "life-insurance-planner/checks/lens-analysis/income-impact-scenario-composer-v1-check.js"
-    ]);
-    if (!allowedFiles.has(filePath)) {
-      return false;
-    }
-    const composerDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const composerCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-impact-scenario-composer-v1-check.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const diagnosticCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-
-    const composerHasTransitionContract = composerDiff.includes("TRANSITION_PERIOD_SOURCE_PATH")
-      && composerDiff.includes("DEFAULT_TRANSITION_PERIOD_MONTHS = 3")
-      && composerDiff.includes("MIN_TRANSITION_PERIOD_MONTHS = 0")
-      && composerDiff.includes("MAX_TRANSITION_PERIOD_MONTHS = 24")
-      && composerDiff.includes("normalizeTransitionPeriodMonths")
-      && composerDiff.includes("resolveTransitionPeriodContract")
-      && composerDiff.includes("trace.layer3.transitionPeriod")
-      && composerDiff.includes("bridgeMode: \"flatBridge\"")
-      && composerDiff.includes("cashFlowMode: \"not-modeled-v1\"")
-      && composerDiff.includes("noFinancialCalculationChanged: true")
-      && composerDiff.includes("transitionPeriod: {")
-      && composerDiff.includes("shiftsRunwayVisually: true");
-
-    const displayHasCacheAndDiagnosticContract = displayDiff.includes("resolveAnalysisSettingsTransitionPeriodMonths")
-      && displayDiff.includes("clampTransitionPeriodMonths")
-      && displayDiff.includes("transitionPeriodMonths: controls.transitionPeriodMonths")
-      && displayDiff.includes("transitionPeriodMonths: clampTransitionPeriodMonths(safeSettings.transitionPeriodMonths)")
-      && displayDiff.includes("summarizeScenarioTransitionPeriod")
-      && displayDiff.includes("transitionPeriod: summarizeScenarioTransitionPeriod(scenario)")
-      && displayDiff.includes("rawBaselineTransitionPeriod");
-
-    const composerCheckHasNoBehaviorChangeProof = composerCheckDiff.includes("runTransitionPeriodContractChecks")
-      && composerCheckDiff.includes("Transition period metadata should not change Layer 3 post-death points")
-      && composerCheckDiff.includes("Transition period metadata should not change depletion")
-      && composerCheckDiff.includes("bridgeMode")
-      && composerCheckDiff.includes("cashFlowMode");
-
-    const diagnosticCheckHasTransitionProof = diagnosticCheckDiff.includes("snapshot.analysisSettings.transitionPeriodMonths")
-      && diagnosticCheckDiff.includes("snapshot.currentRendered.transitionPeriod.lengthMonths")
-      && diagnosticCheckDiff.includes("resolveAnalysisSettingsTransitionPeriodMonths")
-      && diagnosticCheckDiff.includes("snapshot.currentRendered.transitionPeriod.noFinancialCalculationChanged");
-
-    return composerHasTransitionContract
-      && displayHasCacheAndDiagnosticContract
-      && composerCheckHasNoBehaviorChangeProof
-      && diagnosticCheckHasTransitionProof;
-  }
-
-  function isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff(filePath) {
-    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"
-      && filePath !== "life-insurance-planner/pages/income-loss-impact.html") {
-      return false;
-    }
-
-    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const pageDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/pages/income-loss-impact.html"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const scenarioBannerCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-
-    const pageHasRuntimeControl = pageDiff.includes("Transition period")
-      && pageDiff.includes("data-income-impact-transition-period-value")
-      && pageDiff.includes("id=\"income-impact-transition-period\"")
-      && pageDiff.includes("type=\"range\"")
-      && pageDiff.includes("min=\"0\"")
-      && pageDiff.includes("max=\"24\"")
-      && pageDiff.includes("step=\"1\"")
-      && pageDiff.includes("value=\"3\"")
-      && pageDiff.includes("data-income-impact-transition-period-reset");
-
-    const displayHasRuntimeOverride = displayDiff.includes("createAnalysisSettingsWithTransitionPeriodOverride")
-      && displayDiff.includes("data-income-impact-transition-period")
-      && displayDiff.includes("data-income-impact-transition-period-value")
-      && displayDiff.includes("data-income-impact-transition-period-reset")
-      && displayDiff.includes("scenarioOptions = {")
-      && displayDiff.includes("transitionPeriodMonths: controls.transitionPeriodMonths")
-      && displayDiff.includes("scenarioAnalysisSettings")
-      && displayDiff.includes("analysisSettings: scenarioAnalysisSettings")
-      && displayDiff.includes("scenarioState.transitionPeriodMonths = controls.transitionPeriodMonths")
-      && displayDiff.includes("data-income-impact-transition-period-label");
-
-    const checkProvesRuntimeOverride = scenarioBannerCheckDiff.includes("draft transition period should not rerun composer before Reevaluate")
-      && scenarioBannerCheckDiff.includes("runtime transition override should reach composer through analysisSettings")
-      && scenarioBannerCheckDiff.includes("transition 12 months should change the rendered graph path")
-      && scenarioBannerCheckDiff.includes("transition reset should return the runtime override to the saved Analysis Setup default")
-      && scenarioBannerCheckDiff.includes("graph model should receive the selected scenario transition contract");
-
-    return pageHasRuntimeControl
-      && displayHasRuntimeOverride
-      && checkProvesRuntimeOverride;
-  }
-
-  function isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath) {
-    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js") {
-      return false;
-    }
-
-    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const scenarioBannerCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const diagnosticCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-
-    const displayMirrorsComposerTransitionForGraph = displayDiff.includes("getScenarioTransitionPeriodContractSource")
-      && displayDiff.includes("ensureGraphScenarioTransitionPeriodContract")
-      && displayDiff.includes("makeTransitionPeriodFallbackScenario")
-      && displayDiff.includes("autoCompressedBaselineResult.autoCompressedScenario")
-      && displayDiff.includes("safeInputs.autoCompressedBaselineScenario")
-      && displayDiff.includes("ensureAppliedScenarioRecordsGraphTransitionPeriodContract")
-      && displayDiff.includes("buildIncomeImpactTimelineGraphModel");
-
-    const scenarioBannerCheckProvesGraphContract = scenarioBannerCheckDiff.includes("selectedScenario?.scenario?.transitionPeriod?.lengthMonths")
-      && scenarioBannerCheckDiff.includes("harness.graphModelCalls[0].scenario.transitionPeriod.lengthMonths")
-      && scenarioBannerCheckDiff.includes("graphInputSnapshot.appliedScenarios")
-      && scenarioBannerCheckDiff.includes("transitionHarness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths")
-      && scenarioBannerCheckDiff.includes("graph model should receive the selected scenario transition contract");
-
-    const diagnosticCheckProvesGraphContract = diagnosticCheckDiff.includes("input.scenario?.transitionPeriod?.lengthMonths")
-      && diagnosticCheckDiff.includes("harness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths")
-      && diagnosticCheckDiff.includes("snapshot.currentRendered.graph.transitionPeriod.lengthMonths");
-
-    return displayMirrorsComposerTransitionForGraph
-      && scenarioBannerCheckProvesGraphContract
-      && diagnosticCheckProvesGraphContract;
-  }
-
-  function isAllowedIncomeLossImpactTransitionBandRendererDiff(filePath) {
-    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"
-      && filePath !== "life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js") {
-      return false;
-    }
-
-    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-    const visualCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-visual-timeline-check.js"], {
-      cwd: path.resolve(repoRoot, ".."),
-      encoding: "utf8"
-    });
-
-    const displayRendersTransitionBand = displayDiff.includes("getGraphTransitionBridgePoints")
-      && displayDiff.includes("renderGraphTransitionPeriodBand")
-      && displayDiff.includes("data-income-impact-transition-band")
-      && displayDiff.includes("data-income-impact-transition-bridge-start-x")
-      && displayDiff.includes("data-income-impact-transition-bridge-end-x")
-      && displayDiff.includes("data-income-impact-transition-band-label")
-      && displayDiff.includes("Transition period");
-
-    const visualCheckProvesTransitionBand = visualCheckDiff.includes("0-month transition should not render a transition band")
-      && visualCheckDiff.includes("data-income-impact-transition-band")
-      && visualCheckDiff.includes("Transition band should start at the bridge start/death marker")
-      && visualCheckDiff.includes("Transition band should end at the visual bridge end")
-      && visualCheckDiff.includes("Transition band should render behind primary graph paths and markers")
-      && visualCheckDiff.includes("data-income-impact-transition-band-label");
-
-    return displayRendersTransitionBand && visualCheckProvesTransitionBand;
+    return stableLayoutFrameCheckDiff;
   }
 
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
@@ -822,57 +590,6 @@ function assertNoForbiddenSourceChanges() {
       || survivorSupportSimplificationDiff;
   }
 
-  function isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath) {
-    if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
-      return false;
-    }
-
-    const workspaceRoot = path.resolve(repoRoot, "..");
-    const htmlDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/pages/analysis-setup.html"], {
-      cwd: workspaceRoot,
-      encoding: "utf8"
-    });
-    const analysisSetupDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/analysis-setup.js"], {
-      cwd: workspaceRoot,
-      encoding: "utf8"
-    });
-    const savedShapeCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js"], {
-      cwd: workspaceRoot,
-      encoding: "utf8"
-    });
-
-    const htmlHasTransitionControl = htmlDiff.includes("Transition period after death")
-      && htmlDiff.includes("data-analysis-survivor-field=\"supportTreatment.transitionPeriodMonths\"")
-      && htmlDiff.includes("type=\"range\" min=\"0\" max=\"24\" step=\"1\" value=\"3\"")
-      && htmlDiff.includes("data-analysis-survivor-transition-period-value>3 months</output>")
-      && htmlDiff.includes("Time between death and the start of the long-term survivor runway")
-      && htmlDiff.includes("Used for timeline framing in V1")
-      && htmlDiff.includes("does not change death age/date")
-      && htmlDiff.includes("model probate, claim processing, or asset liquidity mechanics");
-
-    const analysisSetupHasSavedShape = analysisSetupDiff.includes("transitionPeriodMonths: 3")
-      && analysisSetupDiff.includes("DEFAULT_SURVIVOR_TRANSITION_PERIOD_MONTHS = 3")
-      && analysisSetupDiff.includes("MIN_SURVIVOR_TRANSITION_PERIOD_MONTHS = 0")
-      && analysisSetupDiff.includes("MAX_SURVIVOR_TRANSITION_PERIOD_MONTHS = 24")
-      && analysisSetupDiff.includes("normalizeSurvivorSupportTransitionPeriodMonths")
-      && analysisSetupDiff.includes("formatSurvivorSupportTransitionPeriodMonths")
-      && analysisSetupDiff.includes("supportTreatment.transitionPeriodMonths")
-      && analysisSetupDiff.includes("readSurvivorSupportDraftTransitionPeriodMonths");
-
-    const checkHasTransitionProof = savedShapeCheckDiff.includes("default transition period should be 3 months")
-      && savedShapeCheckDiff.includes("0 months should be valid and mean no transition")
-      && savedShapeCheckDiff.includes("24 months should be the valid max")
-      && savedShapeCheckDiff.includes("Nonnumeric transition months should normalize to default")
-      && savedShapeCheckDiff.includes("Blank transition months should normalize to default")
-      && savedShapeCheckDiff.includes("supportTreatment.transitionPeriodMonths")
-      && savedShapeCheckDiff.includes("does not change death age")
-      && savedShapeCheckDiff.includes("model probate, claim processing, or asset liquidity mechanics");
-
-    return htmlHasTransitionControl
-      && analysisSetupHasSavedShape
-      && checkHasTransitionProof;
-  }
-
   const allowed = new Set([
     "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
     "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
@@ -917,12 +634,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedAssetDepletionLedgerSurplusDepositPass(filePath)
       && !isAllowedIncomeImpactGraphLayoutFramePass(filePath)
       && !isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath)
-      && !isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath)
-      && !isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff(filePath)
-      && !isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath)
-      && !isAllowedIncomeLossImpactTransitionBandRendererDiff(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
-      && !isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
   });
