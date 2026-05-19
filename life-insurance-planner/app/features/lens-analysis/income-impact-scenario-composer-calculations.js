@@ -1515,6 +1515,44 @@
     });
   }
 
+  function buildTransitionOutlookDiagnostic(lensModel, layer2Output, layer3Output) {
+    const helper = lensAnalysis.calculateIncomeImpactTransitionOutlook;
+    if (typeof helper !== "function") {
+      return {
+        version: "income-impact-transition-outlook-v1",
+        status: "not-available",
+        windowDays: 90,
+        windowMonths: 3,
+        fastAccessResources: 0,
+        nearTermResources: 0,
+        excludedResources: 0,
+        transitionNeed90Days: null,
+        fastAccessCoverageRatio: null,
+        nearTermCoverageRatio: null,
+        warnings: [makeIssue(
+          "transition-outlook-helper-unavailable",
+          "Transition Outlook helper was unavailable; scenario balances and runway output were preserved.",
+          ["LensApp.lensAnalysis.calculateIncomeImpactTransitionOutlook"]
+        )],
+        trace: {
+          source: CALCULATION_METHOD,
+          helper: "missing",
+          noRunwayMutation: true,
+          noGraphMutation: true
+        }
+      };
+    }
+
+    return helper({
+      assetFacts: lensModel?.assetFacts,
+      deathEvent: layer2Output,
+      postDeathTimelinePoints: Array.isArray(layer3Output?.points) ? layer3Output.points : [],
+      options: {
+        source: CALCULATION_METHOD
+      }
+    });
+  }
+
   function createUnavailableLayerOutput(methodName, code, message) {
     return {
       status: "not-available",
@@ -1643,6 +1681,7 @@
     const immediateObligations = roundMoney(layer2?.resources?.immediateObligations || 0);
     const depletion = layer3?.depletion || {};
     const accumulatedUnmetNeed = roundMoney(layer3?.summary?.accumulatedUnmetNeed || 0);
+    const transitionOutlook = buildTransitionOutlookDiagnostic(lensModel, layer2, layer3);
 
     return {
       status: getOverallStatus([layer1, layer2, layer3], dataGaps),
@@ -1687,6 +1726,7 @@
         monthsCovered: depletion.monthsCovered ?? null,
         accumulatedUnmetNeed
       },
+      transitionOutlook: clonePlainValue(transitionOutlook),
       warnings,
       dataGaps,
       trace: {
