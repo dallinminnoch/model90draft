@@ -1036,6 +1036,11 @@
         appendUnique(visualInterpolationKinds, ["zeroCrossing"]);
         fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
         deficitPoints.push(cloneDeficitPoint(depletionPoint, yDomain));
+        if (!runwayLinePoints.some(function (linePoint) {
+          return linePoint?.id && linePoint.id === depletionPoint.id;
+        })) {
+          runwayLinePoints.push(cloneRunwayPoint(depletionPoint));
+        }
       }
 
       if (depletionPoint) {

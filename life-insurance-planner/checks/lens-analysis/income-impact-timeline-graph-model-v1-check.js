@@ -459,6 +459,28 @@ assert.equal(
     dayScaleMonthsCovered,
     "Day-scale applied runway should place the depletion anchor at the fractional depletion month."
   );
+  {
+    const dayScaleRunwayLineAnchorIndex = fastAppliedRunway.runwayLinePoints.findIndex(function (point) {
+      return point.id === fastAppliedRunway.depletionPoint.id;
+    });
+    assert.ok(
+      dayScaleRunwayLineAnchorIndex > 0,
+      "Day-scale applied runway line should include the explicit zero-crossing depletion anchor."
+    );
+    assert.equal(
+      fastAppliedRunway.runwayLinePoints[dayScaleRunwayLineAnchorIndex].value,
+      0,
+      "Day-scale runway line depletion anchor should sit exactly on display zero."
+    );
+    assert.ok(
+      fastAppliedRunway.runwayLinePoints[dayScaleRunwayLineAnchorIndex - 1].value > 0,
+      "Day-scale runway line point before the zero anchor should remain positive."
+    );
+    assert.ok(
+      fastAppliedRunway.runwayLinePoints[dayScaleRunwayLineAnchorIndex + 1].value < 0,
+      "Day-scale runway line should continue below zero after the anchor when resources are negative."
+    );
+  }
   assert.equal(
     fastAppliedRunway.deficitPoints.at(-1).trace.displayHorizonClip,
     true,
@@ -1183,6 +1205,38 @@ assert.equal(appliedSingleRunway.depletionPoint.date, fiveYearScenario.postDeath
 assert.equal(appliedSingleRunway.depletionPoint.value, 0);
 assert.equal(appliedSingleRunway.depletionPoint.trace.visualInterpolation, true);
 assert.equal(appliedSingleRunway.depletionPoint.trace.interpolationKind, "zeroCrossing");
+{
+  const runwayLineAnchorIndex = appliedSingleRunway.runwayLinePoints.findIndex(function (point) {
+    return point.id === appliedSingleRunway.depletionPoint.id;
+  });
+  assert.ok(
+    runwayLineAnchorIndex > 0,
+    "Applied runway line should include the same explicit zero-crossing anchor used by the depletion marker."
+  );
+  assert.equal(
+    appliedSingleRunway.runwayLinePoints[runwayLineAnchorIndex].value,
+    appliedSingleRunway.depletionPoint.value,
+    "Applied runway line zero anchor should be the depletion point value."
+  );
+  assert.equal(
+    appliedSingleRunway.runwayLinePoints[runwayLineAnchorIndex].yRatio,
+    appliedSingleRunway.depletionPoint.yRatio,
+    "Applied runway line zero anchor should share the depletion point y-coordinate."
+  );
+  assert.ok(
+    appliedSingleRunway.runwayLinePoints[runwayLineAnchorIndex - 1].value > 0,
+    "Applied runway line point before the zero anchor should remain positive."
+  );
+  assert.ok(
+    appliedSingleRunway.runwayLinePoints[runwayLineAnchorIndex + 1].value < 0,
+    "Applied runway line should continue below zero after the anchor when the scenario has deficit continuation."
+  );
+  assert.equal(
+    appliedSingleRunway.runwayLinePoints.some(function (point) { return point.value < 0; }),
+    true,
+    "Applied runway line should not clamp below-zero continuation."
+  );
+}
 assert.equal(
   appliedSingleRunway.rawPoints.some(function (point) { return point.trace && point.trace.visualInterpolation; }),
   false,
@@ -1282,6 +1336,18 @@ const sameXRunway = sameXDepletionModel.series.appliedRunwayScenarios[0];
 assert.equal(sameXRunway.depletionPoint.date, "2033-04-29");
 assert.equal(sameXRunway.trace.skippedSharedXDeficitPointCount, 1);
 assert.equal(sameXRunway.deficitPoints[0].id, sameXRunway.depletionPoint.id);
+assert.equal(
+  sameXRunway.rawPoints.some(function (point) { return point.accumulatedUnmetNeed === 12000; }),
+  true,
+  "Raw accumulated unmet need should remain preserved on signed source runway points."
+);
+assert.equal(
+  sameXRunway.deficitPoints.some(function (point) {
+    return point.deficitSource === "accumulatedUnmetNeed" && point.deficitValue > 0;
+  }),
+  true,
+  "Deficit continuation should preserve accumulated unmet need as the deficit source."
+);
 assert.ok(
   sameXRunway.deficitPoints[1].xRatio > sameXRunway.deficitPoints[0].xRatio,
   "Deficit continuation should skip same-x below-zero points so the visual continues forward from depletion."
