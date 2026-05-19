@@ -1,0 +1,11 @@
+warning: in the working copy of 'life-insurance-planner/app/features/lens-analysis/analysis-setup.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/app/features/lens-analysis/income-impact-timeline-graph-model.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/checks/lens-analysis/income-impact-timeline-graph-model-v1-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/checks/lens-analysis/income-impact-treated-ongoing-support-consumption-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/checks/lens-analysis/mortgage-treatment-payment-plan-model-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/checks/lens-analysis/step-three-treated-ongoing-support-display-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/checks/lens-analysis/treated-ongoing-support-method-consumption-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/checks/lens-analysis/treated-ongoing-support-model-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'life-insurance-planner/pages/income-loss-impact.html', LF will be replaced by CRLF the next time Git touches it
+ 17 files changed, 350 insertions(+), 3135 deletions(-)

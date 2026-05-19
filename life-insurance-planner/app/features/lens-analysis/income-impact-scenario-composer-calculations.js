@@ -10,10 +10,6 @@
   const RAW_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.ongoingSupport.monthlyTotalEssentialSupportCost";
   const TREATED_ONGOING_SUPPORT_ANNUAL_SOURCE_PATH = "lensModel.treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost";
   const TREATED_ONGOING_SUPPORT_MONTHLY_SOURCE_PATH = "lensModel.treatedOngoingSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost";
-  const TRANSITION_PERIOD_SOURCE_PATH = "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths";
-  const DEFAULT_TRANSITION_PERIOD_MONTHS = 3;
-  const MIN_TRANSITION_PERIOD_MONTHS = 0;
-  const MAX_TRANSITION_PERIOD_MONTHS = 24;
   const ASSET_CATEGORY_TO_LEDGER_FAMILY = Object.freeze({
     cashAndCashEquivalents: "cash",
     emergencyFund: "emergencyFund",
@@ -69,44 +65,6 @@
       return null;
     }
     return Math.max(0, Math.floor(numericValue));
-  }
-
-  function normalizeTransitionPeriodMonths(value, fallback = DEFAULT_TRANSITION_PERIOD_MONTHS) {
-    const fallbackNumber = toOptionalNumber(fallback);
-    const fallbackValue = fallbackNumber == null
-      ? DEFAULT_TRANSITION_PERIOD_MONTHS
-      : Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.round(fallbackNumber)));
-    if (value === null || value === undefined || normalizeString(value) === "") {
-      return fallbackValue;
-    }
-
-    const numericValue = toOptionalNumber(value);
-    if (numericValue == null) {
-      return fallbackValue;
-    }
-
-    return Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.round(numericValue)));
-  }
-
-  function resolveTransitionPeriodContract(analysisSettings) {
-    const supportTreatment = isPlainObject(analysisSettings?.survivorSupportAssumptions?.supportTreatment)
-      ? analysisSettings.survivorSupportAssumptions.supportTreatment
-      : {};
-    const hasSavedValue = Object.prototype.hasOwnProperty.call(supportTreatment, "transitionPeriodMonths");
-    const lengthMonths = normalizeTransitionPeriodMonths(
-      hasSavedValue ? supportTreatment.transitionPeriodMonths : null,
-      DEFAULT_TRANSITION_PERIOD_MONTHS
-    );
-
-    return {
-      lengthMonths,
-      source: hasSavedValue ? "analysis-settings" : "default",
-      sourcePath: TRANSITION_PERIOD_SOURCE_PATH,
-      bridgeMode: "flatBridge",
-      cashFlowMode: "not-modeled-v1",
-      shiftsRunwayVisually: true,
-      noFinancialCalculationChanged: true
-    };
   }
 
   function roundMoney(value) {
@@ -1593,7 +1551,6 @@
     const scenarioOptions = isPlainObject(safeInput.scenarioOptions) ? safeInput.scenarioOptions : {};
     const lensModel = isPlainObject(safeInput.lensModel) ? safeInput.lensModel : {};
     const analysisSettings = isPlainObject(safeInput.analysisSettings) ? safeInput.analysisSettings : {};
-    const transitionPeriod = resolveTransitionPeriodContract(analysisSettings);
     const warnings = [];
     const dataGaps = [];
     const sourcePaths = [];
@@ -1605,14 +1562,6 @@
       layer2: {},
       layer3: {},
       currentAgeDeathPolicy: null
-    };
-    trace.layer3.transitionPeriod = {
-      lengthMonths: transitionPeriod.lengthMonths,
-      source: transitionPeriod.source,
-      sourcePath: transitionPeriod.sourcePath,
-      bridgeMode: transitionPeriod.bridgeMode,
-      cashFlowMode: transitionPeriod.cashFlowMode,
-      noFinancialCalculationChanged: true
     };
 
     if (!valuation) {
@@ -1629,8 +1578,7 @@
       projectionHorizonMonths,
       lensModel,
       analysisSettings,
-      scenarioOptions,
-      transitionPeriod
+      scenarioOptions
     };
 
     const layer1Input = buildLayer1Input(normalizedInput, dataGaps, warnings, trace, sourcePaths);
@@ -1704,14 +1652,7 @@
         selectedDeathAge: normalizedInput.selectedDeathAge,
         projectionHorizonMonths,
         mortgageTreatmentOverride: scenarioOptions.mortgageTreatmentOverride || null,
-        includeSurvivorIncome: resolveSurvivorIncomeScenarioOverride(scenarioOptions),
-        transitionPeriod: {
-          lengthMonths: transitionPeriod.lengthMonths,
-          sourcePath: transitionPeriod.sourcePath,
-          bridgeMode: transitionPeriod.bridgeMode,
-          cashFlowMode: transitionPeriod.cashFlowMode,
-          shiftsRunwayVisually: true
-        }
+        includeSurvivorIncome: resolveSurvivorIncomeScenarioOverride(scenarioOptions)
       },
       preDeathSeries: {
         mode: currentPointOnly ? "current-point-only" : "forward-projection",

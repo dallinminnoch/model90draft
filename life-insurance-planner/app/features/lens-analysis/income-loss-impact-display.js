@@ -9,9 +9,6 @@
   const MAX_PROJECTION_HORIZON_YEARS = 100;
   const MIN_LIFESTYLE_SLIDER_VALUE = -100;
   const MAX_LIFESTYLE_SLIDER_VALUE = 100;
-  const DEFAULT_TRANSITION_PERIOD_MONTHS = 3;
-  const MIN_TRANSITION_PERIOD_MONTHS = 0;
-  const MAX_TRANSITION_PERIOD_MONTHS = 24;
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
@@ -219,112 +216,6 @@
     const number = toOptionalNumber(value);
     const rounded = number == null ? 0 : Math.round(number);
     return Math.max(MIN_LIFESTYLE_SLIDER_VALUE, Math.min(MAX_LIFESTYLE_SLIDER_VALUE, rounded));
-  }
-
-  function clampTransitionPeriodMonths(value, fallback = DEFAULT_TRANSITION_PERIOD_MONTHS) {
-    const fallbackNumber = toOptionalNumber(fallback);
-    const fallbackValue = fallbackNumber == null
-      ? DEFAULT_TRANSITION_PERIOD_MONTHS
-      : Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.round(fallbackNumber)));
-    const number = toOptionalNumber(value);
-    if (number == null) {
-      return fallbackValue;
-    }
-    return Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.round(number)));
-  }
-
-  function resolveAnalysisSettingsTransitionPeriodMonths(analysisSettings) {
-    const supportTreatment = isPlainObject(analysisSettings?.survivorSupportAssumptions?.supportTreatment)
-      ? analysisSettings.survivorSupportAssumptions.supportTreatment
-      : {};
-    return Object.prototype.hasOwnProperty.call(supportTreatment, "transitionPeriodMonths")
-      ? clampTransitionPeriodMonths(supportTreatment.transitionPeriodMonths)
-      : DEFAULT_TRANSITION_PERIOD_MONTHS;
-  }
-
-  function createAnalysisSettingsWithTransitionPeriodOverride(analysisSettings, transitionPeriodMonths) {
-    const nextSettings = isPlainObject(analysisSettings) ? clonePlainValue(analysisSettings) : {};
-    const survivorSupportAssumptions = isPlainObject(nextSettings.survivorSupportAssumptions)
-      ? nextSettings.survivorSupportAssumptions
-      : {};
-    const supportTreatment = isPlainObject(survivorSupportAssumptions.supportTreatment)
-      ? survivorSupportAssumptions.supportTreatment
-      : {};
-    supportTreatment.transitionPeriodMonths = clampTransitionPeriodMonths(transitionPeriodMonths);
-    survivorSupportAssumptions.supportTreatment = supportTreatment;
-    nextSettings.survivorSupportAssumptions = survivorSupportAssumptions;
-    return nextSettings;
-  }
-
-  function getScenarioTransitionPeriodContractSource(scenario) {
-    if (isPlainObject(scenario?.transitionPeriod)) {
-      return scenario.transitionPeriod;
-    }
-    if (isPlainObject(scenario?.scenario?.transitionPeriod)) {
-      return scenario.scenario.transitionPeriod;
-    }
-    if (isPlainObject(scenario?.trace?.layer3?.transitionPeriod)) {
-      return scenario.trace.layer3.transitionPeriod;
-    }
-    return null;
-  }
-
-  function normalizeScenarioTransitionPeriodContract(source, fallbackSource = null) {
-    const safeSource = isPlainObject(source) ? source : {};
-    const safeFallback = isPlainObject(fallbackSource) ? fallbackSource : {};
-    return {
-      lengthMonths: clampTransitionPeriodMonths(
-        safeSource.lengthMonths,
-        toOptionalNumber(safeFallback.lengthMonths) ?? MIN_TRANSITION_PERIOD_MONTHS
-      ),
-      sourcePath: normalizeString(safeSource.sourcePath || safeFallback.sourcePath) || null,
-      bridgeMode: normalizeString(safeSource.bridgeMode || safeFallback.bridgeMode) || "flatBridge",
-      cashFlowMode: normalizeString(safeSource.cashFlowMode || safeFallback.cashFlowMode) || "not-modeled-v1",
-      shiftsRunwayVisually: true,
-      noFinancialCalculationChanged: true
-    };
-  }
-
-  function ensureGraphScenarioTransitionPeriodContract(scenario, fallbackScenario = null, options = null) {
-    if (!isPlainObject(scenario)) {
-      return scenario;
-    }
-    const safeOptions = isPlainObject(options) ? options : {};
-    const fallbackContract = getScenarioTransitionPeriodContractSource(fallbackScenario);
-    const transitionPeriod = normalizeScenarioTransitionPeriodContract(
-      getScenarioTransitionPeriodContractSource(scenario),
-      fallbackContract
-    );
-    Object.defineProperty(scenario, "transitionPeriod", {
-      value: transitionPeriod,
-      enumerable: safeOptions.enumerable === true,
-      configurable: true,
-      writable: true
-    });
-    return scenario;
-  }
-
-  function cloneScenarioWithGraphTransitionPeriodContract(scenario, fallbackScenario = null) {
-    if (!isPlainObject(scenario)) {
-      return null;
-    }
-    return ensureGraphScenarioTransitionPeriodContract(
-      clonePlainValue(scenario),
-      fallbackScenario,
-      { enumerable: false }
-    );
-  }
-
-  function makeTransitionPeriodFallbackScenario(transitionPeriodMonths) {
-    return {
-      transitionPeriod: normalizeScenarioTransitionPeriodContract({
-        lengthMonths: transitionPeriodMonths,
-        bridgeMode: "flatBridge",
-        cashFlowMode: "not-modeled-v1",
-        shiftsRunwayVisually: true,
-        noFinancialCalculationChanged: true
-      })
-    };
   }
 
   function getLifestyleSliderLabel(value) {
@@ -785,9 +676,6 @@
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
       survivorIncome: banner.querySelector("[data-income-impact-survivor-income]"),
       survivorIncomeValue: banner.querySelector("[data-income-impact-survivor-income-value]"),
-      transitionPeriod: banner.querySelector("[data-income-impact-transition-period]"),
-      transitionPeriodValue: banner.querySelector("[data-income-impact-transition-period-value]"),
-      transitionPeriodReset: banner.querySelector("[data-income-impact-transition-period-reset]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
       autoCompressBaseline: banner.querySelector("[data-income-impact-auto-compress-baseline]"),
@@ -897,7 +785,6 @@
     const projectionHorizonYears = draftControls.projectionHorizonYears;
     const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
     const includeSurvivorIncome = draftControls.includeSurvivorIncome !== false;
-    const transitionPeriodMonths = clampTransitionPeriodMonths(draftControls.transitionPeriodMonths);
     const lifestyleSliderValue = draftControls.lifestyleSliderValue;
     const autoCompressBaselineEnabled = draftControls.autoCompressBaselineEnabled !== false;
     const collapsed = scenarioState.bannerCollapsed === true;
@@ -949,18 +836,6 @@
       elements.survivorIncomeValue.textContent = includeSurvivorIncome ? "Included" : "Excluded";
     }
 
-    if (elements.transitionPeriod) {
-      elements.transitionPeriod.min = String(MIN_TRANSITION_PERIOD_MONTHS);
-      elements.transitionPeriod.max = String(MAX_TRANSITION_PERIOD_MONTHS);
-      elements.transitionPeriod.step = "1";
-      elements.transitionPeriod.value = String(transitionPeriodMonths);
-      elements.transitionPeriod.setAttribute("aria-valuetext", `${transitionPeriodMonths} months`);
-    }
-
-    if (elements.transitionPeriodValue) {
-      elements.transitionPeriodValue.textContent = `${transitionPeriodMonths} months`;
-    }
-
     if (elements.lifestyleSlider) {
       elements.lifestyleSlider.min = String(MIN_LIFESTYLE_SLIDER_VALUE);
       elements.lifestyleSlider.max = String(MAX_LIFESTYLE_SLIDER_VALUE);
@@ -1010,7 +885,6 @@
     if (elements.scenarioSummary) {
       elements.scenarioSummary.setAttribute("data-income-impact-mortgage-treatment-label", getMortgageTreatmentLabel(mortgageTreatmentOverride));
       elements.scenarioSummary.setAttribute("data-income-impact-survivor-income-label", includeSurvivorIncome ? "Survivor income included" : "Survivor income excluded");
-      elements.scenarioSummary.setAttribute("data-income-impact-transition-period-label", `${transitionPeriodMonths} months transition`);
       elements.scenarioSummary.setAttribute("data-income-impact-lifestyle-label", getLifestyleSliderLabel(lifestyleSliderValue));
       elements.scenarioSummary.setAttribute("data-income-impact-selected-scenario-summary-label", selectedScenarioLabel);
     }
@@ -1243,10 +1117,7 @@
       return null;
     }
     const explicitMonth = toOptionalNumber(
-      point.visualMonthIndex ??
-        point.visualDepletionMonth ??
-        point.visualMonthOffset ??
-        point.relativeMonthsFromDeath ??
+      point.relativeMonthsFromDeath ??
         point.monthOffset ??
         point.monthIndex ??
         point.monthsAfterDeath ??
@@ -1292,14 +1163,6 @@
     }
 
     return clampNumber(deathXRatio + ((pointMonth / domainMonths) * (1 - deathXRatio)), 0, 1);
-  }
-
-  function getGraphTransitionPeriodMonths(graphModel) {
-    const rawMonths = toOptionalNumber(graphModel?.transitionPeriod?.lengthMonths);
-    if (rawMonths == null) {
-      return 0;
-    }
-    return clampNumber(Math.round(rawMonths), 0, 24);
   }
 
   function getGraphYDomainBounds(graphModel) {
@@ -2234,24 +2097,19 @@
 
   function getGraphStorylineEventMonthOffset(candidate, graphModel) {
     const timing = getStorylineCandidateTiming(candidate);
-    if (candidate?.id === "death-income-stops" || normalizeString(timing.kind) === "death-event") {
-      return 0;
-    }
-    const explicitVisualMonth = toOptionalNumber(timing.visualMonthOffset ?? candidate?.visualMonthOffset);
-    if (explicitVisualMonth != null) {
-      return explicitVisualMonth;
-    }
-    const transitionMonths = getGraphTransitionPeriodMonths(graphModel);
     const explicitMonth = toOptionalNumber(timing.monthOffset ?? candidate?.monthOffset);
     if (explicitMonth != null) {
-      return Math.max(0, explicitMonth + transitionMonths);
+      return explicitMonth;
+    }
+    if (candidate?.id === "death-income-stops" || normalizeString(timing.kind) === "death-event") {
+      return 0;
     }
     const eventDate = getGraphStorylineEventDate(candidate);
     const deathDate = normalizeDateOnly(graphModel?.phases?.deathEvent?.date || graphModel?.axes?.x?.deathDate || "");
     if (!eventDate || !deathDate) {
       return null;
     }
-    return Math.max(0, getMonthDifferenceFromDates(deathDate, eventDate) + transitionMonths);
+    return getMonthDifferenceFromDates(deathDate, eventDate);
   }
 
   function addGraphStorylineTimelineAnchor(anchorsByMonth, monthOffset, xRatio, date) {
@@ -2301,10 +2159,7 @@
 
     seriesBuckets.flat().filter(Boolean).forEach(function (point) {
       const relativeMonths = toOptionalNumber(
-        point?.visualMonthIndex ??
-          point?.visualDepletionMonth ??
-          point?.visualMonthOffset ??
-          point?.relativeMonthsFromDeath ??
+        point?.relativeMonthsFromDeath ??
           point?.monthOffset ??
           point?.monthIndex ??
           point?.monthsAfterDeath
@@ -3139,11 +2994,6 @@
         yRatio,
         value: getSeriesPointValue(depletionPoint),
         date: normalizeString(depletionPoint.date),
-        rawMonthIndex: toOptionalNumber(depletionPoint.rawMonthIndex),
-        visualMonthIndex: toOptionalNumber(depletionPoint.visualMonthIndex),
-        visualDepletionMonth: toOptionalNumber(depletionPoint.visualDepletionMonth),
-        transitionPeriodMonths: toOptionalNumber(depletionPoint.transitionPeriodMonths),
-        transitionBridgeMode: normalizeString(depletionPoint.transitionBridgeMode),
         selected: selectedId ? scenarioId === selectedId : series.selected === true
       };
     }).filter(Boolean);
@@ -4052,103 +3902,6 @@
     `;
   }
 
-  function getGraphTransitionBridgePoints(graphModel) {
-    const explicitBridgePoints = Array.isArray(graphModel?.series?.transitionBridge)
-      ? graphModel.series.transitionBridge
-      : (Array.isArray(graphModel?.series?.transitionBridgePoints)
-        ? graphModel.series.transitionBridgePoints
-        : []);
-    if (explicitBridgePoints.length >= 2) {
-      return explicitBridgePoints;
-    }
-
-    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
-    const selectedBridgePoints = Array.isArray(selectedSeries?.transitionBridgePoints)
-      ? selectedSeries.transitionBridgePoints
-      : [];
-    if (selectedBridgePoints.length >= 2) {
-      return selectedBridgePoints;
-    }
-
-    return (Array.isArray(selectedSeries?.fundedRunwayPoints) ? selectedSeries.fundedRunwayPoints : [])
-      .filter(function (point) {
-        return point?.transitionBridge === true;
-      });
-  }
-
-  function renderGraphTransitionPeriodBand(graphModel) {
-    const transitionMonths = getGraphTransitionPeriodMonths(graphModel);
-    if (transitionMonths <= 0) {
-      return "";
-    }
-
-    const bridgePoints = getGraphTransitionBridgePoints(graphModel);
-    if (bridgePoints.length < 2) {
-      return "";
-    }
-
-    const startPoint = bridgePoints[0];
-    const endPoint = bridgePoints[bridgePoints.length - 1];
-    const startX = toGraphX(startPoint.xRatio, graphModel, startPoint);
-    const endX = toGraphX(endPoint.xRatio, graphModel, endPoint);
-    const bandX = Math.min(startX, endX);
-    const bandWidth = Math.abs(endX - startX);
-    if (!Number.isFinite(bandWidth) || bandWidth < 1) {
-      return "";
-    }
-
-    const frame = getGraphPlotFrame(graphModel);
-    const labelX = clampNumber(bandX + (bandWidth / 2), frame.plotLeft + 56, frame.plotRight - 56);
-    const labelY = frame.plotTop + 18;
-    return `
-      <g
-        class="income-impact-graph-transition-band"
-        data-income-impact-transition-band
-        data-income-impact-transition-months="${escapeHtml(transitionMonths)}"
-        data-income-impact-transition-bridge-start-x="${escapeHtml(startX)}"
-        data-income-impact-transition-bridge-end-x="${escapeHtml(endX)}"
-        data-income-impact-transition-band-x="${escapeHtml(bandX)}"
-        data-income-impact-transition-band-width="${escapeHtml(bandWidth)}"
-        aria-label="Transition period"
-      >
-        <rect
-          data-income-impact-transition-band-rect
-          x="${formatSvgCoordinate(bandX)}"
-          y="${formatSvgCoordinate(frame.plotTop)}"
-          width="${formatSvgCoordinate(bandWidth)}"
-          height="${formatSvgCoordinate(frame.plotHeight)}"
-          rx="0"
-          fill="#eef2ff"
-          fill-opacity="0.44"
-          stroke="#c7d2fe"
-          stroke-opacity="0.72"
-          stroke-width="1"
-        ></rect>
-        <line
-          data-income-impact-transition-band-end
-          x1="${formatSvgCoordinate(endX)}"
-          y1="${formatSvgCoordinate(frame.plotTop)}"
-          x2="${formatSvgCoordinate(endX)}"
-          y2="${formatSvgCoordinate(frame.plotBottom)}"
-          stroke="#a5b4fc"
-          stroke-opacity="0.78"
-          stroke-width="1"
-          stroke-dasharray="4 5"
-        ></line>
-        <text
-          data-income-impact-transition-band-label
-          x="${formatSvgCoordinate(labelX)}"
-          y="${formatSvgCoordinate(labelY)}"
-          text-anchor="middle"
-          fill="#4f46e5"
-          font-size="11"
-          font-weight="700"
-          letter-spacing="0"
-        >Transition period</text>
-      </g>
-    `;
-  }
-
   function renderGraphSvg(graphModel, timelineResult) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
@@ -4176,7 +3929,6 @@
       >
         ${renderGraphHoverUnderlayGradient()}
         ${renderGraphPhases(graphModel)}
-        ${renderGraphTransitionPeriodBand(graphModel)}
         ${renderGraphAxis(graphModel)}
         <g class="income-impact-graph-series" data-income-impact-graph-series>
           ${renderSelectedScenarioDeficitArea(graphModel, graphModel?.trace?.selectedScenarioId)}
@@ -5066,10 +4818,6 @@
       selectedDeathDate,
       projectionHorizonYears: clampProjectionHorizonYears(sourceControls.projectionHorizonYears ?? scenarioState.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(sourceControls.mortgageTreatmentOverride ?? scenarioState.mortgageTreatmentOverride),
-      transitionPeriodMonths: clampTransitionPeriodMonths(
-        sourceControls.transitionPeriodMonths ?? scenarioState.transitionPeriodMonths,
-        resolveAnalysisSettingsTransitionPeriodMonths(safeState.analysisSettings)
-      ),
       includeSurvivorIncome: normalizeBooleanScenarioControl(
         sourceControls.includeSurvivorIncome ?? scenarioState.includeSurvivorIncome,
         getAssumptionSurvivorIncomeEnabled(safeState.lensModel)
@@ -5176,7 +4924,6 @@
       selectedDeathDate: normalizeString(safeSettings.selectedDeathDate) || null,
       projectionHorizonYears: clampProjectionHorizonYears(safeSettings.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
-      transitionPeriodMonths: clampTransitionPeriodMonths(safeSettings.transitionPeriodMonths),
       includeSurvivorIncome: normalizeBooleanScenarioControl(safeSettings.includeSurvivorIncome, true),
       lifestyleSliderValue: clampLifestyleSliderValue(safeSettings.lifestyleSliderValue),
       autoCompressBaselineEnabled: safeSettings.autoCompressBaselineEnabled !== false,
@@ -5210,7 +4957,6 @@
     const deathAgeState = isPlainObject(state.deathAgeState) ? state.deathAgeState : {};
     scenarioState.projectionHorizonYears = controls.projectionHorizonYears;
     scenarioState.mortgageTreatmentOverride = controls.mortgageTreatmentOverride;
-    scenarioState.transitionPeriodMonths = controls.transitionPeriodMonths;
     scenarioState.includeSurvivorIncome = controls.includeSurvivorIncome !== false;
     scenarioState.lifestyleSliderValue = controls.lifestyleSliderValue;
     scenarioState.autoCompressBaselineEnabled = controls.autoCompressBaselineEnabled !== false;
@@ -5233,7 +4979,6 @@
       valuationDate: safeState.valuationDate || null,
       projectionHorizonYears: controls.projectionHorizonYears,
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
-      transitionPeriodMonths: controls.transitionPeriodMonths,
       includeSurvivorIncome: controls.includeSurvivorIncome !== false,
       selectedDeathAge: controls.selectedDeathAge,
       selectedDeathDate: controls.selectedDeathDate
@@ -5270,15 +5015,10 @@
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
     const scenarioOptions = {
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
-      transitionPeriodMonths: controls.transitionPeriodMonths,
       includeSurvivorIncome: controls.includeSurvivorIncome !== false,
       includeDiscretionaryNeeds: true,
       projectionCadence: "monthly"
     };
-    const scenarioAnalysisSettings = createAnalysisSettingsWithTransitionPeriodOverride(
-      safeState.analysisSettings,
-      controls.transitionPeriodMonths
-    );
 
     if (deathAgeState.hasDateOfBirth) {
       deathAgeState.selectedDeathAge = controls.selectedDeathAge;
@@ -5290,7 +5030,7 @@
       selectedDeathAge: controls.selectedDeathAge,
       projectionHorizonMonths: controls.projectionHorizonYears * 12,
       lensModel: safeState.lensModel,
-      analysisSettings: scenarioAnalysisSettings,
+      analysisSettings: safeState.analysisSettings,
       scenarioOptions
     });
     const riskEvaluation = safeState.evaluateIncomeImpactRiskEvents({
@@ -5378,10 +5118,7 @@
 
   function getGraphStorylinePointMonthOffset(point) {
     return toOptionalNumber(
-      point?.visualMonthIndex ??
-        point?.visualDepletionMonth ??
-        point?.visualMonthOffset ??
-        point?.relativeMonthsFromDeath ??
+      point?.relativeMonthsFromDeath ??
         point?.monthOffset ??
         point?.monthIndex ??
         point?.monthsAfterDeath
@@ -5655,10 +5392,7 @@
         ? clonePlainValue(autoCompressedBaselineResult.warnings)
         : [];
       if (autoCompressedBaselineResult?.status === "ready" && isPlainObject(autoCompressedBaselineResult.autoCompressedScenario)) {
-        autoCompressedBaselineScenario = ensureGraphScenarioTransitionPeriodContract(
-          autoCompressedBaselineResult.autoCompressedScenario,
-          rawBaselineScenario
-        );
+        autoCompressedBaselineScenario = autoCompressedBaselineResult.autoCompressedScenario;
         baseResult.primaryScenario = autoCompressedBaselineScenario;
         baseResult.autoCompressedBaselineScenario = autoCompressedBaselineScenario;
       }
@@ -6028,17 +5762,9 @@
       controls,
       resolvedAccountPolicyInput
     );
-    const rawBaselineScenario = ensureGraphScenarioTransitionPeriodContract(
-      baselineComposition.rawBaselineScenario || scenario,
-      makeTransitionPeriodFallbackScenario(controls.transitionPeriodMonths)
-    );
-    const primaryScenario = ensureGraphScenarioTransitionPeriodContract(
-      baselineComposition.primaryScenario || scenario,
-      rawBaselineScenario
-    );
-    const autoCompressedBaselineScenario = isPlainObject(baselineComposition.autoCompressedBaselineScenario)
-      ? ensureGraphScenarioTransitionPeriodContract(baselineComposition.autoCompressedBaselineScenario, rawBaselineScenario)
-      : null;
+    const rawBaselineScenario = baselineComposition.rawBaselineScenario || scenario;
+    const primaryScenario = baselineComposition.primaryScenario || scenario;
+    const autoCompressedBaselineScenario = baselineComposition.autoCompressedBaselineScenario || null;
     const baselineContract = baselineComposition.baselineContract;
     const appliedScenarioRecord = buildAppliedScenarioRecordFromInputs(safeState, context, {
       scenario: primaryScenario,
@@ -6052,10 +5778,9 @@
     });
     upsertAppliedScenarioRecord(safeState, appliedScenarioRecord);
     const selectedScenarioId = safeState.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID;
-    const appliedScenariosSnapshot = ensureAppliedScenarioRecordsGraphTransitionPeriodContract(
-      Array.isArray(safeState.appliedScenarios) ? safeState.appliedScenarios : [appliedScenarioRecord],
-      primaryScenario
-    );
+    const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
+      ? clonePlainValue(safeState.appliedScenarios)
+      : [clonePlainValue(appliedScenarioRecord)];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario: primaryScenario,
       riskEvaluation,
@@ -6150,23 +5875,20 @@
       return isPlainObject(safeState.latestTimelineResult) ? safeState.latestTimelineResult : null;
     }
 
+    const scenario = selectedScenario.scenario;
+    const rawBaselineScenario = isPlainObject(selectedScenario.rawBaselineScenario)
+      ? selectedScenario.rawBaselineScenario
+      : scenario;
+    const primaryScenario = isPlainObject(selectedScenario.primaryScenario)
+      ? selectedScenario.primaryScenario
+      : scenario;
+    const autoCompressedBaselineScenario = isPlainObject(selectedScenario.autoCompressedBaselineScenario)
+      ? selectedScenario.autoCompressedBaselineScenario
+      : null;
     const settings = normalizeScenarioControlsForState(
       safeState,
       isPlainObject(selectedScenario.settings) ? selectedScenario.settings : null
     );
-    const fallbackScenario = makeTransitionPeriodFallbackScenario(settings.transitionPeriodMonths);
-    const scenario = ensureGraphScenarioTransitionPeriodContract(selectedScenario.scenario, fallbackScenario);
-    const rawBaselineScenario = ensureGraphScenarioTransitionPeriodContract(
-      isPlainObject(selectedScenario.rawBaselineScenario) ? selectedScenario.rawBaselineScenario : scenario,
-      scenario
-    );
-    const primaryScenario = ensureGraphScenarioTransitionPeriodContract(
-      isPlainObject(selectedScenario.primaryScenario) ? selectedScenario.primaryScenario : scenario,
-      rawBaselineScenario
-    );
-    const autoCompressedBaselineScenario = isPlainObject(selectedScenario.autoCompressedBaselineScenario)
-      ? ensureGraphScenarioTransitionPeriodContract(selectedScenario.autoCompressedBaselineScenario, rawBaselineScenario)
-      : null;
     const baselineContract = isPlainObject(selectedScenario.baselineContract)
       ? selectedScenario.baselineContract
       : makeBaselineContract({
@@ -6185,10 +5907,9 @@
       ? clonePlainValue(selectedScenario.lifestyleScenario)
       : null;
     const selectedScenarioId = safeState.selectedScenarioId || getAppliedScenarioId(selectedScenario, 0);
-    const appliedScenariosSnapshot = ensureAppliedScenarioRecordsGraphTransitionPeriodContract(
-      Array.isArray(safeState.appliedScenarios) ? safeState.appliedScenarios : [selectedScenario],
-      primaryScenario
-    );
+    const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
+      ? clonePlainValue(safeState.appliedScenarios)
+      : [clonePlainValue(selectedScenario)];
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario: primaryScenario,
       riskEvaluation,
@@ -6355,33 +6076,14 @@
     const settings = getRuntimeScenarioControlsSnapshot(state);
     const lifestyleScenario = safeInputs.lifestyleScenario;
     const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta);
-    const fallbackScenario = cloneScenarioWithGraphTransitionPeriodContract(
-      baseContext?.scenario || null,
-      makeTransitionPeriodFallbackScenario(settings.transitionPeriodMonths)
-    );
-    const rawBaselineScenario = cloneScenarioWithGraphTransitionPeriodContract(
-      safeInputs.rawBaselineScenario || fallbackScenario,
-      fallbackScenario
-    );
-    const scenario = cloneScenarioWithGraphTransitionPeriodContract(
-      safeInputs.scenario || fallbackScenario,
-      rawBaselineScenario
-    );
-    const primaryScenario = cloneScenarioWithGraphTransitionPeriodContract(
-      safeInputs.primaryScenario || safeInputs.scenario || fallbackScenario,
-      rawBaselineScenario
-    );
-    const autoCompressedBaselineScenario = isPlainObject(safeInputs.autoCompressedBaselineScenario)
-      ? cloneScenarioWithGraphTransitionPeriodContract(safeInputs.autoCompressedBaselineScenario, rawBaselineScenario)
-      : null;
     return {
       scenarioId: INITIAL_APPLIED_SCENARIO_ID,
       label: getAppliedScenarioLabel(state, settings),
       settings: clonePlainValue(settings),
-      scenario: scenario || null,
-      rawBaselineScenario: rawBaselineScenario || null,
-      primaryScenario: primaryScenario || null,
-      autoCompressedBaselineScenario,
+      scenario: clonePlainValue(safeInputs.scenario || baseContext?.scenario || null),
+      rawBaselineScenario: clonePlainValue(safeInputs.rawBaselineScenario || baseContext?.scenario || null),
+      primaryScenario: clonePlainValue(safeInputs.primaryScenario || safeInputs.scenario || baseContext?.scenario || null),
+      autoCompressedBaselineScenario: clonePlainValue(safeInputs.autoCompressedBaselineScenario || null),
       baselineContract: clonePlainValue(safeInputs.baselineContract || null),
       riskEvaluation: clonePlainValue(safeInputs.riskEvaluation || baseContext?.riskEvaluation || null),
       comparisonScenarios: Array.isArray(safeInputs.comparisonScenarios)
@@ -6409,36 +6111,6 @@
         maxAppliedScenarioCount: MAX_APPLIED_SCENARIOS
       }
     };
-  }
-
-  function ensureAppliedScenarioRecordGraphTransitionPeriodContract(record, fallbackScenario = null) {
-    if (!isPlainObject(record)) {
-      return record;
-    }
-    const scenario = cloneScenarioWithGraphTransitionPeriodContract(record.scenario, fallbackScenario);
-    const rawBaselineScenario = cloneScenarioWithGraphTransitionPeriodContract(
-      isPlainObject(record.rawBaselineScenario) ? record.rawBaselineScenario : scenario,
-      scenario || fallbackScenario
-    );
-    const primaryScenario = cloneScenarioWithGraphTransitionPeriodContract(
-      isPlainObject(record.primaryScenario) ? record.primaryScenario : scenario,
-      rawBaselineScenario || scenario || fallbackScenario
-    );
-    const autoCompressedBaselineScenario = isPlainObject(record.autoCompressedBaselineScenario)
-      ? cloneScenarioWithGraphTransitionPeriodContract(record.autoCompressedBaselineScenario, rawBaselineScenario || scenario)
-      : null;
-    return Object.assign({}, clonePlainValue(record), {
-      scenario: scenario || null,
-      rawBaselineScenario: rawBaselineScenario || null,
-      primaryScenario: primaryScenario || null,
-      autoCompressedBaselineScenario
-    });
-  }
-
-  function ensureAppliedScenarioRecordsGraphTransitionPeriodContract(records, fallbackScenario = null) {
-    return (Array.isArray(records) ? records : []).map(function (record) {
-      return ensureAppliedScenarioRecordGraphTransitionPeriodContract(record, fallbackScenario);
-    });
   }
 
   function buildAppliedScenarioRecord(state, baseContext, timelineResult) {
@@ -6567,35 +6239,22 @@
     return toOptionalNumber(point?.value ?? point?.endingResources ?? point?.availableResources);
   }
 
-  function mapSurvivorDiagnosticGraphPoint(point, graphModel = null) {
+  function mapSurvivorDiagnosticGraphPoint(point) {
     return {
       monthIndex: toOptionalNumber(point?.monthIndex),
-      rawMonthIndex: toOptionalNumber(point?.rawMonthIndex),
-      visualMonthIndex: toOptionalNumber(point?.visualMonthIndex),
-      visualMonthOffset: toOptionalNumber(point?.visualMonthOffset),
-      visualDepletionMonth: toOptionalNumber(point?.visualDepletionMonth),
-      transitionPeriodMonths: toOptionalNumber(point?.transitionPeriodMonths),
-      transitionBridge: point?.transitionBridge === true,
-      transitionBridgeMode: normalizeString(point?.transitionBridgeMode) || null,
-      xRatio: toOptionalNumber(point?.xRatio),
-      yRatio: toOptionalNumber(point?.yRatio),
-      x: graphModel && toOptionalNumber(point?.xRatio) != null ? toGraphX(point.xRatio, graphModel, point) : null,
-      y: graphModel && toOptionalNumber(point?.yRatio) != null ? toGraphY(point.yRatio, graphModel, point) : null,
       value: getGraphPointValue(point),
       endingResources: toOptionalNumber(point?.endingResources),
       availableResources: toOptionalNumber(point?.availableResources)
     };
   }
 
-  function pickSurvivorDiagnosticGraphPoints(points, limit, graphModel = null) {
+  function pickSurvivorDiagnosticGraphPoints(points, limit) {
     return (Array.isArray(points) ? points : [])
       .slice(0, Math.max(toOptionalNumber(limit) || 24, 0))
-      .map(function (point) {
-        return mapSurvivorDiagnosticGraphPoint(point, graphModel);
-      });
+      .map(mapSurvivorDiagnosticGraphPoint);
   }
 
-  function pickSurvivorDiagnosticGraphPointWindow(points, centerMonth, monthsBefore, monthsAfter, graphModel = null) {
+  function pickSurvivorDiagnosticGraphPointWindow(points, centerMonth, monthsBefore, monthsAfter) {
     const center = toOptionalNumber(centerMonth);
     if (center == null) {
       return [];
@@ -6607,12 +6266,10 @@
         const monthIndex = toOptionalNumber(point?.monthIndex) ?? index + 1;
         return monthIndex >= startMonth && monthIndex <= endMonth;
       })
-      .map(function (point) {
-        return mapSurvivorDiagnosticGraphPoint(point, graphModel);
-      });
+      .map(mapSurvivorDiagnosticGraphPoint);
   }
 
-  function summarizeSurvivorDiagnosticComparisonGraphSeries(series, primaryFirstValue, primaryLastValue, delayMonths, graphModel = null) {
+  function summarizeSurvivorDiagnosticComparisonGraphSeries(series, primaryFirstValue, primaryLastValue, delayMonths) {
     const points = Array.isArray(series?.points) ? series.points : [];
     const firstPoint = points[0] || null;
     const lastPoint = points.length ? points[points.length - 1] : null;
@@ -6623,56 +6280,11 @@
       pathId: series?.pathId || null,
       label: series?.label || null,
       pointCount: points.length,
-      pathMode: normalizeGraphPathMode(series?.pathMode),
-      pathD: buildSvgPath(points, normalizeGraphPathMode(series?.pathMode), graphModel),
-      pointsSample: pickSurvivorDiagnosticGraphPoints(points, 24, graphModel),
-      pointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(points, delayMonths, 2, 6, graphModel),
+      pointsSample: pickSurvivorDiagnosticGraphPoints(points, 24),
+      pointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(points, delayMonths, 2, 6),
       firstPointValue,
       lastPointValue,
       lineValuesDifferFromPrimary: firstPointValue !== primaryFirstValue || lastPointValue !== primaryLastValue
-    };
-  }
-
-  function prepareSurvivorDiagnosticRunwaySeries(graphModel) {
-    return (Array.isArray(graphModel?.series?.appliedRunwayScenarios)
-      ? graphModel.series.appliedRunwayScenarios
-      : [])
-      .map(function (series, index) {
-        return Object.assign({}, series, {
-          pathId: normalizeString(series?.pathId) || (index === 0
-            ? POST_DEATH_RESOURCES_PATH_ID
-            : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`),
-          points: Array.isArray(series?.fundedRunwayPoints) ? series.fundedRunwayPoints : [],
-          pathMode: normalizeGraphPathMode(series?.pathMode),
-          diagnosticRenderSource: "appliedRunwayScenarios.fundedRunwayPoints"
-        });
-      })
-      .filter(function (series) {
-        return isPlainObject(series);
-      });
-  }
-
-  function summarizeSurvivorDiagnosticTransitionBridge(graphModel) {
-    const bridgePoints = Array.isArray(graphModel?.series?.transitionBridge)
-      ? graphModel.series.transitionBridge
-      : (Array.isArray(graphModel?.series?.transitionBridgePoints)
-        ? graphModel.series.transitionBridgePoints
-        : []);
-    const mappedPoints = pickSurvivorDiagnosticGraphPoints(bridgePoints, bridgePoints.length || 2, graphModel);
-    const firstBridgePoint = mappedPoints[0] || null;
-    const lastBridgePoint = mappedPoints.length ? mappedPoints[mappedPoints.length - 1] : null;
-    return {
-      source: Array.isArray(graphModel?.series?.transitionBridge)
-        ? "series.transitionBridge"
-        : (Array.isArray(graphModel?.series?.transitionBridgePoints) ? "series.transitionBridgePoints" : null),
-      pointCount: bridgePoints.length,
-      points: mappedPoints,
-      startX: toOptionalNumber(firstBridgePoint?.x),
-      endX: toOptionalNumber(lastBridgePoint?.x),
-      visible: bridgePoints.length >= 2
-        && toOptionalNumber(firstBridgePoint?.x) != null
-        && toOptionalNumber(lastBridgePoint?.x) != null
-        && toOptionalNumber(firstBridgePoint?.x) !== toOptionalNumber(lastBridgePoint?.x)
     };
   }
 
@@ -6681,70 +6293,32 @@
     const postDeathPoints = Array.isArray(series.postDeathResources) ? series.postDeathResources : [];
     const appliedSeries = Array.isArray(series.appliedPostDeathResources) ? series.appliedPostDeathResources : [];
     const comparisonSeries = Array.isArray(series.comparisonPostDeathResources) ? series.comparisonPostDeathResources : [];
-    const runwaySeries = prepareSurvivorDiagnosticRunwaySeries(graphModel);
-    const selectedRunway = runwaySeries.find(function (row) {
-      return row?.selected === true;
-    }) || runwaySeries[0] || null;
     const selectedApplied = appliedSeries.find(function (row) {
       return row?.selected === true;
     }) || appliedSeries[0] || null;
     const selectedPoints = Array.isArray(selectedApplied?.points) ? selectedApplied.points : [];
-    const selectedRunwayPoints = Array.isArray(selectedRunway?.points) ? selectedRunway.points : [];
-    const primaryPoints = selectedRunwayPoints.length ? selectedRunwayPoints : (selectedPoints.length ? selectedPoints : postDeathPoints);
-    const primaryPathMode = normalizeGraphPathMode(selectedRunway?.pathMode || selectedApplied?.pathMode);
+    const primaryPoints = selectedPoints.length ? selectedPoints : postDeathPoints;
     const firstPoint = primaryPoints[0] || null;
     const lastPoint = primaryPoints.length ? primaryPoints[primaryPoints.length - 1] : null;
-    const primaryFirstValue = getGraphPointValue(firstPoint);
-    const primaryLastValue = getGraphPointValue(lastPoint);
-    const bridgeSummary = summarizeSurvivorDiagnosticTransitionBridge(graphModel);
 
     return {
       status: graphModel?.status || null,
-      transitionPeriod: isPlainObject(graphModel?.transitionPeriod) ? clonePlainValue(graphModel.transitionPeriod) : null,
-      layoutFrame: isPlainObject(graphModel?.layoutFrame) ? clonePlainValue(graphModel.layoutFrame) : null,
       primaryPointCount: primaryPoints.length,
-      primaryRenderSource: selectedRunwayPoints.length
-        ? "appliedRunwayScenarios.fundedRunwayPoints"
-        : (selectedPoints.length ? "appliedPostDeathResources.points" : "postDeathResources"),
-      primaryPathId: selectedRunway?.pathId || graphModel?.trace?.selectedAppliedScenarioPathId || selectedApplied?.pathId || null,
-      primaryPathMode,
-      primaryPathD: buildSvgPath(primaryPoints, primaryPathMode, graphModel),
-      firstRenderedGraphPoints: pickSurvivorDiagnosticGraphPoints(primaryPoints, 8, graphModel),
-      renderedGraphPointsSample: pickSurvivorDiagnosticGraphPoints(primaryPoints, 24, graphModel),
-      renderedGraphPointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(primaryPoints, delayMonths, 2, 6, graphModel),
-      transitionBridgeStartX: bridgeSummary.startX,
-      transitionBridgeEndX: bridgeSummary.endX,
-      transitionBridgeVisible: bridgeSummary.visible,
-      transitionBridgeSource: bridgeSummary.source,
-      transitionBridgePoints: bridgeSummary.points,
-      firstPointValue: primaryFirstValue,
-      lastPointValue: primaryLastValue,
+      firstPointValue: getGraphPointValue(firstPoint),
+      lastPointValue: getGraphPointValue(lastPoint),
       selectedAppliedScenarioPathId: graphModel?.trace?.selectedAppliedScenarioPathId || selectedApplied?.pathId || null,
       renderedAppliedScenarioCount: toOptionalNumber(graphModel?.trace?.renderedAppliedScenarioCount),
       appliedScenarioPathsEnabled: graphModel?.trace?.appliedScenarioPathsEnabled === true,
-      appliedRunwayScenarioCount: runwaySeries.length,
-      appliedRunwayScenarioIds: runwaySeries.map(function (row) {
+      comparisonScenarioIds: comparisonSeries.map(function (row) {
         return row?.scenarioId || row?.pathId || null;
       }).filter(Boolean),
-      comparisonScenarioIds: (runwaySeries.length
-        ? runwaySeries.filter(function (row) {
-          return row !== selectedRunway;
-        })
-        : comparisonSeries).map(function (row) {
-        return row?.scenarioId || row?.pathId || null;
-      }).filter(Boolean),
-      comparisonScenarioCount: runwaySeries.length ? Math.max(runwaySeries.length - 1, 0) : comparisonSeries.length,
-      comparisonScenarios: (runwaySeries.length
-        ? runwaySeries.filter(function (row) {
-          return row !== selectedRunway;
-        })
-        : comparisonSeries).map(function (row) {
+      comparisonScenarioCount: comparisonSeries.length,
+      comparisonScenarios: comparisonSeries.map(function (row) {
         return summarizeSurvivorDiagnosticComparisonGraphSeries(
           row,
-          primaryFirstValue,
-          primaryLastValue,
-          delayMonths,
-          graphModel
+          getGraphPointValue(firstPoint),
+          getGraphPointValue(lastPoint),
+          delayMonths
         );
       })
     };
@@ -6789,24 +6363,6 @@
     };
   }
 
-  function summarizeScenarioTransitionPeriod(scenario) {
-    const transitionPeriod = isPlainObject(scenario?.scenario?.transitionPeriod)
-      ? scenario.scenario.transitionPeriod
-      : {};
-    const transitionTrace = isPlainObject(scenario?.trace?.layer3?.transitionPeriod)
-      ? scenario.trace.layer3.transitionPeriod
-      : {};
-    return {
-      lengthMonths: clampTransitionPeriodMonths(
-        transitionPeriod.lengthMonths ?? transitionTrace.lengthMonths,
-        DEFAULT_TRANSITION_PERIOD_MONTHS
-      ),
-      bridgeMode: normalizeString(transitionPeriod.bridgeMode || transitionTrace.bridgeMode) || null,
-      cashFlowMode: normalizeString(transitionPeriod.cashFlowMode || transitionTrace.cashFlowMode) || null,
-      noFinancialCalculationChanged: transitionTrace.noFinancialCalculationChanged === true
-    };
-  }
-
   function getSurvivorDiagnosticComparisonScenarios(timelineResult) {
     const comparisonScenarios = [];
     if (Array.isArray(timelineResult?.comparisonScenarios)) {
@@ -6844,8 +6400,6 @@
     return {
       scenarioId: scenario.scenarioId || null,
       rawBaselineScenarioId: rawBaselineScenario.scenarioId || null,
-      transitionPeriod: summarizeScenarioTransitionPeriod(scenario),
-      rawBaselineTransitionPeriod: summarizeScenarioTransitionPeriod(rawBaselineScenario),
       visibleBaselineMode: baselineContract.visibleBaselineMode || "unadjusted",
       autoCompressionApplied: baselineContract.autoCompressionApplied === true,
       firstPoints: pickSurvivorDiagnosticPoints(scenario, 8),
@@ -6985,8 +6539,7 @@
         caseRef: incomeImpactState.profileRecord?.caseRef || null
       },
       analysisSettings: {
-        source: incomeImpactState.analysisSettingsSource || null,
-        transitionPeriodMonths: resolveAnalysisSettingsTransitionPeriodMonths(incomeImpactState.analysisSettings)
+        source: incomeImpactState.analysisSettingsSource || null
       },
       survivorScenario: {
         survivorNetAnnualIncome,
@@ -7207,34 +6760,6 @@
 
         const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
         controls.includeSurvivorIncome = event?.target?.checked === true;
-        setDraftScenarioControls(incomeImpactState, controls);
-        updateScenarioControls(incomeImpactState.latestTimelineResult);
-      });
-    }
-
-    if (scenarioElements.transitionPeriod) {
-      const updateTransitionPeriod = function (event) {
-        if (!incomeImpactState) {
-          return;
-        }
-
-        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
-        controls.transitionPeriodMonths = clampTransitionPeriodMonths(event?.target?.value);
-        setDraftScenarioControls(incomeImpactState, controls);
-        updateScenarioControls(incomeImpactState.latestTimelineResult);
-      };
-      scenarioElements.transitionPeriod.addEventListener("input", updateTransitionPeriod);
-      scenarioElements.transitionPeriod.addEventListener("change", updateTransitionPeriod);
-    }
-
-    if (scenarioElements.transitionPeriodReset) {
-      scenarioElements.transitionPeriodReset.addEventListener("click", function () {
-        if (!incomeImpactState) {
-          return;
-        }
-
-        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
-        controls.transitionPeriodMonths = resolveAnalysisSettingsTransitionPeriodMonths(incomeImpactState.analysisSettings);
         setDraftScenarioControls(incomeImpactState, controls);
         updateScenarioControls(incomeImpactState.latestTimelineResult);
       });

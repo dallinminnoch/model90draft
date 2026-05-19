@@ -186,9 +186,6 @@ function createHarness(options = {}) {
           survivorContinuesWorking: true,
           expectedSurvivorWorkReductionPercent: 25,
           survivorIncomeStartDelayMonths: 12
-        },
-        supportTreatment: {
-          transitionPeriodMonths: 7
         }
       }
     },
@@ -333,21 +330,13 @@ function createHarness(options = {}) {
             composerCalls.push(cloneJson(input));
             const includeSurvivorIncome = input.scenarioOptions?.includeSurvivorIncome !== false;
             const postDeathSeries = makePostDeathSeries(includeSurvivorIncome);
-            const transitionPeriodMonths = input.analysisSettings?.survivorSupportAssumptions?.supportTreatment?.transitionPeriodMonths ?? 3;
             return {
               status: "complete",
               scenarioId: includeSurvivorIncome ? "included-survivor-income" : "excluded-survivor-income",
               scenario: {
                 selectedDeathAge: input.selectedDeathAge,
                 selectedDeathDate: input.selectedDeathDate,
-                projectionHorizonMonths: input.projectionHorizonMonths,
-                transitionPeriod: {
-                  lengthMonths: transitionPeriodMonths,
-                  sourcePath: "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths",
-                  bridgeMode: "flatBridge",
-                  cashFlowMode: "not-modeled-v1",
-                  shiftsRunwayVisually: true
-                }
+                projectionHorizonMonths: input.projectionHorizonMonths
               },
               postDeathSeries,
               timelineFacts: {
@@ -364,19 +353,7 @@ function createHarness(options = {}) {
                 }
               },
               warnings: [],
-              dataGaps: [],
-              trace: {
-                layer3: {
-                  transitionPeriod: {
-                    lengthMonths: transitionPeriodMonths,
-                    source: "analysis-settings",
-                    sourcePath: "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths",
-                    bridgeMode: "flatBridge",
-                    cashFlowMode: "not-modeled-v1",
-                    noFinancialCalculationChanged: true
-                  }
-                }
-              }
+              dataGaps: []
             };
           },
           evaluateIncomeImpactRiskEvents() {
@@ -388,70 +365,14 @@ function createHarness(options = {}) {
             };
           },
           buildIncomeImpactTimelineGraphModel(input) {
-            const graphInputSnapshot = cloneJson(input);
-            if (input.scenario?.transitionPeriod && graphInputSnapshot.scenario) {
-              graphInputSnapshot.scenario.transitionPeriod = cloneJson(input.scenario.transitionPeriod);
-            }
-            (Array.isArray(input.appliedScenarios) ? input.appliedScenarios : []).forEach(function (scenario, index) {
-              if (scenario?.scenario?.transitionPeriod && graphInputSnapshot.appliedScenarios?.[index]?.scenario) {
-                graphInputSnapshot.appliedScenarios[index].scenario.transitionPeriod = cloneJson(scenario.scenario.transitionPeriod);
-              }
-            });
-            graphModelCalls.push(graphInputSnapshot);
-            const transitionPeriodMonths = input.scenario?.transitionPeriod?.lengthMonths
-              ?? input.scenario?.scenario?.transitionPeriod?.lengthMonths
-              ?? 0;
-            const projectionMonths = 30 + transitionPeriodMonths;
-            const yDomainMax = 120000;
-            function toGraphPoint(point) {
-              const rawMonthIndex = point.monthIndex;
-              const visualMonthIndex = transitionPeriodMonths + rawMonthIndex;
+            graphModelCalls.push(cloneJson(input));
+            const points = (input.scenario?.postDeathSeries?.points || []).map(function (point) {
               return {
                 value: point.endingResources,
                 endingResources: point.endingResources,
                 availableResources: point.availableResources,
-                monthIndex: rawMonthIndex,
-                rawMonthIndex,
-                visualMonthIndex,
-                transitionPeriodMonths,
-                transitionBridgeMode: "flatBridge",
-                xRatio: rawMonthIndex / Math.max(projectionMonths, 1),
-                yRatio: Math.max(0, Math.min(1, 1 - (point.endingResources / yDomainMax)))
+                monthIndex: point.monthIndex
               };
-            }
-            const transitionBridgePoints = transitionPeriodMonths > 0
-              ? [
-                  {
-                    value: 120000,
-                    endingResources: 120000,
-                    availableResources: 120000,
-                    monthIndex: 0,
-                    rawMonthIndex: 0,
-                    visualMonthIndex: 0,
-                    transitionPeriodMonths,
-                    transitionBridge: true,
-                    transitionBridgeMode: "flatBridge",
-                    phase: "deathEvent",
-                    xRatio: 0,
-                    yRatio: 0
-                  },
-                  {
-                    value: 120000,
-                    endingResources: 120000,
-                    availableResources: 120000,
-                    monthIndex: 0,
-                    rawMonthIndex: 0,
-                    visualMonthIndex: transitionPeriodMonths,
-                    transitionPeriodMonths,
-                    transitionBridge: true,
-                    transitionBridgeMode: "flatBridge",
-                    xRatio: transitionPeriodMonths / Math.max(projectionMonths, 1),
-                    yRatio: 0
-                  }
-                ]
-              : [];
-            const points = (input.scenario?.postDeathSeries?.points || []).map(function (point) {
-              return toGraphPoint(point);
             });
             const comparisonPostDeathResources = (input.comparisonScenarios || []).map(function (scenario) {
               return {
@@ -459,66 +380,23 @@ function createHarness(options = {}) {
                 pathId: scenario.pathId || scenario.graphPathId || "diagnostic-lifestyle-comparison-path",
                 label: scenario.label,
                 points: (scenario.postDeathSeries?.points || []).map(function (point) {
-                  return toGraphPoint(point);
+                  return {
+                    value: point.endingResources,
+                    endingResources: point.endingResources,
+                    availableResources: point.availableResources,
+                    monthIndex: point.monthIndex
+                  };
                 })
               };
             });
             return {
               status: "complete",
-              transitionPeriod: {
-                lengthMonths: transitionPeriodMonths,
-                bridgeMode: "flatBridge",
-                cashFlowMode: "not-modeled-v1",
-                visualOnly: true,
-                noFinancialCalculationChanged: true
-              },
-              layoutFrame: {
-                mode: "stableRunoutAnchoredFrame",
-                plotLeft: 74,
-                plotRight: 958,
-                plotTop: 36,
-                plotBottom: 354,
-                deathXRatio: 0.125,
-                zeroYRatio: 0.72,
-                runoutAnchorXRatio: 0.8,
-                negativeSupportBandRatio: 0.28,
-                xDomainMonths: projectionMonths,
-                yDomain: {
-                  min: -60000,
-                  max: yDomainMax
-                },
-                zeroCrossingAnchorScenarioId: input.scenario?.scenarioId || null,
-                zeroCrossingAnchorMonth: transitionPeriodMonths + (input.scenario?.postDeathSeries?.depletion?.depletionMonthIndex || 20),
-                zeroCrossingAnchorSource: "selected-scenario"
-              },
               series: {
                 postDeathResources: points,
-                transitionBridge: transitionBridgePoints,
-                comparisonPostDeathResources,
-                appliedRunwayScenarios: [
-                  {
-                    scenarioId: input.scenario?.scenarioId || "diagnostic-current",
-                    pathId: "postDeathResources",
-                    label: "Current rendered scenario",
-                    selected: true,
-                    pathMode: "linear",
-                    fundedRunwayPoints: transitionBridgePoints.concat(points)
-                  }
-                ].concat(comparisonPostDeathResources.map(function (scenario) {
-                  return {
-                    scenarioId: scenario.scenarioId,
-                    pathId: scenario.pathId,
-                    label: scenario.label,
-                    selected: false,
-                    pathMode: "linear",
-                    fundedRunwayPoints: transitionBridgePoints.concat(scenario.points)
-                  };
-                }))
+                comparisonPostDeathResources
               },
               trace: {
                 selectedAppliedScenarioPathId: "postDeathResources",
-                renderedAppliedScenarioCount: comparisonPostDeathResources.length + 1,
-                appliedScenarioPathsEnabled: true,
                 comparisonScenariosEnabled: comparisonPostDeathResources.length > 0,
                 comparisonScenarioCount: comparisonPostDeathResources.length
               },
@@ -569,7 +447,6 @@ assert.equal(snapshot.linkedProfile.id, "runtime-diagnostic-profile");
 assert.equal(snapshot.linkedProfile.name, "Runtime Diagnostic Profile");
 assert.equal(snapshot.linkedProfile.caseRef, "CL/DIAG");
 assert.equal(snapshot.analysisSettings.source, "profileRecord.analysisSettings");
-assert.equal(snapshot.analysisSettings.transitionPeriodMonths, 7);
 assert.equal(snapshot.survivorScenario.survivorNetAnnualIncome, 90000);
 assert.equal(snapshot.survivorScenario.survivorIncomeStartDelayMonths, 12);
 assert.equal(snapshot.survivorScenario.survivorSupportSettingsSource, "profileRecord.analysisSettings");
@@ -593,26 +470,6 @@ assert.equal(snapshot.included.rawBaselinePointsAroundDelay.find((point) => poin
 assert.equal(snapshot.excluded.rawBaselinePointsAroundDelay.find((point) => point.monthIndex === 13).netUse, 9000);
 assert.equal(snapshot.currentRendered.rawBaselineFullPointCount, 30);
 assert.ok(snapshot.currentRendered.rawBaselinePointsAroundDelay.some((point) => point.monthIndex === 13));
-assert.equal(snapshot.currentRendered.transitionPeriod.lengthMonths, 7);
-assert.equal(snapshot.currentRendered.transitionPeriod.bridgeMode, "flatBridge");
-assert.equal(snapshot.currentRendered.transitionPeriod.cashFlowMode, "not-modeled-v1");
-assert.equal(snapshot.currentRendered.transitionPeriod.noFinancialCalculationChanged, true);
-assert.equal(harness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths, 7);
-assert.equal(snapshot.currentRendered.graph.transitionPeriod.lengthMonths, 7);
-assert.equal(snapshot.currentRendered.graph.primaryRenderSource, "appliedRunwayScenarios.fundedRunwayPoints");
-assert.equal(snapshot.currentRendered.graph.primaryPathId, "postDeathResources");
-assert.match(snapshot.currentRendered.graph.primaryPathD, /^M/);
-assert.equal(snapshot.currentRendered.graph.transitionBridgeVisible, true);
-assert.equal(snapshot.currentRendered.graph.transitionBridgeSource, "series.transitionBridge");
-assert.ok(snapshot.currentRendered.graph.transitionBridgeEndX > snapshot.currentRendered.graph.transitionBridgeStartX);
-assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[0].transitionBridge, true);
-assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[0].visualMonthIndex, 0);
-assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[1].transitionBridge, true);
-assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[1].visualMonthIndex, 7);
-assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[2].rawMonthIndex, 1);
-assert.equal(snapshot.currentRendered.graph.firstRenderedGraphPoints[2].visualMonthIndex, 8);
-assert.equal(typeof snapshot.currentRendered.graph.firstRenderedGraphPoints[2].x, "number");
-assert.equal(typeof snapshot.currentRendered.graph.firstRenderedGraphPoints[2].y, "number");
 assert.notEqual(snapshot.included.rawBaselineDepletionMonth, snapshot.excluded.rawBaselineDepletionMonth);
 assert.equal(snapshot.conclusions.survivorNetAnnualIncomePositive, true);
 assert.equal(snapshot.conclusions.includedScenarioHasSurvivorIncomeAfterDelay, true);
@@ -627,7 +484,7 @@ assert.deepEqual(Array.from(snapshot.currentRendered.comparisonScenarioIds), [])
 assert.equal(snapshot.currentRendered.lifestyleComparison.active, false);
 assert.equal(snapshot.lifestyleComparison.active, false);
 assert.deepEqual(Array.from(snapshot.included.graph.comparisonScenarioIds), []);
-assert.equal(snapshot.included.graph.firstPointValue, 120000);
+assert.equal(snapshot.included.graph.firstPointValue, 111000);
 assert.notEqual(snapshot.included.graph.lastPointValue, snapshot.excluded.graph.lastPointValue);
 assert.ok(harness.composerCalls.some(function (call) {
   return call.scenarioOptions?.includeSurvivorIncome === true;
@@ -635,15 +492,6 @@ assert.ok(harness.composerCalls.some(function (call) {
 assert.ok(harness.composerCalls.some(function (call) {
   return call.scenarioOptions?.includeSurvivorIncome === false;
 }));
-assert.ok(harness.composerCalls.every(function (call) {
-  return call.analysisSettings?.survivorSupportAssumptions?.supportTreatment?.transitionPeriodMonths === 7;
-}));
-
-const incomeLossImpactDisplaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
-assert.match(incomeLossImpactDisplaySource, /resolveAnalysisSettingsTransitionPeriodMonths/);
-assert.match(incomeLossImpactDisplaySource, /transitionPeriodMonths:\s*controls\.transitionPeriodMonths/);
-assert.match(incomeLossImpactDisplaySource, /transitionPeriodMonths:\s*clampTransitionPeriodMonths\(safeSettings\.transitionPeriodMonths\)/);
-assert.match(incomeLossImpactDisplaySource, /transitionPeriod:\s*summarizeScenarioTransitionPeriod\(scenario\)/);
 
 const lifestyleHarness = createHarness({ lifestyleComparison: true });
 lifestyleHarness.readyCallback();

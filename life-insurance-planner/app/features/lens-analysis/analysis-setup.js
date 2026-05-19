@@ -792,7 +792,6 @@
       includeEssentialSupport: true,
       includeDiscretionarySupport: false,
       includeTransitionNeeds: true,
-      transitionPeriodMonths: 3,
       supportDurationYears: null
     }),
     riskFlags: Object.freeze({
@@ -821,7 +820,6 @@
         includeEssentialSupport: true,
         includeDiscretionarySupport: true,
         includeTransitionNeeds: true,
-        transitionPeriodMonths: 3,
         supportDurationYears: null
       }),
       riskFlags: Object.freeze({
@@ -1027,9 +1025,6 @@
   const MIN_SURVIVOR_SUPPORT_PERCENT = 0;
   const MAX_SURVIVOR_SUPPORT_PERCENT = 100;
   const MIN_SURVIVOR_SUPPORT_YEARS = 0;
-  const DEFAULT_SURVIVOR_TRANSITION_PERIOD_MONTHS = 3;
-  const MIN_SURVIVOR_TRANSITION_PERIOD_MONTHS = 0;
-  const MAX_SURVIVOR_TRANSITION_PERIOD_MONTHS = 24;
   const MIN_EDUCATION_PERCENT = 0;
   const MAX_EDUCATION_PERCENT = 100;
   const MIN_EDUCATION_NUMBER = 0;
@@ -2037,38 +2032,6 @@
     return Math.max(0, number);
   }
 
-  function normalizeSurvivorSupportTransitionPeriodMonths(value, fallback) {
-    const fallbackNumber = Number(fallback);
-    const fallbackValue = Number.isFinite(fallbackNumber)
-      ? Math.min(
-        MAX_SURVIVOR_TRANSITION_PERIOD_MONTHS,
-        Math.max(MIN_SURVIVOR_TRANSITION_PERIOD_MONTHS, Math.round(fallbackNumber))
-      )
-      : DEFAULT_SURVIVOR_TRANSITION_PERIOD_MONTHS;
-
-    if (value === null || value === undefined || String(value).trim() === "") {
-      return fallbackValue;
-    }
-
-    const number = Number(value);
-    if (!Number.isFinite(number)) {
-      return fallbackValue;
-    }
-
-    return Math.min(
-      MAX_SURVIVOR_TRANSITION_PERIOD_MONTHS,
-      Math.max(MIN_SURVIVOR_TRANSITION_PERIOD_MONTHS, Math.round(number))
-    );
-  }
-
-  function formatSurvivorSupportTransitionPeriodMonths(value) {
-    const months = normalizeSurvivorSupportTransitionPeriodMonths(
-      value,
-      DEFAULT_SURVIVOR_TRANSITION_PERIOD_MONTHS
-    );
-    return months === 1 ? "1 month" : `${months} months`;
-  }
-
   function normalizeEducationStartAge(value, fallback) {
     const fallbackValue = Number.isFinite(Number(fallback))
       ? Math.round(Number(fallback))
@@ -2977,10 +2940,6 @@
         includeTransitionNeeds: typeof savedSupportTreatment.includeTransitionNeeds === "boolean"
           ? savedSupportTreatment.includeTransitionNeeds
           : Boolean(defaultSupportTreatment.includeTransitionNeeds),
-        transitionPeriodMonths: normalizeSurvivorSupportTransitionPeriodMonths(
-          savedSupportTreatment.transitionPeriodMonths,
-          defaultSupportTreatment.transitionPeriodMonths
-        ),
         supportDurationYears: normalizeSurvivorSupportYears(
           savedSupportTreatment.supportDurationYears,
           defaultSupportTreatment.supportDurationYears
@@ -4355,18 +4314,6 @@
     });
   }
 
-  function syncSurvivorSupportTransitionPeriodDisplay(fields) {
-    const field = fields?.values?.["supportTreatment.transitionPeriodMonths"];
-    const output = typeof document !== "undefined" && typeof document.querySelector === "function"
-      ? document.querySelector("[data-analysis-survivor-transition-period-value]")
-      : null;
-    if (!output) {
-      return;
-    }
-
-    output.textContent = formatSurvivorSupportTransitionPeriodMonths(field?.value);
-  }
-
   function setSurvivorSupportValue(fields, fieldPath, value) {
     getSurvivorSupportFieldControls(fields, fieldPath).forEach(function (field) {
       if (field.tagName === "SELECT") {
@@ -4378,10 +4325,6 @@
         ? ""
         : formatHaircutInputValue(value);
     });
-
-    if (fieldPath === "supportTreatment.transitionPeriodMonths") {
-      syncSurvivorSupportTransitionPeriodDisplay(fields);
-    }
   }
 
   function setEducationChecked(fields, fieldPath, value) {
@@ -4683,11 +4626,6 @@
       : null;
   }
 
-  function readSurvivorSupportDraftTransitionPeriodMonths(fields, fieldPath, fallback) {
-    const field = fields.values?.[fieldPath];
-    return normalizeSurvivorSupportTransitionPeriodMonths(field?.value, fallback);
-  }
-
   function getSurvivorSupportDraftAssumptions(fields) {
     const current = getSurvivorSupportCurrentAssumptions(fields);
     const currentSurvivorIncomeTreatment = current.survivorIncomeTreatment
@@ -4770,11 +4708,6 @@
           fields,
           "supportTreatment.includeTransitionNeeds",
           currentSupportTreatment.includeTransitionNeeds
-        ),
-        transitionPeriodMonths: readSurvivorSupportDraftTransitionPeriodMonths(
-          fields,
-          "supportTreatment.transitionPeriodMonths",
-          currentSupportTreatment.transitionPeriodMonths
         ),
         supportDurationYears: readSurvivorSupportDraftYears(
           fields,
@@ -6239,11 +6172,6 @@
       fields,
       "supportTreatment.includeTransitionNeeds",
       assumptions.supportTreatment.includeTransitionNeeds
-    );
-    setSurvivorSupportValue(
-      fields,
-      "supportTreatment.transitionPeriodMonths",
-      assumptions.supportTreatment.transitionPeriodMonths
     );
     setSurvivorSupportValue(
       fields,
@@ -7969,12 +7897,6 @@
       return supportDuration;
     }
 
-    const transitionPeriodMonths = readSurvivorSupportDraftTransitionPeriodMonths(
-      fields,
-      "supportTreatment.transitionPeriodMonths",
-      DEFAULT_SURVIVOR_TRANSITION_PERIOD_MONTHS
-    );
-
     const highRelianceThreshold = readRequiredSurvivorSupportPercent(
       fields,
       "riskFlags.highRelianceThresholdPercent",
@@ -8038,7 +7960,6 @@
             "supportTreatment.includeTransitionNeeds",
             current.supportTreatment.includeTransitionNeeds
           ),
-          transitionPeriodMonths,
           supportDurationYears: supportDuration.value
         },
         riskFlags: {
@@ -9500,9 +9421,6 @@
       }
 
       const syncSurvivorSupportChange = function () {
-        if (fieldPath === "supportTreatment.transitionPeriodMonths") {
-          syncSurvivorSupportTransitionPeriodDisplay(survivorSupportFields);
-        }
         setSurvivorSupportDefaultProfile(survivorSupportFields, "custom");
         syncSurvivorSupportPreview(survivorSupportFields, linkedRecord);
         markUnsaved();
@@ -9859,7 +9777,6 @@
     normalizeMortgageTreatmentAssumption,
     normalizeMortgageManualYearsRemainingOverride,
     getDebtTreatmentAssumptions,
-    normalizeSurvivorSupportTransitionPeriodMonths,
     getSurvivorSupportAssumptions,
     getEducationAssumptions,
     getRecommendationGuardrails,
