@@ -20539,11 +20539,15 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-controls-panel {
-  padding: 0.7rem 0.5rem;
+  box-sizing: border-box;
+  padding: 0;
   background: #ffffff;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  border-left: 1px solid rgba(213, 221, 232, 0.78);
+  border-top: 1px solid rgba(213, 221, 232, 0.78);
+  border-right: 0;
+  border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+  border-radius: 0.65rem 0 0 0.65rem;
+  box-shadow: inset -1px 0 0 rgba(213, 221, 232, 0.78);
 }
 
 .income-impact-scenario-banner {
@@ -20556,13 +20560,14 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   display: grid;
   position: static;
   overflow: hidden;
-  width: min(100%, 13.75rem);
-  margin: 0 auto;
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
   padding: 0;
-  border: 1px solid var(--income-impact-scenario-border);
-  border-radius: 0.875rem;
+  border: 0;
+  border-radius: 0.65rem 0 0 0.65rem;
   background: #ffffff;
-  box-shadow: 0 2px 12px rgba(15, 28, 60, 0.07), 0 1px 3px rgba(15, 28, 60, 0.05);
+  box-shadow: none;
 }
 
 .income-impact-scenario-header {

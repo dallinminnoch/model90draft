@@ -948,18 +948,18 @@ assert.match(
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(
   componentsSource,
-  /\.income-impact-scenario-banner\s*\{[^}]*width:\s*min\(100%,\s*13\.75rem\);[^}]*border:\s*1px solid var\(--income-impact-scenario-border\);[^}]*border-radius:\s*0\.875rem;[^}]*background:\s*#ffffff;[^}]*box-shadow:\s*0 2px 12px rgba\(15,\s*28,\s*60,\s*0\.07\),\s*0 1px 3px rgba\(15,\s*28,\s*60,\s*0\.05\);[^}]*\}/,
-  "Scenario controls should render as the provided compact reference panel."
+  /\.income-impact-controls-panel\s*\{[^}]*padding:\s*0;[^}]*background:\s*#ffffff;[^}]*border-left:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-top:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-right:\s*0;[^}]*border-bottom:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*border-radius:\s*0\.65rem 0 0 0\.65rem;[^}]*box-shadow:\s*inset -1px 0 0 rgba\(213,\s*221,\s*232,\s*0\.78\);[^}]*\}/,
+  "Scenario controls rail should use the same side-column frame as the Client Directory views and filters column."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-scenario-banner\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*100%;[^}]*margin:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0\.65rem 0 0 0\.65rem;[^}]*background:\s*#ffffff;[^}]*box-shadow:\s*none;[^}]*\}/,
+  "Scenario controls content should sit flush inside the framed side rail instead of rendering as a separate card."
 );
 assert.doesNotMatch(
   componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*min-height:\s*100%;/,
-  "Scenario controls rail should not stretch the compact card frame to the full rail height."
-);
-assert.doesNotMatch(
-  componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*border:\s*1px solid/,
-  "Scenario controls rail should not override the base compact card border."
+  /\.income-impact-scenario-banner\s*\{[^}]*box-shadow:\s*0 2px 12px/,
+  "Scenario controls should not keep the separate compact-card shadow inside the side rail."
 );
 assert.match(componentsSource, /\.income-impact-controls-panel\s*\{[^}]*background:\s*#ffffff;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:hover/);
