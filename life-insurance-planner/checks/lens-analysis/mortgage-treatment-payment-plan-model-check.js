@@ -377,6 +377,34 @@ function isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff() {
     && checkProvesRuntimeOverride;
 }
 
+function isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff() {
+  const displayDiff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
+  const scenarioBannerCheckDiff = getGitDiff("checks/lens-analysis/income-loss-impact-scenario-banner-check.js");
+  const diagnosticCheckDiff = getGitDiff("checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js");
+
+  const displayMirrorsComposerTransitionForGraph = displayDiff.includes("getScenarioTransitionPeriodContractSource")
+    && displayDiff.includes("ensureGraphScenarioTransitionPeriodContract")
+    && displayDiff.includes("makeTransitionPeriodFallbackScenario")
+    && displayDiff.includes("autoCompressedBaselineResult.autoCompressedScenario")
+    && displayDiff.includes("safeInputs.autoCompressedBaselineScenario")
+    && displayDiff.includes("ensureAppliedScenarioRecordsGraphTransitionPeriodContract")
+    && displayDiff.includes("buildIncomeImpactTimelineGraphModel");
+
+  const scenarioBannerCheckProvesGraphContract = scenarioBannerCheckDiff.includes("selectedScenario?.scenario?.transitionPeriod?.lengthMonths")
+    && scenarioBannerCheckDiff.includes("harness.graphModelCalls[0].scenario.transitionPeriod.lengthMonths")
+    && scenarioBannerCheckDiff.includes("graphInputSnapshot.appliedScenarios")
+    && scenarioBannerCheckDiff.includes("transitionHarness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths")
+    && scenarioBannerCheckDiff.includes("graph model should receive the selected scenario transition contract");
+
+  const diagnosticCheckProvesGraphContract = diagnosticCheckDiff.includes("input.scenario?.transitionPeriod?.lengthMonths")
+    && diagnosticCheckDiff.includes("harness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths")
+    && diagnosticCheckDiff.includes("snapshot.currentRendered.graph.transitionPeriod.lengthMonths");
+
+  return displayMirrorsComposerTransitionForGraph
+    && scenarioBannerCheckProvesGraphContract
+    && diagnosticCheckProvesGraphContract;
+}
+
 function isAllowedAnalysisSetupMortgageTreatmentUi() {
   const diff = getGitDiff("pages/analysis-setup.html");
   const html = readRepoFile("pages/analysis-setup.html");
@@ -528,7 +556,8 @@ function assertNoProtectedDiffs() {
         || isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot()
         || isAllowedIncomeLossImpactLayoutFrameRendererConsumption()
         || isAllowedIncomeImpactTransitionPeriodComposerTraceContract()
-        || isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff());
+        || isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff()
+        || isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff());
     }
     if (filePath === "pages/income-loss-impact.html") {
       return !isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff();

@@ -388,8 +388,19 @@ function createHarness(options = {}) {
             };
           },
           buildIncomeImpactTimelineGraphModel(input) {
-            graphModelCalls.push(cloneJson(input));
-            const transitionPeriodMonths = input.scenario?.scenario?.transitionPeriod?.lengthMonths || 0;
+            const graphInputSnapshot = cloneJson(input);
+            if (input.scenario?.transitionPeriod && graphInputSnapshot.scenario) {
+              graphInputSnapshot.scenario.transitionPeriod = cloneJson(input.scenario.transitionPeriod);
+            }
+            (Array.isArray(input.appliedScenarios) ? input.appliedScenarios : []).forEach(function (scenario, index) {
+              if (scenario?.scenario?.transitionPeriod && graphInputSnapshot.appliedScenarios?.[index]?.scenario) {
+                graphInputSnapshot.appliedScenarios[index].scenario.transitionPeriod = cloneJson(scenario.scenario.transitionPeriod);
+              }
+            });
+            graphModelCalls.push(graphInputSnapshot);
+            const transitionPeriodMonths = input.scenario?.transitionPeriod?.lengthMonths
+              ?? input.scenario?.scenario?.transitionPeriod?.lengthMonths
+              ?? 0;
             const projectionMonths = 30 + transitionPeriodMonths;
             const yDomainMax = 120000;
             function toGraphPoint(point) {
@@ -586,6 +597,7 @@ assert.equal(snapshot.currentRendered.transitionPeriod.lengthMonths, 7);
 assert.equal(snapshot.currentRendered.transitionPeriod.bridgeMode, "flatBridge");
 assert.equal(snapshot.currentRendered.transitionPeriod.cashFlowMode, "not-modeled-v1");
 assert.equal(snapshot.currentRendered.transitionPeriod.noFinancialCalculationChanged, true);
+assert.equal(harness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths, 7);
 assert.equal(snapshot.currentRendered.graph.transitionPeriod.lengthMonths, 7);
 assert.equal(snapshot.currentRendered.graph.primaryRenderSource, "appliedRunwayScenarios.fundedRunwayPoints");
 assert.equal(snapshot.currentRendered.graph.primaryPathId, "postDeathResources");

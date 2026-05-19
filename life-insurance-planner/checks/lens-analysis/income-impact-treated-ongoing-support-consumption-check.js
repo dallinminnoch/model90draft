@@ -662,6 +662,47 @@ function assertNoForbiddenSourceChanges() {
       && checkProvesRuntimeOverride;
   }
 
+  function isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath) {
+    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js") {
+      return false;
+    }
+
+    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const scenarioBannerCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const diagnosticCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    const displayMirrorsComposerTransitionForGraph = displayDiff.includes("getScenarioTransitionPeriodContractSource")
+      && displayDiff.includes("ensureGraphScenarioTransitionPeriodContract")
+      && displayDiff.includes("makeTransitionPeriodFallbackScenario")
+      && displayDiff.includes("autoCompressedBaselineResult.autoCompressedScenario")
+      && displayDiff.includes("safeInputs.autoCompressedBaselineScenario")
+      && displayDiff.includes("ensureAppliedScenarioRecordsGraphTransitionPeriodContract")
+      && displayDiff.includes("buildIncomeImpactTimelineGraphModel");
+
+    const scenarioBannerCheckProvesGraphContract = scenarioBannerCheckDiff.includes("selectedScenario?.scenario?.transitionPeriod?.lengthMonths")
+      && scenarioBannerCheckDiff.includes("harness.graphModelCalls[0].scenario.transitionPeriod.lengthMonths")
+      && scenarioBannerCheckDiff.includes("graphInputSnapshot.appliedScenarios")
+      && scenarioBannerCheckDiff.includes("transitionHarness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths")
+      && scenarioBannerCheckDiff.includes("graph model should receive the selected scenario transition contract");
+
+    const diagnosticCheckProvesGraphContract = diagnosticCheckDiff.includes("input.scenario?.transitionPeriod?.lengthMonths")
+      && diagnosticCheckDiff.includes("harness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths")
+      && diagnosticCheckDiff.includes("snapshot.currentRendered.graph.transitionPeriod.lengthMonths");
+
+    return displayMirrorsComposerTransitionForGraph
+      && scenarioBannerCheckProvesGraphContract
+      && diagnosticCheckProvesGraphContract;
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -845,6 +886,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath)
       && !isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath)
       && !isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff(filePath)
+      && !isAllowedIncomeLossImpactTransitionPeriodGraphPropagationDiff(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)

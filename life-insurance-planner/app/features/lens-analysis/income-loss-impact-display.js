@@ -256,6 +256,77 @@
     return nextSettings;
   }
 
+  function getScenarioTransitionPeriodContractSource(scenario) {
+    if (isPlainObject(scenario?.transitionPeriod)) {
+      return scenario.transitionPeriod;
+    }
+    if (isPlainObject(scenario?.scenario?.transitionPeriod)) {
+      return scenario.scenario.transitionPeriod;
+    }
+    if (isPlainObject(scenario?.trace?.layer3?.transitionPeriod)) {
+      return scenario.trace.layer3.transitionPeriod;
+    }
+    return null;
+  }
+
+  function normalizeScenarioTransitionPeriodContract(source, fallbackSource = null) {
+    const safeSource = isPlainObject(source) ? source : {};
+    const safeFallback = isPlainObject(fallbackSource) ? fallbackSource : {};
+    return {
+      lengthMonths: clampTransitionPeriodMonths(
+        safeSource.lengthMonths,
+        toOptionalNumber(safeFallback.lengthMonths) ?? MIN_TRANSITION_PERIOD_MONTHS
+      ),
+      sourcePath: normalizeString(safeSource.sourcePath || safeFallback.sourcePath) || null,
+      bridgeMode: normalizeString(safeSource.bridgeMode || safeFallback.bridgeMode) || "flatBridge",
+      cashFlowMode: normalizeString(safeSource.cashFlowMode || safeFallback.cashFlowMode) || "not-modeled-v1",
+      shiftsRunwayVisually: true,
+      noFinancialCalculationChanged: true
+    };
+  }
+
+  function ensureGraphScenarioTransitionPeriodContract(scenario, fallbackScenario = null, options = null) {
+    if (!isPlainObject(scenario)) {
+      return scenario;
+    }
+    const safeOptions = isPlainObject(options) ? options : {};
+    const fallbackContract = getScenarioTransitionPeriodContractSource(fallbackScenario);
+    const transitionPeriod = normalizeScenarioTransitionPeriodContract(
+      getScenarioTransitionPeriodContractSource(scenario),
+      fallbackContract
+    );
+    Object.defineProperty(scenario, "transitionPeriod", {
+      value: transitionPeriod,
+      enumerable: safeOptions.enumerable === true,
+      configurable: true,
+      writable: true
+    });
+    return scenario;
+  }
+
+  function cloneScenarioWithGraphTransitionPeriodContract(scenario, fallbackScenario = null) {
+    if (!isPlainObject(scenario)) {
+      return null;
+    }
+    return ensureGraphScenarioTransitionPeriodContract(
+      clonePlainValue(scenario),
+      fallbackScenario,
+      { enumerable: false }
+    );
+  }
+
+  function makeTransitionPeriodFallbackScenario(transitionPeriodMonths) {
+    return {
+      transitionPeriod: normalizeScenarioTransitionPeriodContract({
+        lengthMonths: transitionPeriodMonths,
+        bridgeMode: "flatBridge",
+        cashFlowMode: "not-modeled-v1",
+        shiftsRunwayVisually: true,
+        noFinancialCalculationChanged: true
+      })
+    };
+  }
+
   function getLifestyleSliderLabel(value) {
     const sliderValue = clampLifestyleSliderValue(value);
     if (sliderValue < 0) {
@@ -5486,7 +5557,10 @@
         ? clonePlainValue(autoCompressedBaselineResult.warnings)
         : [];
       if (autoCompressedBaselineResult?.status === "ready" && isPlainObject(autoCompressedBaselineResult.autoCompressedScenario)) {
-        autoCompressedBaselineScenario = autoCompressedBaselineResult.autoCompressedScenario;
+        autoCompressedBaselineScenario = ensureGraphScenarioTransitionPeriodContract(
+          autoCompressedBaselineResult.autoCompressedScenario,
+          rawBaselineScenario
+        );
         baseResult.primaryScenario = autoCompressedBaselineScenario;
         baseResult.autoCompressedBaselineScenario = autoCompressedBaselineScenario;
       }
@@ -5856,9 +5930,17 @@
       controls,
       resolvedAccountPolicyInput
     );
-    const rawBaselineScenario = baselineComposition.rawBaselineScenario || scenario;
-    const primaryScenario = baselineComposition.primaryScenario || scenario;
-    const autoCompressedBaselineScenario = baselineComposition.autoCompressedBaselineScenario || null;
+    const rawBaselineScenario = ensureGraphScenarioTransitionPeriodContract(
+      baselineComposition.rawBaselineScenario || scenario,
+      makeTransitionPeriodFallbackScenario(controls.transitionPeriodMonths)
+    );
+    const primaryScenario = ensureGraphScenarioTransitionPeriodContract(
+      baselineComposition.primaryScenario || scenario,
+      rawBaselineScenario
+    );
+    const autoCompressedBaselineScenario = isPlainObject(baselineComposition.autoCompressedBaselineScenario)
+      ? ensureGraphScenarioTransitionPeriodContract(baselineComposition.autoCompressedBaselineScenario, rawBaselineScenario)
+      : null;
     const baselineContract = baselineComposition.baselineContract;
     const appliedScenarioRecord = buildAppliedScenarioRecordFromInputs(safeState, context, {
       scenario: primaryScenario,
@@ -5872,9 +5954,10 @@
     });
     upsertAppliedScenarioRecord(safeState, appliedScenarioRecord);
     const selectedScenarioId = safeState.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID;
-    const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
-      ? clonePlainValue(safeState.appliedScenarios)
-      : [clonePlainValue(appliedScenarioRecord)];
+    const appliedScenariosSnapshot = ensureAppliedScenarioRecordsGraphTransitionPeriodContract(
+      Array.isArray(safeState.appliedScenarios) ? safeState.appliedScenarios : [appliedScenarioRecord],
+      primaryScenario
+    );
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario: primaryScenario,
       riskEvaluation,
@@ -5969,20 +6052,23 @@
       return isPlainObject(safeState.latestTimelineResult) ? safeState.latestTimelineResult : null;
     }
 
-    const scenario = selectedScenario.scenario;
-    const rawBaselineScenario = isPlainObject(selectedScenario.rawBaselineScenario)
-      ? selectedScenario.rawBaselineScenario
-      : scenario;
-    const primaryScenario = isPlainObject(selectedScenario.primaryScenario)
-      ? selectedScenario.primaryScenario
-      : scenario;
-    const autoCompressedBaselineScenario = isPlainObject(selectedScenario.autoCompressedBaselineScenario)
-      ? selectedScenario.autoCompressedBaselineScenario
-      : null;
     const settings = normalizeScenarioControlsForState(
       safeState,
       isPlainObject(selectedScenario.settings) ? selectedScenario.settings : null
     );
+    const fallbackScenario = makeTransitionPeriodFallbackScenario(settings.transitionPeriodMonths);
+    const scenario = ensureGraphScenarioTransitionPeriodContract(selectedScenario.scenario, fallbackScenario);
+    const rawBaselineScenario = ensureGraphScenarioTransitionPeriodContract(
+      isPlainObject(selectedScenario.rawBaselineScenario) ? selectedScenario.rawBaselineScenario : scenario,
+      scenario
+    );
+    const primaryScenario = ensureGraphScenarioTransitionPeriodContract(
+      isPlainObject(selectedScenario.primaryScenario) ? selectedScenario.primaryScenario : scenario,
+      rawBaselineScenario
+    );
+    const autoCompressedBaselineScenario = isPlainObject(selectedScenario.autoCompressedBaselineScenario)
+      ? ensureGraphScenarioTransitionPeriodContract(selectedScenario.autoCompressedBaselineScenario, rawBaselineScenario)
+      : null;
     const baselineContract = isPlainObject(selectedScenario.baselineContract)
       ? selectedScenario.baselineContract
       : makeBaselineContract({
@@ -6001,9 +6087,10 @@
       ? clonePlainValue(selectedScenario.lifestyleScenario)
       : null;
     const selectedScenarioId = safeState.selectedScenarioId || getAppliedScenarioId(selectedScenario, 0);
-    const appliedScenariosSnapshot = Array.isArray(safeState.appliedScenarios)
-      ? clonePlainValue(safeState.appliedScenarios)
-      : [clonePlainValue(selectedScenario)];
+    const appliedScenariosSnapshot = ensureAppliedScenarioRecordsGraphTransitionPeriodContract(
+      Array.isArray(safeState.appliedScenarios) ? safeState.appliedScenarios : [selectedScenario],
+      primaryScenario
+    );
     const graphModel = safeState.buildIncomeImpactTimelineGraphModel({
       scenario: primaryScenario,
       riskEvaluation,
@@ -6170,14 +6257,33 @@
     const settings = getRuntimeScenarioControlsSnapshot(state);
     const lifestyleScenario = safeInputs.lifestyleScenario;
     const monthlyDelta = toOptionalNumber(lifestyleScenario?.monthlyDelta);
+    const fallbackScenario = cloneScenarioWithGraphTransitionPeriodContract(
+      baseContext?.scenario || null,
+      makeTransitionPeriodFallbackScenario(settings.transitionPeriodMonths)
+    );
+    const rawBaselineScenario = cloneScenarioWithGraphTransitionPeriodContract(
+      safeInputs.rawBaselineScenario || fallbackScenario,
+      fallbackScenario
+    );
+    const scenario = cloneScenarioWithGraphTransitionPeriodContract(
+      safeInputs.scenario || fallbackScenario,
+      rawBaselineScenario
+    );
+    const primaryScenario = cloneScenarioWithGraphTransitionPeriodContract(
+      safeInputs.primaryScenario || safeInputs.scenario || fallbackScenario,
+      rawBaselineScenario
+    );
+    const autoCompressedBaselineScenario = isPlainObject(safeInputs.autoCompressedBaselineScenario)
+      ? cloneScenarioWithGraphTransitionPeriodContract(safeInputs.autoCompressedBaselineScenario, rawBaselineScenario)
+      : null;
     return {
       scenarioId: INITIAL_APPLIED_SCENARIO_ID,
       label: getAppliedScenarioLabel(state, settings),
       settings: clonePlainValue(settings),
-      scenario: clonePlainValue(safeInputs.scenario || baseContext?.scenario || null),
-      rawBaselineScenario: clonePlainValue(safeInputs.rawBaselineScenario || baseContext?.scenario || null),
-      primaryScenario: clonePlainValue(safeInputs.primaryScenario || safeInputs.scenario || baseContext?.scenario || null),
-      autoCompressedBaselineScenario: clonePlainValue(safeInputs.autoCompressedBaselineScenario || null),
+      scenario: scenario || null,
+      rawBaselineScenario: rawBaselineScenario || null,
+      primaryScenario: primaryScenario || null,
+      autoCompressedBaselineScenario,
       baselineContract: clonePlainValue(safeInputs.baselineContract || null),
       riskEvaluation: clonePlainValue(safeInputs.riskEvaluation || baseContext?.riskEvaluation || null),
       comparisonScenarios: Array.isArray(safeInputs.comparisonScenarios)
@@ -6205,6 +6311,36 @@
         maxAppliedScenarioCount: MAX_APPLIED_SCENARIOS
       }
     };
+  }
+
+  function ensureAppliedScenarioRecordGraphTransitionPeriodContract(record, fallbackScenario = null) {
+    if (!isPlainObject(record)) {
+      return record;
+    }
+    const scenario = cloneScenarioWithGraphTransitionPeriodContract(record.scenario, fallbackScenario);
+    const rawBaselineScenario = cloneScenarioWithGraphTransitionPeriodContract(
+      isPlainObject(record.rawBaselineScenario) ? record.rawBaselineScenario : scenario,
+      scenario || fallbackScenario
+    );
+    const primaryScenario = cloneScenarioWithGraphTransitionPeriodContract(
+      isPlainObject(record.primaryScenario) ? record.primaryScenario : scenario,
+      rawBaselineScenario || scenario || fallbackScenario
+    );
+    const autoCompressedBaselineScenario = isPlainObject(record.autoCompressedBaselineScenario)
+      ? cloneScenarioWithGraphTransitionPeriodContract(record.autoCompressedBaselineScenario, rawBaselineScenario || scenario)
+      : null;
+    return Object.assign({}, clonePlainValue(record), {
+      scenario: scenario || null,
+      rawBaselineScenario: rawBaselineScenario || null,
+      primaryScenario: primaryScenario || null,
+      autoCompressedBaselineScenario
+    });
+  }
+
+  function ensureAppliedScenarioRecordsGraphTransitionPeriodContract(records, fallbackScenario = null) {
+    return (Array.isArray(records) ? records : []).map(function (record) {
+      return ensureAppliedScenarioRecordGraphTransitionPeriodContract(record, fallbackScenario);
+    });
   }
 
   function buildAppliedScenarioRecord(state, baseContext, timelineResult) {

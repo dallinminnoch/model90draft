@@ -621,14 +621,25 @@ function createHarness() {
             };
           },
           buildIncomeImpactTimelineGraphModel(input) {
-            graphModelCalls.push(cloneJson(input));
+            const graphInputSnapshot = cloneJson(input);
+            if (input.scenario?.transitionPeriod && graphInputSnapshot.scenario) {
+              graphInputSnapshot.scenario.transitionPeriod = cloneJson(input.scenario.transitionPeriod);
+            }
+            (Array.isArray(input.appliedScenarios) ? input.appliedScenarios : []).forEach(function (scenario, index) {
+              if (scenario?.scenario?.transitionPeriod && graphInputSnapshot.appliedScenarios?.[index]?.scenario) {
+                graphInputSnapshot.appliedScenarios[index].scenario.transitionPeriod = cloneJson(scenario.scenario.transitionPeriod);
+              }
+            });
+            graphModelCalls.push(graphInputSnapshot);
             const selectedScenarioId = input.selectedScenarioId;
             const appliedScenarios = Array.isArray(input.appliedScenarios) ? input.appliedScenarios : [];
             const selectedScenario = appliedScenarios.find(function (scenario) {
               return scenario?.scenarioId === selectedScenarioId;
             }) || appliedScenarios[0];
             const transitionPeriodMonths = Math.max(0, Math.min(24, Math.round(Number(
-              selectedScenario?.scenario?.scenario?.transitionPeriod?.lengthMonths
+              selectedScenario?.scenario?.transitionPeriod?.lengthMonths
+              ?? selectedScenario?.scenario?.scenario?.transitionPeriod?.lengthMonths
+              ?? input.scenario?.transitionPeriod?.lengthMonths
               ?? input.scenario?.scenario?.transitionPeriod?.lengthMonths
               ?? 0
             ) || 0)));
@@ -1066,8 +1077,10 @@ assert.equal(harness.graphModelCalls[0].appliedScenarios.length, 1, "display sho
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenarioId, "income-impact-current-scenario");
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].label, "Death tomorrow");
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].settings.selectedDeathAge, 45);
+assert.equal(harness.graphModelCalls[0].scenario.transitionPeriod.lengthMonths, 3);
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenario.scenario.selectedDeathAge, 45);
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenario.scenario.transitionPeriod.lengthMonths, 3);
+assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenario.transitionPeriod.lengthMonths, 3);
 assert.deepEqual(harness.graphModelCalls[0].appliedScenarios[0].comparisonScenarios, []);
 const initialScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.deepEqual(
@@ -1196,10 +1209,11 @@ transitionDraftState = transitionHarness.getScenarioComparisonStateSnapshot();
 const selectedTransitionScenario = getSelectedAppliedScenario(transitionDraftState);
 assert.equal(selectedTransitionScenario.settings.transitionPeriodMonths, 12);
 assert.equal(selectedTransitionScenario.scenario.scenario.transitionPeriod.lengthMonths, 12);
+assert.equal(transitionHarness.graphModelCalls.at(-1).scenario.transitionPeriod.lengthMonths, 12);
 assert.equal(
   transitionHarness.graphModelCalls.at(-1).appliedScenarios.find(function (scenario) {
     return scenario.scenarioId === transitionHarness.graphModelCalls.at(-1).selectedScenarioId;
-  }).scenario.scenario.transitionPeriod.lengthMonths,
+  }).scenario.transitionPeriod.lengthMonths,
   12,
   "graph model should receive the selected scenario transition contract."
 );
