@@ -9,6 +9,9 @@
   const MAX_PROJECTION_HORIZON_YEARS = 100;
   const MIN_LIFESTYLE_SLIDER_VALUE = -100;
   const MAX_LIFESTYLE_SLIDER_VALUE = 100;
+  const DEFAULT_TRANSITION_PERIOD_MONTHS = 3;
+  const MIN_TRANSITION_PERIOD_MONTHS = 0;
+  const MAX_TRANSITION_PERIOD_MONTHS = 24;
   const LIFESTYLE_COMPARISON_KIND = "lifestyleComparison";
   const LIFESTYLE_COMPARISON_PATH_ID = "lifestyle-post-death-resources";
   const PRE_DEATH_ASSETS_PATH_ID = "preDeathAssets";
@@ -216,6 +219,27 @@
     const number = toOptionalNumber(value);
     const rounded = number == null ? 0 : Math.round(number);
     return Math.max(MIN_LIFESTYLE_SLIDER_VALUE, Math.min(MAX_LIFESTYLE_SLIDER_VALUE, rounded));
+  }
+
+  function clampTransitionPeriodMonths(value, fallback = DEFAULT_TRANSITION_PERIOD_MONTHS) {
+    const fallbackNumber = toOptionalNumber(fallback);
+    const fallbackValue = fallbackNumber == null
+      ? DEFAULT_TRANSITION_PERIOD_MONTHS
+      : Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.round(fallbackNumber)));
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return fallbackValue;
+    }
+    return Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.round(number)));
+  }
+
+  function resolveAnalysisSettingsTransitionPeriodMonths(analysisSettings) {
+    const supportTreatment = isPlainObject(analysisSettings?.survivorSupportAssumptions?.supportTreatment)
+      ? analysisSettings.survivorSupportAssumptions.supportTreatment
+      : {};
+    return Object.prototype.hasOwnProperty.call(supportTreatment, "transitionPeriodMonths")
+      ? clampTransitionPeriodMonths(supportTreatment.transitionPeriodMonths)
+      : DEFAULT_TRANSITION_PERIOD_MONTHS;
   }
 
   function getLifestyleSliderLabel(value) {
@@ -4818,6 +4842,7 @@
       selectedDeathDate,
       projectionHorizonYears: clampProjectionHorizonYears(sourceControls.projectionHorizonYears ?? scenarioState.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(sourceControls.mortgageTreatmentOverride ?? scenarioState.mortgageTreatmentOverride),
+      transitionPeriodMonths: resolveAnalysisSettingsTransitionPeriodMonths(safeState.analysisSettings),
       includeSurvivorIncome: normalizeBooleanScenarioControl(
         sourceControls.includeSurvivorIncome ?? scenarioState.includeSurvivorIncome,
         getAssumptionSurvivorIncomeEnabled(safeState.lensModel)
@@ -4924,6 +4949,7 @@
       selectedDeathDate: normalizeString(safeSettings.selectedDeathDate) || null,
       projectionHorizonYears: clampProjectionHorizonYears(safeSettings.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
+      transitionPeriodMonths: clampTransitionPeriodMonths(safeSettings.transitionPeriodMonths),
       includeSurvivorIncome: normalizeBooleanScenarioControl(safeSettings.includeSurvivorIncome, true),
       lifestyleSliderValue: clampLifestyleSliderValue(safeSettings.lifestyleSliderValue),
       autoCompressBaselineEnabled: safeSettings.autoCompressBaselineEnabled !== false,
@@ -4979,6 +5005,7 @@
       valuationDate: safeState.valuationDate || null,
       projectionHorizonYears: controls.projectionHorizonYears,
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
+      transitionPeriodMonths: controls.transitionPeriodMonths,
       includeSurvivorIncome: controls.includeSurvivorIncome !== false,
       selectedDeathAge: controls.selectedDeathAge,
       selectedDeathDate: controls.selectedDeathDate
@@ -6363,6 +6390,24 @@
     };
   }
 
+  function summarizeScenarioTransitionPeriod(scenario) {
+    const transitionPeriod = isPlainObject(scenario?.scenario?.transitionPeriod)
+      ? scenario.scenario.transitionPeriod
+      : {};
+    const transitionTrace = isPlainObject(scenario?.trace?.layer3?.transitionPeriod)
+      ? scenario.trace.layer3.transitionPeriod
+      : {};
+    return {
+      lengthMonths: clampTransitionPeriodMonths(
+        transitionPeriod.lengthMonths ?? transitionTrace.lengthMonths,
+        DEFAULT_TRANSITION_PERIOD_MONTHS
+      ),
+      bridgeMode: normalizeString(transitionPeriod.bridgeMode || transitionTrace.bridgeMode) || null,
+      cashFlowMode: normalizeString(transitionPeriod.cashFlowMode || transitionTrace.cashFlowMode) || null,
+      noFinancialCalculationChanged: transitionTrace.noFinancialCalculationChanged === true
+    };
+  }
+
   function getSurvivorDiagnosticComparisonScenarios(timelineResult) {
     const comparisonScenarios = [];
     if (Array.isArray(timelineResult?.comparisonScenarios)) {
@@ -6400,6 +6445,8 @@
     return {
       scenarioId: scenario.scenarioId || null,
       rawBaselineScenarioId: rawBaselineScenario.scenarioId || null,
+      transitionPeriod: summarizeScenarioTransitionPeriod(scenario),
+      rawBaselineTransitionPeriod: summarizeScenarioTransitionPeriod(rawBaselineScenario),
       visibleBaselineMode: baselineContract.visibleBaselineMode || "unadjusted",
       autoCompressionApplied: baselineContract.autoCompressionApplied === true,
       firstPoints: pickSurvivorDiagnosticPoints(scenario, 8),
@@ -6539,7 +6586,8 @@
         caseRef: incomeImpactState.profileRecord?.caseRef || null
       },
       analysisSettings: {
-        source: incomeImpactState.analysisSettingsSource || null
+        source: incomeImpactState.analysisSettingsSource || null,
+        transitionPeriodMonths: resolveAnalysisSettingsTransitionPeriodMonths(incomeImpactState.analysisSettings)
       },
       survivorScenario: {
         survivorNetAnnualIncome,

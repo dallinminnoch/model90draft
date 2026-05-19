@@ -497,6 +497,70 @@ function assertNoForbiddenSourceChanges() {
       && diff.includes("Later-running lifestyle comparison should cross zero at the stable runout anchor zone.");
   }
 
+  function isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath) {
+    const allowedFiles = new Set([
+      "life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
+      "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js",
+      "life-insurance-planner/checks/lens-analysis/income-impact-scenario-composer-v1-check.js"
+    ]);
+    if (!allowedFiles.has(filePath)) {
+      return false;
+    }
+    const composerDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-impact-scenario-composer-calculations.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const composerCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-impact-scenario-composer-v1-check.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const diagnosticCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    const composerHasTransitionContract = composerDiff.includes("TRANSITION_PERIOD_SOURCE_PATH")
+      && composerDiff.includes("DEFAULT_TRANSITION_PERIOD_MONTHS = 3")
+      && composerDiff.includes("MIN_TRANSITION_PERIOD_MONTHS = 0")
+      && composerDiff.includes("MAX_TRANSITION_PERIOD_MONTHS = 24")
+      && composerDiff.includes("normalizeTransitionPeriodMonths")
+      && composerDiff.includes("resolveTransitionPeriodContract")
+      && composerDiff.includes("trace.layer3.transitionPeriod")
+      && composerDiff.includes("bridgeMode: \"flatBridge\"")
+      && composerDiff.includes("cashFlowMode: \"not-modeled-v1\"")
+      && composerDiff.includes("noFinancialCalculationChanged: true")
+      && composerDiff.includes("transitionPeriod: {")
+      && composerDiff.includes("shiftsRunwayVisually: true");
+
+    const displayHasCacheAndDiagnosticContract = displayDiff.includes("resolveAnalysisSettingsTransitionPeriodMonths")
+      && displayDiff.includes("clampTransitionPeriodMonths")
+      && displayDiff.includes("transitionPeriodMonths: controls.transitionPeriodMonths")
+      && displayDiff.includes("transitionPeriodMonths: clampTransitionPeriodMonths(safeSettings.transitionPeriodMonths)")
+      && displayDiff.includes("summarizeScenarioTransitionPeriod")
+      && displayDiff.includes("transitionPeriod: summarizeScenarioTransitionPeriod(scenario)")
+      && displayDiff.includes("rawBaselineTransitionPeriod");
+
+    const composerCheckHasNoBehaviorChangeProof = composerCheckDiff.includes("runTransitionPeriodContractChecks")
+      && composerCheckDiff.includes("Transition period metadata should not change Layer 3 post-death points")
+      && composerCheckDiff.includes("Transition period metadata should not change depletion")
+      && composerCheckDiff.includes("bridgeMode")
+      && composerCheckDiff.includes("cashFlowMode");
+
+    const diagnosticCheckHasTransitionProof = diagnosticCheckDiff.includes("snapshot.analysisSettings.transitionPeriodMonths")
+      && diagnosticCheckDiff.includes("snapshot.currentRendered.transitionPeriod.lengthMonths")
+      && diagnosticCheckDiff.includes("resolveAnalysisSettingsTransitionPeriodMonths")
+      && diagnosticCheckDiff.includes("snapshot.currentRendered.transitionPeriod.noFinancialCalculationChanged");
+
+    return composerHasTransitionContract
+      && displayHasCacheAndDiagnosticContract
+      && composerCheckHasNoBehaviorChangeProof
+      && diagnosticCheckHasTransitionProof;
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -678,6 +742,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedAssetDepletionLedgerSurplusDepositPass(filePath)
       && !isAllowedIncomeImpactGraphLayoutFramePass(filePath)
       && !isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath)
+      && !isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)

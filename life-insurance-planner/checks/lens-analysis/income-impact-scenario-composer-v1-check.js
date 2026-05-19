@@ -580,6 +580,83 @@ function runDepletionChecks() {
   assert.ok(scenario.timelineFacts.accumulatedUnmetNeed > 0, "accumulated unmet need carries through");
 }
 
+function runTransitionPeriodContractChecks() {
+  const { composeIncomeImpactScenario } = loadComposerWithLayerSpies();
+  const defaultScenario = composeIncomeImpactScenario(createInput());
+  const noTransitionScenario = composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: 0
+        }
+      }
+    }
+  }));
+  const maxTransitionScenario = composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: 24
+        }
+      }
+    }
+  }));
+  const invalidTransitionScenario = composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: "not-a-number"
+        }
+      }
+    }
+  }));
+  const overMaxTransitionScenario = composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: 99
+        }
+      }
+    }
+  }));
+  const negativeTransitionScenario = composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: -5
+        }
+      }
+    }
+  }));
+
+  assert.equal(defaultScenario.scenario.transitionPeriod.lengthMonths, 3, "Missing transitionPeriodMonths should default to 3.");
+  assert.equal(noTransitionScenario.scenario.transitionPeriod.lengthMonths, 0, "0 transition months should be preserved as no transition.");
+  assert.equal(maxTransitionScenario.scenario.transitionPeriod.lengthMonths, 24, "24 transition months should be accepted.");
+  assert.equal(invalidTransitionScenario.scenario.transitionPeriod.lengthMonths, 3, "Invalid transition months should normalize to the default.");
+  assert.equal(overMaxTransitionScenario.scenario.transitionPeriod.lengthMonths, 24, "Transition months over 24 should clamp to 24.");
+  assert.equal(negativeTransitionScenario.scenario.transitionPeriod.lengthMonths, 0, "Negative transition months should clamp to 0.");
+  assert.equal(maxTransitionScenario.scenario.transitionPeriod.sourcePath, "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths");
+  assert.equal(maxTransitionScenario.scenario.transitionPeriod.bridgeMode, "flatBridge");
+  assert.equal(maxTransitionScenario.scenario.transitionPeriod.cashFlowMode, "not-modeled-v1");
+  assert.equal(maxTransitionScenario.scenario.transitionPeriod.shiftsRunwayVisually, true);
+  assert.equal(maxTransitionScenario.trace.layer3.transitionPeriod.lengthMonths, 24);
+  assert.equal(maxTransitionScenario.trace.layer3.transitionPeriod.source, "analysis-settings");
+  assert.equal(maxTransitionScenario.trace.layer3.transitionPeriod.sourcePath, "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths");
+  assert.equal(maxTransitionScenario.trace.layer3.transitionPeriod.bridgeMode, "flatBridge");
+  assert.equal(maxTransitionScenario.trace.layer3.transitionPeriod.cashFlowMode, "not-modeled-v1");
+  assert.equal(maxTransitionScenario.trace.layer3.transitionPeriod.noFinancialCalculationChanged, true);
+  assert.deepEqual(
+    noTransitionScenario.postDeathSeries.points,
+    maxTransitionScenario.postDeathSeries.points,
+    "Transition period metadata should not change Layer 3 post-death points in this pass."
+  );
+  assert.deepEqual(
+    noTransitionScenario.postDeathSeries.depletion,
+    maxTransitionScenario.postDeathSeries.depletion,
+    "Transition period metadata should not change depletion in this pass."
+  );
+}
+
 function runSurvivorIncomeOffsetGraphTrendChecks() {
   const { composeIncomeImpactScenario } = loadComposerWithLayerSpies();
   const enabledScenario = composeIncomeImpactScenario(createInput({
@@ -793,6 +870,7 @@ function runChecks() {
   runDefaultAssetTreatmentCompletenessChecks();
   runDataGapChecks();
   runDepletionChecks();
+  runTransitionPeriodContractChecks();
   runSurvivorIncomeOffsetGraphTrendChecks();
   runDeterminismChecks();
   console.log("Income Impact scenario composer V1 checks passed.");

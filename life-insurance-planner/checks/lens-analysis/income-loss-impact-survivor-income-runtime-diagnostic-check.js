@@ -186,6 +186,9 @@ function createHarness(options = {}) {
           survivorContinuesWorking: true,
           expectedSurvivorWorkReductionPercent: 25,
           survivorIncomeStartDelayMonths: 12
+        },
+        supportTreatment: {
+          transitionPeriodMonths: 7
         }
       }
     },
@@ -330,13 +333,21 @@ function createHarness(options = {}) {
             composerCalls.push(cloneJson(input));
             const includeSurvivorIncome = input.scenarioOptions?.includeSurvivorIncome !== false;
             const postDeathSeries = makePostDeathSeries(includeSurvivorIncome);
+            const transitionPeriodMonths = input.analysisSettings?.survivorSupportAssumptions?.supportTreatment?.transitionPeriodMonths ?? 3;
             return {
               status: "complete",
               scenarioId: includeSurvivorIncome ? "included-survivor-income" : "excluded-survivor-income",
               scenario: {
                 selectedDeathAge: input.selectedDeathAge,
                 selectedDeathDate: input.selectedDeathDate,
-                projectionHorizonMonths: input.projectionHorizonMonths
+                projectionHorizonMonths: input.projectionHorizonMonths,
+                transitionPeriod: {
+                  lengthMonths: transitionPeriodMonths,
+                  sourcePath: "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths",
+                  bridgeMode: "flatBridge",
+                  cashFlowMode: "not-modeled-v1",
+                  shiftsRunwayVisually: true
+                }
               },
               postDeathSeries,
               timelineFacts: {
@@ -353,7 +364,19 @@ function createHarness(options = {}) {
                 }
               },
               warnings: [],
-              dataGaps: []
+              dataGaps: [],
+              trace: {
+                layer3: {
+                  transitionPeriod: {
+                    lengthMonths: transitionPeriodMonths,
+                    source: "analysis-settings",
+                    sourcePath: "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths",
+                    bridgeMode: "flatBridge",
+                    cashFlowMode: "not-modeled-v1",
+                    noFinancialCalculationChanged: true
+                  }
+                }
+              }
             };
           },
           evaluateIncomeImpactRiskEvents() {
@@ -447,6 +470,7 @@ assert.equal(snapshot.linkedProfile.id, "runtime-diagnostic-profile");
 assert.equal(snapshot.linkedProfile.name, "Runtime Diagnostic Profile");
 assert.equal(snapshot.linkedProfile.caseRef, "CL/DIAG");
 assert.equal(snapshot.analysisSettings.source, "profileRecord.analysisSettings");
+assert.equal(snapshot.analysisSettings.transitionPeriodMonths, 7);
 assert.equal(snapshot.survivorScenario.survivorNetAnnualIncome, 90000);
 assert.equal(snapshot.survivorScenario.survivorIncomeStartDelayMonths, 12);
 assert.equal(snapshot.survivorScenario.survivorSupportSettingsSource, "profileRecord.analysisSettings");
@@ -470,6 +494,10 @@ assert.equal(snapshot.included.rawBaselinePointsAroundDelay.find((point) => poin
 assert.equal(snapshot.excluded.rawBaselinePointsAroundDelay.find((point) => point.monthIndex === 13).netUse, 9000);
 assert.equal(snapshot.currentRendered.rawBaselineFullPointCount, 30);
 assert.ok(snapshot.currentRendered.rawBaselinePointsAroundDelay.some((point) => point.monthIndex === 13));
+assert.equal(snapshot.currentRendered.transitionPeriod.lengthMonths, 7);
+assert.equal(snapshot.currentRendered.transitionPeriod.bridgeMode, "flatBridge");
+assert.equal(snapshot.currentRendered.transitionPeriod.cashFlowMode, "not-modeled-v1");
+assert.equal(snapshot.currentRendered.transitionPeriod.noFinancialCalculationChanged, true);
 assert.notEqual(snapshot.included.rawBaselineDepletionMonth, snapshot.excluded.rawBaselineDepletionMonth);
 assert.equal(snapshot.conclusions.survivorNetAnnualIncomePositive, true);
 assert.equal(snapshot.conclusions.includedScenarioHasSurvivorIncomeAfterDelay, true);
@@ -492,6 +520,15 @@ assert.ok(harness.composerCalls.some(function (call) {
 assert.ok(harness.composerCalls.some(function (call) {
   return call.scenarioOptions?.includeSurvivorIncome === false;
 }));
+assert.ok(harness.composerCalls.every(function (call) {
+  return call.analysisSettings?.survivorSupportAssumptions?.supportTreatment?.transitionPeriodMonths === 7;
+}));
+
+const incomeLossImpactDisplaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+assert.match(incomeLossImpactDisplaySource, /resolveAnalysisSettingsTransitionPeriodMonths/);
+assert.match(incomeLossImpactDisplaySource, /transitionPeriodMonths:\s*controls\.transitionPeriodMonths/);
+assert.match(incomeLossImpactDisplaySource, /transitionPeriodMonths:\s*clampTransitionPeriodMonths\(safeSettings\.transitionPeriodMonths\)/);
+assert.match(incomeLossImpactDisplaySource, /transitionPeriod:\s*summarizeScenarioTransitionPeriod\(scenario\)/);
 
 const lifestyleHarness = createHarness({ lifestyleComparison: true });
 lifestyleHarness.readyCallback();

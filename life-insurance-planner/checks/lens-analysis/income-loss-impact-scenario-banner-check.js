@@ -811,6 +811,7 @@ assert.match(displaySource, /draftScenarioControls/);
 assert.match(displaySource, /appliedScenarios/);
 assert.match(displaySource, /selectedScenarioId/);
 assert.match(displaySource, /autoCompressBaselineEnabled/);
+assert.match(displaySource, /transitionPeriodMonths/);
 assert.match(displaySource, /cloneVisibleScenarioControlSnapshot/);
 assert.doesNotMatch(
   displaySource,
@@ -965,6 +966,7 @@ assert.deepEqual(
     selectedDeathDate: "2026-01-01",
     projectionHorizonYears: 40,
     mortgageTreatmentOverride: "followAssumptions",
+    transitionPeriodMonths: 3,
     includeSurvivorIncome: true,
     lifestyleSliderValue: 0,
     autoCompressBaselineEnabled: true
@@ -980,6 +982,11 @@ assert.equal(
   initialScenarioComparisonState.draftScenarioControls.autoCompressBaselineEnabled,
   true,
   "visible auto-compression control should appear in the public scenario-control snapshot."
+);
+assert.equal(
+  initialScenarioComparisonState.draftScenarioControls.transitionPeriodMonths,
+  3,
+  "transition period should be part of the scenario-control snapshot and cache settings key."
 );
 assert.equal(
   initialScenarioComparisonState.draftScenarioControls.includeSurvivorIncome,

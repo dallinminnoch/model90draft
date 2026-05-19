@@ -229,6 +229,53 @@ function isAllowedIncomeImpactTreatedSupportConsumption(filePath) {
   return false;
 }
 
+function isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath) {
+  if (filePath !== "app/features/lens-analysis/income-impact-scenario-composer-calculations.js") {
+    return false;
+  }
+  const composerDiff = getGitDiff(filePath);
+  const displayDiff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
+  const composerCheckDiff = getGitDiff("checks/lens-analysis/income-impact-scenario-composer-v1-check.js");
+  const diagnosticCheckDiff = getGitDiff("checks/lens-analysis/income-loss-impact-survivor-income-runtime-diagnostic-check.js");
+
+  const composerHasTransitionContract = composerDiff.includes("TRANSITION_PERIOD_SOURCE_PATH")
+    && composerDiff.includes("DEFAULT_TRANSITION_PERIOD_MONTHS = 3")
+    && composerDiff.includes("MIN_TRANSITION_PERIOD_MONTHS = 0")
+    && composerDiff.includes("MAX_TRANSITION_PERIOD_MONTHS = 24")
+    && composerDiff.includes("normalizeTransitionPeriodMonths")
+    && composerDiff.includes("resolveTransitionPeriodContract")
+    && composerDiff.includes("trace.layer3.transitionPeriod")
+    && composerDiff.includes("bridgeMode: \"flatBridge\"")
+    && composerDiff.includes("cashFlowMode: \"not-modeled-v1\"")
+    && composerDiff.includes("noFinancialCalculationChanged: true")
+    && composerDiff.includes("transitionPeriod: {")
+    && composerDiff.includes("shiftsRunwayVisually: true");
+
+  const displayHasCacheAndDiagnosticContract = displayDiff.includes("resolveAnalysisSettingsTransitionPeriodMonths")
+    && displayDiff.includes("clampTransitionPeriodMonths")
+    && displayDiff.includes("transitionPeriodMonths: controls.transitionPeriodMonths")
+    && displayDiff.includes("transitionPeriodMonths: clampTransitionPeriodMonths(safeSettings.transitionPeriodMonths)")
+    && displayDiff.includes("summarizeScenarioTransitionPeriod")
+    && displayDiff.includes("transitionPeriod: summarizeScenarioTransitionPeriod(scenario)")
+    && displayDiff.includes("rawBaselineTransitionPeriod");
+
+  const composerCheckHasNoBehaviorChangeProof = composerCheckDiff.includes("runTransitionPeriodContractChecks")
+    && composerCheckDiff.includes("Transition period metadata should not change Layer 3 post-death points")
+    && composerCheckDiff.includes("Transition period metadata should not change depletion")
+    && composerCheckDiff.includes("bridgeMode")
+    && composerCheckDiff.includes("cashFlowMode");
+
+  const diagnosticCheckHasTransitionProof = diagnosticCheckDiff.includes("snapshot.analysisSettings.transitionPeriodMonths")
+    && diagnosticCheckDiff.includes("snapshot.currentRendered.transitionPeriod.lengthMonths")
+    && diagnosticCheckDiff.includes("resolveAnalysisSettingsTransitionPeriodMonths")
+    && diagnosticCheckDiff.includes("snapshot.currentRendered.transitionPeriod.noFinancialCalculationChanged");
+
+  return composerHasTransitionContract
+    && displayHasCacheAndDiagnosticContract
+    && composerCheckHasNoBehaviorChangeProof
+    && diagnosticCheckHasTransitionProof;
+}
+
 function isAllowedStepThreeTreatedSupportDisplay(filePath) {
   if (filePath !== "app/features/lens-analysis/step-three-analysis-display.js") {
     return false;
@@ -423,6 +470,9 @@ function assertNoProtectedDiffs() {
       return false;
     }
     if (isAllowedIncomeImpactTreatedSupportConsumption(filePath)) {
+      return false;
+    }
+    if (isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath)) {
       return false;
     }
     if (isAllowedStepThreeTreatedSupportDisplay(filePath)) {
