@@ -13197,6 +13197,7 @@ body.clients-page .client-directory-title-actions {
   display: flex;
   align-items: center;
   gap: 7px;
+  padding: 3px 0;
 }
 
 body.clients-page .client-directory-header-main .client-status-tabs {
