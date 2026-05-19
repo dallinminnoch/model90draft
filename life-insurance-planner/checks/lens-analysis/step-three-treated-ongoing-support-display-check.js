@@ -601,6 +601,56 @@ function assertNoProtectedDiffs() {
       || survivorSupportSimplificationDiff;
   }
 
+  function isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath) {
+    if (filePath !== "pages/analysis-setup.html") {
+      return false;
+    }
+
+    const htmlDiff = execFileSync("git", ["diff", "--", "./pages/analysis-setup.html"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    const analysisSetupDiff = execFileSync("git", ["diff", "--", "./app/features/lens-analysis/analysis-setup.js"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    const savedShapeCheckDiff = execFileSync("git", ["diff", "--", "./checks/lens-analysis/analysis-setup-debt-treatment-saved-shape-check.js"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+
+    const htmlHasTransitionControl = htmlDiff.includes("Transition period after death")
+      && htmlDiff.includes("data-analysis-survivor-field=\"supportTreatment.transitionPeriodMonths\"")
+      && htmlDiff.includes("type=\"range\" min=\"0\" max=\"24\" step=\"1\" value=\"3\"")
+      && htmlDiff.includes("data-analysis-survivor-transition-period-value>3 months</output>")
+      && htmlDiff.includes("Time between death and the start of the long-term survivor runway")
+      && htmlDiff.includes("Used for timeline framing in V1")
+      && htmlDiff.includes("does not change death age/date")
+      && htmlDiff.includes("model probate, claim processing, or asset liquidity mechanics");
+
+    const analysisSetupHasSavedShape = analysisSetupDiff.includes("transitionPeriodMonths: 3")
+      && analysisSetupDiff.includes("DEFAULT_SURVIVOR_TRANSITION_PERIOD_MONTHS = 3")
+      && analysisSetupDiff.includes("MIN_SURVIVOR_TRANSITION_PERIOD_MONTHS = 0")
+      && analysisSetupDiff.includes("MAX_SURVIVOR_TRANSITION_PERIOD_MONTHS = 24")
+      && analysisSetupDiff.includes("normalizeSurvivorSupportTransitionPeriodMonths")
+      && analysisSetupDiff.includes("formatSurvivorSupportTransitionPeriodMonths")
+      && analysisSetupDiff.includes("supportTreatment.transitionPeriodMonths")
+      && analysisSetupDiff.includes("readSurvivorSupportDraftTransitionPeriodMonths");
+
+    const checkHasTransitionProof = savedShapeCheckDiff.includes("default transition period should be 3 months")
+      && savedShapeCheckDiff.includes("0 months should be valid and mean no transition")
+      && savedShapeCheckDiff.includes("24 months should be the valid max")
+      && savedShapeCheckDiff.includes("Nonnumeric transition months should normalize to default")
+      && savedShapeCheckDiff.includes("Blank transition months should normalize to default")
+      && savedShapeCheckDiff.includes("supportTreatment.transitionPeriodMonths")
+      && savedShapeCheckDiff.includes("does not change death age")
+      && savedShapeCheckDiff.includes("model probate, claim processing, or asset liquidity mechanics");
+
+    return htmlHasTransitionControl
+      && analysisSetupHasSavedShape
+      && checkHasTransitionProof;
+  }
+
   const allowedDiffs = new Set([
     "app/features/lens-analysis/analysis-setup.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
@@ -642,6 +692,7 @@ function assertNoProtectedDiffs() {
       && !isAllowedIncomeImpactGraphLayoutFramePass(filePath)
       && !isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
+      && !isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
       && !isAllowedAnalysisSetupStyleFoundationDiff(repoRoot, filePath);
   });

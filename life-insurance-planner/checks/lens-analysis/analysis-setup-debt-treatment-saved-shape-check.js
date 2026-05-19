@@ -354,8 +354,69 @@ const html = readRepoFile("pages/analysis-setup.html");
 
 assert.equal(typeof analysisSetup.getDebtTreatmentAssumptions, "function");
 assert.equal(typeof analysisSetup.getDebtCategoryTreatmentItems, "function");
+assert.equal(typeof analysisSetup.getSurvivorSupportAssumptions, "function");
+assert.equal(typeof analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths, "function");
 assert.equal(typeof paymentPlanHelper, "function", "Analysis Setup context should load the mortgage payment-plan helper.");
 assert.equal(typeof previewHarness.__getMortgagePaymentPlanPreviewInput, "function", "Preview input harness should expose the Analysis Setup preview input builder.");
+
+const defaultSurvivorSupportAssumptions = analysisSetup.DEFAULT_SURVIVOR_SUPPORT_ASSUMPTIONS;
+assert.equal(
+  defaultSurvivorSupportAssumptions.supportTreatment.transitionPeriodMonths,
+  3,
+  "Survivor & Support default transition period should be 3 months."
+);
+assert.equal(analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths(0, 3), 0, "0 months should be valid and mean no transition.");
+assert.equal(analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths(24, 3), 24, "24 months should be the valid max.");
+assert.equal(analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths(-3, 3), 0, "Negative transition months should clamp to 0.");
+assert.equal(analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths(99, 3), 24, "Transition months over 24 should clamp to 24.");
+assert.equal(analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths("not-a-number", 3), 3, "Nonnumeric transition months should normalize to default.");
+assert.equal(analysisSetup.normalizeSurvivorSupportTransitionPeriodMonths("", 3), 3, "Blank transition months should normalize to default.");
+
+const survivorTransitionSaved = analysisSetup.getSurvivorSupportAssumptions({
+  analysisSettings: {
+    survivorSupportAssumptions: {
+      supportTreatment: {
+        transitionPeriodMonths: 12
+      }
+    }
+  }
+});
+assert.equal(
+  survivorTransitionSaved.supportTreatment.transitionPeriodMonths,
+  12,
+  "Saved transition period should load under supportTreatment.transitionPeriodMonths."
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(survivorTransitionSaved, "transitionPeriodAssumptions"),
+  false,
+  "Transition period should not create a top-level transitionPeriodAssumptions shape."
+);
+assert.equal(
+  analysisSetup.getSurvivorSupportAssumptions({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: 0
+        }
+      }
+    }
+  }).supportTreatment.transitionPeriodMonths,
+  0,
+  "Saved 0 transition months should remain valid on reload."
+);
+assert.equal(
+  analysisSetup.getSurvivorSupportAssumptions({
+    analysisSettings: {
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: 27
+        }
+      }
+    }
+  }).supportTreatment.transitionPeriodMonths,
+  24,
+  "Saved transition months should clamp to 24 on reload."
+);
 
 const expectedCategoryKeys = toPlainObject(taxonomy.DEFAULT_DEBT_CATEGORY_KEYS);
 const defaultAssumptions = analysisSetup.DEFAULT_DEBT_TREATMENT_ASSUMPTIONS;
@@ -892,6 +953,33 @@ assert.deepEqual(mortgageOptions, ["payoff", "support"], "Visible mortgage treat
 const debtCategoryModeOptionsBody = extractFunctionBody(source, "getDebtCategoryModeOptionsMarkup", "renderDebtTreatmentRows");
 assert.match(debtCategoryModeOptionsBody, /custom:\s*"Custom \(deferred\)"/);
 assert.match(debtCategoryModeOptionsBody, /DEBT_CATEGORY_TREATMENT_MODES/);
+
+const survivorDraftBody = extractFunctionBody(source, "getSurvivorSupportDraftAssumptions", "readEducationDraftBoolean");
+assert.match(
+  survivorDraftBody,
+  /supportTreatment\.transitionPeriodMonths/,
+  "Survivor draft assumptions should collect transitionPeriodMonths from supportTreatment."
+);
+const survivorSaveBody = extractFunctionBody(source, "readValidatedSurvivorSupportAssumptions", "readRequiredEducationPercent");
+assert.match(
+  survivorSaveBody,
+  /transitionPeriodMonths/,
+  "Validated survivor assumptions should save transitionPeriodMonths."
+);
+const survivorPopulateBody = extractFunctionBody(source, "populateSurvivorSupportFields", "populateEducationFields");
+assert.match(
+  survivorPopulateBody,
+  /supportTreatment\.transitionPeriodMonths/,
+  "Survivor support fields should reload transitionPeriodMonths into the control."
+);
+assert.match(html, /Transition period after death/);
+assert.match(html, /data-analysis-survivor-field="supportTreatment\.transitionPeriodMonths"/);
+assert.match(html, /type="range" min="0" max="24" step="1" value="3"/);
+assert.match(html, /data-analysis-survivor-transition-period-value>3 months<\/output>/);
+assert.match(
+  html,
+  /Time between death and the start of the long-term survivor runway\. Used for timeline framing in V1; it does not change death age\/date or model probate, claim processing, or asset liquidity mechanics\./
+);
 
 assertNoProtectedDiffs();
 
