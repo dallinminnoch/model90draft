@@ -15,7 +15,7 @@ function readRepoFile(relativePath) {
 function createDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact, buildFinancialStorylineForTimelineResult };\n})(window);\n"
+    "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact, buildFinancialStorylineForTimelineResult, buildTimelineStoryEventsForTimelineResult };\n})(window);\n"
   );
   const resourceOutlookPanel = { innerHTML: "" };
   const sandbox = {
@@ -301,6 +301,7 @@ const resourceBucketAdapterSource = readRepoFile("app/features/lens-analysis/inc
 const resourceWaterfallSource = readRepoFile("app/features/lens-analysis/income-impact-resource-waterfall-calculations.js");
 const housingRiskSource = readRepoFile("app/features/lens-analysis/income-impact-housing-risk-calculations.js");
 const financialStorylineSource = readRepoFile("app/features/lens-analysis/income-impact-financial-storyline-calculations.js");
+const timelineStoryEventsSource = readRepoFile("app/features/lens-analysis/income-impact-timeline-story-events.js");
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const componentsSource = readRepoFile("components.css");
 const layoutSource = readRepoFile("layout.css");
@@ -311,21 +312,29 @@ const browserGlobalHelpers = createBrowserGlobalHelperHarness([
   resourceBucketAdapterSource,
   resourceWaterfallSource,
   housingRiskSource,
-  financialStorylineSource
+  financialStorylineSource,
+  timelineStoryEventsSource
 ]);
 
 assert.equal(typeof harness.renderTimeline, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.equal(typeof harness.buildFinancialStorylineForTimelineResult, "function");
+assert.equal(typeof harness.buildTimelineStoryEventsForTimelineResult, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceBucketsFromLensModel, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceWaterfall, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactHousingRisk, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactFinancialStorylineCandidates, "function");
+assert.equal(typeof browserGlobalHelpers.normalizeIncomeImpactTimelineStoryEvents, "function");
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
 assert.match(
   pageSource,
   /income-impact-resource-bucket-adapter\.js[\s\S]*income-impact-resource-waterfall-calculations\.js[\s\S]*income-impact-housing-risk-calculations\.js[\s\S]*income-impact-financial-storyline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
   "Income Impact page should load pure storyline helpers before the display bridge."
+);
+assert.match(
+  pageSource,
+  /income-impact-financial-storyline-calculations\.js[\s\S]*income-impact-timeline-story-events\.js[\s\S]*income-loss-impact-display\.js/,
+  "Income Impact page should load normalized timeline story events before the display bridge."
 );
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
@@ -350,6 +359,8 @@ assert.match(
 assert.match(pageSource, /data-income-impact-scenario-banner/);
 assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /buildIncomeImpactFinancialStorylineCandidates/);
+assert.match(displaySource, /normalizeIncomeImpactTimelineStoryEvents/);
+assert.match(displaySource, /timelineResult\.timelineStoryEvents\s*=\s*buildTimelineStoryEventsForTimelineResult/);
 assert.match(displaySource, /buildIncomeImpactResourceBucketsFromLensModel/);
 assert.match(displaySource, /buildIncomeImpactResourceWaterfall/);
 assert.match(displaySource, /buildIncomeImpactHousingRisk/);
@@ -529,6 +540,7 @@ const storylineState = {
     };
   }
 };
+storylineState.normalizeIncomeImpactTimelineStoryEvents = browserGlobalHelpers.normalizeIncomeImpactTimelineStoryEvents;
 const wiredFinancialStoryline = harness.buildFinancialStorylineForTimelineResult(
   storylineState,
   storylineTimelineResult,
@@ -568,6 +580,77 @@ assert.equal(bridgeCalls.storyline[0].scenario.scenario.selectedDeathDate, "2031
 assert.equal(bridgeCalls.storyline[0].resourceWaterfall.depletionEvents[0].id, "cash-depleted");
 assert.equal(bridgeCalls.storyline[0].housingRisk.riskEvents[0].id, "housing-payment-at-risk");
 assert.deepEqual(storylineTimelineResult, storylineTimelineSnapshot);
+
+const storyBridgeTimelineResult = JSON.parse(JSON.stringify(storylineTimelineResult));
+storyBridgeTimelineResult.financialStoryline = {
+  majorStoryCandidates: [
+    {
+      id: "death-income-stops",
+      family: "trigger",
+      severity: "critical",
+      cardTitle: "Death & Income Stops",
+      description: "Household income stops at the modeled death event.",
+      evidenceLevel: "trace-backed",
+      timing: { kind: "death-event", monthOffset: 0, date: "2031-04-29", label: "At death" }
+    }
+  ],
+  graphDotCandidates: [
+    {
+      id: "cash-savings-depleted",
+      family: "liquidity",
+      severity: "caution",
+      dotTier: "micro",
+      connectedToMajorCard: false,
+      eligibleForConnector: false,
+      graphLabel: "Cash depleted",
+      displayLabel: "Cash Savings Depleted",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 12, date: "2032-04-29", label: "Month 12" },
+      amount: { value: 50000, label: "$50,000" }
+    }
+  ]
+};
+storyBridgeTimelineResult.riskEvaluation = {
+  events: [{ id: "risk-caution", severity: "caution", monthIndex: 2, markerLabel: "Risk" }],
+  stableEvents: [{ id: "stable-covered", severity: "stable", monthIndex: 1, markerLabel: "Covered" }]
+};
+storyBridgeTimelineResult.graphModel = {
+  markers: [{ id: "graph-risk", severity: "at-risk", monthIndex: 3, markerLabel: "Graph Risk" }],
+  comparisonMarkers: []
+};
+storyBridgeTimelineResult.scenario.transitionOutlook = { status: "Stable", windowMonths: 3 };
+const normalizedStoryEvents = harness.buildTimelineStoryEventsForTimelineResult(
+  storylineState,
+  storyBridgeTimelineResult
+);
+assert.equal(normalizedStoryEvents.trace.status, "built");
+assert.equal(normalizedStoryEvents.trace.rendered, false);
+assert.ok(Array.isArray(normalizedStoryEvents.events));
+assert.ok(normalizedStoryEvents.events.some(function (event) {
+  return event.id === "death-income-stops" && event.sourceCandidateType === "majorStoryCandidate" && event.cardTitle === "Death & Income Stops";
+}));
+assert.ok(normalizedStoryEvents.events.some(function (event) {
+  return event.id === "cash-savings-depleted"
+    && event.sourceCandidateType === "graphDotCandidate"
+    && event.dotTier === "micro"
+    && event.graphLabel === "Cash depleted"
+    && event.evidenceLevel === "estimated"
+    && event.amount.label === "$50,000";
+}));
+assert.ok(normalizedStoryEvents.events.some(function (event) {
+  return event.id === "transition-outlook" && event.surface === "resourceOutlook";
+}));
+const unavailableTimelineStoryEvents = harness.buildTimelineStoryEventsForTimelineResult(
+  {},
+  storyBridgeTimelineResult
+);
+assert.equal(Array.isArray(unavailableTimelineStoryEvents.events), true);
+assert.equal(unavailableTimelineStoryEvents.events.length, 0);
+assert.equal(unavailableTimelineStoryEvents.trace.status, "unavailable");
+assert.match(
+  unavailableTimelineStoryEvents.warnings.map(function (warning) { return warning.code; }).join(" "),
+  /timeline-story-events-unavailable/
+);
 
 const unavailableFinancialStoryline = harness.buildFinancialStorylineForTimelineResult(
   {},

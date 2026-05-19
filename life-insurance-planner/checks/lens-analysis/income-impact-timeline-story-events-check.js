@@ -122,9 +122,13 @@ const financialStoryline = {
       id: "resources-run-out",
       severity: "critical",
       monthIndex: 18,
+      family: "support",
       graphLabel: "Runout",
       cardTitle: "Resources Run Out",
-      description: "The timeline reaches the point where available resources are depleted."
+      description: "The timeline reaches the point where available resources are depleted.",
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 18, date: "2037-11-14", label: "Month 18" },
+      amount: { value: 0, label: "$0" }
     },
     {
       id: "dependent-support-gap",
@@ -140,14 +144,25 @@ const financialStoryline = {
       id: "resources-run-out",
       severity: "critical",
       monthIndex: 18,
-      graphLabel: "Runout"
+      graphLabel: "Runout",
+      dotTier: "major",
+      connectedToMajorCard: true,
+      eligibleForConnector: true,
+      majorCardIndex: 0
     },
     {
       id: "cash-savings-depleted",
       status: "safe-now",
       monthIndex: 4,
       graphLabel: "Cash Used",
-      cardTitle: "Cash Savings Depleted"
+      displayLabel: "Cash Savings Depleted",
+      cardTitle: "Cash Savings Depleted",
+      dotTier: "micro",
+      connectedToMajorCard: false,
+      eligibleForConnector: false,
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 4, date: "2036-09-14", label: "Month 4" },
+      amount: { value: 25000, label: "$25,000" }
     }
   ]
 };
@@ -168,12 +183,29 @@ assertNoMutation(financialInput, function () {
   );
   assert.equal(result.events.length, 3);
   assert.equal(eventById(result, "resources-run-out").kind, "financialStoryline");
+  assert.equal(eventById(result, "resources-run-out").sourceCandidateType, "majorStoryCandidate+graphDotCandidate");
+  assert.equal(eventById(result, "resources-run-out").family, "support");
+  assert.equal(eventById(result, "resources-run-out").dotTier, "major");
+  assert.equal(eventById(result, "resources-run-out").connectedToMajorCard, true);
+  assert.equal(eventById(result, "resources-run-out").eligibleForConnector, true);
+  assert.equal(eventById(result, "resources-run-out").majorCardIndex, 0);
+  assert.equal(eventById(result, "resources-run-out").evidenceLevel, "calculated");
+  assert.deepEqual(eventById(result, "resources-run-out").amount, { value: 0, label: "$0" });
+  assert.equal(eventById(result, "resources-run-out").timing.label, "Month 18");
   assert.equal(eventById(result, "resources-run-out").shortLabel, "Runout");
   assert.equal(eventById(result, "resources-run-out").title, "Resources Run Out");
   assert.equal(
     eventById(result, "resources-run-out").detail,
     "The timeline reaches the point where available resources are depleted."
   );
+  assert.equal(eventById(result, "cash-savings-depleted").sourceCandidateType, "graphDotCandidate");
+  assert.equal(eventById(result, "cash-savings-depleted").sourceIndex, 1);
+  assert.equal(eventById(result, "cash-savings-depleted").originalIndex, 1);
+  assert.equal(eventById(result, "cash-savings-depleted").dotTier, "micro");
+  assert.equal(eventById(result, "cash-savings-depleted").graphLabel, "Cash Used");
+  assert.equal(eventById(result, "cash-savings-depleted").displayLabel, "Cash Savings Depleted");
+  assert.equal(eventById(result, "cash-savings-depleted").cardTitle, "Cash Savings Depleted");
+  assert.equal(eventById(result, "cash-savings-depleted").timing.date, "2036-09-14");
 });
 
 const deterministic = normalize({

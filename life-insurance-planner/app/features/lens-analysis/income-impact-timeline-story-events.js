@@ -145,6 +145,10 @@
     if (month != null) {
       return month;
     }
+    const timingMonth = toOptionalNumber(event.timing?.monthOffset ?? event.timing?.monthIndex);
+    if (timingMonth != null) {
+      return timingMonth;
+    }
     const monthIndex = toOptionalNumber(event.monthIndex);
     if (monthIndex != null) {
       return monthIndex;
@@ -155,6 +159,7 @@
   function getEventDate(event) {
     return firstString([
       event.date,
+      event.timing?.date,
       event.eventDate,
       event.depletionDate,
       event.startDate
@@ -205,6 +210,7 @@
       event.summary,
       event.message
     ]);
+    const sourceIndex = toOptionalNumber(config.sourceIndex ?? config.index);
 
     if (month == null && !date) {
       warnings.push("missing-timeline-position");
@@ -229,11 +235,28 @@
       surface: normalizeSurface(event.surface, config.surface),
       priority: toOptionalNumber(event.priority),
       isStable: Boolean(config.forceStable || severityResult.severity === "stable" || event.isStable),
+      family: normalizeString(event.family || event.category) || "",
+      amount: event.amount == null ? null : clonePlainValue(event.amount),
+      timing: isPlainObject(event.timing) ? clonePlainValue(event.timing) : null,
+      evidenceLevel: normalizeString(event.evidenceLevel || event.evidence?.level) || "",
+      dotTier: normalizeString(event.dotTier) || "",
+      connectedToMajorCard: typeof event.connectedToMajorCard === "boolean" ? event.connectedToMajorCard : null,
+      eligibleForConnector: typeof event.eligibleForConnector === "boolean" ? event.eligibleForConnector : null,
+      majorCardIndex: toOptionalNumber(event.majorCardIndex),
+      graphLabel: normalizeString(event.graphLabel || event.markerLabel) || "",
+      displayLabel: normalizeString(event.displayLabel || event.label) || "",
+      cardTitle: normalizeString(event.cardTitle || event.title) || "",
+      sourceCandidateType: normalizeString(config.sourceCandidateType) || "",
+      sourceIndex,
+      originalIndex: sourceIndex,
       trace: {
         source: SOURCE,
         originalSource: config.source,
         originalId: firstString([event.id, event.eventId, event.markerId, event.sourceEventId]) || null,
         originalType: firstString([event.type, event.kind, event.category, event.family]) || null,
+        originalSeverity: firstString([event.severity, event.status, event.riskLevel]) || null,
+        sourceCandidateType: normalizeString(config.sourceCandidateType) || null,
+        sourceIndex,
         severityInferred: severityResult.inferred,
         warnings
       },
@@ -260,6 +283,45 @@
     target.push(normalized);
   }
 
+  function mergeMissingValue(current, next) {
+    if (current == null || current === "") {
+      return clonePlainValue(next);
+    }
+    return current;
+  }
+
+  function mergeSourceCandidateType(current, next) {
+    const values = normalizeString(current).split("+").filter(Boolean);
+    const nextValue = normalizeString(next);
+    if (nextValue && !values.includes(nextValue)) {
+      values.push(nextValue);
+    }
+    return values.join("+");
+  }
+
+  function mergeNormalizedEventMetadata(existing, incoming) {
+    existing.family = mergeMissingValue(existing.family, incoming.family);
+    existing.amount = mergeMissingValue(existing.amount, incoming.amount);
+    existing.timing = mergeMissingValue(existing.timing, incoming.timing);
+    existing.evidenceLevel = mergeMissingValue(existing.evidenceLevel, incoming.evidenceLevel);
+    existing.dotTier = mergeMissingValue(existing.dotTier, incoming.dotTier);
+    existing.connectedToMajorCard = mergeMissingValue(existing.connectedToMajorCard, incoming.connectedToMajorCard);
+    existing.eligibleForConnector = mergeMissingValue(existing.eligibleForConnector, incoming.eligibleForConnector);
+    existing.majorCardIndex = mergeMissingValue(existing.majorCardIndex, incoming.majorCardIndex);
+    existing.graphLabel = mergeMissingValue(existing.graphLabel, incoming.graphLabel);
+    existing.displayLabel = mergeMissingValue(existing.displayLabel, incoming.displayLabel);
+    existing.cardTitle = mergeMissingValue(existing.cardTitle, incoming.cardTitle);
+    existing.sourceCandidateType = mergeSourceCandidateType(existing.sourceCandidateType, incoming.sourceCandidateType);
+    existing.trace = Object.assign({}, existing.trace, {
+      sourceCandidateType: existing.sourceCandidateType,
+      mergedSourceCandidateTypes: existing.sourceCandidateType.split("+").filter(Boolean),
+      warnings: Array.from(new Set([]
+        .concat(Array.isArray(existing.trace?.warnings) ? existing.trace.warnings : [])
+        .concat(Array.isArray(incoming.trace?.warnings) ? incoming.trace.warnings : [])))
+    });
+    return existing;
+  }
+
   function getArray(value) {
     return Array.isArray(value) ? value : [];
   }
@@ -278,29 +340,42 @@
       return;
     }
 
-    const seen = new Set();
-    const selected = []
-      .concat(getArray(financialStoryline.majorStoryCandidates))
-      .concat(getArray(financialStoryline.graphDotCandidates));
+    const byId = new Map();
+    const selected = getArray(financialStoryline.majorStoryCandidates).map(function (candidate, index) {
+      return { candidate, sourceCandidateType: "majorStoryCandidate", sourceIndex: index };
+    }).concat(getArray(financialStoryline.graphDotCandidates).map(function (candidate, index) {
+      return { candidate, sourceCandidateType: "graphDotCandidate", sourceIndex: index };
+    }));
 
-    selected.forEach(function (candidate) {
+    selected.forEach(function (entry) {
+      const candidate = entry.candidate;
       if (!isPlainObject(candidate)) {
         return;
       }
       const id = getEventId(candidate, "financial-storyline", selected.length);
-      if (seen.has(id)) {
-        return;
-      }
-      seen.add(id);
+      const beforeCount = target.length;
       addNormalizedEvent(target, warnings, candidate, {
         source: "financialStoryline",
         kind: "financialStoryline",
         surface: "financialStoryline",
         fallbackPrefix: "financial-storyline",
         fallbackSeverity: candidate.severity || candidate.status || "info",
+        sourceCandidateType: entry.sourceCandidateType,
+        sourceIndex: entry.sourceIndex,
         index: target.length,
         order: target.length
       });
+      const incoming = target[target.length - 1];
+      if (!incoming || target.length === beforeCount) {
+        return;
+      }
+      if (byId.has(id)) {
+        const existing = byId.get(id);
+        mergeNormalizedEventMetadata(existing, incoming);
+        target.pop();
+        return;
+      }
+      byId.set(id, incoming);
     });
   }
 

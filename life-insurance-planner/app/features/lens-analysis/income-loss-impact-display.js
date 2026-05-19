@@ -5824,6 +5824,61 @@
     });
   }
 
+  function makeTimelineStoryEventsUnavailableResult(reason, details) {
+    return {
+      version: "income-impact-timeline-story-events-v1",
+      events: [],
+      warnings: [
+        createFinancialStorylineBridgeWarning(
+          "timeline-story-events-unavailable",
+          "Normalized timeline story events were not built.",
+          Object.assign({ reason }, isPlainObject(details) ? details : {})
+        )
+      ],
+      trace: {
+        source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+        status: "unavailable",
+        rendered: false
+      }
+    };
+  }
+
+  function buildTimelineStoryEventsForTimelineResult(state, timelineResult) {
+    const normalizer = getDisplayStorylineHelper(state, "normalizeIncomeImpactTimelineStoryEvents");
+    if (typeof normalizer !== "function") {
+      return makeTimelineStoryEventsUnavailableResult("normalizer-helper-unavailable");
+    }
+
+    try {
+      const result = normalizer({
+        riskEvents: timelineResult?.riskEvaluation?.events,
+        stableEvents: timelineResult?.riskEvaluation?.stableEvents,
+        financialStoryline: timelineResult?.financialStoryline,
+        transitionOutlook: timelineResult?.transitionOutlook || timelineResult?.scenario?.transitionOutlook,
+        graphModel: timelineResult?.graphModel,
+        scenario: timelineResult?.scenario,
+        options: {
+          source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+          displayBridgeOnly: true
+        }
+      });
+      return Object.assign({}, isPlainObject(result) ? result : {}, {
+        version: result?.version || "income-impact-timeline-story-events-v1",
+        events: Array.isArray(result?.events) ? result.events : [],
+        warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+        trace: Object.assign({}, isPlainObject(result?.trace) ? result.trace : {}, {
+          source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+          status: "built",
+          rendered: false
+        })
+      });
+    } catch (error) {
+      return makeTimelineStoryEventsUnavailableResult("timeline-story-events-build-failed", {
+        error: error?.message || String(error)
+      });
+    }
+  }
+
   function buildDisplayResourceBucketsForStoryline(state) {
     const adapter = getDisplayStorylineHelper(state, "buildIncomeImpactResourceBucketsFromLensModel");
     if (typeof adapter !== "function") {
@@ -6189,6 +6244,7 @@
       selectedScenarioId,
       controls
     });
+    timelineResult.timelineStoryEvents = buildTimelineStoryEventsForTimelineResult(safeState, timelineResult);
     return timelineResult;
   }
 
@@ -6308,6 +6364,7 @@
       selectedScenarioId,
       controls: settings
     });
+    timelineResult.timelineStoryEvents = buildTimelineStoryEventsForTimelineResult(safeState, timelineResult);
     return timelineResult;
   }
 
