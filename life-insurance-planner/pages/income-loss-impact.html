@@ -154,6 +154,19 @@
                   </span>
                   <small>Scenario-only graph test; Assumption Controls stay unchanged.</small>
                 </label>
+                <label class="income-impact-scenario-field income-impact-scenario-field--transition-period" for="income-impact-transition-period">
+                  <span>Transition period <strong data-income-impact-transition-period-value>3 months</strong></span>
+                  <input
+                    id="income-impact-transition-period"
+                    type="range"
+                    min="0"
+                    max="24"
+                    step="1"
+                    value="3"
+                    data-income-impact-transition-period
+                  >
+                  <button class="btn btn-secondary" type="button" data-income-impact-transition-period-reset>Reset</button>
+                </label>
                 <label class="income-impact-scenario-field income-impact-scenario-field--lifestyle" for="income-impact-lifestyle-slider">
                   <span>Lifestyle <strong data-income-impact-lifestyle-value>Current</strong></span>
                   <input

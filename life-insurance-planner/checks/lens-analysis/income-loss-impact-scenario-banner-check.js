@@ -35,6 +35,11 @@ function getInitialAppliedScenario(state) {
   }) || null;
 }
 
+function getGraphPathD(html, pathId) {
+  const match = String(html || "").match(new RegExp(`data-income-impact-graph-path="${pathId}"[^>]*\\sd="([^"]+)"`));
+  return match ? match[1] : "";
+}
+
 function getChangedFiles(relativePaths) {
   try {
     const output = childProcess.execFileSync(
@@ -352,7 +357,12 @@ function createHarness() {
     caseRef: "CL/90001",
     displayName: "Scenario Banner Profile",
     analysisSettings: {
-      valuationDate: "2026-01-01"
+      valuationDate: "2026-01-01",
+      survivorSupportAssumptions: {
+        supportTreatment: {
+          transitionPeriodMonths: 3
+        }
+      }
     },
     protectionModeling: {
       data: {
@@ -399,6 +409,9 @@ function createHarness() {
   const mortgageTreatmentValue = createElement({ textContent: "Follow Assumption Controls" });
   const survivorIncome = createElement({ checked: true });
   const survivorIncomeValue = createElement({ textContent: "Included" });
+  const transitionPeriod = createElement({ value: "3" });
+  const transitionPeriodValue = createElement({ textContent: "3 months" });
+  const transitionPeriodReset = createElement({ textContent: "Reset" });
   const lifestyleSlider = createElement({ value: "0" });
   const lifestyleValue = createElement({ textContent: "Current" });
   const reevaluateButton = createElement({ disabled: true, textContent: "Reevaluate" });
@@ -416,6 +429,9 @@ function createHarness() {
       "[data-income-impact-mortgage-treatment-value]": mortgageTreatmentValue,
       "[data-income-impact-survivor-income]": survivorIncome,
       "[data-income-impact-survivor-income-value]": survivorIncomeValue,
+      "[data-income-impact-transition-period]": transitionPeriod,
+      "[data-income-impact-transition-period-value]": transitionPeriodValue,
+      "[data-income-impact-transition-period-reset]": transitionPeriodReset,
       "[data-income-impact-lifestyle-slider]": lifestyleSlider,
       "[data-income-impact-lifestyle-value]": lifestyleValue,
       "[data-income-impact-reevaluate]": reevaluateButton,
@@ -504,6 +520,7 @@ function createHarness() {
           },
           composeIncomeImpactScenario(input) {
             composerCalls.push(cloneJson(input));
+            const transitionPeriodMonths = input.analysisSettings?.survivorSupportAssumptions?.supportTreatment?.transitionPeriodMonths;
             return {
               status: "complete",
               scenario: {
@@ -511,7 +528,14 @@ function createHarness() {
                 selectedDeathDate: input.selectedDeathDate,
                 selectedDeathAge: input.selectedDeathAge,
                 projectionHorizonMonths: input.projectionHorizonMonths,
-                mortgageTreatmentOverride: input.scenarioOptions?.mortgageTreatmentOverride || null
+                mortgageTreatmentOverride: input.scenarioOptions?.mortgageTreatmentOverride || null,
+                transitionPeriod: {
+                  lengthMonths: transitionPeriodMonths,
+                  sourcePath: "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths",
+                  bridgeMode: "flatBridge",
+                  cashFlowMode: "not-modeled-v1",
+                  shiftsRunwayVisually: true
+                }
               },
               deathEvent: {
                 date: input.selectedDeathDate,
@@ -533,7 +557,19 @@ function createHarness() {
                 accumulatedUnmetNeed: 0
               },
               warnings: [],
-              dataGaps: []
+              dataGaps: [],
+              trace: {
+                layer3: {
+                  transitionPeriod: {
+                    lengthMonths: transitionPeriodMonths,
+                    source: "analysis-settings",
+                    sourcePath: "analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths",
+                    bridgeMode: "flatBridge",
+                    cashFlowMode: "not-modeled-v1",
+                    noFinancialCalculationChanged: true
+                  }
+                }
+              }
             };
           },
           evaluateIncomeImpactRiskEvents(input) {
@@ -591,15 +627,58 @@ function createHarness() {
             const selectedScenario = appliedScenarios.find(function (scenario) {
               return scenario?.scenarioId === selectedScenarioId;
             }) || appliedScenarios[0];
+            const transitionPeriodMonths = Math.max(0, Math.min(24, Math.round(Number(
+              selectedScenario?.scenario?.scenario?.transitionPeriod?.lengthMonths
+              ?? input.scenario?.scenario?.transitionPeriod?.lengthMonths
+              ?? 0
+            ) || 0)));
             const visibleScenarios = (selectedScenario
               ? [selectedScenario].concat(appliedScenarios.filter(function (scenario) {
                 return scenario !== selectedScenario;
               }))
               : appliedScenarios).slice(0, 2);
-            const postDeathResources = [
-              { xRatio: 0.1, yRatio: 0.42, value: input.scenario?.timelineFacts?.resourcesAfterObligations },
-              { xRatio: 0.8, yRatio: 0.8, value: 0 }
-            ];
+            const bridgeEndXRatio = 0.1 + transitionPeriodMonths / 240;
+            const runwayStartXRatio = transitionPeriodMonths > 0 ? bridgeEndXRatio + 0.06 : 0.1;
+            const postDeathResources = transitionPeriodMonths > 0
+              ? [
+                {
+                  xRatio: 0.1,
+                  yRatio: 0.42,
+                  value: input.scenario?.timelineFacts?.resourcesAfterObligations,
+                  visualMonthIndex: 0,
+                  transitionPeriodMonths,
+                  transitionBridge: true
+                },
+                {
+                  xRatio: bridgeEndXRatio,
+                  yRatio: 0.42,
+                  value: input.scenario?.timelineFacts?.resourcesAfterObligations,
+                  visualMonthIndex: transitionPeriodMonths,
+                  transitionPeriodMonths,
+                  transitionBridge: true
+                },
+                {
+                  xRatio: runwayStartXRatio,
+                  yRatio: 0.48,
+                  value: 400000,
+                  rawMonthIndex: 1,
+                  visualMonthIndex: transitionPeriodMonths + 1,
+                  transitionPeriodMonths
+                },
+                {
+                  xRatio: 0.8,
+                  yRatio: 0.8,
+                  value: 0,
+                  rawMonthIndex: 100,
+                  visualMonthIndex: transitionPeriodMonths + 100,
+                  visualDepletionMonth: transitionPeriodMonths + 100,
+                  transitionPeriodMonths
+                }
+              ]
+              : [
+                { xRatio: 0.1, yRatio: 0.42, value: input.scenario?.timelineFacts?.resourcesAfterObligations },
+                { xRatio: 0.8, yRatio: 0.8, value: 0 }
+              ];
             const series = {
               preDeathAssets: [],
               currentAnchor: {
@@ -674,6 +753,13 @@ function createHarness() {
               ],
               warnings: [],
               dataGaps: [],
+              transitionPeriod: {
+                lengthMonths: transitionPeriodMonths,
+                bridgeMode: "flatBridge",
+                cashFlowMode: "not-modeled-v1",
+                visualOnly: true,
+                noFinancialCalculationChanged: true
+              },
               trace: {
                 calculationMethod: "income-impact-timeline-graph-model-v1"
               }
@@ -711,6 +797,9 @@ function createHarness() {
     mortgageTreatmentValue,
     survivorIncome,
     survivorIncomeValue,
+    transitionPeriod,
+    transitionPeriodValue,
+    transitionPeriodReset,
     lifestyleSlider,
     lifestyleValue,
     reevaluateButton,
@@ -743,6 +832,9 @@ const scenarioLayoutBlock = layoutSource.match(
   "data-income-impact-mortgage-treatment",
   "data-income-impact-survivor-income",
   "data-income-impact-survivor-income-value",
+  "data-income-impact-transition-period",
+  "data-income-impact-transition-period-value",
+  "data-income-impact-transition-period-reset",
   "data-income-impact-lifestyle-slider",
   "data-income-impact-lifestyle-value",
   "data-income-impact-reevaluate",
@@ -773,6 +865,11 @@ assert.equal(
   1,
   "mortgage treatment control should exist exactly once."
 );
+assert.equal(
+  (pageSource.match(/data-income-impact-transition-period(?:\s|>)/g) || []).length,
+  1,
+  "transition period scenario control should exist exactly once."
+);
 assert.match(pageSource, /Scenario Controls/);
 assert.match(pageSource, /data-income-impact-controls-layout/);
 assert.match(pageSource, /data-income-impact-controls-panel/);
@@ -802,6 +899,9 @@ assert.doesNotMatch(pageSource, /Horizon <strong data-income-impact-projection-h
 assert.match(pageSource, /value="followAssumptions"[\s\S]*Follow Assumption Controls/);
 assert.match(pageSource, /value="payOffMortgage"[\s\S]*Pay off mortgage/);
 assert.match(pageSource, /value="continueMortgagePayments"[\s\S]*Continue mortgage payments/);
+assert.match(pageSource, /Transition period[\s\S]*data-income-impact-transition-period-value/);
+assert.match(pageSource, /id="income-impact-transition-period"[\s\S]*type="range"[\s\S]*min="0"[\s\S]*max="24"[\s\S]*step="1"[\s\S]*value="3"/);
+assert.match(pageSource, /data-income-impact-transition-period-reset[\s\S]*Reset/);
 assert.match(displaySource, /projectionHorizonYears/);
 assert.match(displaySource, /projectionHorizonMonths/);
 assert.match(displaySource, /mortgageTreatmentOverride/);
@@ -812,6 +912,10 @@ assert.match(displaySource, /appliedScenarios/);
 assert.match(displaySource, /selectedScenarioId/);
 assert.match(displaySource, /autoCompressBaselineEnabled/);
 assert.match(displaySource, /transitionPeriodMonths/);
+assert.match(displaySource, /createAnalysisSettingsWithTransitionPeriodOverride/);
+assert.match(displaySource, /scenarioOptions[\s\S]*transitionPeriodMonths/);
+assert.match(displaySource, /scenarioState\.transitionPeriodMonths/);
+assert.match(displaySource, /data-income-impact-transition-period-label/);
 assert.match(displaySource, /cloneVisibleScenarioControlSnapshot/);
 assert.doesNotMatch(
   displaySource,
@@ -947,6 +1051,12 @@ assert.equal(harness.composerCalls[0].selectedDeathAge, 45);
 assert.equal(harness.composerCalls[0].selectedDeathDate, "2026-01-01");
 assert.equal(harness.composerCalls[0].projectionHorizonMonths, 480);
 assert.equal(harness.composerCalls[0].scenarioOptions.mortgageTreatmentOverride, "followAssumptions");
+assert.equal(harness.composerCalls[0].scenarioOptions.transitionPeriodMonths, 3);
+assert.equal(
+  harness.composerCalls[0].analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths,
+  3,
+  "initial composer analysisSettings should carry the saved transition period."
+);
 assert.equal(harness.composerCalls[0].scenarioOptions.includeSurvivorIncome, true);
 assert.equal(harness.composerCalls[0].scenarioOptions.includeDiscretionaryNeeds, true);
 assert.equal(harness.composerCalls[0].scenarioOptions.projectionCadence, "monthly");
@@ -957,6 +1067,7 @@ assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenarioId, "income-
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].label, "Death tomorrow");
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].settings.selectedDeathAge, 45);
 assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenario.scenario.selectedDeathAge, 45);
+assert.equal(harness.graphModelCalls[0].appliedScenarios[0].scenario.scenario.transitionPeriod.lengthMonths, 3);
 assert.deepEqual(harness.graphModelCalls[0].appliedScenarios[0].comparisonScenarios, []);
 const initialScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.deepEqual(
@@ -1016,6 +1127,12 @@ assert.equal(harness.mortgageTreatmentValue.textContent, "Follow Assumption Cont
 assert.equal(harness.survivorIncome.checked, true);
 assert.equal(harness.survivorIncome.getAttribute("aria-checked"), "true");
 assert.equal(harness.survivorIncomeValue.textContent, "Included");
+assert.equal(harness.transitionPeriod.value, "3");
+assert.equal(harness.transitionPeriod.min, "0");
+assert.equal(harness.transitionPeriod.max, "24");
+assert.equal(harness.transitionPeriod.step, "1");
+assert.equal(harness.transitionPeriod.getAttribute("aria-valuetext"), "3 months");
+assert.equal(harness.transitionPeriodValue.textContent, "3 months");
 assert.equal(harness.lifestyleSlider.value, "0");
 assert.equal(harness.lifestyleValue.textContent, "Current");
 assert.equal(harness.reevaluateButton.disabled, true);
@@ -1031,6 +1148,7 @@ assert.equal(harness.selectedScenarioChip.getAttribute("data-income-impact-appli
 assert.equal(harness.selectedScenarioChip.getAttribute("data-income-impact-applied-scenario-selected"), "true");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-selected-scenario-summary-label"), "Death tomorrow");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-survivor-income-label"), "Survivor income included");
+assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-transition-period-label"), "3 months transition");
 assert.equal(harness.toggle.getAttribute("aria-expanded"), "true");
 assert.equal(harness.toggle.textContent, "Hide controls");
 assert.equal(harness.content.hidden, false);
@@ -1046,6 +1164,63 @@ assert.match(harness.host.innerHTML, /Survivor resources deplete/);
 assert.match(harness.host.innerHTML, /Coverage added at death/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-point-year-index/);
 assert.doesNotMatch(harness.host.innerHTML, /data-income-impact-runway-svg/);
+
+const transitionHarness = createHarness();
+transitionHarness.readyCallback();
+const initialTransitionPath = getGraphPathD(transitionHarness.host.innerHTML, "postDeathResources");
+assert.ok(initialTransitionPath, "initial transition harness graph path should render.");
+transitionHarness.transitionPeriod.value = "12";
+transitionHarness.transitionPeriod.listeners.input({ target: transitionHarness.transitionPeriod });
+assert.equal(transitionHarness.composerCalls.length, 1, "draft transition period should not rerun composer before Reevaluate.");
+assert.equal(transitionHarness.riskEvaluatorCalls.length, 1, "draft transition period should not rerun risk evaluator before Reevaluate.");
+assert.equal(transitionHarness.graphModelCalls.length, 1, "draft transition period should not rebuild graph before Reevaluate.");
+let transitionDraftState = transitionHarness.getScenarioComparisonStateSnapshot();
+assert.equal(transitionDraftState.draftScenarioControls.transitionPeriodMonths, 12);
+assert.equal(getSelectedAppliedScenario(transitionDraftState).settings.transitionPeriodMonths, 3);
+assert.equal(transitionHarness.transitionPeriod.value, "12");
+assert.equal(transitionHarness.transitionPeriodValue.textContent, "12 months");
+assert.equal(transitionHarness.scenarioSummary.getAttribute("data-income-impact-transition-period-label"), "12 months transition");
+assert.equal(transitionHarness.reevaluateButton.disabled, false);
+
+transitionHarness.reevaluateButton.listeners.click();
+assert.equal(transitionHarness.composerCalls.length, 2, "Reevaluate should apply draft transition period.");
+assert.equal(transitionHarness.riskEvaluatorCalls.length, 2);
+assert.equal(transitionHarness.graphModelCalls.length, 2);
+assert.equal(transitionHarness.composerCalls[1].scenarioOptions.transitionPeriodMonths, 12);
+assert.equal(
+  transitionHarness.composerCalls[1].analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths,
+  12,
+  "runtime transition override should reach composer through analysisSettings."
+);
+transitionDraftState = transitionHarness.getScenarioComparisonStateSnapshot();
+const selectedTransitionScenario = getSelectedAppliedScenario(transitionDraftState);
+assert.equal(selectedTransitionScenario.settings.transitionPeriodMonths, 12);
+assert.equal(selectedTransitionScenario.scenario.scenario.transitionPeriod.lengthMonths, 12);
+assert.equal(
+  transitionHarness.graphModelCalls.at(-1).appliedScenarios.find(function (scenario) {
+    return scenario.scenarioId === transitionHarness.graphModelCalls.at(-1).selectedScenarioId;
+  }).scenario.scenario.transitionPeriod.lengthMonths,
+  12,
+  "graph model should receive the selected scenario transition contract."
+);
+const appliedTransitionPath = getGraphPathD(transitionHarness.host.innerHTML, "postDeathResources");
+assert.ok(appliedTransitionPath, "applied transition graph path should render.");
+assert.notEqual(appliedTransitionPath, initialTransitionPath, "transition 12 months should change the rendered graph path.");
+
+transitionHarness.transitionPeriod.value = "0";
+transitionHarness.transitionPeriod.listeners.input({ target: transitionHarness.transitionPeriod });
+assert.equal(transitionHarness.getScenarioComparisonStateSnapshot().draftScenarioControls.transitionPeriodMonths, 0);
+transitionHarness.transitionPeriodReset.listeners.click();
+assert.equal(transitionHarness.transitionPeriod.value, "3");
+assert.equal(transitionHarness.transitionPeriodValue.textContent, "3 months");
+assert.equal(transitionHarness.getScenarioComparisonStateSnapshot().draftScenarioControls.transitionPeriodMonths, 3);
+transitionHarness.reevaluateButton.listeners.click();
+assert.equal(transitionHarness.composerCalls.at(-1).scenarioOptions.transitionPeriodMonths, 3);
+assert.equal(
+  transitionHarness.composerCalls.at(-1).analysisSettings.survivorSupportAssumptions.supportTreatment.transitionPeriodMonths,
+  3,
+  "transition reset should return the runtime override to the saved Analysis Setup default."
+);
 
 harness.slider.value = "50";
 harness.slider.listeners.input({ target: harness.slider });

@@ -242,6 +242,20 @@
       : DEFAULT_TRANSITION_PERIOD_MONTHS;
   }
 
+  function createAnalysisSettingsWithTransitionPeriodOverride(analysisSettings, transitionPeriodMonths) {
+    const nextSettings = isPlainObject(analysisSettings) ? clonePlainValue(analysisSettings) : {};
+    const survivorSupportAssumptions = isPlainObject(nextSettings.survivorSupportAssumptions)
+      ? nextSettings.survivorSupportAssumptions
+      : {};
+    const supportTreatment = isPlainObject(survivorSupportAssumptions.supportTreatment)
+      ? survivorSupportAssumptions.supportTreatment
+      : {};
+    supportTreatment.transitionPeriodMonths = clampTransitionPeriodMonths(transitionPeriodMonths);
+    survivorSupportAssumptions.supportTreatment = supportTreatment;
+    nextSettings.survivorSupportAssumptions = survivorSupportAssumptions;
+    return nextSettings;
+  }
+
   function getLifestyleSliderLabel(value) {
     const sliderValue = clampLifestyleSliderValue(value);
     if (sliderValue < 0) {
@@ -700,6 +714,9 @@
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
       survivorIncome: banner.querySelector("[data-income-impact-survivor-income]"),
       survivorIncomeValue: banner.querySelector("[data-income-impact-survivor-income-value]"),
+      transitionPeriod: banner.querySelector("[data-income-impact-transition-period]"),
+      transitionPeriodValue: banner.querySelector("[data-income-impact-transition-period-value]"),
+      transitionPeriodReset: banner.querySelector("[data-income-impact-transition-period-reset]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
       autoCompressBaseline: banner.querySelector("[data-income-impact-auto-compress-baseline]"),
@@ -809,6 +826,7 @@
     const projectionHorizonYears = draftControls.projectionHorizonYears;
     const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
     const includeSurvivorIncome = draftControls.includeSurvivorIncome !== false;
+    const transitionPeriodMonths = clampTransitionPeriodMonths(draftControls.transitionPeriodMonths);
     const lifestyleSliderValue = draftControls.lifestyleSliderValue;
     const autoCompressBaselineEnabled = draftControls.autoCompressBaselineEnabled !== false;
     const collapsed = scenarioState.bannerCollapsed === true;
@@ -860,6 +878,18 @@
       elements.survivorIncomeValue.textContent = includeSurvivorIncome ? "Included" : "Excluded";
     }
 
+    if (elements.transitionPeriod) {
+      elements.transitionPeriod.min = String(MIN_TRANSITION_PERIOD_MONTHS);
+      elements.transitionPeriod.max = String(MAX_TRANSITION_PERIOD_MONTHS);
+      elements.transitionPeriod.step = "1";
+      elements.transitionPeriod.value = String(transitionPeriodMonths);
+      elements.transitionPeriod.setAttribute("aria-valuetext", `${transitionPeriodMonths} months`);
+    }
+
+    if (elements.transitionPeriodValue) {
+      elements.transitionPeriodValue.textContent = `${transitionPeriodMonths} months`;
+    }
+
     if (elements.lifestyleSlider) {
       elements.lifestyleSlider.min = String(MIN_LIFESTYLE_SLIDER_VALUE);
       elements.lifestyleSlider.max = String(MAX_LIFESTYLE_SLIDER_VALUE);
@@ -909,6 +939,7 @@
     if (elements.scenarioSummary) {
       elements.scenarioSummary.setAttribute("data-income-impact-mortgage-treatment-label", getMortgageTreatmentLabel(mortgageTreatmentOverride));
       elements.scenarioSummary.setAttribute("data-income-impact-survivor-income-label", includeSurvivorIncome ? "Survivor income included" : "Survivor income excluded");
+      elements.scenarioSummary.setAttribute("data-income-impact-transition-period-label", `${transitionPeriodMonths} months transition`);
       elements.scenarioSummary.setAttribute("data-income-impact-lifestyle-label", getLifestyleSliderLabel(lifestyleSliderValue));
       elements.scenarioSummary.setAttribute("data-income-impact-selected-scenario-summary-label", selectedScenarioLabel);
     }
@@ -4866,7 +4897,10 @@
       selectedDeathDate,
       projectionHorizonYears: clampProjectionHorizonYears(sourceControls.projectionHorizonYears ?? scenarioState.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(sourceControls.mortgageTreatmentOverride ?? scenarioState.mortgageTreatmentOverride),
-      transitionPeriodMonths: resolveAnalysisSettingsTransitionPeriodMonths(safeState.analysisSettings),
+      transitionPeriodMonths: clampTransitionPeriodMonths(
+        sourceControls.transitionPeriodMonths ?? scenarioState.transitionPeriodMonths,
+        resolveAnalysisSettingsTransitionPeriodMonths(safeState.analysisSettings)
+      ),
       includeSurvivorIncome: normalizeBooleanScenarioControl(
         sourceControls.includeSurvivorIncome ?? scenarioState.includeSurvivorIncome,
         getAssumptionSurvivorIncomeEnabled(safeState.lensModel)
@@ -5007,6 +5041,7 @@
     const deathAgeState = isPlainObject(state.deathAgeState) ? state.deathAgeState : {};
     scenarioState.projectionHorizonYears = controls.projectionHorizonYears;
     scenarioState.mortgageTreatmentOverride = controls.mortgageTreatmentOverride;
+    scenarioState.transitionPeriodMonths = controls.transitionPeriodMonths;
     scenarioState.includeSurvivorIncome = controls.includeSurvivorIncome !== false;
     scenarioState.lifestyleSliderValue = controls.lifestyleSliderValue;
     scenarioState.autoCompressBaselineEnabled = controls.autoCompressBaselineEnabled !== false;
@@ -5066,10 +5101,15 @@
     const deathAgeState = isPlainObject(safeState.deathAgeState) ? safeState.deathAgeState : {};
     const scenarioOptions = {
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
+      transitionPeriodMonths: controls.transitionPeriodMonths,
       includeSurvivorIncome: controls.includeSurvivorIncome !== false,
       includeDiscretionaryNeeds: true,
       projectionCadence: "monthly"
     };
+    const scenarioAnalysisSettings = createAnalysisSettingsWithTransitionPeriodOverride(
+      safeState.analysisSettings,
+      controls.transitionPeriodMonths
+    );
 
     if (deathAgeState.hasDateOfBirth) {
       deathAgeState.selectedDeathAge = controls.selectedDeathAge;
@@ -5081,7 +5121,7 @@
       selectedDeathAge: controls.selectedDeathAge,
       projectionHorizonMonths: controls.projectionHorizonYears * 12,
       lensModel: safeState.lensModel,
-      analysisSettings: safeState.analysisSettings,
+      analysisSettings: scenarioAnalysisSettings,
       scenarioOptions
     });
     const riskEvaluation = safeState.evaluateIncomeImpactRiskEvents({
@@ -6835,6 +6875,34 @@
 
         const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
         controls.includeSurvivorIncome = event?.target?.checked === true;
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    }
+
+    if (scenarioElements.transitionPeriod) {
+      const updateTransitionPeriod = function (event) {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.transitionPeriodMonths = clampTransitionPeriodMonths(event?.target?.value);
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      };
+      scenarioElements.transitionPeriod.addEventListener("input", updateTransitionPeriod);
+      scenarioElements.transitionPeriod.addEventListener("change", updateTransitionPeriod);
+    }
+
+    if (scenarioElements.transitionPeriodReset) {
+      scenarioElements.transitionPeriodReset.addEventListener("click", function () {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.transitionPeriodMonths = resolveAnalysisSettingsTransitionPeriodMonths(incomeImpactState.analysisSettings);
         setDraftScenarioControls(incomeImpactState, controls);
         updateScenarioControls(incomeImpactState.latestTimelineResult);
       });

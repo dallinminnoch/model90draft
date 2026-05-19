@@ -593,6 +593,57 @@ function assertNoForbiddenSourceChanges() {
       && diagnosticCheckHasTransitionProof;
   }
 
+  function isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff(filePath) {
+    if (filePath !== "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"
+      && filePath !== "life-insurance-planner/pages/income-loss-impact.html") {
+      return false;
+    }
+
+    const displayDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const pageDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/pages/income-loss-impact.html"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+    const scenarioBannerCheckDiff = execFileSync("git", ["diff", "--", "./life-insurance-planner/checks/lens-analysis/income-loss-impact-scenario-banner-check.js"], {
+      cwd: path.resolve(repoRoot, ".."),
+      encoding: "utf8"
+    });
+
+    const pageHasRuntimeControl = pageDiff.includes("Transition period")
+      && pageDiff.includes("data-income-impact-transition-period-value")
+      && pageDiff.includes("id=\"income-impact-transition-period\"")
+      && pageDiff.includes("type=\"range\"")
+      && pageDiff.includes("min=\"0\"")
+      && pageDiff.includes("max=\"24\"")
+      && pageDiff.includes("step=\"1\"")
+      && pageDiff.includes("value=\"3\"")
+      && pageDiff.includes("data-income-impact-transition-period-reset");
+
+    const displayHasRuntimeOverride = displayDiff.includes("createAnalysisSettingsWithTransitionPeriodOverride")
+      && displayDiff.includes("data-income-impact-transition-period")
+      && displayDiff.includes("data-income-impact-transition-period-value")
+      && displayDiff.includes("data-income-impact-transition-period-reset")
+      && displayDiff.includes("scenarioOptions = {")
+      && displayDiff.includes("transitionPeriodMonths: controls.transitionPeriodMonths")
+      && displayDiff.includes("scenarioAnalysisSettings")
+      && displayDiff.includes("analysisSettings: scenarioAnalysisSettings")
+      && displayDiff.includes("scenarioState.transitionPeriodMonths = controls.transitionPeriodMonths")
+      && displayDiff.includes("data-income-impact-transition-period-label");
+
+    const checkProvesRuntimeOverride = scenarioBannerCheckDiff.includes("draft transition period should not rerun composer before Reevaluate")
+      && scenarioBannerCheckDiff.includes("runtime transition override should reach composer through analysisSettings")
+      && scenarioBannerCheckDiff.includes("transition 12 months should change the rendered graph path")
+      && scenarioBannerCheckDiff.includes("transition reset should return the runtime override to the saved Analysis Setup default")
+      && scenarioBannerCheckDiff.includes("graph model should receive the selected scenario transition contract");
+
+    return pageHasRuntimeControl
+      && displayHasRuntimeOverride
+      && checkProvesRuntimeOverride;
+  }
+
   function isAllowedAnalysisSetupMortgageTreatmentUi(filePath) {
     if (filePath !== "life-insurance-planner/pages/analysis-setup.html") {
       return false;
@@ -775,6 +826,7 @@ function assertNoForbiddenSourceChanges() {
       && !isAllowedIncomeImpactGraphLayoutFramePass(filePath)
       && !isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath)
       && !isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath)
+      && !isAllowedIncomeLossImpactTransitionPeriodScenarioControlDiff(filePath)
       && !isAllowedAnalysisSetupMortgageTreatmentUi(filePath)
       && !isAllowedAnalysisSetupTransitionPeriodAssumptionDiff(filePath)
       && !isAllowedAnalysisSetupEducationDescriptionRemovalDiff(repoRoot, filePath)
