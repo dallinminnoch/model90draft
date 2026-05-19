@@ -104,7 +104,21 @@ function isAllowedIncomeImpactTitleStyleOverride() {
     "max-width: 36rem;",
     "color: #627086;",
     "font-size: 0.82rem;",
-    "line-height: 1.38;"
+    "line-height: 1.38;",
+    "body[data-step=\"income-impact\"] input[data-income-impact-death-age-slider],",
+    "body[data-step=\"income-impact\"] input[data-income-impact-lifestyle-slider] {",
+    "box-sizing: border-box;",
+    "width: 100%;",
+    "height: 1.2rem;",
+    "min-height: 1.2rem;",
+    "padding: 0;",
+    "border: 0;",
+    "border-radius: 0;",
+    "appearance: none;",
+    "-webkit-appearance: none;",
+    "outline: 0;",
+    "background: transparent;",
+    "box-shadow: none;"
   ]);
   return changedLines.every(function (line) {
     if (line.startsWith("-")) {
@@ -131,6 +145,7 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "}",
     "grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr);",
     "grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
+    "grid-template-columns: minmax(14.75rem, 15.25rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
     "grid-template-columns: minmax(13.5rem, 18rem) minmax(0, 1fr);",
     "display: grid;",
     "grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);",
@@ -347,6 +362,7 @@ function createHarness() {
   const riskEvaluatorCalls = [];
   const graphModelCalls = [];
   const storageWrites = [];
+  const reevaluateTimers = [];
   const profileRecord = {
     id: "scenario-banner-profile",
     caseRef: "CL/90001",
@@ -382,6 +398,13 @@ function createHarness() {
   const host = createElement();
   const slider = createElement({ disabled: true, value: "0" });
   const sliderRow = createElement({ hidden: true });
+  const deathAgeSliderLabels = [
+    createElement({ attributes: { "data-income-impact-death-age-slider-label": "min" } }),
+    createElement({ attributes: { "data-income-impact-death-age-slider-label": "quarter" } }),
+    createElement({ attributes: { "data-income-impact-death-age-slider-label": "mid" } }),
+    createElement({ attributes: { "data-income-impact-death-age-slider-label": "three-quarter" } }),
+    createElement({ attributes: { "data-income-impact-death-age-slider-label": "max" } })
+  ];
   const ageValue = createElement({ textContent: "Not available" });
   const dateValue = createElement({ textContent: "Not available" });
   const warning = createElement({ hidden: true });
@@ -391,6 +414,9 @@ function createHarness() {
       "[data-income-impact-death-age-slider-row]": sliderRow,
       "[data-income-impact-death-age-slider]": slider,
       "[data-income-impact-death-age-warning]": warning
+    },
+    selectorResults: {
+      "[data-income-impact-death-age-slider-label]": deathAgeSliderLabels
     }
   });
   const toggle = createElement({ attributes: { "aria-expanded": "true" }, textContent: "Hide controls" });
@@ -484,6 +510,10 @@ function createHarness() {
         setItem(key, value) {
           storageWrites.push({ storage: "sessionStorage", key, value });
         }
+      },
+      setTimeout(callback, delay) {
+        reevaluateTimers.push({ callback, delay });
+        return reevaluateTimers.length;
       },
       LensApp: {
         clientRecords: {
@@ -583,6 +613,24 @@ function createHarness() {
               dataGaps: [],
               warnings: []
             };
+          },
+          incomeImpactLifestyleScenarioCalculations: {
+            calculateIncomeImpactLifestyleScenario(input) {
+              const sliderValue = Number(input?.sliderValue) || 0;
+              const monthlyDelta = sliderValue < 0 ? -500 : (sliderValue > 0 ? 400 : 0);
+              return {
+                status: "complete",
+                sliderValue,
+                monthlyDelta,
+                comparisonScenario: monthlyDelta === 0 ? null : {
+                  trace: {
+                    sliderValue,
+                    monthlyDelta,
+                    graphMonthlyDelta: monthlyDelta
+                  }
+                }
+              };
+            }
           },
           buildIncomeImpactTimelineGraphModel(input) {
             graphModelCalls.push(cloneJson(input));
@@ -697,6 +745,7 @@ function createHarness() {
     riskEvaluatorCalls,
     graphModelCalls,
     storageWrites,
+    reevaluateTimers,
     host,
     banner,
     toggle,
@@ -704,6 +753,7 @@ function createHarness() {
     control,
     slider,
     sliderRow,
+    deathAgeSliderLabels,
     ageValue,
     dateValue,
     warning,
@@ -720,6 +770,12 @@ function createHarness() {
     selectedScenarioChip,
     selectedScenarioLabel,
     scenarioSummary,
+    flushReevaluateTimers() {
+      const pendingTimers = reevaluateTimers.splice(0);
+      pendingTimers.forEach(function (timer) {
+        timer.callback();
+      });
+    },
     getScenarioComparisonStateSnapshot() {
       return cloneJson(
         sandbox.window.LensApp.lensAnalysis.incomeLossImpactDisplay.getScenarioComparisonStateSnapshot()
@@ -732,6 +788,7 @@ const pageSource = readRepoFile("pages/income-loss-impact.html");
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
 const layoutSource = readRepoFile("layout.css");
 const componentsSource = readRepoFile("components.css");
+const stylesSource = readRepoFile("styles.css");
 const scenarioLayoutBlock = layoutSource.match(
   /body\[data-step="income-impact"\] \.income-impact-scenario-banner\s*\{[\s\S]*?\n  \}/
 )?.[0] || "";
@@ -750,9 +807,10 @@ const scenarioLayoutBlock = layoutSource.match(
   "data-income-impact-draft-status",
   "data-income-impact-selected-scenario-chip",
   "data-income-impact-selected-scenario-label",
-  "data-income-impact-death-age-control",
-  "data-income-impact-death-age-slider",
-  "data-income-impact-death-age-value",
+    "data-income-impact-death-age-control",
+    "data-income-impact-death-age-slider",
+    "data-income-impact-death-age-slider-label",
+    "data-income-impact-death-age-value",
   "data-income-impact-death-date-value",
   "data-income-impact-death-age-warning"
 ].forEach(function (selector) {
@@ -786,11 +844,9 @@ assert.match(
   /Preview only &mdash; LENS recommendation unchanged\./,
   "Income Impact page title should use the shortened preview disclaimer."
 );
-assert.match(
-  pageSource,
-  /Adjust the selected scenario\./,
-  "Scenario banner should use compact dashboard-style control copy."
-);
+assert.doesNotMatch(pageSource, /Adjust Scenario/);
+assert.doesNotMatch(pageSource, /Modify the selected scenario\. Assumption Controls stay unchanged\./);
+assert.match(pageSource, /Lifestyle change[\s\S]*data-income-impact-lifestyle-value>\$0\/mo/);
 assert.doesNotMatch(
   pageSource,
   /Preview only\. These controls do not change the LENS recommendation\./,
@@ -827,6 +883,7 @@ assert.match(displaySource, /composeIncomeImpactScenario/);
 assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
 assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
 assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*disabled[\s\S]*Reevaluate|disabled[\s\S]*data-income-impact-reevaluate[\s\S]*Reevaluate/);
+assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*Reevaluate[\s\S]*<img src="\.\.\/Images\/sync\.svg" alt="" aria-hidden="true">/);
 assert.match(pageSource, /data-income-impact-draft-status[\s\S]*Applied/);
 assert.match(pageSource, /data-income-impact-reevaluate-action[\s\S]*No pending changes/);
 assert.match(pageSource, /data-income-impact-selected-scenario-label[\s\S]*Not selected/);
@@ -855,8 +912,8 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[^}]*\}/,
-  "Desktop/tablet Income Impact layout should place scenario controls, main display, and resource outlook in stable columns."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(14\.75rem,\s*15\.25rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[^}]*\}/,
+  "Desktop/tablet Income Impact layout should reserve the reference-width scenario controls rail."
 );
 assert.match(
   layoutSource,
@@ -891,19 +948,52 @@ assert.match(
 assert.match(componentsSource, /\.income-impact-scenario-banner/);
 assert.match(
   componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/,
-  "Scenario controls should read as an integrated side panel, not a nested card."
+  /\.income-impact-scenario-banner\s*\{[^}]*width:\s*min\(100%,\s*13\.75rem\);[^}]*border:\s*1px solid var\(--income-impact-scenario-border\);[^}]*border-radius:\s*0\.875rem;[^}]*background:\s*#ffffff;[^}]*box-shadow:\s*0 2px 12px rgba\(15,\s*28,\s*60,\s*0\.07\),\s*0 1px 3px rgba\(15,\s*28,\s*60,\s*0\.05\);[^}]*\}/,
+  "Scenario controls should render as the provided compact reference panel."
+);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*min-height:\s*100%;/,
+  "Scenario controls rail should not stretch the compact card frame to the full rail height."
+);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*border:\s*1px solid/,
+  "Scenario controls rail should not override the base compact card border."
+);
+assert.match(componentsSource, /\.income-impact-controls-panel\s*\{[^}]*background:\s*#ffffff;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:hover/);
+assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:focus-within/);
+assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*outline:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*outline:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(stylesSource, /body\[data-step="income-impact"\] input\[data-income-impact-death-age-slider\],[\s\S]*body\[data-step="income-impact"\] input\[data-income-impact-lifestyle-slider\]\s*\{[^}]*height:\s*1\.2rem;[^}]*min-height:\s*1\.2rem;[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field\[data-income-impact-death-age-control\],[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-field--lifestyle\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/);
+assert.match(componentsSource, /\.income-impact-scenario-field\[data-income-impact-death-age-control\] \.income-impact-scenario-section-label span,[\s\S]*\.income-impact-scenario-field--lifestyle \.income-impact-scenario-section-label span\s*\{[^}]*display:\s*none;/);
+assert.match(
+  componentsSource,
+  /\.income-impact-scenario-header::before\s*\{[\s\S]*background:\s*linear-gradient\(90deg,\s*var\(--income-impact-scenario-blue\),\s*#6366f1,\s*#7c3aed\);/
 );
 assert.match(
   componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-header,[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-content\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}/
+  /\.income-impact-option-item\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--income-impact-scenario-blue-light\);[^}]*color:\s*var\(--income-impact-scenario-blue\);[^}]*\}/,
+  "Scenario controls should use reference-style selected option rows."
 );
-assert.match(
-  componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-header\s*\{[^}]*padding:\s*0\.84rem 0\.72rem 0\.68rem;[^}]*border-bottom:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.9\);[^}]*\}/,
-  "Scenario controls header should provide the side-menu section boundary."
-);
-assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-summary\s*\{[^}]*display:\s*grid;[^}]*\}/);
+assert.match(pageSource, /data-income-impact-death-age-control[\s\S]*income-impact-scenario-field--lifestyle[\s\S]*data-income-impact-mortgage-treatment/);
+assert.doesNotMatch(pageSource, /data-income-impact-lifestyle-option/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]\s*\{[^}]*appearance:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-lifestyle-slider-labels/);
+assert.match(componentsSource, /\.income-impact-toggle input:checked \+ span::after/);
+assert.match(componentsSource, /\.income-impact-reevaluate-button\s*\{[^}]*font-size:\s*0\.92rem;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-reevaluate-button img\s*\{[^}]*order:\s*2;[^}]*width:\s*1\.08rem;[^}]*height:\s*1\.08rem;[^}]*filter:\s*brightness\(0\) invert\(1\);[^}]*\}/);
+assert.match(componentsSource, /data-income-impact-reevaluate-state="reevaluating"[\s\S]*animation:\s*income-impact-reevaluate-spin 0\.85s linear infinite;/);
+assert.match(displaySource, /REEVALUATE_GRAPH_UPDATE_DELAY_MS\s*=\s*1500/);
+assert.match(displaySource, /scheduleReevaluate\(applyReevaluate,\s*REEVALUATE_GRAPH_UPDATE_DELAY_MS\)/);
+assert.match(displaySource, /getDraftLifestyleMonthlyDeltaLabel/);
+assert.match(displaySource, /formatSignedMonthlyAmount\(monthlyDelta\)/);
 assert.match(componentsSource, /\.income-impact-scenario-content/);
 assert.match(componentsSource, /data-income-impact-selected-scenario-chip/);
 assert.match(componentsSource, /data-income-impact-reevaluate-state="active"/);
@@ -917,13 +1007,8 @@ assert.doesNotMatch(
 );
 assert.match(
   componentsSource,
-  /@media \(max-width: 980px\)[\s\S]*\.income-impact-scenario-content[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(8rem, 1fr\)\);/,
-  "Tablet scenario controls should use the committed compact two-column layout."
-);
-assert.match(
-  componentsSource,
-  /@media \(min-width: 721px\) and \(max-height: 700px\)[\s\S]*\.income-impact-scenario-banner[\s\S]*padding: 0\.44rem 0\.64rem;/,
-  "Short-height scenario banner should use tighter spacing."
+  /@media \(max-width: 720px\)[\s\S]*\.income-impact-scenario-banner[\s\S]*width:\s*100%;/,
+  "Mobile scenario controls should keep the reference panel within the stacked rail."
 );
 assert.match(
   componentsSource,
@@ -999,9 +1084,14 @@ assert.equal(initialScenarioComparisonState.hasDraftChanges, false);
 assert.equal(harness.control.hidden, false);
 assert.equal(harness.sliderRow.hidden, false);
 assert.equal(harness.slider.disabled, false);
-assert.equal(harness.slider.min, "45");
-assert.equal(harness.slider.max, "85");
+assert.equal(harness.slider.min, "0");
+assert.equal(harness.slider.max, "100");
 assert.equal(harness.slider.value, "45");
+assert.deepEqual(
+  harness.deathAgeSliderLabels.map(function (labelNode) { return labelNode.textContent; }),
+  ["0", "25", "50", "75", "100"],
+  "death age slider legend should use the full 0 to 100 visual scale."
+);
 assert.equal(harness.ageValue.textContent, "45");
 assert.equal(harness.dateValue.textContent, "2026-01-01");
 assert.equal(harness.mortgageTreatment.value, "followAssumptions");
@@ -1010,7 +1100,7 @@ assert.equal(harness.survivorIncome.checked, true);
 assert.equal(harness.survivorIncome.getAttribute("aria-checked"), "true");
 assert.equal(harness.survivorIncomeValue.textContent, "Included");
 assert.equal(harness.lifestyleSlider.value, "0");
-assert.equal(harness.lifestyleValue.textContent, "Current");
+assert.equal(harness.lifestyleValue.textContent, "$0/mo");
 assert.equal(harness.reevaluateButton.disabled, true);
 assert.equal(harness.reevaluateButton.getAttribute("aria-disabled"), "true");
 assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluate-state"), "idle");
@@ -1048,6 +1138,11 @@ assert.equal(harness.graphModelCalls.length, 1, "draft death age should not rebu
 assert.equal(harness.slider.value, "50");
 assert.equal(harness.ageValue.textContent, "50");
 assert.equal(harness.dateValue.textContent, "2030-06-15");
+harness.slider.value = "20";
+harness.slider.listeners.input({ target: harness.slider });
+assert.equal(harness.slider.value, "45", "death age slider should not allow selecting below current age.");
+harness.slider.value = "50";
+harness.slider.listeners.input({ target: harness.slider });
 let draftState = harness.getScenarioComparisonStateSnapshot();
 assert.equal(draftState.draftScenarioControls.selectedDeathAge, 50);
 assert.equal(draftState.appliedScenarios[0].settings.selectedDeathAge, 45);
@@ -1063,6 +1158,14 @@ assert.equal(harness.banner.getAttribute("data-income-impact-draft-state"), "dir
 assert.equal(harness.banner.getAttribute("data-income-impact-reevaluate-action-label"), "Adds scenario to key");
 
 harness.reevaluateButton.listeners.click();
+assert.equal(harness.composerCalls.length, 1, "Reevaluate should delay graph recomposition before applying draft death age.");
+assert.equal(harness.reevaluateTimers.at(-1).delay, 1500, "Reevaluate should wait 1.5 seconds before updating the graph.");
+assert.equal(harness.reevaluateButton.disabled, true);
+assert.equal(harness.reevaluateButton.getAttribute("data-income-impact-reevaluate-state"), "reevaluating");
+assert.equal(harness.reevaluateControl.getAttribute("data-income-impact-reevaluate-state"), "reevaluating");
+assert.equal(harness.reevaluateAction.textContent, "Updating graph");
+assert.equal(harness.draftStatus.textContent, "Updating");
+harness.flushReevaluateTimers();
 assert.equal(harness.composerCalls.length, 2, "Reevaluate should apply draft death age.");
 assert.equal(harness.riskEvaluatorCalls.length, 2);
 assert.equal(harness.graphModelCalls.length, 2);
@@ -1149,7 +1252,7 @@ assert.equal(selectedOriginalState.hasDraftChanges, false);
 assert.equal(harness.slider.value, "45");
 assert.equal(harness.ageValue.textContent, "45");
 assert.equal(harness.lifestyleSlider.value, "0");
-assert.equal(harness.lifestyleValue.textContent, "Current");
+assert.equal(harness.lifestyleValue.textContent, "$0/mo");
 assert.equal(harness.selectedScenarioLabel.textContent, "Death tomorrow");
 assert.equal(harness.banner.getAttribute("data-income-impact-selected-scenario-id"), "income-impact-current-scenario");
 assert.equal(harness.reevaluateAction.textContent, "No pending changes");
@@ -1199,6 +1302,7 @@ assert.equal(getSelectedAppliedScenario(mortgageScenarioComparisonState).setting
 assert.equal(mortgageScenarioComparisonState.appliedScenarios.length, 2);
 
 harness.reevaluateButton.listeners.click();
+harness.flushReevaluateTimers();
 assert.equal(harness.composerCalls.length, 3, "Reevaluate should apply draft mortgage treatment.");
 assert.equal(harness.riskEvaluatorCalls.length, 3);
 assert.equal(harness.graphModelCalls.length, graphCallCountBeforeDuplicateReevaluate + 1);
@@ -1214,7 +1318,7 @@ assert.equal(harness.composerCalls.length, 3, "draft lifestyle slider should not
 assert.equal(harness.riskEvaluatorCalls.length, 3);
 assert.equal(harness.graphModelCalls.length, graphCallCountBeforeDuplicateReevaluate + 1);
 assert.equal(harness.lifestyleSlider.value, "-100");
-assert.equal(harness.lifestyleValue.textContent, "Conservative");
+assert.equal(harness.lifestyleValue.textContent, "-$500/mo");
 assert.equal(harness.scenarioSummary.getAttribute("data-income-impact-lifestyle-label"), "Conservative");
 const lifestyleDraftScenarioComparisonState = harness.getScenarioComparisonStateSnapshot();
 assert.equal(lifestyleDraftScenarioComparisonState.draftScenarioControls.lifestyleSliderValue, -100);
@@ -1223,6 +1327,7 @@ assert.equal(getInitialAppliedScenario(lifestyleDraftScenarioComparisonState).se
 assert.equal(lifestyleDraftScenarioComparisonState.hasDraftChanges, true);
 
 harness.reevaluateButton.listeners.click();
+harness.flushReevaluateTimers();
 assert.equal(harness.composerCalls.length, 4, "Reevaluate should apply draft lifestyle slider.");
 assert.equal(harness.riskEvaluatorCalls.length, 4);
 assert.equal(harness.graphModelCalls.length, graphCallCountBeforeDuplicateReevaluate + 2);
@@ -1252,6 +1357,7 @@ assert.equal(getSelectedAppliedScenario(survivorIncomeDraftState).settings.inclu
 assert.equal(survivorIncomeDraftState.hasDraftChanges, true);
 
 harness.reevaluateButton.listeners.click();
+harness.flushReevaluateTimers();
 assert.equal(harness.composerCalls.length, 5, "Reevaluate should apply draft survivor-income toggle.");
 assert.equal(harness.riskEvaluatorCalls.length, 5);
 assert.equal(harness.graphModelCalls.length, graphCallCountBeforeDuplicateReevaluate + 3);

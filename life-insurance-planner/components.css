@@ -19003,9 +19003,10 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 
 .income-impact-graph-path {
   fill: none;
+  filter: drop-shadow(0 0 3px rgba(37, 99, 235, 0.52)) drop-shadow(0 0 10px rgba(37, 99, 235, 0.28));
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2.2;
+  stroke-width: 2.9;
   vector-effect: non-scaling-stroke;
   shape-rendering: geometricPrecision;
 }
@@ -19036,16 +19037,16 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-graph-path--preDeathAssets {
-  stroke: #3b82f6;
+  stroke: #2563ff;
   opacity: 0.5;
 }
 
 .income-impact-graph-path--postDeathResources {
-  stroke: #3b82f6;
+  stroke: #2563ff;
 }
 
 .income-impact-graph-path[data-income-impact-applied-scenario-id] {
-  stroke: #3b82f6;
+  stroke: #2563ff;
 }
 
 .income-impact-death-conversion {
@@ -19295,7 +19296,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="true"] {
-  stroke-width: 2.2;
+  stroke-width: 2.9;
 }
 
 .income-impact-graph-path[data-income-impact-applied-scenario-selected="false"] {
@@ -20253,12 +20254,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 
 .income-impact-controls-panel .income-impact-scenario-banner {
   gap: 0;
-  min-height: 100%;
   padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .income-impact-controls-panel .income-impact-scenario-header,
@@ -20347,13 +20343,6 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-size: 0.7rem;
   font-weight: 560;
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-}
-
-.income-impact-controls-panel .income-impact-scenario-field:hover,
-.income-impact-controls-panel .income-impact-scenario-field:focus-within {
-  border-color: rgba(37, 99, 235, 0.12);
-  background: #eff6ff;
-  color: #2563eb;
 }
 
 .income-impact-controls-panel .income-impact-scenario-field > label,
@@ -20546,5 +20535,676 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 
   .income-impact-scenario-field:last-child {
     grid-column: auto;
+  }
+}
+
+.income-impact-controls-panel {
+  padding: 0.7rem 0.5rem;
+  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.income-impact-scenario-banner {
+  --income-impact-scenario-blue: #2558d8;
+  --income-impact-scenario-blue-light: #eef3ff;
+  --income-impact-scenario-blue-mid: #dbe6ff;
+  --income-impact-scenario-border: #e4e9f2;
+  --income-impact-scenario-text-muted: #8a9bb8;
+  --income-impact-death-age-progress: 0%;
+  display: grid;
+  position: static;
+  overflow: hidden;
+  width: min(100%, 13.75rem);
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid var(--income-impact-scenario-border);
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 28, 60, 0.07), 0 1px 3px rgba(15, 28, 60, 0.05);
+}
+
+.income-impact-scenario-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  position: relative;
+  padding: 0.72rem 0.78rem 0.62rem;
+  border-bottom: 1px solid var(--income-impact-scenario-border);
+  background: linear-gradient(160deg, #f8faff 0%, #ffffff 100%);
+}
+
+.income-impact-scenario-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.16rem;
+  background: linear-gradient(90deg, var(--income-impact-scenario-blue), #6366f1, #7c3aed);
+}
+
+.income-impact-scenario-title {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.income-impact-scenario-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: var(--income-impact-scenario-blue);
+  font-size: 0.56rem;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.income-impact-scenario-eyebrow span {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: var(--income-impact-scenario-blue);
+  opacity: 0.5;
+}
+
+.income-impact-scenario-field small,
+.income-impact-scenario-field p {
+  margin: 0;
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.income-impact-scenario-summary {
+  display: flex;
+  grid-column: 1;
+  min-width: 0;
+}
+
+.income-impact-scenario-summary [data-income-impact-selected-scenario-chip] {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.32rem;
+  min-width: 0;
+  padding: 0.28rem 0.48rem;
+  border: 1px solid var(--income-impact-scenario-blue-mid);
+  border-radius: 0.5rem;
+  background: var(--income-impact-scenario-blue-light);
+  color: var(--income-impact-scenario-blue);
+}
+
+.income-impact-scenario-summary [data-income-impact-selected-scenario-chip] i {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.38rem;
+  background: var(--income-impact-scenario-blue);
+  color: #ffffff;
+}
+
+.income-impact-scenario-summary [data-income-impact-selected-scenario-chip] span {
+  display: grid;
+  gap: 0.02rem;
+  min-width: 0;
+}
+
+.income-impact-scenario-summary small {
+  color: var(--income-impact-scenario-blue);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.income-impact-scenario-summary strong {
+  overflow: hidden;
+  color: var(--income-impact-scenario-blue);
+  font-size: 0.75rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.income-impact-scenario-toggle {
+  grid-column: 2;
+  justify-self: end;
+  min-height: 1.58rem;
+  padding: 0.28rem 0.48rem;
+  border: 1px solid #d0d8ea;
+  border-radius: 0.44rem;
+  background: #ffffff;
+  color: var(--income-impact-scenario-text-muted);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 620;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+.income-impact-scenario-toggle::after,
+.income-impact-scenario-toggle[aria-expanded="true"]::after {
+  content: "";
+}
+
+.income-impact-scenario-toggle:hover,
+.income-impact-scenario-toggle:focus-visible {
+  border-color: var(--income-impact-scenario-blue);
+  color: var(--income-impact-scenario-blue);
+}
+
+.income-impact-scenario-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.income-impact-scenario-content[hidden],
+.income-impact-scenario-banner.is-collapsed .income-impact-scenario-footer {
+  display: none;
+}
+
+.income-impact-scenario-section {
+  display: grid;
+  gap: 0.48rem;
+  min-width: 0;
+  padding: 0.68rem 0.78rem;
+  border-bottom: 1px solid var(--income-impact-scenario-border);
+}
+
+.income-impact-scenario-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.59rem;
+  font-weight: 760;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.income-impact-scenario-section-label span {
+  flex: 1;
+  height: 1px;
+  background: var(--income-impact-scenario-border);
+}
+
+.income-impact-controls-panel .income-impact-scenario-field[data-income-impact-death-age-control],
+.income-impact-controls-panel .income-impact-scenario-field--lifestyle {
+  padding: 0.58rem 0.78rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.income-impact-scenario-field[data-income-impact-death-age-control] .income-impact-scenario-section-label span,
+.income-impact-scenario-field--lifestyle .income-impact-scenario-section-label span {
+  display: none;
+}
+
+.income-impact-scenario-field {
+  color: #0d1829;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.income-impact-scenario-native-label,
+.income-impact-scenario-field select,
+.income-impact-scenario-field--survivor-income > input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.income-impact-death-age-display {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.32rem;
+}
+
+.income-impact-death-age-display strong {
+  color: #0d1829;
+  font-family: "Montserrat", sans-serif;
+  font-size: 1.75rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 0.92;
+}
+
+.income-impact-death-age-display span {
+  margin-bottom: 0.2rem;
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.75rem;
+  font-weight: 620;
+}
+
+.income-impact-death-age-sub {
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.63rem;
+}
+
+.income-impact-death-age-slider-row {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.income-impact-death-age-slider-row input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 1.2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.income-impact-death-age-slider-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--income-impact-scenario-blue), #6366f1 var(--income-impact-death-age-progress), var(--income-impact-scenario-border) var(--income-impact-death-age-progress));
+  box-shadow: none;
+}
+
+.income-impact-death-age-slider-row input[type="range"]::-webkit-slider-thumb {
+  width: 1.13rem;
+  height: 1.13rem;
+  margin-top: -0.44rem;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--income-impact-scenario-blue);
+  box-shadow: none;
+  cursor: grab;
+}
+
+.income-impact-death-age-slider-row input[type="range"]::-moz-range-track {
+  height: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--income-impact-scenario-border);
+  box-shadow: none;
+}
+
+.income-impact-death-age-slider-row input[type="range"]::-moz-range-progress {
+  height: 0.25rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--income-impact-scenario-blue), #6366f1);
+}
+
+.income-impact-death-age-slider-row input[type="range"]::-moz-range-thumb {
+  width: 0.84rem;
+  height: 0.84rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--income-impact-scenario-blue);
+  box-shadow: none;
+  cursor: grab;
+}
+
+.income-impact-death-age-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.59rem;
+  line-height: 1;
+}
+
+.income-impact-option-group {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.income-impact-option-item {
+  display: flex;
+  align-items: center;
+  gap: 0.46rem;
+  min-width: 0;
+  min-height: 1.72rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #4a5e7a;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.income-impact-option-item > span {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 0.94rem;
+  height: 0.94rem;
+  border: 2px solid #d0d8ea;
+  border-radius: 999px;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.income-impact-option-item > span i {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: #ffffff;
+  opacity: 0;
+}
+
+.income-impact-option-item strong {
+  min-width: 0;
+  font-size: 0.69rem;
+  font-weight: 560;
+  line-height: 1.2;
+}
+
+.income-impact-option-item:hover {
+  background: #f5f7fc;
+}
+
+.income-impact-option-item[aria-pressed="true"] {
+  border-color: var(--income-impact-scenario-blue-mid);
+  background: var(--income-impact-scenario-blue-light);
+  color: var(--income-impact-scenario-blue);
+}
+
+.income-impact-option-item[aria-pressed="true"] > span {
+  border-color: var(--income-impact-scenario-blue);
+  background: var(--income-impact-scenario-blue);
+}
+
+.income-impact-option-item[aria-pressed="true"] > span i {
+  opacity: 1;
+}
+
+.income-impact-scenario-note {
+  display: block;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid rgba(217, 119, 6, 0.18);
+  border-radius: 0.44rem;
+  background: rgba(245, 166, 35, 0.07);
+  color: #92400e;
+  font-size: 0.66rem;
+  font-weight: 560;
+  line-height: 1.45;
+}
+
+.income-impact-lifestyle-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+.income-impact-lifestyle-slider-head strong {
+  color: var(--income-impact-scenario-blue);
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
+.income-impact-scenario-field--lifestyle > input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 1.2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.income-impact-scenario-field--lifestyle > input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #dbe6ff 0%, var(--income-impact-scenario-blue) 50%, #7c3aed 100%);
+  box-shadow: none;
+}
+
+.income-impact-scenario-field--lifestyle > input[type="range"]::-webkit-slider-thumb {
+  width: 1.13rem;
+  height: 1.13rem;
+  margin-top: -0.44rem;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--income-impact-scenario-blue);
+  box-shadow: none;
+  cursor: grab;
+}
+
+.income-impact-scenario-field--lifestyle > input[type="range"]::-moz-range-track {
+  height: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #dbe6ff 0%, var(--income-impact-scenario-blue) 50%, #7c3aed 100%);
+  box-shadow: none;
+}
+
+.income-impact-scenario-field--lifestyle > input[type="range"]::-moz-range-thumb {
+  width: 0.84rem;
+  height: 0.84rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--income-impact-scenario-blue);
+  box-shadow: none;
+  cursor: grab;
+}
+
+.income-impact-lifestyle-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.38rem;
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.59rem;
+  line-height: 1;
+}
+
+.income-impact-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.08rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--income-impact-scenario-border);
+  cursor: pointer;
+}
+
+.income-impact-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.13rem;
+  height: 1.19rem;
+  margin-top: 0.06rem;
+}
+
+.income-impact-toggle input {
+  position: absolute;
+  opacity: 0;
+}
+
+.income-impact-toggle span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #d0d8ea;
+  transition: background-color 0.15s ease;
+}
+
+.income-impact-toggle span::after {
+  content: "";
+  position: absolute;
+  top: 0.13rem;
+  left: 0.13rem;
+  width: 0.94rem;
+  height: 0.94rem;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease;
+}
+
+.income-impact-toggle input:checked + span {
+  background: var(--income-impact-scenario-blue);
+}
+
+.income-impact-toggle input:checked + span::after {
+  transform: translateX(0.94rem);
+}
+
+.income-impact-toggle-row > span:last-child {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.income-impact-toggle-row strong {
+  color: #4a5e7a;
+  font-size: 0.75rem;
+  font-weight: 620;
+  line-height: 1.2;
+}
+
+.income-impact-toggle-row small {
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.income-impact-scenario-footer {
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.65rem 0.78rem;
+  border-top: 1px solid var(--income-impact-scenario-border);
+  background: #f5f7fc;
+}
+
+.income-impact-scenario-footer-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.income-impact-scenario-footer [data-income-impact-draft-status] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  min-height: 1.44rem;
+  padding: 0.25rem 0.62rem;
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  border-radius: 0.38rem;
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 0.66rem;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.income-impact-scenario-footer [data-income-impact-draft-status]::before {
+  content: "";
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.income-impact-scenario-footer [data-income-impact-reevaluate-action] {
+  color: var(--income-impact-scenario-text-muted);
+  font-size: 0.68rem;
+  font-weight: 560;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.income-impact-reevaluate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.08rem;
+  padding: 0.56rem 0.75rem;
+  border: 0;
+  border-radius: 0.56rem;
+  background: linear-gradient(135deg, var(--income-impact-scenario-blue), #6366f1);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(37, 88, 216, 0.25);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+.income-impact-reevaluate-button img {
+  order: 2;
+  width: 1.08rem;
+  height: 1.08rem;
+  flex: 0 0 auto;
+  filter: brightness(0) invert(1);
+}
+
+.income-impact-reevaluate-button[data-income-impact-reevaluate-state="reevaluating"] img {
+  animation: income-impact-reevaluate-spin 0.85s linear infinite;
+}
+
+@keyframes income-impact-reevaluate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.income-impact-reevaluate-button:hover:not(:disabled),
+.income-impact-reevaluate-button:focus-visible:not(:disabled) {
+  box-shadow: 0 4px 18px rgba(37, 88, 216, 0.35);
+  transform: translateY(-1px);
+}
+
+.income-impact-scenario-banner[data-income-impact-draft-state="applied"] [data-income-impact-reevaluate] {
+  opacity: 0.68;
+}
+
+.income-impact-scenario-banner[data-income-impact-draft-state="dirty"] [data-income-impact-draft-status] {
+  border-color: rgba(217, 119, 6, 0.2);
+  background: #fff7ed;
+  color: #d97706;
+}
+
+@media (max-width: 720px) {
+  .income-impact-controls-panel {
+    padding: 0.75rem;
+  }
+
+  .income-impact-scenario-banner {
+    width: 100%;
   }
 }

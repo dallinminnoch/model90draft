@@ -339,9 +339,12 @@ assert.match(
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
 assert.match(pageSource, /Preview only &mdash; LENS recommendation unchanged\./);
-assert.match(pageSource, /<p>Adjust the selected scenario\.<\/p>/);
+assert.doesNotMatch(pageSource, /Adjust Scenario/);
+assert.doesNotMatch(pageSource, /Modify the selected scenario\. Assumption Controls stay unchanged\./);
+assert.match(pageSource, /Lifestyle change[\s\S]*data-income-impact-lifestyle-value>\$0\/mo/);
 assert.match(pageSource, /data-income-impact-controls-layout/);
 assert.match(pageSource, /data-income-impact-controls-panel/);
+assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*Reevaluate[\s\S]*<img src="\.\.\/Images\/sync\.svg" alt="" aria-hidden="true">/);
 assert.doesNotMatch(workspaceSideNavSource, /body\.dataset\.step === "income-impact"[\s\S]*topbarInner\.insertBefore\(trail,\s*topbarActions \|\| null\);/);
 assert.match(workspaceSideNavSource, /topbarInner\.insertBefore\(trail,\s*topbarActions \|\| null\);/);
 assert.match(workspaceSideNavSource, /document\.querySelector\("\[data-lens-workflow-trail-banner\]"\)\?\.remove\(\);/);
@@ -705,8 +708,8 @@ assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="p
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox"/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox"/);
-assert.match(displaySource, /stop-color="#3b82f6" stop-opacity="0\.1"[\s\S]*offset="38%" stop-color="#3b82f6" stop-opacity="0\.025"[\s\S]*offset="72%" stop-color="#3b82f6" stop-opacity="0"[\s\S]*offset="100%" stop-color="#3b82f6" stop-opacity="0"/);
-assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"[\s\S]*stop-color="#3b82f6" stop-opacity="0\.1"[\s\S]*offset="38%" stop-color="#3b82f6" stop-opacity="0\.025"[\s\S]*offset="72%" stop-color="#3b82f6" stop-opacity="0"[\s\S]*offset="100%" stop-color="#3b82f6" stop-opacity="0"/);
+assert.match(displaySource, /stop-color="#2563ff" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="#2563ff" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="#2563ff" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2563ff" stop-opacity="0"/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"[\s\S]*stop-color="#2563ff" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="#2563ff" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="#2563ff" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2563ff" stop-opacity="0"/);
 assert.match(displaySource, /GRAPH_HOVER_GRID_SPACING = 8/);
 assert.match(displaySource, /data-income-impact-graph-hover-interval/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay="selected-trendline"/);
@@ -839,7 +842,8 @@ assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-br
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-node/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-label/);
 assert.match(componentsSource, /\.income-impact-death-line-anchor/);
-assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*#3b82f6;/);
+assert.match(componentsSource, /\.income-impact-graph-path[\s\S]*filter:\s*drop-shadow\(0 0 3px rgba\(37,\s*99,\s*235,\s*0\.52\)\) drop-shadow\(0 0 10px rgba\(37,\s*99,\s*235,\s*0\.28\)\);[\s\S]*stroke-width:\s*2\.9;/);
+assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*#2563ff;/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-label/);
@@ -896,7 +900,7 @@ assert.doesNotMatch(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-path[\s\S]*stroke-width:\s*2;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
+  /\.income-impact-graph-path[\s\S]*stroke-width:\s*2\.9;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
   "Main chart paths should render as thin, non-scaling, geometric-precision SVG strokes."
 );
 assert.match(
@@ -916,28 +920,55 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*padding:\s*0\.5rem 0\.72rem;[\s\S]*box-shadow:\s*none;/,
-  "Scenario controls should keep their base static treatment before side-panel shaping."
+  /\.income-impact-scenario-banner\s*\{[^}]*width:\s*min\(100%,\s*13\.75rem\);[^}]*border:\s*1px solid var\(--income-impact-scenario-border\);[^}]*border-radius:\s*0\.875rem;[^}]*background:\s*#ffffff;[^}]*box-shadow:\s*0 2px 12px rgba\(15,\s*28,\s*60,\s*0\.07\),\s*0 1px 3px rgba\(15,\s*28,\s*60,\s*0\.05\);[^}]*\}/,
+  "Scenario controls should use the provided compact reference panel treatment."
+);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*min-height:\s*100%;/,
+  "Scenario controls rail should not stretch the compact card frame to the full rail height."
+);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*border:\s*1px solid/,
+  "Scenario controls rail should not override the base compact card border."
+);
+assert.match(componentsSource, /\.income-impact-controls-panel\s*\{[^}]*background:\s*#ffffff;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:hover/);
+assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:focus-within/);
+assert.match(
+  componentsSource,
+  /\.income-impact-scenario-header::before\s*\{[\s\S]*background:\s*linear-gradient\(90deg,\s*var\(--income-impact-scenario-blue\),\s*#6366f1,\s*#7c3aed\);/,
+  "Scenario controls should use the reference gradient top rail."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-controls-panel\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[\s\S]*border:\s*1px solid rgba\(213,\s*221,\s*232,\s*0\.78\);[\s\S]*border-radius:\s*0\.65rem 0 0 0\.65rem;/,
-  "Income Impact controls panel should be the white framed side-menu rail, not a card inside the content."
+  /\.income-impact-option-item\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--income-impact-scenario-blue-light\);[^}]*color:\s*var\(--income-impact-scenario-blue\);[^}]*\}/,
+  "Scenario controls should use reference selected option rows."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-banner[\s\S]*min-height:\s*100%;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/,
-  "Scenario banner should flatten into the side-menu body."
+  /\.income-impact-scenario-field--lifestyle > input\[type="range"\]\s*\{[^}]*appearance:\s*none;[^}]*\}/,
+  "Scenario controls should render Lifestyle as a slider."
 );
-assert.match(
-  componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-header,[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-content[\s\S]*grid-template-columns:\s*1fr;/,
-  "Scenario controls should become a single-column side-panel control stack."
-);
+assert.match(pageSource, /data-income-impact-death-age-control[\s\S]*income-impact-scenario-field--lifestyle[\s\S]*data-income-impact-mortgage-treatment/);
+assert.match(pageSource, /data-income-impact-death-age-slider-label="min"[\s\S]*data-income-impact-death-age-slider-label="max"/);
+assert.match(displaySource, /const maxAge = 100;/);
+assert.match(displaySource, /updateDeathAgeSliderLabels\(sliderLabels,\s*state\.minAge,\s*state\.maxAge\)/);
+assert.match(displaySource, /slider\.min = "0";[\s\S]*slider\.max = "100";/);
+assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*outline:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*outline:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(stylesSource, /body\[data-step="income-impact"\] input\[data-income-impact-death-age-slider\],[\s\S]*body\[data-step="income-impact"\] input\[data-income-impact-lifestyle-slider\]\s*\{[^}]*height:\s*1\.2rem;[^}]*min-height:\s*1\.2rem;[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field\[data-income-impact-death-age-control\],[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-field--lifestyle\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/);
+assert.match(componentsSource, /\.income-impact-scenario-field\[data-income-impact-death-age-control\] \.income-impact-scenario-section-label span,[\s\S]*\.income-impact-scenario-field--lifestyle \.income-impact-scenario-section-label span\s*\{[^}]*display:\s*none;/);
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*minmax\(9\.4rem,\s*10\.5rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[\s\S]*align-items:\s*stretch;/,
-  "Income Impact page shell should place scenario controls, the main display, and resource outlook in three stable columns."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*minmax\(14\.75rem,\s*15\.25rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[\s\S]*align-items:\s*stretch;/,
+  "Income Impact page shell should reserve the reference-width scenario controls rail."
 );
 assert.match(
   layoutSource,

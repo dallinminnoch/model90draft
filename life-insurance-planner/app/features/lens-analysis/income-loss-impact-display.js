@@ -30,6 +30,7 @@
     "income-impact-display-auto-compressed-baseline-bridge";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
   const MAX_APPLIED_SCENARIOS = 2;
+  const REEVALUATE_GRAPH_UPDATE_DELAY_MS = 1500;
   const TEMPORARY_LOCAL_HOUSEHOLD_EXPENSE_POLICY_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
   const LIFESTYLE_SLIDER_LABELS = Object.freeze({
     conservative: "Conservative",
@@ -494,7 +495,7 @@
       };
     }
 
-    const maxAge = Math.max(currentAge, Math.min(100, currentAge + 40));
+    const maxAge = 100;
     return {
       hasDateOfBirth: true,
       currentAge,
@@ -655,6 +656,7 @@
       control,
       sliderRow: control.querySelector("[data-income-impact-death-age-slider-row]"),
       slider: control.querySelector("[data-income-impact-death-age-slider]"),
+      sliderLabels: Array.from(control.querySelectorAll("[data-income-impact-death-age-slider-label]")),
       ageValue: control.querySelector("[data-income-impact-death-age-value]") || document.querySelector("[data-income-impact-death-age-value]"),
       dateValue: control.querySelector("[data-income-impact-death-date-value]") || document.querySelector("[data-income-impact-death-date-value]"),
       warning: control.querySelector("[data-income-impact-death-age-warning]")
@@ -674,10 +676,13 @@
       projectionHorizon: banner.querySelector("[data-income-impact-projection-horizon]"),
       projectionHorizonValue: banner.querySelector("[data-income-impact-projection-horizon-value]"),
       mortgageTreatment: banner.querySelector("[data-income-impact-mortgage-treatment]"),
+      mortgageTreatmentOptions: Array.from(banner.querySelectorAll("[data-income-impact-mortgage-treatment-option]")),
       mortgageTreatmentValue: banner.querySelector("[data-income-impact-mortgage-treatment-value]"),
       survivorIncome: banner.querySelector("[data-income-impact-survivor-income]"),
+      survivorIncomeOptions: Array.from(banner.querySelectorAll("[data-income-impact-survivor-income-option]")),
       survivorIncomeValue: banner.querySelector("[data-income-impact-survivor-income-value]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
+      lifestyleOptions: Array.from(banner.querySelectorAll("[data-income-impact-lifestyle-option]")),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
       autoCompressBaseline: banner.querySelector("[data-income-impact-auto-compress-baseline]"),
       reevaluateButton: banner.querySelector("[data-income-impact-reevaluate]"),
@@ -704,6 +709,124 @@
     return scenarioCount < 2 ? "Adds scenario to key" : "Updates selected scenario";
   }
 
+  function syncScenarioOptionButtons(options, selectedValue, attributeName) {
+    if (!Array.isArray(options)) {
+      return;
+    }
+
+    const normalizedSelectedValue = normalizeString(selectedValue);
+    options.forEach(function (option) {
+      if (!option || typeof option.getAttribute !== "function" || typeof option.setAttribute !== "function") {
+        return;
+      }
+
+      option.setAttribute(
+        "aria-pressed",
+        normalizeString(option.getAttribute(attributeName)) === normalizedSelectedValue ? "true" : "false"
+      );
+    });
+  }
+
+  function getLifestyleSegmentValue(value) {
+    const numericValue = clampLifestyleSliderValue(value);
+    if (numericValue <= -50) {
+      return "-100";
+    }
+    if (numericValue >= 50) {
+      return "100";
+    }
+    return "0";
+  }
+
+  function getDraftLifestyleMonthlyDeltaLabel(state, lifestyleSliderValue) {
+    const safeState = isPlainObject(state) ? state : {};
+    const sliderValue = clampLifestyleSliderValue(lifestyleSliderValue);
+    const selectedAppliedScenario = getSelectedAppliedScenario(safeState);
+    if (
+      selectedAppliedScenario?.settings?.lifestyleSliderValue === sliderValue
+      && selectedAppliedScenario?.lifestyleAdjustment?.monthlyDelta != null
+    ) {
+      return formatSignedMonthlyAmount(selectedAppliedScenario.lifestyleAdjustment.monthlyDelta);
+    }
+
+    if (sliderValue === 0) {
+      return "$0/mo";
+    }
+
+    const baseContext = safeState.baseRenderCache?.baseContext;
+    if (!isPlainObject(baseContext) || typeof safeState.calculateIncomeImpactLifestyleScenario !== "function") {
+      return UNAVAILABLE_COPY;
+    }
+
+    const resolvedAccountPolicyInput = getResolvedAccountPolicyInput(baseContext.householdExpenseAccountPolicyContext);
+    const lifestyleScenario = safeState.calculateIncomeImpactLifestyleScenario(buildLifestyleScenarioRuntimeInput(
+      safeState,
+      baseContext,
+      sliderValue,
+      resolvedAccountPolicyInput
+    ));
+    const monthlyDelta = toOptionalNumber(
+      lifestyleScenario?.monthlyDelta
+      ?? lifestyleScenario?.comparisonScenario?.trace?.monthlyDelta
+      ?? lifestyleScenario?.comparisonScenario?.trace?.graphMonthlyDelta
+    );
+    return monthlyDelta == null ? UNAVAILABLE_COPY : formatSignedMonthlyAmount(monthlyDelta);
+  }
+
+  function getReevaluateScheduler() {
+    if (typeof window.setTimeout === "function") {
+      return window.setTimeout.bind(window);
+    }
+    if (typeof setTimeout === "function") {
+      return setTimeout;
+    }
+    return null;
+  }
+
+  function setScenarioReevaluating(isReevaluating) {
+    if (!incomeImpactState) {
+      return;
+    }
+
+    const scenarioState = isPlainObject(incomeImpactState.scenarioState)
+      ? incomeImpactState.scenarioState
+      : {};
+    scenarioState.reevaluating = isReevaluating === true;
+    incomeImpactState.scenarioState = scenarioState;
+  }
+
+  function updateDeathAgeSliderLabels(labelNodes, minAge, maxAge) {
+    if (!Array.isArray(labelNodes) || !labelNodes.length) {
+      return;
+    }
+
+    if (toOptionalNumber(minAge) == null || toOptionalNumber(maxAge) == null) {
+      labelNodes.forEach(function (labelNode) {
+        if (labelNode) {
+          labelNode.textContent = "";
+        }
+      });
+      return;
+    }
+
+    const valuesByKey = {
+      min: 0,
+      quarter: 25,
+      mid: 50,
+      "three-quarter": 75,
+      max: 100
+    };
+    labelNodes.forEach(function (labelNode) {
+      if (!labelNode || typeof labelNode.getAttribute !== "function") {
+        return;
+      }
+
+      const key = normalizeString(labelNode.getAttribute("data-income-impact-death-age-slider-label"));
+      const value = Object.prototype.hasOwnProperty.call(valuesByKey, key) ? valuesByKey[key] : null;
+      labelNode.textContent = value == null ? "" : String(Math.round(value));
+    });
+  }
+
   function updateDeathAgeControl(timelineResult, deathAgeState, controls) {
     const elements = getDeathAgeControlElements();
     if (!elements) {
@@ -714,6 +837,7 @@
       control,
       sliderRow,
       slider,
+      sliderLabels,
       ageValue,
       dateValue,
       warning
@@ -739,6 +863,10 @@
         warning.hidden = false;
         warning.textContent = "Add insured date of birth to preview by age.";
       }
+      if (control.style && typeof control.style.setProperty === "function") {
+        control.style.setProperty("--income-impact-death-age-progress", "0%");
+      }
+      updateDeathAgeSliderLabels(sliderLabels, null, null);
       return;
     }
 
@@ -753,12 +881,16 @@
     }
     if (slider) {
       slider.disabled = false;
-      slider.min = String(state.minAge);
-      slider.max = String(state.maxAge);
+      slider.min = "0";
+      slider.max = "100";
       slider.step = "1";
       slider.value = String(selectedDeathAge);
       slider.setAttribute("aria-valuetext", `Age ${selectedDeathAge}`);
+      if (control.style && typeof control.style.setProperty === "function") {
+        control.style.setProperty("--income-impact-death-age-progress", `${Math.max(0, Math.min(100, selectedDeathAge))}%`);
+      }
     }
+    updateDeathAgeSliderLabels(sliderLabels, state.minAge, state.maxAge);
     if (ageValue) {
       ageValue.textContent = String(selectedDeathAge);
     }
@@ -790,6 +922,7 @@
     const autoCompressBaselineEnabled = draftControls.autoCompressBaselineEnabled !== false;
     const collapsed = scenarioState.bannerCollapsed === true;
     const hasPendingDraft = hasDraftScenarioChanges(incomeImpactState);
+    const isReevaluating = scenarioState.reevaluating === true;
     const selectedScenarioLabel = getSelectedScenarioDisplayLabel(incomeImpactState);
     const reevaluateActionLabel = getReevaluateActionLabel(incomeImpactState, hasPendingDraft);
 
@@ -823,6 +956,7 @@
     if (elements.mortgageTreatment) {
       elements.mortgageTreatment.value = mortgageTreatmentOverride;
     }
+    syncScenarioOptionButtons(elements.mortgageTreatmentOptions, mortgageTreatmentOverride, "data-income-impact-mortgage-treatment-option");
 
     if (elements.mortgageTreatmentValue) {
       elements.mortgageTreatmentValue.textContent = getMortgageTreatmentLabel(mortgageTreatmentOverride);
@@ -832,6 +966,7 @@
       elements.survivorIncome.checked = includeSurvivorIncome;
       elements.survivorIncome.setAttribute("aria-checked", String(includeSurvivorIncome));
     }
+    syncScenarioOptionButtons(elements.survivorIncomeOptions, String(includeSurvivorIncome), "data-income-impact-survivor-income-option");
 
     if (elements.survivorIncomeValue) {
       elements.survivorIncomeValue.textContent = includeSurvivorIncome ? "Included" : "Excluded";
@@ -844,9 +979,10 @@
       elements.lifestyleSlider.value = String(lifestyleSliderValue);
       elements.lifestyleSlider.setAttribute("aria-valuetext", getLifestyleSliderLabel(lifestyleSliderValue));
     }
+    syncScenarioOptionButtons(elements.lifestyleOptions, getLifestyleSegmentValue(lifestyleSliderValue), "data-income-impact-lifestyle-option");
 
     if (elements.lifestyleValue) {
-      elements.lifestyleValue.textContent = getLifestyleSliderLabel(lifestyleSliderValue);
+      elements.lifestyleValue.textContent = getDraftLifestyleMonthlyDeltaLabel(incomeImpactState, lifestyleSliderValue);
     }
 
     if (elements.autoCompressBaseline) {
@@ -855,23 +991,23 @@
     }
 
     if (elements.reevaluateButton) {
-      elements.reevaluateButton.disabled = !hasPendingDraft;
-      elements.reevaluateButton.setAttribute("aria-disabled", String(!hasPendingDraft));
-      elements.reevaluateButton.setAttribute("data-income-impact-reevaluate-state", hasPendingDraft ? "active" : "idle");
+      elements.reevaluateButton.disabled = !hasPendingDraft || isReevaluating;
+      elements.reevaluateButton.setAttribute("aria-disabled", String(!hasPendingDraft || isReevaluating));
+      elements.reevaluateButton.setAttribute("data-income-impact-reevaluate-state", isReevaluating ? "reevaluating" : hasPendingDraft ? "active" : "idle");
     }
 
     if (elements.reevaluateControl) {
-      elements.reevaluateControl.setAttribute("data-income-impact-reevaluate-state", hasPendingDraft ? "active" : "idle");
+      elements.reevaluateControl.setAttribute("data-income-impact-reevaluate-state", isReevaluating ? "reevaluating" : hasPendingDraft ? "active" : "idle");
     }
 
     if (elements.reevaluateAction) {
-      elements.reevaluateAction.textContent = reevaluateActionLabel;
-      elements.reevaluateAction.setAttribute("data-income-impact-reevaluate-action-state", hasPendingDraft ? "active" : "idle");
+      elements.reevaluateAction.textContent = isReevaluating ? "Updating graph" : reevaluateActionLabel;
+      elements.reevaluateAction.setAttribute("data-income-impact-reevaluate-action-state", isReevaluating ? "reevaluating" : hasPendingDraft ? "active" : "idle");
     }
 
     if (elements.draftStatus) {
-      elements.draftStatus.textContent = hasPendingDraft ? "Pending" : "Applied";
-      elements.draftStatus.setAttribute("data-income-impact-draft-status-state", hasPendingDraft ? "dirty" : "applied");
+      elements.draftStatus.textContent = isReevaluating ? "Updating" : hasPendingDraft ? "Pending" : "Applied";
+      elements.draftStatus.setAttribute("data-income-impact-draft-status-state", isReevaluating ? "reevaluating" : hasPendingDraft ? "dirty" : "applied");
     }
 
     if (elements.selectedScenarioLabel) {
@@ -1152,7 +1288,7 @@
 
     const runoutAnchorXRatio = toOptionalNumber(layoutFrame.runoutAnchorXRatio);
     const anchorMonth = toOptionalNumber(layoutFrame.zeroCrossingAnchorMonth);
-    const domainMonths = Math.max(1, toOptionalNumber(layoutFrame.xDomainMonths) ?? pointMonth);
+    const domainMonths = Math.max(0.000001, toOptionalNumber(layoutFrame.xDomainMonths) ?? pointMonth);
     if (runoutAnchorXRatio != null && anchorMonth != null && anchorMonth > 0) {
       if (pointMonth <= anchorMonth) {
         return clampNumber(deathXRatio + ((pointMonth / anchorMonth) * (runoutAnchorXRatio - deathXRatio)), 0, 1);
@@ -1807,16 +1943,16 @@
     return `
       <defs>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.1"></stop>
-          <stop offset="38%" stop-color="#3b82f6" stop-opacity="0.025"></stop>
-          <stop offset="72%" stop-color="#3b82f6" stop-opacity="0"></stop>
-          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="#2563ff" stop-opacity="0.16"></stop>
+          <stop offset="38%" stop-color="#2563ff" stop-opacity="0.045"></stop>
+          <stop offset="72%" stop-color="#2563ff" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="#2563ff" stop-opacity="0"></stop>
         </linearGradient>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.1"></stop>
-          <stop offset="38%" stop-color="#3b82f6" stop-opacity="0.025"></stop>
-          <stop offset="72%" stop-color="#3b82f6" stop-opacity="0"></stop>
-          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="#2563ff" stop-opacity="0.16"></stop>
+          <stop offset="38%" stop-color="#2563ff" stop-opacity="0.045"></stop>
+          <stop offset="72%" stop-color="#2563ff" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="#2563ff" stop-opacity="0"></stop>
         </linearGradient>
       </defs>
     `;
@@ -2958,10 +3094,14 @@
             pathId: normalizeString(series.pathId) || (index === 0
               ? POST_DEATH_RESOURCES_PATH_ID
               : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`),
-            points: Array.isArray(series.fundedRunwayPoints) ? series.fundedRunwayPoints : [],
+            points: Array.isArray(series.runwayLinePoints) && series.runwayLinePoints.length
+              ? series.runwayLinePoints
+              : Array.isArray(series.fundedRunwayPoints) ? series.fundedRunwayPoints : [],
             pathMode: normalizeGraphPathMode(series.pathMode),
             trace: Object.assign({}, isPlainObject(series.trace) ? series.trace : {}, {
-              renderSource: "fundedRunwayPoints"
+              renderSource: Array.isArray(series.runwayLinePoints) && series.runwayLinePoints.length
+                ? "runwayLinePoints"
+                : "fundedRunwayPoints"
             })
           });
         })
@@ -7138,6 +7278,22 @@
       });
     }
 
+    scenarioElements.mortgageTreatmentOptions.forEach(function (option) {
+      option.addEventListener("click", function () {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.mortgageTreatmentOverride = normalizeMortgageTreatmentOverride(option.getAttribute("data-income-impact-mortgage-treatment-option"));
+        if (scenarioElements.mortgageTreatment) {
+          scenarioElements.mortgageTreatment.value = controls.mortgageTreatmentOverride;
+        }
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    });
+
     if (scenarioElements.survivorIncome) {
       scenarioElements.survivorIncome.addEventListener("change", function (event) {
         if (!incomeImpactState) {
@@ -7150,6 +7306,22 @@
         updateScenarioControls(incomeImpactState.latestTimelineResult);
       });
     }
+
+    scenarioElements.survivorIncomeOptions.forEach(function (option) {
+      option.addEventListener("click", function () {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.includeSurvivorIncome = normalizeString(option.getAttribute("data-income-impact-survivor-income-option")) !== "false";
+        if (scenarioElements.survivorIncome) {
+          scenarioElements.survivorIncome.checked = controls.includeSurvivorIncome;
+        }
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    });
 
     if (scenarioElements.lifestyleSlider) {
       const updateLifestyleSlider = function (event) {
@@ -7165,6 +7337,22 @@
       scenarioElements.lifestyleSlider.addEventListener("input", updateLifestyleSlider);
       scenarioElements.lifestyleSlider.addEventListener("change", updateLifestyleSlider);
     }
+
+    scenarioElements.lifestyleOptions.forEach(function (option) {
+      option.addEventListener("click", function () {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.lifestyleSliderValue = clampLifestyleSliderValue(option.getAttribute("data-income-impact-lifestyle-option"));
+        if (scenarioElements.lifestyleSlider) {
+          scenarioElements.lifestyleSlider.value = String(controls.lifestyleSliderValue);
+        }
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    });
 
     if (scenarioElements.autoCompressBaseline) {
       scenarioElements.autoCompressBaseline.addEventListener("change", function (event) {
@@ -7185,14 +7373,34 @@
           return;
         }
 
+        if (incomeImpactState.scenarioState?.reevaluating === true) {
+          return;
+        }
+
         if (!hasDraftScenarioChanges(incomeImpactState)) {
           updateScenarioControls(incomeImpactState.latestTimelineResult);
           return;
         }
 
-        applyDraftScenarioControlsToRuntimeState(incomeImpactState);
-        invalidateIncomeImpactBaseRenderCache();
-        renderIncomeImpactFromState();
+        setScenarioReevaluating(true);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+
+        const applyReevaluate = function () {
+          if (!incomeImpactState) {
+            return;
+          }
+
+          setScenarioReevaluating(false);
+          applyDraftScenarioControlsToRuntimeState(incomeImpactState);
+          invalidateIncomeImpactBaseRenderCache();
+          renderIncomeImpactFromState();
+        };
+        const scheduleReevaluate = getReevaluateScheduler();
+        if (scheduleReevaluate) {
+          scheduleReevaluate(applyReevaluate, REEVALUATE_GRAPH_UPDATE_DELAY_MS);
+        } else {
+          applyReevaluate();
+        }
       });
     }
 

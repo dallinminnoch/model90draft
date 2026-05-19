@@ -7958,6 +7958,23 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   line-height: 1.25;
 }
 
+body[data-step="income-impact"] input[data-income-impact-death-age-slider],
+body[data-step="income-impact"] input[data-income-impact-lifestyle-slider] {
+  box-sizing: border-box;
+  width: 100%;
+  height: 1.2rem;
+  min-height: 1.2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .analysis-setup-assumption-panel label:not(.analysis-setup-rate-label) {
   color: var(--analysis-setup-control-label-color);
   font-family: var(--analysis-setup-control-label-font-family);
