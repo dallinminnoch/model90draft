@@ -27,6 +27,11 @@
   const DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
   const DEATH_RELATIVE_X_TICK_YEARS = Object.freeze([5, 10, 15, 20, 30, 40]);
   const STABLE_LAYOUT_FRAME_MODE = "stableRunoutAnchoredFrame";
+  const DEFAULT_TRANSITION_PERIOD_MONTHS = 0;
+  const MIN_TRANSITION_PERIOD_MONTHS = 0;
+  const MAX_TRANSITION_PERIOD_MONTHS = 24;
+  const TRANSITION_BRIDGE_MODE = "flatBridge";
+  const TRANSITION_CASH_FLOW_MODE = "not-modeled-v1";
   const STABLE_LAYOUT_FRAME = Object.freeze({
     plotLeft: 74,
     plotRight: 958,
@@ -236,6 +241,97 @@
       .filter(Boolean);
   }
 
+  function normalizeTransitionPeriodMonths(value, fallback = DEFAULT_TRANSITION_PERIOD_MONTHS) {
+    const fallbackNumber = toOptionalNumber(fallback);
+    const fallbackValue = fallbackNumber == null
+      ? DEFAULT_TRANSITION_PERIOD_MONTHS
+      : Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.round(fallbackNumber)));
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return fallbackValue;
+    }
+    return Math.min(MAX_TRANSITION_PERIOD_MONTHS, Math.max(MIN_TRANSITION_PERIOD_MONTHS, Math.round(number)));
+  }
+
+  function resolveTransitionPeriodContract(source, fallbackTransitionPeriod = null) {
+    const transitionSource = isPlainObject(source?.transitionPeriod)
+      ? source.transitionPeriod
+      : {};
+    const fallback = isPlainObject(fallbackTransitionPeriod)
+      ? fallbackTransitionPeriod
+      : {};
+    const hasTransitionContract = Object.prototype.hasOwnProperty.call(transitionSource, "lengthMonths");
+    const fallbackMonths = Object.prototype.hasOwnProperty.call(fallback, "lengthMonths")
+      ? fallback.lengthMonths
+      : DEFAULT_TRANSITION_PERIOD_MONTHS;
+    const lengthMonths = normalizeTransitionPeriodMonths(
+      hasTransitionContract ? transitionSource.lengthMonths : null,
+      fallbackMonths
+    );
+    return {
+      lengthMonths,
+      bridgeMode: normalizeString(transitionSource.bridgeMode || fallback.bridgeMode) || TRANSITION_BRIDGE_MODE,
+      cashFlowMode: normalizeString(transitionSource.cashFlowMode || fallback.cashFlowMode) || TRANSITION_CASH_FLOW_MODE,
+      visualOnly: true,
+      noFinancialCalculationChanged: true,
+      sourcePath: normalizeString(transitionSource.sourcePath || fallback.sourcePath) || null,
+      source: hasTransitionContract ? "scenario.transitionPeriod" : (fallback.lengthMonths != null ? "fallback-transition-period" : "default-zero")
+    };
+  }
+
+  function applyTransitionPeriodToRunwayPoint(point, transitionPeriod) {
+    const lengthMonths = normalizeTransitionPeriodMonths(transitionPeriod?.lengthMonths, DEFAULT_TRANSITION_PERIOD_MONTHS);
+    const rawMonthIndex = toOptionalNumber(point?.monthIndex);
+    const visualMonthIndex = rawMonthIndex == null ? null : rawMonthIndex + lengthMonths;
+    const trace = isPlainObject(point?.trace) ? point.trace : {};
+    return Object.assign({}, cloneRunwayPoint(point), {
+      rawMonthIndex,
+      visualMonthIndex,
+      transitionPeriodMonths: lengthMonths,
+      transitionBridgeMode: transitionPeriod?.bridgeMode || TRANSITION_BRIDGE_MODE,
+      trace: Object.assign({}, trace, {
+        transitionVisualMappingApplied: lengthMonths > 0,
+        rawMonthIndex,
+        visualMonthIndex,
+        transitionPeriodMonths: lengthMonths,
+        transitionBridgeMode: transitionPeriod?.bridgeMode || TRANSITION_BRIDGE_MODE,
+        transitionCashFlowMode: transitionPeriod?.cashFlowMode || TRANSITION_CASH_FLOW_MODE,
+        noFinancialCalculationChanged: true
+      })
+    });
+  }
+
+  function applyTransitionPeriodToRunwayPoints(points, transitionPeriod) {
+    return (Array.isArray(points) ? points : []).map(function (point) {
+      return applyTransitionPeriodToRunwayPoint(point, transitionPeriod);
+    });
+  }
+
+  function applyTransitionPeriodToDepletion(depletion, transitionPeriod) {
+    if (!isPlainObject(depletion)) {
+      return null;
+    }
+    const lengthMonths = normalizeTransitionPeriodMonths(transitionPeriod?.lengthMonths, DEFAULT_TRANSITION_PERIOD_MONTHS);
+    const rawMonthIndex = toOptionalNumber(depletion.monthIndex);
+    const visualMonthIndex = rawMonthIndex == null ? null : rawMonthIndex + lengthMonths;
+    return Object.assign({}, clonePlainValue(depletion), {
+      rawMonthIndex,
+      visualMonthIndex,
+      visualDepletionMonth: visualMonthIndex,
+      transitionPeriodMonths: lengthMonths,
+      transitionBridgeMode: transitionPeriod?.bridgeMode || TRANSITION_BRIDGE_MODE,
+      trace: Object.assign({}, isPlainObject(depletion.trace) ? depletion.trace : {}, {
+        transitionVisualMappingApplied: lengthMonths > 0,
+        rawMonthIndex,
+        visualMonthIndex,
+        transitionPeriodMonths: lengthMonths,
+        transitionBridgeMode: transitionPeriod?.bridgeMode || TRANSITION_BRIDGE_MODE,
+        transitionCashFlowMode: transitionPeriod?.cashFlowMode || TRANSITION_CASH_FLOW_MODE,
+        noFinancialCalculationChanged: true
+      })
+    });
+  }
+
   function getComparableSeriesPointValue(point) {
     return toOptionalNumber(point?.value ?? point?.endingResources ?? point?.availableResources);
   }
@@ -264,7 +360,7 @@
       });
   }
 
-  function buildComparisonSeries(comparisonScenarios, basePostDeathResources) {
+  function buildComparisonSeries(comparisonScenarios, basePostDeathResources, defaultTransitionPeriod = null) {
     return (Array.isArray(comparisonScenarios) ? comparisonScenarios : [])
       .map(function (comparisonScenario, index) {
         if (!isPlainObject(comparisonScenario) || !isLifestyleComparisonScenario(comparisonScenario)) {
@@ -289,12 +385,18 @@
           ["endingResources", "availableResources"],
           `comparisonScenarios.${index}.postDeathSeries.points`
         );
-        if (points.length < 2) {
+        const transitionPeriod = resolveTransitionPeriodContract(comparisonScenario, defaultTransitionPeriod);
+        const visualPoints = applyTransitionPeriodToRunwayPoints(points, transitionPeriod);
+        if (visualPoints.length < 2) {
           return null;
         }
-        if (areEquivalentSeries(points, basePostDeathResources)) {
+        if (areEquivalentSeries(visualPoints, basePostDeathResources)) {
           return null;
         }
+        const depletion = applyTransitionPeriodToDepletion(
+          getDepletionInfo(points, comparisonScenario.depletion || postDeathSeries.depletion),
+          transitionPeriod
+        );
         return {
           scenarioId: String(comparisonScenario.scenarioId || `comparison-scenario-${index + 1}`),
           kind,
@@ -302,10 +404,13 @@
           pathId,
           pathMode: getComparisonPathMode(comparisonScenario, kind, pathId),
           sourceIndex: index,
-          points,
+          points: visualPoints,
           sourcePath: `comparisonScenarios.${index}.postDeathSeries.points`,
-          depletion: getDepletionInfo(points, comparisonScenario.depletion || postDeathSeries.depletion),
-          trace: isPlainObject(comparisonScenario.trace) ? clonePlainValue(comparisonScenario.trace) : {}
+          depletion,
+          transitionPeriod,
+          trace: Object.assign({}, isPlainObject(comparisonScenario.trace) ? clonePlainValue(comparisonScenario.trace) : {}, {
+            transitionPeriod
+          })
         };
       })
       .filter(Boolean)
@@ -610,7 +715,7 @@
     };
   }
 
-  function buildAppliedPostDeathSeries(scenarioInput, selectedPostDeathResources) {
+  function buildAppliedPostDeathSeries(scenarioInput, selectedPostDeathResources, defaultTransitionPeriod = null) {
     const appliedScenarios = Array.isArray(scenarioInput?.appliedScenarios)
       ? scenarioInput.appliedScenarios
       : [];
@@ -642,18 +747,22 @@
         const sourcePath = `appliedScenarios.${appliedScenarioIndex}.scenario.postDeathSeries.points`;
         const points = selected && Array.isArray(selectedPostDeathResources)
           ? selectedPostDeathResources
-          : buildSeriesPoints(
-            getPath(appliedScenario.scenario, "postDeathSeries.points"),
-            "appliedPostDeath",
-            ["endingResources", "availableResources"],
-            sourcePath
-          );
+          : applyTransitionPeriodToRunwayPoints(
+              buildSeriesPoints(
+                getPath(appliedScenario.scenario, "postDeathSeries.points"),
+                "appliedPostDeath",
+                ["endingResources", "availableResources"],
+                sourcePath
+              ),
+              resolveTransitionPeriodContract(appliedScenario.scenario, defaultTransitionPeriod)
+            );
 
         if (!points.length) {
           return null;
         }
 
         const scenarioDates = getScenarioDates(appliedScenario.scenario);
+        const transitionPeriod = resolveTransitionPeriodContract(appliedScenario.scenario, defaultTransitionPeriod);
         const preDeathContextRawPoints = buildAppliedPreDeathContextPoints(appliedScenario, appliedScenarioIndex, scenarioDates);
         const projectedNetWorthAtDeath = preDeathContextRawPoints.length
           ? toOptionalNumber(preDeathContextRawPoints[preDeathContextRawPoints.length - 1].value)
@@ -683,12 +792,25 @@
           survivorResourcesAtDeath,
           survivorResourcesAtDeathSourcePath,
           deathLineLabel: getAppliedScenarioLabel(appliedScenario, appliedScenarioIndex),
-          depletion: getDepletionInfo(points, getPath(appliedScenario.scenario, "postDeathSeries.depletion")),
+          depletion: applyTransitionPeriodToDepletion(
+            getDepletionInfo(
+              buildSeriesPoints(
+                getPath(appliedScenario.scenario, "postDeathSeries.points"),
+                "appliedPostDeath",
+                ["endingResources", "availableResources"],
+                sourcePath
+              ),
+              getPath(appliedScenario.scenario, "postDeathSeries.depletion")
+            ),
+            transitionPeriod
+          ),
+          transitionPeriod,
           trace: {
             selectedScenario: selected,
             sourcePath,
             preDeathContextSourcePath: `appliedScenarios.${appliedScenarioIndex}.scenario.preDeathSeries`,
             survivorResourcesAtDeathSourcePath,
+            transitionPeriod,
             rawDatesPreserved: true
           }
         };
@@ -853,18 +975,23 @@
     const date = explicitDate || interpolateDateOnly(previousPoint, currentPoint, ratio);
     const monthIndex = toOptionalNumber(explicitDepletion.monthIndex)
       ?? interpolateNumber(previousPoint?.monthIndex, currentPoint?.monthIndex, ratio);
+    const visualMonthIndex = toOptionalNumber(explicitDepletion.visualMonthIndex ?? explicitDepletion.visualDepletionMonth)
+      ?? interpolateNumber(previousPoint?.visualMonthIndex, currentPoint?.visualMonthIndex, ratio)
+      ?? monthIndex;
     const sourcePaths = [];
     appendUnique(sourcePaths, Array.isArray(previousPoint?.sourcePaths) ? previousPoint.sourcePaths : []);
     appendUnique(sourcePaths, Array.isArray(currentPoint?.sourcePaths) ? currentPoint.sourcePaths : []);
     appendUnique(sourcePaths, Array.isArray(explicitDepletion.sourcePaths) ? explicitDepletion.sourcePaths : []);
     const interpolatedX = interpolateNumber(previousPoint?.xRatio, currentPoint?.xRatio, ratio);
     const relativeMonthsFromDeath = isPlainObject(projection)
-      ? getPointRelativeMonthsFromDeath({ date, monthIndex, phase: "postDeath" }, projection, "postDeath")
+      ? getPointRelativeMonthsFromDeath({ date, monthIndex, visualMonthIndex, phase: "postDeath" }, projection, "postDeath")
       : null;
     return {
       id: `${series.pathId || series.scenarioId || "applied-scenario"}-zero-crossing`,
       date,
       monthIndex,
+      rawMonthIndex: monthIndex,
+      visualMonthIndex,
       phase: "postDeath",
       value: 0,
       rawValue: 0,
@@ -885,6 +1012,10 @@
         interpolationKind: "zeroCrossing",
         interpolationReason: "runwayDepletionBoundary",
         depletionDatePreserved: !explicitDate || explicitDate === date,
+        rawMonthIndex: monthIndex,
+        visualMonthIndex,
+        transitionPeriodMonths: toOptionalNumber(explicitDepletion.transitionPeriodMonths),
+        transitionVisualMappingApplied: visualMonthIndex !== monthIndex,
         xProjectionMode: isPlainObject(projection) ? projection.mode : null,
         rawDatePreserved: true,
         sourcePointIds: [previousPoint?.id, currentPoint?.id].filter(Boolean)
@@ -945,6 +1076,112 @@
     };
   }
 
+  function markTransitionBridgePoint(point, transitionPeriod, visualMonthIndex) {
+    const lengthMonths = normalizeTransitionPeriodMonths(transitionPeriod?.lengthMonths, DEFAULT_TRANSITION_PERIOD_MONTHS);
+    const trace = isPlainObject(point?.trace) ? point.trace : {};
+    return Object.assign({}, cloneRunwayPoint(point), {
+      transitionBridge: true,
+      transitionBridgePoint: true,
+      transitionPeriodMonths: lengthMonths,
+      transitionBridgeMode: transitionPeriod?.bridgeMode || TRANSITION_BRIDGE_MODE,
+      transitionCashFlowMode: transitionPeriod?.cashFlowMode || TRANSITION_CASH_FLOW_MODE,
+      rawMonthIndex: toOptionalNumber(point?.rawMonthIndex ?? point?.monthIndex),
+      visualMonthIndex,
+      relativeMonthsFromDeath: visualMonthIndex,
+      relativeYearsFromDeath: visualMonthIndex / MONTHS_PER_YEAR,
+      trace: Object.assign({}, trace, {
+        transitionBridge: true,
+        transitionBridgePoint: true,
+        transitionPeriodMonths: lengthMonths,
+        transitionBridgeMode: transitionPeriod?.bridgeMode || TRANSITION_BRIDGE_MODE,
+        transitionCashFlowMode: transitionPeriod?.cashFlowMode || TRANSITION_CASH_FLOW_MODE,
+        visualOnly: true,
+        noFinancialCalculationChanged: true
+      })
+    });
+  }
+
+  function makeTransitionBridgeEndPoint(startPoint, transitionPeriod, yDomain, projection, series) {
+    const lengthMonths = normalizeTransitionPeriodMonths(transitionPeriod?.lengthMonths, DEFAULT_TRANSITION_PERIOD_MONTHS);
+    if (lengthMonths <= 0 || !isPlainObject(startPoint)) {
+      return null;
+    }
+    const deathDate = parseDateOnly(projection?.deathDate || series?.deathDate || startPoint.date);
+    const date = normalizeDateOnly(addMonths(deathDate, lengthMonths)) || normalizeDateOnly(startPoint.date);
+    const value = getRunwayResourceValue(startPoint);
+    if (value == null || !date) {
+      return null;
+    }
+    const point = Object.assign({}, cloneRunwayPoint(startPoint), {
+      id: `${series?.pathId || series?.scenarioId || "applied-scenario"}-transition-bridge-end`,
+      date,
+      monthIndex: 0,
+      phase: "postDeath",
+      value,
+      rawValue: value,
+      displayedValue: value,
+      endingResources: value,
+      availableResources: value,
+      xRatio: getDeathRelativeXRatio(lengthMonths, projection),
+      yRatio: getValueRatio(value, yDomain),
+      sourcePath: `${series?.sourcePath || "postDeathSeries"}.transitionBridge`,
+      sourcePaths: [].concat(Array.isArray(startPoint.sourcePaths) ? startPoint.sourcePaths : []),
+      status: "transition-bridge-end",
+      precision: "visual-transition-bridge"
+    });
+    const bridgeEndPoint = markTransitionBridgePoint(point, transitionPeriod, lengthMonths);
+    bridgeEndPoint.trace = Object.assign({}, isPlainObject(bridgeEndPoint.trace) ? bridgeEndPoint.trace : {}, {
+      transitionBridgeStart: false,
+      transitionBridgeEnd: true
+    });
+    return bridgeEndPoint;
+  }
+
+  function makeBaseTransitionBridgePoints(points, dates, yDomain, projection, transitionPeriod) {
+    const lengthMonths = normalizeTransitionPeriodMonths(transitionPeriod?.lengthMonths, DEFAULT_TRANSITION_PERIOD_MONTHS);
+    if (lengthMonths <= 0) {
+      return [];
+    }
+    const firstPoint = Array.isArray(points) && points.length ? points[0] : null;
+    const value = getRunwayResourceValue(firstPoint);
+    const deathDate = normalizeDateOnly(projection?.deathDate || dates?.deathDate);
+    if (value == null || !deathDate) {
+      return [];
+    }
+    const sourcePath = normalizeString(firstPoint?.sourcePath) || "postDeathSeries.points.0";
+    const startPoint = markTransitionBridgePoint({
+      id: "postDeath-transition-bridge-start",
+      date: deathDate,
+      monthIndex: 0,
+      phase: "deathEvent",
+      value,
+      rawValue: value,
+      displayedValue: value,
+      endingResources: value,
+      availableResources: value,
+      xRatio: getDeathRelativeXRatio(0, projection),
+      yRatio: getValueRatio(value, yDomain),
+      relativeMonthsFromDeath: 0,
+      relativeYearsFromDeath: 0,
+      sourcePath,
+      sourcePaths: [sourcePath],
+      status: "transition-bridge-start",
+      precision: "visual-transition-bridge",
+      trace: {
+        transitionBridge: true,
+        transitionBridgeStart: true,
+        sourcePointId: firstPoint?.id || null
+      }
+    }, transitionPeriod, 0);
+    const endPoint = makeTransitionBridgeEndPoint(startPoint, transitionPeriod, yDomain, projection, {
+      pathId: "postDeath",
+      scenarioId: "selected",
+      sourcePath: "postDeathSeries.points",
+      deathDate
+    });
+    return [startPoint, endPoint].filter(Boolean);
+  }
+
   function buildAppliedRunwayScenario(series, xDomain, yDomain, projection) {
     const rawPoints = Array.isArray(series?.rawPoints)
       ? series.rawPoints.map(cloneRunwayPoint)
@@ -960,6 +1197,7 @@
     const projectedNetWorthAtDeath = toOptionalNumber(series?.projectedNetWorthAtDeath);
     const survivorResourcesAtDeath = toOptionalNumber(series?.survivorResourcesAtDeath);
     const survivorResourcesAtDeathPoint = makeSurvivorResourcesAtDeathStartPoint(series, yDomain, projection);
+    const transitionPeriod = resolveTransitionPeriodContract(series, null);
     const deathLineLabel = normalizeString(series?.deathLineLabel || series?.label);
     const preDeathContextTrace = isPlainObject(preDeathContextPoints[0]?.trace) ? preDeathContextPoints[0].trace : {};
     const fundedRunwayPoints = [];
@@ -970,13 +1208,35 @@
     let skippedSharedXDeficitPointCount = 0;
     const visualInterpolationKinds = [];
 
+    const transitionBridgePoints = [];
+
     if (survivorResourcesAtDeathPoint) {
       const survivorValue = getRunwayResourceValue(survivorResourcesAtDeathPoint);
       if (survivorValue != null && survivorValue >= 0) {
-        fundedRunwayPoints.push(cloneRunwayPoint(survivorResourcesAtDeathPoint));
-        previousPoint = survivorResourcesAtDeathPoint;
+        const transitionBridgeStartPoint = transitionPeriod.lengthMonths > 0
+          ? markTransitionBridgePoint(survivorResourcesAtDeathPoint, transitionPeriod, 0)
+          : cloneRunwayPoint(survivorResourcesAtDeathPoint);
+        fundedRunwayPoints.push(cloneRunwayPoint(transitionBridgeStartPoint));
+        if (transitionPeriod.lengthMonths > 0) {
+          transitionBridgePoints.push(cloneRunwayPoint(transitionBridgeStartPoint));
+        }
+        previousPoint = transitionBridgeStartPoint;
         visualInterpolationPointCount += 1;
         visualInterpolationKinds.push("survivorResourcesAtDeathStart");
+        const transitionBridgeEndPoint = makeTransitionBridgeEndPoint(
+          transitionBridgeStartPoint,
+          transitionPeriod,
+          yDomain,
+          projection,
+          series
+        );
+        if (transitionBridgeEndPoint) {
+          fundedRunwayPoints.push(cloneRunwayPoint(transitionBridgeEndPoint));
+          transitionBridgePoints.push(cloneRunwayPoint(transitionBridgeEndPoint));
+          previousPoint = transitionBridgeEndPoint;
+          visualInterpolationPointCount += 1;
+          appendUnique(visualInterpolationKinds, ["transitionBridge"]);
+        }
       }
     }
 
@@ -1041,6 +1301,7 @@
       preDeathContextGrowthSource: preDeathContextTrace.preDeathContextGrowthSource || null,
       rawPoints,
       preDeathContextPoints,
+      transitionBridgePoints,
       fundedRunwayPoints,
       deficitPoints,
       depletionPoint: depletionPoint ? cloneRunwayPoint(depletionPoint) : null,
@@ -1065,6 +1326,8 @@
           || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
         visualInterpolationPointCount,
         visualInterpolationKinds,
+        transitionBridgePointCount: transitionBridgePoints.length,
+        transitionPeriod,
         skippedSharedXDeficitPointCount,
         sharedDepletionAnchorForFundedAndDeficit: Boolean(depletionPoint && deficitPoints[0]),
         sourcePath: series.sourcePath,
@@ -1920,6 +2183,10 @@
     if (!isPlainObject(series?.depletion)) {
       return null;
     }
+    const visualMonth = toOptionalNumber(series.depletion.visualMonthIndex ?? series.depletion.visualDepletionMonth);
+    if (visualMonth != null && visualMonth >= 0) {
+      return visualMonth;
+    }
     const explicitMonth = toOptionalNumber(series.depletion.monthIndex);
     if (explicitMonth != null && explicitMonth >= 0) {
       return explicitMonth;
@@ -1940,6 +2207,10 @@
     const points = Array.isArray(series.points) ? series.points : [];
     const pointMonths = points
       .map(function (point) {
+        const visualMonthIndex = toOptionalNumber(point?.visualMonthIndex);
+        if (visualMonthIndex != null && visualMonthIndex >= 0) {
+          return visualMonthIndex;
+        }
         const monthIndex = toOptionalNumber(point?.monthIndex);
         if (monthIndex != null && monthIndex >= 0) {
           return monthIndex;
@@ -2127,6 +2398,8 @@
     }
     const depletionMonth = getSeriesDepletionMonths(series);
     const runwayEndMonth = getSeriesRunwayEndMonths(series);
+    const transitionPeriodMonths = normalizeTransitionPeriodMonths(series?.transitionPeriod?.lengthMonths, DEFAULT_TRANSITION_PERIOD_MONTHS);
+    const rawDepletionMonth = toOptionalNumber(series?.depletion?.rawMonthIndex ?? series?.depletion?.monthIndex);
     return {
       scenarioId: normalizeString(series.scenarioId || series.pathId || fallbackRole) || fallbackRole,
       label: normalizeString(series.label) || fallbackRole,
@@ -2134,7 +2407,10 @@
       role: normalizeString(series.scenarioRole || fallbackRole),
       selected: series.selected === true,
       depletionMonth,
+      rawDepletionMonth,
+      visualDepletionMonth: depletionMonth,
       runwayEndMonth,
+      transitionPeriodMonths,
       anchorEligible: depletionMonth != null && depletionMonth >= 0,
       source: getStableLayoutFrameLineSource(series),
       sourcePath: normalizeString(series.sourcePath)
@@ -2199,6 +2475,8 @@
       },
       zeroCrossingAnchorScenarioId: zeroCrossingAnchor?.scenarioId || null,
       zeroCrossingAnchorMonth: zeroCrossingAnchor?.depletionMonth ?? null,
+      zeroCrossingAnchorRawMonth: zeroCrossingAnchor?.rawDepletionMonth ?? null,
+      zeroCrossingAnchorVisualMonth: zeroCrossingAnchor?.visualDepletionMonth ?? null,
       zeroCrossingAnchorSource: zeroCrossingAnchor?.source || "projection-horizon",
       trace: {
         source: "income-impact-timeline-graph-model.layoutFrame",
@@ -2209,6 +2487,9 @@
         depletionAnchorCount: depletionAnchors.length,
         projectionHorizonMonths,
         anchorDomainMonths,
+        visualMonthMappingApplied: consideredLines.some(function (line) {
+          return line.transitionPeriodMonths > 0;
+        }),
         ratiosStableAcrossScenarios: true,
         manualLifestyleComparisonIncluded: manualComparisonSeries.length > 0,
         appliedComparisonIncluded: selectedSeries.some(function (series) {
@@ -2253,7 +2534,11 @@
     if (phase === "deathEvent") {
       return 0;
     }
-    if (phase === "postDeath" || phase === "appliedPostDeath") {
+    if (phase === "postDeath" || phase === "appliedPostDeath" || phase === "comparisonPostDeath") {
+      const visualMonthIndex = toOptionalNumber(point.visualMonthIndex);
+      if (visualMonthIndex != null) {
+        return visualMonthIndex;
+      }
       if (pointMonthIndex != null) {
         return pointMonthIndex;
       }
@@ -2793,12 +3078,14 @@
     }
 
     const deathTransition = buildDeathTransition(scenario, dates, dataGaps);
-    const postDeathResources = buildSeriesPoints(
+    const transitionPeriod = resolveTransitionPeriodContract(scenario);
+    const rawPostDeathResources = buildSeriesPoints(
       getPath(scenario, "postDeathSeries.points"),
       "postDeath",
       ["endingResources", "availableResources"],
       "postDeathSeries.points"
     );
+    const postDeathResources = applyTransitionPeriodToRunwayPoints(rawPostDeathResources, transitionPeriod);
     if (!postDeathResources.length) {
       dataGaps.push(makeIssue(
         "missing-post-death-runway-points",
@@ -2807,12 +3094,16 @@
       ));
     }
 
-    const appliedPostDeathResources = buildAppliedPostDeathSeries(scenarioInput, postDeathResources);
+    const appliedPostDeathResources = buildAppliedPostDeathSeries(scenarioInput, postDeathResources, transitionPeriod);
     const basePostDeathDisplaySeries = {
       deathDate: dates.deathDate,
       projectionHorizonMonths: dates.projectionHorizonMonths,
       points: postDeathResources,
-      depletion: getDepletionInfo(postDeathResources, getPath(scenario, "postDeathSeries.depletion"))
+      depletion: applyTransitionPeriodToDepletion(
+        getDepletionInfo(rawPostDeathResources, getPath(scenario, "postDeathSeries.depletion")),
+        transitionPeriod
+      ),
+      transitionPeriod
     };
     const deathRelativeProjection = makeDeathRelativeRunwayProjection(
       dates,
@@ -2821,7 +3112,11 @@
     const appliedPostDeathPoints = appliedPostDeathResources.reduce(function (points, appliedSeries) {
       return points.concat(appliedSeries.points);
     }, []);
-    const comparisonPostDeathResources = buildComparisonSeries(scenarioInput.comparisonScenarios, postDeathResources);
+    const comparisonPostDeathResources = buildComparisonSeries(
+      scenarioInput.comparisonScenarios,
+      postDeathResources,
+      transitionPeriod
+    );
     const comparisonPoints = comparisonPostDeathResources.reduce(function (points, comparisonSeries) {
       return points.concat(comparisonSeries.points);
     }, []);
@@ -2837,8 +3132,11 @@
     const stableMarkers = buildMarkers(riskEvaluation.stableEvents, "stable", scenario, dates);
     const markers = riskMarkers.concat(stableMarkers);
 
-    const possibleEndFromHorizon = dates.deathDate && dates.projectionHorizonMonths != null
-      ? normalizeDateOnly(addMonths(parseDateOnly(dates.deathDate), dates.projectionHorizonMonths))
+    const visualProjectionHorizonMonths = dates.projectionHorizonMonths == null
+      ? null
+      : dates.projectionHorizonMonths + transitionPeriod.lengthMonths;
+    const possibleEndFromHorizon = dates.deathDate && visualProjectionHorizonMonths != null
+      ? normalizeDateOnly(addMonths(parseDateOnly(dates.deathDate), visualProjectionHorizonMonths))
       : "";
     const xDomain = getDateExtent(
       []
@@ -2940,11 +3238,21 @@
       return marker.positionable ? enrichPoint(marker, xDomain, yDomain, deathRelativeProjection, marker.phase || "postDeath") : marker;
     });
     const appliedRunwayScenarios = buildAppliedRunwayScenarios(enrichedAppliedPostDeath, xDomain, yDomain);
+    const transitionBridgePoints = appliedRunwayScenarios[0]?.transitionBridgePoints?.length
+      ? appliedRunwayScenarios[0].transitionBridgePoints
+      : makeBaseTransitionBridgePoints(enrichedPostDeath, dates, yDomain, deathRelativeProjection, transitionPeriod);
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
 
     const result = {
       status: usable ? (scenario.status === "complete" && !dataGaps.length ? "complete" : "partial") : "unavailable",
       projection: clonePlainValue(deathRelativeProjection),
+      transitionPeriod: {
+        lengthMonths: transitionPeriod.lengthMonths,
+        bridgeMode: transitionPeriod.bridgeMode,
+        cashFlowMode: transitionPeriod.cashFlowMode,
+        visualOnly: true,
+        noFinancialCalculationChanged: true
+      },
       layoutFrame,
       phases: makePhases(dates, xDomain, enrichedPostDeath, deathRelativeProjection),
       series: {
@@ -2958,6 +3266,7 @@
             }
           : null,
         deathTransition: enrichedDeathStages,
+        transitionBridge: transitionBridgePoints,
         postDeathResources: enrichedPostDeath,
         appliedScenarioKeyItems: Array.isArray(scenarioInput.appliedScenarioKeyItems)
           ? clonePlainValue(scenarioInput.appliedScenarioKeyItems)
@@ -3069,6 +3378,11 @@
         layoutFrameRunoutAnchorXRatio: layoutFrame.runoutAnchorXRatio,
         layoutFrameAnchorScenarioId: layoutFrame.zeroCrossingAnchorScenarioId,
         layoutFrameAnchorMonth: layoutFrame.zeroCrossingAnchorMonth,
+        transitionPeriodMonths: transitionPeriod.lengthMonths,
+        transitionBridgeMode: transitionPeriod.bridgeMode,
+        transitionCashFlowMode: transitionPeriod.cashFlowMode,
+        transitionVisualOnly: true,
+        transitionNoFinancialCalculationChanged: true,
         negativeValuesCompressFundedRunway: false,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,

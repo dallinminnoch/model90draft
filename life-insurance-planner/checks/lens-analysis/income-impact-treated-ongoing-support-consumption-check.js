@@ -448,7 +448,7 @@ function assertNoForbiddenSourceChanges() {
     });
 
     if (filePath === "life-insurance-planner/app/features/lens-analysis/income-impact-timeline-graph-model.js") {
-      return diff.includes("layoutFrame")
+      const stableFrameContractDiff = diff.includes("layoutFrame")
         && diff.includes("stableRunoutAnchoredFrame")
         && diff.includes("deathXRatio")
         && diff.includes("zeroYRatio")
@@ -457,15 +457,31 @@ function assertNoForbiddenSourceChanges() {
         && diff.includes("zeroCrossingAnchorScenarioId")
         && diff.includes("zeroCrossingAnchorMonth")
         && diff.includes("consideredVisibleResourceLines");
+      const transitionVisualMonthMappingDiff = diff.includes("DEFAULT_TRANSITION_PERIOD_MONTHS = 0")
+        && diff.includes("resolveTransitionPeriodContract")
+        && diff.includes("applyTransitionPeriodToRunwayPoint")
+        && diff.includes("visualMonthIndex")
+        && diff.includes("transitionBridgePoints")
+        && diff.includes("zeroCrossingAnchorRawMonth")
+        && diff.includes("zeroCrossingAnchorVisualMonth")
+        && diff.includes("transitionNoFinancialCalculationChanged");
+      return stableFrameContractDiff || transitionVisualMonthMappingDiff;
     }
 
-    return diff.includes("assertStableLayoutFrame")
+    const stableFrameCheckDiff = diff.includes("assertStableLayoutFrame")
       && diff.includes("manual lifestyle comparison later depletion scenario")
       && diff.includes("Manual lifestyle comparison later depletion should be included in the stable layoutFrame horizon.")
       && diff.includes("manual lifestyle comparison earlier depletion scenario")
       && diff.includes("no-depletion scenario")
       && diff.includes("projection-horizon")
       && diff.includes("survivor surplus rising-resource scenario");
+    const transitionVisualMonthMappingCheckDiff = diff.includes("makeTransitionScenario")
+      && diff.includes("Raw runway month 1 should visually map to month 7")
+      && diff.includes("Raw depletion month 24 should visually map to month 30")
+      && diff.includes("No-depletion visual horizon should include the shifted runway end.")
+      && diff.includes("Later lifestyle depletion should become anchor after transition shift.")
+      && diff.includes("Earlier lifestyle depletion should stay before the later selected anchor.");
+    return stableFrameCheckDiff || transitionVisualMonthMappingCheckDiff;
   }
 
   function isAllowedIncomeLossImpactLayoutFrameRendererPass(filePath) {

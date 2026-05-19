@@ -48,6 +48,16 @@ function assertStableLayoutFrame(model, message) {
   assert.equal(model.layoutFrame.trace.rendererConsumesLayoutFrame, false, `${message}: renderer should not consume layoutFrame in this pass.`);
 }
 
+function addMonthsDateString(dateValue, months) {
+  const parts = String(dateValue).split("-").map(Number);
+  const date = new Date(parts[0], parts[1] - 1 + months, parts[2]);
+  return [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
 function loadGraphModel() {
   const source = readRepoFile("app/features/lens-analysis/income-impact-timeline-graph-model.js");
   const sandbox = {
@@ -328,6 +338,127 @@ assertApproxEqual(
   fiveYearModel.projection.deathXRatio,
   "Death event phase should use the fixed death-relative runway anchor."
 );
+
+const zeroTransitionScenario = makeTransitionScenario(0);
+const zeroTransitionModel = buildIncomeImpactTimelineGraphModel({
+  scenario: cloneJson(zeroTransitionScenario),
+  riskEvaluation: { events: [], stableEvents: [], warnings: [], dataGaps: [] },
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assertStableLayoutFrame(zeroTransitionModel, "zero transition scenario");
+assert.equal(zeroTransitionModel.transitionPeriod.lengthMonths, 0);
+assert.equal(zeroTransitionModel.series.transitionBridge.length, 0, "0 transition should not create a bridge segment.");
+assert.equal(zeroTransitionModel.series.postDeathResources[0].monthIndex, 1, "0 transition should preserve raw monthIndex.");
+assert.equal(zeroTransitionModel.series.postDeathResources[0].rawMonthIndex, 1);
+assert.equal(zeroTransitionModel.series.postDeathResources[0].visualMonthIndex, 1);
+assert.equal(zeroTransitionModel.series.postDeathResources[0].relativeMonthsFromDeath, 1);
+assert.equal(zeroTransitionModel.layoutFrame.zeroCrossingAnchorMonth, 24);
+assertApproxEqual(zeroTransitionModel.layoutFrame.deathXRatio, fiveYearModel.layoutFrame.deathXRatio, "0 transition should keep death anchor stable.");
+assertApproxEqual(zeroTransitionModel.layoutFrame.zeroYRatio, fiveYearModel.layoutFrame.zeroYRatio, "0 transition should keep zero line stable.");
+
+const transitionScenario = makeTransitionScenario(6);
+const transitionScenarioBefore = cloneJson(transitionScenario);
+const transitionModel = buildIncomeImpactTimelineGraphModel({
+  scenario: cloneJson(transitionScenario),
+  riskEvaluation: { events: [], stableEvents: [], warnings: [], dataGaps: [] },
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.deepEqual(transitionScenario, transitionScenarioBefore, "Graph model should not mutate raw transition scenario input.");
+assertStableLayoutFrame(transitionModel, "6-month transition scenario");
+assert.equal(transitionModel.transitionPeriod.lengthMonths, 6);
+assert.equal(transitionModel.transitionPeriod.bridgeMode, "flatBridge");
+assert.equal(transitionModel.transitionPeriod.cashFlowMode, "not-modeled-v1");
+assert.equal(transitionModel.transitionPeriod.noFinancialCalculationChanged, true);
+assert.equal(transitionModel.series.transitionBridge.length, 2, "6-month transition should expose a flat bridge segment.");
+assert.equal(transitionModel.series.transitionBridge[0].relativeMonthsFromDeath, 0);
+assert.equal(transitionModel.series.transitionBridge[1].relativeMonthsFromDeath, 6);
+assert.equal(transitionModel.series.transitionBridge[0].value, transitionModel.series.transitionBridge[1].value);
+assert.equal(transitionModel.series.transitionBridge[0].transitionBridge, true);
+assert.equal(transitionModel.series.transitionBridge[1].transitionBridge, true);
+assert.equal(transitionModel.series.postDeathResources[0].monthIndex, 1, "Raw post-death month should stay unchanged.");
+assert.equal(transitionModel.series.postDeathResources[0].rawMonthIndex, 1);
+assert.equal(transitionModel.series.postDeathResources[0].visualMonthIndex, 7, "Raw runway month 1 should visually map to month 7.");
+assert.equal(transitionModel.series.postDeathResources[0].relativeMonthsFromDeath, 7);
+assert.equal(transitionModel.series.postDeathResources[0].value, zeroTransitionModel.series.postDeathResources[0].value, "Transition should not change cash-flow values.");
+assert.equal(transitionModel.series.postDeathResources[1].value, zeroTransitionModel.series.postDeathResources[1].value, "Transition should not change later runway values.");
+assert.equal(transitionModel.layoutFrame.zeroCrossingAnchorMonth, 30, "Raw depletion month 24 should visually map to month 30.");
+assert.equal(transitionModel.layoutFrame.zeroCrossingAnchorRawMonth, 24);
+assert.equal(transitionModel.layoutFrame.zeroCrossingAnchorVisualMonth, 30);
+assert.equal(transitionModel.layoutFrame.trace.visualMonthMappingApplied, true);
+assert.ok(transitionModel.layoutFrame.xDomainMonths >= 30, "xDomainMonths should account for shifted visual depletion.");
+assert.equal(transitionModel.projection.latestAppliedScenarioDepletionMonths, 30);
+assert.equal(transitionModel.trace.transitionPeriodMonths, 6);
+assert.equal(transitionModel.trace.transitionNoFinancialCalculationChanged, true);
+assertApproxEqual(transitionModel.layoutFrame.deathXRatio, fiveYearModel.layoutFrame.deathXRatio, "Transition should keep death anchor stable.");
+assertApproxEqual(transitionModel.layoutFrame.zeroYRatio, fiveYearModel.layoutFrame.zeroYRatio, "Transition should keep zero line stable.");
+
+const risingTransitionScenario = makeTransitionScenario(6);
+risingTransitionScenario.postDeathSeries = {
+  points: [
+    {
+      date: addMonthsDateString(risingTransitionScenario.scenario.selectedDeathDate, 1),
+      monthIndex: 1,
+      endingResources: 100000,
+      sourcePaths: ["layer3.points"]
+    },
+    {
+      date: addMonthsDateString(risingTransitionScenario.scenario.selectedDeathDate, 60),
+      monthIndex: 60,
+      endingResources: 175000,
+      sourcePaths: ["layer3.points"]
+    }
+  ],
+  depletion: {
+    depleted: false
+  }
+};
+const risingTransitionModel = buildIncomeImpactTimelineGraphModel({
+  scenario: cloneJson(risingTransitionScenario),
+  riskEvaluation: { events: [], stableEvents: [], warnings: [], dataGaps: [] },
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assertStableLayoutFrame(risingTransitionModel, "rising transition scenario");
+assert.equal(risingTransitionModel.layoutFrame.zeroCrossingAnchorScenarioId, null, "Rising transition scenario should not invent a depletion anchor.");
+assert.equal(risingTransitionModel.layoutFrame.zeroCrossingAnchorMonth, null);
+assert.equal(risingTransitionModel.layoutFrame.zeroCrossingAnchorSource, "projection-horizon");
+assert.ok(risingTransitionModel.layoutFrame.xDomainMonths >= 66, "No-depletion visual horizon should include the shifted runway end.");
+assert.equal(risingTransitionModel.series.postDeathResources[1].visualMonthIndex, 66);
+
+const laterTransitionComparisonModel = buildIncomeImpactTimelineGraphModel({
+  scenario: cloneJson(transitionScenario),
+  riskEvaluation: { events: [], stableEvents: [], warnings: [], dataGaps: [] },
+  comparisonScenarios: [makeTransitionComparisonScenario(transitionScenario, 36, "Later lifestyle depletion")],
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(laterTransitionComparisonModel.layoutFrame.zeroCrossingAnchorScenarioId, "transition-comparison-36");
+assert.equal(laterTransitionComparisonModel.layoutFrame.zeroCrossingAnchorMonth, 42, "Later lifestyle depletion should become anchor after transition shift.");
+assert.equal(laterTransitionComparisonModel.layoutFrame.zeroCrossingAnchorRawMonth, 36);
+assert.equal(laterTransitionComparisonModel.series.comparisonPostDeathResources[0].points[0].visualMonthIndex, 7);
+
+const earlierTransitionComparisonModel = buildIncomeImpactTimelineGraphModel({
+  scenario: cloneJson(transitionScenario),
+  riskEvaluation: { events: [], stableEvents: [], warnings: [], dataGaps: [] },
+  comparisonScenarios: [makeTransitionComparisonScenario(transitionScenario, 12, "Earlier lifestyle depletion")],
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+assert.equal(earlierTransitionComparisonModel.layoutFrame.zeroCrossingAnchorScenarioId, "selected");
+assert.equal(earlierTransitionComparisonModel.layoutFrame.zeroCrossingAnchorMonth, 30, "Earlier lifestyle depletion should stay before the later selected anchor.");
+assert.equal(earlierTransitionComparisonModel.series.comparisonPostDeathResources[0].depletion.visualMonthIndex, 18);
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.x.ticks.map(function (tick) { return tick.label; })),
   ["Before death", "Death", "+2 years", "+4 years", "+6 years", "+8 years", "+10 years", "+12 years", "+14 years", "+15 years"],
@@ -395,6 +526,94 @@ assert.equal(fiveYearModel.trace.negativeValuesCompressFundedRunway, false);
     negativeDelta,
     "The same dollar delta above and below zero should map to the same y-distance."
   );
+}
+
+function makeTransitionScenario(lengthMonths = 6) {
+  const scenario = makeScenario(0);
+  const deathDate = scenario.scenario.selectedDeathDate;
+  scenario.scenario.projectionHorizonMonths = 60;
+  scenario.transitionPeriod = {
+    lengthMonths,
+    bridgeMode: "flatBridge",
+    cashFlowMode: "not-modeled-v1",
+    shiftsRunwayVisually: true
+  };
+  scenario.postDeathSeries = {
+    points: [
+      {
+        date: addMonthsDateString(deathDate, 1),
+        monthIndex: 1,
+        endingResources: 100000,
+        sourcePaths: ["layer3.points"]
+      },
+      {
+        date: addMonthsDateString(deathDate, 23),
+        monthIndex: 23,
+        endingResources: 10000,
+        sourcePaths: ["layer3.points"]
+      },
+      {
+        date: addMonthsDateString(deathDate, 24),
+        monthIndex: 24,
+        endingResources: 0,
+        sourcePaths: ["layer3.points"]
+      }
+    ],
+    depletion: {
+      depleted: true,
+      depletionDate: addMonthsDateString(deathDate, 24),
+      monthsCovered: 24
+    }
+  };
+  scenario.timelineFacts = Object.assign({}, scenario.timelineFacts, {
+    depletionDate: addMonthsDateString(deathDate, 24),
+    monthsCovered: 24,
+    resourcesAfterObligations: 100000
+  });
+  scenario.deathEvent.resourcesAfterObligations = 100000;
+  return scenario;
+}
+
+function makeTransitionComparisonScenario(baseScenario, monthsCovered, label) {
+  const deathDate = baseScenario.scenario.selectedDeathDate;
+  return {
+    scenarioId: `transition-comparison-${monthsCovered}`,
+    kind: "lifestyleComparison",
+    pathId: "lifestyle-post-death-resources",
+    label,
+    postDeathSeries: {
+      points: [
+        {
+          date: addMonthsDateString(deathDate, 1),
+          monthIndex: 1,
+          endingResources: monthsCovered > 24 ? 130000 : 90000,
+          sourcePaths: ["comparison.layer3.points"]
+        },
+        {
+          date: addMonthsDateString(deathDate, Math.max(monthsCovered - 1, 1)),
+          monthIndex: Math.max(monthsCovered - 1, 1),
+          endingResources: 5000,
+          sourcePaths: ["comparison.layer3.points"]
+        },
+        {
+          date: addMonthsDateString(deathDate, monthsCovered),
+          monthIndex: monthsCovered,
+          endingResources: 0,
+          sourcePaths: ["comparison.layer3.points"]
+        }
+      ],
+      depletion: {
+        depleted: true,
+        depletionDate: addMonthsDateString(deathDate, monthsCovered),
+        monthsCovered
+      }
+    },
+    trace: {
+      calculationMethod: "income-impact-lifestyle-comparison-adapter-v1",
+      monthlyDelta: monthsCovered > 24 ? -500 : 500,
+      baseScenarioMutated: false
+    }
+  };
 }
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.y.ticks.map(function (tick) { return tick.zone; })),
