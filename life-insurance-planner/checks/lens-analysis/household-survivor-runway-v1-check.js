@@ -377,13 +377,48 @@ const depletion = run(baseInput({
   scheduledObligations: []
 }));
 assert.equal(depletion.depletion.depleted, true);
-assert.equal(depletion.depletion.depletionMonthIndex, 2);
-assert.equal(depletion.depletion.depletionDate, "2026-03-01");
-assert.equal(depletion.depletion.monthsCovered, 2);
+assert.equal(depletion.depletion.depletionMonthIndex, 1.333333);
+assert.equal(depletion.depletion.depletionDate, "2026-02-11");
+assert.equal(depletion.depletion.monthsCovered, 1.333333);
+assert.equal(depletion.depletion.precision, "daily-estimate");
 assert.equal(depletion.points[2].endingResources, -1250);
 assert.equal(depletion.points[2].availableResources, 0);
 assert.equal(depletion.points[2].accumulatedUnmetNeed, 1250);
 assert.ok(getIssue(depletion.warnings, "negative-resources-accumulated-as-unmet-need"));
+
+const firstMonthDepletion = run(baseInput({
+  projectionHorizonMonths: 2,
+  startingResources: {
+    value: 1000,
+    sourcePaths: ["layer2.resourcesAfterObligations"]
+  },
+  survivorIncomeStreams: [
+    {
+      id: "zero-net-income",
+      amount: 0,
+      frequency: "monthly",
+      status: "mature-net",
+      incomeType: "net",
+      sourcePaths: ["survivorScenario.survivorNetAnnualIncome"]
+    }
+  ],
+  survivorNeedStreams: [
+    {
+      id: "essential",
+      amount: 10000,
+      frequency: "monthly",
+      needType: "essential",
+      status: "prepared",
+      sourcePaths: ["ongoingSupport.monthlyTotalEssentialSupportCost"]
+    }
+  ],
+  scheduledObligations: []
+}));
+assert.equal(firstMonthDepletion.depletion.depleted, true);
+assert.equal(firstMonthDepletion.depletion.depletionMonthIndex, 0.1);
+assert.equal(firstMonthDepletion.depletion.depletionDate, "2026-01-05");
+assert.equal(firstMonthDepletion.depletion.monthsCovered, 0.1);
+assert.equal(firstMonthDepletion.depletion.precision, "daily-estimate");
 
 const defaultedHorizon = run(baseInput({
   projectionHorizonMonths: undefined

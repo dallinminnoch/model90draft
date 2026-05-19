@@ -118,6 +118,40 @@
     return firstOfTargetMonth;
   }
 
+  function addDays(date, days) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  }
+
+  function getDaySpan(startDate, endDate) {
+    const millisecondsPerDay = 24 * 60 * 60 * 1000;
+    return Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / millisecondsPerDay));
+  }
+
+  function resolveDepletionTiming(periodStart, periodEnd, monthIndex, pointStartingResources, netUse) {
+    const monthlyNetUse = toOptionalNumber(netUse);
+    const startingBalance = toOptionalNumber(pointStartingResources);
+    if (monthlyNetUse == null || monthlyNetUse <= 0 || startingBalance == null || startingBalance <= 0) {
+      return {
+        depletionDate: formatDateOnly(periodEnd),
+        depletionMonthIndex: monthIndex,
+        monthsCovered: monthIndex,
+        precision: "monthly"
+      };
+    }
+
+    const monthFraction = Math.max(0, Math.min(1, startingBalance / monthlyNetUse));
+    const daySpan = getDaySpan(periodStart, periodEnd);
+    const daysCovered = Math.max(0, Math.min(daySpan, Math.ceil(daySpan * monthFraction)));
+    const depletionDate = addDays(periodStart, daysCovered);
+    const monthsCovered = Number(((monthIndex - 1) + monthFraction).toFixed(6));
+    return {
+      depletionDate: formatDateOnly(depletionDate),
+      depletionMonthIndex: monthsCovered,
+      monthsCovered,
+      precision: monthFraction > 0 && monthFraction < 1 ? "daily-estimate" : "monthly"
+    };
+  }
+
   function isSameYearMonth(leftDate, rightDate) {
     return leftDate.getFullYear() === rightDate.getFullYear()
       && leftDate.getMonth() === rightDate.getMonth();
@@ -767,12 +801,19 @@
       }
 
       if (!depletion.depleted && endingResources <= 0) {
+        const depletionTiming = resolveDepletionTiming(
+          periodStart,
+          pointDate,
+          monthIndex,
+          pointStartingResources,
+          netUse
+        );
         depletion = {
           depleted: true,
-          depletionDate: formatDateOnly(pointDate),
-          depletionMonthIndex: monthIndex,
-          monthsCovered: monthIndex,
-          precision: "monthly"
+          depletionDate: depletionTiming.depletionDate,
+          depletionMonthIndex: depletionTiming.depletionMonthIndex,
+          monthsCovered: depletionTiming.monthsCovered,
+          precision: depletionTiming.precision
         };
         warnings.push(makeIssue(
           "negative-resources-accumulated-as-unmet-need",

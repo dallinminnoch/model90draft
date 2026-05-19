@@ -1871,6 +1871,11 @@ assert.equal(
   "Selected and comparison applied scenario paths should render together."
 );
 const selectedRunwayPath = getPathD(multiAppliedTimelineHtml, "data-income-impact-graph-path", "postDeathResources");
+assert.doesNotMatch(
+  selectedRunwayPath,
+  /\bC\b/,
+  "Linear applied runway paths should render straight line segments instead of cubic curve commands."
+);
 const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
 const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 318);
 assert.ok(

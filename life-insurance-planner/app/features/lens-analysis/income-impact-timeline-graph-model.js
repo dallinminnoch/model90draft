@@ -23,6 +23,8 @@
   const ONE_WEEK_IN_MONTHS = 7 / DAYS_PER_MONTH;
   const MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = ONE_WEEK_IN_MONTHS;
   const MAX_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
+  const MIN_SMALL_RUNWAY_AXIS_STEP = 100;
+  const SMALL_RUNWAY_AXIS_MAX_MAGNITUDE = 10000;
   const DEPLETION_RUNWAY_TARGET_X_RATIO = 0.8;
   const MIN_POST_DEPLETION_DISPLAY_PADDING_MONTHS = 3 * ONE_DAY_IN_MONTHS;
   const MAX_POST_DEPLETION_DISPLAY_PADDING_MONTHS = 24;
@@ -986,6 +988,7 @@
     const preDeathContextTrace = isPlainObject(preDeathContextPoints[0]?.trace) ? preDeathContextPoints[0].trace : {};
     const fundedRunwayPoints = [];
     const deficitPoints = [];
+    const runwayLinePoints = [];
     let depletionPoint = null;
     let previousPoint = null;
     let visualInterpolationPointCount = 0;
@@ -995,7 +998,9 @@
     if (survivorResourcesAtDeathPoint) {
       const survivorValue = getRunwayResourceValue(survivorResourcesAtDeathPoint);
       if (survivorValue != null && survivorValue >= 0) {
-        fundedRunwayPoints.push(cloneRunwayPoint(survivorResourcesAtDeathPoint));
+        const startPoint = cloneRunwayPoint(survivorResourcesAtDeathPoint);
+        fundedRunwayPoints.push(startPoint);
+        runwayLinePoints.push(cloneRunwayPoint(survivorResourcesAtDeathPoint));
         previousPoint = survivorResourcesAtDeathPoint;
         visualInterpolationPointCount += 1;
         visualInterpolationKinds.push("survivorResourcesAtDeathStart");
@@ -1011,6 +1016,7 @@
 
       if (!depletionPoint && resourceValue > 0) {
         fundedRunwayPoints.push(cloneRunwayPoint(point));
+        runwayLinePoints.push(cloneRunwayPoint(point));
         previousPoint = point;
         return;
       }
@@ -1018,6 +1024,7 @@
       if (!depletionPoint && resourceValue === 0) {
         depletionPoint = cloneRunwayPoint(point);
         fundedRunwayPoints.push(cloneRunwayPoint(depletionPoint));
+        runwayLinePoints.push(cloneRunwayPoint(depletionPoint));
         deficitPoints.push(cloneDeficitPoint(depletionPoint, yDomain));
         previousPoint = point;
         return;
@@ -1041,6 +1048,7 @@
         } else {
           deficitPoints.push(cloneDeficitPoint(point, yDomain));
         }
+        runwayLinePoints.push(cloneRunwayPoint(point));
       }
       previousPoint = point;
     });
@@ -1063,6 +1071,7 @@
       preDeathContextGrowthSource: preDeathContextTrace.preDeathContextGrowthSource || null,
       rawPoints,
       preDeathContextPoints,
+      runwayLinePoints,
       fundedRunwayPoints,
       deficitPoints,
       depletionPoint: depletionPoint ? cloneRunwayPoint(depletionPoint) : null,
@@ -1087,6 +1096,11 @@
           || normalizeDateOnly(depletionPoint.date) === normalizeDateOnly(series.depletion.date),
         visualInterpolationPointCount,
         visualInterpolationKinds,
+        runwayLinePointCount: runwayLinePoints.length,
+        runwayLineAllowsNegativeValues: runwayLinePoints.some(function (point) {
+          const value = getRunwayResourceValue(point);
+          return value != null && value < 0;
+        }),
         skippedSharedXDeficitPointCount,
         sharedDepletionAnchorForFundedAndDeficit: Boolean(depletionPoint && deficitPoints[0]),
         sourcePath: series.sourcePath,
@@ -1664,9 +1678,7 @@
         if (survivorResourcesAtDeath != null && survivorResourcesAtDeath > 0) {
           values.push(survivorResourcesAtDeath);
         }
-        []
-          .concat(Array.isArray(series.preDeathContextRawPoints) ? series.preDeathContextRawPoints : [])
-          .concat(Array.isArray(series.points) ? series.points : [])
+        (Array.isArray(series.points) ? series.points : [])
           .forEach(function (point) {
             const value = getRunwayResourceValue(point);
             if (value != null && value > 0) {
@@ -1761,6 +1773,33 @@
     return boundaryPoint;
   }
 
+  function makeVisibleDomainStartPoint(series) {
+    const value = toOptionalNumber(series?.survivorResourcesAtDeath);
+    const deathDate = normalizeDateOnly(series?.deathDate);
+    if (value == null || !deathDate) {
+      return null;
+    }
+    const sourcePath = normalizeString(series?.survivorResourcesAtDeathSourcePath)
+      || `${normalizeString(series?.sourcePath) || "selectedScenario"}.survivorResourcesAtDeath`;
+    return {
+      id: `${normalizeString(series?.scenarioId || series?.pathId) || "selected-scenario"}-visible-domain-start`,
+      date: deathDate,
+      monthIndex: 0,
+      phase: "deathEvent",
+      value,
+      rawValue: value,
+      displayedValue: value,
+      endingResources: value,
+      availableResources: value,
+      sourcePath,
+      sourcePaths: [sourcePath],
+      trace: {
+        visibleWindowDomainStart: true,
+        noFinancialCalculationChanged: true
+      }
+    };
+  }
+
   function getVisibleWindowDomainPoints(series, displayHorizonMonths) {
     const sourcePoints = Array.isArray(series?.points) ? series.points : [];
     const horizonMonths = toOptionalNumber(displayHorizonMonths);
@@ -1768,7 +1807,11 @@
       return sourcePoints.map(cloneRunwayPoint);
     }
     const visiblePoints = [];
-    let previousPoint = null;
+    const startPoint = makeVisibleDomainStartPoint(series);
+    let previousPoint = startPoint;
+    if (startPoint) {
+      visiblePoints.push(cloneRunwayPoint(startPoint));
+    }
     for (let index = 0; index < sourcePoints.length; index += 1) {
       const point = sourcePoints[index];
       const month = getVisibleDomainPointMonth(point, series);
@@ -2471,7 +2514,7 @@
     return clippedPoint;
   }
 
-  function clipPostDeathPointsToDisplayHorizon(points, yDomain, projection, sourcePath) {
+  function clipPostDeathPointsToDisplayHorizon(points, yDomain, projection, sourcePath, startBoundaryPoint) {
     const sourcePoints = Array.isArray(points) ? points : [];
     const displayHorizonMonths = toOptionalNumber(projection?.postDeathDisplayHorizonMonths);
     if (displayHorizonMonths == null || !sourcePoints.length) {
@@ -2484,7 +2527,7 @@
     }
 
     const renderPoints = [];
-    let previousPoint = null;
+    let previousPoint = isPlainObject(startBoundaryPoint) ? startBoundaryPoint : null;
     let clippedPointCount = 0;
     let interpolationPointAdded = false;
     for (let index = 0; index < sourcePoints.length; index += 1) {
@@ -2498,7 +2541,7 @@
 
       clippedPointCount = sourcePoints.length - index;
       const previousMonths = getPostDeathRenderableMonth(previousPoint);
-      if (previousPoint && previousMonths != null && previousMonths < displayHorizonMonths) {
+      if (previousPoint && previousMonths != null && previousMonths <= displayHorizonMonths) {
         const clipPoint = makeDisplayHorizonClipPoint(previousPoint, point, yDomain, projection, sourcePath);
         if (clipPoint) {
           renderPoints.push(clipPoint);
@@ -2521,10 +2564,11 @@
     const positiveMax = Math.max(toOptionalNumber(domain?.max) || 0, 0);
     const deficitMax = Math.abs(Math.min(toOptionalNumber(domain?.min) || 0, 0));
     const rawDeficitMax = toOptionalNumber(domain?.rawDeficitMax) || 0;
-    const step = getNiceContinuousAxisStep(Math.max(positiveMax, deficitMax), 4);
+    const axisStep = getContinuousLinearAxisStep(domain);
+    const tickStep = getContinuousLinearRenderedTickStep(domain, axisStep);
 
-    if (step > 0 && positiveMax > 0) {
-      for (let value = step; value <= positiveMax + (step * 0.001); value += step) {
+    if (tickStep > 0 && positiveMax > 0) {
+      for (let value = tickStep; value <= positiveMax + (tickStep * 0.001); value += tickStep) {
         const roundedValue = roundAxisValue(value);
         ticks.push({
           key: `funded-runway-${Math.round(roundedValue)}`,
@@ -2532,8 +2576,9 @@
           value: roundedValue,
           yRatio: getValueRatio(roundedValue, domain),
           trace: {
-            tickStep: step,
-            incrementIndex: Math.round(roundedValue / step),
+            tickStep,
+            axisResolutionStep: axisStep,
+            incrementIndex: Math.round(roundedValue / tickStep),
             sharedPositiveNegativeIncrement: true
           }
         });
@@ -2546,20 +2591,21 @@
       yRatio: getValueRatio(0, domain),
       baseline: true
     });
-    if (step > 0 && deficitMax > 0 && rawDeficitMax > 0) {
-      for (let value = -step; value >= -deficitMax - (step * 0.001); value -= step) {
+    if (tickStep > 0 && deficitMax > 0 && rawDeficitMax > 0) {
+      for (let value = -tickStep; value >= -deficitMax - (tickStep * 0.001); value -= tickStep) {
         const roundedValue = roundAxisValue(value);
         ticks.push({
           key: `deficit-${Math.round(Math.abs(roundedValue))}`,
           zone: "deficit",
           value: roundedValue,
-          rawValue: Math.abs(Math.abs(roundedValue) - rawDeficitMax) <= step * 0.5
+          rawValue: Math.abs(Math.abs(roundedValue) - rawDeficitMax) <= tickStep * 0.5
             ? -rawDeficitMax
             : null,
           yRatio: getValueRatio(roundedValue, domain),
           trace: {
-            tickStep: step,
-            incrementIndex: Math.round(Math.abs(roundedValue) / step),
+            tickStep,
+            axisResolutionStep: axisStep,
+            incrementIndex: Math.round(Math.abs(roundedValue) / tickStep),
             sharedPositiveNegativeIncrement: true,
             rawDeficitMax,
             deficitVisualScaleCapped: false,
@@ -2590,6 +2636,31 @@
             ? 5
             : 10;
     return roundAxisValue(niceFactor * power);
+  }
+
+  function getContinuousLinearAxisStep(domain) {
+    const maxMagnitude = Math.max(
+      Math.max(toOptionalNumber(domain?.max) || 0, 0),
+      Math.abs(Math.min(toOptionalNumber(domain?.min) || 0, 0))
+    );
+    const rawMagnitude = Math.max(
+      Math.max(toOptionalNumber(domain?.rawPositiveMax) || 0, 0),
+      Math.max(toOptionalNumber(domain?.rawDeficitMax) || 0, 0)
+    );
+    if (rawMagnitude > 0 && rawMagnitude <= SMALL_RUNWAY_AXIS_MAX_MAGNITUDE) {
+      return MIN_SMALL_RUNWAY_AXIS_STEP;
+    }
+    return getNiceContinuousAxisStep(maxMagnitude, 4);
+  }
+
+  function getContinuousLinearRenderedTickStep(domain, axisStep) {
+    const resolutionStep = toOptionalNumber(axisStep) || 0;
+    const maxMagnitude = Math.max(
+      Math.max(toOptionalNumber(domain?.max) || 0, 0),
+      Math.abs(Math.min(toOptionalNumber(domain?.min) || 0, 0))
+    );
+    const majorStep = getNiceContinuousAxisStep(maxMagnitude, 4);
+    return Math.max(resolutionStep, majorStep);
   }
 
   function roundAxisValue(value) {
@@ -2997,11 +3068,13 @@
       const rawPoints = appliedSeries.points.map(function (point) {
         return enrichPoint(point, xDomain, yDomain, seriesProjection, "postDeath");
       });
+      const displayStartPoint = makeSurvivorResourcesAtDeathStartPoint(appliedSeries, yDomain, seriesProjection);
       const clipped = clipPostDeathPointsToDisplayHorizon(
         rawPoints,
         yDomain,
         seriesProjection,
-        appliedSeries.sourcePath || appliedSeries.pathId || appliedSeries.scenarioId
+        appliedSeries.sourcePath || appliedSeries.pathId || appliedSeries.scenarioId,
+        displayStartPoint
       );
       return Object.assign({}, appliedSeries, {
         xProjection: seriesProjection,

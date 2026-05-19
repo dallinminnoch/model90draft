@@ -394,6 +394,171 @@ assert.equal(
     }),
     "Day-scale x-axis ticks should stay inside the auto-sized display horizon."
   );
+
+  const fastMonthlyPointScenario = cloneJson(fastDepletionScenario);
+  fastMonthlyPointScenario.postDeathSeries.points = [
+    {
+      date: "2026-05-29",
+      monthIndex: 1,
+      endingResources: -6480000,
+      sourcePaths: ["layer3.points"]
+    },
+    {
+      date: "2026-06-29",
+      monthIndex: 2,
+      endingResources: -13930000,
+      sourcePaths: ["layer3.points"]
+    }
+  ];
+
+  const fastAppliedClipModel = buildIncomeImpactTimelineGraphModel({
+    appliedScenarios: [
+      {
+        scenarioId: "income-impact-day-scale-depletion",
+        label: "Death tomorrow",
+        settings: {
+          selectedDeathAge: 46,
+          selectedDeathDate: fastDepletionScenario.scenario.selectedDeathDate,
+          projectionHorizonYears: 40,
+          mortgageTreatmentOverride: "followAssumptions",
+          lifestyleSliderValue: 0
+        },
+        scenario: cloneJson(fastMonthlyPointScenario),
+        riskEvaluation: cloneJson(riskEvaluation)
+      }
+    ],
+    selectedScenarioId: "income-impact-day-scale-depletion",
+    options: {
+      preserveSignedResources: true,
+      currentAgeMode: "death-event-only"
+    }
+  });
+  const fastAppliedRunway = fastAppliedClipModel.series.appliedRunwayScenarios[0];
+  assert.equal(
+    fastAppliedRunway.fundedRunwayPoints.length >= 2,
+    true,
+    "Day-scale applied runway should retain a visible funded line from death to depletion."
+  );
+  assert.equal(
+    fastAppliedRunway.runwayLinePoints.length >= 2,
+    true,
+    "Day-scale applied runway should expose a continuous visible line from death into the visible runway window."
+  );
+  assert.equal(
+    fastAppliedRunway.runwayLinePoints.some(function (point) { return point.value < 0; }),
+    true,
+    "Day-scale applied runway line should be allowed to continue into negative resources when the visible window is shorter than the first monthly point."
+  );
+  assert.equal(
+    fastAppliedRunway.trace.runwayLineAllowsNegativeValues,
+    true,
+    "Day-scale applied runway trace should identify that the visible line can cross below zero."
+  );
+  assertApproxEqual(
+    fastAppliedRunway.depletionPoint.relativeMonthsFromDeath,
+    dayScaleMonthsCovered,
+    "Day-scale applied runway should place the depletion anchor at the fractional depletion month."
+  );
+  assert.equal(
+    fastAppliedRunway.deficitPoints.at(-1).trace.displayHorizonClip,
+    true,
+    "Day-scale applied runway should keep a right-edge display-horizon deficit endpoint."
+  );
+  assertApproxEqual(
+    fastAppliedRunway.deficitPoints.at(-1).relativeMonthsFromDeath,
+    fastAppliedClipModel.projection.displayHorizonMonths,
+    "Day-scale applied runway deficit endpoint should land at the day-scale display boundary."
+  );
+
+  const smallDollarDayScaleScenario = cloneJson(fastDepletionScenario);
+  smallDollarDayScaleScenario.deathEvent.resourcesAfterObligations = 300;
+  smallDollarDayScaleScenario.timelineFacts.resourcesAfterObligations = 300;
+  smallDollarDayScaleScenario.postDeathSeries.points = [
+    {
+      date: "2026-05-29",
+      monthIndex: 1,
+      endingResources: -300,
+      accumulatedUnmetNeed: 300,
+      sourcePaths: ["layer3.points"]
+    },
+    {
+      date: "2026-06-29",
+      monthIndex: 2,
+      endingResources: -900,
+      accumulatedUnmetNeed: 900,
+      sourcePaths: ["layer3.points"]
+    }
+  ];
+  const smallDollarDayScaleModel = buildIncomeImpactTimelineGraphModel({
+    appliedScenarios: [
+      {
+        scenarioId: "income-impact-small-dollar-day-scale",
+        label: "Death tomorrow",
+        settings: {
+          selectedDeathAge: 46,
+          selectedDeathDate: smallDollarDayScaleScenario.scenario.selectedDeathDate,
+          projectionHorizonYears: 40,
+          mortgageTreatmentOverride: "followAssumptions",
+          lifestyleSliderValue: 0
+        },
+        scenario: cloneJson(smallDollarDayScaleScenario),
+        riskEvaluation: cloneJson(riskEvaluation)
+      }
+    ],
+    selectedScenarioId: "income-impact-small-dollar-day-scale",
+    options: {
+      preserveSignedResources: true,
+      currentAgeMode: "death-event-only"
+    }
+  });
+  assert.equal(
+    smallDollarDayScaleModel.axes.y.ticks.some(function (tick) { return tick.trace?.tickStep === 100; }),
+    true,
+    "Small day-scale runway y-axis labels should be allowed to use $100 increments."
+  );
+  assert.equal(
+    smallDollarDayScaleModel.axes.y.visibleDomainBoundaryPointIncluded,
+    true,
+    "Small day-scale y-domain should include a visible-window boundary point from the death/start balance."
+  );
+
+  const denseTickGuardScenario = cloneJson(smallDollarDayScaleScenario);
+  denseTickGuardScenario.deathEvent.resourcesAfterObligations = 10000;
+  denseTickGuardScenario.timelineFacts.resourcesAfterObligations = 10000;
+  const denseTickGuardModel = buildIncomeImpactTimelineGraphModel({
+    appliedScenarios: [
+      {
+        scenarioId: "income-impact-dense-tick-guard",
+        label: "Death tomorrow",
+        settings: {
+          selectedDeathAge: 46,
+          selectedDeathDate: denseTickGuardScenario.scenario.selectedDeathDate,
+          projectionHorizonYears: 40,
+          mortgageTreatmentOverride: "followAssumptions",
+          lifestyleSliderValue: 0
+        },
+        scenario: cloneJson(denseTickGuardScenario),
+        riskEvaluation: cloneJson(riskEvaluation)
+      }
+    ],
+    selectedScenarioId: "income-impact-dense-tick-guard",
+    options: {
+      preserveSignedResources: true,
+      currentAgeMode: "death-event-only"
+    }
+  });
+  const denseRenderedTicks = denseTickGuardModel.axes.y.ticks.filter(function (tick) {
+    return tick.zone === "fundedRunway" || tick.zone === "deficit";
+  });
+  assert.ok(
+    denseRenderedTicks.length <= 8,
+    "Small-runway $100 resolution should not render every $100 increment as a major y-axis label."
+  );
+  assert.equal(
+    denseRenderedTicks.some(function (tick) { return tick.trace?.axisResolutionStep === 100; }),
+    true,
+    "Dense guarded y-axis ticks should preserve the $100 small-runway axis resolution in trace."
+  );
 }
 assert.ok(fiveYearModel.axes.x.ticks.every(function (tick) {
   return tick.axisMode === "deathRelativeYears" && tick.trace.rawDatePreserved === true;

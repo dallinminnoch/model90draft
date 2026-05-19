@@ -1602,6 +1602,9 @@
     if (normalizedPathMode === "step") {
       return buildStepSvgPath(plotPoints);
     }
+    if (normalizedPathMode === "linear") {
+      return buildLinearSvgPath(plotPoints);
+    }
     return buildTrendSvgPath(plotPoints);
   }
 
@@ -1888,6 +1891,8 @@
     const normalizedPathMode = normalizeGraphPathMode(pathMode);
     const trendlinePath = normalizedPathMode === "step"
       ? buildStepSvgPath(plotPoints)
+      : normalizedPathMode === "linear"
+        ? buildLinearSvgPath(plotPoints)
       : buildTrendSvgPath(plotPoints);
     if (!trendlinePath) {
       return "";
