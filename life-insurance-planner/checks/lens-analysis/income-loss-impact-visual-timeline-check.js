@@ -588,8 +588,10 @@ assert.match(displaySource, /getSelectedScenarioHoverPoints/);
 assert.match(displaySource, /getInterpolatedGraphHoverInterval/);
 assert.match(displaySource, /getInterpolatedGraphHoverPointAtXRatio/);
 assert.match(displaySource, /getGraphHoverInspectionIntervals/);
-assert.match(displaySource, /buildGraphHoverUnderTrendlineTintPath/);
-assert.match(displaySource, /getGraphHoverUnderTrendlineTintSegments/);
+assert.match(displaySource, /buildGraphAreaUnderSvgPath/);
+assert.match(displaySource, /getGraphHoverUnderTrendlineTintAreas/);
+assert.doesNotMatch(displaySource, /buildGraphHoverUnderTrendlineTintPath/);
+assert.doesNotMatch(displaySource, /getGraphHoverUnderTrendlineTintSegments/);
 assert.match(displaySource, /GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-pre-death-gradient"/);
 assert.match(displaySource, /GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-post-death-gradient"/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="preDeath"/);
@@ -897,6 +899,12 @@ const fixture = {
 const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /data-income-impact-graph/);
 assert.match(timelineHtml, /data-income-impact-graph-svg/);
+assert.match(timelineHtml, /data-income-impact-transition-outlook-graph-annotation/);
+assert.match(timelineHtml, /data-income-impact-transition-outlook-status="stable"/);
+assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-line/);
+assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-label/);
+assert.match(timelineHtml, />Stable<\/text>/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-transition-band|data-income-impact-transition-window|data-income-impact-transition-slider|Transition period after death|transitionPeriodMonths|transitionBridge|flatBridge|not-modeled-v1/);
 assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-death-event-bridge/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-death-event-net-worth/);
@@ -935,6 +943,42 @@ assert.doesNotMatch(
   "Death-event conversion connector should not use the retired dotted path treatment."
 );
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
+[
+  ["Caution", "caution", "Caution"],
+  ["at-risk", "atRisk", "At Risk"],
+  ["likely-failure", "likelyFailure", "Likely Failure"],
+  ["insufficientData", "unavailable", "Unavailable"],
+  ["not-available", "unavailable", "Unavailable"]
+].forEach(function ([status, normalizedStatus, label]) {
+  const statusTimelineHtml = harness.renderTimeline({
+    ...fixture,
+    scenario: {
+      ...fixture.scenario,
+      transitionOutlook: {
+        ...fixture.scenario.transitionOutlook,
+        status
+      }
+    }
+  });
+  assert.match(
+    statusTimelineHtml,
+    new RegExp(`data-income-impact-transition-outlook-status="${normalizedStatus}"[\\s\\S]*>${label}<\\/text>`)
+  );
+  assert.doesNotMatch(statusTimelineHtml, /data-income-impact-transition-band|data-income-impact-transition-slider|transitionPeriodMonths/);
+});
+const noOutlookTimelineHtml = harness.renderTimeline({
+  ...fixture,
+  scenario: {
+    ...fixture.scenario,
+    transitionOutlook: null
+  }
+});
+assert.match(noOutlookTimelineHtml, /data-income-impact-transition-outlook-status="unavailable"[\s\S]*>Unavailable<\/text>/);
+assert.equal(
+  getPathD(noOutlookTimelineHtml, "data-income-impact-graph-path", "postDeathResources"),
+  getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources"),
+  "Transition Outlook graph annotation should not change the runway path data."
+);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"|data-income-impact-graph-path="compression-post-death-resources"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-comparison-markers|data-income-impact-compression-markers/);
@@ -1126,19 +1170,19 @@ baseGridLineY1Values.forEach(function (y1, index) {
 });
 assert.equal(
   (timelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
-  baseHoverIntervalCount,
-  "Each selected-scenario inspection interval should render a local gradient tint segment."
+  2,
+  "Selected-scenario under-trendline tint should render path-matched pre-death and post-death areas, not per-interval trapezoids."
 );
 assert.ok(
   (timelineHtml.match(/data-income-impact-graph-hover-underlay-phase="postDeath"/g) || []).length > 0,
-  "Under-trendline tint should render green-family post-death segments."
+  "Under-trendline tint should render a post-death area."
 );
 const underTrendlineTintPath = getPathD(timelineHtml, "data-income-impact-graph-hover-underlay", "selected-trendline");
 const underTrendlineTintNumbers = String(underTrendlineTintPath).match(/-?\d+(?:\.\d+)?/g).map(Number);
-assert.equal(
+assert.notEqual(
   underTrendlineTintNumbers[1],
   baseGridLineY1Values[0],
-  "Under-trendline tint should start on the same selected trendline boundary as the first grid segment."
+  "Under-trendline tint should be derived from the selected trendline path, not the first hover grid divider."
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 1],
@@ -1584,8 +1628,8 @@ assert.equal(
 );
 assert.equal(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
-  multiAppliedHoverIntervalCount,
-  "Comparison scenarios should not create extra under-trendline tint segments."
+  2,
+  "Comparison scenarios should not create extra under-trendline tint areas."
 );
 assert.ok(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay-phase="preDeath"/g) || []).length > 0,
@@ -1845,8 +1889,8 @@ assert.equal(
 );
 assert.equal(
   (switchedSelectedTimelineHtml.match(/data-income-impact-graph-hover-underlay="selected-trendline"/g) || []).length,
-  switchedSelectedHoverIntervalCount,
-  "Switching selected scenarios should refresh the selected scenario tint segments."
+  2,
+  "Switching selected scenarios should refresh the selected scenario tint areas."
 );
 assert.match(
   switchedSelectedTimelineHtml,
@@ -2200,7 +2244,8 @@ assert.match(
   harness.resourceOutlookPanel.innerHTML,
   /Excludes life insurance proceeds, brokerage, retirement, home equity, business value, and other delayed or illiquid assets\./
 );
-assert.doesNotMatch(host.innerHTML, /data-income-impact-transition-outlook/);
+assert.match(host.innerHTML, /data-income-impact-transition-outlook-graph-annotation/);
+assert.match(host.innerHTML, /data-income-impact-transition-outlook-status="stable"[\s\S]*>Stable<\/text>/);
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /data-income-impact-transition-outlook-near-term|nearTermResources|nearTermCoverageRatio|excludedResources/);
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /\$250,000|\$900,000/);
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /life insurance proceeds included|existing coverage included/i);

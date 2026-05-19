@@ -1789,15 +1789,16 @@
       rawPositiveMax > 0 ? rawPositiveMax : 0,
       rawDeficitMax > 0 ? -rawDeficitMax : 0
     ]);
-    const span = paddedDomain.max - paddedDomain.min;
+    const stableDomain = getStableZeroRatioValueExtent(paddedDomain, STABLE_LAYOUT_FRAME.zeroYRatio);
+    const span = stableDomain.max - stableDomain.min;
     const zeroYRatio = span > 0
-      ? clampRatio(1 - ((0 - paddedDomain.min) / span))
+      ? clampRatio(1 - ((0 - stableDomain.min) / span))
       : 0.5;
-    const positiveMax = paddedDomain.max;
-    const deficitMax = Math.abs(Math.min(paddedDomain.min, 0));
+    const positiveMax = stableDomain.max;
+    const deficitMax = Math.abs(Math.min(stableDomain.min, 0));
     return {
-      min: paddedDomain.min,
-      max: paddedDomain.max,
+      min: stableDomain.min,
+      max: stableDomain.max,
       signed: rawDeficitMax > 0,
       verticalScaleMode: VERTICAL_SCALE_MODE_CONTINUOUS_LINEAR,
       zeroYRatio,
@@ -1820,12 +1821,35 @@
         yDomainWindowSource: "selectedVisibleDisplayHorizon",
         displayHorizonMonths: toOptionalNumber(input?.displayHorizonMonths),
         negativeValuesCompressFundedRunway: false,
-        fixedZeroRatioApplied: false,
+        fixedZeroRatioApplied: true,
+        fixedZeroRatio: STABLE_LAYOUT_FRAME.zeroYRatio,
+        stableZeroRatioDomainApplied: true,
         continuousLinearScaleApplied: true,
         selectedScenarioOnlyScale: true,
         rawDeficitValuesPreserved: true,
         deficitVisualCompressionRemoved: true
       }
+    };
+  }
+
+  function getStableZeroRatioValueExtent(domain, zeroYRatio) {
+    const safeDomain = isPlainObject(domain) ? domain : {};
+    const targetZero = clampRatio(toOptionalNumber(zeroYRatio) ?? STABLE_LAYOUT_FRAME.zeroYRatio);
+    const negativeBandRatio = 1 - targetZero;
+    const rawMax = Math.max(toOptionalNumber(safeDomain.max) || 0, 1);
+    const rawDeficitMax = Math.abs(Math.min(toOptionalNumber(safeDomain.min) || 0, 0));
+    if (targetZero <= 0 || negativeBandRatio <= 0) {
+      return {
+        min: safeDomain.min ?? -1,
+        max: safeDomain.max ?? 1
+      };
+    }
+    const maxRequiredByDeficit = rawDeficitMax * (targetZero / negativeBandRatio);
+    const max = Math.max(rawMax, maxRequiredByDeficit, 1);
+    const min = -(max * (negativeBandRatio / targetZero));
+    return {
+      min,
+      max
     };
   }
 
@@ -2457,22 +2481,26 @@
 
   function makeContinuousLinearYTicks(domain) {
     const ticks = [];
-    const rawPositiveMax = toOptionalNumber(domain?.rawPositiveMax) || 0;
+    const positiveMax = Math.max(toOptionalNumber(domain?.max) || 0, 0);
+    const deficitMax = Math.abs(Math.min(toOptionalNumber(domain?.min) || 0, 0));
     const rawDeficitMax = toOptionalNumber(domain?.rawDeficitMax) || 0;
-    if (rawPositiveMax > 0) {
-      [1, 0.75, 0.5, 0.25].forEach(function (ratio) {
-        const value = rawPositiveMax * ratio;
+    const step = getNiceContinuousAxisStep(Math.max(positiveMax, deficitMax), 4);
+
+    if (step > 0 && positiveMax > 0) {
+      for (let value = step; value <= positiveMax + (step * 0.001); value += step) {
+        const roundedValue = roundAxisValue(value);
         ticks.push({
-          key: `funded-runway-${Math.round(ratio * 100)}`,
+          key: `funded-runway-${Math.round(roundedValue)}`,
           zone: "fundedRunway",
-          value,
-          yRatio: getValueRatio(value, domain),
+          value: roundedValue,
+          yRatio: getValueRatio(roundedValue, domain),
           trace: {
-            tickRatio: ratio,
-            subIncrement: ratio !== 1
+            tickStep: step,
+            incrementIndex: Math.round(roundedValue / step),
+            sharedPositiveNegativeIncrement: true
           }
         });
-      });
+      }
     }
     ticks.push({
       key: "zero",
@@ -2481,26 +2509,55 @@
       yRatio: getValueRatio(0, domain),
       baseline: true
     });
-    if (rawDeficitMax > 0) {
-      [0.5, 1].forEach(function (ratio) {
-        const value = -rawDeficitMax * ratio;
+    if (step > 0 && deficitMax > 0 && rawDeficitMax > 0) {
+      for (let value = -step; value >= -deficitMax - (step * 0.001); value -= step) {
+        const roundedValue = roundAxisValue(value);
         ticks.push({
-          key: `deficit-${Math.round(ratio * 100)}`,
+          key: `deficit-${Math.round(Math.abs(roundedValue))}`,
           zone: "deficit",
-          value,
-          rawValue: ratio === 1 ? -rawDeficitMax : null,
-          yRatio: getValueRatio(value, domain),
+          value: roundedValue,
+          rawValue: Math.abs(Math.abs(roundedValue) - rawDeficitMax) <= step * 0.5
+            ? -rawDeficitMax
+            : null,
+          yRatio: getValueRatio(roundedValue, domain),
           trace: {
-            tickRatio: ratio,
-            subIncrement: ratio !== 1,
+            tickStep: step,
+            incrementIndex: Math.round(Math.abs(roundedValue) / step),
+            sharedPositiveNegativeIncrement: true,
             rawDeficitMax,
             deficitVisualScaleCapped: false,
             continuousLinearScaleApplied: true
           }
         });
-      });
+      }
     }
     return ticks;
+  }
+
+  function getNiceContinuousAxisStep(maxMagnitude, targetSteps) {
+    const magnitude = toOptionalNumber(maxMagnitude);
+    const steps = Math.max(1, Math.floor(toOptionalNumber(targetSteps) || 4));
+    if (magnitude == null || magnitude <= 0) {
+      return 0;
+    }
+    const roughStep = magnitude / steps;
+    const power = Math.pow(10, Math.floor(Math.log10(roughStep)));
+    const normalized = roughStep / power;
+    const niceFactor = normalized <= 1
+      ? 1
+      : normalized <= 2
+        ? 2
+        : normalized <= 2.5
+          ? 2.5
+          : normalized <= 5
+            ? 5
+            : 10;
+    return roundAxisValue(niceFactor * power);
+  }
+
+  function roundAxisValue(value) {
+    const number = toOptionalNumber(value);
+    return number == null ? 0 : Math.round(number * 100) / 100;
   }
 
   function makeYTicks(domain) {
