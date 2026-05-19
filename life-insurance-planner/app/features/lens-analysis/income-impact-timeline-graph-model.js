@@ -18,10 +18,13 @@
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
   const DEATH_RELATIVE_PRE_DEATH_CONTEXT_YEARS = 5;
   const MONTHS_PER_YEAR = 12;
-  const MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = MONTHS_PER_YEAR;
+  const DAYS_PER_MONTH = 30.4375;
+  const ONE_DAY_IN_MONTHS = 1 / DAYS_PER_MONTH;
+  const ONE_WEEK_IN_MONTHS = 7 / DAYS_PER_MONTH;
+  const MIN_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = ONE_WEEK_IN_MONTHS;
   const MAX_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
   const DEPLETION_RUNWAY_TARGET_X_RATIO = 0.8;
-  const MIN_POST_DEPLETION_DISPLAY_PADDING_MONTHS = 3;
+  const MIN_POST_DEPLETION_DISPLAY_PADDING_MONTHS = 3 * ONE_DAY_IN_MONTHS;
   const MAX_POST_DEPLETION_DISPLAY_PADDING_MONTHS = 24;
   const DISPLAY_HORIZON_ROUNDING_MONTHS = 5 * MONTHS_PER_YEAR;
   const DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS = 40 * MONTHS_PER_YEAR;
@@ -120,6 +123,25 @@
     return target;
   }
 
+  function addDays(date, days) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return null;
+    }
+    const wholeDays = Math.round(toOptionalNumber(days) || 0);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + wholeDays);
+  }
+
+  function addRelativeMonths(date, months) {
+    const numericMonths = toOptionalNumber(months);
+    if (numericMonths == null) {
+      return null;
+    }
+    if (Math.abs(numericMonths) < 1) {
+      return addDays(date, numericMonths * DAYS_PER_MONTH);
+    }
+    return addMonths(date, numericMonths);
+  }
+
   function getApproximateMonthDelta(startDateValue, endDateValue) {
     const startDate = parseDateOnly(startDateValue);
     const endDate = parseDateOnly(endDateValue);
@@ -128,7 +150,7 @@
     }
     const wholeMonths = ((endDate.getFullYear() - startDate.getFullYear()) * MONTHS_PER_YEAR)
       + (endDate.getMonth() - startDate.getMonth());
-    return wholeMonths + ((endDate.getDate() - startDate.getDate()) / 30.4375);
+    return wholeMonths + ((endDate.getDate() - startDate.getDate()) / DAYS_PER_MONTH);
   }
 
   function appendUnique(target, values) {
@@ -1889,6 +1911,15 @@
     if (months == null || months <= 0) {
       return DISPLAY_HORIZON_ROUNDING_MONTHS;
     }
+    if (months <= 1) {
+      return ONE_DAY_IN_MONTHS;
+    }
+    if (months <= 3) {
+      return ONE_WEEK_IN_MONTHS;
+    }
+    if (months <= 12) {
+      return 1;
+    }
     if (months <= 60) {
       return 6;
     }
@@ -1906,7 +1937,7 @@
     if (months == null || months <= 0) {
       return DEFAULT_DEATH_RELATIVE_DISPLAY_HORIZON_MONTHS;
     }
-    const step = Math.max(toOptionalNumber(roundingMonths) || getAdaptiveDisplayHorizonRoundingMonths(months), 1);
+    const step = Math.max(toOptionalNumber(roundingMonths) || getAdaptiveDisplayHorizonRoundingMonths(months), ONE_DAY_IN_MONTHS);
     const rounded = Math.ceil(months / step) * step;
     return clampDisplayHorizonMonths(rounded);
   }
@@ -1915,6 +1946,12 @@
     const months = Math.max(toOptionalNumber(depletionMonths) || 0, 0);
     if (months <= 0) {
       return MIN_POST_DEPLETION_DISPLAY_PADDING_MONTHS;
+    }
+    if (months < 1) {
+      return Math.max(
+        MIN_POST_DEPLETION_DISPLAY_PADDING_MONTHS,
+        Math.min(ONE_WEEK_IN_MONTHS, Math.ceil(months * DAYS_PER_MONTH * 0.5) * ONE_DAY_IN_MONTHS)
+      );
     }
     return Math.max(
       MIN_POST_DEPLETION_DISPLAY_PADDING_MONTHS,
@@ -2084,7 +2121,7 @@
     const deathDate = normalizeDateOnly(safeDates.deathDate);
     const parsedDeathDate = parseDateOnly(deathDate);
     const displayHorizonEndDate = parsedDeathDate
-      ? normalizeDateOnly(addMonths(parsedDeathDate, postDeathDisplayHorizonMonths))
+      ? normalizeDateOnly(addRelativeMonths(parsedDeathDate, postDeathDisplayHorizonMonths))
       : "";
     const calculationHorizonEndDate = parsedDeathDate && calculationHorizonMonths != null
       ? normalizeDateOnly(addMonths(parsedDeathDate, calculationHorizonMonths))
@@ -2638,6 +2675,10 @@
     if (months == null) {
       return "";
     }
+    if (months < 1) {
+      const days = Math.max(1, Math.round(months * DAYS_PER_MONTH));
+      return `+${days} ${days === 1 ? "day" : "days"}`;
+    }
     if (months < MONTHS_PER_YEAR) {
       return `+${Math.round(months)} mo`;
     }
@@ -2658,7 +2699,15 @@
     }
 
     let stepMonths;
-    if (horizonMonths <= 24) {
+    if (horizonMonths <= 1) {
+      const horizonDays = Math.max(1, Math.round(horizonMonths * DAYS_PER_MONTH));
+      const stepDays = horizonDays <= 7 ? 1 : 7;
+      stepMonths = stepDays * ONE_DAY_IN_MONTHS;
+    } else if (horizonMonths <= 3) {
+      stepMonths = ONE_WEEK_IN_MONTHS;
+    } else if (horizonMonths <= 12) {
+      stepMonths = 1;
+    } else if (horizonMonths <= 24) {
       stepMonths = 6;
     } else if (horizonMonths <= 60) {
       stepMonths = MONTHS_PER_YEAR;
@@ -2676,9 +2725,10 @@
 
     const ticks = [];
     for (let month = stepMonths; month <= horizonMonths; month += stepMonths) {
-      ticks.push(month);
+      ticks.push(Number(month.toFixed(6)));
     }
-    if (horizonMonths > 0 && ticks[ticks.length - 1] !== horizonMonths) {
+    const lastTick = ticks[ticks.length - 1];
+    if (horizonMonths > 0 && (lastTick == null || Math.abs(lastTick - horizonMonths) > 0.000001)) {
       ticks.push(horizonMonths);
     }
     return ticks;
@@ -2722,7 +2772,7 @@
       if (displayHorizonMonths != null && relativeMonths > displayHorizonMonths) {
         return;
       }
-      const tickDate = addMonths(parsedDeathDate, relativeMonths);
+      const tickDate = addRelativeMonths(parsedDeathDate, relativeMonths);
       const tick = createDeathRelativeXTick({
         id: `plus-${relativeMonths}`,
         label: formatRelativeXTickLabel(relativeMonths),

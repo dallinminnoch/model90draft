@@ -343,6 +343,58 @@ assert.equal(
   fiveYearScenario.scenario.selectedDeathDate,
   "Relative death tick should retain the raw death date as metadata."
 );
+{
+  const dayScaleMonthsCovered = 1 / 30.4375;
+  const fastDepletionScenario = cloneJson(makeScenario(0));
+  fastDepletionScenario.postDeathSeries.points = [
+    {
+      date: "2026-04-30",
+      monthIndex: dayScaleMonthsCovered,
+      endingResources: -1000,
+      sourcePaths: ["layer3.points"]
+    },
+    {
+      date: "2026-05-06",
+      monthIndex: 7 / 30.4375,
+      endingResources: -25000,
+      sourcePaths: ["layer3.points"]
+    }
+  ];
+  fastDepletionScenario.postDeathSeries.depletion = {
+    depleted: true,
+    depletionDate: "2026-04-30",
+    monthsCovered: dayScaleMonthsCovered
+  };
+  fastDepletionScenario.timelineFacts.depletionDate = "2026-04-30";
+  fastDepletionScenario.timelineFacts.monthsCovered = dayScaleMonthsCovered;
+
+  const fastDepletionModel = buildIncomeImpactTimelineGraphModel({
+    scenario: fastDepletionScenario,
+    riskEvaluation: cloneJson(riskEvaluation),
+    options: {
+      preserveSignedResources: true,
+      currentAgeMode: "death-event-only"
+    }
+  });
+
+  assertApproxEqual(
+    fastDepletionModel.axes.x.displayHorizonMonths,
+    7 / 30.4375,
+    "Day-scale depletion should be allowed to shrink the x-axis horizon below one month."
+  );
+  assert.equal(fastDepletionModel.axes.x.displayHorizonEndDate, "2026-05-06");
+  assert.deepEqual(
+    cloneJson(fastDepletionModel.axes.x.ticks.map(function (tick) { return tick.label; })),
+    ["Death", "+1 day", "+2 days", "+3 days", "+4 days", "+5 days", "+6 days", "+7 days"],
+    "Sub-month display horizons should use day labels instead of rounding to months."
+  );
+  assert.ok(
+    fastDepletionModel.axes.x.ticks.every(function (tick) {
+      return tick.id === "death" || (tick.relativeMonths > 0 && tick.relativeMonths <= fastDepletionModel.axes.x.displayHorizonMonths);
+    }),
+    "Day-scale x-axis ticks should stay inside the auto-sized display horizon."
+  );
+}
 assert.ok(fiveYearModel.axes.x.ticks.every(function (tick) {
   return tick.axisMode === "deathRelativeYears" && tick.trace.rawDatePreserved === true;
 }));
