@@ -56,7 +56,8 @@
     plotHeight: 86
   });
   const COMPRESSION_DETAIL_MILESTONE_MONTHS = Object.freeze([1, 2, 3, 6, 9, 12, 24]);
-  const GRAPH_PATH_SMOOTHING_TENSION = 0.55;
+  const TREND_PATH_SIMPLIFICATION_TOLERANCE = 3.5;
+  const TREND_PATH_STRAIGHT_TOLERANCE = 0.75;
   const STABLE_GRAPH_LAYOUT_FRAME_MODE = "stableRunoutAnchoredFrame";
   const MORTGAGE_TREATMENT_LABELS = Object.freeze({
     followAssumptions: "Follow Assumption Controls",
@@ -1280,33 +1281,136 @@
       });
   }
 
-  function buildSmoothedSvgPath(plotPoints) {
+  function getTrendLineDistance(point, start, end) {
+    const numerator = Math.abs(((end.y - start.y) * point.x) - ((end.x - start.x) * point.y) + (end.x * start.y) - (end.y * start.x));
+    const denominator = Math.hypot(end.y - start.y, end.x - start.x);
+    return denominator > 0 ? numerator / denominator : 0;
+  }
+
+  function shouldRenderStraightTrendPath(points) {
+    if (!Array.isArray(points) || points.length <= 2) {
+      return true;
+    }
+
+    const start = points[0];
+    const end = points[points.length - 1];
+    return points.slice(1, -1).every(function (point) {
+      return getTrendLineDistance(point, start, end) <= TREND_PATH_STRAIGHT_TOLERANCE;
+    });
+  }
+
+  function simplifyTrendPathPoints(points, tolerance = TREND_PATH_SIMPLIFICATION_TOLERANCE) {
+    const sourcePoints = Array.isArray(points) ? points : [];
+    if (sourcePoints.length <= 2) {
+      return sourcePoints;
+    }
+
+    const keepIndexes = new Set([0, sourcePoints.length - 1]);
+    function simplifyRange(startIndex, endIndex) {
+      const start = sourcePoints[startIndex];
+      const end = sourcePoints[endIndex];
+      let farthestIndex = -1;
+      let farthestDistance = 0;
+
+      for (let index = startIndex + 1; index < endIndex; index += 1) {
+        const distance = getTrendLineDistance(sourcePoints[index], start, end);
+        if (distance > farthestDistance) {
+          farthestDistance = distance;
+          farthestIndex = index;
+        }
+      }
+
+      if (farthestIndex >= 0 && farthestDistance > tolerance) {
+        keepIndexes.add(farthestIndex);
+        simplifyRange(startIndex, farthestIndex);
+        simplifyRange(farthestIndex, endIndex);
+      }
+    }
+
+    simplifyRange(0, sourcePoints.length - 1);
+    return sourcePoints.filter(function (_point, index) {
+      return keepIndexes.has(index);
+    });
+  }
+
+  function getTrendSegmentSlope(left, right) {
+    const width = right.x - left.x;
+    if (!Number.isFinite(width) || Math.abs(width) < 0.000001) {
+      return null;
+    }
+    return (right.y - left.y) / width;
+  }
+
+  function buildTrendPathTangents(points) {
+    const segmentWidths = [];
+    const segmentSlopes = [];
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const width = points[index + 1].x - points[index].x;
+      segmentWidths.push(width);
+      segmentSlopes.push(getTrendSegmentSlope(points[index], points[index + 1]));
+    }
+
+    return points.map(function (_point, index) {
+      if (index === 0) {
+        return segmentSlopes[0] ?? 0;
+      }
+      if (index === points.length - 1) {
+        return segmentSlopes[segmentSlopes.length - 1] ?? 0;
+      }
+
+      const previousSlope = segmentSlopes[index - 1];
+      const nextSlope = segmentSlopes[index];
+      if (
+        previousSlope == null
+        || nextSlope == null
+        || previousSlope === 0
+        || nextSlope === 0
+        || Math.sign(previousSlope) !== Math.sign(nextSlope)
+      ) {
+        return 0;
+      }
+
+      const previousWidth = Math.abs(segmentWidths[index - 1]);
+      const nextWidth = Math.abs(segmentWidths[index]);
+      const firstWeight = (2 * nextWidth) + previousWidth;
+      const secondWeight = nextWidth + (2 * previousWidth);
+      const denominator = (firstWeight / previousSlope) + (secondWeight / nextSlope);
+      const tangent = denominator === 0 ? 0 : (firstWeight + secondWeight) / denominator;
+      return Number.isFinite(tangent) ? tangent : 0;
+    });
+  }
+
+  function buildTrendSvgPath(plotPoints) {
     const points = Array.isArray(plotPoints) ? plotPoints : [];
     if (points.length < 2) {
       return "";
     }
-    const commands = [`M${formatSvgCoordinate(points[0].x)} ${formatSvgCoordinate(points[0].y)}`];
-    if (points.length === 2) {
-      commands.push(`L${formatSvgCoordinate(points[1].x)} ${formatSvgCoordinate(points[1].y)}`);
-      return commands.join(" ");
+    const trendPoints = simplifyTrendPathPoints(points);
+    if (shouldRenderStraightTrendPath(trendPoints)) {
+      return buildLinearSvgPath(trendPoints);
     }
 
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const previous = points[index - 1] || points[index];
-      const current = points[index];
-      const next = points[index + 1];
-      const afterNext = points[index + 2] || next;
+    const tangents = buildTrendPathTangents(trendPoints);
+    const commands = [`M${formatSvgCoordinate(trendPoints[0].x)} ${formatSvgCoordinate(trendPoints[0].y)}`];
+    for (let index = 0; index < trendPoints.length - 1; index += 1) {
+      const current = trendPoints[index];
+      const next = trendPoints[index + 1];
+      const width = next.x - current.x;
+      if (!Number.isFinite(width) || Math.abs(width) < 0.000001) {
+        commands.push(`L${formatSvgCoordinate(next.x)} ${formatSvgCoordinate(next.y)}`);
+        continue;
+      }
       const minX = Math.min(current.x, next.x);
       const maxX = Math.max(current.x, next.x);
       const minY = Math.min(current.y, next.y);
       const maxY = Math.max(current.y, next.y);
       const cp1 = {
-        x: clampNumber(current.x + (((next.x - previous.x) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minX, maxX),
-        y: clampNumber(current.y + (((next.y - previous.y) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minY, maxY)
+        x: clampNumber(current.x + (width / 3), minX, maxX),
+        y: clampNumber(current.y + ((tangents[index] * width) / 3), minY, maxY)
       };
       const cp2 = {
-        x: clampNumber(next.x - (((afterNext.x - current.x) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minX, maxX),
-        y: clampNumber(next.y - (((afterNext.y - current.y) * GRAPH_PATH_SMOOTHING_TENSION) / 6), minY, maxY)
+        x: clampNumber(next.x - (width / 3), minX, maxX),
+        y: clampNumber(next.y - ((tangents[index + 1] * width) / 3), minY, maxY)
       };
       commands.push([
         "C",
@@ -1362,10 +1466,7 @@
     if (normalizedPathMode === "step") {
       return buildStepSvgPath(plotPoints);
     }
-    if (normalizedPathMode === "linear") {
-      return buildLinearSvgPath(plotPoints);
-    }
-    return buildSmoothedSvgPath(plotPoints);
+    return buildTrendSvgPath(plotPoints);
   }
 
   function buildDeficitAreaSvgPath(points, zeroYRatio, graphModel = null) {
@@ -1414,7 +1515,7 @@
     const plotPoints = makePlotPoints(points, yRatioKey, GRAPH_DETAIL_VIEW_BOX);
     return normalizeGraphPathMode(pathMode) === "step"
       ? buildStepSvgPath(plotPoints)
-      : buildSmoothedSvgPath(plotPoints);
+      : buildTrendSvgPath(plotPoints);
   }
 
   function roundAxisTickToNearestFiveThousand(value) {
@@ -1651,9 +1752,7 @@
     const normalizedPathMode = normalizeGraphPathMode(pathMode);
     const trendlinePath = normalizedPathMode === "step"
       ? buildStepSvgPath(plotPoints)
-      : normalizedPathMode === "linear"
-        ? buildLinearSvgPath(plotPoints)
-        : buildSmoothedSvgPath(plotPoints);
+      : buildTrendSvgPath(plotPoints);
     if (!trendlinePath) {
       return "";
     }
@@ -3922,34 +4021,98 @@
     `;
   }
 
+  function resolveGraphMonthXRatio(graphModel, monthIndex) {
+    const month = toOptionalNumber(monthIndex);
+    if (month == null) {
+      return null;
+    }
+
+    if (getStableGraphLayoutFrame(graphModel)) {
+      return getLayoutFrameXRatio(graphModel, null, { monthIndex: month });
+    }
+
+    const ticks = Array.isArray(graphModel?.axes?.x?.ticks)
+      ? graphModel.axes.x.ticks
+        .map(function (tick) {
+          return {
+            month: getLayoutFramePointMonth(tick),
+            xRatio: toOptionalNumber(tick?.xRatio)
+          };
+        })
+        .filter(function (tick) {
+          return tick.month != null && tick.xRatio != null;
+        })
+        .sort(function (left, right) {
+          return left.month - right.month;
+        })
+      : [];
+
+    const exactTick = ticks.find(function (tick) {
+      return Math.abs(tick.month - month) <= 0.000001;
+    });
+    if (exactTick) {
+      return exactTick.xRatio;
+    }
+
+    const lowerTick = ticks.filter(function (tick) {
+      return tick.month <= month;
+    }).pop();
+    const upperTick = ticks.find(function (tick) {
+      return tick.month >= month;
+    });
+    if (lowerTick && upperTick && upperTick.month > lowerTick.month) {
+      return clampNumber(
+        lowerTick.xRatio + (((month - lowerTick.month) / (upperTick.month - lowerTick.month)) * (upperTick.xRatio - lowerTick.xRatio)),
+        0,
+        1
+      );
+    }
+
+    return toOptionalNumber(graphModel?.phases?.deathEvent?.xRatio ?? graphModel?.axes?.x?.deathXRatio);
+  }
+
+  function resolveGraphMonthX(graphModel, monthIndex) {
+    const month = toOptionalNumber(monthIndex);
+    const xRatio = resolveGraphMonthXRatio(graphModel, month);
+    return toGraphX(xRatio, graphModel, { monthIndex: month });
+  }
+
   function renderGraphTransitionOutlookAnnotation(timelineResult, graphModel) {
     const outlook = getTransitionOutlook(timelineResult);
     const status = normalizeTransitionOutlookStatus(outlook?.status);
     const label = getTransitionOutlookCompactLabel(outlook?.status);
     const frame = getGraphPlotFrame(graphModel);
     const lineY = frame.plotTop + 20;
-    const labelY = lineY - 2;
+    const labelY = lineY + 4;
     const labelWidth = Math.max(70, Math.min(132, (label.length * 7.2) + 24));
     const labelHeight = 24;
-    const labelX = frame.plotLeft + (frame.plotWidth / 2);
-    const lineInset = 18;
+    const windowMonths = Math.max(1, toOptionalNumber(outlook?.windowMonths) ?? 3);
+    const lineStartX = resolveGraphMonthX(graphModel, 0);
+    const lineEndX = Math.max(lineStartX, resolveGraphMonthX(graphModel, windowMonths));
+    const labelGap = 8;
+    const labelX = clampNumber(
+      lineEndX + labelGap + (labelWidth / 2),
+      frame.plotLeft + (labelWidth / 2),
+      frame.plotRight - (labelWidth / 2)
+    );
     return `
       <g class="income-impact-transition-outlook-annotation"
         data-income-impact-transition-outlook-graph-annotation
         data-income-impact-transition-outlook-status="${escapeHtml(status)}"
+        data-income-impact-transition-outlook-window-months="${escapeHtml(windowMonths)}"
         aria-label="90-Day Transition Outlook: ${escapeHtml(label)}">
         <line
           class="income-impact-transition-outlook-annotation__line"
           data-income-impact-transition-outlook-annotation-line
-          x1="${formatSvgCoordinate(frame.plotLeft + lineInset)}"
-          x2="${formatSvgCoordinate(frame.plotRight - lineInset)}"
+          x1="${formatSvgCoordinate(lineStartX)}"
+          x2="${formatSvgCoordinate(lineEndX)}"
           y1="${formatSvgCoordinate(lineY)}"
           y2="${formatSvgCoordinate(lineY)}"></line>
         <rect
           class="income-impact-transition-outlook-annotation__label-shell"
           data-income-impact-transition-outlook-annotation-label-shell
           x="${formatSvgCoordinate(labelX - (labelWidth / 2))}"
-          y="${formatSvgCoordinate(labelY - labelHeight + 4)}"
+          y="${formatSvgCoordinate(lineY - (labelHeight / 2))}"
           width="${formatSvgCoordinate(labelWidth)}"
           height="${formatSvgCoordinate(labelHeight)}"
           rx="6"></rect>
@@ -3957,7 +4120,7 @@
           class="income-impact-transition-outlook-annotation__label"
           data-income-impact-transition-outlook-annotation-label
           x="${formatSvgCoordinate(labelX)}"
-          y="${formatSvgCoordinate(labelY - 4)}"
+          y="${formatSvgCoordinate(labelY)}"
           text-anchor="middle">${escapeHtml(label)}</text>
       </g>
     `;

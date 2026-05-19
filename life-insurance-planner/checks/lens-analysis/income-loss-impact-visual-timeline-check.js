@@ -663,8 +663,11 @@ assert.match(displaySource, /income-impact-lifestyle-impact-readout__stat/);
 assert.match(displaySource, /income-impact-lifestyle-impact-readout__status/);
 assert.match(displaySource, /aria-label="\$\{escapeHtml\(model\.monthlyCopy\)\}"/);
 assert.match(displaySource, /aria-label="\$\{escapeHtml\(model\.detail\)\}"/);
-assert.match(displaySource, /GRAPH_PATH_SMOOTHING_TENSION/);
-assert.match(displaySource, /buildSmoothedSvgPath/);
+assert.match(displaySource, /TREND_PATH_SIMPLIFICATION_TOLERANCE/);
+assert.match(displaySource, /TREND_PATH_STRAIGHT_TOLERANCE/);
+assert.match(displaySource, /simplifyTrendPathPoints/);
+assert.match(displaySource, /buildTrendSvgPath/);
+assert.match(displaySource, /buildTrendPathTangents/);
 assert.match(displaySource, /clampNumber/);
 assert.match(displaySource, /shouldRenderComparisonMarkerLabel/);
 assert.doesNotMatch(displaySource, /fakeOffset|visualOffset|artificialVisualOffset/);
@@ -903,7 +906,24 @@ assert.match(timelineHtml, /data-income-impact-transition-outlook-graph-annotati
 assert.match(timelineHtml, /data-income-impact-transition-outlook-status="stable"/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-line/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-label/);
+assert.match(timelineHtml, /data-income-impact-transition-outlook-window-months="3"/);
 assert.match(timelineHtml, />Stable<\/text>/);
+const transitionOutlookLineTag = getSvgTag(timelineHtml, "line", "data-income-impact-transition-outlook-annotation-line");
+const transitionOutlookLineStartX = getSvgNumericAttribute(transitionOutlookLineTag, "x1");
+const transitionOutlookLineEndX = getSvgNumericAttribute(transitionOutlookLineTag, "x2");
+assert.ok(
+  transitionOutlookLineEndX > transitionOutlookLineStartX,
+  "Transition Outlook annotation line should span forward from death."
+);
+assert.ok(
+  transitionOutlookLineEndX - transitionOutlookLineStartX < 50,
+  "Transition Outlook annotation line should stay scoped to the 3-month graph window instead of the full plot."
+);
+const transitionOutlookLabelShellTag = getSvgTag(timelineHtml, "rect", "data-income-impact-transition-outlook-annotation-label-shell");
+assert.ok(
+  getSvgNumericAttribute(transitionOutlookLabelShellTag, "x") >= transitionOutlookLineEndX + 6,
+  "Transition Outlook status chip should sit to the right of the 3-month annotation line."
+);
 assert.doesNotMatch(timelineHtml, /data-income-impact-transition-band|data-income-impact-transition-window|data-income-impact-transition-slider|Transition period after death|transitionPeriodMonths|transitionBridge|flatBridge|not-modeled-v1/);
 assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-death-event-bridge/);
@@ -1142,7 +1162,7 @@ assert.match(timelineHtml, /data-income-impact-graph-callout="resources-after-ob
 assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-impact-runway-line/);
 const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources");
-assert.match(basePostDeathPath, /^M[^"]*\sC\s/, "Base post-death path should render with deterministic cubic smoothing.");
+assert.match(basePostDeathPath, /^M[^"]*\s(?:C\s|L[0-9.-])/, "Base post-death path should render with deterministic trend geometry.");
 assert.match(timelineHtml, /data-income-impact-graph-hover-layer/);
 const baseHoverGridLineCount = (timelineHtml.match(/data-income-impact-graph-hover-grid-line(?:\s|>)/g) || []).length;
 const baseHoverIntervalCount = (timelineHtml.match(/data-income-impact-graph-hover-interval(?:\s|>)/g) || []).length;
@@ -2078,8 +2098,8 @@ const repeatedComparisonTimelineHtml = harness.renderTimeline({
 });
 const immediatePath = getPathD(comparisonTimelineHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
 const repeatedImmediatePath = getPathD(repeatedComparisonTimelineHtml, "data-income-impact-graph-path", "lifestyle-post-death-resources");
-assert.match(immediatePath, /^M[^"]*\sL[0-9.-]/, "Lifestyle comparison path should render as truthful straight segments.");
-assert.equal(immediatePath, repeatedImmediatePath, "Linear comparison path output should be deterministic.");
+assert.match(immediatePath, /^M[^"]*\s(?:C\s|L[0-9.-])/, "Lifestyle comparison path should render with deterministic trend geometry.");
+assert.equal(immediatePath, repeatedImmediatePath, "Trend comparison path output should be deterministic.");
 assert.equal(
   (comparisonTimelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
   (timelineHtml.match(/data-income-impact-graph-marker/g) || []).length,
