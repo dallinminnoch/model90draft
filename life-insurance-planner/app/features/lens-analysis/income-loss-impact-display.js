@@ -4358,8 +4358,24 @@
     `;
   }
 
+  function renderPlanningAlertsInbox() {
+    return `
+      <section class="income-impact-alert-inbox" data-income-impact-alert-inbox aria-label="Planning alerts">
+        <div class="income-impact-alert-inbox__header">
+          <span>Planning Alerts</span>
+          <strong>Inbox</strong>
+        </div>
+        <div class="income-impact-alert-inbox__empty" data-income-impact-alert-inbox-empty>
+          <span>No active alerts</span>
+          <p>Warnings and review notes will appear here when assumptions need attention.</p>
+        </div>
+      </section>
+    `;
+  }
+
   function renderResourceOutlookPanel(timelineResult) {
     return `
+      ${renderPlanningAlertsInbox()}
       <section class="income-impact-resource-outlook" data-income-impact-resource-outlook>
         <div class="income-impact-resource-outlook__header">
           <span>Resource Outlook</span>

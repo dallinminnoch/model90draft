@@ -333,12 +333,13 @@ assert.match(pageSource, /Preview only &mdash; LENS recommendation unchanged\./)
 assert.match(pageSource, /<p>Adjust the selected scenario\.<\/p>/);
 assert.match(pageSource, /data-income-impact-controls-layout/);
 assert.match(pageSource, /data-income-impact-controls-panel/);
-assert.match(workspaceSideNavSource, /body\.dataset\.step === "income-impact"[\s\S]*topbarInner\.insertBefore\(trail,\s*topbarActions \|\| null\);/);
+assert.doesNotMatch(workspaceSideNavSource, /body\.dataset\.step === "income-impact"[\s\S]*topbarInner\.insertBefore\(trail,\s*topbarActions \|\| null\);/);
+assert.match(workspaceSideNavSource, /topbarInner\.insertBefore\(trail,\s*topbarActions \|\| null\);/);
 assert.match(workspaceSideNavSource, /document\.querySelector\("\[data-lens-workflow-trail-banner\]"\)\?\.remove\(\);/);
 assert.match(workspaceSideNavSource, /document\.querySelector\("\[data-lens-workflow-trail\]"\)\?\.remove\(\);/);
 assert.match(
   componentsSource,
-  /body\[data-step="income-impact"\] \.workspace-page-topbar \.lens-workflow-trail[\s\S]*height:\s*100%;[\s\S]*flex:\s*1 1 auto;/,
+  /\.workspace-page-topbar \.lens-workflow-trail[\s\S]*height:\s*100%;[\s\S]*flex:\s*1 1 auto;/,
   "Income Impact should render the LENS workflow trail inside the navigation bar instead of a separate banner."
 );
 assert.match(
@@ -361,7 +362,11 @@ assert.match(displaySource, /renderTopSummaryStrip/);
 assert.match(displaySource, /data-income-impact-summary-strip/);
 assert.match(displaySource, /renderResourceOutlookPanel/);
 assert.match(displaySource, /syncResourceOutlookPanel/);
+assert.match(displaySource, /renderPlanningAlertsInbox/);
+assert.match(displaySource, /data-income-impact-alert-inbox/);
+assert.match(displaySource, /data-income-impact-alert-inbox-empty/);
 assert.match(displaySource, /data-income-impact-resource-outlook/);
+assert.match(componentsSource, /\.income-impact-alert-inbox\s*\{[\s\S]*height:\s*15rem;[\s\S]*overflow-y:\s*auto;/);
 assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
 assert.match(displaySource, /data-income-impact-depletion-story/);
 assert.match(displaySource, /data-income-impact-depletion-story-empty/);
@@ -2251,6 +2256,14 @@ assert.doesNotMatch(unavailableHtml, /data-income-impact-graph-svg/);
 const host = { innerHTML: "" };
 harness.renderIncomeImpact(host, { timelineResult: fixture });
 assert.match(host.innerHTML, /data-income-impact-summary-strip/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /data-income-impact-alert-inbox/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /Planning Alerts/);
+assert.match(harness.resourceOutlookPanel.innerHTML, /No active alerts/);
+assert.ok(
+  harness.resourceOutlookPanel.innerHTML.indexOf("data-income-impact-alert-inbox") <
+  harness.resourceOutlookPanel.innerHTML.indexOf("data-income-impact-resource-outlook"),
+  "Planning alerts inbox should render above Resource Outlook."
+);
 assert.match(harness.resourceOutlookPanel.innerHTML, /data-income-impact-resource-outlook/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /Resource Outlook/);
 assert.match(harness.resourceOutlookPanel.innerHTML, /90-Day Transition Outlook/);
