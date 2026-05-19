@@ -1371,6 +1371,31 @@
     return Math.round(frame.plotTop + ((stableRatio == null ? 0 : stableRatio) * frame.plotHeight));
   }
 
+  function isZeroValuePathPoint(point) {
+    const value = toOptionalNumber(getSeriesPointValue(point));
+    return value != null && Math.abs(value) <= 0.000001;
+  }
+
+  function toGraphXForPath(xRatio, graphModel = null, point = null) {
+    if (isZeroValuePathPoint(point)) {
+      return toGraphX(xRatio, graphModel, point);
+    }
+    const ratio = toOptionalNumber(xRatio);
+    const frame = getGraphPlotFrame(graphModel);
+    const stableRatio = getLayoutFrameXRatio(graphModel, ratio, point);
+    return frame.plotLeft + ((stableRatio == null ? 0 : stableRatio) * frame.plotWidth);
+  }
+
+  function toGraphYForPath(yRatio, graphModel = null, point = null) {
+    if (isZeroValuePathPoint(point)) {
+      return toGraphY(yRatio, graphModel, point);
+    }
+    const ratio = toOptionalNumber(yRatio);
+    const frame = getGraphPlotFrame(graphModel);
+    const stableRatio = getLayoutFrameYRatio(graphModel, ratio, point);
+    return frame.plotTop + ((stableRatio == null ? 0 : stableRatio) * frame.plotHeight);
+  }
+
   function toPlotX(xRatio, viewBox) {
     const ratio = toOptionalNumber(xRatio);
     return viewBox.plotLeft + ((ratio == null ? 0 : ratio) * viewBox.plotWidth);
@@ -1397,8 +1422,9 @@
     return Math.max(min, Math.min(max, value));
   }
 
-  function makePlotPoints(points, yRatioKey, viewBox, graphModel = null) {
+  function makePlotPoints(points, yRatioKey, viewBox, graphModel = null, options = {}) {
     const key = String(yRatioKey || "yRatio");
+    const preservePathPrecision = options?.preservePathPrecision === true;
     return (Array.isArray(points) ? points : [])
       .filter(function (point) {
         return toOptionalNumber(point?.xRatio) != null && toOptionalNumber(point?.[key]) != null;
@@ -1406,8 +1432,8 @@
       .map(function (point) {
         if (viewBox === GRAPH_VIEW_BOX && getStableGraphLayoutFrame(graphModel)) {
           return {
-            x: toGraphX(point.xRatio, graphModel, point),
-            y: toGraphY(point[key], graphModel, point)
+            x: preservePathPrecision ? toGraphXForPath(point.xRatio, graphModel, point) : toGraphX(point.xRatio, graphModel, point),
+            y: preservePathPrecision ? toGraphYForPath(point[key], graphModel, point) : toGraphY(point[key], graphModel, point)
           };
         }
         return {
@@ -1597,7 +1623,7 @@
   }
 
   function buildSvgPath(points, pathMode = "smooth", graphModel = null) {
-    const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX, graphModel);
+    const plotPoints = makePlotPoints(points, "yRatio", GRAPH_VIEW_BOX, graphModel, { preservePathPrecision: true });
     const normalizedPathMode = normalizeGraphPathMode(pathMode);
     if (normalizedPathMode === "step") {
       return buildStepSvgPath(plotPoints);
@@ -1619,7 +1645,7 @@
     const pathPoints = firstClippedIndex >= 0
       ? sourcePoints.slice(0, firstClippedIndex + 1)
       : sourcePoints;
-    const plotPoints = makePlotPoints(pathPoints, "yRatio", GRAPH_VIEW_BOX, graphModel);
+    const plotPoints = makePlotPoints(pathPoints, "yRatio", GRAPH_VIEW_BOX, graphModel, { preservePathPrecision: true });
     if (zeroRatio == null || plotPoints.length < 2) {
       return "";
     }
