@@ -6333,22 +6333,35 @@
     return toOptionalNumber(point?.value ?? point?.endingResources ?? point?.availableResources);
   }
 
-  function mapSurvivorDiagnosticGraphPoint(point) {
+  function mapSurvivorDiagnosticGraphPoint(point, graphModel = null) {
     return {
       monthIndex: toOptionalNumber(point?.monthIndex),
+      rawMonthIndex: toOptionalNumber(point?.rawMonthIndex),
+      visualMonthIndex: toOptionalNumber(point?.visualMonthIndex),
+      visualMonthOffset: toOptionalNumber(point?.visualMonthOffset),
+      visualDepletionMonth: toOptionalNumber(point?.visualDepletionMonth),
+      transitionPeriodMonths: toOptionalNumber(point?.transitionPeriodMonths),
+      transitionBridge: point?.transitionBridge === true,
+      transitionBridgeMode: normalizeString(point?.transitionBridgeMode) || null,
+      xRatio: toOptionalNumber(point?.xRatio),
+      yRatio: toOptionalNumber(point?.yRatio),
+      x: graphModel && toOptionalNumber(point?.xRatio) != null ? toGraphX(point.xRatio, graphModel, point) : null,
+      y: graphModel && toOptionalNumber(point?.yRatio) != null ? toGraphY(point.yRatio, graphModel, point) : null,
       value: getGraphPointValue(point),
       endingResources: toOptionalNumber(point?.endingResources),
       availableResources: toOptionalNumber(point?.availableResources)
     };
   }
 
-  function pickSurvivorDiagnosticGraphPoints(points, limit) {
+  function pickSurvivorDiagnosticGraphPoints(points, limit, graphModel = null) {
     return (Array.isArray(points) ? points : [])
       .slice(0, Math.max(toOptionalNumber(limit) || 24, 0))
-      .map(mapSurvivorDiagnosticGraphPoint);
+      .map(function (point) {
+        return mapSurvivorDiagnosticGraphPoint(point, graphModel);
+      });
   }
 
-  function pickSurvivorDiagnosticGraphPointWindow(points, centerMonth, monthsBefore, monthsAfter) {
+  function pickSurvivorDiagnosticGraphPointWindow(points, centerMonth, monthsBefore, monthsAfter, graphModel = null) {
     const center = toOptionalNumber(centerMonth);
     if (center == null) {
       return [];
@@ -6360,10 +6373,12 @@
         const monthIndex = toOptionalNumber(point?.monthIndex) ?? index + 1;
         return monthIndex >= startMonth && monthIndex <= endMonth;
       })
-      .map(mapSurvivorDiagnosticGraphPoint);
+      .map(function (point) {
+        return mapSurvivorDiagnosticGraphPoint(point, graphModel);
+      });
   }
 
-  function summarizeSurvivorDiagnosticComparisonGraphSeries(series, primaryFirstValue, primaryLastValue, delayMonths) {
+  function summarizeSurvivorDiagnosticComparisonGraphSeries(series, primaryFirstValue, primaryLastValue, delayMonths, graphModel = null) {
     const points = Array.isArray(series?.points) ? series.points : [];
     const firstPoint = points[0] || null;
     const lastPoint = points.length ? points[points.length - 1] : null;
@@ -6374,11 +6389,51 @@
       pathId: series?.pathId || null,
       label: series?.label || null,
       pointCount: points.length,
-      pointsSample: pickSurvivorDiagnosticGraphPoints(points, 24),
-      pointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(points, delayMonths, 2, 6),
+      pathMode: normalizeGraphPathMode(series?.pathMode),
+      pathD: buildSvgPath(points, normalizeGraphPathMode(series?.pathMode), graphModel),
+      pointsSample: pickSurvivorDiagnosticGraphPoints(points, 24, graphModel),
+      pointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(points, delayMonths, 2, 6, graphModel),
       firstPointValue,
       lastPointValue,
       lineValuesDifferFromPrimary: firstPointValue !== primaryFirstValue || lastPointValue !== primaryLastValue
+    };
+  }
+
+  function prepareSurvivorDiagnosticRunwaySeries(graphModel) {
+    return (Array.isArray(graphModel?.series?.appliedRunwayScenarios)
+      ? graphModel.series.appliedRunwayScenarios
+      : [])
+      .map(function (series, index) {
+        return Object.assign({}, series, {
+          pathId: normalizeString(series?.pathId) || (index === 0
+            ? POST_DEATH_RESOURCES_PATH_ID
+            : `${POST_DEATH_RESOURCES_PATH_ID}--scenario-${index + 1}`),
+          points: Array.isArray(series?.fundedRunwayPoints) ? series.fundedRunwayPoints : [],
+          pathMode: normalizeGraphPathMode(series?.pathMode),
+          diagnosticRenderSource: "appliedRunwayScenarios.fundedRunwayPoints"
+        });
+      })
+      .filter(function (series) {
+        return isPlainObject(series);
+      });
+  }
+
+  function summarizeSurvivorDiagnosticTransitionBridge(graphModel) {
+    const bridgePoints = Array.isArray(graphModel?.series?.transitionBridgePoints)
+      ? graphModel.series.transitionBridgePoints
+      : [];
+    const mappedPoints = pickSurvivorDiagnosticGraphPoints(bridgePoints, bridgePoints.length || 2, graphModel);
+    const firstBridgePoint = mappedPoints[0] || null;
+    const lastBridgePoint = mappedPoints.length ? mappedPoints[mappedPoints.length - 1] : null;
+    return {
+      pointCount: bridgePoints.length,
+      points: mappedPoints,
+      startX: toOptionalNumber(firstBridgePoint?.x),
+      endX: toOptionalNumber(lastBridgePoint?.x),
+      visible: bridgePoints.length >= 2
+        && toOptionalNumber(firstBridgePoint?.x) != null
+        && toOptionalNumber(lastBridgePoint?.x) != null
+        && toOptionalNumber(firstBridgePoint?.x) !== toOptionalNumber(lastBridgePoint?.x)
     };
   }
 
@@ -6387,32 +6442,69 @@
     const postDeathPoints = Array.isArray(series.postDeathResources) ? series.postDeathResources : [];
     const appliedSeries = Array.isArray(series.appliedPostDeathResources) ? series.appliedPostDeathResources : [];
     const comparisonSeries = Array.isArray(series.comparisonPostDeathResources) ? series.comparisonPostDeathResources : [];
+    const runwaySeries = prepareSurvivorDiagnosticRunwaySeries(graphModel);
+    const selectedRunway = runwaySeries.find(function (row) {
+      return row?.selected === true;
+    }) || runwaySeries[0] || null;
     const selectedApplied = appliedSeries.find(function (row) {
       return row?.selected === true;
     }) || appliedSeries[0] || null;
     const selectedPoints = Array.isArray(selectedApplied?.points) ? selectedApplied.points : [];
-    const primaryPoints = selectedPoints.length ? selectedPoints : postDeathPoints;
+    const selectedRunwayPoints = Array.isArray(selectedRunway?.points) ? selectedRunway.points : [];
+    const primaryPoints = selectedRunwayPoints.length ? selectedRunwayPoints : (selectedPoints.length ? selectedPoints : postDeathPoints);
+    const primaryPathMode = normalizeGraphPathMode(selectedRunway?.pathMode || selectedApplied?.pathMode);
     const firstPoint = primaryPoints[0] || null;
     const lastPoint = primaryPoints.length ? primaryPoints[primaryPoints.length - 1] : null;
+    const primaryFirstValue = getGraphPointValue(firstPoint);
+    const primaryLastValue = getGraphPointValue(lastPoint);
+    const bridgeSummary = summarizeSurvivorDiagnosticTransitionBridge(graphModel);
 
     return {
       status: graphModel?.status || null,
+      transitionPeriod: isPlainObject(graphModel?.transitionPeriod) ? clonePlainValue(graphModel.transitionPeriod) : null,
+      layoutFrame: isPlainObject(graphModel?.layoutFrame) ? clonePlainValue(graphModel.layoutFrame) : null,
       primaryPointCount: primaryPoints.length,
-      firstPointValue: getGraphPointValue(firstPoint),
-      lastPointValue: getGraphPointValue(lastPoint),
+      primaryRenderSource: selectedRunwayPoints.length
+        ? "appliedRunwayScenarios.fundedRunwayPoints"
+        : (selectedPoints.length ? "appliedPostDeathResources.points" : "postDeathResources"),
+      primaryPathId: selectedRunway?.pathId || graphModel?.trace?.selectedAppliedScenarioPathId || selectedApplied?.pathId || null,
+      primaryPathMode,
+      primaryPathD: buildSvgPath(primaryPoints, primaryPathMode, graphModel),
+      firstRenderedGraphPoints: pickSurvivorDiagnosticGraphPoints(primaryPoints, 8, graphModel),
+      renderedGraphPointsSample: pickSurvivorDiagnosticGraphPoints(primaryPoints, 24, graphModel),
+      renderedGraphPointsAroundDelay: pickSurvivorDiagnosticGraphPointWindow(primaryPoints, delayMonths, 2, 6, graphModel),
+      transitionBridgeStartX: bridgeSummary.startX,
+      transitionBridgeEndX: bridgeSummary.endX,
+      transitionBridgeVisible: bridgeSummary.visible,
+      transitionBridgePoints: bridgeSummary.points,
+      firstPointValue: primaryFirstValue,
+      lastPointValue: primaryLastValue,
       selectedAppliedScenarioPathId: graphModel?.trace?.selectedAppliedScenarioPathId || selectedApplied?.pathId || null,
       renderedAppliedScenarioCount: toOptionalNumber(graphModel?.trace?.renderedAppliedScenarioCount),
       appliedScenarioPathsEnabled: graphModel?.trace?.appliedScenarioPathsEnabled === true,
-      comparisonScenarioIds: comparisonSeries.map(function (row) {
+      appliedRunwayScenarioCount: runwaySeries.length,
+      appliedRunwayScenarioIds: runwaySeries.map(function (row) {
         return row?.scenarioId || row?.pathId || null;
       }).filter(Boolean),
-      comparisonScenarioCount: comparisonSeries.length,
-      comparisonScenarios: comparisonSeries.map(function (row) {
+      comparisonScenarioIds: (runwaySeries.length
+        ? runwaySeries.filter(function (row) {
+          return row !== selectedRunway;
+        })
+        : comparisonSeries).map(function (row) {
+        return row?.scenarioId || row?.pathId || null;
+      }).filter(Boolean),
+      comparisonScenarioCount: runwaySeries.length ? Math.max(runwaySeries.length - 1, 0) : comparisonSeries.length,
+      comparisonScenarios: (runwaySeries.length
+        ? runwaySeries.filter(function (row) {
+          return row !== selectedRunway;
+        })
+        : comparisonSeries).map(function (row) {
         return summarizeSurvivorDiagnosticComparisonGraphSeries(
           row,
-          getGraphPointValue(firstPoint),
-          getGraphPointValue(lastPoint),
-          delayMonths
+          primaryFirstValue,
+          primaryLastValue,
+          delayMonths,
+          graphModel
         );
       })
     };

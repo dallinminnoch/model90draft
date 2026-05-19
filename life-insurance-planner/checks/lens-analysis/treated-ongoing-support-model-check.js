@@ -302,7 +302,20 @@ function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
     && diff.includes("netUseAfterDelay")
     && diff.includes("endingResourcesAfterDelay");
   const diagnosticLifestyleShapeDiff = diff.includes("lifestyleComparison: clonePlainValue(currentRendered.lifestyleComparison || { active: false })");
-  return originalDiagnosticDiff || diagnosticDepthDiff || diagnosticLifestyleComparisonDiff || diagnosticLifestyleShapeDiff;
+  const diagnosticRenderedCoordinateDiff = diff.includes("primaryRenderSource")
+    && diff.includes("appliedRunwayScenarios.fundedRunwayPoints")
+    && diff.includes("primaryPathD")
+    && diff.includes("firstRenderedGraphPoints")
+    && diff.includes("transitionBridgeStartX")
+    && diff.includes("transitionBridgeEndX")
+    && diff.includes("transitionBridgeVisible")
+    && diff.includes("rawMonthIndex")
+    && diff.includes("visualMonthIndex");
+  return originalDiagnosticDiff
+    || diagnosticDepthDiff
+    || diagnosticLifestyleComparisonDiff
+    || diagnosticLifestyleShapeDiff
+    || diagnosticRenderedCoordinateDiff;
 }
 
 function isAllowedIncomeLossImpactLayoutFrameRendererConsumption() {
