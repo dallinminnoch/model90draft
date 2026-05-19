@@ -229,6 +229,15 @@ assert.ok(result.majorStoryCandidates.length <= 6);
 assert.ok(result.majorGraphDotCandidates.length <= 6);
 assert.ok(result.microGraphDotCandidates.length <= 10);
 assert.ok(result.graphDotCandidates.length <= 16);
+assert.equal(result.allCandidates.length, 44);
+assert.equal(result.safeRenderableEvents.length, 14);
+assert.equal(result.majorStoryCandidates.length, 4);
+assert.equal(result.graphDotCandidates.length, 5);
+assert.equal(result.trace.safeRenderableCount, result.safeRenderableEvents.length);
+assert.equal(result.trace.majorStoryCandidateLimit, 6);
+assert.equal(result.trace.graphDotCandidateLimit, 16);
+assert.deepEqual(result.trace.selectedMajorCandidateIds, ids(result.majorStoryCandidates));
+assert.deepEqual(result.trace.selectedGraphDotCandidateIds, ids(result.graphDotCandidates));
 assert.equal(result.majorStoryCandidates[0].id, "death-income-stops");
 assert.deepEqual(
   result.graphDotCandidates,
@@ -259,6 +268,10 @@ assert.equal(result.trace.mechanicalDetailSuppressedCount, mechanicalVisibleSupp
 assert.equal(result.trace.storyRoleCounts.mechanical, mechanicalVisibleSuppressedIds.length);
 assert.equal(result.trace.storyRoleCounts.detail, 1);
 assert.ok(result.trace.visibleEmotionalEventIds.includes("resources-run-out"));
+assert.equal(result.trace.selectorSuppressedCountsByReason["family-diversity"], 1);
+assert.equal(result.trace.selectorSuppressedCountsByReason["data-gap-lower-priority"], 1);
+assert.equal(result.trace.selectorSuppressedCountsByReason["duplicate-major-dot"], 4);
+assert.equal(result.trace.selectorSuppressedCountsByReason["mechanical-detail-hidden"], 8);
 assert.ok(
   result.suppressedCandidates.some(function (candidate) {
     return candidate.id === "life-insurance-proceeds-applied"
@@ -1177,6 +1190,13 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
+assert.equal(selectorResult.allCandidates.length, 56);
+assert.equal(selectorResult.safeRenderableEvents.length, 26);
+assert.equal(selectorResult.majorStoryCandidates.length, 6);
+assert.equal(selectorResult.graphDotCandidates.length, 15);
+assert.equal(selectorResult.trace.safeRenderableCount, selectorResult.safeRenderableEvents.length);
+assert.equal(selectorResult.trace.majorStoryCandidateLimit, 6);
+assert.equal(selectorResult.trace.graphDotCandidateLimit, 16);
 assert.equal(selectorResult.trace.selectorPolicyVersion, "storyline-selector-v1");
 assert.deepEqual(selectorResult.trace.selectedMajorCandidateIds, selectorMajorIds);
 assert.deepEqual(selectorResult.trace.selectedMajorGraphDotCandidateIds, selectorMajorGraphIds);

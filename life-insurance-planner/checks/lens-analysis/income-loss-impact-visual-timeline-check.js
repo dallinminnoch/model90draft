@@ -640,6 +640,25 @@ assert.ok(normalizedStoryEvents.events.some(function (event) {
 assert.ok(normalizedStoryEvents.events.some(function (event) {
   return event.id === "transition-outlook" && event.surface === "resourceOutlook";
 }));
+assert.ok(
+  normalizedStoryEvents.events.length > storyBridgeTimelineResult.financialStoryline.majorStoryCandidates.length,
+  "The invisible timeline story event bridge may contain more events than the visible major-card source."
+);
+const storyBridgeRenderTimelineResult = JSON.parse(JSON.stringify(storyBridgeTimelineResult));
+storyBridgeRenderTimelineResult.timelineStoryEvents = normalizedStoryEvents;
+const storyBridgeRenderHost = { innerHTML: "" };
+harness.renderIncomeImpact(storyBridgeRenderHost, { timelineResult: storyBridgeRenderTimelineResult });
+assert.equal(
+  (storyBridgeRenderHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
+  storyBridgeTimelineResult.financialStoryline.majorStoryCandidates.length,
+  "Visible major story cards should follow financialStoryline.majorStoryCandidates, not timelineStoryEvents."
+);
+assert.match(storyBridgeRenderHost.innerHTML, /data-income-impact-major-story-event-id="death-income-stops"/);
+assert.doesNotMatch(
+  storyBridgeRenderHost.innerHTML,
+  /data-income-impact-major-story-event-id="cash-savings-depleted"/,
+  "Graph-dot-only normalized story events should not become visible major story cards."
+);
 const unavailableTimelineStoryEvents = harness.buildTimelineStoryEventsForTimelineResult(
   {},
   storyBridgeTimelineResult
@@ -2633,6 +2652,7 @@ majorStoryFixture.financialStoryline = {
 };
 const majorStoryHost = { innerHTML: "" };
 harness.renderIncomeImpact(majorStoryHost, { timelineResult: majorStoryFixture });
+assert.ok(majorStoryFixture.financialStoryline.majorStoryCandidates.length > 6);
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
   6,
@@ -2697,6 +2717,40 @@ assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-s
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="micro-storyline-event-/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-story-card-connector|data-income-impact-major-story-connector/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
+
+const fourMajorStoryFixture = JSON.parse(JSON.stringify(majorStoryFixture));
+fourMajorStoryFixture.financialStoryline.majorStoryCandidates =
+  fourMajorStoryFixture.financialStoryline.majorStoryCandidates.slice(0, 4);
+fourMajorStoryFixture.timelineStoryEvents = {
+  events: majorStoryFixture.financialStoryline.majorStoryCandidates
+    .concat(majorStoryFixture.financialStoryline.graphDotCandidates)
+    .map(function (candidate, index) {
+      return {
+        id: candidate.id,
+        source: "diagnostic",
+        title: candidate.cardTitle || candidate.displayLabel || candidate.graphLabel || candidate.id,
+        originalIndex: index
+      };
+    }),
+  trace: { status: "built", rendered: false }
+};
+const fourMajorStoryHost = { innerHTML: "" };
+harness.renderIncomeImpact(fourMajorStoryHost, { timelineResult: fourMajorStoryFixture });
+assert.ok(
+  fourMajorStoryFixture.timelineStoryEvents.events.length
+    > fourMajorStoryFixture.financialStoryline.majorStoryCandidates.length,
+  "Diagnostic timelineStoryEvents should be more numerous than visible major-card candidates."
+);
+assert.equal(
+  (fourMajorStoryHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
+  4,
+  "A four-candidate major story source should render four visible block cards even when timelineStoryEvents has more."
+);
+assert.doesNotMatch(
+  fourMajorStoryHost.innerHTML,
+  /data-income-impact-major-story-event-id="education-savings-depleted"/,
+  "timelineStoryEvents should not promote extra normalized events into block cards."
+);
 
 const reusedRunOutMarkerFixture = JSON.parse(JSON.stringify(fixture));
 reusedRunOutMarkerFixture.graphModel = JSON.parse(JSON.stringify(multiAppliedGraphModel));
