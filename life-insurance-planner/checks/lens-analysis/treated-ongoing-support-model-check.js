@@ -307,7 +307,7 @@ function isAllowedIncomeLossImpactSurvivorIncomeDiagnosticSnapshot() {
 
 function isAllowedIncomeLossImpactLayoutFrameRendererConsumption() {
   const diff = getGitDiff("app/features/lens-analysis/income-loss-impact-display.js");
-  return diff.includes("STABLE_GRAPH_LAYOUT_FRAME_MODE")
+  const stableLayoutFrameRendererDiff = diff.includes("STABLE_GRAPH_LAYOUT_FRAME_MODE")
     && diff.includes("getStableGraphLayoutFrame")
     && diff.includes("getLayoutFrameXRatio")
     && diff.includes("getLayoutFrameYRatio")
@@ -316,6 +316,16 @@ function isAllowedIncomeLossImpactLayoutFrameRendererConsumption() {
     && diff.includes("layoutFrame.runoutAnchorXRatio")
     && diff.includes("zeroCrossingAnchorMonth")
     && diff.includes("data-income-impact-layout-frame-mode");
+  const transitionBridgeRendererDiff = diff.includes("getGraphTransitionPeriodMonths")
+    && diff.includes("visualMonthIndex")
+    && diff.includes("visualDepletionMonth")
+    && diff.includes("visualMonthOffset")
+    && diff.includes("transitionPeriodMonths")
+    && diff.includes("transitionBridgeMode")
+    && diff.includes("getGraphStorylineEventMonthOffset")
+    && diff.includes("getGraphStorylinePointMonthOffset")
+    && diff.includes("depletionPoint.visualMonthIndex");
+  return stableLayoutFrameRendererDiff || transitionBridgeRendererDiff;
 }
 
 function isAllowedIncomeImpactTransitionPeriodComposerTraceContract() {

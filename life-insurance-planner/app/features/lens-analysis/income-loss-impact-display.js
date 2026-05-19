@@ -1141,7 +1141,10 @@
       return null;
     }
     const explicitMonth = toOptionalNumber(
-      point.relativeMonthsFromDeath ??
+      point.visualMonthIndex ??
+        point.visualDepletionMonth ??
+        point.visualMonthOffset ??
+        point.relativeMonthsFromDeath ??
         point.monthOffset ??
         point.monthIndex ??
         point.monthsAfterDeath ??
@@ -1187,6 +1190,14 @@
     }
 
     return clampNumber(deathXRatio + ((pointMonth / domainMonths) * (1 - deathXRatio)), 0, 1);
+  }
+
+  function getGraphTransitionPeriodMonths(graphModel) {
+    const rawMonths = toOptionalNumber(graphModel?.transitionPeriod?.lengthMonths);
+    if (rawMonths == null) {
+      return 0;
+    }
+    return clampNumber(Math.round(rawMonths), 0, 24);
   }
 
   function getGraphYDomainBounds(graphModel) {
@@ -2121,19 +2132,24 @@
 
   function getGraphStorylineEventMonthOffset(candidate, graphModel) {
     const timing = getStorylineCandidateTiming(candidate);
-    const explicitMonth = toOptionalNumber(timing.monthOffset ?? candidate?.monthOffset);
-    if (explicitMonth != null) {
-      return explicitMonth;
-    }
     if (candidate?.id === "death-income-stops" || normalizeString(timing.kind) === "death-event") {
       return 0;
+    }
+    const explicitVisualMonth = toOptionalNumber(timing.visualMonthOffset ?? candidate?.visualMonthOffset);
+    if (explicitVisualMonth != null) {
+      return explicitVisualMonth;
+    }
+    const transitionMonths = getGraphTransitionPeriodMonths(graphModel);
+    const explicitMonth = toOptionalNumber(timing.monthOffset ?? candidate?.monthOffset);
+    if (explicitMonth != null) {
+      return Math.max(0, explicitMonth + transitionMonths);
     }
     const eventDate = getGraphStorylineEventDate(candidate);
     const deathDate = normalizeDateOnly(graphModel?.phases?.deathEvent?.date || graphModel?.axes?.x?.deathDate || "");
     if (!eventDate || !deathDate) {
       return null;
     }
-    return getMonthDifferenceFromDates(deathDate, eventDate);
+    return Math.max(0, getMonthDifferenceFromDates(deathDate, eventDate) + transitionMonths);
   }
 
   function addGraphStorylineTimelineAnchor(anchorsByMonth, monthOffset, xRatio, date) {
@@ -2183,7 +2199,10 @@
 
     seriesBuckets.flat().filter(Boolean).forEach(function (point) {
       const relativeMonths = toOptionalNumber(
-        point?.relativeMonthsFromDeath ??
+        point?.visualMonthIndex ??
+          point?.visualDepletionMonth ??
+          point?.visualMonthOffset ??
+          point?.relativeMonthsFromDeath ??
           point?.monthOffset ??
           point?.monthIndex ??
           point?.monthsAfterDeath
@@ -3018,6 +3037,11 @@
         yRatio,
         value: getSeriesPointValue(depletionPoint),
         date: normalizeString(depletionPoint.date),
+        rawMonthIndex: toOptionalNumber(depletionPoint.rawMonthIndex),
+        visualMonthIndex: toOptionalNumber(depletionPoint.visualMonthIndex),
+        visualDepletionMonth: toOptionalNumber(depletionPoint.visualDepletionMonth),
+        transitionPeriodMonths: toOptionalNumber(depletionPoint.transitionPeriodMonths),
+        transitionBridgeMode: normalizeString(depletionPoint.transitionBridgeMode),
         selected: selectedId ? scenarioId === selectedId : series.selected === true
       };
     }).filter(Boolean);
@@ -5145,7 +5169,10 @@
 
   function getGraphStorylinePointMonthOffset(point) {
     return toOptionalNumber(
-      point?.relativeMonthsFromDeath ??
+      point?.visualMonthIndex ??
+        point?.visualDepletionMonth ??
+        point?.visualMonthOffset ??
+        point?.relativeMonthsFromDeath ??
         point?.monthOffset ??
         point?.monthIndex ??
         point?.monthsAfterDeath

@@ -495,7 +495,7 @@ function assertNoForbiddenSourceChanges() {
     });
 
     if (filePath === "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js") {
-      return diff.includes("STABLE_GRAPH_LAYOUT_FRAME_MODE")
+      const stableLayoutFrameRendererDiff = diff.includes("STABLE_GRAPH_LAYOUT_FRAME_MODE")
         && diff.includes("getStableGraphLayoutFrame")
         && diff.includes("getLayoutFrameXRatio")
         && diff.includes("getLayoutFrameYRatio")
@@ -504,13 +504,29 @@ function assertNoForbiddenSourceChanges() {
         && diff.includes("layoutFrame.runoutAnchorXRatio")
         && diff.includes("zeroCrossingAnchorMonth")
         && diff.includes("data-income-impact-layout-frame-mode");
+      const transitionBridgeRendererDiff = diff.includes("getGraphTransitionPeriodMonths")
+        && diff.includes("visualMonthIndex")
+        && diff.includes("visualDepletionMonth")
+        && diff.includes("visualMonthOffset")
+        && diff.includes("transitionPeriodMonths")
+        && diff.includes("transitionBridgeMode")
+        && diff.includes("getGraphStorylineEventMonthOffset")
+        && diff.includes("getGraphStorylinePointMonthOffset")
+        && diff.includes("depletionPoint.visualMonthIndex");
+      return stableLayoutFrameRendererDiff || transitionBridgeRendererDiff;
     }
 
-    return diff.includes("attachStableLayoutFrame")
+    const stableLayoutFrameCheckDiff = diff.includes("attachStableLayoutFrame")
       && diff.includes("Renderer should consume layoutFrame deathXRatio instead of dynamic phase death x.")
       && diff.includes("Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y.")
       && diff.includes("Furthest visible depletion should render at the stable runout anchor zone.")
       && diff.includes("Later-running lifestyle comparison should cross zero at the stable runout anchor zone.");
+    const transitionBridgeCheckDiff = diff.includes("Transition bridge should render flat after death before the shifted raw runway point.")
+      && diff.includes("Death marker should remain fixed while the transition bridge renders.")
+      && diff.includes("Depletion marker should use shifted visual depletion month.")
+      && diff.includes("Post-death storyline dots should shift with the visual transition mapping.")
+      && diff.includes("0-month transition should preserve the unshifted visual runway coordinates.");
+    return stableLayoutFrameCheckDiff || transitionBridgeCheckDiff;
   }
 
   function isAllowedIncomeImpactTransitionPeriodComposerTraceContract(filePath) {
