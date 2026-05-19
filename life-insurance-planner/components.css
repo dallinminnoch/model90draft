@@ -68,7 +68,7 @@ input.search-bar__input {
 }
 
 .workspace-page-menu[open] {
-  z-index: 38;
+  z-index: 2501;
 }
 
 .workspace-page-menu-trigger {
@@ -353,6 +353,7 @@ body[data-step="income-impact"] .workspace-page-topbar .lens-workflow-trail-curr
 
 .workspace-page-menu-panel {
   position: absolute;
+  z-index: 2502;
   top: calc(100% + 0.45rem);
   left: 0;
   min-width: 16.75rem;
