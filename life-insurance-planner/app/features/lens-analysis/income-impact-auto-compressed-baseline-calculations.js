@@ -33,6 +33,46 @@
     return Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : 0;
   }
 
+  function parseDateOnly(value) {
+    const normalized = normalizeString(value);
+    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(Date.UTC(year, monthIndex, day));
+    if (
+      date.getUTCFullYear() !== year
+      || date.getUTCMonth() !== monthIndex
+      || date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return date;
+  }
+
+  function formatDateOnly(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return null;
+    }
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function interpolateDateOnly(previousPoint, currentPoint, ratio, fallbackDate) {
+    const previousDate = parseDateOnly(previousPoint?.date);
+    const currentDate = parseDateOnly(currentPoint?.date);
+    if (!previousDate || !currentDate || ratio == null) {
+      return normalizeString(currentPoint?.date || fallbackDate) || null;
+    }
+    const timestamp = previousDate.getTime() + ((currentDate.getTime() - previousDate.getTime()) * ratio);
+    return formatDateOnly(new Date(timestamp)) || normalizeString(currentPoint?.date || fallbackDate) || null;
+  }
+
   function clonePlainValue(value) {
     if (Array.isArray(value)) {
       return value.map(clonePlainValue);
@@ -93,6 +133,20 @@
       return fallbackIndex + 1;
     }
     return Math.max(0, Math.floor(monthIndex));
+  }
+
+  function getPointMonthIndexForDepletion(point, fallbackIndex) {
+    const monthIndex = toOptionalNumber(
+      point?.monthIndex
+      ?? point?.periodMonthIndex
+      ?? point?.monthNumber
+      ?? point?.elapsedMonths
+      ?? point?.projectionMonth
+    );
+    if (monthIndex == null) {
+      return fallbackIndex + 1;
+    }
+    return Math.max(0, monthIndex);
   }
 
   function getLastPointMonth(points) {
@@ -206,12 +260,13 @@
   }
 
   function recalculateDepletion(points, fallbackDate) {
-    const depletedPoint = (Array.isArray(points) ? points : []).find(function (point) {
+    const safePoints = Array.isArray(points) ? points : [];
+    const depletedIndex = safePoints.findIndex(function (point) {
       const endingResources = toOptionalNumber(point?.endingResources);
       return endingResources != null && endingResources <= 0;
     });
-    if (!depletedPoint) {
-      const lastPoint = points[points.length - 1] || {};
+    if (depletedIndex < 0) {
+      const lastPoint = safePoints[safePoints.length - 1] || {};
       return {
         depleted: false,
         depletionDate: null,
@@ -220,11 +275,40 @@
         precision: "monthly"
       };
     }
+
+    const depletedPoint = safePoints[depletedIndex];
+    const currentEndingResources = toOptionalNumber(depletedPoint?.endingResources);
+    const previousPoint = depletedIndex > 0 ? safePoints[depletedIndex - 1] : null;
+    const previousEndingResources = toOptionalNumber(previousPoint?.endingResources);
+    if (
+      previousPoint
+      && previousEndingResources != null
+      && currentEndingResources != null
+      && previousEndingResources > 0
+      && currentEndingResources < 0
+    ) {
+      const span = previousEndingResources - currentEndingResources;
+      const ratio = span > 0 ? Math.max(0, Math.min(1, previousEndingResources / span)) : null;
+      const previousMonth = getPointMonthIndexForDepletion(previousPoint, depletedIndex - 1);
+      const currentMonth = getPointMonthIndexForDepletion(depletedPoint, depletedIndex);
+      const interpolatedMonth = ratio == null
+        ? currentMonth
+        : Number((previousMonth + ((currentMonth - previousMonth) * ratio)).toFixed(6));
+      return {
+        depleted: true,
+        depletionDate: interpolateDateOnly(previousPoint, depletedPoint, ratio, fallbackDate),
+        depletionMonthIndex: interpolatedMonth,
+        monthsCovered: interpolatedMonth,
+        precision: "interpolated"
+      };
+    }
+
+    const depletedMonth = getPointMonthIndexForDepletion(depletedPoint, depletedIndex);
     return {
       depleted: true,
       depletionDate: depletedPoint.date || fallbackDate || null,
-      depletionMonthIndex: toOptionalNumber(depletedPoint.monthIndex),
-      monthsCovered: toOptionalNumber(depletedPoint.monthIndex),
+      depletionMonthIndex: depletedMonth,
+      monthsCovered: depletedMonth,
       precision: "monthly"
     };
   }

@@ -109,6 +109,7 @@ function makeInput(overrides = {}) {
 }
 
 const helperSource = loadScript("app/features/lens-analysis/income-impact-auto-compressed-baseline-calculations.js");
+loadScript("app/features/lens-analysis/income-impact-timeline-graph-model.js");
 const displaySource = fs.readFileSync(
   path.join(repoRoot, "app/features/lens-analysis/income-loss-impact-display.js"),
   "utf8"
@@ -119,10 +120,12 @@ const pageSource = fs.readFileSync(
 );
 const calculations = context.LensApp.lensAnalysis.incomeImpactAutoCompressedBaselineCalculations;
 const directHelper = context.LensApp.lensAnalysis.buildIncomeImpactAutoCompressedBaseline;
+const graphModelBuilder = context.LensApp.lensAnalysis.buildIncomeImpactTimelineGraphModel;
 
 assert.ok(calculations, "auto-compressed baseline namespace should load");
 assert.equal(typeof calculations.buildIncomeImpactAutoCompressedBaseline, "function", "helper export should exist");
 assert.equal(typeof directHelper, "function", "direct helper export should exist");
+assert.equal(typeof graphModelBuilder, "function", "graph model helper should load for zero-anchor integration coverage");
 assert.doesNotMatch(helperSource, /document\.|querySelector|localStorage|sessionStorage/, "helper should stay pure and browser-free");
 
 const input = makeInput();
@@ -158,7 +161,101 @@ assert.equal(adjustedPoints[2].trace.autoCompressionProgress, 1, "horizon progre
 assert.equal(adjustedPoints[2].endingResources, -250, "ease-in cumulative spending reduction should improve resources deterministically");
 assert.equal(adjustedPoints[2].accumulatedUnmetNeed, 250);
 assert.equal(adjustedPoints[1].endingResources, 80150, "ease-in should cut less aggressively before the horizon than the old linear ramp");
-assert.equal(result.autoCompressedScenario.timelineFacts.monthsCovered, 4);
+assert.ok(
+  result.autoCompressedScenario.timelineFacts.monthsCovered < 4
+    && result.autoCompressedScenario.timelineFacts.monthsCovered > 3.99,
+  "auto-compressed timeline facts should preserve the interpolated depletion crossing, not snap to the depleted month"
+);
+
+const zeroCrossingScenario = makeRawBaselineScenario({
+  points: [
+    { monthIndex: 0, date: "2031-01-01", survivorNeeds: 2000, netUse: 2000, endingResources: 15000, availableResources: 15000, accumulatedUnmetNeed: 0 },
+    { monthIndex: 6, date: "2031-07-01", survivorNeeds: 2000, netUse: 2000, endingResources: 3000, availableResources: 3000, accumulatedUnmetNeed: 0 },
+    { monthIndex: 7, date: "2031-08-01", survivorNeeds: 2000, netUse: 2000, endingResources: 1000, availableResources: 1000, accumulatedUnmetNeed: 0 },
+    { monthIndex: 8, date: "2031-09-01", survivorNeeds: 2000, netUse: 2000, endingResources: -1000, availableResources: 0, accumulatedUnmetNeed: 1000 },
+    { monthIndex: 9, date: "2031-10-01", survivorNeeds: 2000, netUse: 2000, endingResources: -3000, availableResources: 0, accumulatedUnmetNeed: 3000 }
+  ],
+  depletion: {
+    depleted: true,
+    depletionDate: "2031-08-16",
+    depletionMonthIndex: 7.5,
+    monthsCovered: 7.5,
+    precision: "daily"
+  }
+});
+const zeroCrossingResult = calculations.buildIncomeImpactAutoCompressedBaseline(makeInput({
+  rawBaselineScenario: zeroCrossingScenario,
+  compressionPolicy: {
+    source: "zero-crossing-fixture",
+    monthlyDeltaAtConservative: 0,
+    currentSliderValue: 0,
+    conservativeSliderValue: -100
+  }
+}));
+const zeroCrossingDepletion = zeroCrossingResult.autoCompressedScenario.postDeathSeries.depletion;
+assert.equal(zeroCrossingResult.status, "ready");
+assert.equal(zeroCrossingDepletion.depletionMonthIndex, 7.5);
+assert.equal(zeroCrossingDepletion.monthsCovered, 7.5);
+assert.notEqual(
+  zeroCrossingDepletion.depletionMonthIndex,
+  8,
+  "auto-compressed depletion must not snap the zero crossing to the first depleted monthly point"
+);
+assert.notEqual(
+  zeroCrossingDepletion.depletionDate,
+  "2031-09-01",
+  "auto-compressed depletion date must not snap to the first depleted monthly point date"
+);
+
+const zeroCrossingGraphModel = graphModelBuilder({
+  appliedScenarios: [
+    {
+      scenarioId: "auto-zero-crossing",
+      label: "Auto-compressed survivor lifestyle",
+      settings: {
+        selectedDeathDate: "2031-01-01",
+        projectionHorizonYears: 40,
+        autoCompressBaselineEnabled: true
+      },
+      scenario: Object.assign({}, zeroCrossingResult.autoCompressedScenario, {
+        scenario: {
+          selectedDeathDate: "2031-01-01",
+          projectionHorizonMonths: 480
+        },
+        deathEvent: {
+          date: "2031-01-01",
+          assetsBeforeDeath: 25000,
+          survivorAvailableTreatedAssets: 25000,
+          coverageAdded: 0,
+          immediateObligations: 10000,
+          resourcesAfterObligations: 15000
+        }
+      }),
+      riskEvaluation: {
+        events: [],
+        stableEvents: [],
+        warnings: [],
+        dataGaps: []
+      }
+    }
+  ],
+  selectedScenarioId: "auto-zero-crossing",
+  options: {
+    preserveSignedResources: true,
+    currentAgeMode: "death-event-only"
+  }
+});
+const zeroCrossingRunway = zeroCrossingGraphModel.series.appliedRunwayScenarios[0];
+const graphDepletionPoint = zeroCrossingRunway.depletionPoint;
+const firstNegativeGraphPoint = zeroCrossingRunway.runwayLinePoints.find(function (point) {
+  return point.id !== graphDepletionPoint.id && point.value < 0;
+});
+assert.equal(graphDepletionPoint.monthIndex, 7.5);
+assert.notEqual(
+  graphDepletionPoint.xRatio,
+  firstNegativeGraphPoint.xRatio,
+  "graph zero anchor should not share x-position with the first negative auto-compressed point"
+);
 
 const repeated = calculations.buildIncomeImpactAutoCompressedBaseline(input);
 assert.deepEqual(repeated, result, "helper output should be deterministic");
