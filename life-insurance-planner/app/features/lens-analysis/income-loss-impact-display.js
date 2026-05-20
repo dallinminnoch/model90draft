@@ -19,6 +19,7 @@
   const GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-post-death-gradient";
   const GRAPH_HOVER_GRID_BAR_GRADIENT_ID = "income-impact-graph-hover-grid-bar-gradient";
   const GRAPH_HOVER_HIGHLIGHT_GRADIENT_ID = "income-impact-graph-hover-highlight-gradient";
+  const GRAPH_PLOT_CLIP_PATH_ID = "income-impact-graph-plot-clip";
   const INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE =
     "income-impact-display-financial-storyline-bridge";
   const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
@@ -2182,9 +2183,13 @@
     });
   }
 
-  function renderGraphHoverUnderlayGradient() {
+  function renderGraphHoverUnderlayGradient(graphModel = null) {
+    const frame = getGraphPlotFrame(graphModel);
     return `
       <defs>
+        <clipPath id="${GRAPH_PLOT_CLIP_PATH_ID}" data-income-impact-graph-plot-clip>
+          <rect x="${formatSvgCoordinate(frame.plotLeft)}" y="${formatSvgCoordinate(frame.plotTop)}" width="${formatSvgCoordinate(frame.plotWidth)}" height="${formatSvgCoordinate(frame.plotHeight)}"></rect>
+        </clipPath>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#2563ff" stop-opacity="0.16"></stop>
           <stop offset="38%" stop-color="#2563ff" stop-opacity="0.045"></stop>
@@ -2238,6 +2243,7 @@
                   data-income-impact-graph-hover-underlay-phase="${escapeHtml(segment.phase)}"
                   data-income-impact-graph-hover-underlay-index="${segment.index}"
                   data-income-impact-applied-scenario-id="${escapeHtml(segment.scenarioId)}"
+                  clip-path="url(#${GRAPH_PLOT_CLIP_PATH_ID})"
                   d="${escapeHtml(segment.d)}"
                 ></path>
               `;
@@ -3294,7 +3300,7 @@
     if (!path) {
       return "";
     }
-    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}"${renderGraphPathAttributes(attributes)} d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
+    return `<path class="income-impact-graph-path income-impact-graph-path--${escapeHtml(pathId)} income-impact-graph-path--${escapeHtml(normalizedPathMode)}" data-income-impact-graph-path="${escapeHtml(pathId)}" data-income-impact-graph-path-mode="${escapeHtml(normalizedPathMode)}" clip-path="url(#${GRAPH_PLOT_CLIP_PATH_ID})"${renderGraphPathAttributes(attributes)} d="${escapeHtml(path)}" aria-label="${escapeHtml(label)}"></path>`;
   }
 
   function getPrimaryGraphPathLabel(timelineResult, fallbackLabel) {
@@ -3477,6 +3483,7 @@
           data-income-impact-graph-deficit-source="deficitPoints"
           data-income-impact-applied-scenario-id="${escapeHtml(selectedSeries.scenarioId || "")}"
           data-income-impact-applied-scenario-selected="true"
+          clip-path="url(#${GRAPH_PLOT_CLIP_PATH_ID})"
           d="${escapeHtml(areaPath)}"
           aria-label="${escapeHtml(label)}"
         ><title>${escapeHtml(label)}</title></path>
@@ -4574,7 +4581,7 @@
         role="img"
         aria-label="Income Impact timeline graph"
       >
-        ${renderGraphHoverUnderlayGradient()}
+        ${renderGraphHoverUnderlayGradient(graphModel)}
         ${renderGraphPhases(graphModel)}
         ${renderGraphAxis(graphModel)}
         <g class="income-impact-graph-series" data-income-impact-graph-series>

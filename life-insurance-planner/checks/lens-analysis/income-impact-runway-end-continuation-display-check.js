@@ -46,6 +46,13 @@ function getPathD(html, dataAttributeName, dataAttributeValue) {
   return match[1];
 }
 
+function getPathTag(html, dataAttributeName, dataAttributeValue) {
+  const pattern = new RegExp(`<path\\b(?=[^>]*${dataAttributeName}="${dataAttributeValue}")[^>]*>`, "m");
+  const match = html.match(pattern);
+  assert.ok(match, `Expected path tag for ${dataAttributeName}="${dataAttributeValue}".`);
+  return match[0];
+}
+
 function getPathPairs(pathD) {
   const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
   const pairs = [];
@@ -182,8 +189,19 @@ const html = harness.renderTimeline({
 });
 
 const pathD = getPathD(html, "data-income-impact-graph-path", "postDeathResources");
+const pathTag = getPathTag(html, "data-income-impact-graph-path", "postDeathResources");
 const pairs = getPathPairs(pathD);
 assert.ok(pairs.length >= 5, "Runway path should include the source points.");
+assert.match(
+  html,
+  /<clipPath\b(?=[^>]*id="income-impact-graph-plot-clip")(?=[^>]*data-income-impact-graph-plot-clip)[\s\S]*?<rect\b(?=[^>]*x="74")(?=[^>]*y="36")(?=[^>]*width="884")(?=[^>]*height="318")/,
+  "Runway graph should define a plot-frame clip path for off-frame path continuations."
+);
+assert.match(
+  pathTag,
+  /clip-path="url\(#income-impact-graph-plot-clip\)"/,
+  "Runway path should be visually clipped to the plot frame while preserving off-frame continuation coordinates."
+);
 
 const rightEdgeVerticalSegments = pairs.slice(1).filter(function (point, index) {
   const previous = pairs[index];
