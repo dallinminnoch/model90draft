@@ -19200,6 +19200,19 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   filter: drop-shadow(0 2px 5px rgba(15, 23, 42, 0.08));
 }
 
+.income-impact-graph[data-income-impact-graph-view-mode="postDeathFocus"] .income-impact-storyline-dot[data-income-impact-storyline-month-offset="0"][data-income-impact-storyline-coordinate-source="primary-trendline-exact"] .income-impact-storyline-dot-hit {
+  r: 13.5;
+}
+
+.income-impact-graph[data-income-impact-graph-view-mode="postDeathFocus"] .income-impact-storyline-dot[data-income-impact-storyline-month-offset="0"][data-income-impact-storyline-coordinate-source="primary-trendline-exact"] .income-impact-storyline-dot-core {
+  r: 6.6;
+  fill: #2563ff;
+  opacity: 1;
+  stroke: #ffffff;
+  stroke-width: 2.7;
+  filter: drop-shadow(0 5px 12px rgba(15, 23, 42, 0.18));
+}
+
 .income-impact-storyline-dot--severity-critical .income-impact-storyline-dot-core {
   stroke: #dc2626;
 }

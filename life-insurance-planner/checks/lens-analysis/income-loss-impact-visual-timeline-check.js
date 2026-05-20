@@ -888,6 +888,7 @@ assert.doesNotMatch(componentsSource, /\.income-impact-storyline-event-lane/);
 assert.match(componentsSource, /\.income-impact-storyline-dot/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--major \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--micro \.income-impact-storyline-dot-core/);
+assert.match(componentsSource, /\.income-impact-graph\[data-income-impact-graph-view-mode="postDeathFocus"\] \.income-impact-storyline-dot\[data-income-impact-storyline-month-offset="0"\]\[data-income-impact-storyline-coordinate-source="primary-trendline-exact"\] \.income-impact-storyline-dot-core[\s\S]*r:\s*6\.6;[\s\S]*fill:\s*#2563ff;[\s\S]*opacity:\s*1;/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-group-ring/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-count-badge/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout/);
