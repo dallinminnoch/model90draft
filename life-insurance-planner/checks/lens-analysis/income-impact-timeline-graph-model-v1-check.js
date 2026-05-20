@@ -23,6 +23,16 @@ function assertApproxEqual(actual, expected, message, epsilon = 0.000001) {
   );
 }
 
+function getExpectedZeroCrossingMonth(previousPoint, currentPoint) {
+  const previousValue = Number(previousPoint.endingResources ?? previousPoint.value);
+  const currentValue = Number(currentPoint.endingResources ?? currentPoint.value);
+  const previousMonth = Number(previousPoint.monthIndex);
+  const currentMonth = Number(currentPoint.monthIndex);
+  const span = previousValue - currentValue;
+  assert.ok(span > 0, "Expected a positive-to-negative resource span.");
+  return previousMonth + ((currentMonth - previousMonth) * (previousValue / span));
+}
+
 function getAxisYRatio(value, axis) {
   const span = axis.max - axis.min;
   assert.ok(span > 0, "Y-axis domain should have a positive span.");
@@ -434,6 +444,10 @@ assert.equal(
     }
   });
   const fastAppliedRunway = fastAppliedClipModel.series.appliedRunwayScenarios[0];
+  const expectedFastAppliedZeroMonth = getExpectedZeroCrossingMonth(
+    { monthIndex: 0, endingResources: fastMonthlyPointScenario.deathEvent.resourcesAfterObligations },
+    fastMonthlyPointScenario.postDeathSeries.points[0]
+  );
   assert.equal(
     fastAppliedRunway.fundedRunwayPoints.length >= 2,
     true,
@@ -456,8 +470,23 @@ assert.equal(
   );
   assertApproxEqual(
     fastAppliedRunway.depletionPoint.relativeMonthsFromDeath,
+    expectedFastAppliedZeroMonth,
+    "Day-scale applied runway should place the depletion anchor at the signed-resource zero crossing, not a coarse depletion flag."
+  );
+  assert.equal(
+    fastAppliedRunway.depletionPoint.trace.explicitDepletionDate,
+    fastDepletionScenario.postDeathSeries.depletion.depletionDate,
+    "Graph model should preserve explicit upstream depletion timing as zero-crossing trace metadata."
+  );
+  assertApproxEqual(
+    fastAppliedRunway.depletionPoint.trace.explicitDepletionMonthIndex,
     dayScaleMonthsCovered,
-    "Day-scale applied runway should place the depletion anchor at the fractional depletion month."
+    "Graph model should keep the upstream depletion month as metadata when it differs from the signed-resource crossing."
+  );
+  assert.equal(
+    fastAppliedRunway.depletionPoint.trace.depletionMonthMatchedInterpolatedZeroCrossing,
+    false,
+    "Graph model should identify when upstream depletion timing does not match the signed-resource zero crossing."
   );
   {
     const dayScaleRunwayLineAnchorIndex = fastAppliedRunway.runwayLinePoints.findIndex(function (point) {
@@ -1195,16 +1224,29 @@ assert.equal(appliedSingleRunway.trace.deathLineLabelPreserved, true);
 assert.equal(appliedSingleRunway.trace.deathAlignedToSharedAnchor, true);
 assert.equal(appliedSingleRunway.trace.calculationHorizonPreserved, true);
 assert.equal(appliedSingleRunway.trace.xProjectionMode, "deathRelativeRunway");
-assert.equal(appliedSingleRunway.trace.depletionDatePreserved, true);
+assert.equal(
+  appliedSingleRunway.trace.depletionDatePreserved,
+  false,
+  "Applied runway trace should show when coarse upstream depletion timing was not used as the graph zero anchor."
+);
 assertApproxEqual(
   appliedSingleRunway.deathXRatio,
   appliedSingleModel.projection.deathXRatio,
   "Applied runway scenario should carry the shared death anchor."
 );
-assert.equal(appliedSingleRunway.depletionPoint.date, fiveYearScenario.postDeathSeries.depletion.depletionDate);
+assertApproxEqual(
+  appliedSingleRunway.depletionPoint.relativeMonthsFromDeath,
+  getExpectedZeroCrossingMonth(fiveYearScenario.postDeathSeries.points[1], fiveYearScenario.postDeathSeries.points[2]),
+  "Applied runway depletion point should use the signed-resource zero crossing instead of the coarse depletion date."
+);
 assert.equal(appliedSingleRunway.depletionPoint.value, 0);
 assert.equal(appliedSingleRunway.depletionPoint.trace.visualInterpolation, true);
 assert.equal(appliedSingleRunway.depletionPoint.trace.interpolationKind, "zeroCrossing");
+assert.equal(
+  appliedSingleRunway.depletionPoint.trace.explicitDepletionDate,
+  fiveYearScenario.postDeathSeries.depletion.depletionDate,
+  "Applied runway zero crossing should retain upstream depletion timing as trace metadata."
+);
 {
   const runwayLineAnchorIndex = appliedSingleRunway.runwayLinePoints.findIndex(function (point) {
     return point.id === appliedSingleRunway.depletionPoint.id;
@@ -1333,8 +1375,13 @@ const sameXDepletionModel = buildIncomeImpactTimelineGraphModel({
   }
 });
 const sameXRunway = sameXDepletionModel.series.appliedRunwayScenarios[0];
-assert.equal(sameXRunway.depletionPoint.date, "2033-04-29");
-assert.equal(sameXRunway.trace.skippedSharedXDeficitPointCount, 1);
+assertApproxEqual(
+  sameXRunway.depletionPoint.relativeMonthsFromDeath,
+  getExpectedZeroCrossingMonth(sameXDepletionScenario.postDeathSeries.points[0], sameXDepletionScenario.postDeathSeries.points[1]),
+  "Signed resources should determine the zero crossing even when the first negative monthly point has coarse depletion metadata."
+);
+assert.equal(sameXRunway.depletionPoint.trace.explicitDepletionDate, "2033-04-29");
+assert.equal(sameXRunway.trace.skippedSharedXDeficitPointCount, 0);
 assert.equal(sameXRunway.deficitPoints[0].id, sameXRunway.depletionPoint.id);
 assert.equal(
   sameXRunway.rawPoints.some(function (point) { return point.accumulatedUnmetNeed === 12000; }),
@@ -1709,9 +1756,9 @@ assert.deepEqual(
   "Trace should expose selected and comparison pre-death context path IDs."
 );
 assert.equal(
-  appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.date,
+  appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.trace.explicitDepletionDate,
   tenYearScenario.postDeathSeries.depletion.depletionDate,
-  "Selected runway contract should preserve its own depletion date."
+  "Selected runway contract should preserve its own upstream depletion date as trace metadata."
 );
 assert.deepEqual(
   cloneJson(appliedMultiModel.series.postDeathResources.map(function (point) { return point.value; })),
@@ -1730,7 +1777,11 @@ assertApproxEqual(
       * (1 - appliedMultiModel.projection.postDeathRunwayStartXRatio),
   "Selected scenario months after death should map to the selected graph horizon."
 );
-assert.equal(appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.relativeMonthsFromDeath, 144);
+assertApproxEqual(
+  appliedMultiModel.series.appliedRunwayScenarios[0].depletionPoint.relativeMonthsFromDeath,
+  getExpectedZeroCrossingMonth(tenYearScenario.postDeathSeries.points[1], tenYearScenario.postDeathSeries.points[2]),
+  "Selected runway depletion marker should align to the signed-resource zero crossing."
+);
 assert.equal(appliedMultiModel.axes.x.xAxisMode, "deathRelativeYears");
 assert.ok(
   appliedMultiModel.axes.x.ticks.some(function (tick) { return tick.label === "+15 years"; }),

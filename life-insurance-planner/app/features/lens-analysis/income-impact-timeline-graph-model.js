@@ -874,9 +874,9 @@
     const ratio = getZeroCrossingRatio(previousPoint, currentPoint);
     const explicitDepletion = isPlainObject(series?.depletion) ? series.depletion : {};
     const explicitDate = normalizeDateOnly(explicitDepletion.date);
-    const date = explicitDate || interpolateDateOnly(previousPoint, currentPoint, ratio);
-    const monthIndex = toOptionalNumber(explicitDepletion.monthIndex)
-      ?? interpolateNumber(previousPoint?.monthIndex, currentPoint?.monthIndex, ratio);
+    const explicitMonthIndex = toOptionalNumber(explicitDepletion.monthIndex);
+    const date = interpolateDateOnly(previousPoint, currentPoint, ratio);
+    const monthIndex = interpolateNumber(previousPoint?.monthIndex, currentPoint?.monthIndex, ratio);
     const sourcePaths = [];
     appendUnique(sourcePaths, Array.isArray(previousPoint?.sourcePaths) ? previousPoint.sourcePaths : []);
     appendUnique(sourcePaths, Array.isArray(currentPoint?.sourcePaths) ? currentPoint.sourcePaths : []);
@@ -908,7 +908,12 @@
         visualInterpolation: true,
         interpolationKind: "zeroCrossing",
         interpolationReason: "runwayDepletionBoundary",
-        depletionDatePreserved: !explicitDate || explicitDate === date,
+        explicitDepletionDate: explicitDate || null,
+        explicitDepletionMonthIndex: explicitMonthIndex,
+        explicitDepletionPreservedAsMetadata: Boolean(explicitDate || explicitMonthIndex != null),
+        depletionDateMatchedInterpolatedZeroCrossing: !explicitDate || explicitDate === date,
+        depletionMonthMatchedInterpolatedZeroCrossing: explicitMonthIndex == null
+          || (monthIndex != null && Math.abs(explicitMonthIndex - monthIndex) <= 0.000001),
         xProjectionMode: isPlainObject(projection) ? projection.mode : null,
         rawDatePreserved: true,
         sourcePointIds: [previousPoint?.id, currentPoint?.id].filter(Boolean)
