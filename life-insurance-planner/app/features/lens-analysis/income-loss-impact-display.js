@@ -1618,15 +1618,40 @@
     };
   }
 
+  function getPostDeathFocusSelectedZeroAnchor(graphModel, layoutFrame) {
+    const selectedSeries = getSelectedRunwayScenario(graphModel, graphModel?.trace?.selectedScenarioId);
+    const depletionPoint = isPlainObject(selectedSeries?.depletionPoint) ? selectedSeries.depletionPoint : null;
+    const zeroMonth = toOptionalNumber(
+      depletionPoint?.relativeMonthsFromDeath ??
+        depletionPoint?.monthOffset ??
+        depletionPoint?.monthIndex
+    );
+    const runoutAnchorXRatio = toOptionalNumber(layoutFrame?.runoutAnchorXRatio);
+    if (!selectedSeries || zeroMonth == null || zeroMonth <= 0 || runoutAnchorXRatio == null || runoutAnchorXRatio <= 0) {
+      return null;
+    }
+    return {
+      scenarioId: normalizeString(selectedSeries.scenarioId || graphModel?.trace?.selectedScenarioId),
+      month: zeroMonth,
+      xDomainMonths: zeroMonth / runoutAnchorXRatio,
+      runoutAnchorXRatio
+    };
+  }
+
   function makePostDeathFocusGraphModel(graphModel) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const phases = isPlainObject(graphModel?.phases) ? graphModel.phases : {};
     const deathXRatio = toOptionalNumber(layoutFrame?.deathXRatio);
     const startAnchor = layoutFrame ? getPostDeathFocusStartAnchor(graphModel, layoutFrame) : null;
+    const selectedZeroAnchor = layoutFrame ? getPostDeathFocusSelectedZeroAnchor(graphModel, layoutFrame) : null;
     const layoutYDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : null;
     const focusedLayoutFrame = layoutFrame
       ? Object.assign({}, layoutFrame, {
         deathXRatio: 0,
+        xDomainMonths: selectedZeroAnchor?.xDomainMonths ?? layoutFrame.xDomainMonths,
+        zeroCrossingAnchorScenarioId: selectedZeroAnchor?.scenarioId || layoutFrame.zeroCrossingAnchorScenarioId,
+        zeroCrossingAnchorMonth: selectedZeroAnchor?.month ?? layoutFrame.zeroCrossingAnchorMonth,
+        zeroCrossingAnchorSource: selectedZeroAnchor ? "post-death-focus-selected-depletion" : layoutFrame.zeroCrossingAnchorSource,
         postDeathFocusStartYRatio: startAnchor?.yRatio ?? null,
         postDeathFocusStartValue: startAnchor?.value ?? null,
         yDomain: startAnchor && layoutYDomain
@@ -1641,6 +1666,11 @@
           postDeathFocusStartAnchorValue: startAnchor?.value ?? null,
           postDeathFocusStartAnchorMonth: startAnchor?.month ?? null,
           postDeathFocusYDomainMax: startAnchor?.yDomainMax ?? null,
+          postDeathFocusSelectedZeroAnchorScenarioId: selectedZeroAnchor?.scenarioId || null,
+          postDeathFocusSelectedZeroAnchorMonth: selectedZeroAnchor?.month ?? null,
+          postDeathFocusSelectedXDomainMonths: selectedZeroAnchor?.xDomainMonths ?? null,
+          postDeathFocusSelectedRunoutAnchorXRatio: selectedZeroAnchor?.runoutAnchorXRatio ?? null,
+          postDeathFocusXDomainSource: selectedZeroAnchor ? "selected-scenario-zero-crossing" : "shared-layout-frame",
           rendererAppliesPostDeathFocusFrame: true
         })
       })
@@ -1713,6 +1743,10 @@
     return relativeYears == null ? null : relativeYears * 12;
   }
 
+  function shouldUseLinearPostDeathFocusXScale(graphModel) {
+    return normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode) === GRAPH_VIEW_MODE_POST_DEATH_FOCUS;
+  }
+
   function getLayoutFrameXRatio(graphModel, xRatio, point = null) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const rawRatio = toOptionalNumber(xRatio);
@@ -1734,6 +1768,9 @@
     const runoutAnchorXRatio = toOptionalNumber(layoutFrame.runoutAnchorXRatio);
     const anchorMonth = toOptionalNumber(layoutFrame.zeroCrossingAnchorMonth);
     const domainMonths = Math.max(0.000001, toOptionalNumber(layoutFrame.xDomainMonths) ?? pointMonth);
+    if (shouldUseLinearPostDeathFocusXScale(graphModel)) {
+      return clampNumber(deathXRatio + ((pointMonth / domainMonths) * (1 - deathXRatio)), 0, 1);
+    }
     if (runoutAnchorXRatio != null && anchorMonth != null && anchorMonth > 0) {
       if (pointMonth <= anchorMonth) {
         return clampNumber(deathXRatio + ((pointMonth / anchorMonth) * (runoutAnchorXRatio - deathXRatio)), 0, 1);
@@ -1768,6 +1805,9 @@
     const runoutAnchorXRatio = toOptionalNumber(layoutFrame.runoutAnchorXRatio);
     const anchorMonth = toOptionalNumber(layoutFrame.zeroCrossingAnchorMonth);
     const domainMonths = Math.max(0.000001, toOptionalNumber(layoutFrame.xDomainMonths) ?? pointMonth);
+    if (shouldUseLinearPostDeathFocusXScale(graphModel)) {
+      return Math.max(0, deathXRatio + ((pointMonth / domainMonths) * (1 - deathXRatio)));
+    }
     if (runoutAnchorXRatio != null && anchorMonth != null && anchorMonth > 0) {
       if (pointMonth <= anchorMonth) {
         return Math.max(0, deathXRatio + ((pointMonth / anchorMonth) * (runoutAnchorXRatio - deathXRatio)));
@@ -3298,6 +3338,26 @@
     };
   }
 
+  function shouldSuppressFocusedPostRunoutStorylineDot(candidate, graphModel) {
+    if (normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode) !== GRAPH_VIEW_MODE_POST_DEATH_FOCUS) {
+      return false;
+    }
+    if (isDeathStorylineCandidate(candidate) || isRunOutStorylineCandidate(candidate)) {
+      return false;
+    }
+    const eventMonth = getGraphStorylineEventMonthOffset(candidate, graphModel);
+    if (eventMonth == null) {
+      return false;
+    }
+    const selectedRunwayScenario = getSelectedRunwayScenario(graphModel, graphModel?.trace?.selectedScenarioId);
+    const depletionMonth = toOptionalNumber(
+      selectedRunwayScenario?.depletionPoint?.relativeMonthsFromDeath ??
+        selectedRunwayScenario?.depletionPoint?.monthOffset ??
+        selectedRunwayScenario?.depletionPoint?.monthIndex
+    );
+    return depletionMonth != null && eventMonth > depletionMonth + 0.000001;
+  }
+
   function getGraphStorylineEventDots(timelineResult, graphModel) {
     const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
       ? timelineResult.financialStoryline.graphDotCandidates
@@ -3314,6 +3374,9 @@
         return null;
       }
       if (getReusableDepletionStorylineTarget(candidate, graphModel)) {
+        return null;
+      }
+      if (shouldSuppressFocusedPostRunoutStorylineDot(candidate, graphModel)) {
         return null;
       }
       const trendlineCoordinate = getGraphStorylineTrendlineCoordinate(candidate, graphModel, anchors);
@@ -3607,6 +3670,13 @@
     return (Array.isArray(points) ? points : []).find(hasGraphPosition) || null;
   }
 
+  function getAppliedGraphRunwayPathMode(series, graphModel = null) {
+    if (shouldUseLinearPostDeathFocusXScale(graphModel)) {
+      return "linear";
+    }
+    return normalizeGraphPathMode(series?.pathMode);
+  }
+
   function getAppliedGraphSeries(graphModel) {
     function selectVisibleSeries(seriesList) {
       const safeSeries = Array.isArray(seriesList) ? seriesList : [];
@@ -3632,7 +3702,7 @@
             points: Array.isArray(series.runwayLinePoints) && series.runwayLinePoints.length
               ? series.runwayLinePoints
               : Array.isArray(series.fundedRunwayPoints) ? series.fundedRunwayPoints : [],
-            pathMode: normalizeGraphPathMode(series.pathMode),
+            pathMode: getAppliedGraphRunwayPathMode(series, graphModel),
             trace: Object.assign({}, isPlainObject(series.trace) ? series.trace : {}, {
               renderSource: Array.isArray(series.runwayLinePoints) && series.runwayLinePoints.length
                 ? "runwayLinePoints"
@@ -3641,7 +3711,7 @@
           });
         })
         .filter(function (series) {
-          return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode), graphModel);
+          return isPlainObject(series) && buildSvgPath(series.points, getAppliedGraphRunwayPathMode(series, graphModel), graphModel);
         });
       return selectVisibleSeries(preparedSeries);
     }
@@ -3661,7 +3731,7 @@
         ];
 
     return selectVisibleSeries(candidates.filter(function (series) {
-      return isPlainObject(series) && buildSvgPath(series.points, normalizeGraphPathMode(series.pathMode), graphModel);
+      return isPlainObject(series) && buildSvgPath(series.points, getAppliedGraphRunwayPathMode(series, graphModel), graphModel);
     }));
   }
 
@@ -3867,7 +3937,7 @@
         pathId,
         series.points,
         label,
-        normalizeGraphPathMode(series.pathMode),
+        getAppliedGraphRunwayPathMode(series, graphModel),
         {
           "data-income-impact-applied-scenario-id": series.scenarioId || "",
           "data-income-impact-applied-scenario-label": label,

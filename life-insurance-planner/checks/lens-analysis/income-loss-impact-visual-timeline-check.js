@@ -151,6 +151,16 @@ function getGraphYTickLabels(html) {
   return labels;
 }
 
+function getGraphXTickGridLineX(html, tickId) {
+  const pattern = new RegExp(
+    `<g\\b(?=[^>]*data-income-impact-graph-x-tick="${tickId}")[\\s\\S]*?<line\\b(?=[^>]*data-income-impact-graph-x-grid-line)[^>]*\\bx1="(-?\\d+(?:\\.\\d+)?)"`,
+    "m"
+  );
+  const match = String(html || "").match(pattern);
+  assert.ok(match, `Expected x tick grid line for ${tickId}.`);
+  return Number(match[1]);
+}
+
 function assertAllEqual(values, expected, message) {
   assert.ok(values.length > 0, message);
   values.forEach(function (value) {
@@ -1205,6 +1215,11 @@ assert.doesNotMatch(
     /^M74 88\.56\b/,
     "Post-death focus view should pin the runway start near the top of the plot."
   );
+  assert.doesNotMatch(
+    focusedPath,
+    /\bC\b/,
+    "Post-death focus runway path should render straight line segments so zero crossing remains geometrically truthful."
+  );
   const focusedRunwayStartMarker = getSvgTag(focusedHtml, "g", "data-income-impact-post-death-runway-start-marker");
   const focusedRunwayStartMarkerPosition = getTranslateCoordinates(focusedRunwayStartMarker);
   assert.equal(focusedRunwayStartMarkerPosition.x, 74, "Post-death focus view should render a start marker at the visible runway start x coordinate.");
@@ -1251,6 +1266,7 @@ assert.doesNotMatch(
       label: "Focused selected scenario",
       pathMode: "linear",
       survivorResourcesAtDeathPoint: { date: "2031-04-29", monthIndex: 0, value: 22000, xRatio: 0.42, yRatio: 0.18 },
+      depletionPoint: { date: "2031-12-29", monthIndex: 8, value: 0, xRatio: 0.8, yRatio: 0.72 },
       runwayLinePoints: [
         { date: "2031-04-29", monthIndex: 0, value: 15000, xRatio: 0.42, yRatio: 0.3 },
         { date: "2031-12-29", monthIndex: 8, value: 0, xRatio: 0.8, yRatio: 0.72 },
@@ -1280,6 +1296,15 @@ assert.doesNotMatch(
           displayLabel: "Rendered runway start",
           evidenceLevel: "trace-backed",
           timing: { kind: "month-offset", monthOffset: 0, date: "2031-04-29", label: "At death" }
+        },
+        {
+          id: "post-runout-ledger-dot",
+          family: "retirement",
+          severity: "caution",
+          graphLabel: "Post runout",
+          displayLabel: "Post-runout ledger event",
+          evidenceLevel: "trace-backed",
+          timing: { kind: "month-offset", monthOffset: 10, date: "2032-02-29", label: "Month 10" }
         }
       ]
     }
@@ -1312,10 +1337,97 @@ assert.doesNotMatch(
     "Focused start dot should use the same rendered runwayLinePoints y coordinate as the visible path."
   );
   assert.match(focusedRenderedRunwayDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
+  assert.doesNotMatch(
+    focusedRenderedRunwayDotHtml,
+    /data-income-impact-storyline-event-id="post-runout-ledger-dot"/,
+    "Post-death focus view should not render post-runout story dots on the runway line; the runout marker owns the zero-crossing anchor."
+  );
+  assert.doesNotMatch(
+    focusedRenderedRunwayPath,
+    /\bC\b/,
+    "Focused applied runway paths should not use cubic smoothing around the zero-crossing anchor."
+  );
+  assert.match(
+    focusedRenderedRunwayPath,
+    /L781 351/,
+    "Post-death focus view should place the selected runout crossing at the focused zero-crossing anchor."
+  );
+  const focusedRenderedRunwayDepletionMarker = getRunwayDepletionMarkerTag(
+    focusedRenderedRunwayDotHtml,
+    "focused-selected-scenario"
+  );
+  const focusedRenderedRunwayDepletionMarkerPosition = getTranslateCoordinates(focusedRenderedRunwayDepletionMarker);
+  assert.equal(
+    focusedRenderedRunwayDepletionMarkerPosition.x,
+    781,
+    "Focused selected depletion marker should share the rendered zero-crossing path x coordinate."
+  );
+  assert.equal(
+    focusedRenderedRunwayDepletionMarkerPosition.y,
+    351,
+    "Focused selected depletion marker should share the rendered zero-crossing path y coordinate."
+  );
+  const focusedComparisonAnchorGraphModel = attachStableLayoutFrame(makeGraphModel(), {
+    xDomainMonths: 20,
+    zeroCrossingAnchorMonth: 16,
+    zeroCrossingAnchorScenarioId: "focused-comparison-scenario",
+    zeroCrossingAnchorSource: "visible-applied-comparison-depletion",
+    yDomain: {
+      min: -10000,
+      max: 25000,
+      signed: true,
+      source: "test-rendered-runway"
+    }
+  });
+  focusedComparisonAnchorGraphModel.phases.deathEvent.xRatio = 0.42;
+  focusedComparisonAnchorGraphModel.trace.selectedScenarioId = "focused-selected-scenario";
+  focusedComparisonAnchorGraphModel.series.appliedRunwayScenarios = [
+    focusedRenderedRunwayGraphModel.series.appliedRunwayScenarios[0],
+    {
+      scenarioId: "focused-comparison-scenario",
+      selected: false,
+      label: "Focused comparison scenario",
+      pathMode: "linear",
+      depletionPoint: { date: "2032-08-29", monthIndex: 16, value: 0, xRatio: 0.8, yRatio: 0.72 },
+      runwayLinePoints: [
+        { date: "2031-04-29", monthIndex: 0, value: 18000, xRatio: 0.42, yRatio: 0.24 },
+        { date: "2032-08-29", monthIndex: 16, value: 0, xRatio: 0.8, yRatio: 0.72 },
+        { date: "2032-10-29", monthIndex: 18, value: -2500, xRatio: 0.88, yRatio: 0.8 }
+      ],
+      fundedRunwayPoints: [
+        { date: "2031-04-29", monthIndex: 0, value: 18000, xRatio: 0.42, yRatio: 0.24 },
+        { date: "2032-08-29", monthIndex: 16, value: 0, xRatio: 0.8, yRatio: 0.72 }
+      ],
+      deficitPoints: [
+        { date: "2032-08-29", monthIndex: 16, value: 0, xRatio: 0.8, yRatio: 0.72 },
+        { date: "2032-10-29", monthIndex: 18, value: -2500, xRatio: 0.88, yRatio: 0.8 }
+      ]
+    }
+  ];
+  const focusedComparisonAnchorHtml = harness.renderTimeline({
+    ...fixture,
+    graphViewMode: "postDeathFocus",
+    graphModel: focusedComparisonAnchorGraphModel
+  });
+  const focusedComparisonSelectedPath = getPathD(focusedComparisonAnchorHtml, "data-income-impact-graph-path", "postDeathResources");
+  assert.match(
+    focusedComparisonSelectedPath,
+    /L781 351/,
+    "Post-death focus view should anchor the selected zero crossing even when a later comparison owns the shared lead-up frame."
+  );
+  const focusedComparisonSelectedMarker = getRunwayDepletionMarkerTag(
+    focusedComparisonAnchorHtml,
+    "focused-selected-scenario"
+  );
+  assert.equal(
+    getTranslateCoordinates(focusedComparisonSelectedMarker).x,
+    781,
+    "Focused selected depletion marker should ignore the comparison-owned shared frame anchor."
+  );
   assert.match(
     focusedPath,
-    /781 351/,
-    "Post-death focus view should preserve the zero-crossing runout anchor."
+    /L781 351/,
+    "Post-death focus view should preserve the zero-crossing point as an explicit line-segment anchor."
   );
 
   const focusedSmallDomainGraphModel = attachStableLayoutFrame(makeGraphModel(), {
@@ -1361,6 +1473,19 @@ assert.doesNotMatch(
   assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-6"[\s\S]*\+6 mo/);
   assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-12"[\s\S]*\+1 year/);
   assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-18"[\s\S]*\+1\.5 years/);
+  const focusedDeathTickX = getGraphXTickGridLineX(focusedSmallDomainHtml, "death");
+  const focusedPlus6TickX = getGraphXTickGridLineX(focusedSmallDomainHtml, "plus-6");
+  const focusedPlus12TickX = getGraphXTickGridLineX(focusedSmallDomainHtml, "plus-12");
+  const focusedPlus18TickX = getGraphXTickGridLineX(focusedSmallDomainHtml, "plus-18");
+  assert.equal(focusedDeathTickX, 74, "Post-death focus x-axis should keep death pinned to the y-axis.");
+  assert.ok(
+    Math.abs((focusedPlus12TickX - focusedPlus6TickX) - (focusedPlus6TickX - focusedDeathTickX)) <= 1,
+    "Post-death focus x-axis should space equal month intervals evenly before runout."
+  );
+  assert.ok(
+    Math.abs((focusedPlus18TickX - focusedPlus12TickX) - (focusedPlus12TickX - focusedPlus6TickX)) <= 1,
+    "Post-death focus x-axis should stay linear after runout instead of compressing the remaining horizon."
+  );
 
   const stableRisingGraphModel = attachStableLayoutFrame(makeGraphModel(), {
     zeroCrossingAnchorScenarioId: null,
