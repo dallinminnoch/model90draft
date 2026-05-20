@@ -21433,7 +21433,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   filter: brightness(0) saturate(100%) invert(31%) sepia(78%) saturate(1979%) hue-rotate(214deg) brightness(90%) contrast(91%);
 }
 
-.income-impact-assumptions-overlay {
+.lens-assumption-controls-overlay {
   position: fixed;
   inset: 0;
   z-index: 10100;
@@ -21444,11 +21444,11 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   backdrop-filter: blur(6px);
 }
 
-.income-impact-assumptions-overlay[hidden] {
+.lens-assumption-controls-overlay[hidden] {
   display: none;
 }
 
-.income-impact-assumptions-dialog {
+.lens-assumption-controls-dialog {
   position: relative;
   width: min(74rem, calc(100vw - 2rem));
   height: min(48rem, calc(100vh - 2rem));
@@ -21459,7 +21459,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.26);
 }
 
-.income-impact-assumptions-dialog__loading {
+.lens-assumption-controls-dialog__loading {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -21473,27 +21473,27 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   pointer-events: none;
 }
 
-.income-impact-assumptions-overlay[data-loading="true"] .income-impact-assumptions-dialog__loading {
+.lens-assumption-controls-overlay[data-loading="true"] .lens-assumption-controls-dialog__loading {
   opacity: 1;
 }
 
-.income-impact-assumptions-dialog__loading-mark {
+.lens-assumption-controls-dialog__loading-mark {
   width: 2.25rem;
   height: 2.25rem;
   border: 3px solid rgba(37, 88, 216, 0.16);
   border-top-color: #2558d8;
   border-radius: 999px;
-  animation: income-impact-assumptions-loading-spin 0.72s linear infinite;
+  animation: lens-assumption-controls-loading-spin 0.72s linear infinite;
 }
 
-.income-impact-assumptions-dialog__loading strong {
+.lens-assumption-controls-dialog__loading strong {
   color: #0f172a;
   font-family: "Montserrat", sans-serif;
   font-size: 0.88rem;
   font-weight: 760;
 }
 
-.income-impact-assumptions-dialog__frame {
+.lens-assumption-controls-dialog__frame {
   display: block;
   width: 100%;
   height: 100%;
@@ -21503,11 +21503,11 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   transition: opacity 0.12s ease;
 }
 
-.income-impact-assumptions-overlay[data-loading="true"] .income-impact-assumptions-dialog__frame {
+.lens-assumption-controls-overlay[data-loading="true"] .lens-assumption-controls-dialog__frame {
   opacity: 0;
 }
 
-@keyframes income-impact-assumptions-loading-spin {
+@keyframes lens-assumption-controls-loading-spin {
   to {
     transform: rotate(360deg);
   }

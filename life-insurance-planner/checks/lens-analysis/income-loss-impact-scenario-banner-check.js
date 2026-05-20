@@ -855,6 +855,7 @@ function createHarness() {
 
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+const assumptionControlsLauncherSource = readRepoFile("app/features/lens-analysis/assumption-controls-launcher.js");
 const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 const layoutSource = readRepoFile("layout.css");
 const componentsSource = readRepoFile("components.css");
@@ -948,16 +949,17 @@ assert.doesNotMatch(
   "Visible scenario-control snapshots should not use the stale foundation-only strip helper."
 );
 assert.match(displaySource, /getSelectedScenarioDisplayLabel/);
-assert.match(displaySource, /getIncomeImpactAssumptionsEmbedRoute/);
-assert.match(displaySource, /embedAssumptions",\s*"1"/);
-assert.match(displaySource, /embedSession",\s*String\(Date\.now\(\)\)/);
-assert.match(displaySource, /data-income-impact-assumptions-overlay/);
-assert.match(displaySource, /data-income-impact-assumptions-loading/);
-assert.match(displaySource, /Loading Assumption Controls/);
-assert.match(displaySource, /iframe\.addEventListener\("load"[\s\S]*overlay\.removeAttribute\("data-loading"\)/);
-assert.match(displaySource, /overlay\.setAttribute\("data-loading",\s*"true"\)/);
-assert.match(displaySource, /iframe\.removeAttribute\("src"\)/);
-assert.match(displaySource, /ASSUMPTIONS_EMBED_MESSAGE_TYPE/);
+assert.doesNotMatch(displaySource, /getIncomeImpactAssumptionsEmbedRoute/);
+assert.doesNotMatch(displaySource, /data-income-impact-assumptions-overlay/);
+assert.match(assumptionControlsLauncherSource, /embedAssumptions",\s*"1"/);
+assert.match(assumptionControlsLauncherSource, /embedSession",\s*String\(Date\.now\(\)\)/);
+assert.match(assumptionControlsLauncherSource, /data-lens-assumption-controls-overlay/);
+assert.match(assumptionControlsLauncherSource, /data-lens-assumption-controls-loading/);
+assert.match(assumptionControlsLauncherSource, /Loading Assumption Controls/);
+assert.match(assumptionControlsLauncherSource, /iframe\.addEventListener\("load"[\s\S]*overlay\.removeAttribute\("data-loading"\)/);
+assert.match(assumptionControlsLauncherSource, /overlay\.setAttribute\("data-loading",\s*"true"\)/);
+assert.match(assumptionControlsLauncherSource, /iframe\.removeAttribute\("src"\)/);
+assert.match(assumptionControlsLauncherSource, /MESSAGE_TYPE/);
 assert.match(analysisSetupSource, /isEmbeddedAssumptionsMode/);
 assert.match(analysisSetupSource, /notifyEmbeddedAssumptionsClose/);
 assert.match(analysisSetupSource, /embedAssumptions/);
@@ -977,8 +979,13 @@ assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
 assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*disabled[\s\S]*Reevaluate|disabled[\s\S]*data-income-impact-reevaluate[\s\S]*Reevaluate/);
 assert.match(
   pageSource,
-  /data-income-impact-assumptions-open[\s\S]*Open Assumption Controls[\s\S]*data-income-impact-reevaluate/,
+  /data-lens-assumption-controls-open[\s\S]*data-income-impact-assumptions-open[\s\S]*Open Assumption Controls[\s\S]*data-income-impact-reevaluate/,
   "Income Impact scenario controls should expose Assumption Controls above Reevaluate."
+);
+assert.match(
+  pageSource,
+  /income-impact-timeline-story-events\.js"><\/script>\s*<script src="\.\.\/app\/features\/lens-analysis\/assumption-controls-launcher\.js"><\/script>\s*<script src="\.\.\/app\/features\/lens-analysis\/income-loss-impact-display\.js"><\/script>/,
+  "Income Impact should load the reusable Assumption Controls launcher before display code."
 );
 assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*Reevaluate[\s\S]*<img src="\.\.\/Images\/sync\.svg" alt="" aria-hidden="true">/);
 assert.match(pageSource, /data-income-impact-draft-status[\s\S]*Applied/);
@@ -1133,37 +1140,37 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-assumptions-overlay\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*10100;[^}]*place-items:\s*center;[^}]*\}/,
-  "Income Impact should open Assumption Controls in an on-screen overlay above the app navigation chrome."
+  /\.lens-assumption-controls-overlay\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*10100;[^}]*place-items:\s*center;[^}]*\}/,
+  "Reusable Assumption Controls launcher should open the widget in an on-screen overlay above the app navigation chrome."
 );
 assert.doesNotMatch(
-  displaySource,
-  /income-impact-assumptions-dialog__close/,
-  "Income Impact should not add a second parent close button over the embedded Assumption Controls close button."
+  assumptionControlsLauncherSource,
+  /lens-assumption-controls-dialog__close/,
+  "Parent Assumption Controls launcher should not add a second close button over the embedded widget close button."
 );
 assert.doesNotMatch(
   componentsSource,
-  /\.income-impact-assumptions-dialog__close/,
+  /\.lens-assumption-controls-dialog__close/,
   "Parent Assumption Controls overlay close styling should stay absent so only the embedded widget close is visible."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-assumptions-dialog__frame\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border:\s*0;[^}]*\}/,
-  "Income Impact Assumption Controls overlay should host the existing Analysis Setup page in an iframe."
+  /\.lens-assumption-controls-dialog__frame\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border:\s*0;[^}]*\}/,
+  "Reusable Assumption Controls overlay should host the existing Analysis Setup page in an iframe."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-assumptions-overlay\[data-loading="true"\] \.income-impact-assumptions-dialog__frame\s*\{[^}]*opacity:\s*0;[^}]*\}/,
+  /\.lens-assumption-controls-overlay\[data-loading="true"\] \.lens-assumption-controls-dialog__frame\s*\{[^}]*opacity:\s*0;[^}]*\}/,
   "Embedded Assumption Controls should stay hidden until the embedded session is loaded."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-assumptions-dialog__loading\s*\{[^}]*position:\s*absolute;[^}]*place-items:\s*center;[^}]*background:\s*linear-gradient\(180deg, #ffffff 0%, #f8fafc 100%\);[^}]*\}/,
+  /\.lens-assumption-controls-dialog__loading\s*\{[^}]*position:\s*absolute;[^}]*place-items:\s*center;[^}]*background:\s*linear-gradient\(180deg, #ffffff 0%, #f8fafc 100%\);[^}]*\}/,
   "Embedded Assumption Controls should show an intentional loading surface instead of a blank dialog."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-assumptions-overlay\[data-loading="true"\] \.income-impact-assumptions-dialog__loading\s*\{[^}]*opacity:\s*1;[^}]*\}/,
+  /\.lens-assumption-controls-overlay\[data-loading="true"\] \.lens-assumption-controls-dialog__loading\s*\{[^}]*opacity:\s*1;[^}]*\}/,
   "Embedded Assumption Controls loading surface should be visible while the iframe is loading."
 );
 assert.match(componentsSource, /\.income-impact-reevaluate-button img\s*\{[^}]*order:\s*2;[^}]*width:\s*1\.08rem;[^}]*height:\s*1\.08rem;[^}]*filter:\s*brightness\(0\) invert\(1\);[^}]*\}/);

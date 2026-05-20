@@ -32,8 +32,6 @@
   const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
   const GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus";
   const GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp";
-  const ANALYSIS_SETUP_ROUTE = "analysis-setup.html";
-  const ASSUMPTIONS_EMBED_MESSAGE_TYPE = "model90:analysis-setup:assumptions-embed-closed";
   const POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO = 0.12;
   const POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO = 0.08;
   const INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE =
@@ -580,146 +578,6 @@
         `${targetUrl.pathname.split("/").pop()}${targetUrl.search}${targetUrl.hash}`
       );
     });
-  }
-
-  function getIncomeImpactAssumptionsEmbedRoute() {
-    const currentParams = new URLSearchParams(window.location.search);
-    const targetUrl = new URL(ANALYSIS_SETUP_ROUTE, window.location.href);
-    currentParams.forEach(function (value, key) {
-      if (!targetUrl.searchParams.has(key)) {
-        targetUrl.searchParams.append(key, value);
-      }
-    });
-    targetUrl.searchParams.set("embedAssumptions", "1");
-    targetUrl.searchParams.set("embedSession", String(Date.now()));
-
-    return `${targetUrl.pathname.split("/").pop()}${targetUrl.search}${targetUrl.hash}`;
-  }
-
-  function closeIncomeImpactAssumptionsOverlay(overlay, options) {
-    if (!overlay) {
-      return;
-    }
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-    overlay.removeAttribute("data-overlay-open");
-    overlay.removeAttribute("data-loading");
-    document.body.classList.remove("income-impact-assumptions-open");
-    const iframe = overlay.querySelector("[data-income-impact-assumptions-frame]");
-    if (iframe) {
-      iframe.removeAttribute("src");
-    }
-
-    const trigger = overlay.__incomeImpactReturnFocus;
-    overlay.__incomeImpactReturnFocus = null;
-    if (trigger && typeof trigger.focus === "function") {
-      trigger.focus();
-    }
-
-    if (options?.saved === true && window.location && typeof window.location.reload === "function") {
-      window.location.reload();
-    }
-  }
-
-  function ensureIncomeImpactAssumptionsOverlay() {
-    if (typeof document === "undefined" || typeof document.createElement !== "function") {
-      return null;
-    }
-
-    const existing = document.querySelector("[data-income-impact-assumptions-overlay]");
-    if (existing) {
-      return existing;
-    }
-
-    const overlay = document.createElement("section");
-    overlay.className = "income-impact-assumptions-overlay";
-    overlay.setAttribute("data-income-impact-assumptions-overlay", "");
-    overlay.setAttribute("aria-hidden", "true");
-    overlay.hidden = true;
-
-    const dialog = document.createElement("div");
-    dialog.className = "income-impact-assumptions-dialog";
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-    dialog.setAttribute("aria-label", "Assumption Controls");
-
-    const loadingState = document.createElement("div");
-    loadingState.className = "income-impact-assumptions-dialog__loading";
-    loadingState.setAttribute("data-income-impact-assumptions-loading", "");
-    loadingState.setAttribute("aria-hidden", "true");
-    loadingState.innerHTML = `
-      <span class="income-impact-assumptions-dialog__loading-mark" aria-hidden="true"></span>
-      <strong>Loading Assumption Controls</strong>
-    `;
-
-    const iframe = document.createElement("iframe");
-    iframe.className = "income-impact-assumptions-dialog__frame";
-    iframe.setAttribute("title", "Assumption Controls");
-    iframe.setAttribute("data-income-impact-assumptions-frame", "");
-    iframe.addEventListener("load", function () {
-      overlay.removeAttribute("data-loading");
-    });
-
-    dialog.appendChild(loadingState);
-    dialog.appendChild(iframe);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    return overlay;
-  }
-
-  function openIncomeImpactAssumptionsOverlay(triggerButton) {
-    const overlay = ensureIncomeImpactAssumptionsOverlay();
-    if (!overlay) {
-      window.location.href = getIncomeImpactAssumptionsEmbedRoute();
-      return;
-    }
-
-    const iframe = overlay.querySelector("[data-income-impact-assumptions-frame]");
-    const assumptionsEmbedRoute = getIncomeImpactAssumptionsEmbedRoute();
-
-    overlay.__incomeImpactReturnFocus = triggerButton || document.activeElement || null;
-    overlay.setAttribute("data-loading", "true");
-    overlay.hidden = false;
-    overlay.removeAttribute("aria-hidden");
-    overlay.setAttribute("data-overlay-open", "true");
-    document.body.classList.add("income-impact-assumptions-open");
-    if (iframe) {
-      iframe.setAttribute("src", assumptionsEmbedRoute);
-    }
-
-    if (iframe && typeof iframe.focus === "function") {
-      iframe.focus();
-    }
-  }
-
-  function bindIncomeImpactAssumptionsLauncher() {
-    const assumptionsButton = document.querySelector("[data-income-impact-assumptions-open]");
-    if (!assumptionsButton || assumptionsButton.__incomeImpactAssumptionsBound) {
-      return;
-    }
-
-    assumptionsButton.__incomeImpactAssumptionsBound = true;
-    assumptionsButton.addEventListener("click", function () {
-      openIncomeImpactAssumptionsOverlay(assumptionsButton);
-    });
-
-    if (typeof window.addEventListener === "function" && !window.__incomeImpactAssumptionsMessageBound) {
-      window.__incomeImpactAssumptionsMessageBound = true;
-      window.addEventListener("message", function (event) {
-        if (!event?.data || event.data.type !== ASSUMPTIONS_EMBED_MESSAGE_TYPE) {
-          return;
-        }
-
-        const overlay = document.querySelector("[data-income-impact-assumptions-overlay]");
-        const iframe = overlay?.querySelector("[data-income-impact-assumptions-frame]");
-        if (iframe?.contentWindow && event.source !== iframe.contentWindow) {
-          return;
-        }
-
-        closeIncomeImpactAssumptionsOverlay(overlay, { saved: event.data.saved === true });
-      });
-    }
   }
 
   function getUrlValue(params, fieldNames) {
@@ -7952,7 +7810,6 @@
       return;
     }
     syncIncomeImpactWorkflowLinks();
-    bindIncomeImpactAssumptionsLauncher();
 
     const currentLensAnalysis = window.LensApp?.lensAnalysis || {};
     const buildLensModelFromSavedProtectionModeling = currentLensAnalysis.buildLensModelFromSavedProtectionModeling;
