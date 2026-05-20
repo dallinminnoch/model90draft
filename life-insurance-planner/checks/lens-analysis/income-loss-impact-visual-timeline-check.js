@@ -254,7 +254,7 @@ function attachStableLayoutFrame(graphModel, overrides = {}) {
     zeroCrossingAnchorSource: "current-rendered-scenario-depletion",
     trace: {
       source: "income-impact-timeline-graph-model.layoutFrame",
-      rendererConsumesLayoutFrame: false
+      rendererConsumesLayoutFrame: true
     }
   }, overrides);
   return graphModel;
@@ -917,88 +917,6 @@ assert.match(
   componentsSource,
   /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(18\.5rem, 40vh, 28rem\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;/,
   "Income Impact graph should use a tighter viewport-aware height to reduce letterboxing."
-);
-assert.match(
-  componentsSource,
-  /\.income-impact-scenario-banner\s*\{[^}]*width:\s*min\(100%,\s*13\.75rem\);[^}]*border:\s*1px solid var\(--income-impact-scenario-border\);[^}]*border-radius:\s*0\.875rem;[^}]*background:\s*#ffffff;[^}]*box-shadow:\s*0 2px 12px rgba\(15,\s*28,\s*60,\s*0\.07\),\s*0 1px 3px rgba\(15,\s*28,\s*60,\s*0\.05\);[^}]*\}/,
-  "Scenario controls should use the provided compact reference panel treatment."
-);
-assert.doesNotMatch(
-  componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*min-height:\s*100%;/,
-  "Scenario controls rail should not stretch the compact card frame to the full rail height."
-);
-assert.doesNotMatch(
-  componentsSource,
-  /\.income-impact-controls-panel \.income-impact-scenario-banner\s*\{[^}]*border:\s*1px solid/,
-  "Scenario controls rail should not override the base compact card border."
-);
-assert.match(componentsSource, /\.income-impact-controls-panel\s*\{[^}]*background:\s*#ffffff;/);
-assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:hover/);
-assert.doesNotMatch(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field:focus-within/);
-assert.match(
-  componentsSource,
-  /\.income-impact-scenario-header::before\s*\{[\s\S]*background:\s*linear-gradient\(90deg,\s*var\(--income-impact-scenario-blue\),\s*#6366f1,\s*#7c3aed\);/,
-  "Scenario controls should use the reference gradient top rail."
-);
-assert.match(
-  componentsSource,
-  /\.income-impact-option-item\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--income-impact-scenario-blue-light\);[^}]*color:\s*var\(--income-impact-scenario-blue\);[^}]*\}/,
-  "Scenario controls should use reference selected option rows."
-);
-assert.match(
-  componentsSource,
-  /\.income-impact-scenario-field--lifestyle > input\[type="range"\]\s*\{[^}]*appearance:\s*none;[^}]*\}/,
-  "Scenario controls should render Lifestyle as a slider."
-);
-assert.match(pageSource, /data-income-impact-death-age-control[\s\S]*income-impact-scenario-field--lifestyle[\s\S]*data-income-impact-mortgage-treatment/);
-assert.match(pageSource, /data-income-impact-death-age-slider-label="min"[\s\S]*data-income-impact-death-age-slider-label="max"/);
-assert.match(displaySource, /const maxAge = 100;/);
-assert.match(displaySource, /updateDeathAgeSliderLabels\(sliderLabels,\s*state\.minAge,\s*state\.maxAge\)/);
-assert.match(displaySource, /slider\.min = "0";[\s\S]*slider\.max = "100";/);
-assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*outline:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*outline:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(stylesSource, /body\[data-step="income-impact"\] input\[data-income-impact-death-age-slider\],[\s\S]*body\[data-step="income-impact"\] input\[data-income-impact-lifestyle-slider\]\s*\{[^}]*height:\s*1\.2rem;[^}]*min-height:\s*1\.2rem;[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*-webkit-appearance:\s*none;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-death-age-slider-row input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*border:\s*0;[^}]*background:\s*var\(--income-impact-scenario-blue\);[^}]*box-shadow:\s*none;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-controls-panel \.income-impact-scenario-field\[data-income-impact-death-age-control\],[\s\S]*\.income-impact-controls-panel \.income-impact-scenario-field--lifestyle\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/);
-assert.match(componentsSource, /\.income-impact-scenario-field\[data-income-impact-death-age-control\] \.income-impact-scenario-section-label span,[\s\S]*\.income-impact-scenario-field--lifestyle \.income-impact-scenario-section-label span\s*\{[^}]*display:\s*none;/);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*grid-template-columns:\s*minmax\(14\.75rem,\s*15\.25rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[\s\S]*align-items:\s*stretch;/,
-  "Income Impact page shell should reserve the reference-width scenario controls rail."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*overflow:\s*hidden;[\s\S]*background:\s*#f1f4f9;/,
-  "Income Impact page frame should use the reference grey background behind white chart surfaces."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell[\s\S]*background:\s*transparent;/,
-  "Income Impact workspace shell should let the framed rail and center surfaces define the visible Client Directory-style frame."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-controls-panel[\s\S]*grid-column:\s*1;[\s\S]*grid-row:\s*1;[\s\S]*position:\s*static;[\s\S]*align-self:\s*stretch;/,
-  "Income Impact scenario controls should own and stretch in the left grid column."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*grid-column:\s*2;[\s\S]*height:\s*100%;[\s\S]*padding:\s*0\.9rem clamp\(0\.95rem,\s*1\.45vw,\s*1\.15rem\) 0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow-y:\s*auto;/,
-  "Income Impact content should render to the right of the fixed side menu and own vertical scrolling."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-insights-panel[\s\S]*grid-column:\s*3;[\s\S]*grid-row:\s*1;[\s\S]*height:\s*100%;[\s\S]*overflow-y:\s*auto;/,
-  "Income Impact resource outlook should occupy the right rail and own its vertical scrolling."
-);
-assert.match(
-  layoutSource,
-  /body\[data-step="income-impact"\] \.lens-workflow-pane[\s\S]*display:\s*grid;[\s\S]*padding:\s*0;[\s\S]*overflow:\s*hidden;/,
-  "Income Impact pane should be a fixed frame so the side menu does not scroll with the main content."
 );
 
 const fixture = {

@@ -32,10 +32,12 @@ assert.doesNotMatch(graphModelSource, /height.*500000|500000.*height|RUNWAY_CHAR
 
 assert.match(displaySource, /renderGraphAxis/);
 assert.match(displaySource, /data-income-impact-graph-zero-baseline/);
-assert.match(displaySource, /renderGraphPath\("preDeathAssets"/);
-assert.match(displaySource, /renderGraphPath\("deathTransition"/);
-assert.match(displaySource, /renderGraphPath\("postDeathResources"/);
+assert.match(displaySource, /renderGraphPath\(PRE_DEATH_ASSETS_PATH_ID/);
+assert.match(displaySource, /pathId:\s*POST_DEATH_RESOURCES_PATH_ID/);
+assert.match(displaySource, /function renderAppliedScenarioGraphPaths/);
+assert.match(displaySource, /renderDeathEventConversionConnector/);
 assert.match(displaySource, /data-income-impact-graph-marker-kind/);
+assert.doesNotMatch(displaySource, /renderGraphPath\("deathTransition"/);
 assert.doesNotMatch(displaySource, /renderFinancialRunwayChart|buildRunwayChartModel|data-income-impact-runway-svg/);
 assert.doesNotMatch(displaySource, /calculateIncomeLossImpactTimeline|evaluateIncomeImpactWarningEvents|scenarioTimeline/);
 assert.doesNotMatch(
@@ -46,9 +48,10 @@ assert.doesNotMatch(
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(componentsSource, /\.income-impact-graph-zero-baseline/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
-assert.match(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources/);
 assert.match(componentsSource, /\.income-impact-graph-callouts/);
+assert.match(componentsSource, /\.income-impact-death-conversion/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.doesNotMatch(componentsSource, /\.income-impact-runway-svg|\.income-impact-runway-callout|\.income-impact-runway-phase-strip|\.income-impact-marker-lanes/);
 
 assert.match(

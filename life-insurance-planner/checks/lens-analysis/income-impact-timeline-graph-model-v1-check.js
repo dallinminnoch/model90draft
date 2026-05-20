@@ -45,7 +45,7 @@ function assertStableLayoutFrame(model, message) {
   assertApproxEqual(model.layoutFrame.zeroYRatio, 0.72, `${message}: zero y ratio should stay fixed.`);
   assertApproxEqual(model.layoutFrame.runoutAnchorXRatio, 0.8, `${message}: runout anchor ratio should stay fixed.`);
   assertApproxEqual(model.layoutFrame.negativeSupportBandRatio, 0.28, `${message}: negative support band should match the fixed zero ratio.`);
-  assert.equal(model.layoutFrame.trace.rendererConsumesLayoutFrame, false, `${message}: renderer should not consume layoutFrame in this pass.`);
+  assert.equal(model.layoutFrame.trace.rendererConsumesLayoutFrame, true, `${message}: renderer should consume the stable layoutFrame contract.`);
 }
 
 function loadGraphModel() {

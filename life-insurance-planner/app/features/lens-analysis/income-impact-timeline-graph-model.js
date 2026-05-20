@@ -2311,8 +2311,8 @@
       zeroCrossingAnchorSource: zeroCrossingAnchor?.source || "projection-horizon",
       trace: {
         source: "income-impact-timeline-graph-model.layoutFrame",
-        rendererConsumesLayoutFrame: false,
-        frameCoordinatesSource: "income-loss-impact-display fixed SVG frame",
+        rendererConsumesLayoutFrame: true,
+        frameCoordinatesSource: "income-loss-impact-display layout-frame projection helpers",
         consideredVisibleResourceLines: clonePlainValue(consideredLines),
         consideredLineCount: consideredLines.length,
         depletionAnchorCount: depletionAnchors.length,

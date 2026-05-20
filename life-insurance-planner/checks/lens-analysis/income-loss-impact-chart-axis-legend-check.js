@@ -92,7 +92,7 @@ const graphModel = {
     currentAnchor: null
   },
   markers: [
-    { id: "risk", ruleId: "survivor-resources-depleted", kind: "risk", severity: "critical", title: "Resources depleted", positionable: true, xRatio: 0.75, yRatio: 0.66 }
+    { id: "risk", ruleId: "late-support-gap", kind: "risk", severity: "critical", title: "Late support gap", positionable: true, xRatio: 0.75, yRatio: 0.66 }
   ],
   selectedEvent: null,
   callouts: [],
