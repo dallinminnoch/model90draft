@@ -32,6 +32,8 @@
   const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
   const GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus";
   const GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp";
+  const ANALYSIS_SETUP_ROUTE = "analysis-setup.html";
+  const ASSUMPTIONS_EMBED_MESSAGE_TYPE = "model90:analysis-setup:assumptions-embed-closed";
   const POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO = 0.12;
   const POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO = 0.08;
   const INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE =
@@ -578,6 +580,146 @@
         `${targetUrl.pathname.split("/").pop()}${targetUrl.search}${targetUrl.hash}`
       );
     });
+  }
+
+  function getIncomeImpactAssumptionsEmbedRoute() {
+    const currentParams = new URLSearchParams(window.location.search);
+    const targetUrl = new URL(ANALYSIS_SETUP_ROUTE, window.location.href);
+    currentParams.forEach(function (value, key) {
+      if (!targetUrl.searchParams.has(key)) {
+        targetUrl.searchParams.append(key, value);
+      }
+    });
+    targetUrl.searchParams.set("embedAssumptions", "1");
+    targetUrl.searchParams.set("embedSession", String(Date.now()));
+
+    return `${targetUrl.pathname.split("/").pop()}${targetUrl.search}${targetUrl.hash}`;
+  }
+
+  function closeIncomeImpactAssumptionsOverlay(overlay, options) {
+    if (!overlay) {
+      return;
+    }
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.removeAttribute("data-overlay-open");
+    overlay.removeAttribute("data-loading");
+    document.body.classList.remove("income-impact-assumptions-open");
+    const iframe = overlay.querySelector("[data-income-impact-assumptions-frame]");
+    if (iframe) {
+      iframe.removeAttribute("src");
+    }
+
+    const trigger = overlay.__incomeImpactReturnFocus;
+    overlay.__incomeImpactReturnFocus = null;
+    if (trigger && typeof trigger.focus === "function") {
+      trigger.focus();
+    }
+
+    if (options?.saved === true && window.location && typeof window.location.reload === "function") {
+      window.location.reload();
+    }
+  }
+
+  function ensureIncomeImpactAssumptionsOverlay() {
+    if (typeof document === "undefined" || typeof document.createElement !== "function") {
+      return null;
+    }
+
+    const existing = document.querySelector("[data-income-impact-assumptions-overlay]");
+    if (existing) {
+      return existing;
+    }
+
+    const overlay = document.createElement("section");
+    overlay.className = "income-impact-assumptions-overlay";
+    overlay.setAttribute("data-income-impact-assumptions-overlay", "");
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.hidden = true;
+
+    const dialog = document.createElement("div");
+    dialog.className = "income-impact-assumptions-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-label", "Assumption Controls");
+
+    const loadingState = document.createElement("div");
+    loadingState.className = "income-impact-assumptions-dialog__loading";
+    loadingState.setAttribute("data-income-impact-assumptions-loading", "");
+    loadingState.setAttribute("aria-hidden", "true");
+    loadingState.innerHTML = `
+      <span class="income-impact-assumptions-dialog__loading-mark" aria-hidden="true"></span>
+      <strong>Loading Assumption Controls</strong>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.className = "income-impact-assumptions-dialog__frame";
+    iframe.setAttribute("title", "Assumption Controls");
+    iframe.setAttribute("data-income-impact-assumptions-frame", "");
+    iframe.addEventListener("load", function () {
+      overlay.removeAttribute("data-loading");
+    });
+
+    dialog.appendChild(loadingState);
+    dialog.appendChild(iframe);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    return overlay;
+  }
+
+  function openIncomeImpactAssumptionsOverlay(triggerButton) {
+    const overlay = ensureIncomeImpactAssumptionsOverlay();
+    if (!overlay) {
+      window.location.href = getIncomeImpactAssumptionsEmbedRoute();
+      return;
+    }
+
+    const iframe = overlay.querySelector("[data-income-impact-assumptions-frame]");
+    const assumptionsEmbedRoute = getIncomeImpactAssumptionsEmbedRoute();
+
+    overlay.__incomeImpactReturnFocus = triggerButton || document.activeElement || null;
+    overlay.setAttribute("data-loading", "true");
+    overlay.hidden = false;
+    overlay.removeAttribute("aria-hidden");
+    overlay.setAttribute("data-overlay-open", "true");
+    document.body.classList.add("income-impact-assumptions-open");
+    if (iframe) {
+      iframe.setAttribute("src", assumptionsEmbedRoute);
+    }
+
+    if (iframe && typeof iframe.focus === "function") {
+      iframe.focus();
+    }
+  }
+
+  function bindIncomeImpactAssumptionsLauncher() {
+    const assumptionsButton = document.querySelector("[data-income-impact-assumptions-open]");
+    if (!assumptionsButton || assumptionsButton.__incomeImpactAssumptionsBound) {
+      return;
+    }
+
+    assumptionsButton.__incomeImpactAssumptionsBound = true;
+    assumptionsButton.addEventListener("click", function () {
+      openIncomeImpactAssumptionsOverlay(assumptionsButton);
+    });
+
+    if (typeof window.addEventListener === "function" && !window.__incomeImpactAssumptionsMessageBound) {
+      window.__incomeImpactAssumptionsMessageBound = true;
+      window.addEventListener("message", function (event) {
+        if (!event?.data || event.data.type !== ASSUMPTIONS_EMBED_MESSAGE_TYPE) {
+          return;
+        }
+
+        const overlay = document.querySelector("[data-income-impact-assumptions-overlay]");
+        const iframe = overlay?.querySelector("[data-income-impact-assumptions-frame]");
+        if (iframe?.contentWindow && event.source !== iframe.contentWindow) {
+          return;
+        }
+
+        closeIncomeImpactAssumptionsOverlay(overlay, { saved: event.data.saved === true });
+      });
+    }
   }
 
   function getUrlValue(params, fieldNames) {
@@ -4806,17 +4948,75 @@
     `;
   }
 
+  function renderResourceOutlookRailSummary() {
+    return `
+      <div class="income-impact-rail-summary income-impact-rail-summary--insights" data-income-impact-rail-summary="insights" aria-hidden="true">
+        <span class="income-impact-rail-summary__label">Outlook</span>
+        <span class="income-impact-rail-summary__item income-impact-rail-summary__item--primary">
+          <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--inbox">
+            <svg viewBox="0 0 42 24" focusable="false">
+              <path d="M8 7h26l3 10H5z"></path>
+              <path d="M15 17c1.2-2.4 2.4-3.2 6-3.2s4.8.8 6 3.2"></path>
+            </svg>
+          </span>
+          <b>Alerts</b>
+        </span>
+        <span class="income-impact-rail-summary__item">
+          <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--timeline">
+            <svg viewBox="0 0 42 24" focusable="false">
+              <path d="M7 12h28"></path>
+              <circle cx="11" cy="12" r="2.7"></circle>
+              <circle cx="21" cy="12" r="2.7"></circle>
+              <circle cx="31" cy="12" r="2.7"></circle>
+            </svg>
+          </span>
+          <b>90d</b>
+        </span>
+        <span class="income-impact-rail-summary__item">
+          <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--bars">
+            <svg viewBox="0 0 42 24" focusable="false">
+              <path d="M9 18V9M18 18V6M27 18v-4M36 18V8"></path>
+              <path d="M6 18h31"></path>
+            </svg>
+          </span>
+          <b>Cash</b>
+        </span>
+        <span class="income-impact-rail-summary__item">
+          <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--need">
+            <svg viewBox="0 0 42 24" focusable="false">
+              <path d="M8 16c6-9 16 3 26-8"></path>
+              <path d="M8 18h26"></path>
+            </svg>
+          </span>
+          <b>Need</b>
+        </span>
+        <span class="income-impact-rail-summary__status">
+          <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--ratio">
+            <svg viewBox="0 0 42 20" focusable="false">
+              <circle cx="15" cy="10" r="5.5"></circle>
+              <path d="M25 6h9M25 14h7"></path>
+            </svg>
+          </span>
+          <b>Ratio</b>
+        </span>
+      </div>
+    `;
+  }
+
   function renderResourceOutlookPanel(timelineResult) {
     return `
-      ${renderPlanningAlertsInbox()}
-      <section class="income-impact-resource-outlook" data-income-impact-resource-outlook>
-        <div class="income-impact-resource-outlook__header">
-          <span>Resource Outlook</span>
-          <strong>90-Day Transition Outlook</strong>
-          <p>Can the household cover the first 90 days using cash and emergency fund only?</p>
-        </div>
-        ${renderTransitionOutlookReadout(timelineResult)}
-      </section>
+      ${renderResourceOutlookRailSummary()}
+      <div class="income-impact-rail-full" data-income-impact-rail-full="insights">
+        ${renderPlanningAlertsInbox()}
+        <section class="income-impact-resource-outlook" data-income-impact-resource-outlook>
+          <div class="income-impact-resource-outlook__header">
+            <span>Resource Outlook</span>
+            <strong>90-Day Transition Outlook</strong>
+            <p>Can the household cover the first 90 days using cash and emergency fund only?</p>
+          </div>
+          ${renderTransitionOutlookReadout(timelineResult)}
+        </section>
+      </div>
     `;
   }
 
@@ -7752,6 +7952,7 @@
       return;
     }
     syncIncomeImpactWorkflowLinks();
+    bindIncomeImpactAssumptionsLauncher();
 
     const currentLensAnalysis = window.LensApp?.lensAnalysis || {};
     const buildLensModelFromSavedProtectionModeling = currentLensAnalysis.buildLensModelFromSavedProtectionModeling;

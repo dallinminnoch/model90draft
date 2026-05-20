@@ -1,6 +1,7 @@
 (function () {
   const LensApp = window.LensApp || (window.LensApp = {});
   const INCOME_LOSS_IMPACT_ROUTE = "income-loss-impact.html";
+  const ASSUMPTIONS_EMBED_MESSAGE_TYPE = "model90:analysis-setup:assumptions-embed-closed";
 
   const RATE_FIELDS = [
     "generalInflationRatePercent",
@@ -18,6 +19,22 @@
 
     const currentSearch = String(window.location?.search || "").trim();
     return currentSearch ? `${route}${currentSearch}` : route;
+  }
+
+  function isEmbeddedAssumptionsMode() {
+    const params = new URLSearchParams(window.location?.search || "");
+    return params.get("embedAssumptions") === "1";
+  }
+
+  function notifyEmbeddedAssumptionsClose(options) {
+    if (!isEmbeddedAssumptionsMode() || !window.parent || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type: ASSUMPTIONS_EMBED_MESSAGE_TYPE,
+      saved: options?.saved === true
+    }, "*");
   }
 
   const RATE_LABELS = {
@@ -8669,6 +8686,11 @@
       return;
     }
 
+    const embeddedAssumptionsMode = isEmbeddedAssumptionsMode();
+    if (embeddedAssumptionsMode) {
+      document.body.classList.add("analysis-setup-embedded-assumptions");
+    }
+
     let linkedRecord = resolveLinkedProfileRecord();
     renderAssetTreatmentRows(linkedRecord);
     renderDebtTreatmentRows(linkedRecord);
@@ -8899,6 +8921,9 @@
       }
 
       setAssumptionsOverlayOpen(false);
+      if (embeddedAssumptionsMode) {
+        notifyEmbeddedAssumptionsClose({ saved: false });
+      }
       return true;
     }
 
@@ -8940,6 +8965,12 @@
     populateEducationFields(educationFields, getEducationAssumptions(linkedRecord), linkedRecord);
     populateRecommendationGuardrailFields(recommendationGuardrailFields, getRecommendationGuardrails(linkedRecord));
     renderLivingFloorReadinessNotices(livingFloorReadinessHost, linkedRecord);
+
+    if (embeddedAssumptionsMode) {
+      window.setTimeout(function () {
+        setAssumptionsOverlayOpen(true);
+      }, 0);
+    }
 
     if (!linkedRecord) {
       setFieldsDisabled(fields, sliders, true);
@@ -9735,6 +9766,10 @@
     assumptionsSaveExitButton?.addEventListener("click", function () {
       const updatedRecord = saveCurrentAnalysisSetupSettings();
       if (updatedRecord) {
+        if (embeddedAssumptionsMode) {
+          notifyEmbeddedAssumptionsClose({ saved: true });
+          return;
+        }
         setAssumptionsOverlayOpen(false);
       }
     });

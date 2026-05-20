@@ -154,6 +154,7 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "grid-template-columns: var(--income-impact-rail-collapsed-width) minmax(0, 1fr) var(--income-impact-rail-collapsed-width);",
     "grid-template-columns: minmax(13.5rem, 18rem) minmax(0, 1fr);",
     "display: grid;",
+    "display: none !important;",
     "grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);",
     "grid-template-columns: 1fr;",
     "gap: 1rem;",
@@ -161,8 +162,10 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "align-self: stretch;",
     "min-height: 0;",
     "height: 100%;",
+    "height: 100vh;",
     "height: auto;",
     "overflow-y: auto;",
+    "overflow: hidden;",
     "overflow: visible;",
     "background: #f1f4f9;",
     "background: transparent;",
@@ -185,6 +188,8 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "justify-self: start;",
     "justify-self: end;",
     "width: var(--income-impact-rail-collapsed-width);",
+    "width: 100%;",
+    "max-width: none;",
     "max-width: var(--income-impact-rail-expanded-width);",
     "overflow-x: hidden;",
     "transition: width 0.18s ease, box-shadow 0.18s ease;",
@@ -192,6 +197,8 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "z-index: 8;",
     "width: var(--income-impact-rail-expanded-width);",
     "isolation: isolate;",
+    "margin: 0;",
+    "padding: 0;",
     "min-width: var(--income-impact-rail-expanded-width);",
     "min-width: 0;"
   ]);
@@ -206,6 +213,17 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "body[data-step=\"income-impact\"] .income-impact-insights-panel:focus-within {",
     "body[data-step=\"income-impact\"] .income-impact-controls-panel > *,",
     "body[data-step=\"income-impact\"] .income-impact-insights-panel > * {",
+    "body[data-step=\"income-impact\"] [data-income-impact-rail-full] {",
+    "body.analysis-setup-embedded-assumptions {",
+    "body.analysis-setup-embedded-assumptions .workspace-page-topbar,",
+    "body.analysis-setup-embedded-assumptions .workspace-side-nav-host,",
+    "body.analysis-setup-embedded-assumptions .analysis-setup-header,",
+    "body.analysis-setup-embedded-assumptions [data-analysis-setup-entry] {",
+    "body.analysis-setup-embedded-assumptions .home-shell,",
+    "body.analysis-setup-embedded-assumptions .lens-workflow-stage,",
+    "body.analysis-setup-embedded-assumptions .lens-workflow-pane {",
+    "body.analysis-setup-embedded-assumptions .lens-assumptions-overlay {",
+    "body.analysis-setup-embedded-assumptions .lens-assumptions-dialog {",
     "/* Mobile keeps scenario controls inline so they do not cover the chart or route actions. */",
     "/* Mobile stacks scenario controls above the chart so they do not cover route actions. */"
   ]);
@@ -475,6 +493,7 @@ function createHarness() {
   const reevaluateButton = createElement({ disabled: true, textContent: "Reevaluate" });
   const reevaluateControl = createElement();
   const reevaluateAction = createElement({ textContent: "No pending changes" });
+  const assumptionsButton = createElement({ textContent: "Open Assumption Controls" });
   const draftStatus = createElement({ textContent: "Applied" });
   const selectedScenarioChip = createElement();
   const selectedScenarioLabel = createElement({ textContent: "Not selected" });
@@ -489,6 +508,7 @@ function createHarness() {
       "[data-income-impact-survivor-income-value]": survivorIncomeValue,
       "[data-income-impact-lifestyle-slider]": lifestyleSlider,
       "[data-income-impact-lifestyle-value]": lifestyleValue,
+      "[data-income-impact-assumptions-open]": assumptionsButton,
       "[data-income-impact-reevaluate]": reevaluateButton,
       "[data-income-impact-reevaluate-control]": reevaluateControl,
       "[data-income-impact-reevaluate-action]": reevaluateAction,
@@ -519,6 +539,9 @@ function createHarness() {
       }
       if (selector === "[data-income-impact-scenario-banner]") {
         return banner;
+      }
+      if (selector === "[data-income-impact-assumptions-open]") {
+        return assumptionsButton;
       }
       return null;
     },
@@ -560,6 +583,7 @@ function createHarness() {
         reevaluateTimers.push({ callback, delay });
         return reevaluateTimers.length;
       },
+      addEventListener() {},
       LensApp: {
         clientRecords: {
           getCurrentLinkedRecord() {
@@ -831,6 +855,7 @@ function createHarness() {
 
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
+const analysisSetupSource = readRepoFile("app/features/lens-analysis/analysis-setup.js");
 const layoutSource = readRepoFile("layout.css");
 const componentsSource = readRepoFile("components.css");
 const stylesSource = readRepoFile("styles.css");
@@ -840,6 +865,8 @@ const scenarioLayoutBlock = layoutSource.match(
 
 [
   "data-income-impact-scenario-banner",
+  "data-income-impact-rail-summary=\"controls\"",
+  "data-income-impact-rail-full=\"controls\"",
   "data-income-impact-scenario-toggle",
   "data-income-impact-scenario-content",
   "data-income-impact-mortgage-treatment",
@@ -847,6 +874,7 @@ const scenarioLayoutBlock = layoutSource.match(
   "data-income-impact-survivor-income-value",
   "data-income-impact-lifestyle-slider",
   "data-income-impact-lifestyle-value",
+  "data-income-impact-assumptions-open",
   "data-income-impact-reevaluate",
   "data-income-impact-reevaluate-action",
   "data-income-impact-draft-status",
@@ -879,6 +907,7 @@ assert.equal(
 assert.match(pageSource, /Scenario Controls/);
 assert.match(pageSource, /data-income-impact-controls-layout/);
 assert.match(pageSource, /data-income-impact-controls-panel/);
+assert.match(pageSource, /income-impact-rail-summary__glyph--slider[\s\S]*income-impact-rail-summary__glyph--toggle/);
 assert.match(
   pageSource,
   /data-income-impact-display[\s\S]*data-income-impact-controls-panel[\s\S]*data-income-impact-scenario-banner/,
@@ -919,6 +948,24 @@ assert.doesNotMatch(
   "Visible scenario-control snapshots should not use the stale foundation-only strip helper."
 );
 assert.match(displaySource, /getSelectedScenarioDisplayLabel/);
+assert.match(displaySource, /getIncomeImpactAssumptionsEmbedRoute/);
+assert.match(displaySource, /embedAssumptions",\s*"1"/);
+assert.match(displaySource, /embedSession",\s*String\(Date\.now\(\)\)/);
+assert.match(displaySource, /data-income-impact-assumptions-overlay/);
+assert.match(displaySource, /data-income-impact-assumptions-loading/);
+assert.match(displaySource, /Loading Assumption Controls/);
+assert.match(displaySource, /iframe\.addEventListener\("load"[\s\S]*overlay\.removeAttribute\("data-loading"\)/);
+assert.match(displaySource, /overlay\.setAttribute\("data-loading",\s*"true"\)/);
+assert.match(displaySource, /iframe\.removeAttribute\("src"\)/);
+assert.match(displaySource, /ASSUMPTIONS_EMBED_MESSAGE_TYPE/);
+assert.match(analysisSetupSource, /isEmbeddedAssumptionsMode/);
+assert.match(analysisSetupSource, /notifyEmbeddedAssumptionsClose/);
+assert.match(analysisSetupSource, /embedAssumptions/);
+assert.match(analysisSetupSource, /ASSUMPTIONS_EMBED_MESSAGE_TYPE/);
+assert.match(displaySource, /renderResourceOutlookRailSummary/);
+assert.match(displaySource, /data-income-impact-rail-summary="insights"/);
+assert.match(displaySource, /data-income-impact-rail-full="insights"/);
+assert.match(displaySource, /income-impact-rail-summary__glyph--inbox[\s\S]*income-impact-rail-summary__glyph--timeline[\s\S]*income-impact-rail-summary__glyph--bars/);
 assert.match(displaySource, /getReevaluateActionLabel/);
 assert.match(displaySource, /data-income-impact-scenario-select/);
 assert.match(displaySource, /selectAppliedScenario/);
@@ -928,6 +975,11 @@ assert.match(displaySource, /composeIncomeImpactScenario/);
 assert.match(displaySource, /evaluateIncomeImpactRiskEvents/);
 assert.match(displaySource, /includeDiscretionaryNeeds:\s*true/);
 assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*disabled[\s\S]*Reevaluate|disabled[\s\S]*data-income-impact-reevaluate[\s\S]*Reevaluate/);
+assert.match(
+  pageSource,
+  /data-income-impact-assumptions-open[\s\S]*Open Assumption Controls[\s\S]*data-income-impact-reevaluate/,
+  "Income Impact scenario controls should expose Assumption Controls above Reevaluate."
+);
 assert.match(pageSource, /data-income-impact-reevaluate[\s\S]*Reevaluate[\s\S]*<img src="\.\.\/Images\/sync\.svg" alt="" aria-hidden="true">/);
 assert.match(pageSource, /data-income-impact-draft-status[\s\S]*Applied/);
 assert.match(pageSource, /data-income-impact-reevaluate-action[\s\S]*No pending changes/);
@@ -962,7 +1014,7 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-controls-panel\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;[^}]*position:\s*relative;[^}]*justify-self:\s*start;[^}]*width:\s*var\(--income-impact-rail-collapsed-width\);[^}]*max-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*overflow-x:\s*hidden;[^}]*transition:\s*width 0\.18s ease, box-shadow 0\.18s ease;[^}]*\}/,
+  /body\[data-step="income-impact"\] \.income-impact-controls-panel\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;[^}]*position:\s*relative;[^}]*justify-self:\s*start;[^}]*width:\s*var\(--income-impact-rail-collapsed-width\);[^}]*max-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*overflow:\s*hidden;[^}]*transition:\s*width 0\.18s ease, box-shadow 0\.18s ease;[^}]*\}/,
   "Income Impact controls panel should occupy a miniature left rail and expand over the main content without shifting the grid."
 );
 assert.match(
@@ -977,7 +1029,7 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-insights-panel\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;[^}]*position:\s*relative;[^}]*justify-self:\s*end;[^}]*width:\s*var\(--income-impact-rail-collapsed-width\);[^}]*max-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*transition:\s*width 0\.18s ease, box-shadow 0\.18s ease;[^}]*\}/,
+  /body\[data-step="income-impact"\] \.income-impact-insights-panel\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;[^}]*position:\s*relative;[^}]*justify-self:\s*end;[^}]*width:\s*var\(--income-impact-rail-collapsed-width\);[^}]*max-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*height:\s*100%;[^}]*overflow:\s*hidden;[^}]*transition:\s*width 0\.18s ease, box-shadow 0\.18s ease;[^}]*\}/,
   "Income Impact resource outlook should occupy a miniature right rail and expand left over the main content without shifting the grid."
 );
 assert.match(
@@ -987,8 +1039,8 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-controls-panel > \*,[\s\S]*body\[data-step="income-impact"\] \.income-impact-insights-panel > \*\s*\{[^}]*min-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*\}/,
-  "Income Impact side rail contents should keep the full-width layout while the rail viewport is collapsed."
+  /body\[data-step="income-impact"\] \[data-income-impact-rail-full\]\s*\{[^}]*min-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*\}/,
+  "Income Impact full side rail contents should keep the full-width layout while the rail viewport is collapsed."
 );
 assert.match(
   layoutSource,
@@ -1015,6 +1067,31 @@ assert.match(
   componentsSource,
   /\.income-impact-scenario-banner\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*100%;[^}]*margin:\s*0;[^}]*border:\s*0;[^}]*border-radius:\s*0\.65rem 0 0 0\.65rem;[^}]*background:\s*#ffffff;[^}]*box-shadow:\s*none;[^}]*\}/,
   "Scenario controls content should sit flush inside the framed side rail instead of rendering as a separate card."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-rail-summary\s*\{[^}]*position:\s*absolute;[^}]*width:\s*var\(--income-impact-rail-collapsed-width,\s*5rem\);[^}]*pointer-events:\s*none;[^}]*transition:\s*opacity 0\.16s ease, transform 0\.18s ease;[^}]*\}/,
+  "Collapsed Income Impact side rails should render an intentional mini-summary layer instead of clipped full controls."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-rail-summary__glyph\s*\{[^}]*width:\s*2\.25rem;[^}]*height:\s*1\.32rem;[^}]*color:\s*currentColor;[^}]*\}/,
+  "Collapsed Income Impact side rails should use miniature SVG control glyphs instead of numeric badges."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-rail-summary__glyph path,[\s\S]*\.income-impact-rail-summary__glyph rect\s*\{[^}]*stroke:\s*currentColor;[^}]*stroke-width:\s*2\.1;[^}]*\}/,
+  "Miniature rail SVG glyphs should inherit the rail item color."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-rail-full\s*\{[^}]*position:\s*absolute;[^}]*opacity:\s*0;[^}]*pointer-events:\s*none;[^}]*transform:\s*translateX\(-0\.35rem\);[^}]*\}/,
+  "Full Income Impact rail content should be layered for hover/focus expansion without shifting the main content."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-controls-panel:hover \.income-impact-rail-full,[\s\S]*\.income-impact-insights-panel:focus-within \.income-impact-rail-full\s*\{[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;[^}]*transform:\s*translateX\(0\);[^}]*\}/,
+  "Income Impact rail hover and focus states should reveal the full controls/outlook layer."
 );
 assert.doesNotMatch(
   componentsSource,
@@ -1049,6 +1126,46 @@ assert.match(componentsSource, /\.income-impact-scenario-field--lifestyle > inpu
 assert.match(componentsSource, /\.income-impact-lifestyle-slider-labels/);
 assert.match(componentsSource, /\.income-impact-toggle input:checked \+ span::after/);
 assert.match(componentsSource, /\.income-impact-reevaluate-button\s*\{[^}]*font-size:\s*0\.92rem;[^}]*\}/);
+assert.match(
+  componentsSource,
+  /\.income-impact-assumptions-button\s*\{[^}]*width:\s*100%;[^}]*background:\s*#eef3ff;[^}]*color:\s*#2558d8;[^}]*\}/,
+  "Assumption Controls launcher should sit in the scenario footer as a full-width secondary action."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-assumptions-overlay\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*10100;[^}]*place-items:\s*center;[^}]*\}/,
+  "Income Impact should open Assumption Controls in an on-screen overlay above the app navigation chrome."
+);
+assert.doesNotMatch(
+  displaySource,
+  /income-impact-assumptions-dialog__close/,
+  "Income Impact should not add a second parent close button over the embedded Assumption Controls close button."
+);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-assumptions-dialog__close/,
+  "Parent Assumption Controls overlay close styling should stay absent so only the embedded widget close is visible."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-assumptions-dialog__frame\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*border:\s*0;[^}]*\}/,
+  "Income Impact Assumption Controls overlay should host the existing Analysis Setup page in an iframe."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-assumptions-overlay\[data-loading="true"\] \.income-impact-assumptions-dialog__frame\s*\{[^}]*opacity:\s*0;[^}]*\}/,
+  "Embedded Assumption Controls should stay hidden until the embedded session is loaded."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-assumptions-dialog__loading\s*\{[^}]*position:\s*absolute;[^}]*place-items:\s*center;[^}]*background:\s*linear-gradient\(180deg, #ffffff 0%, #f8fafc 100%\);[^}]*\}/,
+  "Embedded Assumption Controls should show an intentional loading surface instead of a blank dialog."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-assumptions-overlay\[data-loading="true"\] \.income-impact-assumptions-dialog__loading\s*\{[^}]*opacity:\s*1;[^}]*\}/,
+  "Embedded Assumption Controls loading surface should be visible while the iframe is loading."
+);
 assert.match(componentsSource, /\.income-impact-reevaluate-button img\s*\{[^}]*order:\s*2;[^}]*width:\s*1\.08rem;[^}]*height:\s*1\.08rem;[^}]*filter:\s*brightness\(0\) invert\(1\);[^}]*\}/);
 assert.match(componentsSource, /data-income-impact-reevaluate-state="reevaluating"[\s\S]*animation:\s*income-impact-reevaluate-spin 0\.85s linear infinite;/);
 assert.match(displaySource, /REEVALUATE_GRAPH_UPDATE_DELAY_MS\s*=\s*1500/);
@@ -1070,6 +1187,11 @@ assert.match(
   componentsSource,
   /@media \(max-width: 720px\)[\s\S]*\.income-impact-scenario-banner[\s\S]*width:\s*100%;/,
   "Mobile scenario controls should keep the reference panel within the stacked rail."
+);
+assert.match(
+  componentsSource,
+  /@media \(max-width: 720px\)[\s\S]*\.income-impact-rail-summary[\s\S]*display:\s*none;[\s\S]*\.income-impact-rail-full[\s\S]*position:\s*static;[\s\S]*opacity:\s*1;[\s\S]*pointer-events:\s*auto;[\s\S]*transform:\s*none;/,
+  "Mobile Income Impact side rails should use the normal full content instead of the desktop mini-summary overlay."
 );
 assert.match(
   componentsSource,

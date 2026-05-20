@@ -104,141 +104,199 @@
           </div>
 
           <aside class="income-impact-controls-panel" data-income-impact-controls-panel aria-label="Income Impact controls">
-            <section class="income-impact-scenario-banner" data-income-impact-scenario-banner>
-              <div class="income-impact-scenario-header">
-                <div class="income-impact-scenario-title">
-                  <span class="income-impact-scenario-eyebrow"><span aria-hidden="true"></span>Scenario Controls</span>
+            <div class="income-impact-rail-summary income-impact-rail-summary--controls" data-income-impact-rail-summary="controls" aria-hidden="true">
+              <span class="income-impact-rail-summary__label">Scenario</span>
+              <span class="income-impact-rail-summary__item income-impact-rail-summary__item--primary">
+                <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--slider">
+                  <svg viewBox="0 0 42 24" focusable="false">
+                    <path d="M6 7h30M6 17h30"></path>
+                    <circle cx="27" cy="7" r="3.2"></circle>
+                    <circle cx="14" cy="17" r="3.2"></circle>
+                  </svg>
+                </span>
+                <b>Death</b>
+              </span>
+              <span class="income-impact-rail-summary__item">
+                <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--slider">
+                  <svg viewBox="0 0 42 24" focusable="false">
+                    <path d="M6 8h30M6 16h30"></path>
+                    <circle cx="18" cy="8" r="3.1"></circle>
+                    <circle cx="31" cy="16" r="3.1"></circle>
+                  </svg>
+                </span>
+                <b>Spend</b>
+              </span>
+              <span class="income-impact-rail-summary__item">
+                <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--radio">
+                  <svg viewBox="0 0 42 24" focusable="false">
+                    <circle cx="10" cy="7" r="4"></circle>
+                    <path d="M18 7h16"></path>
+                    <circle cx="10" cy="17" r="4"></circle>
+                    <path d="M18 17h13"></path>
+                    <circle cx="10" cy="7" r="1.7"></circle>
+                  </svg>
+                </span>
+                <b>Home</b>
+              </span>
+              <span class="income-impact-rail-summary__item">
+                <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--toggle">
+                  <svg viewBox="0 0 42 24" focusable="false">
+                    <rect x="7" y="7" width="28" height="10" rx="5"></rect>
+                    <circle cx="27" cy="12" r="3.6"></circle>
+                  </svg>
+                </span>
+                <b>Income</b>
+              </span>
+              <span class="income-impact-rail-summary__status">
+                <span class="income-impact-rail-summary__glyph income-impact-rail-summary__glyph--status">
+                  <svg viewBox="0 0 42 20" focusable="false">
+                    <path d="M9 10l6 6L31 4"></path>
+                  </svg>
+                </span>
+                <b>Preview</b>
+              </span>
+            </div>
+            <div class="income-impact-rail-full" data-income-impact-rail-full="controls">
+              <section class="income-impact-scenario-banner" data-income-impact-scenario-banner>
+                <div class="income-impact-scenario-header">
+                  <div class="income-impact-scenario-title">
+                    <span class="income-impact-scenario-eyebrow"><span aria-hidden="true"></span>Scenario Controls</span>
+                  </div>
+                  <div class="income-impact-scenario-summary" data-income-impact-scenario-summary>
+                    <span data-income-impact-selected-scenario-chip>
+                      <i aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M6 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z" stroke="currentColor" stroke-width="1.3"></path>
+                          <path d="M6 4v2.5L7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path>
+                        </svg>
+                      </i>
+                      <span><small>Selected Scenario</small><strong data-income-impact-selected-scenario-label>Not selected</strong></span>
+                    </span>
+                  </div>
+                  <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide</button>
                 </div>
-                <div class="income-impact-scenario-summary" data-income-impact-scenario-summary>
-                  <span data-income-impact-selected-scenario-chip>
-                    <i aria-hidden="true">
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M6 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z" stroke="currentColor" stroke-width="1.3"></path>
-                        <path d="M6 4v2.5L7.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path>
-                      </svg>
-                    </i>
-                    <span><small>Selected Scenario</small><strong data-income-impact-selected-scenario-label>Not selected</strong></span>
-                  </span>
-                </div>
-                <button class="income-impact-scenario-toggle" type="button" data-income-impact-scenario-toggle aria-expanded="true">Hide</button>
-              </div>
-              <div class="income-impact-scenario-content" data-income-impact-scenario-content>
-                <div class="income-impact-scenario-section income-impact-scenario-field" data-income-impact-death-age-control>
-                  <div class="income-impact-scenario-section-label">Death Age<span aria-hidden="true"></span></div>
-                  <label class="income-impact-death-age-display" for="income-impact-death-age-slider">
-                    <strong data-income-impact-death-age-value>Not available</strong>
-                    <span>yrs</span>
-                  </label>
-                  <p class="income-impact-death-age-sub"><span data-income-impact-death-date-value>Not available</span></p>
-                  <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
+                <div class="income-impact-scenario-content" data-income-impact-scenario-content>
+                  <div class="income-impact-scenario-section income-impact-scenario-field" data-income-impact-death-age-control>
+                    <div class="income-impact-scenario-section-label">Death Age<span aria-hidden="true"></span></div>
+                    <label class="income-impact-death-age-display" for="income-impact-death-age-slider">
+                      <strong data-income-impact-death-age-value>Not available</strong>
+                      <span>yrs</span>
+                    </label>
+                    <p class="income-impact-death-age-sub"><span data-income-impact-death-date-value>Not available</span></p>
+                    <div class="income-impact-death-age-slider-row" data-income-impact-death-age-slider-row hidden>
+                      <input
+                        id="income-impact-death-age-slider"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="0"
+                        data-income-impact-death-age-slider
+                        disabled
+                      >
+                      <div class="income-impact-death-age-labels" aria-hidden="true">
+                        <span data-income-impact-death-age-slider-label="min">Current</span>
+                        <span data-income-impact-death-age-slider-label="quarter">-</span>
+                        <span data-income-impact-death-age-slider-label="mid">-</span>
+                        <span data-income-impact-death-age-slider-label="three-quarter">-</span>
+                        <span data-income-impact-death-age-slider-label="max">100</span>
+                      </div>
+                    </div>
+                    <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
+                  </div>
+                  <div class="income-impact-scenario-section income-impact-scenario-field income-impact-scenario-field--lifestyle">
+                    <div class="income-impact-scenario-section-label">Lifestyle<span aria-hidden="true"></span></div>
+                    <div class="income-impact-lifestyle-slider-head">
+                      <span>Lifestyle change</span>
+                      <strong data-income-impact-lifestyle-value>$0/mo</strong>
+                    </div>
                     <input
-                      id="income-impact-death-age-slider"
+                      id="income-impact-lifestyle-slider"
                       type="range"
-                      min="0"
+                      min="-100"
                       max="100"
                       step="1"
                       value="0"
-                      data-income-impact-death-age-slider
-                      disabled
+                      data-income-impact-lifestyle-slider
                     >
-                    <div class="income-impact-death-age-labels" aria-hidden="true">
-                      <span data-income-impact-death-age-slider-label="min">Current</span>
-                      <span data-income-impact-death-age-slider-label="quarter">-</span>
-                      <span data-income-impact-death-age-slider-label="mid">-</span>
-                      <span data-income-impact-death-age-slider-label="three-quarter">-</span>
-                      <span data-income-impact-death-age-slider-label="max">100</span>
+                    <div class="income-impact-lifestyle-slider-labels" aria-hidden="true">
+                      <span>Conservative</span>
+                      <span>Current</span>
+                      <span>Elevated</span>
+                    </div>
+                    <label class="income-impact-toggle-row" for="income-impact-auto-compress-baseline">
+                      <span class="income-impact-toggle">
+                        <input
+                          id="income-impact-auto-compress-baseline"
+                          type="checkbox"
+                          data-income-impact-auto-compress-baseline
+                          checked
+                        >
+                        <span aria-hidden="true"></span>
+                      </span>
+                      <span>
+                        <strong>Auto-compress survivor lifestyle</strong>
+                      </span>
+                    </label>
+                  </div>
+                  <div class="income-impact-scenario-section income-impact-scenario-field">
+                    <div class="income-impact-scenario-section-label">Mortgage Treatment<span aria-hidden="true"></span></div>
+                    <label class="income-impact-scenario-native-label" for="income-impact-mortgage-treatment">Mortgage treatment</label>
+                    <select id="income-impact-mortgage-treatment" data-income-impact-mortgage-treatment>
+                      <option value="followAssumptions">Follow Assumption Controls</option>
+                      <option value="payOffMortgage">Pay off mortgage</option>
+                      <option value="continueMortgagePayments">Continue mortgage payments</option>
+                    </select>
+                    <div class="income-impact-option-group" data-income-impact-mortgage-treatment-options>
+                      <button type="button" class="income-impact-option-item" data-income-impact-mortgage-treatment-option="followAssumptions">
+                        <span aria-hidden="true"><i></i></span>
+                        <strong>Follow Assumption Controls</strong>
+                      </button>
+                      <button type="button" class="income-impact-option-item" data-income-impact-mortgage-treatment-option="payOffMortgage">
+                        <span aria-hidden="true"><i></i></span>
+                        <strong>Pay off mortgage</strong>
+                      </button>
+                      <button type="button" class="income-impact-option-item" data-income-impact-mortgage-treatment-option="continueMortgagePayments">
+                        <span aria-hidden="true"><i></i></span>
+                        <strong>Continue mortgage payments</strong>
+                      </button>
                     </div>
                   </div>
-                  <p data-income-impact-death-age-warning hidden>Add insured date of birth to preview by age.</p>
-                </div>
-                <div class="income-impact-scenario-section income-impact-scenario-field income-impact-scenario-field--lifestyle">
-                  <div class="income-impact-scenario-section-label">Lifestyle<span aria-hidden="true"></span></div>
-                  <div class="income-impact-lifestyle-slider-head">
-                    <span>Lifestyle change</span>
-                    <strong data-income-impact-lifestyle-value>$0/mo</strong>
-                  </div>
-                  <input
-                    id="income-impact-lifestyle-slider"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    step="1"
-                    value="0"
-                    data-income-impact-lifestyle-slider
-                  >
-                  <div class="income-impact-lifestyle-slider-labels" aria-hidden="true">
-                    <span>Conservative</span>
-                    <span>Current</span>
-                    <span>Elevated</span>
-                  </div>
-                  <label class="income-impact-toggle-row" for="income-impact-auto-compress-baseline">
-                    <span class="income-impact-toggle">
-                      <input
-                        id="income-impact-auto-compress-baseline"
-                        type="checkbox"
-                        data-income-impact-auto-compress-baseline
-                        checked
-                      >
-                      <span aria-hidden="true"></span>
-                    </span>
-                    <span>
-                      <strong>Auto-compress survivor lifestyle</strong>
-                    </span>
-                  </label>
-                </div>
-                <div class="income-impact-scenario-section income-impact-scenario-field">
-                  <div class="income-impact-scenario-section-label">Mortgage Treatment<span aria-hidden="true"></span></div>
-                  <label class="income-impact-scenario-native-label" for="income-impact-mortgage-treatment">Mortgage treatment</label>
-                  <select id="income-impact-mortgage-treatment" data-income-impact-mortgage-treatment>
-                    <option value="followAssumptions">Follow Assumption Controls</option>
-                    <option value="payOffMortgage">Pay off mortgage</option>
-                    <option value="continueMortgagePayments">Continue mortgage payments</option>
-                  </select>
-                  <div class="income-impact-option-group" data-income-impact-mortgage-treatment-options>
-                    <button type="button" class="income-impact-option-item" data-income-impact-mortgage-treatment-option="followAssumptions">
-                      <span aria-hidden="true"><i></i></span>
-                      <strong>Follow Assumption Controls</strong>
-                    </button>
-                    <button type="button" class="income-impact-option-item" data-income-impact-mortgage-treatment-option="payOffMortgage">
-                      <span aria-hidden="true"><i></i></span>
-                      <strong>Pay off mortgage</strong>
-                    </button>
-                    <button type="button" class="income-impact-option-item" data-income-impact-mortgage-treatment-option="continueMortgagePayments">
-                      <span aria-hidden="true"><i></i></span>
-                      <strong>Continue mortgage payments</strong>
-                    </button>
+                  <div class="income-impact-scenario-section income-impact-scenario-field income-impact-scenario-field--survivor-income">
+                    <div class="income-impact-scenario-section-label">Survivor Income<span aria-hidden="true"></span></div>
+                    <input
+                      id="income-impact-survivor-income"
+                      type="checkbox"
+                      data-income-impact-survivor-income
+                      checked
+                    >
+                    <div class="income-impact-option-group" data-income-impact-survivor-income-options>
+                      <button type="button" class="income-impact-option-item" data-income-impact-survivor-income-option="true">
+                        <span aria-hidden="true"><i></i></span>
+                        <strong>Included</strong>
+                      </button>
+                      <button type="button" class="income-impact-option-item" data-income-impact-survivor-income-option="false">
+                        <span aria-hidden="true"><i></i></span>
+                        <strong>Excluded</strong>
+                      </button>
+                    </div>
+                    <small class="income-impact-scenario-note">Scenario-only graph test. Assumption Controls stay unchanged.</small>
+                    <strong data-income-impact-survivor-income-value hidden>Included</strong>
                   </div>
                 </div>
-                <div class="income-impact-scenario-section income-impact-scenario-field income-impact-scenario-field--survivor-income">
-                  <div class="income-impact-scenario-section-label">Survivor Income<span aria-hidden="true"></span></div>
-                  <input
-                    id="income-impact-survivor-income"
-                    type="checkbox"
-                    data-income-impact-survivor-income
-                    checked
-                  >
-                  <div class="income-impact-option-group" data-income-impact-survivor-income-options>
-                    <button type="button" class="income-impact-option-item" data-income-impact-survivor-income-option="true">
-                      <span aria-hidden="true"><i></i></span>
-                      <strong>Included</strong>
-                    </button>
-                    <button type="button" class="income-impact-option-item" data-income-impact-survivor-income-option="false">
-                      <span aria-hidden="true"><i></i></span>
-                      <strong>Excluded</strong>
-                    </button>
+                <div class="income-impact-scenario-footer" data-income-impact-reevaluate-control>
+                  <div class="income-impact-scenario-footer-status">
+                    <span data-income-impact-draft-status>Applied</span>
+                    <small data-income-impact-reevaluate-action>No pending changes</small>
                   </div>
-                  <small class="income-impact-scenario-note">Scenario-only graph test. Assumption Controls stay unchanged.</small>
-                  <strong data-income-impact-survivor-income-value hidden>Included</strong>
+                  <button class="income-impact-assumptions-button" type="button" data-income-impact-assumptions-open aria-haspopup="dialog">
+                    <span>Open Assumption Controls</span>
+                    <img src="../Images/settings.svg" alt="" aria-hidden="true">
+                  </button>
+                  <button class="income-impact-reevaluate-button" type="button" data-income-impact-reevaluate disabled><span>Reevaluate</span><img src="../Images/sync.svg" alt="" aria-hidden="true"></button>
                 </div>
-              </div>
-              <div class="income-impact-scenario-footer" data-income-impact-reevaluate-control>
-                <div class="income-impact-scenario-footer-status">
-                  <span data-income-impact-draft-status>Applied</span>
-                  <small data-income-impact-reevaluate-action>No pending changes</small>
-                </div>
-                <button class="income-impact-reevaluate-button" type="button" data-income-impact-reevaluate disabled><span>Reevaluate</span><img src="../Images/sync.svg" alt="" aria-hidden="true"></button>
-              </div>
-            </section>
+              </section>
+            </div>
           </aside>
 
           <aside class="income-impact-insights-panel" data-income-impact-insights-panel aria-label="Income Impact resource outlook">
