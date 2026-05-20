@@ -46,11 +46,11 @@
   });
   const GRAPH_VIEW_BOX = Object.freeze({
     width: 1000,
-    height: 500,
+    height: 570,
     plotLeft: 74,
     plotTop: 36,
     plotWidth: 884,
-    plotHeight: 378
+    plotHeight: 438
   });
   const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;

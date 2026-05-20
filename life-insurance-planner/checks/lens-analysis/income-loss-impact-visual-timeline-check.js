@@ -237,7 +237,7 @@ function attachStableLayoutFrame(graphModel, overrides = {}) {
     plotLeft: 74,
     plotRight: 958,
     plotTop: 36,
-    plotBottom: 414,
+    plotBottom: 474,
     deathXRatio: 0.125,
     zeroYRatio: 0.72,
     runoutAnchorXRatio: 0.8,
@@ -927,7 +927,7 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(23rem, 48vh, 34rem\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;/,
+  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(27rem, 56vh, 40rem\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;/,
   "Income Impact graph should use a taller viewport-aware SVG stage."
 );
 
@@ -1121,13 +1121,13 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(stableZeroBaseline, "y1"),
-    308,
+    351,
     "Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y."
   );
   const stablePath = getPathD(stableHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     stablePath,
-    /781 308/,
+    /781 351/,
     "Furthest visible depletion should render at the stable runout anchor zone."
   );
   assert.match(
@@ -1161,7 +1161,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(focusedZeroBaseline, "y1"),
-    308,
+    351,
     "Post-death focus view should preserve the same zero baseline geometry."
   );
   assert.doesNotMatch(focusedHtml, /data-income-impact-graph-path="preDeathAssets"/);
@@ -1170,12 +1170,12 @@ assert.doesNotMatch(
   const focusedPath = getPathD(focusedHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     focusedPath,
-    /^M74 81\.36\b/,
+    /^M74 88\.56\b/,
     "Post-death focus view should pin the runway start near the top of the plot."
   );
   assert.match(
     focusedPath,
-    /781 308/,
+    /781 351/,
     "Post-death focus view should preserve the zero-crossing runout anchor."
   );
 
@@ -1214,7 +1214,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(getSvgTag(stableRisingHtml, "line", "data-income-impact-graph-zero-baseline"), "y1"),
-    308,
+    351,
     "Zero line should remain stable for rising/no-depletion resource lines."
   );
   assert.match(stableRisingHtml, />\$900k</, "Axis tick labels should still reflect the dynamic model domain.");
@@ -1307,8 +1307,8 @@ assert.equal(baseGridLineY2Values.length, baseHoverGridLineCount);
 assert.equal(baseGridLinePointYValues.length, baseHoverGridLineCount);
 baseGridLineY1Values.forEach(function (y1, index) {
   assert.ok(y1 > 36, "Default inspection grid segments should start at the selected trendline, not at plot top.");
-  assert.equal(y1, Math.min(baseGridLinePointYValues[index] + 6, 414), "Default inspection grid bars should leave a 6px gap below the selected trendline.");
-  assert.equal(baseGridLineY2Values[index], 414, "Default inspection grid segments should extend down to the plot bottom.");
+  assert.equal(y1, Math.min(baseGridLinePointYValues[index] + 6, 474), "Default inspection grid bars should leave a 6px gap below the selected trendline.");
+  assert.equal(baseGridLineY2Values[index], 474, "Default inspection grid segments should extend down to the plot bottom.");
   assert.ok(y1 < baseGridLineY2Values[index], "Default inspection grid segments should be visible below the selected trendline.");
 });
 assert.equal(
@@ -1329,12 +1329,12 @@ assert.notEqual(
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 1],
-  414,
+  474,
   "Under-trendline tint should close at plot bottom, not above the selected trendline."
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 3],
-  414,
+  474,
   "Under-trendline tint should extend downward through the plot area."
 );
 assert.match(timelineHtml, /data-income-impact-graph-hover-grid-line/);
@@ -1410,12 +1410,12 @@ assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot[\s\S]*t
 const cashStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "cash-savings-depleted");
 const cashStorylineDotPosition = getTranslateCoordinates(cashStorylineDot);
 assert.equal(cashStorylineDotPosition.x, 366, "Cash depletion dot should sit on the visible remaining-resources trendline x coordinate.");
-assert.equal(cashStorylineDotPosition.y, 81, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
+assert.equal(cashStorylineDotPosition.y, 89, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
 assert.match(cashStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
 const housingStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "housing-payment-at-risk");
 const housingStorylineDotPosition = getTranslateCoordinates(housingStorylineDot);
 assert.equal(housingStorylineDotPosition.x, 401, "Housing pressure dot should interpolate its x coordinate from the graph timeline.");
-assert.equal(housingStorylineDotPosition.y, 103, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
+assert.equal(housingStorylineDotPosition.y, 114, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
 assert.match(housingStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-interpolated"/);
 assert.notEqual(cashStorylineDotPosition.y, 316, "Storyline dots should not use the retired fixed lower event lane.");
 assert.doesNotMatch(storylineDotTimelineHtml, /data-income-impact-story-card|data-income-impact-story-card-connector/);
@@ -1788,12 +1788,12 @@ assert.ok(
 );
 assert.match(
   getGraphHoverGridLineTag(multiAppliedTimelineHtml, 290),
-  /data-income-impact-graph-hover-grid-line-y1="88"/,
+  /data-income-impact-graph-hover-grid-line-y1="95"/,
   "Pre-death hover grid boundary should leave a clear gap below the selected pre-death trendline."
 );
 assert.match(
   getGraphHoverGridLineTag(multiAppliedTimelineHtml, 298),
-  /data-income-impact-graph-hover-grid-line-y1="77"/,
+  /data-income-impact-graph-hover-grid-line-y1="82"/,
   "Post-death hover grid boundary should leave a clear gap below the selected runway trendline."
 );
 assert.match(
@@ -1862,7 +1862,7 @@ assert.doesNotMatch(
   "Linear applied runway paths should render straight line segments instead of cubic curve commands."
 );
 const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
-const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 378);
+const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 438);
 assert.ok(
   Math.max(...selectedRunwayYValues) <= zeroY + 0.75,
   "Selected funded runway path should stop at zero and should not include below-zero y coordinates."
@@ -1935,7 +1935,7 @@ const continuousDeficitTimelineHtml = harness.renderTimeline({
   graphModel: continuousDeficitGraphModel
 });
 const continuousDeficitAreaPath = getPathD(continuousDeficitTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
-const continuousDeficitFinalY = 36 + (0.94 * 378);
+const continuousDeficitFinalY = 36 + (0.94 * 438);
 const continuousDeficitFinalYCount = getPathYValues(continuousDeficitAreaPath).filter(function (value) {
   return Math.abs(value - continuousDeficitFinalY) < 0.01;
 }).length;

@@ -18809,7 +18809,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 .income-impact-graph-svg {
   display: block;
   width: 100%;
-  min-height: clamp(23rem, 48vh, 34rem);
+  min-height: clamp(27rem, 56vh, 40rem);
   max-width: 100%;
   border: 0;
   border-radius: 0;

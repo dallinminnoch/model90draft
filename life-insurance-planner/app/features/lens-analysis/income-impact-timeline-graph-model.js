@@ -36,7 +36,7 @@
     plotLeft: 74,
     plotRight: 958,
     plotTop: 36,
-    plotBottom: 414,
+    plotBottom: 474,
     deathXRatio: DEATH_RELATIVE_DEATH_X_RATIO,
     zeroYRatio: 0.72,
     runoutAnchorXRatio: 0.8,
