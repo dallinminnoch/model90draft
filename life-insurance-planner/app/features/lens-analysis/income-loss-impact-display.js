@@ -28,6 +28,8 @@
   const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
   const GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus";
   const GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp";
+  const POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO = 0.12;
+  const POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO = 0.08;
   const INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE =
     "income-impact-display-auto-compressed-baseline-bridge";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
@@ -1310,16 +1312,62 @@
     });
   }
 
+  function getPostDeathFocusRunwayStartPoint(graphModel) {
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    return getFirstPositionedPoint(selectedSeries?.points)
+      || getFirstPositionedPoint(graphModel?.series?.postDeathResources)
+      || null;
+  }
+
+  function getPostDeathFocusStartAnchor(graphModel, layoutFrame) {
+    const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
+    const startPoint = getPostDeathFocusRunwayStartPoint(graphModel);
+    const startValue = toOptionalNumber(getSeriesPointValue(startPoint));
+    if (zeroYRatio == null || startValue == null || startValue <= 0) {
+      return null;
+    }
+
+    const targetYRatio = clampNumber(
+      POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO,
+      0,
+      Math.max(0, zeroYRatio - POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO)
+    );
+    const positiveBandRatio = zeroYRatio - targetYRatio;
+    if (positiveBandRatio <= 0.000001) {
+      return null;
+    }
+
+    return {
+      yRatio: targetYRatio,
+      value: startValue,
+      yDomainMax: startValue * (zeroYRatio / positiveBandRatio),
+      month: getLayoutFramePointMonth(startPoint)
+    };
+  }
+
   function makePostDeathFocusGraphModel(graphModel) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const phases = isPlainObject(graphModel?.phases) ? graphModel.phases : {};
     const deathXRatio = toOptionalNumber(layoutFrame?.deathXRatio);
+    const startAnchor = layoutFrame ? getPostDeathFocusStartAnchor(graphModel, layoutFrame) : null;
+    const layoutYDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : null;
     const focusedLayoutFrame = layoutFrame
       ? Object.assign({}, layoutFrame, {
         deathXRatio: 0,
+        postDeathFocusStartYRatio: startAnchor?.yRatio ?? null,
+        postDeathFocusStartValue: startAnchor?.value ?? null,
+        yDomain: startAnchor && layoutYDomain
+          ? Object.assign({}, layoutYDomain, {
+            max: startAnchor.yDomainMax
+          })
+          : layoutFrame.yDomain,
         trace: Object.assign({}, isPlainObject(layoutFrame.trace) ? layoutFrame.trace : {}, {
           graphViewMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
           fullLeadUpDeathXRatio: deathXRatio,
+          postDeathFocusStartAnchorYRatio: startAnchor?.yRatio ?? null,
+          postDeathFocusStartAnchorValue: startAnchor?.value ?? null,
+          postDeathFocusStartAnchorMonth: startAnchor?.month ?? null,
+          postDeathFocusYDomainMax: startAnchor?.yDomainMax ?? null,
           rendererAppliesPostDeathFocusFrame: true
         })
       })
@@ -4499,7 +4547,8 @@
         data-income-impact-layout-frame-mode="${escapeHtml(layoutFrame.mode)}"
         data-income-impact-layout-frame-death-x-ratio="${escapeHtml(layoutFrame.deathXRatio)}"
         data-income-impact-layout-frame-zero-y-ratio="${escapeHtml(layoutFrame.zeroYRatio)}"
-        data-income-impact-layout-frame-runout-anchor-x-ratio="${escapeHtml(layoutFrame.runoutAnchorXRatio)}"` : ""}
+        data-income-impact-layout-frame-runout-anchor-x-ratio="${escapeHtml(layoutFrame.runoutAnchorXRatio)}"
+        ${toOptionalNumber(layoutFrame.postDeathFocusStartYRatio) != null ? `data-income-impact-layout-frame-focus-start-y-ratio="${escapeHtml(layoutFrame.postDeathFocusStartYRatio)}"` : ""}` : ""}
         data-income-impact-graph-view-mode="${escapeHtml(normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode))}"
         viewBox="0 0 ${GRAPH_VIEW_BOX.width} ${GRAPH_VIEW_BOX.height}"
         role="img"

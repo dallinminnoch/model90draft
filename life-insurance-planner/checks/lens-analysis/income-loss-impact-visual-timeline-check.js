@@ -1123,6 +1123,11 @@ assert.doesNotMatch(
     /781 265/,
     "Furthest visible depletion should render at the stable runout anchor zone."
   );
+  assert.match(
+    stablePath,
+    /^M184\.5 36\b/,
+    "Death lead-up view should keep the existing top-of-frame runway start."
+  );
 
   const focusedGraphModel = attachStableLayoutFrame(makeGraphModel());
   focusedGraphModel.phases.deathEvent.xRatio = 0.42;
@@ -1140,6 +1145,7 @@ assert.doesNotMatch(
   const focusedZeroBaseline = getSvgTag(focusedHtml, "line", "data-income-impact-graph-zero-baseline");
   assert.match(focusedHtml, /data-income-impact-graph-view-mode="postDeathFocus"/);
   assert.match(focusedHtml, /data-income-impact-layout-frame-death-x-ratio="0"/);
+  assert.match(focusedHtml, /data-income-impact-layout-frame-focus-start-y-ratio="0\.12"/);
   assert.match(focusedHtml, /data-income-impact-graph-view-toggle[\s\S]*data-income-impact-next-graph-view-mode="deathLeadUp"[\s\S]*Show lead-up/);
   assert.equal(
     getSvgNumericAttribute(focusedDeathAxis, "x1"),
@@ -1157,8 +1163,13 @@ assert.doesNotMatch(
   const focusedPath = getPathD(focusedHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     focusedPath,
-    /^M74 /,
-    "Post-death focus view should start the runway at the left edge without changing the zero anchor rule."
+    /^M74 74\.16\b/,
+    "Post-death focus view should pin the runway start near the top of the plot."
+  );
+  assert.match(
+    focusedPath,
+    /781 265/,
+    "Post-death focus view should preserve the zero-crossing runout anchor."
   );
 
   const stableRisingGraphModel = attachStableLayoutFrame(makeGraphModel(), {
