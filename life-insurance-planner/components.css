@@ -18809,7 +18809,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 .income-impact-graph-svg {
   display: block;
   width: 100%;
-  min-height: clamp(18.5rem, 40vh, 28rem);
+  min-height: clamp(23rem, 48vh, 34rem);
   max-width: 100%;
   border: 0;
   border-radius: 0;
@@ -18882,9 +18882,9 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-graph-zero-baseline {
-  stroke: rgba(30, 41, 59, 0.18) !important;
+  stroke: rgba(15, 23, 42, 0.42) !important;
   stroke-dasharray: none;
-  stroke-width: 1 !important;
+  stroke-width: 1.6 !important;
 }
 
 .income-impact-graph-death-axis {
@@ -19108,18 +19108,15 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 }
 
 .income-impact-graph-hover-grid-line {
-  opacity: 0;
-  stroke: transparent;
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
+  opacity: 1;
+  fill: url("#income-impact-graph-hover-grid-bar-gradient");
+  stroke: none;
   pointer-events: none;
 }
 
-.income-impact-graph-hover-active-line {
+.income-impact-graph-hover-highlight {
+  fill: url("#income-impact-graph-hover-highlight-gradient");
   opacity: 0;
-  stroke: rgba(59, 130, 246, 0.28);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
   pointer-events: none;
   transition: opacity 0.14s ease;
 }
@@ -19143,9 +19140,9 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   font-weight: 820;
 }
 
-.income-impact-graph-hover-interval:hover .income-impact-graph-hover-active-line,
-.income-impact-graph-hover-interval:focus .income-impact-graph-hover-active-line,
-.income-impact-graph-hover-slot:hover ~ .income-impact-graph-hover-active-line {
+.income-impact-graph-hover-interval:hover .income-impact-graph-hover-highlight,
+.income-impact-graph-hover-interval:focus .income-impact-graph-hover-highlight,
+.income-impact-graph-hover-slot:hover ~ .income-impact-graph-hover-highlight {
   opacity: 1;
 }
 

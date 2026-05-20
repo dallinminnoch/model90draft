@@ -17,12 +17,15 @@
   const DEATH_CONVERSION_GRADIENT_ID = "income-impact-death-conversion-gradient";
   const GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-pre-death-gradient";
   const GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID = "income-impact-graph-hover-underlay-post-death-gradient";
+  const GRAPH_HOVER_GRID_BAR_GRADIENT_ID = "income-impact-graph-hover-grid-bar-gradient";
+  const GRAPH_HOVER_HIGHLIGHT_GRADIENT_ID = "income-impact-graph-hover-highlight-gradient";
   const INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE =
     "income-impact-display-financial-storyline-bridge";
   const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
   const DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP = 1;
   const GRAPH_HOVER_READOUT_WIDTH = 108;
   const GRAPH_HOVER_GRID_SPACING = 8;
+  const GRAPH_HOVER_BAR_TOP_GAP = 6;
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const AUTO_COMPRESSED_BASELINE_SCENARIO_ID = "income-impact-auto-compressed-baseline";
   const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
@@ -43,11 +46,11 @@
   });
   const GRAPH_VIEW_BOX = Object.freeze({
     width: 1000,
-    height: 430,
+    height: 500,
     plotLeft: 74,
     plotTop: 36,
     plotWidth: 884,
-    plotHeight: 318
+    plotHeight: 378
   });
   const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
@@ -2055,8 +2058,10 @@
       return null;
     }
     const y = toGraphY(point.yRatio);
+    const pointY = clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight);
     return Object.assign({}, point, {
-      pointY: clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
+      pointY,
+      barTopY: clampNumber(pointY + GRAPH_HOVER_BAR_TOP_GAP, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
       x,
       startX: startCoordinate,
       endX: endCoordinate,
@@ -2099,9 +2104,11 @@
     const buildDivider = function (x, scenarioId) {
       const point = getInterpolatedGraphHoverPointAtXRatio(points, toGraphXRatio(x));
       const y = toGraphY(point?.yRatio);
+      const pointY = clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight);
       return {
         x,
-        pointY: clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
+        pointY,
+        barTopY: clampNumber(pointY + GRAPH_HOVER_BAR_TOP_GAP, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
         scenarioId: scenarioId || point?.scenarioId || "",
         hoverPhase: normalizeString(point?.hoverPhase)
       };
@@ -2190,6 +2197,16 @@
           <stop offset="72%" stop-color="#2563ff" stop-opacity="0"></stop>
           <stop offset="100%" stop-color="#2563ff" stop-opacity="0"></stop>
         </linearGradient>
+        <linearGradient id="${GRAPH_HOVER_GRID_BAR_GRADIENT_ID}" data-income-impact-graph-hover-grid-bar-gradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.16"></stop>
+          <stop offset="48%" stop-color="#2563eb" stop-opacity="0.07"></stop>
+          <stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop>
+        </linearGradient>
+        <linearGradient id="${GRAPH_HOVER_HIGHLIGHT_GRADIENT_ID}" data-income-impact-graph-hover-highlight-gradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.12"></stop>
+          <stop offset="52%" stop-color="#2563eb" stop-opacity="0.055"></stop>
+          <stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop>
+        </linearGradient>
       </defs>
     `;
   }
@@ -2231,18 +2248,20 @@
           ${dividers.map(function (divider, index) {
           const scenarioId = normalizeString(divider.scenarioId);
           return `
-            <line
+            <rect
               class="income-impact-graph-hover-grid-line"
               data-income-impact-graph-hover-grid-line
               data-income-impact-applied-scenario-id="${escapeHtml(scenarioId)}"
               data-income-impact-graph-hover-grid-line-index="${index}"
-              data-income-impact-graph-hover-grid-line-y1="${escapeHtml(divider.pointY)}"
+              data-income-impact-graph-hover-grid-line-x="${escapeHtml(divider.x)}"
+              data-income-impact-graph-hover-grid-line-point-y="${escapeHtml(divider.pointY)}"
+              data-income-impact-graph-hover-grid-line-y1="${escapeHtml(divider.barTopY)}"
               data-income-impact-graph-hover-grid-line-y2="${plotBottom}"
-              x1="${formatSvgCoordinate(divider.x)}"
-              x2="${formatSvgCoordinate(divider.x)}"
-              y1="${formatSvgCoordinate(divider.pointY)}"
-              y2="${plotBottom}"
-            ></line>
+              x="${formatSvgCoordinate(divider.x - 0.5)}"
+              y="${formatSvgCoordinate(divider.barTopY)}"
+              width="1"
+              height="${formatSvgCoordinate(Math.max(0, plotBottom - divider.barTopY))}"
+            ></rect>
           `;
         }).join("")}
         </g>
@@ -2271,6 +2290,7 @@
               data-income-impact-graph-hover-y-ratio="${escapeHtml(interval.yRatio)}"
               data-income-impact-graph-hover-interval-width="${escapeHtml(interval.intervalWidth)}"
               data-income-impact-graph-hover-point-y="${escapeHtml(interval.pointY)}"
+              data-income-impact-graph-hover-bar-top-y="${escapeHtml(interval.barTopY)}"
               tabindex="0"
               role="button"
               aria-label="${escapeHtml(ariaLabel)}"
@@ -2283,14 +2303,14 @@
                 width="${formatSvgCoordinate(interval.intervalWidth)}"
                 height="${GRAPH_VIEW_BOX.plotHeight}"
               ></rect>
-              <line
-                class="income-impact-graph-hover-active-line"
-                data-income-impact-graph-hover-active-line
-                x1="${formatSvgCoordinate(interval.x)}"
-                x2="${formatSvgCoordinate(interval.x)}"
-                y1="${GRAPH_VIEW_BOX.plotTop}"
-                y2="${plotBottom}"
-              ></line>
+              <rect
+                class="income-impact-graph-hover-highlight"
+                data-income-impact-graph-hover-highlight
+                x="${formatSvgCoordinate(interval.startX)}"
+                y="${formatSvgCoordinate(interval.barTopY)}"
+                width="${formatSvgCoordinate(interval.intervalWidth)}"
+                height="${formatSvgCoordinate(Math.max(0, plotBottom - interval.barTopY))}"
+              ></rect>
               <g
                 class="income-impact-graph-hover-readout"
                 data-income-impact-graph-hover-readout

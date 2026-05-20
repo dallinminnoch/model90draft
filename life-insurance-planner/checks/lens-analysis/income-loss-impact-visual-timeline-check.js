@@ -94,9 +94,9 @@ function getTranslateCoordinates(tag) {
 }
 
 function getGraphHoverGridLineTag(html, x) {
-  const tags = html.match(/<line\b(?=[^>]*data-income-impact-graph-hover-grid-line)[^>]*>/g) || [];
+  const tags = html.match(/<(?:line|rect)\b(?=[^>]*data-income-impact-graph-hover-grid-line)[^>]*>/g) || [];
   const tag = tags.find(function (candidate) {
-    return candidate.includes(`x1="${x}"`);
+    return candidate.includes(`data-income-impact-graph-hover-grid-line-x="${x}"`);
   });
   assert.ok(tag, `Expected hover grid line at x="${x}"`);
   return tag;
@@ -237,7 +237,7 @@ function attachStableLayoutFrame(graphModel, overrides = {}) {
     plotLeft: 74,
     plotRight: 958,
     plotTop: 36,
-    plotBottom: 354,
+    plotBottom: 414,
     deathXRatio: 0.125,
     zeroYRatio: 0.72,
     runoutAnchorXRatio: 0.8,
@@ -719,7 +719,11 @@ assert.match(displaySource, /data-income-impact-graph-hover-interval/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay="selected-trendline"/);
 assert.match(displaySource, /data-income-impact-graph-hover-grid-line/);
 assert.match(displaySource, /data-income-impact-graph-hover-slot/);
-assert.match(displaySource, /data-income-impact-graph-hover-active-line/);
+assert.match(displaySource, /GRAPH_HOVER_BAR_TOP_GAP = 6/);
+assert.match(displaySource, /data-income-impact-graph-hover-grid-bar-gradient/);
+assert.match(displaySource, /data-income-impact-graph-hover-highlight-gradient/);
+assert.match(displaySource, /data-income-impact-graph-hover-highlight/);
+assert.doesNotMatch(displaySource, /data-income-impact-graph-hover-active-line/);
 assert.match(displaySource, /data-income-impact-graph-hover-value/);
 assert.match(displaySource, /data-income-impact-graph-hover-readout/);
 assert.match(displaySource, /renderGraphStorylineEventDots/);
@@ -860,13 +864,15 @@ assert.match(componentsSource, /\.income-impact-graph-hover-underlay--post-death
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.095\);/);
 assert.match(componentsSource, /\.income-impact-graph-y-grid-line[\s\S]*stroke:\s*rgba\(30,\s*41,\s*59,\s*0\.1\);[\s\S]*stroke-dasharray:\s*5 6;/);
 assert.match(componentsSource, /\.income-impact-graph-x-grid-line[\s\S]*stroke:\s*rgba\(30,\s*41,\s*59,\s*0\.08\);[\s\S]*stroke-dasharray:\s*3 3;[\s\S]*stroke-width:\s*0\.8;/);
+assert.match(componentsSource, /\.income-impact-graph-zero-baseline[\s\S]*stroke:\s*rgba\(15,\s*23,\s*42,\s*0\.42\) !important;[\s\S]*stroke-width:\s*1\.6 !important;/);
 assert.match(componentsSource, /\.income-impact-graph-y-tick-label[\s\S]*fill:\s*#0f172a;[\s\S]*font-weight:\s*700;/);
 assert.match(componentsSource, /\.income-impact-graph-y-tick-marker circle[\s\S]*fill:\s*#1e293b;[\s\S]*opacity:\s*0\.5;/);
 assert.match(componentsSource, /\.income-impact-graph-x-tick-dot[\s\S]*fill:\s*#0f172a;[\s\S]*opacity:\s*0\.35;/);
 assert.match(componentsSource, /\.income-impact-graph-y-tick-marker path[\s\S]*stroke:\s*#1e293b;[\s\S]*stroke-width:\s*1\.5;/);
 assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#64748b;[\s\S]*font-size:\s*0\.72rem;[\s\S]*font-weight:\s*500;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*transparent;[\s\S]*stroke-width:\s*1;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*1;[\s\S]*fill:\s*url\("#income-impact-graph-hover-grid-bar-gradient"\);[\s\S]*stroke:\s*none;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-storyline-trendline-markers/);
 assert.doesNotMatch(componentsSource, /\.income-impact-storyline-event-lane/);
@@ -880,10 +886,11 @@ assert.match(componentsSource, /\.income-impact-storyline-dot-readout-action/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout-group-item/);
 assert.match(componentsSource, /\.income-impact-storyline-dot:hover[\s\S]*\.income-impact-storyline-dot-readout/);
 assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*pointer-events:\s*all;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-active-line[\s\S]*opacity:\s*0;[\s\S]*stroke:\s*rgba\(59,\s*130,\s*246,\s*0\.28\);[\s\S]*stroke-width:\s*1;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-highlight[\s\S]*fill:\s*url\("#income-impact-graph-hover-highlight-gradient"\);[\s\S]*opacity:\s*0;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-active-line/);
 assert.match(componentsSource, /\.income-impact-graph-hover-readout[\s\S]*opacity:\s*0;/);
 assert.match(componentsSource, /\.income-impact-graph-legend i[\s\S]*border-top:\s*2px solid #3b82f6;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-active-line,[\s\S]*opacity:\s*1;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-highlight,[\s\S]*opacity:\s*1;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-readout,[\s\S]*\.income-impact-graph-hover-interval:focus \.income-impact-graph-hover-readout[\s\S]*opacity:\s*1;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-bar|\.income-impact-graph-hover-hit-zone|\.income-impact-graph-hover-band|\.income-impact-graph-hover-divider/);
 assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*fill:\s*#ffffff;[\s\S]*pointer-events:\s*none;/);
@@ -920,8 +927,8 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(18\.5rem, 40vh, 28rem\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;/,
-  "Income Impact graph should use a tighter viewport-aware height to reduce letterboxing."
+  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(23rem, 48vh, 34rem\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;/,
+  "Income Impact graph should use a taller viewport-aware SVG stage."
 );
 
 const fixture = {
@@ -1114,13 +1121,13 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(stableZeroBaseline, "y1"),
-    265,
+    308,
     "Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y."
   );
   const stablePath = getPathD(stableHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     stablePath,
-    /781 265/,
+    /781 308/,
     "Furthest visible depletion should render at the stable runout anchor zone."
   );
   assert.match(
@@ -1154,7 +1161,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(focusedZeroBaseline, "y1"),
-    265,
+    308,
     "Post-death focus view should preserve the same zero baseline geometry."
   );
   assert.doesNotMatch(focusedHtml, /data-income-impact-graph-path="preDeathAssets"/);
@@ -1163,12 +1170,12 @@ assert.doesNotMatch(
   const focusedPath = getPathD(focusedHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     focusedPath,
-    /^M74 74\.16\b/,
+    /^M74 81\.36\b/,
     "Post-death focus view should pin the runway start near the top of the plot."
   );
   assert.match(
     focusedPath,
-    /781 265/,
+    /781 308/,
     "Post-death focus view should preserve the zero-crossing runout anchor."
   );
 
@@ -1207,7 +1214,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(getSvgTag(stableRisingHtml, "line", "data-income-impact-graph-zero-baseline"), "y1"),
-    265,
+    308,
     "Zero line should remain stable for rising/no-depletion resource lines."
   );
   assert.match(stableRisingHtml, />\$900k</, "Axis tick labels should still reflect the dynamic model domain.");
@@ -1294,11 +1301,14 @@ assertAllEqual(
 );
 const baseGridLineY1Values = getNumericAttributeValues(timelineHtml, "data-income-impact-graph-hover-grid-line-y1");
 const baseGridLineY2Values = getNumericAttributeValues(timelineHtml, "data-income-impact-graph-hover-grid-line-y2");
+const baseGridLinePointYValues = getNumericAttributeValues(timelineHtml, "data-income-impact-graph-hover-grid-line-point-y");
 assert.equal(baseGridLineY1Values.length, baseHoverGridLineCount);
 assert.equal(baseGridLineY2Values.length, baseHoverGridLineCount);
+assert.equal(baseGridLinePointYValues.length, baseHoverGridLineCount);
 baseGridLineY1Values.forEach(function (y1, index) {
   assert.ok(y1 > 36, "Default inspection grid segments should start at the selected trendline, not at plot top.");
-  assert.equal(baseGridLineY2Values[index], 354, "Default inspection grid segments should extend down to the plot bottom.");
+  assert.equal(y1, Math.min(baseGridLinePointYValues[index] + 6, 414), "Default inspection grid bars should leave a 6px gap below the selected trendline.");
+  assert.equal(baseGridLineY2Values[index], 414, "Default inspection grid segments should extend down to the plot bottom.");
   assert.ok(y1 < baseGridLineY2Values[index], "Default inspection grid segments should be visible below the selected trendline.");
 });
 assert.equal(
@@ -1319,17 +1329,21 @@ assert.notEqual(
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 1],
-  354,
+  414,
   "Under-trendline tint should close at plot bottom, not above the selected trendline."
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 3],
-  354,
+  414,
   "Under-trendline tint should extend downward through the plot area."
 );
 assert.match(timelineHtml, /data-income-impact-graph-hover-grid-line/);
+assert.match(timelineHtml, /data-income-impact-graph-hover-grid-bar-gradient/);
+assert.match(timelineHtml, /data-income-impact-graph-hover-highlight-gradient/);
+assert.match(timelineHtml, /<rect\b(?=[^>]*data-income-impact-graph-hover-grid-line)/);
 assert.match(timelineHtml, /data-income-impact-graph-hover-slot/);
-assert.match(timelineHtml, /data-income-impact-graph-hover-active-line/);
+assert.match(timelineHtml, /data-income-impact-graph-hover-highlight/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-hover-active-line/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-hover-band/);
 assert.match(timelineHtml, /tabindex="0"[\s\S]*role="button"/);
 assert.doesNotMatch(
@@ -1396,12 +1410,12 @@ assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot[\s\S]*t
 const cashStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "cash-savings-depleted");
 const cashStorylineDotPosition = getTranslateCoordinates(cashStorylineDot);
 assert.equal(cashStorylineDotPosition.x, 366, "Cash depletion dot should sit on the visible remaining-resources trendline x coordinate.");
-assert.equal(cashStorylineDotPosition.y, 74, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
+assert.equal(cashStorylineDotPosition.y, 81, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
 assert.match(cashStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
 const housingStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "housing-payment-at-risk");
 const housingStorylineDotPosition = getTranslateCoordinates(housingStorylineDot);
 assert.equal(housingStorylineDotPosition.x, 401, "Housing pressure dot should interpolate its x coordinate from the graph timeline.");
-assert.equal(housingStorylineDotPosition.y, 92, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
+assert.equal(housingStorylineDotPosition.y, 103, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
 assert.match(housingStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-interpolated"/);
 assert.notEqual(cashStorylineDotPosition.y, 316, "Storyline dots should not use the retired fixed lower event lane.");
 assert.doesNotMatch(storylineDotTimelineHtml, /data-income-impact-story-card|data-income-impact-story-card-connector/);
@@ -1774,13 +1788,13 @@ assert.ok(
 );
 assert.match(
   getGraphHoverGridLineTag(multiAppliedTimelineHtml, 290),
-  /data-income-impact-graph-hover-grid-line-y1="75"/,
-  "Pre-death hover grid boundary should follow the selected blue pre-death trendline before the death line."
+  /data-income-impact-graph-hover-grid-line-y1="88"/,
+  "Pre-death hover grid boundary should leave a clear gap below the selected pre-death trendline."
 );
 assert.match(
   getGraphHoverGridLineTag(multiAppliedTimelineHtml, 298),
-  /data-income-impact-graph-hover-grid-line-y1="65"/,
-  "Post-death hover grid boundary should switch to the selected green runway trendline at/after death."
+  /data-income-impact-graph-hover-grid-line-y1="77"/,
+  "Post-death hover grid boundary should leave a clear gap below the selected runway trendline."
 );
 assert.match(
   multiAppliedTimelineHtml,
@@ -1848,7 +1862,7 @@ assert.doesNotMatch(
   "Linear applied runway paths should render straight line segments instead of cubic curve commands."
 );
 const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
-const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 318);
+const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 378);
 assert.ok(
   Math.max(...selectedRunwayYValues) <= zeroY + 0.75,
   "Selected funded runway path should stop at zero and should not include below-zero y coordinates."
@@ -1921,7 +1935,7 @@ const continuousDeficitTimelineHtml = harness.renderTimeline({
   graphModel: continuousDeficitGraphModel
 });
 const continuousDeficitAreaPath = getPathD(continuousDeficitTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
-const continuousDeficitFinalY = 36 + (0.94 * 318);
+const continuousDeficitFinalY = 36 + (0.94 * 378);
 const continuousDeficitFinalYCount = getPathYValues(continuousDeficitAreaPath).filter(function (value) {
   return Math.abs(value - continuousDeficitFinalY) < 0.01;
 }).length;
