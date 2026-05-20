@@ -17969,7 +17969,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   width: 100%;
   max-width: 100%;
   min-height: 100%;
-  background: #ffffff;
+  background: transparent;
 }
 
 .income-impact-layout-main,
@@ -18296,11 +18296,11 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 .income-impact-story-chart-card {
   display: grid;
   min-width: 0;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: 0.55rem;
-  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .income-impact-depletion-story,
@@ -18315,6 +18315,10 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 .income-impact-depletion-story {
   gap: 0;
   padding: 0.72rem 0 0;
+  border-top: 0;
+}
+
+.income-impact-chart-section {
   border-top: 0;
 }
 
@@ -18653,7 +18657,9 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: #ffffff;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .income-impact-graph-header {
@@ -18808,12 +18814,16 @@ body[data-step="income-impact"] .income-impact-page-intro p {
 
 .income-impact-graph-svg {
   display: block;
+  box-sizing: border-box;
   width: 100%;
   min-height: clamp(27rem, 56vh, 40rem);
   max-width: 100%;
-  border: 0;
-  border-radius: 0;
+  padding: 0.85rem 1rem 0.9rem;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 0.55rem;
   background: #ffffff;
+  box-shadow: none;
+  overflow: hidden;
 }
 
 .income-impact-graph-phase {

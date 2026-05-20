@@ -811,8 +811,9 @@ assert.match(componentsSource, /\.income-impact-summary-strip > \.income-impact-
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*padding:\s*0\.5rem 0\.95rem;[\s\S]*border:\s*1px solid #e2e8f0;[\s\S]*background:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eff6ff;[\s\S]*color:\s*#2563eb;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/);
-assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*border-radius:\s*0\.55rem;[\s\S]*box-shadow:\s*none;[\s\S]*overflow:\s*hidden;/);
+assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*background:\s*transparent;[\s\S]*overflow:\s*visible;/);
 assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
+assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*justify-content:\s*space-between;/);
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*color:\s*#8a97b0;[\s\S]*font-family:\s*"Inter",\s*sans-serif;/);
@@ -826,12 +827,20 @@ assert.match(componentsSource, /\.income-impact-major-story-card--severity-criti
 assert.match(componentsSource, /\.income-impact-storyline-connectors[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-storyline-connector[\s\S]*stroke-dasharray:\s*4 6;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story-card|\.income-impact-depletion-story-dot|\.income-impact-depletion-story-icon|\.income-impact-depletion-story-legend/);
-assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*\}/);
+assert.match(
+  componentsSource,
+  /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*overflow:\s*visible;[^}]*\}/,
+  "Income Impact graph wrapper should not make the legend and supporting graph content share the SVG card."
+);
 assert.match(componentsSource, /\.income-impact-graph-header[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-story-chart-card \.income-impact-chart-section > \.income-impact-section-header[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\s*static;[\s\S]*box-shadow:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-svg/);
-assert.match(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*#ffffff;[^}]*\}/);
+assert.match(
+  componentsSource,
+  /\.income-impact-graph-svg\s*\{[^}]*padding:\s*0\.85rem 1rem 0\.9rem;[^}]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[^}]*border-radius:\s*0\.55rem;[^}]*background:\s*#ffffff;[^}]*overflow:\s*hidden;[^}]*\}/,
+  "Only the Income Impact SVG graph viewport should be styled as the standalone card."
+);
 assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[^}]*\}/);
@@ -927,7 +936,17 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(27rem, 56vh, 40rem\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;/,
+  /\.income-impact-layout\s*\{[^}]*background:\s*transparent;[^}]*\}/,
+  "Income Impact main layout should not paint a shared white backdrop behind the subcards."
+);
+assert.doesNotMatch(
+  componentsSource,
+  /\.income-impact-layout\s*\{[^}]*background:\s*#ffffff;[^}]*\}/,
+  "Income Impact main layout should sit on the content-stack background."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(27rem, 56vh, 40rem\);[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*border-radius:\s*0\.55rem;/,
   "Income Impact graph should use a taller viewport-aware SVG stage."
 );
 
