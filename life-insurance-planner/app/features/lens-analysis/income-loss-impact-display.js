@@ -4714,6 +4714,33 @@
     `;
   }
 
+  function renderPostDeathFocusRunwayStartMarker(graphModel) {
+    if (!graphModel || normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode) !== GRAPH_VIEW_MODE_POST_DEATH_FOCUS) {
+      return "";
+    }
+    const selectedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    const startPoint = getFirstPositionedPoint(selectedSeries?.points);
+    if (!startPoint) {
+      return "";
+    }
+    const x = toGraphX(startPoint.xRatio, graphModel, startPoint);
+    const y = toGraphY(startPoint.yRatio, graphModel, startPoint);
+    return `
+      <g
+        class="income-impact-post-death-runway-start-marker"
+        data-income-impact-post-death-runway-start-marker
+        data-income-impact-applied-scenario-id="${escapeHtml(selectedSeries?.scenarioId || "")}"
+        data-income-impact-runway-start-source="${escapeHtml(selectedSeries?.trace?.renderSource || "")}"
+        transform="translate(${x} ${y})"
+        aria-label="Post-death runway starts"
+      >
+        <circle class="income-impact-post-death-runway-start-marker__hit" r="13.5"></circle>
+        <circle class="income-impact-post-death-runway-start-marker__core" r="6.8"></circle>
+        <title>Post-death runway starts</title>
+      </g>
+    `;
+  }
+
   function resolveGraphMonthXRatio(graphModel, monthIndex) {
     const month = toOptionalNumber(monthIndex);
     if (month == null) {
@@ -4863,6 +4890,7 @@
           ${deathConversionConnector}
           ${deathLineAnchors || renderGraphDeathAnchor(graphModel)}
           ${renderAppliedScenarioDepletionMarkers(graphModel, graphModel?.trace?.selectedScenarioId, timelineResult)}
+          ${renderPostDeathFocusRunwayStartMarker(graphModel)}
         </g>
         ${renderGraphMarkers(graphModel)}
         ${renderComparisonMarkers(graphModel)}
@@ -6231,6 +6259,8 @@
   }
 
   function getGraphStorylinePrimaryTrendlinePoints(graphModel) {
+    const selectedAppliedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    const renderedPoints = Array.isArray(selectedAppliedSeries?.points) ? selectedAppliedSeries.points : [];
     const selectedSeries = getSelectedRunwayScenario(graphModel, graphModel?.trace?.selectedScenarioId);
     const selectedRunwayPoints = selectedSeries
       ? []
@@ -6238,9 +6268,7 @@
         .concat(Array.isArray(selectedSeries.fundedRunwayPoints) ? selectedSeries.fundedRunwayPoints : [])
         .concat(Array.isArray(selectedSeries.deficitPoints) ? selectedSeries.deficitPoints : [])
       : [];
-    const selectedAppliedSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
-    const fallbackPoints = Array.isArray(selectedAppliedSeries?.points) ? selectedAppliedSeries.points : [];
-    const points = (selectedRunwayPoints.length ? selectedRunwayPoints : fallbackPoints)
+    const points = (renderedPoints.length ? renderedPoints : selectedRunwayPoints)
       .map(normalizeGraphStorylineTrendlinePoint)
       .filter(Boolean)
       .sort(function (left, right) {

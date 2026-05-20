@@ -19559,6 +19559,22 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   stroke-width: 2;
 }
 
+.income-impact-post-death-runway-start-marker {
+  pointer-events: none;
+}
+
+.income-impact-post-death-runway-start-marker__hit {
+  fill: rgba(37, 99, 255, 0.08);
+}
+
+.income-impact-post-death-runway-start-marker__core {
+  fill: #2563ff;
+  stroke: #ffffff;
+  stroke-width: 2.7;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 5px 12px rgba(15, 23, 42, 0.18));
+}
+
 .income-impact-graph-markers circle {
   fill: #ffffff;
   stroke: #536176;

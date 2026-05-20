@@ -900,6 +900,7 @@ assert.match(componentsSource, /\.income-impact-storyline-dot/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--major \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--micro \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-graph\[data-income-impact-graph-view-mode="postDeathFocus"\] \.income-impact-storyline-dot\[data-income-impact-storyline-month-offset="0"\]\[data-income-impact-storyline-coordinate-source="primary-trendline-exact"\] \.income-impact-storyline-dot-core[\s\S]*r:\s*6\.6;[\s\S]*fill:\s*#2563ff;[\s\S]*opacity:\s*1;/);
+assert.match(componentsSource, /\.income-impact-post-death-runway-start-marker__core[\s\S]*fill:\s*#2563ff;[\s\S]*stroke:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-group-ring/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-count-badge/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout/);
@@ -1204,6 +1205,10 @@ assert.doesNotMatch(
     /^M74 88\.56\b/,
     "Post-death focus view should pin the runway start near the top of the plot."
   );
+  const focusedRunwayStartMarker = getSvgTag(focusedHtml, "g", "data-income-impact-post-death-runway-start-marker");
+  const focusedRunwayStartMarkerPosition = getTranslateCoordinates(focusedRunwayStartMarker);
+  assert.equal(focusedRunwayStartMarkerPosition.x, 74, "Post-death focus view should render a start marker at the visible runway start x coordinate.");
+  assert.equal(focusedRunwayStartMarkerPosition.y, 89, "Post-death focus view should render a start marker at the visible runway start y coordinate.");
   const focusedDotHtml = harness.renderTimeline({
     ...fixture,
     graphViewMode: "postDeathFocus",
@@ -1227,6 +1232,86 @@ assert.doesNotMatch(
   assert.equal(focusedStartDotPosition.x, 74, "Focused view start dot should share the runway start x coordinate.");
   assert.equal(focusedStartDotPosition.y, 89, "Focused view start dot should use the focused runway start y coordinate, not the lead-up y ratio.");
   assert.match(focusedStartDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
+  const focusedRenderedRunwayGraphModel = attachStableLayoutFrame(makeGraphModel(), {
+    xDomainMonths: 18,
+    zeroCrossingAnchorMonth: 8,
+    yDomain: {
+      min: -10000,
+      max: 25000,
+      signed: true,
+      source: "test-rendered-runway"
+    }
+  });
+  focusedRenderedRunwayGraphModel.phases.deathEvent.xRatio = 0.42;
+  focusedRenderedRunwayGraphModel.trace.selectedScenarioId = "focused-selected-scenario";
+  focusedRenderedRunwayGraphModel.series.appliedRunwayScenarios = [
+    {
+      scenarioId: "focused-selected-scenario",
+      selected: true,
+      label: "Focused selected scenario",
+      pathMode: "linear",
+      survivorResourcesAtDeathPoint: { date: "2031-04-29", monthIndex: 0, value: 22000, xRatio: 0.42, yRatio: 0.18 },
+      runwayLinePoints: [
+        { date: "2031-04-29", monthIndex: 0, value: 15000, xRatio: 0.42, yRatio: 0.3 },
+        { date: "2031-12-29", monthIndex: 8, value: 0, xRatio: 0.8, yRatio: 0.72 },
+        { date: "2032-10-29", monthIndex: 18, value: -7500, xRatio: 0.95, yRatio: 0.85 }
+      ],
+      fundedRunwayPoints: [
+        { date: "2031-04-29", monthIndex: 0, value: 22000, xRatio: 0.42, yRatio: 0.18 },
+        { date: "2031-12-29", monthIndex: 8, value: 0, xRatio: 0.8, yRatio: 0.72 }
+      ],
+      deficitPoints: [
+        { date: "2031-12-29", monthIndex: 8, value: 0, xRatio: 0.8, yRatio: 0.72 },
+        { date: "2032-10-29", monthIndex: 18, value: -7500, xRatio: 0.95, yRatio: 0.85 }
+      ]
+    }
+  ];
+  const focusedRenderedRunwayDotHtml = harness.renderTimeline({
+    ...fixture,
+    graphViewMode: "postDeathFocus",
+    graphModel: focusedRenderedRunwayGraphModel,
+    financialStoryline: {
+      graphDotCandidates: [
+        {
+          id: "rendered-runway-start",
+          family: "resources",
+          severity: "info",
+          graphLabel: "Start",
+          displayLabel: "Rendered runway start",
+          evidenceLevel: "trace-backed",
+          timing: { kind: "month-offset", monthOffset: 0, date: "2031-04-29", label: "At death" }
+        }
+      ]
+    }
+  });
+  const focusedRenderedRunwayPath = getPathD(focusedRenderedRunwayDotHtml, "data-income-impact-graph-path", "postDeathResources");
+  const focusedRenderedRunwayStart = focusedRenderedRunwayPath.match(/^M(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/);
+  assert.ok(focusedRenderedRunwayStart, "Focused rendered runway path should include a start coordinate.");
+  const focusedRenderedRunwayStartMarker = getSvgTag(focusedRenderedRunwayDotHtml, "g", "data-income-impact-post-death-runway-start-marker");
+  const focusedRenderedRunwayStartMarkerPosition = getTranslateCoordinates(focusedRenderedRunwayStartMarker);
+  const focusedRenderedRunwayDot = getSvgGroupTagByAttribute(focusedRenderedRunwayDotHtml, "data-income-impact-storyline-event-id", "rendered-runway-start");
+  const focusedRenderedRunwayDotPosition = getTranslateCoordinates(focusedRenderedRunwayDot);
+  assert.equal(
+    focusedRenderedRunwayStartMarkerPosition.x,
+    Math.round(Number(focusedRenderedRunwayStart[1])),
+    "Focused start marker should use the same rendered runwayLinePoints x coordinate as the visible path."
+  );
+  assert.equal(
+    focusedRenderedRunwayStartMarkerPosition.y,
+    Math.round(Number(focusedRenderedRunwayStart[2])),
+    "Focused start marker should use the same rendered runwayLinePoints y coordinate as the visible path."
+  );
+  assert.equal(
+    focusedRenderedRunwayDotPosition.x,
+    Math.round(Number(focusedRenderedRunwayStart[1])),
+    "Focused start dot should use the same rendered runwayLinePoints x coordinate as the visible path."
+  );
+  assert.equal(
+    focusedRenderedRunwayDotPosition.y,
+    Math.round(Number(focusedRenderedRunwayStart[2])),
+    "Focused start dot should use the same rendered runwayLinePoints y coordinate as the visible path."
+  );
+  assert.match(focusedRenderedRunwayDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
   assert.match(
     focusedPath,
     /781 351/,
