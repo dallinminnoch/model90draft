@@ -140,6 +140,17 @@ function getNumericAttributeValues(html, attributeName) {
   return values;
 }
 
+function getGraphYTickLabels(html) {
+  const labels = [];
+  const pattern = /<text\b(?=[^>]*class="income-impact-graph-y-tick-label")[^>]*>([^<]*)<\/text>/g;
+  let match = pattern.exec(html);
+  while (match) {
+    labels.push(match[1]);
+    match = pattern.exec(html);
+  }
+  return labels;
+}
+
 function assertAllEqual(values, expected, message) {
   assert.ok(values.length > 0, message);
   values.forEach(function (value) {
@@ -1221,6 +1232,50 @@ assert.doesNotMatch(
     /781 351/,
     "Post-death focus view should preserve the zero-crossing runout anchor."
   );
+
+  const focusedSmallDomainGraphModel = attachStableLayoutFrame(makeGraphModel(), {
+    xDomainMonths: 18,
+    yDomain: {
+      min: -10000,
+      max: 40000,
+      signed: true,
+      source: "axes.y"
+    },
+    zeroCrossingAnchorMonth: 12
+  });
+  focusedSmallDomainGraphModel.phases.deathEvent.xRatio = 0.42;
+  focusedSmallDomainGraphModel.axes.y.ticks = [
+    { value: 0, yRatio: 0.72 },
+    { value: 20000, yRatio: 0.5 },
+    { value: 40000, yRatio: 0.18 }
+  ];
+  focusedSmallDomainGraphModel.axes.x.ticks = [
+    { id: "before-death", label: "Before death", relativeYears: null, relativeMonths: -60, xRatio: 0 },
+    { id: "death", label: "Death", date: "2031-04-29", relativeYears: 0, relativeMonths: 0, xRatio: 0.42 },
+    { id: "stale-plus-5-years", label: "+5 years", date: "2036-04-29", relativeYears: 5, relativeMonths: 60, xRatio: 0.9 }
+  ];
+  focusedSmallDomainGraphModel.series.postDeathResources = [
+    { date: "2031-04-29", monthIndex: 0, value: 15000, xRatio: 0.42, yRatio: 0.32 },
+    { date: "2031-10-29", monthIndex: 6, value: 7500, xRatio: 0.6, yRatio: 0.52 },
+    { date: "2032-04-29", monthIndex: 12, value: 0, xRatio: 0.8, yRatio: 0.72 },
+    { date: "2032-10-29", monthIndex: 18, value: -5000, xRatio: 0.9, yRatio: 0.86 }
+  ];
+  const focusedSmallDomainHtml = harness.renderTimeline({
+    ...fixture,
+    graphViewMode: "postDeathFocus",
+    graphModel: focusedSmallDomainGraphModel
+  });
+  const focusedSmallDomainYLabels = getGraphYTickLabels(focusedSmallDomainHtml);
+  assert.deepEqual(
+    focusedSmallDomainYLabels,
+    ["$5k", "$10k", "$15k", "$0", "-$5k", "-$10k"],
+    "Post-death focus view should regenerate y-axis ticks from the focused domain instead of reusing stale full-view labels."
+  );
+  assert.doesNotMatch(focusedSmallDomainHtml, />\$20k<|>\$40k</);
+  assert.doesNotMatch(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="before-death"|data-income-impact-graph-x-tick="stale-plus-5-years"/);
+  assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-6"[\s\S]*\+6 mo/);
+  assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-12"[\s\S]*\+1 year/);
+  assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-18"[\s\S]*\+1\.5 years/);
 
   const stableRisingGraphModel = attachStableLayoutFrame(makeGraphModel(), {
     zeroCrossingAnchorScenarioId: null,

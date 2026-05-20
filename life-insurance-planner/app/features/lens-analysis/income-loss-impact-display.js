@@ -34,6 +34,10 @@
   const GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp";
   const POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO = 0.12;
   const POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO = 0.08;
+  const MONTHS_PER_YEAR = 12;
+  const DAYS_PER_MONTH = 30.4375;
+  const ONE_DAY_IN_MONTHS = 1 / DAYS_PER_MONTH;
+  const ONE_WEEK_IN_MONTHS = 7 / DAYS_PER_MONTH;
   const INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE =
     "income-impact-display-auto-compressed-baseline-bridge";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
@@ -1281,10 +1285,247 @@
       : GRAPH_VIEW_MODE_DEATH_LEAD_UP;
   }
 
-  function makePostDeathFocusAxes(axes) {
-    const safeAxes = isPlainObject(axes) ? axes : {};
-    const xAxis = isPlainObject(safeAxes.x) ? safeAxes.x : {};
-    const ticks = Array.isArray(xAxis.ticks)
+  function addRelativeMonthsToDate(date, months) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return null;
+    }
+    const monthValue = toOptionalNumber(months) || 0;
+    if (Math.abs(monthValue) < 1) {
+      return new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate() + Math.round(monthValue * DAYS_PER_MONTH)
+      );
+    }
+
+    const wholeMonths = Math.round(monthValue);
+    const targetYear = date.getFullYear();
+    const targetMonth = date.getMonth() + wholeMonths;
+    const target = new Date(targetYear, targetMonth, 1);
+    const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(date.getDate(), lastDayOfTargetMonth));
+    return target;
+  }
+
+  function formatPostDeathFocusXTickLabel(relativeMonths) {
+    const months = toOptionalNumber(relativeMonths);
+    if (months == null) {
+      return "";
+    }
+    if (months < 1) {
+      const days = Math.max(1, Math.round(months * DAYS_PER_MONTH));
+      return `+${days} ${days === 1 ? "day" : "days"}`;
+    }
+    if (months < MONTHS_PER_YEAR) {
+      return `+${Math.round(months)} mo`;
+    }
+    const years = months / MONTHS_PER_YEAR;
+    if (Math.abs(years - Math.round(years)) <= 0.000001) {
+      const roundedYears = Math.round(years);
+      return `+${roundedYears} ${roundedYears === 1 ? "year" : "years"}`;
+    }
+    return `+${Number(years.toFixed(1))} years`;
+  }
+
+  function getPostDeathFocusXTickMonths(displayHorizonMonths) {
+    const horizonMonths = Math.max(toOptionalNumber(displayHorizonMonths) || 0, 0);
+    if (horizonMonths <= 0) {
+      return [];
+    }
+
+    let stepMonths;
+    if (horizonMonths <= 1) {
+      const horizonDays = Math.max(1, Math.round(horizonMonths * DAYS_PER_MONTH));
+      const stepDays = horizonDays <= 7 ? 1 : 7;
+      stepMonths = stepDays * ONE_DAY_IN_MONTHS;
+    } else if (horizonMonths <= 3) {
+      stepMonths = ONE_WEEK_IN_MONTHS;
+    } else if (horizonMonths <= 12) {
+      stepMonths = 1;
+    } else if (horizonMonths <= 24) {
+      stepMonths = 6;
+    } else if (horizonMonths <= 60) {
+      stepMonths = MONTHS_PER_YEAR;
+    } else if (horizonMonths <= 240) {
+      stepMonths = 24;
+    } else {
+      return [5, 10, 15, 20, 30, 40]
+        .map(function (years) { return years * MONTHS_PER_YEAR; })
+        .filter(function (months) { return months <= horizonMonths; });
+    }
+
+    const ticks = [];
+    for (let month = stepMonths; month <= horizonMonths + (stepMonths * 0.001); month += stepMonths) {
+      ticks.push(Number(month.toFixed(6)));
+    }
+    const lastTick = ticks[ticks.length - 1];
+    if (Math.abs((lastTick ?? 0) - horizonMonths) > 0.000001) {
+      ticks.push(Number(horizonMonths.toFixed(6)));
+    }
+    return ticks;
+  }
+
+  function getPostDeathFocusDeathDate(graphModel, xAxis) {
+    const phaseDate = normalizeDateOnly(graphModel?.phases?.deathEvent?.date);
+    if (phaseDate) {
+      return phaseDate;
+    }
+
+    const deathTick = Array.isArray(xAxis?.ticks)
+      ? xAxis.ticks.find(function (tick) {
+        return normalizeString(tick?.id) === "death" || toOptionalNumber(tick?.relativeYears) === 0;
+      })
+      : null;
+    return normalizeDateOnly(deathTick?.date);
+  }
+
+  function makePostDeathFocusXTicks(graphModel, layoutFrame, xAxis) {
+    const deathDate = getPostDeathFocusDeathDate(graphModel, xAxis);
+    const parsedDeathDate = parseDateOnlyValue(deathDate);
+    const horizonMonths = toOptionalNumber(layoutFrame?.xDomainMonths);
+    if (horizonMonths == null || horizonMonths <= 0) {
+      return [];
+    }
+
+    const ticks = [{
+      id: "death",
+      key: "death",
+      label: "Death",
+      date: deathDate,
+      xRatio: 0,
+      relativeYears: 0,
+      relativeMonths: 0,
+      axisMode: "deathRelativeYears",
+      trace: {
+        displayOnlyAxisLabel: true,
+        regeneratedForPostDeathFocus: true
+      }
+    }];
+
+    getPostDeathFocusXTickMonths(horizonMonths).forEach(function (relativeMonths) {
+      const tickDate = parsedDeathDate ? addRelativeMonthsToDate(parsedDeathDate, relativeMonths) : null;
+      ticks.push({
+        id: `plus-${relativeMonths}`,
+        key: `plus-${relativeMonths}`,
+        label: formatPostDeathFocusXTickLabel(relativeMonths),
+        date: tickDate ? formatDateOnly(tickDate) : "",
+        xRatio: 0,
+        relativeYears: relativeMonths / MONTHS_PER_YEAR,
+        relativeMonths,
+        axisMode: "deathRelativeYears",
+        trace: {
+          displayOnlyAxisLabel: true,
+          regeneratedForPostDeathFocus: true
+        }
+      });
+    });
+
+    return ticks;
+  }
+
+  function roundPostDeathFocusAxisValue(value) {
+    const number = toOptionalNumber(value);
+    return number == null ? 0 : Math.round(number * 100) / 100;
+  }
+
+  function getNicePostDeathFocusAxisStep(maxMagnitude, targetSteps) {
+    const magnitude = toOptionalNumber(maxMagnitude);
+    const steps = Math.max(1, Math.floor(toOptionalNumber(targetSteps) || 4));
+    if (magnitude == null || magnitude <= 0) {
+      return 0;
+    }
+
+    const roughStep = magnitude / steps;
+    const power = Math.pow(10, Math.floor(Math.log10(roughStep)));
+    const normalized = roughStep / power;
+    const niceFactor = normalized <= 1
+      ? 1
+      : normalized <= 2
+        ? 2
+        : normalized <= 2.5
+          ? 2.5
+          : normalized <= 5
+            ? 5
+            : 10;
+    return roundPostDeathFocusAxisValue(niceFactor * power);
+  }
+
+  function getPostDeathFocusYRatioForValue(value, yDomain, zeroYRatio) {
+    const number = toOptionalNumber(value);
+    const zeroRatio = toOptionalNumber(zeroYRatio);
+    if (number == null || zeroRatio == null) {
+      return null;
+    }
+    if (Math.abs(number) <= 0.000001) {
+      return zeroRatio;
+    }
+
+    const max = Math.max(toOptionalNumber(yDomain?.max) || 0, 1);
+    const min = Math.min(toOptionalNumber(yDomain?.min) || 0, -1);
+    if (number > 0) {
+      return clampNumber(zeroRatio - ((number / max) * zeroRatio), 0, zeroRatio);
+    }
+
+    const negativeBandRatio = Math.max(0.000001, 1 - zeroRatio);
+    return clampNumber(zeroRatio + ((Math.abs(number) / Math.abs(min)) * negativeBandRatio), zeroRatio, 1);
+  }
+
+  function makePostDeathFocusYTicks(layoutFrame) {
+    const yDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : {};
+    const max = Math.max(toOptionalNumber(yDomain.max) || 0, 0);
+    const deficitMax = Math.abs(Math.min(toOptionalNumber(yDomain.min) || 0, 0));
+    const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
+    const maxMagnitude = Math.max(max, deficitMax);
+    const tickStep = getNicePostDeathFocusAxisStep(maxMagnitude, 4);
+    const ticks = [];
+
+    if (tickStep > 0 && max > 0) {
+      for (let value = tickStep; value <= max + (tickStep * 0.001); value += tickStep) {
+        const roundedValue = roundPostDeathFocusAxisValue(value);
+        ticks.push({
+          key: `focus-funded-${Math.round(roundedValue)}`,
+          zone: "fundedRunway",
+          value: roundedValue,
+          yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
+          trace: {
+            regeneratedForPostDeathFocus: true,
+            tickStep
+          }
+        });
+      }
+    }
+    ticks.push({
+      key: "focus-zero",
+      zone: "zero",
+      value: 0,
+      yRatio: getPostDeathFocusYRatioForValue(0, yDomain, zeroYRatio),
+      baseline: true,
+      trace: {
+        regeneratedForPostDeathFocus: true,
+        tickStep
+      }
+    });
+
+    if (tickStep > 0 && deficitMax > 0) {
+      for (let value = -tickStep; value >= -deficitMax - (tickStep * 0.001); value -= tickStep) {
+        const roundedValue = roundPostDeathFocusAxisValue(value);
+        ticks.push({
+          key: `focus-deficit-${Math.round(Math.abs(roundedValue))}`,
+          zone: "deficit",
+          value: roundedValue,
+          yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
+          trace: {
+            regeneratedForPostDeathFocus: true,
+            tickStep
+          }
+        });
+      }
+    }
+    return ticks;
+  }
+
+  function filterPostDeathFocusXTicks(xAxis) {
+    return Array.isArray(xAxis?.ticks)
       ? xAxis.ticks.filter(function (tick) {
         const tickId = normalizeString(tick?.id);
         const relativeYears = toOptionalNumber(tick?.relativeYears);
@@ -1295,8 +1536,36 @@
         return true;
       })
       : [];
+  }
+
+  function makePostDeathFocusAxes(graphModel, layoutFrame) {
+    const safeAxes = isPlainObject(graphModel?.axes) ? graphModel.axes : {};
+    const xAxis = isPlainObject(safeAxes.x) ? safeAxes.x : {};
+    const yAxis = isPlainObject(safeAxes.y) ? safeAxes.y : {};
+    if (!layoutFrame) {
+      return Object.assign({}, safeAxes, {
+        x: Object.assign({}, xAxis, {
+          ticks: filterPostDeathFocusXTicks(xAxis)
+        })
+      });
+    }
+
+    const xTicks = makePostDeathFocusXTicks(graphModel, layoutFrame, xAxis);
+    const yTicks = makePostDeathFocusYTicks(layoutFrame);
     return Object.assign({}, safeAxes, {
-      x: Object.assign({}, xAxis, { ticks })
+      x: Object.assign({}, xAxis, {
+        ticks: xTicks,
+        trace: Object.assign({}, isPlainObject(xAxis.trace) ? xAxis.trace : {}, {
+          regeneratedForPostDeathFocus: true
+        })
+      }),
+      y: Object.assign({}, yAxis, {
+        ticks: yTicks,
+        zeroYRatio: toOptionalNumber(layoutFrame?.zeroYRatio) ?? yAxis.zeroYRatio,
+        trace: Object.assign({}, isPlainObject(yAxis.trace) ? yAxis.trace : {}, {
+          regeneratedForPostDeathFocus: true
+        })
+      })
     });
   }
 
@@ -1377,7 +1646,7 @@
       })
       : layoutFrame;
     return Object.assign({}, graphModel, {
-      axes: makePostDeathFocusAxes(graphModel?.axes),
+      axes: makePostDeathFocusAxes(graphModel, focusedLayoutFrame),
       phases: Object.assign({}, phases, {
         preDeath: Object.assign({}, isPlainObject(phases.preDeath) ? phases.preDeath : {}, {
           available: false,
