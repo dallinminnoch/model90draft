@@ -1303,6 +1303,40 @@
     return clampNumber(deathXRatio + ((pointMonth / domainMonths) * (1 - deathXRatio)), 0, 1);
   }
 
+  function getLayoutFrameXRatioForPath(graphModel, xRatio, point = null) {
+    const layoutFrame = getStableGraphLayoutFrame(graphModel);
+    const rawRatio = toOptionalNumber(xRatio);
+    if (!layoutFrame) {
+      return rawRatio;
+    }
+
+    const deathXRatio = toOptionalNumber(layoutFrame.deathXRatio) ?? rawRatio;
+    const graphDeathXRatio = toOptionalNumber(graphModel?.phases?.deathEvent?.xRatio ?? graphModel?.axes?.x?.deathXRatio);
+    const pointMonth = getLayoutFramePointMonth(point);
+    const pointPhase = normalizeString(point?.phase);
+    if (pointPhase === "deathEvent" || pointMonth === 0 || (rawRatio != null && graphDeathXRatio != null && Math.abs(rawRatio - graphDeathXRatio) <= 0.000001)) {
+      return deathXRatio;
+    }
+    if (pointMonth == null || pointMonth < 0) {
+      return rawRatio;
+    }
+
+    const runoutAnchorXRatio = toOptionalNumber(layoutFrame.runoutAnchorXRatio);
+    const anchorMonth = toOptionalNumber(layoutFrame.zeroCrossingAnchorMonth);
+    const domainMonths = Math.max(0.000001, toOptionalNumber(layoutFrame.xDomainMonths) ?? pointMonth);
+    if (runoutAnchorXRatio != null && anchorMonth != null && anchorMonth > 0) {
+      if (pointMonth <= anchorMonth) {
+        return Math.max(0, deathXRatio + ((pointMonth / anchorMonth) * (runoutAnchorXRatio - deathXRatio)));
+      }
+      if (domainMonths > anchorMonth) {
+        return Math.max(0, runoutAnchorXRatio + (((pointMonth - anchorMonth) / (domainMonths - anchorMonth)) * (1 - runoutAnchorXRatio)));
+      }
+      return Math.max(0, runoutAnchorXRatio);
+    }
+
+    return Math.max(0, deathXRatio + ((pointMonth / domainMonths) * (1 - deathXRatio)));
+  }
+
   function getGraphYDomainBounds(graphModel) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const yDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : {};
@@ -1383,7 +1417,7 @@
     }
     const ratio = toOptionalNumber(xRatio);
     const frame = getGraphPlotFrame(graphModel);
-    const stableRatio = getLayoutFrameXRatio(graphModel, ratio, point);
+    const stableRatio = getLayoutFrameXRatioForPath(graphModel, ratio, point);
     return frame.plotLeft + ((stableRatio == null ? 0 : stableRatio) * frame.plotWidth);
   }
 
