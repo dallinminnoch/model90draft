@@ -1276,25 +1276,34 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
   }
 
   body[data-step="income-impact"] .income-impact-workspace-shell {
+    --income-impact-rail-collapsed-width: clamp(4.5rem, 5vw, 5.5rem);
+    --income-impact-rail-expanded-width: 12rem;
     display: grid;
-    grid-template-columns: minmax(10.5rem, 12rem) minmax(0, 1fr) minmax(10.5rem, 12rem);
+    grid-template-columns: var(--income-impact-rail-collapsed-width) minmax(0, 1fr) var(--income-impact-rail-collapsed-width);
     gap: 0;
     align-items: stretch;
     height: 100%;
     min-height: 0;
     overflow: hidden;
     background: transparent;
+    isolation: isolate;
   }
 
   body[data-step="income-impact"] .income-impact-controls-panel {
     grid-column: 1;
     grid-row: 1;
-    position: static;
+    position: relative;
+    z-index: 2;
     align-self: stretch;
+    justify-self: start;
+    width: var(--income-impact-rail-collapsed-width);
+    max-width: var(--income-impact-rail-expanded-width);
     min-width: 0;
     min-height: 0;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
+    transition: width 0.18s ease, box-shadow 0.18s ease;
   }
 
   body[data-step="income-impact"] .income-impact-content-stack {
@@ -1314,11 +1323,31 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
   body[data-step="income-impact"] .income-impact-insights-panel {
     grid-column: 3;
     grid-row: 1;
+    position: relative;
+    z-index: 2;
     align-self: stretch;
+    justify-self: end;
+    width: var(--income-impact-rail-collapsed-width);
+    max-width: var(--income-impact-rail-expanded-width);
     min-width: 0;
     min-height: 0;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
+    transition: width 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  body[data-step="income-impact"] .income-impact-controls-panel:hover,
+  body[data-step="income-impact"] .income-impact-controls-panel:focus-within,
+  body[data-step="income-impact"] .income-impact-insights-panel:hover,
+  body[data-step="income-impact"] .income-impact-insights-panel:focus-within {
+    z-index: 8;
+    width: var(--income-impact-rail-expanded-width);
+  }
+
+  body[data-step="income-impact"] .income-impact-controls-panel > *,
+  body[data-step="income-impact"] .income-impact-insights-panel > * {
+    min-width: var(--income-impact-rail-expanded-width);
   }
 
   body[data-step="income-impact"] .income-impact-scenario-banner {

@@ -149,6 +149,9 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "grid-template-columns: minmax(14rem, 14.5rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
     "grid-template-columns: minmax(13.5rem, 14rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
     "grid-template-columns: minmax(10.5rem, 12rem) minmax(0, 1fr) minmax(10.5rem, 12rem);",
+    "--income-impact-rail-collapsed-width: clamp(4.5rem, 5vw, 5.5rem);",
+    "--income-impact-rail-expanded-width: 12rem;",
+    "grid-template-columns: var(--income-impact-rail-collapsed-width) minmax(0, 1fr) var(--income-impact-rail-collapsed-width);",
     "grid-template-columns: minmax(13.5rem, 18rem) minmax(0, 1fr);",
     "display: grid;",
     "grid-template-columns: minmax(0, 1fr) minmax(13.5rem, 18rem);",
@@ -176,8 +179,20 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "order: -1;",
     "position: sticky;",
     "position: static;",
+    "position: relative;",
     "top: clamp(0.75rem, 2vw, 1.2rem);",
     "align-self: start;",
+    "justify-self: start;",
+    "justify-self: end;",
+    "width: var(--income-impact-rail-collapsed-width);",
+    "max-width: var(--income-impact-rail-expanded-width);",
+    "overflow-x: hidden;",
+    "transition: width 0.18s ease, box-shadow 0.18s ease;",
+    "z-index: 2;",
+    "z-index: 8;",
+    "width: var(--income-impact-rail-expanded-width);",
+    "isolation: isolate;",
+    "min-width: var(--income-impact-rail-expanded-width);",
     "min-width: 0;"
   ]);
   const allowedSelectors = new Set([
@@ -185,6 +200,12 @@ function isAllowedIncomeImpactSidePanelLayoutChange() {
     "body[data-step=\"income-impact\"] .income-impact-controls-panel {",
     "body[data-step=\"income-impact\"] .income-impact-content-stack {",
     "body[data-step=\"income-impact\"] .income-impact-insights-panel {",
+    "body[data-step=\"income-impact\"] .income-impact-controls-panel:hover,",
+    "body[data-step=\"income-impact\"] .income-impact-controls-panel:focus-within,",
+    "body[data-step=\"income-impact\"] .income-impact-insights-panel:hover,",
+    "body[data-step=\"income-impact\"] .income-impact-insights-panel:focus-within {",
+    "body[data-step=\"income-impact\"] .income-impact-controls-panel > *,",
+    "body[data-step=\"income-impact\"] .income-impact-insights-panel > * {",
     "/* Mobile keeps scenario controls inline so they do not cover the chart or route actions. */",
     "/* Mobile stacks scenario controls above the chart so they do not cover route actions. */"
   ]);
@@ -936,13 +957,13 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(10\.5rem,\s*12rem\) minmax\(0,\s*1fr\) minmax\(10\.5rem,\s*12rem\);[^}]*\}/,
-  "Desktop/tablet Income Impact layout should give scenario controls the same width as the planning alerts rail."
+  /body\[data-step="income-impact"\] \.income-impact-workspace-shell\s*\{[^}]*--income-impact-rail-collapsed-width:\s*clamp\(4\.5rem,\s*5vw,\s*5\.5rem\);[^}]*--income-impact-rail-expanded-width:\s*12rem;[^}]*display:\s*grid;[^}]*grid-template-columns:\s*var\(--income-impact-rail-collapsed-width\) minmax\(0,\s*1fr\) var\(--income-impact-rail-collapsed-width\);[^}]*isolation:\s*isolate;/,
+  "Desktop/tablet Income Impact layout should reserve miniature side rails while keeping the full rail width available for overlay expansion."
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-controls-panel\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;[^}]*position:\s*static;[^}]*align-self:\s*stretch;[^}]*\}/,
-  "Income Impact controls panel should occupy the stable left rail, not a floating or sticky overlay."
+  /body\[data-step="income-impact"\] \.income-impact-controls-panel\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;[^}]*position:\s*relative;[^}]*justify-self:\s*start;[^}]*width:\s*var\(--income-impact-rail-collapsed-width\);[^}]*max-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*overflow-x:\s*hidden;[^}]*transition:\s*width 0\.18s ease, box-shadow 0\.18s ease;[^}]*\}/,
+  "Income Impact controls panel should occupy a miniature left rail and expand over the main content without shifting the grid."
 );
 assert.match(
   layoutSource,
@@ -956,8 +977,18 @@ assert.match(
 );
 assert.match(
   layoutSource,
-  /body\[data-step="income-impact"\] \.income-impact-insights-panel\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*\}/,
-  "Income Impact resource outlook should occupy a separate scrollable right rail."
+  /body\[data-step="income-impact"\] \.income-impact-insights-panel\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;[^}]*position:\s*relative;[^}]*justify-self:\s*end;[^}]*width:\s*var\(--income-impact-rail-collapsed-width\);[^}]*max-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*height:\s*100%;[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*transition:\s*width 0\.18s ease, box-shadow 0\.18s ease;[^}]*\}/,
+  "Income Impact resource outlook should occupy a miniature right rail and expand left over the main content without shifting the grid."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-controls-panel:hover,[\s\S]*body\[data-step="income-impact"\] \.income-impact-insights-panel:focus-within\s*\{[^}]*z-index:\s*8;[^}]*width:\s*var\(--income-impact-rail-expanded-width\);[^}]*\}/,
+  "Income Impact side rails should expand to their full width on hover or keyboard focus."
+);
+assert.match(
+  layoutSource,
+  /body\[data-step="income-impact"\] \.income-impact-controls-panel > \*,[\s\S]*body\[data-step="income-impact"\] \.income-impact-insights-panel > \*\s*\{[^}]*min-width:\s*var\(--income-impact-rail-expanded-width\);[^}]*\}/,
+  "Income Impact side rail contents should keep the full-width layout while the rail viewport is collapsed."
 );
 assert.match(
   layoutSource,
