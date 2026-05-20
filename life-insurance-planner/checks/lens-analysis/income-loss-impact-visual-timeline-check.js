@@ -689,6 +689,10 @@ assert.match(
 );
 
 assert.match(displaySource, /data-income-impact-graph-svg/);
+assert.match(displaySource, /GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus"/);
+assert.match(displaySource, /GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp"/);
+assert.match(displaySource, /data-income-impact-graph-view-toggle/);
+assert.match(displaySource, /getDisplayGraphModelForView/);
 assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
 assert.match(displaySource, /deficitPoints/);
@@ -830,6 +834,7 @@ assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[^}]*background
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*rgba\(64,\s*84,\s*184,\s*0\.06\);[^}]*\}/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.045\);[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
+assert.match(componentsSource, /\.income-impact-graph-view-toggle[\s\S]*margin-left:\s*auto;[\s\S]*border:\s*1px solid rgba\(59,\s*130,\s*246,\s*0\.2\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-death-conversion-spine[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*3\.2;/);
 assert.match(componentsSource, /\.income-impact-death-conversion-chevron[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*2\.4;/);
@@ -1060,7 +1065,7 @@ assert.equal(
   "Transition Outlook graph annotation should not change the runway path data."
 );
 assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="lifestyle-post-death-resources"|data-income-impact-graph-path="compression-post-death-resources"/);
-assert.doesNotMatch(timelineHtml, /data-income-impact-graph-legend/);
+assert.match(timelineHtml, /data-income-impact-graph-legend[\s\S]*data-income-impact-graph-view-toggle[\s\S]*Focus after death/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-comparison-markers|data-income-impact-compression-markers/);
 assert.match(timelineHtml, /data-income-impact-graph-x-tick="death"[\s\S]*Death/);
 assert.match(timelineHtml, /data-income-impact-graph-x-tick="plus-24"[\s\S]*\+2 years/);
@@ -1117,6 +1122,43 @@ assert.doesNotMatch(
     stablePath,
     /781 265/,
     "Furthest visible depletion should render at the stable runout anchor zone."
+  );
+
+  const focusedGraphModel = attachStableLayoutFrame(makeGraphModel());
+  focusedGraphModel.phases.deathEvent.xRatio = 0.42;
+  focusedGraphModel.phases.preDeath.endXRatio = 0.42;
+  focusedGraphModel.phases.postDeath.startXRatio = 0.42;
+  focusedGraphModel.axes.y.zeroYRatio = 0.48;
+  focusedGraphModel.axes.y.ticks = stableGraphModel.axes.y.ticks;
+  focusedGraphModel.series.postDeathResources = stableGraphModel.series.postDeathResources;
+  const focusedHtml = harness.renderTimeline({
+    ...fixture,
+    graphViewMode: "postDeathFocus",
+    graphModel: focusedGraphModel
+  });
+  const focusedDeathAxis = getSvgTag(focusedHtml, "line", "data-income-impact-graph-death-axis");
+  const focusedZeroBaseline = getSvgTag(focusedHtml, "line", "data-income-impact-graph-zero-baseline");
+  assert.match(focusedHtml, /data-income-impact-graph-view-mode="postDeathFocus"/);
+  assert.match(focusedHtml, /data-income-impact-layout-frame-death-x-ratio="0"/);
+  assert.match(focusedHtml, /data-income-impact-graph-view-toggle[\s\S]*data-income-impact-next-graph-view-mode="deathLeadUp"[\s\S]*Show lead-up/);
+  assert.equal(
+    getSvgNumericAttribute(focusedDeathAxis, "x1"),
+    74,
+    "Post-death focus view should pin the death axis to the y-axis."
+  );
+  assert.equal(
+    getSvgNumericAttribute(focusedZeroBaseline, "y1"),
+    265,
+    "Post-death focus view should preserve the same zero baseline geometry."
+  );
+  assert.doesNotMatch(focusedHtml, /data-income-impact-graph-path="preDeathAssets"/);
+  assert.doesNotMatch(focusedHtml, /data-income-impact-death-conversion(?:\s|>)/);
+  assert.doesNotMatch(focusedHtml, /data-income-impact-graph-x-tick="before-death"/);
+  const focusedPath = getPathD(focusedHtml, "data-income-impact-graph-path", "postDeathResources");
+  assert.match(
+    focusedPath,
+    /^M74 /,
+    "Post-death focus view should start the runway at the left edge without changing the zero anchor rule."
   );
 
   const stableRisingGraphModel = attachStableLayoutFrame(makeGraphModel(), {

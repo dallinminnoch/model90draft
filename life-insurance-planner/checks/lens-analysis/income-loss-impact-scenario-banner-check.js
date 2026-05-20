@@ -342,11 +342,29 @@ function createElement(initial = {}) {
         : null;
     },
     addEventListener(eventName, callback) {
-      listeners[eventName] = callback;
+      const existing = listeners[eventName];
+      if (!existing) {
+        listeners[eventName] = callback;
+        return;
+      }
+      const callbacks = Array.isArray(existing.__callbacks)
+        ? existing.__callbacks
+        : [existing];
+      callbacks.push(callback);
+      const dispatcher = function (event) {
+        callbacks.forEach(function (listener) {
+          listener(event);
+        });
+      };
+      dispatcher.__callbacks = callbacks;
+      listeners[eventName] = dispatcher;
     },
     matches(selector) {
       if (selector === "[data-income-impact-scenario-select]") {
         return this.getAttribute("data-income-impact-scenario-select") != null;
+      }
+      if (selector === "[data-income-impact-graph-view-toggle]") {
+        return this.getAttribute("data-income-impact-graph-view-toggle") != null;
       }
       return false;
     },
@@ -1292,6 +1310,31 @@ assert.equal(originalScenarioSelectionTarget.getAttribute("data-income-impact-ap
 assert.equal(harness.composerCalls.length, countsBeforeScenarioSelection.composer, "keyboard scenario selection should not rerun composer.");
 assert.equal(harness.riskEvaluatorCalls.length, countsBeforeScenarioSelection.risk);
 assert.equal(harness.graphModelCalls.length, countsBeforeScenarioSelection.graph + 2, "keyboard scenario selection should rebuild the graph for the selected visible scenario.");
+
+const graphViewToggleTarget = createElement({
+  attributes: {
+    "data-income-impact-graph-view-toggle": "",
+    "data-income-impact-graph-view-mode": "postDeathFocus",
+    "data-income-impact-next-graph-view-mode": "deathLeadUp"
+  }
+});
+const graphViewCountsBeforeToggle = {
+  composer: harness.composerCalls.length,
+  risk: harness.riskEvaluatorCalls.length,
+  graph: harness.graphModelCalls.length
+};
+let graphViewToggleDefaultPrevented = false;
+harness.host.listeners.click({
+  target: graphViewToggleTarget,
+  preventDefault() {
+    graphViewToggleDefaultPrevented = true;
+  }
+});
+assert.equal(graphViewToggleDefaultPrevented, true, "graph view toggle should prevent default button interaction.");
+assert.equal(harness.composerCalls.length, graphViewCountsBeforeToggle.composer, "graph view toggle should not rerun composer.");
+assert.equal(harness.riskEvaluatorCalls.length, graphViewCountsBeforeToggle.risk, "graph view toggle should not rerun risk evaluator.");
+assert.equal(harness.graphModelCalls.length, graphViewCountsBeforeToggle.graph, "graph view toggle should not rebuild graph model math.");
+assert.match(harness.host.innerHTML, /data-income-impact-graph-view-mode="deathLeadUp"/);
 
 const graphCallCountBeforeDuplicateReevaluate = harness.graphModelCalls.length;
 harness.reevaluateButton.listeners.click();

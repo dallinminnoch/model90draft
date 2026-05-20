@@ -19333,6 +19333,31 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   min-width: 0;
 }
 
+.income-impact-graph-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.55rem;
+  margin-left: auto;
+  padding: 0.12rem 0.48rem;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.4rem;
+  background: #ffffff;
+  color: #2563eb;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.income-impact-graph-view-toggle:hover,
+.income-impact-graph-view-toggle:focus-visible {
+  border-color: rgba(59, 130, 246, 0.46);
+  background: rgba(59, 130, 246, 0.08);
+  outline: none;
+}
+
 .income-impact-graph-legend [data-income-impact-scenario-select] {
   cursor: pointer;
   border: 1px solid transparent;

@@ -26,6 +26,8 @@
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const AUTO_COMPRESSED_BASELINE_SCENARIO_ID = "income-impact-auto-compressed-baseline";
   const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
+  const GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus";
+  const GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp";
   const INCOME_IMPACT_AUTO_COMPRESSED_BASELINE_SOURCE =
     "income-impact-display-auto-compressed-baseline-bridge";
   const INITIAL_APPLIED_SCENARIO_ID = "income-impact-current-scenario";
@@ -1231,6 +1233,128 @@
     return layoutFrame && layoutFrame.mode === STABLE_GRAPH_LAYOUT_FRAME_MODE ? layoutFrame : null;
   }
 
+  function normalizeIncomeImpactGraphViewMode(value) {
+    return normalizeString(value) === GRAPH_VIEW_MODE_DEATH_LEAD_UP
+      ? GRAPH_VIEW_MODE_DEATH_LEAD_UP
+      : GRAPH_VIEW_MODE_POST_DEATH_FOCUS;
+  }
+
+  function getIncomeImpactGraphViewMode(timelineResult) {
+    const explicitMode =
+      timelineResult?.graphViewMode
+        || timelineResult?.trace?.graphViewMode
+        || incomeImpactState?.graphViewMode;
+    if (explicitMode) {
+      return normalizeIncomeImpactGraphViewMode(explicitMode);
+    }
+    return incomeImpactState ? GRAPH_VIEW_MODE_POST_DEATH_FOCUS : GRAPH_VIEW_MODE_DEATH_LEAD_UP;
+  }
+
+  function isDeathLeadUpGraphView(viewMode) {
+    return normalizeIncomeImpactGraphViewMode(viewMode) === GRAPH_VIEW_MODE_DEATH_LEAD_UP;
+  }
+
+  function graphHasDeathLeadUpContext(graphModel) {
+    const series = isPlainObject(graphModel?.series) ? graphModel.series : {};
+    const appliedRunwayScenarios = Array.isArray(series.appliedRunwayScenarios)
+      ? series.appliedRunwayScenarios
+      : [];
+    return (Array.isArray(series.preDeathAssets) && series.preDeathAssets.length > 1)
+      || appliedRunwayScenarios.some(function (scenario) {
+        return Array.isArray(scenario?.preDeathContextPoints) && scenario.preDeathContextPoints.length > 1;
+      });
+  }
+
+  function getGraphViewToggleLabel(viewMode) {
+    return isDeathLeadUpGraphView(viewMode) ? "Focus after death" : "Show lead-up";
+  }
+
+  function getNextGraphViewMode(viewMode) {
+    return isDeathLeadUpGraphView(viewMode)
+      ? GRAPH_VIEW_MODE_POST_DEATH_FOCUS
+      : GRAPH_VIEW_MODE_DEATH_LEAD_UP;
+  }
+
+  function makePostDeathFocusAxes(axes) {
+    const safeAxes = isPlainObject(axes) ? axes : {};
+    const xAxis = isPlainObject(safeAxes.x) ? safeAxes.x : {};
+    const ticks = Array.isArray(xAxis.ticks)
+      ? xAxis.ticks.filter(function (tick) {
+        const tickId = normalizeString(tick?.id);
+        const relativeYears = toOptionalNumber(tick?.relativeYears);
+        const relativeMonths = getLayoutFramePointMonth(tick);
+        if (tickId === "before-death" || relativeYears < 0 || relativeMonths < 0) {
+          return false;
+        }
+        return true;
+      })
+      : [];
+    return Object.assign({}, safeAxes, {
+      x: Object.assign({}, xAxis, { ticks })
+    });
+  }
+
+  function makePostDeathFocusSeries(series) {
+    const safeSeries = isPlainObject(series) ? series : {};
+    const appliedRunwayScenarios = Array.isArray(safeSeries.appliedRunwayScenarios)
+      ? safeSeries.appliedRunwayScenarios.map(function (scenario) {
+        return Object.assign({}, scenario, {
+          preDeathContextPoints: []
+        });
+      })
+      : safeSeries.appliedRunwayScenarios;
+    return Object.assign({}, safeSeries, {
+      preDeathAssets: [],
+      currentAnchor: null,
+      appliedRunwayScenarios
+    });
+  }
+
+  function makePostDeathFocusGraphModel(graphModel) {
+    const layoutFrame = getStableGraphLayoutFrame(graphModel);
+    const phases = isPlainObject(graphModel?.phases) ? graphModel.phases : {};
+    const deathXRatio = toOptionalNumber(layoutFrame?.deathXRatio);
+    const focusedLayoutFrame = layoutFrame
+      ? Object.assign({}, layoutFrame, {
+        deathXRatio: 0,
+        trace: Object.assign({}, isPlainObject(layoutFrame.trace) ? layoutFrame.trace : {}, {
+          graphViewMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
+          fullLeadUpDeathXRatio: deathXRatio,
+          rendererAppliesPostDeathFocusFrame: true
+        })
+      })
+      : layoutFrame;
+    return Object.assign({}, graphModel, {
+      axes: makePostDeathFocusAxes(graphModel?.axes),
+      phases: Object.assign({}, phases, {
+        preDeath: Object.assign({}, isPlainObject(phases.preDeath) ? phases.preDeath : {}, {
+          available: false,
+          endXRatio: 0
+        })
+      }),
+      series: makePostDeathFocusSeries(graphModel?.series),
+      layoutFrame: focusedLayoutFrame,
+      trace: Object.assign({}, isPlainObject(graphModel?.trace) ? graphModel.trace : {}, {
+        graphViewMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
+        fullLeadUpDeathXRatio: deathXRatio
+      })
+    });
+  }
+
+  function getDisplayGraphModelForView(graphModel, viewMode) {
+    if (!isPlainObject(graphModel)) {
+      return graphModel;
+    }
+    if (isDeathLeadUpGraphView(viewMode)) {
+      return Object.assign({}, graphModel, {
+        trace: Object.assign({}, isPlainObject(graphModel.trace) ? graphModel.trace : {}, {
+          graphViewMode: GRAPH_VIEW_MODE_DEATH_LEAD_UP
+        })
+      });
+    }
+    return makePostDeathFocusGraphModel(graphModel);
+  }
+
   function getGraphPlotFrame(graphModel) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const plotLeft = toOptionalNumber(layoutFrame?.plotLeft) ?? GRAPH_VIEW_BOX.plotLeft;
@@ -2198,6 +2322,10 @@
     const preEnd = toOptionalNumber(preDeath.endXRatio);
     const postStart = toOptionalNumber(postDeath.startXRatio);
     const deathX = toOptionalNumber(death.xRatio);
+    const deathXCoordinate = deathX == null ? null : toGraphX(deathX, graphModel, death);
+    const deathLabelAnchoredLeft = deathXCoordinate != null && deathXCoordinate <= GRAPH_VIEW_BOX.plotLeft + 4;
+    const deathLabelX = deathLabelAnchoredLeft ? deathXCoordinate + 8 : deathXCoordinate;
+    const deathLabelAnchor = deathLabelAnchoredLeft ? "start" : "middle";
     return `
       <g class="income-impact-graph-phases" data-income-impact-graph-phases>
         ${preEnd != null && preEnd > 0 ? `
@@ -2207,9 +2335,9 @@
         ${postStart != null && postStart < 1 ? `
           <rect class="income-impact-graph-phase income-impact-graph-phase--post-death" x="${toGraphX(postStart, graphModel, postDeath)}" y="${GRAPH_VIEW_BOX.plotTop}" width="${Math.max(0, GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - toGraphX(postStart, graphModel, postDeath))}" height="${GRAPH_VIEW_BOX.plotHeight}"></rect>
         ` : ""}
-        ${deathX != null ? `
-          <line class="income-impact-graph-death-axis" data-income-impact-graph-death-axis x1="${toGraphX(deathX, graphModel, death)}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${toGraphX(deathX, graphModel, death)}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
-          <text class="income-impact-graph-death-label" x="${toGraphX(deathX, graphModel, death)}" y="${GRAPH_VIEW_BOX.plotTop - 12}" text-anchor="middle">Death event</text>
+        ${deathXCoordinate != null ? `
+          <line class="income-impact-graph-death-axis" data-income-impact-graph-death-axis x1="${deathXCoordinate}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${deathXCoordinate}" y2="${GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight}"></line>
+          <text class="income-impact-graph-death-label" x="${deathLabelX}" y="${GRAPH_VIEW_BOX.plotTop - 12}" text-anchor="${deathLabelAnchor}">Death event</text>
         ` : ""}
       </g>
     `;
@@ -3785,15 +3913,17 @@
     });
   }
 
-  function renderGraphLegend(graphModel, timelineResult = null) {
+  function renderGraphLegend(graphModel, timelineResult = null, graphViewMode = GRAPH_VIEW_MODE_POST_DEATH_FOCUS, leadUpAvailable = false) {
     const appliedItems = getAppliedScenarioLegendItems(graphModel, timelineResult);
     const comparisonSeries = getComparisonGraphSeries(graphModel);
     const fallbackPrimaryLabel = getPrimaryGraphPathLabel(timelineResult, "Projected path");
-    if (!appliedItems.length && !comparisonSeries.length) {
+    const normalizedViewMode = normalizeIncomeImpactGraphViewMode(graphViewMode);
+    const nextViewMode = getNextGraphViewMode(normalizedViewMode);
+    if (!appliedItems.length && !comparisonSeries.length && !leadUpAvailable) {
       return "";
     }
     return `
-      <div class="income-impact-graph-legend" data-income-impact-graph-legend>
+      <div class="income-impact-graph-legend" data-income-impact-graph-legend data-income-impact-graph-view-mode="${escapeHtml(normalizedViewMode)}">
         ${appliedItems.length
           ? appliedItems.map(function (item, index) {
             const label = normalizeString(item.label) || (index === 0 ? "Selected scenario" : `Scenario ${index + 1}`);
@@ -3815,6 +3945,17 @@
           const label = series.label || getComparisonGraphLabel(pathId);
           return `<span data-income-impact-graph-legend-item="${escapeHtml(getComparisonLegendItemKey(pathId))}"><i></i>${escapeHtml(label)}</span>`;
         }).join("")}
+        ${leadUpAvailable ? `
+          <button
+            class="income-impact-graph-view-toggle"
+            type="button"
+            data-income-impact-graph-view-toggle
+            data-income-impact-graph-view-mode="${escapeHtml(normalizedViewMode)}"
+            data-income-impact-next-graph-view-mode="${escapeHtml(nextViewMode)}"
+            aria-pressed="${isDeathLeadUpGraphView(normalizedViewMode) ? "true" : "false"}"
+            aria-label="${isDeathLeadUpGraphView(normalizedViewMode) ? "Focus graph after death" : "Show lead-up to death"}"
+          >${escapeHtml(getGraphViewToggleLabel(normalizedViewMode))}</button>
+        ` : ""}
         ${comparisonSeries.length ? "<p>Manual lifestyle comparison only - primary path unchanged.</p>" : ""}
       </div>
     `;
@@ -4337,13 +4478,16 @@
 
   function renderGraphSvg(graphModel, timelineResult) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
-    const appliedPreDeathPaths = renderAppliedScenarioPreDeathGraphPaths(graphModel);
-    const preDeathPath = appliedPreDeathPaths
-      || renderGraphPath(PRE_DEATH_ASSETS_PATH_ID, graphModel?.series?.preDeathAssets, "Projected assets before death", "smooth", null, graphModel);
+    const showDeathLeadUp = isDeathLeadUpGraphView(graphModel?.trace?.graphViewMode);
+    const appliedPreDeathPaths = showDeathLeadUp ? renderAppliedScenarioPreDeathGraphPaths(graphModel) : "";
+    const preDeathPath = showDeathLeadUp
+      ? (appliedPreDeathPaths
+        || renderGraphPath(PRE_DEATH_ASSETS_PATH_ID, graphModel?.series?.preDeathAssets, "Projected assets before death", "smooth", null, graphModel))
+      : "";
     const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel, timelineResult);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
-    const deathLineAnchors = renderAppliedScenarioDeathLineAnchors(graphModel);
-    const deathConversionConnector = renderDeathEventConversionConnector(graphModel, timelineResult);
+    const deathLineAnchors = showDeathLeadUp ? renderAppliedScenarioDeathLineAnchors(graphModel) : "";
+    const deathConversionConnector = showDeathLeadUp ? renderDeathEventConversionConnector(graphModel, timelineResult) : "";
     const hoverLayer = renderGraphHoverLayer(graphModel);
     const storylineConnectors = renderGraphStorylineConnectors(timelineResult, graphModel);
     const storylineEventDots = renderGraphStorylineEventDots(timelineResult, graphModel);
@@ -4356,6 +4500,7 @@
         data-income-impact-layout-frame-death-x-ratio="${escapeHtml(layoutFrame.deathXRatio)}"
         data-income-impact-layout-frame-zero-y-ratio="${escapeHtml(layoutFrame.zeroYRatio)}"
         data-income-impact-layout-frame-runout-anchor-x-ratio="${escapeHtml(layoutFrame.runoutAnchorXRatio)}"` : ""}
+        data-income-impact-graph-view-mode="${escapeHtml(normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode))}"
         viewBox="0 0 ${GRAPH_VIEW_BOX.width} ${GRAPH_VIEW_BOX.height}"
         role="img"
         aria-label="Income Impact timeline graph"
@@ -4447,20 +4592,23 @@
     if (!isPlainObject(graphModel) || !graphModel.status || graphModel.status === "unavailable" || !isPlainObject(graphModel.axes)) {
       return renderTimelineUnavailableState(timelineResult);
     }
-    const selectedGraphSeries = getSelectedAppliedGraphSeries(graphModel, graphModel?.trace?.selectedScenarioId);
+    const graphViewMode = getIncomeImpactGraphViewMode(timelineResult);
+    const leadUpAvailable = graphHasDeathLeadUpContext(graphModel);
+    const displayGraphModel = getDisplayGraphModelForView(graphModel, graphViewMode);
+    const selectedGraphSeries = getSelectedAppliedGraphSeries(displayGraphModel, displayGraphModel?.trace?.selectedScenarioId);
     const eyebrowLabel = getPrimaryGraphPathLabel(timelineResult, selectedGraphSeries?.label || "Selected scenario");
     return `
-      <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(graphModel.status || "partial")}">
+      <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(displayGraphModel.status || "partial")}" data-income-impact-graph-view-mode="${escapeHtml(graphViewMode)}">
         <div class="income-impact-graph-header">
           <div>
             <span>${escapeHtml(eyebrowLabel)}</span>
           </div>
           <p>Projected resources and required support after death.</p>
         </div>
-          ${renderGraphSvg(graphModel, timelineResult)}
-        ${renderGraphLegend(graphModel, timelineResult)}
-        ${renderGraphCallouts(graphModel)}
-        ${renderSelectedGraphEvent(graphModel)}
+          ${renderGraphSvg(displayGraphModel, timelineResult)}
+        ${renderGraphLegend(displayGraphModel, timelineResult, graphViewMode, leadUpAvailable)}
+        ${renderGraphCallouts(displayGraphModel)}
+        ${renderSelectedGraphEvent(displayGraphModel)}
       </div>
     `;
   }
@@ -7254,6 +7402,32 @@
     handleScenarioSelectionEvent(event);
   }
 
+  function getGraphViewToggleTarget(event) {
+    const target = event?.target;
+    if (!target || typeof target.closest !== "function") {
+      return null;
+    }
+    return target.closest("[data-income-impact-graph-view-toggle]");
+  }
+
+  function handleGraphViewToggleEvent(event) {
+    const target = getGraphViewToggleTarget(event);
+    if (!target || !incomeImpactState?.latestTimelineResult) {
+      return;
+    }
+    const currentMode = normalizeIncomeImpactGraphViewMode(
+      target.getAttribute("data-income-impact-graph-view-mode") || incomeImpactState.graphViewMode
+    );
+    const nextMode = normalizeIncomeImpactGraphViewMode(
+      target.getAttribute("data-income-impact-next-graph-view-mode") || getNextGraphViewMode(currentMode)
+    );
+    if (typeof event?.preventDefault === "function") {
+      event.preventDefault();
+    }
+    incomeImpactState.graphViewMode = nextMode;
+    renderIncomeImpactTimelineResult(incomeImpactState.latestTimelineResult);
+  }
+
   function renderIncomeImpactTimelineResult(timelineResult) {
     if (!incomeImpactState?.host || !isPlainObject(timelineResult)) {
       return;
@@ -7487,6 +7661,7 @@
     if (incomeImpactState?.host) {
       incomeImpactState.host.addEventListener("click", handleScenarioSelectionEvent);
       incomeImpactState.host.addEventListener("keydown", handleScenarioSelectionKeydown);
+      incomeImpactState.host.addEventListener("click", handleGraphViewToggleEvent);
     }
 
     if (incomeImpactState) {
@@ -7610,6 +7785,7 @@
         draftScenarioControls: null,
         appliedScenarios: [],
         selectedScenarioId: INITIAL_APPLIED_SCENARIO_ID,
+        graphViewMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
         baseRenderCache: null,
         scenarioControlsBound: false,
         builderWarnings: builderResult.warnings
