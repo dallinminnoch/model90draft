@@ -242,6 +242,10 @@ const fiveYearInput = {
 };
 const fiveYearInputBefore = cloneJson(fiveYearInput);
 const fiveYearModel = buildIncomeImpactTimelineGraphModel(fiveYearInput);
+const fiveYearExpectedZeroCrossingMonth = getExpectedZeroCrossingMonth(
+  fiveYearScenario.postDeathSeries.points[1],
+  fiveYearScenario.postDeathSeries.points[2]
+);
 assert.deepEqual(fiveYearInput, fiveYearInputBefore, "Graph model should not mutate composer or risk outputs.");
 assert.deepEqual(
   buildIncomeImpactTimelineGraphModel(cloneJson(fiveYearInput)),
@@ -302,23 +306,23 @@ assert.equal(
 );
 assert.equal(fiveYearModel.projection.displayHorizonMode, "autoFromAppliedScenarioDepletion");
 assert.equal(fiveYearModel.projection.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
-assert.equal(fiveYearModel.projection.displayHorizonMonths, 180);
-assert.equal(fiveYearModel.projection.displayHorizonYears, 15);
-assert.equal(fiveYearModel.projection.displayHorizonEndDate, "2046-04-29");
+assert.equal(fiveYearModel.projection.displayHorizonMonths, 192);
+assert.equal(fiveYearModel.projection.displayHorizonYears, 16);
+assert.equal(fiveYearModel.projection.displayHorizonEndDate, "2047-04-29");
 assert.equal(fiveYearModel.projection.displayHorizonReason, "latest-visible-applied-scenario-depletion");
 assert.equal(fiveYearModel.projection.calculationHorizonEndDate, "2071-04-29");
-assert.equal(fiveYearModel.projection.latestAppliedScenarioDepletionMonths, 144);
-assert.equal(fiveYearModel.projection.latestVisibleAppliedScenarioDepletionMonths, 144);
+assertApproxEqual(fiveYearModel.projection.latestAppliedScenarioDepletionMonths, fiveYearExpectedZeroCrossingMonth);
+assertApproxEqual(fiveYearModel.projection.latestVisibleAppliedScenarioDepletionMonths, fiveYearExpectedZeroCrossingMonth);
 assert.equal(fiveYearModel.axes.x.displayHorizonMode, "autoFromAppliedScenarioDepletion");
-assert.equal(fiveYearModel.axes.x.displayHorizonMonths, 180);
-assert.equal(fiveYearModel.axes.x.displayHorizonEndDate, "2046-04-29");
+assert.equal(fiveYearModel.axes.x.displayHorizonMonths, 192);
+assert.equal(fiveYearModel.axes.x.displayHorizonEndDate, "2047-04-29");
 assert.equal(fiveYearModel.axes.x.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
 assert.equal(fiveYearModel.axes.x.calculationHorizonEndDate, "2071-04-29");
-assert.equal(fiveYearModel.axes.x.latestAppliedScenarioDepletionMonths, 144);
+assertApproxEqual(fiveYearModel.axes.x.latestAppliedScenarioDepletionMonths, fiveYearExpectedZeroCrossingMonth);
 assert.equal(fiveYearModel.trace.displayHorizonMode, "autoFromAppliedScenarioDepletion");
 assert.equal(fiveYearModel.trace.displayHorizonAutoSized, true);
-assert.equal(fiveYearModel.trace.displayHorizonMonths, 180);
-assert.equal(fiveYearModel.trace.displayHorizonEndDate, "2046-04-29");
+assert.equal(fiveYearModel.trace.displayHorizonMonths, 192);
+assert.equal(fiveYearModel.trace.displayHorizonEndDate, "2047-04-29");
 assert.equal(fiveYearModel.trace.calculationHorizonMonths, fiveYearScenario.scenario.projectionHorizonMonths);
 assert.equal(fiveYearModel.trace.calculationHorizonEndDate, "2071-04-29");
 assert.equal(fiveYearModel.trace.projectionMode, "deathRelativeRunway");
@@ -327,9 +331,9 @@ assert.equal(fiveYearModel.trace.deathAlignedToSharedAnchor, true);
 assert.equal(fiveYearModel.trace.calculationHorizonPreserved, true);
 assertStableLayoutFrame(fiveYearModel, "normal depletion scenario");
 assert.equal(fiveYearModel.layoutFrame.zeroCrossingAnchorScenarioId, "selected");
-assert.equal(fiveYearModel.layoutFrame.zeroCrossingAnchorMonth, 144);
+assertApproxEqual(fiveYearModel.layoutFrame.zeroCrossingAnchorMonth, fiveYearExpectedZeroCrossingMonth);
 assert.equal(fiveYearModel.layoutFrame.zeroCrossingAnchorSource, "current-rendered-scenario-depletion");
-assert.equal(fiveYearModel.layoutFrame.xDomainMonths, 180);
+assert.equal(fiveYearModel.layoutFrame.xDomainMonths, 183);
 assert.equal(fiveYearModel.trace.layoutFrameMode, "stableRunoutAnchoredFrame");
 assertApproxEqual(fiveYearModel.trace.layoutFrameZeroYRatio, 0.72, "Trace should expose the stable layoutFrame zero ratio.");
 assertApproxEqual(fiveYearModel.trace.layoutFrameRunoutAnchorXRatio, 0.8, "Trace should expose the stable layoutFrame runout anchor ratio.");
@@ -340,7 +344,7 @@ assertApproxEqual(
 );
 assert.deepEqual(
   cloneJson(fiveYearModel.axes.x.ticks.map(function (tick) { return tick.label; })),
-  ["Before death", "Death", "+2 years", "+4 years", "+6 years", "+8 years", "+10 years", "+12 years", "+14 years", "+15 years"],
+  ["Before death", "Death", "+2 years", "+4 years", "+6 years", "+8 years", "+10 years", "+12 years", "+14 years", "+16 years"],
   "Graph x-axis should use denser death-relative increments inside the auto-sized display horizon."
 );
 assertApproxEqual(
@@ -955,13 +959,17 @@ const maxDisplayModel = buildIncomeImpactTimelineGraphModel({
     currentAgeMode: "death-event-only"
   }
 });
+const maxDisplayExpectedZeroCrossingMonth = getExpectedZeroCrossingMonth(
+  maxDisplayScenario.postDeathSeries.points[1],
+  maxDisplayScenario.postDeathSeries.points[2]
+);
 assert.equal(
   maxDisplayModel.projection.displayHorizonMonths,
   480,
   "Auto display horizon should keep the 40-year maximum cap."
 );
 assert.equal(maxDisplayModel.projection.calculationHorizonMonths, 720);
-assert.equal(maxDisplayModel.projection.latestAppliedScenarioDepletionMonths, 600);
+assertApproxEqual(maxDisplayModel.projection.latestAppliedScenarioDepletionMonths, maxDisplayExpectedZeroCrossingMonth);
 assert.equal(maxDisplayModel.projection.trace.displayHorizonAutoSized, true);
 
 const noDepletionScenario = cloneJson(fiveYearScenario);
@@ -1552,15 +1560,15 @@ const offWindowDeficitModel = buildIncomeImpactTimelineGraphModel({
     currentAgeMode: "death-event-only"
   }
 });
-assert.equal(offWindowDeficitModel.projection.postDeathDisplayHorizonMonths, 180);
-assert.equal(
+assert.equal(offWindowDeficitModel.projection.postDeathDisplayHorizonMonths, 192);
+assertApproxEqual(
   offWindowDeficitModel.axes.y.rawDeficitMax,
-  150000,
-  "Off-window far-future deficit continuation should not expand the visible y-domain."
+  266666.6666666667,
+  "Off-window far-future deficit continuation should only expand the visible y-domain to the signed-resource display boundary."
 );
 assert.equal(offWindowDeficitModel.axes.y.trace.yDomainWindowSource, "selectedVisibleDisplayHorizon");
-assert.equal(offWindowDeficitModel.axes.y.trace.displayHorizonMonths, 180);
-assert.equal(offWindowDeficitModel.axes.y.visibleDomainBoundaryPointIncluded, false);
+assert.equal(offWindowDeficitModel.axes.y.trace.displayHorizonMonths, 192);
+assert.equal(offWindowDeficitModel.axes.y.visibleDomainBoundaryPointIncluded, true);
 assert.ok(
   offWindowDeficitModel.axes.y.min > -4000000,
   "Visible y-domain should exclude hidden far-future negative continuation values."
@@ -1602,15 +1610,15 @@ const boundaryDeficitModel = buildIncomeImpactTimelineGraphModel({
     currentAgeMode: "death-event-only"
   }
 });
-assert.equal(boundaryDeficitModel.projection.postDeathDisplayHorizonMonths, 180);
+assert.equal(boundaryDeficitModel.projection.postDeathDisplayHorizonMonths, 168);
 assert.equal(
   boundaryDeficitModel.axes.y.visibleDomainBoundaryPointIncluded,
   true,
   "A segment crossing the visible horizon should add an interpolated boundary point to y-domain calculation."
 );
 assert.ok(
-  boundaryDeficitModel.axes.y.rawDeficitMax > 900000
-    && boundaryDeficitModel.axes.y.rawDeficitMax < 1100000,
+  boundaryDeficitModel.axes.y.rawDeficitMax > 790000
+    && boundaryDeficitModel.axes.y.rawDeficitMax < 810000,
   "Visible y-domain should include the interpolated boundary deficit, not the full off-window deficit."
 );
 assert.ok(
@@ -1784,7 +1792,7 @@ assertApproxEqual(
 );
 assert.equal(appliedMultiModel.axes.x.xAxisMode, "deathRelativeYears");
 assert.ok(
-  appliedMultiModel.axes.x.ticks.some(function (tick) { return tick.label === "+15 years"; }),
+  appliedMultiModel.axes.x.ticks.some(function (tick) { return tick.label === "+16 years"; }),
   "Multi-scenario graph should use one shared death-relative axis."
 );
 assert.equal(appliedMultiModel.projection.mode, "deathRelativeRunway");
@@ -1907,23 +1915,27 @@ const autosizeSelectedOnlyModel = buildIncomeImpactTimelineGraphModel({
     currentAgeMode: "death-event-only"
   }
 });
-assert.equal(
+const comparisonAutosizeExpectedZeroCrossingMonth = getExpectedZeroCrossingMonth(
+  comparisonLongAutosizeScenario.postDeathSeries.points[1],
+  comparisonLongAutosizeScenario.postDeathSeries.points[2]
+);
+assertApproxEqual(
   autosizeSelectedOnlyModel.projection.latestAppliedScenarioDepletionMonths,
-  360,
-  "Graph horizon autosizing should include the visible comparison scenario depletion."
+  comparisonAutosizeExpectedZeroCrossingMonth,
+  "Graph horizon autosizing should use the visible comparison scenario signed zero crossing."
 );
 assert.equal(autosizeSelectedOnlyModel.trace.hiddenAppliedScenarioCount, 0);
 assert.ok(
-  autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths >= 360,
-  "Visible comparison scenarios should be allowed to expand the graph horizon."
+  autosizeSelectedOnlyModel.projection.postDeathDisplayHorizonMonths >= comparisonAutosizeExpectedZeroCrossingMonth,
+  "Visible comparison scenarios should be allowed to expand the graph horizon to their signed zero crossing."
 );
 assertStableLayoutFrame(autosizeSelectedOnlyModel, "applied visible comparison later depletion scenario");
 assert.equal(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorScenarioId, "hidden-long-runway");
-assert.equal(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorMonth, 360);
+assertApproxEqual(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorMonth, comparisonAutosizeExpectedZeroCrossingMonth);
 assert.equal(autosizeSelectedOnlyModel.layoutFrame.zeroCrossingAnchorSource, "visible-applied-comparison-depletion");
 assert.ok(
-  autosizeSelectedOnlyModel.layoutFrame.xDomainMonths >= 360,
-  "Stable layoutFrame domain should include the furthest visible applied depletion."
+  autosizeSelectedOnlyModel.layoutFrame.xDomainMonths >= comparisonAutosizeExpectedZeroCrossingMonth,
+  "Stable layoutFrame domain should include the furthest visible applied signed zero crossing."
 );
 assert.ok(
   autosizeSelectedOnlyModel.axes.y.rawPositiveMax <= selectedAutosizeScenario.deathEvent.resourcesAfterObligations,
@@ -2001,6 +2013,10 @@ const comparisonInput = Object.assign({}, cloneJson(fiveYearInput), {
 });
 const comparisonInputBefore = cloneJson(comparisonInput);
 const comparisonModel = buildIncomeImpactTimelineGraphModel(comparisonInput);
+const comparisonExpectedZeroCrossingMonth = getExpectedZeroCrossingMonth(
+  comparisonScenario.postDeathSeries.points[1],
+  comparisonScenario.postDeathSeries.points[2]
+);
 assert.deepEqual(comparisonInput, comparisonInputBefore, "Graph model should not mutate comparisonScenarios.");
 assert.equal(comparisonModel.series.comparisonPostDeathResources.length, 1);
 assert.equal(comparisonModel.series.comparisonPostDeathResources[0].scenarioId, comparisonScenario.scenarioId);
@@ -2056,12 +2072,12 @@ assert.equal(comparisonModel.trace.comparisonMarkersCreated, true);
 assert.equal(comparisonModel.trace.comparisonMarkerCount, 5);
 assertStableLayoutFrame(comparisonModel, "manual lifestyle comparison later depletion scenario");
 assert.equal(comparisonModel.layoutFrame.zeroCrossingAnchorScenarioId, comparisonScenario.scenarioId);
-assert.equal(comparisonModel.layoutFrame.zeroCrossingAnchorMonth, 204);
+assertApproxEqual(comparisonModel.layoutFrame.zeroCrossingAnchorMonth, comparisonExpectedZeroCrossingMonth);
 assert.equal(comparisonModel.layoutFrame.zeroCrossingAnchorSource, "manual-lifestyle-comparison-depletion");
 assert.equal(comparisonModel.layoutFrame.trace.manualLifestyleComparisonIncluded, true);
 assert.ok(
-  comparisonModel.layoutFrame.xDomainMonths >= comparisonScenario.depletion.depletionMonthIndex,
-  "Manual lifestyle comparison later depletion should be included in the stable layoutFrame horizon."
+  comparisonModel.layoutFrame.xDomainMonths >= comparisonExpectedZeroCrossingMonth,
+  "Manual lifestyle comparison later signed zero crossing should be included in the stable layoutFrame horizon."
 );
 
 const earlierComparisonScenario = Object.assign({}, cloneJson(comparisonScenario), {
@@ -2100,7 +2116,7 @@ const earlierComparisonModel = buildIncomeImpactTimelineGraphModel(Object.assign
 }));
 assertStableLayoutFrame(earlierComparisonModel, "manual lifestyle comparison earlier depletion scenario");
 assert.equal(earlierComparisonModel.layoutFrame.zeroCrossingAnchorScenarioId, "selected");
-assert.equal(earlierComparisonModel.layoutFrame.zeroCrossingAnchorMonth, 144);
+assertApproxEqual(earlierComparisonModel.layoutFrame.zeroCrossingAnchorMonth, fiveYearExpectedZeroCrossingMonth);
 assert.equal(earlierComparisonModel.layoutFrame.zeroCrossingAnchorSource, "current-rendered-scenario-depletion");
 
 const appliedComparisonInput = {

@@ -2030,7 +2030,58 @@
     };
   }
 
+  function getSeriesPointMonthForDepletion(series, point) {
+    const monthIndex = toOptionalNumber(point?.monthIndex);
+    if (monthIndex != null && monthIndex >= 0) {
+      return monthIndex;
+    }
+    const deathDate = normalizeDateOnly(series?.deathDate);
+    const pointDate = normalizeDateOnly(point?.date);
+    if (deathDate && pointDate) {
+      const dateMonth = getApproximateMonthDelta(deathDate, pointDate);
+      return dateMonth != null && dateMonth >= 0 ? dateMonth : null;
+    }
+    return null;
+  }
+
+  function getSeriesSignedZeroCrossingMonths(series) {
+    if (!isPlainObject(series)) {
+      return null;
+    }
+    const points = (Array.isArray(series.points) ? series.points : [])
+      .map(function (point) {
+        return {
+          month: getSeriesPointMonthForDepletion(series, point),
+          value: getComparableSeriesPointValue(point)
+        };
+      })
+      .filter(function (point) {
+        return point.month != null && point.month >= 0 && point.value != null;
+      })
+      .sort(function (left, right) {
+        return left.month - right.month;
+      });
+    let previousPoint = null;
+    for (const point of points) {
+      if (Math.abs(point.value) <= 0.000001) {
+        return point.month;
+      }
+      if (previousPoint && previousPoint.value > 0 && point.value < 0 && point.month > previousPoint.month) {
+        const span = previousPoint.value - point.value;
+        if (span > 0) {
+          return previousPoint.month + ((point.month - previousPoint.month) * (previousPoint.value / span));
+        }
+      }
+      previousPoint = point;
+    }
+    return null;
+  }
+
   function getSeriesDepletionMonths(series) {
+    const signedZeroCrossingMonth = getSeriesSignedZeroCrossingMonths(series);
+    if (signedZeroCrossingMonth != null && signedZeroCrossingMonth >= 0) {
+      return signedZeroCrossingMonth;
+    }
     if (!isPlainObject(series?.depletion)) {
       return null;
     }

@@ -1463,11 +1463,11 @@
     const max = Math.max(toOptionalNumber(yDomain?.max) || 0, 1);
     const min = Math.min(toOptionalNumber(yDomain?.min) || 0, -1);
     if (number > 0) {
-      return clampNumber(zeroRatio - ((number / max) * zeroRatio), 0, zeroRatio);
+      return zeroRatio - ((number / max) * zeroRatio);
     }
 
     const negativeBandRatio = Math.max(0.000001, 1 - zeroRatio);
-    return clampNumber(zeroRatio + ((Math.abs(number) / Math.abs(min)) * negativeBandRatio), zeroRatio, 1);
+    return zeroRatio + ((Math.abs(number) / Math.abs(min)) * negativeBandRatio);
   }
 
   function makePostDeathFocusYTicks(layoutFrame) {
@@ -1618,6 +1618,37 @@
     };
   }
 
+  function makePostDeathFocusLinearYDomain(layoutYDomain, startAnchor, layoutFrame) {
+    if (!isPlainObject(layoutYDomain) || !startAnchor) {
+      return {
+        yDomain: layoutYDomain,
+        source: "shared-layout-frame",
+        linearScaleApplied: false
+      };
+    }
+
+    const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
+    const focusMax = toOptionalNumber(startAnchor.yDomainMax);
+    if (zeroYRatio == null || focusMax == null || focusMax <= 0 || zeroYRatio <= 0 || zeroYRatio >= 1) {
+      return {
+        yDomain: layoutYDomain,
+        source: "shared-layout-frame",
+        linearScaleApplied: false
+      };
+    }
+
+    const positiveBandRatio = zeroYRatio;
+    const negativeBandRatio = 1 - zeroYRatio;
+    return {
+      yDomain: Object.assign({}, layoutYDomain, {
+        max: focusMax,
+        min: -(focusMax * (negativeBandRatio / positiveBandRatio))
+      }),
+      source: "start-anchor-domain",
+      linearScaleApplied: true
+    };
+  }
+
   function getPostDeathFocusSelectedZeroAnchor(graphModel, layoutFrame) {
     const selectedSeries = getSelectedRunwayScenario(graphModel, graphModel?.trace?.selectedScenarioId);
     const depletionPoint = isPlainObject(selectedSeries?.depletionPoint) ? selectedSeries.depletionPoint : null;
@@ -1645,6 +1676,13 @@
     const startAnchor = layoutFrame ? getPostDeathFocusStartAnchor(graphModel, layoutFrame) : null;
     const selectedZeroAnchor = layoutFrame ? getPostDeathFocusSelectedZeroAnchor(graphModel, layoutFrame) : null;
     const layoutYDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : null;
+    const focusYDomain = startAnchor && layoutYDomain
+      ? makePostDeathFocusLinearYDomain(layoutYDomain, startAnchor, layoutFrame)
+      : {
+        yDomain: layoutFrame?.yDomain,
+        source: "shared-layout-frame",
+        linearScaleApplied: false
+      };
     const focusedLayoutFrame = layoutFrame
       ? Object.assign({}, layoutFrame, {
         deathXRatio: 0,
@@ -1654,18 +1692,17 @@
         zeroCrossingAnchorSource: selectedZeroAnchor ? "post-death-focus-selected-depletion" : layoutFrame.zeroCrossingAnchorSource,
         postDeathFocusStartYRatio: startAnchor?.yRatio ?? null,
         postDeathFocusStartValue: startAnchor?.value ?? null,
-        yDomain: startAnchor && layoutYDomain
-          ? Object.assign({}, layoutYDomain, {
-            max: startAnchor.yDomainMax
-          })
-          : layoutFrame.yDomain,
+        yDomain: focusYDomain.yDomain,
         trace: Object.assign({}, isPlainObject(layoutFrame.trace) ? layoutFrame.trace : {}, {
           graphViewMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
           fullLeadUpDeathXRatio: deathXRatio,
           postDeathFocusStartAnchorYRatio: startAnchor?.yRatio ?? null,
           postDeathFocusStartAnchorValue: startAnchor?.value ?? null,
           postDeathFocusStartAnchorMonth: startAnchor?.month ?? null,
-          postDeathFocusYDomainMax: startAnchor?.yDomainMax ?? null,
+          postDeathFocusYDomainMax: toOptionalNumber(focusYDomain.yDomain?.max),
+          postDeathFocusYDomainMin: toOptionalNumber(focusYDomain.yDomain?.min),
+          postDeathFocusYDomainSource: focusYDomain.source,
+          postDeathFocusLinearYScaleApplied: focusYDomain.linearScaleApplied === true,
           postDeathFocusSelectedZeroAnchorScenarioId: selectedZeroAnchor?.scenarioId || null,
           postDeathFocusSelectedZeroAnchorMonth: selectedZeroAnchor?.month ?? null,
           postDeathFocusSelectedXDomainMonths: selectedZeroAnchor?.xDomainMonths ?? null,
@@ -1860,12 +1897,15 @@
     }
 
     const bounds = getGraphYDomainBounds(graphModel);
+    const allowFocusedOverflow = normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode) === GRAPH_VIEW_MODE_POST_DEATH_FOCUS;
     if (value > 0) {
-      return clampNumber(zeroYRatio - ((value / bounds.max) * zeroYRatio), 0, zeroYRatio);
+      const projectedRatio = zeroYRatio - ((value / bounds.max) * zeroYRatio);
+      return allowFocusedOverflow ? projectedRatio : clampNumber(projectedRatio, 0, zeroYRatio);
     }
 
     const negativeBandRatio = Math.max(0.000001, 1 - zeroYRatio);
-    return clampNumber(zeroYRatio + ((Math.abs(value) / Math.abs(bounds.min)) * negativeBandRatio), zeroYRatio, 1);
+    const projectedRatio = zeroYRatio + ((Math.abs(value) / Math.abs(bounds.min)) * negativeBandRatio);
+    return allowFocusedOverflow ? projectedRatio : clampNumber(projectedRatio, zeroYRatio, 1);
   }
 
   function toGraphX(xRatio, graphModel = null, point = null) {
@@ -2661,7 +2701,7 @@
         ${yTicks.map(function (tick) {
           const y = toGraphY(tick.yRatio, graphModel, tick);
           return `
-            <g data-income-impact-graph-y-tick>
+            <g data-income-impact-graph-y-tick data-income-impact-graph-y-tick-value="${escapeHtml(tick.value)}">
               <line class="income-impact-graph-y-grid-line" data-income-impact-graph-y-grid-line x1="${GRAPH_VIEW_BOX.plotLeft}" y1="${y}" x2="${GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth}" y2="${y}"></line>
               <text class="income-impact-graph-y-tick-label" x="${GRAPH_VIEW_BOX.plotLeft - 28}" y="${y + 4}" text-anchor="end">${escapeHtml(formatAxisCurrency(tick.value))}</text>
               <g class="income-impact-graph-y-tick-marker" data-income-impact-graph-y-tick-marker aria-hidden="true">
@@ -5869,6 +5909,168 @@
     `;
   }
 
+  function getSvgNumericDomAttribute(element, attributeName) {
+    if (!element || typeof element.getAttribute !== "function") {
+      return null;
+    }
+    return toOptionalNumber(element.getAttribute(attributeName));
+  }
+
+  function getIncomeImpactGraphSvg(host) {
+    return host?.querySelector?.("[data-income-impact-visual-timeline] .income-impact-graph-svg") || null;
+  }
+
+  function getSvgPathStartCoordinate(pathElement) {
+    const pathData = normalizeString(pathElement?.getAttribute?.("d"));
+    const match = pathData.match(/^M(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
+    if (!match) {
+      return null;
+    }
+    return {
+      x: Number(match[1]),
+      y: Number(match[2])
+    };
+  }
+
+  function captureIncomeImpactGraphViewTransitionSnapshot(host) {
+    const svg = getIncomeImpactGraphSvg(host);
+    if (!svg || typeof svg.querySelectorAll !== "function") {
+      return null;
+    }
+
+    const yTicks = {};
+    svg.querySelectorAll("[data-income-impact-graph-y-tick]").forEach(function (tick) {
+      const value = normalizeString(tick.getAttribute("data-income-impact-graph-y-tick-value"));
+      const y = getSvgNumericDomAttribute(tick.querySelector("[data-income-impact-graph-y-grid-line]"), "y1");
+      if (value && y != null) {
+        yTicks[value] = y;
+      }
+    });
+
+    const xTicks = {};
+    svg.querySelectorAll("[data-income-impact-graph-x-tick]").forEach(function (tick) {
+      const id = normalizeString(tick.getAttribute("data-income-impact-graph-x-tick"));
+      const x = getSvgNumericDomAttribute(tick.querySelector("[data-income-impact-graph-x-grid-line]"), "x1");
+      if (id && x != null) {
+        xTicks[id] = x;
+      }
+    });
+
+    return {
+      viewMode: normalizeIncomeImpactGraphViewMode(svg.getAttribute("data-income-impact-graph-view-mode")),
+      yTicks,
+      xTicks,
+      zeroY: getSvgNumericDomAttribute(svg.querySelector("[data-income-impact-graph-zero-baseline]"), "y1"),
+      deathX: getSvgNumericDomAttribute(svg.querySelector("[data-income-impact-graph-death-axis]"), "x1"),
+      preDeathStart: getSvgPathStartCoordinate(svg.querySelector('[data-income-impact-graph-path="preDeathAssets"]')),
+      runwayStart: getSvgPathStartCoordinate(svg.querySelector('[data-income-impact-graph-path="postDeathResources"]'))
+    };
+  }
+
+  function animateIncomeImpactGraphElement(element, transform, options) {
+    if (!element || typeof element.animate !== "function" || !transform) {
+      return;
+    }
+    const safeOptions = isPlainObject(options) ? options : {};
+    const duration = toOptionalNumber(safeOptions.duration) ?? 520;
+    const delay = toOptionalNumber(safeOptions.delay) ?? 0;
+    const easing = normalizeString(safeOptions.easing) || "cubic-bezier(0.16, 1, 0.3, 1)";
+    element.animate(
+      [
+        { transform },
+        { transform: "translate(0px, 0px)" }
+      ],
+      {
+        duration,
+        delay,
+        easing,
+        fill: "both"
+      }
+    );
+  }
+
+  function animateIncomeImpactGraphViewTransition(host, snapshot) {
+    const svg = getIncomeImpactGraphSvg(host);
+    if (!svg || !snapshot || typeof svg.querySelectorAll !== "function") {
+      return;
+    }
+    if (typeof window?.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)")?.matches) {
+      return;
+    }
+
+    const nextViewMode = normalizeIncomeImpactGraphViewMode(svg.getAttribute("data-income-impact-graph-view-mode"));
+    if (nextViewMode === snapshot.viewMode) {
+      return;
+    }
+
+    svg.setAttribute("data-income-impact-graph-view-transition", "axis-roll");
+
+    // Y-axis ticks, grid lines, zero baseline, death axis, and data paths
+    // all start simultaneously so nothing leads or lags anything else.
+    svg.querySelectorAll("[data-income-impact-graph-y-tick]").forEach(function (tick) {
+      const value = normalizeString(tick.getAttribute("data-income-impact-graph-y-tick-value"));
+      const previousY = snapshot.yTicks?.[value];
+      const currentY = getSvgNumericDomAttribute(tick.querySelector("[data-income-impact-graph-y-grid-line]"), "y1");
+      if (previousY != null && currentY != null && Math.abs(previousY - currentY) > 0.5) {
+        animateIncomeImpactGraphElement(tick, `translate(0px, ${previousY - currentY}px)`);
+      }
+    });
+
+    const zeroBaseline = svg.querySelector("[data-income-impact-graph-zero-baseline]");
+    const currentZeroY = getSvgNumericDomAttribute(zeroBaseline, "y1");
+    if (snapshot.zeroY != null && currentZeroY != null && Math.abs(snapshot.zeroY - currentZeroY) > 0.5) {
+      animateIncomeImpactGraphElement(zeroBaseline, `translate(0px, ${snapshot.zeroY - currentZeroY}px)`);
+    }
+
+    const deathAxis = svg.querySelector("[data-income-impact-graph-death-axis]");
+    const currentDeathX = getSvgNumericDomAttribute(deathAxis, "x1");
+    if (snapshot.deathX != null && currentDeathX != null && Math.abs(snapshot.deathX - currentDeathX) > 0.5) {
+      const deathTransform = `translate(${snapshot.deathX - currentDeathX}px, 0px)`;
+      animateIncomeImpactGraphElement(deathAxis, deathTransform);
+      animateIncomeImpactGraphElement(svg.querySelector(".income-impact-graph-death-label"), deathTransform);
+    }
+
+    svg.querySelectorAll("[data-income-impact-graph-x-tick]").forEach(function (tick) {
+      const id = normalizeString(tick.getAttribute("data-income-impact-graph-x-tick"));
+      const previousX = snapshot.xTicks?.[id];
+      const currentX = getSvgNumericDomAttribute(tick.querySelector("[data-income-impact-graph-x-grid-line]"), "x1");
+      if (previousX != null && currentX != null && Math.abs(previousX - currentX) > 0.5) {
+        animateIncomeImpactGraphElement(tick, `translate(${previousX - currentX}px, 0px)`);
+      }
+    });
+
+    // Pre-death trendline — animate from its old start position
+    const currentPreDeathStart = getSvgPathStartCoordinate(svg.querySelector('[data-income-impact-graph-path="preDeathAssets"]'));
+    if (snapshot.preDeathStart && currentPreDeathStart) {
+      const deltaX = snapshot.preDeathStart.x - currentPreDeathStart.x;
+      const deltaY = snapshot.preDeathStart.y - currentPreDeathStart.y;
+      if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+        animateIncomeImpactGraphElement(
+          svg.querySelector('[data-income-impact-graph-path="preDeathAssets"]'),
+          `translate(${deltaX}px, ${deltaY}px)`
+        );
+      }
+    }
+
+    // Post-death trendline and its start marker
+    const currentRunwayStart = getSvgPathStartCoordinate(svg.querySelector('[data-income-impact-graph-path="postDeathResources"]'));
+    if (snapshot.runwayStart && currentRunwayStart) {
+      const deltaX = snapshot.runwayStart.x - currentRunwayStart.x;
+      const deltaY = snapshot.runwayStart.y - currentRunwayStart.y;
+      if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+        const runwayTransform = `translate(${deltaX}px, ${deltaY}px)`;
+        animateIncomeImpactGraphElement(svg.querySelector('[data-income-impact-graph-path="postDeathResources"]'), runwayTransform);
+        animateIncomeImpactGraphElement(svg.querySelector('[data-income-impact-post-death-runway-start-marker]'), runwayTransform);
+      }
+    }
+
+    if (typeof window?.setTimeout === "function") {
+      window.setTimeout(function () {
+        svg.removeAttribute("data-income-impact-graph-view-transition");
+      }, 560);
+    }
+  }
+
   function resolveAnalysisSettings(profileRecord, builderInput) {
     if (isPlainObject(profileRecord?.analysisSettings)) {
       return profileRecord.analysisSettings;
@@ -7926,11 +8128,14 @@
     if (typeof event?.preventDefault === "function") {
       event.preventDefault();
     }
+    const graphViewTransitionSnapshot = captureIncomeImpactGraphViewTransitionSnapshot(incomeImpactState.host);
     incomeImpactState.graphViewMode = nextMode;
-    renderIncomeImpactTimelineResult(incomeImpactState.latestTimelineResult);
+    renderIncomeImpactTimelineResult(incomeImpactState.latestTimelineResult, {
+      graphViewTransitionSnapshot
+    });
   }
 
-  function renderIncomeImpactTimelineResult(timelineResult) {
+  function renderIncomeImpactTimelineResult(timelineResult, options = {}) {
     if (!incomeImpactState?.host || !isPlainObject(timelineResult)) {
       return;
     }
@@ -7943,6 +8148,7 @@
     });
     updateScenarioControls(timelineResult);
     syncScenarioSelectionDom(incomeImpactState.host, incomeImpactState.selectedScenarioId);
+    animateIncomeImpactGraphViewTransition(incomeImpactState.host, options.graphViewTransitionSnapshot);
   }
 
   function renderIncomeImpactFromState() {

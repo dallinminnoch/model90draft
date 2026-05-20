@@ -126,6 +126,20 @@ function getPathYValues(pathD) {
     });
 }
 
+function getPathCoordinates(pathD) {
+  const numbers = (String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [])
+    .map(Number)
+    .filter(Number.isFinite);
+  const coordinates = [];
+  for (let index = 0; index < numbers.length - 1; index += 2) {
+    coordinates.push({
+      x: numbers[index],
+      y: numbers[index + 1]
+    });
+  }
+  return coordinates;
+}
+
 function getNumericAttributeValues(html, attributeName) {
   const pattern = new RegExp(`${attributeName}="([^"]+)"`, "g");
   const values = [];
@@ -149,6 +163,20 @@ function getGraphYTickLabels(html) {
     match = pattern.exec(html);
   }
   return labels;
+}
+
+function getGraphYTicks(html) {
+  const ticks = [];
+  const pattern = /<g\b(?=[^>]*data-income-impact-graph-y-tick)[\s\S]*?<line\b(?=[^>]*data-income-impact-graph-y-grid-line)[^>]*\by1="(-?\d+(?:\.\d+)?)"[\s\S]*?<text\b(?=[^>]*class="income-impact-graph-y-tick-label")[^>]*>([^<]*)<\/text>[\s\S]*?<\/g>/g;
+  let match = pattern.exec(html);
+  while (match) {
+    ticks.push({
+      y: Number(match[1]),
+      label: match[2]
+    });
+    match = pattern.exec(html);
+  }
+  return ticks;
 }
 
 function getGraphXTickGridLineX(html, tickId) {
@@ -713,6 +741,11 @@ assert.match(displaySource, /data-income-impact-graph-svg/);
 assert.match(displaySource, /GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus"/);
 assert.match(displaySource, /GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp"/);
 assert.match(displaySource, /data-income-impact-graph-view-toggle/);
+assert.match(displaySource, /captureIncomeImpactGraphViewTransitionSnapshot/);
+assert.match(displaySource, /animateIncomeImpactGraphViewTransition/);
+assert.match(displaySource, /graphViewTransitionSnapshot/);
+assert.match(displaySource, /data-income-impact-graph-view-transition", "axis-roll"/);
+assert.match(displaySource, /data-income-impact-graph-y-tick-value/);
 assert.match(displaySource, /getDisplayGraphModelForView/);
 assert.match(displaySource, /appliedRunwayScenarios/);
 assert.match(displaySource, /fundedRunwayPoints/);
@@ -1367,6 +1400,56 @@ assert.doesNotMatch(
     351,
     "Focused selected depletion marker should share the rendered zero-crossing path y coordinate."
   );
+  const focusedLinearYScaleGraphModel = attachStableLayoutFrame(makeGraphModel(), {
+    xDomainMonths: 18,
+    zeroCrossingAnchorMonth: 6,
+    yDomain: {
+      min: -12000,
+      max: 24000,
+      signed: true,
+      source: "test-focused-linear-y-scale"
+    }
+  });
+  focusedLinearYScaleGraphModel.phases.deathEvent.xRatio = 0.42;
+  focusedLinearYScaleGraphModel.trace.selectedScenarioId = "focused-linear-scale-scenario";
+  focusedLinearYScaleGraphModel.series.appliedRunwayScenarios = [
+    {
+      scenarioId: "focused-linear-scale-scenario",
+      selected: true,
+      label: "Focused linear y-scale scenario",
+      pathMode: "linear",
+      depletionPoint: { date: "2031-10-29", monthIndex: 6, value: 0, xRatio: 0.8, yRatio: 0.72 },
+      runwayLinePoints: [
+        { date: "2031-04-29", monthIndex: 0, value: 12000, xRatio: 0.42, yRatio: 0.3 },
+        { date: "2031-10-29", monthIndex: 6, value: 0, xRatio: 0.8, yRatio: 0.72 },
+        { date: "2032-04-29", monthIndex: 12, value: -12000, xRatio: 0.95, yRatio: 0.85 }
+      ],
+      fundedRunwayPoints: [
+        { date: "2031-04-29", monthIndex: 0, value: 12000, xRatio: 0.42, yRatio: 0.3 },
+        { date: "2031-10-29", monthIndex: 6, value: 0, xRatio: 0.8, yRatio: 0.72 }
+      ],
+      deficitPoints: [
+        { date: "2031-10-29", monthIndex: 6, value: 0, xRatio: 0.8, yRatio: 0.72 },
+        { date: "2032-04-29", monthIndex: 12, value: -12000, xRatio: 0.95, yRatio: 0.85 }
+      ]
+    }
+  ];
+  const focusedLinearYScaleHtml = harness.renderTimeline({
+    ...fixture,
+    graphViewMode: "postDeathFocus",
+    graphModel: focusedLinearYScaleGraphModel
+  });
+  const focusedLinearYScalePath = getPathD(focusedLinearYScaleHtml, "data-income-impact-graph-path", "postDeathResources");
+  const focusedLinearYScaleCoordinates = getPathCoordinates(focusedLinearYScalePath);
+  assert.equal(focusedLinearYScaleCoordinates.length, 3, "Focused linear y-scale fixture should render three explicit runway anchors.");
+  const focusedLinearBeforeZeroSlope = (focusedLinearYScaleCoordinates[1].y - focusedLinearYScaleCoordinates[0].y) /
+    (focusedLinearYScaleCoordinates[1].x - focusedLinearYScaleCoordinates[0].x);
+  const focusedLinearAfterZeroSlope = (focusedLinearYScaleCoordinates[2].y - focusedLinearYScaleCoordinates[1].y) /
+    (focusedLinearYScaleCoordinates[2].x - focusedLinearYScaleCoordinates[1].x);
+  assert.ok(
+    Math.abs(focusedLinearBeforeZeroSlope - focusedLinearAfterZeroSlope) <= 0.001,
+    "Post-death focus y-domain should use one dollar-per-pixel scale across zero so a constant resource decline does not change trajectory after runout."
+  );
   const focusedComparisonAnchorGraphModel = attachStableLayoutFrame(makeGraphModel(), {
     xDomainMonths: 20,
     zeroCrossingAnchorMonth: 16,
@@ -1465,10 +1548,25 @@ assert.doesNotMatch(
   const focusedSmallDomainYLabels = getGraphYTickLabels(focusedSmallDomainHtml);
   assert.deepEqual(
     focusedSmallDomainYLabels,
-    ["$5k", "$10k", "$15k", "$0", "-$5k", "-$10k"],
-    "Post-death focus view should regenerate y-axis ticks from the focused domain instead of reusing stale full-view labels."
+    ["$5k", "$10k", "$15k", "$0", "-$5k"],
+    "Post-death focus view should regenerate y-axis ticks from the linear focused domain instead of reusing stale full-view labels."
   );
-  assert.doesNotMatch(focusedSmallDomainHtml, />\$20k<|>\$40k</);
+  const focusedSmallDomainYTicks = getGraphYTicks(focusedSmallDomainHtml);
+  const focusedPositiveFiveTick = focusedSmallDomainYTicks.find(function (tick) {
+    return tick.label === "$5k";
+  });
+  const focusedZeroTick = focusedSmallDomainYTicks.find(function (tick) {
+    return tick.label === "$0";
+  });
+  const focusedNegativeFiveTick = focusedSmallDomainYTicks.find(function (tick) {
+    return tick.label === "-$5k";
+  });
+  assert.ok(focusedPositiveFiveTick && focusedZeroTick && focusedNegativeFiveTick, "Post-death focus y-axis should include matching $5k increments above and below zero.");
+  assert.ok(
+    Math.abs((focusedZeroTick.y - focusedPositiveFiveTick.y) - (focusedNegativeFiveTick.y - focusedZeroTick.y)) <= 1,
+    "Post-death focus y-axis should keep equal dollar increments equally spaced above and below zero."
+  );
+  assert.doesNotMatch(focusedSmallDomainHtml, />\$40k</);
   assert.doesNotMatch(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="before-death"|data-income-impact-graph-x-tick="stale-plus-5-years"/);
   assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-6"[\s\S]*\+6 mo/);
   assert.match(focusedSmallDomainHtml, /data-income-impact-graph-x-tick="plus-12"[\s\S]*\+1 year/);
