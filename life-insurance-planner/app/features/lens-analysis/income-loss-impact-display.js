@@ -5891,6 +5891,7 @@
       monthOffset,
       xRatio: clampNumber(toOptionalNumber(point.xRatio), 0, 1),
       yRatio: clampNumber(toOptionalNumber(point.yRatio), 0, 1),
+      value: getSeriesPointValue(point),
       date: normalizeDateOnly(point.date || "")
     };
   }

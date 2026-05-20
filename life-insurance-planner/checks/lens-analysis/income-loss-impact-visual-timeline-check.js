@@ -1192,6 +1192,29 @@ assert.doesNotMatch(
     /^M74 88\.56\b/,
     "Post-death focus view should pin the runway start near the top of the plot."
   );
+  const focusedDotHtml = harness.renderTimeline({
+    ...fixture,
+    graphViewMode: "postDeathFocus",
+    graphModel: focusedGraphModel,
+    financialStoryline: {
+      graphDotCandidates: [
+        {
+          id: "survivor-resources-start",
+          family: "resources",
+          severity: "info",
+          graphLabel: "Start",
+          displayLabel: "Survivor resources start",
+          evidenceLevel: "trace-backed",
+          timing: { kind: "month-offset", monthOffset: 0, date: "2031-04-29", label: "At death" }
+        }
+      ]
+    }
+  });
+  const focusedStartDot = getSvgGroupTagByAttribute(focusedDotHtml, "data-income-impact-storyline-event-id", "survivor-resources-start");
+  const focusedStartDotPosition = getTranslateCoordinates(focusedStartDot);
+  assert.equal(focusedStartDotPosition.x, 74, "Focused view start dot should share the runway start x coordinate.");
+  assert.equal(focusedStartDotPosition.y, 89, "Focused view start dot should use the focused runway start y coordinate, not the lead-up y ratio.");
+  assert.match(focusedStartDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
   assert.match(
     focusedPath,
     /781 351/,
