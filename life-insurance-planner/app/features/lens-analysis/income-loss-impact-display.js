@@ -59,7 +59,6 @@
   });
   const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
-  const FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT = 6;
   const GRAPH_DETAIL_VIEW_BOX = Object.freeze({
     width: 1000,
     height: 170,
@@ -5483,59 +5482,6 @@
     panel.innerHTML = renderResourceOutlookPanel(isPlainObject(timelineResult) ? timelineResult : {});
   }
 
-  function getFinancialStorylineMajorCandidates(timelineResult) {
-    return (Array.isArray(timelineResult?.financialStoryline?.majorStoryCandidates)
-      ? timelineResult.financialStoryline.majorStoryCandidates
-      : []
-    ).filter(isPlainObject).slice(0, FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT);
-  }
-
-  function getMajorStoryCardTitle(candidate) {
-    return normalizeString(candidate?.cardTitle || candidate?.displayLabel || candidate?.graphLabel || candidate?.id) || "Storyline event";
-  }
-
-  function getMajorStoryCardDescription(candidate) {
-    return normalizeString(candidate?.description || candidate?.summary || "");
-  }
-
-  function renderMajorStoryCard(candidate, index) {
-    const title = getMajorStoryCardTitle(candidate);
-    const timeLabel = getGraphStorylineDotTimeLabel(candidate);
-    const amountLabel = getGraphStorylineDotAmountLabel(candidate);
-    const evidenceLabel = getGraphStorylineDotEvidenceLabel(candidate);
-    const description = getMajorStoryCardDescription(candidate);
-    const sequence = String(index + 1).padStart(2, "0");
-    const severity = normalizeString(candidate?.severity) || "info";
-    const family = normalizeString(candidate?.family) || "event";
-    const metaItems = [timeLabel, evidenceLabel].filter(Boolean);
-    const ariaLabel = [
-      `Frame ${index + 1}`,
-      title,
-      timeLabel,
-      amountLabel
-    ].filter(Boolean).join(", ");
-
-    return `
-      <article
-        class="income-impact-major-story-card income-impact-major-story-card--severity-${escapeHtml(severity)} income-impact-major-story-card--family-${escapeHtml(family)}"
-        data-income-impact-major-story-card
-        data-income-impact-major-story-event-id="${escapeHtml(candidate?.id || "")}"
-        data-income-impact-major-story-family="${escapeHtml(candidate?.family || "")}"
-        data-income-impact-major-story-severity="${escapeHtml(candidate?.severity || "")}"
-        aria-label="${escapeHtml(ariaLabel)}"
-      >
-        <div class="income-impact-major-story-card__eyebrow">
-          <span>${escapeHtml(sequence)}</span>
-          <small>${escapeHtml(family.replace(/-/g, " "))}</small>
-        </div>
-        <h4 class="income-impact-major-story-card__title">${escapeHtml(title)}</h4>
-        ${metaItems.length ? `<p class="income-impact-major-story-card__meta">${metaItems.map(escapeHtml).join(" &middot; ")}</p>` : ""}
-        ${amountLabel ? `<p class="income-impact-major-story-card__amount">${escapeHtml(amountLabel)}</p>` : ""}
-        ${description ? `<p class="income-impact-major-story-card__description">${escapeHtml(description)}</p>` : ""}
-      </article>
-    `;
-  }
-
   function getTimelineStoryAssemblySteps(timelineResult) {
     const steps = (Array.isArray(timelineResult?.timelineStoryAssembly?.storySteps)
       ? timelineResult.timelineStoryAssembly.storySteps
@@ -5848,33 +5794,6 @@
         oldGraphDotPathStillAvailable: true
       }
     };
-  }
-
-  function renderFinancialDepletionStoryScaffold(timelineResult) {
-    const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
-    return `
-      <section class="income-impact-depletion-story" data-income-impact-depletion-story aria-label="Financial Depletion Story">
-        <div class="income-impact-depletion-story-header">
-          <h3>
-            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 10.5L3.6 7.5L6.2 9L9.2 4.2L12 5.8" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-            Financial Depletion Story
-          </h3>
-        </div>
-        <div class="income-impact-depletion-story-lane" data-income-impact-depletion-story-lane>
-          ${majorStoryCandidates.length ? `
-            <div class="income-impact-major-story" data-income-impact-major-story>
-              <div class="income-impact-major-story__list" data-income-impact-major-story-list>
-                ${majorStoryCandidates.map(renderMajorStoryCard).join("")}
-              </div>
-            </div>
-          ` : `
-            <p class="income-impact-depletion-story-empty" data-income-impact-depletion-story-empty>
-              Storyline events will appear here once verified timeline drivers are available.
-            </p>
-          `}
-        </div>
-      </section>
-    `;
   }
 
   function renderDataGaps(timelineResult) {

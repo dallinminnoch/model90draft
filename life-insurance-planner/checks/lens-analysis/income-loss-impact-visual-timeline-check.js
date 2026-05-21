@@ -447,14 +447,6 @@ assert.match(displaySource, /data-income-impact-milestone-strip/);
 assert.match(displaySource, /data-income-impact-milestone-step/);
 assert.match(displaySource, /data-income-impact-milestone-step-tone/);
 assert.match(displaySource, /data-income-impact-milestone-strip-empty/);
-assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
-assert.match(displaySource, /data-income-impact-depletion-story/);
-assert.match(displaySource, /data-income-impact-depletion-story-empty/);
-assert.match(displaySource, /data-income-impact-major-story-card/);
-assert.match(displaySource, /data-income-impact-major-story-event-id/);
-assert.match(displaySource, /data-income-impact-major-story-family/);
-assert.match(displaySource, /data-income-impact-major-story-severity/);
-assert.match(displaySource, /FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT = 6/);
 assert.match(displaySource, /renderGraphStorylineConnectors/);
 assert.match(displaySource, /data-income-impact-storyline-connector/);
 assert.match(displaySource, /data-income-impact-storyline-connector-event-id/);
@@ -466,6 +458,9 @@ assert.match(displaySource, /data-income-impact-storyline-connected-to-major-car
 assert.match(displaySource, /data-income-impact-storyline-eligible-for-connector/);
 assert.match(displaySource, /Milestone story will appear once verified timeline events are assembled\./);
 assert.doesNotMatch(displaySource, /getFinancialDepletionStoryItems|renderFinancialDepletionStoryItem|renderFinancialDepletionStoryIcon|formatStoryOffsetFromMonths/);
+assert.doesNotMatch(displaySource, /renderFinancialDepletionStoryScaffold|renderMajorStoryCard|getFinancialStorylineMajorCandidates/);
+assert.doesNotMatch(displaySource, /data-income-impact-depletion-story|data-income-impact-major-story-card/);
+assert.doesNotMatch(displaySource, /FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT/);
 assert.doesNotMatch(displaySource, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
 assert.doesNotMatch(displaySource, />Story scaffold</);
 assert.doesNotMatch(displaySource, /Reserved for the future sequence/);
@@ -986,25 +981,19 @@ assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-im
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eff6ff;[\s\S]*color:\s*#2563eb;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/);
 assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*background:\s*transparent;[\s\S]*overflow:\s*visible;/);
-assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
+assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(9,\s*minmax\(6\.6rem,\s*1fr\)\);[\s\S]*overflow-x:\s*auto;/);
 assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*min-width:\s*6\.6rem;[\s\S]*border-top:\s*0\.16rem solid #94a3b8;/);
 assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*border-top-color:\s*#dc2626;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-milestone-step__tone\s*\{[^}]*text-transform:\s*uppercase;/);
-assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*justify-content:\s*space-between;/);
-assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
-assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*color:\s*#8a97b0;[\s\S]*font-family:\s*"Inter",\s*sans-serif;/);
 assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar\s*\{[\s\S]*width:\s*1px;[\s\S]*height:\s*1px;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar-thumb,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar-thumb\s*\{[\s\S]*background:\s*#e5e7eb;[\s\S]*border-radius:\s*999px;/);
-assert.match(componentsSource, /\.income-impact-major-story__list[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(8\.2rem,\s*1fr\)\);/);
-assert.match(componentsSource, /\.income-impact-major-story-card[\s\S]*border-top:\s*0\.18rem solid #94a3b8;/);
-assert.match(componentsSource, /\.income-impact-major-story-card--severity-critical[\s\S]*border-top-color:\s*#dc2626;/);
 assert.match(componentsSource, /\.income-impact-storyline-connectors[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-storyline-connector[\s\S]*stroke-dasharray:\s*4 6;/);
-assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story-card|\.income-impact-depletion-story-dot|\.income-impact-depletion-story-icon|\.income-impact-depletion-story-legend/);
+assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story|\.income-impact-major-story/);
 assert.match(
   componentsSource,
   /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*overflow:\s*visible;[^}]*\}/,
@@ -2090,7 +2079,7 @@ const emptyStorylineDotHtml = harness.renderTimeline({
 assert.doesNotMatch(
   emptyStorylineDotHtml,
   /data-income-impact-storyline-dot(?:\s|>)/,
-  "Graph storyline dots should not render when graphDotCandidates is empty."
+  "Graph storyline dots should fail closed when assembly dot candidates are missing."
 );
 const unpositionedStorylineDotHtml = harness.renderTimeline({
   ...fixture,
