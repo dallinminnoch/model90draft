@@ -141,13 +141,23 @@ const { source: displaySource, harness } = loadDisplayHarness();
 assert.equal(typeof harness.buildIncomeImpactMilestoneDotRenderCandidates, "function");
 assert.match(
   displaySource,
-  /function getGraphStorylineEventDots\(timelineResult, graphModel\) \{\s*const candidates = Array\.isArray\(timelineResult\?\.financialStoryline\?\.graphDotCandidates\)/,
-  "visible graph-dot source should remain on financialStoryline.graphDotCandidates in this pass"
+  /function getGraphStorylineEventDots\(timelineResult, graphModel\) \{\s*const candidates = getGraphStorylineRenderDotCandidates\(timelineResult\);/,
+  "visible graph-dot source should read milestone assembly adapter candidates"
 );
 assert.match(
   displaySource,
-  /function getGraphStorylineConnectors\(timelineResult, graphModel\) \{\s*const majorStoryCandidates = getFinancialStorylineMajorCandidates\(timelineResult\);/,
-  "visible connector source should remain on old major story candidates in this pass"
+  /function getGraphStorylineConnectors\(timelineResult, graphModel\) \{\s*const connectorCandidates = getGraphStorylineRenderConnectorCandidates\(timelineResult\);/,
+  "visible connector source should read milestone assembly connector candidates"
+);
+assert.doesNotMatch(
+  displaySource,
+  /function getGraphStorylineConnectors[\s\S]*FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT\) \* GRAPH_VIEW_BOX\.width;/,
+  "visible connector anchors should not use the old six-card block-card limit"
+);
+assert.match(
+  displaySource,
+  /const cardAnchorX = \(\(index \+ 0\.5\) \/ MILESTONE_STORY_STEP_COUNT\) \* GRAPH_VIEW_BOX\.width;/,
+  "visible connector anchors should use the 9-step milestone strip count"
 );
 
 const runoutAssembly = buildAssembly(makeRunoutInput());
@@ -159,7 +169,8 @@ assertNoMutation(runoutAssembly, function () {
   const adapted = adapt(harness, runoutAssembly);
   assert.equal(adapted.trace.source, "income-impact-milestone-dot-adapter");
   assert.equal(adapted.trace.rendered, false);
-  assert.equal(adapted.trace.visibleGraphDotSourceUnchanged, true);
+  assert.equal(adapted.trace.visibleGraphDotSource, "timelineStoryAssembly");
+  assert.equal(adapted.trace.oldGraphDotPathStillAvailable, true);
   assert.equal(adapted.majorDotCandidates.length, 8, "Steps 2-8 plus Resources Run Out should get major candidates.");
   assert.equal(adapted.connectorCandidates.length, 8, "Every major candidate should have a connector candidate.");
   assert.equal(

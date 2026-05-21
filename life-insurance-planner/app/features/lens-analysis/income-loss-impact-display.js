@@ -3526,10 +3526,26 @@
     return depletionMonth != null && eventMonth > depletionMonth + 0.000001;
   }
 
+  function getMilestoneGraphStorylineAdapterResult(timelineResult) {
+    return buildIncomeImpactMilestoneDotRenderCandidates(timelineResult?.timelineStoryAssembly);
+  }
+
+  function getGraphStorylineRenderDotCandidates(timelineResult) {
+    const adapted = getMilestoneGraphStorylineAdapterResult(timelineResult);
+    return []
+      .concat(Array.isArray(adapted.majorDotCandidates) ? adapted.majorDotCandidates : [])
+      .concat(Array.isArray(adapted.supportingDotCandidates) ? adapted.supportingDotCandidates : [])
+      .filter(isPlainObject)
+      .slice(0, GRAPH_STORYLINE_EVENT_DOT_LIMIT);
+  }
+
+  function getGraphStorylineRenderConnectorCandidates(timelineResult) {
+    const adapted = getMilestoneGraphStorylineAdapterResult(timelineResult);
+    return (Array.isArray(adapted.connectorCandidates) ? adapted.connectorCandidates : []).filter(isPlainObject);
+  }
+
   function getGraphStorylineEventDots(timelineResult, graphModel) {
-    const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
-      ? timelineResult.financialStoryline.graphDotCandidates
-      : [];
+    const candidates = getGraphStorylineRenderDotCandidates(timelineResult);
     if (!candidates.length) {
       return [];
     }
@@ -3703,9 +3719,7 @@
       }
     });
 
-    const candidates = Array.isArray(timelineResult?.financialStoryline?.graphDotCandidates)
-      ? timelineResult.financialStoryline.graphDotCandidates
-      : [];
+    const candidates = getGraphStorylineRenderDotCandidates(timelineResult);
     candidates.forEach(function (candidate) {
       const eventId = normalizeString(candidate?.id);
       if (!eventId || !isGraphStorylineConnectorEligible(candidate) || targetsByEventId.has(eventId)) {
@@ -3730,28 +3744,36 @@
   }
 
   function getGraphStorylineConnectors(timelineResult, graphModel) {
-    const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
-    if (!majorStoryCandidates.length) {
+    const connectorCandidates = getGraphStorylineRenderConnectorCandidates(timelineResult);
+    if (!connectorCandidates.length) {
       return [];
     }
+    const dotCandidates = getGraphStorylineRenderDotCandidates(timelineResult);
     const targetsByEventId = getGraphStorylineConnectorTargets(timelineResult, graphModel);
     if (!targetsByEventId.size) {
       return [];
     }
 
-    return majorStoryCandidates.map(function (candidate, index) {
-      const eventId = normalizeString(candidate?.id);
-      const target = eventId ? targetsByEventId.get(eventId) : null;
+    return connectorCandidates.map(function (connectorCandidate) {
+      const index = toOptionalNumber(connectorCandidate?.majorCardIndex);
+      if (index == null) {
+        return null;
+      }
+      const candidate = dotCandidates.find(function (dotCandidate) {
+        return normalizeString(dotCandidate?.id) === normalizeString(connectorCandidate?.eventId);
+      }) || connectorCandidate;
+      const resolvedEventId = normalizeString(connectorCandidate?.eventId || candidate?.id);
+      const target = resolvedEventId ? targetsByEventId.get(resolvedEventId) : null;
       if (!target) {
         return null;
       }
-      const cardAnchorX = ((index + 0.5) / FINANCIAL_STORYLINE_MAJOR_CARD_LIMIT) * GRAPH_VIEW_BOX.width;
+      const cardAnchorX = ((index + 0.5) / MILESTONE_STORY_STEP_COUNT) * GRAPH_VIEW_BOX.width;
       const startY = GRAPH_VIEW_BOX.plotTop - 8;
       const endY = Math.max(startY + 20, target.y - 12);
       return {
         candidate,
         dot: target,
-        eventId,
+        eventId: resolvedEventId,
         family: normalizeString(candidate?.family || target?.candidate?.family) || "event",
         severity: normalizeString(candidate?.severity || target?.candidate?.severity) || "info",
         cardIndex: index,
@@ -5607,6 +5629,7 @@
   }
 
   const MILESTONE_DOT_ADAPTER_SOURCE = "income-impact-milestone-dot-adapter";
+  const MILESTONE_STORY_STEP_COUNT = 9;
 
   function normalizeMilestoneDotSeverity(tone) {
     switch (normalizeMilestoneTone(tone)) {
@@ -5680,25 +5703,27 @@
       sourceAssemblyDotId: normalizeString(dot?.id),
       sourceMilestoneStepId: normalizeString(step?.id || dot?.connectedStepId),
       connectedStepId: normalizeString(dot?.connectedStepId || step?.id),
-      family: normalizeString(step?.category) || "event",
+      family: normalizeString(step?.category || dot?.family) || "event",
       severity,
       dotTier: isMajor ? "major" : "micro",
       timing: {
         kind: Math.abs(relativeMonth) <= 0.000001 ? "death-event" : "month-offset",
         monthOffset: relativeMonth,
+        date: normalizeDateOnly(dot?.date || dot?.timing?.date || ""),
         label: timingLabel
       },
       graphLabel: "",
       displayLabel: title,
       cardTitle: title,
-      amount: null,
-      evidenceLevel: "assembled",
+      amount: isPlainObject(dot?.amount) ? clonePlainValue(dot.amount) : null,
+      evidenceLevel: normalizeString(dot?.evidenceLevel) || "assembled",
       connectedToMajorCard: isMajor,
       eligibleForConnector: isMajor,
       majorCardIndex: isMajor ? stripIndex : null,
       milestoneStepNumber: stepNumber,
       sourceCandidateType: isMajor ? "milestone-major-dot" : "milestone-supporting-dot",
-      trace: {
+      candidateSource: normalizeString(dot?.candidateSource || dot?.trace?.candidateSource),
+      trace: Object.assign({}, isPlainObject(dot?.trace) ? dot.trace : {}, {
         source: MILESTONE_DOT_ADAPTER_SOURCE,
         sourceAssemblyDotId: normalizeString(dot?.id),
         sourceMilestoneStepId: normalizeString(step?.id),
@@ -5707,7 +5732,7 @@
         originalDotTrace: clonePlainValue(dot?.trace || null),
         originalStepTrace: clonePlainValue(step?.trace || null),
         noDefaultGraphLabel: true
-      },
+      }),
       originalIndex: index,
       sourceIndex: index
     };
@@ -5735,22 +5760,23 @@
     const supportingDotCandidates = (Array.isArray(assembly.supportingGraphDots) ? assembly.supportingGraphDots : [])
       .filter(isPlainObject)
       .map(function (dot, index) {
+        const dotTitle = normalizeString(dot?.title || dot?.displayLabel || dot?.graphLabel || dot?.sourceEventId || dot?.id);
         const fallbackStep = {
           id: `supporting-step-${normalizeString(dot?.sourceEventId || dot?.id)}`,
           stepNumber: null,
           role: "supporting",
-          category: "event",
+          category: normalizeString(dot?.family) || "event",
           tone: dot?.tone,
-          title: normalizeString(dot?.sourceEventId || dot?.id).replace(/-/g, " ") || "Supporting event",
-          shortLabel: normalizeString(dot?.sourceEventId || dot?.id),
+          title: dotTitle.replace(/-/g, " ") || "Supporting event",
+          shortLabel: normalizeString(dot?.shortLabel || dotTitle),
           timingLabel: getMilestoneDotTimingLabel(dot, null),
           relativeMonth: dot?.relativeMonth,
           graphDotId: dot?.id,
           sourceEventId: dot?.sourceEventId,
-          trace: {
+          trace: Object.assign({
             source: MILESTONE_DOT_ADAPTER_SOURCE,
             fallbackSupportingStep: true
-          }
+          }, isPlainObject(dot?.trace) ? dot.trace : {})
         };
         return buildMilestoneDotCandidate(dot, fallbackStep, "micro", index);
       })
@@ -5818,8 +5844,8 @@
           supportingDotCandidates: supportingDotCandidates.length,
           connectorCandidates: connectorCandidates.length
         },
-        visibleGraphDotSourceUnchanged: true,
-        oldGraphDotPathStillActive: true
+        visibleGraphDotSource: "timelineStoryAssembly",
+        oldGraphDotPathStillAvailable: true
       }
     };
   }

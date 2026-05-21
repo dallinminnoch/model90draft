@@ -1397,7 +1397,14 @@ assert.doesNotMatch(
           timing: { kind: "month-offset", monthOffset: 0, date: "2031-04-29", label: "At death" }
         }
       ]
-    }
+    },
+    timelineStoryAssembly: makeTimelineStoryAssemblyForSupportingDots([
+      {
+        id: "survivor-resources-start",
+        severity: "info",
+        timing: { kind: "month-offset", monthOffset: 0, date: "2031-04-29", label: "At death" }
+      }
+    ])
   });
   const focusedStartDot = getSvgGroupTagByAttribute(focusedDotHtml, "data-income-impact-storyline-event-id", "survivor-resources-start");
   const focusedStartDotPosition = getTranslateCoordinates(focusedStartDot);
@@ -1464,7 +1471,19 @@ assert.doesNotMatch(
           timing: { kind: "month-offset", monthOffset: 10, date: "2032-02-29", label: "Month 10" }
         }
       ]
-    }
+    },
+    timelineStoryAssembly: makeTimelineStoryAssemblyForSupportingDots([
+      {
+        id: "rendered-runway-start",
+        severity: "info",
+        timing: { kind: "month-offset", monthOffset: 0, date: "2031-04-29", label: "At death" }
+      },
+      {
+        id: "post-runout-ledger-dot",
+        severity: "caution",
+        timing: { kind: "month-offset", monthOffset: 10, date: "2032-02-29", label: "Month 10" }
+      }
+    ])
   });
   const focusedRenderedRunwayPath = getPathD(focusedRenderedRunwayDotHtml, "data-income-impact-graph-path", "postDeathResources");
   const focusedRenderedRunwayStart = focusedRenderedRunwayPath.match(/^M(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/);
@@ -1915,6 +1934,7 @@ storylineDotFixture.financialStoryline = {
     }
   ]
 };
+storylineDotFixture.timelineStoryAssembly = makeTimelineStoryAssemblyForSupportingDots(storylineDotFixture.financialStoryline.graphDotCandidates);
 const storylineDotTimelineHtml = harness.renderTimeline(storylineDotFixture);
 assert.equal(
   (storylineDotTimelineHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
@@ -1933,7 +1953,7 @@ assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-evidence-le
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-month-offset="24"/);
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-date="2033-04-29"/);
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot-readout/);
-assert.match(storylineDotTimelineHtml, /Cash depleted/);
+assert.match(storylineDotTimelineHtml, /Cash Savings Depleted/);
 assert.match(storylineDotTimelineHtml, /Month 24/);
 assert.match(storylineDotTimelineHtml, /\$2,400\/mo/);
 assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot[\s\S]*tabindex="0"[\s\S]*role="button"/);
@@ -2011,6 +2031,7 @@ sameMonthStorylineDotFixture.financialStoryline = {
     }
   ]
 };
+sameMonthStorylineDotFixture.timelineStoryAssembly = makeTimelineStoryAssemblyForSupportingDots(sameMonthStorylineDotFixture.financialStoryline.graphDotCandidates);
 const sameMonthStorylineDotHtml = harness.renderTimeline(sameMonthStorylineDotFixture);
 assert.equal(
   (sameMonthStorylineDotHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
@@ -2021,7 +2042,7 @@ const sameMonthGroupTag = getSvgGroupTagByAttribute(sameMonthStorylineDotHtml, "
 assert.match(sameMonthGroupTag, /data-income-impact-storyline-event-ids="taxable-assets-depleted education-savings-used-for-living-needs"/);
 assert.match(sameMonthGroupTag, /data-income-impact-storyline-grouped="true"/);
 assert.match(sameMonthGroupTag, /data-income-impact-storyline-group-count="2"/);
-assert.match(sameMonthGroupTag, /data-income-impact-storyline-dot-tier="major"/);
+assert.match(sameMonthGroupTag, /data-income-impact-storyline-dot-tier="micro"/);
 assert.match(sameMonthStorylineDotHtml, /data-income-impact-storyline-dot-group-ring/);
 assert.match(sameMonthStorylineDotHtml, /data-income-impact-storyline-dot-count-badge[^>]*>2<\/text>/);
 assert.match(sameMonthStorylineDotHtml, /2 events in Month 36/);
@@ -2033,11 +2054,10 @@ assert.match(sameMonthStorylineDotHtml, /Taxable assets/);
 assert.match(sameMonthStorylineDotHtml, /Education savings/);
 assert.match(sameMonthStorylineDotHtml, /\$12,000/);
 assert.match(sameMonthStorylineDotHtml, /\$24,000/);
-assert.match(sameMonthStorylineDotHtml, /data-income-impact-storyline-connector-event-id="taxable-assets-depleted"/);
 assert.doesNotMatch(
   sameMonthStorylineDotHtml,
-  /data-income-impact-storyline-connector-event-id="education-savings-used-for-living-needs"/,
-  "Micro ledger events should not receive story-card connectors when grouped with a major marker."
+  /data-income-impact-storyline-connector-event-id=/,
+  "Supporting ledger events should not receive story-card connectors when rendered as micro markers."
 );
 const cappedStorylineDotFixture = JSON.parse(JSON.stringify(fixture));
 cappedStorylineDotFixture.financialStoryline = {
@@ -2056,6 +2076,7 @@ cappedStorylineDotFixture.financialStoryline = {
     };
   })
 };
+cappedStorylineDotFixture.timelineStoryAssembly = makeTimelineStoryAssemblyForSupportingDots(cappedStorylineDotFixture.financialStoryline.graphDotCandidates);
 const cappedStorylineDotHtml = harness.renderTimeline(cappedStorylineDotFixture);
 assert.equal(
   (cappedStorylineDotHtml.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
@@ -2087,7 +2108,20 @@ const unpositionedStorylineDotHtml = harness.renderTimeline({
         timing: { kind: "month-offset", monthOffset: 6, label: "Month 6" }
       }
     ]
-  }
+  },
+  timelineStoryAssembly: makeTimelineStoryAssemblyForSupportingDots([
+    {
+      id: "unpositioned-storyline-event",
+      family: "liquidity",
+      severity: "caution",
+      dotTier: "micro",
+      connectedToMajorCard: false,
+      eligibleForConnector: false,
+      graphLabel: "Unpositioned event",
+      evidenceLevel: "estimated",
+      timing: { kind: "month-offset", monthOffset: 6, label: "Month 6" }
+    }
+  ])
 });
 assert.doesNotMatch(
   unpositionedStorylineDotHtml,
@@ -3054,30 +3088,93 @@ function makeMilestoneStripAssembly(finalTitle = "Resources Run Out") {
     ["story-step-data-confidence-limited", "data-quality", "unknown", "Data Confidence Limited", "Year 10", 120, "data-confidence-limited"],
     ["story-step-final-outcome", "final-outcome", finalTitle === "Resources Run Out" ? "critical" : "stable", finalTitle, finalTitle === "Resources Run Out" ? "Year 12" : "Still funded", finalTitle === "Resources Run Out" ? 144 : null, finalTitle === "Resources Run Out" ? "resourcesRunOut" : "familyRunwayRemainsFunded"]
   ];
+  const storySteps = sourceSteps.map(function (step, index) {
+    return {
+      id: step[0],
+      stepNumber: index + 1,
+      lockedPosition: index === 0 ? "first" : index === 8 ? "final" : null,
+      role: index === 0 ? "trigger" : index === 8 ? "finalOutcome" : "intermediate",
+      category: step[1],
+      tone: step[2],
+      title: step[3],
+      shortLabel: step[3],
+      timingLabel: step[4],
+      relativeMonth: step[5],
+      graphDotId: index === 0 || (index === 8 && finalTitle !== "Resources Run Out") ? null : `major-dot-${step[6]}`,
+      sourceEventId: step[6],
+      trace: { source: "test-milestone-strip" }
+    };
+  });
+  const majorGraphDots = storySteps.filter(function (step) {
+    return step.graphDotId;
+  }).map(function (step) {
+    return {
+      id: step.graphDotId,
+      connectedStepId: step.id,
+      tone: step.tone,
+      relativeMonth: step.relativeMonth,
+      sourceEventId: step.sourceEventId,
+      trace: { source: "test-milestone-strip" }
+    };
+  });
   return {
-    storySteps: sourceSteps.map(function (step, index) {
+    storySteps,
+    majorGraphDots,
+    supportingGraphDots: [
+      {
+        id: "supporting-dot-liquidity-repeat",
+        tone: "stable",
+        relativeMonth: 84,
+        sourceEventId: "liquidity-repeat",
+        trace: { source: "test-milestone-strip", noDefaultLabel: true }
+      },
+      {
+        id: "supporting-dot-housing-repeat",
+        tone: "caution",
+        relativeMonth: 108,
+        sourceEventId: "housing-repeat",
+        trace: { source: "test-milestone-strip", noDefaultLabel: true }
+      }
+    ],
+    connectors: majorGraphDots.map(function (dot) {
+      const step = storySteps.find(function (candidateStep) {
+        return candidateStep.id === dot.connectedStepId;
+      });
       return {
-        id: step[0],
-        stepNumber: index + 1,
-        lockedPosition: index === 0 ? "first" : index === 8 ? "final" : null,
-        role: index === 0 ? "trigger" : index === 8 ? "finalOutcome" : "intermediate",
-        category: step[1],
-        tone: step[2],
-        title: step[3],
-        shortLabel: step[3],
-        timingLabel: step[4],
-        relativeMonth: step[5],
-        graphDotId: index === 0 || (index === 8 && finalTitle !== "Resources Run Out") ? null : `major-dot-${step[6]}`,
-        sourceEventId: step[6],
+        id: `connector-${step.id}-${dot.id}`,
+        stepId: step.id,
+        graphDotId: dot.id,
         trace: { source: "test-milestone-strip" }
       };
     }),
-    majorGraphDots: [],
-    supportingGraphDots: [],
-    connectors: [],
     suppressed: [],
     trace: { status: "built", rendered: false }
   };
+}
+
+function makeTimelineStoryAssemblyForSupportingDots(candidates) {
+  const assembly = makeMilestoneStripAssembly("Family Runway Remains Funded");
+  assembly.majorGraphDots = [];
+  assembly.connectors = [];
+  assembly.supportingGraphDots = (Array.isArray(candidates) ? candidates : []).map(function (candidate) {
+    const timing = candidate.timing || {};
+    return {
+      id: `supporting-dot-${candidate.id}`,
+      tone: candidate.severity || candidate.tone || "unknown",
+      relativeMonth: timing.monthOffset ?? candidate.monthOffset ?? null,
+      date: timing.date || candidate.date || "",
+      sourceEventId: candidate.id,
+      family: candidate.family,
+      title: candidate.displayLabel || candidate.graphLabel || candidate.cardTitle || candidate.id,
+      graphLabel: candidate.graphLabel,
+      displayLabel: candidate.displayLabel,
+      evidenceLevel: candidate.evidenceLevel,
+      amount: candidate.amount,
+      candidateSource: candidate.candidateSource,
+      trace: Object.assign({ source: "test-supporting-dot", noDefaultLabel: true }, candidate.trace || {})
+    };
+  });
+  return assembly;
 }
 
 const majorStoryFixture = JSON.parse(JSON.stringify(fixture));
@@ -3278,43 +3375,44 @@ assert.ok(
 assert.doesNotMatch(majorStoryHost.innerHTML, /lower-priority-over-cap|Lower Priority Event/);
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
-  14,
-  "Rendering major story cards should group same-month graph events while reusing the death diamond marker."
+  10,
+  "Milestone graph dots should render Steps 2-8, capped supporting dots, and reuse the runout marker."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-connector(?:\s|>)/g) || []).length,
-  6,
-  "Storyline connectors should render only for major cards with matching graph dots."
+  8,
+  "Storyline connectors should render for the seven intermediate steps plus the runout final outcome."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot-tier="major"/g) || []).length,
-  6,
-  "Six graph dots should be marked as major when they match the six major story cards."
+  9,
+  "Milestone major dot metadata should include the seven intermediate dots, the final runout target, and the reusable marker annotation."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot-tier="micro"/g) || []).length,
-  9,
-  "Standalone micro markers should remain secondary when a same-month micro event is carried by a grouped major marker."
-);
-assert.match(
-  majorStoryHost.innerHTML,
-  /data-income-impact-storyline-event-ids="education-savings-depleted micro-storyline-event-4"/,
-  "Same-month micro events should remain represented in the grouped marker event-id list."
+  2,
+  "Supporting milestone graph dots should remain secondary micro markers."
 );
 assert.match(majorStoryHost.innerHTML, /income-impact-storyline-dot--major/);
 assert.match(majorStoryHost.innerHTML, /income-impact-storyline-dot--micro/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-dot-readout/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connectors/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-death-conversion-diamond[\s\S]*data-income-impact-storyline-event-id="death-income-stops"/);
+assert.doesNotMatch(
+  majorStoryHost.innerHTML,
+  /<g\b(?=[^>]*data-income-impact-death-conversion-diamond)(?=[^>]*data-income-impact-storyline-event-id="death-income-stops")/,
+  "Death milestone should not add storyline metadata to the death conversion diamond in the assembly-dot render path."
+);
 assert.doesNotMatch(majorStoryHost.innerHTML, /<g\b(?=[^>]*data-income-impact-storyline-dot(?:\s|>))(?=[^>]*data-income-impact-storyline-event-id="death-income-stops")/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="death-income-stops"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-target-source="death-conversion-diamond"/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="death-income-stops"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="cash-savings-depleted"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="housing-payment-at-risk"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="retirement-assets-tapped"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="education-savings-depleted"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="care-costs-covered"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="lifestyle-pressure-rises"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="data-confidence-limited"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="resources-run-out"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-family="support"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-family="final-outcome"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-severity="critical"/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="micro-storyline-event-/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-story-card-connector|data-income-impact-major-story-connector/);
@@ -3402,6 +3500,7 @@ reusedRunOutMarkerFixture.financialStoryline = {
     }
   ]
 };
+reusedRunOutMarkerFixture.timelineStoryAssembly = makeMilestoneStripAssembly();
 const reusedRunOutMarkerHtml = harness.renderTimeline(reusedRunOutMarkerFixture);
 assert.doesNotMatch(
   reusedRunOutMarkerHtml,
@@ -3441,10 +3540,10 @@ assert.equal(
   9,
   "Milestone story strip should still render when graph dot candidates are missing."
 );
-assert.doesNotMatch(
+assert.match(
   noConnectorDotHost.innerHTML,
   /data-income-impact-storyline-connector(?:\s|>)/,
-  "Storyline connectors should not render when graph dot candidates are empty."
+  "Milestone assembly connectors should still render when legacy graphDotCandidates are empty."
 );
 
 console.log("income-loss-impact-visual-timeline-check passed");
