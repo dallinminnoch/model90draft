@@ -2581,7 +2581,7 @@
     return 120;
   }
 
-  function getAdaptiveGraphViewFrameXTickMonths(displayHorizonMonths, options = {}) {
+  function getAdaptiveGraphViewFrameXTickMonths(displayHorizonMonths) {
     const horizonMonths = Math.max(toOptionalNumber(displayHorizonMonths) || 0, 0);
     if (horizonMonths <= 0) {
       return [];
@@ -2590,10 +2590,6 @@
     const stepMonths = getAdaptiveXTickStepMonths(horizonMonths);
     for (let month = stepMonths; month <= horizonMonths + (stepMonths * 0.001); month += stepMonths) {
       addUniqueGraphAxisMonth(ticks, month, horizonMonths);
-    }
-    const runoutMonth = toOptionalNumber(options.runoutMonth);
-    if (runoutMonth != null && runoutMonth > 0 && runoutMonth < horizonMonths) {
-      addUniqueGraphAxisMonth(ticks, runoutMonth, horizonMonths);
     }
     if (horizonMonths >= 1) {
       addUniqueGraphAxisMonth(ticks, horizonMonths, horizonMonths);
@@ -2615,7 +2611,6 @@
     const deathDate = normalizeDateOnly(dates?.deathDate);
     const parsedDeathDate = parseDateOnly(deathDate);
     const horizonMonths = toOptionalNumber(layoutFrame?.xDomainMonths);
-    const runoutMonth = toOptionalNumber(layoutFrame?.zeroCrossingAnchorMonth);
     if (horizonMonths == null || horizonMonths <= 0) {
       return [];
     }
@@ -2635,7 +2630,7 @@
         regeneratedForPostDeathFocus: true
       }
     }];
-    getAdaptiveGraphViewFrameXTickMonths(horizonMonths, { runoutMonth }).forEach(function (relativeMonths) {
+    getAdaptiveGraphViewFrameXTickMonths(horizonMonths).forEach(function (relativeMonths) {
       const tickDate = parsedDeathDate ? addRelativeMonths(parsedDeathDate, relativeMonths) : null;
       ticks.push({
         id: `plus-${relativeMonths}`,

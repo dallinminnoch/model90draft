@@ -199,6 +199,15 @@ function assertNoDuplicateLabels(ticks, message) {
   assert.equal(new Set(labels).size, labels.length, message);
 }
 
+function assertNoExactRunoutAnchorTick(frame, depletionMonth, message) {
+  const target = Number(depletionMonth);
+  assert.ok(Number.isFinite(target), `${message}: test depletion month should be finite.`);
+  const matchingTick = frame.xTicks.find(function (tick) {
+    return tick && tick.key !== "death" && Math.abs(Number(tick.relativeMonths) - target) <= 0.000001;
+  });
+  assert.equal(matchingTick, undefined, `${message}: x-axis ticks should not include the exact runout/depletion anchor.`);
+}
+
 function assertIncludesZeroAndDeficitContext(frame, message) {
   const values = getValues(frame.yTicks);
   assert.ok(values.some(function (value) { return Math.abs(value) <= 0.000001; }), `${message}: y ticks should include zero.`);
@@ -209,6 +218,7 @@ function assertIncludesZeroAndDeficitContext(frame, message) {
 
 function assertRunwayGeometryStillSigned(model, message) {
   const runway = model.series.appliedRunwayScenarios[0];
+  assert.ok(runway.depletionPoint, `${message}: runout/depletion marker source should remain available.`);
   assert.ok(runway.runwayLinePoints.some(function (point) {
     return Math.abs(point.value || 0) <= 0.000001;
   }), `${message}: runway line should retain the explicit zero anchor.`);
@@ -284,6 +294,7 @@ const dayFrame = dayModel.viewFrames.postDeathFocus;
 assert.equal(dayFrame.xTicks[0].label, "Death");
 assert.ok(getLabels(dayFrame.xTicks).some(function (label) { return /\+\d+ days?/.test(label); }), "Day-scale focus frame should use day ticks.");
 assertNoDuplicateLabels(dayFrame.xTicks, "Day-scale x tick labels should not duplicate.");
+assertNoExactRunoutAnchorTick(dayFrame, 0.15, "Day-scale focus frame");
 assertIncludesZeroAndDeficitContext(dayFrame, "Day-scale focus frame");
 assertRunwayGeometryStillSigned(dayModel, "Day-scale model");
 
@@ -292,6 +303,7 @@ const underSixFrame = underSixModel.viewFrames.postDeathFocus;
 assertNoDuplicateLabels(underSixFrame.xTicks, "Under-six-month x tick labels should not duplicate.");
 assert.ok(getLabels(underSixFrame.xTicks).includes("+1 mo"), "Under-six-month frame should include monthly context.");
 assert.ok(getLabels(underSixFrame.xTicks).some(function (label) { return label === "+2 mo" || label === "+3 mo"; }), "Under-six-month frame should include useful month spacing near runout.");
+assertNoExactRunoutAnchorTick(underSixFrame, 2.666666, "Under-six-month focus frame");
 assertIncludesZeroAndDeficitContext(underSixFrame, "Under-six-month focus frame");
 assertRunwayGeometryStillSigned(underSixModel, "Under-six-month model");
 
@@ -301,6 +313,8 @@ assertNoDuplicateLabels(mediumFrame.xTicks, "Medium runway x tick labels should 
 assert.ok(mediumFrame.xTicks.length >= 6, "A 1-3 year focused frame should have enough x ticks to orient the user.");
 assert.ok(getLabels(mediumFrame.xTicks).includes("+1 year"), "Medium runway should include one-year context.");
 assert.ok(getLabels(mediumFrame.xTicks).includes("+2 years"), "Medium runway should include two-year context.");
+assert.ok(!getLabels(mediumFrame.xTicks).includes("+2.3 years"), "Medium runway should not include the exact runout month as a special x-axis tick.");
+assertNoExactRunoutAnchorTick(mediumFrame, 27, "Medium focus frame");
 assertIncludesZeroAndDeficitContext(mediumFrame, "Medium focus frame");
 assertRunwayGeometryStillSigned(mediumModel, "Medium model");
 
@@ -309,6 +323,7 @@ const longFrame = longModel.viewFrames.postDeathFocus;
 assertNoDuplicateLabels(longFrame.xTicks, "Long runway x tick labels should not duplicate.");
 assert.ok(longFrame.xTicks.length >= 4 && longFrame.xTicks.length <= 12, "A 10+ year frame should remain readable.");
 assert.ok(getLabels(longFrame.xTicks).some(function (label) { return /\+\d+ years/.test(label); }), "Long runway should use year labels.");
+assertNoExactRunoutAnchorTick(longFrame, 160, "Long focus frame");
 assertIncludesZeroAndDeficitContext(longFrame, "Long focus frame");
 assertRunwayGeometryStillSigned(longModel, "Long model");
 
