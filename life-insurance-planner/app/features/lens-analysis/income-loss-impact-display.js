@@ -7104,6 +7104,70 @@
     }
   }
 
+  function makeTimelineStoryAssemblyUnavailableResult(reason, details) {
+    return {
+      version: "income-impact-timeline-story-assembly-v1",
+      storySteps: [],
+      majorGraphDots: [],
+      supportingGraphDots: [],
+      connectors: [],
+      suppressed: [],
+      warnings: [
+        createFinancialStorylineBridgeWarning(
+          "timeline-story-assembly-unavailable",
+          "Milestone story assembly was not built.",
+          Object.assign({ reason }, isPlainObject(details) ? details : {})
+        )
+      ],
+      trace: {
+        source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+        status: "unavailable",
+        rendered: false
+      }
+    };
+  }
+
+  function buildTimelineStoryAssemblyForTimelineResult(state, timelineResult) {
+    const assembler = getDisplayStorylineHelper(state, "buildIncomeImpactTimelineStoryAssembly");
+    if (typeof assembler !== "function") {
+      return makeTimelineStoryAssemblyUnavailableResult("assembly-helper-unavailable");
+    }
+
+    try {
+      const result = assembler({
+        timelineStoryEvents: timelineResult?.timelineStoryEvents,
+        financialStoryline: timelineResult?.financialStoryline,
+        riskEvents: timelineResult?.riskEvaluation?.events,
+        stableEvents: timelineResult?.riskEvaluation?.stableEvents,
+        graphModel: timelineResult?.graphModel,
+        scenario: timelineResult?.scenario,
+        timelineFacts: timelineResult?.scenario?.timelineFacts || timelineResult?.timelineFacts,
+        options: {
+          source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+          displayBridgeOnly: true
+        }
+      });
+      return Object.assign({}, isPlainObject(result) ? result : {}, {
+        version: result?.version || "income-impact-timeline-story-assembly-v1",
+        storySteps: Array.isArray(result?.storySteps) ? result.storySteps : [],
+        majorGraphDots: Array.isArray(result?.majorGraphDots) ? result.majorGraphDots : [],
+        supportingGraphDots: Array.isArray(result?.supportingGraphDots) ? result.supportingGraphDots : [],
+        connectors: Array.isArray(result?.connectors) ? result.connectors : [],
+        suppressed: Array.isArray(result?.suppressed) ? result.suppressed : [],
+        warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+        trace: Object.assign({}, isPlainObject(result?.trace) ? result.trace : {}, {
+          source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
+          status: "built",
+          rendered: false
+        })
+      });
+    } catch (error) {
+      return makeTimelineStoryAssemblyUnavailableResult("timeline-story-assembly-build-failed", {
+        error: error?.message || String(error)
+      });
+    }
+  }
+
   function buildDisplayResourceBucketsForStoryline(state) {
     const adapter = getDisplayStorylineHelper(state, "buildIncomeImpactResourceBucketsFromLensModel");
     if (typeof adapter !== "function") {
@@ -7470,6 +7534,7 @@
       controls
     });
     timelineResult.timelineStoryEvents = buildTimelineStoryEventsForTimelineResult(safeState, timelineResult);
+    timelineResult.timelineStoryAssembly = buildTimelineStoryAssemblyForTimelineResult(safeState, timelineResult);
     return timelineResult;
   }
 
@@ -7590,6 +7655,7 @@
       controls: settings
     });
     timelineResult.timelineStoryEvents = buildTimelineStoryEventsForTimelineResult(safeState, timelineResult);
+    timelineResult.timelineStoryAssembly = buildTimelineStoryAssemblyForTimelineResult(safeState, timelineResult);
     return timelineResult;
   }
 

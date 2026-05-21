@@ -15,7 +15,7 @@ function readRepoFile(relativePath) {
 function createDisplayHarness(source) {
   const instrumentedSource = source.replace(
     /\n\}\)\(window\);\s*$/,
-    "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact, buildFinancialStorylineForTimelineResult, buildTimelineStoryEventsForTimelineResult };\n})(window);\n"
+    "\n  window.__incomeImpactVisualTimelineHarness = { renderTimeline, renderIncomeImpact, buildFinancialStorylineForTimelineResult, buildTimelineStoryEventsForTimelineResult, buildTimelineStoryAssemblyForTimelineResult };\n})(window);\n"
   );
   const resourceOutlookPanel = { innerHTML: "" };
   const sandbox = {
@@ -351,6 +351,7 @@ const resourceWaterfallSource = readRepoFile("app/features/lens-analysis/income-
 const housingRiskSource = readRepoFile("app/features/lens-analysis/income-impact-housing-risk-calculations.js");
 const financialStorylineSource = readRepoFile("app/features/lens-analysis/income-impact-financial-storyline-calculations.js");
 const timelineStoryEventsSource = readRepoFile("app/features/lens-analysis/income-impact-timeline-story-events.js");
+const timelineStoryAssemblySource = readRepoFile("app/features/lens-analysis/income-impact-timeline-story-assembly.js");
 const pageSource = readRepoFile("pages/income-loss-impact.html");
 const componentsSource = readRepoFile("components.css");
 const layoutSource = readRepoFile("layout.css");
@@ -362,18 +363,21 @@ const browserGlobalHelpers = createBrowserGlobalHelperHarness([
   resourceWaterfallSource,
   housingRiskSource,
   financialStorylineSource,
-  timelineStoryEventsSource
+  timelineStoryEventsSource,
+  timelineStoryAssemblySource
 ]);
 
 assert.equal(typeof harness.renderTimeline, "function");
 assert.equal(typeof harness.renderIncomeImpact, "function");
 assert.equal(typeof harness.buildFinancialStorylineForTimelineResult, "function");
 assert.equal(typeof harness.buildTimelineStoryEventsForTimelineResult, "function");
+assert.equal(typeof harness.buildTimelineStoryAssemblyForTimelineResult, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceBucketsFromLensModel, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceWaterfall, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactHousingRisk, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactFinancialStorylineCandidates, "function");
 assert.equal(typeof browserGlobalHelpers.normalizeIncomeImpactTimelineStoryEvents, "function");
+assert.equal(typeof browserGlobalHelpers.buildIncomeImpactTimelineStoryAssembly, "function");
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
 assert.match(
   pageSource,
@@ -384,6 +388,11 @@ assert.match(
   pageSource,
   /income-impact-financial-storyline-calculations\.js[\s\S]*income-impact-timeline-story-events\.js[\s\S]*income-loss-impact-display\.js/,
   "Income Impact page should load normalized timeline story events before the display bridge."
+);
+assert.match(
+  pageSource,
+  /income-impact-timeline-story-events\.js[\s\S]*income-impact-timeline-story-assembly\.js[\s\S]*income-loss-impact-display\.js/,
+  "Income Impact page should load milestone story assembly before the display bridge."
 );
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
@@ -413,6 +422,8 @@ assert.match(displaySource, /buildIncomeImpactTimelineGraphModel/);
 assert.match(displaySource, /buildIncomeImpactFinancialStorylineCandidates/);
 assert.match(displaySource, /normalizeIncomeImpactTimelineStoryEvents/);
 assert.match(displaySource, /timelineResult\.timelineStoryEvents\s*=\s*buildTimelineStoryEventsForTimelineResult/);
+assert.match(displaySource, /buildIncomeImpactTimelineStoryAssembly/);
+assert.match(displaySource, /timelineResult\.timelineStoryAssembly\s*=\s*buildTimelineStoryAssemblyForTimelineResult/);
 assert.match(displaySource, /buildIncomeImpactResourceBucketsFromLensModel/);
 assert.match(displaySource, /buildIncomeImpactResourceWaterfall/);
 assert.match(displaySource, /buildIncomeImpactHousingRisk/);
@@ -593,6 +604,7 @@ const storylineState = {
   }
 };
 storylineState.normalizeIncomeImpactTimelineStoryEvents = browserGlobalHelpers.normalizeIncomeImpactTimelineStoryEvents;
+storylineState.buildIncomeImpactTimelineStoryAssembly = browserGlobalHelpers.buildIncomeImpactTimelineStoryAssembly;
 const wiredFinancialStoryline = harness.buildFinancialStorylineForTimelineResult(
   storylineState,
   storylineTimelineResult,
@@ -635,6 +647,78 @@ assert.deepEqual(storylineTimelineResult, storylineTimelineSnapshot);
 
 const storyBridgeTimelineResult = JSON.parse(JSON.stringify(storylineTimelineResult));
 storyBridgeTimelineResult.financialStoryline = {
+  safeRenderableEvents: [
+    {
+      id: "cash-reserve-holds",
+      family: "liquidity",
+      severity: "stable",
+      cardTitle: "Cash Reserve Holds",
+      graphLabel: "Cash",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 1, label: "Month 1" }
+    },
+    {
+      id: "housing-payment-pressure",
+      family: "housing",
+      severity: "caution",
+      cardTitle: "Housing Payment Pressure",
+      graphLabel: "Housing",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 2, label: "Month 2" }
+    },
+    {
+      id: "support-gap-begins",
+      family: "support-gap",
+      severity: "at-risk",
+      cardTitle: "Support Gap Begins",
+      graphLabel: "Gap",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 3, label: "Month 3" }
+    },
+    {
+      id: "care-costs-covered",
+      family: "dependents-care",
+      severity: "stable",
+      cardTitle: "Care Costs Covered",
+      graphLabel: "Care",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 4, label: "Month 4" }
+    },
+    {
+      id: "education-funding-redirected",
+      family: "education",
+      severity: "caution",
+      cardTitle: "Education Funding Redirected",
+      graphLabel: "Education",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 5, label: "Month 5" }
+    },
+    {
+      id: "lifestyle-pressure-rises",
+      family: "lifestyle-pressure",
+      severity: "caution",
+      cardTitle: "Lifestyle Pressure Rises",
+      graphLabel: "Lifestyle",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 6, label: "Month 6" }
+    },
+    {
+      id: "retirement-assets-tapped",
+      family: "retirement-waterfall",
+      severity: "critical",
+      cardTitle: "Retirement Assets Tapped",
+      graphLabel: "Retirement",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 7, label: "Month 7" }
+    }
+  ],
   majorStoryCandidates: [
     {
       id: "death-income-stops",
@@ -696,8 +780,27 @@ assert.ok(
   normalizedStoryEvents.events.length > storyBridgeTimelineResult.financialStoryline.majorStoryCandidates.length,
   "The invisible timeline story event bridge may contain more events than the visible major-card source."
 );
+storyBridgeTimelineResult.timelineStoryEvents = normalizedStoryEvents;
+const milestoneStoryAssembly = harness.buildTimelineStoryAssemblyForTimelineResult(
+  storylineState,
+  storyBridgeTimelineResult
+);
+assert.equal(milestoneStoryAssembly.trace.status, "built");
+assert.equal(milestoneStoryAssembly.trace.rendered, false);
+assert.equal(milestoneStoryAssembly.storySteps.length, 9);
+assert.equal(milestoneStoryAssembly.storySteps[0].title, "Death / Income Stops");
+assert.equal(milestoneStoryAssembly.storySteps[0].graphDotId, null);
+assert.equal(milestoneStoryAssembly.storySteps[8].title, "Resources Run Out");
+assert.ok(milestoneStoryAssembly.storySteps[8].graphDotId);
+assert.equal(
+  milestoneStoryAssembly.storySteps.slice(1, 8).filter(function (step) { return step.graphDotId; }).length,
+  7,
+  "Milestone assembly should connect each intermediate step to a major graph dot."
+);
+assert.equal(milestoneStoryAssembly.connectors.length, milestoneStoryAssembly.majorGraphDots.length);
 const storyBridgeRenderTimelineResult = JSON.parse(JSON.stringify(storyBridgeTimelineResult));
 storyBridgeRenderTimelineResult.timelineStoryEvents = normalizedStoryEvents;
+storyBridgeRenderTimelineResult.timelineStoryAssembly = milestoneStoryAssembly;
 const storyBridgeRenderHost = { innerHTML: "" };
 harness.renderIncomeImpact(storyBridgeRenderHost, { timelineResult: storyBridgeRenderTimelineResult });
 assert.equal(
@@ -711,6 +814,11 @@ assert.doesNotMatch(
   /data-income-impact-major-story-event-id="cash-savings-depleted"/,
   "Graph-dot-only normalized story events should not become visible major story cards."
 );
+assert.doesNotMatch(
+  storyBridgeRenderHost.innerHTML,
+  /data-income-impact-major-story-event-id="retirement-assets-tapped"/,
+  "Milestone assembly steps should not replace old major story card rendering yet."
+);
 const unavailableTimelineStoryEvents = harness.buildTimelineStoryEventsForTimelineResult(
   {},
   storyBridgeTimelineResult
@@ -721,6 +829,17 @@ assert.equal(unavailableTimelineStoryEvents.trace.status, "unavailable");
 assert.match(
   unavailableTimelineStoryEvents.warnings.map(function (warning) { return warning.code; }).join(" "),
   /timeline-story-events-unavailable/
+);
+const unavailableTimelineStoryAssembly = harness.buildTimelineStoryAssemblyForTimelineResult(
+  {},
+  storyBridgeTimelineResult
+);
+assert.equal(Array.isArray(unavailableTimelineStoryAssembly.storySteps), true);
+assert.equal(unavailableTimelineStoryAssembly.storySteps.length, 0);
+assert.equal(unavailableTimelineStoryAssembly.trace.status, "unavailable");
+assert.match(
+  unavailableTimelineStoryAssembly.warnings.map(function (warning) { return warning.code; }).join(" "),
+  /timeline-story-assembly-unavailable/
 );
 
 const unavailableFinancialStoryline = harness.buildFinancialStorylineForTimelineResult(
