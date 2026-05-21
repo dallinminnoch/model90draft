@@ -18314,6 +18314,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   overflow: visible;
 }
 
+.income-impact-milestone-story,
 .income-impact-depletion-story,
 .income-impact-chart-section {
   display: grid;
@@ -18323,6 +18324,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   border-top: 1px solid rgba(223, 229, 238, 0.9);
 }
 
+.income-impact-milestone-story,
 .income-impact-depletion-story {
   gap: 0;
   padding: 0.72rem 0 0;
@@ -18333,6 +18335,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   border-top: 0;
 }
 
+.income-impact-milestone-story__header,
 .income-impact-depletion-story-header {
   display: flex;
   align-items: center;
@@ -18342,6 +18345,7 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   padding: 0.1rem 1.05rem 0.72rem;
 }
 
+.income-impact-milestone-story__header h3,
 .income-impact-depletion-story-header h3 {
   display: inline-flex;
   align-items: center;
@@ -18353,9 +18357,129 @@ body[data-step="income-impact"] .income-impact-page-intro p {
   line-height: 1.1;
 }
 
+.income-impact-milestone-story__header h3 svg,
 .income-impact-depletion-story-header h3 svg {
   color: #2563eb;
   flex: 0 0 auto;
+}
+
+.income-impact-milestone-strip {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(6.6rem, 1fr));
+  gap: 0.42rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0.68rem 1.05rem 0.74rem;
+  border-top: 1px solid rgba(213, 220, 233, 0.9);
+  border-bottom: 1px solid rgba(238, 242, 247, 0.95);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.62), rgba(255, 255, 255, 0));
+  scrollbar-width: thin;
+}
+
+.income-impact-milestone-step {
+  display: grid;
+  align-content: start;
+  gap: 0.34rem;
+  min-width: 6.6rem;
+  min-height: 5.65rem;
+  padding: 0.52rem 0.54rem 0.58rem;
+  border: 1px solid rgba(213, 220, 233, 0.92);
+  border-top: 0.16rem solid #94a3b8;
+  border-radius: 0.48rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 0.08rem 0.28rem rgba(15, 23, 42, 0.05);
+}
+
+.income-impact-milestone-step--tone-critical {
+  border-top-color: #dc2626;
+}
+
+.income-impact-milestone-step--tone-atRisk,
+.income-impact-milestone-step--tone-caution {
+  border-top-color: #d97706;
+}
+
+.income-impact-milestone-step--tone-stable {
+  border-top-color: #059669;
+}
+
+.income-impact-milestone-step__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.38rem;
+  min-width: 0;
+}
+
+.income-impact-milestone-step__number {
+  display: inline-grid;
+  place-items: center;
+  width: 1.38rem;
+  height: 1.18rem;
+  border-radius: 0.36rem;
+  background: #eff6ff;
+  color: #2563eb;
+  font-family: "Inter", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.income-impact-milestone-step__tone {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.18rem 0.34rem;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-family: "Inter", sans-serif;
+  font-size: 0.52rem;
+  font-weight: 780;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.income-impact-milestone-step--tone-critical .income-impact-milestone-step__tone {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.income-impact-milestone-step--tone-atRisk .income-impact-milestone-step__tone,
+.income-impact-milestone-step--tone-caution .income-impact-milestone-step__tone {
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.income-impact-milestone-step--tone-stable .income-impact-milestone-step__tone {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.income-impact-milestone-step__title {
+  margin: 0;
+  color: #101828;
+  font-family: "Inter", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 780;
+  line-height: 1.14;
+}
+
+.income-impact-milestone-step__timing,
+.income-impact-milestone-strip__empty {
+  margin: 0;
+  color: #8390a5;
+  font-family: "Inter", sans-serif;
+  font-size: 0.61rem;
+  font-weight: 660;
+  line-height: 1.25;
+}
+
+.income-impact-milestone-strip__empty {
+  grid-column: 1 / -1;
+  font-size: 0.74rem;
+  font-weight: 560;
+  line-height: 1.35;
 }
 
 .income-impact-depletion-story-lane {

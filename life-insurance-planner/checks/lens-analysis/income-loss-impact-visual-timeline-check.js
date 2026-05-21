@@ -441,6 +441,12 @@ assert.match(displaySource, /data-income-impact-alert-inbox/);
 assert.match(displaySource, /data-income-impact-alert-inbox-empty/);
 assert.match(displaySource, /data-income-impact-resource-outlook/);
 assert.match(componentsSource, /\.income-impact-alert-inbox\s*\{[\s\S]*height:\s*15rem;[\s\S]*overflow-y:\s*auto;/);
+assert.match(displaySource, /renderIncomeImpactMilestoneStoryStrip/);
+assert.match(displaySource, /data-income-impact-milestone-story/);
+assert.match(displaySource, /data-income-impact-milestone-strip/);
+assert.match(displaySource, /data-income-impact-milestone-step/);
+assert.match(displaySource, /data-income-impact-milestone-step-tone/);
+assert.match(displaySource, /data-income-impact-milestone-strip-empty/);
 assert.match(displaySource, /renderFinancialDepletionStoryScaffold/);
 assert.match(displaySource, /data-income-impact-depletion-story/);
 assert.match(displaySource, /data-income-impact-depletion-story-empty/);
@@ -458,7 +464,7 @@ assert.match(displaySource, /data-income-impact-storyline-group-count/);
 assert.match(displaySource, /getLedgerStorylineEventActionLabel/);
 assert.match(displaySource, /data-income-impact-storyline-connected-to-major-card/);
 assert.match(displaySource, /data-income-impact-storyline-eligible-for-connector/);
-assert.match(displaySource, /Storyline events will appear here once verified timeline drivers are available\./);
+assert.match(displaySource, /Milestone story will appear once verified timeline events are assembled\./);
 assert.doesNotMatch(displaySource, /getFinancialDepletionStoryItems|renderFinancialDepletionStoryItem|renderFinancialDepletionStoryIcon|formatStoryOffsetFromMonths/);
 assert.doesNotMatch(displaySource, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
 assert.doesNotMatch(displaySource, />Story scaffold</);
@@ -804,20 +810,15 @@ storyBridgeRenderTimelineResult.timelineStoryAssembly = milestoneStoryAssembly;
 const storyBridgeRenderHost = { innerHTML: "" };
 harness.renderIncomeImpact(storyBridgeRenderHost, { timelineResult: storyBridgeRenderTimelineResult });
 assert.equal(
-  (storyBridgeRenderHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
-  storyBridgeTimelineResult.financialStoryline.majorStoryCandidates.length,
-  "Visible major story cards should follow financialStoryline.majorStoryCandidates, not timelineStoryEvents."
+  (storyBridgeRenderHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
+  9,
+  "Visible milestone strip should follow timelineStoryAssembly.storySteps."
 );
-assert.match(storyBridgeRenderHost.innerHTML, /data-income-impact-major-story-event-id="death-income-stops"/);
+assert.match(storyBridgeRenderHost.innerHTML, /data-income-impact-milestone-step-source-event-id="death-income-stops"/);
 assert.doesNotMatch(
   storyBridgeRenderHost.innerHTML,
-  /data-income-impact-major-story-event-id="cash-savings-depleted"/,
-  "Graph-dot-only normalized story events should not become visible major story cards."
-);
-assert.doesNotMatch(
-  storyBridgeRenderHost.innerHTML,
-  /data-income-impact-major-story-event-id="retirement-assets-tapped"/,
-  "Milestone assembly steps should not replace old major story card rendering yet."
+  /data-income-impact-major-story-card(?:\s|>)/,
+  "Old major story cards should not remain the visible timeline surface."
 );
 const unavailableTimelineStoryEvents = harness.buildTimelineStoryEventsForTimelineResult(
   {},
@@ -985,8 +986,12 @@ assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-im
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eff6ff;[\s\S]*color:\s*#2563eb;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/);
 assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*background:\s*transparent;[\s\S]*overflow:\s*visible;/);
-assert.match(componentsSource, /\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
+assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-depletion-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(9,\s*minmax\(6\.6rem,\s*1fr\)\);[\s\S]*overflow-x:\s*auto;/);
+assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*min-width:\s*6\.6rem;[\s\S]*border-top:\s*0\.16rem solid #94a3b8;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*border-top-color:\s*#dc2626;/);
+assert.doesNotMatch(componentsSource, /\.income-impact-milestone-step__tone\s*\{[^}]*text-transform:\s*uppercase;/);
 assert.match(componentsSource, /\.income-impact-depletion-story-header[\s\S]*justify-content:\s*space-between;/);
 assert.match(componentsSource, /\.income-impact-depletion-story-lane[\s\S]*min-height:\s*3\.35rem;[\s\S]*padding:\s*0\.72rem 1\.05rem;[\s\S]*border-top:\s*1px solid rgba\(213,\s*220,\s*233,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-depletion-story-empty[\s\S]*color:\s*#8a97b0;[\s\S]*font-family:\s*"Inter",\s*sans-serif;/);
@@ -2964,10 +2969,12 @@ assert.doesNotMatch(
 assert.match(host.innerHTML, /data-income-impact-story-chart-card/);
 assert.match(host.innerHTML, /data-income-impact-financial-security-card/);
 assert.doesNotMatch(host.innerHTML, /Existing coverage \+ available assets|divided by estimated annual household shortfall|Partial runway estimate|Time until available assets are projected to reach zero|This estimate uses the available saved facts|How long available resources are projected to last after death/);
-assert.match(host.innerHTML, /data-income-impact-depletion-story/);
-assert.match(host.innerHTML, /Financial Depletion Story/);
-assert.match(host.innerHTML, /data-income-impact-depletion-story-empty/);
-assert.match(host.innerHTML, /Storyline events will appear here once verified timeline drivers are available\./);
+assert.match(host.innerHTML, /data-income-impact-milestone-story/);
+assert.match(host.innerHTML, /Milestone Story/);
+assert.match(host.innerHTML, /data-income-impact-milestone-strip-empty/);
+assert.match(host.innerHTML, /Milestone story will appear once verified timeline events are assembled\./);
+assert.doesNotMatch(host.innerHTML, /Financial Depletion Story/);
+assert.doesNotMatch(host.innerHTML, /data-income-impact-depletion-story(?:\s|>)/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-depletion-story-card/);
 assert.doesNotMatch(host.innerHTML, /data-income-impact-graph-story-dot|data-income-impact-story-card/);
 assert.doesNotMatch(host.innerHTML, /Emergency Savings Depleted|Retirement Accounts Tapped|Home Equity at Risk|Credit Crisis|Total Financial Collapse/);
@@ -2986,8 +2993,8 @@ assert.ok(
   "Years of Financial Security should render in the summary strip, not inside the shared story/chart card."
 );
 assert.ok(
-  host.innerHTML.indexOf("data-income-impact-depletion-story") < host.innerHTML.indexOf("data-income-impact-helper-timeline"),
-  "Financial Depletion Story should render above the timeline chart."
+  host.innerHTML.indexOf("data-income-impact-milestone-story") < host.innerHTML.indexOf("data-income-impact-helper-timeline"),
+  "Milestone Story should render above the timeline chart."
 );
 assert.ok(
   host.innerHTML.indexOf("data-income-impact-helper-timeline") < host.innerHTML.indexOf("data-income-impact-risk-panel"),
@@ -3034,6 +3041,44 @@ assert.ok(
   "Scenario Impact should render in the summary strip with Years of Financial Security, outside the shared story/chart card."
 );
 assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /data-income-impact-lifestyle-impact-readout|Scenario impact/);
+
+function makeMilestoneStripAssembly(finalTitle = "Resources Run Out") {
+  const sourceSteps = [
+    ["story-step-death-income-stops", "trigger", "critical", "Death / Income Stops", "At death", 0, "death-income-stops"],
+    ["story-step-cash-savings-depleted", "liquidity", "caution", "Cash Savings Depleted", "Month 12", 12, "cash-savings-depleted"],
+    ["story-step-housing-payment-at-risk", "housing", "atRisk", "Housing Payment At Risk", "Month 24", 24, "housing-payment-at-risk"],
+    ["story-step-retirement-assets-tapped", "retirement", "caution", "Retirement Assets Tapped", "Year 3", 36, "retirement-assets-tapped"],
+    ["story-step-education-savings-depleted", "education", "atRisk", "Education Savings Depleted", "Year 5", 60, "education-savings-depleted"],
+    ["story-step-care-costs-covered", "care", "stable", "Care Costs Covered", "Year 6", 72, "care-costs-covered"],
+    ["story-step-lifestyle-pressure-rises", "lifestyle", "caution", "Lifestyle Pressure Rises", "Year 8", 96, "lifestyle-pressure-rises"],
+    ["story-step-data-confidence-limited", "data-quality", "unknown", "Data Confidence Limited", "Year 10", 120, "data-confidence-limited"],
+    ["story-step-final-outcome", "final-outcome", finalTitle === "Resources Run Out" ? "critical" : "stable", finalTitle, finalTitle === "Resources Run Out" ? "Year 12" : "Still funded", finalTitle === "Resources Run Out" ? 144 : null, finalTitle === "Resources Run Out" ? "resourcesRunOut" : "familyRunwayRemainsFunded"]
+  ];
+  return {
+    storySteps: sourceSteps.map(function (step, index) {
+      return {
+        id: step[0],
+        stepNumber: index + 1,
+        lockedPosition: index === 0 ? "first" : index === 8 ? "final" : null,
+        role: index === 0 ? "trigger" : index === 8 ? "finalOutcome" : "intermediate",
+        category: step[1],
+        tone: step[2],
+        title: step[3],
+        shortLabel: step[3],
+        timingLabel: step[4],
+        relativeMonth: step[5],
+        graphDotId: index === 0 || (index === 8 && finalTitle !== "Resources Run Out") ? null : `major-dot-${step[6]}`,
+        sourceEventId: step[6],
+        trace: { source: "test-milestone-strip" }
+      };
+    }),
+    majorGraphDots: [],
+    supportingGraphDots: [],
+    connectors: [],
+    suppressed: [],
+    trace: { status: "built", rendered: false }
+  };
+}
 
 const majorStoryFixture = JSON.parse(JSON.stringify(fixture));
 majorStoryFixture.financialStoryline = {
@@ -3196,28 +3241,39 @@ majorStoryFixture.financialStoryline = {
     };
   }))
 };
+majorStoryFixture.timelineStoryAssembly = makeMilestoneStripAssembly();
 const majorStoryHost = { innerHTML: "" };
 harness.renderIncomeImpact(majorStoryHost, { timelineResult: majorStoryFixture });
 assert.ok(majorStoryFixture.financialStoryline.majorStoryCandidates.length > 6);
 assert.equal(
-  (majorStoryHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
-  6,
-  "Financial Depletion Story should render no more than six major story cards."
+  (majorStoryHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
+  9,
+  "Milestone Story should render all nine assembled story steps."
 );
-assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-depletion-story-empty/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-event-id="death-income-stops"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-family="housing"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-major-story-severity="at-risk"/);
-assert.match(majorStoryHost.innerHTML, /Death &amp; Income Stops/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-milestone-strip-empty/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-major-story-card(?:\s|>)/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /Financial Depletion Story/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-source-event-id="death-income-stops"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="01"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="09"/);
+assert.match(majorStoryHost.innerHTML, /Death \/ Income Stops/);
+assert.match(majorStoryHost.innerHTML, /Resources Run Out/);
 assert.match(majorStoryHost.innerHTML, /At death/);
-assert.match(majorStoryHost.innerHTML, /\$50,000/);
-assert.match(majorStoryHost.innerHTML, /Housing payments continue beyond projected liquid resources\./);
+assert.match(majorStoryHost.innerHTML, /Month 12/);
+assert.match(majorStoryHost.innerHTML, /Stable/);
+assert.match(majorStoryHost.innerHTML, /Caution/);
+assert.match(majorStoryHost.innerHTML, /At Risk/);
+assert.match(majorStoryHost.innerHTML, /Critical/);
+assert.match(majorStoryHost.innerHTML, /Unknown/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /income-impact-milestone-step__amount|income-impact-milestone-step__description/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /Housing payments continue beyond projected liquid resources\./);
+assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-milestone-step-category|income-impact-milestone-step__category/);
 assert.ok(
-  majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="death-income-stops"') <
-    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="cash-savings-depleted"') &&
-    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="cash-savings-depleted"') <
-    majorStoryHost.innerHTML.indexOf('data-income-impact-major-story-event-id="housing-payment-at-risk"'),
-  "Major story cards should preserve selector order with death first when supplied first."
+  majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="01"') <
+    majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="02"') &&
+    majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="02"') <
+    majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="09"'),
+  "Milestone story steps should preserve assembled ordinal order."
 );
 assert.doesNotMatch(majorStoryHost.innerHTML, /lower-priority-over-cap|Lower Priority Event/);
 assert.equal(
@@ -3288,14 +3344,14 @@ assert.ok(
   "Diagnostic timelineStoryEvents should be more numerous than visible major-card candidates."
 );
 assert.equal(
-  (fourMajorStoryHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
-  4,
-  "A four-candidate major story source should render four visible block cards even when timelineStoryEvents has more."
+  (fourMajorStoryHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
+  9,
+  "A four-candidate legacy major story source should not reduce the assembled nine-step milestone strip."
 );
 assert.doesNotMatch(
   fourMajorStoryHost.innerHTML,
-  /data-income-impact-major-story-event-id="education-savings-depleted"/,
-  "timelineStoryEvents should not promote extra normalized events into block cards."
+  /data-income-impact-major-story-card(?:\s|>)/,
+  "timelineStoryEvents should not promote extra normalized events into old block cards."
 );
 
 const reusedRunOutMarkerFixture = JSON.parse(JSON.stringify(fixture));
@@ -3367,7 +3423,7 @@ harness.renderIncomeImpact(emptyMajorStoryHost, {
     financialStoryline: { majorStoryCandidates: [] }
   }
 });
-assert.match(emptyMajorStoryHost.innerHTML, /data-income-impact-depletion-story-empty/);
+assert.match(emptyMajorStoryHost.innerHTML, /data-income-impact-milestone-strip-empty/);
 assert.doesNotMatch(emptyMajorStoryHost.innerHTML, /data-income-impact-major-story-card(?:\s|>)/);
 
 const noConnectorDotHost = { innerHTML: "" };
@@ -3381,9 +3437,9 @@ harness.renderIncomeImpact(noConnectorDotHost, {
   }
 });
 assert.equal(
-  (noConnectorDotHost.innerHTML.match(/data-income-impact-major-story-card(?:\s|>)/g) || []).length,
-  6,
-  "Major story cards should still render when graph dot candidates are missing."
+  (noConnectorDotHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
+  9,
+  "Milestone story strip should still render when graph dot candidates are missing."
 );
 assert.doesNotMatch(
   noConnectorDotHost.innerHTML,

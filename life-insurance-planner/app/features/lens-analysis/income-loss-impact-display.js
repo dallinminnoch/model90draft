@@ -5514,6 +5514,98 @@
     `;
   }
 
+  function getTimelineStoryAssemblySteps(timelineResult) {
+    const steps = (Array.isArray(timelineResult?.timelineStoryAssembly?.storySteps)
+      ? timelineResult.timelineStoryAssembly.storySteps
+      : []
+    ).filter(isPlainObject);
+    return steps.length === 9 ? steps.slice(0, 9) : [];
+  }
+
+  function normalizeMilestoneTone(tone) {
+    const normalized = String(tone || "").trim().toLowerCase().replace(/[^a-z]/g, "");
+    if (normalized === "stable") {
+      return "stable";
+    }
+    if (normalized === "caution") {
+      return "caution";
+    }
+    if (normalized === "atrisk") {
+      return "atRisk";
+    }
+    if (normalized === "critical" || normalized === "likelyfailure") {
+      return "critical";
+    }
+    return "unknown";
+  }
+
+  function getMilestoneToneLabel(tone) {
+    switch (normalizeMilestoneTone(tone)) {
+      case "stable":
+        return "Stable";
+      case "caution":
+        return "Caution";
+      case "atRisk":
+        return "At Risk";
+      case "critical":
+        return "Critical";
+      default:
+        return "Unknown";
+    }
+  }
+
+  function getMilestoneStepTitle(step) {
+    return normalizeString(step?.title || step?.shortLabel || step?.sourceEventId || step?.id) || "Milestone";
+  }
+
+  function renderMilestoneStoryStep(step, index) {
+    const stepNumber = String(toOptionalNumber(step?.stepNumber) || index + 1).padStart(2, "0");
+    const tone = normalizeMilestoneTone(step?.tone);
+    const toneLabel = getMilestoneToneLabel(step?.tone);
+    const title = getMilestoneStepTitle(step);
+    const timingLabel = normalizeString(step?.timingLabel) || "Timing unavailable";
+    return `
+      <article
+        class="income-impact-milestone-step income-impact-milestone-step--tone-${escapeHtml(tone)}"
+        data-income-impact-milestone-step
+        data-income-impact-milestone-step-id="${escapeHtml(step?.id || "")}"
+        data-income-impact-milestone-step-number="${escapeHtml(stepNumber)}"
+        data-income-impact-milestone-step-tone="${escapeHtml(tone)}"
+        data-income-impact-milestone-step-role="${escapeHtml(step?.role || "")}"
+        data-income-impact-milestone-step-source-event-id="${escapeHtml(step?.sourceEventId || "")}"
+        aria-label="${escapeHtml(`${stepNumber}. ${title}, ${toneLabel}, ${timingLabel}`)}"
+      >
+        <div class="income-impact-milestone-step__topline">
+          <span class="income-impact-milestone-step__number">${escapeHtml(stepNumber)}</span>
+          <span class="income-impact-milestone-step__tone" data-income-impact-milestone-step-tone-label>${escapeHtml(toneLabel)}</span>
+        </div>
+        <h4 class="income-impact-milestone-step__title">${escapeHtml(title)}</h4>
+        <p class="income-impact-milestone-step__timing">${escapeHtml(timingLabel)}</p>
+      </article>
+    `;
+  }
+
+  function renderIncomeImpactMilestoneStoryStrip(timelineResult) {
+    const storySteps = getTimelineStoryAssemblySteps(timelineResult);
+    return `
+      <section class="income-impact-milestone-story" data-income-impact-milestone-story aria-label="Income Impact Milestone Story">
+        <div class="income-impact-milestone-story__header">
+          <h3>
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 10.5L3.6 7.5L6.2 9L9.2 4.2L12 5.8" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            Milestone Story
+          </h3>
+        </div>
+        <div class="income-impact-milestone-strip" data-income-impact-milestone-strip>
+          ${storySteps.length ? storySteps.map(renderMilestoneStoryStep).join("") : `
+            <p class="income-impact-milestone-strip__empty" data-income-impact-milestone-strip-empty>
+              Milestone story will appear once verified timeline events are assembled.
+            </p>
+          `}
+        </div>
+      </section>
+    `;
+  }
+
   function renderFinancialDepletionStoryScaffold(timelineResult) {
     const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
     return `
@@ -6058,7 +6150,7 @@
       <div class="income-impact-layout" data-income-impact-layout>
         ${renderTopSummaryStrip(timelineResult)}
         <section class="income-impact-story-chart-card" data-income-impact-story-chart-card>
-          ${renderFinancialDepletionStoryScaffold(timelineResult)}
+          ${renderIncomeImpactMilestoneStoryStrip(timelineResult)}
           <div class="income-impact-layout-main" data-income-impact-layout-main>
             ${renderTimeline(timelineResult)}
           </div>
