@@ -1,0 +1,309 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const repoRoot = path.resolve(__dirname, "..", "..");
+const helperPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "income-impact-timeline-story-assembly.js"
+);
+
+const helper = require(helperPath);
+const {
+  buildIncomeImpactTimelineStoryAssembly,
+  INCOME_IMPACT_TIMELINE_STORY_ASSEMBLY_VERSION
+} = helper;
+
+assert.equal(typeof buildIncomeImpactTimelineStoryAssembly, "function");
+assert.equal(INCOME_IMPACT_TIMELINE_STORY_ASSEMBLY_VERSION, "income-impact-timeline-story-assembly-v1");
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createBrowserContext() {
+  const context = {
+    console,
+    window: null,
+    LensApp: { lensAnalysis: {} }
+  };
+  context.window = context;
+  context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(helperPath, "utf8"), context, { filename: helperPath });
+  return context;
+}
+
+function build(input) {
+  return cloneJson(buildIncomeImpactTimelineStoryAssembly(input));
+}
+
+function assertNoMutation(input, action) {
+  const before = JSON.stringify(input);
+  action();
+  assert.equal(JSON.stringify(input), before, "story assembly helper must not mutate input objects");
+}
+
+function makeEvent(id, month, family, severity, title, extra = {}) {
+  return Object.assign({
+    id,
+    monthIndex: month,
+    family,
+    severity,
+    cardTitle: title,
+    graphLabel: title,
+    safeToRender: true,
+    status: severity === "stable" ? "safe-now" : "caution",
+    evidenceLevel: "calculated",
+    priority: month == null ? 999 : month
+  }, extra);
+}
+
+function assertHasKeys(object, keys, message) {
+  keys.forEach(function (key) {
+    assert.ok(Object.prototype.hasOwnProperty.call(object, key), `${message}: missing ${key}`);
+  });
+}
+
+function assertAssemblyShape(result) {
+  assertHasKeys(result, ["storySteps", "majorGraphDots", "supportingGraphDots", "connectors", "suppressed", "trace"], "assembly output");
+  result.storySteps.forEach(function (step) {
+    assertHasKeys(step, [
+      "id",
+      "stepNumber",
+      "lockedPosition",
+      "role",
+      "category",
+      "tone",
+      "title",
+      "shortLabel",
+      "timingLabel",
+      "relativeMonth",
+      "graphDotId",
+      "sourceEventId",
+      "trace"
+    ], `story step ${step.id}`);
+  });
+  result.majorGraphDots.forEach(function (dot) {
+    assertHasKeys(dot, ["id", "connectedStepId", "tone", "relativeMonth", "sourceEventId", "trace"], `major dot ${dot.id}`);
+    assert.equal(Object.prototype.hasOwnProperty.call(dot, "label"), false, "Large connected dots should not duplicate graph labels.");
+    assert.equal(Object.prototype.hasOwnProperty.call(dot, "title"), false, "Large connected dots should not duplicate card titles.");
+  });
+  result.supportingGraphDots.forEach(function (dot) {
+    assertHasKeys(dot, ["id", "tone", "relativeMonth", "sourceEventId", "trace"], `supporting dot ${dot.id}`);
+    assert.equal(Object.prototype.hasOwnProperty.call(dot, "label"), false, "Supporting dots should not show default labels.");
+  });
+  result.connectors.forEach(function (connector) {
+    assertHasKeys(connector, ["id", "stepId", "graphDotId", "trace"], `connector ${connector.id}`);
+  });
+}
+
+const browserContext = createBrowserContext();
+assert.equal(
+  typeof browserContext.LensApp.lensAnalysis.buildIncomeImpactTimelineStoryAssembly,
+  "function"
+);
+
+const empty = build();
+assertAssemblyShape(empty);
+assert.equal(empty.storySteps.length, 2);
+assert.equal(empty.storySteps[0].title, "Death / Income Stops");
+assert.equal(empty.storySteps[0].graphDotId, null);
+assert.equal(empty.storySteps[1].title, "Family Runway Remains Funded");
+assert.equal(empty.majorGraphDots.length, 0);
+assert.equal(empty.connectors.length, 0);
+assert.equal(empty.trace.noUiMutation, true);
+assert.equal(empty.trace.noGraphMutation, true);
+
+const timedEvents = [
+  makeEvent("cash-reserve-holds", 1, "cash-waterfall", "stable", "Cash Reserve Holds"),
+  makeEvent("housing-payment-at-risk", 2, "housing-risk", "at-risk", "Housing Payment At Risk"),
+  makeEvent("education-funding-redirected", 3, "education-waterfall", "caution", "Education Funding Redirected"),
+  makeEvent("lifestyle-cuts-begin", 4, "lifestyle-risk", "caution", "Lifestyle Cuts Begin"),
+  makeEvent("support-gap-begins", 5, "gap", "at-risk", "Support Gap Begins"),
+  makeEvent("care-expenses-covered", 6, "care-risk", "stable", "Care Expenses Covered"),
+  makeEvent("retirement-assets-tapped", 7, "retirement-waterfall", "critical", "Retirement Assets Tapped"),
+  makeEvent("cash-savings-depleted", 8, "cash-waterfall", "critical", "Cash Savings Depleted"),
+  makeEvent("rent-payment-pressure", 9, "housing-risk", "caution", "Rent Payment Pressure"),
+  makeEvent("data-confidence-limited", null, "data-quality", "unknown", "Data Confidence Limited"),
+  makeEvent("not-applicable", 10, "vehicle-risk", "caution", "Not Applicable", {
+    safeToRender: false
+  })
+];
+
+const runoutInput = {
+  financialStoryline: {
+    safeRenderableEvents: timedEvents,
+    suppressedCandidates: [
+      { id: "suppressed-source", suppressionReason: "lower-priority" }
+    ]
+  },
+  timelineStoryEvents: {
+    events: [
+      makeEvent("stable-covered-event", 2.5, "cash-waterfall", "stable", "Stable Covered Event")
+    ]
+  },
+  riskEvents: [
+    makeEvent("risk-event-direct", 3.5, "housing-risk", "critical", "Direct Risk Event")
+  ],
+  stableEvents: [
+    makeEvent("stable-event-direct", 4.5, "care-risk", "stable", "Direct Stable Event")
+  ],
+  graphModel: {
+    series: {
+      appliedRunwayScenarios: [
+        {
+          selected: true,
+          depletionPoint: {
+            relativeMonthsFromDeath: 24
+          }
+        }
+      ]
+    }
+  },
+  options: {
+    supportingGraphDotLimit: 3
+  }
+};
+
+assertNoMutation(runoutInput, function () {
+  const result = build(runoutInput);
+  assertAssemblyShape(result);
+  assert.equal(result.storySteps.length, 9);
+  assert.equal(result.trace.exactNineStepTargetMet, true);
+  assert.equal(result.storySteps[0].stepNumber, 1);
+  assert.equal(result.storySteps[0].lockedPosition, "first");
+  assert.equal(result.storySteps[0].title, "Death / Income Stops");
+  assert.equal(result.storySteps[0].graphDotId, null);
+
+  const finalStep = result.storySteps[8];
+  assert.equal(finalStep.stepNumber, 9);
+  assert.equal(finalStep.lockedPosition, "final");
+  assert.equal(finalStep.title, "Resources Run Out");
+  assert.equal(finalStep.trace.finalOutcomeType, "resourcesRunOut");
+  assert.ok(finalStep.graphDotId, "Runout final outcome should get a large dot.");
+  assert.ok(
+    result.majorGraphDots.some(function (dot) {
+      return dot.connectedStepId === finalStep.id && dot.sourceEventId === "resourcesRunOut";
+    }),
+    "Runout final outcome dot should connect to the final step."
+  );
+
+  const intermediateSteps = result.storySteps.slice(1, 8);
+  assert.deepEqual(
+    intermediateSteps.map(function (step) { return step.stepNumber; }),
+    [2, 3, 4, 5, 6, 7, 8]
+  );
+  const intermediateMonths = intermediateSteps.map(function (step) {
+    return step.relativeMonth;
+  });
+  assert.deepEqual(
+    intermediateMonths,
+    intermediateMonths.slice().sort(function (left, right) { return left - right; }),
+    "Steps 2-8 should be ordered by relativeMonth."
+  );
+  intermediateSteps.forEach(function (step) {
+    assert.ok(step.graphDotId, `${step.id} should have a major graph dot.`);
+    assert.ok(
+      result.majorGraphDots.some(function (dot) {
+        return dot.id === step.graphDotId && dot.connectedStepId === step.id;
+      }),
+      `${step.id} should have a matching major graph dot.`
+    );
+    assert.ok(
+      result.connectors.some(function (connector) {
+        return connector.stepId === step.id && connector.graphDotId === step.graphDotId;
+      }),
+      `${step.id} should have a connector relationship.`
+    );
+  });
+
+  assert.ok(
+    intermediateSteps.some(function (step) { return step.tone === "stable"; }),
+    "Stable events should be eligible for main story steps."
+  );
+  assert.ok(
+    intermediateSteps.some(function (step) { return step.tone === "atRisk" || step.tone === "critical"; }),
+    "Risky events should be eligible for main story steps."
+  );
+  assert.equal(
+    result.suppressed.some(function (item) {
+      return item.sourceEventId === "data-confidence-limited" && item.reason === "missing-reliable-timing";
+    }),
+    true
+  );
+  assert.equal(
+    result.suppressed.some(function (item) {
+      return item.sourceEventId === "not-applicable" && item.reason === "non-applicable";
+    }),
+    true
+  );
+  assert.ok(result.trace.missingTimingExclusionCount >= 1);
+  assert.ok(result.trace.controlledRepeatUsage >= 1);
+  assert.equal(result.supportingGraphDots.length <= 3, true);
+  result.supportingGraphDots.forEach(function (dot) {
+    assert.equal(
+      intermediateSteps.some(function (step) {
+        return step.sourceEventId === dot.sourceEventId;
+      }),
+      false,
+      "Supporting dots must exclude events already used as major steps."
+    );
+  });
+  assert.equal(result.trace.inputCounts.financialStorylineSafeRenderable, timedEvents.length);
+  assert.equal(result.trace.inputCounts.financialStorylineSuppressed, 1);
+  assert.equal(result.trace.finalOutcomeSource, "graphModel.depletionPoint");
+  assert.equal(result.trace.majorGraphDotCount, result.majorGraphDots.length);
+  assert.equal(result.trace.connectorCount, result.connectors.length);
+});
+
+const fundedResult = build({
+  financialStoryline: {
+    safeRenderableEvents: timedEvents.slice(0, 7)
+  },
+  scenario: {
+    postDeathSeries: {
+      depletion: {
+        depleted: false
+      }
+    }
+  }
+});
+assertAssemblyShape(fundedResult);
+const fundedFinalStep = fundedResult.storySteps[fundedResult.storySteps.length - 1];
+assert.equal(fundedFinalStep.title, "Family Runway Remains Funded");
+assert.equal(fundedFinalStep.graphDotId, null);
+assert.equal(
+  fundedResult.majorGraphDots.some(function (dot) {
+    return dot.connectedStepId === fundedFinalStep.id;
+  }),
+  false,
+  "Funded final outcome should not require a dot in V1."
+);
+
+const scenarioRunout = build({
+  financialStoryline: {
+    safeRenderableEvents: timedEvents.slice(0, 7)
+  },
+  scenario: {
+    postDeathSeries: {
+      depletion: {
+        depleted: true,
+        monthsCovered: 18
+      }
+    }
+  }
+});
+assertAssemblyShape(scenarioRunout);
+assert.equal(scenarioRunout.storySteps[8].title, "Resources Run Out");
+assert.equal(scenarioRunout.storySteps[8].relativeMonth, 18);
+assert.ok(scenarioRunout.storySteps[8].graphDotId);
+
+console.log("income-impact-timeline-story-assembly-check passed");
