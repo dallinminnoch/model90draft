@@ -2503,7 +2503,30 @@
     };
   }
 
-  function formatPostDeathFocusXTickLabel(relativeMonths) {
+  function roundGraphAxisMonth(value) {
+    const number = toOptionalNumber(value);
+    return number == null ? null : Number(number.toFixed(6));
+  }
+
+  function axisMonthIsNearInteger(value) {
+    const number = toOptionalNumber(value);
+    return number != null && Math.abs(number - Math.round(number)) <= 0.000001;
+  }
+
+  function addUniqueGraphAxisMonth(ticks, month, horizonMonths) {
+    const roundedMonth = roundGraphAxisMonth(month);
+    const horizon = toOptionalNumber(horizonMonths);
+    if (roundedMonth == null || roundedMonth <= 0 || (horizon != null && roundedMonth > horizon + 0.000001)) {
+      return;
+    }
+    if (!ticks.some(function (candidate) {
+      return Math.abs(candidate - roundedMonth) <= 0.000001;
+    })) {
+      ticks.push(roundedMonth);
+    }
+  }
+
+  function formatAdaptiveRelativeXTickLabel(relativeMonths) {
     const months = toOptionalNumber(relativeMonths);
     if (months == null) {
       return "";
@@ -2512,8 +2535,14 @@
       const days = Math.max(1, Math.round(months * DAYS_PER_MONTH));
       return `+${days} ${days === 1 ? "day" : "days"}`;
     }
+    if (months < 3 && !axisMonthIsNearInteger(months)) {
+      const weeks = Math.max(1, Math.round(months / ONE_WEEK_IN_MONTHS));
+      return `+${weeks} wk`;
+    }
     if (months < MONTHS_PER_YEAR) {
-      return `+${Math.round(months)} mo`;
+      return axisMonthIsNearInteger(months)
+        ? `+${Math.round(months)} mo`
+        : `+${Number(months.toFixed(1))} mo`;
     }
     const years = months / MONTHS_PER_YEAR;
     if (Math.abs(years - Math.round(years)) <= 0.000001) {
@@ -2523,46 +2552,70 @@
     return `+${Number(years.toFixed(1))} years`;
   }
 
-  function getPostDeathFocusXTickMonths(displayHorizonMonths) {
+  function getAdaptiveXTickStepMonths(horizonMonths) {
+    if (horizonMonths <= 1) {
+      const horizonDays = Math.max(1, Math.round(horizonMonths * DAYS_PER_MONTH));
+      return (horizonDays <= 10 ? 1 : 7) * ONE_DAY_IN_MONTHS;
+    }
+    if (horizonMonths <= 2) {
+      return ONE_WEEK_IN_MONTHS;
+    }
+    if (horizonMonths <= 6) {
+      return 1;
+    }
+    if (horizonMonths <= 12) {
+      return 2;
+    }
+    if (horizonMonths <= 36) {
+      return 6;
+    }
+    if (horizonMonths <= 72) {
+      return MONTHS_PER_YEAR;
+    }
+    if (horizonMonths <= 240) {
+      return 24;
+    }
+    if (horizonMonths <= 360) {
+      return 60;
+    }
+    return 120;
+  }
+
+  function getAdaptiveGraphViewFrameXTickMonths(displayHorizonMonths, options = {}) {
     const horizonMonths = Math.max(toOptionalNumber(displayHorizonMonths) || 0, 0);
     if (horizonMonths <= 0) {
       return [];
     }
-    let stepMonths;
-    if (horizonMonths <= 1) {
-      const horizonDays = Math.max(1, Math.round(horizonMonths * DAYS_PER_MONTH));
-      const stepDays = horizonDays <= 7 ? 1 : 7;
-      stepMonths = stepDays * ONE_DAY_IN_MONTHS;
-    } else if (horizonMonths <= 3) {
-      stepMonths = ONE_WEEK_IN_MONTHS;
-    } else if (horizonMonths <= 12) {
-      stepMonths = 1;
-    } else if (horizonMonths <= 24) {
-      stepMonths = 6;
-    } else if (horizonMonths <= 60) {
-      stepMonths = MONTHS_PER_YEAR;
-    } else if (horizonMonths <= 240) {
-      stepMonths = 24;
-    } else {
-      return [5, 10, 15, 20, 30, 40]
-        .map(function (years) { return years * MONTHS_PER_YEAR; })
-        .filter(function (months) { return months <= horizonMonths; });
-    }
     const ticks = [];
+    const stepMonths = getAdaptiveXTickStepMonths(horizonMonths);
     for (let month = stepMonths; month <= horizonMonths + (stepMonths * 0.001); month += stepMonths) {
-      ticks.push(Number(month.toFixed(6)));
+      addUniqueGraphAxisMonth(ticks, month, horizonMonths);
     }
-    const lastTick = ticks[ticks.length - 1];
-    if (Math.abs((lastTick ?? 0) - horizonMonths) > 0.000001) {
-      ticks.push(Number(horizonMonths.toFixed(6)));
+    const runoutMonth = toOptionalNumber(options.runoutMonth);
+    if (runoutMonth != null && runoutMonth > 0 && runoutMonth < horizonMonths) {
+      addUniqueGraphAxisMonth(ticks, runoutMonth, horizonMonths);
     }
-    return ticks;
+    if (horizonMonths >= 1) {
+      addUniqueGraphAxisMonth(ticks, horizonMonths, horizonMonths);
+    }
+    const labels = new Set();
+    return ticks
+      .sort(function (left, right) { return left - right; })
+      .filter(function (month) {
+        const label = formatAdaptiveRelativeXTickLabel(month);
+        if (!label || labels.has(label)) {
+          return false;
+        }
+        labels.add(label);
+        return true;
+      });
   }
 
   function makePostDeathFocusXTicks(dates, layoutFrame) {
     const deathDate = normalizeDateOnly(dates?.deathDate);
     const parsedDeathDate = parseDateOnly(deathDate);
     const horizonMonths = toOptionalNumber(layoutFrame?.xDomainMonths);
+    const runoutMonth = toOptionalNumber(layoutFrame?.zeroCrossingAnchorMonth);
     if (horizonMonths == null || horizonMonths <= 0) {
       return [];
     }
@@ -2582,12 +2635,12 @@
         regeneratedForPostDeathFocus: true
       }
     }];
-    getPostDeathFocusXTickMonths(horizonMonths).forEach(function (relativeMonths) {
+    getAdaptiveGraphViewFrameXTickMonths(horizonMonths, { runoutMonth }).forEach(function (relativeMonths) {
       const tickDate = parsedDeathDate ? addRelativeMonths(parsedDeathDate, relativeMonths) : null;
       ticks.push({
         id: `plus-${relativeMonths}`,
         key: `plus-${relativeMonths}`,
-        label: formatPostDeathFocusXTickLabel(relativeMonths),
+        label: formatAdaptiveRelativeXTickLabel(relativeMonths),
         date: tickDate ? normalizeDateOnly(tickDate) : "",
         xRatio: 0,
         relativeYears: relativeMonths / MONTHS_PER_YEAR,
@@ -2622,60 +2675,98 @@
     return zeroRatio + ((Math.abs(number) / Math.abs(min)) * negativeBandRatio);
   }
 
-  function makePostDeathFocusYTicks(layoutFrame) {
+  function getGraphViewFrameYTickStep(yDomain) {
+    const max = Math.max(toOptionalNumber(yDomain?.max) || 0, 0);
+    const deficitMax = Math.abs(Math.min(toOptionalNumber(yDomain?.min) || 0, 0));
+    const maxMagnitude = Math.max(max, deficitMax);
+    let tickStep = getNiceContinuousAxisStep(maxMagnitude, 5);
+    if (deficitMax > 0 && tickStep > deficitMax) {
+      [6, 8, 10].some(function (targetSteps) {
+        const candidateStep = getNiceContinuousAxisStep(maxMagnitude, targetSteps);
+        if (candidateStep > 0 && candidateStep <= deficitMax) {
+          tickStep = candidateStep;
+          return true;
+        }
+        return false;
+      });
+    }
+    return tickStep;
+  }
+
+  function makeGraphViewFrameYTicks(layoutFrame, mode) {
     const yDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : {};
     const max = Math.max(toOptionalNumber(yDomain.max) || 0, 0);
     const deficitMax = Math.abs(Math.min(toOptionalNumber(yDomain.min) || 0, 0));
     const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
-    const maxMagnitude = Math.max(max, deficitMax);
-    const tickStep = getNiceContinuousAxisStep(maxMagnitude, 4);
+    const tickStep = getGraphViewFrameYTickStep(yDomain);
+    const graphViewFrameMode = normalizeString(mode);
     const ticks = [];
     if (tickStep > 0 && max > 0) {
       for (let value = tickStep; value <= max + (tickStep * 0.001); value += tickStep) {
         const roundedValue = roundAxisValue(value);
         ticks.push({
-          key: `focus-funded-${Math.round(roundedValue)}`,
+          key: `${graphViewFrameMode || "view-frame"}-funded-${Math.round(roundedValue)}`,
           zone: "fundedRunway",
           value: roundedValue,
           yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
           trace: {
             generatedBy: CALCULATION_METHOD,
-            graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
-            regeneratedForPostDeathFocus: true,
+            graphViewFrameMode,
+            generatedForViewFrame: true,
             tickStep
           }
         });
       }
     }
     ticks.push({
-      key: "focus-zero",
+      key: `${graphViewFrameMode || "view-frame"}-zero`,
       zone: "zero",
       value: 0,
       yRatio: getPostDeathFocusYRatioForValue(0, yDomain, zeroYRatio),
       baseline: true,
       trace: {
         generatedBy: CALCULATION_METHOD,
-        graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
-        regeneratedForPostDeathFocus: true,
+        graphViewFrameMode,
+        generatedForViewFrame: true,
         tickStep
       }
     });
+    let negativeTickCreated = false;
     if (tickStep > 0 && deficitMax > 0) {
       for (let value = -tickStep; value >= -deficitMax - (tickStep * 0.001); value -= tickStep) {
         const roundedValue = roundAxisValue(value);
+        negativeTickCreated = true;
         ticks.push({
-          key: `focus-deficit-${Math.round(Math.abs(roundedValue))}`,
+          key: `${graphViewFrameMode || "view-frame"}-deficit-${Math.round(Math.abs(roundedValue))}`,
           zone: "deficit",
           value: roundedValue,
           yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
           trace: {
             generatedBy: CALCULATION_METHOD,
-            graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
-            regeneratedForPostDeathFocus: true,
+            graphViewFrameMode,
+            generatedForViewFrame: true,
             tickStep
           }
         });
       }
+    }
+    if (deficitMax > 0 && !negativeTickCreated) {
+      const deficitContextStep = getNiceContinuousAxisStep(deficitMax, 1);
+      const contextValue = -Math.min(deficitMax, deficitContextStep || deficitMax);
+      const roundedValue = roundAxisValue(contextValue);
+      ticks.push({
+        key: `${graphViewFrameMode || "view-frame"}-deficit-context-${Math.round(Math.abs(roundedValue))}`,
+        zone: "deficit",
+        value: roundedValue,
+        yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
+        trace: {
+          generatedBy: CALCULATION_METHOD,
+          graphViewFrameMode,
+          generatedForViewFrame: true,
+          tickStep,
+          deficitContextTick: true
+        }
+      });
     }
     return ticks;
   }
@@ -2759,7 +2850,7 @@
       mode: GRAPH_VIEW_FRAME_MODE_DEATH_LEAD_UP,
       layoutFrame,
       xTicks: axes.x?.ticks,
-      yTicks: axes.y?.ticks,
+      yTicks: makeGraphViewFrameYTicks(layoutFrame, GRAPH_VIEW_FRAME_MODE_DEATH_LEAD_UP),
       runoutAnchorMonth: layoutFrame.zeroCrossingAnchorMonth,
       runoutAnchorScenarioId: layoutFrame.zeroCrossingAnchorScenarioId,
       runoutAnchorSource: layoutFrame.zeroCrossingAnchorSource,
@@ -2773,7 +2864,7 @@
       mode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
       layoutFrame: focusedFrameSeed,
       xTicks: makePostDeathFocusXTicks(input?.dates, focusedFrameSeed),
-      yTicks: makePostDeathFocusYTicks(focusedFrameSeed),
+      yTicks: makeGraphViewFrameYTicks(focusedFrameSeed, GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS),
       runoutAnchorMonth: focusedFrameSeed.zeroCrossingAnchorMonth,
       runoutAnchorScenarioId: focusedFrameSeed.zeroCrossingAnchorScenarioId,
       runoutAnchorSource: focusedFrameSeed.zeroCrossingAnchorSource,
@@ -3227,23 +3318,7 @@
   }
 
   function formatRelativeXTickLabel(relativeMonths) {
-    const months = toOptionalNumber(relativeMonths);
-    if (months == null) {
-      return "";
-    }
-    if (months < 1) {
-      const days = Math.max(1, Math.round(months * DAYS_PER_MONTH));
-      return `+${days} ${days === 1 ? "day" : "days"}`;
-    }
-    if (months < MONTHS_PER_YEAR) {
-      return `+${Math.round(months)} mo`;
-    }
-    const years = months / MONTHS_PER_YEAR;
-    if (Math.abs(years - Math.round(years)) <= 0.000001) {
-      const roundedYears = Math.round(years);
-      return `+${roundedYears} ${roundedYears === 1 ? "year" : "years"}`;
-    }
-    return `+${Number(years.toFixed(1))} years`;
+    return formatAdaptiveRelativeXTickLabel(relativeMonths);
   }
 
   function getDeathRelativeXTickMonths(displayHorizonMonths) {
@@ -3253,41 +3328,7 @@
         return years * MONTHS_PER_YEAR;
       });
     }
-
-    let stepMonths;
-    if (horizonMonths <= 1) {
-      const horizonDays = Math.max(1, Math.round(horizonMonths * DAYS_PER_MONTH));
-      const stepDays = horizonDays <= 7 ? 1 : 7;
-      stepMonths = stepDays * ONE_DAY_IN_MONTHS;
-    } else if (horizonMonths <= 3) {
-      stepMonths = ONE_WEEK_IN_MONTHS;
-    } else if (horizonMonths <= 12) {
-      stepMonths = 1;
-    } else if (horizonMonths <= 24) {
-      stepMonths = 6;
-    } else if (horizonMonths <= 60) {
-      stepMonths = MONTHS_PER_YEAR;
-    } else if (horizonMonths <= 240) {
-      stepMonths = 24;
-    } else {
-      return DEATH_RELATIVE_X_TICK_YEARS
-        .map(function (years) {
-          return years * MONTHS_PER_YEAR;
-        })
-        .filter(function (months) {
-          return months <= horizonMonths;
-        });
-    }
-
-    const ticks = [];
-    for (let month = stepMonths; month <= horizonMonths; month += stepMonths) {
-      ticks.push(Number(month.toFixed(6)));
-    }
-    const lastTick = ticks[ticks.length - 1];
-    if (horizonMonths > 0 && (lastTick == null || Math.abs(lastTick - horizonMonths) > 0.000001)) {
-      ticks.push(horizonMonths);
-    }
-    return ticks;
+    return getAdaptiveGraphViewFrameXTickMonths(horizonMonths);
   }
 
   function makeXTicks(dates, xDomain, projection) {
