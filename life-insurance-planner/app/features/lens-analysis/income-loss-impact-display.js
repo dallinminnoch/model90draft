@@ -5606,6 +5606,224 @@
     `;
   }
 
+  const MILESTONE_DOT_ADAPTER_SOURCE = "income-impact-milestone-dot-adapter";
+
+  function normalizeMilestoneDotSeverity(tone) {
+    switch (normalizeMilestoneTone(tone)) {
+      case "stable":
+        return "stable";
+      case "caution":
+        return "caution";
+      case "atRisk":
+        return "at-risk";
+      case "critical":
+        return "critical";
+      default:
+        return "unknown";
+    }
+  }
+
+  function getMilestoneDotRelativeMonth(dot, step) {
+    const dotMonth = toOptionalNumber(dot?.relativeMonth);
+    if (dotMonth != null) {
+      return dotMonth;
+    }
+    return toOptionalNumber(step?.relativeMonth);
+  }
+
+  function getMilestoneDotTimingLabel(dot, step) {
+    const stepLabel = normalizeString(step?.timingLabel);
+    if (stepLabel) {
+      return stepLabel;
+    }
+    const relativeMonth = getMilestoneDotRelativeMonth(dot, step);
+    if (relativeMonth == null) {
+      return "Timeline event";
+    }
+    if (Math.abs(relativeMonth) <= 0.000001) {
+      return "At death";
+    }
+    const roundedMonth = Math.max(0, Math.round(relativeMonth));
+    return `Month ${roundedMonth}`;
+  }
+
+  function normalizeMilestoneGraphEventId(sourceEventId, fallbackId) {
+    const source = normalizeString(sourceEventId);
+    if (source === "resourcesRunOut" || source === "resources-run-out") {
+      return "resources-run-out";
+    }
+    if (source === "familyRunwayRemainsFunded" || source === "family-runway-remains-funded") {
+      return "family-runway-remains-funded";
+    }
+    return source || normalizeString(fallbackId);
+  }
+
+  function buildMilestoneDotCandidate(dot, step, tier, index) {
+    const relativeMonth = getMilestoneDotRelativeMonth(dot, step);
+    if (relativeMonth == null) {
+      return null;
+    }
+    const isMajor = tier === "major";
+    const stepNumber = toOptionalNumber(step?.stepNumber);
+    const title = getMilestoneStepTitle(step || dot);
+    const sourceEventId = normalizeString(dot?.sourceEventId || step?.sourceEventId);
+    const eventId = normalizeMilestoneGraphEventId(sourceEventId, dot?.id || step?.id);
+    if (!eventId || eventId === "death-income-stops") {
+      return null;
+    }
+    const severity = normalizeMilestoneDotSeverity(dot?.tone || step?.tone);
+    const timingLabel = getMilestoneDotTimingLabel(dot, step);
+    const stripIndex = stepNumber == null ? null : Math.max(0, Math.round(stepNumber) - 1);
+    return {
+      id: eventId,
+      sourceEventId,
+      sourceAssemblyDotId: normalizeString(dot?.id),
+      sourceMilestoneStepId: normalizeString(step?.id || dot?.connectedStepId),
+      connectedStepId: normalizeString(dot?.connectedStepId || step?.id),
+      family: normalizeString(step?.category) || "event",
+      severity,
+      dotTier: isMajor ? "major" : "micro",
+      timing: {
+        kind: Math.abs(relativeMonth) <= 0.000001 ? "death-event" : "month-offset",
+        monthOffset: relativeMonth,
+        label: timingLabel
+      },
+      graphLabel: "",
+      displayLabel: title,
+      cardTitle: title,
+      amount: null,
+      evidenceLevel: "assembled",
+      connectedToMajorCard: isMajor,
+      eligibleForConnector: isMajor,
+      majorCardIndex: isMajor ? stripIndex : null,
+      milestoneStepNumber: stepNumber,
+      sourceCandidateType: isMajor ? "milestone-major-dot" : "milestone-supporting-dot",
+      trace: {
+        source: MILESTONE_DOT_ADAPTER_SOURCE,
+        sourceAssemblyDotId: normalizeString(dot?.id),
+        sourceMilestoneStepId: normalizeString(step?.id),
+        sourceStepNumber: stepNumber,
+        stripStepIndex: stripIndex,
+        originalDotTrace: clonePlainValue(dot?.trace || null),
+        originalStepTrace: clonePlainValue(step?.trace || null),
+        noDefaultGraphLabel: true
+      },
+      originalIndex: index,
+      sourceIndex: index
+    };
+  }
+
+  function buildIncomeImpactMilestoneDotRenderCandidates(timelineStoryAssembly) {
+    const assembly = isPlainObject(timelineStoryAssembly) ? timelineStoryAssembly : {};
+    const storySteps = (Array.isArray(assembly.storySteps) ? assembly.storySteps : []).filter(isPlainObject);
+    const stepsById = new Map();
+    storySteps.forEach(function (step) {
+      const stepId = normalizeString(step?.id);
+      if (stepId) {
+        stepsById.set(stepId, step);
+      }
+    });
+
+    const majorDotCandidates = (Array.isArray(assembly.majorGraphDots) ? assembly.majorGraphDots : [])
+      .filter(isPlainObject)
+      .map(function (dot, index) {
+        const step = stepsById.get(normalizeString(dot?.connectedStepId)) || null;
+        return buildMilestoneDotCandidate(dot, step, "major", index);
+      })
+      .filter(Boolean);
+
+    const supportingDotCandidates = (Array.isArray(assembly.supportingGraphDots) ? assembly.supportingGraphDots : [])
+      .filter(isPlainObject)
+      .map(function (dot, index) {
+        const fallbackStep = {
+          id: `supporting-step-${normalizeString(dot?.sourceEventId || dot?.id)}`,
+          stepNumber: null,
+          role: "supporting",
+          category: "event",
+          tone: dot?.tone,
+          title: normalizeString(dot?.sourceEventId || dot?.id).replace(/-/g, " ") || "Supporting event",
+          shortLabel: normalizeString(dot?.sourceEventId || dot?.id),
+          timingLabel: getMilestoneDotTimingLabel(dot, null),
+          relativeMonth: dot?.relativeMonth,
+          graphDotId: dot?.id,
+          sourceEventId: dot?.sourceEventId,
+          trace: {
+            source: MILESTONE_DOT_ADAPTER_SOURCE,
+            fallbackSupportingStep: true
+          }
+        };
+        return buildMilestoneDotCandidate(dot, fallbackStep, "micro", index);
+      })
+      .filter(Boolean);
+
+    const majorCandidatesByDotId = new Map();
+    majorDotCandidates.forEach(function (candidate) {
+      const dotId = normalizeString(candidate?.sourceAssemblyDotId);
+      if (dotId && !majorCandidatesByDotId.has(dotId)) {
+        majorCandidatesByDotId.set(dotId, candidate);
+      }
+    });
+
+    const connectorCandidates = (Array.isArray(assembly.connectors) ? assembly.connectors : [])
+      .filter(isPlainObject)
+      .map(function (connector, index) {
+        const graphDotId = normalizeString(connector?.graphDotId);
+        const stepId = normalizeString(connector?.stepId);
+        const step = stepsById.get(stepId) || null;
+        const candidate = majorCandidatesByDotId.get(graphDotId) || null;
+        if (!step || !candidate) {
+          return null;
+        }
+        const stepNumber = toOptionalNumber(step.stepNumber);
+        const stripIndex = stepNumber == null ? null : Math.max(0, Math.round(stepNumber) - 1);
+        return {
+          id: normalizeString(connector?.id) || `milestone-connector-${stepId}-${graphDotId}`,
+          stepId,
+          graphDotId,
+          eventId: candidate.id,
+          sourceAssemblyConnectorId: normalizeString(connector?.id),
+          connectedStepId: stepId,
+          connectedDotId: graphDotId,
+          majorCardIndex: stripIndex,
+          milestoneStepNumber: stepNumber,
+          family: candidate.family,
+          severity: candidate.severity,
+          trace: {
+            source: MILESTONE_DOT_ADAPTER_SOURCE,
+            sourceAssemblyConnectorId: normalizeString(connector?.id),
+            stripStepIndex: stripIndex,
+            originalConnectorTrace: clonePlainValue(connector?.trace || null)
+          },
+          originalIndex: index,
+          sourceIndex: index
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      majorDotCandidates,
+      supportingDotCandidates,
+      connectorCandidates,
+      trace: {
+        source: MILESTONE_DOT_ADAPTER_SOURCE,
+        rendered: false,
+        inputCounts: {
+          storySteps: storySteps.length,
+          majorGraphDots: Array.isArray(assembly.majorGraphDots) ? assembly.majorGraphDots.length : 0,
+          supportingGraphDots: Array.isArray(assembly.supportingGraphDots) ? assembly.supportingGraphDots.length : 0,
+          connectors: Array.isArray(assembly.connectors) ? assembly.connectors.length : 0
+        },
+        outputCounts: {
+          majorDotCandidates: majorDotCandidates.length,
+          supportingDotCandidates: supportingDotCandidates.length,
+          connectorCandidates: connectorCandidates.length
+        },
+        visibleGraphDotSourceUnchanged: true,
+        oldGraphDotPathStillActive: true
+      }
+    };
+  }
+
   function renderFinancialDepletionStoryScaffold(timelineResult) {
     const majorStoryCandidates = getFinancialStorylineMajorCandidates(timelineResult);
     return `
