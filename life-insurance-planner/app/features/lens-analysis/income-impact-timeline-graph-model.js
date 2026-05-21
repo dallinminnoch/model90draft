@@ -13,6 +13,8 @@
   const X_AXIS_MODE_DEATH_RELATIVE_YEARS = "deathRelativeYears";
   const PROJECTION_MODE_DEATH_RELATIVE_RUNWAY = "deathRelativeRunway";
   const GRAPH_CONTRACT_MODE_SURVIVOR_RUNWAY_COMPARISON = "survivorRunwayComparison";
+  const GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS = "postDeathFocus";
+  const GRAPH_VIEW_FRAME_MODE_DEATH_LEAD_UP = "deathLeadUp";
   const DISPLAY_HORIZON_MODE_AUTO_DEPLETION = "autoFromAppliedScenarioDepletion";
   const VERTICAL_SCALE_MODE_CONTINUOUS_LINEAR = "continuousLinear";
   const DEATH_RELATIVE_DEATH_X_RATIO = 0.125;
@@ -42,6 +44,8 @@
     runoutAnchorXRatio: 0.8,
     negativeSupportBandRatio: 0.28
   });
+  const POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO = 0.12;
+  const POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO = 0.08;
   const RISK_SEVERITIES = Object.freeze(["critical", "at-risk", "caution"]);
   const PHASE_LABELS = Object.freeze({
     preDeath: "Before death",
@@ -2383,6 +2387,426 @@
     };
   }
 
+  function getGraphViewFramePointMonth(point) {
+    if (!isPlainObject(point)) {
+      return null;
+    }
+    const explicitMonth = toOptionalNumber(
+      point.relativeMonthsFromDeath ??
+        point.monthOffset ??
+        point.monthIndex ??
+        point.monthsAfterDeath ??
+        point.elapsedMonth ??
+        point.month
+    );
+    if (explicitMonth != null) {
+      return explicitMonth;
+    }
+    const relativeYears = toOptionalNumber(point.relativeYearsFromDeath ?? point.relativeYears);
+    return relativeYears == null ? null : relativeYears * MONTHS_PER_YEAR;
+  }
+
+  function getSelectedAppliedRunwayScenario(appliedRunwayScenarios, selectedScenarioId) {
+    const safeScenarios = Array.isArray(appliedRunwayScenarios)
+      ? appliedRunwayScenarios.filter(isPlainObject)
+      : [];
+    const normalizedSelectedScenarioId = normalizeString(selectedScenarioId);
+    return safeScenarios.find(function (series) {
+      return normalizedSelectedScenarioId && normalizeString(series.scenarioId) === normalizedSelectedScenarioId;
+    }) || safeScenarios.find(function (series) {
+      return series.selected === true;
+    }) || safeScenarios[0] || null;
+  }
+
+  function getPostDeathFocusRunwayStartPoint(appliedRunwayScenarios, selectedScenarioId) {
+    const selectedSeries = getSelectedAppliedRunwayScenario(appliedRunwayScenarios, selectedScenarioId);
+    const runwayLinePoints = Array.isArray(selectedSeries?.runwayLinePoints) ? selectedSeries.runwayLinePoints : [];
+    const seriesPoints = Array.isArray(selectedSeries?.points) ? selectedSeries.points : [];
+    const candidates = runwayLinePoints.length ? runwayLinePoints : seriesPoints;
+    return candidates.find(function (point) {
+      return getGraphViewFramePointMonth(point) === 0;
+    }) || candidates[0] || selectedSeries?.survivorResourcesAtDeathPoint || null;
+  }
+
+  function makePostDeathFocusStartAnchor(appliedRunwayScenarios, selectedScenarioId, layoutFrame) {
+    const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
+    const startPoint = getPostDeathFocusRunwayStartPoint(appliedRunwayScenarios, selectedScenarioId);
+    const startValue = getRunwayResourceValue(startPoint);
+    if (zeroYRatio == null || startValue == null || startValue <= 0) {
+      return null;
+    }
+    const targetYRatio = Math.max(
+      0,
+      Math.min(
+        POST_DEATH_FOCUS_RUNWAY_START_Y_RATIO,
+        Math.max(0, zeroYRatio - POST_DEATH_FOCUS_MIN_ZERO_GAP_RATIO)
+      )
+    );
+    const positiveBandRatio = zeroYRatio - targetYRatio;
+    if (positiveBandRatio <= 0.000001) {
+      return null;
+    }
+    return {
+      yRatio: targetYRatio,
+      value: startValue,
+      yDomainMax: startValue * (zeroYRatio / positiveBandRatio),
+      month: getGraphViewFramePointMonth(startPoint)
+    };
+  }
+
+  function makePostDeathFocusLinearYDomain(layoutYDomain, startAnchor, layoutFrame) {
+    if (!isPlainObject(layoutYDomain) || !startAnchor) {
+      return {
+        yDomain: layoutYDomain,
+        source: "shared-layout-frame",
+        linearScaleApplied: false
+      };
+    }
+    const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
+    const focusMax = toOptionalNumber(startAnchor.yDomainMax);
+    if (zeroYRatio == null || focusMax == null || focusMax <= 0 || zeroYRatio <= 0 || zeroYRatio >= 1) {
+      return {
+        yDomain: layoutYDomain,
+        source: "shared-layout-frame",
+        linearScaleApplied: false
+      };
+    }
+    const positiveBandRatio = zeroYRatio;
+    const negativeBandRatio = 1 - zeroYRatio;
+    return {
+      yDomain: Object.assign({}, layoutYDomain, {
+        max: focusMax,
+        min: -(focusMax * (negativeBandRatio / positiveBandRatio))
+      }),
+      source: "start-anchor-domain",
+      linearScaleApplied: true
+    };
+  }
+
+  function getPostDeathFocusSelectedZeroAnchor(appliedRunwayScenarios, selectedScenarioId, layoutFrame) {
+    const selectedSeries = getSelectedAppliedRunwayScenario(appliedRunwayScenarios, selectedScenarioId);
+    const depletionPoint = isPlainObject(selectedSeries?.depletionPoint) ? selectedSeries.depletionPoint : null;
+    const zeroMonth = toOptionalNumber(
+      depletionPoint?.relativeMonthsFromDeath ??
+        depletionPoint?.monthOffset ??
+        depletionPoint?.monthIndex
+    );
+    const runoutAnchorXRatio = toOptionalNumber(layoutFrame?.runoutAnchorXRatio);
+    if (!selectedSeries || zeroMonth == null || zeroMonth <= 0 || runoutAnchorXRatio == null || runoutAnchorXRatio <= 0) {
+      return null;
+    }
+    return {
+      scenarioId: normalizeString(selectedSeries.scenarioId || selectedScenarioId),
+      month: zeroMonth,
+      xDomainMonths: zeroMonth / runoutAnchorXRatio,
+      runoutAnchorXRatio
+    };
+  }
+
+  function formatPostDeathFocusXTickLabel(relativeMonths) {
+    const months = toOptionalNumber(relativeMonths);
+    if (months == null) {
+      return "";
+    }
+    if (months < 1) {
+      const days = Math.max(1, Math.round(months * DAYS_PER_MONTH));
+      return `+${days} ${days === 1 ? "day" : "days"}`;
+    }
+    if (months < MONTHS_PER_YEAR) {
+      return `+${Math.round(months)} mo`;
+    }
+    const years = months / MONTHS_PER_YEAR;
+    if (Math.abs(years - Math.round(years)) <= 0.000001) {
+      const roundedYears = Math.round(years);
+      return `+${roundedYears} ${roundedYears === 1 ? "year" : "years"}`;
+    }
+    return `+${Number(years.toFixed(1))} years`;
+  }
+
+  function getPostDeathFocusXTickMonths(displayHorizonMonths) {
+    const horizonMonths = Math.max(toOptionalNumber(displayHorizonMonths) || 0, 0);
+    if (horizonMonths <= 0) {
+      return [];
+    }
+    let stepMonths;
+    if (horizonMonths <= 1) {
+      const horizonDays = Math.max(1, Math.round(horizonMonths * DAYS_PER_MONTH));
+      const stepDays = horizonDays <= 7 ? 1 : 7;
+      stepMonths = stepDays * ONE_DAY_IN_MONTHS;
+    } else if (horizonMonths <= 3) {
+      stepMonths = ONE_WEEK_IN_MONTHS;
+    } else if (horizonMonths <= 12) {
+      stepMonths = 1;
+    } else if (horizonMonths <= 24) {
+      stepMonths = 6;
+    } else if (horizonMonths <= 60) {
+      stepMonths = MONTHS_PER_YEAR;
+    } else if (horizonMonths <= 240) {
+      stepMonths = 24;
+    } else {
+      return [5, 10, 15, 20, 30, 40]
+        .map(function (years) { return years * MONTHS_PER_YEAR; })
+        .filter(function (months) { return months <= horizonMonths; });
+    }
+    const ticks = [];
+    for (let month = stepMonths; month <= horizonMonths + (stepMonths * 0.001); month += stepMonths) {
+      ticks.push(Number(month.toFixed(6)));
+    }
+    const lastTick = ticks[ticks.length - 1];
+    if (Math.abs((lastTick ?? 0) - horizonMonths) > 0.000001) {
+      ticks.push(Number(horizonMonths.toFixed(6)));
+    }
+    return ticks;
+  }
+
+  function makePostDeathFocusXTicks(dates, layoutFrame) {
+    const deathDate = normalizeDateOnly(dates?.deathDate);
+    const parsedDeathDate = parseDateOnly(deathDate);
+    const horizonMonths = toOptionalNumber(layoutFrame?.xDomainMonths);
+    if (horizonMonths == null || horizonMonths <= 0) {
+      return [];
+    }
+    const ticks = [{
+      id: "death",
+      key: "death",
+      label: "Death",
+      date: deathDate,
+      xRatio: 0,
+      relativeYears: 0,
+      relativeMonths: 0,
+      axisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
+      trace: {
+        generatedBy: CALCULATION_METHOD,
+        graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
+        displayOnlyAxisLabel: true,
+        regeneratedForPostDeathFocus: true
+      }
+    }];
+    getPostDeathFocusXTickMonths(horizonMonths).forEach(function (relativeMonths) {
+      const tickDate = parsedDeathDate ? addRelativeMonths(parsedDeathDate, relativeMonths) : null;
+      ticks.push({
+        id: `plus-${relativeMonths}`,
+        key: `plus-${relativeMonths}`,
+        label: formatPostDeathFocusXTickLabel(relativeMonths),
+        date: tickDate ? normalizeDateOnly(tickDate) : "",
+        xRatio: 0,
+        relativeYears: relativeMonths / MONTHS_PER_YEAR,
+        relativeMonths,
+        axisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
+        trace: {
+          generatedBy: CALCULATION_METHOD,
+          graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
+          displayOnlyAxisLabel: true,
+          regeneratedForPostDeathFocus: true
+        }
+      });
+    });
+    return ticks;
+  }
+
+  function getPostDeathFocusYRatioForValue(value, yDomain, zeroYRatio) {
+    const number = toOptionalNumber(value);
+    const zeroRatio = toOptionalNumber(zeroYRatio);
+    if (number == null || zeroRatio == null) {
+      return null;
+    }
+    if (Math.abs(number) <= 0.000001) {
+      return zeroRatio;
+    }
+    const max = Math.max(toOptionalNumber(yDomain?.max) || 0, 1);
+    const min = Math.min(toOptionalNumber(yDomain?.min) || 0, -1);
+    if (number > 0) {
+      return zeroRatio - ((number / max) * zeroRatio);
+    }
+    const negativeBandRatio = Math.max(0.000001, 1 - zeroRatio);
+    return zeroRatio + ((Math.abs(number) / Math.abs(min)) * negativeBandRatio);
+  }
+
+  function makePostDeathFocusYTicks(layoutFrame) {
+    const yDomain = isPlainObject(layoutFrame?.yDomain) ? layoutFrame.yDomain : {};
+    const max = Math.max(toOptionalNumber(yDomain.max) || 0, 0);
+    const deficitMax = Math.abs(Math.min(toOptionalNumber(yDomain.min) || 0, 0));
+    const zeroYRatio = toOptionalNumber(layoutFrame?.zeroYRatio);
+    const maxMagnitude = Math.max(max, deficitMax);
+    const tickStep = getNiceContinuousAxisStep(maxMagnitude, 4);
+    const ticks = [];
+    if (tickStep > 0 && max > 0) {
+      for (let value = tickStep; value <= max + (tickStep * 0.001); value += tickStep) {
+        const roundedValue = roundAxisValue(value);
+        ticks.push({
+          key: `focus-funded-${Math.round(roundedValue)}`,
+          zone: "fundedRunway",
+          value: roundedValue,
+          yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
+          trace: {
+            generatedBy: CALCULATION_METHOD,
+            graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
+            regeneratedForPostDeathFocus: true,
+            tickStep
+          }
+        });
+      }
+    }
+    ticks.push({
+      key: "focus-zero",
+      zone: "zero",
+      value: 0,
+      yRatio: getPostDeathFocusYRatioForValue(0, yDomain, zeroYRatio),
+      baseline: true,
+      trace: {
+        generatedBy: CALCULATION_METHOD,
+        graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
+        regeneratedForPostDeathFocus: true,
+        tickStep
+      }
+    });
+    if (tickStep > 0 && deficitMax > 0) {
+      for (let value = -tickStep; value >= -deficitMax - (tickStep * 0.001); value -= tickStep) {
+        const roundedValue = roundAxisValue(value);
+        ticks.push({
+          key: `focus-deficit-${Math.round(Math.abs(roundedValue))}`,
+          zone: "deficit",
+          value: roundedValue,
+          yRatio: getPostDeathFocusYRatioForValue(roundedValue, yDomain, zeroYRatio),
+          trace: {
+            generatedBy: CALCULATION_METHOD,
+            graphViewFrameMode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
+            regeneratedForPostDeathFocus: true,
+            tickStep
+          }
+        });
+      }
+    }
+    return ticks;
+  }
+
+  function makeGraphViewFrame(input) {
+    const mode = normalizeString(input?.mode);
+    const layoutFrame = isPlainObject(input?.layoutFrame) ? input.layoutFrame : {};
+    const xDomainMonths = toOptionalNumber(input?.xDomainMonths ?? layoutFrame.xDomainMonths);
+    const zeroYRatio = toOptionalNumber(input?.zeroYRatio ?? layoutFrame.zeroYRatio);
+    const deathAnchorXRatio = toOptionalNumber(input?.deathAnchorXRatio ?? layoutFrame.deathXRatio);
+    const runoutAnchorXRatio = toOptionalNumber(input?.runoutAnchorXRatio ?? layoutFrame.runoutAnchorXRatio);
+    const yDomain = isPlainObject(input?.yDomain)
+      ? clonePlainValue(input.yDomain)
+      : (isPlainObject(layoutFrame.yDomain) ? clonePlainValue(layoutFrame.yDomain) : {});
+    const runoutAnchorMonth = toOptionalNumber(input?.runoutAnchorMonth ?? layoutFrame.zeroCrossingAnchorMonth);
+    return {
+      mode,
+      xDomainMonths,
+      yDomain,
+      zeroYRatio,
+      deathAnchorXRatio,
+      runoutAnchorXRatio,
+      anchors: {
+        death: {
+          xRatio: deathAnchorXRatio,
+          month: 0
+        },
+        zero: {
+          yRatio: zeroYRatio,
+          value: 0
+        },
+        runout: {
+          scenarioId: normalizeString(input?.runoutAnchorScenarioId ?? layoutFrame.zeroCrossingAnchorScenarioId) || null,
+          month: runoutAnchorMonth,
+          xRatio: toOptionalNumber(input?.runoutAnchorXRatioOverride) ?? runoutAnchorXRatio,
+          source: normalizeString(input?.runoutAnchorSource ?? layoutFrame.zeroCrossingAnchorSource) || null
+        },
+        runwayStart: isPlainObject(input?.runwayStartAnchor) ? clonePlainValue(input.runwayStartAnchor) : null
+      },
+      xTicks: Array.isArray(input?.xTicks) ? clonePlainValue(input.xTicks) : [],
+      yTicks: Array.isArray(input?.yTicks) ? clonePlainValue(input.yTicks) : [],
+      trace: Object.assign({
+        generatedBy: CALCULATION_METHOD,
+        viewFrameOwner: "graph-model",
+        graphViewFrameMode: mode
+      }, isPlainObject(input?.trace) ? clonePlainValue(input.trace) : {})
+    };
+  }
+
+  function buildIncomeImpactGraphViewFrames(input) {
+    const layoutFrame = isPlainObject(input?.layoutFrame) ? input.layoutFrame : null;
+    const axes = isPlainObject(input?.axes) ? input.axes : {};
+    if (!layoutFrame) {
+      return {
+        viewFrames: {},
+        selectedViewFrameMode: null,
+        activeViewFrame: null
+      };
+    }
+    const selectedScenarioId = normalizeString(input?.selectedScenarioId);
+    const focusStartAnchor = makePostDeathFocusStartAnchor(input?.appliedRunwayScenarios, selectedScenarioId, layoutFrame);
+    const selectedZeroAnchor = getPostDeathFocusSelectedZeroAnchor(input?.appliedRunwayScenarios, selectedScenarioId, layoutFrame);
+    const focusYDomain = focusStartAnchor
+      ? makePostDeathFocusLinearYDomain(layoutFrame.yDomain, focusStartAnchor, layoutFrame)
+      : {
+        yDomain: layoutFrame.yDomain,
+        source: "shared-layout-frame",
+        linearScaleApplied: false
+      };
+    const focusedFrameSeed = Object.assign({}, layoutFrame, {
+      deathXRatio: 0,
+      xDomainMonths: selectedZeroAnchor?.xDomainMonths ?? layoutFrame.xDomainMonths,
+      zeroCrossingAnchorScenarioId: selectedZeroAnchor?.scenarioId || layoutFrame.zeroCrossingAnchorScenarioId,
+      zeroCrossingAnchorMonth: selectedZeroAnchor?.month ?? layoutFrame.zeroCrossingAnchorMonth,
+      zeroCrossingAnchorSource: selectedZeroAnchor ? "post-death-focus-selected-depletion" : layoutFrame.zeroCrossingAnchorSource,
+      postDeathFocusStartYRatio: focusStartAnchor?.yRatio ?? null,
+      postDeathFocusStartValue: focusStartAnchor?.value ?? null,
+      yDomain: focusYDomain.yDomain
+    });
+    const deathLeadUp = makeGraphViewFrame({
+      mode: GRAPH_VIEW_FRAME_MODE_DEATH_LEAD_UP,
+      layoutFrame,
+      xTicks: axes.x?.ticks,
+      yTicks: axes.y?.ticks,
+      runoutAnchorMonth: layoutFrame.zeroCrossingAnchorMonth,
+      runoutAnchorScenarioId: layoutFrame.zeroCrossingAnchorScenarioId,
+      runoutAnchorSource: layoutFrame.zeroCrossingAnchorSource,
+      trace: {
+        source: "stable-layout-frame",
+        rendererShouldUseViewFrame: true,
+        preservesPreDeathLeadUp: true
+      }
+    });
+    const focused = makeGraphViewFrame({
+      mode: GRAPH_VIEW_FRAME_MODE_POST_DEATH_FOCUS,
+      layoutFrame: focusedFrameSeed,
+      xTicks: makePostDeathFocusXTicks(input?.dates, focusedFrameSeed),
+      yTicks: makePostDeathFocusYTicks(focusedFrameSeed),
+      runoutAnchorMonth: focusedFrameSeed.zeroCrossingAnchorMonth,
+      runoutAnchorScenarioId: focusedFrameSeed.zeroCrossingAnchorScenarioId,
+      runoutAnchorSource: focusedFrameSeed.zeroCrossingAnchorSource,
+      runwayStartAnchor: focusStartAnchor,
+      trace: {
+        source: "post-death-focus-view-frame",
+        rendererShouldUseViewFrame: true,
+        fullLeadUpDeathXRatio: toOptionalNumber(layoutFrame.deathXRatio),
+        postDeathFocusStartAnchorYRatio: focusStartAnchor?.yRatio ?? null,
+        postDeathFocusStartAnchorValue: focusStartAnchor?.value ?? null,
+        postDeathFocusStartAnchorMonth: focusStartAnchor?.month ?? null,
+        postDeathFocusYDomainMax: toOptionalNumber(focusYDomain.yDomain?.max),
+        postDeathFocusYDomainMin: toOptionalNumber(focusYDomain.yDomain?.min),
+        postDeathFocusYDomainSource: focusYDomain.source,
+        postDeathFocusLinearYScaleApplied: focusYDomain.linearScaleApplied === true,
+        postDeathFocusSelectedZeroAnchorScenarioId: selectedZeroAnchor?.scenarioId || null,
+        postDeathFocusSelectedZeroAnchorMonth: selectedZeroAnchor?.month ?? null,
+        postDeathFocusSelectedXDomainMonths: selectedZeroAnchor?.xDomainMonths ?? null,
+        postDeathFocusSelectedRunoutAnchorXRatio: selectedZeroAnchor?.runoutAnchorXRatio ?? null,
+        postDeathFocusXDomainSource: selectedZeroAnchor ? "selected-scenario-zero-crossing" : "shared-layout-frame"
+      }
+    });
+    return {
+      viewFrames: {
+        focused,
+        postDeathFocus: focused,
+        deathLeadUp
+      },
+      selectedViewFrameMode: GRAPH_VIEW_FRAME_MODE_DEATH_LEAD_UP,
+      activeViewFrame: deathLeadUp
+    };
+  }
+
   function getDeathRelativeXRatio(relativeMonths, projection) {
     const months = toOptionalNumber(relativeMonths);
     if (months == null || !isPlainObject(projection)) {
@@ -3182,6 +3606,58 @@
     });
     const appliedRunwayScenarios = buildAppliedRunwayScenarios(enrichedAppliedPostDeath, xDomain, yDomain);
     const usable = enrichedDeathStages.length >= 2 || enrichedPreDeath.length >= 2 || enrichedPostDeath.length >= 2;
+    const axes = {
+      x: {
+        xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
+        domainStart: normalizeDateOnly(xDomain.min),
+        domainEnd: normalizeDateOnly(xDomain.max),
+        deathDate: dates.deathDate,
+        deathXRatio: deathRelativeProjection.deathXRatio,
+        projectionMode: deathRelativeProjection.mode,
+        displayHorizonMode: deathRelativeProjection.displayHorizonMode,
+        displayHorizonYears: deathRelativeProjection.displayHorizonYears,
+        displayHorizonMonths: deathRelativeProjection.displayHorizonMonths,
+        displayHorizonReason: deathRelativeProjection.displayHorizonReason,
+        displayHorizonEndDate: deathRelativeProjection.displayHorizonEndDate,
+        postDeathDisplayHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths,
+        calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
+        calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
+        latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
+        latestAppliedScenarioRunwayEndMonths: deathRelativeProjection.latestAppliedScenarioRunwayEndMonths,
+        displayHorizonBasis: deathRelativeProjection.displayHorizonBasis,
+        postDepletionDisplayPaddingMonths: deathRelativeProjection.postDepletionDisplayPaddingMonths,
+        displayHorizonRoundingMonths: deathRelativeProjection.displayHorizonRoundingMonths,
+        displayHorizonTargetRunwayRatio: deathRelativeProjection.displayHorizonTargetRunwayRatio,
+        ticks: makeXTicks(dates, xDomain, deathRelativeProjection)
+      },
+      y: {
+        min: yDomain.min,
+        max: yDomain.max,
+        signed: yDomain.signed,
+        verticalScaleMode: yDomain.verticalScaleMode,
+        zeroYRatio: yDomain.zeroYRatio,
+        fundedRunwayHeightRatio: yDomain.fundedRunwayHeightRatio,
+        deficitHeightRatio: yDomain.deficitHeightRatio,
+        positiveMax: yDomain.positiveMax,
+        deficitMax: yDomain.deficitMax,
+        deficitVisualMax: yDomain.deficitVisualMax,
+        deficitVisualScaleMode: yDomain.deficitVisualScaleMode,
+        deficitVisualScaleCapped: yDomain.deficitVisualScaleCapped,
+        rawPositiveMax: yDomain.rawPositiveMax,
+        rawDeficitMax: yDomain.rawDeficitMax,
+        visibleDomainPointCount: yDomain.visibleDomainPointCount,
+        visibleDomainBoundaryPointIncluded: yDomain.visibleDomainBoundaryPointIncluded,
+        trace: clonePlainValue(yDomain.trace),
+        ticks: makeYTicks(yDomain)
+      }
+    };
+    const graphViewFrameContract = buildIncomeImpactGraphViewFrames({
+      dates,
+      layoutFrame,
+      axes,
+      appliedRunwayScenarios,
+      selectedScenarioId: scenarioInput.selectedScenarioId
+    });
 
     const result = {
       status: usable ? (scenario.status === "complete" && !dataGaps.length ? "complete" : "partial") : "unavailable",
@@ -3204,51 +3680,10 @@
           ? clonePlainValue(scenarioInput.appliedScenarioKeyItems)
           : []
       },
-      axes: {
-        x: {
-          xAxisMode: X_AXIS_MODE_DEATH_RELATIVE_YEARS,
-          domainStart: normalizeDateOnly(xDomain.min),
-          domainEnd: normalizeDateOnly(xDomain.max),
-          deathDate: dates.deathDate,
-          deathXRatio: deathRelativeProjection.deathXRatio,
-          projectionMode: deathRelativeProjection.mode,
-          displayHorizonMode: deathRelativeProjection.displayHorizonMode,
-          displayHorizonYears: deathRelativeProjection.displayHorizonYears,
-          displayHorizonMonths: deathRelativeProjection.displayHorizonMonths,
-          displayHorizonReason: deathRelativeProjection.displayHorizonReason,
-          displayHorizonEndDate: deathRelativeProjection.displayHorizonEndDate,
-          postDeathDisplayHorizonMonths: deathRelativeProjection.postDeathDisplayHorizonMonths,
-          calculationHorizonMonths: deathRelativeProjection.calculationHorizonMonths,
-          calculationHorizonEndDate: deathRelativeProjection.calculationHorizonEndDate,
-          latestAppliedScenarioDepletionMonths: deathRelativeProjection.latestAppliedScenarioDepletionMonths,
-          latestAppliedScenarioRunwayEndMonths: deathRelativeProjection.latestAppliedScenarioRunwayEndMonths,
-          displayHorizonBasis: deathRelativeProjection.displayHorizonBasis,
-          postDepletionDisplayPaddingMonths: deathRelativeProjection.postDepletionDisplayPaddingMonths,
-          displayHorizonRoundingMonths: deathRelativeProjection.displayHorizonRoundingMonths,
-          displayHorizonTargetRunwayRatio: deathRelativeProjection.displayHorizonTargetRunwayRatio,
-          ticks: makeXTicks(dates, xDomain, deathRelativeProjection)
-        },
-        y: {
-          min: yDomain.min,
-          max: yDomain.max,
-          signed: yDomain.signed,
-          verticalScaleMode: yDomain.verticalScaleMode,
-          zeroYRatio: yDomain.zeroYRatio,
-          fundedRunwayHeightRatio: yDomain.fundedRunwayHeightRatio,
-          deficitHeightRatio: yDomain.deficitHeightRatio,
-          positiveMax: yDomain.positiveMax,
-          deficitMax: yDomain.deficitMax,
-          deficitVisualMax: yDomain.deficitVisualMax,
-          deficitVisualScaleMode: yDomain.deficitVisualScaleMode,
-          deficitVisualScaleCapped: yDomain.deficitVisualScaleCapped,
-          rawPositiveMax: yDomain.rawPositiveMax,
-          rawDeficitMax: yDomain.rawDeficitMax,
-          visibleDomainPointCount: yDomain.visibleDomainPointCount,
-          visibleDomainBoundaryPointIncluded: yDomain.visibleDomainBoundaryPointIncluded,
-          trace: clonePlainValue(yDomain.trace),
-          ticks: makeYTicks(yDomain)
-        }
-      },
+      axes,
+      viewFrames: clonePlainValue(graphViewFrameContract.viewFrames),
+      selectedViewFrameMode: graphViewFrameContract.selectedViewFrameMode,
+      activeViewFrame: clonePlainValue(graphViewFrameContract.activeViewFrame),
       markers: enrichedMarkers,
       comparisonMarkers: enrichedComparisonMarkers,
       selectedEvent: clonePlainValue(selectEvent(enrichedMarkers, options.selectedEventId)),
@@ -3310,6 +3745,13 @@
         layoutFrameRunoutAnchorXRatio: layoutFrame.runoutAnchorXRatio,
         layoutFrameAnchorScenarioId: layoutFrame.zeroCrossingAnchorScenarioId,
         layoutFrameAnchorMonth: layoutFrame.zeroCrossingAnchorMonth,
+        viewFrameContractEnabled: true,
+        viewFrameOwner: "graph-model",
+        viewFrameModes: Object.keys(graphViewFrameContract.viewFrames || {}),
+        selectedViewFrameMode: graphViewFrameContract.selectedViewFrameMode,
+        activeViewFrameMode: graphViewFrameContract.activeViewFrame?.mode || null,
+        focusedViewFrameGenerated: Boolean(graphViewFrameContract.viewFrames?.postDeathFocus || graphViewFrameContract.viewFrames?.focused),
+        deathLeadUpViewFrameGenerated: Boolean(graphViewFrameContract.viewFrames?.deathLeadUp),
         negativeValuesCompressFundedRunway: false,
         rawDatesPreserved: true,
         deathAlignedToSharedAnchor: true,

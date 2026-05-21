@@ -56,6 +56,13 @@ function assertStableLayoutFrame(model, message) {
   assertApproxEqual(model.layoutFrame.runoutAnchorXRatio, 0.8, `${message}: runout anchor ratio should stay fixed.`);
   assertApproxEqual(model.layoutFrame.negativeSupportBandRatio, 0.28, `${message}: negative support band should match the fixed zero ratio.`);
   assert.equal(model.layoutFrame.trace.rendererConsumesLayoutFrame, true, `${message}: renderer should consume the stable layoutFrame contract.`);
+  assert.equal(model.trace.viewFrameContractEnabled, true, `${message}: graph model should expose the view-frame contract.`);
+  assert.equal(model.trace.viewFrameOwner, "graph-model", `${message}: graph model should own view-frame generation.`);
+  assert.ok(model.viewFrames, `${message}: viewFrames should exist.`);
+  assert.equal(model.viewFrames.deathLeadUp.mode, "deathLeadUp", `${message}: death lead-up view frame should exist.`);
+  assert.equal(model.viewFrames.postDeathFocus.mode, "postDeathFocus", `${message}: focused view frame should exist.`);
+  assert.equal(model.viewFrames.deathLeadUp.trace.viewFrameOwner, "graph-model", `${message}: death lead-up frame should be model-owned.`);
+  assert.equal(model.viewFrames.postDeathFocus.trace.viewFrameOwner, "graph-model", `${message}: focused frame should be model-owned.`);
 }
 
 function loadGraphModel() {

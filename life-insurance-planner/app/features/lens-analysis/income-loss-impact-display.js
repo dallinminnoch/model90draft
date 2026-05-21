@@ -1243,6 +1243,72 @@
     return layoutFrame && layoutFrame.mode === STABLE_GRAPH_LAYOUT_FRAME_MODE ? layoutFrame : null;
   }
 
+  function getGraphModelViewFrame(graphModel, viewMode) {
+    const viewFrames = isPlainObject(graphModel?.viewFrames) ? graphModel.viewFrames : {};
+    const normalizedViewMode = normalizeIncomeImpactGraphViewMode(viewMode);
+    if (normalizedViewMode === GRAPH_VIEW_MODE_POST_DEATH_FOCUS) {
+      return isPlainObject(viewFrames.postDeathFocus)
+        ? viewFrames.postDeathFocus
+        : (isPlainObject(viewFrames.focused) ? viewFrames.focused : null);
+    }
+    return isPlainObject(viewFrames.deathLeadUp) ? viewFrames.deathLeadUp : null;
+  }
+
+  function makeLayoutFrameFromGraphViewFrame(baseLayoutFrame, viewFrame) {
+    if (!isPlainObject(baseLayoutFrame) || !isPlainObject(viewFrame)) {
+      return baseLayoutFrame;
+    }
+    const runoutAnchor = isPlainObject(viewFrame.anchors?.runout) ? viewFrame.anchors.runout : {};
+    const runwayStartAnchor = isPlainObject(viewFrame.anchors?.runwayStart) ? viewFrame.anchors.runwayStart : {};
+    const yDomain = isPlainObject(viewFrame.yDomain) ? viewFrame.yDomain : baseLayoutFrame.yDomain;
+    return Object.assign({}, baseLayoutFrame, {
+      deathXRatio: toOptionalNumber(viewFrame.deathAnchorXRatio) ?? baseLayoutFrame.deathXRatio,
+      xDomainMonths: toOptionalNumber(viewFrame.xDomainMonths) ?? baseLayoutFrame.xDomainMonths,
+      zeroYRatio: toOptionalNumber(viewFrame.zeroYRatio) ?? baseLayoutFrame.zeroYRatio,
+      runoutAnchorXRatio: toOptionalNumber(viewFrame.runoutAnchorXRatio) ?? baseLayoutFrame.runoutAnchorXRatio,
+      zeroCrossingAnchorScenarioId: normalizeString(runoutAnchor.scenarioId) || baseLayoutFrame.zeroCrossingAnchorScenarioId,
+      zeroCrossingAnchorMonth: toOptionalNumber(runoutAnchor.month) ?? baseLayoutFrame.zeroCrossingAnchorMonth,
+      zeroCrossingAnchorSource: normalizeString(runoutAnchor.source) || baseLayoutFrame.zeroCrossingAnchorSource,
+      postDeathFocusStartYRatio: toOptionalNumber(runwayStartAnchor.yRatio) ?? baseLayoutFrame.postDeathFocusStartYRatio ?? null,
+      postDeathFocusStartValue: toOptionalNumber(runwayStartAnchor.value) ?? baseLayoutFrame.postDeathFocusStartValue ?? null,
+      yDomain,
+      trace: Object.assign({}, isPlainObject(baseLayoutFrame.trace) ? baseLayoutFrame.trace : {}, {
+        graphViewMode: viewFrame.mode || GRAPH_VIEW_MODE_DEATH_LEAD_UP,
+        modelOwnedViewFrameConsumed: true,
+        activeViewFrameMode: viewFrame.mode || "",
+        viewFrameOwner: normalizeString(viewFrame.trace?.viewFrameOwner) || "graph-model"
+      }, isPlainObject(viewFrame.trace) ? clonePlainValue(viewFrame.trace) : {})
+    });
+  }
+
+  function makeAxesFromGraphViewFrame(graphModel, viewFrame) {
+    const safeAxes = isPlainObject(graphModel?.axes) ? graphModel.axes : {};
+    const xAxis = isPlainObject(safeAxes.x) ? safeAxes.x : {};
+    const yAxis = isPlainObject(safeAxes.y) ? safeAxes.y : {};
+    const yDomain = isPlainObject(viewFrame?.yDomain) ? viewFrame.yDomain : {};
+    return Object.assign({}, safeAxes, {
+      x: Object.assign({}, xAxis, {
+        displayHorizonMonths: toOptionalNumber(viewFrame?.xDomainMonths) ?? xAxis.displayHorizonMonths,
+        postDeathDisplayHorizonMonths: toOptionalNumber(viewFrame?.xDomainMonths) ?? xAxis.postDeathDisplayHorizonMonths,
+        ticks: Array.isArray(viewFrame?.xTicks) ? clonePlainValue(viewFrame.xTicks) : (Array.isArray(xAxis.ticks) ? clonePlainValue(xAxis.ticks) : []),
+        trace: Object.assign({}, isPlainObject(xAxis.trace) ? xAxis.trace : {}, {
+          modelOwnedViewFrameConsumed: true,
+          activeViewFrameMode: viewFrame?.mode || ""
+        })
+      }),
+      y: Object.assign({}, yAxis, {
+        min: toOptionalNumber(yDomain.min) ?? yAxis.min,
+        max: toOptionalNumber(yDomain.max) ?? yAxis.max,
+        zeroYRatio: toOptionalNumber(viewFrame?.zeroYRatio) ?? yAxis.zeroYRatio,
+        ticks: Array.isArray(viewFrame?.yTicks) ? clonePlainValue(viewFrame.yTicks) : (Array.isArray(yAxis.ticks) ? clonePlainValue(yAxis.ticks) : []),
+        trace: Object.assign({}, isPlainObject(yAxis.trace) ? yAxis.trace : {}, {
+          modelOwnedViewFrameConsumed: true,
+          activeViewFrameMode: viewFrame?.mode || ""
+        })
+      })
+    });
+  }
+
   function normalizeIncomeImpactGraphViewMode(value) {
     return normalizeString(value) === GRAPH_VIEW_MODE_DEATH_LEAD_UP
       ? GRAPH_VIEW_MODE_DEATH_LEAD_UP
@@ -1672,6 +1738,30 @@
   function makePostDeathFocusGraphModel(graphModel) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const phases = isPlainObject(graphModel?.phases) ? graphModel.phases : {};
+    const modelOwnedViewFrame = getGraphModelViewFrame(graphModel, GRAPH_VIEW_MODE_POST_DEATH_FOCUS);
+    if (layoutFrame && modelOwnedViewFrame) {
+      const focusedLayoutFrame = makeLayoutFrameFromGraphViewFrame(layoutFrame, modelOwnedViewFrame);
+      return Object.assign({}, graphModel, {
+        axes: makeAxesFromGraphViewFrame(graphModel, modelOwnedViewFrame),
+        phases: Object.assign({}, phases, {
+          preDeath: Object.assign({}, isPlainObject(phases.preDeath) ? phases.preDeath : {}, {
+            available: false,
+            endXRatio: 0
+          })
+        }),
+        series: makePostDeathFocusSeries(graphModel?.series),
+        layoutFrame: focusedLayoutFrame,
+        selectedViewFrameMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
+        activeViewFrame: clonePlainValue(modelOwnedViewFrame),
+        trace: Object.assign({}, isPlainObject(graphModel?.trace) ? graphModel.trace : {}, {
+          graphViewMode: GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
+          fullLeadUpDeathXRatio: toOptionalNumber(layoutFrame?.deathXRatio),
+          modelOwnedViewFrameConsumed: true,
+          activeViewFrameMode: modelOwnedViewFrame.mode || GRAPH_VIEW_MODE_POST_DEATH_FOCUS,
+          viewFrameOwner: normalizeString(modelOwnedViewFrame.trace?.viewFrameOwner) || "graph-model"
+        })
+      });
+    }
     const deathXRatio = toOptionalNumber(layoutFrame?.deathXRatio);
     const startAnchor = layoutFrame ? getPostDeathFocusStartAnchor(graphModel, layoutFrame) : null;
     const selectedZeroAnchor = layoutFrame ? getPostDeathFocusSelectedZeroAnchor(graphModel, layoutFrame) : null;
@@ -1734,9 +1824,20 @@
       return graphModel;
     }
     if (isDeathLeadUpGraphView(viewMode)) {
+      const modelOwnedViewFrame = getGraphModelViewFrame(graphModel, GRAPH_VIEW_MODE_DEATH_LEAD_UP);
+      const layoutFrame = getStableGraphLayoutFrame(graphModel);
       return Object.assign({}, graphModel, {
+        axes: modelOwnedViewFrame ? makeAxesFromGraphViewFrame(graphModel, modelOwnedViewFrame) : graphModel.axes,
+        layoutFrame: modelOwnedViewFrame && layoutFrame
+          ? makeLayoutFrameFromGraphViewFrame(layoutFrame, modelOwnedViewFrame)
+          : graphModel.layoutFrame,
+        selectedViewFrameMode: GRAPH_VIEW_MODE_DEATH_LEAD_UP,
+        activeViewFrame: modelOwnedViewFrame ? clonePlainValue(modelOwnedViewFrame) : graphModel.activeViewFrame,
         trace: Object.assign({}, isPlainObject(graphModel.trace) ? graphModel.trace : {}, {
-          graphViewMode: GRAPH_VIEW_MODE_DEATH_LEAD_UP
+          graphViewMode: GRAPH_VIEW_MODE_DEATH_LEAD_UP,
+          modelOwnedViewFrameConsumed: Boolean(modelOwnedViewFrame),
+          activeViewFrameMode: modelOwnedViewFrame?.mode || graphModel.activeViewFrame?.mode || null,
+          viewFrameOwner: normalizeString(modelOwnedViewFrame?.trace?.viewFrameOwner || graphModel.activeViewFrame?.trace?.viewFrameOwner) || null
         })
       });
     }
@@ -4983,6 +5084,8 @@
         data-income-impact-layout-frame-runout-anchor-x-ratio="${escapeHtml(layoutFrame.runoutAnchorXRatio)}"
         ${toOptionalNumber(layoutFrame.postDeathFocusStartYRatio) != null ? `data-income-impact-layout-frame-focus-start-y-ratio="${escapeHtml(layoutFrame.postDeathFocusStartYRatio)}"` : ""}` : ""}
         data-income-impact-graph-view-mode="${escapeHtml(normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode))}"
+        data-income-impact-active-view-frame-mode="${escapeHtml(graphModel?.activeViewFrame?.mode || graphModel?.trace?.activeViewFrameMode || "")}"
+        data-income-impact-view-frame-owner="${escapeHtml(graphModel?.activeViewFrame?.trace?.viewFrameOwner || graphModel?.trace?.viewFrameOwner || "")}"
         viewBox="0 0 ${GRAPH_VIEW_BOX.width} ${GRAPH_VIEW_BOX.height}"
         role="img"
         aria-label="Income Impact timeline graph"
@@ -5081,7 +5184,7 @@
     const selectedGraphSeries = getSelectedAppliedGraphSeries(displayGraphModel, displayGraphModel?.trace?.selectedScenarioId);
     const eyebrowLabel = getPrimaryGraphPathLabel(timelineResult, selectedGraphSeries?.label || "Selected scenario");
     return `
-      <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(displayGraphModel.status || "partial")}" data-income-impact-graph-view-mode="${escapeHtml(graphViewMode)}">
+      <div class="income-impact-graph" data-income-impact-visual-timeline data-income-impact-graph data-income-impact-graph-status="${escapeHtml(displayGraphModel.status || "partial")}" data-income-impact-graph-view-mode="${escapeHtml(graphViewMode)}" data-income-impact-active-view-frame-mode="${escapeHtml(displayGraphModel?.activeViewFrame?.mode || displayGraphModel?.trace?.activeViewFrameMode || "")}" data-income-impact-view-frame-owner="${escapeHtml(displayGraphModel?.activeViewFrame?.trace?.viewFrameOwner || displayGraphModel?.trace?.viewFrameOwner || "")}">
         <div class="income-impact-graph-header">
           <div>
             <span>${escapeHtml(eyebrowLabel)}</span>
