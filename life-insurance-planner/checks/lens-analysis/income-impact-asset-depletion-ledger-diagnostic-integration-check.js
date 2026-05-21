@@ -315,9 +315,9 @@ assert.ok(
 
 const context = createContext();
 assert.equal(
-  typeof context.LensApp.lensAnalysis.buildIncomeImpactAssetDepletionLedger,
+  typeof context.LensApp.lensAnalysis.buildIncomeImpactCanonicalRunwayAssetWaterfall,
   "function",
-  "ledger helper should expose a browser-global function before composer usage"
+  "canonical waterfall helper should expose a browser-global function before composer usage"
 );
 
 const main = composeWithFixture(makeLayer2Output());
@@ -328,41 +328,46 @@ assert.equal(
   "aggregate postDeathSeries should remain the Layer 3 output"
 );
 
-const diagnostic = main.scenario.trace.layer3.assetDepletionLedgerDiagnostic;
-assert.equal(diagnostic.status, "ready");
-assert.equal(diagnostic.usedForGraph, false);
-assert.equal(diagnostic.usedForStoryline, false);
-assert.equal(diagnostic.aggregateRunwayPreserved, true);
-assert.equal(diagnostic.growthPolicy, "none");
-assert.equal(diagnostic.trace.growthPolicy, "none");
-assert.equal(diagnostic.inputSummary.existingCoverageBucketIncluded, true);
-assert.equal(diagnostic.inputSummary.immediateObligations, 100);
-assert.equal(diagnostic.inputSummary.scheduledObligationMonthCount, 2);
-assert.equal(diagnostic.reconciliation.matchedWithinTolerance, true);
-assert.equal(diagnostic.reconciliation.comparedMonths, main.layer3Output.points.length);
-assert.equal(diagnostic.reconciliation.maxAbsoluteDifference, 0);
+const canonicalWaterfall = main.scenario.trace.layer3.canonicalRunwayAssetWaterfall;
+assert.equal(canonicalWaterfall.status, "ready");
+assert.equal(canonicalWaterfall.usedForGraph, false);
+assert.equal(canonicalWaterfall.usedForStoryline, true);
+assert.equal(canonicalWaterfall.aggregateRunwayPreserved, true);
+assert.equal(canonicalWaterfall.canonicalWaterfall, true);
+assert.equal(canonicalWaterfall.growthPolicy, "none");
+assert.equal(canonicalWaterfall.trace.growthPolicy, "none");
+assert.equal(canonicalWaterfall.trace.canonicalWaterfall, true);
+assert.equal(canonicalWaterfall.inputSummary.existingCoverageBucketIncluded, true);
+assert.equal(canonicalWaterfall.inputSummary.coverageMechanicalSourceIncluded, true);
+assert.equal(canonicalWaterfall.inputSummary.immediateObligations, 100);
+assert.equal(canonicalWaterfall.inputSummary.scheduledObligationMonthCount, 2);
+assert.equal(canonicalWaterfall.reconciliation.matchedWithinTolerance, true);
+assert.equal(canonicalWaterfall.reconciliation.comparedMonths, main.layer3Output.points.length);
+assert.equal(canonicalWaterfall.reconciliation.maxAbsoluteDifference, 0);
 assert.equal(
-  JSON.stringify(diagnostic.ledgerMonths.map((month) => month.totalAvailableResources)),
+  JSON.stringify(canonicalWaterfall.ledgerMonths.map((month) => month.totalAvailableResources)),
   JSON.stringify(main.layer3Output.points.map((point) => Math.max(point.endingResources, 0))),
   "ledger totals should match aggregate non-negative ending resources in parity mode"
 );
-assert.equal(diagnostic.ledgerMonths[1].scheduledObligations, main.layer3Output.points[1].scheduledObligations);
-assert.equal(diagnostic.ledgerMonths[2].scheduledObligations, main.layer3Output.points[2].scheduledObligations);
-assert.equal(diagnostic.ledgerMonths[0].startingBuckets.some((bucket) => bucket.family === "existingCoverage"), true);
+assert.equal(canonicalWaterfall.ledgerMonths[1].scheduledObligations, main.layer3Output.points[1].scheduledObligations);
+assert.equal(canonicalWaterfall.ledgerMonths[2].scheduledObligations, main.layer3Output.points[2].scheduledObligations);
+assert.equal(canonicalWaterfall.ledgerMonths[0].startingBuckets.some((bucket) => bucket.family === "existingCoverage"), true);
+assert.equal(canonicalWaterfall.orderedBuckets.some((bucket) => bucket.family === "existingCoverage"), false);
+assert.equal(canonicalWaterfall.mechanicalSources.some((source) => source.family === "existingCoverage"), true);
 assert.ok(
-  diagnostic.bucketEvents
+  canonicalWaterfall.bucketEvents
     .filter((event) => event.family === "existingCoverage")
     .every((event) => event.trace.mechanicalLedgerEvent === true && event.trace.visibleStorylineEligible === false),
   "existing coverage ledger events should remain mechanical-only"
 );
 assert.equal(
-  diagnostic.bucketEvents.find((event) => event.bucketId === "retirement" && event.eventType === "bucket-tapped").monthIndex
-    > diagnostic.bucketEvents.find((event) => event.bucketId === "taxable" && event.eventType === "bucket-depleted").monthIndex,
+  canonicalWaterfall.bucketEvents.find((event) => event.bucketId === "retirement" && event.eventType === "bucket-tapped").monthIndex
+    > canonicalWaterfall.bucketEvents.find((event) => event.bucketId === "taxable" && event.eventType === "bucket-depleted").monthIndex,
   true,
   "retirement should be tapped only after higher-priority liquid buckets are depleted"
 );
 assert.equal(
-  diagnostic.ledgerMonths[0].totalAvailableResources,
+  canonicalWaterfall.ledgerMonths[0].totalAvailableResources,
   main.layer2Output.resources.resourcesAfterObligations - main.layer3Output.points[0].netUse,
   "immediate obligations should be subtracted exactly once before monthly runway use"
 );
@@ -386,7 +391,7 @@ const risingLayer2 = makeLayer2Output({
 });
 const risingLayer3 = makeRisingLayer3Output(risingLayer2.resources.resourcesAfterObligations);
 const rising = composeWithFixture(risingLayer2, risingLayer3);
-const risingDiagnostic = rising.scenario.trace.layer3.assetDepletionLedgerDiagnostic;
+const risingDiagnostic = rising.scenario.trace.layer3.canonicalRunwayAssetWaterfall;
 assert.equal(risingDiagnostic.reconciliation.matchedWithinTolerance, true);
 assert.equal(
   JSON.stringify(risingDiagnostic.ledgerMonths.map((month) => month.totalAvailableResources)),
@@ -396,7 +401,7 @@ assert.equal(
 assert.equal(
   JSON.stringify(risingDiagnostic.ledgerMonths.map((month) => month.monthlyNetCashFlow)),
   JSON.stringify([125, 125, 100, 125]),
-  "ledger diagnostic should preserve signed monthly cash flow from Layer 3 income, needs, and obligations"
+  "canonical waterfall should preserve signed monthly cash flow from Layer 3 income, needs, and obligations"
 );
 assert.equal(risingDiagnostic.ledgerMonths[0].surplusDepositedToBucketId, "cash");
 assert.equal(risingDiagnostic.ledgerMonths[2].scheduledObligations, 25);
@@ -419,15 +424,15 @@ const educationLayer2 = makeLayer2Output({
   ])
 });
 const education = composeWithFixture(educationLayer2);
-const educationDiagnostic = education.scenario.trace.layer3.assetDepletionLedgerDiagnostic;
+const educationDiagnostic = education.scenario.trace.layer3.canonicalRunwayAssetWaterfall;
 assert.ok(
-  educationDiagnostic.excludedBuckets.some((bucket) => bucket.id === "education" && bucket.reason === "education-redirect-disabled"),
-  "education savings should be excluded from the diagnostic ledger unless redirect is explicitly enabled"
+  !educationDiagnostic.excludedBuckets.some((bucket) => bucket.id === "education"),
+  "education savings should be included when existing treatment output marks it included"
 );
 assert.equal(
   educationDiagnostic.bucketEvents.some((event) => event.family === "educationSavings"),
-  false,
-  "education savings should not emit diagnostic tap/depletion events when redirect is disabled"
+  true,
+  "education savings should emit canonical tap/depletion events when treatment marks it included"
 );
 
 console.log("income-impact-asset-depletion-ledger-diagnostic-integration-check passed");

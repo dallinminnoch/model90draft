@@ -24,9 +24,9 @@
     trustRestrictedAssets: "otherIlliquid",
     stockCompensationDeferredCompensation: "otherIlliquid",
     digitalAssetsCrypto: "otherIlliquid",
-    nonqualifiedAnnuities: "otherIlliquid",
+    nonqualifiedAnnuities: "nonqualifiedAnnuities",
     otherCustomAsset: "unknown",
-    [CASH_FLOW_ROW_ID]: "cash"
+    [CASH_FLOW_ROW_ID]: "preDeathSavedCash"
   });
 
   function isPlainObject(value) {
@@ -1327,14 +1327,18 @@
   }
 
   function getAssetLedgerFamily(row) {
+    const id = normalizeString(row?.id);
     const treatmentCategory = normalizeString(row?.treatmentCategoryKey);
     const category = normalizeString(row?.categoryKey);
+    if (id === CASH_FLOW_ROW_ID || category === CASH_FLOW_ROW_ID) {
+      return "preDeathSavedCash";
+    }
     return ASSET_CATEGORY_TO_LEDGER_FAMILY[treatmentCategory]
       || ASSET_CATEGORY_TO_LEDGER_FAMILY[category]
       || "unknown";
   }
 
-  function buildAssetLedgerDiagnosticBuckets(layer2Output) {
+  function buildCanonicalRunwayAssetWaterfallBuckets(layer2Output) {
     return (Array.isArray(layer2Output?.assetTreatmentAtDeath?.rows) ? layer2Output.assetTreatmentAtDeath.rows : [])
       .map(function (row, index) {
         const safeRow = isPlainObject(row) ? row : {};
@@ -1365,7 +1369,7 @@
       });
   }
 
-  function buildAssetLedgerDiagnosticCoverageBucket(layer2Output) {
+  function buildCanonicalRunwayAssetWaterfallCoverageBucket(layer2Output) {
     const amount = toOptionalNumber(
       layer2Output?.existingCoverage?.treatedCoverageAmount
         ?? layer2Output?.resources?.existingCoverage
@@ -1422,7 +1426,7 @@
       .filter(Boolean);
   }
 
-  function summarizeAssetLedgerParity(ledgerResult, layer3Output) {
+  function summarizeCanonicalWaterfallParity(ledgerResult, layer3Output) {
     const points = Array.isArray(layer3Output?.points) ? layer3Output.points : [];
     const months = Array.isArray(ledgerResult?.ledgerMonths) ? ledgerResult.ledgerMonths : [];
     const tolerance = 0.02;
@@ -1458,22 +1462,23 @@
     };
   }
 
-  function buildAssetDepletionLedgerDiagnostic(layer2Output, layer3Input, layer3Output) {
-    const helper = lensAnalysis.buildIncomeImpactAssetDepletionLedger;
+  function buildCanonicalRunwayAssetWaterfall(layer2Output, layer3Input, layer3Output) {
+    const helper = lensAnalysis.buildIncomeImpactCanonicalRunwayAssetWaterfall;
     const baseMetadata = {
       usedForGraph: false,
-      usedForStoryline: false,
+      usedForStoryline: true,
       aggregateRunwayPreserved: true,
+      canonicalWaterfall: true,
       growthPolicy: "none"
     };
     if (typeof helper !== "function") {
       return Object.assign({
-        version: "income-impact-asset-depletion-ledger-diagnostic-v1",
+        version: "income-impact-canonical-runway-asset-waterfall-v1",
         status: "not-available",
         warnings: [makeIssue(
-          "asset-depletion-ledger-helper-unavailable",
-          "Asset depletion ledger helper was unavailable; aggregate survivor runway was preserved.",
-          ["LensApp.lensAnalysis.buildIncomeImpactAssetDepletionLedger"]
+          "canonical-runway-asset-waterfall-helper-unavailable",
+          "Canonical runway asset waterfall helper was unavailable; aggregate survivor runway was preserved and no fallback waterfall was built.",
+          ["LensApp.lensAnalysis.buildIncomeImpactCanonicalRunwayAssetWaterfall"]
         )],
         trace: {
           source: CALCULATION_METHOD,
@@ -1483,19 +1488,16 @@
     }
 
     const ledgerInput = {
-      startingBuckets: buildAssetLedgerDiagnosticBuckets(layer2Output),
+      startingBuckets: buildCanonicalRunwayAssetWaterfallBuckets(layer2Output),
       monthlyNeeds: buildMonthlyLedgerSeriesFromLayer3(layer3Output, "survivorNeeds"),
       monthlyIncome: buildMonthlyLedgerSeriesFromLayer3(layer3Output, "survivorIncome"),
       scheduledObligations: buildScheduledLedgerObligationsFromLayer3(layer3Output),
-      existingCoverageBucket: buildAssetLedgerDiagnosticCoverageBucket(layer2Output),
+      existingCoverageBucket: buildCanonicalRunwayAssetWaterfallCoverageBucket(layer2Output),
       immediateObligations: layer2Output?.immediateObligations?.totalImmediateObligations,
       options: {
         maxMonths: Array.isArray(layer3Output?.points)
           ? layer3Output.points.length
           : layer3Input?.projectionHorizonMonths,
-        allowEducationSavingsRedirect: false,
-        includeUnknownAssets: false,
-        includeIlliquidAssets: false,
         growthPolicy: "none",
         withdrawalTiming: "beginning-growth-then-end-withdrawal"
       }
@@ -1509,9 +1511,10 @@
         monthlyNeedsSource: "layer3.points[].survivorNeeds",
         monthlyIncomeSource: "layer3.points[].survivorIncome",
         scheduledObligationMonthCount: ledgerInput.scheduledObligations.length,
-        educationRedirectAllowed: false
+        canonicalBucketSource: "layer2.assetTreatmentAtDeath.rows",
+        coverageMechanicalSourceIncluded: Boolean(ledgerInput.existingCoverageBucket)
       },
-      reconciliation: summarizeAssetLedgerParity(ledgerResult, layer3Output)
+      reconciliation: summarizeCanonicalWaterfallParity(ledgerResult, layer3Output)
     });
   }
 
@@ -1662,7 +1665,7 @@
       "Layer 3 survivor runway helper was unavailable."
     );
     attachLayer3InputDiagnostics(layer3, layer3Input);
-    trace.layer3.assetDepletionLedgerDiagnostic = buildAssetDepletionLedgerDiagnostic(layer2, layer3Input, layer3);
+    trace.layer3.canonicalRunwayAssetWaterfall = buildCanonicalRunwayAssetWaterfall(layer2, layer3Input, layer3);
 
     collectLayerItems(warnings, layer1.warnings);
     collectLayerItems(warnings, layer2.warnings);

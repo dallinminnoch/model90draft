@@ -8,9 +8,9 @@ const helper = require(path.resolve(
   __dirname,
   "../../app/features/lens-analysis/income-impact-resource-bucket-adapter.js"
 ));
-const waterfallHelper = require(path.resolve(
+const canonicalWaterfallHelper = require(path.resolve(
   __dirname,
-  "../../app/features/lens-analysis/income-impact-resource-waterfall-calculations.js"
+  "../../app/features/lens-analysis/income-impact-asset-depletion-ledger-calculations.js"
 ));
 const storylineHelper = require(path.resolve(
   __dirname,
@@ -21,7 +21,7 @@ const {
   buildIncomeImpactResourceBucketsFromLensModel,
   INCOME_IMPACT_RESOURCE_BUCKET_ADAPTER_FAMILIES: FAMILIES
 } = helper;
-const { buildIncomeImpactResourceWaterfall } = waterfallHelper;
+const { buildIncomeImpactCanonicalRunwayAssetWaterfall } = canonicalWaterfallHelper;
 const { buildIncomeImpactFinancialStorylineCandidates } = storylineHelper;
 
 assert.equal(typeof buildIncomeImpactResourceBucketsFromLensModel, "function", "resource bucket adapter export should exist");
@@ -177,23 +177,28 @@ assert.equal(result.trace.bucketSourceSummary.countsByFamily.emergencyFund, 1);
 assert.equal(result.trace.bucketSourceSummary.countsByFamily.educationSavings, 1);
 assert.equal(result.trace.bucketSourceSummary.countsByFamily.retirementAssets, 1);
 
-const waterfallResult = buildIncomeImpactResourceWaterfall({
-  resourceBuckets: result.resourceBuckets,
-  scenario: {
-    scenario: {
-      selectedDeathDate: "2030-01-01"
-    }
-  },
+const canonicalWaterfallResult = buildIncomeImpactCanonicalRunwayAssetWaterfall({
+  startingBuckets: result.resourceBuckets,
+  monthlyNeeds: 5000,
+  monthlyIncome: 0,
   options: {
-    monthlyBurnRate: 5000
+    maxMonths: 20
   }
 });
-const waterfallLabels = waterfallResult.timelineEvents.map(function (event) { return event.displayLabel; });
-assert.ok(waterfallLabels.includes("Cash Savings Depleted"), "adapted cash bucket should produce cash depletion");
-assert.ok(waterfallLabels.includes("Emergency Fund Depleted"), "adapted emergency bucket should produce emergency depletion");
-assert.ok(waterfallLabels.includes("Education Savings Depleted"), "adapted education bucket should produce education depletion");
-assert.ok(waterfallLabels.includes("Retirement Assets Tapped"), "adapted retirement bucket should produce retirement tapped");
-assert.ok(waterfallLabels.includes("Retirement Assets Depleted"), "adapted retirement bucket should produce retirement depletion");
+const tappedFamilies = canonicalWaterfallResult.bucketEvents
+  .filter(function (event) { return event.eventType === "bucket-tapped"; })
+  .map(function (event) { return event.family; });
+assert.deepEqual(
+  tappedFamilies.slice(0, 6),
+  ["cash", "cash", "emergencyFund", "taxableInvestments", "educationSavings", "retirementAssets"],
+  "adapter buckets should feed the canonical order: cash, emergency, taxable, education, then retirement"
+);
+assert.ok(
+  canonicalWaterfallResult.excludedBuckets.some(function (bucket) {
+    return bucket.family === "homeEquity" && (bucket.reason === "bucket-marked-not-included" || bucket.reason === "nonpositive-starting-value");
+  }),
+  "excluded home equity should not enter the canonical spendable waterfall"
+);
 
 const storylineResult = buildIncomeImpactFinancialStorylineCandidates({
   scenario: {
@@ -213,7 +218,7 @@ const storylineResult = buildIncomeImpactFinancialStorylineCandidates({
       }
     }
   },
-  resourceWaterfall: waterfallResult,
+  assetDepletionLedger: canonicalWaterfallResult,
   options: {
     selectedDeathDate: "2030-01-01"
   }

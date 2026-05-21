@@ -2,8 +2,8 @@
   const LensApp = global.LensApp || (global.LensApp = {});
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
-  const VERSION = "income-impact-asset-depletion-ledger-v1";
-  const SOURCE = "income-impact-asset-depletion-ledger";
+  const VERSION = "income-impact-canonical-runway-asset-waterfall-v1";
+  const SOURCE = "income-impact-canonical-runway-asset-waterfall";
   const DEFAULT_MAX_MONTHS = 360;
 
   const STATUS = Object.freeze({
@@ -19,30 +19,38 @@
 
   const DEFAULT_DEPLETION_ORDER = Object.freeze([
     "existingCoverage",
+    "preDeathSavedCash",
     "cash",
     "emergencyFund",
-    "taxableInvestments",
     "otherLiquid",
+    "taxableInvestments",
     "educationSavings",
     "retirementAssets",
+    "nonqualifiedAnnuities",
+    "homeEquity",
+    "businessAssets",
     "otherSemiLiquid",
+    "otherIlliquid",
     "unknown"
   ]);
 
-  const DEFAULT_INCLUDED_FAMILIES = Object.freeze(new Set([
-    "existingCoverage",
+  const AUTOMATIC_FAMILIES = Object.freeze(new Set([
+    "preDeathSavedCash",
     "cash",
     "emergencyFund",
-    "taxableInvestments",
     "otherLiquid",
-    "retirementAssets",
-    "otherSemiLiquid"
+    "taxableInvestments"
   ]));
 
-  const ILLIQUID_FAMILIES = Object.freeze(new Set([
+  const GATED_FAMILIES = Object.freeze(new Set([
+    "educationSavings",
+    "retirementAssets",
+    "nonqualifiedAnnuities",
     "homeEquity",
     "businessAssets",
-    "otherIlliquid"
+    "otherSemiLiquid",
+    "otherIlliquid",
+    "unknown"
   ]));
 
   function isPlainObject(value) {
@@ -97,9 +105,11 @@
     return Object.assign({
       version: VERSION,
       status,
+      orderedBuckets: [],
       ledgerMonths: [],
       bucketEvents: [],
       excludedBuckets: [],
+      mechanicalSources: [],
       warnings,
       trace
     }, extra || {});
@@ -113,9 +123,6 @@
       : Math.max(0, Math.floor(maxMonths));
     return {
       maxMonths: normalizedMaxMonths,
-      allowEducationSavingsRedirect: rawOptions.allowEducationSavingsRedirect === true,
-      includeUnknownAssets: rawOptions.includeUnknownAssets === true,
-      includeIlliquidAssets: rawOptions.includeIlliquidAssets === true,
       growthPolicy: normalizeString(rawOptions.growthPolicy) === "growth-until-tapped" ? "growth-until-tapped" : "none",
       withdrawalTiming: normalizeString(rawOptions.withdrawalTiming) || "beginning-growth-then-end-withdrawal"
     };
@@ -163,67 +170,114 @@
     }, 0);
   }
 
-  function shouldIncludeBucket(family, included, options) {
-    if (included === false) {
+  function normalizeFamily(value) {
+    const family = normalizeString(value);
+    if (family === "cashFlowContribution") {
+      return "preDeathSavedCash";
+    }
+    return family || "unknown";
+  }
+
+  function getBucketPermissionMode(family) {
+    if (family === "existingCoverage") {
+      return "mechanical";
+    }
+    if (AUTOMATIC_FAMILIES.has(family)) {
+      return "automatic";
+    }
+    if (GATED_FAMILIES.has(family)) {
+      return "gated";
+    }
+    return "unsupported";
+  }
+
+  function getBucketPermissionSource(bucket) {
+    if (bucket.family === "existingCoverage") {
+      return "existing-coverage-treatment";
+    }
+    if (bucket.family === "preDeathSavedCash") {
+      return "pre-death-cash-flow-contribution";
+    }
+    if (normalizeString(bucket.trace?.treatmentSource)) {
+      return bucket.trace.treatmentSource;
+    }
+    if (normalizeString(bucket.trace?.treatmentPreset)) {
+      return "asset-treatment-assumption";
+    }
+    if (bucket.explicitIncluded) {
+      return "treated-asset-included";
+    }
+    return "bucket-input";
+  }
+
+  function getBucketSourceAssetIds(rawBucket, id) {
+    const rawIds = []
+      .concat(Array.isArray(rawBucket?.sourceAssetIds) ? rawBucket.sourceAssetIds : [])
+      .concat(rawBucket?.assetId)
+      .concat(rawBucket?.trace?.assetId)
+      .concat(rawBucket?.trace?.sourceAssetId)
+      .concat(id);
+    return Array.from(new Set(rawIds.map(normalizeString).filter(Boolean)));
+  }
+
+  function shouldIncludeBucket(bucket) {
+    const family = bucket.family;
+    const permissionMode = getBucketPermissionMode(family);
+    if (bucket.included === false) {
       return {
         included: false,
         reason: "bucket-marked-not-included",
-        warning: "Bucket is marked included:false and was excluded from spendable ledger resources."
+        warning: "Bucket is marked included:false and was excluded from the canonical runway asset waterfall.",
+        permissionMode
       };
     }
-    if (family === "educationSavings" && !options.allowEducationSavingsRedirect) {
+    if (permissionMode === "unsupported") {
       return {
         included: false,
-        reason: "education-redirect-disabled",
-        warning: "Education savings were excluded because education redirect was not explicitly enabled."
+        reason: "unsupported-asset-family",
+        warning: "Asset family is not supported by the canonical runway asset waterfall.",
+        permissionMode
       };
     }
-    if (family === "unknown" && !options.includeUnknownAssets) {
+    if (permissionMode === "gated" && bucket.explicitIncluded !== true) {
       return {
         included: false,
-        reason: "unknown-assets-excluded",
-        warning: "Unknown assets were excluded unless explicitly included."
+        reason: "gated-family-not-treatment-included",
+        warning: "Gated asset family was excluded because existing treatment output did not mark it included.",
+        permissionMode
       };
-    }
-    if (ILLIQUID_FAMILIES.has(family) && !options.includeIlliquidAssets) {
-      return {
-        included: false,
-        reason: "illiquid-assets-excluded",
-        warning: "Illiquid assets were excluded unless explicitly enabled."
-      };
-    }
-    if (family === "restricted" && !options.includeIlliquidAssets) {
-      return {
-        included: false,
-        reason: "restricted-assets-excluded",
-        warning: "Restricted assets were excluded unless explicitly enabled."
-      };
-    }
-    if (DEFAULT_INCLUDED_FAMILIES.has(family) || family === "educationSavings" || family === "unknown" || ILLIQUID_FAMILIES.has(family)) {
-      return { included: true };
     }
     return {
-      included: false,
-      reason: "unsupported-asset-family",
-      warning: "Asset family is not supported by the depletion ledger."
+      included: true,
+      permissionMode,
+      permissionSource: getBucketPermissionSource(bucket)
     };
   }
 
-  function normalizeBucket(rawBucket, index, options, warnings, source) {
-    const family = normalizeString(rawBucket?.family) || "unknown";
+  function normalizeBucket(rawBucket, index, warnings, source) {
+    const family = normalizeFamily(rawBucket?.family);
     const startingValue = toOptionalNumber(rawBucket?.startingValue ?? rawBucket?.value ?? rawBucket?.amount);
     const id = normalizeString(rawBucket?.id) || `${family}-${index + 1}`;
     const sourcePath = normalizeString(rawBucket?.sourcePath);
+    const explicitIncluded = rawBucket?.included === true;
+    const included = rawBucket?.included !== false;
+    const roundedStartingValue = Math.max(roundMoney(startingValue || 0), 0);
     const baseBucket = {
       id,
+      bucketId: id,
       family,
+      category: family,
       label: normalizeString(rawBucket?.label) || family,
-      startingValue: Math.max(roundMoney(startingValue || 0), 0),
-      included: rawBucket?.included !== false,
+      startingValue: roundedStartingValue,
+      value: roundedStartingValue,
+      availableValue: roundedStartingValue,
+      included,
+      explicitIncluded,
       liquidityTier: normalizeString(rawBucket?.liquidityTier),
       growthActive: rawBucket?.growthActive === true,
       monthlyGrowthRate: toOptionalNumber(rawBucket?.monthlyGrowthRate) || 0,
       sourcePath,
+      sourceAssetIds: getBucketSourceAssetIds(rawBucket, id),
       evidenceLevel: normalizeString(rawBucket?.evidenceLevel) || "trace-backed",
       trace: isPlainObject(rawBucket?.trace) ? clonePlainValue(rawBucket.trace) : {}
     };
@@ -241,7 +295,7 @@
       };
     }
 
-    const includeDecision = shouldIncludeBucket(family, baseBucket.included, options);
+    const includeDecision = shouldIncludeBucket(baseBucket);
     if (!includeDecision.included) {
       warnings.push(makeWarning(
         includeDecision.reason,
@@ -252,13 +306,21 @@
       return {
         excluded: Object.assign({}, baseBucket, {
           included: false,
-          reason: includeDecision.reason
+          reason: includeDecision.reason,
+          permissionMode: includeDecision.permissionMode,
+          permissionSource: getBucketPermissionSource(baseBucket)
         })
       };
     }
 
     return {
       bucket: Object.assign({}, baseBucket, {
+        automatic: includeDecision.permissionMode === "automatic",
+        gated: includeDecision.permissionMode === "gated",
+        excluded: false,
+        permissionMode: includeDecision.permissionMode,
+        permissionSource: includeDecision.permissionSource || getBucketPermissionSource(baseBucket),
+        treatmentSource: getBucketPermissionSource(baseBucket),
         balance: baseBucket.startingValue,
         tapped: false,
         depleted: false,
@@ -268,7 +330,7 @@
     };
   }
 
-  function normalizeExistingCoverageBucket(rawBucket, options, warnings) {
+  function normalizeExistingCoverageBucket(rawBucket, warnings) {
     if (!isPlainObject(rawBucket)) {
       return null;
     }
@@ -280,17 +342,23 @@
         mechanicalOnly: true,
         visibleStorylineEligible: false
       })
-    }), 0, options, warnings, "existingCoverageBucket");
+    }), 0, warnings, "existingCoverageBucket");
   }
 
   function snapshotBuckets(buckets) {
     return buckets.map(function (bucket) {
       return {
         id: bucket.id,
+        bucketId: bucket.id,
         family: bucket.family,
         label: bucket.label,
         balance: roundMoney(bucket.balance),
+        startingValue: bucket.startingValue,
+        availableValue: bucket.availableValue,
+        permissionMode: bucket.permissionMode,
+        permissionSource: bucket.permissionSource,
         sourcePath: bucket.sourcePath,
+        sourceAssetIds: bucket.sourceAssetIds,
         evidenceLevel: bucket.evidenceLevel
       };
     });
@@ -303,19 +371,30 @@
   }
 
   function makeBucketEvent(eventType, bucket, monthIndex, amountAtTap, amountDepleted, trace) {
+    const mechanicalLedgerEvent = bucket.family === "existingCoverage" || bucket.trace?.mechanicalOnly === true;
+    const visibleStorylineEligible = mechanicalLedgerEvent !== true
+      && bucket.trace?.visibleStorylineEligible !== false
+      && bucket.trace?.syntheticSurplusBucket !== true;
     return {
       eventType,
       bucketId: bucket.id,
       family: bucket.family,
+      label: bucket.label,
       monthIndex,
       amountAtTap: amountAtTap == null ? null : roundMoney(amountAtTap),
       amountDepleted: amountDepleted == null ? null : roundMoney(amountDepleted),
       sourcePath: bucket.sourcePath,
       evidenceLevel: bucket.evidenceLevel,
+      permissionMode: bucket.permissionMode,
+      permissionSource: bucket.permissionSource,
+      sourceAssetIds: Array.isArray(bucket.sourceAssetIds) ? bucket.sourceAssetIds.slice() : [],
       trace: Object.assign({
         source: SOURCE,
-        mechanicalLedgerEvent: true,
-        visibleStorylineEligible: false
+        mechanicalLedgerEvent,
+        visibleStorylineEligible,
+        permissionMode: bucket.permissionMode,
+        permissionSource: bucket.permissionSource,
+        bucketSourcePath: bucket.sourcePath
       }, trace || {})
     };
   }
@@ -522,6 +601,106 @@
     };
   }
 
+  function summarizeBucketEvents(bucketEvents) {
+    return (Array.isArray(bucketEvents) ? bucketEvents : []).reduce(function (summary, event) {
+      const bucketId = normalizeString(event?.bucketId);
+      if (!bucketId) {
+        return summary;
+      }
+      const current = summary[bucketId] || {};
+      const monthIndex = toOptionalNumber(event.monthIndex);
+      if (event.eventType === EVENT_TYPES.bucketTapped && monthIndex != null) {
+        current.firstUsedMonth = current.firstUsedMonth == null
+          ? monthIndex
+          : Math.min(current.firstUsedMonth, monthIndex);
+      }
+      if (event.eventType === EVENT_TYPES.bucketDepleted && monthIndex != null) {
+        current.depletionMonth = current.depletionMonth == null
+          ? monthIndex
+          : Math.min(current.depletionMonth, monthIndex);
+      }
+      summary[bucketId] = current;
+      return summary;
+    }, {});
+  }
+
+  function summarizeBucket(bucket, eventSummary, order, index) {
+    const events = eventSummary[bucket.id] || {};
+    return {
+      bucketId: bucket.id,
+      label: bucket.label,
+      order,
+      category: bucket.family,
+      family: bucket.family,
+      value: roundMoney(bucket.startingValue),
+      availableValue: roundMoney(bucket.startingValue),
+      automatic: bucket.permissionMode === "automatic",
+      gated: bucket.permissionMode === "gated",
+      excluded: false,
+      permissionMode: bucket.permissionMode,
+      permissionSource: bucket.permissionSource,
+      treatmentSource: bucket.treatmentSource || bucket.permissionSource,
+      sourceAssetIds: Array.isArray(bucket.sourceAssetIds) ? bucket.sourceAssetIds.slice() : [],
+      sourcePath: bucket.sourcePath,
+      evidenceLevel: bucket.evidenceLevel,
+      depletionMonth: events.depletionMonth == null ? null : events.depletionMonth,
+      firstUsedMonth: events.firstUsedMonth == null ? null : events.firstUsedMonth,
+      trace: Object.assign({}, isPlainObject(bucket.trace) ? clonePlainValue(bucket.trace) : {}, {
+        source: SOURCE,
+        sortedIndex: index,
+        permissionMode: bucket.permissionMode,
+        permissionSource: bucket.permissionSource,
+        finalBalance: roundMoney(bucket.balance)
+      })
+    };
+  }
+
+  function buildOrderedBuckets(buckets, depletionOrder, bucketEvents) {
+    const eventSummary = summarizeBucketEvents(bucketEvents);
+    return sortBucketsByOrder(buckets, depletionOrder)
+      .filter(function (bucket) {
+        return bucket.family !== "existingCoverage" && bucket.trace?.syntheticSurplusBucket !== true;
+      })
+      .map(function (bucket, index) {
+        return summarizeBucket(
+          bucket,
+          eventSummary,
+          depletionOrder.indexOf(bucket.family) === -1 ? DEFAULT_DEPLETION_ORDER.length + index : depletionOrder.indexOf(bucket.family),
+          index
+        );
+      });
+  }
+
+  function buildMechanicalSources(buckets, depletionOrder, bucketEvents, immediateWithdrawals) {
+    const eventSummary = summarizeBucketEvents(bucketEvents);
+    const coverageSources = sortBucketsByOrder(buckets, depletionOrder)
+      .filter(function (bucket) { return bucket.family === "existingCoverage"; })
+      .map(function (bucket, index) {
+        return Object.assign(summarizeBucket(bucket, eventSummary, 0, index), {
+          mechanicalOnly: true,
+          automatic: true,
+          gated: false
+        });
+      });
+    const immediateSource = Array.isArray(immediateWithdrawals) && immediateWithdrawals.length
+      ? [{
+          id: "immediate-obligations",
+          type: "immediate-obligations",
+          label: "Immediate obligations",
+          mechanicalOnly: true,
+          amount: roundMoney(immediateWithdrawals.reduce(function (total, withdrawal) {
+            return total + Math.max(toOptionalNumber(withdrawal.amount) || 0, 0);
+          }, 0)),
+          withdrawalsByBucket: clonePlainValue(immediateWithdrawals),
+          trace: {
+            source: SOURCE,
+            visibleStorylineEligible: false
+          }
+        }]
+      : [];
+    return coverageSources.concat(immediateSource);
+  }
+
   function buildIncomeImpactAssetDepletionLedger(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const options = normalizeOptions(safeInput);
@@ -530,6 +709,7 @@
     const trace = {
       source: SOURCE,
       depletionOrder: depletionOrder.slice(),
+      canonicalWaterfall: true,
       growthPolicy: options.growthPolicy,
       treatmentSource: "startingBuckets-treated-values",
       totalResourcesReconciliation: {
@@ -537,7 +717,9 @@
         monthsChecked: 0
       },
       assumptions: [
-        "startingBucket.startingValue is treated as the already-treated spendable balance"
+        "startingBucket.startingValue is treated as the already-treated spendable balance",
+        "gated buckets are included only when the supplied treatment output marks the bucket included",
+        "existing coverage proceeds are a mechanical source and not a normal story asset bucket"
       ],
       totalSurplusDeposited: 0,
       surplusDepositPolicy: {
@@ -562,7 +744,7 @@
 
     const normalizedBuckets = [];
     const excludedBuckets = [];
-    const coverageResult = normalizeExistingCoverageBucket(safeInput.existingCoverageBucket, options, warnings);
+    const coverageResult = normalizeExistingCoverageBucket(safeInput.existingCoverageBucket, warnings);
     if (coverageResult?.bucket) {
       normalizedBuckets.push(coverageResult.bucket);
     }
@@ -571,7 +753,7 @@
     }
 
     (Array.isArray(safeInput.startingBuckets) ? safeInput.startingBuckets : []).forEach(function (bucket, index) {
-      const result = normalizeBucket(bucket, index, options, warnings, "startingBuckets");
+      const result = normalizeBucket(bucket, index, warnings, "startingBuckets");
       if (result.bucket) {
         normalizedBuckets.push(result.bucket);
       }
@@ -676,31 +858,45 @@
       ? ledgerMonths[ledgerMonths.length - 1].totalAvailableResources
       : sumBucketBalances(buckets);
 
+    const orderedBuckets = buildOrderedBuckets(buckets, depletionOrder, bucketEvents);
+    const mechanicalSources = buildMechanicalSources(buckets, depletionOrder, bucketEvents, immediateWithdrawals);
+
     return {
       version: VERSION,
       status: STATUS.ready,
+      orderedBuckets,
       ledgerMonths,
       bucketEvents,
       excludedBuckets,
+      mechanicalSources,
       warnings,
       trace
     };
   }
 
   lensAnalysis.incomeImpactAssetDepletionLedgerCalculations = Object.freeze({
-    buildIncomeImpactAssetDepletionLedger
+    buildIncomeImpactAssetDepletionLedger,
+    buildIncomeImpactCanonicalRunwayAssetWaterfall: buildIncomeImpactAssetDepletionLedger
   });
   lensAnalysis.buildIncomeImpactAssetDepletionLedger = buildIncomeImpactAssetDepletionLedger;
+  lensAnalysis.buildIncomeImpactCanonicalRunwayAssetWaterfall = buildIncomeImpactAssetDepletionLedger;
   lensAnalysis.incomeImpactAssetDepletionLedgerDefaultOrder = DEFAULT_DEPLETION_ORDER;
+  lensAnalysis.incomeImpactCanonicalRunwayAssetWaterfallDefaultOrder = DEFAULT_DEPLETION_ORDER;
   lensAnalysis.incomeImpactAssetDepletionLedgerEventTypes = EVENT_TYPES;
+  lensAnalysis.incomeImpactCanonicalRunwayAssetWaterfallEventTypes = EVENT_TYPES;
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       buildIncomeImpactAssetDepletionLedger,
+      buildIncomeImpactCanonicalRunwayAssetWaterfall: buildIncomeImpactAssetDepletionLedger,
       INCOME_IMPACT_ASSET_DEPLETION_LEDGER_VERSION: VERSION,
       INCOME_IMPACT_ASSET_DEPLETION_LEDGER_SOURCE: SOURCE,
       INCOME_IMPACT_ASSET_DEPLETION_LEDGER_DEFAULT_ORDER: DEFAULT_DEPLETION_ORDER,
-      INCOME_IMPACT_ASSET_DEPLETION_LEDGER_EVENT_TYPES: EVENT_TYPES
+      INCOME_IMPACT_ASSET_DEPLETION_LEDGER_EVENT_TYPES: EVENT_TYPES,
+      INCOME_IMPACT_CANONICAL_RUNWAY_ASSET_WATERFALL_VERSION: VERSION,
+      INCOME_IMPACT_CANONICAL_RUNWAY_ASSET_WATERFALL_SOURCE: SOURCE,
+      INCOME_IMPACT_CANONICAL_RUNWAY_ASSET_WATERFALL_DEFAULT_ORDER: DEFAULT_DEPLETION_ORDER,
+      INCOME_IMPACT_CANONICAL_RUNWAY_ASSET_WATERFALL_EVENT_TYPES: EVENT_TYPES
     };
   }
 })(typeof globalThis !== "undefined" ? globalThis : this);

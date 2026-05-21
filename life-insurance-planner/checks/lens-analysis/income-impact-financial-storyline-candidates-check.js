@@ -229,7 +229,7 @@ assert.ok(result.majorStoryCandidates.length <= 6);
 assert.ok(result.majorGraphDotCandidates.length <= 6);
 assert.ok(result.microGraphDotCandidates.length <= 10);
 assert.ok(result.graphDotCandidates.length <= 16);
-assert.equal(result.allCandidates.length, 44);
+assert.equal(result.allCandidates.length, 45);
 assert.equal(result.safeRenderableEvents.length, 14);
 assert.equal(result.majorStoryCandidates.length, 4);
 assert.equal(result.graphDotCandidates.length, 5);
@@ -560,98 +560,15 @@ const waterfallInput = {
 };
 const waterfallSnapshot = cloneJson(waterfallInput);
 const waterfallResult = buildIncomeImpactFinancialStorylineCandidates(waterfallInput);
-assert.deepEqual(waterfallInput, waterfallSnapshot, "Waterfall integration should not mutate input objects.");
-
-[
-  "cash-savings-depleted",
-  "emergency-fund-depleted",
-  "education-savings-used-for-living-needs",
-  "education-savings-depleted",
-  "retirement-assets-tapped",
-  "retirement-assets-depleted",
-  "home-equity-becomes-last-resort"
-].forEach(function (id) {
-  const candidate = getCandidate(waterfallResult, id);
-  assert.equal(candidate.safeToRender, true, `${id} should activate from supported resource waterfall evidence.`);
-  assert.equal(candidate.status, "safe-now", `${id} should become safe-now from resource waterfall evidence.`);
-  assert.ok(ids(waterfallResult.safeRenderableEvents).includes(id), `${id} should be in safeRenderableEvents.`);
-});
-
-assert.equal(getCandidate(waterfallResult, "cash-savings-depleted").evidenceLevel, "calculated");
-assert.equal(getCandidate(waterfallResult, "cash-savings-depleted").storyRole, "emotional");
-assert.equal(getCandidate(waterfallResult, "home-equity-becomes-last-resort").storyRole, "detail");
-assert.equal(getCandidate(waterfallResult, "emergency-fund-depleted").evidenceLevel, "estimated");
-assert.equal(getCandidate(waterfallResult, "education-savings-used-for-living-needs").evidenceLevel, "assumption-backed");
-assert.ok(
-  getCandidate(waterfallResult, "cash-savings-depleted").sources.some(function (source) {
-    return source.sourcePath === "resourceWaterfall.buckets.cash";
-  }),
-  "Waterfall source paths should be preserved."
+assert.deepEqual(waterfallInput, waterfallSnapshot, "Obsolete waterfall input should not be mutated.");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(waterfallResult.trace, "activatedWaterfallCandidateIds"),
+  false,
+  "Obsolete resourceWaterfall input should not activate or trace story candidates."
 );
-assert.equal(getCandidate(waterfallResult, "cash-savings-depleted").timing.monthOffset, 1);
-assert.equal(getCandidate(waterfallResult, "cash-savings-depleted").amount.value, 12000);
-
-assert.ok(ids(waterfallResult.graphDotCandidates).includes("cash-savings-depleted"));
-assert.ok(
-  ids(waterfallResult.graphDotCandidates).includes("education-savings-used-for-living-needs")
-    || ids(waterfallResult.graphDotCandidates).includes("retirement-assets-tapped")
-);
-assert.ok(ids(waterfallResult.majorStoryCandidates).includes("cash-savings-depleted"));
-assert.ok(waterfallResult.majorStoryCandidates.every(function (candidate) {
-  return candidate.storyRole === "emotional" || candidate.storyRole === "data-gap";
-}));
-assert.ok(waterfallResult.graphDotCandidates.every(function (candidate) {
-  return candidate.storyRole === "emotional" || candidate.storyRole === "data-gap";
-}));
-assert.ok(
-  ids(waterfallResult.majorStoryCandidates).includes("education-savings-used-for-living-needs")
-    || ids(waterfallResult.majorStoryCandidates).includes("retirement-assets-tapped"),
-  "Waterfall-backed events should be eligible for major story cards when diversity allows."
-);
-assert.ok(!ids(waterfallResult.majorStoryCandidates).includes("home-equity-becomes-last-resort"));
-assert.ok(!ids(waterfallResult.majorGraphDotCandidates).includes("home-equity-becomes-last-resort"));
-assert.ok(!ids(waterfallResult.microGraphDotCandidates).includes("home-equity-becomes-last-resort"));
-assert.ok(!ids(waterfallResult.graphDotCandidates).includes("home-equity-becomes-last-resort"));
-assert.equal(waterfallResult.majorStoryCandidates[0].id, "death-income-stops");
-assert.ok(waterfallResult.majorStoryCandidates.length <= 6);
-assert.ok(waterfallResult.majorGraphDotCandidates.length <= 6);
-assert.ok(waterfallResult.microGraphDotCandidates.length <= 10);
-assert.ok(waterfallResult.graphDotCandidates.length <= 16);
-assert.ok(waterfallResult.trace.activatedWaterfallCandidateIds.includes("cash-savings-depleted"));
-
-assert.equal(getCandidate(waterfallResult, "home-equity-depleted").safeToRender, false);
-assert.equal(getCandidate(waterfallResult, "home-equity-depleted").status, "deferred");
-["foreclosure", "eviction", "credit crisis", "bankruptcy"].forEach(function (label) {
-  assert.equal(
-    waterfallResult.safeRenderableEvents.some(function (candidate) {
-      return candidate.displayLabel.toLowerCase().includes(label);
-    }),
-    false,
-    `${label} should not become safe renderable from resource waterfall.`
-  );
-});
-assert.ok(
-  waterfallResult.suppressedCandidates.some(function (candidate) {
-    return candidate.displayLabel === "Credit Crisis";
-  }),
-  "Forbidden waterfall labels should be suppressed instead of activated."
-);
-assert.ok(
-  waterfallResult.suppressedCandidates.some(function (candidate) {
-    return candidate.evidenceLevel === "insufficient-data";
-  }),
-  "Insufficient-data waterfall events should be suppressed."
-);
-assert.ok(
-  !ids(waterfallResult.safeRenderableEvents).includes("housing-payment-at-risk"),
-  "Housing-risk events should remain deferred until a housing-risk helper exists."
-);
-assert.ok(
-  waterfallResult.warnings.some(function (warning) {
-    return warning.code === "waterfall-event-not-activated";
-  }),
-  "Suppressed waterfall events should surface warnings."
-);
+assert.ok(!ids(waterfallResult.safeRenderableEvents).includes("cash-savings-depleted"));
+assert.ok(!ids(waterfallResult.safeRenderableEvents).includes("emergency-fund-depleted"));
+assert.ok(!ids(waterfallResult.safeRenderableEvents).includes("education-savings-used-for-living-needs"));
 
 const ledgerInput = cloneJson(waterfallInput);
 ledgerInput.assetDepletionLedger = {
@@ -783,8 +700,8 @@ ledgerCandidateIds.forEach(function (id) {
   const candidate = getCandidate(ledgerResult, id);
   assert.equal(candidate.safeToRender, true, `${id} should activate from ready asset depletion ledger events.`);
   assert.equal(candidate.status, "safe-now", `${id} should become safe-now from ledger evidence.`);
-  assert.equal(candidate.candidateSource, "asset-depletion-ledger", `${id} should prefer the ledger-backed candidate source.`);
-  assert.equal(candidate.trace.candidateSource, "asset-depletion-ledger", `${id} should preserve ledger trace metadata.`);
+  assert.equal(candidate.candidateSource, "canonical-runway-asset-waterfall", `${id} should prefer the canonical waterfall candidate source.`);
+  assert.equal(candidate.trace.candidateSource, "canonical-runway-asset-waterfall", `${id} should preserve canonical waterfall trace metadata.`);
   assert.ok(ids(ledgerResult.safeRenderableEvents).includes(id), `${id} should be safe renderable from the ledger.`);
 });
 assert.equal(getCandidate(ledgerResult, "cash-savings-depleted").evidenceLevel, "calculated");
@@ -801,15 +718,15 @@ assert.deepEqual(
   "Ledger-backed candidate trace should preserve reconciliation status."
 );
 assert.ok(!ledgerResult.safeRenderableEvents.some(function (candidate) {
-  return candidate.candidateSource === "asset-depletion-ledger"
+  return candidate.candidateSource === "canonical-runway-asset-waterfall"
     && ["existingCoverage", "homeEquity", "businessAssets", "unknown"].includes(candidate.trace?.family);
 }), "Existing coverage, home equity, business, and unknown ledger events should not create visible candidates.");
 assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
-  return candidate.candidateSource === "asset-depletion-ledger"
+  return candidate.candidateSource === "canonical-runway-asset-waterfall"
     && candidate.trace?.family === "existingCoverage";
 }), "Existing coverage ledger events should be suppressed as mechanical/non-visible.");
 assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
-  return candidate.candidateSource === "asset-depletion-ledger"
+  return candidate.candidateSource === "canonical-runway-asset-waterfall"
     && candidate.trace?.family === "homeEquity";
 }), "Home equity ledger events should be suppressed from visible storyline candidates.");
 removedVisibleEventIds.forEach(function (id) {
@@ -824,28 +741,13 @@ mechanicalVisibleSuppressedIds.forEach(function (id) {
 });
 assert.equal(ledgerResult.trace.assetDepletionLedgerUsedForStoryline, true);
 assert.equal(ledgerResult.trace.assetDepletionLedgerStatus, "ready");
+assert.equal(ledgerResult.trace.canonicalRunwayWaterfallUsedForStoryline, true);
+assert.equal(ledgerResult.trace.canonicalRunwayWaterfallStatus, "ready");
 ledgerCandidateIds.forEach(function (id) {
   assert.ok(ledgerResult.trace.ledgerBackedCandidateIds.includes(id), `${id} should be listed as ledger-backed.`);
 });
-assert.equal(ledgerResult.trace.waterfallFallbackUsed, false);
-assert.deepEqual(
-  ledgerResult.trace.supersededWaterfallCandidateIds.slice().sort(),
-  [
-    "cash-savings-depleted",
-    "education-savings-depleted",
-    "education-savings-used-for-living-needs",
-    "emergency-fund-depleted",
-    "home-equity-becomes-last-resort",
-    "retirement-assets-depleted",
-    "retirement-assets-tapped"
-  ],
-  "Ready ledger should suppress static waterfall candidates so the waterfall remains fallback-only."
-);
-assert.ok(ledgerResult.suppressedCandidates.some(function (candidate) {
-  return candidate.id === "cash-savings-depleted"
-    && candidate.selectionSuppressionReason === "superseded-by-asset-depletion-ledger";
-}), "Duplicate waterfall candidates should be suppressed with a specific ledger supersession reason.");
-assert.deepEqual(ledgerResult.trace.activatedWaterfallCandidateIds, []);
+assert.equal(Object.prototype.hasOwnProperty.call(ledgerResult.trace, "waterfallFallbackUsed"), false);
+assert.equal(Object.prototype.hasOwnProperty.call(ledgerResult.trace, "activatedWaterfallCandidateIds"), false);
 assert.equal(ledgerResult.trace.graphLineSource, "aggregate-survivor-runway");
 assert.ok(ledgerResult.trace.majorStoryTierCounts["tier-1"] >= 1);
 assert.equal(ledgerResult.trace.selectedAsCounts.major, ledgerResult.majorStoryCandidates.length);
@@ -916,15 +818,17 @@ assert.ok(
 
 const staticFallbackResult = buildIncomeImpactFinancialStorylineCandidates(Object.assign({}, waterfallInput, {
   assetDepletionLedger: {
-    version: "income-impact-asset-depletion-ledger-v1",
+    version: "income-impact-canonical-runway-asset-waterfall-v1",
     status: "insufficient-data",
     bucketEvents: ledgerInput.assetDepletionLedger.bucketEvents
   }
 }));
 assert.equal(staticFallbackResult.trace.assetDepletionLedgerUsedForStoryline, false);
 assert.equal(staticFallbackResult.trace.assetDepletionLedgerStatus, "insufficient-data");
-assert.equal(staticFallbackResult.trace.waterfallFallbackUsed, true);
-assert.ok(staticFallbackResult.trace.activatedWaterfallCandidateIds.includes("cash-savings-depleted"));
+assert.equal(staticFallbackResult.trace.canonicalRunwayWaterfallUsedForStoryline, false);
+assert.equal(staticFallbackResult.trace.canonicalRunwayWaterfallStatus, "insufficient-data");
+assert.equal(Object.prototype.hasOwnProperty.call(staticFallbackResult.trace, "waterfallFallbackUsed"), false);
+assert.ok(!ids(staticFallbackResult.safeRenderableEvents).includes("cash-savings-depleted"));
 
 function makeHousingRiskEvent(config) {
   const event = {
@@ -1173,7 +1077,7 @@ assert.ok(
 );
 
 const selectorInput = cloneJson(richInput);
-selectorInput.resourceWaterfall = cloneJson(waterfallInput.resourceWaterfall);
+selectorInput.assetDepletionLedger = cloneJson(ledgerInput.assetDepletionLedger);
 selectorInput.housingRisk = cloneJson(housingInput.housingRisk);
 const selectorSnapshot = cloneJson(selectorInput);
 const selectorResult = buildIncomeImpactFinancialStorylineCandidates(selectorInput);
@@ -1190,10 +1094,10 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
-assert.equal(selectorResult.allCandidates.length, 56);
-assert.equal(selectorResult.safeRenderableEvents.length, 26);
+assert.equal(selectorResult.allCandidates.length, 58);
+assert.equal(selectorResult.safeRenderableEvents.length, 27);
 assert.equal(selectorResult.majorStoryCandidates.length, 6);
-assert.equal(selectorResult.graphDotCandidates.length, 15);
+assert.equal(selectorResult.graphDotCandidates.length, 16);
 assert.equal(selectorResult.trace.safeRenderableCount, selectorResult.safeRenderableEvents.length);
 assert.equal(selectorResult.trace.majorStoryCandidateLimit, 6);
 assert.equal(selectorResult.trace.graphDotCandidateLimit, 16);
@@ -1378,37 +1282,35 @@ const liquidityRankingResult = buildIncomeImpactFinancialStorylineCandidates({
       date: "2036-05-14"
     }
   },
-  resourceWaterfall: {
-    timelineEvents: [
-      makeWaterfallEvent({
+  assetDepletionLedger: {
+    status: "ready",
+    bucketEvents: [
+      makeLedgerEvent({
         bucketId: "emergency",
         eventType: "bucket-depleted",
-        displayLabel: "Emergency Fund Depleted",
         family: "emergencyFund",
-        monthOffset: 3,
-        amount: 18000,
+        monthIndex: 3,
+        amountDepleted: 18000,
         evidenceLevel: "estimated",
-        sourcePath: "resourceWaterfall.buckets.emergency"
+        sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.emergency"
       }),
-      makeWaterfallEvent({
+      makeLedgerEvent({
         bucketId: "liquid",
         eventType: "bucket-depleted",
-        displayLabel: "Liquid Investments Depleted",
         family: "otherLiquid",
-        monthOffset: 4,
-        amount: 15000,
+        monthIndex: 4,
+        amountDepleted: 15000,
         evidenceLevel: "estimated",
-        sourcePath: "resourceWaterfall.buckets.liquid"
+        sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.liquid"
       }),
-      makeWaterfallEvent({
+      makeLedgerEvent({
         bucketId: "taxable",
         eventType: "bucket-depleted",
-        displayLabel: "Taxable Assets Depleted",
         family: "taxableInvestments",
-        monthOffset: 5,
-        amount: 15000,
+        monthIndex: 5,
+        amountDepleted: 15000,
         evidenceLevel: "estimated",
-        sourcePath: "resourceWaterfall.buckets.taxable"
+        sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.taxable"
       })
     ]
   }

@@ -7280,7 +7280,7 @@
         source: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
         generatedAt: null,
         rendered: false,
-        resourceWaterfallStatus: "not-built",
+        canonicalRunwayAssetWaterfallStatus: "not-built",
         housingRiskStatus: "not-built",
         evidenceSummary: {}
       }
@@ -7423,112 +7423,7 @@
     }
   }
 
-  function buildDisplayResourceBucketsForStoryline(state) {
-    const adapter = getDisplayStorylineHelper(state, "buildIncomeImpactResourceBucketsFromLensModel");
-    if (typeof adapter !== "function") {
-      return {
-        value: null,
-        status: "helper-unavailable",
-        warnings: [
-          createFinancialStorylineBridgeWarning(
-            "resource-bucket-adapter-helper-unavailable",
-            "Lens asset buckets were not built because the resource bucket adapter is not available."
-          )
-        ]
-      };
-    }
-
-    try {
-      const result = adapter({
-        assetFacts: state?.lensModel?.assetFacts,
-        treatedAssetOffsets: state?.lensModel?.treatedAssetOffsets
-      });
-      return {
-        value: result,
-        status: "built",
-        warnings: Array.isArray(result?.warnings) ? clonePlainValue(result.warnings) : []
-      };
-    } catch (error) {
-      return {
-        value: null,
-        status: "error",
-        warnings: [
-          createFinancialStorylineBridgeWarning(
-            "resource-bucket-adapter-build-failed",
-            "Lens asset buckets could not be built for the resource waterfall.",
-            { error: error?.message || String(error) }
-          )
-        ]
-      };
-    }
-  }
-
-  function buildDisplayResourceWaterfallForStoryline(state, timelineResult, controls) {
-    const builder = getDisplayStorylineHelper(state, "buildIncomeImpactResourceWaterfall");
-    if (typeof builder !== "function") {
-      return {
-        value: null,
-        status: "helper-unavailable",
-        warnings: [
-          createFinancialStorylineBridgeWarning(
-            "resource-waterfall-helper-unavailable",
-            "Resource waterfall inputs were not built because the helper is not available."
-          )
-        ]
-      };
-    }
-
-    try {
-      const resourceBucketBuild = buildDisplayResourceBucketsForStoryline(state);
-      const resourceBuckets = Array.isArray(resourceBucketBuild.value?.resourceBuckets)
-        ? resourceBucketBuild.value.resourceBuckets
-        : [];
-      const adapterWarnings = Array.isArray(resourceBucketBuild.warnings)
-        ? resourceBucketBuild.warnings
-        : [];
-      const value = builder({
-        resourceBuckets,
-        scenario: timelineResult?.scenario,
-        financialRunway: timelineResult?.financialRunway,
-        postDeathSeries: timelineResult?.scenario?.postDeathSeries,
-        timelineFacts: timelineResult?.scenario?.timelineFacts,
-        options: {
-          selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
-          projectionHorizonYears: controls?.projectionHorizonYears
-        }
-      });
-      const waterfallWarnings = Array.isArray(value?.warnings) ? value.warnings : [];
-      return {
-        value: isPlainObject(value)
-          ? Object.assign({}, value, {
-            warnings: waterfallWarnings.concat(adapterWarnings),
-            trace: Object.assign({}, isPlainObject(value.trace) ? value.trace : {}, {
-              resourceBucketAdapterStatus: resourceBucketBuild.status,
-              resourceBucketAdapterTrace: isPlainObject(resourceBucketBuild.value?.trace)
-                ? clonePlainValue(resourceBucketBuild.value.trace)
-                : null
-            })
-          })
-          : value,
-        status: "built",
-        warnings: adapterWarnings
-      };
-    } catch (error) {
-      return {
-        value: null,
-        status: "error",
-        warnings: [
-          createFinancialStorylineBridgeWarning(
-            "resource-waterfall-build-failed",
-            "Resource waterfall inputs could not be built.",
-            { error: error?.message || String(error) }
-          )
-        ]
-      };
-    }
-  }
-
-  function buildDisplayHousingRiskForStoryline(state, timelineResult, controls, resourceWaterfall) {
+  function buildDisplayHousingRiskForStoryline(state, timelineResult, controls) {
     const builder = getDisplayStorylineHelper(state, "buildIncomeImpactHousingRisk");
     if (typeof builder !== "function") {
       return {
@@ -7552,7 +7447,6 @@
           mortgageTreatment: controls?.mortgageTreatmentOverride
             || timelineResult?.scenario?.scenario?.mortgageTreatmentOverride
             || null,
-          resourceWaterfall,
           options: {
             selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
             projectionHorizonYears: controls?.projectionHorizonYears
@@ -7580,32 +7474,27 @@
     const safeContext = isPlainObject(context) ? context : {};
     const controls = isPlainObject(safeContext.controls) ? safeContext.controls : {};
     const storylineBuilder = getDisplayStorylineHelper(state, "buildIncomeImpactFinancialStorylineCandidates");
-    const resourceWaterfallBuild = buildDisplayResourceWaterfallForStoryline(state, timelineResult, controls);
-    const assetDepletionLedger = isPlainObject(timelineResult?.scenario?.trace?.layer3?.assetDepletionLedgerDiagnostic)
-      ? timelineResult.scenario.trace.layer3.assetDepletionLedgerDiagnostic
+    const canonicalRunwayAssetWaterfall = isPlainObject(timelineResult?.scenario?.trace?.layer3?.canonicalRunwayAssetWaterfall)
+      ? timelineResult.scenario.trace.layer3.canonicalRunwayAssetWaterfall
       : null;
-    const assetDepletionLedgerStatus = isPlainObject(assetDepletionLedger)
-      ? normalizeString(assetDepletionLedger.status) || "unknown"
+    const canonicalRunwayAssetWaterfallStatus = isPlainObject(canonicalRunwayAssetWaterfall)
+      ? normalizeString(canonicalRunwayAssetWaterfall.status) || "unknown"
       : "not-provided";
     const housingRiskBuild = buildDisplayHousingRiskForStoryline(
       state,
       timelineResult,
-      controls,
-      resourceWaterfallBuild.value
+      controls
     );
     const bridgeWarnings = []
-      .concat(Array.isArray(resourceWaterfallBuild.warnings) ? resourceWaterfallBuild.warnings : [])
       .concat(Array.isArray(housingRiskBuild.warnings) ? housingRiskBuild.warnings : []);
 
     if (typeof storylineBuilder !== "function") {
       const unavailable = makeFinancialStorylineUnavailableResult("storyline-helper-unavailable", {
-        resourceWaterfallStatus: resourceWaterfallBuild.status,
-        assetDepletionLedgerStatus,
+        canonicalRunwayAssetWaterfallStatus,
         housingRiskStatus: housingRiskBuild.status
       });
       unavailable.warnings = unavailable.warnings.concat(bridgeWarnings);
-      unavailable.trace.resourceWaterfallStatus = resourceWaterfallBuild.status;
-      unavailable.trace.assetDepletionLedgerStatus = assetDepletionLedgerStatus;
+      unavailable.trace.canonicalRunwayAssetWaterfallStatus = canonicalRunwayAssetWaterfallStatus;
       unavailable.trace.housingRiskStatus = housingRiskBuild.status;
       return unavailable;
     }
@@ -7624,8 +7513,7 @@
         selectedScenarioId: safeContext.selectedScenarioId || INITIAL_APPLIED_SCENARIO_ID,
         warnings: Array.isArray(timelineResult?.warnings) ? clonePlainValue(timelineResult.warnings) : [],
         dataGaps: Array.isArray(timelineResult?.dataGaps) ? clonePlainValue(timelineResult.dataGaps) : [],
-        assetDepletionLedger: assetDepletionLedger ? clonePlainValue(assetDepletionLedger) : null,
-        resourceWaterfall: resourceWaterfallBuild.value,
+        assetDepletionLedger: canonicalRunwayAssetWaterfall ? clonePlainValue(canonicalRunwayAssetWaterfall) : null,
         housingRisk: housingRiskBuild.value,
         options: {
           selectedDeathDate: getTimelineResultDeathDate(timelineResult, controls),
@@ -7639,21 +7527,18 @@
         trace: Object.assign({}, financialStoryline.trace, {
           displayBridgeSource: INCOME_IMPACT_STORYLINE_BRIDGE_SOURCE,
           rendered: false,
-          resourceWaterfallStatus: resourceWaterfallBuild.status,
-          assetDepletionLedgerStatus,
+          canonicalRunwayAssetWaterfallStatus,
           housingRiskStatus: housingRiskBuild.status
         })
       });
     } catch (error) {
       const unavailable = makeFinancialStorylineUnavailableResult("storyline-build-failed", {
         error: error?.message || String(error),
-        resourceWaterfallStatus: resourceWaterfallBuild.status,
-        assetDepletionLedgerStatus,
+        canonicalRunwayAssetWaterfallStatus,
         housingRiskStatus: housingRiskBuild.status
       });
       unavailable.warnings = unavailable.warnings.concat(bridgeWarnings);
-      unavailable.trace.resourceWaterfallStatus = resourceWaterfallBuild.status;
-      unavailable.trace.assetDepletionLedgerStatus = assetDepletionLedgerStatus;
+      unavailable.trace.canonicalRunwayAssetWaterfallStatus = canonicalRunwayAssetWaterfallStatus;
       unavailable.trace.housingRiskStatus = housingRiskBuild.status;
       return unavailable;
     }
@@ -8877,8 +8762,6 @@
     const buildIncomeImpactTimelineGraphModel = currentLensAnalysis.buildIncomeImpactTimelineGraphModel;
     const buildIncomeImpactAutoCompressedBaseline = currentLensAnalysis.buildIncomeImpactAutoCompressedBaseline;
     const buildIncomeImpactFinancialStorylineCandidates = currentLensAnalysis.buildIncomeImpactFinancialStorylineCandidates;
-    const buildIncomeImpactResourceBucketsFromLensModel = currentLensAnalysis.buildIncomeImpactResourceBucketsFromLensModel;
-    const buildIncomeImpactResourceWaterfall = currentLensAnalysis.buildIncomeImpactResourceWaterfall;
     const buildIncomeImpactHousingRisk = currentLensAnalysis.buildIncomeImpactHousingRisk;
     const prepareIncomeImpactCompressionReportingInputs = currentLensAnalysis.prepareIncomeImpactCompressionReportingInputs;
     const calculateIncomeImpactCompressionScenario = currentLensAnalysis.calculateIncomeImpactCompressionScenario;
@@ -8959,8 +8842,6 @@
         buildIncomeImpactTimelineGraphModel,
         buildIncomeImpactAutoCompressedBaseline,
         buildIncomeImpactFinancialStorylineCandidates,
-        buildIncomeImpactResourceBucketsFromLensModel,
-        buildIncomeImpactResourceWaterfall,
         buildIncomeImpactHousingRisk,
         prepareIncomeImpactCompressionReportingInputs,
         calculateIncomeImpactCompressionScenario,

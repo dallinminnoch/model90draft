@@ -347,7 +347,6 @@ function makeLifestyleScenarioFixture({ sliderValue, monthlyDelta, depletionMont
 
 const displaySource = readRepoFile("app/features/lens-analysis/income-loss-impact-display.js");
 const resourceBucketAdapterSource = readRepoFile("app/features/lens-analysis/income-impact-resource-bucket-adapter.js");
-const resourceWaterfallSource = readRepoFile("app/features/lens-analysis/income-impact-resource-waterfall-calculations.js");
 const housingRiskSource = readRepoFile("app/features/lens-analysis/income-impact-housing-risk-calculations.js");
 const financialStorylineSource = readRepoFile("app/features/lens-analysis/income-impact-financial-storyline-calculations.js");
 const timelineStoryEventsSource = readRepoFile("app/features/lens-analysis/income-impact-timeline-story-events.js");
@@ -360,7 +359,6 @@ const workspaceSideNavSource = readRepoFile("workspace-side-nav.js");
 const harness = createDisplayHarness(displaySource);
 const browserGlobalHelpers = createBrowserGlobalHelperHarness([
   resourceBucketAdapterSource,
-  resourceWaterfallSource,
   housingRiskSource,
   financialStorylineSource,
   timelineStoryEventsSource,
@@ -373,7 +371,6 @@ assert.equal(typeof harness.buildFinancialStorylineForTimelineResult, "function"
 assert.equal(typeof harness.buildTimelineStoryEventsForTimelineResult, "function");
 assert.equal(typeof harness.buildTimelineStoryAssemblyForTimelineResult, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceBucketsFromLensModel, "function");
-assert.equal(typeof browserGlobalHelpers.buildIncomeImpactResourceWaterfall, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactHousingRisk, "function");
 assert.equal(typeof browserGlobalHelpers.buildIncomeImpactFinancialStorylineCandidates, "function");
 assert.equal(typeof browserGlobalHelpers.normalizeIncomeImpactTimelineStoryEvents, "function");
@@ -381,9 +378,10 @@ assert.equal(typeof browserGlobalHelpers.buildIncomeImpactTimelineStoryAssembly,
 assert.match(pageSource, /income-impact-timeline-graph-model\.js[\s\S]*income-loss-impact-display\.js/);
 assert.match(
   pageSource,
-  /income-impact-resource-bucket-adapter\.js[\s\S]*income-impact-resource-waterfall-calculations\.js[\s\S]*income-impact-housing-risk-calculations\.js[\s\S]*income-impact-financial-storyline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
+  /income-impact-resource-bucket-adapter\.js[\s\S]*income-impact-housing-risk-calculations\.js[\s\S]*income-impact-financial-storyline-calculations\.js[\s\S]*income-loss-impact-display\.js/,
   "Income Impact page should load pure storyline helpers before the display bridge."
 );
+assert.doesNotMatch(pageSource, /income-impact-resource-waterfall-calculations\.js/);
 assert.match(
   pageSource,
   /income-impact-financial-storyline-calculations\.js[\s\S]*income-impact-timeline-story-events\.js[\s\S]*income-loss-impact-display\.js/,
@@ -424,11 +422,11 @@ assert.match(displaySource, /normalizeIncomeImpactTimelineStoryEvents/);
 assert.match(displaySource, /timelineResult\.timelineStoryEvents\s*=\s*buildTimelineStoryEventsForTimelineResult/);
 assert.match(displaySource, /buildIncomeImpactTimelineStoryAssembly/);
 assert.match(displaySource, /timelineResult\.timelineStoryAssembly\s*=\s*buildTimelineStoryAssemblyForTimelineResult/);
-assert.match(displaySource, /buildIncomeImpactResourceBucketsFromLensModel/);
-assert.match(displaySource, /buildIncomeImpactResourceWaterfall/);
 assert.match(displaySource, /buildIncomeImpactHousingRisk/);
-assert.match(displaySource, /assetDepletionLedgerDiagnostic/);
-assert.match(displaySource, /assetDepletionLedger:\s*assetDepletionLedger \? clonePlainValue\(assetDepletionLedger\) : null/);
+assert.match(displaySource, /canonicalRunwayAssetWaterfall/);
+assert.match(displaySource, /assetDepletionLedger:\s*canonicalRunwayAssetWaterfall \? clonePlainValue\(canonicalRunwayAssetWaterfall\) : null/);
+assert.doesNotMatch(displaySource, /buildIncomeImpactResourceWaterfall/);
+assert.doesNotMatch(displaySource, /resourceWaterfall/);
 assert.match(displaySource, /financialStoryline/);
 assert.match(displaySource, /rendered:\s*false/);
 assert.match(displaySource, /renderIncomeImpactTimelineGraph/);
@@ -485,6 +483,46 @@ const storylineTimelineResult = {
         depletionDate: "2034-04-29"
       }
     },
+    trace: {
+      layer3: {
+        canonicalRunwayAssetWaterfall: {
+          version: "income-impact-canonical-runway-asset-waterfall-v1",
+          status: "ready",
+          bucketEvents: [
+            {
+              eventType: "bucket-depleted",
+              bucketId: "cash",
+              family: "cash",
+              monthIndex: 10,
+              amountDepleted: 50000,
+              sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.cash",
+              evidenceLevel: "calculated",
+              trace: {
+                source: "test-canonical-waterfall",
+                visibleStorylineEligible: true
+              }
+            }
+          ],
+          orderedBuckets: [
+            {
+              bucketId: "cash",
+              family: "cash",
+              label: "Cash reserve",
+              order: 2,
+              value: 50000,
+              availableValue: 50000,
+              automatic: true,
+              permissionSource: "asset-treatment-assumption"
+            }
+          ],
+          mechanicalSources: [],
+          excludedBuckets: [],
+          trace: {
+            canonicalWaterfall: true
+          }
+        }
+      }
+    },
     warnings: [],
     dataGaps: []
   },
@@ -499,9 +537,7 @@ const storylineTimelineResult = {
 };
 const storylineTimelineSnapshot = JSON.parse(JSON.stringify(storylineTimelineResult));
 const bridgeCalls = {
-  resourceBuckets: [],
   storyline: [],
-  resourceWaterfall: [],
   housingRisk: []
 };
 const storylineState = {
@@ -530,34 +566,6 @@ const storylineState = {
         { assetId: "emergency", categoryKey: "emergencyFund", typeKey: "emergencyFundReserve", include: true, treatedValue: 25000 }
       ]
     }
-  },
-  buildIncomeImpactResourceBucketsFromLensModel(input) {
-    bridgeCalls.resourceBuckets.push(JSON.parse(JSON.stringify(input)));
-    return browserGlobalHelpers.buildIncomeImpactResourceBucketsFromLensModel(input);
-  },
-  buildIncomeImpactResourceWaterfall(input) {
-    bridgeCalls.resourceWaterfall.push(JSON.parse(JSON.stringify(input)));
-    return {
-      version: "income-impact-resource-waterfall-v1",
-      depletionEvents: [
-        {
-          id: "cash-depleted",
-          bucketId: "cash",
-          eventType: "bucket-depleted",
-          family: "cash",
-          displayLabel: "Cash Savings Depleted",
-          monthOffset: 10,
-          amount: { value: 50000, sourcePath: "resourceBuckets[0].startingValue" },
-          evidenceLevel: "estimated",
-          safeToRender: true,
-          sourcePath: "resourceBuckets[0]",
-          trace: { source: "test-waterfall" }
-        }
-      ],
-      timelineEvents: [],
-      warnings: [],
-      trace: { source: "test-waterfall" }
-    };
   },
   buildIncomeImpactHousingRisk(input) {
     bridgeCalls.housingRisk.push(JSON.parse(JSON.stringify(input)));
@@ -618,31 +626,21 @@ const wiredFinancialStoryline = harness.buildFinancialStorylineForTimelineResult
 );
 assert.equal(wiredFinancialStoryline.trace.displayBridgeSource, "income-impact-display-financial-storyline-bridge");
 assert.equal(wiredFinancialStoryline.trace.rendered, false);
-assert.equal(wiredFinancialStoryline.trace.resourceWaterfallStatus, "built");
+assert.equal(wiredFinancialStoryline.trace.canonicalRunwayAssetWaterfallStatus, "ready");
 assert.equal(wiredFinancialStoryline.trace.housingRiskStatus, "built");
 assert.ok(Array.isArray(wiredFinancialStoryline.majorStoryCandidates));
 assert.ok(Array.isArray(wiredFinancialStoryline.graphDotCandidates));
 assert.ok(Array.isArray(wiredFinancialStoryline.suppressedCandidates));
 assert.ok(Array.isArray(wiredFinancialStoryline.deferredCandidates));
-assert.equal(bridgeCalls.resourceBuckets.length, 1);
-assert.equal(bridgeCalls.resourceWaterfall.length, 1);
 assert.equal(bridgeCalls.housingRisk.length, 1);
 assert.equal(bridgeCalls.storyline.length, 1);
-assert.equal(bridgeCalls.resourceBuckets[0].assetFacts.assets.length, 2);
-assert.equal(bridgeCalls.resourceBuckets[0].treatedAssetOffsets.assets.length, 2);
-assert.equal(bridgeCalls.resourceWaterfall[0].resourceBuckets.length, 2);
-assert.deepEqual(
-  bridgeCalls.resourceWaterfall[0].resourceBuckets.map(function (bucket) { return bucket.family; }),
-  ["cash", "emergencyFund"],
-  "display bridge should pass explicit Lens asset resource buckets to the waterfall helper"
-);
-assert.equal(
-  bridgeCalls.resourceWaterfall[0].resourceBuckets[0].startingValue,
-  48000,
-  "display bridge should pass treated spendable asset value into the waterfall helper"
-);
 assert.equal(bridgeCalls.storyline[0].scenario.scenario.selectedDeathDate, "2031-04-29");
-assert.equal(bridgeCalls.storyline[0].resourceWaterfall.depletionEvents[0].id, "cash-depleted");
+assert.equal(bridgeCalls.storyline[0].assetDepletionLedger.bucketEvents[0].bucketId, "cash");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(bridgeCalls.storyline[0], "resourceWaterfall"),
+  false,
+  "display bridge should not pass the obsolete resource waterfall into storyline generation"
+);
 assert.equal(bridgeCalls.storyline[0].housingRisk.riskEvents[0].id, "housing-payment-at-risk");
 assert.deepEqual(storylineTimelineResult, storylineTimelineSnapshot);
 

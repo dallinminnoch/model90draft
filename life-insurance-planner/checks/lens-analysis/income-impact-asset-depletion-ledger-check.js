@@ -42,8 +42,13 @@ function assertLedgerReconciles(result) {
 }
 
 assert.equal(typeof buildIncomeImpactAssetDepletionLedger, "function", "asset depletion ledger helper export should exist");
-assert.equal(VERSION, "income-impact-asset-depletion-ledger-v1");
+assert.equal(VERSION, "income-impact-canonical-runway-asset-waterfall-v1");
 assert.ok(Array.isArray(DEFAULT_ORDER), "default depletion order should be exported");
+assert.deepEqual(
+  DEFAULT_ORDER.slice(0, 6),
+  ["existingCoverage", "preDeathSavedCash", "cash", "emergencyFund", "otherLiquid", "taxableInvestments"],
+  "canonical order should start with coverage, pre-death saved cash, ordinary cash, emergency fund, liquid reserves, then taxable investments"
+);
 assert.equal(EVENT_TYPES.bucketTapped, "bucket-tapped");
 assert.equal(EVENT_TYPES.bucketDepleted, "bucket-depleted");
 
@@ -60,6 +65,7 @@ const orderedInput = {
       family: "retirementAssets",
       label: "Treated retirement",
       startingValue: 500,
+      included: true,
       evidenceLevel: "trace-backed",
       sourcePath: "treatedAssetOffsets.assets.retirement"
     },
@@ -85,6 +91,7 @@ const orderedInput = {
       family: "educationSavings",
       label: "529 plan",
       startingValue: 400,
+      included: true,
       evidenceLevel: "trace-backed",
       sourcePath: "treatedAssetOffsets.assets.education"
     },
@@ -119,6 +126,17 @@ const orderedResult = buildIncomeImpactAssetDepletionLedger(orderedInput);
 assert.equal(orderedResult.version, VERSION);
 assert.equal(orderedResult.status, "ready");
 assert.equal(JSON.stringify(orderedInput), orderedSnapshot, "helper should not mutate inputs");
+assert.equal(orderedResult.trace.canonicalWaterfall, true);
+assert.deepEqual(
+  orderedResult.orderedBuckets.map((bucket) => bucket.family),
+  ["cash", "emergencyFund", "taxableInvestments", "educationSavings", "retirementAssets"],
+  "orderedBuckets should expose the canonical spendable asset order without mechanical coverage"
+);
+assert.equal(
+  orderedResult.mechanicalSources.some((source) => source.family === "existingCoverage" && source.mechanicalOnly === true),
+  true,
+  "existing coverage should be reported as a mechanical source, not a normal ordered bucket"
+);
 assert.deepEqual(
   eventFamilies(orderedResult, EVENT_TYPES.bucketTapped),
   ["existingCoverage", "cash", "emergencyFund", "taxableInvestments", "educationSavings", "retirementAssets"],
@@ -164,13 +182,12 @@ const educationExcludedResult = buildIncomeImpactAssetDepletionLedger({
   ],
   monthlyNeeds: 100,
   options: {
-    maxMonths: 3,
-    allowEducationSavingsRedirect: false
+    maxMonths: 3
   }
 });
 assert.ok(
-  educationExcludedResult.excludedBuckets.some((bucket) => bucket.id === "education" && bucket.reason === "education-redirect-disabled"),
-  "education savings should be excluded unless redirect is explicitly enabled"
+  educationExcludedResult.excludedBuckets.some((bucket) => bucket.id === "education" && bucket.reason === "gated-family-not-treatment-included"),
+  "education savings should be excluded unless existing treatment output marks it included"
 );
 assert.equal(
   educationExcludedResult.bucketEvents.some((event) => event.family === "educationSavings"),
@@ -251,22 +268,21 @@ const unknownExcludedResult = buildIncomeImpactAssetDepletionLedger({
 });
 assert.equal(unknownExcludedResult.status, "not-applicable");
 assert.ok(
-  unknownExcludedResult.warnings.some((warning) => warning.code === "unknown-assets-excluded"),
-  "unknown assets should warn and exclude by default"
+  unknownExcludedResult.warnings.some((warning) => warning.code === "gated-family-not-treatment-included" && warning.details.family === "unknown"),
+  "unknown assets should warn and exclude unless treatment marks them included"
 );
 assert.ok(
-  unknownExcludedResult.warnings.some((warning) => warning.code === "illiquid-assets-excluded"),
-  "illiquid assets should warn and exclude by default"
+  unknownExcludedResult.warnings.some((warning) => warning.code === "gated-family-not-treatment-included" && warning.details.family === "homeEquity"),
+  "illiquid assets should warn and exclude unless treatment marks them included"
 );
 
 const unknownIncludedResult = buildIncomeImpactAssetDepletionLedger({
   startingBuckets: [
-    { id: "custom", family: "unknown", startingValue: 250, sourcePath: "assetFacts.assets.custom" }
+    { id: "custom", family: "unknown", startingValue: 250, included: true, sourcePath: "assetFacts.assets.custom" }
   ],
   monthlyNeeds: 100,
   options: {
-    maxMonths: 1,
-    includeUnknownAssets: true
+    maxMonths: 1
   }
 });
 assert.equal(unknownIncludedResult.status, "ready");
@@ -360,7 +376,7 @@ assertLedgerReconciles(syntheticSurplusResult);
 const mixedSurplusDeficitResult = buildIncomeImpactAssetDepletionLedger({
   startingBuckets: [
     { id: "cash", family: "cash", startingValue: 10 },
-    { id: "retirement", family: "retirementAssets", startingValue: 100 }
+    { id: "retirement", family: "retirementAssets", startingValue: 100, included: true }
   ],
   monthlyNeeds: [50, 70],
   monthlyIncome: [100, 0],

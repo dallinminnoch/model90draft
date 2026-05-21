@@ -68,8 +68,8 @@ function createLensAnalysisContext() {
     "app/features/lens-analysis/cash-reserve-calculations.js",
     "app/features/lens-analysis/debt-treatment-calculations.js",
     "app/features/lens-analysis/lens-model-builder.js",
+    "app/features/lens-analysis/income-impact-asset-depletion-ledger-calculations.js",
     "app/features/lens-analysis/income-impact-resource-bucket-adapter.js",
-    "app/features/lens-analysis/income-impact-resource-waterfall-calculations.js",
     "app/features/lens-analysis/income-impact-financial-storyline-calculations.js"
   ].forEach(function (relativePath) {
     loadScript(context, relativePath);
@@ -177,7 +177,7 @@ const lensAnalysis = context.LensApp.lensAnalysis;
 
 assert.equal(typeof lensAnalysis.buildLensModelFromSavedProtectionModeling, "function");
 assert.equal(typeof lensAnalysis.buildIncomeImpactResourceBucketsFromLensModel, "function");
-assert.equal(typeof lensAnalysis.buildIncomeImpactResourceWaterfall, "function");
+assert.equal(typeof lensAnalysis.buildIncomeImpactCanonicalRunwayAssetWaterfall, "function");
 assert.equal(typeof lensAnalysis.buildIncomeImpactFinancialStorylineCandidates, "function");
 
 const profileRecord = createProfileRecord();
@@ -267,48 +267,27 @@ assert.ok(
   "excluded home equity should produce an exclusion warning"
 );
 
-const resourceWaterfall = lensAnalysis.buildIncomeImpactResourceWaterfall({
-  resourceBuckets: bucketResult.resourceBuckets,
-  scenario: {
-    scenario: { selectedDeathDate: "2030-01-01" },
-    timelineFacts: {
-      monthlyShortfall: 5000,
-      resourcesAfterObligations: 173875,
-      monthsCovered: 35,
-      depletionDate: "2032-12-01"
-    },
-    postDeathSeries: {
-      depletion: {
-        depleted: true,
-        depletionMonthIndex: 35,
-        depletionDate: "2032-12-01"
-      }
-    }
-  },
-  financialRunway: {
-    monthlyShortfall: 5000,
-    totalMonthsOfSecurity: 35,
-    depletionDate: "2032-12-01"
-  },
+const canonicalWaterfall = lensAnalysis.buildIncomeImpactCanonicalRunwayAssetWaterfall({
+  startingBuckets: bucketResult.resourceBuckets,
+  monthlyNeeds: 5000,
+  monthlyIncome: 0,
   options: {
-    selectedDeathDate: "2030-01-01"
+    maxMonths: 40
   }
 });
 
-const waterfallLabels = resourceWaterfall.timelineEvents.map(function (event) {
-  return event.displayLabel;
-});
-assert.ok(waterfallLabels.includes("Cash Savings Depleted"));
-assert.ok(waterfallLabels.includes("Emergency Fund Depleted"));
-assert.ok(waterfallLabels.includes("Taxable Assets Depleted"));
-assert.ok(waterfallLabels.includes("Education Savings Used for Living Needs"));
-assert.ok(waterfallLabels.includes("Education Savings Depleted"));
-assert.ok(waterfallLabels.includes("Retirement Assets Tapped"));
-assert.ok(waterfallLabels.includes("Retirement Assets Depleted"));
+const tappedFamilies = canonicalWaterfall.bucketEvents
+  .filter(function (event) { return event.eventType === "bucket-tapped"; })
+  .map(function (event) { return event.family; });
+assert.ok(tappedFamilies.includes("cash"));
+assert.ok(tappedFamilies.includes("emergencyFund"));
+assert.ok(tappedFamilies.includes("taxableInvestments"));
+assert.ok(tappedFamilies.includes("educationSavings"));
+assert.ok(tappedFamilies.includes("retirementAssets"));
 assert.equal(
-  waterfallLabels.includes("Home Equity Becomes Last Resort"),
+  canonicalWaterfall.bucketEvents.some(function (event) { return event.family === "homeEquity"; }),
   false,
-  "excluded home equity should not produce spendable waterfall events"
+  "excluded home equity should not produce spendable canonical waterfall events"
 );
 
 const financialStoryline = lensAnalysis.buildIncomeImpactFinancialStorylineCandidates({
@@ -336,7 +315,7 @@ const financialStoryline = lensAnalysis.buildIncomeImpactFinancialStorylineCandi
     totalMonthsOfSecurity: 35,
     depletionDate: "2032-12-01"
   },
-  resourceWaterfall,
+  assetDepletionLedger: canonicalWaterfall,
   options: {
     selectedDeathDate: "2030-01-01"
   }
