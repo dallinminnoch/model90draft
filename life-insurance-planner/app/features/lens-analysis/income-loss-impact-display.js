@@ -2056,6 +2056,29 @@
     return frame.plotTop + ((stableRatio == null ? 0 : stableRatio) * frame.plotHeight);
   }
 
+  function projectGraphPoint(graphModel, point = {}) {
+    const safePoint = isPlainObject(point) ? point : {};
+    const xRatio = toOptionalNumber(safePoint.xRatio);
+    const yRatio = toOptionalNumber(safePoint.yRatio);
+    return {
+      x: xRatio == null ? null : toGraphX(xRatio, graphModel, safePoint),
+      y: yRatio == null ? null : toGraphY(yRatio, graphModel, safePoint),
+      xRatio,
+      yRatio,
+      projectionOwner: getStableGraphLayoutFrame(graphModel) ? "active-view-frame" : "raw-graph-ratio"
+    };
+  }
+
+  function projectGraphMonthX(graphModel, monthIndex) {
+    const month = toOptionalNumber(monthIndex);
+    const xRatio = resolveGraphMonthXRatio(graphModel, month);
+    return projectGraphPoint(graphModel, {
+      xRatio,
+      monthIndex: month,
+      relativeMonthsFromDeath: month
+    }).x;
+  }
+
   function toPlotX(xRatio, viewBox) {
     const ratio = toOptionalNumber(xRatio);
     return viewBox.plotLeft + ((ratio == null ? 0 : ratio) * viewBox.plotWidth);
@@ -2868,7 +2891,8 @@
   }
 
   function getDeathLineAnchorLabelPosition(anchor, index, graphModel = null) {
-    const x = toGraphX(anchor.xRatio, graphModel, anchor);
+    const position = projectGraphPoint(graphModel, anchor);
+    const x = position.x;
     const label = normalizeString(anchor.label) || "Scenario";
     const width = Math.min(164, Math.max(86, 18 + (label.length * 7)));
     const plotBottom = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight;
@@ -2963,8 +2987,9 @@
     return `
       <g class="income-impact-graph-markers" data-income-impact-graph-markers>
         ${markers.map(function (marker) {
-          const x = toGraphX(marker.xRatio, graphModel, marker);
-          const y = toGraphY(marker.yRatio, graphModel, marker);
+          const position = projectGraphPoint(graphModel, marker);
+          const x = position.x;
+          const y = position.y;
           const radius = marker.kind === "stable" ? 4 : 5;
           return `
             <g
@@ -3029,8 +3054,9 @@
     return `
       <g class="income-impact-comparison-markers" data-income-impact-comparison-markers>
         ${markers.map(function (marker, index) {
-          const x = toGraphX(marker.xRatio, graphModel, marker);
-          const y = toGraphY(marker.yRatio, graphModel, marker);
+          const position = projectGraphPoint(graphModel, marker);
+          const x = position.x;
+          const y = position.y;
           const labelOffset = getComparisonMarkerLabelOffset(marker.markerType, index);
           const labelX = labelOffset.x;
           const labelY = labelOffset.y;
@@ -3470,9 +3496,10 @@
     if (!marker || toOptionalNumber(marker.xRatio) == null || toOptionalNumber(marker.yRatio) == null) {
       return null;
     }
+    const position = projectGraphPoint(graphModel, marker);
     return {
-      x: toGraphX(marker.xRatio, graphModel, marker),
-      y: toGraphY(marker.yRatio, graphModel, marker),
+      x: position.x,
+      y: position.y,
       xRatio: marker.xRatio,
       yRatio: marker.yRatio,
       source: "runway-depletion-marker"
@@ -3529,11 +3556,12 @@
       const amountLabel = getGraphStorylineDotAmountLabel(candidate);
       const evidenceLabel = getGraphStorylineDotEvidenceLabel(candidate);
       const dotTier = getGraphStorylineDotTier(candidate);
+      const position = projectGraphPoint(graphModel, trendlineCoordinate);
       return {
         candidate,
         index,
-        x: toGraphX(trendlineCoordinate.xRatio, graphModel, trendlineCoordinate),
-        y: toGraphY(trendlineCoordinate.yRatio, graphModel, trendlineCoordinate),
+        x: position.x,
+        y: position.y,
         dotTier,
         title,
         timeLabel,
@@ -3645,12 +3673,21 @@
     if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
       return null;
     }
-    const x = toGraphX(connector.xRatio, graphModel, { phase: "deathEvent" });
-    const y1 = toGraphY(connector.startYRatio, graphModel, { value: connector.startValue });
-    const y2 = toGraphY(connector.endYRatio, graphModel, { value: connector.endValue });
+    const startProjection = projectGraphPoint(graphModel, {
+      xRatio: connector.xRatio,
+      yRatio: connector.startYRatio,
+      value: connector.startValue,
+      phase: "deathEvent"
+    });
+    const endProjection = projectGraphPoint(graphModel, {
+      xRatio: connector.xRatio,
+      yRatio: connector.endYRatio,
+      value: connector.endValue,
+      phase: "deathEvent"
+    });
     return {
-      x,
-      y: Math.min(y1, y2),
+      x: startProjection.x,
+      y: Math.min(startProjection.y, endProjection.y),
       source: "death-conversion-diamond"
     };
   }
@@ -3930,9 +3967,16 @@
     const maxX = GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - 180;
     const minY = GRAPH_VIEW_BOX.plotTop + 22;
     const maxY = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight - 28;
+    const position = projectGraphPoint(graphModel, {
+      xRatio: anchorXRatio,
+      yRatio: anchorYRatio,
+      value: getSeriesPointValue(depletionPoint || firstDeficitPoint),
+      monthIndex: toOptionalNumber((depletionPoint || firstDeficitPoint)?.monthIndex),
+      relativeMonthsFromDeath: toOptionalNumber((depletionPoint || firstDeficitPoint)?.relativeMonthsFromDeath)
+    });
     return {
-      x: clampNumber(toGraphX(anchorXRatio, graphModel, depletionPoint || firstDeficitPoint) + 12, minX, maxX),
-      y: clampNumber(toGraphY(anchorYRatio, graphModel, depletionPoint || firstDeficitPoint) + 24, minY, maxY)
+      x: clampNumber(position.x + 12, minX, maxX),
+      y: clampNumber(position.y + 24, minY, maxY)
     };
   }
 
@@ -4010,8 +4054,8 @@
   }
 
   function getDepletionMarkerLabelPosition(marker, index, graphModel = null) {
-    const x = toGraphX(marker.xRatio, graphModel, marker);
-    const y = toGraphY(marker.yRatio, graphModel, marker);
+    const position = projectGraphPoint(graphModel, marker);
+    const x = position.x;
     const pullLeft = x > GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - 150;
     return {
       x: pullLeft ? -10 : 10,
@@ -4030,8 +4074,9 @@
     return `
       <g class="income-impact-runway-depletion-markers" data-income-impact-runway-depletion-markers>
         ${markers.map(function (marker, index) {
-          const x = toGraphX(marker.xRatio, graphModel, marker);
-          const y = toGraphY(marker.yRatio, graphModel, marker);
+          const position = projectGraphPoint(graphModel, marker);
+          const x = position.x;
+          const y = position.y;
           const labelPosition = getDepletionMarkerLabelPosition(marker, index, graphModel);
           const displayLabel = marker.selected
             ? getPrimaryGraphPathLabel(timelineResult, marker.label)
@@ -4245,9 +4290,24 @@
     if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
       return "";
     }
-    const x = toGraphX(connector.xRatio);
-    const y1 = toGraphY(connector.startYRatio);
-    const y2 = toGraphY(connector.endYRatio);
+    const startProjection = projectGraphPoint(graphModel, {
+      xRatio: connector.xRatio,
+      yRatio: connector.startYRatio,
+      value: connector.startValue,
+      phase: "deathEvent"
+    });
+    const endProjection = projectGraphPoint(graphModel, {
+      xRatio: connector.xRatio,
+      yRatio: connector.endYRatio,
+      value: connector.endValue,
+      phase: "deathEvent"
+    });
+    const x = startProjection.x;
+    const y1 = startProjection.y;
+    const y2 = endProjection.y;
+    if (x == null || y1 == null || y2 == null) {
+      return "";
+    }
     if (y1 === y2) {
       return "";
     }
@@ -4261,6 +4321,8 @@
         class="income-impact-death-conversion"
         data-income-impact-death-conversion
         data-income-impact-death-conversion-source="${escapeHtml(connector.source)}"
+        data-income-impact-death-conversion-projection-owner="${escapeHtml(startProjection.projectionOwner)}"
+        data-income-impact-active-view-frame-mode="${escapeHtml(graphModel?.activeViewFrame?.mode || graphModel?.trace?.activeViewFrameMode || "")}"
         data-income-impact-applied-scenario-id="${escapeHtml(connector.scenarioId)}"
         aria-label="${escapeHtml(label)}"
       >
@@ -4917,8 +4979,9 @@
     if (!anchor || toOptionalNumber(anchor.xRatio) == null || toOptionalNumber(anchor.yRatio) == null) {
       return "";
     }
+    const position = projectGraphPoint(graphModel, anchor);
     return `
-      <g class="income-impact-graph-current-anchor" data-income-impact-graph-current-anchor transform="translate(${toGraphX(anchor.xRatio, graphModel, anchor)} ${toGraphY(anchor.yRatio, graphModel, anchor)})">
+      <g class="income-impact-graph-current-anchor" data-income-impact-graph-current-anchor transform="translate(${position.x} ${position.y})">
         <rect x="-4" y="-4" width="8" height="8" rx="1" transform="rotate(45)"></rect>
         <title>Current asset value at selected death date</title>
       </g>
@@ -4934,8 +4997,9 @@
     if (!startPoint) {
       return "";
     }
-    const x = toGraphX(startPoint.xRatio, graphModel, startPoint);
-    const y = toGraphY(startPoint.yRatio, graphModel, startPoint);
+    const position = projectGraphPoint(graphModel, startPoint);
+    const x = position.x;
+    const y = position.y;
     return `
       <g
         class="income-impact-post-death-runway-start-marker"
@@ -5003,9 +5067,7 @@
   }
 
   function resolveGraphMonthX(graphModel, monthIndex) {
-    const month = toOptionalNumber(monthIndex);
-    const xRatio = resolveGraphMonthXRatio(graphModel, month);
-    return toGraphX(xRatio, graphModel, { monthIndex: month });
+    return projectGraphMonthX(graphModel, monthIndex);
   }
 
   function renderGraphTransitionOutlookAnnotation(timelineResult, graphModel) {
