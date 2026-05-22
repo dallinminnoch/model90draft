@@ -981,10 +981,13 @@ assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-im
 assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*background:\s*transparent;[\s\S]*overflow:\s*visible;/);
 assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(9,\s*minmax\(6\.6rem,\s*1fr\)\);[\s\S]*overflow-x:\s*auto;/);
-assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*min-width:\s*6\.6rem;[\s\S]*border-top:\s*0\.16rem solid #94a3b8;/);
-assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*border-top-color:\s*#dc2626;/);
-assert.doesNotMatch(componentsSource, /\.income-impact-milestone-step__tone\s*\{[^}]*text-transform:\s*uppercase;/);
+assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(9,\s*minmax\(7\.2rem,\s*1fr\)\);[\s\S]*position:\s*relative;[\s\S]*overflow-x:\s*auto;/);
+assert.match(componentsSource, /\.income-impact-milestone-strip::before[\s\S]*background:\s*linear-gradient\(90deg,\s*#b91c1c 0%,\s*#ef4444 22%,\s*#d97706 38%,\s*#059669 52%,\s*#cbd5e1 84%,\s*#dc2626 100%\);/);
+assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*grid-template-rows:\s*minmax\(2\.45rem,\s*1fr\) 2\.65rem minmax\(2\.45rem,\s*1fr\);[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*--income-impact-milestone-node:\s*linear-gradient\(145deg,\s*#ef4444,\s*#991b1b\);/);
+assert.match(componentsSource, /\.income-impact-milestone-step__number[\s\S]*width:\s*1\.86rem;[\s\S]*border-radius:\s*999px;/);
+assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(odd\) \.income-impact-milestone-step__title[\s\S]*bottom:\s*calc\(50% \+ 1\.5rem\);/);
+assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(even\) \.income-impact-milestone-step__title[\s\S]*top:\s*calc\(50% \+ 2\.14rem\);/);
 assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar\s*\{[\s\S]*width:\s*1px;[\s\S]*height:\s*1px;/);
