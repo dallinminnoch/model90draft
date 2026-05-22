@@ -247,6 +247,14 @@
       supportingDotEligible: typeof event.supportingDotEligible === "boolean" ? event.supportingDotEligible : null,
       supportingDotOnly: typeof event.supportingDotOnly === "boolean" ? event.supportingDotOnly : null,
       mainCardEligible: typeof event.mainCardEligible === "boolean" ? event.mainCardEligible : null,
+      visibleEventKey: normalizeString(event.visibleEventKey || event.trace?.visibleEventKey) || "",
+      cardConceptId: normalizeString(event.cardConceptId || event.trace?.cardConceptId) || "",
+      conceptId: normalizeString(event.conceptId || event.trace?.conceptId || event.cardConceptId || event.trace?.cardConceptId) || "",
+      storyStage: normalizeString(event.storyStage || event.trace?.storyStage) || "",
+      bucketFamily: normalizeString(event.bucketFamily || event.trace?.bucketFamily || event.trace?.family) || "",
+      bucketId: normalizeString(event.bucketId || event.trace?.bucketId) || "",
+      eventState: normalizeString(event.eventState || event.trace?.eventState) || "",
+      stateRank: toOptionalNumber(event.stateRank ?? event.trace?.stateRank),
       majorCardIndex: toOptionalNumber(event.majorCardIndex),
       graphLabel: normalizeString(event.graphLabel || event.markerLabel) || "",
       displayLabel: normalizeString(event.displayLabel || event.label) || "",
@@ -260,6 +268,14 @@
         originalId: firstString([event.id, event.eventId, event.markerId, event.sourceEventId]) || null,
         originalType: firstString([event.type, event.kind, event.category, event.family]) || null,
         originalSeverity: firstString([event.severity, event.status, event.riskLevel]) || null,
+        visibleEventKey: normalizeString(event.visibleEventKey || event.trace?.visibleEventKey) || null,
+        cardConceptId: normalizeString(event.cardConceptId || event.trace?.cardConceptId) || null,
+        conceptId: normalizeString(event.conceptId || event.trace?.conceptId || event.cardConceptId || event.trace?.cardConceptId) || null,
+        storyStage: normalizeString(event.storyStage || event.trace?.storyStage) || null,
+        bucketFamily: normalizeString(event.bucketFamily || event.trace?.bucketFamily || event.trace?.family) || null,
+        bucketId: normalizeString(event.bucketId || event.trace?.bucketId) || null,
+        eventState: normalizeString(event.eventState || event.trace?.eventState) || null,
+        stateRank: toOptionalNumber(event.stateRank ?? event.trace?.stateRank),
         sourceCandidateType: normalizeString(config.sourceCandidateType) || null,
         sourceIndex,
         severityInferred: severityResult.inferred,
@@ -317,6 +333,14 @@
     existing.supportingDotEligible = mergeMissingValue(existing.supportingDotEligible, incoming.supportingDotEligible);
     existing.supportingDotOnly = mergeMissingValue(existing.supportingDotOnly, incoming.supportingDotOnly);
     existing.mainCardEligible = mergeMissingValue(existing.mainCardEligible, incoming.mainCardEligible);
+    existing.visibleEventKey = mergeMissingValue(existing.visibleEventKey, incoming.visibleEventKey);
+    existing.cardConceptId = mergeMissingValue(existing.cardConceptId, incoming.cardConceptId);
+    existing.conceptId = mergeMissingValue(existing.conceptId, incoming.conceptId);
+    existing.storyStage = mergeMissingValue(existing.storyStage, incoming.storyStage);
+    existing.bucketFamily = mergeMissingValue(existing.bucketFamily, incoming.bucketFamily);
+    existing.bucketId = mergeMissingValue(existing.bucketId, incoming.bucketId);
+    existing.eventState = mergeMissingValue(existing.eventState, incoming.eventState);
+    existing.stateRank = mergeMissingValue(existing.stateRank, incoming.stateRank);
     existing.majorCardIndex = mergeMissingValue(existing.majorCardIndex, incoming.majorCardIndex);
     existing.graphLabel = mergeMissingValue(existing.graphLabel, incoming.graphLabel);
     existing.displayLabel = mergeMissingValue(existing.displayLabel, incoming.displayLabel);

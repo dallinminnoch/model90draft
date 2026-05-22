@@ -2384,29 +2384,116 @@
   const LIQUIDITY_BUCKET_RULES = Object.freeze({
     cash: Object.freeze({
       family: "cash",
+      bucketId: "cash-reserve",
+      cardConceptId: "cashReserve",
       usedId: "cash-reserve-begins-declining",
       nearlyId: "cash-reserve-nearly-depleted",
       depletedId: "cash-reserve-depleted",
       usedSupportingOnly: true,
+      usedEventState: "begins-declining",
       sourceLabel: "ordinary cash"
     }),
     emergencyFund: Object.freeze({
       family: "emergencyFund",
+      bucketId: "emergency-fund",
+      cardConceptId: "emergencyFund",
       usedId: "emergency-fund-used",
       nearlyId: "emergency-fund-nearly-depleted",
       depletedId: "emergency-fund-depleted",
       usedSupportingOnly: true,
+      usedEventState: "used",
       sourceLabel: "emergency fund"
     }),
     taxableInvestments: Object.freeze({
       family: "taxableInvestments",
+      bucketId: "taxable-investments",
+      cardConceptId: "taxableInvestments",
       usedId: "taxable-investments-tapped",
       nearlyId: "taxable-investments-nearly-depleted",
       depletedId: "taxable-investments-depleted",
       usedSupportingOnly: true,
+      usedEventState: "tapped",
       sourceLabel: "taxable investments"
     })
   });
+  const LIQUIDITY_BUCKET_STATE_RANKS = Object.freeze({
+    holds: 0,
+    "begins-declining": 1,
+    used: 1,
+    tapped: 1,
+    nearly: 2,
+    "nearly-depleted": 2,
+    depleted: 3
+  });
+
+  function formatVisibleEventMonthKey(monthIndex) {
+    const month = toOptionalNumber(monthIndex);
+    return month == null ? "month-unknown" : `month-${Math.max(0, Math.round(month))}`;
+  }
+
+  function buildVisibleEventKey(identity) {
+    const safeIdentity = isPlainObject(identity) ? identity : {};
+    return [
+      normalizeString(safeIdentity.storyStage || "event"),
+      normalizeString(safeIdentity.bucketFamily || safeIdentity.category || "general"),
+      normalizeString(safeIdentity.bucketId || safeIdentity.cardConceptId || safeIdentity.conceptId || "event"),
+      normalizeString(safeIdentity.eventState || "state"),
+      formatVisibleEventMonthKey(safeIdentity.relativeMonth)
+    ].filter(Boolean).join(":");
+  }
+
+  function getLiquidityBucketEventState(rule, candidateId) {
+    const id = normalizeString(candidateId);
+    if (id === normalizeString(rule?.depletedId)) {
+      return "depleted";
+    }
+    if (id === normalizeString(rule?.nearlyId)) {
+      return "nearly-depleted";
+    }
+    if (id === normalizeString(rule?.usedId)) {
+      return normalizeString(rule?.usedEventState) || "used";
+    }
+    if (id === "cash-reserve-holds") {
+      return "holds";
+    }
+    return "";
+  }
+
+  function buildLiquidityBucketVisibleIdentity(rule, candidateId, monthIndex) {
+    const eventState = getLiquidityBucketEventState(rule, candidateId);
+    const identity = {
+      storyStage: "liquidity",
+      category: "liquidity",
+      bucketFamily: rule?.family || "",
+      bucketId: rule?.bucketId || rule?.family || "",
+      cardConceptId: rule?.cardConceptId || "",
+      conceptId: rule?.cardConceptId || "",
+      eventState,
+      stateRank: LIQUIDITY_BUCKET_STATE_RANKS[eventState] || 0,
+      relativeMonth: monthIndex
+    };
+    return Object.assign(identity, {
+      visibleEventKey: buildVisibleEventKey(identity)
+    });
+  }
+
+  function buildStandaloneLiquidityVisibleIdentity(candidateId, conceptId, eventState, monthIndex) {
+    const identity = {
+      storyStage: "liquidity",
+      category: "liquidity",
+      bucketFamily: conceptId,
+      bucketId: conceptId,
+      cardConceptId: conceptId,
+      conceptId,
+      eventState,
+      stateRank: LIQUIDITY_BUCKET_STATE_RANKS[eventState] || 0,
+      relativeMonth: monthIndex
+    };
+    return Object.assign(identity, {
+      visibleEventKey: buildVisibleEventKey(identity),
+      triggerId: candidateId
+    });
+  }
 
   function getLedgerMonths(assetDepletionLedger) {
     return Array.isArray(assetDepletionLedger?.ledgerMonths)
@@ -2498,10 +2585,15 @@
     });
   }
 
-  function findBucketThresholdCrossing(assetDepletionLedger, family, thresholdMonths, minimumMonths) {
+  function findBucketThresholdCrossing(assetDepletionLedger, family, thresholdMonths, minimumMonths, options) {
     const months = getLedgerMonths(assetDepletionLedger);
+    const earliestMonth = toOptionalNumber(options?.earliestMonth);
     for (let index = 0; index < months.length; index += 1) {
       const month = months[index];
+      const monthIndex = toOptionalNumber(month.monthIndex) ?? index;
+      if (earliestMonth != null && monthIndex < earliestMonth) {
+        continue;
+      }
       const monthlyBurn = toOptionalNumber(month.monthlyNetUse);
       if (monthlyBurn == null || monthlyBurn <= 0) {
         continue;
@@ -2511,7 +2603,7 @@
       const minimumValue = minimumMonths == null ? null : monthlyBurn * minimumMonths;
       if (balance < thresholdValue && (minimumValue == null || balance >= minimumValue)) {
         return {
-          monthIndex: toOptionalNumber(month.monthIndex) ?? index,
+          monthIndex,
           monthlyBurn,
           remainingValue: balance,
           thresholdValue
@@ -2572,6 +2664,7 @@
       return null;
     }
     const safeConfig = isPlainObject(config) ? config : {};
+    const identity = isPlainObject(safeConfig.identity) ? safeConfig.identity : {};
     const monthIndex = toOptionalNumber(safeConfig.monthIndex);
     const amountValue = toOptionalNumber(safeConfig.amountValue);
     const evidenceLevel = safeConfig.evidenceLevel || EVIDENCE_LEVELS.calculated;
@@ -2599,10 +2692,26 @@
     candidate.candidateSource = "canonical-liquidity-trigger";
     candidate.supportingDotOnly = safeConfig.supportingOnly === true;
     candidate.supportingDotEligible = safeConfig.supportingOnly === true || candidate.eligibleForGraphDot === true;
+    candidate.visibleEventKey = normalizeString(identity.visibleEventKey || safeConfig.visibleEventKey);
+    candidate.cardConceptId = normalizeString(identity.cardConceptId || safeConfig.cardConceptId);
+    candidate.conceptId = normalizeString(identity.conceptId || safeConfig.conceptId || candidate.cardConceptId);
+    candidate.storyStage = normalizeString(identity.storyStage || safeConfig.storyStage);
+    candidate.bucketFamily = normalizeString(identity.bucketFamily || safeConfig.bucketFamily);
+    candidate.bucketId = normalizeString(identity.bucketId || safeConfig.bucketId);
+    candidate.eventState = normalizeString(identity.eventState || safeConfig.eventState);
+    candidate.stateRank = toOptionalNumber(identity.stateRank ?? safeConfig.stateRank);
     candidate.trace = Object.assign({
       candidateSource: "canonical-liquidity-trigger",
       triggerId: candidateId,
       monthIndex,
+      visibleEventKey: candidate.visibleEventKey || null,
+      cardConceptId: candidate.cardConceptId || null,
+      conceptId: candidate.conceptId || null,
+      storyStage: candidate.storyStage || null,
+      bucketFamily: candidate.bucketFamily || null,
+      bucketId: candidate.bucketId || null,
+      eventState: candidate.eventState || null,
+      stateRank: candidate.stateRank == null ? null : candidate.stateRank,
       monthlyBurn: toOptionalNumber(safeConfig.monthlyBurn),
       remainingValue: toOptionalNumber(safeConfig.remainingValue),
       thresholdValue: toOptionalNumber(safeConfig.thresholdValue),
@@ -2620,6 +2729,84 @@
     if (candidate) {
       target.push(candidate);
     }
+  }
+
+  function getLiquidityCandidateMonth(candidate) {
+    return toOptionalNumber(candidate?.timing?.monthOffset ?? candidate?.trace?.monthIndex);
+  }
+
+  function getLiquidityCandidateState(candidate, rule) {
+    const id = normalizeString(candidate?.id);
+    if (id && id === rule.depletedId) {
+      return "depleted";
+    }
+    if (id && id === rule.nearlyId) {
+      return "nearly";
+    }
+    if (id && id === rule.usedId) {
+      return "used";
+    }
+    return "";
+  }
+
+  function makeSuppressedLiquidityPrecedenceCandidate(candidate, strongerCandidate, reason) {
+    const suppressed = clonePlainValue(candidate);
+    suppressed.safeToRender = false;
+    suppressed.eligibleForGraphDot = false;
+    suppressed.eligibleForMajorCard = false;
+    suppressed.supportingDotEligible = false;
+    suppressed.supportingDotOnly = false;
+    suppressed.status = STATUSES.deferred;
+    suppressed.deferredReason = reason;
+    suppressed.suppressionKeys = uniqueStrings((candidate?.suppressionKeys || []).concat([
+      "liquidity-bucket-state-precedence"
+    ]));
+    suppressed.trace = Object.assign({}, clonePlainValue(candidate?.trace || {}), {
+      precedenceSuppressed: true,
+      precedenceReason: reason,
+      strongerTriggerId: normalizeString(strongerCandidate?.id),
+      strongerMonthIndex: getLiquidityCandidateMonth(strongerCandidate)
+    });
+    return suppressed;
+  }
+
+  function applyLiquidityBucketPrecedence(candidates, suppressedCandidates, rule) {
+    const sorted = candidates.slice().sort(function (left, right) {
+      const leftMonth = getLiquidityCandidateMonth(left);
+      const rightMonth = getLiquidityCandidateMonth(right);
+      const safeLeftMonth = leftMonth == null ? Number.MAX_SAFE_INTEGER : leftMonth;
+      const safeRightMonth = rightMonth == null ? Number.MAX_SAFE_INTEGER : rightMonth;
+      const leftState = getLiquidityCandidateState(left, rule);
+      const rightState = getLiquidityCandidateState(right, rule);
+      const leftRank = LIQUIDITY_BUCKET_STATE_RANKS[leftState] || 0;
+      const rightRank = LIQUIDITY_BUCKET_STATE_RANKS[rightState] || 0;
+      return safeLeftMonth - safeRightMonth || rightRank - leftRank;
+    });
+    const visible = [];
+    sorted.forEach(function (candidate) {
+      const state = getLiquidityCandidateState(candidate, rule);
+      const rank = LIQUIDITY_BUCKET_STATE_RANKS[state] || 0;
+      const month = getLiquidityCandidateMonth(candidate);
+      const stronger = visible.find(function (item) {
+        const itemState = getLiquidityCandidateState(item, rule);
+        const itemRank = LIQUIDITY_BUCKET_STATE_RANKS[itemState] || 0;
+        const itemMonth = getLiquidityCandidateMonth(item);
+        return itemRank > rank
+          && itemMonth != null
+          && month != null
+          && month >= itemMonth;
+      });
+      if (stronger) {
+        suppressedCandidates.push(makeSuppressedLiquidityPrecedenceCandidate(
+          candidate,
+          stronger,
+          "A stronger liquidity bucket state is already visible for this bucket at or before this month."
+        ));
+        return;
+      }
+      visible.push(candidate);
+    });
+    return visible;
   }
 
   function buildNinetyDayCashWindowCandidate(assetDepletionLedger, transitionOutlook, warnings, suppressedCandidates) {
@@ -2676,6 +2863,12 @@
       fastAccessResources,
       transitionNeed90Days,
       fastAccessCoverageRatio,
+      identity: buildStandaloneLiquidityVisibleIdentity(
+        candidateId,
+        "transition",
+        candidateId.replace("ninety-day-cash-window-", ""),
+        0
+      ),
       trace: {
         includedFastAccessFamilies: includedBuckets,
         excludedFastAccessFamilies: [
@@ -2719,18 +2912,20 @@
 
     Object.keys(LIQUIDITY_BUCKET_RULES).forEach(function (key) {
       const rule = LIQUIDITY_BUCKET_RULES[key];
+      const bucketCandidates = [];
       const initialValue = getInitialBucketFamilyValue(assetDepletionLedger, rule.family);
       if (initialValue <= 0) {
         return;
       }
       const firstUsedMonth = getFirstUsedMonthForFamily(assetDepletionLedger, rule.family);
       if (firstUsedMonth != null && rule.usedId) {
-        addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate(rule.usedId, {
+        addLiquidityTriggerCandidate(bucketCandidates, makeLiquidityTriggerCandidate(rule.usedId, {
           monthIndex: firstUsedMonth,
           amountValue: initialValue,
           sourcePath: "assetDepletionLedger.bucketEvents",
           sourcePaths: ["assetDepletionLedger.bucketEvents", "assetDepletionLedger.orderedBuckets"],
           supportingOnly: rule.usedSupportingOnly === true,
+          identity: buildLiquidityBucketVisibleIdentity(rule, rule.usedId, firstUsedMonth),
           trace: {
             family: rule.family,
             sourceLabel: rule.sourceLabel,
@@ -2741,9 +2936,16 @@
         }));
       }
 
-      const nearly = findBucketThresholdCrossing(assetDepletionLedger, rule.family, 3, 1);
+      const thresholdStartMonth = rule.family === "cash"
+        ? firstUsedMonth ?? 0
+        : firstUsedMonth;
+      const nearly = thresholdStartMonth == null
+        ? null
+        : findBucketThresholdCrossing(assetDepletionLedger, rule.family, 3, 1, {
+          earliestMonth: thresholdStartMonth
+        });
       if (nearly && rule.nearlyId) {
-        addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate(rule.nearlyId, {
+        addLiquidityTriggerCandidate(bucketCandidates, makeLiquidityTriggerCandidate(rule.nearlyId, {
           monthIndex: nearly.monthIndex,
           amountValue: nearly.remainingValue,
           monthlyBurn: nearly.monthlyBurn,
@@ -2751,19 +2953,26 @@
           thresholdValue: nearly.thresholdValue,
           sourcePath: "assetDepletionLedger.ledgerMonths",
           sourcePaths: ["assetDepletionLedger.ledgerMonths.monthlyNetUse", "assetDepletionLedger.ledgerMonths.endingBuckets"],
+          identity: buildLiquidityBucketVisibleIdentity(rule, rule.nearlyId, nearly.monthIndex),
           trace: {
             family: rule.family,
             sourceLabel: rule.sourceLabel,
             thresholdMonths: 3,
+            firstUsedMonth,
+            thresholdStartMonth,
             initialValue,
             ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
           }
         }));
       }
 
-      const depleted = findBucketThresholdCrossing(assetDepletionLedger, rule.family, 1, null);
+      const depleted = thresholdStartMonth == null
+        ? null
+        : findBucketThresholdCrossing(assetDepletionLedger, rule.family, 1, null, {
+          earliestMonth: thresholdStartMonth
+        });
       if (depleted && rule.depletedId) {
-        addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate(rule.depletedId, {
+        addLiquidityTriggerCandidate(bucketCandidates, makeLiquidityTriggerCandidate(rule.depletedId, {
           monthIndex: depleted.monthIndex,
           amountValue: depleted.remainingValue,
           monthlyBurn: depleted.monthlyBurn,
@@ -2771,15 +2980,21 @@
           thresholdValue: depleted.thresholdValue,
           sourcePath: "assetDepletionLedger.ledgerMonths",
           sourcePaths: ["assetDepletionLedger.ledgerMonths.monthlyNetUse", "assetDepletionLedger.ledgerMonths.endingBuckets"],
+          identity: buildLiquidityBucketVisibleIdentity(rule, rule.depletedId, depleted.monthIndex),
           trace: {
             family: rule.family,
             sourceLabel: rule.sourceLabel,
             thresholdMonths: 1,
+            firstUsedMonth,
+            thresholdStartMonth,
             initialValue,
             ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
           }
         }));
       }
+      applyLiquidityBucketPrecedence(bucketCandidates, suppressedCandidates, rule).forEach(function (candidate) {
+        addLiquidityTriggerCandidate(candidates, candidate);
+      });
     });
 
     const cashValue = getInitialBucketFamilyValue(assetDepletionLedger, "cash");
@@ -2793,6 +3008,7 @@
         amountValue: cashFinalValue,
         sourcePath: "assetDepletionLedger.orderedBuckets",
         sourcePaths: ["assetDepletionLedger.orderedBuckets", "assetDepletionLedger.ledgerMonths"],
+        identity: buildLiquidityBucketVisibleIdentity(LIQUIDITY_BUCKET_RULES.cash, "cash-reserve-holds", 0),
         trace: {
           initialCashValue: cashValue,
           finalCashValue: cashFinalValue,

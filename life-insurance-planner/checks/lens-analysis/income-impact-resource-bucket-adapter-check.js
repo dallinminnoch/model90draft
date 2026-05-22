@@ -84,6 +84,13 @@ const input = {
         currentValue: 12000
       },
       {
+        assetId: "nonqualified-annuity",
+        categoryKey: "nonqualifiedAnnuities",
+        typeKey: "nonqualifiedAnnuity",
+        label: "Nonqualified Annuity",
+        currentValue: 11000
+      },
+      {
         assetId: "home",
         categoryKey: "primaryResidenceEquity",
         typeKey: "primaryResidenceEquity",
@@ -113,6 +120,7 @@ const input = {
       { assetId: "emergency", categoryKey: "emergencyFund", typeKey: "emergencyFundReserve", rawValue: 7000, include: true, treatedValue: 7000 },
       { assetId: "education", categoryKey: "educationSpecificSavings", typeKey: "plan529Account", rawValue: 9000, include: true, treatedValue: 8000 },
       { assetId: "retirement", categoryKey: "traditionalRetirementAssets", typeKey: "traditional401k", rawValue: 20000, include: true, treatedValue: 15000 },
+      { assetId: "nonqualified-annuity", categoryKey: "nonqualifiedAnnuities", typeKey: "nonqualifiedAnnuity", rawValue: 11000, include: true, treatedValue: 10000 },
       { assetId: "home", categoryKey: "primaryResidenceEquity", typeKey: "primaryResidenceEquity", rawValue: 300000, include: false, treatedValue: 0 },
       { assetId: "custom", categoryKey: "otherCustomAsset", typeKey: "otherCustomAsset", rawValue: 6000, include: true, treatedValue: 6000 },
       { assetId: "orphan", categoryKey: "cashAndCashEquivalents", typeKey: "savingsAccount", rawValue: 1000, include: true, treatedValue: 1000 }
@@ -125,8 +133,8 @@ const repeated = buildIncomeImpactResourceBucketsFromLensModel(input);
 
 assert.equal(result.version, "income-impact-resource-bucket-adapter-v1");
 assert.equal(result.trace.source, "income-impact-resource-bucket-adapter");
-assert.equal(result.trace.rawAssetCount, 9);
-assert.equal(result.trace.treatedAssetCount, 8);
+assert.equal(result.trace.rawAssetCount, 10);
+assert.equal(result.trace.treatedAssetCount, 9);
 assert.equal(JSON.stringify(input), snapshot, "adapter should not mutate inputs");
 assert.deepEqual(result, repeated, "adapter output should be deterministic across repeated calls");
 
@@ -136,6 +144,7 @@ const emergency = bucketById(result, "asset-emergency");
 const education = bucketById(result, "asset-education");
 const retirement = bucketById(result, "asset-retirement");
 const taxable = bucketById(result, "asset-taxable");
+const nonqualifiedAnnuity = bucketById(result, "asset-nonqualified-annuity");
 const home = bucketById(result, "asset-home");
 const custom = bucketById(result, "asset-custom");
 
@@ -150,6 +159,9 @@ assert.equal(retirement.family, FAMILIES.retirementAssets, "retirement category/
 assert.equal(taxable.family, FAMILIES.taxableInvestments, "taxable brokerage should map to taxableInvestments");
 assert.equal(taxable.startingValue, 12000, "missing treated overlay should use raw currentValue");
 assert.equal(taxable.evidenceLevel, "assumption-backed", "raw fallback should be assumption-backed");
+assert.equal(nonqualifiedAnnuity.family, FAMILIES.nonqualifiedAnnuities, "nonqualified annuity should map to the canonical nonqualifiedAnnuities family");
+assert.equal(nonqualifiedAnnuity.liquidityTier, "restricted", "nonqualified annuity should remain gated/restricted rather than generic illiquid");
+assert.equal(nonqualifiedAnnuity.startingValue, 10000, "nonqualified annuity should use treated available value");
 assert.equal(home.family, FAMILIES.homeEquity, "primary residence equity may be bucketed backend-side");
 assert.equal(home.included, false, "excluded treated asset should not become spendable");
 assert.equal(home.startingValue, 0, "excluded treated asset should carry zero spendable value");
@@ -180,6 +192,7 @@ assert.equal(result.trace.bucketSourceSummary.countsByFamily.cash, 2);
 assert.equal(result.trace.bucketSourceSummary.countsByFamily.emergencyFund, 1);
 assert.equal(result.trace.bucketSourceSummary.countsByFamily.educationSavings, 1);
 assert.equal(result.trace.bucketSourceSummary.countsByFamily.retirementAssets, 1);
+assert.equal(result.trace.bucketSourceSummary.countsByFamily.nonqualifiedAnnuities, 1);
 
 const canonicalWaterfallResult = buildIncomeImpactCanonicalRunwayAssetWaterfall({
   startingBuckets: result.resourceBuckets,
@@ -193,9 +206,9 @@ const tappedFamilies = canonicalWaterfallResult.bucketEvents
   .filter(function (event) { return event.eventType === "bucket-tapped"; })
   .map(function (event) { return event.family; });
 assert.deepEqual(
-  tappedFamilies.slice(0, 6),
-  ["cash", "cash", "emergencyFund", "taxableInvestments", "educationSavings", "retirementAssets"],
-  "adapter buckets should feed the canonical order: cash, emergency, taxable, education, then retirement"
+  tappedFamilies.slice(0, 7),
+  ["cash", "cash", "emergencyFund", "taxableInvestments", "educationSavings", "retirementAssets", "nonqualifiedAnnuities"],
+  "adapter buckets should feed the canonical order through retirement, then nonqualified annuities"
 );
 assert.ok(
   canonicalWaterfallResult.excludedBuckets.some(function (bucket) {

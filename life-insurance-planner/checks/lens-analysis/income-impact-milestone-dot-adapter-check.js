@@ -206,6 +206,8 @@ assertNoMutation(runoutAssembly, function () {
     assert.ok(candidate.majorCardIndex >= 1 && candidate.majorCardIndex <= 7, "majorCardIndex should map to the 9-step strip index");
     assert.ok(candidate.sourceMilestoneStepId, "major candidate should retain the step id");
     assert.ok(candidate.sourceAssemblyDotId, "major candidate should retain the assembly dot id");
+    assert.ok(candidate.visibleEventKey, "major candidate should retain the visible event identity key");
+    assert.equal(candidate.trace.visibleEventKey, candidate.visibleEventKey);
   });
   assert.ok(
     adapted.majorDotCandidates.some(function (candidate) {
@@ -234,6 +236,8 @@ assertNoMutation(runoutAssembly, function () {
     assert.equal(candidate.majorCardIndex, null);
     assert.equal(candidate.graphLabel, "");
     assert.ok(Number.isFinite(candidate.timing.monthOffset), "supporting candidates should include graph timing");
+    assert.ok(candidate.visibleEventKey, "supporting candidates should retain the visible event identity key");
+    assert.equal(candidate.trace.visibleEventKey, candidate.visibleEventKey);
   });
 
   adapted.connectorCandidates.forEach(function (connector) {

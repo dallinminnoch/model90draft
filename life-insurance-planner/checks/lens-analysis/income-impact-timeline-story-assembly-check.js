@@ -15,6 +15,7 @@ const helperPath = path.join(
   "income-impact-timeline-story-assembly.js"
 );
 
+const helperSource = fs.readFileSync(helperPath, "utf8");
 const helper = require(helperPath);
 const {
   buildIncomeImpactTimelineStoryAssembly,
@@ -23,6 +24,13 @@ const {
 
 assert.equal(typeof buildIncomeImpactTimelineStoryAssembly, "function");
 assert.equal(INCOME_IMPACT_TIMELINE_STORY_ASSEMBLY_VERSION, "income-impact-timeline-story-assembly-v1");
+const repeatCategorySource = helperSource.match(/const HIGH_IMPACT_REPEAT_CATEGORIES = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert.ok(repeatCategorySource, "high-impact repeat categories should remain explicit and reviewable");
+assert.doesNotMatch(
+  repeatCategorySource[1],
+  /["']supportGap["']/,
+  "supportGap should not remain a high-impact repeat category before weighting"
+);
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -37,7 +45,7 @@ function createBrowserContext() {
   context.window = context;
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(fs.readFileSync(helperPath, "utf8"), context, { filename: helperPath });
+  vm.runInContext(helperSource, context, { filename: helperPath });
   return context;
 }
 
@@ -88,16 +96,24 @@ function assertAssemblyShape(result) {
       "relativeMonth",
       "graphDotId",
       "sourceEventId",
+      "visibleEventKey",
+      "cardConceptId",
+      "conceptId",
+      "storyStage",
+      "bucketFamily",
+      "bucketId",
+      "eventState",
+      "stateRank",
       "trace"
     ], `story step ${step.id}`);
   });
   result.majorGraphDots.forEach(function (dot) {
-    assertHasKeys(dot, ["id", "connectedStepId", "tone", "relativeMonth", "sourceEventId", "trace"], `major dot ${dot.id}`);
+    assertHasKeys(dot, ["id", "connectedStepId", "tone", "relativeMonth", "sourceEventId", "visibleEventKey", "trace"], `major dot ${dot.id}`);
     assert.equal(Object.prototype.hasOwnProperty.call(dot, "label"), false, "Large connected dots should not duplicate graph labels.");
     assert.equal(Object.prototype.hasOwnProperty.call(dot, "title"), false, "Large connected dots should not duplicate card titles.");
   });
   result.supportingGraphDots.forEach(function (dot) {
-    assertHasKeys(dot, ["id", "tone", "relativeMonth", "sourceEventId", "trace"], `supporting dot ${dot.id}`);
+    assertHasKeys(dot, ["id", "tone", "relativeMonth", "sourceEventId", "visibleEventKey", "trace"], `supporting dot ${dot.id}`);
     assert.equal(Object.prototype.hasOwnProperty.call(dot, "label"), false, "Supporting dots should not show default labels.");
   });
   result.connectors.forEach(function (connector) {
@@ -497,6 +513,184 @@ assert.equal(
     return item.sourceEventId === "data-quality-code" && item.reason === "data-confidence-main-strip-excluded";
   }),
   true
+);
+
+function liquidityIdentity(sourceEventId, bucketFamily, bucketId, eventState, month, conceptId) {
+  return {
+    visibleEventKey: `liquidity:${bucketFamily}:${bucketId}:${eventState}:month-${month}`,
+    cardConceptId: conceptId,
+    conceptId,
+    storyStage: "liquidity",
+    bucketFamily,
+    bucketId,
+    eventState,
+    stateRank: eventState === "depleted" ? 3 : eventState === "nearly-depleted" ? 2 : 1,
+    trace: {
+      visibleEventKey: `liquidity:${bucketFamily}:${bucketId}:${eventState}:month-${month}`,
+      cardConceptId: conceptId,
+      conceptId,
+      storyStage: "liquidity",
+      bucketFamily,
+      bucketId,
+      eventState,
+      stateRank: eventState === "depleted" ? 3 : eventState === "nearly-depleted" ? 2 : 1,
+      triggerId: sourceEventId
+    }
+  };
+}
+
+const visibleContractResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("cash-reserve-nearly-depleted", 2, "cash-waterfall", "at-risk", "Cash Reserve Is Nearly Depleted", liquidityIdentity(
+        "cash-reserve-nearly-depleted",
+        "cash",
+        "cash-reserve",
+        "nearly-depleted",
+        2,
+        "cashReserve"
+      )),
+      makeEvent("cash-reserve-depleted", 4, "cash-waterfall", "critical", "Cash Reserve Is Depleted", liquidityIdentity(
+        "cash-reserve-depleted",
+        "cash",
+        "cash-reserve",
+        "depleted",
+        4,
+        "cashReserve"
+      )),
+      makeEvent("taxable-investments-nearly-depleted", 7, "cash-waterfall", "at-risk", "Taxable Investments Are Nearly Depleted", liquidityIdentity(
+        "taxable-investments-nearly-depleted",
+        "taxableInvestments",
+        "taxable-investments",
+        "nearly-depleted",
+        7,
+        "taxableInvestments"
+      )),
+      makeEvent("taxable-investments-depleted", 9, "cash-waterfall", "critical", "Taxable Investments Are Depleted", liquidityIdentity(
+        "taxable-investments-depleted",
+        "taxableInvestments",
+        "taxable-investments",
+        "depleted",
+        9,
+        "taxableInvestments"
+      ))
+    ]
+  },
+  options: {
+    supportingGraphDotLimit: 8
+  }
+});
+assertAssemblyShape(visibleContractResult);
+assert.equal(
+  visibleContractResult.storySteps.some(function (step) {
+    return step.sourceEventId === "taxable-investments-nearly-depleted"
+      && step.title === "Taxable Investments Are Nearly Depleted"
+      && step.cardConceptId === "taxableInvestments";
+  }),
+  true,
+  "Taxable liquidity events should remain taxable concepts instead of being remapped to cash reserve."
+);
+assert.equal(
+  visibleContractResult.storySteps.filter(function (step) {
+    return step.title === "Cash Reserve Is Nearly Depleted";
+  }).length,
+  1,
+  "Cash Reserve Is Nearly Depleted should not appear twice in visible story steps."
+);
+assert.equal(
+  visibleContractResult.storySteps.some(function (step) {
+    return step.title === "Taxable Investments Are Nearly Depleted";
+  }),
+  true,
+  "Cash and taxable near-depleted events should coexist as distinct visible bucket families."
+);
+
+const duplicateVisibleKeyResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("cash-near-source-a", 2, "cash-waterfall", "at-risk", "Cash Reserve Is Nearly Depleted", liquidityIdentity(
+        "cash-near-source-a",
+        "cash",
+        "cash-reserve",
+        "nearly-depleted",
+        2,
+        "cashReserve"
+      )),
+      makeEvent("cash-near-source-b", 2, "liquidity", "at-risk", "Cash Reserve Is Nearly Depleted", liquidityIdentity(
+        "cash-near-source-b",
+        "cash",
+        "cash-reserve",
+        "nearly-depleted",
+        2,
+        "cashReserve"
+      )),
+      makeEvent("cash-near-supporting-copy", 2, "liquidity", "at-risk", "Cash Reserve Is Nearly Depleted", Object.assign(
+        liquidityIdentity("cash-near-supporting-copy", "cash", "cash-reserve", "nearly-depleted", 2, "cashReserve"),
+        {
+          supportingDotOnly: true,
+          eligibleForMajorCard: false,
+          supportingDotEligible: true,
+          eligibleForGraphDot: true
+        }
+      ))
+    ]
+  },
+  options: {
+    supportingGraphDotLimit: 8
+  }
+});
+assert.equal(
+  duplicateVisibleKeyResult.storySteps.filter(function (step) {
+    return step.visibleEventKey === "liquidity:cash:cash-reserve:nearly-depleted:month-2";
+  }).length,
+  1,
+  "Duplicate visible keys with different source ids should collapse to one main visible event."
+);
+assert.equal(
+  duplicateVisibleKeyResult.supportingGraphDots.some(function (dot) {
+    return dot.visibleEventKey === "liquidity:cash:cash-reserve:nearly-depleted:month-2";
+  }),
+  false,
+  "A supporting dot should not duplicate a visible event key already used by the main strip."
+);
+assert.equal(
+  duplicateVisibleKeyResult.suppressed.filter(function (item) {
+    return item.reason === "duplicate-visible-event-key";
+  }).length >= 1,
+  true,
+  "Duplicate visible event key suppression should be traceable."
+);
+
+const distinctBucketResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("cash-near", 2, "cash-waterfall", "at-risk", "Cash Reserve Is Nearly Depleted", liquidityIdentity(
+        "cash-near",
+        "cash",
+        "cash-reserve",
+        "nearly-depleted",
+        2,
+        "cashReserve"
+      )),
+      makeEvent("emergency-near", 2, "cash-waterfall", "at-risk", "Emergency Fund Is Nearly Depleted", liquidityIdentity(
+        "emergency-near",
+        "emergencyFund",
+        "emergency-fund",
+        "nearly-depleted",
+        2,
+        "emergencyFund"
+      ))
+    ]
+  }
+});
+assert.equal(
+  distinctBucketResult.storySteps.some(function (step) {
+    return step.title === "Cash Reserve Is Nearly Depleted";
+  }) && distinctBucketResult.storySteps.some(function (step) {
+    return step.title === "Emergency Fund Is Nearly Depleted";
+  }),
+  true,
+  "Distinct bucket families with similar states should not collapse."
 );
 
 console.log("income-impact-timeline-story-assembly-check passed");

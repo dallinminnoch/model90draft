@@ -13,6 +13,7 @@
     retirementAssets: "retirementAssets",
     homeEquity: "homeEquity",
     otherLiquid: "otherLiquid",
+    nonqualifiedAnnuities: "nonqualifiedAnnuities",
     otherIlliquid: "otherIlliquid",
     businessAssets: "businessAssets",
     unknown: "unknown"
@@ -37,7 +38,7 @@
     trustRestrictedAssets: BUCKET_FAMILIES.otherIlliquid,
     stockCompensationDeferredCompensation: BUCKET_FAMILIES.otherIlliquid,
     digitalAssetsCrypto: BUCKET_FAMILIES.otherIlliquid,
-    nonqualifiedAnnuities: BUCKET_FAMILIES.otherIlliquid,
+    nonqualifiedAnnuities: BUCKET_FAMILIES.nonqualifiedAnnuities,
     otherCustomAsset: BUCKET_FAMILIES.unknown
   });
 
@@ -63,6 +64,8 @@
     simpleIra: BUCKET_FAMILIES.retirementAssets,
     pensionLumpSum: BUCKET_FAMILIES.retirementAssets,
     qualifiedAnnuity: BUCKET_FAMILIES.retirementAssets,
+    nonqualifiedAnnuity: BUCKET_FAMILIES.nonqualifiedAnnuities,
+    nonQualifiedAnnuity: BUCKET_FAMILIES.nonqualifiedAnnuities,
     primaryResidenceEquity: BUCKET_FAMILIES.homeEquity,
     helocAvailableEquity: BUCKET_FAMILIES.homeEquity,
     rentalPropertyEquity: BUCKET_FAMILIES.homeEquity,
@@ -197,6 +200,7 @@
         return "liquid";
       case BUCKET_FAMILIES.educationSavings:
       case BUCKET_FAMILIES.retirementAssets:
+      case BUCKET_FAMILIES.nonqualifiedAnnuities:
         return "restricted";
       case BUCKET_FAMILIES.homeEquity:
       case BUCKET_FAMILIES.businessAssets:

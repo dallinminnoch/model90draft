@@ -74,8 +74,8 @@ function makeThresholdLedger() {
   const starting = {
     preDeathSavedCash: 100,
     cash: 500,
-    emergencyFund: 300,
-    otherLiquid: 200,
+    emergencyFund: 400,
+    otherLiquid: 100,
     taxableInvestments: 10000
   };
   return {
@@ -84,18 +84,18 @@ function makeThresholdLedger() {
     orderedBuckets: [
       { bucketId: "pre-death", family: "preDeathSavedCash", availableValue: 100, firstUsedMonth: 0, sourcePath: "ordered.preDeath" },
       { bucketId: "cash", family: "cash", availableValue: 500, firstUsedMonth: 0, depletionMonth: 2, sourcePath: "ordered.cash" },
-      { bucketId: "emergency", family: "emergencyFund", availableValue: 300, firstUsedMonth: 3, depletionMonth: 5, sourcePath: "ordered.emergency" },
-      { bucketId: "other-liquid", family: "otherLiquid", availableValue: 200, sourcePath: "ordered.otherLiquid" },
+      { bucketId: "emergency", family: "emergencyFund", availableValue: 400, firstUsedMonth: 3, depletionMonth: 5, sourcePath: "ordered.emergency" },
+      { bucketId: "other-liquid", family: "otherLiquid", availableValue: 100, sourcePath: "ordered.otherLiquid" },
       { bucketId: "taxable", family: "taxableInvestments", availableValue: 10000, firstUsedMonth: 7, depletionMonth: 9, sourcePath: "ordered.taxable" }
     ],
     ledgerMonths: [
-      month(0, 100, { start: starting, end: { cash: 450, emergencyFund: 300, otherLiquid: 200, taxableInvestments: 10000 } }),
-      month(1, 100, { start: { cash: 450, emergencyFund: 300, otherLiquid: 200, taxableInvestments: 10000 }, end: { cash: 250, emergencyFund: 300, otherLiquid: 200, taxableInvestments: 10000 } }),
-      month(2, 100, { start: { cash: 250, emergencyFund: 300, otherLiquid: 200, taxableInvestments: 10000 }, end: { cash: 80, emergencyFund: 300, otherLiquid: 200, taxableInvestments: 10000 } }),
-      month(3, 100, { start: { cash: 0, emergencyFund: 300, otherLiquid: 200, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 250, otherLiquid: 200, taxableInvestments: 10000 } }),
-      month(4, 100, { start: { cash: 0, emergencyFund: 250, otherLiquid: 200, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 150, otherLiquid: 200, taxableInvestments: 10000 } }),
-      month(5, 100, { start: { cash: 0, emergencyFund: 150, otherLiquid: 200, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 80, otherLiquid: 200, taxableInvestments: 10000 } }),
-      month(6, 100, { start: { cash: 0, emergencyFund: 0, otherLiquid: 200, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 10000 } }),
+      month(0, 100, { start: starting, end: { cash: 450, emergencyFund: 400, otherLiquid: 100, taxableInvestments: 10000 } }),
+      month(1, 100, { start: { cash: 450, emergencyFund: 400, otherLiquid: 100, taxableInvestments: 10000 }, end: { cash: 250, emergencyFund: 400, otherLiquid: 100, taxableInvestments: 10000 } }),
+      month(2, 100, { start: { cash: 250, emergencyFund: 400, otherLiquid: 100, taxableInvestments: 10000 }, end: { cash: 80, emergencyFund: 400, otherLiquid: 100, taxableInvestments: 10000 } }),
+      month(3, 100, { start: { cash: 0, emergencyFund: 400, otherLiquid: 100, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 350, otherLiquid: 100, taxableInvestments: 10000 } }),
+      month(4, 100, { start: { cash: 0, emergencyFund: 350, otherLiquid: 100, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 250, otherLiquid: 100, taxableInvestments: 10000 } }),
+      month(5, 100, { start: { cash: 0, emergencyFund: 250, otherLiquid: 100, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 80, otherLiquid: 100, taxableInvestments: 10000 } }),
+      month(6, 100, { start: { cash: 0, emergencyFund: 0, otherLiquid: 100, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 10000 } }),
       month(7, 100, { start: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 10000 }, end: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 600 } }),
       month(8, 100, { start: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 600 }, end: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 250 } }),
       month(9, 100, { start: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 250 }, end: { cash: 0, emergencyFund: 0, otherLiquid: 0, taxableInvestments: 80 } })
@@ -103,8 +103,8 @@ function makeThresholdLedger() {
     bucketEvents: [
       makeLedgerEvent({ family: "cash", eventType: "bucket-tapped", monthIndex: 0, amountAtTap: 500 }),
       makeLedgerEvent({ family: "cash", eventType: "bucket-depleted", monthIndex: 2, amountDepleted: 500 }),
-      makeLedgerEvent({ family: "emergencyFund", eventType: "bucket-tapped", monthIndex: 3, amountAtTap: 300 }),
-      makeLedgerEvent({ family: "emergencyFund", eventType: "bucket-depleted", monthIndex: 5, amountDepleted: 300 }),
+      makeLedgerEvent({ family: "emergencyFund", eventType: "bucket-tapped", monthIndex: 3, amountAtTap: 400 }),
+      makeLedgerEvent({ family: "emergencyFund", eventType: "bucket-depleted", monthIndex: 5, amountDepleted: 400 }),
       makeLedgerEvent({ family: "taxableInvestments", eventType: "bucket-tapped", monthIndex: 7, amountAtTap: 10000 }),
       makeLedgerEvent({ family: "taxableInvestments", eventType: "bucket-depleted", monthIndex: 9, amountDepleted: 10000 })
     ],
@@ -168,6 +168,41 @@ function ids(items) {
   });
 }
 
+function makeDelayedSmallBucketLedger() {
+  return {
+    version: "income-impact-asset-depletion-ledger-v1",
+    status: "ready",
+    orderedBuckets: [
+      { bucketId: "cash", family: "cash", availableValue: 5000, firstUsedMonth: 0, depletionMonth: 4, sourcePath: "ordered.cash" },
+      { bucketId: "emergency", family: "emergencyFund", availableValue: 500, firstUsedMonth: 5, depletionMonth: 5, sourcePath: "ordered.emergency" },
+      { bucketId: "taxable", family: "taxableInvestments", availableValue: 500, firstUsedMonth: 6, depletionMonth: 6, sourcePath: "ordered.taxable" }
+    ],
+    ledgerMonths: [
+      month(0, 1000, { start: { cash: 5000, emergencyFund: 500, taxableInvestments: 500 }, end: { cash: 4000, emergencyFund: 500, taxableInvestments: 500 } }),
+      month(1, 1000, { start: { cash: 4000, emergencyFund: 500, taxableInvestments: 500 }, end: { cash: 3000, emergencyFund: 500, taxableInvestments: 500 } }),
+      month(2, 1000, { start: { cash: 3000, emergencyFund: 500, taxableInvestments: 500 }, end: { cash: 2000, emergencyFund: 500, taxableInvestments: 500 } }),
+      month(3, 1000, { start: { cash: 2000, emergencyFund: 500, taxableInvestments: 500 }, end: { cash: 1000, emergencyFund: 500, taxableInvestments: 500 } }),
+      month(4, 1000, { start: { cash: 1000, emergencyFund: 500, taxableInvestments: 500 }, end: { cash: 0, emergencyFund: 500, taxableInvestments: 500 } }),
+      month(5, 1000, { start: { cash: 0, emergencyFund: 500, taxableInvestments: 500 }, end: { cash: 0, emergencyFund: 0, taxableInvestments: 500 } }),
+      month(6, 1000, { start: { cash: 0, emergencyFund: 0, taxableInvestments: 500 }, end: { cash: 0, emergencyFund: 0, taxableInvestments: 0 } })
+    ],
+    bucketEvents: [
+      makeLedgerEvent({ family: "cash", eventType: "bucket-tapped", monthIndex: 0, amountAtTap: 5000 }),
+      makeLedgerEvent({ family: "cash", eventType: "bucket-depleted", monthIndex: 4, amountDepleted: 5000 }),
+      makeLedgerEvent({ family: "emergencyFund", eventType: "bucket-tapped", monthIndex: 5, amountAtTap: 500 }),
+      makeLedgerEvent({ family: "emergencyFund", eventType: "bucket-depleted", monthIndex: 5, amountDepleted: 500 }),
+      makeLedgerEvent({ family: "taxableInvestments", eventType: "bucket-tapped", monthIndex: 6, amountAtTap: 500 }),
+      makeLedgerEvent({ family: "taxableInvestments", eventType: "bucket-depleted", monthIndex: 6, amountDepleted: 500 })
+    ],
+    trace: {
+      totalResourcesReconciliation: {
+        verified: true,
+        monthsChecked: 7
+      }
+    }
+  };
+}
+
 const input = makeInput();
 const inputSnapshot = cloneJson(input);
 const result = buildIncomeImpactFinancialStorylineCandidates(input);
@@ -192,12 +227,26 @@ assert.deepEqual(input, inputSnapshot, "Liquidity trigger derivation must not mu
 assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").trace.monthlyBurn, 100);
 assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").trace.remainingValue, 250);
 assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").trace.thresholdValue, 300);
+assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").visibleEventKey, "liquidity:cash:cash-reserve:nearly-depleted:month-1");
+assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").bucketFamily, "cash");
+assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").bucketId, "cash-reserve");
+assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").eventState, "nearly-depleted");
+assert.equal(getCandidate(result, "cash-reserve-nearly-depleted").stateRank, 2);
 assert.equal(getCandidate(result, "cash-reserve-depleted").trace.remainingValue, 80);
 assert.equal(getCandidate(result, "cash-reserve-depleted").trace.thresholdValue, 100);
 assert.equal(getCandidate(result, "emergency-fund-used").eligibleForMajorCard, false);
 assert.equal(getCandidate(result, "emergency-fund-used").supportingDotOnly, true);
+assert.equal(getCandidate(result, "emergency-fund-used").timing.monthOffset, 3);
+assert.equal(getCandidate(result, "emergency-fund-nearly-depleted").timing.monthOffset, 4);
+assert.equal(getCandidate(result, "emergency-fund-depleted").timing.monthOffset, 5);
+assert.equal(getCandidate(result, "emergency-fund-nearly-depleted").trace.firstUsedMonth, 3);
+assert.equal(getCandidate(result, "emergency-fund-depleted").trace.firstUsedMonth, 3);
+assert.equal(getCandidate(result, "emergency-fund-depleted").visibleEventKey, "liquidity:emergencyFund:emergency-fund:depleted:month-5");
 assert.equal(getCandidate(result, "taxable-investments-tapped").eligibleForMajorCard, false);
 assert.equal(getCandidate(result, "taxable-investments-tapped").supportingDotOnly, true);
+assert.equal(getCandidate(result, "taxable-investments-nearly-depleted").visibleEventKey, "liquidity:taxableInvestments:taxable-investments:nearly-depleted:month-8");
+assert.equal(getCandidate(result, "taxable-investments-nearly-depleted").cardConceptId, "taxableInvestments");
+assert.equal(getCandidate(result, "taxable-investments-nearly-depleted").bucketFamily, "taxableInvestments");
 assert.equal(getCandidate(result, "ninety-day-cash-window-tight").trace.fastAccessResources, 1100);
 assert.equal(getCandidate(result, "ninety-day-cash-window-tight").trace.transitionNeed90Days, 1000);
 assert.equal(getCandidate(result, "ninety-day-cash-window-tight").trace.fastAccessCoverageRatio, 1.1);
@@ -230,6 +279,14 @@ const storyTitles = assembly.storySteps.map(function (step) {
 assert.equal(storyTitles.includes("Cash Reserve Begins Declining"), false);
 assert.equal(storyTitles.includes("Emergency Fund Is Used"), false);
 assert.equal(storyTitles.includes("Taxable Investments Are Tapped"), false);
+assert.equal(storyTitles.includes("Taxable Investments Are Nearly Depleted"), true);
+assert.equal(
+  assembly.storySteps.filter(function (step) {
+    return step.title === "Cash Reserve Is Nearly Depleted";
+  }).length,
+  1,
+  "Cash near-depleted should not duplicate when taxable near-depleted is also present."
+);
 assert.deepEqual(
   assembly.supportingGraphDots.filter(function (dot) {
     return [
@@ -257,6 +314,63 @@ const normalized = normalizeIncomeImpactTimelineStoryEvents({
 });
 assert.equal(normalized.events[0].supportingDotOnly, true);
 assert.equal(normalized.events[0].eligibleForMajorCard, false);
+assert.equal(normalized.events[0].visibleEventKey, "liquidity:emergencyFund:emergency-fund:used:month-3");
+assert.equal(normalized.events[0].bucketFamily, "emergencyFund");
+assert.equal(normalized.events[0].eventState, "used");
+
+const delayedSmallBucketResult = buildIncomeImpactFinancialStorylineCandidates(makeInput({
+  assetDepletionLedger: makeDelayedSmallBucketLedger(),
+  scenario: {
+    transitionOutlook: {
+      transitionNeed90Days: 3000
+    },
+    postDeathSeries: {
+      depletion: {
+        depleted: false
+      }
+    }
+  }
+}));
+assert.equal(
+  ids(delayedSmallBucketResult.safeRenderableEvents).includes("emergency-fund-nearly-depleted"),
+  false,
+  "Emergency fund should not emit nearly depleted before it is reached."
+);
+assert.equal(
+  getCandidate(delayedSmallBucketResult, "emergency-fund-depleted").timing.monthOffset,
+  5,
+  "Emergency fund depleted should be timed to the first reached month, not month 0."
+);
+assert.equal(
+  getCandidate(delayedSmallBucketResult, "emergency-fund-depleted").trace.firstUsedMonth,
+  5,
+  "Emergency fund threshold events should trace the first used month."
+);
+assert.equal(
+  ids(delayedSmallBucketResult.safeRenderableEvents).includes("emergency-fund-used"),
+  false,
+  "Same-month emergency fund used/depleted should keep only depleted visible."
+);
+assert.ok(delayedSmallBucketResult.suppressedCandidates.some(function (candidate) {
+  return candidate.id === "emergency-fund-used"
+    && candidate.trace?.precedenceSuppressed === true
+    && candidate.trace?.strongerTriggerId === "emergency-fund-depleted";
+}), "Suppressed same-month emergency fund used event should remain traceable.");
+assert.equal(
+  getCandidate(delayedSmallBucketResult, "taxable-investments-depleted").timing.monthOffset,
+  6,
+  "Taxable investments depleted should not emit before taxable investments are reached."
+);
+assert.equal(
+  getCandidate(delayedSmallBucketResult, "taxable-investments-depleted").trace.firstUsedMonth,
+  6,
+  "Taxable investment threshold events should trace the first used month."
+);
+assert.equal(
+  ids(delayedSmallBucketResult.safeRenderableEvents).includes("taxable-investments-tapped"),
+  false,
+  "Same-month taxable tapped/depleted should keep only depleted visible."
+);
 
 function makeBandInput(fastAccessResources, transitionNeed90Days) {
   const ledger = makeThresholdLedger();

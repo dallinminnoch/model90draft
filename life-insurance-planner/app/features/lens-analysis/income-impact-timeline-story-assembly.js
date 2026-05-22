@@ -18,7 +18,6 @@
     "liquidity",
     "housing",
     "dependentsCare",
-    "supportGap",
     "finalOutcome"
   ]);
 
@@ -28,6 +27,15 @@
     caution: 2,
     stable: 3,
     unknown: 4
+  });
+  const VISIBLE_EVENT_STATE_RANKS = Object.freeze({
+    holds: 0,
+    "begins-declining": 1,
+    used: 1,
+    tapped: 1,
+    nearly: 2,
+    "nearly-depleted": 2,
+    depleted: 3
   });
 
   const APPROVED_CARD_LIBRARY = Object.freeze({
@@ -53,6 +61,11 @@
       caution: "Liquid Resources Begin Declining",
       atRisk: "Liquid Resources Are Nearly Depleted",
       critical: "Liquid Resources Are Depleted"
+    }),
+    taxableInvestments: Object.freeze({
+      caution: "Taxable Investments Are Tapped",
+      atRisk: "Taxable Investments Are Nearly Depleted",
+      critical: "Taxable Investments Are Depleted"
     }),
     housing: Object.freeze({
       stable: "Housing Costs Remain Covered",
@@ -355,10 +368,57 @@
     });
   }
 
+  function hasApprovedCardConcept(concept) {
+    return Boolean(concept && APPROVED_CARD_LIBRARY[concept]);
+  }
+
+  function resolveStructuredCardConcept(event) {
+    const explicitConcept = firstString([
+      event?.cardConceptId,
+      event?.conceptId,
+      event?.cardConcept,
+      event?.trace?.cardConceptId,
+      event?.trace?.conceptId,
+      event?.trace?.cardConcept
+    ]);
+    if (hasApprovedCardConcept(explicitConcept)) {
+      return explicitConcept;
+    }
+
+    const bucketFamily = normalizeKey(firstString([
+      event?.bucketFamily,
+      event?.trace?.bucketFamily,
+      event?.trace?.family
+    ]));
+    if (bucketFamily.includes("taxable")) {
+      return "taxableInvestments";
+    }
+    if (bucketFamily.includes("emergency")) {
+      return "emergencyFund";
+    }
+    if (bucketFamily === "cash" || bucketFamily.includes("cash-reserve")) {
+      return "cashReserve";
+    }
+    if (bucketFamily.includes("other-liquid") || bucketFamily.includes("liquid-resource")) {
+      return "liquidResources";
+    }
+    if (bucketFamily.includes("education")) {
+      return "educationFunding";
+    }
+    if (bucketFamily.includes("retirement")) {
+      return "retirementAssets";
+    }
+    return "";
+  }
+
   function resolveApprovedCardConcept(event, rawTitle, category) {
     const text = getEventSearchText(event, rawTitle, category);
     if (!text || category === "dataConfidence" || hasTextPart(text, ["data-confidence", "data-quality", "setup-gap", "details-need-review", "confidence"])) {
       return null;
+    }
+    const structuredConcept = resolveStructuredCardConcept(event);
+    if (structuredConcept) {
+      return structuredConcept;
     }
     if (hasTextPart(text, ["90-day", "90-days", "90day", "transition", "first-3-month", "first-three-month"])) {
       return "transition";
@@ -375,11 +435,11 @@
     if (hasTextPart(text, ["emergency-fund", "emergency"])) {
       return "emergencyFund";
     }
+    if (hasTextPart(text, ["taxable", "brokerage", "liquid-investment", "liquid-resource", "other-liquid", "liquid"])) {
+      return hasTextPart(text, ["taxable", "brokerage"]) ? "taxableInvestments" : "liquidResources";
+    }
     if (hasTextPart(text, ["cash-reserve", "cash-savings", "checking", "savings", "hysa", "money-market", "cds", "cash-waterfall", "pre-death-saved-cash", "cash"])) {
       return "cashReserve";
-    }
-    if (hasTextPart(text, ["taxable", "brokerage", "liquid-investment", "liquid-resource", "other-liquid", "liquid"])) {
-      return "liquidResources";
     }
     if (hasTextPart(text, ["mortgage"])) {
       return "mortgage";
@@ -462,6 +522,106 @@
     };
   }
 
+  function formatVisibleEventMonthKey(relativeMonth) {
+    const month = toOptionalNumber(relativeMonth);
+    return month == null ? "month-unknown" : `month-${Math.max(0, Math.round(month))}`;
+  }
+
+  function inferEventState(event, rawTitle, sourceEventId) {
+    const explicitState = normalizeKey(firstString([
+      event?.eventState,
+      event?.trace?.eventState
+    ]));
+    if (explicitState) {
+      return explicitState;
+    }
+    const text = getEventSearchText(event, rawTitle, sourceEventId);
+    if (hasTextPart(text, ["nearly-depleted", "nearly depleted", "at-risk", "at risk"])) {
+      return "nearly-depleted";
+    }
+    if (hasTextPart(text, ["depleted", "unsupported", "underfunded"])) {
+      return "depleted";
+    }
+    if (hasTextPart(text, ["tapped"])) {
+      return "tapped";
+    }
+    if (hasTextPart(text, ["used"])) {
+      return "used";
+    }
+    if (hasTextPart(text, ["begins-declining", "begin-declining", "declining"])) {
+      return "begins-declining";
+    }
+    if (hasTextPart(text, ["covered", "holds", "intact", "protected"])) {
+      return "holds";
+    }
+    return normalizeKey(rawTitle || sourceEventId);
+  }
+
+  function getVisibleStateRank(eventState, event) {
+    const explicitRank = toOptionalNumber(event?.stateRank ?? event?.trace?.stateRank);
+    if (explicitRank != null) {
+      return explicitRank;
+    }
+    return VISIBLE_EVENT_STATE_RANKS[eventState] ?? 0;
+  }
+
+  function buildVisibleEventKey(identity) {
+    const safeIdentity = isPlainObject(identity) ? identity : {};
+    return [
+      normalizeString(safeIdentity.storyStage || safeIdentity.category || "event"),
+      normalizeString(safeIdentity.bucketFamily || safeIdentity.cardConceptId || "general"),
+      normalizeString(safeIdentity.bucketId || safeIdentity.cardConceptId || safeIdentity.conceptId || "event"),
+      normalizeString(safeIdentity.eventState || "state"),
+      formatVisibleEventMonthKey(safeIdentity.relativeMonth)
+    ].filter(Boolean).join(":");
+  }
+
+  function resolveVisibleEventIdentity(event, sourceEventId, category, tone, cardMapping, relativeMonth, rawTitle) {
+    const cardConceptId = firstString([
+      event?.cardConceptId,
+      event?.conceptId,
+      event?.trace?.cardConceptId,
+      event?.trace?.conceptId,
+      cardMapping.concept
+    ]);
+    const bucketFamily = firstString([
+      event?.bucketFamily,
+      event?.trace?.bucketFamily,
+      event?.trace?.family,
+      cardConceptId,
+      category
+    ]);
+    const bucketId = firstString([
+      event?.bucketId,
+      event?.trace?.bucketId,
+      cardConceptId,
+      cardMapping.title,
+      rawTitle
+    ]);
+    const eventState = inferEventState(event, rawTitle, sourceEventId);
+    const stateRank = getVisibleStateRank(eventState, event);
+    const identity = {
+      visibleEventKey: normalizeString(firstString([
+        event?.visibleEventKey,
+        event?.trace?.visibleEventKey
+      ])),
+      cardConceptId: cardConceptId || "",
+      conceptId: firstString([event?.conceptId, event?.trace?.conceptId, cardConceptId]) || "",
+      storyStage: firstString([event?.storyStage, event?.trace?.storyStage, category]) || "",
+      category,
+      bucketFamily: bucketFamily || "",
+      bucketId: bucketId ? safeId(bucketId, "event") : "",
+      eventState,
+      stateRank,
+      relativeMonth,
+      tone
+    };
+    if (!identity.visibleEventKey) {
+      identity.visibleEventKey = buildVisibleEventKey(identity);
+    }
+    return identity;
+  }
+
   function isNonApplicableEvent(event) {
     const status = normalizeKey(event?.status);
     const evidence = normalizeKey(event?.evidenceLevel);
@@ -492,6 +652,7 @@
     const category = normalizeCategory(event);
     const tone = normalizeTone(event);
     const cardMapping = resolveApprovedCardMapping(event, rawTitle, category, tone);
+    const visibleIdentity = resolveVisibleEventIdentity(event, sourceEventId, category, tone, cardMapping, relativeMonth, rawTitle);
     const sourceBlocksMainCard = event.supportingDotOnly === true
       || event.eligibleForMajorCard === false
       || event.mainCardEligible === false;
@@ -509,6 +670,14 @@
       rawTitle,
       approvedCardTitle: cardMapping.title,
       cardConcept: cardMapping.concept,
+      visibleEventKey: visibleIdentity.visibleEventKey,
+      cardConceptId: visibleIdentity.cardConceptId,
+      conceptId: visibleIdentity.conceptId,
+      storyStage: visibleIdentity.storyStage,
+      bucketFamily: visibleIdentity.bucketFamily,
+      bucketId: visibleIdentity.bucketId,
+      eventState: visibleIdentity.eventState,
+      stateRank: visibleIdentity.stateRank,
       mainCardEligible: sourceBlocksMainCard ? false : cardMapping.mainCardEligible,
       supportingDotConcept: cardMapping.supportingDotConcept,
       supportingDotTitle: cardMapping.supportingDotTitle || (sourceSupportsDot ? rawTitle : ""),
@@ -550,6 +719,14 @@
     existing.rawTitle = existing.rawTitle || incoming.rawTitle;
     existing.approvedCardTitle = existing.approvedCardTitle || incoming.approvedCardTitle;
     existing.cardConcept = existing.cardConcept || incoming.cardConcept;
+    existing.visibleEventKey = existing.visibleEventKey || incoming.visibleEventKey;
+    existing.cardConceptId = existing.cardConceptId || incoming.cardConceptId;
+    existing.conceptId = existing.conceptId || incoming.conceptId;
+    existing.storyStage = existing.storyStage || incoming.storyStage;
+    existing.bucketFamily = existing.bucketFamily || incoming.bucketFamily;
+    existing.bucketId = existing.bucketId || incoming.bucketId;
+    existing.eventState = existing.eventState || incoming.eventState;
+    existing.stateRank = existing.stateRank == null ? incoming.stateRank : existing.stateRank;
     existing.mainCardEligible = Boolean(existing.mainCardEligible || incoming.mainCardEligible);
     existing.supportingDotConcept = existing.supportingDotConcept || incoming.supportingDotConcept;
     existing.supportingDotTitle = existing.supportingDotTitle || incoming.supportingDotTitle;
@@ -580,6 +757,77 @@
       }));
     });
     return Array.from(byId.values());
+  }
+
+  function getVisibleBucketKey(event) {
+    const storyStage = normalizeString(event?.storyStage || event?.category);
+    const bucketFamily = normalizeString(event?.bucketFamily || event?.cardConceptId || event?.cardConcept);
+    const bucketId = normalizeString(event?.bucketId || event?.cardConceptId || event?.cardConcept);
+    if (!storyStage || !bucketFamily || !bucketId) {
+      return "";
+    }
+    return [storyStage, bucketFamily, bucketId].join(":");
+  }
+
+  function applyVisibleEventKeyDedupe(events, suppressed, trace) {
+    const byVisibleKey = new Map();
+    const output = [];
+    events.forEach(function (event) {
+      const key = normalizeString(event?.visibleEventKey);
+      if (!key) {
+        output.push(event);
+        return;
+      }
+      if (byVisibleKey.has(key)) {
+        const existing = byVisibleKey.get(key);
+        mergeSourceEvent(existing, event);
+        suppressed.push(makeSuppressed(event, "duplicate-visible-event-key"));
+        trace.visibleEventDuplicateSuppressionCount += 1;
+        return;
+      }
+      byVisibleKey.set(key, event);
+      output.push(event);
+    });
+    return output;
+  }
+
+  function applyVisibleStatePrecedence(events, suppressed, trace) {
+    const visible = [];
+    events.slice().sort(function (left, right) {
+      const leftMonth = left.relativeMonth == null ? Number.POSITIVE_INFINITY : left.relativeMonth;
+      const rightMonth = right.relativeMonth == null ? Number.POSITIVE_INFINITY : right.relativeMonth;
+      const leftRank = toOptionalNumber(left.stateRank) ?? 0;
+      const rightRank = toOptionalNumber(right.stateRank) ?? 0;
+      return leftMonth - rightMonth || rightRank - leftRank || compareEventsByTiming(left, right);
+    }).forEach(function (event) {
+      const bucketKey = getVisibleBucketKey(event);
+      const rank = toOptionalNumber(event?.stateRank) ?? 0;
+      const month = toOptionalNumber(event?.relativeMonth);
+      if (!bucketKey || rank <= 0 || month == null) {
+        visible.push(event);
+        return;
+      }
+      const stronger = visible.find(function (item) {
+        const itemRank = toOptionalNumber(item?.stateRank) ?? 0;
+        const itemMonth = toOptionalNumber(item?.relativeMonth);
+        return getVisibleBucketKey(item) === bucketKey
+          && itemRank > rank
+          && itemMonth != null
+          && itemMonth <= month;
+      });
+      if (stronger) {
+        suppressed.push(makeSuppressed(event, "weaker-visible-bucket-state"));
+        trace.visibleStatePrecedenceSuppressionCount += 1;
+        return;
+      }
+      visible.push(event);
+    });
+    return visible.sort(compareEventsByTiming);
+  }
+
+  function applyVisibleEventContract(events, suppressed, trace) {
+    const keyed = applyVisibleEventKeyDedupe(events, suppressed, trace);
+    return applyVisibleStatePrecedence(keyed, suppressed, trace);
   }
 
   function findSelectedDepletionPoint(graphModel) {
@@ -757,12 +1005,28 @@
       category: event?.category || "",
       tone: event?.tone || "unknown",
       relativeMonth: event?.relativeMonth ?? null,
+      visibleEventKey: event?.visibleEventKey || null,
+      cardConceptId: event?.cardConceptId || null,
+      conceptId: event?.conceptId || null,
+      storyStage: event?.storyStage || null,
+      bucketFamily: event?.bucketFamily || null,
+      bucketId: event?.bucketId || null,
+      eventState: event?.eventState || null,
+      stateRank: event?.stateRank ?? null,
       trace: {
         source: SOURCE,
         originalSource: event?.source || null,
         originalSourceTitle: event?.rawTitle || event?.title || null,
         mappedCardTitle: event?.approvedCardTitle || null,
         cardConcept: event?.cardConcept || null,
+        visibleEventKey: event?.visibleEventKey || null,
+        cardConceptId: event?.cardConceptId || null,
+        conceptId: event?.conceptId || null,
+        storyStage: event?.storyStage || null,
+        bucketFamily: event?.bucketFamily || null,
+        bucketId: event?.bucketId || null,
+        eventState: event?.eventState || null,
+        stateRank: event?.stateRank ?? null,
         supportingDotTitle: event?.supportingDotTitle || null,
         supportingDotConcept: event?.supportingDotConcept || null
       }
@@ -783,6 +1047,14 @@
       relativeMonth: input.relativeMonth == null ? null : input.relativeMonth,
       graphDotId: input.graphDotId || null,
       sourceEventId: input.sourceEventId || null,
+      visibleEventKey: input.visibleEventKey || null,
+      cardConceptId: input.cardConceptId || null,
+      conceptId: input.conceptId || null,
+      storyStage: input.storyStage || null,
+      bucketFamily: input.bucketFamily || null,
+      bucketId: input.bucketId || null,
+      eventState: input.eventState || null,
+      stateRank: input.stateRank ?? null,
       trace: Object.assign({
         source: SOURCE
       }, isPlainObject(input.trace) ? input.trace : {})
@@ -796,9 +1068,25 @@
       tone: step.tone,
       relativeMonth: step.relativeMonth,
       sourceEventId: step.sourceEventId,
+      visibleEventKey: step.visibleEventKey || null,
+      cardConceptId: step.cardConceptId || null,
+      conceptId: step.conceptId || null,
+      storyStage: step.storyStage || null,
+      bucketFamily: step.bucketFamily || null,
+      bucketId: step.bucketId || null,
+      eventState: step.eventState || null,
+      stateRank: step.stateRank ?? null,
       trace: {
         source: SOURCE,
-        role
+        role,
+        visibleEventKey: step.visibleEventKey || null,
+        cardConceptId: step.cardConceptId || null,
+        conceptId: step.conceptId || null,
+        storyStage: step.storyStage || null,
+        bucketFamily: step.bucketFamily || null,
+        bucketId: step.bucketId || null,
+        eventState: step.eventState || null,
+        stateRank: step.stateRank ?? null
       }
     };
   }
@@ -835,12 +1123,28 @@
       relativeMonth: event.relativeMonth,
       graphDotId: null,
       sourceEventId: event.sourceEventId,
+      visibleEventKey: event.visibleEventKey,
+      cardConceptId: event.cardConceptId,
+      conceptId: event.conceptId,
+      storyStage: event.storyStage,
+      bucketFamily: event.bucketFamily,
+      bucketId: event.bucketId,
+      eventState: event.eventState,
+      stateRank: event.stateRank,
       trace: {
         originalSource: event.source,
         traceSources: clonePlainValue(event.traceSources || [event.source]),
         originalSourceTitle: event.rawTitle || event.title,
         mappedCardTitle: event.approvedCardTitle,
-        cardConcept: event.cardConcept
+        cardConcept: event.cardConcept,
+        visibleEventKey: event.visibleEventKey || null,
+        cardConceptId: event.cardConceptId || null,
+        conceptId: event.conceptId || null,
+        storyStage: event.storyStage || null,
+        bucketFamily: event.bucketFamily || null,
+        bucketId: event.bucketId || null,
+        eventState: event.eventState || null,
+        stateRank: event.stateRank ?? null
       }
     });
   }
@@ -853,11 +1157,14 @@
     return Math.max(0, Math.min(12, Math.round(limit)));
   }
 
-  function buildSupportingDots(events, usedSourceEventIds, options) {
+  function buildSupportingDots(events, usedSourceEventIds, usedVisibleEventKeys, options) {
     const limit = getSupportingDotLimit(options);
     return events
       .filter(function (event) {
-        return (canUseAsIntermediate(event) || canUseAsSupportingDot(event)) && !usedSourceEventIds.has(event.sourceEventId);
+        const visibleKey = normalizeString(event?.visibleEventKey);
+        return (canUseAsIntermediate(event) || canUseAsSupportingDot(event))
+          && !usedSourceEventIds.has(event.sourceEventId)
+          && (!visibleKey || !usedVisibleEventKeys.has(visibleKey));
       })
       .sort(compareEventsByTiming)
       .slice(0, limit)
@@ -870,6 +1177,14 @@
           shortLabel: event.supportingDotTitle || event.approvedCardTitle || "",
           relativeMonth: event.relativeMonth,
           sourceEventId: event.sourceEventId,
+          visibleEventKey: event.visibleEventKey || null,
+          cardConceptId: event.cardConceptId || null,
+          conceptId: event.conceptId || null,
+          storyStage: event.storyStage || null,
+          bucketFamily: event.bucketFamily || null,
+          bucketId: event.bucketId || null,
+          eventState: event.eventState || null,
+          stateRank: event.stateRank ?? null,
           trace: {
             source: SOURCE,
             originalSource: event.source,
@@ -878,6 +1193,14 @@
             supportingDotTitle: event.supportingDotTitle || null,
             cardConcept: event.cardConcept || null,
             supportingDotConcept: event.supportingDotConcept || null,
+            visibleEventKey: event.visibleEventKey || null,
+            cardConceptId: event.cardConceptId || null,
+            conceptId: event.conceptId || null,
+            storyStage: event.storyStage || null,
+            bucketFamily: event.bucketFamily || null,
+            bucketId: event.bucketId || null,
+            eventState: event.eventState || null,
+            stateRank: event.stateRank ?? null,
             noDefaultLabel: true
           }
         };
@@ -912,13 +1235,15 @@
       suppressionCountsByReason: {},
       missingTimingExclusionCount: 0,
       controlledRepeatUsage: 0,
+      visibleEventDuplicateSuppressionCount: 0,
+      visibleStatePrecedenceSuppressionCount: 0,
       exactNineStepTargetMet: false,
       displayOnly: true,
       noUiMutation: true,
       noGraphMutation: true
     };
     const suppressed = [];
-    const sourceEvents = dedupeEvents(collectSourceEvents(safeInput));
+    const sourceEvents = applyVisibleEventContract(dedupeEvents(collectSourceEvents(safeInput)), suppressed, trace);
     const finalOutcome = resolveFinalOutcome(safeInput, sourceEvents);
     const selectedEvents = selectIntermediateEvents(sourceEvents, suppressed, trace);
     const majorGraphDots = [];
@@ -981,7 +1306,10 @@
     const usedSourceEventIds = new Set(storySteps.map(function (step) {
       return step.sourceEventId;
     }).filter(Boolean));
-    const supportingGraphDots = buildSupportingDots(sourceEvents, usedSourceEventIds, safeInput.options);
+    const usedVisibleEventKeys = new Set(storySteps.map(function (step) {
+      return normalizeString(step.visibleEventKey);
+    }).filter(Boolean));
+    const supportingGraphDots = buildSupportingDots(sourceEvents, usedSourceEventIds, usedVisibleEventKeys, safeInput.options);
 
     trace.selectedIntermediateCount = selectedEvents.length;
     trace.majorGraphDotCount = majorGraphDots.length;
