@@ -92,7 +92,7 @@
     }),
     retirementAssets: Object.freeze({
       stable: "Retirement Assets Stay Intact",
-      caution: "Retirement Assets Are At Risk",
+      caution: "Retirement Assets Are Next in Line",
       atRisk: "Retirement Assets Are Tapped",
       critical: "Retirement Assets Are Depleted"
     }),
@@ -429,10 +429,14 @@
   function resolveApprovedCardMapping(event, rawTitle, category, tone) {
     const concept = resolveApprovedCardConcept(event, rawTitle, category);
     const text = getEventSearchText(event, rawTitle, category);
-    const eventSpecificTitle = concept === "educationFunding"
-      && hasTextPart(text, ["redirect", "redirected", "tapped", "used", "living-needs", "depleted"])
-      ? "Education Funding Is At Risk"
-      : "";
+    let eventSpecificTitle = "";
+    if (concept === "educationFunding") {
+      if (hasTextPart(text, ["depleted"])) {
+        eventSpecificTitle = "Education Savings Are Depleted";
+      } else if (hasTextPart(text, ["redirect", "redirected", "tapped", "used", "living-needs"])) {
+        eventSpecificTitle = "Education Funding Is At Risk";
+      }
+    }
     const title = eventSpecificTitle || (concept && APPROVED_CARD_LIBRARY[concept] ? APPROVED_CARD_LIBRARY[concept][tone] : "");
     const forbidden = title && FORBIDDEN_MAIN_CARD_TITLES.has(normalizeKey(title));
     const supportingConcept = resolveSupportingDotConcept(event, rawTitle, category);

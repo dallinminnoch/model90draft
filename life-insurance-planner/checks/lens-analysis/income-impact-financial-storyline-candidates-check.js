@@ -229,7 +229,7 @@ assert.ok(result.majorStoryCandidates.length <= 6);
 assert.ok(result.majorGraphDotCandidates.length <= 6);
 assert.ok(result.microGraphDotCandidates.length <= 10);
 assert.ok(result.graphDotCandidates.length <= 16);
-assert.equal(result.allCandidates.length, 37);
+assert.equal(result.allCandidates.length, 31);
 assert.equal(result.safeRenderableEvents.length, 14);
 assert.equal(result.majorStoryCandidates.length, 4);
 assert.equal(result.graphDotCandidates.length, 5);
@@ -348,8 +348,6 @@ const deferredIds = ids(result.deferredCandidates);
 [
   "cash-savings-depleted",
   "emergency-fund-depleted",
-  "education-savings-depleted",
-  "retirement-assets-tapped",
   "vehicle-payment-at-risk"
 ].forEach(function (id) {
   assert.ok(deferredIds.includes(id), `${id} should be registered as deferred.`);
@@ -360,8 +358,14 @@ const deferredIds = ids(result.deferredCandidates);
 
 [
   "emergency-fund-depleted",
+  "education-funding-remains-protected",
+  "education-funding-may-be-redirected",
+  "education-funding-at-risk",
   "education-savings-depleted",
-  "retirement-assets-tapped"
+  "retirement-assets-stay-intact",
+  "retirement-assets-next-in-line",
+  "retirement-assets-tapped",
+  "retirement-assets-depleted"
 ].forEach(function (id) {
   assert.ok(!ids(result.safeRenderableEvents).includes(id), `${id} must not be safe-renderable without model support.`);
   assert.ok(!ids(result.majorStoryCandidates).includes(id), `${id} must not be selected for major cards.`);
@@ -372,9 +376,11 @@ const deferredIds = ids(result.deferredCandidates);
   "housing-payment-at-risk",
   "housing-payment-pressure-begins",
   "foreclosure-risk-window-opens",
-  "eviction-risk-window-opens"
+  "eviction-risk-window-opens",
+  "education-savings-used-for-living-needs",
+  "retirement-security-is-reduced"
 ].forEach(function (id) {
-  assert.ok(!deferredIds.includes(id), `${id} should not remain as a deferred housing fallback.`);
+  assert.ok(!deferredIds.includes(id), `${id} should not remain as a deferred fallback.`);
 });
 
 assert.ok(
@@ -691,7 +697,7 @@ ledgerInput.assetDepletionLedger = {
 const ledgerSnapshot = cloneJson(ledgerInput);
 const ledgerResult = buildIncomeImpactFinancialStorylineCandidates(ledgerInput);
 const ledgerCandidateIds = [
-  "education-savings-used-for-living-needs",
+  "education-funding-at-risk",
   "education-savings-depleted",
   "retirement-assets-tapped",
   "retirement-assets-depleted"
@@ -705,7 +711,8 @@ ledgerCandidateIds.forEach(function (id) {
   assert.equal(candidate.trace.candidateSource, "canonical-runway-asset-waterfall", `${id} should preserve canonical waterfall trace metadata.`);
   assert.ok(ids(ledgerResult.safeRenderableEvents).includes(id), `${id} should be safe renderable from the ledger.`);
 });
-assert.equal(getCandidate(ledgerResult, "education-savings-used-for-living-needs").trace.ledgerEventType, "bucket-tapped");
+assert.equal(getCandidate(ledgerResult, "education-funding-at-risk").displayLabel, "Education Funding Is At Risk");
+assert.equal(getCandidate(ledgerResult, "education-funding-at-risk").trace.ledgerEventType, "bucket-tapped");
 assert.equal(getCandidate(ledgerResult, "education-savings-depleted").trace.ledgerEventType, "bucket-depleted");
 assert.equal(getCandidate(ledgerResult, "retirement-assets-tapped").trace.ledgerEventType, "bucket-tapped");
 assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.ledgerEventType, "bucket-depleted");
@@ -719,10 +726,18 @@ assert.deepEqual(
 [
   "cash-savings-depleted",
   "taxable-assets-depleted",
-  "liquid-investments-depleted"
+  "liquid-investments-depleted",
+  "education-savings-used-for-living-needs"
 ].forEach(function (id) {
   assert.ok(!ids(ledgerResult.safeRenderableEvents).includes(id), `${id} should not return as old liquidity waterfall vocabulary.`);
 });
+assert.equal(
+  ledgerResult.safeRenderableEvents.some(function (candidate) {
+    return candidate.displayLabel === "Education Savings Are Redirected";
+  }),
+  false,
+  "Education Savings Are Redirected should not be emitted as a storyline title."
+);
 assert.ok(!ledgerResult.safeRenderableEvents.some(function (candidate) {
   return candidate.candidateSource === "canonical-runway-asset-waterfall"
     && ["existingCoverage", "homeEquity", "businessAssets", "unknown"].includes(candidate.trace?.family);
@@ -770,20 +785,9 @@ assert.ok(ledgerResult.microGraphDotCandidates.every(function (candidate) {
   return candidate.selectedAs === "micro" && candidate.eventCategory;
 }), "Micro dots should carry micro selection taxonomy metadata.");
 const ledgerMajorIds = ids(ledgerResult.majorStoryCandidates);
-assert.ok(ledgerMajorIds.includes("retirement-assets-tapped"), "Retirement Assets Tapped should outrank retirement depletion for major cards.");
-if (ledgerMajorIds.includes("retirement-assets-depleted")) {
-  assert.ok(
-    ledgerMajorIds.indexOf("retirement-assets-tapped") < ledgerMajorIds.indexOf("retirement-assets-depleted"),
-    "Retirement Assets Tapped should rank ahead of Retirement Assets Depleted."
-  );
-}
+assert.ok(ledgerMajorIds.includes("retirement-assets-tapped"), "Retirement Assets Tapped should remain selectable when proven.");
 assert.ok(ledgerMajorIds.includes("education-savings-depleted"), "Education Savings Depleted should be selected when proven.");
-if (ledgerMajorIds.includes("education-savings-used-for-living-needs")) {
-  assert.ok(
-    ledgerMajorIds.indexOf("education-savings-depleted") < ledgerMajorIds.indexOf("education-savings-used-for-living-needs"),
-    "Education Savings Depleted should rank ahead of the education tap event for major cards."
-  );
-}
+assert.ok(!ledgerMajorIds.includes("education-savings-used-for-living-needs"), "Legacy education tap label should not remain selectable.");
 assert.ok(
   !ledgerMajorIds.includes("cash-savings-depleted")
     && !ledgerMajorIds.includes("taxable-assets-depleted")
@@ -804,9 +808,11 @@ const ledgerWithSupportResult = buildIncomeImpactFinancialStorylineCandidates(le
 const ledgerWithSupportMajorIds = ids(ledgerWithSupportResult.majorStoryCandidates);
 const ledgerWithSupportMicroIds = ids(ledgerWithSupportResult.microGraphDotCandidates);
 assert.ok(ledgerWithSupportMajorIds.includes("education-savings-depleted"));
-assert.ok(ledgerWithSupportMicroIds.includes("education-savings-used-for-living-needs"));
-assert.ok(ledgerWithSupportMajorIds.includes("retirement-assets-tapped"));
-assert.ok(ledgerWithSupportMicroIds.includes("retirement-assets-depleted"));
+assert.ok(ids(ledgerWithSupportResult.safeRenderableEvents).includes("education-funding-at-risk"));
+assert.ok(!ledgerWithSupportMajorIds.includes("education-savings-used-for-living-needs"));
+assert.ok(!ledgerWithSupportMicroIds.includes("education-savings-used-for-living-needs"));
+assert.ok(ids(ledgerWithSupportResult.safeRenderableEvents).includes("retirement-assets-tapped"));
+assert.ok(ids(ledgerWithSupportResult.safeRenderableEvents).includes("retirement-assets-depleted"));
 assert.ok(
   ledgerWithSupportResult.majorStoryCandidates.slice(1).filter(function (candidate) {
     return candidate.family === "education-waterfall";
@@ -1103,7 +1109,7 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
-assert.equal(selectorResult.allCandidates.length, 47);
+assert.equal(selectorResult.allCandidates.length, 41);
 assert.equal(selectorResult.safeRenderableEvents.length, 24);
 assert.equal(selectorResult.majorStoryCandidates.length, 6);
 assert.equal(selectorResult.graphDotCandidates.length, 15);
@@ -1217,7 +1223,7 @@ assert.ok(
   })
 );
 assert.ok(!selectorMajorIds.includes("housing-risk-unknown"), "Proven housing risk should outrank housing-risk-unknown.");
-assert.ok(selectorMajorIds.includes("retirement-assets-tapped"), "Retirement Assets Tapped should be selectable as long-term sacrifice.");
+assert.ok(ids(selectorResult.safeRenderableEvents).includes("retirement-assets-tapped"), "Retirement Assets Tapped should remain safe renderable as long-term sacrifice evidence.");
 removedVisibleEventIds.forEach(function (id) {
   assert.ok(!selectorMajorIds.includes(id), `${id} should not enter selector major stories.`);
   assert.ok(!selectorMajorGraphIds.includes(id), `${id} should not enter selector major graph dots.`);

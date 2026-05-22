@@ -83,13 +83,15 @@
     "emergency-fund-depleted",
     "liquid-investments-depleted",
     "taxable-assets-depleted",
-    "education-savings-used-for-living-needs",
-    "education-savings-depleted",
-    "education-funding-interrupted",
+    "education-funding-remains-protected",
     "education-funding-may-be-redirected",
+    "education-funding-at-risk",
+    "education-savings-depleted",
     "dependent-support-gap",
     "dependent-support-gap-begins",
     "childcare-support-at-risk",
+    "retirement-assets-stay-intact",
+    "retirement-assets-next-in-line",
     "retirement-assets-tapped",
     "retirement-assets-depleted",
     "housing-costs-begin-pressuring-plan",
@@ -733,6 +735,142 @@
       advisorUsefulness: 0.94
     },
     {
+      id: "education-funding-remains-protected",
+      family: EVENT_FAMILIES.educationWaterfall,
+      displayLabel: "Education Funding Remains Protected",
+      graphLabel: "Education protected",
+      cardTitle: "Education Funding Remains Protected",
+      description: "Education savings assets exist and are not used by the canonical runway waterfall.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 60,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.86
+    },
+    {
+      id: "education-funding-may-be-redirected",
+      family: EVENT_FAMILIES.educationWaterfall,
+      displayLabel: "Education Funding May Be Redirected",
+      graphLabel: "Education next",
+      cardTitle: "Education Funding May Be Redirected",
+      description: "Education savings assets are allowed by treatment assumptions and are next in the canonical runway waterfall, but have not been tapped.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 60,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.82,
+      emotionalWeight: 0.58,
+      advisorUsefulness: 0.88
+    },
+    {
+      id: "education-funding-at-risk",
+      family: EVENT_FAMILIES.educationWaterfall,
+      displayLabel: "Education Funding Is At Risk",
+      graphLabel: "Education at risk",
+      cardTitle: "Education Funding Is At Risk",
+      description: "The canonical runway waterfall begins using education savings assets.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 60,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.86,
+      emotionalWeight: 0.66,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "education-savings-depleted",
+      family: EVENT_FAMILIES.educationWaterfall,
+      displayLabel: "Education Savings Are Depleted",
+      graphLabel: "Education depleted",
+      cardTitle: "Education Savings Are Depleted",
+      description: "The education savings bucket is fully used by the canonical runway waterfall.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 61,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.74,
+      advisorUsefulness: 0.94
+    },
+    {
+      id: "retirement-assets-stay-intact",
+      family: EVENT_FAMILIES.retirementWaterfall,
+      displayLabel: "Retirement Assets Stay Intact",
+      graphLabel: "Retirement intact",
+      cardTitle: "Retirement Assets Stay Intact",
+      description: "Retirement assets are allowed by treatment assumptions and remain unused through the modeled horizon.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.86
+    },
+    {
+      id: "retirement-assets-next-in-line",
+      family: EVENT_FAMILIES.retirementWaterfall,
+      displayLabel: "Retirement Assets Are Next in Line",
+      graphLabel: "Retirement next",
+      cardTitle: "Retirement Assets Are Next in Line",
+      description: "Retirement assets are the next available bucket in the canonical runway waterfall but have not been tapped.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.82,
+      emotionalWeight: 0.58,
+      advisorUsefulness: 0.88
+    },
+    {
+      id: "retirement-assets-tapped",
+      family: EVENT_FAMILIES.retirementWaterfall,
+      displayLabel: "Retirement Assets Are Tapped",
+      graphLabel: "Retirement tapped",
+      cardTitle: "Retirement Assets Are Tapped",
+      description: "The canonical runway waterfall begins using retirement assets.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.88,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "retirement-assets-depleted",
+      family: EVENT_FAMILIES.retirementWaterfall,
+      displayLabel: "Retirement Assets Are Depleted",
+      graphLabel: "Retirement depleted",
+      cardTitle: "Retirement Assets Are Depleted",
+      description: "The retirement asset bucket is fully used by the canonical runway waterfall.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 66,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.76,
+      advisorUsefulness: 0.94
+    },
+    {
       id: "required-debt-payments-covered",
       family: EVENT_FAMILIES.debtRisk,
       displayLabel: "Required Debt Payments Are Covered",
@@ -857,14 +995,8 @@
     ["emergency-fund-depleted", EVENT_FAMILIES.cashWaterfall, "Emergency Fund Depleted", EVIDENCE_LEVELS.waterfallNeeded],
     ["liquid-investments-depleted", EVENT_FAMILIES.cashWaterfall, "Liquid Investments Depleted", EVIDENCE_LEVELS.waterfallNeeded],
     ["taxable-assets-depleted", EVENT_FAMILIES.cashWaterfall, "Taxable Assets Depleted", EVIDENCE_LEVELS.waterfallNeeded],
-    ["education-savings-used-for-living-needs", EVENT_FAMILIES.educationWaterfall, "Education Savings Used for Living Needs", EVIDENCE_LEVELS.waterfallNeeded],
-    ["education-savings-depleted", EVENT_FAMILIES.educationWaterfall, "Education Savings Depleted", EVIDENCE_LEVELS.waterfallNeeded],
-    ["education-funding-may-be-redirected", EVENT_FAMILIES.educationWaterfall, "Education Funding May Be Redirected", EVIDENCE_LEVELS.waterfallNeeded],
     ["dependent-support-gap-begins", EVENT_FAMILIES.careRisk, "Dependent Support Gap Begins", EVIDENCE_LEVELS.riskModelNeeded],
     ["childcare-support-at-risk", EVENT_FAMILIES.careRisk, "Childcare Support At Risk", EVIDENCE_LEVELS.riskModelNeeded],
-    ["retirement-assets-tapped", EVENT_FAMILIES.retirementWaterfall, "Retirement Assets Tapped", EVIDENCE_LEVELS.waterfallNeeded],
-    ["retirement-assets-depleted", EVENT_FAMILIES.retirementWaterfall, "Retirement Assets Depleted", EVIDENCE_LEVELS.waterfallNeeded],
-    ["retirement-security-is-reduced", EVENT_FAMILIES.retirementWaterfall, "Retirement Security Is Reduced", EVIDENCE_LEVELS.waterfallNeeded],
     ["home-equity-becomes-last-resort", EVENT_FAMILIES.housingRisk, "Home Equity Becomes Last Resort", EVIDENCE_LEVELS.waterfallNeeded],
     ["home-equity-depleted", EVENT_FAMILIES.housingRisk, "Home Equity Depleted", EVIDENCE_LEVELS.waterfallNeeded],
     ["vehicle-payment-at-risk", EVENT_FAMILIES.vehicleRisk, "Vehicle Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
@@ -918,7 +1050,7 @@
 
   const ASSET_DEPLETION_LEDGER_EVENT_MAPPINGS = Object.freeze({
     "educationSavings:bucket-tapped": Object.freeze({
-      candidateId: "education-savings-used-for-living-needs",
+      candidateId: "education-funding-at-risk",
       priority: 60,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
@@ -940,6 +1072,27 @@
       priority: 66,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
+    })
+  });
+
+  const ASSET_BUCKET_STATE_RULES = Object.freeze({
+    educationSavings: Object.freeze({
+      family: "educationSavings",
+      protectedId: "education-funding-remains-protected",
+      nextId: "education-funding-may-be-redirected",
+      tappedId: "education-funding-at-risk",
+      depletedId: "education-savings-depleted",
+      allowExcludedProtected: true,
+      sourceLabel: "education savings"
+    }),
+    retirementAssets: Object.freeze({
+      family: "retirementAssets",
+      protectedId: "retirement-assets-stay-intact",
+      nextId: "retirement-assets-next-in-line",
+      tappedId: "retirement-assets-tapped",
+      depletedId: "retirement-assets-depleted",
+      allowExcludedProtected: false,
+      sourceLabel: "retirement assets"
     })
   });
 
@@ -1067,12 +1220,16 @@
     "housing-stability-at-risk",
     "rent-payment-pressure-begins",
     "education-savings-depleted",
-    "education-savings-used-for-living-needs",
+    "education-funding-remains-protected",
+    "education-funding-may-be-redirected",
+    "education-funding-at-risk",
     "dependent-support-gap-begins",
     "childcare-support-at-risk"
   ]);
 
   const LONG_TERM_SACRIFICE_IDS = Object.freeze([
+    "retirement-assets-stay-intact",
+    "retirement-assets-next-in-line",
     "retirement-assets-tapped",
     "retirement-assets-depleted"
   ]);
@@ -1108,7 +1265,9 @@
   const MAJOR_STORY_TIER_1_IDS = Object.freeze([
     "emergency-fund-depleted",
     "education-savings-depleted",
+    "education-funding-at-risk",
     "retirement-assets-tapped",
+    "retirement-assets-depleted",
     "mortgage-payment-at-risk",
     "mortgage-payment-becomes-unsupported",
     "rent-payment-at-risk",
@@ -1134,12 +1293,12 @@
     "checking-savings-depleted",
     "liquid-investments-depleted",
     "taxable-assets-depleted",
-    "education-savings-used-for-living-needs",
-    "education-funding-interrupted",
+    "education-funding-remains-protected",
     "education-funding-may-be-redirected",
     "dependent-support-gap",
     "dependent-support-gap-begins",
-    "retirement-assets-depleted",
+    "retirement-assets-stay-intact",
+    "retirement-assets-next-in-line",
     "housing-costs-remain-covered",
     "mortgage-payment-stays-current",
     "mortgage-payment-pressure-begins",
@@ -1791,6 +1950,200 @@
     };
   }
 
+  function getModeledHorizonMonth(assetDepletionLedger) {
+    return getLedgerMonths(assetDepletionLedger).reduce(function (current, month, index) {
+      const monthIndex = toOptionalNumber(month?.monthIndex);
+      const safeMonthIndex = monthIndex == null ? index : monthIndex;
+      return current == null ? safeMonthIndex : Math.max(current, safeMonthIndex);
+    }, null);
+  }
+
+  function getOrderedBucketEntries(assetDepletionLedger, family) {
+    const normalizedFamily = normalizeString(family);
+    return getOrderedBuckets(assetDepletionLedger).filter(function (bucket) {
+      return normalizeString(bucket.family || bucket.category) === normalizedFamily;
+    });
+  }
+
+  function getExcludedBucketEntries(assetDepletionLedger, family) {
+    const normalizedFamily = normalizeString(family);
+    return Array.isArray(assetDepletionLedger?.excludedBuckets)
+      ? assetDepletionLedger.excludedBuckets.filter(isPlainObject).filter(function (bucket) {
+        return normalizeString(bucket.family || bucket.category) === normalizedFamily;
+      })
+      : [];
+  }
+
+  function getBucketEntryValue(bucket) {
+    return Math.max(toOptionalNumber(bucket?.availableValue ?? bucket?.value ?? bucket?.startingValue) || 0, 0);
+  }
+
+  function getFinalBucketEntryBalance(assetDepletionLedger, bucket) {
+    const bucketId = normalizeString(bucket?.bucketId || bucket?.id);
+    const family = normalizeString(bucket?.family || bucket?.category);
+    const months = getLedgerMonths(assetDepletionLedger);
+    const lastMonth = months[months.length - 1];
+    if (lastMonth && Array.isArray(lastMonth.endingBuckets)) {
+      const matching = lastMonth.endingBuckets.filter(isPlainObject).filter(function (entry) {
+        const entryId = normalizeString(entry.bucketId || entry.id);
+        const entryFamily = normalizeString(entry.family || entry.category);
+        return bucketId ? entryId === bucketId : entryFamily === family;
+      });
+      if (matching.length) {
+        return matching.reduce(function (total, entry) {
+          return total + Math.max(toOptionalNumber(entry.balance ?? entry.availableValue ?? entry.value) || 0, 0);
+        }, 0);
+      }
+    }
+    return Math.max(toOptionalNumber(bucket?.trace?.finalBalance) || 0, 0);
+  }
+
+  function getFirstRemainingOrderedBucket(assetDepletionLedger) {
+    const ordered = getOrderedBuckets(assetDepletionLedger).slice().sort(function (left, right) {
+      return (toOptionalNumber(left.order) ?? 999999) - (toOptionalNumber(right.order) ?? 999999)
+        || normalizeString(left.bucketId || left.id).localeCompare(normalizeString(right.bucketId || right.id));
+    });
+    return ordered.find(function (bucket) {
+      return getFinalBucketEntryBalance(assetDepletionLedger, bucket) > 0;
+    }) || null;
+  }
+
+  function getPreviousBucketDepletionMonth(assetDepletionLedger, bucket) {
+    const order = toOptionalNumber(bucket?.order);
+    if (order == null) {
+      return null;
+    }
+    return getOrderedBuckets(assetDepletionLedger).reduce(function (current, candidate) {
+      const candidateOrder = toOptionalNumber(candidate.order);
+      if (candidateOrder == null || candidateOrder >= order) {
+        return current;
+      }
+      const month = toOptionalNumber(candidate.depletionMonth);
+      if (month == null) {
+        return current;
+      }
+      return current == null ? month : Math.max(current, month);
+    }, null);
+  }
+
+  function makeAssetBucketStateCandidate(candidateId, config) {
+    const definition = findDefinition(candidateId);
+    if (!definition) {
+      return null;
+    }
+    const safeConfig = isPlainObject(config) ? config : {};
+    const monthIndex = toOptionalNumber(safeConfig.monthIndex);
+    const amountValue = toOptionalNumber(safeConfig.amountValue);
+    const evidenceLevel = safeConfig.evidenceLevel || EVIDENCE_LEVELS.calculated;
+    const candidate = makeCandidate(definition, {
+      status: STATUSES.safeNow,
+      safeToRender: true,
+      evidenceLevel,
+      eligibleForGraphDot: safeConfig.eligibleForGraphDot !== false,
+      eligibleForMajorCard: definition.eligibleForMajorCard === true,
+      timingKind: "month-offset",
+      timing: {
+        monthOffset: monthIndex,
+        label: monthIndex == null ? "Modeled horizon" : `Month ${monthIndex}`,
+        sourcePath: safeConfig.sourcePath || "assetDepletionLedger.orderedBuckets"
+      },
+      amount: {
+        value: amountValue == null ? 0 : amountValue,
+        sourcePath: safeConfig.amountSourcePath || safeConfig.sourcePath || "assetDepletionLedger.orderedBuckets"
+      },
+      sourcePaths: uniqueStrings(safeConfig.sourcePaths || [safeConfig.sourcePath || "assetDepletionLedger.orderedBuckets"]),
+      confidence: safeConfig.confidence ?? 0.9,
+      priority: safeConfig.priority ?? definition.priority,
+      suppressionKeys: safeConfig.suppressionKeys || [`asset-bucket-trigger:${candidateId}`]
+    });
+    candidate.candidateSource = "canonical-asset-bucket-trigger";
+    candidate.trace = Object.assign({
+      candidateSource: "canonical-asset-bucket-trigger",
+      triggerId: candidateId,
+      family: normalizeString(safeConfig.family),
+      bucketId: normalizeString(safeConfig.bucketId),
+      monthIndex,
+      amountValue,
+      bucketState: normalizeString(safeConfig.bucketState),
+      sourceLabel: normalizeString(safeConfig.sourceLabel),
+      aggregateRunwayPreserved: true,
+      graphLineSource: "aggregate-survivor-runway"
+    }, clonePlainValue(safeConfig.trace || {}));
+    return candidate;
+  }
+
+  function buildAssetBucketStateCandidates(assetDepletionLedger) {
+    if (!isReadyAssetDepletionLedger(assetDepletionLedger)) {
+      return [];
+    }
+    const candidates = [];
+    const horizonMonth = getModeledHorizonMonth(assetDepletionLedger);
+    const firstRemaining = getFirstRemainingOrderedBucket(assetDepletionLedger);
+    Object.keys(ASSET_BUCKET_STATE_RULES).forEach(function (family) {
+      const rule = ASSET_BUCKET_STATE_RULES[family];
+      const orderedBuckets = getOrderedBucketEntries(assetDepletionLedger, family).filter(function (bucket) {
+        return getBucketEntryValue(bucket) > 0;
+      });
+      const excludedBuckets = getExcludedBucketEntries(assetDepletionLedger, family).filter(function (bucket) {
+        return getBucketEntryValue(bucket) > 0;
+      });
+      const firstUsedMonth = getFirstUsedMonthForFamily(assetDepletionLedger, family);
+      const depleted = getFamilyBucketEvents(assetDepletionLedger, family).some(function (event) {
+        return normalizeString(event.eventType) === "bucket-depleted";
+      });
+
+      if (!orderedBuckets.length && !(rule.allowExcludedProtected === true && excludedBuckets.length)) {
+        return;
+      }
+      if (firstUsedMonth != null || depleted) {
+        return;
+      }
+
+      const primaryBucket = orderedBuckets[0] || excludedBuckets[0];
+      const primaryBucketId = normalizeString(primaryBucket.bucketId || primaryBucket.id);
+      const amountValue = orderedBuckets.length
+        ? orderedBuckets.reduce(function (total, bucket) { return total + getBucketEntryValue(bucket); }, 0)
+        : excludedBuckets.reduce(function (total, bucket) { return total + getBucketEntryValue(bucket); }, 0);
+      const isNextInLine = orderedBuckets.length
+        && firstRemaining
+        && normalizeString(firstRemaining.family || firstRemaining.category) === family
+        && normalizeString(firstRemaining.bucketId || firstRemaining.id) === primaryBucketId;
+      const candidateId = isNextInLine ? rule.nextId : rule.protectedId;
+      const monthIndex = isNextInLine
+        ? (getPreviousBucketDepletionMonth(assetDepletionLedger, primaryBucket) ?? horizonMonth ?? 0)
+        : (horizonMonth ?? 0);
+      const candidate = makeAssetBucketStateCandidate(candidateId, {
+        family,
+        bucketId: primaryBucketId,
+        monthIndex,
+        amountValue,
+        sourcePath: primaryBucket.sourcePath || "assetDepletionLedger.orderedBuckets",
+        sourcePaths: [
+          primaryBucket.sourcePath,
+          orderedBuckets.length ? "assetDepletionLedger.orderedBuckets" : "assetDepletionLedger.excludedBuckets",
+          "assetDepletionLedger.ledgerMonths"
+        ],
+        sourceLabel: rule.sourceLabel,
+        bucketState: isNextInLine ? "next-in-line-unused" : "unused-through-horizon",
+        trace: {
+          orderedBucketCount: orderedBuckets.length,
+          excludedBucketCount: excludedBuckets.length,
+          firstUsedMonth,
+          depleted,
+          modeledHorizonMonth: horizonMonth,
+          nextInLine: Boolean(isNextInLine),
+          permissionMode: normalizeString(primaryBucket.permissionMode),
+          permissionSource: normalizeString(primaryBucket.permissionSource),
+          excludedReason: normalizeString(primaryBucket.reason)
+        }
+      });
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    });
+    return candidates;
+  }
+
   function makeSuppressedLedgerCandidate(event, reason) {
     const evidenceLevel = normalizeLedgerEvidenceLevel(event);
     const sourcePaths = getLedgerEventSourcePaths(event);
@@ -1892,7 +2245,7 @@
         return;
       }
 
-      const definition = findDeferredDefinition(mapping.candidateId);
+      const definition = findDefinition(mapping.candidateId);
       if (!definition) {
         warnings.push(makeWarning(
           "missing-canonical-runway-waterfall-storyline-definition",
@@ -1955,7 +2308,7 @@
       candidates.push(candidate);
     });
 
-    const dedupedCandidates = dedupeCandidates(candidates);
+    const dedupedCandidates = dedupeCandidates(candidates.concat(buildAssetBucketStateCandidates(assetDepletionLedger)));
     return {
       candidates: dedupedCandidates,
       suppressedCandidates,
@@ -3139,7 +3492,7 @@
         return 8;
       case "taxable-assets-depleted":
         return 7;
-      case "education-savings-used-for-living-needs":
+      case "education-funding-at-risk":
         return 12;
       case "mortgage-payment-at-risk":
       case "mortgage-payment-becomes-unsupported":
