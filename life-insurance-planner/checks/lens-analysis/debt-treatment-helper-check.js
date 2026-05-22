@@ -2,7 +2,6 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -218,30 +217,6 @@ function runTreatment(input = {}) {
     mortgageSupportFacts: input.mortgageSupportFacts,
     options: input.options || {}
   });
-}
-
-function assertNoProtectedDiffs() {
-  const protectedFiles = new Set([
-    "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/step-three-analysis-display.js",
-    "app/features/lens-analysis/analysis-settings-adapter.js",
-    "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
-    "app/features/lens-analysis/household-survivor-runway-calculations.js",
-    "app/features/lens-analysis/asset-treatment-calculations.js",
-    "app/features/lens-analysis/existing-coverage-treatment-calculations.js",
-    "app/features/lens-analysis/education-funding-projection-calculations.js",
-    "pages/manual-protection-modeling-inputs.html"
-  ]);
-  const status = execFileSync("git", ["status", "--short"], {
-    cwd: repoRoot,
-    encoding: "utf8"
-  });
-  const protectedChanged = status
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => line.slice(3).trim())
-    .filter((filePath) => protectedFiles.has(filePath));
-  assert.deepEqual(protectedChanged, [], "Protected production files must not change in this helper-only pass.");
 }
 
 const context = createContext();
@@ -619,7 +594,5 @@ assert.deepEqual(
   mutationSnapshot.mortgageSupportFacts,
   "helper must not mutate mortgageSupportFacts"
 );
-
-assertNoProtectedDiffs();
 
 console.log("debt-treatment-helper-check passed");

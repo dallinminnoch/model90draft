@@ -108,9 +108,11 @@ function assertFieldOptional(rowMarkup, fieldAttribute, label) {
 }
 
 function extractCssRule(source, selector) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const normalizedSource = String(source || "").replace(/\r\n/g, "\n");
+  const normalizedSelector = String(selector || "").replace(/\r\n/g, "\n");
+  const escapedSelector = normalizedSelector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(escapedSelector + "\\s*{([\\s\\S]*?)\\n}", "m");
-  const match = String(source || "").match(pattern);
+  const match = normalizedSource.match(pattern);
   return match ? match[1] : "";
 }
 
@@ -365,9 +367,6 @@ const componentsCss = readRepoFile("components.css");
 const debtRecordsListRule = extractCssRule(componentsCss, ".pmi-debt-records-list");
 const debtRecordsTableRule = extractCssRule(componentsCss, ".pmi-debt-records-table");
 const debtRecordControlRule = extractCssRule(
-  componentsCss,
-  ".pmi-debt-record-row input,\r?\n.pmi-debt-record-row select"
-) || extractCssRule(
   componentsCss,
   ".pmi-debt-record-row input,\n.pmi-debt-record-row select"
 );

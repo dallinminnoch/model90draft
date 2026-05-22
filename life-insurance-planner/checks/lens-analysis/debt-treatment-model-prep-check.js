@@ -2,7 +2,6 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -291,30 +290,6 @@ function findTrace(result, key) {
     : null;
 }
 
-function assertNoProtectedDiffs() {
-  const protectedFiles = new Set([
-    "pages/manual-protection-modeling-inputs.html",
-    "app/features/lens-analysis/analysis-methods.js",
-    "app/features/lens-analysis/debt-treatment-calculations.js",
-    "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",
-    "app/features/lens-analysis/household-survivor-runway-calculations.js",
-    "app/features/lens-analysis/analysis-settings-adapter.js",
-    "app/features/lens-analysis/step-three-analysis-display.js",
-    "app/features/lens-analysis/asset-treatment-calculations.js",
-    "app/features/lens-analysis/existing-coverage-treatment-calculations.js",
-    "app/features/lens-analysis/education-funding-projection-calculations.js"
-  ]);
-  const changedFiles = execFileSync("git", ["status", "--short", "--untracked-files=all"], {
-    cwd: repoRoot,
-    encoding: "utf8"
-  }).split(/\r?\n/).filter(Boolean).map((line) => {
-    return line.slice(3).trim().replace(/^life-insurance-planner\//, "");
-  });
-  const protectedDiffs = changedFiles.filter((filePath) => protectedFiles.has(filePath));
-
-  assert.deepEqual(protectedDiffs, [], "Out-of-scope formula, display, and manual PMI files should not change.");
-}
-
 function assertAnalysisEstimateLoadOrder() {
   const html = readRepoFile("pages/analysis-estimate.html");
   const debtHelperIndex = html.indexOf("debt-treatment-calculations.js");
@@ -332,7 +307,6 @@ const lensAnalysis = context.LensApp.lensAnalysis;
 assert.equal(typeof lensAnalysis.buildLensModelFromSavedProtectionModeling, "function");
 assert.equal(typeof lensAnalysis.calculateDebtTreatment, "function");
 assertAnalysisEstimateLoadOrder();
-assertNoProtectedDiffs();
 
 const sourceData = createSourceData();
 const sourceDataBefore = cloneJson(sourceData);

@@ -30,6 +30,10 @@ function ids(buckets) {
   return buckets.map(function (bucket) { return bucket.id; });
 }
 
+function eventById(events, id) {
+  return events.find(function (event) { return event.id === id; });
+}
+
 function bucketById(result, id) {
   return result.resourceBuckets.find(function (bucket) { return bucket.id === id; });
 }
@@ -224,11 +228,19 @@ const storylineResult = buildIncomeImpactFinancialStorylineCandidates({
   }
 });
 const safeStorylineIds = ids(storylineResult.safeRenderableEvents);
-assert.ok(safeStorylineIds.includes("cash-savings-depleted"), "adapted waterfall should activate cash storyline event");
-assert.ok(safeStorylineIds.includes("emergency-fund-depleted"), "adapted waterfall should activate emergency storyline event");
+assert.equal(safeStorylineIds.includes("cash-savings-depleted"), false, "old cash savings fallback label should stay out of safe storyline events");
+assert.equal(safeStorylineIds.includes("liquid-investments-depleted"), false, "old liquid investments fallback label should stay out of safe storyline events");
+assert.equal(safeStorylineIds.includes("taxable-assets-depleted"), false, "old taxable assets fallback label should stay out of safe storyline events");
+assert.equal(eventById(storylineResult.safeRenderableEvents, "cash-reserve-depleted").candidateSource, "canonical-liquidity-trigger", "adapted waterfall should activate canonical cash reserve depletion trigger");
+assert.equal(eventById(storylineResult.safeRenderableEvents, "emergency-fund-depleted").candidateSource, "canonical-liquidity-trigger", "adapted waterfall should activate canonical emergency fund depletion trigger");
+assert.equal(eventById(storylineResult.safeRenderableEvents, "taxable-investments-depleted").candidateSource, "canonical-liquidity-trigger", "adapted waterfall should activate canonical taxable investment depletion trigger");
 assert.ok(safeStorylineIds.includes("education-savings-depleted"), "adapted waterfall should activate education storyline event");
 assert.ok(safeStorylineIds.includes("retirement-assets-tapped"), "adapted waterfall should activate retirement tapped storyline event");
 assert.ok(safeStorylineIds.includes("retirement-assets-depleted"), "adapted waterfall should activate retirement depleted storyline event");
+assert.equal(storylineResult.trace.canonicalRunwayWaterfallUsedForStoryline, true, "canonical waterfall should remain the storyline source");
+assert.ok(storylineResult.trace.liquidityTriggerCandidateIds.includes("cash-reserve-depleted"), "cash reserve depletion should be listed as a liquidity trigger");
+assert.ok(storylineResult.trace.liquidityTriggerCandidateIds.includes("emergency-fund-depleted"), "emergency depletion should be listed as a liquidity trigger");
+assert.ok(storylineResult.trace.liquidityTriggerCandidateIds.includes("taxable-investments-depleted"), "taxable investment depletion should be listed as a liquidity trigger");
 assert.ok(storylineResult.majorGraphDotCandidates.length <= 6, "major graph dot cap should remain intact");
 assert.ok(storylineResult.microGraphDotCandidates.length <= 10, "micro graph dot cap should remain intact");
 assert.ok(storylineResult.graphDotCandidates.length <= 16, "combined graph dot cap should remain intact");
