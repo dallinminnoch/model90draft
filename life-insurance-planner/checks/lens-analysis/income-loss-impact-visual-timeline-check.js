@@ -668,11 +668,11 @@ storyBridgeTimelineResult.financialStoryline = {
       timing: { kind: "month-offset", monthOffset: 2, label: "Month 2" }
     },
     {
-      id: "support-gap-begins",
-      family: "support-gap",
+      id: "debt-payment-pressure",
+      family: "debt-payment",
       severity: "at-risk",
-      cardTitle: "Support Gap Begins",
-      graphLabel: "Gap",
+      cardTitle: "Debt Payments Pressure Monthly Expenses",
+      graphLabel: "Debt",
       safeToRender: true,
       evidenceLevel: "calculated",
       timing: { kind: "month-offset", monthOffset: 3, label: "Month 3" }
@@ -698,11 +698,11 @@ storyBridgeTimelineResult.financialStoryline = {
       timing: { kind: "month-offset", monthOffset: 5, label: "Month 5" }
     },
     {
-      id: "lifestyle-pressure-rises",
-      family: "lifestyle-pressure",
+      id: "rent-payment-pressure",
+      family: "rent-payment",
       severity: "caution",
-      cardTitle: "Lifestyle Pressure Rises",
-      graphLabel: "Lifestyle",
+      cardTitle: "Rent Payment Pressure Begins",
+      graphLabel: "Rent",
       safeToRender: true,
       evidenceLevel: "calculated",
       timing: { kind: "month-offset", monthOffset: 6, label: "Month 6" }
@@ -3071,8 +3071,8 @@ function makeMilestoneStripAssembly(finalTitle = "Resources Run Out") {
     ["story-step-retirement-assets-tapped", "retirement", "atRisk", "Retirement Assets Are Tapped", "Year 3", 36, "retirement-assets-tapped"],
     ["story-step-education-savings-depleted", "education", "critical", "Education Savings Are Depleted", "Year 5", 60, "education-savings-depleted"],
     ["story-step-care-costs-covered", "care", "stable", "Dependent Support Remains Covered", "Year 6", 72, "care-costs-covered"],
-    ["story-step-lifestyle-pressure-rises", "lifestyle", "atRisk", "Lifestyle Cuts May Be Needed", "Year 8", 96, "lifestyle-pressure-rises"],
-    ["story-step-support-gap-begins", "support-gap", "caution", "Support Gap Begins", "Year 10", 120, "support-gap-begins"],
+    ["story-step-rent-payment-pressure", "housing", "caution", "Rent Payment Pressure Begins", "Year 8", 96, "rent-payment-pressure"],
+    ["story-step-debt-payment-pressure", "debt", "atRisk", "Minimum Debt Payments Compete With Expenses", "Year 10", 120, "debt-payment-pressure"],
     ["story-step-final-outcome", "final-outcome", finalTitle === "Resources Run Out" ? "critical" : "stable", finalTitle, finalTitle === "Resources Run Out" ? "Year 12" : "Still funded", finalTitle === "Resources Run Out" ? 144 : null, finalTitle === "Resources Run Out" ? "resourcesRunOut" : "familyRunwayRemainsFunded"]
   ];
   const storySteps = sourceSteps.map(function (step, index) {
@@ -3396,8 +3396,8 @@ assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-e
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="retirement-assets-tapped"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="education-savings-depleted"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="care-costs-covered"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="lifestyle-pressure-rises"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="support-gap-begins"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="rent-payment-pressure"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="debt-payment-pressure"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="resources-run-out"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-family="final-outcome"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-severity="critical"/);

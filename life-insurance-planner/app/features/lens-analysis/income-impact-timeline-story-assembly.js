@@ -73,16 +73,10 @@
       critical: "Rent Payment Becomes Unsupported"
     }),
     obligations: Object.freeze({
-      stable: "Obligations Remain Covered",
-      caution: "Obligations Consume Early Liquidity",
-      atRisk: "Debt Payments Begin Pressuring the Plan",
-      critical: "Debt Payments Become Unsupported"
-    }),
-    paymentTradeoffs: Object.freeze({
-      stable: "Expenses and Debt Stay Covered",
-      caution: "Expenses Begin Competing With Debt Payments",
-      atRisk: "Debt Payments Pressure Monthly Expenses",
-      critical: "Monthly Bills Become Unsupported"
+      stable: "Required Debt Payments Are Covered",
+      caution: "Minimum Debt Payments Continue",
+      atRisk: "Minimum Debt Payments Compete With Expenses",
+      critical: "Minimum Debt Payments Become Unsupported"
     }),
     educationFunding: Object.freeze({
       stable: "Education Funding Remains Protected",
@@ -102,34 +96,23 @@
       atRisk: "Retirement Assets Are Tapped",
       critical: "Retirement Assets Are Depleted"
     }),
-    supportGap: Object.freeze({
-      stable: "Support Need Remains Covered",
-      caution: "Support Gap Begins",
-      atRisk: "Monthly Support Gap Grows",
-      critical: "Essential Needs Become Unfunded"
-    }),
-    lifestylePressure: Object.freeze({
-      stable: "Current Lifestyle Remains Supported",
-      caution: "Discretionary Spending Tightens",
-      atRisk: "Lifestyle Cuts May Be Needed",
-      critical: "Lifestyle Cuts Become Necessary"
-    }),
-    essentialDiscretionary: Object.freeze({
-      stable: "Essential Needs Remain Covered",
-      caution: "Discretionary Spending Tightens",
-      atRisk: "Essential Costs Begin Pressuring the Plan",
-      critical: "Essential Needs Become Unfunded"
-    }),
-    survivorIncome: Object.freeze({
-      stable: "Survivor Income Supports the Runway",
-      caution: "Plan Depends on Survivor Income",
-      atRisk: "Survivor Income Is Not Enough",
-      critical: "Income Gap Drives the Shortfall"
-    }),
     coverageDuration: Object.freeze({
-      stable: "Coverage Carries the Runway",
-      caution: "Coverage Extends the Runway",
       atRisk: "Coverage Runs Out Before Needs End"
+    })
+  });
+
+  const SUPPORTING_DOT_LIBRARY = Object.freeze({
+    spendingCompression: Object.freeze({
+      title: "Spending Begins to Compress",
+      tone: "caution"
+    }),
+    survivorIncomeBegins: Object.freeze({
+      title: "Survivor Income Begins",
+      tone: "stable"
+    }),
+    coverageExtendsRunway: Object.freeze({
+      title: "Coverage Extends the Runway",
+      tone: "caution"
     })
   });
 
@@ -142,6 +125,23 @@
     "survivor-income-is-not-enough-alone",
     "survivor-income-helps-offset-need",
     "monthly-support-gap-begins",
+    "support-gap-begins",
+    "monthly-support-gap-grows",
+    "current-lifestyle-remains-supported",
+    "lifestyle-pressure-begins",
+    "lifestyle-cuts-may-be-needed",
+    "lifestyle-cuts-become-necessary",
+    "essential-costs-begin-pressuring-the-plan",
+    "survivor-income-supports-the-runway",
+    "plan-depends-on-survivor-income",
+    "survivor-income-is-not-enough",
+    "income-gap-drives-the-shortfall",
+    "coverage-carries-the-runway",
+    "coverage-extends-the-runway",
+    "education-savings-are-redirected",
+    "expenses-begin-competing-with-debt-payments",
+    "debt-payments-pressure-monthly-expenses",
+    "monthly-bills-become-unsupported",
     "immediate-obligations-are-paid",
     "final-expenses-are-paid",
     "mortgage-is-paid-off",
@@ -390,26 +390,11 @@
     if (hasTextPart(text, ["housing", "home-equity", "foreclosure", "home"])) {
       return "housing";
     }
-    if (hasTextPart(text, ["expense", "expenses", "monthly-bill", "monthly-bills"]) && hasTextPart(text, ["debt", "debts", "obligation", "obligations", "payment", "payments"])) {
-      return "paymentTradeoffs";
-    }
     if (hasTextPart(text, ["debt", "debts", "obligation", "obligations", "final-expense", "payment", "payments"])) {
       return "obligations";
     }
-    if (hasTextPart(text, ["lifestyle", "discretionary", "spending-tightens", "lifestyle-cut"])) {
-      return "lifestylePressure";
-    }
-    if (hasTextPart(text, ["essential", "monthly-bill", "monthly-bills"])) {
-      return "essentialDiscretionary";
-    }
-    if (hasTextPart(text, ["survivor-income", "income-gap", "income-not-enough", "income-alone"])) {
-      return "survivorIncome";
-    }
     if (hasTextPart(text, ["coverage", "protection", "life-insurance", "existing-coverage"])) {
       return "coverageDuration";
-    }
-    if (hasTextPart(text, ["support-gap", "unmet", "shortfall", "support-need", "need-gap", "gap"])) {
-      return "supportGap";
     }
 
     if (category === "liquidity") {
@@ -421,20 +406,45 @@
     if (category === "dependentsCare") {
       return "dependentCare";
     }
-    if (category === "supportGap") {
-      return "supportGap";
+    return null;
+  }
+
+  function resolveSupportingDotConcept(event, rawTitle, category) {
+    const text = getEventSearchText(event, rawTitle, category);
+    if (!text || category === "dataConfidence") {
+      return null;
+    }
+    if (hasTextPart(text, ["auto-compression", "auto-compressed", "compression", "compress", "compressed-expense", "expense-compression"])) {
+      return "spendingCompression";
+    }
+    if (hasTextPart(text, ["survivor-income-begins", "survivor-income-starts", "survivor-income-available", "survivor-income-delay", "survivor-income"])) {
+      return "survivorIncomeBegins";
+    }
+    if (hasTextPart(text, ["coverage-extends", "coverage-extension", "coverage-extends-the-runway", "coverage-added", "coverage-helps", "existing-coverage"])) {
+      return "coverageExtendsRunway";
     }
     return null;
   }
 
   function resolveApprovedCardMapping(event, rawTitle, category, tone) {
     const concept = resolveApprovedCardConcept(event, rawTitle, category);
-    const title = concept && APPROVED_CARD_LIBRARY[concept] ? APPROVED_CARD_LIBRARY[concept][tone] : "";
+    const text = getEventSearchText(event, rawTitle, category);
+    const eventSpecificTitle = concept === "educationFunding"
+      && hasTextPart(text, ["redirect", "redirected", "tapped", "used", "living-needs", "depleted"])
+      ? "Education Funding Is At Risk"
+      : "";
+    const title = eventSpecificTitle || (concept && APPROVED_CARD_LIBRARY[concept] ? APPROVED_CARD_LIBRARY[concept][tone] : "");
     const forbidden = title && FORBIDDEN_MAIN_CARD_TITLES.has(normalizeKey(title));
+    const supportingConcept = resolveSupportingDotConcept(event, rawTitle, category);
+    const supportingEntry = supportingConcept ? SUPPORTING_DOT_LIBRARY[supportingConcept] : null;
     return {
       concept,
       title: forbidden ? "" : title || "",
-      mainCardEligible: Boolean(concept && title && !forbidden && tone !== "unknown")
+      mainCardEligible: Boolean(concept && title && !forbidden && tone !== "unknown"),
+      supportingDotConcept: supportingConcept,
+      supportingDotTitle: supportingEntry?.title || "",
+      supportingDotTone: supportingEntry?.tone || null,
+      supportingDotEligible: Boolean(supportingEntry)
     };
   }
 
@@ -480,6 +490,10 @@
       approvedCardTitle: cardMapping.title,
       cardConcept: cardMapping.concept,
       mainCardEligible: cardMapping.mainCardEligible,
+      supportingDotConcept: cardMapping.supportingDotConcept,
+      supportingDotTitle: cardMapping.supportingDotTitle,
+      supportingDotTone: cardMapping.supportingDotTone,
+      supportingDotEligible: cardMapping.supportingDotEligible,
       shortLabel: firstString([event.shortLabel, event.graphLabel, event.displayLabel, event.markerLabel, rawTitle]),
       relativeMonth,
       timingLabel: formatTimingLabel(relativeMonth),
@@ -517,6 +531,10 @@
     existing.approvedCardTitle = existing.approvedCardTitle || incoming.approvedCardTitle;
     existing.cardConcept = existing.cardConcept || incoming.cardConcept;
     existing.mainCardEligible = Boolean(existing.mainCardEligible || incoming.mainCardEligible);
+    existing.supportingDotConcept = existing.supportingDotConcept || incoming.supportingDotConcept;
+    existing.supportingDotTitle = existing.supportingDotTitle || incoming.supportingDotTitle;
+    existing.supportingDotTone = existing.supportingDotTone || incoming.supportingDotTone;
+    existing.supportingDotEligible = Boolean(existing.supportingDotEligible || incoming.supportingDotEligible);
     existing.shortLabel = existing.shortLabel || incoming.shortLabel;
     existing.relativeMonth = existing.relativeMonth == null ? incoming.relativeMonth : existing.relativeMonth;
     existing.timingLabel = existing.timingLabel || incoming.timingLabel;
@@ -635,6 +653,20 @@
       && event.category !== "finalOutcome";
   }
 
+  function canUseAsSupportingDot(event) {
+    const id = normalizeKey(event?.sourceEventId);
+    return event
+      && !event.nonApplicable
+      && event.supportingDotEligible === true
+      && event.relativeMonth != null
+      && event.relativeMonth >= 0
+      && id !== "death-income-stops"
+      && id !== "resources-run-out"
+      && id !== "transition-outlook"
+      && event.category !== "trigger"
+      && event.category !== "finalOutcome";
+  }
+
   function selectIntermediateEvents(events, suppressed, trace) {
     const timed = events.filter(canUseAsIntermediate).sort(compareEventsByTiming);
     const selected = [];
@@ -684,6 +716,8 @@
         reason = "unknown-tone-main-strip-excluded";
       } else if (event.relativeMonth == null) {
         reason = "missing-reliable-timing";
+      } else if (event.supportingDotEligible === true) {
+        reason = "supporting-dot-only";
       } else if (!canUseAsIntermediate(event)) {
         reason = event.mainCardEligible === false ? "unapproved-main-card-title" : "reserved-or-out-of-scope";
       } else {
@@ -708,7 +742,9 @@
         originalSource: event?.source || null,
         originalSourceTitle: event?.rawTitle || event?.title || null,
         mappedCardTitle: event?.approvedCardTitle || null,
-        cardConcept: event?.cardConcept || null
+        cardConcept: event?.cardConcept || null,
+        supportingDotTitle: event?.supportingDotTitle || null,
+        supportingDotConcept: event?.supportingDotConcept || null
       }
     };
   }
@@ -801,19 +837,27 @@
     const limit = getSupportingDotLimit(options);
     return events
       .filter(function (event) {
-        return canUseAsIntermediate(event) && !usedSourceEventIds.has(event.sourceEventId);
+        return (canUseAsIntermediate(event) || canUseAsSupportingDot(event)) && !usedSourceEventIds.has(event.sourceEventId);
       })
       .sort(compareEventsByTiming)
       .slice(0, limit)
       .map(function (event) {
         return {
           id: `supporting-dot-${safeId(event.sourceEventId, "event")}`,
-          tone: event.tone,
+          tone: event.supportingDotTone || event.tone,
+          title: event.supportingDotTitle || event.approvedCardTitle || event.rawTitle || event.title,
+          displayLabel: event.supportingDotTitle || event.approvedCardTitle || "",
+          shortLabel: event.supportingDotTitle || event.approvedCardTitle || "",
           relativeMonth: event.relativeMonth,
           sourceEventId: event.sourceEventId,
           trace: {
             source: SOURCE,
             originalSource: event.source,
+            originalSourceTitle: event.rawTitle || event.title,
+            mappedCardTitle: event.approvedCardTitle || null,
+            supportingDotTitle: event.supportingDotTitle || null,
+            cardConcept: event.cardConcept || null,
+            supportingDotConcept: event.supportingDotConcept || null,
             noDefaultLabel: true
           }
         };

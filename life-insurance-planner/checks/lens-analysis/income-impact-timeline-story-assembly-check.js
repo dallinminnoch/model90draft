@@ -114,6 +114,28 @@ const FORBIDDEN_MAIN_STRIP_TITLES = new Set([
   "Survivor Income Is Not Enough Alone",
   "Survivor Income Helps Offset Need",
   "Monthly Support Gap Begins",
+  "Support Gap Begins",
+  "Monthly Support Gap Grows",
+  "Current Lifestyle Remains Supported",
+  "Lifestyle Pressure Begins",
+  "Lifestyle Cuts May Be Needed",
+  "Lifestyle Cuts Become Necessary",
+  "Essential Costs Begin Pressuring the Plan",
+  "Survivor Income Supports the Runway",
+  "Plan Depends on Survivor Income",
+  "Survivor Income Is Not Enough",
+  "Income Gap Drives the Shortfall",
+  "Coverage Carries the Runway",
+  "Coverage Extends the Runway",
+  "Coverage Cannot Prevent Resource Depletion",
+  "Existing Coverage Cannot Prevent Runout",
+  "Life Insurance Proceeds Applied",
+  "Coverage Helps Protect the Plan",
+  "Existing coverage closes a meaningful gap",
+  "Education Savings Are Redirected",
+  "Expenses Begin Competing With Debt Payments",
+  "Debt Payments Pressure Monthly Expenses",
+  "Monthly Bills Become Unsupported",
   "Immediate Obligations Are Paid",
   "Final Expenses Are Paid",
   "Mortgage Is Paid Off",
@@ -121,7 +143,6 @@ const FORBIDDEN_MAIN_STRIP_TITLES = new Set([
   "Direct Risk Event",
   "Direct Stable Event",
   "Data quality: code",
-  "Existing Coverage Cannot Prevent Runout",
   "Coverage Cannot Prevent Resource Depletion"
 ]);
 
@@ -154,12 +175,17 @@ const timedEvents = [
   makeEvent("cash-reserve-holds", 1, "cash-waterfall", "stable", "Cash Reserve Holds"),
   makeEvent("housing-payment-at-risk", 2, "housing-risk", "at-risk", "Housing Payment At Risk"),
   makeEvent("education-funding-redirected", 3, "education-waterfall", "caution", "Education Funding Redirected"),
-  makeEvent("lifestyle-cuts-begin", 4, "lifestyle-risk", "caution", "Lifestyle Cuts Begin"),
-  makeEvent("support-gap-begins", 5, "gap", "at-risk", "Support Gap Begins"),
+  makeEvent("debt-payments-pressure", 4, "debt-payment", "at-risk", "Debt Payments Pressure Monthly Expenses"),
+  makeEvent("lifestyle-cuts-begin", 5, "lifestyle-risk", "caution", "Lifestyle Cuts Begin"),
+  makeEvent("support-gap-begins", 5.5, "gap", "at-risk", "Support Gap Begins"),
   makeEvent("care-expenses-covered", 6, "care-risk", "stable", "Care Expenses Covered"),
   makeEvent("retirement-assets-tapped", 7, "retirement-waterfall", "critical", "Retirement Assets Tapped"),
   makeEvent("cash-savings-depleted", 8, "cash-waterfall", "critical", "Cash Savings Depleted"),
   makeEvent("rent-payment-pressure", 9, "housing-risk", "caution", "Rent Payment Pressure"),
+  makeEvent("expense-compression-starts", 10, "expense-compression", "caution", "Auto-Compressed Expenses Begin"),
+  makeEvent("survivor-income-begins", 11, "survivor-income", "stable", "Survivor Income Begins"),
+  makeEvent("coverage-extends-runway", 12, "coverage", "stable", "Coverage Extends the Runway"),
+  makeEvent("coverage-runs-out-before-needs-end", 13, "coverage", "at-risk", "Coverage Runs Out Before Needs End"),
   makeEvent("data-confidence-limited", null, "data-quality", "unknown", "Data Confidence Limited"),
   makeEvent("not-applicable", 10, "vehicle-risk", "caution", "Not Applicable", {
     safeToRender: false
@@ -260,6 +286,19 @@ assertNoMutation(runoutInput, function () {
   });
 
   assert.ok(
+    intermediateSteps.some(function (step) {
+      return step.sourceEventId === "education-funding-redirected" && step.title === "Education Funding Is At Risk";
+    }),
+    "Education savings redirect/tap source events should use the simplified education title."
+  );
+  assert.ok(
+    intermediateSteps.some(function (step) {
+      return step.sourceEventId === "debt-payments-pressure" && step.title === "Minimum Debt Payments Compete With Expenses";
+    }),
+    "Debt pressure events should use the simplified Debt / Required Payments title."
+  );
+
+  assert.ok(
     intermediateSteps.some(function (step) { return step.tone === "stable"; }),
     "Stable events should be eligible for main story steps."
   );
@@ -282,6 +321,18 @@ assertNoMutation(runoutInput, function () {
   assert.equal(result.trace.suppressionCountsByReason["data-confidence-main-strip-excluded"] >= 1, true);
   assert.ok(result.trace.controlledRepeatUsage >= 1);
   assert.equal(result.supportingGraphDots.length <= 3, true);
+  assert.equal(
+    result.suppressed.some(function (item) {
+      return item.sourceEventId === "support-gap-begins" && item.reason === "unapproved-main-card-title";
+    }),
+    true
+  );
+  assert.equal(
+    result.suppressed.some(function (item) {
+      return item.sourceEventId === "lifestyle-cuts-begin" && item.reason === "unapproved-main-card-title";
+    }),
+    true
+  );
   result.supportingGraphDots.forEach(function (dot) {
     assert.equal(
       intermediateSteps.some(function (step) {
@@ -297,6 +348,56 @@ assertNoMutation(runoutInput, function () {
   assert.equal(result.trace.majorGraphDotCount, result.majorGraphDots.length);
   assert.equal(result.trace.connectorCount, result.connectors.length);
 });
+
+const supportingOnlyResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("expense-compression-starts", 1, "expense-compression", "critical", "Auto-Compressed Expenses Begin"),
+      makeEvent("survivor-income-begins", 2, "survivor-income", "critical", "Survivor Income Begins"),
+      makeEvent("coverage-extends-runway", 3, "coverage", "stable", "Coverage Extends the Runway")
+    ]
+  },
+  options: {
+    supportingGraphDotLimit: 5
+  }
+});
+assertAssemblyShape(supportingOnlyResult);
+assertMainStripLibraryLocked(supportingOnlyResult);
+assert.equal(
+  supportingOnlyResult.storySteps.length,
+  2,
+  "Supporting-only library concepts should not become main strip steps."
+);
+assert.deepEqual(
+  supportingOnlyResult.supportingGraphDots.map(function (dot) {
+    return [dot.sourceEventId, dot.title, dot.tone];
+  }),
+  [
+    ["expense-compression-starts", "Spending Begins to Compress", "caution"],
+    ["survivor-income-begins", "Survivor Income Begins", "stable"],
+    ["coverage-extends-runway", "Coverage Extends the Runway", "caution"]
+  ],
+  "Simplified supporting concepts should keep approved titles and tones on supporting dots only."
+);
+assert.equal(
+  supportingOnlyResult.suppressed.filter(function (item) {
+    return item.reason === "supporting-dot-only";
+  }).length,
+  3
+);
+
+const coverageRunsOutResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("coverage-runs-out-before-needs-end", 4, "coverage", "at-risk", "Coverage Runs Out Before Needs End")
+    ]
+  }
+});
+assertAssemblyShape(coverageRunsOutResult);
+assertMainStripLibraryLocked(coverageRunsOutResult);
+assert.equal(coverageRunsOutResult.storySteps.length, 3);
+assert.equal(coverageRunsOutResult.storySteps[1].title, "Coverage Runs Out Before Needs End");
+assert.equal(coverageRunsOutResult.storySteps[1].graphDotId, "major-dot-story-step-2-coverage-runs-out-before-needs-end");
 
 const fundedResult = build({
   financialStoryline: {
@@ -325,7 +426,7 @@ assert.equal(
 
 const scenarioRunout = build({
   financialStoryline: {
-    safeRenderableEvents: timedEvents.slice(0, 7)
+    safeRenderableEvents: timedEvents
   },
   scenario: {
     postDeathSeries: {
