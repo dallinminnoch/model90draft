@@ -30,22 +30,34 @@
   });
 
   const EVENT_TYPES = Object.freeze({
-    housingPaymentPressureBegins: "housing-payment-pressure-begins",
-    housingPaymentAtRisk: "housing-payment-at-risk",
+    housingCostsRemainCovered: "housing-costs-remain-covered",
+    housingCostsBeginPressuringPlan: "housing-costs-begin-pressuring-plan",
     housingStabilityAtRisk: "housing-stability-at-risk",
-    mortgagePaymentsContinue: "mortgage-payments-continue",
-    mortgagePaidOff: "mortgage-paid-off",
+    housingCostsBecomeUnsupported: "housing-costs-become-unsupported",
+    mortgagePaymentStaysCurrent: "mortgage-payment-stays-current",
+    mortgagePaymentPressureBegins: "mortgage-payment-pressure-begins",
+    mortgagePaymentAtRisk: "mortgage-payment-at-risk",
+    mortgagePaymentBecomesUnsupported: "mortgage-payment-becomes-unsupported",
+    rentPaymentStaysCurrent: "rent-payment-stays-current",
     rentPaymentPressureBegins: "rent-payment-pressure-begins",
+    rentPaymentAtRisk: "rent-payment-at-risk",
+    rentPaymentBecomesUnsupported: "rent-payment-becomes-unsupported",
     housingRiskUnknown: "housing-risk-unknown"
   });
 
   const EVENT_PRIORITY = Object.freeze({
-    [EVENT_TYPES.mortgagePaidOff]: 5,
-    [EVENT_TYPES.mortgagePaymentsContinue]: 10,
-    [EVENT_TYPES.housingPaymentPressureBegins]: 20,
+    [EVENT_TYPES.housingCostsRemainCovered]: 10,
+    [EVENT_TYPES.mortgagePaymentStaysCurrent]: 10,
+    [EVENT_TYPES.rentPaymentStaysCurrent]: 10,
+    [EVENT_TYPES.housingCostsBeginPressuringPlan]: 20,
+    [EVENT_TYPES.mortgagePaymentPressureBegins]: 20,
     [EVENT_TYPES.rentPaymentPressureBegins]: 20,
-    [EVENT_TYPES.housingPaymentAtRisk]: 30,
+    [EVENT_TYPES.mortgagePaymentAtRisk]: 30,
+    [EVENT_TYPES.rentPaymentAtRisk]: 30,
     [EVENT_TYPES.housingStabilityAtRisk]: 40,
+    [EVENT_TYPES.housingCostsBecomeUnsupported]: 50,
+    [EVENT_TYPES.mortgagePaymentBecomesUnsupported]: 50,
+    [EVENT_TYPES.rentPaymentBecomesUnsupported]: 50,
     [EVENT_TYPES.housingRiskUnknown]: 90
   });
 
@@ -415,97 +427,300 @@
 
     trace.obligationSourceSummary.mode = "missing";
     warnings.push(makeWarning(
-      "missing-housing-obligations",
-      "No explicit housing obligations or clear scheduled housing support facts were available.",
+      "missing-housing-payment-source",
+      "No reliable mortgage, rent, or monthly housing payment source was available.",
       "housingObligations"
     ));
     return [];
   }
 
-  function resolveMonthlyShortfall(input, trace) {
+  function normalizeBoolean(value) {
+    if (value === true || value === false) {
+      return value;
+    }
+    const text = normalizeString(value).toLowerCase();
+    if (["true", "yes", "y", "1", "depleted"].includes(text)) {
+      return true;
+    }
+    if (["false", "no", "n", "0", "funded", "not-depleted"].includes(text)) {
+      return false;
+    }
+    return null;
+  }
+
+  function firstBooleanAtPath(source, paths) {
+    for (let index = 0; index < paths.length; index += 1) {
+      const path = paths[index];
+      const value = normalizeBoolean(getPath(source, path));
+      if (value != null) {
+        return {
+          value,
+          sourcePath: path
+        };
+      }
+    }
+    return null;
+  }
+
+  function getPostDeathPoints(input) {
+    const candidates = [
+      {
+        value: getPath(input, "scenario.postDeathSeries.layer3.points"),
+        sourcePath: "scenario.postDeathSeries.layer3.points"
+      },
+      {
+        value: getPath(input, "scenario.postDeathSeries.points"),
+        sourcePath: "scenario.postDeathSeries.points"
+      },
+      {
+        value: getPath(input, "postDeathSeries.layer3.points"),
+        sourcePath: "postDeathSeries.layer3.points"
+      },
+      {
+        value: getPath(input, "postDeathSeries.points"),
+        sourcePath: "postDeathSeries.points"
+      }
+    ];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (Array.isArray(candidate.value) && candidate.value.length) {
+        return {
+          points: candidate.value,
+          sourcePath: candidate.sourcePath
+        };
+      }
+    }
+    return {
+      points: [],
+      sourcePath: null
+    };
+  }
+
+  function resolveModeledHorizonMonth(input, pointsInfo) {
     const explicit = firstNumberAtPath(input, [
-      "options.monthlyShortfall",
-      "financialRunway.monthlyShortfall",
-      "scenario.postDeathSeries.summary.monthlyShortfall",
-      "scenario.postDeathSeries.layer3.summary.monthlyShortfall"
+      "options.modeledHorizonMonths",
+      "options.displayHorizonMonths",
+      "scenario.postDeathSeries.projectionHorizonMonths",
+      "scenario.postDeathSeries.horizonMonths",
+      "scenario.postDeathSeries.displayHorizonMonths",
+      "scenario.timelineFacts.displayHorizonMonths",
+      "scenario.timelineFacts.modeledHorizonMonths",
+      "postDeathSeries.projectionHorizonMonths",
+      "postDeathSeries.horizonMonths",
+      "postDeathSeries.displayHorizonMonths"
     ]);
-    if (explicit) {
-      trace.assumptions.push("Monthly shortfall was read from an explicit shortfall field.");
+    const pointMonths = (pointsInfo.points || [])
+      .map(function (point, index) {
+        const month = toOptionalNumber(point?.monthIndex ?? point?.monthOffset ?? point?.month);
+        return month == null ? index + 1 : month;
+      })
+      .filter(function (month) {
+        return month != null && Number.isFinite(month);
+      });
+    const pointHorizon = pointMonths.length ? Math.max.apply(null, pointMonths) : null;
+    if (explicit || pointHorizon != null) {
+      const explicitValue = explicit ? Math.max(0, explicit.value) : null;
       return {
-        value: explicit.value,
-        evidenceLevel: EVIDENCE_LEVELS.calculated,
-        sourcePath: explicit.sourcePath
-      };
-    }
-
-    const annual = firstNumberAtPath(input, [
-      "options.annualShortfall",
-      "financialRunway.annualShortfall",
-      "scenario.postDeathSeries.summary.annualShortfall",
-      "scenario.postDeathSeries.layer3.summary.annualShortfall",
-      "scenario.timelineFacts.annualShortfall"
-    ]);
-    if (annual) {
-      trace.assumptions.push("Monthly shortfall was derived from annual shortfall divided by 12.");
-      return {
-        value: annual.value / 12,
-        evidenceLevel: EVIDENCE_LEVELS.calculated,
-        sourcePath: annual.sourcePath
-      };
-    }
-
-    const points = Array.isArray(input?.postDeathSeries?.points)
-      ? input.postDeathSeries.points
-      : (Array.isArray(input?.scenario?.postDeathSeries?.points) ? input.scenario.postDeathSeries.points : []);
-    const point = points.find(function (item) {
-      return toOptionalNumber(item?.netUse) != null && toOptionalNumber(item.netUse) > 0;
-    });
-    if (point) {
-      trace.assumptions.push("Monthly shortfall was estimated from the first positive post-death netUse point.");
-      return {
-        value: toOptionalNumber(point.netUse),
-        evidenceLevel: EVIDENCE_LEVELS.estimated,
-        sourcePath: "postDeathSeries.points.netUse"
+        value: explicitValue == null ? pointHorizon : Math.max(explicitValue, pointHorizon || 0),
+        sourcePath: explicit?.sourcePath || pointsInfo.sourcePath,
+        evidenceLevel: explicit ? EVIDENCE_LEVELS.calculated : EVIDENCE_LEVELS.traceBacked
       };
     }
     return null;
   }
 
-  function resolveDepletionMonth(input, trace) {
-    const depletion = firstNumberAtPath(input, [
-      "options.depletionMonthOffset",
-      "financialRunway.totalMonthsOfSecurity",
-      "scenario.timelineFacts.monthsCovered",
+  function findUnsupportedMonthFromPoints(pointsInfo) {
+    const points = Array.isArray(pointsInfo.points) ? pointsInfo.points : [];
+    for (let index = 0; index < points.length; index += 1) {
+      const point = points[index];
+      const status = normalizeKey(point?.status || point?.resourceStatus || point?.state);
+      const endingResources = toOptionalNumber(
+        point?.endingResources
+          ?? point?.availableResources
+          ?? point?.resourcesRemaining
+          ?? point?.remainingResources
+      );
+      if (status === "depleted" || status === "runout" || status === "run-out" || (endingResources != null && endingResources <= 0)) {
+        const month = toOptionalNumber(point?.monthIndex ?? point?.monthOffset ?? point?.month);
+        return {
+          value: Math.max(0, month == null ? index + 1 : month),
+          sourcePath: `${pointsInfo.sourcePath || "postDeathSeries.points"}.${index}`,
+          evidenceLevel: EVIDENCE_LEVELS.traceBacked
+        };
+      }
+    }
+    return null;
+  }
+
+  function resolveBaselineSupport(input, trace) {
+    const pointsInfo = getPostDeathPoints(input);
+    const horizon = resolveModeledHorizonMonth(input, pointsInfo);
+    const depletionFlag = firstBooleanAtPath(input, [
+      "scenario.postDeathSeries.depletion.depleted",
+      "scenario.postDeathSeries.depletion.isDepleted",
+      "postDeathSeries.depletion.depleted",
+      "postDeathSeries.depletion.isDepleted"
+    ]);
+    const explicitDepletion = firstNumberAtPath(input, [
       "scenario.postDeathSeries.depletion.depletionMonthIndex",
       "scenario.postDeathSeries.depletion.monthsCovered",
+      "scenario.timelineFacts.monthsCovered",
       "postDeathSeries.depletion.depletionMonthIndex",
       "postDeathSeries.depletion.monthsCovered"
     ]);
-    if (!depletion) {
+    const pointDepletion = findUnsupportedMonthFromPoints(pointsInfo);
+    const depleted = depletionFlag ? depletionFlag.value : Boolean(pointDepletion);
+    const unsupportedMonth = depleted
+      ? {
+        value: roundMonth(explicitDepletion?.value ?? pointDepletion?.value),
+        sourcePath: explicitDepletion?.sourcePath || pointDepletion?.sourcePath || depletionFlag?.sourcePath,
+        evidenceLevel: explicitDepletion ? EVIDENCE_LEVELS.calculated : (pointDepletion?.evidenceLevel || EVIDENCE_LEVELS.traceBacked)
+      }
+      : null;
+
+    trace.baselineSupport = {
+      baselineIncludesHousing: true,
+      housingPaymentPriority: "baseline-with-other-expenses",
+      unsupportedMonth: unsupportedMonth ? unsupportedMonth.value : null,
+      unsupportedMonthSourcePath: unsupportedMonth ? unsupportedMonth.sourcePath : null,
+      modeledHorizonMonth: horizon ? horizon.value : null,
+      modeledHorizonSourcePath: horizon ? horizon.sourcePath : null,
+      pointsSourcePath: pointsInfo.sourcePath,
+      depletionFlagSourcePath: depletionFlag ? depletionFlag.sourcePath : null
+    };
+    trace.assumptions.push("Housing timing uses the survivor runway baseline, with housing inside the same monthly need/obligation model as expenses and debt.");
+
+    if (unsupportedMonth && unsupportedMonth.value == null) {
+      return {
+        usable: false,
+        reason: "baseline-unsupported-month-unavailable",
+        warning: makeWarning(
+          "baseline-housing-unsupported-month-unavailable",
+          "Housing support could not be evaluated because survivor runway depletion was flagged without a usable depletion month.",
+          unsupportedMonth.sourcePath || "postDeathSeries.depletion"
+        )
+      };
+    }
+
+    if (!unsupportedMonth && !horizon) {
+      return {
+        usable: false,
+        reason: "baseline-horizon-unavailable",
+        warning: makeWarning(
+          "baseline-housing-support-unavailable",
+          "Housing support could not be evaluated because no survivor runway depletion or modeled horizon was available.",
+          "postDeathSeries"
+        )
+      };
+    }
+
+    return {
+      usable: true,
+      unsupportedMonth,
+      horizon
+    };
+  }
+
+  function classifyHousingSupport(baselineSupport) {
+    if (!baselineSupport || baselineSupport.usable !== true) {
       return null;
     }
-    trace.assumptions.push("Housing risk timing used the survivor runway depletion month.");
+    const unsupportedMonth = baselineSupport.unsupportedMonth?.value;
+    if (unsupportedMonth == null) {
+      return {
+        tone: "stable",
+        monthOffset: baselineSupport.horizon?.value ?? 0,
+        evidenceLevel: baselineSupport.horizon?.evidenceLevel || EVIDENCE_LEVELS.traceBacked,
+        timingSourcePath: baselineSupport.horizon?.sourcePath || null
+      };
+    }
+    if (unsupportedMonth <= 12) {
+      return {
+        tone: "critical",
+        monthOffset: unsupportedMonth,
+        evidenceLevel: baselineSupport.unsupportedMonth.evidenceLevel,
+        timingSourcePath: baselineSupport.unsupportedMonth.sourcePath
+      };
+    }
+    if (unsupportedMonth <= 24) {
+      return {
+        tone: "at-risk",
+        monthOffset: unsupportedMonth,
+        evidenceLevel: baselineSupport.unsupportedMonth.evidenceLevel,
+        timingSourcePath: baselineSupport.unsupportedMonth.sourcePath
+      };
+    }
     return {
-      value: depletion.value,
-      evidenceLevel: EVIDENCE_LEVELS.calculated,
-      sourcePath: depletion.sourcePath
+      tone: "caution",
+      monthOffset: unsupportedMonth,
+      evidenceLevel: baselineSupport.unsupportedMonth.evidenceLevel,
+      timingSourcePath: baselineSupport.unsupportedMonth.sourcePath
     };
+  }
+
+  function eventTypeForHousingTone(obligationType, tone) {
+    if (obligationType === OBLIGATION_TYPES.mortgage) {
+      if (tone === "stable") {
+        return EVENT_TYPES.mortgagePaymentStaysCurrent;
+      }
+      if (tone === "caution") {
+        return EVENT_TYPES.mortgagePaymentPressureBegins;
+      }
+      if (tone === "critical") {
+        return EVENT_TYPES.mortgagePaymentBecomesUnsupported;
+      }
+      return EVENT_TYPES.mortgagePaymentAtRisk;
+    }
+    if (obligationType === OBLIGATION_TYPES.rent) {
+      if (tone === "stable") {
+        return EVENT_TYPES.rentPaymentStaysCurrent;
+      }
+      if (tone === "caution") {
+        return EVENT_TYPES.rentPaymentPressureBegins;
+      }
+      if (tone === "critical") {
+        return EVENT_TYPES.rentPaymentBecomesUnsupported;
+      }
+      return EVENT_TYPES.rentPaymentAtRisk;
+    }
+    if (tone === "stable") {
+      return EVENT_TYPES.housingCostsRemainCovered;
+    }
+    if (tone === "caution") {
+      return EVENT_TYPES.housingCostsBeginPressuringPlan;
+    }
+    if (tone === "critical") {
+      return EVENT_TYPES.housingCostsBecomeUnsupported;
+    }
+    return EVENT_TYPES.housingStabilityAtRisk;
   }
 
   function eventLabelForType(eventType) {
     switch (eventType) {
-      case EVENT_TYPES.mortgagePaidOff:
-        return "Mortgage Is Paid Off";
-      case EVENT_TYPES.mortgagePaymentsContinue:
-        return "Mortgage Payments Continue";
-      case EVENT_TYPES.housingPaymentPressureBegins:
-        return "Housing Payment Pressure Begins";
-      case EVENT_TYPES.housingPaymentAtRisk:
-        return "Housing Payment At Risk";
+      case EVENT_TYPES.housingCostsRemainCovered:
+        return "Housing Costs Remain Covered";
+      case EVENT_TYPES.housingCostsBeginPressuringPlan:
+        return "Housing Costs Begin Pressuring the Plan";
       case EVENT_TYPES.housingStabilityAtRisk:
-        return "Housing Stability At Risk";
+        return "Housing Stability Is At Risk";
+      case EVENT_TYPES.housingCostsBecomeUnsupported:
+        return "Housing Costs Become Unsupported";
+      case EVENT_TYPES.mortgagePaymentStaysCurrent:
+        return "Mortgage Payment Stays Current";
+      case EVENT_TYPES.mortgagePaymentPressureBegins:
+        return "Mortgage Payment Pressure Begins";
+      case EVENT_TYPES.mortgagePaymentAtRisk:
+        return "Mortgage Payment Is At Risk";
+      case EVENT_TYPES.mortgagePaymentBecomesUnsupported:
+        return "Mortgage Payment Becomes Unsupported";
+      case EVENT_TYPES.rentPaymentStaysCurrent:
+        return "Rent Payment Stays Current";
       case EVENT_TYPES.rentPaymentPressureBegins:
         return "Rent Payment Pressure Begins";
+      case EVENT_TYPES.rentPaymentAtRisk:
+        return "Rent Payment Is At Risk";
+      case EVENT_TYPES.rentPaymentBecomesUnsupported:
+        return "Rent Payment Becomes Unsupported";
       default:
         return "Housing Risk Unknown";
     }
@@ -541,138 +756,47 @@
     };
   }
 
-  function makeUnknownEvent(obligation, reason, deathDate) {
-    return makeRiskEvent({
-      obligation,
-      eventType: EVENT_TYPES.housingRiskUnknown,
-      displayLabel: "Housing Risk Unknown",
-      monthOffset: 0,
-      deathDate,
-      amount: obligation?.monthlyPayment,
-      evidenceLevel: EVIDENCE_LEVELS.dataGap,
-      safeToRender: false,
-      sourcePath: obligation?.sourcePath,
-      warnings: [makeWarning("housing-risk-data-gap", reason, obligation?.sourcePath)]
-    });
-  }
-
   function buildEventsForObligation(obligation, context) {
     if (!obligation.included) {
       return [];
     }
     const events = [];
     const deathDate = context.deathDate;
-    const shortfall = context.shortfall;
-    const depletion = context.depletion;
-    const isMortgage = obligation.type === OBLIGATION_TYPES.mortgage;
-    const isRent = obligation.type === OBLIGATION_TYPES.rent;
+    const baselineSupport = context.baselineSupport;
+    const classification = classifyHousingSupport(baselineSupport);
     const payment = toOptionalNumber(obligation.monthlyPayment);
-    const balance = toOptionalNumber(obligation.balance);
-
-    if (isMortgage && obligation.treatment === TREATMENTS.payOffMortgage) {
-      if (balance != null && balance > 0) {
-        events.push(makeRiskEvent({
-          obligation,
-          eventType: EVENT_TYPES.mortgagePaidOff,
-          monthOffset: 0,
-          deathDate,
-          amount: balance,
-          evidenceLevel: obligation.evidenceLevel,
-          safeToRender: true,
-          sourcePath: obligation.sourcePath,
-          trace: {
-            obligationId: obligation.id,
-            treatment: obligation.treatment
-          }
-        }));
-      } else {
-        events.push(makeUnknownEvent(obligation, "Mortgage payoff treatment was present without a payoff balance.", deathDate));
-      }
+    if (obligation.treatment === TREATMENTS.payOffMortgage || obligation.treatment === TREATMENTS.paidOff) {
       return events;
     }
-
     if (payment == null || payment <= 0) {
-      events.push(makeUnknownEvent(obligation, "Housing payment is missing, so payment risk timing cannot be rendered safely.", deathDate));
+      return events;
+    }
+    if (!classification) {
       return events;
     }
 
-    if (isMortgage && (
-      obligation.treatment === TREATMENTS.continuePayments
-        || obligation.treatment === TREATMENTS.support
-    )) {
-      events.push(makeRiskEvent({
-        obligation,
-        eventType: EVENT_TYPES.mortgagePaymentsContinue,
-        monthOffset: 0,
-        deathDate,
-        amount: payment,
-        evidenceLevel: obligation.evidenceLevel,
-        safeToRender: true,
-        sourcePath: obligation.sourcePath,
-        trace: {
-          obligationId: obligation.id,
-          treatment: obligation.treatment
-        }
-      }));
-    }
-
-    if (shortfall && shortfall.value > 0) {
-      events.push(makeRiskEvent({
-        obligation,
-        eventType: isRent ? EVENT_TYPES.rentPaymentPressureBegins : EVENT_TYPES.housingPaymentPressureBegins,
-        monthOffset: 1,
-        deathDate,
-        amount: payment,
-        evidenceLevel: shortfall.evidenceLevel,
-        safeToRender: true,
-        sourcePath: obligation.sourcePath,
-        trace: {
-          obligationId: obligation.id,
-          shortfallSourcePath: shortfall.sourcePath,
-          monthlyShortfall: roundMoney(shortfall.value)
-        }
-      }));
-    }
-
-    if (
-      depletion
-      && depletion.value != null
-      && depletion.value >= 0
-      && obligation.remainingMonths != null
-      && obligation.remainingMonths > depletion.value
-    ) {
-      events.push(makeRiskEvent({
-        obligation,
-        eventType: EVENT_TYPES.housingPaymentAtRisk,
-        monthOffset: depletion.value,
-        deathDate,
-        amount: payment,
-        evidenceLevel: depletion.evidenceLevel,
-        safeToRender: true,
-        sourcePath: obligation.sourcePath,
-        trace: {
-          obligationId: obligation.id,
-          depletionSourcePath: depletion.sourcePath,
-          remainingMonths: obligation.remainingMonths
-        }
-      }));
-      events.push(makeRiskEvent({
-        obligation,
-        eventType: EVENT_TYPES.housingStabilityAtRisk,
-        monthOffset: depletion.value,
-        deathDate,
-        amount: payment,
-        evidenceLevel: depletion.evidenceLevel,
-        safeToRender: true,
-        sourcePath: obligation.sourcePath,
-        trace: {
-          obligationId: obligation.id,
-          depletionSourcePath: depletion.sourcePath,
-          remainingMonths: obligation.remainingMonths
-        }
-      }));
-    }
-
+    const eventType = eventTypeForHousingTone(obligation.type, classification.tone);
+    events.push(makeRiskEvent({
+      obligation,
+      eventType,
+      monthOffset: classification.monthOffset,
+      deathDate,
+      amount: payment,
+      evidenceLevel: classification.evidenceLevel,
+      safeToRender: true,
+      sourcePath: obligation.sourcePath,
+      trace: {
+        obligationId: obligation.id,
+        treatment: obligation.treatment,
+        housingSourceType: obligation.type,
+        housingPaymentSourcePath: obligation.sourcePath,
+        baselineIncludesHousing: true,
+        housingPaymentPriority: "baseline-with-other-expenses",
+        unsupportedMonth: baselineSupport.unsupportedMonth?.value ?? null,
+        modeledHorizonMonth: baselineSupport.horizon?.value ?? null,
+        timingSourcePath: classification.timingSourcePath
+      }
+    }));
     return events;
   }
 
@@ -715,9 +839,11 @@
 
     const context = {
       deathDate: resolveDeathDate(safeInput),
-      shortfall: resolveMonthlyShortfall(safeInput, trace),
-      depletion: resolveDepletionMonth(safeInput, trace)
+      baselineSupport: resolveBaselineSupport(safeInput, trace)
     };
+    if (context.baselineSupport?.warning) {
+      warnings.push(context.baselineSupport.warning);
+    }
 
     const events = sortEvents(obligations.flatMap(function (obligation) {
       return buildEventsForObligation(obligation, context);

@@ -69,7 +69,6 @@
     "debt-payoff-consumes-liquidity",
     "mortgage-is-paid-off",
     "mortgage-paid-off",
-    "mortgage-payments-continue",
     "survivor-income-helps-offset-need",
     "survivor-runway-begins",
     "monthly-support-need-begins",
@@ -93,10 +92,15 @@
     "childcare-support-at-risk",
     "retirement-assets-tapped",
     "retirement-assets-depleted",
-    "housing-payment-pressure-begins",
-    "housing-payment-at-risk",
+    "housing-costs-begin-pressuring-plan",
     "housing-stability-at-risk",
+    "housing-costs-become-unsupported",
+    "mortgage-payment-pressure-begins",
+    "mortgage-payment-at-risk",
+    "mortgage-payment-becomes-unsupported",
     "rent-payment-pressure-begins",
+    "rent-payment-at-risk",
+    "rent-payment-becomes-unsupported",
     "vehicle-payment-at-risk",
     "transportation-stability-at-risk",
     "minimum-debt-payments-compete-with-expenses",
@@ -223,20 +227,208 @@
       advisorUsefulness: 0.8
     },
     {
-      id: "mortgage-payments-continue",
-      family: EVENT_FAMILIES.mortgage,
-      displayLabel: "Mortgage Payments Continue",
-      graphLabel: "Mortgage support",
-      cardTitle: "Mortgage Payments Continue",
-      description: "A valid mortgage support schedule is included in the survivor runway.",
-      severity: "info",
-      evidenceLevel: EVIDENCE_LEVELS.traceBacked,
+      id: "housing-costs-remain-covered",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Housing Costs Remain Covered",
+      graphLabel: "Housing covered",
+      cardTitle: "Housing Costs Remain Covered",
+      description: "The survivor runway baseline remains covered with housing included.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
       priority: 44,
+      storyRole: STORY_EVENT_ROLES.emotional,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true,
       lifeInsuranceRelevance: 0.76,
       emotionalWeight: 0.48,
       advisorUsefulness: 0.82
+    },
+    {
+      id: "housing-costs-begin-pressuring-plan",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Housing Costs Begin Pressuring the Plan",
+      graphLabel: "Housing pressure",
+      cardTitle: "Housing Costs Begin Pressuring the Plan",
+      description: "The survivor runway baseline with housing becomes unsupported after 24 months.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 58,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.84
+    },
+    {
+      id: "housing-stability-at-risk",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Housing Stability Is At Risk",
+      graphLabel: "Housing at risk",
+      cardTitle: "Housing Stability Is At Risk",
+      description: "The survivor runway baseline with housing becomes unsupported within 13 to 24 months.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 63,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "housing-costs-become-unsupported",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Housing Costs Become Unsupported",
+      graphLabel: "Housing unsupported",
+      cardTitle: "Housing Costs Become Unsupported",
+      description: "The survivor runway baseline with housing becomes unsupported within 12 months.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "mortgage-payment-stays-current",
+      family: EVENT_FAMILIES.mortgage,
+      displayLabel: "Mortgage Payment Stays Current",
+      graphLabel: "Mortgage current",
+      cardTitle: "Mortgage Payment Stays Current",
+      description: "The survivor runway baseline remains covered with the mortgage payment included.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 44,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.76,
+      emotionalWeight: 0.48,
+      advisorUsefulness: 0.82
+    },
+    {
+      id: "mortgage-payment-pressure-begins",
+      family: EVENT_FAMILIES.mortgage,
+      displayLabel: "Mortgage Payment Pressure Begins",
+      graphLabel: "Mortgage pressure",
+      cardTitle: "Mortgage Payment Pressure Begins",
+      description: "The survivor runway baseline with the mortgage payment becomes unsupported after 24 months.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 58,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.84
+    },
+    {
+      id: "mortgage-payment-at-risk",
+      family: EVENT_FAMILIES.mortgage,
+      displayLabel: "Mortgage Payment Is At Risk",
+      graphLabel: "Mortgage at risk",
+      cardTitle: "Mortgage Payment Is At Risk",
+      description: "The survivor runway baseline with the mortgage payment becomes unsupported within 13 to 24 months.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 62,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "mortgage-payment-becomes-unsupported",
+      family: EVENT_FAMILIES.mortgage,
+      displayLabel: "Mortgage Payment Becomes Unsupported",
+      graphLabel: "Mortgage unsupported",
+      cardTitle: "Mortgage Payment Becomes Unsupported",
+      description: "The survivor runway baseline with the mortgage payment becomes unsupported within 12 months.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "rent-payment-stays-current",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Rent Payment Stays Current",
+      graphLabel: "Rent current",
+      cardTitle: "Rent Payment Stays Current",
+      description: "The survivor runway baseline remains covered with the rent payment included.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 44,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.76,
+      emotionalWeight: 0.48,
+      advisorUsefulness: 0.82
+    },
+    {
+      id: "rent-payment-pressure-begins",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Rent Payment Pressure Begins",
+      graphLabel: "Rent pressure",
+      cardTitle: "Rent Payment Pressure Begins",
+      description: "The survivor runway baseline with the rent payment becomes unsupported after 24 months.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 59,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.84
+    },
+    {
+      id: "rent-payment-at-risk",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Rent Payment Is At Risk",
+      graphLabel: "Rent at risk",
+      cardTitle: "Rent Payment Is At Risk",
+      description: "The survivor runway baseline with the rent payment becomes unsupported within 13 to 24 months.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 62,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "rent-payment-becomes-unsupported",
+      family: EVENT_FAMILIES.housingRisk,
+      displayLabel: "Rent Payment Becomes Unsupported",
+      graphLabel: "Rent unsupported",
+      cardTitle: "Rent Payment Becomes Unsupported",
+      description: "The survivor runway baseline with the rent payment becomes unsupported within 12 months.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 0.92
     },
     {
       id: "survivor-income-helps-offset-need",
@@ -675,13 +867,6 @@
     ["retirement-security-is-reduced", EVENT_FAMILIES.retirementWaterfall, "Retirement Security Is Reduced", EVIDENCE_LEVELS.waterfallNeeded],
     ["home-equity-becomes-last-resort", EVENT_FAMILIES.housingRisk, "Home Equity Becomes Last Resort", EVIDENCE_LEVELS.waterfallNeeded],
     ["home-equity-depleted", EVENT_FAMILIES.housingRisk, "Home Equity Depleted", EVIDENCE_LEVELS.waterfallNeeded],
-    ["housing-payment-pressure-begins", EVENT_FAMILIES.housingRisk, "Housing Payment Pressure Begins", EVIDENCE_LEVELS.riskModelNeeded],
-    ["housing-payment-at-risk", EVENT_FAMILIES.housingRisk, "Housing Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
-    ["foreclosure-risk-window-opens", EVENT_FAMILIES.housingRisk, "Foreclosure Risk Window Opens", EVIDENCE_LEVELS.riskModelNeeded],
-    ["rent-payment-pressure-begins", EVENT_FAMILIES.housingRisk, "Rent Payment Pressure Begins", EVIDENCE_LEVELS.riskModelNeeded],
-    ["eviction-risk-window-opens", EVENT_FAMILIES.housingRisk, "Eviction Risk Window Opens", EVIDENCE_LEVELS.riskModelNeeded],
-    ["housing-stability-at-risk", EVENT_FAMILIES.housingRisk, "Housing Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
-    ["housing-risk-unknown", EVENT_FAMILIES.housingRisk, "Housing Risk Unknown", EVIDENCE_LEVELS.dataGap],
     ["vehicle-payment-at-risk", EVENT_FAMILIES.vehicleRisk, "Vehicle Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
     ["transportation-stability-at-risk", EVENT_FAMILIES.vehicleRisk, "Transportation Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
     ["current-lifestyle-no-longer-sustainable", EVENT_FAMILIES.lifestyleRisk, "Current Lifestyle No Longer Sustainable", EVIDENCE_LEVELS.riskModelNeeded],
@@ -766,27 +951,15 @@
   ]);
 
   const HOUSING_RISK_EVENT_MAPPINGS = Object.freeze({
-    "mortgage-payments-continue": Object.freeze({
-      candidateId: "mortgage-payments-continue",
+    "housing-costs-remain-covered": Object.freeze({
+      candidateId: "housing-costs-remain-covered",
       priority: 43,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
     }),
-    "mortgage-paid-off": Object.freeze({
-      candidateId: "mortgage-is-paid-off",
-      priority: 41,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true
-    }),
-    "housing-payment-pressure-begins": Object.freeze({
-      candidateId: "housing-payment-pressure-begins",
+    "housing-costs-begin-pressuring-plan": Object.freeze({
+      candidateId: "housing-costs-begin-pressuring-plan",
       priority: 58,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true
-    }),
-    "housing-payment-at-risk": Object.freeze({
-      candidateId: "housing-payment-at-risk",
-      priority: 62,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
     }),
@@ -796,18 +969,59 @@
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
     }),
+    "housing-costs-become-unsupported": Object.freeze({
+      candidateId: "housing-costs-become-unsupported",
+      priority: 64,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "mortgage-payment-stays-current": Object.freeze({
+      candidateId: "mortgage-payment-stays-current",
+      priority: 43,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "mortgage-payment-pressure-begins": Object.freeze({
+      candidateId: "mortgage-payment-pressure-begins",
+      priority: 58,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "mortgage-payment-at-risk": Object.freeze({
+      candidateId: "mortgage-payment-at-risk",
+      priority: 62,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "mortgage-payment-becomes-unsupported": Object.freeze({
+      candidateId: "mortgage-payment-becomes-unsupported",
+      priority: 64,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
+    "rent-payment-stays-current": Object.freeze({
+      candidateId: "rent-payment-stays-current",
+      priority: 43,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
+    }),
     "rent-payment-pressure-begins": Object.freeze({
       candidateId: "rent-payment-pressure-begins",
       priority: 59,
       eligibleForGraphDot: true,
       eligibleForMajorCard: true
     }),
-    "housing-risk-unknown": Object.freeze({
-      candidateId: "housing-risk-unknown",
-      priority: 88,
+    "rent-payment-at-risk": Object.freeze({
+      candidateId: "rent-payment-at-risk",
+      priority: 62,
       eligibleForGraphDot: true,
-      eligibleForMajorCard: true,
-      dataGapOnly: true
+      eligibleForMajorCard: true
+    }),
+    "rent-payment-becomes-unsupported": Object.freeze({
+      candidateId: "rent-payment-becomes-unsupported",
+      priority: 64,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true
     })
   });
 
@@ -827,8 +1041,7 @@
     "immediate-obligations-paid",
     "final-expenses-paid",
     "debt-payoff-consumes-liquidity",
-    "mortgage-is-paid-off",
-    "mortgage-payments-continue"
+    "mortgage-is-paid-off"
   ]);
 
   const LIQUIDITY_CRISIS_IDS = Object.freeze([
@@ -841,9 +1054,17 @@
   ]);
 
   const FAMILY_STABILITY_IDS = Object.freeze([
-    "housing-payment-at-risk",
+    "housing-costs-remain-covered",
+    "housing-costs-begin-pressuring-plan",
+    "housing-costs-become-unsupported",
+    "mortgage-payment-stays-current",
+    "mortgage-payment-pressure-begins",
+    "mortgage-payment-at-risk",
+    "mortgage-payment-becomes-unsupported",
+    "rent-payment-stays-current",
+    "rent-payment-at-risk",
+    "rent-payment-becomes-unsupported",
     "housing-stability-at-risk",
-    "housing-payment-pressure-begins",
     "rent-payment-pressure-begins",
     "education-savings-depleted",
     "education-savings-used-for-living-needs",
@@ -888,7 +1109,11 @@
     "emergency-fund-depleted",
     "education-savings-depleted",
     "retirement-assets-tapped",
-    "housing-payment-at-risk",
+    "mortgage-payment-at-risk",
+    "mortgage-payment-becomes-unsupported",
+    "rent-payment-at-risk",
+    "rent-payment-becomes-unsupported",
+    "housing-costs-become-unsupported",
     "essential-needs-become-unfunded",
     "monthly-support-gap-begins"
   ]);
@@ -896,6 +1121,7 @@
   const MAJOR_STORY_TIER_2_IDS = Object.freeze([
     "cash-savings-depleted",
     "housing-stability-at-risk",
+    "housing-costs-begin-pressuring-plan",
     "minimum-debt-payments-compete-with-expenses",
     "minimum-debt-payments-become-unsupported",
     "childcare-support-at-risk",
@@ -914,7 +1140,10 @@
     "dependent-support-gap",
     "dependent-support-gap-begins",
     "retirement-assets-depleted",
-    "housing-payment-pressure-begins",
+    "housing-costs-remain-covered",
+    "mortgage-payment-stays-current",
+    "mortgage-payment-pressure-begins",
+    "rent-payment-stays-current",
     "rent-payment-pressure-begins",
     "transportation-stability-at-risk",
     "lifestyle-cuts-begin",
@@ -1278,22 +1507,6 @@
     return getInputIssues(input).length > 0;
   }
 
-  function hasMortgageSupportSchedule(rootSource) {
-    const schedules = [
-      getPath(rootSource, "scenario.postDeathSeries.layer3.scheduledObligations"),
-      getPath(rootSource, "scenario.postDeathSeries.layer3.input.scheduledObligations"),
-      getPath(rootSource, "scenario.postDeathSeries.layer3.trace.scheduledObligations")
-    ];
-    return schedules.some(function (items) {
-      return Array.isArray(items) && items.some(function (item) {
-        if (typeof item === "string") {
-          return item.toLowerCase().includes("mortgage");
-        }
-        return item?.category === "mortgageSupport" || normalizeString(item?.id).toLowerCase().includes("mortgage");
-      });
-    });
-  }
-
   function getSurvivorIncomeAmount(rootSource) {
     return firstNumberAtPath(rootSource, [
       "scenario.trace.layer3.survivorIncome.annualAmount",
@@ -1405,14 +1618,6 @@
         confidence: 0.72
       }));
     }
-    if (hasMortgageSupportSchedule(rootSource)) {
-      candidates.push(makeCandidate(findDefinition("mortgage-payments-continue"), {
-        timing: getRunwayStartTiming(rootSource),
-        sourcePaths: ["scenario.postDeathSeries.layer3.scheduledObligations"],
-        confidence: 0.78
-      }));
-    }
-
     const survivorIncome = getSurvivorIncomeAmount(rootSource);
     if (survivorIncome && survivorIncome.value > 0) {
       candidates.push(makeCandidate(findDefinition("survivor-income-helps-offset-need"), {
@@ -2936,11 +3141,17 @@
         return 7;
       case "education-savings-used-for-living-needs":
         return 12;
-      case "housing-payment-at-risk":
+      case "mortgage-payment-at-risk":
+      case "mortgage-payment-becomes-unsupported":
+      case "rent-payment-at-risk":
+      case "rent-payment-becomes-unsupported":
+      case "housing-costs-become-unsupported":
         return 40;
       case "housing-stability-at-risk":
         return 38;
-      case "housing-payment-pressure-begins":
+      case "housing-costs-begin-pressuring-plan":
+      case "mortgage-payment-pressure-begins":
+      case "rent-payment-pressure-begins":
         return 5;
       case "housing-risk-unknown":
         return -24;

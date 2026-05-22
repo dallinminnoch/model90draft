@@ -21,6 +21,75 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function makePoints(horizonMonths, unsupportedMonth) {
+  const horizon = Math.max(1, Math.round(horizonMonths || 60));
+  return Array.from({ length: horizon }, function (_, index) {
+    const monthIndex = index + 1;
+    const unsupported = unsupportedMonth != null && monthIndex >= unsupportedMonth;
+    return {
+      monthIndex,
+      survivorNeeds: 5200,
+      scheduledObligations: 800,
+      survivorIncome: 1800,
+      netUse: 4200,
+      endingResources: unsupported ? 0 : 100000,
+      status: unsupported ? "depleted" : "available"
+    };
+  });
+}
+
+function makePostDeathSeries(options) {
+  const safeOptions = options || {};
+  const unsupportedMonth = safeOptions.unsupportedMonth ?? null;
+  const horizonMonths = safeOptions.horizonMonths || Math.max(60, unsupportedMonth || 0);
+  return {
+    points: makePoints(horizonMonths, unsupportedMonth),
+    displayHorizonMonths: horizonMonths,
+    depletion: unsupportedMonth == null
+      ? {
+        depleted: false,
+        depletionMonthIndex: null,
+        monthsCovered: null
+      }
+      : {
+        depleted: true,
+        depletionMonthIndex: unsupportedMonth,
+        monthsCovered: unsupportedMonth
+      }
+  };
+}
+
+function makeInput(options) {
+  const safeOptions = options || {};
+  const postDeathSeries = makePostDeathSeries(safeOptions);
+  return {
+    scenario: {
+      scenario: {
+        selectedDeathDate: "2036-05-14"
+      },
+      deathEvent: {
+        date: "2036-05-14"
+      },
+      postDeathSeries,
+      timelineFacts: {
+        displayHorizonMonths: safeOptions.horizonMonths || 60
+      }
+    },
+    housingObligations: safeOptions.housingObligations || [
+      {
+        id: safeOptions.id || `${safeOptions.type || "mortgage"}-payment`,
+        type: safeOptions.type || "mortgage",
+        label: safeOptions.label || "Housing payment",
+        monthlyPayment: safeOptions.monthlyPayment == null ? 2400 : safeOptions.monthlyPayment,
+        remainingMonths: safeOptions.remainingMonths == null ? 240 : safeOptions.remainingMonths,
+        treatment: safeOptions.treatment || "continuePayments",
+        sourcePath: safeOptions.sourcePath || "housingObligations.0.monthlyPayment",
+        evidenceLevel: safeOptions.evidenceLevel || "trace-backed"
+      }
+    ]
+  };
+}
+
 function eventTypes(result) {
   return result.timelineEvents.map(function (event) {
     return event.eventType;
@@ -39,165 +108,74 @@ function findEvent(result, type) {
   });
 }
 
-const mortgageInput = {
-  scenario: {
-    scenario: {
-      selectedDeathDate: "2036-05-14"
-    },
-    deathEvent: {
-      date: "2036-05-14"
-    },
-    timelineFacts: {
-      monthsCovered: 18
-    },
-    postDeathSeries: {
-      summary: {
-        annualShortfall: 36000
-      },
-      depletion: {
-        depleted: true,
-        depletionMonthIndex: 18,
-        monthsCovered: 18
-      }
-    }
-  },
-  housingObligations: [
-    {
-      id: "primary-mortgage",
-      type: "mortgage",
-      label: "Primary mortgage",
-      monthlyPayment: 2400,
-      remainingMonths: 240,
-      balance: 385000,
-      treatment: "continuePayments",
-      sourcePath: "scenario.trace.layer3.scheduledObligations.mortgage",
-      evidenceLevel: "trace-backed"
-    }
-  ]
-};
-const mortgageSnapshot = cloneJson(mortgageInput);
-const mortgageResult = buildIncomeImpactHousingRisk(mortgageInput);
+const stableMortgageInput = makeInput({ type: "mortgage", horizonMonths: 60 });
+const stableMortgageSnapshot = cloneJson(stableMortgageInput);
+const stableMortgage = buildIncomeImpactHousingRisk(stableMortgageInput);
 
-assert.equal(mortgageResult.version, "income-impact-housing-risk-v1");
-assert.equal(mortgageResult.trace.source, "income-impact-housing-risk-calculations");
-assert.deepEqual(mortgageInput, mortgageSnapshot, "helper should not mutate input objects");
-assert.deepEqual(mortgageResult.obligations.map((obligation) => obligation.type), [OBLIGATION_TYPES.mortgage]);
-assert.ok(eventTypes(mortgageResult).includes(EVENT_TYPES.mortgagePaymentsContinue));
-assert.ok(eventTypes(mortgageResult).includes(EVENT_TYPES.housingPaymentPressureBegins));
-assert.ok(eventTypes(mortgageResult).includes(EVENT_TYPES.housingPaymentAtRisk));
-assert.ok(eventTypes(mortgageResult).includes(EVENT_TYPES.housingStabilityAtRisk));
-assert.equal(findEvent(mortgageResult, EVENT_TYPES.mortgagePaymentsContinue).date, "2036-05-14");
-assert.equal(findEvent(mortgageResult, EVENT_TYPES.housingPaymentPressureBegins).date, "2036-06-14");
-assert.equal(findEvent(mortgageResult, EVENT_TYPES.housingPaymentAtRisk).date, "2037-11-14");
-assert.equal(findEvent(mortgageResult, EVENT_TYPES.housingPaymentAtRisk).amount, 2400);
-assert.equal(findEvent(mortgageResult, EVENT_TYPES.housingPaymentAtRisk).safeToRender, true);
-assert.equal(findEvent(mortgageResult, EVENT_TYPES.housingStabilityAtRisk).displayLabel, "Housing Stability At Risk");
-
-const paidOffMissingBalance = buildIncomeImpactHousingRisk({
-  scenario: {
-    scenario: {
-      selectedDeathDate: "2036-05-14"
-    }
-  },
-  housingObligations: [
-    {
-      id: "mortgage-payoff-missing",
-      type: "mortgage",
-      treatment: "payOffMortgage",
-      sourcePath: "housingObligations.0"
-    }
-  ]
-});
+assert.equal(stableMortgage.version, "income-impact-housing-risk-v1");
+assert.equal(stableMortgage.trace.source, "income-impact-housing-risk-calculations");
+assert.deepEqual(stableMortgageInput, stableMortgageSnapshot, "helper should not mutate input objects");
+assert.deepEqual(stableMortgage.obligations.map((obligation) => obligation.type), [OBLIGATION_TYPES.mortgage]);
+assert.deepEqual(eventTypes(stableMortgage), [EVENT_TYPES.mortgagePaymentStaysCurrent]);
+assert.equal(findEvent(stableMortgage, EVENT_TYPES.mortgagePaymentStaysCurrent).displayLabel, "Mortgage Payment Stays Current");
+assert.equal(findEvent(stableMortgage, EVENT_TYPES.mortgagePaymentStaysCurrent).monthOffset, 60);
+assert.equal(findEvent(stableMortgage, EVENT_TYPES.mortgagePaymentStaysCurrent).safeToRender, true);
 assert.equal(
-  eventTypes(paidOffMissingBalance).includes(EVENT_TYPES.mortgagePaidOff),
-  false,
-  "mortgage paid-off event should not appear without payoff balance evidence"
+  findEvent(stableMortgage, EVENT_TYPES.mortgagePaymentStaysCurrent).trace.housingPaymentPriority,
+  "baseline-with-other-expenses",
+  "housing payment should be treated as part of the baseline, not a separate priority"
 );
-assert.ok(
-  paidOffMissingBalance.warnings.some((warning) => warning.id === "missing-mortgage-payoff-balance"),
-  "missing payoff balance should produce a warning"
-);
-assert.ok(
-  paidOffMissingBalance.timelineEvents.every((event) => event.safeToRender === false),
-  "missing payoff balance should not create safe renderable events"
-);
+assert.equal(stableMortgage.trace.baselineSupport.baselineIncludesHousing, true);
 
-const paidOff = buildIncomeImpactHousingRisk({
-  scenario: {
-    scenario: {
-      selectedDeathDate: "2036-05-14"
-    }
-  },
+const cautionMortgage = buildIncomeImpactHousingRisk(makeInput({ type: "mortgage", unsupportedMonth: 30 }));
+assert.deepEqual(eventTypes(cautionMortgage), [EVENT_TYPES.mortgagePaymentPressureBegins]);
+assert.equal(findEvent(cautionMortgage, EVENT_TYPES.mortgagePaymentPressureBegins).displayLabel, "Mortgage Payment Pressure Begins");
+assert.equal(findEvent(cautionMortgage, EVENT_TYPES.mortgagePaymentPressureBegins).monthOffset, 30);
+
+const atRiskMortgage = buildIncomeImpactHousingRisk(makeInput({ type: "mortgage", unsupportedMonth: 18 }));
+assert.deepEqual(eventTypes(atRiskMortgage), [EVENT_TYPES.mortgagePaymentAtRisk]);
+assert.equal(findEvent(atRiskMortgage, EVENT_TYPES.mortgagePaymentAtRisk).displayLabel, "Mortgage Payment Is At Risk");
+assert.equal(findEvent(atRiskMortgage, EVENT_TYPES.mortgagePaymentAtRisk).monthOffset, 18);
+
+const criticalMortgage = buildIncomeImpactHousingRisk(makeInput({ type: "mortgage", unsupportedMonth: 10 }));
+assert.deepEqual(eventTypes(criticalMortgage), [EVENT_TYPES.mortgagePaymentBecomesUnsupported]);
+assert.equal(findEvent(criticalMortgage, EVENT_TYPES.mortgagePaymentBecomesUnsupported).displayLabel, "Mortgage Payment Becomes Unsupported");
+assert.equal(findEvent(criticalMortgage, EVENT_TYPES.mortgagePaymentBecomesUnsupported).monthOffset, 10);
+
+const stableRent = buildIncomeImpactHousingRisk(makeInput({
+  type: "rent",
+  id: "rent-payment",
+  monthlyPayment: 1800,
+  horizonMonths: 48
+}));
+assert.deepEqual(eventTypes(stableRent), [EVENT_TYPES.rentPaymentStaysCurrent]);
+assert.equal(findEvent(stableRent, EVENT_TYPES.rentPaymentStaysCurrent).displayLabel, "Rent Payment Stays Current");
+
+const atRiskRent = buildIncomeImpactHousingRisk(makeInput({
+  type: "rent",
+  id: "rent-payment",
+  monthlyPayment: 1800,
+  unsupportedMonth: 15
+}));
+assert.deepEqual(eventTypes(atRiskRent), [EVENT_TYPES.rentPaymentAtRisk]);
+assert.equal(findEvent(atRiskRent, EVENT_TYPES.rentPaymentAtRisk).displayLabel, "Rent Payment Is At Risk");
+
+const generalHousing = buildIncomeImpactHousingRisk(makeInput({
   housingObligations: [
     {
-      id: "primary-mortgage",
-      type: "mortgage",
-      treatment: "payOffMortgage",
-      balance: 385000,
-      sourcePath: "housingObligations.0.balance",
-      evidenceLevel: "calculated"
-    }
-  ]
-});
-assert.deepEqual(eventTypes(paidOff), [EVENT_TYPES.mortgagePaidOff]);
-assert.equal(findEvent(paidOff, EVENT_TYPES.mortgagePaidOff).amount, 385000);
-assert.equal(findEvent(paidOff, EVENT_TYPES.mortgagePaidOff).evidenceLevel, "calculated");
-
-const rentResult = buildIncomeImpactHousingRisk({
-  scenario: {
-    scenario: {
-      selectedDeathDate: "2036-05-14"
-    },
-    timelineFacts: {
-      monthsCovered: 10
-    }
-  },
-  housingObligations: [
-    {
-      id: "rent",
-      type: "rent",
-      label: "Rent",
-      monthlyPayment: 1800,
-      remainingMonths: 12,
-      sourcePath: "housingObligations.0",
-      evidenceLevel: "assumption-backed"
+      id: "aggregate-housing-payment",
+      type: "housing",
+      monthlyPayment: 1600,
+      sourcePath: "options.monthlyHousingPayment",
+      evidenceLevel: "estimated"
     }
   ],
-  options: {
-    monthlyShortfall: 600
-  }
-});
-assert.ok(eventTypes(rentResult).includes(EVENT_TYPES.rentPaymentPressureBegins));
-assert.ok(!eventTypes(rentResult).includes(EVENT_TYPES.housingPaymentPressureBegins));
-assert.ok(eventTypes(rentResult).includes(EVENT_TYPES.housingPaymentAtRisk));
+  unsupportedMonth: 8
+}));
+assert.deepEqual(eventTypes(generalHousing), [EVENT_TYPES.housingCostsBecomeUnsupported]);
+assert.equal(findEvent(generalHousing, EVENT_TYPES.housingCostsBecomeUnsupported).displayLabel, "Housing Costs Become Unsupported");
 
-const noRentResult = buildIncomeImpactHousingRisk({
-  scenario: {
-    scenario: {
-      selectedDeathDate: "2036-05-14"
-    }
-  },
-  housingObligations: [
-    {
-      id: "mortgage-only",
-      type: "mortgage",
-      monthlyPayment: 2100,
-      treatment: "continuePayments",
-      remainingMonths: 12,
-      sourcePath: "housingObligations.0"
-    }
-  ],
-  options: {
-    monthlyShortfall: 500
-  }
-});
-assert.equal(
-  eventTypes(noRentResult).includes(EVENT_TYPES.rentPaymentPressureBegins),
-  false,
-  "rent pressure should appear only when a rent obligation exists"
-);
-
-const missingPayment = buildIncomeImpactHousingRisk({
+const missingPayment = buildIncomeImpactHousingRisk(makeInput({
   housingObligations: [
     {
       id: "rent-missing",
@@ -206,113 +184,69 @@ const missingPayment = buildIncomeImpactHousingRisk({
       sourcePath: "housingObligations.0"
     }
   ],
-  options: {
-    selectedDeathDate: "2036-05-14",
-    monthlyShortfall: 700,
-    depletionMonthOffset: 4
-  }
-});
+  unsupportedMonth: 8
+}));
+assert.deepEqual(eventTypes(missingPayment), []);
 assert.ok(
   missingPayment.warnings.some((warning) => warning.id === "missing-housing-payment"),
-  "missing mortgage/rent payment should produce a data warning"
-);
-assert.ok(eventTypes(missingPayment).includes(EVENT_TYPES.housingRiskUnknown));
-assert.ok(missingPayment.timelineEvents.every((event) => event.safeToRender === false));
-
-const noDepletionRisk = buildIncomeImpactHousingRisk({
-  housingObligations: [
-    {
-      id: "short-mortgage",
-      type: "mortgage",
-      monthlyPayment: 2000,
-      remainingMonths: 6,
-      treatment: "continuePayments",
-      sourcePath: "housingObligations.0"
-    }
-  ],
-  options: {
-    selectedDeathDate: "2036-05-14",
-    depletionMonthOffset: 18
-  }
-});
-assert.equal(
-  eventTypes(noDepletionRisk).includes(EVENT_TYPES.housingPaymentAtRisk),
-  false,
-  "housing payment at risk should require resources to deplete before obligation period ends"
+  "missing rent or mortgage payment should be traced"
 );
 
-const derivedScheduled = buildIncomeImpactHousingRisk({
+const homeValueOnly = buildIncomeImpactHousingRisk({
   scenario: {
     scenario: {
       selectedDeathDate: "2036-05-14"
     },
-    timelineFacts: {
-      monthsCovered: 8
-    },
-    postDeathSeries: {
-      layer3: {
-        trace: {
-          streamNormalization: {
-            scheduledObligations: [
-              {
-                id: "mortgage-support",
-                category: "mortgageSupport",
-                monthlyAmount: 2200,
-                termMonths: 24,
-                sourcePaths: ["scenario.postDeathSeries.layer3.trace.streamNormalization.scheduledObligations.0"]
-              }
-            ]
-          }
-        }
-      }
+    postDeathSeries: makePostDeathSeries({ horizonMonths: 60 }),
+    lensModel: {
+      homeValue: 500000,
+      homeEquity: 200000
     }
   }
 });
-assert.equal(derivedScheduled.trace.obligationSourceSummary.mode, "scheduled-obligations");
-assert.ok(eventTypes(derivedScheduled).includes(EVENT_TYPES.mortgagePaymentsContinue));
-assert.ok(eventTypes(derivedScheduled).includes(EVENT_TYPES.housingPaymentAtRisk));
-
-const pointShortfall = buildIncomeImpactHousingRisk({
-  postDeathSeries: {
-    points: [
-      { monthIndex: 1, netUse: 300 }
-    ]
-  },
-  housingObligations: [
-    {
-      id: "aggregate-housing",
-      type: "housing",
-      monthlyPayment: 1600,
-      remainingMonths: 9,
-      sourcePath: "housingObligations.0"
-    }
-  ],
-  options: {
-    selectedDeathDate: "2036-05-14"
-  }
-});
-assert.ok(eventTypes(pointShortfall).includes(EVENT_TYPES.housingPaymentPressureBegins));
-assert.equal(findEvent(pointShortfall, EVENT_TYPES.housingPaymentPressureBegins).evidenceLevel, "estimated");
-
-const orderedTypes = mortgageResult.timelineEvents.map((event) => event.eventType);
-assert.deepEqual(
-  orderedTypes,
-  [
-    EVENT_TYPES.mortgagePaymentsContinue,
-    EVENT_TYPES.housingPaymentPressureBegins,
-    EVENT_TYPES.housingPaymentAtRisk,
-    EVENT_TYPES.housingStabilityAtRisk
-  ],
-  "event ordering should be deterministic"
+assert.deepEqual(eventTypes(homeValueOnly), []);
+assert.ok(
+  homeValueOnly.warnings.some((warning) => warning.id === "missing-housing-payment-source"),
+  "home value or home equity alone should not create housing support evidence"
 );
 
+const paidOffMortgage = buildIncomeImpactHousingRisk(makeInput({
+  type: "mortgage",
+  treatment: "payOffMortgage",
+  monthlyPayment: null,
+  unsupportedMonth: 8,
+  housingObligations: [
+    {
+      id: "paid-off-mortgage",
+      type: "mortgage",
+      treatment: "payOffMortgage",
+      balance: 325000,
+      sourcePath: "housingObligations.0.balance"
+    }
+  ]
+}));
+assert.deepEqual(eventTypes(paidOffMortgage), [], "paid-off-at-death mortgage should not create ongoing housing trigger events");
+
 const emittedText = [
-  labels(mortgageResult).join(" "),
-  labels(rentResult).join(" "),
-  labels(missingPayment).join(" ")
-].join(" ").toLowerCase();
-["foreclosure", "eviction", "bankruptcy", "credit crisis", "forced sale", "forced home sale"].forEach((forbidden) => {
-  assert.equal(emittedText.includes(forbidden), false, `${forbidden} should never be emitted`);
+  labels(stableMortgage).join(" "),
+  labels(cautionMortgage).join(" "),
+  labels(atRiskMortgage).join(" "),
+  labels(criticalMortgage).join(" "),
+  labels(atRiskRent).join(" "),
+  labels(generalHousing).join(" ")
+].join(" ");
+[
+  "Mortgage Payments Continue",
+  "Housing Payment Pressure Begins",
+  "Housing Payment At Risk",
+  "Foreclosure",
+  "Eviction",
+  "bankruptcy",
+  "credit crisis",
+  "forced sale",
+  "forced home sale"
+].forEach((forbidden) => {
+  assert.equal(emittedText.toLowerCase().includes(forbidden.toLowerCase()), false, `${forbidden} should not be emitted`);
 });
 
 console.log("income-impact-housing-risk-check passed");

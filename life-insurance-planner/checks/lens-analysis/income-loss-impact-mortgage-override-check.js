@@ -294,8 +294,11 @@ assert.ok(
 const housingRisk = buildIncomeImpactHousingRisk({ scenario: continueMortgage });
 const derivedHousingEventTypes = housingEventTypes(housingRisk);
 assert.equal(housingRisk.trace.obligationSourceSummary.mode, "scheduled-obligations");
-assert.ok(derivedHousingEventTypes.includes(HOUSING_EVENT_TYPES.mortgagePaymentsContinue));
-assert.ok(derivedHousingEventTypes.includes(HOUSING_EVENT_TYPES.housingPaymentAtRisk));
-assert.ok(derivedHousingEventTypes.includes(HOUSING_EVENT_TYPES.housingStabilityAtRisk));
+assert.ok(derivedHousingEventTypes.includes(HOUSING_EVENT_TYPES.mortgagePaymentPressureBegins));
+assert.equal(
+  housingRisk.riskEvents[0].trace.housingPaymentPriority,
+  "baseline-with-other-expenses",
+  "mortgage support should be evaluated inside the baseline survival model"
+);
 
 console.log("income-loss-impact-mortgage-override-check passed");
