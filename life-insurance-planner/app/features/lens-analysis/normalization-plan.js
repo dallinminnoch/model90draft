@@ -37,9 +37,9 @@
           "pages/existing-coverage-details.html"
         ]
       },
-      legacyPmi: {
-        role: "Older parallel PMI schema retained only as retirement candidates, not canonical input routes",
-        files: [
+      retiredLegacyPmi: {
+        role: "Deleted older parallel PMI pages; canonical advisor input is pages/next-step.html and confidential input remains pages/confidential-inputs.html until confidential-mode consolidation.",
+        removedFiles: [
           "pages/protection-modeling-advisor.html",
           "pages/protection-modeling-confidential.html"
         ]

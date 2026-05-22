@@ -11,6 +11,10 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function repoFileExists(relativePath) {
+  return fs.existsSync(path.join(repoRoot, relativePath));
+}
+
 function scriptSources(source) {
   return Array.from(source.matchAll(/<script\s+[^>]*src="([^"]+)"[^>]*>/gi)).map((match) => match[1]);
 }
@@ -53,6 +57,26 @@ assert.match(linkedSource, /advisorContinue\.href = `next-step\.html\?caseRef=/)
 assert.match(linkedSource, /href="confidential-inputs\.html" data-loading-link data-confidential-continue/);
 assert.match(linkedSource, /confidentialContinue\.href = `confidential-inputs\.html\?caseRef=/);
 assert.doesNotMatch(linkedSource, /manual-protection-modeling-inputs\.html/);
+assert.doesNotMatch(linkedSource, /protection-modeling-advisor\.html/);
+assert.doesNotMatch(linkedSource, /protection-modeling-confidential\.html/);
+
+[
+  "pages/protection-modeling-advisor.html",
+  "pages/protection-modeling-confidential.html"
+].forEach((relativePath) => {
+  assert.equal(repoFileExists(relativePath), false, `${relativePath} should remain deleted as an orphaned legacy PMI page.`);
+});
+
+assert.equal(
+  repoFileExists("pages/manual-protection-modeling-inputs.html"),
+  true,
+  "Manual PMI retirement is deferred; this pass should not delete the manual session-only page."
+);
+assert.equal(
+  repoFileExists("pages/confidential-inputs.html"),
+  true,
+  "Confidential PMI remains an active duplicate route until confidential-mode consolidation."
+);
 
 [
   ["app.js", readRepoFile("app.js")],
@@ -96,6 +120,7 @@ assertLoadsScript(confidentialSource, "pmi-expense-records.js", "pages/confident
 const normalizationPlanSource = readRepoFile("app/features/lens-analysis/normalization-plan.js");
 assert.match(normalizationPlanSource, /Canonical current PMI source/);
 assert.match(normalizationPlanSource, /Advisor input defaults to pages\/next-step\.html/);
+assert.match(normalizationPlanSource, /Deleted older parallel PMI pages/);
 assert.match(normalizationPlanSource, /Legacy manual session-only Lens page\. Not the default Protection Modeling Inputs route\./);
 
 console.log("pmi-canonical-page-route-check passed");
