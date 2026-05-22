@@ -787,7 +787,7 @@ const milestoneStoryAssembly = harness.buildTimelineStoryAssemblyForTimelineResu
 assert.equal(milestoneStoryAssembly.trace.status, "built");
 assert.equal(milestoneStoryAssembly.trace.rendered, false);
 assert.equal(milestoneStoryAssembly.storySteps.length, 9);
-assert.equal(milestoneStoryAssembly.storySteps[0].title, "Death / Income Stops");
+assert.equal(milestoneStoryAssembly.storySteps[0].title, "Income Stops at Death");
 assert.equal(milestoneStoryAssembly.storySteps[0].graphDotId, null);
 assert.equal(milestoneStoryAssembly.storySteps[8].title, "Resources Run Out");
 assert.ok(milestoneStoryAssembly.storySteps[8].graphDotId);
@@ -3065,14 +3065,14 @@ assert.doesNotMatch(harness.resourceOutlookPanel.innerHTML, /data-income-impact-
 
 function makeMilestoneStripAssembly(finalTitle = "Resources Run Out") {
   const sourceSteps = [
-    ["story-step-death-income-stops", "trigger", "critical", "Death / Income Stops", "At death", 0, "death-income-stops"],
-    ["story-step-cash-savings-depleted", "liquidity", "caution", "Cash Savings Depleted", "Month 12", 12, "cash-savings-depleted"],
-    ["story-step-housing-payment-at-risk", "housing", "atRisk", "Housing Payment At Risk", "Month 24", 24, "housing-payment-at-risk"],
-    ["story-step-retirement-assets-tapped", "retirement", "caution", "Retirement Assets Tapped", "Year 3", 36, "retirement-assets-tapped"],
-    ["story-step-education-savings-depleted", "education", "atRisk", "Education Savings Depleted", "Year 5", 60, "education-savings-depleted"],
-    ["story-step-care-costs-covered", "care", "stable", "Care Costs Covered", "Year 6", 72, "care-costs-covered"],
-    ["story-step-lifestyle-pressure-rises", "lifestyle", "caution", "Lifestyle Pressure Rises", "Year 8", 96, "lifestyle-pressure-rises"],
-    ["story-step-data-confidence-limited", "data-quality", "unknown", "Data Confidence Limited", "Year 10", 120, "data-confidence-limited"],
+    ["story-step-death-income-stops", "trigger", "critical", "Income Stops at Death", "At death", 0, "death-income-stops"],
+    ["story-step-cash-savings-depleted", "liquidity", "critical", "Cash Reserve Is Depleted", "Month 12", 12, "cash-savings-depleted"],
+    ["story-step-housing-payment-at-risk", "housing", "atRisk", "Housing Stability Is At Risk", "Month 24", 24, "housing-payment-at-risk"],
+    ["story-step-retirement-assets-tapped", "retirement", "atRisk", "Retirement Assets Are Tapped", "Year 3", 36, "retirement-assets-tapped"],
+    ["story-step-education-savings-depleted", "education", "critical", "Education Savings Are Depleted", "Year 5", 60, "education-savings-depleted"],
+    ["story-step-care-costs-covered", "care", "stable", "Dependent Support Remains Covered", "Year 6", 72, "care-costs-covered"],
+    ["story-step-lifestyle-pressure-rises", "lifestyle", "atRisk", "Lifestyle Cuts May Be Needed", "Year 8", 96, "lifestyle-pressure-rises"],
+    ["story-step-support-gap-begins", "support-gap", "caution", "Support Gap Begins", "Year 10", 120, "support-gap-begins"],
     ["story-step-final-outcome", "final-outcome", finalTitle === "Resources Run Out" ? "critical" : "stable", finalTitle, finalTitle === "Resources Run Out" ? "Year 12" : "Still funded", finalTitle === "Resources Run Out" ? 144 : null, finalTitle === "Resources Run Out" ? "resourcesRunOut" : "familyRunwayRemainsFunded"]
   ];
   const storySteps = sourceSteps.map(function (step, index) {
@@ -3340,7 +3340,7 @@ assert.doesNotMatch(majorStoryHost.innerHTML, /Financial Depletion Story/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-source-event-id="death-income-stops"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="01"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="09"/);
-assert.match(majorStoryHost.innerHTML, /Death \/ Income Stops/);
+assert.match(majorStoryHost.innerHTML, /Income Stops at Death/);
 assert.match(majorStoryHost.innerHTML, /Resources Run Out/);
 assert.match(majorStoryHost.innerHTML, /At death/);
 assert.match(majorStoryHost.innerHTML, /Month 12/);
@@ -3348,7 +3348,7 @@ assert.match(majorStoryHost.innerHTML, /Stable/);
 assert.match(majorStoryHost.innerHTML, /Caution/);
 assert.match(majorStoryHost.innerHTML, /At Risk/);
 assert.match(majorStoryHost.innerHTML, /Critical/);
-assert.match(majorStoryHost.innerHTML, /Unknown/);
+assert.doesNotMatch(majorStoryHost.innerHTML, /Unknown/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /income-impact-milestone-step__amount|income-impact-milestone-step__description/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /Housing payments continue beyond projected liquid resources\./);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-milestone-step-category|income-impact-milestone-step__category/);
@@ -3397,7 +3397,7 @@ assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-e
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="education-savings-depleted"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="care-costs-covered"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="lifestyle-pressure-rises"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="data-confidence-limited"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="support-gap-begins"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-event-id="resources-run-out"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-family="final-outcome"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-storyline-connector-severity="critical"/);

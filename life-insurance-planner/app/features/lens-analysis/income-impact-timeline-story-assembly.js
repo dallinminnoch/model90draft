@@ -30,6 +30,129 @@
     unknown: 4
   });
 
+  const APPROVED_CARD_LIBRARY = Object.freeze({
+    transition: Object.freeze({
+      stable: "90-Day Cash Window Is Covered",
+      caution: "90-Day Cash Window Is Tight",
+      atRisk: "90-Day Cash Window Is Short",
+      critical: "90-Day Cash Window Is Underfunded"
+    }),
+    cashReserve: Object.freeze({
+      stable: "Cash Reserve Holds",
+      caution: "Cash Reserve Begins Declining",
+      atRisk: "Cash Reserve Is Nearly Depleted",
+      critical: "Cash Reserve Is Depleted"
+    }),
+    emergencyFund: Object.freeze({
+      caution: "Emergency Fund Is Used",
+      atRisk: "Emergency Fund Is Nearly Depleted",
+      critical: "Emergency Fund Is Depleted"
+    }),
+    liquidResources: Object.freeze({
+      stable: "Liquid Resources Hold",
+      caution: "Liquid Resources Begin Declining",
+      atRisk: "Liquid Resources Are Nearly Depleted",
+      critical: "Liquid Resources Are Depleted"
+    }),
+    housing: Object.freeze({
+      stable: "Housing Costs Remain Covered",
+      caution: "Housing Costs Begin Pressuring the Plan",
+      atRisk: "Housing Stability Is At Risk",
+      critical: "Housing Costs Become Unsupported"
+    }),
+    mortgage: Object.freeze({
+      stable: "Mortgage Payment Stays Current",
+      caution: "Mortgage Payment Pressure Begins",
+      atRisk: "Mortgage Payment Is At Risk",
+      critical: "Mortgage Payment Becomes Unsupported"
+    }),
+    rent: Object.freeze({
+      stable: "Rent Payment Stays Current",
+      caution: "Rent Payment Pressure Begins",
+      atRisk: "Rent Payment Is At Risk",
+      critical: "Rent Payment Becomes Unsupported"
+    }),
+    obligations: Object.freeze({
+      stable: "Obligations Remain Covered",
+      caution: "Obligations Consume Early Liquidity",
+      atRisk: "Debt Payments Begin Pressuring the Plan",
+      critical: "Debt Payments Become Unsupported"
+    }),
+    paymentTradeoffs: Object.freeze({
+      stable: "Expenses and Debt Stay Covered",
+      caution: "Expenses Begin Competing With Debt Payments",
+      atRisk: "Debt Payments Pressure Monthly Expenses",
+      critical: "Monthly Bills Become Unsupported"
+    }),
+    educationFunding: Object.freeze({
+      stable: "Education Funding Remains Protected",
+      caution: "Education Funding May Be Redirected",
+      atRisk: "Education Funding Is At Risk",
+      critical: "Education Savings Are Depleted"
+    }),
+    dependentCare: Object.freeze({
+      stable: "Dependent Support Remains Covered",
+      caution: "Dependent Support Begins Pressuring the Plan",
+      atRisk: "Care Costs Become Exposed",
+      critical: "Dependent Support Becomes Unfunded"
+    }),
+    retirementAssets: Object.freeze({
+      stable: "Retirement Assets Stay Intact",
+      caution: "Retirement Assets Are At Risk",
+      atRisk: "Retirement Assets Are Tapped",
+      critical: "Retirement Assets Are Depleted"
+    }),
+    supportGap: Object.freeze({
+      stable: "Support Need Remains Covered",
+      caution: "Support Gap Begins",
+      atRisk: "Monthly Support Gap Grows",
+      critical: "Essential Needs Become Unfunded"
+    }),
+    lifestylePressure: Object.freeze({
+      stable: "Current Lifestyle Remains Supported",
+      caution: "Discretionary Spending Tightens",
+      atRisk: "Lifestyle Cuts May Be Needed",
+      critical: "Lifestyle Cuts Become Necessary"
+    }),
+    essentialDiscretionary: Object.freeze({
+      stable: "Essential Needs Remain Covered",
+      caution: "Discretionary Spending Tightens",
+      atRisk: "Essential Costs Begin Pressuring the Plan",
+      critical: "Essential Needs Become Unfunded"
+    }),
+    survivorIncome: Object.freeze({
+      stable: "Survivor Income Supports the Runway",
+      caution: "Plan Depends on Survivor Income",
+      atRisk: "Survivor Income Is Not Enough",
+      critical: "Income Gap Drives the Shortfall"
+    }),
+    coverageDuration: Object.freeze({
+      stable: "Coverage Carries the Runway",
+      caution: "Coverage Extends the Runway",
+      atRisk: "Coverage Runs Out Before Needs End"
+    })
+  });
+
+  const FORBIDDEN_MAIN_CARD_TITLES = Object.freeze(new Set([
+    "death-income-stops",
+    "life-insurance-proceeds-applied",
+    "coverage-helps-protect-the-plan",
+    "protection-gap-appears-immediately",
+    "existing-coverage-closes-a-meaningful-gap",
+    "survivor-income-is-not-enough-alone",
+    "survivor-income-helps-offset-need",
+    "monthly-support-gap-begins",
+    "immediate-obligations-are-paid",
+    "final-expenses-are-paid",
+    "mortgage-is-paid-off",
+    "stable-covered-event",
+    "direct-risk-event",
+    "direct-stable-event",
+    "data-quality-code",
+    "existing-coverage-cannot-prevent-runout",
+    "coverage-cannot-prevent-resource-depletion"
+  ]));
+
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
@@ -204,6 +327,117 @@
     ]) || fallback;
   }
 
+  function getEventSearchText(event, rawTitle, category) {
+    return [
+      event?.sourceEventId,
+      event?.id,
+      event?.eventId,
+      event?.ruleId,
+      event?.type,
+      event?.kind,
+      event?.category,
+      event?.family,
+      event?.eventCategory,
+      event?.bucketId,
+      event?.graphLabel,
+      event?.displayLabel,
+      event?.shortLabel,
+      event?.cardTitle,
+      event?.label,
+      rawTitle,
+      category
+    ].map(normalizeKey).filter(Boolean).join(" ");
+  }
+
+  function hasTextPart(text, parts) {
+    return parts.some(function (part) {
+      return text.includes(part);
+    });
+  }
+
+  function resolveApprovedCardConcept(event, rawTitle, category) {
+    const text = getEventSearchText(event, rawTitle, category);
+    if (!text || category === "dataConfidence" || hasTextPart(text, ["data-confidence", "data-quality", "setup-gap", "details-need-review", "confidence"])) {
+      return null;
+    }
+    if (hasTextPart(text, ["90-day", "90-days", "90day", "transition", "first-3-month", "first-three-month"])) {
+      return "transition";
+    }
+    if (hasTextPart(text, ["education", "college", "tuition", "529"])) {
+      return "educationFunding";
+    }
+    if (hasTextPart(text, ["dependent", "dependents", "care", "childcare", "elder-care", "care-cost"])) {
+      return "dependentCare";
+    }
+    if (hasTextPart(text, ["retirement", "qualified-annuity", "qualified-annuities", "ira", "401k", "403b"])) {
+      return "retirementAssets";
+    }
+    if (hasTextPart(text, ["emergency-fund", "emergency"])) {
+      return "emergencyFund";
+    }
+    if (hasTextPart(text, ["cash-reserve", "cash-savings", "checking", "savings", "hysa", "money-market", "cds", "cash-waterfall", "pre-death-saved-cash", "cash"])) {
+      return "cashReserve";
+    }
+    if (hasTextPart(text, ["taxable", "brokerage", "liquid-investment", "liquid-resource", "other-liquid", "liquid"])) {
+      return "liquidResources";
+    }
+    if (hasTextPart(text, ["mortgage"])) {
+      return "mortgage";
+    }
+    if (hasTextPart(text, ["rent", "eviction"])) {
+      return "rent";
+    }
+    if (hasTextPart(text, ["housing", "home-equity", "foreclosure", "home"])) {
+      return "housing";
+    }
+    if (hasTextPart(text, ["expense", "expenses", "monthly-bill", "monthly-bills"]) && hasTextPart(text, ["debt", "debts", "obligation", "obligations", "payment", "payments"])) {
+      return "paymentTradeoffs";
+    }
+    if (hasTextPart(text, ["debt", "debts", "obligation", "obligations", "final-expense", "payment", "payments"])) {
+      return "obligations";
+    }
+    if (hasTextPart(text, ["lifestyle", "discretionary", "spending-tightens", "lifestyle-cut"])) {
+      return "lifestylePressure";
+    }
+    if (hasTextPart(text, ["essential", "monthly-bill", "monthly-bills"])) {
+      return "essentialDiscretionary";
+    }
+    if (hasTextPart(text, ["survivor-income", "income-gap", "income-not-enough", "income-alone"])) {
+      return "survivorIncome";
+    }
+    if (hasTextPart(text, ["coverage", "protection", "life-insurance", "existing-coverage"])) {
+      return "coverageDuration";
+    }
+    if (hasTextPart(text, ["support-gap", "unmet", "shortfall", "support-need", "need-gap", "gap"])) {
+      return "supportGap";
+    }
+
+    if (category === "liquidity") {
+      return "liquidResources";
+    }
+    if (category === "housing") {
+      return "housing";
+    }
+    if (category === "dependentsCare") {
+      return "dependentCare";
+    }
+    if (category === "supportGap") {
+      return "supportGap";
+    }
+    return null;
+  }
+
+  function resolveApprovedCardMapping(event, rawTitle, category, tone) {
+    const concept = resolveApprovedCardConcept(event, rawTitle, category);
+    const title = concept && APPROVED_CARD_LIBRARY[concept] ? APPROVED_CARD_LIBRARY[concept][tone] : "";
+    const forbidden = title && FORBIDDEN_MAIN_CARD_TITLES.has(normalizeKey(title));
+    return {
+      concept,
+      title: forbidden ? "" : title || "",
+      mainCardEligible: Boolean(concept && title && !forbidden && tone !== "unknown")
+    };
+  }
+
   function isNonApplicableEvent(event) {
     const status = normalizeKey(event?.status);
     const evidence = normalizeKey(event?.evidenceLevel);
@@ -230,20 +464,27 @@
       event.ruleId
     ]) || `${source}-${index + 1}`;
     const relativeMonth = getRelativeMonth(event);
-    const title = getTitle(event, sourceEventId);
+    const rawTitle = getTitle(event, sourceEventId);
+    const category = normalizeCategory(event);
+    const tone = normalizeTone(event);
+    const cardMapping = resolveApprovedCardMapping(event, rawTitle, category, tone);
     return {
       id: sourceEventId,
       source,
       sourceIndex: index,
       sourceEventId,
-      category: normalizeCategory(event),
-      tone: normalizeTone(event),
-      title,
-      shortLabel: firstString([event.shortLabel, event.graphLabel, event.displayLabel, event.markerLabel, title]),
+      category,
+      tone,
+      title: rawTitle,
+      rawTitle,
+      approvedCardTitle: cardMapping.title,
+      cardConcept: cardMapping.concept,
+      mainCardEligible: cardMapping.mainCardEligible,
+      shortLabel: firstString([event.shortLabel, event.graphLabel, event.displayLabel, event.markerLabel, rawTitle]),
       relativeMonth,
       timingLabel: formatTimingLabel(relativeMonth),
       priority: toOptionalNumber(event.priority),
-      isStable: Boolean(event.isStable || normalizeTone(event) === "stable"),
+      isStable: Boolean(event.isStable || tone === "stable"),
       nonApplicable: isNonApplicableEvent(event),
       original: event
     };
@@ -272,6 +513,10 @@
     existing.category = existing.category || incoming.category;
     existing.tone = existing.tone === "unknown" ? incoming.tone : existing.tone;
     existing.title = existing.title || incoming.title;
+    existing.rawTitle = existing.rawTitle || incoming.rawTitle;
+    existing.approvedCardTitle = existing.approvedCardTitle || incoming.approvedCardTitle;
+    existing.cardConcept = existing.cardConcept || incoming.cardConcept;
+    existing.mainCardEligible = Boolean(existing.mainCardEligible || incoming.mainCardEligible);
     existing.shortLabel = existing.shortLabel || incoming.shortLabel;
     existing.relativeMonth = existing.relativeMonth == null ? incoming.relativeMonth : existing.relativeMonth;
     existing.timingLabel = existing.timingLabel || incoming.timingLabel;
@@ -379,6 +624,8 @@
     const id = normalizeKey(event?.sourceEventId);
     return event
       && !event.nonApplicable
+      && event.mainCardEligible === true
+      && event.tone !== "unknown"
       && event.relativeMonth != null
       && event.relativeMonth >= 0
       && id !== "death-income-stops"
@@ -431,10 +678,14 @@
       let reason = "";
       if (event.nonApplicable) {
         reason = "non-applicable";
+      } else if (event.category === "dataConfidence") {
+        reason = "data-confidence-main-strip-excluded";
+      } else if (event.tone === "unknown") {
+        reason = "unknown-tone-main-strip-excluded";
       } else if (event.relativeMonth == null) {
         reason = "missing-reliable-timing";
       } else if (!canUseAsIntermediate(event)) {
-        reason = "reserved-or-out-of-scope";
+        reason = event.mainCardEligible === false ? "unapproved-main-card-title" : "reserved-or-out-of-scope";
       } else {
         reason = "not-selected";
       }
@@ -454,7 +705,10 @@
       relativeMonth: event?.relativeMonth ?? null,
       trace: {
         source: SOURCE,
-        originalSource: event?.source || null
+        originalSource: event?.source || null,
+        originalSourceTitle: event?.rawTitle || event?.title || null,
+        mappedCardTitle: event?.approvedCardTitle || null,
+        cardConcept: event?.cardConcept || null
       }
     };
   }
@@ -519,15 +773,18 @@
       role: "event",
       category: event.category,
       tone: event.tone,
-      title: event.title,
-      shortLabel: event.shortLabel || event.title,
+      title: event.approvedCardTitle,
+      shortLabel: event.approvedCardTitle,
       timingLabel: event.timingLabel,
       relativeMonth: event.relativeMonth,
       graphDotId: null,
       sourceEventId: event.sourceEventId,
       trace: {
         originalSource: event.source,
-        traceSources: clonePlainValue(event.traceSources || [event.source])
+        traceSources: clonePlainValue(event.traceSources || [event.source]),
+        originalSourceTitle: event.rawTitle || event.title,
+        mappedCardTitle: event.approvedCardTitle,
+        cardConcept: event.cardConcept
       }
     });
   }
@@ -611,15 +868,18 @@
         role: "death",
         category: "trigger",
         tone: "critical",
-        title: "Death / Income Stops",
-        shortLabel: "Death / Income Stops",
+        title: "Income Stops at Death",
+        shortLabel: "Income Stops at Death",
         timingLabel: "At death",
         relativeMonth: 0,
         graphDotId: null,
         sourceEventId: "death-income-stops",
         trace: {
           synthesized: true,
-          graphMarkerOwnsDot: true
+          graphMarkerOwnsDot: true,
+          originalSourceTitle: "Death / Income Stops",
+          mappedCardTitle: "Income Stops at Death",
+          cardConcept: "deathIncomeTrigger"
         }
       })
     ];

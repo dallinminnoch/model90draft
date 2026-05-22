@@ -105,6 +105,33 @@ function assertAssemblyShape(result) {
   });
 }
 
+const FORBIDDEN_MAIN_STRIP_TITLES = new Set([
+  "Death / Income Stops",
+  "Life Insurance Proceeds Applied",
+  "Coverage Helps Protect the Plan",
+  "Protection Gap Appears Immediately",
+  "Existing coverage closes a meaningful gap",
+  "Survivor Income Is Not Enough Alone",
+  "Survivor Income Helps Offset Need",
+  "Monthly Support Gap Begins",
+  "Immediate Obligations Are Paid",
+  "Final Expenses Are Paid",
+  "Mortgage Is Paid Off",
+  "Stable Covered Event",
+  "Direct Risk Event",
+  "Direct Stable Event",
+  "Data quality: code",
+  "Existing Coverage Cannot Prevent Runout",
+  "Coverage Cannot Prevent Resource Depletion"
+]);
+
+function assertMainStripLibraryLocked(result) {
+  result.storySteps.forEach(function (step) {
+    assert.equal(FORBIDDEN_MAIN_STRIP_TITLES.has(step.title), false, `${step.title} should not be a main strip title.`);
+    assert.notEqual(step.tone, "unknown", `${step.id} should not use unknown tone in the main strip.`);
+  });
+}
+
 const browserContext = createBrowserContext();
 assert.equal(
   typeof browserContext.LensApp.lensAnalysis.buildIncomeImpactTimelineStoryAssembly,
@@ -114,9 +141,10 @@ assert.equal(
 const empty = build();
 assertAssemblyShape(empty);
 assert.equal(empty.storySteps.length, 2);
-assert.equal(empty.storySteps[0].title, "Death / Income Stops");
+assert.equal(empty.storySteps[0].title, "Income Stops at Death");
 assert.equal(empty.storySteps[0].graphDotId, null);
 assert.equal(empty.storySteps[1].title, "Family Runway Remains Funded");
+assertMainStripLibraryLocked(empty);
 assert.equal(empty.majorGraphDots.length, 0);
 assert.equal(empty.connectors.length, 0);
 assert.equal(empty.trace.noUiMutation, true);
@@ -180,8 +208,11 @@ assertNoMutation(runoutInput, function () {
   assert.equal(result.trace.exactNineStepTargetMet, true);
   assert.equal(result.storySteps[0].stepNumber, 1);
   assert.equal(result.storySteps[0].lockedPosition, "first");
-  assert.equal(result.storySteps[0].title, "Death / Income Stops");
+  assert.equal(result.storySteps[0].title, "Income Stops at Death");
+  assert.equal(result.storySteps[0].trace.originalSourceTitle, "Death / Income Stops");
+  assert.equal(result.storySteps[0].trace.mappedCardTitle, "Income Stops at Death");
   assert.equal(result.storySteps[0].graphDotId, null);
+  assertMainStripLibraryLocked(result);
 
   const finalStep = result.storySteps[8];
   assert.equal(finalStep.stepNumber, 9);
@@ -211,6 +242,9 @@ assertNoMutation(runoutInput, function () {
   );
   intermediateSteps.forEach(function (step) {
     assert.ok(step.graphDotId, `${step.id} should have a major graph dot.`);
+    assert.equal(step.title, step.trace.mappedCardTitle);
+    assert.ok(step.trace.originalSourceTitle, `${step.id} should preserve the original source title in trace.`);
+    assert.ok(step.trace.cardConcept, `${step.id} should preserve the approved card concept in trace.`);
     assert.ok(
       result.majorGraphDots.some(function (dot) {
         return dot.id === step.graphDotId && dot.connectedStepId === step.id;
@@ -235,7 +269,7 @@ assertNoMutation(runoutInput, function () {
   );
   assert.equal(
     result.suppressed.some(function (item) {
-      return item.sourceEventId === "data-confidence-limited" && item.reason === "missing-reliable-timing";
+      return item.sourceEventId === "data-confidence-limited" && item.reason === "data-confidence-main-strip-excluded";
     }),
     true
   );
@@ -245,7 +279,7 @@ assertNoMutation(runoutInput, function () {
     }),
     true
   );
-  assert.ok(result.trace.missingTimingExclusionCount >= 1);
+  assert.equal(result.trace.suppressionCountsByReason["data-confidence-main-strip-excluded"] >= 1, true);
   assert.ok(result.trace.controlledRepeatUsage >= 1);
   assert.equal(result.supportingGraphDots.length <= 3, true);
   result.supportingGraphDots.forEach(function (dot) {
@@ -277,6 +311,7 @@ const fundedResult = build({
   }
 });
 assertAssemblyShape(fundedResult);
+assertMainStripLibraryLocked(fundedResult);
 const fundedFinalStep = fundedResult.storySteps[fundedResult.storySteps.length - 1];
 assert.equal(fundedFinalStep.title, "Family Runway Remains Funded");
 assert.equal(fundedFinalStep.graphDotId, null);
@@ -302,8 +337,38 @@ const scenarioRunout = build({
   }
 });
 assertAssemblyShape(scenarioRunout);
+assertMainStripLibraryLocked(scenarioRunout);
 assert.equal(scenarioRunout.storySteps[8].title, "Resources Run Out");
 assert.equal(scenarioRunout.storySteps[8].relativeMonth, 18);
 assert.ok(scenarioRunout.storySteps[8].graphDotId);
+
+const sparseUnapprovedResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("custom-thing", 1, "custom", "caution", "Direct Risk Event"),
+      makeEvent("data-quality-code", 2, "data-quality", "unknown", "Data quality: code")
+    ]
+  }
+});
+assertAssemblyShape(sparseUnapprovedResult);
+assertMainStripLibraryLocked(sparseUnapprovedResult);
+assert.equal(
+  sparseUnapprovedResult.storySteps.length,
+  2,
+  "The helper should fail honestly instead of filling main steps with unapproved or forbidden titles."
+);
+assert.equal(sparseUnapprovedResult.trace.exactNineStepTargetMet, false);
+assert.equal(
+  sparseUnapprovedResult.suppressed.some(function (item) {
+    return item.sourceEventId === "custom-thing" && item.reason === "unapproved-main-card-title";
+  }),
+  true
+);
+assert.equal(
+  sparseUnapprovedResult.suppressed.some(function (item) {
+    return item.sourceEventId === "data-quality-code" && item.reason === "data-confidence-main-strip-excluded";
+  }),
+  true
+);
 
 console.log("income-impact-timeline-story-assembly-check passed");
