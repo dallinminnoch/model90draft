@@ -148,7 +148,6 @@ const mechanicalVisibleSuppressedIds = [
   "final-expenses-paid",
   "debt-payoff-consumes-liquidity",
   "mortgage-is-paid-off",
-  "survivor-income-helps-offset-need",
   "survivor-runway-begins"
 ];
 
@@ -199,8 +198,8 @@ assert.ok(ids(result.safeRenderableEvents).includes("immediate-obligations-paid"
 assert.ok(ids(result.safeRenderableEvents).includes("final-expenses-paid"));
 assert.ok(ids(result.safeRenderableEvents).includes("debt-payoff-consumes-liquidity"));
 assert.ok(ids(result.safeRenderableEvents).includes("mortgage-is-paid-off"));
-assert.ok(ids(result.safeRenderableEvents).includes("survivor-income-helps-offset-need"));
-assert.ok(ids(result.safeRenderableEvents).includes("survivor-income-not-enough-alone"));
+assert.ok(!ids(result.safeRenderableEvents).includes("survivor-income-helps-offset-need"));
+assert.ok(!ids(result.safeRenderableEvents).includes("survivor-income-not-enough-alone"));
 assert.ok(ids(result.safeRenderableEvents).includes("survivor-runway-begins"));
 assert.ok(ids(result.safeRenderableEvents).includes("resources-run-out"));
 assert.ok(ids(result.safeRenderableEvents).includes("monthly-support-gap-begins"));
@@ -229,10 +228,10 @@ assert.ok(result.majorStoryCandidates.length <= 6);
 assert.ok(result.majorGraphDotCandidates.length <= 6);
 assert.ok(result.microGraphDotCandidates.length <= 10);
 assert.ok(result.graphDotCandidates.length <= 16);
-assert.equal(result.allCandidates.length, 31);
-assert.equal(result.safeRenderableEvents.length, 14);
-assert.equal(result.majorStoryCandidates.length, 4);
-assert.equal(result.graphDotCandidates.length, 5);
+assert.equal(result.allCandidates.length, 29);
+assert.equal(result.safeRenderableEvents.length, 12);
+assert.equal(result.majorStoryCandidates.length, 5);
+assert.equal(result.graphDotCandidates.length, 4);
 assert.equal(result.trace.safeRenderableCount, result.safeRenderableEvents.length);
 assert.equal(result.trace.majorStoryCandidateLimit, 6);
 assert.equal(result.trace.graphDotCandidateLimit, 16);
@@ -268,10 +267,10 @@ assert.equal(result.trace.mechanicalDetailSuppressedCount, mechanicalVisibleSupp
 assert.equal(result.trace.storyRoleCounts.mechanical, mechanicalVisibleSuppressedIds.length);
 assert.equal(result.trace.storyRoleCounts.detail, 1);
 assert.ok(result.trace.visibleEmotionalEventIds.includes("resources-run-out"));
-assert.equal(result.trace.selectorSuppressedCountsByReason["family-diversity"], 1);
-assert.equal(result.trace.selectorSuppressedCountsByReason["data-gap-lower-priority"], 1);
+assert.equal(result.trace.selectorSuppressedCountsByReason["family-diversity"] || 0, 0);
+assert.equal(result.trace.selectorSuppressedCountsByReason["data-gap-lower-priority"] || 0, 0);
 assert.equal(result.trace.selectorSuppressedCountsByReason["duplicate-major-dot"], 4);
-assert.equal(result.trace.selectorSuppressedCountsByReason["mechanical-detail-hidden"], 8);
+assert.equal(result.trace.selectorSuppressedCountsByReason["mechanical-detail-hidden"], 7);
 assert.ok(
   result.suppressedCandidates.some(function (candidate) {
     return candidate.id === "life-insurance-proceeds-applied"
@@ -1109,10 +1108,10 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
-assert.equal(selectorResult.allCandidates.length, 41);
-assert.equal(selectorResult.safeRenderableEvents.length, 24);
+assert.equal(selectorResult.allCandidates.length, 39);
+assert.equal(selectorResult.safeRenderableEvents.length, 22);
 assert.equal(selectorResult.majorStoryCandidates.length, 6);
-assert.equal(selectorResult.graphDotCandidates.length, 15);
+assert.equal(selectorResult.graphDotCandidates.length, 14);
 assert.equal(selectorResult.trace.safeRenderableCount, selectorResult.safeRenderableEvents.length);
 assert.equal(selectorResult.trace.majorStoryCandidateLimit, 6);
 assert.equal(selectorResult.trace.graphDotCandidateLimit, 16);

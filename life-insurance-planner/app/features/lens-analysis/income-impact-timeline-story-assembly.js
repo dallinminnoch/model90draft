@@ -414,10 +414,20 @@
     if (!text || category === "dataConfidence") {
       return null;
     }
-    if (hasTextPart(text, ["auto-compression", "auto-compressed", "compression", "compress", "compressed-expense", "expense-compression"])) {
+    const triggerId = normalizeKey(firstString([
+      event?.trace?.triggerId,
+      event?.trace?.supportingDotTriggerId,
+      event?.sourceEventId,
+      event?.eventId,
+      event?.id,
+      event?.ruleId
+    ]));
+    const candidateSource = normalizeKey(event?.trace?.candidateSource || event?.candidateSource);
+    const sourceBackedSupportingTrigger = candidateSource === "supporting-dot-trigger";
+    if (triggerId === "spending-begins-to-compress" && sourceBackedSupportingTrigger) {
       return "spendingCompression";
     }
-    if (hasTextPart(text, ["survivor-income-begins", "survivor-income-starts", "survivor-income-available", "survivor-income-delay", "survivor-income"])) {
+    if (triggerId === "survivor-income-begins" && sourceBackedSupportingTrigger) {
       return "survivorIncomeBegins";
     }
     if (hasTextPart(text, ["coverage-extends", "coverage-extension", "coverage-extends-the-runway", "coverage-added", "coverage-helps", "existing-coverage"])) {

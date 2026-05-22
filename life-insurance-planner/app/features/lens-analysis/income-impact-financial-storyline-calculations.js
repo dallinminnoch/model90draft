@@ -465,6 +465,40 @@
       advisorUsefulness: 0.9
     },
     {
+      id: "spending-begins-to-compress",
+      family: EVENT_FAMILIES.lifestyleRisk,
+      displayLabel: "Spending Begins to Compress",
+      graphLabel: "Spending compresses",
+      cardTitle: "Spending Begins to Compress",
+      description: "Auto-compression reduces modeled survivor expenses below the baseline.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 72,
+      storyRole: STORY_EVENT_ROLES.detail,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.62,
+      emotionalWeight: 0.4,
+      advisorUsefulness: 0.78
+    },
+    {
+      id: "survivor-income-begins",
+      family: EVENT_FAMILIES.income,
+      displayLabel: "Survivor Income Begins",
+      graphLabel: "Income begins",
+      cardTitle: "Survivor Income Begins",
+      description: "Enabled survivor income starts after a modeled post-death delay.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.traceBacked,
+      priority: 73,
+      storyRole: STORY_EVENT_ROLES.detail,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.66,
+      emotionalWeight: 0.42,
+      advisorUsefulness: 0.82
+    },
+    {
       id: "survivor-runway-begins",
       family: EVENT_FAMILIES.runway,
       displayLabel: "Survivor Runway Begins",
@@ -1347,6 +1381,11 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function roundMoney(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
+  }
+
   function getPath(source, path) {
     const normalizedPath = normalizeString(path);
     if (!normalizedPath) {
@@ -1666,15 +1705,6 @@
     return getInputIssues(input).length > 0;
   }
 
-  function getSurvivorIncomeAmount(rootSource) {
-    return firstNumberAtPath(rootSource, [
-      "scenario.trace.layer3.survivorIncome.annualAmount",
-      "scenario.postDeathSeries.layer3.trace.survivorIncome.annualAmount",
-      "scenario.postDeathSeries.layer3.summary.annualSurvivorIncome",
-      "financialRunway.annualSurvivorIncome"
-    ]);
-  }
-
   function getSupportGapAmount(rootSource) {
     return firstNumberAtPath(rootSource, [
       "financialRunway.annualShortfall",
@@ -1777,18 +1807,6 @@
         confidence: 0.72
       }));
     }
-    const survivorIncome = getSurvivorIncomeAmount(rootSource);
-    if (survivorIncome && survivorIncome.value > 0) {
-      candidates.push(makeCandidate(findDefinition("survivor-income-helps-offset-need"), {
-        timing: getRunwayStartTiming(rootSource),
-        amount: {
-          value: survivorIncome.value,
-          sourcePath: survivorIncome.sourcePath
-        },
-        sourcePaths: [survivorIncome.sourcePath]
-      }));
-    }
-
     const supportGap = getSupportGapAmount(rootSource);
     const accumulatedUnmetNeed = firstNumberAtPath(rootSource, [
       "scenario.timelineFacts.accumulatedUnmetNeed",
@@ -1813,16 +1831,6 @@
             sourcePath: supportGap.sourcePath
           },
           sourcePaths: [supportGap.sourcePath]
-        }));
-      }
-      if (survivorIncome && survivorIncome.value > 0) {
-        candidates.push(makeCandidate(findDefinition("survivor-income-not-enough-alone"), {
-          timing: getRunwayStartTiming(rootSource),
-          amount: {
-            value: source.value,
-            sourcePath: source.sourcePath
-          },
-          sourcePaths: [survivorIncome.sourcePath, source.sourcePath]
         }));
       }
     }
@@ -3092,6 +3100,227 @@
     };
   }
 
+  function getScenarioPoints(input) {
+    return Array.isArray(input?.scenario?.postDeathSeries?.points)
+      ? input.scenario.postDeathSeries.points
+      : [];
+  }
+
+  function getPointMonthOffset(point, fallbackIndex) {
+    const month = toOptionalNumber(
+      point?.monthIndex
+      ?? point?.periodMonthIndex
+      ?? point?.monthNumber
+      ?? point?.elapsedMonths
+      ?? point?.projectionMonth
+    );
+    return month == null ? fallbackIndex + 1 : month;
+  }
+
+  function scenarioHasAutoCompressionApplied(input, points) {
+    return input?.scenario?.trace?.autoCompressedBaselineApplied === true
+      || input?.scenario?.postDeathSeries?.trace?.autoCompressedBaselineApplied === true
+      || (Array.isArray(points) && points.some(function (point) {
+        return point?.trace?.autoCompressedBaselineApplied === true;
+      }));
+  }
+
+  function getActualExpenseCompressionReduction(input) {
+    const points = getScenarioPoints(input);
+    if (!points.length || !scenarioHasAutoCompressionApplied(input, points)) {
+      return null;
+    }
+
+    for (let index = 0; index < points.length; index += 1) {
+      const point = points[index];
+      const monthlyDelta = toOptionalNumber(point?.monthlyHouseholdExpenseDelta ?? point?.trace?.monthlyHouseholdExpenseDelta);
+      if (monthlyDelta == null || monthlyDelta >= 0) {
+        continue;
+      }
+      const compressedExpenseAmount = toOptionalNumber(point?.survivorNeeds);
+      const baselineExpenseAmount = compressedExpenseAmount == null
+        ? null
+        : roundMoney(compressedExpenseAmount - monthlyDelta);
+      const reductionAmount = roundMoney(Math.abs(monthlyDelta));
+      return {
+        monthIndex: getPointMonthOffset(point, index),
+        baselineExpenseAmount,
+        compressedExpenseAmount,
+        reductionAmount,
+        reductionPercentage: baselineExpenseAmount && baselineExpenseAmount > 0
+          ? Number(((reductionAmount / baselineExpenseAmount) * 100).toFixed(2))
+          : null,
+        sourcePaths: [
+          "scenario.postDeathSeries.points[].monthlyHouseholdExpenseDelta",
+          "scenario.postDeathSeries.points[].trace.autoCompressedBaselineApplied"
+        ],
+        trace: {
+          sourcePointIndex: index,
+          autoCompressedBaselineApplied: true,
+          formula: normalizeString(input?.scenario?.trace?.compressionPath?.formula)
+            || normalizeString(input?.scenario?.postDeathSeries?.trace?.formula)
+            || null,
+          compressionHorizon: clonePlainValue(input?.scenario?.trace?.compressionHorizon || null),
+          compressionPath: clonePlainValue(input?.scenario?.trace?.compressionPath || null),
+          monthlyHouseholdExpenseDelta: monthlyDelta,
+          cumulativeHouseholdExpenseDelta: toOptionalNumber(point?.cumulativeHouseholdExpenseDelta ?? point?.trace?.cumulativeHouseholdExpenseDelta),
+          autoCompressionProgress: toOptionalNumber(point?.trace?.autoCompressionProgress)
+        }
+      };
+    }
+
+    return null;
+  }
+
+  function getSurvivorIncomeTrace(input) {
+    const candidates = [
+      input?.scenario?.trace?.layer3?.survivorIncome,
+      input?.scenario?.postDeathSeries?.layer3?.trace?.survivorIncome,
+      input?.scenario?.postDeathSeries?.trace?.survivorIncome
+    ];
+    return candidates.find(isPlainObject) || null;
+  }
+
+  function getFirstPositiveSurvivorIncomeMonth(input, delayMonths) {
+    const points = getScenarioPoints(input);
+    for (let index = 0; index < points.length; index += 1) {
+      const survivorIncome = toOptionalNumber(points[index]?.survivorIncome);
+      if (survivorIncome != null && survivorIncome > 0) {
+        return getPointMonthOffset(points[index], index);
+      }
+    }
+    return delayMonths + 1;
+  }
+
+  function getDelayedSurvivorIncomeStart(input) {
+    const survivorIncomeTrace = getSurvivorIncomeTrace(input);
+    if (!isPlainObject(survivorIncomeTrace)) {
+      return null;
+    }
+    if (normalizeString(survivorIncomeTrace.status) === "suppressed") {
+      return null;
+    }
+    const annualAmount = toOptionalNumber(survivorIncomeTrace.annualAmount);
+    const delayMonths = toOptionalNumber(survivorIncomeTrace.startDelayMonths);
+    if (annualAmount == null || annualAmount <= 0 || delayMonths == null || delayMonths <= 0) {
+      return null;
+    }
+    const monthlyAmount = roundMoney(annualAmount / 12);
+    const startMonth = getFirstPositiveSurvivorIncomeMonth(input, delayMonths);
+    return {
+      monthIndex: startMonth,
+      monthlyAmount,
+      annualAmount,
+      startDelayMonths: delayMonths,
+      startMonth,
+      sourcePaths: uniqueStrings(survivorIncomeTrace.sourcePaths || [
+        "scenario.trace.layer3.survivorIncome",
+        "lensModel.survivorScenario.survivorNetAnnualIncome",
+        "lensModel.survivorScenario.survivorIncomeStartDelayMonths"
+      ]),
+      trace: {
+        survivorIncomeTrace: clonePlainValue(survivorIncomeTrace),
+        assumptionControlSource: survivorIncomeTrace.scenarioOverride === true
+          ? "scenarioOptions.includeSurvivorIncome"
+          : "analysisSettings.survivorSupportAssumptions",
+        startDelayMonths: delayMonths,
+        startMonth,
+        monthlySurvivorIncomeAmount: monthlyAmount
+      }
+    };
+  }
+
+  function makeSupportingDotTriggerCandidate(candidateId, config) {
+    const definition = findDefinition(candidateId);
+    if (!definition) {
+      return null;
+    }
+    const safeConfig = isPlainObject(config) ? config : {};
+    const monthIndex = toOptionalNumber(safeConfig.monthIndex);
+    const amountValue = toOptionalNumber(safeConfig.amountValue);
+    const candidate = makeCandidate(definition, {
+      status: STATUSES.safeNow,
+      safeToRender: true,
+      evidenceLevel: safeConfig.evidenceLevel || definition.evidenceLevel,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      timingKind: "month-offset",
+      timing: {
+        monthOffset: monthIndex,
+        label: monthIndex == null ? definition.displayLabel : `Month ${monthIndex}`,
+        sourcePath: safeConfig.sourcePath || "scenario.postDeathSeries.points"
+      },
+      amount: {
+        value: amountValue,
+        sourcePath: safeConfig.amountSourcePath || safeConfig.sourcePath || "scenario.postDeathSeries.points"
+      },
+      sourcePaths: uniqueStrings(safeConfig.sourcePaths || [safeConfig.sourcePath || "scenario.postDeathSeries.points"]),
+      confidence: safeConfig.confidence ?? 0.88,
+      priority: safeConfig.priority ?? definition.priority,
+      suppressionKeys: safeConfig.suppressionKeys || [`supporting-dot-trigger:${candidateId}`]
+    });
+    candidate.candidateSource = "supporting-dot-trigger";
+    candidate.supportingDotOnly = true;
+    candidate.supportingDotEligible = true;
+    candidate.trace = Object.assign({
+      candidateSource: "supporting-dot-trigger",
+      triggerId: candidateId,
+      monthIndex,
+      supportingDotOnly: true,
+      aggregateRunwayPreserved: true,
+      graphLineSource: "aggregate-survivor-runway"
+    }, clonePlainValue(safeConfig.trace || {}));
+    return candidate;
+  }
+
+  function buildSupportingDotTriggerCandidates(input) {
+    const candidates = [];
+    const compressionReduction = getActualExpenseCompressionReduction(input);
+    if (compressionReduction) {
+      candidates.push(makeSupportingDotTriggerCandidate("spending-begins-to-compress", {
+        monthIndex: compressionReduction.monthIndex,
+        amountValue: compressionReduction.reductionAmount,
+        sourcePath: "scenario.postDeathSeries.points[].monthlyHouseholdExpenseDelta",
+        sourcePaths: compressionReduction.sourcePaths,
+        trace: Object.assign({
+          baselineExpenseAmount: compressionReduction.baselineExpenseAmount,
+          compressedExpenseAmount: compressionReduction.compressedExpenseAmount,
+          reductionAmount: compressionReduction.reductionAmount,
+          reductionPercentage: compressionReduction.reductionPercentage
+        }, compressionReduction.trace)
+      }));
+    }
+
+    const survivorIncomeStart = getDelayedSurvivorIncomeStart(input);
+    if (survivorIncomeStart) {
+      candidates.push(makeSupportingDotTriggerCandidate("survivor-income-begins", {
+        monthIndex: survivorIncomeStart.monthIndex,
+        amountValue: survivorIncomeStart.monthlyAmount,
+        sourcePath: "scenario.trace.layer3.survivorIncome",
+        sourcePaths: survivorIncomeStart.sourcePaths,
+        trace: Object.assign({
+          monthlySurvivorIncomeAmount: survivorIncomeStart.monthlyAmount,
+          annualSurvivorIncomeAmount: survivorIncomeStart.annualAmount,
+          startDelayMonths: survivorIncomeStart.startDelayMonths,
+          startMonth: survivorIncomeStart.startMonth
+        }, survivorIncomeStart.trace)
+      }));
+    }
+
+    const compacted = compactObjects(candidates);
+    return {
+      candidates: dedupeCandidates(compacted),
+      suppressedCandidates: [],
+      usedForStoryline: compacted.length > 0,
+      trace: {
+        candidateIds: compacted.map(function (candidate) { return candidate.id; }),
+        compressionReductionDetected: Boolean(compressionReduction),
+        survivorIncomeDelayedStartDetected: Boolean(survivorIncomeStart),
+        sourcePolicy: "source-backed-supporting-dot-triggers"
+      }
+    };
+  }
+
   function getHousingRiskEvents(housingRisk) {
     if (!isPlainObject(housingRisk)) {
       return [];
@@ -3932,12 +4161,14 @@
       warnings
     );
     const debtTriggers = buildDebtRequiredPaymentTriggerCandidates(safeInput, warnings);
+    const supportingDotTriggers = buildSupportingDotTriggerCandidates(safeInput);
     const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
     const safeCandidates = dedupeCandidates(
       buildSafeCandidates(safeInput, warnings)
         .concat(ledgerBacked.candidates)
         .concat(liquidityTriggers.candidates)
         .concat(debtTriggers.candidates)
+        .concat(supportingDotTriggers.candidates)
         .concat(housingRiskBacked.candidates)
     );
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
@@ -3997,6 +4228,8 @@
       liquidityTriggerTrace: clonePlainValue(liquidityTriggers.trace),
       debtTriggerCandidateIds: debtTriggers.candidates.map(function (candidate) { return candidate.id; }),
       debtTriggerTrace: clonePlainValue(debtTriggers.trace),
+      supportingDotTriggerCandidateIds: supportingDotTriggers.candidates.map(function (candidate) { return candidate.id; }),
+      supportingDotTriggerTrace: clonePlainValue(supportingDotTriggers.trace),
       graphLineSource: "aggregate-survivor-runway"
     };
     if (isPlainObject(safeInput.assetDepletionLedger)) {
@@ -4024,6 +4257,7 @@
       suppressedCandidates: ledgerBacked.suppressedCandidates
         .concat(liquidityTriggers.suppressedCandidates)
         .concat(debtTriggers.suppressedCandidates)
+        .concat(supportingDotTriggers.suppressedCandidates)
         .concat(housingRiskBacked.suppressedCandidates)
         .concat(selectionSuppressedCandidates),
       warnings,

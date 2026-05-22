@@ -182,8 +182,12 @@ const timedEvents = [
   makeEvent("retirement-assets-tapped", 7, "retirement-waterfall", "critical", "Retirement Assets Tapped"),
   makeEvent("cash-savings-depleted", 8, "cash-waterfall", "critical", "Cash Savings Depleted"),
   makeEvent("rent-payment-pressure", 9, "housing-risk", "caution", "Rent Payment Pressure"),
-  makeEvent("expense-compression-starts", 10, "expense-compression", "caution", "Auto-Compressed Expenses Begin"),
-  makeEvent("survivor-income-begins", 11, "survivor-income", "stable", "Survivor Income Begins"),
+  makeEvent("spending-begins-to-compress", 10, "expense-compression", "caution", "Spending Begins to Compress", {
+    trace: { candidateSource: "supporting-dot-trigger", triggerId: "spending-begins-to-compress" }
+  }),
+  makeEvent("survivor-income-begins", 11, "survivor-income", "stable", "Survivor Income Begins", {
+    trace: { candidateSource: "supporting-dot-trigger", triggerId: "survivor-income-begins" }
+  }),
   makeEvent("coverage-extends-runway", 12, "coverage", "stable", "Coverage Extends the Runway"),
   makeEvent("coverage-runs-out-before-needs-end", 13, "coverage", "at-risk", "Coverage Runs Out Before Needs End"),
   makeEvent("data-confidence-limited", null, "data-quality", "unknown", "Data Confidence Limited"),
@@ -352,8 +356,12 @@ assertNoMutation(runoutInput, function () {
 const supportingOnlyResult = build({
   financialStoryline: {
     safeRenderableEvents: [
-      makeEvent("expense-compression-starts", 1, "expense-compression", "critical", "Auto-Compressed Expenses Begin"),
-      makeEvent("survivor-income-begins", 2, "survivor-income", "critical", "Survivor Income Begins"),
+      makeEvent("spending-begins-to-compress", 1, "expense-compression", "critical", "Spending Begins to Compress", {
+        trace: { candidateSource: "supporting-dot-trigger", triggerId: "spending-begins-to-compress" }
+      }),
+      makeEvent("survivor-income-begins", 2, "survivor-income", "critical", "Survivor Income Begins", {
+        trace: { candidateSource: "supporting-dot-trigger", triggerId: "survivor-income-begins" }
+      }),
       makeEvent("coverage-extends-runway", 3, "coverage", "stable", "Coverage Extends the Runway")
     ]
   },
@@ -373,7 +381,7 @@ assert.deepEqual(
     return [dot.sourceEventId, dot.title, dot.tone];
   }),
   [
-    ["expense-compression-starts", "Spending Begins to Compress", "caution"],
+    ["spending-begins-to-compress", "Spending Begins to Compress", "caution"],
     ["survivor-income-begins", "Survivor Income Begins", "stable"],
     ["coverage-extends-runway", "Coverage Extends the Runway", "caution"]
   ],
@@ -384,6 +392,25 @@ assert.equal(
     return item.reason === "supporting-dot-only";
   }).length,
   3
+);
+
+const genericSupportingSourceResult = build({
+  financialStoryline: {
+    safeRenderableEvents: [
+      makeEvent("expense-compression-starts", 1, "expense-compression", "caution", "Auto-Compressed Expenses Begin"),
+      makeEvent("survivor-income-delay", 2, "survivor-income", "stable", "Survivor Income Delay")
+    ]
+  },
+  options: {
+    supportingGraphDotLimit: 5
+  }
+});
+assert.equal(
+  genericSupportingSourceResult.supportingGraphDots.some(function (dot) {
+    return dot.title === "Spending Begins to Compress" || dot.title === "Survivor Income Begins";
+  }),
+  false,
+  "Compression and survivor income supporting dots should require explicit source-backed trigger ids."
 );
 
 const coverageRunsOutResult = build({
