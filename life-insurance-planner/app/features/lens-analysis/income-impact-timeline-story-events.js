@@ -4,6 +4,15 @@
 
   const VERSION = "income-impact-timeline-story-events-v1";
   const SOURCE = "income-impact-timeline-story-events";
+  const visibleEventContract = lensAnalysis.incomeImpactVisibleEventContract || (function () {
+    try {
+      return typeof require === "function"
+        ? require("./income-impact-visible-event-contract.js")
+        : null;
+    } catch (error) {
+      return null;
+    }
+  })() || {};
   const SHORT_LABEL_MAX_LENGTH = 32;
 
   const SEVERITY_ORDER = Object.freeze({
@@ -222,7 +231,7 @@
       warnings.push("severity-inferred");
     }
 
-    return {
+    const baseEvent = {
       id,
       source: config.source,
       kind: config.kind,
@@ -283,6 +292,42 @@
       },
       _order: config.order
     };
+    if (typeof visibleEventContract.normalizeIncomeImpactVisibleEvent !== "function") {
+      return baseEvent;
+    }
+    const contracted = visibleEventContract.normalizeIncomeImpactVisibleEvent(baseEvent, {
+      sourceEventId: id,
+      relativeMonth: month,
+      title
+    });
+    return Object.assign({}, baseEvent, {
+      title: contracted.mappedCardTitle || contracted.title || baseEvent.title,
+      visibleEventKey: contracted.visibleEventKey || baseEvent.visibleEventKey,
+      cardConceptId: contracted.cardConceptId || baseEvent.cardConceptId,
+      conceptId: contracted.conceptId || baseEvent.conceptId,
+      storyStage: contracted.storyStage || baseEvent.storyStage,
+      bucketFamily: contracted.bucketFamily || baseEvent.bucketFamily,
+      bucketId: contracted.bucketId || baseEvent.bucketId,
+      eventState: contracted.eventState || baseEvent.eventState,
+      stateRank: contracted.stateRank ?? baseEvent.stateRank,
+      visibilityRoute: contracted.visibilityRoute || "",
+      supportingDotEligible: contracted.supportingDotEligible === true,
+      supportingDotOnly: contracted.supportingOnly === true || baseEvent.supportingDotOnly === true,
+      mainCardEligible: contracted.mainEligible === true && baseEvent.eligibleForMajorCard !== false,
+      eligibleForGraphDot: contracted.graphDotEligible === true && baseEvent.eligibleForGraphDot !== false,
+      eligibleForMajorCard: contracted.mainEligible === true && baseEvent.eligibleForMajorCard !== false,
+      trace: Object.assign({}, baseEvent.trace, {
+        visibleEventKey: contracted.visibleEventKey || null,
+        cardConceptId: contracted.cardConceptId || null,
+        conceptId: contracted.conceptId || null,
+        storyStage: contracted.storyStage || null,
+        bucketFamily: contracted.bucketFamily || null,
+        bucketId: contracted.bucketId || null,
+        eventState: contracted.eventState || null,
+        stateRank: contracted.stateRank ?? null,
+        visibilityRoute: contracted.visibilityRoute || null
+      })
+    });
   }
 
   function addNormalizedEvent(target, warnings, event, config) {

@@ -4,6 +4,15 @@
 
   const VERSION = "income-impact-timeline-story-assembly-v1";
   const SOURCE = "income-impact-timeline-story-assembly";
+  const visibleEventContract = lensAnalysis.incomeImpactVisibleEventContract || (function () {
+    try {
+      return typeof require === "function"
+        ? require("./income-impact-visible-event-contract.js")
+        : null;
+    } catch (error) {
+      return null;
+    }
+  })() || {};
   const STORY_STEP_TARGET = 9;
   const INTERMEDIATE_STEP_TARGET = 7;
   const DEFAULT_SUPPORTING_DOT_LIMIT = 10;
@@ -625,7 +634,9 @@
   function isNonApplicableEvent(event) {
     const status = normalizeKey(event?.status);
     const evidence = normalizeKey(event?.evidenceLevel);
+    const route = normalizeKey(event?.visibilityRoute || event?.route || event?.trace?.visibilityRoute);
     return event?.safeToRender === false
+      || route === "forbidden"
       || status === "deferred"
       || status === "unsupported"
       || evidence === "unsupported"
@@ -651,21 +662,55 @@
     const rawTitle = getTitle(event, sourceEventId);
     const category = normalizeCategory(event);
     const tone = normalizeTone(event);
-    const cardMapping = resolveApprovedCardMapping(event, rawTitle, category, tone);
-    const visibleIdentity = resolveVisibleEventIdentity(event, sourceEventId, category, tone, cardMapping, relativeMonth, rawTitle);
+    const contractedEvent = typeof visibleEventContract.normalizeIncomeImpactVisibleEvent === "function"
+      ? visibleEventContract.normalizeIncomeImpactVisibleEvent(event, {
+        sourceEventId,
+        relativeMonth,
+        title: rawTitle
+      })
+      : null;
+    const fallbackCardMapping = resolveApprovedCardMapping(event, rawTitle, category, tone);
+    const cardMapping = contractedEvent ? {
+      concept: contractedEvent.cardConceptId || contractedEvent.conceptId || fallbackCardMapping.concept,
+      title: contractedEvent.mappedCardTitle || contractedEvent.title || fallbackCardMapping.title,
+      mainCardEligible: contractedEvent.mainEligible === true,
+      supportingDotEligible: contractedEvent.supportingDotEligible === true,
+      supportingDotConcept: contractedEvent.conceptId || contractedEvent.cardConceptId || fallbackCardMapping.supportingDotConcept,
+      supportingDotTitle: contractedEvent.supportingOnly === true ? contractedEvent.mappedCardTitle || contractedEvent.title : "",
+      supportingDotTone: contractedEvent.supportingOnly === true ? contractedEvent.tone || tone : null
+    } : fallbackCardMapping;
+    const visibleIdentity = contractedEvent ? {
+      visibleEventKey: contractedEvent.visibleEventKey,
+      cardConceptId: contractedEvent.cardConceptId,
+      conceptId: contractedEvent.conceptId,
+      storyStage: contractedEvent.storyStage,
+      category: contractedEvent.category || category,
+      bucketFamily: contractedEvent.bucketFamily,
+      bucketId: contractedEvent.bucketId,
+      eventState: contractedEvent.eventState,
+      stateRank: contractedEvent.stateRank,
+      relativeMonth,
+      tone: contractedEvent.tone || tone
+    } : resolveVisibleEventIdentity(event, sourceEventId, category, tone, cardMapping, relativeMonth, rawTitle);
     const sourceBlocksMainCard = event.supportingDotOnly === true
       || event.eligibleForMajorCard === false
       || event.mainCardEligible === false;
     const sourceSupportsDot = event.supportingDotEligible === true
       || event.supportingDotOnly === true
       || (sourceBlocksMainCard && event.eligibleForGraphDot === true);
+    const contractBlocksMainCard = contractedEvent
+      ? contractedEvent.mainEligible !== true
+      : false;
+    const contractSupportsDot = contractedEvent
+      ? contractedEvent.supportingDotEligible === true
+      : false;
     return {
       id: sourceEventId,
       source,
       sourceIndex: index,
       sourceEventId,
-      category,
-      tone,
+      category: contractedEvent?.category || category,
+      tone: contractedEvent?.tone || tone,
       title: rawTitle,
       rawTitle,
       approvedCardTitle: cardMapping.title,
@@ -678,11 +723,14 @@
       bucketId: visibleIdentity.bucketId,
       eventState: visibleIdentity.eventState,
       stateRank: visibleIdentity.stateRank,
-      mainCardEligible: sourceBlocksMainCard ? false : cardMapping.mainCardEligible,
+      visibilityRoute: contractedEvent?.visibilityRoute || "",
+      supportingOnly: contractedEvent?.supportingOnly === true || event.supportingDotOnly === true,
+      detailOnly: contractedEvent?.detailOnly === true,
+      mainCardEligible: (sourceBlocksMainCard || contractBlocksMainCard) ? false : cardMapping.mainCardEligible,
       supportingDotConcept: cardMapping.supportingDotConcept,
       supportingDotTitle: cardMapping.supportingDotTitle || (sourceSupportsDot ? rawTitle : ""),
       supportingDotTone: cardMapping.supportingDotTone || (sourceSupportsDot ? tone : null),
-      supportingDotEligible: Boolean(cardMapping.supportingDotEligible || sourceSupportsDot),
+      supportingDotEligible: Boolean(cardMapping.supportingDotEligible || sourceSupportsDot || contractSupportsDot),
       shortLabel: firstString([event.shortLabel, event.graphLabel, event.displayLabel, event.markerLabel, rawTitle]),
       relativeMonth,
       timingLabel: formatTimingLabel(relativeMonth),
@@ -727,6 +775,9 @@
     existing.bucketId = existing.bucketId || incoming.bucketId;
     existing.eventState = existing.eventState || incoming.eventState;
     existing.stateRank = existing.stateRank == null ? incoming.stateRank : existing.stateRank;
+    existing.visibilityRoute = existing.visibilityRoute || incoming.visibilityRoute;
+    existing.supportingOnly = existing.supportingOnly || incoming.supportingOnly;
+    existing.detailOnly = existing.detailOnly || incoming.detailOnly;
     existing.mainCardEligible = Boolean(existing.mainCardEligible || incoming.mainCardEligible);
     existing.supportingDotConcept = existing.supportingDotConcept || incoming.supportingDotConcept;
     existing.supportingDotTitle = existing.supportingDotTitle || incoming.supportingDotTitle;
@@ -826,6 +877,18 @@
   }
 
   function applyVisibleEventContract(events, suppressed, trace) {
+    if (typeof visibleEventContract.applyIncomeImpactVisibleEventContract === "function") {
+      const result = visibleEventContract.applyIncomeImpactVisibleEventContract(events, {
+        source: SOURCE
+      });
+      (Array.isArray(result.suppressed) ? result.suppressed : []).forEach(function (item) {
+        suppressed.push(makeSuppressed(item.event || item, item.reason || "visible-event-contract"));
+      });
+      trace.visibleEventDuplicateSuppressionCount += toOptionalNumber(result.trace?.duplicateVisibleEventKeySuppressedCount) || 0;
+      trace.visibleStatePrecedenceSuppressionCount += toOptionalNumber(result.trace?.statePrecedenceSuppressedCount) || 0;
+      trace.visibleEventContractTrace = clonePlainValue(result.trace || null);
+      return result.events;
+    }
     const keyed = applyVisibleEventKeyDedupe(events, suppressed, trace);
     return applyVisibleStatePrecedence(keyed, suppressed, trace);
   }
@@ -1013,6 +1076,7 @@
       bucketId: event?.bucketId || null,
       eventState: event?.eventState || null,
       stateRank: event?.stateRank ?? null,
+      visibilityRoute: event?.visibilityRoute || null,
       trace: {
         source: SOURCE,
         originalSource: event?.source || null,
@@ -1027,6 +1091,7 @@
         bucketId: event?.bucketId || null,
         eventState: event?.eventState || null,
         stateRank: event?.stateRank ?? null,
+        visibilityRoute: event?.visibilityRoute || null,
         supportingDotTitle: event?.supportingDotTitle || null,
         supportingDotConcept: event?.supportingDotConcept || null
       }
@@ -1055,6 +1120,7 @@
       bucketId: input.bucketId || null,
       eventState: input.eventState || null,
       stateRank: input.stateRank ?? null,
+      visibilityRoute: input.visibilityRoute || null,
       trace: Object.assign({
         source: SOURCE
       }, isPlainObject(input.trace) ? input.trace : {})
@@ -1076,6 +1142,7 @@
       bucketId: step.bucketId || null,
       eventState: step.eventState || null,
       stateRank: step.stateRank ?? null,
+      visibilityRoute: step.visibilityRoute || null,
       trace: {
         source: SOURCE,
         role,
@@ -1086,7 +1153,8 @@
         bucketFamily: step.bucketFamily || null,
         bucketId: step.bucketId || null,
         eventState: step.eventState || null,
-        stateRank: step.stateRank ?? null
+        stateRank: step.stateRank ?? null,
+        visibilityRoute: step.visibilityRoute || null
       }
     };
   }
@@ -1107,6 +1175,35 @@
     step.graphDotId = dot.id;
     majorGraphDots.push(dot);
     connectors.push(makeConnector(step, dot));
+  }
+
+  function buildSyntheticVisibleIdentity(sourceEventId, title, relativeMonth, tone) {
+    if (typeof visibleEventContract.normalizeIncomeImpactVisibleEvent !== "function") {
+      return {};
+    }
+    const contracted = visibleEventContract.normalizeIncomeImpactVisibleEvent({
+      id: sourceEventId,
+      sourceEventId,
+      title,
+      cardTitle: title,
+      displayLabel: title,
+      graphLabel: title,
+      relativeMonth,
+      tone
+    }, {
+      source: SOURCE
+    });
+    return {
+      visibleEventKey: contracted.visibleEventKey || null,
+      cardConceptId: contracted.cardConceptId || null,
+      conceptId: contracted.conceptId || null,
+      storyStage: contracted.storyStage || null,
+      bucketFamily: contracted.bucketFamily || null,
+      bucketId: contracted.bucketId || null,
+      eventState: contracted.eventState || null,
+      stateRank: contracted.stateRank ?? null,
+      visibilityRoute: contracted.visibilityRoute || null
+    };
   }
 
   function makeStepFromEvent(event, stepNumber) {
@@ -1131,6 +1228,7 @@
       bucketId: event.bucketId,
       eventState: event.eventState,
       stateRank: event.stateRank,
+      visibilityRoute: event.visibilityRoute,
       trace: {
         originalSource: event.source,
         traceSources: clonePlainValue(event.traceSources || [event.source]),
@@ -1144,7 +1242,8 @@
         bucketFamily: event.bucketFamily || null,
         bucketId: event.bucketId || null,
         eventState: event.eventState || null,
-        stateRank: event.stateRank ?? null
+        stateRank: event.stateRank ?? null,
+        visibilityRoute: event.visibilityRoute || null
       }
     });
   }
@@ -1185,6 +1284,7 @@
           bucketId: event.bucketId || null,
           eventState: event.eventState || null,
           stateRank: event.stateRank ?? null,
+          visibilityRoute: event.visibilityRoute || null,
           trace: {
             source: SOURCE,
             originalSource: event.source,
@@ -1201,6 +1301,7 @@
             bucketId: event.bucketId || null,
             eventState: event.eventState || null,
             stateRank: event.stateRank ?? null,
+            visibilityRoute: event.visibilityRoute || null,
             noDefaultLabel: true
           }
         };
@@ -1248,6 +1349,12 @@
     const selectedEvents = selectIntermediateEvents(sourceEvents, suppressed, trace);
     const majorGraphDots = [];
     const connectors = [];
+    const deathVisibleIdentity = buildSyntheticVisibleIdentity(
+      "death-income-stops",
+      "Income Stops at Death",
+      0,
+      "critical"
+    );
 
     const storySteps = [
       makeStoryStep({
@@ -1263,12 +1370,30 @@
         relativeMonth: 0,
         graphDotId: null,
         sourceEventId: "death-income-stops",
+        visibleEventKey: deathVisibleIdentity.visibleEventKey,
+        cardConceptId: deathVisibleIdentity.cardConceptId,
+        conceptId: deathVisibleIdentity.conceptId,
+        storyStage: deathVisibleIdentity.storyStage,
+        bucketFamily: deathVisibleIdentity.bucketFamily,
+        bucketId: deathVisibleIdentity.bucketId,
+        eventState: deathVisibleIdentity.eventState,
+        stateRank: deathVisibleIdentity.stateRank,
+        visibilityRoute: deathVisibleIdentity.visibilityRoute,
         trace: {
           synthesized: true,
           graphMarkerOwnsDot: true,
           originalSourceTitle: "Death / Income Stops",
           mappedCardTitle: "Income Stops at Death",
-          cardConcept: "deathIncomeTrigger"
+          cardConcept: "deathIncomeTrigger",
+          visibleEventKey: deathVisibleIdentity.visibleEventKey || null,
+          cardConceptId: deathVisibleIdentity.cardConceptId || null,
+          conceptId: deathVisibleIdentity.conceptId || null,
+          storyStage: deathVisibleIdentity.storyStage || null,
+          bucketFamily: deathVisibleIdentity.bucketFamily || null,
+          bucketId: deathVisibleIdentity.bucketId || null,
+          eventState: deathVisibleIdentity.eventState || null,
+          stateRank: deathVisibleIdentity.stateRank ?? null,
+          visibilityRoute: deathVisibleIdentity.visibilityRoute || null
         }
       })
     ];
@@ -1279,6 +1404,15 @@
       storySteps.push(step);
     });
 
+    const finalOutcomeSourceEventId = finalOutcome.type === FINAL_OUTCOMES.resourcesRunOut
+      ? "resources-run-out"
+      : "family-runway-remains-funded";
+    const finalVisibleIdentity = buildSyntheticVisibleIdentity(
+      finalOutcomeSourceEventId,
+      finalOutcome.title,
+      finalOutcome.relativeMonth,
+      finalOutcome.tone
+    );
     const finalStep = makeStoryStep({
       id: "story-step-9-final-outcome",
       stepNumber: STORY_STEP_TARGET,
@@ -1292,10 +1426,28 @@
       relativeMonth: finalOutcome.relativeMonth,
       graphDotId: null,
       sourceEventId: finalOutcome.type,
+      visibleEventKey: finalVisibleIdentity.visibleEventKey,
+      cardConceptId: finalVisibleIdentity.cardConceptId,
+      conceptId: finalVisibleIdentity.conceptId,
+      storyStage: finalVisibleIdentity.storyStage,
+      bucketFamily: finalVisibleIdentity.bucketFamily,
+      bucketId: finalVisibleIdentity.bucketId,
+      eventState: finalVisibleIdentity.eventState,
+      stateRank: finalVisibleIdentity.stateRank,
+      visibilityRoute: finalVisibleIdentity.visibilityRoute,
       trace: {
         synthesized: true,
         finalOutcomeType: finalOutcome.type,
-        finalOutcomeSource: finalOutcome.source
+        finalOutcomeSource: finalOutcome.source,
+        visibleEventKey: finalVisibleIdentity.visibleEventKey || null,
+        cardConceptId: finalVisibleIdentity.cardConceptId || null,
+        conceptId: finalVisibleIdentity.conceptId || null,
+        storyStage: finalVisibleIdentity.storyStage || null,
+        bucketFamily: finalVisibleIdentity.bucketFamily || null,
+        bucketId: finalVisibleIdentity.bucketId || null,
+        eventState: finalVisibleIdentity.eventState || null,
+        stateRank: finalVisibleIdentity.stateRank ?? null,
+        visibilityRoute: finalVisibleIdentity.visibilityRoute || null
       }
     });
     if (finalOutcome.type === FINAL_OUTCOMES.resourcesRunOut) {

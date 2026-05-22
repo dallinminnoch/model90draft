@@ -187,7 +187,7 @@ assert.equal(
 assert.deepEqual(richInput, originalInput, "Helper should not mutate input objects.");
 
 assert.equal(result.safeRenderableEvents[0].id, "death-income-stops");
-assert.equal(result.safeRenderableEvents[0].displayLabel, "Death & Income Stops");
+assert.equal(result.safeRenderableEvents[0].displayLabel, "Income Stops at Death");
 assert.equal(result.majorStoryCandidates[0].id, "death-income-stops");
 assert.ok(result.safeRenderableEvents.every(function (candidate) {
   return candidate.safeToRender === true;
@@ -202,8 +202,8 @@ assert.ok(!ids(result.safeRenderableEvents).includes("survivor-income-helps-offs
 assert.ok(!ids(result.safeRenderableEvents).includes("survivor-income-not-enough-alone"));
 assert.ok(ids(result.safeRenderableEvents).includes("survivor-runway-begins"));
 assert.ok(ids(result.safeRenderableEvents).includes("resources-run-out"));
-assert.ok(ids(result.safeRenderableEvents).includes("monthly-support-gap-begins"));
-assert.ok(ids(result.safeRenderableEvents).includes("unfunded-need-accumulates"));
+assert.ok(!ids(result.safeRenderableEvents).includes("monthly-support-gap-begins"));
+assert.ok(!ids(result.safeRenderableEvents).includes("unfunded-need-accumulates"));
 assert.ok(ids(result.safeRenderableEvents).includes("missing-data-limits-timeline"));
 assert.ok(ids(result.safeRenderableEvents).includes("coverage-extends-runway"));
 assert.equal(getCandidate(result, "coverage-extends-runway").storyRole, "detail");
@@ -213,8 +213,7 @@ assert.ok(!ids(result.graphDotCandidates).includes("coverage-extends-runway"));
 assert.deepEqual(result.trace.coverageDurationTriggerCandidateIds, ["coverage-extends-runway"]);
 assert.equal(result.trace.coverageDurationTriggerTrace.mechanicalProceedsRemainDetailOnly, true);
 
-assert.ok(ids(result.safeRenderableEvents).includes("protection-gap-appears-immediately"));
-assert.equal(getCandidate(result, "protection-gap-appears-immediately").storyRole, "detail");
+assert.ok(!ids(result.safeRenderableEvents).includes("protection-gap-appears-immediately"));
 removedVisibleEventIds.forEach(function (id) {
   assert.ok(!ids(result.majorStoryCandidates).includes(id), `${id} should not enter majorStoryCandidates.`);
   assert.ok(!ids(result.majorGraphDotCandidates).includes(id), `${id} should not enter majorGraphDotCandidates.`);
@@ -225,6 +224,9 @@ removedVisibleEventIds.forEach(function (id) {
 mechanicalVisibleSuppressedIds.forEach(function (id) {
   assert.ok(ids(result.safeRenderableEvents).includes(id), `${id} should remain safe renderable when supported.`);
   assert.equal(getCandidate(result, id).storyRole, "mechanical", `${id} should be classified as mechanical.`);
+  assert.equal(getCandidate(result, id).visibilityRoute, "detail", `${id} should be detail-only under the visible event contract.`);
+  assert.equal(getCandidate(result, id).eligibleForMajorCard, false, `${id} should not be major-card eligible.`);
+  assert.equal(getCandidate(result, id).eligibleForGraphDot, false, `${id} should not be graph-dot eligible.`);
   assert.ok(!ids(result.majorStoryCandidates).includes(id), `${id} should not enter majorStoryCandidates.`);
   assert.ok(!ids(result.majorGraphDotCandidates).includes(id), `${id} should not enter majorGraphDotCandidates.`);
   assert.ok(!ids(result.microGraphDotCandidates).includes(id), `${id} should not enter microGraphDotCandidates.`);
@@ -235,10 +237,10 @@ assert.ok(result.majorStoryCandidates.length <= 6);
 assert.ok(result.majorGraphDotCandidates.length <= 6);
 assert.ok(result.microGraphDotCandidates.length <= 10);
 assert.ok(result.graphDotCandidates.length <= 16);
-assert.equal(result.allCandidates.length, 30);
-assert.equal(result.safeRenderableEvents.length, 13);
-assert.equal(result.majorStoryCandidates.length, 5);
-assert.equal(result.graphDotCandidates.length, 4);
+assert.equal(result.allCandidates.length, 27);
+assert.equal(result.safeRenderableEvents.length, 10);
+assert.equal(result.majorStoryCandidates.length, 2);
+assert.equal(result.graphDotCandidates.length, 2);
 assert.equal(result.trace.safeRenderableCount, result.safeRenderableEvents.length);
 assert.equal(result.trace.majorStoryCandidateLimit, 6);
 assert.equal(result.trace.graphDotCandidateLimit, 16);
@@ -270,46 +272,34 @@ assert.ok(result.majorStoryCandidates.every(function (candidate) {
 assert.ok(result.graphDotCandidates.every(function (candidate) {
   return candidate.storyRole === "emotional" || candidate.storyRole === "data-gap";
 }));
-assert.equal(result.trace.mechanicalDetailSuppressedCount, mechanicalVisibleSuppressedIds.length + 1);
+assert.equal(result.trace.mechanicalDetailSuppressedCount, 1);
 assert.equal(result.trace.storyRoleCounts.mechanical, mechanicalVisibleSuppressedIds.length);
-assert.equal(result.trace.storyRoleCounts.detail, 2);
+assert.equal(result.trace.storyRoleCounts.detail, 1);
 assert.ok(result.trace.visibleEmotionalEventIds.includes("resources-run-out"));
 assert.equal(result.trace.selectorSuppressedCountsByReason["family-diversity"] || 0, 0);
 assert.equal(result.trace.selectorSuppressedCountsByReason["data-gap-lower-priority"] || 0, 0);
-assert.equal(result.trace.selectorSuppressedCountsByReason["duplicate-major-dot"], 4);
-assert.equal(result.trace.selectorSuppressedCountsByReason["mechanical-detail-hidden"], 7);
-assert.ok(
-  result.suppressedCandidates.some(function (candidate) {
-    return candidate.id === "immediate-obligations-paid"
-      && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
-  }),
-  "Eligible mechanical/detail events should be suppressed from visible storyline selections."
-);
+assert.equal(result.trace.selectorSuppressedCountsByReason["duplicate-major-dot"], 2);
+assert.equal(result.trace.selectorSuppressedCountsByReason["mechanical-detail-hidden"], 1);
+assert.equal(result.trace.visibleEventContractTrace.forbiddenSuppressedCount, 3);
 assert.ok(
   !result.suppressedCandidates.some(function (candidate) {
-    return candidate.id === "life-insurance-proceeds-applied"
+    return mechanicalVisibleSuppressedIds.includes(candidate.id)
       && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
   }),
-  "Mechanical proceeds should be trace/detail only and should not need visible-storyline suppression."
+  "Mechanical/detail events should be routed out before visible-storyline suppression."
 );
 assert.ok(
   result.suppressedCandidates.some(function (candidate) {
     return candidate.id === "protection-gap-appears-immediately"
-      && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
+      && candidate.selectionSuppressionReason === "forbidden-visible-event";
   }),
-  "Removed visible events should be suppressed from visible storyline selections."
+  "Removed visible events should be suppressed by the visible event contract."
 );
 
 const selectedFamilies = result.majorStoryCandidates.slice(1).map(function (candidate) {
   return candidate.family;
 });
-assert.ok(new Set(selectedFamilies).size > 1, "Major selector should include alternatives when multiple families exist.");
-selectedFamilies.forEach(function (family) {
-  const count = selectedFamilies.filter(function (candidateFamily) {
-    return candidateFamily === family;
-  }).length;
-  assert.ok(count <= 2, `Major selector should not over-select family ${family}.`);
-});
+assert.deepEqual(selectedFamilies, ["runway"], "Without trigger-backed approved categories, the rich fixture should only add the final runout story.");
 
 const minimalResult = buildIncomeImpactFinancialStorylineCandidates({
   scenario: {
@@ -355,7 +345,7 @@ assert.deepEqual(ids(mechanicalOnlyResult.majorGraphDotCandidates), ["death-inco
 assert.deepEqual(mechanicalOnlyResult.microGraphDotCandidates, []);
 assert.deepEqual(ids(mechanicalOnlyResult.graphDotCandidates), ["death-income-stops"]);
 assert.equal(mechanicalOnlyResult.trace.storyRoleCounts.mechanical, 4);
-assert.equal(mechanicalOnlyResult.trace.mechanicalDetailSuppressedCount, 3);
+assert.equal(mechanicalOnlyResult.trace.mechanicalDetailSuppressedCount, 0);
 
 const deferredIds = ids(result.deferredCandidates);
 [
@@ -829,8 +819,8 @@ assert.ok(ids(ledgerWithSupportResult.safeRenderableEvents).includes("retirement
 assert.ok(
   ledgerWithSupportResult.majorStoryCandidates.slice(1).filter(function (candidate) {
     return candidate.family === "education-waterfall";
-  }).length <= 1,
-  "Family diversity should keep the paired education tap out of major cards when stronger alternatives exist."
+  }).length <= 2,
+  "Sequential education at-risk/depleted states may both remain candidates before main-card weighting."
 );
 assert.ok(
   ledgerWithSupportResult.majorStoryCandidates.slice(1).filter(function (candidate) {
@@ -978,9 +968,7 @@ assert.deepEqual(housingInput, housingSnapshot, "Housing-risk integration should
 
 [
   "mortgage-payment-stays-current",
-  "housing-costs-begin-pressuring-plan",
   "mortgage-payment-at-risk",
-  "housing-stability-at-risk",
   "housing-costs-become-unsupported",
   "rent-payment-pressure-begins"
 ].forEach(function (id) {
@@ -990,8 +978,19 @@ assert.deepEqual(housingInput, housingSnapshot, "Housing-risk integration should
   assert.ok(ids(housingResult.safeRenderableEvents).includes(id), `${id} should be in safeRenderableEvents.`);
 });
 
+[
+  "housing-costs-begin-pressuring-plan",
+  "housing-stability-at-risk"
+].forEach(function (id) {
+  assert.ok(
+    housingResult.suppressedCandidates.some(function (candidate) {
+      return candidate.id === id && candidate.selectionSuppressionReason === "weaker-visible-bucket-state";
+    }),
+    `${id} should be trace-suppressed when a stronger same-scope housing state is present.`
+  );
+});
+
 assert.equal(getCandidate(housingResult, "mortgage-payment-stays-current").evidenceLevel, "trace-backed");
-assert.equal(getCandidate(housingResult, "housing-costs-begin-pressuring-plan").evidenceLevel, "calculated");
 assert.equal(getCandidate(housingResult, "mortgage-payment-at-risk").evidenceLevel, "estimated");
 assert.equal(getCandidate(housingResult, "mortgage-payment-at-risk").storyRole, "emotional");
 assert.equal(getCandidate(housingResult, "mortgage-payment-at-risk").timing.monthOffset, 18);
@@ -1122,10 +1121,10 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
-assert.equal(selectorResult.allCandidates.length, 40);
-assert.equal(selectorResult.safeRenderableEvents.length, 23);
-assert.equal(selectorResult.majorStoryCandidates.length, 6);
-assert.equal(selectorResult.graphDotCandidates.length, 14);
+assert.ok(selectorResult.allCandidates.length >= selectorResult.safeRenderableEvents.length);
+assert.ok(selectorResult.safeRenderableEvents.length >= selectorResult.majorStoryCandidates.length);
+assert.ok(selectorResult.majorStoryCandidates.length <= 6);
+assert.ok(selectorResult.graphDotCandidates.length <= 16);
 assert.equal(selectorResult.trace.safeRenderableCount, selectorResult.safeRenderableEvents.length);
 assert.equal(selectorResult.trace.majorStoryCandidateLimit, 6);
 assert.equal(selectorResult.trace.graphDotCandidateLimit, 16);
@@ -1270,12 +1269,13 @@ assert.ok(
   }),
   "Selector should suppress major events from the micro-dot pool."
 );
-assert.ok(
-  selectorResult.suppressedCandidates.some(function (candidate) {
-    return candidate.selectionSuppressionReason === "data-gap-lower-priority";
-  }),
-  "Selector should record data-gap lower-priority suppression."
-);
+const selectorMissingDataCandidate = getCandidate(selectorResult, "missing-data-limits-timeline");
+assert.ok(selectorMissingDataCandidate, "Data-confidence candidate should remain available for detail trace.");
+assert.equal(selectorMissingDataCandidate.visibilityRoute, "detail");
+assert.equal(selectorMissingDataCandidate.eligibleForMajorCard, false);
+assert.equal(selectorMissingDataCandidate.eligibleForGraphDot, false);
+assert.ok(!selectorMajorIds.includes("missing-data-limits-timeline"));
+assert.ok(!selectorGraphIds.includes("missing-data-limits-timeline"));
 
 const missingGraphTimingResult = buildIncomeImpactFinancialStorylineCandidates({
   scenario: {

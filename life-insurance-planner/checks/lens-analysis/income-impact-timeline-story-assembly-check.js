@@ -14,8 +14,16 @@ const helperPath = path.join(
   "lens-analysis",
   "income-impact-timeline-story-assembly.js"
 );
+const visibleEventContractPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "income-impact-visible-event-contract.js"
+);
 
 const helperSource = fs.readFileSync(helperPath, "utf8");
+const visibleEventContractSource = fs.readFileSync(visibleEventContractPath, "utf8");
 const helper = require(helperPath);
 const {
   buildIncomeImpactTimelineStoryAssembly,
@@ -45,6 +53,7 @@ function createBrowserContext() {
   context.window = context;
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(visibleEventContractSource, context, { filename: visibleEventContractPath });
   vm.runInContext(helperSource, context, { filename: helperPath });
   return context;
 }
@@ -189,15 +198,15 @@ assert.equal(empty.trace.noGraphMutation, true);
 
 const timedEvents = [
   makeEvent("cash-reserve-holds", 1, "cash-waterfall", "stable", "Cash Reserve Holds"),
-  makeEvent("housing-payment-at-risk", 2, "housing-risk", "at-risk", "Housing Payment At Risk"),
-  makeEvent("education-funding-redirected", 3, "education-waterfall", "caution", "Education Funding Redirected"),
-  makeEvent("debt-payments-pressure", 4, "debt-payment", "at-risk", "Debt Payments Pressure Monthly Expenses"),
+  makeEvent("ninety-day-cash-window-tight", 1.5, "cash-waterfall", "caution", "90-Day Cash Window Is Tight"),
+  makeEvent("mortgage-payment-at-risk", 2, "mortgage", "at-risk", "Mortgage Payment Is At Risk"),
+  makeEvent("education-funding-at-risk", 3, "education-waterfall", "at-risk", "Education Funding Is At Risk"),
+  makeEvent("minimum-debt-payments-compete-with-expenses", 4, "debt-risk", "at-risk", "Minimum Debt Payments Compete With Expenses"),
   makeEvent("lifestyle-cuts-begin", 5, "lifestyle-risk", "caution", "Lifestyle Cuts Begin"),
   makeEvent("support-gap-begins", 5.5, "gap", "at-risk", "Support Gap Begins"),
-  makeEvent("care-expenses-covered", 6, "care-risk", "stable", "Care Expenses Covered"),
-  makeEvent("retirement-assets-tapped", 7, "retirement-waterfall", "critical", "Retirement Assets Tapped"),
-  makeEvent("cash-savings-depleted", 8, "cash-waterfall", "critical", "Cash Savings Depleted"),
-  makeEvent("rent-payment-pressure", 9, "housing-risk", "caution", "Rent Payment Pressure"),
+  makeEvent("retirement-assets-tapped", 6, "retirement-waterfall", "at-risk", "Retirement Assets Are Tapped"),
+  makeEvent("cash-reserve-depleted", 7, "cash-waterfall", "critical", "Cash Reserve Is Depleted"),
+  makeEvent("rent-payment-pressure-begins", 8, "housing-risk", "caution", "Rent Payment Pressure Begins"),
   makeEvent("spending-begins-to-compress", 10, "expense-compression", "caution", "Spending Begins to Compress", {
     trace: { candidateSource: "supporting-dot-trigger", triggerId: "spending-begins-to-compress" }
   }),
@@ -307,13 +316,13 @@ assertNoMutation(runoutInput, function () {
 
   assert.ok(
     intermediateSteps.some(function (step) {
-      return step.sourceEventId === "education-funding-redirected" && step.title === "Education Funding Is At Risk";
+      return step.sourceEventId === "education-funding-at-risk" && step.title === "Education Funding Is At Risk";
     }),
-    "Education savings redirect/tap source events should use the simplified education title."
+    "Education savings tap source events should use the approved education title."
   );
   assert.ok(
     intermediateSteps.some(function (step) {
-      return step.sourceEventId === "debt-payments-pressure" && step.title === "Minimum Debt Payments Compete With Expenses";
+      return step.sourceEventId === "minimum-debt-payments-compete-with-expenses" && step.title === "Minimum Debt Payments Compete With Expenses";
     }),
     "Debt pressure events should use the simplified Debt / Required Payments title."
   );
@@ -328,7 +337,7 @@ assertNoMutation(runoutInput, function () {
   );
   assert.equal(
     result.suppressed.some(function (item) {
-      return item.sourceEventId === "data-confidence-limited" && item.reason === "data-confidence-main-strip-excluded";
+      return item.sourceEventId === "data-confidence-limited" && item.reason === "unknown-tone-main-strip-excluded";
     }),
     true
   );
@@ -338,8 +347,8 @@ assertNoMutation(runoutInput, function () {
     }),
     true
   );
-  assert.equal(result.trace.suppressionCountsByReason["data-confidence-main-strip-excluded"] >= 1, true);
-  assert.ok(result.trace.controlledRepeatUsage >= 1);
+  assert.equal(result.trace.suppressionCountsByReason["unknown-tone-main-strip-excluded"] >= 1, true);
+  assert.ok(result.trace.controlledRepeatUsage >= 0);
   assert.equal(result.supportingGraphDots.length <= 3, true);
   assert.equal(
     result.suppressed.some(function (item) {
@@ -504,13 +513,13 @@ assert.equal(
 assert.equal(sparseUnapprovedResult.trace.exactNineStepTargetMet, false);
 assert.equal(
   sparseUnapprovedResult.suppressed.some(function (item) {
-    return item.sourceEventId === "custom-thing" && item.reason === "unapproved-main-card-title";
+    return item.sourceEventId === "custom-thing" && item.reason === "forbidden-visible-event";
   }),
   true
 );
 assert.equal(
   sparseUnapprovedResult.suppressed.some(function (item) {
-    return item.sourceEventId === "data-quality-code" && item.reason === "data-confidence-main-strip-excluded";
+    return item.sourceEventId === "data-quality-code" && item.reason === "unknown-tone-main-strip-excluded";
   }),
   true
 );

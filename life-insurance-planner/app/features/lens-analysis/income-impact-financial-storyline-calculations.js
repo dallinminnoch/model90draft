@@ -4,6 +4,15 @@
 
   const VERSION = "financial-storyline-candidates-v1";
   const SOURCE = "income-impact-financial-storyline-calculations";
+  const visibleEventContract = lensAnalysis.incomeImpactVisibleEventContract || (function () {
+    try {
+      return typeof require === "function"
+        ? require("./income-impact-visible-event-contract.js")
+        : null;
+    } catch (error) {
+      return null;
+    }
+  })() || {};
   const MAX_MAJOR_STORY_CANDIDATES = 6;
   const MAX_MAJOR_GRAPH_DOT_CANDIDATES = 6;
   const MAX_MICRO_GRAPH_DOT_CANDIDATES = 10;
@@ -1595,6 +1604,109 @@
     };
   }
 
+  function normalizeCandidateWithVisibleEventContract(candidate) {
+    if (!candidate || typeof visibleEventContract.normalizeIncomeImpactVisibleEvent !== "function") {
+      return candidate;
+    }
+    const normalized = visibleEventContract.normalizeIncomeImpactVisibleEvent(candidate, {
+      sourceEventId: candidate.id,
+      relativeMonth: candidate.timing?.monthOffset,
+      title: candidate.cardTitle || candidate.displayLabel
+    });
+    const route = normalizeString(normalized.visibilityRoute);
+    const isForbidden = route === "forbidden";
+    const isDetailOnly = normalized.detailOnly === true;
+    const isSupportingOnly = normalized.supportingOnly === true;
+    const graphDotEligible = normalized.graphDotEligible === true && candidate.eligibleForGraphDot !== false;
+    const majorCardEligible = normalized.mainEligible === true && candidate.eligibleForMajorCard !== false;
+    const copy = Object.assign({}, candidate, {
+      sourceEventId: normalized.sourceEventId || candidate.id,
+      visibleEventKey: normalized.visibleEventKey || "",
+      conceptId: normalized.conceptId || "",
+      cardConceptId: normalized.cardConceptId || "",
+      mappedCardTitle: normalized.mappedCardTitle || "",
+      category: normalized.category || "",
+      storyStage: normalized.storyStage || "",
+      bucketFamily: normalized.bucketFamily || "",
+      bucketId: normalized.bucketId || "",
+      eventState: normalized.eventState || "",
+      stateRank: normalized.stateRank,
+      visibilityRoute: route,
+      route,
+      supportingOnly: isSupportingOnly,
+      detailOnly: isDetailOnly,
+      mainCandidateEligible: majorCardEligible,
+      supportingDotOnly: isSupportingOnly || candidate.supportingDotOnly === true,
+      supportingDotEligible: graphDotEligible && !isForbidden && !isDetailOnly,
+      eligibleForGraphDot: graphDotEligible && !isForbidden && !isDetailOnly,
+      eligibleForMajorCard: majorCardEligible && !isForbidden && !isDetailOnly,
+      safeToRender: isForbidden ? false : candidate.safeToRender,
+      storyRole: majorCardEligible && !isForbidden && !isDetailOnly
+        ? STORY_EVENT_ROLES.emotional
+        : candidate.storyRole || STORY_EVENT_ROLES.detail
+    });
+    if (normalized.mappedCardTitle && !isForbidden) {
+      copy.displayLabel = normalized.mappedCardTitle;
+      copy.cardTitle = normalized.mappedCardTitle;
+    }
+    copy.trace = Object.assign({}, clonePlainValue(candidate.trace || {}), {
+      visibleEventContractVersion: normalized.trace?.visibleEventContractVersion || visibleEventContract.VERSION || null,
+      originalSourceId: normalized.originalSourceId || candidate.id || null,
+      originalSourceTitle: normalized.originalSourceTitle || candidate.cardTitle || candidate.displayLabel || null,
+      mappedCardTitle: normalized.mappedCardTitle || null,
+      visibleEventKey: copy.visibleEventKey || null,
+      conceptId: copy.conceptId || null,
+      cardConceptId: copy.cardConceptId || null,
+      storyStage: copy.storyStage || null,
+      bucketFamily: copy.bucketFamily || null,
+      bucketId: copy.bucketId || null,
+      eventState: copy.eventState || null,
+      stateRank: copy.stateRank == null ? null : copy.stateRank,
+      visibilityRoute: route || null,
+      supportingOnly: copy.supportingOnly === true,
+      detailOnly: copy.detailOnly === true,
+      mainEligible: copy.eligibleForMajorCard === true,
+      graphDotEligible: copy.eligibleForGraphDot === true
+    });
+    return copy;
+  }
+
+  function makeVisibleContractSuppressedCandidate(item) {
+    const event = isPlainObject(item?.event) ? item.event : item;
+    const copy = makeSelectionSuppressedCandidate(event, item?.reason || "visible-event-contract", "visible-event-contract");
+    copy.visibleEventKey = normalizeString(item?.visibleEventKey || event?.visibleEventKey);
+    copy.candidateSource = normalizeString(event?.candidateSource);
+    copy.trace = Object.assign({}, clonePlainValue(event?.trace || {}), {
+      visibleEventSuppressionReason: item?.reason || "visible-event-contract",
+      winnerVisibleEventKey: normalizeString(item?.winnerVisibleEventKey) || null,
+      winnerSourceEventId: normalizeString(item?.winnerSourceEventId) || null
+    });
+    return copy;
+  }
+
+  function applyVisibleEventContractToCandidates(candidates) {
+    const enriched = (Array.isArray(candidates) ? candidates : []).map(normalizeCandidateWithVisibleEventContract);
+    if (typeof visibleEventContract.applyIncomeImpactVisibleEventContract !== "function") {
+      return {
+        candidates: dedupeCandidates(enriched),
+        suppressedCandidates: [],
+        trace: {
+          contractApplied: false
+        }
+      };
+    }
+    const result = visibleEventContract.applyIncomeImpactVisibleEventContract(enriched, {
+      source: SOURCE
+    });
+    return {
+      candidates: dedupeCandidates(result.events.map(normalizeCandidateWithVisibleEventContract)),
+      suppressedCandidates: (Array.isArray(result.suppressed) ? result.suppressed : []).map(makeVisibleContractSuppressedCandidate),
+      trace: Object.assign({
+        contractApplied: true
+      }, clonePlainValue(result.trace || {}))
+    };
+  }
+
   function findDefinition(id) {
     return SAFE_EVENT_DEFINITIONS.find(function (definition) {
       return definition.id === id;
@@ -2432,6 +2544,11 @@
   }
 
   function buildVisibleEventKey(identity) {
+    if (typeof visibleEventContract.buildIncomeImpactVisibleEventKey === "function") {
+      return visibleEventContract.buildIncomeImpactVisibleEventKey(Object.assign({}, identity, {
+        timingKey: formatVisibleEventMonthKey(identity?.relativeMonth)
+      }));
+    }
     const safeIdentity = isPlainObject(identity) ? identity : {};
     return [
       normalizeString(safeIdentity.storyStage || "event"),
@@ -2469,7 +2586,9 @@
       cardConceptId: rule?.cardConceptId || "",
       conceptId: rule?.cardConceptId || "",
       eventState,
-      stateRank: LIQUIDITY_BUCKET_STATE_RANKS[eventState] || 0,
+      stateRank: typeof visibleEventContract.rankIncomeImpactEventState === "function"
+        ? visibleEventContract.rankIncomeImpactEventState(eventState, "")
+        : LIQUIDITY_BUCKET_STATE_RANKS[eventState] || 0,
       relativeMonth: monthIndex
     };
     return Object.assign(identity, {
@@ -2486,7 +2605,9 @@
       cardConceptId: conceptId,
       conceptId,
       eventState,
-      stateRank: LIQUIDITY_BUCKET_STATE_RANKS[eventState] || 0,
+      stateRank: typeof visibleEventContract.rankIncomeImpactEventState === "function"
+        ? visibleEventContract.rankIncomeImpactEventState(eventState, "")
+        : LIQUIDITY_BUCKET_STATE_RANKS[eventState] || 0,
       relativeMonth: monthIndex
     };
     return Object.assign(identity, {
@@ -4666,7 +4787,7 @@
     const supportingDotTriggers = buildSupportingDotTriggerCandidates(safeInput);
     const coverageDurationTriggers = buildCoverageDurationTriggerCandidates(safeInput);
     const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
-    const safeCandidates = dedupeCandidates(
+    const rawSafeCandidates = dedupeCandidates(
       buildSafeCandidates(safeInput, warnings)
         .concat(ledgerBacked.candidates)
         .concat(liquidityTriggers.candidates)
@@ -4675,6 +4796,8 @@
         .concat(coverageDurationTriggers.candidates)
         .concat(housingRiskBacked.candidates)
     );
+    const visibleContractResult = applyVisibleEventContractToCandidates(rawSafeCandidates);
+    const safeCandidates = visibleContractResult.candidates;
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
       return candidate.safeToRender === true
         && (candidate.status === STATUSES.safeNow || candidate.status === STATUSES.caution);
@@ -4736,6 +4859,7 @@
       supportingDotTriggerTrace: clonePlainValue(supportingDotTriggers.trace),
       coverageDurationTriggerCandidateIds: coverageDurationTriggers.candidates.map(function (candidate) { return candidate.id; }),
       coverageDurationTriggerTrace: clonePlainValue(coverageDurationTriggers.trace),
+      visibleEventContractTrace: clonePlainValue(visibleContractResult.trace),
       graphLineSource: "aggregate-survivor-runway"
     };
     if (isPlainObject(safeInput.assetDepletionLedger)) {
@@ -4766,6 +4890,7 @@
         .concat(supportingDotTriggers.suppressedCandidates)
         .concat(coverageDurationTriggers.suppressedCandidates)
         .concat(housingRiskBacked.suppressedCandidates)
+        .concat(visibleContractResult.suppressedCandidates)
         .concat(selectionSuppressedCandidates),
       warnings,
       trace

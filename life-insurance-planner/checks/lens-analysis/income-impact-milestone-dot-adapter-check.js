@@ -79,17 +79,16 @@ function makeRunoutInput() {
   return {
     financialStoryline: {
       safeRenderableEvents: [
-        makeEvent("stable-cash-covered", 1, "liquidity", "stable", "Cash Covered"),
-        makeEvent("housing-pressure", 2, "housing", "caution", "Housing Pressure"),
-        makeEvent("dependent-care-risk", 3, "dependents", "at-risk", "Dependent Care Risk"),
-        makeEvent("education-shift", 4, "education", "caution", "Education Shift"),
-        makeEvent("lifestyle-pressure", 5, "lifestyle", "at-risk", "Lifestyle Pressure"),
-        makeEvent("retirement-assets-tapped", 6, "retirement", "critical", "Retirement Assets Tapped"),
-        makeEvent("support-gap", 7, "support-gap", "critical", "Support Gap"),
-        makeEvent("stable-coverage", 8, "coverage", "stable", "Stable Coverage"),
-        makeEvent("housing-repeat", 9, "housing", "caution", "Housing Repeat"),
-        makeEvent("liquidity-repeat", 10, "liquidity", "stable", "Liquidity Repeat"),
-        makeEvent("care-repeat", 11, "care", "at-risk", "Care Repeat")
+        makeEvent("cash-reserve-holds", 1, "liquidity", "stable", "Cash Reserve Holds"),
+        makeEvent("ninety-day-cash-window-tight", 2, "transition", "caution", "90-Day Cash Window Is Tight"),
+        makeEvent("mortgage-payment-at-risk", 3, "housing", "at-risk", "Mortgage Payment Is At Risk"),
+        makeEvent("education-funding-at-risk", 4, "education", "at-risk", "Education Funding Is At Risk"),
+        makeEvent("minimum-debt-payments-compete-with-expenses", 5, "debt", "at-risk", "Minimum Debt Payments Compete With Expenses"),
+        makeEvent("retirement-assets-tapped", 6, "retirement", "at-risk", "Retirement Assets Are Tapped"),
+        makeEvent("cash-reserve-depleted", 7, "liquidity", "critical", "Cash Reserve Is Depleted"),
+        makeEvent("spending-begins-to-compress", 9, "compression", "caution", "Spending Begins to Compress"),
+        makeEvent("survivor-income-begins", 10, "survivor-income", "stable", "Survivor Income Begins"),
+        makeEvent("coverage-extends-runway", 11, "coverage", "caution", "Coverage Extends the Runway")
       ]
     },
     graphModel: {
