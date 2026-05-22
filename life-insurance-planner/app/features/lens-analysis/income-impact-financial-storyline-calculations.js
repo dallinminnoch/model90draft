@@ -99,7 +99,8 @@
     "rent-payment-pressure-begins",
     "vehicle-payment-at-risk",
     "transportation-stability-at-risk",
-    "debt-payments-become-unsupported",
+    "minimum-debt-payments-compete-with-expenses",
+    "minimum-debt-payments-become-unsupported",
     "lifestyle-cuts-begin",
     "essential-needs-become-unfunded",
     "care-expenses-become-unfunded",
@@ -540,6 +541,74 @@
       advisorUsefulness: 0.94
     },
     {
+      id: "required-debt-payments-covered",
+      family: EVENT_FAMILIES.debtRisk,
+      displayLabel: "Required Debt Payments Are Covered",
+      graphLabel: "Debt covered",
+      cardTitle: "Required Debt Payments Are Covered",
+      description: "Active required debt payments remain covered through their scheduled payoff period or modeled horizon.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 62,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.78,
+      emotionalWeight: 0.5,
+      advisorUsefulness: 0.86
+    },
+    {
+      id: "minimum-debt-payments-continue",
+      family: EVENT_FAMILIES.debtRisk,
+      displayLabel: "Minimum Debt Payments Continue",
+      graphLabel: "Debt continues",
+      cardTitle: "Minimum Debt Payments Continue",
+      description: "Required minimum debt payments remain active during the survivor runway.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 63,
+      storyRole: STORY_EVENT_ROLES.detail,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.72,
+      emotionalWeight: 0.42,
+      advisorUsefulness: 0.82
+    },
+    {
+      id: "minimum-debt-payments-compete-with-expenses",
+      family: EVENT_FAMILIES.debtRisk,
+      displayLabel: "Minimum Debt Payments Compete With Expenses",
+      graphLabel: "Debt pressure",
+      cardTitle: "Minimum Debt Payments Compete With Expenses",
+      description: "Required debt payments remain active within three months before final available resources run out.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 63,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.86,
+      emotionalWeight: 0.66,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "minimum-debt-payments-become-unsupported",
+      family: EVENT_FAMILIES.debtRisk,
+      displayLabel: "Minimum Debt Payments Become Unsupported",
+      graphLabel: "Debt unsupported",
+      cardTitle: "Minimum Debt Payments Become Unsupported",
+      description: "Required debt payments remain active after available survivor resources are exhausted.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 64,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 0.94
+    },
+    {
       id: "monthly-support-gap-begins",
       family: EVENT_FAMILIES.gap,
       displayLabel: "Monthly Support Gap Begins",
@@ -615,7 +684,6 @@
     ["housing-risk-unknown", EVENT_FAMILIES.housingRisk, "Housing Risk Unknown", EVIDENCE_LEVELS.dataGap],
     ["vehicle-payment-at-risk", EVENT_FAMILIES.vehicleRisk, "Vehicle Payment At Risk", EVIDENCE_LEVELS.riskModelNeeded],
     ["transportation-stability-at-risk", EVENT_FAMILIES.vehicleRisk, "Transportation Stability At Risk", EVIDENCE_LEVELS.riskModelNeeded],
-    ["debt-payments-become-unsupported", EVENT_FAMILIES.debtRisk, "Debt Payments Become Unsupported", EVIDENCE_LEVELS.riskModelNeeded],
     ["current-lifestyle-no-longer-sustainable", EVENT_FAMILIES.lifestyleRisk, "Current Lifestyle No Longer Sustainable", EVIDENCE_LEVELS.riskModelNeeded],
     ["lifestyle-cuts-begin", EVENT_FAMILIES.lifestyleRisk, "Lifestyle Cuts Begin", EVIDENCE_LEVELS.riskModelNeeded],
     ["essential-needs-become-unfunded", EVENT_FAMILIES.careRisk, "Essential Needs Become Unfunded", EVIDENCE_LEVELS.riskModelNeeded],
@@ -828,7 +896,8 @@
   const MAJOR_STORY_TIER_2_IDS = Object.freeze([
     "cash-savings-depleted",
     "housing-stability-at-risk",
-    "debt-payments-become-unsupported",
+    "minimum-debt-payments-compete-with-expenses",
+    "minimum-debt-payments-become-unsupported",
     "childcare-support-at-risk",
     "vehicle-payment-at-risk",
     "care-expenses-become-unfunded",
@@ -2179,6 +2248,292 @@
     };
   }
 
+  function getDebtRequiredPaymentSchedule(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    const candidates = [
+      safeInput.debtRequiredPaymentSchedule,
+      safeInput.scenario?.trace?.layer3?.debtRequiredPaymentSchedule,
+      safeInput.scenario?.postDeathSeries?.layer3?.trace?.debtRequiredPaymentSchedule
+    ];
+    return candidates.find(isPlainObject) || null;
+  }
+
+  function getDebtScheduleObligations(schedule) {
+    return (Array.isArray(schedule?.obligations) ? schedule.obligations : [])
+      .filter(isPlainObject)
+      .filter(function (obligation) {
+        return toOptionalNumber(obligation.monthlyAmount) != null
+          && toOptionalNumber(obligation.monthlyAmount) > 0
+          && obligation.paidOffAtDeath !== true;
+      });
+  }
+
+  function getDebtRunoutMonth(input) {
+    const source = isPlainObject(input) ? input : {};
+    const runout = firstNumberAtPath(source, [
+      "scenario.postDeathSeries.depletion.depletionMonthIndex",
+      "scenario.postDeathSeries.depletion.monthIndex",
+      "scenario.postDeathSeries.depletion.monthsCovered",
+      "scenario.timelineFacts.monthsCovered",
+      "graphModel.series.appliedRunwayScenarios.0.depletionPoint.monthIndex"
+    ]);
+    if (!runout) {
+      return null;
+    }
+    const depletedFlag = getPath(source, "scenario.postDeathSeries.depletion.depleted");
+    if (depletedFlag === false) {
+      return null;
+    }
+    return runout.value;
+  }
+
+  function getDebtModeledHorizonMonth(input) {
+    const source = isPlainObject(input) ? input : {};
+    const points = getPath(source, "scenario.postDeathSeries.points");
+    if (Array.isArray(points) && points.length) {
+      return points.reduce(function (current, point, index) {
+        const month = toOptionalNumber(point?.monthIndex);
+        const safeMonth = month == null ? index : month;
+        return current == null ? safeMonth : Math.max(current, safeMonth);
+      }, null);
+    }
+    const horizon = firstNumberAtPath(source, [
+      "scenario.scenario.projectionHorizonMonths",
+      "scenario.projectionHorizonMonths"
+    ]);
+    if (horizon) {
+      return horizon.value;
+    }
+    const horizonYears = firstNumberAtPath(source, ["options.projectionHorizonYears"]);
+    return horizonYears ? horizonYears.value * 12 : null;
+  }
+
+  function isDebtObligationActiveAtMonth(obligation, monthIndex) {
+    const month = toOptionalNumber(monthIndex);
+    if (month == null) {
+      return false;
+    }
+    const startDelayMonths = toOptionalNumber(obligation?.startDelayMonths) || 0;
+    if (month <= startDelayMonths) {
+      return false;
+    }
+    const activeMonthNumber = month - startDelayMonths;
+    const termMonths = toOptionalNumber(obligation?.termMonths);
+    if (termMonths != null && termMonths > 0 && activeMonthNumber > termMonths) {
+      return false;
+    }
+    return true;
+  }
+
+  function getDebtObligationFirstActiveMonth(obligation) {
+    const startDelayMonths = toOptionalNumber(obligation?.startDelayMonths) || 0;
+    return startDelayMonths + 1;
+  }
+
+  function getDebtObligationLastActiveMonth(obligation, modeledHorizonMonth) {
+    const startDelayMonths = toOptionalNumber(obligation?.startDelayMonths) || 0;
+    const termMonths = toOptionalNumber(obligation?.termMonths);
+    if (termMonths != null && termMonths > 0) {
+      return startDelayMonths + termMonths;
+    }
+    return modeledHorizonMonth == null ? null : modeledHorizonMonth;
+  }
+
+  function getDebtScheduleSourcePaths(obligations) {
+    return uniqueStrings((Array.isArray(obligations) ? obligations : []).flatMap(function (obligation) {
+      return Array.isArray(obligation.sourcePaths) ? obligation.sourcePaths : [];
+    }));
+  }
+
+  function makeDebtTriggerCandidate(candidateId, config) {
+    const definition = findDefinition(candidateId);
+    if (!definition) {
+      return null;
+    }
+    const safeConfig = isPlainObject(config) ? config : {};
+    const monthIndex = toOptionalNumber(safeConfig.monthIndex);
+    const amountValue = toOptionalNumber(safeConfig.amountValue);
+    const supportingOnly = safeConfig.supportingOnly === true;
+    const candidate = makeCandidate(definition, {
+      status: STATUSES.safeNow,
+      safeToRender: true,
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: supportingOnly ? false : definition.eligibleForMajorCard === true,
+      timingKind: "month-offset",
+      timing: {
+        monthOffset: monthIndex,
+        label: monthIndex == null ? "Debt payments" : `Month ${monthIndex}`,
+        sourcePath: safeConfig.sourcePath || "scenario.trace.layer3.debtRequiredPaymentSchedule"
+      },
+      amount: {
+        value: amountValue,
+        sourcePath: safeConfig.amountSourcePath || safeConfig.sourcePath || "scenario.trace.layer3.debtRequiredPaymentSchedule"
+      },
+      sourcePaths: uniqueStrings(safeConfig.sourcePaths || ["scenario.trace.layer3.debtRequiredPaymentSchedule"]),
+      confidence: safeConfig.confidence ?? 0.88,
+      priority: safeConfig.priority ?? definition.priority,
+      suppressionKeys: safeConfig.suppressionKeys || [`required-debt-payment:${candidateId}`]
+    });
+    candidate.candidateSource = "required-debt-payment-trigger";
+    candidate.supportingDotOnly = supportingOnly;
+    candidate.supportingDotEligible = true;
+    candidate.trace = Object.assign({
+      candidateSource: "required-debt-payment-trigger",
+      triggerId: candidateId,
+      monthIndex,
+      totalMonthlyDebtPayment: amountValue,
+      activeDebtPaymentCount: safeConfig.activeDebtPaymentCount ?? null,
+      runoutMonth: safeConfig.runoutMonth ?? null,
+      modeledHorizonMonth: safeConfig.modeledHorizonMonth ?? null,
+      supportingDotOnly: supportingOnly,
+      aggregateRunwayPreserved: true,
+      graphLineSource: "aggregate-survivor-runway"
+    }, clonePlainValue(safeConfig.trace || {}));
+    return candidate;
+  }
+
+  function buildDebtRequiredPaymentTriggerCandidates(input, warnings) {
+    const schedule = getDebtRequiredPaymentSchedule(input);
+    if (!isPlainObject(schedule) || normalizeString(schedule.status) !== "ready") {
+      return {
+        candidates: [],
+        suppressedCandidates: [],
+        usedForStoryline: false,
+        trace: {
+          scheduleStatus: normalizeString(schedule?.status) || "not-provided"
+        }
+      };
+    }
+
+    const obligations = getDebtScheduleObligations(schedule);
+    if (!obligations.length) {
+      return {
+        candidates: [],
+        suppressedCandidates: [],
+        usedForStoryline: false,
+        trace: {
+          scheduleStatus: "ready",
+          activeDebtPaymentCount: 0,
+          excludedPaidOffAtDeathCount: Array.isArray(schedule.excludedObligations) ? schedule.excludedObligations.length : 0
+        }
+      };
+    }
+
+    const sourcePaths = getDebtScheduleSourcePaths(obligations);
+    const totalMonthlyDebtPayment = obligations.reduce(function (total, obligation) {
+      return total + (toOptionalNumber(obligation.monthlyAmount) || 0);
+    }, 0);
+    const modeledHorizonMonth = getDebtModeledHorizonMonth(input);
+    const runoutMonth = getDebtRunoutMonth(input);
+    const firstActiveMonth = obligations.reduce(function (current, obligation) {
+      const first = getDebtObligationFirstActiveMonth(obligation);
+      return current == null ? first : Math.min(current, first);
+    }, null);
+    const lastActiveMonth = obligations.reduce(function (current, obligation) {
+      const last = getDebtObligationLastActiveMonth(obligation, modeledHorizonMonth);
+      if (last == null) {
+        return null;
+      }
+      return current == null ? last : Math.max(current, last);
+    }, null);
+    const candidates = [];
+
+    candidates.push(makeDebtTriggerCandidate("minimum-debt-payments-continue", {
+      monthIndex: firstActiveMonth,
+      amountValue: totalMonthlyDebtPayment,
+      sourcePaths,
+      supportingOnly: true,
+      activeDebtPaymentCount: obligations.length,
+      runoutMonth,
+      modeledHorizonMonth,
+      trace: {
+        scheduleStatus: "ready",
+        obligationIds: obligations.map(function (obligation) { return obligation.id; })
+      }
+    }));
+
+    if (runoutMonth != null) {
+      const windowStart = Math.max(0, runoutMonth - 3);
+      let activeInRunoutWindow = null;
+      for (let month = windowStart; month <= runoutMonth; month += 1) {
+        if (obligations.some(function (obligation) { return isDebtObligationActiveAtMonth(obligation, month); })) {
+          activeInRunoutWindow = month;
+          break;
+        }
+      }
+      if (activeInRunoutWindow != null) {
+        candidates.push(makeDebtTriggerCandidate("minimum-debt-payments-compete-with-expenses", {
+          monthIndex: activeInRunoutWindow,
+          amountValue: totalMonthlyDebtPayment,
+          sourcePaths,
+          activeDebtPaymentCount: obligations.length,
+          runoutMonth,
+          modeledHorizonMonth,
+          trace: {
+            runoutWindowStart: windowStart,
+            runoutWindowEnd: runoutMonth,
+            activeInRunoutWindow
+          }
+        }));
+      }
+
+      const unsupportedMonth = runoutMonth + 1;
+      if (obligations.some(function (obligation) { return isDebtObligationActiveAtMonth(obligation, unsupportedMonth); })) {
+        candidates.push(makeDebtTriggerCandidate("minimum-debt-payments-become-unsupported", {
+          monthIndex: unsupportedMonth,
+          amountValue: totalMonthlyDebtPayment,
+          sourcePaths,
+          activeDebtPaymentCount: obligations.length,
+          runoutMonth,
+          modeledHorizonMonth,
+          trace: {
+            unsupportedMonth
+          }
+        }));
+      } else if (lastActiveMonth != null && lastActiveMonth <= runoutMonth) {
+        candidates.push(makeDebtTriggerCandidate("required-debt-payments-covered", {
+          monthIndex: lastActiveMonth,
+          amountValue: totalMonthlyDebtPayment,
+          sourcePaths,
+          activeDebtPaymentCount: obligations.length,
+          runoutMonth,
+          modeledHorizonMonth,
+          trace: {
+            coverageBasis: "debts-end-before-runout"
+          }
+        }));
+      }
+    } else {
+      candidates.push(makeDebtTriggerCandidate("required-debt-payments-covered", {
+        monthIndex: lastActiveMonth ?? modeledHorizonMonth ?? firstActiveMonth,
+        amountValue: totalMonthlyDebtPayment,
+        sourcePaths,
+        activeDebtPaymentCount: obligations.length,
+        runoutMonth,
+        modeledHorizonMonth,
+        trace: {
+          coverageBasis: "no-resource-runout-through-modeled-horizon"
+        }
+      }));
+    }
+
+    const compacted = compactObjects(candidates);
+    return {
+      candidates: dedupeCandidates(compacted),
+      suppressedCandidates: [],
+      usedForStoryline: compacted.length > 0,
+      trace: {
+        scheduleStatus: "ready",
+        activeDebtPaymentCount: obligations.length,
+        candidateIds: compacted.map(function (candidate) { return candidate.id; }),
+        runoutMonth,
+        modeledHorizonMonth,
+        sourcePaths
+      }
+    };
+  }
+
   function getHousingRiskEvents(housingRisk) {
     if (!isPlainObject(housingRisk)) {
       return [];
@@ -3012,11 +3367,13 @@
       safeInput.transitionOutlook || safeInput.scenario?.transitionOutlook,
       warnings
     );
+    const debtTriggers = buildDebtRequiredPaymentTriggerCandidates(safeInput, warnings);
     const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
     const safeCandidates = dedupeCandidates(
       buildSafeCandidates(safeInput, warnings)
         .concat(ledgerBacked.candidates)
         .concat(liquidityTriggers.candidates)
+        .concat(debtTriggers.candidates)
         .concat(housingRiskBacked.candidates)
     );
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
@@ -3074,6 +3431,8 @@
       ledgerBackedCandidateIds: ledgerBacked.candidates.map(function (candidate) { return candidate.id; }),
       liquidityTriggerCandidateIds: liquidityTriggers.candidates.map(function (candidate) { return candidate.id; }),
       liquidityTriggerTrace: clonePlainValue(liquidityTriggers.trace),
+      debtTriggerCandidateIds: debtTriggers.candidates.map(function (candidate) { return candidate.id; }),
+      debtTriggerTrace: clonePlainValue(debtTriggers.trace),
       graphLineSource: "aggregate-survivor-runway"
     };
     if (isPlainObject(safeInput.assetDepletionLedger)) {
@@ -3083,6 +3442,10 @@
     if (isPlainObject(safeInput.housingRisk)) {
       trace.activatedHousingRiskCandidateIds = housingRiskBacked.candidates.map(function (candidate) { return candidate.id; });
       trace.suppressedHousingRiskCandidateCount = housingRiskBacked.suppressedCandidates.length;
+    }
+    if (isPlainObject(getDebtRequiredPaymentSchedule(safeInput))) {
+      trace.activatedDebtTriggerCandidateIds = debtTriggers.candidates.map(function (candidate) { return candidate.id; });
+      trace.suppressedDebtTriggerCandidateCount = debtTriggers.suppressedCandidates.length;
     }
 
     return {
@@ -3096,6 +3459,7 @@
       graphDotCandidates,
       suppressedCandidates: ledgerBacked.suppressedCandidates
         .concat(liquidityTriggers.suppressedCandidates)
+        .concat(debtTriggers.suppressedCandidates)
         .concat(housingRiskBacked.suppressedCandidates)
         .concat(selectionSuppressedCandidates),
       warnings,

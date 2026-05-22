@@ -124,6 +124,13 @@
     semiannual: 1 / 6,
     annual: 1 / 12
   });
+  const REVOLVING_DEBT_TYPE_KEYS = Object.freeze([
+    "creditCard",
+    "storeCard",
+    "chargeCard",
+    "unsecuredLineOfCredit",
+    "businessLineOfCredit"
+  ]);
   const EXPENSE_FREQUENCY_ANNUALIZATION_FACTORS = Object.freeze({
     weekly: 52,
     monthly: 12,
@@ -2031,6 +2038,229 @@
     };
   }
 
+  function getDebtRecordScheduleBalance(debtRecord) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    return toOptionalNonNegativeNumber(
+      safeDebtRecord.currentBalance
+      ?? safeDebtRecord.balance
+      ?? safeDebtRecord.balanceAmount
+      ?? safeDebtRecord.currentDebtBalance
+    );
+  }
+
+  function getDebtRecordScheduleInterestRate(debtRecord) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    return toOptionalNonNegativeNumber(
+      safeDebtRecord.interestRatePercent
+      ?? safeDebtRecord.interestRate
+      ?? safeDebtRecord.apr
+      ?? safeDebtRecord.APR
+    );
+  }
+
+  function getDebtRecordExplicitTermMonths(debtRecord) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    return toOptionalNonNegativeNumber(
+      safeDebtRecord.remainingTermMonths
+      ?? safeDebtRecord.termMonths
+      ?? safeDebtRecord.remainingTerm
+    );
+  }
+
+  function isExplicitOngoingOrRevolvingDebtRecord(debtRecord, sourceDebtTypeKey) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const flags = [
+      safeDebtRecord.isRevolving,
+      safeDebtRecord.revolving,
+      safeDebtRecord.isOngoing,
+      safeDebtRecord.ongoing
+    ];
+    if (flags.some(function (flag) { return flag === true; })) {
+      return true;
+    }
+
+    const tokens = [
+      sourceDebtTypeKey,
+      safeDebtRecord.typeKey,
+      safeDebtRecord.paymentType,
+      safeDebtRecord.termType,
+      safeDebtRecord.repaymentType,
+      safeDebtRecord.scheduleType,
+      safeDebtRecord.debtType
+    ].map(normalizeDebtRecordString);
+    if (tokens.some(function (token) { return REVOLVING_DEBT_TYPE_KEYS.indexOf(token) !== -1; })) {
+      return true;
+    }
+    return tokens.some(function (token) {
+      return /revolving|ongoing|minimumPayment|interestOnly|otherRecurringPayment/.test(token);
+    });
+  }
+
+  function calculateDebtPayoffTermMonths(balance, monthlyPayment, interestRatePercent) {
+    if (balance == null || balance <= 0 || monthlyPayment == null || monthlyPayment <= 0) {
+      return {
+        termMonths: null,
+        status: "unavailable"
+      };
+    }
+
+    const monthlyRate = (interestRatePercent || 0) / 100 / 12;
+    if (monthlyRate <= 0) {
+      return {
+        termMonths: Math.ceil(balance / monthlyPayment),
+        status: "calculated-straight-line"
+      };
+    }
+
+    if (monthlyPayment <= balance * monthlyRate) {
+      return {
+        termMonths: null,
+        status: "does-not-amortize"
+      };
+    }
+
+    const months = -Math.log(1 - (monthlyRate * balance) / monthlyPayment) / Math.log(1 + monthlyRate);
+    if (!Number.isFinite(months) || months <= 0) {
+      return {
+        termMonths: null,
+        status: "unavailable"
+      };
+    }
+
+    return {
+      termMonths: Math.ceil(months),
+      status: "calculated-amortization"
+    };
+  }
+
+  function makeDebtPaymentScheduleWarning(code, message, details) {
+    return createExpenseFactWarning(code, message, details);
+  }
+
+  function resolveGeneratedDebtPaymentSchedule(debtRecord, config, warnings) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const safeConfig = config && typeof config === "object" ? config : {};
+    const sourcePath = safeConfig.sourcePath || DEBT_RECORDS_SOURCE_PATH;
+    const paymentFrequency = normalizeDebtPaymentFrequency(safeConfig.paymentFrequency);
+    const monthlyPayment = toOptionalNonNegativeNumber(safeConfig.monthlyRecurringAmount);
+    const paymentAmount = toOptionalNonNegativeNumber(safeConfig.paymentAmount);
+    const sourceDebtTypeKey = normalizeDebtRecordTypeKey(safeConfig.sourceDebtTypeKey || safeDebtRecord.typeKey);
+    const sourceDebtRecordId = normalizeDebtRecordString(safeConfig.sourceDebtRecordId);
+    const balance = getDebtRecordScheduleBalance(safeDebtRecord);
+    const interestRatePercent = getDebtRecordScheduleInterestRate(safeDebtRecord);
+    const explicitTermMonths = getDebtRecordExplicitTermMonths(safeDebtRecord);
+    const explicitOngoing = isExplicitOngoingOrRevolvingDebtRecord(safeDebtRecord, sourceDebtTypeKey);
+    const baseSchedule = {
+      version: "generated-debt-payment-schedule-v1",
+      status: "unavailable",
+      termType: "unavailable",
+      termMonths: null,
+      remainingTermMonths: null,
+      termSource: "unavailable",
+      monthlyPayment: monthlyPayment == null ? null : Number(monthlyPayment.toFixed(2)),
+      paymentAmount: paymentAmount == null ? null : Number(paymentAmount.toFixed(2)),
+      paymentFrequency,
+      balance,
+      interestRatePercent,
+      explicitOngoingOrRevolving: explicitOngoing,
+      unresolvedRevolving: false,
+      warningCodes: [],
+      sourceDebtRecordId: sourceDebtRecordId || null,
+      sourceDebtTypeKey: sourceDebtTypeKey || null,
+      sourcePath
+    };
+
+    function addScheduleWarning(code, message, details) {
+      const warning = makeDebtPaymentScheduleWarning(code, message, Object.assign({
+        sourceDebtRecordId: sourceDebtRecordId || null,
+        sourceDebtTypeKey: sourceDebtTypeKey || null,
+        sourcePath
+      }, details || {}));
+      warnings.push(warning);
+      baseSchedule.warningCodes.push(code);
+    }
+
+    if (paymentFrequency === "oneTime") {
+      return Object.assign({}, baseSchedule, {
+        status: "one-time",
+        termType: "oneTime",
+        termSource: "payment-frequency"
+      });
+    }
+
+    if (paymentFrequency === "other") {
+      return Object.assign({}, baseSchedule, {
+        status: "review-required",
+        termType: explicitOngoing ? "ongoing" : "unavailable",
+        termSource: "payment-frequency-review"
+      });
+    }
+
+    if (monthlyPayment == null || monthlyPayment <= 0) {
+      addScheduleWarning(
+        "invalid-debt-payment-amount",
+        "Debt record payment amount was zero or invalid and will not create a monthly debt obligation.",
+        { monthlyPayment, paymentAmount }
+      );
+      return baseSchedule;
+    }
+
+    if (explicitTermMonths != null && explicitTermMonths > 0) {
+      return Object.assign({}, baseSchedule, {
+        status: "scheduled",
+        termType: "fixedTerm",
+        termMonths: Math.ceil(explicitTermMonths),
+        remainingTermMonths: Math.ceil(explicitTermMonths),
+        termSource: "explicit-remaining-term"
+      });
+    }
+
+    if (balance != null && balance > 0 && interestRatePercent != null) {
+      const payoffTerm = calculateDebtPayoffTermMonths(balance, monthlyPayment, interestRatePercent);
+      if (payoffTerm.status === "calculated-amortization" || payoffTerm.status === "calculated-straight-line") {
+        return Object.assign({}, baseSchedule, {
+          status: "scheduled",
+          termType: "calculatedTerm",
+          termMonths: payoffTerm.termMonths,
+          remainingTermMonths: payoffTerm.termMonths,
+          termSource: payoffTerm.status
+        });
+      }
+      if (payoffTerm.status === "does-not-amortize") {
+        addScheduleWarning(
+          "payment-does-not-amortize-balance",
+          "Debt record payment is too low to amortize the balance at the stated interest rate; no fake payoff date was created.",
+          { balance, monthlyPayment, interestRatePercent }
+        );
+        return Object.assign({}, baseSchedule, {
+          status: explicitOngoing ? "ongoing" : "unavailable",
+          termType: explicitOngoing ? "ongoing" : "unavailable",
+          termSource: "payment-does-not-amortize-balance",
+          unresolvedRevolving: explicitOngoing
+        });
+      }
+    }
+
+    if (explicitOngoing) {
+      return Object.assign({}, baseSchedule, {
+        status: "ongoing",
+        termType: "ongoing",
+        termSource: "explicit-ongoing-or-revolving"
+      });
+    }
+
+    addScheduleWarning(
+      "debt-payoff-term-unavailable",
+      "Debt record did not have enough balance, payment, interest, or term data to create a monthly debt payoff schedule.",
+      {
+        hasBalance: balance != null,
+        hasMonthlyPayment: monthlyPayment != null && monthlyPayment > 0,
+        hasInterestRate: interestRatePercent != null
+      }
+    );
+    return baseSchedule;
+  }
+
   function createDebtPaymentExpenseTypeKey(typeKey) {
     const normalizedTypeKey = normalizeDebtRecordString(typeKey);
     return normalizedTypeKey ? normalizedTypeKey + "Payment" : "debtPayment";
@@ -2117,6 +2347,18 @@
     }
 
     const amounts = calculateGeneratedDebtPaymentAmounts(amount, paymentFrequency);
+    const debtPaymentSchedule = resolveGeneratedDebtPaymentSchedule(
+      safeDebtRecord,
+      {
+        paymentAmount: amount,
+        monthlyRecurringAmount: amounts.monthlyRecurringAmount,
+        paymentFrequency,
+        sourceDebtRecordId,
+        sourceDebtTypeKey,
+        sourcePath
+      },
+      warnings
+    );
     const libraryLabel = normalizeDebtRecordString(libraryEntry && libraryEntry.label)
       || sourceDebtTypeKey
       || "Debt";
@@ -2143,7 +2385,7 @@
         termYears: null,
         endAge: null,
         endDate: null,
-        remainingTermMonths: toOptionalNonNegativeNumber(safeDebtRecord.remainingTermMonths),
+        remainingTermMonths: debtPaymentSchedule.remainingTermMonths,
         extraPayoffAmount,
         source: DEBT_RECORDS_SOURCE_PATH,
         sourceKey: "debtRecords",
@@ -2186,7 +2428,11 @@
           libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
           duplicateProtectionKey,
           formulaActivation: "deferred",
-          extraPayoffTreatment: extraPayoffAmount == null ? null : "deferred-separate-from-required-payment"
+          extraPayoffTreatment: extraPayoffAmount == null ? null : "deferred-separate-from-required-payment",
+          debtPaymentSchedule,
+          paymentScheduleStatus: debtPaymentSchedule.status,
+          paymentScheduleTermSource: debtPaymentSchedule.termSource,
+          paymentScheduleWarningCodes: debtPaymentSchedule.warningCodes.slice()
         }
       },
       warnings,

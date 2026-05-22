@@ -1111,6 +1111,202 @@
     return obligations;
   }
 
+  function getDebtTreatmentRowsByDebtFactId(lensModel) {
+    const rows = getDebtRows(lensModel?.treatedDebtPayoff || lensModel?.debtTreatment || {});
+    return rows.reduce(function (map, row) {
+      if (!isPlainObject(row) || row.isMortgage === true) {
+        return map;
+      }
+      const key = normalizeString(row.debtFactId || row.id);
+      if (key && !map[key]) {
+        map[key] = row;
+      }
+      return map;
+    }, {});
+  }
+
+  function isDebtTreatmentPaidOffAtDeath(row) {
+    if (!isPlainObject(row) || row.isMortgage === true) {
+      return false;
+    }
+    const mode = normalizeStatus(row.treatmentMode || row.mode || row.debtTreatmentMode);
+    const rawBalance = toOptionalNumber(row.rawBalance ?? row.currentBalance ?? row.balance);
+    const treatedAmount = toOptionalNumber(row.treatedAmount ?? row.payoffAmount);
+    if (row.included === false || mode === "exclude") {
+      return false;
+    }
+    return mode === "payoff"
+      && rawBalance != null
+      && rawBalance > 0
+      && treatedAmount != null
+      && treatedAmount >= rawBalance;
+  }
+
+  function getDebtPaymentExpenseSchedule(expense) {
+    const metadata = isPlainObject(expense?.metadata) ? expense.metadata : {};
+    const schedule = isPlainObject(metadata.debtPaymentSchedule) ? metadata.debtPaymentSchedule : {};
+    const status = normalizeStatus(schedule.status);
+    const monthlyAmount = toOptionalNumber(
+      schedule.monthlyPayment
+      ?? expense?.monthlyRecurringAmount
+      ?? expense?.monthlyAmount
+      ?? expense?.amount
+    );
+    const termMonths = toWholeMonthCount(
+      schedule.remainingTermMonths
+      ?? schedule.termMonths
+      ?? expense?.remainingTermMonths
+      ?? expense?.termMonths
+    );
+    return {
+      status,
+      monthlyAmount,
+      termMonths: termMonths == null || termMonths <= 0 ? null : termMonths,
+      termSource: normalizeString(schedule.termSource || metadata.paymentScheduleTermSource),
+      termType: normalizeString(schedule.termType || expense?.termType),
+      unresolvedRevolving: schedule.unresolvedRevolving === true,
+      warningCodes: uniqueStrings(schedule.warningCodes || metadata.paymentScheduleWarningCodes)
+    };
+  }
+
+  function createDebtScheduleTraceRow(expense, schedule, treatmentRow, status, reason) {
+    const sourcePaths = readSourcePaths(expense, expense?.sourcePath || "lensModel.expenseFacts.expenses");
+    return {
+      id: normalizeString(expense?.expenseFactId || expense?.id),
+      label: normalizeString(expense?.label) || "Debt payment",
+      sourceDebtRecordId: normalizeString(expense?.sourceDebtRecordId) || null,
+      sourceDebtTypeKey: normalizeString(expense?.sourceDebtTypeKey || expense?.typeKey) || null,
+      monthlyAmount: schedule.monthlyAmount == null ? null : roundMoney(schedule.monthlyAmount),
+      termMonths: schedule.termMonths,
+      scheduleStatus: status,
+      scheduleReason: reason || null,
+      paidOffAtDeath: isDebtTreatmentPaidOffAtDeath(treatmentRow),
+      treatmentMode: normalizeString(treatmentRow?.treatmentMode || treatmentRow?.mode) || null,
+      termSource: schedule.termSource || null,
+      unresolvedRevolving: schedule.unresolvedRevolving === true,
+      warningCodes: schedule.warningCodes,
+      sourcePaths
+    };
+  }
+
+  function buildRequiredDebtPaymentObligations(lensModel, dataGaps, warnings, sourcePaths) {
+    const expenses = Array.isArray(lensModel?.expenseFacts?.expenses) ? lensModel.expenseFacts.expenses : [];
+    const treatmentRowsById = getDebtTreatmentRowsByDebtFactId(lensModel);
+    const obligations = [];
+    const excludedObligations = [];
+    const skippedObligations = [];
+
+    expenses.filter(function (expense) {
+      return expense?.isDebtPaymentExpense === true || expense?.isDebtObligation === true;
+    }).forEach(function (expense, index) {
+      const schedule = getDebtPaymentExpenseSchedule(expense);
+      const sourceDebtRecordId = normalizeString(expense?.sourceDebtRecordId);
+      const treatmentRow = sourceDebtRecordId ? treatmentRowsById[sourceDebtRecordId] : null;
+      const sourcePathsForExpense = readSourcePaths(expense, expense?.sourcePath || `lensModel.expenseFacts.expenses.${index}`);
+      appendUnique(sourcePaths, sourcePathsForExpense);
+
+      if (isDebtTreatmentPaidOffAtDeath(treatmentRow)) {
+        excludedObligations.push(createDebtScheduleTraceRow(expense, schedule, treatmentRow, "excluded", "paid-off-at-death"));
+        return;
+      }
+
+      if (schedule.monthlyAmount == null || schedule.monthlyAmount <= 0) {
+        skippedObligations.push(createDebtScheduleTraceRow(expense, schedule, treatmentRow, "skipped", "invalid-or-zero-payment"));
+        return;
+      }
+
+      const scheduleStatus = normalizeStatus(schedule.status);
+      if (scheduleStatus !== "scheduled" && scheduleStatus !== "ongoing") {
+        skippedObligations.push(createDebtScheduleTraceRow(expense, schedule, treatmentRow, "skipped", scheduleStatus || "term-unavailable"));
+        if (schedule.warningCodes.indexOf("debt-payoff-term-unavailable") !== -1) {
+          addIssue(
+            warnings,
+            "debt-payoff-term-unavailable",
+            "Debt payment was not added as a monthly runway obligation because payoff term was unavailable and the record was not explicitly ongoing or revolving.",
+            sourcePathsForExpense,
+            {
+              sourceDebtRecordId: sourceDebtRecordId || null,
+              sourceDebtTypeKey: normalizeString(expense?.sourceDebtTypeKey) || null
+            }
+          );
+        }
+        return;
+      }
+
+      const id = normalizeString(expense.expenseFactId || expense.id) || `required-debt-payment-${index + 1}`;
+      obligations.push({
+        id,
+        label: normalizeString(expense.label) || "Required debt payment",
+        amount: roundMoney(schedule.monthlyAmount),
+        monthlyAmount: roundMoney(schedule.monthlyAmount),
+        monthlyPayment: roundMoney(schedule.monthlyAmount),
+        frequency: "monthly",
+        termMonths: scheduleStatus === "ongoing" ? null : schedule.termMonths,
+        remainingMonths: scheduleStatus === "ongoing" ? null : schedule.termMonths,
+        category: "requiredDebtPayment",
+        status: "scheduled",
+        type: "debt",
+        treatment: normalizeString(treatmentRow?.treatmentMode || treatmentRow?.mode) || "not-paid-off-at-death",
+        treatmentMode: normalizeString(treatmentRow?.treatmentMode || treatmentRow?.mode) || null,
+        requiredDebtPayment: true,
+        paidOffAtDeath: false,
+        alreadyIncludedInNeeds: false,
+        alreadyIncludedInSurvivorNeeds: false,
+        riskOnlyObligation: false,
+        cashFlowIncluded: true,
+        sourceDebtRecordId: sourceDebtRecordId || null,
+        sourceDebtTypeKey: normalizeString(expense.sourceDebtTypeKey || expense.typeKey) || null,
+        sourcePaths: sourcePathsForExpense,
+        trace: {
+          source: "lensModel.expenseFacts.generatedDebtPayment",
+          accountingTreatment: "scheduled-obligation",
+          requiredDebtPayment: true,
+          scheduleStatus,
+          termSource: schedule.termSource,
+          unresolvedRevolving: schedule.unresolvedRevolving === true,
+          warningCodes: schedule.warningCodes,
+          sourcePaths: sourcePathsForExpense
+        }
+      });
+    });
+
+    const traceRows = obligations.map(function (obligation) {
+      return {
+        id: obligation.id,
+        label: obligation.label,
+        sourceDebtRecordId: obligation.sourceDebtRecordId,
+        sourceDebtTypeKey: obligation.sourceDebtTypeKey,
+        monthlyAmount: obligation.monthlyAmount,
+        termMonths: obligation.termMonths,
+        scheduleStatus: obligation.trace.scheduleStatus,
+        paidOffAtDeath: false,
+        treatmentMode: obligation.treatmentMode,
+        termSource: obligation.trace.termSource,
+        unresolvedRevolving: obligation.trace.unresolvedRevolving === true,
+        warningCodes: obligation.trace.warningCodes,
+        sourcePaths: obligation.sourcePaths
+      };
+    });
+
+    return {
+      obligations,
+      schedule: {
+        version: "income-impact-required-debt-payment-schedule-v1",
+        status: expenses.length ? "ready" : "not-provided",
+        obligations: traceRows,
+        excludedObligations,
+        skippedObligations,
+        trace: {
+          source: "income-impact-scenario-composer",
+          sourceExpenseCount: expenses.length,
+          activeObligationCount: obligations.length,
+          excludedPaidOffAtDeathCount: excludedObligations.length,
+          skippedObligationCount: skippedObligations.length
+        }
+      }
+    };
+  }
+
   function getRiskOnlyScheduledObligations(layer3Input) {
     return (Array.isArray(layer3Input?.scheduledObligations) ? layer3Input.scheduledObligations : [])
       .filter(function (obligation) {
@@ -1286,7 +1482,7 @@
       };
     });
     const survivorIncomeStreams = buildSurvivorIncomeStreams(input.lensModel, dataGaps, sourcePaths, trace, input.scenarioOptions);
-    const scheduledObligations = buildMortgageSupportObligations(
+    const mortgageSupportObligations = buildMortgageSupportObligations(
       input.lensModel?.treatedDebtPayoff || input.lensModel?.debtTreatment || {},
       layer2Output,
       dataGaps,
@@ -1294,8 +1490,16 @@
       input.scenarioOptions?.mortgageTreatmentOverride,
       input.lensModel?.treatedMortgagePaymentPlan
     );
+    const requiredDebtPaymentSchedule = buildRequiredDebtPaymentObligations(
+      input.lensModel,
+      dataGaps,
+      warnings,
+      sourcePaths
+    );
+    const scheduledObligations = mortgageSupportObligations.concat(requiredDebtPaymentSchedule.obligations);
     const resourcesAfterObligations = toOptionalNumber(layer2Output?.resources?.resourcesAfterObligations);
 
+    trace.layer3.debtRequiredPaymentSchedule = requiredDebtPaymentSchedule.schedule;
     trace.layer3.inputMapping = {
       startingResources: "Layer 2 resources.resourcesAfterObligations",
       survivorIncome: "lensModel.survivorScenario.survivorNetAnnualIncome",
