@@ -302,6 +302,244 @@
       advisorUsefulness: 0.96
     },
     {
+      id: "ninety-day-cash-window-covered",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "90-Day Cash Window Is Covered",
+      graphLabel: "90-day covered",
+      cardTitle: "90-Day Cash Window Is Covered",
+      description: "Fast-access cash resources cover at least 1.25x the first 90 days of transition need.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 48,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.56,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "ninety-day-cash-window-tight",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "90-Day Cash Window Is Tight",
+      graphLabel: "90-day tight",
+      cardTitle: "90-Day Cash Window Is Tight",
+      description: "Fast-access cash resources cover 1.00x to 1.24x the first 90 days of transition need.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 48,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.62,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "ninety-day-cash-window-short",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "90-Day Cash Window Is Short",
+      graphLabel: "90-day short",
+      cardTitle: "90-Day Cash Window Is Short",
+      description: "Fast-access cash resources cover 0.50x to 0.99x the first 90 days of transition need.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 48,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.94
+    },
+    {
+      id: "ninety-day-cash-window-underfunded",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "90-Day Cash Window Is Underfunded",
+      graphLabel: "90-day underfunded",
+      cardTitle: "90-Day Cash Window Is Underfunded",
+      description: "Fast-access cash resources cover less than 0.50x the first 90 days of transition need.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 48,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.94,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 0.95
+    },
+    {
+      id: "cash-reserve-holds",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Cash Reserve Holds",
+      graphLabel: "Cash holds",
+      cardTitle: "Cash Reserve Holds",
+      description: "Ordinary cash carries the runway without touching the emergency fund or deeper liquid buckets.",
+      severity: "stable",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 49,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.86,
+      emotionalWeight: 0.56,
+      advisorUsefulness: 0.88
+    },
+    {
+      id: "cash-reserve-begins-declining",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Cash Reserve Begins Declining",
+      graphLabel: "Cash declining",
+      cardTitle: "Cash Reserve Begins Declining",
+      description: "Ordinary cash is the first liquidity bucket used by the canonical runway waterfall.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 51,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.84,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.86
+    },
+    {
+      id: "cash-reserve-nearly-depleted",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Cash Reserve Is Nearly Depleted",
+      graphLabel: "Cash nearly depleted",
+      cardTitle: "Cash Reserve Is Nearly Depleted",
+      description: "Ordinary cash falls below three months of reliable monthly burn.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 52,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "cash-reserve-depleted",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Cash Reserve Is Depleted",
+      graphLabel: "Cash depleted",
+      cardTitle: "Cash Reserve Is Depleted",
+      description: "Ordinary cash falls below one month of reliable monthly burn.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 53,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.74,
+      advisorUsefulness: 0.95
+    },
+    {
+      id: "emergency-fund-used",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Emergency Fund Is Used",
+      graphLabel: "Emergency used",
+      cardTitle: "Emergency Fund Is Used",
+      description: "The canonical runway waterfall begins using the emergency fund after ordinary cash.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 54,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.86,
+      emotionalWeight: 0.58,
+      advisorUsefulness: 0.9
+    },
+    {
+      id: "emergency-fund-nearly-depleted",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Emergency Fund Is Nearly Depleted",
+      graphLabel: "Emergency nearly depleted",
+      cardTitle: "Emergency Fund Is Nearly Depleted",
+      description: "The emergency fund falls below three months of reliable monthly burn.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 55,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.72,
+      advisorUsefulness: 0.95
+    },
+    {
+      id: "emergency-fund-depleted",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Emergency Fund Is Depleted",
+      graphLabel: "Emergency depleted",
+      cardTitle: "Emergency Fund Is Depleted",
+      description: "The emergency fund falls below one month of reliable monthly burn.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 56,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.94,
+      emotionalWeight: 0.78,
+      advisorUsefulness: 0.96
+    },
+    {
+      id: "taxable-investments-tapped",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Taxable Investments Are Tapped",
+      graphLabel: "Taxable tapped",
+      cardTitle: "Taxable Investments Are Tapped",
+      description: "The canonical runway waterfall begins using taxable brokerage or non-retirement taxable investments.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 57,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.82,
+      emotionalWeight: 0.58,
+      advisorUsefulness: 0.88
+    },
+    {
+      id: "taxable-investments-nearly-depleted",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Taxable Investments Are Nearly Depleted",
+      graphLabel: "Taxable nearly depleted",
+      cardTitle: "Taxable Investments Are Nearly Depleted",
+      description: "Taxable brokerage or non-retirement taxable investments fall below three months of reliable monthly burn.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 58,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.86,
+      emotionalWeight: 0.68,
+      advisorUsefulness: 0.92
+    },
+    {
+      id: "taxable-investments-depleted",
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: "Taxable Investments Are Depleted",
+      graphLabel: "Taxable depleted",
+      cardTitle: "Taxable Investments Are Depleted",
+      description: "Taxable brokerage or non-retirement taxable investments fall below one month of reliable monthly burn.",
+      severity: "critical",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 59,
+      storyRole: STORY_EVENT_ROLES.emotional,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: true,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.74,
+      advisorUsefulness: 0.94
+    },
+    {
       id: "monthly-support-gap-begins",
       family: EVENT_FAMILIES.gap,
       displayLabel: "Monthly Support Gap Begins",
@@ -426,42 +664,6 @@
   });
 
   const ASSET_DEPLETION_LEDGER_EVENT_MAPPINGS = Object.freeze({
-    "preDeathSavedCash:bucket-tapped": Object.freeze({
-      candidateId: "pre-death-saved-cash-used",
-      priority: 50,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true
-    }),
-    "preDeathSavedCash:bucket-depleted": Object.freeze({
-      candidateId: "pre-death-saved-cash-used",
-      priority: 50,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true
-    }),
-    "cash:bucket-depleted": Object.freeze({
-      candidateId: "cash-savings-depleted",
-      priority: 52,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true
-    }),
-    "emergencyFund:bucket-depleted": Object.freeze({
-      candidateId: "emergency-fund-depleted",
-      priority: 54,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true
-    }),
-    "otherLiquid:bucket-depleted": Object.freeze({
-      candidateId: "liquid-investments-depleted",
-      priority: 56,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: false
-    }),
-    "taxableInvestments:bucket-depleted": Object.freeze({
-      candidateId: "taxable-assets-depleted",
-      priority: 57,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: false
-    }),
     "educationSavings:bucket-tapped": Object.freeze({
       candidateId: "education-savings-used-for-living-needs",
       priority: 60,
@@ -1488,6 +1690,495 @@
     };
   }
 
+  const LIQUIDITY_FAST_ACCESS_FAMILIES = Object.freeze([
+    "preDeathSavedCash",
+    "cash",
+    "emergencyFund",
+    "otherLiquid"
+  ]);
+
+  const LIQUIDITY_DEEPER_THAN_CASH_FAMILIES = Object.freeze([
+    "emergencyFund",
+    "otherLiquid",
+    "taxableInvestments",
+    "educationSavings",
+    "retirementAssets",
+    "qualifiedAnnuities",
+    "nonQualifiedAnnuities",
+    "homeEquity",
+    "realEstate",
+    "businessAssets",
+    "trustRestricted",
+    "unknown"
+  ]);
+
+  const LIQUIDITY_BUCKET_RULES = Object.freeze({
+    cash: Object.freeze({
+      family: "cash",
+      usedId: "cash-reserve-begins-declining",
+      nearlyId: "cash-reserve-nearly-depleted",
+      depletedId: "cash-reserve-depleted",
+      usedSupportingOnly: true,
+      sourceLabel: "ordinary cash"
+    }),
+    emergencyFund: Object.freeze({
+      family: "emergencyFund",
+      usedId: "emergency-fund-used",
+      nearlyId: "emergency-fund-nearly-depleted",
+      depletedId: "emergency-fund-depleted",
+      usedSupportingOnly: true,
+      sourceLabel: "emergency fund"
+    }),
+    taxableInvestments: Object.freeze({
+      family: "taxableInvestments",
+      usedId: "taxable-investments-tapped",
+      nearlyId: "taxable-investments-nearly-depleted",
+      depletedId: "taxable-investments-depleted",
+      usedSupportingOnly: true,
+      sourceLabel: "taxable investments"
+    })
+  });
+
+  function getLedgerMonths(assetDepletionLedger) {
+    return Array.isArray(assetDepletionLedger?.ledgerMonths)
+      ? assetDepletionLedger.ledgerMonths.filter(isPlainObject)
+      : [];
+  }
+
+  function getOrderedBuckets(assetDepletionLedger) {
+    return Array.isArray(assetDepletionLedger?.orderedBuckets)
+      ? assetDepletionLedger.orderedBuckets.filter(isPlainObject)
+      : [];
+  }
+
+  function sumBucketSnapshotFamily(snapshot, family) {
+    const normalizedFamily = normalizeString(family);
+    return (Array.isArray(snapshot) ? snapshot : []).reduce(function (total, bucket) {
+      if (!isPlainObject(bucket) || normalizeString(bucket.family) !== normalizedFamily) {
+        return total;
+      }
+      const balance = toOptionalNumber(bucket.balance ?? bucket.availableValue ?? bucket.value);
+      return total + Math.max(balance || 0, 0);
+    }, 0);
+  }
+
+  function sumOrderedBucketFamily(assetDepletionLedger, family) {
+    const normalizedFamily = normalizeString(family);
+    return getOrderedBuckets(assetDepletionLedger).reduce(function (total, bucket) {
+      if (normalizeString(bucket.family || bucket.category) !== normalizedFamily) {
+        return total;
+      }
+      const value = toOptionalNumber(bucket.availableValue ?? bucket.value);
+      return total + Math.max(value || 0, 0);
+    }, 0);
+  }
+
+  function getInitialBucketFamilyValue(assetDepletionLedger, family) {
+    const firstMonth = getLedgerMonths(assetDepletionLedger)[0];
+    if (firstMonth && Array.isArray(firstMonth.startingBuckets)) {
+      return sumBucketSnapshotFamily(firstMonth.startingBuckets, family);
+    }
+    return sumOrderedBucketFamily(assetDepletionLedger, family);
+  }
+
+  function getFinalBucketFamilyValue(assetDepletionLedger, family) {
+    const months = getLedgerMonths(assetDepletionLedger);
+    const lastMonth = months[months.length - 1];
+    if (lastMonth && Array.isArray(lastMonth.endingBuckets)) {
+      return sumBucketSnapshotFamily(lastMonth.endingBuckets, family);
+    }
+    return sumOrderedBucketFamily(assetDepletionLedger, family);
+  }
+
+  function getFamilyBucketEvents(assetDepletionLedger, family) {
+    const normalizedFamily = normalizeString(family);
+    return getAssetDepletionLedgerEvents(assetDepletionLedger).filter(function (event) {
+      return normalizeString(event.family) === normalizedFamily;
+    });
+  }
+
+  function getFirstUsedMonthForFamily(assetDepletionLedger, family) {
+    const eventMonth = getFamilyBucketEvents(assetDepletionLedger, family).reduce(function (current, event) {
+      if (normalizeString(event.eventType) !== "bucket-tapped") {
+        return current;
+      }
+      const month = toOptionalNumber(event.monthIndex);
+      if (month == null) {
+        return current;
+      }
+      return current == null ? month : Math.min(current, month);
+    }, null);
+    if (eventMonth != null) {
+      return eventMonth;
+    }
+    return getOrderedBuckets(assetDepletionLedger).reduce(function (current, bucket) {
+      if (normalizeString(bucket.family || bucket.category) !== normalizeString(family)) {
+        return current;
+      }
+      const month = toOptionalNumber(bucket.firstUsedMonth);
+      if (month == null) {
+        return current;
+      }
+      return current == null ? month : Math.min(current, month);
+    }, null);
+  }
+
+  function hasReliableMonthlyBurn(assetDepletionLedger) {
+    return getLedgerMonths(assetDepletionLedger).some(function (month) {
+      return toOptionalNumber(month.monthlyNetUse) != null;
+    });
+  }
+
+  function findBucketThresholdCrossing(assetDepletionLedger, family, thresholdMonths, minimumMonths) {
+    const months = getLedgerMonths(assetDepletionLedger);
+    for (let index = 0; index < months.length; index += 1) {
+      const month = months[index];
+      const monthlyBurn = toOptionalNumber(month.monthlyNetUse);
+      if (monthlyBurn == null || monthlyBurn <= 0) {
+        continue;
+      }
+      const balance = sumBucketSnapshotFamily(month.endingBuckets, family);
+      const thresholdValue = monthlyBurn * thresholdMonths;
+      const minimumValue = minimumMonths == null ? null : monthlyBurn * minimumMonths;
+      if (balance < thresholdValue && (minimumValue == null || balance >= minimumValue)) {
+        return {
+          monthIndex: toOptionalNumber(month.monthIndex) ?? index,
+          monthlyBurn,
+          remainingValue: balance,
+          thresholdValue
+        };
+      }
+    }
+    return null;
+  }
+
+  function getLedgerReconciliationTrace(assetDepletionLedger) {
+    return isPlainObject(assetDepletionLedger?.trace?.totalResourcesReconciliation)
+      ? clonePlainValue(assetDepletionLedger.trace.totalResourcesReconciliation)
+      : null;
+  }
+
+  function makeLiquiditySuppressedCandidate(id, reason, context) {
+    const safeContext = isPlainObject(context) ? context : {};
+    return {
+      id: `liquidity-trigger.${normalizeString(id) || "event"}.${normalizeString(reason) || "suppressed"}`,
+      family: EVENT_FAMILIES.cashWaterfall,
+      displayLabel: normalizeString(safeContext.displayLabel || id),
+      graphLabel: normalizeString(safeContext.displayLabel || id),
+      cardTitle: normalizeString(safeContext.displayLabel || id),
+      description: normalizeString(reason),
+      severity: "deferred",
+      evidenceLevel: EVIDENCE_LEVELS.insufficientData,
+      status: STATUSES.deferred,
+      safeToRender: false,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: false,
+      timing: makeEmptyTiming("liquidity-trigger-suppressed"),
+      amount: makeEmptyAmount(),
+      sources: uniqueStrings(safeContext.sourcePaths).map(function (sourcePath) {
+        return {
+          sourcePath,
+          evidenceLevel: EVIDENCE_LEVELS.insufficientData
+        };
+      }),
+      confidence: 0,
+      lifeInsuranceRelevance: 0,
+      emotionalWeight: 0,
+      advisorUsefulness: 0,
+      suppressionKeys: ["liquidity-trigger-suppressed"],
+      deferredReason: reason,
+      warnings: [],
+      priority: 999,
+      candidateSource: "canonical-liquidity-trigger",
+      trace: Object.assign({
+        candidateSource: "canonical-liquidity-trigger",
+        reason
+      }, clonePlainValue(safeContext.trace || {}))
+    };
+  }
+
+  function makeLiquidityTriggerCandidate(candidateId, config) {
+    const definition = findDefinition(candidateId);
+    if (!definition) {
+      return null;
+    }
+    const safeConfig = isPlainObject(config) ? config : {};
+    const monthIndex = toOptionalNumber(safeConfig.monthIndex);
+    const amountValue = toOptionalNumber(safeConfig.amountValue);
+    const evidenceLevel = safeConfig.evidenceLevel || EVIDENCE_LEVELS.calculated;
+    const candidate = makeCandidate(definition, {
+      status: STATUSES.safeNow,
+      safeToRender: true,
+      evidenceLevel,
+      eligibleForGraphDot: safeConfig.eligibleForGraphDot !== false,
+      eligibleForMajorCard: safeConfig.supportingOnly === true ? false : definition.eligibleForMajorCard === true,
+      timingKind: "month-offset",
+      timing: {
+        monthOffset: monthIndex,
+        label: monthIndex == null ? "At death" : `Month ${monthIndex}`,
+        sourcePath: safeConfig.sourcePath || "assetDepletionLedger.ledgerMonths"
+      },
+      amount: {
+        value: amountValue,
+        sourcePath: safeConfig.amountSourcePath || safeConfig.sourcePath || "assetDepletionLedger"
+      },
+      sourcePaths: uniqueStrings(safeConfig.sourcePaths || [safeConfig.sourcePath || "assetDepletionLedger"]),
+      confidence: safeConfig.confidence ?? 0.9,
+      priority: safeConfig.priority ?? definition.priority,
+      suppressionKeys: safeConfig.suppressionKeys || [`liquidity-trigger:${candidateId}`]
+    });
+    candidate.candidateSource = "canonical-liquidity-trigger";
+    candidate.supportingDotOnly = safeConfig.supportingOnly === true;
+    candidate.supportingDotEligible = safeConfig.supportingOnly === true || candidate.eligibleForGraphDot === true;
+    candidate.trace = Object.assign({
+      candidateSource: "canonical-liquidity-trigger",
+      triggerId: candidateId,
+      monthIndex,
+      monthlyBurn: toOptionalNumber(safeConfig.monthlyBurn),
+      remainingValue: toOptionalNumber(safeConfig.remainingValue),
+      thresholdValue: toOptionalNumber(safeConfig.thresholdValue),
+      fastAccessResources: toOptionalNumber(safeConfig.fastAccessResources),
+      transitionNeed90Days: toOptionalNumber(safeConfig.transitionNeed90Days),
+      fastAccessCoverageRatio: toOptionalNumber(safeConfig.fastAccessCoverageRatio),
+      supportingDotOnly: safeConfig.supportingOnly === true,
+      aggregateRunwayPreserved: true,
+      graphLineSource: "aggregate-survivor-runway"
+    }, clonePlainValue(safeConfig.trace || {}));
+    return candidate;
+  }
+
+  function addLiquidityTriggerCandidate(target, candidate) {
+    if (candidate) {
+      target.push(candidate);
+    }
+  }
+
+  function buildNinetyDayCashWindowCandidate(assetDepletionLedger, transitionOutlook, warnings, suppressedCandidates) {
+    const transitionNeed90Days = toOptionalNumber(transitionOutlook?.transitionNeed90Days);
+    if (transitionNeed90Days == null || transitionNeed90Days <= 0) {
+      suppressedCandidates.push(makeLiquiditySuppressedCandidate(
+        "ninety-day-cash-window",
+        "90-day transition need is unavailable or zero.",
+        {
+          displayLabel: "90-Day Cash Window",
+          sourcePaths: ["transitionOutlook.transitionNeed90Days"],
+          trace: {
+            transitionNeed90Days
+          }
+        }
+      ));
+      warnings.push(makeWarning(
+        "liquidity-transition-need-missing",
+        "90-day cash-window trigger was suppressed because transition need was unavailable or zero.",
+        ["transitionOutlook.transitionNeed90Days"]
+      ));
+      return null;
+    }
+
+    const includedBuckets = LIQUIDITY_FAST_ACCESS_FAMILIES.map(function (family) {
+      return {
+        family,
+        value: getInitialBucketFamilyValue(assetDepletionLedger, family)
+      };
+    }).filter(function (bucket) {
+      return bucket.value > 0;
+    });
+    const fastAccessResources = includedBuckets.reduce(function (total, bucket) {
+      return total + bucket.value;
+    }, 0);
+    const fastAccessCoverageRatio = Number((fastAccessResources / transitionNeed90Days).toFixed(4));
+    const candidateId = fastAccessCoverageRatio >= 1.25
+      ? "ninety-day-cash-window-covered"
+      : fastAccessCoverageRatio >= 1
+        ? "ninety-day-cash-window-tight"
+        : fastAccessCoverageRatio >= 0.5
+          ? "ninety-day-cash-window-short"
+          : "ninety-day-cash-window-underfunded";
+
+    return makeLiquidityTriggerCandidate(candidateId, {
+      monthIndex: 0,
+      amountValue: fastAccessResources,
+      sourcePath: "assetDepletionLedger.orderedBuckets",
+      sourcePaths: [
+        "assetDepletionLedger.orderedBuckets",
+        "assetDepletionLedger.ledgerMonths.0.startingBuckets",
+        "transitionOutlook.transitionNeed90Days"
+      ],
+      fastAccessResources,
+      transitionNeed90Days,
+      fastAccessCoverageRatio,
+      trace: {
+        includedFastAccessFamilies: includedBuckets,
+        excludedFastAccessFamilies: [
+          "taxableInvestments",
+          "educationSavings",
+          "retirementAssets",
+          "homeEquity",
+          "businessAssets",
+          "illiquid",
+          "restricted",
+          "unknown"
+        ],
+        transitionOutlookStatus: normalizeString(transitionOutlook?.status),
+        ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
+      }
+    });
+  }
+
+  function buildBucketThresholdCandidates(assetDepletionLedger, warnings, suppressedCandidates) {
+    const candidates = [];
+    const hasBurn = hasReliableMonthlyBurn(assetDepletionLedger);
+    if (!hasBurn) {
+      suppressedCandidates.push(makeLiquiditySuppressedCandidate(
+        "liquidity-threshold-events",
+        "Reliable monthly burn is unavailable from the canonical asset depletion ledger.",
+        {
+          displayLabel: "Liquidity threshold events",
+          sourcePaths: ["assetDepletionLedger.ledgerMonths.monthlyNetUse"],
+          trace: {
+            missingSource: "assetDepletionLedger.ledgerMonths.monthlyNetUse"
+          }
+        }
+      ));
+      warnings.push(makeWarning(
+        "liquidity-monthly-burn-missing",
+        "Liquidity threshold events were suppressed because reliable monthly burn was unavailable.",
+        ["assetDepletionLedger.ledgerMonths.monthlyNetUse"]
+      ));
+      return candidates;
+    }
+
+    Object.keys(LIQUIDITY_BUCKET_RULES).forEach(function (key) {
+      const rule = LIQUIDITY_BUCKET_RULES[key];
+      const initialValue = getInitialBucketFamilyValue(assetDepletionLedger, rule.family);
+      if (initialValue <= 0) {
+        return;
+      }
+      const firstUsedMonth = getFirstUsedMonthForFamily(assetDepletionLedger, rule.family);
+      if (firstUsedMonth != null && rule.usedId) {
+        addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate(rule.usedId, {
+          monthIndex: firstUsedMonth,
+          amountValue: initialValue,
+          sourcePath: "assetDepletionLedger.bucketEvents",
+          sourcePaths: ["assetDepletionLedger.bucketEvents", "assetDepletionLedger.orderedBuckets"],
+          supportingOnly: rule.usedSupportingOnly === true,
+          trace: {
+            family: rule.family,
+            sourceLabel: rule.sourceLabel,
+            firstUsedMonth,
+            initialValue,
+            ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
+          }
+        }));
+      }
+
+      const nearly = findBucketThresholdCrossing(assetDepletionLedger, rule.family, 3, 1);
+      if (nearly && rule.nearlyId) {
+        addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate(rule.nearlyId, {
+          monthIndex: nearly.monthIndex,
+          amountValue: nearly.remainingValue,
+          monthlyBurn: nearly.monthlyBurn,
+          remainingValue: nearly.remainingValue,
+          thresholdValue: nearly.thresholdValue,
+          sourcePath: "assetDepletionLedger.ledgerMonths",
+          sourcePaths: ["assetDepletionLedger.ledgerMonths.monthlyNetUse", "assetDepletionLedger.ledgerMonths.endingBuckets"],
+          trace: {
+            family: rule.family,
+            sourceLabel: rule.sourceLabel,
+            thresholdMonths: 3,
+            initialValue,
+            ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
+          }
+        }));
+      }
+
+      const depleted = findBucketThresholdCrossing(assetDepletionLedger, rule.family, 1, null);
+      if (depleted && rule.depletedId) {
+        addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate(rule.depletedId, {
+          monthIndex: depleted.monthIndex,
+          amountValue: depleted.remainingValue,
+          monthlyBurn: depleted.monthlyBurn,
+          remainingValue: depleted.remainingValue,
+          thresholdValue: depleted.thresholdValue,
+          sourcePath: "assetDepletionLedger.ledgerMonths",
+          sourcePaths: ["assetDepletionLedger.ledgerMonths.monthlyNetUse", "assetDepletionLedger.ledgerMonths.endingBuckets"],
+          trace: {
+            family: rule.family,
+            sourceLabel: rule.sourceLabel,
+            thresholdMonths: 1,
+            initialValue,
+            ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
+          }
+        }));
+      }
+    });
+
+    const cashValue = getInitialBucketFamilyValue(assetDepletionLedger, "cash");
+    const cashFinalValue = getFinalBucketFamilyValue(assetDepletionLedger, "cash");
+    const deeperBucketUsed = LIQUIDITY_DEEPER_THAN_CASH_FAMILIES.some(function (family) {
+      return getFirstUsedMonthForFamily(assetDepletionLedger, family) != null;
+    });
+    if (cashValue > 0 && cashFinalValue > 0 && !deeperBucketUsed) {
+      addLiquidityTriggerCandidate(candidates, makeLiquidityTriggerCandidate("cash-reserve-holds", {
+        monthIndex: 0,
+        amountValue: cashFinalValue,
+        sourcePath: "assetDepletionLedger.orderedBuckets",
+        sourcePaths: ["assetDepletionLedger.orderedBuckets", "assetDepletionLedger.ledgerMonths"],
+        trace: {
+          initialCashValue: cashValue,
+          finalCashValue: cashFinalValue,
+          deeperBucketUsed: false,
+          ledgerReconciliationStatus: getLedgerReconciliationTrace(assetDepletionLedger)
+        }
+      }));
+    }
+
+    return candidates;
+  }
+
+  function buildLiquidityMilestoneTriggerCandidates(assetDepletionLedger, transitionOutlook, warnings) {
+    const ledgerStatus = getAssetDepletionLedgerStatus(assetDepletionLedger);
+    if (!isReadyAssetDepletionLedger(assetDepletionLedger)) {
+      return {
+        candidates: [],
+        suppressedCandidates: [],
+        ledgerStatus,
+        usedForStoryline: false,
+        trace: {
+          ledgerStatus,
+          canonicalLedgerRequired: true
+        }
+      };
+    }
+
+    const suppressedCandidates = [];
+    const candidates = [];
+    addLiquidityTriggerCandidate(
+      candidates,
+      buildNinetyDayCashWindowCandidate(assetDepletionLedger, transitionOutlook, warnings, suppressedCandidates)
+    );
+    buildBucketThresholdCandidates(assetDepletionLedger, warnings, suppressedCandidates).forEach(function (candidate) {
+      addLiquidityTriggerCandidate(candidates, candidate);
+    });
+
+    const dedupedCandidates = dedupeCandidates(candidates);
+    return {
+      candidates: dedupedCandidates,
+      suppressedCandidates,
+      ledgerStatus,
+      usedForStoryline: dedupedCandidates.length > 0,
+      trace: {
+        ledgerStatus,
+        candidateIds: dedupedCandidates.map(function (candidate) { return candidate.id; }),
+        suppressedCount: suppressedCandidates.length,
+        canonicalLedgerUsed: true,
+        monthlyBurnSource: hasReliableMonthlyBurn(assetDepletionLedger)
+          ? "assetDepletionLedger.ledgerMonths.monthlyNetUse"
+          : null
+      }
+    };
+  }
+
   function getHousingRiskEvents(housingRisk) {
     if (!isPlainObject(housingRisk)) {
       return [];
@@ -2316,10 +3007,16 @@
     }
 
     const ledgerBacked = buildAssetDepletionLedgerBackedCandidates(safeInput.assetDepletionLedger, warnings);
+    const liquidityTriggers = buildLiquidityMilestoneTriggerCandidates(
+      safeInput.assetDepletionLedger,
+      safeInput.transitionOutlook || safeInput.scenario?.transitionOutlook,
+      warnings
+    );
     const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
     const safeCandidates = dedupeCandidates(
       buildSafeCandidates(safeInput, warnings)
         .concat(ledgerBacked.candidates)
+        .concat(liquidityTriggers.candidates)
         .concat(housingRiskBacked.candidates)
     );
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
@@ -2370,16 +3067,18 @@
       majorStoryFamilyCounts: countBy(majorStoryCandidates, function (candidate) { return candidate.family; }),
       graphDotFamilyCounts: countBy(graphDotCandidates, function (candidate) { return candidate.family; }),
       selectorSuppressedCountsByReason: countSuppressionReasons(selectionSuppressedCandidates),
-      assetDepletionLedgerUsedForStoryline: ledgerBacked.usedForStoryline,
+      assetDepletionLedgerUsedForStoryline: ledgerBacked.usedForStoryline || liquidityTriggers.usedForStoryline,
       assetDepletionLedgerStatus: ledgerBacked.ledgerStatus,
-      canonicalRunwayWaterfallUsedForStoryline: ledgerBacked.usedForStoryline,
+      canonicalRunwayWaterfallUsedForStoryline: ledgerBacked.usedForStoryline || liquidityTriggers.usedForStoryline,
       canonicalRunwayWaterfallStatus: ledgerBacked.ledgerStatus,
       ledgerBackedCandidateIds: ledgerBacked.candidates.map(function (candidate) { return candidate.id; }),
+      liquidityTriggerCandidateIds: liquidityTriggers.candidates.map(function (candidate) { return candidate.id; }),
+      liquidityTriggerTrace: clonePlainValue(liquidityTriggers.trace),
       graphLineSource: "aggregate-survivor-runway"
     };
     if (isPlainObject(safeInput.assetDepletionLedger)) {
-      trace.suppressedAssetDepletionLedgerCandidateCount = ledgerBacked.suppressedCandidates.length;
-      trace.suppressedCanonicalRunwayWaterfallCandidateCount = ledgerBacked.suppressedCandidates.length;
+      trace.suppressedAssetDepletionLedgerCandidateCount = ledgerBacked.suppressedCandidates.length + liquidityTriggers.suppressedCandidates.length;
+      trace.suppressedCanonicalRunwayWaterfallCandidateCount = ledgerBacked.suppressedCandidates.length + liquidityTriggers.suppressedCandidates.length;
     }
     if (isPlainObject(safeInput.housingRisk)) {
       trace.activatedHousingRiskCandidateIds = housingRiskBacked.candidates.map(function (candidate) { return candidate.id; });
@@ -2396,6 +3095,7 @@
       microGraphDotCandidates,
       graphDotCandidates,
       suppressedCandidates: ledgerBacked.suppressedCandidates
+        .concat(liquidityTriggers.suppressedCandidates)
         .concat(housingRiskBacked.suppressedCandidates)
         .concat(selectionSuppressedCandidates),
       warnings,

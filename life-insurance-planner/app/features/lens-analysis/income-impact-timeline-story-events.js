@@ -242,6 +242,11 @@
       dotTier: normalizeString(event.dotTier) || "",
       connectedToMajorCard: typeof event.connectedToMajorCard === "boolean" ? event.connectedToMajorCard : null,
       eligibleForConnector: typeof event.eligibleForConnector === "boolean" ? event.eligibleForConnector : null,
+      eligibleForGraphDot: typeof event.eligibleForGraphDot === "boolean" ? event.eligibleForGraphDot : null,
+      eligibleForMajorCard: typeof event.eligibleForMajorCard === "boolean" ? event.eligibleForMajorCard : null,
+      supportingDotEligible: typeof event.supportingDotEligible === "boolean" ? event.supportingDotEligible : null,
+      supportingDotOnly: typeof event.supportingDotOnly === "boolean" ? event.supportingDotOnly : null,
+      mainCardEligible: typeof event.mainCardEligible === "boolean" ? event.mainCardEligible : null,
       majorCardIndex: toOptionalNumber(event.majorCardIndex),
       graphLabel: normalizeString(event.graphLabel || event.markerLabel) || "",
       displayLabel: normalizeString(event.displayLabel || event.label) || "",
@@ -307,6 +312,11 @@
     existing.dotTier = mergeMissingValue(existing.dotTier, incoming.dotTier);
     existing.connectedToMajorCard = mergeMissingValue(existing.connectedToMajorCard, incoming.connectedToMajorCard);
     existing.eligibleForConnector = mergeMissingValue(existing.eligibleForConnector, incoming.eligibleForConnector);
+    existing.eligibleForGraphDot = mergeMissingValue(existing.eligibleForGraphDot, incoming.eligibleForGraphDot);
+    existing.eligibleForMajorCard = mergeMissingValue(existing.eligibleForMajorCard, incoming.eligibleForMajorCard);
+    existing.supportingDotEligible = mergeMissingValue(existing.supportingDotEligible, incoming.supportingDotEligible);
+    existing.supportingDotOnly = mergeMissingValue(existing.supportingDotOnly, incoming.supportingDotOnly);
+    existing.mainCardEligible = mergeMissingValue(existing.mainCardEligible, incoming.mainCardEligible);
     existing.majorCardIndex = mergeMissingValue(existing.majorCardIndex, incoming.majorCardIndex);
     existing.graphLabel = mergeMissingValue(existing.graphLabel, incoming.graphLabel);
     existing.displayLabel = mergeMissingValue(existing.displayLabel, incoming.displayLabel);

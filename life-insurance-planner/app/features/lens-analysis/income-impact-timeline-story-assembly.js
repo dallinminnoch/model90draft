@@ -478,6 +478,12 @@
     const category = normalizeCategory(event);
     const tone = normalizeTone(event);
     const cardMapping = resolveApprovedCardMapping(event, rawTitle, category, tone);
+    const sourceBlocksMainCard = event.supportingDotOnly === true
+      || event.eligibleForMajorCard === false
+      || event.mainCardEligible === false;
+    const sourceSupportsDot = event.supportingDotEligible === true
+      || event.supportingDotOnly === true
+      || (sourceBlocksMainCard && event.eligibleForGraphDot === true);
     return {
       id: sourceEventId,
       source,
@@ -489,11 +495,11 @@
       rawTitle,
       approvedCardTitle: cardMapping.title,
       cardConcept: cardMapping.concept,
-      mainCardEligible: cardMapping.mainCardEligible,
+      mainCardEligible: sourceBlocksMainCard ? false : cardMapping.mainCardEligible,
       supportingDotConcept: cardMapping.supportingDotConcept,
-      supportingDotTitle: cardMapping.supportingDotTitle,
-      supportingDotTone: cardMapping.supportingDotTone,
-      supportingDotEligible: cardMapping.supportingDotEligible,
+      supportingDotTitle: cardMapping.supportingDotTitle || (sourceSupportsDot ? rawTitle : ""),
+      supportingDotTone: cardMapping.supportingDotTone || (sourceSupportsDot ? tone : null),
+      supportingDotEligible: Boolean(cardMapping.supportingDotEligible || sourceSupportsDot),
       shortLabel: firstString([event.shortLabel, event.graphLabel, event.displayLabel, event.markerLabel, rawTitle]),
       relativeMonth,
       timingLabel: formatTimingLabel(relativeMonth),

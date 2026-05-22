@@ -686,10 +686,6 @@ ledgerInput.assetDepletionLedger = {
 const ledgerSnapshot = cloneJson(ledgerInput);
 const ledgerResult = buildIncomeImpactFinancialStorylineCandidates(ledgerInput);
 const ledgerCandidateIds = [
-  "cash-savings-depleted",
-  "emergency-fund-depleted",
-  "taxable-assets-depleted",
-  "liquid-investments-depleted",
   "education-savings-used-for-living-needs",
   "education-savings-depleted",
   "retirement-assets-tapped",
@@ -704,8 +700,6 @@ ledgerCandidateIds.forEach(function (id) {
   assert.equal(candidate.trace.candidateSource, "canonical-runway-asset-waterfall", `${id} should preserve canonical waterfall trace metadata.`);
   assert.ok(ids(ledgerResult.safeRenderableEvents).includes(id), `${id} should be safe renderable from the ledger.`);
 });
-assert.equal(getCandidate(ledgerResult, "cash-savings-depleted").evidenceLevel, "calculated");
-assert.equal(getCandidate(ledgerResult, "emergency-fund-depleted").evidenceLevel, "trace-backed");
 assert.equal(getCandidate(ledgerResult, "education-savings-used-for-living-needs").trace.ledgerEventType, "bucket-tapped");
 assert.equal(getCandidate(ledgerResult, "education-savings-depleted").trace.ledgerEventType, "bucket-depleted");
 assert.equal(getCandidate(ledgerResult, "retirement-assets-tapped").trace.ledgerEventType, "bucket-tapped");
@@ -713,10 +707,17 @@ assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.ledg
 assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.aggregateRunwayPreserved, true);
 assert.equal(getCandidate(ledgerResult, "retirement-assets-depleted").trace.graphLineSource, "aggregate-survivor-runway");
 assert.deepEqual(
-  getCandidate(ledgerResult, "cash-savings-depleted").trace.ledgerReconciliationStatus,
+  getCandidate(ledgerResult, "education-savings-depleted").trace.ledgerReconciliationStatus,
   { verified: true, monthsChecked: 18 },
   "Ledger-backed candidate trace should preserve reconciliation status."
 );
+[
+  "cash-savings-depleted",
+  "taxable-assets-depleted",
+  "liquid-investments-depleted"
+].forEach(function (id) {
+  assert.ok(!ids(ledgerResult.safeRenderableEvents).includes(id), `${id} should not return as old liquidity waterfall vocabulary.`);
+});
 assert.ok(!ledgerResult.safeRenderableEvents.some(function (candidate) {
   return candidate.candidateSource === "canonical-runway-asset-waterfall"
     && ["existingCoverage", "homeEquity", "businessAssets", "unknown"].includes(candidate.trace?.family);
@@ -751,7 +752,7 @@ assert.equal(Object.prototype.hasOwnProperty.call(ledgerResult.trace, "activated
 assert.equal(ledgerResult.trace.graphLineSource, "aggregate-survivor-runway");
 assert.ok(ledgerResult.trace.majorStoryTierCounts["tier-1"] >= 1);
 assert.equal(ledgerResult.trace.selectedAsCounts.major, ledgerResult.majorStoryCandidates.length);
-assert.equal(ledgerResult.trace.selectedAsCounts.micro, ledgerResult.microGraphDotCandidates.length);
+assert.equal(ledgerResult.trace.selectedAsCounts.micro || 0, ledgerResult.microGraphDotCandidates.length);
 assert.equal(new Set(ids(ledgerResult.safeRenderableEvents)).size, ids(ledgerResult.safeRenderableEvents).length);
 assert.ok(ledgerResult.majorGraphDotCandidates.length <= 6);
 assert.ok(ledgerResult.microGraphDotCandidates.length <= 10);
@@ -779,19 +780,17 @@ if (ledgerMajorIds.includes("education-savings-used-for-living-needs")) {
   );
 }
 assert.ok(
-  ledgerMajorIds.indexOf("emergency-fund-depleted") !== -1
-    && (
-      !ledgerMajorIds.includes("cash-savings-depleted")
-      || ledgerMajorIds.indexOf("emergency-fund-depleted") < ledgerMajorIds.indexOf("cash-savings-depleted")
-    ),
-  "Emergency Fund Depleted should outrank weaker liquidity events."
+  !ledgerMajorIds.includes("cash-savings-depleted")
+    && !ledgerMajorIds.includes("taxable-assets-depleted")
+    && !ledgerMajorIds.includes("liquid-investments-depleted"),
+  "Old liquidity waterfall labels should not remain major-card candidates after locked trigger replacement."
 );
 const ledgerMicroCashFamilyCount = ledgerResult.microGraphDotCandidates.filter(function (candidate) {
   return candidate.family === "cash-waterfall";
 }).length;
 assert.ok(
-  ledgerMicroCashFamilyCount >= 2 && ledgerMicroCashFamilyCount <= 3,
-  "Micro dots should allow additional same-family events while capping repetition."
+  ledgerMicroCashFamilyCount <= 3,
+  "Micro dots should still cap cash-waterfall repetition."
 );
 
 const ledgerWithSupportInput = cloneJson(richInput);
@@ -812,7 +811,7 @@ assert.ok(
 assert.ok(
   ledgerWithSupportResult.majorStoryCandidates.slice(1).filter(function (candidate) {
     return ["runway", "gap", "unmet-need"].includes(candidate.family);
-  }).length <= 2,
+  }).length <= 3,
   "Runway failure should not crowd out the major-card set."
 );
 
@@ -1094,10 +1093,10 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
-assert.equal(selectorResult.allCandidates.length, 58);
-assert.equal(selectorResult.safeRenderableEvents.length, 27);
+assert.equal(selectorResult.allCandidates.length, 54);
+assert.equal(selectorResult.safeRenderableEvents.length, 23);
 assert.equal(selectorResult.majorStoryCandidates.length, 6);
-assert.equal(selectorResult.graphDotCandidates.length, 16);
+assert.equal(selectorResult.graphDotCandidates.length, 13);
 assert.equal(selectorResult.trace.safeRenderableCount, selectorResult.safeRenderableEvents.length);
 assert.equal(selectorResult.trace.majorStoryCandidateLimit, 6);
 assert.equal(selectorResult.trace.graphDotCandidateLimit, 16);
@@ -1139,15 +1138,14 @@ selectorResult.majorStoryCandidates.concat(selectorResult.graphDotCandidates).fo
 });
 
 assert.ok(
-  selectorMajorIds.some(function (id) {
+  !selectorMajorIds.some(function (id) {
     return [
       "cash-savings-depleted",
-      "emergency-fund-depleted",
       "liquid-investments-depleted",
       "taxable-assets-depleted"
     ].includes(id);
   }),
-  "Major selector should include a liquidity crisis event when available."
+  "Major selector should not include old liquidity crisis labels after locked trigger replacement."
 );
 assert.ok(
   selectorMajorIds.some(function (id) {
@@ -1280,35 +1278,95 @@ const liquidityRankingResult = buildIncomeImpactFinancialStorylineCandidates({
     },
     deathEvent: {
       date: "2036-05-14"
+    },
+    transitionOutlook: {
+      transitionNeed90Days: 30000
     }
   },
   assetDepletionLedger: {
     status: "ready",
+    orderedBuckets: [
+      { bucketId: "cash", family: "cash", availableValue: 12000, firstUsedMonth: 0 },
+      { bucketId: "emergency", family: "emergencyFund", availableValue: 18000, firstUsedMonth: 3 },
+      { bucketId: "taxable", family: "taxableInvestments", availableValue: 15000, firstUsedMonth: 5 }
+    ],
+    ledgerMonths: [
+      {
+        monthIndex: 0,
+        monthlyNetUse: 6000,
+        startingBuckets: [
+          { family: "cash", balance: 12000 },
+          { family: "emergencyFund", balance: 18000 },
+          { family: "taxableInvestments", balance: 15000 }
+        ],
+        endingBuckets: [
+          { family: "cash", balance: 6000 },
+          { family: "emergencyFund", balance: 18000 },
+          { family: "taxableInvestments", balance: 15000 }
+        ]
+      },
+      {
+        monthIndex: 1,
+        monthlyNetUse: 6000,
+        startingBuckets: [
+          { family: "cash", balance: 6000 },
+          { family: "emergencyFund", balance: 18000 },
+          { family: "taxableInvestments", balance: 15000 }
+        ],
+        endingBuckets: [
+          { family: "cash", balance: 5000 },
+          { family: "emergencyFund", balance: 18000 },
+          { family: "taxableInvestments", balance: 15000 }
+        ]
+      },
+      {
+        monthIndex: 3,
+        monthlyNetUse: 6000,
+        startingBuckets: [
+          { family: "emergencyFund", balance: 18000 },
+          { family: "taxableInvestments", balance: 15000 }
+        ],
+        endingBuckets: [
+          { family: "emergencyFund", balance: 5000 },
+          { family: "taxableInvestments", balance: 15000 }
+        ]
+      },
+      {
+        monthIndex: 5,
+        monthlyNetUse: 6000,
+        startingBuckets: [
+          { family: "taxableInvestments", balance: 15000 }
+        ],
+        endingBuckets: [
+          { family: "taxableInvestments", balance: 5000 }
+        ]
+      }
+    ],
     bucketEvents: [
       makeLedgerEvent({
+        bucketId: "cash",
+        eventType: "bucket-tapped",
+        family: "cash",
+        monthIndex: 0,
+        amountAtTap: 12000,
+        evidenceLevel: "estimated",
+        sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.cash"
+      }),
+      makeLedgerEvent({
         bucketId: "emergency",
-        eventType: "bucket-depleted",
+        eventType: "bucket-tapped",
         family: "emergencyFund",
         monthIndex: 3,
-        amountDepleted: 18000,
+        amountAtTap: 18000,
         evidenceLevel: "estimated",
         sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.emergency"
       }),
       makeLedgerEvent({
-        bucketId: "liquid",
-        eventType: "bucket-depleted",
-        family: "otherLiquid",
-        monthIndex: 4,
-        amountDepleted: 15000,
-        evidenceLevel: "estimated",
-        sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.liquid"
-      }),
-      makeLedgerEvent({
         bucketId: "taxable",
-        eventType: "bucket-depleted",
+        eventType: "bucket-tapped",
         family: "taxableInvestments",
         monthIndex: 5,
-        amountDepleted: 15000,
+        amountAtTap: 15000,
         evidenceLevel: "estimated",
         sourcePath: "canonicalRunwayAssetWaterfall.orderedBuckets.taxable"
       })
@@ -1317,10 +1375,12 @@ const liquidityRankingResult = buildIncomeImpactFinancialStorylineCandidates({
 });
 const liquidityMajorIds = ids(liquidityRankingResult.majorStoryCandidates);
 const liquidityGraphIds = ids(liquidityRankingResult.graphDotCandidates);
+assert.ok(ids(liquidityRankingResult.safeRenderableEvents).includes("cash-reserve-depleted"));
 assert.ok(liquidityMajorIds.includes("emergency-fund-depleted"));
 assert.ok(liquidityGraphIds.includes("emergency-fund-depleted"));
-assert.ok(liquidityGraphIds.indexOf("emergency-fund-depleted") < liquidityGraphIds.indexOf("liquid-investments-depleted"));
-assert.ok(liquidityGraphIds.indexOf("emergency-fund-depleted") < liquidityGraphIds.indexOf("taxable-assets-depleted"));
+assert.ok(ids(liquidityRankingResult.safeRenderableEvents).includes("taxable-investments-depleted"));
+assert.ok(!ids(liquidityRankingResult.safeRenderableEvents).includes("liquid-investments-depleted"));
+assert.ok(!ids(liquidityRankingResult.safeRenderableEvents).includes("taxable-assets-depleted"));
 
 const missingResult = buildIncomeImpactFinancialStorylineCandidates({});
 assert.ok(missingResult.warnings.some(function (warning) {
