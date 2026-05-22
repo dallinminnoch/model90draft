@@ -237,7 +237,11 @@ function assertPageWiring(relativePath) {
   assert.match(source, /data-pmi-expense-records-root/);
   assert.match(source, /initPmiExpenseRecords\(\{/);
   assert.match(source, /root: form\.querySelector\("\[data-pmi-expense-records-root\]"\)/);
-  assert.match(source, /cashFlowRoot: form\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  if (relativePath === "pages/next-step.html") {
+    assert.match(source, /cashFlowRoot: document\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  } else {
+    assert.match(source, /cashFlowRoot: form\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  }
   assert.match(source, /pageRoot: form/);
   assert.match(source, /function refreshPmiExpenseCashFlowBar\(\)/);
   assert.match(source, /refreshPmiExpenseCashFlowBar\(\);/);
@@ -247,8 +251,15 @@ function assertPageWiring(relativePath) {
   const cashFlowRootIndex = source.indexOf("data-pmi-expense-cashflow-root");
   const scalarNotebookIndex = source.indexOf("data-pmi-scalar-expenses-notebook");
   const expenseRootIndex = source.indexOf("data-pmi-expense-records-root");
-  assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should place the cash-flow bar before the scalar spending notebook`);
-  assert.ok(cashFlowRootIndex < expenseRootIndex, `${relativePath} should place the cash-flow bar before Additional Expenses`);
+  if (relativePath === "pages/next-step.html") {
+    const formStartIndex = source.indexOf('id="protection-modeling-form"');
+    const formEndIndex = source.indexOf("</form>", formStartIndex);
+    assert.ok(formStartIndex !== -1 && formEndIndex !== -1, `${relativePath} should retain the PMI form`);
+    assert.ok(cashFlowRootIndex > formEndIndex, `${relativePath} should place the cash-flow bar in the right-side rail outside the form`);
+  } else {
+    assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should place the cash-flow bar before the scalar spending notebook`);
+    assert.ok(cashFlowRootIndex < expenseRootIndex, `${relativePath} should place the cash-flow bar before Additional Expenses`);
+  }
   assert.ok(source.indexOf("subscriptions-cost") < expenseRootIndex, `${relativePath} should place expense records after scalar spending inputs`);
   assert.ok(expenseRootIndex < source.indexOf("Assets and Offset Planning"), `${relativePath} should place expense records before assets`);
 }
@@ -298,13 +309,14 @@ assert.equal(typeof pmiExpenseRecords?.calculateMonthlyCashFlow, "function");
 assert.equal(typeof pmiExpenseRecords?.toMonthlyCashFlowAmount, "function");
 assert.match(widgetSource, /data-pmi-expense-cashflow-bar/, "expense records should render the monthly cash-flow readout");
 assert.match(widgetSource, /cashFlowRoot/, "expense records should support a dedicated top-level cash-flow mount");
-assert.match(widgetSource, /Monthly take-home pay/, "expense cash-flow readout should label the monthly net-income base");
+assert.match(widgetSource, /Take-home pay/, "expense cash-flow readout should label the monthly net-income base");
 assert.match(widgetSource, /Housing burden/, "expense cash-flow readout should label the housing segment clearly");
-assert.match(widgetSource, /Required debt payments/, "expense cash-flow readout should label the required debt segment clearly");
+assert.match(widgetSource, /Required debt/, "expense cash-flow readout should label the required debt segment clearly");
 assert.match(widgetSource, /Lifestyle expenses/, "expense cash-flow readout should label recurring expenses clearly");
 assert.match(widgetSource, /Available before savings/, "expense cash-flow readout should label positive remaining cash flow clearly");
+assert.match(widgetSource, /Before savings allocations/, "expense cash-flow readout should match the reference sidebar status");
 assert.match(widgetSource, /Shortfall before savings/, "expense cash-flow readout should label negative remaining cash flow clearly");
-assert.match(widgetSource, /This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations\./, "expense cash-flow readout should explain the segment comparison");
+assert.match(widgetSource, /Savings allocations not yet included\./, "expense cash-flow readout should explain the pre-savings scope");
 assert.match(widgetSource, /data-pmi-expense-generated-entry/, "expense records should render generated read-only rows when provided");
 assert.match(widgetSource, /From Debt Records/, "generated debt-payment rows should identify Debt Records as the source");
 assert.match(widgetSource, /Edit in Debt Records/, "generated debt-payment rows should show a source edit hint");

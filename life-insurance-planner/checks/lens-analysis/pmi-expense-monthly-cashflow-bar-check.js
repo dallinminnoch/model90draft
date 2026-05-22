@@ -191,17 +191,19 @@ loadScript(context, "app/features/lens-analysis/pmi-expense-records.js");
 const pmiExpenseRecords = context.LensApp.lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
 const componentsCss = readRepoFile("components.css");
-const helperSentence = "This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations.";
+const helperSentence = "Savings allocations not yet included.";
 
 assert.equal(typeof pmiExpenseRecords.calculateMonthlyCashFlow, "function");
 assert.equal(typeof pmiExpenseRecords.toMonthlyCashFlowAmount, "function");
 assert.match(widgetSource, /data-pmi-expense-cashflow-bar/);
 assert.match(widgetSource, /cashFlowRoot/, "cash-flow bar should use a dedicated top-level mount");
-assert.match(widgetSource, /Monthly take-home pay/, "cash-flow legend should identify monthly net-income base");
+assert.match(widgetSource, /Monthly cash flow/, "cash-flow widget should use the compact reference title");
+assert.match(widgetSource, /Take-home pay/, "cash-flow legend should identify monthly net-income base");
 assert.match(widgetSource, /Housing burden/, "cash-flow legend should identify monthly housing burden");
-assert.match(widgetSource, /Required debt payments/, "cash-flow legend should identify required debt payments");
+assert.match(widgetSource, /Required debt/, "cash-flow legend should identify required debt payments");
 assert.match(widgetSource, /Lifestyle expenses/, "cash-flow legend should identify recurring lifestyle expenses");
 assert.match(widgetSource, /Available before savings/, "positive cash-flow status should use available-before-savings language");
+assert.match(widgetSource, /Before savings allocations/, "positive cash-flow status should match the reference sidebar language");
 assert.match(widgetSource, /Shortfall before savings/, "negative cash-flow status should use shortfall-before-savings language");
 assert.match(widgetSource, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "cash-flow readout should explain what the bar compares");
 assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/);
@@ -219,9 +221,18 @@ assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{
   const scalarNotebookIndex = source.indexOf("data-pmi-scalar-expenses-notebook");
   const additionalExpensesIndex = source.indexOf("data-pmi-expense-records-root");
   assert.ok(cashFlowRootIndex !== -1, `${relativePath} should contain the dedicated cash-flow mount`);
-  assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should mount cash flow before scalar expenses`);
-  assert.ok(cashFlowRootIndex < additionalExpensesIndex, `${relativePath} should mount cash flow before Additional Expenses`);
-  assert.match(source, /cashFlowRoot: form\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  if (relativePath === "pages/next-step.html") {
+    const formStartIndex = source.indexOf('id="protection-modeling-form"');
+    const formEndIndex = source.indexOf("</form>", formStartIndex);
+    assert.ok(formStartIndex !== -1 && formEndIndex !== -1, "next-step.html should retain the PMI form.");
+    assert.ok(cashFlowRootIndex > formEndIndex, "next-step.html should mount cash flow in the right-side rail outside the form.");
+    assert.match(source, /data-pmi-cashflow-rail/);
+    assert.match(source, /cashFlowRoot: document\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  } else {
+    assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should mount cash flow before scalar expenses`);
+    assert.ok(cashFlowRootIndex < additionalExpensesIndex, `${relativePath} should mount cash flow before Additional Expenses`);
+    assert.match(source, /cashFlowRoot: form\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  }
   assert.match(source, /pageRoot: form/);
 });
 
@@ -369,7 +380,7 @@ assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 48875.07);
 assert.equal(fakeDom.cashFlow.elements.remaining.textContent, "$48,875.07");
 assert.equal(fakeDom.cashFlow.elements.income.textContent, "$52,815.07");
 assert.doesNotMatch(fakeDom.cashFlow.elements.note.textContent, /Take-home pay is not available/);
-assert.equal(fakeDom.cashFlow.elements.status.textContent, "Available before savings");
+assert.equal(fakeDom.cashFlow.elements.status.textContent, "Before savings allocations");
 assert.equal(fakeDom.cashFlow.elements.note.textContent, helperSentence);
 
 fakeForm.controls.foodCost.value = "500";

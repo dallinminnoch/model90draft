@@ -2284,6 +2284,612 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   font-size: 0.95rem;
 }
 
+body[data-page="next-step"] .lens-workflow-pane {
+  padding: 0;
+  overflow: auto;
+  background: #f5f6f8;
+}
+
+body[data-page="next-step"] .prospect-empty-panel {
+  --pmi-content-inline-pad: clamp(1rem, 1.8vw, 1.4rem);
+  width: 100%;
+  justify-self: stretch;
+  gap: 0;
+  padding: 0 var(--pmi-content-inline-pad) clamp(1rem, 1.8vw, 1.4rem);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .prospect-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  width: auto;
+  margin-inline: calc(var(--pmi-content-inline-pad) * -1);
+  padding: 0.38rem 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.045);
+}
+
+body[data-page="next-step"] .prospect-panel-header .confidential-calculator-toggle {
+  position: static;
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
+body[data-page="next-step"] .prospect-panel-header .confidential-calculator-toggle svg {
+  width: 1.58rem;
+  height: 1.58rem;
+}
+
+.pmi-file-header {
+  display: grid;
+  grid-template-columns: minmax(22rem, 1fr) minmax(8rem, 0.34fr) minmax(10rem, 0.44fr) minmax(9rem, 0.36fr);
+  gap: clamp(0.65rem, 1.4vw, 1.45rem);
+  align-items: center;
+  font-family: "DM Mono", "Consolas", monospace;
+  min-width: 0;
+}
+
+.pmi-file-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pmi-file-field[data-pmi-file-field="case-ref"],
+.pmi-file-field[data-pmi-file-field="household"] {
+  justify-content: center;
+}
+
+.pmi-file-field[data-pmi-file-field="date-of-birth"] {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.pmi-file-value {
+  display: flex;
+  min-height: 1.05rem;
+  align-items: center;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pmi-file-field[data-pmi-file-field="case-ref"] .pmi-file-value,
+.pmi-file-field[data-pmi-file-field="household"] .pmi-file-value {
+  justify-content: center;
+  text-align: center;
+}
+
+.pmi-file-field[data-pmi-file-field="date-of-birth"] .pmi-file-value {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.pmi-linked-person-badge {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  color: #111827;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pmi-linked-person-badge[hidden] {
+  display: none;
+}
+
+.pmi-form-layout {
+  --pmi-rail-sticky-top: calc(var(--workspace-topbar-height, 3.1rem) + 3.35rem);
+  display: grid;
+  grid-template-columns: minmax(10.5rem, 12.6rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
+  gap: clamp(1.3rem, 2.1vw, 2rem);
+  align-items: start;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.pmi-section-nav,
+.pmi-cashflow-rail {
+  position: sticky;
+  top: var(--pmi-rail-sticky-top);
+  align-self: start;
+}
+
+.pmi-section-nav {
+  display: grid;
+  width: 196px;
+  gap: 0;
+  padding-right: 20px;
+}
+
+.pmi-section-nav-label {
+  margin: 0 0 8px;
+  padding-left: 10px;
+  color: #9ca3af;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pmi-section-nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  padding: 7px 10px;
+  border-left: 2px solid transparent;
+  border-radius: 7px;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: all 0.12s ease;
+}
+
+.pmi-section-nav-link:hover,
+.pmi-section-nav-link:focus-visible {
+  background: #ffffff;
+  color: #374151;
+  outline: 0;
+}
+
+.pmi-section-nav-link.is-active,
+.pmi-section-nav-link[aria-current="page"],
+.pmi-section-nav-link[aria-current="true"],
+.pmi-section-nav:not(:has(.pmi-section-nav-link.is-active, .pmi-section-nav-link[aria-current="page"], .pmi-section-nav-link[aria-current="true"])) .pmi-section-nav-link:first-of-type {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.pmi-section-nav-link:nth-of-type(6) {
+  margin-bottom: 13px;
+}
+
+.pmi-section-nav-link:nth-of-type(6)::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -7px;
+  left: 10px;
+  height: 1px;
+  background: #f0f1f4;
+}
+
+.pmi-section-nav-link span {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  color: inherit;
+  font-family: "DM Mono", Consolas, monospace;
+  font-size: 8.5px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.pmi-form-main {
+  min-width: 0;
+}
+
+.pmi-cashflow-rail {
+  min-width: 0;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow {
+  grid-column: auto;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-header {
+  display: block;
+  margin: 0;
+  padding: 13px 16px 11px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #9ca3af;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-header strong {
+  display: block;
+  margin-top: 0;
+  color: #2563eb;
+  font-family: "DM Mono", "Consolas", monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-status {
+  display: block;
+  margin-top: 3px;
+  padding-top: 0;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: left;
+  text-transform: none;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-track {
+  width: auto;
+  height: 6px;
+  margin: 12px 16px 0;
+  border-radius: 999px;
+  background: #f0f1f4;
+  box-shadow: none;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 10px 0 4px;
+  border-top: 0;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 16px;
+  border-bottom: 1px solid #f0f1f4;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics span:last-child {
+  border-bottom: 0;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics b {
+  grid-column: 2;
+  grid-row: 1;
+  color: #0f1523;
+  font-family: "DM Mono", "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics small {
+  grid-column: 1;
+  grid-row: 1;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics small::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #10b981;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics span:nth-child(2) small::before {
+  background: #3b82f6;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics span:nth-child(3) small::before {
+  background: #f59e0b;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-metrics span:nth-child(4) small::before {
+  background: #8b5cf6;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-legend {
+  display: none;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.44rem;
+  margin: 0;
+  padding: 0.85rem 1.05rem 0;
+}
+
+.pmi-cashflow-rail .pmi-expense-cashflow-note {
+  margin: 2px 0 0;
+  padding: 10px 16px 12px;
+  border-top: 1px solid #f0f1f4;
+  color: #9ca3af;
+  font-size: 10px;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack {
+  padding: 0;
+  background: #ffffff;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:first-child {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:first-child > .profile-form-section-heading {
+  display: none;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.92rem 1.1rem;
+  padding: 1.35rem 1.45rem 1.1rem;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid .profile-currency-field {
+  flex-direction: row-reverse;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid .profile-currency-suffix {
+  border-right: 1px solid #e5e7eb;
+  border-left: 0;
+  background: #f9fafb;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-circle-row {
+  display: none;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#linked-marital-status) {
+  order: 1;
+  grid-column: span 3;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#filing-status) {
+  order: 2;
+  grid-column: span 3;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#gross-annual-income),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-income) {
+  order: 3;
+  grid-column: span 3;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-income) {
+  order: 4;
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.74rem;
+  margin-top: 0.1rem;
+  color: #9aa5b5;
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #e9edf3;
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-divider--deductions {
+  order: 5;
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#deduction-method) {
+  order: 6;
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-deduction-method) {
+  order: 7;
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#standard-deduction),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#yearly-tax-deductions),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#taxable-income) {
+  order: 8;
+  grid-column: span 2;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#yearly-tax-deductions) {
+  order: 9;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#taxable-income) {
+  order: 10;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-standard-deduction),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-yearly-tax-deductions),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-taxable-income) {
+  order: 11;
+  grid-column: span 2;
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-divider--tax {
+  order: 14;
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#state-of-residence),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#primary-payroll-taxes),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#federal-tax-bracket),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#state-income-tax-bracket) {
+  grid-column: span 3;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#state-of-residence) {
+  order: 15;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#primary-payroll-taxes) {
+  order: 16;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#federal-tax-bracket) {
+  order: 17;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#state-income-tax-bracket) {
+  order: 18;
+}
+
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-federal-tax-bracket),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-state-income-tax-bracket),
+body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-payroll-taxes) {
+  order: 19;
+  grid-column: span 3;
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group,
+body[data-page="next-step"] #pmi-income .spouse-net-income-group {
+  order: 22;
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 1rem;
+  align-items: end;
+  margin-top: 0.2rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #f0f6ff;
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group > label {
+  grid-column: 1;
+  color: rgba(37, 99, 235, 0.55);
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-currency-field {
+  grid-column: 1 / -1;
+  display: block;
+  min-height: auto;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-currency-field input:not([type="hidden"]) {
+  min-height: auto;
+  padding: 0;
+  color: #2563eb;
+  font-family: "DM Mono", "Consolas", monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+@media (max-width: 1180px) {
+  .pmi-form-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 17rem);
+  }
+
+  .pmi-section-nav {
+    display: none;
+  }
+}
+
+@media (max-width: 920px) {
+  body[data-page="next-step"] .prospect-panel-header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .pmi-file-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pmi-form-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pmi-cashflow-rail {
+    position: static;
+    order: -1;
+  }
+}
+
 .pmi-expense-cashflow {
   display: block;
   grid-column: 1 / -1;
@@ -2708,6 +3314,193 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 .pmi-debt-records-add-button:hover:not(:disabled),
 .pmi-expense-records-add-button:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+body[data-page="next-step"] .pmi-scalar-expenses-notebook {
+  gap: 0.9rem;
+}
+
+body[data-page="next-step"] .pmi-scalar-expenses-section {
+  gap: 0.52rem;
+}
+
+body[data-page="next-step"] .pmi-scalar-expenses-section-title,
+body[data-page="next-step"] .pmi-expense-records-heading span {
+  display: flex;
+  align-items: center;
+  gap: 0.56rem;
+  color: #6b7280;
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body[data-page="next-step"] .pmi-scalar-expenses-section-title::after,
+body[data-page="next-step"] .pmi-expense-records-heading span::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #eef1f6;
+}
+
+body[data-page="next-step"] .pmi-scalar-expenses-table,
+body[data-page="next-step"] .pmi-debt-records-table,
+body[data-page="next-step"] .pmi-expense-records-table {
+  border-color: #e5e7eb;
+  border-radius: 0.48rem;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-scalar-expenses-header,
+body[data-page="next-step"] .pmi-debt-records-header,
+body[data-page="next-step"] .pmi-expense-records-header {
+  padding: 0.45rem 0.85rem;
+  border-bottom-color: #e5e7eb;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-row,
+body[data-page="next-step"] .pmi-debt-record-row,
+body[data-page="next-step"] .pmi-expense-record-row {
+  padding: 0.48rem 0.85rem;
+  border-bottom-color: #eef1f6;
+  transition: background 0.1s ease;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-row:hover,
+body[data-page="next-step"] .pmi-debt-record-row:hover,
+body[data-page="next-step"] .pmi-expense-record-row:hover {
+  background: #f9fafb;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-label-cell label,
+body[data-page="next-step"] .pmi-debt-record-type-label,
+body[data-page="next-step"] .pmi-expense-record-type-label {
+  color: #374151;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-readonly,
+body[data-page="next-step"] .pmi-expense-record-readonly-value,
+body[data-page="next-step"] .pmi-expense-record-category-label,
+body[data-page="next-step"] .pmi-expense-record-muted {
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-row input,
+body[data-page="next-step"] .pmi-debt-record-row input,
+body[data-page="next-step"] .pmi-debt-record-row select,
+body[data-page="next-step"] .pmi-expense-record-row input,
+body[data-page="next-step"] .pmi-expense-record-row select {
+  min-height: 1.95rem;
+  padding: 0.34rem 0.5rem;
+  border-color: #e5e7eb;
+  border-radius: 0.34rem;
+  background: #f9fafb;
+  color: #111827;
+  font-size: 0.74rem;
+  font-weight: 520;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-row input:focus,
+body[data-page="next-step"] .pmi-debt-record-row input:focus,
+body[data-page="next-step"] .pmi-debt-record-row select:focus,
+body[data-page="next-step"] .pmi-expense-record-row input:focus,
+body[data-page="next-step"] .pmi-expense-record-row select:focus {
+  border-color: #3b82f6;
+  outline: 0;
+  box-shadow: 0 0 0 3px #eff6ff;
+  background: #ffffff;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-currency,
+body[data-page="next-step"] .pmi-debt-record-compact-currency,
+body[data-page="next-step"] .pmi-expense-record-compact-currency {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.34rem;
+  background: #f9fafb;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-currency:focus-within,
+body[data-page="next-step"] .pmi-debt-record-compact-currency:focus-within,
+body[data-page="next-step"] .pmi-expense-record-compact-currency:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px #eff6ff;
+  background: #ffffff;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-currency input,
+body[data-page="next-step"] .pmi-debt-record-compact-currency input,
+body[data-page="next-step"] .pmi-expense-record-compact-currency input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-scalar-expense-currency .profile-currency-suffix,
+body[data-page="next-step"] .pmi-debt-record-compact-currency .profile-currency-suffix,
+body[data-page="next-step"] .pmi-expense-record-compact-currency .profile-currency-suffix {
+  right: 0.42rem;
+  color: #9ca3af;
+  font-size: 0.55rem;
+}
+
+body[data-page="next-step"] .pmi-debt-record-type-label,
+body[data-page="next-step"] .pmi-expense-record-type-label,
+body[data-page="next-step"] .pmi-expense-record-category-label {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  padding: 0.14rem 0.46rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.28rem;
+  background: #f9fafb;
+}
+
+body[data-page="next-step"] .pmi-expense-record-row-generated {
+  background: rgba(37, 99, 235, 0.025);
+}
+
+body[data-page="next-step"] .pmi-expense-record-source-chip,
+body[data-page="next-step"] .pmi-expense-record-source-hint {
+  color: #2563eb;
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+body[data-page="next-step"] .pmi-asset-records-add-button,
+body[data-page="next-step"] .pmi-debt-records-add-button,
+body[data-page="next-step"] .pmi-expense-records-add-button {
+  min-height: 2.1rem;
+  border-color: #2563eb;
+  border-radius: 0.42rem;
+  background: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+body[data-page="next-step"] .pmi-asset-record-remove,
+body[data-page="next-step"] .pmi-asset-record-remove.pmi-debt-record-remove,
+body[data-page="next-step"] .pmi-asset-record-remove.pmi-expense-record-remove {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.34rem;
+  background: #ffffff;
+  color: #9ca3af;
 }
 
 @media (max-width: 900px) {

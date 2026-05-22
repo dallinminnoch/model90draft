@@ -844,10 +844,10 @@
       <section class="pmi-expense-cashflow" data-pmi-expense-cashflow-bar aria-live="polite">
         <div class="pmi-expense-cashflow-header">
           <div>
-            <span class="pmi-expense-cashflow-kicker">Monthly household cash flow</span>
+            <span class="pmi-expense-cashflow-kicker">Monthly cash flow</span>
             <strong data-pmi-expense-cashflow-remaining>-</strong>
           </div>
-          <span class="pmi-expense-cashflow-status" data-pmi-expense-cashflow-status>Available before savings</span>
+          <span class="pmi-expense-cashflow-status" data-pmi-expense-cashflow-status>Before savings allocations</span>
         </div>
         <div class="pmi-expense-cashflow-track" data-pmi-expense-cashflow-track aria-hidden="true">
           <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--housing" data-pmi-expense-cashflow-segment="housing"></span>
@@ -856,18 +856,18 @@
           <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--remaining" data-pmi-expense-cashflow-segment="remaining"></span>
         </div>
         <div class="pmi-expense-cashflow-metrics" data-pmi-expense-cashflow-metrics>
-          <span><b data-pmi-expense-cashflow-income>-</b><small>Monthly take-home pay</small></span>
+          <span><b data-pmi-expense-cashflow-income>-</b><small>Take-home pay</small></span>
           <span><b data-pmi-expense-cashflow-housing>-</b><small>Housing burden</small></span>
-          <span><b data-pmi-expense-cashflow-debt>-</b><small>Required debt payments</small></span>
+          <span><b data-pmi-expense-cashflow-debt>-</b><small>Required debt</small></span>
           <span><b data-pmi-expense-cashflow-expenses>-</b><small>Lifestyle expenses</small></span>
         </div>
         <div class="pmi-expense-cashflow-legend" aria-label="Cash-flow bar legend">
           <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--housing" aria-hidden="true"></i>Housing burden</span>
-          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--debt" aria-hidden="true"></i>Required debt payments</span>
+          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--debt" aria-hidden="true"></i>Required debt</span>
           <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--expenses" aria-hidden="true"></i>Lifestyle expenses</span>
           <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--remaining" aria-hidden="true"></i>Available before savings</span>
         </div>
-        <p class="pmi-expense-cashflow-note" data-pmi-expense-cashflow-note>This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations.</p>
+        <p class="pmi-expense-cashflow-note" data-pmi-expense-cashflow-note>Savings allocations not yet included.</p>
       </section>
     `;
     root.dataset.pmiExpenseCashFlowInitialized = "true";
@@ -1153,7 +1153,7 @@
       setCashFlowText(elements.debt, formatCashFlowAmount(cashFlow.monthlyDebtPayments));
       setCashFlowText(elements.expenses, formatCashFlowAmount(cashFlow.monthlyExpenses));
       setCashFlowText(elements.remaining, formatCashFlowAmount(cashFlow.remainingMonthlyCashFlow));
-      setCashFlowText(elements.status, cashFlow.isNegative ? "Shortfall before savings" : "Available before savings");
+      setCashFlowText(elements.status, cashFlow.isNegative ? "Shortfall before savings" : "Before savings allocations");
       setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="housing"]'), cashFlow.monthlyHousingCost / denominator * 100);
       setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="debt"]'), cashFlow.monthlyDebtPayments / denominator * 100);
       setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="expenses"]'), cashFlow.monthlyExpenses / denominator * 100);
@@ -1161,7 +1161,7 @@
       elements.bar.classList.toggle("is-negative", cashFlow.isNegative);
       elements.bar.classList.toggle("is-missing-income", !cashFlow.hasIncomeSource);
 
-      const notes = ["This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations."];
+      const notes = ["Savings allocations not yet included."];
       if (!cashFlow.hasIncomeSource) {
         notes.push("Take-home pay is not available from current PMI income fields.");
       }
