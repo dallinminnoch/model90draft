@@ -205,6 +205,13 @@ assert.ok(ids(result.safeRenderableEvents).includes("resources-run-out"));
 assert.ok(ids(result.safeRenderableEvents).includes("monthly-support-gap-begins"));
 assert.ok(ids(result.safeRenderableEvents).includes("unfunded-need-accumulates"));
 assert.ok(ids(result.safeRenderableEvents).includes("missing-data-limits-timeline"));
+assert.ok(ids(result.safeRenderableEvents).includes("coverage-extends-runway"));
+assert.equal(getCandidate(result, "coverage-extends-runway").storyRole, "detail");
+assert.equal(getCandidate(result, "coverage-extends-runway").supportingDotOnly, true);
+assert.ok(!ids(result.majorStoryCandidates).includes("coverage-extends-runway"));
+assert.ok(!ids(result.graphDotCandidates).includes("coverage-extends-runway"));
+assert.deepEqual(result.trace.coverageDurationTriggerCandidateIds, ["coverage-extends-runway"]);
+assert.equal(result.trace.coverageDurationTriggerTrace.mechanicalProceedsRemainDetailOnly, true);
 
 assert.ok(ids(result.safeRenderableEvents).includes("protection-gap-appears-immediately"));
 assert.equal(getCandidate(result, "protection-gap-appears-immediately").storyRole, "detail");
@@ -228,8 +235,8 @@ assert.ok(result.majorStoryCandidates.length <= 6);
 assert.ok(result.majorGraphDotCandidates.length <= 6);
 assert.ok(result.microGraphDotCandidates.length <= 10);
 assert.ok(result.graphDotCandidates.length <= 16);
-assert.equal(result.allCandidates.length, 29);
-assert.equal(result.safeRenderableEvents.length, 12);
+assert.equal(result.allCandidates.length, 30);
+assert.equal(result.safeRenderableEvents.length, 13);
 assert.equal(result.majorStoryCandidates.length, 5);
 assert.equal(result.graphDotCandidates.length, 4);
 assert.equal(result.trace.safeRenderableCount, result.safeRenderableEvents.length);
@@ -265,7 +272,7 @@ assert.ok(result.graphDotCandidates.every(function (candidate) {
 }));
 assert.equal(result.trace.mechanicalDetailSuppressedCount, mechanicalVisibleSuppressedIds.length + 1);
 assert.equal(result.trace.storyRoleCounts.mechanical, mechanicalVisibleSuppressedIds.length);
-assert.equal(result.trace.storyRoleCounts.detail, 1);
+assert.equal(result.trace.storyRoleCounts.detail, 2);
 assert.ok(result.trace.visibleEmotionalEventIds.includes("resources-run-out"));
 assert.equal(result.trace.selectorSuppressedCountsByReason["family-diversity"] || 0, 0);
 assert.equal(result.trace.selectorSuppressedCountsByReason["data-gap-lower-priority"] || 0, 0);
@@ -273,10 +280,17 @@ assert.equal(result.trace.selectorSuppressedCountsByReason["duplicate-major-dot"
 assert.equal(result.trace.selectorSuppressedCountsByReason["mechanical-detail-hidden"], 7);
 assert.ok(
   result.suppressedCandidates.some(function (candidate) {
+    return candidate.id === "immediate-obligations-paid"
+      && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
+  }),
+  "Eligible mechanical/detail events should be suppressed from visible storyline selections."
+);
+assert.ok(
+  !result.suppressedCandidates.some(function (candidate) {
     return candidate.id === "life-insurance-proceeds-applied"
       && candidate.selectionSuppressionReason === "mechanical-detail-hidden";
   }),
-  "Mechanical/detail events should be suppressed from visible storyline selections."
+  "Mechanical proceeds should be trace/detail only and should not need visible-storyline suppression."
 );
 assert.ok(
   result.suppressedCandidates.some(function (candidate) {
@@ -341,7 +355,7 @@ assert.deepEqual(ids(mechanicalOnlyResult.majorGraphDotCandidates), ["death-inco
 assert.deepEqual(mechanicalOnlyResult.microGraphDotCandidates, []);
 assert.deepEqual(ids(mechanicalOnlyResult.graphDotCandidates), ["death-income-stops"]);
 assert.equal(mechanicalOnlyResult.trace.storyRoleCounts.mechanical, 4);
-assert.equal(mechanicalOnlyResult.trace.mechanicalDetailSuppressedCount, 4);
+assert.equal(mechanicalOnlyResult.trace.mechanicalDetailSuppressedCount, 3);
 
 const deferredIds = ids(result.deferredCandidates);
 [
@@ -1108,8 +1122,8 @@ assert.ok(selectorMajorIds.length <= 6);
 assert.ok(selectorMajorGraphIds.length <= 6);
 assert.ok(selectorMicroGraphIds.length <= 10);
 assert.ok(selectorGraphIds.length <= 16);
-assert.equal(selectorResult.allCandidates.length, 39);
-assert.equal(selectorResult.safeRenderableEvents.length, 22);
+assert.equal(selectorResult.allCandidates.length, 40);
+assert.equal(selectorResult.safeRenderableEvents.length, 23);
 assert.equal(selectorResult.majorStoryCandidates.length, 6);
 assert.equal(selectorResult.graphDotCandidates.length, 14);
 assert.equal(selectorResult.trace.safeRenderableCount, selectorResult.safeRenderableEvents.length);

@@ -142,11 +142,45 @@
       severity: "positive",
       evidenceLevel: EVIDENCE_LEVELS.calculated,
       priority: 10,
-      eligibleForGraphDot: true,
-      eligibleForMajorCard: true,
+      eligibleForGraphDot: false,
+      eligibleForMajorCard: false,
       lifeInsuranceRelevance: 1,
       emotionalWeight: 0.56,
       advisorUsefulness: 0.92
+    },
+    {
+      id: "coverage-extends-runway",
+      family: EVENT_FAMILIES.coverage,
+      displayLabel: "Coverage Extends the Runway",
+      graphLabel: "Coverage extends",
+      cardTitle: "Coverage Extends the Runway",
+      description: "Existing coverage materially increases runway duration compared with the same scenario without coverage.",
+      severity: "caution",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 74,
+      storyRole: STORY_EVENT_ROLES.detail,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.9,
+      emotionalWeight: 0.48,
+      advisorUsefulness: 0.88
+    },
+    {
+      id: "coverage-runs-out-before-needs-end",
+      family: EVENT_FAMILIES.coverage,
+      displayLabel: "Coverage Runs Out Before Needs End",
+      graphLabel: "Coverage runs out",
+      cardTitle: "Coverage Runs Out Before Needs End",
+      description: "The with-coverage scenario still exhausts resources before the modeled need horizon ends.",
+      severity: "at-risk",
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      priority: 75,
+      storyRole: STORY_EVENT_ROLES.detail,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      lifeInsuranceRelevance: 0.92,
+      emotionalWeight: 0.52,
+      advisorUsefulness: 0.9
     },
     {
       id: "protection-gap-appears-immediately",
@@ -3106,6 +3140,258 @@
       : [];
   }
 
+  function getCoverageDurationCoverageSource(input) {
+    return firstNumberAtPath(isPlainObject(input) ? input : {}, [
+      "scenario.deathEvent.layer2.existingCoverage.treatedCoverageAmount",
+      "scenario.deathEvent.layer2.resources.existingCoverage",
+      "scenario.timelineFacts.coverageAdded",
+      "scenario.deathEvent.coverageAdded",
+      "financialRunway.existingCoverage"
+    ]);
+  }
+
+  function getCoverageDurationWithRunoutMonth(input) {
+    const source = isPlainObject(input) ? input : {};
+    const depletedFlag = getPath(source, "scenario.postDeathSeries.depletion.depleted");
+    if (depletedFlag === false) {
+      return null;
+    }
+    const runout = firstNumberAtPath(source, [
+      "scenario.postDeathSeries.depletion.depletionMonthIndex",
+      "scenario.postDeathSeries.depletion.monthIndex",
+      "scenario.postDeathSeries.depletion.monthsCovered",
+      "scenario.timelineFacts.monthsCovered",
+      "graphModel.series.appliedRunwayScenarios.0.depletionPoint.monthIndex"
+    ]);
+    return runout ? runout.value : null;
+  }
+
+  function getCoverageDurationModeledHorizonMonth(input) {
+    const horizon = firstNumberAtPath(isPlainObject(input) ? input : {}, [
+      "scenario.scenario.projectionHorizonMonths",
+      "scenario.projectionHorizonMonths"
+    ]);
+    if (horizon) {
+      return horizon.value;
+    }
+    const horizonYears = firstNumberAtPath(isPlainObject(input) ? input : {}, ["options.projectionHorizonYears"]);
+    if (horizonYears) {
+      return horizonYears.value * 12;
+    }
+    const points = getScenarioPoints(input);
+    if (points.length) {
+      const maxPointMonth = points.reduce(function (current, point, index) {
+        const month = getPointMonthOffset(point, index);
+        return current == null ? month : Math.max(current, month);
+      }, null);
+      if (maxPointMonth != null) {
+        return maxPointMonth;
+      }
+    }
+    return null;
+  }
+
+  function getCoveragePointRemainingResources(point) {
+    return toOptionalNumber(
+      point?.remainingResources
+      ?? point?.endingResources
+      ?? point?.availableResources
+      ?? point?.resourcesRemaining
+      ?? point?.survivorResources
+    );
+  }
+
+  function getNoCoverageRunoutMonth(points, coverageAmount) {
+    const amount = toOptionalNumber(coverageAmount);
+    if (!Array.isArray(points) || !points.length || amount == null || amount <= 0) {
+      return null;
+    }
+    let previousMonth = null;
+    let previousValue = null;
+    for (let index = 0; index < points.length; index += 1) {
+      const point = points[index];
+      const pointResources = getCoveragePointRemainingResources(point);
+      if (pointResources == null) {
+        continue;
+      }
+      const month = getPointMonthOffset(point, index);
+      const noCoverageValue = pointResources - amount;
+      if (noCoverageValue <= 0) {
+        if (previousMonth == null || previousValue == null || previousValue <= 0) {
+          return month;
+        }
+        const span = month - previousMonth;
+        const delta = previousValue - noCoverageValue;
+        if (span <= 0 || delta <= 0) {
+          return month;
+        }
+        return Number((previousMonth + ((previousValue / delta) * span)).toFixed(2));
+      }
+      previousMonth = month;
+      previousValue = noCoverageValue;
+    }
+    return null;
+  }
+
+  function makeCoverageDurationCandidate(candidateId, config) {
+    const definition = findDefinition(candidateId);
+    if (!definition) {
+      return null;
+    }
+    const safeConfig = isPlainObject(config) ? config : {};
+    const monthIndex = toOptionalNumber(safeConfig.monthIndex);
+    const amountValue = toOptionalNumber(safeConfig.amountValue);
+    const candidate = makeCandidate(definition, {
+      status: STATUSES.safeNow,
+      safeToRender: true,
+      evidenceLevel: EVIDENCE_LEVELS.calculated,
+      eligibleForGraphDot: true,
+      eligibleForMajorCard: false,
+      timingKind: "month-offset",
+      timing: {
+        monthOffset: monthIndex,
+        label: monthIndex == null ? definition.displayLabel : `Month ${monthIndex}`,
+        sourcePath: safeConfig.sourcePath || "scenario.postDeathSeries.points"
+      },
+      amount: {
+        value: amountValue,
+        sourcePath: safeConfig.amountSourcePath || safeConfig.sourcePath || "scenario.deathEvent.layer2.existingCoverage.treatedCoverageAmount"
+      },
+      sourcePaths: uniqueStrings(safeConfig.sourcePaths || [
+        "scenario.deathEvent.layer2.existingCoverage.treatedCoverageAmount",
+        "scenario.postDeathSeries.points"
+      ]),
+      confidence: safeConfig.confidence ?? 0.88,
+      priority: safeConfig.priority ?? definition.priority,
+      suppressionKeys: safeConfig.suppressionKeys || [`coverage-duration-trigger:${candidateId}`]
+    });
+    candidate.candidateSource = "coverage-duration-trigger";
+    candidate.supportingDotOnly = true;
+    candidate.supportingDotEligible = true;
+    candidate.trace = Object.assign({
+      candidateSource: "coverage-duration-trigger",
+      triggerId: candidateId,
+      monthIndex,
+      existingCoverageAmount: amountValue,
+      noCoverageRunoutMonth: toOptionalNumber(safeConfig.noCoverageRunoutMonth),
+      withCoverageRunoutMonth: toOptionalNumber(safeConfig.withCoverageRunoutMonth),
+      modeledHorizonMonth: toOptionalNumber(safeConfig.modeledHorizonMonth),
+      extensionMonths: toOptionalNumber(safeConfig.extensionMonths),
+      supportingDotOnly: true,
+      mechanicalProceedsRemainDetailOnly: true,
+      aggregateRunwayPreserved: true,
+      graphLineSource: "aggregate-survivor-runway"
+    }, clonePlainValue(safeConfig.trace || {}));
+    return candidate;
+  }
+
+  function buildCoverageDurationTriggerCandidates(input) {
+    const safeInput = isPlainObject(input) ? input : {};
+    const coverage = getCoverageDurationCoverageSource(safeInput);
+    if (!coverage || coverage.value <= 0) {
+      return {
+        candidates: [],
+        suppressedCandidates: [],
+        usedForStoryline: false,
+        trace: {
+          status: "suppressed",
+          reason: "missing-coverage-source",
+          sourcePolicy: "coverage-duration-comparison"
+        }
+      };
+    }
+
+    const points = getScenarioPoints(safeInput);
+    const modeledHorizonMonth = getCoverageDurationModeledHorizonMonth(safeInput);
+    if (!points.length || modeledHorizonMonth == null) {
+      return {
+        candidates: [],
+        suppressedCandidates: [],
+        usedForStoryline: false,
+        trace: {
+          status: "suppressed",
+          reason: "missing-runway-comparison-source",
+          coverageAmount: coverage.value,
+          coverageSourcePath: coverage.sourcePath,
+          pointCount: points.length,
+          modeledHorizonMonth,
+          sourcePolicy: "coverage-duration-comparison"
+        }
+      };
+    }
+
+    const noCoverageRunoutMonth = getNoCoverageRunoutMonth(points, coverage.value);
+    const withCoverageRunoutMonth = getCoverageDurationWithRunoutMonth(safeInput);
+    const withCoverageDurationMonth = withCoverageRunoutMonth == null
+      ? modeledHorizonMonth
+      : withCoverageRunoutMonth;
+    const candidates = [];
+    const sourcePaths = uniqueStrings([
+      coverage.sourcePath,
+      "scenario.postDeathSeries.points",
+      "scenario.postDeathSeries.depletion",
+      "scenario.scenario.projectionHorizonMonths"
+    ]);
+
+    if (noCoverageRunoutMonth != null && withCoverageDurationMonth > noCoverageRunoutMonth) {
+      const extensionMonths = Number((withCoverageDurationMonth - noCoverageRunoutMonth).toFixed(2));
+      candidates.push(makeCoverageDurationCandidate("coverage-extends-runway", {
+        monthIndex: noCoverageRunoutMonth,
+        amountValue: coverage.value,
+        sourcePath: "scenario.postDeathSeries.points",
+        sourcePaths,
+        noCoverageRunoutMonth,
+        withCoverageRunoutMonth,
+        modeledHorizonMonth,
+        extensionMonths,
+        trace: {
+          comparisonBasis: "subtract-existing-coverage-from-with-coverage-resource-points",
+          coverageSourcePath: coverage.sourcePath,
+          pointCount: points.length
+        }
+      }));
+    }
+
+    if (withCoverageRunoutMonth != null && modeledHorizonMonth != null && withCoverageRunoutMonth < modeledHorizonMonth) {
+      candidates.push(makeCoverageDurationCandidate("coverage-runs-out-before-needs-end", {
+        monthIndex: withCoverageRunoutMonth,
+        amountValue: coverage.value,
+        sourcePath: "scenario.postDeathSeries.depletion",
+        sourcePaths,
+        noCoverageRunoutMonth,
+        withCoverageRunoutMonth,
+        modeledHorizonMonth,
+        extensionMonths: noCoverageRunoutMonth == null ? null : Number((withCoverageRunoutMonth - noCoverageRunoutMonth).toFixed(2)),
+        trace: {
+          comparisonBasis: "with-coverage-depletion-before-modeled-horizon",
+          coverageSourcePath: coverage.sourcePath,
+          fundedThroughHorizon: false
+        }
+      }));
+    }
+
+    const dedupedCandidates = dedupeCandidates(compactObjects(candidates));
+    return {
+      candidates: dedupedCandidates,
+      suppressedCandidates: [],
+      usedForStoryline: dedupedCandidates.length > 0,
+      trace: {
+        status: dedupedCandidates.length ? "ready" : "no-trigger",
+        candidateIds: dedupedCandidates.map(function (candidate) { return candidate.id; }),
+        coverageAmount: coverage.value,
+        coverageSourcePath: coverage.sourcePath,
+        noCoverageRunoutMonth,
+        withCoverageRunoutMonth,
+        modeledHorizonMonth,
+        extensionMonths: noCoverageRunoutMonth == null
+          ? null
+          : Number((withCoverageDurationMonth - noCoverageRunoutMonth).toFixed(2)),
+        mechanicalProceedsRemainDetailOnly: true,
+        sourcePolicy: "coverage-duration-comparison"
+      }
+    };
+  }
+
   function getPointMonthOffset(point, fallbackIndex) {
     const month = toOptionalNumber(
       point?.monthIndex
@@ -4162,6 +4448,7 @@
     );
     const debtTriggers = buildDebtRequiredPaymentTriggerCandidates(safeInput, warnings);
     const supportingDotTriggers = buildSupportingDotTriggerCandidates(safeInput);
+    const coverageDurationTriggers = buildCoverageDurationTriggerCandidates(safeInput);
     const housingRiskBacked = buildHousingRiskBackedCandidates(safeInput.housingRisk, warnings);
     const safeCandidates = dedupeCandidates(
       buildSafeCandidates(safeInput, warnings)
@@ -4169,6 +4456,7 @@
         .concat(liquidityTriggers.candidates)
         .concat(debtTriggers.candidates)
         .concat(supportingDotTriggers.candidates)
+        .concat(coverageDurationTriggers.candidates)
         .concat(housingRiskBacked.candidates)
     );
     const safeRenderableEvents = safeCandidates.filter(function (candidate) {
@@ -4230,6 +4518,8 @@
       debtTriggerTrace: clonePlainValue(debtTriggers.trace),
       supportingDotTriggerCandidateIds: supportingDotTriggers.candidates.map(function (candidate) { return candidate.id; }),
       supportingDotTriggerTrace: clonePlainValue(supportingDotTriggers.trace),
+      coverageDurationTriggerCandidateIds: coverageDurationTriggers.candidates.map(function (candidate) { return candidate.id; }),
+      coverageDurationTriggerTrace: clonePlainValue(coverageDurationTriggers.trace),
       graphLineSource: "aggregate-survivor-runway"
     };
     if (isPlainObject(safeInput.assetDepletionLedger)) {
@@ -4258,6 +4548,7 @@
         .concat(liquidityTriggers.suppressedCandidates)
         .concat(debtTriggers.suppressedCandidates)
         .concat(supportingDotTriggers.suppressedCandidates)
+        .concat(coverageDurationTriggers.suppressedCandidates)
         .concat(housingRiskBacked.suppressedCandidates)
         .concat(selectionSuppressedCandidates),
       warnings,
