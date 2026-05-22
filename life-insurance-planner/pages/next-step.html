@@ -6,7 +6,7 @@
   <title>Protection Modeling Inputs | LENS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles.css">
 </head>
 <body class="home-page lens-page lens-workflow-page profile-creation-page" data-page="next-step" data-step="protection-modeling-inputs">
@@ -81,28 +81,44 @@
       <section class="lens-workflow-pane workspace-visible-pane">
         <section class="prospect-empty-panel">
         <div class="prospect-panel-header">
-          <a class="prospect-return-button" href="protection-modeling-linked.html" data-loading-link>Previous</a>
-          <h1>Protection Modeling Inputs</h1>
+          <div class="pmi-file-header" data-pmi-file-header>
+            <div class="pmi-file-field pmi-file-field--name" data-pmi-file-field="name">
+              <span class="pmi-linked-person-badge" data-pmi-linked-person-name hidden></span>
+            </div>
+            <div class="pmi-file-field" data-pmi-file-field="case-ref">
+              <span class="pmi-file-value" data-pmi-linked-case-ref></span>
+            </div>
+            <div class="pmi-file-field" data-pmi-file-field="household">
+              <span class="pmi-file-value" data-pmi-linked-household></span>
+            </div>
+            <div class="pmi-file-field" data-pmi-file-field="date-of-birth">
+              <span class="pmi-file-value" data-pmi-linked-date-of-birth></span>
+            </div>
+          </div>
           <button class="confidential-calculator-toggle" type="button" data-calculator-toggle aria-expanded="false" aria-controls="protection-calculator" aria-label="Open calculator">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <rect x="4" y="2.1" width="16" height="19.8" rx="1.6" fill="#ffffff" stroke="#000000" stroke-width="1.2"></rect>
-              <rect x="6.85" y="4.5" width="10.3" height="3.05" rx="0.65" fill="#000000" opacity="0.12"></rect>
-              <rect x="6.75" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="10.7" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="14.65" y="9.35" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="6.75" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="10.7" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="14.65" y="13.5" width="2.6" height="2.6" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="6.75" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="10.7" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000" opacity="0.88"></rect>
-              <rect x="14.65" y="17.8" width="2.6" height="2.45" rx="0.25" fill="#000000"></rect>
-            </svg>
+            <img class="confidential-calculator-icon" src="../Images/calculate.svg" alt="" aria-hidden="true">
           </button>
         </div>
+        <div class="pmi-form-layout" data-pmi-form-layout>
+          <nav class="pmi-section-nav" data-pmi-section-nav aria-label="Protection Modeling Inputs sections">
+            <div class="pmi-section-nav-label">Sections</div>
+            <a class="pmi-section-nav-link" href="#pmi-income"><span>1</span>Income</a>
+            <a class="pmi-section-nav-link" href="#pmi-housing"><span>2</span>Housing</a>
+            <a class="pmi-section-nav-link" href="#pmi-debts"><span>3</span>Debts &amp; Liabilities</a>
+            <a class="pmi-section-nav-link" href="#pmi-expenses"><span>4</span>Expenses</a>
+            <a class="pmi-section-nav-link" href="#pmi-assets"><span>5</span>Assets</a>
+            <a class="pmi-section-nav-link" href="#pmi-coverage"><span>6</span>Existing Coverage</a>
+            <a class="pmi-section-nav-link" href="#pmi-survivor"><span>7</span>Survivor Needs</a>
+            <a class="pmi-section-nav-link" href="#pmi-education"><span>8</span>Education</a>
+            <a class="pmi-section-nav-link" href="#pmi-final"><span>9</span>Final Expenses</a>
+          </nav>
+          <div class="pmi-form-main">
         <form class="profile-creation-form" id="protection-modeling-form" data-pmi-draft-key="advisor">
-          <section class="profile-form-section profile-form-section-group">
+          <section class="profile-form-section profile-form-section-group" id="pmi-income">
             <div class="profile-form-section-heading">
-              <h2>Income Replacement</h2>
+              <span class="pmi-reference-card-num">01 · Income Calculation</span>
+              <h2>Household Income &amp; Tax Profile</h2>
+              <p>Gross income, filing status, deductions, and net take-home</p>
             </div>
             <div class="profile-form-section-group-stack">
               <section class="profile-form-section profile-form-subsection">
@@ -145,6 +161,9 @@
                   <input id="spouse-income" name="spouseIncome" type="text" inputmode="decimal">
                   <span class="profile-currency-suffix">USD</span>
                 </div>
+              </div>
+              <div class="field-group full-width pmi-reference-divider pmi-reference-divider--deductions" aria-hidden="true">
+                <span>Deductions</span>
               </div>
               <div class="field-group">
                 <label for="deduction-method">Primary Deduction Method</label>
@@ -203,6 +222,9 @@
                   <input id="spouse-taxable-income" name="spouseTaxableIncome" type="text" inputmode="decimal" readonly>
                   <span class="profile-currency-suffix">USD</span>
                 </div>
+              </div>
+              <div class="field-group full-width pmi-reference-divider pmi-reference-divider--tax" aria-hidden="true">
+                <span>Tax Brackets &amp; Rates</span>
               </div>
               <div class="field-group">
                 <label for="federal-tax-bracket" data-federal-tax-bracket-label>Federal Tax Bracket</label>
@@ -324,6 +346,9 @@
                   <p class="profile-section-note">Fields already captured on the client profile are intentionally excluded here.</p>
                 </div>
                 <div class="form-grid">
+                  <div class="field-group full-width pmi-reference-notice">
+                    <span>Fields already captured on the client profile are intentionally excluded here.</span>
+                  </div>
               <div class="field-group">
                   <label for="income-growth-rate">Annual Income Growth Rate Assumption</label>
                 <div class="profile-currency-field">
@@ -340,7 +365,10 @@
               </div>
               <div class="field-group">
                   <label for="years-until-retirement">Estimated Years Until Retirement or Income Exhaustion</label>
-                <input id="years-until-retirement" class="profile-small-number-field" name="yearsUntilRetirement" type="number" min="0" max="80" step="1">
+                <div class="profile-inline-unit-field">
+                  <input id="years-until-retirement" class="profile-small-number-field" name="yearsUntilRetirement" type="number" min="0" max="80" step="1">
+                  <span class="profile-inline-unit">Years</span>
+                </div>
               </div>
               <div class="field-group">
                   <label for="employer-benefits-value">Annual Employer Benefits Value</label>
@@ -354,24 +382,19 @@
             </div>
           </section>
 
-          <section class="profile-form-section profile-form-section-group">
-            <div class="profile-form-section-heading">
-              <h2>Debt Payoff &amp; Ongoing Support</h2>
-            </div>
-            <div class="profile-form-section-group-stack">
-              <section class="profile-form-section profile-form-subsection">
+          <section class="profile-form-section" id="pmi-housing">
                 <div class="profile-form-section-heading">
                   <h2>Housing Costs</h2>
                 </div>
                 <div class="form-grid">
               <div class="field-group">
                 <label for="housing-status">Housing Status</label>
-                <select id="housing-status" name="housingStatus">
-                  <option value="">Please select</option>
-                  <option value="Homeowner">Homeowner</option>
-                  <option value="Owns Free and Clear">Owns Free and Clear</option>
-                  <option value="Renter">Renter</option>
-                </select>
+                <input id="housing-status" name="housingStatus" type="hidden" value="">
+                <div class="profile-form-toggle-group" data-housing-status-group>
+                  <button class="profile-form-toggle-button" type="button" data-housing-status-toggle data-housing-status-value="Homeowner">Homeowner</button>
+                  <button class="profile-form-toggle-button" type="button" data-housing-status-toggle data-housing-status-value="Owns Free and Clear">Owns Free and Clear</button>
+                  <button class="profile-form-toggle-button" type="button" data-housing-status-toggle data-housing-status-value="Renter">Renter</button>
+                </div>
               </div>
               <div class="field-group full-width income-calculation-circle-row" aria-hidden="true">
                 <span class="income-calculation-circle" data-housing-status-circle="Homeowner" title="Homeowner"></span>
@@ -501,7 +524,12 @@
                 </div>
               </section>
 
-              <section class="profile-form-section profile-form-subsection">
+          <section class="profile-form-section profile-form-section-group">
+            <div class="profile-form-section-heading">
+              <h2>Debt Payoff &amp; Ongoing Support</h2>
+            </div>
+            <div class="profile-form-section-group-stack">
+              <section class="profile-form-section profile-form-subsection" id="pmi-debts">
                 <div class="profile-form-section-heading">
                   <h2>Debts and Liabilities</h2>
                 </div>
@@ -526,12 +554,11 @@
                 </div>
               </section>
 
-              <section class="profile-form-section profile-form-subsection">
+              <section class="profile-form-section profile-form-subsection" id="pmi-expenses">
                 <div class="profile-form-section-heading">
                   <h2>Expenses and Lifestyle</h2>
                 </div>
                 <div class="form-grid">
-              <div class="field-group full-width" data-pmi-expense-cashflow-root></div>
               <div class="field-group full-width pmi-scalar-expenses-notebook" data-pmi-scalar-expenses-notebook>
                 <div class="pmi-scalar-expenses-section" data-pmi-scalar-expenses-section="household">
                   <div class="pmi-scalar-expenses-section-title">Household Spending</div>
@@ -730,7 +757,7 @@
                 </div>
               </section>
 
-              <section class="profile-form-section">
+              <section class="profile-form-section" id="pmi-assets">
                 <div class="profile-form-section-heading">
                   <h2>Assets and Offset Planning</h2>
                   <p class="helper-text">Enter current asset values only. Asset treatment and offset assumptions are managed in Analysis Setup.</p>
@@ -838,7 +865,7 @@
                 </div>
               </section>
 
-              <section class="profile-form-section profile-form-subsection" data-pmi-existing-coverage-card>
+              <section class="profile-form-section profile-form-subsection" id="pmi-coverage" data-pmi-existing-coverage-card>
                 <div class="profile-form-section-heading">
                   <h2>Existing Coverage</h2>
                   <p class="helper-text">Read-only summary from the linked profile&apos;s saved coverage policies.</p>
@@ -852,7 +879,7 @@
                 </div>
               </section>
 
-              <section class="profile-form-section profile-form-subsection">
+              <section class="profile-form-section profile-form-subsection" id="pmi-survivor">
                 <div class="profile-form-section-heading">
                   <h2>Survivor Transition Needs</h2>
                   <p class="helper-text">One-time survivor needs and reserves only. Current assets stay in Assets and Offset Planning.</p>
@@ -895,7 +922,7 @@
             </div>
           </section>
 
-          <section class="profile-form-section">
+          <section class="profile-form-section" id="pmi-education">
             <div class="profile-form-section-heading">
               <h2>Education Funding</h2>
             </div>
@@ -964,7 +991,7 @@
             </div>
           </section>
 
-          <section class="profile-form-section">
+          <section class="profile-form-section" id="pmi-final">
             <div class="profile-form-section-heading">
               <h2>Final Expenses</h2>
             </div>
@@ -1007,6 +1034,11 @@
             <button class="btn btn-secondary pmi-save-exit-button" type="button" data-pmi-save-exit>Save and Exit</button>
           </div>
         </form>
+          </div>
+          <aside class="pmi-cashflow-rail" data-pmi-cashflow-rail aria-label="Monthly household cash flow">
+            <div data-pmi-expense-cashflow-root></div>
+          </aside>
+        </div>
       </section>
       </section>
     </section>
@@ -1637,6 +1669,10 @@
       const spouseNetAnnualIncomeField = form.elements.namedItem("spouseNetAnnualIncome");
       const primaryNetIncomeAction = form.querySelector('[data-net-income-action="primary"]');
       const spouseNetIncomeAction = form.querySelector('[data-net-income-action="spouse"]');
+      const linkedPersonNameElement = document.querySelector("[data-pmi-linked-person-name]");
+      const linkedCaseRefElement = document.querySelector("[data-pmi-linked-case-ref]");
+      const linkedHouseholdElement = document.querySelector("[data-pmi-linked-household]");
+      const linkedDateOfBirthElement = document.querySelector("[data-pmi-linked-date-of-birth]");
       const mortgagePaymentOnlyField = form.elements.namedItem("monthlyMortgagePaymentOnly");
       const mortgagePaymentOnlyAction = form.querySelector('[data-mortgage-payment-only-action="primary"]');
       const associatedMonthlyCostsField = form.elements.namedItem("associatedMonthlyCosts");
@@ -1710,7 +1746,7 @@
       });
       const pmiExpenseRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
         root: form.querySelector("[data-pmi-expense-records-root]"),
-        cashFlowRoot: form.querySelector("[data-pmi-expense-cashflow-root]"),
+        cashFlowRoot: document.querySelector("[data-pmi-expense-cashflow-root]"),
         pageRoot: form
       });
       function refreshPmiExpenseCashFlowBar() {
@@ -1856,6 +1892,67 @@
         return typeof getCurrentLinkedRecord === "function"
           ? getCurrentLinkedRecord(resolvedLinkedCaseRef)
           : null;
+      }
+
+      function getLinkedPersonDisplayName() {
+        const linkedRecord = getLinkedRecord();
+        const lastName = String(linkedRecord?.lastName || "").trim();
+        const firstName = String(linkedRecord?.preferredName || linkedRecord?.firstName || "").trim();
+        const middleName = String(linkedRecord?.middleName || "").trim();
+        const officialName = [lastName, firstName, middleName].filter(Boolean).join(" ").trim();
+        if (officialName) {
+          return officialName;
+        }
+
+        const directName = String(
+          linkedRecord?.displayName || linkedRecord?.clientName || linkedRecord?.fullName || linkedRecord?.name || ""
+        ).trim();
+        if (directName) {
+          const directParts = directName.split(/\s+/).filter(Boolean);
+          if (directParts.length > 1) {
+            const fallbackLastName = directParts.pop();
+            return [fallbackLastName, ...directParts].join(" ");
+          }
+
+          return directName;
+        }
+
+        return String(linkedRecord?.caseRef || resolvedLinkedCaseRef || "").trim();
+      }
+
+      function formatOfficialDate(value) {
+        const normalizedValue = String(value || "").trim();
+        const match = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match) {
+          return `${match[2]}/${match[3]}/${match[1]}`;
+        }
+
+        return normalizedValue;
+      }
+
+      function setLinkedHeaderText(element, value) {
+        if (!element) {
+          return;
+        }
+
+        const normalizedValue = String(value || "").trim().toUpperCase();
+        element.textContent = normalizedValue || "—";
+      }
+
+      function syncLinkedPersonNameBadge() {
+        const linkedRecord = getLinkedRecord();
+
+        const displayName = getLinkedPersonDisplayName();
+        const normalizedName = displayName.toUpperCase();
+        if (linkedPersonNameElement) {
+          linkedPersonNameElement.textContent = normalizedName;
+          linkedPersonNameElement.hidden = !normalizedName;
+          linkedPersonNameElement.title = normalizedName;
+        }
+
+        setLinkedHeaderText(linkedCaseRefElement, linkedRecord?.caseRef || resolvedLinkedCaseRef);
+        setLinkedHeaderText(linkedHouseholdElement, linkedRecord?.householdName || linkedRecord?.householdId);
+        setLinkedHeaderText(linkedDateOfBirthElement, formatOfficialDate(linkedRecord?.dateOfBirth || linkedRecord?.birthDate));
       }
 
       function getLinkedCoveragePolicies() {
@@ -2992,6 +3089,11 @@
         const selectedHousingStatus = String(housingStatusField.value || "").trim();
         form.querySelectorAll("[data-housing-status-circle]").forEach((circle) => {
           circle.classList.toggle("is-active", circle.getAttribute("data-housing-status-circle") === selectedHousingStatus);
+        });
+        form.querySelectorAll("[data-housing-status-toggle]").forEach((button) => {
+          const isActive = button.getAttribute("data-housing-status-value") === selectedHousingStatus;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
       }
 
@@ -4928,6 +5030,16 @@
         };
         housingStatusField.addEventListener("change", syncHousingStatusState);
         housingStatusField.addEventListener("input", syncHousingStatusState);
+        form.querySelectorAll("[data-housing-status-toggle]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.disabled) {
+              return;
+            }
+
+            housingStatusField.value = button.getAttribute("data-housing-status-value") || "";
+            syncHousingStatusState();
+          });
+        });
       }
 
       [federalTaxBracketField, spouseFederalTaxBracketField, stateIncomeTaxBracketField, spouseStateIncomeTaxBracketField].forEach((field) => {
@@ -4979,6 +5091,7 @@
 
       populateFederalTaxBracketOptions();
       restoreDraft();
+      syncLinkedPersonNameBadge();
       syncTaxableIncomeFields();
       syncLinkedMaritalStatus();
       syncFilingStatusOptions();
