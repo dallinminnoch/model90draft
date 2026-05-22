@@ -12,6 +12,17 @@
 
   let generatedExpenseIdCounter = 0;
   let activeController = null;
+  const SCALAR_MONTHLY_CASH_FLOW_EXPENSE_FIELDS = Object.freeze([
+    "insuranceCost",
+    "foodCost",
+    "transportationCost",
+    "childcareDependentCareCost",
+    "phoneInternetCost",
+    "householdSuppliesCost",
+    "otherHouseholdExpenses",
+    "travelDiscretionaryCost",
+    "subscriptionsCost"
+  ]);
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -136,6 +147,19 @@
     });
   }
 
+  function formatCashFlowAmount(value) {
+    const number = toOptionalNumber(value);
+    if (number == null) {
+      return "-";
+    }
+
+    const absValue = Math.abs(number);
+    const formattedValue = "$" + absValue.toLocaleString("en-US", {
+      maximumFractionDigits: absValue % 1 === 0 ? 0 : 2
+    });
+    return number < 0 ? "-" + formattedValue : formattedValue;
+  }
+
   function formatDisplayToken(value) {
     const normalized = normalizeString(value);
     if (!normalized) {
@@ -148,6 +172,228 @@
       .replace(/\b\w/g, function (letter) {
         return letter.toUpperCase();
       });
+  }
+
+  function roundCashFlowAmount(value) {
+    return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
+  }
+
+  function normalizeCashFlowFrequency(value) {
+    const normalized = normalizeString(value);
+    const compact = normalized.replace(/[\s_-]+/g, "").toLowerCase();
+    if (!compact) {
+      return "monthly";
+    }
+
+    if (compact === "onetime" || compact === "oneoff") {
+      return "oneTime";
+    }
+
+    if (compact === "semiannual" || compact === "semiannually" || compact === "semiannualy") {
+      return "semiAnnual";
+    }
+
+    if (compact === "biweekly" || compact === "everytwoweeks") {
+      return "biweekly";
+    }
+
+    if (compact === "weekly") {
+      return "weekly";
+    }
+
+    if (compact === "quarterly") {
+      return "quarterly";
+    }
+
+    if (compact === "annual" || compact === "annually" || compact === "yearly") {
+      return "annual";
+    }
+
+    return compact === "monthly" ? "monthly" : normalized;
+  }
+
+  function toMonthlyCashFlowAmount(amount, frequency) {
+    const numericAmount = toOptionalNonNegativeNumber(amount);
+    if (numericAmount == null) {
+      return null;
+    }
+
+    const normalizedFrequency = normalizeCashFlowFrequency(frequency);
+    const monthlyFactors = {
+      weekly: 52 / 12,
+      biweekly: 26 / 12,
+      monthly: 1,
+      quarterly: 1 / 3,
+      semiAnnual: 1 / 6,
+      annual: 1 / 12
+    };
+
+    if (normalizedFrequency === "oneTime") {
+      return null;
+    }
+
+    const factor = monthlyFactors[normalizedFrequency];
+    return Number.isFinite(factor) ? roundCashFlowAmount(numericAmount * factor) : null;
+  }
+
+  function firstOptionalNumber(values) {
+    const sourceValues = Array.isArray(values) ? values : [];
+    for (let index = 0; index < sourceValues.length; index += 1) {
+      const number = toOptionalNumber(sourceValues[index]);
+      if (number != null) {
+        return number;
+      }
+    }
+
+    return null;
+  }
+
+  function getRecordMonthlyAmount(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const termType = normalizeExpenseTermType(safeRecord.termType, "ongoing");
+    if (termType === "oneTime") {
+      return null;
+    }
+
+    return toMonthlyCashFlowAmount(safeRecord.amount, safeRecord.frequency);
+  }
+
+  function getDebtRecordMonthlyAmount(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const paymentFrequency = normalizeString(safeRecord.paymentFrequency || safeRecord.frequency) || "monthly";
+    const paymentAmount = toOptionalNonNegativeNumber(safeRecord.paymentAmount);
+    if (paymentAmount != null) {
+      return toMonthlyCashFlowAmount(paymentAmount, paymentFrequency);
+    }
+
+    const minimumMonthlyPayment = toOptionalNonNegativeNumber(safeRecord.minimumMonthlyPayment);
+    return minimumMonthlyPayment == null ? null : toMonthlyCashFlowAmount(minimumMonthlyPayment, "monthly");
+  }
+
+  function calculateMonthlyCashFlow(input) {
+    const safeInput = input && typeof input === "object" ? input : {};
+    const income = safeInput.income && typeof safeInput.income === "object" ? safeInput.income : safeInput;
+    const housing = safeInput.housing && typeof safeInput.housing === "object" ? safeInput.housing : safeInput;
+    const trace = {
+      includedExpenses: [],
+      excludedExpenses: [],
+      includedDebtPayments: [],
+      excludedDebtPayments: [],
+      housingSource: null,
+      missing: []
+    };
+
+    const combinedAnnualNetIncome = firstOptionalNumber([
+      income.combinedAnnualNetIncome,
+      income.combinedHouseholdNetAnnualIncome,
+      income.householdNetAnnualIncome
+    ]);
+    const insuredNetAnnualIncome = firstOptionalNumber([
+      income.insuredNetAnnualIncome,
+      income.netAnnualIncome,
+      income.primaryNetAnnualIncome
+    ]);
+    const spouseNetAnnualIncome = firstOptionalNumber([
+      income.spouseOrPartnerNetAnnualIncome,
+      income.spouseNetAnnualIncome,
+      income.partnerNetAnnualIncome
+    ]);
+    const monthlyTakeHomePay = combinedAnnualNetIncome == null
+      ? roundCashFlowAmount(
+        (insuredNetAnnualIncome == null ? 0 : insuredNetAnnualIncome / 12)
+        + (spouseNetAnnualIncome == null ? 0 : spouseNetAnnualIncome / 12)
+      )
+      : roundCashFlowAmount(combinedAnnualNetIncome / 12);
+    if (combinedAnnualNetIncome == null && insuredNetAnnualIncome == null && spouseNetAnnualIncome == null) {
+      trace.missing.push("net-income-source");
+    }
+
+    const monthlyHousingCost = firstOptionalNumber([
+      housing.calculatedMonthlyMortgagePayment,
+      housing.monthlyHousingSupportCost,
+      housing.monthlyHousingCost,
+      housing.monthlyHousingPayment,
+      housing.monthlyRentOrHousingPayment
+    ]);
+    const normalizedMonthlyHousingCost = monthlyHousingCost == null
+      ? 0
+      : roundCashFlowAmount(Math.max(0, monthlyHousingCost));
+    if (monthlyHousingCost == null) {
+      trace.missing.push("housing-payment-source");
+    } else {
+      trace.housingSource = normalizeString(housing.housingSource || housing.sourcePath) || "current-pmi-housing-payment";
+    }
+
+    const expenseSourceRecords = []
+      .concat(Array.isArray(safeInput.scalarExpenseRecords) ? safeInput.scalarExpenseRecords : [])
+      .concat(Array.isArray(safeInput.expenseRecords) ? safeInput.expenseRecords : []);
+    const monthlyExpenses = expenseSourceRecords.reduce(function (total, record, index) {
+      const monthlyAmount = getRecordMonthlyAmount(record);
+      const safeRecord = record && typeof record === "object" ? record : {};
+      if (monthlyAmount == null) {
+        trace.excludedExpenses.push({
+          index,
+          expenseId: normalizeString(safeRecord.expenseId) || null,
+          reason: normalizeCashFlowFrequency(safeRecord.frequency) === "oneTime" || normalizeString(safeRecord.termType) === "oneTime"
+            ? "one-time-expense-excluded"
+            : "monthly-equivalent-unavailable"
+        });
+        return total;
+      }
+
+      trace.includedExpenses.push({
+        index,
+        expenseId: normalizeString(safeRecord.expenseId) || null,
+        monthlyAmount
+      });
+      return total + monthlyAmount;
+    }, 0);
+
+    const generatedDebtRecords = Array.isArray(safeInput.generatedExpenseRecords)
+      ? safeInput.generatedExpenseRecords
+      : [];
+    const fallbackDebtRecords = !generatedDebtRecords.length && Array.isArray(safeInput.debtRecords)
+      ? safeInput.debtRecords
+      : [];
+    const debtSourceRecords = generatedDebtRecords.length ? generatedDebtRecords : fallbackDebtRecords;
+    const monthlyDebtPayments = debtSourceRecords.reduce(function (total, record, index) {
+      const monthlyAmount = generatedDebtRecords.length
+        ? getRecordMonthlyAmount(record)
+        : getDebtRecordMonthlyAmount(record);
+      const safeRecord = record && typeof record === "object" ? record : {};
+      if (monthlyAmount == null) {
+        trace.excludedDebtPayments.push({
+          index,
+          sourceDebtRecordId: normalizeString(safeRecord.sourceDebtRecordId || safeRecord.debtId) || null,
+          reason: "monthly-debt-payment-unavailable"
+        });
+        return total;
+      }
+
+      trace.includedDebtPayments.push({
+        index,
+        sourceDebtRecordId: normalizeString(safeRecord.sourceDebtRecordId || safeRecord.debtId) || null,
+        monthlyAmount
+      });
+      return total + monthlyAmount;
+    }, 0);
+
+    const roundedExpenses = roundCashFlowAmount(monthlyExpenses);
+    const roundedDebt = roundCashFlowAmount(monthlyDebtPayments);
+    const remainingMonthlyCashFlow = roundCashFlowAmount(
+      monthlyTakeHomePay - normalizedMonthlyHousingCost - roundedDebt - roundedExpenses
+    );
+
+    return {
+      monthlyTakeHomePay,
+      monthlyHousingCost: normalizedMonthlyHousingCost,
+      monthlyDebtPayments: roundedDebt,
+      monthlyExpenses: roundedExpenses,
+      remainingMonthlyCashFlow,
+      isNegative: remainingMonthlyCashFlow < 0,
+      hasIncomeSource: insuredNetAnnualIncome != null || spouseNetAnnualIncome != null,
+      trace
+    };
   }
 
   function normalizeGeneratedExpenseFactForUi(expense) {
@@ -589,6 +835,198 @@
     root.dataset.pmiExpenseRecordsInitialized = "true";
   }
 
+  function renderCashFlowBar(root) {
+    if (!root || root.dataset.pmiExpenseCashFlowInitialized === "true") {
+      return;
+    }
+
+    root.innerHTML = `
+      <section class="pmi-expense-cashflow" data-pmi-expense-cashflow-bar aria-live="polite">
+        <div class="pmi-expense-cashflow-header">
+          <div>
+            <span class="pmi-expense-cashflow-kicker">Monthly household cash flow</span>
+            <strong data-pmi-expense-cashflow-remaining>-</strong>
+          </div>
+          <span class="pmi-expense-cashflow-status" data-pmi-expense-cashflow-status>Available before savings</span>
+        </div>
+        <div class="pmi-expense-cashflow-track" data-pmi-expense-cashflow-track aria-hidden="true">
+          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--housing" data-pmi-expense-cashflow-segment="housing"></span>
+          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--debt" data-pmi-expense-cashflow-segment="debt"></span>
+          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--expenses" data-pmi-expense-cashflow-segment="expenses"></span>
+          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--remaining" data-pmi-expense-cashflow-segment="remaining"></span>
+        </div>
+        <div class="pmi-expense-cashflow-metrics" data-pmi-expense-cashflow-metrics>
+          <span><b data-pmi-expense-cashflow-income>-</b><small>Monthly take-home pay</small></span>
+          <span><b data-pmi-expense-cashflow-housing>-</b><small>Housing burden</small></span>
+          <span><b data-pmi-expense-cashflow-debt>-</b><small>Required debt payments</small></span>
+          <span><b data-pmi-expense-cashflow-expenses>-</b><small>Lifestyle expenses</small></span>
+        </div>
+        <div class="pmi-expense-cashflow-legend" aria-label="Cash-flow bar legend">
+          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--housing" aria-hidden="true"></i>Housing burden</span>
+          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--debt" aria-hidden="true"></i>Required debt payments</span>
+          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--expenses" aria-hidden="true"></i>Lifestyle expenses</span>
+          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--remaining" aria-hidden="true"></i>Available before savings</span>
+        </div>
+        <p class="pmi-expense-cashflow-note" data-pmi-expense-cashflow-note>This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations.</p>
+      </section>
+    `;
+    root.dataset.pmiExpenseCashFlowInitialized = "true";
+  }
+
+  function getCashFlowElements(root) {
+    const bar = root && typeof root.querySelector === "function"
+      ? root.querySelector("[data-pmi-expense-cashflow-bar]")
+      : null;
+    if (!bar || typeof bar.querySelector !== "function") {
+      return null;
+    }
+
+    return {
+      bar,
+      status: bar.querySelector("[data-pmi-expense-cashflow-status]"),
+      income: bar.querySelector("[data-pmi-expense-cashflow-income]"),
+      housing: bar.querySelector("[data-pmi-expense-cashflow-housing]"),
+      debt: bar.querySelector("[data-pmi-expense-cashflow-debt]"),
+      expenses: bar.querySelector("[data-pmi-expense-cashflow-expenses]"),
+      remaining: bar.querySelector("[data-pmi-expense-cashflow-remaining]"),
+      note: bar.querySelector("[data-pmi-expense-cashflow-note]"),
+      track: bar.querySelector("[data-pmi-expense-cashflow-track]")
+    };
+  }
+
+  function getNamedFormControl(form, names) {
+    if (!form || !form.elements || typeof form.elements.namedItem !== "function") {
+      return null;
+    }
+
+    for (let index = 0; index < names.length; index += 1) {
+      const control = form.elements.namedItem(names[index]);
+      if (control && typeof control.value !== "undefined") {
+        return control;
+      }
+    }
+
+    return null;
+  }
+
+  function readControlNumber(control) {
+    if (!control || typeof control.value === "undefined") {
+      return null;
+    }
+
+    if (control.dataset && control.dataset.manualOverride === "true" && normalizeString(control.dataset.manualValue)) {
+      return toOptionalNumber(control.dataset.manualValue);
+    }
+
+    if (control.dataset && normalizeString(control.dataset.calculatedValue)) {
+      return toOptionalNumber(control.dataset.calculatedValue);
+    }
+
+    const normalizedValue = normalizeString(control.value);
+    if (!normalizedValue) {
+      return null;
+    }
+
+    const currencyLikeValue = normalizedValue.replace(/[^0-9.-]+/g, "");
+    return toOptionalNumber(currencyLikeValue || normalizedValue);
+  }
+
+  function readControlString(control) {
+    return control && typeof control.value !== "undefined" ? normalizeString(control.value) : "";
+  }
+
+  function readScalarMonthlyExpenseRecords(form) {
+    if (!form) {
+      return [];
+    }
+
+    // These fields are the visible monthly Expenses and Lifestyle rows. Housing and
+    // generated debt payments are read separately so the cash-flow bar does not double count them.
+    return SCALAR_MONTHLY_CASH_FLOW_EXPENSE_FIELDS.map(function (fieldName) {
+      const control = getNamedFormControl(form, [fieldName]);
+      const amount = readControlNumber(control);
+      if (amount == null || amount < 0) {
+        return null;
+      }
+
+      return {
+        expenseId: "scalar_" + fieldName,
+        label: fieldName,
+        amount,
+        frequency: "monthly",
+        termType: "ongoing",
+        sourceKey: fieldName,
+        isScalarExpense: true
+      };
+    }).filter(Boolean);
+  }
+
+  function readDefaultCashFlowInputs(root, pageRoot) {
+    const form = pageRoot || (root && typeof root.closest === "function" ? root.closest("form") : null);
+    if (!form) {
+      return {
+        income: {},
+        housing: {},
+        scalarExpenseRecords: []
+      };
+    }
+
+    const housingStatus = readControlString(getNamedFormControl(form, ["housingStatus"])).toLowerCase();
+    const combinedNetAnnualIncomeControl = getNamedFormControl(form, ["netAnnualIncome"]);
+    const spouseNetAnnualIncomeControl = getNamedFormControl(form, ["spouseNetAnnualIncome", "spouseOrPartnerNetAnnualIncome"]);
+    const displayedNetAnnualIncome = readControlNumber(combinedNetAnnualIncomeControl);
+    const spouseNetAnnualIncome = readControlNumber(spouseNetAnnualIncomeControl);
+    const isSeparateIncomeSource = spouseNetAnnualIncome != null && spouseNetAnnualIncome > 0;
+    const renterHousing = firstOptionalNumber([
+      readControlNumber(getNamedFormControl(form, ["monthlyHousingCost", "monthlyRentOrHousingPayment", "monthlyRent"]))
+    ]);
+    const otherRenterHousing = readControlNumber(getNamedFormControl(form, ["otherMonthlyRenterHousingCosts"]));
+    const monthlyUtilities = readControlNumber(getNamedFormControl(form, ["utilitiesCost"]));
+    const monthlyHousingInsurance = readControlNumber(getNamedFormControl(form, ["housingInsuranceCost"]));
+    const calculatedHousing = readControlNumber(getNamedFormControl(form, ["calculatedMonthlyMortgagePayment", "monthlyHousingSupportCost"]));
+    const mortgagePaymentOnly = readControlNumber(getNamedFormControl(form, ["monthlyMortgagePaymentOnly"]));
+    const associatedMonthlyCosts = readControlNumber(getNamedFormControl(form, ["associatedMonthlyCosts"]));
+    let monthlyHousingCost = null;
+    let housingSource = null;
+
+    if (calculatedHousing != null && calculatedHousing > 0) {
+      monthlyHousingCost = calculatedHousing;
+      housingSource = "calculatedMonthlyMortgagePayment";
+    } else if (housingStatus === "renter") {
+      const rentTotal = (renterHousing == null ? 0 : renterHousing)
+        + (otherRenterHousing == null ? 0 : otherRenterHousing)
+        + (monthlyUtilities == null ? 0 : monthlyUtilities)
+        + (monthlyHousingInsurance == null ? 0 : monthlyHousingInsurance);
+      monthlyHousingCost = rentTotal > 0 ? rentTotal : null;
+      housingSource = monthlyHousingCost == null ? null : "renter-housing-fields";
+    } else if (housingStatus === "homeowner" || housingStatus === "owns free and clear") {
+      if (monthlyHousingCost == null && (mortgagePaymentOnly != null || associatedMonthlyCosts != null)) {
+        monthlyHousingCost = (mortgagePaymentOnly == null ? 0 : mortgagePaymentOnly) + (associatedMonthlyCosts == null ? 0 : associatedMonthlyCosts);
+        housingSource = "monthlyMortgagePaymentOnly+associatedMonthlyCosts";
+      }
+    } else {
+      monthlyHousingCost = firstOptionalNumber([
+        calculatedHousing,
+        renterHousing,
+        mortgagePaymentOnly
+      ]);
+      housingSource = monthlyHousingCost == null ? null : "current-pmi-housing-payment";
+    }
+
+    return {
+      income: {
+        combinedAnnualNetIncome: isSeparateIncomeSource ? null : displayedNetAnnualIncome,
+        netAnnualIncome: displayedNetAnnualIncome,
+        spouseNetAnnualIncome
+      },
+      housing: {
+        monthlyHousingCost,
+        housingSource
+      },
+      scalarExpenseRecords: readScalarMonthlyExpenseRecords(form)
+    };
+  }
+
   function createModal(controller) {
     const documentRef = controller.documentRef;
     if (!documentRef || !documentRef.body) {
@@ -636,20 +1074,35 @@
     }
 
     renderShell(root);
+    const cashFlowRoot = typeof safeOptions.cashFlowRoot === "string"
+      ? document.querySelector(safeOptions.cashFlowRoot)
+      : safeOptions.cashFlowRoot;
+    const pageRoot = typeof safeOptions.pageRoot === "string"
+      ? document.querySelector(safeOptions.pageRoot)
+      : safeOptions.pageRoot;
+    renderCashFlowBar(cashFlowRoot);
 
     const controller = {
       root,
+      cashFlowRoot: cashFlowRoot || null,
+      pageRoot: pageRoot || (root.closest && root.closest("form")) || null,
       documentRef: root.ownerDocument || document,
       records: [],
       generatedRecords: [],
       list: root.querySelector("[data-pmi-expense-records-list]"),
       addButton: root.querySelector("[data-pmi-expense-records-add]"),
+      cashFlowElements: getCashFlowElements(cashFlowRoot),
       modal: null,
       searchInput: null,
       results: null
     };
     controller.libraryFilter = "suggested";
     controller.recentTypeKeys = [];
+    controller.cashFlowDataProvider = typeof safeOptions.cashFlowDataProvider === "function"
+      ? safeOptions.cashFlowDataProvider
+      : function () {
+        return readDefaultCashFlowInputs(root, controller.pageRoot);
+      };
     controller.debtRecordsProvider = typeof safeOptions.debtRecordsProvider === "function"
       ? safeOptions.debtRecordsProvider
       : function () {
@@ -660,6 +1113,71 @@
           ? debtRecordsApi.serializeDebtRecords()
           : [];
       };
+
+    function getCashFlowInputData() {
+      const providedData = typeof controller.cashFlowDataProvider === "function"
+        ? controller.cashFlowDataProvider()
+        : {};
+      const safeProvidedData = providedData && typeof providedData === "object" ? providedData : {};
+      return Object.assign({}, safeProvidedData, {
+        expenseRecords: controller.records,
+        generatedExpenseRecords: controller.generatedRecords
+      });
+    }
+
+    function setCashFlowText(element, value) {
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    function setCashFlowShare(element, value) {
+      if (!element || !element.style) {
+        return;
+      }
+
+      element.style.flexBasis = Math.max(0, Math.min(100, value)).toFixed(2) + "%";
+    }
+
+    function updateCashFlowReadout() {
+      const elements = controller.cashFlowElements;
+      if (!elements) {
+        return null;
+      }
+
+      const cashFlow = calculateMonthlyCashFlow(getCashFlowInputData());
+      const totalOutflow = cashFlow.monthlyHousingCost + cashFlow.monthlyDebtPayments + cashFlow.monthlyExpenses;
+      const denominator = Math.max(cashFlow.monthlyTakeHomePay, totalOutflow, 1);
+      setCashFlowText(elements.income, formatCashFlowAmount(cashFlow.monthlyTakeHomePay));
+      setCashFlowText(elements.housing, formatCashFlowAmount(cashFlow.monthlyHousingCost));
+      setCashFlowText(elements.debt, formatCashFlowAmount(cashFlow.monthlyDebtPayments));
+      setCashFlowText(elements.expenses, formatCashFlowAmount(cashFlow.monthlyExpenses));
+      setCashFlowText(elements.remaining, formatCashFlowAmount(cashFlow.remainingMonthlyCashFlow));
+      setCashFlowText(elements.status, cashFlow.isNegative ? "Shortfall before savings" : "Available before savings");
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="housing"]'), cashFlow.monthlyHousingCost / denominator * 100);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="debt"]'), cashFlow.monthlyDebtPayments / denominator * 100);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="expenses"]'), cashFlow.monthlyExpenses / denominator * 100);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="remaining"]'), Math.max(0, cashFlow.remainingMonthlyCashFlow) / denominator * 100);
+      elements.bar.classList.toggle("is-negative", cashFlow.isNegative);
+      elements.bar.classList.toggle("is-missing-income", !cashFlow.hasIncomeSource);
+
+      const notes = ["This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations."];
+      if (!cashFlow.hasIncomeSource) {
+        notes.push("Take-home pay is not available from current PMI income fields.");
+      }
+      if (cashFlow.trace.missing.indexOf("housing-payment-source") !== -1) {
+        notes.push("Housing payment source is not available; home value and equity are not used.");
+      }
+      if (cashFlow.trace.excludedExpenses.some(function (entry) { return entry.reason === "one-time-expense-excluded"; })) {
+        notes.push("One-time expenses are excluded from monthly cash flow.");
+      }
+      if (cashFlow.isNegative) {
+        notes.push("Entered monthly obligations exceed monthly take-home pay before savings allocations.");
+      }
+      setCashFlowText(elements.note, notes.join(" "));
+      controller.lastMonthlyCashFlow = cashFlow;
+      return cashFlow;
+    }
 
     function syncRecordsFromDom() {
       if (!controller.list) {
@@ -707,11 +1225,13 @@
 
     function renderRows() {
       if (!controller.list) {
+        updateCashFlowReadout();
         return;
       }
 
       if (!controller.records.length && !controller.generatedRecords.length) {
         controller.list.innerHTML = "";
+        updateCashFlowReadout();
         return;
       }
 
@@ -787,6 +1307,7 @@
           </div>
         </div>
       `;
+      updateCashFlowReadout();
     }
 
     function renderResults() {
@@ -1018,6 +1539,29 @@
       }
     }
 
+    function connectCashFlowExternalInputs() {
+      const form = controller.pageRoot || (root.closest && root.closest("form"));
+      if (!form || typeof form.addEventListener !== "function") {
+        return;
+      }
+
+      const scheduleUpdate = function (event) {
+        if (event && root.contains && root.contains(event.target)) {
+          return;
+        }
+
+        if (typeof global.requestAnimationFrame === "function") {
+          global.requestAnimationFrame(updateCashFlowReadout);
+          return;
+        }
+
+        updateCashFlowReadout();
+      };
+
+      form.addEventListener("input", scheduleUpdate);
+      form.addEventListener("change", scheduleUpdate);
+    }
+
     function serializeExpenseRecords() {
       syncRecordsFromDom();
       return controller.records
@@ -1068,6 +1612,7 @@
     controller.serializeExpenseRecords = serializeExpenseRecords;
     controller.addExpenseRecordFromLibraryEntry = addExpenseRecordFromLibraryEntry;
     controller.removeExpenseRecordById = removeExpenseRecordById;
+    controller.updateCashFlowReadout = updateCashFlowReadout;
 
     controller.addButton?.addEventListener("click", openModal);
     controller.list?.addEventListener("click", function (event) {
@@ -1087,6 +1632,7 @@
       }
 
       syncRecordsFromDom();
+      updateCashFlowReadout();
     });
 
     controller.list?.addEventListener("change", function (event) {
@@ -1097,10 +1643,13 @@
       syncRecordsFromDom();
       if (event.target.closest("[data-pmi-expense-record-term-type]")) {
         renderRows();
+        return;
       }
+      updateCashFlowReadout();
     });
 
     hydrateExpenseRecords([]);
+    connectCashFlowExternalInputs();
     connectDebtRecordsGeneratedRows();
     refreshGeneratedExpenseFactsFromDebtRecords();
     activeController = controller;
@@ -1137,6 +1686,8 @@
     hydrateGeneratedExpenseFacts,
     refreshGeneratedExpenseFactsFromDebtRecords,
     serializeExpenseRecords,
-    createExpenseRecordFromLibraryEntry
+    createExpenseRecordFromLibraryEntry,
+    calculateMonthlyCashFlow,
+    toMonthlyCashFlowAmount
   };
 })(window);

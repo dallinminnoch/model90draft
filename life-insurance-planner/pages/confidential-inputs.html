@@ -468,6 +468,7 @@
                   <h2>Expenses and Lifestyle</h2>
                 </div>
                 <div class="form-grid">
+              <div class="field-group full-width" data-pmi-expense-cashflow-root></div>
               <div class="field-group full-width pmi-scalar-expenses-notebook" data-pmi-scalar-expenses-notebook>
                 <div class="pmi-scalar-expenses-section" data-pmi-scalar-expenses-section="household">
                   <div class="pmi-scalar-expenses-section-title">Household Spending</div>
@@ -1645,8 +1646,15 @@
         root: pmiDebtRecordsRoot
       });
       const pmiExpenseRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
-        root: form.querySelector("[data-pmi-expense-records-root]")
+        root: form.querySelector("[data-pmi-expense-records-root]"),
+        cashFlowRoot: form.querySelector("[data-pmi-expense-cashflow-root]"),
+        pageRoot: form
       });
+      function refreshPmiExpenseCashFlowBar() {
+        if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.updateCashFlowReadout === "function") {
+          pmiExpenseRecordsController.updateCashFlowReadout();
+        }
+      }
       const derivedDraftFieldNames = new Set([
         "linkedMaritalStatusDisplay",
         "standardDeduction",
@@ -3448,6 +3456,7 @@
         }
 
         syncNetIncomeBlockOutput(primaryGrossIncome, spouseGrossIncome);
+        refreshPmiExpenseCashFlowBar();
       }
 
       function syncTaxContextBlockOutput() {
@@ -4147,6 +4156,7 @@
           { blank: !Number.isFinite(calculatedPayment) || calculatedPayment <= 0 }
         );
         syncHousingOngoingSupportBlockOutput();
+        refreshPmiExpenseCashFlowBar();
       }
 
       function syncAllTaxDerivedFields() {

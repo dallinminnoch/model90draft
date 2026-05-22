@@ -2284,6 +2284,190 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   font-size: 0.95rem;
 }
 
+.pmi-expense-cashflow {
+  display: block;
+  grid-column: 1 / -1;
+  padding: 0.8rem;
+  border: 1px solid #d9dee8;
+  border-radius: 0.35rem;
+  background: #ffffff;
+}
+
+.pmi-expense-cashflow-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+  margin-bottom: 0.55rem;
+}
+
+.pmi-expense-cashflow-header > div {
+  min-width: 0;
+}
+
+.pmi-expense-cashflow-kicker,
+.pmi-expense-cashflow-status {
+  display: block;
+  color: #64748b;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.pmi-expense-cashflow-header strong {
+  display: block;
+  margin-top: 0.12rem;
+  color: #1f2937;
+  font-size: 1.35rem;
+  font-weight: 850;
+  line-height: 1.05;
+}
+
+.pmi-expense-cashflow-status {
+  padding-top: 0.1rem;
+  text-align: right;
+}
+
+.pmi-expense-cashflow-track {
+  display: flex;
+  width: 100%;
+  height: 0.58rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf2f7;
+}
+
+.pmi-expense-cashflow.is-negative .pmi-expense-cashflow-track {
+  outline: 2px solid #ef9a9a;
+  outline-offset: 2px;
+}
+
+.pmi-expense-cashflow-segment {
+  flex: 0 0 0%;
+  min-width: 0;
+  transition: flex-basis 0.16s ease;
+}
+
+.pmi-expense-cashflow-segment--housing {
+  background: #3b82f6;
+}
+
+.pmi-expense-cashflow-segment--debt {
+  background: #f59e0b;
+}
+
+.pmi-expense-cashflow-segment--expenses {
+  background: #8b5cf6;
+}
+
+.pmi-expense-cashflow-segment--remaining {
+  background: #10b981;
+}
+
+.pmi-expense-cashflow.is-negative .pmi-expense-cashflow-segment--remaining {
+  background: #ef4444;
+}
+
+.pmi-expense-cashflow-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.pmi-expense-cashflow-metrics span {
+  min-width: 0;
+}
+
+.pmi-expense-cashflow-metrics b,
+.pmi-expense-cashflow-metrics small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pmi-expense-cashflow-metrics b {
+  color: #1f2937;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.pmi-expense-cashflow-metrics small {
+  margin-top: 0.1rem;
+  color: #64748b;
+  font-size: 0.64rem;
+  font-weight: 750;
+  line-height: 1.12;
+  text-transform: uppercase;
+}
+
+.pmi-expense-cashflow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  margin-top: 0.55rem;
+  color: #4b5563;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.pmi-expense-cashflow-legend span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.pmi-expense-cashflow-legend-swatch {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.pmi-expense-cashflow-legend-swatch--housing {
+  background: #3b82f6;
+}
+
+.pmi-expense-cashflow-legend-swatch--debt {
+  background: #f59e0b;
+}
+
+.pmi-expense-cashflow-legend-swatch--expenses {
+  background: #8b5cf6;
+}
+
+.pmi-expense-cashflow-legend-swatch--remaining {
+  background: #10b981;
+}
+
+.pmi-expense-cashflow.is-negative .pmi-expense-cashflow-legend-swatch--remaining {
+  background: #ef4444;
+}
+
+.pmi-expense-cashflow-note {
+  margin: 0.55rem 0 0;
+  color: #5f6777;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.pmi-expense-cashflow.is-negative .pmi-expense-cashflow-note {
+  color: #9f2b2b;
+}
+
+.pmi-expense-cashflow.is-missing-income .pmi-expense-cashflow-track {
+  background: #f1f5f9;
+}
+
 .pmi-expense-records-list {
   display: block;
   grid-column: 1 / -1;
@@ -2527,6 +2711,19 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 @media (max-width: 900px) {
+  .pmi-expense-cashflow-header {
+    display: block;
+  }
+
+  .pmi-expense-cashflow-status {
+    margin-top: 0.35rem;
+    text-align: left;
+  }
+
+  .pmi-expense-cashflow-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pmi-scalar-expenses-table {
     border: 0;
     background: transparent;

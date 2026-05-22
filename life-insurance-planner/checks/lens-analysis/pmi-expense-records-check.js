@@ -233,13 +233,22 @@ function assertScriptOrder(source, relativePath) {
 function assertPageWiring(relativePath) {
   const source = readRepoFile(relativePath);
   assertScriptOrder(source, relativePath);
+  assert.match(source, /data-pmi-expense-cashflow-root/);
   assert.match(source, /data-pmi-expense-records-root/);
   assert.match(source, /initPmiExpenseRecords\(\{/);
   assert.match(source, /root: form\.querySelector\("\[data-pmi-expense-records-root\]"\)/);
+  assert.match(source, /cashFlowRoot: form\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
+  assert.match(source, /pageRoot: form/);
+  assert.match(source, /function refreshPmiExpenseCashFlowBar\(\)/);
+  assert.match(source, /refreshPmiExpenseCashFlowBar\(\);/);
   assert.match(source, /hydrateExpenseRecords\(saved\.expenseRecords\)/);
   assert.match(source, /draft\.expenseRecords = pmiExpenseRecordsController\.serializeExpenseRecords\(\)/);
 
+  const cashFlowRootIndex = source.indexOf("data-pmi-expense-cashflow-root");
+  const scalarNotebookIndex = source.indexOf("data-pmi-scalar-expenses-notebook");
   const expenseRootIndex = source.indexOf("data-pmi-expense-records-root");
+  assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should place the cash-flow bar before the scalar spending notebook`);
+  assert.ok(cashFlowRootIndex < expenseRootIndex, `${relativePath} should place the cash-flow bar before Additional Expenses`);
   assert.ok(source.indexOf("subscriptions-cost") < expenseRootIndex, `${relativePath} should place expense records after scalar spending inputs`);
   assert.ok(expenseRootIndex < source.indexOf("Assets and Offset Planning"), `${relativePath} should place expense records before assets`);
 }
@@ -285,6 +294,17 @@ assert.equal(typeof pmiExpenseRecords?.hydrateGeneratedExpenseFacts, "function")
 assert.equal(typeof pmiExpenseRecords?.refreshGeneratedExpenseFactsFromDebtRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.createExpenseRecordFromLibraryEntry, "function");
+assert.equal(typeof pmiExpenseRecords?.calculateMonthlyCashFlow, "function");
+assert.equal(typeof pmiExpenseRecords?.toMonthlyCashFlowAmount, "function");
+assert.match(widgetSource, /data-pmi-expense-cashflow-bar/, "expense records should render the monthly cash-flow readout");
+assert.match(widgetSource, /cashFlowRoot/, "expense records should support a dedicated top-level cash-flow mount");
+assert.match(widgetSource, /Monthly take-home pay/, "expense cash-flow readout should label the monthly net-income base");
+assert.match(widgetSource, /Housing burden/, "expense cash-flow readout should label the housing segment clearly");
+assert.match(widgetSource, /Required debt payments/, "expense cash-flow readout should label the required debt segment clearly");
+assert.match(widgetSource, /Lifestyle expenses/, "expense cash-flow readout should label recurring expenses clearly");
+assert.match(widgetSource, /Available before savings/, "expense cash-flow readout should label positive remaining cash flow clearly");
+assert.match(widgetSource, /Shortfall before savings/, "expense cash-flow readout should label negative remaining cash flow clearly");
+assert.match(widgetSource, /This readout compares monthly take-home pay against housing, required debt, and recurring expenses before any savings allocations\./, "expense cash-flow readout should explain the segment comparison");
 assert.match(widgetSource, /data-pmi-expense-generated-entry/, "expense records should render generated read-only rows when provided");
 assert.match(widgetSource, /From Debt Records/, "generated debt-payment rows should identify Debt Records as the source");
 assert.match(widgetSource, /Edit in Debt Records/, "generated debt-payment rows should show a source edit hint");
@@ -295,6 +315,10 @@ assert.match(widgetSource, /aria-label="Label \/ Vendor"/, "desktop rows should 
 assert.doesNotMatch(widgetSource, /class="field-group full-width pmi-expense-record-field"/, "old stacked expense card shell should not be used");
 assert.doesNotMatch(widgetSource, /class="form-grid pmi-expense-record-grid"/, "old nested expense field grid should not be used");
 assert.match(componentsCss, /\.pmi-expense-records-table\s*{[\s\S]*?overflow:\s*hidden;/, "expense notebook shell should own the table frame");
+assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/, "expense cash-flow readout should own a full-width card row");
+assert.match(componentsCss, /\.pmi-expense-cashflow-track\s*{[\s\S]*?display:\s*flex;/, "expense cash-flow readout should render a compact segmented bar");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend\s*{[\s\S]*?display:\s*flex;/, "expense cash-flow readout should render a compact text legend");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#10b981;/, "expense cash-flow legend should map text labels to segment colors");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?display:\s*grid;/, "expense notebook rows should use grid layout");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?minmax\(0,\s*1fr\)/, "expense notebook grid should use shrinkable columns");
 assert.match(componentsCss, /\.pmi-expense-records-list\s*{[\s\S]*?overflow-x:\s*visible;/, "expense notebook should not use horizontal scrolling as the desktop layout");
