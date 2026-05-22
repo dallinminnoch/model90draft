@@ -228,7 +228,6 @@ function collectWarningCodes(debtFacts) {
 
 function assertNoProtectedDiffs() {
   const protectedFiles = [
-    "pages/manual-protection-modeling-inputs.html",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/step-three-analysis-display.js",
     "app/features/lens-analysis/analysis-settings-adapter.js",

@@ -125,7 +125,6 @@ function getWarning(warnings, code) {
 
 function assertSaveFlowPersistsCalculatedNetIncome() {
   [
-    "pages/manual-protection-modeling-inputs.html",
     "pages/next-step.html",
     "pages/confidential-inputs.html"
   ].forEach(function (relativePath) {

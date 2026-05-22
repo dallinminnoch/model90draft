@@ -61,17 +61,13 @@ assert.doesNotMatch(linkedSource, /protection-modeling-advisor\.html/);
 assert.doesNotMatch(linkedSource, /protection-modeling-confidential\.html/);
 
 [
+  "pages/manual-protection-modeling-inputs.html",
   "pages/protection-modeling-advisor.html",
   "pages/protection-modeling-confidential.html"
 ].forEach((relativePath) => {
-  assert.equal(repoFileExists(relativePath), false, `${relativePath} should remain deleted as an orphaned legacy PMI page.`);
+  assert.equal(repoFileExists(relativePath), false, `${relativePath} should remain deleted as a legacy PMI page.`);
 });
 
-assert.equal(
-  repoFileExists("pages/manual-protection-modeling-inputs.html"),
-  true,
-  "Manual PMI retirement is deferred; this pass should not delete the manual session-only page."
-);
 assert.equal(
   repoFileExists("pages/confidential-inputs.html"),
   true,
@@ -121,6 +117,7 @@ const normalizationPlanSource = readRepoFile("app/features/lens-analysis/normali
 assert.match(normalizationPlanSource, /Canonical current PMI source/);
 assert.match(normalizationPlanSource, /Advisor input defaults to pages\/next-step\.html/);
 assert.match(normalizationPlanSource, /Deleted older parallel PMI pages/);
-assert.match(normalizationPlanSource, /Legacy manual session-only Lens page\. Not the default Protection Modeling Inputs route\./);
+assert.match(normalizationPlanSource, /Deleted legacy manual PMI page/);
+assert.match(normalizationPlanSource, /Future manual PMI should be rebuilt from canonical pages\/next-step\.html/);
 
 console.log("pmi-canonical-page-route-check passed");

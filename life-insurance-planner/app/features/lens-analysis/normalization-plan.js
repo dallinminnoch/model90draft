@@ -44,9 +44,9 @@
           "pages/protection-modeling-confidential.html"
         ]
       },
-      manualTemporaryAnalysis: {
-        role: "Legacy manual session-only Lens page. Not the default Protection Modeling Inputs route.",
-        files: [
+      retiredManualPmi: {
+        role: "Deleted legacy manual PMI page. Future manual PMI should be rebuilt from canonical pages/next-step.html instead of preserving this session-only duplicate.",
+        removedFiles: [
           "pages/manual-protection-modeling-inputs.html"
         ]
       }

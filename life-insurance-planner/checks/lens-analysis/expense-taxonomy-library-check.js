@@ -31,7 +31,6 @@ function assertNoProtectedDiffs() {
   const protectedFiles = [
     "pages/next-step.html",
     "pages/confidential-inputs.html",
-    "pages/manual-protection-modeling-inputs.html",
     "pages/analysis-setup.html",
     "pages/analysis-estimate.html",
     "pages/income-loss-impact.html",

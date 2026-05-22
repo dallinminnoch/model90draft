@@ -312,7 +312,6 @@ function assertNoProtectedDiffs() {
     "app/features/lens-analysis/lens-model-builder.js",
     "pages/next-step.html",
     "pages/confidential-inputs.html",
-    "pages/manual-protection-modeling-inputs.html",
     "components.css",
     "styles.css",
     "app.js"

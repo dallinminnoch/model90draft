@@ -505,7 +505,6 @@ function assertEnabledFalseDoesNotZeroDebt(methods) {
 
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
-    "pages/manual-protection-modeling-inputs.html",
     "app/features/lens-analysis/analysis-methods.js",
     "app/features/lens-analysis/debt-treatment-calculations.js",
     "app/features/lens-analysis/income-impact-scenario-composer-calculations.js",

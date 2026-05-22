@@ -65,19 +65,6 @@ function assertLinkedPage(pagePath, nextHeading) {
   assert.match(section, /data-pmi-expense-records-root/, `${pagePath} should keep the Additional Expenses widget below scalar rows.`);
 }
 
-function assertManualPage() {
-  const pagePath = "pages/manual-protection-modeling-inputs.html";
-  const source = readRepoFile(pagePath, "latin1");
-  const section = getExpenseSection(source, "<h2>Education Funding</h2>");
-
-  assert.match(section, /data-pmi-scalar-expenses-notebook/, "Manual PMI page should render scalar expenses in a notebook shell.");
-  assert.equal((section.match(/data-pmi-scalar-expense-field="/g) || []).length, SCALAR_FIELDS.length, "Manual PMI page should render one compact row per scalar expense field.");
-  SCALAR_FIELDS.forEach((field) => assertFieldRow(section, field));
-  assert.doesNotMatch(section, /section-divider-field|form-subgroup-label/, "Manual PMI page should not use the old stacked scalar subgroup layout.");
-  assert.doesNotMatch(section, /data-pmi-expense-records-root/, "Manual PMI page should not add the Additional Expenses repeatable widget.");
-  assert.match(source, /serializeLensFormSnapshot\(form\)/, "Manual PMI page should keep using the shared form snapshot serializer.");
-}
-
 const SCALAR_FIELDS = Object.freeze([
   Object.freeze({ id: "insurance-cost", name: "insuranceCost", label: "Non-Housing Monthly Insurance" }),
   Object.freeze({ id: "healthcare-out-of-pocket-cost", name: "healthcareOutOfPocketCost", label: "Healthcare / Out-of-Pocket Medical" }),
@@ -93,7 +80,6 @@ const SCALAR_FIELDS = Object.freeze([
 
 assertLinkedPage("pages/next-step.html", "<h2>Assets and Offset Planning</h2>");
 assertLinkedPage("pages/confidential-inputs.html", "<h2>Assets and Offset Planning</h2>");
-assertManualPage();
 
 const componentsCss = readRepoFile("components.css");
 assert.match(componentsCss, /\.pmi-scalar-expenses-header,\s*\.pmi-scalar-expense-row\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns:[\s\S]*?minmax\(0, 1\.45fr\)[\s\S]*?minmax\(0, 0\.62fr\)[\s\S]*?minmax\(0, 0\.5fr\)[\s\S]*?minmax\(0, 0\.88fr\)/, "Scalar expense rows should use compact flexible grid columns.");

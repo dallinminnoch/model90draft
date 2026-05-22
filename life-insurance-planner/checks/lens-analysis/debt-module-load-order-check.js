@@ -64,7 +64,6 @@ function assertDebtMetadataBeforeNormalizer(pagePath) {
 });
 
 [
-  "pages/manual-protection-modeling-inputs.html",
   "pages/analysis-estimate.html",
   "pages/income-loss-impact.html",
   "pages/analysis-setup.html"
