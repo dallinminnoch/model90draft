@@ -19,7 +19,7 @@
 
     sources: {
       activeLinkedPmi: {
-        role: "Primary current PMI source",
+        role: "Canonical current PMI source. Advisor input defaults to pages/next-step.html; confidential input remains a parallel route until confidential-mode consolidation.",
         files: [
           "pages/next-step.html",
           "pages/confidential-inputs.html"
@@ -38,14 +38,14 @@
         ]
       },
       legacyPmi: {
-        role: "Older parallel PMI schema still reachable from legacy routing",
+        role: "Older parallel PMI schema retained only as retirement candidates, not canonical input routes",
         files: [
           "pages/protection-modeling-advisor.html",
           "pages/protection-modeling-confidential.html"
         ]
       },
       manualTemporaryAnalysis: {
-        role: "Manual session-only Lens data, not profile-backed",
+        role: "Legacy manual session-only Lens page. Not the default Protection Modeling Inputs route.",
         files: [
           "pages/manual-protection-modeling-inputs.html"
         ]

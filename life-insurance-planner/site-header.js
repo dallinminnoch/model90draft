@@ -6,7 +6,7 @@
     const pathname = String(window.location.pathname || "").toLowerCase();
     return [
       "profile.html",
-      "manual-protection-modeling-inputs.html",
+      "next-step.html",
       "manual-minimum-inputs.html",
       "income-loss-impact.html",
       "analysis-estimate.html",
@@ -238,7 +238,7 @@
         const nextUrl = new URL(href, window.location.href);
         const isLensDestination = isAnalysisToolPage() && [
           "profile.html",
-          "manual-protection-modeling-inputs.html",
+          "next-step.html",
           "manual-minimum-inputs.html",
           "income-loss-impact.html",
           "analysis-estimate.html",

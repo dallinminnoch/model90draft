@@ -1060,7 +1060,7 @@
   const ANALYSIS_TOOL_PATHS = new Set([
     "analysis-setup.html",
     "profile.html",
-    "manual-protection-modeling-inputs.html",
+    "next-step.html",
     "manual-minimum-inputs.html",
     "income-loss-impact.html",
     "analysis-estimate.html",
