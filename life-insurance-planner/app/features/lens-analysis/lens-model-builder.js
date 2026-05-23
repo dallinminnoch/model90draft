@@ -1009,8 +1009,69 @@
     };
   }
 
+  const COMMON_EXPENSE_MONTHLY_FACTORS = Object.freeze({
+    weekly: 52 / 12,
+    biweekly: 26 / 12,
+    monthly: 1,
+    quarterly: 1 / 3,
+    semiAnnual: 1 / 6,
+    annual: 1 / 12
+  });
+
+  function getCommonExpenseSourceField(typeKey) {
+    const expenseLibrary = lensAnalysis.expenseLibrary && typeof lensAnalysis.expenseLibrary === "object"
+      ? lensAnalysis.expenseLibrary
+      : {};
+
+    if (typeof expenseLibrary.getCommonExpenseRecordSourceField === "function") {
+      return expenseLibrary.getCommonExpenseRecordSourceField(typeKey);
+    }
+
+    return null;
+  }
+
+  function getExpenseRecordMonthlyAmount(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    if (normalizeString(safeRecord.termType) === "oneTime" || normalizeString(safeRecord.frequency) === "oneTime") {
+      return null;
+    }
+
+    const amount = toOptionalNumber(safeRecord.amount);
+    if (amount == null || amount < 0) {
+      return null;
+    }
+
+    const frequency = normalizeString(safeRecord.frequency) || "monthly";
+    const factor = COMMON_EXPENSE_MONTHLY_FACTORS[frequency];
+    return Number.isFinite(factor) ? amount * factor : null;
+  }
+
+  function applyCommonExpenseRecordSources(sourceData, fallbackSource) {
+    const records = Array.isArray(sourceData && sourceData.expenseRecords)
+      ? sourceData.expenseRecords
+      : [];
+    const recordTotals = {};
+
+    records.forEach(function (record) {
+      const safeRecord = record && typeof record === "object" ? record : {};
+      const sourceField = getCommonExpenseSourceField(safeRecord.typeKey || safeRecord.libraryEntryKey);
+      const metadata = safeRecord.metadata && typeof safeRecord.metadata === "object" ? safeRecord.metadata : {};
+      const isStarterRecord = safeRecord.isDefaultExpense === true || normalizeString(metadata.source) === "starter-notebook";
+      const sourceKey = normalizeString(safeRecord.sourceKey)
+        || (isStarterRecord ? normalizeString(sourceField && sourceField.sourceKey) : null);
+      const monthlyAmount = getExpenseRecordMonthlyAmount(safeRecord);
+      if (!sourceKey || monthlyAmount == null) {
+        return;
+      }
+
+      recordTotals[sourceKey] = (recordTotals[sourceKey] || 0) + monthlyAmount;
+    });
+
+    return Object.assign({}, fallbackSource, recordTotals);
+  }
+
   function createNonHousingSource(sourceData) {
-    return {
+    const scalarFallback = {
       insuranceCost: sourceData.insuranceCost,
       healthcareOutOfPocketCost: sourceData.healthcareOutOfPocketCost,
       foodCost: sourceData.foodCost,
@@ -1022,6 +1083,7 @@
       travelDiscretionaryCost: sourceData.travelDiscretionaryCost,
       subscriptionsCost: sourceData.subscriptionsCost
     };
+    return applyCommonExpenseRecordSources(sourceData, scalarFallback);
   }
 
   function parseSameEducationFundingFlag(value) {

@@ -62,6 +62,61 @@
     "businessOrIncomePreserving",
     "unknownExcluded"
   ]);
+  const COMMON_EXPENSE_RECORD_SOURCE_FIELDS = Object.freeze([
+    Object.freeze({
+      typeKey: "householdInsurancePremiums",
+      sourceKey: "insuranceCost",
+      ongoingSupportField: "monthlyOtherInsuranceCost"
+    }),
+    Object.freeze({
+      typeKey: "medicalOutOfPocket",
+      sourceKey: "healthcareOutOfPocketCost",
+      ongoingSupportField: "monthlyHealthcareOutOfPocketCost",
+      expenseFactCategoryKey: "otherLivingExpense",
+      compressionCategoryKey: "ongoingHealthcare"
+    }),
+    Object.freeze({
+      typeKey: "groceries",
+      sourceKey: "foodCost",
+      ongoingSupportField: "monthlyFoodCost"
+    }),
+    Object.freeze({
+      typeKey: "householdTransportation",
+      sourceKey: "transportationCost",
+      ongoingSupportField: "monthlyTransportationCost"
+    }),
+    Object.freeze({
+      typeKey: "childcareExpense",
+      sourceKey: "childcareDependentCareCost",
+      ongoingSupportField: "monthlyChildcareAndDependentCareCost"
+    }),
+    Object.freeze({
+      typeKey: "internetPhone",
+      sourceKey: "phoneInternetCost",
+      ongoingSupportField: "monthlyPhoneAndInternetCost"
+    }),
+    Object.freeze({
+      typeKey: "householdConsumablesSupplies",
+      sourceKey: "householdSuppliesCost",
+      ongoingSupportField: "monthlyHouseholdSuppliesCost"
+    }),
+    Object.freeze({
+      typeKey: "entertainmentRecreation",
+      sourceKey: "travelDiscretionaryCost",
+      ongoingSupportField: "monthlyTravelAndDiscretionaryCost"
+    }),
+    Object.freeze({
+      typeKey: "recurringPersonalSpendingDefault",
+      sourceKey: "subscriptionsCost",
+      ongoingSupportField: "monthlySubscriptionsCost"
+    })
+  ]);
+  const COMMON_EXPENSE_RECORD_SOURCE_FIELD_BY_TYPE_KEY = Object.freeze(
+    COMMON_EXPENSE_RECORD_SOURCE_FIELDS.reduce(function (map, field) {
+      map[field.typeKey] = field;
+      return map;
+    }, {})
+  );
   const EXPENSE_PLANNING_BUCKETS = Object.freeze([
     Object.freeze({
       planningBucketKey: "finalExpenses",
@@ -1799,6 +1854,18 @@
     return bucket ? Object.assign({}, bucket) : null;
   }
 
+  function getCommonExpenseRecordSourceFields() {
+    return COMMON_EXPENSE_RECORD_SOURCE_FIELDS.map(function (field) {
+      return Object.assign({}, field);
+    });
+  }
+
+  function getCommonExpenseRecordSourceField(typeKey) {
+    const normalizedTypeKey = String(typeKey == null ? "" : typeKey).trim();
+    const field = COMMON_EXPENSE_RECORD_SOURCE_FIELD_BY_TYPE_KEY[normalizedTypeKey];
+    return field ? Object.assign({}, field) : null;
+  }
+
   lensAnalysis.expenseLibrary = Object.freeze({
     EXPENSE_UI_AVAILABILITY_VALUES,
     EXPENSE_CONTINUATION_STATUS_VALUES,
@@ -1807,6 +1874,7 @@
     EXPENSE_COMPRESSION_TIER_VALUES,
     EXPENSE_INFLATION_BUCKET_KEYS,
     EXPENSE_LIFESTYLE_TREATMENT_REASONS,
+    COMMON_EXPENSE_RECORD_SOURCE_FIELDS,
     EXPENSE_PLANNING_BUCKET_KEYS,
     EXPENSE_PLANNING_BUCKETS,
     EXPENSE_UI_AVAILABILITY_BY_TYPE_KEY,
@@ -1817,6 +1885,8 @@
     getExpenseLibraryEntry,
     findExpenseLibraryEntry,
     getExpensePlanningBuckets,
-    getExpensePlanningBucket
+    getExpensePlanningBucket,
+    getCommonExpenseRecordSourceFields,
+    getCommonExpenseRecordSourceField
   });
 })(window);

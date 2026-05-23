@@ -293,6 +293,22 @@ const noDoubleCountCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
 assert.equal(noDoubleCountCashFlow.monthlyExpenses, 300, "generated debt-payment rows should not be counted as generic expenses");
 assert.equal(noDoubleCountCashFlow.monthlyDebtPayments, 400, "generated debt-payment rows should be counted once as debt payments");
 
+const recordOwnedScalarCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
+  income: { netAnnualIncome: 60000 },
+  housing: { monthlyHousingCost: 1000 },
+  scalarExpenseRecords: [{ expenseId: "scalar_foodCost", sourceKey: "foodCost", amount: 300, frequency: "monthly", termType: "ongoing" }],
+  expenseRecords: [{
+    expenseId: "starter_expense_groceries",
+    typeKey: "groceries",
+    sourceKey: "foodCost",
+    amount: 500,
+    frequency: "monthly",
+    termType: "ongoing",
+    isDefaultExpense: true
+  }]
+});
+assert.equal(recordOwnedScalarCashFlow.monthlyExpenses, 500, "record-first common expense rows should replace matching scalar fallback rows in cash flow");
+
 const fallbackDebtCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
   income: { netAnnualIncome: 12000 },
   housing: { monthlyHousingCost: 0 },

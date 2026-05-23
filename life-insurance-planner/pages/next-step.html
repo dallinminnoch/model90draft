@@ -3908,6 +3908,11 @@
         syncDebtPayoffBlockOutput(event.detail?.debtRecords);
       });
 
+      pmiExpenseRecordsRoot?.addEventListener("pmiExpenseRecordsChange", () => {
+        syncNonHousingOngoingSupportBlockOutput();
+        syncTransitionNeedsBlockOutput();
+      });
+
       function syncHousingOngoingSupportBlockOutput() {
         const createHousingOngoingSupportBlockOutput = window.LensApp?.lensAnalysis?.createHousingOngoingSupportBlockOutput;
         const upsertRuntimeBlockOutput = window.LensApp?.lensAnalysis?.upsertRuntimeBlockOutput;
@@ -3925,16 +3930,8 @@
         }
       }
 
-      function syncNonHousingOngoingSupportBlockOutput() {
-        const createNonHousingOngoingSupportBlockOutput = window.LensApp?.lensAnalysis?.createNonHousingOngoingSupportBlockOutput;
-        const upsertRuntimeBlockOutput = window.LensApp?.lensAnalysis?.upsertRuntimeBlockOutput;
-        const refreshLensIncomeDebugPanel = window.LensApp?.lensAnalysisDev?.refreshLensIncomeDebugPanel;
-        if (typeof createNonHousingOngoingSupportBlockOutput !== "function" || typeof upsertRuntimeBlockOutput !== "function") {
-          return;
-        }
-
-        const runtimeNamespace = window.LensApp.lensAnalysisRuntime || (window.LensApp.lensAnalysisRuntime = {});
-        const blockOutput = createNonHousingOngoingSupportBlockOutput({
+      function getScalarNonHousingOngoingSupportSourceData() {
+        return {
           insuranceCost: getLensBlockSourceFieldValue(insuranceCostField),
           healthcareOutOfPocketCost: getLensBlockSourceFieldValue(healthcareOutOfPocketCostField),
           foodCost: getLensBlockSourceFieldValue(foodCostField),
@@ -3945,7 +3942,36 @@
           otherHouseholdExpenses: getLensBlockSourceFieldValue(otherHouseholdExpensesField),
           travelDiscretionaryCost: getLensBlockSourceFieldValue(travelDiscretionaryCostField),
           subscriptionsCost: getLensBlockSourceFieldValue(subscriptionsCostField)
-        });
+        };
+      }
+
+      function getRecordFirstNonHousingOngoingSupportSourceData() {
+        const scalarSourceData = getScalarNonHousingOngoingSupportSourceData();
+        const expenseRecordsApi = window.LensApp?.lensAnalysis?.pmiExpenseRecords;
+        if (
+          !pmiExpenseRecordsController
+          || typeof pmiExpenseRecordsController.serializeExpenseRecords !== "function"
+          || typeof expenseRecordsApi?.createCommonExpenseSourceDataFromExpenseRecords !== "function"
+        ) {
+          return scalarSourceData;
+        }
+
+        return expenseRecordsApi.createCommonExpenseSourceDataFromExpenseRecords(
+          pmiExpenseRecordsController.serializeExpenseRecords(),
+          scalarSourceData
+        );
+      }
+
+      function syncNonHousingOngoingSupportBlockOutput() {
+        const createNonHousingOngoingSupportBlockOutput = window.LensApp?.lensAnalysis?.createNonHousingOngoingSupportBlockOutput;
+        const upsertRuntimeBlockOutput = window.LensApp?.lensAnalysis?.upsertRuntimeBlockOutput;
+        const refreshLensIncomeDebugPanel = window.LensApp?.lensAnalysisDev?.refreshLensIncomeDebugPanel;
+        if (typeof createNonHousingOngoingSupportBlockOutput !== "function" || typeof upsertRuntimeBlockOutput !== "function") {
+          return;
+        }
+
+        const runtimeNamespace = window.LensApp.lensAnalysisRuntime || (window.LensApp.lensAnalysisRuntime = {});
+        const blockOutput = createNonHousingOngoingSupportBlockOutput(getRecordFirstNonHousingOngoingSupportSourceData());
         upsertRuntimeBlockOutput(runtimeNamespace, blockOutput);
         if (typeof refreshLensIncomeDebugPanel === "function") {
           refreshLensIncomeDebugPanel(runtimeNamespace);
@@ -3996,18 +4022,19 @@
       }
 
       function calculateMonthlyNonHousingEssentialSupportCostForTransitionSuggestions() {
-        const sourceFields = [
-          insuranceCostField,
-          healthcareOutOfPocketCostField,
-          foodCostField,
-          transportationCostField,
-          childcareDependentCareCostField,
-          phoneInternetCostField,
-          householdSuppliesCostField,
-          otherHouseholdExpensesField
+        const sourceData = getRecordFirstNonHousingOngoingSupportSourceData();
+        const sourceKeys = [
+          "insuranceCost",
+          "healthcareOutOfPocketCost",
+          "foodCost",
+          "transportationCost",
+          "childcareDependentCareCost",
+          "phoneInternetCost",
+          "householdSuppliesCost",
+          "otherHouseholdExpenses"
         ];
-        const normalizedValues = sourceFields.map((field) =>
-          parseOptionalCurrencyLikeNumber(getLensBlockSourceFieldValue(field))
+        const normalizedValues = sourceKeys.map((sourceKey) =>
+          parseOptionalCurrencyLikeNumber(sourceData[sourceKey])
         );
         const hasAnyValue = normalizedValues.some((value) => value != null);
 

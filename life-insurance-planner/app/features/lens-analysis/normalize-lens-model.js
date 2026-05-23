@@ -1665,6 +1665,48 @@
     }) || null;
   }
 
+  function getCommonExpenseRecordSourceField(typeKey) {
+    const expenseLibrary = lensAnalysis.expenseLibrary && typeof lensAnalysis.expenseLibrary === "object"
+      ? lensAnalysis.expenseLibrary
+      : {};
+
+    if (typeof expenseLibrary.getCommonExpenseRecordSourceField === "function") {
+      return expenseLibrary.getCommonExpenseRecordSourceField(typeKey);
+    }
+
+    return null;
+  }
+
+  function getActiveCommonExpenseRecordSourceField(expenseRecord) {
+    const safeExpenseRecord = expenseRecord && typeof expenseRecord === "object" ? expenseRecord : {};
+    const sourceField = getCommonExpenseRecordSourceField(safeExpenseRecord.typeKey || safeExpenseRecord.libraryEntryKey);
+    if (!sourceField) {
+      return null;
+    }
+
+    const sourceKey = normalizeExpenseRecordString(safeExpenseRecord.sourceKey);
+    if (sourceKey && sourceKey === normalizeExpenseRecordString(sourceField.sourceKey)) {
+      return sourceField;
+    }
+
+    const metadata = safeExpenseRecord.metadata && typeof safeExpenseRecord.metadata === "object" ? safeExpenseRecord.metadata : {};
+    if (safeExpenseRecord.isDefaultExpense === true || normalizeExpenseRecordString(metadata.source) === "starter-notebook") {
+      return sourceField;
+    }
+
+    return null;
+  }
+
+  function isBlankDefaultCommonExpenseRecord(expenseRecord, commonSourceField) {
+    return Boolean(
+      commonSourceField
+      && expenseRecord
+      && typeof expenseRecord === "object"
+      && expenseRecord.isDefaultExpense === true
+      && toOptionalNumber(expenseRecord.amount) == null
+    );
+  }
+
   function hasUsableExpenseSourceValue(sourceData, sourceKey) {
     if (!sourceData || typeof sourceData !== "object" || !sourceKey) {
       return false;
@@ -1803,10 +1845,27 @@
     const hasCustomFallback = safeExpenseRecord.isCustomExpense === true || rawTypeKey === "customExpenseRecord";
     const typeKey = rawTypeKey || (hasCustomFallback ? "customExpenseRecord" : "");
     const libraryEntry = typeKey ? getExpenseLibraryEntry(typeKey) : null;
+    const commonSourceField = getActiveCommonExpenseRecordSourceField(safeExpenseRecord);
+    if (isBlankDefaultCommonExpenseRecord(safeExpenseRecord, commonSourceField)) {
+      return {
+        expense: null,
+        skipped: true,
+        warnings
+      };
+    }
     const customRecord = isCustomExpenseRecord(typeKey, safeExpenseRecord, libraryEntry);
-    const categoryKey = normalizeExpenseRecordString(safeExpenseRecord.categoryKey)
+    const libraryCategoryKey = normalizeExpenseRecordString(libraryEntry?.categoryKey);
+    const categoryKey = normalizeExpenseRecordString(commonSourceField && commonSourceField.expenseFactCategoryKey)
+      || normalizeExpenseRecordString(safeExpenseRecord.expenseFactCategoryKey)
+      || normalizeExpenseRecordString(safeExpenseRecord.categoryKey)
       || (customRecord ? "customExpense" : normalizeExpenseRecordString(libraryEntry?.categoryKey));
+    const compressionCategoryKey = normalizeExpenseRecordString(commonSourceField && commonSourceField.compressionCategoryKey)
+      || libraryCategoryKey
+      || categoryKey;
     const taxonomyCategory = getExpenseCategoryByKey(taxonomy, categoryKey);
+    const compressionTaxonomyCategory = compressionCategoryKey && compressionCategoryKey !== categoryKey
+      ? getExpenseCategoryByKey(taxonomy, compressionCategoryKey)
+      : taxonomyCategory;
     const amount = toOptionalNumber(safeExpenseRecord.amount);
     const frequency = normalizeExpenseFrequencyStrict(safeExpenseRecord.frequency);
     const termType = normalizeExpenseTermTypeStrict(safeExpenseRecord.termType);
@@ -1857,7 +1916,7 @@
         "Expense record categoryKey is not present in the expense taxonomy.",
         details
       ));
-    } else if (libraryEntry && !customRecord && libraryEntry.categoryKey !== categoryKey) {
+    } else if (libraryEntry && !customRecord && !commonSourceField && libraryEntry.categoryKey !== categoryKey) {
       warnings.push(createExpenseFactWarning(
         "expense-record-category-type-mismatch",
         "Expense record categoryKey does not match the expense library entry categoryKey.",
@@ -1917,6 +1976,12 @@
       ? (normalizeExpenseRecordString(safeExpenseRecord.endDate) || null)
       : null;
     const continuation = resolveExpenseContinuationStatus(safeExpenseRecord, libraryEntry);
+    const commonSourceKey = normalizeExpenseRecordString(safeExpenseRecord.sourceKey)
+      || normalizeExpenseRecordString(commonSourceField && commonSourceField.sourceKey)
+      || null;
+    const commonOngoingSupportField = normalizeExpenseRecordString(commonSourceField && commonSourceField.ongoingSupportField)
+      || null;
+    const commonRecord = Boolean(commonSourceField && commonSourceKey);
 
     return {
       expense: {
@@ -1938,17 +2003,22 @@
         endAge,
         endDate,
         source: EXPENSE_RECORDS_SOURCE_PATH,
-        sourceKey: "expenseRecords",
+        sourceKey: commonSourceKey || "expenseRecords",
         sourcePath: EXPENSE_RECORDS_SOURCE_PATH + "[" + index + "]",
         sourceIndex: index,
-        isDefaultExpense: false,
+        sourceOwnedBy: commonRecord ? "ongoingSupport" : null,
+        ownedByField: commonOngoingSupportField,
+        compressionCategoryKey,
+        isDefaultExpense: safeExpenseRecord.isDefaultExpense === true,
         isScalarFieldOwned: false,
         isProtected: false,
         isAddable: true,
         isRepeatableExpenseRecord: true,
         isCustomExpense: customRecord,
+        isCommonExpenseRecord: commonRecord,
         isFinalExpenseComponent: taxonomyCategory?.isFinalExpenseComponent === true,
         isHealthcareSensitive: taxonomyCategory?.isHealthcareSensitive === true,
+        isFormulaEligible: commonRecord ? false : true,
         defaultInflationRole: normalizeExpenseRecordString(taxonomyCategory?.defaultInflationRole) || null,
         uiAvailability: normalizeExpenseRecordString(libraryEntry?.uiAvailability) || null,
         annualizedAmount: normalizedAmounts.annualizedAmount,
@@ -1957,12 +2027,18 @@
           sourceType: "user-input",
           confidence: "reported",
           canonicalDestination: "expenseFacts.expenses",
-          recordSource: "expenseRecords",
+          recordSource: commonRecord ? "expenseRecords-common-support-field" : "expenseRecords",
           sourceIndex: index,
+          sourceKey: commonSourceKey,
+          ownedByField: commonOngoingSupportField,
+          normalizedSourcePath: commonOngoingSupportField ? "lensModel.ongoingSupport." + commonOngoingSupportField : null,
           taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
+          compressionCategoryKey,
+          compressionCategoryLabel: compressionTaxonomyCategory && compressionTaxonomyCategory.label ? compressionTaxonomyCategory.label : null,
           libraryEntryKey: normalizeExpenseRecordString(libraryEntry?.libraryEntryKey) || typeKey,
           libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
-          continuationStatusSource: continuation.continuationStatusSource
+          continuationStatusSource: continuation.continuationStatusSource,
+          formulaActivation: commonRecord ? "not-formula-eligible" : null
         }
       },
       warnings
@@ -1976,6 +2052,7 @@
       : [];
     const expenses = [];
     const warnings = [];
+    let skippedRecordCount = 0;
 
     sourceRecords.forEach(function (expenseRecord, index) {
       const result = createExpenseFactFromExpenseRecord(expenseRecord, index, taxonomy);
@@ -1983,6 +2060,8 @@
 
       if (result.expense) {
         expenses.push(result.expense);
+      } else if (result.skipped === true) {
+        skippedRecordCount += 1;
       }
     });
 
@@ -1990,7 +2069,8 @@
       expenses,
       sourceRecordCount: sourceRecords.length,
       acceptedRecordCount: expenses.length,
-      invalidRecordCount: sourceRecords.length - expenses.length,
+      skippedRecordCount,
+      invalidRecordCount: sourceRecords.length - expenses.length - skippedRecordCount,
       warnings
     };
   }
@@ -2626,7 +2706,23 @@
     ].join(":");
   }
 
-  function createGeneratedScalarHouseholdExpenseFact(sourceData, sourceField, index, taxonomy) {
+  function getCommonExpenseRecordSourceKeysWithAmounts(sourceData) {
+    const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
+    const sourceRecords = Array.isArray(safeSourceData.expenseRecords) ? safeSourceData.expenseRecords : [];
+    return sourceRecords.reduce(function (sourceKeys, record) {
+      const safeRecord = record && typeof record === "object" ? record : {};
+      const commonSourceField = getActiveCommonExpenseRecordSourceField(safeRecord);
+      const sourceKey = normalizeExpenseRecordString(safeRecord.sourceKey)
+        || normalizeExpenseRecordString(commonSourceField && commonSourceField.sourceKey);
+      const amount = toOptionalNumber(safeRecord.amount);
+      if (sourceKey && amount != null && amount >= 0) {
+        sourceKeys[sourceKey] = true;
+      }
+      return sourceKeys;
+    }, {});
+  }
+
+  function createGeneratedScalarHouseholdExpenseFact(sourceData, sourceField, index, taxonomy, suppressedSourceKeys) {
     const safeSourceData = sourceData && typeof sourceData === "object" ? sourceData : {};
     const safeSourceField = sourceField && typeof sourceField === "object" ? sourceField : {};
     const sourceKey = normalizeExpenseRecordString(safeSourceField.sourceKey);
@@ -2637,6 +2733,15 @@
     if (!sourceKey || !hasUsableExpenseSourceValue(safeSourceData, sourceKey)) {
       return {
         expense: null,
+        skipped: false,
+        warnings
+      };
+    }
+
+    if (suppressedSourceKeys && suppressedSourceKeys[sourceKey] === true) {
+      return {
+        expense: null,
+        skipped: true,
         warnings
       };
     }
@@ -2783,17 +2888,21 @@
     const expenses = [];
     const warnings = [];
     let sourceValueCount = 0;
+    let skippedRecordOwnedScalarCount = 0;
+    const suppressedSourceKeys = getCommonExpenseRecordSourceKeysWithAmounts(safeSourceData);
 
     SCALAR_HOUSEHOLD_EXPENSE_SOURCE_FIELDS.forEach(function (sourceField, index) {
       if (hasUsableExpenseSourceValue(safeSourceData, sourceField?.sourceKey)) {
         sourceValueCount += 1;
       }
 
-      const result = createGeneratedScalarHouseholdExpenseFact(safeSourceData, sourceField, index, taxonomy);
+      const result = createGeneratedScalarHouseholdExpenseFact(safeSourceData, sourceField, index, taxonomy, suppressedSourceKeys);
       warnings.push.apply(warnings, result.warnings);
 
       if (result.expense) {
         expenses.push(result.expense);
+      } else if (result.skipped === true) {
+        skippedRecordOwnedScalarCount += 1;
       }
     });
 
@@ -2801,8 +2910,9 @@
       expenses,
       sourceFieldCount: SCALAR_HOUSEHOLD_EXPENSE_SOURCE_FIELDS.length,
       sourceValueCount,
+      skippedRecordOwnedScalarCount,
       acceptedRecordCount: expenses.length,
-      invalidRecordCount: sourceValueCount - expenses.length,
+      invalidRecordCount: sourceValueCount - expenses.length - skippedRecordOwnedScalarCount,
       warnings
     };
   }
@@ -3064,9 +3174,11 @@
         scalarHouseholdExpenseSourceFieldCount: scalarHouseholdExpenseProjection.sourceFieldCount,
         sourceScalarHouseholdExpenseFieldCount: scalarHouseholdExpenseProjection.sourceValueCount,
         acceptedGeneratedScalarHouseholdExpenseCount: scalarHouseholdExpenses.length,
+        skippedRecordOwnedScalarHouseholdExpenseCount: scalarHouseholdExpenseProjection.skippedRecordOwnedScalarCount,
         invalidGeneratedScalarHouseholdExpenseCount: scalarHouseholdExpenseProjection.invalidRecordCount,
         sourceExpenseRecordCount: expenseRecordsProjection.sourceRecordCount,
         acceptedExpenseRecordCount: expenseRecordsProjection.acceptedRecordCount,
+        skippedDefaultExpenseRecordCount: expenseRecordsProjection.skippedRecordCount,
         invalidExpenseRecordCount: expenseRecordsProjection.invalidRecordCount,
         sourceDebtRecordCount: debtPaymentExpenseProjection.sourceRecordCount,
         acceptedGeneratedDebtPaymentExpenseCount: debtPaymentExpenseProjection.acceptedRecordCount,

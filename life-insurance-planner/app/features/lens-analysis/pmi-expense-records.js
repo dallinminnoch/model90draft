@@ -23,6 +23,28 @@
     "travelDiscretionaryCost",
     "subscriptionsCost"
   ]);
+  const STARTER_EXPENSE_TYPE_KEYS = Object.freeze([
+    "householdInsurancePremiums",
+    "medicalOutOfPocket",
+    "groceries",
+    "householdTransportation",
+    "childcareExpense",
+    "internetPhone",
+    "householdConsumablesSupplies",
+    "entertainmentRecreation",
+    "recurringPersonalSpendingDefault"
+  ]);
+  const STARTER_EXPENSE_LABELS = Object.freeze({
+    householdInsurancePremiums: "Non-Housing Monthly Insurance",
+    medicalOutOfPocket: "Healthcare / Out-of-Pocket Medical",
+    groceries: "Monthly Food / Grocery Cost",
+    householdTransportation: "Monthly Transportation Cost",
+    childcareExpense: "Childcare / Dependent Care",
+    internetPhone: "Phone / Internet",
+    householdConsumablesSupplies: "Household Essentials / Supplies",
+    entertainmentRecreation: "Entertainment / Travel",
+    recurringPersonalSpendingDefault: "Recurring Personal Spending"
+  });
   const EXPENSE_TYPE_ICON_BASE_PATH = "../Images/";
   const EXPENSE_TYPE_ICON_FALLBACK_FILE = "custom1.svg";
   const EXPENSE_TYPE_ICON_FILES = Object.freeze({
@@ -176,6 +198,40 @@
 
   function getInitialAddableLibraryEntries() {
     return getLibraryEntries().filter(isInitialAddableExpenseEntry);
+  }
+
+  function isStarterExpenseTypeKey(typeKey) {
+    return STARTER_EXPENSE_TYPE_KEYS.indexOf(normalizeString(typeKey)) !== -1;
+  }
+
+  function isSupportedExpenseRecordEntry(entry) {
+    return isInitialAddableExpenseEntry(entry) || isStarterExpenseTypeKey(entry && entry.typeKey);
+  }
+
+  function getCommonExpenseRecordSourceField(typeKey) {
+    const expenseLibrary = getExpenseLibraryApi();
+    if (typeof expenseLibrary.getCommonExpenseRecordSourceField === "function") {
+      return expenseLibrary.getCommonExpenseRecordSourceField(typeKey);
+    }
+
+    return null;
+  }
+
+  function getCommonExpenseSourceKeyForRecord(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const sourceKey = normalizeString(safeRecord.sourceKey);
+    if (SCALAR_MONTHLY_CASH_FLOW_EXPENSE_FIELDS.indexOf(sourceKey) !== -1 || sourceKey === "healthcareOutOfPocketCost") {
+      return sourceKey;
+    }
+
+    const metadata = safeRecord.metadata && typeof safeRecord.metadata === "object" ? safeRecord.metadata : {};
+    const isStarterRecord = safeRecord.isDefaultExpense === true || normalizeString(metadata.source) === "starter-notebook";
+    if (!isStarterRecord) {
+      return null;
+    }
+
+    const sourceField = getCommonExpenseRecordSourceField(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    return normalizeString(sourceField && sourceField.sourceKey) || null;
   }
 
   function getTaxonomyCategory(categoryKey) {
@@ -369,6 +425,30 @@
     return toMonthlyCashFlowAmount(safeRecord.amount, safeRecord.frequency);
   }
 
+  function getCommonExpenseRecordSourceKeysWithAmounts(records) {
+    const sourceKeys = {};
+    (Array.isArray(records) ? records : []).forEach(function (record) {
+      const monthlyAmount = getRecordMonthlyAmount(record);
+      if (monthlyAmount == null) {
+        return;
+      }
+
+      const sourceKey = getCommonExpenseSourceKeyForRecord(record);
+      if (sourceKey) {
+        sourceKeys[sourceKey] = true;
+      }
+    });
+    return sourceKeys;
+  }
+
+  function filterScalarExpenseRecordsForRecordSources(scalarRecords, expenseRecords) {
+    const recordOwnedSourceKeys = getCommonExpenseRecordSourceKeysWithAmounts(expenseRecords);
+    return (Array.isArray(scalarRecords) ? scalarRecords : []).filter(function (record) {
+      const sourceKey = normalizeString(record && record.sourceKey);
+      return !sourceKey || recordOwnedSourceKeys[sourceKey] !== true;
+    });
+  }
+
   function getDebtRecordMonthlyAmount(record) {
     const safeRecord = record && typeof record === "object" ? record : {};
     const paymentFrequency = normalizeString(safeRecord.paymentFrequency || safeRecord.frequency) || "monthly";
@@ -435,9 +515,14 @@
       trace.housingSource = normalizeString(housing.housingSource || housing.sourcePath) || "current-pmi-housing-payment";
     }
 
+    const expenseRecords = Array.isArray(safeInput.expenseRecords) ? safeInput.expenseRecords : [];
+    const scalarExpenseRecords = filterScalarExpenseRecordsForRecordSources(
+      Array.isArray(safeInput.scalarExpenseRecords) ? safeInput.scalarExpenseRecords : [],
+      expenseRecords
+    );
     const expenseSourceRecords = []
-      .concat(Array.isArray(safeInput.scalarExpenseRecords) ? safeInput.scalarExpenseRecords : [])
-      .concat(Array.isArray(safeInput.expenseRecords) ? safeInput.expenseRecords : []);
+      .concat(scalarExpenseRecords)
+      .concat(expenseRecords);
     const monthlyExpenses = expenseSourceRecords.reduce(function (total, record, index) {
       const monthlyAmount = getRecordMonthlyAmount(record);
       const safeRecord = record && typeof record === "object" ? record : {};
@@ -678,38 +763,49 @@
     return "expense_" + Date.now() + "_" + generatedExpenseIdCounter;
   }
 
-  function createExpenseRecordFromLibraryEntry(entry) {
+  function createStarterExpenseId(typeKey) {
+    return "starter_expense_" + normalizeString(typeKey).replace(/[^A-Za-z0-9_-]+/g, "_");
+  }
+
+  function createExpenseRecordFromLibraryEntry(entry, options) {
     const safeEntry = entry && typeof entry === "object" ? entry : {};
-    if (!isInitialAddableExpenseEntry(safeEntry)) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    if (!isInitialAddableExpenseEntry(safeEntry) && safeOptions.allowStarterEntry !== true) {
       return null;
     }
 
     const typeKey = normalizeString(safeEntry.typeKey || safeEntry.libraryEntryKey);
     const categoryKey = normalizeString(safeEntry.categoryKey);
-    const label = normalizeString(safeEntry.label) || typeKey || "Added Expense";
+    const label = normalizeString(safeOptions.label) || normalizeString(safeEntry.label) || typeKey || "Added Expense";
 
     if (!typeKey || !categoryKey || !isValidExpenseCategory(categoryKey)) {
       return null;
     }
 
-    const termType = normalizeExpenseTermType(safeEntry.defaultTermType, "ongoing");
+    const termType = normalizeExpenseTermType(safeOptions.termType, safeEntry.defaultTermType || "ongoing");
+    const sourceKey = normalizeString(safeOptions.sourceKey)
+      || (safeOptions.isDefaultExpense === true ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey) : null)
+      || null;
 
     return {
-      expenseId: generateExpenseId(),
+      expenseId: normalizeString(safeOptions.expenseId) || generateExpenseId(),
       categoryKey,
       typeKey,
       label,
       amount: null,
-      frequency: normalizeExpenseFrequency(safeEntry.defaultFrequency, "monthly"),
+      frequency: normalizeExpenseFrequency(safeOptions.frequency, safeEntry.defaultFrequency || "monthly"),
       termType,
-      continuationStatus: getLibraryDefaultContinuationStatus(safeEntry),
+      continuationStatus: normalizeContinuationStatus(
+        safeOptions.continuationStatus,
+        getLibraryDefaultContinuationStatus(safeEntry)
+      ),
       termYears: termType === "fixedYears" && Number.isFinite(Number(safeEntry.suggestedTermYears))
         ? Number(safeEntry.suggestedTermYears)
         : null,
       endAge: null,
       endDate: null,
-      sourceKey: null,
-      isDefaultExpense: false,
+      sourceKey,
+      isDefaultExpense: safeOptions.isDefaultExpense === true,
       isScalarFieldOwned: false,
       isProtected: false,
       isRepeatableExpenseRecord: true,
@@ -717,8 +813,9 @@
       notes: null,
       metadata: {
         sourceType: "user-input",
-        source: "expense-library",
-        libraryEntryKey: normalizeString(safeEntry.libraryEntryKey || typeKey)
+        source: normalizeString(safeOptions.source) || "expense-library",
+        libraryEntryKey: normalizeString(safeEntry.libraryEntryKey || typeKey),
+        commonExpenseSourceKey: sourceKey
       }
     };
   }
@@ -726,7 +823,7 @@
   function normalizeRecordForUi(record, index) {
     const safeRecord = record && typeof record === "object" ? record : {};
     const entry = findLibraryEntry(safeRecord.typeKey || safeRecord.libraryEntryKey);
-    if (entry && !isInitialAddableExpenseEntry(entry)) {
+    if (entry && !isSupportedExpenseRecordEntry(entry)) {
       return null;
     }
 
@@ -760,8 +857,12 @@
       termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(safeRecord.termYears) : null,
       endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(safeRecord.endAge) : null,
       endDate: termType === "untilDate" ? normalizeDateOnlyValue(safeRecord.endDate) : null,
-      sourceKey: normalizeString(safeRecord.sourceKey) || null,
-      isDefaultExpense: false,
+      sourceKey: normalizeString(safeRecord.sourceKey)
+        || (safeRecord.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey)
+          ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey)
+          : null)
+        || null,
+      isDefaultExpense: safeRecord.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey),
       isScalarFieldOwned: false,
       isProtected: false,
       isRepeatableExpenseRecord: true,
@@ -772,9 +873,33 @@
         source: "expense-library",
         libraryEntryKey: normalizeString(typeKey)
       }, metadata, {
+        commonExpenseSourceKey: normalizeString(metadata.commonExpenseSourceKey)
+          || normalizeString(safeRecord.sourceKey)
+          || (safeRecord.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey)
+            ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey)
+            : null)
+          || null,
         sourceIndex: Number.isInteger(index) ? index : null
       })
     };
+  }
+
+  function createStarterExpenseRecords() {
+    return STARTER_EXPENSE_TYPE_KEYS
+      .map(function (typeKey) {
+        const entry = findLibraryEntry(typeKey);
+        const sourceField = getCommonExpenseRecordSourceField(typeKey);
+        return createExpenseRecordFromLibraryEntry(entry, {
+          allowStarterEntry: true,
+          expenseId: createStarterExpenseId(typeKey),
+          label: STARTER_EXPENSE_LABELS[typeKey],
+          frequency: "monthly",
+          source: "starter-notebook",
+          sourceKey: sourceField && sourceField.sourceKey,
+          isDefaultExpense: true
+        });
+      })
+      .filter(Boolean);
   }
 
   function createSearchText(entry) {
@@ -1072,6 +1197,39 @@
     }).filter(Boolean);
   }
 
+  function createCommonExpenseSourceDataFromExpenseRecords(records, fallbackSourceData) {
+    const fallback = fallbackSourceData && typeof fallbackSourceData === "object" ? fallbackSourceData : {};
+    const result = {};
+    const recordTotals = {};
+    const sourceFields = getExpenseLibraryApi();
+    const commonFields = typeof sourceFields.getCommonExpenseRecordSourceFields === "function"
+      ? sourceFields.getCommonExpenseRecordSourceFields()
+      : [];
+
+    commonFields.forEach(function (field) {
+      const sourceKey = normalizeString(field && field.sourceKey);
+      if (sourceKey && Object.prototype.hasOwnProperty.call(fallback, sourceKey)) {
+        result[sourceKey] = fallback[sourceKey];
+      }
+    });
+
+    (Array.isArray(records) ? records : []).forEach(function (record) {
+      const sourceKey = getCommonExpenseSourceKeyForRecord(record);
+      const monthlyAmount = getRecordMonthlyAmount(record);
+      if (!sourceKey || monthlyAmount == null) {
+        return;
+      }
+
+      recordTotals[sourceKey] = (recordTotals[sourceKey] || 0) + monthlyAmount;
+    });
+
+    Object.keys(recordTotals).forEach(function (sourceKey) {
+      result[sourceKey] = recordTotals[sourceKey];
+    });
+
+    return result;
+  }
+
   function readDefaultCashFlowInputs(root, pageRoot) {
     const form = pageRoot || (root && typeof root.closest === "function" ? root.closest("form") : null);
     if (!form) {
@@ -1224,6 +1382,27 @@
           ? debtRecordsApi.serializeDebtRecords()
           : [];
       };
+
+    function getRecordsSnapshot() {
+      return controller.records.map(function (record) {
+        return Object.assign({}, record, {
+          metadata: clonePlainObject(record && record.metadata)
+        });
+      });
+    }
+
+    function notifyRecordsChanged() {
+      if (!root || typeof root.dispatchEvent !== "function" || typeof global.CustomEvent !== "function") {
+        return;
+      }
+
+      root.dispatchEvent(new global.CustomEvent("pmiExpenseRecordsChange", {
+        bubbles: true,
+        detail: {
+          expenseRecords: getRecordsSnapshot()
+        }
+      }));
+    }
 
     function getCashFlowInputData() {
       const providedData = typeof controller.cashFlowDataProvider === "function"
@@ -1513,6 +1692,7 @@
         return typeKey !== record.typeKey;
       })).slice(0, 8);
       renderRows();
+      notifyRecordsChanged();
       return record;
     }
 
@@ -1532,6 +1712,7 @@
 
       controller.records = nextRecords;
       renderRows();
+      notifyRecordsChanged();
       return true;
     }
 
@@ -1603,8 +1784,9 @@
     function hydrateExpenseRecords(records) {
       controller.records = Array.isArray(records)
         ? records.map(normalizeRecordForUi).filter(Boolean)
-        : [];
+        : createStarterExpenseRecords();
       renderRows();
+      notifyRecordsChanged();
     }
 
     function hydrateGeneratedExpenseFacts(expenseFacts) {
@@ -1683,8 +1865,12 @@
           const termType = normalizeExpenseTermType(record.termType, "ongoing");
           const frequency = normalizeExpenseFrequency(record.frequency, "monthly");
           const continuationStatus = normalizeContinuationStatus(record.continuationStatus, "review");
+          const isDefaultExpense = record.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey);
+          const sourceKey = normalizeString(record.sourceKey)
+            || (isDefaultExpense ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey) : null)
+            || null;
 
-          if (amount == null || amount < 0 || !categoryKey || !typeKey || !isValidExpenseCategory(categoryKey)) {
+          if ((!isDefaultExpense && amount == null) || amount < 0 || !categoryKey || !typeKey || !isValidExpenseCategory(categoryKey)) {
             return null;
           }
 
@@ -1700,8 +1886,8 @@
             termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(record.termYears) : null,
             endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(record.endAge) : null,
             endDate: termType === "untilDate" ? normalizeDateOnlyValue(record.endDate) : null,
-            sourceKey: normalizeString(record.sourceKey) || null,
-            isDefaultExpense: false,
+            sourceKey,
+            isDefaultExpense,
             isScalarFieldOwned: false,
             isProtected: false,
             isRepeatableExpenseRecord: true,
@@ -1709,8 +1895,9 @@
             notes: normalizeString(record.notes) || null,
             metadata: Object.assign({
               sourceType: "user-input",
-              source: "expense-library",
-              libraryEntryKey: typeKey
+              source: isDefaultExpense ? "starter-notebook" : "expense-library",
+              libraryEntryKey: typeKey,
+              commonExpenseSourceKey: sourceKey
             }, clonePlainObject(record.metadata))
           };
         })
@@ -1744,6 +1931,7 @@
 
       syncRecordsFromDom();
       updateCashFlowReadout();
+      notifyRecordsChanged();
     });
 
     controller.list?.addEventListener("change", function (event) {
@@ -1754,12 +1942,14 @@
       syncRecordsFromDom();
       if (event.target.closest("[data-pmi-expense-record-term-type]")) {
         renderRows();
+        notifyRecordsChanged();
         return;
       }
       updateCashFlowReadout();
+      notifyRecordsChanged();
     });
 
-    hydrateExpenseRecords([]);
+    hydrateExpenseRecords();
     connectCashFlowExternalInputs();
     connectDebtRecordsGeneratedRows();
     refreshGeneratedExpenseFactsFromDebtRecords();
@@ -1798,6 +1988,7 @@
     refreshGeneratedExpenseFactsFromDebtRecords,
     serializeExpenseRecords,
     createExpenseRecordFromLibraryEntry,
+    createCommonExpenseSourceDataFromExpenseRecords,
     getExpenseTypeIconFile,
     getExpenseTypeIconModel,
     calculateMonthlyCashFlow,

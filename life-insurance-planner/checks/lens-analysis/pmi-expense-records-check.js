@@ -308,6 +308,28 @@ const pmiExpenseRecords = lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
 const componentsCss = readRepoFile("components.css");
 const nextStepSource = readRepoFile("pages/next-step.html");
+const EXPECTED_STARTER_EXPENSE_KEYS = Object.freeze([
+  "householdInsurancePremiums",
+  "medicalOutOfPocket",
+  "groceries",
+  "householdTransportation",
+  "childcareExpense",
+  "internetPhone",
+  "householdConsumablesSupplies",
+  "entertainmentRecreation",
+  "recurringPersonalSpendingDefault"
+]);
+const EXPECTED_STARTER_EXPENSE_LABELS = Object.freeze([
+  "Non-Housing Monthly Insurance",
+  "Healthcare / Out-of-Pocket Medical",
+  "Monthly Food / Grocery Cost",
+  "Monthly Transportation Cost",
+  "Childcare / Dependent Care",
+  "Phone / Internet",
+  "Household Essentials / Supplies",
+  "Entertainment / Travel",
+  "Recurring Personal Spending"
+]);
 
 assertNoFormulaOwnerReferences(widgetSource);
 assert.match(widgetSource, /Additional Expenses records from PMI/);
@@ -328,6 +350,7 @@ assert.equal(typeof pmiExpenseRecords?.hydrateGeneratedExpenseFacts, "function")
 assert.equal(typeof pmiExpenseRecords?.refreshGeneratedExpenseFactsFromDebtRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.createExpenseRecordFromLibraryEntry, "function");
+assert.equal(typeof pmiExpenseRecords?.createCommonExpenseSourceDataFromExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.getExpenseTypeIconFile, "function");
 assert.equal(typeof pmiExpenseRecords?.getExpenseTypeIconModel, "function");
 assert.equal(typeof pmiExpenseRecords?.calculateMonthlyCashFlow, "function");
@@ -548,12 +571,70 @@ assert.doesNotMatch(fakeDom.root.innerHTML, /Use this for expenses not already c
 assert.doesNotMatch(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should not render the deleted healthcare behavior helper paragraph");
 assert.doesNotMatch(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should not render the deleted non-healthcare raw-fact helper paragraph");
 assert.match(fakeDom.root.innerHTML, /"Continues after death\?" is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
-assert.equal(controller.records.length, 0, "expense records should not create starter rows by default");
-assert.equal(fakeDom.list.innerHTML, "", "empty/default expense records should render an empty notebook body");
-assert.equal(JSON.stringify(controller.serializeExpenseRecords()), "[]", "empty/default expense records should serialize as an empty array");
+assert.equal(controller.records.length, 9, "missing expenseRecords should create starter rows by default");
+assert.deepEqual(
+  Array.from(controller.records, (record) => record.typeKey),
+  EXPECTED_STARTER_EXPENSE_KEYS,
+  "starter expense row keys should match the common expense starter set"
+);
+assert.deepEqual(
+  Array.from(controller.records, (record) => record.label),
+  EXPECTED_STARTER_EXPENSE_LABELS,
+  "starter expense row labels should match the common expense starter labels"
+);
+assert.ok(controller.records.every((record) => record.isDefaultExpense === true), "starter rows should be marked as default expenses");
+assert.match(fakeDom.list.innerHTML, /Non-Housing Monthly Insurance/, "starter rows should render in the expense notebook");
+assert.match(fakeDom.list.innerHTML, /Healthcare \/ Out-of-Pocket Medical/, "starter healthcare row should render in the expense notebook");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-record-icon-file="insurance\.svg"/, "starter insurance row should use the insurance icon");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-record-icon-file="healthcare\.svg"/, "starter healthcare row should use the healthcare icon");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-record-icon-file="personal-living\.svg"/, "starter personal spending row should use the personal-living icon");
+const starterSerialized = controller.serializeExpenseRecords();
+assert.equal(starterSerialized.length, 9, "blank starter rows should serialize so removed rows can remain removed after save/load");
+assert.deepEqual(
+  Array.from(starterSerialized, (record) => record.typeKey),
+  EXPECTED_STARTER_EXPENSE_KEYS,
+  "serialized starter rows should preserve the starter key order"
+);
+assert.ok(starterSerialized.every((record) => record.amount === null), "blank starter rows should serialize with null amounts");
+assert.ok(starterSerialized.every((record) => record.isDefaultExpense === true), "serialized starter rows should preserve default expense flags");
+assert.equal(controller.removeExpenseRecordById(starterSerialized[0].expenseId), true, "starter rows should remain removable");
+assert.equal(controller.records.length, 8, "removing a starter row should leave the remaining starter rows");
+assert.equal(
+  controller.records.some((record) => record.typeKey === "householdInsurancePremiums"),
+  false,
+  "removed starter row should stay removed in controller state"
+);
 controller.hydrateExpenseRecords([]);
 assert.equal(controller.records.length, 0, "explicit saved [] should remain empty");
 assert.equal(fakeDom.list.innerHTML, "", "explicit saved [] should not render starter rows");
+
+const recordFirstSourceData = pmiExpenseRecords.createCommonExpenseSourceDataFromExpenseRecords(
+  [
+    {
+      expenseId: "starter_expense_groceries",
+      typeKey: "groceries",
+      sourceKey: "foodCost",
+      amount: 500,
+      frequency: "monthly",
+      termType: "ongoing"
+    },
+    {
+      expenseId: "starter_expense_healthcare",
+      typeKey: "medicalOutOfPocket",
+      sourceKey: "healthcareOutOfPocketCost",
+      amount: 125,
+      frequency: "monthly",
+      termType: "ongoing"
+    }
+  ],
+  {
+    foodCost: 300,
+    insuranceCost: 90
+  }
+);
+assert.equal(recordFirstSourceData.foodCost, 500, "common expense records should override matching scalar fallback values");
+assert.equal(recordFirstSourceData.healthcareOutOfPocketCost, 125, "healthcare starter rows should map to the scalar healthcare source key");
+assert.equal(recordFirstSourceData.insuranceCost, 90, "missing common records should preserve scalar fallback values");
 
 assert.equal(typeof controller.addExpenseRecordFromLibraryEntry, "function", "controller should expose testable add-from-library behavior");
 assert.equal(typeof controller.removeExpenseRecordById, "function", "controller should expose testable remove behavior");
@@ -643,7 +724,18 @@ const providerController = pmiExpenseRecords.initPmiExpenseRecords({
   }]
 });
 assert.match(providerFakeDom.list.innerHTML, /Auto Lease Payment/, "expense notebook should render generated rows from Debt Records provider");
-assert.equal(JSON.stringify(providerController.serializeExpenseRecords()), "[]", "provider-generated rows should not serialize into manual expenseRecords[]");
+const providerSerializedRecords = providerController.serializeExpenseRecords();
+assert.equal(providerSerializedRecords.length, 9, "provider-generated rows should not replace starter expense rows");
+assert.deepEqual(
+  Array.from(providerSerializedRecords, (record) => record.typeKey),
+  EXPECTED_STARTER_EXPENSE_KEYS,
+  "provider-generated rows should leave serialized starter rows intact"
+);
+assert.equal(
+  providerSerializedRecords.some((record) => record.typeKey === "autoLeasePayment"),
+  false,
+  "provider-generated debt-payment rows should not serialize into expenseRecords[]"
+);
 
 const inputRecords = Object.freeze([
   Object.freeze({

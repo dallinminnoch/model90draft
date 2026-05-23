@@ -453,6 +453,100 @@ assert.deepEqual(
   "Generated scalar household expense facts should not change DIME, Needs, or HLV outputs"
 );
 
+const recordFirstCommonExpenseSource = createSourceData({
+  insuranceCost: 1200,
+  healthcareOutOfPocketCost: 300,
+  foodCost: 900,
+  expenseRecords: [
+    {
+      expenseId: "starter_expense_groceries",
+      typeKey: "groceries",
+      categoryKey: "foodGroceries",
+      label: "Monthly Food / Grocery Cost",
+      amount: 1200,
+      frequency: "monthly",
+      termType: "ongoing",
+      continuationStatus: "continues",
+      sourceKey: "foodCost",
+      isDefaultExpense: true,
+      metadata: { source: "starter-notebook", libraryEntryKey: "groceries" }
+    },
+    {
+      expenseId: "starter_expense_medical",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "ongoingHealthcare",
+      label: "Healthcare / Out-of-Pocket Medical",
+      amount: 240,
+      frequency: "monthly",
+      termType: "ongoing",
+      continuationStatus: "review",
+      sourceKey: "healthcareOutOfPocketCost",
+      isDefaultExpense: true,
+      metadata: { source: "starter-notebook", libraryEntryKey: "medicalOutOfPocket" }
+    },
+    {
+      expenseId: "starter_expense_insurance",
+      typeKey: "householdInsurancePremiums",
+      categoryKey: "insurancePremiums",
+      label: "Non-Housing Monthly Insurance",
+      amount: 80,
+      frequency: "monthly",
+      termType: "ongoing",
+      continuationStatus: "review",
+      sourceKey: "insuranceCost",
+      isDefaultExpense: true,
+      metadata: { source: "starter-notebook", libraryEntryKey: "householdInsurancePremiums" }
+    },
+    {
+      expenseId: "starter_expense_blank_transportation",
+      typeKey: "householdTransportation",
+      categoryKey: "transportation",
+      label: "Monthly Transportation Cost",
+      amount: null,
+      frequency: "monthly",
+      termType: "ongoing",
+      continuationStatus: "review",
+      sourceKey: "transportationCost",
+      isDefaultExpense: true,
+      metadata: { source: "starter-notebook", libraryEntryKey: "householdTransportation" }
+    }
+  ]
+});
+const recordFirstCommonModel = buildModel(context, recordFirstCommonExpenseSource, analysisSettings).lensModel;
+const recordFirstCommonFacts = recordFirstCommonModel.expenseFacts;
+assert.equal(recordFirstCommonModel.ongoingSupport.monthlyFoodCost, 1200, "common starter expense records should replace matching scalar food fallback in ongoing support");
+assert.equal(recordFirstCommonModel.ongoingSupport.monthlyHealthcareOutOfPocketCost, 240, "common starter healthcare row should replace matching scalar healthcare fallback in ongoing support");
+assert.equal(recordFirstCommonModel.ongoingSupport.monthlyOtherInsuranceCost, 80, "common starter insurance row should replace matching scalar insurance fallback in ongoing support");
+assert.equal(recordFirstCommonFacts.metadata.sourceScalarHouseholdExpenseFieldCount, 3);
+assert.equal(recordFirstCommonFacts.metadata.acceptedGeneratedScalarHouseholdExpenseCount, 0, "record-owned common values should suppress duplicate scalar household facts");
+assert.equal(recordFirstCommonFacts.metadata.skippedRecordOwnedScalarHouseholdExpenseCount, 3);
+assert.equal(recordFirstCommonFacts.metadata.sourceExpenseRecordCount, 4);
+assert.equal(recordFirstCommonFacts.metadata.acceptedExpenseRecordCount, 3);
+assert.equal(recordFirstCommonFacts.metadata.skippedDefaultExpenseRecordCount, 1, "blank default starter records should be skipped without becoming invalid");
+assert.equal(recordFirstCommonFacts.metadata.invalidExpenseRecordCount, 0);
+assert.equal(
+  recordFirstCommonFacts.expenses.find((expense) => expense.isScalarHouseholdExpense === true && expense.sourceKey === "foodCost"),
+  undefined,
+  "record-first common values should not double count with generated scalar facts"
+);
+const recordFirstFoodFact = findExpenseFact(recordFirstCommonFacts, "groceries", "starter_expense_groceries");
+assert.ok(recordFirstFoodFact, "starter groceries row should normalize as a common expense fact");
+assert.equal(recordFirstFoodFact.sourceKey, "foodCost");
+assert.equal(recordFirstFoodFact.sourceOwnedBy, "ongoingSupport");
+assert.equal(recordFirstFoodFact.ownedByField, "monthlyFoodCost");
+assert.equal(recordFirstFoodFact.isCommonExpenseRecord, true);
+assert.equal(recordFirstFoodFact.isFormulaEligible, false);
+assert.equal(recordFirstFoodFact.metadata.recordSource, "expenseRecords-common-support-field");
+assert.equal(recordFirstFoodFact.metadata.normalizedSourcePath, "lensModel.ongoingSupport.monthlyFoodCost");
+const recordFirstHealthcareFact = findExpenseFact(recordFirstCommonFacts, "medicalOutOfPocket", "starter_expense_medical");
+assert.ok(recordFirstHealthcareFact, "starter healthcare row should normalize as a common expense fact");
+assert.equal(recordFirstHealthcareFact.categoryKey, "otherLivingExpense", "starter healthcare row should not enter healthcare projection buckets in Phase 1");
+assert.equal(recordFirstHealthcareFact.compressionCategoryKey, "ongoingHealthcare");
+assert.equal(recordFirstHealthcareFact.isHealthcareSensitive, false);
+assert.equal(recordFirstHealthcareFact.isFormulaEligible, false);
+assert.equal(recordFirstHealthcareFact.ownedByField, "monthlyHealthcareOutOfPocketCost");
+assert.equal(findExpenseFact(recordFirstCommonFacts, "householdTransportation", "starter_expense_blank_transportation"), null);
+
 const repeatableExpenseSource = createSourceData({
   expenseRecords: [
     {
