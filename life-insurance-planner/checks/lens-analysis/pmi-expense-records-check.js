@@ -278,11 +278,13 @@ function assertPageWiring(relativePath) {
     const formEndIndex = source.indexOf("</form>", formStartIndex);
     assert.ok(formStartIndex !== -1 && formEndIndex !== -1, `${relativePath} should retain the PMI form`);
     assert.ok(cashFlowRootIndex > formEndIndex, `${relativePath} should place the cash-flow bar in the right-side rail outside the form`);
+    assert.equal(scalarNotebookIndex, -1, `${relativePath} should not render the scalar spending notebook after record-first Phase 2`);
+    assert.ok(expenseRootIndex !== -1, `${relativePath} should keep expense records as the visible expense-entry surface`);
   } else {
     assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should place the cash-flow bar before the scalar spending notebook`);
     assert.ok(cashFlowRootIndex < expenseRootIndex, `${relativePath} should place the cash-flow bar before Additional Expenses`);
+    assert.ok(source.indexOf("subscriptions-cost") < expenseRootIndex, `${relativePath} should place expense records after scalar spending inputs`);
   }
-  assert.ok(source.indexOf("subscriptions-cost") < expenseRootIndex, `${relativePath} should place expense records after scalar spending inputs`);
   assert.ok(expenseRootIndex < source.indexOf("Assets and Offset Planning"), `${relativePath} should place expense records before assets`);
 }
 
@@ -365,9 +367,9 @@ assert.match(widgetSource, /pmi-expense-record-type-visually-hidden/, "expense t
 assert.match(widgetSource, /aria-label="\$\{escapeHtml\(safeIconModel\.accessibleLabel\)\}"/, "expense type icon chips should expose aria-label text");
 assert.match(widgetSource, /title="\$\{escapeHtml\(safeIconModel\.label\)\}"/, "expense type icon chips should expose tooltip title text");
 assert.match(widgetSource, /<strong>\$\{escapeHtml\(entry\.label\)\}<\/strong>/, "Add Expense menu should remain text-first");
-assert.match(nextStepSource, /<label for="insurance-cost">Non-Housing Monthly Insurance<\/label>/, "scalar expense rows should remain text-first");
-assert.match(nextStepSource, /<label for="subscriptions-cost">Recurring Personal Spending<\/label>/, "personal scalar expense rows should remain text-first");
-assert.doesNotMatch(nextStepSource, /pmi-expense-record-type-chip|pmi-expense-record-type-icon/, "static scalar expense notebook should not be iconized by this pass");
+assert.doesNotMatch(nextStepSource, /<label for="insurance-cost">Non-Housing Monthly Insurance<\/label>/, "canonical PMI should not render scalar expense rows after record-first Phase 2");
+assert.doesNotMatch(nextStepSource, /<label for="subscriptions-cost">Recurring Personal Spending<\/label>/, "canonical PMI should not render personal scalar expense rows after record-first Phase 2");
+assert.doesNotMatch(nextStepSource, /data-pmi-scalar-expenses-notebook/, "canonical PMI should not render the scalar expense notebook after record-first Phase 2");
 assert.match(widgetSource, /data-pmi-expense-cashflow-bar/, "expense records should render the monthly cash-flow readout");
 assert.match(widgetSource, /cashFlowRoot/, "expense records should support a dedicated top-level cash-flow mount");
 assert.match(widgetSource, /Take-home pay/, "expense cash-flow readout should label the monthly net-income base");

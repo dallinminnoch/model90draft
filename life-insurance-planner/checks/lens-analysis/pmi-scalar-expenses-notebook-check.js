@@ -65,6 +65,32 @@ function assertLinkedPage(pagePath, nextHeading) {
   assert.match(section, /data-pmi-expense-records-root/, `${pagePath} should keep the Additional Expenses widget below scalar rows.`);
 }
 
+function assertCanonicalPageRecordFirst(pagePath, nextHeading) {
+  const source = readRepoFile(pagePath);
+  const section = getExpenseSection(source, nextHeading);
+  const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
+  const starterKeysMatch = widgetSource.match(/const STARTER_EXPENSE_TYPE_KEYS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+  assert.ok(starterKeysMatch, "Expected starter expense record key configuration.");
+  const starterKeysSource = starterKeysMatch[1];
+
+  assert.doesNotMatch(section, /data-pmi-scalar-expenses-notebook/, `${pagePath} should not render the scalar expenses notebook.`);
+  assert.doesNotMatch(section, /pmi-scalar-expense-row/, `${pagePath} should not render scalar expense table rows.`);
+  assert.doesNotMatch(section, /data-pmi-scalar-expense-field="/, `${pagePath} should not render scalar expense field rows.`);
+  assert.match(section, /data-pmi-expense-records-root/, `${pagePath} should use expense records as the visible expense-entry surface.`);
+
+  SCALAR_FIELDS.forEach(function (field) {
+    assert.doesNotMatch(section, new RegExp(`name="${escapeRegex(field.name)}"`), `${field.name} should not render as a visible scalar input in canonical PMI.`);
+    assert.doesNotMatch(section, new RegExp(`id="${escapeRegex(field.id)}"`), `${field.id} should not render as a visible scalar input in canonical PMI.`);
+  });
+
+  STARTER_RECORD_FIELDS.forEach(function (field) {
+    assert.match(starterKeysSource, new RegExp(`"${escapeRegex(field.typeKey)}"`), `${field.typeKey} should remain covered by a starter expense record.`);
+    assert.match(widgetSource, new RegExp(escapeRegex(field.label)), `${field.label} should remain covered by a starter expense record label.`);
+  });
+  assert.doesNotMatch(starterKeysSource, /otherHouseholdExpenses/, "Other Household Expenses should remain Add Expense only, not a starter record.");
+  assert.match(widgetSource, /hydrateExpenseRecords\(\)/, "missing expenseRecords should still hydrate through starter records.");
+}
+
 const SCALAR_FIELDS = Object.freeze([
   Object.freeze({ id: "insurance-cost", name: "insuranceCost", label: "Non-Housing Monthly Insurance" }),
   Object.freeze({ id: "healthcare-out-of-pocket-cost", name: "healthcareOutOfPocketCost", label: "Healthcare / Out-of-Pocket Medical" }),
@@ -78,7 +104,19 @@ const SCALAR_FIELDS = Object.freeze([
   Object.freeze({ id: "subscriptions-cost", name: "subscriptionsCost", label: "Recurring Personal Spending" })
 ]);
 
-assertLinkedPage("pages/next-step.html", "<h2>Assets and Offset Planning</h2>");
+const STARTER_RECORD_FIELDS = Object.freeze([
+  Object.freeze({ typeKey: "householdInsurancePremiums", label: "Non-Housing Monthly Insurance" }),
+  Object.freeze({ typeKey: "medicalOutOfPocket", label: "Healthcare / Out-of-Pocket Medical" }),
+  Object.freeze({ typeKey: "groceries", label: "Monthly Food / Grocery Cost" }),
+  Object.freeze({ typeKey: "householdTransportation", label: "Monthly Transportation Cost" }),
+  Object.freeze({ typeKey: "childcareExpense", label: "Childcare / Dependent Care" }),
+  Object.freeze({ typeKey: "internetPhone", label: "Phone / Internet" }),
+  Object.freeze({ typeKey: "householdConsumablesSupplies", label: "Household Essentials / Supplies" }),
+  Object.freeze({ typeKey: "entertainmentRecreation", label: "Entertainment / Travel" }),
+  Object.freeze({ typeKey: "recurringPersonalSpendingDefault", label: "Recurring Personal Spending" })
+]);
+
+assertCanonicalPageRecordFirst("pages/next-step.html", "<h2>Assets and Offset Planning</h2>");
 assertLinkedPage("pages/confidential-inputs.html", "<h2>Assets and Offset Planning</h2>");
 
 const componentsCss = readRepoFile("components.css");
@@ -91,4 +129,4 @@ assert.match(componentsCss, /\.pmi-scalar-expense-row input\s*\{[\s\S]*?width: 1
   assert.doesNotMatch(getCssRule(componentsCss, selector), /overflow-x:\s*auto/, `${selector} should not rely on horizontal scrolling.`);
 });
 
-console.log("PMI scalar expenses notebook check passed.");
+console.log("PMI scalar expenses record-first check passed.");

@@ -91,12 +91,16 @@ const canonicalSource = readRepoFile("pages/next-step.html");
   "data-pmi-debt-records-root",
   "data-pmi-expense-cashflow-root",
   "data-pmi-expense-records-root",
-  "data-pmi-scalar-expenses-notebook",
   "initPmiExpenseRecords",
   "initPmiDebtRecords"
 ].forEach((marker) => {
   assert.match(canonicalSource, new RegExp(marker), `Canonical next-step.html should include ${marker}.`);
 });
+assert.doesNotMatch(
+  canonicalSource,
+  /data-pmi-scalar-expenses-notebook/,
+  "Canonical next-step.html should no longer render the scalar expenses notebook."
+);
 [
   "debt-taxonomy.js",
   "debt-library.js",

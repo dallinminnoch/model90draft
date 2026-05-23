@@ -226,6 +226,7 @@ assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{
     const formEndIndex = source.indexOf("</form>", formStartIndex);
     assert.ok(formStartIndex !== -1 && formEndIndex !== -1, "next-step.html should retain the PMI form.");
     assert.ok(cashFlowRootIndex > formEndIndex, "next-step.html should mount cash flow in the right-side rail outside the form.");
+    assert.equal(scalarNotebookIndex, -1, "next-step.html should not render the scalar expenses notebook after record-first Phase 2.");
     assert.match(source, /data-pmi-cashflow-rail/);
     assert.match(source, /cashFlowRoot: document\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
   } else {
