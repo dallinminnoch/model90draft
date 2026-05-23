@@ -169,6 +169,28 @@ function assertNoProtectedDiffs() {
   assert.equal(status, "", "formula/display/normalization/Analysis Setup files should not have diffs");
 }
 
+function assertImageFileExists(iconSrcOrFile, message) {
+  const iconFile = path.basename(String(iconSrcOrFile || ""));
+  assert.ok(iconFile, message || "icon file should be present");
+  assert.equal(
+    fs.existsSync(path.join(repoRoot, "Images", iconFile)),
+    true,
+    message || `expected Images/${iconFile} to exist`
+  );
+}
+
+function getInitialAddableExpenseEntries(expenseLibrary) {
+  return expenseLibrary.getExpenseLibraryEntries().filter(function (entry) {
+    return Boolean(
+      entry
+      && entry.isAddable === true
+      && entry.isProtected !== true
+      && entry.isScalarFieldOwned !== true
+      && entry.uiAvailability === "initial"
+    );
+  });
+}
+
 function assertStrictProtectedDiffGuardIfRequested() {
   if (process.env.PMI_EXPENSE_RECORDS_STRICT_DIFF_GUARD !== "1") {
     return;
@@ -285,6 +307,7 @@ const expenseTaxonomy = lensAnalysis.expenseTaxonomy;
 const pmiExpenseRecords = lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
 const componentsCss = readRepoFile("components.css");
+const nextStepSource = readRepoFile("pages/next-step.html");
 
 assertNoFormulaOwnerReferences(widgetSource);
 assert.match(widgetSource, /Additional Expenses records from PMI/);
@@ -294,9 +317,9 @@ assert.match(widgetSource, /continuationStatus is future support-treatment metad
 assert.match(widgetSource, /Healthcare bucket rows are included in LENS healthcare expenses automatically/);
 assert.match(widgetSource, /recurring healthcare rows are projected with Healthcare Inflation/);
 assert.match(widgetSource, /one-time healthcare rows are included current-dollar/);
-assert.match(widgetSource, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/);
 assert.match(widgetSource, /Non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them/);
 assert.match(widgetSource, /Review overlap with Household Spending to avoid duplicate entry/);
+assert.doesNotMatch(widgetSource, /Use this for expenses not already captured in Household Spending/, "Additional Expenses widget should not render the deleted helper paragraph");
 assert.doesNotMatch(widgetSource, /collect repeatable raw-only expenseRecords\[\] rows from PMI/);
 assert.doesNotMatch(widgetSource, /Search or browse initial expense types to add as raw PMI facts/);
 assert.equal(typeof pmiExpenseRecords?.initPmiExpenseRecords, "function");
@@ -305,8 +328,23 @@ assert.equal(typeof pmiExpenseRecords?.hydrateGeneratedExpenseFacts, "function")
 assert.equal(typeof pmiExpenseRecords?.refreshGeneratedExpenseFactsFromDebtRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.createExpenseRecordFromLibraryEntry, "function");
+assert.equal(typeof pmiExpenseRecords?.getExpenseTypeIconFile, "function");
+assert.equal(typeof pmiExpenseRecords?.getExpenseTypeIconModel, "function");
 assert.equal(typeof pmiExpenseRecords?.calculateMonthlyCashFlow, "function");
 assert.equal(typeof pmiExpenseRecords?.toMonthlyCashFlowAmount, "function");
+assert.match(widgetSource, /business1\.svg/, "business expense categories should use the user-provided business1.svg icon");
+assert.match(widgetSource, /custom1\.svg/, "custom expense categories should use the user-provided custom1.svg icon");
+assert.match(widgetSource, /taxes\.svg/, "tax expense categories should use taxes.svg");
+assert.match(widgetSource, /debt-payment\.svg/, "generated debt-payment rows should use the shared debt-payment icon fallback");
+assert.match(widgetSource, /pmi-expense-record-type-chip/, "expense rows should render type icons next to visible titles");
+assert.match(widgetSource, /pmi-expense-record-type-visible-label/, "expense rows should keep visible type titles next to icons on the PMI form");
+assert.match(widgetSource, /pmi-expense-record-type-visually-hidden/, "expense type icon chips should preserve hidden accessible labels");
+assert.match(widgetSource, /aria-label="\$\{escapeHtml\(safeIconModel\.accessibleLabel\)\}"/, "expense type icon chips should expose aria-label text");
+assert.match(widgetSource, /title="\$\{escapeHtml\(safeIconModel\.label\)\}"/, "expense type icon chips should expose tooltip title text");
+assert.match(widgetSource, /<strong>\$\{escapeHtml\(entry\.label\)\}<\/strong>/, "Add Expense menu should remain text-first");
+assert.match(nextStepSource, /<label for="insurance-cost">Non-Housing Monthly Insurance<\/label>/, "scalar expense rows should remain text-first");
+assert.match(nextStepSource, /<label for="subscriptions-cost">Recurring Personal Spending<\/label>/, "personal scalar expense rows should remain text-first");
+assert.doesNotMatch(nextStepSource, /pmi-expense-record-type-chip|pmi-expense-record-type-icon/, "static scalar expense notebook should not be iconized by this pass");
 assert.match(widgetSource, /data-pmi-expense-cashflow-bar/, "expense records should render the monthly cash-flow readout");
 assert.match(widgetSource, /cashFlowRoot/, "expense records should support a dedicated top-level cash-flow mount");
 assert.match(widgetSource, /Take-home pay/, "expense cash-flow readout should label the monthly net-income base");
@@ -322,7 +360,8 @@ assert.match(widgetSource, /From Debt Records/, "generated debt-payment rows sho
 assert.match(widgetSource, /Edit in Debt Records/, "generated debt-payment rows should show a source edit hint");
 assert.match(widgetSource, /data-pmi-expense-records-table/, "expense records should render a notebook table shell");
 assert.match(widgetSource, /class="pmi-expense-record-row"/, "expense records should render compact row shells");
-assert.match(widgetSource, /data-pmi-expense-record-type-label/, "expense rows should show expense type from row content");
+assert.match(widgetSource, /data-pmi-expense-record-type-label/, "expense rows should retain the type-cell test hook");
+assert.doesNotMatch(widgetSource, /class="pmi-expense-record-type-label" data-pmi-expense-record-type-label title="\$\{escapeHtml\(expenseTypeLabel\)\}"/, "expense rows should not render the old visible text-only type pill");
 assert.match(widgetSource, /aria-label="Label \/ Vendor"/, "desktop rows should use aria labels instead of repeated visible labels");
 assert.doesNotMatch(widgetSource, /class="field-group full-width pmi-expense-record-field"/, "old stacked expense card shell should not be used");
 assert.doesNotMatch(widgetSource, /class="form-grid pmi-expense-record-grid"/, "old nested expense field grid should not be used");
@@ -332,7 +371,10 @@ assert.match(componentsCss, /\.pmi-expense-cashflow-track\s*{[\s\S]*?display:\s*
 assert.match(componentsCss, /\.pmi-expense-cashflow-legend\s*{[\s\S]*?display:\s*flex;/, "expense cash-flow readout should render a compact text legend");
 assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#10b981;/, "expense cash-flow legend should map text labels to segment colors");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?display:\s*grid;/, "expense notebook rows should use grid layout");
-assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?minmax\(0,\s*1fr\)/, "expense notebook grid should use shrinkable columns");
+assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?minmax\(0,\s*1\.12fr\)/, "expense notebook grid should keep a bounded icon-plus-title type column");
+assert.match(componentsCss, /\.pmi-expense-record-type-chip\s*{[\s\S]*?gap:\s*0\.34rem;/, "expense type icons should sit just left of visible titles with a compact gap");
+assert.match(componentsCss, /\.pmi-expense-record-type-visible-label\s*{[\s\S]*?text-overflow:\s*ellipsis;/, "expense type titles should truncate cleanly next to icons");
+assert.match(componentsCss, /\.pmi-expense-record-type-icon\s*{[\s\S]*?filter:\s*brightness\(0\) saturate\(100%\);/, "expense type icons should render as black monochrome assets");
 assert.match(componentsCss, /\.pmi-expense-records-list\s*{[\s\S]*?overflow-x:\s*visible;/, "expense notebook should not use horizontal scrolling as the desktop layout");
 assert.match(componentsCss, /\.pmi-expense-record-row input,\s*\.pmi-expense-record-row select\s*{[\s\S]*?min-height:\s*1\.72rem;/, "expense notebook controls should be compact");
 assert.match(componentsCss, /\.pmi-expense-record-row input,\s*\.pmi-expense-record-row select\s*{[\s\S]*?border-radius:\s*0\.18rem;/, "expense notebook controls should use sharper corners");
@@ -380,6 +422,97 @@ assert.equal(customExpenseRecord.typeKey, "customExpenseRecord");
 assert.equal(customExpenseRecord.isCustomExpense, true);
 assert.equal(customExpenseRecord.continuationStatus, "review");
 
+const expectedExpenseIconFiles = [
+  "healthcare.svg",
+  "dental.svg",
+  "vision.svg",
+  "final.svg",
+  "home.svg",
+  "utilities.svg",
+  "groceries.svg",
+  "vehicle.svg",
+  "insurance.svg",
+  "family-support.svg",
+  "education.svg",
+  "personal-living.svg",
+  "entertainment.svg",
+  "travel.svg",
+  "pet.svg",
+  "giving.svg",
+  "taxes.svg",
+  "legal.svg",
+  "business1.svg",
+  "banking.svg",
+  "savings.svg",
+  "calendar-reserve.svg",
+  "debt-payment.svg",
+  "custom1.svg"
+];
+expectedExpenseIconFiles.forEach(function (iconFile) {
+  assertImageFileExists(iconFile, `expected expense icon asset Images/${iconFile} to exist`);
+});
+
+const initialAddableEntries = getInitialAddableExpenseEntries(expenseLibrary);
+assert.equal(initialAddableEntries.length, 301, "current Add Expense menu should expose the expected initial addable library count");
+initialAddableEntries.forEach(function (entry) {
+  const iconModel = pmiExpenseRecords.getExpenseTypeIconModel({
+    typeKey: entry.typeKey,
+    categoryKey: entry.categoryKey
+  });
+  assert.ok(iconModel.iconFile, `${entry.typeKey} should resolve to an expense icon file`);
+  assert.match(iconModel.src, /^\.\.\/Images\//, `${entry.typeKey} icon should load from Images`);
+  assertImageFileExists(iconModel.src, `${entry.typeKey} icon src should point to an existing file`);
+  assert.equal(iconModel.accessibleLabel, `Expense type: ${entry.label}`, `${entry.typeKey} should preserve full accessible label`);
+});
+assert.equal(
+  pmiExpenseRecords.getExpenseTypeIconFile(expenseLibrary.findExpenseLibraryEntry("officeRentCoworking")),
+  "business1.svg",
+  "business/self-employment rows should use business1.svg"
+);
+assert.equal(
+  pmiExpenseRecords.getExpenseTypeIconFile(expenseLibrary.findExpenseLibraryEntry("otherCustomExpense")),
+  "custom1.svg",
+  "custom expense rows should use custom1.svg"
+);
+assert.equal(
+  pmiExpenseRecords.getExpenseTypeIconFile(expenseLibrary.findExpenseLibraryEntry("selfEmploymentTax")),
+  "taxes.svg",
+  "tax rows should use taxes.svg"
+);
+assert.equal(
+  pmiExpenseRecords.getExpenseTypeIconFile(expenseLibrary.findExpenseLibraryEntry("medicalOutOfPocket")),
+  "healthcare.svg",
+  "healthcare rows should use healthcare.svg"
+);
+assert.equal(
+  pmiExpenseRecords.getExpenseTypeIconFile(expenseLibrary.findExpenseLibraryEntry("visionOutOfPocket")),
+  "vision.svg",
+  "vision rows should use vision.svg"
+);
+assert.equal(
+  pmiExpenseRecords.getExpenseTypeIconFile(expenseLibrary.findExpenseLibraryEntry("dentalOutOfPocket")),
+  "dental.svg",
+  "dental rows should use dental.svg"
+);
+expenseLibrary.getExpenseLibraryEntries()
+  .filter(function (entry) {
+    return entry.generatedOnly === true
+      || entry.sourceOwnedBy === "debtRecords"
+      || entry.categoryKey === "debtObligations";
+  })
+  .forEach(function (entry) {
+    assert.equal(
+      pmiExpenseRecords.getExpenseTypeIconFile({
+        typeKey: entry.typeKey,
+        categoryKey: entry.categoryKey,
+        isGeneratedExpense: true,
+        isDebtPaymentExpense: true
+      }),
+      "debt-payment.svg",
+      `${entry.typeKey} generated/system row should use debt-payment.svg`
+    );
+  });
+
 assert.equal(
   pmiExpenseRecords.createExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("nursingCare")),
   null,
@@ -411,9 +544,9 @@ const controller = pmiExpenseRecords.initPmiExpenseRecords({ root: fakeDom.root 
 assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiExpenseRecordsInitialized, "true");
 assert.match(fakeDom.root.innerHTML, /Additional Expenses/, "widget should render the Additional Expenses heading");
-assert.match(fakeDom.root.innerHTML, /expenses not already captured in Household Spending/, "widget should warn against Household Spending overlap");
-assert.match(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should describe automatic healthcare behavior");
-assert.match(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should describe non-healthcare raw-fact behavior");
+assert.doesNotMatch(fakeDom.root.innerHTML, /Use this for expenses not already captured in Household Spending/, "widget should not render the deleted Additional Expenses helper paragraph");
+assert.doesNotMatch(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should not render the deleted healthcare behavior helper paragraph");
+assert.doesNotMatch(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should not render the deleted non-healthcare raw-fact helper paragraph");
 assert.match(fakeDom.root.innerHTML, /"Continues after death\?" is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
 assert.equal(controller.records.length, 0, "expense records should not create starter rows by default");
 assert.equal(fakeDom.list.innerHTML, "", "empty/default expense records should render an empty notebook body");
@@ -430,6 +563,14 @@ const addedFromLibrary = controller.addExpenseRecordFromLibraryEntry(expenseLibr
 assert.ok(addedFromLibrary, "add-from-library should create an expense record");
 assert.equal(controller.records.length, 1, "add-from-library should add one row");
 assert.match(fakeDom.list.innerHTML, /Property Taxes/, "added library record should render");
+assert.match(fakeDom.list.innerHTML, /pmi-expense-record-type-chip/, "added library record should render a type icon next to its title");
+assert.match(fakeDom.list.innerHTML, /pmi-expense-record-type-visible-label">Property Taxes<\/span>/, "added library record should keep the type title visible beside the icon");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-record-icon-file="home\.svg"/, "property tax rows should use the housing/home icon");
+assert.match(fakeDom.list.innerHTML, /src="\.\.\/Images\/home\.svg"/, "property tax icon src should point to the home icon asset");
+assert.match(fakeDom.list.innerHTML, /title="Property Taxes"/, "type icon chip should expose a tooltip label");
+assert.match(fakeDom.list.innerHTML, /aria-label="Expense type: Property Taxes"/, "type icon chip should expose an accessible label");
+assert.match(fakeDom.list.innerHTML, /pmi-expense-record-type-visually-hidden/, "type icon chip should include hidden full label text");
+assert.doesNotMatch(fakeDom.list.innerHTML, /class="pmi-expense-record-type-label"/, "added library record should not render the old visible text-only type pill class");
 assert.equal(controller.removeExpenseRecordById(addedFromLibrary.expenseId), true, "remove should remove a rendered expense row");
 assert.equal(controller.records.length, 0, "remove should leave the notebook empty");
 assert.equal(fakeDom.list.innerHTML, "", "removing the only expense record should restore empty state");
@@ -458,6 +599,9 @@ assert.match(fakeDom.list.innerHTML, /Auto Loan Payment/, "generated debt-paymen
 assert.match(fakeDom.list.innerHTML, /From Debt Records/, "generated debt-payment row should identify its source");
 assert.match(fakeDom.list.innerHTML, /Edit in Debt Records/, "generated debt-payment row should show a source edit hint");
 assert.match(fakeDom.list.innerHTML, /data-pmi-expense-generated-entry/, "generated debt-payment row should use generated row markup");
+assert.match(fakeDom.list.innerHTML, /data-pmi-expense-record-icon-file="debt-payment\.svg"/, "generated debt-payment row should use the debt-payment icon");
+assert.match(fakeDom.list.innerHTML, /aria-label="Expense type: Auto Loan Payment"/, "generated debt-payment row should preserve the generated label for accessibility");
+assert.match(fakeDom.list.innerHTML, /pmi-expense-record-type-visible-label">Auto Loan Payment<\/span>/, "generated debt-payment row should keep the generated type title visible beside the icon");
 assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-expense-generated-entry[\s\S]*data-pmi-expense-record-remove/, "generated rows should not render remove buttons");
 assert.equal(JSON.stringify(controller.serializeExpenseRecords()), "[]", "generated debt-payment rows should not serialize into expenseRecords[]");
 controller.hydrateGeneratedExpenseFacts([]);

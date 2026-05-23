@@ -23,6 +23,76 @@
     "travelDiscretionaryCost",
     "subscriptionsCost"
   ]);
+  const EXPENSE_TYPE_ICON_BASE_PATH = "../Images/";
+  const EXPENSE_TYPE_ICON_FALLBACK_FILE = "custom1.svg";
+  const EXPENSE_TYPE_ICON_FILES = Object.freeze({
+    banking: "banking.svg",
+    business: "business1.svg",
+    calendarReserve: "calendar-reserve.svg",
+    custom: EXPENSE_TYPE_ICON_FALLBACK_FILE,
+    debtPayment: "debt-payment.svg",
+    dental: "dental.svg",
+    education: "education.svg",
+    entertainment: "entertainment.svg",
+    familySupport: "family-support.svg",
+    finalExpense: "final.svg",
+    giving: "giving.svg",
+    groceries: "groceries.svg",
+    healthcare: "healthcare.svg",
+    home: "home.svg",
+    insurance: "insurance.svg",
+    legal: "legal.svg",
+    personalLiving: "personal-living.svg",
+    pet: "pet.svg",
+    savings: "savings.svg",
+    taxes: "taxes.svg",
+    travel: "travel.svg",
+    utilities: "utilities.svg",
+    vehicle: "vehicle.svg",
+    vision: "vision.svg"
+  });
+  const EXPENSE_TYPE_ICON_BY_CATEGORY_KEY = Object.freeze({
+    bankingFinanceCharges: EXPENSE_TYPE_ICON_FILES.banking,
+    businessOverhead: EXPENSE_TYPE_ICON_FILES.business,
+    businessSelfEmployment: EXPENSE_TYPE_ICON_FILES.business,
+    childcare: EXPENSE_TYPE_ICON_FILES.familySupport,
+    childcareEducation: EXPENSE_TYPE_ICON_FILES.familySupport,
+    childActivityExpense: EXPENSE_TYPE_ICON_FILES.familySupport,
+    customExpense: EXPENSE_TYPE_ICON_FILES.custom,
+    debtObligations: EXPENSE_TYPE_ICON_FILES.debtPayment,
+    dentalCare: EXPENSE_TYPE_ICON_FILES.dental,
+    dependentSupport: EXPENSE_TYPE_ICON_FILES.familySupport,
+    discretionaryLifestyle: EXPENSE_TYPE_ICON_FILES.entertainment,
+    educationExpense: EXPENSE_TYPE_ICON_FILES.education,
+    estateSettlement: EXPENSE_TYPE_ICON_FILES.finalExpense,
+    familySupport: EXPENSE_TYPE_ICON_FILES.familySupport,
+    foodGroceries: EXPENSE_TYPE_ICON_FILES.groceries,
+    funeralBurial: EXPENSE_TYPE_ICON_FILES.finalExpense,
+    givingCommunity: EXPENSE_TYPE_ICON_FILES.giving,
+    homeHealthCare: EXPENSE_TYPE_ICON_FILES.healthcare,
+    housingExpense: EXPENSE_TYPE_ICON_FILES.home,
+    insurancePremiums: EXPENSE_TYPE_ICON_FILES.insurance,
+    keyPersonReplacementExpense: EXPENSE_TYPE_ICON_FILES.business,
+    legalAdministrative: EXPENSE_TYPE_ICON_FILES.legal,
+    longTermCare: EXPENSE_TYPE_ICON_FILES.healthcare,
+    medicalEquipment: EXPENSE_TYPE_ICON_FILES.healthcare,
+    medicalFinalExpense: EXPENSE_TYPE_ICON_FILES.finalExpense,
+    mentalHealthCare: EXPENSE_TYPE_ICON_FILES.healthcare,
+    ongoingHealthcare: EXPENSE_TYPE_ICON_FILES.healthcare,
+    otherFinalExpense: EXPENSE_TYPE_ICON_FILES.finalExpense,
+    otherHealthcare: EXPENSE_TYPE_ICON_FILES.healthcare,
+    otherLivingExpense: EXPENSE_TYPE_ICON_FILES.custom,
+    periodicSinkingFund: EXPENSE_TYPE_ICON_FILES.calendarReserve,
+    personalLiving: EXPENSE_TYPE_ICON_FILES.personalLiving,
+    pets: EXPENSE_TYPE_ICON_FILES.pet,
+    professionalServices: EXPENSE_TYPE_ICON_FILES.legal,
+    savingsGoalContributions: EXPENSE_TYPE_ICON_FILES.savings,
+    taxes: EXPENSE_TYPE_ICON_FILES.taxes,
+    transportation: EXPENSE_TYPE_ICON_FILES.vehicle,
+    travelVacations: EXPENSE_TYPE_ICON_FILES.travel,
+    utilities: EXPENSE_TYPE_ICON_FILES.utilities,
+    visionCare: EXPENSE_TYPE_ICON_FILES.vision
+  });
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -134,6 +204,47 @@
       || normalizeString(safeRecord.typeKey)
       || normalizeString(safeRecord.categoryKey)
       || "Expense";
+  }
+
+  function getExpenseTypeIconFile(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    if (
+      safeRecord.isGeneratedExpense === true
+      || safeRecord.isDebtPaymentExpense === true
+      || normalizeString(safeRecord.categoryKey) === "debtPayment"
+      || normalizeString(safeRecord.categoryKey) === "debtObligations"
+    ) {
+      return EXPENSE_TYPE_ICON_FILES.debtPayment;
+    }
+
+    const entry = findLibraryEntry(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    const categoryKey = normalizeString(safeRecord.categoryKey)
+      || normalizeString(entry && entry.categoryKey);
+    return EXPENSE_TYPE_ICON_BY_CATEGORY_KEY[categoryKey] || EXPENSE_TYPE_ICON_FALLBACK_FILE;
+  }
+
+  function getExpenseTypeIconModel(record) {
+    const label = getExpenseTypeLabel(record);
+    const iconFile = getExpenseTypeIconFile(record);
+    return {
+      label,
+      iconFile,
+      src: EXPENSE_TYPE_ICON_BASE_PATH + iconFile,
+      accessibleLabel: "Expense type: " + label
+    };
+  }
+
+  function renderExpenseTypeInlineLabel(iconModel, extraAttributes) {
+    const safeIconModel = iconModel && typeof iconModel === "object"
+      ? iconModel
+      : getExpenseTypeIconModel({});
+    return `
+      <span class="pmi-expense-record-type-chip" data-pmi-expense-record-type-label data-pmi-expense-record-icon-file="${escapeHtml(safeIconModel.iconFile)}" data-pmi-expense-record-icon-src="${escapeHtml(safeIconModel.src)}"${extraAttributes ? " " + extraAttributes : ""} title="${escapeHtml(safeIconModel.label)}" aria-label="${escapeHtml(safeIconModel.accessibleLabel)}" tabindex="0">
+        <img class="pmi-expense-record-type-icon" src="${escapeHtml(safeIconModel.src)}" alt="" aria-hidden="true" data-pmi-expense-record-type-icon>
+        <span class="pmi-expense-record-type-visible-label">${escapeHtml(safeIconModel.label)}</span>
+        <span class="pmi-expense-record-type-visually-hidden">${escapeHtml(safeIconModel.accessibleLabel)}</span>
+      </span>
+    `;
   }
 
   function formatDisplayAmount(value) {
@@ -780,11 +891,12 @@
     const termDetail = safeRecord.remainingTermMonths == null
       ? "-"
       : String(safeRecord.remainingTermMonths) + " mo";
+    const debtPaymentIcon = getExpenseTypeIconModel(safeRecord);
     return `
       <div class="pmi-expense-record-row pmi-expense-record-row-generated" role="row" data-pmi-expense-generated-entry data-pmi-expense-generated-id="${escapeHtml(expenseFactId)}" data-source-debt-record-id="${escapeHtml(sourceDebtRecordId)}">
         <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="Expense Type">
-          <span class="pmi-expense-record-type-label" title="Debt Payment">Debt Payment</span>
-          <span class="pmi-expense-record-source-chip">From Debt Records</span>
+          ${renderExpenseTypeInlineLabel(debtPaymentIcon, 'data-pmi-expense-generated-type-chip data-pmi-expense-generated-source="Debt Records"')}
+          <span class="pmi-expense-record-type-visually-hidden">From Debt Records</span>
         </div>
         <div class="pmi-expense-record-cell" role="cell" data-column-label="Label / Vendor">
           ${renderReadOnlyExpenseValue(safeRecord.label, "pmi-expense-record-generated-label")}
@@ -824,7 +936,6 @@
         <span>Additional Expenses</span>
       </div>
       <div class="field-group full-width pmi-expense-records-copy">
-        <p class="underwriting-helper-text">Use this for expenses not already captured in Household Spending. Healthcare bucket rows are included in LENS healthcare expenses automatically; recurring healthcare rows are projected with Healthcare Inflation, and one-time healthcare rows are included current-dollar. Non-healthcare rows remain raw facts unless another LENS component explicitly owns them.</p>
         <p class="underwriting-helper-text">"Continues after death?" is saved for future support-treatment review. Review overlap with Household Spending to avoid duplicate entry.</p>
       </div>
       <div class="pmi-expense-records-list" data-pmi-expense-records-list></div>
@@ -1243,12 +1354,12 @@
         const termTypeInputId = createInputId("pmi-expense-record", expenseId, "term-type");
         const continuationStatusInputId = createInputId("pmi-expense-record", expenseId, "continuation-status");
         const categoryId = createInputId("pmi-expense-record", expenseId, "category");
-        const expenseTypeLabel = getExpenseTypeLabel(record);
+        const expenseTypeIcon = getExpenseTypeIconModel(record);
         const categoryLabel = getCategoryLabel(record.categoryKey);
         return `
           <div class="pmi-expense-record-row" role="row" data-pmi-expense-record-entry data-pmi-expense-id="${escapeHtml(expenseId)}">
             <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="Expense Type">
-              <span class="pmi-expense-record-type-label" data-pmi-expense-record-type-label title="${escapeHtml(expenseTypeLabel)}">${escapeHtml(expenseTypeLabel)}</span>
+              ${renderExpenseTypeInlineLabel(expenseTypeIcon)}
             </div>
             <div class="pmi-expense-record-cell" role="cell" data-column-label="Label / Vendor">
               <input id="${escapeHtml(labelInputId)}" data-pmi-expense-record-label type="text" value="${escapeHtml(record.label)}" aria-label="Label / Vendor">
@@ -1292,7 +1403,7 @@
       controller.list.innerHTML = `
         <div class="pmi-expense-records-table" role="table" aria-label="Expense records notebook" data-pmi-expense-records-table>
           <div class="pmi-expense-records-header" role="row" data-pmi-expense-records-header>
-            <span role="columnheader">Expense Type</span>
+            <span class="pmi-expense-record-type-header" role="columnheader">Expense Type</span>
             <span role="columnheader">Label / Vendor</span>
             <span role="columnheader">Amount</span>
             <span role="columnheader">Frequency</span>
@@ -1687,6 +1798,8 @@
     refreshGeneratedExpenseFactsFromDebtRecords,
     serializeExpenseRecords,
     createExpenseRecordFromLibraryEntry,
+    getExpenseTypeIconFile,
+    getExpenseTypeIconModel,
     calculateMonthlyCashFlow,
     toMonthlyCashFlowAmount
   };
