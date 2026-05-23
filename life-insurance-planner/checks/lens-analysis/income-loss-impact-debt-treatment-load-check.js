@@ -161,14 +161,43 @@ assert.equal(obligations.deferredMortgageSupport, 12000);
 assert.equal(obligations.totalImmediateObligations, 55000);
 assert.equal(scenario.deathEvent.immediateObligations, 55000);
 assert.equal(scenario.timelineFacts.resourcesAfterObligations, 545000);
-assert.ok(
-  scenario.postDeathSeries.layer3.trace.streamNormalization.scheduledObligations.some(function (obligation) {
-    return obligation.id === "mortgage-support"
-      && obligation.category === "mortgageSupport"
-      && obligation.monthlyAmount === 1000
-      && obligation.termMonths === 12;
+
+const layer3 = scenario.postDeathSeries.layer3;
+const layer3InputMortgageSupport = (layer3.input?.scheduledObligations || []).find(function (obligation) {
+  return obligation.id === "mortgage-support";
+});
+const riskOnlyMortgageSupport = (layer3.trace?.riskOnlyScheduledObligations || []).find(function (obligation) {
+  return obligation.id === "mortgage-support";
+});
+
+assert.ok(layer3InputMortgageSupport, "Deferred mortgage support should remain visible in Layer 3 input.");
+assert.ok(riskOnlyMortgageSupport, "Deferred mortgage support should remain visible in Layer 3 risk-only trace.");
+assert.equal(riskOnlyMortgageSupport.category, "mortgageSupport");
+assert.equal(riskOnlyMortgageSupport.monthlyAmount, 1000);
+assert.equal(riskOnlyMortgageSupport.termMonths, 12);
+assert.equal(riskOnlyMortgageSupport.alreadyIncludedInNeeds, true);
+assert.equal(riskOnlyMortgageSupport.riskOnlyObligation, true);
+assert.equal(riskOnlyMortgageSupport.cashFlowIncluded, false);
+assert.equal(
+  (layer3.trace?.streamNormalization?.scheduledObligations || []).some(function (obligation) {
+    return obligation.id === "mortgage-support";
   }),
-  "Deferred mortgage support should enter Layer 3 as a scheduled obligation when a schedule is present."
+  false,
+  "Risk-only mortgage support should not enter normalized Layer 3 cash-flow obligations."
 );
+assert.ok(
+  (layer3.trace?.skippedScheduledObligations || []).some(function (obligation) {
+    return obligation.id === "mortgage-support" && obligation.reason === "already-included-in-needs";
+  }),
+  "Mortgage support should be skipped from cash-flow math because it is already included in survivor needs."
+);
+assert.ok(
+  (layer3.warnings || []).some(function (warning) {
+    return warning.code === "scheduled-obligation-already-included-in-needs";
+  }),
+  "Mortgage support should emit the already-included-in-needs warning."
+);
+assert.equal(scenario.postDeathSeries.summary.totalScheduledObligations, 0);
+assert.equal(scenario.postDeathSeries.points[0].scheduledObligations, 0);
 
 console.log("income-loss-impact-debt-treatment-load-check passed");
