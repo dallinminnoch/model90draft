@@ -1534,6 +1534,7 @@
       const existingCoverageListContainer = form.querySelector("[data-pmi-existing-coverage-list]");
       const existingCoverageManageLink = form.querySelector("[data-pmi-existing-coverage-manage]");
       const pmiDebtRecordsRoot = form.querySelector("[data-pmi-debt-records-root]");
+      const pmiExpenseRecordsRoot = form.querySelector("[data-pmi-expense-records-root]");
       const pmiAssetRecordsController = window.LensApp?.lensAnalysis?.pmiAssetRecords?.initPmiAssetRecords({
         root: form.querySelector("[data-pmi-asset-records-root]")
       });
@@ -1541,7 +1542,7 @@
         root: pmiDebtRecordsRoot
       });
       const pmiExpenseRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
-        root: form.querySelector("[data-pmi-expense-records-root]"),
+        root: pmiExpenseRecordsRoot,
         cashFlowRoot: document.querySelector("[data-pmi-expense-cashflow-root]"),
         pageRoot: form
       });

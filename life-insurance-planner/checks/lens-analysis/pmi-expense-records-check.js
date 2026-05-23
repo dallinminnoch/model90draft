@@ -258,7 +258,13 @@ function assertPageWiring(relativePath) {
   assert.match(source, /data-pmi-expense-cashflow-root/);
   assert.match(source, /data-pmi-expense-records-root/);
   assert.match(source, /initPmiExpenseRecords\(\{/);
-  assert.match(source, /root: form\.querySelector\("\[data-pmi-expense-records-root\]"\)/);
+  if (relativePath === "pages/next-step.html") {
+    assert.match(source, /const pmiExpenseRecordsRoot = form\.querySelector\("\[data-pmi-expense-records-root\]"\);/);
+    assert.match(source, /root: pmiExpenseRecordsRoot/);
+    assert.match(source, /pmiExpenseRecordsRoot\?\.addEventListener\("pmiExpenseRecordsChange"/);
+  } else {
+    assert.match(source, /root: form\.querySelector\("\[data-pmi-expense-records-root\]"\)/);
+  }
   if (relativePath === "pages/next-step.html") {
     assert.match(source, /cashFlowRoot: document\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
   } else {
@@ -280,6 +286,16 @@ function assertPageWiring(relativePath) {
     assert.ok(cashFlowRootIndex > formEndIndex, `${relativePath} should place the cash-flow bar in the right-side rail outside the form`);
     assert.equal(scalarNotebookIndex, -1, `${relativePath} should not render the scalar spending notebook after record-first Phase 2`);
     assert.ok(expenseRootIndex !== -1, `${relativePath} should keep expense records as the visible expense-entry surface`);
+    const expenseRootDeclarationIndex = source.indexOf('const pmiExpenseRecordsRoot = form.querySelector("[data-pmi-expense-records-root]");');
+    const expenseRootInitIndex = source.indexOf("root: pmiExpenseRecordsRoot");
+    const expenseRootListenerIndex = source.indexOf('pmiExpenseRecordsRoot?.addEventListener("pmiExpenseRecordsChange"');
+    assert.ok(expenseRootDeclarationIndex !== -1, `${relativePath} should declare the expense records root before page lifecycle listeners`);
+    assert.ok(expenseRootDeclarationIndex < expenseRootInitIndex, `${relativePath} should declare pmiExpenseRecordsRoot before expense records init`);
+    assert.ok(expenseRootDeclarationIndex < expenseRootListenerIndex, `${relativePath} should declare pmiExpenseRecordsRoot before change listener wiring`);
+    assert.match(source, /restoreDraft\(\);/, `${relativePath} should still call linked draft hydration during lifecycle init`);
+    assert.match(source, /syncHousingStatusFieldVisibility\(\);/, `${relativePath} should still run housing conditional visibility sync`);
+    assert.match(source, /syncFilingStatusOptions\(\);/, `${relativePath} should still run filing status option sync`);
+    assert.match(source, /saveExitButton\.addEventListener\("click"/, `${relativePath} should still wire the save handler after lifecycle init`);
   } else {
     assert.ok(cashFlowRootIndex < scalarNotebookIndex, `${relativePath} should place the cash-flow bar before the scalar spending notebook`);
     assert.ok(cashFlowRootIndex < expenseRootIndex, `${relativePath} should place the cash-flow bar before Additional Expenses`);
