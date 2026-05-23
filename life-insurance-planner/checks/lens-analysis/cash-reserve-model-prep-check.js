@@ -37,6 +37,8 @@ function createLensAnalysisContext(options) {
     "app/features/lens-analysis/schema.js",
     "app/features/lens-analysis/asset-taxonomy.js",
     "app/features/lens-analysis/asset-library.js",
+    "app/features/lens-analysis/expense-taxonomy.js",
+    "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/block-outputs.js",
     "app/features/lens-analysis/helpers/income-tax-calculations.js",
     "app/features/lens-analysis/helpers/housing-support-calculations.js",
@@ -133,16 +135,18 @@ function createSourceData(overrides) {
     emergencyFund: 10000,
     taxableBrokerageInvestments: 100000,
     calculatedMonthlyMortgagePayment: 3000,
-    insuranceCost: 300,
-    healthcareOutOfPocketCost: 200,
-    foodCost: 900,
-    transportationCost: 400,
-    childcareDependentCareCost: 0,
-    phoneInternetCost: 200,
-    householdSuppliesCost: 100,
-    otherHouseholdExpenses: 100,
-    travelDiscretionaryCost: 500,
-    subscriptionsCost: 100,
+    expenseRecords: createRecordFirstExpenseRecords({
+      householdInsurancePremiums: 300,
+      medicalOutOfPocket: 200,
+      groceries: 900,
+      householdTransportation: 400,
+      childcareExpense: 0,
+      internetPhone: 200,
+      householdConsumablesSupplies: 100,
+      entertainmentRecreation: 500,
+      recurringPersonalSpendingDefault: 100,
+      customExpenseRecord: 100
+    }),
     annualIncome: 120000,
     spouseIncome: 40000,
     yearsIncomeNeeded: 10,
@@ -157,6 +161,40 @@ function createSourceData(overrides) {
       }
     ]
   }, overrides || {});
+}
+
+function createRecordFirstExpenseRecords(amounts) {
+  const normalizedAmounts = amounts && typeof amounts === "object" ? amounts : {};
+  const labelsByTypeKey = {
+    householdInsurancePremiums: "Non-Housing Monthly Insurance",
+    medicalOutOfPocket: "Healthcare / Out-of-Pocket Medical",
+    groceries: "Monthly Food / Grocery Cost",
+    householdTransportation: "Monthly Transportation Cost",
+    childcareExpense: "Childcare / Dependent Care",
+    internetPhone: "Phone / Internet",
+    householdConsumablesSupplies: "Household Essentials / Supplies",
+    entertainmentRecreation: "Entertainment / Travel",
+    recurringPersonalSpendingDefault: "Recurring Personal Spending",
+    customExpenseRecord: "Other Household Expenses"
+  };
+
+  return Object.keys(normalizedAmounts).map(function (typeKey) {
+    const isStarter = typeKey !== "customExpenseRecord";
+    return {
+      expenseId: isStarter ? `starter_expense_${typeKey}` : "expense_custom_other_household",
+      typeKey,
+      label: labelsByTypeKey[typeKey],
+      amount: normalizedAmounts[typeKey],
+      frequency: "monthly",
+      termType: "ongoing",
+      continuationStatus: typeKey === "childcareExpense" ? "continues" : "review",
+      isDefaultExpense: isStarter,
+      isCustomExpense: typeKey === "customExpenseRecord",
+      metadata: {
+        source: isStarter ? "starter-notebook" : "fixture-add-expense-record"
+      }
+    };
+  });
 }
 
 function buildLensModel(context, cashReserveAssumptions, sourceOverrides) {

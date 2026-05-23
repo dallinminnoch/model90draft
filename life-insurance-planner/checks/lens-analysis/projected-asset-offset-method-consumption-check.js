@@ -165,18 +165,50 @@ function createSourceData() {
     yearsIncomeNeeded: 10,
     currentCoverage: 250000,
     mortgageBalance: 180000,
-    childcareDependentCareCost: 1000,
-    foodCost: 1200,
-    transportationCost: 800,
-    insuranceCost: 600,
-    phoneInternetCost: 250,
-    otherHouseholdExpenses: 400,
+    expenseRecords: createRecordFirstExpenseRecords({
+      childcareExpense: 1000,
+      groceries: 1200,
+      householdTransportation: 800,
+      householdInsurancePremiums: 600,
+      internetPhone: 250,
+      customExpenseRecord: 400
+    }),
     estimatedCostPerChild: 0,
     funeralBurialEstimate: 15000,
     medicalEndOfLifeCosts: 5000,
     estateSettlementCosts: 5000,
     immediateLiquidityBuffer: 10000
   };
+}
+
+function createRecordFirstExpenseRecords(amounts) {
+  const normalizedAmounts = amounts && typeof amounts === "object" ? amounts : {};
+  const labelsByTypeKey = {
+    childcareExpense: "Childcare / Dependent Care",
+    groceries: "Monthly Food / Grocery Cost",
+    householdTransportation: "Monthly Transportation Cost",
+    householdInsurancePremiums: "Non-Housing Monthly Insurance",
+    internetPhone: "Phone / Internet",
+    customExpenseRecord: "Other Household Expenses"
+  };
+
+  return Object.keys(normalizedAmounts).map(function (typeKey) {
+    const isStarter = typeKey !== "customExpenseRecord";
+    return {
+      expenseId: isStarter ? `starter_expense_${typeKey}` : "expense_custom_other_household",
+      typeKey,
+      label: labelsByTypeKey[typeKey],
+      amount: normalizedAmounts[typeKey],
+      frequency: "monthly",
+      termType: "ongoing",
+      continuationStatus: typeKey === "childcareExpense" ? "continues" : "review",
+      isDefaultExpense: isStarter,
+      isCustomExpense: typeKey === "customExpenseRecord",
+      metadata: {
+        source: isStarter ? "starter-notebook" : "fixture-add-expense-record"
+      }
+    };
+  });
 }
 
 function buildLensModel(context, assetTreatmentAssumptions) {
@@ -460,9 +492,9 @@ assert.doesNotMatch(
   "Saved schema defaults must not create the projectedAssetOffset active marker."
 );
 assert.match(
-  readRepoFile("pages/analysis-setup.html"),
-  /Use Projected Asset Offset in LENS/,
-  "Analysis Setup now owns the advisor-facing projected asset offset activation switch."
+  readRepoFile("app/features/lens-analysis/analysis-setup.js"),
+  /projectedAssetOffsetAssumptions/,
+  "Analysis Setup still owns projected asset offset assumptions wiring."
 );
 assert.match(
   readRepoFile("app/features/lens-analysis/step-three-analysis-display.js"),
