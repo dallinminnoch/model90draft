@@ -1028,15 +1028,27 @@
         <div class="pmi-expense-cashflow-header">
           <div>
             <span class="pmi-expense-cashflow-kicker">Monthly cash flow</span>
-            <strong data-pmi-expense-cashflow-remaining>-</strong>
           </div>
           <span class="pmi-expense-cashflow-status" data-pmi-expense-cashflow-status>Before savings allocations</span>
         </div>
-        <div class="pmi-expense-cashflow-track" data-pmi-expense-cashflow-track aria-hidden="true">
-          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--housing" data-pmi-expense-cashflow-segment="housing"></span>
-          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--debt" data-pmi-expense-cashflow-segment="debt"></span>
-          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--expenses" data-pmi-expense-cashflow-segment="expenses"></span>
-          <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--remaining" data-pmi-expense-cashflow-segment="remaining"></span>
+        <div class="pmi-expense-cashflow-visual">
+          <div class="pmi-expense-cashflow-track" data-pmi-expense-cashflow-track aria-label="Monthly cash-flow allocation">
+            <svg class="pmi-expense-cashflow-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+              <circle class="pmi-expense-cashflow-ring-base" cx="50" cy="50" r="42" pathLength="100"></circle>
+              <circle class="pmi-expense-cashflow-ring-segment pmi-expense-cashflow-ring-segment--housing" cx="50" cy="50" r="42" pathLength="100"></circle>
+              <circle class="pmi-expense-cashflow-ring-segment pmi-expense-cashflow-ring-segment--debt" cx="50" cy="50" r="42" pathLength="100"></circle>
+              <circle class="pmi-expense-cashflow-ring-segment pmi-expense-cashflow-ring-segment--expenses" cx="50" cy="50" r="42" pathLength="100"></circle>
+              <circle class="pmi-expense-cashflow-ring-segment pmi-expense-cashflow-ring-segment--remaining" cx="50" cy="50" r="42" pathLength="100"></circle>
+            </svg>
+            <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--housing" data-pmi-expense-cashflow-segment="housing"></span>
+            <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--debt" data-pmi-expense-cashflow-segment="debt"></span>
+            <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--expenses" data-pmi-expense-cashflow-segment="expenses"></span>
+            <span class="pmi-expense-cashflow-segment pmi-expense-cashflow-segment--remaining" data-pmi-expense-cashflow-segment="remaining"></span>
+            <div class="pmi-expense-cashflow-center">
+              <small>Remaining</small>
+              <strong data-pmi-expense-cashflow-remaining>-</strong>
+            </div>
+          </div>
         </div>
         <div class="pmi-expense-cashflow-metrics" data-pmi-expense-cashflow-metrics>
           <span><b data-pmi-expense-cashflow-income>-</b><small>Take-home pay</small></span>
@@ -1328,12 +1340,94 @@
       }
     }
 
+    function setCashFlowCenterAmountSize(element, value) {
+      if (!element || !element.style) {
+        return;
+      }
+
+      const normalizedValue = normalizeString(value);
+      const compactLength = normalizedValue.replace(/\s+/g, "").length;
+      let fontSize = "1.8rem";
+      if (compactLength > 13) {
+        fontSize = "1.08rem";
+      } else if (compactLength > 11) {
+        fontSize = "1.22rem";
+      } else if (compactLength > 9) {
+        fontSize = "1.38rem";
+      } else if (compactLength > 7) {
+        fontSize = "1.58rem";
+      }
+
+      if (typeof element.style.setProperty === "function") {
+        element.style.setProperty("--cashflow-center-amount-size", fontSize);
+        return;
+      }
+
+      element.style["--cashflow-center-amount-size"] = fontSize;
+    }
+
     function setCashFlowShare(element, value) {
       if (!element || !element.style) {
         return;
       }
 
       element.style.flexBasis = Math.max(0, Math.min(100, value)).toFixed(2) + "%";
+    }
+
+    function setCashFlowDonut(track, shares) {
+      if (!track || !track.style || !shares) {
+        return;
+      }
+
+      const setProperty = typeof track.style.setProperty === "function"
+        ? track.style.setProperty.bind(track.style)
+        : function (name, value) {
+          track.style[name] = value;
+        };
+      const segmentOrder = [
+        { key: "housing", value: Math.max(0, Math.min(100, shares.housing || 0)) },
+        { key: "debt", value: Math.max(0, Math.min(100, shares.debt || 0)) },
+        { key: "expenses", value: Math.max(0, Math.min(100, shares.expenses || 0)) },
+        { key: "remaining", value: Math.max(0, Math.min(100, shares.remaining || 0)) }
+      ];
+      const visibleSegments = segmentOrder.filter(function (segment) {
+        return segment.value > 0.01;
+      });
+      const totalShare = visibleSegments.reduce(function (total, segment) {
+        return total + segment.value;
+      }, 0);
+      const gapSize = visibleSegments.length > 1 ? 0.38 : 0;
+      const availableShare = Math.max(0, 100 - (gapSize * visibleSegments.length));
+      let cursor = visibleSegments.length > 1 ? gapSize / 2 : 0;
+      let hasVisibleSegment = false;
+
+      segmentOrder.forEach(function (segment) {
+        if (segment.value > 0.01 && totalShare > 0) {
+          if (hasVisibleSegment) {
+            cursor += gapSize;
+          }
+
+          const segmentWidth = availableShare * (segment.value / totalShare);
+          const segmentStart = Math.max(0, Math.min(100, cursor));
+          const segmentEnd = Math.max(segmentStart, Math.min(100, segmentStart + segmentWidth));
+          const segmentLength = Math.max(0, segmentEnd - segmentStart);
+          setProperty("--cashflow-" + segment.key + "-start", segmentStart.toFixed(2) + "%");
+          setProperty("--cashflow-" + segment.key + "-end", segmentEnd.toFixed(2) + "%");
+          setProperty("--cashflow-" + segment.key + "-length", segmentLength.toFixed(2));
+          setProperty("--cashflow-" + segment.key + "-offset", (-segmentStart).toFixed(2));
+          cursor = segmentEnd;
+          hasVisibleSegment = true;
+          return;
+        }
+
+        const collapsedPosition = Math.max(0, Math.min(100, cursor));
+        setProperty("--cashflow-" + segment.key + "-start", collapsedPosition.toFixed(2) + "%");
+        setProperty("--cashflow-" + segment.key + "-end", collapsedPosition.toFixed(2) + "%");
+        setProperty("--cashflow-" + segment.key + "-length", "0");
+        setProperty("--cashflow-" + segment.key + "-offset", (-collapsedPosition).toFixed(2));
+      });
+
+      setProperty("--cashflow-remaining-color", shares.isNegative ? "#fca5a5" : "#86efac");
     }
 
     function updateCashFlowReadout() {
@@ -1345,16 +1439,29 @@
       const cashFlow = calculateMonthlyCashFlow(getCashFlowInputData());
       const totalOutflow = cashFlow.monthlyHousingCost + cashFlow.monthlyDebtPayments + cashFlow.monthlyExpenses;
       const denominator = Math.max(cashFlow.monthlyTakeHomePay, totalOutflow, 1);
+      const housingShare = cashFlow.monthlyHousingCost / denominator * 100;
+      const debtShare = cashFlow.monthlyDebtPayments / denominator * 100;
+      const expensesShare = cashFlow.monthlyExpenses / denominator * 100;
+      const remainingShare = Math.max(0, cashFlow.remainingMonthlyCashFlow) / denominator * 100;
       setCashFlowText(elements.income, formatCashFlowAmount(cashFlow.monthlyTakeHomePay));
       setCashFlowText(elements.housing, formatCashFlowAmount(cashFlow.monthlyHousingCost));
       setCashFlowText(elements.debt, formatCashFlowAmount(cashFlow.monthlyDebtPayments));
       setCashFlowText(elements.expenses, formatCashFlowAmount(cashFlow.monthlyExpenses));
-      setCashFlowText(elements.remaining, formatCashFlowAmount(cashFlow.remainingMonthlyCashFlow));
+      const formattedRemaining = formatCashFlowAmount(cashFlow.remainingMonthlyCashFlow);
+      setCashFlowText(elements.remaining, formattedRemaining);
+      setCashFlowCenterAmountSize(elements.remaining, formattedRemaining);
       setCashFlowText(elements.status, cashFlow.isNegative ? "Shortfall before savings" : "Before savings allocations");
-      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="housing"]'), cashFlow.monthlyHousingCost / denominator * 100);
-      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="debt"]'), cashFlow.monthlyDebtPayments / denominator * 100);
-      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="expenses"]'), cashFlow.monthlyExpenses / denominator * 100);
-      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="remaining"]'), Math.max(0, cashFlow.remainingMonthlyCashFlow) / denominator * 100);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="housing"]'), housingShare);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="debt"]'), debtShare);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="expenses"]'), expensesShare);
+      setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="remaining"]'), remainingShare);
+      setCashFlowDonut(elements.track, {
+        housing: housingShare,
+        debt: debtShare,
+        expenses: expensesShare,
+        remaining: remainingShare,
+        isNegative: cashFlow.isNegative
+      });
       elements.bar.classList.toggle("is-negative", cashFlow.isNegative);
       elements.bar.classList.toggle("is-missing-income", !cashFlow.hasIncomeSource);
 

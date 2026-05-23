@@ -26,6 +26,12 @@ function createFakeElement() {
     className: "",
     style: {
       values: {},
+      setProperty(name, value) {
+        this.values[name] = value;
+      },
+      getPropertyValue(name) {
+        return this.values[name] || "";
+      },
       set flexBasis(value) {
         this.values.flexBasis = value;
       },
@@ -69,6 +75,7 @@ function createCashFlowBar() {
     expenses: createFakeElement(),
     remaining: createFakeElement(),
     note: createFakeElement(),
+    track: createFakeElement(),
     housingSegment: createFakeElement(),
     debtSegment: createFakeElement(),
     expensesSegment: createFakeElement(),
@@ -84,7 +91,7 @@ function createCashFlowBar() {
       "[data-pmi-expense-cashflow-expenses]": elements.expenses,
       "[data-pmi-expense-cashflow-remaining]": elements.remaining,
       "[data-pmi-expense-cashflow-note]": elements.note,
-      "[data-pmi-expense-cashflow-track]": createFakeElement(),
+      "[data-pmi-expense-cashflow-track]": elements.track,
       "[data-pmi-expense-cashflow-segment=\"housing\"]": elements.housingSegment,
       "[data-pmi-expense-cashflow-segment=\"debt\"]": elements.debtSegment,
       "[data-pmi-expense-cashflow-segment=\"expenses\"]": elements.expensesSegment,
@@ -205,15 +212,22 @@ assert.match(widgetSource, /Lifestyle expenses/, "cash-flow legend should identi
 assert.match(widgetSource, /Available before savings/, "positive cash-flow status should use available-before-savings language");
 assert.match(widgetSource, /Before savings allocations/, "positive cash-flow status should match the reference sidebar language");
 assert.match(widgetSource, /Shortfall before savings/, "negative cash-flow status should use shortfall-before-savings language");
-assert.match(widgetSource, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "cash-flow readout should explain what the bar compares");
+assert.match(widgetSource, /pmi-expense-cashflow-center/, "cash-flow widget should place the remaining amount inside the donut");
+assert.match(widgetSource, /pmi-expense-cashflow-ring/, "cash-flow widget should render a smooth SVG donut ring");
+assert.match(widgetSource, /setCashFlowDonut/, "cash-flow widget should update donut chart CSS properties");
+assert.match(widgetSource, /setCashFlowCenterAmountSize/, "cash-flow widget should autosize the centered remaining amount");
+assert.match(widgetSource, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "cash-flow readout should explain what the donut compares");
 assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/);
-assert.match(componentsCss, /\.pmi-expense-cashflow-track\s*{[\s\S]*?display:\s*flex;/);
+assert.match(componentsCss, /\.pmi-expense-cashflow-ring-segment\s*{[\s\S]*?stroke-linecap:\s*round;/);
+assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*#ffffff;/);
+assert.match(componentsCss, /\.pmi-expense-cashflow-center\s*{[\s\S]*?position:\s*absolute;/);
+assert.match(componentsCss, /font-size:\s*var\(--cashflow-center-amount-size\);/);
 assert.match(componentsCss, /\.pmi-expense-cashflow\.is-negative/);
 assert.match(componentsCss, /\.pmi-expense-cashflow-legend\s*{[\s\S]*?display:\s*flex;/, "cash-flow legend should render compact visible labels");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--housing\s*{[\s\S]*?background:\s*#3b82f6;/, "housing segment should have a matching legend swatch");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--debt\s*{[\s\S]*?background:\s*#f59e0b;/, "debt segment should have a matching legend swatch");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--expenses\s*{[\s\S]*?background:\s*#8b5cf6;/, "expense segment should have a matching legend swatch");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#10b981;/, "remaining segment should have a matching legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--housing\s*{[\s\S]*?background:\s*#93c5fd;/, "housing segment should have a matching pastel legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--debt\s*{[\s\S]*?background:\s*#fcd34d;/, "debt segment should have a matching pastel legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--expenses\s*{[\s\S]*?background:\s*#c4b5fd;/, "expense segment should have a matching pastel legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#86efac;/, "remaining segment should have a matching pastel legend swatch");
 
 ["pages/confidential-inputs.html", "pages/next-step.html"].forEach((relativePath) => {
   const source = readRepoFile(relativePath);
@@ -382,6 +396,18 @@ assert.equal(controller.lastMonthlyCashFlow.monthlyExpenses, 300);
 assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 49175.07);
 assert.equal(fakeDom.cashFlow.elements.remaining.textContent, "$49,175.07");
 assert.equal(fakeDom.cashFlow.elements.income.textContent, "$52,815.07");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-housing-start"), "0.19%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-housing-end"), "6.44%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-housing-length"), "6.25");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-debt-end"), "6.44%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-expenses-start"), "6.82%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-expenses-end"), "7.38%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-expenses-length"), "0.56");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-start"), "7.76%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-end"), "99.81%");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-length"), "92.05");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "#86efac");
+assert.equal(fakeDom.cashFlow.elements.remaining.style.getPropertyValue("--cashflow-center-amount-size"), "1.38rem");
 assert.doesNotMatch(fakeDom.cashFlow.elements.note.textContent, /Take-home pay is not available/);
 assert.equal(fakeDom.cashFlow.elements.status.textContent, "Before savings allocations");
 assert.equal(fakeDom.cashFlow.elements.note.textContent, helperSentence);
@@ -406,6 +432,7 @@ fakeForm.controls.netAnnualIncome.dataset.calculatedValue = "12000";
 fakeForm.dispatch("input", fakeForm.controls.netAnnualIncome);
 assert.equal(controller.lastMonthlyCashFlow.isNegative, true, "lower income should make the bar represent a monthly shortfall");
 assert.equal(fakeDom.cashFlow.elements.status.textContent, "Shortfall before savings");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "#fca5a5");
 assert.match(fakeDom.cashFlow.elements.note.textContent, /Entered monthly obligations exceed monthly take-home pay before savings allocations\./);
 assert.match(fakeDom.cashFlow.elements.note.textContent, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 

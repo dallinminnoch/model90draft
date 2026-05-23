@@ -394,6 +394,9 @@ assert.match(widgetSource, /Available before savings/, "expense cash-flow readou
 assert.match(widgetSource, /Before savings allocations/, "expense cash-flow readout should match the reference sidebar status");
 assert.match(widgetSource, /Shortfall before savings/, "expense cash-flow readout should label negative remaining cash flow clearly");
 assert.match(widgetSource, /Savings allocations not yet included\./, "expense cash-flow readout should explain the pre-savings scope");
+assert.match(widgetSource, /pmi-expense-cashflow-center/, "expense cash-flow readout should place remaining cash flow inside the donut");
+assert.match(widgetSource, /setCashFlowDonut/, "expense cash-flow readout should update donut chart CSS properties");
+assert.match(widgetSource, /setCashFlowCenterAmountSize/, "expense cash-flow readout should autosize the centered remaining amount");
 assert.match(widgetSource, /data-pmi-expense-generated-entry/, "expense records should render generated read-only rows when provided");
 assert.match(widgetSource, /From Debt Records/, "generated debt-payment rows should identify Debt Records as the source");
 assert.match(widgetSource, /Edit in Debt Records/, "generated debt-payment rows should show a source edit hint");
@@ -406,9 +409,13 @@ assert.doesNotMatch(widgetSource, /class="field-group full-width pmi-expense-rec
 assert.doesNotMatch(widgetSource, /class="form-grid pmi-expense-record-grid"/, "old nested expense field grid should not be used");
 assert.match(componentsCss, /\.pmi-expense-records-table\s*{[\s\S]*?overflow:\s*hidden;/, "expense notebook shell should own the table frame");
 assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/, "expense cash-flow readout should own a full-width card row");
-assert.match(componentsCss, /\.pmi-expense-cashflow-track\s*{[\s\S]*?display:\s*flex;/, "expense cash-flow readout should render a compact segmented bar");
+assert.match(widgetSource, /pmi-expense-cashflow-ring/, "expense cash-flow readout should render a smooth SVG donut ring");
+assert.match(componentsCss, /\.pmi-expense-cashflow-ring-segment\s*{[\s\S]*?stroke-linecap:\s*round;/, "expense cash-flow donut should use rounded segment caps for smooth gaps");
+assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*#ffffff;/, "expense cash-flow donut should use a white base ring for gaps");
+assert.match(componentsCss, /\.pmi-expense-cashflow-center\s*{[\s\S]*?position:\s*absolute;/, "expense cash-flow readout should center remaining cash flow inside the donut");
+assert.match(componentsCss, /font-size:\s*var\(--cashflow-center-amount-size\);/, "expense cash-flow center amount should use the autosized font variable");
 assert.match(componentsCss, /\.pmi-expense-cashflow-legend\s*{[\s\S]*?display:\s*flex;/, "expense cash-flow readout should render a compact text legend");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#10b981;/, "expense cash-flow legend should map text labels to segment colors");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#86efac;/, "expense cash-flow legend should map text labels to pastel segment colors");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?display:\s*grid;/, "expense notebook rows should use grid layout");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?minmax\(0,\s*1\.12fr\)/, "expense notebook grid should keep a bounded icon-plus-title type column");
 assert.match(componentsCss, /\.pmi-expense-record-type-chip\s*{[\s\S]*?gap:\s*0\.34rem;/, "expense type icons should sit just left of visible titles with a compact gap");
