@@ -338,11 +338,9 @@ assert.match(widgetSource, /Additional Expenses records from PMI/);
 assert.match(widgetSource, /Healthcare bucket rows can affect Needs healthcareExpenses automatically/);
 assert.match(widgetSource, /non-healthcare rows remain raw-only for current output/);
 assert.match(widgetSource, /continuationStatus is future support-treatment metadata/);
-assert.match(widgetSource, /Healthcare bucket rows are included in LENS healthcare expenses automatically/);
-assert.match(widgetSource, /recurring healthcare rows are projected with Healthcare Inflation/);
-assert.match(widgetSource, /one-time healthcare rows are included current-dollar/);
-assert.match(widgetSource, /Non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them/);
-assert.match(widgetSource, /Review overlap with Household Spending to avoid duplicate entry/);
+assert.match(widgetSource, /Healthcare bucket rows remain saved as healthcare-sensitive facts/);
+assert.match(widgetSource, /non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them/);
+assert.match(widgetSource, /Review overlap with starter expense rows to avoid duplicate entry/);
 assert.doesNotMatch(widgetSource, /Use this for expenses not already captured in Household Spending/, "Additional Expenses widget should not render the deleted helper paragraph");
 assert.doesNotMatch(widgetSource, /collect repeatable raw-only expenseRecords\[\] rows from PMI/);
 assert.doesNotMatch(widgetSource, /Search or browse initial expense types to add as raw PMI facts/);
@@ -615,28 +613,24 @@ const recordFirstSourceData = pmiExpenseRecords.createCommonExpenseSourceDataFro
     {
       expenseId: "starter_expense_groceries",
       typeKey: "groceries",
-      sourceKey: "foodCost",
       amount: 500,
       frequency: "monthly",
-      termType: "ongoing"
+      termType: "ongoing",
+      isDefaultExpense: true
     },
     {
       expenseId: "starter_expense_healthcare",
       typeKey: "medicalOutOfPocket",
-      sourceKey: "healthcareOutOfPocketCost",
       amount: 125,
       frequency: "monthly",
-      termType: "ongoing"
+      termType: "ongoing",
+      isDefaultExpense: true
     }
-  ],
-  {
-    foodCost: 300,
-    insuranceCost: 90
-  }
+  ]
 );
-assert.equal(recordFirstSourceData.foodCost, 500, "common expense records should override matching scalar fallback values");
-assert.equal(recordFirstSourceData.healthcareOutOfPocketCost, 125, "healthcare starter rows should map to the scalar healthcare source key");
-assert.equal(recordFirstSourceData.insuranceCost, 90, "missing common records should preserve scalar fallback values");
+assert.equal(recordFirstSourceData.monthlyFoodCost, 500, "common expense records should derive ongoing support source data");
+assert.equal(recordFirstSourceData.monthlyHealthcareOutOfPocketCost, 125, "healthcare starter rows should map to the ongoing-support healthcare output");
+assert.equal(recordFirstSourceData.monthlyOtherInsuranceCost, undefined, "missing common records should not preserve scalar fallback values");
 
 assert.equal(typeof controller.addExpenseRecordFromLibraryEntry, "function", "controller should expose testable add-from-library behavior");
 assert.equal(typeof controller.removeExpenseRecordById, "function", "controller should expose testable remove behavior");

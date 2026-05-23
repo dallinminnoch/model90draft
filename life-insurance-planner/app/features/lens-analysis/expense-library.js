@@ -65,49 +65,40 @@
   const COMMON_EXPENSE_RECORD_SOURCE_FIELDS = Object.freeze([
     Object.freeze({
       typeKey: "householdInsurancePremiums",
-      sourceKey: "insuranceCost",
       ongoingSupportField: "monthlyOtherInsuranceCost"
     }),
     Object.freeze({
       typeKey: "medicalOutOfPocket",
-      sourceKey: "healthcareOutOfPocketCost",
       ongoingSupportField: "monthlyHealthcareOutOfPocketCost",
       expenseFactCategoryKey: "otherLivingExpense",
       compressionCategoryKey: "ongoingHealthcare"
     }),
     Object.freeze({
       typeKey: "groceries",
-      sourceKey: "foodCost",
       ongoingSupportField: "monthlyFoodCost"
     }),
     Object.freeze({
       typeKey: "householdTransportation",
-      sourceKey: "transportationCost",
       ongoingSupportField: "monthlyTransportationCost"
     }),
     Object.freeze({
       typeKey: "childcareExpense",
-      sourceKey: "childcareDependentCareCost",
       ongoingSupportField: "monthlyChildcareAndDependentCareCost"
     }),
     Object.freeze({
       typeKey: "internetPhone",
-      sourceKey: "phoneInternetCost",
       ongoingSupportField: "monthlyPhoneAndInternetCost"
     }),
     Object.freeze({
       typeKey: "householdConsumablesSupplies",
-      sourceKey: "householdSuppliesCost",
       ongoingSupportField: "monthlyHouseholdSuppliesCost"
     }),
     Object.freeze({
       typeKey: "entertainmentRecreation",
-      sourceKey: "travelDiscretionaryCost",
       ongoingSupportField: "monthlyTravelAndDiscretionaryCost"
     }),
     Object.freeze({
       typeKey: "recurringPersonalSpendingDefault",
-      sourceKey: "subscriptionsCost",
       ongoingSupportField: "monthlySubscriptionsCost"
     })
   ]);
@@ -550,7 +541,7 @@
     ["cobraPremiums", "COBRA Premiums", "ongoingHealthcare", "Temporary COBRA health insurance premium expense.", "cobra|temporary health coverage|continuation coverage", "monthly", "fixedYears", { suggestedTermYears: 1 }],
     ["hsaContributions", "HSA Contributions", "ongoingHealthcare", "Recurring health savings account contribution expense.", "hsa|health savings account|medical savings", "monthly", "ongoing"],
     ["medicalOutOfPocket", "Medical Out-of-Pocket", "ongoingHealthcare", "Recurring medical out-of-pocket expense.", "medical out of pocket|copay|deductible|coinsurance", "monthly", "ongoing"],
-    ["healthcareOutOfPocketSupportDefault", "Healthcare / Out-of-Pocket Medical", "ongoingHealthcare", "Future scalar support mapping for broad household healthcare and out-of-pocket medical costs.", "healthcare out of pocket|medical out of pocket|support healthcare|copay|deductible", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
+    ["healthcareOutOfPocketSupportDefault", "Healthcare / Out-of-Pocket Medical", "ongoingHealthcare", "Legacy alias for broad household healthcare and out-of-pocket medical support.", "healthcare out of pocket|medical out of pocket|support healthcare|copay|deductible", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
     ["prescriptionMedications", "Prescription Medications", "ongoingHealthcare", "Recurring prescription medication expense.", "prescriptions|medications|pharmacy", "monthly", "ongoing"],
     ["specialistVisits", "Specialist Visits", "ongoingHealthcare", "Recurring or periodic medical specialist visit expense.", "specialist|doctor visit|provider visit", "quarterly", "ongoing"],
     ["therapyCounseling", "Therapy / Counseling", "mentalHealthCare", "Recurring therapy, counseling, or mental health care expense.", "therapy|counseling|mental health|behavioral health", "monthly", "ongoing"],
@@ -610,10 +601,10 @@
     ["groceries", "Groceries", "foodGroceries", "Recurring grocery and household food expense.", "groceries|food|household food", "monthly", "ongoing"],
     ["diningTakeout", "Dining / Takeout", "foodGroceries", "Broad food-away-from-home expense for dining out, takeout, convenience food, and meal delivery.", "dining|takeout|restaurants|food away from home|meal delivery", "monthly", "ongoing"],
     ["transportationFuel", "Transportation Fuel", "transportation", "Recurring fuel or transportation expense.", "fuel|gasoline|transportation", "monthly", "ongoing"],
-    ["householdTransportation", "Household Transportation", "transportation", "Future scalar support mapping for broad household transportation costs.", "household transportation|transportation|fuel|transit|vehicle costs|support transportation", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
+    ["householdTransportation", "Household Transportation", "transportation", "Record-first starter mapping for broad household transportation costs.", "household transportation|transportation|fuel|transit|vehicle costs|support transportation", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
     ["vehicleInsurance", "Vehicle Insurance", "transportation", "Recurring vehicle insurance expense.", "auto insurance|vehicle insurance|car insurance", "monthly", "ongoing"],
     ["vehicleMaintenance", "Vehicle Maintenance", "transportation", "Recurring or periodic vehicle maintenance expense.", "vehicle maintenance|car maintenance|repairs", "annual", "ongoing"],
-    ["householdInsurancePremiums", "Household Insurance Premiums", "insurancePremiums", "Future scalar support mapping for broad non-housing household insurance premiums.", "household insurance|insurance premiums|non-housing insurance|support insurance", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
+    ["householdInsurancePremiums", "Household Insurance Premiums", "insurancePremiums", "Record-first starter mapping for broad non-housing household insurance premiums.", "household insurance|insurance premiums|non-housing insurance|support insurance", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
     ["rentersInsurance", "Renters Insurance", "insurancePremiums", "Recurring renters insurance premium expense.", "renters insurance|tenant insurance|renter premium", "monthly", "ongoing"],
     ["umbrellaInsurance", "Umbrella Insurance", "insurancePremiums", "Recurring umbrella liability insurance premium expense.", "umbrella insurance|liability insurance|excess liability", "annual", "ongoing"],
     ["disabilityInsurancePremiums", "Disability Insurance Premiums", "insurancePremiums", "Recurring disability insurance premium expense.", "disability insurance|income protection premium|di premium", "monthly", "ongoing"],
@@ -626,9 +617,9 @@
     ["clothing", "Clothing", "personalLiving", "Recurring clothing and apparel expense.", "clothing|apparel|shoes", "monthly", "ongoing"],
     ["subscriptionsMemberships", "Subscriptions / Memberships", "personalLiving", "Recurring subscriptions, memberships, or club dues expense.", "subscriptions|memberships|dues|streaming", "monthly", "ongoing"],
     ["householdServices", "Household Services", "personalLiving", "Broad household service expense for house cleaning, lawn, snow, pest, pool, dry cleaning, and similar services.", "household services|house cleaning|lawn care|snow removal|pest control|pool service|dry cleaning|laundry", "monthly", "ongoing", { notes: "Broad parent covers mixed housing and personal-living service children; personalLiving is the current best taxonomy fit for the aggregate parent." }],
-    ["recurringPersonalSpendingDefault", "Recurring Personal Spending", "personalLiving", "Future scalar support mapping for broad recurring personal spending.", "recurring personal spending|subscriptions|memberships|personal spending|support discretionary", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
-    ["discretionaryTravelEntertainment", "Entertainment / Travel", "personalLiving", "Future scalar support mapping for entertainment, travel, and other discretionary personal spending.", "entertainment|travel|discretionary travel|personal spending|support discretionary", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
-    ["otherHouseholdExpenseDefault", "Other Household Expenses", "otherLivingExpense", "Future scalar support mapping for broad other household expenses likely to continue.", "other household expenses|household expense|support household|living expense", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "continues" }],
+    ["recurringPersonalSpendingDefault", "Recurring Personal Spending", "personalLiving", "Record-first starter mapping for broad recurring personal spending.", "recurring personal spending|subscriptions|memberships|personal spending|support discretionary", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
+    ["discretionaryTravelEntertainment", "Entertainment / Travel", "personalLiving", "Record-first support mapping for entertainment, travel, and other discretionary personal spending.", "entertainment|travel|discretionary travel|personal spending|support discretionary", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "review" }],
+    ["otherHouseholdExpenseDefault", "Other Household Expenses", "otherLivingExpense", "Add Expense catch-all mapping for broad other household expenses likely to continue.", "other household expenses|household expense|support household|living expense", "monthly", "ongoing", { uiAvailability: "future", defaultContinuationStatus: "continues" }],
     ["petCare", "Pet Care", "otherLivingExpense", "Recurring pet care expense.", "pet care|veterinary|pet food|animal care", "monthly", "ongoing"],
 
     ["educationEnrichment", "Education & Enrichment", "educationExpense", "Broad protected education and enrichment expense for school, tutoring, activities, college, special education, and related support.", "education|enrichment|school|tutoring|college|activities|special education", "monthly", "fixedYears", { suggestedTermYears: 5, defaultContinuationStatus: "continues", defaultNeedType: "protectedEssential", priorityClass: "protected", compressionTier: "advisorConfirmed", requiresAdvisorConfirmation: true, protectedCategory: true, notes: "Broad education/enrichment parent is review-only and not lifestyle-adjustable in V1." }],

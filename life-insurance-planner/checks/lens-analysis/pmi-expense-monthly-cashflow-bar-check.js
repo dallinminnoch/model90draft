@@ -260,9 +260,6 @@ const cashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
     { expenseId: "biweekly", amount: 240, frequency: "biweekly", termType: "ongoing" },
     { expenseId: "one_time", amount: 10000, frequency: "oneTime", termType: "oneTime" }
   ],
-  scalarExpenseRecords: [
-    { expenseId: "scalar_foodCost", amount: 90, frequency: "monthly", termType: "ongoing" }
-  ],
   generatedExpenseRecords: [
     { sourceDebtRecordId: "debt_1", amount: 500, frequency: "monthly", termType: "ongoing", isDebtPaymentExpense: true }
   ]
@@ -271,8 +268,8 @@ const cashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
 assert.equal(cashFlow.monthlyTakeHomePay, 52815.07, "mature combined annual net income should divide by 12");
 assert.equal(cashFlow.monthlyHousingCost, 3340, "calculated housing burden should outrank rent-only housing");
 assert.equal(cashFlow.monthlyDebtPayments, 500, "generated debt-payment rows should reduce remaining cash flow");
-assert.equal(cashFlow.monthlyExpenses, 1830, "recurring expenses and scalar monthly rows should reduce remaining cash flow");
-assert.equal(cashFlow.remainingMonthlyCashFlow, 47145.07);
+assert.equal(cashFlow.monthlyExpenses, 1740, "recurring record expenses should reduce remaining cash flow");
+assert.equal(cashFlow.remainingMonthlyCashFlow, 47235.07);
 assert.equal(cashFlow.trace.excludedExpenses[0].reason, "one-time-expense-excluded", "one-time expenses should not become monthly recurring burn");
 
 const fallbackIncomeCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
@@ -288,27 +285,25 @@ assert.equal(fallbackIncomeCashFlow.monthlyTakeHomePay, 9000, "insured/spouse fa
 const noDoubleCountCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
   income: { netAnnualIncome: 60000 },
   housing: { monthlyHousingCost: 1000 },
-  scalarExpenseRecords: [{ expenseId: "scalar_foodCost", amount: 300, frequency: "monthly", termType: "ongoing" }],
+  expenseRecords: [{ expenseId: "expense_food", amount: 300, frequency: "monthly", termType: "ongoing" }],
   generatedExpenseRecords: [{ sourceDebtRecordId: "debt_1", amount: 400, frequency: "monthly", termType: "ongoing", isDebtPaymentExpense: true }]
 });
 assert.equal(noDoubleCountCashFlow.monthlyExpenses, 300, "generated debt-payment rows should not be counted as generic expenses");
 assert.equal(noDoubleCountCashFlow.monthlyDebtPayments, 400, "generated debt-payment rows should be counted once as debt payments");
 
-const recordOwnedScalarCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
+const recordOnlyCommonCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
   income: { netAnnualIncome: 60000 },
   housing: { monthlyHousingCost: 1000 },
-  scalarExpenseRecords: [{ expenseId: "scalar_foodCost", sourceKey: "foodCost", amount: 300, frequency: "monthly", termType: "ongoing" }],
   expenseRecords: [{
     expenseId: "starter_expense_groceries",
     typeKey: "groceries",
-    sourceKey: "foodCost",
     amount: 500,
     frequency: "monthly",
     termType: "ongoing",
     isDefaultExpense: true
   }]
 });
-assert.equal(recordOwnedScalarCashFlow.monthlyExpenses, 500, "record-first common expense rows should replace matching scalar fallback rows in cash flow");
+assert.equal(recordOnlyCommonCashFlow.monthlyExpenses, 500, "record-first common expense rows should drive cash flow without scalar fallback rows");
 
 const fallbackDebtCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
   income: { netAnnualIncome: 12000 },
@@ -356,15 +351,6 @@ const fakeForm = createFakeForm({
   utilitiesCost: 350,
   housingInsuranceCost: 190,
   calculatedMonthlyMortgagePayment: "$3,340",
-  insuranceCost: 100,
-  foodCost: 200,
-  transportationCost: 0,
-  childcareDependentCareCost: 0,
-  phoneInternetCost: 0,
-  householdSuppliesCost: 0,
-  otherHouseholdExpenses: 0,
-  travelDiscretionaryCost: 0,
-  subscriptionsCost: 0,
   __datasets: {
     netAnnualIncome: { calculatedValue: "633780.82" },
     calculatedMonthlyMortgagePayment: { calculatedValue: "3340" }
@@ -392,18 +378,28 @@ controller.hydrateExpenseRecords([
 ]);
 assert.equal(controller.lastMonthlyCashFlow.monthlyTakeHomePay, 52815.07);
 assert.equal(controller.lastMonthlyCashFlow.monthlyHousingCost, 3340);
-assert.equal(controller.lastMonthlyCashFlow.monthlyExpenses, 600);
-assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 48875.07);
-assert.equal(fakeDom.cashFlow.elements.remaining.textContent, "$48,875.07");
+assert.equal(controller.lastMonthlyCashFlow.monthlyExpenses, 300);
+assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 49175.07);
+assert.equal(fakeDom.cashFlow.elements.remaining.textContent, "$49,175.07");
 assert.equal(fakeDom.cashFlow.elements.income.textContent, "$52,815.07");
 assert.doesNotMatch(fakeDom.cashFlow.elements.note.textContent, /Take-home pay is not available/);
 assert.equal(fakeDom.cashFlow.elements.status.textContent, "Before savings allocations");
 assert.equal(fakeDom.cashFlow.elements.note.textContent, helperSentence);
 
-fakeForm.controls.foodCost.value = "500";
-fakeForm.dispatch("input", fakeForm.controls.foodCost);
-assert.equal(controller.lastMonthlyCashFlow.monthlyExpenses, 900, "editing scalar expense fields should recalculate the bar");
-assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 48575.07);
+controller.hydrateExpenseRecords([
+  {
+    expenseId: "expense_monthly",
+    categoryKey: "customExpense",
+    typeKey: "customExpenseRecord",
+    label: "Custom Advisor Expense",
+    amount: 500,
+    frequency: "monthly",
+    termType: "ongoing",
+    continuationStatus: "review"
+  }
+]);
+assert.equal(controller.lastMonthlyCashFlow.monthlyExpenses, 500, "editing record rows should recalculate the bar");
+assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 48975.07);
 
 fakeForm.controls.netAnnualIncome.value = "12000";
 fakeForm.controls.netAnnualIncome.dataset.calculatedValue = "12000";

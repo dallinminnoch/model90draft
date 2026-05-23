@@ -77,6 +77,34 @@
     return 0;
   }
 
+  const EXPENSE_RECORD_MONTHLY_FACTORS = Object.freeze({
+    monthly: 1,
+    annual: 1 / 12,
+    quarterly: 1 / 3,
+    semiannual: 1 / 6,
+    biweekly: 26 / 12,
+    weekly: 52 / 12
+  });
+
+  function calculateRecordMonthlyExpenseTotal(modelingData) {
+    const records = Array.isArray(modelingData?.expenseRecords) ? modelingData.expenseRecords : [];
+    return records.reduce(function (total, record) {
+      if (!record || typeof record !== "object" || record.isDebtPaymentExpense === true) {
+        return total;
+      }
+
+      const termType = String(record.termType || "").trim();
+      const frequency = String(record.frequency || "monthly").trim() || "monthly";
+      if (termType === "oneTime" || frequency === "oneTime") {
+        return total;
+      }
+
+      const amount = parseNumeric(record.amount);
+      const factor = EXPENSE_RECORD_MONTHLY_FACTORS[frequency];
+      return amount > 0 && Number.isFinite(factor) ? total + (amount * factor) : total;
+    }, 0);
+  }
+
   function deriveCurrentCoverage(record, modelingData, overrides) {
     if (Number.isFinite(overrides.currentCoverage)) {
       return Math.max(0, overrides.currentCoverage);
@@ -328,17 +356,11 @@
     const monthlySpending = Math.max(
       0,
       readNumberFromSources(record, modelingData, ["currentTotalMonthlySpending"])
-    ) || [
-      "monthlyHousingCost",
-      "utilitiesCost",
-      "foodCost",
-      "insuranceCost",
-      "transportationCost",
-      "travelDiscretionaryCost",
-      "subscriptionsCost"
-    ].reduce(function (sum, key) {
-      return sum + readNumberFromSources(record, modelingData, [key]);
-    }, 0);
+    ) || (
+      readNumberFromSources(record, modelingData, ["monthlyHousingCost"])
+      + readNumberFromSources(record, modelingData, ["utilitiesCost"])
+      + calculateRecordMonthlyExpenseTotal(modelingData)
+    );
     const totalDebt = [
       "mortgageBalance",
       "otherRealEstateLoans",

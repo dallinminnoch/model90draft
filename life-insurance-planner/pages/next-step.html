@@ -1519,16 +1519,6 @@
       const taxLiabilitiesField = form.elements.namedItem("taxLiabilities");
       const businessDebtField = form.elements.namedItem("businessDebt");
       const otherLoanObligationsField = form.elements.namedItem("otherLoanObligations");
-      const foodCostField = form.elements.namedItem("foodCost");
-      const insuranceCostField = form.elements.namedItem("insuranceCost");
-      const healthcareOutOfPocketCostField = form.elements.namedItem("healthcareOutOfPocketCost");
-      const transportationCostField = form.elements.namedItem("transportationCost");
-      const childcareDependentCareCostField = form.elements.namedItem("childcareDependentCareCost");
-      const phoneInternetCostField = form.elements.namedItem("phoneInternetCost");
-      const householdSuppliesCostField = form.elements.namedItem("householdSuppliesCost");
-      const otherHouseholdExpensesField = form.elements.namedItem("otherHouseholdExpenses");
-      const travelDiscretionaryCostField = form.elements.namedItem("travelDiscretionaryCost");
-      const subscriptionsCostField = form.elements.namedItem("subscriptionsCost");
       const childrenNeedingFundingField = form.elements.namedItem("childrenNeedingFunding");
       const projectedDependentsCountField = form.elements.namedItem("projectedDependentsCount");
       const sameEducationFundingField = form.elements.namedItem("sameEducationFunding");
@@ -3736,35 +3726,18 @@
         }
       }
 
-      function getScalarNonHousingOngoingSupportSourceData() {
-        return {
-          insuranceCost: getLensBlockSourceFieldValue(insuranceCostField),
-          healthcareOutOfPocketCost: getLensBlockSourceFieldValue(healthcareOutOfPocketCostField),
-          foodCost: getLensBlockSourceFieldValue(foodCostField),
-          transportationCost: getLensBlockSourceFieldValue(transportationCostField),
-          childcareDependentCareCost: getLensBlockSourceFieldValue(childcareDependentCareCostField),
-          phoneInternetCost: getLensBlockSourceFieldValue(phoneInternetCostField),
-          householdSuppliesCost: getLensBlockSourceFieldValue(householdSuppliesCostField),
-          otherHouseholdExpenses: getLensBlockSourceFieldValue(otherHouseholdExpensesField),
-          travelDiscretionaryCost: getLensBlockSourceFieldValue(travelDiscretionaryCostField),
-          subscriptionsCost: getLensBlockSourceFieldValue(subscriptionsCostField)
-        };
-      }
-
       function getRecordFirstNonHousingOngoingSupportSourceData() {
-        const scalarSourceData = getScalarNonHousingOngoingSupportSourceData();
         const expenseRecordsApi = window.LensApp?.lensAnalysis?.pmiExpenseRecords;
         if (
           !pmiExpenseRecordsController
           || typeof pmiExpenseRecordsController.serializeExpenseRecords !== "function"
           || typeof expenseRecordsApi?.createCommonExpenseSourceDataFromExpenseRecords !== "function"
         ) {
-          return scalarSourceData;
+          return {};
         }
 
         return expenseRecordsApi.createCommonExpenseSourceDataFromExpenseRecords(
-          pmiExpenseRecordsController.serializeExpenseRecords(),
-          scalarSourceData
+          pmiExpenseRecordsController.serializeExpenseRecords()
         );
       }
 
@@ -3830,14 +3803,13 @@
       function calculateMonthlyNonHousingEssentialSupportCostForTransitionSuggestions() {
         const sourceData = getRecordFirstNonHousingOngoingSupportSourceData();
         const sourceKeys = [
-          "insuranceCost",
-          "healthcareOutOfPocketCost",
-          "foodCost",
-          "transportationCost",
-          "childcareDependentCareCost",
-          "phoneInternetCost",
-          "householdSuppliesCost",
-          "otherHouseholdExpenses"
+          "monthlyOtherInsuranceCost",
+          "monthlyHealthcareOutOfPocketCost",
+          "monthlyFoodCost",
+          "monthlyTransportationCost",
+          "monthlyChildcareAndDependentCareCost",
+          "monthlyPhoneAndInternetCost",
+          "monthlyHouseholdSuppliesCost"
         ];
         const normalizedValues = sourceKeys.map((sourceKey) =>
           parseOptionalCurrencyLikeNumber(sourceData[sourceKey])
@@ -4632,37 +4604,7 @@
       });
 
       [
-        utilitiesCostField,
-        foodCostField,
-        insuranceCostField,
-        transportationCostField,
-        travelDiscretionaryCostField,
-        subscriptionsCostField
-      ].forEach((field) => {
-        if (!field || field instanceof RadioNodeList) {
-          return;
-        }
-
-        field.addEventListener("input", () => {
-          syncNonHousingOngoingSupportBlockOutput();
-          syncTransitionNeedsBlockOutput();
-        });
-        field.addEventListener("change", () => {
-          syncNonHousingOngoingSupportBlockOutput();
-          syncTransitionNeedsBlockOutput();
-        });
-        field.addEventListener("blur", () => {
-          syncNonHousingOngoingSupportBlockOutput();
-          syncTransitionNeedsBlockOutput();
-        });
-      });
-
-      [
-        healthcareOutOfPocketCostField,
-        childcareDependentCareCostField,
-        phoneInternetCostField,
-        householdSuppliesCostField,
-        otherHouseholdExpensesField
+        utilitiesCostField
       ].forEach((field) => {
         if (!field || field instanceof RadioNodeList) {
           return;

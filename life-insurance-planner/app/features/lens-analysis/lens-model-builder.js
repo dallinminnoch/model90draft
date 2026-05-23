@@ -1046,7 +1046,7 @@
     return Number.isFinite(factor) ? amount * factor : null;
   }
 
-  function applyCommonExpenseRecordSources(sourceData, fallbackSource) {
+  function applyCommonExpenseRecordSources(sourceData) {
     const records = Array.isArray(sourceData && sourceData.expenseRecords)
       ? sourceData.expenseRecords
       : [];
@@ -1057,33 +1057,22 @@
       const sourceField = getCommonExpenseSourceField(safeRecord.typeKey || safeRecord.libraryEntryKey);
       const metadata = safeRecord.metadata && typeof safeRecord.metadata === "object" ? safeRecord.metadata : {};
       const isStarterRecord = safeRecord.isDefaultExpense === true || normalizeString(metadata.source) === "starter-notebook";
-      const sourceKey = normalizeString(safeRecord.sourceKey)
-        || (isStarterRecord ? normalizeString(sourceField && sourceField.sourceKey) : null);
+      const ongoingSupportField = isStarterRecord
+        ? normalizeString(sourceField && sourceField.ongoingSupportField)
+        : null;
       const monthlyAmount = getExpenseRecordMonthlyAmount(safeRecord);
-      if (!sourceKey || monthlyAmount == null) {
+      if (!ongoingSupportField || monthlyAmount == null) {
         return;
       }
 
-      recordTotals[sourceKey] = (recordTotals[sourceKey] || 0) + monthlyAmount;
+      recordTotals[ongoingSupportField] = (recordTotals[ongoingSupportField] || 0) + monthlyAmount;
     });
 
-    return Object.assign({}, fallbackSource, recordTotals);
+    return recordTotals;
   }
 
   function createNonHousingSource(sourceData) {
-    const scalarFallback = {
-      insuranceCost: sourceData.insuranceCost,
-      healthcareOutOfPocketCost: sourceData.healthcareOutOfPocketCost,
-      foodCost: sourceData.foodCost,
-      transportationCost: sourceData.transportationCost,
-      childcareDependentCareCost: sourceData.childcareDependentCareCost,
-      phoneInternetCost: sourceData.phoneInternetCost,
-      householdSuppliesCost: sourceData.householdSuppliesCost,
-      otherHouseholdExpenses: sourceData.otherHouseholdExpenses,
-      travelDiscretionaryCost: sourceData.travelDiscretionaryCost,
-      subscriptionsCost: sourceData.subscriptionsCost
-    };
-    return applyCommonExpenseRecordSources(sourceData, scalarFallback);
+    return applyCommonExpenseRecordSources(sourceData);
   }
 
   function parseSameEducationFundingFlag(value) {

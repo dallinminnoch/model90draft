@@ -39,6 +39,8 @@ function createContext(options = {}) {
     "app/features/lens-analysis/asset-taxonomy.js",
     "app/features/lens-analysis/debt-taxonomy.js",
     "app/features/lens-analysis/debt-library.js",
+    "app/features/lens-analysis/expense-taxonomy.js",
+    "app/features/lens-analysis/expense-library.js",
     "app/features/lens-analysis/block-outputs.js",
     "app/features/lens-analysis/helpers/income-tax-calculations.js",
     "app/features/lens-analysis/helpers/housing-support-calculations.js",
@@ -89,14 +91,93 @@ function createSourceData(overrides = {}) {
     utilitiesCost: 400,
     monthlyMaintenanceRecommendation: 250,
     monthlyMaintenanceRecommendationManualOverride: true,
-    insuranceCost: 100,
-    healthcareOutOfPocketCost: 200,
-    foodCost: 800,
-    transportationCost: 500,
-    childcareDependentCareCost: 1000,
-    phoneInternetCost: 200,
-    householdSuppliesCost: 300,
-    otherHouseholdExpenses: 400,
+    expenseRecords: [
+      {
+        expenseId: "starter_expense_householdInsurancePremiums",
+        typeKey: "householdInsurancePremiums",
+        categoryKey: "insurancePremiums",
+        label: "Non-Housing Monthly Insurance",
+        amount: 100,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: "review",
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "householdInsurancePremiums" }
+      },
+      {
+        expenseId: "starter_expense_medicalOutOfPocket",
+        typeKey: "medicalOutOfPocket",
+        categoryKey: "ongoingHealthcare",
+        label: "Healthcare / Out-of-Pocket Medical",
+        amount: 200,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: "review",
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "medicalOutOfPocket" }
+      },
+      {
+        expenseId: "starter_expense_groceries",
+        typeKey: "groceries",
+        categoryKey: "foodGroceries",
+        label: "Monthly Food / Grocery Cost",
+        amount: 800,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: "continues",
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "groceries" }
+      },
+      {
+        expenseId: "starter_expense_householdTransportation",
+        typeKey: "householdTransportation",
+        categoryKey: "transportation",
+        label: "Monthly Transportation Cost",
+        amount: 500,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: "review",
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "householdTransportation" }
+      },
+      {
+        expenseId: "starter_expense_childcareExpense",
+        typeKey: "childcareExpense",
+        categoryKey: "childcare",
+        label: "Childcare / Dependent Care",
+        amount: 1000,
+        frequency: "monthly",
+        termType: "fixedYears",
+        continuationStatus: "continues",
+        termYears: 5,
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "childcareExpense" }
+      },
+      {
+        expenseId: "starter_expense_internetPhone",
+        typeKey: "internetPhone",
+        categoryKey: "utilities",
+        label: "Phone / Internet",
+        amount: 200,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: "continues",
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "internetPhone" }
+      },
+      {
+        expenseId: "starter_expense_householdConsumablesSupplies",
+        typeKey: "householdConsumablesSupplies",
+        categoryKey: "foodGroceries",
+        label: "Household Essentials / Supplies",
+        amount: 300,
+        frequency: "monthly",
+        termType: "ongoing",
+        continuationStatus: "continues",
+        isDefaultExpense: true,
+        metadata: { source: "starter-notebook", libraryEntryKey: "householdConsumablesSupplies" }
+      }
+    ],
     totalDebtPayoffNeedManualOverride: false,
     debtRecords: [
       {
@@ -484,19 +565,19 @@ assert.equal(payoffSupport.consumedByMethods, false);
 assert.equal(payoffSupport.mortgageTreatmentConsumed, false);
 assert.equal(payoffModel.ongoingSupport.monthlyMortgagePayment, 1800);
 assert.equal(payoffModel.ongoingSupport.monthlyHousingSupportCost, 5000);
-assert.equal(payoffModel.ongoingSupport.monthlyNonHousingEssentialSupportCost, 3500);
-assert.equal(payoffModel.ongoingSupport.monthlyTotalEssentialSupportCost, 8500);
-assert.equal(payoffModel.ongoingSupport.annualTotalEssentialSupportCost, 102000);
+assert.equal(payoffModel.ongoingSupport.monthlyNonHousingEssentialSupportCost, 3100);
+assert.equal(payoffModel.ongoingSupport.monthlyTotalEssentialSupportCost, 8100);
+assert.equal(payoffModel.ongoingSupport.annualTotalEssentialSupportCost, 97200);
 assert.equal(Object.prototype.hasOwnProperty.call(payoffModel.ongoingSupport, "treatedOngoingSupport"), false);
 assert.equal(payoffSupport.original.monthlyMortgagePayment, 1800);
 assert.equal(payoffSupport.original.monthlyHousingSupportCost, 5000);
-assert.equal(payoffSupport.original.monthlyNonHousingEssentialSupportCost, 3500);
+assert.equal(payoffSupport.original.monthlyNonHousingEssentialSupportCost, 3100);
 assert.equal(payoffSupport.mortgageAdjusted.monthlyMortgagePayment, 0);
 assert.equal(payoffSupport.mortgageAdjusted.monthlyAssociatedHousingCost, 1400);
 assert.equal(payoffSupport.mortgageAdjusted.monthlyHousingSupportCost, 1400);
-assert.equal(payoffSupport.mortgageAdjusted.monthlyNonHousingEssentialSupportCost, 3500);
-assert.equal(payoffSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost, 4900);
-assert.equal(payoffSupport.mortgageAdjusted.annualTotalEssentialSupportCost, 58800);
+assert.equal(payoffSupport.mortgageAdjusted.monthlyNonHousingEssentialSupportCost, 3100);
+assert.equal(payoffSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost, 4500);
+assert.equal(payoffSupport.mortgageAdjusted.annualTotalEssentialSupportCost, 54000);
 assert.equal(payoffSupport.associatedHousingCostsPreserved, true);
 assert.equal(payoffSupport.trace.treatmentSource, "treatedMortgagePaymentPlan");
 assert.equal(payoffSupport.trace.accountingSource, "lens-model-builder.treatedOngoingSupport");
@@ -516,8 +597,8 @@ assert.equal(continueSupport.status, "ready");
 assert.equal(continueSupport.mortgageAdjusted.monthlyMortgagePayment, 1234.56);
 assert.equal(continueSupport.mortgageAdjusted.monthlyAssociatedHousingCost, 1400);
 assertClose(continueSupport.mortgageAdjusted.monthlyHousingSupportCost, 2634.56);
-assertClose(continueSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost, 6134.56);
-assertClose(continueSupport.mortgageAdjusted.annualTotalEssentialSupportCost, 73614.72);
+assertClose(continueSupport.mortgageAdjusted.monthlyTotalEssentialSupportCost, 5734.56);
+assertClose(continueSupport.mortgageAdjusted.annualTotalEssentialSupportCost, 68814.72);
 assert.equal(continueSupport.trace.mortgageTreatmentRecalculated, false);
 
 installMortgagePaymentPlanStub(context, { finalMonthlyMortgagePayment: 700 });

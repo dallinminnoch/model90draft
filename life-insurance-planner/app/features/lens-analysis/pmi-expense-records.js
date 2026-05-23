@@ -12,17 +12,6 @@
 
   let generatedExpenseIdCounter = 0;
   let activeController = null;
-  const SCALAR_MONTHLY_CASH_FLOW_EXPENSE_FIELDS = Object.freeze([
-    "insuranceCost",
-    "foodCost",
-    "transportationCost",
-    "childcareDependentCareCost",
-    "phoneInternetCost",
-    "householdSuppliesCost",
-    "otherHouseholdExpenses",
-    "travelDiscretionaryCost",
-    "subscriptionsCost"
-  ]);
   const STARTER_EXPENSE_TYPE_KEYS = Object.freeze([
     "householdInsurancePremiums",
     "medicalOutOfPocket",
@@ -217,13 +206,8 @@
     return null;
   }
 
-  function getCommonExpenseSourceKeyForRecord(record) {
+  function getCommonExpenseOngoingSupportFieldForRecord(record) {
     const safeRecord = record && typeof record === "object" ? record : {};
-    const sourceKey = normalizeString(safeRecord.sourceKey);
-    if (SCALAR_MONTHLY_CASH_FLOW_EXPENSE_FIELDS.indexOf(sourceKey) !== -1 || sourceKey === "healthcareOutOfPocketCost") {
-      return sourceKey;
-    }
-
     const metadata = safeRecord.metadata && typeof safeRecord.metadata === "object" ? safeRecord.metadata : {};
     const isStarterRecord = safeRecord.isDefaultExpense === true || normalizeString(metadata.source) === "starter-notebook";
     if (!isStarterRecord) {
@@ -231,7 +215,7 @@
     }
 
     const sourceField = getCommonExpenseRecordSourceField(safeRecord.typeKey || safeRecord.libraryEntryKey);
-    return normalizeString(sourceField && sourceField.sourceKey) || null;
+    return normalizeString(sourceField && sourceField.ongoingSupportField) || null;
   }
 
   function getTaxonomyCategory(categoryKey) {
@@ -425,30 +409,6 @@
     return toMonthlyCashFlowAmount(safeRecord.amount, safeRecord.frequency);
   }
 
-  function getCommonExpenseRecordSourceKeysWithAmounts(records) {
-    const sourceKeys = {};
-    (Array.isArray(records) ? records : []).forEach(function (record) {
-      const monthlyAmount = getRecordMonthlyAmount(record);
-      if (monthlyAmount == null) {
-        return;
-      }
-
-      const sourceKey = getCommonExpenseSourceKeyForRecord(record);
-      if (sourceKey) {
-        sourceKeys[sourceKey] = true;
-      }
-    });
-    return sourceKeys;
-  }
-
-  function filterScalarExpenseRecordsForRecordSources(scalarRecords, expenseRecords) {
-    const recordOwnedSourceKeys = getCommonExpenseRecordSourceKeysWithAmounts(expenseRecords);
-    return (Array.isArray(scalarRecords) ? scalarRecords : []).filter(function (record) {
-      const sourceKey = normalizeString(record && record.sourceKey);
-      return !sourceKey || recordOwnedSourceKeys[sourceKey] !== true;
-    });
-  }
-
   function getDebtRecordMonthlyAmount(record) {
     const safeRecord = record && typeof record === "object" ? record : {};
     const paymentFrequency = normalizeString(safeRecord.paymentFrequency || safeRecord.frequency) || "monthly";
@@ -515,14 +475,7 @@
       trace.housingSource = normalizeString(housing.housingSource || housing.sourcePath) || "current-pmi-housing-payment";
     }
 
-    const expenseRecords = Array.isArray(safeInput.expenseRecords) ? safeInput.expenseRecords : [];
-    const scalarExpenseRecords = filterScalarExpenseRecordsForRecordSources(
-      Array.isArray(safeInput.scalarExpenseRecords) ? safeInput.scalarExpenseRecords : [],
-      expenseRecords
-    );
-    const expenseSourceRecords = []
-      .concat(scalarExpenseRecords)
-      .concat(expenseRecords);
+    const expenseSourceRecords = Array.isArray(safeInput.expenseRecords) ? safeInput.expenseRecords : [];
     const monthlyExpenses = expenseSourceRecords.reduce(function (total, record, index) {
       const monthlyAmount = getRecordMonthlyAmount(record);
       const safeRecord = record && typeof record === "object" ? record : {};
@@ -783,9 +736,9 @@
     }
 
     const termType = normalizeExpenseTermType(safeOptions.termType, safeEntry.defaultTermType || "ongoing");
-    const sourceKey = normalizeString(safeOptions.sourceKey)
-      || (safeOptions.isDefaultExpense === true ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey) : null)
-      || null;
+    const commonOngoingSupportField = safeOptions.isDefaultExpense === true
+      ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.ongoingSupportField)
+      : null;
 
     return {
       expenseId: normalizeString(safeOptions.expenseId) || generateExpenseId(),
@@ -804,7 +757,7 @@
         : null,
       endAge: null,
       endDate: null,
-      sourceKey,
+      sourceKey: normalizeString(safeOptions.sourceKey) || null,
       isDefaultExpense: safeOptions.isDefaultExpense === true,
       isScalarFieldOwned: false,
       isProtected: false,
@@ -815,7 +768,7 @@
         sourceType: "user-input",
         source: normalizeString(safeOptions.source) || "expense-library",
         libraryEntryKey: normalizeString(safeEntry.libraryEntryKey || typeKey),
-        commonExpenseSourceKey: sourceKey
+        commonExpenseOngoingSupportField: commonOngoingSupportField || null
       }
     };
   }
@@ -840,6 +793,7 @@
     }
 
     const metadata = clonePlainObject(safeRecord.metadata);
+    delete metadata.commonExpenseSourceKey;
     const termType = normalizeExpenseTermType(safeRecord.termType, entry && entry.defaultTermType);
     const continuationStatus = normalizeContinuationStatus(
       safeRecord.continuationStatus,
@@ -857,11 +811,7 @@
       termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(safeRecord.termYears) : null,
       endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(safeRecord.endAge) : null,
       endDate: termType === "untilDate" ? normalizeDateOnlyValue(safeRecord.endDate) : null,
-      sourceKey: normalizeString(safeRecord.sourceKey)
-        || (safeRecord.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey)
-          ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey)
-          : null)
-        || null,
+      sourceKey: normalizeString(safeRecord.sourceKey) || null,
       isDefaultExpense: safeRecord.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey),
       isScalarFieldOwned: false,
       isProtected: false,
@@ -873,10 +823,9 @@
         source: "expense-library",
         libraryEntryKey: normalizeString(typeKey)
       }, metadata, {
-        commonExpenseSourceKey: normalizeString(metadata.commonExpenseSourceKey)
-          || normalizeString(safeRecord.sourceKey)
+        commonExpenseOngoingSupportField: normalizeString(metadata.commonExpenseOngoingSupportField)
           || (safeRecord.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey)
-            ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey)
+            ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.ongoingSupportField)
             : null)
           || null,
         sourceIndex: Number.isInteger(index) ? index : null
@@ -888,14 +837,12 @@
     return STARTER_EXPENSE_TYPE_KEYS
       .map(function (typeKey) {
         const entry = findLibraryEntry(typeKey);
-        const sourceField = getCommonExpenseRecordSourceField(typeKey);
         return createExpenseRecordFromLibraryEntry(entry, {
           allowStarterEntry: true,
           expenseId: createStarterExpenseId(typeKey),
           label: STARTER_EXPENSE_LABELS[typeKey],
           frequency: "monthly",
           source: "starter-notebook",
-          sourceKey: sourceField && sourceField.sourceKey,
           isDefaultExpense: true
         });
       })
@@ -1061,7 +1008,7 @@
         <span>Additional Expenses</span>
       </div>
       <div class="field-group full-width pmi-expense-records-copy">
-        <p class="underwriting-helper-text">"Continues after death?" is saved for future support-treatment review. Review overlap with Household Spending to avoid duplicate entry.</p>
+        <p class="underwriting-helper-text">"Continues after death?" is saved for future support-treatment review. Review overlap with starter expense rows to avoid duplicate entry.</p>
       </div>
       <div class="pmi-expense-records-list" data-pmi-expense-records-list></div>
       <div class="field-group pmi-expense-records-add-field">
@@ -1171,60 +1118,22 @@
     return control && typeof control.value !== "undefined" ? normalizeString(control.value) : "";
   }
 
-  function readScalarMonthlyExpenseRecords(form) {
-    if (!form) {
-      return [];
-    }
-
-    // These fields are the visible monthly Expenses and Lifestyle rows. Housing and
-    // generated debt payments are read separately so the cash-flow bar does not double count them.
-    return SCALAR_MONTHLY_CASH_FLOW_EXPENSE_FIELDS.map(function (fieldName) {
-      const control = getNamedFormControl(form, [fieldName]);
-      const amount = readControlNumber(control);
-      if (amount == null || amount < 0) {
-        return null;
-      }
-
-      return {
-        expenseId: "scalar_" + fieldName,
-        label: fieldName,
-        amount,
-        frequency: "monthly",
-        termType: "ongoing",
-        sourceKey: fieldName,
-        isScalarExpense: true
-      };
-    }).filter(Boolean);
-  }
-
-  function createCommonExpenseSourceDataFromExpenseRecords(records, fallbackSourceData) {
-    const fallback = fallbackSourceData && typeof fallbackSourceData === "object" ? fallbackSourceData : {};
+  function createCommonExpenseSourceDataFromExpenseRecords(records) {
     const result = {};
     const recordTotals = {};
-    const sourceFields = getExpenseLibraryApi();
-    const commonFields = typeof sourceFields.getCommonExpenseRecordSourceFields === "function"
-      ? sourceFields.getCommonExpenseRecordSourceFields()
-      : [];
-
-    commonFields.forEach(function (field) {
-      const sourceKey = normalizeString(field && field.sourceKey);
-      if (sourceKey && Object.prototype.hasOwnProperty.call(fallback, sourceKey)) {
-        result[sourceKey] = fallback[sourceKey];
-      }
-    });
 
     (Array.isArray(records) ? records : []).forEach(function (record) {
-      const sourceKey = getCommonExpenseSourceKeyForRecord(record);
+      const ongoingSupportField = getCommonExpenseOngoingSupportFieldForRecord(record);
       const monthlyAmount = getRecordMonthlyAmount(record);
-      if (!sourceKey || monthlyAmount == null) {
+      if (!ongoingSupportField || monthlyAmount == null) {
         return;
       }
 
-      recordTotals[sourceKey] = (recordTotals[sourceKey] || 0) + monthlyAmount;
+      recordTotals[ongoingSupportField] = (recordTotals[ongoingSupportField] || 0) + monthlyAmount;
     });
 
-    Object.keys(recordTotals).forEach(function (sourceKey) {
-      result[sourceKey] = recordTotals[sourceKey];
+    Object.keys(recordTotals).forEach(function (ongoingSupportField) {
+      result[ongoingSupportField] = recordTotals[ongoingSupportField];
     });
 
     return result;
@@ -1235,8 +1144,7 @@
     if (!form) {
       return {
         income: {},
-        housing: {},
-        scalarExpenseRecords: []
+        housing: {}
       };
     }
 
@@ -1291,8 +1199,7 @@
       housing: {
         monthlyHousingCost,
         housingSource
-      },
-      scalarExpenseRecords: readScalarMonthlyExpenseRecords(form)
+      }
     };
   }
 
@@ -1313,7 +1220,7 @@
         <div class="profile-search-modal-header">
           <div>
             <h2 id="pmi-expense-library-title">Add Expense</h2>
-            <p>Add expenses not already captured in Household Spending. Healthcare bucket rows are included in LENS healthcare expenses automatically; recurring healthcare rows are projected with Healthcare Inflation, and one-time healthcare rows are included current-dollar. Non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them.</p>
+            <p>Add expenses not already captured by the starter expense rows. Healthcare bucket rows remain saved as healthcare-sensitive facts; non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them.</p>
           </div>
         </div>
         <div class="pmi-expense-library-search">
@@ -1866,9 +1773,12 @@
           const frequency = normalizeExpenseFrequency(record.frequency, "monthly");
           const continuationStatus = normalizeContinuationStatus(record.continuationStatus, "review");
           const isDefaultExpense = record.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey);
-          const sourceKey = normalizeString(record.sourceKey)
-            || (isDefaultExpense ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.sourceKey) : null)
-            || null;
+          const sourceKey = normalizeString(record.sourceKey) || null;
+          const commonOngoingSupportField = isDefaultExpense
+            ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.ongoingSupportField)
+            : null;
+          const metadata = clonePlainObject(record.metadata);
+          delete metadata.commonExpenseSourceKey;
 
           if ((!isDefaultExpense && amount == null) || amount < 0 || !categoryKey || !typeKey || !isValidExpenseCategory(categoryKey)) {
             return null;
@@ -1897,8 +1807,8 @@
               sourceType: "user-input",
               source: isDefaultExpense ? "starter-notebook" : "expense-library",
               libraryEntryKey: typeKey,
-              commonExpenseSourceKey: sourceKey
-            }, clonePlainObject(record.metadata))
+              commonExpenseOngoingSupportField: commonOngoingSupportField || null
+            }, metadata)
           };
         })
         .filter(Boolean);

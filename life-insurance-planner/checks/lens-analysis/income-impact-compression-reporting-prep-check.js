@@ -179,18 +179,20 @@ function createLensModel(overrides = {}) {
   };
 }
 
-function createGeneratedScalarHouseholdFact({
+function createCommonExpenseRecordFact({
   expenseFactId,
+  expenseRecordId,
   typeKey,
   categoryKey,
   compressionCategoryKey,
   label,
   amount,
-  sourceKey,
-  ownedByField
+  ownedByField,
+  sourceIndex = 0
 }) {
   return {
     expenseFactId,
+    expenseRecordId,
     typeKey,
     categoryKey,
     compressionCategoryKey: compressionCategoryKey || categoryKey,
@@ -201,15 +203,13 @@ function createGeneratedScalarHouseholdFact({
     monthlyAmount: amount,
     monthlyEquivalent: amount,
     annualizedAmount: amount * 12,
-    sourceKey,
+    sourceKey: "expenseRecords",
     sourceOwnedBy: "ongoingSupport",
-    sourcePath: `protectionModeling.data.${sourceKey}`,
+    sourcePath: `protectionModeling.data.expenseRecords[${sourceIndex}]`,
+    sourceIndex,
     ownedByField,
-    duplicateProtectionKey: `scalar-household-expense:${sourceKey}`,
-    generatedSourceLabel: "Household Spending",
-    isGeneratedExpense: true,
-    isScalarHouseholdExpense: true,
-    isCompressionEligibleSource: true,
+    isGeneratedExpense: false,
+    isCommonExpenseRecord: true,
     isFormulaEligible: false,
     isReadOnly: true
   };
@@ -447,97 +447,107 @@ assert.ok(
   "corrupt resolved compression policy should warn"
 );
 
-const generatedScalarHouseholdFacts = [
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_insurance_fact",
+const commonExpenseRecordFacts = [
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_insurance_fact",
+    expenseRecordId: "starter_expense_householdInsurancePremiums",
     typeKey: "householdInsurancePremiums",
     categoryKey: "insurancePremiums",
     label: "Household Insurance Premiums",
     amount: 1200,
-    sourceKey: "insuranceCost",
-    ownedByField: "monthlyOtherInsuranceCost"
+    ownedByField: "monthlyOtherInsuranceCost",
+    sourceIndex: 0
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_healthcare_fact",
-    typeKey: "healthcareOutOfPocketSupportDefault",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_healthcare_fact",
+    expenseRecordId: "starter_expense_medicalOutOfPocket",
+    typeKey: "medicalOutOfPocket",
     categoryKey: "otherLivingExpense",
     compressionCategoryKey: "ongoingHealthcare",
     label: "Healthcare / Out-of-Pocket Medical",
     amount: 300,
-    sourceKey: "healthcareOutOfPocketCost",
-    ownedByField: "monthlyHealthcareOutOfPocketCost"
+    ownedByField: "monthlyHealthcareOutOfPocketCost",
+    sourceIndex: 1
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_food_fact",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_food_fact",
+    expenseRecordId: "starter_expense_groceries",
     typeKey: "groceries",
     categoryKey: "foodGroceries",
     label: "Groceries",
     amount: 1800,
-    sourceKey: "foodCost",
-    ownedByField: "monthlyFoodCost"
+    ownedByField: "monthlyFoodCost",
+    sourceIndex: 2
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_transportation_fact",
-    typeKey: "fuel",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_transportation_fact",
+    expenseRecordId: "starter_expense_householdTransportation",
+    typeKey: "householdTransportation",
     categoryKey: "transportation",
-    label: "Fuel",
+    label: "Household Transportation",
     amount: 700,
-    sourceKey: "transportationCost",
-    ownedByField: "monthlyTransportationCost"
+    ownedByField: "monthlyTransportationCost",
+    sourceIndex: 3
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_childcare_fact",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_childcare_fact",
+    expenseRecordId: "starter_expense_childcareExpense",
     typeKey: "childcareExpense",
     categoryKey: "childcare",
     label: "Childcare",
     amount: 400,
-    sourceKey: "childcareDependentCareCost",
-    ownedByField: "monthlyChildcareAndDependentCareCost"
+    ownedByField: "monthlyChildcareAndDependentCareCost",
+    sourceIndex: 4
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_phone_internet_fact",
-    typeKey: "internet",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_phone_internet_fact",
+    expenseRecordId: "starter_expense_internetPhone",
+    typeKey: "internetPhone",
     categoryKey: "utilities",
-    label: "Internet",
+    label: "Internet / Phone",
     amount: 300,
-    sourceKey: "phoneInternetCost",
-    ownedByField: "monthlyPhoneAndInternetCost"
+    ownedByField: "monthlyPhoneAndInternetCost",
+    sourceIndex: 5
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_household_supplies_fact",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_household_supplies_fact",
+    expenseRecordId: "starter_expense_householdConsumablesSupplies",
     typeKey: "householdConsumablesSupplies",
     categoryKey: "foodGroceries",
     label: "Household Consumables & Supplies",
     amount: 400,
-    sourceKey: "householdSuppliesCost",
-    ownedByField: "monthlyHouseholdSuppliesCost"
+    ownedByField: "monthlyHouseholdSuppliesCost",
+    sourceIndex: 6
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_other_household_fact",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_other_household_fact",
+    expenseRecordId: "expense_other_household",
     typeKey: "otherHouseholdExpenseDefault",
     categoryKey: "otherLivingExpense",
     label: "Other Household Expenses",
     amount: 125,
-    sourceKey: "otherHouseholdExpenses",
-    ownedByField: "monthlyOtherHouseholdExpenses"
+    ownedByField: "monthlyOtherHouseholdExpenses",
+    sourceIndex: 7
   }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_travel_fact",
-    typeKey: "vacationsTravel",
-    categoryKey: "travelVacations",
-    label: "Vacations / Travel",
-    amount: 800,
-    sourceKey: "travelDiscretionaryCost",
-    ownedByField: "monthlyTravelAndDiscretionaryCost"
-  }),
-  createGeneratedScalarHouseholdFact({
-    expenseFactId: "scalar_subscriptions_fact",
-    typeKey: "streamingDigitalSubscriptions",
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_travel_fact",
+    expenseRecordId: "starter_expense_entertainmentRecreation",
+    typeKey: "entertainmentRecreation",
     categoryKey: "discretionaryLifestyle",
-    label: "Streaming & Digital Subscriptions",
+    label: "Entertainment / Travel",
+    amount: 800,
+    ownedByField: "monthlyTravelAndDiscretionaryCost",
+    sourceIndex: 8
+  }),
+  createCommonExpenseRecordFact({
+    expenseFactId: "record_subscriptions_fact",
+    expenseRecordId: "starter_expense_recurringPersonalSpendingDefault",
+    typeKey: "recurringPersonalSpendingDefault",
+    categoryKey: "discretionaryLifestyle",
+    label: "Recurring Personal Spending",
     amount: 450,
-    sourceKey: "subscriptionsCost",
-    ownedByField: "monthlySubscriptionsCost"
+    ownedByField: "monthlySubscriptionsCost",
+    sourceIndex: 9
   }),
   {
     expenseFactId: "itemized_generated_debt_fact",
@@ -566,7 +576,7 @@ const generatedScalarHouseholdFacts = [
     isFinalExpenseComponent: true
   }
 ];
-const itemizedScalarLensModel = createLensModel({
+const itemizedCommonExpenseLensModel = createLensModel({
   ongoingSupport: {
     monthlyOtherInsuranceCost: 1200,
     monthlyHealthcareOutOfPocketCost: 300,
@@ -580,59 +590,59 @@ const itemizedScalarLensModel = createLensModel({
     monthlySubscriptionsCost: 450
   },
   expenseFacts: {
-    expenses: generatedScalarHouseholdFacts
+    expenses: commonExpenseRecordFacts
   }
 });
-const itemizedScalar = prepareIncomeImpactCompressionReportingInputs({
-  lensModel: itemizedScalarLensModel,
+const itemizedCommonExpenses = prepareIncomeImpactCompressionReportingInputs({
+  lensModel: itemizedCommonExpenseLensModel,
   options: {
     householdContext: "survivor"
   }
 });
 assert.equal(
-  gapCodes(itemizedScalar.dataGaps).includes("scalar-household-expenses-not-itemized-for-compression"),
+  gapCodes(itemizedCommonExpenses.dataGaps).includes("scalar-household-expenses-not-itemized-for-compression"),
   false,
-  "prep output should clear scalar household itemization gap when every nonzero scalar field is source-linked"
+  "prep output should clear itemization gap when every nonzero common expense field is source-linked"
 );
 assert.equal(
-  gapCodes(itemizedScalar.compressionReport.dataGaps).includes("scalar-household-expenses-not-itemized-for-compression"),
+  gapCodes(itemizedCommonExpenses.compressionReport.dataGaps).includes("scalar-household-expenses-not-itemized-for-compression"),
   false,
-  "compressionReport should not carry scalar household itemization gap for fully itemized scalar facts"
+  "compressionReport should not carry itemization gap for fully itemized common expense facts"
 );
 [
   "groceries",
   "householdConsumablesSupplies",
-  "vacationsTravel",
-  "streamingDigitalSubscriptions"
+  "entertainmentRecreation"
 ].forEach((typeKey) => {
-  const item = byType(itemizedScalar.compressionReport.opportunities, typeKey);
-  assert.ok(item, `${typeKey} scalar fact should create a compression opportunity when above threshold`);
-  assert.equal(item.isScalarHouseholdExpense, true);
+  const item = byType(itemizedCommonExpenses.compressionReport.opportunities, typeKey);
+  assert.ok(item, `${typeKey} common expense fact should create a compression opportunity when above threshold`);
+  assert.equal(item.isScalarHouseholdExpense, false);
   assert.equal(item.sourceOwnedBy, "ongoingSupport");
 });
 [
-  "healthcareOutOfPocketSupportDefault",
+  "medicalOutOfPocket",
   "childcareExpense",
   "householdInsurancePremiums",
-  "fuel",
-  "internet"
+  "householdTransportation",
+  "internetPhone",
+  "recurringPersonalSpendingDefault"
 ].forEach((typeKey) => {
   assert.equal(
-    byType(itemizedScalar.compressionReport.opportunities, typeKey),
+    byType(itemizedCommonExpenses.compressionReport.opportunities, typeKey),
     undefined,
-    `${typeKey} scalar fact should be visible but not auto-compressible`
+    `${typeKey} common expense fact should be visible but not auto-compressible`
   );
   assert.ok(
-    byType(itemizedScalar.compressionReport.advisorReviewItems, typeKey)
-      || byType(itemizedScalar.compressionReport.protectedItems, typeKey)
-      || byType(itemizedScalar.compressionReport.excludedItems, typeKey),
+    byType(itemizedCommonExpenses.compressionReport.advisorReviewItems, typeKey)
+      || byType(itemizedCommonExpenses.compressionReport.protectedItems, typeKey)
+      || byType(itemizedCommonExpenses.compressionReport.excludedItems, typeKey),
     `${typeKey} should route to protected, excluded, or advisor-review output`
   );
 });
-assert.ok(byType(itemizedScalar.compressionReport.excludedItems, "autoLoanPayment"), "generated debt payment should remain excluded with scalar facts present");
-assert.ok(byType(itemizedScalar.compressionReport.advisorReviewItems, "funeralBurialEstimate"), "one-time final expense should remain review/data-gap classified");
+assert.ok(byType(itemizedCommonExpenses.compressionReport.excludedItems, "autoLoanPayment"), "generated debt payment should remain excluded with common expense facts present");
+assert.ok(byType(itemizedCommonExpenses.compressionReport.advisorReviewItems, "funeralBurialEstimate"), "one-time final expense should remain review/data-gap classified");
 assert.ok(
-  gapCodes(itemizedScalar.compressionReport.dataGaps).includes("expense-frequency-review-required"),
+  gapCodes(itemizedCommonExpenses.compressionReport.dataGaps).includes("expense-frequency-review-required"),
   "one-time final expense review gap should remain unchanged"
 );
 

@@ -150,10 +150,8 @@ assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],
 });
 
 [
-  'body[data-page="next-step"] .pmi-scalar-expenses-table',
   'body[data-page="next-step"] .pmi-debt-records-table',
   'body[data-page="next-step"] .pmi-expense-records-table',
-  'body[data-page="next-step"] .pmi-scalar-expense-row input',
   'body[data-page="next-step"] .pmi-expense-record-type-label'
 ].forEach((selector) => {
   assert.match(componentsCss, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `components.css should refine actual PMI table/control styling for ${selector}.`);

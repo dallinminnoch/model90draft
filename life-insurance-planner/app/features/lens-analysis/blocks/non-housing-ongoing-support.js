@@ -13,16 +13,16 @@
   const NON_HOUSING_ONGOING_SUPPORT_BLOCK_VERSION = 1;
 
   const NON_HOUSING_ONGOING_SUPPORT_BLOCK_SOURCE_FIELDS = Object.freeze({
-    monthlyOtherInsuranceCost: "insuranceCost",
-    monthlyHealthcareOutOfPocketCost: "healthcareOutOfPocketCost",
-    monthlyFoodCost: "foodCost",
-    monthlyTransportationCost: "transportationCost",
-    monthlyChildcareAndDependentCareCost: "childcareDependentCareCost",
-    monthlyPhoneAndInternetCost: "phoneInternetCost",
-    monthlyHouseholdSuppliesCost: "householdSuppliesCost",
-    monthlyOtherHouseholdExpenses: "otherHouseholdExpenses",
-    monthlyTravelAndDiscretionaryCost: "travelDiscretionaryCost",
-    monthlySubscriptionsCost: "subscriptionsCost"
+    monthlyOtherInsuranceCost: "monthlyOtherInsuranceCost",
+    monthlyHealthcareOutOfPocketCost: "monthlyHealthcareOutOfPocketCost",
+    monthlyFoodCost: "monthlyFoodCost",
+    monthlyTransportationCost: "monthlyTransportationCost",
+    monthlyChildcareAndDependentCareCost: "monthlyChildcareAndDependentCareCost",
+    monthlyPhoneAndInternetCost: "monthlyPhoneAndInternetCost",
+    monthlyHouseholdSuppliesCost: "monthlyHouseholdSuppliesCost",
+    monthlyOtherHouseholdExpenses: "monthlyOtherHouseholdExpenses",
+    monthlyTravelAndDiscretionaryCost: "monthlyTravelAndDiscretionaryCost",
+    monthlySubscriptionsCost: "monthlySubscriptionsCost"
   });
 
   const NON_HOUSING_ONGOING_SUPPORT_BLOCK_OUTPUT_CONTRACT = Object.freeze({

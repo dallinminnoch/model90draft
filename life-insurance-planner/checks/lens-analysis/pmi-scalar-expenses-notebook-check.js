@@ -81,6 +81,7 @@ function assertCanonicalPageRecordFirst(pagePath, nextHeading) {
   SCALAR_FIELDS.forEach(function (field) {
     assert.doesNotMatch(section, new RegExp(`name="${escapeRegex(field.name)}"`), `${field.name} should not render as a visible scalar input in canonical PMI.`);
     assert.doesNotMatch(section, new RegExp(`id="${escapeRegex(field.id)}"`), `${field.id} should not render as a visible scalar input in canonical PMI.`);
+    assert.doesNotMatch(source, new RegExp(escapeRegex(field.name)), `${field.name} should not remain in canonical PMI page script or markup.`);
   });
 
   STARTER_RECORD_FIELDS.forEach(function (field) {

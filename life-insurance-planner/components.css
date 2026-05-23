@@ -3426,15 +3426,6 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
   transform: translateY(-1px);
 }
 
-body[data-page="next-step"] .pmi-scalar-expenses-notebook {
-  gap: 0.9rem;
-}
-
-body[data-page="next-step"] .pmi-scalar-expenses-section {
-  gap: 0.52rem;
-}
-
-body[data-page="next-step"] .pmi-scalar-expenses-section-title,
 body[data-page="next-step"] .pmi-expense-records-heading span {
   display: flex;
   align-items: center;
@@ -3447,7 +3438,6 @@ body[data-page="next-step"] .pmi-expense-records-heading span {
   text-transform: uppercase;
 }
 
-body[data-page="next-step"] .pmi-scalar-expenses-section-title::after,
 body[data-page="next-step"] .pmi-expense-records-heading span::after {
   content: "";
   height: 1px;
@@ -3455,7 +3445,6 @@ body[data-page="next-step"] .pmi-expense-records-heading span::after {
   background: #eef1f6;
 }
 
-body[data-page="next-step"] .pmi-scalar-expenses-table,
 body[data-page="next-step"] .pmi-debt-records-table,
 body[data-page="next-step"] .pmi-expense-records-table {
   border-color: #e5e7eb;
@@ -3464,7 +3453,6 @@ body[data-page="next-step"] .pmi-expense-records-table {
   box-shadow: none;
 }
 
-body[data-page="next-step"] .pmi-scalar-expenses-header,
 body[data-page="next-step"] .pmi-debt-records-header,
 body[data-page="next-step"] .pmi-expense-records-header {
   padding: 0.45rem 0.85rem;
@@ -3477,7 +3465,6 @@ body[data-page="next-step"] .pmi-expense-records-header {
   text-transform: uppercase;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-row,
 body[data-page="next-step"] .pmi-debt-record-row,
 body[data-page="next-step"] .pmi-expense-record-row {
   padding: 0.48rem 0.85rem;
@@ -3485,13 +3472,11 @@ body[data-page="next-step"] .pmi-expense-record-row {
   transition: background 0.1s ease;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-row:hover,
 body[data-page="next-step"] .pmi-debt-record-row:hover,
 body[data-page="next-step"] .pmi-expense-record-row:hover {
   background: #f9fafb;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-label-cell label,
 body[data-page="next-step"] .pmi-debt-record-type-label,
 body[data-page="next-step"] .pmi-expense-record-type-label {
   color: #374151;
@@ -3499,7 +3484,6 @@ body[data-page="next-step"] .pmi-expense-record-type-label {
   font-weight: 500;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-readonly,
 body[data-page="next-step"] .pmi-expense-record-readonly-value,
 body[data-page="next-step"] .pmi-expense-record-category-label,
 body[data-page="next-step"] .pmi-expense-record-muted {
@@ -3508,7 +3492,6 @@ body[data-page="next-step"] .pmi-expense-record-muted {
   font-weight: 500;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-row input,
 body[data-page="next-step"] .pmi-debt-record-row input,
 body[data-page="next-step"] .pmi-debt-record-row select,
 body[data-page="next-step"] .pmi-expense-record-row input,
@@ -3523,7 +3506,6 @@ body[data-page="next-step"] .pmi-expense-record-row select {
   font-weight: 520;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-row input:focus,
 body[data-page="next-step"] .pmi-debt-record-row input:focus,
 body[data-page="next-step"] .pmi-debt-record-row select:focus,
 body[data-page="next-step"] .pmi-expense-record-row input:focus,
@@ -3534,7 +3516,6 @@ body[data-page="next-step"] .pmi-expense-record-row select:focus {
   background: #ffffff;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-currency,
 body[data-page="next-step"] .pmi-debt-record-compact-currency,
 body[data-page="next-step"] .pmi-expense-record-compact-currency {
   overflow: hidden;
@@ -3543,7 +3524,6 @@ body[data-page="next-step"] .pmi-expense-record-compact-currency {
   background: #f9fafb;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-currency:focus-within,
 body[data-page="next-step"] .pmi-debt-record-compact-currency:focus-within,
 body[data-page="next-step"] .pmi-expense-record-compact-currency:focus-within {
   border-color: #3b82f6;
@@ -3551,7 +3531,6 @@ body[data-page="next-step"] .pmi-expense-record-compact-currency:focus-within {
   background: #ffffff;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-currency input,
 body[data-page="next-step"] .pmi-debt-record-compact-currency input,
 body[data-page="next-step"] .pmi-expense-record-compact-currency input {
   border: 0;
@@ -3560,7 +3539,6 @@ body[data-page="next-step"] .pmi-expense-record-compact-currency input {
   box-shadow: none;
 }
 
-body[data-page="next-step"] .pmi-scalar-expense-currency .profile-currency-suffix,
 body[data-page="next-step"] .pmi-debt-record-compact-currency .profile-currency-suffix,
 body[data-page="next-step"] .pmi-expense-record-compact-currency .profile-currency-suffix {
   right: 0.42rem;
