@@ -2150,15 +2150,15 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 .pmi-debt-record-row {
   display: grid;
   grid-template-columns:
-    minmax(0, 1.05fr)
-    minmax(0, 1.1fr)
+    minmax(2.5rem, 0.34fr)
+    minmax(0, 1.35fr)
+    minmax(0, 0.68fr)
+    minmax(0, 0.78fr)
+    minmax(0, 0.68fr)
+    minmax(0, 0.62fr)
     minmax(0, 0.58fr)
-    minmax(0, 0.72fr)
-    minmax(0, 0.58fr)
-    minmax(0, 0.56fr)
-    minmax(0, 0.52fr)
-    minmax(0, 0.48fr)
-    minmax(2.4rem, 0.28fr);
+    minmax(0, 0.54fr)
+    minmax(1.55rem, 0.16fr);
   gap: 0.25rem;
   align-items: center;
 }
@@ -2180,6 +2180,14 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   overflow-wrap: anywhere;
 }
 
+.pmi-debt-record-interest-rate-header {
+  position: relative;
+  z-index: 1;
+  width: max-content;
+  overflow: visible;
+  white-space: nowrap;
+}
+
 .pmi-debt-record-row {
   padding: 0.32rem 0.36rem;
   border-bottom: 1px solid #edf0f5;
@@ -2197,14 +2205,48 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   opacity: 0.72;
 }
 
-.pmi-debt-record-type-label {
-  display: block;
+.pmi-debt-record-type-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.pmi-debt-record-type-chip {
+  position: relative;
+  display: inline-flex;
+  width: 1.65rem;
+  height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   overflow: hidden;
-  color: #30384a;
-  font-size: 0.82rem;
-  font-weight: 750;
-  line-height: 1.2;
-  text-overflow: ellipsis;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+}
+
+.pmi-debt-record-type-chip:hover,
+.pmi-debt-record-type-chip:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+
+.pmi-debt-record-type-icon {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%);
+}
+
+.pmi-debt-record-type-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -2272,16 +2314,24 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 }
 
 .pmi-asset-record-remove.pmi-debt-record-remove {
-  width: 1.45rem;
-  height: 1.45rem;
+  display: inline-flex;
+  width: 1.12rem;
+  height: 1.12rem;
+  align-items: center;
+  justify-content: center;
   border-radius: 0.18rem;
   font-size: 0;
   line-height: 1;
 }
 
 .pmi-asset-record-remove.pmi-debt-record-remove::before {
-  content: "x";
-  font-size: 0.95rem;
+  content: "";
+  display: block;
+  width: 0.92rem;
+  height: 0.92rem;
+  background: currentColor;
+  -webkit-mask: url("Images/close.svg") center / contain no-repeat;
+  mask: url("Images/close.svg") center / contain no-repeat;
 }
 
 body[data-page="next-step"] .lens-workflow-pane {
@@ -3471,6 +3521,54 @@ body[data-page="next-step"] .pmi-expense-record-category-label {
   background: #f9fafb;
 }
 
+body[data-page="next-step"] .pmi-debt-record-row input,
+body[data-page="next-step"] .pmi-debt-record-row select {
+  height: 1.72rem !important;
+  min-height: 1.72rem !important;
+  padding: 0.24rem 0.34rem !important;
+  border-radius: 0.26rem;
+  font-size: 0.68rem !important;
+  line-height: 1.08;
+}
+
+body[data-page="next-step"] .pmi-debt-record-row select {
+  padding-right: 0.85rem !important;
+}
+
+body[data-page="next-step"] .pmi-debt-record-compact-currency input {
+  padding-right: 1.02rem !important;
+}
+
+body[data-page="next-step"] .pmi-debt-record-compact-currency .profile-currency-suffix {
+  right: 0.28rem !important;
+  font-size: 0.48rem !important;
+}
+
+body[data-page="next-step"] .pmi-debt-record-type-label {
+  padding: 0.1rem 0.34rem !important;
+  border-radius: 0.22rem;
+  font-size: 0.68rem !important;
+  line-height: 1.08;
+}
+
+body[data-page="next-step"] .pmi-debt-record-type-chip {
+  width: 1.72rem;
+  height: 1.72rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+body[data-page="next-step"] .pmi-debt-record-type-chip:hover,
+body[data-page="next-step"] .pmi-debt-record-type-chip:focus-visible {
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-debt-record-type-icon {
+  width: 1.02rem;
+  height: 1.02rem;
+}
+
 body[data-page="next-step"] .pmi-expense-record-row-generated {
   background: rgba(37, 99, 235, 0.025);
 }
@@ -3501,6 +3599,44 @@ body[data-page="next-step"] .pmi-asset-record-remove.pmi-expense-record-remove {
   border-radius: 0.34rem;
   background: #ffffff;
   color: #9ca3af;
+}
+
+body[data-page="next-step"] .pmi-asset-record-remove.pmi-debt-record-remove {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #9ca3af;
+}
+
+body[data-page="next-step"] .pmi-asset-record-remove.pmi-debt-record-remove:hover,
+body[data-page="next-step"] .pmi-asset-record-remove.pmi-debt-record-remove:focus-visible {
+  color: #111827;
+  outline: 0;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] #pmi-housing .field-group--centered-result .profile-currency-field {
+  justify-self: auto !important;
+  width: min(100%, 24rem) !important;
+}
+
+body[data-page="next-step"] #pmi-debts .debt-payoff-total-group {
+  justify-self: stretch !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
+}
+
+body[data-page="next-step"] #pmi-debts .debt-payoff-total-group > label {
+  width: 100% !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+body[data-page="next-step"] #pmi-debts .debt-payoff-total-group .profile-currency-field {
+  justify-self: auto !important;
+  width: min(100%, 24rem) !important;
 }
 
 @media (max-width: 900px) {

@@ -53,6 +53,18 @@ const stylesCss = readRepoFile("styles.css");
   assert.match(pageSource, new RegExp(`id="${id}"`), `PMI page should expose #${id} section anchor.`);
 });
 
+const expensesCardIndex = pageSource.indexOf('<section class="profile-form-section" id="pmi-expenses">');
+const ongoingSupportGroupIndex = pageSource.indexOf("<h2>Ongoing Support</h2>");
+const assetsCardIndex = pageSource.indexOf('id="pmi-assets"');
+assert.ok(expensesCardIndex !== -1, "Expenses and Lifestyle should render as its own top-level PMI card.");
+assert.ok(ongoingSupportGroupIndex > expensesCardIndex, "Ongoing Support should start after the standalone Expenses and Lifestyle card.");
+assert.ok(assetsCardIndex > ongoingSupportGroupIndex, "Assets should remain inside the Ongoing Support group after the group heading.");
+assert.doesNotMatch(
+  pageSource,
+  /<section class="profile-form-section profile-form-subsection" id="pmi-expenses">/,
+  "Expenses and Lifestyle should not remain nested as an Ongoing Support subsection."
+);
+
 const formStartIndex = pageSource.indexOf('id="protection-modeling-form"');
 const formEndIndex = pageSource.indexOf("</form>", formStartIndex);
 const cashFlowRootIndex = pageSource.indexOf("data-pmi-expense-cashflow-root");
@@ -91,6 +103,11 @@ assert.match(componentsCss, /body\[data-page="next-step"\] \.lens-workflow-pane\
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header\s*{[\s\S]*position:\s*sticky;/, "PMI banner should remain visible while the page scrolls.");
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header\s*{[\s\S]*top:\s*0;/, "PMI banner should sit against the top of the scrollable content area.");
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header \.confidential-calculator-toggle\s*{[\s\S]*width:\s*1\.85rem;/, "PMI banner calculator icon should be compact.");
+assert.match(
+  componentsCss,
+  /body\[data-page="next-step"\]\s+#pmi-housing\s+\.field-group--centered-result\s+\.profile-currency-field\s*{[\s\S]*justify-self:\s*auto\s*!important;[\s\S]*width:\s*min\(100%,\s*24rem\)\s*!important;/,
+  "Calculated Monthly Burden should use the same narrow result field width as Total Debt Payoff Need."
+);
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="date-of-birth"\]\s*{[\s\S]*justify-content:\s*flex-end;/, "Date of birth should align to the right edge of the banner.");
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],[\s\S]*\.pmi-file-field\[data-pmi-file-field="household"\]\s*{[\s\S]*justify-content:\s*center;/, "Case ref and household should be spaced through the middle of the banner.");
 

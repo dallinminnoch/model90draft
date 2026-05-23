@@ -387,19 +387,19 @@
                   <h2>Housing Costs</h2>
                 </div>
                 <div class="form-grid">
+              <div class="field-group full-width pmi-reference-divider pmi-reference-divider--housing-status" aria-hidden="true">
+                <span>Housing Status</span>
+              </div>
               <div class="field-group">
-                <label for="housing-status">Housing Status</label>
                 <input id="housing-status" name="housingStatus" type="hidden" value="">
-                <div class="profile-form-toggle-group" data-housing-status-group>
+                <div class="profile-form-toggle-group" data-housing-status-group role="group" aria-label="Housing Status">
                   <button class="profile-form-toggle-button" type="button" data-housing-status-toggle data-housing-status-value="Homeowner">Homeowner</button>
                   <button class="profile-form-toggle-button" type="button" data-housing-status-toggle data-housing-status-value="Owns Free and Clear">Owns Free and Clear</button>
                   <button class="profile-form-toggle-button" type="button" data-housing-status-toggle data-housing-status-value="Renter">Renter</button>
                 </div>
               </div>
-              <div class="field-group full-width income-calculation-circle-row" aria-hidden="true">
-                <span class="income-calculation-circle" data-housing-status-circle="Homeowner" title="Homeowner"></span>
-                <span class="income-calculation-circle" data-housing-status-circle="Owns Free and Clear" title="Owns Free and Clear"></span>
-                <span class="income-calculation-circle" data-housing-status-circle="Renter" title="Renter"></span>
+              <div class="field-group full-width pmi-reference-divider pmi-reference-divider--housing-details" aria-hidden="true">
+                <span>Housing Details</span>
               </div>
               <div class="field-group" data-housing-visibility="renter">
                 <label for="monthly-housing-cost">All-In Monthly Rent</label>
@@ -524,16 +524,11 @@
                 </div>
               </section>
 
-          <section class="profile-form-section profile-form-section-group">
+          <section class="profile-form-section" id="pmi-debts">
             <div class="profile-form-section-heading">
-              <h2>Debt Payoff &amp; Ongoing Support</h2>
+              <h2>Debts and Liabilities</h2>
             </div>
-            <div class="profile-form-section-group-stack">
-              <section class="profile-form-section profile-form-subsection" id="pmi-debts">
-                <div class="profile-form-section-heading">
-                  <h2>Debts and Liabilities</h2>
-                </div>
-                <div class="form-grid">
+            <div class="form-grid">
               <div class="field-group full-width" data-pmi-debt-records-root></div>
               <div class="field-group full-width pmi-debt-scalar-compatibility-fields" data-pmi-scalar-debt-compatibility hidden>
                 <input id="other-real-estate-loans" name="otherRealEstateLoans" type="hidden" data-pmi-scalar-debt-compatibility-field>
@@ -551,10 +546,10 @@
                   <input id="total-debt-payoff-need" name="totalDebtPayoffNeed" type="text" inputmode="decimal" readonly>
                 </div>
               </div>
-                </div>
-              </section>
+            </div>
+          </section>
 
-              <section class="profile-form-section profile-form-subsection" id="pmi-expenses">
+          <section class="profile-form-section" id="pmi-expenses">
                 <div class="profile-form-section-heading">
                   <h2>Expenses and Lifestyle</h2>
                 </div>
@@ -757,6 +752,11 @@
                 </div>
               </section>
 
+          <section class="profile-form-section profile-form-section-group">
+            <div class="profile-form-section-heading">
+              <h2>Ongoing Support</h2>
+            </div>
+            <div class="profile-form-section-group-stack">
               <section class="profile-form-section" id="pmi-assets">
                 <div class="profile-form-section-heading">
                   <h2>Assets and Offset Planning</h2>
@@ -2765,9 +2765,13 @@
       function syncDeductionMethodButtons(role) {
         const methodField = role === "spouse" ? spouseDeductionMethodField : deductionMethodField;
         const group = form.querySelector(`[data-deduction-method-group="${role}"]`);
-        const currentValue = getDeductionMethodValue(methodField, "standard");
+        const currentValue = methodField && !(methodField instanceof RadioNodeList)
+          ? String(methodField.value || "").trim().toLowerCase()
+          : "";
         group?.querySelectorAll("[data-deduction-method-toggle]").forEach((button) => {
-          button.classList.toggle("is-active", button.getAttribute("data-deduction-method-value") === currentValue);
+          const isActive = button.getAttribute("data-deduction-method-value") === currentValue;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
       }
 
@@ -3087,9 +3091,6 @@
         }
 
         const selectedHousingStatus = String(housingStatusField.value || "").trim();
-        form.querySelectorAll("[data-housing-status-circle]").forEach((circle) => {
-          circle.classList.toggle("is-active", circle.getAttribute("data-housing-status-circle") === selectedHousingStatus);
-        });
         form.querySelectorAll("[data-housing-status-toggle]").forEach((button) => {
           const isActive = button.getAttribute("data-housing-status-value") === selectedHousingStatus;
           button.classList.toggle("is-active", isActive);
@@ -5002,7 +5003,8 @@
             return;
           }
 
-          field.value = value;
+          const currentValue = String(field.value || "").trim().toLowerCase();
+          field.value = currentValue === value ? "" : value;
           syncDeductionMethodState();
           syncTaxableIncomeFields();
           syncAllTaxDerivedFields();
@@ -5036,7 +5038,8 @@
               return;
             }
 
-            housingStatusField.value = button.getAttribute("data-housing-status-value") || "";
+            const value = button.getAttribute("data-housing-status-value") || "";
+            housingStatusField.value = housingStatusField.value === value ? "" : value;
             syncHousingStatusState();
           });
         });

@@ -107,6 +107,53 @@ function assertFieldOptional(rowMarkup, fieldAttribute, label) {
   assert.doesNotMatch(rowMarkup, new RegExp(fieldAttribute + '[^>]*disabled', "i"), `${label} should remain editable`);
 }
 
+function assertIconPathExists(src, label) {
+  const normalizedSrc = String(src || "").replace(/^\.\.\//, "");
+  assert.ok(normalizedSrc, `${label} icon source should be present`);
+  assert.ok(fs.existsSync(path.join(repoRoot, normalizedSrc)), `${label} icon source should exist: ${src}`);
+}
+
+function getDebtTypeChipMarkup(rowMarkup, label) {
+  const chipMatch = String(rowMarkup || "").match(/<span class="pmi-debt-record-type-chip"[\s\S]*?<\/span>\s*<\/span>/i);
+  assert.ok(chipMatch, `${label} should render a compact debt type icon chip`);
+  return chipMatch[0];
+}
+
+function assertDebtTypeIconChip(rowMarkup, expected) {
+  const chipMarkup = getDebtTypeChipMarkup(rowMarkup, expected.label);
+  assert.match(chipMarkup, /data-pmi-debt-record-type-label/, `${expected.label} type chip should preserve the type-cell hook`);
+  assert.match(
+    chipMarkup,
+    new RegExp(`data-pmi-debt-record-type-key="${expected.typeKey}"`),
+    `${expected.label} type chip should expose its debt type key`
+  );
+  assert.match(
+    chipMarkup,
+    new RegExp(`data-pmi-debt-record-icon-src="${expected.src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`),
+    `${expected.label} type chip should expose its icon source`
+  );
+  assert.match(
+    chipMarkup,
+    new RegExp(`title="Debt type: ${expected.tooltip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`),
+    `${expected.label} type chip should include a tooltip label`
+  );
+  assert.match(
+    chipMarkup,
+    new RegExp(`aria-label="Debt type: ${expected.tooltip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`),
+    `${expected.label} type chip should include an accessible label`
+  );
+  assert.match(chipMarkup, /tabindex="0"/, `${expected.label} type chip should be keyboard focusable`);
+  assert.match(chipMarkup, /data-pmi-debt-record-type-icon/, `${expected.label} type chip should render an icon image`);
+  assert.match(chipMarkup, /alt=""/, `${expected.label} type icon should be decorative because the chip is labelled`);
+  assert.match(chipMarkup, /aria-hidden="true"/, `${expected.label} type icon should be hidden from assistive tech`);
+  assert.match(
+    chipMarkup,
+    new RegExp(`<span class="pmi-debt-record-type-visually-hidden">Debt type: ${expected.tooltip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}<\\/span>`),
+    `${expected.label} type chip should keep hidden full text in the DOM`
+  );
+  assertIconPathExists(expected.src, expected.label);
+}
+
 function extractCssRule(source, selector) {
   const normalizedSource = String(source || "").replace(/\r\n/g, "\n");
   const normalizedSelector = String(selector || "").replace(/\r\n/g, "\n");
@@ -230,6 +277,7 @@ assert.equal(typeof pmiDebtRecords?.createDebtRecordFromLibraryEntry, "function"
 assert.equal(typeof pmiDebtRecords?.createDebtRecordsFromLegacyScalarFields, "function");
 assert.equal(typeof pmiDebtRecords?.createLegacyScalarDebtCompatibilityFromRecords, "function");
 assert.equal(typeof pmiDebtRecords?.getDebtRecordFieldApplicability, "function");
+assert.equal(typeof pmiDebtRecords?.getDebtTypeIconDescriptor, "function");
 
 const autoLoanEntry = debtLibrary.findDebtLibraryEntry("autoLoan");
 const autoLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(autoLoanEntry);
@@ -281,6 +329,29 @@ const primaryMortgageRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(
   debtLibrary.findDebtLibraryEntry("primaryResidenceMortgage")
 );
 assert.equal(primaryMortgageRecord, null, "primary residence mortgage should not be addable as a debt record");
+
+[
+  "otherDebt",
+  "autoLease",
+  "irsTaxDebt",
+  "medicalBill",
+  "businessLoan",
+  "heloc",
+  "secondMortgage",
+  "privateStudentLoan",
+  "legalJudgment",
+  "businessLineOfCredit",
+  "buyNowPayLater",
+  "customDebt"
+].forEach((typeKey) => {
+  const entry = debtLibrary.findDebtLibraryEntry(typeKey);
+  assert.ok(entry, `${typeKey} should remain in the Add Debt library`);
+  assert.notEqual(entry.isAddable, false, `${typeKey} should remain addable from the Add Debt menu`);
+  assert.ok(
+    pmiDebtRecords.createDebtRecordFromLibraryEntry(entry),
+    `${typeKey} should still create a debt record from the Add Debt menu`
+  );
+});
 
 const migratedLegacyScalarRecords = pmiDebtRecords.createDebtRecordsFromLegacyScalarFields({
   mortgageBalance: 250000,
@@ -371,35 +442,139 @@ const debtRecordControlRule = extractCssRule(
 );
 const debtRecordCurrencyRule = extractCssRule(componentsCss, ".pmi-debt-record-compact-currency");
 const debtRecordCurrencySuffixRule = extractCssRule(componentsCss, ".pmi-debt-record-compact-currency .profile-currency-suffix");
+const debtRecordRemoveRule = extractCssRule(componentsCss, ".pmi-asset-record-remove.pmi-debt-record-remove");
+const debtRecordRemoveIconRule = extractCssRule(componentsCss, ".pmi-asset-record-remove.pmi-debt-record-remove::before");
+const debtPayoffTotalRule = extractCssRule(
+  componentsCss,
+  'body[data-page="next-step"] #pmi-debts .debt-payoff-total-group'
+);
+const debtPayoffTotalLabelRule = extractCssRule(
+  componentsCss,
+  'body[data-page="next-step"] #pmi-debts .debt-payoff-total-group > label'
+);
+const debtPayoffTotalCurrencyRule = extractCssRule(
+  componentsCss,
+  'body[data-page="next-step"] #pmi-debts .debt-payoff-total-group .profile-currency-field'
+);
 assert.ok(controller);
 assert.equal(fakeDom.root.dataset.pmiDebtRecordsInitialized, "true");
-assert.equal(controller.records.length, 9, "default starter notebook rows should appear on init");
+assert.equal(controller.records.length, 4, "lean default starter notebook rows should appear on init");
+assert.deepEqual(
+  Array.from(controller.records, (record) => record.typeKey),
+  ["creditCard", "autoLoan", "federalStudentLoan", "personalLoan"],
+  "starter rows should use the lean normal needs-analysis set"
+);
+assert.equal(fakeDom.root.innerHTML.includes(">Add another debt<"), true, "Add Debt entry point should make the menu path clear");
 assert.match(fakeDom.list.innerHTML, /data-pmi-debt-records-table/, "compact debt records table shell should render");
 assert.match(fakeDom.list.innerHTML, /data-pmi-debt-records-header/, "compact debt records table should render column headers");
+assert.match(
+  debtRecordsWidgetSource,
+  /<strong>\$\{escapeHtml\(entry\.label\)\}<\/strong>/,
+  "Add Debt menu results should keep full text debt labels"
+);
 [
-  "Debt Type",
   "Label / Creditor",
   "Balance",
-  "Payment Frequency",
-  "Payment Amount",
-  "Extra Payoff",
-  "Remaining Term",
-  "Interest Rate",
-  "Remove"
+  "Frequency",
+  "Amount",
+  "Payoff",
+  "Term",
+  "Interest Rate"
 ].forEach((header) => {
   assert.match(fakeDom.list.innerHTML, new RegExp(`>${header}<`), `${header} column header should render`);
 });
+assert.match(
+  fakeDom.list.innerHTML,
+  /<span class="pmi-debt-record-type-header" role="columnheader" aria-label="Debt Type"><\/span>/,
+  "debt type column should keep an accessible header without visible title text"
+);
+assert.doesNotMatch(fakeDom.list.innerHTML, />Debt Type<\/span>/, "debt type column should not render a visible title");
+assert.match(
+  fakeDom.list.innerHTML,
+  /<span class="pmi-debt-record-interest-rate-header" role="columnheader">Interest Rate<\/span>/,
+  "Interest Rate header should have the no-wrap debt header class"
+);
+[
+  ["Payment Frequency", "Frequency"],
+  ["Payment Amount", "Amount"],
+  ["Extra Payoff", "Payoff"],
+  ["Remaining Term", "Term"]
+].forEach(([ariaLabel, visibleLabel]) => {
+  assert.match(
+    fakeDom.list.innerHTML,
+    new RegExp(`<span role="columnheader" aria-label="${ariaLabel}">${visibleLabel}<\\/span>`),
+    `${visibleLabel} column header should keep the full ${ariaLabel} accessible label`
+  );
+  assert.doesNotMatch(
+    fakeDom.list.innerHTML,
+    new RegExp(`>${ariaLabel}<`),
+    `${ariaLabel} should not render as the visible debt column header`
+  );
+});
+assert.match(
+  fakeDom.list.innerHTML,
+  /<span class="pmi-debt-record-remove-header" role="columnheader" aria-label="Remove"><\/span>/,
+  "remove column should keep an accessible header without visible title text"
+);
+assert.doesNotMatch(fakeDom.list.innerHTML, />Remove<\/span>/, "remove column should not render a visible title");
 assert.doesNotMatch(fakeDom.list.innerHTML, />Payment Type</, "Payment Type column should not render");
 assert.doesNotMatch(fakeDom.list.innerHTML, />Notes</, "Notes column should not render");
 assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-type/, "Payment Type select should not render");
 assert.doesNotMatch(fakeDom.list.innerHTML, /data-pmi-debt-record-notes/, "Notes input should not render");
 assert.match(fakeDom.list.innerHTML, /data-pmi-debt-record-payment-frequency/, "Payment Frequency select should render");
 assert.doesNotMatch(debtRecordsWidgetSource, /"secondVehicleLoan",\s*"secondVehicleLease"/, "deprecated second vehicle types should not be suggested user-facing debt choices");
+assert.doesNotMatch(debtRecordsWidgetSource, /custom\.svg/, "Debt Records should not use the custom asset icon as a normal debt fallback");
+[
+  ["personalLoan", "../Images/loan.svg", "Personal Loan"],
+  ["irsTaxDebt", "../Images/taxes.svg", "IRS Tax Debt"],
+  ["heloc", "../Images/HELOC.svg", "HELOC"],
+  ["creditCard", "../Images/creditcard.svg", "Credit Card"],
+  ["autoLoan", "../Images/vehicle.svg", "Auto Loan"],
+  ["federalStudentLoan", "../Images/education.svg", "Federal Student Loan"],
+  ["medicalBill", "../Images/home/medical.svg", "Medical Bill"],
+  ["businessLoan", "../Images/business1.svg", "Business Loan"],
+  ["otherDebt", "../Images/loan.svg", "Other Debt"],
+  ["customDebt", "../Images/loan.svg", "Custom Debt"]
+].forEach(([typeKey, src, label]) => {
+  const descriptor = pmiDebtRecords.getDebtTypeIconDescriptor({ typeKey });
+  assert.equal(descriptor.typeKey, typeKey, `${label} icon descriptor should preserve the type key`);
+  assert.equal(descriptor.src, src, `${label} should resolve to the expected existing icon asset`);
+  assert.equal(descriptor.accessibleLabel, `Debt type: ${label}`, `${label} icon descriptor should expose accessible text`);
+  assertIconPathExists(descriptor.src, label);
+});
+debtLibrary.getDebtLibraryEntries().forEach((entry) => {
+  const descriptor = pmiDebtRecords.getDebtTypeIconDescriptor(entry);
+  assert.ok(descriptor.src, `${entry.typeKey} should resolve to an icon source`);
+  assert.equal(descriptor.label, entry.label, `${entry.typeKey} should preserve the full visible library label for accessibility`);
+  assertIconPathExists(descriptor.src, entry.typeKey);
+});
 assert.match(debtRecordsListRule, /overflow-x:\s*visible;/, "desktop debt records list should not use horizontal scrolling");
 assert.doesNotMatch(debtRecordsListRule, /overflow-x:\s*auto;/, "desktop debt records list should not declare overflow-x auto");
 assert.match(debtRecordsTableRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "debt records table should fit the card width");
 assert.match(debtRecordsTableRule, /border-radius:\s*0\.25rem;/, "debt records table should use the sharper compact shell radius");
-assert.match(componentsCss, /grid-template-columns:[\s\S]*minmax\(0,\s*1\.05fr\)[\s\S]*minmax\(2\.4rem,\s*0\.28fr\)/, "debt records grid should use compact flexible tracks");
+assert.match(
+  componentsCss,
+  /grid-template-columns:[\s\S]*minmax\(2\.5rem,\s*0\.34fr\)[\s\S]*minmax\(0,\s*1\.35fr\)[\s\S]*minmax\(1\.55rem,\s*0\.16fr\)/,
+  "debt records grid should use a compact icon type column and keep the remove column compact"
+);
+assert.match(componentsCss, /\.pmi-debt-record-type-cell\s*{[\s\S]*justify-content:\s*center;/, "debt type cells should center the compact icon chip");
+assert.match(
+  componentsCss,
+  /\.pmi-debt-record-type-chip\s*{[\s\S]*position:\s*relative;[\s\S]*width:\s*1\.65rem;[\s\S]*height:\s*1\.65rem;[\s\S]*overflow:\s*hidden;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/,
+  "debt type icon chip should stay compact, contain hidden label overflow, and avoid a visible outline container"
+);
+assert.match(
+  componentsCss,
+  /\.pmi-debt-record-type-chip:hover,[\s\S]*\.pmi-debt-record-type-chip:focus-visible\s*{[\s\S]*box-shadow:\s*none;/,
+  "debt type icon chip should not draw an outline or ring on hover/focus"
+);
+assert.match(componentsCss, /\.pmi-debt-record-type-icon\s*{[\s\S]*filter:\s*brightness\(0\)\s+saturate\(100%\);/, "debt type icons should render black");
+assert.match(componentsCss, /\.pmi-debt-record-type-visually-hidden\s*{[\s\S]*clip-path:\s*inset\(50%\);/, "debt type full label should use a visually hidden text helper");
+assert.match(
+  componentsCss,
+  /\.pmi-debt-record-interest-rate-header\s*{[\s\S]*width:\s*max-content;[\s\S]*overflow:\s*visible;[\s\S]*white-space:\s*nowrap;/,
+  "Interest Rate header should stay on one line and be allowed to overflow into the blank remove header space"
+);
 assert.match(componentsCss, /\.pmi-debt-record-row\s*{\s*padding:\s*0\.32rem\s+0\.36rem;/, "debt rows should use tighter notebook padding");
 assert.match(debtRecordControlRule, /min-width:\s*0;[\s\S]*box-sizing:\s*border-box;/, "debt row controls should shrink within cells");
 assert.match(debtRecordControlRule, /min-height:\s*1\.72rem;/, "debt row controls should use compact control height");
@@ -411,23 +586,80 @@ assert.match(debtRecordCurrencySuffixRule, /position:\s*absolute;[\s\S]*right:\s
 assert.match(componentsCss, /\.pmi-debt-record-cell--notApplicable\s*{[\s\S]*opacity:\s*0\.72;/, "not-applicable cells should render with muted debt-specific styling");
 assert.match(componentsCss, /\.pmi-debt-record-na-control\s*{[\s\S]*width:\s*100%;[\s\S]*min-width:\s*0;/, "not-applicable controls should preserve the compact table width contract");
 assert.match(componentsCss, /\.pmi-debt-record-row input:disabled,[\s\S]*\.pmi-debt-record-na-control input\s*{[\s\S]*background:\s*#f3f5f8;[\s\S]*color:\s*#8a92a1;/, "disabled N/A controls should be visibly greyed out");
-assert.match(componentsCss, /\.pmi-asset-record-remove\.pmi-debt-record-remove\s*{[\s\S]*width:\s*1\.45rem;[\s\S]*height:\s*1\.45rem;[\s\S]*border-radius:\s*0\.18rem;[\s\S]*font-size:\s*0;/, "remove control should be tighter, sharper, and override the shared asset remove rule");
+assert.match(
+  debtRecordRemoveRule,
+  /display:\s*inline-flex;[\s\S]*width:\s*1\.12rem;[\s\S]*height:\s*1\.12rem;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*font-size:\s*0;/,
+  "remove control should be tighter, centered, and override the shared asset remove rule"
+);
+assert.match(
+  debtRecordRemoveIconRule,
+  /content:\s*"";[\s\S]*-webkit-mask:\s*url\("Images\/close\.svg"\)\s+center\s+\/\s+contain\s+no-repeat;[\s\S]*mask:\s*url\("Images\/close\.svg"\)\s+center\s+\/\s+contain\s+no-repeat;/,
+  "debt remove control should use the close.svg asset instead of a text x"
+);
+assert.doesNotMatch(
+  debtRecordRemoveIconRule,
+  /content:\s*"x";/,
+  "debt remove control should not render the old text x pseudo-icon"
+);
+assert.match(
+  componentsCss,
+  /body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove\s*{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;[\s\S]*color:\s*#9ca3af;/,
+  "next-step debt remove icon should not draw an outline container"
+);
+assert.match(
+  componentsCss,
+  /body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove:hover,[\s\S]*body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove:focus-visible\s*{[\s\S]*color:\s*#111827;[\s\S]*box-shadow:\s*none;/,
+  "next-step debt remove icon should turn black on hover/focus without an outline"
+);
+assert.match(
+  debtPayoffTotalRule,
+  /justify-self:\s*stretch\s*!important;[\s\S]*width:\s*100%\s*!important;[\s\S]*margin-top:\s*0\s*!important;[\s\S]*padding-top:\s*0\s*!important;[\s\S]*border-top:\s*0\s*!important;/,
+  "Total Debt Payoff Need should match the centered result field styling without the legacy divider"
+);
+assert.match(
+  debtPayoffTotalLabelRule,
+  /width:\s*100%\s*!important;[\s\S]*justify-content:\s*center\s*!important;[\s\S]*text-align:\s*center\s*!important;/,
+  "Total Debt Payoff Need label should keep the centered result label treatment"
+);
+assert.match(
+  debtPayoffTotalCurrencyRule,
+  /justify-self:\s*auto\s*!important;[\s\S]*width:\s*min\(100%,\s*24rem\)\s*!important;/,
+  "Total Debt Payoff Need currency field should span the result field like Calculated Monthly Burden"
+);
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-field/, "debt rows should not render as stacked card fields");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-grid/, "debt rows should not render the old stacked field grid");
 assert.doesNotMatch(fakeDom.list.innerHTML, /pmi-debt-record-label-row/, "row labels should come from column headers");
-assert.equal(parseRowsFromMarkup(fakeDom.list.innerHTML).length, 9, "starter debts should render as compact rows");
+assert.equal(parseRowsFromMarkup(fakeDom.list.innerHTML).length, 4, "lean starter debts should render as compact rows");
 [
   "Credit Card Debt",
-  "Student Loan",
   "Auto Loan",
+  "Student Loan",
+  "Personal Loan"
+].forEach((label) => {
+  assert.match(fakeDom.list.innerHTML, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} starter row should render`);
+});
+[
+  ["Credit Card Debt", "creditCard", "Credit Card", "../Images/creditcard.svg"],
+  ["Auto Loan", "autoLoan", "Auto Loan", "../Images/vehicle.svg"],
+  ["Student Loan", "federalStudentLoan", "Federal Student Loan", "../Images/education.svg"],
+  ["Personal Loan", "personalLoan", "Personal Loan", "../Images/loan.svg"]
+].forEach(([rowLabel, typeKey, tooltip, src]) => {
+  const rowMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, rowLabel);
+  assertDebtTypeIconChip(rowMarkup, { label: rowLabel, typeKey, tooltip, src });
+  assert.doesNotMatch(
+    rowMarkup,
+    new RegExp(`<span class="pmi-debt-record-type-label"[^>]*>${tooltip}<\\/span>`),
+    `${rowLabel} should not render the old visible long debt type pill`
+  );
+});
+[
   "Auto Lease",
-  "Personal Loan",
   "Tax Debt / IRS Payment Plan",
   "Medical Debt",
   "Business Debt",
   "Other Debt"
 ].forEach((label) => {
-  assert.match(fakeDom.list.innerHTML, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} starter row should render`);
+  assert.doesNotMatch(fakeDom.list.innerHTML, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} should remain Add Debt only, not a starter row`);
 });
 
 const autoLeaseApplicability = pmiDebtRecords.getDebtRecordFieldApplicability({ typeKey: "autoLease" });
@@ -491,24 +723,12 @@ assert.equal(autoLoanApplicability.extraPayoffAmount, "active");
 assert.equal(autoLoanApplicability.remainingTermMonths, "active");
 assert.equal(autoLoanApplicability.interestRatePercent, "active");
 
-const starterAutoLeaseMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Auto Lease");
-assertFieldNotApplicable(starterAutoLeaseMarkup, "data-pmi-debt-record-balance", "Auto Lease Balance");
-assertFieldActive(starterAutoLeaseMarkup, "data-pmi-debt-record-payment-frequency", "Auto Lease Payment Frequency");
-assertFieldActive(starterAutoLeaseMarkup, "data-pmi-debt-record-payment-amount", "Auto Lease Payment Amount");
-assertFieldNotApplicable(starterAutoLeaseMarkup, "data-pmi-debt-record-extra-payoff", "Auto Lease Extra Payoff");
-assertFieldActive(starterAutoLeaseMarkup, "data-pmi-debt-record-term", "Auto Lease Remaining Term");
-assertFieldNotApplicable(starterAutoLeaseMarkup, "data-pmi-debt-record-rate", "Auto Lease Interest Rate");
-
 const starterCreditCardMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Credit Card Debt");
 assertFieldNotApplicable(starterCreditCardMarkup, "data-pmi-debt-record-term", "Credit Card Remaining Term");
 assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-balance", "Credit Card Balance");
 assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-payment-frequency", "Credit Card Payment Frequency");
 assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-payment-amount", "Credit Card Payment Amount");
 assertFieldActive(starterCreditCardMarkup, "data-pmi-debt-record-extra-payoff", "Credit Card Extra Payoff");
-
-const starterMedicalMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Medical Debt");
-assertFieldOptional(starterMedicalMarkup, "data-pmi-debt-record-term", "Medical Bill Remaining Term");
-assertFieldOptional(starterMedicalMarkup, "data-pmi-debt-record-rate", "Medical Bill Interest Rate");
 
 const starterAutoLoanMarkup = getRowMarkupByLabel(fakeDom.list.innerHTML, "Auto Loan");
 assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-balance", "Auto Loan Balance");
@@ -519,14 +739,19 @@ assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-term", "Auto Loan
 assertFieldActive(starterAutoLoanMarkup, "data-pmi-debt-record-rate", "Auto Loan Interest Rate");
 
 const starterSerialized = controller.serializeDebtRecords();
-assert.equal(starterSerialized.length, 9, "starter rows should serialize as debtRecords[]");
+assert.equal(starterSerialized.length, 4, "lean starter rows should serialize as debtRecords[]");
+assert.deepEqual(
+  Array.from(starterSerialized, (record) => record.typeKey),
+  ["creditCard", "autoLoan", "federalStudentLoan", "personalLoan"],
+  "starter rows should serialize only the lean normal needs-analysis set"
+);
 assert.ok(starterSerialized.every((record) => record.isDefaultDebt === true));
 assert.ok(starterSerialized.every((record) => record.currentBalance == null));
-assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentType, "leasePayment");
-assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").paymentFrequency, "monthly");
-assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").currentBalance, null);
-assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").extraPayoffAmount, null);
-assert.equal(starterSerialized.find((record) => record.typeKey === "autoLease").interestRatePercent, null);
+assert.equal(starterSerialized.some((record) => record.typeKey === "autoLease"), false, "Auto Lease should remain Add Debt only");
+assert.equal(starterSerialized.some((record) => record.typeKey === "medicalBill"), false, "Medical Debt should remain Add Debt only");
+assert.equal(starterSerialized.some((record) => record.typeKey === "irsTaxDebt"), false, "Tax Debt should remain Add Debt only");
+assert.equal(starterSerialized.some((record) => record.typeKey === "businessLoan"), false, "Business Debt should remain Add Debt only");
+assert.equal(starterSerialized.some((record) => record.typeKey === "otherDebt"), false, "Other Debt should remain Add Debt only");
 assert.equal(starterSerialized.find((record) => record.typeKey === "creditCard").remainingTermMonths, null);
 assert.equal(starterSerialized.find((record) => record.typeKey === "creditCard").metadata.source, "starter-notebook");
 
@@ -551,8 +776,8 @@ assert.equal(
 );
 assert.equal(
   controller.records.filter((record) => record.typeKey === "autoLease").length,
-  2,
-  "repeatable debtRecords[] should allow multiple Auto Lease rows"
+  1,
+  "Auto Lease should remain addable from the library/menu path without being a starter row"
 );
 assert.equal(
   controller.addDebtRecordFromLibraryEntry(debtLibrary.findDebtLibraryEntry("secondVehicleLease")),
@@ -826,8 +1051,13 @@ assert.equal(
   "linked PMI pages should pass missing debtRecords through as missing so the controller spawns starters"
 );
 controller.hydrateDebtRecords(linkedMissingDebtRecordsSource);
-assert.equal(controller.records.length, 9, "missing linked debtRecords should spawn starter rows");
+assert.equal(controller.records.length, 4, "missing linked debtRecords should spawn lean starter rows");
 assert.equal(controller.records[0].debtId, "starter_debt_creditCard");
+assert.deepEqual(
+  Array.from(controller.records, (record) => record.typeKey),
+  ["creditCard", "autoLoan", "federalStudentLoan", "personalLoan"],
+  "missing linked debtRecords should spawn exactly the lean starter keys"
+);
 
 const linkedScalarHydrationSource = getDebtRecordsHydrationSourceLikeLinkedPage({
   autoLoans: "12000",

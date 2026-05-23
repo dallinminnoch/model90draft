@@ -210,26 +210,89 @@
 
   const STARTER_DEBT_TYPE_KEYS = Object.freeze([
     "creditCard",
-    "federalStudentLoan",
     "autoLoan",
-    "autoLease",
-    "personalLoan",
-    "irsTaxDebt",
-    "medicalBill",
-    "businessLoan",
-    "otherDebt"
+    "federalStudentLoan",
+    "personalLoan"
   ]);
 
   const STARTER_DEBT_LABELS = Object.freeze({
     creditCard: "Credit Card Debt",
-    federalStudentLoan: "Student Loan",
     autoLoan: "Auto Loan",
-    autoLease: "Auto Lease",
-    personalLoan: "Personal Loan",
-    irsTaxDebt: "Tax Debt / IRS Payment Plan",
-    medicalBill: "Medical Debt",
-    businessLoan: "Business Debt",
-    otherDebt: "Other Debt"
+    federalStudentLoan: "Student Loan",
+    personalLoan: "Personal Loan"
+  });
+
+  const DEFAULT_DEBT_TYPE_ICON_SRC = "../Images/loan.svg";
+
+  const DEBT_TYPE_ICON_SRC_BY_TYPE_KEY = Object.freeze({
+    primaryResidenceMortgage: "../Images/home/property.svg",
+    heloc: "../Images/HELOC.svg",
+    homeEquityLoan: "../Images/home/property.svg",
+    secondMortgage: "../Images/home/property.svg",
+    otherPropertyLoan: "../Images/home/property.svg",
+    investmentPropertyMortgage: "../Images/home/property.svg",
+    landLoan: "../Images/home/property.svg",
+    constructionLoan: "../Images/home/property.svg",
+    autoLoan: "../Images/vehicle.svg",
+    autoLease: "../Images/vehicle.svg",
+    secondVehicleLoan: "../Images/vehicle.svg",
+    secondVehicleLease: "../Images/vehicle.svg",
+    motorcycleLoan: "../Images/vehicle.svg",
+    rvLoan: "../Images/vehicle.svg",
+    boatLoan: "../Images/vehicle.svg",
+    aircraftLoan: "../Images/vehicle.svg",
+    equipmentLoan: "../Images/business1.svg",
+    securedPersonalLoan: "../Images/loan.svg",
+    creditCard: "../Images/creditcard.svg",
+    storeCard: "../Images/creditcard.svg",
+    chargeCard: "../Images/creditcard.svg",
+    unsecuredLineOfCredit: "../Images/lineofcredit.svg",
+    personalLoan: "../Images/loan.svg",
+    debtConsolidationLoan: "../Images/loan.svg",
+    federalStudentLoan: "../Images/education.svg",
+    privateStudentLoan: "../Images/education.svg",
+    parentPlusLoan: "../Images/education.svg",
+    studentLoanRefinance: "../Images/education.svg",
+    medicalBill: "../Images/home/medical.svg",
+    medicalPaymentPlan: "../Images/home/medical.svg",
+    dentalBill: "../Images/home/medical.svg",
+    longTermCareDebt: "../Images/home/medical.svg",
+    irsTaxDebt: "../Images/taxes.svg",
+    stateTaxDebt: "../Images/taxes.svg",
+    propertyTaxDebt: "../Images/taxes.svg",
+    legalJudgment: "../Images/legal.svg",
+    courtOrderedDebt: "../Images/legal.svg",
+    backTaxes: "../Images/taxes.svg",
+    businessLoan: "../Images/business1.svg",
+    businessLineOfCredit: "../Images/lineofcredit.svg",
+    sbaLoan: "../Images/business1.svg",
+    commercialMortgage: "../Images/business1.svg",
+    accountsPayableBusinessObligation: "../Images/business1.svg",
+    businessEquipmentLoan: "../Images/business1.svg",
+    familyLoan: "../Images/family/family/private.svg",
+    privateNote: "../Images/family/family/private.svg",
+    loanFromFriend: "../Images/family/family/private.svg",
+    informalPersonalObligation: "../Images/family/family/private.svg",
+    buyNowPayLater: "../Images/home/consumerfinance.svg",
+    consumerFinanceInstallmentLoan: "../Images/loan.svg",
+    paydayLoan: "../Images/home/consumerfinance.svg",
+    retailFinancing: "../Images/home/consumerfinance.svg",
+    personalInstallmentLoan: "../Images/loan.svg",
+    otherDebt: "../Images/loan.svg",
+    customDebt: "../Images/loan.svg"
+  });
+
+  const DEBT_CATEGORY_ICON_SRC_BY_CATEGORY_KEY = Object.freeze({
+    realEstateSecuredDebt: "../Images/home/property.svg",
+    securedConsumerDebt: "../Images/vehicle.svg",
+    unsecuredConsumerDebt: "../Images/loan.svg",
+    educationDebt: "../Images/education.svg",
+    medicalDebt: "../Images/home/medical.svg",
+    taxLegalDebt: "../Images/taxes.svg",
+    businessDebt: "../Images/business1.svg",
+    privatePersonalDebt: "../Images/family/family/private.svg",
+    consumerFinanceDebt: "../Images/home/consumerfinance.svg",
+    otherDebt: "../Images/loan.svg"
   });
 
   const LEGACY_SCALAR_DEBT_MIGRATION_FIELDS = Object.freeze([
@@ -505,6 +568,32 @@
       || normalizeString(safeRecord.typeKey)
       || normalizeString(safeRecord.categoryKey)
       || "Debt";
+  }
+
+  function getDebtTypeIconDescriptor(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const rawTypeKey = normalizeString(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    const typeKey = normalizeDebtTypeKey(rawTypeKey);
+    const entry = findLibraryEntry(typeKey);
+    const displayEntry = findLibraryEntry(rawTypeKey) || entry;
+    const categoryKey = normalizeString(safeRecord.categoryKey || displayEntry && displayEntry.categoryKey || entry && entry.categoryKey);
+    const label = normalizeString(displayEntry && displayEntry.label)
+      || getDebtTypeLabel(Object.assign({}, safeRecord, {
+        typeKey,
+        categoryKey
+      }));
+    const src = DEBT_TYPE_ICON_SRC_BY_TYPE_KEY[typeKey]
+      || DEBT_CATEGORY_ICON_SRC_BY_CATEGORY_KEY[categoryKey]
+      || DEFAULT_DEBT_TYPE_ICON_SRC;
+    const accessibleLabel = "Debt type: " + label;
+
+    return {
+      typeKey,
+      categoryKey,
+      src,
+      label,
+      accessibleLabel
+    };
   }
 
   function getDebtRecordFieldApplicability(record) {
@@ -893,7 +982,7 @@
     root.innerHTML = `
       <div class="pmi-debt-records-list" data-pmi-debt-records-list></div>
       <div class="field-group pmi-debt-records-add-field">
-        <button class="button tertiary-button pmi-debt-records-add-button" type="button" data-pmi-debt-records-add>Add Debt</button>
+        <button class="button tertiary-button pmi-debt-records-add-button" type="button" data-pmi-debt-records-add>Add another debt</button>
       </div>
     `;
     root.dataset.pmiDebtRecordsInitialized = "true";
@@ -1068,10 +1157,14 @@
         const paymentFrequency = normalizePaymentFrequency(record.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
         const paymentAmount = getPaymentAmountForRecord(record);
         const paymentFrequencyState = getDebtRecordFieldState(record, "paymentFrequency");
+        const debtTypeIcon = getDebtTypeIconDescriptor(record);
         return `
           <div class="pmi-debt-record-row" role="row" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
             <div class="pmi-debt-record-cell pmi-debt-record-type-cell" role="cell" data-column-label="Debt Type">
-              <span class="pmi-debt-record-type-label" data-pmi-debt-record-type-label>${escapeHtml(getDebtTypeLabel(record))}</span>
+              <span class="pmi-debt-record-type-chip" data-pmi-debt-record-type-label data-pmi-debt-record-type-key="${escapeHtml(debtTypeIcon.typeKey)}" data-pmi-debt-record-icon-src="${escapeHtml(debtTypeIcon.src)}" title="${escapeHtml(debtTypeIcon.accessibleLabel)}" aria-label="${escapeHtml(debtTypeIcon.accessibleLabel)}" tabindex="0">
+                <img class="pmi-debt-record-type-icon" src="${escapeHtml(debtTypeIcon.src)}" alt="" aria-hidden="true" data-pmi-debt-record-type-icon>
+                <span class="pmi-debt-record-type-visually-hidden">${escapeHtml(debtTypeIcon.accessibleLabel)}</span>
+              </span>
             </div>
             <div class="pmi-debt-record-cell" role="cell" data-column-label="Label / Creditor">
               <input id="${escapeHtml(labelInputId)}" data-pmi-debt-record-label type="text" value="${escapeHtml(record.label)}" aria-label="Label / Creditor">
@@ -1146,15 +1239,15 @@
       controller.list.innerHTML = `
         <div class="pmi-debt-records-table" role="table" aria-label="Debt records notebook" data-pmi-debt-records-table>
           <div class="pmi-debt-records-header" role="row" data-pmi-debt-records-header>
-            <span role="columnheader">Debt Type</span>
+            <span class="pmi-debt-record-type-header" role="columnheader" aria-label="Debt Type"></span>
             <span role="columnheader">Label / Creditor</span>
             <span role="columnheader">Balance</span>
-            <span role="columnheader">Payment Frequency</span>
-            <span role="columnheader">Payment Amount</span>
-            <span role="columnheader">Extra Payoff</span>
-            <span role="columnheader">Remaining Term</span>
-            <span role="columnheader">Interest Rate</span>
-            <span role="columnheader">Remove</span>
+            <span role="columnheader" aria-label="Payment Frequency">Frequency</span>
+            <span role="columnheader" aria-label="Payment Amount">Amount</span>
+            <span role="columnheader" aria-label="Extra Payoff">Payoff</span>
+            <span role="columnheader" aria-label="Remaining Term">Term</span>
+            <span class="pmi-debt-record-interest-rate-header" role="columnheader">Interest Rate</span>
+            <span class="pmi-debt-record-remove-header" role="columnheader" aria-label="Remove"></span>
           </div>
           <div class="pmi-debt-records-body" role="rowgroup" data-pmi-debt-records-body>
             ${rowsMarkup}
@@ -1443,6 +1536,7 @@
     createDebtRecordFromLibraryEntry,
     createDebtRecordsFromLegacyScalarFields,
     createLegacyScalarDebtCompatibilityFromRecords,
-    getDebtRecordFieldApplicability
+    getDebtRecordFieldApplicability,
+    getDebtTypeIconDescriptor
   };
 })(window);

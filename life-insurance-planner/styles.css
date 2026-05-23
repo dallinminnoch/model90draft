@@ -8224,6 +8224,33 @@ body[data-page="next-step"] .pmi-form-main .profile-form-toggle-group {
   gap: 6px;
 }
 
+body[data-page="next-step"] .pmi-form-main #pmi-housing .field-group:has(#housing-status) {
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-housing > .form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body[data-page="next-step"] #pmi-housing > .form-grid > .field-group:not(.full-width):not(:has(#housing-status)) {
+  grid-column: span 2;
+}
+
+body[data-page="next-step"] .pmi-form-main [data-housing-status-group] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  width: auto;
+}
+
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
+  position: relative;
+  width: 10rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
 body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button {
   min-height: 34px;
   padding: 6px 11px;
@@ -8250,6 +8277,7 @@ body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
   display: inline-flex;
   min-height: 0;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 6px 11px;
   border: 1px solid #e5e7eb;
@@ -8264,6 +8292,11 @@ body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
   user-select: none;
 }
 
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
+  justify-content: flex-start;
+  padding-left: 32px;
+}
+
 body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle]::before,
 body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]::before {
   content: "";
@@ -8273,6 +8306,13 @@ body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]::before 
   border: 2px solid currentColor;
   border-radius: 999px;
   background: transparent;
+}
+
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]::before {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle]:hover,
@@ -8312,7 +8352,8 @@ body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:
 body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#gross-annual-income) { order: 3; }
 body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#spouse-income) { order: 4; }
 
-body[data-page="next-step"] #pmi-income .pmi-reference-divider {
+body[data-page="next-step"] #pmi-income .pmi-reference-divider,
+body[data-page="next-step"] #pmi-housing .pmi-reference-divider {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -8326,11 +8367,20 @@ body[data-page="next-step"] #pmi-income .pmi-reference-divider {
   text-transform: uppercase;
 }
 
-body[data-page="next-step"] #pmi-income .pmi-reference-divider::after {
+body[data-page="next-step"] #pmi-income .pmi-reference-divider::after,
+body[data-page="next-step"] #pmi-housing .pmi-reference-divider::after {
   content: "";
   height: 1px;
   flex: 1;
   background: #f0f1f4;
+}
+
+body[data-page="next-step"] #pmi-housing .pmi-reference-divider {
+  grid-column: 1 / -1;
+}
+
+body[data-page="next-step"] #pmi-housing .pmi-reference-divider--housing-status {
+  margin-top: 0;
 }
 
 body[data-page="next-step"] #pmi-income .pmi-reference-divider--deductions {
