@@ -13936,17 +13936,39 @@ body.is-modal-open {
 }
 
 .client-close-index-display {
-  grid-auto-flow: column;
+  display: inline-flex;
   align-items: center;
-  gap: 0.62em;
-  width: 100%;
   justify-content: flex-start;
+  gap: 0.42em;
+  width: fit-content;
+  min-width: 0;
+  padding: 0.25em 0.66em 0.25em 0.52em;
+  border-radius: 0.48em;
+  background: rgba(156, 163, 175, 0.12);
+  color: #6b7280;
+  line-height: 1;
+}
+
+.client-close-index-display.is-premium,
+.client-close-index-display.is-building {
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+}
+
+.client-close-index-display.is-caution {
+  background: rgba(156, 163, 175, 0.12);
+  color: #6b7280;
+}
+
+.client-close-index-display.is-risk {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
 }
 
 .client-close-index-label {
-  color: #8894a7;
-  font-size: 0.94em;
-  font-weight: 600;
+  color: currentColor;
+  font-size: 0.86em;
+  font-weight: 500;
   line-height: 1;
   white-space: nowrap;
 }
@@ -14008,6 +14030,22 @@ body.is-modal-open {
 .opportunity-score-pill.is-risk {
   background: #f6d1d0;
   color: #8a2d2a;
+}
+
+.client-close-index-display .opportunity-score-pill,
+.client-close-index-display .opportunity-score-pill.is-premium,
+.client-close-index-display .opportunity-score-pill.is-building,
+.client-close-index-display .opportunity-score-pill.is-caution,
+.client-close-index-display .opportunity-score-pill.is-risk {
+  min-width: auto;
+  min-height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+  font-size: 1.02em;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .directory-person__avatar {
@@ -14360,6 +14398,10 @@ body.clients-page .client-directory-main {
 
 body.clients-page .client-directory-menu-column.workspace-side-nav-shell {
   color: #263246;
+}
+
+body.clients-page .workspace-side-nav-shell .workspace-side-nav-primary-rail {
+  background: #4338ca;
 }
 
 body.clients-page .client-directory-menu-column.workspace-side-nav-shell .workspace-side-nav-context {
@@ -15022,7 +15064,6 @@ body.clients-page .client-coverage-gap-meter-fill {
   border-radius: 2px;
 }
 
-body.clients-page .opportunity-score-pill,
 body.clients-page .client-tag,
 body.clients-page .client-priority-detail-chip {
   border: 0;
@@ -15032,20 +15073,29 @@ body.clients-page .client-priority-detail-chip {
   box-shadow: none;
 }
 
-body.clients-page .opportunity-score-pill {
-  width: 26px;
-  min-width: 26px;
-  min-height: 18px;
+body.clients-page .client-close-index-display {
+  gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 6px;
+}
+
+body.clients-page .client-close-index-display .opportunity-score-pill {
+  width: auto;
+  min-width: auto;
+  min-height: auto;
   padding: 0;
-  border-radius: 4px;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
+  box-shadow: none;
 }
 
 body.clients-page .client-close-index-label {
-  color: #94a3b8;
-  font-size: 11px;
-  font-weight: 400;
+  color: currentColor;
+  font-size: 10px;
+  font-weight: 500;
 }
 
 body.clients-page .client-coverage-gap-amount {

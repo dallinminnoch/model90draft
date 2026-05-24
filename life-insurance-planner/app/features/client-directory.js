@@ -1251,6 +1251,9 @@
     const isPinned = getRecordPinnedState(record);
     const uncoveredGapValue = getRecordUncoveredGapValue(record);
     const closeIndexDescriptor = getDirectoryCloseIndexDescriptor(opportunityScore);
+    const closeIndexTierClass = ["is-premium", "is-building", "is-caution", "is-risk"].includes(opportunityScore.tier)
+      ? opportunityScore.tier
+      : "is-risk";
     const priorityDetailLabel = getDirectoryPriorityDetailLabel(priority, opportunityScore);
     const coverageAdequacyPercent = getDirectoryCoverageAdequacyPercent(opportunityScore);
     const daysInStagePresentation = getDirectoryDaysInStagePresentation(record);
@@ -1284,8 +1287,8 @@
           ${householdMembersMarkup}
         </div>
         <div class="client-table-cell client-table-cell-close-index-value client-table-cell-opportunity-score">
-          <div class="client-close-index-display">
-            <span class="client-opportunity-score-pill opportunity-score-pill ${opportunityScore.tier}" aria-label="Close index ${opportunityScore.score}" title="Close Index ${opportunityScore.score}">
+          <div class="client-close-index-display ${closeIndexTierClass}">
+            <span class="client-opportunity-score-pill opportunity-score-pill ${closeIndexTierClass}" aria-label="Close index ${opportunityScore.score}" title="Close Index ${opportunityScore.score}">
               ${opportunityScore.score}
             </span>
             <span class="client-close-index-label">${closeIndexDescriptor}</span>

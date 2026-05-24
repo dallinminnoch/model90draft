@@ -7475,7 +7475,7 @@ body.clients-page.is-a11y-large-text .client-table-cell {
   font-size: 1rem !important;
 }
 
-body.clients-page.is-a11y-large-text .client-opportunity-score-pill {
+body.clients-page.is-a11y-large-text .client-close-index-display {
   font-size: 1rem !important;
 }
 
@@ -7533,7 +7533,7 @@ body.clients-page.is-a11y-high-contrast .client-directory-summary-value {
   color: #0f172a !important;
 }
 
-body.clients-page.is-a11y-high-contrast .client-opportunity-score-pill {
+body.clients-page.is-a11y-high-contrast .client-close-index-display {
   border: 1px solid rgba(148, 163, 184, 0.95);
 }
 
