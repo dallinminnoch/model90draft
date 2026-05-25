@@ -1,9 +1,9 @@
 .client-directory-shell-layout {
   width: 100%;
   display: grid;
-  --client-directory-side-collapsed-width: 13rem;
-  --client-directory-side-expanded-width: 13rem;
-  grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) var(--client-directory-side-collapsed-width);
+  --client-directory-side-collapsed-width: 13.25rem;
+  --client-directory-side-expanded-width: 13.25rem;
+  grid-template-columns: minmax(11.75rem, 12.75rem) minmax(0, 1fr) minmax(12.25rem, 13.25rem);
   min-height: calc(100vh - 140px);
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(213, 221, 232, 0.78);
@@ -117,7 +117,7 @@
 @media (min-width: 721px) {
   body.clients-page .client-directory-shell-layout {
     display: grid;
-    grid-template-columns: minmax(9.4rem, 10.5rem) minmax(0, 1fr) var(--client-directory-side-collapsed-width);
+    grid-template-columns: minmax(11.75rem, 12.75rem) minmax(0, 1fr) minmax(12.25rem, 13.25rem);
     width: 100%;
     min-width: 0;
     min-height: 0;
@@ -304,7 +304,7 @@
 
 @media (min-width: 721px) and (max-width: 1180px) {
   body.clients-page .client-directory-shell-layout {
-    grid-template-columns: minmax(9.25rem, 10rem) minmax(0, 1fr) minmax(12rem, var(--client-directory-side-collapsed-width));
+    grid-template-columns: minmax(11.25rem, 12.25rem) minmax(0, 1fr) minmax(11.75rem, 12.75rem);
   }
 
   body.clients-page .client-directory-side-panel {
