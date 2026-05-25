@@ -24,6 +24,14 @@
     "income-impact-display-financial-storyline-bridge";
   const DEATH_CONVERSION_ARROW_POSITION_RATIOS = Object.freeze([0.36, 0.64]);
   const DEATH_CONVERSION_CIRCLE_POSITION_RATIO_FROM_TOP = 1;
+  const INCOME_IMPACT_CHART_THEME_FALLBACKS = Object.freeze({
+    primary: "#1d6ee8",
+    secondary: "#58a6ff",
+    fill: "rgba(29, 110, 232, 0.12)",
+    marker: "#1d6ee8",
+    tooltipBg: "#111827",
+    tooltipText: "#ffffff"
+  });
   const GRAPH_HOVER_READOUT_WIDTH = 108;
   const GRAPH_HOVER_GRID_SPACING = 8;
   const GRAPH_HOVER_BAR_TOP_GAP = 6;
@@ -115,6 +123,29 @@
 
   function normalizeString(value) {
     return String(value == null ? "" : value).trim();
+  }
+
+  function readChartThemeToken(styles, tokenName, fallback) {
+    if (!styles || typeof styles.getPropertyValue !== "function") {
+      return fallback;
+    }
+    const value = normalizeString(styles.getPropertyValue(tokenName));
+    return value || fallback;
+  }
+
+  function getIncomeImpactChartTheme(root = null) {
+    const themeRoot = root || window?.document?.documentElement || null;
+    const styles = themeRoot && typeof window?.getComputedStyle === "function"
+      ? window.getComputedStyle(themeRoot)
+      : null;
+    return {
+      primary: readChartThemeToken(styles, "--m90-chart-primary", INCOME_IMPACT_CHART_THEME_FALLBACKS.primary),
+      secondary: readChartThemeToken(styles, "--m90-chart-secondary", INCOME_IMPACT_CHART_THEME_FALLBACKS.secondary),
+      fill: readChartThemeToken(styles, "--m90-chart-fill", INCOME_IMPACT_CHART_THEME_FALLBACKS.fill),
+      marker: readChartThemeToken(styles, "--m90-chart-marker", INCOME_IMPACT_CHART_THEME_FALLBACKS.marker),
+      tooltipBg: readChartThemeToken(styles, "--m90-tooltip-bg", INCOME_IMPACT_CHART_THEME_FALLBACKS.tooltipBg),
+      tooltipText: readChartThemeToken(styles, "--m90-tooltip-text", INCOME_IMPACT_CHART_THEME_FALLBACKS.tooltipText)
+    };
   }
 
   function getPath(source, path) {
@@ -2691,34 +2722,36 @@
     });
   }
 
-  function renderGraphHoverUnderlayGradient(graphModel = null) {
+  function renderGraphHoverUnderlayGradient(graphModel = null, chartTheme = getIncomeImpactChartTheme()) {
     const frame = getGraphPlotFrame(graphModel);
+    const primaryColor = escapeHtml(chartTheme.primary);
+    const markerColor = escapeHtml(chartTheme.marker);
     return `
       <defs>
         <clipPath id="${GRAPH_PLOT_CLIP_PATH_ID}" data-income-impact-graph-plot-clip>
           <rect x="${formatSvgCoordinate(frame.plotLeft)}" y="${formatSvgCoordinate(frame.plotTop)}" width="${formatSvgCoordinate(frame.plotWidth)}" height="${formatSvgCoordinate(frame.plotHeight)}"></rect>
         </clipPath>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_PRE_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2563ff" stop-opacity="0.16"></stop>
-          <stop offset="38%" stop-color="#2563ff" stop-opacity="0.045"></stop>
-          <stop offset="72%" stop-color="#2563ff" stop-opacity="0"></stop>
-          <stop offset="100%" stop-color="#2563ff" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.16"></stop>
+          <stop offset="38%" stop-color="${primaryColor}" stop-opacity="0.045"></stop>
+          <stop offset="72%" stop-color="${primaryColor}" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="${primaryColor}" stop-opacity="0"></stop>
         </linearGradient>
         <linearGradient id="${GRAPH_HOVER_UNDERLAY_POST_DEATH_GRADIENT_ID}" data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2563ff" stop-opacity="0.16"></stop>
-          <stop offset="38%" stop-color="#2563ff" stop-opacity="0.045"></stop>
-          <stop offset="72%" stop-color="#2563ff" stop-opacity="0"></stop>
-          <stop offset="100%" stop-color="#2563ff" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="${primaryColor}" stop-opacity="0.16"></stop>
+          <stop offset="38%" stop-color="${primaryColor}" stop-opacity="0.045"></stop>
+          <stop offset="72%" stop-color="${primaryColor}" stop-opacity="0"></stop>
+          <stop offset="100%" stop-color="${primaryColor}" stop-opacity="0"></stop>
         </linearGradient>
         <linearGradient id="${GRAPH_HOVER_GRID_BAR_GRADIENT_ID}" data-income-impact-graph-hover-grid-bar-gradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.16"></stop>
-          <stop offset="48%" stop-color="#2563eb" stop-opacity="0.07"></stop>
-          <stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="${markerColor}" stop-opacity="0.16"></stop>
+          <stop offset="48%" stop-color="${markerColor}" stop-opacity="0.07"></stop>
+          <stop offset="100%" stop-color="${markerColor}" stop-opacity="0"></stop>
         </linearGradient>
         <linearGradient id="${GRAPH_HOVER_HIGHLIGHT_GRADIENT_ID}" data-income-impact-graph-hover-highlight-gradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.12"></stop>
-          <stop offset="52%" stop-color="#2563eb" stop-opacity="0.055"></stop>
-          <stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop>
+          <stop offset="0%" stop-color="${markerColor}" stop-opacity="0.12"></stop>
+          <stop offset="52%" stop-color="${markerColor}" stop-opacity="0.055"></stop>
+          <stop offset="100%" stop-color="${markerColor}" stop-opacity="0"></stop>
         </linearGradient>
       </defs>
     `;
@@ -4334,13 +4367,15 @@
     };
   }
 
-  function renderDeathConversionGradient(connector, x, y1, y2) {
+  function renderDeathConversionGradient(connector, x, y1, y2, chartTheme = getIncomeImpactChartTheme()) {
+    const primaryColor = escapeHtml(chartTheme.primary);
+    const secondaryColor = escapeHtml(chartTheme.secondary);
     return `
       <defs>
         <linearGradient id="${DEATH_CONVERSION_GRADIENT_ID}" data-income-impact-death-conversion-gradient gradientUnits="userSpaceOnUse" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}">
-          <stop offset="0%" stop-color="#2563eb"></stop>
-          <stop offset="48%" stop-color="#3b82f6"></stop>
-          <stop offset="100%" stop-color="#3b82f6"></stop>
+          <stop offset="0%" stop-color="${primaryColor}"></stop>
+          <stop offset="48%" stop-color="${secondaryColor}"></stop>
+          <stop offset="100%" stop-color="${secondaryColor}"></stop>
         </linearGradient>
       </defs>
     `;
@@ -4394,7 +4429,7 @@
     `;
   }
 
-  function renderDeathEventConversionConnector(graphModel, timelineResult = null) {
+  function renderDeathEventConversionConnector(graphModel, timelineResult = null, chartTheme = getIncomeImpactChartTheme()) {
     const connector = getDeathConversionConnector(graphModel);
     if (!connector || connector.xRatio == null || connector.startYRatio == null || connector.endYRatio == null) {
       return "";
@@ -4425,7 +4460,7 @@
     const label = `${connector.label || "Selected scenario"} death-event conversion`;
     const deathStorylineCandidate = getFinancialStorylineCandidateById(timelineResult, "death-income-stops");
     return `
-      ${renderDeathConversionGradient(connector, x, y1, y2)}
+      ${renderDeathConversionGradient(connector, x, y1, y2, chartTheme)}
       <g
         class="income-impact-death-conversion"
         data-income-impact-death-conversion
@@ -5230,6 +5265,7 @@
   }
 
   function renderGraphSvg(graphModel, timelineResult) {
+    const chartTheme = getIncomeImpactChartTheme();
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
     const graphGeometry = getGraphSharedGeometry(graphModel);
     const showDeathLeadUp = isDeathLeadUpGraphView(graphModel?.trace?.graphViewMode);
@@ -5241,7 +5277,7 @@
     const appliedScenarioPaths = renderAppliedScenarioGraphPaths(graphModel, timelineResult);
     const comparisonPaths = renderComparisonGraphPaths(graphModel);
     const deathLineAnchors = showDeathLeadUp ? renderAppliedScenarioDeathLineAnchors(graphModel) : "";
-    const deathConversionConnector = showDeathLeadUp ? renderDeathEventConversionConnector(graphModel, timelineResult) : "";
+    const deathConversionConnector = showDeathLeadUp ? renderDeathEventConversionConnector(graphModel, timelineResult, chartTheme) : "";
     const hoverLayer = renderGraphHoverLayer(graphModel);
     const storylineConnectors = renderGraphStorylineConnectors(timelineResult, graphModel);
     const storylineEventDots = renderGraphStorylineEventDots(timelineResult, graphModel);
@@ -5266,7 +5302,7 @@
         role="img"
         aria-label="Income Impact timeline graph"
       >
-        ${renderGraphHoverUnderlayGradient(graphModel)}
+        ${renderGraphHoverUnderlayGradient(graphModel, chartTheme)}
         ${renderGraphPhases(graphModel)}
         ${renderGraphAxis(graphModel)}
         <g class="income-impact-graph-series" data-income-impact-graph-series>

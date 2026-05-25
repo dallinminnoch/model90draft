@@ -96,14 +96,14 @@ assert.match(
   "Income Impact milestone tone variables should remain deferred to the milestone-specific phase."
 );
 
-const deferredGraphMarkerBlock = blockFor(
+const chartPhaseGraphMarkerBlock = blockFor(
   /\.income-impact-graph-markers \[data-income-impact-graph-marker-kind="risk"\]\[data-income-impact-graph-marker-severity="critical"\] circle\s*\{[\s\S]*?\n\}/,
-  "deferred Income Impact graph marker tone"
+  "Income Impact graph marker tone"
 );
-assert.doesNotMatch(
-  deferredGraphMarkerBlock,
-  /var\(--m90-/,
-  "Income Impact graph marker colors should remain deferred to the chart/SVG phase."
+assert.match(
+  chartPhaseGraphMarkerBlock,
+  /var\(--m90-critical-soft\)[\s\S]*var\(--m90-critical\)/,
+  "Income Impact graph marker colors should use status tokens after the chart/SVG token bridge phase."
 );
 
 const changedFiles = execSync("git diff --name-only", {

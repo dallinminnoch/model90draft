@@ -2,6 +2,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { execSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -363,6 +364,17 @@ const componentsSource = readRepoFile("components.css");
 const layoutSource = readRepoFile("layout.css");
 const stylesSource = readRepoFile("styles.css");
 const workspaceSideNavSource = readRepoFile("workspace-side-nav.js");
+const changedFiles = execSync("git diff --name-only", {
+  cwd: repoRoot,
+  encoding: "utf8"
+})
+  .split(/\r?\n/)
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+assert.ok(
+  !changedFiles.includes("life-insurance-planner/styles.css"),
+  "styles.css should not be changed by the Income Impact chart token bridge pass."
+);
 const harness = createDisplayHarness(displaySource);
 const browserGlobalHelpers = createBrowserGlobalHelperHarness([
   resourceBucketAdapterSource,
@@ -891,6 +903,19 @@ assert.match(
 );
 assert.match(displaySource, /function getGraphSharedGeometry\(graphModel\)/);
 assert.match(displaySource, /source:\s*"income-impact-display\.shared-graph-geometry"/);
+assert.match(displaySource, /const INCOME_IMPACT_CHART_THEME_FALLBACKS = Object\.freeze/);
+assert.match(displaySource, /function getIncomeImpactChartTheme\(root = null\)/);
+assert.match(displaySource, /readChartThemeToken\(styles,\s*"--m90-chart-primary"/);
+assert.match(displaySource, /readChartThemeToken\(styles,\s*"--m90-chart-secondary"/);
+assert.match(displaySource, /readChartThemeToken\(styles,\s*"--m90-chart-fill"/);
+assert.match(displaySource, /readChartThemeToken\(styles,\s*"--m90-chart-marker"/);
+assert.match(displaySource, /readChartThemeToken\(styles,\s*"--m90-tooltip-bg"/);
+assert.match(displaySource, /readChartThemeToken\(styles,\s*"--m90-tooltip-text"/);
+assert.equal(
+  (displaySource.match(/getComputedStyle/g) || []).length,
+  2,
+  "Income Impact chart token bridge should centralize computed-style reads in one helper."
+);
 assert.doesNotMatch(displaySource, /plotBottom\s*=\s*toOptionalNumber\(layoutFrame\?\.plotBottom\)/);
 assert.doesNotMatch(displaySource, /\b(?:438|570)\b/);
 assert.match(displaySource, /GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus"/);
@@ -925,8 +950,10 @@ assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="p
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="preDeath" gradientUnits="objectBoundingBox"/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath" gradientUnits="objectBoundingBox"/);
-assert.match(displaySource, /stop-color="#2563ff" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="#2563ff" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="#2563ff" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2563ff" stop-opacity="0"/);
-assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"[\s\S]*stop-color="#2563ff" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="#2563ff" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="#2563ff" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2563ff" stop-opacity="0"/);
+assert.match(displaySource, /const primaryColor = escapeHtml\(chartTheme\.primary\)/);
+assert.match(displaySource, /const markerColor = escapeHtml\(chartTheme\.marker\)/);
+assert.match(displaySource, /stop-color="\$\{primaryColor\}" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="\$\{primaryColor\}" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="\$\{primaryColor\}" stop-opacity="0"[\s\S]*offset="100%" stop-color="\$\{primaryColor\}" stop-opacity="0"/);
+assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"[\s\S]*stop-color="\$\{primaryColor\}" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="\$\{primaryColor\}" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="\$\{primaryColor\}" stop-opacity="0"[\s\S]*offset="100%" stop-color="\$\{primaryColor\}" stop-opacity="0"/);
 assert.match(displaySource, /GRAPH_HOVER_GRID_SPACING = 8/);
 assert.match(displaySource, /GRAPH_MINOR_GRID_DIVISIONS = 4/);
 assert.match(displaySource, /data-income-impact-graph-hover-interval/);
@@ -968,7 +995,9 @@ assert.match(displaySource, /data-income-impact-death-conversion-spine/);
 assert.match(displaySource, /data-income-impact-death-conversion-chevron-position-ratio/);
 assert.match(displaySource, /data-income-impact-death-conversion-diamond/);
 assert.match(displaySource, /data-income-impact-death-conversion-circle/);
-assert.match(displaySource, /data-income-impact-death-conversion-gradient[\s\S]*<stop offset="100%" stop-color="#3b82f6"><\/stop>/);
+assert.match(displaySource, /renderDeathConversionGradient\(connector, x, y1, y2, chartTheme = getIncomeImpactChartTheme\(\)\)/);
+assert.match(displaySource, /data-income-impact-death-conversion-gradient[\s\S]*<stop offset="100%" stop-color="\$\{secondaryColor\}"><\/stop>/);
+assert.doesNotMatch(displaySource, /#2563ff|#2563eb|#3b82f6/);
 assert.doesNotMatch(displaySource, /<stop offset="100%" stop-color="#227455"><\/stop>/);
 assert.match(
   displaySource,
@@ -1071,22 +1100,22 @@ assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*overflow:\s*visible;[^}]*\}/,
+  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*var\(--m90-surface\);[^}]*overflow:\s*visible;[^}]*\}/,
   "Income Impact SVG graph viewport should auto-size from the compact graph viewBox ratio inside the flat reference chart section."
 );
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-svg\s*\{[^}]*aspect-ratio:\s*1000 \/ 570;/);
-assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*var\(--m90-surface\);[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*var\(--m90-surface\);[^}]*\}/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[^}]*\}/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*rgba\(64,\s*84,\s*184,\s*0\.06\);[^}]*\}/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.045\);[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-path--preDeathAssets/);
-assert.match(componentsSource, /\.income-impact-graph-view-toggle[\s\S]*margin-left:\s*auto;[\s\S]*border:\s*1px solid rgba\(59,\s*130,\s*246,\s*0\.2\);/);
+assert.match(componentsSource, /\.income-impact-graph-view-toggle[\s\S]*margin-left:\s*auto;[\s\S]*border:\s*1px solid color-mix\(in srgb,\s*var\(--m90-chart-primary\) 20%,\s*transparent\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-path--deathTransition/);
 assert.match(componentsSource, /\.income-impact-death-conversion-spine[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*3\.2;/);
 assert.match(componentsSource, /\.income-impact-death-conversion-chevron[\s\S]*stroke:\s*url\("#income-impact-death-conversion-gradient"\);[\s\S]*stroke-width:\s*2\.4;/);
-assert.match(componentsSource, /\.income-impact-death-conversion-diamond[\s\S]*fill:\s*#3b82f6;[\s\S]*stroke:\s*#ffffff;/);
-assert.match(componentsSource, /\.income-impact-death-conversion-circle[\s\S]*fill:\s*#ffffff;[\s\S]*stroke:\s*#3b82f6;/);
+assert.match(componentsSource, /\.income-impact-death-conversion-diamond[\s\S]*fill:\s*var\(--m90-chart-marker\);[\s\S]*stroke:\s*var\(--m90-surface\);/);
+assert.match(componentsSource, /\.income-impact-death-conversion-circle[\s\S]*fill:\s*var\(--m90-surface\);[\s\S]*stroke:\s*var\(--m90-chart-marker\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-bridge/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-net-worth/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-survivor-resources/);
@@ -1095,7 +1124,7 @@ assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-no
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-label/);
 assert.match(componentsSource, /\.income-impact-death-line-anchor/);
 assert.match(componentsSource, /\.income-impact-graph-path[\s\S]*filter:\s*none;[\s\S]*stroke-width:\s*1\.8;/);
-assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*#185fa5;/);
+assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*var\(--m90-chart-primary\);/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-label/);
@@ -1105,16 +1134,16 @@ assert.match(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*point
 assert.match(componentsSource, /\.income-impact-graph-hover-underlay--pre-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-pre-death-gradient"\);/);
 assert.match(componentsSource, /\.income-impact-graph-hover-underlay--post-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-post-death-gradient"\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.095\);/);
-assert.match(componentsSource, /\.income-impact-graph-y-grid-line[\s\S]*stroke:\s*rgba\(0,\s*0,\s*0,\s*0\.04\);[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*0\.75;/);
-assert.match(componentsSource, /\.income-impact-graph-minor-grid-line[\s\S]*opacity:\s*1;[\s\S]*pointer-events:\s*none;[\s\S]*stroke:\s*rgba\(0,\s*0,\s*0,\s*0\.055\);[\s\S]*stroke-width:\s*0\.65;/);
-assert.match(componentsSource, /\.income-impact-graph-x-grid-line[\s\S]*stroke:\s*rgba\(0,\s*0,\s*0,\s*0\.04\);[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*0\.75;/);
-assert.match(componentsSource, /\.income-impact-graph-zero-baseline[\s\S]*stroke:\s*rgba\(226,\s*75,\s*74,\s*0\.3\) !important;[\s\S]*stroke-dasharray:\s*4 3;[\s\S]*stroke-width:\s*1 !important;/);
-assert.match(componentsSource, /\.income-impact-graph-y-tick-label[\s\S]*fill:\s*#9e9e99;[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;/);
-assert.match(componentsSource, /\.income-impact-graph-y-tick-marker circle[\s\S]*fill:\s*#9e9e99;[\s\S]*opacity:\s*0\.5;/);
-assert.match(componentsSource, /\.income-impact-graph-x-tick-dot[\s\S]*fill:\s*#9e9e99;[\s\S]*opacity:\s*0\.55;/);
-assert.match(componentsSource, /\.income-impact-graph-y-tick-marker path[\s\S]*stroke:\s*#9e9e99;[\s\S]*stroke-width:\s*1\.2;/);
-assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#9e9e99;[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*fill:\s*rgba\(24,\s*95,\s*165,\s*0\.04\);[\s\S]*stroke:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-y-grid-line[\s\S]*stroke:\s*var\(--m90-chart-grid\);[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*0\.75;/);
+assert.match(componentsSource, /\.income-impact-graph-minor-grid-line[\s\S]*opacity:\s*1;[\s\S]*pointer-events:\s*none;[\s\S]*stroke:\s*var\(--m90-chart-grid-minor\);[\s\S]*stroke-width:\s*0\.65;/);
+assert.match(componentsSource, /\.income-impact-graph-x-grid-line[\s\S]*stroke:\s*var\(--m90-chart-grid\);[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*0\.75;/);
+assert.match(componentsSource, /\.income-impact-graph-zero-baseline[\s\S]*stroke:\s*var\(--m90-chart-runout\) !important;[\s\S]*stroke-dasharray:\s*4 3;[\s\S]*stroke-width:\s*1 !important;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-label[\s\S]*fill:\s*var\(--m90-text-muted\);[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-marker circle[\s\S]*fill:\s*var\(--m90-text-muted\);[\s\S]*opacity:\s*0\.5;/);
+assert.match(componentsSource, /\.income-impact-graph-x-tick-dot[\s\S]*fill:\s*var\(--m90-text-muted\);[\s\S]*opacity:\s*0\.55;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-marker path[\s\S]*stroke:\s*var\(--m90-text-muted\);[\s\S]*stroke-width:\s*1\.2;/);
+assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*var\(--m90-text-muted\);[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*fill:\s*var\(--m90-chart-fill\);[\s\S]*stroke:\s*none;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
@@ -1123,24 +1152,24 @@ assert.doesNotMatch(componentsSource, /\.income-impact-storyline-event-lane/);
 assert.match(componentsSource, /\.income-impact-storyline-dot/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--major \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--micro \.income-impact-storyline-dot-core/);
-assert.match(componentsSource, /\.income-impact-graph\[data-income-impact-graph-view-mode="postDeathFocus"\] \.income-impact-storyline-dot\[data-income-impact-storyline-month-offset="0"\]\[data-income-impact-storyline-coordinate-source="primary-trendline-exact"\] \.income-impact-storyline-dot-core[\s\S]*r:\s*5;[\s\S]*fill:\s*#185fa5;[\s\S]*opacity:\s*1;/);
-assert.match(componentsSource, /\.income-impact-post-death-runway-start-marker__core[\s\S]*fill:\s*#185fa5;[\s\S]*stroke:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-graph\[data-income-impact-graph-view-mode="postDeathFocus"\] \.income-impact-storyline-dot\[data-income-impact-storyline-month-offset="0"\]\[data-income-impact-storyline-coordinate-source="primary-trendline-exact"\] \.income-impact-storyline-dot-core[\s\S]*r:\s*5;[\s\S]*fill:\s*var\(--m90-chart-primary\);[\s\S]*opacity:\s*1;/);
+assert.match(componentsSource, /\.income-impact-post-death-runway-start-marker__core[\s\S]*fill:\s*var\(--m90-chart-primary\);[\s\S]*stroke:\s*var\(--m90-surface\);/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-group-ring/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-count-badge/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout-action/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout-group-item/);
 assert.match(componentsSource, /\.income-impact-storyline-dot:hover[\s\S]*\.income-impact-storyline-dot-readout/);
-assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*fill:\s*rgba\(24,\s*95,\s*165,\s*0\.001\);[\s\S]*pointer-events:\s*all;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-highlight[\s\S]*fill:\s*rgba\(24,\s*95,\s*165,\s*0\.045\);[\s\S]*opacity:\s*0;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*fill:\s*var\(--m90-chart-primary\);[\s\S]*fill-opacity:\s*0\.001;[\s\S]*pointer-events:\s*all;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-highlight[\s\S]*fill:\s*var\(--m90-chart-fill\);[\s\S]*fill-opacity:\s*0\.38;[\s\S]*opacity:\s*0;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-active-line/);
 assert.match(componentsSource, /\.income-impact-graph-hover-readout[\s\S]*opacity:\s*0;/);
-assert.match(componentsSource, /\.income-impact-graph-legend[\s\S]*color:\s*#6b6b67;[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;[\s\S]*font-size:\s*11px;[\s\S]*font-weight:\s*400;/);
-assert.match(componentsSource, /\.income-impact-graph-legend i[\s\S]*width:\s*18px;[\s\S]*border-top:\s*2px solid #185fa5;[\s\S]*border-radius:\s*1px;/);
+assert.match(componentsSource, /\.income-impact-graph-legend[\s\S]*color:\s*var\(--m90-text-secondary\);[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;[\s\S]*font-size:\s*11px;[\s\S]*font-weight:\s*400;/);
+assert.match(componentsSource, /\.income-impact-graph-legend i[\s\S]*width:\s*18px;[\s\S]*border-top:\s*2px solid var\(--m90-chart-primary\);[\s\S]*border-radius:\s*1px;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-highlight,[\s\S]*opacity:\s*1;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-readout,[\s\S]*\.income-impact-graph-hover-interval:focus \.income-impact-graph-hover-readout[\s\S]*opacity:\s*1;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-bar|\.income-impact-graph-hover-hit-zone|\.income-impact-graph-hover-band|\.income-impact-graph-hover-divider/);
-assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*fill:\s*#ffffff;[\s\S]*pointer-events:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-phase[\s\S]*fill:\s*var\(--m90-surface\);[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /data-income-impact-applied-scenario-selected="false"[\s\S]*opacity:\s*0\.38;/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="true"\][\s\S]*circle/);
@@ -1164,7 +1193,7 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-path--lifestyle-post-death-resources[\s\S]*stroke:\s*#185fa5;[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.35;/,
+  /\.income-impact-graph-path--lifestyle-post-death-resources[\s\S]*stroke:\s*var\(--m90-chart-secondary\);[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.35;/,
   "Lifestyle comparison path should use a thinner, cleaner dash."
 );
 assert.match(
