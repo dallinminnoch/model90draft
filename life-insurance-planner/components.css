@@ -1011,13 +1011,13 @@ input.search-bar__input {
 }
 
 .admin-status-badge.is-active {
-  background: rgba(205, 231, 214, 0.92);
-  color: #244a36;
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
 }
 
 .admin-status-badge.is-disabled {
-  background: rgba(234, 224, 224, 0.9);
-  color: #7a3535;
+  background: var(--m90-critical-soft);
+  color: var(--m90-critical);
 }
 
 .admin-account-actions {
@@ -1129,9 +1129,9 @@ input.search-bar__input {
 }
 
 .admin-action-button.is-danger {
-  color: #8b2727;
-  border-color: rgba(139, 39, 39, 0.2);
-  background: rgba(255, 243, 243, 0.95);
+  color: var(--m90-critical);
+  border-color: var(--m90-critical-soft);
+  background: var(--m90-critical-soft);
 }
 
 .admin-state-tax-summary {
@@ -8378,7 +8378,7 @@ body[data-step="income-impact"] *::-webkit-scrollbar-corner {
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
-  color: #44516a;
+  color: var(--m90-neutral);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -8387,15 +8387,15 @@ body[data-step="income-impact"] *::-webkit-scrollbar-corner {
   width: 0.44rem;
   height: 0.44rem;
   border-radius: 999px;
-  background: #6d4de5;
+  background: var(--m90-neutral);
 }
 
 .client-policy-modal-status-chip.is-active .client-policy-modal-status-dot {
-  background: #3fa470;
+  background: var(--m90-stable);
 }
 
 .client-policy-modal-status-chip.is-pending .client-policy-modal-status-dot {
-  background: #9aa6b8;
+  background: var(--m90-neutral);
 }
 
 .client-policy-modal-status-meta {
@@ -8570,12 +8570,12 @@ body[data-step="income-impact"] *::-webkit-scrollbar-corner {
 }
 
 .client-policy-document-menu-item.is-danger {
-  color: #8b2727;
+  color: var(--m90-critical);
 }
 
 .client-policy-document-menu-item.is-danger:hover,
 .client-policy-document-menu-item.is-danger:focus-visible {
-  background: rgba(139, 39, 39, 0.08);
+  background: var(--m90-critical-soft);
 }
 
 .client-policy-modal-note-card,
@@ -11172,8 +11172,8 @@ body.lens-start-page .lens-intake-sidecard {
 }
 
 .client-directory-summary-badge[data-tone="positive"] {
-  background: #dff5e6;
-  color: #118a46;
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
 }
 
 .client-directory-summary-badge[data-tone="accent"] {
@@ -11182,13 +11182,13 @@ body.lens-start-page .lens-intake-sidecard {
 }
 
 .client-directory-summary-badge[data-tone="warning"] {
-  background: #fff0bf;
-  color: #9e5508;
+  background: var(--m90-warning-soft);
+  color: var(--m90-warning);
 }
 
 .client-directory-summary-badge[data-tone="neutral"] {
-  background: #f1f3f8;
-  color: #6a7385;
+  background: var(--m90-neutral-soft);
+  color: var(--m90-neutral);
 }
 
 .client-directory-summary-kicker {
@@ -13112,27 +13112,27 @@ body.is-modal-open {
 }
 
 .priority-pill.client-priority-button-low {
-  background: #dbe9e1;
-  color: #24533d;
-  border-color: rgba(47, 107, 82, 0.22);
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
+  border-color: var(--m90-stable-soft);
 }
 
 .priority-pill.client-priority-button-medium {
-  background: #f4e4aa;
-  color: #7a5a10;
-  border-color: rgba(224, 179, 38, 0.28);
+  background: var(--m90-warning-soft);
+  color: var(--m90-warning);
+  border-color: var(--m90-warning-soft);
 }
 
 .priority-pill.client-priority-button-high {
-  background: #efc8c8;
-  color: #8c2323;
-  border-color: rgba(184, 52, 52, 0.24);
+  background: var(--m90-critical-soft);
+  color: var(--m90-critical);
+  border-color: var(--m90-critical-soft);
 }
 
 .priority-pill.client-priority-button-unset {
-  background: rgba(239, 242, 247, 0.95);
-  color: #556173;
-  border-color: rgba(213, 221, 232, 0.95);
+  background: var(--m90-neutral-soft);
+  color: var(--m90-neutral);
+  border-color: var(--m90-border);
 }
 
 .status-tabs__item {
@@ -13635,12 +13635,12 @@ body.is-modal-open {
 }
 
 .client-table-cell-stage-days-text.is-warning {
-  color: #c08b14;
+  color: var(--m90-warning);
   font-weight: 700;
 }
 
 .client-table-cell-stage-days-text.is-danger {
-  color: #d64646;
+  color: var(--m90-critical);
   font-weight: 700;
 }
 
@@ -13706,8 +13706,8 @@ body.is-modal-open {
   min-height: 1.8em;
   padding: 0 0.7em;
   border-radius: 999px;
-  background: #eef2f7;
-  color: #465162;
+  background: var(--m90-neutral-soft);
+  color: var(--m90-neutral);
   font-size: 0.86em;
   font-weight: 700;
 }
@@ -13722,8 +13722,8 @@ body.is-modal-open {
 }
 
 .client-tag-success {
-  background: rgba(47, 107, 82, 0.12);
-  color: #2f6b52;
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
 }
 
 .client-table-cell-value {
@@ -13924,18 +13924,18 @@ body.is-modal-open {
 
 .client-close-index-display.is-premium,
 .client-close-index-display.is-building {
-  background: rgba(16, 185, 129, 0.1);
-  color: #047857;
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
 }
 
 .client-close-index-display.is-caution {
-  background: rgba(156, 163, 175, 0.12);
-  color: #6b7280;
+  background: var(--m90-warning-soft);
+  color: var(--m90-warning);
 }
 
 .client-close-index-display.is-risk {
-  background: rgba(239, 68, 68, 0.1);
-  color: #b91c1c;
+  background: var(--m90-critical-soft);
+  color: var(--m90-critical);
 }
 
 .client-close-index-label {
@@ -13954,8 +13954,8 @@ body.is-modal-open {
   min-height: 1.46em;
   padding: 0 0.44em;
   border-radius: 999px;
-  background: #eef2f7;
-  color: #6b7a90;
+  background: var(--m90-neutral-soft);
+  color: var(--m90-neutral);
   font-size: 0.92em;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -13986,23 +13986,23 @@ body.is-modal-open {
 }
 
 .opportunity-score-pill.is-premium {
-  background: #dff0c8;
-  color: #506f25;
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
 }
 
 .opportunity-score-pill.is-building {
-  background: #e4edf7;
-  color: #556a85;
+  background: var(--m90-neutral-soft);
+  color: var(--m90-neutral);
 }
 
 .opportunity-score-pill.is-caution {
-  background: #f8e8b4;
-  color: #7f5a12;
+  background: var(--m90-warning-soft);
+  color: var(--m90-warning);
 }
 
 .opportunity-score-pill.is-risk {
-  background: #f6d1d0;
-  color: #8a2d2a;
+  background: var(--m90-critical-soft);
+  color: var(--m90-critical);
 }
 
 .client-close-index-display .opportunity-score-pill,
@@ -15255,35 +15255,35 @@ body.clients-page .client-priority-dot {
 }
 
 body.clients-page .directory-list-row .client-priority-button-low .client-priority-button-main {
-  color: #065f46;
+  color: var(--m90-stable);
 }
 
 body.clients-page .directory-list-row .client-priority-button-medium .client-priority-button-main {
-  color: #92400e;
+  color: var(--m90-warning);
 }
 
 body.clients-page .directory-list-row .client-priority-button-high .client-priority-button-main {
-  color: #991b1b;
+  color: var(--m90-critical);
 }
 
 body.clients-page .directory-list-row .client-priority-button-unset .client-priority-button-main {
-  color: #6b7280;
+  color: var(--m90-neutral);
 }
 
 body.clients-page .directory-list-row .client-priority-button-low .client-priority-dot {
-  background: #10b981;
+  background: var(--m90-stable);
 }
 
 body.clients-page .directory-list-row .client-priority-button-medium .client-priority-dot {
-  background: #f59e0b;
+  background: var(--m90-warning);
 }
 
 body.clients-page .directory-list-row .client-priority-button-high .client-priority-dot {
-  background: #ef4444;
+  background: var(--m90-critical);
 }
 
 body.clients-page .directory-list-row .client-priority-button-unset .client-priority-dot {
-  background: #9ca3af;
+  background: var(--m90-neutral);
 }
 
 body.clients-page .client-priority-detail-chip {
@@ -21628,18 +21628,18 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .income-impact-risk-severity[data-income-impact-risk-severity-label="critical"] {
-  background: #fff1f0;
-  color: #b42318;
+  background: var(--m90-critical-soft);
+  color: var(--m90-critical);
 }
 
 .income-impact-risk-severity[data-income-impact-risk-severity-label="at-risk"] {
-  background: #fff7ed;
-  color: #b54708;
+  background: var(--m90-warning-soft);
+  color: var(--m90-warning);
 }
 
 .income-impact-risk-severity[data-income-impact-risk-severity-label="caution"] {
-  background: #fff8e6;
-  color: #8a5a00;
+  background: var(--m90-warning-soft);
+  color: var(--m90-warning);
 }
 
 .income-impact-risk-item p,
