@@ -294,7 +294,7 @@ assert.match(html, /data-income-impact-layout-frame-focus-start-y-ratio="0\.12"/
 assert.doesNotMatch(html, /data-income-impact-graph-path="preDeathAssets"/);
 
 const pathD = getPathD(html, "data-income-impact-graph-path", "postDeathResources");
-assert.match(pathD, /^M74 88\.56\b/, "Focused view should preserve the existing runway start anchor.");
+assert.match(pathD, /^M74 72\b/, "Focused view should preserve the existing runway start anchor in the compact graph frame.");
 const markerTag = getRunwayDepletionMarkerTag(html, scenarioId);
 const markerPosition = getTranslateCoordinates(markerTag);
 const zeroPairIndex = findMatchingPairIndex(getPathPairs(pathD), markerPosition);

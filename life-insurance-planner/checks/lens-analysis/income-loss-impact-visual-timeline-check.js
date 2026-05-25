@@ -116,6 +116,13 @@ function getSvgNumericAttribute(tag, attributeName) {
   return Number(match[1]);
 }
 
+function assertApproxEqual(actual, expected, message, epsilon = 0.01) {
+  assert.ok(
+    Math.abs(actual - expected) <= epsilon,
+    `${message} Expected ${expected}, received ${actual}.`
+  );
+}
+
 function getPathYValues(pathD) {
   const numbers = String(pathD || "").match(/-?\d+(?:\.\d+)?/g) || [];
   return numbers
@@ -286,7 +293,7 @@ function attachStableLayoutFrame(graphModel, overrides = {}) {
     plotLeft: 74,
     plotRight: 958,
     plotTop: 36,
-    plotBottom: 474,
+    plotBottom: 336,
     deathXRatio: 0.125,
     zeroYRatio: 0.72,
     runoutAnchorXRatio: 0.8,
@@ -395,6 +402,7 @@ assert.match(
 assert.match(pageSource, /class="page-intro income-impact-page-intro"/);
 assert.match(pageSource, /<h1>Remaining Resources Timeline<\/h1>/);
 assert.match(pageSource, /Preview only &mdash; LENS recommendation unchanged\./);
+assert.match(pageSource, /family=DM\+Mono:wght@400;500&family=DM\+Sans:wght@300;400;500;600&family=Inter/);
 assert.doesNotMatch(pageSource, /Adjust Scenario/);
 assert.doesNotMatch(pageSource, /Modify the selected scenario\. Assumption Controls stay unchanged\./);
 assert.match(pageSource, /Lifestyle change[\s\S]*data-income-impact-lifestyle-value>\$0\/mo/);
@@ -876,6 +884,15 @@ assert.match(
 );
 
 assert.match(displaySource, /data-income-impact-graph-svg/);
+assert.match(
+  displaySource,
+  /const GRAPH_VIEW_BOX = Object\.freeze\(\{[\s\S]*width:\s*1000,[\s\S]*height:\s*400,[\s\S]*plotLeft:\s*74,[\s\S]*plotTop:\s*36,[\s\S]*plotWidth:\s*884,[\s\S]*plotHeight:\s*300[\s\S]*\}\);/,
+  "Income Impact graph display viewBox should use the compact visual height without changing graph data inputs."
+);
+assert.match(displaySource, /function getGraphSharedGeometry\(graphModel\)/);
+assert.match(displaySource, /source:\s*"income-impact-display\.shared-graph-geometry"/);
+assert.doesNotMatch(displaySource, /plotBottom\s*=\s*toOptionalNumber\(layoutFrame\?\.plotBottom\)/);
+assert.doesNotMatch(displaySource, /\b(?:438|570)\b/);
 assert.match(displaySource, /GRAPH_VIEW_MODE_POST_DEATH_FOCUS = "postDeathFocus"/);
 assert.match(displaySource, /GRAPH_VIEW_MODE_DEATH_LEAD_UP = "deathLeadUp"/);
 assert.match(displaySource, /data-income-impact-graph-view-toggle/);
@@ -892,7 +909,11 @@ assert.match(displaySource, /preDeathContextPoints/);
 assert.match(displaySource, /renderGraphHoverLayer/);
 assert.match(displaySource, /getSelectedScenarioHoverPoints/);
 assert.match(displaySource, /getInterpolatedGraphHoverInterval/);
-assert.match(displaySource, /getInterpolatedGraphHoverPointAtXRatio/);
+assert.match(displaySource, /getGraphSharedGeometry/);
+assert.match(displaySource, /getInterpolatedGraphHoverPointAtX/);
+assert.match(displaySource, /graphX = projected\.x/);
+assert.match(displaySource, /graphY = projected\.y/);
+assert.doesNotMatch(displaySource, /getInterpolatedGraphHoverPointAtXRatio/);
 assert.match(displaySource, /getGraphHoverInspectionIntervals/);
 assert.match(displaySource, /buildGraphAreaUnderSvgPath/);
 assert.match(displaySource, /getGraphHoverUnderTrendlineTintAreas/);
@@ -1009,19 +1030,23 @@ assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*m
 assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow:\s*visible;/);
 assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*1px solid #f0f1f4;[\s\S]*background:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*1px solid #f0f1f4;[^}]*overflow:\s*visible;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(10,\s*110px\);[\s\S]*grid-template-rows:\s*64px 64px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*#f3f5f8;/);
+assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(12,\s*minmax\(78px,\s*1fr\)\);[\s\S]*grid-template-rows:\s*repeat\(2,\s*minmax\(72px,\s*auto\)\);[\s\S]*gap:\s*6px;[\s\S]*min-width:\s*1040px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*#f3f5f8;/);
 assert.match(componentsSource, /\.income-impact-milestone-strip::before,[\s\S]*\.income-impact-milestone-strip::after\s*\{[\s\S]*display:\s*none;/);
-assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*display:\s*flex;[\s\S]*height:\s*64px;[\s\S]*border-radius:\s*12px;[\s\S]*background:\s*var\(--income-impact-milestone-block-bg,\s*#475569\);/);
+assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*display:\s*flex;[\s\S]*gap:\s*3px;[\s\S]*height:\s*auto;[\s\S]*padding:\s*8px 10px 9px;[\s\S]*border:\s*1px solid var\(--income-impact-milestone-border,\s*#dce3ed\);[\s\S]*border-radius:\s*6px;[\s\S]*background:\s*var\(--income-impact-milestone-bg,\s*#ffffff\);[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;/);
+assert.match(componentsSource, /\.income-impact-milestone-step:hover\s*\{[\s\S]*box-shadow:\s*0 1px 6px rgba\(0,\s*0,\s*0,\s*0\.07\);[\s\S]*\}/);
 assert.match(componentsSource, /\.income-impact-milestone-step--endcap[\s\S]*padding-inline:\s*10px;/);
-assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*--income-impact-milestone-block-bg:\s*#b91c1c;/);
-assert.match(componentsSource, /\.income-impact-milestone-step--tone-stable[\s\S]*--income-impact-milestone-block-bg:\s*#047857;/);
-assert.match(componentsSource, /\.income-impact-milestone-step__number[\s\S]*font-family:\s*"DM Mono",\s*"SFMono-Regular",\s*Consolas,\s*monospace;[\s\S]*font-size:\s*9px;/);
-assert.match(componentsSource, /\.income-impact-milestone-step__tone[\s\S]*background:\s*rgba\(255,\s*255,\s*255,\s*0\.12\);[\s\S]*font-size:\s*8px;/);
-assert.match(componentsSource, /\.income-impact-milestone-step--start-endcap[\s\S]*grid-column:\s*1 \/ span 1;[\s\S]*grid-row:\s*1;/);
-assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(2\)[\s\S]*grid-column:\s*1 \/ span 2;[\s\S]*grid-row:\s*2;/);
-assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(9\)[\s\S]*grid-column:\s*8 \/ span 2;[\s\S]*grid-row:\s*1;/);
-assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(10\)[\s\S]*grid-column:\s*9 \/ span 2;[\s\S]*grid-row:\s*2;/);
-assert.match(componentsSource, /\.income-impact-milestone-step--final-endcap[\s\S]*grid-column:\s*10 \/ span 1;[\s\S]*grid-row:\s*1;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*--income-impact-milestone-bg:\s*#fdf0f0;[\s\S]*--income-impact-milestone-border:\s*#f0c8c8;[\s\S]*--income-impact-milestone-title:\s*#4a1515;[\s\S]*--income-impact-milestone-meta:\s*#a32d2d;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--tone-atRisk,[\s\S]*\.income-impact-milestone-step--tone-caution[\s\S]*--income-impact-milestone-bg:\s*#fdf4e7;[\s\S]*--income-impact-milestone-border:\s*#f5daa0;[\s\S]*--income-impact-milestone-title:\s*#3d2206;[\s\S]*--income-impact-milestone-meta:\s*#854f0b;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--tone-stable[\s\S]*--income-impact-milestone-bg:\s*#eef7f1;[\s\S]*--income-impact-milestone-border:\s*#b8dfc4;[\s\S]*--income-impact-milestone-title:\s*#14391e;[\s\S]*--income-impact-milestone-meta:\s*#2d7a44;/);
+assert.match(componentsSource, /\.income-impact-milestone-step__number[\s\S]*color:\s*#8b97a8;[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*10px;/);
+assert.match(componentsSource, /\.income-impact-milestone-step__tone[\s\S]*padding:\s*2px 6px;[\s\S]*border-radius:\s*3px;[\s\S]*background:\s*var\(--income-impact-milestone-badge-bg,\s*#e6ebf2\);[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;[\s\S]*font-size:\s*9px;[\s\S]*letter-spacing:\s*0\.05em;/);
+assert.match(componentsSource, /\.income-impact-milestone-step__title[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;[\s\S]*font-size:\s*11px;[\s\S]*font-weight:\s*500;[\s\S]*line-height:\s*1\.35;/);
+assert.match(componentsSource, /\.income-impact-milestone-step__timing,[\s\S]*\.income-impact-milestone-strip__empty[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*10px;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--start-endcap[\s\S]*grid-column:\s*1 \/ span 2;[\s\S]*grid-row:\s*1;/);
+assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(2\)[\s\S]*grid-column:\s*2 \/ span 2;[\s\S]*grid-row:\s*2;/);
+assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(9\)[\s\S]*grid-column:\s*9 \/ span 2;[\s\S]*grid-row:\s*1;/);
+assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(10\)[\s\S]*grid-column:\s*10 \/ span 2;[\s\S]*grid-row:\s*2;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--final-endcap[\s\S]*grid-column:\s*11 \/ span 2;[\s\S]*grid-row:\s*1;/);
 assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar\s*\{[\s\S]*width:\s*1px;[\s\S]*height:\s*1px;/);
@@ -1040,9 +1065,10 @@ assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg\s*\{[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*1000 \/ 570;[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*overflow:\s*visible;[^}]*\}/,
-  "Income Impact SVG graph viewport should auto-size from the graph viewBox ratio inside the flat reference chart section."
+  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*overflow:\s*visible;[^}]*\}/,
+  "Income Impact SVG graph viewport should auto-size from the compact graph viewBox ratio inside the flat reference chart section."
 );
+assert.doesNotMatch(componentsSource, /\.income-impact-graph-svg\s*\{[^}]*aspect-ratio:\s*1000 \/ 570;/);
 assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph\s*\{[^}]*background:\s*linear-gradient\(180deg,\s*#ffffff\s*0%,\s*#f8fafc\s*100%\);[^}]*\}/);
@@ -1155,8 +1181,8 @@ assert.doesNotMatch(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg[\s\S]*height:\s*auto;[\s\S]*min-height:\s*0;[\s\S]*aspect-ratio:\s*1000 \/ 570;[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*overflow:\s*visible;/,
-  "Income Impact graph should auto-size instead of using a fixed-height stage."
+  /\.income-impact-graph-svg[\s\S]*height:\s*auto;[\s\S]*min-height:\s*0;[\s\S]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*overflow:\s*visible;/,
+  "Income Impact graph should auto-size from the compact display stage instead of using a fixed-height stage."
 );
 
 const fixture = {
@@ -1202,6 +1228,11 @@ const fixture = {
 const timelineHtml = harness.renderTimeline(fixture);
 assert.match(timelineHtml, /data-income-impact-graph/);
 assert.match(timelineHtml, /data-income-impact-graph-svg/);
+assert.match(timelineHtml, /viewBox="0 0 1000 400"/);
+assert.match(timelineHtml, /data-income-impact-graph-geometry-source="income-impact-display\.shared-graph-geometry"/);
+assert.match(timelineHtml, /data-income-impact-graph-geometry-plot-bottom="336"/);
+assert.match(timelineHtml, /data-income-impact-graph-geometry-plot-height="300"/);
+assert.match(timelineHtml, /data-income-impact-graph-y-tick-value=/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-graph-annotation/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-status="stable"/);
 assert.match(timelineHtml, /data-income-impact-transition-outlook-annotation-line/);
@@ -1349,13 +1380,13 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(stableZeroBaseline, "y1"),
-    351,
+    252,
     "Renderer should consume layoutFrame zeroYRatio instead of dynamic axis zero y."
   );
   const stablePath = getPathD(stableHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     stablePath,
-    /781 351/,
+    /781 252/,
     "Furthest visible depletion should render at the stable runout anchor zone."
   );
   assert.match(
@@ -1389,7 +1420,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(focusedZeroBaseline, "y1"),
-    351,
+    252,
     "Post-death focus view should preserve the same zero baseline geometry."
   );
   assert.doesNotMatch(focusedHtml, /data-income-impact-graph-path="preDeathAssets"/);
@@ -1398,7 +1429,7 @@ assert.doesNotMatch(
   const focusedPath = getPathD(focusedHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     focusedPath,
-    /^M74 88\.56\b/,
+    /^M74 72\b/,
     "Post-death focus view should pin the runway start near the top of the plot."
   );
   assert.doesNotMatch(
@@ -1409,7 +1440,7 @@ assert.doesNotMatch(
   const focusedRunwayStartMarker = getSvgTag(focusedHtml, "g", "data-income-impact-post-death-runway-start-marker");
   const focusedRunwayStartMarkerPosition = getTranslateCoordinates(focusedRunwayStartMarker);
   assert.equal(focusedRunwayStartMarkerPosition.x, 74, "Post-death focus view should render a start marker at the visible runway start x coordinate.");
-  assert.equal(focusedRunwayStartMarkerPosition.y, 89, "Post-death focus view should render a start marker at the visible runway start y coordinate.");
+  assert.equal(focusedRunwayStartMarkerPosition.y, 72, "Post-death focus view should render a start marker at the visible runway start y coordinate.");
   const focusedDotHtml = harness.renderTimeline({
     ...fixture,
     graphViewMode: "postDeathFocus",
@@ -1438,7 +1469,7 @@ assert.doesNotMatch(
   const focusedStartDot = getSvgGroupTagByAttribute(focusedDotHtml, "data-income-impact-storyline-event-id", "survivor-resources-start");
   const focusedStartDotPosition = getTranslateCoordinates(focusedStartDot);
   assert.equal(focusedStartDotPosition.x, 74, "Focused view start dot should share the runway start x coordinate.");
-  assert.equal(focusedStartDotPosition.y, 89, "Focused view start dot should use the focused runway start y coordinate, not the lead-up y ratio.");
+  assert.equal(focusedStartDotPosition.y, 72, "Focused view start dot should use the focused runway start y coordinate, not the lead-up y ratio.");
   assert.match(focusedStartDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
   const focusedRenderedRunwayGraphModel = attachStableLayoutFrame(makeGraphModel(), {
     xDomainMonths: 18,
@@ -1554,7 +1585,7 @@ assert.doesNotMatch(
   );
   assert.match(
     focusedRenderedRunwayPath,
-    /L781 351/,
+    /L781 252/,
     "Post-death focus view should place the selected runout crossing at the focused zero-crossing anchor."
   );
   const focusedRenderedRunwayDepletionMarker = getRunwayDepletionMarkerTag(
@@ -1569,7 +1600,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     focusedRenderedRunwayDepletionMarkerPosition.y,
-    351,
+    252,
     "Focused selected depletion marker should share the rendered zero-crossing path y coordinate."
   );
   const focusedLinearYScaleGraphModel = attachStableLayoutFrame(makeGraphModel(), {
@@ -1667,7 +1698,7 @@ assert.doesNotMatch(
   const focusedComparisonSelectedPath = getPathD(focusedComparisonAnchorHtml, "data-income-impact-graph-path", "postDeathResources");
   assert.match(
     focusedComparisonSelectedPath,
-    /L781 351/,
+    /L781 252/,
     "Post-death focus view should anchor the selected zero crossing even when a later comparison owns the shared lead-up frame."
   );
   const focusedComparisonSelectedMarker = getRunwayDepletionMarkerTag(
@@ -1681,7 +1712,7 @@ assert.doesNotMatch(
   );
   assert.match(
     focusedPath,
-    /L781 351/,
+    /L781 252/,
     "Post-death focus view should preserve the zero-crossing point as an explicit line-segment anchor."
   );
 
@@ -1792,7 +1823,7 @@ assert.doesNotMatch(
   );
   assert.equal(
     getSvgNumericAttribute(getSvgTag(stableRisingHtml, "line", "data-income-impact-graph-zero-baseline"), "y1"),
-    351,
+    252,
     "Zero line should remain stable for rising/no-depletion resource lines."
   );
   assert.match(stableRisingHtml, />\$900k</, "Axis tick labels should still reflect the dynamic model domain.");
@@ -1885,8 +1916,8 @@ assert.equal(baseGridLineY2Values.length, baseHoverGridLineCount);
 assert.equal(baseGridLinePointYValues.length, baseHoverGridLineCount);
 baseGridLineY1Values.forEach(function (y1, index) {
   assert.ok(y1 > 36, "Default inspection grid segments should start at the selected trendline, not at plot top.");
-  assert.equal(y1, Math.min(baseGridLinePointYValues[index] + 6, 474), "Default inspection grid bars should leave a 6px gap below the selected trendline.");
-  assert.equal(baseGridLineY2Values[index], 474, "Default inspection grid segments should extend down to the plot bottom.");
+  assert.equal(y1, Math.min(baseGridLinePointYValues[index] + 6, 336), "Default inspection grid bars should leave a 6px gap below the selected trendline.");
+  assert.equal(baseGridLineY2Values[index], 336, "Default inspection grid segments should extend down to the plot bottom.");
   assert.ok(y1 < baseGridLineY2Values[index], "Default inspection grid segments should be visible below the selected trendline.");
 });
 assert.equal(
@@ -1907,12 +1938,12 @@ assert.notEqual(
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 1],
-  474,
+  336,
   "Under-trendline tint should close at plot bottom, not above the selected trendline."
 );
 assert.equal(
   underTrendlineTintNumbers[underTrendlineTintNumbers.length - 3],
-  474,
+  336,
   "Under-trendline tint should extend downward through the plot area."
 );
 assert.match(timelineHtml, /data-income-impact-graph-hover-grid-line/);
@@ -1989,12 +2020,12 @@ assert.match(storylineDotTimelineHtml, /data-income-impact-storyline-dot[\s\S]*t
 const cashStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "cash-savings-depleted");
 const cashStorylineDotPosition = getTranslateCoordinates(cashStorylineDot);
 assert.equal(cashStorylineDotPosition.x, 366, "Cash depletion dot should sit on the visible remaining-resources trendline x coordinate.");
-assert.equal(cashStorylineDotPosition.y, 89, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
+assert.equal(cashStorylineDotPosition.y, 72, "Cash depletion dot should sit on the visible remaining-resources trendline y coordinate, not a lower event lane.");
 assert.match(cashStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-exact"/);
 const housingStorylineDot = getSvgGroupTagByAttribute(storylineDotTimelineHtml, "data-income-impact-storyline-event-id", "housing-payment-at-risk");
 const housingStorylineDotPosition = getTranslateCoordinates(housingStorylineDot);
 assert.equal(housingStorylineDotPosition.x, 401, "Housing pressure dot should interpolate its x coordinate from the graph timeline.");
-assert.equal(housingStorylineDotPosition.y, 114, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
+assert.equal(housingStorylineDotPosition.y, 89, "Housing pressure dot should interpolate its y coordinate from the remaining-resources trendline.");
 assert.match(housingStorylineDot, /data-income-impact-storyline-coordinate-source="primary-trendline-interpolated"/);
 assert.notEqual(cashStorylineDotPosition.y, 316, "Storyline dots should not use the retired fixed lower event lane.");
 assert.doesNotMatch(storylineDotTimelineHtml, /data-income-impact-story-card|data-income-impact-story-card-connector/);
@@ -2379,14 +2410,16 @@ assert.ok(
   (multiAppliedTimelineHtml.match(/data-income-impact-graph-hover-underlay-phase="postDeath"/g) || []).length > 0,
   "Selected applied scenario tint should render green-family post-death segments."
 );
-assert.match(
-  getGraphHoverGridLineTag(multiAppliedTimelineHtml, 290),
-  /data-income-impact-graph-hover-grid-line-y1="95"/,
+const preDeathHoverGridLine = getGraphHoverGridLineTag(multiAppliedTimelineHtml, 290);
+const postDeathHoverGridLine = getGraphHoverGridLineTag(multiAppliedTimelineHtml, 298);
+assertApproxEqual(
+  getSvgNumericAttribute(preDeathHoverGridLine, "data-income-impact-graph-hover-grid-line-y1"),
+  getSvgNumericAttribute(preDeathHoverGridLine, "data-income-impact-graph-hover-grid-line-point-y") + 6,
   "Pre-death hover grid boundary should leave a clear gap below the selected pre-death trendline."
 );
-assert.match(
-  getGraphHoverGridLineTag(multiAppliedTimelineHtml, 298),
-  /data-income-impact-graph-hover-grid-line-y1="82"/,
+assertApproxEqual(
+  getSvgNumericAttribute(postDeathHoverGridLine, "data-income-impact-graph-hover-grid-line-y1"),
+  getSvgNumericAttribute(postDeathHoverGridLine, "data-income-impact-graph-hover-grid-line-point-y") + 6,
   "Post-death hover grid boundary should leave a clear gap below the selected runway trendline."
 );
 assert.match(
@@ -2455,7 +2488,7 @@ assert.doesNotMatch(
   "Linear applied runway paths should render straight line segments instead of cubic curve commands."
 );
 const selectedRunwayYValues = getPathYValues(selectedRunwayPath);
-const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 438);
+const zeroY = 36 + (multiAppliedGraphModel.axes.y.zeroYRatio * 300);
 assert.ok(
   Math.max(...selectedRunwayYValues) <= zeroY + 0.75,
   "Selected funded runway path should stop at zero and should not include below-zero y coordinates."
@@ -2528,7 +2561,7 @@ const continuousDeficitTimelineHtml = harness.renderTimeline({
   graphModel: continuousDeficitGraphModel
 });
 const continuousDeficitAreaPath = getPathD(continuousDeficitTimelineHtml, "data-income-impact-graph-deficit-area", "postDeathDeficitArea--selected");
-const continuousDeficitFinalY = 36 + (0.94 * 438);
+const continuousDeficitFinalY = 36 + (0.94 * 300);
 const continuousDeficitFinalYCount = getPathYValues(continuousDeficitAreaPath).filter(function (value) {
   return Math.abs(value - continuousDeficitFinalY) < 0.01;
 }).length;

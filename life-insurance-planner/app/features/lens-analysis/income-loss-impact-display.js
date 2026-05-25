@@ -51,11 +51,11 @@
   });
   const GRAPH_VIEW_BOX = Object.freeze({
     width: 1000,
-    height: 570,
+    height: 400,
     plotLeft: 74,
     plotTop: 36,
     plotWidth: 884,
-    plotHeight: 438
+    plotHeight: 300
   });
   const GRAPH_STORYLINE_EVENT_DOT_LIMIT = 16;
   const GRAPH_STORYLINE_EVENT_READOUT_WIDTH = 176;
@@ -1844,21 +1844,44 @@
   }
 
   function getGraphPlotFrame(graphModel) {
-    const layoutFrame = getStableGraphLayoutFrame(graphModel);
-    const plotLeft = toOptionalNumber(layoutFrame?.plotLeft) ?? GRAPH_VIEW_BOX.plotLeft;
-    const plotRight = toOptionalNumber(layoutFrame?.plotRight);
-    const plotTop = toOptionalNumber(layoutFrame?.plotTop) ?? GRAPH_VIEW_BOX.plotTop;
-    const plotBottom = toOptionalNumber(layoutFrame?.plotBottom);
-    const plotWidth = plotRight == null ? GRAPH_VIEW_BOX.plotWidth : Math.max(1, plotRight - plotLeft);
-    const plotHeight = plotBottom == null ? GRAPH_VIEW_BOX.plotHeight : Math.max(1, plotBottom - plotTop);
+    const plotLeft = GRAPH_VIEW_BOX.plotLeft;
+    const plotTop = GRAPH_VIEW_BOX.plotTop;
+    const plotWidth = GRAPH_VIEW_BOX.plotWidth;
+    const plotHeight = GRAPH_VIEW_BOX.plotHeight;
     return {
       plotLeft,
       plotTop,
       plotWidth,
       plotHeight,
       plotRight: plotLeft + plotWidth,
-      plotBottom: plotTop + plotHeight
+      plotBottom: plotTop + plotHeight,
+      source: "income-impact-display.shared-graph-geometry"
     };
+  }
+
+  function getGraphSharedGeometry(graphModel) {
+    const frame = getGraphPlotFrame(graphModel);
+    return Object.freeze({
+      source: frame.source,
+      viewBoxWidth: GRAPH_VIEW_BOX.width,
+      viewBoxHeight: GRAPH_VIEW_BOX.height,
+      plotLeft: frame.plotLeft,
+      plotRight: frame.plotRight,
+      plotTop: frame.plotTop,
+      plotBottom: frame.plotBottom,
+      plotWidth: frame.plotWidth,
+      plotHeight: frame.plotHeight,
+      toXRatio(x) {
+        const coordinate = toOptionalNumber(x);
+        if (coordinate == null || frame.plotWidth <= 0) {
+          return 0;
+        }
+        return clampNumber((coordinate - frame.plotLeft) / frame.plotWidth, 0, 1);
+      },
+      clampPlotY(y) {
+        return clampNumber(y, frame.plotTop, frame.plotBottom);
+      }
+    });
   }
 
   function getLayoutFramePointMonth(point) {
@@ -2015,12 +2038,10 @@
     return Math.round(frame.plotLeft + ((stableRatio == null ? 0 : stableRatio) * frame.plotWidth));
   }
 
-  function toGraphXRatio(x) {
+  function toGraphXRatio(x, graphModel = null) {
     const coordinate = toOptionalNumber(x);
-    if (coordinate == null || GRAPH_VIEW_BOX.plotWidth <= 0) {
-      return 0;
-    }
-    return clampNumber((coordinate - GRAPH_VIEW_BOX.plotLeft) / GRAPH_VIEW_BOX.plotWidth, 0, 1);
+    const geometry = getGraphSharedGeometry(graphModel);
+    return coordinate == null ? 0 : geometry.toXRatio(coordinate);
   }
 
   function toGraphY(yRatio, graphModel = null, point = null) {
@@ -2445,10 +2466,13 @@
           hoverPhase: phase,
           hoverPhaseOrder: phaseOrder
         });
-        if (getStableGraphLayoutFrame(graphModel)) {
-          hoverPoint.xRatio = getLayoutFrameXRatio(graphModel, point.xRatio, hoverPoint);
-          hoverPoint.yRatio = getLayoutFrameYRatio(graphModel, point.yRatio, hoverPoint);
+        const projected = projectGraphPoint(graphModel, hoverPoint);
+        if (projected.x == null || projected.y == null) {
+          return;
         }
+        hoverPoint.graphX = projected.x;
+        hoverPoint.graphY = projected.y;
+        hoverPoint.graphGeometrySource = projected.projectionOwner;
         pointsByX.set(`${phase}:${key}`, hoverPoint);
       });
     }
@@ -2459,7 +2483,7 @@
     addHoverPoints(fallbackPoints, "fallback", 1);
 
     const points = Array.from(pointsByX.values()).sort(function (left, right) {
-      const xDelta = toOptionalNumber(left.xRatio) - toOptionalNumber(right.xRatio);
+      const xDelta = toOptionalNumber(left.graphX) - toOptionalNumber(right.graphX);
       if (Math.abs(xDelta) > 0.000001) {
         return xDelta;
       }
@@ -2468,50 +2492,57 @@
     return points;
   }
 
-  function getInterpolatedGraphHoverPointAtXRatio(points, xRatio) {
+  function getInterpolatedGraphHoverPointAtX(points, x) {
     if (!Array.isArray(points) || points.length < 1) {
       return null;
     }
-    const targetXRatio = toOptionalNumber(xRatio);
-    if (targetXRatio == null) {
+    const targetX = toOptionalNumber(x);
+    if (targetX == null) {
       return null;
     }
     const firstPoint = points[0];
     const lastPoint = points[points.length - 1];
-    if (targetXRatio <= toOptionalNumber(firstPoint?.xRatio)) {
+    if (targetX <= toOptionalNumber(firstPoint?.graphX)) {
       return firstPoint;
     }
-    if (targetXRatio >= toOptionalNumber(lastPoint?.xRatio)) {
+    if (targetX >= toOptionalNumber(lastPoint?.graphX)) {
       return lastPoint;
     }
 
     for (let index = 0; index < points.length - 1; index += 1) {
       const startPoint = points[index];
       const endPoint = points[index + 1];
-      const startXRatio = toOptionalNumber(startPoint?.xRatio);
-      const endXRatio = toOptionalNumber(endPoint?.xRatio);
-      if (startXRatio == null || endXRatio == null || endXRatio <= startXRatio) {
+      const startX = toOptionalNumber(startPoint?.graphX);
+      const endX = toOptionalNumber(endPoint?.graphX);
+      if (startX == null || endX == null || endX <= startX) {
         continue;
       }
-      if (targetXRatio < startXRatio || targetXRatio >= endXRatio) {
+      if (targetX < startX || targetX >= endX) {
         continue;
       }
 
       const startYRatio = toOptionalNumber(startPoint?.yRatio);
       const endYRatio = toOptionalNumber(endPoint?.yRatio);
+      const startXRatio = toOptionalNumber(startPoint?.xRatio);
+      const endXRatio = toOptionalNumber(endPoint?.xRatio);
+      const startY = toOptionalNumber(startPoint?.graphY);
+      const endY = toOptionalNumber(endPoint?.graphY);
       const startValue = getGraphHoverPointValue(startPoint);
       const endValue = getGraphHoverPointValue(endPoint);
-      if (startYRatio == null || endYRatio == null || startValue == null || endValue == null) {
+      if (startY == null || endY == null || startValue == null || endValue == null) {
         return null;
       }
-      const progress = (targetXRatio - startXRatio) / (endXRatio - startXRatio);
+      const progress = (targetX - startX) / (endX - startX);
       return {
-        xRatio: targetXRatio,
-        yRatio: startYRatio + ((endYRatio - startYRatio) * progress),
+        xRatio: startXRatio == null || endXRatio == null ? null : startXRatio + ((endXRatio - startXRatio) * progress),
+        yRatio: startYRatio == null || endYRatio == null ? null : startYRatio + ((endYRatio - startYRatio) * progress),
+        graphX: targetX,
+        graphY: startY + ((endY - startY) * progress),
         value: startValue + ((endValue - startValue) * progress),
         scenarioId: startPoint.scenarioId || endPoint.scenarioId || "",
         scenarioLabel: normalizeString(startPoint.scenarioLabel || endPoint.scenarioLabel) || "Selected scenario",
         hoverPhase: normalizeString(startPoint.hoverPhase || endPoint.hoverPhase),
+        graphGeometrySource: startPoint.graphGeometrySource || endPoint.graphGeometrySource || "",
         date: normalizeString(endPoint.date || startPoint.date)
       };
     }
@@ -2526,15 +2557,15 @@
       return null;
     }
     const x = startCoordinate + ((endCoordinate - startCoordinate) / 2);
-    const point = getInterpolatedGraphHoverPointAtXRatio(points, toGraphXRatio(x));
+    const point = getInterpolatedGraphHoverPointAtX(points, x);
     if (!point) {
       return null;
     }
-    const y = toGraphY(point.yRatio);
-    const pointY = clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight);
+    const geometry = getGraphSharedGeometry();
+    const pointY = geometry.clampPlotY(point.graphY);
     return Object.assign({}, point, {
       pointY,
-      barTopY: clampNumber(pointY + GRAPH_HOVER_BAR_TOP_GAP, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
+      barTopY: clampNumber(pointY + GRAPH_HOVER_BAR_TOP_GAP, geometry.plotTop, geometry.plotBottom),
       x,
       startX: startCoordinate,
       endX: endCoordinate,
@@ -2548,14 +2579,18 @@
     }
     const firstPoint = points[0];
     const lastPoint = points[points.length - 1];
-    const sourceStartX = toGraphX(firstPoint.xRatio);
-    const sourceEndX = toGraphX(lastPoint.xRatio);
+    const sourceStartX = toOptionalNumber(firstPoint.graphX);
+    const sourceEndX = toOptionalNumber(lastPoint.graphX);
+    if (sourceStartX == null || sourceEndX == null) {
+      return [];
+    }
     if (sourceEndX - sourceStartX < GRAPH_HOVER_GRID_SPACING) {
       return [];
     }
 
-    const gridOffset = sourceStartX - GRAPH_VIEW_BOX.plotLeft;
-    const firstBoundaryX = GRAPH_VIEW_BOX.plotLeft + (Math.ceil(gridOffset / GRAPH_HOVER_GRID_SPACING) * GRAPH_HOVER_GRID_SPACING);
+    const geometry = getGraphSharedGeometry();
+    const gridOffset = sourceStartX - geometry.plotLeft;
+    const firstBoundaryX = geometry.plotLeft + (Math.ceil(gridOffset / GRAPH_HOVER_GRID_SPACING) * GRAPH_HOVER_GRID_SPACING);
     const intervals = [];
     for (
       let startX = firstBoundaryX;
@@ -2575,13 +2610,13 @@
       return [];
     }
     const buildDivider = function (x, scenarioId) {
-      const point = getInterpolatedGraphHoverPointAtXRatio(points, toGraphXRatio(x));
-      const y = toGraphY(point?.yRatio);
-      const pointY = clampNumber(y, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight);
+      const point = getInterpolatedGraphHoverPointAtX(points, x);
+      const geometry = getGraphSharedGeometry();
+      const pointY = geometry.clampPlotY(point?.graphY);
       return {
         x,
         pointY,
-        barTopY: clampNumber(pointY + GRAPH_HOVER_BAR_TOP_GAP, GRAPH_VIEW_BOX.plotTop, GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight),
+        barTopY: clampNumber(pointY + GRAPH_HOVER_BAR_TOP_GAP, geometry.plotTop, geometry.plotBottom),
         scenarioId: scenarioId || point?.scenarioId || "",
         hoverPhase: normalizeString(point?.hoverPhase)
       };
@@ -2694,7 +2729,8 @@
       return "";
     }
 
-    const plotBottom = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight;
+    const geometry = getGraphSharedGeometry(graphModel);
+    const plotBottom = geometry.plotBottom;
     const readoutHalfWidth = GRAPH_HOVER_READOUT_WIDTH / 2;
     const intervals = getGraphHoverInspectionIntervals(hoverPoints);
     if (!intervals.length) {
@@ -2747,10 +2783,10 @@
           ${intervals.map(function (interval, index) {
           const readoutX = clampNumber(
             interval.x,
-            GRAPH_VIEW_BOX.plotLeft + readoutHalfWidth,
-            GRAPH_VIEW_BOX.plotLeft + GRAPH_VIEW_BOX.plotWidth - readoutHalfWidth
+            geometry.plotLeft + readoutHalfWidth,
+            geometry.plotRight - readoutHalfWidth
           );
-          const readoutY = clampNumber(interval.pointY - 14, GRAPH_VIEW_BOX.plotTop + 18, plotBottom - 10);
+          const readoutY = clampNumber(interval.pointY - 14, geometry.plotTop + 18, plotBottom - 10);
           const value = getGraphHoverPointValue(interval);
           const valueLabel = formatCurrency(value);
           const dateLabel = normalizeString(interval.date);
@@ -2777,9 +2813,9 @@
                 class="income-impact-graph-hover-slot"
                 data-income-impact-graph-hover-slot
                 x="${formatSvgCoordinate(interval.startX)}"
-                y="${GRAPH_VIEW_BOX.plotTop}"
+                y="${geometry.plotTop}"
                 width="${formatSvgCoordinate(interval.intervalWidth)}"
-                height="${GRAPH_VIEW_BOX.plotHeight}"
+                height="${geometry.plotHeight}"
               ></rect>
               <rect
                 class="income-impact-graph-hover-highlight"
@@ -5143,6 +5179,7 @@
 
   function renderGraphSvg(graphModel, timelineResult) {
     const layoutFrame = getStableGraphLayoutFrame(graphModel);
+    const graphGeometry = getGraphSharedGeometry(graphModel);
     const showDeathLeadUp = isDeathLeadUpGraphView(graphModel?.trace?.graphViewMode);
     const appliedPreDeathPaths = showDeathLeadUp ? renderAppliedScenarioPreDeathGraphPaths(graphModel) : "";
     const preDeathPath = showDeathLeadUp
@@ -5166,6 +5203,10 @@
         data-income-impact-layout-frame-zero-y-ratio="${escapeHtml(layoutFrame.zeroYRatio)}"
         data-income-impact-layout-frame-runout-anchor-x-ratio="${escapeHtml(layoutFrame.runoutAnchorXRatio)}"
         ${toOptionalNumber(layoutFrame.postDeathFocusStartYRatio) != null ? `data-income-impact-layout-frame-focus-start-y-ratio="${escapeHtml(layoutFrame.postDeathFocusStartYRatio)}"` : ""}` : ""}
+        data-income-impact-graph-geometry-source="${escapeHtml(graphGeometry.source)}"
+        data-income-impact-graph-geometry-plot-top="${escapeHtml(graphGeometry.plotTop)}"
+        data-income-impact-graph-geometry-plot-bottom="${escapeHtml(graphGeometry.plotBottom)}"
+        data-income-impact-graph-geometry-plot-height="${escapeHtml(graphGeometry.plotHeight)}"
         data-income-impact-graph-view-mode="${escapeHtml(normalizeIncomeImpactGraphViewMode(graphModel?.trace?.graphViewMode))}"
         data-income-impact-active-view-frame-mode="${escapeHtml(graphModel?.activeViewFrame?.mode || graphModel?.trace?.activeViewFrameMode || "")}"
         data-income-impact-view-frame-owner="${escapeHtml(graphModel?.activeViewFrame?.trace?.viewFrameOwner || graphModel?.trace?.viewFrameOwner || "")}"
