@@ -14673,48 +14673,53 @@ body.clients-page .client-directory-summary-card {
   position: relative;
   gap: 0;
   min-height: 0;
-  padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  border-bottom-width: 0;
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  border-bottom-width: 1px;
   border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
   overflow: hidden;
+  cursor: default;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
   --client-directory-summary-accent: #2563eb;
 }
 
 body.clients-page .client-directory-summary-card::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2.5px;
-  background: var(--client-directory-summary-accent);
-  opacity: 0.7;
+  content: none;
+}
+
+body.clients-page .client-directory-summary-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+body.clients-page .client-directory-summary-top {
+  align-items: flex-start;
+  margin-bottom: 12px;
 }
 
 body.clients-page .client-directory-summary-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   box-shadow: none;
 }
 
 body.clients-page .client-directory-summary-kicker {
   color: #94a3b8;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  margin-bottom: 3px;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-bottom: 4px;
 }
 
 body.clients-page .client-directory-summary-value {
   color: #0f172a;
   font-family: var(--client-directory-heading-font);
   font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 1;
   margin-bottom: 4px;
 }
@@ -14722,25 +14727,25 @@ body.clients-page .client-directory-summary-value {
 body.clients-page .client-directory-summary-badge {
   min-height: 0;
   padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  border-radius: 20px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0;
   text-transform: uppercase;
   box-shadow: none;
 }
 
 body.clients-page .client-directory-summary-note {
   color: #94a3b8;
-  font-size: 10.5px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.45;
   margin-bottom: 10px;
 }
 
 body.clients-page .client-directory-summary-divider {
   margin-top: 0;
-  margin-bottom: 8px;
-  background: #e2e8f0;
+  margin-bottom: 10px;
+  background: #f1f5f9;
 }
 
 body.clients-page .client-directory-summary-list,
@@ -14752,30 +14757,30 @@ body.clients-page .client-directory-summary-progress {
 body.clients-page .client-directory-summary-list-row,
 body.clients-page .client-directory-summary-progress-head,
 body.clients-page .client-directory-summary-progress-foot {
-  gap: 6px;
+  gap: 7px;
   min-height: 0;
   color: #475569;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 body.clients-page .client-directory-summary-list-label,
 body.clients-page .client-directory-summary-progress-head span,
 body.clients-page .client-directory-summary-progress-foot span {
   color: #475569;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 body.clients-page .client-directory-summary-list-row strong,
 body.clients-page .client-directory-summary-progress-head strong,
 body.clients-page .client-directory-summary-progress-foot strong {
   color: #0f172a;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 body.clients-page .client-directory-summary-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 body.clients-page .client-directory-summary-card-recommended-actions,
@@ -14841,9 +14846,35 @@ body.clients-page .client-order-trigger {
 }
 
 body.clients-page .client-directory-toolbar-actions .client-header-action-primary {
-  border-color: rgba(37, 99, 235, 0.25);
-  background: #eff6ff;
-  color: #2563eb;
+  border: 0;
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+body.clients-page .client-directory-toolbar-actions [data-add-client-trigger] {
+  gap: 6px;
+  min-height: 0;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.3);
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+body.clients-page .client-directory-toolbar-actions [data-add-client-trigger]:hover,
+body.clients-page .client-directory-toolbar-actions [data-add-client-trigger]:focus-visible,
+body.clients-page .client-add-dropdown.is-open [data-add-client-trigger] {
+  background: #4338ca;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.4);
+  outline: none;
+}
+
+body.clients-page .client-directory-toolbar-actions [data-add-client-trigger] .client-add-icon {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 body.clients-page .client-toolbar-button.is-active,
@@ -14884,26 +14915,20 @@ body.clients-page .client-rail-button[data-client-letter="all"] {
   border-radius: 0.3rem;
 }
 
-body.clients-page .client-rail-button[data-client-letter="all"].is-active {
+body.clients-page .client-rail-button.is-active {
   background: #2563eb;
   border-color: #2563eb;
   color: #ffffff;
+  font-weight: 600;
   box-shadow: none;
 }
 
-body.clients-page .client-rail-button.is-active:not([data-client-letter="all"]) {
-  background: transparent;
-  border-color: transparent;
-  color: #2563eb;
-  font-weight: 750;
-  box-shadow: inset 0 -0.12rem 0 #2563eb;
-}
-
-body.clients-page .client-rail-button[data-client-letter="all"].is-active:hover,
-body.clients-page .client-rail-button[data-client-letter="all"].is-active:focus-visible {
+body.clients-page .client-rail-button.is-active:hover,
+body.clients-page .client-rail-button.is-active:focus-visible {
   background: #2563eb;
   border-color: #2563eb;
   color: #ffffff;
+  font-weight: 600;
   box-shadow: none;
 }
 
@@ -15052,7 +15077,7 @@ body.clients-page .directory-list-row {
 body.clients-page .directory-list-row:hover,
 body.clients-page .directory-list-row:focus-visible {
   background: #ffffff;
-  border-color: #e5e7eb;
+  border-color: transparent;
   box-shadow: none;
 }
 
