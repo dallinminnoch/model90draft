@@ -1,3 +1,75 @@
-:root {
-  --search-bar-border-color: rgba(213, 221, 232, 0.95);
+/*
+ * MODEL90 theme tokens.
+ * Use --m90-* names for new theme work so legacy variables in styles.css
+ * cannot accidentally override the canonical theme contract.
+ *
+ * Final supported theme keys:
+ * - modern
+ * - classic
+ * - old-money
+ * - dark-soft (renamed product label for the previous Bold/GitHub-inspired brief)
+ * - dark
+ * - carbon
+ * - high-tech
+ * - dusk
+ * - warm-professional
+ *
+ * Phase 1 implements only the Modern/default values. Future palettes should add
+ * token sets for the keys above without creating component-specific theme piles.
+ */
+
+:root,
+:root[data-theme="modern"] {
+  /* Global/surface */
+  --m90-bg: #f9f9fb;
+  --m90-surface: #ffffff;
+  --m90-surface-secondary: #f0f1f4;
+  --m90-surface-elevated: #ffffff;
+  --m90-text-primary: #0f1923;
+  --m90-text-secondary: #6b7280;
+  --m90-text-muted: #9ca3af;
+  --m90-border: #d5dde8;
+  --m90-border-soft: #e5e7eb;
+
+  /* Accent/action */
+  --m90-accent: #1d6ee8;
+  --m90-accent-hover: #175ac5;
+  --m90-accent-soft: #e8f1ff;
+  --m90-focus-ring: rgba(29, 110, 232, 0.28);
+
+  /* Sidebar/navigation */
+  --m90-sidebar-bg: #0f1923;
+  --m90-sidebar-text: #ffffff;
+  --m90-sidebar-text-muted: #cbd5e1;
+  --m90-logo-accent: #1d6ee8;
+  --m90-trim: #b8c7dd;
+
+  /* Status */
+  --m90-stable: #16a34a;
+  --m90-stable-soft: #dcfce7;
+  --m90-warning: #d97706;
+  --m90-warning-soft: #fef3c7;
+  --m90-critical: #dc2626;
+  --m90-critical-soft: #fee2e2;
+  --m90-neutral: #64748b;
+  --m90-neutral-soft: #f1f5f9;
+
+  /* Chart/graph */
+  --m90-chart-primary: #1d6ee8;
+  --m90-chart-secondary: #58a6ff;
+  --m90-chart-fill: rgba(29, 110, 232, 0.12);
+  --m90-chart-grid: rgba(15, 25, 35, 0.08);
+  --m90-chart-grid-minor: rgba(15, 25, 35, 0.055);
+  --m90-chart-marker: #1d6ee8;
+  --m90-chart-runout: #dc2626;
+  --m90-chart-deficit: rgba(220, 38, 38, 0.14);
+
+  /* Overlay/tooltips */
+  --m90-tooltip-bg: #111827;
+  --m90-tooltip-text: #ffffff;
+  --m90-overlay: rgba(15, 25, 35, 0.48);
+  --m90-shadow: 0 18px 45px rgba(16, 33, 52, 0.08);
+
+  /* Existing pre-theme token preserved for current consumers. */
+  --search-bar-border-color: var(--m90-border);
 }
