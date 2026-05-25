@@ -5,10 +5,10 @@
   --client-directory-side-expanded-width: 13.25rem;
   grid-template-columns: minmax(11.75rem, 12.75rem) minmax(0, 1fr) minmax(12.25rem, 13.25rem);
   min-height: calc(100vh - 140px);
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba(213, 221, 232, 0.78);
+  background: var(--m90-surface);
+  border: 1px solid var(--m90-border);
   border-radius: 0;
-  box-shadow: 0 22px 48px rgba(16, 33, 52, 0.08);
+  box-shadow: var(--m90-shadow);
   overflow: hidden;
 }
 
@@ -16,13 +16,13 @@
   min-width: 0;
   min-height: 0;
   box-sizing: border-box;
-  background: #ffffff;
-  border-left: 1px solid rgba(213, 221, 232, 0.78);
-  border-top: 1px solid rgba(213, 221, 232, 0.78);
+  background: var(--m90-surface);
+  border-left: 1px solid var(--m90-border);
+  border-top: 1px solid var(--m90-border);
   border-right: 0;
-  border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+  border-bottom: 1px solid var(--m90-border);
   border-radius: 0.65rem 0 0 0.65rem;
-  box-shadow: inset -1px 0 0 rgba(213, 221, 232, 0.78);
+  box-shadow: inset -1px 0 0 var(--m90-border);
   overflow: hidden;
 }
 
@@ -31,7 +31,7 @@
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  background: #ffffff;
+  background: var(--m90-surface);
 }
 
 .client-directory-side-panel {
@@ -39,10 +39,10 @@
   z-index: 24;
   min-width: 0;
   min-height: 0;
-  background: #ffffff;
-  border-left: 1px solid rgba(213, 221, 232, 0.78);
-  border-top: 1px solid rgba(213, 221, 232, 0.78);
-  border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+  background: var(--m90-surface);
+  border-left: 1px solid var(--m90-border);
+  border-top: 1px solid var(--m90-border);
+  border-bottom: 1px solid var(--m90-border);
   overflow: hidden;
 }
 
@@ -52,7 +52,7 @@
   height: 100%;
   display: block;
   min-height: 100%;
-  background: #ffffff;
+  background: var(--m90-surface);
   padding: 0;
   overflow-y: hidden;
   overflow-x: hidden;
@@ -74,7 +74,7 @@
   width: 100%;
   display: block;
   min-height: 100%;
-  background: #ffffff;
+  background: var(--m90-surface);
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -111,7 +111,7 @@
     var(--client-directory-main-pad-y, clamp(1rem, 1.5vw, 1.35rem))
     var(--client-directory-main-pad-x, clamp(1.5rem, 2vw, 2rem))
     var(--client-directory-main-pad-bottom, clamp(1.5rem, 2vw, 2rem));
-  background: #ffffff;
+  background: var(--m90-surface);
 }
 
 @media (min-width: 721px) {
@@ -540,7 +540,7 @@ body.settings-page {
   --workspace-topbar-height: 2.2rem;
   --workspace-topbar-control-size: 2.05rem;
   --app-side-nav-top-offset: calc(var(--workspace-topbar-height) + 0.6rem);
-  background: #ffffff;
+  background: var(--m90-bg);
 }
 
 body.lens-workflow-page {
@@ -567,7 +567,7 @@ body.settings-page .workspace-page-topbar {
   left: 0;
   right: 0;
   height: var(--workspace-topbar-height);
-  background: #ffffff;
+  background: var(--m90-surface);
   z-index: 2500;
 }
 
