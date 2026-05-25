@@ -509,6 +509,9 @@ body.clients-page[data-local-client-directory="true"] .client-directory-toolbar 
 }
 
 body.clients-page[data-local-client-directory="true"] .client-directory-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   align-items: center;
   gap: 0.55em 0.9em;
   padding: 0;
