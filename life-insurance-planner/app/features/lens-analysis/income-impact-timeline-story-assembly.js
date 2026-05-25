@@ -13,8 +13,8 @@
       return null;
     }
   })() || {};
-  const STORY_STEP_TARGET = 9;
-  const INTERMEDIATE_STEP_TARGET = 7;
+  const STORY_STEP_TARGET = 11;
+  const INTERMEDIATE_STEP_TARGET = 9;
   const DEFAULT_SUPPORTING_DOT_LIMIT = 10;
   const DAYS_PER_MONTH = 30.4375;
 
@@ -1338,7 +1338,9 @@
       controlledRepeatUsage: 0,
       visibleEventDuplicateSuppressionCount: 0,
       visibleStatePrecedenceSuppressionCount: 0,
-      exactNineStepTargetMet: false,
+      storyStepTarget: STORY_STEP_TARGET,
+      intermediateStepTarget: INTERMEDIATE_STEP_TARGET,
+      exactStoryStepTargetMet: false,
       displayOnly: true,
       noUiMutation: true,
       noGraphMutation: true
@@ -1471,7 +1473,7 @@
     trace.finalOutcomeType = finalOutcome.type;
     trace.suppressionCountsByReason = countSuppressedByReason(suppressed);
     trace.missingTimingExclusionCount = trace.suppressionCountsByReason["missing-reliable-timing"] || 0;
-    trace.exactNineStepTargetMet = storySteps.length === STORY_STEP_TARGET;
+    trace.exactStoryStepTargetMet = storySteps.length === STORY_STEP_TARGET;
 
     return {
       version: VERSION,

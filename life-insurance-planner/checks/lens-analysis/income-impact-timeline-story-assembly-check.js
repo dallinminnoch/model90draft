@@ -259,8 +259,10 @@ const runoutInput = {
 assertNoMutation(runoutInput, function () {
   const result = build(runoutInput);
   assertAssemblyShape(result);
-  assert.equal(result.storySteps.length, 9);
-  assert.equal(result.trace.exactNineStepTargetMet, true);
+  assert.equal(result.storySteps.length, 11);
+  assert.equal(result.trace.storyStepTarget, 11);
+  assert.equal(result.trace.intermediateStepTarget, 9);
+  assert.equal(result.trace.exactStoryStepTargetMet, true);
   assert.equal(result.storySteps[0].stepNumber, 1);
   assert.equal(result.storySteps[0].lockedPosition, "first");
   assert.equal(result.storySteps[0].title, "Income Stops at Death");
@@ -269,8 +271,8 @@ assertNoMutation(runoutInput, function () {
   assert.equal(result.storySteps[0].graphDotId, null);
   assertMainStripLibraryLocked(result);
 
-  const finalStep = result.storySteps[8];
-  assert.equal(finalStep.stepNumber, 9);
+  const finalStep = result.storySteps[10];
+  assert.equal(finalStep.stepNumber, 11);
   assert.equal(finalStep.lockedPosition, "final");
   assert.equal(finalStep.title, "Resources Run Out");
   assert.equal(finalStep.trace.finalOutcomeType, "resourcesRunOut");
@@ -282,10 +284,10 @@ assertNoMutation(runoutInput, function () {
     "Runout final outcome dot should connect to the final step."
   );
 
-  const intermediateSteps = result.storySteps.slice(1, 8);
+  const intermediateSteps = result.storySteps.slice(1, 10);
   assert.deepEqual(
     intermediateSteps.map(function (step) { return step.stepNumber; }),
-    [2, 3, 4, 5, 6, 7, 8]
+    [2, 3, 4, 5, 6, 7, 8, 9, 10]
   );
   const intermediateMonths = intermediateSteps.map(function (step) {
     return step.relativeMonth;
@@ -293,7 +295,7 @@ assertNoMutation(runoutInput, function () {
   assert.deepEqual(
     intermediateMonths,
     intermediateMonths.slice().sort(function (left, right) { return left - right; }),
-    "Steps 2-8 should be ordered by relativeMonth."
+    "Steps 2-10 should be ordered by relativeMonth."
   );
   intermediateSteps.forEach(function (step) {
     assert.ok(step.graphDotId, `${step.id} should have a major graph dot.`);
@@ -325,6 +327,18 @@ assertNoMutation(runoutInput, function () {
       return step.sourceEventId === "minimum-debt-payments-compete-with-expenses" && step.title === "Minimum Debt Payments Compete With Expenses";
     }),
     "Debt pressure events should use the simplified Debt / Required Payments title."
+  );
+  assert.ok(
+    intermediateSteps.some(function (step) {
+      return step.sourceEventId === "rent-payment-pressure-begins";
+    }),
+    "Increasing the middle target should promote an additional existing housing milestone."
+  );
+  assert.ok(
+    intermediateSteps.some(function (step) {
+      return step.sourceEventId === "coverage-runs-out-before-needs-end";
+    }),
+    "Increasing the middle target should promote an additional existing coverage-duration milestone."
   );
 
   assert.ok(
@@ -491,9 +505,9 @@ const scenarioRunout = build({
 });
 assertAssemblyShape(scenarioRunout);
 assertMainStripLibraryLocked(scenarioRunout);
-assert.equal(scenarioRunout.storySteps[8].title, "Resources Run Out");
-assert.equal(scenarioRunout.storySteps[8].relativeMonth, 18);
-assert.ok(scenarioRunout.storySteps[8].graphDotId);
+assert.equal(scenarioRunout.storySteps[10].title, "Resources Run Out");
+assert.equal(scenarioRunout.storySteps[10].relativeMonth, 18);
+assert.ok(scenarioRunout.storySteps[10].graphDotId);
 
 const sparseUnapprovedResult = build({
   financialStoryline: {
@@ -510,7 +524,7 @@ assert.equal(
   2,
   "The helper should fail honestly instead of filling main steps with unapproved or forbidden titles."
 );
-assert.equal(sparseUnapprovedResult.trace.exactNineStepTargetMet, false);
+assert.equal(sparseUnapprovedResult.trace.exactStoryStepTargetMet, false);
 assert.equal(
   sparseUnapprovedResult.suppressed.some(function (item) {
     return item.sourceEventId === "custom-thing" && item.reason === "forbidden-visible-event";

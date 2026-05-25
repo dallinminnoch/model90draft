@@ -5487,7 +5487,7 @@
       ? timelineResult.timelineStoryAssembly.storySteps
       : []
     ).filter(isPlainObject);
-    return steps.length === 9 ? steps.slice(0, 9) : [];
+    return steps.length === MILESTONE_STORY_STEP_COUNT ? steps.slice(0, MILESTONE_STORY_STEP_COUNT) : [];
   }
 
   function normalizeMilestoneTone(tone) {
@@ -5532,15 +5532,29 @@
     const toneLabel = getMilestoneToneLabel(step?.tone);
     const title = getMilestoneStepTitle(step);
     const timingLabel = normalizeString(step?.timingLabel) || "Timing unavailable";
+    const role = normalizeString(step?.role);
+    const lockedPosition = normalizeString(step?.lockedPosition);
+    const sourceEventId = normalizeString(step?.sourceEventId);
+    const isStartEndcap = lockedPosition === "first" || role === "death" || sourceEventId === "death-income-stops";
+    const isFinalEndcap = lockedPosition === "final" || role === "finalOutcome";
+    const endcapPosition = isStartEndcap ? "start" : isFinalEndcap ? "final" : "";
+    const className = [
+      "income-impact-milestone-step",
+      `income-impact-milestone-step--tone-${tone}`,
+      endcapPosition ? "income-impact-milestone-step--endcap" : "",
+      isStartEndcap ? "income-impact-milestone-step--start-endcap" : "",
+      isFinalEndcap ? "income-impact-milestone-step--final-endcap" : ""
+    ].filter(Boolean).join(" ");
     return `
       <article
-        class="income-impact-milestone-step income-impact-milestone-step--tone-${escapeHtml(tone)}"
+        class="${escapeHtml(className)}"
         data-income-impact-milestone-step
         data-income-impact-milestone-step-id="${escapeHtml(step?.id || "")}"
         data-income-impact-milestone-step-number="${escapeHtml(stepNumber)}"
         data-income-impact-milestone-step-tone="${escapeHtml(tone)}"
-        data-income-impact-milestone-step-role="${escapeHtml(step?.role || "")}"
-        data-income-impact-milestone-step-source-event-id="${escapeHtml(step?.sourceEventId || "")}"
+        data-income-impact-milestone-step-role="${escapeHtml(role)}"
+        data-income-impact-milestone-step-endcap="${escapeHtml(endcapPosition || "none")}"
+        data-income-impact-milestone-step-source-event-id="${escapeHtml(sourceEventId)}"
         aria-label="${escapeHtml(`${stepNumber}. ${title}, ${toneLabel}, ${timingLabel}`)}"
       >
         <div class="income-impact-milestone-step__topline">
@@ -5575,7 +5589,7 @@
   }
 
   const MILESTONE_DOT_ADAPTER_SOURCE = "income-impact-milestone-dot-adapter";
-  const MILESTONE_STORY_STEP_COUNT = 9;
+  const MILESTONE_STORY_STEP_COUNT = 11;
 
   function normalizeMilestoneDotSeverity(tone) {
     switch (normalizeMilestoneTone(tone)) {

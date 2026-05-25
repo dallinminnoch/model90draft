@@ -19944,7 +19944,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .income-impact-milestone-strip {
   display: grid;
-  grid-template-columns: repeat(9, 110px);
+  grid-template-columns: repeat(10, 110px);
   grid-template-rows: 64px 64px;
   grid-auto-flow: column;
   gap: 8px;
@@ -19988,6 +19988,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .income-impact-milestone-step:hover {
   opacity: 0.85;
   transform: translateY(-2px);
+}
+
+.income-impact-milestone-step--endcap {
+  padding-inline: 10px;
 }
 
 .income-impact-milestone-step--tone-critical {
@@ -20063,10 +20067,9 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   text-align: left;
 }
 
-.income-impact-milestone-step:nth-child(1) {
+.income-impact-milestone-step--start-endcap {
   grid-column: 1 / span 1;
   grid-row: 1;
-  padding-inline: 10px;
 }
 
 .income-impact-milestone-step:nth-child(2) {
@@ -20106,6 +20109,16 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .income-impact-milestone-step:nth-child(9) {
   grid-column: 8 / span 2;
+  grid-row: 1;
+}
+
+.income-impact-milestone-step:nth-child(10) {
+  grid-column: 9 / span 2;
+  grid-row: 2;
+}
+
+.income-impact-milestone-step--final-endcap {
+  grid-column: 10 / span 1;
   grid-row: 1;
 }
 

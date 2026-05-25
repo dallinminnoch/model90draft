@@ -444,6 +444,9 @@ assert.match(displaySource, /data-income-impact-milestone-story/);
 assert.match(displaySource, /data-income-impact-milestone-strip/);
 assert.match(displaySource, /data-income-impact-milestone-step/);
 assert.match(displaySource, /data-income-impact-milestone-step-tone/);
+assert.match(displaySource, /income-impact-milestone-step--start-endcap/);
+assert.match(displaySource, /income-impact-milestone-step--final-endcap/);
+assert.match(displaySource, /data-income-impact-milestone-step-endcap/);
 assert.match(displaySource, /data-income-impact-milestone-strip-empty/);
 assert.match(displaySource, /renderGraphStorylineConnectors/);
 assert.match(displaySource, /data-income-impact-storyline-connector/);
@@ -716,6 +719,26 @@ storyBridgeTimelineResult.financialStoryline = {
       safeToRender: true,
       evidenceLevel: "calculated",
       timing: { kind: "month-offset", monthOffset: 7, label: "Month 7" }
+    },
+    {
+      id: "cash-reserve-depleted",
+      family: "liquidity",
+      severity: "critical",
+      cardTitle: "Cash Reserve Is Depleted",
+      graphLabel: "Cash depleted",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 8, label: "Month 8" }
+    },
+    {
+      id: "coverage-runs-out-before-needs-end",
+      family: "coverage",
+      severity: "at-risk",
+      cardTitle: "Coverage Runs Out Before Needs End",
+      graphLabel: "Coverage runs out",
+      safeToRender: true,
+      evidenceLevel: "calculated",
+      timing: { kind: "month-offset", monthOffset: 9, label: "Month 9" }
     }
   ],
   majorStoryCandidates: [
@@ -786,14 +809,14 @@ const milestoneStoryAssembly = harness.buildTimelineStoryAssemblyForTimelineResu
 );
 assert.equal(milestoneStoryAssembly.trace.status, "built");
 assert.equal(milestoneStoryAssembly.trace.rendered, false);
-assert.equal(milestoneStoryAssembly.storySteps.length, 9);
+assert.equal(milestoneStoryAssembly.storySteps.length, 11);
 assert.equal(milestoneStoryAssembly.storySteps[0].title, "Income Stops at Death");
 assert.equal(milestoneStoryAssembly.storySteps[0].graphDotId, null);
-assert.equal(milestoneStoryAssembly.storySteps[8].title, "Resources Run Out");
-assert.ok(milestoneStoryAssembly.storySteps[8].graphDotId);
+assert.equal(milestoneStoryAssembly.storySteps[10].title, "Resources Run Out");
+assert.ok(milestoneStoryAssembly.storySteps[10].graphDotId);
 assert.equal(
-  milestoneStoryAssembly.storySteps.slice(1, 8).filter(function (step) { return step.graphDotId; }).length,
-  7,
+  milestoneStoryAssembly.storySteps.slice(1, 10).filter(function (step) { return step.graphDotId; }).length,
+  9,
   "Milestone assembly should connect each intermediate step to a major graph dot."
 );
 assert.equal(milestoneStoryAssembly.connectors.length, milestoneStoryAssembly.majorGraphDots.length);
@@ -803,11 +826,13 @@ storyBridgeRenderTimelineResult.timelineStoryAssembly = milestoneStoryAssembly;
 const storyBridgeRenderHost = { innerHTML: "" };
 harness.renderIncomeImpact(storyBridgeRenderHost, { timelineResult: storyBridgeRenderTimelineResult });
 assert.equal(
-  (storyBridgeRenderHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
-  9,
+  (storyBridgeRenderHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|=|>)/g) || []).length,
+  11,
   "Visible milestone strip should follow timelineStoryAssembly.storySteps."
 );
 assert.match(storyBridgeRenderHost.innerHTML, /data-income-impact-milestone-step-source-event-id="death-income-stops"/);
+assert.match(storyBridgeRenderHost.innerHTML, /data-income-impact-milestone-step-endcap="start"/);
+assert.match(storyBridgeRenderHost.innerHTML, /data-income-impact-milestone-step-endcap="final"/);
 assert.doesNotMatch(
   storyBridgeRenderHost.innerHTML,
   /data-income-impact-major-story-card(?:\s|>)/,
@@ -984,16 +1009,19 @@ assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*m
 assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow:\s*visible;/);
 assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*1px solid #f0f1f4;[\s\S]*background:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*1px solid #f0f1f4;[^}]*overflow:\s*visible;[^}]*\}/);
-assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(9,\s*110px\);[\s\S]*grid-template-rows:\s*64px 64px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*#f3f5f8;/);
+assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(10,\s*110px\);[\s\S]*grid-template-rows:\s*64px 64px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*#f3f5f8;/);
 assert.match(componentsSource, /\.income-impact-milestone-strip::before,[\s\S]*\.income-impact-milestone-strip::after\s*\{[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*display:\s*flex;[\s\S]*height:\s*64px;[\s\S]*border-radius:\s*12px;[\s\S]*background:\s*var\(--income-impact-milestone-block-bg,\s*#475569\);/);
+assert.match(componentsSource, /\.income-impact-milestone-step--endcap[\s\S]*padding-inline:\s*10px;/);
 assert.match(componentsSource, /\.income-impact-milestone-step--tone-critical[\s\S]*--income-impact-milestone-block-bg:\s*#b91c1c;/);
 assert.match(componentsSource, /\.income-impact-milestone-step--tone-stable[\s\S]*--income-impact-milestone-block-bg:\s*#047857;/);
 assert.match(componentsSource, /\.income-impact-milestone-step__number[\s\S]*font-family:\s*"DM Mono",\s*"SFMono-Regular",\s*Consolas,\s*monospace;[\s\S]*font-size:\s*9px;/);
 assert.match(componentsSource, /\.income-impact-milestone-step__tone[\s\S]*background:\s*rgba\(255,\s*255,\s*255,\s*0\.12\);[\s\S]*font-size:\s*8px;/);
-assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(1\)[\s\S]*grid-column:\s*1 \/ span 1;[\s\S]*grid-row:\s*1;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--start-endcap[\s\S]*grid-column:\s*1 \/ span 1;[\s\S]*grid-row:\s*1;/);
 assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(2\)[\s\S]*grid-column:\s*1 \/ span 2;[\s\S]*grid-row:\s*2;/);
 assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(9\)[\s\S]*grid-column:\s*8 \/ span 2;[\s\S]*grid-row:\s*1;/);
+assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(10\)[\s\S]*grid-column:\s*9 \/ span 2;[\s\S]*grid-row:\s*2;/);
+assert.match(componentsSource, /\.income-impact-milestone-step--final-endcap[\s\S]*grid-column:\s*10 \/ span 1;[\s\S]*grid-row:\s*1;/);
 assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar\s*\{[\s\S]*width:\s*1px;[\s\S]*height:\s*1px;/);
@@ -3087,21 +3115,23 @@ function makeMilestoneStripAssembly(finalTitle = "Resources Run Out") {
     ["story-step-care-costs-covered", "care", "stable", "Dependent Support Remains Covered", "Year 6", 72, "care-costs-covered"],
     ["story-step-rent-payment-pressure", "housing", "caution", "Rent Payment Pressure Begins", "Year 8", 96, "rent-payment-pressure"],
     ["story-step-debt-payment-pressure", "debt", "atRisk", "Minimum Debt Payments Compete With Expenses", "Year 10", 120, "debt-payment-pressure"],
+    ["story-step-coverage-runs-out", "coverage", "atRisk", "Coverage Runs Out Before Needs End", "Year 11", 132, "coverage-runs-out-before-needs-end"],
+    ["story-step-retirement-assets-depleted", "retirement", "critical", "Retirement Assets Are Depleted", "Year 11.5", 138, "retirement-assets-depleted"],
     ["story-step-final-outcome", "final-outcome", finalTitle === "Resources Run Out" ? "critical" : "stable", finalTitle, finalTitle === "Resources Run Out" ? "Year 12" : "Still funded", finalTitle === "Resources Run Out" ? 144 : null, finalTitle === "Resources Run Out" ? "resourcesRunOut" : "familyRunwayRemainsFunded"]
   ];
   const storySteps = sourceSteps.map(function (step, index) {
     return {
       id: step[0],
       stepNumber: index + 1,
-      lockedPosition: index === 0 ? "first" : index === 8 ? "final" : null,
-      role: index === 0 ? "trigger" : index === 8 ? "finalOutcome" : "intermediate",
+      lockedPosition: index === 0 ? "first" : index === sourceSteps.length - 1 ? "final" : null,
+      role: index === 0 ? "trigger" : index === sourceSteps.length - 1 ? "finalOutcome" : "intermediate",
       category: step[1],
       tone: step[2],
       title: step[3],
       shortLabel: step[3],
       timingLabel: step[4],
       relativeMonth: step[5],
-      graphDotId: index === 0 || (index === 8 && finalTitle !== "Resources Run Out") ? null : `major-dot-${step[6]}`,
+      graphDotId: index === 0 || (index === sourceSteps.length - 1 && finalTitle !== "Resources Run Out") ? null : `major-dot-${step[6]}`,
       sourceEventId: step[6],
       trace: { source: "test-milestone-strip" }
     };
@@ -3344,16 +3374,20 @@ const majorStoryHost = { innerHTML: "" };
 harness.renderIncomeImpact(majorStoryHost, { timelineResult: majorStoryFixture });
 assert.ok(majorStoryFixture.financialStoryline.majorStoryCandidates.length > 6);
 assert.equal(
-  (majorStoryHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
-  9,
-  "Milestone Story should render all nine assembled story steps."
+  (majorStoryHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|=|>)/g) || []).length,
+  11,
+  "Milestone Story should render all eleven assembled story steps."
 );
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-milestone-strip-empty/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /data-income-impact-major-story-card(?:\s|>)/);
 assert.doesNotMatch(majorStoryHost.innerHTML, /Financial Depletion Story/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-source-event-id="death-income-stops"/);
 assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="01"/);
-assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="09"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-number="11"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-endcap="start"/);
+assert.match(majorStoryHost.innerHTML, /data-income-impact-milestone-step-endcap="final"/);
+assert.match(majorStoryHost.innerHTML, /income-impact-milestone-step--start-endcap/);
+assert.match(majorStoryHost.innerHTML, /income-impact-milestone-step--final-endcap/);
 assert.match(majorStoryHost.innerHTML, /Income Stops at Death/);
 assert.match(majorStoryHost.innerHTML, /Resources Run Out/);
 assert.match(majorStoryHost.innerHTML, /At death/);
@@ -3370,24 +3404,24 @@ assert.ok(
   majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="01"') <
     majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="02"') &&
     majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="02"') <
-    majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="09"'),
+    majorStoryHost.innerHTML.indexOf('data-income-impact-milestone-step-number="11"'),
   "Milestone story steps should preserve assembled ordinal order."
 );
 assert.doesNotMatch(majorStoryHost.innerHTML, /lower-priority-over-cap|Lower Priority Event/);
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot(?:\s|>)/g) || []).length,
-  10,
-  "Milestone graph dots should render Steps 2-8, capped supporting dots, and reuse the runout marker."
+  12,
+  "Milestone graph dots should render Steps 2-10, capped supporting dots, and reuse the runout marker."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-connector(?:\s|>)/g) || []).length,
-  8,
-  "Storyline connectors should render for the seven intermediate steps plus the runout final outcome."
+  10,
+  "Storyline connectors should render for the nine intermediate steps plus the runout final outcome."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot-tier="major"/g) || []).length,
-  9,
-  "Milestone major dot metadata should include the seven intermediate dots, the final runout target, and the reusable marker annotation."
+  11,
+  "Milestone major dot metadata should include the nine intermediate dots, the final runout target, and the reusable marker annotation."
 );
 assert.equal(
   (majorStoryHost.innerHTML.match(/data-income-impact-storyline-dot-tier="micro"/g) || []).length,
@@ -3443,9 +3477,9 @@ assert.ok(
   "Diagnostic timelineStoryEvents should be more numerous than visible major-card candidates."
 );
 assert.equal(
-  (fourMajorStoryHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
-  9,
-  "A four-candidate legacy major story source should not reduce the assembled nine-step milestone strip."
+  (fourMajorStoryHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|=|>)/g) || []).length,
+  11,
+  "A four-candidate legacy major story source should not reduce the assembled eleven-step milestone strip."
 );
 assert.doesNotMatch(
   fourMajorStoryHost.innerHTML,
@@ -3537,8 +3571,8 @@ harness.renderIncomeImpact(noConnectorDotHost, {
   }
 });
 assert.equal(
-  (noConnectorDotHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|>)/g) || []).length,
-  9,
+  (noConnectorDotHost.innerHTML.match(/data-income-impact-milestone-step(?:\s|=|>)/g) || []).length,
+  11,
   "Milestone story strip should still render when graph dot candidates are missing."
 );
 assert.match(

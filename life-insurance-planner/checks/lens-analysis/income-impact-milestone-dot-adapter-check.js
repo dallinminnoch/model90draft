@@ -86,6 +86,9 @@ function makeRunoutInput() {
         makeEvent("minimum-debt-payments-compete-with-expenses", 5, "debt", "at-risk", "Minimum Debt Payments Compete With Expenses"),
         makeEvent("retirement-assets-tapped", 6, "retirement", "at-risk", "Retirement Assets Are Tapped"),
         makeEvent("cash-reserve-depleted", 7, "liquidity", "critical", "Cash Reserve Is Depleted"),
+        makeEvent("rent-payment-pressure-begins", 8, "housing", "caution", "Rent Payment Pressure Begins"),
+        makeEvent("coverage-runs-out-before-needs-end", 8.5, "coverage", "at-risk", "Coverage Runs Out Before Needs End"),
+        makeEvent("retirement-assets-depleted", 9, "retirement", "critical", "Retirement Assets Are Depleted"),
         makeEvent("spending-begins-to-compress", 9, "compression", "caution", "Spending Begins to Compress"),
         makeEvent("survivor-income-begins", 10, "survivor-income", "stable", "Survivor Income Begins"),
         makeEvent("coverage-extends-runway", 11, "coverage", "caution", "Coverage Extends the Runway")
@@ -156,13 +159,13 @@ assert.doesNotMatch(
 assert.match(
   displaySource,
   /const cardAnchorX = \(\(index \+ 0\.5\) \/ MILESTONE_STORY_STEP_COUNT\) \* GRAPH_VIEW_BOX\.width;/,
-  "visible connector anchors should use the 9-step milestone strip count"
+  "visible connector anchors should use the milestone strip count"
 );
 
 const runoutAssembly = buildAssembly(makeRunoutInput());
-assert.equal(runoutAssembly.storySteps.length, 9);
+assert.equal(runoutAssembly.storySteps.length, 11);
 assert.equal(runoutAssembly.storySteps[0].sourceEventId, "death-income-stops");
-assert.equal(runoutAssembly.storySteps[8].sourceEventId, "resourcesRunOut");
+assert.equal(runoutAssembly.storySteps[10].sourceEventId, "resourcesRunOut");
 
 assertNoMutation(runoutAssembly, function () {
   const adapted = adapt(harness, runoutAssembly);
@@ -170,8 +173,8 @@ assertNoMutation(runoutAssembly, function () {
   assert.equal(adapted.trace.rendered, false);
   assert.equal(adapted.trace.visibleGraphDotSource, "timelineStoryAssembly");
   assert.equal(adapted.trace.oldGraphDotPathStillAvailable, true);
-  assert.equal(adapted.majorDotCandidates.length, 8, "Steps 2-8 plus Resources Run Out should get major candidates.");
-  assert.equal(adapted.connectorCandidates.length, 8, "Every major candidate should have a connector candidate.");
+  assert.equal(adapted.majorDotCandidates.length, 10, "Steps 2-10 plus Resources Run Out should get major candidates.");
+  assert.equal(adapted.connectorCandidates.length, 10, "Every major candidate should have a connector candidate.");
   assert.equal(
     adapted.majorDotCandidates.some(function (candidate) {
       return candidate.id === "death-income-stops";
@@ -186,8 +189,8 @@ assertNoMutation(runoutAssembly, function () {
   assert.equal(runoutCandidate.dotTier, "major");
   assert.equal(runoutCandidate.connectedToMajorCard, true);
   assert.equal(runoutCandidate.eligibleForConnector, true);
-  assert.equal(runoutCandidate.majorCardIndex, 8);
-  assert.equal(runoutCandidate.milestoneStepNumber, 9);
+  assert.equal(runoutCandidate.majorCardIndex, 10);
+  assert.equal(runoutCandidate.milestoneStepNumber, 11);
   assert.equal(runoutCandidate.timing.monthOffset, 18);
   assert.equal(runoutCandidate.graphLabel, "");
   assert.equal(runoutCandidate.displayLabel, "Resources Run Out");
@@ -196,13 +199,13 @@ assertNoMutation(runoutAssembly, function () {
   const intermediateCandidates = adapted.majorDotCandidates.filter(function (candidate) {
     return candidate.id !== "resources-run-out";
   });
-  assert.equal(intermediateCandidates.length, 7);
+  assert.equal(intermediateCandidates.length, 9);
   intermediateCandidates.forEach(function (candidate) {
     assert.equal(candidate.dotTier, "major");
     assert.equal(candidate.connectedToMajorCard, true);
     assert.equal(candidate.eligibleForConnector, true);
     assert.ok(Number.isFinite(candidate.timing.monthOffset), "major candidates should include graph timing");
-    assert.ok(candidate.majorCardIndex >= 1 && candidate.majorCardIndex <= 7, "majorCardIndex should map to the 9-step strip index");
+    assert.ok(candidate.majorCardIndex >= 1 && candidate.majorCardIndex <= 9, "majorCardIndex should map to the 11-step strip index");
     assert.ok(candidate.sourceMilestoneStepId, "major candidate should retain the step id");
     assert.ok(candidate.sourceAssemblyDotId, "major candidate should retain the assembly dot id");
     assert.ok(candidate.visibleEventKey, "major candidate should retain the visible event identity key");
@@ -252,7 +255,7 @@ assertNoMutation(runoutAssembly, function () {
 });
 
 const fundedAssembly = buildAssembly(makeFundedInput());
-assert.equal(fundedAssembly.storySteps[8].sourceEventId, "familyRunwayRemainsFunded");
+assert.equal(fundedAssembly.storySteps[10].sourceEventId, "familyRunwayRemainsFunded");
 const fundedAdapted = adapt(harness, fundedAssembly);
 assert.equal(
   fundedAdapted.majorDotCandidates.some(function (candidate) {
@@ -261,7 +264,7 @@ assert.equal(
   false,
   "Family Runway Remains Funded should not create a final Resources Run Out dot."
 );
-assert.equal(fundedAdapted.majorDotCandidates.length, 7);
-assert.equal(fundedAdapted.connectorCandidates.length, 7);
+assert.equal(fundedAdapted.majorDotCandidates.length, 9);
+assert.equal(fundedAdapted.connectorCandidates.length, 9);
 
 console.log("income-impact-milestone-dot-adapter-check passed");
