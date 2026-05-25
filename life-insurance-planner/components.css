@@ -13560,40 +13560,10 @@ body.is-modal-open {
   border: 1px solid color-mix(in srgb, var(--client-directory-group-accent, #59a78b) 22%, white);
   border-radius: 50%;
   color: var(--client-directory-group-accent-strong);
-}
-
-.directory-person__avatar-classification-icon {
-  width: 62%;
-  height: 62%;
-  display: block;
-  background: var(--client-directory-group-accent-strong);
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-}
-
-.directory-person__avatar-classification-individual .directory-person__avatar-classification-icon {
-  width: 52%;
-  height: 52%;
-  -webkit-mask-image: url("./Images/individual.svg");
-  mask-image: url("./Images/individual.svg");
-}
-
-.directory-person__avatar-classification-household .directory-person__avatar-classification-icon {
-  width: 72%;
-  height: 72%;
-  -webkit-mask-image: url("./Images/household.svg");
-  mask-image: url("./Images/household.svg");
-}
-
-.directory-person__avatar-classification-business .directory-person__avatar-classification-icon {
-  width: 64%;
-  height: 64%;
-  -webkit-mask-image: url("./Images/business.svg");
-  mask-image: url("./Images/business.svg");
+  font-size: var(--client-directory-row-avatar-font-size, 0.9em);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
 }
 
 .client-household-members {
@@ -14938,37 +14908,48 @@ body.clients-page .client-rail-button[data-client-letter="all"].is-active:focus-
 }
 
 body.clients-page .directory-list-shell {
-  border: 1px solid #e2e8f0;
-  border-radius: 11px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
-  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 body.clients-page .directory-group-list {
-  gap: 0;
+  gap: 0.14rem;
   padding: 0;
 }
 
 body.clients-page .client-directory-group {
   border: 0;
   border-radius: 0;
+  background: transparent;
   box-shadow: none;
+  overflow: visible;
+}
+
+body.clients-page .client-directory-group-body {
+  background: transparent;
 }
 
 body.clients-page .client-directory-group-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  background: #f7f9fc;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.55);
+  gap: 10px;
+  padding: 14px 0 6px;
+  background: transparent;
+  border-bottom: 0;
 }
 
 body.clients-page .client-directory-group-title {
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--client-directory-group-count-bg);
+  color: var(--client-directory-group-accent);
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 body.clients-page .client-directory-group-toggle {
@@ -14976,72 +14957,156 @@ body.clients-page .client-directory-group-toggle {
 }
 
 body.clients-page .client-directory-group-toggle-icon {
-  width: 12px;
-  height: 12px;
-  background-color: #94a3b8;
+  width: 14px;
+  height: 14px;
+  background-color: #9ca3af;
 }
 
 body.clients-page .client-directory-group-marker {
-  width: 8px;
-  height: 8px;
-  border: 0;
-  background: var(--client-directory-group-accent);
-  box-shadow: none;
+  display: none;
+}
+
+body.clients-page .client-directory-group-heading {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+body.clients-page .client-directory-group-heading::after {
+  content: "";
+  height: 1px;
+  flex: 1 1 auto;
+  min-width: 2rem;
+  background: #f0f1f4;
+}
+
+body.clients-page .client-directory-group-toggle {
+  width: 100%;
 }
 
 body.clients-page .client-directory-group-count {
   min-width: 0;
   min-height: 0;
-  padding: 1px 7px;
-  border-radius: 10px;
-  background: #e2e8f0;
-  color: #475569;
-  font-size: 10px;
-  font-weight: 600;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+body.clients-page .client-directory-group-prospecting {
+  --client-directory-group-accent: #6d28d9;
+  --client-directory-group-count-bg: rgba(139, 92, 246, 0.1);
+}
+
+body.clients-page .client-directory-group-in-progress {
+  --client-directory-group-accent: #1d4ed8;
+  --client-directory-group-count-bg: rgba(59, 130, 246, 0.1);
+}
+
+body.clients-page .client-directory-group-underwriting {
+  --client-directory-group-accent: #b45309;
+  --client-directory-group-count-bg: rgba(245, 158, 11, 0.1);
+}
+
+body.clients-page .client-directory-group-placed {
+  --client-directory-group-accent: #047857;
+  --client-directory-group-count-bg: rgba(16, 185, 129, 0.1);
+}
+
+body.clients-page .client-directory-group-closed {
+  --client-directory-group-accent: #6b7280;
+  --client-directory-group-count-bg: rgba(156, 163, 175, 0.12);
 }
 
 body.clients-page .directory-list-header {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.55);
-  background: #f7f9fc;
+  margin-bottom: 1px;
+  border-bottom: 0;
+  background: transparent;
 }
 
 body.clients-page .directory-list-header .client-table-cell {
-  color: #94a3b8;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  padding-block: 4px;
+  color: #9ca3af;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 body.clients-page .directory-list-row {
-  --client-directory-row-avatar-size: 24px;
-  --client-directory-row-avatar-font-size: 9px;
-  background: #ffffff;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.45);
-  font-size: 11.5px;
-  transition: background-color 0.1s ease;
+  --client-directory-row-avatar-size: 28px;
+  --client-directory-row-avatar-font-size: 10px;
+  min-height: 46px;
+  margin-bottom: 1px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12.5px;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 body.clients-page .directory-list-row:hover,
 body.clients-page .directory-list-row:focus-visible {
-  background: #fafbfd;
+  background: #ffffff;
+  border-color: #e5e7eb;
   box-shadow: none;
+}
+
+body.clients-page .directory-list-row + .directory-list-row {
+  border-top-color: transparent;
+}
+
+body.clients-page .directory-list-row .client-table-cell {
+  color: #374151;
+  font-size: 12.5px;
+}
+
+body.clients-page .client-table-cell-client {
+  gap: 9px;
+}
+
+body.clients-page .directory-person__avatar-classification {
+  border: 0;
+  border-radius: 8px;
+}
+
+body.clients-page .client-household-member-avatar {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  font-size: 8.5px;
+  letter-spacing: 0;
+}
+
+body.clients-page .client-household-members-stack .client-household-member-avatar + .client-household-member-avatar {
+  margin-left: -3px;
+}
+
+body.clients-page .directory-list-row:hover .directory-person__open-indicator,
+body.clients-page .directory-list-row:focus-visible .directory-person__open-indicator {
+  color: #6b7280;
 }
 
 body.clients-page .directory-person__name,
 body.clients-page .client-table-cell-client > div > strong {
-  color: #0f172a;
+  color: #111827;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 body.clients-page .directory-person__category,
 body.clients-page .client-table-cell-client > div > span {
-  color: #94a3b8;
+  color: #9ca3af;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 400;
   margin-top: 1px;
   line-height: 1.15;
@@ -15049,7 +15114,6 @@ body.clients-page .client-table-cell-client > div > span {
 
 body.clients-page .directory-person__avatar-classification {
   background: color-mix(in srgb, var(--client-directory-group-accent, #5c3fd6) 14%, white);
-  border-color: color-mix(in srgb, var(--client-directory-group-accent, #5c3fd6) 30%, white);
 }
 
 body.clients-page .client-coverage-gap-meter {
@@ -15077,6 +15141,8 @@ body.clients-page .client-close-index-display {
   gap: 5px;
   padding: 3px 8px 3px 6px;
   border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
 }
 
 body.clients-page .client-close-index-display .opportunity-score-pill {
@@ -15087,7 +15153,7 @@ body.clients-page .client-close-index-display .opportunity-score-pill {
   border-radius: 0;
   background: transparent;
   color: currentColor;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 800;
   box-shadow: none;
 }
@@ -15107,17 +15173,56 @@ body.clients-page .client-priority-button-main {
   gap: 5px;
   font-size: 11.5px;
   font-weight: 500;
+  line-height: 1;
+}
+
+body.clients-page .client-priority-dot {
+  width: 7px;
+  height: 7px;
+}
+
+body.clients-page .directory-list-row .client-priority-button-low .client-priority-button-main {
+  color: #065f46;
+}
+
+body.clients-page .directory-list-row .client-priority-button-medium .client-priority-button-main {
+  color: #92400e;
+}
+
+body.clients-page .directory-list-row .client-priority-button-high .client-priority-button-main {
+  color: #991b1b;
+}
+
+body.clients-page .directory-list-row .client-priority-button-unset .client-priority-button-main {
+  color: #6b7280;
+}
+
+body.clients-page .directory-list-row .client-priority-button-low .client-priority-dot {
+  background: #10b981;
+}
+
+body.clients-page .directory-list-row .client-priority-button-medium .client-priority-dot {
+  background: #f59e0b;
+}
+
+body.clients-page .directory-list-row .client-priority-button-high .client-priority-dot {
+  background: #ef4444;
+}
+
+body.clients-page .directory-list-row .client-priority-button-unset .client-priority-dot {
+  background: #9ca3af;
 }
 
 body.clients-page .client-priority-detail-chip {
   width: fit-content;
   min-height: 0;
-  padding: 0 6px;
-  border: 1px solid #e2e8f0;
-  background: #f7f9fc;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: transparent;
   color: #94a3b8;
   font-size: 10px;
   font-weight: 400;
+  line-height: 1.1;
 }
 
 body.clients-page .client-table-cell-stage-days-value,
@@ -15127,11 +15232,11 @@ body.clients-page .client-table-cell-stage-days-text {
 }
 
 body.clients-page[data-local-client-directory="true"] .directory-list-header {
-  padding: 7px 16px;
+  padding: 4px 16px;
 }
 
 body.clients-page[data-local-client-directory="true"] #client-table-rows .directory-list-row {
-  padding: 5px 16px;
+  padding: 0 16px;
 }
 
 body.clients-page .client-directory-side-widget {
