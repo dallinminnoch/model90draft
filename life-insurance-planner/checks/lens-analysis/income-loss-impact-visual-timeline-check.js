@@ -928,6 +928,7 @@ assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="p
 assert.match(displaySource, /stop-color="#2563ff" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="#2563ff" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="#2563ff" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2563ff" stop-opacity="0"/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay-gradient="postDeath"[\s\S]*stop-color="#2563ff" stop-opacity="0\.16"[\s\S]*offset="38%" stop-color="#2563ff" stop-opacity="0\.045"[\s\S]*offset="72%" stop-color="#2563ff" stop-opacity="0"[\s\S]*offset="100%" stop-color="#2563ff" stop-opacity="0"/);
 assert.match(displaySource, /GRAPH_HOVER_GRID_SPACING = 8/);
+assert.match(displaySource, /GRAPH_MINOR_GRID_DIVISIONS = 4/);
 assert.match(displaySource, /data-income-impact-graph-hover-interval/);
 assert.match(displaySource, /data-income-impact-graph-hover-underlay="selected-trendline"/);
 assert.match(displaySource, /data-income-impact-graph-hover-grid-line/);
@@ -952,6 +953,10 @@ assert.match(displaySource, /data-income-impact-graph-y-grid-line/);
 assert.match(displaySource, /data-income-impact-graph-y-tick-marker/);
 assert.match(displaySource, /data-income-impact-graph-x-grid-line/);
 assert.match(displaySource, /data-income-impact-graph-x-tick-dot/);
+assert.match(displaySource, /renderGraphMinorGrid/);
+assert.match(displaySource, /data-income-impact-graph-minor-grid/);
+assert.match(displaySource, /data-income-impact-graph-minor-x-grid-line/);
+assert.doesNotMatch(displaySource, /data-income-impact-graph-minor-y-grid-line/);
 assert.match(displaySource, /data-income-impact-pre-death-source/);
 assert.match(displaySource, /data-income-impact-graph-deficit-area/);
 assert.match(displaySource, /renderAppliedScenarioDepletionMarkers/);
@@ -1027,10 +1032,11 @@ assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-im
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eef2ff;[\s\S]*color:\s*#4f46e5;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*min-height:\s*50px;[\s\S]*border-left:\s*1px solid #f0f1f4;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow:\s*visible;/);
-assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*1px solid #f0f1f4;[\s\S]*background:\s*#ffffff;/);
-assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*1px solid #f0f1f4;[^}]*overflow:\s*visible;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*1px solid #dce3ed;[\s\S]*border-radius:\s*8px;[\s\S]*background:\s*#ffffff;[\s\S]*overflow:\s*visible;/);
+assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*0;[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*overflow:\s*visible;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(12,\s*minmax\(78px,\s*1fr\)\);[\s\S]*grid-template-rows:\s*repeat\(2,\s*minmax\(72px,\s*auto\)\);[\s\S]*gap:\s*6px;[\s\S]*min-width:\s*1040px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*#f3f5f8;/);
+assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*border-top:\s*1px solid #eef2f7;[\s\S]*border-bottom:\s*0;/);
 assert.match(componentsSource, /\.income-impact-milestone-strip::before,[\s\S]*\.income-impact-milestone-strip::after\s*\{[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*display:\s*flex;[\s\S]*gap:\s*3px;[\s\S]*height:\s*auto;[\s\S]*padding:\s*8px 10px 9px;[\s\S]*border:\s*1px solid var\(--income-impact-milestone-border,\s*#dce3ed\);[\s\S]*border-radius:\s*6px;[\s\S]*background:\s*var\(--income-impact-milestone-bg,\s*#ffffff\);[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;/);
 assert.match(componentsSource, /\.income-impact-milestone-step:hover\s*\{[\s\S]*box-shadow:\s*0 1px 6px rgba\(0,\s*0,\s*0,\s*0\.07\);[\s\S]*\}/);
@@ -1088,8 +1094,8 @@ assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-br
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-conversion-node/);
 assert.doesNotMatch(componentsSource, /\.income-impact-death-event-label/);
 assert.match(componentsSource, /\.income-impact-death-line-anchor/);
-assert.match(componentsSource, /\.income-impact-graph-path[\s\S]*filter:\s*drop-shadow\(0 0 3px rgba\(37,\s*99,\s*235,\s*0\.52\)\) drop-shadow\(0 0 10px rgba\(37,\s*99,\s*235,\s*0\.28\)\);[\s\S]*stroke-width:\s*2\.9;/);
-assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*#2563ff;/);
+assert.match(componentsSource, /\.income-impact-graph-path[\s\S]*filter:\s*none;[\s\S]*stroke-width:\s*1\.8;/);
+assert.match(componentsSource, /\.income-impact-graph-path--postDeathResources[\s\S]*stroke:\s*#185fa5;/);
 assert.match(componentsSource, /\.income-impact-graph-path--lifestyle-post-death-resources/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-area/);
 assert.match(componentsSource, /\.income-impact-graph-deficit-label/);
@@ -1099,15 +1105,16 @@ assert.match(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*point
 assert.match(componentsSource, /\.income-impact-graph-hover-underlay--pre-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-pre-death-gradient"\);/);
 assert.match(componentsSource, /\.income-impact-graph-hover-underlay--post-death[\s\S]*fill:\s*url\("#income-impact-graph-hover-underlay-post-death-gradient"\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-underlay[\s\S]*fill:\s*rgba\(34,\s*116,\s*85,\s*0\.095\);/);
-assert.match(componentsSource, /\.income-impact-graph-y-grid-line[\s\S]*stroke:\s*rgba\(30,\s*41,\s*59,\s*0\.1\);[\s\S]*stroke-dasharray:\s*5 6;/);
-assert.match(componentsSource, /\.income-impact-graph-x-grid-line[\s\S]*stroke:\s*rgba\(30,\s*41,\s*59,\s*0\.08\);[\s\S]*stroke-dasharray:\s*3 3;[\s\S]*stroke-width:\s*0\.8;/);
-assert.match(componentsSource, /\.income-impact-graph-zero-baseline[\s\S]*stroke:\s*rgba\(15,\s*23,\s*42,\s*0\.42\) !important;[\s\S]*stroke-width:\s*1\.6 !important;/);
-assert.match(componentsSource, /\.income-impact-graph-y-tick-label[\s\S]*fill:\s*#0f172a;[\s\S]*font-weight:\s*700;/);
-assert.match(componentsSource, /\.income-impact-graph-y-tick-marker circle[\s\S]*fill:\s*#1e293b;[\s\S]*opacity:\s*0\.5;/);
-assert.match(componentsSource, /\.income-impact-graph-x-tick-dot[\s\S]*fill:\s*#0f172a;[\s\S]*opacity:\s*0\.35;/);
-assert.match(componentsSource, /\.income-impact-graph-y-tick-marker path[\s\S]*stroke:\s*#1e293b;[\s\S]*stroke-width:\s*1\.5;/);
-assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#64748b;[\s\S]*font-size:\s*0\.72rem;[\s\S]*font-weight:\s*500;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*1;[\s\S]*fill:\s*url\("#income-impact-graph-hover-grid-bar-gradient"\);[\s\S]*stroke:\s*none;/);
+assert.match(componentsSource, /\.income-impact-graph-y-grid-line[\s\S]*stroke:\s*rgba\(0,\s*0,\s*0,\s*0\.04\);[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*0\.75;/);
+assert.match(componentsSource, /\.income-impact-graph-minor-grid-line[\s\S]*opacity:\s*1;[\s\S]*pointer-events:\s*none;[\s\S]*stroke:\s*rgba\(0,\s*0,\s*0,\s*0\.055\);[\s\S]*stroke-width:\s*0\.65;/);
+assert.match(componentsSource, /\.income-impact-graph-x-grid-line[\s\S]*stroke:\s*rgba\(0,\s*0,\s*0,\s*0\.04\);[\s\S]*stroke-dasharray:\s*none;[\s\S]*stroke-width:\s*0\.75;/);
+assert.match(componentsSource, /\.income-impact-graph-zero-baseline[\s\S]*stroke:\s*rgba\(226,\s*75,\s*74,\s*0\.3\) !important;[\s\S]*stroke-dasharray:\s*4 3;[\s\S]*stroke-width:\s*1 !important;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-label[\s\S]*fill:\s*#9e9e99;[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-marker circle[\s\S]*fill:\s*#9e9e99;[\s\S]*opacity:\s*0\.5;/);
+assert.match(componentsSource, /\.income-impact-graph-x-tick-dot[\s\S]*fill:\s*#9e9e99;[\s\S]*opacity:\s*0\.55;/);
+assert.match(componentsSource, /\.income-impact-graph-y-tick-marker path[\s\S]*stroke:\s*#9e9e99;[\s\S]*stroke-width:\s*1\.2;/);
+assert.match(componentsSource, /\.income-impact-graph-axis text[\s\S]*fill:\s*#9e9e99;[\s\S]*font-family:\s*"DM Mono",\s*monospace;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*opacity:\s*0;[\s\S]*fill:\s*rgba\(24,\s*95,\s*165,\s*0\.04\);[\s\S]*stroke:\s*none;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*rgba\(23,\s*32,\s*51,\s*0\.1\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*stroke:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-grid-line[\s\S]*pointer-events:\s*none;/);
@@ -1116,19 +1123,20 @@ assert.doesNotMatch(componentsSource, /\.income-impact-storyline-event-lane/);
 assert.match(componentsSource, /\.income-impact-storyline-dot/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--major \.income-impact-storyline-dot-core/);
 assert.match(componentsSource, /\.income-impact-storyline-dot--micro \.income-impact-storyline-dot-core/);
-assert.match(componentsSource, /\.income-impact-graph\[data-income-impact-graph-view-mode="postDeathFocus"\] \.income-impact-storyline-dot\[data-income-impact-storyline-month-offset="0"\]\[data-income-impact-storyline-coordinate-source="primary-trendline-exact"\] \.income-impact-storyline-dot-core[\s\S]*r:\s*6\.6;[\s\S]*fill:\s*#2563ff;[\s\S]*opacity:\s*1;/);
-assert.match(componentsSource, /\.income-impact-post-death-runway-start-marker__core[\s\S]*fill:\s*#2563ff;[\s\S]*stroke:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-graph\[data-income-impact-graph-view-mode="postDeathFocus"\] \.income-impact-storyline-dot\[data-income-impact-storyline-month-offset="0"\]\[data-income-impact-storyline-coordinate-source="primary-trendline-exact"\] \.income-impact-storyline-dot-core[\s\S]*r:\s*5;[\s\S]*fill:\s*#185fa5;[\s\S]*opacity:\s*1;/);
+assert.match(componentsSource, /\.income-impact-post-death-runway-start-marker__core[\s\S]*fill:\s*#185fa5;[\s\S]*stroke:\s*#ffffff;/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-group-ring/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-count-badge/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout-action/);
 assert.match(componentsSource, /\.income-impact-storyline-dot-readout-group-item/);
 assert.match(componentsSource, /\.income-impact-storyline-dot:hover[\s\S]*\.income-impact-storyline-dot-readout/);
-assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*pointer-events:\s*all;/);
-assert.match(componentsSource, /\.income-impact-graph-hover-highlight[\s\S]*fill:\s*url\("#income-impact-graph-hover-highlight-gradient"\);[\s\S]*opacity:\s*0;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-slot[\s\S]*fill:\s*rgba\(24,\s*95,\s*165,\s*0\.001\);[\s\S]*pointer-events:\s*all;/);
+assert.match(componentsSource, /\.income-impact-graph-hover-highlight[\s\S]*fill:\s*rgba\(24,\s*95,\s*165,\s*0\.045\);[\s\S]*opacity:\s*0;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-active-line/);
 assert.match(componentsSource, /\.income-impact-graph-hover-readout[\s\S]*opacity:\s*0;/);
-assert.match(componentsSource, /\.income-impact-graph-legend i[\s\S]*border-top:\s*2px solid #3b82f6;/);
+assert.match(componentsSource, /\.income-impact-graph-legend[\s\S]*color:\s*#6b6b67;[\s\S]*font-family:\s*"DM Sans",\s*sans-serif;[\s\S]*font-size:\s*11px;[\s\S]*font-weight:\s*400;/);
+assert.match(componentsSource, /\.income-impact-graph-legend i[\s\S]*width:\s*18px;[\s\S]*border-top:\s*2px solid #185fa5;[\s\S]*border-radius:\s*1px;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-highlight,[\s\S]*opacity:\s*1;/);
 assert.match(componentsSource, /\.income-impact-graph-hover-interval:hover \.income-impact-graph-hover-readout,[\s\S]*\.income-impact-graph-hover-interval:focus \.income-impact-graph-hover-readout[\s\S]*opacity:\s*1;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-hover-bar|\.income-impact-graph-hover-hit-zone|\.income-impact-graph-hover-band|\.income-impact-graph-hover-divider/);
@@ -1151,12 +1159,12 @@ assert.doesNotMatch(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-path[\s\S]*stroke-width:\s*2\.9;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
+  /\.income-impact-graph-path[\s\S]*stroke-width:\s*1\.8;[\s\S]*vector-effect:\s*non-scaling-stroke;[\s\S]*shape-rendering:\s*geometricPrecision;/,
   "Main chart paths should render as thin, non-scaling, geometric-precision SVG strokes."
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-path--lifestyle-post-death-resources[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.65;/,
+  /\.income-impact-graph-path--lifestyle-post-death-resources[\s\S]*stroke:\s*#185fa5;[\s\S]*stroke-dasharray:\s*7 6;[\s\S]*stroke-width:\s*1\.35;/,
   "Lifestyle comparison path should use a thinner, cleaner dash."
 );
 assert.match(
@@ -1892,6 +1900,10 @@ assert.doesNotMatch(timelineHtml, /data-income-impact-timeline-paused/);
 assert.doesNotMatch(timelineHtml, /data-income-impact-runway-svg|data-income-impact-runway-line/);
 const basePostDeathPath = getPathD(timelineHtml, "data-income-impact-graph-path", "postDeathResources");
 assert.match(basePostDeathPath, /^M[^"]*\s(?:C\s|L[0-9.-])/, "Base post-death path should render with deterministic trend geometry.");
+const baseMinorXGridLineCount = (timelineHtml.match(/data-income-impact-graph-minor-x-grid-line(?:\s|>)/g) || []).length;
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-minor-y-grid-line/, "Y-axis should keep normal major grid lines only.");
+assert.ok(baseMinorXGridLineCount >= 20, "Base graph should render small vertical increments between major x-axis ticks.");
+assert.match(timelineHtml, /data-income-impact-graph-minor-grid/);
 assert.match(timelineHtml, /data-income-impact-graph-hover-layer/);
 const baseHoverGridLineCount = (timelineHtml.match(/data-income-impact-graph-hover-grid-line(?:\s|>)/g) || []).length;
 const baseHoverIntervalCount = (timelineHtml.match(/data-income-impact-graph-hover-interval(?:\s|>)/g) || []).length;

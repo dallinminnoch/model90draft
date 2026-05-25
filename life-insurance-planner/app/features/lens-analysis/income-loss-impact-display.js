@@ -27,6 +27,7 @@
   const GRAPH_HOVER_READOUT_WIDTH = 108;
   const GRAPH_HOVER_GRID_SPACING = 8;
   const GRAPH_HOVER_BAR_TOP_GAP = 6;
+  const GRAPH_MINOR_GRID_DIVISIONS = 4;
   const LIFESTYLE_COMPARISON_LABEL = "Lifestyle-adjusted projection";
   const AUTO_COMPRESSED_BASELINE_SCENARIO_ID = "income-impact-auto-compressed-baseline";
   const AUTO_COMPRESSED_BASELINE_LABEL = "Auto-compressed survivor lifestyle";
@@ -2848,6 +2849,56 @@
     return normalizeString(tick?.secondaryLabel || tick?.date);
   }
 
+  function getGraphMinorXIncrementCoordinates(ticks, graphModel) {
+    if (!Array.isArray(ticks) || ticks.length < 2) {
+      return [];
+    }
+    const coordinates = ticks
+      .map(function (tick) {
+        const ratio = toOptionalNumber(tick?.xRatio);
+        if (ratio == null) {
+          return null;
+        }
+        const coordinate = toGraphX(ratio, graphModel, tick);
+        return toOptionalNumber(coordinate);
+      })
+      .filter(function (coordinate) {
+        return coordinate != null;
+      })
+      .sort(function (a, b) {
+        return a - b;
+      });
+
+    const minorCoordinates = [];
+    for (let index = 1; index < coordinates.length; index += 1) {
+      const previous = coordinates[index - 1];
+      const next = coordinates[index];
+      const distance = next - previous;
+      if (!(distance > GRAPH_MINOR_GRID_DIVISIONS)) {
+        continue;
+      }
+      for (let division = 1; division < GRAPH_MINOR_GRID_DIVISIONS; division += 1) {
+        minorCoordinates.push(Number((previous + ((distance / GRAPH_MINOR_GRID_DIVISIONS) * division)).toFixed(3)));
+      }
+    }
+    return minorCoordinates;
+  }
+
+  function renderGraphMinorGrid(xTicks, graphModel) {
+    const xCoordinates = getGraphMinorXIncrementCoordinates(xTicks, graphModel);
+    if (!xCoordinates.length) {
+      return "";
+    }
+    const plotBottom = GRAPH_VIEW_BOX.plotTop + GRAPH_VIEW_BOX.plotHeight;
+    return `
+      <g class="income-impact-graph-minor-grid" data-income-impact-graph-minor-grid aria-hidden="true">
+        ${xCoordinates.map(function (x, index) {
+          return `<line class="income-impact-graph-minor-grid-line income-impact-graph-minor-grid-line--x" data-income-impact-graph-minor-x-grid-line data-income-impact-graph-minor-grid-line-index="${index}" x1="${x}" y1="${GRAPH_VIEW_BOX.plotTop}" x2="${x}" y2="${plotBottom}"></line>`;
+        }).join("")}
+      </g>
+    `;
+  }
+
   function renderGraphAxis(graphModel) {
     const yTicks = Array.isArray(graphModel?.axes?.y?.ticks) ? graphModel.axes.y.ticks : [];
     const xTicks = Array.isArray(graphModel?.axes?.x?.ticks) ? graphModel.axes.x.ticks : [];
@@ -2856,6 +2907,7 @@
       ? toOptionalNumber(graphModel?.layoutFrame?.zeroYRatio)
       : toOptionalNumber(graphModel?.axes?.y?.zeroYRatio);
     return `
+      ${renderGraphMinorGrid(xTicks, graphModel)}
       <g class="income-impact-graph-axis" data-income-impact-graph-axis="y">
         ${yTicks.map(function (tick) {
           const y = toGraphY(tick.yRatio, graphModel, tick);
