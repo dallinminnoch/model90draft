@@ -260,7 +260,6 @@
       const filteredBuckets = buildDirectoryStatusBuckets(filteredRecords);
 
       return DIRECTORY_PIPELINE_GROUPS
-        .filter((group) => (visibleBuckets[group.key] || []).length > 0)
         .map((group) => ({
           ...group,
           totalCount: (filteredBuckets[group.key] || []).length,
@@ -275,6 +274,10 @@
     function renderDirectoryGroup(group) {
       const isCollapsed = isDirectoryGroupCollapsed(group.key);
       const bodyId = `client-directory-group-body-${group.key}`;
+      const rowsMarkup = group.records.map((record) => renderClientRow(record, selectedRecordIds.has(String(record.id || "").trim()))).join("");
+      const bodyMarkup = rowsMarkup
+        ? `${renderDirectoryGroupColumnHeader()}${rowsMarkup}`
+        : "";
 
       return `
         <section class="client-directory-group ${group.toneClass}${isCollapsed ? " is-collapsed" : ""}" data-directory-group="${group.key}">
@@ -289,8 +292,7 @@
             </button>
           </header>
           <div class="client-directory-group-body" id="${bodyId}" role="rowgroup"${isCollapsed ? " hidden" : ""}>
-            ${renderDirectoryGroupColumnHeader()}
-            ${group.records.map((record) => renderClientRow(record, selectedRecordIds.has(String(record.id || "").trim()))).join("")}
+            ${bodyMarkup}
           </div>
         </section>
       `;
