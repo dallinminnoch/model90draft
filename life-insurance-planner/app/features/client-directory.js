@@ -1221,7 +1221,7 @@
         <span class="client-household-members" aria-label="Members">
           <span class="client-household-members-stack">
             ${visibleMembers.map((member) => {
-              const avatarPresentation = getAvatarPresentation(member?.age, member?.dateOfBirth);
+              const avatarPresentation = getAvatarPresentation(member?.age, member?.dateOfBirth, { flat: true });
               const avatarStyle = avatarPresentation
                 ? ` style="background: ${avatarPresentation.background}; color: ${avatarPresentation.color};"`
                 : "";
@@ -1250,12 +1250,26 @@
     const householdMembersMarkup = renderDirectoryMemberAvatars(record);
     const isPinned = getRecordPinnedState(record);
     const uncoveredGapValue = getRecordUncoveredGapValue(record);
+    const avatarInitials = escapeHtml(getInitials(record.displayName, record.viewType, record.lastName));
+    const primaryAvatarMember = Array.isArray(record?.directoryMembers) ? record.directoryMembers[0] : null;
+    const avatarPresentation = getAvatarPresentation(
+      record?.age || primaryAvatarMember?.age,
+      record?.dateOfBirth || primaryAvatarMember?.dateOfBirth,
+      { flat: true }
+    );
+    const avatarStyle = avatarPresentation
+      ? ` style="background: ${avatarPresentation.background}; color: ${avatarPresentation.color};"`
+      : "";
     const closeIndexDescriptor = getDirectoryCloseIndexDescriptor(opportunityScore);
     const closeIndexTierClass = ["is-premium", "is-building", "is-caution", "is-risk"].includes(opportunityScore.tier)
       ? opportunityScore.tier
       : "is-risk";
     const priorityDetailLabel = getDirectoryPriorityDetailLabel(priority, opportunityScore);
     const coverageAdequacyPercent = getDirectoryCoverageAdequacyPercent(opportunityScore);
+    const hasIdentifiedCoverageGap = hasDirectoryAnalysisCompleted(record);
+    const coverageGapMeterPercent = hasIdentifiedCoverageGap
+      ? (uncoveredGapValue > 0 ? coverageAdequacyPercent : 100)
+      : 0;
     const daysInStagePresentation = getDirectoryDaysInStagePresentation(record);
 
       return `
@@ -1275,8 +1289,8 @@
           </div>
           <div class="client-table-cell client-table-cell-client directory-person">
             <span class="directory-person__open-indicator" aria-hidden="true"></span>
-            <span class="directory-person__avatar directory-person__avatar-classification directory-person__avatar-classification-${typePresentation.key}" aria-label="${typePresentation.label}">
-              <span class="directory-person__avatar-classification-icon" aria-hidden="true"></span>
+            <span class="directory-person__avatar directory-person__avatar-classification directory-person__avatar-classification-${typePresentation.key}"${avatarStyle} aria-label="${escapeHtml(record.displayName)} initials">
+              ${avatarInitials}
             </span>
           <div class="directory-person__body">
             <strong class="directory-person__name">${record.displayName}</strong>
@@ -1297,13 +1311,9 @@
         <div class="client-table-cell client-table-cell-coverage-amount-value">
           <div class="client-coverage-gap-display">
             <span class="client-coverage-gap-amount">${formatCurrencyCompact(uncoveredGapValue)}</span>
-            ${uncoveredGapValue > 0
-              ? `
-                <span class="client-coverage-gap-meter" aria-hidden="true">
-                  <span class="client-coverage-gap-meter-fill" style="width: ${coverageAdequacyPercent}%"></span>
-                </span>
-              `
-              : ""}
+            <span class="client-coverage-gap-meter" aria-hidden="true">
+              <span class="client-coverage-gap-meter-fill" style="width: ${coverageGapMeterPercent}%"></span>
+            </span>
           </div>
         </div>
         <div class="client-table-cell client-table-cell-value client-table-cell-priority-value">
@@ -1631,13 +1641,21 @@
     return interpolateNumber(280, 360, (age - 65) / 35);
   }
 
-  function getAvatarPresentation(ageValue, dateOfBirthValue) {
+  function getAvatarPresentation(ageValue, dateOfBirthValue, options) {
     const hue = getAvatarHue(ageValue, dateOfBirthValue);
+    const useFlatAvatar = Boolean(options?.flat);
     const prefersSoftAvatars = Boolean(document.body?.classList.contains("is-a11y-soft-avatars"));
     if (prefersSoftAvatars) {
       return {
         background: `hsl(${hue} 62% 88%)`,
         color: `hsl(${hue} 46% 36%)`
+      };
+    }
+
+    if (useFlatAvatar) {
+      return {
+        background: `hsl(${hue} 66% 48%)`,
+        color: "#ffffff"
       };
     }
 
