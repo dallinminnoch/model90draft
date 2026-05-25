@@ -1311,15 +1311,30 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
   body[data-step="income-impact"] .income-impact-content-stack {
     grid-column: 2;
     grid-row: 1;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     min-height: 0;
     height: 100%;
-    padding: 0.9rem clamp(0.95rem, 1.45vw, 1.15rem) 0;
-    background:
-      radial-gradient(circle at 18% 0%, rgba(92, 63, 214, 0.035), transparent 21rem),
-      linear-gradient(180deg, #fafbfe 0%, #f3f6fb 100%);
+    padding: 0;
+    background: #ffffff;
+    overflow-y: hidden;
+    overflow-x: hidden;
+  }
+
+  body[data-step="income-impact"] .income-impact-content-stack > .income-impact-section {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+
+  body[data-step="income-impact"] .income-impact-content-stack > .actions-row {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0.75rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
   }
 
   body[data-step="income-impact"] .income-impact-insights-panel {

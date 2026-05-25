@@ -962,25 +962,28 @@ assert.doesNotMatch(
   displaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/
 );
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;[\s\S]*border-bottom:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.86\);/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro > div[\s\S]*display:\s*grid;[\s\S]*gap:\s*0\.22rem;[\s\S]*max-width:\s*46rem;/);
+assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;[\s\S]*padding:\s*0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow-y:\s*hidden;/);
+assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-content-stack > \.income-impact-section[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding:\s*16px 24px 12px;[\s\S]*border-bottom:\s*1px solid #f0f1f4;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro > div[\s\S]*display:\s*grid;[\s\S]*gap:\s*3px;[\s\S]*max-width:\s*46rem;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label[\s\S]*display:\s*none;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Montserrat",\s*sans-serif;[\s\S]*font-size:\s*18px;[\s\S]*font-weight:\s*600;[\s\S]*letter-spacing:\s*-0\.02em;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*10\.5px;[\s\S]*line-height:\s*1\.25;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding-bottom:\s*0\.72rem;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*17px;[\s\S]*font-weight:\s*700;[\s\S]*letter-spacing:\s*-0\.02em;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*display:\s*flex;[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*11\.5px;[\s\S]*line-height:\s*1\.25;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p::before[\s\S]*width:\s*5px;[\s\S]*height:\s*5px;[\s\S]*background:\s*#059669;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding:\s*16px 24px 12px;/);
 assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label[\s\S]*display:\s*none;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Montserrat",\s*sans-serif;[\s\S]*font-size:\s*18px;[\s\S]*font-weight:\s*600;[\s\S]*letter-spacing:\s*-0\.02em;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*10\.5px;[\s\S]*line-height:\s*1\.25;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*17px;[\s\S]*font-weight:\s*700;[\s\S]*letter-spacing:\s*-0\.02em;/);
+assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*11\.5px;[\s\S]*line-height:\s*1\.25;/);
 assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
-assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*padding:\s*0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*grid-template-columns:\s*minmax\(14rem,\s*0\.82fr\) minmax\(20rem,\s*1\.18fr\);/);
-assert.match(componentsSource, /\.income-impact-summary-strip > \.income-impact-card[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*background:\s*#ffffff;/);
-assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*padding:\s*0\.5rem 0\.95rem;[\s\S]*border:\s*1px solid #e2e8f0;[\s\S]*background:\s*#ffffff;/);
-assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eff6ff;[\s\S]*color:\s*#2563eb;/);
-assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/);
-assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*background:\s*transparent;[\s\S]*overflow:\s*visible;/);
-assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*border-top:\s*1px solid rgba\(223,\s*229,\s*238,\s*0\.9\);/);
-assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*\}/);
+assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*position:\s*sticky;[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 24px;[\s\S]*border-bottom:\s*1px solid #e5e7eb;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \.income-impact-card[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*width:\s*auto;[\s\S]*padding:\s*0 20px 0 0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eef2ff;[\s\S]*color:\s*#4f46e5;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*min-height:\s*50px;[\s\S]*border-left:\s*1px solid #f0f1f4;[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow:\s*visible;/);
+assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*1px solid #f0f1f4;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*1px solid #f0f1f4;[^}]*overflow:\s*visible;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(9,\s*110px\);[\s\S]*grid-template-rows:\s*64px 64px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*#f3f5f8;/);
 assert.match(componentsSource, /\.income-impact-milestone-strip::before,[\s\S]*\.income-impact-milestone-strip::after\s*\{[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-milestone-step[\s\S]*display:\s*flex;[\s\S]*height:\s*64px;[\s\S]*border-radius:\s*12px;[\s\S]*background:\s*var\(--income-impact-milestone-block-bg,\s*#475569\);/);
@@ -1001,7 +1004,7 @@ assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story|\.income-
 assert.match(
   componentsSource,
   /\.income-impact-graph\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*overflow:\s*visible;[^}]*\}/,
-  "Income Impact graph wrapper should not make the legend and supporting graph content share the SVG card."
+  "Income Impact graph wrapper should keep the timeline graph visible."
 );
 assert.match(componentsSource, /\.income-impact-graph-header[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /\.income-impact-story-chart-card \.income-impact-chart-section > \.income-impact-section-header[\s\S]*display:\s*none;/);
@@ -1009,8 +1012,8 @@ assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg\s*\{[^}]*padding:\s*0\.85rem 1rem 0\.9rem;[^}]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[^}]*border-radius:\s*0\.55rem;[^}]*background:\s*#ffffff;[^}]*overflow:\s*hidden;[^}]*\}/,
-  "Only the Income Impact SVG graph viewport should be styled as the standalone card."
+  /\.income-impact-graph-svg\s*\{[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*1000 \/ 570;[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*#ffffff;[^}]*overflow:\s*visible;[^}]*\}/,
+  "Income Impact SVG graph viewport should auto-size from the graph viewBox ratio inside the flat reference chart section."
 );
 assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*#ffffff;[^}]*\}/);
@@ -1081,10 +1084,10 @@ assert.match(componentsSource, /data-income-impact-applied-scenario-selected="fa
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="true"\][\s\S]*circle/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="false"\][\s\S]*opacity:\s*0\.62;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*display:\s*flex;[\s\S]*padding:\s*0\.5rem 0\.95rem;[\s\S]*border:\s*1px solid #e2e8f0;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 0 0 20px;[\s\S]*border-left:\s*1px solid #f0f1f4;[\s\S]*background:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__eyebrow[\s\S]*background:\s*#fffbeb;[\s\S]*color:\s*#d97706;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__stat[\s\S]*border-right:\s*1px solid #e2e8f0;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__status[\s\S]*background:\s*#ecfdf5;[\s\S]*color:\s*#059669;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__stat[\s\S]*border-right:\s*1px solid #f0f1f4;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__status[\s\S]*background:\s*#ffffff;[\s\S]*color:\s*#6b7280;/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
 assert.doesNotMatch(
@@ -1104,8 +1107,13 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-layout[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\);/,
-  "Income Impact visual layout should make the graph row full-width."
+  /\.income-impact-layout[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;[\s\S]*align-items:\s*stretch;/,
+  "Income Impact visual layout should keep the main content in one vertical flow."
+);
+assert.match(
+  componentsSource,
+  /\.income-impact-layout-aside[\s\S]*position:\s*relative;[\s\S]*z-index:\s*2;[\s\S]*padding:\s*1\.1rem 24px 1\.4rem;[\s\S]*background:\s*#ffffff;[\s\S]*opacity:\s*1;/,
+  "Income Impact supporting details should flow below the milestone and graph section as an opaque layer."
 );
 assert.match(
   componentsSource,
@@ -1119,8 +1127,8 @@ assert.doesNotMatch(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg[\s\S]*min-height:\s*clamp\(27rem, 56vh, 40rem\);[\s\S]*border:\s*1px solid rgba\(226,\s*232,\s*240,\s*0\.95\);[\s\S]*border-radius:\s*0\.55rem;/,
-  "Income Impact graph should use a taller viewport-aware SVG stage."
+  /\.income-impact-graph-svg[\s\S]*height:\s*auto;[\s\S]*min-height:\s*0;[\s\S]*aspect-ratio:\s*1000 \/ 570;[\s\S]*border:\s*0;[\s\S]*border-radius:\s*0;[\s\S]*overflow:\s*visible;/,
+  "Income Impact graph should auto-size instead of using a fixed-height stage."
 );
 
 const fixture = {
