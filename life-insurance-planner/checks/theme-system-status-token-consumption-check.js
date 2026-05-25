@@ -86,14 +86,44 @@ assertUses(
   assertAvoids(selectorPattern, legacyValues, label);
 });
 
-const deferredMilestoneBlock = blockFor(
+const milestoneCriticalBlock = blockFor(
   /\.income-impact-milestone-step--tone-critical\s*\{[\s\S]*?\n\}/,
-  "deferred Income Impact milestone tone"
+  "Income Impact critical milestone tone"
 );
 assert.match(
-  deferredMilestoneBlock,
-  /--income-impact-milestone-/,
-  "Income Impact milestone tone variables should remain deferred to the milestone-specific phase."
+  milestoneCriticalBlock,
+  /var\(--m90-critical-soft\)[\s\S]*var\(--m90-critical\)/,
+  "Income Impact critical milestone tones should consume critical status tokens."
+);
+
+const milestoneWarningBlock = blockFor(
+  /\.income-impact-milestone-step--tone-atRisk,[\s\S]*?\.income-impact-milestone-step--tone-caution\s*\{[\s\S]*?\n\}/,
+  "Income Impact warning milestone tone"
+);
+assert.match(
+  milestoneWarningBlock,
+  /var\(--m90-warning-soft\)[\s\S]*var\(--m90-warning\)/,
+  "Income Impact caution and at-risk milestone tones should consume warning status tokens."
+);
+
+const milestoneStableBlock = blockFor(
+  /\.income-impact-milestone-step--tone-stable\s*\{[\s\S]*?\n\}/,
+  "Income Impact stable milestone tone"
+);
+assert.match(
+  milestoneStableBlock,
+  /var\(--m90-stable-soft\)[\s\S]*var\(--m90-stable\)/,
+  "Income Impact stable milestone tones should consume stable status tokens."
+);
+
+const milestoneUnknownBlock = blockFor(
+  /\.income-impact-milestone-step--tone-unknown\s*\{[\s\S]*?\n\}/,
+  "Income Impact unknown milestone tone"
+);
+assert.match(
+  milestoneUnknownBlock,
+  /var\(--m90-neutral-soft\)[\s\S]*var\(--m90-neutral\)/,
+  "Income Impact unknown milestone tones should consume neutral status tokens."
 );
 
 const chartPhaseGraphMarkerBlock = blockFor(

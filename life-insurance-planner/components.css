@@ -19930,7 +19930,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   align-items: center;
   gap: 8px;
   margin: 0;
-  color: #080a16;
+  color: var(--m90-text-primary);
   font-family: var(--income-impact-heading-font, "Montserrat", sans-serif);
   font-size: 13px;
   font-weight: 700;
@@ -19939,7 +19939,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .income-impact-milestone-story__header h3 svg {
-  color: #4f46e5;
+  color: var(--m90-accent);
   flex: 0 0 auto;
 }
 
@@ -19955,9 +19955,9 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 16px 24px 18px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid var(--m90-border-soft);
   border-bottom: 0;
-  background: #f3f5f8;
+  background: var(--m90-surface-secondary);
   scrollbar-width: thin;
 }
 
@@ -19976,11 +19976,11 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   height: auto;
   position: relative;
   padding: 8px 10px 9px;
-  border: 1px solid var(--income-impact-milestone-border, #dce3ed);
+  border: 1px solid var(--income-impact-milestone-border, var(--m90-border));
   border-radius: 6px;
-  background: var(--income-impact-milestone-bg, #ffffff);
+  background: var(--income-impact-milestone-bg, var(--m90-surface));
   box-shadow: none;
-  color: var(--income-impact-milestone-title, #253041);
+  color: var(--income-impact-milestone-title, var(--m90-text-primary));
   font-family: "DM Sans", sans-serif;
   cursor: default;
   overflow: hidden;
@@ -19996,40 +19996,49 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .income-impact-milestone-step--tone-critical {
-  --income-impact-milestone-bg: #fdf0f0;
-  --income-impact-milestone-border: #f0c8c8;
-  --income-impact-milestone-title: #4a1515;
-  --income-impact-milestone-meta: #a32d2d;
-  --income-impact-milestone-badge-bg: #f0c8c8;
-  --income-impact-milestone-badge-color: #a32d2d;
+  --income-impact-milestone-bg: var(--m90-critical-soft);
+  --income-impact-milestone-border: color-mix(in srgb, var(--m90-critical) 28%, var(--m90-critical-soft));
+  --income-impact-milestone-title: var(--m90-text-primary);
+  --income-impact-milestone-meta: var(--m90-critical);
+  --income-impact-milestone-badge-bg: color-mix(in srgb, var(--m90-critical) 18%, var(--m90-critical-soft));
+  --income-impact-milestone-badge-color: var(--m90-critical);
 }
 
 .income-impact-milestone-step--tone-atRisk,
 .income-impact-milestone-step--tone-caution {
-  --income-impact-milestone-bg: #fdf4e7;
-  --income-impact-milestone-border: #f5daa0;
-  --income-impact-milestone-title: #3d2206;
-  --income-impact-milestone-meta: #854f0b;
-  --income-impact-milestone-badge-bg: #f5daa0;
-  --income-impact-milestone-badge-color: #854f0b;
+  --income-impact-milestone-bg: var(--m90-warning-soft);
+  --income-impact-milestone-border: color-mix(in srgb, var(--m90-warning) 30%, var(--m90-warning-soft));
+  --income-impact-milestone-title: var(--m90-text-primary);
+  --income-impact-milestone-meta: var(--m90-warning);
+  --income-impact-milestone-badge-bg: color-mix(in srgb, var(--m90-warning) 20%, var(--m90-warning-soft));
+  --income-impact-milestone-badge-color: var(--m90-warning);
 }
 
 .income-impact-milestone-step--tone-atRisk {
-  --income-impact-milestone-bg: #fdf4e7;
-  --income-impact-milestone-border: #f5daa0;
-  --income-impact-milestone-title: #3d2206;
-  --income-impact-milestone-meta: #854f0b;
-  --income-impact-milestone-badge-bg: #f5daa0;
-  --income-impact-milestone-badge-color: #854f0b;
+  --income-impact-milestone-bg: var(--m90-warning-soft);
+  --income-impact-milestone-border: color-mix(in srgb, var(--m90-warning) 30%, var(--m90-warning-soft));
+  --income-impact-milestone-title: var(--m90-text-primary);
+  --income-impact-milestone-meta: var(--m90-warning);
+  --income-impact-milestone-badge-bg: color-mix(in srgb, var(--m90-warning) 20%, var(--m90-warning-soft));
+  --income-impact-milestone-badge-color: var(--m90-warning);
 }
 
 .income-impact-milestone-step--tone-stable {
-  --income-impact-milestone-bg: #eef7f1;
-  --income-impact-milestone-border: #b8dfc4;
-  --income-impact-milestone-title: #14391e;
-  --income-impact-milestone-meta: #2d7a44;
-  --income-impact-milestone-badge-bg: #b8dfc4;
-  --income-impact-milestone-badge-color: #1a5c2e;
+  --income-impact-milestone-bg: var(--m90-stable-soft);
+  --income-impact-milestone-border: color-mix(in srgb, var(--m90-stable) 28%, var(--m90-stable-soft));
+  --income-impact-milestone-title: var(--m90-text-primary);
+  --income-impact-milestone-meta: var(--m90-stable);
+  --income-impact-milestone-badge-bg: color-mix(in srgb, var(--m90-stable) 20%, var(--m90-stable-soft));
+  --income-impact-milestone-badge-color: var(--m90-stable);
+}
+
+.income-impact-milestone-step--tone-unknown {
+  --income-impact-milestone-bg: var(--m90-neutral-soft);
+  --income-impact-milestone-border: color-mix(in srgb, var(--m90-neutral) 26%, var(--m90-neutral-soft));
+  --income-impact-milestone-title: var(--m90-text-primary);
+  --income-impact-milestone-meta: var(--m90-neutral);
+  --income-impact-milestone-badge-bg: color-mix(in srgb, var(--m90-neutral) 18%, var(--m90-neutral-soft));
+  --income-impact-milestone-badge-color: var(--m90-neutral);
 }
 
 .income-impact-milestone-step__topline {
@@ -20041,7 +20050,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .income-impact-milestone-step__number {
-  color: #8b97a8;
+  color: var(--m90-text-muted);
   font-family: "DM Mono", monospace;
   font-size: 10px;
   font-weight: 500;
@@ -20054,8 +20063,8 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   flex: 0 0 auto;
   padding: 2px 6px;
   border-radius: 3px;
-  background: var(--income-impact-milestone-badge-bg, #e6ebf2);
-  color: var(--income-impact-milestone-badge-color, #64748b);
+  background: var(--income-impact-milestone-badge-bg, var(--m90-neutral-soft));
+  color: var(--income-impact-milestone-badge-color, var(--m90-neutral));
   font-family: "DM Sans", sans-serif;
   font-size: 9px;
   font-weight: 600;
@@ -20068,7 +20077,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .income-impact-milestone-step__title {
   margin: 0;
   overflow: hidden;
-  color: var(--income-impact-milestone-title, #253041);
+  color: var(--income-impact-milestone-title, var(--m90-text-primary));
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
   font-weight: 500;
@@ -20080,7 +20089,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .income-impact-milestone-step__timing,
 .income-impact-milestone-strip__empty {
   margin: 0;
-  color: var(--income-impact-milestone-meta, #8b97a8);
+  color: var(--income-impact-milestone-meta, var(--m90-text-muted));
   font-family: "DM Mono", monospace;
   font-size: 10px;
   font-weight: 400;
@@ -20148,7 +20157,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   align-self: center;
-  color: #64748b;
+  color: var(--m90-text-secondary);
   font-family: "Inter", sans-serif;
   font-size: 12px;
   font-weight: 500;
