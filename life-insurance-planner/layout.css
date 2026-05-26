@@ -164,6 +164,10 @@ body[data-page="next-step"] .pmi-form-main .field-group {
   min-width: 0;
 }
 
+body[data-page="next-step"] .pmi-form-main .field-group.is-hidden {
+  display: none;
+}
+
 body[data-page="next-step"] .pmi-form-main .field-group.full-width {
   grid-column: 1 / -1;
 }

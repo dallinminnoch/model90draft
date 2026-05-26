@@ -149,6 +149,12 @@ assertSelectorUses(
   ["grid-template-columns: repeat(6, minmax(0, 1fr));", "gap: 12px 16px;"],
   "canonical PMI form grid should still have layout ownership"
 );
+assertSelectorUses(
+  layoutCss,
+  'body[data-page="next-step"] .pmi-form-main .field-group.is-hidden {',
+  ["display: none;"],
+  "canonical PMI hidden field state should live in layout.css"
+);
 assert.match(
   layoutCss,
   new RegExp(escapeRegex('body[data-page="next-step"] #pmi-income .primary-net-income-group')),
