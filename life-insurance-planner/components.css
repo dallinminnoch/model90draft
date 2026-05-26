@@ -74,6 +74,7 @@ input.search-bar__input {
 .workspace-page-menu-trigger {
   list-style: none;
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -83,10 +84,25 @@ input.search-bar__input {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--m90-text-primary);
+  color: var(--m90-text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: transform 180ms ease;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.workspace-page-menu-trigger:hover,
+.workspace-page-menu-trigger:focus-visible {
+  color: var(--m90-text-primary);
+}
+
+.workspace-page-menu-trigger::before {
+  content: "";
+  width: 1.85rem;
+  height: 1.85rem;
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("Images/menu.svg") center / contain no-repeat;
+  mask: url("Images/menu.svg") center / contain no-repeat;
 }
 
 .workspace-page-menu-trigger::-webkit-details-marker {
@@ -100,9 +116,9 @@ input.search-bar__input {
 .workspace-page-menu-icon {
   width: 1.85rem;
   height: 1.85rem;
-  display: block;
+  display: none;
   object-fit: contain;
-  filter: brightness(0) saturate(100%);
+  filter: none;
 }
 
 .workspace-page-topbar .workspace-page-menu-trigger {
@@ -111,6 +127,11 @@ input.search-bar__input {
 }
 
 .workspace-page-topbar .workspace-page-menu-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.workspace-page-topbar .workspace-page-menu-trigger::before {
   width: 1.35rem;
   height: 1.35rem;
 }
@@ -682,7 +703,7 @@ input.search-bar__input {
   padding: 0 0.25rem 0 0.72rem;
   border: 1px solid var(--m90-border);
   border-radius: 999px;
-  background: var(--m90-surface);
+  background: var(--m90-surface-elevated);
   color: var(--m90-text-secondary);
   box-shadow: none;
 }
@@ -698,9 +719,9 @@ input.search-bar__input {
   min-height: 1.92rem;
   max-width: 10.4rem;
   appearance: auto;
-  border: 0;
+  border: 1px solid var(--m90-border);
   border-radius: 999px;
-  background: var(--m90-surface);
+  background: var(--m90-surface-elevated);
   color: var(--m90-text-primary);
   font: inherit;
   font-size: 0.78rem;
@@ -749,6 +770,7 @@ input.search-bar__input {
 
 .fullscreen-toggle {
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -758,15 +780,17 @@ input.search-bar__input {
   border: 0;
   border-radius: 999px;
   background: transparent;
+  color: var(--m90-text-secondary);
   cursor: pointer;
   flex: 0 0 auto;
   margin-right: clamp(-0.35rem, -0.7vw, -0.55rem);
-  transition: background-color 0.18s ease, transform 0.18s ease;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .fullscreen-toggle:hover,
 .fullscreen-toggle:focus-visible {
   background: var(--m90-surface-secondary);
+  color: var(--m90-text-primary);
 }
 
 .fullscreen-toggle:focus-visible {
@@ -776,15 +800,25 @@ input.search-bar__input {
 .fullscreen-toggle-icon {
   width: clamp(1.22rem, 2.05vw, 1.48rem);
   height: clamp(1.22rem, 2.05vw, 1.48rem);
-  display: block;
+  display: none;
   object-fit: contain;
-  filter: brightness(0) saturate(100%) opacity(0.82);
+  filter: none;
   transition: filter 0.18s ease;
 }
 
-.fullscreen-toggle:hover .fullscreen-toggle-icon,
-.fullscreen-toggle:focus-visible .fullscreen-toggle-icon {
-  filter: brightness(0) saturate(100%) opacity(1);
+.fullscreen-toggle::before {
+  content: "";
+  width: clamp(1.22rem, 2.05vw, 1.48rem);
+  height: clamp(1.22rem, 2.05vw, 1.48rem);
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("Images/openfullscreen.svg") center / contain no-repeat;
+  mask: url("Images/openfullscreen.svg") center / contain no-repeat;
+}
+
+.fullscreen-toggle[aria-pressed="true"]::before {
+  -webkit-mask-image: url("Images/closefullscreen.svg");
+  mask-image: url("Images/closefullscreen.svg");
 }
 
 .workspace-page-topbar .fullscreen-toggle {
@@ -795,6 +829,11 @@ input.search-bar__input {
 }
 
 .workspace-page-topbar .fullscreen-toggle-icon {
+  width: 1.12rem;
+  height: 1.12rem;
+}
+
+.workspace-page-topbar .fullscreen-toggle::before {
   width: 1.12rem;
   height: 1.12rem;
 }

@@ -107,14 +107,15 @@ assertNoRawColors(siteHeaderSource, "site-header switcher wiring");
 
 assertSelectorConsumesTokens(componentsSource, ".theme-switcher", [
   "--m90-border",
-  "--m90-surface",
+  "--m90-surface-elevated",
   "--m90-text-secondary"
 ]);
 assertSelectorConsumesTokens(componentsSource, ".theme-switcher-label", [
   "--m90-text-muted"
 ]);
 assertSelectorConsumesTokens(componentsSource, ".theme-switcher-select", [
-  "--m90-surface",
+  "--m90-border",
+  "--m90-surface-elevated",
   "--m90-text-primary"
 ]);
 assertSelectorConsumesTokens(componentsSource, ".theme-switcher-select:focus-visible", [
@@ -124,6 +125,22 @@ assertSelectorConsumesTokens(componentsSource, ".theme-switcher:hover,\n.theme-s
   "--m90-focus-ring",
   "--m90-surface-elevated"
 ]);
+assertSelectorConsumesTokens(componentsSource, ".workspace-page-menu-trigger", [
+  "--m90-text-secondary"
+]);
+assertSelectorConsumesTokens(componentsSource, ".workspace-page-menu-trigger:hover,\n.workspace-page-menu-trigger:focus-visible", [
+  "--m90-text-primary"
+]);
+assertSelectorConsumesTokens(componentsSource, ".fullscreen-toggle", [
+  "--m90-text-secondary"
+]);
+assertSelectorConsumesTokens(componentsSource, ".fullscreen-toggle:hover,\n.fullscreen-toggle:focus-visible", [
+  "--m90-surface-secondary",
+  "--m90-text-primary"
+]);
+assertContains(componentsSource, /\.workspace-page-menu-trigger::before\s*\{[\s\S]*?background:\s*currentColor;[\s\S]*?mask:\s*url\("Images\/menu\.svg"\)/, "workspace menu icon should render through currentColor.");
+assertContains(componentsSource, /\.fullscreen-toggle::before\s*\{[\s\S]*?background:\s*currentColor;[\s\S]*?mask:\s*url\("Images\/openfullscreen\.svg"\)/, "fullscreen icon should render through currentColor.");
+assertContains(componentsSource, /\.fullscreen-toggle\[aria-pressed="true"\]::before\s*\{[\s\S]*?mask-image:\s*url\("Images\/closefullscreen\.svg"\)/, "fullscreen pressed state should use the close icon mask.");
 
 assert.doesNotMatch(stylesSource, /theme-switcher/, "styles.css should not own theme switcher styles.");
 
