@@ -785,56 +785,6 @@ body.settings-page .site-header {
   cursor: help;
 }
 
-.prospect-profile-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
-  min-height: 420px;
-  margin-top: 1rem;
-}
-
-.prospect-option-panel {
-  display: grid;
-  place-items: center;
-  min-height: 100%;
-  border: 1px solid rgba(220, 226, 235, 0.92);
-  border-radius: 1rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
-}
-
-.prospect-option-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 3rem;
-  padding: 0 1.35rem;
-  border: 1px solid rgba(213, 221, 232, 0.95);
-  border-radius: 0.9rem;
-  background: rgba(239, 242, 247, 0.88);
-  font-weight: 800;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-}
-
-.prospect-option-button:hover,
-.prospect-option-button:focus-visible {
-  transform: scale(1.04);
-  box-shadow: 0 14px 28px rgba(16, 33, 52, 0.08);
-}
-
-.prospect-option-button-household {
-  color: #111827;
-  background: rgba(92, 63, 214, 0.12);
-  border-color: rgba(92, 63, 214, 0.18);
-}
-
-.prospect-option-button-individual {
-  color: #111827;
-  background: rgba(205, 231, 214, 0.88);
-  border-color: rgba(47, 107, 82, 0.16);
-}
-
 body:not([data-page="next-step"]) .profile-creation-form {
   margin-top: 1.25rem;
   display: grid;
@@ -3930,8 +3880,7 @@ body.lens-start-page #start-planning {
 .recommendation-card,
 .strategy-card,
 .info-card,
-.results-banner,
-.chart-placeholder {
+.results-banner {
   padding: clamp(1rem, 1.8vw, 1.5rem);
   border: 1px solid rgba(213, 221, 232, 0.85);
   background: #E8EDF5;
@@ -4399,14 +4348,6 @@ textarea {
 .result-caption {
   margin-top: 12px;
   max-width: 640px;
-}
-
-.chart-placeholder {
-  min-height: clamp(16rem, 36vw, 20rem);
-  display: grid;
-  place-items: center;
-  text-align: center;
-  background: radial-gradient(circle at center, rgba(74, 98, 189, 0.08), rgba(255, 255, 255, 0.96) 68%);
 }
 
 .chart-shell {
@@ -4909,11 +4850,6 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .prospect-profile-options {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
-
 }
 
 @media (max-width: 480px) {
@@ -5043,7 +4979,6 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
   .sidebar-panel,
   .support-panel,
   .results-banner,
-  .chart-placeholder,
   .analysis-card,
   .recommendation-card,
   .strategy-card,
