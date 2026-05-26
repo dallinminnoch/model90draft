@@ -852,12 +852,15 @@
       return;
     }
 
+    const safeMinAge = toOptionalNumber(minAge);
+    const safeMaxAge = toOptionalNumber(maxAge);
+    const ageRange = safeMaxAge - safeMinAge;
     const valuesByKey = {
-      min: 0,
-      quarter: 25,
-      mid: 50,
-      "three-quarter": 75,
-      max: 100
+      min: safeMinAge,
+      quarter: safeMinAge + (ageRange * 0.25),
+      mid: safeMinAge + (ageRange * 0.5),
+      "three-quarter": safeMinAge + (ageRange * 0.75),
+      max: safeMaxAge
     };
     labelNodes.forEach(function (labelNode) {
       if (!labelNode || typeof labelNode.getAttribute !== "function") {
