@@ -120,6 +120,65 @@
     }
   }
 
+  function renderThemeSwitcherMarkup() {
+    const controller = window.Model90ThemeController;
+    if (!controller || !Array.isArray(controller.THEME_OPTIONS)) {
+      return "";
+    }
+
+    return `
+      <label class="theme-switcher" data-theme-switcher>
+        <span class="theme-switcher-label">Theme</span>
+        <select class="theme-switcher-select" data-theme-switcher-select aria-label="Theme">
+          ${controller.THEME_OPTIONS.map((option) => `
+            <option value="${option.key}">${option.label}</option>
+          `).join("")}
+        </select>
+      </label>
+    `;
+  }
+
+  function bindThemeSwitcher(root) {
+    const controller = window.Model90ThemeController;
+    if (!controller || typeof controller.setTheme !== "function") {
+      return;
+    }
+
+    const scope = root && typeof root.querySelectorAll === "function" ? root : document;
+    scope.querySelectorAll("[data-theme-switcher-select]").forEach((select) => {
+      if (select.dataset.themeSwitcherBound === "true") {
+        select.value = controller.getTheme();
+        return;
+      }
+
+      select.dataset.themeSwitcherBound = "true";
+      select.value = controller.getTheme();
+      select.addEventListener("change", () => {
+        select.value = controller.setTheme(select.value);
+      });
+    });
+  }
+
+  function mountThemeSwitcher() {
+    const markup = renderThemeSwitcherMarkup();
+    if (!markup) {
+      return;
+    }
+
+    const workspaceActions = document.querySelector(".workspace-page-topbar-actions");
+    if (workspaceActions && !workspaceActions.querySelector("[data-theme-switcher]")) {
+      workspaceActions.insertAdjacentHTML("beforeend", markup);
+      bindThemeSwitcher(workspaceActions);
+      return;
+    }
+
+    const siteHeaderUtility = document.querySelector(".site-header-utility");
+    if (siteHeaderUtility && !siteHeaderUtility.querySelector("[data-theme-switcher]")) {
+      siteHeaderUtility.insertAdjacentHTML("beforeend", markup);
+      bindThemeSwitcher(siteHeaderUtility);
+    }
+  }
+
   function bindFullscreenToggle(iconPaths) {
     const buttons = Array.from(document.querySelectorAll("[data-fullscreen-toggle]"));
     if (!buttons.length) {
@@ -262,6 +321,7 @@
     });
 
     bindFullscreenToggle(iconPaths);
+    mountThemeSwitcher();
   }
 
   function getHeaderMarkup() {
@@ -338,6 +398,7 @@
 
     if (document.querySelector(".workspace-page-topbar")) {
       bindFullscreenToggle(iconPaths);
+      mountThemeSwitcher();
       return;
     }
 
@@ -355,6 +416,7 @@
         `;
       }
       bindSharedHeaderActions(iconPaths);
+      mountThemeSwitcher();
       return;
     }
 
@@ -370,6 +432,7 @@
       `;
     }
     bindSharedHeaderActions(iconPaths);
+    mountThemeSwitcher();
   }
 
   if (document.readyState === "loading") {

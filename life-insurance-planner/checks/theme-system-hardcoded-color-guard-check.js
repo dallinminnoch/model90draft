@@ -126,6 +126,13 @@ const trackedFiles = [
     category: "header script, expected color-free"
   },
   {
+    file: "life-insurance-planner/app/theme/theme-controller.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "theme controller, expected color-free"
+  },
+  {
     file: "life-insurance-planner/app/features/auth.js",
     colorBaseline: 0,
     legacyVarBaseline: 0,
