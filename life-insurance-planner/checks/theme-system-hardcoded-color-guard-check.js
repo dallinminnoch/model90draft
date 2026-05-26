@@ -29,10 +29,10 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 624,
+    colorBaseline: 613,
     legacyVarBaseline: 8,
     namedColorBaseline: 0,
-    category: "known component-family color debt; PMI, Client Directory, Client Detail profile, Existing Coverage, and Analysis Setup visuals migrated"
+    category: "known component-family color debt; PMI, Client Directory, Client Detail profile, Existing Coverage, Analysis Setup, and Step 3 result visuals migrated"
   },
   {
     file: "life-insurance-planner/styles.css",
@@ -89,6 +89,20 @@ const trackedFiles = [
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
     category: "Analysis Setup behavior and render logic, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/lens-analysis/step-three-analysis-display.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "Step 3 result display logic, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/lens-analysis/simple-needs-results-display.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "Simple Needs result display logic, expected color-free"
   },
   {
     file: "life-insurance-planner/app/features/lens-analysis/pmi-expense-records.js",

@@ -19619,7 +19619,7 @@ body.analysis-setup-embedded-assumptions .lens-assumptions-dialog {
 }
 
 .analysis-estimate-eyebrow {
-  color: #4a62bd;
+  color: var(--m90-accent);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -19704,16 +19704,16 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   flex-direction: column;
   min-height: 0;
   padding: clamp(0.8rem, 1.1vw, 1rem);
-  border: 1px solid rgba(211, 219, 231, 0.92);
+  border: 1px solid color-mix(in srgb, var(--m90-border) 92%, transparent);
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: var(--m90-surface);
   overflow-y: auto;
   overflow-x: hidden;
 }
 
 .analysis-result-eyebrow {
   margin-top: 0.65rem;
-  color: #4a62bd;
+  color: var(--m90-accent);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.11em;
@@ -19727,7 +19727,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .analysis-result-value {
   margin: 0.2rem 0 0.25rem;
-  color: #17202c;
+  color: var(--m90-text-primary);
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 620;
   font-size: clamp(1.45rem, 2vw, 2rem);
@@ -19736,7 +19736,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .analysis-result-copy {
   margin: 0 0 0.45rem;
-  color: #627086;
+  color: var(--m90-text-secondary);
   font-size: 0.78rem;
   line-height: 1.35;
 }
@@ -19756,18 +19756,18 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   gap: 0.5rem;
   min-width: 0;
   padding: 0.28rem 0;
-  border-bottom: 1px solid rgba(223, 229, 238, 0.82);
+  border-bottom: 1px solid color-mix(in srgb, var(--m90-border-soft) 82%, transparent);
   font-size: 0.76rem;
   line-height: 1.2;
 }
 
 .analysis-result-list span {
   min-width: 0;
-  color: #5e6c81;
+  color: var(--m90-text-secondary);
 }
 
 .analysis-result-list strong {
-  color: #17202c;
+  color: var(--m90-text-primary);
   font-size: 0.78rem;
   font-weight: 760;
   line-height: 1.18;
@@ -19778,11 +19778,11 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .analysis-result-card details {
   margin-top: 0.55rem;
   padding-top: 0.45rem;
-  border-top: 1px solid rgba(223, 229, 238, 0.9);
+  border-top: 1px solid color-mix(in srgb, var(--m90-border-soft) 90%, transparent);
 }
 
 .analysis-result-card summary {
-  color: #536176;
+  color: var(--m90-text-secondary);
   font-size: 0.78rem;
   font-weight: 760;
   cursor: pointer;
