@@ -94,6 +94,9 @@ assert.doesNotMatch(pageSource, /pmi-linked-person-letter/, "PMI banner name sho
 assert.match(pageSource, /pmi-reference-divider--deductions/);
 assert.match(pageSource, /pmi-reference-divider--tax/);
 assert.match(pageSource, /pmi-reference-notice/);
+assert.match(layoutCss, /body\[data-page="next-step"\] #pmi-income \.pmi-reference-divider,\s*\nbody\[data-page="next-step"\] #pmi-housing \.pmi-reference-divider/, "Income and Housing section dividers should share the same layout owner.");
+assert.doesNotMatch(componentsCss, /body\[data-page="next-step"\]\s+#pmi-income\s+\.pmi-reference-divider\s*\{[\s\S]*?font-weight:/, "Income dividers should not carry a separate visual text override from Housing dividers.");
+assert.doesNotMatch(componentsCss, /body\[data-page="next-step"\]\s+#pmi-income\s+\.pmi-reference-divider::after\s*\{/, "Income divider lines should not carry a separate line override from Housing dividers.");
 assert.match(componentsCss, /\.pmi-file-header\s*{[\s\S]*font-family:\s*"DM Mono", "Consolas", monospace;/, "PMI banner should use the same form-entry font as the marital status field value.");
 assert.match(componentsCss, /\.pmi-file-value\s*{[\s\S]*border:\s*0;/, "PMI banner value text should not render boxed fields.");
 assert.match(componentsCss, /\.pmi-file-value\s*{[\s\S]*background:\s*transparent;/, "PMI banner value text should not render boxed fields.");

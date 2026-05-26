@@ -3076,27 +3076,6 @@ body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:
   order: 4;
 }
 
-body[data-page="next-step"] #pmi-income .pmi-reference-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.74rem;
-  margin-top: 0.1rem;
-  color: var(--m90-text-muted);
-  font-family: "Montserrat", "Inter", sans-serif;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-body[data-page="next-step"] #pmi-income .pmi-reference-divider::after {
-  content: "";
-  height: 1px;
-  flex: 1;
-  background: var(--m90-border-soft);
-}
-
 body[data-page="next-step"] #pmi-income .pmi-reference-divider--deductions {
   order: 5;
   grid-column: 1 / -1;
