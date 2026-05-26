@@ -6273,21 +6273,6 @@ body[data-page="protection-modeling-inputs"] .field-group > label {
   border: 1px solid var(--border);
 }
 
-.pmi-save-exit-button {
-  border-radius: 0.38rem !important;
-  min-width: 13rem;
-  justify-content: center;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, outline-color 0.18s ease;
-  box-shadow: 0 6px 14px rgba(16, 33, 52, 0.05);
-}
-
-.pmi-save-exit-button:hover,
-.pmi-save-exit-button:focus-visible {
-  transform: translate(-0.3rem, -0.3rem);
-  outline: 2px solid #000000;
-  box-shadow: 0.3rem 0.3rem 0 #000000;
-}
-
 .workflow-shell {
   padding: clamp(1.25rem, 2.5vw, 1.75rem) 0 clamp(2rem, 3.5vw, 2.75rem);
 }
@@ -7962,22 +7947,6 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-icon
   height: 2rem;
 }
 
-body[data-page="next-step"] .pmi-section-nav .pmi-section-nav-link {
-  color: #9ca3af;
-}
-
-body[data-page="next-step"] .pmi-section-nav .pmi-section-nav-link:hover,
-body[data-page="next-step"] .pmi-section-nav .pmi-section-nav-link:focus-visible {
-  color: #374151;
-}
-
-body[data-page="next-step"] .pmi-section-nav .pmi-section-nav-link.is-active,
-body[data-page="next-step"] .pmi-section-nav .pmi-section-nav-link[aria-current="page"],
-body[data-page="next-step"] .pmi-section-nav .pmi-section-nav-link[aria-current="true"],
-body[data-page="next-step"] .pmi-section-nav:not(:has(.pmi-section-nav-link.is-active, .pmi-section-nav-link[aria-current="page"], .pmi-section-nav-link[aria-current="true"])) .pmi-section-nav-link:first-of-type {
-  color: #2563eb;
-}
-
 body[data-page="next-step"] .pmi-form-main .profile-creation-form {
   gap: 16px;
   margin-top: 0;
@@ -7989,10 +7958,7 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section {
   gap: 0;
   padding: 0;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
   border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section-heading {
@@ -8001,8 +7967,6 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section-heading {
   align-items: start;
   gap: 2px 16px;
   padding: 16px 22px 14px;
-  border-bottom: 1px solid #f0f1f4;
-  background: #ffffff;
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section-heading::before {
@@ -8010,14 +7974,12 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section-heading::before
   bottom: 14px;
   width: 2.5px;
   border-radius: 0 2px 2px 0;
-  background: #2563eb;
   opacity: 0.35;
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section-heading h2 {
   grid-column: 1;
   margin: 0;
-  color: #0f1523;
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 13.5px;
   font-weight: 600;
@@ -8031,7 +7993,6 @@ body[data-page="next-step"] .pmi-form-main .profile-section-note,
 body[data-page="next-step"] .pmi-form-main .helper-text {
   grid-column: 1;
   margin: 0;
-  color: #9ca3af;
   font-size: 11px;
   font-style: normal;
   font-weight: 400;
@@ -8052,7 +8013,6 @@ body[data-page="next-step"] .pmi-form-main .profile-field-hint {
 
 body[data-page="next-step"] .pmi-form-main .pmi-reference-card-num {
   grid-column: 1;
-  color: #9ca3af;
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 0;
   font-weight: 400;
@@ -8074,7 +8034,6 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section > .pmi-educatio
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section-group-stack {
   gap: 12px;
-  background: #ffffff;
 }
 
 body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack {
@@ -8120,7 +8079,6 @@ body[data-page="next-step"] .pmi-form-main label:not(.settings-toggle-row):not(.
   gap: 5px;
   width: fit-content;
   max-width: 100%;
-  color: #6b7280;
   font-family: "Inter", sans-serif;
   font-size: 10.5px;
   font-weight: 400;
@@ -8137,10 +8095,7 @@ body[data-page="next-step"] .pmi-form-main textarea {
   min-height: 34px;
   height: 34px;
   padding: 0 10px;
-  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: #f9fafb;
-  color: #0f1523;
   font-family: "DM Mono", "Consolas", monospace;
   font-size: 12.5px;
   font-weight: 500;
@@ -8151,7 +8106,6 @@ body[data-page="next-step"] .pmi-form-main textarea {
 body[data-page="next-step"] .pmi-form-main select {
   font-family: "Inter", sans-serif;
   font-size: 12px;
-  color: #374151;
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-currency-field,
@@ -8165,9 +8119,7 @@ body[data-page="next-step"] .pmi-form-main .profile-state-select-shell {
   min-height: 34px;
   height: 34px;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: #f9fafb;
   box-shadow: none;
 }
 
@@ -8204,9 +8156,6 @@ body[data-page="next-step"] .pmi-form-main .profile-inline-unit {
   align-items: center;
   align-self: stretch;
   padding: 0 10px;
-  border-left: 1px solid #e5e7eb;
-  background: #f9fafb;
-  color: #9ca3af;
   font-family: "DM Mono", "Consolas", monospace;
   font-size: 11px;
   font-weight: 500;
@@ -8214,7 +8163,6 @@ body[data-page="next-step"] .pmi-form-main .profile-inline-unit {
 }
 
 body[data-page="next-step"] #pmi-income .income-calculation-grid .profile-currency-suffix {
-  border-right: 1px solid #e5e7eb;
   border-left: 0;
 }
 
@@ -8254,10 +8202,7 @@ body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
 body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button {
   min-height: 34px;
   padding: 6px 11px;
-  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: #f9fafb;
-  color: #6b7280;
   font-family: "Inter", sans-serif;
   font-size: 11.5px;
   font-weight: 400;
@@ -8266,9 +8211,6 @@ body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button {
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button.is-active {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #2563eb;
   font-weight: 500;
 }
 
@@ -8280,10 +8222,7 @@ body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
   justify-content: center;
   gap: 6px;
   padding: 6px 11px;
-  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: #f9fafb;
-  color: #6b7280;
   cursor: pointer;
   font-size: 11.5px;
   font-weight: 400;
@@ -8315,25 +8254,9 @@ body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]::before 
   transform: translateY(-50%);
 }
 
-body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle]:hover,
-body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle]:focus-visible,
-body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]:hover,
-body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]:focus-visible {
-  border-color: #bfdbfe;
-  color: #2563eb;
-}
-
 body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle].is-active,
 body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle].is-active {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #2563eb;
   font-weight: 500;
-}
-
-body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle].is-active::before,
-body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle].is-active::before {
-  background: radial-gradient(circle, #2563eb 0 2.5px, transparent 3px);
 }
 
 body[data-page="next-step"] #pmi-income .income-calculation-circle-row {
@@ -8358,7 +8281,6 @@ body[data-page="next-step"] #pmi-housing .pmi-reference-divider {
   align-items: center;
   gap: 8px;
   margin-top: 4px;
-  color: #9ca3af;
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 9px;
   font-weight: 500;
@@ -8372,7 +8294,6 @@ body[data-page="next-step"] #pmi-housing .pmi-reference-divider::after {
   content: "";
   height: 1px;
   flex: 1;
-  background: #f0f1f4;
 }
 
 body[data-page="next-step"] #pmi-housing .pmi-reference-divider {
@@ -8448,9 +8369,7 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group {
   width: 100%;
   margin-top: 4px;
   padding: 16px 20px;
-  border: 1px solid #dbeafe;
   border-radius: 6px;
-  background: #f0f6ff;
 }
 
 body[data-page="next-step"] #pmi-income .spouse-net-income-group {
@@ -8461,7 +8380,6 @@ body[data-page="next-step"] #pmi-income .spouse-net-income-group {
 body[data-page="next-step"] #pmi-income .primary-net-income-group > label {
   grid-column: 1;
   justify-content: flex-start;
-  color: rgba(37, 99, 235, 0.55);
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 9.5px;
   font-weight: 500;
@@ -8494,7 +8412,6 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group input:not([typ
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #2563eb;
   font-family: "DM Mono", "Consolas", monospace;
   font-size: 22px;
   font-weight: 700;
@@ -8513,7 +8430,6 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .net-income-ac
   padding: 0;
   border: 0;
   background: transparent;
-  color: #3b82f6;
   font-size: 10.5px;
   font-weight: 400;
   line-height: 1.2;
@@ -8544,7 +8460,6 @@ body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .p
 
 body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:not(:first-child) > .profile-form-section-heading h2 {
   flex: 0 0 auto;
-  color: #9ca3af;
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 9px;
   font-weight: 500;
@@ -8557,7 +8472,6 @@ body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .p
   content: "";
   height: 1px;
   flex: 1;
-  background: #f0f1f4;
 }
 
 body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:not(:first-child) > .profile-form-section-heading p {
@@ -8581,10 +8495,7 @@ body[data-page="next-step"] #pmi-income .pmi-reference-notice {
   display: block;
   grid-column: 1 / -1;
   padding: 10px 14px;
-  border: 1px solid #bfdbfe;
   border-radius: 6px;
-  background: #eff6ff;
-  color: #374151;
   font-size: 11px;
   font-weight: 400;
   line-height: 1.5;

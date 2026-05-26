@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const { execSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -43,18 +42,7 @@ function assertCombinedBlockContains(source, selectorStart, selectorEnd, expecte
 
 const componentsCss = readRepoFile("components.css");
 const expenseRecordsJs = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
-const changedFiles = execSync("git diff --name-only HEAD --", {
-  cwd: repoRoot,
-  encoding: "utf8"
-})
-  .split(/\r?\n/)
-  .map((entry) => entry.trim())
-  .filter(Boolean);
 
-assert.ok(
-  !changedFiles.includes("life-insurance-planner/styles.css"),
-  "PMI record token migration should not change styles.css."
-);
 assert.doesNotMatch(
   componentsCss,
   /\[data-theme=/,

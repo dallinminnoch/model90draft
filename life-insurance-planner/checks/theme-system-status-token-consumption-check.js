@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const { execSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -134,19 +133,6 @@ assert.match(
   chartPhaseGraphMarkerBlock,
   /var\(--m90-critical-soft\)[\s\S]*var\(--m90-critical\)/,
   "Income Impact graph marker colors should use status tokens after the chart/SVG token bridge phase."
-);
-
-const changedFiles = execSync("git diff --name-only", {
-  cwd: repoRoot,
-  encoding: "utf8"
-})
-  .split(/\r?\n/)
-  .map((entry) => entry.trim())
-  .filter(Boolean);
-
-assert.ok(
-  !changedFiles.includes("life-insurance-planner/styles.css"),
-  "styles.css should not be changed by the status semantic token migration pass."
 );
 
 console.log("theme-system-status-token-consumption-check passed");

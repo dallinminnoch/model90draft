@@ -132,7 +132,19 @@ assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],
   'body[data-page="next-step"] .pmi-form-main .profile-currency-field',
   'body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button'
 ].forEach((selector) => {
-  assert.match(stylesCss, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `styles.css should neutralize legacy form styling for ${selector}.`);
+  assert.match(componentsCss, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `components.css should own canonical PMI form-control visuals for ${selector}.`);
+});
+
+[
+  'border: 1px solid var(--m90-border);',
+  'background: var(--m90-surface);',
+  'background: var(--m90-surface-secondary);',
+  'color: var(--m90-text-primary);',
+  'color: var(--m90-text-secondary);',
+  'background: var(--m90-accent-soft);',
+  'color: var(--m90-accent);'
+].forEach((snippet) => {
+  assert.match(componentsCss, new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `PMI form-control visuals should consume theme token snippet ${snippet}.`);
 });
 
 [

@@ -2337,7 +2337,7 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 body[data-page="next-step"] .lens-workflow-pane {
   padding: 0;
   overflow: auto;
-  background: #f5f6f8;
+  background: var(--m90-bg);
 }
 
 body[data-page="next-step"] .prospect-empty-panel {
@@ -2363,10 +2363,10 @@ body[data-page="next-step"] .prospect-panel-header {
   width: auto;
   margin-inline: calc(var(--pmi-content-inline-pad) * -1);
   padding: 0.38rem 0.75rem;
-  border: 1px solid rgba(226, 232, 240, 0.96);
+  border: 1px solid var(--m90-border-soft);
   border-radius: 0;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.045);
+  background: var(--m90-surface);
+  box-shadow: var(--m90-shadow);
 }
 
 body[data-page="next-step"] .prospect-panel-header .confidential-calculator-toggle {
@@ -2414,7 +2414,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #111827;
+  color: var(--m90-text-primary);
   font-size: 0.82rem;
   font-weight: 500;
   letter-spacing: 0;
@@ -2440,7 +2440,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   min-width: 0;
   align-items: center;
   overflow: hidden;
-  color: #111827;
+  color: var(--m90-text-primary);
   font-size: 0.82rem;
   font-weight: 500;
   letter-spacing: 0;
@@ -2481,7 +2481,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 .pmi-section-nav-label {
   margin: 0 0 8px;
   padding-left: 10px;
-  color: #9ca3af;
+  color: var(--m90-text-muted);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -2498,7 +2498,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   padding: 7px 10px;
   border-left: 2px solid transparent;
   border-radius: 7px;
-  color: #9ca3af;
+  color: var(--m90-text-muted);
   font-size: 11px;
   font-weight: 400;
   line-height: 1.2;
@@ -2508,8 +2508,8 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 
 .pmi-section-nav-link:hover,
 .pmi-section-nav-link:focus-visible {
-  background: #ffffff;
-  color: #374151;
+  background: var(--m90-surface);
+  color: var(--m90-text-primary);
   outline: 0;
 }
 
@@ -2517,9 +2517,9 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 .pmi-section-nav-link[aria-current="page"],
 .pmi-section-nav-link[aria-current="true"],
 .pmi-section-nav:not(:has(.pmi-section-nav-link.is-active, .pmi-section-nav-link[aria-current="page"], .pmi-section-nav-link[aria-current="true"])) .pmi-section-nav-link:first-of-type {
-  border-left-color: #2563eb;
-  background: #eff6ff;
-  color: #2563eb;
+  border-left-color: var(--m90-accent);
+  background: var(--m90-accent-soft);
+  color: var(--m90-accent);
   font-weight: 500;
 }
 
@@ -2534,7 +2534,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   bottom: -7px;
   left: 10px;
   height: 1px;
-  background: #f0f1f4;
+  background: var(--m90-border-soft);
 }
 
 .pmi-section-nav-link span {
@@ -2557,6 +2557,183 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 
 .pmi-form-main {
   min-width: 0;
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-creation-form {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-section {
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface);
+  box-shadow: var(--m90-shadow);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-section-heading {
+  border-bottom: 1px solid var(--m90-border-soft);
+  background: var(--m90-surface);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-section-heading::before {
+  background: var(--m90-accent);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-section-heading h2 {
+  color: var(--m90-text-primary);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-section-heading p,
+body[data-page="next-step"] .pmi-form-main .profile-section-note,
+body[data-page="next-step"] .pmi-form-main .helper-text,
+body[data-page="next-step"] .pmi-form-main .pmi-reference-card-num {
+  color: var(--m90-text-muted);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-section-group-stack {
+  background: var(--m90-surface);
+}
+
+body[data-page="next-step"] .pmi-form-main .field-group > label,
+body[data-page="next-step"] .pmi-form-main label:not(.settings-toggle-row):not(.analysis-setup-rate-label) {
+  color: var(--m90-text-secondary);
+}
+
+body[data-page="next-step"] .pmi-form-main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+body[data-page="next-step"] .pmi-form-main select,
+body[data-page="next-step"] .pmi-form-main textarea {
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-primary);
+}
+
+body[data-page="next-step"] .pmi-form-main select {
+  color: var(--m90-text-primary);
+}
+
+body[data-page="next-step"] .pmi-form-main input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):focus,
+body[data-page="next-step"] .pmi-form-main select:focus,
+body[data-page="next-step"] .pmi-form-main textarea:focus,
+body[data-page="next-step"] .pmi-form-main .profile-currency-field:focus-within,
+body[data-page="next-step"] .pmi-form-main .profile-inline-unit-field:focus-within,
+body[data-page="next-step"] .pmi-form-main .profile-state-select-shell:focus-within {
+  border-color: var(--m90-accent);
+  box-shadow: 0 0 0 3px var(--m90-focus-ring);
+  outline: 0;
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-currency-field,
+body[data-page="next-step"] .pmi-form-main .profile-inline-unit-field,
+body[data-page="next-step"] .pmi-form-main .profile-state-select-shell {
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface-secondary);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-currency-field input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+body[data-page="next-step"] .pmi-form-main .profile-inline-unit-field input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+body[data-page="next-step"] .pmi-form-main .profile-state-select-shell .profile-state-field,
+body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-currency-field {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-currency-suffix,
+body[data-page="next-step"] .pmi-form-main .profile-inline-unit {
+  border-left: 1px solid var(--m90-border);
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-muted);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button,
+body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle],
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle] {
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-secondary);
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button:hover,
+body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button:focus-visible,
+body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle]:hover,
+body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle]:focus-visible,
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]:hover,
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle]:focus-visible {
+  border-color: var(--m90-focus-ring);
+  color: var(--m90-accent);
+  outline: 0;
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-form-toggle-button.is-active,
+body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle].is-active,
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle].is-active {
+  border-color: var(--m90-focus-ring);
+  background: var(--m90-accent-soft);
+  color: var(--m90-accent);
+}
+
+body[data-page="next-step"] .pmi-form-main [data-deduction-method-toggle].is-active::before,
+body[data-page="next-step"] .pmi-form-main [data-housing-status-toggle].is-active::before {
+  background: radial-gradient(circle, var(--m90-accent) 0 2.5px, transparent 3px);
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-divider,
+body[data-page="next-step"] #pmi-housing .pmi-reference-divider {
+  color: var(--m90-text-muted);
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-divider::after,
+body[data-page="next-step"] #pmi-housing .pmi-reference-divider::after {
+  background: var(--m90-border-soft);
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group {
+  border: 1px solid var(--m90-focus-ring);
+  background: var(--m90-accent-soft);
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group > label {
+  color: var(--m90-accent);
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group input:not([type="hidden"]),
+body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-currency-field input:not([type="hidden"]) {
+  color: var(--m90-accent);
+}
+
+body[data-page="next-step"] #pmi-income .primary-net-income-group .net-income-action {
+  color: var(--m90-accent);
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:not(:first-child) > .profile-form-section-heading h2 {
+  color: var(--m90-text-muted);
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:not(:first-child) > .profile-form-section-heading::after {
+  background: var(--m90-border-soft);
+}
+
+body[data-page="next-step"] #pmi-income .pmi-reference-notice {
+  border: 1px solid var(--m90-focus-ring);
+  background: var(--m90-accent-soft);
+  color: var(--m90-text-primary);
+}
+
+.pmi-save-exit-button {
+  border-color: var(--m90-border);
+  border-radius: 0.38rem;
+  min-width: 13rem;
+  justify-content: center;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, outline-color 0.18s ease;
+  box-shadow: var(--m90-shadow);
+}
+
+.pmi-save-exit-button:hover,
+.pmi-save-exit-button:focus-visible {
+  border-color: var(--m90-accent);
+  transform: translate(-0.18rem, -0.18rem);
+  outline: 2px solid var(--m90-focus-ring);
+  box-shadow: 0.18rem 0.18rem 0 var(--m90-accent-soft);
 }
 
 .pmi-cashflow-rail {
@@ -2721,7 +2898,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 
 body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack {
   padding: 0;
-  background: #ffffff;
+  background: var(--m90-surface);
 }
 
 body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:first-child {
@@ -2746,9 +2923,9 @@ body[data-page="next-step"] #pmi-income .income-calculation-grid .profile-curren
 }
 
 body[data-page="next-step"] #pmi-income .income-calculation-grid .profile-currency-suffix {
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--m90-border);
   border-left: 0;
-  background: #f9fafb;
+  background: var(--m90-surface-secondary);
 }
 
 body[data-page="next-step"] #pmi-income .income-calculation-circle-row {
@@ -2780,7 +2957,7 @@ body[data-page="next-step"] #pmi-income .pmi-reference-divider {
   align-items: center;
   gap: 0.74rem;
   margin-top: 0.1rem;
-  color: #9aa5b5;
+  color: var(--m90-text-muted);
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 0.62rem;
   font-weight: 800;
@@ -2793,7 +2970,7 @@ body[data-page="next-step"] #pmi-income .pmi-reference-divider::after {
   content: "";
   height: 1px;
   flex: 1;
-  background: #e9edf3;
+  background: var(--m90-border-soft);
 }
 
 body[data-page="next-step"] #pmi-income .pmi-reference-divider--deductions {
@@ -2881,14 +3058,14 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group {
   align-items: end;
   margin-top: 0.2rem;
   padding: 1rem 1.15rem;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--m90-focus-ring);
   border-radius: 6px;
-  background: #f0f6ff;
+  background: var(--m90-accent-soft);
 }
 
 body[data-page="next-step"] #pmi-income .primary-net-income-group > label {
   grid-column: 1;
-  color: rgba(37, 99, 235, 0.55);
+  color: var(--m90-accent);
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 9.5px;
   font-weight: 500;
@@ -2908,7 +3085,7 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
 body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-currency-field input:not([type="hidden"]) {
   min-height: auto;
   padding: 0;
-  color: #2563eb;
+  color: var(--m90-accent);
   font-family: "DM Mono", "Consolas", monospace;
   font-size: 22px;
   font-weight: 700;
