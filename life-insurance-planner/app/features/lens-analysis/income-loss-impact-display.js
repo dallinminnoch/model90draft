@@ -538,7 +538,7 @@
       };
     }
 
-    const maxAge = 100;
+    const maxAge = Math.min(100, currentAge + DEFAULT_PROJECTION_HORIZON_YEARS);
     return {
       hasDateOfBirth: true,
       currentAge,
@@ -870,6 +870,17 @@
     });
   }
 
+  function calculateDeathAgeProgressPercent(selectedAge, minAge, maxAge) {
+    const safeSelectedAge = toOptionalNumber(selectedAge);
+    const safeMinAge = toOptionalNumber(minAge);
+    const safeMaxAge = toOptionalNumber(maxAge);
+    if (safeSelectedAge == null || safeMinAge == null || safeMaxAge == null || safeMaxAge <= safeMinAge) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(100, ((safeSelectedAge - safeMinAge) / (safeMaxAge - safeMinAge)) * 100));
+  }
+
   function updateDeathAgeControl(timelineResult, deathAgeState, controls) {
     const elements = getDeathAgeControlElements();
     if (!elements) {
@@ -924,13 +935,16 @@
     }
     if (slider) {
       slider.disabled = false;
-      slider.min = "0";
-      slider.max = "100";
+      slider.min = String(state.minAge);
+      slider.max = String(state.maxAge);
       slider.step = "1";
       slider.value = String(selectedDeathAge);
       slider.setAttribute("aria-valuetext", `Age ${selectedDeathAge}`);
       if (control.style && typeof control.style.setProperty === "function") {
-        control.style.setProperty("--income-impact-death-age-progress", `${Math.max(0, Math.min(100, selectedDeathAge))}%`);
+        control.style.setProperty(
+          "--income-impact-death-age-progress",
+          `${calculateDeathAgeProgressPercent(selectedDeathAge, state.minAge, state.maxAge)}%`
+        );
       }
     }
     updateDeathAgeSliderLabels(sliderLabels, state.minAge, state.maxAge);
@@ -1677,7 +1691,7 @@
       : safeSeries.appliedRunwayScenarios;
     return Object.assign({}, safeSeries, {
       preDeathAssets: [],
-      currentAnchor: null,
+      currentAnchor: safeSeries.currentAnchor || null,
       appliedRunwayScenarios
     });
   }
@@ -8717,7 +8731,12 @@
       const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
       controls.selectedDeathAge = clampRoundedAge(event?.target?.value, state.minAge, state.maxAge);
       setDraftScenarioControls(incomeImpactState, controls);
-      updateScenarioControls(incomeImpactState.latestTimelineResult);
+      applyDraftScenarioControlsToRuntimeState(incomeImpactState);
+      incomeImpactState.graphViewMode = controls.selectedDeathAge > state.currentAge
+        ? GRAPH_VIEW_MODE_DEATH_LEAD_UP
+        : GRAPH_VIEW_MODE_POST_DEATH_FOCUS;
+      invalidateIncomeImpactBaseRenderCache();
+      renderIncomeImpactFromState();
     }
 
     if (elements?.slider) {
