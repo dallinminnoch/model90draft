@@ -917,7 +917,7 @@ input.search-bar__input {
 
 .settings-hero-copy h1 {
   margin: 0;
-  color: #1b2434;
+  color: var(--m90-text-primary);
   font-family: "Plus Jakarta Sans", "Inter", sans-serif;
   font-size: clamp(1.8rem, 2vw, 2.4rem);
   font-weight: 800;
@@ -928,14 +928,14 @@ input.search-bar__input {
 .settings-hero-copy p {
   margin: 0;
   max-width: 48rem;
-  color: #667387;
+  color: var(--m90-text-secondary);
   font-size: 0.98rem;
   line-height: 1.55;
 }
 
 .settings-info-row + .settings-info-row,
 .settings-toggle-row + .settings-toggle-row {
-  border-top: 1px solid rgba(223, 228, 236, 0.96);
+  border-top: 1px solid var(--m90-border-soft);
 }
 
 @media (max-width: 760px) {
@@ -946,10 +946,10 @@ input.search-bar__input {
 
 .admin-summary-card,
 .admin-accounts-panel {
-  border: 1px solid rgba(213, 221, 232, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 14px 34px rgba(16, 33, 52, 0.06);
+  background: var(--m90-surface-elevated);
+  box-shadow: var(--m90-shadow);
 }
 
 .admin-summary-card {
@@ -976,9 +976,9 @@ input.search-bar__input {
   justify-content: space-between;
   gap: var(--space-lg);
   padding: clamp(0.9rem, 1.5vw, 1.25rem);
-  border: 1px solid rgba(213, 221, 232, 0.85);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--m90-surface);
 }
 
 .admin-account-name {
@@ -988,7 +988,7 @@ input.search-bar__input {
 
 .admin-account-email {
   margin-top: 4px;
-  color: var(--muted);
+  color: var(--m90-text-muted);
   font-size: 0.92rem;
 }
 
@@ -1027,10 +1027,10 @@ input.search-bar__input {
 
 .admin-empty-state {
   padding: clamp(1.25rem, 2vw, 1.75rem);
-  border: 1px dashed rgba(213, 221, 232, 0.9);
+  border: 1px dashed var(--m90-border);
   border-radius: var(--radius-sm);
   text-align: center;
-  background: rgba(248, 250, 252, 0.95);
+  background: var(--m90-surface-secondary);
 }
 
 .admin-tax-bracket-toolbar {
@@ -1049,7 +1049,7 @@ input.search-bar__input {
 
 .admin-tax-bracket-group + .admin-tax-bracket-group {
   padding-top: var(--space-lg);
-  border-top: 1px solid rgba(213, 221, 232, 0.85);
+  border-top: 1px solid var(--m90-border-soft);
 }
 
 .admin-tax-bracket-table {
@@ -1063,7 +1063,7 @@ input.search-bar__input {
 .admin-tax-bracket-table th {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--m90-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   text-align: left;
@@ -1082,9 +1082,9 @@ input.search-bar__input {
 .admin-tax-bracket-input {
   min-height: 2.5rem;
   padding: 0 0.9rem;
-  border: 1px solid rgba(213, 221, 232, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--m90-surface);
   font: inherit;
   color: var(--m90-text-primary);
 }
@@ -1114,18 +1114,18 @@ input.search-bar__input {
 .admin-action-button {
   min-height: clamp(2.25rem, 3vw, 2.4rem);
   padding: 0 clamp(0.7rem, 1.2vw, 0.9rem);
-  border: 1px solid rgba(213, 221, 232, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--m90-surface);
   color: var(--m90-text-primary);
   font-weight: 700;
   cursor: pointer;
 }
 
 .admin-state-tax-toggle .admin-action-button.is-active {
-  background: #233044;
-  color: #ffffff;
-  border-color: #233044;
+  background: var(--m90-accent);
+  color: var(--m90-surface);
+  border-color: var(--m90-accent);
 }
 
 .admin-action-button.is-danger {
@@ -1150,7 +1150,7 @@ input.search-bar__input {
 .admin-state-tax-filing-group + .admin-state-tax-filing-group {
   margin-top: var(--space-lg);
   padding-top: var(--space-lg);
-  border-top: 1px solid rgba(213, 221, 232, 0.85);
+  border-top: 1px solid var(--m90-border-soft);
 }
 
 .admin-state-tax-filing-group.is-disabled {
@@ -1166,8 +1166,8 @@ input.search-bar__input {
 }
 
 .admin-tax-bracket-table.is-disabled .admin-tax-bracket-input {
-  background: #f3f5f9;
-  color: #9aa4b2;
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-muted);
 }
 
 .admin-tax-bracket-feedback {
@@ -1187,9 +1187,9 @@ input.search-bar__input {
 
 .admin-household-expense-policy-control-group {
   margin-top: var(--space-md);
-  border: 1px solid rgba(213, 221, 232, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-sm);
-  background: rgba(248, 250, 252, 0.78);
+  background: var(--m90-surface-secondary);
 }
 
 .admin-household-expense-policy-control-group-summary {
@@ -1214,10 +1214,10 @@ input.search-bar__input {
   width: 1.45rem;
   height: 1.45rem;
   flex: 0 0 auto;
-  border: 1px solid rgba(213, 221, 232, 0.95);
+  border: 1px solid var(--m90-border);
   border-radius: 999px;
-  background: #ffffff;
-  color: var(--muted);
+  background: var(--m90-surface);
+  color: var(--m90-text-muted);
   font-weight: 800;
   line-height: 1;
 }
@@ -1241,13 +1241,13 @@ input.search-bar__input {
   display: grid;
   gap: var(--space-md);
   padding: clamp(0.95rem, 1.6vw, 1.25rem);
-  border: 1px solid rgba(213, 221, 232, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-sm);
-  background: rgba(248, 250, 252, 0.9);
+  background: var(--m90-surface-secondary);
 }
 
 .admin-household-expense-policy-row-card[open] {
-  background: rgba(248, 250, 252, 0.98);
+  background: var(--m90-surface);
 }
 
 .admin-household-expense-policy-row-summary {
@@ -1273,10 +1273,10 @@ input.search-bar__input {
   grid-column: 1;
   justify-self: start;
   margin-top: 0.1rem;
-  border: 1px solid rgba(213, 221, 232, 0.95);
+  border: 1px solid var(--m90-border);
   border-radius: 999px;
-  background: #ffffff;
-  color: var(--muted);
+  background: var(--m90-surface);
+  color: var(--m90-text-muted);
   font-weight: 800;
   line-height: 1;
 }
@@ -1307,7 +1307,7 @@ input.search-bar__input {
   flex-wrap: wrap;
   gap: 0.45rem 0.65rem;
   margin-top: 0.35rem;
-  color: var(--muted);
+  color: var(--m90-text-muted);
   font-size: 0.85rem;
   line-height: 1.4;
 }
@@ -1330,12 +1330,12 @@ input.search-bar__input {
   display: grid;
   gap: var(--space-md);
   padding-top: var(--space-md);
-  border-top: 1px solid rgba(223, 228, 236, 0.9);
+  border-top: 1px solid var(--m90-border-soft);
 }
 
 .admin-household-expense-policy-status-text,
 .admin-household-expense-policy-field-note {
-  color: var(--muted);
+  color: var(--m90-text-muted);
   font-size: 0.82rem;
   line-height: 1.4;
 }
@@ -1353,9 +1353,9 @@ input.search-bar__input {
   gap: var(--space-sm);
   min-width: 0;
   padding: 0.85rem;
-  border: 1px solid rgba(223, 228, 236, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--m90-surface);
 }
 
 .admin-household-expense-policy-card-section h5 {
@@ -1364,7 +1364,7 @@ input.search-bar__input {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--m90-text-muted);
 }
 
 .admin-household-expense-policy-control-stack,
@@ -1387,7 +1387,7 @@ input.search-bar__input {
 
 .admin-household-expense-policy-readout-label,
 .admin-household-expense-policy-input-field > span {
-  color: var(--muted);
+  color: var(--m90-text-muted);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.035em;
@@ -12957,6 +12957,148 @@ body.is-modal-open {
   overflow: hidden;
 }
 
+.lens-leave-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+
+.lens-leave-modal[hidden] {
+  display: none;
+}
+
+.lens-leave-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--m90-overlay);
+  backdrop-filter: blur(4px);
+}
+
+.lens-leave-modal-panel {
+  position: relative;
+  width: min(28rem, calc(100vw - 2rem));
+  margin: 14vh auto 0;
+  padding: 1.6rem;
+  border-radius: 24px;
+  background: var(--m90-surface-elevated);
+  border: 1px solid var(--m90-border);
+  box-shadow: var(--m90-shadow);
+}
+
+.lens-leave-modal-panel h2 {
+  margin: 0 0 0.7rem;
+  color: var(--m90-text-primary);
+  font-size: 1.55rem;
+}
+
+.lens-leave-modal-panel p {
+  margin: 0;
+  color: var(--m90-text-secondary);
+  line-height: 1.55;
+}
+
+.lens-leave-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.4rem;
+}
+
+.lens-manual-widget {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: grid;
+  place-items: center;
+}
+
+.lens-manual-widget[hidden] {
+  display: none;
+}
+
+.lens-manual-widget-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--m90-overlay);
+}
+
+.lens-manual-widget-panel {
+  position: relative;
+  width: min(30rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 1rem;
+  padding: 1.3rem 1.25rem 1.2rem;
+  border: 1px solid var(--m90-border);
+  border-radius: 1rem;
+  background: var(--m90-surface-elevated);
+  box-shadow: var(--m90-shadow);
+}
+
+.lens-manual-widget-close {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.65rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--m90-text-muted);
+  font-size: 1.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.lens-manual-widget-header h2 {
+  margin: 0;
+  color: var(--m90-text-primary);
+  font-size: 1.18rem;
+}
+
+.lens-manual-widget-header p {
+  margin: 0.35rem 0 0;
+  color: var(--m90-text-secondary);
+  line-height: 1.5;
+}
+
+.lens-manual-widget-options {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.lens-manual-widget-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.4rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--m90-border);
+  border-radius: 0.85rem;
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-primary);
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 650;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.lens-manual-widget-option::after {
+  content: "->";
+  color: var(--m90-text-muted);
+  font-size: 0.95rem;
+}
+
+.lens-manual-widget-option:hover,
+.lens-manual-widget-option:focus-visible {
+  border-color: var(--m90-focus-ring);
+  background: var(--m90-accent-soft);
+  box-shadow: var(--m90-shadow);
+  outline: none;
+}
+
 .client-directory-filter-bar {
   grid-area: controls;
   display: flex;
@@ -23551,7 +23693,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   display: grid;
   place-items: center;
   padding: clamp(0.8rem, 2vw, 1.4rem);
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--m90-overlay);
   backdrop-filter: blur(6px);
 }
 
@@ -23564,10 +23706,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   width: min(74rem, calc(100vw - 2rem));
   height: min(48rem, calc(100vh - 2rem));
   overflow: hidden;
-  border: 1px solid rgba(203, 213, 225, 0.9);
+  border: 1px solid var(--m90-border);
   border-radius: 0.9rem;
-  background: #ffffff;
-  box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.26);
+  background: var(--m90-surface-elevated);
+  box-shadow: var(--m90-shadow);
 }
 
 .lens-assumption-controls-dialog__loading {
@@ -23578,8 +23720,8 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   place-items: center;
   align-content: center;
   gap: 0.68rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  color: #334155;
+  background: linear-gradient(180deg, var(--m90-surface) 0%, var(--m90-surface-secondary) 100%);
+  color: var(--m90-text-secondary);
   opacity: 0;
   pointer-events: none;
 }
@@ -23591,14 +23733,14 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .lens-assumption-controls-dialog__loading-mark {
   width: 2.25rem;
   height: 2.25rem;
-  border: 3px solid rgba(37, 88, 216, 0.16);
-  border-top-color: #2558d8;
+  border: 3px solid var(--m90-accent-soft);
+  border-top-color: var(--m90-accent);
   border-radius: 999px;
   animation: lens-assumption-controls-loading-spin 0.72s linear infinite;
 }
 
 .lens-assumption-controls-dialog__loading strong {
-  color: #0f172a;
+  color: var(--m90-text-primary);
   font-family: "Montserrat", sans-serif;
   font-size: 0.88rem;
   font-weight: 760;
@@ -23609,7 +23751,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   width: 100%;
   height: 100%;
   border: 0;
-  background: #f8fafc;
+  background: var(--m90-bg);
   opacity: 1;
   transition: opacity 0.12s ease;
 }

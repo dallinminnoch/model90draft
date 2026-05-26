@@ -22,24 +22,24 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/layout.css",
-    colorBaseline: 10,
+    colorBaseline: 4,
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
-    category: "known layout/frame color debt; Client Detail profile and Income Impact frame colors migrated"
+    category: "known layout/frame color debt; Settings/Admin frames, Client Detail profile, and Income Impact frame colors migrated"
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 356,
-    legacyVarBaseline: 8,
+    colorBaseline: 312,
+    legacyVarBaseline: 0,
     namedColorBaseline: 0,
-    category: "known component-family color debt; PMI, Client Directory, Client Detail profile, Existing Coverage, Analysis Setup, Step 3 result, and Income Impact surface visuals migrated"
+    category: "known component-family color debt; Settings/Admin/modals, PMI, Client Directory, Client Detail profile, Existing Coverage, Analysis Setup, Step 3 result, and Income Impact surface visuals migrated"
   },
   {
     file: "life-insurance-planner/styles.css",
-    colorBaseline: 451,
+    colorBaseline: 430,
     legacyVarBaseline: 33,
     namedColorBaseline: 0,
-    category: "legacy style debt, reduced after canonical PMI, Client Detail profile, Existing Coverage, and Income Impact visual neutralization"
+    category: "legacy style debt, reduced after Settings/Admin/modal, canonical PMI, Client Detail profile, Existing Coverage, and Income Impact visual neutralization"
   },
   {
     file: "life-insurance-planner/app/features/client-directory.js",
@@ -124,6 +124,34 @@ const trackedFiles = [
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
     category: "header script, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/auth.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "auth and admin account render logic, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/account-settings/household-expense-account-policy-admin-display.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "admin household expense policy display logic, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/account-settings/household-expense-account-policy-admin-editor.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "admin household expense policy editor logic, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/lens-analysis/assumption-controls-launcher.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "assumption controls modal launcher logic, expected color-free"
   }
 ];
 

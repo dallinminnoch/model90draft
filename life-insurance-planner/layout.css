@@ -1244,7 +1244,7 @@ body.settings-page .workspace-page-topbar {
 
 .admin-page {
   background:
-    linear-gradient(180deg, rgba(246, 248, 250, 1) 0%, rgba(235, 240, 244, 1) 100%);
+    linear-gradient(180deg, var(--m90-bg) 0%, var(--m90-surface-secondary) 100%);
 }
 
 .admin-shell {
@@ -1766,7 +1766,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     min-height: 100%;
     padding: 0;
     overflow: visible;
-    box-shadow: 8px 0 24px rgba(16, 33, 52, 0.05);
+    box-shadow: 8px 0 24px color-mix(in srgb, var(--m90-text-primary) 5%, transparent);
   }
 
   body.clients-page .client-directory-shell {
@@ -1805,10 +1805,10 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
   body.settings-page .workspace-visible-pane {
     height: 100%;
     min-height: 0;
-    background: rgba(255, 255, 255, 0.97);
-    border: 1px solid rgba(213, 221, 232, 0.78);
+    background: color-mix(in srgb, var(--m90-surface) 97%, transparent);
+    border: 1px solid color-mix(in srgb, var(--m90-border) 78%, transparent);
     border-radius: 0;
-    box-shadow: 0 22px 48px rgba(16, 33, 52, 0.08);
+    box-shadow: var(--m90-shadow);
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
