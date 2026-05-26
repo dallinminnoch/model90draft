@@ -187,6 +187,20 @@ function getInitialAddableExpenseEntries(expenseLibrary) {
       && entry.isProtected !== true
       && entry.isScalarFieldOwned !== true
       && entry.uiAvailability === "initial"
+      && entry.categoryKey !== "savingsGoalContributions"
+    );
+  });
+}
+
+function getInitialAddableSavingsHabitEntries(expenseLibrary) {
+  return expenseLibrary.getExpenseLibraryEntries().filter(function (entry) {
+    return Boolean(
+      entry
+      && entry.isAddable === true
+      && entry.isProtected !== true
+      && entry.isScalarFieldOwned !== true
+      && entry.uiAvailability === "initial"
+      && entry.categoryKey === "savingsGoalContributions"
     );
   });
 }
@@ -260,7 +274,10 @@ function assertPageWiring(relativePath) {
   assert.match(source, /initPmiExpenseRecords\(\{/);
   if (relativePath === "pages/next-step.html") {
     assert.match(source, /const pmiExpenseRecordsRoot = form\.querySelector\("\[data-pmi-expense-records-root\]"\);/);
+    assert.match(source, /const pmiSavingsHabitRecordsRoot = form\.querySelector\("\[data-pmi-savings-habit-records-root\]"\);/);
     assert.match(source, /root: pmiExpenseRecordsRoot/);
+    assert.match(source, /root: pmiSavingsHabitRecordsRoot/);
+    assert.match(source, /recordScope: "savingsHabits"/);
     assert.match(source, /pmiExpenseRecordsRoot\?\.addEventListener\("pmiExpenseRecordsChange"/);
   } else {
     assert.match(source, /root: form\.querySelector\("\[data-pmi-expense-records-root\]"\)/);
@@ -274,6 +291,10 @@ function assertPageWiring(relativePath) {
   assert.match(source, /function refreshPmiExpenseCashFlowBar\(\)/);
   assert.match(source, /refreshPmiExpenseCashFlowBar\(\);/);
   assert.match(source, /hydrateExpenseRecords\(saved\.expenseRecords\)/);
+  if (relativePath === "pages/next-step.html") {
+    assert.match(source, /hydrateExpenseRecords\(getSavingsHabitRecordsHydrationSource\(saved\)\)/);
+    assert.match(source, /draft\.savingsHabitRecords = pmiSavingsHabitRecordsController\.serializeExpenseRecords\(\)/);
+  }
   assert.match(source, /draft\.expenseRecords = pmiExpenseRecordsController\.serializeExpenseRecords\(\)/);
 
   const cashFlowRootIndex = source.indexOf("data-pmi-expense-cashflow-root");
@@ -367,6 +388,8 @@ assert.equal(typeof pmiExpenseRecords?.refreshGeneratedExpenseFactsFromDebtRecor
 assert.equal(typeof pmiExpenseRecords?.serializeExpenseRecords, "function");
 assert.equal(typeof pmiExpenseRecords?.createExpenseRecordFromLibraryEntry, "function");
 assert.equal(typeof pmiExpenseRecords?.createCommonExpenseSourceDataFromExpenseRecords, "function");
+assert.equal(typeof pmiExpenseRecords?.getInitialAddableExpenseEntries, "function");
+assert.equal(typeof pmiExpenseRecords?.getInitialAddableSavingsHabitEntries, "function");
 assert.equal(typeof pmiExpenseRecords?.getExpenseTypeIconFile, "function");
 assert.equal(typeof pmiExpenseRecords?.getExpenseTypeIconModel, "function");
 assert.equal(typeof pmiExpenseRecords?.calculateMonthlyCashFlow, "function");
@@ -404,7 +427,7 @@ assert.match(widgetSource, /data-pmi-expense-records-table/, "expense records sh
 assert.match(widgetSource, /class="pmi-expense-record-row"/, "expense records should render compact row shells");
 assert.match(widgetSource, /data-pmi-expense-record-type-label/, "expense rows should retain the type-cell test hook");
 assert.doesNotMatch(widgetSource, /class="pmi-expense-record-type-label" data-pmi-expense-record-type-label title="\$\{escapeHtml\(expenseTypeLabel\)\}"/, "expense rows should not render the old visible text-only type pill");
-assert.match(widgetSource, /aria-label="Label \/ Vendor"/, "desktop rows should use aria labels instead of repeated visible labels");
+assert.match(widgetSource, /aria-label="\$\{escapeHtml\(controller\.copy\.labelColumnLabel\)\}"/, "desktop rows should use aria labels instead of repeated visible labels");
 assert.doesNotMatch(widgetSource, /class="field-group full-width pmi-expense-record-field"/, "old stacked expense card shell should not be used");
 assert.doesNotMatch(widgetSource, /class="form-grid pmi-expense-record-grid"/, "old nested expense field grid should not be used");
 assert.match(componentsCss, /\.pmi-expense-records-table\s*{[\s\S]*?overflow:\s*hidden;/, "expense notebook shell should own the table frame");
@@ -433,7 +456,7 @@ assert.match(widgetSource, /entry\.isAddable === true/);
 assert.match(widgetSource, /entry\.uiAvailability === "initial"/);
 assert.match(widgetSource, /entry\.isProtected !== true/);
 assert.match(widgetSource, /entry\.isScalarFieldOwned !== true/);
-assert.match(widgetSource, /const allEntries = getInitialAddableLibraryEntries\(\);/);
+assert.match(widgetSource, /const allEntries = getInitialAddableLibraryEntries\(controller\.recordScope\);/);
 
 const medicalOutOfPocketEntry = expenseLibrary.findExpenseLibraryEntry("medicalOutOfPocket");
 const medicalOutOfPocketRecord = pmiExpenseRecords.createExpenseRecordFromLibraryEntry(medicalOutOfPocketEntry);
@@ -502,7 +525,29 @@ expectedExpenseIconFiles.forEach(function (iconFile) {
 });
 
 const initialAddableEntries = getInitialAddableExpenseEntries(expenseLibrary);
-assert.equal(initialAddableEntries.length, 301, "current Add Expense menu should expose the expected initial addable library count");
+const initialAddableSavingsHabitEntries = getInitialAddableSavingsHabitEntries(expenseLibrary);
+assert.equal(initialAddableEntries.length, 287, "current Add Expense menu should expose the expected non-savings initial addable library count");
+assert.equal(initialAddableSavingsHabitEntries.length, 14, "Savings Habits menu should expose the expected savings and reserve initial addable library count");
+assert.deepEqual(
+  pmiExpenseRecords.getInitialAddableExpenseEntries().map((entry) => entry.typeKey),
+  initialAddableEntries.map((entry) => entry.typeKey),
+  "PMI expense menu helper should exclude savings habit entries"
+);
+assert.deepEqual(
+  pmiExpenseRecords.getInitialAddableSavingsHabitEntries().map((entry) => entry.typeKey),
+  initialAddableSavingsHabitEntries.map((entry) => entry.typeKey),
+  "PMI savings menu helper should expose only savings habit entries"
+);
+assert.equal(
+  pmiExpenseRecords.getInitialAddableExpenseEntries().some((entry) => entry.categoryKey === "savingsGoalContributions"),
+  false,
+  "Add Expense menu should no longer expose savings contribution rows"
+);
+assert.equal(
+  pmiExpenseRecords.getInitialAddableSavingsHabitEntries().every((entry) => entry.categoryKey === "savingsGoalContributions"),
+  true,
+  "Savings Habits menu should only expose savings contribution rows"
+);
 initialAddableEntries.forEach(function (entry) {
   const iconModel = pmiExpenseRecords.getExpenseTypeIconModel({
     typeKey: entry.typeKey,
@@ -596,7 +641,7 @@ assert.match(fakeDom.root.innerHTML, /Additional Expenses/, "widget should rende
 assert.doesNotMatch(fakeDom.root.innerHTML, /Use this for expenses not already captured in Household Spending/, "widget should not render the deleted Additional Expenses helper paragraph");
 assert.doesNotMatch(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should not render the deleted healthcare behavior helper paragraph");
 assert.doesNotMatch(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should not render the deleted non-healthcare raw-fact helper paragraph");
-assert.match(fakeDom.root.innerHTML, /"Continues after death\?" is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
+assert.match(fakeDom.root.innerHTML, /Continues after death\?&quot; is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
 assert.equal(controller.records.length, 9, "missing expenseRecords should create starter rows by default");
 assert.deepEqual(
   Array.from(controller.records, (record) => record.typeKey),
@@ -677,6 +722,46 @@ assert.doesNotMatch(fakeDom.list.innerHTML, /class="pmi-expense-record-type-labe
 assert.equal(controller.removeExpenseRecordById(addedFromLibrary.expenseId), true, "remove should remove a rendered expense row");
 assert.equal(controller.records.length, 0, "remove should leave the notebook empty");
 assert.equal(fakeDom.list.innerHTML, "", "removing the only expense record should restore empty state");
+assert.equal(
+  controller.addExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("retirementContributions")),
+  null,
+  "expense controller should reject savings contribution library rows"
+);
+
+const savingsDom = createFakeRoot();
+const savingsController = pmiExpenseRecords.initPmiExpenseRecords({
+  root: savingsDom.root,
+  recordScope: "savingsHabits"
+});
+assert.ok(savingsController, "savings habit records controller should initialize");
+assert.match(savingsDom.root.innerHTML, /Savings Habit Records/, "savings controller should render the savings habit heading");
+assert.match(savingsDom.root.innerHTML, /Add Savings Habit/, "savings controller should render the savings add action");
+assert.equal(savingsController.records.length, 0, "missing savingsHabitRecords should not create expense starter rows");
+assert.equal(
+  savingsController.addExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("propertyTaxes")),
+  null,
+  "savings controller should reject regular expense library rows"
+);
+const addedSavingsHabit = savingsController.addExpenseRecordFromLibraryEntry(expenseLibrary.findExpenseLibraryEntry("retirementContributions"));
+assert.ok(addedSavingsHabit, "savings controller should add a savings contribution row");
+assert.equal(savingsController.records.length, 1, "savings controller should add one savings habit row");
+assert.match(savingsDom.list.innerHTML, /Savings habit records notebook/, "savings controller should render a savings table label");
+assert.match(savingsDom.list.innerHTML, /Retirement Contributions/, "savings controller should render the added savings row");
+assert.match(savingsDom.list.innerHTML, /aria-label="Savings habit type: Retirement Contributions"/, "savings row should expose savings-specific accessible type text");
+assert.match(savingsDom.list.innerHTML, /data-pmi-expense-record-icon-file="savings\.svg"/, "savings rows should use the savings icon");
+savingsController.hydrateExpenseRecords([{
+  expenseId: "savings_retirement",
+  categoryKey: "savingsGoalContributions",
+  typeKey: "retirementContributions",
+  label: "Retirement Contributions",
+  amount: 250,
+  frequency: "monthly",
+  termType: "ongoing"
+}]);
+const savingsSerialized = savingsController.serializeExpenseRecords();
+assert.equal(savingsSerialized.length, 1, "savings controller should serialize added savings habit rows");
+assert.equal(savingsSerialized[0].typeKey, "retirementContributions", "savings serialization should preserve the savings habit type");
+assert.equal(savingsSerialized[0].categoryKey, "savingsGoalContributions", "savings serialization should preserve the savings habit category");
 
 const generatedDebtPaymentFact = Object.freeze({
   expenseFactId: "generated_debt_payment_expense_auto_loan",

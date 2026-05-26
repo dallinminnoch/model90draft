@@ -34,6 +34,94 @@
     entertainmentRecreation: "Entertainment / Travel",
     recurringPersonalSpendingDefault: "Recurring Personal Spending"
   });
+  const SAVINGS_HABIT_CATEGORY_KEY = "savingsGoalContributions";
+  const SAVINGS_HABIT_TYPE_KEYS = Object.freeze([
+    "hsaContributions",
+    "retirementContributions",
+    "brokerageInvestmentContributions",
+    "educationSavingsContributions",
+    "emergencyFundContributions",
+    "sinkingFundContributions",
+    "vacationLifestyleGoalContributions",
+    "vehicleReplacementContributions",
+    "homeRepairReserveContributions",
+    "taxReserveContributions",
+    "businessReserveContributions",
+    "charitableGivingReserve",
+    "familyEventWeddingSavings",
+    "downPaymentSavings",
+    "otherGoalSavings"
+  ]);
+  const DEFAULT_RECORD_SCOPE = "expenses";
+  const SAVINGS_RECORD_SCOPE = "savingsHabits";
+  const RECORD_SCOPE_CONFIGS = Object.freeze({
+    expenses: Object.freeze({
+      scope: DEFAULT_RECORD_SCOPE,
+      heading: "Additional Expenses",
+      copy: "\"Continues after death?\" is saved for future support-treatment review. Review overlap with starter expense rows to avoid duplicate entry.",
+      addButtonLabel: "Add Expense",
+      modalTitle: "Add Expense",
+      modalTitleId: "pmi-expense-library-title",
+      modalCloseLabel: "Close expense library",
+      modalDescription: "Add expenses not already captured by the starter expense rows. Healthcare bucket rows remain saved as healthcare-sensitive facts; non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them.",
+      searchPlaceholder: "Search expense types",
+      filterLabel: "Expense library views",
+      allFilterLabel: "All Expenses",
+      recentEmptyText: "No recent expenses added in this session.",
+      searchEmptyText: "No matching initial expense types found.",
+      groupSingularLabel: "expense type",
+      groupPluralLabel: "expense types",
+      tableLabel: "Expense records notebook",
+      typeColumnLabel: "Expense Type",
+      labelColumnLabel: "Label / Vendor",
+      amountLabel: "Amount",
+      removeButtonPrefix: "Remove",
+      accessibleTypePrefix: "Expense type",
+      suggestedTypeKeys: Object.freeze([
+        "healthInsurancePremiums",
+        "medicalOutOfPocket",
+        "prescriptionMedications",
+        "dentalOutOfPocket",
+        "visionOutOfPocket",
+        "longTermCareInsurancePremiums",
+        "householdUtilities",
+        "groceries",
+        "childcareExpense",
+        "customExpenseRecord"
+      ])
+    }),
+    savingsHabits: Object.freeze({
+      scope: SAVINGS_RECORD_SCOPE,
+      heading: "Savings Habit Records",
+      copy: "Track savings, reserve, and investment contributions separately from expenses and existing asset balances.",
+      addButtonLabel: "Add Savings Habit",
+      modalTitle: "Add Savings Habit",
+      modalTitleId: "pmi-savings-habit-library-title",
+      modalCloseLabel: "Close savings habit library",
+      modalDescription: "Add recurring savings, reserve, and investment contributions. These records are saved for planning context and stay separate from spending rows.",
+      searchPlaceholder: "Search savings habits",
+      filterLabel: "Savings habit library views",
+      allFilterLabel: "All Savings",
+      recentEmptyText: "No recent savings habits added in this session.",
+      searchEmptyText: "No matching savings habit types found.",
+      groupSingularLabel: "savings habit",
+      groupPluralLabel: "savings habits",
+      tableLabel: "Savings habit records notebook",
+      typeColumnLabel: "Habit Type",
+      labelColumnLabel: "Label / Goal",
+      amountLabel: "Contribution",
+      removeButtonPrefix: "Remove",
+      accessibleTypePrefix: "Savings habit type",
+      suggestedTypeKeys: Object.freeze([
+        "hsaContributions",
+        "retirementContributions",
+        "brokerageInvestmentContributions",
+        "educationSavingsContributions",
+        "emergencyFundContributions",
+        "sinkingFundContributions"
+      ])
+    })
+  });
   const EXPENSE_TYPE_ICON_BASE_PATH = "../Images/";
   const EXPENSE_TYPE_ICON_FALLBACK_FILE = "custom1.svg";
   const EXPENSE_TYPE_ICON_FILES = Object.freeze({
@@ -118,6 +206,14 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function normalizeRecordScope(value) {
+    return normalizeString(value) === SAVINGS_RECORD_SCOPE ? SAVINGS_RECORD_SCOPE : DEFAULT_RECORD_SCOPE;
+  }
+
+  function getRecordScopeConfig(recordScope) {
+    return RECORD_SCOPE_CONFIGS[normalizeRecordScope(recordScope)] || RECORD_SCOPE_CONFIGS[DEFAULT_RECORD_SCOPE];
+  }
+
   function toOptionalNumber(value) {
     const normalized = normalizeString(value).replace(/,/g, "");
     if (!normalized) {
@@ -185,16 +281,35 @@
     );
   }
 
-  function getInitialAddableLibraryEntries() {
-    return getLibraryEntries().filter(isInitialAddableExpenseEntry);
+  function isSavingsHabitEntry(entry) {
+    return normalizeString(entry && entry.categoryKey) === SAVINGS_HABIT_CATEGORY_KEY
+      || SAVINGS_HABIT_TYPE_KEYS.indexOf(normalizeString(entry && (entry.typeKey || entry.libraryEntryKey))) !== -1;
+  }
+
+  function isScopedInitialAddableLibraryEntry(entry, recordScope) {
+    if (!isInitialAddableExpenseEntry(entry)) {
+      return false;
+    }
+
+    return normalizeRecordScope(recordScope) === SAVINGS_RECORD_SCOPE
+      ? isSavingsHabitEntry(entry)
+      : !isSavingsHabitEntry(entry);
+  }
+
+  function getInitialAddableLibraryEntries(recordScope) {
+    return getLibraryEntries().filter(function (entry) {
+      return isScopedInitialAddableLibraryEntry(entry, recordScope);
+    });
   }
 
   function isStarterExpenseTypeKey(typeKey) {
     return STARTER_EXPENSE_TYPE_KEYS.indexOf(normalizeString(typeKey)) !== -1;
   }
 
-  function isSupportedExpenseRecordEntry(entry) {
-    return isInitialAddableExpenseEntry(entry) || isStarterExpenseTypeKey(entry && entry.typeKey);
+  function isSupportedExpenseRecordEntry(entry, recordScope) {
+    const normalizedScope = normalizeRecordScope(recordScope);
+    return isScopedInitialAddableLibraryEntry(entry, normalizedScope)
+      || (normalizedScope === DEFAULT_RECORD_SCOPE && isStarterExpenseTypeKey(entry && entry.typeKey));
   }
 
   function getCommonExpenseRecordSourceField(typeKey) {
@@ -263,14 +378,16 @@
     return EXPENSE_TYPE_ICON_BY_CATEGORY_KEY[categoryKey] || EXPENSE_TYPE_ICON_FALLBACK_FILE;
   }
 
-  function getExpenseTypeIconModel(record) {
+  function getExpenseTypeIconModel(record, options) {
+    const safeOptions = options && typeof options === "object" ? options : {};
+    const accessibleTypePrefix = normalizeString(safeOptions.accessibleTypePrefix) || "Expense type";
     const label = getExpenseTypeLabel(record);
     const iconFile = getExpenseTypeIconFile(record);
     return {
       label,
       iconFile,
       src: EXPENSE_TYPE_ICON_BASE_PATH + iconFile,
-      accessibleLabel: "Expense type: " + label
+      accessibleLabel: accessibleTypePrefix + ": " + label
     };
   }
 
@@ -723,7 +840,11 @@
   function createExpenseRecordFromLibraryEntry(entry, options) {
     const safeEntry = entry && typeof entry === "object" ? entry : {};
     const safeOptions = options && typeof options === "object" ? options : {};
-    if (!isInitialAddableExpenseEntry(safeEntry) && safeOptions.allowStarterEntry !== true) {
+    const recordScope = normalizeRecordScope(safeOptions.recordScope);
+    if (
+      !isScopedInitialAddableLibraryEntry(safeEntry, recordScope)
+      && !(recordScope === DEFAULT_RECORD_SCOPE && safeOptions.allowStarterEntry === true)
+    ) {
       return null;
     }
 
@@ -773,10 +894,10 @@
     };
   }
 
-  function normalizeRecordForUi(record, index) {
+  function normalizeRecordForUi(record, index, recordScope) {
     const safeRecord = record && typeof record === "object" ? record : {};
     const entry = findLibraryEntry(safeRecord.typeKey || safeRecord.libraryEntryKey);
-    if (entry && !isSupportedExpenseRecordEntry(entry)) {
+    if (entry && !isSupportedExpenseRecordEntry(entry, recordScope)) {
       return null;
     }
 
@@ -833,11 +954,16 @@
     };
   }
 
-  function createStarterExpenseRecords() {
+  function createStarterExpenseRecords(recordScope) {
+    if (normalizeRecordScope(recordScope) !== DEFAULT_RECORD_SCOPE) {
+      return [];
+    }
+
     return STARTER_EXPENSE_TYPE_KEYS
       .map(function (typeKey) {
         const entry = findLibraryEntry(typeKey);
         return createExpenseRecordFromLibraryEntry(entry, {
+          recordScope: DEFAULT_RECORD_SCOPE,
           allowStarterEntry: true,
           expenseId: createStarterExpenseId(typeKey),
           label: STARTER_EXPENSE_LABELS[typeKey],
@@ -874,19 +1000,6 @@
 
     return createSearchText(entry).indexOf(normalizedQuery) !== -1;
   }
-
-  const SUGGESTED_EXPENSE_TYPE_KEYS = Object.freeze([
-    "healthInsurancePremiums",
-    "medicalOutOfPocket",
-    "prescriptionMedications",
-    "dentalOutOfPocket",
-    "visionOutOfPocket",
-    "longTermCareInsurancePremiums",
-    "householdUtilities",
-    "groceries",
-    "childcareExpense",
-    "customExpenseRecord"
-  ]);
 
   function groupEntriesByCategory(entries) {
     return entries.reduce(function (groups, entry) {
@@ -998,21 +1111,22 @@
     `;
   }
 
-  function renderShell(root) {
+  function renderShell(root, copy) {
     if (!root || root.dataset.pmiExpenseRecordsInitialized === "true") {
       return;
     }
 
+    const shellCopy = copy && typeof copy === "object" ? copy : RECORD_SCOPE_CONFIGS[DEFAULT_RECORD_SCOPE];
     root.innerHTML = `
       <div class="field-group full-width form-subgroup-label pmi-expense-records-heading">
-        <span>Additional Expenses</span>
+        <span>${escapeHtml(shellCopy.heading)}</span>
       </div>
       <div class="field-group full-width pmi-expense-records-copy">
-        <p class="underwriting-helper-text">"Continues after death?" is saved for future support-treatment review. Review overlap with starter expense rows to avoid duplicate entry.</p>
+        <p class="underwriting-helper-text">${escapeHtml(shellCopy.copy)}</p>
       </div>
       <div class="pmi-expense-records-list" data-pmi-expense-records-list></div>
       <div class="field-group pmi-expense-records-add-field">
-        <button class="button tertiary-button pmi-expense-records-add-button" type="button" data-pmi-expense-records-add>Add Expense</button>
+        <button class="button tertiary-button pmi-expense-records-add-button" type="button" data-pmi-expense-records-add>${escapeHtml(shellCopy.addButtonLabel)}</button>
       </div>
     `;
     root.dataset.pmiExpenseRecordsInitialized = "true";
@@ -1221,26 +1335,27 @@
       return null;
     }
 
+    const copy = controller.copy || RECORD_SCOPE_CONFIGS[DEFAULT_RECORD_SCOPE];
     const modal = documentRef.createElement("div");
     modal.className = "profile-search-modal";
     modal.setAttribute("data-pmi-expense-library-modal", "");
     modal.hidden = true;
     modal.innerHTML = `
       <div class="profile-search-modal-backdrop" data-pmi-expense-library-close></div>
-      <div class="profile-search-modal-panel" role="dialog" aria-modal="true" aria-labelledby="pmi-expense-library-title">
-        <button class="profile-search-modal-close" type="button" aria-label="Close expense library" data-pmi-expense-library-close>x</button>
+      <div class="profile-search-modal-panel" role="dialog" aria-modal="true" aria-labelledby="${escapeHtml(copy.modalTitleId)}">
+        <button class="profile-search-modal-close" type="button" aria-label="${escapeHtml(copy.modalCloseLabel)}" data-pmi-expense-library-close>x</button>
         <div class="profile-search-modal-header">
           <div>
-            <h2 id="pmi-expense-library-title">Add Expense</h2>
-            <p>Add expenses not already captured by the starter expense rows. Healthcare bucket rows remain saved as healthcare-sensitive facts; non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them.</p>
+            <h2 id="${escapeHtml(copy.modalTitleId)}">${escapeHtml(copy.modalTitle)}</h2>
+            <p>${escapeHtml(copy.modalDescription)}</p>
           </div>
         </div>
         <div class="pmi-expense-library-search">
-          <input id="pmi-expense-library-search" type="text" placeholder="Search expense types" data-pmi-expense-library-search>
+          <input type="text" placeholder="${escapeHtml(copy.searchPlaceholder)}" data-pmi-expense-library-search>
         </div>
-        <div class="pmi-expense-library-filter-row" aria-label="Expense library views">
+        <div class="pmi-expense-library-filter-row" aria-label="${escapeHtml(copy.filterLabel)}">
           <button class="pmi-expense-library-filter is-active" type="button" data-pmi-expense-library-filter="suggested" aria-pressed="true">Suggested</button>
-          <button class="pmi-expense-library-filter" type="button" data-pmi-expense-library-filter="all" aria-pressed="false">All Expenses</button>
+          <button class="pmi-expense-library-filter" type="button" data-pmi-expense-library-filter="all" aria-pressed="false">${escapeHtml(copy.allFilterLabel)}</button>
           <button class="pmi-expense-library-filter" type="button" data-pmi-expense-library-filter="recent" aria-pressed="false">Recent</button>
         </div>
         <div class="profile-search-results" data-pmi-expense-library-results></div>
@@ -1261,7 +1376,9 @@
       return null;
     }
 
-    renderShell(root);
+    const recordScope = normalizeRecordScope(safeOptions.recordScope);
+    const copy = getRecordScopeConfig(recordScope);
+    renderShell(root, copy);
     const cashFlowRoot = typeof safeOptions.cashFlowRoot === "string"
       ? document.querySelector(safeOptions.cashFlowRoot)
       : safeOptions.cashFlowRoot;
@@ -1272,6 +1389,8 @@
 
     const controller = {
       root,
+      recordScope,
+      copy,
       cashFlowRoot: cashFlowRoot || null,
       pageRoot: pageRoot || (root.closest && root.closest("form")) || null,
       documentRef: root.ownerDocument || document,
@@ -1547,19 +1666,21 @@
         const termTypeInputId = createInputId("pmi-expense-record", expenseId, "term-type");
         const continuationStatusInputId = createInputId("pmi-expense-record", expenseId, "continuation-status");
         const categoryId = createInputId("pmi-expense-record", expenseId, "category");
-        const expenseTypeIcon = getExpenseTypeIconModel(record);
+        const expenseTypeIcon = getExpenseTypeIconModel(record, {
+          accessibleTypePrefix: controller.copy.accessibleTypePrefix
+        });
         const categoryLabel = getCategoryLabel(record.categoryKey);
         return `
           <div class="pmi-expense-record-row" role="row" data-pmi-expense-record-entry data-pmi-expense-id="${escapeHtml(expenseId)}">
-            <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="Expense Type">
+            <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="${escapeHtml(controller.copy.typeColumnLabel)}">
               ${renderExpenseTypeInlineLabel(expenseTypeIcon)}
             </div>
-            <div class="pmi-expense-record-cell" role="cell" data-column-label="Label / Vendor">
-              <input id="${escapeHtml(labelInputId)}" data-pmi-expense-record-label type="text" value="${escapeHtml(record.label)}" aria-label="Label / Vendor">
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="${escapeHtml(controller.copy.labelColumnLabel)}">
+              <input id="${escapeHtml(labelInputId)}" data-pmi-expense-record-label type="text" value="${escapeHtml(record.label)}" aria-label="${escapeHtml(controller.copy.labelColumnLabel)}">
             </div>
-            <div class="pmi-expense-record-cell" role="cell" data-column-label="Amount">
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="${escapeHtml(controller.copy.amountLabel)}">
               <div class="profile-currency-field pmi-expense-record-compact-currency">
-                <input id="${escapeHtml(amountInputId)}" data-pmi-expense-record-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.amount))}" aria-label="Amount">
+                <input id="${escapeHtml(amountInputId)}" data-pmi-expense-record-amount type="number" min="0" step="25" value="${escapeHtml(formatValueForInput(record.amount))}" aria-label="${escapeHtml(controller.copy.amountLabel)}">
                 <span class="profile-currency-suffix">USD</span>
               </div>
             </div>
@@ -1585,7 +1706,7 @@
               <span class="pmi-expense-record-category-label" id="${escapeHtml(categoryId)}" title="${escapeHtml(categoryLabel)}">${escapeHtml(categoryLabel)}</span>
             </div>
             <div class="pmi-expense-record-cell pmi-expense-record-remove-cell" role="cell" data-column-label="Remove">
-              <button class="pmi-asset-record-remove pmi-expense-record-remove" type="button" data-pmi-expense-record-remove aria-label="Remove ${escapeHtml(record.label)}">Remove</button>
+              <button class="pmi-asset-record-remove pmi-expense-record-remove" type="button" data-pmi-expense-record-remove aria-label="${escapeHtml(controller.copy.removeButtonPrefix)} ${escapeHtml(record.label)}">Remove</button>
             </div>
           </div>
         `;
@@ -1594,11 +1715,11 @@
       const rowsMarkup = manualRowsMarkup + generatedRowsMarkup;
 
       controller.list.innerHTML = `
-        <div class="pmi-expense-records-table" role="table" aria-label="Expense records notebook" data-pmi-expense-records-table>
+        <div class="pmi-expense-records-table" role="table" aria-label="${escapeHtml(controller.copy.tableLabel)}" data-pmi-expense-records-table>
           <div class="pmi-expense-records-header" role="row" data-pmi-expense-records-header>
-            <span class="pmi-expense-record-type-header" role="columnheader">Expense Type</span>
-            <span role="columnheader">Label / Vendor</span>
-            <span role="columnheader">Amount</span>
+            <span class="pmi-expense-record-type-header" role="columnheader">${escapeHtml(controller.copy.typeColumnLabel)}</span>
+            <span role="columnheader">${escapeHtml(controller.copy.labelColumnLabel)}</span>
+            <span role="columnheader">${escapeHtml(controller.copy.amountLabel)}</span>
             <span role="columnheader">Frequency</span>
             <span role="columnheader">Duration</span>
             <span role="columnheader">Term Detail</span>
@@ -1620,8 +1741,8 @@
       }
 
       const query = controller.searchInput ? controller.searchInput.value : "";
-      const allEntries = getInitialAddableLibraryEntries();
-      const suggestedTypeKeys = SUGGESTED_EXPENSE_TYPE_KEYS.reduce(function (map, typeKey) {
+      const allEntries = getInitialAddableLibraryEntries(controller.recordScope);
+      const suggestedTypeKeys = controller.copy.suggestedTypeKeys.reduce(function (map, typeKey) {
         map[typeKey] = true;
         return map;
       }, {});
@@ -1643,8 +1764,8 @@
 
       if (!entries.length) {
         controller.results.innerHTML = controller.libraryFilter === "recent" && !query
-          ? '<div class="profile-search-results-empty">No recent expenses added in this session.</div>'
-          : '<div class="profile-search-results-empty">No matching initial expense types found.</div>';
+          ? `<div class="profile-search-results-empty">${escapeHtml(controller.copy.recentEmptyText)}</div>`
+          : `<div class="profile-search-results-empty">${escapeHtml(controller.copy.searchEmptyText)}</div>`;
         return;
       }
 
@@ -1653,7 +1774,7 @@
           <section class="pmi-expense-library-group">
             <div class="pmi-asset-library-group-heading pmi-expense-library-group-heading">
               <h3>${escapeHtml(group.categoryLabel)}</h3>
-              <span>${escapeHtml(group.entries.length)} ${group.entries.length === 1 ? "expense type" : "expense types"}</span>
+              <span>${escapeHtml(group.entries.length)} ${group.entries.length === 1 ? escapeHtml(controller.copy.groupSingularLabel) : escapeHtml(controller.copy.groupPluralLabel)}</span>
             </div>
             <div class="pmi-asset-library-items pmi-expense-library-items">
               ${group.entries.map(function (entry) {
@@ -1695,7 +1816,9 @@
     }
 
     function addExpenseRecordFromLibraryEntry(entry) {
-      const record = createExpenseRecordFromLibraryEntry(entry);
+      const record = createExpenseRecordFromLibraryEntry(entry, {
+        recordScope: controller.recordScope
+      });
       if (!record) {
         return null;
       }
@@ -1797,8 +1920,10 @@
 
     function hydrateExpenseRecords(records) {
       controller.records = Array.isArray(records)
-        ? records.map(normalizeRecordForUi).filter(Boolean)
-        : createStarterExpenseRecords();
+        ? records.map(function (record, index) {
+          return normalizeRecordForUi(record, index, controller.recordScope);
+        }).filter(Boolean)
+        : createStarterExpenseRecords(controller.recordScope);
       renderRows();
       notifyRecordsChanged();
     }
@@ -1879,7 +2004,9 @@
           const termType = normalizeExpenseTermType(record.termType, "ongoing");
           const frequency = normalizeExpenseFrequency(record.frequency, "monthly");
           const continuationStatus = normalizeContinuationStatus(record.continuationStatus, "review");
-          const isDefaultExpense = record.isDefaultExpense === true && isStarterExpenseTypeKey(typeKey);
+          const isDefaultExpense = controller.recordScope === DEFAULT_RECORD_SCOPE
+            && record.isDefaultExpense === true
+            && isStarterExpenseTypeKey(typeKey);
           const sourceKey = normalizeString(record.sourceKey) || null;
           const commonOngoingSupportField = isDefaultExpense
             ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.ongoingSupportField)
@@ -1967,10 +2094,12 @@
     });
 
     hydrateExpenseRecords();
-    connectCashFlowExternalInputs();
-    connectDebtRecordsGeneratedRows();
-    refreshGeneratedExpenseFactsFromDebtRecords();
-    activeController = controller;
+    if (controller.recordScope === DEFAULT_RECORD_SCOPE) {
+      connectCashFlowExternalInputs();
+      connectDebtRecordsGeneratedRows();
+      refreshGeneratedExpenseFactsFromDebtRecords();
+      activeController = controller;
+    }
     return controller;
   }
 
@@ -2006,6 +2135,12 @@
     serializeExpenseRecords,
     createExpenseRecordFromLibraryEntry,
     createCommonExpenseSourceDataFromExpenseRecords,
+    getInitialAddableExpenseEntries: function () {
+      return getInitialAddableLibraryEntries(DEFAULT_RECORD_SCOPE);
+    },
+    getInitialAddableSavingsHabitEntries: function () {
+      return getInitialAddableLibraryEntries(SAVINGS_RECORD_SCOPE);
+    },
     getExpenseTypeIconFile,
     getExpenseTypeIconModel,
     calculateMonthlyCashFlow,

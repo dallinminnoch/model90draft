@@ -564,6 +564,9 @@
             <div class="profile-form-section-heading">
               <h2>Savings, Reserves &amp; Investment Habits</h2>
             </div>
+            <div class="form-grid">
+              <div class="field-group full-width" data-pmi-savings-habit-records-root></div>
+            </div>
           </section>
 
           <section class="profile-form-section profile-form-section-group">
@@ -1543,6 +1546,7 @@
       const existingCoverageManageLink = form.querySelector("[data-pmi-existing-coverage-manage]");
       const pmiDebtRecordsRoot = form.querySelector("[data-pmi-debt-records-root]");
       const pmiExpenseRecordsRoot = form.querySelector("[data-pmi-expense-records-root]");
+      const pmiSavingsHabitRecordsRoot = form.querySelector("[data-pmi-savings-habit-records-root]");
       const pmiAssetRecordsController = window.LensApp?.lensAnalysis?.pmiAssetRecords?.initPmiAssetRecords({
         root: form.querySelector("[data-pmi-asset-records-root]")
       });
@@ -1552,6 +1556,11 @@
       const pmiExpenseRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
         root: pmiExpenseRecordsRoot,
         cashFlowRoot: document.querySelector("[data-pmi-expense-cashflow-root]"),
+        pageRoot: form
+      });
+      const pmiSavingsHabitRecordsController = window.LensApp?.lensAnalysis?.pmiExpenseRecords?.initPmiExpenseRecords({
+        root: pmiSavingsHabitRecordsRoot,
+        recordScope: "savingsHabits",
         pageRoot: form
       });
       function refreshPmiExpenseCashFlowBar() {
@@ -4217,6 +4226,37 @@
         return parseOptionalCurrencyLikeNumber(value) === 0;
       }
 
+      function getSavingsHabitRecordsHydrationSource(saved) {
+        if (saved && Array.isArray(saved.savingsHabitRecords)) {
+          return saved.savingsHabitRecords;
+        }
+
+        const savingsHabitTypeKeys = new Set([
+          "hsaContributions",
+          "retirementContributions",
+          "brokerageInvestmentContributions",
+          "educationSavingsContributions",
+          "emergencyFundContributions",
+          "sinkingFundContributions",
+          "vacationLifestyleGoalContributions",
+          "vehicleReplacementContributions",
+          "homeRepairReserveContributions",
+          "taxReserveContributions",
+          "businessReserveContributions",
+          "charitableGivingReserve",
+          "familyEventWeddingSavings",
+          "downPaymentSavings",
+          "otherGoalSavings"
+        ]);
+
+        return saved && Array.isArray(saved.expenseRecords)
+          ? saved.expenseRecords.filter((record) => (
+            record
+            && (record.categoryKey === "savingsGoalContributions" || savingsHabitTypeKeys.has(record.typeKey))
+          ))
+          : undefined;
+      }
+
       function restoreDraft() {
         try {
           const saved = getRestorableProtectionDraft();
@@ -4266,6 +4306,9 @@
           }
           if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.hydrateExpenseRecords === "function") {
             pmiExpenseRecordsController.hydrateExpenseRecords(saved.expenseRecords);
+          }
+          if (pmiSavingsHabitRecordsController && typeof pmiSavingsHabitRecordsController.hydrateExpenseRecords === "function") {
+            pmiSavingsHabitRecordsController.hydrateExpenseRecords(getSavingsHabitRecordsHydrationSource(saved));
           }
           if (mortgageTermRemainingYearsField && !(mortgageTermRemainingYearsField instanceof RadioNodeList) && mortgageTermRemainingMonthsField && !(mortgageTermRemainingMonthsField instanceof RadioNodeList)) {
             const combinedTerm = parseCurrencyLikeNumber(saved.mortgageTermRemaining);
@@ -4437,6 +4480,9 @@
         }
         if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.serializeExpenseRecords === "function") {
           draft.expenseRecords = pmiExpenseRecordsController.serializeExpenseRecords();
+        }
+        if (pmiSavingsHabitRecordsController && typeof pmiSavingsHabitRecordsController.serializeExpenseRecords === "function") {
+          draft.savingsHabitRecords = pmiSavingsHabitRecordsController.serializeExpenseRecords();
         }
 
         preserveLegacyAssetValueAliases(draft);
