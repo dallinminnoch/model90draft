@@ -700,7 +700,7 @@ input.search-bar__input {
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
-  min-height: clamp(2.2rem, 3.4vw, 2.55rem);
+  min-height: clamp(1.82rem, 2.8vw, 2.05rem);
   max-width: min(14.5rem, calc(100vw - 4.5rem));
   padding: 0 0.72rem 0 0.72rem;
   border: 1px solid var(--m90-border);
@@ -725,13 +725,14 @@ input.search-bar__input {
 
 .theme-switcher-label {
   color: var(--m90-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
   line-height: 1;
 }
 
 .theme-switcher-select {
-  min-height: 1.92rem;
+  height: 1.42rem;
+  min-height: 1.42rem;
   width: min(9.2rem, 36vw);
   max-width: 10.4rem;
   box-sizing: border-box;
@@ -744,8 +745,9 @@ input.search-bar__input {
   background-image: none;
   color: var(--m90-text-primary);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
+  line-height: 1;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -781,13 +783,17 @@ input.search-bar__input {
 }
 
 .workspace-page-topbar .theme-switcher {
-  min-height: var(--workspace-topbar-control-size);
+  height: 1.7rem;
+  min-height: 1.7rem;
+  max-height: 1.7rem;
   max-width: min(13.25rem, calc(100vw - 4.5rem));
   padding-left: 0.62rem;
 }
 
 .workspace-page-topbar .theme-switcher-select {
-  min-height: calc(var(--workspace-topbar-control-size) - 0.24rem);
+  height: 1.26rem;
+  min-height: 1.26rem;
+  max-height: 1.26rem;
   width: min(8.6rem, 30vw);
   max-width: 8.6rem;
 }
