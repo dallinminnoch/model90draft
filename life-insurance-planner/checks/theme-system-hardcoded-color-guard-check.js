@@ -22,24 +22,24 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/layout.css",
-    colorBaseline: 33,
+    colorBaseline: 15,
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
-    category: "known layout/frame color debt"
+    category: "known layout/frame color debt; Client Detail profile shell colors migrated"
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 1540,
-    legacyVarBaseline: 11,
+    colorBaseline: 1043,
+    legacyVarBaseline: 8,
     namedColorBaseline: 0,
-    category: "known component-family color debt; PMI record and canonical PMI form-control colors migrated"
+    category: "known component-family color debt; PMI, Client Directory, and Client Detail profile colors migrated"
   },
   {
     file: "life-insurance-planner/styles.css",
-    colorBaseline: 790,
+    colorBaseline: 515,
     legacyVarBaseline: 33,
     namedColorBaseline: 0,
-    category: "legacy style debt, reduced after canonical PMI form-control neutralization"
+    category: "legacy style debt, reduced after canonical PMI and Client Detail profile color neutralization"
   },
   {
     file: "life-insurance-planner/app/features/client-directory.js",

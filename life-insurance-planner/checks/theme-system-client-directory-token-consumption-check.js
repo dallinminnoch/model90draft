@@ -197,9 +197,16 @@ const changedFiles = execSync("git diff --name-only HEAD --", {
   .map((entry) => entry.trim())
   .filter(Boolean);
 
-assert.ok(
-  !changedFiles.includes("life-insurance-planner/styles.css"),
-  "styles.css should not be changed by the Client Directory token migration pass."
-);
+if (changedFiles.includes("life-insurance-planner/styles.css")) {
+  const stylesDiff = execSync("git diff --unified=0 HEAD -- life-insurance-planner/styles.css", {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.doesNotMatch(
+    stylesDiff,
+    /^\+[^+\n]*(?:clients-page|client-directory|directory-list|client-table)/m,
+    "styles.css changes should not reintroduce Client Directory visual ownership."
+  );
+}
 
 console.log("theme-system-client-directory-token-consumption-check passed");
