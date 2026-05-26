@@ -260,6 +260,89 @@ assert.equal(getCategory(multipleProjection, "cashAndCashEquivalents").projected
 assert.equal(multipleProjection.projectedTotalAssetValue, 305283.91);
 assert.equal(multipleProjection.totalProjectedGrowthAmount, 105283.91);
 
+const contributionProjection = calculate(createInput({
+  assetFacts: {
+    assets: [
+      { categoryKey: "taxableBrokerageInvestments", label: "Taxable", currentValue: 100000 }
+    ]
+  },
+  assetTreatmentAssumptions: {
+    assets: {
+      taxableBrokerageInvestments: createAssumption(6),
+      cashAndCashEquivalents: createAssumption(2)
+    }
+  },
+  savingsHabitRecords: [
+    {
+      typeKey: "brokerageInvestmentContributions",
+      label: "Brokerage / General Investment Contributions",
+      amount: 1000,
+      frequency: "monthly",
+      termType: "ongoing"
+    },
+    {
+      typeKey: "emergencyFundContributions",
+      label: "Emergency Fund Contributions",
+      amount: 250,
+      frequency: "monthly"
+    }
+  ],
+  savingsContributionMappings: {
+    brokerageInvestmentContributions: {
+      targetAssetCategoryKey: "taxableBrokerageInvestments",
+      targetAssetTypeKey: "taxableBrokerageAccount"
+    },
+    emergencyFundContributions: {
+      targetAssetCategoryKey: "cashAndCashEquivalents",
+      targetAssetTypeKey: "highYieldSavingsAccount"
+    }
+  }
+}));
+const contributionTaxable = getCategory(contributionProjection, "taxableBrokerageInvestments");
+const contributionCash = getCategory(contributionProjection, "cashAndCashEquivalents");
+assert.equal(contributionProjection.consumedByMethods, false, "savings contribution projections should remain saved-only/reporting-only");
+assert.equal(contributionProjection.currentTotalAssetValue, 100000);
+assert.equal(contributionProjection.projectedTotalAssetValue, 374707.41);
+assert.equal(contributionProjection.totalMonthlyContributionAmount, 1250);
+assert.equal(contributionProjection.totalContributionPrincipal, 150000);
+assert.equal(contributionProjection.totalProjectedContributionValue, 195622.64);
+assert.equal(contributionProjection.totalContributionGrowthAmount, 45622.64);
+assert.equal(contributionProjection.excludedContributionRecordCount, 0);
+assert.equal(contributionTaxable.projectedCurrentAssetValue, 179084.77);
+assert.equal(contributionTaxable.monthlyContributionAmount, 1000);
+assert.equal(contributionTaxable.contributionPrincipal, 120000);
+assert.equal(contributionTaxable.projectedContributionValue, 162473.44);
+assert.equal(contributionTaxable.contributionGrowthAmount, 42473.44);
+assert.equal(contributionTaxable.projectedValue, 341558.21);
+assert.equal(contributionTaxable.contributionSourceRecords[0].targetAssetTypeKey, "taxableBrokerageAccount");
+assert.equal(contributionCash.currentValue, 0, "contribution-only mapped categories should not require a current asset balance");
+assert.equal(contributionCash.sourceAssetCount, 0);
+assert.equal(contributionCash.monthlyContributionAmount, 250);
+assert.equal(contributionCash.contributionPrincipal, 30000);
+assert.equal(contributionCash.projectedContributionValue, 33149.2);
+assert.equal(contributionCash.projectedValue, 33149.2);
+
+const unmappedContributionProjection = calculate(createInput({
+  savingsHabitRecords: [
+    { typeKey: "otherGoalSavings", label: "Other Goal Savings", amount: 500, frequency: "monthly" },
+    { typeKey: "retirementContributions", label: "Retirement Contributions", amount: 0, frequency: "monthly" }
+  ],
+  savingsContributionMappings: {}
+}));
+assert.equal(unmappedContributionProjection.excludedContributionRecordCount, 2);
+assert.ok(
+  unmappedContributionProjection.excludedContributionRecords.some(function (record) {
+    return record.warningCode === "missing-savings-contribution-target-asset-category";
+  }),
+  "unmapped savings contributions should be excluded with an explicit warning code"
+);
+assert.ok(
+  unmappedContributionProjection.excludedContributionRecords.some(function (record) {
+    return record.warningCode === "missing-positive-savings-contribution-amount";
+  }),
+  "blank savings contribution amounts should be excluded explicitly"
+);
+
 const missingYearsProjection = calculate(createInput({ projectionYears: undefined }));
 assert.equal(missingYearsProjection.projectionYears, 0);
 assert.equal(missingYearsProjection.projectedTotalAssetValue, 100000);

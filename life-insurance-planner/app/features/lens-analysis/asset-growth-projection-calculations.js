@@ -85,6 +85,80 @@
     return Number.isFinite(value) ? Number(value.toFixed(6)) : 0;
   }
 
+  function normalizeFrequency(value) {
+    const compact = normalizeString(value).replace(/[\s_-]+/g, "").toLowerCase();
+    if (!compact) {
+      return "monthly";
+    }
+
+    if (compact === "onetime" || compact === "oneoff") {
+      return "oneTime";
+    }
+
+    if (compact === "semiannual" || compact === "semiannually" || compact === "semiannualy") {
+      return "semiAnnual";
+    }
+
+    if (compact === "biweekly" || compact === "everytwoweeks") {
+      return "biweekly";
+    }
+
+    if (compact === "weekly" || compact === "monthly" || compact === "quarterly" || compact === "annual") {
+      return compact;
+    }
+
+    if (compact === "annually" || compact === "yearly") {
+      return "annual";
+    }
+
+    return compact;
+  }
+
+  function toMonthlyContributionAmount(amount, frequency) {
+    const numericAmount = toOptionalNumber(amount);
+    if (numericAmount === null || numericAmount <= 0) {
+      return null;
+    }
+
+    const normalizedFrequency = normalizeFrequency(frequency);
+    const monthlyFactors = {
+      weekly: 52 / 12,
+      biweekly: 26 / 12,
+      monthly: 1,
+      quarterly: 1 / 3,
+      semiAnnual: 1 / 6,
+      annual: 1 / 12
+    };
+
+    if (normalizedFrequency === "oneTime") {
+      return null;
+    }
+
+    const factor = monthlyFactors[normalizedFrequency];
+    return Number.isFinite(factor) ? numericAmount * factor : null;
+  }
+
+  function calculateFutureMonthlyContributionValue(monthlyContributionAmount, annualGrowthRatePercent, projectionYears) {
+    const monthlyContribution = Number(monthlyContributionAmount);
+    const years = Number(projectionYears);
+    if (!Number.isFinite(monthlyContribution) || monthlyContribution <= 0 || !Number.isFinite(years) || years <= 0) {
+      return 0;
+    }
+
+    const totalMonths = years * 12;
+    const annualRate = Math.max(0, Number(annualGrowthRatePercent) || 0) / 100;
+    if (annualRate === 0) {
+      return monthlyContribution * totalMonths;
+    }
+
+    const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+    if (!Number.isFinite(monthlyRate) || monthlyRate <= 0) {
+      return monthlyContribution * totalMonths;
+    }
+
+    return monthlyContribution * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate);
+  }
+
   function createWarning(code, message, details) {
     const warning = { code, message };
     if (details !== undefined) {
@@ -236,6 +310,126 @@
     return isPlainObject(assets[categoryKey]) ? assets[categoryKey] : null;
   }
 
+  function getSavingsContributionRecords(input) {
+    if (Array.isArray(input?.savingsContributionRecords)) {
+      return input.savingsContributionRecords;
+    }
+
+    if (Array.isArray(input?.savingsHabitRecords)) {
+      return input.savingsHabitRecords;
+    }
+
+    return [];
+  }
+
+  function getSavingsContributionMapping(input, record) {
+    const mappings = isPlainObject(input?.savingsContributionMappings)
+      ? input.savingsContributionMappings
+      : {};
+    const typeKey = normalizeString(record?.typeKey || record?.libraryEntryKey);
+    return isPlainObject(mappings[typeKey]) ? mappings[typeKey] : null;
+  }
+
+  function aggregateSavingsContributions(input, assetTaxonomy) {
+    const categories = new Map();
+    const excludedContributionRecords = [];
+
+    getSavingsContributionRecords(input).forEach(function (record, index) {
+      if (!isPlainObject(record)) {
+        excludedContributionRecords.push({
+          sourceIndex: index,
+          typeKey: null,
+          label: "Invalid savings contribution",
+          reason: "Savings contribution record is invalid.",
+          warningCode: "invalid-savings-contribution-record"
+        });
+        return;
+      }
+
+      const mapping = getSavingsContributionMapping(input, record);
+      const typeKey = normalizeString(record.typeKey || record.libraryEntryKey);
+      const label = normalizeString(record.label) || typeKey || "Savings contribution";
+      const monthlyContributionAmount = toMonthlyContributionAmount(record.amount, record.frequency);
+      const targetAssetCategoryKey = normalizeString(
+        record.targetAssetCategoryKey
+        || record.assetCategoryKey
+        || mapping?.targetAssetCategoryKey
+        || mapping?.assetCategoryKey
+        || mapping?.categoryKey
+      );
+      const targetAssetTypeKey = normalizeString(
+        record.targetAssetTypeKey
+        || record.assetTypeKey
+        || mapping?.targetAssetTypeKey
+        || mapping?.assetTypeKey
+      ) || null;
+
+      if (monthlyContributionAmount === null) {
+        excludedContributionRecords.push({
+          sourceIndex: index,
+          typeKey,
+          label,
+          reason: "Savings contribution record is missing a positive recurring amount.",
+          warningCode: "missing-positive-savings-contribution-amount"
+        });
+        return;
+      }
+
+      if (!targetAssetCategoryKey) {
+        excludedContributionRecords.push({
+          sourceIndex: index,
+          typeKey,
+          label,
+          monthlyContributionAmount: roundMoney(monthlyContributionAmount),
+          reason: "Savings contribution record is missing a target asset category.",
+          warningCode: "missing-savings-contribution-target-asset-category"
+        });
+        return;
+      }
+
+      const category = getCategoryByKey(assetTaxonomy, targetAssetCategoryKey);
+      if (!category) {
+        excludedContributionRecords.push({
+          sourceIndex: index,
+          typeKey,
+          label,
+          targetAssetCategoryKey,
+          monthlyContributionAmount: roundMoney(monthlyContributionAmount),
+          reason: "Savings contribution target asset category is not recognized.",
+          warningCode: "invalid-savings-contribution-target-asset-category"
+        });
+        return;
+      }
+
+      const existing = categories.get(targetAssetCategoryKey) || {
+        categoryKey: targetAssetCategoryKey,
+        label: normalizeString(category.label) || targetAssetCategoryKey,
+        monthlyContributionAmount: 0,
+        contributionRecordCount: 0,
+        sourceRecords: []
+      };
+      existing.monthlyContributionAmount += monthlyContributionAmount;
+      existing.contributionRecordCount += 1;
+      existing.sourceRecords.push({
+        sourceIndex: index,
+        typeKey,
+        label,
+        targetAssetTypeKey,
+        monthlyContributionAmount: roundMoney(monthlyContributionAmount),
+        frequency: normalizeFrequency(record.frequency),
+        mappingSource: record.targetAssetCategoryKey || record.assetCategoryKey
+          ? "record"
+          : (mapping ? "mapping" : "none")
+      });
+      categories.set(targetAssetCategoryKey, existing);
+    });
+
+    return {
+      contributionCategories: Array.from(categories.values()),
+      excludedContributionRecords
+    };
+  }
+
   function aggregateAssetFacts(assetFacts, assetTaxonomy) {
     const categories = new Map();
     const excludedCategories = [];
@@ -299,7 +493,7 @@
     };
   }
 
-  function projectAssetCategory(categoryCandidate, input, projectionYears, resultWarnings) {
+  function projectAssetCategory(categoryCandidate, input, projectionYears, resultWarnings, contributionCandidate) {
     const categoryKey = categoryCandidate.categoryKey;
     const category = getCategoryByKey(input.assetTaxonomy, categoryKey);
     const assumption = getAssumptionForCategory(input.assetTreatmentAssumptions, categoryKey);
@@ -328,7 +522,15 @@
     const reviewWarnings = createReviewWarnings(category, categoryKey);
     const currentValue = Math.max(0, categoryCandidate.currentValue);
     const growthFactor = Math.pow(1 + rate.value / 100, projectionYears);
-    const projectedValue = currentValue * growthFactor;
+    const projectedCurrentAssetValue = currentValue * growthFactor;
+    const monthlyContributionAmount = Math.max(0, toOptionalNumber(contributionCandidate?.monthlyContributionAmount) || 0);
+    const contributionPrincipal = monthlyContributionAmount * projectionYears * 12;
+    const projectedContributionValue = calculateFutureMonthlyContributionValue(
+      monthlyContributionAmount,
+      rate.value,
+      projectionYears
+    );
+    const projectedValue = projectedCurrentAssetValue + projectedContributionValue;
     const warnings = categoryWarnings.concat(reviewWarnings);
 
     warnings.forEach(function (warning) {
@@ -345,6 +547,15 @@
         assumedAnnualGrowthRateSource: normalizeString(assumption.assumedAnnualGrowthRateSource) || null,
         assumedAnnualGrowthRateProfile: normalizeString(assumption.assumedAnnualGrowthRateProfile) || null,
         growthConsumptionStatus: normalizeString(assumption.growthConsumptionStatus) || SAVED_ONLY_CONSUMPTION_STATUS,
+        projectedCurrentAssetValue: roundMoney(projectedCurrentAssetValue),
+        monthlyContributionAmount: roundMoney(monthlyContributionAmount),
+        contributionRecordCount: contributionCandidate?.contributionRecordCount || 0,
+        contributionPrincipal: roundMoney(contributionPrincipal),
+        projectedContributionValue: roundMoney(projectedContributionValue),
+        contributionGrowthAmount: roundMoney(projectedContributionValue - contributionPrincipal),
+        contributionSourceRecords: Array.isArray(contributionCandidate?.sourceRecords)
+          ? contributionCandidate.sourceRecords.slice()
+          : [],
         projectedValue: roundMoney(projectedValue),
         projectedGrowthAmount: roundMoney(projectedValue - currentValue),
         projectionYears,
@@ -361,15 +572,33 @@
     const normalizedProjectionYears = normalizeProjectionYears(safeInput.projectionYears, warnings);
     const projectionYears = normalizedProjectionYears.value;
     const aggregated = aggregateAssetFacts(safeInput.assetFacts, safeInput.assetTaxonomy);
+    const contributionAggregation = aggregateSavingsContributions(safeInput, safeInput.assetTaxonomy);
+    const contributionCategories = new Map();
+    contributionAggregation.contributionCategories.forEach(function (category) {
+      contributionCategories.set(category.categoryKey, category);
+    });
+    const contributionOnlyCategories = contributionAggregation.contributionCategories.filter(function (category) {
+      return !aggregated.includedCandidateCategories.some(function (assetCategory) {
+        return assetCategory.categoryKey === category.categoryKey;
+      });
+    });
     const includedCategories = [];
     const excludedCategories = aggregated.excludedCategories.slice();
 
-    aggregated.includedCandidateCategories.forEach(function (categoryCandidate) {
+    aggregated.includedCandidateCategories.concat(contributionOnlyCategories.map(function (category) {
+      return {
+        categoryKey: category.categoryKey,
+        label: category.label,
+        currentValue: 0,
+        sourceAssetCount: 0
+      };
+    })).forEach(function (categoryCandidate) {
       const projectedCategory = projectAssetCategory(
         categoryCandidate,
         safeInput,
         projectionYears,
-        warnings
+        warnings,
+        contributionCategories.get(categoryCandidate.categoryKey)
       );
       if (projectedCategory.included) {
         includedCategories.push(projectedCategory.included);
@@ -384,6 +613,18 @@
     }, 0);
     const projectedTotalAssetValue = includedCategories.reduce(function (total, category) {
       return total + category.projectedValue;
+    }, 0);
+    const totalMonthlyContributionAmount = includedCategories.reduce(function (total, category) {
+      return total + category.monthlyContributionAmount;
+    }, 0);
+    const totalContributionPrincipal = includedCategories.reduce(function (total, category) {
+      return total + category.contributionPrincipal;
+    }, 0);
+    const totalProjectedContributionValue = includedCategories.reduce(function (total, category) {
+      return total + category.projectedContributionValue;
+    }, 0);
+    const totalContributionGrowthAmount = includedCategories.reduce(function (total, category) {
+      return total + category.contributionGrowthAmount;
     }, 0);
     const reviewWarningCount = warnings.filter(function (warning) {
       return normalizeString(warning.code).indexOf("review") >= 0
@@ -403,11 +644,17 @@
       currentTotalAssetValue: roundMoney(currentTotalAssetValue),
       projectedTotalAssetValue: roundMoney(projectedTotalAssetValue),
       totalProjectedGrowthAmount: roundMoney(projectedTotalAssetValue - currentTotalAssetValue),
+      totalMonthlyContributionAmount: roundMoney(totalMonthlyContributionAmount),
+      totalContributionPrincipal: roundMoney(totalContributionPrincipal),
+      totalProjectedContributionValue: roundMoney(totalProjectedContributionValue),
+      totalContributionGrowthAmount: roundMoney(totalContributionGrowthAmount),
       includedCategoryCount: includedCategories.length,
       excludedCategoryCount: excludedCategories.length,
+      excludedContributionRecordCount: contributionAggregation.excludedContributionRecords.length,
       reviewWarningCount,
       includedCategories,
       excludedCategories,
+      excludedContributionRecords: contributionAggregation.excludedContributionRecords,
       warnings,
       valuationDate: normalizeString(safeInput.valuationDate) || null,
       valuationDateSource: normalizeString(safeInput.valuationDateSource) || null,
