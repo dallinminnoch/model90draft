@@ -8,10 +8,10 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 const trackedFiles = [
   {
     file: "life-insurance-planner/tokens.css",
-    colorBaseline: 38,
+    colorBaseline: 342,
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
-    category: "theme token values"
+    category: "theme token values for all final palette blocks"
   },
   {
     file: "life-insurance-planner/base.css",

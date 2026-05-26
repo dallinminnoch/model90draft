@@ -86,13 +86,59 @@ const requiredTokens = [
   "--m90-shadow"
 ];
 
-requiredTokens.forEach((tokenName) => {
-  assert.match(
-    tokensSource,
-    new RegExp(`${tokenName}:\\s*[^;]+;`),
-    `${tokenName} should be defined.`
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractBlock(source, selectorNeedle) {
+  const start = source.indexOf(selectorNeedle);
+  assert.ok(start >= 0, `${selectorNeedle} should exist.`);
+  const open = source.indexOf("{", start);
+  assert.ok(open > start, `${selectorNeedle} should have a block start.`);
+
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === "{") {
+      depth += 1;
+    } else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(start, index + 1);
+      }
+    }
+  }
+
+  assert.fail(`${selectorNeedle} should have a block end.`);
+}
+
+function assertThemeContract(themeKey, selectorNeedle) {
+  const block = extractBlock(tokensSource, selectorNeedle);
+
+  requiredTokens.forEach((tokenName) => {
+    assert.match(
+      block,
+      new RegExp(`${escapeRegExp(tokenName)}:\\s*[^;]+;`),
+      `${themeKey} should define ${tokenName}.`
+    );
+  });
+
+  assert.doesNotMatch(
+    block,
+    /--(?:bg|surface|surface-alt|border|text|muted|accent|accent-strong|accent-soft|success|success-soft|warning|shadow)\s*:/,
+    `${themeKey} should not define legacy theme variables.`
   );
-});
+
+  return block;
+}
+
+const themeBlocks = new Map([
+  ["modern", assertThemeContract("modern", ':root[data-theme="modern"]')],
+  ...finalThemeKeys
+    .filter((themeName) => themeName !== "modern")
+    .map((themeName) => [themeName, assertThemeContract(themeName, `:root[data-theme="${themeName}"]`)])
+]);
+
+assert.equal(themeBlocks.size, finalThemeKeys.length, "tokens.css should define all final theme blocks.");
 
 [
   "#f9f9fb",
@@ -106,7 +152,7 @@ requiredTokens.forEach((tokenName) => {
   "#d97706"
 ].forEach((colorValue) => {
   assert.match(
-    tokensSource.toLowerCase(),
+    themeBlocks.get("modern").toLowerCase(),
     new RegExp(colorValue),
     `Modern palette value ${colorValue} should be present.`
   );
@@ -118,13 +164,6 @@ assert.match(
   "--search-bar-border-color should remain available and map to the Modern border token."
 );
 
-finalThemeKeys.filter((themeName) => themeName !== "modern").forEach((themeName) => {
-  assert.doesNotMatch(
-    tokensSource,
-    new RegExp(`:root\\[data-theme="${themeName}"\\]`),
-    `${themeName} theme block should not be added in the Modern foundation pass.`
-  );
-});
 assert.doesNotMatch(tokensSource, /data-theme="bold"/, "The old Bold data-theme key should not exist.");
 assert.doesNotMatch(tokensSource, /:root\[data-theme="bold"\]/, "The old Bold theme block should not exist.");
 
