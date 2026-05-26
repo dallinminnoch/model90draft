@@ -607,13 +607,13 @@ assert.doesNotMatch(
 );
 assert.match(
   componentsCss,
-  /body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove\s*{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;[\s\S]*color:\s*#9ca3af;/,
-  "next-step debt remove icon should not draw an outline container"
+  /body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove\s*{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;[\s\S]*color:\s*var\(--m90-text-muted\);/,
+  "next-step debt remove icon should not draw an outline container and should use tokenized muted color"
 );
 assert.match(
   componentsCss,
-  /body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove:hover,[\s\S]*body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove:focus-visible\s*{[\s\S]*color:\s*#111827;[\s\S]*box-shadow:\s*none;/,
-  "next-step debt remove icon should turn black on hover/focus without an outline"
+  /body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove:hover,[\s\S]*body\[data-page="next-step"\]\s+\.pmi-asset-record-remove\.pmi-debt-record-remove:focus-visible\s*{[\s\S]*color:\s*var\(--m90-text-primary\);[\s\S]*box-shadow:\s*none;/,
+  "next-step debt remove icon should use tokenized hover/focus color without an outline"
 );
 assert.match(
   debtPayoffTotalRule,

@@ -772,8 +772,7 @@ body.settings-page .site-header {
   grid-column: auto;
 }
 
-[data-page="confidential-inputs"] .field-group > label,
-[data-page="next-step"] .field-group > label.has-entry-mode-help {
+[data-page="confidential-inputs"] .field-group > label {
   display: inline-flex;
   align-items: center;
   gap: 0.32rem;
@@ -836,13 +835,13 @@ body.settings-page .site-header {
   border-color: rgba(47, 107, 82, 0.16);
 }
 
-.profile-creation-form {
+body:not([data-page="next-step"]) .profile-creation-form {
   margin-top: 1.25rem;
   display: grid;
   gap: 1.4rem;
 }
 
-.profile-form-section {
+body:not([data-page="next-step"]) .profile-form-section {
   display: grid;
   gap: 0.95rem;
   padding: 1rem 1.05rem;
@@ -851,29 +850,29 @@ body.settings-page .site-header {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 253, 0.96) 100%);
 }
 
-.profile-form-section-heading {
+body:not([data-page="next-step"]) .profile-form-section-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 0.75rem 1rem;
 }
 
-.profile-form-section-heading h2 {
+body:not([data-page="next-step"]) .profile-form-section-heading h2 {
   margin: 0;
   font-size: 1.02rem;
   color: #1b2230;
 }
 
-.profile-form-section-group {
+body:not([data-page="next-step"]) .profile-form-section-group {
   gap: 1rem;
 }
 
-.profile-form-section-group-stack {
+body:not([data-page="next-step"]) .profile-form-section-group-stack {
   display: grid;
   gap: 1rem;
 }
 
-.profile-section-note {
+body:not([data-page="next-step"]) .profile-section-note {
   margin: 0;
   color: #000000;
   font-size: 0.84rem;
@@ -1075,30 +1074,30 @@ select option:disabled {
   min-height: 0;
 }
 
-.profile-creation-form input:disabled,
-.profile-creation-form select:disabled,
-.profile-creation-form textarea:disabled {
+body:not([data-page="next-step"]) .profile-creation-form input:disabled,
+body:not([data-page="next-step"]) .profile-creation-form select:disabled,
+body:not([data-page="next-step"]) .profile-creation-form textarea:disabled {
   background: #f2f4f8;
   color: #9aa4b2;
   border-color: rgba(213, 221, 232, 0.95);
   cursor: not-allowed;
 }
 
-.profile-creation-form .field-group.is-disabled label,
-.profile-creation-form .field-group.is-disabled > label {
+body:not([data-page="next-step"]) .profile-creation-form .field-group.is-disabled label,
+body:not([data-page="next-step"]) .profile-creation-form .field-group.is-disabled > label {
   color: #9aa4b2;
   opacity: 0.72;
 }
 
-.profile-creation-form .field-group.is-disabled {
+body:not([data-page="next-step"]) .profile-creation-form .field-group.is-disabled {
   opacity: 0.95;
 }
 
-.profile-creation-form .field-group.is-hidden {
+body:not([data-page="next-step"]) .profile-creation-form .field-group.is-hidden {
   display: none !important;
 }
 
-.profile-small-number-field {
+body:not([data-page="next-step"]) .profile-small-number-field {
   width: 5.25rem;
   min-width: 5.25rem;
   max-width: 5.25rem;
@@ -1106,7 +1105,7 @@ select option:disabled {
   text-align: center;
 }
 
-.profile-state-field {
+body:not([data-page="next-step"]) .profile-state-field {
   width: 4.5rem;
   min-width: 4.5rem;
   max-width: 4.5rem;
@@ -1114,20 +1113,20 @@ select option:disabled {
   text-transform: uppercase;
 }
 
-.profile-state-select-shell {
+body:not([data-page="next-step"]) .profile-state-select-shell {
   position: relative;
   width: 4.5rem;
   min-width: 4.5rem;
   max-width: 4.5rem;
 }
 
-.profile-creation-form .profile-state-select-shell.is-placeholder {
+body:not([data-page="next-step"]) .profile-creation-form .profile-state-select-shell.is-placeholder {
   width: 8.4rem;
   min-width: 8.4rem;
   max-width: 8.4rem;
 }
 
-.profile-state-select-shell::after {
+body:not([data-page="next-step"]) .profile-state-select-shell::after {
   content: "";
   position: absolute;
   right: 0.75rem;
@@ -1141,7 +1140,7 @@ select option:disabled {
   z-index: 3;
 }
 
-.profile-state-select-shell .profile-state-field {
+body:not([data-page="next-step"]) .profile-state-select-shell .profile-state-field {
   width: 100%;
   min-width: 100%;
   max-width: 100%;
@@ -1151,15 +1150,15 @@ select option:disabled {
   text-shadow: none;
 }
 
-.profile-state-select-shell .profile-state-field:focus {
+body:not([data-page="next-step"]) .profile-state-select-shell .profile-state-field:focus {
   color: transparent;
 }
 
-.profile-state-select-shell .profile-state-field option {
+body:not([data-page="next-step"]) .profile-state-select-shell .profile-state-field option {
   color: #0f172a;
 }
 
-.profile-state-select-value {
+body:not([data-page="next-step"]) .profile-state-select-value {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1173,31 +1172,31 @@ select option:disabled {
   text-transform: uppercase;
 }
 
-.profile-state-select-value.is-placeholder {
+body:not([data-page="next-step"]) .profile-state-select-value.is-placeholder {
   color: #8a8f99;
   text-transform: none;
 }
 
-.profile-yes-no-field {
+body:not([data-page="next-step"]) .profile-yes-no-field {
   width: 5.4rem;
   min-width: 5.4rem;
   max-width: 5.4rem;
 }
 
-.profile-education-funding-field {
+body:not([data-page="next-step"]) .profile-education-funding-field {
   width: 8.5rem;
   min-width: 8.5rem;
   max-width: 8.5rem;
 }
 
-.profile-currency-field {
+body:not([data-page="next-step"]) .profile-currency-field {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
 }
 
-.profile-inline-unit-field {
+body:not([data-page="next-step"]) .profile-inline-unit-field {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -1240,26 +1239,26 @@ select option:disabled {
   max-width: 4.75rem;
 }
 
-.field-group--centered-result {
+body:not([data-page="next-step"]) .field-group--centered-result {
   justify-items: center;
 }
 
-.field-group--centered-result > label {
+body:not([data-page="next-step"]) .field-group--centered-result > label {
   text-align: center;
   width: 100%;
 }
 
-.field-group--centered-result .profile-currency-field {
+body:not([data-page="next-step"]) .field-group--centered-result .profile-currency-field {
   width: min(100%, 24rem);
 }
 
-.profile-currency-field.is-recommended input {
+body:not([data-page="next-step"]) .profile-currency-field.is-recommended input {
   color: #8b94a3;
   font-style: italic;
   padding-right: 8.25rem;
 }
 
-.profile-recommended-label {
+body:not([data-page="next-step"]) .profile-recommended-label {
   position: absolute;
   right: 2.9rem;
   top: 50%;
@@ -1276,17 +1275,17 @@ select option:disabled {
   z-index: 1;
 }
 
-.profile-currency-field:not(.is-recommended) .profile-recommended-label {
+body:not([data-page="next-step"]) .profile-currency-field:not(.is-recommended) .profile-recommended-label {
   display: none;
 }
 
-.profile-currency-suffix {
+body:not([data-page="next-step"]) .profile-currency-suffix {
   color: #6f7685;
   font-size: 0.86rem;
   font-weight: 700;
 }
 
-.profile-inline-unit {
+body:not([data-page="next-step"]) .profile-inline-unit {
   color: #6f7685;
   font-size: 0.86rem;
   font-weight: 700;
@@ -1363,12 +1362,12 @@ select option:disabled {
   white-space: nowrap;
 }
 
-.pmi-education-grid {
+body:not([data-page="next-step"]) .pmi-education-grid {
   grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
 }
 
-.pmi-education-grid .pmi-education-row {
+body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-row {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1377,45 +1376,45 @@ select option:disabled {
   width: 100%;
 }
 
-.pmi-education-grid .pmi-education-row > .field-group,
-.pmi-education-grid .pmi-education-toggle-row {
+body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-row > .field-group,
+body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-toggle-row {
   min-width: 0;
 }
 
-.pmi-education-grid .field-group > label {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group > label {
   display: block;
   max-width: 100%;
   white-space: normal;
   line-height: 1.25;
 }
 
-.pmi-education-grid .field-group > label.has-entry-mode-help {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group > label.has-entry-mode-help {
   width: auto;
 }
 
-.pmi-education-grid .field-group > label .entry-mode-label-text {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group > label .entry-mode-label-text {
   display: inline;
 }
 
-.pmi-education-grid .field-group > label .entry-mode-help {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group > label .entry-mode-help {
   display: inline-flex;
   vertical-align: text-top;
   margin-left: 0.38rem;
 }
 
-.pmi-education-grid .underwriting-helper-inline {
+body:not([data-page="next-step"]) .pmi-education-grid .underwriting-helper-inline {
   position: static;
   margin: 0;
 }
 
-.pmi-education-grid .profile-yes-no-field,
-.pmi-education-grid .profile-education-funding-field {
+body:not([data-page="next-step"]) .pmi-education-grid .profile-yes-no-field,
+body:not([data-page="next-step"]) .pmi-education-grid .profile-education-funding-field {
   width: 100%;
   min-width: 0;
   max-width: none;
 }
 
-.pmi-education-grid .pmi-education-toggle-row {
+body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-toggle-row {
   grid-column: 1 / -1;
   margin: 0;
   padding: 1.3rem 0;
@@ -1423,17 +1422,17 @@ select option:disabled {
   border-bottom: 1px solid rgba(223, 228, 236, 0.96);
 }
 
-.pmi-education-grid .pmi-education-toggle-row .settings-toggle-copy {
+body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-toggle-row .settings-toggle-copy {
   gap: 0;
 }
 
-.pmi-education-grid .pmi-education-toggle-row .settings-toggle-label {
+body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-toggle-row .settings-toggle-label {
   font-size: 1rem;
   font-weight: 800;
   line-height: 1.25;
 }
 
-.pmi-education-grid .profile-currency-field {
+body:not([data-page="next-step"]) .pmi-education-grid .profile-currency-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
@@ -1441,12 +1440,12 @@ select option:disabled {
   width: 100%;
 }
 
-.pmi-education-grid .profile-education-funding-field {
+body:not([data-page="next-step"]) .pmi-education-grid .profile-education-funding-field {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-.pmi-education-grid .profile-currency-suffix {
+body:not([data-page="next-step"]) .pmi-education-grid .profile-currency-suffix {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1463,27 +1462,27 @@ select option:disabled {
   text-transform: uppercase;
 }
 
-.pmi-education-grid .field-group.is-disabled > label {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group.is-disabled > label {
   color: #a8b3c2;
 }
 
-.pmi-education-grid .field-group.is-disabled .entry-mode-help {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group.is-disabled .entry-mode-help {
   opacity: 0.7;
 }
 
-.pmi-education-grid .field-group.is-disabled .profile-education-funding-field[readonly] {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group.is-disabled .profile-education-funding-field[readonly] {
   background: #f3f6fa;
   color: #7a8798;
   cursor: default;
 }
 
-.pmi-education-grid .field-group.is-disabled .profile-currency-suffix {
+body:not([data-page="next-step"]) .pmi-education-grid .field-group.is-disabled .profile-currency-suffix {
   background: #eef2f7;
   color: #7a8798;
 }
 
 @media (max-width: 860px) {
-  .pmi-education-grid .pmi-education-row {
+  body:not([data-page="next-step"]) .pmi-education-grid .pmi-education-row {
     grid-template-columns: 1fr;
   }
 }
@@ -2080,7 +2079,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   font-weight: 700;
 }
 
-.profile-creation-form .actions-row {
+body:not([data-page="next-step"]) .profile-creation-form .actions-row {
   margin-top: 1.25rem;
   justify-content: center;
 }
@@ -3938,26 +3937,26 @@ body.lens-start-page #start-planning {
   background: #E8EDF5;
 }
 
-.panel-stack,
-.metric-grid,
-.analysis-grid,
-.recommendation-grid,
-.strategy-grid,
-.summary-grid,
-.detail-list,
-.compact-list,
-.form-grid,
-.field-group {
+body:not([data-page="next-step"]) .panel-stack,
+body:not([data-page="next-step"]) .metric-grid,
+body:not([data-page="next-step"]) .analysis-grid,
+body:not([data-page="next-step"]) .recommendation-grid,
+body:not([data-page="next-step"]) .strategy-grid,
+body:not([data-page="next-step"]) .summary-grid,
+body:not([data-page="next-step"]) .detail-list,
+body:not([data-page="next-step"]) .compact-list,
+body:not([data-page="next-step"]) .form-grid,
+body:not([data-page="next-step"]) .field-group {
   display: grid;
   gap: clamp(0.4rem, 0.75vw, 0.55rem);
 }
 
-.form-grid {
+body:not([data-page="next-step"]) .form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-md);
 }
 
-.field-group.full-width {
+body:not([data-page="next-step"]) .field-group.full-width {
   grid-column: 1 / -1;
 }
 
@@ -3987,8 +3986,8 @@ body.lens-start-page #start-planning {
   text-transform: uppercase;
 }
 
-.profile-creation-form .income-calculation-grid.income-calculation-grid-single .primary-net-income-group,
-.profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-single .primary-net-income-group,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group {
   grid-column: 1 / -1;
   justify-self: center;
   width: min(100%, 24rem);
@@ -3997,14 +3996,14 @@ body.lens-start-page #start-planning {
   border-top: 1px solid rgba(160, 174, 192, 0.95);
 }
 
-.profile-creation-form .income-calculation-grid.income-calculation-grid-separate .primary-net-income-group,
-.profile-creation-form .income-calculation-grid .spouse-net-income-group {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-separate .primary-net-income-group,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group {
   margin-top: 0.35rem;
   padding-top: 0.9rem;
   border-top: 1px solid rgba(160, 174, 192, 0.95);
 }
 
-.profile-creation-form .debt-payoff-total-group {
+body:not([data-page="next-step"]) .profile-creation-form .debt-payoff-total-group {
   justify-self: center;
   width: min(100%, 24rem);
   margin-top: 0.35rem;
@@ -4012,66 +4011,66 @@ body.lens-start-page #start-planning {
   border-top: 1px solid rgba(160, 174, 192, 0.95);
 }
 
-.profile-creation-form .income-calculation-grid.income-calculation-grid-single .primary-net-income-group > label,
-.profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group > label,
-.profile-creation-form .income-calculation-grid.income-calculation-grid-separate .primary-net-income-group > label,
-.profile-creation-form .income-calculation-grid .spouse-net-income-group > label {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-single .primary-net-income-group > label,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group > label,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-separate .primary-net-income-group > label,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group > label {
   justify-content: center;
   text-align: center;
   width: 100%;
 }
 
-.profile-creation-form .debt-payoff-total-group > label {
+body:not([data-page="next-step"]) .profile-creation-form .debt-payoff-total-group > label {
   justify-content: center;
   text-align: center;
   width: 100%;
 }
 
-.profile-creation-form .income-calculation-grid.income-calculation-grid-single .primary-net-income-group .profile-currency-field,
-.profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group .profile-currency-field,
-.profile-creation-form .income-calculation-grid.income-calculation-grid-separate .primary-net-income-group .profile-currency-field,
-.profile-creation-form .income-calculation-grid .spouse-net-income-group .profile-currency-field {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-single .primary-net-income-group .profile-currency-field,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group .profile-currency-field,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-separate .primary-net-income-group .profile-currency-field,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group .profile-currency-field {
   justify-self: center;
   width: 100%;
 }
 
-.profile-creation-form .debt-payoff-total-group .profile-currency-field {
+body:not([data-page="next-step"]) .profile-creation-form .debt-payoff-total-group .profile-currency-field {
   justify-self: center;
   width: 100%;
 }
 
-.profile-creation-form .income-calculation-grid .primary-net-income-group .profile-currency-field,
-.profile-creation-form .income-calculation-grid .spouse-net-income-group .profile-currency-field,
-.profile-creation-form .debt-payoff-total-group .profile-currency-field {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .primary-net-income-group .profile-currency-field,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group .profile-currency-field,
+body:not([data-page="next-step"]) .profile-creation-form .debt-payoff-total-group .profile-currency-field {
   position: relative;
 }
 
-.profile-creation-form .income-calculation-grid .primary-net-income-group input[readonly],
-.profile-creation-form .income-calculation-grid .spouse-net-income-group input[readonly] {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .primary-net-income-group input[readonly],
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group input[readonly] {
   text-align: center;
   font-weight: 800;
   color: #18263b;
 }
 
-.profile-creation-form .debt-payoff-total-group input[readonly] {
+body:not([data-page="next-step"]) .profile-creation-form .debt-payoff-total-group input[readonly] {
   text-align: center;
   font-weight: 800;
   color: #18263b;
 }
 
-.profile-creation-form .income-calculation-grid .primary-net-income-group input,
-.profile-creation-form .income-calculation-grid .spouse-net-income-group input {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .primary-net-income-group input,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group input {
   padding-left: 4.4rem;
   padding-right: 4.4rem;
 }
 
-.profile-creation-form .debt-payoff-total-group input {
+body:not([data-page="next-step"]) .profile-creation-form .debt-payoff-total-group input {
   padding-left: 4.4rem;
   padding-right: 4.4rem;
 }
 
-.profile-creation-form input[name="calculatedMonthlyMortgagePayment"],
-.profile-creation-form input[name="monthlyMaintenanceRecommendation"] {
+body:not([data-page="next-step"]) .profile-creation-form input[name="calculatedMonthlyMortgagePayment"],
+body:not([data-page="next-step"]) .profile-creation-form input[name="monthlyMaintenanceRecommendation"] {
   padding-left: 4.4rem;
   padding-right: 4.4rem;
   text-align: center;
@@ -4079,26 +4078,26 @@ body.lens-start-page #start-planning {
   color: #18263b;
 }
 
-.profile-creation-form input[name="calculatedMonthlyMortgagePayment"][readonly],
-.profile-creation-form input[name="monthlyMaintenanceRecommendation"][readonly] {
+body:not([data-page="next-step"]) .profile-creation-form input[name="calculatedMonthlyMortgagePayment"][readonly],
+body:not([data-page="next-step"]) .profile-creation-form input[name="monthlyMaintenanceRecommendation"][readonly] {
   background: #f8fbff;
 }
 
-.profile-creation-form .field-group .profile-currency-field.is-editing input[name="calculatedMonthlyMortgagePayment"],
-.profile-creation-form .field-group .profile-currency-field.is-editing input[name="monthlyMaintenanceRecommendation"] {
+body:not([data-page="next-step"]) .profile-creation-form .field-group .profile-currency-field.is-editing input[name="calculatedMonthlyMortgagePayment"],
+body:not([data-page="next-step"]) .profile-creation-form .field-group .profile-currency-field.is-editing input[name="monthlyMaintenanceRecommendation"] {
   border-color: #5b47ff;
   box-shadow: 0 0 0 3px rgba(91, 71, 255, 0.12);
   background: #fff;
 }
 
-.profile-creation-form .income-calculation-grid .primary-net-income-group .profile-currency-field.is-editing input,
-.profile-creation-form .income-calculation-grid .spouse-net-income-group .profile-currency-field.is-editing input {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .primary-net-income-group .profile-currency-field.is-editing input,
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid .spouse-net-income-group .profile-currency-field.is-editing input {
   border-color: #5b47ff;
   box-shadow: 0 0 0 3px rgba(91, 71, 255, 0.12);
   background: #fff;
 }
 
-.net-income-action {
+body:not([data-page="next-step"]) .net-income-action {
   position: absolute;
   right: 0.85rem;
   top: 50%;
@@ -4112,16 +4111,16 @@ body.lens-start-page #start-planning {
   cursor: pointer;
 }
 
-.net-income-action:hover,
-.net-income-action:focus-visible {
+body:not([data-page="next-step"]) .net-income-action:hover,
+body:not([data-page="next-step"]) .net-income-action:focus-visible {
   color: #4333cf;
 }
 
-.profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group .profile-currency-suffix {
+body:not([data-page="next-step"]) .profile-creation-form .income-calculation-grid.income-calculation-grid-joint .primary-net-income-group .profile-currency-suffix {
   display: none;
 }
 
-.income-calculation-circle-row {
+body:not([data-page="next-step"]) .income-calculation-circle-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4130,7 +4129,7 @@ body.lens-start-page #start-planning {
   padding-bottom: 0.35rem;
 }
 
-.income-calculation-circle {
+body:not([data-page="next-step"]) .income-calculation-circle {
   width: 0.85rem;
   height: 0.85rem;
   border: 1.5px solid rgba(148, 163, 184, 0.9);
@@ -4139,23 +4138,23 @@ body.lens-start-page #start-planning {
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.income-calculation-circle.is-active {
+body:not([data-page="next-step"]) .income-calculation-circle.is-active {
   background: #5478f0;
   border-color: #5478f0;
   box-shadow: 0 0 0 0.12rem rgba(84, 120, 240, 0.18);
 }
 
-.profile-form-toggle-group {
+body:not([data-page="next-step"]) .profile-form-toggle-group {
   display: flex;
   gap: 0.55rem;
   flex-wrap: wrap;
 }
 
-.profile-form-toggle-group.is-disabled {
+body:not([data-page="next-step"]) .profile-form-toggle-group.is-disabled {
   opacity: 0.55;
 }
 
-.profile-form-toggle-button {
+body:not([data-page="next-step"]) .profile-form-toggle-button {
   border: 1px solid rgba(17, 24, 39, 0.14);
   background: #ffffff;
   color: var(--m90-text-primary);
@@ -4168,17 +4167,17 @@ body.lens-start-page #start-planning {
   transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
 
-.profile-form-toggle-button.is-active {
+body:not([data-page="next-step"]) .profile-form-toggle-button.is-active {
   background: #111827;
   border-color: #111827;
   color: #ffffff;
 }
 
-.profile-form-toggle-button:disabled {
+body:not([data-page="next-step"]) .profile-form-toggle-button:disabled {
   cursor: default;
 }
 
-label:not(.analysis-setup-rate-label) {
+body:not([data-page="next-step"]) label:not(.analysis-setup-rate-label) {
   font-size: 0.92rem;
   font-weight: 700;
 }
@@ -4188,9 +4187,9 @@ label:not(.analysis-setup-rate-label) {
   font-weight: 400;
 }
 
-input:not(.client-table-search-input):not(.client-activity-input):not(.client-coverage-suggest-input):not(.client-coverage-inline-unit-input):not(.client-coverage-readonly-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]),
-select:not(.theme-switcher-select):not(.client-activity-select):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
-textarea:not(.client-activity-textarea) {
+body:not([data-page="next-step"]) input:not(.client-table-search-input):not(.client-activity-input):not(.client-coverage-suggest-input):not(.client-coverage-inline-unit-input):not(.client-coverage-readonly-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]),
+body:not([data-page="next-step"]) select:not(.theme-switcher-select):not(.client-activity-select):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
+body:not([data-page="next-step"]) textarea:not(.client-activity-textarea) {
   width: 100%;
   min-height: clamp(2.75rem, 4vw, 2.9rem);
   padding: clamp(0.7rem, 1.2vw, 0.8rem) clamp(0.8rem, 1.3vw, 0.9rem);
@@ -5065,7 +5064,7 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
   }
 
 
-  .form-grid,
+  body:not([data-page="next-step"]) .form-grid,
   .profile-subgrid,
   .step-track {
     grid-template-columns: 1fr;
