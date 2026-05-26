@@ -489,3 +489,14 @@
   --m90-overlay: rgba(36, 32, 27, 0.48);
   --m90-shadow: 0 18px 45px rgba(62, 45, 30, 0.12);
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  :root.is-theme-transitioning,
+  :root.is-theme-transitioning *,
+  :root.is-theme-transitioning *::before,
+  :root.is-theme-transitioning *::after {
+    transition-property: background, background-color, border-color, box-shadow, color, fill, outline-color, stroke;
+    transition-duration: 260ms;
+    transition-timing-function: ease;
+  }
+}

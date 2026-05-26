@@ -56,6 +56,7 @@ const themeControllerSource = readRepoFile("app/theme/theme-controller.js");
 const siteHeaderSource = readRepoFile("site-header.js");
 const componentsSource = readRepoFile("components.css");
 const stylesSource = readRepoFile("styles.css");
+const tokensSource = readRepoFile("tokens.css");
 
 const themeOptions = [
   ["modern", "Modern"],
@@ -74,7 +75,11 @@ assertContains(themeControllerSource, /document\.documentElement\.dataset\.theme
 assertContains(themeControllerSource, /THEME_KEYS\.includes\(key\)\s*\?\s*key\s*:\s*MODERN_THEME_KEY/, "invalid theme keys should fall back to modern.");
 assertContains(themeControllerSource, /localStorage\.getItem\(THEME_STORAGE_KEY\)/, "theme controller should read persisted theme from localStorage.");
 assertContains(themeControllerSource, /localStorage\.setItem\(THEME_STORAGE_KEY,\s*key\)/, "theme controller should persist theme to localStorage.");
+assertContains(themeControllerSource, /prefers-reduced-motion:\s*reduce/, "theme controller should respect reduced-motion preferences before animating theme changes.");
+assertContains(themeControllerSource, /is-theme-transitioning/, "theme controller should apply the scoped CSS theme fade class around user-triggered theme changes.");
+assertContains(themeControllerSource, /function applySavedTheme\(\)\s*\{\s*return applyTheme\(readSavedTheme\(\)\);\s*\}/, "saved theme application should stay direct and avoid a page-load transition.");
 assertNoRawColors(themeControllerSource, "theme controller");
+assertContains(tokensSource, /:root\.is-theme-transitioning,[\s\S]*?transition-property:\s*background,\s*background-color,\s*border-color,\s*box-shadow,\s*color,\s*fill,\s*outline-color,\s*stroke;[\s\S]*?transition-duration:\s*260ms;/, "tokens.css should own the scoped theme fade.");
 
 themeOptions.forEach(([key, label]) => {
   assertContains(themeControllerSource, new RegExp(`key:\\s*"${key}"`), `${key} should be an allowed theme key.`);
