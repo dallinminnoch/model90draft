@@ -585,7 +585,11 @@ assert.match(debtRecordCurrencyRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "co
 assert.match(debtRecordCurrencySuffixRule, /position:\s*absolute;[\s\S]*right:\s*0\.3rem;/, "compact currency suffixes should sit inside debt row controls");
 assert.match(componentsCss, /\.pmi-debt-record-cell--notApplicable\s*{[\s\S]*opacity:\s*0\.72;/, "not-applicable cells should render with muted debt-specific styling");
 assert.match(componentsCss, /\.pmi-debt-record-na-control\s*{[\s\S]*width:\s*100%;[\s\S]*min-width:\s*0;/, "not-applicable controls should preserve the compact table width contract");
-assert.match(componentsCss, /\.pmi-debt-record-row input:disabled,[\s\S]*\.pmi-debt-record-na-control input\s*{[\s\S]*background:\s*#f3f5f8;[\s\S]*color:\s*#8a92a1;/, "disabled N/A controls should be visibly greyed out");
+assert.match(
+  componentsCss,
+  /\.pmi-debt-record-row input:disabled,[\s\S]*\.pmi-debt-record-na-control input\s*{[\s\S]*background:\s*var\(--m90-surface-secondary\);[\s\S]*color:\s*var\(--m90-text-muted\);/,
+  "disabled N/A controls should be visibly greyed out through theme tokens"
+);
 assert.match(
   debtRecordRemoveRule,
   /display:\s*inline-flex;[\s\S]*width:\s*1\.12rem;[\s\S]*height:\s*1\.12rem;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*font-size:\s*0;/,

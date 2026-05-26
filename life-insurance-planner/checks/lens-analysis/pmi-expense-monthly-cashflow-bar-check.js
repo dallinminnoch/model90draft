@@ -219,15 +219,15 @@ assert.match(widgetSource, /setCashFlowCenterAmountSize/, "cash-flow widget shou
 assert.match(widgetSource, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "cash-flow readout should explain what the donut compares");
 assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/);
 assert.match(componentsCss, /\.pmi-expense-cashflow-ring-segment\s*{[\s\S]*?stroke-linecap:\s*round;/);
-assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*#ffffff;/);
+assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*var\(--m90-surface\);/);
 assert.match(componentsCss, /\.pmi-expense-cashflow-center\s*{[\s\S]*?position:\s*absolute;/);
 assert.match(componentsCss, /font-size:\s*var\(--cashflow-center-amount-size\);/);
 assert.match(componentsCss, /\.pmi-expense-cashflow\.is-negative/);
 assert.match(componentsCss, /\.pmi-expense-cashflow-legend\s*{[\s\S]*?display:\s*flex;/, "cash-flow legend should render compact visible labels");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--housing\s*{[\s\S]*?background:\s*#93c5fd;/, "housing segment should have a matching pastel legend swatch");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--debt\s*{[\s\S]*?background:\s*#fcd34d;/, "debt segment should have a matching pastel legend swatch");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--expenses\s*{[\s\S]*?background:\s*#c4b5fd;/, "expense segment should have a matching pastel legend swatch");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#86efac;/, "remaining segment should have a matching pastel legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--housing\s*{[\s\S]*?background:\s*var\(--cashflow-housing-color\);/, "housing segment should have a matching token-backed legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--debt\s*{[\s\S]*?background:\s*var\(--cashflow-debt-color\);/, "debt segment should have a matching token-backed legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--expenses\s*{[\s\S]*?background:\s*var\(--cashflow-expenses-color\);/, "expense segment should have a matching token-backed legend swatch");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*var\(--cashflow-remaining-color\);/, "remaining segment should have a matching token-backed legend swatch");
 
 ["pages/confidential-inputs.html", "pages/next-step.html"].forEach((relativePath) => {
   const source = readRepoFile(relativePath);
@@ -406,7 +406,7 @@ assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-start"), "7.76%");
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-end"), "99.81%");
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-length"), "92.05");
-assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "#86efac");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "var(--m90-stable)");
 assert.equal(fakeDom.cashFlow.elements.remaining.style.getPropertyValue("--cashflow-center-amount-size"), "1.38rem");
 assert.doesNotMatch(fakeDom.cashFlow.elements.note.textContent, /Take-home pay is not available/);
 assert.equal(fakeDom.cashFlow.elements.status.textContent, "Before savings allocations");
@@ -432,7 +432,7 @@ fakeForm.controls.netAnnualIncome.dataset.calculatedValue = "12000";
 fakeForm.dispatch("input", fakeForm.controls.netAnnualIncome);
 assert.equal(controller.lastMonthlyCashFlow.isNegative, true, "lower income should make the bar represent a monthly shortfall");
 assert.equal(fakeDom.cashFlow.elements.status.textContent, "Shortfall before savings");
-assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "#fca5a5");
+assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "var(--m90-critical)");
 assert.match(fakeDom.cashFlow.elements.note.textContent, /Entered monthly obligations exceed monthly take-home pay before savings allocations\./);
 assert.match(fakeDom.cashFlow.elements.note.textContent, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 

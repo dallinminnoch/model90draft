@@ -411,11 +411,14 @@ assert.match(componentsCss, /\.pmi-expense-records-table\s*{[\s\S]*?overflow:\s*
 assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/, "expense cash-flow readout should own a full-width card row");
 assert.match(widgetSource, /pmi-expense-cashflow-ring/, "expense cash-flow readout should render a smooth SVG donut ring");
 assert.match(componentsCss, /\.pmi-expense-cashflow-ring-segment\s*{[\s\S]*?stroke-linecap:\s*round;/, "expense cash-flow donut should use rounded segment caps for smooth gaps");
-assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*#ffffff;/, "expense cash-flow donut should use a white base ring for gaps");
+assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*var\(--m90-surface\);/, "expense cash-flow donut should use the surface token for the base ring gaps");
 assert.match(componentsCss, /\.pmi-expense-cashflow-center\s*{[\s\S]*?position:\s*absolute;/, "expense cash-flow readout should center remaining cash flow inside the donut");
 assert.match(componentsCss, /font-size:\s*var\(--cashflow-center-amount-size\);/, "expense cash-flow center amount should use the autosized font variable");
 assert.match(componentsCss, /\.pmi-expense-cashflow-legend\s*{[\s\S]*?display:\s*flex;/, "expense cash-flow readout should render a compact text legend");
-assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*#86efac;/, "expense cash-flow legend should map text labels to pastel segment colors");
+assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{[\s\S]*?background:\s*var\(--cashflow-remaining-color\);/, "expense cash-flow legend should map remaining labels through token-backed segment variables");
+assert.doesNotMatch(widgetSource, /#86efac|#fca5a5/, "expense cash-flow widget should not set raw positive or negative cash-flow colors in JS");
+assert.match(widgetSource, /var\(--m90-stable\)/, "expense cash-flow positive remaining color should route through the stable token");
+assert.match(widgetSource, /var\(--m90-critical\)/, "expense cash-flow negative remaining color should route through the critical token");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?display:\s*grid;/, "expense notebook rows should use grid layout");
 assert.match(componentsCss, /\.pmi-expense-records-header,\s*\.pmi-expense-record-row\s*{[\s\S]*?minmax\(0,\s*1\.12fr\)/, "expense notebook grid should keep a bounded icon-plus-title type column");
 assert.match(componentsCss, /\.pmi-expense-record-type-chip\s*{[\s\S]*?gap:\s*0\.34rem;/, "expense type icons should sit just left of visible titles with a compact gap");

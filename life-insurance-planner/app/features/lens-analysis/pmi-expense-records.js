@@ -1427,7 +1427,7 @@
         setProperty("--cashflow-" + segment.key + "-offset", (-collapsedPosition).toFixed(2));
       });
 
-      setProperty("--cashflow-remaining-color", shares.isNegative ? "#fca5a5" : "#86efac");
+      setProperty("--cashflow-remaining-color", shares.isNegative ? "var(--m90-critical)" : "var(--m90-stable)");
     }
 
     function updateCashFlowReadout() {

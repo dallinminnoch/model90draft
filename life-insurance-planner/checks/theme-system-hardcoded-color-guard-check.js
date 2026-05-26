@@ -29,10 +29,10 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 1726,
+    colorBaseline: 1563,
     legacyVarBaseline: 11,
     namedColorBaseline: 0,
-    category: "known component-family color debt"
+    category: "known component-family color debt; PMI record-family colors migrated"
   },
   {
     file: "life-insurance-planner/styles.css",
@@ -61,6 +61,13 @@ const trackedFiles = [
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
     category: "centralized Income Impact chart bridge fallbacks"
+  },
+  {
+    file: "life-insurance-planner/app/features/lens-analysis/pmi-expense-records.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "PMI expense record logic, expected color-free after cash-flow token bridge"
   },
   {
     file: "life-insurance-planner/workspace-side-nav.js",
