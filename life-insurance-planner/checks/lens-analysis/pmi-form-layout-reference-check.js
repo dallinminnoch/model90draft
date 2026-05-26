@@ -114,6 +114,7 @@ assert.match(
 );
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="date-of-birth"\]\s*{[\s\S]*justify-content:\s*flex-end;/, "Date of birth should align to the right edge of the banner.");
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],[\s\S]*\.pmi-file-field\[data-pmi-file-field="household"\]\s*{[\s\S]*justify-content:\s*center;/, "Case ref and household should be spaced through the middle of the banner.");
+assert.match(layoutCss, /body\[data-page="next-step"\] \.pmi-form-main \.profile-creation-form\s*{[\s\S]*display:\s*grid;[\s\S]*gap:\s*16px;/, "PMI card stack should use layout-owned grid gaps between section cards.");
 
 [
   ".pmi-form-layout",

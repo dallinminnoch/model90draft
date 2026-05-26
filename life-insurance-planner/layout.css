@@ -44,6 +44,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-icon
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-creation-form {
+  display: grid;
   gap: 16px;
   margin-top: 0;
   font-family: "Inter", sans-serif;
