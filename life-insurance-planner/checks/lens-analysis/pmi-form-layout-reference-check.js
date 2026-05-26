@@ -31,6 +31,7 @@ const stylesCss = readRepoFile("styles.css");
   ["#pmi-housing", "Housing"],
   ["#pmi-debts", "Debts"],
   ["#pmi-expenses", "Expenses"],
+  ["#pmi-savings-habits", "Savings Habits"],
   ["#pmi-assets", "Assets"],
   ["#pmi-coverage", "Existing Coverage"],
   ["#pmi-survivor", "Survivor Needs"],
@@ -45,6 +46,7 @@ const stylesCss = readRepoFile("styles.css");
   "pmi-housing",
   "pmi-debts",
   "pmi-expenses",
+  "pmi-savings-habits",
   "pmi-assets",
   "pmi-coverage",
   "pmi-survivor",
@@ -55,10 +57,12 @@ const stylesCss = readRepoFile("styles.css");
 });
 
 const expensesCardIndex = pageSource.indexOf('<section class="profile-form-section" id="pmi-expenses">');
+const savingsHabitsCardIndex = pageSource.indexOf('<section class="profile-form-section" id="pmi-savings-habits">');
 const ongoingSupportGroupIndex = pageSource.indexOf("<h2>Ongoing Support</h2>");
 const assetsCardIndex = pageSource.indexOf('id="pmi-assets"');
 assert.ok(expensesCardIndex !== -1, "Expenses and Lifestyle should render as its own top-level PMI card.");
-assert.ok(ongoingSupportGroupIndex > expensesCardIndex, "Ongoing Support should start after the standalone Expenses and Lifestyle card.");
+assert.ok(savingsHabitsCardIndex > expensesCardIndex, "Savings, Reserves & Investment Habits should render directly after the standalone Expenses and Lifestyle card.");
+assert.ok(ongoingSupportGroupIndex > savingsHabitsCardIndex, "Ongoing Support should start after the standalone Savings, Reserves & Investment Habits card.");
 assert.ok(assetsCardIndex > ongoingSupportGroupIndex, "Assets should remain inside the Ongoing Support group after the group heading.");
 assert.doesNotMatch(
   pageSource,
