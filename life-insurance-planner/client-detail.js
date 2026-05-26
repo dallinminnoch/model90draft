@@ -1509,18 +1509,16 @@
         const hue = getAvatarHue(ageValue, dateOfBirthValue);
         if (prefersSoftAvatars()) {
           return {
-            background: `hsl(${hue} 62% 88%)`,
-            color: `hsl(${hue} 46% 36%)`,
-            boxShadow: "none"
+            className: "is-avatar-soft",
+            style: `--client-avatar-bg:hsl(${hue} 62% 88%);`
           };
         }
 
         const highlightHue = hue;
         const shadowHue = (hue + 22) % 360;
         return {
-          background: `linear-gradient(135deg, hsl(${highlightHue} 72% 66%), hsl(${shadowHue} 68% 44%))`,
-          color: "#ffffff",
-          boxShadow: 'inset 0 0 0 2px rgba(255, 255, 255, 0.75)'
+          className: "is-avatar-vivid",
+          style: `--client-avatar-bg:linear-gradient(135deg, hsl(${highlightHue} 72% 66%), hsl(${shadowHue} 68% 44%));`
         };
       }
 
@@ -1534,11 +1532,11 @@
           || record.statusGroup === "closed";
 
         return [
-          { label: "Profile Created", complete: hasProfile, color: "#2f5d46" },
-          { label: "Preliminary Underwriting", complete: hasPreliminary, color: "#9a7b5f" },
-          { label: "PMI", complete: hasPmi, color: "#7c5cff" },
-          { label: "Analysis Complete", complete: hasAnalysis, color: "#1f2937" },
-          { label: "Coverage Placed", complete: hasCoveragePlaced, color: "#d97f6f" }
+          { label: "Profile Created", complete: hasProfile, tone: "stable" },
+          { label: "Preliminary Underwriting", complete: hasPreliminary, tone: "warning" },
+          { label: "PMI", complete: hasPmi, tone: "accent" },
+          { label: "Analysis Complete", complete: hasAnalysis, tone: "neutral" },
+          { label: "Coverage Placed", complete: hasCoveragePlaced, tone: "critical" }
         ];
       }
 
@@ -1569,26 +1567,22 @@
         {
           start: 0,
           end: 20,
-          color: "#f6d1d0",
-          borderColor: "#8a2d2a"
+          tone: "critical"
         },
         {
           start: 20,
           end: 40,
-          color: "#f8e8b4",
-          borderColor: "#7f5a12"
+          tone: "warning"
         },
         {
           start: 40,
           end: 70,
-          color: "#e4edf7",
-          borderColor: "#556a85"
+          tone: "neutral"
         },
         {
           start: 70,
           end: 100,
-          color: "#dff0c8",
-          borderColor: "#506f25"
+          tone: "stable"
         }
       ];
       const CLOSE_INDEX_DISPLAY_BANDS = Object.freeze([
@@ -1648,8 +1642,8 @@
                 ${CLOSE_INDEX_GAUGE_SEGMENTS.map(function (segment) {
                   return `
                     <span
-                      class="client-overview-close-index-segment"
-                      style="--close-index-segment-span:${segment.end - segment.start};--close-index-segment-fill:${segment.color};"
+                      class="client-overview-close-index-segment is-${escapeHtml(segment.tone)}"
+                      style="--close-index-segment-span:${segment.end - segment.start};"
                     ></span>
                   `;
                 }).join("")}
@@ -2298,9 +2292,12 @@
         const clientName = getClientWorkspaceSidebarTitle(record);
         const isHouseholdAvatar = record?.viewType === "households";
         const avatarPresentation = isHouseholdAvatar ? null : getAvatarPresentation(record?.age, record?.dateOfBirth);
-        const avatarStyle = isHouseholdAvatar
-          ? ""
-          : ` style="background:${escapeHtml(avatarPresentation?.background || "")};color:${escapeHtml(avatarPresentation?.color || "")};box-shadow:${escapeHtml(avatarPresentation?.boxShadow || "")};"`;
+        const avatarStyle = !isHouseholdAvatar && avatarPresentation?.style
+          ? ` style="${escapeHtml(avatarPresentation.style)}"`
+          : "";
+        const avatarClassName = !isHouseholdAvatar && avatarPresentation?.className
+          ? ` ${escapeHtml(avatarPresentation.className)}`
+          : "";
         const householdAssignment = formatValue(record.householdName);
         const householdAssignmentValue = householdAssignment === "Not provided"
           ? "No household linked"
@@ -2310,7 +2307,7 @@
         return `
           <section class="client-detail-card client-detail-card-compact client-profile-sidebar-card">
             <div class="client-profile-avatar-wrap">
-              <span class="client-avatar client-profile-sidebar-avatar${isHouseholdAvatar ? " client-avatar-household" : ""}" aria-hidden="true"${avatarStyle}>${escapeHtml(getInitials(clientName, record?.viewType, record?.lastName))}</span>
+              <span class="client-avatar client-profile-sidebar-avatar${isHouseholdAvatar ? " client-avatar-household" : ""}${avatarClassName}" aria-hidden="true"${avatarStyle}>${escapeHtml(getInitials(clientName, record?.viewType, record?.lastName))}</span>
             </div>
             <div class="client-profile-sidebar-copy">
               <span class="client-profile-sidebar-overline">Client Details</span>
@@ -4747,9 +4744,11 @@
           const householdMemberButtons = linkedHouseholdMembers.length
             ? linkedHouseholdMembers.map(function (member) {
               const avatarPresentation = getAvatarPresentation(member.age, member.dateOfBirth);
+              const memberAvatarStyle = avatarPresentation?.style ? ` style="${escapeHtml(avatarPresentation.style)}"` : "";
+              const memberAvatarClassName = avatarPresentation?.className ? ` ${escapeHtml(avatarPresentation.className)}` : "";
               return `
                 <${isOverlayViewer ? "button" : "a"} class="client-household-member-button"${isOverlayViewer ? ` type="button" data-overlay-record-open="${escapeHtml(String(member.id || "").trim())}"` : ` href="clients.html?profileId=${encodeURIComponent(String(member.id || "").trim())}"`}>
-                  <span class="client-household-member-avatar" style="background:${escapeHtml(avatarPresentation.background)};color:${escapeHtml(avatarPresentation.color)};box-shadow:${escapeHtml(avatarPresentation.boxShadow)};">${escapeHtml(getInitials(formatValue(member.displayName)))}</span>
+                  <span class="client-household-member-avatar${memberAvatarClassName}"${memberAvatarStyle}>${escapeHtml(getInitials(formatValue(member.displayName)))}</span>
                   <span class="client-household-member-button-copy">
                     <strong>${escapeHtml(formatValue(member.displayName))}</strong>
                     <em>${escapeHtml(formatValue(member.caseRef))}</em>
@@ -7754,9 +7753,8 @@
           avatar: {
             initials: getInitials(avatarName, record?.viewType, record?.lastName),
             isHousehold: isHouseholdAvatar,
-            background: avatarPresentation?.background || "",
-            color: avatarPresentation?.color || "",
-            boxShadow: avatarPresentation?.boxShadow || ""
+            className: avatarPresentation?.className || "",
+            style: avatarPresentation?.style || ""
           }
         };
       }

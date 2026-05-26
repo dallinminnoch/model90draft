@@ -50,10 +50,10 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/client-detail.js",
-    colorBaseline: 19,
+    colorBaseline: 3,
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
-    category: "intentional dynamic avatars, gauges, and profile visuals"
+    category: "intentional dynamic avatar hue background only; static Client Detail profile colors migrated"
   },
   {
     file: "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js",
@@ -163,8 +163,12 @@ diffSource.split(/\r?\n/).forEach((line) => {
   const isTokenDefinition =
     currentFile === "life-insurance-planner/tokens.css" &&
     (/--m90-[a-z0-9-]+\s*:/.test(addedLine) || /--search-bar-border-color\s*:/.test(addedLine));
+  const isIntentionalDynamicClientDetailAvatarHue =
+    currentFile === "life-insurance-planner/client-detail.js" &&
+    /--client-avatar-bg:/.test(addedLine) &&
+    /hsl\(/.test(addedLine);
 
-  if (!isTokenDefinition) {
+  if (!isTokenDefinition && !isIntentionalDynamicClientDetailAvatarHue) {
     unclassifiedAddedLines.push(`${currentFile}: ${addedLine.trim()}`);
   }
 });

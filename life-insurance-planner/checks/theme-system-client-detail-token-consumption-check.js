@@ -63,6 +63,7 @@ function collectRelevantColorDebt(source, options = {}) {
 const componentsCss = readRepoFile("life-insurance-planner/components.css");
 const layoutCss = readRepoFile("life-insurance-planner/layout.css");
 const stylesCss = readRepoFile("life-insurance-planner/styles.css");
+const clientDetailJs = readRepoFile("life-insurance-planner/client-detail.js");
 
 assertNoPerThemeOverrides(componentsCss, "components.css");
 assertNoPerThemeOverrides(layoutCss, "layout.css");
@@ -107,6 +108,18 @@ assertSelectorUses(
 );
 assertSelectorUses(
   componentsCss,
+  ".client-profile-sidebar-avatar.is-avatar-vivid,",
+  ["--m90-accent", "--m90-surface"],
+  "Client Detail vivid avatar token treatment"
+);
+assertSelectorUses(
+  componentsCss,
+  ".client-profile-sidebar-avatar.is-avatar-soft,",
+  ["--m90-accent-soft", "--m90-text-primary", "--m90-border-soft"],
+  "Client Detail soft avatar token treatment"
+);
+assertSelectorUses(
+  componentsCss,
   ".client-profile-contact-item strong {",
   ["--m90-text-primary"],
   "Client Detail contact values"
@@ -143,6 +156,30 @@ assertSelectorUses(
 );
 assertSelectorUses(
   componentsCss,
+  ".client-overview-close-index-segment.is-critical {",
+  ["--m90-critical-soft"],
+  "Client Detail Close Index critical gauge segment"
+);
+assertSelectorUses(
+  componentsCss,
+  ".client-overview-close-index-segment.is-warning {",
+  ["--m90-warning-soft"],
+  "Client Detail Close Index warning gauge segment"
+);
+assertSelectorUses(
+  componentsCss,
+  ".client-overview-close-index-segment.is-neutral {",
+  ["--m90-neutral-soft"],
+  "Client Detail Close Index neutral gauge segment"
+);
+assertSelectorUses(
+  componentsCss,
+  ".client-overview-close-index-segment.is-stable {",
+  ["--m90-stable-soft"],
+  "Client Detail Close Index stable gauge segment"
+);
+assertSelectorUses(
+  componentsCss,
   ".coverage-policy-manager-panel {",
   ["--m90-border", "--m90-surface", "--m90-shadow"],
   "Client Detail embedded coverage policy manager panel"
@@ -176,17 +213,35 @@ assert.ok(
   "Existing Coverage manager legacy styling should remain deferred instead of being swept into this pass."
 );
 
-const changedFiles = execSync("git diff --name-only HEAD --", {
-  cwd: repoRoot,
-  encoding: "utf8"
-})
-  .split(/\r?\n/)
-  .map((entry) => entry.trim())
-  .filter(Boolean);
-
-assert.ok(
-  !changedFiles.includes("life-insurance-planner/client-detail.js"),
-  "client-detail.js static color seams should remain deferred and untouched in this CSS-only pass."
+assert.doesNotMatch(
+  clientDetailJs,
+  /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/,
+  "client-detail.js should not contain static hex/rgb profile colors after the visual bridge pass."
+);
+assert.doesNotMatch(
+  clientDetailJs,
+  /color:\s*["'`]|borderColor|boxShadow:\s*["'`]|--close-index-segment-fill:\$\{segment\.color\}|segment\.color/,
+  "client-detail.js should not own static profile color, ring, or gauge segment values."
+);
+assert.match(
+  clientDetailJs,
+  /style:\s*`--client-avatar-bg:hsl\(/,
+  "client-detail.js should retain only the intentional dynamic avatar hue seam."
+);
+assert.match(
+  clientDetailJs,
+  /style:\s*`--client-avatar-bg:linear-gradient\(135deg, hsl\(/,
+  "client-detail.js should keep dynamic vivid avatar hue as a background custom property only."
+);
+assert.match(
+  clientDetailJs,
+  /CLOSE_INDEX_GAUGE_SEGMENTS[\s\S]*tone:\s*"critical"[\s\S]*tone:\s*"warning"[\s\S]*tone:\s*"neutral"[\s\S]*tone:\s*"stable"/,
+  "Close Index gauge segments should use semantic tone keys."
+);
+assert.match(
+  clientDetailJs,
+  /getAccountMilestones[\s\S]*tone:\s*"stable"[\s\S]*tone:\s*"warning"[\s\S]*tone:\s*"accent"[\s\S]*tone:\s*"neutral"[\s\S]*tone:\s*"critical"/,
+  "Client Detail account milestones should use semantic tone keys instead of static colors."
 );
 
 console.log("theme-system-client-detail-token-consumption-check passed");
