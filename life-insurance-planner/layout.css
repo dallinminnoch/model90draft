@@ -1873,7 +1873,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     padding-bottom: 0;
     scroll-padding-bottom: 0;
     overflow: hidden;
-    background: #f1f4f9;
+    background: var(--m90-bg);
   }
 
   body[data-step="income-impact"] .actions-row {
@@ -1920,7 +1920,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     min-height: 0;
     height: 100%;
     padding: 0;
-    background: #ffffff;
+    background: var(--m90-surface);
     overflow-y: hidden;
     overflow-x: hidden;
   }
@@ -1936,8 +1936,8 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     flex: 0 0 auto;
     margin: 0;
     padding: 0.75rem 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    background: #ffffff;
+    border-top: 1px solid var(--m90-border);
+    background: var(--m90-surface);
   }
 
   body[data-step="income-impact"] .income-impact-insights-panel {
@@ -2014,7 +2014,7 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
     scroll-padding-bottom: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    background: #f1f4f9;
+    background: var(--m90-bg);
   }
 
   body[data-step="income-impact"] .actions-row {

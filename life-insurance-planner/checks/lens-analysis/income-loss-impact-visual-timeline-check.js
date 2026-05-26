@@ -371,10 +371,26 @@ const changedFiles = execSync("git diff --name-only", {
   .split(/\r?\n/)
   .map((entry) => entry.trim())
   .filter(Boolean);
-assert.ok(
-  !changedFiles.includes("life-insurance-planner/styles.css"),
-  "styles.css should not be changed by the Income Impact chart token bridge pass."
-);
+if (changedFiles.includes("life-insurance-planner/styles.css")) {
+  const stylesDiff = execSync("git diff --unified=0 -- life-insurance-planner/styles.css", {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  const addedStyleColorLines = stylesDiff
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .filter((line) => /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|var\(--m90-/.test(line));
+  assert.deepEqual(
+    addedStyleColorLines,
+    [],
+    "styles.css changes during Income Impact surface migration must not add new visual color ownership."
+  );
+  assert.doesNotMatch(
+    stylesSource,
+    /body\[data-step="income-impact"\]\s+\.income-impact-page-intro(?:\s|[^{])*\{[\s\S]*?(?:color|background|border(?:-[a-z]+)?)\s*:/,
+    "styles.css should not retain migrated Income Impact intro visual declarations."
+  );
+}
 const harness = createDisplayHarness(displaySource);
 const browserGlobalHelpers = createBrowserGlobalHelperHarness([
   resourceBucketAdapterSource,
@@ -1042,26 +1058,26 @@ assert.doesNotMatch(
   displaySource,
   /(?:localStorage|sessionStorage)\.setItem|updateClientRecord|updateClientRecordByCaseRef|saveAnalysisSetupSettings|saveJson\(/
 );
-assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;[\s\S]*padding:\s*0;[\s\S]*background:\s*#ffffff;[\s\S]*overflow-y:\s*hidden;/);
+assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-content-stack[\s\S]*display:\s*flex;[\s\S]*flex-direction:\s*column;[\s\S]*padding:\s*0;[\s\S]*background:\s*var\(--m90-surface\);[\s\S]*overflow-y:\s*hidden;/);
 assert.match(layoutSource, /body\[data-step="income-impact"\] \.income-impact-content-stack > \.income-impact-section[\s\S]*flex:\s*1 1 auto;[\s\S]*min-height:\s*0;[\s\S]*overflow-y:\s*auto;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding:\s*16px 24px 12px;[\s\S]*border-bottom:\s*1px solid #f0f1f4;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding:\s*16px 24px 12px;[\s\S]*border-bottom:\s*1px solid var\(--m90-border-soft\);[\s\S]*background:\s*var\(--m90-surface\);/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro > div[\s\S]*display:\s*grid;[\s\S]*gap:\s*3px;[\s\S]*max-width:\s*46rem;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label[\s\S]*display:\s*none;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*17px;[\s\S]*font-weight:\s*700;[\s\S]*letter-spacing:\s*-0\.02em;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*display:\s*flex;[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*11\.5px;[\s\S]*line-height:\s*1\.25;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p::before[\s\S]*width:\s*5px;[\s\S]*height:\s*5px;[\s\S]*background:\s*#059669;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro[\s\S]*display:\s*block;[\s\S]*padding:\s*16px 24px 12px;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label[\s\S]*display:\s*none;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro h1[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*17px;[\s\S]*font-weight:\s*700;[\s\S]*letter-spacing:\s*-0\.02em;/);
-assert.match(stylesSource, /@layer overrides[\s\S]*body\[data-step="income-impact"\] \.income-impact-page-intro p[\s\S]*font-family:\s*"Inter",\s*sans-serif;[\s\S]*font-size:\s*11\.5px;[\s\S]*line-height:\s*1\.25;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p::before[\s\S]*width:\s*5px;[\s\S]*height:\s*5px;[\s\S]*background:\s*var\(--m90-stable\);/);
+assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-impact-page-intro\s*\{/);
+assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-impact-page-intro \.section-label/);
+assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1/);
+assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p/);
 assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
-assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*position:\s*sticky;[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 24px;[\s\S]*border-bottom:\s*1px solid #e5e7eb;[\s\S]*background:\s*#ffffff;/);
+assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*position:\s*sticky;[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 24px;[\s\S]*border-bottom:\s*1px solid var\(--m90-border\);[\s\S]*background:\s*var\(--m90-surface\);/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \.income-impact-card[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*width:\s*auto;[\s\S]*padding:\s*0 20px 0 0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*#eef2ff;[\s\S]*color:\s*#4f46e5;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*var\(--m90-accent-soft\);[\s\S]*color:\s*var\(--m90-accent\);/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*min-height:\s*50px;[\s\S]*border-left:\s*1px solid #f0f1f4;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*1px solid #dce3ed;[\s\S]*border-radius:\s*8px;[\s\S]*background:\s*#ffffff;[\s\S]*overflow:\s*visible;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*min-height:\s*50px;[\s\S]*border-left:\s*1px solid var\(--m90-border-soft\);[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*1px solid var\(--m90-border-soft\);[\s\S]*border-radius:\s*8px;[\s\S]*background:\s*var\(--m90-surface\);[\s\S]*overflow:\s*visible;/);
 assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*0;[\s\S]*background:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*overflow:\s*visible;[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-milestone-strip[\s\S]*grid-template-columns:\s*repeat\(12,\s*minmax\(78px,\s*1fr\)\);[\s\S]*grid-template-rows:\s*repeat\(2,\s*minmax\(72px,\s*auto\)\);[\s\S]*gap:\s*6px;[\s\S]*min-width:\s*1040px;[\s\S]*overflow-x:\s*auto;[\s\S]*background:\s*var\(--m90-surface-secondary\);/);
@@ -1084,10 +1100,10 @@ assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(2\)[\s
 assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(9\)[\s\S]*grid-column:\s*9 \/ span 2;[\s\S]*grid-row:\s*1;/);
 assert.match(componentsSource, /\.income-impact-milestone-step:nth-child\(10\)[\s\S]*grid-column:\s*10 \/ span 2;[\s\S]*grid-row:\s*2;/);
 assert.match(componentsSource, /\.income-impact-milestone-step--final-endcap[\s\S]*grid-column:\s*11 \/ span 2;[\s\S]*grid-row:\s*1;/);
-assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*#e5e7eb transparent;[\s\S]*scrollbar-width:\s*thin;/);
+assert.match(componentsSource, /body\.clients-page,\s*[\s\S]*body\.clients-page \*\s*\{[\s\S]*scrollbar-color:\s*var\(--m90-border\) transparent;[\s\S]*scrollbar-width:\s*thin;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\],\s*[\s\S]*body\[data-step="income-impact"\] \*\s*\{[\s\S]*scrollbar-color:\s*var\(--m90-border\) transparent;[\s\S]*scrollbar-width:\s*thin;/);
 assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar\s*\{[\s\S]*width:\s*1px;[\s\S]*height:\s*1px;/);
-assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar-thumb,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar-thumb\s*\{[\s\S]*background:\s*#e5e7eb;[\s\S]*border-radius:\s*999px;/);
+assert.match(componentsSource, /body\[data-step="income-impact"\]::-webkit-scrollbar-thumb,\s*[\s\S]*body\[data-step="income-impact"\] \*::-webkit-scrollbar-thumb\s*\{[\s\S]*background:\s*var\(--m90-border\);[\s\S]*border-radius:\s*999px;/);
 assert.match(componentsSource, /\.income-impact-storyline-connectors[\s\S]*pointer-events:\s*none;/);
 assert.match(componentsSource, /\.income-impact-storyline-connector[\s\S]*stroke-dasharray:\s*4 6;/);
 assert.doesNotMatch(componentsSource, /\.income-impact-depletion-story|\.income-impact-major-story/);
@@ -1177,10 +1193,10 @@ assert.match(componentsSource, /data-income-impact-applied-scenario-selected="fa
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="true"\][\s\S]*circle/);
 assert.match(componentsSource, /\.income-impact-runway-depletion-marker\[data-income-impact-applied-scenario-selected="false"\][\s\S]*opacity:\s*0\.62;/);
 assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 0 0 20px;[\s\S]*border-left:\s*1px solid #f0f1f4;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__eyebrow[\s\S]*background:\s*#fffbeb;[\s\S]*color:\s*#d97706;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__stat[\s\S]*border-right:\s*1px solid #f0f1f4;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__status[\s\S]*background:\s*#ffffff;[\s\S]*color:\s*#6b7280;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 0 0 20px;[\s\S]*border-left:\s*1px solid var\(--m90-border-soft\);[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__eyebrow[\s\S]*background:\s*var\(--m90-warning-soft\);[\s\S]*color:\s*var\(--m90-warning\);/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__stat[\s\S]*border-right:\s*1px solid var\(--m90-border-soft\);/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout__status[\s\S]*background:\s*var\(--m90-surface\);[\s\S]*color:\s*var\(--m90-text-secondary\);/);
 assert.match(componentsSource, /\.income-impact-graph-legend/);
 assert.match(componentsSource, /\.income-impact-comparison-markers/);
 assert.doesNotMatch(
@@ -1205,7 +1221,7 @@ assert.match(
 );
 assert.match(
   componentsSource,
-  /\.income-impact-layout-aside[\s\S]*position:\s*relative;[\s\S]*z-index:\s*2;[\s\S]*padding:\s*1\.1rem 24px 1\.4rem;[\s\S]*background:\s*#ffffff;[\s\S]*opacity:\s*1;/,
+  /\.income-impact-layout-aside[\s\S]*position:\s*relative;[\s\S]*z-index:\s*2;[\s\S]*padding:\s*1\.1rem 24px 1\.4rem;[\s\S]*background:\s*var\(--m90-surface\);[\s\S]*opacity:\s*1;/,
   "Income Impact supporting details should flow below the milestone and graph section as an opaque layer."
 );
 assert.match(
@@ -1215,7 +1231,7 @@ assert.match(
 );
 assert.doesNotMatch(
   componentsSource,
-  /\.income-impact-layout\s*\{[^}]*background:\s*#ffffff;[^}]*\}/,
+  /\.income-impact-layout\s*\{[^}]*background:\s*(?:#ffffff|var\(--m90-surface\));[^}]*\}/,
   "Income Impact main layout should sit on the content-stack background."
 );
 assert.match(

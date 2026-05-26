@@ -5422,60 +5422,6 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
 }
 
 @layer overrides {
-body[data-step="income-impact"] .income-impact-page-intro {
-  display: block;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 16px 24px 12px;
-  border-bottom: 1px solid #f0f1f4;
-  background: #ffffff;
-}
-
-body[data-step="income-impact"] .income-impact-page-intro > div {
-  display: grid;
-  gap: 3px;
-  max-width: 46rem;
-}
-
-body[data-step="income-impact"] .income-impact-page-intro .section-label {
-  display: none;
-  color: #647184;
-  font-size: 0.64rem;
-  letter-spacing: 0.08em;
-}
-
-body[data-step="income-impact"] .income-impact-page-intro h1 {
-  max-width: none;
-  margin: 0;
-  color: #111827;
-  font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-
-body[data-step="income-impact"] .income-impact-page-intro p {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 36rem;
-  margin: 0;
-  color: #9ca3af;
-  font-family: "Inter", sans-serif;
-  font-size: 11.5px;
-  line-height: 1.25;
-}
-
-body[data-step="income-impact"] .income-impact-page-intro p::before {
-  content: "";
-  flex: 0 0 auto;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #059669;
-}
-
 body[data-step="income-impact"] input[data-income-impact-death-age-slider],
 body[data-step="income-impact"] input[data-income-impact-lifestyle-slider] {
   box-sizing: border-box;
