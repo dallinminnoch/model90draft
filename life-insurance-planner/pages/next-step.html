@@ -2997,6 +2997,36 @@
         setLabel("net-annual-income", isJoint ? "Combined Household Net Income" : isSeparate ? "Primary Net Annual Income" : "Net Annual Income");
       }
 
+      function formatTaxBracketRangeAmount(value, fallbackLabel) {
+        const normalized = String(value || "").trim();
+        if (!normalized) {
+          return fallbackLabel;
+        }
+
+        const numericValue = parseCurrencyLikeNumber(normalized);
+        if (!Number.isFinite(numericValue)) {
+          return normalized;
+        }
+
+        return `$${formatNumberWithCommas(numericValue)}`;
+      }
+
+      function createTaxBracketOptionLabel(rate, minIncome, maxIncome) {
+        const safeValue = String(rate || "").trim();
+        const minValue = String(minIncome || "").trim();
+        const maxValue = String(maxIncome || "").trim();
+
+        if (!minValue && !maxValue) {
+          return safeValue;
+        }
+
+        const rangeStart = formatTaxBracketRangeAmount(minValue, "$0");
+        const rangeEnd = maxValue
+          ? formatTaxBracketRangeAmount(maxValue, "No cap")
+          : "No cap";
+        return `${safeValue} | ${rangeStart} \u2013 ${rangeEnd}`;
+      }
+
       function populateFederalTaxBracketOptions() {
         if (!federalTaxBracketField || federalTaxBracketField instanceof RadioNodeList) {
           return;
@@ -3022,9 +3052,7 @@
           const safeValue = String(row?.rate || "").trim();
           const minIncome = String(row?.minIncome || "").trim();
           const maxIncome = String(row?.maxIncome || "").trim();
-          const rangeStart = minIncome || "0";
-          const rangeEnd = maxIncome || "No cap";
-          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          const label = createTaxBracketOptionLabel(safeValue, minIncome, maxIncome);
           return `<option value="${safeValue}">${label}</option>`;
         }).join("");
 
@@ -3062,9 +3090,7 @@
           const safeValue = String(row?.rate || "").trim();
           const minIncome = String(row?.minIncome || "").trim();
           const maxIncome = String(row?.maxIncome || "").trim();
-          const rangeStart = minIncome || "0";
-          const rangeEnd = maxIncome || "No cap";
-          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          const label = createTaxBracketOptionLabel(safeValue, minIncome, maxIncome);
           return `<option value="${safeValue}">${label}</option>`;
         }).join("");
 
@@ -3117,9 +3143,7 @@
           const safeValue = String(row?.rate || "").trim();
           const minIncome = String(row?.minIncome || "").trim();
           const maxIncome = String(row?.maxIncome || "").trim();
-          const rangeStart = minIncome || "0";
-          const rangeEnd = maxIncome || "No cap";
-          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          const label = createTaxBracketOptionLabel(safeValue, minIncome, maxIncome);
           return `<option value="${safeValue}">${label}</option>`;
         }).join("");
 
@@ -3173,9 +3197,7 @@
           const safeValue = String(row?.rate || "").trim();
           const minIncome = String(row?.minIncome || "").trim();
           const maxIncome = String(row?.maxIncome || "").trim();
-          const rangeStart = minIncome || "0";
-          const rangeEnd = maxIncome || "No cap";
-          const label = minIncome || maxIncome ? `${safeValue} | ${rangeStart} - ${rangeEnd}` : safeValue;
+          const label = createTaxBracketOptionLabel(safeValue, minIncome, maxIncome);
           return `<option value="${safeValue}">${label}</option>`;
         }).join("");
 
