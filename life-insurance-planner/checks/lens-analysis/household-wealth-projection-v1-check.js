@@ -171,6 +171,21 @@ function calculateExpectedCashGrowth() {
   };
 }
 
+function calculateExpectedEndOfMonthContributions(monthlyContribution, annualGrowthRate, months) {
+  const monthlyRate = Math.pow(1 + annualGrowthRate, 1 / 12) - 1;
+  let value = 0;
+  let totalGrowth = 0;
+  for (let month = 0; month < months; month += 1) {
+    const growth = roundMoney(value * monthlyRate);
+    value = roundMoney(value + growth + monthlyContribution);
+    totalGrowth = roundMoney(totalGrowth + growth);
+  }
+  return {
+    value,
+    totalGrowth
+  };
+}
+
 function runChecks() {
   const calculateHouseholdWealthProjection = loadCalculator();
   assert.strictEqual(
@@ -254,6 +269,64 @@ function runChecks() {
     expectedGrowth.cashValue + 50000 + 10000 + 12000,
     "income surplus increases ending assets"
   );
+
+  const allocatedSavings = baseProjection({
+    assetLedger: baseAssetLedger().concat([
+      {
+        id: "taxable",
+        categoryKey: "taxableInvestments",
+        label: "Taxable Investments",
+        currentValue: 0,
+        includedInProjection: true,
+        growthEligible: true,
+        annualGrowthRate: 0.12,
+        growthStatus: "method-active",
+        sourcePaths: ["assetLedger.taxable.currentValue"]
+      }
+    ]),
+    savingAllocations: [
+      {
+        id: "brokerageInvestmentContributions",
+        label: "Brokerage Contributions",
+        monthlyAmount: 600,
+        targetAssetCategoryKey: "taxableInvestments",
+        sourcePaths: ["savingsHabitRecords.0"]
+      }
+    ]
+  });
+  const expectedAllocatedTarget = calculateExpectedEndOfMonthContributions(600, 0.12, 12);
+  const allocatedTarget = allocatedSavings.points.at(-1).assetLedger.find((row) => row.id === "taxable");
+  const allocatedCashFlow = allocatedSavings.points.at(-1).assetLedger.find((row) => row.id === "cashFlowContribution");
+  assertClose(
+    allocatedTarget.currentValue,
+    expectedAllocatedTarget.value,
+    "saving allocation deposits into the target asset and compounds in later months"
+  );
+  assert.strictEqual(allocatedSavings.summary.totalNetCashFlow, 12000, "saving allocation should not change household net cash flow");
+  assert.strictEqual(allocatedSavings.summary.totalSavingAllocations, 7200, "planned saving allocations use available monthly surplus");
+  assert.strictEqual(allocatedSavings.summary.totalUnallocatedSurplus, 4800, "remaining monthly surplus stays in cash-flow contribution");
+  assert.strictEqual(allocatedSavings.summary.totalUnfundedSavingAllocations, 0, "fully funded allocations should not report a shortfall");
+  assert.strictEqual(allocatedCashFlow.currentValue, 4800, "unallocated surplus remains in the aggregate cash-flow row");
+  assert.strictEqual(
+    allocatedSavings.points[0].savingAllocations[0].allocatedAmount,
+    600,
+    "point-level trace should show monthly saving allocation amount"
+  );
+
+  const cappedSavings = baseProjection({
+    savingAllocations: [
+      {
+        id: "overplanned",
+        label: "Overplanned Savings",
+        monthlyAmount: 1500,
+        targetAssetCategoryKey: "cash",
+        sourcePaths: ["savingsHabitRecords.1"]
+      }
+    ]
+  });
+  assert.strictEqual(cappedSavings.summary.totalSavingAllocations, 12000, "saving allocation should cap to available positive net cash flow");
+  assert.strictEqual(cappedSavings.summary.totalUnallocatedSurplus, 0, "overplanned saving allocation should leave no surplus cash-flow remainder");
+  assert.strictEqual(cappedSavings.summary.totalUnfundedSavingAllocations, 6000, "unfunded planned savings should be traced without creating assets");
 
   const noDiscretionary = baseProjection({
     expenseStreams: [

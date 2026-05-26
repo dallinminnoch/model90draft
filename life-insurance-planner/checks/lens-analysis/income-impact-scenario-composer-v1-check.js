@@ -441,6 +441,81 @@ function runInactiveGrowthChecks() {
   );
 }
 
+function runSavingsAllocationChecks() {
+  const baselineHarness = loadComposerWithLayerSpies();
+  const baselineScenario = baselineHarness.composeIncomeImpactScenario(createInput());
+  const allocationHarness = loadComposerWithLayerSpies();
+  const allocatedScenario = allocationHarness.composeIncomeImpactScenario(createInput({
+    lensModel: {
+      projectedAssetGrowth: {
+        includedCategories: [
+          {
+            categoryKey: "taxableBrokerageInvestments",
+            label: "Taxable Brokerage / Investments",
+            assumedAnnualGrowthRatePercent: 6,
+            growthConsumptionStatus: "method-active",
+            contributionSourceRecords: [
+              {
+                typeKey: "brokerageInvestmentContributions",
+                label: "Brokerage / General Investment Contributions",
+                monthlyContributionAmount: 1000,
+                frequency: "monthly"
+              }
+            ]
+          }
+        ],
+        consumedByMethods: false
+      }
+    }
+  }));
+  const baselineTarget = baselineScenario.preDeathSeries.targetPoint.assetLedger.find(function (row) {
+    return row.id === "brokerage";
+  });
+  const allocatedTarget = allocatedScenario.preDeathSeries.targetPoint.assetLedger.find(function (row) {
+    return row.id === "brokerage";
+  });
+  const baselineCashFlow = baselineScenario.preDeathSeries.targetPoint.assetLedger.find(function (row) {
+    return row.id === "cashFlowContribution";
+  });
+  const allocatedCashFlow = allocatedScenario.preDeathSeries.targetPoint.assetLedger.find(function (row) {
+    return row.id === "cashFlowContribution";
+  });
+
+  assert.equal(
+    allocationHarness.captured.layer1Input.savingAllocations.length,
+    1,
+    "composer should pass mapped savings contribution records into Layer 1"
+  );
+  assert.equal(
+    allocationHarness.captured.layer1Input.savingAllocations[0].targetAssetCategoryKey,
+    "taxableBrokerageInvestments",
+    "saving allocation should target the mapped asset category"
+  );
+  assert.equal(
+    allocatedScenario.preDeathSeries.summary.totalSavingAllocations,
+    60000,
+    "selected death date should control the number of monthly saving allocations"
+  );
+  assert.equal(
+    allocatedScenario.preDeathSeries.summary.totalNetCashFlow,
+    baselineScenario.preDeathSeries.summary.totalNetCashFlow,
+    "targeted saving allocation should not create extra household cash flow"
+  );
+  assert.ok(
+    allocatedTarget.currentValue > baselineTarget.currentValue,
+    "targeted saving allocation should increase the target asset value before the event"
+  );
+  assert.ok(
+    allocatedCashFlow.currentValue < baselineCashFlow.currentValue,
+    "targeted saving allocation should reduce the generic cash-flow contribution row"
+  );
+  assert.equal(
+    allocatedScenario.trace.layer1.savingAllocationPolicy.rawProjectedTotalsIgnored,
+    true,
+    "composer should not consume raw projectedAssetGrowth totals"
+  );
+}
+
 function runDefaultAssetTreatmentCompletenessChecks() {
   const { composeIncomeImpactScenario } = loadComposerWithLayerSpies();
   const scenario = composeIncomeImpactScenario(createInput({
@@ -790,6 +865,7 @@ function runChecks() {
   runCurrentAgePolicyChecks();
   runDurationChecks();
   runInactiveGrowthChecks();
+  runSavingsAllocationChecks();
   runDefaultAssetTreatmentCompletenessChecks();
   runDataGapChecks();
   runDepletionChecks();

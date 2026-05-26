@@ -334,6 +334,95 @@
     }, []);
   }
 
+  function normalizeSavingAllocations(allocations, assetRows, dataGaps, trace) {
+    const safeAllocations = Array.isArray(allocations) ? allocations : [];
+    const rowsByCategory = new Map();
+    assetRows.forEach(function (asset) {
+      if (!rowsByCategory.has(asset.categoryKey)) {
+        rowsByCategory.set(asset.categoryKey, asset);
+      }
+    });
+
+    return safeAllocations.reduce(function (items, allocation, index) {
+      const sourcePaths = uniqueStrings(allocation?.sourcePaths);
+      appendUnique(trace.sourcePaths, sourcePaths);
+
+      if (isExcludedStatus(allocation?.status)) {
+        return items;
+      }
+
+      const monthlyAmount = toOptionalNumber(
+        allocation?.monthlyAmount
+        ?? allocation?.monthlyContributionAmount
+        ?? allocation?.amount
+      );
+      const targetCategoryKey = normalizeString(
+        allocation?.targetAssetCategoryKey
+        || allocation?.assetCategoryKey
+        || allocation?.categoryKey
+      );
+      if (monthlyAmount == null || monthlyAmount <= 0) {
+        dataGaps.push(makeIssue(
+          "missing-saving-allocation-amount",
+          "Saving allocation amount was missing or invalid.",
+          sourcePaths.length ? sourcePaths : [`savingAllocations.${index}.monthlyAmount`]
+        ));
+        return items;
+      }
+      if (!targetCategoryKey) {
+        dataGaps.push(makeIssue(
+          "missing-saving-allocation-target",
+          "Saving allocation target asset category was missing.",
+          sourcePaths.length ? sourcePaths : [`savingAllocations.${index}.targetAssetCategoryKey`]
+        ));
+        return items;
+      }
+
+      let targetAsset = rowsByCategory.get(targetCategoryKey);
+      if (!targetAsset) {
+        const syntheticAsset = {
+          id: `saving-allocation-${targetCategoryKey}`,
+          categoryKey: targetCategoryKey,
+          label: normalizeString(allocation?.targetAssetCategoryLabel || allocation?.label) || targetCategoryKey,
+          currentValue: 0,
+          includedInProjection: true,
+          growthEligible: allocation?.growthEligible === true,
+          annualGrowthRate: toOptionalRate(allocation?.annualGrowthRate),
+          monthlyGrowthRate: 0,
+          growthStatus: normalizeString(allocation?.growthStatus) || "current-dollar",
+          growthActive: false,
+          sourcePaths,
+          trace: {
+            source: "savingAllocations",
+            syntheticSavingAllocationAsset: true,
+            targetAssetCategoryKey
+          },
+          ignoredMetadata: []
+        };
+        const normalizedGrowthStatus = normalizeStatus(syntheticAsset.growthStatus);
+        syntheticAsset.growthActive = syntheticAsset.growthEligible === true
+          && normalizedGrowthStatus === ACTIVE_GROWTH_STATUS
+          && syntheticAsset.annualGrowthRate != null;
+        syntheticAsset.monthlyGrowthRate = syntheticAsset.growthActive
+          ? roundRate(Math.pow(1 + syntheticAsset.annualGrowthRate, 1 / 12) - 1)
+          : 0;
+        assetRows.push(syntheticAsset);
+        rowsByCategory.set(targetCategoryKey, syntheticAsset);
+        targetAsset = syntheticAsset;
+      }
+
+      items.push({
+        id: normalizeString(allocation?.id || allocation?.typeKey) || `saving-allocation-${index + 1}`,
+        label: normalizeString(allocation?.label) || targetCategoryKey,
+        monthlyAmount: roundMoney(monthlyAmount),
+        targetCategoryKey,
+        targetAssetId: targetAsset.id,
+        sourcePaths
+      });
+      return items;
+    }, []);
+  }
+
   function isSameYearMonth(leftDate, rightDate) {
     return leftDate.getFullYear() === rightDate.getFullYear()
       && leftDate.getMonth() === rightDate.getMonth();
@@ -446,6 +535,49 @@
     }, 0));
   }
 
+  function applySavingAllocations(assetRows, savingAllocations, availableSurplus) {
+    let remainingSurplus = roundMoney(Math.max(availableSurplus, 0));
+    let totalAllocated = 0;
+    let totalUnfunded = 0;
+    const allocationsByTarget = [];
+
+    savingAllocations.forEach(function (allocation) {
+      const plannedAmount = roundMoney(Math.max(allocation.monthlyAmount, 0));
+      const allocatedAmount = roundMoney(Math.min(plannedAmount, remainingSurplus));
+      const unfundedAmount = roundMoney(plannedAmount - allocatedAmount);
+      const targetAsset = assetRows.find(function (asset) {
+        return asset.id === allocation.targetAssetId;
+      });
+
+      if (targetAsset && allocatedAmount > 0) {
+        targetAsset.currentValue = roundMoney(targetAsset.currentValue + allocatedAmount);
+        remainingSurplus = roundMoney(remainingSurplus - allocatedAmount);
+        totalAllocated = roundMoney(totalAllocated + allocatedAmount);
+      }
+      if (unfundedAmount > 0) {
+        totalUnfunded = roundMoney(totalUnfunded + unfundedAmount);
+      }
+
+      allocationsByTarget.push({
+        id: allocation.id,
+        label: allocation.label,
+        targetAssetId: allocation.targetAssetId,
+        targetCategoryKey: allocation.targetCategoryKey,
+        plannedAmount,
+        allocatedAmount: targetAsset ? allocatedAmount : 0,
+        unfundedAmount: targetAsset ? unfundedAmount : plannedAmount,
+        sourcePaths: allocation.sourcePaths.slice()
+      });
+    });
+
+    return {
+      allocationsByTarget,
+      totalAllocated,
+      totalUnfunded,
+      remainingSurplus
+    };
+  }
+
   function buildAssetSnapshot(assetRows, cashFlowContribution) {
     const snapshots = assetRows.map(function (asset) {
       return {
@@ -502,7 +634,10 @@
         totalDiscretionaryExpenses: 0,
         totalScheduledObligations: 0,
         totalNetCashFlow: 0,
-        totalInvestmentGrowth: 0
+        totalInvestmentGrowth: 0,
+        totalSavingAllocations: 0,
+        totalUnallocatedSurplus: 0,
+        totalUnfundedSavingAllocations: 0
       },
       points: [],
       warnings,
@@ -514,7 +649,12 @@
         sourcePaths: uniqueStrings(trace.sourcePaths),
         excludedAssetCategories: uniqueStrings(trace.excludedAssetCategories),
         growthIneligibleCategories: uniqueStrings(trace.growthIneligibleCategories),
-        reportingOnlyOrSavedOnlyGrowthCategoriesIgnored: uniqueStrings(trace.ignoredGrowthCategories)
+        reportingOnlyOrSavedOnlyGrowthCategoriesIgnored: uniqueStrings(trace.ignoredGrowthCategories),
+        savingAllocationPolicy: {
+          mode: "targeted-surplus-first",
+          surplusRemainder: "cashFlowContribution",
+          cap: "available-positive-net-cash-flow"
+        }
       }
     };
   }
@@ -565,6 +705,7 @@
     const incomeStreams = normalizeCashFlowStreams(safeInput.incomeStreams, "income", dataGaps, trace);
     const expenseStreams = normalizeCashFlowStreams(safeInput.expenseStreams, "expense", dataGaps, trace);
     const obligations = normalizeScheduledObligations(safeInput.scheduledObligations, dataGaps, trace);
+    const savingAllocations = normalizeSavingAllocations(safeInput.savingAllocations, assetRows, dataGaps, trace);
     const startingAssets = roundMoney(assetRows.reduce(function (total, asset) {
       return total + asset.currentValue;
     }, 0));
@@ -576,6 +717,9 @@
     let totalScheduledObligations = 0;
     let totalNetCashFlow = 0;
     let totalInvestmentGrowth = 0;
+    let totalSavingAllocations = 0;
+    let totalUnallocatedSurplus = 0;
+    let totalUnfundedSavingAllocations = 0;
     const points = [];
 
     for (let monthIndex = 1; monthIndex <= durationMonths; monthIndex += 1) {
@@ -604,8 +748,15 @@
         return isObligationActive(obligation, periodStart);
       }));
       const netCashFlow = roundMoney(income - essentialExpenses - discretionaryExpenses - scheduledObligations);
+      const savingAllocationResult = applySavingAllocations(
+        assetRows,
+        savingAllocations,
+        Math.max(netCashFlow, 0)
+      );
 
-      cashFlowContribution = roundMoney(cashFlowContribution + netCashFlow);
+      cashFlowContribution = roundMoney(
+        cashFlowContribution + (netCashFlow < 0 ? netCashFlow : savingAllocationResult.remainingSurplus)
+      );
       endingAssets = roundMoney(assetRows.reduce(function (total, asset) {
         return total + asset.currentValue;
       }, 0) + cashFlowContribution);
@@ -619,6 +770,9 @@
       totalScheduledObligations = roundMoney(totalScheduledObligations + scheduledObligations);
       totalNetCashFlow = roundMoney(totalNetCashFlow + netCashFlow);
       totalInvestmentGrowth = roundMoney(totalInvestmentGrowth + investmentGrowth);
+      totalSavingAllocations = roundMoney(totalSavingAllocations + savingAllocationResult.totalAllocated);
+      totalUnallocatedSurplus = roundMoney(totalUnallocatedSurplus + savingAllocationResult.remainingSurplus);
+      totalUnfundedSavingAllocations = roundMoney(totalUnfundedSavingAllocations + savingAllocationResult.totalUnfunded);
 
       points.push({
         date: formatDateOnly(pointDate),
@@ -629,6 +783,10 @@
         discretionaryExpenses,
         scheduledObligations,
         netCashFlow,
+        savingAllocations: savingAllocationResult.allocationsByTarget,
+        totalSavingAllocations: savingAllocationResult.totalAllocated,
+        unallocatedSurplus: savingAllocationResult.remainingSurplus,
+        unfundedSavingAllocations: savingAllocationResult.totalUnfunded,
         investmentGrowth,
         endingAssets,
         assetLedger: buildAssetSnapshot(assetRows, cashFlowContribution),
@@ -650,7 +808,10 @@
       totalDiscretionaryExpenses,
       totalScheduledObligations,
       totalNetCashFlow,
-      totalInvestmentGrowth
+      totalInvestmentGrowth,
+      totalSavingAllocations,
+      totalUnallocatedSurplus,
+      totalUnfundedSavingAllocations
     };
     output.points = points;
     output.warnings = warnings;
@@ -660,7 +821,13 @@
       sourcePaths: uniqueStrings(trace.sourcePaths),
       excludedAssetCategories: uniqueStrings(trace.excludedAssetCategories),
       growthIneligibleCategories: uniqueStrings(trace.growthIneligibleCategories),
-      reportingOnlyOrSavedOnlyGrowthCategoriesIgnored: uniqueStrings(trace.ignoredGrowthCategories)
+      reportingOnlyOrSavedOnlyGrowthCategoriesIgnored: uniqueStrings(trace.ignoredGrowthCategories),
+      savingAllocationPolicy: {
+        mode: "targeted-surplus-first",
+        allocationCount: savingAllocations.length,
+        surplusRemainder: "cashFlowContribution",
+        cap: "available-positive-net-cash-flow"
+      }
     };
 
     return output;
