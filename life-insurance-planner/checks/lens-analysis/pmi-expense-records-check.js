@@ -68,7 +68,8 @@ function parseRowsFromMarkup(markup) {
         const selectSelectors = {
           "[data-pmi-expense-record-frequency]": "data-pmi-expense-record-frequency",
           "[data-pmi-expense-record-term-type]": "data-pmi-expense-record-term-type",
-          "[data-pmi-expense-record-continuation-status]": "data-pmi-expense-record-continuation-status"
+          "[data-pmi-expense-record-continuation-status]": "data-pmi-expense-record-continuation-status",
+          "[data-pmi-expense-record-target-asset-category]": "data-pmi-expense-record-target-asset-category"
         };
         const inputAttribute = inputSelectors[selector];
         if (inputAttribute) {
@@ -258,11 +259,14 @@ function assertNoFormulaOwnerReferences(widgetSource) {
 function assertScriptOrder(source, relativePath) {
   const taxonomyIndex = source.indexOf("expense-taxonomy.js");
   const libraryIndex = source.indexOf("expense-library.js");
+  const assetTaxonomyIndex = source.indexOf("asset-taxonomy.js");
   const widgetIndex = source.indexOf("pmi-expense-records.js");
   assert.ok(taxonomyIndex !== -1, `${relativePath} should load expense taxonomy`);
   assert.ok(libraryIndex !== -1, `${relativePath} should load expense library`);
+  assert.ok(assetTaxonomyIndex !== -1, `${relativePath} should load asset taxonomy`);
   assert.ok(widgetIndex !== -1, `${relativePath} should load pmi expense records`);
   assert.ok(taxonomyIndex < libraryIndex, `${relativePath} should load taxonomy before library`);
+  assert.ok(assetTaxonomyIndex < widgetIndex, `${relativePath} should load asset taxonomy before savings target mapping`);
   assert.ok(libraryIndex < widgetIndex, `${relativePath} should load library before widget`);
 }
 
@@ -338,6 +342,7 @@ context.window.LensApp = context.LensApp;
 vm.createContext(context);
 loadScript(context, "app/features/lens-analysis/expense-taxonomy.js");
 loadScript(context, "app/features/lens-analysis/expense-library.js");
+loadScript(context, "app/features/lens-analysis/asset-taxonomy.js");
 loadScript(context, "app/features/lens-analysis/pmi-expense-records.js");
 
 const lensAnalysis = context.LensApp.lensAnalysis;
@@ -746,9 +751,13 @@ const addedSavingsHabit = savingsController.addExpenseRecordFromLibraryEntry(exp
 assert.ok(addedSavingsHabit, "savings controller should add a savings contribution row");
 assert.equal(savingsController.records.length, 1, "savings controller should add one savings habit row");
 assert.match(savingsDom.list.innerHTML, /Savings habit records notebook/, "savings controller should render a savings table label");
+assert.match(savingsDom.list.innerHTML, /data-pmi-expense-record-scope="savingsHabits"/, "savings table should expose the savings scope for layout");
 assert.match(savingsDom.list.innerHTML, /Retirement Contributions/, "savings controller should render the added savings row");
 assert.match(savingsDom.list.innerHTML, /aria-label="Savings habit type: Retirement Contributions"/, "savings row should expose savings-specific accessible type text");
 assert.match(savingsDom.list.innerHTML, /data-pmi-expense-record-icon-file="savings\.svg"/, "savings rows should use the savings icon");
+assert.match(savingsDom.list.innerHTML, /data-pmi-expense-record-target-asset-category/, "savings rows should render an editable target asset selector");
+assert.match(savingsDom.list.innerHTML, /value="traditionalRetirementAssets" selected/, "retirement savings should default to the retirement asset target");
+assert.doesNotMatch(savingsDom.list.innerHTML, /Continues\?/, "savings rows should not keep the expense continuation column");
 savingsController.hydrateExpenseRecords([{
   expenseId: "savings_retirement",
   categoryKey: "savingsGoalContributions",
@@ -762,6 +771,25 @@ const savingsSerialized = savingsController.serializeExpenseRecords();
 assert.equal(savingsSerialized.length, 1, "savings controller should serialize added savings habit rows");
 assert.equal(savingsSerialized[0].typeKey, "retirementContributions", "savings serialization should preserve the savings habit type");
 assert.equal(savingsSerialized[0].categoryKey, "savingsGoalContributions", "savings serialization should preserve the savings habit category");
+assert.equal(savingsSerialized[0].targetAssetCategoryKey, "traditionalRetirementAssets", "savings serialization should preserve the target asset category");
+assert.equal(savingsSerialized[0].targetAssetCategoryLabel, "Traditional Retirement Assets", "savings serialization should preserve the target asset label");
+
+savingsController.hydrateExpenseRecords([{
+  expenseId: "savings_brokerage",
+  categoryKey: "savingsGoalContributions",
+  typeKey: "brokerageInvestmentContributions",
+  label: "Taxable Investment Contributions",
+  amount: 500,
+  frequency: "monthly",
+  termType: "ongoing",
+  targetAssetCategoryKey: "taxableBrokerageInvestments"
+}]);
+assert.match(savingsDom.list.innerHTML, /value="taxableBrokerageInvestments" selected/, "saved target asset selection should hydrate into the savings row");
+assert.equal(
+  savingsController.serializeExpenseRecords()[0].targetAssetCategoryKey,
+  "taxableBrokerageInvestments",
+  "saved target asset selection should round-trip through serialization"
+);
 
 const generatedDebtPaymentFact = Object.freeze({
   expenseFactId: "generated_debt_payment_expense_auto_loan",

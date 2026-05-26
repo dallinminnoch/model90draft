@@ -52,6 +52,22 @@
     "downPaymentSavings",
     "otherGoalSavings"
   ]);
+  const DEFAULT_SAVINGS_HABIT_TARGET_ASSET_CATEGORIES = Object.freeze({
+    retirementContributions: "traditionalRetirementAssets",
+    brokerageInvestmentContributions: "taxableBrokerageInvestments",
+    educationSavingsContributions: "educationSpecificSavings",
+    emergencyFundContributions: "emergencyFund",
+    sinkingFundContributions: "cashAndCashEquivalents",
+    vacationLifestyleGoalContributions: "cashAndCashEquivalents",
+    vehicleReplacementContributions: "cashAndCashEquivalents",
+    homeRepairReserveContributions: "cashAndCashEquivalents",
+    taxReserveContributions: "cashAndCashEquivalents",
+    businessReserveContributions: "cashAndCashEquivalents",
+    charitableGivingReserve: "cashAndCashEquivalents",
+    familyEventWeddingSavings: "cashAndCashEquivalents",
+    downPaymentSavings: "cashAndCashEquivalents",
+    otherGoalSavings: "cashAndCashEquivalents"
+  });
   const DEFAULT_RECORD_SCOPE = "expenses";
   const SAVINGS_RECORD_SCOPE = "savingsHabits";
   const RECORD_SCOPE_CONFIGS = Object.freeze({
@@ -110,6 +126,7 @@
       typeColumnLabel: "Habit Type",
       labelColumnLabel: "Label / Goal",
       amountLabel: "Contribution",
+      targetAssetColumnLabel: "Asset Target",
       removeButtonPrefix: "Remove",
       accessibleTypePrefix: "Savings habit type",
       suggestedTypeKeys: Object.freeze([
@@ -210,6 +227,10 @@
     return normalizeString(value) === SAVINGS_RECORD_SCOPE ? SAVINGS_RECORD_SCOPE : DEFAULT_RECORD_SCOPE;
   }
 
+  function isSavingsRecordScope(value) {
+    return normalizeRecordScope(value) === SAVINGS_RECORD_SCOPE;
+  }
+
   function getRecordScopeConfig(recordScope) {
     return RECORD_SCOPE_CONFIGS[normalizeRecordScope(recordScope)] || RECORD_SCOPE_CONFIGS[DEFAULT_RECORD_SCOPE];
   }
@@ -246,6 +267,12 @@
   function getExpenseTaxonomyApi() {
     return lensAnalysis.expenseTaxonomy && typeof lensAnalysis.expenseTaxonomy === "object"
       ? lensAnalysis.expenseTaxonomy
+      : {};
+  }
+
+  function getAssetTaxonomyApi() {
+    return lensAnalysis.assetTaxonomy && typeof lensAnalysis.assetTaxonomy === "object"
+      ? lensAnalysis.assetTaxonomy
       : {};
   }
 
@@ -350,6 +377,56 @@
   function getCategoryLabel(categoryKey) {
     const category = getTaxonomyCategory(categoryKey);
     return normalizeString(category && category.label) || normalizeString(categoryKey) || "Expense";
+  }
+
+  function getAssetTaxonomyCategory(categoryKey) {
+    const assetTaxonomy = getAssetTaxonomyApi();
+    const categories = Array.isArray(assetTaxonomy.DEFAULT_ASSET_CATEGORIES)
+      ? assetTaxonomy.DEFAULT_ASSET_CATEGORIES
+      : [];
+    return categories.find(function (category) {
+      return category && category.categoryKey === categoryKey;
+    }) || null;
+  }
+
+  function getSavingsTargetAssetOptions() {
+    const assetTaxonomy = getAssetTaxonomyApi();
+    return Array.isArray(assetTaxonomy.DEFAULT_ASSET_CATEGORIES)
+      ? assetTaxonomy.DEFAULT_ASSET_CATEGORIES
+        .filter(function (category) {
+          return category && normalizeString(category.categoryKey) && normalizeString(category.label);
+        })
+        .map(function (category) {
+          return {
+            value: normalizeString(category.categoryKey),
+            label: normalizeString(category.label)
+          };
+        })
+      : [];
+  }
+
+  function isValidSavingsTargetAssetCategory(categoryKey) {
+    return Boolean(getAssetTaxonomyCategory(categoryKey));
+  }
+
+  function getDefaultSavingsTargetAssetCategoryKey(typeKey) {
+    const normalizedTypeKey = normalizeString(typeKey);
+    return normalizeString(DEFAULT_SAVINGS_HABIT_TARGET_ASSET_CATEGORIES[normalizedTypeKey]) || null;
+  }
+
+  function normalizeSavingsTargetAssetCategoryKey(value, typeKey) {
+    const explicitValue = normalizeString(value);
+    if (explicitValue && isValidSavingsTargetAssetCategory(explicitValue)) {
+      return explicitValue;
+    }
+
+    const defaultValue = getDefaultSavingsTargetAssetCategoryKey(typeKey);
+    return defaultValue && isValidSavingsTargetAssetCategory(defaultValue) ? defaultValue : null;
+  }
+
+  function getSavingsTargetAssetLabel(categoryKey) {
+    const category = getAssetTaxonomyCategory(categoryKey);
+    return normalizeString(category && category.label) || normalizeString(categoryKey) || "Select target";
   }
 
   function getExpenseTypeLabel(record) {
@@ -860,6 +937,9 @@
     const commonOngoingSupportField = safeOptions.isDefaultExpense === true
       ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.ongoingSupportField)
       : null;
+    const targetAssetCategoryKey = isSavingsRecordScope(recordScope)
+      ? normalizeSavingsTargetAssetCategoryKey(safeOptions.targetAssetCategoryKey, typeKey)
+      : null;
 
     return {
       expenseId: normalizeString(safeOptions.expenseId) || generateExpenseId(),
@@ -884,6 +964,7 @@
       isProtected: false,
       isRepeatableExpenseRecord: true,
       isCustomExpense: safeEntry.isCustomType === true || typeKey === "customExpenseRecord" || categoryKey === "customExpense",
+      targetAssetCategoryKey,
       notes: null,
       metadata: {
         sourceType: "user-input",
@@ -920,6 +1001,12 @@
       safeRecord.continuationStatus,
       getLibraryDefaultContinuationStatus(entry)
     );
+    const targetAssetCategoryKey = isSavingsRecordScope(recordScope)
+      ? normalizeSavingsTargetAssetCategoryKey(
+        safeRecord.targetAssetCategoryKey || safeRecord.assetCategoryKey,
+        typeKey
+      )
+      : null;
     return {
       expenseId: normalizeString(safeRecord.expenseId) || generateExpenseId(),
       categoryKey,
@@ -938,6 +1025,7 @@
       isProtected: false,
       isRepeatableExpenseRecord: true,
       isCustomExpense: safeRecord.isCustomExpense === true || typeKey === "customExpenseRecord" || categoryKey === "customExpense",
+      targetAssetCategoryKey,
       notes: normalizeString(safeRecord.notes) || null,
       metadata: Object.assign({
         sourceType: "user-input",
@@ -1043,6 +1131,33 @@
       const label = normalizeString(option.label) || value;
       return `<option value="${escapeHtml(value)}"${value === selectedValue ? " selected" : ""}>${escapeHtml(label)}</option>`;
     }).join("");
+  }
+
+  function renderSavingsTargetAssetOptions(selectedValue) {
+    const normalizedSelectedValue = normalizeString(selectedValue);
+    const placeholderSelected = !normalizedSelectedValue ? " selected" : "";
+    return `<option value=""${placeholderSelected}>Select target</option>`
+      + renderSelectOptions(getSavingsTargetAssetOptions(), normalizedSelectedValue);
+  }
+
+  function renderSavingsTargetAssetField(record, expenseId, controller) {
+    if (!isSavingsRecordScope(controller.recordScope)) {
+      return "";
+    }
+
+    const targetAssetInputId = createInputId("pmi-expense-record", expenseId, "target-asset");
+    const selectedValue = normalizeSavingsTargetAssetCategoryKey(
+      record.targetAssetCategoryKey,
+      record.typeKey
+    );
+    const label = controller.copy.targetAssetColumnLabel || "Asset Target";
+    return `
+      <div class="pmi-expense-record-cell" role="cell" data-column-label="${escapeHtml(label)}">
+        <select id="${escapeHtml(targetAssetInputId)}" data-pmi-expense-record-target-asset-category aria-label="${escapeHtml(label)}">
+          ${renderSavingsTargetAssetOptions(selectedValue)}
+        </select>
+      </div>
+    `;
   }
 
   function renderCompactTermDetailField(record, expenseId) {
@@ -1623,6 +1738,7 @@
           const frequencyInput = row.querySelector("[data-pmi-expense-record-frequency]");
           const termTypeInput = row.querySelector("[data-pmi-expense-record-term-type]");
           const continuationStatusInput = row.querySelector("[data-pmi-expense-record-continuation-status]");
+          const targetAssetCategoryInput = row.querySelector("[data-pmi-expense-record-target-asset-category]");
           const termYearsInput = row.querySelector("[data-pmi-expense-record-term-years]");
           const endAgeInput = row.querySelector("[data-pmi-expense-record-end-age]");
           const endDateInput = row.querySelector("[data-pmi-expense-record-end-date]");
@@ -1641,7 +1757,13 @@
             ),
             termYears: termType === "fixedYears" ? toOptionalNonNegativeNumber(termYearsInput && termYearsInput.value) : null,
             endAge: termType === "untilAge" ? toOptionalNonNegativeNumber(endAgeInput && endAgeInput.value) : null,
-            endDate: termType === "untilDate" ? normalizeDateOnlyValue(endDateInput && endDateInput.value) : null
+            endDate: termType === "untilDate" ? normalizeDateOnlyValue(endDateInput && endDateInput.value) : null,
+            targetAssetCategoryKey: isSavingsRecordScope(controller.recordScope)
+              ? normalizeSavingsTargetAssetCategoryKey(
+                targetAssetCategoryInput && targetAssetCategoryInput.value,
+                existingRecord.typeKey
+              )
+              : null
           });
         });
     }
@@ -1670,6 +1792,18 @@
           accessibleTypePrefix: controller.copy.accessibleTypePrefix
         });
         const categoryLabel = getCategoryLabel(record.categoryKey);
+        const classificationMarkup = isSavingsRecordScope(controller.recordScope)
+          ? renderSavingsTargetAssetField(record, expenseId, controller)
+          : `
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Continues?">
+              <select id="${escapeHtml(continuationStatusInputId)}" data-pmi-expense-record-continuation-status aria-label="Continues after death?">
+                ${renderSelectOptions(getContinuationStatusOptions(), normalizeContinuationStatus(record.continuationStatus, "review"))}
+              </select>
+            </div>
+            <div class="pmi-expense-record-cell" role="cell" data-column-label="Category">
+              <span class="pmi-expense-record-category-label" id="${escapeHtml(categoryId)}" title="${escapeHtml(categoryLabel)}">${escapeHtml(categoryLabel)}</span>
+            </div>
+          `;
         return `
           <div class="pmi-expense-record-row" role="row" data-pmi-expense-record-entry data-pmi-expense-id="${escapeHtml(expenseId)}">
             <div class="pmi-expense-record-cell pmi-expense-record-type-cell" role="cell" data-column-label="${escapeHtml(controller.copy.typeColumnLabel)}">
@@ -1697,14 +1831,7 @@
             <div class="pmi-expense-record-cell" role="cell" data-column-label="Term Detail">
               ${renderCompactTermDetailField(record, expenseId)}
             </div>
-            <div class="pmi-expense-record-cell" role="cell" data-column-label="Continues?">
-              <select id="${escapeHtml(continuationStatusInputId)}" data-pmi-expense-record-continuation-status aria-label="Continues after death?">
-                ${renderSelectOptions(getContinuationStatusOptions(), normalizeContinuationStatus(record.continuationStatus, "review"))}
-              </select>
-            </div>
-            <div class="pmi-expense-record-cell" role="cell" data-column-label="Category">
-              <span class="pmi-expense-record-category-label" id="${escapeHtml(categoryId)}" title="${escapeHtml(categoryLabel)}">${escapeHtml(categoryLabel)}</span>
-            </div>
+            ${classificationMarkup}
             <div class="pmi-expense-record-cell pmi-expense-record-remove-cell" role="cell" data-column-label="Remove">
               <button class="pmi-asset-record-remove pmi-expense-record-remove" type="button" data-pmi-expense-record-remove aria-label="${escapeHtml(controller.copy.removeButtonPrefix)} ${escapeHtml(record.label)}">Remove</button>
             </div>
@@ -1715,7 +1842,7 @@
       const rowsMarkup = manualRowsMarkup + generatedRowsMarkup;
 
       controller.list.innerHTML = `
-        <div class="pmi-expense-records-table" role="table" aria-label="${escapeHtml(controller.copy.tableLabel)}" data-pmi-expense-records-table>
+        <div class="pmi-expense-records-table" role="table" aria-label="${escapeHtml(controller.copy.tableLabel)}" data-pmi-expense-records-table data-pmi-expense-record-scope="${escapeHtml(controller.recordScope)}">
           <div class="pmi-expense-records-header" role="row" data-pmi-expense-records-header>
             <span class="pmi-expense-record-type-header" role="columnheader">${escapeHtml(controller.copy.typeColumnLabel)}</span>
             <span role="columnheader">${escapeHtml(controller.copy.labelColumnLabel)}</span>
@@ -1723,8 +1850,9 @@
             <span role="columnheader">Frequency</span>
             <span role="columnheader">Duration</span>
             <span role="columnheader">Term Detail</span>
-            <span role="columnheader">Continues?</span>
-            <span role="columnheader">Category</span>
+            ${isSavingsRecordScope(controller.recordScope)
+              ? `<span role="columnheader">${escapeHtml(controller.copy.targetAssetColumnLabel || "Asset Target")}</span>`
+              : '<span role="columnheader">Continues?</span><span role="columnheader">Category</span>'}
             <span role="columnheader">Remove</span>
           </div>
           <div class="pmi-expense-records-body" role="rowgroup" data-pmi-expense-records-body>
@@ -2012,6 +2140,9 @@
             ? normalizeString(getCommonExpenseRecordSourceField(typeKey)?.ongoingSupportField)
             : null;
           const metadata = clonePlainObject(record.metadata);
+          const targetAssetCategoryKey = isSavingsRecordScope(controller.recordScope)
+            ? normalizeSavingsTargetAssetCategoryKey(record.targetAssetCategoryKey, typeKey)
+            : null;
           delete metadata.commonExpenseSourceKey;
 
           if ((!isDefaultExpense && amount == null) || amount < 0 || !categoryKey || !typeKey || !isValidExpenseCategory(categoryKey)) {
@@ -2036,6 +2167,10 @@
             isProtected: false,
             isRepeatableExpenseRecord: true,
             isCustomExpense: record.isCustomExpense === true || typeKey === "customExpenseRecord" || categoryKey === "customExpense",
+            ...(targetAssetCategoryKey ? {
+              targetAssetCategoryKey,
+              targetAssetCategoryLabel: getSavingsTargetAssetLabel(targetAssetCategoryKey)
+            } : {}),
             notes: normalizeString(record.notes) || null,
             metadata: Object.assign({
               sourceType: "user-input",

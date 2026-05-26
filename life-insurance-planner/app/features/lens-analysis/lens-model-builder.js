@@ -2099,8 +2099,9 @@
     };
   }
 
-  function createPreparedProjectedAssetGrowth(lensModel, input) {
+  function createPreparedProjectedAssetGrowth(lensModel, input, sourceData) {
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const safeSourceData = isPlainObject(sourceData) ? sourceData : {};
     const analysisSettings = resolveAnalysisSettings(input);
     const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
     const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
@@ -2132,11 +2133,17 @@
         currentTotalAssetValue: 0,
         projectedTotalAssetValue: 0,
         totalProjectedGrowthAmount: 0,
+        totalMonthlyContributionAmount: 0,
+        totalContributionPrincipal: 0,
+        totalProjectedContributionValue: 0,
+        totalContributionGrowthAmount: 0,
+        excludedContributionRecordCount: 0,
         includedCategoryCount: 0,
         excludedCategoryCount: 0,
         reviewWarningCount: 0,
         includedCategories: [],
         excludedCategories: [],
+        excludedContributionRecords: [],
         warnings: [
           createWarning(
             "missing-asset-facts",
@@ -2155,11 +2162,17 @@
         currentTotalAssetValue: 0,
         projectedTotalAssetValue: 0,
         totalProjectedGrowthAmount: 0,
+        totalMonthlyContributionAmount: 0,
+        totalContributionPrincipal: 0,
+        totalProjectedContributionValue: 0,
+        totalContributionGrowthAmount: 0,
+        excludedContributionRecordCount: 0,
         includedCategoryCount: 0,
         excludedCategoryCount: assetFacts.assets.length,
         reviewWarningCount: 0,
         includedCategories: [],
         excludedCategories: [],
+        excludedContributionRecords: [],
         warnings: [
           createWarning(
             "missing-asset-growth-projection-helper",
@@ -2175,6 +2188,9 @@
       assetFacts,
       assetTreatmentAssumptions,
       assetTaxonomy: lensAnalysis.assetTaxonomy,
+      savingsHabitRecords: Array.isArray(safeSourceData.savingsHabitRecords)
+        ? safeSourceData.savingsHabitRecords
+        : [],
       projectionYears,
       projectionYearsSource,
       valuationDate: analysisSettings.valuationDate,
@@ -2190,6 +2206,11 @@
       currentTotalAssetValue: result?.currentTotalAssetValue ?? 0,
       projectedTotalAssetValue: result?.projectedTotalAssetValue ?? 0,
       totalProjectedGrowthAmount: result?.totalProjectedGrowthAmount ?? 0,
+      totalMonthlyContributionAmount: result?.totalMonthlyContributionAmount ?? 0,
+      totalContributionPrincipal: result?.totalContributionPrincipal ?? 0,
+      totalProjectedContributionValue: result?.totalProjectedContributionValue ?? 0,
+      totalContributionGrowthAmount: result?.totalContributionGrowthAmount ?? 0,
+      excludedContributionRecordCount: result?.excludedContributionRecordCount ?? 0,
       includedCategoryCount: result?.includedCategoryCount ?? 0,
       excludedCategoryCount: result?.excludedCategoryCount ?? 0,
       reviewWarningCount: result?.reviewWarningCount ?? 0,
@@ -2198,6 +2219,9 @@
         : [],
       excludedCategories: Array.isArray(result?.excludedCategories)
         ? cloneSerializable(result.excludedCategories)
+        : [],
+      excludedContributionRecords: Array.isArray(result?.excludedContributionRecords)
+        ? cloneSerializable(result.excludedContributionRecords)
         : [],
       warnings: helperWarnings.concat(modelWarnings),
       trace: cloneSerializable({
@@ -3025,7 +3049,11 @@
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
-        lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(lensModel, builderInput);
+        lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(
+          lensModel,
+          builderInput,
+          sourceResult.sourceData
+        );
         lensModel.projectedAssetOffset = createPreparedProjectedAssetOffset(lensModel, builderInput);
         lensModel.cashReserveProjection = createPreparedCashReserveProjection(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);

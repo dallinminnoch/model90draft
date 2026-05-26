@@ -3562,6 +3562,19 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
   align-items: center;
 }
 
+.pmi-expense-records-table[data-pmi-expense-record-scope="savingsHabits"] .pmi-expense-records-header,
+.pmi-expense-records-table[data-pmi-expense-record-scope="savingsHabits"] .pmi-expense-record-row {
+  grid-template-columns:
+    minmax(0, 1.12fr)
+    minmax(0, 1.28fr)
+    minmax(0, 0.62fr)
+    minmax(0, 0.68fr)
+    minmax(0, 0.7fr)
+    minmax(0, 0.58fr)
+    minmax(0, 1.08fr)
+    minmax(2.4rem, 0.28fr);
+}
+
 .pmi-expense-records-header {
   padding: 0.32rem 0.36rem;
   background: var(--m90-surface-secondary);

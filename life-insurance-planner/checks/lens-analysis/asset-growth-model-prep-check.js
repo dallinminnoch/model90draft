@@ -112,8 +112,8 @@ function createAssetTreatmentAssumptions(rate, projectionAssumptions) {
   };
 }
 
-function createSourceData() {
-  return {
+function createSourceData(overrides) {
+  return Object.assign({
     cashAndCashEquivalents: 100000,
     taxableBrokerageInvestments: 200000,
     digitalAssetsCrypto: 10000,
@@ -121,12 +121,12 @@ function createSourceData() {
     spouseIncome: 40000,
     yearsIncomeNeeded: 10,
     currentCoverage: 250000
-  };
+  }, overrides || {});
 }
 
-function buildLensModel(context, assetTreatmentAssumptions) {
+function buildLensModel(context, assetTreatmentAssumptions, sourceDataOverrides) {
   const lensAnalysis = context.LensApp.lensAnalysis;
-  const sourceData = createSourceData();
+  const sourceData = createSourceData(sourceDataOverrides);
   const analysisSettings = {
     valuationDate: "2026-05-03",
     assetTreatmentAssumptions
@@ -281,6 +281,43 @@ assert.equal(reportingOnlyGrowth.trace.projectionYears, 10);
 assert.ok(
   getWarningByCode(reportingOnlyGrowth.warnings, "asset-growth-projection-reporting-only"),
   "reportingOnly should warn that projected values are reporting-only and not method-consumed"
+);
+
+const reportingOnlySavingsModel = buildLensModel(
+  context,
+  createAssetTreatmentAssumptions(6, {
+    mode: "reportingOnly",
+    projectionYears: 10
+  }),
+  {
+    savingsHabitRecords: [
+      {
+        expenseId: "savings_brokerage",
+        categoryKey: "savingsGoalContributions",
+        typeKey: "brokerageInvestmentContributions",
+        label: "Brokerage / General Investment Contributions",
+        amount: 1000,
+        frequency: "monthly",
+        termType: "ongoing",
+        targetAssetCategoryKey: "taxableBrokerageInvestments"
+      }
+    ]
+  }
+);
+const reportingOnlySavingsGrowth = reportingOnlySavingsModel.projectedAssetGrowth;
+assert.equal(reportingOnlySavingsGrowth.consumedByMethods, false);
+assert.equal(reportingOnlySavingsGrowth.totalMonthlyContributionAmount, 1000);
+assert.equal(reportingOnlySavingsGrowth.totalContributionPrincipal, 120000);
+assert.equal(reportingOnlySavingsGrowth.totalProjectedContributionValue, 162473.44);
+assert.equal(reportingOnlySavingsGrowth.totalContributionGrowthAmount, 42473.44);
+assert.equal(reportingOnlySavingsGrowth.excludedContributionRecordCount, 0);
+assert.equal(reportingOnlySavingsGrowth.projectedTotalAssetValue, 709727.75);
+assert.equal(
+  reportingOnlySavingsGrowth.includedCategories.find(function (category) {
+    return category.categoryKey === "taxableBrokerageInvestments";
+  }).monthlyContributionAmount,
+  1000,
+  "mapped savings habits should feed the matching projected asset category"
 );
 
 const projectedOffsetsModel = buildLensModel(context, createAssetTreatmentAssumptions(6, {
