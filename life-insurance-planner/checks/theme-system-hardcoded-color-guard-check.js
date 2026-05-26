@@ -29,10 +29,10 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 1023,
+    colorBaseline: 624,
     legacyVarBaseline: 8,
     namedColorBaseline: 0,
-    category: "known component-family color debt; PMI, Client Directory, Client Detail profile, and Existing Coverage visuals migrated"
+    category: "known component-family color debt; PMI, Client Directory, Client Detail profile, Existing Coverage, and Analysis Setup visuals migrated"
   },
   {
     file: "life-insurance-planner/styles.css",
@@ -82,6 +82,13 @@ const trackedFiles = [
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
     category: "centralized Income Impact chart bridge fallbacks"
+  },
+  {
+    file: "life-insurance-planner/app/features/lens-analysis/analysis-setup.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "Analysis Setup behavior and render logic, expected color-free"
   },
   {
     file: "life-insurance-planner/app/features/lens-analysis/pmi-expense-records.js",
