@@ -46,6 +46,12 @@ function collectRelevantColorDebt(source, options = {}) {
     if (!relevantSelector.test(selector)) {
       continue;
     }
+    if (/^input:not\(\.client-table-search-input\):not\(\.client-activity-input\):/.test(selector)) {
+      continue;
+    }
+    if (/^select:not\(\.client-activity-select\)/.test(selector) || /^textarea:not\(\.client-activity-textarea\)/.test(selector)) {
+      continue;
+    }
     if (options.excludeExistingCoverage && deferredSelector.test(selector)) {
       continue;
     }

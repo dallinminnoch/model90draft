@@ -29,17 +29,17 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 1043,
+    colorBaseline: 1023,
     legacyVarBaseline: 8,
     namedColorBaseline: 0,
-    category: "known component-family color debt; PMI, Client Directory, and Client Detail profile colors migrated"
+    category: "known component-family color debt; PMI, Client Directory, Client Detail profile, and Existing Coverage visuals migrated"
   },
   {
     file: "life-insurance-planner/styles.css",
-    colorBaseline: 515,
+    colorBaseline: 457,
     legacyVarBaseline: 33,
     namedColorBaseline: 0,
-    category: "legacy style debt, reduced after canonical PMI and Client Detail profile color neutralization"
+    category: "legacy style debt, reduced after canonical PMI, Client Detail profile, and Existing Coverage visual neutralization"
   },
   {
     file: "life-insurance-planner/app/features/client-directory.js",
@@ -54,6 +54,27 @@ const trackedFiles = [
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
     category: "intentional dynamic avatar hue background only; static Client Detail profile colors migrated"
+  },
+  {
+    file: "life-insurance-planner/app/features/coverage/coverage-policy-manager.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "Existing Coverage manager render logic, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/coverage/coverage-policy-summary-list.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "Existing Coverage summary renderer, expected color-free"
+  },
+  {
+    file: "life-insurance-planner/app/features/coverage/coverage-policy-utils.js",
+    colorBaseline: 0,
+    legacyVarBaseline: 0,
+    namedColorBaseline: 0,
+    category: "Existing Coverage utility logic, expected color-free"
   },
   {
     file: "life-insurance-planner/app/features/lens-analysis/income-loss-impact-display.js",

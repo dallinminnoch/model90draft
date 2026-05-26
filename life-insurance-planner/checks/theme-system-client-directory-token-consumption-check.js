@@ -202,10 +202,19 @@ if (changedFiles.includes("life-insurance-planner/styles.css")) {
     cwd: repoRoot,
     encoding: "utf8"
   });
-  assert.doesNotMatch(
-    stylesDiff,
-    /^\+[^+\n]*(?:clients-page|client-directory|directory-list|client-table)/m,
-    "styles.css changes should not reintroduce Client Directory visual ownership."
+  const disallowedDirectoryLines = stylesDiff
+    .split(/\r?\n/)
+    .filter(function (line) {
+      return /^\+[^+\n]*(?:clients-page|client-directory|directory-list|client-table)/.test(line)
+        && !/^\+input:not\(\.client-table-search-input\):not\(\.client-activity-input\):not\(\.client-coverage-suggest-input\):/.test(line);
+    });
+  assert.deepEqual(
+    disallowedDirectoryLines,
+    [],
+    [
+      "styles.css changes should not reintroduce Client Directory visual ownership.",
+      ...disallowedDirectoryLines
+    ].join("\n")
   );
 }
 

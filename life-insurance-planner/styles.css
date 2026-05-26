@@ -1517,7 +1517,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-page-heading h1 {
   margin: 0;
-  color: #20283a;
   font-size: clamp(2rem, 3.25vw, 2.7rem);
   font-weight: 800;
   line-height: 1.08;
@@ -1525,7 +1524,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-page-heading .helper-text {
   margin: 0;
-  color: #5f6e84;
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -1539,13 +1537,9 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   gap: 0.55rem;
   min-height: 2.95rem;
   padding: 0 1rem;
-  border: 1px solid rgba(220, 226, 237, 0.95);
   border-radius: 0.85rem;
-  background: #ffffff;
-  color: #263144;
   font-weight: 700;
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(24, 39, 75, 0.05);
 }
 
 .existing-coverage-return-icon {
@@ -1566,10 +1560,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 .existing-coverage-form-shell {
   margin: 0;
   padding: 1.2rem 1.25rem 1.3rem;
-  border: 1px solid rgba(221, 227, 238, 0.98);
   border-radius: 1.2rem;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(29, 42, 63, 0.05);
 }
 
 .existing-coverage-section-heading {
@@ -1581,14 +1572,12 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-section-heading h2 {
   margin: 0;
-  color: #20283a;
   font-size: 1.1rem;
   font-weight: 800;
 }
 
 .existing-coverage-section-heading p {
   margin: 0;
-  color: #627188;
   font-size: 0.96rem;
   line-height: 1.45;
   text-align: right;
@@ -1607,9 +1596,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   gap: 0.35rem;
   min-height: 6.3rem;
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(222, 228, 238, 0.98);
   border-radius: 1rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 251, 255, 0.98) 100%);
 }
 
 .existing-coverage-summary-card-client {
@@ -1624,8 +1611,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #eeecff;
-  color: #6a59df;
 }
 
 .existing-coverage-summary-avatar svg {
@@ -1640,7 +1625,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 }
 
 .existing-coverage-summary-label {
-  color: #708197;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1648,7 +1632,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 }
 
 .existing-coverage-summary-value {
-  color: #1b2334;
   font-size: 1.35rem;
   font-weight: 800;
   line-height: 1.16;
@@ -1659,7 +1642,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 }
 
 .existing-coverage-summary-meta {
-  color: #66758a;
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -1692,17 +1674,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   align-items: center;
   gap: 0.45rem;
   padding-inline: 1rem 1.15rem;
-  border: 1px solid rgba(220, 226, 237, 0.98);
-  background: #ffffff;
-  color: #5c4fd7;
   box-shadow: none;
-}
-
-.existing-coverage-add-button:hover,
-.existing-coverage-add-button:focus-visible {
-  background: #f8f7ff;
-  border-color: rgba(123, 104, 238, 0.28);
-  color: #5547d6;
 }
 
 .existing-coverage-add-icon {
@@ -1719,10 +1691,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   align-items: center;
   gap: 0.7rem;
   padding: 0.8rem 0.95rem;
-  border: 1px solid rgba(222, 228, 238, 0.98);
   border-radius: 0.95rem;
-  background: #fafbfe;
-  color: #67758a;
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -1734,7 +1703,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  color: #6d7b92;
 }
 
 .existing-coverage-inline-note-icon svg {
@@ -1745,7 +1713,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-required-note {
   margin-left: 0.35rem;
-  color: #8a95a8;
   font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -1766,16 +1733,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   display: block;
 }
 
-.existing-coverage-feedback.is-success {
-  background: #edf8f1;
-  color: #236742;
-}
-
-.existing-coverage-feedback.is-error {
-  background: #fff0f0;
-  color: #a03d3d;
-}
-
 .existing-coverage-policy-list {
   display: grid;
   gap: 1rem;
@@ -1783,9 +1740,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-saved-shell {
   margin: 0;
-  border: 1px solid rgba(222, 228, 238, 0.98);
   border-radius: 1.1rem;
-  background: #ffffff;
   box-shadow: none;
 }
 
@@ -1796,14 +1751,12 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-wizard-heading h3 {
   margin: 0;
-  color: #1d2636;
   font-size: 1.22rem;
   font-weight: 800;
 }
 
 .existing-coverage-wizard-heading p {
   margin: 0;
-  color: #66758a;
   font-size: 0.95rem;
   line-height: 1.45;
 }
@@ -1826,14 +1779,12 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-saved-heading h3 {
   margin: 0;
-  color: #1d2636;
   font-size: 1.04rem;
   font-weight: 800;
 }
 
 .existing-coverage-saved-heading p {
   margin: 0;
-  color: #67758a;
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -1843,19 +1794,15 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   justify-items: start;
   gap: 0.7rem;
   padding: 1.2rem 1.25rem;
-  border: 1px dashed rgba(205, 213, 226, 0.98);
   border-radius: 1rem;
-  background: #fbfcff;
 }
 
 .existing-coverage-empty strong {
-  color: #1d2838;
   font-size: 1rem;
 }
 
 .existing-coverage-empty p {
   margin: 0;
-  color: #657385;
 }
 
 .existing-coverage-saved-card {
@@ -1864,9 +1811,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   gap: 0.9rem 1rem;
   margin: 0;
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(222, 228, 238, 0.98);
   border-radius: 1rem;
-  background: #ffffff;
 }
 
 .existing-coverage-saved-card-copy {
@@ -1877,13 +1822,11 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-saved-card-copy strong {
   margin: 0;
-  color: #1d2636;
   font-size: 1rem;
   font-weight: 800;
 }
 
 .existing-coverage-saved-card-copy span {
-  color: #657385;
   font-size: 0.9rem;
   line-height: 1.45;
   word-break: break-word;
@@ -1909,7 +1852,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #e55854;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
@@ -1917,7 +1859,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 
 .existing-coverage-saved-delete:hover,
 .existing-coverage-saved-delete:focus-visible {
-  color: #cf4844;
   outline: none;
 }
 
@@ -1926,9 +1867,7 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   align-items: flex-start;
   gap: 0.8rem;
   padding: 1rem 1.1rem;
-  border: 1px solid rgba(224, 228, 242, 0.98);
   border-radius: 1rem;
-  background: #f6f4ff;
 }
 
 .existing-coverage-status-icon {
@@ -1939,8 +1878,6 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
   justify-content: center;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: #ffffff;
-  color: #5b49d9;
 }
 
 .existing-coverage-status-icon svg {
@@ -1955,13 +1892,11 @@ body[data-page="existing-coverage-details"] .prospect-empty-panel {
 }
 
 .existing-coverage-status-copy strong {
-  color: #2b3750;
   font-size: 1rem;
   font-weight: 800;
 }
 
 .existing-coverage-status-copy span {
-  color: #627088;
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -3343,11 +3278,7 @@ body[data-page="protection-modeling-inputs"] .field-group > label {
 .coverage-form-feedback {
   min-height: 1.25rem;
   margin: 0 0 0.75rem;
-  color: #8b2727;
   font-size: 0.9rem;
-}
-[data-premium-amount-group].is-disabled label {
-  color: #98a1af;
 }
 @media (max-width: 760px) {
   .client-coverage-widget-modal .client-activity-widget-modal-panel {
@@ -4261,9 +4192,9 @@ label:not(.analysis-setup-rate-label) {
   font-weight: 400;
 }
 
-input:not(.client-table-search-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]),
-select:not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
-textarea {
+input:not(.client-table-search-input):not(.client-activity-input):not(.client-coverage-suggest-input):not(.client-coverage-inline-unit-input):not(.client-coverage-readonly-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]),
+select:not(.client-activity-select):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
+textarea:not(.client-activity-textarea) {
   width: 100%;
   min-height: clamp(2.75rem, 4vw, 2.9rem);
   padding: clamp(0.7rem, 1.2vw, 0.8rem) clamp(0.8rem, 1.3vw, 0.9rem);
