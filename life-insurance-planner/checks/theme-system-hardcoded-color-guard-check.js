@@ -22,14 +22,14 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/layout.css",
-    colorBaseline: 38,
+    colorBaseline: 33,
     legacyVarBaseline: 0,
     namedColorBaseline: 0,
     category: "known layout/frame color debt"
   },
   {
     file: "life-insurance-planner/components.css",
-    colorBaseline: 2300,
+    colorBaseline: 1726,
     legacyVarBaseline: 11,
     namedColorBaseline: 0,
     category: "known component-family color debt"

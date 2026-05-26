@@ -165,7 +165,7 @@
     position: relative;
     min-height: 0;
     height: auto;
-    background: #ffffff;
+    background: var(--m90-surface);
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -309,8 +309,8 @@
 
   body.clients-page .client-directory-side-panel {
     grid-column: auto;
-    border-left: 1px solid rgba(213, 221, 232, 0.78);
-    border-top: 1px solid rgba(213, 221, 232, 0.78);
+    border-left: 1px solid var(--m90-border-soft);
+    border-top: 1px solid var(--m90-border-soft);
   }
 
   body.clients-page .client-directory-side-panel-inner {
@@ -395,7 +395,7 @@ body.clients-page.client-detail-overlay-open .workspace-visible-pane {
   .client-directory-menu-column {
     max-height: min(20rem, 48vh);
     border-right: 0;
-    border-bottom: 1px solid rgba(213, 221, 232, 0.78);
+    border-bottom: 1px solid var(--m90-border-soft);
     overflow-y: auto;
   }
 
@@ -405,7 +405,7 @@ body.clients-page.client-detail-overlay-open .workspace-visible-pane {
 
   .client-directory-side-panel {
     border-left: 0;
-    border-top: 1px solid rgba(213, 221, 232, 0.78);
+    border-top: 1px solid var(--m90-border-soft);
     overflow: visible;
   }
 
