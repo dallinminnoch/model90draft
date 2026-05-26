@@ -496,7 +496,7 @@
   :root.is-theme-transitioning *::before,
   :root.is-theme-transitioning *::after {
     transition-property: background, background-color, border-color, box-shadow, color, fill, outline-color, stroke;
-    transition-duration: 260ms;
-    transition-timing-function: ease;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }

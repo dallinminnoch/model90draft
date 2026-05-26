@@ -159,6 +159,18 @@
     });
   }
 
+  function syncThemeSwitchers(theme) {
+    const controller = window.Model90ThemeController;
+    if (!controller || typeof controller.getTheme !== "function") {
+      return;
+    }
+
+    const currentTheme = theme || controller.getTheme();
+    document.querySelectorAll("[data-theme-switcher-select]").forEach((select) => {
+      select.value = currentTheme;
+    });
+  }
+
   function mountThemeSwitcher() {
     const markup = renderThemeSwitcherMarkup();
     if (!markup) {
@@ -434,6 +446,10 @@
     bindSharedHeaderActions(iconPaths);
     mountThemeSwitcher();
   }
+
+  window.addEventListener("model90-theme-change", (event) => {
+    syncThemeSwitchers(event.detail?.theme);
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", injectSiteHeader);

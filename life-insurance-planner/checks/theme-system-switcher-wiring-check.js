@@ -75,11 +75,14 @@ assertContains(themeControllerSource, /document\.documentElement\.dataset\.theme
 assertContains(themeControllerSource, /THEME_KEYS\.includes\(key\)\s*\?\s*key\s*:\s*MODERN_THEME_KEY/, "invalid theme keys should fall back to modern.");
 assertContains(themeControllerSource, /localStorage\.getItem\(THEME_STORAGE_KEY\)/, "theme controller should read persisted theme from localStorage.");
 assertContains(themeControllerSource, /localStorage\.setItem\(THEME_STORAGE_KEY,\s*key\)/, "theme controller should persist theme to localStorage.");
+assertContains(themeControllerSource, /window\.addEventListener\("storage"/, "theme controller should listen for cross-page theme storage changes.");
+assertContains(themeControllerSource, /event\.key\s*!==\s*THEME_STORAGE_KEY/, "theme controller should scope storage sync to the theme key.");
+assertContains(themeControllerSource, /applyThemeChange\(event\.newValue\)/, "theme controller should apply external theme changes without re-persisting.");
 assertContains(themeControllerSource, /prefers-reduced-motion:\s*reduce/, "theme controller should respect reduced-motion preferences before animating theme changes.");
 assertContains(themeControllerSource, /is-theme-transitioning/, "theme controller should apply the scoped CSS theme fade class around user-triggered theme changes.");
 assertContains(themeControllerSource, /function applySavedTheme\(\)\s*\{\s*return applyTheme\(readSavedTheme\(\)\);\s*\}/, "saved theme application should stay direct and avoid a page-load transition.");
 assertNoRawColors(themeControllerSource, "theme controller");
-assertContains(tokensSource, /:root\.is-theme-transitioning,[\s\S]*?transition-property:\s*background,\s*background-color,\s*border-color,\s*box-shadow,\s*color,\s*fill,\s*outline-color,\s*stroke;[\s\S]*?transition-duration:\s*260ms;/, "tokens.css should own the scoped theme fade.");
+assertContains(tokensSource, /:root\.is-theme-transitioning,[\s\S]*?transition-property:\s*background,\s*background-color,\s*border-color,\s*box-shadow,\s*color,\s*fill,\s*outline-color,\s*stroke;[\s\S]*?transition-duration:\s*300ms;[\s\S]*?transition-timing-function:\s*cubic-bezier\(0\.22,\s*1,\s*0\.36,\s*1\);/, "tokens.css should own the scoped theme fade.");
 
 themeOptions.forEach(([key, label]) => {
   assertContains(themeControllerSource, new RegExp(`key:\\s*"${key}"`), `${key} should be an allowed theme key.`);
@@ -91,6 +94,8 @@ assertContains(siteHeaderSource, /data-theme-switcher-select/, "site-header shou
 assertContains(siteHeaderSource, /workspaceActions\.insertAdjacentHTML\("beforeend",\s*markup\)/, "workspace topbar actions should be the workspace switcher placement owner.");
 assertContains(siteHeaderSource, /siteHeaderUtility\.insertAdjacentHTML\("beforeend",\s*markup\)/, "site-header utility should receive the switcher on active non-workspace admin pages.");
 assertContains(siteHeaderSource, /controller\.setTheme\(select\.value\)/, "theme switcher should call the controller setter.");
+assertContains(siteHeaderSource, /window\.addEventListener\("model90-theme-change"/, "site-header should keep visible theme switchers synced to theme change events.");
+assertContains(siteHeaderSource, /syncThemeSwitchers\(event\.detail\?\.theme\)/, "site-header theme sync should consume the theme-change event detail.");
 assert.doesNotMatch(siteHeaderSource, /\.site-nav[^;]+insertAdjacentHTML/, "legacy site nav should not be the switcher placement owner.");
 assertNoRawColors(siteHeaderSource, "site-header switcher wiring");
 
