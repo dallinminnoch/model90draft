@@ -32,8 +32,20 @@ assert.match(componentsSource, /var\(--m90-surface\)/, "components.css should co
 assertSelectorUses(
   componentsSource,
   /\.workspace-side-nav\.workspace-side-nav-shell\s*\{[\s\S]*?\n\}/,
-  ["--m90-sidebar-bg", "--m90-sidebar-text", "--m90-logo-accent"],
+  ["--m90-sidebar-bg", "--m90-sidebar-text", "--m90-logo-accent", "--m90-accent-soft", "--m90-accent"],
   "workspace side nav shell"
+);
+assertSelectorUses(
+  componentsSource,
+  /\.workspace-side-nav-shell \.workspace-side-nav-primary-button\.is-active \.workspace-side-nav-primary-icon\s*\{[\s\S]*?\n\}/,
+  [],
+  "workspace side nav active primary icon"
+);
+assertSelectorUses(
+  componentsSource,
+  /\.workspace-side-nav-shell \.workspace-side-nav-primary-button\.is-active \.workspace-side-nav-primary-icon::before\s*\{[\s\S]*?\n\}/,
+  [],
+  "workspace side nav active primary icon background"
 );
 assert.match(componentsSource, /var\(--m90-sidebar-text-muted\)/, "sidebar flyout should consume muted sidebar text.");
 assert.match(componentsSource, /var\(--m90-focus-ring\)/, "common focus states should consume the focus-ring token.");

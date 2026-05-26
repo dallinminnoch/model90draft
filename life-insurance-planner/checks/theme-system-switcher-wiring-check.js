@@ -110,6 +110,9 @@ assertSelectorConsumesTokens(componentsSource, ".theme-switcher", [
   "--m90-surface-elevated",
   "--m90-text-secondary"
 ]);
+assertContains(componentsSource, /\.theme-switcher\s*\{[\s\S]*?position:\s*relative;/, "theme switcher should anchor its tokenized custom select arrow.");
+assertContains(componentsSource, /\.theme-switcher\s*\{[\s\S]*?max-width:\s*min\(14\.5rem,\s*calc\(100vw - 4\.5rem\)\);/, "theme switcher should constrain topbar overflow.");
+assertContains(componentsSource, /\.theme-switcher::after\s*\{[\s\S]*?border-right:\s*2px solid currentColor;[\s\S]*?border-bottom:\s*2px solid currentColor;/, "theme switcher arrow should inherit currentColor.");
 assertSelectorConsumesTokens(componentsSource, ".theme-switcher-label", [
   "--m90-text-muted"
 ]);
@@ -118,6 +121,7 @@ assertSelectorConsumesTokens(componentsSource, ".theme-switcher-select", [
   "--m90-surface-elevated",
   "--m90-text-primary"
 ]);
+assertContains(componentsSource, /\.theme-switcher-select\s*\{[\s\S]*?width:\s*min\(9\.2rem,\s*36vw\);[\s\S]*?box-sizing:\s*border-box;[\s\S]*?appearance:\s*none;[\s\S]*?-webkit-appearance:\s*none;[\s\S]*?background-color:\s*var\(--m90-surface-elevated\);[\s\S]*?background-image:\s*none;/, "visible theme select should use tokenized non-native chrome with constrained sizing.");
 assertSelectorConsumesTokens(componentsSource, ".theme-switcher-select:focus-visible", [
   "--m90-focus-ring"
 ]);
@@ -141,8 +145,25 @@ assertSelectorConsumesTokens(componentsSource, ".fullscreen-toggle:hover,\n.full
 assertContains(componentsSource, /\.workspace-page-menu-trigger::before\s*\{[\s\S]*?background:\s*currentColor;[\s\S]*?mask:\s*url\("Images\/menu\.svg"\)/, "workspace menu icon should render through currentColor.");
 assertContains(componentsSource, /\.fullscreen-toggle::before\s*\{[\s\S]*?background:\s*currentColor;[\s\S]*?mask:\s*url\("Images\/openfullscreen\.svg"\)/, "fullscreen icon should render through currentColor.");
 assertContains(componentsSource, /\.fullscreen-toggle\[aria-pressed="true"\]::before\s*\{[\s\S]*?mask-image:\s*url\("Images\/closefullscreen\.svg"\)/, "fullscreen pressed state should use the close icon mask.");
+assertSelectorConsumesTokens(componentsSource, ".workspace-side-nav.workspace-side-nav-shell", [
+  "--m90-accent-soft",
+  "--m90-accent"
+]);
+assertContains(componentsSource, /\.workspace-side-nav-shell \.workspace-side-nav-primary-button\.is-active \.workspace-side-nav-primary-icon\s*\{[\s\S]*?color:\s*var\(--workspace-side-nav-primary-icon-active-color\);/, "active far-left workspace rail icon should use the active icon color variable.");
+assertContains(componentsSource, /\.workspace-side-nav-shell \.workspace-side-nav-primary-button\.is-active \.workspace-side-nav-primary-icon::before\s*\{[\s\S]*?background:\s*var\(--workspace-side-nav-primary-icon-active-bg\);/, "active far-left workspace rail icon background should use the active background variable.");
+assertContains(componentsSource, /\.workspace-side-nav-shell \.workspace-side-nav-primary-icon-art--asset\s*\{[\s\S]*?background:\s*currentColor;[\s\S]*?mask-image:\s*var\(--workspace-side-nav-primary-icon-asset\);/, "far-left workspace rail asset icons should render through currentColor masks.");
+assertContains(componentsSource, /\.client-directory-utility-button\s*\{[\s\S]*?color:\s*var\(--m90-text-primary\);/, "shared Client Directory utility buttons should have tokenized icon color.");
+assertContains(componentsSource, /body\.clients-page \.client-directory-utility-button\s*\{[\s\S]*?color:\s*var\(--m90-text-secondary\);/, "active Client Directory utility buttons should inherit tokenized icon color.");
+assertContains(componentsSource, /body\.clients-page \.client-directory-utility-button:hover,\s*body\.clients-page \.client-directory-utility-button:focus-visible\s*\{[\s\S]*?color:\s*var\(--m90-accent\);/, "active Client Directory utility buttons should use tokenized hover/focus color.");
+assertContains(componentsSource, /\.client-directory-utility-icon::before\s*\{[\s\S]*?background:\s*currentColor;[\s\S]*?mask-size:\s*contain;/, "Client Directory utility icons should render through currentColor masks.");
+assertContains(componentsSource, /\.client-directory-utility-button\[data-directory-utility="trash"\] \.client-directory-utility-icon::before\s*\{[\s\S]*?mask-image:\s*url\("Images\/trashbin\.svg"\)/, "trash utility icon should use a currentColor mask.");
+assertContains(componentsSource, /\.client-directory-utility-button\[data-directory-utility="archive"\] \.client-directory-utility-icon::before\s*\{[\s\S]*?mask-image:\s*url\("Images\/archive\.svg"\)/, "archive utility icon should use a currentColor mask.");
+assertContains(componentsSource, /\.client-directory-utility-button\[data-directory-utility="accessibility"\] \.client-directory-utility-icon::before\s*\{[\s\S]*?mask-image:\s*url\("Images\/accessibility\.svg"\)/, "accessibility utility icon should use a currentColor mask.");
+assertContains(componentsSource, /\.client-directory-utility-button\[data-summary-customize-trigger\] \.client-directory-utility-icon::before\s*\{[\s\S]*?mask-image:\s*url\("Images\/customizepreviewcards\.svg"\)/, "customize cards utility icon should use a currentColor mask.");
+assert.doesNotMatch(extractBlock(componentsSource, ".client-directory-utility-icon img"), /filter:\s*brightness\(0\)/, "active Client Directory utility img fallback should not force black icons.");
 
-assert.doesNotMatch(stylesSource, /theme-switcher/, "styles.css should not own theme switcher styles.");
+assertContains(stylesSource, /select:not\(\.theme-switcher-select\):not\(\.client-activity-select\)/, "legacy broad select styling should explicitly exclude the theme switcher select.");
+assert.doesNotMatch(stylesSource, /\.theme-switcher-select\s*\{/, "styles.css should not add a theme switcher visual owner block.");
 
 ["components.css", "layout.css", "styles.css"].forEach((relativePath) => {
   const source = readRepoFile(relativePath);

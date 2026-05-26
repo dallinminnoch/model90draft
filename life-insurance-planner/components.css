@@ -696,16 +696,31 @@ input.search-bar__input {
 }
 
 .theme-switcher {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
   min-height: clamp(2.2rem, 3.4vw, 2.55rem);
-  padding: 0 0.25rem 0 0.72rem;
+  max-width: min(14.5rem, calc(100vw - 4.5rem));
+  padding: 0 0.72rem 0 0.72rem;
   border: 1px solid var(--m90-border);
   border-radius: 999px;
   background: var(--m90-surface-elevated);
   color: var(--m90-text-secondary);
   box-shadow: none;
+}
+
+.theme-switcher::after {
+  content: "";
+  position: absolute;
+  right: 0.82rem;
+  top: 50%;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-62%) rotate(45deg);
+  pointer-events: none;
 }
 
 .theme-switcher-label {
@@ -717,16 +732,23 @@ input.search-bar__input {
 
 .theme-switcher-select {
   min-height: 1.92rem;
+  width: min(9.2rem, 36vw);
   max-width: 10.4rem;
-  appearance: auto;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 1.35rem 0 0.58rem;
   border: 1px solid var(--m90-border);
   border-radius: 999px;
-  background: var(--m90-surface-elevated);
+  background-color: var(--m90-surface-elevated);
+  background-image: none;
   color: var(--m90-text-primary);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .theme-switcher-select:focus-visible {
@@ -760,12 +782,14 @@ input.search-bar__input {
 
 .workspace-page-topbar .theme-switcher {
   min-height: var(--workspace-topbar-control-size);
+  max-width: min(13.25rem, calc(100vw - 4.5rem));
   padding-left: 0.62rem;
 }
 
 .workspace-page-topbar .theme-switcher-select {
   min-height: calc(var(--workspace-topbar-control-size) - 0.24rem);
-  max-width: 9.1rem;
+  width: min(8.6rem, 30vw);
+  max-width: 8.6rem;
 }
 
 .fullscreen-toggle {
@@ -4872,8 +4896,8 @@ body[data-page="next-step"] #pmi-debts .debt-payoff-total-group .profile-currenc
   --workspace-side-nav-primary-icon-size: 2.12rem;
   --workspace-side-nav-primary-icon-art-size: 1.18rem;
   --workspace-side-nav-primary-icon-radius: 0.22rem;
-  --workspace-side-nav-primary-icon-active-bg: var(--m90-surface);
-  --workspace-side-nav-primary-icon-active-color: var(--m90-sidebar-bg);
+  --workspace-side-nav-primary-icon-active-bg: var(--m90-accent-soft);
+  --workspace-side-nav-primary-icon-active-color: var(--m90-accent);
   --workspace-side-nav-primary-icon-active-shadow: var(--m90-shadow);
   position: relative;
   display: block;
@@ -13640,20 +13664,56 @@ body.is-modal-open {
 }
 
 .client-directory-utility-icon {
+  position: relative;
   width: 1.56em;
   height: 1.56em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  color: currentColor;
 }
 
 .client-directory-utility-icon img {
   width: 100%;
   height: 100%;
-  display: block;
+  display: none;
   object-fit: contain;
-  filter: brightness(0) saturate(100%);
+  filter: none;
+}
+
+.client-directory-utility-icon::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.client-directory-utility-button[data-directory-utility="trash"] .client-directory-utility-icon::before {
+  -webkit-mask-image: url("Images/trashbin.svg");
+  mask-image: url("Images/trashbin.svg");
+}
+
+.client-directory-utility-button[data-directory-utility="archive"] .client-directory-utility-icon::before {
+  -webkit-mask-image: url("Images/archive.svg");
+  mask-image: url("Images/archive.svg");
+}
+
+.client-directory-utility-button[data-directory-utility="accessibility"] .client-directory-utility-icon::before {
+  -webkit-mask-image: url("Images/accessibility.svg");
+  mask-image: url("Images/accessibility.svg");
+}
+
+.client-directory-utility-button[data-summary-customize-trigger] .client-directory-utility-icon::before {
+  -webkit-mask-image: url("Images/customizepreviewcards.svg");
+  mask-image: url("Images/customizepreviewcards.svg");
 }
 
 .client-directory-description-line {

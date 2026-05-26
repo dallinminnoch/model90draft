@@ -4189,7 +4189,7 @@ label:not(.analysis-setup-rate-label) {
 }
 
 input:not(.client-table-search-input):not(.client-activity-input):not(.client-coverage-suggest-input):not(.client-coverage-inline-unit-input):not(.client-coverage-readonly-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]),
-select:not(.client-activity-select):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
+select:not(.theme-switcher-select):not(.client-activity-select):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
 textarea:not(.client-activity-textarea) {
   width: 100%;
   min-height: clamp(2.75rem, 4vw, 2.9rem);
