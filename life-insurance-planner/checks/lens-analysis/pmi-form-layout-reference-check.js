@@ -12,6 +12,7 @@ function readRepoFile(relativePath) {
 }
 
 const pageSource = readRepoFile("pages/next-step.html");
+const layoutCss = readRepoFile("layout.css");
 const componentsCss = readRepoFile("components.css");
 const stylesCss = readRepoFile("styles.css");
 
@@ -148,17 +149,17 @@ assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],
 });
 
 [
+  'body[data-page="next-step"] .prospect-panel-header',
+  'body[data-page="next-step"] .pmi-file-header',
+  'body[data-page="next-step"] .pmi-form-main .form-grid',
   'body[data-page="next-step"] #pmi-income .income-calculation-grid',
   'body[data-page="next-step"] #pmi-income .income-calculation-grid > .field-group:has(#gross-annual-income)',
   'body[data-page="next-step"] #pmi-income .pmi-reference-divider',
   'body[data-page="next-step"] #pmi-income .primary-net-income-group',
   'body[data-page="next-step"] #pmi-income .pmi-reference-notice'
 ].forEach((selector) => {
-  const escapedSelector = new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  assert.ok(
-    escapedSelector.test(componentsCss) || escapedSelector.test(stylesCss),
-    `PMI styles should match the reference income layout for ${selector}.`
-  );
+  assert.match(layoutCss, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `layout.css should own canonical PMI structural layout for ${selector}.`);
+  assert.doesNotMatch(stylesCss, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `styles.css should not retain canonical PMI structural layout for ${selector}.`);
 });
 
 [

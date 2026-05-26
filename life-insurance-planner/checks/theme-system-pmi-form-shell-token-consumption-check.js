@@ -40,6 +40,7 @@ function countMatches(source, pattern) {
 }
 
 const componentsCss = readRepoFile("components.css");
+const layoutCss = readRepoFile("layout.css");
 const stylesCss = readRepoFile("styles.css");
 const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g;
 
@@ -127,15 +128,20 @@ assertSelectorUses(
   "Save-exit button hover/focus styling should consume accent tokens"
 );
 
-const stylesNextStepBlock = extractBetween(
+assert.doesNotMatch(
   stylesCss,
-  '@layer overrides {\nbody[data-page="next-step"] .prospect-panel-header',
-  'body[data-step="income-impact"] .income-impact-page-intro'
+  /body\[data-page="next-step"\]\s+\.prospect-panel-header/,
+  "styles.css should not retain the canonical PMI next-step layout block."
+);
+const layoutNextStepBlock = extractBetween(
+  layoutCss,
+  "/* Canonical PMI form layout ownership. Visual/control tokens remain in components.css. */",
+  ".client-directory-shell-layout"
 );
 assert.equal(
-  countMatches(stylesNextStepBlock, hardcodedColorPattern),
+  countMatches(layoutNextStepBlock, hardcodedColorPattern),
   0,
-  "styles.css next-step override block should not retain hardcoded colors for migrated PMI controls."
+  "layout.css canonical PMI layout block should remain layout-only and avoid raw colors."
 );
 assert.doesNotMatch(
   stylesCss,
@@ -165,7 +171,8 @@ assert.equal(
   "body[data-page=\"next-step\"] #pmi-income .pmi-reference-divider--deductions",
   "body[data-page=\"next-step\"] #pmi-income .pmi-reference-divider--tax"
 ].forEach((selector) => {
-  assert.match(stylesCss, new RegExp(escapeRegex(selector)), `${selector} structural layout ownership should remain deferred in styles.css.`);
+  assert.match(layoutCss, new RegExp(escapeRegex(selector)), `${selector} structural layout ownership should live in layout.css.`);
+  assert.doesNotMatch(stylesCss, new RegExp(escapeRegex(selector)), `${selector} structural layout ownership should not remain in styles.css.`);
 });
 
 assertContains(
