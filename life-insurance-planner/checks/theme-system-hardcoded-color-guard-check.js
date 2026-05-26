@@ -36,10 +36,10 @@ const trackedFiles = [
   },
   {
     file: "life-insurance-planner/styles.css",
-    colorBaseline: 430,
+    colorBaseline: 415,
     legacyVarBaseline: 33,
     namedColorBaseline: 0,
-    category: "legacy style debt, reduced after Settings/Admin/modal, canonical PMI, Client Detail profile, Existing Coverage, and Income Impact visual neutralization"
+    category: "legacy style debt, reduced after workflow step nav, Settings/Admin/modal, canonical PMI, Client Detail profile, Existing Coverage, and Income Impact visual neutralization"
   },
   {
     file: "life-insurance-planner/app/features/client-directory.js",

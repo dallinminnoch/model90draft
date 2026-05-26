@@ -10588,6 +10588,151 @@ body[data-step="income-impact"] *::-webkit-scrollbar-corner {
   }
 }
 
+/* Shared LENS workflow step navigation */
+body[data-step] .workflow-nav {
+  min-height: auto;
+  margin-bottom: 1.35rem;
+}
+
+body[data-step] .workflow-header {
+  padding: 0.8rem 0 0.95rem;
+  border: 0;
+  border-bottom: 1px solid var(--m90-border);
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  transition: none;
+}
+
+body[data-step] .step-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--step-count), minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+  width: min(100%, 72rem);
+  margin: 0 auto;
+  padding: 0 0.95rem;
+}
+
+body[data-step] .step-track::before,
+body[data-step] .step-track::after {
+  content: "";
+  position: absolute;
+  top: 0.95rem;
+  left: calc(50% / var(--step-count));
+  height: 2px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+
+body[data-step] .step-track::before {
+  width: calc(100% - (100% / var(--step-count)));
+  background: var(--m90-border);
+}
+
+body[data-step] .step-track::after {
+  width: calc((100% - (100% / var(--step-count))) * var(--progress-ratio, 0));
+  background: var(--m90-accent);
+  transition: width 220ms ease;
+}
+
+body[data-step] .step-item {
+  position: relative;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  width: 100%;
+  overflow: visible;
+  transition: none;
+  text-align: center;
+  z-index: 1;
+}
+
+body[data-step] .step-number {
+  width: 1.9rem;
+  height: 1.9rem;
+  max-height: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface);
+  color: var(--m90-text-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  opacity: 1;
+  overflow: visible;
+  transform: none;
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+body[data-step] .step-number::before,
+body[data-step] .step-number::after {
+  content: none;
+}
+
+body[data-step] .step-title {
+  margin-top: 0;
+  max-height: none;
+  display: inline-block;
+  opacity: 1;
+  overflow: visible;
+  transform: none;
+  color: var(--m90-text-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: center;
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+body[data-step] .step-item.is-current .step-number {
+  border-color: var(--m90-accent);
+  background: var(--m90-accent);
+  color: var(--m90-surface);
+}
+
+body[data-step] .step-item.is-current .step-title {
+  color: var(--m90-text-primary);
+  font-weight: 650;
+}
+
+body[data-step] .step-item.is-complete .step-number {
+  border-color: var(--m90-accent);
+  background: var(--m90-accent);
+  color: var(--m90-surface);
+}
+
+body[data-step] .step-item.is-complete .step-title {
+  color: var(--m90-text-secondary);
+}
+
+body[data-step] .step-item:hover,
+body[data-step] .step-item:focus-visible {
+  transform: none;
+}
+
+body[data-step] .step-item:hover .step-number,
+body[data-step] .step-item:focus-visible .step-number {
+  transform: scale(1.08);
+}
+
+body[data-step] .step-item:hover .step-title,
+body[data-step] .step-item:focus-visible .step-title {
+  transform: none;
+}
+
 body.lens-start-page .lens-start-intro .section-label {
   margin-bottom: 0.75rem;
   color: #5f7189;
