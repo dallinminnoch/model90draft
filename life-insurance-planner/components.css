@@ -23838,6 +23838,12 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
   cursor: pointer;
 }
 
+.income-impact-toggle-row.is-disabled,
+.income-impact-toggle-row[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .income-impact-toggle {
   position: relative;
   flex: 0 0 auto;
@@ -23874,6 +23880,10 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
 
 .income-impact-toggle input:checked + span {
   background: var(--income-impact-scenario-blue);
+}
+
+.income-impact-toggle input:disabled + span {
+  background: var(--m90-border);
 }
 
 .income-impact-toggle input:checked + span::after {

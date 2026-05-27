@@ -1684,6 +1684,196 @@
     };
   }
 
+  function normalizeStreamFrequency(value) {
+    const normalized = normalizeStatus(value || MONTHLY_CADENCE);
+    if (["annual", "annually", "yearly"].includes(normalized)) {
+      return "annual";
+    }
+    if (["one-time", "one_time", "once"].includes(normalized)) {
+      return "oneTime";
+    }
+    return MONTHLY_CADENCE;
+  }
+
+  function monthlyAmountForStream(row) {
+    const monthlyAmount = toOptionalNumber(row?.monthlyAmount);
+    if (monthlyAmount != null) {
+      return monthlyAmount;
+    }
+
+    const amount = toOptionalNumber(row?.amount);
+    if (amount == null) {
+      return null;
+    }
+
+    return normalizeStreamFrequency(row?.frequency) === "annual" ? amount / 12 : amount;
+  }
+
+  function isComposerStreamActive(stream, monthIndex, periodStart) {
+    const delayMonths = toWholeMonthCount(stream?.startDelayMonths) || 0;
+    if (monthIndex <= delayMonths) {
+      return false;
+    }
+
+    const activeMonthNumber = monthIndex - delayMonths;
+    const termMonths = toWholeMonthCount(stream?.termMonths);
+    if (termMonths != null && activeMonthNumber > termMonths) {
+      return false;
+    }
+
+    const startDate = normalizeDateOnly(stream?.startDate);
+    if (startDate?.date && periodStart < startDate.date) {
+      return false;
+    }
+
+    const endDate = normalizeDateOnly(stream?.endDate);
+    if (endDate?.date && periodStart > endDate.date) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function sumScenarioMonthlyAmounts(streams, monthIndex, periodStart) {
+    return roundMoney((Array.isArray(streams) ? streams : []).reduce(function (total, stream) {
+      if (!isPlainObject(stream) || !isComposerStreamActive(stream, monthIndex, periodStart) || isExcludedStatus(stream.status)) {
+        return total;
+      }
+      const monthlyAmount = monthlyAmountForStream(stream);
+      return total + (monthlyAmount == null ? 0 : monthlyAmount);
+    }, 0));
+  }
+
+  function getTotalPlannedMonthlySavings(savingAllocations) {
+    return roundMoney((Array.isArray(savingAllocations) ? savingAllocations : []).reduce(function (total, allocation) {
+      if (!isPlainObject(allocation) || isExcludedStatus(allocation.status)) {
+        return total;
+      }
+      const monthlyAmount = toOptionalNumber(
+        allocation.monthlyAmount
+        ?? allocation.monthlyContributionAmount
+        ?? allocation.amount
+      );
+      return total + (monthlyAmount == null || monthlyAmount <= 0 ? 0 : monthlyAmount);
+    }, 0));
+  }
+
+  function resolvePostDeathSavingsContinuation(input, layer3Input, savingAllocations) {
+    const scenarioOptions = isPlainObject(input?.scenarioOptions) ? input.scenarioOptions : {};
+    const requested = scenarioOptions.continueSavingsAfterDeath === true;
+    const plannedMonthlyAmount = getTotalPlannedMonthlySavings(savingAllocations);
+    const startDate = normalizeDateOnly(layer3Input?.startDate);
+    const projectionHorizonMonths = toWholeMonthCount(layer3Input?.projectionHorizonMonths);
+    const resolution = {
+      requested,
+      eligible: false,
+      effective: false,
+      reason: "missingCashFlowInputs",
+      plannedMonthlyAmount,
+      minimumMonthlySurvivorCashFlow: null,
+      firstInsufficientMonthIndex: null,
+      policy: "full-planned-monthly-continuation-only-v1"
+    };
+
+    if (plannedMonthlyAmount <= 0) {
+      resolution.reason = "noPlannedSavings";
+      return resolution;
+    }
+
+    if (!startDate || projectionHorizonMonths == null || projectionHorizonMonths <= 0) {
+      resolution.reason = "missingCashFlowInputs";
+      return resolution;
+    }
+
+    let minimumMonthlySurvivorCashFlow = null;
+    for (let monthIndex = 1; monthIndex <= projectionHorizonMonths; monthIndex += 1) {
+      const periodStart = addMonths(startDate.date, monthIndex - 1);
+      const survivorIncome = sumScenarioMonthlyAmounts(layer3Input.survivorIncomeStreams, monthIndex, periodStart);
+      const survivorNeeds = sumScenarioMonthlyAmounts(layer3Input.survivorNeedStreams, monthIndex, periodStart);
+      const scheduledObligations = sumScenarioMonthlyAmounts(layer3Input.scheduledObligations, monthIndex, periodStart);
+      const monthlyCashFlow = roundMoney(survivorIncome - survivorNeeds - scheduledObligations);
+      minimumMonthlySurvivorCashFlow = minimumMonthlySurvivorCashFlow == null
+        ? monthlyCashFlow
+        : Math.min(minimumMonthlySurvivorCashFlow, monthlyCashFlow);
+      if (monthlyCashFlow < plannedMonthlyAmount && resolution.firstInsufficientMonthIndex == null) {
+        resolution.firstInsufficientMonthIndex = monthIndex;
+      }
+    }
+
+    resolution.minimumMonthlySurvivorCashFlow = roundMoney(minimumMonthlySurvivorCashFlow);
+    resolution.eligible = resolution.minimumMonthlySurvivorCashFlow >= plannedMonthlyAmount;
+    resolution.effective = requested && resolution.eligible;
+    resolution.reason = resolution.effective
+      ? "enabled"
+      : resolution.eligible
+        ? "controlOff"
+        : "insufficientSurvivorCashFlow";
+    return resolution;
+  }
+
+  function buildPostDeathSavingsStartingCategoryBalances(layer2Output) {
+    return (Array.isArray(layer2Output?.assetTreatmentAtDeath?.rows) ? layer2Output.assetTreatmentAtDeath.rows : [])
+      .filter(function (row) {
+        return row?.included === true && (toOptionalNumber(row?.treatedValue) || 0) > 0;
+      })
+      .map(function (row, index) {
+        return {
+          id: normalizeString(row.id) || `post-death-starting-category-${index + 1}`,
+          categoryKey: normalizeString(row.categoryKey || row.treatmentCategoryKey),
+          label: normalizeString(row.label || row.categoryKey || row.treatmentCategoryKey),
+          treatedValue: roundMoney(toOptionalNumber(row.treatedValue) || 0),
+          sourcePaths: readSourcePaths(row, `layer2.assetTreatmentAtDeath.rows.${index}`),
+          trace: {
+            source: "layer2.assetTreatmentAtDeath.rows",
+            treatmentStatus: normalizeString(row.treatmentStatus)
+          }
+        };
+      });
+  }
+
+  function createPostDeathSavingsProjectionUnavailable(input, code, message) {
+    const continuation = clonePlainValue(input?.continuation || {});
+    const dataGaps = continuation.effective === true
+      ? [makeIssue(code, message, ["LensApp.lensAnalysis.calculatePostDeathSavingsProjection"])]
+      : [];
+    return {
+      calculationMethod: "post-death-savings-projection-v1",
+      status: dataGaps.length ? "partial" : "complete",
+      cadence: MONTHLY_CADENCE,
+      startDate: normalizeString(input?.startDate),
+      projectionHorizonMonths: toWholeMonthCount(input?.projectionHorizonMonths),
+      continuation,
+      points: [],
+      summary: {
+        totalContinuedSavingContributions: 0,
+        totalProjectedPostDeathSavingsValue: 0,
+        totalGenericSurplusBeforeSavings: 0,
+        totalGenericSurplusAfterSavings: 0,
+        endingProjectedCategoryValue: 0,
+        endingContributionGrowthValue: 0,
+        targetCategoryCount: 0
+      },
+      warnings: [],
+      dataGaps,
+      trace: {
+        calculationMethod: "post-death-savings-projection-v1",
+        helper: "unavailable",
+        sourcePaths: []
+      }
+    };
+  }
+
+  function buildPostDeathSavingsProjectionInput(normalizedInput, layer1Input, layer2Output, layer3Output, continuation) {
+    return {
+      startDate: normalizedInput.selectedDeathDate,
+      projectionHorizonMonths: normalizedInput.projectionHorizonMonths,
+      continuation,
+      savingAllocations: clonePlainValue(layer1Input.savingAllocations || []),
+      startingCategoryBalances: buildPostDeathSavingsStartingCategoryBalances(layer2Output),
+      cashFlowPoints: clonePlainValue(layer3Output?.points || [])
+    };
+  }
+
   function getAssetLedgerFamily(row) {
     const id = normalizeString(row?.id);
     const treatmentCategory = normalizeString(row?.treatmentCategoryKey);
@@ -2015,6 +2205,15 @@
     );
 
     const layer3Input = buildLayer3Input(normalizedInput, layer2, dataGaps, warnings, trace, sourcePaths);
+    const postDeathSavingsContinuation = resolvePostDeathSavingsContinuation(
+      normalizedInput,
+      layer3Input,
+      layer1Input.savingAllocations
+    );
+    trace.layer3.postDeathSavingsContinuation = clonePlainValue(postDeathSavingsContinuation);
+    trace.layer3.inputMapping.postDeathSavingAllocations = postDeathSavingsContinuation.effective
+      ? "post-death-savings-projection helper"
+      : "none";
     const layer3Helper = lensAnalysis.calculateHouseholdSurvivorRunway;
     const layer3 = runLayer(
       layer3Helper,
@@ -2024,16 +2223,46 @@
     );
     attachLayer3InputDiagnostics(layer3, layer3Input);
     trace.layer3.canonicalRunwayAssetWaterfall = buildCanonicalRunwayAssetWaterfall(layer2, layer3Input, layer3);
+    const postDeathSavingsProjectionInput = buildPostDeathSavingsProjectionInput(
+      normalizedInput,
+      layer1Input,
+      layer2,
+      layer3,
+      postDeathSavingsContinuation
+    );
+    const postDeathSavingsProjectionHelper = lensAnalysis.calculatePostDeathSavingsProjection;
+    const postDeathSavingsProjection = typeof postDeathSavingsProjectionHelper === "function"
+      ? postDeathSavingsProjectionHelper(postDeathSavingsProjectionInput)
+      : createPostDeathSavingsProjectionUnavailable(
+          postDeathSavingsProjectionInput,
+          "missing-post-death-savings-projection-helper",
+          "Post-death savings projection helper was unavailable."
+        );
+    trace.layer3.postDeathSavingsProjection = {
+      helper: typeof postDeathSavingsProjectionHelper === "function"
+        ? "LensApp.lensAnalysis.calculatePostDeathSavingsProjection"
+        : "missing",
+      inputMapping: {
+        continuation: "scenario.postDeathSavingsContinuation",
+        savingAllocations: trace.layer1.savingAllocationPolicy?.source || "layer1Input.savingAllocations",
+        cashFlowPoints: "layer3.points",
+        startingCategoryBalances: "layer2.assetTreatmentAtDeath.rows"
+      },
+      status: postDeathSavingsProjection.status || null
+    };
 
     collectLayerItems(warnings, layer1.warnings);
     collectLayerItems(warnings, layer2.warnings);
     collectLayerItems(warnings, layer3.warnings);
+    collectLayerItems(warnings, postDeathSavingsProjection.warnings);
     collectLayerItems(dataGaps, layer1.dataGaps);
     collectLayerItems(dataGaps, layer2.dataGaps);
     collectLayerItems(dataGaps, layer3.dataGaps);
+    collectLayerItems(dataGaps, postDeathSavingsProjection.dataGaps);
     collectLayerSourcePaths(sourcePaths, layer1);
     collectLayerSourcePaths(sourcePaths, layer2);
     collectLayerSourcePaths(sourcePaths, layer3);
+    collectLayerSourcePaths(sourcePaths, postDeathSavingsProjection);
 
     const resourcesAfterObligations = roundMoney(layer2?.resources?.resourcesAfterObligations || 0);
     const coverageAdded = roundMoney(layer2?.resources?.existingCoverage || 0);
@@ -2045,14 +2274,16 @@
     const transitionOutlook = buildTransitionOutlookDiagnostic(lensModel, layer2, layer3);
 
     return {
-      status: getOverallStatus([layer1, layer2, layer3], dataGaps),
+      status: getOverallStatus([layer1, layer2, layer3, postDeathSavingsProjection], dataGaps),
       scenario: {
         valuationDate: normalizedInput.valuationDate,
         selectedDeathDate: normalizedInput.selectedDeathDate,
         selectedDeathAge: normalizedInput.selectedDeathAge,
         projectionHorizonMonths,
         mortgageTreatmentOverride: scenarioOptions.mortgageTreatmentOverride || null,
-        includeSurvivorIncome: resolveSurvivorIncomeScenarioOverride(scenarioOptions)
+        includeSurvivorIncome: resolveSurvivorIncomeScenarioOverride(scenarioOptions),
+        continueSavingsAfterDeath: postDeathSavingsContinuation.effective === true,
+        postDeathSavingsContinuation: clonePlainValue(postDeathSavingsContinuation)
       },
       preDeathSeries: {
         mode: currentPointOnly ? "current-point-only" : "forward-projection",
@@ -2076,7 +2307,8 @@
         points: clonePlainValue(layer3.points || []),
         summary: clonePlainValue(layer3.summary || {}),
         depletion: clonePlainValue(depletion),
-        layer3: clonePlainValue(layer3)
+        layer3: clonePlainValue(layer3),
+        savingsContinuationProjection: clonePlainValue(postDeathSavingsProjection)
       },
       timelineFacts: {
         assetsBeforeDeath,
@@ -2107,7 +2339,8 @@
         layerOutputs: {
           layer1Status: layer1.status || null,
           layer2Status: layer2.status || null,
-          layer3Status: layer3.status || null
+          layer3Status: layer3.status || null,
+          postDeathSavingsProjectionStatus: postDeathSavingsProjection.status || null
         },
         sourcePaths: uniqueStrings(sourcePaths)
       },

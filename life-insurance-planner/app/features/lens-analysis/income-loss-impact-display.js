@@ -724,6 +724,10 @@
       survivorIncome: banner.querySelector("[data-income-impact-survivor-income]"),
       survivorIncomeOptions: Array.from(banner.querySelectorAll("[data-income-impact-survivor-income-option]")),
       survivorIncomeValue: banner.querySelector("[data-income-impact-survivor-income-value]"),
+      savingsContinuationControl: banner.querySelector("[data-income-impact-savings-continuation-control]"),
+      savingsContinuationRow: banner.querySelector("[data-income-impact-savings-continuation-row]"),
+      continueSavingsAfterDeath: banner.querySelector("[data-income-impact-continue-savings-after-death]"),
+      savingsContinuationNote: banner.querySelector("[data-income-impact-savings-continuation-note]"),
       lifestyleSlider: banner.querySelector("[data-income-impact-lifestyle-slider]"),
       lifestyleOptions: Array.from(banner.querySelectorAll("[data-income-impact-lifestyle-option]")),
       lifestyleValue: banner.querySelector("[data-income-impact-lifestyle-value]"),
@@ -978,6 +982,20 @@
     const projectionHorizonYears = draftControls.projectionHorizonYears;
     const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
     const includeSurvivorIncome = draftControls.includeSurvivorIncome !== false;
+    const postDeathSavingsContinuation = isPlainObject(timelineResult?.scenario?.postDeathSavingsContinuation)
+      ? timelineResult.scenario.postDeathSavingsContinuation
+      : {};
+    const savingsContinuationEligible = postDeathSavingsContinuation.eligible === true;
+    let continueSavingsAfterDeath = draftControls.continueSavingsAfterDeath === true;
+    if (!savingsContinuationEligible) {
+      continueSavingsAfterDeath = false;
+      if (isPlainObject(incomeImpactState?.draftScenarioControls)) {
+        incomeImpactState.draftScenarioControls.continueSavingsAfterDeath = false;
+      }
+      if (isPlainObject(incomeImpactState?.scenarioState)) {
+        incomeImpactState.scenarioState.continueSavingsAfterDeath = false;
+      }
+    }
     const lifestyleSliderValue = draftControls.lifestyleSliderValue;
     const autoCompressBaselineEnabled = draftControls.autoCompressBaselineEnabled !== false;
     const collapsed = scenarioState.bannerCollapsed === true;
@@ -1030,6 +1048,31 @@
 
     if (elements.survivorIncomeValue) {
       elements.survivorIncomeValue.textContent = includeSurvivorIncome ? "Included" : "Excluded";
+    }
+
+    if (elements.continueSavingsAfterDeath) {
+      elements.continueSavingsAfterDeath.checked = continueSavingsAfterDeath;
+      elements.continueSavingsAfterDeath.disabled = !savingsContinuationEligible;
+      elements.continueSavingsAfterDeath.setAttribute("aria-checked", String(continueSavingsAfterDeath));
+      elements.continueSavingsAfterDeath.setAttribute("aria-disabled", String(!savingsContinuationEligible));
+    }
+
+    if (elements.savingsContinuationControl) {
+      elements.savingsContinuationControl.setAttribute(
+        "data-income-impact-savings-continuation-state",
+        savingsContinuationEligible ? "available" : "disabled"
+      );
+    }
+
+    if (elements.savingsContinuationRow) {
+      elements.savingsContinuationRow.classList.toggle("is-disabled", !savingsContinuationEligible);
+      elements.savingsContinuationRow.setAttribute("aria-disabled", String(!savingsContinuationEligible));
+    }
+
+    if (elements.savingsContinuationNote) {
+      elements.savingsContinuationNote.textContent = savingsContinuationEligible
+        ? "Scenario-only setting. Assumption Controls stay unchanged."
+        : "Unavailable when survivor cash flow cannot support planned savings.";
     }
 
     if (elements.lifestyleSlider) {
@@ -6883,6 +6926,10 @@
         sourceControls.includeSurvivorIncome ?? scenarioState.includeSurvivorIncome,
         getAssumptionSurvivorIncomeEnabled(safeState.lensModel)
       ),
+      continueSavingsAfterDeath: normalizeBooleanScenarioControl(
+        sourceControls.continueSavingsAfterDeath ?? scenarioState.continueSavingsAfterDeath,
+        false
+      ),
       lifestyleSliderValue: clampLifestyleSliderValue(sourceControls.lifestyleSliderValue ?? scenarioState.lifestyleSliderValue),
       autoCompressBaselineEnabled: (sourceControls.autoCompressBaselineEnabled ?? scenarioState.autoCompressBaselineEnabled) !== false
     };
@@ -6986,6 +7033,7 @@
       projectionHorizonYears: clampProjectionHorizonYears(safeSettings.projectionHorizonYears),
       mortgageTreatmentOverride: normalizeMortgageTreatmentOverride(safeSettings.mortgageTreatmentOverride),
       includeSurvivorIncome: normalizeBooleanScenarioControl(safeSettings.includeSurvivorIncome, true),
+      continueSavingsAfterDeath: normalizeBooleanScenarioControl(safeSettings.continueSavingsAfterDeath, false),
       lifestyleSliderValue: clampLifestyleSliderValue(safeSettings.lifestyleSliderValue),
       autoCompressBaselineEnabled: safeSettings.autoCompressBaselineEnabled !== false,
       householdExpenseStreamPolicyMode: normalizeString(safeSettings.householdExpenseStreamPolicyMode) || null
@@ -7019,6 +7067,7 @@
     scenarioState.projectionHorizonYears = controls.projectionHorizonYears;
     scenarioState.mortgageTreatmentOverride = controls.mortgageTreatmentOverride;
     scenarioState.includeSurvivorIncome = controls.includeSurvivorIncome !== false;
+    scenarioState.continueSavingsAfterDeath = controls.continueSavingsAfterDeath === true;
     scenarioState.lifestyleSliderValue = controls.lifestyleSliderValue;
     scenarioState.autoCompressBaselineEnabled = controls.autoCompressBaselineEnabled !== false;
     if (controls.householdExpenseStreamPolicyMode) {
@@ -7041,6 +7090,7 @@
       projectionHorizonYears: controls.projectionHorizonYears,
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
       includeSurvivorIncome: controls.includeSurvivorIncome !== false,
+      continueSavingsAfterDeath: controls.continueSavingsAfterDeath === true,
       selectedDeathAge: controls.selectedDeathAge,
       selectedDeathDate: controls.selectedDeathDate
     };
@@ -7077,6 +7127,7 @@
     const scenarioOptions = {
       mortgageTreatmentOverride: controls.mortgageTreatmentOverride,
       includeSurvivorIncome: controls.includeSurvivorIncome !== false,
+      continueSavingsAfterDeath: controls.continueSavingsAfterDeath === true,
       includeDiscretionaryNeeds: true,
       projectionCadence: "monthly"
     };
@@ -8902,6 +8953,21 @@
       });
     });
 
+    if (scenarioElements.continueSavingsAfterDeath) {
+      scenarioElements.continueSavingsAfterDeath.addEventListener("change", function (event) {
+        if (!incomeImpactState) {
+          return;
+        }
+
+        const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
+        controls.continueSavingsAfterDeath = event?.target?.disabled === true
+          ? false
+          : event?.target?.checked === true;
+        setDraftScenarioControls(incomeImpactState, controls);
+        updateScenarioControls(incomeImpactState.latestTimelineResult);
+      });
+    }
+
     if (scenarioElements.lifestyleSlider) {
       const updateLifestyleSlider = function (event) {
         if (!incomeImpactState) {
@@ -9111,6 +9177,7 @@
           projectionHorizonYears: DEFAULT_PROJECTION_HORIZON_YEARS,
           mortgageTreatmentOverride: "followAssumptions",
           includeSurvivorIncome: getAssumptionSurvivorIncomeEnabled(builderResult.lensModel),
+          continueSavingsAfterDeath: false,
           lifestyleSliderValue: 0,
           autoCompressBaselineEnabled: true,
           bannerCollapsed: false
