@@ -179,11 +179,11 @@ assert.match(securityHtml, /Existing coverage \+ available assets, less immediat
 assert.doesNotMatch(securityHtml, /final recommendation|fully protected/i);
 
 const timelineHtml = harness.renderTimeline(fixture);
-assert.match(timelineHtml, /Financial Runway if Death Occurs at Selected Age/);
+assert.match(timelineHtml, /Remaining Resources Timeline/);
 assert.match(timelineHtml, /data-income-impact-graph/);
 assert.match(timelineHtml, /data-income-impact-graph-svg/);
 assert.match(timelineHtml, /data-income-impact-graph-path="preDeathAssets"/);
-assert.match(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
+assert.doesNotMatch(timelineHtml, /data-income-impact-graph-path="deathTransition"/);
 assert.match(timelineHtml, /data-income-impact-graph-path="postDeathResources"/);
 assert.match(timelineHtml, /data-income-impact-graph-callout="assets-before-death"/);
 assert.match(timelineHtml, /data-income-impact-graph-callout="resources-after-obligations"/);

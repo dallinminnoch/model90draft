@@ -1151,6 +1151,11 @@
     const unavailableReason = status === "complete" || status === "no-shortfall" || status === "partial-estimate"
       ? ""
       : findRunwayReason(warnings, dataGaps);
+    const explanation = status === "no-shortfall"
+      ? "Available resources are not projected to run out in this scenario."
+      : (status === "complete" || status === "partial-estimate"
+        ? "Existing coverage + available assets, less immediate obligations, divided by estimated annual household shortfall."
+        : "");
 
     return `
       <article class="income-impact-card income-impact-card--wide" data-income-impact-financial-security-card data-income-impact-summary-card-id="yearsOfFinancialSecurity" data-income-impact-summary-status="${escapeHtml(status)}">
@@ -1158,7 +1163,7 @@
           <h2>Years of Financial Security</h2>
         </div>
         <strong class="income-impact-financial-security-value" data-income-impact-financial-security-value data-income-impact-helper-summary-card="yearsOfFinancialSecurity">${escapeHtml(displayValue)}</strong>
-        ${status === "no-shortfall" ? `<p data-income-impact-financial-security-explanation>Available resources are not projected to run out in this scenario.</p>` : ""}
+        ${explanation ? `<p data-income-impact-financial-security-explanation>${escapeHtml(explanation)}</p>` : ""}
         ${unavailableReason ? `<p data-income-impact-financial-security-reason>${escapeHtml(unavailableReason)}</p>` : ""}
       </article>
     `;
