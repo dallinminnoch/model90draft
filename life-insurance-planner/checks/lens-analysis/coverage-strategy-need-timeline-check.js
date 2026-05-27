@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const repoRoot = path.resolve(__dirname, "..", "..");
+
+function readRepoFile(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+function indexOfRequired(source, needle, label) {
+  const index = source.indexOf(needle);
+  assert.ok(index >= 0, `${label} should include ${needle}.`);
+  return index;
+}
+
+const pageSource = readRepoFile("pages/coverage-strategy.html");
+const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
+const componentsSource = readRepoFile("components.css");
+const stylesSource = readRepoFile("styles.css");
+
+assert.match(pageSource, /Coverage Need Timeline/);
+assert.match(pageSource, /data-coverage-need-timeline/);
+assert.doesNotMatch(pageSource, /developer preview|temporary|internal|adapter proof/i);
+assert.doesNotMatch(controllerSource, /developer preview|temporary|internal|adapter proof/i);
+
+assert.match(pageSource, /coverage-strategy-need-line-adapter\.js/);
+assert.match(pageSource, /coverage-strategy-page\.js/);
+assert.ok(
+  indexOfRequired(pageSource, "lens-model-builder.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "analysis-methods.js", "Coverage Strategy page"),
+  "Lens model builder should load before analysis methods."
+);
+assert.ok(
+  indexOfRequired(pageSource, "analysis-methods.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "analysis-settings-adapter.js", "Coverage Strategy page"),
+  "Analysis methods should load before analysis settings adapter."
+);
+assert.ok(
+  indexOfRequired(pageSource, "analysis-settings-adapter.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-need-line-adapter.js", "Coverage Strategy page"),
+  "Analysis settings adapter should load before the need-line adapter."
+);
+assert.ok(
+  indexOfRequired(pageSource, "coverage-strategy-need-line-adapter.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-page.js", "Coverage Strategy page"),
+  "Need-line adapter should load before the page controller."
+);
+
+assert.match(controllerSource, /buildLensModelFromSavedProtectionModeling/);
+assert.match(controllerSource, /runNeedsAnalysis/);
+assert.match(controllerSource, /buildCoverageStrategyNeedLine/);
+assert.match(controllerSource, /needPoints/);
+assert.match(controllerSource, /renderTimelineSvg\(needPoints\)/);
+assert.match(controllerSource, /renderMissingState/);
+assert.match(controllerSource, /hasProtectionModelingSource/);
+assert.doesNotMatch(controllerSource, /step-three-analysis-display/);
+assert.doesNotMatch(controllerSource, /querySelector\(["']\.analysis-result-value/);
+assert.doesNotMatch(controllerSource, /sampleNeed|samplePoints|demoData|fake graph/i);
+
+assert.doesNotMatch(pageSource, /\$[0-9]/, "Coverage Strategy page should not hardcode fake dollar outputs.");
+assert.doesNotMatch(controllerSource, /needPoints\s*=\s*\[/, "Controller should not define sample chart points.");
+assert.doesNotMatch(controllerSource, /resource line|existing coverage layers|gap\/surplus|coverage gap|surplus coverage/i);
+assert.doesNotMatch(pageSource, /Resource Line|Existing Coverage Layers|Gap|Surplus/i);
+assert.doesNotMatch(pageSource, /coverage-timeline-engine\.js/, "Need Timeline page should not load coverage timeline engine yet.");
+
+assert.match(componentsSource, /\.coverage-need-timeline/);
+assert.doesNotMatch(stylesSource, /coverage-need-timeline|Coverage Need Timeline/i);
+
+console.log("coverage strategy need timeline check passed");

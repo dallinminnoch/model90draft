@@ -50,15 +50,13 @@ assert.match(coverageStrategyHtml, /<title>Coverage Strategy \| Life Evaluation 
 assert.match(coverageStrategyHtml, /data-step='coverage-strategy'/);
 assert.match(coverageStrategyHtml, /Step 5: Coverage Strategy/);
 assert.match(coverageStrategyHtml, /<h1>Coverage Strategy<\/h1>/);
-assert.match(coverageStrategyHtml, /Strategy Board Shell/);
-assert.match(coverageStrategyHtml, /Need Line/);
-assert.match(coverageStrategyHtml, /Resource Line/);
-assert.match(coverageStrategyHtml, /Existing Coverage Layers/);
-assert.match(coverageStrategyHtml, /Proposed Policy Layers/);
-assert.match(coverageStrategyHtml, /adapter pending/i);
-assert.match(coverageStrategyHtml, /engine ready, integration pending|adapter is ready; page integration is pending/i);
+assert.match(coverageStrategyHtml, /Coverage Need Timeline/);
+assert.match(coverageStrategyHtml, /data-coverage-need-timeline/);
+assert.match(coverageStrategyHtml, /coverage-strategy-need-line-adapter\.js/);
+assert.match(coverageStrategyHtml, /coverage-strategy-page\.js/);
 
 assert.doesNotMatch(coverageStrategyHtml, /\$[0-9]/, "Coverage Strategy shell should not show fake dollar values.");
+assert.doesNotMatch(coverageStrategyHtml, /developer preview|temporary|internal|adapter proof/i);
 assert.doesNotMatch(coverageStrategyHtml, /placeholder to|sample policy|fake graph|data-coverage-timeline-point/i);
 assert.doesNotMatch(coverageStrategyHtml, /calculateCoverageTimeline\(/, "Coverage Strategy shell should not run coverage timeline math yet.");
 assert.doesNotMatch(coverageStrategyHtml, /coverage-timeline-engine\.js/, "Coverage Strategy shell should not load timeline engines before integration.");

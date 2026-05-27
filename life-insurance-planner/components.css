@@ -20227,6 +20227,162 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   cursor: pointer;
 }
 
+.coverage-need-timeline {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.coverage-need-timeline-card {
+  gap: 0.8rem;
+}
+
+.coverage-need-timeline-card h2 {
+  margin: 0.1rem 0 0;
+  color: var(--m90-text-primary);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(1.25rem, 1.7vw, 1.65rem);
+  font-weight: 760;
+  line-height: 1.08;
+}
+
+.coverage-need-timeline-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.coverage-need-timeline-badge {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--m90-accent) 24%, var(--m90-border-soft));
+  border-radius: 999px;
+  color: var(--m90-accent);
+  background: color-mix(in srgb, var(--m90-accent) 8%, transparent);
+  font-size: 0.7rem;
+  font-weight: 780;
+  line-height: 1;
+}
+
+.coverage-need-timeline-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.coverage-need-timeline-metrics > div {
+  min-width: 0;
+  padding: 0.62rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--m90-border-soft) 88%, transparent);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--m90-surface-alt) 42%, transparent);
+}
+
+.coverage-need-timeline-metrics span {
+  display: block;
+  color: var(--m90-text-muted);
+  font-size: 0.69rem;
+  font-weight: 720;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.coverage-need-timeline-metrics strong {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--m90-text-primary);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(1rem, 1.35vw, 1.24rem);
+  font-weight: 780;
+  line-height: 1.05;
+}
+
+.coverage-need-timeline-chart {
+  min-height: 15rem;
+  padding: 0.65rem 0.35rem 0.2rem;
+  border: 1px solid color-mix(in srgb, var(--m90-border-soft) 88%, transparent);
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--m90-surface) 94%, transparent), var(--m90-surface));
+  overflow: hidden;
+}
+
+.coverage-need-timeline-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 13rem;
+}
+
+.coverage-need-timeline-grid line {
+  stroke: color-mix(in srgb, var(--m90-border-soft) 82%, transparent);
+  stroke-width: 1;
+}
+
+.coverage-need-timeline-grid text,
+.coverage-need-timeline-axis text {
+  fill: var(--m90-text-muted);
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.coverage-need-timeline-line {
+  fill: none;
+  stroke: var(--m90-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.coverage-need-timeline-point {
+  fill: var(--m90-surface);
+  stroke: var(--m90-accent);
+  stroke-width: 3;
+}
+
+.coverage-need-timeline-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.coverage-need-timeline-issues {
+  margin-top: 0.4rem;
+}
+
+.coverage-need-timeline-empty {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 9rem;
+  align-content: center;
+  padding: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--m90-border) 80%, transparent);
+  border-radius: 0.5rem;
+  color: var(--m90-text-secondary);
+  background: color-mix(in srgb, var(--m90-surface-alt) 34%, transparent);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.coverage-need-timeline-empty strong {
+  color: var(--m90-text-primary);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 900px) {
+  .coverage-need-timeline-metrics,
+  .coverage-need-timeline-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .coverage-need-timeline-header {
+    display: grid;
+  }
+}
+
 .income-impact-section {
   display: grid;
   gap: 1.1rem;
