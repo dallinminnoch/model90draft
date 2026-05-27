@@ -20299,6 +20299,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   background: var(--success);
 }
 
+.coverage-need-timeline-legend-existing-coverage {
+  background: var(--warning);
+}
+
 .coverage-need-timeline-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -20375,6 +20379,11 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   stroke-width: 2.6;
 }
 
+.coverage-need-timeline-existing-coverage-line {
+  stroke: var(--warning);
+  stroke-width: 2.6;
+}
+
 .coverage-need-timeline-point {
   fill: var(--m90-surface);
   stroke: var(--m90-accent);
@@ -20383,6 +20392,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-need-timeline-resource-point {
   stroke: var(--success);
+}
+
+.coverage-need-timeline-existing-coverage-point {
+  stroke: var(--warning);
 }
 
 .coverage-need-timeline-resource-unavailable {
