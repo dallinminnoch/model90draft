@@ -20401,11 +20401,12 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   top: 0;
   z-index: 4;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0;
+  gap: 0.35rem 0.5rem;
   min-width: 0;
   min-height: 50px;
-  padding: 0 24px;
+  padding: 6px 24px;
   overflow: hidden;
   border: 0;
   border-bottom: 1px solid var(--m90-border);
@@ -20439,9 +20440,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   display: flex;
   align-items: center;
   gap: 0;
-  flex: 0 0 auto;
+  flex: 1 1 28rem;
   width: auto;
   max-width: 100%;
+  min-width: min(100%, 24rem);
   min-height: 100%;
   padding: 0 20px 0 0;
   border: 0;
@@ -21241,11 +21243,13 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
 
 .income-impact-lifestyle-impact-readout {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0;
-  flex: 1 1 auto;
+  gap: 0.3rem 0;
+  flex: 1 1 24rem;
   width: auto;
   max-width: 100%;
+  min-width: min(100%, 20rem);
   min-height: 50px;
   padding: 0 0 0 20px;
   border: 0;
@@ -21280,6 +21284,7 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
   align-items: center;
   gap: 6px;
   min-width: 0;
+  max-width: 100%;
   padding: 0 10px;
   border-right: 1px solid var(--m90-border-soft);
   color: var(--m90-text-muted);
@@ -21318,7 +21323,10 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
   align-items: center;
   gap: 0.32rem;
   margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
   padding: 5px 13px;
+  overflow: hidden;
   border: 1px solid var(--m90-border);
   border-radius: 6px;
   background: var(--m90-surface);
@@ -21326,6 +21334,7 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1.15;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -21358,14 +21367,14 @@ body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn
 
 .income-impact-graph-svg {
   --income-impact-graph-aspect-ratio: 1000 / 400;
-  --income-impact-graph-max-width: clamp(42rem, calc(250vh - 60rem), 1000px);
+  --income-impact-graph-max-width: 100%;
   display: block;
   box-sizing: border-box;
-  width: min(100%, var(--income-impact-graph-max-width));
+  width: 100%;
   height: auto;
   min-height: 0;
-  max-width: 100%;
-  margin-inline: auto;
+  max-width: var(--income-impact-graph-max-width);
+  margin-inline: 0;
   aspect-ratio: var(--income-impact-graph-aspect-ratio);
   padding: 0;
   border: 0;

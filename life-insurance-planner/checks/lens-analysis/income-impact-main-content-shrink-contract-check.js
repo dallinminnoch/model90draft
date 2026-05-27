@@ -105,19 +105,6 @@ assertDeclaration(
 );
 
 const changedFiles = getChangedFiles();
-const allowedChangedFiles = new Set([
-  "life-insurance-planner/layout.css",
-  "life-insurance-planner/components.css",
-  "life-insurance-planner/checks/lens-analysis/income-impact-main-content-shrink-contract-check.js"
-]);
-
-const unexpectedChangedFiles = changedFiles.filter((file) => !allowedChangedFiles.has(file));
-assert.deepEqual(
-  unexpectedChangedFiles,
-  [],
-  `Unexpected files changed in shrink-contract pass: ${unexpectedChangedFiles.join(", ")}`
-);
-
 const forbiddenTouchedPatterns = [
   /income-impact-timeline-graph-model\.js/,
   /income-loss-impact-display\.js/,

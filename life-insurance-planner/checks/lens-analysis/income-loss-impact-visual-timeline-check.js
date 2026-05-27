@@ -1071,12 +1071,12 @@ assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-im
 assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-impact-page-intro h1/);
 assert.doesNotMatch(stylesSource, /body\[data-step="income-impact"\] \.income-impact-page-intro p/);
 assert.match(componentsSource, /\.income-impact-section[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
-assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*position:\s*sticky;[\s\S]*display:\s*flex;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*0 24px;[\s\S]*border-bottom:\s*1px solid var\(--m90-border\);[\s\S]*background:\s*var\(--m90-surface\);/);
+assert.match(componentsSource, /\.income-impact-summary-strip[\s\S]*position:\s*sticky;[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;[\s\S]*min-height:\s*50px;[\s\S]*padding:\s*6px 24px;[\s\S]*border-bottom:\s*1px solid var\(--m90-border\);[\s\S]*background:\s*var\(--m90-surface\);/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \.income-impact-card[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
-assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*width:\s*auto;[\s\S]*padding:\s*0 20px 0 0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\][\s\S]*display:\s*flex;[\s\S]*flex:\s*1 1 28rem;[\s\S]*width:\s*auto;[\s\S]*max-width:\s*100%;[\s\S]*min-width:\s*min\(100%,\s*24rem\);[\s\S]*padding:\s*0 20px 0 0;[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-card-header h2[\s\S]*background:\s*var\(--m90-accent-soft\);[\s\S]*color:\s*var\(--m90-accent\);/);
 assert.match(componentsSource, /\.income-impact-summary-strip > \[data-income-impact-financial-security-card\] \.income-impact-financial-security-value[\s\S]*font-family:\s*"Plus Jakarta Sans",\s*sans-serif;[\s\S]*font-size:\s*14px;[\s\S]*font-weight:\s*700;/);
-assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*min-height:\s*50px;[\s\S]*border-left:\s*1px solid var\(--m90-border-soft\);[\s\S]*background:\s*transparent;/);
+assert.match(componentsSource, /\.income-impact-lifestyle-impact-readout[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;[\s\S]*flex:\s*1 1 24rem;[\s\S]*max-width:\s*100%;[\s\S]*min-width:\s*min\(100%,\s*20rem\);[\s\S]*min-height:\s*50px;[\s\S]*border-left:\s*1px solid var\(--m90-border-soft\);[\s\S]*background:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-story-chart-card[\s\S]*position:\s*relative;[\s\S]*z-index:\s*1;[\s\S]*border:\s*1px solid var\(--m90-border-soft\);[\s\S]*border-radius:\s*8px;[\s\S]*background:\s*var\(--m90-surface\);[\s\S]*overflow:\s*visible;/);
 assert.match(componentsSource, /\.income-impact-milestone-story,[\s\S]*\.income-impact-chart-section[\s\S]*padding:\s*0;[\s\S]*border-top:\s*0;[\s\S]*background:\s*transparent;/);
 assert.match(componentsSource, /\.income-impact-chart-section\s*\{[^}]*border-top:\s*0;[^}]*overflow:\s*visible;[^}]*\}/);
@@ -1118,9 +1118,10 @@ assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*--income-impact-graph-max-width:\s*clamp\(42rem,\s*calc\(250vh - 60rem\),\s*1000px\);[^}]*width:\s*min\(100%,\s*var\(--income-impact-graph-max-width\)\);[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-width:\s*100%;[^}]*margin-inline:\s*auto;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*var\(--m90-surface\);[^}]*overflow:\s*visible;[^}]*\}/,
-  "Income Impact SVG graph viewport should shrink to the available column and short viewport height without inflating beyond the compact graph viewBox width."
+  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*--income-impact-graph-max-width:\s*100%;[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-width:\s*var\(--income-impact-graph-max-width\);[^}]*margin-inline:\s*0;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*var\(--m90-surface\);[^}]*overflow:\s*visible;[^}]*\}/,
+  "Income Impact SVG graph viewport should use the available chart-card width without changing the compact graph viewBox ratio."
 );
+assert.doesNotMatch(componentsSource, /--income-impact-graph-max-width:\s*clamp\(42rem,\s*calc\(250vh - 60rem\),\s*1000px\);/);
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-svg\s*\{[^}]*aspect-ratio:\s*1000 \/ 570;/);
 assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*var\(--m90-surface\);[^}]*\}/);
 assert.match(componentsSource, /\.income-impact-graph-phase--post-death\s*\{[^}]*fill:\s*var\(--m90-surface\);[^}]*\}/);
