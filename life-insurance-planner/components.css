@@ -20366,6 +20366,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   align-items: stretch;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   min-height: 0;
   background: transparent;
 }
