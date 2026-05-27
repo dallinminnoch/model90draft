@@ -967,6 +967,16 @@
     }
   }
 
+  function getResolvedPostDeathSavingsContinuation(timelineResult) {
+    const candidates = [
+      timelineResult?.scenario?.scenario?.postDeathSavingsContinuation,
+      timelineResult?.primaryScenario?.scenario?.postDeathSavingsContinuation,
+      timelineResult?.rawBaselineScenario?.scenario?.postDeathSavingsContinuation,
+      timelineResult?.scenario?.postDeathSavingsContinuation
+    ];
+    return candidates.find(isPlainObject) || {};
+  }
+
   function updateScenarioControls(timelineResult) {
     const draftControls = getDraftScenarioControlsSnapshot(incomeImpactState);
     updateDeathAgeControl(timelineResult, incomeImpactState?.deathAgeState, draftControls);
@@ -982,9 +992,7 @@
     const projectionHorizonYears = draftControls.projectionHorizonYears;
     const mortgageTreatmentOverride = draftControls.mortgageTreatmentOverride;
     const includeSurvivorIncome = draftControls.includeSurvivorIncome !== false;
-    const postDeathSavingsContinuation = isPlainObject(timelineResult?.scenario?.postDeathSavingsContinuation)
-      ? timelineResult.scenario.postDeathSavingsContinuation
-      : {};
+    const postDeathSavingsContinuation = getResolvedPostDeathSavingsContinuation(timelineResult);
     const savingsContinuationEligible = postDeathSavingsContinuation.eligible === true;
     let continueSavingsAfterDeath = draftControls.continueSavingsAfterDeath === true;
     if (!savingsContinuationEligible) {
@@ -7076,6 +7084,13 @@
     if (deathAgeState.hasDateOfBirth) {
       deathAgeState.selectedDeathAge = controls.selectedDeathAge;
     }
+    const selectedDeathAge = toOptionalNumber(controls.selectedDeathAge);
+    const currentAge = toOptionalNumber(deathAgeState.currentAge);
+    if (selectedDeathAge != null && currentAge != null) {
+      state.graphViewMode = selectedDeathAge > currentAge
+        ? GRAPH_VIEW_MODE_DEATH_LEAD_UP
+        : GRAPH_VIEW_MODE_POST_DEATH_FOCUS;
+    }
     state.scenarioState = scenarioState;
     state.draftScenarioControls = clonePlainValue(controls);
     return controls;
@@ -8862,12 +8877,7 @@
       const controls = getDraftScenarioControlsSnapshot(incomeImpactState);
       controls.selectedDeathAge = clampRoundedAge(event?.target?.value, state.minAge, state.maxAge);
       setDraftScenarioControls(incomeImpactState, controls);
-      applyDraftScenarioControlsToRuntimeState(incomeImpactState);
-      incomeImpactState.graphViewMode = controls.selectedDeathAge > state.currentAge
-        ? GRAPH_VIEW_MODE_DEATH_LEAD_UP
-        : GRAPH_VIEW_MODE_POST_DEATH_FOCUS;
-      invalidateIncomeImpactBaseRenderCache();
-      renderIncomeImpactFromState();
+      updateScenarioControls(incomeImpactState.latestTimelineResult);
     }
 
     if (elements?.slider) {
