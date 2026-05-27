@@ -195,6 +195,27 @@
         }
       },
 
+      // Canonical planned savings contribution facts projected from saved PMI
+      // savingsHabitRecords. These are not ordinary expenses and not current
+      // asset balances. They can feed contribution-aware resource projection
+      // and contribution-active asset availability while preserving the saved
+      // PMI record shape.
+      savingsContributionFacts: {
+        facts: [],
+        totalMonthlyAmount: null,
+        totalAnnualAmount: null,
+        sourceRecordCount: 0,
+        acceptedFactCount: 0,
+        excludedFactCount: 0,
+        excludedFacts: [],
+        warnings: [],
+        metadata: {
+          source: "savings-contribution-facts",
+          sourceShape: "savingsHabitRecords",
+          savedDataShapeChanged: false
+        }
+      },
+
       // One-time survivor transition needs. These are neutral lump-sum
       // transition targets, not current assets, offsets, recurring support,
       // final expenses, education, debts, or recommendations.

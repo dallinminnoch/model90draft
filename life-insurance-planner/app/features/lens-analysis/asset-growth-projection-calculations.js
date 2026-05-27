@@ -337,6 +337,22 @@
   }
 
   function getSavingsContributionRecords(input) {
+    if (Array.isArray(input?.savingsContributionFacts)) {
+      return input.savingsContributionFacts;
+    }
+
+    if (
+      typeof lensAnalysis.normalizeSavingsContributionFacts === "function"
+      && (Array.isArray(input?.savingsContributionRecords) || Array.isArray(input?.savingsHabitRecords))
+      && !isPlainObject(input?.savingsContributionMappings)
+    ) {
+      return lensAnalysis.normalizeSavingsContributionFacts({
+        savingsContributionRecords: input.savingsContributionRecords,
+        savingsHabitRecords: input.savingsHabitRecords,
+        assetTaxonomy: input.assetTaxonomy
+      }).facts;
+    }
+
     if (Array.isArray(input?.savingsContributionRecords)) {
       return input.savingsContributionRecords;
     }
@@ -375,7 +391,9 @@
       const mapping = getSavingsContributionMapping(input, record);
       const typeKey = normalizeString(record.typeKey || record.libraryEntryKey);
       const label = normalizeString(record.label) || typeKey || "Savings contribution";
-      const monthlyContributionAmount = toMonthlyContributionAmount(record.amount, record.frequency);
+      const monthlyContributionAmount = toOptionalNumber(
+        record.monthlyAmount ?? record.monthlyContributionAmount
+      ) ?? toMonthlyContributionAmount(record.amount, record.frequency);
       const targetAssetCategoryKey = normalizeString(
         record.targetAssetCategoryKey
         || record.assetCategoryKey
@@ -443,6 +461,9 @@
         targetAssetTypeKey,
         monthlyContributionAmount: roundMoney(monthlyContributionAmount),
         frequency: normalizeFrequency(record.frequency),
+        sourceRecordId: normalizeString(record.sourceRecordId || record.expenseId || record.id) || null,
+        sourcePath: normalizeString(record.sourcePath) || null,
+        canonicalSavingsContributionFact: record.source === "savings-contribution-facts",
         mappingSource: record.targetAssetCategoryKey || record.assetCategoryKey
           ? "record"
           : (mapping ? "mapping" : "none")
@@ -624,6 +645,12 @@
       hasAssetFacts ? safeInput.assetFacts : { assets: [] },
       safeInput.assetTaxonomy
     );
+    const savingsContributionFactsCanonicalized = Array.isArray(safeInput.savingsContributionFacts)
+      || (
+        typeof lensAnalysis.normalizeSavingsContributionFacts === "function"
+        && (Array.isArray(safeInput.savingsContributionRecords) || Array.isArray(safeInput.savingsHabitRecords))
+        && !isPlainObject(safeInput.savingsContributionMappings)
+      );
     const contributionAggregation = aggregateSavingsContributions(safeInput, safeInput.assetTaxonomy);
     const contributionCategories = new Map();
     contributionAggregation.contributionCategories.forEach(function (category) {
@@ -710,6 +737,10 @@
       warnings,
       valuationDate: normalizeString(safeInput.valuationDate) || null,
       valuationDateSource: normalizeString(safeInput.valuationDateSource) || null,
+      savingsContributionFactsCanonicalized,
+      savingsContributionFactCount: contributionAggregation.contributionCategories.reduce(function (total, category) {
+        return total + category.contributionRecordCount;
+      }, 0),
       consumedByMethods: false
     };
   }

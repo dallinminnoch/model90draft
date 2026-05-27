@@ -2109,6 +2109,10 @@
     const projectionContext = resolveAssetGrowthProjectionContext(assetTreatmentAssumptions);
     const projectionYears = projectionContext.projectionYears;
     const projectionYearsSource = projectionContext.projectionYearsSource;
+    const preparedSavingsContributionFacts = isPlainObject(safeLensModel.savingsContributionFacts)
+      ? safeLensModel.savingsContributionFacts
+      : null;
+    const shouldUsePreparedSavingsContributionFacts = preparedSavingsContributionFacts?.calculationVersion != null;
     const modelWarnings = [
       createWarning(
         "asset-growth-projection-saved-only",
@@ -2188,6 +2192,11 @@
       assetFacts,
       assetTreatmentAssumptions,
       assetTaxonomy: lensAnalysis.assetTaxonomy,
+      ...(shouldUsePreparedSavingsContributionFacts ? {
+        savingsContributionFacts: Array.isArray(preparedSavingsContributionFacts.facts)
+          ? preparedSavingsContributionFacts.facts
+          : []
+      } : {}),
       savingsHabitRecords: Array.isArray(safeSourceData.savingsHabitRecords)
         ? safeSourceData.savingsHabitRecords
         : [],
@@ -2232,8 +2241,49 @@
         warnings: helperWarnings.concat(modelWarnings)
       }),
       valuationDate: result?.valuationDate || null,
-      valuationDateSource: result?.valuationDateSource || null
+      valuationDateSource: result?.valuationDateSource || null,
+      savingsContributionFactsCanonicalized: result?.savingsContributionFactsCanonicalized === true,
+      savingsContributionFactCount: result?.savingsContributionFactCount ?? 0,
+      downstreamConsumptionNote: "Projected growth totals remain saved-only; canonical savings contribution facts may feed Income Impact resource projection separately."
     };
+  }
+
+  function createPreparedSavingsContributionFacts(sourceData) {
+    const safeSourceData = isPlainObject(sourceData) ? sourceData : {};
+    const normalizeSavingsContributionFacts = lensAnalysis.normalizeSavingsContributionFacts;
+
+    if (typeof normalizeSavingsContributionFacts !== "function") {
+      return {
+        source: "savings-contribution-facts",
+        calculationVersion: null,
+        facts: [],
+        excludedFacts: [],
+        warnings: [
+          createWarning(
+            "missing-savings-contribution-facts-helper",
+            "Savings contribution facts helper is unavailable; PMI savings habits were not canonicalized."
+          )
+        ],
+        totalMonthlyAmount: 0,
+        totalAnnualAmount: 0,
+        sourceRecordCount: Array.isArray(safeSourceData.savingsHabitRecords)
+          ? safeSourceData.savingsHabitRecords.length
+          : 0,
+        acceptedFactCount: 0,
+        excludedFactCount: 0,
+        metadata: {
+          sourceShape: "savingsHabitRecords",
+          savedDataShapeChanged: false
+        }
+      };
+    }
+
+    return cloneSerializable(normalizeSavingsContributionFacts({
+      savingsHabitRecords: Array.isArray(safeSourceData.savingsHabitRecords)
+        ? safeSourceData.savingsHabitRecords
+        : [],
+      assetTaxonomy: lensAnalysis.assetTaxonomy
+    }));
   }
 
   function createEmptyProjectedAssetOffset(warnings, metadata) {
@@ -3048,6 +3098,7 @@
         lensModel = attachProfileFacts(lensModel, builderInput.profileRecord);
         lensModel = attachEducationCurrentDependentDetails(lensModel, builderInput.profileRecord);
         lensModel = attachSurvivorIncomeDerivationMetadata(lensModel, sourceResult);
+        lensModel.savingsContributionFacts = createPreparedSavingsContributionFacts(sourceResult.sourceData);
         lensModel.treatedAssetOffsets = createPreparedTreatedAssetOffsets(lensModel, builderInput);
         lensModel.projectedAssetGrowth = createPreparedProjectedAssetGrowth(
           lensModel,

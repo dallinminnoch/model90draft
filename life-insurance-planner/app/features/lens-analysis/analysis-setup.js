@@ -2106,8 +2106,7 @@
   function getAssetTreatmentRenderItems(linkedRecord) {
     const assetFacts = getAssetFactsForLinkedRecord(linkedRecord);
     const assets = Array.isArray(assetFacts?.assets) ? assetFacts.assets : [];
-
-    return assets.reduce(function (items, asset, index) {
+    const currentAssetItems = assets.reduce(function (items, asset, index) {
       const categoryKey = String(asset?.categoryKey || "").trim();
       const currentValue = Number(asset?.currentValue);
       if (!categoryKey || !Number.isFinite(currentValue) || currentValue <= 0) {
@@ -2129,6 +2128,8 @@
 
       return items;
     }, []);
+
+    return currentAssetItems.concat(getSavingsContributionAssetTreatmentItems(linkedRecord, currentAssetItems));
   }
 
   function getAssetTreatmentItemByKey(itemKey) {
@@ -2136,6 +2137,55 @@
     return ASSET_TREATMENT_ITEMS.find(function (item) {
       return item.key === key;
     }) || null;
+  }
+
+  function getSavingsContributionAssetTreatmentItems(linkedRecord, currentAssetItems) {
+    const mapSavingsContributionsToAssetCategories = LensApp.lensAnalysis?.mapSavingsContributionsToAssetCategories;
+    if (typeof mapSavingsContributionsToAssetCategories !== "function") {
+      return [];
+    }
+
+    const sourceData = getLinkedProtectionModelingData(linkedRecord);
+    const mapped = mapSavingsContributionsToAssetCategories({
+      savingsHabitRecords: Array.isArray(sourceData.savingsHabitRecords)
+        ? sourceData.savingsHabitRecords
+        : [],
+      assetTaxonomy: LensApp.lensAnalysis?.assetTaxonomy
+    });
+    const existingKeys = new Set((Array.isArray(currentAssetItems) ? currentAssetItems : []).map(function (item) {
+      return item.key;
+    }));
+
+    return (Array.isArray(mapped.categories) ? mapped.categories : []).reduce(function (items, category) {
+      const categoryKey = String(category?.categoryKey || "").trim();
+      const monthlyAmount = Number(category?.monthlyAmount);
+      if (!categoryKey || existingKeys.has(categoryKey) || !Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
+        return items;
+      }
+
+      const taxonomyItem = getAssetTreatmentItemByKey(categoryKey);
+      if (!taxonomyItem) {
+        return items;
+      }
+
+      items.push({
+        key: categoryKey,
+        assetId: `savings_contribution_${categoryKey}`,
+        label: String(category.label || taxonomyItem.label || categoryKey).trim(),
+        currentValue: 0,
+        source: "savingsContribution",
+        isDefaultAsset: false,
+        isCustomAsset: false,
+        taxonomyItem,
+        isContributionActive: true,
+        projectedContributionMonthlyAmount: Number(monthlyAmount.toFixed(2)),
+        projectedContributionAnnualAmount: Number((Number(category.annualAmount) || monthlyAmount * 12).toFixed(2)),
+        contributionFactCount: Number(category.contributionFactCount) || 0,
+        sourcePaths: Array.isArray(category.sourcePaths) ? category.sourcePaths.slice() : []
+      });
+
+      return items;
+    }, []);
   }
 
   function getAssetTaxonomyCategoryByKey(categoryKey) {
@@ -3255,14 +3305,16 @@
     renderItems.forEach(function (item) {
       const defaults = getAssetTreatmentDefaultForKey(item.key);
       const safeLabel = escapeHtml(item.label);
+      const sourceLabel = item.isContributionActive === true ? "Projected via savings" : "";
+      const safeSource = escapeHtml(item.source || "");
       const safeKey = escapeHtml(item.key);
       const safeAssetId = escapeHtml(item.assetId);
       const currentValue = Number(item.currentValue);
       const growthFields = createAssetGrowthSavedFields({}, item.key, DEFAULT_ASSET_TREATMENT_ASSUMPTIONS.defaultProfile);
       const growthValue = formatHaircutInputValue(growthFields.assumedAnnualGrowthRatePercent);
       table.insertAdjacentHTML("beforeend", `
-        <div class="analysis-setup-asset-row" role="row" aria-disabled="false" data-analysis-asset-treatment-row="${safeKey}" data-analysis-asset-id="${safeAssetId}">
-          <span class="analysis-setup-asset-label" role="cell">${safeLabel}</span>
+        <div class="analysis-setup-asset-row" role="row" aria-disabled="false" data-analysis-asset-treatment-row="${safeKey}" data-analysis-asset-id="${safeAssetId}" data-analysis-asset-source="${safeSource}"${item.isContributionActive === true ? ` data-analysis-asset-contribution-active="true" data-analysis-asset-projected-monthly-contribution="${escapeHtml(item.projectedContributionMonthlyAmount)}" data-analysis-asset-projected-annual-contribution="${escapeHtml(item.projectedContributionAnnualAmount)}"` : ""}>
+          <span class="analysis-setup-asset-label" role="cell">${safeLabel}${sourceLabel ? ` <small>${escapeHtml(sourceLabel)}</small>` : ""}</span>
           <span role="cell">
             <label class="analysis-setup-asset-include" aria-label="Include ${safeLabel}">
               <span class="settings-switch analysis-setup-mini-switch">

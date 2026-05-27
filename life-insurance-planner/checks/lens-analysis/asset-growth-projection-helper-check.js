@@ -32,6 +32,7 @@ function createAssetGrowthContext() {
   context.window.LensApp = context.LensApp;
   vm.createContext(context);
   loadScript(context, "app/features/lens-analysis/asset-taxonomy.js");
+  loadScript(context, "app/features/lens-analysis/savings-contribution-facts.js");
   loadScript(context, "app/features/lens-analysis/asset-growth-projection-calculations.js");
   return context;
 }
@@ -66,6 +67,7 @@ function createLensAnalysisContext() {
     "app/features/lens-analysis/blocks/transition-needs.js",
     "app/features/lens-analysis/normalize-lens-model.js",
     "app/features/lens-analysis/asset-treatment-calculations.js",
+    "app/features/lens-analysis/savings-contribution-facts.js",
     "app/features/lens-analysis/asset-growth-projection-calculations.js",
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
@@ -339,6 +341,8 @@ const defaultedSavingsContributionProjection = calculate(createInput({
 }));
 const defaultedRetirement = getCategory(defaultedSavingsContributionProjection, "traditionalRetirementAssets");
 assert.equal(defaultedSavingsContributionProjection.excludedContributionRecordCount, 0);
+assert.equal(defaultedSavingsContributionProjection.savingsContributionFactsCanonicalized, true);
+assert.equal(defaultedSavingsContributionProjection.savingsContributionFactCount, 1);
 assert.equal(defaultedRetirement.assumedAnnualGrowthRatePercent, 6);
 assert.equal(defaultedRetirement.assumedAnnualGrowthRateSource, "asset-taxonomy-default");
 assert.equal(defaultedRetirement.monthlyContributionAmount, 500);
@@ -346,6 +350,33 @@ assert.ok(
   defaultedRetirement.warnings.some((warning) => warning.code === "missing-asset-growth-assumption-defaulted"),
   "mapped savings contribution targets should fall back to taxonomy growth defaults when saved growth assumptions are absent"
 );
+
+const canonicalFacts = lensAnalysis.normalizeSavingsContributionFacts({
+  assetTaxonomy,
+  savingsHabitRecords: [
+    {
+      expenseId: "canonical_brokerage",
+      typeKey: "brokerageInvestmentContributions",
+      label: "Canonical brokerage",
+      amount: 750,
+      frequency: "monthly",
+      targetAssetCategoryKey: "taxableBrokerageInvestments"
+    }
+  ]
+}).facts;
+const canonicalContributionProjection = calculate(createInput({
+  savingsContributionFacts: canonicalFacts,
+  assetTreatmentAssumptions: {
+    assets: {
+      taxableBrokerageInvestments: createAssumption(6)
+    }
+  }
+}));
+const canonicalTaxable = getCategory(canonicalContributionProjection, "taxableBrokerageInvestments");
+assert.equal(canonicalContributionProjection.savingsContributionFactsCanonicalized, true);
+assert.equal(canonicalContributionProjection.totalMonthlyContributionAmount, 750);
+assert.equal(canonicalTaxable.contributionSourceRecords[0].canonicalSavingsContributionFact, true);
+assert.equal(canonicalTaxable.contributionSourceRecords[0].sourceRecordId, "canonical_brokerage");
 
 const unmappedContributionProjection = calculate(createInput({
   savingsHabitRecords: [

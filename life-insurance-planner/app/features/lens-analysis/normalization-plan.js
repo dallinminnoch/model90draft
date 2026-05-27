@@ -154,6 +154,13 @@
         { rawField: "finalExpenses", canonicalField: "final expense projection fallback", availability: "activeNeedsFallback", note: "finalExpenses remains the compatibility/fallback source when expenseFacts final-expense component facts are unavailable." }
       ],
 
+      savingsContributionFacts: [
+        { rawField: "savingsHabitRecords[]", canonicalField: "savingsContributionFacts.facts[]", availability: "activeLinkedPmiNormalization", note: "Saved PMI savings, reserve, and investment habits normalize into planned savings contribution facts. Saved shape remains savingsHabitRecords; canonical facts distinguish planned savings from ordinary expenses and current asset balances." },
+        { rawField: "savingsHabitRecords[].targetAssetCategoryKey", canonicalField: "savingsContributionFacts.facts[].targetAssetCategoryKey", availability: "activeLinkedPmiNormalization", note: "Explicit row target wins over type defaults when mapping planned savings into asset categories." },
+        { rawField: "savingsHabitRecords[].amount + savingsHabitRecords[].frequency", canonicalField: "savingsContributionFacts.facts[].monthlyAmount / annualAmount", availability: "activeLinkedPmiNormalization", note: "Recurring contribution amounts normalize to monthly and annual facts for resource projection and contribution-active asset availability." },
+        { rawField: "savingsContributionFacts.facts[] grouped by targetAssetCategoryKey", canonicalField: "analysisSetup.assetTreatmentAvailability", availability: "activeAnalysisSetupAdapter", note: "Contribution-active asset categories should appear in Analysis Setup asset treatment controls even when current asset value is zero. These are projected contribution buckets, not current asset balances." }
+      ],
+
       transitionNeeds: [
         { rawField: "immediateLiquidityBuffer", canonicalField: "transitionNeeds.survivorLiquidityBuffer", availability: "activeLinkedPmi", note: "Short-term survivor cash need for the immediate aftermath of death." },
         { rawField: "desiredEmergencyFund", canonicalField: "transitionNeeds.desiredEmergencyFund", availability: "activeLinkedPmi", note: "Longer-term survivor emergency reserve target after the initial transition period." },

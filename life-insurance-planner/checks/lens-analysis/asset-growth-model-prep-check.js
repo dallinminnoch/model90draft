@@ -52,6 +52,7 @@ function createLensAnalysisContext(options) {
     "app/features/lens-analysis/blocks/transition-needs.js",
     "app/features/lens-analysis/normalize-lens-model.js",
     "app/features/lens-analysis/asset-treatment-calculations.js",
+    "app/features/lens-analysis/savings-contribution-facts.js",
     includeAssetGrowthHelper
       ? "app/features/lens-analysis/asset-growth-projection-calculations.js"
       : null,
