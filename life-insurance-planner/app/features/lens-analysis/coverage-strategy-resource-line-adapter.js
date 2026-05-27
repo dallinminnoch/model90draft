@@ -10,6 +10,8 @@
   const COVERAGE_STRATEGY_RESOURCE_LINE_ADAPTER_VERSION = "coverage-strategy-resource-line-adapter-v1";
   const DEFAULT_HORIZON_YEARS = 30;
   const ACTIVE_GROWTH_STATUS = "method-active";
+  const MIN_ANNUAL_GROWTH_RATE = 0;
+  const MAX_ANNUAL_GROWTH_RATE = 0.12;
   const EXCLUDED_INSURANCE_CATEGORY_PATTERN = /(lifeinsurance|existingcoverage|coveragepolicy|insuranceproceeds)/i;
 
   function isPlainObject(value) {
@@ -42,24 +44,6 @@
     }
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  function toOptionalRate(value) {
-    if (value == null || value === "") {
-      return null;
-    }
-    if (typeof value === "number") {
-      if (!Number.isFinite(value)) {
-        return null;
-      }
-      return value > 1 ? value / 100 : value;
-    }
-    const raw = String(value).trim();
-    const parsed = Number(raw.replace(/[%,\s]/g, ""));
-    if (!Number.isFinite(parsed)) {
-      return null;
-    }
-    return raw.includes("%") || parsed > 1 ? parsed / 100 : parsed;
   }
 
   function roundMoney(value) {
@@ -208,18 +192,55 @@
     return EXCLUDED_INSURANCE_CATEGORY_PATTERN.test(values);
   }
 
-  function readGrowthRate(row) {
-    return toOptionalRate(
-      row?.annualGrowthRate
-      ?? row?.growthRate
-      ?? row?.assumedAnnualGrowthRate
-      ?? row?.assumedAnnualGrowthRatePercent
-      ?? row?.annualGrowthRatePercent
-      ?? row?.growthRatePercent
-    );
+  function normalizeAnnualGrowthRate(value, warnings, details) {
+    const parsed = toOptionalNumber(value);
+    const safeDetails = isPlainObject(details) ? details : {};
+    if (parsed == null) {
+      return null;
+    }
+
+    const normalized = parsed > 1 ? parsed / 100 : parsed;
+    const clamped = Math.min(MAX_ANNUAL_GROWTH_RATE, Math.max(MIN_ANNUAL_GROWTH_RATE, normalized));
+    if (clamped !== normalized) {
+      addIssue(
+        warnings,
+        "resource-growth-rate-clamped",
+        "Resource growth rate was outside the supported 0-12% annual range and was clamped.",
+        {
+          ...safeDetails,
+          received: parsed,
+          normalizedAnnualRate: normalized,
+          usedAnnualRate: clamped,
+          minAnnualRate: MIN_ANNUAL_GROWTH_RATE,
+          maxAnnualRate: MAX_ANNUAL_GROWTH_RATE
+        }
+      );
+    }
+    return clamped;
   }
 
-  function resolveProjectedCategoryGrowth(lensModel) {
+  function readGrowthRate(row, warnings, details) {
+    const candidates = [
+      ["annualGrowthRate", row?.annualGrowthRate],
+      ["growthRate", row?.growthRate],
+      ["assumedAnnualGrowthRate", row?.assumedAnnualGrowthRate],
+      ["assumedAnnualGrowthRatePercent", row?.assumedAnnualGrowthRatePercent],
+      ["annualGrowthRatePercent", row?.annualGrowthRatePercent],
+      ["growthRatePercent", row?.growthRatePercent]
+    ];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const [fieldName, value] = candidates[index];
+      if (value != null && value !== "") {
+        return normalizeAnnualGrowthRate(value, warnings, {
+          ...(isPlainObject(details) ? details : {}),
+          fieldName
+        });
+      }
+    }
+    return null;
+  }
+
+  function resolveProjectedCategoryGrowth(lensModel, warnings) {
     const growthByCategory = new Map();
     [
       lensModel?.projectedAssetGrowth?.includedCategories,
@@ -232,7 +253,10 @@
           return;
         }
         const categoryKey = getCategoryKey(row, null);
-        const annualGrowthRate = readGrowthRate(row);
+        const annualGrowthRate = readGrowthRate(row, warnings, {
+          categoryKey,
+          sourcePath: `lensModel.projectedAssetGrowth.includedCategories.${index}`
+        });
         if (!categoryKey || annualGrowthRate == null || row.included === false) {
           return;
         }
@@ -249,8 +273,11 @@
     return growthByCategory;
   }
 
-  function resolveGrowthForCategory(categoryKey, row, growthByCategory) {
-    const directRate = readGrowthRate(row);
+  function resolveGrowthForCategory(categoryKey, row, growthByCategory, warnings) {
+    const directRate = readGrowthRate(row, warnings, {
+      categoryKey,
+      source: "asset-row"
+    });
     if (directRate != null) {
       return {
         annualGrowthRate: directRate,
@@ -261,13 +288,14 @@
     return growthByCategory.get(categoryKey) || {
       annualGrowthRate: null,
       growthStatus: "current-dollar",
-      growthSource: null
+      growthSource: null,
+      defaultedMissingGrowth: true
     };
   }
 
   function normalizeAssetRows(lensModel, warnings, dataGaps) {
     const assets = getAssetFacts(lensModel);
-    const growthByCategory = resolveProjectedCategoryGrowth(lensModel);
+    const growthByCategory = resolveProjectedCategoryGrowth(lensModel, warnings);
     const rows = [];
     const excludedRows = [];
 
@@ -309,8 +337,16 @@
         return;
       }
 
-      const growth = resolveGrowthForCategory(categoryKey, asset, growthByCategory);
+      const growth = resolveGrowthForCategory(categoryKey, asset, growthByCategory, warnings);
       const annualGrowthRate = growth.annualGrowthRate;
+      if (growth.defaultedMissingGrowth === true) {
+        addIssue(
+          warnings,
+          "resource-growth-rate-missing-defaulted",
+          "Resource growth rate was missing and defaulted to conservative 0% annual growth.",
+          { categoryKey }
+        );
+      }
       const monthlyGrowthRate = annualGrowthRate == null
         ? 0
         : Math.pow(1 + annualGrowthRate, 1 / 12) - 1;
@@ -319,7 +355,7 @@
         categoryKey,
         label: normalizeString(asset.label || asset.name || categoryKey),
         currentValue: roundMoney(currentValue),
-        annualGrowthRate: annualGrowthRate == null ? null : roundRate(annualGrowthRate),
+        annualGrowthRate: annualGrowthRate == null ? 0 : roundRate(annualGrowthRate),
         monthlyGrowthRate: Number.isFinite(monthlyGrowthRate) ? monthlyGrowthRate : 0,
         growthStatus: growth.growthStatus,
         growthSource: growth.growthSource,
@@ -417,7 +453,10 @@
         return items;
       }
 
-      const annualGrowthRate = readGrowthRate(allocation);
+      const annualGrowthRate = readGrowthRate(allocation, warnings, {
+        targetCategoryKey,
+        sourcePath: `lensModel.resourceProjectionInputs.savingAllocations.${index}`
+      });
       const normalizedAllocation = {
         id: normalizeString(allocation.id || allocation.typeKey || allocation.sourceRecordId) || `saving-allocation-${index + 1}`,
         label: normalizeString(allocation.label || allocation.targetAssetCategoryLabel) || targetCategoryKey,

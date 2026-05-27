@@ -28,7 +28,18 @@ assert.doesNotMatch(pageSource, /developer preview|temporary|internal|adapter pr
 assert.doesNotMatch(controllerSource, /developer preview|temporary|internal|adapter proof/i);
 
 assert.match(pageSource, /coverage-strategy-need-line-adapter\.js/);
+assert.match(pageSource, /coverage-strategy-resource-line-adapter\.js/);
 assert.match(pageSource, /coverage-strategy-page\.js/);
+assert.ok(
+  indexOfRequired(pageSource, "asset-taxonomy.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "asset-treatment-calculations.js", "Coverage Strategy page"),
+  "Asset taxonomy should load before asset treatment calculations."
+);
+assert.ok(
+  indexOfRequired(pageSource, "asset-treatment-calculations.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-resource-line-adapter.js", "Coverage Strategy page"),
+  "Asset treatment calculations should load before the resource-line adapter."
+);
 assert.ok(
   indexOfRequired(pageSource, "lens-model-builder.js", "Coverage Strategy page")
     < indexOfRequired(pageSource, "analysis-methods.js", "Coverage Strategy page"),
@@ -46,15 +57,40 @@ assert.ok(
 );
 assert.ok(
   indexOfRequired(pageSource, "coverage-strategy-need-line-adapter.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-resource-line-adapter.js", "Coverage Strategy page"),
+  "Need-line adapter should load before the resource-line adapter."
+);
+assert.ok(
+  indexOfRequired(pageSource, "coverage-strategy-resource-line-adapter.js", "Coverage Strategy page")
     < indexOfRequired(pageSource, "coverage-strategy-page.js", "Coverage Strategy page"),
-  "Need-line adapter should load before the page controller."
+  "Resource-line adapter should load before the page controller."
 );
 
 assert.match(controllerSource, /buildLensModelFromSavedProtectionModeling/);
 assert.match(controllerSource, /runNeedsAnalysis/);
 assert.match(controllerSource, /buildCoverageStrategyNeedLine/);
+assert.match(controllerSource, /buildCoverageStrategyResourceLine/);
 assert.match(controllerSource, /needPoints/);
-assert.match(controllerSource, /renderTimelineSvg\(needPoints\)/);
+assert.match(controllerSource, /resourcePoints/);
+assert.match(controllerSource, /renderTimelineSvg\(needPoints, resourcePoints\)/);
+assert.match(controllerSource, /buildCoverageRatioChartSeries/);
+assert.match(controllerSource, /chartMode: "coverage-ratio"/);
+assert.match(controllerSource, /chartValue: 100/);
+assert.match(controllerSource, /\(resourceAmount \/ needAmount\) \* 100/);
+assert.match(controllerSource, /Math\.min\(point\.chartValue, ratioCeiling\)/);
+assert.match(controllerSource, /formatPercent\(value\)/);
+assert.match(controllerSource, /point\?\.resourceAmount \?\? point\?\.eligibleResourceAmount/);
+assert.doesNotMatch(controllerSource, /normalizeResourcePointValue[\s\S]*grossProjectedAssetAmount/);
+assert.doesNotMatch(controllerSource, /normalizeResourcePointValue[\s\S]*excludedSurplus/);
+assert.match(controllerSource, /Projected need/);
+assert.match(controllerSource, /Projected eligible resources/);
+assert.match(controllerSource, /missing-asset-treatment-helper/);
+assert.match(controllerSource, /Current eligible resources/);
+assert.match(controllerSource, /Final eligible resources/);
+assert.match(controllerSource, /formatCurrency\(firstPoint\.grossNeedAmount \?\? firstPoint\.needAmount\)/);
+assert.match(controllerSource, /formatCurrency\(firstResourcePoint\.resourceAmount\)/);
+assert.match(controllerSource, /formatCurrency\(lastPoint\.grossNeedAmount \?\? lastPoint\.needAmount\)/);
+assert.match(controllerSource, /formatCurrency\(lastResourcePoint\.resourceAmount\)/);
 assert.match(controllerSource, /renderMissingState/);
 assert.match(controllerSource, /hasProtectionModelingSource/);
 assert.doesNotMatch(controllerSource, /step-three-analysis-display/);
@@ -63,11 +99,12 @@ assert.doesNotMatch(controllerSource, /sampleNeed|samplePoints|demoData|fake gra
 
 assert.doesNotMatch(pageSource, /\$[0-9]/, "Coverage Strategy page should not hardcode fake dollar outputs.");
 assert.doesNotMatch(controllerSource, /needPoints\s*=\s*\[/, "Controller should not define sample chart points.");
-assert.doesNotMatch(controllerSource, /resource line|existing coverage layers|gap\/surplus|coverage gap|surplus coverage/i);
-assert.doesNotMatch(pageSource, /Resource Line|Existing Coverage Layers|Gap|Surplus/i);
+assert.doesNotMatch(controllerSource, /existing coverage layers|gap\/surplus|coverage gap|surplus coverage|proposed coverage/i);
+assert.doesNotMatch(pageSource, /Resource Line|Existing Coverage Layers|Gap|Surplus|Proposed Coverage/i);
 assert.doesNotMatch(pageSource, /coverage-timeline-engine\.js/, "Need Timeline page should not load coverage timeline engine yet.");
 
 assert.match(componentsSource, /\.coverage-need-timeline/);
+assert.match(componentsSource, /coverage-need-timeline-resource-line/);
 assert.doesNotMatch(stylesSource, /coverage-need-timeline|Coverage Need Timeline/i);
 
 console.log("coverage strategy need timeline check passed");

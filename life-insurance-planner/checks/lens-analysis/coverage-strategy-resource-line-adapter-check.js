@@ -174,6 +174,64 @@ function buildResourceLine(overrides = {}) {
   });
 }
 
+function buildLongResourceLine({ rate, rateField = "annualGrowthRate", monthlySavings = 0 } = {}) {
+  const buildCoverageStrategyResourceLine = loadAdapter();
+  const needPoints = Array.from({ length: 41 }, (_unused, yearIndex) => ({
+    yearIndex,
+    date: `${2026 + yearIndex}-01-01`,
+    calendarYear: 2026 + yearIndex,
+    age: 40 + yearIndex,
+    needAmount: 1000000
+  }));
+  return buildCoverageStrategyResourceLine({
+    lensModel: {
+      profileFacts: {
+        clientDateOfBirth: "1986-01-01"
+      },
+      assetFacts: {
+        assets: [
+          {
+            id: "cash",
+            categoryKey: "cashAndCashEquivalents",
+            label: "Cash",
+            currentValue: 120400,
+            [rateField]: rate
+          }
+        ]
+      },
+      resourceProjectionInputs: {
+        savingAllocations: monthlySavings > 0
+          ? [
+              {
+                id: "assigned-savings",
+                targetAssetCategoryKey: "cashAndCashEquivalents",
+                monthlyAmount: monthlySavings,
+                annualGrowthRate: rate
+              }
+            ]
+          : [],
+        unassignedSurplus: 9000000
+      }
+    },
+    analysisSettings: {
+      assetTreatmentAssumptions: {
+        enabled: true,
+        assets: {
+          cashAndCashEquivalents: {
+            include: true,
+            treatmentPreset: "cash-like",
+            taxTreatment: "no-tax-drag",
+            taxDragPercent: 0,
+            liquidityHaircutPercent: 0
+          }
+        }
+      }
+    },
+    needPoints,
+    valuationDate: "2026-01-01"
+  });
+}
+
 function issueCodes(items) {
   return (Array.isArray(items) ? items : []).map((item) => item.code);
 }
@@ -238,6 +296,65 @@ assert.ok(yearOne.growthAmount > 0, "category-aware growth is applied where avai
 assert.ok(
   yearOne.savingsContributionAmountsByCategory.taxableBrokerageInvestments > 0,
   "planned savings is assigned by target asset category"
+);
+
+const sixPercent = buildLongResourceLine({ rate: 6 });
+const decimalSixPercent = buildLongResourceLine({ rate: 0.06 });
+const percentFieldSixPercent = buildLongResourceLine({ rate: 6, rateField: "annualGrowthRatePercent" });
+const finalSixPercent = sixPercent.resourcePoints.at(-1);
+assert.equal(
+  finalSixPercent.resourceAmount,
+  decimalSixPercent.resourcePoints.at(-1).resourceAmount,
+  "annual growth input 6 and 0.06 produce equivalent resource output"
+);
+assert.equal(
+  finalSixPercent.resourceAmount,
+  percentFieldSixPercent.resourcePoints.at(-1).resourceAmount,
+  "annualGrowthRatePercent input 6 follows the same 6% convention"
+);
+assert.ok(
+  finalSixPercent.resourceAmount > 1200000 && finalSixPercent.resourceAmount < 1300000,
+  "120400 at 6% for 40 years remains in a sane compounding range"
+);
+
+const clampedOutlier = buildLongResourceLine({ rate: 600 });
+assert.ok(
+  issueCodes(clampedOutlier.warnings).includes("resource-growth-rate-clamped"),
+  "outlier growth rates are clamped and warned"
+);
+assert.ok(
+  clampedOutlier.resourcePoints.at(-1).resourceAmount < 12000000,
+  "outlier growth cannot produce absurd resource values"
+);
+
+const withSavings = buildLongResourceLine({ rate: 6, monthlySavings: 1000 });
+assert.ok(
+  withSavings.resourcePoints.at(-1).resourceAmount > finalSixPercent.resourceAmount,
+  "assigned planned savings increases projected eligible resources"
+);
+assert.ok(
+  withSavings.resourcePoints.at(-1).resourceAmount < 4000000,
+  "reasonable assigned savings remains within expected compounding bounds"
+);
+assert.equal(
+  withSavings.resourcePoints.at(-1).excludedSurplus,
+  9000000,
+  "unallocated surplus is traced separately on long-horizon points"
+);
+assert.ok(
+  withSavings.resourcePoints.at(-1).resourceAmount < withSavings.resourcePoints.at(-1).excludedSurplus,
+  "unallocated surplus is not included in primary resourceAmount"
+);
+
+const missingGrowth = buildLongResourceLine({ rate: undefined });
+assert.ok(
+  issueCodes(missingGrowth.warnings).includes("resource-growth-rate-missing-defaulted"),
+  "missing growth defaults conservatively with warning"
+);
+assert.equal(
+  missingGrowth.resourcePoints.at(-1).resourceAmount,
+  120400,
+  "missing growth uses conservative 0% growth"
 );
 
 const categoryRows = result.categoryPoints.filter((row) => row.categoryKey === "taxableBrokerageInvestments");

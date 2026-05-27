@@ -20265,6 +20265,40 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   line-height: 1;
 }
 
+.coverage-need-timeline-legend {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 0.45rem 0.75rem;
+  min-width: 0;
+  color: var(--m90-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 740;
+  line-height: 1.2;
+}
+
+.coverage-need-timeline-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.coverage-need-timeline-legend i {
+  width: 1.4rem;
+  height: 0.18rem;
+  border-radius: 999px;
+}
+
+.coverage-need-timeline-legend-need {
+  background: var(--m90-accent);
+}
+
+.coverage-need-timeline-legend-resource {
+  background: var(--success);
+}
+
 .coverage-need-timeline-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -20336,10 +20370,26 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   stroke-width: 3;
 }
 
+.coverage-need-timeline-resource-line {
+  stroke: var(--success);
+  stroke-width: 2.6;
+}
+
 .coverage-need-timeline-point {
   fill: var(--m90-surface);
   stroke: var(--m90-accent);
   stroke-width: 3;
+}
+
+.coverage-need-timeline-resource-point {
+  stroke: var(--success);
+}
+
+.coverage-need-timeline-resource-unavailable {
+  margin: 0.45rem 0.3rem 0;
+  color: var(--m90-text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .coverage-need-timeline-summary {
