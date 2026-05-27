@@ -310,6 +310,32 @@
     return isPlainObject(assets[categoryKey]) ? assets[categoryKey] : null;
   }
 
+  function getDefaultGrowthProfile(assetTreatmentAssumptions) {
+    const profile = normalizeString(assetTreatmentAssumptions?.defaultProfile);
+    return profile || "balanced";
+  }
+
+  function getDefaultGrowthAssumptionForCategory(assetTaxonomy, assetTreatmentAssumptions, categoryKey) {
+    const category = getCategoryByKey(assetTaxonomy, categoryKey);
+    const profile = getDefaultGrowthProfile(assetTreatmentAssumptions);
+    const defaults = isPlainObject(category?.growthDefaults) ? category.growthDefaults : {};
+    const profileDefault = isPlainObject(defaults[profile])
+      ? defaults[profile]
+      : defaults.balanced;
+
+    if (!isPlainObject(profileDefault)) {
+      return null;
+    }
+
+    return {
+      assumedAnnualGrowthRatePercent: profileDefault.assumedAnnualGrowthRatePercent,
+      assumedAnnualGrowthRateSource: "asset-taxonomy-default",
+      assumedAnnualGrowthRateProfile: profile,
+      growthConsumptionStatus: SAVED_ONLY_CONSUMPTION_STATUS,
+      defaultedFromTaxonomy: true
+    };
+  }
+
   function getSavingsContributionRecords(input) {
     if (Array.isArray(input?.savingsContributionRecords)) {
       return input.savingsContributionRecords;
@@ -496,7 +522,12 @@
   function projectAssetCategory(categoryCandidate, input, projectionYears, resultWarnings, contributionCandidate) {
     const categoryKey = categoryCandidate.categoryKey;
     const category = getCategoryByKey(input.assetTaxonomy, categoryKey);
-    const assumption = getAssumptionForCategory(input.assetTreatmentAssumptions, categoryKey);
+    const savedAssumption = getAssumptionForCategory(input.assetTreatmentAssumptions, categoryKey);
+    const contributionHasAmount = (toOptionalNumber(contributionCandidate?.monthlyContributionAmount) || 0) > 0;
+    const defaultAssumption = !savedAssumption && contributionHasAmount
+      ? getDefaultGrowthAssumptionForCategory(input.assetTaxonomy, input.assetTreatmentAssumptions, categoryKey)
+      : null;
+    const assumption = savedAssumption || defaultAssumption;
     const label = normalizeString(categoryCandidate.label)
       || normalizeString(category?.label)
       || categoryKey;
@@ -532,6 +563,17 @@
     );
     const projectedValue = projectedCurrentAssetValue + projectedContributionValue;
     const warnings = categoryWarnings.concat(reviewWarnings);
+
+    if (defaultAssumption) {
+      warnings.push(createWarning(
+        "missing-asset-growth-assumption-defaulted",
+        "No saved asset growth assumption exists for this savings contribution target; taxonomy defaults were used for contribution allocation.",
+        {
+          categoryKey,
+          assumedAnnualGrowthRateProfile: defaultAssumption.assumedAnnualGrowthRateProfile
+        }
+      ));
+    }
 
     warnings.forEach(function (warning) {
       resultWarnings.push(warning);
@@ -571,7 +613,17 @@
     const warnings = [];
     const normalizedProjectionYears = normalizeProjectionYears(safeInput.projectionYears, warnings);
     const projectionYears = normalizedProjectionYears.value;
-    const aggregated = aggregateAssetFacts(safeInput.assetFacts, safeInput.assetTaxonomy);
+    const hasAssetFacts = isPlainObject(safeInput.assetFacts) && Array.isArray(safeInput.assetFacts.assets);
+    if (!hasAssetFacts) {
+      warnings.push(createWarning(
+        "missing-asset-facts",
+        "assetFacts.assets is missing; asset growth projection used savings contribution records only."
+      ));
+    }
+    const aggregated = aggregateAssetFacts(
+      hasAssetFacts ? safeInput.assetFacts : { assets: [] },
+      safeInput.assetTaxonomy
+    );
     const contributionAggregation = aggregateSavingsContributions(safeInput, safeInput.assetTaxonomy);
     const contributionCategories = new Map();
     contributionAggregation.contributionCategories.forEach(function (category) {

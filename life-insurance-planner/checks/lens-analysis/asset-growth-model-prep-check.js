@@ -320,6 +320,36 @@ assert.equal(
   "mapped savings habits should feed the matching projected asset category"
 );
 
+const noSavedGrowthAssumptionsResult = lensAnalysis.buildLensModelFromSavedProtectionModeling({
+  sourceData: createSourceData({
+    savingsHabitRecords: [
+      {
+        expenseId: "savings_retirement",
+        categoryKey: "savingsGoalContributions",
+        typeKey: "retirementContributions",
+        label: "Retirement Contributions",
+        amount: 500,
+        frequency: "monthly",
+        targetAssetCategoryKey: "traditionalRetirementAssets"
+      }
+    ]
+  }),
+  analysisSettings: {},
+  profileRecord: {}
+});
+const noSavedGrowthAssumptionsGrowth = noSavedGrowthAssumptionsResult.lensModel.projectedAssetGrowth;
+const noSavedGrowthAssumptionsRetirement = noSavedGrowthAssumptionsGrowth.includedCategories.find(function (category) {
+  return category.categoryKey === "traditionalRetirementAssets";
+});
+assert.equal(noSavedGrowthAssumptionsGrowth.totalMonthlyContributionAmount, 500);
+assert.equal(noSavedGrowthAssumptionsRetirement.assumedAnnualGrowthRatePercent, 6);
+assert.equal(noSavedGrowthAssumptionsRetirement.assumedAnnualGrowthRateSource, "asset-taxonomy-default");
+assert.equal(noSavedGrowthAssumptionsRetirement.contributionSourceRecords.length, 1);
+assert.ok(
+  getWarningByCode(noSavedGrowthAssumptionsGrowth.warnings, "missing-asset-growth-assumption-defaulted"),
+  "saved PMI savings habits should remain allocatable when saved asset-growth assumptions are absent"
+);
+
 const projectedOffsetsModel = buildLensModel(context, createAssetTreatmentAssumptions(6, {
   mode: "projectedOffsets",
   projectionYears: 30,

@@ -322,6 +322,31 @@ assert.equal(contributionCash.contributionPrincipal, 30000);
 assert.equal(contributionCash.projectedContributionValue, 33149.2);
 assert.equal(contributionCash.projectedValue, 33149.2);
 
+const defaultedSavingsContributionProjection = calculate(createInput({
+  assetTreatmentAssumptions: {
+    defaultProfile: "balanced",
+    assets: {}
+  },
+  savingsHabitRecords: [
+    {
+      typeKey: "retirementContributions",
+      label: "Retirement Contributions",
+      amount: 500,
+      frequency: "monthly",
+      targetAssetCategoryKey: "traditionalRetirementAssets"
+    }
+  ]
+}));
+const defaultedRetirement = getCategory(defaultedSavingsContributionProjection, "traditionalRetirementAssets");
+assert.equal(defaultedSavingsContributionProjection.excludedContributionRecordCount, 0);
+assert.equal(defaultedRetirement.assumedAnnualGrowthRatePercent, 6);
+assert.equal(defaultedRetirement.assumedAnnualGrowthRateSource, "asset-taxonomy-default");
+assert.equal(defaultedRetirement.monthlyContributionAmount, 500);
+assert.ok(
+  defaultedRetirement.warnings.some((warning) => warning.code === "missing-asset-growth-assumption-defaulted"),
+  "mapped savings contribution targets should fall back to taxonomy growth defaults when saved growth assumptions are absent"
+);
+
 const unmappedContributionProjection = calculate(createInput({
   savingsHabitRecords: [
     { typeKey: "otherGoalSavings", label: "Other Goal Savings", amount: 500, frequency: "monthly" },

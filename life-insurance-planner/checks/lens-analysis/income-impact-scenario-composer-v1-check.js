@@ -514,6 +514,59 @@ function runSavingsAllocationChecks() {
     true,
     "composer should not consume raw projectedAssetGrowth totals"
   );
+
+  const savedOnlyAllocationHarness = loadComposerWithLayerSpies();
+  const savedOnlyScenario = savedOnlyAllocationHarness.composeIncomeImpactScenario(createInput({
+    analysisSettings: {
+      projectedAssetOffsetAssumptions: {
+        enabled: false,
+        consumptionStatus: "saved-only",
+        activationVersion: 0
+      }
+    },
+    lensModel: {
+      projectedAssetOffset: {
+        sourceMode: "currentDollarOnly",
+        includedCategories: []
+      },
+      projectedAssetGrowth: {
+        includedCategories: [
+          {
+            categoryKey: "traditionalRetirementAssets",
+            label: "Traditional Retirement Assets",
+            assumedAnnualGrowthRatePercent: 6,
+            growthConsumptionStatus: "saved-only",
+            contributionSourceRecords: [
+              {
+                typeKey: "retirementContributions",
+                label: "Retirement Contributions",
+                monthlyContributionAmount: 1000,
+                frequency: "monthly"
+              }
+            ]
+          }
+        ],
+        consumedByMethods: false
+      }
+    }
+  }));
+  const savedOnlyRetirementTarget = savedOnlyScenario.preDeathSeries.targetPoint.assetLedger.find(function (row) {
+    return row.id === "saving-allocation-traditionalRetirementAssets";
+  });
+  assert.equal(
+    savedOnlyAllocationHarness.captured.layer1Input.savingAllocations[0].growthStatus,
+    "method-active",
+    "mapped savings allocations should activate category growth without consuming raw projected totals"
+  );
+  assert.ok(
+    savedOnlyRetirementTarget.currentValue > 60000,
+    "mapped savings allocation target should compound with its category growth rate"
+  );
+  assert.equal(
+    savedOnlyScenario.trace.layer1.savingAllocationPolicy.rawProjectedTotalsIgnored,
+    true,
+    "saved-only savings growth should still ignore raw projected totals"
+  );
 }
 
 function runDefaultAssetTreatmentCompletenessChecks() {

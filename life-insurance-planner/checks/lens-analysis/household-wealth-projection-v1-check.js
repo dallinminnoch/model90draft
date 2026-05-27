@@ -313,6 +313,40 @@ function runChecks() {
     "point-level trace should show monthly saving allocation amount"
   );
 
+  const allocationActivatedGrowth = baseProjection({
+    assetLedger: baseAssetLedger().concat([
+      {
+        id: "traditional-retirement",
+        categoryKey: "traditionalRetirementAssets",
+        label: "Traditional Retirement Assets",
+        currentValue: 0,
+        includedInProjection: true,
+        growthEligible: false,
+        annualGrowthRate: null,
+        growthStatus: "saved-only",
+        sourcePaths: ["assetLedger.retirement.currentValue"]
+      }
+    ]),
+    savingAllocations: [
+      {
+        id: "retirementContributions",
+        label: "Retirement Contributions",
+        monthlyAmount: 600,
+        targetAssetCategoryKey: "traditionalRetirementAssets",
+        growthEligible: true,
+        annualGrowthRate: 0.12,
+        growthStatus: "method-active",
+        sourcePaths: ["savingsHabitRecords.1"]
+      }
+    ]
+  });
+  const allocationActivatedTarget = allocationActivatedGrowth.points.at(-1).assetLedger.find((row) => row.id === "traditional-retirement");
+  assertClose(
+    allocationActivatedTarget.currentValue,
+    expectedAllocatedTarget.value,
+    "saving allocation growth should activate an existing target asset row"
+  );
+
   const cappedSavings = baseProjection({
     savingAllocations: [
       {

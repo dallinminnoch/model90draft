@@ -2103,7 +2103,7 @@
     const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
     const safeSourceData = isPlainObject(sourceData) ? sourceData : {};
     const analysisSettings = resolveAnalysisSettings(input);
-    const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : null;
+    const assetFacts = isPlainObject(safeLensModel.assetFacts) ? safeLensModel.assetFacts : { assets: [] };
     const assetTreatmentAssumptions = resolveAssetTreatmentAssumptions(input);
     const calculateAssetGrowthProjection = lensAnalysis.calculateAssetGrowthProjection;
     const projectionContext = resolveAssetGrowthProjectionContext(assetTreatmentAssumptions);

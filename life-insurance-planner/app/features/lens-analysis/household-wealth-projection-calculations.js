@@ -379,6 +379,10 @@
       }
 
       let targetAsset = rowsByCategory.get(targetCategoryKey);
+      const allocationAnnualGrowthRate = toOptionalRate(allocation?.annualGrowthRate);
+      const allocationGrowthActive = allocation?.growthEligible === true
+        && normalizeStatus(allocation?.growthStatus) === ACTIVE_GROWTH_STATUS
+        && allocationAnnualGrowthRate != null;
       if (!targetAsset) {
         const syntheticAsset = {
           id: `saving-allocation-${targetCategoryKey}`,
@@ -387,7 +391,7 @@
           currentValue: 0,
           includedInProjection: true,
           growthEligible: allocation?.growthEligible === true,
-          annualGrowthRate: toOptionalRate(allocation?.annualGrowthRate),
+          annualGrowthRate: allocationAnnualGrowthRate,
           monthlyGrowthRate: 0,
           growthStatus: normalizeString(allocation?.growthStatus) || "current-dollar",
           growthActive: false,
@@ -395,7 +399,7 @@
           trace: {
             source: "savingAllocations",
             syntheticSavingAllocationAsset: true,
-            targetAssetCategoryKey
+            targetAssetCategoryKey: targetCategoryKey
           },
           ignoredMetadata: []
         };
@@ -409,6 +413,17 @@
         assetRows.push(syntheticAsset);
         rowsByCategory.set(targetCategoryKey, syntheticAsset);
         targetAsset = syntheticAsset;
+      } else if (allocationGrowthActive && !targetAsset.growthActive) {
+        targetAsset.growthEligible = true;
+        targetAsset.annualGrowthRate = allocationAnnualGrowthRate;
+        targetAsset.growthStatus = ACTIVE_GROWTH_STATUS;
+        targetAsset.growthActive = true;
+        targetAsset.monthlyGrowthRate = roundRate(Math.pow(1 + allocationAnnualGrowthRate, 1 / 12) - 1);
+        targetAsset.sourcePaths = uniqueStrings((targetAsset.sourcePaths || []).concat(sourcePaths));
+        targetAsset.trace = Object.assign({}, targetAsset.trace, {
+          savingAllocationActivatedGrowth: true,
+          savingAllocationGrowthSourcePaths: sourcePaths
+        });
       }
 
       items.push({

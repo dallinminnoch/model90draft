@@ -670,7 +670,9 @@
       const targetAssetCategoryLabel = normalizeString(category.label) || targetAssetCategoryKey;
       const activeGrowth = growthMap instanceof Map ? growthMap.get(targetAssetCategoryKey) : null;
       const annualGrowthRate = activeGrowth?.annualGrowthRate ?? toOptionalNumber(category.assumedAnnualGrowthRatePercent);
-      const growthStatus = activeGrowth?.growthStatus || normalizeString(category.growthConsumptionStatus) || "saved-only";
+      const growthStatus = activeGrowth?.growthStatus
+        || (annualGrowthRate == null ? normalizeString(category.growthConsumptionStatus) : "method-active")
+        || "saved-only";
       const sourceRecords = Array.isArray(category.contributionSourceRecords)
         ? category.contributionSourceRecords
         : [];
@@ -707,7 +709,8 @@
       source: "lensModel.projectedAssetGrowth.includedCategories.contributionSourceRecords",
       allocationCount: allocations.length,
       contributionTotalsIgnored: true,
-      rawProjectedTotalsIgnored: true
+      rawProjectedTotalsIgnored: true,
+      contributionGrowthPolicy: "mapped-contributions-use-category-growth-rate"
     };
     return allocations;
   }
