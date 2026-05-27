@@ -46,6 +46,27 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function toOptionalRate(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) {
+        return null;
+      }
+      return value > 1 ? value / 100 : value;
+    }
+
+    const raw = String(value).trim();
+    const parsed = Number(raw.replace(/[%,\s]/g, ""));
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+
+    return raw.includes("%") || parsed > 1 ? parsed / 100 : parsed;
+  }
+
   function toWholeMonthCount(value) {
     const numericValue = toOptionalNumber(value);
     if (numericValue == null) {
@@ -253,7 +274,11 @@
         return items;
       }
 
-      const annualGrowthRate = toOptionalNumber(allocation.annualGrowthRate);
+      const annualGrowthRate = toOptionalRate(
+        allocation.annualGrowthRate
+        ?? allocation.assumedAnnualGrowthRatePercent
+        ?? allocation.annualGrowthRatePercent
+      );
       if (annualGrowthRate == null) {
         warnings.push(makeIssue(
           "post-death-saving-growth-defaulted",

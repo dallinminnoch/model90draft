@@ -15,6 +15,7 @@ const layer1Path = path.join(featureRoot, "household-wealth-projection-calculati
 const layer3Path = path.join(featureRoot, "household-survivor-runway-calculations.js");
 const projectionHelperPath = path.join(featureRoot, "post-death-savings-projection-calculations.js");
 const composerPath = path.join(featureRoot, "income-impact-scenario-composer-calculations.js");
+const graphModelPath = path.join(featureRoot, "income-impact-timeline-graph-model.js");
 
 function read(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -41,7 +42,8 @@ function createContext() {
     "household-death-event-availability-calculations.js",
     "household-survivor-runway-calculations.js",
     "post-death-savings-projection-calculations.js",
-    "income-impact-scenario-composer-calculations.js"
+    "income-impact-scenario-composer-calculations.js",
+    "income-impact-timeline-graph-model.js"
   ].forEach(function (fileName) {
     loadScript(context, path.join(featureRoot, fileName));
   });
@@ -248,6 +250,8 @@ const composerSource = read(composerPath);
 const layer1Source = read(layer1Path);
 const layer3Source = read(layer3Path);
 const projectionHelperSource = read(projectionHelperPath);
+const graphModelSource = read(graphModelPath);
+const expectedMonthlyRateForSixPercent = Math.pow(1 + 0.06, 1 / 12) - 1;
 
 assert.match(pageSource, /Continue savings goals after death/, "Income Impact page exposes the savings continuation control label");
 assert.match(pageSource, /data-income-impact-continue-savings-after-death/, "page has a savings continuation control hook");
@@ -263,6 +267,7 @@ assert.match(componentsSource, /\.income-impact-toggle-row\.is-disabled/, "disab
 assert.match(composerSource, /postDeathSavingsContinuation/, "composer exposes resolved post-death savings continuation state");
 assert.match(pageSource, /post-death-savings-projection-calculations\.js/, "Income Impact loads the post-death savings projection helper before composer runtime");
 assert.match(projectionHelperSource, /calculatePostDeathSavingsProjection/, "post-death savings projection helper is exported");
+assert.match(projectionHelperSource, /function toOptionalRate/, "post-death savings projection helper mirrors household wealth rate normalization");
 assert.match(projectionHelperSource, /monthlyGrowthRate/, "post-death savings projection helper applies category growth context");
 assert.match(projectionHelperSource, /genericSurplusAfterSavings/, "post-death savings projection helper reduces generic surplus after continued savings");
 assert.doesNotMatch(layer3Source, /totalSavingAllocations|cashFlowBeforeSavings|savingAllocationBalances/, "Layer 3 survivor runway does not own post-death savings projection math");
@@ -275,6 +280,48 @@ assert.doesNotMatch(layer3Source, /totalSavingAllocations|cashFlowBeforeSavings|
 ].forEach(function (pattern) {
   assert.doesNotMatch(projectionHelperSource, pattern, `post-death savings projection helper should stay pure and avoid ${pattern}`);
 });
+
+function createProjectionInput(annualGrowthRate) {
+  return {
+    startDate: "2031-01-01",
+    projectionHorizonMonths: 12,
+    continuation: {
+      requested: true,
+      eligible: true,
+      effective: true,
+      reason: "enabled",
+      plannedMonthlyAmount: 1000,
+      minimumMonthlySurvivorCashFlow: 4000
+    },
+    savingAllocations: [
+      {
+        ...createSavingsAllocation(),
+        annualGrowthRate
+      }
+    ],
+    startingCategoryBalances: [],
+    cashFlowPoints: Array.from({ length: 12 }, function (_, index) {
+      return {
+        monthIndex: index + 1,
+        survivorIncome: 4000,
+        survivorNeeds: 0,
+        scheduledObligations: 0
+      };
+    })
+  };
+}
+
+const projectionContext = createContext();
+const calculatePostDeathSavingsProjection = projectionContext.LensApp.lensAnalysis.calculatePostDeathSavingsProjection;
+const percentStyleProjection = calculatePostDeathSavingsProjection(createProjectionInput(6));
+const decimalStyleProjection = calculatePostDeathSavingsProjection(createProjectionInput(0.06));
+const percentMonthlyRate = percentStyleProjection.points[0].contributions[0].monthlyGrowthRate;
+const decimalMonthlyRate = decimalStyleProjection.points[0].contributions[0].monthlyGrowthRate;
+assertClose(percentMonthlyRate, expectedMonthlyRateForSixPercent, "annual growth input 6 normalizes to 6 percent monthly compound rate", 0.00000001);
+assertClose(decimalMonthlyRate, expectedMonthlyRateForSixPercent, "annual growth input 0.06 preserves 6 percent monthly compound rate", 0.00000001);
+assertClose(percentMonthlyRate, decimalMonthlyRate, "percent-style and decimal-style annual growth inputs produce the same monthly rate", 0.00000001);
+assert.ok(percentMonthlyRate < 0.01, "annual growth input 6 must not create absurd monthly growth");
+assert.ok(Math.abs(percentMonthlyRate - 0.1760474286) > 0.1, "regression guard: annual growth input 6 must not be treated as 600 percent annual growth");
 
 const eligibleOff = composeWithSpies(createInput());
 const eligibleOffResolution = getContinuation(eligibleOff.scenario);
@@ -335,6 +382,43 @@ assert.equal(
   eligibleOn.scenario.postDeathSeries.savingsContinuationProjection.points[0].contributions[0].monthlyGrowthRate > 0,
   true,
   "projection uses available target category growth context"
+);
+assertClose(
+  eligibleOn.scenario.postDeathSeries.savingsContinuationProjection.points[0].contributions[0].monthlyGrowthRate,
+  expectedMonthlyRateForSixPercent,
+  "runtime continuation projection uses sane 6 percent monthly growth conversion",
+  0.00000001
+);
+
+const graphModel = createContext().LensApp.lensAnalysis.buildIncomeImpactTimelineGraphModel;
+function buildGraphModel(scenario) {
+  return graphModel({
+    scenario,
+    riskEvaluation: {
+      events: [],
+      stableEvents: [],
+      warnings: [],
+      dataGaps: []
+    }
+  });
+}
+const eligibleOffGraph = buildGraphModel(eligibleOff.scenario);
+const eligibleOnGraph = buildGraphModel(eligibleOn.scenario);
+const graphOffValues = eligibleOffGraph.series.postDeathResources.map(function (point) {
+  return [point.date, point.value];
+});
+const graphOnValues = eligibleOnGraph.series.postDeathResources.map(function (point) {
+  return [point.date, point.value];
+});
+assert.equal(
+  JSON.stringify(graphOnValues),
+  JSON.stringify(graphOffValues),
+  "graph total resources remain unchanged because savings continuation reallocates survivor surplus into target assets"
+);
+assert.doesNotMatch(
+  graphModelSource,
+  /savingsContinuationProjection/,
+  "graph model does not directly consume savingsContinuationProjection until a separate graph-design pass chooses to display it"
 );
 
 const ineligibleOn = composeWithSpies(createInput({
