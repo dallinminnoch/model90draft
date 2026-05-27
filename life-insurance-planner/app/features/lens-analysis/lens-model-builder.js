@@ -2116,7 +2116,7 @@
     const modelWarnings = [
       createWarning(
         "asset-growth-projection-saved-only",
-        "Projected asset growth values are prepared for future reporting only and are not consumed by current methods."
+        "Projected asset growth totals are prepared for future reporting only and are not consumed by current methods; contribution context may feed resource projection through the savings allocation adapter."
       ),
       ...projectionContext.warnings
     ];
@@ -2244,7 +2244,7 @@
       valuationDateSource: result?.valuationDateSource || null,
       savingsContributionFactsCanonicalized: result?.savingsContributionFactsCanonicalized === true,
       savingsContributionFactCount: result?.savingsContributionFactCount ?? 0,
-      downstreamConsumptionNote: "Projected growth totals remain saved-only; canonical savings contribution facts may feed Income Impact resource projection separately."
+      downstreamConsumptionNote: "Projected growth totals remain saved-only; savings contribution context may feed Income Impact through lensModel.resourceProjectionInputs.savingAllocations."
     };
   }
 
@@ -2284,6 +2284,71 @@
         : [],
       assetTaxonomy: lensAnalysis.assetTaxonomy
     }));
+  }
+
+  function createPreparedResourceProjectionInputs(lensModel) {
+    const safeLensModel = isPlainObject(lensModel) ? lensModel : {};
+    const buildSavingsResourceAllocations = lensAnalysis.buildSavingsResourceAllocations;
+
+    if (typeof buildSavingsResourceAllocations !== "function") {
+      return {
+        source: "lens-model-preparation",
+        calculationSource: "savings-resource-allocation-adapter",
+        savingAllocations: [],
+        warnings: [
+          createWarning(
+            "missing-savings-resource-allocation-adapter",
+            "Savings resource allocation adapter is unavailable; Income Impact will use legacy projected asset growth contribution records if present."
+          )
+        ],
+        dataGaps: [],
+        trace: {
+          source: "lens-model-preparation",
+          outputPath: "lensModel.resourceProjectionInputs",
+          adapterAvailable: false
+        },
+        metadata: {
+          source: "lens-model-preparation",
+          calculationSource: "savings-resource-allocation-adapter",
+          savedDataShapeChanged: false,
+          projectedGrowthTotalsConsumed: false
+        }
+      };
+    }
+
+    const result = buildSavingsResourceAllocations({
+      savingsContributionFacts: isPlainObject(safeLensModel.savingsContributionFacts)
+        ? safeLensModel.savingsContributionFacts
+        : { facts: [] },
+      projectedAssetGrowth: isPlainObject(safeLensModel.projectedAssetGrowth)
+        ? safeLensModel.projectedAssetGrowth
+        : {},
+      assetFacts: isPlainObject(safeLensModel.assetFacts)
+        ? safeLensModel.assetFacts
+        : { assets: [] }
+    });
+
+    return {
+      source: "lens-model-preparation",
+      calculationSource: result?.source || "savings-resource-allocation-adapter",
+      savingAllocations: Array.isArray(result?.savingAllocations)
+        ? cloneSerializable(result.savingAllocations)
+        : [],
+      warnings: Array.isArray(result?.warnings) ? cloneSerializable(result.warnings) : [],
+      dataGaps: Array.isArray(result?.dataGaps) ? cloneSerializable(result.dataGaps) : [],
+      trace: cloneSerializable({
+        ...(isPlainObject(result?.trace) ? result.trace : {}),
+        source: "lens-model-preparation",
+        outputPath: "lensModel.resourceProjectionInputs"
+      }),
+      metadata: {
+        ...(isPlainObject(result?.metadata) ? cloneSerializable(result.metadata) : {}),
+        source: "lens-model-preparation",
+        calculationSource: result?.source || "savings-resource-allocation-adapter",
+        savedDataShapeChanged: false,
+        projectedGrowthTotalsConsumed: false
+      }
+    };
   }
 
   function createEmptyProjectedAssetOffset(warnings, metadata) {
@@ -3105,6 +3170,7 @@
           builderInput,
           sourceResult.sourceData
         );
+        lensModel.resourceProjectionInputs = createPreparedResourceProjectionInputs(lensModel);
         lensModel.projectedAssetOffset = createPreparedProjectedAssetOffset(lensModel, builderInput);
         lensModel.cashReserveProjection = createPreparedCashReserveProjection(lensModel, builderInput);
         lensModel.treatedExistingCoverageOffset = createPreparedTreatedExistingCoverageOffset(lensModel, builderInput);

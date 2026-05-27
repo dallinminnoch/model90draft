@@ -56,6 +56,7 @@ function createLensAnalysisContext(options) {
     includeAssetGrowthHelper
       ? "app/features/lens-analysis/asset-growth-projection-calculations.js"
       : null,
+    "app/features/lens-analysis/savings-resource-allocation-adapter.js",
     "app/features/lens-analysis/inflation-projection-calculations.js",
     "app/features/lens-analysis/education-funding-projection-calculations.js",
     "app/features/lens-analysis/lens-model-builder.js",
@@ -320,6 +321,13 @@ assert.equal(
   1000,
   "mapped savings habits should feed the matching projected asset category"
 );
+assert.ok(reportingOnlySavingsModel.resourceProjectionInputs, "lensModel should expose resource projection inputs");
+assert.equal(reportingOnlySavingsModel.resourceProjectionInputs.calculationSource, "savings-resource-allocation-adapter");
+assert.equal(reportingOnlySavingsModel.resourceProjectionInputs.savingAllocations.length, 1);
+assert.equal(reportingOnlySavingsModel.resourceProjectionInputs.savingAllocations[0].targetAssetCategoryKey, "taxableBrokerageInvestments");
+assert.equal(reportingOnlySavingsModel.resourceProjectionInputs.savingAllocations[0].monthlyAmount, 1000);
+assert.equal(reportingOnlySavingsModel.resourceProjectionInputs.savingAllocations[0].source, "savingsContributionFact");
+assert.equal(reportingOnlySavingsModel.resourceProjectionInputs.metadata.projectedGrowthTotalsConsumed, false);
 
 const noSavedGrowthAssumptionsResult = lensAnalysis.buildLensModelFromSavedProtectionModeling({
   sourceData: createSourceData({

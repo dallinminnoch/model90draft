@@ -447,24 +447,24 @@ function runSavingsAllocationChecks() {
   const allocationHarness = loadComposerWithLayerSpies();
   const allocatedScenario = allocationHarness.composeIncomeImpactScenario(createInput({
     lensModel: {
-      projectedAssetGrowth: {
-        includedCategories: [
+      resourceProjectionInputs: {
+        savingAllocations: [
           {
-            categoryKey: "taxableBrokerageInvestments",
-            label: "Taxable Brokerage / Investments",
-            assumedAnnualGrowthRatePercent: 6,
-            growthConsumptionStatus: "method-active",
-            contributionSourceRecords: [
-              {
-                typeKey: "brokerageInvestmentContributions",
-                label: "Brokerage / General Investment Contributions",
-                monthlyContributionAmount: 1000,
-                frequency: "monthly"
-              }
-            ]
+            source: "savingsContributionFact",
+            sourceFactId: "savings_contribution_fact_1",
+            sourceRecordId: "brokerage_1",
+            id: "brokerageInvestmentContributions",
+            typeKey: "brokerageInvestmentContributions",
+            label: "Brokerage / General Investment Contributions",
+            monthlyAmount: 1000,
+            targetAssetCategoryKey: "taxableBrokerageInvestments",
+            targetAssetCategoryLabel: "Taxable Brokerage / Investments",
+            annualGrowthRate: 0.06,
+            growthStatus: "method-active",
+            status: "active",
+            sourcePaths: ["lensModel.savingsContributionFacts.facts.0"]
           }
-        ],
-        consumedByMethods: false
+        ]
       }
     }
   }));
@@ -514,6 +514,16 @@ function runSavingsAllocationChecks() {
     true,
     "composer should not consume raw projectedAssetGrowth totals"
   );
+  assert.equal(
+    allocatedScenario.trace.layer1.savingAllocationPolicy.source,
+    "lensModel.resourceProjectionInputs.savingAllocations",
+    "composer should prefer clean resource projection saving allocations"
+  );
+  assert.equal(
+    allocatedScenario.trace.layer1.savingAllocationPolicy.legacyFallbackUsed,
+    false,
+    "clean resource projection inputs should avoid the legacy projectedAssetGrowth contribution path"
+  );
 
   const savedOnlyAllocationHarness = loadComposerWithLayerSpies();
   const savedOnlyScenario = savedOnlyAllocationHarness.composeIncomeImpactScenario(createInput({
@@ -529,24 +539,24 @@ function runSavingsAllocationChecks() {
         sourceMode: "currentDollarOnly",
         includedCategories: []
       },
-      projectedAssetGrowth: {
-        includedCategories: [
+      resourceProjectionInputs: {
+        savingAllocations: [
           {
-            categoryKey: "traditionalRetirementAssets",
-            label: "Traditional Retirement Assets",
-            assumedAnnualGrowthRatePercent: 6,
-            growthConsumptionStatus: "saved-only",
-            contributionSourceRecords: [
-              {
-                typeKey: "retirementContributions",
-                label: "Retirement Contributions",
-                monthlyContributionAmount: 1000,
-                frequency: "monthly"
-              }
-            ]
+            source: "savingsContributionFact",
+            sourceFactId: "savings_contribution_fact_1",
+            sourceRecordId: "retirement_1",
+            id: "retirementContributions",
+            typeKey: "retirementContributions",
+            label: "Retirement Contributions",
+            monthlyAmount: 1000,
+            targetAssetCategoryKey: "traditionalRetirementAssets",
+            targetAssetCategoryLabel: "Traditional Retirement Assets",
+            annualGrowthRate: 0.06,
+            growthStatus: "method-active",
+            status: "active",
+            sourcePaths: ["lensModel.savingsContributionFacts.facts.0"]
           }
-        ],
-        consumedByMethods: false
+        ]
       }
     }
   }));
@@ -566,6 +576,41 @@ function runSavingsAllocationChecks() {
     savedOnlyScenario.trace.layer1.savingAllocationPolicy.rawProjectedTotalsIgnored,
     true,
     "saved-only savings growth should still ignore raw projected totals"
+  );
+
+  const legacyFallbackHarness = loadComposerWithLayerSpies();
+  const legacyFallbackScenario = legacyFallbackHarness.composeIncomeImpactScenario(createInput({
+    lensModel: {
+      projectedAssetGrowth: {
+        includedCategories: [
+          {
+            categoryKey: "taxableBrokerageInvestments",
+            label: "Taxable Brokerage / Investments",
+            assumedAnnualGrowthRatePercent: 6,
+            growthConsumptionStatus: "method-active",
+            contributionSourceRecords: [
+              {
+                typeKey: "brokerageInvestmentContributions",
+                label: "Brokerage / General Investment Contributions",
+                monthlyContributionAmount: 1000,
+                frequency: "monthly"
+              }
+            ]
+          }
+        ],
+        consumedByMethods: false
+      }
+    }
+  }));
+  assert.equal(
+    legacyFallbackHarness.captured.layer1Input.savingAllocations.length,
+    1,
+    "legacy projectedAssetGrowth contribution records should remain as fallback"
+  );
+  assert.equal(
+    legacyFallbackScenario.trace.layer1.savingAllocationPolicy.legacyFallbackUsed,
+    true,
+    "legacy fallback path should be explicitly traced"
   );
 }
 

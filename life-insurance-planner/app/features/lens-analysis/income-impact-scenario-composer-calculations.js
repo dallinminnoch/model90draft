@@ -653,7 +653,81 @@
     return streams;
   }
 
-  function buildLayer1SavingAllocations(lensModel, growthMap, sourcePaths, trace) {
+  function buildPreparedLayer1SavingAllocations(lensModel, growthMap, sourcePaths, trace) {
+    const resourceProjectionInputs = isPlainObject(lensModel?.resourceProjectionInputs)
+      ? lensModel.resourceProjectionInputs
+      : {};
+    const preparedAllocations = Array.isArray(resourceProjectionInputs.savingAllocations)
+      ? resourceProjectionInputs.savingAllocations
+      : [];
+    const allocations = [];
+
+    preparedAllocations.forEach(function (allocation, index) {
+      if (!isPlainObject(allocation)) {
+        return;
+      }
+
+      const targetAssetCategoryKey = normalizeString(
+        allocation.targetAssetCategoryKey
+        || allocation.targetCategoryKey
+        || allocation.assetCategoryKey
+        || allocation.categoryKey
+      );
+      const monthlyAmount = toOptionalNumber(
+        allocation.monthlyAmount
+        ?? allocation.monthlyContributionAmount
+        ?? allocation.amount
+      );
+      if (monthlyAmount == null || monthlyAmount <= 0 || !targetAssetCategoryKey) {
+        return;
+      }
+
+      const activeGrowth = growthMap instanceof Map ? growthMap.get(targetAssetCategoryKey) : null;
+      const preparedAnnualGrowthRate = toOptionalNumber(allocation.annualGrowthRate)
+        ?? (
+          toOptionalNumber(allocation.assumedAnnualGrowthRatePercent ?? allocation.annualGrowthRatePercent) == null
+            ? null
+            : toOptionalNumber(allocation.assumedAnnualGrowthRatePercent ?? allocation.annualGrowthRatePercent) / 100
+        );
+      const annualGrowthRate = activeGrowth?.annualGrowthRate ?? preparedAnnualGrowthRate;
+      const growthStatus = activeGrowth?.growthStatus
+        || normalizeString(allocation.growthStatus)
+        || (annualGrowthRate == null ? "saved-only" : "method-active");
+      const allocationSourcePaths = readSourcePaths(
+        allocation,
+        `lensModel.resourceProjectionInputs.savingAllocations.${index}`
+      );
+      appendUnique(sourcePaths, allocationSourcePaths);
+
+      allocations.push({
+        id: normalizeString(allocation.id || allocation.typeKey || allocation.sourceRecordId)
+          || `saving-allocation-${index + 1}`,
+        typeKey: normalizeString(allocation.typeKey) || null,
+        label: normalizeString(allocation.label || allocation.targetAssetCategoryLabel) || "Saving allocation",
+        monthlyAmount,
+        targetAssetCategoryKey,
+        targetAssetCategoryLabel: normalizeString(allocation.targetAssetCategoryLabel) || targetAssetCategoryKey,
+        annualGrowthRate,
+        growthEligible: annualGrowthRate != null,
+        growthStatus,
+        status: normalizeString(allocation.status) || "active",
+        sourcePaths: allocationSourcePaths
+      });
+    });
+
+    trace.layer1.savingAllocationPolicy = {
+      source: "lensModel.resourceProjectionInputs.savingAllocations",
+      allocationCount: allocations.length,
+      canonicalSource: true,
+      legacyFallbackUsed: false,
+      contributionTotalsIgnored: true,
+      rawProjectedTotalsIgnored: true,
+      contributionGrowthPolicy: "adapter-mapped-contributions-use-category-growth-rate"
+    };
+    return allocations;
+  }
+
+  function buildLegacyLayer1SavingAllocations(lensModel, growthMap, sourcePaths, trace) {
     const projectedAssetGrowth = isPlainObject(lensModel?.projectedAssetGrowth)
       ? lensModel.projectedAssetGrowth
       : {};
@@ -708,11 +782,24 @@
     trace.layer1.savingAllocationPolicy = {
       source: "lensModel.projectedAssetGrowth.includedCategories.contributionSourceRecords",
       allocationCount: allocations.length,
+      canonicalSource: false,
+      legacyFallbackUsed: true,
       contributionTotalsIgnored: true,
       rawProjectedTotalsIgnored: true,
       contributionGrowthPolicy: "mapped-contributions-use-category-growth-rate"
     };
     return allocations;
+  }
+
+  function buildLayer1SavingAllocations(lensModel, growthMap, sourcePaths, trace) {
+    const resourceProjectionInputs = isPlainObject(lensModel?.resourceProjectionInputs)
+      ? lensModel.resourceProjectionInputs
+      : {};
+    if (Array.isArray(resourceProjectionInputs.savingAllocations)
+      && resourceProjectionInputs.savingAllocations.length) {
+      return buildPreparedLayer1SavingAllocations(lensModel, growthMap, sourcePaths, trace);
+    }
+    return buildLegacyLayer1SavingAllocations(lensModel, growthMap, sourcePaths, trace);
   }
 
   function buildLayer1Input(input, dataGaps, warnings, trace, sourcePaths) {
@@ -2008,7 +2095,8 @@
         inputMappings: {
           layer1: {
             assetLedger: "lensModel.assetFacts.assets current gross values",
-            savingAllocations: "lensModel.projectedAssetGrowth contribution source records",
+            savingAllocations: trace.layer1.savingAllocationPolicy?.source
+              || "lensModel.resourceProjectionInputs.savingAllocations",
             incomeStreams: "lensModel.incomeBasis net annual income fields",
             expenseStreams: trace.layer1.expensePolicy?.essentialSource || "lensModel.ongoingSupport annual support fields",
             growth: "method-active projected offset categories only"
