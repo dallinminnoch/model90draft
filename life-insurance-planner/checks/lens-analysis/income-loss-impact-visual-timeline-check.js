@@ -1118,8 +1118,8 @@ assert.match(componentsSource, /\.income-impact-scenario-banner[\s\S]*position:\
 assert.match(componentsSource, /\.income-impact-graph-svg/);
 assert.match(
   componentsSource,
-  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*var\(--m90-surface\);[^}]*overflow:\s*visible;[^}]*\}/,
-  "Income Impact SVG graph viewport should auto-size from the compact graph viewBox ratio inside the flat reference chart section."
+  /\.income-impact-graph-svg\s*\{[^}]*--income-impact-graph-aspect-ratio:\s*1000 \/ 400;[^}]*--income-impact-graph-max-width:\s*clamp\(42rem,\s*calc\(250vh - 60rem\),\s*1000px\);[^}]*width:\s*min\(100%,\s*var\(--income-impact-graph-max-width\)\);[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-width:\s*100%;[^}]*margin-inline:\s*auto;[^}]*aspect-ratio:\s*var\(--income-impact-graph-aspect-ratio\);[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*var\(--m90-surface\);[^}]*overflow:\s*visible;[^}]*\}/,
+  "Income Impact SVG graph viewport should shrink to the available column and short viewport height without inflating beyond the compact graph viewBox width."
 );
 assert.doesNotMatch(componentsSource, /\.income-impact-graph-svg\s*\{[^}]*aspect-ratio:\s*1000 \/ 570;/);
 assert.match(componentsSource, /\.income-impact-graph-phase--pre-death\s*\{[^}]*fill:\s*var\(--m90-surface\);[^}]*\}/);

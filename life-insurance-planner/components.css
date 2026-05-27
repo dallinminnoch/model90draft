@@ -20545,6 +20545,39 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   background: var(--m90-surface);
 }
 
+body[data-step="income-impact"] .income-impact-content-stack > .actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+}
+
+body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0 0.95rem;
+  border-radius: 0.42rem;
+  font-size: 0.82rem;
+  font-weight: 760;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn-primary {
+  background: var(--m90-stable);
+  color: var(--m90-sidebar-text);
+}
+
+body[data-step="income-impact"] .income-impact-content-stack > .actions-row .btn-secondary {
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface);
+  color: var(--m90-accent);
+}
+
 .income-impact-insights-panel {
   min-width: 0;
   color: var(--m90-text-primary);
@@ -21324,12 +21357,14 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .income-impact-graph-svg {
   --income-impact-graph-aspect-ratio: 1000 / 400;
+  --income-impact-graph-max-width: clamp(42rem, calc(250vh - 60rem), 1000px);
   display: block;
   box-sizing: border-box;
-  width: 100%;
+  width: min(100%, var(--income-impact-graph-max-width));
   height: auto;
   min-height: 0;
   max-width: 100%;
+  margin-inline: auto;
   aspect-ratio: var(--income-impact-graph-aspect-ratio);
   padding: 0;
   border: 0;

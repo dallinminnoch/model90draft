@@ -59,7 +59,7 @@ body {
   background: #ffffff;
 }
 
-a {
+body:not([data-step="income-impact"]) a {
   color: inherit;
   text-decoration: none;
 }
@@ -3790,7 +3790,7 @@ body[data-page="protection-modeling-inputs"] .field-group > label {
   color: rgba(255, 255, 255, 0.68);
 }
 
-.btn {
+body:not([data-step="income-impact"]) .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3803,9 +3803,9 @@ body[data-page="protection-modeling-inputs"] .field-group > label {
   transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
-.btn-primary {
+body:not([data-step="income-impact"]) .btn-primary {
   background: var(--success);
-  color: #fff;
+  color: var(--m90-sidebar-text);
 }
 
 #start-planning:hover,
@@ -3817,8 +3817,8 @@ body[data-page="protection-modeling-inputs"] .field-group > label {
   box-shadow: 0 12px 24px rgba(47, 107, 82, 0.2);
 }
 
-.btn-secondary {
-  background: #fff;
+body:not([data-step="income-impact"]) .btn-secondary {
+  background: var(--m90-surface);
   color: var(--accent);
   border: 1px solid var(--border);
 }
@@ -3827,7 +3827,7 @@ body[data-page="protection-modeling-inputs"] .field-group > label {
   padding: clamp(1.25rem, 2.5vw, 1.75rem) 0 clamp(2rem, 3.5vw, 2.75rem);
 }
 
-.page-intro,
+body:not([data-step="income-impact"]) .page-intro,
 .detail-list li,
 .compact-list li {
   display: flex;
@@ -3852,17 +3852,17 @@ body.lens-start-page #start-planning {
   box-shadow: 0 6px 14px rgba(16, 33, 52, 0.05);
 }
 
-.page-intro {
+body:not([data-step="income-impact"]) .page-intro {
     align-items: flex-end;
     margin-bottom: var(--space-xl);
   }
 
-.page-intro h1 {
+body:not([data-step="income-impact"]) .page-intro h1 {
   font-size: clamp(2rem, 3vw, 2.8rem);
   max-width: 620px;
 }
 
-.page-intro p {
+body:not([data-step="income-impact"]) .page-intro p {
   max-width: 680px;
 }
 
@@ -3886,7 +3886,7 @@ body.lens-start-page #start-planning {
   background: #E8EDF5;
 }
 
-body:not([data-page="next-step"]) .panel-stack,
+body:not([data-page="next-step"]):not([data-step="income-impact"]) .panel-stack,
 body:not([data-page="next-step"]) .metric-grid,
 body:not([data-page="next-step"]) .analysis-grid,
 body:not([data-page="next-step"]) .recommendation-grid,
@@ -4319,7 +4319,7 @@ textarea {
   margin-bottom: 6px;
 }
 
-.actions-row {
+body:not([data-step="income-impact"]) .actions-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
@@ -5005,8 +5005,8 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .page-intro,
-  .page-intro {
+  body:not([data-step="income-impact"]) .page-intro,
+  body:not([data-step="income-impact"]) .page-intro {
     flex-direction: column;
     align-items: flex-start;
   }
