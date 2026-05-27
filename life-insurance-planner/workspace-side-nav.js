@@ -497,6 +497,7 @@
       { id: "analysis-setup", label: "Analysis Setup", path: "analysis-setup.html", icon: "financial-snapshot" },
       { id: "income-impact", label: "Income Impact Review", path: "income-loss-impact.html", icon: "analysis" },
       { id: "estimate", label: "LENS Result", path: "analysis-estimate.html", icon: "needs-analysis" },
+      { id: "coverage-strategy", label: "Coverage Strategy", path: "coverage-strategy.html", icon: "placement" },
       { id: "recommendations", label: "Coverage Options", path: "recommendations.html", icon: "recommendation" },
       { id: "planner", label: "Policy Planner", path: "planner.html", icon: "placement" },
       { id: "summary", label: "Summary", path: "summary.html", icon: "documents" }

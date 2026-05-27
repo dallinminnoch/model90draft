@@ -1065,6 +1065,7 @@
     "income-loss-impact.html",
     "analysis-estimate.html",
     "analysis-detail.html",
+    "coverage-strategy.html",
     "recommendations.html",
     "planner.html",
     "summary.html"

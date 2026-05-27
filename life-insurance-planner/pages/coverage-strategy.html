@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LENS Result | Life Evaluation &amp; Needs Analysis</title>
+  <title>Coverage Strategy | Life Evaluation &amp; Needs Analysis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles.css">
 </head>
-<body class='home-page lens-page lens-workflow-page analysis-estimate-page' data-step='estimate'>
+<body class='home-page lens-page lens-workflow-page coverage-strategy-page' data-step='coverage-strategy'>
   <script>
     (function () {
       try {
@@ -81,19 +81,58 @@
       <section class='analysis-estimate-shell workspace-visible-pane'>
         <section class="analysis-estimate-header">
           <div>
-            <div class="analysis-estimate-eyebrow">Step 4: LENS Result</div>
-            <p class="intro-copy">Review the final LENS result from the linked profile, Analysis Setup assumptions, and Income Impact Review before moving into recommendation design.</p>
+            <div class="analysis-estimate-eyebrow">Step 5: Coverage Strategy</div>
+            <h1>Coverage Strategy</h1>
+            <p class="intro-copy">Build coverage over time from the LENS need result, available resources, existing coverage, and proposed policy layers.</p>
           </div>
         </section>
 
-        <section class="analysis-estimate-workspace" aria-label="LENS result">
-          <div class="analysis-results-grid" aria-label="LENS result card">
-            <article class="analysis-result-card" id="step-three-needs-analysis" data-step-three-needs-analysis aria-live="polite">
-              <p class="analysis-result-copy">LENS Analysis will appear here when linked protection modeling data is available.</p>
+        <section class="analysis-estimate-workspace" aria-label="Coverage Strategy readiness">
+          <div class="analysis-results-grid" aria-label="Coverage Strategy board shell">
+            <article class="analysis-result-card">
+              <div class="analysis-result-eyebrow">Strategy Board Shell</div>
+              <p class="analysis-result-copy">This route is reserved for the deterministic coverage planning board after the LENS result.</p>
+              <ul class="analysis-result-list">
+                <li><span>Graph rendering</span><strong>Pending</strong></li>
+                <li><span>Scenario save/load</span><strong>Pending</strong></li>
+              </ul>
+            </article>
+            <article class="analysis-result-card">
+              <div class="analysis-result-eyebrow">Need Line</div>
+              <p class="analysis-result-copy">Adapter pending for turning the selected LENS result into traceable need points over time.</p>
+              <ul class="analysis-result-list">
+                <li><span>LENS result source</span><strong>Pending</strong></li>
+                <li><span>Need-point adapter</span><strong>Pending</strong></li>
+              </ul>
+            </article>
+            <article class="analysis-result-card">
+              <div class="analysis-result-eyebrow">Resource Line</div>
+              <p class="analysis-result-copy">Adapter pending for available assets, resource projection, and savings behavior as a separate planning line.</p>
+              <ul class="analysis-result-list">
+                <li><span>Resource projection source</span><strong>Pending</strong></li>
+                <li><span>Savings allocation context</span><strong>Pending</strong></li>
+              </ul>
+            </article>
+            <article class="analysis-result-card">
+              <div class="analysis-result-eyebrow">Existing Coverage Layers</div>
+              <p class="analysis-result-copy">The existing coverage layer adapter is ready; page integration is pending.</p>
+              <ul class="analysis-result-list">
+                <li><span>Policy layer adapter</span><strong>Ready</strong></li>
+                <li><span>Page integration</span><strong>Pending</strong></li>
+              </ul>
+            </article>
+            <article class="analysis-result-card">
+              <div class="analysis-result-eyebrow">Proposed Policy Layers</div>
+              <p class="analysis-result-copy">The hypothetical policy layer helper is ready; advisor layer editing is pending.</p>
+              <ul class="analysis-result-list">
+                <li><span>Layer helper</span><strong>Ready</strong></li>
+                <li><span>Policy editor</span><strong>Pending</strong></li>
+              </ul>
             </article>
           </div>
           <div class="actions-row">
-            <a class="btn btn-primary" href="coverage-strategy.html">Continue to Coverage Strategy</a>
+            <a class="btn btn-secondary" href="analysis-estimate.html">Back to LENS Result</a>
+            <a class="btn btn-primary" href="recommendations.html">Continue to Coverage Options</a>
           </div>
         </section>
       </section>
@@ -103,7 +142,6 @@
   <script src='../workspace-side-nav.js'></script>
   <script src='../data.js'></script>
   <script src="../site-header.js"></script>
-  <script src="../pmi-tax-utils.js"></script>
   <script src="../app/core/config.js"></script>
   <script src="../app/core/storage.js"></script>
   <script src="../app/core/i18n.js"></script>
@@ -111,49 +149,7 @@
   <script src="../app/features/client-records.js"></script>
   <script src="../app/features/client-intake.js"></script>
   <script src="../app/features/client-directory.js"></script>
-  <script src="../app/features/coverage/coverage-policy-utils.js"></script>
-  <script src="../app/features/lens-analysis/schema.js"></script>
-  <script src="../app/features/lens-analysis/asset-taxonomy.js"></script>
-  <script src="../app/features/lens-analysis/asset-library.js"></script>
-  <script src="../app/features/lens-analysis/debt-taxonomy.js"></script>
-  <script src="../app/features/lens-analysis/debt-library.js"></script>
-  <script src="../app/features/lens-analysis/expense-taxonomy.js"></script>
-  <script src="../app/features/lens-analysis/expense-library.js"></script>
-  <script src="../app/features/lens-analysis/block-outputs.js"></script>
-  <script src="../app/features/lens-analysis/helpers/income-tax-calculations.js"></script>
-  <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
-  <script src="../app/features/lens-analysis/blocks/existing-coverage.js"></script>
-  <script src="../app/features/lens-analysis/blocks/offset-assets.js"></script>
-  <script src="../app/features/lens-analysis/blocks/survivor-scenario.js"></script>
-  <script src="../app/features/lens-analysis/blocks/tax-context.js"></script>
-  <script src="../app/features/lens-analysis/blocks/income-net-income.js"></script>
-  <script src="../app/features/lens-analysis/blocks/debt-payoff.js"></script>
-  <script src="../app/features/lens-analysis/blocks/housing-ongoing-support.js"></script>
-  <script src="../app/features/lens-analysis/blocks/non-housing-ongoing-support.js"></script>
-  <script src="../app/features/lens-analysis/blocks/education-support.js"></script>
-  <script src="../app/features/lens-analysis/blocks/final-expenses.js"></script>
-  <script src="../app/features/lens-analysis/blocks/transition-needs.js"></script>
-  <script src="../app/features/lens-analysis/normalize-lens-model.js"></script>
-  <script src="../app/features/lens-analysis/asset-treatment-calculations.js"></script>
-  <script src="../app/features/lens-analysis/existing-coverage-treatment-calculations.js"></script>
-  <script src="../app/features/lens-analysis/debt-treatment-calculations.js"></script>
-  <script src="../app/features/lens-analysis/inflation-projection-calculations.js"></script>
-  <script src="../app/features/lens-analysis/education-funding-projection-calculations.js"></script>
-  <script src="../app/features/lens-analysis/final-expense-inflation-calculations.js"></script>
-  <script src="../app/features/lens-analysis/healthcare-expense-inflation-calculations.js"></script>
-  <script src="../app/features/lens-analysis/savings-contribution-facts.js"></script>
-  <script src="../app/features/lens-analysis/asset-growth-projection-calculations.js"></script>
-  <script src="../app/features/lens-analysis/savings-resource-allocation-adapter.js"></script>
-  <script src="../app/features/lens-analysis/projected-asset-offset-calculations.js"></script>
-  <script src="../app/features/lens-analysis/cash-reserve-calculations.js"></script>
-  <script src="../app/features/lens-analysis/lens-model-builder.js"></script>
-  <script src="../app/features/lens-analysis/analysis-methods.js"></script>
-  <script src="../app/features/lens-analysis/analysis-settings-adapter.js"></script>
-  <script src="../app/features/lens-analysis/step-three-analysis-display.js"></script>
   <script src="../app.js"></script>
   <script src="../lens-workflow.js"></script>
 </body>
 </html>
-
-
-
