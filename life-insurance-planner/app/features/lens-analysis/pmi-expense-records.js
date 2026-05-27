@@ -615,6 +615,85 @@
     return minimumMonthlyPayment == null ? null : toMonthlyCashFlowAmount(minimumMonthlyPayment, "monthly");
   }
 
+  function getSavingsContributionNormalizer() {
+    const helperApi = lensAnalysis.savingsContributionFacts && typeof lensAnalysis.savingsContributionFacts === "object"
+      ? lensAnalysis.savingsContributionFacts
+      : {};
+    if (typeof helperApi.normalizeSavingsContributionFacts === "function") {
+      return helperApi.normalizeSavingsContributionFacts;
+    }
+    return typeof lensAnalysis.normalizeSavingsContributionFacts === "function"
+      ? lensAnalysis.normalizeSavingsContributionFacts
+      : null;
+  }
+
+  function getSavingsContributionRecords(input) {
+    const safeInput = input && typeof input === "object" ? input : {};
+    if (Array.isArray(safeInput.savingsContributionFacts)) {
+      return safeInput.savingsContributionFacts;
+    }
+    if (Array.isArray(safeInput.savingsHabitRecords)) {
+      return safeInput.savingsHabitRecords;
+    }
+    if (Array.isArray(safeInput.savingsContributionRecords)) {
+      return safeInput.savingsContributionRecords;
+    }
+    if (Array.isArray(safeInput.plannedSavingsRecords)) {
+      return safeInput.plannedSavingsRecords;
+    }
+    return [];
+  }
+
+  function calculateMonthlyPlannedSavings(input, trace) {
+    const records = getSavingsContributionRecords(input);
+    trace.includedSavingsContributions = [];
+    trace.excludedSavingsContributions = [];
+    trace.savingsContributionWarnings = [];
+    trace.savingsContributionSource = "none";
+    if (!records.length) {
+      return 0;
+    }
+
+    const normalizeSavingsContributionFacts = getSavingsContributionNormalizer();
+    if (typeof normalizeSavingsContributionFacts !== "function") {
+      trace.savingsContributionSource = "missing-canonical-helper";
+      trace.savingsContributionWarnings.push({
+        code: "missing-savings-contribution-facts-helper",
+        message: "Savings contribution facts helper is not loaded."
+      });
+      return 0;
+    }
+
+    const normalized = normalizeSavingsContributionFacts({
+      assetTaxonomy: lensAnalysis.assetTaxonomy,
+      savingsHabitRecords: records
+    });
+    const safeNormalized = normalized && typeof normalized === "object" ? normalized : {};
+    trace.savingsContributionSource = "savings-contribution-facts";
+    trace.includedSavingsContributions = Array.isArray(safeNormalized.facts)
+      ? safeNormalized.facts.map(function (fact) {
+        return {
+          sourceRecordId: normalizeString(fact.sourceRecordId) || null,
+          sourcePath: normalizeString(fact.sourcePath) || null,
+          label: normalizeString(fact.label) || "Savings contribution",
+          targetAssetCategoryKey: normalizeString(fact.targetAssetCategoryKey) || null,
+          monthlyAmount: roundCashFlowAmount(toOptionalNonNegativeNumber(fact.monthlyAmount) || 0)
+        };
+      })
+      : [];
+    trace.excludedSavingsContributions = Array.isArray(safeNormalized.excludedFacts)
+      ? safeNormalized.excludedFacts.map(function (fact) {
+        return Object.assign({}, fact);
+      })
+      : [];
+    trace.savingsContributionWarnings = Array.isArray(safeNormalized.warnings)
+      ? safeNormalized.warnings.map(function (warning) {
+        return Object.assign({}, warning);
+      })
+      : [];
+    return roundCashFlowAmount(toOptionalNonNegativeNumber(safeNormalized.totalMonthlyAmount) || 0);
+  }
+
   function calculateMonthlyCashFlow(input) {
     const safeInput = input && typeof input === "object" ? input : {};
     const income = safeInput.income && typeof safeInput.income === "object" ? safeInput.income : safeInput;
@@ -624,6 +703,10 @@
       excludedExpenses: [],
       includedDebtPayments: [],
       excludedDebtPayments: [],
+      includedSavingsContributions: [],
+      excludedSavingsContributions: [],
+      savingsContributionWarnings: [],
+      savingsContributionSource: "none",
       housingSource: null,
       missing: []
     };
@@ -723,18 +806,36 @@
 
     const roundedExpenses = roundCashFlowAmount(monthlyExpenses);
     const roundedDebt = roundCashFlowAmount(monthlyDebtPayments);
-    const remainingMonthlyCashFlow = roundCashFlowAmount(
+    const monthlyPlannedSavings = calculateMonthlyPlannedSavings(safeInput, trace);
+    const monthlyLivingOutflow = roundCashFlowAmount(
+      normalizedMonthlyHousingCost + roundedDebt + roundedExpenses
+    );
+    const remainingBeforeSavings = roundCashFlowAmount(
       monthlyTakeHomePay - normalizedMonthlyHousingCost - roundedDebt - roundedExpenses
     );
+    const remainingAfterSavings = roundCashFlowAmount(remainingBeforeSavings - monthlyPlannedSavings);
+    const shortfallBeforeSavings = roundCashFlowAmount(Math.max(0, -remainingBeforeSavings));
+    const shortfallAfterSavings = roundCashFlowAmount(Math.max(0, -remainingAfterSavings));
 
     return {
+      monthlyIncome: monthlyTakeHomePay,
       monthlyTakeHomePay,
+      monthlyHousing: normalizedMonthlyHousingCost,
       monthlyHousingCost: normalizedMonthlyHousingCost,
+      monthlyDebt: roundedDebt,
       monthlyDebtPayments: roundedDebt,
       monthlyExpenses: roundedExpenses,
-      remainingMonthlyCashFlow,
-      isNegative: remainingMonthlyCashFlow < 0,
-      hasIncomeSource: insuredNetAnnualIncome != null || spouseNetAnnualIncome != null,
+      monthlyPlannedSavings,
+      monthlyLivingOutflow,
+      monthlyRequiredOutflow: monthlyLivingOutflow,
+      remainingBeforeSavings,
+      remainingAfterSavings,
+      remainingMonthlyCashFlow: remainingAfterSavings,
+      shortfallBeforeSavings,
+      shortfallAfterSavings,
+      savingsExceedAvailableSurplus: remainingBeforeSavings >= 0 && monthlyPlannedSavings > remainingBeforeSavings,
+      isNegative: remainingAfterSavings < 0,
+      hasIncomeSource: combinedAnnualNetIncome != null || insuredNetAnnualIncome != null || spouseNetAnnualIncome != null,
       trace
     };
   }
@@ -1258,7 +1359,7 @@
           <div>
             <span class="pmi-expense-cashflow-kicker">Monthly cash flow</span>
           </div>
-          <span class="pmi-expense-cashflow-status" data-pmi-expense-cashflow-status>Before savings allocations</span>
+          <span class="pmi-expense-cashflow-status" data-pmi-expense-cashflow-status>After planned savings</span>
         </div>
         <div class="pmi-expense-cashflow-visual">
           <div class="pmi-expense-cashflow-track" data-pmi-expense-cashflow-track aria-label="Monthly cash-flow allocation">
@@ -1284,14 +1385,15 @@
           <span><b data-pmi-expense-cashflow-housing>-</b><small>Housing burden</small></span>
           <span><b data-pmi-expense-cashflow-debt>-</b><small>Required debt</small></span>
           <span><b data-pmi-expense-cashflow-expenses>-</b><small>Lifestyle expenses</small></span>
+          <span><b data-pmi-expense-cashflow-savings>-</b><small>Planned savings</small></span>
         </div>
         <div class="pmi-expense-cashflow-legend" aria-label="Cash-flow bar legend">
           <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--housing" aria-hidden="true"></i>Housing burden</span>
           <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--debt" aria-hidden="true"></i>Required debt</span>
           <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--expenses" aria-hidden="true"></i>Lifestyle expenses</span>
-          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--remaining" aria-hidden="true"></i>Available before savings</span>
+          <span><i class="pmi-expense-cashflow-legend-swatch pmi-expense-cashflow-legend-swatch--remaining" aria-hidden="true"></i>Remaining after savings</span>
         </div>
-        <p class="pmi-expense-cashflow-note" data-pmi-expense-cashflow-note>Savings allocations not yet included.</p>
+        <p class="pmi-expense-cashflow-note" data-pmi-expense-cashflow-note>Planned savings are applied after monthly obligations.</p>
       </section>
     `;
     root.dataset.pmiExpenseCashFlowInitialized = "true";
@@ -1312,6 +1414,7 @@
       housing: bar.querySelector("[data-pmi-expense-cashflow-housing]"),
       debt: bar.querySelector("[data-pmi-expense-cashflow-debt]"),
       expenses: bar.querySelector("[data-pmi-expense-cashflow-expenses]"),
+      savings: bar.querySelector("[data-pmi-expense-cashflow-savings]"),
       remaining: bar.querySelector("[data-pmi-expense-cashflow-remaining]"),
       note: bar.querySelector("[data-pmi-expense-cashflow-note]"),
       track: bar.querySelector("[data-pmi-expense-cashflow-track]")
@@ -1535,6 +1638,11 @@
           ? debtRecordsApi.serializeDebtRecords()
           : [];
       };
+    controller.savingsRecordsProvider = typeof safeOptions.savingsRecordsProvider === "function"
+      ? safeOptions.savingsRecordsProvider
+      : function () {
+        return [];
+      };
 
     function getRecordsSnapshot() {
       return controller.records.map(function (record) {
@@ -1564,7 +1672,8 @@
       const safeProvidedData = providedData && typeof providedData === "object" ? providedData : {};
       return Object.assign({}, safeProvidedData, {
         expenseRecords: controller.records,
-        generatedExpenseRecords: controller.generatedRecords
+        generatedExpenseRecords: controller.generatedRecords,
+        savingsHabitRecords: controller.savingsRecordsProvider()
       });
     }
 
@@ -1671,20 +1780,29 @@
       }
 
       const cashFlow = calculateMonthlyCashFlow(getCashFlowInputData());
-      const totalOutflow = cashFlow.monthlyHousingCost + cashFlow.monthlyDebtPayments + cashFlow.monthlyExpenses;
-      const denominator = Math.max(cashFlow.monthlyTakeHomePay, totalOutflow, 1);
+      const visibleBudgetBase = Math.max(0, cashFlow.monthlyTakeHomePay - cashFlow.monthlyPlannedSavings);
+      const denominator = Math.max(visibleBudgetBase, cashFlow.monthlyLivingOutflow, 1);
       const housingShare = cashFlow.monthlyHousingCost / denominator * 100;
       const debtShare = cashFlow.monthlyDebtPayments / denominator * 100;
       const expensesShare = cashFlow.monthlyExpenses / denominator * 100;
-      const remainingShare = Math.max(0, cashFlow.remainingMonthlyCashFlow) / denominator * 100;
+      const remainingShare = Math.max(0, cashFlow.remainingAfterSavings) / denominator * 100;
       setCashFlowText(elements.income, formatCashFlowAmount(cashFlow.monthlyTakeHomePay));
       setCashFlowText(elements.housing, formatCashFlowAmount(cashFlow.monthlyHousingCost));
       setCashFlowText(elements.debt, formatCashFlowAmount(cashFlow.monthlyDebtPayments));
       setCashFlowText(elements.expenses, formatCashFlowAmount(cashFlow.monthlyExpenses));
-      const formattedRemaining = formatCashFlowAmount(cashFlow.remainingMonthlyCashFlow);
+      setCashFlowText(elements.savings, formatCashFlowAmount(cashFlow.monthlyPlannedSavings));
+      const formattedRemaining = formatCashFlowAmount(cashFlow.remainingAfterSavings);
       setCashFlowText(elements.remaining, formattedRemaining);
       setCashFlowCenterAmountSize(elements.remaining, formattedRemaining);
-      setCashFlowText(elements.status, cashFlow.isNegative ? "Shortfall before savings" : "Before savings allocations");
+      let status = "After planned savings";
+      if (cashFlow.shortfallBeforeSavings > 0) {
+        status = "Expenses exceed income";
+      } else if (cashFlow.savingsExceedAvailableSurplus) {
+        status = "Savings exceed available surplus";
+      } else if (cashFlow.monthlyPlannedSavings <= 0) {
+        status = "Current cash flow";
+      }
+      setCashFlowText(elements.status, status);
       setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="housing"]'), housingShare);
       setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="debt"]'), debtShare);
       setCashFlowShare(elements.bar.querySelector('[data-pmi-expense-cashflow-segment="expenses"]'), expensesShare);
@@ -1699,7 +1817,9 @@
       elements.bar.classList.toggle("is-negative", cashFlow.isNegative);
       elements.bar.classList.toggle("is-missing-income", !cashFlow.hasIncomeSource);
 
-      const notes = ["Savings allocations not yet included."];
+      const notes = [cashFlow.monthlyPlannedSavings > 0
+        ? "Planned savings are applied after housing, debt, and lifestyle expenses."
+        : "No planned savings entered."];
       if (!cashFlow.hasIncomeSource) {
         notes.push("Take-home pay is not available from current PMI income fields.");
       }
@@ -1709,8 +1829,13 @@
       if (cashFlow.trace.excludedExpenses.some(function (entry) { return entry.reason === "one-time-expense-excluded"; })) {
         notes.push("One-time expenses are excluded from monthly cash flow.");
       }
-      if (cashFlow.isNegative) {
-        notes.push("Entered monthly obligations exceed monthly take-home pay before savings allocations.");
+      if (cashFlow.shortfallBeforeSavings > 0) {
+        notes.push("Entered monthly obligations exceed monthly take-home pay before planned savings.");
+      } else if (cashFlow.savingsExceedAvailableSurplus) {
+        notes.push("Planned savings exceed available surplus after monthly obligations.");
+      }
+      if (cashFlow.trace.savingsContributionWarnings.length) {
+        notes.push("Some savings records could not be included.");
       }
       setCashFlowText(elements.note, notes.join(" "));
       controller.lastMonthlyCashFlow = cashFlow;

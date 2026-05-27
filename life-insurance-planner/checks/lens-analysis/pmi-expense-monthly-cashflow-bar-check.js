@@ -73,6 +73,7 @@ function createCashFlowBar() {
     housing: createFakeElement(),
     debt: createFakeElement(),
     expenses: createFakeElement(),
+    savings: createFakeElement(),
     remaining: createFakeElement(),
     note: createFakeElement(),
     track: createFakeElement(),
@@ -89,6 +90,7 @@ function createCashFlowBar() {
       "[data-pmi-expense-cashflow-housing]": elements.housing,
       "[data-pmi-expense-cashflow-debt]": elements.debt,
       "[data-pmi-expense-cashflow-expenses]": elements.expenses,
+      "[data-pmi-expense-cashflow-savings]": elements.savings,
       "[data-pmi-expense-cashflow-remaining]": elements.remaining,
       "[data-pmi-expense-cashflow-note]": elements.note,
       "[data-pmi-expense-cashflow-track]": elements.track,
@@ -193,12 +195,14 @@ context.window.LensApp = context.LensApp;
 vm.createContext(context);
 loadScript(context, "app/features/lens-analysis/expense-taxonomy.js");
 loadScript(context, "app/features/lens-analysis/expense-library.js");
+loadScript(context, "app/features/lens-analysis/asset-taxonomy.js");
+loadScript(context, "app/features/lens-analysis/savings-contribution-facts.js");
 loadScript(context, "app/features/lens-analysis/pmi-expense-records.js");
 
 const pmiExpenseRecords = context.LensApp.lensAnalysis.pmiExpenseRecords;
 const widgetSource = readRepoFile("app/features/lens-analysis/pmi-expense-records.js");
 const componentsCss = readRepoFile("components.css");
-const helperSentence = "Savings allocations not yet included.";
+const noSavingsSentence = "No planned savings entered.";
 
 assert.equal(typeof pmiExpenseRecords.calculateMonthlyCashFlow, "function");
 assert.equal(typeof pmiExpenseRecords.toMonthlyCashFlowAmount, "function");
@@ -209,14 +213,20 @@ assert.match(widgetSource, /Take-home pay/, "cash-flow legend should identify mo
 assert.match(widgetSource, /Housing burden/, "cash-flow legend should identify monthly housing burden");
 assert.match(widgetSource, /Required debt/, "cash-flow legend should identify required debt payments");
 assert.match(widgetSource, /Lifestyle expenses/, "cash-flow legend should identify recurring lifestyle expenses");
-assert.match(widgetSource, /Available before savings/, "positive cash-flow status should use available-before-savings language");
-assert.match(widgetSource, /Before savings allocations/, "positive cash-flow status should match the reference sidebar language");
-assert.match(widgetSource, /Shortfall before savings/, "negative cash-flow status should use shortfall-before-savings language");
+assert.match(widgetSource, /Planned savings/, "cash-flow legend should identify planned savings separately");
+assert.match(widgetSource, /Remaining after savings/, "positive cash-flow status should use remaining-after-savings language");
+assert.match(widgetSource, /After planned savings/, "positive cash-flow status should match the planned-savings scope");
+assert.match(widgetSource, /Savings exceed available surplus/, "over-savings status should explain when savings exceed surplus");
+assert.doesNotMatch(widgetSource, /Available before savings/, "cash-flow readout should not use stale available-before-savings language");
+assert.doesNotMatch(widgetSource, /Before savings allocations/, "cash-flow readout should not use stale pre-savings status language");
+assert.doesNotMatch(widgetSource, /Shortfall before savings/, "cash-flow readout should not use stale pre-savings shortfall language");
+assert.doesNotMatch(widgetSource, /Savings allocations not yet included/, "cash-flow readout should not claim savings are excluded");
 assert.match(widgetSource, /pmi-expense-cashflow-center/, "cash-flow widget should place the remaining amount inside the donut");
 assert.match(widgetSource, /pmi-expense-cashflow-ring/, "cash-flow widget should render a smooth SVG donut ring");
 assert.match(widgetSource, /setCashFlowDonut/, "cash-flow widget should update donut chart CSS properties");
 assert.match(widgetSource, /setCashFlowCenterAmountSize/, "cash-flow widget should autosize the centered remaining amount");
-assert.match(widgetSource, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "cash-flow readout should explain what the donut compares");
+assert.match(widgetSource, /normalizeSavingsContributionFacts/, "cash-flow calculation should use canonical savings contribution facts");
+assert.match(widgetSource, new RegExp(noSavingsSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "cash-flow readout should explain the no-savings case");
 assert.match(componentsCss, /\.pmi-expense-cashflow\s*{[\s\S]*?grid-column:\s*1 \/ -1;/);
 assert.match(componentsCss, /\.pmi-expense-cashflow-ring-segment\s*{[\s\S]*?stroke-linecap:\s*round;/);
 assert.match(componentsCss, /\.pmi-expense-cashflow-ring-base\s*{[\s\S]*?stroke:\s*var\(--m90-surface\);/);
@@ -249,6 +259,10 @@ assert.match(componentsCss, /\.pmi-expense-cashflow-legend-swatch--remaining\s*{
     assert.match(source, /cashFlowRoot: form\.querySelector\("\[data-pmi-expense-cashflow-root\]"\)/);
   }
   assert.match(source, /pageRoot: form/);
+  const savingsFactsIndex = source.indexOf("savings-contribution-facts.js");
+  const widgetIndex = source.indexOf("pmi-expense-records.js");
+  assert.ok(savingsFactsIndex !== -1, `${relativePath} should load canonical savings contribution facts`);
+  assert.ok(savingsFactsIndex < widgetIndex, `${relativePath} should load savings facts before the PMI expense widget`);
 });
 
 assert.equal(pmiExpenseRecords.toMonthlyCashFlowAmount(1200, "annual"), 100);
@@ -283,6 +297,9 @@ assert.equal(cashFlow.monthlyTakeHomePay, 52815.07, "mature combined annual net 
 assert.equal(cashFlow.monthlyHousingCost, 3340, "calculated housing burden should outrank rent-only housing");
 assert.equal(cashFlow.monthlyDebtPayments, 500, "generated debt-payment rows should reduce remaining cash flow");
 assert.equal(cashFlow.monthlyExpenses, 1740, "recurring record expenses should reduce remaining cash flow");
+assert.equal(cashFlow.monthlyPlannedSavings, 0, "missing savings records should not change remaining cash flow");
+assert.equal(cashFlow.remainingBeforeSavings, 47235.07);
+assert.equal(cashFlow.remainingAfterSavings, 47235.07);
 assert.equal(cashFlow.remainingMonthlyCashFlow, 47235.07);
 assert.equal(cashFlow.trace.excludedExpenses[0].reason, "one-time-expense-excluded", "one-time expenses should not become monthly recurring burn");
 
@@ -304,6 +321,49 @@ const noDoubleCountCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
 });
 assert.equal(noDoubleCountCashFlow.monthlyExpenses, 300, "generated debt-payment rows should not be counted as generic expenses");
 assert.equal(noDoubleCountCashFlow.monthlyDebtPayments, 400, "generated debt-payment rows should be counted once as debt payments");
+
+const plannedSavingsCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
+  income: { netAnnualIncome: 60000 },
+  housing: { monthlyHousingCost: 1000 },
+  expenseRecords: [{ expenseId: "expense_food", amount: 300, frequency: "monthly", termType: "ongoing" }],
+  savingsHabitRecords: [
+    {
+      expenseId: "savings_emergency",
+      typeKey: "emergencyFundContributions",
+      categoryKey: "savingsGoalContributions",
+      label: "Emergency fund",
+      amount: 600,
+      frequency: "monthly"
+    }
+  ]
+});
+assert.equal(plannedSavingsCashFlow.monthlyExpenses, 300, "planned savings should not be merged into normal expenses");
+assert.equal(plannedSavingsCashFlow.monthlyPlannedSavings, 600, "planned savings should appear as a separate monthly amount");
+assert.equal(plannedSavingsCashFlow.remainingBeforeSavings, 3700, "pre-savings surplus should be traceable");
+assert.equal(plannedSavingsCashFlow.remainingAfterSavings, 3100, "remaining cash flow should subtract planned savings");
+assert.equal(plannedSavingsCashFlow.trace.savingsContributionSource, "savings-contribution-facts", "planned savings should use the canonical helper");
+assert.equal(plannedSavingsCashFlow.trace.includedSavingsContributions.length, 1);
+
+const overSavingsCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
+  income: { netAnnualIncome: 60000 },
+  housing: { monthlyHousingCost: 1000 },
+  expenseRecords: [{ amount: 300, frequency: "monthly", termType: "ongoing" }],
+  savingsHabitRecords: [
+    {
+      expenseId: "savings_too_high",
+      typeKey: "emergencyFundContributions",
+      categoryKey: "savingsGoalContributions",
+      label: "Aggressive savings",
+      amount: 4200,
+      frequency: "monthly"
+    }
+  ]
+});
+assert.equal(overSavingsCashFlow.remainingBeforeSavings, 3700);
+assert.equal(overSavingsCashFlow.remainingAfterSavings, -500);
+assert.equal(overSavingsCashFlow.savingsExceedAvailableSurplus, true, "over-saving should be distinct from expenses exceeding income");
+assert.equal(overSavingsCashFlow.shortfallBeforeSavings, 0);
+assert.equal(overSavingsCashFlow.shortfallAfterSavings, 500);
 
 const recordOnlyCommonCashFlow = pmiExpenseRecords.calculateMonthlyCashFlow({
   income: { netAnnualIncome: 60000 },
@@ -393,9 +453,11 @@ controller.hydrateExpenseRecords([
 assert.equal(controller.lastMonthlyCashFlow.monthlyTakeHomePay, 52815.07);
 assert.equal(controller.lastMonthlyCashFlow.monthlyHousingCost, 3340);
 assert.equal(controller.lastMonthlyCashFlow.monthlyExpenses, 300);
+assert.equal(controller.lastMonthlyCashFlow.monthlyPlannedSavings, 0);
 assert.equal(controller.lastMonthlyCashFlow.remainingMonthlyCashFlow, 49175.07);
 assert.equal(fakeDom.cashFlow.elements.remaining.textContent, "$49,175.07");
 assert.equal(fakeDom.cashFlow.elements.income.textContent, "$52,815.07");
+assert.equal(fakeDom.cashFlow.elements.savings.textContent, "$0");
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-housing-start"), "0.19%");
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-housing-end"), "6.44%");
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-housing-length"), "6.25");
@@ -409,8 +471,84 @@ assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "var(--m90-stable)");
 assert.equal(fakeDom.cashFlow.elements.remaining.style.getPropertyValue("--cashflow-center-amount-size"), "1.38rem");
 assert.doesNotMatch(fakeDom.cashFlow.elements.note.textContent, /Take-home pay is not available/);
-assert.equal(fakeDom.cashFlow.elements.status.textContent, "Before savings allocations");
-assert.equal(fakeDom.cashFlow.elements.note.textContent, helperSentence);
+assert.equal(fakeDom.cashFlow.elements.status.textContent, "Current cash flow");
+assert.equal(fakeDom.cashFlow.elements.note.textContent, noSavingsSentence);
+
+const savingsDom = createFakeRoot();
+const savingsForm = createFakeForm({
+  netAnnualIncome: "$633,780.82",
+  spouseNetAnnualIncome: "",
+  housingStatus: "Renter",
+  monthlyHousingCost: 1400,
+  utilitiesCost: 350,
+  housingInsuranceCost: 190,
+  calculatedMonthlyMortgagePayment: "$3,340",
+  __datasets: {
+    netAnnualIncome: { calculatedValue: "633780.82" },
+    calculatedMonthlyMortgagePayment: { calculatedValue: "3340" }
+  }
+});
+const savingsController = pmiExpenseRecords.initPmiExpenseRecords({
+  root: savingsDom.root,
+  cashFlowRoot: savingsDom.cashFlowRoot,
+  pageRoot: savingsForm,
+  debtRecordsProvider: () => [],
+  savingsRecordsProvider: () => [{
+    expenseId: "savings_emergency",
+    typeKey: "emergencyFundContributions",
+    categoryKey: "savingsGoalContributions",
+    label: "Emergency fund",
+    amount: 1000,
+    frequency: "monthly"
+  }]
+});
+savingsController.hydrateExpenseRecords([{
+  expenseId: "expense_monthly",
+  categoryKey: "customExpense",
+  typeKey: "customExpenseRecord",
+  label: "Custom Advisor Expense",
+  amount: 300,
+  frequency: "monthly",
+  termType: "ongoing",
+  continuationStatus: "review"
+}]);
+assert.equal(savingsController.lastMonthlyCashFlow.monthlyExpenses, 300);
+assert.equal(savingsController.lastMonthlyCashFlow.monthlyPlannedSavings, 1000);
+assert.equal(savingsController.lastMonthlyCashFlow.remainingBeforeSavings, 49175.07);
+assert.equal(savingsController.lastMonthlyCashFlow.remainingAfterSavings, 48175.07);
+assert.equal(savingsDom.cashFlow.elements.savings.textContent, "$1,000");
+assert.equal(savingsDom.cashFlow.elements.remaining.textContent, "$48,175.07");
+assert.equal(savingsDom.cashFlow.elements.status.textContent, "After planned savings");
+assert.match(savingsDom.cashFlow.elements.note.textContent, /Planned savings are applied after housing, debt, and lifestyle expenses\./);
+
+const overSavingsDom = createFakeRoot();
+const overSavingsController = pmiExpenseRecords.initPmiExpenseRecords({
+  root: overSavingsDom.root,
+  cashFlowRoot: overSavingsDom.cashFlowRoot,
+  pageRoot: savingsForm,
+  debtRecordsProvider: () => [],
+  savingsRecordsProvider: () => [{
+    expenseId: "savings_high",
+    typeKey: "emergencyFundContributions",
+    categoryKey: "savingsGoalContributions",
+    label: "High savings",
+    amount: 50000,
+    frequency: "monthly"
+  }]
+});
+overSavingsController.hydrateExpenseRecords([{
+  expenseId: "expense_monthly",
+  categoryKey: "customExpense",
+  typeKey: "customExpenseRecord",
+  label: "Custom Advisor Expense",
+  amount: 300,
+  frequency: "monthly",
+  termType: "ongoing",
+  continuationStatus: "review"
+}]);
+assert.equal(overSavingsController.lastMonthlyCashFlow.savingsExceedAvailableSurplus, true);
+assert.equal(overSavingsDom.cashFlow.elements.status.textContent, "Savings exceed available surplus");
+assert.match(overSavingsDom.cashFlow.elements.note.textContent, /Planned savings exceed available surplus after monthly obligations\./);
 
 controller.hydrateExpenseRecords([
   {
@@ -431,10 +569,10 @@ fakeForm.controls.netAnnualIncome.value = "12000";
 fakeForm.controls.netAnnualIncome.dataset.calculatedValue = "12000";
 fakeForm.dispatch("input", fakeForm.controls.netAnnualIncome);
 assert.equal(controller.lastMonthlyCashFlow.isNegative, true, "lower income should make the bar represent a monthly shortfall");
-assert.equal(fakeDom.cashFlow.elements.status.textContent, "Shortfall before savings");
+assert.equal(fakeDom.cashFlow.elements.status.textContent, "Expenses exceed income");
 assert.equal(fakeDom.cashFlow.elements.track.style.getPropertyValue("--cashflow-remaining-color"), "var(--m90-critical)");
-assert.match(fakeDom.cashFlow.elements.note.textContent, /Entered monthly obligations exceed monthly take-home pay before savings allocations\./);
-assert.match(fakeDom.cashFlow.elements.note.textContent, new RegExp(helperSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+assert.match(fakeDom.cashFlow.elements.note.textContent, /Entered monthly obligations exceed monthly take-home pay before planned savings\./);
+assert.match(fakeDom.cashFlow.elements.note.textContent, new RegExp(noSavingsSentence.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
 const rentFallbackForm = createFakeForm({
   netAnnualIncome: "120000",

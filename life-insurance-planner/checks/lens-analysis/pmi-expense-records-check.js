@@ -260,14 +260,17 @@ function assertScriptOrder(source, relativePath) {
   const taxonomyIndex = source.indexOf("expense-taxonomy.js");
   const libraryIndex = source.indexOf("expense-library.js");
   const assetTaxonomyIndex = source.indexOf("asset-taxonomy.js");
+  const savingsFactsIndex = source.indexOf("savings-contribution-facts.js");
   const widgetIndex = source.indexOf("pmi-expense-records.js");
   assert.ok(taxonomyIndex !== -1, `${relativePath} should load expense taxonomy`);
   assert.ok(libraryIndex !== -1, `${relativePath} should load expense library`);
   assert.ok(assetTaxonomyIndex !== -1, `${relativePath} should load asset taxonomy`);
+  assert.ok(savingsFactsIndex !== -1, `${relativePath} should load canonical savings contribution facts`);
   assert.ok(widgetIndex !== -1, `${relativePath} should load pmi expense records`);
   assert.ok(taxonomyIndex < libraryIndex, `${relativePath} should load taxonomy before library`);
   assert.ok(assetTaxonomyIndex < widgetIndex, `${relativePath} should load asset taxonomy before savings target mapping`);
   assert.ok(libraryIndex < widgetIndex, `${relativePath} should load library before widget`);
+  assert.ok(savingsFactsIndex < widgetIndex, `${relativePath} should load savings facts before widget`);
 }
 
 function assertPageWiring(relativePath) {
@@ -282,7 +285,10 @@ function assertPageWiring(relativePath) {
     assert.match(source, /root: pmiExpenseRecordsRoot/);
     assert.match(source, /root: pmiSavingsHabitRecordsRoot/);
     assert.match(source, /recordScope: "savingsHabits"/);
+    assert.match(source, /savingsRecordsProvider:/);
+    assert.match(source, /pmiSavingsHabitRecordsController\.serializeExpenseRecords\(\)/);
     assert.match(source, /pmiExpenseRecordsRoot\?\.addEventListener\("pmiExpenseRecordsChange"/);
+    assert.match(source, /pmiSavingsHabitRecordsRoot\?\.addEventListener\("pmiExpenseRecordsChange", refreshPmiExpenseCashFlowBar\)/);
   } else {
     assert.match(source, /root: form\.querySelector\("\[data-pmi-expense-records-root\]"\)/);
   }
@@ -343,6 +349,7 @@ vm.createContext(context);
 loadScript(context, "app/features/lens-analysis/expense-taxonomy.js");
 loadScript(context, "app/features/lens-analysis/expense-library.js");
 loadScript(context, "app/features/lens-analysis/asset-taxonomy.js");
+loadScript(context, "app/features/lens-analysis/savings-contribution-facts.js");
 loadScript(context, "app/features/lens-analysis/pmi-expense-records.js");
 
 const lensAnalysis = context.LensApp.lensAnalysis;
@@ -418,10 +425,15 @@ assert.match(widgetSource, /Take-home pay/, "expense cash-flow readout should la
 assert.match(widgetSource, /Housing burden/, "expense cash-flow readout should label the housing segment clearly");
 assert.match(widgetSource, /Required debt/, "expense cash-flow readout should label the required debt segment clearly");
 assert.match(widgetSource, /Lifestyle expenses/, "expense cash-flow readout should label recurring expenses clearly");
-assert.match(widgetSource, /Available before savings/, "expense cash-flow readout should label positive remaining cash flow clearly");
-assert.match(widgetSource, /Before savings allocations/, "expense cash-flow readout should match the reference sidebar status");
-assert.match(widgetSource, /Shortfall before savings/, "expense cash-flow readout should label negative remaining cash flow clearly");
-assert.match(widgetSource, /Savings allocations not yet included\./, "expense cash-flow readout should explain the pre-savings scope");
+assert.match(widgetSource, /Planned savings/, "expense cash-flow readout should label planned savings separately");
+assert.match(widgetSource, /Remaining after savings/, "expense cash-flow readout should label positive remaining cash flow clearly");
+assert.match(widgetSource, /After planned savings/, "expense cash-flow readout should match the planned-savings scope");
+assert.match(widgetSource, /Savings exceed available surplus/, "expense cash-flow readout should label over-savings clearly");
+assert.doesNotMatch(widgetSource, /Available before savings/, "expense cash-flow readout should not use stale pre-savings copy");
+assert.doesNotMatch(widgetSource, /Before savings allocations/, "expense cash-flow readout should not use stale pre-savings status");
+assert.doesNotMatch(widgetSource, /Shortfall before savings/, "expense cash-flow readout should not use stale pre-savings shortfall copy");
+assert.doesNotMatch(widgetSource, /Savings allocations not yet included\./, "expense cash-flow readout should not claim savings are excluded");
+assert.match(widgetSource, /normalizeSavingsContributionFacts/, "expense cash-flow calculation should use canonical savings contribution facts");
 assert.match(widgetSource, /pmi-expense-cashflow-center/, "expense cash-flow readout should place remaining cash flow inside the donut");
 assert.match(widgetSource, /setCashFlowDonut/, "expense cash-flow readout should update donut chart CSS properties");
 assert.match(widgetSource, /setCashFlowCenterAmountSize/, "expense cash-flow readout should autosize the centered remaining amount");
