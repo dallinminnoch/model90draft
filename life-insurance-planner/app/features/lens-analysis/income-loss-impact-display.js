@@ -5673,8 +5673,72 @@
     }
   }
 
+  const SAFE_VISIBLE_EVENT_LABELS = Object.freeze({
+    "death-income-stops": "Income Stops at Death",
+    "resources-run-out": "Resources Run Out",
+    resourcesRunOut: "Resources Run Out",
+    "family-runway-remains-funded": "Family Runway Remains Funded",
+    familyRunwayRemainsFunded: "Family Runway Remains Funded"
+  });
+
+  function normalizeSafeVisibleLabelKey(value) {
+    return normalizeString(value)
+      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase();
+  }
+
+  function isRawSourcePathLikeLabel(value) {
+    const text = normalizeString(value);
+    if (!text) {
+      return false;
+    }
+    if (/^[A-Za-z_$][\w$]*(?:\[[^\]]+\]|\.[A-Za-z_$][\w$]*)+/.test(text)) {
+      return true;
+    }
+    if (/^(scenario|timelineFacts|postDeathSeries|preDeathSeries|financialRunway|graphModel|riskEvaluation|dataGaps|lensModel)\b/.test(text)) {
+      return true;
+    }
+    return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/.test(text);
+  }
+
+  function getSafeVisibleLabel(value, fallback) {
+    const text = normalizeString(value);
+    if (!text) {
+      return fallback;
+    }
+    if (SAFE_VISIBLE_EVENT_LABELS[text]) {
+      return SAFE_VISIBLE_EVENT_LABELS[text];
+    }
+    const normalizedKey = normalizeSafeVisibleLabelKey(text);
+    if (SAFE_VISIBLE_EVENT_LABELS[normalizedKey]) {
+      return SAFE_VISIBLE_EVENT_LABELS[normalizedKey];
+    }
+    return isRawSourcePathLikeLabel(text) ? fallback : text;
+  }
+
+  function firstSafeVisibleLabel(values, fallback) {
+    const safeFallback = normalizeString(fallback) || "Event";
+    const list = Array.isArray(values) ? values : [];
+    for (let index = 0; index < list.length; index += 1) {
+      const safeLabel = getSafeVisibleLabel(list[index], "");
+      if (safeLabel) {
+        return safeLabel;
+      }
+    }
+    return safeFallback;
+  }
+
   function getMilestoneStepTitle(step) {
-    return normalizeString(step?.title || step?.shortLabel || step?.sourceEventId || step?.id) || "Milestone";
+    return firstSafeVisibleLabel([
+      step?.title,
+      step?.shortLabel,
+      step?.displayLabel,
+      step?.graphLabel,
+      step?.sourceEventId,
+      step?.id
+    ], "Milestone");
   }
 
   function renderMilestoneStoryStep(step, index) {
@@ -5887,14 +5951,21 @@
     const supportingDotCandidates = (Array.isArray(assembly.supportingGraphDots) ? assembly.supportingGraphDots : [])
       .filter(isPlainObject)
       .map(function (dot, index) {
-        const dotTitle = normalizeString(dot?.title || dot?.displayLabel || dot?.graphLabel || dot?.sourceEventId || dot?.id);
+        const dotTitle = firstSafeVisibleLabel([
+          dot?.title,
+          dot?.displayLabel,
+          dot?.graphLabel,
+          dot?.shortLabel,
+          dot?.sourceEventId,
+          dot?.id
+        ], "Supporting event");
         const fallbackStep = {
           id: `supporting-step-${normalizeString(dot?.sourceEventId || dot?.id)}`,
           stepNumber: null,
           role: "supporting",
           category: normalizeString(dot?.family) || "event",
           tone: dot?.tone,
-          title: dotTitle.replace(/-/g, " ") || "Supporting event",
+          title: dotTitle,
           shortLabel: normalizeString(dot?.shortLabel || dotTitle),
           timingLabel: getMilestoneDotTimingLabel(dot, null),
           relativeMonth: dot?.relativeMonth,
@@ -6390,9 +6461,10 @@
     return `
       <dl class="income-impact-risk-evidence" data-income-impact-risk-evidence>
         ${evidence.map(function (item) {
+          const evidenceLabel = getSafeVisibleLabel(item.label, "Scenario evidence");
           return `
             <div data-income-impact-risk-evidence-path="${escapeHtml(item.path || "")}">
-              <dt>${escapeHtml(item.label || item.path || "Evidence")}</dt>
+              <dt>${escapeHtml(evidenceLabel)}</dt>
               <dd>${escapeHtml(formatEvidenceValue(item.value))}</dd>
             </div>
           `;
