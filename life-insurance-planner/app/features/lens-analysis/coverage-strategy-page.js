@@ -1,4 +1,7 @@
 (function () {
+  const MIN_PROJECTION_HORIZON_YEARS = 1;
+  const MAX_PROJECTION_HORIZON_YEARS = 80;
+
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
@@ -38,14 +41,70 @@
     }).format(number);
   }
 
-  function formatPercent(value) {
+  function formatCompactCurrency(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
-      return "0%";
+      return "$0";
     }
-    return `${new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: 0
-    }).format(number)}%`;
+    const absolute = Math.abs(number);
+    const sign = number < 0 ? "-" : "";
+    if (absolute >= 1000000000) {
+      return `${sign}$${new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: absolute >= 10000000000 ? 0 : 1
+      }).format(absolute / 1000000000)}B`;
+    }
+    if (absolute >= 1000000) {
+      return `${sign}$${new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: absolute >= 10000000 ? 0 : 1
+      }).format(absolute / 1000000)}M`;
+    }
+    if (absolute >= 1000) {
+      return `${sign}$${new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: absolute >= 10000 ? 0 : 1
+      }).format(absolute / 1000)}k`;
+    }
+    return formatCurrency(number);
+  }
+
+  function formatYearValue(value) {
+    if (value == null || value === "") {
+      return "None";
+    }
+    return String(value);
+  }
+
+  function clampProjectionHorizonYears(value, fallbackValue) {
+    const fallback = Number.isFinite(Number(fallbackValue))
+      ? Number(fallbackValue)
+      : MAX_PROJECTION_HORIZON_YEARS;
+    const parsed = Number(value);
+    const candidate = Number.isFinite(parsed) ? parsed : fallback;
+    return Math.min(
+      MAX_PROJECTION_HORIZON_YEARS,
+      Math.max(MIN_PROJECTION_HORIZON_YEARS, Math.round(candidate))
+    );
+  }
+
+  function formatStatusLabel(value) {
+    const normalized = String(value == null ? "" : value).trim().toLowerCase();
+    if (normalized === "gap") {
+      return "Gap";
+    }
+    if (normalized === "covered") {
+      return "Covered";
+    }
+    if (normalized === "surplus") {
+      return "Surplus";
+    }
+    return "Unknown";
+  }
+
+  function getStatusClass(value) {
+    const normalized = String(value == null ? "" : value).trim().toLowerCase();
+    if (normalized === "gap" || normalized === "covered" || normalized === "surplus") {
+      return `is-${normalized}`;
+    }
+    return "is-unknown";
   }
 
   function getUrlValue(params, fieldNames) {
@@ -123,134 +182,74 @@
     };
   }
 
-  function normalizeNeedPointValue(point) {
-    const amount = Number(point?.needAmount);
-    return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  function normalizeDateOnly(value) {
+    const raw = String(value == null ? "" : value).trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(Date.UTC(year, monthIndex, day));
+    if (
+      Number.isNaN(date.getTime())
+      || date.getUTCFullYear() !== year
+      || date.getUTCMonth() !== monthIndex
+      || date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return date;
   }
 
-  function normalizeResourcePointValue(point) {
-    const amount = Number(point?.resourceAmount ?? point?.eligibleResourceAmount);
-    return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  function calculateAgeOnDate(dateOfBirth, valuationDate) {
+    const birth = normalizeDateOnly(dateOfBirth);
+    const valuation = normalizeDateOnly(valuationDate);
+    if (!birth || !valuation || birth > valuation) {
+      return null;
+    }
+    let age = valuation.getUTCFullYear() - birth.getUTCFullYear();
+    const monthDelta = valuation.getUTCMonth() - birth.getUTCMonth();
+    if (monthDelta < 0 || (monthDelta === 0 && valuation.getUTCDate() < birth.getUTCDate())) {
+      age -= 1;
+    }
+    return age >= 0 ? age : null;
   }
 
-  function normalizeExistingCoveragePointValue(point) {
-    const amount = Number(point?.existingCoverageAmount ?? point?.coverageAmount);
-    return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  function resolveAge110Horizon(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const dateOfBirth = String(safeOptions.clientDateOfBirth || "").trim();
+    const valuationDate = String(safeOptions.valuationDate || "").trim();
+    const currentAge = calculateAgeOnDate(dateOfBirth, valuationDate);
+    if (currentAge != null) {
+      return {
+        horizonYears: Math.max(0, 110 - currentAge),
+        currentAge,
+        warning: null
+      };
+    }
+    return {
+      horizonYears: null,
+      currentAge: null,
+      warning: {
+        code: "coverage-strategy-age-110-horizon-unavailable",
+        message: "Coverage Strategy could not derive current age from DOB and valuation date; adapter-derived horizon was used.",
+        details: {
+          clientDateOfBirth: dateOfBirth || null,
+          valuationDate: valuationDate || null
+        }
+      }
+    };
+  }
+
+  function resolveDefaultProjectionHorizon(age110Horizon) {
+    return clampProjectionHorizonYears(age110Horizon?.horizonYears, MAX_PROJECTION_HORIZON_YEARS);
   }
 
   function normalizeChartPointValue(point) {
     const amount = Number(point?.chartValue);
     return Number.isFinite(amount) ? Math.max(0, amount) : 0;
-  }
-
-  function resolveResourcePointForNeedPoint(resourcePoints, needPoint, index) {
-    const resources = Array.isArray(resourcePoints) ? resourcePoints : [];
-    const yearIndex = Number(needPoint?.yearIndex);
-    if (Number.isFinite(yearIndex)) {
-      const match = resources.find(function (point) {
-        return Number(point?.yearIndex) === yearIndex;
-      });
-      if (match) {
-        return match;
-      }
-    }
-    return resources[index] || null;
-  }
-
-  function resolveExistingCoveragePointForNeedPoint(existingCoveragePoints, needPoint, index) {
-    const coveragePoints = Array.isArray(existingCoveragePoints) ? existingCoveragePoints : [];
-    const yearIndex = Number(needPoint?.yearIndex);
-    if (Number.isFinite(yearIndex)) {
-      const match = coveragePoints.find(function (point) {
-        return Number(point?.yearIndex) === yearIndex;
-      });
-      if (match) {
-        return match;
-      }
-    }
-    return coveragePoints[index] || null;
-  }
-
-  function buildCoverageRatioChartSeries(needPoints, resourcePoints, existingCoveragePoints) {
-    const rawComparisonRatios = [];
-    const needRatioPoints = [];
-    const resourceRatioPoints = [];
-    const existingCoverageRatioPoints = [];
-
-    (Array.isArray(needPoints) ? needPoints : []).forEach(function (needPoint, index) {
-      const needAmount = normalizeNeedPointValue(needPoint);
-      if (needAmount <= 0) {
-        return;
-      }
-
-      needRatioPoints.push({
-        ...needPoint,
-        chartValue: 100,
-        rawRatioValue: 100
-      });
-
-      const resourcePoint = resolveResourcePointForNeedPoint(resourcePoints, needPoint, index);
-      if (resourcePoint) {
-        const resourceAmount = normalizeResourcePointValue(resourcePoint);
-        const rawRatio = (resourceAmount / needAmount) * 100;
-        if (Number.isFinite(rawRatio)) {
-          rawComparisonRatios.push(rawRatio);
-          resourceRatioPoints.push({
-            ...resourcePoint,
-            chartValue: rawRatio,
-            rawRatioValue: rawRatio
-          });
-        }
-      }
-
-      const existingCoveragePoint = resolveExistingCoveragePointForNeedPoint(existingCoveragePoints, needPoint, index);
-      if (!existingCoveragePoint) {
-        return;
-      }
-
-      const existingCoverageAmount = normalizeExistingCoveragePointValue(existingCoveragePoint);
-      const rawExistingCoverageRatio = (existingCoverageAmount / needAmount) * 100;
-      if (!Number.isFinite(rawExistingCoverageRatio)) {
-        return;
-      }
-      rawComparisonRatios.push(rawExistingCoverageRatio);
-      existingCoverageRatioPoints.push({
-        ...existingCoveragePoint,
-        chartValue: rawExistingCoverageRatio,
-        rawRatioValue: rawExistingCoverageRatio
-      });
-    });
-
-    const maxComparisonRatio = rawComparisonRatios.length ? Math.max(...rawComparisonRatios) : 0;
-    const ratioCeiling = Math.max(200, Math.min(300, Math.ceil(Math.max(maxComparisonRatio, 100) / 50) * 50));
-    const resourceRatioPointsCapped = resourceRatioPoints.map(function (point) {
-      return {
-        ...point,
-        chartValue: Math.min(point.chartValue, ratioCeiling),
-        chartValueCapped: point.chartValue > ratioCeiling
-      };
-    });
-    const existingCoverageRatioPointsCapped = existingCoverageRatioPoints.map(function (point) {
-      return {
-        ...point,
-        chartValue: Math.min(point.chartValue, ratioCeiling),
-        chartValueCapped: point.chartValue > ratioCeiling
-      };
-    });
-
-    return {
-      chartMode: "coverage-ratio",
-      needRatioPoints,
-      resourceRatioPoints: resourceRatioPointsCapped,
-      existingCoverageRatioPoints: existingCoverageRatioPointsCapped,
-      ratioCeiling,
-      resourceRatiosCapped: resourceRatioPointsCapped.some(function (point) {
-        return point.chartValueCapped === true;
-      }),
-      existingCoverageRatiosCapped: existingCoverageRatioPointsCapped.some(function (point) {
-        return point.chartValueCapped === true;
-      })
-    };
   }
 
   function createChartPath(points, width, height, padding, maxValue, getValue) {
@@ -276,58 +275,69 @@
     return padding.top + innerHeight - (innerHeight * (Math.max(0, Number(value) || 0) / safeMax));
   }
 
-  function renderTimelineSvg(needPoints, resourcePoints, existingCoveragePoints) {
-    const points = Array.isArray(needPoints) ? needPoints : [];
-    if (points.length < 2) {
-      return "";
-    }
-    const resources = Array.isArray(resourcePoints) ? resourcePoints : [];
-    const existingCoverage = Array.isArray(existingCoveragePoints) ? existingCoveragePoints : [];
-    const ratioChart = buildCoverageRatioChartSeries(points, resources, existingCoverage);
-    if (ratioChart.needRatioPoints.length < 2) {
-      return "";
-    }
+  function getChartSeries(chartModel, key) {
+    const series = Array.isArray(chartModel?.series) ? chartModel.series : [];
+    return series.find(function (item) {
+      return item?.key === key;
+    }) || null;
+  }
 
-    const width = 720;
-    const height = 260;
+  function renderTimelineSvg(chartModel) {
+    const needSeries = getChartSeries(chartModel, "need");
+    const resourceSeries = getChartSeries(chartModel, "resources");
+    const existingCoverageSeries = getChartSeries(chartModel, "existingCoverage");
+    const remainingExposureSeries = getChartSeries(chartModel, "remainingExposure");
+    const needPoints = Array.isArray(needSeries?.points) ? needSeries.points : [];
+    if (needPoints.length < 2) {
+      return "";
+    }
+    const resourcePoints = Array.isArray(resourceSeries?.points) ? resourceSeries.points : [];
+    const existingCoveragePoints = Array.isArray(existingCoverageSeries?.points) ? existingCoverageSeries.points : [];
+    const remainingExposurePoints = Array.isArray(remainingExposureSeries?.points) ? remainingExposureSeries.points : [];
+    const width = 860;
+    const height = 340;
     const padding = {
-      top: 22,
-      right: 26,
-      bottom: 36,
-      left: 64
+      top: 28,
+      right: 34,
+      bottom: 40,
+      left: 70
     };
-    const maxChartValue = ratioChart.ratioCeiling;
-    const path = createChartPath(ratioChart.needRatioPoints, width, height, padding, maxChartValue, normalizeChartPointValue);
-    const resourcePath = ratioChart.resourceRatioPoints.length >= 2
-      ? createChartPath(ratioChart.resourceRatioPoints, width, height, padding, maxChartValue, normalizeChartPointValue)
+    const maxChartValue = Number(chartModel?.yAxisMax) || 100000;
+    const path = createChartPath(needPoints, width, height, padding, maxChartValue, normalizeChartPointValue);
+    const resourcePath = resourcePoints.length >= 2
+      ? createChartPath(resourcePoints, width, height, padding, maxChartValue, normalizeChartPointValue)
       : "";
-    const existingCoveragePath = ratioChart.existingCoverageRatioPoints.length >= 2
-      ? createChartPath(ratioChart.existingCoverageRatioPoints, width, height, padding, maxChartValue, normalizeChartPointValue)
+    const existingCoveragePath = existingCoveragePoints.length >= 2
+      ? createChartPath(existingCoveragePoints, width, height, padding, maxChartValue, normalizeChartPointValue)
       : "";
-    const first = ratioChart.needRatioPoints[0];
-    const last = ratioChart.needRatioPoints[ratioChart.needRatioPoints.length - 1];
-    const firstResource = ratioChart.resourceRatioPoints[0];
-    const lastResource = ratioChart.resourceRatioPoints[ratioChart.resourceRatioPoints.length - 1];
-    const firstExistingCoverage = ratioChart.existingCoverageRatioPoints[0];
-    const lastExistingCoverage = ratioChart.existingCoverageRatioPoints[ratioChart.existingCoverageRatioPoints.length - 1];
-    const axisLabels = ratioChart.ratioCeiling >= 300
-      ? [300, 200, 100, 0]
-      : [200, 100, 50, 0];
+    const remainingExposurePath = remainingExposurePoints.length >= 2
+      ? createChartPath(remainingExposurePoints, width, height, padding, maxChartValue, normalizeChartPointValue)
+      : "";
+    const first = needPoints[0];
+    const last = needPoints[needPoints.length - 1];
+    const firstResource = resourcePoints[0];
+    const lastResource = resourcePoints[resourcePoints.length - 1];
+    const firstExistingCoverage = existingCoveragePoints[0];
+    const lastExistingCoverage = existingCoveragePoints[existingCoveragePoints.length - 1];
+    const firstRemainingExposure = remainingExposurePoints[0];
+    const lastRemainingExposure = remainingExposurePoints[remainingExposurePoints.length - 1];
+    const axisLabels = Array.isArray(chartModel?.axisLabels) ? chartModel.axisLabels : [100000, 75000, 50000, 25000, 0];
 
     return `
-      <svg class="coverage-need-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Coverage ratio timeline; projected need equals 100 percent, eligible resources are plotted as resources divided by need, and existing coverage is plotted as coverage divided by need">
+      <svg class="coverage-need-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Coverage Strategy dollar timeline showing projected need, projected eligible resources, existing coverage, and remaining exposure">
         <g class="coverage-need-timeline-grid" aria-hidden="true">
           ${axisLabels.map(function (value) {
             const y = valueToY(value, height, padding, maxChartValue);
             return `
               <line x1="${padding.left}" y1="${y.toFixed(2)}" x2="${width - padding.right}" y2="${y.toFixed(2)}"></line>
-              <text x="${padding.left - 10}" y="${(y + 4).toFixed(2)}">${escapeHtml(formatPercent(value))}</text>
+              <text x="${padding.left - 10}" y="${(y + 4).toFixed(2)}">${escapeHtml(formatCompactCurrency(value))}</text>
             `;
           }).join("")}
         </g>
         <path class="coverage-need-timeline-line" d="${path}"></path>
         ${resourcePath ? `<path class="coverage-need-timeline-line coverage-need-timeline-resource-line" d="${resourcePath}"></path>` : ""}
         ${existingCoveragePath ? `<path class="coverage-need-timeline-line coverage-need-timeline-existing-coverage-line" d="${existingCoveragePath}"></path>` : ""}
+        ${remainingExposurePath ? `<path class="coverage-need-timeline-line coverage-need-timeline-remaining-exposure-line" d="${remainingExposurePath}"></path>` : ""}
         <circle class="coverage-need-timeline-point" cx="${padding.left}" cy="${valueToY(normalizeChartPointValue(first), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
         <circle class="coverage-need-timeline-point" cx="${width - padding.right}" cy="${valueToY(normalizeChartPointValue(last), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
         ${resourcePath && firstResource && lastResource ? `
@@ -337,6 +347,10 @@
         ${existingCoveragePath && firstExistingCoverage && lastExistingCoverage ? `
           <circle class="coverage-need-timeline-point coverage-need-timeline-existing-coverage-point" cx="${padding.left}" cy="${valueToY(normalizeChartPointValue(firstExistingCoverage), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
           <circle class="coverage-need-timeline-point coverage-need-timeline-existing-coverage-point" cx="${width - padding.right}" cy="${valueToY(normalizeChartPointValue(lastExistingCoverage), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
+        ` : ""}
+        ${remainingExposurePath && firstRemainingExposure && lastRemainingExposure ? `
+          <circle class="coverage-need-timeline-point coverage-need-timeline-remaining-exposure-point" cx="${padding.left}" cy="${valueToY(normalizeChartPointValue(firstRemainingExposure), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
+          <circle class="coverage-need-timeline-point coverage-need-timeline-remaining-exposure-point" cx="${width - padding.right}" cy="${valueToY(normalizeChartPointValue(lastRemainingExposure), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
         ` : ""}
         <g class="coverage-need-timeline-axis" aria-hidden="true">
           <text x="${padding.left}" y="${height - 10}">${escapeHtml(String(first.calendarYear || first.yearIndex || 0))}</text>
@@ -563,26 +577,46 @@
       : [];
     const firstExistingCoveragePoint = existingCoveragePoints[0] || null;
     const lastExistingCoveragePoint = existingCoveragePoints[existingCoveragePoints.length - 1] || null;
+    const gapSurplusResult = isPlainObject(result?.gapSurplus) ? result.gapSurplus : null;
+    const gapSurplusPoints = Array.isArray(gapSurplusResult?.gapSurplusPoints)
+      ? gapSurplusResult.gapSurplusPoints
+      : [];
+    const chartModelResult = isPlainObject(result?.chartModel) ? result.chartModel : null;
+    const firstGapSurplusPoint = gapSurplusPoints[0] || null;
+    const lastGapSurplusPoint = gapSurplusPoints[gapSurplusPoints.length - 1] || null;
+    const gapSurplusUnavailable = !gapSurplusPoints.length;
     const componentRows = getComponentRows(firstPoint);
     const warningCount = (Array.isArray(result.warnings) ? result.warnings.length : 0)
       + (Array.isArray(resourceResult?.warnings) ? resourceResult.warnings.length : 0)
-      + (Array.isArray(existingCoverageResult?.warnings) ? existingCoverageResult.warnings.length : 0);
+      + (Array.isArray(existingCoverageResult?.warnings) ? existingCoverageResult.warnings.length : 0)
+      + (Array.isArray(gapSurplusResult?.warnings) ? gapSurplusResult.warnings.length : 0)
+      + (Array.isArray(chartModelResult?.warnings) ? chartModelResult.warnings.length : 0);
     const dataGapCount = (Array.isArray(result.dataGaps) ? result.dataGaps.length : 0)
       + (Array.isArray(resourceResult?.dataGaps) ? resourceResult.dataGaps.length : 0)
-      + (Array.isArray(existingCoverageResult?.dataGaps) ? existingCoverageResult.dataGaps.length : 0);
+      + (Array.isArray(existingCoverageResult?.dataGaps) ? existingCoverageResult.dataGaps.length : 0)
+      + (Array.isArray(gapSurplusResult?.dataGaps) ? gapSurplusResult.dataGaps.length : 0)
+      + (Array.isArray(chartModelResult?.dataGaps) ? chartModelResult.dataGaps.length : 0);
     const combinedWarnings = [
       ...(Array.isArray(result.warnings) ? result.warnings : []),
       ...(Array.isArray(resourceResult?.warnings) ? resourceResult.warnings : []),
-      ...(Array.isArray(existingCoverageResult?.warnings) ? existingCoverageResult.warnings : [])
+      ...(Array.isArray(existingCoverageResult?.warnings) ? existingCoverageResult.warnings : []),
+      ...(Array.isArray(gapSurplusResult?.warnings) ? gapSurplusResult.warnings : []),
+      ...(Array.isArray(chartModelResult?.warnings) ? chartModelResult.warnings : [])
     ];
     const combinedDataGaps = [
       ...(Array.isArray(result.dataGaps) ? result.dataGaps : []),
       ...(Array.isArray(resourceResult?.dataGaps) ? resourceResult.dataGaps : []),
-      ...(Array.isArray(existingCoverageResult?.dataGaps) ? existingCoverageResult.dataGaps : [])
+      ...(Array.isArray(existingCoverageResult?.dataGaps) ? existingCoverageResult.dataGaps : []),
+      ...(Array.isArray(gapSurplusResult?.dataGaps) ? gapSurplusResult.dataGaps : []),
+      ...(Array.isArray(chartModelResult?.dataGaps) ? chartModelResult.dataGaps : [])
     ];
     const existingCoverageIssueCount = (Number(existingCoverageResult?.trace?.skippedPolicyCount) || 0)
       + (Array.isArray(existingCoverageResult?.warnings) ? existingCoverageResult.warnings.length : 0)
       + (Array.isArray(existingCoverageResult?.dataGaps) ? existingCoverageResult.dataGaps.length : 0);
+    const currentStatus = formatStatusLabel(firstGapSurplusPoint?.status);
+    const currentStatusClass = getStatusClass(firstGapSurplusPoint?.status);
+    const gapSurplusSummary = isPlainObject(gapSurplusResult?.summary) ? gapSurplusResult.summary : {};
+    const projectionHorizonYears = clampProjectionHorizonYears(result?.projectionHorizonYears, result?.horizonYears);
 
     host.innerHTML = `
       <article class="analysis-result-card coverage-need-timeline-card">
@@ -595,51 +629,155 @@
             <span><i class="coverage-need-timeline-legend-need" aria-hidden="true"></i>Projected need</span>
             <span><i class="coverage-need-timeline-legend-resource" aria-hidden="true"></i>Projected eligible resources</span>
             <span><i class="coverage-need-timeline-legend-existing-coverage" aria-hidden="true"></i>Existing coverage</span>
+            <span><i class="coverage-need-timeline-legend-remaining-exposure" aria-hidden="true"></i>Remaining exposure</span>
           </div>
         </div>
-        <div class="coverage-need-timeline-metrics" aria-label="Need point summary">
-          <div>
-            <span>Current need</span>
-            <strong>${escapeHtml(formatCurrency(firstPoint.grossNeedAmount ?? firstPoint.needAmount))}</strong>
-          </div>
-          <div>
-            <span>Current eligible resources</span>
-            <strong>${escapeHtml(firstResourcePoint ? formatCurrency(firstResourcePoint.resourceAmount) : "Unavailable")}</strong>
-          </div>
-          <div>
-            <span>Current existing coverage</span>
-            <strong>${escapeHtml(formatCurrency(firstExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
-          </div>
-          <div>
-            <span>Final need</span>
-            <strong>${escapeHtml(formatCurrency(lastPoint.grossNeedAmount ?? lastPoint.needAmount))}</strong>
-          </div>
-          <div>
-            <span>Final eligible resources</span>
-            <strong>${escapeHtml(lastResourcePoint ? formatCurrency(lastResourcePoint.resourceAmount) : "Unavailable")}</strong>
-          </div>
-          <div>
-            <span>Final existing coverage</span>
-            <strong>${escapeHtml(formatCurrency(lastExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
-          </div>
-          <div>
-            <span>Need points</span>
-            <strong>${escapeHtml(formatCount(needPoints.length))}</strong>
-          </div>
-          <div>
-            <span>Warnings / data gaps</span>
-            <strong>${escapeHtml(formatCount(warningCount + dataGapCount))}</strong>
-          </div>
+        <div class="coverage-strategy-horizon-control" aria-label="Projection horizon control">
+          <label for="coverage-strategy-horizon-years">Projection horizon</label>
+          <input
+            id="coverage-strategy-horizon-years"
+            type="range"
+            min="${MIN_PROJECTION_HORIZON_YEARS}"
+            max="${MAX_PROJECTION_HORIZON_YEARS}"
+            step="1"
+            value="${escapeHtml(projectionHorizonYears)}"
+            data-coverage-strategy-horizon-input>
+          <input
+            type="number"
+            min="${MIN_PROJECTION_HORIZON_YEARS}"
+            max="${MAX_PROJECTION_HORIZON_YEARS}"
+            step="1"
+            value="${escapeHtml(projectionHorizonYears)}"
+            aria-label="Projection horizon years"
+            data-coverage-strategy-horizon-number>
+          <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
         </div>
-        <div class="coverage-need-timeline-chart">
-          ${renderTimelineSvg(needPoints, resourcePoints, existingCoveragePoints)}
-          ${resourceUnavailable ? `
-            <div class="coverage-need-timeline-resource-unavailable">
-              Projected eligible resources unavailable from current source data.
+        <div class="coverage-strategy-stage">
+          <div class="coverage-strategy-stage-main">
+            <div class="coverage-strategy-primary-strip">
+              <div class="coverage-need-timeline-status ${escapeHtml(currentStatusClass)}">
+                <span>Current status</span>
+                <strong>${escapeHtml(currentStatus)}</strong>
+              </div>
+              <div class="coverage-need-timeline-metrics" aria-label="Need point summary">
+                <div>
+                  <span>Current remaining exposure</span>
+                  <strong>${escapeHtml(firstGapSurplusPoint ? formatCurrency(firstGapSurplusPoint.remainingExposureAmount) : "Unavailable")}</strong>
+                </div>
+                <div>
+                  <span>Current need</span>
+                  <strong>${escapeHtml(formatCurrency(firstPoint.grossNeedAmount ?? firstPoint.needAmount))}</strong>
+                </div>
+                <div>
+                  <span>Current eligible resources</span>
+                  <strong>${escapeHtml(firstResourcePoint ? formatCurrency(firstResourcePoint.resourceAmount) : "Unavailable")}</strong>
+                </div>
+                <div>
+                  <span>Current existing coverage</span>
+                  <strong>${escapeHtml(formatCurrency(firstExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
+                </div>
+              </div>
             </div>
-          ` : ""}
+            <div class="coverage-need-timeline-chart coverage-strategy-chart-stage">
+              ${renderTimelineSvg(chartModelResult)}
+              <div class="coverage-need-timeline-chart-note">
+                Timeline lines use dollar values; surplus remains in the summary values.
+              </div>
+              ${resourceUnavailable ? `
+                <div class="coverage-need-timeline-resource-unavailable">
+                  Projected eligible resources unavailable from current source data.
+                </div>
+              ` : ""}
+              ${gapSurplusUnavailable ? `
+                <div class="coverage-need-timeline-resource-unavailable">
+                  Remaining exposure unavailable from current source data.
+                </div>
+              ` : ""}
+            </div>
+          </div>
+          <aside class="coverage-strategy-detail-panel" aria-label="Coverage Strategy detail">
+            <section>
+              <div class="analysis-result-eyebrow">Planning answer</div>
+              <ul class="analysis-result-list">
+                <li>
+                  <span>Current remaining exposure</span>
+                  <strong>${escapeHtml(firstGapSurplusPoint ? formatCurrency(firstGapSurplusPoint.remainingExposureAmount) : "Unavailable")}</strong>
+                </li>
+                <li>
+                  <span>Current surplus</span>
+                  <strong>${escapeHtml(firstGapSurplusPoint ? formatCurrency(firstGapSurplusPoint.surplusAmount) : "Unavailable")}</strong>
+                </li>
+                <li>
+                  <span>Total available now</span>
+                  <strong>${escapeHtml(firstGapSurplusPoint ? formatCurrency(firstGapSurplusPoint.totalAvailableAmount) : "Unavailable")}</strong>
+                </li>
+              </ul>
+            </section>
+            <section>
+              <div class="analysis-result-eyebrow">Projection detail</div>
+              <ul class="analysis-result-list">
+                <li>
+                  <span>Final remaining exposure</span>
+                  <strong>${escapeHtml(lastGapSurplusPoint ? formatCurrency(lastGapSurplusPoint.remainingExposureAmount) : "Unavailable")}</strong>
+                </li>
+                <li>
+                  <span>Max remaining exposure</span>
+                  <strong>${escapeHtml(gapSurplusUnavailable ? "Unavailable" : formatCurrency(gapSurplusSummary.maxRemainingExposure || 0))}</strong>
+                </li>
+                <li>
+                  <span>First fully covered year</span>
+                  <strong>${escapeHtml(formatYearValue(gapSurplusSummary.firstFullyCoveredYear))}</strong>
+                </li>
+                <li>
+                  <span>First surplus year</span>
+                  <strong>${escapeHtml(formatYearValue(gapSurplusSummary.firstSurplusYear))}</strong>
+                </li>
+                <li>
+                  <span>Gap / surplus years</span>
+                  <strong>${escapeHtml(formatCount(gapSurplusSummary.yearsWithGap || 0))} / ${escapeHtml(formatCount(gapSurplusSummary.yearsWithSurplus || 0))}</strong>
+                </li>
+                <li>
+                  <span>Need points</span>
+                  <strong>${escapeHtml(formatCount(needPoints.length))}</strong>
+                </li>
+                <li>
+                  <span>Final need</span>
+                  <strong>${escapeHtml(formatCurrency(lastPoint.grossNeedAmount ?? lastPoint.needAmount))}</strong>
+                </li>
+                <li>
+                  <span>Final eligible resources</span>
+                  <strong>${escapeHtml(lastResourcePoint ? formatCurrency(lastResourcePoint.resourceAmount) : "Unavailable")}</strong>
+                </li>
+                <li>
+                  <span>Final existing coverage</span>
+                  <strong>${escapeHtml(formatCurrency(lastExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
+                </li>
+                <li>
+                  <span>Warnings / data gaps</span>
+                  <strong>${escapeHtml(formatCount(warningCount + dataGapCount))}</strong>
+                </li>
+              </ul>
+            </section>
+            <section>
+              <div class="analysis-result-eyebrow">Existing coverage</div>
+              <ul class="analysis-result-list">
+                <li>
+                  <span>Included policies</span>
+                  <strong>${escapeHtml(formatCount(existingCoverageResult?.trace?.includedLayerCount || 0))}</strong>
+                </li>
+                <li>
+                  <span>Skipped or warned policies</span>
+                  <strong>${escapeHtml(formatCount(existingCoverageIssueCount))}</strong>
+                </li>
+                <li>
+                  <span>Current coverage</span>
+                  <strong>${escapeHtml(formatCurrency(firstExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
+                </li>
+              </ul>
+            </section>
+          </aside>
         </div>
-        <div class="coverage-need-timeline-summary">
+        <div class="coverage-need-timeline-summary coverage-strategy-secondary-detail">
           <section>
             <div class="analysis-result-eyebrow">Component summary</div>
             <ul class="analysis-result-list">
@@ -651,23 +789,6 @@
                   </li>
                 `;
               }).join("") : "<li><span>Components</span><strong>Not set</strong></li>"}
-            </ul>
-          </section>
-          <section>
-            <div class="analysis-result-eyebrow">Existing coverage</div>
-            <ul class="analysis-result-list">
-              <li>
-                <span>Included policies</span>
-                <strong>${escapeHtml(formatCount(existingCoverageResult?.trace?.includedLayerCount || 0))}</strong>
-              </li>
-              <li>
-                <span>Skipped or warned policies</span>
-                <strong>${escapeHtml(formatCount(existingCoverageIssueCount))}</strong>
-              </li>
-              <li>
-                <span>Current coverage</span>
-                <strong>${escapeHtml(formatCurrency(firstExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
-              </li>
             </ul>
           </section>
           <section>
@@ -694,6 +815,8 @@
     const runNeedsAnalysis = lensAnalysis.analysisMethods?.runNeedsAnalysis;
     const buildCoverageStrategyNeedLine = lensAnalysis.buildCoverageStrategyNeedLine;
     const buildCoverageStrategyResourceLine = lensAnalysis.buildCoverageStrategyResourceLine;
+    const buildCoverageStrategyGapSurplus = lensAnalysis.buildCoverageStrategyGapSurplus;
+    const buildCoverageStrategyTimelineChartModel = lensAnalysis.buildCoverageStrategyTimelineChartModel;
 
     if (
       typeof buildLensModelFromSavedProtectionModeling !== "function"
@@ -739,49 +862,132 @@
         builderResult.lensModel,
         cloneSettings(methodSettings.needsAnalysisSettings)
       );
-      const needLine = buildCoverageStrategyNeedLine({
-        lensModel: builderResult.lensModel,
-        needsResult,
-        analysisSettings: methodSettings.needsAnalysisSettings,
-        valuationDate: needsResult?.assumptions?.valuationDate
+      const valuationDate = needsResult?.assumptions?.valuationDate;
+      const clientDateOfBirth = builderResult.lensModel?.profileFacts?.clientDateOfBirth || profileRecord.dateOfBirth;
+      const age110Horizon = resolveAge110Horizon({
+        clientDateOfBirth,
+        valuationDate
       });
-      const resourceLine = typeof buildCoverageStrategyResourceLine === "function"
-        ? buildCoverageStrategyResourceLine({
-            lensModel: builderResult.lensModel,
-            analysisSettings: profileRecord.analysisSettings,
-            needPoints: needLine.needPoints,
-            valuationDate: needLine.valuationDate || needsResult?.assumptions?.valuationDate,
-            horizonYears: needLine.horizonYears
-          })
-        : {
-            status: "partial",
-            resourcePoints: [],
-            warnings: [],
-            dataGaps: [
-              {
-                code: "coverage-strategy-resource-line-adapter-unavailable",
-                message: "Projected eligible resources are unavailable because the resource adapter did not load."
-              }
-            ]
-          };
-      const existingCoverageLine = buildExistingCoverageLine({
-        profileRecord,
-        needPoints: needLine.needPoints,
-        valuationDate: needLine.valuationDate || needsResult?.assumptions?.valuationDate,
-        clientDateOfBirth: builderResult.lensModel?.profileFacts?.clientDateOfBirth || profileRecord.dateOfBirth,
-        defaultGroupCoverageEndAge: profileRecord.analysisSettings?.defaultGroupCoverageEndAge
+      let selectedProjectionHorizonYears = resolveDefaultProjectionHorizon(age110Horizon);
+
+      function buildAndRenderCoverageStrategy(projectionHorizonYears) {
+        const safeProjectionHorizonYears = clampProjectionHorizonYears(projectionHorizonYears, selectedProjectionHorizonYears);
+        selectedProjectionHorizonYears = safeProjectionHorizonYears;
+        const needLine = buildCoverageStrategyNeedLine({
+          lensModel: builderResult.lensModel,
+          needsResult,
+          analysisSettings: methodSettings.needsAnalysisSettings,
+          valuationDate,
+          horizonYears: safeProjectionHorizonYears
+        });
+        const resourceLine = typeof buildCoverageStrategyResourceLine === "function"
+          ? buildCoverageStrategyResourceLine({
+              lensModel: builderResult.lensModel,
+              analysisSettings: profileRecord.analysisSettings,
+              needPoints: needLine.needPoints,
+              valuationDate: needLine.valuationDate || valuationDate,
+              horizonYears: needLine.horizonYears
+            })
+          : {
+              status: "partial",
+              resourcePoints: [],
+              warnings: [],
+              dataGaps: [
+                {
+                  code: "coverage-strategy-resource-line-adapter-unavailable",
+                  message: "Projected eligible resources are unavailable because the resource adapter did not load."
+                }
+              ]
+            };
+        const existingCoverageLine = buildExistingCoverageLine({
+          profileRecord,
+          needPoints: needLine.needPoints,
+          valuationDate: needLine.valuationDate || valuationDate,
+          clientDateOfBirth,
+          defaultGroupCoverageEndAge: profileRecord.analysisSettings?.defaultGroupCoverageEndAge
+        });
+        const gapSurplus = typeof buildCoverageStrategyGapSurplus === "function"
+          ? buildCoverageStrategyGapSurplus({
+              needPoints: needLine.needPoints,
+              resourcePoints: getRenderableResourcePoints(resourceLine),
+              existingCoveragePoints: existingCoverageLine.coveragePoints,
+              existingCoverageLayers: existingCoverageLine.layers,
+              valuationDate: needLine.valuationDate || valuationDate
+            })
+          : {
+              status: "partial",
+              gapSurplusPoints: [],
+              warnings: [],
+              dataGaps: [
+                {
+                  code: "coverage-strategy-gap-surplus-composer-unavailable",
+                  message: "Remaining exposure is unavailable because the gap/surplus composer did not load."
+                }
+              ]
+            };
+        const chartModel = typeof buildCoverageStrategyTimelineChartModel === "function"
+          ? buildCoverageStrategyTimelineChartModel({
+              needPoints: needLine.needPoints,
+              resourcePoints: getRenderableResourcePoints(resourceLine),
+              existingCoveragePoints: existingCoverageLine.coveragePoints,
+              gapSurplusPoints: gapSurplus.gapSurplusPoints
+            })
+          : {
+              series: [],
+              warnings: [],
+              dataGaps: [
+                {
+                  code: "coverage-strategy-chart-model-unavailable",
+                  message: "Coverage Strategy chart model is unavailable."
+                }
+              ]
+            };
+
+        renderNeedTimeline(host, {
+          ...needLine,
+          projectionHorizonYears: safeProjectionHorizonYears,
+          resourceLine,
+          existingCoverageLine,
+          gapSurplus,
+          chartModel,
+          warnings: [
+            ...(Array.isArray(builderResult.warnings) ? builderResult.warnings : []),
+            ...(Array.isArray(methodSettings.warnings) ? methodSettings.warnings : []),
+            ...(age110Horizon.warning ? [age110Horizon.warning] : []),
+            ...(Array.isArray(needLine.warnings) ? needLine.warnings : [])
+          ]
+        });
+      }
+
+      host.addEventListener("input", function (event) {
+        const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-horizon-input], [data-coverage-strategy-horizon-number]")) {
+          return;
+        }
+        const safeValue = clampProjectionHorizonYears(target.value, selectedProjectionHorizonYears);
+        const rangeInput = host.querySelector("[data-coverage-strategy-horizon-input]");
+        const numberInput = host.querySelector("[data-coverage-strategy-horizon-number]");
+        const output = host.querySelector("[data-coverage-strategy-horizon-output]");
+        if (rangeInput && rangeInput !== target) {
+          rangeInput.value = String(safeValue);
+        }
+        if (numberInput && numberInput !== target) {
+          numberInput.value = String(safeValue);
+        }
+        if (output) {
+          output.textContent = `${safeValue} years`;
+        }
       });
 
-      renderNeedTimeline(host, {
-        ...needLine,
-        resourceLine,
-        existingCoverageLine,
-        warnings: [
-          ...(Array.isArray(builderResult.warnings) ? builderResult.warnings : []),
-          ...(Array.isArray(methodSettings.warnings) ? methodSettings.warnings : []),
-          ...(Array.isArray(needLine.warnings) ? needLine.warnings : [])
-        ]
+      host.addEventListener("change", function (event) {
+        const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-horizon-input], [data-coverage-strategy-horizon-number]")) {
+          return;
+        }
+        buildAndRenderCoverageStrategy(target.value);
       });
+
+      buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);
     } catch (error) {
       renderMissingState(host, "Need timeline unavailable", "Coverage need timeline could not be prepared from the saved LENS model.", []);
       console.error("Coverage Strategy need timeline failed", error);

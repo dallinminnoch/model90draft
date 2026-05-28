@@ -20233,7 +20233,8 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-need-timeline-card {
-  gap: 0.8rem;
+  gap: 0.9rem;
+  min-width: 0;
 }
 
 .coverage-need-timeline-card h2 {
@@ -20291,6 +20292,42 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   border-radius: 999px;
 }
 
+.coverage-strategy-horizon-control {
+  display: grid;
+  grid-template-columns: auto minmax(10rem, 1fr) 4.75rem auto;
+  gap: 0.55rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--m90-border-soft) 82%, transparent);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--m90-surface-alt) 34%, transparent);
+}
+
+.coverage-strategy-horizon-control label,
+.coverage-strategy-horizon-control output {
+  color: var(--m90-text-secondary);
+  font-size: 0.74rem;
+  font-weight: 740;
+  white-space: nowrap;
+}
+
+.coverage-strategy-horizon-control input[type="range"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.coverage-strategy-horizon-control input[type="number"] {
+  width: 4.75rem;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--m90-border);
+  border-radius: 0.35rem;
+  background: var(--m90-surface);
+  color: var(--m90-text-primary);
+  font: inherit;
+}
+
 .coverage-need-timeline-legend-need {
   background: var(--m90-accent);
 }
@@ -20303,15 +20340,55 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   background: var(--warning);
 }
 
+.coverage-need-timeline-legend-remaining-exposure {
+  background: var(--m90-text-primary);
+}
+
+.coverage-need-timeline-status {
+  display: inline-flex;
+  align-items: baseline;
+  align-self: stretch;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.5rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--m90-border-soft) 80%, transparent);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--m90-surface-alt) 44%, transparent);
+  color: var(--m90-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.coverage-need-timeline-status span {
+  color: var(--m90-text-muted);
+  text-transform: uppercase;
+}
+
+.coverage-need-timeline-status strong {
+  color: var(--m90-text-primary);
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.coverage-need-timeline-status.is-gap strong {
+  color: var(--warning);
+}
+
+.coverage-need-timeline-status.is-covered strong,
+.coverage-need-timeline-status.is-surplus strong {
+  color: var(--success);
+}
+
 .coverage-need-timeline-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .coverage-need-timeline-metrics > div {
   min-width: 0;
-  padding: 0.62rem 0.7rem;
+  padding: 0.52rem 0.62rem;
   border: 1px solid color-mix(in srgb, var(--m90-border-soft) 88%, transparent);
   border-radius: 0.45rem;
   background: color-mix(in srgb, var(--m90-surface-alt) 42%, transparent);
@@ -20331,14 +20408,51 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   margin-top: 0.18rem;
   color: var(--m90-text-primary);
   font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: clamp(1rem, 1.35vw, 1.24rem);
+  font-size: 1rem;
   font-weight: 780;
   line-height: 1.05;
 }
 
+.coverage-strategy-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.32fr);
+  gap: 0.9rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.coverage-strategy-stage-main {
+  display: grid;
+  grid-template-rows: auto minmax(30rem, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.coverage-strategy-primary-strip {
+  display: grid;
+  grid-template-columns: minmax(10rem, auto) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.coverage-strategy-detail-panel {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.coverage-strategy-detail-panel > section,
+.coverage-strategy-secondary-detail > section {
+  min-width: 0;
+}
+
 .coverage-need-timeline-chart {
-  min-height: 15rem;
-  padding: 0.65rem 0.35rem 0.2rem;
+  display: grid;
+  align-content: stretch;
+  min-height: 30rem;
+  padding: 0.95rem 0.55rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--m90-border-soft) 88%, transparent);
   border-radius: 0.5rem;
   background:
@@ -20350,7 +20464,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   display: block;
   width: 100%;
   height: auto;
-  min-height: 13rem;
+  min-height: 27rem;
 }
 
 .coverage-need-timeline-grid line {
@@ -20384,6 +20498,12 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   stroke-width: 2.6;
 }
 
+.coverage-need-timeline-remaining-exposure-line {
+  stroke: var(--m90-text-primary);
+  stroke-dasharray: 6 6;
+  stroke-width: 2.4;
+}
+
 .coverage-need-timeline-point {
   fill: var(--m90-surface);
   stroke: var(--m90-accent);
@@ -20398,6 +20518,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   stroke: var(--warning);
 }
 
+.coverage-need-timeline-remaining-exposure-point {
+  stroke: var(--m90-text-primary);
+}
+
 .coverage-need-timeline-resource-unavailable {
   margin: 0.45rem 0.3rem 0;
   color: var(--m90-text-muted);
@@ -20405,9 +20529,17 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   font-weight: 650;
 }
 
+.coverage-need-timeline-chart-note {
+  margin: 0.3rem 0.3rem 0;
+  color: var(--m90-text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
 .coverage-need-timeline-summary {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
   min-width: 0;
 }
@@ -20436,13 +20568,37 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 @media (max-width: 900px) {
-  .coverage-need-timeline-metrics,
+  .coverage-strategy-stage,
+  .coverage-strategy-primary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .coverage-need-timeline-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .coverage-need-timeline-summary {
     grid-template-columns: 1fr;
   }
 
   .coverage-need-timeline-header {
     display: grid;
+  }
+
+  .coverage-strategy-horizon-control {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .coverage-strategy-horizon-control label,
+  .coverage-strategy-horizon-control output {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 640px) {
+  .coverage-need-timeline-metrics {
+    grid-template-columns: 1fr;
   }
 }
 

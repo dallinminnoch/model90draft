@@ -20,6 +20,7 @@ function indexOfRequired(source, needle, label) {
 
 const pageSource = readRepoFile("pages/coverage-strategy.html");
 const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
+const chartModelSource = readRepoFile("app/features/lens-analysis/coverage-strategy-chart-model.js");
 const adapterSource = readRepoFile("app/features/lens-analysis/coverage-timeline-existing-coverage-adapter.js");
 const coverageUtilsSource = readRepoFile("app/features/coverage/coverage-policy-utils.js");
 const componentsSource = readRepoFile("components.css");
@@ -33,8 +34,18 @@ assert.ok(
 );
 assert.ok(
   indexOfRequired(pageSource, "coverage-timeline-existing-coverage-adapter.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-gap-surplus-composer.js", "Coverage Strategy page"),
+  "Existing coverage adapter should load before the gap/surplus composer."
+);
+assert.ok(
+  indexOfRequired(pageSource, "coverage-strategy-gap-surplus-composer.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-chart-model.js", "Coverage Strategy page"),
+  "Gap/surplus composer should load before the chart model."
+);
+assert.ok(
+  indexOfRequired(pageSource, "coverage-strategy-chart-model.js", "Coverage Strategy page")
     < indexOfRequired(pageSource, "coverage-strategy-page.js", "Coverage Strategy page"),
-  "Existing coverage adapter should load before the page controller."
+  "Chart model should load before the page controller."
 );
 assert.doesNotMatch(pageSource, /coverage-timeline-engine\.js/);
 
@@ -48,12 +59,14 @@ assert.match(controllerSource, /coverage-need-timeline-legend-existing-coverage/
 assert.match(controllerSource, /Existing coverage/);
 assert.match(controllerSource, /Current existing coverage/);
 assert.match(controllerSource, /Final existing coverage/);
-assert.match(controllerSource, /\(existingCoverageAmount \/ needAmount\) \* 100/);
+assert.match(chartModelSource, /getExistingCoverageAmount/);
+assert.match(chartModelSource, /createDollarChartPoint\(needPoint, index, existingCoverageAmount, "existingCoverageAmount"\)/);
+assert.match(chartModelSource, /chartMode: "dollar"/);
 assert.match(controllerSource, /formatCurrency\(firstExistingCoveragePoint\?\.existingCoverageAmount \|\| 0\)/);
 assert.match(controllerSource, /formatCurrency\(lastExistingCoveragePoint\?\.existingCoverageAmount \|\| 0\)/);
 assert.doesNotMatch(controllerSource, /needAmount\s*[-+]=?\s*existingCoverageAmount/);
 assert.doesNotMatch(controllerSource, /resourceAmount\s*[-+]=?\s*existingCoverageAmount/);
-assert.doesNotMatch(controllerSource, /coverageGap|gap\/surplus|surplusCoverage|proposed coverage|recommendation score/i);
+assert.doesNotMatch(controllerSource, /coverageGap|surplusCoverage|proposed coverage|recommendation score/i);
 assert.doesNotMatch(controllerSource, /querySelector\(["']\.analysis-result-value/);
 assert.doesNotMatch(controllerSource, /samplePolicy|placeholder policy|fake policy|demoPolicy/i);
 assert.doesNotMatch(controllerSource, /recommendations\.html|planner\.html/);
