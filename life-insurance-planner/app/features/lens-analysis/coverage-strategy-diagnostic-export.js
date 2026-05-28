@@ -205,6 +205,14 @@
       analysisSetupAssumptions: {
         savedAnalysisSettings: safeContext.profileRecord?.analysisSettings || "Not available",
         resolvedMethodSettings: safeContext.methodSettings || "Not available",
+        coverageStrategyScenarioSettings: safeContext.coverageStrategyScenarioSettings
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings
+          || "Not available",
+        coverageStrategyScenarioSettingsTrace: safeContext.coverageStrategyScenarioSettings?.trace
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.trace
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.trace
+          || "Not available",
         projectionHorizonYears: safeContext.projectionHorizonYears ?? "Not available"
       },
       lensModelNormalizedFactsSnapshot: {
@@ -242,6 +250,23 @@
         chartModelSummary: safeContext.chartModel || "Not available",
         warnings: combinedWarnings,
         dataGaps: combinedDataGaps,
+        coverageStrategyScenarioSettings: safeContext.coverageStrategyScenarioSettings
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings
+          || "Not available",
+        educationScenarioSettingsConsumed: (
+          safeContext.coverageStrategyScenarioSettings?.education
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.education
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education
+          || "Not available"
+        ),
+        coverageStrategyVisibleScenarioControlsAdded: false,
+        coverageStrategyScenarioSettingsPersistence: (
+          safeContext.coverageStrategyScenarioSettings?.persistenceStatus
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.persistenceStatus
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.persistenceStatus
+          || "Not available"
+        ),
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
         educationLifetimeProjection: safeContext.needLine?.componentModels?.education?.lifetimeProjection || "Not available",
@@ -254,6 +279,7 @@
         commitHash: "Not available in browser runtime",
         loadedModules: [
           "coverage-strategy-page.js",
+          "coverage-strategy-scenario-settings.js",
           "coverage-strategy-education-lifetime-projection.js",
           "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",

@@ -438,6 +438,7 @@ const adapterContext = createContext();
   "app/features/lens-analysis/coverage-strategy-healthcare-lifetime-projection.js",
   "app/features/lens-analysis/coverage-strategy-final-expense-lifetime-projection.js",
   "app/features/lens-analysis/coverage-strategy-education-lifetime-projection.js",
+  "app/features/lens-analysis/coverage-strategy-scenario-settings.js",
   "app/features/lens-analysis/coverage-strategy-need-line-adapter.js"
 ].forEach((scriptPath) => loadScript(adapterContext, scriptPath));
 const buildNeedLine = adapterContext.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
@@ -535,6 +536,14 @@ assert.notEqual(needLine.needPoints[0].componentAmounts.education, 999999);
 assert.equal(needLine.needPoints[0].trace.componentTiming.education, "record-level-education-obligation-schedule");
 assert.equal(needLine.componentModels.education.lifetimeProjection.aggregateFallbackUsed, false);
 assert.equal(needLine.componentModels.education.lifetimeProjection.educationSavingsOffset.active, true);
+assert.equal(
+  needLine.componentModels.education.lifetimeProjection.educationSavingsOffset.settingOwnership,
+  "coverage-strategy-scenario-settings"
+);
+assert.equal(
+  needLine.componentModels.education.lifetimeProjection.educationSavingsOffset.legacyMapped,
+  true
+);
 assert.equal(needLine.needPoints[0].trace.assetOffsetSubtracted, false);
 
 const fallbackNeedLine = buildNeedLine({
@@ -603,6 +612,11 @@ assert.ok(
   pageSource.indexOf("coverage-strategy-education-lifetime-projection.js")
     < pageSource.indexOf("coverage-strategy-need-line-adapter.js"),
   "Coverage Strategy should load education lifetime projection before Need Line adapter"
+);
+assert.ok(
+  pageSource.indexOf("coverage-strategy-scenario-settings.js")
+    < pageSource.indexOf("coverage-strategy-need-line-adapter.js"),
+  "Coverage Strategy should load scenario settings before Need Line adapter"
 );
 [
   "pages/analysis-estimate.html",

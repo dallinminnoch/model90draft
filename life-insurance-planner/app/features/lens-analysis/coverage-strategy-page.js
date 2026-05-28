@@ -918,6 +918,7 @@
     const buildCoverageStrategyGapSurplus = lensAnalysis.buildCoverageStrategyGapSurplus;
     const buildCoverageStrategyTimelineChartModel = lensAnalysis.buildCoverageStrategyTimelineChartModel;
     const exportCoverageStrategyDiagnosticPdf = lensAnalysis.exportCoverageStrategyDiagnosticPdf;
+    const resolveCoverageStrategyScenarioSettings = lensAnalysis.resolveCoverageStrategyScenarioSettings;
     let currentDiagnosticExportContext = null;
 
     if (
@@ -967,6 +968,16 @@
         builderResult.lensModel,
         cloneSettings(methodSettings.needsAnalysisSettings)
       );
+      const coverageStrategyScenarioSettings = typeof resolveCoverageStrategyScenarioSettings === "function"
+        ? resolveCoverageStrategyScenarioSettings({
+            profileRecord,
+            analysisSettings: methodSettings.needsAnalysisSettings,
+            savedScenarioSettings: profileRecord.coverageStrategyScenarioSettings,
+            options: {
+              caller: "coverage-strategy-page"
+            }
+          })
+        : null;
       const valuationDate = needsResult?.assumptions?.valuationDate;
       const clientDateOfBirth = builderResult.lensModel?.profileFacts?.clientDateOfBirth || profileRecord.dateOfBirth;
       const age110Horizon = resolveAge110Horizon({
@@ -982,6 +993,8 @@
           lensModel: builderResult.lensModel,
           needsResult,
           analysisSettings: methodSettings.needsAnalysisSettings,
+          profileRecord,
+          coverageStrategyScenarioSettings,
           valuationDate,
           horizonYears: safeProjectionHorizonYears
         });
@@ -1061,6 +1074,7 @@
           existingCoverageLine,
           gapSurplus,
           chartModel,
+          coverageStrategyScenarioSettings,
           projectionHorizonYears: safeProjectionHorizonYears,
           age110Horizon,
           valuationDate,
@@ -1128,6 +1142,7 @@
           lensModel: builderResult.lensModel,
           methodSettings,
           needsResult,
+          coverageStrategyScenarioSettings,
           projectionHorizonYears: selectedProjectionHorizonYears,
           age110Horizon,
           valuationDate,

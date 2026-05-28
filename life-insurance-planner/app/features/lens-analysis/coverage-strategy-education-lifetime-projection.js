@@ -289,7 +289,28 @@
     return lookup;
   }
 
-  function resolveEducationSavingsOffsetActivation(educationAssumptions, eligibleAssetCount, dataGaps) {
+  function resolveEducationSavingsOffsetActivation(educationAssumptions, coverageStrategyScenarioSettings, eligibleAssetCount, dataGaps) {
+    const scenarioEducation = isPlainObject(coverageStrategyScenarioSettings?.education)
+      ? coverageStrategyScenarioSettings.education
+      : {};
+    if (hasOwn(scenarioEducation, "useEducationSavingsOffset")) {
+      const rawValue = scenarioEducation.useEducationSavingsOffset;
+      const sourcePath = coverageStrategyScenarioSettings?.trace?.fieldSources?.["education.useEducationSavingsOffset"]
+        || "coverageStrategyScenarioSettings.education.useEducationSavingsOffset";
+      return {
+        active: rawValue === true,
+        status: rawValue === true ? "active" : "disabled",
+        settingAvailable: true,
+        sourcePath,
+        traceCode: rawValue === true ? "education-savings-offset-active" : "education-savings-offset-disabled",
+        ownership: "coverage-strategy-scenario-settings",
+        legacyMapped: Array.isArray(coverageStrategyScenarioSettings?.trace?.legacyMappings)
+          && coverageStrategyScenarioSettings.trace.legacyMappings.some(function (mapping) {
+            return mapping && mapping.code === "education-savings-offset-legacy-analysis-setting-mapped";
+          })
+      };
+    }
+
     const hasTopLevelSetting = hasOwn(educationAssumptions, "useExistingEducationSavingsOffset");
     const fundingTreatment = isPlainObject(educationAssumptions?.fundingTreatment)
       ? educationAssumptions.fundingTreatment
@@ -307,7 +328,9 @@
         sourcePath: hasTopLevelSetting
           ? "educationAssumptions.useExistingEducationSavingsOffset"
           : "educationAssumptions.fundingTreatment.useExistingEducationSavingsOffset",
-        traceCode: rawValue ? "education-savings-offset-active" : "education-savings-offset-disabled"
+        traceCode: rawValue ? "education-savings-offset-active" : "education-savings-offset-disabled",
+        ownership: "legacy-education-assumptions",
+        legacyMapped: false
       };
     }
 
@@ -325,7 +348,9 @@
       status: "assumption-unavailable",
       settingAvailable: false,
       sourcePath: null,
-      traceCode: "education-savings-offset-assumption-unavailable"
+      traceCode: "education-savings-offset-assumption-unavailable",
+      ownership: "unavailable",
+      legacyMapped: false
     };
   }
 
@@ -845,6 +870,9 @@
     const safeInput = isPlainObject(input) ? input : {};
     const educationSupport = isPlainObject(safeInput.educationSupport) ? safeInput.educationSupport : {};
     const educationAssumptions = isPlainObject(safeInput.educationAssumptions) ? safeInput.educationAssumptions : {};
+    const coverageStrategyScenarioSettings = isPlainObject(safeInput.coverageStrategyScenarioSettings)
+      ? clonePlainValue(safeInput.coverageStrategyScenarioSettings)
+      : null;
     const needPoints = getNeedPoints(safeInput);
     const warnings = [];
     const dataGaps = [];
@@ -863,6 +891,7 @@
     const educationSavingsAssets = collectEducationSavingsAssets(safeInput, warnings);
     const educationSavingsOffsetActivation = resolveEducationSavingsOffsetActivation(
       educationAssumptions,
+      coverageStrategyScenarioSettings,
       educationSavingsAssets.eligibleAssets.length,
       dataGaps
     );
@@ -904,6 +933,8 @@
               projectionMode: "education-funding-excluded-by-setting",
               educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
               educationSavingsOffsetApplied: false,
+              educationSavingsOffsetOwnership: educationSavingsOffsetActivation.ownership,
+              coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
               resourceSpendingApplied: false,
               generalResourceReductionApplied: false
             }
@@ -918,11 +949,19 @@
           includeEducationFunding: false,
           educationSavingsOffsetApplied: false,
           educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
+          educationSavingsOffsetSettingSource: educationSavingsOffsetActivation.sourcePath,
+          educationSavingsOffsetSettingOwnership: educationSavingsOffsetActivation.ownership,
+          coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
           resourceSpendingApplied: false
         },
         educationSavingsOffset: {
           status: educationSavingsOffsetActivation.status,
           active: false,
+          settingAvailable: educationSavingsOffsetActivation.settingAvailable,
+          settingSourcePath: educationSavingsOffsetActivation.sourcePath,
+          settingOwnership: educationSavingsOffsetActivation.ownership,
+          legacyMapped: educationSavingsOffsetActivation.legacyMapped === true,
+          scenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
           totalEducationSavingsAvailable: educationSavingsAssets.totalEducationSavingsAvailable,
           totalEducationSavingsApplied: 0,
           eligibleEducationSavingsAssets: educationSavingsAssets.eligibleAssets.map(clonePlainValue),
@@ -1126,6 +1165,8 @@
           educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
           educationSavingsOffsetApplied: educationSavingsOffsetActive && educationSavingsOffsetAmount > 0,
           educationSavingsOffsetActivationTraceCode: educationSavingsOffsetActivation.traceCode,
+          educationSavingsOffsetOwnership: educationSavingsOffsetActivation.ownership,
+          coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
           educationSavingsOffsetAllocationRule: educationSavingsOffsetActive
             ? offsetAllocation.allocationRule
             : "not-applied",
@@ -1166,6 +1207,8 @@
         educationSavingsOffsetApplied: educationSavingsOffsetActive && maxEducationSavingsApplied > 0,
         educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
         educationSavingsOffsetSettingSource: educationSavingsOffsetActivation.sourcePath,
+        educationSavingsOffsetSettingOwnership: educationSavingsOffsetActivation.ownership,
+        coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
         resourceSpendingApplied: false,
         generalResourceReductionApplied: false,
         educationSpecificSavingsConsumed: educationSavingsOffsetActive && maxEducationSavingsApplied > 0,
@@ -1176,6 +1219,9 @@
         active: educationSavingsOffsetActive,
         settingAvailable: educationSavingsOffsetActivation.settingAvailable,
         settingSourcePath: educationSavingsOffsetActivation.sourcePath,
+        settingOwnership: educationSavingsOffsetActivation.ownership,
+        legacyMapped: educationSavingsOffsetActivation.legacyMapped === true,
+        scenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
         totalEducationSavingsAvailable: educationSavingsAssets.totalEducationSavingsAvailable,
         totalEducationSavingsApplied: maxEducationSavingsApplied,
         eligibleEducationSavingsAssets: educationSavingsAssets.eligibleAssets.map(clonePlainValue),
@@ -1203,6 +1249,8 @@
         pointCount: educationPoints.length,
         educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
         educationSavingsOffsetApplied: educationSavingsOffsetActive && maxEducationSavingsApplied > 0,
+        educationSavingsOffsetOwnership: educationSavingsOffsetActivation.ownership,
+        coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
         generalResourceReductionApplied: false,
         displayHtmlUsed: false,
         storageUsed: false,

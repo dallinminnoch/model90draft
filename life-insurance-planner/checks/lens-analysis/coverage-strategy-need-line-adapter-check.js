@@ -49,6 +49,13 @@ const educationProjectionPath = path.join(
   "lens-analysis",
   "coverage-strategy-education-lifetime-projection.js"
 );
+const scenarioSettingsPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-scenario-settings.js"
+);
 const enginePath = path.join(
   repoRoot,
   "app",
@@ -62,6 +69,7 @@ const debtProjectionSource = fs.readFileSync(debtProjectionPath, "utf8");
 const healthcareProjectionSource = fs.readFileSync(healthcareProjectionPath, "utf8");
 const finalExpenseProjectionSource = fs.readFileSync(finalExpenseProjectionPath, "utf8");
 const educationProjectionSource = fs.readFileSync(educationProjectionPath, "utf8");
+const scenarioSettingsSource = fs.readFileSync(scenarioSettingsPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
 
 function loadAdapter() {
@@ -78,6 +86,7 @@ function loadAdapter() {
   vm.runInContext(healthcareProjectionSource, context, { filename: healthcareProjectionPath });
   vm.runInContext(finalExpenseProjectionSource, context, { filename: finalExpenseProjectionPath });
   vm.runInContext(educationProjectionSource, context, { filename: educationProjectionPath });
+  vm.runInContext(scenarioSettingsSource, context, { filename: scenarioSettingsPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
   return context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 }
@@ -391,8 +400,20 @@ assert.equal(educationSavingsOffsetResult.needPoints[0].trace.educationProjectio
 assert.equal(educationSavingsOffsetResult.needPoints[0].componentAmounts.education, 55000);
 assert.equal(educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.active, true);
 assert.equal(
+  educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.settingOwnership,
+  "coverage-strategy-scenario-settings"
+);
+assert.equal(
+  educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.legacyMapped,
+  true
+);
+assert.equal(
   educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.totalEducationSavingsApplied,
   10000
+);
+assert.equal(
+  educationSavingsOffsetResult.assumptionsUsed.coverageStrategyScenarioSettings.education.useEducationSavingsOffset,
+  true
 );
 assert.equal(educationSavingsOffsetResult.needPoints[0].trace.assetOffsetSubtracted, false);
 assert.equal(educationSavingsOffsetResult.assumptionsUsed.assetOffsetsSubtracted, false);

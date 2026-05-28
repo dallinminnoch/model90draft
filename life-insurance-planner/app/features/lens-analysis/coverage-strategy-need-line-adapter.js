@@ -962,8 +962,58 @@
         ? true
         : (traceInputs.enabled === true ? settings.applyEducationInflation : settings.applyEducationInflation),
       educationStartAge: traceInputs.educationStartAge ?? settings.educationStartAge,
-      fundingTargetPercent: settings.fundingTargetPercent,
-      useExistingEducationSavingsOffset: settings.useExistingEducationSavingsOffset
+      fundingTargetPercent: settings.fundingTargetPercent
+    };
+  }
+
+  function resolveNeedLineScenarioSettings(safeInput, analysisSettings, warnings) {
+    if (isPlainObject(safeInput.coverageStrategyScenarioSettings)) {
+      return clonePlainValue(safeInput.coverageStrategyScenarioSettings);
+    }
+
+    const resolver = lensAnalysis.resolveCoverageStrategyScenarioSettings;
+    if (typeof resolver === "function") {
+      return resolver({
+        profileRecord: safeInput.profileRecord,
+        analysisSettings,
+        savedScenarioSettings: safeInput.savedScenarioSettings,
+        runtimeScenarioSettings: safeInput.runtimeScenarioSettings,
+        options: {
+          caller: "coverage-strategy-need-line-adapter"
+        }
+      });
+    }
+
+    addUniqueIssue(
+      warnings,
+      "coverage-strategy-scenario-settings-unavailable",
+      "Coverage Strategy scenario settings resolver was unavailable; scenario controls used default behavior.",
+      {}
+    );
+    return {
+      version: 1,
+      source: "coverage-strategy-defaults",
+      persisted: false,
+      persistenceStatus: "runtime-default-resolved",
+      visibleControlsAdded: false,
+      controlsVisible: false,
+      education: {
+        educationTreatmentMode: "planAsUnfundedNeed",
+        educationPaymentScheduleMode: "fourYearAnnual",
+        useEducationSavingsOffset: false,
+        educationResourceSpendingMode: "off",
+        projectedDependentTimingMode: "untimedKeepThroughHorizon",
+        projectedDependentTimingRows: []
+      },
+      trace: {
+        source: "coverage-strategy-need-line-adapter-fallback",
+        fieldSources: {
+          "education.useEducationSavingsOffset": "coverage-strategy-defaults.education.useEducationSavingsOffset"
+        },
+        visibleControlsAdded: false,
+        storageRead: false,
+        storageWritten: false
+      }
     };
   }
 
@@ -986,6 +1036,7 @@
     analysisSettings,
     pointSpine,
     valuationDateResult,
+    coverageStrategyScenarioSettings,
     warnings,
     dataGaps
   ) {
@@ -1022,6 +1073,7 @@
       needPoints: pointSpine,
       valuationDate: valuationDateResult?.normalizedDate || null,
       educationAssumptions,
+      coverageStrategyScenarioSettings,
       educationInflationRatePercent: getEducationInflationRate(analysisSettings, needsResult),
       options: {
         horizonYears: pointSpine.length ? pointSpine.length - 1 : 0,
@@ -1271,6 +1323,11 @@
       warnings
     );
     const pointSpine = buildAnnualPointSpine(valuationDateResult, currentAgeResult, horizonYears);
+    const coverageStrategyScenarioSettings = resolveNeedLineScenarioSettings(
+      safeInput,
+      analysisSettings,
+      warnings
+    );
     const educationLifetimeProjection = resolveEducationLifetimeProjection(
       educationModel,
       lensModel,
@@ -1278,6 +1335,7 @@
       analysisSettings,
       pointSpine,
       valuationDateResult,
+      coverageStrategyScenarioSettings,
       warnings,
       dataGaps
     );
@@ -1570,6 +1628,8 @@
                 remainingEducationSavingsOffsetAvailable: educationProjectionPoint.remainingEducationSavingsOffsetAvailable,
                 includedDependentCount: educationProjectionPoint.includedDependentCount,
                 excludedDependentCount: educationProjectionPoint.excludedDependentCount,
+                coverageStrategyScenarioSettingsSource: educationProjectionPoint.trace?.coverageStrategyScenarioSettingsSource || coverageStrategyScenarioSettings?.source || null,
+                educationSavingsOffsetOwnership: educationProjectionPoint.trace?.educationSavingsOffsetOwnership || null,
                 sourceFactsUsed: educationProjectionPoint.trace || {}
               }
             : null,
@@ -1611,6 +1671,7 @@
         valuationDate: valuationDateResult?.normalizedDate || null,
         currentAge: currentAgeResult.currentAge,
         currentAgeSource: currentAgeResult.source,
+        coverageStrategyScenarioSettings,
         supportDurationYears: supportModel.supportDurationYears,
         survivorIncomeOffsetPreservedOnly: true,
         assetOffsetsSubtracted: false,
@@ -1619,6 +1680,7 @@
         fallbackDateBasis: valuationDateResult ? null : DEFAULT_VALUATION_MONTH_DAY
       },
       componentModels: {
+        coverageStrategyScenarioSettings,
         support: supportModel,
         discretionarySupport: discretionaryModel,
         debtAndMortgage: debtModel,

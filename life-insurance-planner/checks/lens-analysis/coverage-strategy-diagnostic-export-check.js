@@ -167,6 +167,28 @@ const diagnosticInput = {
       valuationDate: "2026-01-01"
     }
   },
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    persisted: false,
+    persistenceStatus: "runtime-default-resolved",
+    visibleControlsAdded: false,
+    controlsVisible: false,
+    education: {
+      educationTreatmentMode: "planAsUnfundedNeed",
+      educationPaymentScheduleMode: "fourYearAnnual",
+      useEducationSavingsOffset: true,
+      educationResourceSpendingMode: "off",
+      projectedDependentTimingMode: "untimedKeepThroughHorizon",
+      projectedDependentTimingRows: []
+    },
+    trace: {
+      fieldSources: {
+        "education.useEducationSavingsOffset": "runtimeScenarioSettings.education.useEducationSavingsOffset"
+      },
+      visibleControlsAdded: false
+    }
+  },
   needLine: {
     valuationDate: "2026-01-01",
     needPoints: [{ yearIndex: 0, grossNeedAmount: 1000000 }],
@@ -255,6 +277,8 @@ assert.ok(snapshot.pmiProtectionModelingInputs.data.assetRecords);
 assert.ok(snapshot.pmiProtectionModelingInputs.data.savingsHabitRecords);
 assert.ok(snapshot.analysisSetupAssumptions.savedAnalysisSettings);
 assert.ok(snapshot.analysisSetupAssumptions.resolvedMethodSettings);
+assert.ok(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.education.useEducationSavingsOffset, true);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.profileFacts);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.debtFacts);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.treatedDebtPayoff);
@@ -275,6 +299,10 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjecti
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.active, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection);
@@ -291,6 +319,8 @@ assert.match(html, /F\. Coverage Strategy Generated Outputs/);
 assert.match(html, /healthcareLifetimeProjection/);
 assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /educationSavingsOffset/);
+assert.match(html, /coverageStrategyScenarioSettings/);
+assert.match(html, /educationScenarioSettingsConsumed/);
 assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);
