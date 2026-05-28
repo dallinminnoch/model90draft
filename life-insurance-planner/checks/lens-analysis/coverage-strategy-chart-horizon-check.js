@@ -50,6 +50,17 @@ assert.match(controllerSource, /horizonYears: needLine\.horizonYears/);
 assert.match(controllerSource, /data-coverage-strategy-horizon-input/);
 assert.match(controllerSource, /data-coverage-strategy-horizon-number/);
 assert.match(controllerSource, /data-coverage-strategy-horizon-output/);
+assert.match(controllerSource, /coverage-strategy-horizon-control-compact/);
+assert.ok(
+  indexOfRequired(controllerSource, "coverage-strategy-scenario-tray", "Coverage Strategy controller")
+    < indexOfRequired(controllerSource, "coverage-strategy-horizon-control", "Coverage Strategy controller"),
+  "Projection horizon control should render inside the scenario tray."
+);
+assert.doesNotMatch(
+  controllerSource.slice(0, indexOfRequired(controllerSource, "coverage-strategy-workspace", "Coverage Strategy controller")),
+  /coverage-strategy-horizon-control|Projection horizon/,
+  "Projection horizon should not remain as a large pre-graph row."
+);
 assert.match(controllerSource, /host\.addEventListener\("input"/);
 assert.match(controllerSource, /host\.addEventListener\("change"/);
 assert.match(controllerSource, /buildCoverageStrategyTimelineChartModel/);
@@ -75,13 +86,13 @@ assert.match(chartModelSource, /defaultYAxisUnit: "dollars"/);
 assert.match(chartModelSource, /rawDollarDataChanged: false/);
 assert.match(chartModelSource, /noHardThreeHundredPercentCap: true/);
 
-assert.match(componentsSource, /coverage-strategy-stage/);
+assert.match(componentsSource, /coverage-strategy-workspace/);
 assert.match(componentsSource, /coverage-strategy-horizon-control/);
-assert.match(componentsSource, /coverage-strategy-stage-main/);
-assert.match(componentsSource, /grid-template-rows: auto minmax\(30rem, 1fr\)/);
-assert.match(componentsSource, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
-assert.match(componentsSource, /min-height: 30rem/);
-assert.match(componentsSource, /min-height: 27rem/);
+assert.match(componentsSource, /coverage-strategy-horizon-control-compact/);
+assert.match(componentsSource, /coverage-strategy-main-stage/);
+assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 0\.58fr\) minmax\(32rem, 1\.8fr\) minmax\(14rem, 0\.66fr\)/);
+assert.match(componentsSource, /min-height: clamp\(34rem, calc\(100vh - 18rem\), 50rem\)/);
+assert.match(componentsSource, /min-height: 31rem/);
 assert.match(componentsSource, /coverage-need-timeline-chart-note/);
 assert.doesNotMatch(stylesSource, /coverage-strategy-chart-model|coverage-need-timeline-chart-note/i);
 

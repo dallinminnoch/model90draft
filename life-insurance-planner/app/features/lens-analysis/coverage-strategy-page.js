@@ -632,52 +632,37 @@
             <span><i class="coverage-need-timeline-legend-remaining-exposure" aria-hidden="true"></i>Remaining exposure</span>
           </div>
         </div>
-        <div class="coverage-strategy-horizon-control" aria-label="Projection horizon control">
-          <label for="coverage-strategy-horizon-years">Projection horizon</label>
-          <input
-            id="coverage-strategy-horizon-years"
-            type="range"
-            min="${MIN_PROJECTION_HORIZON_YEARS}"
-            max="${MAX_PROJECTION_HORIZON_YEARS}"
-            step="1"
-            value="${escapeHtml(projectionHorizonYears)}"
-            data-coverage-strategy-horizon-input>
-          <input
-            type="number"
-            min="${MIN_PROJECTION_HORIZON_YEARS}"
-            max="${MAX_PROJECTION_HORIZON_YEARS}"
-            step="1"
-            value="${escapeHtml(projectionHorizonYears)}"
-            aria-label="Projection horizon years"
-            data-coverage-strategy-horizon-number>
-          <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
-        </div>
-        <div class="coverage-strategy-stage">
-          <div class="coverage-strategy-stage-main">
-            <div class="coverage-strategy-primary-strip">
+        <div class="coverage-strategy-workspace">
+          <aside class="coverage-strategy-left-panel" aria-label="Current Coverage Strategy values">
+            <section>
               <div class="coverage-need-timeline-status ${escapeHtml(currentStatusClass)}">
                 <span>Current status</span>
                 <strong>${escapeHtml(currentStatus)}</strong>
               </div>
-              <div class="coverage-need-timeline-metrics" aria-label="Need point summary">
-                <div>
+            </section>
+            <section>
+              <div class="analysis-result-eyebrow">Current position</div>
+              <ul class="analysis-result-list coverage-strategy-current-list">
+                <li>
                   <span>Current remaining exposure</span>
                   <strong>${escapeHtml(firstGapSurplusPoint ? formatCurrency(firstGapSurplusPoint.remainingExposureAmount) : "Unavailable")}</strong>
-                </div>
-                <div>
+                </li>
+                <li>
                   <span>Current need</span>
                   <strong>${escapeHtml(formatCurrency(firstPoint.grossNeedAmount ?? firstPoint.needAmount))}</strong>
-                </div>
-                <div>
+                </li>
+                <li>
                   <span>Current eligible resources</span>
                   <strong>${escapeHtml(firstResourcePoint ? formatCurrency(firstResourcePoint.resourceAmount) : "Unavailable")}</strong>
-                </div>
-                <div>
+                </li>
+                <li>
                   <span>Current existing coverage</span>
                   <strong>${escapeHtml(formatCurrency(firstExistingCoveragePoint?.existingCoverageAmount || 0))}</strong>
-                </div>
-              </div>
-            </div>
+                </li>
+              </ul>
+            </section>
+          </aside>
+          <main class="coverage-strategy-main-stage" aria-label="Coverage Strategy graph stage">
             <div class="coverage-need-timeline-chart coverage-strategy-chart-stage">
               ${renderTimelineSvg(chartModelResult)}
               <div class="coverage-need-timeline-chart-note">
@@ -694,8 +679,8 @@
                 </div>
               ` : ""}
             </div>
-          </div>
-          <aside class="coverage-strategy-detail-panel" aria-label="Coverage Strategy detail">
+          </main>
+          <aside class="coverage-strategy-right-panel" aria-label="Coverage Strategy detail">
             <section>
               <div class="analysis-result-eyebrow">Planning answer</div>
               <ul class="analysis-result-list">
@@ -775,28 +760,63 @@
                 </li>
               </ul>
             </section>
+            <section>
+              <div class="analysis-result-eyebrow">Component summary</div>
+              <ul class="analysis-result-list">
+                ${componentRows.length ? componentRows.map(function (row) {
+                  return `
+                    <li>
+                      <span>${escapeHtml(row.label)}</span>
+                      <strong>${escapeHtml(formatCurrency(row.amount))}</strong>
+                    </li>
+                  `;
+                }).join("") : "<li><span>Components</span><strong>Not set</strong></li>"}
+              </ul>
+            </section>
+            <section>
+              <div class="analysis-result-eyebrow">Component warnings</div>
+              ${renderIssueList("Warnings", combinedWarnings)}
+              ${renderIssueList("Data gaps", combinedDataGaps)}
+              ${!combinedWarnings.length && !combinedDataGaps.length ? '<p class="analysis-result-copy">No component warnings.</p>' : ""}
+            </section>
           </aside>
         </div>
-        <div class="coverage-need-timeline-summary coverage-strategy-secondary-detail">
-          <section>
-            <div class="analysis-result-eyebrow">Component summary</div>
-            <ul class="analysis-result-list">
-              ${componentRows.length ? componentRows.map(function (row) {
-                return `
-                  <li>
-                    <span>${escapeHtml(row.label)}</span>
-                    <strong>${escapeHtml(formatCurrency(row.amount))}</strong>
-                  </li>
-                `;
-              }).join("") : "<li><span>Components</span><strong>Not set</strong></li>"}
-            </ul>
-          </section>
-          <section>
-            <div class="analysis-result-eyebrow">Component warnings</div>
-            ${renderIssueList("Warnings", combinedWarnings)}
-            ${renderIssueList("Data gaps", combinedDataGaps)}
-            ${!combinedWarnings.length && !combinedDataGaps.length ? '<p class="analysis-result-copy">No component warnings.</p>' : ""}
-          </section>
+        <div class="coverage-strategy-scenario-tray is-compact-dock" aria-label="Scenario Planner">
+          <div class="coverage-strategy-scenario-tray-header">
+            <div class="analysis-result-eyebrow">Scenario Planner</div>
+          </div>
+          <div class="coverage-strategy-scenario-tray-grid">
+            <div class="coverage-strategy-scenario-tray-placeholder is-horizon">
+              <div class="coverage-strategy-horizon-control coverage-strategy-horizon-control-compact" aria-label="Projection horizon control">
+                <label for="coverage-strategy-horizon-years">Projection horizon</label>
+                <input
+                  id="coverage-strategy-horizon-years"
+                  type="range"
+                  min="${MIN_PROJECTION_HORIZON_YEARS}"
+                  max="${MAX_PROJECTION_HORIZON_YEARS}"
+                  step="1"
+                  value="${escapeHtml(projectionHorizonYears)}"
+                  data-coverage-strategy-horizon-input>
+                <input
+                  type="number"
+                  min="${MIN_PROJECTION_HORIZON_YEARS}"
+                  max="${MAX_PROJECTION_HORIZON_YEARS}"
+                  step="1"
+                  value="${escapeHtml(projectionHorizonYears)}"
+                  aria-label="Projection horizon years"
+                  data-coverage-strategy-horizon-number>
+                <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
+              </div>
+            </div>
+            <div class="coverage-strategy-scenario-tray-placeholder">
+              <span>Coverage layers</span>
+              <strong>Reserved</strong>
+            </div>
+            <div class="coverage-strategy-scenario-tray-placeholder">
+              <span>Recalculate</span>
+              <strong>Reserved</strong>
+            </div>
+          </div>
         </div>
       </article>
     `;
