@@ -1808,6 +1808,11 @@ body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode
   justify-content: stretch;
 }
 
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-actions {
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  align-items: start;
+}
+
 body[data-page="preliminary-linked"] .entry-page-action-card .entry-mode-button,
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button,
 body[data-page="existing-coverage-linked"] .entry-page-action-card .entry-mode-button,
@@ -1839,12 +1844,25 @@ body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode
   gap: 0.9rem;
 }
 
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-items: start;
+  gap: 0.55rem;
+}
+
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option .entry-mode-button,
 body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode-option .entry-mode-button {
   order: 0;
   grid-column: 2;
   width: 100%;
   min-width: 0;
+}
+
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option .entry-mode-button {
+  order: 2;
+  grid-column: 1;
+  min-height: 3.45rem;
 }
 
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option .entry-mode-icon,
@@ -1856,6 +1874,11 @@ body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode
   transform: none;
 }
 
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option .entry-mode-icon {
+  order: 1;
+  transform: translateY(-0.08rem);
+}
+
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:hover + .entry-mode-icon,
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:focus-visible + .entry-mode-icon,
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:hover ~ .entry-mode-icon,
@@ -1865,6 +1888,18 @@ body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode
 body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode-button:hover ~ .entry-mode-icon,
 body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode-button:focus-visible ~ .entry-mode-icon {
   transform: translateY(-1px) scale(1.04);
+}
+
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:hover + .entry-mode-icon,
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:focus-visible + .entry-mode-icon,
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:hover ~ .entry-mode-icon,
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button:focus-visible ~ .entry-mode-icon {
+  transform: translateY(-0.26rem) scale(1.12) !important;
+}
+
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option:hover .entry-mode-icon,
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-option:focus-within .entry-mode-icon {
+  transform: translateY(-0.26rem) scale(1.12) !important;
 }
 
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-note,
@@ -1884,9 +1919,32 @@ body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode
   padding-top: 0.15rem;
 }
 
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-pin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 3rem);
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-pin-input {
+  width: 3rem;
+  min-width: 0;
+  min-height: 3.15rem;
+}
+
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-button-confidential-continue {
+  justify-self: center;
+  width: min(100%, 22rem);
+  min-width: 0;
+}
+
 body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-pin-label,
 body[data-page="protection-modeling-inputs"] .entry-page-action-card .entry-mode-pin-label {
   justify-content: space-between;
+}
+
+body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-pin-label {
+  justify-content: center;
 }
 
 .preliminary-link-grid {
@@ -4542,6 +4600,10 @@ body[data-page="next-step"] #pmi-debts .debt-payoff-total-group .profile-currenc
 }
 
 @media (max-width: 720px) {
+  body[data-page="protection-modeling-linked"] .entry-page-action-card .entry-mode-actions {
+    grid-template-columns: 1fr;
+  }
+
   body[data-page="preliminary-linked"] .preliminary-link-grid,
   body[data-page="protection-modeling-linked"] .preliminary-link-grid,
   body[data-page="existing-coverage-linked"] .preliminary-link-grid,

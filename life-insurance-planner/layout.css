@@ -1311,6 +1311,11 @@ body[data-page="preliminary-linked"] .prospect-stage {
   width: 100%;
 }
 
+body[data-page="protection-modeling-linked"].lens-workflow-page .prospect-stage {
+  max-width: none;
+  width: 100%;
+}
+
 .entry-page-viewport {
   width: 100%;
   display: grid;
@@ -1331,6 +1336,12 @@ body[data-page="preliminary-linked"] .entry-page-viewport {
   min-height: 100%;
   padding: clamp(1.2rem, 2.6vw, 2rem);
   background: #1f1a45;
+}
+
+body[data-page="protection-modeling-linked"].lens-workflow-page .entry-page-viewport {
+  align-items: start;
+  min-height: 100%;
+  padding-block: 0;
 }
 
 .entry-page-layout {
