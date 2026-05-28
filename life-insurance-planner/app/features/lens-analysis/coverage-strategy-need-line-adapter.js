@@ -814,7 +814,7 @@
     return projection;
   }
 
-  function resolveEducationModel(lensModel, needsResult, warnings, dataGaps) {
+  function resolveEducationModel(lensModel, needsResult) {
     const educationTotal = toOptionalNumber(needsResult?.components?.education) || 0;
     const row = findTraceRow(needsResult, "educationFundingInflation");
     const inputs = isPlainObject(row?.inputs) ? row.inputs : {};
@@ -837,51 +837,23 @@
         };
       });
 
-    if (plannedAmount > 0) {
-      addUniqueIssue(
-        dataGaps,
-        "planned-dependent-education-timing-missing",
-        "Planned-dependent education funding is present but lacks reliable timing and was not allocated into annual need points.",
-        { plannedDependentEducationIncludedAmount: plannedAmount }
-      );
-    }
-
-    if (educationTotal > 0 && !windowedRows.length) {
-      addUniqueIssue(
-        dataGaps,
-        "education-timing-unavailable",
-        "Education need exists, but no current dependent DOB timing rows were available for a windowed need line.",
-        { educationTotal }
-      );
-    }
-
     const windowedTotal = roundMoney(windowedRows.reduce(function (sum, child) {
       return sum + child.amount;
     }, 0));
-    if (windowedTotal < educationTotal && educationTotal > 0) {
-      addUniqueIssue(
-        warnings,
-        "education-aggregate-exceeds-windowed-amount",
-        "Some education need could not be safely assigned to dated education windows.",
-        {
-          educationTotal,
-          windowedTotal,
-          unallocatedAmount: roundMoney(Math.max(0, educationTotal - windowedTotal))
-        }
-      );
-    }
 
     return {
       educationTotal: roundMoney(Math.max(0, educationTotal)),
       windowedRows,
       plannedDependentEducationIncludedAmount: plannedAmount,
+      windowedTotal,
       trace: {
         source: row ? "needsResult.trace.educationFundingInflation" : "needsResult.components.education",
         currentDependentDetailsCount: Array.isArray(getPath(lensModel, "educationSupport.currentDependentDetails"))
           ? getPath(lensModel, "educationSupport.currentDependentDetails").length
           : null,
         windowedChildCount: windowedRows.length,
-        plannedDependentTimingStatus: plannedAmount > 0 ? "missing" : "not-present"
+        plannedDependentTimingStatus: plannedAmount > 0 ? "aggregate-only" : "not-present",
+        needsEducationTraceInputs: clonePlainValue(inputs)
       }
     };
   }
@@ -970,6 +942,31 @@
       ?? null;
   }
 
+  function getEducationInflationRate(analysisSettings, needsResult) {
+    return getPath(analysisSettings, "inflationAssumptions.educationInflationRatePercent")
+      ?? findTraceRow(needsResult, "educationFundingInflation")?.inputs?.ratePercent
+      ?? null;
+  }
+
+  function getEducationAssumptions(analysisSettings, needsResult) {
+    const settings = isPlainObject(analysisSettings?.educationAssumptions)
+      ? clonePlainValue(analysisSettings.educationAssumptions)
+      : {};
+    const traceInputs = isPlainObject(findTraceRow(needsResult, "educationFundingInflation")?.inputs)
+      ? findTraceRow(needsResult, "educationFundingInflation").inputs
+      : {};
+    return {
+      includeEducationFunding: traceInputs.includeEducationFundingSetting ?? settings.includeEducationFunding,
+      includeProjectedDependents: traceInputs.includeProjectedDependentsSetting ?? settings.includeProjectedDependents,
+      applyEducationInflation: traceInputs.applied === true
+        ? true
+        : (traceInputs.enabled === true ? settings.applyEducationInflation : settings.applyEducationInflation),
+      educationStartAge: traceInputs.educationStartAge ?? settings.educationStartAge,
+      fundingTargetPercent: settings.fundingTargetPercent,
+      useExistingEducationSavingsOffset: settings.useExistingEducationSavingsOffset
+    };
+  }
+
   function appendIssues(target, issues) {
     if (!Array.isArray(target) || !Array.isArray(issues)) {
       return;
@@ -980,6 +977,91 @@
       }
       target.push(clonePlainValue(issue));
     });
+  }
+
+  function resolveEducationLifetimeProjection(
+    educationModel,
+    lensModel,
+    needsResult,
+    analysisSettings,
+    pointSpine,
+    valuationDateResult,
+    warnings,
+    dataGaps
+  ) {
+    const builder = lensAnalysis.buildCoverageStrategyEducationLifetimeProjection;
+    if (typeof builder !== "function") {
+      if (educationModel.educationTotal > 0) {
+        addUniqueIssue(
+          dataGaps,
+          "education-lifetime-schedule-unavailable",
+          "Coverage Strategy education lifetime projection helper was unavailable.",
+          { fallbackAmount: educationModel.educationTotal }
+        );
+        addUniqueIssue(
+          warnings,
+          "education-aggregate-fallback-used",
+          "Coverage Strategy used aggregate Needs education amount because the education lifetime schedule was unavailable.",
+          { fallbackAmount: educationModel.educationTotal }
+        );
+      }
+      return null;
+    }
+
+    const educationAssumptions = getEducationAssumptions(analysisSettings, needsResult);
+    if (!(educationModel.educationTotal > 0)) {
+      educationAssumptions.includeEducationFunding = false;
+    }
+
+    const projection = builder({
+      educationSupport: getPath(lensModel, "educationSupport"),
+      profileDependents: getPath(lensModel, "educationSupport.currentDependentDetails"),
+      projectedDependents: getPath(lensModel, "educationSupport.projectedDependentDetails"),
+      needPoints: pointSpine,
+      valuationDate: valuationDateResult?.normalizedDate || null,
+      educationAssumptions,
+      educationInflationRatePercent: getEducationInflationRate(analysisSettings, needsResult),
+      options: {
+        horizonYears: pointSpine.length ? pointSpine.length - 1 : 0,
+        needsEducationTraceInputs: educationModel.trace?.needsEducationTraceInputs || null
+      }
+    });
+    appendIssues(warnings, projection?.warnings);
+    appendIssues(dataGaps, projection?.dataGaps);
+
+    const scheduleAvailable = (
+      Array.isArray(projection?.currentDependentSchedules)
+      && projection.currentDependentSchedules.length > 0
+    ) || (
+      Array.isArray(projection?.projectedDependentSchedules)
+      && projection.projectedDependentSchedules.length > 0
+    ) || (
+      Array.isArray(projection?.untimedProjectedDependents)
+      && projection.untimedProjectedDependents.length > 0
+    );
+    if (educationModel.educationTotal > 0 && !scheduleAvailable) {
+      addUniqueIssue(
+        warnings,
+        "education-aggregate-fallback-used",
+        "Coverage Strategy used aggregate Needs education amount because no education lifetime schedule amounts were available.",
+        { fallbackAmount: educationModel.educationTotal }
+      );
+      addUniqueIssue(
+        dataGaps,
+        "education-lifetime-schedule-unavailable",
+        "Coverage Strategy could not build education lifetime schedule amounts from available education facts.",
+        { fallbackAmount: educationModel.educationTotal }
+      );
+      return {
+        ...(isPlainObject(projection) ? projection : {}),
+        aggregateFallbackUsed: true
+      };
+    }
+
+    return {
+      ...(isPlainObject(projection) ? projection : {}),
+      aggregateFallbackUsed: false
+    };
   }
 
   function resolveHealthcareLifetimeProjection(
@@ -1173,7 +1255,7 @@
     const supportModel = resolveGrossSupportModel(needsResult, analysisSettings, warnings, dataGaps);
     const discretionaryModel = resolveDiscretionarySupportModel(needsResult, analysisSettings, warnings);
     const debtModel = resolveDebtAndMortgageModel(lensModel, needsResult, warnings, dataGaps);
-    const educationModel = resolveEducationModel(lensModel, needsResult, warnings, dataGaps);
+    const educationModel = resolveEducationModel(lensModel, needsResult);
     const healthcareModel = resolveHealthcareModel(needsResult, warnings, dataGaps);
     const horizonYears = resolveHorizonYears(
       safeInput,
@@ -1187,6 +1269,16 @@
       warnings
     );
     const pointSpine = buildAnnualPointSpine(valuationDateResult, currentAgeResult, horizonYears);
+    const educationLifetimeProjection = resolveEducationLifetimeProjection(
+      educationModel,
+      lensModel,
+      needsResult,
+      analysisSettings,
+      pointSpine,
+      valuationDateResult,
+      warnings,
+      dataGaps
+    );
     const mortgageLifetimeProjection = resolveMortgageLifetimeProjection(
       debtModel,
       pointSpine,
@@ -1233,6 +1325,17 @@
         .map(function (point) {
           return [point.yearIndex, point];
         })
+    );
+    const educationProjectionByYear = new Map(
+      (
+        educationLifetimeProjection?.aggregateFallbackUsed === true
+          ? []
+          : (Array.isArray(educationLifetimeProjection?.educationPoints)
+            ? educationLifetimeProjection.educationPoints
+            : [])
+      ).map(function (point) {
+        return [point.yearIndex, point];
+      })
     );
     const healthcareProjectionByYear = new Map(
       (
@@ -1311,11 +1414,16 @@
       const debtPayoff = debtProjectionPoint
         ? debtProjectionPoint.payoffObligationAmount
         : debtModel.nonMortgageAmount;
-      const education = roundMoney(
-        educationModel.windowedRows.reduce(function (sum, child) {
-          return yearIndex <= child.endYearIndex ? sum + child.amount : sum;
-        }, 0)
-      );
+      const educationProjectionPoint = educationProjectionByYear.get(yearIndex) || null;
+      const education = educationProjectionPoint
+        ? educationProjectionPoint.educationNeedAmount
+        : (educationLifetimeProjection?.aggregateFallbackUsed === true
+          ? educationModel.educationTotal
+          : roundMoney(
+              educationModel.windowedRows.reduce(function (sum, child) {
+                return yearIndex <= child.endYearIndex ? sum + child.amount : sum;
+              }, 0)
+            ));
       const healthcareProjectionPoint = healthcareProjectionByYear.get(yearIndex) || null;
       const healthcareExpenses = healthcareProjectionPoint
         ? healthcareProjectionPoint.healthcareNeedAmount
@@ -1358,7 +1466,6 @@
           });
         }
       });
-
       Object.keys(componentAmounts).forEach(function (componentKey) {
         componentPoints.push(componentPoint(componentKey, yearIndex, componentAmounts[componentKey], {
           source: "coverage-strategy-need-line-adapter",
@@ -1411,7 +1518,11 @@
             essentialSupport: "remaining-support-duration",
             discretionarySupport: discretionaryModel.included ? "remaining-support-duration" : "excluded",
             transitionNeeds: DEFAULT_TRANSITION_TIMING,
-            education: "current-dependent-education-window-when-dated",
+            education: educationProjectionPoint
+              ? "record-level-education-obligation-schedule"
+              : (educationLifetimeProjection?.aggregateFallbackUsed === true
+                ? "aggregate-static-education-fallback"
+                : "current-dependent-education-window-fallback"),
             finalExpenses: finalExpenseProjectionPoint
               ? "record-level-death-year-final-expense-schedule"
               : "static-death-year-fallback",
@@ -1440,6 +1551,17 @@
                 debtsFallbackCount: debtProjectionPoint.debtsFallbackCount,
                 projectionModeCounts: debtProjectionPoint.trace?.projectionModeCounts || {},
                 sourceFactsUsed: debtProjectionPoint.trace || {}
+              }
+            : null,
+          educationProjection: educationProjectionPoint
+            ? {
+                educationNeedAmount: educationProjectionPoint.educationNeedAmount,
+                currentDependentNeedAmount: educationProjectionPoint.currentDependentNeedAmount,
+                projectedDependentNeedAmount: educationProjectionPoint.projectedDependentNeedAmount,
+                untimedProjectedDependentNeedAmount: educationProjectionPoint.untimedProjectedDependentNeedAmount,
+                includedDependentCount: educationProjectionPoint.includedDependentCount,
+                excludedDependentCount: educationProjectionPoint.excludedDependentCount,
+                sourceFactsUsed: educationProjectionPoint.trace || {}
               }
             : null,
           healthcareProjection: healthcareProjectionPoint
@@ -1515,7 +1637,46 @@
                 : 0
             }
           : null,
-        education: educationModel,
+        education: {
+          ...educationModel,
+          lifetimeProjection: educationLifetimeProjection
+            ? {
+                status: educationLifetimeProjection.status,
+                aggregateFallbackUsed: educationLifetimeProjection.aggregateFallbackUsed === true,
+                assumptionsUsed: educationLifetimeProjection.assumptionsUsed,
+                currentDependentScheduleCount: Array.isArray(educationLifetimeProjection.currentDependentSchedules)
+                  ? educationLifetimeProjection.currentDependentSchedules.length
+                  : 0,
+                projectedDependentScheduleCount: Array.isArray(educationLifetimeProjection.projectedDependentSchedules)
+                  ? educationLifetimeProjection.projectedDependentSchedules.length
+                  : 0,
+                untimedProjectedDependentCount: Array.isArray(educationLifetimeProjection.untimedProjectedDependents)
+                  ? educationLifetimeProjection.untimedProjectedDependents.length
+                  : 0,
+                excludedDependentCount: Array.isArray(educationLifetimeProjection.excludedDependents)
+                  ? educationLifetimeProjection.excludedDependents.length
+                  : 0,
+                warningCount: Array.isArray(educationLifetimeProjection.warnings)
+                  ? educationLifetimeProjection.warnings.length
+                  : 0,
+                dataGapCount: Array.isArray(educationLifetimeProjection.dataGaps)
+                  ? educationLifetimeProjection.dataGaps.length
+                  : 0,
+                educationPoints: Array.isArray(educationLifetimeProjection.educationPoints)
+                  ? educationLifetimeProjection.educationPoints
+                  : [],
+                currentDependentSchedules: Array.isArray(educationLifetimeProjection.currentDependentSchedules)
+                  ? educationLifetimeProjection.currentDependentSchedules
+                  : [],
+                projectedDependentSchedules: Array.isArray(educationLifetimeProjection.projectedDependentSchedules)
+                  ? educationLifetimeProjection.projectedDependentSchedules
+                  : [],
+                untimedProjectedDependents: Array.isArray(educationLifetimeProjection.untimedProjectedDependents)
+                  ? educationLifetimeProjection.untimedProjectedDependents
+                  : []
+              }
+            : null
+        },
         healthcare: {
           ...healthcareModel,
           lifetimeProjection: healthcareLifetimeProjection

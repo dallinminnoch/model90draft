@@ -244,6 +244,7 @@
         dataGaps: combinedDataGaps,
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
+        educationLifetimeProjection: safeContext.needLine?.componentModels?.education?.lifetimeProjection || "Not available",
         healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available",
         finalExpenseLifetimeProjection: safeContext.needLine?.componentModels?.finalExpenses?.lifetimeProjection || "Not available"
       },
@@ -252,6 +253,7 @@
         commitHash: "Not available in browser runtime",
         loadedModules: [
           "coverage-strategy-page.js",
+          "coverage-strategy-education-lifetime-projection.js",
           "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",
           "coverage-strategy-resource-line-adapter.js",

@@ -42,6 +42,13 @@ const finalExpenseProjectionPath = path.join(
   "lens-analysis",
   "coverage-strategy-final-expense-lifetime-projection.js"
 );
+const educationProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-education-lifetime-projection.js"
+);
 const enginePath = path.join(
   repoRoot,
   "app",
@@ -54,6 +61,7 @@ const mortgageProjectionSource = fs.readFileSync(mortgageProjectionPath, "utf8")
 const debtProjectionSource = fs.readFileSync(debtProjectionPath, "utf8");
 const healthcareProjectionSource = fs.readFileSync(healthcareProjectionPath, "utf8");
 const finalExpenseProjectionSource = fs.readFileSync(finalExpenseProjectionPath, "utf8");
+const educationProjectionSource = fs.readFileSync(educationProjectionPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
 
 function loadAdapter() {
@@ -69,6 +77,7 @@ function loadAdapter() {
   vm.runInContext(debtProjectionSource, context, { filename: debtProjectionPath });
   vm.runInContext(healthcareProjectionSource, context, { filename: healthcareProjectionPath });
   vm.runInContext(finalExpenseProjectionSource, context, { filename: finalExpenseProjectionPath });
+  vm.runInContext(educationProjectionSource, context, { filename: educationProjectionPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
   return context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 }
@@ -232,6 +241,13 @@ function createLensModel(overrides = {}) {
       insuredRetirementHorizonYears: 25
     },
     educationSupport: {
+      linkedDependentCount: 1,
+      desiredAdditionalDependentCount: 1,
+      perLinkedDependentEducationFunding: 50000,
+      perDesiredAdditionalDependentEducationFunding: 15000,
+      linkedDependentEducationFundingNeed: 50000,
+      desiredAdditionalDependentEducationFundingNeed: 15000,
+      totalEducationFundingNeed: 65000,
       currentDependentDetails: [
         {
           id: "child-a",
@@ -313,10 +329,13 @@ assert.equal(result.needPoints[0].componentAmounts.debtPayoff, 60000);
 assert.equal(result.componentModels.debtAndMortgage.trace.mortgageMode, "payOff");
 assert.ok(issueCodes(result.dataGaps).includes("mortgage-projection-term-missing"));
 
-assert.equal(result.needPoints[0].componentAmounts.education, 50000);
-assert.equal(result.needPoints[3].componentAmounts.education, 50000);
-assert.equal(result.needPoints[4].componentAmounts.education, 0);
-assert.ok(issueCodes(result.dataGaps).includes("planned-dependent-education-timing-missing"));
+assert.equal(result.needPoints[0].componentAmounts.education, 65000);
+assert.equal(result.needPoints[3].componentAmounts.education, 65000);
+assert.equal(result.needPoints[4].componentAmounts.education, 52500);
+assert.equal(result.needPoints[5].componentAmounts.education, 40000);
+assert.equal(result.needPoints[0].trace.componentTiming.education, "record-level-education-obligation-schedule");
+assert.ok(issueCodes(result.warnings).includes("projected-dependent-education-kept-through-horizon"));
+assert.equal(result.componentModels.education.lifetimeProjection.aggregateFallbackUsed, false);
 
 assert.equal(result.needPoints[0].componentAmounts.finalExpenses, 25000);
 assert.equal(result.needPoints[5].componentAmounts.finalExpenses, 25000);

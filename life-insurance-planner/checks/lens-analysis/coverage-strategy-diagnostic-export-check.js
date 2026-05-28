@@ -173,6 +173,16 @@ const diagnosticInput = {
     componentModels: {
       mortgageLifetimeProjection: { assumptionsUsed: { projectionMode: "amortized" } },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
+      education: {
+        lifetimeProjection: {
+          status: "complete",
+          aggregateFallbackUsed: false,
+          educationPoints: [{ yearIndex: 0, educationNeedAmount: 60000 }],
+          currentDependentSchedules: [{ id: "child-a", educationStartYear: 2032 }],
+          projectedDependentSchedules: [],
+          untimedProjectedDependents: [{ amount: 20000 }]
+        }
+      },
       healthcare: {
         lifetimeProjection: {
           status: "complete",
@@ -246,6 +256,8 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.warnings);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.dataGaps);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.aggregateFallbackUsed, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection);
@@ -260,6 +272,7 @@ assert.match(html, /D\. Analysis Setup \/ Assumption Controls/);
 assert.match(html, /E\. Lens Model \/ Normalized Facts Snapshot/);
 assert.match(html, /F\. Coverage Strategy Generated Outputs/);
 assert.match(html, /healthcareLifetimeProjection/);
+assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);
