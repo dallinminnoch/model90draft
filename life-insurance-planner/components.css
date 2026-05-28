@@ -20638,10 +20638,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-strategy-scenario-tray-grid {
   display: grid;
-  grid-template-columns: minmax(12rem, 1.5fr) repeat(2, minmax(6rem, 0.75fr));
+  grid-template-columns: minmax(12rem, 1.5fr) repeat(2, minmax(6rem, 0.72fr)) minmax(8.5rem, 0.9fr);
   gap: 0.45rem;
-  width: min(38rem, 70%);
-  min-width: 22rem;
+  width: min(49rem, 74%);
+  min-width: 30rem;
 }
 
 .coverage-strategy-scenario-tray-placeholder {
@@ -20659,6 +20659,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   align-content: stretch;
 }
 
+.coverage-strategy-scenario-tray-placeholder.is-diagnostic-export {
+  border-style: solid;
+}
+
 .coverage-strategy-scenario-tray-placeholder span {
   color: color-mix(in srgb, #f7fbfb 76%, transparent);
   font-size: 0.62rem;
@@ -20674,6 +20678,25 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   font-size: 0.8rem;
   font-weight: 780;
   line-height: 1.1;
+}
+
+.coverage-strategy-diagnostic-export-button {
+  width: 100%;
+  min-height: 1.8rem;
+  padding: 0.28rem 0.48rem;
+  border: 1px solid color-mix(in srgb, #f7fbfb 46%, transparent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, #f7fbfb 16%, transparent);
+  color: #ffffff;
+  font: 760 0.72rem/1.1 "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.coverage-strategy-diagnostic-export-button:hover,
+.coverage-strategy-diagnostic-export-button:focus-visible {
+  background: color-mix(in srgb, #f7fbfb 24%, transparent);
+  outline: none;
 }
 
 .coverage-need-timeline-issues {

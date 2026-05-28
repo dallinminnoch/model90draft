@@ -816,6 +816,12 @@
               <span>Recalculate</span>
               <strong>Reserved</strong>
             </div>
+            <div class="coverage-strategy-scenario-tray-placeholder is-diagnostic-export">
+              <span>Data export</span>
+              <button type="button" class="coverage-strategy-diagnostic-export-button" data-coverage-strategy-diagnostic-export>
+                Export Diagnostic PDF
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -837,6 +843,8 @@
     const buildCoverageStrategyResourceLine = lensAnalysis.buildCoverageStrategyResourceLine;
     const buildCoverageStrategyGapSurplus = lensAnalysis.buildCoverageStrategyGapSurplus;
     const buildCoverageStrategyTimelineChartModel = lensAnalysis.buildCoverageStrategyTimelineChartModel;
+    const exportCoverageStrategyDiagnosticPdf = lensAnalysis.exportCoverageStrategyDiagnosticPdf;
+    let currentDiagnosticExportContext = null;
 
     if (
       typeof buildLensModelFromSavedProtectionModeling !== "function"
@@ -853,10 +861,13 @@
       return;
     }
 
-    const protectionModelingPayload = getProtectionModelingPayload(profileRecord);
-    if (!hasProtectionModelingSource(protectionModelingPayload)) {
-      renderMissingState(host, "LENS data needed", "Complete the LENS workflow before reviewing need over time.", []);
-      return;
+      const protectionModelingPayload = getProtectionModelingPayload(profileRecord);
+      const protectionModelingData = isPlainObject(protectionModelingPayload?.data)
+        ? protectionModelingPayload.data
+        : {};
+      if (!hasProtectionModelingSource(protectionModelingPayload)) {
+        renderMissingState(host, "LENS data needed", "Complete the LENS workflow before reviewing need over time.", []);
+        return;
     }
 
     try {
@@ -963,6 +974,25 @@
               ]
             };
 
+        currentDiagnosticExportContext = {
+          profileRecord,
+          protectionModelingPayload,
+          protectionModelingData,
+          builderResult,
+          lensModel: builderResult.lensModel,
+          methodSettings,
+          needsResult,
+          needLine,
+          resourceLine,
+          existingCoverageLine,
+          gapSurplus,
+          chartModel,
+          projectionHorizonYears: safeProjectionHorizonYears,
+          age110Horizon,
+          valuationDate,
+          route: window.location.href
+        };
+
         renderNeedTimeline(host, {
           ...needLine,
           projectionHorizonYears: safeProjectionHorizonYears,
@@ -1005,6 +1035,30 @@
           return;
         }
         buildAndRenderCoverageStrategy(target.value);
+      });
+
+      host.addEventListener("click", function (event) {
+        const target = event.target;
+        if (!target?.closest?.("[data-coverage-strategy-diagnostic-export]")) {
+          return;
+        }
+        if (typeof exportCoverageStrategyDiagnosticPdf !== "function") {
+          console.error("Coverage Strategy diagnostic export module is unavailable.");
+          return;
+        }
+        exportCoverageStrategyDiagnosticPdf(currentDiagnosticExportContext || {
+          profileRecord,
+          protectionModelingPayload,
+          protectionModelingData,
+          builderResult,
+          lensModel: builderResult.lensModel,
+          methodSettings,
+          needsResult,
+          projectionHorizonYears: selectedProjectionHorizonYears,
+          age110Horizon,
+          valuationDate,
+          route: window.location.href
+        });
       });
 
       buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);

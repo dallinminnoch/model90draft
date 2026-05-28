@@ -82,9 +82,15 @@ assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-input/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-output/);
+assert.match(trayMarkup, /Export Diagnostic PDF/);
+assert.match(trayMarkup, /data-coverage-strategy-diagnostic-export/);
 assert.match(trayMarkup, /Coverage layers/);
 assert.match(trayMarkup, /Recalculate/);
-assert.doesNotMatch(trayMarkup, /<button|<select|<textarea|data-scenario|Save scenario|Recalculate<\/button>/);
+const trayMarkupWithoutDiagnosticExport = trayMarkup.replace(
+  /<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/,
+  ""
+);
+assert.doesNotMatch(trayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|data-scenario|Save scenario|Recalculate<\/button>/);
 
 const beforeWorkspace = controllerSource.slice(0, indexOfRequired(controllerSource, "coverage-strategy-workspace", "Coverage Strategy controller"));
 assert.doesNotMatch(beforeWorkspace, /coverage-strategy-horizon-control|Projection horizon/);
@@ -101,8 +107,10 @@ assert.match(componentsSource, /min-height: 3\.7rem/);
 assert.match(componentsSource, /padding: 0\.5rem 0\.72rem/);
 assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5rem, 12vh, 6\.75rem\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-grid\s*\{/);
-assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 1\.5fr\) repeat\(2, minmax\(6rem, 0\.75fr\)\)/);
+assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 1\.5fr\) repeat\(2, minmax\(6rem, 0\.72fr\)\) minmax\(8\.5rem, 0\.9fr\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-diagnostic-export\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-diagnostic-export-button\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-horizon-control-compact\s*\{/);
 assert.match(componentsSource, /grid-template-columns: minmax\(7rem, 1fr\) 3\.35rem auto/);
 assert.match(componentsSource, /@media \(max-width: 900px\)/);

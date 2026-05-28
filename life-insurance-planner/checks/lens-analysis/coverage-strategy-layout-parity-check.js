@@ -95,7 +95,13 @@ assert.match(scenarioTrayMarkup, /Projection horizon/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-input/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-output/);
-assert.doesNotMatch(scenarioTrayMarkup, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
+assert.match(scenarioTrayMarkup, /Export Diagnostic PDF/);
+assert.match(scenarioTrayMarkup, /data-coverage-strategy-diagnostic-export/);
+const scenarioTrayMarkupWithoutDiagnosticExport = scenarioTrayMarkup.replace(
+  /<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/,
+  ""
+);
+assert.doesNotMatch(scenarioTrayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
 
 assert.match(controllerSource, /Projected need/);
 assert.match(controllerSource, /Projected eligible resources/);
