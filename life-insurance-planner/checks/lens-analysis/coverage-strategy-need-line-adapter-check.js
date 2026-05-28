@@ -14,6 +14,13 @@ const adapterPath = path.join(
   "lens-analysis",
   "coverage-strategy-need-line-adapter.js"
 );
+const mortgageProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-mortgage-lifetime-projection.js"
+);
 const enginePath = path.join(
   repoRoot,
   "app",
@@ -22,6 +29,7 @@ const enginePath = path.join(
   "coverage-timeline-engine.js"
 );
 const adapterSource = fs.readFileSync(adapterPath, "utf8");
+const mortgageProjectionSource = fs.readFileSync(mortgageProjectionPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
 
 function loadAdapter() {
@@ -33,6 +41,7 @@ function loadAdapter() {
   };
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(mortgageProjectionSource, context, { filename: mortgageProjectionPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
   return context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 }
@@ -206,7 +215,12 @@ function createLensModel(overrides = {}) {
     treatedMortgagePaymentPlan: {
       version: "treated-mortgage-payment-plan-v1",
       mode: "payOff",
+      originalBalance: 120000,
       immediatePayoffAmount: 120000,
+      payoffPercent: 100,
+      originalMonthlyMortgagePayment: null,
+      originalRemainingTermMonths: null,
+      interestRatePercent: null,
       finalMonthlyMortgagePayment: 0,
       finalRemainingTermMonths: 0
     },
@@ -270,6 +284,7 @@ assert.equal(
 assert.equal(result.needPoints[0].componentAmounts.mortgage, 120000);
 assert.equal(result.needPoints[0].componentAmounts.debtPayoff, 60000);
 assert.equal(result.componentModels.debtAndMortgage.trace.mortgageMode, "payOff");
+assert.ok(issueCodes(result.dataGaps).includes("mortgage-projection-term-missing"));
 
 assert.equal(result.needPoints[0].componentAmounts.education, 50000);
 assert.equal(result.needPoints[3].componentAmounts.education, 50000);
@@ -340,6 +355,82 @@ assert.equal(supportMortgage.needPoints[0].componentAmounts.mortgage, 48000);
 assert.equal(supportMortgage.needPoints[1].componentAmounts.mortgage, 24000);
 assert.equal(supportMortgage.needPoints[2].componentAmounts.mortgage, 0);
 assert.equal(supportMortgage.componentModels.debtAndMortgage.mortgageTiming, "time-bounded-payment-stream");
+
+const amortizedMortgage = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    debtPayoff: {
+      mortgageBalance: 240000
+    },
+    ongoingSupport: {
+      monthlyMortgagePayment: 2060.86,
+      mortgageRemainingTermMonths: 180,
+      mortgageInterestRatePercent: 6
+    },
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "payOff",
+      originalBalance: 240000,
+      immediatePayoffAmount: 240000,
+      payoffPercent: 100,
+      originalMonthlyMortgagePayment: 2060.86,
+      originalRemainingTermMonths: 180,
+      interestRatePercent: 6,
+      finalMonthlyMortgagePayment: 0,
+      finalRemainingTermMonths: 0
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      ...sourceNeedsResult.components,
+      debtPayoff: 240000,
+      education: 0,
+      healthcareExpenses: 0
+    },
+    trace: sourceNeedsResult.trace.filter((row) => ![
+      "educationFundingInflation",
+      "healthcareExpenses"
+    ].includes(row.key)).map((row) => row.key === "debtPayoff"
+      ? {
+          ...row,
+          value: 240000,
+          inputs: {
+            preparedMortgagePayoffAmount: 240000,
+            preparedNonMortgageDebtAmount: 0,
+            rawMortgageAmount: 240000,
+            rawNonMortgageDebtAmount: 0
+          }
+        }
+      : row)
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 20
+});
+assert.equal(amortizedMortgage.needPoints[0].componentAmounts.mortgage, 240000);
+assert.ok(amortizedMortgage.needPoints[5].componentAmounts.mortgage < 240000);
+assert.equal(amortizedMortgage.needPoints[15].componentAmounts.mortgage, 0);
+assert.equal(amortizedMortgage.needPoints[20].componentAmounts.mortgage, 0);
+assert.equal(amortizedMortgage.needPoints[5].trace.mortgageProjection.projectionMode, "amortized");
+
+const fallbackMortgage = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "payOff",
+      originalBalance: 120000,
+      immediatePayoffAmount: 120000,
+      payoffPercent: 100,
+      originalMonthlyMortgagePayment: 1200,
+      originalRemainingTermMonths: null,
+      interestRatePercent: 6
+    }
+  }),
+  needsResult: sourceNeedsResult,
+  valuationDate: "2026-01-01",
+  horizonYears: 3
+});
+assert.ok(issueCodes(fallbackMortgage.dataGaps).includes("mortgage-projection-term-missing"));
+assert.equal(fallbackMortgage.needPoints[3].componentAmounts.mortgage, 120000);
+assert.equal(fallbackMortgage.needPoints[3].trace.mortgageProjection.projectionMode, "flatFallback");
 
 const missingInputs = buildCoverageStrategyNeedLine({
   lensModel: {},

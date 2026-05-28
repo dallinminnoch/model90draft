@@ -29,6 +29,7 @@ assert.doesNotMatch(pageSource, /developer preview|temporary|internal|adapter pr
 assert.doesNotMatch(controllerSource, /developer preview|temporary|internal|adapter proof/i);
 
 assert.match(pageSource, /coverage-strategy-need-line-adapter\.js/);
+assert.match(pageSource, /coverage-strategy-mortgage-lifetime-projection\.js/);
 assert.match(pageSource, /coverage-strategy-resource-line-adapter\.js/);
 assert.match(pageSource, /coverage-timeline-existing-coverage-adapter\.js/);
 assert.match(pageSource, /coverage-strategy-gap-surplus-composer\.js/);
@@ -56,8 +57,13 @@ assert.ok(
 );
 assert.ok(
   indexOfRequired(pageSource, "analysis-settings-adapter.js", "Coverage Strategy page")
+    < indexOfRequired(pageSource, "coverage-strategy-mortgage-lifetime-projection.js", "Coverage Strategy page"),
+  "Analysis settings adapter should load before the mortgage lifetime projection helper."
+);
+assert.ok(
+  indexOfRequired(pageSource, "coverage-strategy-mortgage-lifetime-projection.js", "Coverage Strategy page")
     < indexOfRequired(pageSource, "coverage-strategy-need-line-adapter.js", "Coverage Strategy page"),
-  "Analysis settings adapter should load before the need-line adapter."
+  "Mortgage lifetime projection helper should load before the need-line adapter."
 );
 assert.ok(
   indexOfRequired(pageSource, "coverage-strategy-need-line-adapter.js", "Coverage Strategy page")

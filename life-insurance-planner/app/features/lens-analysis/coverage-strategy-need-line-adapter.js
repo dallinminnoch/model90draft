@@ -138,6 +138,27 @@
     ].join("-");
   }
 
+  function buildAnnualPointSpine(valuationDateResult, currentAgeResult, horizonYears) {
+    const safeHorizonYears = Math.max(0, Math.round(toOptionalNumber(horizonYears) || 0));
+    return Array.from({ length: safeHorizonYears + 1 }, function (_unused, yearIndex) {
+      const date = valuationDateResult
+        ? addYears(valuationDateResult, yearIndex)
+        : null;
+      const calendarYear = date
+        ? toOptionalNumber(date.slice(0, 4))
+        : null;
+      const age = currentAgeResult?.currentAge == null
+        ? null
+        : currentAgeResult.currentAge + yearIndex;
+      return {
+        yearIndex,
+        date,
+        calendarYear,
+        age
+      };
+    });
+  }
+
   function calculateAge(dateOfBirth, valuationDate) {
     const birth = normalizeDateOnly(dateOfBirth);
     const valuation = normalizeDateOnly(valuationDate);
@@ -492,6 +513,21 @@
       ?? toOptionalNumber(getPath(lensModel, "treatedDebtPayoff.needs.mortgagePayoffAmount"))
       ?? toOptionalNumber(mortgagePlan.immediatePayoffAmount)
       ?? 0;
+    const originalMortgageBalance = toOptionalNumber(mortgagePlan.originalBalance)
+      ?? toOptionalNumber(getPath(lensModel, "debtPayoff.mortgageBalance"))
+      ?? toOptionalNumber(inputs.rawMortgageAmount)
+      ?? toOptionalNumber(inputs.preparedMortgagePayoffAmount)
+      ?? null;
+    const originalMonthlyMortgagePayment = toOptionalNumber(mortgagePlan.originalMonthlyMortgagePayment)
+      ?? toOptionalNumber(getPath(lensModel, "ongoingSupport.monthlyMortgagePayment"));
+    const originalRemainingTermMonths = toOptionalNumber(mortgagePlan.originalRemainingTermMonths)
+      ?? toOptionalNumber(getPath(lensModel, "ongoingSupport.mortgageRemainingTermMonths"));
+    const interestRatePercent = toOptionalNumber(mortgagePlan.interestRatePercent)
+      ?? toOptionalNumber(getPath(lensModel, "ongoingSupport.mortgageInterestRatePercent"));
+    const payoffPercent = toOptionalNumber(mortgagePlan.payoffPercent)
+      ?? (originalMortgageBalance && originalMortgageBalance > 0
+        ? (explicitMortgageAmount / originalMortgageBalance) * 100
+        : null);
     const nonMortgageAmount = toOptionalNumber(inputs.preparedNonMortgageDebtAmount)
       ?? toOptionalNumber(inputs.rawNonMortgageDebtAmount)
       ?? Math.max(0, totalDebt - explicitMortgageAmount);
@@ -554,14 +590,63 @@
       mortgageAmount: roundMoney(Math.max(0, mortgageAmount || 0)),
       mortgageAnnualValues,
       mortgageTiming,
+      mortgageLifetimeProjectionFacts: {
+        currentBalance: originalMortgageBalance,
+        currentPayoffAmount: explicitMortgageAmount,
+        annualInterestRate: interestRatePercent,
+        monthlyPayment: originalMonthlyMortgagePayment,
+        remainingTermMonths: originalRemainingTermMonths,
+        payoffPercent
+      },
       trace: {
         source: debtRow ? "needsResult.trace.debtPayoff" : "needsResult.components.debtPayoff",
         mortgageMode: mortgageMode || null,
         mortgagePaymentPlanVersion: mortgagePlan.version || null,
+        mortgageLifetimeProjectionSource: "coverage-strategy-mortgage-lifetime-projection",
         nonMortgageAmortizationMode: "not-invented",
         sourcePaths: Array.isArray(debtRow?.sourcePaths) ? debtRow.sourcePaths.slice() : []
       }
     };
+  }
+
+  function resolveMortgageLifetimeProjection(debtModel, pointSpine, valuationDateResult, warnings, dataGaps) {
+    if (!debtModel || debtModel.trace?.mortgageMode !== "payOff") {
+      return null;
+    }
+    const builder = lensAnalysis.buildMortgageLifetimeProjection;
+    if (typeof builder !== "function") {
+      addUniqueIssue(
+        dataGaps,
+        "mortgage-lifetime-projection-helper-missing",
+        "Mortgage payoff was treated as a flat point-in-time obligation because the lifetime projection helper was unavailable.",
+        {}
+      );
+      return null;
+    }
+    const facts = isPlainObject(debtModel.mortgageLifetimeProjectionFacts)
+      ? debtModel.mortgageLifetimeProjectionFacts
+      : {};
+    const projection = builder({
+      currentBalance: facts.currentBalance,
+      currentPayoffAmount: facts.currentPayoffAmount,
+      annualInterestRate: facts.annualInterestRate,
+      monthlyPayment: facts.monthlyPayment,
+      remainingTermMonths: facts.remainingTermMonths,
+      payoffPercent: facts.payoffPercent,
+      valuationDate: valuationDateResult?.normalizedDate,
+      needPoints: pointSpine
+    });
+    (Array.isArray(projection?.warnings) ? projection.warnings : []).forEach(function (warning) {
+      if (warning?.code) {
+        addUniqueIssue(warnings, warning.code, warning.message || "Mortgage projection warning.", warning.details || {});
+      }
+    });
+    (Array.isArray(projection?.dataGaps) ? projection.dataGaps : []).forEach(function (gap) {
+      if (gap?.code) {
+        addUniqueIssue(dataGaps, gap.code, gap.message || "Mortgage projection data gap.", gap.details || {});
+      }
+    });
+    return projection;
   }
 
   function resolveEducationModel(lensModel, needsResult, warnings, dataGaps) {
@@ -751,6 +836,20 @@
       currentAgeResult,
       warnings
     );
+    const pointSpine = buildAnnualPointSpine(valuationDateResult, currentAgeResult, horizonYears);
+    const mortgageLifetimeProjection = resolveMortgageLifetimeProjection(
+      debtModel,
+      pointSpine,
+      valuationDateResult,
+      warnings,
+      dataGaps
+    );
+    const mortgageProjectionByYear = new Map(
+      (Array.isArray(mortgageLifetimeProjection?.mortgagePoints) ? mortgageLifetimeProjection.mortgagePoints : [])
+        .map(function (point) {
+          return [point.yearIndex, point];
+        })
+    );
 
     const transitionNeeds = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.transitionNeeds) || 0));
     const finalExpenses = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.finalExpenses) || 0));
@@ -785,15 +884,10 @@
     }
 
     for (let yearIndex = 0; yearIndex <= horizonYears; yearIndex += 1) {
-      const date = valuationDateResult
-        ? addYears(valuationDateResult, yearIndex)
-        : null;
-      const calendarYear = date
-        ? toOptionalNumber(date.slice(0, 4))
-        : null;
-      const age = currentAgeResult.currentAge == null
-        ? null
-        : currentAgeResult.currentAge + yearIndex;
+      const point = pointSpine[yearIndex] || {};
+      const date = point.date || null;
+      const calendarYear = point.calendarYear ?? null;
+      const age = point.age ?? null;
       const essentialSupport = sumRemainingAnnualValues(supportModel.annualValues, yearIndex);
       const adjustedSupportNeed = sumRemainingAnnualValues(supportModel.adjustedAnnualValues, yearIndex);
       const survivorIncomeOffsetForPoint = supportModel.adjustedAnnualValues.length
@@ -802,9 +896,12 @@
       const discretionarySupport = discretionaryModel.included
         ? sumRemainingAnnualValues(discretionaryModel.annualValues, yearIndex)
         : 0;
-      const mortgage = debtModel.mortgageTiming === "time-bounded-payment-stream"
+      const mortgageProjectionPoint = mortgageProjectionByYear.get(yearIndex) || null;
+      const mortgage = mortgageProjectionPoint
+        ? mortgageProjectionPoint.payoffObligationAmount
+        : (debtModel.mortgageTiming === "time-bounded-payment-stream"
         ? sumRemainingAnnualValues(debtModel.mortgageAnnualValues, yearIndex)
-        : debtModel.mortgageAmount;
+        : debtModel.mortgageAmount);
       const debtPayoff = debtModel.nonMortgageAmount;
       const education = roundMoney(
         educationModel.windowedRows.reduce(function (sum, child) {
@@ -891,7 +988,9 @@
           survivorIncomeSubtractedFromNeedLine: false,
           componentTiming: {
             debtPayoff: "point-in-time-obligation-no-amortization-invented",
-            mortgage: debtModel.mortgageTiming,
+            mortgage: mortgageProjectionPoint
+              ? `projected-payoff-${mortgageProjectionPoint.projectionMode}`
+              : debtModel.mortgageTiming,
             essentialSupport: "remaining-support-duration",
             discretionarySupport: discretionaryModel.included ? "remaining-support-duration" : "excluded",
             transitionNeeds: DEFAULT_TRANSITION_TIMING,
@@ -900,7 +999,17 @@
             healthcareExpenses: healthcareModel.projectionYears == null
               ? "aggregate-active-with-data-gap"
               : "bounded-by-healthcare-projection-years"
-          }
+          },
+          mortgageProjection: mortgageProjectionPoint
+            ? {
+                projectionMode: mortgageProjectionPoint.projectionMode,
+                elapsedMonths: mortgageProjectionPoint.elapsedMonths,
+                projectedBalance: mortgageProjectionPoint.projectedBalance,
+                payoffObligationAmount: mortgageProjectionPoint.payoffObligationAmount,
+                remainingTermMonths: mortgageProjectionPoint.remainingTermMonths,
+                sourceFactsUsed: mortgageProjectionPoint.trace || {}
+              }
+            : null
         }
       });
     }
@@ -930,6 +1039,18 @@
         support: supportModel,
         discretionarySupport: discretionaryModel,
         debtAndMortgage: debtModel,
+        mortgageLifetimeProjection: mortgageLifetimeProjection
+          ? {
+              status: mortgageLifetimeProjection.status,
+              assumptionsUsed: mortgageLifetimeProjection.assumptionsUsed,
+              warningCount: Array.isArray(mortgageLifetimeProjection.warnings)
+                ? mortgageLifetimeProjection.warnings.length
+                : 0,
+              dataGapCount: Array.isArray(mortgageLifetimeProjection.dataGaps)
+                ? mortgageLifetimeProjection.dataGaps.length
+                : 0
+            }
+          : null,
         education: educationModel,
         healthcare: healthcareModel,
         transitionNeeds: {
