@@ -960,6 +960,13 @@
   function getHealthcareInflationRate(analysisSettings, needsResult) {
     return getPath(analysisSettings, "inflationAssumptions.healthcareInflationRatePercent")
       ?? findTraceRow(needsResult, "healthcareExpenses")?.inputs?.healthcareInflationRatePercent
+      ?? findTraceRow(needsResult, "finalExpenses")?.inputs?.healthcareInflationRatePercent
+      ?? null;
+  }
+
+  function getFinalExpenseInflationRate(analysisSettings, needsResult) {
+    return getPath(analysisSettings, "inflationAssumptions.finalExpenseInflationRatePercent")
+      ?? findTraceRow(needsResult, "finalExpenses")?.inputs?.finalExpenseInflationRatePercent
       ?? null;
   }
 
@@ -1065,6 +1072,85 @@
     return projection;
   }
 
+  function resolveFinalExpenseLifetimeProjection(
+    finalExpenseAmount,
+    lensModel,
+    needsResult,
+    analysisSettings,
+    pointSpine,
+    valuationDateResult,
+    warnings,
+    dataGaps
+  ) {
+    const builder = lensAnalysis.buildCoverageStrategyFinalExpenseLifetimeProjection;
+    if (typeof builder !== "function") {
+      if (finalExpenseAmount > 0) {
+        addUniqueIssue(
+          dataGaps,
+          "final-expense-lifetime-schedule-unavailable",
+          "Coverage Strategy final expense lifetime projection helper was unavailable.",
+          { fallbackAmount: finalExpenseAmount }
+        );
+        addUniqueIssue(
+          warnings,
+          "final-expense-static-fallback-used",
+          "Coverage Strategy used the static Needs final expense amount because the final expense lifetime schedule was unavailable.",
+          { fallbackAmount: finalExpenseAmount }
+        );
+      }
+      return null;
+    }
+
+    const projection = builder({
+      expenseFacts: getPath(lensModel, "expenseFacts"),
+      finalExpenseFacts: getPath(lensModel, "finalExpenses"),
+      needPoints: pointSpine,
+      valuationDate: valuationDateResult?.normalizedDate || null,
+      finalExpenseInflationRatePercent: getFinalExpenseInflationRate(analysisSettings, needsResult),
+      healthcareInflationRatePercent: getHealthcareInflationRate(analysisSettings, needsResult),
+      options: {
+        horizonYears: pointSpine.length ? pointSpine.length - 1 : 0
+      }
+    });
+    appendIssues(warnings, projection?.warnings);
+    appendIssues(dataGaps, projection?.dataGaps);
+
+    const finalExpensePoints = Array.isArray(projection?.finalExpensePoints)
+      ? projection.finalExpensePoints
+      : [];
+    const includedRecords = Array.isArray(projection?.includedRecords)
+      ? projection.includedRecords
+      : [];
+    if (includedRecords.length && finalExpensePoints.length) {
+      return projection;
+    }
+
+    if (finalExpenseAmount > 0) {
+      addUniqueIssue(
+        dataGaps,
+        "final-expense-lifetime-schedule-unavailable",
+        "Coverage Strategy could not build a final expense lifetime schedule from normalized final expense facts.",
+        {
+          fallbackAmount: finalExpenseAmount,
+          inputExpenseFactCount: projection?.trace?.inputExpenseFactCount ?? null,
+          includedRecordCount: includedRecords.length
+        }
+      );
+      addUniqueIssue(
+        warnings,
+        "final-expense-static-fallback-used",
+        "Coverage Strategy used the static Needs final expense amount because no record-level final expense schedule was available.",
+        { fallbackAmount: finalExpenseAmount }
+      );
+      return {
+        ...projection,
+        staticFallbackUsed: true
+      };
+    }
+
+    return projection;
+  }
+
   function buildCoverageStrategyNeedLine(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const lensModel = isPlainObject(safeInput.lensModel) ? safeInput.lensModel : {};
@@ -1125,6 +1211,17 @@
       warnings,
       dataGaps
     );
+    const finalExpenses = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.finalExpenses) || 0));
+    const finalExpenseLifetimeProjection = resolveFinalExpenseLifetimeProjection(
+      finalExpenses,
+      lensModel,
+      needsResult,
+      analysisSettings,
+      pointSpine,
+      valuationDateResult,
+      warnings,
+      dataGaps
+    );
     const mortgageProjectionByYear = new Map(
       (Array.isArray(mortgageLifetimeProjection?.mortgagePoints) ? mortgageLifetimeProjection.mortgagePoints : [])
         .map(function (point) {
@@ -1148,9 +1245,19 @@
         return [point.yearIndex, point];
       })
     );
+    const finalExpenseProjectionByYear = new Map(
+      (
+        finalExpenseLifetimeProjection?.staticFallbackUsed === true
+          ? []
+          : (Array.isArray(finalExpenseLifetimeProjection?.finalExpensePoints)
+            ? finalExpenseLifetimeProjection.finalExpensePoints
+            : [])
+      ).map(function (point) {
+        return [point.yearIndex, point];
+      })
+    );
 
     const transitionNeeds = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.transitionNeeds) || 0));
-    const finalExpenses = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.finalExpenses) || 0));
     const componentPoints = [];
     const needPoints = [];
 
@@ -1172,11 +1279,11 @@
       );
     }
 
-    if (finalExpenses > 0) {
+    if (finalExpenses > 0 && !finalExpenseProjectionByYear.size) {
       addUniqueIssue(
         warnings,
-        "final-expense-treated-as-death-year-obligation",
-        "Final expenses were included as a death-year obligation at each annual point using the available Needs component amount.",
+        "final-expense-treated-as-static-death-year-obligation",
+        "Final expenses were included as a static death-year obligation because no record-level final expense lifetime schedule was available.",
         { finalExpenses }
       );
     }
@@ -1216,6 +1323,10 @@
         && (healthcareModel.projectionYears == null || yearIndex <= healthcareModel.projectionYears)
         ? healthcareModel.amount
         : 0);
+      const finalExpenseProjectionPoint = finalExpenseProjectionByYear.get(yearIndex) || null;
+      const finalExpensesForPoint = finalExpenseProjectionPoint
+        ? finalExpenseProjectionPoint.finalExpenseNeedAmount
+        : finalExpenses;
       const componentAmounts = {
         debtPayoff,
         mortgage,
@@ -1223,7 +1334,7 @@
         discretionarySupport,
         transitionNeeds,
         education,
-        finalExpenses,
+        finalExpenses: finalExpensesForPoint,
         healthcareExpenses
       };
       const grossNeedAmount = roundMoney(Object.keys(componentAmounts).reduce(function (sum, key) {
@@ -1301,7 +1412,9 @@
             discretionarySupport: discretionaryModel.included ? "remaining-support-duration" : "excluded",
             transitionNeeds: DEFAULT_TRANSITION_TIMING,
             education: "current-dependent-education-window-when-dated",
-            finalExpenses: DEFAULT_FINAL_EXPENSE_TIMING,
+            finalExpenses: finalExpenseProjectionPoint
+              ? "record-level-death-year-final-expense-schedule"
+              : "static-death-year-fallback",
             healthcareExpenses: healthcareProjectionPoint
               ? "record-level-healthcare-lifetime-schedule"
               : (healthcareModel.projectionYears == null
@@ -1335,6 +1448,18 @@
                 includedRecordCount: healthcareProjectionPoint.includedRecordCount,
                 excludedRecordCount: healthcareProjectionPoint.excludedRecordCount,
                 sourceFactsUsed: healthcareProjectionPoint.trace || {}
+              }
+            : null,
+          finalExpenseProjection: finalExpenseProjectionPoint
+            ? {
+                finalExpenseNeedAmount: finalExpenseProjectionPoint.finalExpenseNeedAmount,
+                funeralBurialAmount: finalExpenseProjectionPoint.funeralBurialAmount,
+                medicalEndOfLifeAmount: finalExpenseProjectionPoint.medicalEndOfLifeAmount,
+                estateSettlementAmount: finalExpenseProjectionPoint.estateSettlementAmount,
+                otherFinalExpenseAmount: finalExpenseProjectionPoint.otherFinalExpenseAmount,
+                includedRecordCount: finalExpenseProjectionPoint.includedRecordCount,
+                excludedRecordCount: finalExpenseProjectionPoint.excludedRecordCount,
+                sourceFactsUsed: finalExpenseProjectionPoint.trace || {}
               }
             : null
         }
@@ -1423,7 +1548,29 @@
         finalExpenses: {
           amount: finalExpenses,
           timing: DEFAULT_FINAL_EXPENSE_TIMING,
-          trace: findTraceRow(needsResult, "finalExpenses")?.inputs || {}
+          trace: findTraceRow(needsResult, "finalExpenses")?.inputs || {},
+          lifetimeProjection: finalExpenseLifetimeProjection
+            ? {
+                status: finalExpenseLifetimeProjection.status,
+                staticFallbackUsed: finalExpenseLifetimeProjection.staticFallbackUsed === true,
+                assumptionsUsed: finalExpenseLifetimeProjection.assumptionsUsed,
+                includedRecordCount: Array.isArray(finalExpenseLifetimeProjection.includedRecords)
+                  ? finalExpenseLifetimeProjection.includedRecords.length
+                  : 0,
+                excludedRecordCount: Array.isArray(finalExpenseLifetimeProjection.excludedRecords)
+                  ? finalExpenseLifetimeProjection.excludedRecords.length
+                  : 0,
+                warningCount: Array.isArray(finalExpenseLifetimeProjection.warnings)
+                  ? finalExpenseLifetimeProjection.warnings.length
+                  : 0,
+                dataGapCount: Array.isArray(finalExpenseLifetimeProjection.dataGaps)
+                  ? finalExpenseLifetimeProjection.dataGaps.length
+                  : 0,
+                finalExpensePoints: Array.isArray(finalExpenseLifetimeProjection.finalExpensePoints)
+                  ? finalExpenseLifetimeProjection.finalExpensePoints
+                  : []
+              }
+            : null
         }
       },
       warnings,

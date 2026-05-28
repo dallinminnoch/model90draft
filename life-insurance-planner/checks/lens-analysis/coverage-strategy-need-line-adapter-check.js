@@ -35,6 +35,13 @@ const healthcareProjectionPath = path.join(
   "lens-analysis",
   "coverage-strategy-healthcare-lifetime-projection.js"
 );
+const finalExpenseProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-final-expense-lifetime-projection.js"
+);
 const enginePath = path.join(
   repoRoot,
   "app",
@@ -46,6 +53,7 @@ const adapterSource = fs.readFileSync(adapterPath, "utf8");
 const mortgageProjectionSource = fs.readFileSync(mortgageProjectionPath, "utf8");
 const debtProjectionSource = fs.readFileSync(debtProjectionPath, "utf8");
 const healthcareProjectionSource = fs.readFileSync(healthcareProjectionPath, "utf8");
+const finalExpenseProjectionSource = fs.readFileSync(finalExpenseProjectionPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
 
 function loadAdapter() {
@@ -60,6 +68,7 @@ function loadAdapter() {
   vm.runInContext(mortgageProjectionSource, context, { filename: mortgageProjectionPath });
   vm.runInContext(debtProjectionSource, context, { filename: debtProjectionPath });
   vm.runInContext(healthcareProjectionSource, context, { filename: healthcareProjectionPath });
+  vm.runInContext(finalExpenseProjectionSource, context, { filename: finalExpenseProjectionPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
   return context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 }
@@ -698,6 +707,55 @@ assert.ok(
 );
 assert.ok(!issueCodes(healthcareLifetime.warnings).includes("healthcare-year-level-projection-limited"));
 assert.equal(healthcareLifetime.componentModels.healthcare.lifetimeProjection.aggregateFallbackUsed, false);
+
+const finalExpenseLifetime = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    finalExpenses: {
+      funeralBurialEstimate: 10000,
+      medicalEndOfLifeCosts: 5000,
+      estateSettlementCosts: 2000,
+      otherFinalExpenses: 1000
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      ...sourceNeedsResult.components,
+      finalExpenses: 999999,
+      healthcareExpenses: 0
+    },
+    trace: sourceNeedsResult.trace.filter((row) => row.key !== "healthcareExpenses").map((row) => row.key === "finalExpenses"
+      ? {
+          ...row,
+          value: 999999,
+          inputs: {
+            projectedFinalExpenseAmount: 999999,
+            finalExpenseInflationRatePercent: 3,
+            healthcareInflationRatePercent: 4.25
+          }
+        }
+      : row)
+  }),
+  analysisSettings: {
+    inflationAssumptions: {
+      finalExpenseInflationRatePercent: 3,
+      healthcareInflationRatePercent: 4.25
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(finalExpenseLifetime.needPoints[0].componentAmounts.finalExpenses, 18000);
+assert.ok(
+  finalExpenseLifetime.needPoints[5].componentAmounts.finalExpenses
+    > finalExpenseLifetime.needPoints[0].componentAmounts.finalExpenses,
+  "Final expense should inflate at each modeled death year."
+);
+assert.notEqual(finalExpenseLifetime.needPoints[0].componentAmounts.finalExpenses, 999999);
+assert.equal(
+  finalExpenseLifetime.needPoints[0].trace.componentTiming.finalExpenses,
+  "record-level-death-year-final-expense-schedule"
+);
+assert.equal(finalExpenseLifetime.componentModels.finalExpenses.lifetimeProjection.staticFallbackUsed, false);
 
 const missingInputs = buildCoverageStrategyNeedLine({
   lensModel: {},

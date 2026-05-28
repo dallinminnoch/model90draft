@@ -181,6 +181,15 @@ const diagnosticInput = {
           includedRecordCount: 2,
           excludedRecordCount: 1
         }
+      },
+      finalExpenses: {
+        lifetimeProjection: {
+          status: "complete",
+          staticFallbackUsed: false,
+          finalExpensePoints: [{ yearIndex: 0, finalExpenseNeedAmount: 25000 }],
+          includedRecordCount: 4,
+          excludedRecordCount: 2
+        }
       }
     },
     warnings: [{ code: "need-warning" }],
@@ -239,6 +248,8 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTr
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection.staticFallbackUsed, false);
 
 const html = renderHtml(snapshot);
 assert.match(html, /Coverage Strategy Diagnostic Export/);
@@ -249,6 +260,7 @@ assert.match(html, /D\. Analysis Setup \/ Assumption Controls/);
 assert.match(html, /E\. Lens Model \/ Normalized Facts Snapshot/);
 assert.match(html, /F\. Coverage Strategy Generated Outputs/);
 assert.match(html, /healthcareLifetimeProjection/);
+assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);
 

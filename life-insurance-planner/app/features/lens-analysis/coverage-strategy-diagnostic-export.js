@@ -244,13 +244,15 @@
         dataGaps: combinedDataGaps,
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
-        healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available"
+        healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available",
+        finalExpenseLifetimeProjection: safeContext.needLine?.componentModels?.finalExpenses?.lifetimeProjection || "Not available"
       },
       checksVersionInfo: {
         appVersion: root.version || root.appVersion || "Not available",
         commitHash: "Not available in browser runtime",
         loadedModules: [
           "coverage-strategy-page.js",
+          "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",
           "coverage-strategy-resource-line-adapter.js",
           "coverage-timeline-existing-coverage-adapter.js",
