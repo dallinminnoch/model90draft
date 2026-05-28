@@ -369,9 +369,13 @@ const trayEndIndex = controllerSource.indexOf("</div>", controllerSource.indexOf
 const trayMarkup = controllerSource.slice(trayIndex, trayEndIndex);
 assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(trayMarkup, /Education schedule/);
+assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
+assert.match(trayMarkup, /value="fourYearAnnual"/);
+assert.match(trayMarkup, /value="lumpSumAtStart"/);
 assert.match(controllerSource, /Projected dependents/);
 assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode/i);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
 assert.match(controllerSource, /coverageStrategyScenarioSettings/);
 
 console.log("coverage strategy scenario settings check passed");

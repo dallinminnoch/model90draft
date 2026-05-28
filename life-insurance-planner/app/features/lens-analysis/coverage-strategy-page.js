@@ -337,6 +337,11 @@
       : [];
   }
 
+  function getEducationPaymentScheduleModeFromSettings(settings) {
+    const mode = String(settings?.education?.educationPaymentScheduleMode || "").trim();
+    return mode === "lumpSumAtStart" ? "lumpSumAtStart" : "fourYearAnnual";
+  }
+
   function buildProjectedDependentTimingRows(lensModel, existingRows, valuationDate) {
     const projectedDependentCount = getProjectedDependentCount(lensModel);
     if (!projectedDependentCount) {
@@ -872,6 +877,7 @@
         : {});
     const educationSavingsOffsetEnabled =
       scenarioSettings?.education?.useEducationSavingsOffset === true;
+    const educationPaymentScheduleMode = getEducationPaymentScheduleModeFromSettings(scenarioSettings);
     const projectedDependentTimingRows = Array.isArray(result?.projectedDependentTimingRows)
       ? result.projectedDependentTimingRows
       : getProjectedDependentTimingRowsFromSettings(scenarioSettings);
@@ -1089,6 +1095,29 @@
                 </label>
               </div>
             </div>
+            <div class="coverage-strategy-scenario-tray-placeholder is-education-schedule">
+              <span>Education schedule</span>
+              <div class="coverage-strategy-segmented-toggle" role="radiogroup" aria-label="Education payment schedule">
+                <label class="coverage-strategy-segmented-option">
+                  <input
+                    type="radio"
+                    name="coverage-strategy-education-payment-schedule"
+                    value="fourYearAnnual"
+                    data-coverage-strategy-education-payment-schedule
+                    ${educationPaymentScheduleMode === "fourYearAnnual" ? "checked" : ""}>
+                  <span>4-year</span>
+                </label>
+                <label class="coverage-strategy-segmented-option">
+                  <input
+                    type="radio"
+                    name="coverage-strategy-education-payment-schedule"
+                    value="lumpSumAtStart"
+                    data-coverage-strategy-education-payment-schedule
+                    ${educationPaymentScheduleMode === "lumpSumAtStart" ? "checked" : ""}>
+                  <span>Lump sum</span>
+                </label>
+              </div>
+            </div>
             ${renderProjectedDependentTimingControls(projectedDependentTimingRows)}
             <div class="coverage-strategy-scenario-tray-placeholder is-diagnostic-export">
               <span>Data export</span>
@@ -1181,6 +1210,7 @@
         : null;
       let runtimeScenarioSettings = {
         education: {
+          educationPaymentScheduleMode: getEducationPaymentScheduleModeFromSettings(initialCoverageStrategyScenarioSettings),
           useEducationSavingsOffset:
             initialCoverageStrategyScenarioSettings?.education?.useEducationSavingsOffset === true,
           projectedDependentTimingRows: buildProjectedDependentTimingRows(
@@ -1312,6 +1342,7 @@
           coverageStrategyScenarioSettings,
           visibleScenarioControls: {
             educationSavingsOffset: true,
+            educationPaymentScheduleMode: true,
             projectedDependentBirthYear: projectedDependentBirthYearControlVisible
           },
           projectionHorizonYears: safeProjectionHorizonYears,
@@ -1382,6 +1413,23 @@
 
       host.addEventListener("change", function (event) {
         const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-education-payment-schedule]")) {
+          return;
+        }
+        runtimeScenarioSettings = {
+          ...runtimeScenarioSettings,
+          education: {
+            ...(isPlainObject(runtimeScenarioSettings.education) ? runtimeScenarioSettings.education : {}),
+            educationPaymentScheduleMode: target.value === "lumpSumAtStart"
+              ? "lumpSumAtStart"
+              : "fourYearAnnual"
+          }
+        };
+        buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);
+      });
+
+      host.addEventListener("change", function (event) {
+        const target = event.target;
         if (!target?.matches?.("[data-coverage-strategy-projected-dependent-birth-year]")) {
           return;
         }
@@ -1440,6 +1488,7 @@
             || initialCoverageStrategyScenarioSettings,
           visibleScenarioControls: {
             educationSavingsOffset: true,
+            educationPaymentScheduleMode: true,
             projectedDependentBirthYear: buildProjectedDependentTimingRows(
               builderResult.lensModel,
               getProjectedDependentTimingRowsFromSettings(runtimeScenarioSettings),

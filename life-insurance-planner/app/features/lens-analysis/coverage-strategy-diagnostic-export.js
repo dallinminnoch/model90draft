@@ -269,6 +269,7 @@
         ),
         visiblePaymentScheduleControl: Boolean(
           safeContext.visibleScenarioControls?.educationPaymentScheduleMode
+          || safeContext.visibleScenarioControls?.educationPaymentSchedule
         ),
         projectedDependentTimingRowsConsumed: (
           safeContext.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
@@ -278,6 +279,8 @@
         ),
         coverageStrategyVisibleScenarioControlsAdded: Boolean(
           safeContext.visibleScenarioControls?.educationSavingsOffset
+          || safeContext.visibleScenarioControls?.educationPaymentScheduleMode
+          || safeContext.visibleScenarioControls?.educationPaymentSchedule
           || safeContext.visibleScenarioControls?.projectedDependentBirthYear
         ),
         visibleScenarioControls: safeContext.visibleScenarioControls || {},

@@ -101,6 +101,10 @@ assert.match(scenarioTrayMarkup, /Education savings/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-education-savings-offset/);
 assert.match(scenarioTrayMarkup, />Off</);
 assert.match(scenarioTrayMarkup, />On</);
+assert.match(scenarioTrayMarkup, /Education schedule/);
+assert.match(scenarioTrayMarkup, /data-coverage-strategy-education-payment-schedule/);
+assert.match(scenarioTrayMarkup, />4-year</);
+assert.match(scenarioTrayMarkup, />Lump sum</);
 assert.match(scenarioTrayMarkup, /renderProjectedDependentTimingControls\(projectedDependentTimingRows\)/);
 assert.match(controllerSource, /Projected dependents/);
 assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
@@ -111,7 +115,7 @@ const scenarioTrayMarkupWithoutDiagnosticExport = scenarioTrayMarkup.replace(
   ""
 );
 assert.doesNotMatch(scenarioTrayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
-assert.doesNotMatch(scenarioTrayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode/);
+assert.doesNotMatch(scenarioTrayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
 
 assert.match(controllerSource, /Projected need/);
 assert.match(controllerSource, /Projected eligible resources/);

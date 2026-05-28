@@ -86,6 +86,10 @@ assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
 assert.match(trayMarkup, />Off</);
 assert.match(trayMarkup, />On</);
+assert.match(trayMarkup, /Education schedule/);
+assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
+assert.match(trayMarkup, />4-year</);
+assert.match(trayMarkup, />Lump sum</);
 assert.match(trayMarkup, /renderProjectedDependentTimingControls\(projectedDependentTimingRows\)/);
 assert.match(controllerSource, /Projected dependents/);
 assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
@@ -96,7 +100,7 @@ const trayMarkupWithoutDiagnosticExport = trayMarkup.replace(
   ""
 );
 assert.doesNotMatch(trayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|data-scenario|Save scenario|Recalculate<\/button>/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode/);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
 
 const beforeWorkspace = controllerSource.slice(0, indexOfRequired(controllerSource, "coverage-strategy-workspace", "Coverage Strategy controller"));
 assert.doesNotMatch(beforeWorkspace, /coverage-strategy-horizon-control|Projection horizon/);
@@ -113,10 +117,11 @@ assert.match(componentsSource, /min-height: 3\.7rem/);
 assert.match(componentsSource, /padding: 0\.5rem 0\.72rem/);
 assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5rem, 12vh, 6\.75rem\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-grid\s*\{/);
-assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 1\.5fr\) repeat\(2, minmax\(6rem, 0\.72fr\)\) minmax\(8\.5rem, 0\.9fr\)/);
+assert.match(componentsSource, /grid-template-columns: minmax\(11rem, 1\.35fr\) repeat\(3, minmax\(5\.4rem, 0\.62fr\)\) minmax\(8\.5rem, 0\.85fr\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-diagnostic-export\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-savings\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-schedule\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);

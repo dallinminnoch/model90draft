@@ -54,13 +54,7 @@ function createLensModel() {
           assetId: "plan-529",
           categoryKey: "educationSpecificSavings",
           typeKey: "plan529Account",
-          currentValue: 15000
-        },
-        {
-          assetId: "cash",
-          categoryKey: "cashAndCashEquivalents",
-          typeKey: "checkingAccount",
-          currentValue: 50000
+          currentValue: 10000
         }
       ]
     },
@@ -71,12 +65,6 @@ function createLensModel() {
           categoryKey: "educationSpecificSavings",
           include: false,
           treatedValue: 0
-        },
-        {
-          assetId: "cash",
-          categoryKey: "cashAndCashEquivalents",
-          include: true,
-          treatedValue: 50000
         }
       ]
     }
@@ -115,8 +103,8 @@ function createNeedsResult() {
   };
 }
 
-function buildNeedLineWithOffset(buildNeedLine, scenarioSettings) {
-  return buildNeedLine({
+function buildNeedLine(buildCoverageStrategyNeedLine, scenarioSettings) {
+  return buildCoverageStrategyNeedLine({
     lensModel: createLensModel(),
     needsResult: createNeedsResult(),
     analysisSettings: {
@@ -140,39 +128,33 @@ function buildNeedLineWithOffset(buildNeedLine, scenarioSettings) {
 const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
 const componentsSource = readRepoFile("components.css");
 const analysisSetupSource = readRepoFile("pages/analysis-setup.html");
-const resourceAdapterSource = readRepoFile("app/features/lens-analysis/coverage-strategy-resource-line-adapter.js");
 const diagnosticSource = readRepoFile("app/features/lens-analysis/coverage-strategy-diagnostic-export.js");
+const resourceAdapterSource = readRepoFile("app/features/lens-analysis/coverage-strategy-resource-line-adapter.js");
 
 const trayIndex = controllerSource.indexOf("coverage-strategy-scenario-tray");
 assert.ok(trayIndex >= 0, "Scenario tray should exist.");
 const trayMarkup = controllerSource.slice(trayIndex);
-assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
-assert.match(trayMarkup, /value="off"/);
-assert.match(trayMarkup, /value="on"/);
 assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, /value="fourYearAnnual"/);
 assert.match(trayMarkup, /value="lumpSumAtStart"/);
+assert.match(trayMarkup, />4-year</);
+assert.match(trayMarkup, />Lump sum</);
+assert.doesNotMatch(trayMarkup, /custom schedule|education treatment|resource spending|savings then eligible resources/i);
+assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /Projected dependents/);
-assert.match(trayMarkup, /data-coverage-strategy-projected-dependent-birth-year/);
 assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /Export Diagnostic PDF/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
-assert.match(controllerSource, /runtimeScenarioSettings\s*=\s*\{/);
-assert.match(controllerSource, /data-coverage-strategy-education-savings-offset/);
-assert.match(controllerSource, /useEducationSavingsOffset:\s*target\.value === "on"/);
+assert.match(controllerSource, /educationPaymentScheduleMode:\s*getEducationPaymentScheduleModeFromSettings/);
 assert.match(controllerSource, /data-coverage-strategy-education-payment-schedule/);
-assert.doesNotMatch(controllerSource, /sessionStorage|profileRecord\.coverageStrategyScenarioSettings\s*=/);
+assert.match(controllerSource, /educationPaymentScheduleMode:\s*target\.value === "lumpSumAtStart"/);
+assert.match(controllerSource, /buildAndRenderCoverageStrategy\(selectedProjectionHorizonYears\)/);
+assert.doesNotMatch(controllerSource, /profileRecord\.coverageStrategyScenarioSettings\s*=|localStorage\.setItem|sessionStorage\.setItem/);
 
-assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-savings\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-schedule\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
-assert.match(componentsSource, /\.coverage-strategy-segmented-option\s*\{/);
-assert.doesNotMatch(analysisSetupSource, /data-analysis-education-field="fundingTreatment\.useExistingEducationSavingsOffset"/);
-assert.doesNotMatch(analysisSetupSource, /coverageStrategyScenarioSettings|data-coverage-strategy-education-savings-offset/);
-assert.doesNotMatch(resourceAdapterSource, /useEducationSavingsOffset|educationSavingsOffset|coverageStrategyScenarioSettings/);
-assert.match(diagnosticSource, /visibleScenarioControls/);
+assert.doesNotMatch(analysisSetupSource, /data-coverage-strategy-education-payment-schedule|educationPaymentScheduleMode/);
+assert.doesNotMatch(resourceAdapterSource, /educationPaymentScheduleMode|educationPaymentSchedule|coverageStrategyScenarioSettings/);
 assert.match(diagnosticSource, /visiblePaymentScheduleControl/);
 
 const context = createContext();
@@ -188,10 +170,25 @@ const context = createContext();
 ].forEach((scriptPath) => loadScript(context, scriptPath));
 
 const resolveScenarioSettings = context.LensApp.lensAnalysis.resolveCoverageStrategyScenarioSettings;
-const buildNeedLine = context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
+const buildCoverageStrategyNeedLine = context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 const buildSnapshot = context.LensApp.lensAnalysis.buildCoverageStrategyDiagnosticExportSnapshot;
 
-const offsetOffSettings = resolveScenarioSettings({
+const defaultSettings = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {}
+  }
+});
+assert.equal(defaultSettings.education.educationPaymentScheduleMode, "fourYearAnnual");
+
+const lumpSumSettings = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: false
+    }
+  }
+});
+const fourYearSettings = resolveScenarioSettings({
   runtimeScenarioSettings: {
     education: {
       educationPaymentScheduleMode: "fourYearAnnual",
@@ -199,40 +196,37 @@ const offsetOffSettings = resolveScenarioSettings({
     }
   }
 });
-const offsetOnSettings = resolveScenarioSettings({
-  runtimeScenarioSettings: {
-    education: {
-      educationPaymentScheduleMode: "fourYearAnnual",
-      useEducationSavingsOffset: true
-    }
-  }
-});
+assert.equal(lumpSumSettings.education.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(fourYearSettings.education.educationPaymentScheduleMode, "fourYearAnnual");
 
-const offsetOffNeedLine = buildNeedLineWithOffset(buildNeedLine, offsetOffSettings);
-const offsetOnNeedLine = buildNeedLineWithOffset(buildNeedLine, offsetOnSettings);
-
-assert.equal(offsetOffNeedLine.assumptionsUsed.coverageStrategyScenarioSettings.education.useEducationSavingsOffset, false);
-assert.equal(offsetOffNeedLine.needPoints[0].trace.educationProjection.grossEducationNeedAmount, 60000);
-assert.equal(offsetOffNeedLine.needPoints[0].trace.educationProjection.netEducationNeedAmount, 60000);
-assert.equal(offsetOffNeedLine.needPoints[0].trace.educationProjection.educationSavingsOffsetAmount, 0);
-assert.equal(offsetOnNeedLine.assumptionsUsed.coverageStrategyScenarioSettings.education.useEducationSavingsOffset, true);
-assert.equal(offsetOnNeedLine.needPoints[0].trace.educationProjection.grossEducationNeedAmount, 60000);
-assert.equal(offsetOnNeedLine.needPoints[0].trace.educationProjection.educationSavingsOffsetAmount, 15000);
-assert.equal(offsetOnNeedLine.needPoints[0].trace.educationProjection.netEducationNeedAmount, 45000);
-assert.equal(offsetOnNeedLine.needPoints[0].componentAmounts.education, 45000);
-assert.equal(offsetOnNeedLine.needPoints[0].trace.assetOffsetSubtracted, false);
-assert.equal(offsetOnNeedLine.assumptionsUsed.assetOffsetsSubtracted, false);
+const fourYearNeedLine = buildNeedLine(buildCoverageStrategyNeedLine, fourYearSettings);
+const lumpSumNeedLine = buildNeedLine(buildCoverageStrategyNeedLine, lumpSumSettings);
+assert.equal(
+  fourYearNeedLine.componentModels.education.lifetimeProjection.assumptionsUsed.educationPaymentScheduleMode,
+  "fourYearAnnual"
+);
+assert.equal(
+  lumpSumNeedLine.componentModels.education.lifetimeProjection.assumptionsUsed.educationPaymentScheduleMode,
+  "lumpSumAtStart"
+);
+assert.equal(fourYearNeedLine.componentModels.education.lifetimeProjection.currentDependentSchedules[0].payments.length, 4);
+assert.equal(lumpSumNeedLine.componentModels.education.lifetimeProjection.currentDependentSchedules[0].payments.length, 1);
+assert.equal(fourYearNeedLine.needPoints[3].componentAmounts.education, 50000);
+assert.equal(lumpSumNeedLine.needPoints[3].componentAmounts.education, 20000);
+assert.equal(lumpSumNeedLine.needPoints[0].trace.educationProjection.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(lumpSumNeedLine.needPoints[0].trace.assetOffsetSubtracted, false);
+assert.equal(lumpSumNeedLine.assumptionsUsed.assetOffsetsSubtracted, false);
 
 const snapshot = buildSnapshot({
   profileRecord: {
-    fullName: "Toggle Fixture",
+    fullName: "Payment Schedule Fixture",
     analysisSettings: {}
   },
   methodSettings: {},
   lensModel: createLensModel(),
   needsResult: createNeedsResult(),
-  needLine: offsetOnNeedLine,
-  coverageStrategyScenarioSettings: offsetOnSettings,
+  needLine: lumpSumNeedLine,
+  coverageStrategyScenarioSettings: lumpSumSettings,
   visibleScenarioControls: {
     educationSavingsOffset: true,
     educationPaymentScheduleMode: true,
@@ -240,13 +234,13 @@ const snapshot = buildSnapshot({
   },
   projectionHorizonYears: 10
 });
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.active, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.assumptionsUsed.educationPaymentScheduleMode,
+  "lumpSumAtStart"
+);
 
-console.log("coverage strategy education savings toggle check passed");
+console.log("coverage strategy education payment schedule control check passed");

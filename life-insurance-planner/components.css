@@ -20726,10 +20726,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-strategy-scenario-tray-grid {
   display: grid;
-  grid-template-columns: minmax(12rem, 1.5fr) repeat(2, minmax(6rem, 0.72fr)) minmax(8.5rem, 0.9fr);
+  grid-template-columns: minmax(11rem, 1.35fr) repeat(3, minmax(5.4rem, 0.62fr)) minmax(8.5rem, 0.85fr);
   gap: 0.45rem;
-  width: min(49rem, 74%);
-  min-width: 30rem;
+  width: min(56rem, 80%);
+  min-width: 34rem;
 }
 
 .coverage-strategy-scenario-tray-placeholder {
@@ -20752,6 +20752,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-strategy-scenario-tray-placeholder.is-education-savings {
+  border-style: solid;
+}
+
+.coverage-strategy-scenario-tray-placeholder.is-education-schedule {
   border-style: solid;
 }
 

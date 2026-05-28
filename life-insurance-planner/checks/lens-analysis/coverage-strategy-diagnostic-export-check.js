@@ -200,6 +200,7 @@ const diagnosticInput = {
   },
   visibleScenarioControls: {
     educationSavingsOffset: true,
+    educationPaymentScheduleMode: true,
     projectedDependentBirthYear: true
   },
   needLine: {
@@ -334,7 +335,7 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSett
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleMode, "lumpSumAtStart");
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.currentDependentSchedules[0].trace.educationPaymentScheduleMode,
   "lumpSumAtStart"
@@ -342,6 +343,7 @@ assert.equal(
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
