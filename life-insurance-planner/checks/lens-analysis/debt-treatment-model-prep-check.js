@@ -48,6 +48,7 @@ function createContext(options = {}) {
     "app/features/lens-analysis/asset-taxonomy.js",
     "app/features/lens-analysis/debt-taxonomy.js",
     "app/features/lens-analysis/debt-library.js",
+    "app/features/lens-analysis/debt-amortization-term-calculations.js",
     "app/features/lens-analysis/block-outputs.js",
     "app/features/lens-analysis/helpers/income-tax-calculations.js",
     "app/features/lens-analysis/helpers/housing-support-calculations.js",

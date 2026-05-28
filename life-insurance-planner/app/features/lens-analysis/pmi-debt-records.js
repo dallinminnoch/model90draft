@@ -3,9 +3,10 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   // Owner: PMI debt records controller.
-  // Purpose: collect repeatable raw-only debtRecords[] rows from PMI.
+  // Purpose: collect repeatable debtRecords[] rows from PMI and surface
+  // calculation-ready payoff-term consistency signals.
   // Non-goals: no treatment assumptions, no debtPayoff writes, no method
-  // calculation calls, no normalization, and no storage access.
+  // formulas, no normalization ownership, and no storage access.
 
   let generatedDebtIdCounter = 0;
   let activeController = null;
@@ -612,6 +613,92 @@
     return getDebtRecordFieldState(record, fieldKey) === DEBT_FIELD_STATE.NOT_APPLICABLE;
   }
 
+  function getDebtPayoffTermCalculator() {
+    return typeof lensAnalysis.calculateDebtPayoffTerm === "function"
+      ? lensAnalysis.calculateDebtPayoffTerm
+      : null;
+  }
+
+  function isDebtPayoffTermCalculationApplicable(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const typeKey = normalizeDebtTypeKey(safeRecord.typeKey || safeRecord.libraryEntryKey);
+    const paymentType = normalizePaymentType(safeRecord.paymentType, DEFAULT_PAYMENT_TYPE);
+    const paymentFrequency = normalizePaymentFrequency(safeRecord.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
+    if (typeKey === "autoLease" || paymentType === "leasePayment" || paymentFrequency === "oneTime" || paymentFrequency === "other") {
+      return false;
+    }
+    return !isDebtRecordFieldNotApplicable(safeRecord, "currentBalance")
+      && !isDebtRecordFieldNotApplicable(safeRecord, "paymentAmount");
+  }
+
+  function calculateRecordPayoffTerm(record) {
+    const calculator = getDebtPayoffTermCalculator();
+    if (!calculator || !isDebtPayoffTermCalculationApplicable(record)) {
+      return null;
+    }
+    const safeRecord = record && typeof record === "object" ? record : {};
+    return calculator({
+      currentBalance: safeRecord.currentBalance,
+      paymentAmount: getPaymentAmountForRecord(safeRecord),
+      paymentFrequency: normalizePaymentFrequency(safeRecord.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY),
+      interestRatePercent: safeRecord.interestRatePercent,
+      enteredRemainingTermMonths: safeRecord.enteredRemainingTermMonths ?? safeRecord.remainingTermMonths,
+      maxMonths: 600
+    });
+  }
+
+  function enrichDebtRecordTermFields(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const enteredRemainingTermMonths = toOptionalNonNegativeNumber(
+      safeRecord.enteredRemainingTermMonths
+      ?? safeRecord.userEnteredRemainingTermMonths
+      ?? safeRecord.remainingTermMonths
+    );
+    const result = calculateRecordPayoffTerm(Object.assign({}, safeRecord, {
+      remainingTermMonths: enteredRemainingTermMonths
+    }));
+    const calculatedRemainingTermMonths = toOptionalNonNegativeNumber(result && result.calculatedPayoffMonths);
+    const paymentTermMismatch = Boolean(
+      enteredRemainingTermMonths != null
+      && calculatedRemainingTermMonths != null
+      && Math.abs(Math.round(enteredRemainingTermMonths) - Math.round(calculatedRemainingTermMonths)) > 1
+    );
+    const metadata = clonePlainObject(safeRecord.metadata);
+    const termTrace = result
+      ? {
+          calculationMode: result.calculationMode,
+          monthlyPaymentUsed: result.monthlyPaymentUsed,
+          monthlyRateUsed: result.monthlyRateUsed,
+          projectedBalanceAtUserTerm: result.projectedBalanceAtUserTerm,
+          warningCodes: (Array.isArray(result.warnings) ? result.warnings : []).map(function (warning) {
+            return warning.code;
+          }),
+          dataGapCodes: (Array.isArray(result.dataGaps) ? result.dataGaps : []).map(function (dataGap) {
+            return dataGap.code;
+          })
+        }
+      : null;
+
+    return Object.assign({}, safeRecord, {
+      enteredRemainingTermMonths,
+      userEnteredRemainingTermMonths: enteredRemainingTermMonths,
+      calculatedRemainingTermMonths,
+      paymentTermMismatch,
+      remainingTermSource: calculatedRemainingTermMonths == null
+        ? (enteredRemainingTermMonths == null ? "unavailable" : "entered")
+        : "calculatedFromPayment",
+      metadata: Object.assign({}, metadata, {
+        enteredRemainingTermMonths,
+        calculatedRemainingTermMonths,
+        paymentTermMismatch,
+        remainingTermSource: calculatedRemainingTermMonths == null
+          ? (enteredRemainingTermMonths == null ? "unavailable" : "entered")
+          : "calculatedFromPayment",
+        payoffTermCalculation: termTrace
+      })
+    });
+  }
+
   function generateDebtId() {
     if (global.crypto && typeof global.crypto.randomUUID === "function") {
       return "debt_" + global.crypto.randomUUID().replace(/-/g, "_");
@@ -689,7 +776,7 @@
     const paymentType = normalizePaymentType(safeRecord.paymentType, entry && entry.defaultPaymentType);
     const paymentFrequency = normalizePaymentFrequency(safeRecord.paymentFrequency, entry && entry.defaultPaymentFrequency);
     const paymentAmount = getPaymentAmountForRecord(safeRecord);
-    return {
+    return enrichDebtRecordTermFields({
       debtId: normalizeString(safeRecord.debtId) || generateDebtId(),
       categoryKey,
       typeKey,
@@ -701,7 +788,11 @@
       minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
       extraPayoffAmount: toOptionalNonNegativeNumber(safeRecord.extraPayoffAmount),
       interestRatePercent: toOptionalNumber(safeRecord.interestRatePercent),
-      remainingTermMonths: toOptionalNumber(safeRecord.remainingTermMonths),
+      remainingTermMonths: toOptionalNumber(
+        safeRecord.enteredRemainingTermMonths
+        ?? safeRecord.userEnteredRemainingTermMonths
+        ?? safeRecord.remainingTermMonths
+      ),
       securedBy: normalizeString(safeRecord.securedBy) || null,
       sourceKey: normalizeString(safeRecord.sourceKey) || null,
       isDefaultDebt: safeRecord.isDefaultDebt === true,
@@ -715,7 +806,7 @@
         deprecatedOriginalTypeKey: originalTypeKey !== typeKey ? originalTypeKey : metadata.deprecatedOriginalTypeKey || null,
         sourceIndex: Number.isInteger(index) ? index : null
       })
-    };
+    });
   }
 
   function createStarterDebtRecords() {
@@ -944,6 +1035,7 @@
     const suffix = normalizeString(safeOptions.suffix);
     const min = safeOptions.min == null ? "0" : normalizeString(safeOptions.min);
     const step = safeOptions.step == null ? "1" : normalizeString(safeOptions.step);
+    const extraHtml = normalizeString(safeOptions.extraHtml);
 
     if (fieldState === DEBT_FIELD_STATE.NOT_APPLICABLE) {
       return `
@@ -966,7 +1058,47 @@
                 <input id="${escapeHtml(inputId)}" ${escapeHtml(dataAttribute)} type="number" min="${escapeHtml(min)}" step="${escapeHtml(step)}" value="${escapeHtml(formatValueForInput(safeOptions.value))}" aria-label="${escapeHtml(ariaLabel)}" data-pmi-debt-applicability-state="${fieldState}">
                 <span class="profile-currency-suffix">${escapeHtml(suffix)}</span>
               </div>
+              ${extraHtml}
             </div>
+    `;
+  }
+
+  function renderPayoffTermInsight(record) {
+    const termResult = calculateRecordPayoffTerm(record);
+    if (!termResult) {
+      return "";
+    }
+    const calculatedMonths = toOptionalNonNegativeNumber(termResult.calculatedPayoffMonths);
+    const enteredMonths = toOptionalNonNegativeNumber(record && (
+      record.enteredRemainingTermMonths
+      ?? record.userEnteredRemainingTermMonths
+      ?? record.remainingTermMonths
+    ));
+    if (calculatedMonths == null && enteredMonths == null) {
+      return "";
+    }
+
+    const mismatch = Boolean(
+      calculatedMonths != null
+      && enteredMonths != null
+      && Math.abs(Math.round(calculatedMonths) - Math.round(enteredMonths)) > 1
+    );
+    const calculationLabel = calculatedMonths == null
+      ? "Calculated payoff term unavailable"
+      : "Calculated payoff term: " + Math.round(calculatedMonths) + " months";
+    const enteredLabel = enteredMonths == null
+      ? ""
+      : "Entered term: " + Math.round(enteredMonths) + " months";
+    const mismatchLabel = mismatch
+      ? "Payment/term mismatch - entered payment does not pay this balance off by the entered term."
+      : "";
+
+    return `
+              <div class="pmi-debt-record-term-insight${mismatch ? " pmi-debt-record-term-insight--warning" : ""}" data-pmi-debt-record-term-insight>
+                <span>${escapeHtml(calculationLabel)}</span>
+                ${enteredLabel ? `<span>${escapeHtml(enteredLabel)}</span>` : ""}
+                ${mismatchLabel ? `<strong>${escapeHtml(mismatchLabel)}</strong>` : ""}
+              </div>
     `;
   }
 
@@ -1106,7 +1238,7 @@
             toOptionalNonNegativeNumber
           );
 
-          return Object.assign({}, existingRecord, {
+          return enrichDebtRecordTermFields(Object.assign({}, existingRecord, {
             debtId: existingRecord.debtId || debtId || generateDebtId(),
             label,
             currentBalance: getApplicableFieldNumber(existingRecord, "currentBalance", balanceInput, toOptionalNumber),
@@ -1131,7 +1263,7 @@
               termInput,
               toOptionalNumber
             )
-          });
+          }));
         });
     }
 
@@ -1158,6 +1290,7 @@
         const paymentAmount = getPaymentAmountForRecord(record);
         const paymentFrequencyState = getDebtRecordFieldState(record, "paymentFrequency");
         const debtTypeIcon = getDebtTypeIconDescriptor(record);
+        const payoffTermInsight = renderPayoffTermInsight(record);
         return `
           <div class="pmi-debt-record-row" role="row" data-pmi-debt-record-entry data-pmi-debt-id="${escapeHtml(debtId)}">
             <div class="pmi-debt-record-cell pmi-debt-record-type-cell" role="cell" data-column-label="Debt Type">
@@ -1216,7 +1349,8 @@
               ariaLabel: "Remaining Term",
               cellLabel: "Remaining Term",
               suffix: "Mo",
-              step: "1"
+              step: "1",
+              extraHtml: payoffTermInsight
             })}
             ${renderDebtNumberControl({
               record,
@@ -1448,6 +1582,17 @@
           const paymentType = normalizePaymentType(record.paymentType, DEFAULT_PAYMENT_TYPE);
           const paymentFrequency = normalizePaymentFrequency(record.paymentFrequency, DEFAULT_PAYMENT_FREQUENCY);
           const paymentAmount = toOptionalNonNegativeNumber(record.paymentAmount);
+          const enteredRemainingTermMonths = toOptionalNonNegativeNumber(
+            record.enteredRemainingTermMonths
+            ?? record.userEnteredRemainingTermMonths
+            ?? record.remainingTermMonths
+          );
+          const enrichedRecord = enrichDebtRecordTermFields(Object.assign({}, record, {
+            paymentType,
+            paymentFrequency,
+            paymentAmount,
+            remainingTermMonths: enteredRemainingTermMonths
+          }));
 
           return {
             debtId: normalizeString(record.debtId) || generateDebtId(),
@@ -1461,7 +1606,12 @@
             minimumMonthlyPayment: getCompatibleMinimumMonthlyPayment(paymentFrequency, paymentAmount),
             extraPayoffAmount: toOptionalNonNegativeNumber(record.extraPayoffAmount),
             interestRatePercent: toOptionalNonNegativeNumber(record.interestRatePercent),
-            remainingTermMonths: toOptionalNonNegativeNumber(record.remainingTermMonths),
+            remainingTermMonths: enteredRemainingTermMonths,
+            enteredRemainingTermMonths,
+            userEnteredRemainingTermMonths: enteredRemainingTermMonths,
+            calculatedRemainingTermMonths: toOptionalNonNegativeNumber(enrichedRecord.calculatedRemainingTermMonths),
+            remainingTermSource: normalizeString(enrichedRecord.remainingTermSource) || null,
+            paymentTermMismatch: enrichedRecord.paymentTermMismatch === true,
             securedBy: normalizeString(record.securedBy) || null,
             sourceKey: normalizeString(record.sourceKey) || null,
             isDefaultDebt: record.isDefaultDebt === true,
@@ -1471,7 +1621,7 @@
               sourceType: "user-input",
               source: "debt-library",
               libraryEntryKey: normalizeString(record.typeKey)
-            }, clonePlainObject(record.metadata))
+            }, clonePlainObject(enrichedRecord.metadata))
           };
         })
         .filter(Boolean);
@@ -1509,6 +1659,7 @@
       }
 
       syncRecordsFromDom();
+      renderRows();
       notifyRecordsChanged();
     });
 

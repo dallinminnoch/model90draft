@@ -31,6 +31,7 @@ function loadScript(relativePath) {
   "app/features/lens-analysis/asset-taxonomy.js",
   "app/features/lens-analysis/debt-taxonomy.js",
   "app/features/lens-analysis/debt-library.js",
+  "app/features/lens-analysis/debt-amortization-term-calculations.js",
   "app/features/lens-analysis/block-outputs.js",
   "app/features/lens-analysis/helpers/income-tax-calculations.js",
   "app/features/lens-analysis/helpers/housing-support-calculations.js",
@@ -356,6 +357,67 @@ assert.equal(modelWithRecords.debtPayoff.mortgageBalance, 250000);
 assert.equal(modelWithRecords.debtPayoff.creditCardBalance, 2000);
 assert.equal(modelWithRecords.debtPayoff.personalLoanBalance, 1000);
 assert.equal(modelWithRecords.debtPayoff.otherDebtPayoffNeeds, 3500);
+
+const jamesDoeModel = buildModel({
+  debtRecords: [
+    {
+      debtId: "james-doe-auto",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "autoLoan",
+      label: "James Doe Auto Loan",
+      currentBalance: 31000,
+      paymentFrequency: "monthly",
+      paymentAmount: 383,
+      minimumMonthlyPayment: 383,
+      interestRatePercent: 6,
+      remainingTermMonths: 45,
+      metadata: {
+        sourceType: "user-input",
+        source: "debt-library",
+        libraryEntryKey: "autoLoan"
+      }
+    },
+    {
+      debtId: "james-doe-lease",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "autoLease",
+      label: "Auto Lease",
+      paymentType: "leasePayment",
+      paymentFrequency: "monthly",
+      paymentAmount: 383,
+      remainingTermMonths: 45,
+      metadata: {
+        sourceType: "user-input",
+        source: "debt-library",
+        libraryEntryKey: "autoLease"
+      }
+    }
+  ]
+});
+const jamesDoeAutoDebt = jamesDoeModel.debtFacts.debts.find((debt) => debt.debtFactId === "james-doe-auto");
+assert.ok(jamesDoeAutoDebt, "James Doe auto loan should normalize into debt facts");
+assert.ok(jamesDoeAutoDebt.calculatedRemainingTermMonths > 45, "auto loan calculated payoff term should exceed entered 45 months");
+assert.equal(jamesDoeAutoDebt.paymentAmount, 383, "auto loan payment amount should be preserved");
+assert.equal(jamesDoeAutoDebt.paymentFrequency, "monthly", "auto loan payment frequency should be preserved");
+assert.equal(jamesDoeAutoDebt.minimumMonthlyPayment, 383, "auto loan monthly payment should be calculation-ready");
+assert.equal(jamesDoeAutoDebt.enteredRemainingTermMonths, 45, "auto loan entered term should be preserved");
+assert.equal(jamesDoeAutoDebt.userEnteredRemainingTermMonths, 45, "auto loan user-entered term alias should be preserved");
+assert.equal(jamesDoeAutoDebt.remainingTermMonths, jamesDoeAutoDebt.calculatedRemainingTermMonths, "calculation-ready term should use calculated payoff months");
+assert.equal(jamesDoeAutoDebt.remainingTermSource, "calculatedFromPayment");
+assert.equal(jamesDoeAutoDebt.paymentTermMismatch, true);
+assert.ok(
+  jamesDoeAutoDebt.metadata.payoffTermCalculation.projectedBalanceAtUserTerm > 19000,
+  "auto loan trace should show material balance remains at entered 45-month term"
+);
+assert.ok(
+  collectWarningCodes(jamesDoeModel.debtFacts).includes("debt-record-payment-term-mismatch"),
+  "debt fact metadata should warn on entered/calculated term mismatch"
+);
+const jamesDoeLeaseDebt = jamesDoeModel.debtFacts.debts.find((debt) => debt.debtFactId === "james-doe-lease");
+assert.ok(jamesDoeLeaseDebt, "lease record should still normalize when balance is not required");
+assert.equal(jamesDoeLeaseDebt.calculatedRemainingTermMonths, null, "lease record should not force amortization");
+assert.equal(jamesDoeLeaseDebt.remainingTermMonths, 45, "lease record keeps contractual entered term");
+assert.equal(jamesDoeLeaseDebt.remainingTermSource, "entered");
 
 const modelWithoutRecords = buildModel(createSourceData(false));
 assert.equal(modelWithoutRecords.debtFacts.metadata.debtRecordsSourceOfTruth, false);

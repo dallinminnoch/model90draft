@@ -1265,6 +1265,9 @@
     const libraryEntry = getDebtLibraryEntry(typeKey);
     const currentBalance = toOptionalNumber(safeDebtRecord.currentBalance);
     const debtId = normalizeDebtRecordString(safeDebtRecord.debtId);
+    const balanceRequired = !(libraryEntry?.isLease === true
+      || typeKey === "autoLease"
+      || normalizeDebtRecordString(safeDebtRecord.paymentType) === "leasePayment");
 
     if (
       isBlockedDebtFactKey(categoryKey)
@@ -1334,7 +1337,7 @@
       ));
     }
 
-    if (currentBalance == null) {
+    if (currentBalance == null && balanceRequired) {
       warnings.push(createDebtFactWarning(
         "missing-debt-record-balance",
         "Debt record is missing a numeric currentBalance.",
@@ -1361,6 +1364,67 @@
     const libraryEntryKey = normalizeDebtRecordString(
       metadata.libraryEntryKey || safeDebtRecord.libraryEntryKey || typeKey
     );
+    const enteredRemainingTermMonths = getDebtRecordExplicitTermMonths(safeDebtRecord);
+    const paymentAmountForTerm = getDebtRecordPaymentAmountForTerm(safeDebtRecord);
+    const paymentFrequency = normalizeDebtPaymentFrequency(safeDebtRecord.paymentFrequency);
+    const termCalculationApplies = isDebtRecordPayoffTermCalculationApplicable(safeDebtRecord, typeKey, libraryEntry);
+    const payoffTerm = termCalculationApplies
+      ? calculateDebtRecordPayoffTerm(safeDebtRecord, {
+          currentBalance: currentBalance == null ? null : currentBalance,
+          paymentAmount: paymentAmountForTerm,
+          paymentFrequency,
+          interestRatePercent: safeDebtRecord.interestRatePercent,
+          enteredRemainingTermMonths
+        })
+      : null;
+    const calculatedRemainingTermMonths = toOptionalNonNegativeNumber(payoffTerm?.calculatedPayoffMonths);
+    const paymentTermMismatch = Boolean(
+      enteredRemainingTermMonths != null
+      && calculatedRemainingTermMonths != null
+      && Math.abs(Math.ceil(enteredRemainingTermMonths) - Math.ceil(calculatedRemainingTermMonths)) > 1
+    );
+    if (paymentTermMismatch) {
+      warnings.push(createDebtFactWarning(
+        "debt-record-payment-term-mismatch",
+        "Debt record entered remaining term conflicts with the payoff term calculated from balance, payment, and interest rate.",
+        {
+          index,
+          debtId: debtId || null,
+          typeKey,
+          enteredRemainingTermMonths: Math.ceil(enteredRemainingTermMonths),
+          calculatedRemainingTermMonths: Math.ceil(calculatedRemainingTermMonths),
+          projectedBalanceAtUserTerm: payoffTerm?.projectedBalanceAtUserTerm ?? null
+        }
+      ));
+    }
+    (Array.isArray(payoffTerm?.warnings) ? payoffTerm.warnings : []).forEach(function (warning) {
+      warnings.push(createDebtFactWarning(
+        warning.code || "debt-record-payoff-term-warning",
+        warning.message || "Debt record payoff term warning.",
+        Object.assign({
+          index,
+          debtId: debtId || null,
+          typeKey
+        }, warning.details || {})
+      ));
+    });
+    (Array.isArray(payoffTerm?.dataGaps) ? payoffTerm.dataGaps : []).forEach(function (dataGap) {
+      warnings.push(createDebtFactWarning(
+        dataGap.code || "debt-record-payoff-term-data-gap",
+        dataGap.message || "Debt record payoff term data gap.",
+        Object.assign({
+          index,
+          debtId: debtId || null,
+          typeKey
+        }, dataGap.details || {})
+      ));
+    });
+    const calculationReadyRemainingTermMonths = calculatedRemainingTermMonths == null
+      ? enteredRemainingTermMonths
+      : calculatedRemainingTermMonths;
+    const remainingTermSource = calculatedRemainingTermMonths == null
+      ? (enteredRemainingTermMonths == null ? "unavailable" : "entered")
+      : "calculatedFromPayment";
 
     return {
       debt: {
@@ -1370,10 +1434,18 @@
         label: normalizeDebtRecordString(safeDebtRecord.label)
           || normalizeDebtRecordString(libraryEntry && libraryEntry.label)
           || typeKey,
-        currentBalance,
-        minimumMonthlyPayment: toOptionalNonNegativeNumber(safeDebtRecord.minimumMonthlyPayment),
+        currentBalance: currentBalance == null ? 0 : currentBalance,
+        paymentAmount: paymentAmountForTerm,
+        paymentFrequency,
+        minimumMonthlyPayment: toOptionalNonNegativeNumber(payoffTerm?.monthlyPaymentUsed)
+          ?? toOptionalNonNegativeNumber(safeDebtRecord.minimumMonthlyPayment),
         interestRatePercent: toOptionalNonNegativeNumber(safeDebtRecord.interestRatePercent),
-        remainingTermMonths: toOptionalNonNegativeNumber(safeDebtRecord.remainingTermMonths),
+        remainingTermMonths: calculationReadyRemainingTermMonths == null ? null : Math.ceil(calculationReadyRemainingTermMonths),
+        enteredRemainingTermMonths: enteredRemainingTermMonths == null ? null : Math.ceil(enteredRemainingTermMonths),
+        userEnteredRemainingTermMonths: enteredRemainingTermMonths == null ? null : Math.ceil(enteredRemainingTermMonths),
+        calculatedRemainingTermMonths: calculatedRemainingTermMonths == null ? null : Math.ceil(calculatedRemainingTermMonths),
+        remainingTermSource,
+        paymentTermMismatch,
         securedBy: normalizeDebtRecordString(safeDebtRecord.securedBy) || null,
         sourceKey: normalizeDebtRecordString(safeDebtRecord.sourceKey) || null,
         source: "protectionModeling.data.debtRecords",
@@ -1390,7 +1462,17 @@
           taxonomyCategoryLabel: taxonomyCategory && taxonomyCategory.label ? taxonomyCategory.label : null,
           deprecatedOriginalTypeKey: originalTypeKey !== typeKey ? originalTypeKey : metadata.deprecatedOriginalTypeKey || null,
           libraryEntryKey,
-          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null
+          libraryLabel: libraryEntry && libraryEntry.label ? libraryEntry.label : null,
+          payoffTermCalculation: payoffTerm
+            ? {
+                calculationMode: payoffTerm.calculationMode,
+                monthlyPaymentUsed: payoffTerm.monthlyPaymentUsed,
+                monthlyRateUsed: payoffTerm.monthlyRateUsed,
+                projectedBalanceAtUserTerm: payoffTerm.projectedBalanceAtUserTerm,
+                remainingTermSource,
+                paymentTermMismatch
+              }
+            : null
         })
       },
       warnings
@@ -2073,10 +2155,40 @@
   function getDebtRecordExplicitTermMonths(debtRecord) {
     const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
     return toOptionalNonNegativeNumber(
+      safeDebtRecord.enteredRemainingTermMonths
+      ?? safeDebtRecord.userEnteredRemainingTermMonths
+      ??
       safeDebtRecord.remainingTermMonths
       ?? safeDebtRecord.termMonths
       ?? safeDebtRecord.remainingTerm
     );
+  }
+
+  function getDebtRecordPaymentAmountForTerm(debtRecord) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    return toOptionalNonNegativeNumber(
+      safeDebtRecord.paymentAmount
+      ?? safeDebtRecord.minimumMonthlyPayment
+      ?? safeDebtRecord.minimumPayment
+      ?? safeDebtRecord.monthlyPayment
+    );
+  }
+
+  function isDebtRecordPayoffTermCalculationApplicable(debtRecord, typeKey, libraryEntry) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const normalizedTypeKey = normalizeDebtRecordTypeKey(typeKey || safeDebtRecord.typeKey);
+    const paymentType = normalizeDebtRecordString(safeDebtRecord.paymentType);
+    const paymentFrequency = normalizeDebtPaymentFrequency(safeDebtRecord.paymentFrequency);
+    if (
+      normalizedTypeKey === "autoLease"
+      || paymentType === "leasePayment"
+      || paymentFrequency === "oneTime"
+      || paymentFrequency === "other"
+      || libraryEntry?.isLease === true
+    ) {
+      return false;
+    }
+    return true;
   }
 
   function isExplicitOngoingOrRevolvingDebtRecord(debtRecord, sourceDebtTypeKey) {
@@ -2142,6 +2254,60 @@
     return {
       termMonths: Math.ceil(months),
       status: "calculated-amortization"
+    };
+  }
+
+  function calculateDebtRecordPayoffTerm(debtRecord, config) {
+    const safeDebtRecord = debtRecord && typeof debtRecord === "object" ? debtRecord : {};
+    const safeConfig = config && typeof config === "object" ? config : {};
+    const calculator = typeof lensAnalysis.calculateDebtPayoffTerm === "function"
+      ? lensAnalysis.calculateDebtPayoffTerm
+      : null;
+    const paymentFrequency = normalizeDebtPaymentFrequency(
+      safeConfig.paymentFrequency ?? safeDebtRecord.paymentFrequency
+    );
+    const paymentAmount = toOptionalNonNegativeNumber(
+      safeConfig.paymentAmount
+      ?? getDebtRecordPaymentAmountForTerm(safeDebtRecord)
+    );
+    const balance = toOptionalNonNegativeNumber(
+      safeConfig.currentBalance
+      ?? getDebtRecordScheduleBalance(safeDebtRecord)
+    );
+    const interestRatePercent = getDebtRecordScheduleInterestRate(Object.assign({}, safeDebtRecord, {
+      interestRatePercent: safeConfig.interestRatePercent ?? safeDebtRecord.interestRatePercent
+    }));
+    const enteredRemainingTermMonths = getDebtRecordExplicitTermMonths(Object.assign({}, safeDebtRecord, {
+      remainingTermMonths: safeConfig.enteredRemainingTermMonths ?? safeDebtRecord.remainingTermMonths
+    }));
+
+    if (calculator) {
+      return calculator({
+        currentBalance: balance,
+        paymentAmount,
+        paymentFrequency,
+        interestRatePercent,
+        enteredRemainingTermMonths,
+        maxMonths: safeConfig.maxMonths || 600
+      });
+    }
+
+    const monthlyPayment = calculateGeneratedDebtPaymentAmounts(paymentAmount, paymentFrequency).monthlyRecurringAmount;
+    const fallback = calculateDebtPayoffTermMonths(balance, monthlyPayment, interestRatePercent);
+    return {
+      calculatedPayoffMonths: fallback.termMonths,
+      projectedBalanceAtUserTerm: null,
+      monthlyPaymentUsed: monthlyPayment,
+      monthlyRateUsed: interestRatePercent == null ? null : (interestRatePercent > 1 ? interestRatePercent / 100 : interestRatePercent) / 12,
+      calculationMode: fallback.status === "calculated-amortization"
+        ? "amortized"
+        : (fallback.status === "calculated-straight-line" ? "straightLineNoRate" : fallback.status),
+      warnings: [],
+      dataGaps: [],
+      trace: {
+        fallbackOwner: "normalize-lens-model",
+        enteredRemainingTermMonths
+      }
     };
   }
 
@@ -2215,6 +2381,63 @@
         { monthlyPayment, paymentAmount }
       );
       return baseSchedule;
+    }
+
+    if (isDebtRecordPayoffTermCalculationApplicable(safeDebtRecord, sourceDebtTypeKey, getDebtLibraryEntry(sourceDebtTypeKey))) {
+      const payoffTerm = calculateDebtRecordPayoffTerm(safeDebtRecord, {
+        currentBalance: balance,
+        paymentAmount,
+        paymentFrequency,
+        interestRatePercent,
+        enteredRemainingTermMonths: explicitTermMonths
+      });
+      const calculatedTermMonths = toOptionalNonNegativeNumber(payoffTerm?.calculatedPayoffMonths);
+      const paymentTermMismatch = Boolean(
+        explicitTermMonths != null
+        && calculatedTermMonths != null
+        && Math.abs(Math.ceil(explicitTermMonths) - Math.ceil(calculatedTermMonths)) > 1
+      );
+      if (paymentTermMismatch) {
+        addScheduleWarning(
+          "debt-payment-term-mismatch",
+          "Debt record entered remaining term conflicts with the payoff term calculated from balance, payment, and interest rate.",
+          {
+            enteredRemainingTermMonths: Math.ceil(explicitTermMonths),
+            calculatedRemainingTermMonths: Math.ceil(calculatedTermMonths),
+            projectedBalanceAtUserTerm: payoffTerm?.projectedBalanceAtUserTerm ?? null
+          }
+        );
+      }
+      (Array.isArray(payoffTerm?.warnings) ? payoffTerm.warnings : []).forEach(function (warning) {
+        addScheduleWarning(
+          warning.code || "debt-payment-payoff-term-warning",
+          warning.message || "Debt payment payoff term warning.",
+          warning.details || {}
+        );
+      });
+
+      if (calculatedTermMonths != null) {
+        return Object.assign({}, baseSchedule, {
+          status: "scheduled",
+          termType: payoffTerm.calculationMode === "straightLineNoRate" ? "calculatedStraightLineTerm" : "calculatedTerm",
+          termMonths: Math.ceil(calculatedTermMonths),
+          remainingTermMonths: Math.ceil(calculatedTermMonths),
+          termSource: "calculated-from-payment",
+          enteredRemainingTermMonths: explicitTermMonths == null ? null : Math.ceil(explicitTermMonths),
+          calculatedRemainingTermMonths: Math.ceil(calculatedTermMonths),
+          paymentTermMismatch,
+          projectedBalanceAtUserTerm: payoffTerm?.projectedBalanceAtUserTerm ?? null
+        });
+      }
+
+      if (payoffTerm?.calculationMode === "negativeAmortization") {
+        return Object.assign({}, baseSchedule, {
+          status: explicitOngoing ? "ongoing" : "unavailable",
+          termType: explicitOngoing ? "ongoing" : "unavailable",
+          termSource: "payment-does-not-amortize-balance",
+          unresolvedRevolving: explicitOngoing
+        });
+      }
     }
 
     if (explicitTermMonths != null && explicitTermMonths > 0) {

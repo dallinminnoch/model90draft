@@ -35,9 +35,12 @@ function assertDebtMetadataBeforeNormalizer(pagePath) {
   const sources = scriptSources(pagePath);
   const taxonomyIndex = assertLoaded(sources, "debt-taxonomy.js", pagePath);
   const libraryIndex = assertLoaded(sources, "debt-library.js", pagePath);
+  const payoffTermIndex = assertLoaded(sources, "debt-amortization-term-calculations.js", pagePath);
   const normalizerIndex = assertLoaded(sources, "normalize-lens-model.js", pagePath);
 
   assert.ok(taxonomyIndex < libraryIndex, `${pagePath} should load debt taxonomy before debt library`);
+  assert.ok(libraryIndex < payoffTermIndex, `${pagePath} should load debt library before payoff term helper`);
+  assert.ok(payoffTermIndex < normalizerIndex, `${pagePath} should load payoff term helper before normalizer`);
   assert.ok(libraryIndex < normalizerIndex, `${pagePath} should load debt library before normalizer`);
   assertNotLoaded(sources, "pmi-debt-records.js", pagePath);
 }
@@ -55,10 +58,13 @@ function assertDebtMetadataBeforeNormalizer(pagePath) {
   const sources = scriptSources(pagePath);
   const taxonomyIndex = assertLoaded(sources, "debt-taxonomy.js", pagePath);
   const libraryIndex = assertLoaded(sources, "debt-library.js", pagePath);
+  const payoffTermIndex = assertLoaded(sources, "debt-amortization-term-calculations.js", pagePath);
   const recordsIndex = assertLoaded(sources, "pmi-debt-records.js", pagePath);
   const normalizerIndex = assertLoaded(sources, "normalize-lens-model.js", pagePath);
 
   assert.ok(taxonomyIndex < libraryIndex, `${pagePath} should load debt taxonomy before debt library`);
+  assert.ok(libraryIndex < payoffTermIndex, `${pagePath} should load debt library before payoff term helper`);
+  assert.ok(payoffTermIndex < recordsIndex, `${pagePath} should load payoff term helper before debt records`);
   assert.ok(libraryIndex < recordsIndex, `${pagePath} should load debt library before debt records`);
   assert.ok(recordsIndex < normalizerIndex, `${pagePath} should load debt records before normalizer`);
 });

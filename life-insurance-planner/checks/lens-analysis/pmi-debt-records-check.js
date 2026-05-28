@@ -264,6 +264,7 @@ context.window.LensApp = context.LensApp;
 vm.createContext(context);
 loadScript(context, "app/features/lens-analysis/debt-taxonomy.js");
 loadScript(context, "app/features/lens-analysis/debt-library.js");
+loadScript(context, "app/features/lens-analysis/debt-amortization-term-calculations.js");
 loadScript(context, "app/features/lens-analysis/pmi-debt-records.js");
 
 const lensAnalysis = context.LensApp.lensAnalysis;
@@ -278,6 +279,7 @@ assert.equal(typeof pmiDebtRecords?.createDebtRecordsFromLegacyScalarFields, "fu
 assert.equal(typeof pmiDebtRecords?.createLegacyScalarDebtCompatibilityFromRecords, "function");
 assert.equal(typeof pmiDebtRecords?.getDebtRecordFieldApplicability, "function");
 assert.equal(typeof pmiDebtRecords?.getDebtTypeIconDescriptor, "function");
+assert.equal(typeof lensAnalysis.calculateDebtPayoffTerm, "function");
 
 const autoLoanEntry = debtLibrary.findDebtLibraryEntry("autoLoan");
 const autoLoanRecord = pmiDebtRecords.createDebtRecordFromLibraryEntry(autoLoanEntry);
@@ -434,6 +436,8 @@ const fakeDom = createFakeRoot();
 const controller = pmiDebtRecords.initPmiDebtRecords({ root: fakeDom.root });
 const debtRecordsWidgetSource = readRepoFile("app/features/lens-analysis/pmi-debt-records.js");
 const componentsCss = readRepoFile("components.css");
+const inputHandlerSource = debtRecordsWidgetSource.match(/controller\.list\?\.addEventListener\("input", function \(event\) \{([\s\S]*?)\n    \}\);/);
+const changeHandlerSource = debtRecordsWidgetSource.match(/controller\.list\?\.addEventListener\("change", function \(event\) \{([\s\S]*?)\n    \}\);/);
 const debtRecordsListRule = extractCssRule(componentsCss, ".pmi-debt-records-list");
 const debtRecordsTableRule = extractCssRule(componentsCss, ".pmi-debt-records-table");
 const debtRecordControlRule = extractCssRule(
@@ -444,6 +448,7 @@ const debtRecordCurrencyRule = extractCssRule(componentsCss, ".pmi-debt-record-c
 const debtRecordCurrencySuffixRule = extractCssRule(componentsCss, ".pmi-debt-record-compact-currency .profile-currency-suffix");
 const debtRecordRemoveRule = extractCssRule(componentsCss, ".pmi-asset-record-remove.pmi-debt-record-remove");
 const debtRecordRemoveIconRule = extractCssRule(componentsCss, ".pmi-asset-record-remove.pmi-debt-record-remove::before");
+const debtRecordTermInsightRule = extractCssRule(componentsCss, ".pmi-debt-record-term-insight");
 const debtPayoffTotalRule = extractCssRule(
   componentsCss,
   'body[data-page="next-step"] #pmi-debts .debt-payoff-total-group'
@@ -457,6 +462,11 @@ const debtPayoffTotalCurrencyRule = extractCssRule(
   'body[data-page="next-step"] #pmi-debts .debt-payoff-total-group .profile-currency-field'
 );
 assert.ok(controller);
+assert.ok(inputHandlerSource, "Debt Records input handler should exist");
+assert.ok(changeHandlerSource, "Debt Records change handler should exist");
+assert.doesNotMatch(inputHandlerSource[1], /renderRows\(\)/, "ordinary input typing should not rerender and replace the active input");
+assert.match(inputHandlerSource[1], /syncRecordsFromDom\(\)/, "ordinary input typing should update the draft record state");
+assert.match(changeHandlerSource[1], /renderRows\(\)/, "change/blur should refresh calculated payoff insight after editing");
 assert.equal(fakeDom.root.dataset.pmiDebtRecordsInitialized, "true");
 assert.equal(controller.records.length, 4, "lean default starter notebook rows should appear on init");
 assert.deepEqual(
@@ -583,6 +593,7 @@ assert.match(debtRecordControlRule, /border-radius:\s*0\.18rem;/, "debt row cont
 assert.match(debtRecordControlRule, /font-size:\s*0\.78rem;/, "debt row controls should preserve the existing text size");
 assert.match(debtRecordCurrencyRule, /width:\s*100%;[\s\S]*min-width:\s*0;/, "compact currency wrappers should not widen debt row cells");
 assert.match(debtRecordCurrencySuffixRule, /position:\s*absolute;[\s\S]*right:\s*0\.3rem;/, "compact currency suffixes should sit inside debt row controls");
+assert.match(debtRecordTermInsightRule, /font-size:\s*0\.62rem;/, "term insight should render compactly inside the term cell");
 assert.match(componentsCss, /\.pmi-debt-record-cell--notApplicable\s*{[\s\S]*opacity:\s*0\.72;/, "not-applicable cells should render with muted debt-specific styling");
 assert.match(componentsCss, /\.pmi-debt-record-na-control\s*{[\s\S]*width:\s*100%;[\s\S]*min-width:\s*0;/, "not-applicable controls should preserve the compact table width contract");
 assert.match(
@@ -1046,6 +1057,74 @@ assert.equal(badOptional.minimumMonthlyPayment, null);
 assert.equal(badOptional.interestRatePercent, null);
 assert.equal(badOptional.remainingTermMonths, null);
 
+controller.hydrateDebtRecords([
+  {
+    debtId: "james-doe-auto",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "autoLoan",
+    label: "James Doe Auto Loan",
+    currentBalance: 31000,
+    paymentFrequency: "monthly",
+    paymentAmount: 383,
+    interestRatePercent: 6,
+    remainingTermMonths: 45
+  },
+  {
+    debtId: "lease",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "autoLease",
+    label: "Auto Lease",
+    paymentType: "leasePayment",
+    paymentFrequency: "monthly",
+    paymentAmount: 383,
+    remainingTermMonths: 45
+  }
+]);
+const jamesDoeAutoRow = getRowMarkupByLabel(fakeDom.list.innerHTML, "James Doe Auto Loan");
+assert.match(jamesDoeAutoRow, /Calculated payoff term: \d+ months/, "amortizing debt row should show calculated payoff term");
+assert.match(jamesDoeAutoRow, /Entered term: 45 months/, "amortizing debt row should preserve entered term display");
+assert.match(jamesDoeAutoRow, /Payment\/term mismatch/, "amortizing debt row should warn when entered term conflicts with payment math");
+const serializedJamesDoeAuto = controller.serializeDebtRecords().find((record) => record.debtId === "james-doe-auto");
+assert.ok(serializedJamesDoeAuto.calculatedRemainingTermMonths > 45, "serialized debt record should preserve calculated term");
+assert.equal(serializedJamesDoeAuto.calculatedRemainingTermMonths, 104, "James Doe fixture should calculate to 104 payoff months");
+assert.equal(serializedJamesDoeAuto.enteredRemainingTermMonths, 45, "serialized debt record should preserve entered term");
+assert.equal(serializedJamesDoeAuto.remainingTermMonths, 45, "raw UI term remains the entered advisor value");
+assert.equal(serializedJamesDoeAuto.remainingTermSource, "calculatedFromPayment", "serialized debt record traces calculated term source");
+assert.equal(serializedJamesDoeAuto.paymentTermMismatch, true, "serialized debt record flags payment-term mismatch");
+controller.hydrateDebtRecords([
+  {
+    debtId: "james-doe-auto",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "autoLoan",
+    label: "James Doe Auto Loan",
+    currentBalance: 31000,
+    paymentFrequency: "monthly",
+    paymentAmount: 383,
+    interestRatePercent: 6,
+    remainingTermMonths: 60
+  },
+  {
+    debtId: "lease",
+    categoryKey: "securedConsumerDebt",
+    typeKey: "autoLease",
+    label: "Auto Lease",
+    paymentType: "leasePayment",
+    paymentFrequency: "monthly",
+    paymentAmount: 383,
+    remainingTermMonths: 45
+  }
+]);
+const changedTermAutoRow = getRowMarkupByLabel(fakeDom.list.innerHTML, "James Doe Auto Loan");
+assert.match(changedTermAutoRow, /Entered term: 60 months/, "edited entered term should remain visible separately from calculated term");
+const serializedChangedTermAuto = controller.serializeDebtRecords().find((record) => record.debtId === "james-doe-auto");
+assert.equal(serializedChangedTermAuto.enteredRemainingTermMonths, 60, "changed entered term should persist in raw save payload");
+assert.equal(serializedChangedTermAuto.userEnteredRemainingTermMonths, 60, "changed user-entered term alias should persist in raw save payload");
+assert.equal(serializedChangedTermAuto.remainingTermMonths, 60, "editable raw remainingTermMonths should stay advisor-entered");
+assert.equal(serializedChangedTermAuto.calculatedRemainingTermMonths, 104, "calculated term should remain separate from edited raw input");
+assert.equal(serializedChangedTermAuto.paymentTermMismatch, true, "mismatch should compare edited entered term against calculated term");
+const autoLeaseRow = getRowMarkupByLabel(fakeDom.list.innerHTML, "Auto Lease");
+assert.doesNotMatch(autoLeaseRow, /Calculated payoff term/, "lease debt row should not force payoff-term amortization");
+
 const linkedMissingDebtRecordsSource = getDebtRecordsHydrationSourceLikeLinkedPage({
   grossAnnualIncome: "125000"
 });
@@ -1137,7 +1216,12 @@ assert.deepEqual(inputRecords[0], {
   const source = readRepoFile(relativePath);
   assert.match(source, /debt-taxonomy\.js/);
   assert.match(source, /debt-library\.js/);
+  assert.match(source, /debt-amortization-term-calculations\.js/);
   assert.match(source, /pmi-debt-records\.js/);
+  assert.ok(
+    source.indexOf("debt-amortization-term-calculations.js") < source.indexOf("pmi-debt-records.js"),
+    "debt payoff term helper should load before Debt Records UI"
+  );
   assert.match(source, /data-pmi-debt-records-root/);
   assert.match(source, /data-pmi-scalar-debt-compatibility hidden/);
   assert.match(source, /type="hidden" data-pmi-scalar-debt-compatibility-field/);

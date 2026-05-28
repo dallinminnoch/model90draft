@@ -358,6 +358,31 @@ const multipleDebts = buildDebtLifetimeProjection({
 assert.equal(multipleDebts.debtPoints[0].payoffObligationAmount, 14400);
 assert.equal(multipleDebts.debtPoints[0].debtsIncludedCount, 2);
 assert.equal(multipleDebts.trace.excludedDebts.some((debt) => debt.exclusionReason === "mortgage-debt-excluded"), true);
+
+const correctedAutoLoanTerm = buildDebtLifetimeProjection({
+  debts: [
+    {
+      debtFactId: "james-doe-auto",
+      categoryKey: "securedConsumerDebt",
+      typeKey: "autoLoan",
+      currentBalance: 31000,
+      minimumMonthlyPayment: 383,
+      interestRatePercent: 6,
+      enteredRemainingTermMonths: 45,
+      calculatedRemainingTermMonths: 104,
+      remainingTermMonths: 104,
+      remainingTermSource: "calculatedFromPayment",
+      paymentTermMismatch: true
+    }
+  ],
+  valuationDate: "2026-01-01",
+  needPoints: createNeedPoints(9)
+});
+assert.ok(
+  correctedAutoLoanTerm.debtPoints[4].payoffObligationAmount > 0,
+  "Coverage Strategy should not drop an inconsistent auto loan to zero at year 4 when normalized facts provide calculated payoff term"
+);
+assert.equal(correctedAutoLoanTerm.debtPoints[9].payoffObligationAmount, 0);
 assert.equal(multipleDebts.debtPoints[1].payoffObligationAmount, 0);
 
 const missingBalance = buildDebtLifetimeProjection({
