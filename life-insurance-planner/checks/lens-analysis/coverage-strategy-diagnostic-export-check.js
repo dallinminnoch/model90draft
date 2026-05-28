@@ -177,7 +177,21 @@ const diagnosticInput = {
         lifetimeProjection: {
           status: "complete",
           aggregateFallbackUsed: false,
-          educationPoints: [{ yearIndex: 0, educationNeedAmount: 60000 }],
+          educationPoints: [{
+            yearIndex: 0,
+            grossEducationNeedAmount: 60000,
+            educationSavingsOffsetAmount: 10000,
+            netEducationNeedAmount: 50000,
+            educationNeedAmount: 50000
+          }],
+          educationSavingsOffset: {
+            active: true,
+            totalEducationSavingsAvailable: 10000,
+            totalEducationSavingsApplied: 10000,
+            eligibleEducationSavingsAssets: [{ assetId: "plan-529", categoryKey: "educationSpecificSavings" }],
+            excludedEducationSavingsAssets: [],
+            resourceReductionApplied: false
+          },
           currentDependentSchedules: [{ id: "child-a", educationStartYear: 2032 }],
           projectedDependentSchedules: [],
           untimedProjectedDependents: [{ amount: 20000 }]
@@ -258,6 +272,9 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTr
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.aggregateFallbackUsed, false);
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.active, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection);
@@ -273,6 +290,7 @@ assert.match(html, /E\. Lens Model \/ Normalized Facts Snapshot/);
 assert.match(html, /F\. Coverage Strategy Generated Outputs/);
 assert.match(html, /healthcareLifetimeProjection/);
 assert.match(html, /educationLifetimeProjection/);
+assert.match(html, /educationSavingsOffset/);
 assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);

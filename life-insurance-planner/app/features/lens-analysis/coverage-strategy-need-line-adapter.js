@@ -1017,6 +1017,8 @@
       educationSupport: getPath(lensModel, "educationSupport"),
       profileDependents: getPath(lensModel, "educationSupport.currentDependentDetails"),
       projectedDependents: getPath(lensModel, "educationSupport.projectedDependentDetails"),
+      assetFacts: getPath(lensModel, "assetFacts"),
+      treatedAssetOffsets: getPath(lensModel, "treatedAssetOffsets"),
       needPoints: pointSpine,
       valuationDate: valuationDateResult?.normalizedDate || null,
       educationAssumptions,
@@ -1556,9 +1558,16 @@
           educationProjection: educationProjectionPoint
             ? {
                 educationNeedAmount: educationProjectionPoint.educationNeedAmount,
+                grossEducationNeedAmount: educationProjectionPoint.grossEducationNeedAmount,
+                educationSavingsOffsetAmount: educationProjectionPoint.educationSavingsOffsetAmount,
+                netEducationNeedAmount: educationProjectionPoint.netEducationNeedAmount,
                 currentDependentNeedAmount: educationProjectionPoint.currentDependentNeedAmount,
                 projectedDependentNeedAmount: educationProjectionPoint.projectedDependentNeedAmount,
                 untimedProjectedDependentNeedAmount: educationProjectionPoint.untimedProjectedDependentNeedAmount,
+                grossCurrentDependentNeedAmount: educationProjectionPoint.grossCurrentDependentNeedAmount,
+                grossProjectedDependentNeedAmount: educationProjectionPoint.grossProjectedDependentNeedAmount,
+                grossUntimedProjectedDependentNeedAmount: educationProjectionPoint.grossUntimedProjectedDependentNeedAmount,
+                remainingEducationSavingsOffsetAvailable: educationProjectionPoint.remainingEducationSavingsOffsetAvailable,
                 includedDependentCount: educationProjectionPoint.includedDependentCount,
                 excludedDependentCount: educationProjectionPoint.excludedDependentCount,
                 sourceFactsUsed: educationProjectionPoint.trace || {}
@@ -1656,6 +1665,7 @@
                 excludedDependentCount: Array.isArray(educationLifetimeProjection.excludedDependents)
                   ? educationLifetimeProjection.excludedDependents.length
                   : 0,
+                educationSavingsOffset: educationLifetimeProjection.educationSavingsOffset || null,
                 warningCount: Array.isArray(educationLifetimeProjection.warnings)
                   ? educationLifetimeProjection.warnings.length
                   : 0,

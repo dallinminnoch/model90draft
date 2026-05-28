@@ -74,6 +74,8 @@ function runProjection(helper, overrides = {}) {
       fundingTargetPercent: 100,
       useExistingEducationSavingsOffset: false
     },
+    assetFacts: overrides.assetFacts,
+    treatedAssetOffsets: overrides.treatedAssetOffsets,
     educationInflationRatePercent: overrides.educationInflationRatePercent ?? 5,
     options: overrides.options || {}
   };
@@ -89,7 +91,9 @@ assert.match(moduleSource, /Coverage Strategy education lifetime projection engi
 assert.match(moduleSource, /Future home after folder reorganization/);
 assert.doesNotMatch(moduleSource, /\bdocument\b|localStorage|sessionStorage|indexedDB/);
 assert.match(moduleSource, /module\.exports/);
-assert.doesNotMatch(moduleSource, /assetFacts|treatedAssetOffsets|plan529/);
+assert.match(moduleSource, /assetFacts/);
+assert.match(moduleSource, /treatedAssetOffsets/);
+assert.match(moduleSource, /educationSpecificSavings/);
 
 const context = createContext();
 loadScript(context, "app/features/lens-analysis/coverage-strategy-education-lifetime-projection.js");
@@ -288,6 +292,144 @@ assert.ok(issueCodes(projectedExcluded.warnings).includes("projected-dependent-e
 assert.equal(currentSchedule.assumptionsUsed.educationSavingsOffsetApplied, false);
 assert.equal(currentSchedule.assumptionsUsed.resourceSpendingApplied, false);
 assert.equal(currentSchedule.assumptionsUsed.educationSpecificSavingsConsumed, false);
+assert.equal(currentSchedule.educationPoints[0].grossEducationNeedAmount, currentSchedule.educationPoints[0].netEducationNeedAmount);
+assert.equal(currentSchedule.educationPoints[0].educationSavingsOffsetAmount, 0);
+
+const offsetEnabled = runProjection(helper, {
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18,
+    useExistingEducationSavingsOffset: true
+  },
+  assetFacts: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        typeKey: "plan529Account",
+        label: "529 Plan",
+        currentValue: 15000,
+        sourcePaths: ["assetFacts.assets[0].currentValue"]
+      },
+      {
+        assetId: "general-cash",
+        categoryKey: "cashAndCashEquivalents",
+        typeKey: "checkingAccount",
+        label: "Checking",
+        currentValue: 999999
+      }
+    ]
+  },
+  treatedAssetOffsets: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        include: false,
+        treatedValue: 0
+      },
+      {
+        assetId: "general-cash",
+        categoryKey: "cashAndCashEquivalents",
+        include: true,
+        treatedValue: 999999
+      }
+    ]
+  },
+  needPoints: createNeedPoints(15)
+});
+assert.equal(offsetEnabled.educationSavingsOffset.active, true);
+assert.equal(offsetEnabled.educationSavingsOffset.totalEducationSavingsAvailable, 15000);
+assert.equal(offsetEnabled.educationSavingsOffset.eligibleEducationSavingsAssets.length, 1);
+assert.equal(offsetEnabled.educationSavingsOffset.eligibleEducationSavingsAssets[0].assetId, "plan-529");
+assert.ok(
+  offsetEnabled.educationSavingsOffset.excludedEducationSavingsAssets.some((asset) => asset.assetId === "general-cash"),
+  "general cash should not be eligible for education savings offset"
+);
+assert.equal(offsetEnabled.educationPoints[0].grossEducationNeedAmount, 60000);
+assert.equal(offsetEnabled.educationPoints[0].educationSavingsOffsetAmount, 15000);
+assert.equal(offsetEnabled.educationPoints[0].netEducationNeedAmount, 45000);
+assert.equal(offsetEnabled.educationPoints[0].educationNeedAmount, 45000);
+assert.equal(offsetEnabled.educationPoints[0].grossCurrentDependentNeedAmount, 40000);
+assert.equal(offsetEnabled.educationPoints[0].currentDependentEducationSavingsOffsetAmount, 15000);
+assert.equal(offsetEnabled.educationPoints[0].currentDependentNeedAmount, 25000);
+assert.equal(offsetEnabled.educationPoints[6].grossUntimedProjectedDependentNeedAmount, 20000);
+assert.equal(offsetEnabled.educationPoints[6].untimedProjectedDependentEducationSavingsOffsetAmount, 15000);
+assert.equal(offsetEnabled.educationPoints[6].untimedProjectedDependentNeedAmount, 5000);
+assert.ok(
+  issueCodes(offsetEnabled.educationPoints[6].warnings)
+    .includes("education-savings-offset-applied-to-untimed-projected-dependent-aggregate"),
+  "remaining offset applied to untimed projected aggregate should be traced"
+);
+assert.equal(offsetEnabled.assumptionsUsed.resourceSpendingApplied, false);
+assert.equal(offsetEnabled.assumptionsUsed.generalResourceReductionApplied, false);
+
+const offsetDisabledWithAssets = runProjection(helper, {
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18,
+    useExistingEducationSavingsOffset: false
+  },
+  assetFacts: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        typeKey: "plan529Account",
+        currentValue: 15000
+      }
+    ]
+  },
+  needPoints: createNeedPoints(8)
+});
+assert.equal(offsetDisabledWithAssets.educationSavingsOffset.active, false);
+assert.equal(offsetDisabledWithAssets.educationPoints[0].grossEducationNeedAmount, 60000);
+assert.equal(offsetDisabledWithAssets.educationPoints[0].netEducationNeedAmount, 60000);
+assert.equal(offsetDisabledWithAssets.educationPoints[0].trace.educationSavingsOffsetActivationTraceCode, "education-savings-offset-disabled");
+
+const doubleCountGuard = runProjection(helper, {
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18,
+    useExistingEducationSavingsOffset: true
+  },
+  assetFacts: {
+    assets: [
+      {
+        assetId: "included-529",
+        categoryKey: "educationSpecificSavings",
+        typeKey: "plan529Account",
+        currentValue: 15000
+      }
+    ]
+  },
+  treatedAssetOffsets: {
+    assets: [
+      {
+        assetId: "included-529",
+        categoryKey: "educationSpecificSavings",
+        include: true,
+        treatedValue: 15000
+      }
+    ]
+  },
+  needPoints: createNeedPoints(3)
+});
+assert.equal(doubleCountGuard.educationSavingsOffset.totalEducationSavingsAvailable, 0);
+assert.equal(doubleCountGuard.educationPoints[0].educationSavingsOffsetAmount, 0);
+assert.ok(issueCodes(doubleCountGuard.warnings).includes("education-savings-offset-resource-double-count-risk"));
+assert.ok(
+  doubleCountGuard.educationSavingsOffset.excludedEducationSavingsAssets.some((asset) => (
+    asset.exclusionCode === "education-savings-offset-resource-double-count-risk"
+  )),
+  "education assets already included in treated resources should be excluded from offset"
+);
 
 const adapterContext = createContext();
 [
@@ -346,6 +488,26 @@ const needLine = buildNeedLine({
           dateOfBirth: "2010-01-01"
         }
       ]
+    },
+    assetFacts: {
+      assets: [
+        {
+          assetId: "plan-529",
+          categoryKey: "educationSpecificSavings",
+          typeKey: "plan529Account",
+          currentValue: 15000
+        }
+      ]
+    },
+    treatedAssetOffsets: {
+      assets: [
+        {
+          assetId: "plan-529",
+          categoryKey: "educationSpecificSavings",
+          include: false,
+          treatedValue: 0
+        }
+      ]
     }
   },
   needsResult,
@@ -354,7 +516,8 @@ const needLine = buildNeedLine({
       includeEducationFunding: true,
       includeProjectedDependents: true,
       applyEducationInflation: false,
-      educationStartAge: 18
+      educationStartAge: 18,
+      useExistingEducationSavingsOffset: true
     },
     inflationAssumptions: {
       educationInflationRatePercent: 5
@@ -363,12 +526,16 @@ const needLine = buildNeedLine({
   valuationDate: "2026-01-01",
   horizonYears: 15
 });
-assert.equal(needLine.needPoints[0].componentAmounts.education, 60000);
-assert.equal(needLine.needPoints[6].componentAmounts.education, 20000);
-assert.equal(needLine.needPoints[15].componentAmounts.education, 20000);
+assert.equal(needLine.needPoints[0].componentAmounts.education, 45000);
+assert.equal(needLine.needPoints[0].trace.educationProjection.grossEducationNeedAmount, 60000);
+assert.equal(needLine.needPoints[0].trace.educationProjection.educationSavingsOffsetAmount, 15000);
+assert.equal(needLine.needPoints[6].componentAmounts.education, 5000);
+assert.equal(needLine.needPoints[15].componentAmounts.education, 5000);
 assert.notEqual(needLine.needPoints[0].componentAmounts.education, 999999);
 assert.equal(needLine.needPoints[0].trace.componentTiming.education, "record-level-education-obligation-schedule");
 assert.equal(needLine.componentModels.education.lifetimeProjection.aggregateFallbackUsed, false);
+assert.equal(needLine.componentModels.education.lifetimeProjection.educationSavingsOffset.active, true);
+assert.equal(needLine.needPoints[0].trace.assetOffsetSubtracted, false);
 
 const fallbackNeedLine = buildNeedLine({
   lensModel: {

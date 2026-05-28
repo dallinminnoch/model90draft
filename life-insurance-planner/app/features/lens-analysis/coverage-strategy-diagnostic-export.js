@@ -245,6 +245,7 @@
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
         educationLifetimeProjection: safeContext.needLine?.componentModels?.education?.lifetimeProjection || "Not available",
+        educationSavingsOffset: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationSavingsOffset || "Not available",
         healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available",
         finalExpenseLifetimeProjection: safeContext.needLine?.componentModels?.finalExpenses?.lifetimeProjection || "Not available"
       },

@@ -336,6 +336,66 @@ assert.equal(result.needPoints[5].componentAmounts.education, 40000);
 assert.equal(result.needPoints[0].trace.componentTiming.education, "record-level-education-obligation-schedule");
 assert.ok(issueCodes(result.warnings).includes("projected-dependent-education-kept-through-horizon"));
 assert.equal(result.componentModels.education.lifetimeProjection.aggregateFallbackUsed, false);
+assert.equal(result.componentModels.education.lifetimeProjection.educationSavingsOffset.active, false);
+
+const educationSavingsOffsetResult = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    assetFacts: {
+      assets: [
+        {
+          assetId: "plan-529",
+          categoryKey: "educationSpecificSavings",
+          typeKey: "plan529Account",
+          currentValue: 10000
+        },
+        {
+          assetId: "cash",
+          categoryKey: "cashAndCashEquivalents",
+          typeKey: "checkingAccount",
+          currentValue: 50000
+        }
+      ]
+    },
+    treatedAssetOffsets: {
+      assets: [
+        {
+          assetId: "plan-529",
+          categoryKey: "educationSpecificSavings",
+          include: false,
+          treatedValue: 0
+        },
+        {
+          assetId: "cash",
+          categoryKey: "cashAndCashEquivalents",
+          include: true,
+          treatedValue: 50000
+        }
+      ]
+    }
+  }),
+  needsResult: sourceNeedsResult,
+  analysisSettings: {
+    educationAssumptions: {
+      includeEducationFunding: true,
+      includeProjectedDependents: true,
+      applyEducationInflation: false,
+      educationStartAge: 18,
+      useExistingEducationSavingsOffset: true
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(educationSavingsOffsetResult.needPoints[0].trace.educationProjection.grossEducationNeedAmount, 65000);
+assert.equal(educationSavingsOffsetResult.needPoints[0].trace.educationProjection.educationSavingsOffsetAmount, 10000);
+assert.equal(educationSavingsOffsetResult.needPoints[0].componentAmounts.education, 55000);
+assert.equal(educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.active, true);
+assert.equal(
+  educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.totalEducationSavingsApplied,
+  10000
+);
+assert.equal(educationSavingsOffsetResult.needPoints[0].trace.assetOffsetSubtracted, false);
+assert.equal(educationSavingsOffsetResult.assumptionsUsed.assetOffsetsSubtracted, false);
 
 assert.equal(result.needPoints[0].componentAmounts.finalExpenses, 25000);
 assert.equal(result.needPoints[5].componentAmounts.finalExpenses, 25000);
