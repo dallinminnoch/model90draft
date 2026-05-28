@@ -301,6 +301,7 @@ assert.ok(
 const sixPercent = buildLongResourceLine({ rate: 6 });
 const decimalSixPercent = buildLongResourceLine({ rate: 0.06 });
 const percentFieldSixPercent = buildLongResourceLine({ rate: 6, rateField: "annualGrowthRatePercent" });
+const assumedPercentFieldSixPercent = buildLongResourceLine({ rate: 6, rateField: "assumedAnnualGrowthRatePercent" });
 const finalSixPercent = sixPercent.resourcePoints.at(-1);
 assert.equal(
   finalSixPercent.resourceAmount,
@@ -312,9 +313,35 @@ assert.equal(
   percentFieldSixPercent.resourcePoints.at(-1).resourceAmount,
   "annualGrowthRatePercent input 6 follows the same 6% convention"
 );
+assert.equal(
+  finalSixPercent.resourceAmount,
+  assumedPercentFieldSixPercent.resourcePoints.at(-1).resourceAmount,
+  "assumedAnnualGrowthRatePercent input 6 normalizes to 6%"
+);
 assert.ok(
   finalSixPercent.resourceAmount > 1200000 && finalSixPercent.resourceAmount < 1300000,
   "120400 at 6% for 40 years remains in a sane compounding range"
+);
+
+const decimalHalfPercent = buildLongResourceLine({ rate: 0.005 });
+const percentFieldHalfPercent = buildLongResourceLine({ rate: 0.5, rateField: "assumedAnnualGrowthRatePercent" });
+assert.equal(
+  percentFieldHalfPercent.resourcePoints.at(-1).resourceAmount,
+  decimalHalfPercent.resourcePoints.at(-1).resourceAmount,
+  "assumedAnnualGrowthRatePercent input 0.5 normalizes to 0.5%"
+);
+assert.ok(
+  !issueCodes(percentFieldHalfPercent.warnings).includes("resource-growth-rate-clamped"),
+  "valid 0.5% percent-field growth is not clamped to the 12% maximum"
+);
+assert.ok(
+  percentFieldHalfPercent.resourcePoints[15].resourceAmount < 132000,
+  "0.5% emergency-fund-style growth over 15 years stays materially below the old clamped projection"
+);
+assert.ok(
+  percentFieldHalfPercent.resourcePoints.at(-1).resourceAmount > 145000
+    && percentFieldHalfPercent.resourcePoints.at(-1).resourceAmount < 150000,
+  "120400 at 0.5% for 40 years stays in a sane compounding range"
 );
 
 const clampedOutlier = buildLongResourceLine({ rate: 600 });

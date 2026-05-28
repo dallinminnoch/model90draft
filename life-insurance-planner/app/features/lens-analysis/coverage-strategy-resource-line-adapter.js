@@ -199,7 +199,23 @@
       return null;
     }
 
-    const normalized = parsed > 1 ? parsed / 100 : parsed;
+    const fieldName = normalizeString(safeDetails.fieldName);
+    const isPercentField = /percent$/i.test(fieldName);
+    const normalized = isPercentField
+      ? parsed / 100
+      : (parsed > 1 ? parsed / 100 : parsed);
+    if (!isPercentField && parsed > 1) {
+      addIssue(
+        warnings,
+        "resource-growth-rate-percent-like-normalized",
+        "Resource growth rate looked like a percent value and was normalized to an annual decimal rate.",
+        {
+          ...safeDetails,
+          received: parsed,
+          normalizedAnnualRate: normalized
+        }
+      );
+    }
     const clamped = Math.min(MAX_ANNUAL_GROWTH_RATE, Math.max(MIN_ANNUAL_GROWTH_RATE, normalized));
     if (clamped !== normalized) {
       addIssue(
