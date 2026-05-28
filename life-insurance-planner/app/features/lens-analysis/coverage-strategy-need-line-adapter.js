@@ -1029,6 +1029,53 @@
     });
   }
 
+  function resolveProjectedDependentCount(lensModel) {
+    const educationSupport = isPlainObject(getPath(lensModel, "educationSupport"))
+      ? getPath(lensModel, "educationSupport")
+      : {};
+    const explicitCount = toOptionalNumber(
+      educationSupport.desiredAdditionalDependentCount
+      ?? educationSupport.projectedDependentsCount
+    );
+    if (explicitCount != null) {
+      return Math.max(0, Math.round(explicitCount));
+    }
+    return Array.isArray(educationSupport.projectedDependentDetails)
+      ? educationSupport.projectedDependentDetails.length
+      : 0;
+  }
+
+  function resolveScenarioProjectedDependents(lensModel, coverageStrategyScenarioSettings) {
+    const rows = Array.isArray(coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows)
+      ? coverageStrategyScenarioSettings.education.projectedDependentTimingRows
+      : [];
+    if (!rows.length) {
+      return getPath(lensModel, "educationSupport.projectedDependentDetails");
+    }
+    const projectedDependentCount = resolveProjectedDependentCount(lensModel);
+    if (!projectedDependentCount) {
+      return [];
+    }
+    return rows.slice(0, projectedDependentCount).map(function (row, index) {
+      const safeRow = isPlainObject(row) ? row : {};
+      return {
+        id: normalizeString(safeRow.id) || `projected-dependent-${index + 1}`,
+        label: normalizeString(safeRow.label) || `Projected dependent ${index + 1}`,
+        included: safeRow.included === false ? false : true,
+        timingMode: safeRow.timingMode || null,
+        expectedBirthYear: safeRow.validationStatus === "invalid"
+          ? null
+          : (safeRow.expectedBirthYear ?? safeRow.birthYear ?? null),
+        rawExpectedBirthYear: safeRow.rawExpectedBirthYear ?? null,
+        validationStatus: safeRow.validationStatus || null,
+        validationCode: safeRow.validationCode || null,
+        educationFundingAmount: safeRow.educationFundingAmount ?? null,
+        sourcePath: safeRow.sourcePath
+          || `coverageStrategyScenarioSettings.education.projectedDependentTimingRows[${index}]`
+      };
+    });
+  }
+
   function resolveEducationLifetimeProjection(
     educationModel,
     lensModel,
@@ -1067,7 +1114,7 @@
     const projection = builder({
       educationSupport: getPath(lensModel, "educationSupport"),
       profileDependents: getPath(lensModel, "educationSupport.currentDependentDetails"),
-      projectedDependents: getPath(lensModel, "educationSupport.projectedDependentDetails"),
+      projectedDependents: resolveScenarioProjectedDependents(lensModel, coverageStrategyScenarioSettings),
       assetFacts: getPath(lensModel, "assetFacts"),
       treatedAssetOffsets: getPath(lensModel, "treatedAssetOffsets"),
       needPoints: pointSpine,

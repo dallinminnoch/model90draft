@@ -100,22 +100,68 @@
     return allowedModes.includes(normalized) ? normalized : fallback;
   }
 
+  function normalizeExpectedBirthYear(value) {
+    const rawValue = normalizeString(value);
+    if (!rawValue) {
+      return {
+        rawExpectedBirthYear: "",
+        expectedBirthYear: null,
+        validationStatus: "untimed",
+        validationCode: null
+      };
+    }
+    if (!/^\d{4}$/.test(rawValue)) {
+      return {
+        rawExpectedBirthYear: rawValue,
+        expectedBirthYear: null,
+        validationStatus: "invalid",
+        validationCode: "projected-dependent-birth-year-invalid"
+      };
+    }
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed < 1900 || parsed > 2200) {
+      return {
+        rawExpectedBirthYear: rawValue,
+        expectedBirthYear: null,
+        validationStatus: "invalid",
+        validationCode: "projected-dependent-birth-year-invalid"
+      };
+    }
+    return {
+      rawExpectedBirthYear: rawValue,
+      expectedBirthYear: parsed,
+      validationStatus: "valid",
+      validationCode: null
+    };
+  }
+
   function normalizeProjectedDependentTimingRows(value) {
     if (!Array.isArray(value)) {
       return [];
     }
     return value.map(function (row, index) {
       const safeRow = isPlainObject(row) ? row : {};
+      const birthYearResult = normalizeExpectedBirthYear(
+        safeRow.rawExpectedBirthYear
+        ?? safeRow.expectedBirthYear
+        ?? safeRow.birthYear
+      );
+      const resolvedTimingMode = birthYearResult.expectedBirthYear != null
+        ? "expectedBirthYear"
+        : normalizeMode(
+            safeRow.timingMode,
+            ALLOWED_PROJECTED_DEPENDENT_TIMING_MODES,
+            DEFAULT_EDUCATION_SETTINGS.projectedDependentTimingMode
+          );
       return {
         id: normalizeString(safeRow.id) || `projected-dependent-${index + 1}`,
         label: normalizeString(safeRow.label) || `Projected dependent ${index + 1}`,
         included: normalizeBoolean(safeRow.included) !== false,
-        timingMode: normalizeMode(
-          safeRow.timingMode,
-          ALLOWED_PROJECTED_DEPENDENT_TIMING_MODES,
-          DEFAULT_EDUCATION_SETTINGS.projectedDependentTimingMode
-        ),
-        expectedBirthYear: safeRow.expectedBirthYear ?? safeRow.birthYear ?? null,
+        timingMode: resolvedTimingMode,
+        expectedBirthYear: birthYearResult.expectedBirthYear,
+        rawExpectedBirthYear: birthYearResult.rawExpectedBirthYear,
+        validationStatus: birthYearResult.validationStatus,
+        validationCode: birthYearResult.validationCode,
         educationFundingAmount: safeRow.educationFundingAmount ?? null
       };
     });

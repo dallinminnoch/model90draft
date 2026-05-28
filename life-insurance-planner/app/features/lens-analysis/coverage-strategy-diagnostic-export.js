@@ -260,7 +260,16 @@
           || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education
           || "Not available"
         ),
-        coverageStrategyVisibleScenarioControlsAdded: Boolean(safeContext.visibleScenarioControls?.educationSavingsOffset),
+        projectedDependentTimingRowsConsumed: (
+          safeContext.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
+          || "Not available"
+        ),
+        coverageStrategyVisibleScenarioControlsAdded: Boolean(
+          safeContext.visibleScenarioControls?.educationSavingsOffset
+          || safeContext.visibleScenarioControls?.projectedDependentBirthYear
+        ),
         visibleScenarioControls: safeContext.visibleScenarioControls || {},
         coverageStrategyScenarioSettingsPersistence: (
           safeContext.coverageStrategyScenarioSettings?.persistenceStatus

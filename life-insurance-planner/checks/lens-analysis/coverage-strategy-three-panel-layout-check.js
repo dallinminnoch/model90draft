@@ -50,7 +50,7 @@ assert.ok(
 const leftPanelIndex = indexOfRequired(controllerSource, "coverage-strategy-left-panel", "Coverage Strategy controller");
 const mainStageIndex = indexOfRequired(controllerSource, "coverage-strategy-main-stage", "Coverage Strategy controller");
 const rightPanelIndex = indexOfRequired(controllerSource, "coverage-strategy-right-panel", "Coverage Strategy controller");
-const trayIndex = indexOfRequired(controllerSource, "coverage-strategy-scenario-tray", "Coverage Strategy controller");
+const trayIndex = indexOfRequired(controllerSource, '<div class="coverage-strategy-scenario-tray is-compact-dock"', "Coverage Strategy controller");
 const horizonControlIndex = indexOfRequired(controllerSource, "coverage-strategy-horizon-control", "Coverage Strategy controller");
 assert.ok(leftPanelIndex < mainStageIndex, "Left data panel should be before the graph stage.");
 assert.ok(mainStageIndex < rightPanelIndex, "Graph stage should be between left and right panels.");
@@ -86,15 +86,17 @@ assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
 assert.match(trayMarkup, />Off</);
 assert.match(trayMarkup, />On</);
+assert.match(trayMarkup, /renderProjectedDependentTimingControls\(projectedDependentTimingRows\)/);
+assert.match(controllerSource, /Projected dependents/);
+assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
 assert.match(trayMarkup, /Export Diagnostic PDF/);
 assert.match(trayMarkup, /data-coverage-strategy-diagnostic-export/);
-assert.match(trayMarkup, /Recalculate/);
 const trayMarkupWithoutDiagnosticExport = trayMarkup.replace(
   /<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/,
   ""
 );
 assert.doesNotMatch(trayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|data-scenario|Save scenario|Recalculate<\/button>/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode|projectedDependentTimingRows/);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode/);
 
 const beforeWorkspace = controllerSource.slice(0, indexOfRequired(controllerSource, "coverage-strategy-workspace", "Coverage Strategy controller"));
 assert.doesNotMatch(beforeWorkspace, /coverage-strategy-horizon-control|Projection horizon/);
@@ -115,7 +117,9 @@ assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 1\.5fr\) r
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-diagnostic-export\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-savings\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-diagnostic-export-button\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-horizon-control-compact\s*\{/);
 assert.match(componentsSource, /grid-template-columns: minmax\(7rem, 1fr\) 3\.35rem auto/);

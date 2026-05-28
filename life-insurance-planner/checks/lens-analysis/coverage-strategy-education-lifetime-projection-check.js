@@ -272,6 +272,30 @@ assert.ok(issueCodes(timedProjected.warnings).includes("projected-dependent-birt
 assert.equal(timedProjected.educationPoints[12].projectedDependentNeedAmount, 20000);
 assert.equal(timedProjected.educationPoints[13].projectedDependentNeedAmount, 15000);
 
+const invalidProjectedBirthYear = runProjection(helper, {
+  educationSupport: {
+    linkedDependentCount: 0,
+    desiredAdditionalDependentCount: 1,
+    perDesiredAdditionalDependentEducationFunding: 20000,
+    desiredAdditionalDependentEducationFundingNeed: 20000,
+    totalEducationFundingNeed: 20000,
+    currentDependentDetails: []
+  },
+  projectedDependents: [
+    {
+      id: "future-child",
+      rawExpectedBirthYear: "abcd",
+      validationStatus: "invalid",
+      validationCode: "projected-dependent-birth-year-invalid"
+    }
+  ],
+  needPoints: createNeedPoints(15)
+});
+assert.equal(invalidProjectedBirthYear.projectedDependentSchedules.length, 0);
+assert.equal(invalidProjectedBirthYear.untimedProjectedDependents.length, 1);
+assert.equal(invalidProjectedBirthYear.educationPoints[15].projectedDependentNeedAmount, 20000);
+assert.ok(issueCodes(invalidProjectedBirthYear.warnings).includes("projected-dependent-birth-year-invalid"));
+
 const projectedExcluded = runProjection(helper, {
   educationSupport: {
     desiredAdditionalDependentCount: 1,

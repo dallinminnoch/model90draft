@@ -85,6 +85,19 @@
     );
   }
 
+  function toOptionalNumber(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function getYearFromDate(value) {
+    const normalizedDate = normalizeDateOnly(value);
+    return normalizedDate ? normalizedDate.getUTCFullYear() : null;
+  }
+
   function formatStatusLabel(value) {
     const normalized = String(value == null ? "" : value).trim().toLowerCase();
     if (normalized === "gap") {
@@ -245,6 +258,167 @@
 
   function resolveDefaultProjectionHorizon(age110Horizon) {
     return clampProjectionHorizonYears(age110Horizon?.horizonYears, MAX_PROJECTION_HORIZON_YEARS);
+  }
+
+  function getProjectedDependentCount(lensModel) {
+    const educationSupport = isPlainObject(lensModel?.educationSupport) ? lensModel.educationSupport : {};
+    const explicitCount = toOptionalNumber(
+      educationSupport.desiredAdditionalDependentCount
+      ?? educationSupport.projectedDependentsCount
+    );
+    if (explicitCount != null) {
+      return Math.max(0, Math.round(explicitCount));
+    }
+    return Array.isArray(educationSupport.projectedDependentDetails)
+      ? educationSupport.projectedDependentDetails.length
+      : 0;
+  }
+
+  function getProjectedDependentFundingAmount(lensModel, projectedDependentCount) {
+    const educationSupport = isPlainObject(lensModel?.educationSupport) ? lensModel.educationSupport : {};
+    const perDependent = toOptionalNumber(
+      educationSupport.perDesiredAdditionalDependentEducationFunding
+      ?? educationSupport.projectedEducationFundingPerDependent
+    );
+    if (perDependent != null) {
+      return Math.max(0, perDependent);
+    }
+    const aggregate = toOptionalNumber(
+      educationSupport.desiredAdditionalDependentEducationFundingNeed
+      ?? educationSupport.projectedDependentEducationFundingNeed
+    );
+    if (aggregate != null && projectedDependentCount > 0) {
+      return Math.max(0, aggregate / projectedDependentCount);
+    }
+    return null;
+  }
+
+  function validateProjectedDependentBirthYear(value, valuationDate) {
+    const rawValue = String(value == null ? "" : value).trim();
+    if (!rawValue) {
+      return {
+        expectedBirthYear: null,
+        rawExpectedBirthYear: "",
+        validationStatus: "untimed",
+        validationCode: null
+      };
+    }
+    const valuationYear = getYearFromDate(valuationDate) || new Date().getFullYear();
+    const minYear = valuationYear - 1;
+    const maxYear = valuationYear + 50;
+    if (!/^\d{4}$/.test(rawValue)) {
+      return {
+        expectedBirthYear: null,
+        rawExpectedBirthYear: rawValue,
+        validationStatus: "invalid",
+        validationCode: "projected-dependent-birth-year-invalid"
+      };
+    }
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed < minYear || parsed > maxYear) {
+      return {
+        expectedBirthYear: null,
+        rawExpectedBirthYear: rawValue,
+        validationStatus: "invalid",
+        validationCode: "projected-dependent-birth-year-invalid"
+      };
+    }
+    return {
+      expectedBirthYear: parsed,
+      rawExpectedBirthYear: rawValue,
+      validationStatus: "valid",
+      validationCode: null
+    };
+  }
+
+  function getProjectedDependentTimingRowsFromSettings(settings) {
+    return Array.isArray(settings?.education?.projectedDependentTimingRows)
+      ? settings.education.projectedDependentTimingRows
+      : [];
+  }
+
+  function buildProjectedDependentTimingRows(lensModel, existingRows, valuationDate) {
+    const projectedDependentCount = getProjectedDependentCount(lensModel);
+    if (!projectedDependentCount) {
+      return [];
+    }
+    const existingRowsById = new Map();
+    (Array.isArray(existingRows) ? existingRows : []).forEach(function (row) {
+      if (!isPlainObject(row)) {
+        return;
+      }
+      const id = String(row.id || "").trim();
+      if (id && !existingRowsById.has(id)) {
+        existingRowsById.set(id, row);
+      }
+    });
+    const fundingAmount = getProjectedDependentFundingAmount(lensModel, projectedDependentCount);
+    return Array.from({ length: projectedDependentCount }, function (_unused, index) {
+      const id = `projected-dependent-${index + 1}`;
+      const existingRow = existingRowsById.get(id) || {};
+      const validation = validateProjectedDependentBirthYear(
+        existingRow.rawExpectedBirthYear
+        ?? existingRow.expectedBirthYear
+        ?? existingRow.birthYear
+        ?? "",
+        valuationDate
+      );
+      return {
+        id,
+        label: String(existingRow.label || `Projected dependent ${index + 1}`),
+        included: existingRow.included === false ? false : true,
+        timingMode: validation.expectedBirthYear != null
+          ? "expectedBirthYear"
+          : "untimedKeepThroughHorizon",
+        expectedBirthYear: validation.expectedBirthYear,
+        rawExpectedBirthYear: validation.rawExpectedBirthYear,
+        validationStatus: validation.validationStatus,
+        validationCode: validation.validationCode,
+        educationFundingAmount: existingRow.educationFundingAmount ?? fundingAmount,
+        sourcePath: `coverageStrategyScenarioSettings.education.projectedDependentTimingRows[${index}]`
+      };
+    });
+  }
+
+  function renderProjectedDependentTimingControls(rows) {
+    const timingRows = Array.isArray(rows) ? rows : [];
+    if (!timingRows.length) {
+      return `
+        <div class="coverage-strategy-scenario-tray-placeholder">
+          <span>Recalculate</span>
+          <strong>Reserved</strong>
+        </div>
+      `;
+    }
+    return `
+      <div class="coverage-strategy-scenario-tray-placeholder is-projected-dependents">
+        <span>Projected dependents</span>
+        <div class="coverage-strategy-projected-dependent-list">
+          ${timingRows.map(function (row) {
+            const validationStatus = row.validationStatus === "invalid"
+              ? "Invalid"
+              : (row.expectedBirthYear != null ? "Timed" : "Untimed");
+            return `
+              <label class="coverage-strategy-projected-dependent-row">
+                <span>${escapeHtml(row.label || "Projected dependent")}</span>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]{4}"
+                  maxlength="4"
+                  placeholder="Year"
+                  title="Birth year"
+                  aria-label="${escapeHtml((row.label || "Projected dependent") + " birth year")}"
+                  value="${escapeHtml(row.rawExpectedBirthYear ?? row.expectedBirthYear ?? "")}"
+                  data-projected-dependent-id="${escapeHtml(row.id)}"
+                  data-coverage-strategy-projected-dependent-birth-year>
+                <em class="${row.validationStatus === "invalid" ? "is-invalid" : ""}">${escapeHtml(validationStatus)}</em>
+              </label>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
   }
 
   function normalizeChartPointValue(point) {
@@ -698,6 +872,9 @@
         : {});
     const educationSavingsOffsetEnabled =
       scenarioSettings?.education?.useEducationSavingsOffset === true;
+    const projectedDependentTimingRows = Array.isArray(result?.projectedDependentTimingRows)
+      ? result.projectedDependentTimingRows
+      : getProjectedDependentTimingRowsFromSettings(scenarioSettings);
 
     host.innerHTML = `
       <article class="analysis-result-card coverage-need-timeline-card">
@@ -912,10 +1089,7 @@
                 </label>
               </div>
             </div>
-            <div class="coverage-strategy-scenario-tray-placeholder">
-              <span>Recalculate</span>
-              <strong>Reserved</strong>
-            </div>
+            ${renderProjectedDependentTimingControls(projectedDependentTimingRows)}
             <div class="coverage-strategy-scenario-tray-placeholder is-diagnostic-export">
               <span>Data export</span>
               <button type="button" class="coverage-strategy-diagnostic-export-button" data-coverage-strategy-diagnostic-export>
@@ -994,6 +1168,7 @@
         builderResult.lensModel,
         cloneSettings(methodSettings.needsAnalysisSettings)
       );
+      const valuationDate = needsResult?.assumptions?.valuationDate;
       const initialCoverageStrategyScenarioSettings = typeof resolveCoverageStrategyScenarioSettings === "function"
         ? resolveCoverageStrategyScenarioSettings({
             profileRecord,
@@ -1007,10 +1182,14 @@
       let runtimeScenarioSettings = {
         education: {
           useEducationSavingsOffset:
-            initialCoverageStrategyScenarioSettings?.education?.useEducationSavingsOffset === true
+            initialCoverageStrategyScenarioSettings?.education?.useEducationSavingsOffset === true,
+          projectedDependentTimingRows: buildProjectedDependentTimingRows(
+            builderResult.lensModel,
+            getProjectedDependentTimingRowsFromSettings(initialCoverageStrategyScenarioSettings),
+            valuationDate
+          )
         }
       };
-      const valuationDate = needsResult?.assumptions?.valuationDate;
       const clientDateOfBirth = builderResult.lensModel?.profileFacts?.clientDateOfBirth || profileRecord.dateOfBirth;
       const age110Horizon = resolveAge110Horizon({
         clientDateOfBirth,
@@ -1021,6 +1200,17 @@
       function buildAndRenderCoverageStrategy(projectionHorizonYears) {
         const safeProjectionHorizonYears = clampProjectionHorizonYears(projectionHorizonYears, selectedProjectionHorizonYears);
         selectedProjectionHorizonYears = safeProjectionHorizonYears;
+        runtimeScenarioSettings = {
+          ...runtimeScenarioSettings,
+          education: {
+            ...(isPlainObject(runtimeScenarioSettings.education) ? runtimeScenarioSettings.education : {}),
+            projectedDependentTimingRows: buildProjectedDependentTimingRows(
+              builderResult.lensModel,
+              getProjectedDependentTimingRowsFromSettings(runtimeScenarioSettings),
+              valuationDate
+            )
+          }
+        };
         const coverageStrategyScenarioSettings = typeof resolveCoverageStrategyScenarioSettings === "function"
           ? resolveCoverageStrategyScenarioSettings({
               profileRecord,
@@ -1032,6 +1222,8 @@
               }
             })
           : initialCoverageStrategyScenarioSettings;
+        const projectedDependentTimingRows = getProjectedDependentTimingRowsFromSettings(coverageStrategyScenarioSettings);
+        const projectedDependentBirthYearControlVisible = projectedDependentTimingRows.length > 0;
         const needLine = buildCoverageStrategyNeedLine({
           lensModel: builderResult.lensModel,
           needsResult,
@@ -1119,7 +1311,8 @@
           chartModel,
           coverageStrategyScenarioSettings,
           visibleScenarioControls: {
-            educationSavingsOffset: true
+            educationSavingsOffset: true,
+            projectedDependentBirthYear: projectedDependentBirthYearControlVisible
           },
           projectionHorizonYears: safeProjectionHorizonYears,
           age110Horizon,
@@ -1134,6 +1327,7 @@
           existingCoverageLine,
           gapSurplus,
           chartModel,
+          projectedDependentTimingRows,
           warnings: [
             ...(Array.isArray(builderResult.warnings) ? builderResult.warnings : []),
             ...(Array.isArray(methodSettings.warnings) ? methodSettings.warnings : []),
@@ -1186,6 +1380,45 @@
         buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);
       });
 
+      host.addEventListener("change", function (event) {
+        const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-projected-dependent-birth-year]")) {
+          return;
+        }
+        const rowId = String(target.getAttribute("data-projected-dependent-id") || "").trim();
+        if (!rowId) {
+          return;
+        }
+        const existingRows = buildProjectedDependentTimingRows(
+          builderResult.lensModel,
+          getProjectedDependentTimingRowsFromSettings(runtimeScenarioSettings),
+          valuationDate
+        );
+        const validation = validateProjectedDependentBirthYear(target.value, valuationDate);
+        runtimeScenarioSettings = {
+          ...runtimeScenarioSettings,
+          education: {
+            ...(isPlainObject(runtimeScenarioSettings.education) ? runtimeScenarioSettings.education : {}),
+            projectedDependentTimingRows: existingRows.map(function (row) {
+              if (row.id !== rowId) {
+                return row;
+              }
+              return {
+                ...row,
+                timingMode: validation.expectedBirthYear != null
+                  ? "expectedBirthYear"
+                  : "untimedKeepThroughHorizon",
+                expectedBirthYear: validation.expectedBirthYear,
+                rawExpectedBirthYear: validation.rawExpectedBirthYear,
+                validationStatus: validation.validationStatus,
+                validationCode: validation.validationCode
+              };
+            })
+          }
+        };
+        buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);
+      });
+
       host.addEventListener("click", function (event) {
         const target = event.target;
         if (!target?.closest?.("[data-coverage-strategy-diagnostic-export]")) {
@@ -1206,7 +1439,12 @@
           coverageStrategyScenarioSettings: currentDiagnosticExportContext?.coverageStrategyScenarioSettings
             || initialCoverageStrategyScenarioSettings,
           visibleScenarioControls: {
-            educationSavingsOffset: true
+            educationSavingsOffset: true,
+            projectedDependentBirthYear: buildProjectedDependentTimingRows(
+              builderResult.lensModel,
+              getProjectedDependentTimingRowsFromSettings(runtimeScenarioSettings),
+              valuationDate
+            ).length > 0
           },
           projectionHorizonYears: selectedProjectionHorizonYears,
           age110Horizon,

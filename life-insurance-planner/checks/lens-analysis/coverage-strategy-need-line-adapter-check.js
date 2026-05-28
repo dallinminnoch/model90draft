@@ -418,6 +418,54 @@ assert.equal(
 assert.equal(educationSavingsOffsetResult.needPoints[0].trace.assetOffsetSubtracted, false);
 assert.equal(educationSavingsOffsetResult.assumptionsUsed.assetOffsetsSubtracted, false);
 
+const timedProjectedDependentResult = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel(),
+  needsResult: sourceNeedsResult,
+  analysisSettings: {
+    educationAssumptions: {
+      includeEducationFunding: true,
+      includeProjectedDependents: true,
+      applyEducationInflation: false,
+      educationStartAge: 18
+    }
+  },
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      useEducationSavingsOffset: false,
+      projectedDependentTimingRows: [
+        {
+          id: "projected-dependent-1",
+          label: "Projected dependent 1",
+          rawExpectedBirthYear: "2026",
+          expectedBirthYear: 2026,
+          validationStatus: "valid",
+          educationFundingAmount: 15000
+        }
+      ]
+    },
+    trace: {
+      fieldSources: {
+        "education.projectedDependentTimingRows": "runtimeScenarioSettings.education.projectedDependentTimingRows"
+      }
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 25
+});
+assert.equal(timedProjectedDependentResult.componentModels.education.lifetimeProjection.projectedDependentSchedules.length, 1);
+assert.equal(
+  timedProjectedDependentResult.componentModels.education.lifetimeProjection.projectedDependentSchedules[0].dateOfBirth,
+  "2026-01-01"
+);
+assert.equal(timedProjectedDependentResult.needPoints[18].componentAmounts.education, 15000);
+assert.equal(timedProjectedDependentResult.needPoints[21].componentAmounts.education, 3750);
+assert.equal(timedProjectedDependentResult.needPoints[22].componentAmounts.education, 0);
+assert.ok(
+  issueCodes(timedProjectedDependentResult.warnings).includes("projected-dependent-birth-year-defaulted-to-jan-1")
+);
+
 assert.equal(result.needPoints[0].componentAmounts.finalExpenses, 25000);
 assert.equal(result.needPoints[5].componentAmounts.finalExpenses, 25000);
 assert.equal(result.needPoints[0].componentAmounts.healthcareExpenses, 30000);

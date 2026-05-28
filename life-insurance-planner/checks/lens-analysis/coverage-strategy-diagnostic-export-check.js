@@ -180,7 +180,15 @@ const diagnosticInput = {
       useEducationSavingsOffset: true,
       educationResourceSpendingMode: "off",
       projectedDependentTimingMode: "untimedKeepThroughHorizon",
-      projectedDependentTimingRows: []
+      projectedDependentTimingRows: [
+        {
+          id: "projected-dependent-1",
+          label: "Projected dependent 1",
+          expectedBirthYear: 2026,
+          rawExpectedBirthYear: "2026",
+          validationStatus: "valid"
+        }
+      ]
     },
     trace: {
       fieldSources: {
@@ -190,7 +198,8 @@ const diagnosticInput = {
     }
   },
   visibleScenarioControls: {
-    educationSavingsOffset: true
+    educationSavingsOffset: true,
+    projectedDependentBirthYear: true
   },
   needLine: {
     valuationDate: "2026-01-01",
@@ -304,8 +313,10 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.ac
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
@@ -325,6 +336,7 @@ assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /educationSavingsOffset/);
 assert.match(html, /coverageStrategyScenarioSettings/);
 assert.match(html, /educationScenarioSettingsConsumed/);
+assert.match(html, /projectedDependentTimingRowsConsumed/);
 assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);

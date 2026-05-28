@@ -681,6 +681,31 @@
         ?? dependent.projectedBirthYear
       );
       const sourcePath = dependent.sourcePath || `projectedDependents[${index}]`;
+      const birthYearInvalid = dependent.validationStatus === "invalid"
+        || normalizeString(dependent.validationCode) === "projected-dependent-birth-year-invalid";
+      if (birthYearInvalid) {
+        warnings.push(createIssue(
+          "projected-dependent-birth-year-invalid",
+          "Projected dependent birth year was invalid; Coverage Strategy kept the remaining aggregate projected dependent education need untimed.",
+          {
+            id,
+            rawExpectedBirthYear: dependent.rawExpectedBirthYear ?? dependent.expectedBirthYear ?? null,
+            sourcePath
+          }
+        ));
+        excluded.push({
+          id,
+          kind: "projectedDependent",
+          sourcePath,
+          exclusionCode: "projected-dependent-birth-year-invalid",
+          exclusionReason: "Projected dependent birth year was invalid.",
+          trace: {
+            keptAsUntimedAggregateCandidate: true,
+            rawExpectedBirthYear: dependent.rawExpectedBirthYear ?? dependent.expectedBirthYear ?? null
+          }
+        });
+        return;
+      }
       if (birthYear == null) {
         excluded.push({
           id,

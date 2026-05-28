@@ -154,7 +154,13 @@ assert.doesNotThrow(() => JSON.stringify(defaultResult));
 const runtimeInput = {
   runtimeScenarioSettings: {
     education: {
-      useEducationSavingsOffset: true
+      useEducationSavingsOffset: true,
+      projectedDependentTimingRows: [
+        {
+          id: "projected-dependent-1",
+          rawExpectedBirthYear: "2026"
+        }
+      ]
     }
   }
 };
@@ -165,6 +171,28 @@ assert.equal(runtimeResult.education.useEducationSavingsOffset, true);
 assert.equal(
   runtimeResult.trace.fieldSources["education.useEducationSavingsOffset"],
   "runtimeScenarioSettings.education.useEducationSavingsOffset"
+);
+assert.equal(runtimeResult.education.projectedDependentTimingRows[0].expectedBirthYear, 2026);
+assert.equal(runtimeResult.education.projectedDependentTimingRows[0].timingMode, "expectedBirthYear");
+assert.equal(runtimeResult.education.projectedDependentTimingRows[0].validationStatus, "valid");
+
+const invalidBirthYearResult = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {
+      projectedDependentTimingRows: [
+        {
+          id: "projected-dependent-1",
+          rawExpectedBirthYear: "abcd"
+        }
+      ]
+    }
+  }
+});
+assert.equal(invalidBirthYearResult.education.projectedDependentTimingRows[0].expectedBirthYear, null);
+assert.equal(invalidBirthYearResult.education.projectedDependentTimingRows[0].validationStatus, "invalid");
+assert.equal(
+  invalidBirthYearResult.education.projectedDependentTimingRows[0].validationCode,
+  "projected-dependent-birth-year-invalid"
 );
 
 const savedResult = resolveScenarioSettings({
@@ -312,7 +340,9 @@ const trayEndIndex = controllerSource.indexOf("</div>", controllerSource.indexOf
 const trayMarkup = controllerSource.slice(trayIndex, trayEndIndex);
 assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode|projectedDependentTimingRows/i);
+assert.match(controllerSource, /Projected dependents/);
+assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode/i);
 assert.match(controllerSource, /coverageStrategyScenarioSettings/);
 
 console.log("coverage strategy scenario settings check passed");
