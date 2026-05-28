@@ -9,6 +9,7 @@
   // proposed coverage, recommendation scoring, AI, or sample data.
   const COVERAGE_STRATEGY_CHART_MODEL_VERSION = "coverage-strategy-chart-model-v1";
   const DEFAULT_Y_AXIS_MAX = 100000;
+  const TARGET_Y_AXIS_TICK_COUNT = 6;
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -115,9 +116,9 @@
   function chooseNiceStep(maxValue) {
     const safeMax = Math.max(0, Number(maxValue) || 0);
     if (!(safeMax > 0)) {
-      return DEFAULT_Y_AXIS_MAX / 4;
+      return DEFAULT_Y_AXIS_MAX / (TARGET_Y_AXIS_TICK_COUNT - 1);
     }
-    const rawStep = safeMax / 4;
+    const rawStep = safeMax / (TARGET_Y_AXIS_TICK_COUNT - 1);
     const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
     const normalized = rawStep / magnitude;
     if (normalized <= 1) {
@@ -138,11 +139,19 @@
       const value = Number(point?.chartValue);
       return Number.isFinite(value) ? Math.max(max, value) : max;
     }, 0);
-    const step = chooseNiceStep(maxValue * 1.02);
-    const yAxisMax = Math.max(DEFAULT_Y_AXIS_MAX, step * 4);
+    const step = chooseNiceStep(maxValue * 1.08);
+    const tickIntervals = Math.max(TARGET_Y_AXIS_TICK_COUNT - 1, Math.ceil((maxValue * 1.08) / step));
+    const yAxisMax = Math.max(DEFAULT_Y_AXIS_MAX, step * tickIntervals);
+    const axisLabels = Array.from({ length: tickIntervals + 1 }, function (_unused, index) {
+      return yAxisMax - (step * index);
+    });
+    if (axisLabels[axisLabels.length - 1] !== 0) {
+      axisLabels[axisLabels.length - 1] = 0;
+    }
     return {
       yAxisMax,
-      axisLabels: [yAxisMax, yAxisMax - step, yAxisMax - (step * 2), yAxisMax - (step * 3), 0]
+      yAxisStep: step,
+      axisLabels
     };
   }
 
@@ -203,6 +212,7 @@
       chartModelVersion: COVERAGE_STRATEGY_CHART_MODEL_VERSION,
       chartMode: "dollar",
       yAxisMax: axis.yAxisMax,
+      yAxisStep: axis.yAxisStep,
       axisLabels: axis.axisLabels,
       series: [
         createSeries("need", "Projected need", needSeriesPoints, "dollars"),
@@ -218,7 +228,10 @@
         displayTransform: "dollar-axis",
         defaultYAxisUnit: "dollars",
         noHardThreeHundredPercentCap: true,
-        yAxisMax: axis.yAxisMax
+        yAxisMax: axis.yAxisMax,
+        yAxisStep: axis.yAxisStep,
+        yAxisTickCount: axis.axisLabels.length,
+        axisLabelsUseVisibleSeriesData: true
       }
     };
   }

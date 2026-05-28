@@ -107,8 +107,13 @@ assert.match(controllerSource, /Projected need/);
 assert.match(controllerSource, /Projected eligible resources/);
 assert.match(controllerSource, /Existing coverage/);
 assert.match(controllerSource, /Remaining exposure/);
+assert.match(controllerSource, /buildXAxisTicks\(needPoints\)/);
+assert.match(controllerSource, /coverage-need-timeline-x-grid/);
+assert.match(controllerSource, /Dollar scale uses visible series max; gridlines shown for inspection\./);
 assert.match(pageSource, /coverage-strategy-chart-model\.js/);
 assert.match(chartModelSource, /buildCoverageStrategyTimelineChartModel/);
+assert.match(chartModelSource, /TARGET_Y_AXIS_TICK_COUNT = 6/);
+assert.match(chartModelSource, /axisLabelsUseVisibleSeriesData: true/);
 
 assert.doesNotMatch(pageSource + controllerSource, /income-impact-/);
 assert.doesNotMatch(pageSource + controllerSource, /developer preview|temporary|internal|adapter proof/i);

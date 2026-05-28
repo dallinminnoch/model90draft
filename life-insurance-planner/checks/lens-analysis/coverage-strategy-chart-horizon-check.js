@@ -85,6 +85,9 @@ assert.match(chartModelSource, /displayTransform: "dollar-axis"/);
 assert.match(chartModelSource, /defaultYAxisUnit: "dollars"/);
 assert.match(chartModelSource, /rawDollarDataChanged: false/);
 assert.match(chartModelSource, /noHardThreeHundredPercentCap: true/);
+assert.match(chartModelSource, /TARGET_Y_AXIS_TICK_COUNT = 6/);
+assert.match(chartModelSource, /axisLabelsUseVisibleSeriesData: true/);
+assert.match(chartModelSource, /maxValue \* 1\.08/);
 
 assert.match(componentsSource, /coverage-strategy-workspace/);
 assert.match(componentsSource, /coverage-strategy-horizon-control/);
@@ -94,6 +97,8 @@ assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 0\.58fr\) 
 assert.match(componentsSource, /min-height: clamp\(34rem, calc\(100vh - 18rem\), 50rem\)/);
 assert.match(componentsSource, /min-height: 31rem/);
 assert.match(componentsSource, /coverage-need-timeline-chart-note/);
+assert.match(componentsSource, /coverage-need-timeline-x-grid/);
+assert.match(componentsSource, /coverage-need-timeline-inspection-point/);
 assert.doesNotMatch(stylesSource, /coverage-strategy-chart-model|coverage-need-timeline-chart-note/i);
 
 const context = {
@@ -136,11 +141,14 @@ const chartModel = buildCoverageStrategyTimelineChartModel({
 assert.equal(JSON.stringify(needPoints), originalNeedPoints, "chart model should not mutate need points");
 assert.equal(JSON.stringify(resourcePoints), originalResourcePoints, "chart model should not mutate resource points");
 assert.equal(chartModel.chartMode, "dollar");
-assert.equal(chartModel.yAxisMax, 20000000);
-assert.equal(JSON.stringify(chartModel.axisLabels), JSON.stringify([20000000, 15000000, 10000000, 5000000, 0]));
+assert.equal(chartModel.yAxisMax, 25000000);
+assert.equal(chartModel.yAxisStep, 5000000);
+assert.equal(JSON.stringify(chartModel.axisLabels), JSON.stringify([25000000, 20000000, 15000000, 10000000, 5000000, 0]));
+assert.ok(chartModel.axisLabels.length >= 6, "chart model should provide denser y-axis labels.");
 assert.equal(chartModel.trace.noHardThreeHundredPercentCap, true);
 assert.equal(chartModel.trace.rawDollarDataChanged, false);
 assert.equal(chartModel.trace.defaultYAxisUnit, "dollars");
+assert.equal(chartModel.trace.axisLabelsUseVisibleSeriesData, true);
 
 const needSeries = chartModel.series.find((series) => series.key === "need");
 const resourceSeries = chartModel.series.find((series) => series.key === "resources");

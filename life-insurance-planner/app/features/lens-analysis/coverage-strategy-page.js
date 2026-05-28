@@ -282,6 +282,64 @@
     }) || null;
   }
 
+  function getChartPointX(index, pointCount, width, padding) {
+    const innerWidth = width - padding.left - padding.right;
+    const maxIndex = Math.max(pointCount - 1, 1);
+    return padding.left + (innerWidth * (index / maxIndex));
+  }
+
+  function buildXAxisTicks(points) {
+    const safePoints = Array.isArray(points) ? points : [];
+    if (!safePoints.length) {
+      return [];
+    }
+    const lastIndex = safePoints.length - 1;
+    const targetTickCount = lastIndex <= 8 ? Math.min(lastIndex + 1, 9) : 7;
+    const rawStep = Math.max(1, Math.ceil(lastIndex / Math.max(targetTickCount - 1, 1)));
+    const ticks = [];
+    for (let index = 0; index <= lastIndex; index += rawStep) {
+      ticks.push({
+        index,
+        point: safePoints[index]
+      });
+    }
+    if (!ticks.some(function (tick) {
+      return tick.index === lastIndex;
+    })) {
+      ticks.push({
+        index: lastIndex,
+        point: safePoints[lastIndex]
+      });
+    }
+    return ticks;
+  }
+
+  function formatXAxisTick(point) {
+    const year = point?.calendarYear || point?.yearIndex || 0;
+    const age = point?.age == null ? "" : ` / ${point.age}`;
+    return `${year}${age}`;
+  }
+
+  function buildIntermediatePointMarkers(points, pointCount, width, height, padding, maxValue) {
+    const safePoints = Array.isArray(points) ? points : [];
+    if (safePoints.length < 4) {
+      return "";
+    }
+    const step = Math.max(2, Math.ceil((safePoints.length - 1) / 8));
+    const markers = [];
+    for (let index = step; index < safePoints.length - 1; index += step) {
+      const point = safePoints[index];
+      markers.push(`
+        <circle
+          class="coverage-need-timeline-inspection-point"
+          cx="${getChartPointX(index, pointCount, width, padding).toFixed(2)}"
+          cy="${valueToY(normalizeChartPointValue(point), height, padding, maxValue).toFixed(2)}"
+          r="2.4"></circle>
+      `);
+    }
+    return markers.join("");
+  }
+
   function renderTimelineSvg(chartModel) {
     const needSeries = getChartSeries(chartModel, "need");
     const resourceSeries = getChartSeries(chartModel, "resources");
@@ -322,6 +380,7 @@
     const firstRemainingExposure = remainingExposurePoints[0];
     const lastRemainingExposure = remainingExposurePoints[remainingExposurePoints.length - 1];
     const axisLabels = Array.isArray(chartModel?.axisLabels) ? chartModel.axisLabels : [100000, 75000, 50000, 25000, 0];
+    const xAxisTicks = buildXAxisTicks(needPoints);
 
     return `
       <svg class="coverage-need-timeline-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Coverage Strategy dollar timeline showing projected need, projected eligible resources, existing coverage, and remaining exposure">
@@ -334,10 +393,20 @@
             `;
           }).join("")}
         </g>
+        <g class="coverage-need-timeline-x-grid" aria-hidden="true">
+          ${xAxisTicks.map(function (tick) {
+            const x = getChartPointX(tick.index, needPoints.length, width, padding);
+            return `<line x1="${x.toFixed(2)}" y1="${padding.top}" x2="${x.toFixed(2)}" y2="${height - padding.bottom}"></line>`;
+          }).join("")}
+        </g>
         <path class="coverage-need-timeline-line" d="${path}"></path>
         ${resourcePath ? `<path class="coverage-need-timeline-line coverage-need-timeline-resource-line" d="${resourcePath}"></path>` : ""}
         ${existingCoveragePath ? `<path class="coverage-need-timeline-line coverage-need-timeline-existing-coverage-line" d="${existingCoveragePath}"></path>` : ""}
         ${remainingExposurePath ? `<path class="coverage-need-timeline-line coverage-need-timeline-remaining-exposure-line" d="${remainingExposurePath}"></path>` : ""}
+        ${buildIntermediatePointMarkers(needPoints, needPoints.length, width, height, padding, maxChartValue)}
+        ${resourcePath ? buildIntermediatePointMarkers(resourcePoints, needPoints.length, width, height, padding, maxChartValue) : ""}
+        ${existingCoveragePath ? buildIntermediatePointMarkers(existingCoveragePoints, needPoints.length, width, height, padding, maxChartValue) : ""}
+        ${remainingExposurePath ? buildIntermediatePointMarkers(remainingExposurePoints, needPoints.length, width, height, padding, maxChartValue) : ""}
         <circle class="coverage-need-timeline-point" cx="${padding.left}" cy="${valueToY(normalizeChartPointValue(first), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
         <circle class="coverage-need-timeline-point" cx="${width - padding.right}" cy="${valueToY(normalizeChartPointValue(last), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
         ${resourcePath && firstResource && lastResource ? `
@@ -353,8 +422,13 @@
           <circle class="coverage-need-timeline-point coverage-need-timeline-remaining-exposure-point" cx="${width - padding.right}" cy="${valueToY(normalizeChartPointValue(lastRemainingExposure), height, padding, maxChartValue).toFixed(2)}" r="4"></circle>
         ` : ""}
         <g class="coverage-need-timeline-axis" aria-hidden="true">
-          <text x="${padding.left}" y="${height - 10}">${escapeHtml(String(first.calendarYear || first.yearIndex || 0))}</text>
-          <text x="${width - padding.right}" y="${height - 10}" text-anchor="end">${escapeHtml(String(last.calendarYear || last.yearIndex || 0))}</text>
+          ${xAxisTicks.map(function (tick) {
+            const x = getChartPointX(tick.index, needPoints.length, width, padding);
+            const textAnchor = tick.index === 0 ? "start" : (tick.index === needPoints.length - 1 ? "end" : "middle");
+            return `
+              <text x="${x.toFixed(2)}" y="${height - 10}" text-anchor="${textAnchor}">${escapeHtml(formatXAxisTick(tick.point))}</text>
+            `;
+          }).join("")}
         </g>
       </svg>
     `;
@@ -666,7 +740,7 @@
             <div class="coverage-need-timeline-chart coverage-strategy-chart-stage">
               ${renderTimelineSvg(chartModelResult)}
               <div class="coverage-need-timeline-chart-note">
-                Timeline lines use dollar values; surplus remains in the summary values.
+                Dollar scale uses visible series max; gridlines shown for inspection.
               </div>
               ${resourceUnavailable ? `
                 <div class="coverage-need-timeline-resource-unavailable">

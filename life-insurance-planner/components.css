@@ -20531,11 +20531,16 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   stroke-width: 1;
 }
 
+.coverage-need-timeline-x-grid line {
+  stroke: color-mix(in srgb, var(--m90-border-soft) 54%, transparent);
+  stroke-width: 1;
+}
+
 .coverage-need-timeline-grid text,
 .coverage-need-timeline-axis text {
   fill: var(--m90-text-muted);
   font-family: "Inter", sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -20567,6 +20572,13 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   fill: var(--m90-surface);
   stroke: var(--m90-accent);
   stroke-width: 3;
+}
+
+.coverage-need-timeline-inspection-point {
+  fill: var(--m90-surface);
+  opacity: 0.82;
+  stroke: color-mix(in srgb, var(--m90-text-primary) 68%, transparent);
+  stroke-width: 1.4;
 }
 
 .coverage-need-timeline-resource-point {
