@@ -1675,6 +1675,8 @@
                 remainingEducationSavingsOffsetAvailable: educationProjectionPoint.remainingEducationSavingsOffsetAvailable,
                 includedDependentCount: educationProjectionPoint.includedDependentCount,
                 excludedDependentCount: educationProjectionPoint.excludedDependentCount,
+                educationPaymentScheduleMode: educationProjectionPoint.trace?.educationPaymentScheduleMode || null,
+                educationPaymentScheduleModeSource: educationProjectionPoint.trace?.educationPaymentScheduleModeSource || null,
                 coverageStrategyScenarioSettingsSource: educationProjectionPoint.trace?.coverageStrategyScenarioSettingsSource || coverageStrategyScenarioSettings?.source || null,
                 educationSavingsOffsetOwnership: educationProjectionPoint.trace?.educationSavingsOffsetOwnership || null,
                 sourceFactsUsed: educationProjectionPoint.trace || {}

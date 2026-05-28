@@ -155,6 +155,7 @@ const runtimeInput = {
   runtimeScenarioSettings: {
     education: {
       useEducationSavingsOffset: true,
+      educationPaymentScheduleMode: "lumpSumAtStart",
       projectedDependentTimingRows: [
         {
           id: "projected-dependent-1",
@@ -168,6 +169,11 @@ const runtimeBefore = JSON.stringify(runtimeInput);
 const runtimeResult = resolveScenarioSettings(runtimeInput);
 assert.equal(JSON.stringify(runtimeInput), runtimeBefore, "resolver should not mutate runtime input");
 assert.equal(runtimeResult.education.useEducationSavingsOffset, true);
+assert.equal(runtimeResult.education.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(
+  runtimeResult.trace.fieldSources["education.educationPaymentScheduleMode"],
+  "runtimeScenarioSettings.education.educationPaymentScheduleMode"
+);
 assert.equal(
   runtimeResult.trace.fieldSources["education.useEducationSavingsOffset"],
   "runtimeScenarioSettings.education.useEducationSavingsOffset"
@@ -195,14 +201,37 @@ assert.equal(
   "projected-dependent-birth-year-invalid"
 );
 
+const invalidPaymentScheduleResult = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {
+      educationPaymentScheduleMode: "custom"
+    }
+  }
+});
+assert.equal(invalidPaymentScheduleResult.education.educationPaymentScheduleMode, "fourYearAnnual");
+assert.ok(
+  invalidPaymentScheduleResult.warnings.some((warning) => (
+    warning.code === "education-payment-schedule-mode-unsupported"
+  )),
+  "unsupported payment schedule mode should emit a structured warning"
+);
+assert.ok(
+  invalidPaymentScheduleResult.trace.defaultedFields.some((field) => (
+    field.code === "education-payment-schedule-mode-defaulted"
+  )),
+  "unsupported payment schedule mode should be traced as defaulted"
+);
+
 const savedResult = resolveScenarioSettings({
   savedScenarioSettings: {
     education: {
-      useEducationSavingsOffset: true
+      useEducationSavingsOffset: true,
+      educationPaymentScheduleMode: "lumpSumAtStart"
     }
   }
 });
 assert.equal(savedResult.education.useEducationSavingsOffset, true);
+assert.equal(savedResult.education.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(savedResult.persisted, true);
 
 const profileSavedResult = resolveScenarioSettings({

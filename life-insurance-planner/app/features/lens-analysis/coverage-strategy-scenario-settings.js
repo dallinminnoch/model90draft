@@ -27,8 +27,7 @@
   ]);
   const ALLOWED_PAYMENT_SCHEDULE_MODES = Object.freeze([
     "fourYearAnnual",
-    "lumpSumAtStart",
-    "custom"
+    "lumpSumAtStart"
   ]);
   const ALLOWED_RESOURCE_SPENDING_MODES = Object.freeze([
     "off",
@@ -98,6 +97,14 @@
   function normalizeMode(value, allowedModes, fallback) {
     const normalized = normalizeString(value);
     return allowedModes.includes(normalized) ? normalized : fallback;
+  }
+
+  function createIssue(code, message, details) {
+    return {
+      code,
+      message,
+      details: isPlainObject(details) ? clonePlainValue(details) : {}
+    };
   }
 
   function normalizeExpectedBirthYear(value) {
@@ -288,6 +295,39 @@
     return fallback;
   }
 
+  function resolvePaymentScheduleMode(candidates, fieldSources, warnings, defaultedFields) {
+    const path = "education.educationPaymentScheduleMode";
+    const match = findScenarioValue(candidates, path);
+    if (!match) {
+      fieldSources[path] = "coverage-strategy-defaults.education.educationPaymentScheduleMode";
+      return DEFAULT_EDUCATION_SETTINGS.educationPaymentScheduleMode;
+    }
+
+    const normalized = normalizeString(match.value);
+    fieldSources[path] = match.sourcePath;
+    if (ALLOWED_PAYMENT_SCHEDULE_MODES.includes(normalized)) {
+      return normalized;
+    }
+
+    const details = {
+      field: path,
+      received: match.value,
+      sourcePath: match.sourcePath,
+      fallback: DEFAULT_EDUCATION_SETTINGS.educationPaymentScheduleMode,
+      supportedValues: ALLOWED_PAYMENT_SCHEDULE_MODES.slice()
+    };
+    warnings.push(createIssue(
+      "education-payment-schedule-mode-unsupported",
+      "Unsupported Coverage Strategy education payment schedule mode was defaulted.",
+      details
+    ));
+    defaultedFields.push({
+      code: "education-payment-schedule-mode-defaulted",
+      ...clonePlainValue(details)
+    });
+    return DEFAULT_EDUCATION_SETTINGS.educationPaymentScheduleMode;
+  }
+
   function resolveBooleanField(candidates, path, fallback, defaultPath, fieldSources) {
     const match = findScenarioValue(candidates, path);
     if (match) {
@@ -331,6 +371,8 @@
     const legacyCandidates = buildLegacyCandidates(safeInput);
     const fieldSources = {};
     const legacyMappings = [];
+    const warnings = [];
+    const defaultedFields = [];
 
     const education = {
       educationTreatmentMode: resolveModeField(
@@ -341,13 +383,11 @@
         "coverage-strategy-defaults.education.educationTreatmentMode",
         fieldSources
       ),
-      educationPaymentScheduleMode: resolveModeField(
+      educationPaymentScheduleMode: resolvePaymentScheduleMode(
         candidates,
-        "education.educationPaymentScheduleMode",
-        ALLOWED_PAYMENT_SCHEDULE_MODES,
-        DEFAULT_EDUCATION_SETTINGS.educationPaymentScheduleMode,
-        "coverage-strategy-defaults.education.educationPaymentScheduleMode",
-        fieldSources
+        fieldSources,
+        warnings,
+        defaultedFields
       ),
       useEducationSavingsOffset: resolveEducationSavingsOffset(
         candidates,
@@ -394,7 +434,7 @@
       visibleControlsAdded: false,
       controlsVisible: false,
       education,
-      warnings: [],
+      warnings,
       dataGaps: [],
       trace: {
         source: "coverage-strategy-scenario-settings",
@@ -410,6 +450,7 @@
         ],
         selectedSource,
         fieldSources,
+        defaultedFields,
         legacyMappings,
         visibleControlsAdded: false,
         storageRead: false,

@@ -140,6 +140,7 @@ assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
 assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /Export Diagnostic PDF/);
 assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode/);
+assert.doesNotMatch(trayMarkup, /Payment schedule|lump sum|four-year/i);
 assert.match(controllerSource, /runtimeScenarioSettings/);
 assert.match(controllerSource, /projectedDependentTimingRows/);
 assert.match(controllerSource, /validateProjectedDependentBirthYear/);
@@ -152,6 +153,7 @@ assert.match(scenarioSettingsSource, /rawExpectedBirthYear/);
 assert.match(scenarioSettingsSource, /projected-dependent-birth-year-invalid/);
 assert.match(diagnosticSource, /projectedDependentTimingRowsConsumed/);
 assert.match(diagnosticSource, /projectedDependentBirthYear/);
+assert.match(diagnosticSource, /visiblePaymentScheduleControl/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
 assert.doesNotMatch(analysisSetupSource, /data-coverage-strategy-projected-dependent-birth-year|projectedDependentTimingRows/);
@@ -282,6 +284,7 @@ const snapshot = buildSnapshot({
   projectionHorizonYears: 25
 });
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, false);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.projectedDependentSchedules[0].dateOfBirth, "2026-01-01");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");

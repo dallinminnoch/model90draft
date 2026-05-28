@@ -260,6 +260,16 @@
           || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education
           || "Not available"
         ),
+        educationPaymentScheduleMode: (
+          safeContext.coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
+          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
+          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
+          || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.educationPaymentScheduleMode
+          || "Not available"
+        ),
+        visiblePaymentScheduleControl: Boolean(
+          safeContext.visibleScenarioControls?.educationPaymentScheduleMode
+        ),
         projectedDependentTimingRowsConsumed: (
           safeContext.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
           || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows

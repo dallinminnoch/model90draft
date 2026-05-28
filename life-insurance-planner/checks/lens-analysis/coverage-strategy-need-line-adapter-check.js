@@ -418,6 +418,47 @@ assert.equal(
 assert.equal(educationSavingsOffsetResult.needPoints[0].trace.assetOffsetSubtracted, false);
 assert.equal(educationSavingsOffsetResult.assumptionsUsed.assetOffsetsSubtracted, false);
 
+const lumpSumScheduleResult = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel(),
+  needsResult: sourceNeedsResult,
+  analysisSettings: {
+    educationAssumptions: {
+      includeEducationFunding: true,
+      includeProjectedDependents: true,
+      applyEducationInflation: false,
+      educationStartAge: 18
+    }
+  },
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: false,
+      projectedDependentTimingRows: []
+    },
+    trace: {
+      fieldSources: {
+        "education.educationPaymentScheduleMode": "runtimeScenarioSettings.education.educationPaymentScheduleMode"
+      }
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(
+  lumpSumScheduleResult.componentModels.education.lifetimeProjection.assumptionsUsed.educationPaymentScheduleMode,
+  "lumpSumAtStart"
+);
+assert.equal(lumpSumScheduleResult.componentModels.education.lifetimeProjection.currentDependentSchedules[0].payments.length, 1);
+assert.equal(lumpSumScheduleResult.componentModels.education.lifetimeProjection.currentDependentSchedules[0].payments[0].amount, 50000);
+assert.equal(lumpSumScheduleResult.needPoints[0].componentAmounts.education, 65000);
+assert.equal(lumpSumScheduleResult.needPoints[3].componentAmounts.education, 65000);
+assert.equal(lumpSumScheduleResult.needPoints[4].componentAmounts.education, 15000);
+assert.equal(lumpSumScheduleResult.needPoints[0].trace.educationProjection.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.ok(issueCodes(lumpSumScheduleResult.warnings).includes("projected-dependent-untimed-schedule-mode-not-applied"));
+assert.equal(lumpSumScheduleResult.needPoints[0].trace.assetOffsetSubtracted, false);
+
 const timedProjectedDependentResult = buildCoverageStrategyNeedLine({
   lensModel: createLensModel(),
   needsResult: sourceNeedsResult,

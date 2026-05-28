@@ -12,6 +12,12 @@
     "coverage-strategy-education-lifetime-projection-v1";
   const DEFAULT_EDUCATION_START_AGE = 18;
   const DEFAULT_PAYMENT_YEARS = 4;
+  const EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL = "fourYearAnnual";
+  const EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START = "lumpSumAtStart";
+  const ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES = Object.freeze([
+    EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL,
+    EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+  ]);
   const EDUCATION_ASSET_CATEGORY_KEY = "educationSpecificSavings";
   const EDUCATION_ASSET_TEXT_PATTERN =
     /(529|coverdell|prepaid\s*tuition|education\s*(specific|savings|account|trust|fund)|college\s*savings|esa)/i;
@@ -181,6 +187,42 @@
       return DEFAULT_EDUCATION_START_AGE;
     }
     return Math.round(parsed);
+  }
+
+  function resolveEducationPaymentScheduleMode(coverageStrategyScenarioSettings, warnings) {
+    const rawMode = coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode;
+    const sourcePath = coverageStrategyScenarioSettings?.trace?.fieldSources?.["education.educationPaymentScheduleMode"]
+      || "coverageStrategyScenarioSettings.education.educationPaymentScheduleMode";
+    const normalized = normalizeString(rawMode);
+    if (ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES.includes(normalized)) {
+      return {
+        mode: normalized,
+        sourcePath,
+        defaulted: false,
+        supportedValues: ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES.slice()
+      };
+    }
+    if (rawMode != null && rawMode !== "") {
+      addIssue(
+        warnings,
+        "education-payment-schedule-mode-unsupported",
+        "Unsupported Coverage Strategy education payment schedule mode was defaulted to four-year annual.",
+        {
+          received: rawMode,
+          fallback: EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL,
+          sourcePath,
+          supportedValues: ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES.slice()
+        }
+      );
+    }
+    return {
+      mode: EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL,
+      sourcePath: rawMode == null || rawMode === ""
+        ? "coverage-strategy-defaults.education.educationPaymentScheduleMode"
+        : sourcePath,
+      defaulted: true,
+      supportedValues: ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES.slice()
+    };
   }
 
   function getNeedPoints(input) {
@@ -552,9 +594,16 @@
   }
 
   function createPaymentSchedule(dependent, context, options) {
-    const paymentYearCount = Math.max(1, Math.round(toOptionalNumber(context.paymentYearCount) || DEFAULT_PAYMENT_YEARS));
+    const scheduleMode = context.educationPaymentScheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+      ? EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+      : EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL;
+    const paymentYearCount = scheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+      ? 1
+      : Math.max(1, Math.round(toOptionalNumber(context.paymentYearCount) || DEFAULT_PAYMENT_YEARS));
     const baseTotal = Math.max(0, toOptionalNumber(options.baseTotal) || 0);
-    const basePayment = baseTotal / paymentYearCount;
+    const basePayment = scheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+      ? baseTotal
+      : baseTotal / paymentYearCount;
     const dateOfBirth = options.dateOfBirth;
     const birth = normalizeDateOnly(dateOfBirth);
     const educationStartDate = addCalendarYears(birth, context.educationStartAge);
@@ -568,6 +617,7 @@
         paymentYear,
         baseAmount: roundMoney(basePayment),
         amount: roundMoney(basePayment * inflationFactor),
+        paymentScheduleMode: scheduleMode,
         inflationFactor: roundRatio(inflationFactor),
         inflationApplied: context.applyEducationInflation && context.educationInflationAnnualRate > 0,
         remainingRule: "calendarYear<=paymentYear"
@@ -587,7 +637,10 @@
       sourcePath: options.sourcePath || null,
       trace: {
         source: "coverage-strategy-education-lifetime-projection",
-        scheduleMode: "four-equal-annual-payments",
+        scheduleMode: scheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+          ? "lump-sum-at-education-start"
+          : "four-equal-annual-payments",
+        educationPaymentScheduleMode: scheduleMode,
         annualPointRule: "annual-calendar-year-basis",
         fundingSource: options.fundingSource,
         fundingTargetPercentApplied: false
@@ -744,7 +797,7 @@
     };
   }
 
-  function resolveUntimedProjectedDependentNeed(educationSupport, projectedModel, educationAssumptions, warnings) {
+  function resolveUntimedProjectedDependentNeed(educationSupport, projectedModel, educationAssumptions, context, warnings) {
     const includeProjectedDependents = educationAssumptions.includeProjectedDependents !== false;
     const aggregateTotal = Math.max(0, toOptionalNumber(
       educationSupport.desiredAdditionalDependentEducationFundingNeed
@@ -778,6 +831,17 @@
           projectedDependentCount: projectedModel.aggregateCount
         }
       ));
+      if (context.educationPaymentScheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START) {
+        warnings.push(createIssue(
+          "projected-dependent-untimed-schedule-mode-not-applied",
+          "Projected dependent education had no birth year, so the selected payment schedule mode could not time the aggregate need.",
+          {
+            educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+            untimedProjectedDependentNeedAmount: untimedAmount,
+            timingTreatment: "kept-through-horizon-current-dollar"
+          }
+        ));
+      }
     }
     return {
       amount: untimedAmount,
@@ -913,6 +977,10 @@
     const rateResult = normalizePercentRate(safeInput.educationInflationRatePercent, warnings);
     const includeEducationFunding = educationAssumptions.includeEducationFunding !== false;
     const educationStartAge = normalizeEducationStartAge(educationAssumptions.educationStartAge, warnings);
+    const paymentScheduleModeResult = resolveEducationPaymentScheduleMode(
+      coverageStrategyScenarioSettings,
+      warnings
+    );
     const educationSavingsAssets = collectEducationSavingsAssets(safeInput, warnings);
     const educationSavingsOffsetActivation = resolveEducationSavingsOffsetActivation(
       educationAssumptions,
@@ -928,7 +996,12 @@
       valuationDate: valuationDateResult ? valuationDateResult.normalizedDate : null,
       valuationYear: valuationDateResult ? valuationDateResult.calendarYear : null,
       educationStartAge,
-      paymentYearCount: toOptionalNumber(safeInput.options?.paymentYearCount) || DEFAULT_PAYMENT_YEARS,
+      educationPaymentScheduleMode: paymentScheduleModeResult.mode,
+      educationPaymentScheduleModeSource: paymentScheduleModeResult.sourcePath,
+      educationPaymentScheduleModeDefaulted: paymentScheduleModeResult.defaulted,
+      paymentYearCount: paymentScheduleModeResult.mode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
+        ? 1
+        : (toOptionalNumber(safeInput.options?.paymentYearCount) || DEFAULT_PAYMENT_YEARS),
       applyEducationInflation: includeEducationFunding
         && educationAssumptions.applyEducationInflation === true
         && rateResult.annualRate > 0,
@@ -958,6 +1031,8 @@
               projectionMode: "education-funding-excluded-by-setting",
               educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
               educationSavingsOffsetApplied: false,
+              educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+              educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
               educationSavingsOffsetOwnership: educationSavingsOffsetActivation.ownership,
               coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
               resourceSpendingApplied: false,
@@ -972,6 +1047,9 @@
         excludedDependents: [],
         assumptionsUsed: {
           includeEducationFunding: false,
+          educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+          educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
+          educationPaymentScheduleModeDefaulted: context.educationPaymentScheduleModeDefaulted,
           educationSavingsOffsetApplied: false,
           educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
           educationSavingsOffsetSettingSource: educationSavingsOffsetActivation.sourcePath,
@@ -998,6 +1076,7 @@
         dataGaps,
         trace: {
           source: "coverage-strategy-education-lifetime-projection",
+          educationPaymentScheduleMode: context.educationPaymentScheduleMode,
           displayHtmlUsed: false,
           storageUsed: false,
           inputMutated: false
@@ -1011,6 +1090,7 @@
       educationSupport,
       projectedModel,
       educationAssumptions,
+      context,
       warnings
     );
     const timedSchedules = currentModel.schedules.concat(
@@ -1186,7 +1266,10 @@
           source: "coverage-strategy-education-lifetime-projection",
           projectionMode: "record-level-education-obligation-schedule",
           annualPointRule: "annual-calendar-year-basis",
-          fourYearPaymentScheduleUsed: true,
+          educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+          educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
+          fourYearPaymentScheduleUsed: context.educationPaymentScheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL,
+          lumpSumAtStartScheduleUsed: context.educationPaymentScheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START,
           educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
           educationSavingsOffsetApplied: educationSavingsOffsetActive && educationSavingsOffsetAmount > 0,
           educationSavingsOffsetActivationTraceCode: educationSavingsOffsetActivation.traceCode,
@@ -1220,6 +1303,9 @@
       assumptionsUsed: {
         valuationDate: context.valuationDate,
         educationStartAge,
+        educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+        educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
+        educationPaymentScheduleModeDefaulted: context.educationPaymentScheduleModeDefaulted,
         paymentYearCount: context.paymentYearCount,
         includeEducationFunding,
         includeProjectedDependents: educationAssumptions.includeProjectedDependents !== false,
@@ -1267,6 +1353,10 @@
       dataGaps,
       trace: {
         source: "coverage-strategy-education-lifetime-projection",
+        educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+        educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
+        educationPaymentScheduleModeDefaulted: context.educationPaymentScheduleModeDefaulted,
+        visiblePaymentScheduleControl: false,
         currentDependentScheduleCount: currentModel.schedules.length,
         projectedDependentScheduleCount: projectedModel.timedSchedules.length,
         untimedProjectedDependentCount: untimedProjectedDependents.length,

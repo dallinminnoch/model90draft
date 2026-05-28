@@ -76,6 +76,7 @@ function runProjection(helper, overrides = {}) {
     },
     assetFacts: overrides.assetFacts,
     treatedAssetOffsets: overrides.treatedAssetOffsets,
+    coverageStrategyScenarioSettings: overrides.coverageStrategyScenarioSettings,
     educationInflationRatePercent: overrides.educationInflationRatePercent ?? 5,
     options: overrides.options || {}
   };
@@ -124,6 +125,8 @@ const currentSchedule = runProjection(helper, {
   needPoints: createNeedPoints(8)
 });
 assert.equal(currentSchedule.currentDependentSchedules.length, 1);
+assert.equal(currentSchedule.assumptionsUsed.educationPaymentScheduleMode, "fourYearAnnual");
+assert.equal(currentSchedule.currentDependentSchedules[0].trace.educationPaymentScheduleMode, "fourYearAnnual");
 assert.equal(currentSchedule.currentDependentSchedules[0].educationStartYear, 2028);
 assert.equal(
   JSON.stringify(currentSchedule.currentDependentSchedules[0].payments.map((payment) => payment.paymentYear)),
@@ -136,6 +139,57 @@ assert.equal(
 assert.equal(currentSchedule.educationPoints[0].currentDependentNeedAmount, 40000);
 assert.equal(currentSchedule.educationPoints[3].currentDependentNeedAmount, 30000);
 assert.equal(currentSchedule.educationPoints[6].currentDependentNeedAmount, 0);
+assert.equal(currentSchedule.educationPoints[0].trace.fourYearPaymentScheduleUsed, true);
+assert.equal(currentSchedule.educationPoints[0].trace.lumpSumAtStartScheduleUsed, false);
+
+const lumpSumCurrent = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: false
+    },
+    trace: {
+      fieldSources: {
+        "education.educationPaymentScheduleMode": "runtimeScenarioSettings.education.educationPaymentScheduleMode"
+      }
+    }
+  },
+  educationSupport: {
+    linkedDependentCount: 1,
+    desiredAdditionalDependentCount: 0,
+    perLinkedDependentEducationFunding: 40000,
+    linkedDependentEducationFundingNeed: 40000,
+    totalEducationFundingNeed: 40000,
+    currentDependentDetails: [
+      {
+        id: "child-a",
+        dateOfBirth: "2010-01-01"
+      }
+    ]
+  },
+  educationInflationRatePercent: 5,
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18
+  },
+  needPoints: createNeedPoints(5)
+});
+assert.equal(lumpSumCurrent.assumptionsUsed.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(lumpSumCurrent.assumptionsUsed.paymentYearCount, 1);
+assert.equal(lumpSumCurrent.currentDependentSchedules[0].payments.length, 1);
+assert.equal(lumpSumCurrent.currentDependentSchedules[0].payments[0].paymentYear, 2028);
+assert.equal(lumpSumCurrent.currentDependentSchedules[0].payments[0].amount, 40000);
+assert.equal(lumpSumCurrent.currentDependentSchedules[0].payments[0].paymentScheduleMode, "lumpSumAtStart");
+assert.equal(lumpSumCurrent.currentDependentSchedules[0].trace.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(lumpSumCurrent.educationPoints[0].currentDependentNeedAmount, 40000);
+assert.equal(lumpSumCurrent.educationPoints[2].currentDependentNeedAmount, 40000);
+assert.equal(lumpSumCurrent.educationPoints[3].currentDependentNeedAmount, 0);
+assert.equal(lumpSumCurrent.educationPoints[0].trace.fourYearPaymentScheduleUsed, false);
+assert.equal(lumpSumCurrent.educationPoints[0].trace.lumpSumAtStartScheduleUsed, true);
 
 const inflatedCurrent = runProjection(helper, {
   educationSupport: {
@@ -162,6 +216,40 @@ const inflatedCurrent = runProjection(helper, {
 assert.ok(inflatedCurrent.educationPoints[0].currentDependentNeedAmount > 40000);
 assert.equal(inflatedCurrent.currentDependentSchedules[0].payments[0].amount, 11025);
 assert.equal(inflatedCurrent.currentDependentSchedules[0].payments[0].inflationApplied, true);
+
+const inflatedLumpSum = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: false
+    }
+  },
+  educationSupport: {
+    linkedDependentCount: 1,
+    perLinkedDependentEducationFunding: 40000,
+    linkedDependentEducationFundingNeed: 40000,
+    totalEducationFundingNeed: 40000,
+    currentDependentDetails: [
+      {
+        id: "child-a",
+        dateOfBirth: "2010-01-01"
+      }
+    ]
+  },
+  educationInflationRatePercent: 5,
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: true,
+    educationStartAge: 18
+  },
+  needPoints: createNeedPoints(5)
+});
+assert.equal(inflatedLumpSum.currentDependentSchedules[0].payments.length, 1);
+assert.equal(inflatedLumpSum.currentDependentSchedules[0].payments[0].amount, 44100);
+assert.equal(inflatedLumpSum.currentDependentSchedules[0].payments[0].inflationApplied, true);
 
 const percentRate = runProjection(helper, {
   educationInflationRatePercent: 4,
@@ -248,6 +336,29 @@ assert.equal(untimedProjected.educationPoints[0].untimedProjectedDependentNeedAm
 assert.equal(untimedProjected.educationPoints[15].projectedDependentNeedAmount, 20000);
 assert.ok(issueCodes(untimedProjected.warnings).includes("projected-dependent-education-kept-through-horizon"));
 
+const lumpUntimedProjected = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: false
+    }
+  },
+  educationSupport: {
+    linkedDependentCount: 0,
+    desiredAdditionalDependentCount: 1,
+    perDesiredAdditionalDependentEducationFunding: 20000,
+    desiredAdditionalDependentEducationFundingNeed: 20000,
+    totalEducationFundingNeed: 20000,
+    currentDependentDetails: []
+  },
+  needPoints: createNeedPoints(15)
+});
+assert.equal(lumpUntimedProjected.untimedProjectedDependents.length, 1);
+assert.equal(lumpUntimedProjected.educationPoints[15].projectedDependentNeedAmount, 20000);
+assert.ok(issueCodes(lumpUntimedProjected.warnings).includes("projected-dependent-untimed-schedule-mode-not-applied"));
+
 const timedProjected = runProjection(helper, {
   educationSupport: {
     linkedDependentCount: 0,
@@ -271,6 +382,40 @@ assert.equal(timedProjected.projectedDependentSchedules[0].educationStartYear, 2
 assert.ok(issueCodes(timedProjected.warnings).includes("projected-dependent-birth-year-defaulted-to-jan-1"));
 assert.equal(timedProjected.educationPoints[12].projectedDependentNeedAmount, 20000);
 assert.equal(timedProjected.educationPoints[13].projectedDependentNeedAmount, 15000);
+
+const lumpTimedProjected = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: false
+    }
+  },
+  educationSupport: {
+    linkedDependentCount: 0,
+    desiredAdditionalDependentCount: 1,
+    perDesiredAdditionalDependentEducationFunding: 20000,
+    desiredAdditionalDependentEducationFundingNeed: 20000,
+    totalEducationFundingNeed: 20000,
+    currentDependentDetails: []
+  },
+  projectedDependents: [
+    {
+      id: "future-child",
+      expectedBirthYear: 2020
+    }
+  ],
+  needPoints: createNeedPoints(20)
+});
+assert.equal(lumpTimedProjected.projectedDependentSchedules.length, 1);
+assert.equal(lumpTimedProjected.projectedDependentSchedules[0].dateOfBirth, "2020-01-01");
+assert.equal(lumpTimedProjected.projectedDependentSchedules[0].payments.length, 1);
+assert.equal(lumpTimedProjected.projectedDependentSchedules[0].payments[0].paymentYear, 2038);
+assert.equal(lumpTimedProjected.projectedDependentSchedules[0].payments[0].amount, 20000);
+assert.equal(lumpTimedProjected.educationPoints[12].projectedDependentNeedAmount, 20000);
+assert.equal(lumpTimedProjected.educationPoints[13].projectedDependentNeedAmount, 0);
+assert.ok(issueCodes(lumpTimedProjected.warnings).includes("projected-dependent-birth-year-defaulted-to-jan-1"));
 
 const invalidProjectedBirthYear = runProjection(helper, {
   educationSupport: {
@@ -389,6 +534,64 @@ assert.ok(
 );
 assert.equal(offsetEnabled.assumptionsUsed.resourceSpendingApplied, false);
 assert.equal(offsetEnabled.assumptionsUsed.generalResourceReductionApplied, false);
+
+const lumpOffsetEnabled = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      useEducationSavingsOffset: true
+    }
+  },
+  educationSupport: {
+    linkedDependentCount: 1,
+    desiredAdditionalDependentCount: 0,
+    perLinkedDependentEducationFunding: 40000,
+    linkedDependentEducationFundingNeed: 40000,
+    totalEducationFundingNeed: 40000,
+    currentDependentDetails: [
+      {
+        id: "child-a",
+        dateOfBirth: "2010-01-01"
+      }
+    ]
+  },
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18,
+    useExistingEducationSavingsOffset: false
+  },
+  assetFacts: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        typeKey: "plan529Account",
+        currentValue: 15000
+      }
+    ]
+  },
+  treatedAssetOffsets: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        include: false,
+        treatedValue: 0
+      }
+    ]
+  },
+  needPoints: createNeedPoints(5)
+});
+assert.equal(lumpOffsetEnabled.educationSavingsOffset.active, true);
+assert.equal(lumpOffsetEnabled.educationPoints[0].grossEducationNeedAmount, 40000);
+assert.equal(lumpOffsetEnabled.educationPoints[0].educationSavingsOffsetAmount, 15000);
+assert.equal(lumpOffsetEnabled.educationPoints[0].netEducationNeedAmount, 25000);
+assert.equal(lumpOffsetEnabled.educationPoints[3].educationNeedAmount, 0);
+assert.equal(lumpOffsetEnabled.assumptionsUsed.generalResourceReductionApplied, false);
 
 const offsetDisabledWithAssets = runProjection(helper, {
   educationAssumptions: {

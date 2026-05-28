@@ -176,7 +176,7 @@ const diagnosticInput = {
     controlsVisible: false,
     education: {
       educationTreatmentMode: "planAsUnfundedNeed",
-      educationPaymentScheduleMode: "fourYearAnnual",
+      educationPaymentScheduleMode: "lumpSumAtStart",
       useEducationSavingsOffset: true,
       educationResourceSpendingMode: "off",
       projectedDependentTimingMode: "untimedKeepThroughHorizon",
@@ -192,7 +192,8 @@ const diagnosticInput = {
     },
     trace: {
       fieldSources: {
-        "education.useEducationSavingsOffset": "runtimeScenarioSettings.education.useEducationSavingsOffset"
+        "education.useEducationSavingsOffset": "runtimeScenarioSettings.education.useEducationSavingsOffset",
+        "education.educationPaymentScheduleMode": "runtimeScenarioSettings.education.educationPaymentScheduleMode"
       },
       visibleControlsAdded: false
     }
@@ -211,12 +212,22 @@ const diagnosticInput = {
         lifetimeProjection: {
           status: "complete",
           aggregateFallbackUsed: false,
+          assumptionsUsed: {
+            educationPaymentScheduleMode: "lumpSumAtStart",
+            paymentYearCount: 1,
+            resourceSpendingApplied: false,
+            generalResourceReductionApplied: false
+          },
           educationPoints: [{
             yearIndex: 0,
             grossEducationNeedAmount: 60000,
             educationSavingsOffsetAmount: 10000,
             netEducationNeedAmount: 50000,
-            educationNeedAmount: 50000
+            educationNeedAmount: 50000,
+            trace: {
+              educationPaymentScheduleMode: "lumpSumAtStart",
+              lumpSumAtStartScheduleUsed: true
+            }
           }],
           educationSavingsOffset: {
             active: true,
@@ -226,7 +237,14 @@ const diagnosticInput = {
             excludedEducationSavingsAssets: [],
             resourceReductionApplied: false
           },
-          currentDependentSchedules: [{ id: "child-a", educationStartYear: 2032 }],
+          currentDependentSchedules: [{
+            id: "child-a",
+            educationStartYear: 2032,
+            trace: {
+              educationPaymentScheduleMode: "lumpSumAtStart"
+            },
+            payments: [{ paymentYear: 2032, paymentScheduleMode: "lumpSumAtStart" }]
+          }],
           projectedDependentSchedules: [],
           untimedProjectedDependents: [{ amount: 20000 }]
         }
@@ -291,6 +309,7 @@ assert.ok(snapshot.analysisSetupAssumptions.savedAnalysisSettings);
 assert.ok(snapshot.analysisSetupAssumptions.resolvedMethodSettings);
 assert.ok(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings);
 assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.education.useEducationSavingsOffset, true);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.education.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.profileFacts);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.debtFacts);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.treatedDebtPayoff);
@@ -313,6 +332,13 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.ac
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, false);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.currentDependentSchedules[0].trace.educationPaymentScheduleMode,
+  "lumpSumAtStart"
+);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
@@ -336,6 +362,8 @@ assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /educationSavingsOffset/);
 assert.match(html, /coverageStrategyScenarioSettings/);
 assert.match(html, /educationScenarioSettingsConsumed/);
+assert.match(html, /educationPaymentScheduleMode/);
+assert.match(html, /lumpSumAtStart/);
 assert.match(html, /projectedDependentTimingRowsConsumed/);
 assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
