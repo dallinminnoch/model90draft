@@ -189,6 +189,9 @@ const diagnosticInput = {
       visibleControlsAdded: false
     }
   },
+  visibleScenarioControls: {
+    educationSavingsOffset: true
+  },
   needLine: {
     valuationDate: "2026-01-01",
     needPoints: [{ yearIndex: 0, grossNeedAmount: 1000000 }],
@@ -301,7 +304,8 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.ac
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);

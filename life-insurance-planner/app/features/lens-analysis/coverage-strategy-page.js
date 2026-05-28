@@ -691,6 +691,13 @@
     const currentStatusClass = getStatusClass(firstGapSurplusPoint?.status);
     const gapSurplusSummary = isPlainObject(gapSurplusResult?.summary) ? gapSurplusResult.summary : {};
     const projectionHorizonYears = clampProjectionHorizonYears(result?.projectionHorizonYears, result?.horizonYears);
+    const scenarioSettings = isPlainObject(result?.assumptionsUsed?.coverageStrategyScenarioSettings)
+      ? result.assumptionsUsed.coverageStrategyScenarioSettings
+      : (isPlainObject(result?.componentModels?.coverageStrategyScenarioSettings)
+        ? result.componentModels.coverageStrategyScenarioSettings
+        : {});
+    const educationSavingsOffsetEnabled =
+      scenarioSettings?.education?.useEducationSavingsOffset === true;
 
     host.innerHTML = `
       <article class="analysis-result-card coverage-need-timeline-card">
@@ -882,9 +889,28 @@
                 <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
               </div>
             </div>
-            <div class="coverage-strategy-scenario-tray-placeholder">
-              <span>Coverage layers</span>
-              <strong>Reserved</strong>
+            <div class="coverage-strategy-scenario-tray-placeholder is-education-savings">
+              <span>Education savings</span>
+              <div class="coverage-strategy-segmented-toggle" role="radiogroup" aria-label="Education savings offset">
+                <label class="coverage-strategy-segmented-option">
+                  <input
+                    type="radio"
+                    name="coverage-strategy-education-savings-offset"
+                    value="off"
+                    data-coverage-strategy-education-savings-offset
+                    ${educationSavingsOffsetEnabled ? "" : "checked"}>
+                  <span>Off</span>
+                </label>
+                <label class="coverage-strategy-segmented-option">
+                  <input
+                    type="radio"
+                    name="coverage-strategy-education-savings-offset"
+                    value="on"
+                    data-coverage-strategy-education-savings-offset
+                    ${educationSavingsOffsetEnabled ? "checked" : ""}>
+                  <span>On</span>
+                </label>
+              </div>
             </div>
             <div class="coverage-strategy-scenario-tray-placeholder">
               <span>Recalculate</span>
@@ -968,7 +994,7 @@
         builderResult.lensModel,
         cloneSettings(methodSettings.needsAnalysisSettings)
       );
-      const coverageStrategyScenarioSettings = typeof resolveCoverageStrategyScenarioSettings === "function"
+      const initialCoverageStrategyScenarioSettings = typeof resolveCoverageStrategyScenarioSettings === "function"
         ? resolveCoverageStrategyScenarioSettings({
             profileRecord,
             analysisSettings: methodSettings.needsAnalysisSettings,
@@ -978,6 +1004,12 @@
             }
           })
         : null;
+      let runtimeScenarioSettings = {
+        education: {
+          useEducationSavingsOffset:
+            initialCoverageStrategyScenarioSettings?.education?.useEducationSavingsOffset === true
+        }
+      };
       const valuationDate = needsResult?.assumptions?.valuationDate;
       const clientDateOfBirth = builderResult.lensModel?.profileFacts?.clientDateOfBirth || profileRecord.dateOfBirth;
       const age110Horizon = resolveAge110Horizon({
@@ -989,6 +1021,17 @@
       function buildAndRenderCoverageStrategy(projectionHorizonYears) {
         const safeProjectionHorizonYears = clampProjectionHorizonYears(projectionHorizonYears, selectedProjectionHorizonYears);
         selectedProjectionHorizonYears = safeProjectionHorizonYears;
+        const coverageStrategyScenarioSettings = typeof resolveCoverageStrategyScenarioSettings === "function"
+          ? resolveCoverageStrategyScenarioSettings({
+              profileRecord,
+              analysisSettings: methodSettings.needsAnalysisSettings,
+              savedScenarioSettings: profileRecord.coverageStrategyScenarioSettings,
+              runtimeScenarioSettings,
+              options: {
+                caller: "coverage-strategy-page-runtime"
+              }
+            })
+          : initialCoverageStrategyScenarioSettings;
         const needLine = buildCoverageStrategyNeedLine({
           lensModel: builderResult.lensModel,
           needsResult,
@@ -1075,6 +1118,9 @@
           gapSurplus,
           chartModel,
           coverageStrategyScenarioSettings,
+          visibleScenarioControls: {
+            educationSavingsOffset: true
+          },
           projectionHorizonYears: safeProjectionHorizonYears,
           age110Horizon,
           valuationDate,
@@ -1125,6 +1171,21 @@
         buildAndRenderCoverageStrategy(target.value);
       });
 
+      host.addEventListener("change", function (event) {
+        const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-education-savings-offset]")) {
+          return;
+        }
+        runtimeScenarioSettings = {
+          ...runtimeScenarioSettings,
+          education: {
+            ...(isPlainObject(runtimeScenarioSettings.education) ? runtimeScenarioSettings.education : {}),
+            useEducationSavingsOffset: target.value === "on"
+          }
+        };
+        buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);
+      });
+
       host.addEventListener("click", function (event) {
         const target = event.target;
         if (!target?.closest?.("[data-coverage-strategy-diagnostic-export]")) {
@@ -1142,7 +1203,11 @@
           lensModel: builderResult.lensModel,
           methodSettings,
           needsResult,
-          coverageStrategyScenarioSettings,
+          coverageStrategyScenarioSettings: currentDiagnosticExportContext?.coverageStrategyScenarioSettings
+            || initialCoverageStrategyScenarioSettings,
+          visibleScenarioControls: {
+            educationSavingsOffset: true
+          },
           projectionHorizonYears: selectedProjectionHorizonYears,
           age110Horizon,
           valuationDate,

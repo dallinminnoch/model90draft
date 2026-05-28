@@ -260,7 +260,8 @@
           || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education
           || "Not available"
         ),
-        coverageStrategyVisibleScenarioControlsAdded: false,
+        coverageStrategyVisibleScenarioControlsAdded: Boolean(safeContext.visibleScenarioControls?.educationSavingsOffset),
+        visibleScenarioControls: safeContext.visibleScenarioControls || {},
         coverageStrategyScenarioSettingsPersistence: (
           safeContext.coverageStrategyScenarioSettings?.persistenceStatus
           || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.persistenceStatus

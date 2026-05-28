@@ -20751,6 +20751,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   border-style: solid;
 }
 
+.coverage-strategy-scenario-tray-placeholder.is-education-savings {
+  border-style: solid;
+}
+
 .coverage-strategy-scenario-tray-placeholder span {
   color: color-mix(in srgb, #f7fbfb 76%, transparent);
   font-size: 0.62rem;
@@ -20766,6 +20770,52 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   font-size: 0.8rem;
   font-weight: 780;
   line-height: 1.1;
+}
+
+.coverage-strategy-segmented-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.18rem;
+  min-width: 0;
+  padding: 0.16rem;
+  border: 1px solid color-mix(in srgb, #f7fbfb 30%, transparent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, #071f20 26%, transparent);
+}
+
+.coverage-strategy-segmented-option {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.coverage-strategy-segmented-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.coverage-strategy-segmented-option span {
+  display: block;
+  min-height: 1.32rem;
+  padding: 0.24rem 0.38rem;
+  border-radius: 0.25rem;
+  color: color-mix(in srgb, #f7fbfb 76%, transparent);
+  font: 760 0.68rem/1.05 "Plus Jakarta Sans", sans-serif;
+  text-align: center;
+  text-transform: none;
+}
+
+.coverage-strategy-segmented-option input:checked + span {
+  background: color-mix(in srgb, #f7fbfb 24%, transparent);
+  color: #ffffff;
+}
+
+.coverage-strategy-segmented-option input:focus-visible + span {
+  outline: 2px solid color-mix(in srgb, #f7fbfb 70%, transparent);
+  outline-offset: 1px;
 }
 
 .coverage-strategy-diagnostic-export-button {

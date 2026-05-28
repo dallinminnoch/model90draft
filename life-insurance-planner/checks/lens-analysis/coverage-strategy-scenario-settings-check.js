@@ -310,7 +310,9 @@ const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strat
 const trayIndex = controllerSource.indexOf("coverage-strategy-scenario-tray");
 const trayEndIndex = controllerSource.indexOf("</div>", controllerSource.indexOf("is-diagnostic-export", trayIndex));
 const trayMarkup = controllerSource.slice(trayIndex, trayEndIndex);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentSchedule|useEducationSavingsOffset|projectedDependentTiming/i);
+assert.match(trayMarkup, /Education savings/);
+assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode|projectedDependentTimingRows/i);
 assert.match(controllerSource, /coverageStrategyScenarioSettings/);
 
 console.log("coverage strategy scenario settings check passed");

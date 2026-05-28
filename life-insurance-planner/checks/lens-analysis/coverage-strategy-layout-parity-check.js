@@ -95,6 +95,10 @@ assert.match(scenarioTrayMarkup, /Projection horizon/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-input/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-output/);
+assert.match(scenarioTrayMarkup, /Education savings/);
+assert.match(scenarioTrayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(scenarioTrayMarkup, />Off</);
+assert.match(scenarioTrayMarkup, />On</);
 assert.match(scenarioTrayMarkup, /Export Diagnostic PDF/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-diagnostic-export/);
 const scenarioTrayMarkupWithoutDiagnosticExport = scenarioTrayMarkup.replace(
@@ -102,6 +106,7 @@ const scenarioTrayMarkupWithoutDiagnosticExport = scenarioTrayMarkup.replace(
   ""
 );
 assert.doesNotMatch(scenarioTrayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
+assert.doesNotMatch(scenarioTrayMarkup, /educationTreatmentMode|educationPaymentScheduleMode|educationResourceSpendingMode|projectedDependentTimingRows/);
 
 assert.match(controllerSource, /Projected need/);
 assert.match(controllerSource, /Projected eligible resources/);
