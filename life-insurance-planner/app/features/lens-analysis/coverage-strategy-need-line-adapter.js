@@ -531,6 +531,7 @@
     const nonMortgageAmount = toOptionalNumber(inputs.preparedNonMortgageDebtAmount)
       ?? toOptionalNumber(inputs.rawNonMortgageDebtAmount)
       ?? Math.max(0, totalDebt - explicitMortgageAmount);
+    const nonMortgageDebtProjectionFacts = resolveNonMortgageDebtProjectionFacts(lensModel);
     let mortgageTiming = "point-in-time-payoff";
     let mortgageAmount = explicitMortgageAmount;
     let mortgageAnnualValues = [];
@@ -598,15 +599,135 @@
         remainingTermMonths: originalRemainingTermMonths,
         payoffPercent
       },
+      nonMortgageDebtProjectionFacts,
       trace: {
         source: debtRow ? "needsResult.trace.debtPayoff" : "needsResult.components.debtPayoff",
         mortgageMode: mortgageMode || null,
         mortgagePaymentPlanVersion: mortgagePlan.version || null,
         mortgageLifetimeProjectionSource: "coverage-strategy-mortgage-lifetime-projection",
-        nonMortgageAmortizationMode: "not-invented",
+        nonMortgageAmortizationMode: nonMortgageDebtProjectionFacts.length
+          ? "coverage-strategy-debt-lifetime-projection"
+          : "not-invented",
         sourcePaths: Array.isArray(debtRow?.sourcePaths) ? debtRow.sourcePaths.slice() : []
       }
     };
+  }
+
+  function isMortgageDebtProjectionFact(debt) {
+    if (!isPlainObject(debt)) {
+      return false;
+    }
+    if (debt.isMortgage === true) {
+      return true;
+    }
+    return [
+      debt.categoryKey,
+      debt.typeKey,
+      debt.sourceKey,
+      debt.label
+    ].some(function (value) {
+      const normalized = normalizeString(value).toLowerCase();
+      return normalized === "mortgagebalance"
+        || normalized === "primaryresidencemortgage"
+        || normalized === "primary residence mortgage"
+        || normalized === "mortgage";
+    });
+  }
+
+  function debtFactKey(debt) {
+    return [
+      normalizeString(debt?.debtFactId),
+      normalizeString(debt?.debtId),
+      normalizeString(debt?.id),
+      normalizeString(debt?.sourceKey),
+      normalizeString(debt?.typeKey)
+    ].filter(Boolean);
+  }
+
+  function buildRawDebtFactLookup(lensModel) {
+    const lookup = new Map();
+    const rawDebts = Array.isArray(getPath(lensModel, "debtFacts.debts"))
+      ? getPath(lensModel, "debtFacts.debts")
+      : [];
+    rawDebts.forEach(function (debt) {
+      debtFactKey(debt).forEach(function (key) {
+        if (!lookup.has(key)) {
+          lookup.set(key, debt);
+        }
+      });
+    });
+    return lookup;
+  }
+
+  function findRawDebtFact(lookup, treatedDebt) {
+    const keys = debtFactKey(treatedDebt);
+    for (let index = 0; index < keys.length; index += 1) {
+      if (lookup.has(keys[index])) {
+        return lookup.get(keys[index]);
+      }
+    }
+    return null;
+  }
+
+  function mergeDebtProjectionFact(treatedDebt, rawDebt) {
+    const rawBalance = toOptionalNumber(treatedDebt?.rawBalance)
+      ?? toOptionalNumber(rawDebt?.currentBalance)
+      ?? toOptionalNumber(treatedDebt?.currentBalance);
+    const treatedAmount = toOptionalNumber(treatedDebt?.treatedAmount);
+    const payoffPercent = toOptionalNumber(treatedDebt?.payoffPercent)
+      ?? (rawBalance != null && rawBalance > 0 && treatedAmount != null
+        ? (treatedAmount / rawBalance) * 100
+        : null);
+
+    return {
+      debtFactId: normalizeString(treatedDebt?.debtFactId || rawDebt?.debtFactId || rawDebt?.debtId || rawDebt?.id),
+      categoryKey: normalizeString(treatedDebt?.categoryKey || rawDebt?.categoryKey),
+      typeKey: normalizeString(treatedDebt?.typeKey || rawDebt?.typeKey),
+      label: normalizeString(treatedDebt?.label || rawDebt?.label),
+      sourceKey: normalizeString(treatedDebt?.sourceKey || rawDebt?.sourceKey),
+      isMortgage: treatedDebt?.isMortgage === true || rawDebt?.isMortgage === true,
+      included: treatedDebt?.included,
+      treatmentMode: treatedDebt?.treatmentMode,
+      rawBalance,
+      currentBalance: rawBalance,
+      treatedAmount,
+      payoffPercent,
+      monthlyPayment: toOptionalNumber(rawDebt?.monthlyPayment)
+        ?? toOptionalNumber(rawDebt?.minimumMonthlyPayment),
+      minimumMonthlyPayment: toOptionalNumber(rawDebt?.minimumMonthlyPayment),
+      paymentFrequency: rawDebt?.paymentFrequency || rawDebt?.minimumPaymentFrequency || "monthly",
+      interestRatePercent: toOptionalNumber(rawDebt?.interestRatePercent),
+      remainingTermMonths: toOptionalNumber(rawDebt?.remainingTermMonths),
+      metadata: isPlainObject(rawDebt?.metadata) ? clonePlainValue(rawDebt.metadata) : {}
+    };
+  }
+
+  function resolveNonMortgageDebtProjectionFacts(lensModel) {
+    const rawLookup = buildRawDebtFactLookup(lensModel);
+    const treatedDebts = Array.isArray(getPath(lensModel, "treatedDebtPayoff.debts"))
+      ? getPath(lensModel, "treatedDebtPayoff.debts")
+      : [];
+
+    if (treatedDebts.length) {
+      return treatedDebts
+        .filter(function (debt) {
+          return !isMortgageDebtProjectionFact(debt);
+        })
+        .map(function (debt) {
+          return mergeDebtProjectionFact(debt, findRawDebtFact(rawLookup, debt));
+        });
+    }
+
+    const rawDebts = Array.isArray(getPath(lensModel, "debtFacts.debts"))
+      ? getPath(lensModel, "debtFacts.debts")
+      : [];
+    return rawDebts
+      .filter(function (debt) {
+        return !isMortgageDebtProjectionFact(debt);
+      })
+      .map(function (debt) {
+        return mergeDebtProjectionFact(debt, debt);
+      });
   }
 
   function resolveMortgageLifetimeProjection(debtModel, pointSpine, valuationDateResult, warnings, dataGaps) {
@@ -644,6 +765,50 @@
     (Array.isArray(projection?.dataGaps) ? projection.dataGaps : []).forEach(function (gap) {
       if (gap?.code) {
         addUniqueIssue(dataGaps, gap.code, gap.message || "Mortgage projection data gap.", gap.details || {});
+      }
+    });
+    return projection;
+  }
+
+  function resolveDebtLifetimeProjection(debtModel, pointSpine, valuationDateResult, warnings, dataGaps) {
+    if (!debtModel || debtModel.nonMortgageAmount <= 0) {
+      return null;
+    }
+    const builder = lensAnalysis.buildDebtLifetimeProjection;
+    if (typeof builder !== "function") {
+      addUniqueIssue(
+        dataGaps,
+        "debt-lifetime-projection-helper-missing",
+        "Non-mortgage debt was treated as a flat point-in-time obligation because the lifetime projection helper was unavailable.",
+        {}
+      );
+      return null;
+    }
+    const facts = Array.isArray(debtModel.nonMortgageDebtProjectionFacts)
+      ? debtModel.nonMortgageDebtProjectionFacts
+      : [];
+    if (!facts.length) {
+      addUniqueIssue(
+        dataGaps,
+        "debt-lifetime-projection-facts-missing",
+        "Non-mortgage debt was treated as a flat point-in-time obligation because normalized debt records were unavailable.",
+        { nonMortgageAmount: debtModel.nonMortgageAmount }
+      );
+      return null;
+    }
+    const projection = builder({
+      debts: facts,
+      valuationDate: valuationDateResult?.normalizedDate,
+      needPoints: pointSpine
+    });
+    (Array.isArray(projection?.warnings) ? projection.warnings : []).forEach(function (warning) {
+      if (warning?.code) {
+        addUniqueIssue(warnings, warning.code, warning.message || "Debt projection warning.", warning.details || {});
+      }
+    });
+    (Array.isArray(projection?.dataGaps) ? projection.dataGaps : []).forEach(function (gap) {
+      if (gap?.code) {
+        addUniqueIssue(dataGaps, gap.code, gap.message || "Debt projection data gap.", gap.details || {});
       }
     });
     return projection;
@@ -844,8 +1009,21 @@
       warnings,
       dataGaps
     );
+    const debtLifetimeProjection = resolveDebtLifetimeProjection(
+      debtModel,
+      pointSpine,
+      valuationDateResult,
+      warnings,
+      dataGaps
+    );
     const mortgageProjectionByYear = new Map(
       (Array.isArray(mortgageLifetimeProjection?.mortgagePoints) ? mortgageLifetimeProjection.mortgagePoints : [])
+        .map(function (point) {
+          return [point.yearIndex, point];
+        })
+    );
+    const debtProjectionByYear = new Map(
+      (Array.isArray(debtLifetimeProjection?.debtPoints) ? debtLifetimeProjection.debtPoints : [])
         .map(function (point) {
           return [point.yearIndex, point];
         })
@@ -865,7 +1043,7 @@
       );
     }
 
-    if (debtModel.nonMortgageAmount > 0) {
+    if (debtModel.nonMortgageAmount > 0 && !debtLifetimeProjection) {
       addUniqueIssue(
         warnings,
         "non-mortgage-debt-amortization-not-invented",
@@ -902,7 +1080,10 @@
         : (debtModel.mortgageTiming === "time-bounded-payment-stream"
         ? sumRemainingAnnualValues(debtModel.mortgageAnnualValues, yearIndex)
         : debtModel.mortgageAmount);
-      const debtPayoff = debtModel.nonMortgageAmount;
+      const debtProjectionPoint = debtProjectionByYear.get(yearIndex) || null;
+      const debtPayoff = debtProjectionPoint
+        ? debtProjectionPoint.payoffObligationAmount
+        : debtModel.nonMortgageAmount;
       const education = roundMoney(
         educationModel.windowedRows.reduce(function (sum, child) {
           return yearIndex <= child.endYearIndex ? sum + child.amount : sum;
@@ -987,7 +1168,9 @@
           netCoverageGapUsedAsNeed: false,
           survivorIncomeSubtractedFromNeedLine: false,
           componentTiming: {
-            debtPayoff: "point-in-time-obligation-no-amortization-invented",
+            debtPayoff: debtProjectionPoint
+              ? "projected-non-mortgage-debt-payoff"
+              : "point-in-time-obligation-no-amortization-invented",
             mortgage: mortgageProjectionPoint
               ? `projected-payoff-${mortgageProjectionPoint.projectionMode}`
               : debtModel.mortgageTiming,
@@ -1008,6 +1191,17 @@
                 payoffObligationAmount: mortgageProjectionPoint.payoffObligationAmount,
                 remainingTermMonths: mortgageProjectionPoint.remainingTermMonths,
                 sourceFactsUsed: mortgageProjectionPoint.trace || {}
+              }
+            : null,
+          debtProjection: debtProjectionPoint
+            ? {
+                projectedDebtBalance: debtProjectionPoint.projectedDebtBalance,
+                payoffObligationAmount: debtProjectionPoint.payoffObligationAmount,
+                elapsedMonths: debtProjectionPoint.elapsedMonths,
+                debtsIncludedCount: debtProjectionPoint.debtsIncludedCount,
+                debtsFallbackCount: debtProjectionPoint.debtsFallbackCount,
+                projectionModeCounts: debtProjectionPoint.trace?.projectionModeCounts || {},
+                sourceFactsUsed: debtProjectionPoint.trace || {}
               }
             : null
         }
@@ -1048,6 +1242,18 @@
                 : 0,
               dataGapCount: Array.isArray(mortgageLifetimeProjection.dataGaps)
                 ? mortgageLifetimeProjection.dataGaps.length
+                : 0
+            }
+          : null,
+        debtLifetimeProjection: debtLifetimeProjection
+          ? {
+              status: debtLifetimeProjection.status,
+              assumptionsUsed: debtLifetimeProjection.assumptionsUsed,
+              warningCount: Array.isArray(debtLifetimeProjection.warnings)
+                ? debtLifetimeProjection.warnings.length
+                : 0,
+              dataGapCount: Array.isArray(debtLifetimeProjection.dataGaps)
+                ? debtLifetimeProjection.dataGaps.length
                 : 0
             }
           : null,

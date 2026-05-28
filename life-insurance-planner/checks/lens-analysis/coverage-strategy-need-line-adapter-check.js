@@ -21,6 +21,13 @@ const mortgageProjectionPath = path.join(
   "lens-analysis",
   "coverage-strategy-mortgage-lifetime-projection.js"
 );
+const debtProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-debt-lifetime-projection.js"
+);
 const enginePath = path.join(
   repoRoot,
   "app",
@@ -30,6 +37,7 @@ const enginePath = path.join(
 );
 const adapterSource = fs.readFileSync(adapterPath, "utf8");
 const mortgageProjectionSource = fs.readFileSync(mortgageProjectionPath, "utf8");
+const debtProjectionSource = fs.readFileSync(debtProjectionPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
 
 function loadAdapter() {
@@ -42,6 +50,7 @@ function loadAdapter() {
   context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(mortgageProjectionSource, context, { filename: mortgageProjectionPath });
+  vm.runInContext(debtProjectionSource, context, { filename: debtProjectionPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
   return context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 }
@@ -431,6 +440,182 @@ const fallbackMortgage = buildCoverageStrategyNeedLine({
 assert.ok(issueCodes(fallbackMortgage.dataGaps).includes("mortgage-projection-term-missing"));
 assert.equal(fallbackMortgage.needPoints[3].componentAmounts.mortgage, 120000);
 assert.equal(fallbackMortgage.needPoints[3].trace.mortgageProjection.projectionMode, "flatFallback");
+
+const amortizedDebt = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    debtFacts: {
+      debts: [
+        {
+          debtFactId: "auto_fact",
+          categoryKey: "securedConsumerDebt",
+          typeKey: "autoLoan",
+          sourceKey: "autoLoan",
+          label: "Auto Loan",
+          currentBalance: 12000,
+          minimumMonthlyPayment: 1000,
+          interestRatePercent: 0,
+          remainingTermMonths: 12
+        },
+        {
+          debtFactId: "student_fact",
+          categoryKey: "educationDebt",
+          typeKey: "studentLoan",
+          sourceKey: "studentLoan",
+          label: "Student Loan",
+          currentBalance: 24000,
+          minimumMonthlyPayment: 1000,
+          interestRatePercent: 0,
+          remainingTermMonths: 24
+        }
+      ]
+    },
+    treatedDebtPayoff: {
+      debts: [
+        {
+          debtFactId: "auto_fact",
+          categoryKey: "securedConsumerDebt",
+          typeKey: "autoLoan",
+          sourceKey: "autoLoan",
+          label: "Auto Loan",
+          isMortgage: false,
+          rawBalance: 12000,
+          included: true,
+          payoffPercent: 100,
+          treatedAmount: 12000,
+          treatmentMode: "payoff"
+        },
+        {
+          debtFactId: "student_fact",
+          categoryKey: "educationDebt",
+          typeKey: "studentLoan",
+          sourceKey: "studentLoan",
+          label: "Student Loan",
+          isMortgage: false,
+          rawBalance: 24000,
+          included: true,
+          payoffPercent: 100,
+          treatedAmount: 24000,
+          treatmentMode: "payoff"
+        }
+      ],
+      needs: {
+        debtPayoffAmount: 36000,
+        mortgagePayoffAmount: 0,
+        nonMortgageDebtAmount: 36000
+      }
+    },
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "payOff",
+      originalBalance: 0,
+      immediatePayoffAmount: 0,
+      payoffPercent: 100
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      ...sourceNeedsResult.components,
+      debtPayoff: 36000,
+      education: 0,
+      healthcareExpenses: 0
+    },
+    trace: sourceNeedsResult.trace.filter((row) => ![
+      "educationFundingInflation",
+      "healthcareExpenses"
+    ].includes(row.key)).map((row) => row.key === "debtPayoff"
+      ? {
+          ...row,
+          value: 36000,
+          inputs: {
+            preparedMortgagePayoffAmount: 0,
+            preparedNonMortgageDebtAmount: 36000,
+            rawMortgageAmount: 0,
+            rawNonMortgageDebtAmount: 36000
+          }
+        }
+      : row)
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 4
+});
+assert.equal(amortizedDebt.needPoints[0].componentAmounts.debtPayoff, 36000);
+assert.equal(amortizedDebt.needPoints[1].componentAmounts.debtPayoff, 12000);
+assert.equal(amortizedDebt.needPoints[2].componentAmounts.debtPayoff, 0);
+assert.equal(amortizedDebt.needPoints[4].componentAmounts.debtPayoff, 0);
+assert.equal(amortizedDebt.needPoints[1].trace.debtProjection.projectionModeCounts.amortized, 2);
+assert.equal(amortizedDebt.componentModels.debtLifetimeProjection.assumptionsUsed.debtsIncludedCount, 2);
+assert.equal(amortizedDebt.componentModels.debtAndMortgage.trace.nonMortgageAmortizationMode, "coverage-strategy-debt-lifetime-projection");
+
+const fallbackDebt = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    debtFacts: {
+      debts: [
+        {
+          debtFactId: "custom_fact",
+          categoryKey: "otherDebt",
+          typeKey: "customDebt",
+          currentBalance: 12000,
+          minimumMonthlyPayment: 300,
+          interestRatePercent: 6,
+          remainingTermMonths: null
+        }
+      ]
+    },
+    treatedDebtPayoff: {
+      debts: [
+        {
+          debtFactId: "custom_fact",
+          categoryKey: "otherDebt",
+          typeKey: "customDebt",
+          isMortgage: false,
+          rawBalance: 12000,
+          included: true,
+          payoffPercent: 100,
+          treatedAmount: 12000,
+          treatmentMode: "payoff"
+        }
+      ],
+      needs: {
+        debtPayoffAmount: 12000,
+        mortgagePayoffAmount: 0,
+        nonMortgageDebtAmount: 12000
+      }
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      ...sourceNeedsResult.components,
+      debtPayoff: 12000,
+      education: 0,
+      healthcareExpenses: 0
+    },
+    trace: sourceNeedsResult.trace.filter((row) => ![
+      "educationFundingInflation",
+      "healthcareExpenses"
+    ].includes(row.key)).map((row) => row.key === "debtPayoff"
+      ? {
+          ...row,
+          value: 12000,
+          inputs: {
+            preparedMortgagePayoffAmount: 0,
+            preparedNonMortgageDebtAmount: 12000,
+            rawMortgageAmount: 0,
+            rawNonMortgageDebtAmount: 12000
+          }
+        }
+      : row)
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 3
+});
+assert.ok(issueCodes(fallbackDebt.dataGaps).includes("debt-projection-term-missing"));
+assert.equal(fallbackDebt.needPoints[3].componentAmounts.debtPayoff, 12000);
+assert.equal(fallbackDebt.needPoints[3].trace.debtProjection.projectionModeCounts.flatFallback, 1);
+assert.equal(
+  amortizedMortgage.needPoints[5].trace.mortgageProjection.projectionMode,
+  "amortized",
+  "Mortgage lifetime projection should remain intact after adding debt projection."
+);
 
 const missingInputs = buildCoverageStrategyNeedLine({
   lensModel: {},
