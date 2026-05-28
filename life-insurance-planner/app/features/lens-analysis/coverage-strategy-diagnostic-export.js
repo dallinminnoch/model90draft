@@ -243,7 +243,8 @@
         warnings: combinedWarnings,
         dataGaps: combinedDataGaps,
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
-        debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available"
+        debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
+        healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available"
       },
       checksVersionInfo: {
         appVersion: root.version || root.appVersion || "Not available",

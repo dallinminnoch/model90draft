@@ -899,14 +899,6 @@
         { amount }
       );
     }
-    if (amount > 0) {
-      addUniqueIssue(
-        warnings,
-        "healthcare-year-level-projection-limited",
-        "Healthcare expense projection is available as an aggregate component; annual need-line allocation is conservative.",
-        { amount, projectionYears }
-      );
-    }
     return {
       amount: roundMoney(Math.max(0, amount)),
       projectionYears: projectionYears == null ? null : Math.max(0, projectionYears),
@@ -928,7 +920,6 @@
       toOptionalNumber(getPath(lensModel, "incomeBasis.insuredRetirementHorizonYears")),
       toOptionalNumber(getPath(lensModel, "survivorScenario.survivorRetirementHorizonYears")),
       debtModel.mortgageAnnualValues.length,
-      healthcareModel.projectionYears,
       ...educationModel.windowedRows.map(function (row) {
         return row.endYearIndex;
       })
@@ -964,6 +955,114 @@
       amount: roundMoney(Math.max(0, amount || 0)),
       trace: isPlainObject(trace) ? clonePlainValue(trace) : {}
     };
+  }
+
+  function getHealthcareInflationRate(analysisSettings, needsResult) {
+    return getPath(analysisSettings, "inflationAssumptions.healthcareInflationRatePercent")
+      ?? findTraceRow(needsResult, "healthcareExpenses")?.inputs?.healthcareInflationRatePercent
+      ?? null;
+  }
+
+  function appendIssues(target, issues) {
+    if (!Array.isArray(target) || !Array.isArray(issues)) {
+      return;
+    }
+    issues.forEach(function (issue) {
+      if (!isPlainObject(issue)) {
+        return;
+      }
+      target.push(clonePlainValue(issue));
+    });
+  }
+
+  function resolveHealthcareLifetimeProjection(
+    healthcareModel,
+    lensModel,
+    needsResult,
+    analysisSettings,
+    pointSpine,
+    valuationDateResult,
+    warnings,
+    dataGaps
+  ) {
+    const builder = lensAnalysis.buildCoverageStrategyHealthcareLifetimeProjection;
+    if (typeof builder !== "function") {
+      if (healthcareModel.amount > 0) {
+        addUniqueIssue(
+          dataGaps,
+          "healthcare-lifetime-schedule-unavailable",
+          "Coverage Strategy healthcare lifetime projection helper was unavailable.",
+          { fallbackAmount: healthcareModel.amount }
+        );
+        addUniqueIssue(
+          warnings,
+          "healthcare-aggregate-fallback-used",
+          "Coverage Strategy used aggregate Needs healthcare amount because the healthcare lifetime schedule was unavailable.",
+          { fallbackAmount: healthcareModel.amount, projectionYears: healthcareModel.projectionYears }
+        );
+        addUniqueIssue(
+          warnings,
+          "healthcare-year-level-projection-limited",
+          "Healthcare expense projection is available only as an aggregate fallback; annual need-line allocation is conservative.",
+          { amount: healthcareModel.amount, projectionYears: healthcareModel.projectionYears }
+        );
+      }
+      return null;
+    }
+
+    const projection = builder({
+      expenseFacts: getPath(lensModel, "expenseFacts"),
+      needPoints: pointSpine,
+      valuationDate: valuationDateResult?.normalizedDate || null,
+      clientDateOfBirth: getPath(lensModel, "profileFacts.clientDateOfBirth"),
+      healthcareInflationRatePercent: getHealthcareInflationRate(analysisSettings, needsResult),
+      options: {
+        horizonYears: pointSpine.length ? pointSpine.length - 1 : 0
+      }
+    });
+    appendIssues(warnings, projection?.warnings);
+    appendIssues(dataGaps, projection?.dataGaps);
+
+    const healthcarePoints = Array.isArray(projection?.healthcarePoints)
+      ? projection.healthcarePoints
+      : [];
+    const includedRecords = Array.isArray(projection?.includedRecords)
+      ? projection.includedRecords
+      : [];
+    if (includedRecords.length && healthcarePoints.length) {
+      return projection;
+    }
+
+    if (healthcareModel.amount > 0) {
+      addUniqueIssue(
+        dataGaps,
+        "healthcare-lifetime-schedule-unavailable",
+        "Coverage Strategy could not build a healthcare lifetime schedule from normalized expense facts.",
+        {
+          fallbackAmount: healthcareModel.amount,
+          inputExpenseFactCount: projection?.trace?.inputExpenseFactCount ?? null,
+          includedRecordCount: includedRecords.length
+        }
+      );
+      addUniqueIssue(
+        warnings,
+        "healthcare-aggregate-fallback-used",
+        "Coverage Strategy used aggregate Needs healthcare amount because no record-level healthcare schedule was available.",
+        { fallbackAmount: healthcareModel.amount, projectionYears: healthcareModel.projectionYears }
+      );
+      addUniqueIssue(
+        warnings,
+        "healthcare-year-level-projection-limited",
+        "Healthcare expense projection is available only as an aggregate fallback; annual need-line allocation is conservative.",
+        { amount: healthcareModel.amount, projectionYears: healthcareModel.projectionYears }
+      );
+      return {
+        ...projection,
+        aggregateFallbackUsed: true
+      };
+    }
+
+    return projection;
   }
 
   function buildCoverageStrategyNeedLine(input) {
@@ -1016,6 +1115,16 @@
       warnings,
       dataGaps
     );
+    const healthcareLifetimeProjection = resolveHealthcareLifetimeProjection(
+      healthcareModel,
+      lensModel,
+      needsResult,
+      analysisSettings,
+      pointSpine,
+      valuationDateResult,
+      warnings,
+      dataGaps
+    );
     const mortgageProjectionByYear = new Map(
       (Array.isArray(mortgageLifetimeProjection?.mortgagePoints) ? mortgageLifetimeProjection.mortgagePoints : [])
         .map(function (point) {
@@ -1027,6 +1136,17 @@
         .map(function (point) {
           return [point.yearIndex, point];
         })
+    );
+    const healthcareProjectionByYear = new Map(
+      (
+        healthcareLifetimeProjection?.aggregateFallbackUsed === true
+          ? []
+          : (Array.isArray(healthcareLifetimeProjection?.healthcarePoints)
+            ? healthcareLifetimeProjection.healthcarePoints
+            : [])
+      ).map(function (point) {
+        return [point.yearIndex, point];
+      })
     );
 
     const transitionNeeds = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.transitionNeeds) || 0));
@@ -1089,10 +1209,13 @@
           return yearIndex <= child.endYearIndex ? sum + child.amount : sum;
         }, 0)
       );
-      const healthcareExpenses = healthcareModel.amount > 0
+      const healthcareProjectionPoint = healthcareProjectionByYear.get(yearIndex) || null;
+      const healthcareExpenses = healthcareProjectionPoint
+        ? healthcareProjectionPoint.healthcareNeedAmount
+        : (healthcareModel.amount > 0
         && (healthcareModel.projectionYears == null || yearIndex <= healthcareModel.projectionYears)
         ? healthcareModel.amount
-        : 0;
+        : 0);
       const componentAmounts = {
         debtPayoff,
         mortgage,
@@ -1179,9 +1302,11 @@
             transitionNeeds: DEFAULT_TRANSITION_TIMING,
             education: "current-dependent-education-window-when-dated",
             finalExpenses: DEFAULT_FINAL_EXPENSE_TIMING,
-            healthcareExpenses: healthcareModel.projectionYears == null
-              ? "aggregate-active-with-data-gap"
-              : "bounded-by-healthcare-projection-years"
+            healthcareExpenses: healthcareProjectionPoint
+              ? "record-level-healthcare-lifetime-schedule"
+              : (healthcareModel.projectionYears == null
+                ? "aggregate-active-with-data-gap"
+                : "aggregate-fallback-bounded-by-healthcare-projection-years")
           },
           mortgageProjection: mortgageProjectionPoint
             ? {
@@ -1202,6 +1327,14 @@
                 debtsFallbackCount: debtProjectionPoint.debtsFallbackCount,
                 projectionModeCounts: debtProjectionPoint.trace?.projectionModeCounts || {},
                 sourceFactsUsed: debtProjectionPoint.trace || {}
+              }
+            : null,
+          healthcareProjection: healthcareProjectionPoint
+            ? {
+                healthcareNeedAmount: healthcareProjectionPoint.healthcareNeedAmount,
+                includedRecordCount: healthcareProjectionPoint.includedRecordCount,
+                excludedRecordCount: healthcareProjectionPoint.excludedRecordCount,
+                sourceFactsUsed: healthcareProjectionPoint.trace || {}
               }
             : null
         }
@@ -1258,7 +1391,31 @@
             }
           : null,
         education: educationModel,
-        healthcare: healthcareModel,
+        healthcare: {
+          ...healthcareModel,
+          lifetimeProjection: healthcareLifetimeProjection
+            ? {
+                status: healthcareLifetimeProjection.status,
+                aggregateFallbackUsed: healthcareLifetimeProjection.aggregateFallbackUsed === true,
+                assumptionsUsed: healthcareLifetimeProjection.assumptionsUsed,
+                includedRecordCount: Array.isArray(healthcareLifetimeProjection.includedRecords)
+                  ? healthcareLifetimeProjection.includedRecords.length
+                  : 0,
+                excludedRecordCount: Array.isArray(healthcareLifetimeProjection.excludedRecords)
+                  ? healthcareLifetimeProjection.excludedRecords.length
+                  : 0,
+                warningCount: Array.isArray(healthcareLifetimeProjection.warnings)
+                  ? healthcareLifetimeProjection.warnings.length
+                  : 0,
+                dataGapCount: Array.isArray(healthcareLifetimeProjection.dataGaps)
+                  ? healthcareLifetimeProjection.dataGaps.length
+                  : 0,
+                healthcarePoints: Array.isArray(healthcareLifetimeProjection.healthcarePoints)
+                  ? healthcareLifetimeProjection.healthcarePoints
+                  : []
+              }
+            : null
+        },
         transitionNeeds: {
           amount: transitionNeeds,
           timing: DEFAULT_TRANSITION_TIMING

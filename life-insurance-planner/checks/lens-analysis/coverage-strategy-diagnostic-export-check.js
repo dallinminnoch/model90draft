@@ -172,7 +172,16 @@ const diagnosticInput = {
     needPoints: [{ yearIndex: 0, grossNeedAmount: 1000000 }],
     componentModels: {
       mortgageLifetimeProjection: { assumptionsUsed: { projectionMode: "amortized" } },
-      debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } }
+      debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
+      healthcare: {
+        lifetimeProjection: {
+          status: "complete",
+          aggregateFallbackUsed: false,
+          healthcarePoints: [{ yearIndex: 0, healthcareNeedAmount: 120000 }],
+          includedRecordCount: 2,
+          excludedRecordCount: 1
+        }
+      }
     },
     warnings: [{ code: "need-warning" }],
     dataGaps: [{ code: "need-gap" }]
@@ -228,6 +237,8 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.warnings);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.dataGaps);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
 
 const html = renderHtml(snapshot);
 assert.match(html, /Coverage Strategy Diagnostic Export/);
@@ -237,6 +248,7 @@ assert.match(html, /C\. PMI \/ Protection Modeling Inputs/);
 assert.match(html, /D\. Analysis Setup \/ Assumption Controls/);
 assert.match(html, /E\. Lens Model \/ Normalized Facts Snapshot/);
 assert.match(html, /F\. Coverage Strategy Generated Outputs/);
+assert.match(html, /healthcareLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);
 

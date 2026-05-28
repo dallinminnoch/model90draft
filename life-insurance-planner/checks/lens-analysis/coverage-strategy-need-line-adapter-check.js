@@ -28,6 +28,13 @@ const debtProjectionPath = path.join(
   "lens-analysis",
   "coverage-strategy-debt-lifetime-projection.js"
 );
+const healthcareProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-healthcare-lifetime-projection.js"
+);
 const enginePath = path.join(
   repoRoot,
   "app",
@@ -38,6 +45,7 @@ const enginePath = path.join(
 const adapterSource = fs.readFileSync(adapterPath, "utf8");
 const mortgageProjectionSource = fs.readFileSync(mortgageProjectionPath, "utf8");
 const debtProjectionSource = fs.readFileSync(debtProjectionPath, "utf8");
+const healthcareProjectionSource = fs.readFileSync(healthcareProjectionPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
 
 function loadAdapter() {
@@ -51,6 +59,7 @@ function loadAdapter() {
   vm.createContext(context);
   vm.runInContext(mortgageProjectionSource, context, { filename: mortgageProjectionPath });
   vm.runInContext(debtProjectionSource, context, { filename: debtProjectionPath });
+  vm.runInContext(healthcareProjectionSource, context, { filename: healthcareProjectionPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
   return context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 }
@@ -616,6 +625,79 @@ assert.equal(
   "amortized",
   "Mortgage lifetime projection should remain intact after adding debt projection."
 );
+
+const healthcareLifetime = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    profileFacts: {
+      clientDateOfBirth: "1980-01-01"
+    },
+    expenseFacts: {
+      expenses: [
+        {
+          expenseFactId: "healthcare-until-age",
+          typeKey: "medicalOutOfPocket",
+          categoryKey: "ongoingHealthcare",
+          label: "Medical Out-of-Pocket",
+          amount: 150,
+          frequency: "monthly",
+          termType: "untilAge",
+          endAge: 85,
+          isHealthcareSensitive: true,
+          isFinalExpenseComponent: false,
+          sourcePath: "expenseFacts.expenses[0]"
+        },
+        {
+          expenseFactId: "healthcare-ongoing",
+          typeKey: "visionOutOfPocket",
+          categoryKey: "visionCare",
+          label: "Vision Out-of-Pocket",
+          amount: 90,
+          frequency: "annual",
+          termType: "ongoing",
+          isHealthcareSensitive: true,
+          isFinalExpenseComponent: false,
+          sourcePath: "expenseFacts.expenses[1]"
+        }
+      ]
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      ...sourceNeedsResult.components,
+      healthcareExpenses: 180820.7
+    },
+    trace: sourceNeedsResult.trace.map((row) => row.key === "healthcareExpenses"
+      ? {
+          ...row,
+          value: 180820.7,
+          inputs: {
+            enabled: true,
+            projectionYears: 10,
+            projectedHealthcareExpenseAmount: 180820.7,
+            healthcareInflationRatePercent: 4.25
+          }
+        }
+      : row)
+  }),
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 4.25
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 17
+});
+assert.ok(
+  healthcareLifetime.needPoints[0].componentAmounts.healthcareExpenses
+    > healthcareLifetime.needPoints[10].componentAmounts.healthcareExpenses,
+  "Healthcare lifetime schedule should decline as until-age duration burns down."
+);
+assert.ok(
+  healthcareLifetime.needPoints[11].componentAmounts.healthcareExpenses > 0,
+  "Healthcare should not drop to zero solely because internal projectionYears ended."
+);
+assert.ok(!issueCodes(healthcareLifetime.warnings).includes("healthcare-year-level-projection-limited"));
+assert.equal(healthcareLifetime.componentModels.healthcare.lifetimeProjection.aggregateFallbackUsed, false);
 
 const missingInputs = buildCoverageStrategyNeedLine({
   lensModel: {},
