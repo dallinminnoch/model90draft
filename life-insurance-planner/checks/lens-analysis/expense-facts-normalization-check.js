@@ -477,7 +477,10 @@ assert.equal(recordFirstHealthcareFact.categoryKey, "otherLivingExpense", "start
 assert.equal(recordFirstHealthcareFact.compressionCategoryKey, "ongoingHealthcare");
 assert.equal(recordFirstHealthcareFact.isHealthcareSensitive, false);
 assert.equal(recordFirstHealthcareFact.isFormulaEligible, false);
+assert.equal(recordFirstHealthcareFact.sourceOwnedBy, "ongoingSupport");
 assert.equal(recordFirstHealthcareFact.ownedByField, "monthlyHealthcareOutOfPocketCost");
+assert.equal(recordFirstHealthcareFact.metadata.normalizedSourcePath, "lensModel.ongoingSupport.monthlyHealthcareOutOfPocketCost");
+assert.equal(recordFirstHealthcareFact.metadata.compressionCategoryKey, "ongoingHealthcare");
 assert.equal(findExpenseFact(recordFirstCommonFacts, "householdTransportation", "starter_expense_blank_transportation"), null);
 
 const repeatableExpenseSource = createSourceData({

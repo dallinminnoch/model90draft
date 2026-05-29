@@ -289,22 +289,56 @@
       || /debt/i.test(typeKey);
   }
 
+  function isHealthcareCategoryKey(categoryKey) {
+    return HEALTHCARE_CATEGORY_KEYS.indexOf(normalizeString(categoryKey)) !== -1;
+  }
+
+  function isSupportOwnedHealthcareLookingFact(fact) {
+    if (!isPlainObject(fact)) {
+      return false;
+    }
+    const typeKey = normalizeString(fact.typeKey);
+    const categoryKey = normalizeString(fact.categoryKey);
+    const compressionCategoryKey = normalizeString(fact.compressionCategoryKey || fact.metadata?.compressionCategoryKey);
+    const ownedByField = normalizeString(fact.ownedByField || fact.metadata?.ownedByField);
+    const sourceOwnedBy = normalizeString(fact.sourceOwnedBy || fact.metadata?.sourceOwnedBy);
+    return typeKey === "medicalOutOfPocket"
+      && categoryKey === "otherLivingExpense"
+      && isHealthcareCategoryKey(compressionCategoryKey)
+      && (ownedByField === "monthlyHealthcareOutOfPocketCost" || sourceOwnedBy === "ongoingSupport")
+      && fact.isHealthcareSensitive === false;
+  }
+
   function createExcludedRecord(fact, index, code, message) {
     const safeFact = isPlainObject(fact) ? fact : {};
+    const compressionCategoryKey = safeFact.compressionCategoryKey || safeFact.metadata?.compressionCategoryKey || null;
+    const ownedByField = safeFact.ownedByField || safeFact.metadata?.ownedByField || null;
+    const sourceOwnedBy = safeFact.sourceOwnedBy || safeFact.metadata?.sourceOwnedBy || null;
+    const supportOwnedHealthcareLike = code === "support-owned-healthcare-expense-excluded";
     return {
       expenseFactId: safeFact.expenseFactId || null,
       expenseRecordId: safeFact.expenseRecordId || null,
       sourcePath: safeFact.sourcePath || `expenseFacts.expenses[${index}]`,
       typeKey: safeFact.typeKey || null,
       categoryKey: safeFact.categoryKey || null,
+      compressionCategoryKey,
       label: safeFact.label || safeFact.typeKey || null,
       exclusionCode: code,
       exclusionReason: message,
       trace: {
+        typeKey: safeFact.typeKey || null,
+        categoryKey: safeFact.categoryKey || null,
+        compressionCategoryKey,
+        ownedByField,
+        sourceOwnedBy,
         isHealthcareSensitive: safeFact.isHealthcareSensitive === true,
         isFinalExpenseComponent: safeFact.isFinalExpenseComponent === true,
+        defaultInflationRole: safeFact.defaultInflationRole || null,
+        sourcePath: safeFact.sourcePath || `expenseFacts.expenses[${index}]`,
         sourceKey: safeFact.sourceKey || null,
-        source: safeFact.source || null
+        source: safeFact.source || null,
+        overlapRiskWithEssentialSupport: supportOwnedHealthcareLike,
+        mathChanged: false
       }
     };
   }
@@ -336,6 +370,17 @@
           index,
           "debt-like-healthcare-excluded",
           "Debt and generated debt-payment facts are handled by debt projection."
+        )
+      };
+    }
+    if (isSupportOwnedHealthcareLookingFact(fact)) {
+      return {
+        included: false,
+        record: createExcludedRecord(
+          fact,
+          index,
+          "support-owned-healthcare-expense-excluded",
+          "Healthcare-looking expense is owned by ongoing support through monthlyHealthcareOutOfPocketCost and is excluded from healthcare lifetime projection to avoid double-counting."
         )
       };
     }
@@ -709,6 +754,39 @@
       includedRecords.push(record);
     });
 
+    const supportOwnedHealthcareExcludedRecords = excludedRecords.filter(function (record) {
+      return record && record.exclusionCode === "support-owned-healthcare-expense-excluded";
+    });
+    if (supportOwnedHealthcareExcludedRecords.length) {
+      addIssue(
+        warnings,
+        "support-owned-healthcare-expense-excluded-from-healthcare-lifetime",
+        "A healthcare-looking expense is already owned by ongoing support and was excluded from healthcare lifetime projection to avoid double-counting. Review ownership if the intent is to model it as healthcare-specific lifetime need.",
+        {
+          supportOwnedHealthcareExpenseExcludedCount: supportOwnedHealthcareExcludedRecords.length,
+          sourcePaths: [
+            "expenseFacts.expenses",
+            "ongoingSupport.monthlyHealthcareOutOfPocketCost",
+            "coverageStrategy.healthcareLifetimeProjection"
+          ],
+          excludedRecords: supportOwnedHealthcareExcludedRecords.map(function (record) {
+            return {
+              expenseFactId: record.expenseFactId || null,
+              expenseRecordId: record.expenseRecordId || null,
+              typeKey: record.typeKey || null,
+              categoryKey: record.categoryKey || null,
+              compressionCategoryKey: record.compressionCategoryKey || null,
+              ownedByField: record.trace?.ownedByField || null,
+              sourceOwnedBy: record.trace?.sourceOwnedBy || null,
+              sourcePath: record.sourcePath || null,
+              overlapRiskWithEssentialSupport: record.trace?.overlapRiskWithEssentialSupport === true,
+              mathChanged: false
+            };
+          })
+        }
+      );
+    }
+
     const healthcarePoints = needPoints.map(function (point) {
       const yearIndex = Math.max(0, Math.round(toOptionalNumber(point?.yearIndex) || 0));
       const pointIncludedRecords = [];
@@ -744,6 +822,7 @@
           source: "coverage-strategy-healthcare-lifetime-projection",
           projectionMode: "record-level-lifetime-schedule",
           healthcareInflationAnnualRate: roundRatio(context.healthcareInflationAnnualRate),
+          supportOwnedHealthcareExpenseExcludedCount: supportOwnedHealthcareExcludedRecords.length,
           projectionYearsCutoffUsed: false
         }
       };
@@ -755,6 +834,8 @@
       healthcarePoints,
       includedRecords: includedRecords.map(clonePlainValue),
       excludedRecords: excludedRecords.map(clonePlainValue),
+      supportOwnedHealthcareExpenseExcludedCount: supportOwnedHealthcareExcludedRecords.length,
+      healthcareLookingExcludedRecords: supportOwnedHealthcareExcludedRecords.map(clonePlainValue),
       assumptionsUsed: {
         valuationDate: valuationDateResult ? valuationDateResult.normalizedDate : null,
         clientDateOfBirth: clientDateOfBirth || null,
@@ -774,6 +855,7 @@
         inputExpenseFactCount: getExpenseFactArray(safeInput.expenseFacts).length,
         includedRecordCount: includedRecords.length,
         excludedRecordCount: excludedRecords.length,
+        supportOwnedHealthcareExpenseExcludedCount: supportOwnedHealthcareExcludedRecords.length,
         pointCount: healthcarePoints.length,
         displayHtmlUsed: false,
         storageUsed: false,

@@ -897,6 +897,65 @@ assert.ok(
 assert.ok(!issueCodes(healthcareLifetime.warnings).includes("healthcare-year-level-projection-limited"));
 assert.equal(healthcareLifetime.componentModels.healthcare.lifetimeProjection.aggregateFallbackUsed, false);
 
+const supportOwnedHealthcareNeedLine = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    expenseFacts: {
+      expenses: [
+        {
+          expenseFactId: "expense_record_starter_expense_medicalOutOfPocket",
+          expenseRecordId: "starter_expense_medicalOutOfPocket",
+          typeKey: "medicalOutOfPocket",
+          categoryKey: "otherLivingExpense",
+          compressionCategoryKey: "ongoingHealthcare",
+          label: "Healthcare / Out-of-Pocket Medical",
+          amount: 150,
+          frequency: "monthly",
+          termType: "ongoing",
+          sourceOwnedBy: "ongoingSupport",
+          ownedByField: "monthlyHealthcareOutOfPocketCost",
+          isHealthcareSensitive: false,
+          defaultInflationRole: "householdInflation",
+          sourcePath: "protectionModeling.data.expenseRecords[1]"
+        }
+      ]
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      ...sourceNeedsResult.components,
+      healthcareExpenses: 0
+    },
+    trace: sourceNeedsResult.trace.filter((row) => row.key !== "healthcareExpenses")
+  }),
+  analysisSettings: {
+    inflationAssumptions: {
+      healthcareInflationRatePercent: 4.25
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(supportOwnedHealthcareNeedLine.needPoints[0].componentAmounts.healthcareExpenses, 0);
+assert.equal(supportOwnedHealthcareNeedLine.needPoints[5].componentAmounts.healthcareExpenses, 0);
+assert.ok(issueCodes(supportOwnedHealthcareNeedLine.warnings).includes("support-owned-healthcare-expense-excluded-from-healthcare-lifetime"));
+assert.equal(
+  supportOwnedHealthcareNeedLine.componentModels.healthcare.lifetimeProjection.supportOwnedHealthcareExpenseExcludedCount,
+  1
+);
+assert.equal(
+  supportOwnedHealthcareNeedLine.componentModels.healthcare.lifetimeProjection.healthcareLookingExcludedRecords[0].exclusionCode,
+  "support-owned-healthcare-expense-excluded"
+);
+assert.equal(
+  supportOwnedHealthcareNeedLine.componentModels.healthcare.lifetimeProjection.healthcareLookingExcludedRecords[0].trace.ownedByField,
+  "monthlyHealthcareOutOfPocketCost"
+);
+assert.equal(
+  supportOwnedHealthcareNeedLine.componentModels.healthcare.lifetimeProjection.warnings[0].code,
+  "support-owned-healthcare-expense-excluded-from-healthcare-lifetime"
+);
+assert.ok(!issueCodes(supportOwnedHealthcareNeedLine.warnings).includes("healthcare-aggregate-fallback-used"));
+
 const finalExpenseLifetime = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({
     finalExpenses: {

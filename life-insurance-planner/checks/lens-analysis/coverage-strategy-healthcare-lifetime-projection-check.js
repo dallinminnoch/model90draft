@@ -55,6 +55,9 @@ function createHealthcareFact(overrides = {}) {
     endDate: overrides.endDate ?? null,
     annualizedAmount: overrides.annualizedAmount,
     oneTimeAmount: overrides.oneTimeAmount,
+    compressionCategoryKey: overrides.compressionCategoryKey,
+    sourceOwnedBy: overrides.sourceOwnedBy,
+    ownedByField: overrides.ownedByField,
     source: overrides.source || "protectionModeling.data.expenseRecords",
     sourceKey: overrides.sourceKey || "expenseRecords",
     sourcePath: overrides.sourcePath || "expenseFacts.expenses[0]",
@@ -126,6 +129,46 @@ assert.ok(issueCodes(inclusionResult.warnings).includes("healthcare-duration-def
 assert.equal(inclusionResult.includedRecords.find((record) => record.expenseFactId === "blank").durationSource, "coverageStrategyDefaultOngoing");
 assert.ok(inclusionResult.healthcarePoints[17].healthcareNeedAmount > 0, "ongoing healthcare should run through the Coverage Strategy horizon");
 assert.equal(inclusionResult.assumptionsUsed.internalHealthcareProjectionYearsCutoffUsed, false);
+
+const supportOwnedMedicalResult = runProjection(helper, {
+  healthcareInflationRatePercent: 0,
+  needPoints: createNeedPoints(5),
+  expenses: [
+    createHealthcareFact({
+      expenseFactId: "expense_record_starter_expense_medicalOutOfPocket",
+      expenseRecordId: "starter_expense_medicalOutOfPocket",
+      typeKey: "medicalOutOfPocket",
+      categoryKey: "otherLivingExpense",
+      compressionCategoryKey: "ongoingHealthcare",
+      label: "Healthcare / Out-of-Pocket Medical",
+      amount: 150,
+      frequency: "monthly",
+      termType: "ongoing",
+      sourceOwnedBy: "ongoingSupport",
+      ownedByField: "monthlyHealthcareOutOfPocketCost",
+      isHealthcareSensitive: false,
+      defaultInflationRole: "householdInflation",
+      sourcePath: "protectionModeling.data.expenseRecords[1]"
+    })
+  ]
+});
+const supportOwnedMedicalRecord = supportOwnedMedicalResult.excludedRecords.find((record) => (
+  record.exclusionCode === "support-owned-healthcare-expense-excluded"
+));
+assert.ok(supportOwnedMedicalRecord, "support-owned medical out-of-pocket should have a specific exclusion code");
+assert.match(supportOwnedMedicalRecord.exclusionReason, /ongoing support/i);
+assert.match(supportOwnedMedicalRecord.exclusionReason, /double-count/i);
+assert.equal(supportOwnedMedicalRecord.trace.compressionCategoryKey, "ongoingHealthcare");
+assert.equal(supportOwnedMedicalRecord.trace.ownedByField, "monthlyHealthcareOutOfPocketCost");
+assert.equal(supportOwnedMedicalRecord.trace.sourceOwnedBy, "ongoingSupport");
+assert.equal(supportOwnedMedicalRecord.trace.overlapRiskWithEssentialSupport, true);
+assert.equal(supportOwnedMedicalRecord.trace.mathChanged, false);
+assert.equal(supportOwnedMedicalResult.supportOwnedHealthcareExpenseExcludedCount, 1);
+assert.equal(supportOwnedMedicalResult.healthcareLookingExcludedRecords.length, 1);
+assert.ok(issueCodes(supportOwnedMedicalResult.warnings).includes("support-owned-healthcare-expense-excluded-from-healthcare-lifetime"));
+assert.equal(supportOwnedMedicalResult.healthcarePoints[0].healthcareNeedAmount, 0);
+assert.equal(supportOwnedMedicalResult.healthcarePoints[5].healthcareNeedAmount, 0);
+assert.equal(supportOwnedMedicalResult.healthcarePoints[0].trace.supportOwnedHealthcareExpenseExcludedCount, 1);
 
 const fixedYearsResult = runProjection(helper, {
   healthcareInflationRatePercent: 0,

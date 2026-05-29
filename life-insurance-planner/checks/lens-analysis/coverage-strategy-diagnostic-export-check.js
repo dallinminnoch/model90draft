@@ -256,7 +256,47 @@ const diagnosticInput = {
           aggregateFallbackUsed: false,
           healthcarePoints: [{ yearIndex: 0, healthcareNeedAmount: 120000 }],
           includedRecordCount: 2,
-          excludedRecordCount: 1
+          excludedRecordCount: 1,
+          supportOwnedHealthcareExpenseExcludedCount: 1,
+          healthcareLookingExcludedRecords: [{
+            expenseFactId: "expense_record_starter_expense_medicalOutOfPocket",
+            typeKey: "medicalOutOfPocket",
+            categoryKey: "otherLivingExpense",
+            compressionCategoryKey: "ongoingHealthcare",
+            exclusionCode: "support-owned-healthcare-expense-excluded",
+            exclusionReason: "Healthcare-looking expense is owned by ongoing support through monthlyHealthcareOutOfPocketCost and is excluded from healthcare lifetime projection to avoid double-counting.",
+            trace: {
+              ownedByField: "monthlyHealthcareOutOfPocketCost",
+              sourceOwnedBy: "ongoingSupport",
+              overlapRiskWithEssentialSupport: true,
+              mathChanged: false
+            }
+          }],
+          excludedRecords: [{
+            expenseFactId: "expense_record_starter_expense_medicalOutOfPocket",
+            typeKey: "medicalOutOfPocket",
+            categoryKey: "otherLivingExpense",
+            compressionCategoryKey: "ongoingHealthcare",
+            exclusionCode: "support-owned-healthcare-expense-excluded",
+            exclusionReason: "Healthcare-looking expense is owned by ongoing support through monthlyHealthcareOutOfPocketCost and is excluded from healthcare lifetime projection to avoid double-counting.",
+            trace: {
+              ownedByField: "monthlyHealthcareOutOfPocketCost",
+              sourceOwnedBy: "ongoingSupport",
+              defaultInflationRole: "householdInflation",
+              overlapRiskWithEssentialSupport: true,
+              mathChanged: false
+            }
+          }],
+          warnings: [{
+            code: "support-owned-healthcare-expense-excluded-from-healthcare-lifetime",
+            details: {
+              sourcePaths: [
+                "expenseFacts.expenses",
+                "ongoingSupport.monthlyHealthcareOutOfPocketCost",
+                "coverageStrategy.healthcareLifetimeProjection"
+              ]
+            }
+          }]
         }
       },
       finalExpenses: {
@@ -348,6 +388,19 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.p
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.supportOwnedHealthcareExpenseExcludedCount, 1);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.healthcareLookingExcludedRecords[0].exclusionCode,
+  "support-owned-healthcare-expense-excluded"
+);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.healthcareLookingExcludedRecords[0].trace.ownedByField,
+  "monthlyHealthcareOutOfPocketCost"
+);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.warnings[0].code,
+  "support-owned-healthcare-expense-excluded-from-healthcare-lifetime"
+);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection.staticFallbackUsed, false);
 
@@ -360,6 +413,8 @@ assert.match(html, /D\. Analysis Setup \/ Assumption Controls/);
 assert.match(html, /E\. Lens Model \/ Normalized Facts Snapshot/);
 assert.match(html, /F\. Coverage Strategy Generated Outputs/);
 assert.match(html, /healthcareLifetimeProjection/);
+assert.match(html, /support-owned-healthcare-expense-excluded/);
+assert.match(html, /monthlyHealthcareOutOfPocketCost/);
 assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /educationSavingsOffset/);
 assert.match(html, /coverageStrategyScenarioSettings/);

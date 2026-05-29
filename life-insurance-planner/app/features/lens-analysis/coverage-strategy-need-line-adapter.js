@@ -1817,6 +1817,20 @@
                 dataGapCount: Array.isArray(healthcareLifetimeProjection.dataGaps)
                   ? healthcareLifetimeProjection.dataGaps.length
                   : 0,
+                warnings: Array.isArray(healthcareLifetimeProjection.warnings)
+                  ? healthcareLifetimeProjection.warnings
+                  : [],
+                dataGaps: Array.isArray(healthcareLifetimeProjection.dataGaps)
+                  ? healthcareLifetimeProjection.dataGaps
+                  : [],
+                supportOwnedHealthcareExpenseExcludedCount:
+                  healthcareLifetimeProjection.supportOwnedHealthcareExpenseExcludedCount || 0,
+                healthcareLookingExcludedRecords: Array.isArray(healthcareLifetimeProjection.healthcareLookingExcludedRecords)
+                  ? healthcareLifetimeProjection.healthcareLookingExcludedRecords
+                  : [],
+                excludedRecords: Array.isArray(healthcareLifetimeProjection.excludedRecords)
+                  ? healthcareLifetimeProjection.excludedRecords
+                  : [],
                 healthcarePoints: Array.isArray(healthcareLifetimeProjection.healthcarePoints)
                   ? healthcareLifetimeProjection.healthcarePoints
                   : []
