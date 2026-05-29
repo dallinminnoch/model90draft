@@ -112,10 +112,10 @@ assert.match(scenarioTrayMarkup, /Projection horizon/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-input/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-output/);
-assert.match(scenarioTrayMarkup, /Education savings/);
-assert.match(scenarioTrayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(scenarioTrayMarkup, /Education resources/);
+assert.match(scenarioTrayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(scenarioTrayMarkup, />Off</);
-assert.match(scenarioTrayMarkup, />On</);
+assert.match(scenarioTrayMarkup, />Savings</);
 assert.match(scenarioTrayMarkup, /Education schedule/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(scenarioTrayMarkup, />4-year</);
@@ -130,7 +130,7 @@ const scenarioTrayInteractiveMarkupWithoutReservedOrExport = scenarioTrayMarkup
   .replace(/<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/, "")
   .replace(/<button[\s\S]*?data-scenario-reserved="true"[\s\S]*?<\/button>/g, "");
 assert.doesNotMatch(scenarioTrayInteractiveMarkupWithoutReservedOrExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
-assert.doesNotMatch(scenarioTrayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
+assert.doesNotMatch(scenarioTrayMarkup, /educationTreatmentMode|custom schedule|savings then eligible resources/i);
 
 assert.match(controllerSource, /Projected need/);
 assert.match(controllerSource, /Projected eligible resources/);

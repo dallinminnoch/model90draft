@@ -380,15 +380,15 @@ assert.doesNotMatch(analysisSetupSource, /useExistingEducationSavingsOffset/);
 const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
 const trayIndex = controllerSource.indexOf("coverage-strategy-scenario-tray");
 const trayMarkup = trayIndex >= 0 ? controllerSource.slice(trayIndex) : "";
-assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(trayMarkup, /Education resources/);
+assert.match(trayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, /value="fourYearAnnual"/);
 assert.match(trayMarkup, /value="lumpSumAtStart"/);
 assert.match(controllerSource, /Projected dependents/);
 assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|custom schedule|savings then eligible resources/i);
 assert.match(controllerSource, /coverageStrategyScenarioSettings/);
 
 console.log("coverage strategy scenario settings check passed");

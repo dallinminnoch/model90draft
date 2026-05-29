@@ -135,8 +135,8 @@ assert.match(controllerSource, /Projected dependents/);
 assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
 assert.match(controllerSource, /data-projected-dependent-id/);
 assert.match(controllerSource, /Birth year/);
-assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(trayMarkup, /Education resources/);
+assert.match(trayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, /value="fourYearAnnual"/);
@@ -144,7 +144,7 @@ assert.match(trayMarkup, /value="lumpSumAtStart"/);
 assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /Export Diagnostic Report/);
 assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|custom schedule|savings then eligible resources/i);
 assert.match(controllerSource, /runtimeScenarioSettings/);
 assert.match(controllerSource, /projectedDependentTimingRows/);
 assert.match(controllerSource, /validateProjectedDependentBirthYear/);
@@ -284,7 +284,8 @@ const snapshot = buildSnapshot({
   coverageStrategyScenarioSettings: timedSettings,
   visibleScenarioControls: {
     projectionHorizon: true,
-    educationSavingsOffset: true,
+    educationResourceSpendingMode: true,
+    educationResourceSpending: true,
     educationPaymentScheduleMode: true,
     educationPaymentSchedule: true,
     projectedDependentBirthYear: true,

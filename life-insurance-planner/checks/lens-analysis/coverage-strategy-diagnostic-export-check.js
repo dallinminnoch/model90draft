@@ -202,7 +202,8 @@ const diagnosticInput = {
   },
   visibleScenarioControls: {
     projectionHorizon: true,
-    educationSavingsOffset: true,
+    educationResourceSpendingMode: true,
+    educationResourceSpending: true,
     educationPaymentScheduleMode: true,
     educationPaymentSchedule: true,
     projectedDependentBirthYear: true,
@@ -411,7 +412,7 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleM
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingMode, "off");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpending.effectiveMode, "eligibleResourcesAfterEducationSavings");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingTrace.broaderEligibleResourceStatus, "unavailable");
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.currentDependentSchedules[0].trace.educationPaymentScheduleMode,
@@ -419,7 +420,8 @@ assert.equal(
 );
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpendingMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpending, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentSchedule, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);

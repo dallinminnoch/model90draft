@@ -157,7 +157,9 @@ const analysisSetupSource = readRepoFile("pages/analysis-setup.html");
 
 assert.match(scenarioSettingsSource, /eligibleResourcesAfterEducationSavings/);
 assert.match(educationProjectionSource, /education-eligible-resource-spending-source-unavailable/);
-assert.doesNotMatch(controllerSource, /data-coverage-strategy-education-resource-spending|educationResourceSpendingMode/);
+assert.match(controllerSource, /data-coverage-strategy-education-resource-spending/);
+assert.match(controllerSource, /educationResourceSpendingMode:\s*mode/);
+assert.doesNotMatch(controllerSource, /eligibleResourcesAfterEducationSavings/);
 assert.doesNotMatch(analysisSetupSource, /educationResourceSpendingMode|data-coverage-strategy-education-resource-spending/);
 assert.doesNotMatch(resourceAdapterSource, /educationResourceSpendingMode|educationResourceSpending|useEducationSavingsOffset/);
 
@@ -300,7 +302,8 @@ const snapshot = buildSnapshot({
   coverageStrategyScenarioSettings: explicitEligibleResourcesSettings,
   visibleScenarioControls: {
     projectionHorizon: true,
-    educationSavingsOffset: true,
+    educationResourceSpendingMode: true,
+    educationResourceSpending: true,
     educationPaymentScheduleMode: true,
     educationPaymentSchedule: true,
     projectedDependentBirthYear: true,
@@ -310,8 +313,9 @@ const snapshot = buildSnapshot({
 });
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingMode, "eligibleResourcesAfterEducationSavings");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpending.effectiveMode, "eligibleResourcesAfterEducationSavings");
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, false);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpending, undefined);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpendingMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpending, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingTrace.broaderEligibleResourceStatus, "unavailable");
 assert.ok(
   issueCodes(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.dataGaps)

@@ -52,10 +52,10 @@ assert.match(trayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-output/);
 assert.match(trayMarkup, /coverage-strategy-horizon-value-row/);
 assert.match(trayMarkup, /coverage-strategy-horizon-range-labels/);
-assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(trayMarkup, /Education resources/);
+assert.match(trayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(trayMarkup, />Off</);
-assert.match(trayMarkup, />On</);
+assert.match(trayMarkup, />Savings</);
 assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, />4-year</);
@@ -68,7 +68,7 @@ assert.match(trayMarkup, /data-coverage-strategy-diagnostic-export/);
 assert.match(trayMarkup, /coverage-strategy-scenario-footer/);
 assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
 
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending|Social Security|Tax Bracket|State of Residence|Life Expectancy/i);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|custom schedule|savings then eligible resources|Social Security|Tax Bracket|State of Residence|Life Expectancy/i);
 assert.doesNotMatch(trayMarkup, /localStorage|sessionStorage/);
 assert.doesNotMatch(controllerSource, /localStorage\.setItem|sessionStorage\.setItem/);
 assert.doesNotMatch(analysisSetupSource, /coverage-strategy-scenario-tabs|coverage-strategy-scenario-action|data-scenario-reserved="true"/);
@@ -120,7 +120,8 @@ assert.doesNotMatch(stylesSource, /coverage-strategy-scenario-tray|coverage-stra
 
 assert.match(diagnosticSource, /visibleScenarioControls/);
 assert.match(controllerSource, /projectionHorizon: true/);
-assert.match(controllerSource, /educationSavingsOffset: true/);
+assert.match(controllerSource, /educationResourceSpendingMode: true/);
+assert.match(controllerSource, /educationResourceSpending: true/);
 assert.match(controllerSource, /educationPaymentScheduleMode: true/);
 assert.match(controllerSource, /educationPaymentSchedule: true/);
 assert.match(controllerSource, /projectedDependentBirthYear: projectedDependentBirthYearControlVisible/);

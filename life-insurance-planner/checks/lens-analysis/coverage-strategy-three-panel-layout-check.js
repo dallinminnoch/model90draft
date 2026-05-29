@@ -93,10 +93,10 @@ assert.match(trayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-output/);
 assert.match(trayMarkup, /coverage-strategy-horizon-value-row/);
 assert.match(trayMarkup, /coverage-strategy-horizon-range-labels/);
-assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(trayMarkup, /Education resources/);
+assert.match(trayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(trayMarkup, />Off</);
-assert.match(trayMarkup, />On</);
+assert.match(trayMarkup, />Savings</);
 assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, />4-year</);
@@ -113,7 +113,7 @@ const trayMarkupWithoutDiagnosticExport = trayMarkup.replace(
   ""
 ).replace(/<button[\s\S]*?data-scenario-reserved="true"[\s\S]*?<\/button>/g, "");
 assert.doesNotMatch(trayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|custom schedule|savings then eligible resources/i);
 
 const beforeWorkspace = controllerSource.slice(0, indexOfRequired(controllerSource, "coverage-strategy-workspace", "Coverage Strategy controller"));
 assert.doesNotMatch(beforeWorkspace, /coverage-strategy-horizon-control|Projection horizon/);

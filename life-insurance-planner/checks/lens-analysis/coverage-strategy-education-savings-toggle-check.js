@@ -146,10 +146,11 @@ const diagnosticSource = readRepoFile("app/features/lens-analysis/coverage-strat
 const trayIndex = controllerSource.indexOf("coverage-strategy-scenario-tray");
 assert.ok(trayIndex >= 0, "Scenario tray should exist.");
 const trayMarkup = controllerSource.slice(trayIndex);
-assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
+assert.match(trayMarkup, /Education resources/);
+assert.match(trayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(trayMarkup, /value="off"/);
-assert.match(trayMarkup, /value="on"/);
+assert.match(trayMarkup, /value="educationSavingsOnly"/);
+assert.match(trayMarkup, />Savings</);
 assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, /value="fourYearAnnual"/);
@@ -159,10 +160,11 @@ assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth
 assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /Export Diagnostic Report/);
 assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
-assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
+assert.doesNotMatch(trayMarkup, /educationTreatmentMode|custom schedule|savings then eligible resources/i);
 assert.match(controllerSource, /runtimeScenarioSettings\s*=\s*\{/);
-assert.match(controllerSource, /data-coverage-strategy-education-savings-offset/);
-assert.match(controllerSource, /useEducationSavingsOffset:\s*target\.value === "on"/);
+assert.match(controllerSource, /data-coverage-strategy-education-resource-spending/);
+assert.match(controllerSource, /educationResourceSpendingMode:\s*mode/);
+assert.match(controllerSource, /useEducationSavingsOffset:\s*mode === "educationSavingsOnly"/);
 assert.match(controllerSource, /data-coverage-strategy-education-payment-schedule/);
 assert.doesNotMatch(controllerSource, /sessionStorage|profileRecord\.coverageStrategyScenarioSettings\s*=/);
 
@@ -171,7 +173,7 @@ assert.match(componentsSource, /\.coverage-strategy-scenario-control\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-option\s*\{/);
 assert.doesNotMatch(analysisSetupSource, /data-analysis-education-field="fundingTreatment\.useExistingEducationSavingsOffset"/);
-assert.doesNotMatch(analysisSetupSource, /coverageStrategyScenarioSettings|data-coverage-strategy-education-savings-offset/);
+assert.doesNotMatch(analysisSetupSource, /coverageStrategyScenarioSettings|data-coverage-strategy-education-resource-spending/);
 assert.doesNotMatch(resourceAdapterSource, /useEducationSavingsOffset|educationSavingsOffset|coverageStrategyScenarioSettings/);
 assert.match(diagnosticSource, /visibleScenarioControls/);
 assert.match(diagnosticSource, /visiblePaymentScheduleControl/);
@@ -238,7 +240,8 @@ const snapshot = buildSnapshot({
   coverageStrategyScenarioSettings: offsetOnSettings,
   visibleScenarioControls: {
     projectionHorizon: true,
-    educationSavingsOffset: true,
+    educationResourceSpendingMode: true,
+    educationResourceSpending: true,
     educationPaymentScheduleMode: true,
     educationPaymentSchedule: true,
     projectedDependentBirthYear: true,
@@ -249,7 +252,8 @@ const snapshot = buildSnapshot({
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationResourceSpendingMode, "educationSavingsOnly");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpendingMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpending, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentSchedule, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
@@ -258,7 +262,7 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.d
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.visibleControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.controlsVisible, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.active, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
 

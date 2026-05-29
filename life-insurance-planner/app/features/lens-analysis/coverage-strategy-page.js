@@ -401,6 +401,14 @@
     return mode === "lumpSumAtStart" ? "lumpSumAtStart" : "fourYearAnnual";
   }
 
+  function getEducationResourceSpendingModeFromSettings(settings) {
+    const mode = String(settings?.education?.educationResourceSpendingMode || "").trim();
+    if (mode === "educationSavingsOnly" || settings?.education?.useEducationSavingsOffset === true) {
+      return "educationSavingsOnly";
+    }
+    return "off";
+  }
+
   function buildProjectedDependentTimingRows(lensModel, existingRows, valuationDate) {
     const projectedDependentCount = getProjectedDependentCount(lensModel);
     if (!projectedDependentCount) {
@@ -935,8 +943,7 @@
       : (isPlainObject(result?.componentModels?.coverageStrategyScenarioSettings)
         ? result.componentModels.coverageStrategyScenarioSettings
         : {});
-    const educationSavingsOffsetEnabled =
-      scenarioSettings?.education?.useEducationSavingsOffset === true;
+    const educationResourceSpendingMode = getEducationResourceSpendingModeFromSettings(scenarioSettings);
     const educationPaymentScheduleMode = getEducationPaymentScheduleModeFromSettings(scenarioSettings);
     const projectedDependentTimingRows = Array.isArray(result?.projectedDependentTimingRows)
       ? result.projectedDependentTimingRows
@@ -1152,26 +1159,26 @@
                 </div>
               </div>
             </div>
-            <div class="coverage-strategy-scenario-control is-education-savings">
-              <span class="coverage-strategy-scenario-control-label">Education savings</span>
-              <div class="coverage-strategy-segmented-toggle" role="radiogroup" aria-label="Education savings offset">
+            <div class="coverage-strategy-scenario-control is-education-resources">
+              <span class="coverage-strategy-scenario-control-label">Education resources</span>
+              <div class="coverage-strategy-segmented-toggle" role="radiogroup" aria-label="Education resource spending mode">
                 <label class="coverage-strategy-segmented-option">
                   <input
                     type="radio"
-                    name="coverage-strategy-education-savings-offset"
+                    name="coverage-strategy-education-resource-spending"
                     value="off"
-                    data-coverage-strategy-education-savings-offset
-                    ${educationSavingsOffsetEnabled ? "" : "checked"}>
+                    data-coverage-strategy-education-resource-spending
+                    ${educationResourceSpendingMode === "off" ? "checked" : ""}>
                   <span>Off</span>
                 </label>
                 <label class="coverage-strategy-segmented-option">
                   <input
                     type="radio"
-                    name="coverage-strategy-education-savings-offset"
-                    value="on"
-                    data-coverage-strategy-education-savings-offset
-                    ${educationSavingsOffsetEnabled ? "checked" : ""}>
-                  <span>On</span>
+                    name="coverage-strategy-education-resource-spending"
+                    value="educationSavingsOnly"
+                    data-coverage-strategy-education-resource-spending
+                    ${educationResourceSpendingMode === "educationSavingsOnly" ? "checked" : ""}>
+                  <span>Savings</span>
                 </label>
               </div>
             </div>
@@ -1290,8 +1297,9 @@
       let runtimeScenarioSettings = {
         education: {
           educationPaymentScheduleMode: getEducationPaymentScheduleModeFromSettings(initialCoverageStrategyScenarioSettings),
-          useEducationSavingsOffset:
-            initialCoverageStrategyScenarioSettings?.education?.useEducationSavingsOffset === true,
+          educationResourceSpendingMode: getEducationResourceSpendingModeFromSettings(initialCoverageStrategyScenarioSettings),
+          useEducationSavingsOffset: getEducationResourceSpendingModeFromSettings(initialCoverageStrategyScenarioSettings)
+            === "educationSavingsOnly",
           projectedDependentTimingRows: buildProjectedDependentTimingRows(
             builderResult.lensModel,
             getProjectedDependentTimingRowsFromSettings(initialCoverageStrategyScenarioSettings),
@@ -1489,7 +1497,8 @@
           coverageStrategyScenarioSettings,
           visibleScenarioControls: {
             projectionHorizon: true,
-            educationSavingsOffset: true,
+            educationResourceSpendingMode: true,
+            educationResourceSpending: true,
             educationPaymentScheduleMode: true,
             educationPaymentSchedule: true,
             projectedDependentBirthYear: projectedDependentBirthYearControlVisible,
@@ -1571,14 +1580,16 @@
 
       host.addEventListener("change", function (event) {
         const target = event.target;
-        if (!target?.matches?.("[data-coverage-strategy-education-savings-offset]")) {
+        if (!target?.matches?.("[data-coverage-strategy-education-resource-spending]")) {
           return;
         }
+        const mode = target.value === "educationSavingsOnly" ? "educationSavingsOnly" : "off";
         runtimeScenarioSettings = {
           ...runtimeScenarioSettings,
           education: {
             ...(isPlainObject(runtimeScenarioSettings.education) ? runtimeScenarioSettings.education : {}),
-            useEducationSavingsOffset: target.value === "on"
+            educationResourceSpendingMode: mode,
+            useEducationSavingsOffset: mode === "educationSavingsOnly"
           }
         };
         buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);
@@ -1661,7 +1672,8 @@
             || initialCoverageStrategyScenarioSettings,
           visibleScenarioControls: {
             projectionHorizon: true,
-            educationSavingsOffset: true,
+            educationResourceSpendingMode: true,
+            educationResourceSpending: true,
             educationPaymentScheduleMode: true,
             educationPaymentSchedule: true,
             projectedDependentBirthYear: buildProjectedDependentTimingRows(
