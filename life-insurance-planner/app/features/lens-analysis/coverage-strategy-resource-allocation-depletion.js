@@ -745,10 +745,15 @@
         excludedAssetDecisionCount: excludedAssetDecisions.length,
         alreadyAppliedEducationSavingsByAsset: Object.fromEntries(alreadyAppliedByAsset),
         policy: clonePlainValue(policy),
-        productionWiringActive: false,
-        resourceLineAdapterCalled: false,
-        needLineAdapterCalled: false,
-        educationProjectionCalled: false,
+        helperExecutionMode: "pure-allocation-helper",
+        adapterCallsPerformedByHelper: false,
+        requiresIntegrationConsumer: true,
+        integrationConsumerResponsibleFor: [
+          "education-projection-broader-resource-offsets",
+          "need-line-broader-resource-offsets",
+          "resource-line-depletion-events",
+          "diagnostic-export-allocation-ledger"
+        ],
         displayHtmlUsed: false,
         storageUsed: false,
         inputMutated: false

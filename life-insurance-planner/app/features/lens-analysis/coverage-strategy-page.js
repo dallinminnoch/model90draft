@@ -515,6 +515,60 @@
       });
   }
 
+  function buildEducationBroaderResourceIntegrationTrace(options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const allocation = isPlainObject(safeOptions.educationBroaderResourceAllocation)
+      ? safeOptions.educationBroaderResourceAllocation
+      : null;
+    const resourceLineAdjustmentsByYear = Array.isArray(safeOptions.resourceLineAdjustmentsByYear)
+      ? safeOptions.resourceLineAdjustmentsByYear
+      : [];
+    const educationSpending = safeOptions.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending;
+    const resourceLineAdjustments = safeOptions.resourceLine?.resourceLineAdjustments;
+    const totalAllocationApplied = roundMoney(allocation?.totalApplied || 0);
+    const totalNeedLineReduction = roundMoney(educationSpending?.needLineReductionAmount || 0);
+    const totalResourceLineReduction = roundMoney(resourceLineAdjustments?.totalResourceLineReduction || 0);
+    const helperTrace = isPlainObject(allocation?.trace) ? allocation.trace : {};
+    const allocationRequested = shouldRunEducationBroaderResourceAllocation(safeOptions.coverageStrategyScenarioSettings);
+    const allocationConsumed = Boolean(allocation);
+    const needLineConsumed = totalNeedLineReduction > 0;
+    const resourceLineConsumed = totalResourceLineReduction > 0;
+    const productionIntegrationActive = Boolean(
+      allocationRequested
+      && allocationConsumed
+      && needLineConsumed
+      && resourceLineConsumed
+      && totalNeedLineReduction === totalResourceLineReduction
+    );
+
+    return {
+      source: "coverage-strategy-page-education-broader-resource-integration",
+      educationResourceSpendingMode:
+        safeOptions.coverageStrategyScenarioSettings?.education?.educationResourceSpendingMode || null,
+      productionIntegrationActive,
+      allocationHelperConsumedByRuntime: allocationConsumed,
+      allocationHelperExecutionMode: helperTrace.helperExecutionMode || "pure-allocation-helper",
+      adapterCallsPerformedByHelper: helperTrace.adapterCallsPerformedByHelper === true,
+      resourceLineDepletionEventsSupplied: resourceLineAdjustmentsByYear.length > 0,
+      resourceLineAdapterConsumedDepletionEvents:
+        resourceLineAdjustments?.resourceLineReductionApplied === true
+        && (resourceLineAdjustments?.appliedAdjustmentCount || 0) > 0,
+      needLineConsumedBroaderResourceOffsets: needLineConsumed,
+      diagnosticExportContextIncludesAllocationLedger: allocationConsumed,
+      totalAllocationApplied,
+      totalNeedLineReductionAmount: totalNeedLineReduction,
+      totalResourceLineReductionAmount: totalResourceLineReduction,
+      needLineResourceLineReductionAmountsMatch:
+        totalNeedLineReduction === totalResourceLineReduction
+        && totalNeedLineReduction === totalAllocationApplied,
+      noFreeFundingRule: "need-line-broader-resource-reduction-matched-by-resource-line-reduction",
+      scheduledResourceApplicationCount: Array.isArray(allocation?.scheduledResourceApplications)
+        ? allocation.scheduledResourceApplications.length
+        : 0,
+      resourceLineAdjustmentCount: resourceLineAdjustmentsByYear.length
+    };
+  }
+
   function buildProjectedDependentTimingRows(lensModel, existingRows, valuationDate) {
     const projectedDependentCount = getProjectedDependentCount(lensModel);
     if (!projectedDependentCount) {
@@ -1584,6 +1638,13 @@
               resourceLineAdjustmentsByYear
             })
           : baselineResourceLine;
+        const educationBroaderResourceIntegrationTrace = buildEducationBroaderResourceIntegrationTrace({
+          coverageStrategyScenarioSettings,
+          educationBroaderResourceAllocation,
+          resourceLineAdjustmentsByYear,
+          needLine,
+          resourceLine
+        });
         const existingCoverageLine = buildExistingCoverageLine({
           profileRecord,
           needPoints: needLine.needPoints,
@@ -1640,6 +1701,7 @@
           needLine,
           resourceLine,
           educationBroaderResourceAllocation,
+          educationBroaderResourceIntegrationTrace,
           existingCoverageLine,
           gapSurplus,
           chartModel,

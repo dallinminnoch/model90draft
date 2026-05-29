@@ -96,6 +96,12 @@ const calculateAllocation = loadHelper();
 assert.equal(typeof calculateAllocation, "function", "helper exports calculateCoverageStrategyResourceAllocationDepletion");
 assert.match(helperSource, /noFreeFundingRule/);
 assert.match(helperSource, /needLineResourceLineReductionAmountsMatch/);
+assert.match(helperSource, /helperExecutionMode:\s*"pure-allocation-helper"/);
+assert.match(helperSource, /adapterCallsPerformedByHelper:\s*false/);
+assert.match(helperSource, /requiresIntegrationConsumer:\s*true/);
+assert.doesNotMatch(helperSource, /productionWiringActive/);
+assert.doesNotMatch(helperSource, /resourceLineAdapterCalled/);
+assert.doesNotMatch(helperSource, /needLineAdapterCalled/);
 assert.doesNotMatch(helperSource, /\bdocument\b/);
 assert.doesNotMatch(helperSource, /\bquerySelector\b/);
 assert.doesNotMatch(helperSource, /\blocalStorage\b/);
@@ -147,6 +153,16 @@ assert.equal(basic.scheduledResourceApplications[0].postBalance, 10000);
 assert.equal(basic.scheduledResourceApplications[0].needLineReductionAmount, 10000);
 assert.equal(basic.scheduledResourceApplications[0].resourceLineReductionAmount, 10000);
 assert.equal(basic.trace.needLineResourceLineReductionAmountsMatch, true);
+assert.equal(basic.trace.helperExecutionMode, "pure-allocation-helper");
+assert.equal(basic.trace.adapterCallsPerformedByHelper, false);
+assert.equal(basic.trace.requiresIntegrationConsumer, true);
+assert.ok(
+  basic.trace.integrationConsumerResponsibleFor.includes("resource-line-depletion-events"),
+  "helper trace names integration consumer responsibilities without implying live integration is inactive"
+);
+assert.equal(Object.prototype.hasOwnProperty.call(basic.trace, "productionWiringActive"), false);
+assert.equal(Object.prototype.hasOwnProperty.call(basic.trace, "resourceLineAdapterCalled"), false);
+assert.equal(Object.prototype.hasOwnProperty.call(basic.trace, "needLineAdapterCalled"), false);
 assert.doesNotThrow(() => JSON.stringify(basic), "output is serializable");
 
 const multiYear = calculateAllocation({

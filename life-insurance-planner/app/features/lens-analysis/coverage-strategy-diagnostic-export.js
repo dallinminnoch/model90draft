@@ -170,6 +170,36 @@
     };
   }
 
+  function buildEducationBroaderResourceIntegrationTraceForDiagnostic(context) {
+    const safeContext = isPlainObject(context) ? context : {};
+    const allocation = isPlainObject(safeContext.educationBroaderResourceAllocation)
+      ? safeContext.educationBroaderResourceAllocation
+      : null;
+    const baseTrace = isPlainObject(safeContext.educationBroaderResourceIntegrationTrace)
+      ? clonePlainValue(safeContext.educationBroaderResourceIntegrationTrace)
+      : null;
+    const allocationLedgerIncluded = Boolean(
+      allocation
+      || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending?.allocationLedger
+    );
+    if (!baseTrace && !allocationLedgerIncluded) {
+      return "Not available";
+    }
+    const trace = baseTrace || {
+      source: "coverage-strategy-diagnostic-export-education-broader-resource-integration",
+      productionIntegrationActive: false,
+      allocationHelperConsumedByRuntime: allocationLedgerIncluded,
+      allocationHelperExecutionMode: allocation?.trace?.helperExecutionMode || "pure-allocation-helper",
+      adapterCallsPerformedByHelper: allocation?.trace?.adapterCallsPerformedByHelper === true
+    };
+    trace.diagnosticExportIncludesAllocationLedger = allocationLedgerIncluded;
+    trace.diagnosticExportIncludesNoFreeFundingProof = Boolean(
+      allocation?.trace?.needLineResourceLineReductionAmountsMatch === true
+      || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending?.needLineResourceLineReductionAmountsMatch === true
+    );
+    return trace;
+  }
+
   function createHouseholdSnapshot(context) {
     const safeContext = isPlainObject(context) ? context : {};
     const profileRecord = isPlainObject(safeContext.profileRecord) ? safeContext.profileRecord : {};
@@ -281,6 +311,8 @@
       ? coverageStrategyScenarioSettings.trace
       : "Not available";
     const visibleControlsAdded = hasVisibleScenarioControls(visibleScenarioControls);
+    const educationBroaderResourceIntegrationTrace =
+      buildEducationBroaderResourceIntegrationTraceForDiagnostic(safeContext);
 
     return {
       exportMetadata: {
@@ -392,6 +424,7 @@
           || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.broaderEligibleResourceAllocation
           || "Not available"
         ),
+        educationBroaderResourceIntegrationTrace,
         educationBroaderResourceAllocationObligations: (
           safeContext.needLine?.componentModels?.education?.lifetimeProjection?.broaderEligibleResourceAllocationObligations
           || "Not available"

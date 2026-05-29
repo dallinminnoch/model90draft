@@ -59,6 +59,10 @@ assert.match(controllerSource, /resourceLine/);
 assert.match(controllerSource, /existingCoverageLine/);
 assert.match(controllerSource, /gapSurplus/);
 assert.match(controllerSource, /chartModel/);
+assert.match(controllerSource, /educationBroaderResourceIntegrationTrace/);
+assert.match(moduleSource, /buildEducationBroaderResourceIntegrationTraceForDiagnostic/);
+assert.match(moduleSource, /diagnosticExportIncludesAllocationLedger/);
+assert.match(moduleSource, /diagnosticExportIncludesNoFreeFundingProof/);
 
 assert.match(componentsSource, /\.coverage-strategy-diagnostic-export-button\s*\{/);
 assert.match(controllerSource, /coverage-strategy-scenario-footer/);
@@ -431,6 +435,7 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleM
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingMode, "off");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpending.effectiveMode, "eligibleResourcesAfterEducationSavings");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingTrace.broaderEligibleResourceStatus, "unavailable");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace, "Not available");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(
@@ -475,6 +480,55 @@ assert.equal(
 );
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection.staticFallbackUsed, false);
+
+const activeAllocationDiagnosticInput = JSON.parse(JSON.stringify(diagnosticInput));
+activeAllocationDiagnosticInput.educationBroaderResourceAllocation = {
+  totalApplied: 57380,
+  trace: {
+    helperExecutionMode: "pure-allocation-helper",
+    adapterCallsPerformedByHelper: false,
+    noFreeFundingRule: "broader-resource-need-line-reduction-must-equal-resource-line-reduction",
+    needLineResourceLineReductionAmountsMatch: true
+  },
+  scheduledResourceApplications: [
+    {
+      applicationId: "education-brokerage-2031",
+      yearIndex: 5,
+      calendarYear: 2031,
+      appliedAmount: 30000,
+      resourceLineReductionAmount: 30000
+    }
+  ]
+};
+activeAllocationDiagnosticInput.educationBroaderResourceIntegrationTrace = {
+  source: "coverage-strategy-page-education-broader-resource-integration",
+  educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+  productionIntegrationActive: true,
+  allocationHelperConsumedByRuntime: true,
+  allocationHelperExecutionMode: "pure-allocation-helper",
+  adapterCallsPerformedByHelper: false,
+  resourceLineDepletionEventsSupplied: true,
+  resourceLineAdapterConsumedDepletionEvents: true,
+  needLineConsumedBroaderResourceOffsets: true,
+  diagnosticExportContextIncludesAllocationLedger: true,
+  totalAllocationApplied: 57380,
+  totalNeedLineReductionAmount: 57380,
+  totalResourceLineReductionAmount: 57380,
+  needLineResourceLineReductionAmountsMatch: true,
+  noFreeFundingRule: "need-line-broader-resource-reduction-matched-by-resource-line-reduction"
+};
+const activeAllocationSnapshot = buildSnapshot(activeAllocationDiagnosticInput);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.productionIntegrationActive, true);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.allocationHelperConsumedByRuntime, true);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.needLineConsumedBroaderResourceOffsets, true);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.resourceLineAdapterConsumedDepletionEvents, true);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.diagnosticExportIncludesAllocationLedger, true);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.diagnosticExportIncludesNoFreeFundingProof, true);
+assert.equal(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationNeedResourceReductionProof.needLineResourceLineReductionAmountsMatch, true);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(activeAllocationSnapshot.coverageStrategyGeneratedOutputs.educationNeedResourceReductionProof, "productionWiringActive"),
+  false
+);
 
 const html = renderHtml(snapshot);
 assert.match(html, /Coverage Strategy Diagnostic Report/);

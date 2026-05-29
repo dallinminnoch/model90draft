@@ -268,6 +268,11 @@ assert.match(pageSource, /coverage-strategy-resource-allocation-depletion\.js/);
 assert.match(controllerSource, /calculateCoverageStrategyResourceAllocationDepletion/);
 assert.match(controllerSource, /value="eligibleResourcesAfterEducationSavings"/);
 assert.match(controllerSource, /Savings plus eligible assets/);
+assert.match(controllerSource, /buildEducationBroaderResourceIntegrationTrace/);
+assert.match(controllerSource, /productionIntegrationActive/);
+assert.match(controllerSource, /allocationHelperConsumedByRuntime/);
+assert.match(controllerSource, /resourceLineAdapterConsumedDepletionEvents/);
+assert.match(controllerSource, /needLineConsumedBroaderResourceOffsets/);
 assert.doesNotMatch(analysisSetupSource, /eligibleResourcesAfterEducationSavings|Savings \+ Assets/);
 
 const context = createContext();
@@ -360,6 +365,9 @@ assert.equal(allocation.totalRequested, 115000);
 assert.equal(allocation.totalApplied, 60000);
 assert.equal(allocation.totalUnfunded, 55000);
 assert.equal(allocation.trace.needLineResourceLineReductionAmountsMatch, true);
+assert.equal(allocation.trace.helperExecutionMode, "pure-allocation-helper");
+assert.equal(allocation.trace.adapterCallsPerformedByHelper, false);
+assert.equal(Object.prototype.hasOwnProperty.call(allocation.trace, "productionWiringActive"), false);
 assert.ok(allocation.scheduledResourceApplications.every((application) => application.assetId === "brokerage"));
 const exclusionReasons = new Set(allocation.excludedAssetDecisions.map((decision) => decision.eligibilityReason));
 assert.ok(exclusionReasons.has("cash-excluded-by-policy"));
@@ -407,6 +415,24 @@ assert.equal(
   adjustedResourceLine.resourceLineAdjustments.totalResourceLineReduction,
   adjustedNeedLine.componentModels.education.lifetimeProjection.educationResourceSpending.resourceLineReductionAmount
 );
+const integrationTrace = {
+  source: "coverage-strategy-page-education-broader-resource-integration",
+  educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+  productionIntegrationActive: true,
+  allocationHelperConsumedByRuntime: true,
+  allocationHelperExecutionMode: allocation.trace.helperExecutionMode,
+  adapterCallsPerformedByHelper: allocation.trace.adapterCallsPerformedByHelper,
+  resourceLineDepletionEventsSupplied: true,
+  resourceLineAdapterConsumedDepletionEvents: true,
+  needLineConsumedBroaderResourceOffsets: true,
+  diagnosticExportContextIncludesAllocationLedger: true,
+  totalAllocationApplied: allocation.totalApplied,
+  totalNeedLineReductionAmount:
+    adjustedNeedLine.componentModels.education.lifetimeProjection.educationResourceSpending.needLineReductionAmount,
+  totalResourceLineReductionAmount: adjustedResourceLine.resourceLineAdjustments.totalResourceLineReduction,
+  needLineResourceLineReductionAmountsMatch: true,
+  noFreeFundingRule: "need-line-broader-resource-reduction-matched-by-resource-line-reduction"
+};
 
 const gapSurplus = buildGapSurplus({
   needPoints: adjustedNeedLine.needPoints,
@@ -430,6 +456,7 @@ const snapshot = buildSnapshot({
   resourceLine: adjustedResourceLine,
   gapSurplus,
   educationBroaderResourceAllocation: allocation,
+  educationBroaderResourceIntegrationTrace: integrationTrace,
   coverageStrategyScenarioSettings: createScenarioSettings("eligibleResourcesAfterEducationSavings"),
   visibleScenarioControls: {
     projectionHorizon: true,
@@ -443,6 +470,18 @@ const snapshot = buildSnapshot({
   projectionHorizonYears: 8
 });
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceAllocation.totalApplied, 60000);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceAllocation.trace.helperExecutionMode, "pure-allocation-helper");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceAllocation.trace.adapterCallsPerformedByHelper, false);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceAllocation.trace, "productionWiringActive"),
+  false
+);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.productionIntegrationActive, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.allocationHelperConsumedByRuntime, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.needLineConsumedBroaderResourceOffsets, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.resourceLineAdapterConsumedDepletionEvents, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.diagnosticExportIncludesAllocationLedger, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationBroaderResourceIntegrationTrace.diagnosticExportIncludesNoFreeFundingProof, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.resourcePoints[2].trace.resourceLineReductionApplied, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationNeedResourceReductionProof.needLineResourceLineReductionAmountsMatch, true);
 
