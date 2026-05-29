@@ -81,14 +81,14 @@
 
   function getWorkspacePrimaryRailIcon(key) {
     const assetMap = {
-      studio: "../Images/start_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg",
-      home: "../Images/start_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg",
-      clients: "../Images/clientdirectory.svg",
-      lens: "../Images/analysismenu.svg",
-      teleportal: "../Images/teleportal.svg",
-      compliance: "../Images/compliancemenu.svg",
-      workflow: "../Images/customworkflow.svg",
-      settings: "../Images/settings.svg"
+      studio: "Images/start_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg",
+      home: "Images/start_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg",
+      clients: "Images/clientdirectory.svg",
+      lens: "Images/analysismenu.svg",
+      teleportal: "Images/teleportal.svg",
+      compliance: "Images/compliancemenu.svg",
+      workflow: "Images/customworkflow.svg",
+      settings: "Images/settings.svg"
     };
     const src = assetMap[String(key || "").trim()];
     if (!src) {
