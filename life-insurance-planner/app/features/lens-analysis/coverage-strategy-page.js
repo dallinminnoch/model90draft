@@ -403,10 +403,116 @@
 
   function getEducationResourceSpendingModeFromSettings(settings) {
     const mode = String(settings?.education?.educationResourceSpendingMode || "").trim();
+    if (mode === "eligibleResourcesAfterEducationSavings") {
+      return "eligibleResourcesAfterEducationSavings";
+    }
     if (mode === "educationSavingsOnly" || settings?.education?.useEducationSavingsOffset === true) {
       return "educationSavingsOnly";
     }
     return "off";
+  }
+
+  function shouldRunEducationBroaderResourceAllocation(settings) {
+    return String(settings?.education?.educationResourceSpendingMode || "").trim()
+      === "eligibleResourcesAfterEducationSavings";
+  }
+
+  function getEducationBroaderResourceAllocationObligations(needLine) {
+    const rows = needLine?.componentModels?.education?.lifetimeProjection?.broaderEligibleResourceAllocationObligations;
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function getAlreadyAppliedEducationSavings(needLine) {
+    const rows = needLine?.componentModels?.education?.lifetimeProjection?.alreadyAppliedEducationSavings;
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function getTreatedAssetRows(lensModel) {
+    const treatedAssets = lensModel?.treatedAssetOffsets?.assets;
+    if (Array.isArray(treatedAssets) && treatedAssets.length) {
+      return treatedAssets.map(function (asset, index) {
+        return {
+          assetId: asset.assetId || asset.id || asset.sourceKey || `treated-asset-${index + 1}`,
+          categoryKey: asset.categoryKey || asset.assetCategoryKey || asset.typeKey || null,
+          label: asset.label || asset.name || asset.categoryKey || `Asset ${index + 1}`,
+          rawValue: asset.rawValue ?? asset.currentValue ?? asset.value ?? null,
+          treatedValue: asset.treatedValue ?? null,
+          sourcePath: `lensModel.treatedAssetOffsets.assets.${index}`,
+          availabilityStatus: asset.include === false ? "excluded" : "available",
+          treatmentStatus: asset.include === false ? "excluded-by-treatment" : "included-by-treatment"
+        };
+      });
+    }
+    const rawAssets = lensModel?.assetFacts?.assets;
+    return (Array.isArray(rawAssets) ? rawAssets : []).map(function (asset, index) {
+      return {
+        assetId: asset.assetId || asset.id || asset.sourceKey || `asset-${index + 1}`,
+        categoryKey: asset.categoryKey || asset.assetCategoryKey || asset.typeKey || null,
+        label: asset.label || asset.name || asset.categoryKey || `Asset ${index + 1}`,
+        rawValue: asset.rawValue ?? asset.currentValue ?? asset.value ?? asset.amount ?? null,
+        treatedValue: asset.treatedValue ?? asset.currentValue ?? asset.rawValue ?? asset.value ?? null,
+        sourcePath: `lensModel.assetFacts.assets.${index}`,
+        availabilityStatus: "available",
+        treatmentStatus: "raw-asset-fallback"
+      };
+    });
+  }
+
+  function buildEducationBroaderResourceAllocation(options) {
+    const calculateAllocation = window.LensApp?.lensAnalysis?.calculateCoverageStrategyResourceAllocationDepletion;
+    const obligations = getEducationBroaderResourceAllocationObligations(options?.needLine);
+    if (typeof calculateAllocation !== "function" || !obligations.length) {
+      return null;
+    }
+    return calculateAllocation({
+      projectionYears: options.projectionHorizonYears,
+      valuationDate: options.valuationDate,
+      obligations,
+      assets: getTreatedAssetRows(options.lensModel),
+      baselineResourcePoints: options.baselineResourceLine?.resourcePoints || [],
+      alreadyAppliedEducationSavings: getAlreadyAppliedEducationSavings(options.needLine),
+      eligibilityPolicy: {
+        allowCashAboveReserve: false,
+        cashReserveAmount: 0,
+        allowTaxableBrokerage: true,
+        allowEmergencyFund: false,
+        allowRetirementAssets: false,
+        allowRestrictedAssets: false,
+        allowHomeEquity: false,
+        allowBusinessValue: false,
+        allowCrypto: false,
+        allowReviewOnlyAssets: false,
+        allowedCategoryOrder: ["taxableBrokerageInvestments", "cashAndCashEquivalents"]
+      }
+    });
+  }
+
+  function getAppliedResourceLineAdjustments(allocation) {
+    return (Array.isArray(allocation?.scheduledResourceApplications) ? allocation.scheduledResourceApplications : [])
+      .filter(function (row) {
+        return Number(row?.resourceLineReductionAmount || row?.appliedAmount || 0) > 0;
+      })
+      .map(function (row) {
+        return {
+          adjustmentId: row.applicationId || `education-broader-resource-${row.yearIndex}`,
+          yearIndex: row.yearIndex,
+          calendarYear: row.calendarYear,
+          amount: row.resourceLineReductionAmount || row.appliedAmount,
+          categoryKey: row.assetCategoryKey,
+          componentKey: "education",
+          obligationId: row.obligationId,
+          sourcePath: row.sourcePath,
+          source: "coverage-strategy-resource-allocation-depletion",
+          reason: "education-eligible-resources-after-education-savings",
+          trace: {
+            applicationId: row.applicationId || null,
+            assetId: row.assetId || null,
+            assetCategoryKey: row.assetCategoryKey || null,
+            assetLabel: row.assetLabel || null,
+            noFreeFundingRule: "need-line-broader-resource-reduction-matched-by-resource-line-reduction"
+          }
+        };
+      });
   }
 
   function buildProjectedDependentTimingRows(lensModel, existingRows, valuationDate) {
@@ -1408,7 +1514,7 @@
           : initialCoverageStrategyScenarioSettings;
         const projectedDependentTimingRows = getProjectedDependentTimingRowsFromSettings(coverageStrategyScenarioSettings);
         const projectedDependentBirthYearControlVisible = projectedDependentTimingRows.length > 0;
-        const needLine = buildCoverageStrategyNeedLine({
+        const preliminaryNeedLine = buildCoverageStrategyNeedLine({
           lensModel: builderResult.lensModel,
           needsResult,
           analysisSettings: methodSettings.needsAnalysisSettings,
@@ -1417,13 +1523,13 @@
           valuationDate,
           horizonYears: safeProjectionHorizonYears
         });
-        const resourceLine = typeof buildCoverageStrategyResourceLine === "function"
+        const baselineResourceLine = typeof buildCoverageStrategyResourceLine === "function"
           ? buildCoverageStrategyResourceLine({
               lensModel: builderResult.lensModel,
               analysisSettings: profileRecord.analysisSettings,
-              needPoints: needLine.needPoints,
-              valuationDate: needLine.valuationDate || valuationDate,
-              horizonYears: needLine.horizonYears
+              needPoints: preliminaryNeedLine.needPoints,
+              valuationDate: preliminaryNeedLine.valuationDate || valuationDate,
+              horizonYears: preliminaryNeedLine.horizonYears
             })
           : {
               status: "partial",
@@ -1436,6 +1542,38 @@
                 }
               ]
             };
+        const educationBroaderResourceAllocation = shouldRunEducationBroaderResourceAllocation(coverageStrategyScenarioSettings)
+          ? buildEducationBroaderResourceAllocation({
+              lensModel: builderResult.lensModel,
+              needLine: preliminaryNeedLine,
+              baselineResourceLine,
+              projectionHorizonYears: safeProjectionHorizonYears,
+              valuationDate
+            })
+          : null;
+        const needLine = educationBroaderResourceAllocation
+          ? buildCoverageStrategyNeedLine({
+              lensModel: builderResult.lensModel,
+              needsResult,
+              analysisSettings: methodSettings.needsAnalysisSettings,
+              profileRecord,
+              coverageStrategyScenarioSettings,
+              valuationDate,
+              horizonYears: safeProjectionHorizonYears,
+              educationBroaderResourceAllocation
+            })
+          : preliminaryNeedLine;
+        const resourceLineAdjustmentsByYear = getAppliedResourceLineAdjustments(educationBroaderResourceAllocation);
+        const resourceLine = typeof buildCoverageStrategyResourceLine === "function" && resourceLineAdjustmentsByYear.length
+          ? buildCoverageStrategyResourceLine({
+              lensModel: builderResult.lensModel,
+              analysisSettings: profileRecord.analysisSettings,
+              needPoints: needLine.needPoints,
+              valuationDate: needLine.valuationDate || valuationDate,
+              horizonYears: needLine.horizonYears,
+              resourceLineAdjustmentsByYear
+            })
+          : baselineResourceLine;
         const existingCoverageLine = buildExistingCoverageLine({
           profileRecord,
           needPoints: needLine.needPoints,
@@ -1491,6 +1629,7 @@
           needsResult,
           needLine,
           resourceLine,
+          educationBroaderResourceAllocation,
           existingCoverageLine,
           gapSurplus,
           chartModel,

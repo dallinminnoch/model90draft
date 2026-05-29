@@ -159,7 +159,8 @@ assert.match(scenarioSettingsSource, /eligibleResourcesAfterEducationSavings/);
 assert.match(educationProjectionSource, /education-eligible-resource-spending-source-unavailable/);
 assert.match(controllerSource, /data-coverage-strategy-education-resource-spending/);
 assert.match(controllerSource, /educationResourceSpendingMode:\s*mode/);
-assert.doesNotMatch(controllerSource, /eligibleResourcesAfterEducationSavings/);
+assert.match(controllerSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(controllerSource, /Savings \+ Assets|value="eligibleResourcesAfterEducationSavings"/);
 assert.doesNotMatch(analysisSetupSource, /educationResourceSpendingMode|data-coverage-strategy-education-resource-spending/);
 assert.doesNotMatch(resourceAdapterSource, /educationResourceSpendingMode|educationResourceSpending|useEducationSavingsOffset/);
 
@@ -170,6 +171,7 @@ const context = createContext();
   "app/features/lens-analysis/coverage-strategy-healthcare-lifetime-projection.js",
   "app/features/lens-analysis/coverage-strategy-final-expense-lifetime-projection.js",
   "app/features/lens-analysis/coverage-strategy-education-lifetime-projection.js",
+  "app/features/lens-analysis/coverage-strategy-resource-allocation-depletion.js",
   "app/features/lens-analysis/coverage-strategy-scenario-settings.js",
   "app/features/lens-analysis/coverage-strategy-need-line-adapter.js",
   "app/features/lens-analysis/coverage-strategy-diagnostic-export.js"
@@ -177,6 +179,7 @@ const context = createContext();
 
 const resolveScenarioSettings = context.LensApp.lensAnalysis.resolveCoverageStrategyScenarioSettings;
 const buildEducationProjection = context.LensApp.lensAnalysis.buildCoverageStrategyEducationLifetimeProjection;
+const calculateAllocation = context.LensApp.lensAnalysis.calculateCoverageStrategyResourceAllocationDepletion;
 const buildNeedLine = context.LensApp.lensAnalysis.buildCoverageStrategyNeedLine;
 const buildSnapshot = context.LensApp.lensAnalysis.buildCoverageStrategyDiagnosticExportSnapshot;
 
@@ -267,6 +270,61 @@ assert.equal(eligibleResourcesProjection.educationResourceSpending.broaderEligib
 assert.ok(issueCodes(eligibleResourcesProjection.dataGaps).includes("education-eligible-resource-spending-source-unavailable"));
 assert.equal(eligibleResourcesProjection.assumptionsUsed.generalResourceReductionApplied, false);
 assert.equal(eligibleResourcesProjection.educationSavingsOffset.generalResourceSpendingApplied, false);
+assert.ok(
+  eligibleResourcesProjection.broaderEligibleResourceAllocationObligations.length > 0,
+  "explicit broader mode exposes post-savings allocation obligations"
+);
+assert.ok(
+  eligibleResourcesProjection.alreadyAppliedEducationSavings.length > 0,
+  "education savings consumption is traceable before broader allocation"
+);
+
+const broaderAllocation = calculateAllocation({
+  projectionYears: 6,
+  obligations: eligibleResourcesProjection.broaderEligibleResourceAllocationObligations,
+  assets: [
+    {
+      assetId: "brokerage",
+      categoryKey: "taxableBrokerageInvestments",
+      label: "Taxable Brokerage",
+      treatedValue: 20000
+    },
+    {
+      assetId: "cash",
+      categoryKey: "cashAndCashEquivalents",
+      label: "Cash",
+      treatedValue: 50000
+    }
+  ],
+  baselineResourcePoints: createNeedPoints(6).map((point) => ({
+    yearIndex: point.yearIndex,
+    calendarYear: point.calendarYear,
+    resourceAmount: 70000,
+    categoryAmounts: {
+      taxableBrokerageInvestments: 20000,
+      cashAndCashEquivalents: 50000
+    }
+  })),
+  alreadyAppliedEducationSavings: eligibleResourcesProjection.alreadyAppliedEducationSavings,
+  eligibilityPolicy: {
+    allowCashAboveReserve: false,
+    allowTaxableBrokerage: true,
+    allowedCategoryOrder: ["taxableBrokerageInvestments", "cashAndCashEquivalents"]
+  }
+});
+assert.equal(broaderAllocation.totalApplied, 20000);
+assert.equal(broaderAllocation.trace.needLineResourceLineReductionAmountsMatch, true);
+
+const allocatedEligibleResourcesProjection = buildEducationProjection({
+  ...createEducationProjectionInput(explicitEligibleResourcesSettings),
+  educationBroaderResourceAllocation: broaderAllocation
+});
+assert.equal(allocatedEligibleResourcesProjection.educationResourceSpending.broaderEligibleResourceStatus, "partial");
+assert.equal(allocatedEligibleResourcesProjection.educationResourceSpending.broaderEligibleResourceOffsetApplied, 20000);
+assert.equal(allocatedEligibleResourcesProjection.educationResourceSpending.resourceLineReductionApplied, true);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[0].broaderEligibleResourceOffsetAmount, 20000);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[0].netEducationNeedAmount, 10000);
+assert.equal(allocatedEligibleResourcesProjection.assumptionsUsed.generalResourceReductionApplied, true);
 
 const needLine = buildNeedLine({
   lensModel: createLensModel(),

@@ -290,7 +290,8 @@ assert.doesNotMatch(adapterSource, /calculateCoverageStrategyResourceAllocationD
 assert.doesNotMatch(educationProjectionSource, /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/);
 assert.doesNotMatch(needLineAdapterSource, /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/);
 assert.doesNotMatch(scenarioSettingsSource, /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/);
-assert.doesNotMatch(pageControllerSource, /eligibleResourcesAfterEducationSavings|Savings \+ Assets/);
+assert.match(pageControllerSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(pageControllerSource, /Savings \+ Assets|value="eligibleResourcesAfterEducationSavings"/);
 
 const buildCoverageStrategyResourceLine = loadAdapter();
 assert.equal(typeof buildCoverageStrategyResourceLine, "function", "adapter exports buildCoverageStrategyResourceLine");

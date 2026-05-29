@@ -247,6 +247,7 @@
       ...(Array.isArray(safeContext.methodSettings?.warnings) ? safeContext.methodSettings.warnings : []),
       ...(Array.isArray(safeContext.needLine?.warnings) ? safeContext.needLine.warnings : []),
       ...(Array.isArray(safeContext.resourceLine?.warnings) ? safeContext.resourceLine.warnings : []),
+      ...(Array.isArray(safeContext.educationBroaderResourceAllocation?.warnings) ? safeContext.educationBroaderResourceAllocation.warnings : []),
       ...(Array.isArray(safeContext.existingCoverageLine?.warnings) ? safeContext.existingCoverageLine.warnings : []),
       ...(Array.isArray(safeContext.gapSurplus?.warnings) ? safeContext.gapSurplus.warnings : []),
       ...(Array.isArray(safeContext.chartModel?.warnings) ? safeContext.chartModel.warnings : [])
@@ -256,6 +257,7 @@
       ...(Array.isArray(safeContext.methodSettings?.dataGaps) ? safeContext.methodSettings.dataGaps : []),
       ...(Array.isArray(safeContext.needLine?.dataGaps) ? safeContext.needLine.dataGaps : []),
       ...(Array.isArray(safeContext.resourceLine?.dataGaps) ? safeContext.resourceLine.dataGaps : []),
+      ...(Array.isArray(safeContext.educationBroaderResourceAllocation?.dataGaps) ? safeContext.educationBroaderResourceAllocation.dataGaps : []),
       ...(Array.isArray(safeContext.existingCoverageLine?.dataGaps) ? safeContext.existingCoverageLine.dataGaps : []),
       ...(Array.isArray(safeContext.gapSurplus?.dataGaps) ? safeContext.gapSurplus.dataGaps : []),
       ...(Array.isArray(safeContext.chartModel?.dataGaps) ? safeContext.chartModel.dataGaps : [])
@@ -383,6 +385,20 @@
         ),
         educationResourceSpending: (
           safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending
+          || "Not available"
+        ),
+        educationBroaderResourceAllocation: (
+          safeContext.educationBroaderResourceAllocation
+          || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.broaderEligibleResourceAllocation
+          || "Not available"
+        ),
+        educationBroaderResourceAllocationObligations: (
+          safeContext.needLine?.componentModels?.education?.lifetimeProjection?.broaderEligibleResourceAllocationObligations
+          || "Not available"
+        ),
+        educationNeedResourceReductionProof: (
+          safeContext.educationBroaderResourceAllocation?.trace
+          || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending?.allocationLedger?.trace
           || "Not available"
         ),
         visibleEducationResourceSpendingControl: Boolean(

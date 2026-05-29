@@ -577,7 +577,25 @@
     };
   }
 
-  function resolveBroaderEligibleResourceSpending(resourceMode, dataGaps) {
+  function getEducationBroaderResourceAllocation(input) {
+    const candidates = [
+      input?.educationBroaderResourceAllocation,
+      input?.educationResourceAllocation,
+      input?.resourceAllocationDepletion,
+      input?.options?.educationBroaderResourceAllocation,
+      input?.options?.educationResourceAllocation,
+      input?.options?.resourceAllocationDepletion
+    ];
+    return candidates.find(isPlainObject) || null;
+  }
+
+  function sumAllocationApplications(applications) {
+    return roundMoney((Array.isArray(applications) ? applications : []).reduce(function (sum, application) {
+      return sum + Math.max(0, toOptionalNumber(application?.appliedAmount) || 0);
+    }, 0));
+  }
+
+  function resolveBroaderEligibleResourceSpending(resourceMode, allocation, dataGaps) {
     if (resourceMode?.effectiveMode !== EDUCATION_RESOURCE_SPENDING_MODE_ELIGIBLE_RESOURCES_AFTER_EDUCATION_SAVINGS) {
       return {
         requested: false,
@@ -585,7 +603,42 @@
         applied: false,
         totalApplied: 0,
         sourceAvailable: false,
-        warningCode: null
+        warningCode: null,
+        allocation: null
+      };
+    }
+
+    if (isPlainObject(allocation)) {
+      const scheduledResourceApplications = Array.isArray(allocation.scheduledResourceApplications)
+        ? allocation.scheduledResourceApplications.map(clonePlainValue)
+        : [];
+      const totalApplied = roundMoney(
+        toOptionalNumber(allocation.totalApplied)
+        ?? sumAllocationApplications(scheduledResourceApplications)
+      );
+      const totalRequested = roundMoney(toOptionalNumber(allocation.totalRequested) || 0);
+      const totalUnfunded = roundMoney(
+        toOptionalNumber(allocation.totalUnfunded)
+        ?? Math.max(0, totalRequested - totalApplied)
+      );
+      return {
+        requested: true,
+        status: totalApplied > 0
+          ? (totalUnfunded > 0 ? "partial" : "active")
+          : (totalRequested > 0 ? "unfunded" : "no-remaining-need"),
+        applied: totalApplied > 0,
+        totalApplied,
+        totalRequested,
+        totalUnfunded,
+        sourceAvailable: true,
+        warningCode: null,
+        allocation: {
+          ...clonePlainValue(allocation),
+          scheduledResourceApplications,
+          totalApplied,
+          totalRequested,
+          totalUnfunded
+        }
       };
     }
 
@@ -606,7 +659,8 @@
       applied: false,
       totalApplied: 0,
       sourceAvailable: false,
-      warningCode: issue?.code || "education-eligible-resource-spending-source-unavailable"
+      warningCode: issue?.code || "education-eligible-resource-spending-source-unavailable",
+      allocation: null
     };
   }
 
@@ -626,8 +680,15 @@
       broaderEligibleResourceStatus: broaderResourceSpending?.status || "not-requested",
       broaderEligibleResourceSourceAvailable: broaderResourceSpending?.sourceAvailable === true,
       warningCode: broaderResourceSpending?.warningCode || null,
-      resourceLineReductionApplied: false,
-      generalResourceReductionApplied: false,
+      allocationLedger: broaderResourceSpending?.allocation || null,
+      totalRequestedFromBroaderResources: roundMoney(broaderResourceSpending?.totalRequested || 0),
+      totalUnfundedAfterBroaderResources: roundMoney(broaderResourceSpending?.totalUnfunded || 0),
+      needLineReductionAmount: roundMoney(broaderResourceSpending?.totalApplied || 0),
+      resourceLineReductionAmount: roundMoney(broaderResourceSpending?.totalApplied || 0),
+      needLineResourceLineReductionAmountsMatch:
+        roundMoney(broaderResourceSpending?.totalApplied || 0) === roundMoney(broaderResourceSpending?.totalApplied || 0),
+      resourceLineReductionApplied: roundMoney(broaderResourceSpending?.totalApplied || 0) > 0,
+      generalResourceReductionApplied: roundMoney(broaderResourceSpending?.totalApplied || 0) > 0,
       visibleResourceSpendingControl: false
     };
   }
@@ -1162,18 +1223,23 @@
     };
   }
 
-  function createPointScheduleRecord(schedule, grossAmount, pointCalendarYear, offsetAmount) {
+  function createPointScheduleRecord(schedule, grossAmount, pointCalendarYear, offsetAmount, broaderOffsetAmount) {
     const safeOffset = roundMoney(Math.min(
       Math.max(0, offsetAmount || 0),
       Math.max(0, grossAmount || 0)
     ));
-    const netAmount = roundMoney(Math.max(0, (grossAmount || 0) - safeOffset));
+    const safeBroaderOffset = roundMoney(Math.min(
+      Math.max(0, broaderOffsetAmount || 0),
+      Math.max(0, (grossAmount || 0) - safeOffset)
+    ));
+    const netAmount = roundMoney(Math.max(0, (grossAmount || 0) - safeOffset - safeBroaderOffset));
     return {
       id: schedule.id,
       kind: schedule.kind,
       amount: netAmount,
       grossAmount,
       educationSavingsOffsetAmount: safeOffset,
+      broaderEligibleResourceOffsetAmount: safeBroaderOffset,
       netAmount,
       educationStartYear: schedule.educationStartYear,
       sourcePath: schedule.sourcePath,
@@ -1264,6 +1330,117 @@
     };
   }
 
+  function createRemainingEducationObligationsAfterSavings(obligations, offsetAllocation, context) {
+    const savingsByObligationId = new Map(
+      (Array.isArray(offsetAllocation?.appliedByObligation) ? offsetAllocation.appliedByObligation : [])
+        .map(function (item) {
+          return [normalizeString(item.id), Math.max(0, toOptionalNumber(item.offsetAmount) || 0)];
+        })
+    );
+    return (Array.isArray(obligations) ? obligations : []).map(function (obligation) {
+      const paymentYear = toOptionalNumber(obligation?.paymentYear);
+      const amount = Math.max(0, toOptionalNumber(obligation?.amount) || 0);
+      const savingsOffset = Math.min(amount, savingsByObligationId.get(normalizeString(obligation?.id)) || 0);
+      const requestedAmount = roundMoney(Math.max(0, amount - savingsOffset));
+      if (!(requestedAmount > 0) || paymentYear == null || context?.valuationYear == null) {
+        return null;
+      }
+      return {
+        obligationId: normalizeString(obligation.id),
+        componentKey: "education",
+        yearIndex: Math.max(0, Math.round(paymentYear - context.valuationYear)),
+        calendarYear: Math.round(paymentYear),
+        requestedAmount,
+        label: "Education scheduled payment after education savings",
+        sourcePath: obligation.sourcePath || null,
+        dependentId: obligation.dependentId || null,
+        dependentKind: obligation.dependentKind || null,
+        obligationType: obligation.obligationType || "scheduled-payment",
+        grossAmount: roundMoney(amount),
+        educationSavingsOffsetAmount: roundMoney(savingsOffset)
+      };
+    }).filter(Boolean);
+  }
+
+  function createAlreadyAppliedEducationSavingsRows(educationSavingsAssets, appliedAmount) {
+    let remaining = Math.max(0, toOptionalNumber(appliedAmount) || 0);
+    return (Array.isArray(educationSavingsAssets?.eligibleAssets) ? educationSavingsAssets.eligibleAssets : []).map(function (asset) {
+      if (!(remaining > 0)) {
+        return null;
+      }
+      const available = Math.max(0, toOptionalNumber(asset?.offsetValue ?? asset?.rawValue) || 0);
+      const amountApplied = roundMoney(Math.min(remaining, available));
+      remaining = roundMoney(Math.max(0, remaining - amountApplied));
+      if (!(amountApplied > 0)) {
+        return null;
+      }
+      return {
+        assetId: asset.assetId,
+        amountApplied,
+        sourcePath: Array.isArray(asset.sourcePaths) ? asset.sourcePaths[0] || null : null
+      };
+    }).filter(Boolean);
+  }
+
+  function createBroaderApplicationMaps(allocation) {
+    const byObligationId = new Map();
+    (Array.isArray(allocation?.scheduledResourceApplications) ? allocation.scheduledResourceApplications : []).forEach(function (application) {
+      const obligationId = normalizeString(application?.obligationId);
+      const amount = Math.max(0, toOptionalNumber(application?.appliedAmount) || 0);
+      if (!obligationId || !(amount > 0)) {
+        return;
+      }
+      const rows = byObligationId.get(obligationId) || [];
+      rows.push(clonePlainValue(application));
+      byObligationId.set(obligationId, rows);
+    });
+    return {
+      byObligationId
+    };
+  }
+
+  function sumBroaderApplicationsForObligations(obligations, applicationMaps) {
+    const obligationIds = new Set((Array.isArray(obligations) ? obligations : []).map(function (obligation) {
+      return normalizeString(obligation?.id || obligation?.obligationId);
+    }).filter(Boolean));
+    let total = 0;
+    let currentDependents = 0;
+    let projectedDependents = 0;
+    const appliedByDependentId = {};
+    const applications = [];
+    obligationIds.forEach(function (obligationId) {
+      const rows = applicationMaps.byObligationId.get(obligationId) || [];
+      rows.forEach(function (application) {
+        const amount = Math.max(0, toOptionalNumber(application?.appliedAmount) || 0);
+        if (!(amount > 0)) {
+          return;
+        }
+        total = roundMoney(total + amount);
+        applications.push(clonePlainValue(application));
+        const sourceObligation = (Array.isArray(obligations) ? obligations : []).find(function (obligation) {
+          return normalizeString(obligation?.id || obligation?.obligationId) === obligationId;
+        });
+        if (sourceObligation?.dependentKind === "currentDependent") {
+          currentDependents = roundMoney(currentDependents + amount);
+        } else if (sourceObligation?.dependentKind === "projectedDependent") {
+          projectedDependents = roundMoney(projectedDependents + amount);
+        }
+        if (sourceObligation?.dependentId) {
+          appliedByDependentId[sourceObligation.dependentId] = roundMoney(
+            (appliedByDependentId[sourceObligation.dependentId] || 0) + amount
+          );
+        }
+      });
+    });
+    return {
+      totalApplied: roundMoney(total),
+      appliedToTimedCurrentDependents: roundMoney(currentDependents),
+      appliedToTimedProjectedDependents: roundMoney(projectedDependents),
+      appliedByDependentId,
+      applications
+    };
+  }
+
   function buildCoverageStrategyEducationLifetimeProjection(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const educationSupport = isPlainObject(safeInput.educationSupport) ? safeInput.educationSupport : {};
@@ -1310,10 +1487,20 @@
       rawEducationSavingsOffsetActivation,
       educationResourceSpendingMode
     );
+    const educationBroaderResourceAllocation = getEducationBroaderResourceAllocation(safeInput);
     const broaderEligibleResourceSpending = resolveBroaderEligibleResourceSpending(
       educationResourceSpendingMode,
+      educationBroaderResourceAllocation,
       dataGaps
     );
+    if (broaderEligibleResourceSpending.sourceAvailable === true) {
+      (Array.isArray(educationBroaderResourceAllocation?.warnings) ? educationBroaderResourceAllocation.warnings : []).forEach(function (warning) {
+        warnings.push(clonePlainValue(warning));
+      });
+      (Array.isArray(educationBroaderResourceAllocation?.dataGaps) ? educationBroaderResourceAllocation.dataGaps : []).forEach(function (dataGap) {
+        dataGaps.push(clonePlainValue(dataGap));
+      });
+    }
     const educationSavingsOffsetActive = educationSavingsOffsetActivation.active === true;
     const activeEducationSavingsOffsetAvailable = educationSavingsOffsetActive
       ? educationSavingsAssets.totalEducationSavingsAvailable
@@ -1497,6 +1684,23 @@
           }
         }]
       : [];
+    const scheduledPaymentObligations = timedSchedules.flatMap(function (schedule) {
+      return collectUnpaidPaymentObligations(schedule, context.valuationYear);
+    });
+    const scheduledEducationSavingsAllocation = allocateEducationSavingsOffset(
+      scheduledPaymentObligations,
+      activeEducationSavingsOffsetAvailable
+    );
+    const broaderEligibleResourceAllocationObligations = createRemainingEducationObligationsAfterSavings(
+      scheduledPaymentObligations,
+      educationSavingsOffsetActive ? scheduledEducationSavingsAllocation : { appliedByObligation: [] },
+      context
+    );
+    const alreadyAppliedEducationSavings = createAlreadyAppliedEducationSavingsRows(
+      educationSavingsAssets,
+      educationSavingsOffsetActive ? scheduledEducationSavingsAllocation.totalApplied : 0
+    );
+    const broaderApplicationMaps = createBroaderApplicationMaps(broaderEligibleResourceSpending.allocation);
 
     if (!timedSchedules.length && !(untimedProjected.amount > 0) && (toOptionalNumber(educationSupport.totalEducationFundingNeed) || 0) > 0) {
       addIssue(
@@ -1541,6 +1745,15 @@
         obligations,
         activeEducationSavingsOffsetAvailable
       );
+      const broaderPointAllocation = broaderEligibleResourceSpending.sourceAvailable === true
+        ? sumBroaderApplicationsForObligations(obligations, broaderApplicationMaps)
+        : {
+            totalApplied: 0,
+            appliedToTimedCurrentDependents: 0,
+            appliedToTimedProjectedDependents: 0,
+            appliedByDependentId: {},
+            applications: []
+          };
       timedSchedules.forEach(function (schedule) {
         const amount = remainingScheduleAmount(schedule, pointCalendarYear);
         if (!(amount > 0)) {
@@ -1549,22 +1762,39 @@
         const scheduleOffset = educationSavingsOffsetActive
           ? (offsetAllocation.appliedByDependentId[schedule.id] || 0)
           : 0;
+        const broaderScheduleOffset = broaderPointAllocation.appliedByDependentId[schedule.id] || 0;
         if (schedule.kind === "currentDependent") {
-          currentPointRecords.push(createPointScheduleRecord(schedule, amount, pointCalendarYear, scheduleOffset));
+          currentPointRecords.push(createPointScheduleRecord(
+            schedule,
+            amount,
+            pointCalendarYear,
+            scheduleOffset,
+            broaderScheduleOffset
+          ));
           return;
         }
-        projectedPointRecords.push(createPointScheduleRecord(schedule, amount, pointCalendarYear, scheduleOffset));
+        projectedPointRecords.push(createPointScheduleRecord(
+          schedule,
+          amount,
+          pointCalendarYear,
+          scheduleOffset,
+          broaderScheduleOffset
+        ));
       });
       const educationSavingsOffsetAmount = educationSavingsOffsetActive
         ? offsetAllocation.totalApplied
         : 0;
       const currentDependentNeedAmount = roundMoney(Math.max(
         0,
-        grossCurrentDependentNeedAmount - (educationSavingsOffsetActive ? offsetAllocation.appliedToTimedCurrentDependents : 0)
+        grossCurrentDependentNeedAmount
+          - (educationSavingsOffsetActive ? offsetAllocation.appliedToTimedCurrentDependents : 0)
+          - broaderPointAllocation.appliedToTimedCurrentDependents
       ));
       const timedProjectedNeedAmount = roundMoney(Math.max(
         0,
-        grossTimedProjectedNeedAmount - (educationSavingsOffsetActive ? offsetAllocation.appliedToTimedProjectedDependents : 0)
+        grossTimedProjectedNeedAmount
+          - (educationSavingsOffsetActive ? offsetAllocation.appliedToTimedProjectedDependents : 0)
+          - broaderPointAllocation.appliedToTimedProjectedDependents
       ));
       const untimedProjectedDependentNeedAmount = roundMoney(Math.max(
         0,
@@ -1577,9 +1807,15 @@
         grossCurrentDependentNeedAmount + grossProjectedDependentNeedAmount
       );
       const projectedDependentNeedAmount = roundMoney(timedProjectedNeedAmount + untimedProjectedDependentNeedAmount);
-      const educationNeedAmount = roundMoney(Math.max(0, grossEducationNeedAmount - educationSavingsOffsetAmount));
-      const remainingNeedAfterEducationSavings = educationNeedAmount;
-      const broaderEligibleResourceOffsetAmount = 0;
+      const remainingNeedAfterEducationSavings = roundMoney(Math.max(0, grossEducationNeedAmount - educationSavingsOffsetAmount));
+      const broaderEligibleResourceOffsetAmount = roundMoney(Math.min(
+        remainingNeedAfterEducationSavings,
+        broaderPointAllocation.totalApplied
+      ));
+      const educationNeedAmount = roundMoney(Math.max(
+        0,
+        remainingNeedAfterEducationSavings - broaderEligibleResourceOffsetAmount
+      ));
       const educationResourceSpendingOffsetAmount = roundMoney(
         educationSavingsOffsetAmount + broaderEligibleResourceOffsetAmount
       );
@@ -1686,8 +1922,12 @@
           broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
           broaderEligibleResourceOffsetAmount,
           broaderEligibleResourceOffsetApplied: broaderEligibleResourceOffsetAmount,
+          broaderEligibleResourceApplications: broaderPointAllocation.applications,
           broaderEligibleResourceSourceAvailable: broaderEligibleResourceSpending.sourceAvailable === true,
           broaderEligibleResourceWarningCode: broaderEligibleResourceSpending.warningCode,
+          needLineReductionAmountFromBroaderResources: broaderEligibleResourceOffsetAmount,
+          resourceLineReductionAmountFromBroaderResources: broaderEligibleResourceOffsetAmount,
+          needLineResourceLineReductionAmountsMatch: true,
           educationSpecificSavingsConsumed: educationSavingsOffsetActive && educationSavingsOffsetAmount > 0,
           projectedDependentDefaultTimingMode:
             projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
@@ -1697,14 +1937,17 @@
             projectedDependentTimingMetadata.projectedDependentTimedRowCount,
           projectedDependentUntimedRowCount:
             projectedDependentTimingMetadata.projectedDependentUntimedRowCount,
-          resourceSpendingApplied: false,
-          generalResourceReductionApplied: false,
+          resourceSpendingApplied: broaderEligibleResourceOffsetAmount > 0,
+          generalResourceReductionApplied: broaderEligibleResourceOffsetAmount > 0,
           untimedProjectedDependentStatus: untimedProjected.status
         }
       };
     });
     const maxEducationSavingsApplied = roundMoney(educationPoints.reduce(function (max, point) {
       return Math.max(max, toOptionalNumber(point.educationSavingsOffsetAmount) || 0);
+    }, 0));
+    const maxBroaderEligibleResourceOffsetApplied = roundMoney(educationPoints.reduce(function (max, point) {
+      return Math.max(max, toOptionalNumber(point.broaderEligibleResourceOffsetAmount) || 0);
     }, 0));
 
     return {
@@ -1750,12 +1993,14 @@
         educationResourceSpendingModeSourcePath: educationResourceSpendingMode.sourcePath,
         educationResourceSpendingModeDerivedFromUseEducationSavingsOffset:
           educationResourceSpendingMode.derivedFromUseEducationSavingsOffset === true,
-        broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
+        broaderEligibleResourceOffsetApplied: maxBroaderEligibleResourceOffsetApplied,
+        broaderEligibleResourceAllocationTotalApplied: broaderEligibleResourceSpending.totalApplied,
         broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
+        broaderEligibleResourceAllocationObligationCount: broaderEligibleResourceAllocationObligations.length,
         coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
         projectedDependentTimingMetadata,
-        resourceSpendingApplied: false,
-        generalResourceReductionApplied: false,
+        resourceSpendingApplied: maxBroaderEligibleResourceOffsetApplied > 0,
+        generalResourceReductionApplied: maxBroaderEligibleResourceOffsetApplied > 0,
         educationSpecificSavingsConsumed: educationSavingsOffsetActive && maxEducationSavingsApplied > 0,
         fundingTarget: getFundingTargetTrace(educationAssumptions)
       },
@@ -1778,14 +2023,15 @@
         generalResourceSpendingApplied: false,
         trace: {
           source: "coverage-strategy-education-lifetime-projection",
-          resourceLineMathChanged: false,
+          resourceLineMathChanged: maxBroaderEligibleResourceOffsetApplied > 0,
           rawEducationSpecificAssetValuesUsed: educationSavingsOffsetActive,
           treatedAssetOffsetsUsedForDoubleCountGuard: true,
           educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
           effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
-          broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
+          broaderEligibleResourceOffsetApplied: maxBroaderEligibleResourceOffsetApplied,
+          broaderEligibleResourceAllocationTotalApplied: broaderEligibleResourceSpending.totalApplied,
           broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
-          generalResourceReductionApplied: false
+          generalResourceReductionApplied: maxBroaderEligibleResourceOffsetApplied > 0
         }
       },
       educationResourceSpending: createEducationResourceSpendingTrace(
@@ -1801,6 +2047,11 @@
         true,
         untimedProjected.amount
       ),
+      broaderEligibleResourceAllocationObligations: broaderEligibleResourceAllocationObligations.map(clonePlainValue),
+      alreadyAppliedEducationSavings: alreadyAppliedEducationSavings.map(clonePlainValue),
+      broaderEligibleResourceAllocation: broaderEligibleResourceSpending.allocation
+        ? clonePlainValue(broaderEligibleResourceSpending.allocation)
+        : null,
       projectedDependentTimingMetadata,
       warnings,
       dataGaps,
@@ -1839,11 +2090,12 @@
         educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
         effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
         educationResourceSpendingModeSource: educationResourceSpendingMode.source,
-        broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
+        broaderEligibleResourceOffsetApplied: maxBroaderEligibleResourceOffsetApplied,
+        broaderEligibleResourceAllocationTotalApplied: broaderEligibleResourceSpending.totalApplied,
         broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
         visibleResourceSpendingControl: false,
         coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
-        generalResourceReductionApplied: false,
+        generalResourceReductionApplied: maxBroaderEligibleResourceOffsetApplied > 0,
         displayHtmlUsed: false,
         storageUsed: false,
         inputMutated: false

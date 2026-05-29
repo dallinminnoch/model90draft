@@ -1094,6 +1094,7 @@
     pointSpine,
     valuationDateResult,
     coverageStrategyScenarioSettings,
+    educationBroaderResourceAllocation,
     warnings,
     dataGaps
   ) {
@@ -1131,6 +1132,7 @@
       valuationDate: valuationDateResult?.normalizedDate || null,
       educationAssumptions,
       coverageStrategyScenarioSettings,
+      educationBroaderResourceAllocation,
       educationInflationRatePercent: getEducationInflationRate(analysisSettings, needsResult),
       options: {
         horizonYears: pointSpine.length ? pointSpine.length - 1 : 0,
@@ -1393,6 +1395,7 @@
       pointSpine,
       valuationDateResult,
       coverageStrategyScenarioSettings,
+      safeInput.educationBroaderResourceAllocation || safeInput.educationResourceAllocation || null,
       warnings,
       dataGaps
     );
@@ -1805,6 +1808,16 @@
                   : 0,
                 educationSavingsOffset: educationLifetimeProjection.educationSavingsOffset || null,
                 educationResourceSpending: educationLifetimeProjection.educationResourceSpending || null,
+                broaderEligibleResourceAllocation:
+                  educationLifetimeProjection.broaderEligibleResourceAllocation || null,
+                broaderEligibleResourceAllocationObligations:
+                  Array.isArray(educationLifetimeProjection.broaderEligibleResourceAllocationObligations)
+                    ? educationLifetimeProjection.broaderEligibleResourceAllocationObligations
+                    : [],
+                alreadyAppliedEducationSavings:
+                  Array.isArray(educationLifetimeProjection.alreadyAppliedEducationSavings)
+                    ? educationLifetimeProjection.alreadyAppliedEducationSavings
+                    : [],
                 educationTreatment: educationLifetimeProjection.educationTreatment || null,
                 projectedDependentTimingMetadata:
                   educationLifetimeProjection.projectedDependentTimingMetadata || null,

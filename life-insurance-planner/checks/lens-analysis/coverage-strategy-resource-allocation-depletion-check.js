@@ -42,6 +42,13 @@ const diagnosticExportPath = path.join(
   "lens-analysis",
   "coverage-strategy-diagnostic-export.js"
 );
+const coverageStrategyControllerPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-page.js"
+);
 const coverageStrategyPagePath = path.join(repoRoot, "pages", "coverage-strategy.html");
 
 const helperSource = fs.readFileSync(helperPath, "utf8");
@@ -49,6 +56,7 @@ const resourceLineAdapterSource = fs.readFileSync(resourceLineAdapterPath, "utf8
 const needLineAdapterSource = fs.readFileSync(needLineAdapterPath, "utf8");
 const educationProjectionSource = fs.readFileSync(educationProjectionPath, "utf8");
 const diagnosticExportSource = fs.readFileSync(diagnosticExportPath, "utf8");
+const coverageStrategyControllerSource = fs.readFileSync(coverageStrategyControllerPath, "utf8");
 const coverageStrategyPageSource = fs.readFileSync(coverageStrategyPagePath, "utf8");
 
 function loadHelper() {
@@ -94,19 +102,12 @@ assert.doesNotMatch(helperSource, /\blocalStorage\b/);
 assert.doesNotMatch(helperSource, /\bsessionStorage\b/);
 assert.doesNotMatch(helperSource, /\bfetch\b/);
 
-[
-  resourceLineAdapterSource,
-  needLineAdapterSource,
-  educationProjectionSource,
-  diagnosticExportSource,
-  coverageStrategyPageSource
-].forEach((source) => {
-  assert.doesNotMatch(
-    source,
-    /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/,
-    "helper is not wired into production runtime in this pass"
-  );
-});
+assert.match(coverageStrategyPageSource, /coverage-strategy-resource-allocation-depletion\.js/);
+assert.match(coverageStrategyControllerSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(resourceLineAdapterSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(needLineAdapterSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(educationProjectionSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(diagnosticExportSource, /calculateCoverageStrategyResourceAllocationDepletion/);
 
 const basicInput = {
   projectionYears: 2,
