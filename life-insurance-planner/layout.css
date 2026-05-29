@@ -2594,6 +2594,14 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
   overflow: visible;
 }
 
+body[data-step="coverage-strategy"] .analysis-estimate-shell {
+  --coverage-strategy-scenario-tray-clearance: clamp(9.5rem, 17vh, 11.75rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: calc(var(--coverage-strategy-scenario-tray-clearance) + var(--analysis-estimate-safe-bottom));
+  scroll-padding-bottom: var(--coverage-strategy-scenario-tray-clearance);
+}
+
 .analysis-results-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

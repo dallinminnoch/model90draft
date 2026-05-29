@@ -20,6 +20,7 @@ function indexOfRequired(source, needle, label) {
 const pageSource = readRepoFile("pages/coverage-strategy.html");
 const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
 const componentsSource = readRepoFile("components.css");
+const layoutSource = readRepoFile("layout.css");
 const stylesSource = readRepoFile("styles.css");
 
 assert.match(pageSource, /coverage-strategy-compact-header/);
@@ -90,6 +91,8 @@ assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-input/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-number/);
 assert.match(trayMarkup, /data-coverage-strategy-horizon-output/);
+assert.match(trayMarkup, /coverage-strategy-horizon-value-row/);
+assert.match(trayMarkup, /coverage-strategy-horizon-range-labels/);
 assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
 assert.match(trayMarkup, />Off</);
@@ -104,6 +107,7 @@ assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth
 assert.match(trayMarkup, /Export Diagnostic Report/);
 assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
 assert.match(trayMarkup, /data-coverage-strategy-diagnostic-export/);
+assert.match(trayMarkup, /coverage-strategy-scenario-footer/);
 const trayMarkupWithoutDiagnosticExport = trayMarkup.replace(
   /<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/,
   ""
@@ -120,20 +124,26 @@ assert.match(componentsSource, /\.coverage-strategy-left-panel,\s*\n\.coverage-s
 assert.match(componentsSource, /\.coverage-strategy-main-stage\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray\s*\{/);
 assert.match(componentsSource, /position: fixed/);
-assert.match(componentsSource, /bottom: 0\.75rem/);
+assert.match(componentsSource, /right: clamp\(0\.45rem, 1\.2vw, 0\.85rem\)/);
+assert.match(componentsSource, /bottom: clamp\(0\.25rem, 0\.65vw, 0\.45rem\)/);
+assert.match(componentsSource, /left: calc\(var\(--app-side-nav-collapsed-width, 3\.75rem\) \+ clamp\(0\.35rem, 0\.85vw, 0\.7rem\)\)/);
 assert.match(componentsSource, /z-index: 40/);
 assert.match(componentsSource, /background: var\(--m90-surface\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tabs\s*\{/);
-assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(6\.25rem, 12vh, 7\.5rem\)/);
+assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5\.75rem, 11vh, 7rem\)/);
+assert.match(layoutSource, /body\[data-step="coverage-strategy"\] \.analysis-estimate-shell\s*\{[\s\S]*overflow-y: auto/);
+assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(9\.5rem, 17vh, 11\.75rem\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-grid\s*\{/);
-assert.match(componentsSource, /grid-template-columns: minmax\(11\.5rem, 1\.02fr\) minmax\(6rem, 0\.56fr\) minmax\(7\.2rem, 0\.62fr\) minmax\(13rem, 1\.18fr\) minmax\(9rem, 0\.66fr\)/);
+assert.match(componentsSource, /grid-template-columns: minmax\(13rem, 1\.05fr\) minmax\(9\.5rem, 0\.75fr\) minmax\(10\.5rem, 0\.82fr\) minmax\(17rem, 1\.25fr\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-control\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-control\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-diagnostic-export-button\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-footer\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-horizon-control-compact\s*\{/);
-assert.match(componentsSource, /grid-template-columns: minmax\(6\.5rem, 1fr\) 2\.8rem auto/);
+assert.match(componentsSource, /\.coverage-strategy-horizon-value-row\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-horizon-range-labels\s*\{/);
 assert.match(componentsSource, /@media \(max-width: 900px\)/);
 assert.match(componentsSource, /\.coverage-strategy-workspace\s*\{[\s\S]*grid-template-columns: 1fr/);
 

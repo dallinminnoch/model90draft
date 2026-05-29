@@ -61,7 +61,8 @@ assert.match(controllerSource, /gapSurplus/);
 assert.match(controllerSource, /chartModel/);
 
 assert.match(componentsSource, /\.coverage-strategy-diagnostic-export-button\s*\{/);
-assert.match(controllerSource, /coverage-strategy-scenario-control is-diagnostic-export/);
+assert.match(controllerSource, /coverage-strategy-scenario-footer/);
+assert.doesNotMatch(controllerSource, /coverage-strategy-scenario-control is-diagnostic-export/);
 assert.doesNotMatch(stylesSource, /coverage-strategy-diagnostic-export|coverage-strategy-scenario-control\.is-diagnostic-export/);
 
 const context = {

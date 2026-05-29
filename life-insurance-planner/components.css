@@ -20381,8 +20381,9 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-strategy-horizon-control-compact {
-  grid-template-columns: minmax(6.5rem, 1fr) 2.8rem auto;
-  gap: 0.22rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.32rem;
   width: 100%;
   padding: 0;
   border: 0;
@@ -20398,17 +20399,28 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-strategy-horizon-control-compact label {
-  grid-column: 1 / -1;
+  min-height: 1.875rem;
   color: var(--m90-text-muted);
-  font-size: 0.62rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.35;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .coverage-strategy-horizon-control-compact output {
-  color: var(--m90-text-secondary);
-  font-size: 0.66rem;
-  font-weight: 660;
+  color: var(--m90-text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.coverage-strategy-horizon-value-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.44rem;
+  min-width: 0;
 }
 
 .coverage-strategy-horizon-control input[type="range"] {
@@ -20428,50 +20440,79 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-strategy-horizon-control-compact input[type="number"] {
-  width: 2.8rem;
-  min-height: 1.45rem;
-  padding: 0.14rem 0.24rem;
-  border-color: color-mix(in srgb, var(--m90-border) 90%, transparent);
-  border-radius: 0.34rem;
-  background: color-mix(in srgb, var(--m90-surface-alt) 48%, var(--m90-surface));
+  width: 3.625rem;
+  min-height: 1.75rem;
+  padding: 0 0.44rem;
+  border: 1px solid color-mix(in srgb, var(--m90-border) 94%, transparent);
+  border-radius: 0.44rem;
+  background: color-mix(in srgb, var(--m90-surface-alt) 58%, var(--m90-surface));
   color: var(--m90-text-primary);
-  font-size: 0.66rem;
-  font-weight: 660;
-  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+  text-align: right;
 }
 
 .coverage-strategy-horizon-control-compact input[type="range"] {
-  height: 0.18rem;
-  border-radius: 999px;
+  width: 100%;
+  height: 0.1875rem;
+  min-height: 0;
+  margin: 0.22rem 0 0.04rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.125rem;
   appearance: none;
   -webkit-appearance: none;
   accent-color: var(--m90-accent);
-  background: color-mix(in srgb, var(--m90-border) 82%, var(--m90-surface));
+  background: color-mix(in srgb, var(--m90-border) 88%, var(--m90-surface));
+  cursor: pointer;
+  outline: none;
+}
+
+.coverage-strategy-horizon-control-compact input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.1875rem;
+  border-radius: 0.125rem;
+  background: color-mix(in srgb, var(--m90-border) 88%, var(--m90-surface));
 }
 
 .coverage-strategy-horizon-control-compact input[type="range"]::-webkit-slider-thumb {
-  width: 0.78rem;
-  height: 0.78rem;
+  width: 0.8125rem;
+  height: 0.8125rem;
+  margin-top: -0.3125rem;
   border: 2px solid var(--m90-surface);
   border-radius: 999px;
   appearance: none;
   -webkit-appearance: none;
   background: var(--m90-accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--m90-accent) 72%, transparent);
+  box-shadow: 0 0 0 1.5px var(--m90-accent);
 }
 
 .coverage-strategy-horizon-control-compact input[type="range"]::-moz-range-track {
-  height: 0.18rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--m90-border) 82%, var(--m90-surface));
+  height: 0.1875rem;
+  border: 0;
+  border-radius: 0.125rem;
+  background: color-mix(in srgb, var(--m90-border) 88%, var(--m90-surface));
 }
 
 .coverage-strategy-horizon-control-compact input[type="range"]::-moz-range-thumb {
-  width: 0.72rem;
-  height: 0.72rem;
+  width: 0.8125rem;
+  height: 0.8125rem;
   border: 2px solid var(--m90-surface);
   border-radius: 999px;
   background: var(--m90-accent);
+  box-shadow: 0 0 0 1.5px var(--m90-accent);
+}
+
+.coverage-strategy-horizon-control-compact input[type="range"]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m90-accent) 18%, transparent);
+}
+
+.coverage-strategy-horizon-range-labels {
+  display: flex;
+  justify-content: space-between;
+  color: color-mix(in srgb, var(--m90-text-muted) 76%, transparent);
+  font: 400 0.625rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .coverage-need-timeline-legend-need {
@@ -20638,7 +20679,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-need-timeline-card {
-  padding-bottom: clamp(6.25rem, 12vh, 7.5rem);
+  padding-bottom: clamp(5.75rem, 11vh, 7rem);
 }
 
 .coverage-need-timeline-grid line {
@@ -20732,36 +20773,39 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-strategy-scenario-tray {
   position: fixed;
-  right: clamp(1rem, 3vw, 2.25rem);
-  bottom: 0.75rem;
-  left: clamp(1rem, 8vw, 7rem);
+  right: clamp(0.45rem, 1.2vw, 0.85rem);
+  bottom: clamp(0.25rem, 0.65vw, 0.45rem);
+  left: calc(var(--app-side-nav-collapsed-width, 3.75rem) + clamp(0.35rem, 0.85vw, 0.7rem));
   z-index: 40;
   display: grid;
+  grid-template-rows: 2.875rem 6.4375rem 2.75rem;
+  height: 12.0625rem;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--m90-border) 92%, transparent);
   border-radius: 0.7rem;
   background: var(--m90-surface);
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--m90-shadow) 14%, transparent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--m90-shadow) 16%, transparent);
   color: var(--m90-text-primary);
 }
 
 .coverage-strategy-scenario-tray-header {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  min-height: 2.46rem;
-  padding: 0 0.78rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--m90-border) 86%, transparent);
-  background: color-mix(in srgb, var(--m90-surface-alt) 46%, var(--m90-surface));
+  gap: 0.85rem;
+  height: 2.875rem;
+  min-height: 2.875rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid #e8eaed;
+  background: #f8f9fb;
 }
 
 .coverage-strategy-scenario-tray-label {
   flex: 0 0 auto;
-  padding-right: 0.72rem;
+  padding-right: 0.875rem;
   border-right: 1px solid color-mix(in srgb, var(--m90-border) 86%, transparent);
   color: var(--m90-text-muted);
-  font: 720 0.62rem/1 "Plus Jakarta Sans", sans-serif;
-  letter-spacing: 0;
+  font: 600 0.6875rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
@@ -20777,18 +20821,20 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 0 0.58rem;
+  height: 2.875rem;
+  padding: 0 0.875rem;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--m90-text-muted);
-  font: 640 0.72rem/1 "Plus Jakarta Sans", sans-serif;
+  font: 400 0.8125rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   white-space: nowrap;
 }
 
 .coverage-strategy-scenario-tab.is-active {
   border-bottom-color: var(--m90-accent);
   color: var(--m90-accent);
+  font-weight: 500;
 }
 
 .coverage-strategy-scenario-tab.is-new {
@@ -20803,7 +20849,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .coverage-strategy-scenario-actions {
   display: flex;
   align-items: center;
-  gap: 0.36rem;
+  gap: 0.5rem;
   margin-left: auto;
   min-width: max-content;
 }
@@ -20811,15 +20857,17 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .coverage-strategy-scenario-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.375rem;
   color: var(--m90-text-muted);
-  font: 620 0.66rem/1 "Plus Jakarta Sans", sans-serif;
+  font: 400 0.75rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin-right: 0.375rem;
   white-space: nowrap;
 }
 
-.coverage-strategy-scenario-status span {
-  width: 0.36rem;
-  height: 0.36rem;
+.coverage-strategy-scenario-status-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--m90-stable);
 }
@@ -20828,11 +20876,27 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 1.55rem;
-  padding: 0.24rem 0.56rem;
-  border-radius: 0.36rem;
-  font: 660 0.66rem/1 "Plus Jakarta Sans", sans-serif;
+  gap: 0.3125rem;
+  min-height: 1.875rem;
+  padding: 0.32rem 0.72rem;
+  border-radius: 0.44rem;
+  font: 500 0.75rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   white-space: nowrap;
+}
+
+.coverage-strategy-scenario-action-icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.coverage-strategy-scenario-action.is-primary .coverage-strategy-scenario-action-icon {
+  stroke-width: 2.5;
 }
 
 .coverage-strategy-scenario-action.is-secondary {
@@ -20849,26 +20913,28 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-strategy-scenario-action:disabled {
   cursor: default;
-  opacity: 0.66;
+  opacity: 0.88;
 }
 
 .coverage-strategy-scenario-tray-grid {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(11.5rem, 1.02fr) minmax(6rem, 0.56fr) minmax(7.2rem, 0.62fr) minmax(13rem, 1.18fr) minmax(9rem, 0.66fr);
-  gap: 0;
-  align-items: stretch;
+  grid-template-columns: minmax(13rem, 1.05fr) minmax(9.5rem, 0.75fr) minmax(10.5rem, 0.82fr) minmax(17rem, 1.25fr);
+  gap: clamp(1.2rem, 2.4vw, 2.1rem);
+  align-items: start;
   min-width: 0;
-  padding: 0.52rem 0.74rem 0.58rem;
+  min-height: 6.4375rem;
+  padding: 0.875rem 1rem 0.625rem;
 }
 
 .coverage-strategy-scenario-control {
   display: grid;
-  gap: 0.24rem;
-  min-height: 2.52rem;
-  align-content: center;
+  gap: 0.34rem;
+  min-height: 4.95rem;
+  align-content: start;
   min-width: 0;
-  padding: 0 0.66rem;
-  border-right: 1px solid color-mix(in srgb, var(--m90-border) 66%, transparent);
+  padding: 0;
+  border-right: 0;
 }
 
 .coverage-strategy-scenario-control:first-child {
@@ -20889,19 +20955,21 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-strategy-scenario-control-label {
+  min-height: 1.875rem;
   color: var(--m90-text-muted);
-  font-size: 0.61rem;
-  font-weight: 680;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
   letter-spacing: 0;
-  line-height: 1.1;
-  text-transform: uppercase;
+  line-height: 1.35;
+  text-transform: none;
 }
 
 .coverage-strategy-scenario-control strong {
   color: var(--m90-text-secondary);
-  font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: 0.68rem;
-  font-weight: 660;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
   line-height: 1.1;
 }
 
@@ -20912,7 +20980,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   min-width: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--m90-border) 92%, transparent);
-  border-radius: 0.36rem;
+  border-radius: 0.44rem;
   background: color-mix(in srgb, var(--m90-surface-alt) 42%, var(--m90-surface));
 }
 
@@ -20932,11 +21000,11 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-strategy-segmented-option span {
   display: block;
-  min-height: 1.42rem;
-  padding: 0.28rem 0.42rem;
+  min-height: 1.75rem;
+  padding: 0.42rem 0.5rem;
   border-right: 1px solid color-mix(in srgb, var(--m90-border) 76%, transparent);
   color: var(--m90-text-secondary);
-  font: 640 0.66rem/1.05 "Plus Jakarta Sans", sans-serif;
+  font: 400 0.6875rem/1.05 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: center;
   text-transform: none;
 }
@@ -20948,6 +21016,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .coverage-strategy-segmented-option input:checked + span {
   background: var(--m90-accent);
   color: #ffffff;
+  font-weight: 500;
 }
 
 .coverage-strategy-segmented-option input:focus-visible + span {
@@ -20957,15 +21026,15 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
 .coverage-strategy-projected-dependent-list {
   display: grid;
-  gap: 0.22rem;
-  max-height: 4.1rem;
+  gap: 0.34rem;
+  max-height: 4.85rem;
   overflow-y: auto;
   min-width: 0;
 }
 
 .coverage-strategy-projected-dependent-row {
   display: grid;
-  grid-template-columns: minmax(5.2rem, 1fr) 3.7rem 2.7rem;
+  grid-template-columns: minmax(8rem, 1fr) 3.625rem 3.1rem;
   align-items: center;
   gap: 0.3rem;
   min-width: 0;
@@ -20974,24 +21043,25 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 .coverage-strategy-projected-dependent-row span {
   overflow: hidden;
   color: var(--m90-text-secondary);
-  font-size: 0.66rem;
-  font-weight: 640;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
   text-overflow: ellipsis;
   text-transform: none;
   white-space: nowrap;
 }
 
 .coverage-strategy-projected-dependent-row input {
-  width: 100%;
+  width: 3.625rem;
   min-width: 0;
-  min-height: 1.42rem;
-  padding: 0.18rem 0.32rem;
+  min-height: 1.75rem;
+  padding: 0 0.44rem;
   border: 1px solid color-mix(in srgb, var(--m90-border) 90%, transparent);
-  border-radius: 0.34rem;
-  background: color-mix(in srgb, var(--m90-surface-alt) 46%, var(--m90-surface));
+  border-radius: 0.44rem;
+  background: color-mix(in srgb, var(--m90-surface-alt) 58%, var(--m90-surface));
   color: var(--m90-text-primary);
-  font: 660 0.66rem/1 "Plus Jakarta Sans", sans-serif;
-  text-align: center;
+  font: 500 0.8125rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: right;
 }
 
 .coverage-strategy-projected-dependent-row input:focus-visible {
@@ -21009,7 +21079,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   border-radius: 999px;
   background: color-mix(in srgb, var(--m90-surface-alt) 58%, var(--m90-surface));
   color: var(--m90-text-muted);
-  font: 660 0.54rem/1 "Plus Jakarta Sans", sans-serif;
+  font: 500 0.5625rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: center;
   text-transform: uppercase;
 }
@@ -21019,24 +21089,38 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-strategy-diagnostic-export-button {
-  width: 100%;
-  min-height: 1.55rem;
-  padding: 0.26rem 0.48rem;
-  border: 1px solid color-mix(in srgb, var(--m90-border) 92%, transparent);
-  border-radius: 0.36rem;
-  background: var(--m90-surface);
-  color: var(--m90-text-secondary);
-  font: 660 0.66rem/1.1 "Plus Jakarta Sans", sans-serif;
+  width: auto;
+  height: 1.5rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--m90-accent);
+  font: 500 0.75rem/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
   cursor: pointer;
 }
 
 .coverage-strategy-diagnostic-export-button:hover,
 .coverage-strategy-diagnostic-export-button:focus-visible {
-  border-color: color-mix(in srgb, var(--m90-accent) 62%, var(--m90-border));
   color: var(--m90-accent);
+  text-decoration: underline;
   outline: 2px solid color-mix(in srgb, var(--m90-accent) 18%, transparent);
-  outline-offset: 1px;
+  outline-offset: 0.18rem;
+}
+
+.coverage-strategy-scenario-footer {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-top: 1px solid #e8eaed;
+  background: #f8f9fb;
 }
 
 .coverage-need-timeline-issues {
@@ -21095,9 +21179,9 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 
   .coverage-strategy-scenario-tray {
     position: fixed;
-    right: 0.75rem;
-    bottom: 0.5rem;
-    left: 0.75rem;
+    right: 0.45rem;
+    bottom: 0.35rem;
+    left: 0.45rem;
     min-height: 0;
   }
 
@@ -21107,7 +21191,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
     gap: 0.45rem;
     height: auto;
     min-height: 0;
-    padding: 0.65rem 0.75rem;
+    padding: 0.8rem 0.9rem;
   }
 
   .coverage-strategy-scenario-tray-label {

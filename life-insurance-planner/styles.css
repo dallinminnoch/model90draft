@@ -4126,7 +4126,7 @@ body:not([data-page="next-step"]) .profile-form-toggle-button:disabled {
   cursor: default;
 }
 
-body:not([data-page="next-step"]) label:not(.analysis-setup-rate-label) {
+body:not([data-page="next-step"]) label:not(.analysis-setup-rate-label):not(.coverage-strategy-horizon-label):not(.coverage-strategy-segmented-option) {
   font-size: 0.92rem;
   font-weight: 700;
 }
@@ -4136,7 +4136,7 @@ body:not([data-page="next-step"]) label:not(.analysis-setup-rate-label) {
   font-weight: 400;
 }
 
-body:not([data-page="next-step"]) input:not(.client-table-search-input):not(.client-activity-input):not(.client-coverage-suggest-input):not(.client-coverage-inline-unit-input):not(.client-coverage-readonly-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]),
+body:not([data-page="next-step"]) input:not(.client-table-search-input):not(.client-activity-input):not(.client-coverage-suggest-input):not(.client-coverage-inline-unit-input):not(.client-coverage-readonly-input):not(.analysis-setup-rate-slider):not([data-analysis-inflation-field]):not([data-analysis-method-field]):not([data-analysis-growth-field]):not([data-analysis-policy-return-enabled]):not([data-analysis-policy-return-field]):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-card-input):not([data-analysis-coverage-field]):not(.coverage-strategy-horizon-range):not(.coverage-strategy-horizon-number):not(.coverage-strategy-projected-dependent-birth-year-input),
 body:not([data-page="next-step"]) select:not(.theme-switcher-select):not(.client-activity-select):not(.analysis-setup-asset-field):not(.analysis-setup-debt-field):not(.analysis-setup-asset-select):not(.analysis-setup-method-select),
 body:not([data-page="next-step"]) textarea:not(.client-activity-textarea) {
   width: 100%;

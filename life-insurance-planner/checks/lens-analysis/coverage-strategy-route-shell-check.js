@@ -44,6 +44,12 @@ const configSource = readRepoFile("app/core/config.js");
 const sideNavSource = readRepoFile("workspace-side-nav.js");
 const appSource = readRepoFile("app.js");
 const stylesSource = readRepoFile("styles.css");
+const stylesSourceWithoutCoverageStrategyFormExclusions = stylesSource
+  .replace(/\.coverage-strategy-horizon-label/g, "")
+  .replace(/\.coverage-strategy-segmented-option/g, "")
+  .replace(/\.coverage-strategy-horizon-range/g, "")
+  .replace(/\.coverage-strategy-horizon-number/g, "")
+  .replace(/\.coverage-strategy-projected-dependent-birth-year-input/g, "");
 const engineSource = readRepoFile("app/features/lens-analysis/coverage-timeline-engine.js");
 
 assert.match(coverageStrategyHtml, /<title>Coverage Strategy \| Life Evaluation &amp; Needs Analysis<\/title>/);
@@ -74,9 +80,14 @@ assertRouteAfterLensResult(sideNavSource, "workspace-side-nav.js");
 assert.match(appSource, /"coverage-strategy\.html"/, "Temporary analysis route guard should treat Coverage Strategy as an internal analysis route.");
 
 assert.doesNotMatch(
-  stylesSource,
+  stylesSourceWithoutCoverageStrategyFormExclusions,
   /coverage-strategy/i,
-  "styles.css should not own the new Coverage Strategy shell."
+  "styles.css should not own the new Coverage Strategy shell beyond narrow legacy form-rule exclusions."
+);
+assert.match(
+  stylesSource,
+  /:not\(\.coverage-strategy-horizon-range\):not\(\.coverage-strategy-horizon-number\):not\(\.coverage-strategy-projected-dependent-birth-year-input\)/,
+  "styles.css should only mention Coverage Strategy to exempt its controls from legacy global form sizing."
 );
 
 assert.deepEqual(

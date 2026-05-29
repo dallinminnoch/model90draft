@@ -21,6 +21,7 @@ const pageSource = readRepoFile("pages/coverage-strategy.html");
 const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
 const chartModelSource = readRepoFile("app/features/lens-analysis/coverage-strategy-chart-model.js");
 const componentsSource = readRepoFile("components.css");
+const layoutSource = readRepoFile("layout.css");
 const stylesSource = readRepoFile("styles.css");
 
 assert.match(pageSource, /coverage-strategy-compact-header/);
@@ -53,9 +54,13 @@ assert.match(componentsSource, /background: var\(--m90-surface\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tabs\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-control\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
-assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(6\.25rem, 12vh, 7\.5rem\)/);
+assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5\.75rem, 11vh, 7rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-chart\s*\{[\s\S]*min-height: clamp\(34rem, calc\(100vh - 18rem\), 50rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-svg\s*\{[\s\S]*min-height: 31rem/);
+assert.match(layoutSource, /body\[data-step="coverage-strategy"\] \.analysis-estimate-shell\s*\{[\s\S]*overflow-y: auto/);
+assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(9\.5rem, 17vh, 11\.75rem\)/);
+assert.doesNotMatch(pageSource, /Back to LENS Result|Continue to Coverage Options/);
+assert.doesNotMatch(pageSource, /<div class="actions-row">/);
 
 const leftPanelIndex = indexOfRequired(controllerSource, "coverage-strategy-left-panel", "Coverage Strategy controller");
 const chartIndex = indexOfRequired(controllerSource, "coverage-strategy-chart-stage", "Coverage Strategy controller");

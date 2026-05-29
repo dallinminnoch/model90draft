@@ -74,6 +74,64 @@
     return String(value);
   }
 
+  function formatScenarioClockTime(date) {
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  }
+
+  function getStartOfLocalDay(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  function formatScenarioLastCalculatedLabel(calculatedAt, nowValue) {
+    const calculatedDate = calculatedAt instanceof Date
+      ? calculatedAt
+      : new Date(calculatedAt || Date.now());
+    const now = nowValue instanceof Date ? nowValue : new Date(nowValue || Date.now());
+    if (!Number.isFinite(calculatedDate.getTime())) {
+      return "Last calculated: Unknown";
+    }
+    const daysDifference = Math.max(
+      0,
+      Math.floor((getStartOfLocalDay(now).getTime() - getStartOfLocalDay(calculatedDate).getTime()) / 86400000)
+    );
+    if (daysDifference === 0) {
+      return `Last calculated: Today at ${formatScenarioClockTime(calculatedDate)}`;
+    }
+    if (daysDifference === 1) {
+      return `Last calculated: Yesterday at ${formatScenarioClockTime(calculatedDate)}`;
+    }
+    if (daysDifference <= 14) {
+      return `Last calculated: ${daysDifference} days ago`;
+    }
+    return `Last calculated: ${calculatedDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    })}`;
+  }
+
+  function renderScenarioActionIcon(iconName) {
+    if (iconName === "save") {
+      return `
+        <svg class="coverage-strategy-scenario-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+      `;
+    }
+    if (iconName === "recalculate") {
+      return `
+        <svg class="coverage-strategy-scenario-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+          <polyline points="21 3 21 9 15 9"></polyline>
+        </svg>
+      `;
+    }
+    return "";
+  }
+
   function clampProjectionHorizonYears(value, fallbackValue) {
     const fallback = Number.isFinite(Number(fallbackValue))
       ? Number(fallbackValue)
@@ -408,6 +466,7 @@
               <label class="coverage-strategy-projected-dependent-row">
                 <span>${escapeHtml(row.label || "Projected dependent")}</span>
                 <input
+                  class="coverage-strategy-projected-dependent-birth-year-input"
                   type="text"
                   inputmode="numeric"
                   pattern="[0-9]{4}"
@@ -882,6 +941,7 @@
     const projectedDependentTimingRows = Array.isArray(result?.projectedDependentTimingRows)
       ? result.projectedDependentTimingRows
       : getProjectedDependentTimingRowsFromSettings(scenarioSettings);
+    const lastCalculatedLabel = formatScenarioLastCalculatedLabel(result?.lastCalculatedAt);
 
     host.innerHTML = `
       <article class="analysis-result-card coverage-need-timeline-card">
@@ -1056,16 +1116,29 @@
               <button type="button" class="coverage-strategy-scenario-tab is-new" disabled aria-disabled="true" data-scenario-reserved="true">+ New Scenario</button>
             </div>
             <div class="coverage-strategy-scenario-actions" aria-label="Scenario actions reserved for future persistence">
-              <span class="coverage-strategy-scenario-status"><span aria-hidden="true"></span>Last calculated: Today</span>
-              <button type="button" class="coverage-strategy-scenario-action is-secondary" disabled aria-disabled="true" data-scenario-reserved="true">Save Scenario</button>
-              <button type="button" class="coverage-strategy-scenario-action is-primary" disabled aria-disabled="true" data-scenario-reserved="true">Recalculate Plan</button>
+              <span class="coverage-strategy-scenario-status" data-coverage-strategy-last-calculated><span class="coverage-strategy-scenario-status-dot" aria-hidden="true"></span>${escapeHtml(lastCalculatedLabel)}</span>
+              <button type="button" class="coverage-strategy-scenario-action is-secondary" disabled aria-disabled="true" data-scenario-reserved="true">${renderScenarioActionIcon("save")}<span>Save Scenario</span></button>
+              <button type="button" class="coverage-strategy-scenario-action is-primary" disabled aria-disabled="true" data-scenario-reserved="true">${renderScenarioActionIcon("recalculate")}<span>Recalculate Plan</span></button>
             </div>
           </div>
           <div class="coverage-strategy-scenario-tray-grid">
             <div class="coverage-strategy-scenario-control is-horizon">
               <div class="coverage-strategy-horizon-control coverage-strategy-horizon-control-compact" aria-label="Projection horizon control">
-                <label for="coverage-strategy-horizon-years">Projection horizon</label>
+                <label class="coverage-strategy-horizon-label" for="coverage-strategy-horizon-years">Projection horizon</label>
+                <div class="coverage-strategy-horizon-value-row">
+                  <input
+                    class="coverage-strategy-horizon-number"
+                    type="number"
+                    min="${MIN_PROJECTION_HORIZON_YEARS}"
+                    max="${MAX_PROJECTION_HORIZON_YEARS}"
+                    step="1"
+                    value="${escapeHtml(projectionHorizonYears)}"
+                    aria-label="Projection horizon years"
+                    data-coverage-strategy-horizon-number>
+                  <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
+                </div>
                 <input
+                  class="coverage-strategy-horizon-range"
                   id="coverage-strategy-horizon-years"
                   type="range"
                   min="${MIN_PROJECTION_HORIZON_YEARS}"
@@ -1073,15 +1146,10 @@
                   step="1"
                   value="${escapeHtml(projectionHorizonYears)}"
                   data-coverage-strategy-horizon-input>
-                <input
-                  type="number"
-                  min="${MIN_PROJECTION_HORIZON_YEARS}"
-                  max="${MAX_PROJECTION_HORIZON_YEARS}"
-                  step="1"
-                  value="${escapeHtml(projectionHorizonYears)}"
-                  aria-label="Projection horizon years"
-                  data-coverage-strategy-horizon-number>
-                <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
+                <div class="coverage-strategy-horizon-range-labels" aria-hidden="true">
+                  <span>${escapeHtml(MIN_PROJECTION_HORIZON_YEARS)}</span>
+                  <span>${escapeHtml(MAX_PROJECTION_HORIZON_YEARS)}</span>
+                </div>
               </div>
             </div>
             <div class="coverage-strategy-scenario-control is-education-savings">
@@ -1131,12 +1199,11 @@
               </div>
             </div>
             ${renderProjectedDependentTimingControls(projectedDependentTimingRows)}
-            <div class="coverage-strategy-scenario-control is-diagnostic-export">
-              <span class="coverage-strategy-scenario-control-label">Data export</span>
-              <button type="button" class="coverage-strategy-diagnostic-export-button" data-coverage-strategy-diagnostic-export>
-                Export Diagnostic Report
-              </button>
-            </div>
+          </div>
+          <div class="coverage-strategy-scenario-footer">
+            <button type="button" class="coverage-strategy-diagnostic-export-button" data-coverage-strategy-diagnostic-export>
+              Export Diagnostic Report
+            </button>
           </div>
         </div>
       </article>
@@ -1404,6 +1471,7 @@
                 }
               ]
             };
+        const calculationCompletedAt = new Date();
 
         currentDiagnosticExportContext = {
           profileRecord,
@@ -1428,6 +1496,7 @@
             diagnosticExport: true
           },
           projectionHorizonYears: safeProjectionHorizonYears,
+          lastCalculatedAt: calculationCompletedAt.toISOString(),
           age110Horizon,
           valuationDate,
           route: window.location.href
@@ -1441,6 +1510,7 @@
           gapSurplus,
           chartModel,
           projectedDependentTimingRows,
+          lastCalculatedAt: calculationCompletedAt,
           warnings: [
             ...(Array.isArray(builderResult.warnings) ? builderResult.warnings : []),
             ...(Array.isArray(methodSettings.warnings) ? methodSettings.warnings : []),
