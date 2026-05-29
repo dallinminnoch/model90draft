@@ -96,17 +96,40 @@ const partialPayoffInput = baseInput({
 });
 const partialPayoff = harness.calculateTreatedMortgagePaymentPlan(partialPayoffInput);
 assert.equal(partialPayoff.mode, "payOff");
-assert.equal(partialPayoff.immediatePayoffAmount, 120000);
-assert.equal(partialPayoff.remainingPrincipalAfterPayoff, 180000);
-assert.equal(partialPayoff.finalMonthlyMortgagePayment, null);
+assert.equal(partialPayoff.rawPayoffPercent, 40);
+assert.equal(partialPayoff.effectivePayoffPercent, 100);
+assert.equal(partialPayoff.payoffPercent, 100);
+assert.equal(partialPayoff.immediatePayoffAmount, 300000);
+assert.equal(partialPayoff.remainingPrincipalAfterPayoff, 0);
+assert.equal(partialPayoff.finalMonthlyMortgagePayment, 0);
 assert.equal(partialPayoff.mortgagePaymentRemovedFromNeeds, true);
 assert.equal(partialPayoff.associatedHousingCostsPreserved, true);
+assert.equal(partialPayoff.partialPayoffAllowed, false);
+assert.equal(partialPayoff.invariantCorrectionApplied, true);
+assert.equal(partialPayoff.correctionCode, "payoff-mode-forced-full-payoff");
+assert.equal(partialPayoff.trace.calculationInputs.rawPayoffPercent, 40);
+assert.equal(partialPayoff.trace.calculationInputs.effectivePayoffPercent, 100);
+assert.match(
+  partialPayoff.warnings.map((warning) => warning.code).join(" "),
+  /payoff-mode-forced-full-payoff/
+);
+
+const missingPayoffPercent = harness.calculateTreatedMortgagePaymentPlan(baseInput({
+  mortgageTreatment: { mode: "payoff", payoffPercent: undefined }
+}));
+assert.equal(missingPayoffPercent.payoffPercent, 100);
+assert.equal(missingPayoffPercent.effectivePayoffPercent, 100);
+assert.equal(missingPayoffPercent.immediatePayoffAmount, 300000);
+assert.equal(missingPayoffPercent.invariantCorrectionApplied, false);
 
 const continueRawInput = baseInput({
   mortgageTreatment: { mode: "support", payoffPercent: 0 }
 });
 const continueRaw = harness.calculateTreatedMortgagePaymentPlan(continueRawInput);
 assert.equal(continueRaw.mode, "continuePayments");
+assert.equal(continueRaw.rawPayoffPercent, 0);
+assert.equal(continueRaw.effectivePayoffPercent, 0);
+assert.equal(continueRaw.partialPayoffAllowed, true);
 assert.equal(continueRaw.immediatePayoffAmount, 0);
 assert.equal(continueRaw.remainingPrincipalAfterPayoff, 300000);
 assert.equal(continueRaw.finalRemainingTermMonths, 360);
@@ -121,6 +144,12 @@ const continuePartial = harness.calculateTreatedMortgagePaymentPlan(baseInput({
 assert.equal(continuePartial.immediatePayoffAmount, 75000);
 assert.equal(continuePartial.remainingPrincipalAfterPayoff, 225000);
 assert.equal(continuePartial.finalMonthlyMortgagePayment, monthlyPayment(225000, 6, 360));
+assert.equal(continuePartial.rawPayoffPercent, 25);
+assert.equal(continuePartial.effectivePayoffPercent, 25);
+assert.equal(continuePartial.partialPayoffAllowed, true);
+assert.equal(continuePartial.trace.recalculationBasis.remainingPrincipalAfterPayoff, 225000);
+assert.equal(continuePartial.trace.recalculationBasis.remainingTermMonths, 360);
+assert.equal(continuePartial.trace.recalculationBasis.interestRatePercent, 6);
 assert.ok(
   continuePartial.finalMonthlyMortgagePayment < continueRaw.finalMonthlyMortgagePayment,
   "Partial payoff should lower the recalculated continue-payment mortgage-only amount."

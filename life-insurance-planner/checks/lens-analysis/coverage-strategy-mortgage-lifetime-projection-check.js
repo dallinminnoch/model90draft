@@ -334,6 +334,47 @@ assert.equal(unavailableMissingFacts.needPoints[1].trace.mortgageProjection, nul
 assert.equal(unavailableMissingFacts.needPoints[5].componentAmounts.mortgage, 250000);
 assert.ok(issueCodes(unavailableMissingFacts.dataGaps).includes("mortgage-projection-skipped-missing-facts"));
 
+const stalePartialPayoffNeedLine = buildCoverageStrategyNeedLine({
+  lensModel: createJamesDoeMortgageLensModel("payOff", {
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "payOff",
+      originalBalance: 250000,
+      immediatePayoffAmount: 125000,
+      payoffPercent: 50,
+      originalMonthlyMortgagePayment: 1750,
+      originalRemainingTermMonths: 240,
+      interestRatePercent: 5.5,
+      finalMonthlyMortgagePayment: null,
+      finalRemainingTermMonths: null
+    }
+  }),
+  needsResult: {
+    ...createNeedsResult(125000),
+    trace: [
+      {
+        key: "debtPayoff",
+        value: 125000,
+        inputs: {
+          preparedMortgagePayoffAmount: 125000,
+          preparedNonMortgageDebtAmount: 0,
+          rawMortgageAmount: 250000,
+          rawNonMortgageDebtAmount: 0
+        },
+        sourcePaths: ["treatedDebtPayoff.needs"]
+      }
+    ]
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(stalePartialPayoffNeedLine.needPoints[0].componentAmounts.mortgage, 250000);
+assert.equal(stalePartialPayoffNeedLine.componentModels.mortgageProjectionTrace.rawPayoffPercent, 50);
+assert.equal(stalePartialPayoffNeedLine.componentModels.mortgageProjectionTrace.effectivePayoffPercent, 100);
+assert.equal(stalePartialPayoffNeedLine.componentModels.mortgageProjectionTrace.partialPayoffAllowed, false);
+assert.equal(stalePartialPayoffNeedLine.componentModels.mortgageProjectionTrace.invariantCorrectionApplied, true);
+assert.equal(stalePartialPayoffNeedLine.componentModels.mortgageProjectionTrace.correctionCode, "payoff-mode-forced-full-payoff");
+
 const fallbackNeedLine = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({
     treatedMortgagePaymentPlan: {

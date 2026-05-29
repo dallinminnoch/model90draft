@@ -141,6 +141,42 @@
     );
   }
 
+  function resolveEffectiveMortgagePayoffPercent(mortgagePlan, normalizedMode, originalBalance, explicitMortgageAmount) {
+    const rawPayoffPercent = toOptionalNumber(mortgagePlan?.rawPayoffPercent)
+      ?? toOptionalNumber(mortgagePlan?.trace?.calculationInputs?.rawPayoffPercent)
+      ?? toOptionalNumber(mortgagePlan?.trace?.calculationInputs?.payoffPercent)
+      ?? toOptionalNumber(mortgagePlan?.payoffPercent);
+    const planEffectivePayoffPercent = toOptionalNumber(mortgagePlan?.effectivePayoffPercent)
+      ?? toOptionalNumber(mortgagePlan?.trace?.calculationInputs?.effectivePayoffPercent);
+    const inferredPayoffPercent = originalBalance && originalBalance > 0 && explicitMortgageAmount != null
+      ? (explicitMortgageAmount / originalBalance) * 100
+      : null;
+
+    if (normalizedMode === "payOff") {
+      return {
+        rawPayoffPercent,
+        effectivePayoffPercent: 100,
+        partialPayoffAllowed: false,
+        invariantCorrectionApplied: rawPayoffPercent != null && rawPayoffPercent !== 100,
+        correctionCode: rawPayoffPercent != null && rawPayoffPercent !== 100
+          ? "payoff-mode-forced-full-payoff"
+          : null
+      };
+    }
+
+    const candidate = planEffectivePayoffPercent ?? rawPayoffPercent ?? inferredPayoffPercent;
+    const effectivePayoffPercent = candidate == null
+      ? null
+      : Math.min(100, Math.max(0, candidate));
+    return {
+      rawPayoffPercent,
+      effectivePayoffPercent,
+      partialPayoffAllowed: normalizedMode === "continuePayments",
+      invariantCorrectionApplied: mortgagePlan?.invariantCorrectionApplied === true,
+      correctionCode: mortgagePlan?.correctionCode || null
+    };
+  }
+
   function resolveMortgageProjectionDecision(normalizedMode, rawMode, facts) {
     const reliableFactsAvailable = hasReliableMortgageProjectionFacts(facts);
     if (normalizedMode === "payOff") {
@@ -589,7 +625,7 @@
       : {};
     const rawMortgageMode = normalizeString(mortgagePlan.mode || inputs.treatedMortgagePaymentPlanMode || "");
     const mortgageMode = normalizeMortgageProjectionMode(rawMortgageMode);
-    const explicitMortgageAmount = toOptionalNumber(inputs.preparedMortgagePayoffAmount)
+    const preliminaryMortgageAmount = toOptionalNumber(inputs.preparedMortgagePayoffAmount)
       ?? toOptionalNumber(inputs.rawMortgageAmount)
       ?? toOptionalNumber(getPath(lensModel, "treatedDebtPayoff.needs.mortgagePayoffAmount"))
       ?? toOptionalNumber(mortgagePlan.immediatePayoffAmount)
@@ -605,17 +641,28 @@
       ?? toOptionalNumber(getPath(lensModel, "ongoingSupport.mortgageRemainingTermMonths"));
     const interestRatePercent = toOptionalNumber(mortgagePlan.interestRatePercent)
       ?? toOptionalNumber(getPath(lensModel, "ongoingSupport.mortgageInterestRatePercent"));
-    const payoffPercent = toOptionalNumber(mortgagePlan.payoffPercent)
-      ?? (originalMortgageBalance && originalMortgageBalance > 0
-        ? (explicitMortgageAmount / originalMortgageBalance) * 100
-        : null);
+    const payoffPercentResolution = resolveEffectiveMortgagePayoffPercent(
+      mortgagePlan,
+      mortgageMode,
+      originalMortgageBalance,
+      preliminaryMortgageAmount
+    );
+    const payoffPercent = payoffPercentResolution.effectivePayoffPercent;
+    const explicitMortgageAmount = mortgageMode === "payOff" && originalMortgageBalance != null
+      ? roundMoney(originalMortgageBalance)
+      : preliminaryMortgageAmount;
     const mortgageLifetimeProjectionFacts = {
       currentBalance: originalMortgageBalance,
       currentPayoffAmount: explicitMortgageAmount,
       annualInterestRate: interestRatePercent,
       monthlyPayment: originalMonthlyMortgagePayment,
       remainingTermMonths: originalRemainingTermMonths,
-      payoffPercent
+      payoffPercent,
+      rawPayoffPercent: payoffPercentResolution.rawPayoffPercent,
+      effectivePayoffPercent: payoffPercent,
+      partialPayoffAllowed: payoffPercentResolution.partialPayoffAllowed,
+      invariantCorrectionApplied: payoffPercentResolution.invariantCorrectionApplied,
+      correctionCode: payoffPercentResolution.correctionCode
     };
     const mortgageProjectionDecision = resolveMortgageProjectionDecision(
       mortgageMode,
@@ -702,6 +749,11 @@
         mortgageProjectionDecisionReason: mortgageProjectionDecision.reason,
         mortgageProjectionReliableFactsAvailable: mortgageProjectionDecision.reliableFactsAvailable === true,
         mortgageProjectionFactsUsed: clonePlainValue(mortgageLifetimeProjectionFacts),
+        rawPayoffPercent: payoffPercentResolution.rawPayoffPercent,
+        effectivePayoffPercent: payoffPercent,
+        partialPayoffAllowed: payoffPercentResolution.partialPayoffAllowed,
+        invariantCorrectionApplied: payoffPercentResolution.invariantCorrectionApplied,
+        correctionCode: payoffPercentResolution.correctionCode,
         nonMortgageAmortizationMode: nonMortgageDebtProjectionFacts.length
           ? "coverage-strategy-debt-lifetime-projection"
           : "not-invented",
@@ -1918,7 +1970,12 @@
                 projectionDecisionReason: debtModel.trace?.mortgageProjectionDecisionReason || null,
                 reliableFactsAvailable:
                   debtModel.trace?.mortgageProjectionReliableFactsAvailable === true,
-                factsUsed: debtModel.trace?.mortgageProjectionFactsUsed || {}
+                factsUsed: debtModel.trace?.mortgageProjectionFactsUsed || {},
+                rawPayoffPercent: debtModel.trace?.rawPayoffPercent ?? null,
+                effectivePayoffPercent: debtModel.trace?.effectivePayoffPercent ?? null,
+                partialPayoffAllowed: debtModel.trace?.partialPayoffAllowed === true,
+                invariantCorrectionApplied: debtModel.trace?.invariantCorrectionApplied === true,
+                correctionCode: debtModel.trace?.correctionCode || null
               },
               warnings: Array.isArray(mortgageLifetimeProjection.warnings)
                 ? clonePlainValue(mortgageLifetimeProjection.warnings)
@@ -1941,6 +1998,11 @@
           projectionDecisionReason: debtModel.trace?.mortgageProjectionDecisionReason || null,
           reliableFactsAvailable: debtModel.trace?.mortgageProjectionReliableFactsAvailable === true,
           factsUsed: debtModel.trace?.mortgageProjectionFactsUsed || {},
+          rawPayoffPercent: debtModel.trace?.rawPayoffPercent ?? null,
+          effectivePayoffPercent: debtModel.trace?.effectivePayoffPercent ?? null,
+          partialPayoffAllowed: debtModel.trace?.partialPayoffAllowed === true,
+          invariantCorrectionApplied: debtModel.trace?.invariantCorrectionApplied === true,
+          correctionCode: debtModel.trace?.correctionCode || null,
           projectionConsumed: Boolean(mortgageLifetimeProjection)
         },
         debtLifetimeProjection: debtLifetimeProjection

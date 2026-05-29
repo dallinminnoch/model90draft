@@ -240,6 +240,27 @@ assert.equal(rawEquivalent.needs.mortgagePayoffAmount, 250000);
 assert.equal(rawEquivalent.needs.nonMortgageDebtAmount, 100000);
 assert.equal(rawEquivalent.rawTotals.totalDebtBalance, 350000);
 
+const stalePartialMortgagePayoff = runTreatment({
+  debtTreatmentAssumptions: createRawEquivalentAssumptions({
+    enabled: true,
+    mortgageTreatment: {
+      include: true,
+      mode: "payoff",
+      payoffPercent: 50,
+      paymentSupportYears: null
+    }
+  })
+});
+const stalePartialMortgage = findMortgageDebt(stalePartialMortgagePayoff);
+assert.equal(stalePartialMortgagePayoff.needs.mortgagePayoffAmount, 250000);
+assert.equal(stalePartialMortgage.payoffPercent, 100);
+assert.equal(stalePartialMortgage.rawPayoffPercent, 50);
+assert.equal(stalePartialMortgage.effectivePayoffPercent, 100);
+assert.equal(stalePartialMortgage.partialPayoffAllowed, false);
+assert.equal(stalePartialMortgage.invariantCorrectionApplied, true);
+assert.equal(stalePartialMortgage.correctionCode, "payoff-mode-forced-full-payoff");
+assert.equal(hasWarningCode(stalePartialMortgagePayoff, "payoff-mode-forced-full-payoff"), true);
+
 const missingAssumptions = calculateDebtTreatment({
   debtFacts: createBaseDebtFacts(),
   debtPayoff: createDebtPayoff()
@@ -533,10 +554,18 @@ const percentAssumptions = createRawEquivalentAssumptions({
 });
 const percentResult = runTreatment({ debtTreatmentAssumptions: percentAssumptions });
 assert.equal(percentResult.rawEquivalentDefault, false);
-assert.equal(percentResult.dime.mortgageAmount, 200000);
+assert.equal(percentResult.dime.mortgageAmount, 250000);
 assert.equal(percentResult.dime.nonMortgageDebtAmount, 93500);
-assert.equal(percentResult.needs.debtPayoffAmount, 293500);
-assert.equal(percentResult.excludedDebtAmount, 56500);
+assert.equal(percentResult.needs.debtPayoffAmount, 343500);
+assert.equal(percentResult.excludedDebtAmount, 6500);
+const percentMortgageDebt = findMortgageDebt(percentResult);
+assert.equal(percentMortgageDebt.rawPayoffPercent, 80);
+assert.equal(percentMortgageDebt.effectivePayoffPercent, 100);
+assert.equal(percentMortgageDebt.payoffPercent, 100);
+assert.equal(percentMortgageDebt.partialPayoffAllowed, false);
+assert.equal(percentMortgageDebt.invariantCorrectionApplied, true);
+assert.equal(percentMortgageDebt.correctionCode, "payoff-mode-forced-full-payoff");
+assert.equal(hasWarningCode(percentResult, "payoff-mode-forced-full-payoff"), true);
 
 const invalidAssumptions = createRawEquivalentAssumptions({
   enabled: true,

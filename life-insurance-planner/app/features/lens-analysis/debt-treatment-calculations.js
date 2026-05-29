@@ -421,6 +421,35 @@
     const sourceMissing = !isPlainObject(source);
     const mortgageSource = isPlainObject(safeSource.mortgageTreatment) ? safeSource.mortgageTreatment : {};
     const mortgageDefault = defaultAssumptions.mortgageTreatment;
+    const mortgageMode = normalizeMortgageTreatmentMode(
+      mortgageSource.mode,
+      mortgageDefault.mode,
+      warnings
+    );
+    const rawMortgagePayoffPercent = toOptionalNumber(mortgageSource.payoffPercent);
+    const normalizedMortgagePayoffPercent = normalizePayoffPercent(
+      mortgageSource.payoffPercent,
+      mortgageDefault.payoffPercent,
+      "mortgageTreatment.payoffPercent",
+      warnings
+    );
+    const mortgagePayoffCorrectionApplied = Boolean(
+      mortgageMode === "payoff"
+      && rawMortgagePayoffPercent != null
+      && rawMortgagePayoffPercent !== 100
+    );
+    if (mortgagePayoffCorrectionApplied) {
+      pushWarning(
+        warnings,
+        "payoff-mode-forced-full-payoff",
+        "Payoff Mortgage mode always uses 100% immediate mortgage payoff; a stale partial payoff percent was ignored.",
+        {
+          rawPayoffPercent: rawMortgagePayoffPercent,
+          effectivePayoffPercent: 100,
+          mode: mortgageSource.mode ?? null
+        }
+      );
+    }
     const sourceCategoryTreatment = isPlainObject(safeSource.debtCategoryTreatment)
       ? safeSource.debtCategoryTreatment
       : {};
@@ -446,17 +475,17 @@
         include: typeof mortgageSource.include === "boolean"
           ? mortgageSource.include
           : mortgageDefault.include,
-        mode: normalizeMortgageTreatmentMode(
-          mortgageSource.mode,
-          mortgageDefault.mode,
-          warnings
-        ),
-        payoffPercent: normalizePayoffPercent(
-          mortgageSource.payoffPercent,
-          mortgageDefault.payoffPercent,
-          "mortgageTreatment.payoffPercent",
-          warnings
-        ),
+        mode: mortgageMode,
+        payoffPercent: mortgageMode === "payoff"
+          ? 100
+          : normalizedMortgagePayoffPercent,
+        rawPayoffPercent: rawMortgagePayoffPercent,
+        effectivePayoffPercent: mortgageMode === "payoff"
+          ? 100
+          : normalizedMortgagePayoffPercent,
+        partialPayoffAllowed: mortgageMode === "support",
+        invariantCorrectionApplied: mortgagePayoffCorrectionApplied,
+        correctionCode: mortgagePayoffCorrectionApplied ? "payoff-mode-forced-full-payoff" : null,
         paymentSupportYears: normalizeOptionalNonNegativeNumber(
           mortgageSource.paymentSupportYears,
           mortgageDefault.paymentSupportYears,
@@ -806,6 +835,41 @@
     return Math.min(100, Math.max(0, value));
   }
 
+  function resolveMortgagePlanPayoffPercent(mortgageTreatment, mode, warnings) {
+    const rawPayoffPercent = toOptionalNumber(mortgageTreatment?.payoffPercent);
+    const normalizedPayoffPercent = normalizeMortgagePlanPayoffPercent(mortgageTreatment);
+    const isPayoffMode = mode === "payOff";
+    const partialPayoffAllowed = mode === "continuePayments";
+    const correctionApplied = Boolean(
+      isPayoffMode
+      && rawPayoffPercent != null
+      && rawPayoffPercent !== 100
+    );
+
+    if (correctionApplied) {
+      pushWarning(
+        warnings,
+        "payoff-mode-forced-full-payoff",
+        "Payoff Mortgage mode always uses 100% immediate mortgage payoff; a stale partial payoff percent was ignored.",
+        {
+          rawPayoffPercent,
+          effectivePayoffPercent: 100,
+          mode: mortgageTreatment?.mode ?? null
+        }
+      );
+    }
+
+    return {
+      rawPayoffPercent,
+      effectivePayoffPercent: isPayoffMode
+        ? 100
+        : (partialPayoffAllowed ? normalizedPayoffPercent : null),
+      partialPayoffAllowed,
+      invariantCorrectionApplied: correctionApplied,
+      correctionCode: correctionApplied ? "payoff-mode-forced-full-payoff" : null
+    };
+  }
+
   function getManualMortgagePlanTermOverride(mortgageTreatment, options, warnings) {
     const monthsCandidate = getFirstAvailableMortgagePlanValue([
       {
@@ -922,7 +986,8 @@
     const warnings = [];
     const sourcePaths = [];
     const mode = normalizeMortgagePlanMode(mortgageTreatment);
-    const payoffPercent = normalizeMortgagePlanPayoffPercent(mortgageTreatment);
+    const payoffPercentResolution = resolveMortgagePlanPayoffPercent(mortgageTreatment, mode, warnings);
+    const payoffPercent = payoffPercentResolution.effectivePayoffPercent;
     const balanceValue = getFirstAvailableMortgagePlanValue([
       {
         source: mortgageFacts,
@@ -979,6 +1044,11 @@
       originalBalance,
       immediatePayoffAmount: null,
       payoffPercent,
+      rawPayoffPercent: payoffPercentResolution.rawPayoffPercent,
+      effectivePayoffPercent: payoffPercent,
+      partialPayoffAllowed: payoffPercentResolution.partialPayoffAllowed,
+      invariantCorrectionApplied: payoffPercentResolution.invariantCorrectionApplied,
+      correctionCode: payoffPercentResolution.correctionCode,
       remainingPrincipalAfterPayoff: null,
       originalMonthlyMortgagePayment,
       finalMonthlyMortgagePayment: null,
@@ -997,6 +1067,11 @@
         calculationInputs: {
           mode: mortgageTreatment.mode ?? null,
           payoffPercent: mortgageTreatment.payoffPercent ?? null,
+          rawPayoffPercent: payoffPercentResolution.rawPayoffPercent,
+          effectivePayoffPercent: payoffPercent,
+          partialPayoffAllowed: payoffPercentResolution.partialPayoffAllowed,
+          invariantCorrectionApplied: payoffPercentResolution.invariantCorrectionApplied,
+          correctionCode: payoffPercentResolution.correctionCode,
           originalBalance: balanceValue.value ?? null,
           originalMonthlyMortgagePayment: paymentValue.value ?? null,
           originalRemainingTermMonths: termValue.value ?? null,
@@ -1037,7 +1112,7 @@
       });
     }
 
-    const immediatePayoffAmount = roundMoney(originalBalance * (payoffPercent / 100));
+    const immediatePayoffAmount = roundMoney(originalBalance * ((payoffPercent || 0) / 100));
     const remainingPrincipalAfterPayoff = roundMoney(Math.max(originalBalance - immediatePayoffAmount, 0));
     baseOutput.immediatePayoffAmount = immediatePayoffAmount;
     baseOutput.remainingPrincipalAfterPayoff = remainingPrincipalAfterPayoff;
@@ -1091,7 +1166,17 @@
       finalRemainingTermMonths,
       yearsRemainingSource,
       paymentSource: payment.source,
-      mortgagePaymentRemovedFromNeeds: false
+      mortgagePaymentRemovedFromNeeds: false,
+      trace: {
+        ...baseOutput.trace,
+        recalculationBasis: {
+          source: "continue-payments-remaining-principal",
+          remainingPrincipalAfterPayoff,
+          remainingTermMonths: finalRemainingTermMonths,
+          interestRatePercent,
+          paymentSource: payment.source
+        }
+      }
     });
   }
 
@@ -1198,6 +1283,11 @@
       included: include,
       treatmentMode: mode,
       payoffPercent: treatment.payoffPercent,
+      rawPayoffPercent: treatment.rawPayoffPercent ?? treatment.payoffPercent ?? null,
+      effectivePayoffPercent: treatment.effectivePayoffPercent ?? treatment.payoffPercent ?? null,
+      partialPayoffAllowed: treatment.partialPayoffAllowed === true,
+      invariantCorrectionApplied: treatment.invariantCorrectionApplied === true,
+      correctionCode: treatment.correctionCode || null,
       treatedAmount: 0,
       excludedAmount: 0,
       deferredAmount: 0,
@@ -1242,7 +1332,14 @@
       return result;
     }
 
-    const payoffPercent = Number.isFinite(treatment.payoffPercent) ? treatment.payoffPercent : 100;
+    const payoffPercent = kind === "mortgage" && mode === "payoff"
+      ? 100
+      : (Number.isFinite(treatment.payoffPercent) ? treatment.payoffPercent : 100);
+    result.effectivePayoffPercent = payoffPercent;
+    if (kind === "mortgage" && mode === "payoff" && result.rawPayoffPercent !== 100 && result.rawPayoffPercent != null) {
+      result.invariantCorrectionApplied = true;
+      result.correctionCode = "payoff-mode-forced-full-payoff";
+    }
     result.treatedAmount = roundMoney(rawBalance * (payoffPercent / 100));
     result.excludedAmount = roundMoney(rawBalance - result.treatedAmount);
     return result;
@@ -1262,6 +1359,11 @@
       rawBalance: debt.currentBalance,
       included: applied.included,
       payoffPercent: applied.payoffPercent,
+      rawPayoffPercent: applied.rawPayoffPercent,
+      effectivePayoffPercent: applied.effectivePayoffPercent,
+      partialPayoffAllowed: applied.partialPayoffAllowed === true,
+      invariantCorrectionApplied: applied.invariantCorrectionApplied === true,
+      correctionCode: applied.correctionCode,
       treatedAmount: roundMoney(applied.treatedAmount),
       excludedAmount: roundMoney(applied.excludedAmount),
       deferredAmount: roundMoney(applied.deferredAmount),

@@ -352,6 +352,17 @@ function isAllowedAnalysisSetupMortgageTreatmentUi() {
     || survivorSupportSimplificationDiff;
 }
 
+function isAllowedDebtTreatmentMortgageInvariantDiff() {
+  const diff = getGitDiff("app/features/lens-analysis/debt-treatment-calculations.js");
+  return diff.includes("resolveMortgagePlanPayoffPercent")
+    && diff.includes("payoff-mode-forced-full-payoff")
+    && diff.includes("rawPayoffPercent")
+    && diff.includes("effectivePayoffPercent")
+    && diff.includes("partialPayoffAllowed")
+    && diff.includes("invariantCorrectionApplied")
+    && diff.includes("recalculationBasis");
+}
+
 function assertNoProtectedDiffs() {
   const protectedFiles = new Set([
     "app/features/lens-analysis/debt-treatment-calculations.js",
@@ -373,6 +384,9 @@ function assertNoProtectedDiffs() {
   const protectedDiffs = changedFiles.filter((filePath) => {
     if (!protectedFiles.has(filePath)) {
       return false;
+    }
+    if (filePath === "app/features/lens-analysis/debt-treatment-calculations.js") {
+      return !isAllowedDebtTreatmentMortgageInvariantDiff();
     }
     if (filePath === "app/features/lens-analysis/income-impact-scenario-composer-calculations.js") {
       return !(isAllowedIncomeImpactTreatedSupportConsumption());
@@ -450,6 +464,10 @@ assert.equal(payoffPlan.immediatePayoffAmount, 300000);
 assert.equal(payoffPlan.remainingPrincipalAfterPayoff, 0);
 assert.equal(payoffPlan.finalMonthlyMortgagePayment, 0);
 assert.equal(payoffPlan.finalRemainingTermMonths, 0);
+assert.equal(payoffPlan.rawPayoffPercent, 100);
+assert.equal(payoffPlan.effectivePayoffPercent, 100);
+assert.equal(payoffPlan.partialPayoffAllowed, false);
+assert.equal(payoffPlan.invariantCorrectionApplied, false);
 assert.equal(payoffPlan.mortgagePaymentRemovedFromNeeds, true);
 assert.equal(payoffPlan.associatedHousingCostsPreserved, true);
 assert.equal(payoffPlan.metadata.consumedByMethods, false);
@@ -460,6 +478,22 @@ assert.deepEqual(cloneJson(payoffPlan.metadata.preparedFor), [
   "survivor-needs-accounting"
 ]);
 
+const stalePartialPayoffModel = buildModel(context, {
+  sourceData: createSourceData(),
+  analysisSettings: createAnalysisSettings({ mode: "payoff", payoffPercent: 50 }),
+  profileRecord: createProfileRecord(createAnalysisSettings({ mode: "payoff", payoffPercent: 50 }))
+});
+const stalePartialPayoffPlan = stalePartialPayoffModel.treatedMortgagePaymentPlan;
+assert.equal(stalePartialPayoffPlan.mode, "payOff");
+assert.equal(stalePartialPayoffPlan.rawPayoffPercent, 50);
+assert.equal(stalePartialPayoffPlan.effectivePayoffPercent, 100);
+assert.equal(stalePartialPayoffPlan.payoffPercent, 100);
+assert.equal(stalePartialPayoffPlan.immediatePayoffAmount, 300000);
+assert.equal(stalePartialPayoffPlan.remainingPrincipalAfterPayoff, 0);
+assert.equal(stalePartialPayoffPlan.invariantCorrectionApplied, true);
+assert.equal(stalePartialPayoffPlan.correctionCode, "payoff-mode-forced-full-payoff");
+assert.match(warningCodes(stalePartialPayoffPlan).join(" "), /payoff-mode-forced-full-payoff/);
+
 const continueAnalysisSettings = createAnalysisSettings({ mode: "support", payoffPercent: 25 });
 const continueModel = buildModel(context, {
   sourceData: createSourceData(),
@@ -469,12 +503,17 @@ const continueModel = buildModel(context, {
 const continuePlan = continueModel.treatedMortgagePaymentPlan;
 
 assert.equal(continuePlan.mode, "continuePayments");
+assert.equal(continuePlan.rawPayoffPercent, 25);
+assert.equal(continuePlan.effectivePayoffPercent, 25);
+assert.equal(continuePlan.partialPayoffAllowed, true);
 assert.equal(continuePlan.immediatePayoffAmount, 75000);
 assert.equal(continuePlan.remainingPrincipalAfterPayoff, 225000);
 assert.equal(continuePlan.finalRemainingTermMonths, 360);
 assert.equal(continuePlan.yearsRemainingSource, "pmiCalculated");
 assert.equal(continuePlan.paymentSource, "calculatedAmortization");
 assert.equal(continuePlan.finalMonthlyMortgagePayment, monthlyPayment(225000, 6, 360));
+assert.equal(continuePlan.trace.recalculationBasis.remainingPrincipalAfterPayoff, 225000);
+assert.equal(continuePlan.trace.recalculationBasis.remainingTermMonths, 360);
 assert.ok(
   continuePlan.finalMonthlyMortgagePayment < monthlyPayment(300000, 6, 360),
   "Partial payoff should lower the model-exposed final mortgage-only payment."

@@ -151,7 +151,20 @@ const diagnosticInput = {
       needs: { nonMortgageDebtAmount: 12000 }
     },
     treatedMortgagePaymentPlan: {
-      mode: "payOff"
+      mode: "payOff",
+      rawPayoffPercent: 50,
+      effectivePayoffPercent: 100,
+      payoffPercent: 100,
+      invariantCorrectionApplied: true,
+      correctionCode: "payoff-mode-forced-full-payoff",
+      trace: {
+        calculationInputs: {
+          rawPayoffPercent: 50,
+          effectivePayoffPercent: 100,
+          invariantCorrectionApplied: true,
+          correctionCode: "payoff-mode-forced-full-payoff"
+        }
+      }
     },
     resourceProjectionInputs: {
       savingAllocations: [{ targetAssetCategoryKey: "taxableInvestments" }]
@@ -224,6 +237,10 @@ const diagnosticInput = {
         projectionDecision: "used",
         projectionDecisionReason: "payoff-mode",
         reliableFactsAvailable: true,
+        rawPayoffPercent: 50,
+        effectivePayoffPercent: 100,
+        invariantCorrectionApplied: true,
+        correctionCode: "payoff-mode-forced-full-payoff",
         projectionConsumed: true
       },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
@@ -428,6 +445,10 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.dataGaps);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTraces);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageProjectionTrace.projectionDecision, "used");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageProjectionTrace.normalizedMortgageMode, "payOff");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.rawPayoffPercent, 50);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.effectivePayoffPercent, 100);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.invariantCorrectionApplied, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.correctionCode, "payoff-mode-forced-full-payoff");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection);
 assert.equal(
