@@ -130,9 +130,9 @@ assert.match(componentsSource, /left: calc\(var\(--app-side-nav-collapsed-width,
 assert.match(componentsSource, /z-index: 40/);
 assert.match(componentsSource, /background: var\(--m90-surface\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tabs\s*\{/);
-assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5\.75rem, 11vh, 7rem\)/);
+assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: var\(--coverage-strategy-scenario-tray-clearance, clamp\(12\.75rem, 22vh, 14rem\)\)/);
 assert.match(layoutSource, /body\[data-step="coverage-strategy"\] \.analysis-estimate-shell\s*\{[\s\S]*overflow-y: auto/);
-assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(9\.5rem, 17vh, 11\.75rem\)/);
+assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(12\.75rem, 22vh, 14rem\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-grid\s*\{/);
 assert.match(componentsSource, /grid-template-columns: minmax\(13rem, 1\.05fr\) minmax\(9\.5rem, 0\.75fr\) minmax\(10\.5rem, 0\.82fr\) minmax\(17rem, 1\.25fr\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-control\s*\{/);

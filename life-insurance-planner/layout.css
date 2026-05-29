@@ -2595,7 +2595,7 @@ body.lens-workflow-page .workspace-side-nav-host.is-collapsed[data-workspace-sid
 }
 
 body[data-step="coverage-strategy"] .analysis-estimate-shell {
-  --coverage-strategy-scenario-tray-clearance: clamp(9.5rem, 17vh, 11.75rem);
+  --coverage-strategy-scenario-tray-clearance: clamp(12.75rem, 22vh, 14rem);
   overflow-x: hidden;
   overflow-y: auto;
   padding-bottom: calc(var(--coverage-strategy-scenario-tray-clearance) + var(--analysis-estimate-safe-bottom));

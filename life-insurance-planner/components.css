@@ -20679,7 +20679,7 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
 }
 
 .coverage-need-timeline-card {
-  padding-bottom: clamp(5.75rem, 11vh, 7rem);
+  padding-bottom: var(--coverage-strategy-scenario-tray-clearance, clamp(12.75rem, 22vh, 14rem));
 }
 
 .coverage-need-timeline-grid line {

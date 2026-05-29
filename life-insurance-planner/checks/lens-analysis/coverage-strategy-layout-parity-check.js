@@ -54,11 +54,11 @@ assert.match(componentsSource, /background: var\(--m90-surface\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tabs\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-control\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
-assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5\.75rem, 11vh, 7rem\)/);
+assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: var\(--coverage-strategy-scenario-tray-clearance, clamp\(12\.75rem, 22vh, 14rem\)\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-chart\s*\{[\s\S]*min-height: clamp\(34rem, calc\(100vh - 18rem\), 50rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-svg\s*\{[\s\S]*min-height: 31rem/);
 assert.match(layoutSource, /body\[data-step="coverage-strategy"\] \.analysis-estimate-shell\s*\{[\s\S]*overflow-y: auto/);
-assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(9\.5rem, 17vh, 11\.75rem\)/);
+assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(12\.75rem, 22vh, 14rem\)/);
 assert.doesNotMatch(pageSource, /Back to LENS Result|Continue to Coverage Options/);
 assert.doesNotMatch(pageSource, /<div class="actions-row">/);
 

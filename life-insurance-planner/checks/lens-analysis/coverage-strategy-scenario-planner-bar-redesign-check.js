@@ -107,9 +107,9 @@ assert.match(componentsSource, /\.coverage-strategy-diagnostic-export-button\s*\
 assert.match(componentsSource, /\.coverage-strategy-scenario-footer\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-footer\s*\{[\s\S]*min-height: 2\.75rem/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-footer\s*\{[\s\S]*background: #f8f9fb/);
-assert.match(componentsSource, /padding-bottom: clamp\(5\.75rem, 11vh, 7rem\)/);
+assert.match(componentsSource, /padding-bottom: var\(--coverage-strategy-scenario-tray-clearance, clamp\(12\.75rem, 22vh, 14rem\)\)/);
 assert.match(layoutSource, /body\[data-step="coverage-strategy"\] \.analysis-estimate-shell\s*\{[\s\S]*overflow-y: auto/);
-assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(9\.5rem, 17vh, 11\.75rem\)/);
+assert.match(layoutSource, /--coverage-strategy-scenario-tray-clearance: clamp\(12\.75rem, 22vh, 14rem\)/);
 assert.match(controllerSource, /class="coverage-strategy-horizon-range"/);
 assert.match(controllerSource, /class="coverage-strategy-horizon-number"/);
 assert.match(controllerSource, /class="coverage-strategy-projected-dependent-birth-year-input"/);
