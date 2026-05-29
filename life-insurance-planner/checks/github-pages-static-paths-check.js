@@ -25,6 +25,29 @@ function relative(filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, "/");
 }
 
+function existsWithExactCase(filePath) {
+  const resolvedPath = path.resolve(filePath);
+  const parsed = path.parse(resolvedPath);
+  const parts = resolvedPath.slice(parsed.root.length).split(path.sep).filter(Boolean);
+  let currentPath = parsed.root;
+
+  return parts.every((part) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(currentPath);
+    } catch (error) {
+      return false;
+    }
+
+    if (!entries.includes(part)) {
+      return false;
+    }
+
+    currentPath = path.join(currentPath, part);
+    return true;
+  });
+}
+
 function assertNoRootRelativeAppPaths(filePath, source) {
   const forbiddenPatterns = [
     /\bhref=(["'])\/(?!\/|https?:|mailto:|tel:|#)/,
@@ -46,12 +69,37 @@ function assertNoRootRelativeAppPaths(filePath, source) {
 
 const htmlFiles = listFiles(appRoot, ".html");
 htmlFiles.forEach((filePath) => {
-  assertNoRootRelativeAppPaths(relative(filePath), fs.readFileSync(filePath, "utf8"));
+  const source = fs.readFileSync(filePath, "utf8");
+  const fileName = relative(filePath);
+  assertNoRootRelativeAppPaths(fileName, source);
+
+  Array.from(source.matchAll(/\b(?:src|href)=(["'])([^"']*\.(?:svg|png|jpg|jpeg|webp))\1/gi)).forEach((match) => {
+    const assetPath = match[2];
+    if (/^(?:https?:|data:|blob:|#)/.test(assetPath)) {
+      return;
+    }
+
+    assert(
+      existsWithExactCase(path.resolve(path.dirname(filePath), assetPath)),
+      `${fileName} references missing or case-mismatched image asset ${assetPath}`
+    );
+  });
 });
 
 const jsFiles = listFiles(appRoot, ".js").filter((filePath) => !relative(filePath).startsWith("life-insurance-planner/checks/"));
 jsFiles.forEach((filePath) => {
-  assertNoRootRelativeAppPaths(relative(filePath), fs.readFileSync(filePath, "utf8"));
+  const source = fs.readFileSync(filePath, "utf8");
+  const fileName = relative(filePath);
+  assertNoRootRelativeAppPaths(fileName, source);
+
+  Array.from(source.matchAll(/(["'])([^"']*Images\/[^"']*\.(?:svg|png|jpg|jpeg|webp))\1/gi)).forEach((match) => {
+    const assetPath = match[2];
+    const resolutionBase = assetPath.startsWith("../") ? path.join(appRoot, "pages") : appRoot;
+    assert(
+      existsWithExactCase(path.resolve(resolutionBase, assetPath)),
+      `${fileName} references missing or case-mismatched image asset ${assetPath}`
+    );
+  });
 });
 
 const cssFiles = listFiles(appRoot, ".css");
@@ -59,7 +107,18 @@ cssFiles.forEach((filePath) => {
   const fileSource = fs.readFileSync(filePath, "utf8");
   const fileName = relative(filePath);
   assert(!/url\((["']?)\//.test(fileSource), `${fileName} should not use root-relative CSS asset URLs`);
-  assert(!/url\((["']?)\.\.\/Images\//.test(fileSource), `${fileName} is app-root CSS and should resolve Images from the app root`);
+
+  if (path.dirname(filePath) === appRoot) {
+    assert(!/url\((["']?)\.\.\/Images\//.test(fileSource), `${fileName} is app-root CSS and should resolve Images from the app root`);
+  }
+
+  Array.from(fileSource.matchAll(/url\((["']?)(?!data:|#)([^)"' ]*\.(?:svg|png|jpg|jpeg|webp))\1\)/gi)).forEach((match) => {
+    const assetPath = match[2];
+    assert(
+      existsWithExactCase(path.resolve(path.dirname(filePath), assetPath)),
+      `${fileName} references missing or case-mismatched CSS image asset ${assetPath}`
+    );
+  });
 });
 
 const indexHtml = read("life-insurance-planner/index.html");
@@ -68,6 +127,20 @@ assert.match(indexHtml, /<script src="app\/core\/config\.js"><\/script>/, "index
 assert.match(indexHtml, /src="Images\/MODEL 90 \(30 x 10 in\)\.png"/, "index.html should load images from the app root");
 assert.match(indexHtml, /href="pages\/clients\.html"/, "index.html should link to pages with a relative pages/ path");
 assert.doesNotMatch(indexHtml, /href="\/styles\.css"/, "index.html should not use /styles.css");
+
+[
+  "MODEL 90 (30 x 10 in).png",
+  "checkmark.svg",
+  "bell.svg",
+  "history_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg",
+  "menu.svg",
+  "openfullscreen.svg"
+].forEach((assetName) => {
+  assert(
+    existsWithExactCase(path.join(appRoot, "Images", assetName)),
+    `critical image asset should exist with exact case: Images/${assetName}`
+  );
+});
 
 [
   "coverage-strategy.html",
