@@ -218,6 +218,14 @@ const diagnosticInput = {
     needPoints: [{ yearIndex: 0, grossNeedAmount: 1000000 }],
     componentModels: {
       mortgageLifetimeProjection: { assumptionsUsed: { projectionMode: "amortized" } },
+      mortgageProjectionTrace: {
+        rawMortgageMode: "payoff",
+        normalizedMortgageMode: "payOff",
+        projectionDecision: "used",
+        projectionDecisionReason: "payoff-mode",
+        reliableFactsAvailable: true,
+        projectionConsumed: true
+      },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       nonMortgageDebtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       education: {
@@ -418,6 +426,8 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.chartModelSummary);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.warnings);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.dataGaps);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTraces);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageProjectionTrace.projectionDecision, "used");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageProjectionTrace.normalizedMortgageMode, "payOff");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection);
 assert.equal(

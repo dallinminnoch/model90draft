@@ -464,6 +464,10 @@
           || "Not available"
         ),
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
+        mortgageProjectionTrace:
+          safeContext.needLine?.componentModels?.mortgageProjectionTrace
+          || safeContext.needLine?.componentModels?.debtAndMortgage?.trace
+          || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
         nonMortgageDebtLifetimeProjection:
           safeContext.needLine?.componentModels?.nonMortgageDebtLifetimeProjection

@@ -91,6 +91,86 @@
     return current;
   }
 
+  function normalizeMortgageProjectionMode(value) {
+    const raw = normalizeString(value);
+    const key = raw.toLowerCase().replace(/[\s_-]/g, "");
+    if (!key) {
+      return "";
+    }
+    if (
+      key === "payoff"
+      || key === "payoffmortgage"
+      || key === "payoffprimarymortgage"
+      || key === "payoffprimaryresidencemortgage"
+    ) {
+      return "payOff";
+    }
+    if (
+      key === "support"
+      || key === "continuepayment"
+      || key === "continuepayments"
+      || key === "continuemortgagepayment"
+      || key === "continuemortgagepayments"
+    ) {
+      return "continuePayments";
+    }
+    if (key === "unavailable") {
+      return "unavailable";
+    }
+    return "unavailable";
+  }
+
+  function hasReliableMortgageProjectionFacts(facts) {
+    const safeFacts = isPlainObject(facts) ? facts : {};
+    const currentBalance = toOptionalNumber(safeFacts.currentBalance);
+    const currentPayoffAmount = toOptionalNumber(safeFacts.currentPayoffAmount);
+    const monthlyPayment = toOptionalNumber(safeFacts.monthlyPayment);
+    const remainingTermMonths = toOptionalNumber(safeFacts.remainingTermMonths);
+    const annualInterestRate = toOptionalNumber(safeFacts.annualInterestRate);
+    return Boolean(
+      currentBalance != null
+      && currentBalance > 0
+      && currentPayoffAmount != null
+      && currentPayoffAmount > 0
+      && monthlyPayment != null
+      && monthlyPayment > 0
+      && remainingTermMonths != null
+      && remainingTermMonths > 0
+      && annualInterestRate != null
+      && annualInterestRate >= 0
+    );
+  }
+
+  function resolveMortgageProjectionDecision(normalizedMode, rawMode, facts) {
+    const reliableFactsAvailable = hasReliableMortgageProjectionFacts(facts);
+    if (normalizedMode === "payOff") {
+      return {
+        decision: "used",
+        reason: "payoff-mode",
+        reliableFactsAvailable
+      };
+    }
+    if (normalizedMode === "continuePayments") {
+      return {
+        decision: "skipped-by-support-mode",
+        reason: "support-or-continue-payments-mode",
+        reliableFactsAvailable
+      };
+    }
+    if (reliableFactsAvailable) {
+      return {
+        decision: "used-payoff-facts-override-unavailable-mode",
+        reason: "unavailable-mode-with-reliable-payoff-facts",
+        reliableFactsAvailable
+      };
+    }
+    return {
+      decision: "skipped-missing-facts",
+      reason: normalizeString(rawMode) || "mortgage-mode-missing-or-unavailable",
+      reliableFactsAvailable
+    };
+  }
+
   function findTraceRow(needsResult, key) {
     const trace = Array.isArray(needsResult?.trace) ? needsResult.trace : [];
     return trace.find(function (row) {
@@ -507,7 +587,8 @@
     const mortgagePlan = isPlainObject(lensModel?.treatedMortgagePaymentPlan)
       ? lensModel.treatedMortgagePaymentPlan
       : {};
-    const mortgageMode = normalizeString(mortgagePlan.mode || inputs.treatedMortgagePaymentPlanMode || "");
+    const rawMortgageMode = normalizeString(mortgagePlan.mode || inputs.treatedMortgagePaymentPlanMode || "");
+    const mortgageMode = normalizeMortgageProjectionMode(rawMortgageMode);
     const explicitMortgageAmount = toOptionalNumber(inputs.preparedMortgagePayoffAmount)
       ?? toOptionalNumber(inputs.rawMortgageAmount)
       ?? toOptionalNumber(getPath(lensModel, "treatedDebtPayoff.needs.mortgagePayoffAmount"))
@@ -528,6 +609,19 @@
       ?? (originalMortgageBalance && originalMortgageBalance > 0
         ? (explicitMortgageAmount / originalMortgageBalance) * 100
         : null);
+    const mortgageLifetimeProjectionFacts = {
+      currentBalance: originalMortgageBalance,
+      currentPayoffAmount: explicitMortgageAmount,
+      annualInterestRate: interestRatePercent,
+      monthlyPayment: originalMonthlyMortgagePayment,
+      remainingTermMonths: originalRemainingTermMonths,
+      payoffPercent
+    };
+    const mortgageProjectionDecision = resolveMortgageProjectionDecision(
+      mortgageMode,
+      rawMortgageMode,
+      mortgageLifetimeProjectionFacts
+    );
     const nonMortgageAmount = toOptionalNumber(inputs.preparedNonMortgageDebtAmount)
       ?? toOptionalNumber(inputs.rawNonMortgageDebtAmount)
       ?? Math.max(0, totalDebt - explicitMortgageAmount);
@@ -567,12 +661,16 @@
           }
         );
       }
-    } else if (mortgageMode && mortgageMode !== "payOff" && mortgageMode !== "unavailable") {
+    } else if (rawMortgageMode && mortgageMode === "unavailable" && rawMortgageMode !== "unavailable") {
       addUniqueIssue(
         warnings,
         "mortgage-treatment-mode-unrecognized",
-        "Mortgage treatment mode was not recognized by the need-line adapter and was traced as a point-in-time obligation.",
-        { mode: mortgageMode }
+        "Mortgage treatment mode was not recognized by the need-line adapter; projection decision trace records whether reliable payoff facts were used or projection was skipped.",
+        {
+          mode: rawMortgageMode,
+          normalizedMortgageMode: mortgageMode,
+          projectionDecision: mortgageProjectionDecision.decision
+        }
       );
     }
 
@@ -591,20 +689,19 @@
       mortgageAmount: roundMoney(Math.max(0, mortgageAmount || 0)),
       mortgageAnnualValues,
       mortgageTiming,
-      mortgageLifetimeProjectionFacts: {
-        currentBalance: originalMortgageBalance,
-        currentPayoffAmount: explicitMortgageAmount,
-        annualInterestRate: interestRatePercent,
-        monthlyPayment: originalMonthlyMortgagePayment,
-        remainingTermMonths: originalRemainingTermMonths,
-        payoffPercent
-      },
+      mortgageLifetimeProjectionFacts,
       nonMortgageDebtProjectionFacts,
       trace: {
         source: debtRow ? "needsResult.trace.debtPayoff" : "needsResult.components.debtPayoff",
+        rawMortgageMode: rawMortgageMode || null,
+        normalizedMortgageMode: mortgageMode || null,
         mortgageMode: mortgageMode || null,
         mortgagePaymentPlanVersion: mortgagePlan.version || null,
         mortgageLifetimeProjectionSource: "coverage-strategy-mortgage-lifetime-projection",
+        mortgageProjectionDecision: mortgageProjectionDecision.decision,
+        mortgageProjectionDecisionReason: mortgageProjectionDecision.reason,
+        mortgageProjectionReliableFactsAvailable: mortgageProjectionDecision.reliableFactsAvailable === true,
+        mortgageProjectionFactsUsed: clonePlainValue(mortgageLifetimeProjectionFacts),
         nonMortgageAmortizationMode: nonMortgageDebtProjectionFacts.length
           ? "coverage-strategy-debt-lifetime-projection"
           : "not-invented",
@@ -737,8 +834,38 @@
   }
 
   function resolveMortgageLifetimeProjection(debtModel, pointSpine, valuationDateResult, warnings, dataGaps) {
-    if (!debtModel || debtModel.trace?.mortgageMode !== "payOff") {
+    const projectionDecision = debtModel?.trace?.mortgageProjectionDecision || "skipped-missing-facts";
+    if (!debtModel || (
+      projectionDecision !== "used"
+      && projectionDecision !== "used-payoff-facts-override-unavailable-mode"
+    )) {
+      if (debtModel?.mortgageAmount > 0 && projectionDecision === "skipped-missing-facts") {
+        addUniqueIssue(
+          dataGaps,
+          "mortgage-projection-skipped-missing-facts",
+          "Mortgage projection was skipped because payoff mode or reliable balance, payment, rate, and term facts were unavailable.",
+          {
+            rawMortgageMode: debtModel?.trace?.rawMortgageMode || null,
+            normalizedMortgageMode: debtModel?.trace?.normalizedMortgageMode || null,
+            projectionDecision,
+            factsUsed: debtModel?.trace?.mortgageProjectionFactsUsed || {}
+          }
+        );
+      }
       return null;
+    }
+    if (projectionDecision === "used-payoff-facts-override-unavailable-mode") {
+      addUniqueIssue(
+        warnings,
+        "mortgage-projection-unavailable-mode-reliable-facts-used",
+        "Mortgage mode was unavailable, but reliable payoff facts were present, so payoff projection was used for Coverage Strategy.",
+        {
+          rawMortgageMode: debtModel.trace?.rawMortgageMode || null,
+          normalizedMortgageMode: debtModel.trace?.normalizedMortgageMode || null,
+          projectionDecision,
+          factsUsed: debtModel.trace?.mortgageProjectionFactsUsed || {}
+        }
+      );
     }
     const builder = lensAnalysis.buildMortgageLifetimeProjection;
     if (typeof builder !== "function") {
@@ -1783,6 +1910,22 @@
           ? {
               status: mortgageLifetimeProjection.status,
               assumptionsUsed: mortgageLifetimeProjection.assumptionsUsed,
+              trace: {
+                ...(isPlainObject(mortgageLifetimeProjection.trace) ? clonePlainValue(mortgageLifetimeProjection.trace) : {}),
+                rawMortgageMode: debtModel.trace?.rawMortgageMode || null,
+                normalizedMortgageMode: debtModel.trace?.normalizedMortgageMode || null,
+                projectionDecision: debtModel.trace?.mortgageProjectionDecision || null,
+                projectionDecisionReason: debtModel.trace?.mortgageProjectionDecisionReason || null,
+                reliableFactsAvailable:
+                  debtModel.trace?.mortgageProjectionReliableFactsAvailable === true,
+                factsUsed: debtModel.trace?.mortgageProjectionFactsUsed || {}
+              },
+              warnings: Array.isArray(mortgageLifetimeProjection.warnings)
+                ? clonePlainValue(mortgageLifetimeProjection.warnings)
+                : [],
+              dataGaps: Array.isArray(mortgageLifetimeProjection.dataGaps)
+                ? clonePlainValue(mortgageLifetimeProjection.dataGaps)
+                : [],
               warningCount: Array.isArray(mortgageLifetimeProjection.warnings)
                 ? mortgageLifetimeProjection.warnings.length
                 : 0,
@@ -1791,6 +1934,15 @@
                 : 0
             }
           : null,
+        mortgageProjectionTrace: {
+          rawMortgageMode: debtModel.trace?.rawMortgageMode || null,
+          normalizedMortgageMode: debtModel.trace?.normalizedMortgageMode || null,
+          projectionDecision: debtModel.trace?.mortgageProjectionDecision || null,
+          projectionDecisionReason: debtModel.trace?.mortgageProjectionDecisionReason || null,
+          reliableFactsAvailable: debtModel.trace?.mortgageProjectionReliableFactsAvailable === true,
+          factsUsed: debtModel.trace?.mortgageProjectionFactsUsed || {},
+          projectionConsumed: Boolean(mortgageLifetimeProjection)
+        },
         debtLifetimeProjection: debtLifetimeProjection
           ? {
               status: debtLifetimeProjection.status,

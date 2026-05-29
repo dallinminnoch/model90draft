@@ -60,11 +60,11 @@ function createNeedPoints(horizonYears) {
   }));
 }
 
-function createNeedsResult() {
+function createNeedsResult(amount = 400000) {
   return {
     method: "needsAnalysis",
     components: {
-      debtPayoff: 400000,
+      debtPayoff: amount,
       essentialSupport: 0,
       education: 0,
       finalExpenses: 0,
@@ -79,11 +79,11 @@ function createNeedsResult() {
     trace: [
       {
         key: "debtPayoff",
-        value: 400000,
+        value: amount,
         inputs: {
-          preparedMortgagePayoffAmount: 400000,
+          preparedMortgagePayoffAmount: amount,
           preparedNonMortgageDebtAmount: 0,
-          rawMortgageAmount: 400000,
+          rawMortgageAmount: amount,
           rawNonMortgageDebtAmount: 0
         },
         sourcePaths: ["treatedDebtPayoff.needs"]
@@ -119,6 +119,32 @@ function createLensModel(overrides = {}) {
     },
     ...overrides
   };
+}
+
+function createJamesDoeMortgageLensModel(mode, overrides = {}) {
+  return createLensModel({
+    debtPayoff: {
+      mortgageBalance: 250000
+    },
+    ongoingSupport: {
+      monthlyMortgagePayment: 1750,
+      mortgageRemainingTermMonths: 240,
+      mortgageInterestRatePercent: 5.5
+    },
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode,
+      originalBalance: 250000,
+      immediatePayoffAmount: 250000,
+      payoffPercent: 100,
+      originalMonthlyMortgagePayment: 1750,
+      originalRemainingTermMonths: 240,
+      interestRatePercent: 5.5,
+      finalMonthlyMortgagePayment: 0,
+      finalRemainingTermMonths: 0
+    },
+    ...overrides
+  });
 }
 
 assert.doesNotMatch(helperSource, /\bdocument\b/);
@@ -227,6 +253,86 @@ assert.equal(
   needLine.componentModels.mortgageLifetimeProjection.assumptionsUsed.projectionMode,
   "amortized"
 );
+assert.equal(needLine.componentModels.mortgageProjectionTrace.projectionDecision, "used");
+
+const jamesDoePayOff = buildCoverageStrategyNeedLine({
+  lensModel: createJamesDoeMortgageLensModel("payOff"),
+  needsResult: createNeedsResult(250000),
+  valuationDate: "2026-01-01",
+  horizonYears: 25
+});
+assert.equal(jamesDoePayOff.needPoints[0].componentAmounts.mortgage, 250000);
+assert.ok(jamesDoePayOff.needPoints[1].componentAmounts.mortgage < 250000);
+assert.equal(jamesDoePayOff.needPoints[1].trace.mortgageProjection.projectionMode, "amortized");
+assert.equal(jamesDoePayOff.componentModels.mortgageProjectionTrace.normalizedMortgageMode, "payOff");
+assert.equal(jamesDoePayOff.componentModels.mortgageProjectionTrace.projectionDecision, "used");
+
+const lowercasePayoff = buildCoverageStrategyNeedLine({
+  lensModel: createJamesDoeMortgageLensModel("payoff"),
+  needsResult: createNeedsResult(250000),
+  valuationDate: "2026-01-01",
+  horizonYears: 25
+});
+assert.equal(lowercasePayoff.componentModels.debtAndMortgage.trace.rawMortgageMode, "payoff");
+assert.equal(lowercasePayoff.componentModels.debtAndMortgage.trace.normalizedMortgageMode, "payOff");
+assert.equal(lowercasePayoff.componentModels.mortgageProjectionTrace.projectionDecision, "used");
+assert.ok(lowercasePayoff.needPoints[1].trace.mortgageProjection);
+assert.ok(lowercasePayoff.needPoints[1].componentAmounts.mortgage < 250000);
+
+const payOffMortgageAlias = buildCoverageStrategyNeedLine({
+  lensModel: createJamesDoeMortgageLensModel("payOffMortgage"),
+  needsResult: createNeedsResult(250000),
+  valuationDate: "2026-01-01",
+  horizonYears: 25
+});
+assert.equal(payOffMortgageAlias.componentModels.mortgageProjectionTrace.normalizedMortgageMode, "payOff");
+assert.equal(payOffMortgageAlias.componentModels.mortgageProjectionTrace.projectionDecision, "used");
+assert.ok(payOffMortgageAlias.needPoints[1].trace.mortgageProjection);
+
+const unavailableReliableFacts = buildCoverageStrategyNeedLine({
+  lensModel: createJamesDoeMortgageLensModel("unavailable"),
+  needsResult: createNeedsResult(250000),
+  valuationDate: "2026-01-01",
+  horizonYears: 25
+});
+assert.equal(
+  unavailableReliableFacts.componentModels.mortgageProjectionTrace.projectionDecision,
+  "used-payoff-facts-override-unavailable-mode"
+);
+assert.ok(
+  issueCodes(unavailableReliableFacts.warnings)
+    .includes("mortgage-projection-unavailable-mode-reliable-facts-used")
+);
+assert.ok(unavailableReliableFacts.needPoints[1].trace.mortgageProjection);
+assert.ok(unavailableReliableFacts.needPoints[1].componentAmounts.mortgage < 250000);
+
+const unavailableMissingFacts = buildCoverageStrategyNeedLine({
+  lensModel: createJamesDoeMortgageLensModel("unavailable", {
+    ongoingSupport: {
+      monthlyMortgagePayment: null,
+      mortgageRemainingTermMonths: null,
+      mortgageInterestRatePercent: null
+    },
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "unavailable",
+      originalBalance: 250000,
+      immediatePayoffAmount: 250000,
+      payoffPercent: 100,
+      originalMonthlyMortgagePayment: null,
+      originalRemainingTermMonths: null,
+      interestRatePercent: null
+    }
+  }),
+  needsResult: createNeedsResult(250000),
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(unavailableMissingFacts.componentModels.mortgageProjectionTrace.projectionDecision, "skipped-missing-facts");
+assert.equal(unavailableMissingFacts.componentModels.mortgageLifetimeProjection, null);
+assert.equal(unavailableMissingFacts.needPoints[1].trace.mortgageProjection, null);
+assert.equal(unavailableMissingFacts.needPoints[5].componentAmounts.mortgage, 250000);
+assert.ok(issueCodes(unavailableMissingFacts.dataGaps).includes("mortgage-projection-skipped-missing-facts"));
 
 const fallbackNeedLine = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({
