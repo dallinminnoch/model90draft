@@ -45,7 +45,8 @@ assert.ok(
   "Diagnostic export module should load before the Coverage Strategy page controller."
 );
 
-assert.match(controllerSource, /Export Diagnostic PDF/);
+assert.match(controllerSource, /Export Diagnostic Report/);
+assert.doesNotMatch(controllerSource, /Export Diagnostic PDF/);
 assert.match(controllerSource, /data-coverage-strategy-diagnostic-export/);
 assert.match(controllerSource, /exportCoverageStrategyDiagnosticPdf/);
 assert.match(controllerSource, /currentDiagnosticExportContext/);
@@ -199,9 +200,12 @@ const diagnosticInput = {
     }
   },
   visibleScenarioControls: {
+    projectionHorizon: true,
     educationSavingsOffset: true,
     educationPaymentScheduleMode: true,
-    projectedDependentBirthYear: true
+    educationPaymentSchedule: true,
+    projectedDependentBirthYear: true,
+    diagnosticExport: true
   },
   needLine: {
     valuationDate: "2026-01-01",
@@ -337,6 +341,12 @@ assert.equal(JSON.stringify(diagnosticInput), inputBefore, "Diagnostic export sh
 
 assert.ok(snapshot.exportMetadata);
 assert.match(snapshot.exportMetadata.privacyNote, /personal and financial data/i);
+assert.equal(snapshot.exportMetadata.exportFormat, "html");
+assert.equal(snapshot.exportMetadata.exportFileType, "html");
+assert.equal(snapshot.exportMetadata.temporaryDiagnosticExport, true);
+assert.equal(snapshot.exportMetadata.notPdf, true);
+assert.match(moduleSource, /coverage-strategy-diagnostic-report\.html/);
+assert.doesNotMatch(moduleSource, /coverage-strategy-diagnostic-export\.html|print-to-pdf-opened/);
 assert.equal(snapshot.profileHousehold.client.name, "Diagnostic Client");
 assert.equal(snapshot.profileHousehold.client.currentAge, 40);
 assert.equal(snapshot.profileHousehold.spouseOrPartner.name, "Diagnostic Spouse");
@@ -351,6 +361,12 @@ assert.ok(snapshot.analysisSetupAssumptions.resolvedMethodSettings);
 assert.ok(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings);
 assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.education.useEducationSavingsOffset, true);
 assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.education.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.visibleControlsAdded, true);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.controlsVisible, true);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.trace.visibleControlsAdded, true);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettingsTrace.visibleControlsAdded, true);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.visibleScenarioControls.projectionHorizon, true);
+assert.equal(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings.visibleScenarioControls.diagnosticExport, true);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.profileFacts);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.debtFacts);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.treatedDebtPayoff);
@@ -384,7 +400,10 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingR
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentSchedule, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectionHorizon, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.diagnosticExport, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.healthcareLifetimeProjection.aggregateFallbackUsed, false);
@@ -405,7 +424,8 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjecti
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.finalExpenseLifetimeProjection.staticFallbackUsed, false);
 
 const html = renderHtml(snapshot);
-assert.match(html, /Coverage Strategy Diagnostic Export/);
+assert.match(html, /Coverage Strategy Diagnostic Report/);
+assert.doesNotMatch(html, /Coverage Strategy Diagnostic Export/);
 assert.match(html, /A\. Export Metadata/);
 assert.match(html, /B\. Profile \/ Household/);
 assert.match(html, /C\. PMI \/ Protection Modeling Inputs/);

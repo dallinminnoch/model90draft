@@ -1122,7 +1122,7 @@
             <div class="coverage-strategy-scenario-tray-placeholder is-diagnostic-export">
               <span>Data export</span>
               <button type="button" class="coverage-strategy-diagnostic-export-button" data-coverage-strategy-diagnostic-export>
-                Export Diagnostic PDF
+                Export Diagnostic Report
               </button>
             </div>
           </div>
@@ -1341,9 +1341,12 @@
           chartModel,
           coverageStrategyScenarioSettings,
           visibleScenarioControls: {
+            projectionHorizon: true,
             educationSavingsOffset: true,
             educationPaymentScheduleMode: true,
-            projectedDependentBirthYear: projectedDependentBirthYearControlVisible
+            educationPaymentSchedule: true,
+            projectedDependentBirthYear: projectedDependentBirthYearControlVisible,
+            diagnosticExport: true
           },
           projectionHorizonYears: safeProjectionHorizonYears,
           age110Horizon,
@@ -1487,13 +1490,16 @@
           coverageStrategyScenarioSettings: currentDiagnosticExportContext?.coverageStrategyScenarioSettings
             || initialCoverageStrategyScenarioSettings,
           visibleScenarioControls: {
+            projectionHorizon: true,
             educationSavingsOffset: true,
             educationPaymentScheduleMode: true,
+            educationPaymentSchedule: true,
             projectedDependentBirthYear: buildProjectedDependentTimingRows(
               builderResult.lensModel,
               getProjectedDependentTimingRowsFromSettings(runtimeScenarioSettings),
               valuationDate
-            ).length > 0
+            ).length > 0,
+            diagnosticExport: true
           },
           projectionHorizonYears: selectedProjectionHorizonYears,
           age110Horizon,

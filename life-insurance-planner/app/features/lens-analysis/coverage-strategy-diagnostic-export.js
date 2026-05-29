@@ -89,6 +89,31 @@
     return JSON.stringify(cloned == null ? "Not available" : cloned, null, 2);
   }
 
+  function hasVisibleScenarioControls(visibleScenarioControls) {
+    return Object.keys(isPlainObject(visibleScenarioControls) ? visibleScenarioControls : {}).some(function (key) {
+      return visibleScenarioControls[key] === true;
+    });
+  }
+
+  function enrichScenarioSettingsForDiagnostic(scenarioSettings, visibleScenarioControls) {
+    if (!isPlainObject(scenarioSettings)) {
+      return scenarioSettings || "Not available";
+    }
+    const controlsVisible = hasVisibleScenarioControls(visibleScenarioControls);
+    const enriched = clonePlainValue(scenarioSettings);
+    enriched.visibleControlsAdded = controlsVisible;
+    enriched.controlsVisible = controlsVisible;
+    enriched.visibleScenarioControls = clonePlainValue(visibleScenarioControls || {});
+    enriched.trace = isPlainObject(enriched.trace) ? enriched.trace : {};
+    enriched.trace.visibleControlsAdded = controlsVisible;
+    enriched.trace.controlsVisible = controlsVisible;
+    enriched.trace.visibleScenarioControls = clonePlainValue(visibleScenarioControls || {});
+    enriched.trace.visibilitySource = controlsVisible
+      ? "coverage-strategy-page-visible-controls"
+      : "coverage-strategy-scenario-settings-resolver";
+    return enriched;
+  }
+
   function createHouseholdSnapshot(context) {
     const safeContext = isPlainObject(context) ? context : {};
     const profileRecord = isPlainObject(safeContext.profileRecord) ? safeContext.profileRecord : {};
@@ -179,12 +204,31 @@
       ...(Array.isArray(safeContext.gapSurplus?.dataGaps) ? safeContext.gapSurplus.dataGaps : []),
       ...(Array.isArray(safeContext.chartModel?.dataGaps) ? safeContext.chartModel.dataGaps : [])
     ];
+    const visibleScenarioControls = isPlainObject(safeContext.visibleScenarioControls)
+      ? safeContext.visibleScenarioControls
+      : {};
+    const rawCoverageStrategyScenarioSettings = safeContext.coverageStrategyScenarioSettings
+      || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings
+      || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings
+      || null;
+    const coverageStrategyScenarioSettings = enrichScenarioSettingsForDiagnostic(
+      rawCoverageStrategyScenarioSettings,
+      visibleScenarioControls
+    );
+    const coverageStrategyScenarioSettingsTrace = isPlainObject(coverageStrategyScenarioSettings)
+      ? coverageStrategyScenarioSettings.trace
+      : "Not available";
+    const visibleControlsAdded = hasVisibleScenarioControls(visibleScenarioControls);
 
     return {
       exportMetadata: {
         exportDateTime: new Date().toISOString(),
         pageSource: "Coverage Strategy",
         route: safeContext.route || global.location?.href || "Not available",
+        reportType: "coverage-strategy-diagnostic-report",
+        exportFormat: "html",
+        exportFileType: "html",
+        notPdf: true,
         temporaryDiagnosticExport: true,
         privacyNote: "This diagnostic file may contain personal and financial data. Share only in trusted review channels.",
         moduleVersion: COVERAGE_STRATEGY_DIAGNOSTIC_EXPORT_VERSION
@@ -205,14 +249,8 @@
       analysisSetupAssumptions: {
         savedAnalysisSettings: safeContext.profileRecord?.analysisSettings || "Not available",
         resolvedMethodSettings: safeContext.methodSettings || "Not available",
-        coverageStrategyScenarioSettings: safeContext.coverageStrategyScenarioSettings
-          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings
-          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings
-          || "Not available",
-        coverageStrategyScenarioSettingsTrace: safeContext.coverageStrategyScenarioSettings?.trace
-          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.trace
-          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.trace
-          || "Not available",
+        coverageStrategyScenarioSettings,
+        coverageStrategyScenarioSettingsTrace,
         projectionHorizonYears: safeContext.projectionHorizonYears ?? "Not available"
       },
       lensModelNormalizedFactsSnapshot: {
@@ -250,20 +288,13 @@
         chartModelSummary: safeContext.chartModel || "Not available",
         warnings: combinedWarnings,
         dataGaps: combinedDataGaps,
-        coverageStrategyScenarioSettings: safeContext.coverageStrategyScenarioSettings
-          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings
-          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings
-          || "Not available",
+        coverageStrategyScenarioSettings,
         educationScenarioSettingsConsumed: (
-          safeContext.coverageStrategyScenarioSettings?.education
-          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.education
-          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education
+          coverageStrategyScenarioSettings?.education
           || "Not available"
         ),
         educationPaymentScheduleMode: (
-          safeContext.coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
-          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
-          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
+          coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
           || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.educationPaymentScheduleMode
           || "Not available"
         ),
@@ -277,17 +308,10 @@
           || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
           || "Not available"
         ),
-        coverageStrategyVisibleScenarioControlsAdded: Boolean(
-          safeContext.visibleScenarioControls?.educationSavingsOffset
-          || safeContext.visibleScenarioControls?.educationPaymentScheduleMode
-          || safeContext.visibleScenarioControls?.educationPaymentSchedule
-          || safeContext.visibleScenarioControls?.projectedDependentBirthYear
-        ),
-        visibleScenarioControls: safeContext.visibleScenarioControls || {},
+        coverageStrategyVisibleScenarioControlsAdded: visibleControlsAdded,
+        visibleScenarioControls,
         coverageStrategyScenarioSettingsPersistence: (
-          safeContext.coverageStrategyScenarioSettings?.persistenceStatus
-          || safeContext.needLine?.componentModels?.coverageStrategyScenarioSettings?.persistenceStatus
-          || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.persistenceStatus
+          coverageStrategyScenarioSettings?.persistenceStatus
           || "Not available"
         ),
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
@@ -330,7 +354,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Coverage Strategy Diagnostic Export</title>
+  <title>Coverage Strategy Diagnostic Report</title>
   <style>
     :root { color-scheme: light; }
     body {
@@ -371,7 +395,7 @@
   </style>
 </head>
 <body>
-  <h1>Coverage Strategy Diagnostic Export</h1>
+  <h1>Coverage Strategy Diagnostic Report</h1>
   <p class="diagnostic-note">
     TEMPORARY DIAGNOSTIC EXPORT - safe to remove after Coverage Strategy truthfulness review tooling is no longer needed.
     This diagnostic file may contain personal and financial data. Share only in trusted review channels.
@@ -396,7 +420,7 @@
       const url = URL.createObjectURL(blob);
       const anchor = global.document.createElement("a");
       anchor.href = url;
-      anchor.download = "coverage-strategy-diagnostic-export.html";
+      anchor.download = "coverage-strategy-diagnostic-report.html";
       anchor.click();
       URL.revokeObjectURL(url);
       return {
@@ -412,7 +436,7 @@
       printWindow.print();
     }, 250);
     return {
-      status: "print-to-pdf-opened",
+      status: "html-report-opened-for-print",
       snapshot
     };
   }

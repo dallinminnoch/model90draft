@@ -157,7 +157,8 @@ assert.match(trayMarkup, /value="lumpSumAtStart"/);
 assert.match(trayMarkup, /Projected dependents/);
 assert.match(trayMarkup, /data-coverage-strategy-projected-dependent-birth-year/);
 assert.match(trayMarkup, /Projection horizon/);
-assert.match(trayMarkup, /Export Diagnostic PDF/);
+assert.match(trayMarkup, /Export Diagnostic Report/);
+assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
 assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
 assert.match(controllerSource, /runtimeScenarioSettings\s*=\s*\{/);
 assert.match(controllerSource, /data-coverage-strategy-education-savings-offset/);
@@ -234,9 +235,12 @@ const snapshot = buildSnapshot({
   needLine: offsetOnNeedLine,
   coverageStrategyScenarioSettings: offsetOnSettings,
   visibleScenarioControls: {
+    projectionHorizon: true,
     educationSavingsOffset: true,
     educationPaymentScheduleMode: true,
-    projectedDependentBirthYear: true
+    educationPaymentSchedule: true,
+    projectedDependentBirthYear: true,
+    diagnosticExport: true
   },
   projectionHorizonYears: 10
 });
@@ -244,7 +248,12 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettings
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationSavingsOffset, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentSchedule, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectionHorizon, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.diagnosticExport, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.visibleControlsAdded, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.controlsVisible, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.active, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);

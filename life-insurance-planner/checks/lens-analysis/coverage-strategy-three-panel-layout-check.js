@@ -93,7 +93,8 @@ assert.match(trayMarkup, />Lump sum</);
 assert.match(trayMarkup, /renderProjectedDependentTimingControls\(projectedDependentTimingRows\)/);
 assert.match(controllerSource, /Projected dependents/);
 assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
-assert.match(trayMarkup, /Export Diagnostic PDF/);
+assert.match(trayMarkup, /Export Diagnostic Report/);
+assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
 assert.match(trayMarkup, /data-coverage-strategy-diagnostic-export/);
 const trayMarkupWithoutDiagnosticExport = trayMarkup.replace(
   /<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/,

@@ -144,7 +144,8 @@ assert.doesNotMatch(trayMarkup, /custom schedule|education treatment|resource sp
 assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /Projected dependents/);
 assert.match(trayMarkup, /Projection horizon/);
-assert.match(trayMarkup, /Export Diagnostic PDF/);
+assert.match(trayMarkup, /Export Diagnostic Report/);
+assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
 assert.match(controllerSource, /educationPaymentScheduleMode:\s*getEducationPaymentScheduleModeFromSettings/);
 assert.match(controllerSource, /data-coverage-strategy-education-payment-schedule/);
 assert.match(controllerSource, /educationPaymentScheduleMode:\s*target\.value === "lumpSumAtStart"/);
@@ -228,9 +229,12 @@ const snapshot = buildSnapshot({
   needLine: lumpSumNeedLine,
   coverageStrategyScenarioSettings: lumpSumSettings,
   visibleScenarioControls: {
+    projectionHorizon: true,
     educationSavingsOffset: true,
     educationPaymentScheduleMode: true,
-    projectedDependentBirthYear: true
+    educationPaymentSchedule: true,
+    projectedDependentBirthYear: true,
+    diagnosticExport: true
   },
   projectionHorizonYears: 10
 });
@@ -238,6 +242,10 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleM
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentSchedule, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectionHorizon, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.diagnosticExport, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.controlsVisible, true);
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.assumptionsUsed.educationPaymentScheduleMode,
   "lumpSumAtStart"

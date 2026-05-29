@@ -142,7 +142,8 @@ assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, /value="fourYearAnnual"/);
 assert.match(trayMarkup, /value="lumpSumAtStart"/);
 assert.match(trayMarkup, /Projection horizon/);
-assert.match(trayMarkup, /Export Diagnostic PDF/);
+assert.match(trayMarkup, /Export Diagnostic Report/);
+assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
 assert.doesNotMatch(trayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
 assert.match(controllerSource, /runtimeScenarioSettings/);
 assert.match(controllerSource, /projectedDependentTimingRows/);
@@ -155,7 +156,7 @@ assert.match(scenarioSettingsSource, /projectedDependentTimingRows/);
 assert.match(scenarioSettingsSource, /rawExpectedBirthYear/);
 assert.match(scenarioSettingsSource, /projected-dependent-birth-year-invalid/);
 assert.match(diagnosticSource, /projectedDependentTimingRowsConsumed/);
-assert.match(diagnosticSource, /projectedDependentBirthYear/);
+assert.match(diagnosticSource, /visibleScenarioControls/);
 assert.match(diagnosticSource, /visiblePaymentScheduleControl/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-schedule\s*\{/);
@@ -282,14 +283,22 @@ const snapshot = buildSnapshot({
   needLine: timedNeedLine,
   coverageStrategyScenarioSettings: timedSettings,
   visibleScenarioControls: {
+    projectionHorizon: true,
     educationSavingsOffset: true,
     educationPaymentScheduleMode: true,
-    projectedDependentBirthYear: true
+    educationPaymentSchedule: true,
+    projectedDependentBirthYear: true,
+    diagnosticExport: true
   },
   projectionHorizonYears: 25
 });
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectedDependentBirthYear, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentScheduleMode, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationPaymentSchedule, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.projectionHorizon, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.diagnosticExport, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.visibleControlsAdded, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.controlsVisible, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.projectedDependentSchedules[0].dateOfBirth, "2026-01-01");
