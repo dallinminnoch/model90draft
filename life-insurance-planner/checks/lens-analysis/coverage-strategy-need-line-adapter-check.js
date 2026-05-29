@@ -889,8 +889,107 @@ assert.equal(payoffEmbeddedMortgageSupport.componentModels.mortgageSupportOwners
 assert.equal(payoffEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.essentialSupportMortgageAdjustmentApplied, false);
 assert.equal(payoffEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.mortgageImmediatePayoffAmount, 250000);
 assert.equal(payoffEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.noDoubleCountProof, false);
+assert.equal(payoffEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.noDoubleCountProofStatus, "unproven");
 assert.equal(payoffEmbeddedMortgageSupport.needPoints[0].trace.mortgageSupportOwnershipTrace.noDoubleCountProof, false);
+assert.equal(payoffEmbeddedMortgageSupport.needPoints[0].trace.mortgageSupportOwnershipTrace.noDoubleCountProofStatus, "unproven");
+assert.equal(payoffEmbeddedMortgageSupport.needPoints[1].trace.mortgageSupportOwnershipTrace.noDoubleCountProof, false);
+assert.equal(payoffEmbeddedMortgageSupport.needPoints[1].trace.mortgageSupportOwnershipTrace.noDoubleCountProofStatus, "not-applicable");
+assert.equal(payoffEmbeddedMortgageSupport.needPoints[1].trace.mortgageSupportOwnershipTrace.dataGapCode, null);
 assert.ok(issueCodes(payoffEmbeddedMortgageSupport.dataGaps).includes("mortgage-support-ownership-payoff-mode-embedded-support-unadjusted"));
+
+const unavailableOverrideEmbeddedMortgageSupport = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "unavailable",
+      originalBalance: 250000,
+      payoffPercent: 100,
+      effectivePayoffPercent: 100,
+      originalMonthlyMortgagePayment: 1750,
+      finalMonthlyMortgagePayment: null,
+      originalRemainingTermMonths: 240,
+      interestRatePercent: 5.5,
+      mortgagePaymentAlreadyInNeeds: true
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      debtPayoff: 250000,
+      essentialSupport: 21000,
+      education: 0,
+      finalExpenses: 0,
+      healthcareExpenses: 0,
+      transitionNeeds: 0,
+      discretionarySupport: 0
+    },
+    commonOffsets: {
+      existingCoverageOffset: 0,
+      assetOffset: 0,
+      survivorIncomeOffset: 0,
+      totalOffset: 0
+    },
+    assumptions: {
+      needsSupportDurationYears: 1,
+      includeDiscretionarySupport: false,
+      includeSurvivorIncomeOffset: false,
+      valuationDate: "2026-01-01"
+    },
+    trace: [
+      {
+        key: "debtPayoff",
+        value: 250000,
+        inputs: {
+          preparedMortgagePayoffAmount: 250000,
+          preparedNonMortgageDebtAmount: 0,
+          rawMortgageAmount: 250000,
+          rawNonMortgageDebtAmount: 0
+        },
+        sourcePaths: ["treatedDebtPayoff.needs"]
+      },
+      {
+        key: "essentialSupport",
+        value: 21000,
+        inputs: {
+          annualTotalEssentialSupportCost: 21000,
+          essentialSupportPreExclusionAmount: 21000,
+          essentialSupportIncludedAmount: 21000,
+          inflation: {
+            baseAnnualAmount: 21000,
+            durationYears: 1,
+            ratePercent: 0,
+            projectedTotal: 21000,
+            applied: false
+          }
+        },
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
+      },
+      {
+        key: "essentialSupportInflation",
+        value: 21000,
+        inputs: {
+          baseAnnualAmount: 21000,
+          durationYears: 1,
+          ratePercent: 0,
+          projectedTotal: 21000,
+          inflationApplied: false
+        }
+      }
+    ]
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 1
+});
+assert.equal(
+  unavailableOverrideEmbeddedMortgageSupport.componentModels.debtAndMortgage.trace.mortgageProjectionDecision,
+  "used-payoff-facts-override-unavailable-mode"
+);
+assert.equal(unavailableOverrideEmbeddedMortgageSupport.needPoints[0].componentAmounts.mortgage, 250000);
+assert.equal(unavailableOverrideEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.mortgageImmediatePayoffAmount, 250000);
+assert.equal(unavailableOverrideEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.mortgageComponentOwnsImmediatePayoff, true);
+assert.equal(unavailableOverrideEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.mortgagePaymentAlreadyInNeeds, true);
+assert.equal(unavailableOverrideEmbeddedMortgageSupport.componentModels.mortgageSupportOwnershipTrace.noDoubleCountProof, false);
+assert.equal(unavailableOverrideEmbeddedMortgageSupport.needPoints[0].trace.mortgageSupportOwnershipTrace.noDoubleCountProof, false);
+assert.ok(issueCodes(unavailableOverrideEmbeddedMortgageSupport.dataGaps).includes("mortgage-support-ownership-payoff-mode-embedded-support-unadjusted"));
 
 const continuePaymentsOwnership = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({
