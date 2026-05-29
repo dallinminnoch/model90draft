@@ -220,18 +220,34 @@ const diagnosticInput = {
           aggregateFallbackUsed: false,
           assumptionsUsed: {
             educationPaymentScheduleMode: "lumpSumAtStart",
+            educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+            effectiveEducationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
             paymentYearCount: 1,
             resourceSpendingApplied: false,
             generalResourceReductionApplied: false
+          },
+          educationResourceSpending: {
+            selectedMode: "eligibleResourcesAfterEducationSavings",
+            effectiveMode: "eligibleResourcesAfterEducationSavings",
+            broaderEligibleResourcesRequested: true,
+            broaderEligibleResourceStatus: "unavailable",
+            broaderEligibleResourceOffsetApplied: 0,
+            generalResourceReductionApplied: false,
+            visibleResourceSpendingControl: false
           },
           educationPoints: [{
             yearIndex: 0,
             grossEducationNeedAmount: 60000,
             educationSavingsOffsetAmount: 10000,
+            broaderEligibleResourceOffsetAmount: 0,
             netEducationNeedAmount: 50000,
             educationNeedAmount: 50000,
             trace: {
               educationPaymentScheduleMode: "lumpSumAtStart",
+              educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+              effectiveEducationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+              broaderEligibleResourceStatus: "unavailable",
+              broaderEligibleResourceOffsetApplied: 0,
               lumpSumAtStartScheduleUsed: true
             }
           }],
@@ -392,6 +408,10 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSett
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingMode, "off");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpending.effectiveMode, "eligibleResourcesAfterEducationSavings");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingTrace.broaderEligibleResourceStatus, "unavailable");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationResourceSpendingControl, false);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.currentDependentSchedules[0].trace.educationPaymentScheduleMode,

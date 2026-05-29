@@ -298,6 +298,19 @@
           || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.educationPaymentScheduleMode
           || "Not available"
         ),
+        educationResourceSpendingMode: (
+          coverageStrategyScenarioSettings?.education?.educationResourceSpendingMode
+          || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.educationResourceSpendingMode
+          || "Not available"
+        ),
+        educationResourceSpending: (
+          safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending
+          || "Not available"
+        ),
+        visibleEducationResourceSpendingControl: Boolean(
+          safeContext.visibleScenarioControls?.educationResourceSpendingMode
+          || safeContext.visibleScenarioControls?.educationResourceSpending
+        ),
         visiblePaymentScheduleControl: Boolean(
           safeContext.visibleScenarioControls?.educationPaymentScheduleMode
           || safeContext.visibleScenarioControls?.educationPaymentSchedule
@@ -318,6 +331,7 @@
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
         educationLifetimeProjection: safeContext.needLine?.componentModels?.education?.lifetimeProjection || "Not available",
         educationSavingsOffset: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationSavingsOffset || "Not available",
+        educationResourceSpendingTrace: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending || "Not available",
         healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available",
         finalExpenseLifetimeProjection: safeContext.needLine?.componentModels?.finalExpenses?.lifetimeProjection || "Not available"
       },

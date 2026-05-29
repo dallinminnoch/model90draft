@@ -397,8 +397,16 @@ const educationSavingsOffsetResult = buildCoverageStrategyNeedLine({
 });
 assert.equal(educationSavingsOffsetResult.needPoints[0].trace.educationProjection.grossEducationNeedAmount, 65000);
 assert.equal(educationSavingsOffsetResult.needPoints[0].trace.educationProjection.educationSavingsOffsetAmount, 10000);
+assert.equal(
+  educationSavingsOffsetResult.needPoints[0].trace.educationProjection.effectiveEducationResourceSpendingMode,
+  "educationSavingsOnly"
+);
 assert.equal(educationSavingsOffsetResult.needPoints[0].componentAmounts.education, 55000);
 assert.equal(educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.active, true);
+assert.equal(
+  educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationResourceSpending.effectiveMode,
+  "educationSavingsOnly"
+);
 assert.equal(
   educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.settingOwnership,
   "coverage-strategy-scenario-settings"
@@ -417,6 +425,79 @@ assert.equal(
 );
 assert.equal(educationSavingsOffsetResult.needPoints[0].trace.assetOffsetSubtracted, false);
 assert.equal(educationSavingsOffsetResult.assumptionsUsed.assetOffsetsSubtracted, false);
+
+const eligibleResourcesTraceOnlyResult = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    assetFacts: {
+      assets: [
+        {
+          assetId: "plan-529",
+          categoryKey: "educationSpecificSavings",
+          typeKey: "plan529Account",
+          currentValue: 10000
+        },
+        {
+          assetId: "cash",
+          categoryKey: "cashAndCashEquivalents",
+          typeKey: "checkingAccount",
+          currentValue: 50000
+        }
+      ]
+    },
+    treatedAssetOffsets: {
+      assets: [
+        {
+          assetId: "plan-529",
+          categoryKey: "educationSpecificSavings",
+          include: false,
+          treatedValue: 0
+        },
+        {
+          assetId: "cash",
+          categoryKey: "cashAndCashEquivalents",
+          include: true,
+          treatedValue: 50000
+        }
+      ]
+    }
+  }),
+  needsResult: sourceNeedsResult,
+  analysisSettings: {
+    educationAssumptions: {
+      includeEducationFunding: true,
+      includeProjectedDependents: true,
+      applyEducationInflation: false,
+      educationStartAge: 18
+    }
+  },
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+      useEducationSavingsOffset: false
+    },
+    trace: {
+      fieldSources: {
+        "education.educationResourceSpendingMode": "runtimeScenarioSettings.education.educationResourceSpendingMode"
+      }
+    }
+  },
+  valuationDate: "2026-01-01",
+  horizonYears: 5
+});
+assert.equal(
+  eligibleResourcesTraceOnlyResult.componentModels.education.lifetimeProjection.educationResourceSpending.effectiveMode,
+  "eligibleResourcesAfterEducationSavings"
+);
+assert.equal(
+  eligibleResourcesTraceOnlyResult.componentModels.education.lifetimeProjection.educationResourceSpending.broaderEligibleResourceStatus,
+  "unavailable"
+);
+assert.equal(eligibleResourcesTraceOnlyResult.needPoints[0].trace.educationProjection.broaderEligibleResourceOffsetApplied, 0);
+assert.ok(issueCodes(eligibleResourcesTraceOnlyResult.dataGaps).includes("education-eligible-resource-spending-source-unavailable"));
+assert.equal(eligibleResourcesTraceOnlyResult.needPoints[0].trace.assetOffsetSubtracted, false);
+assert.equal(eligibleResourcesTraceOnlyResult.assumptionsUsed.assetOffsetsSubtracted, false);
 
 const lumpSumScheduleResult = buildCoverageStrategyNeedLine({
   lensModel: createLensModel(),

@@ -31,7 +31,8 @@
   ]);
   const ALLOWED_RESOURCE_SPENDING_MODES = Object.freeze([
     "off",
-    "educationSpendWaterfall"
+    "educationSavingsOnly",
+    "eligibleResourcesAfterEducationSavings"
   ]);
   const ALLOWED_PROJECTED_DEPENDENT_TIMING_MODES = Object.freeze([
     "untimedKeepThroughHorizon",
@@ -365,6 +366,50 @@
     return DEFAULT_EDUCATION_SETTINGS.useEducationSavingsOffset;
   }
 
+  function resolveEducationResourceSpendingMode(candidates, fieldSources, warnings, defaultedFields, useEducationSavingsOffset) {
+    const path = "education.educationResourceSpendingMode";
+    const match = findScenarioValue(candidates, path);
+    if (match) {
+      const normalized = normalizeString(match.value);
+      fieldSources[path] = match.sourcePath;
+      if (ALLOWED_RESOURCE_SPENDING_MODES.includes(normalized)) {
+        return normalized;
+      }
+
+      const details = {
+        field: path,
+        received: match.value,
+        sourcePath: match.sourcePath,
+        fallback: DEFAULT_EDUCATION_SETTINGS.educationResourceSpendingMode,
+        supportedValues: ALLOWED_RESOURCE_SPENDING_MODES.slice()
+      };
+      warnings.push(createIssue(
+        "education-resource-spending-mode-unsupported",
+        "Unsupported Coverage Strategy education resource spending mode was defaulted.",
+        details
+      ));
+      defaultedFields.push({
+        code: "education-resource-spending-mode-defaulted",
+        ...clonePlainValue(details)
+      });
+      return DEFAULT_EDUCATION_SETTINGS.educationResourceSpendingMode;
+    }
+
+    if (useEducationSavingsOffset === true) {
+      fieldSources[path] = "derived-from-education.useEducationSavingsOffset";
+      defaultedFields.push({
+        code: "education-resource-spending-mode-derived-from-education-savings-offset",
+        field: path,
+        fallback: "educationSavingsOnly",
+        sourcePath: fieldSources["education.useEducationSavingsOffset"] || null
+      });
+      return "educationSavingsOnly";
+    }
+
+    fieldSources[path] = "coverage-strategy-defaults.education.educationResourceSpendingMode";
+    return DEFAULT_EDUCATION_SETTINGS.educationResourceSpendingMode;
+  }
+
   function resolveCoverageStrategyScenarioSettings(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const candidates = buildCandidates(safeInput);
@@ -374,6 +419,12 @@
     const warnings = [];
     const defaultedFields = [];
 
+    const useEducationSavingsOffset = resolveEducationSavingsOffset(
+      candidates,
+      legacyCandidates,
+      fieldSources,
+      legacyMappings
+    );
     const education = {
       educationTreatmentMode: resolveModeField(
         candidates,
@@ -389,19 +440,13 @@
         warnings,
         defaultedFields
       ),
-      useEducationSavingsOffset: resolveEducationSavingsOffset(
+      useEducationSavingsOffset,
+      educationResourceSpendingMode: resolveEducationResourceSpendingMode(
         candidates,
-        legacyCandidates,
         fieldSources,
-        legacyMappings
-      ),
-      educationResourceSpendingMode: resolveModeField(
-        candidates,
-        "education.educationResourceSpendingMode",
-        ALLOWED_RESOURCE_SPENDING_MODES,
-        DEFAULT_EDUCATION_SETTINGS.educationResourceSpendingMode,
-        "coverage-strategy-defaults.education.educationResourceSpendingMode",
-        fieldSources
+        warnings,
+        defaultedFields,
+        useEducationSavingsOffset
       ),
       projectedDependentTimingMode: resolveModeField(
         candidates,

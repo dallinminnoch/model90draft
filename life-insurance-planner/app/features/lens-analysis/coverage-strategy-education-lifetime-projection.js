@@ -18,6 +18,15 @@
     EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL,
     EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START
   ]);
+  const EDUCATION_RESOURCE_SPENDING_MODE_OFF = "off";
+  const EDUCATION_RESOURCE_SPENDING_MODE_EDUCATION_SAVINGS_ONLY = "educationSavingsOnly";
+  const EDUCATION_RESOURCE_SPENDING_MODE_ELIGIBLE_RESOURCES_AFTER_EDUCATION_SAVINGS =
+    "eligibleResourcesAfterEducationSavings";
+  const ALLOWED_EDUCATION_RESOURCE_SPENDING_MODES = Object.freeze([
+    EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+    EDUCATION_RESOURCE_SPENDING_MODE_EDUCATION_SAVINGS_ONLY,
+    EDUCATION_RESOURCE_SPENDING_MODE_ELIGIBLE_RESOURCES_AFTER_EDUCATION_SAVINGS
+  ]);
   const EDUCATION_ASSET_CATEGORY_KEY = "educationSpecificSavings";
   const EDUCATION_ASSET_TEXT_PATTERN =
     /(529|coverdell|prepaid\s*tuition|education\s*(specific|savings|account|trust|fund)|college\s*savings|esa)/i;
@@ -393,6 +402,163 @@
       traceCode: "education-savings-offset-assumption-unavailable",
       ownership: "unavailable",
       legacyMapped: false
+    };
+  }
+
+  function resolveEducationResourceSpendingMode(coverageStrategyScenarioSettings, educationSavingsOffsetActivation, warnings) {
+    const scenarioEducation = isPlainObject(coverageStrategyScenarioSettings?.education)
+      ? coverageStrategyScenarioSettings.education
+      : {};
+    const hasMode = hasOwn(scenarioEducation, "educationResourceSpendingMode");
+    const rawMode = hasMode ? normalizeString(scenarioEducation.educationResourceSpendingMode) : "";
+    const sourcePath = coverageStrategyScenarioSettings?.trace?.fieldSources?.["education.educationResourceSpendingMode"]
+      || (hasMode ? "coverageStrategyScenarioSettings.education.educationResourceSpendingMode" : null);
+    if (hasMode && ALLOWED_EDUCATION_RESOURCE_SPENDING_MODES.includes(rawMode)) {
+      return {
+        selectedMode: rawMode,
+        effectiveMode: rawMode,
+        sourcePath,
+        source: sourcePath,
+        explicit: true,
+        defaulted: false,
+        derivedFromUseEducationSavingsOffset: false,
+        educationSavingsOffsetActive: rawMode === EDUCATION_RESOURCE_SPENDING_MODE_EDUCATION_SAVINGS_ONLY
+          || rawMode === EDUCATION_RESOURCE_SPENDING_MODE_ELIGIBLE_RESOURCES_AFTER_EDUCATION_SAVINGS,
+        broaderEligibleResourcesRequested:
+          rawMode === EDUCATION_RESOURCE_SPENDING_MODE_ELIGIBLE_RESOURCES_AFTER_EDUCATION_SAVINGS,
+        traceCode: "education-resource-spending-mode-resolved"
+      };
+    }
+
+    if (hasMode) {
+      addIssue(
+        warnings,
+        "education-resource-spending-mode-unsupported",
+        "Unsupported Coverage Strategy education resource spending mode was defaulted to off.",
+        {
+          received: scenarioEducation.educationResourceSpendingMode,
+          sourcePath,
+          fallback: EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+          supportedValues: ALLOWED_EDUCATION_RESOURCE_SPENDING_MODES.slice()
+        }
+      );
+      return {
+        selectedMode: EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+        effectiveMode: EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+        sourcePath,
+        source: sourcePath,
+        explicit: true,
+        defaulted: true,
+        derivedFromUseEducationSavingsOffset: false,
+        educationSavingsOffsetActive: false,
+        broaderEligibleResourcesRequested: false,
+        traceCode: "education-resource-spending-mode-defaulted"
+      };
+    }
+
+    if (educationSavingsOffsetActivation?.active === true) {
+      return {
+        selectedMode: EDUCATION_RESOURCE_SPENDING_MODE_EDUCATION_SAVINGS_ONLY,
+        effectiveMode: EDUCATION_RESOURCE_SPENDING_MODE_EDUCATION_SAVINGS_ONLY,
+        sourcePath: educationSavingsOffsetActivation.sourcePath,
+        source: "derived-from-education.useEducationSavingsOffset",
+        explicit: false,
+        defaulted: true,
+        derivedFromUseEducationSavingsOffset: true,
+        educationSavingsOffsetActive: true,
+        broaderEligibleResourcesRequested: false,
+        traceCode: "education-resource-spending-mode-derived-from-education-savings-offset"
+      };
+    }
+
+    return {
+      selectedMode: EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+      effectiveMode: EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+      sourcePath: "coverage-strategy-defaults.education.educationResourceSpendingMode",
+      source: "coverage-strategy-defaults.education.educationResourceSpendingMode",
+      explicit: false,
+      defaulted: true,
+      derivedFromUseEducationSavingsOffset: false,
+      educationSavingsOffsetActive: false,
+      broaderEligibleResourcesRequested: false,
+      traceCode: "education-resource-spending-mode-defaulted"
+    };
+  }
+
+  function applyEducationResourceSpendingModeToSavingsActivation(activation, resourceMode) {
+    const savingsActive = resourceMode?.educationSavingsOffsetActive === true;
+    const explicitResourceModeOff = resourceMode?.effectiveMode === EDUCATION_RESOURCE_SPENDING_MODE_OFF
+      && resourceMode?.explicit === true;
+    return {
+      ...activation,
+      active: savingsActive,
+      status: savingsActive
+        ? "active"
+        : (explicitResourceModeOff
+          ? "disabled-by-education-resource-spending-mode-off"
+          : activation.status),
+      traceCode: savingsActive
+        ? "education-savings-offset-active"
+        : (explicitResourceModeOff
+          ? "education-savings-offset-disabled-by-resource-spending-mode-off"
+          : activation.traceCode),
+      resourceSpendingMode: resourceMode?.effectiveMode || EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+      resourceSpendingModeSource: resourceMode?.source || null
+    };
+  }
+
+  function resolveBroaderEligibleResourceSpending(resourceMode, dataGaps) {
+    if (resourceMode?.effectiveMode !== EDUCATION_RESOURCE_SPENDING_MODE_ELIGIBLE_RESOURCES_AFTER_EDUCATION_SAVINGS) {
+      return {
+        requested: false,
+        status: "not-requested",
+        applied: false,
+        totalApplied: 0,
+        sourceAvailable: false,
+        warningCode: null
+      };
+    }
+
+    const issue = addIssue(
+      dataGaps,
+      "education-eligible-resource-spending-source-unavailable",
+      "Eligible resource spending after education savings was requested, but no safe broader eligible resource allocation source is available; no broader resources were applied.",
+      {
+        educationResourceSpendingMode: resourceMode.effectiveMode,
+        broaderEligibleResourceOffsetApplied: 0,
+        resourceLineReductionApplied: false,
+        generalResourceReductionApplied: false
+      }
+    );
+    return {
+      requested: true,
+      status: "unavailable",
+      applied: false,
+      totalApplied: 0,
+      sourceAvailable: false,
+      warningCode: issue?.code || "education-eligible-resource-spending-source-unavailable"
+    };
+  }
+
+  function createEducationResourceSpendingTrace(resourceMode, broaderResourceSpending, educationSavingsOffsetApplied, remainingNeedAfterEducationSavings) {
+    return {
+      selectedMode: resourceMode?.selectedMode || EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+      effectiveMode: resourceMode?.effectiveMode || EDUCATION_RESOURCE_SPENDING_MODE_OFF,
+      modeSource: resourceMode?.source || null,
+      modeSourcePath: resourceMode?.sourcePath || null,
+      modeExplicit: resourceMode?.explicit === true,
+      modeDefaulted: resourceMode?.defaulted === true,
+      modeDerivedFromUseEducationSavingsOffset: resourceMode?.derivedFromUseEducationSavingsOffset === true,
+      educationSavingsOffsetApplied: roundMoney(educationSavingsOffsetApplied),
+      remainingNeedAfterEducationSavings: roundMoney(remainingNeedAfterEducationSavings),
+      broaderEligibleResourcesRequested: broaderResourceSpending?.requested === true,
+      broaderEligibleResourceOffsetApplied: roundMoney(broaderResourceSpending?.totalApplied || 0),
+      broaderEligibleResourceStatus: broaderResourceSpending?.status || "not-requested",
+      broaderEligibleResourceSourceAvailable: broaderResourceSpending?.sourceAvailable === true,
+      warningCode: broaderResourceSpending?.warningCode || null,
+      resourceLineReductionApplied: false,
+      generalResourceReductionApplied: false,
+      visibleResourceSpendingControl: false
     };
   }
 
@@ -982,10 +1148,23 @@
       warnings
     );
     const educationSavingsAssets = collectEducationSavingsAssets(safeInput, warnings);
-    const educationSavingsOffsetActivation = resolveEducationSavingsOffsetActivation(
+    const rawEducationSavingsOffsetActivation = resolveEducationSavingsOffsetActivation(
       educationAssumptions,
       coverageStrategyScenarioSettings,
       educationSavingsAssets.eligibleAssets.length,
+      dataGaps
+    );
+    const educationResourceSpendingMode = resolveEducationResourceSpendingMode(
+      coverageStrategyScenarioSettings,
+      rawEducationSavingsOffsetActivation,
+      warnings
+    );
+    const educationSavingsOffsetActivation = applyEducationResourceSpendingModeToSavingsActivation(
+      rawEducationSavingsOffsetActivation,
+      educationResourceSpendingMode
+    );
+    const broaderEligibleResourceSpending = resolveBroaderEligibleResourceSpending(
+      educationResourceSpendingMode,
       dataGaps
     );
     const educationSavingsOffsetActive = educationSavingsOffsetActivation.active === true;
@@ -1034,6 +1213,10 @@
               educationPaymentScheduleMode: context.educationPaymentScheduleMode,
               educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
               educationSavingsOffsetOwnership: educationSavingsOffsetActivation.ownership,
+              educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+              effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+              educationResourceSpendingModeSource: educationResourceSpendingMode.source,
+              broaderEligibleResourceOffsetApplied: 0,
               coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
               resourceSpendingApplied: false,
               generalResourceReductionApplied: false
@@ -1054,6 +1237,10 @@
           educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
           educationSavingsOffsetSettingSource: educationSavingsOffsetActivation.sourcePath,
           educationSavingsOffsetSettingOwnership: educationSavingsOffsetActivation.ownership,
+          educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+          effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+          educationResourceSpendingModeSource: educationResourceSpendingMode.source,
+          broaderEligibleResourceOffsetApplied: 0,
           coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
           resourceSpendingApplied: false
         },
@@ -1072,11 +1259,20 @@
           allocationRule: "not-applied-education-funding-excluded",
           resourceReductionApplied: false
         },
+        educationResourceSpending: createEducationResourceSpendingTrace(
+          educationResourceSpendingMode,
+          broaderEligibleResourceSpending,
+          0,
+          0
+        ),
         warnings,
         dataGaps,
         trace: {
           source: "coverage-strategy-education-lifetime-projection",
           educationPaymentScheduleMode: context.educationPaymentScheduleMode,
+          educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+          effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+          broaderEligibleResourceOffsetApplied: 0,
           displayHtmlUsed: false,
           storageUsed: false,
           inputMutated: false
@@ -1201,6 +1397,11 @@
       );
       const projectedDependentNeedAmount = roundMoney(timedProjectedNeedAmount + untimedProjectedDependentNeedAmount);
       const educationNeedAmount = roundMoney(Math.max(0, grossEducationNeedAmount - educationSavingsOffsetAmount));
+      const remainingNeedAfterEducationSavings = educationNeedAmount;
+      const broaderEligibleResourceOffsetAmount = 0;
+      const educationResourceSpendingOffsetAmount = roundMoney(
+        educationSavingsOffsetAmount + broaderEligibleResourceOffsetAmount
+      );
       const pointWarnings = [];
       if (
         educationSavingsOffsetActive
@@ -1223,6 +1424,9 @@
         educationNeedAmount,
         grossEducationNeedAmount,
         educationSavingsOffsetAmount,
+        educationResourceSpendingOffsetAmount,
+        broaderEligibleResourceOffsetAmount,
+        remainingEducationNeedAfterEducationSavings: remainingNeedAfterEducationSavings,
         netEducationNeedAmount: educationNeedAmount,
         currentDependentNeedAmount,
         grossCurrentDependentNeedAmount,
@@ -1255,6 +1459,7 @@
             ...clonePlainValue(record),
             grossAmount: grossUntimedProjectedDependentNeedAmount,
             educationSavingsOffsetAmount: offsetAmount,
+            broaderEligibleResourceOffsetAmount: 0,
             netAmount: untimedProjectedDependentNeedAmount,
             amount: untimedProjectedDependentNeedAmount
           };
@@ -1281,6 +1486,21 @@
           educationSavingsOffsetObligations: educationSavingsOffsetActive
             ? offsetAllocation.appliedByObligation
             : [],
+          educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+          effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+          educationResourceSpendingModeSource: educationResourceSpendingMode.source,
+          educationResourceSpendingModeSourcePath: educationResourceSpendingMode.sourcePath,
+          educationResourceSpendingModeDerivedFromUseEducationSavingsOffset:
+            educationResourceSpendingMode.derivedFromUseEducationSavingsOffset === true,
+          educationResourceSpendingOffsetAmount,
+          remainingEducationNeedAfterEducationSavings: remainingNeedAfterEducationSavings,
+          broaderEligibleResourcesRequested: broaderEligibleResourceSpending.requested === true,
+          broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
+          broaderEligibleResourceOffsetAmount,
+          broaderEligibleResourceOffsetApplied: broaderEligibleResourceOffsetAmount,
+          broaderEligibleResourceSourceAvailable: broaderEligibleResourceSpending.sourceAvailable === true,
+          broaderEligibleResourceWarningCode: broaderEligibleResourceSpending.warningCode,
+          educationSpecificSavingsConsumed: educationSavingsOffsetActive && educationSavingsOffsetAmount > 0,
           resourceSpendingApplied: false,
           generalResourceReductionApplied: false,
           untimedProjectedDependentStatus: untimedProjected.status
@@ -1319,6 +1539,14 @@
         educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
         educationSavingsOffsetSettingSource: educationSavingsOffsetActivation.sourcePath,
         educationSavingsOffsetSettingOwnership: educationSavingsOffsetActivation.ownership,
+        educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+        effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+        educationResourceSpendingModeSource: educationResourceSpendingMode.source,
+        educationResourceSpendingModeSourcePath: educationResourceSpendingMode.sourcePath,
+        educationResourceSpendingModeDerivedFromUseEducationSavingsOffset:
+          educationResourceSpendingMode.derivedFromUseEducationSavingsOffset === true,
+        broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
+        broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
         coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
         resourceSpendingApplied: false,
         generalResourceReductionApplied: false,
@@ -1346,9 +1574,22 @@
           source: "coverage-strategy-education-lifetime-projection",
           resourceLineMathChanged: false,
           rawEducationSpecificAssetValuesUsed: educationSavingsOffsetActive,
-          treatedAssetOffsetsUsedForDoubleCountGuard: true
+          treatedAssetOffsetsUsedForDoubleCountGuard: true,
+          educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+          effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+          broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
+          broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
+          generalResourceReductionApplied: false
         }
       },
+      educationResourceSpending: createEducationResourceSpendingTrace(
+        educationResourceSpendingMode,
+        broaderEligibleResourceSpending,
+        maxEducationSavingsApplied,
+        roundMoney(Math.max(0, educationPoints.reduce(function (max, point) {
+          return Math.max(max, toOptionalNumber(point.remainingEducationNeedAfterEducationSavings) || 0);
+        }, 0)))
+      ),
       warnings,
       dataGaps,
       trace: {
@@ -1365,6 +1606,12 @@
         educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
         educationSavingsOffsetApplied: educationSavingsOffsetActive && maxEducationSavingsApplied > 0,
         educationSavingsOffsetOwnership: educationSavingsOffsetActivation.ownership,
+        educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
+        effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+        educationResourceSpendingModeSource: educationResourceSpendingMode.source,
+        broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
+        broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
+        visibleResourceSpendingControl: false,
         coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
         generalResourceReductionApplied: false,
         displayHtmlUsed: false,

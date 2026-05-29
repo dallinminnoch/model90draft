@@ -510,6 +510,8 @@ const offsetEnabled = runProjection(helper, {
   needPoints: createNeedPoints(15)
 });
 assert.equal(offsetEnabled.educationSavingsOffset.active, true);
+assert.equal(offsetEnabled.educationResourceSpending.effectiveMode, "educationSavingsOnly");
+assert.equal(offsetEnabled.educationResourceSpending.modeDerivedFromUseEducationSavingsOffset, true);
 assert.equal(offsetEnabled.educationSavingsOffset.totalEducationSavingsAvailable, 15000);
 assert.equal(offsetEnabled.educationSavingsOffset.eligibleEducationSavingsAssets.length, 1);
 assert.equal(offsetEnabled.educationSavingsOffset.eligibleEducationSavingsAssets[0].assetId, "plan-529");
@@ -534,6 +536,7 @@ assert.ok(
 );
 assert.equal(offsetEnabled.assumptionsUsed.resourceSpendingApplied, false);
 assert.equal(offsetEnabled.assumptionsUsed.generalResourceReductionApplied, false);
+assert.equal(offsetEnabled.assumptionsUsed.effectiveEducationResourceSpendingMode, "educationSavingsOnly");
 
 const lumpOffsetEnabled = runProjection(helper, {
   coverageStrategyScenarioSettings: {
@@ -587,6 +590,7 @@ const lumpOffsetEnabled = runProjection(helper, {
   needPoints: createNeedPoints(5)
 });
 assert.equal(lumpOffsetEnabled.educationSavingsOffset.active, true);
+assert.equal(lumpOffsetEnabled.educationResourceSpending.effectiveMode, "educationSavingsOnly");
 assert.equal(lumpOffsetEnabled.educationPoints[0].grossEducationNeedAmount, 40000);
 assert.equal(lumpOffsetEnabled.educationPoints[0].educationSavingsOffsetAmount, 15000);
 assert.equal(lumpOffsetEnabled.educationPoints[0].netEducationNeedAmount, 25000);
@@ -614,6 +618,7 @@ const offsetDisabledWithAssets = runProjection(helper, {
   needPoints: createNeedPoints(8)
 });
 assert.equal(offsetDisabledWithAssets.educationSavingsOffset.active, false);
+assert.equal(offsetDisabledWithAssets.educationResourceSpending.effectiveMode, "off");
 assert.equal(offsetDisabledWithAssets.educationPoints[0].grossEducationNeedAmount, 60000);
 assert.equal(offsetDisabledWithAssets.educationPoints[0].netEducationNeedAmount, 60000);
 assert.equal(offsetDisabledWithAssets.educationPoints[0].trace.educationSavingsOffsetActivationTraceCode, "education-savings-offset-disabled");
@@ -657,6 +662,106 @@ assert.ok(
   )),
   "education assets already included in treated resources should be excluded from offset"
 );
+
+const resourceModeOffOverridesSavingsToggle = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationResourceSpendingMode: "off",
+      useEducationSavingsOffset: true
+    },
+    trace: {
+      fieldSources: {
+        "education.educationResourceSpendingMode": "runtimeScenarioSettings.education.educationResourceSpendingMode",
+        "education.useEducationSavingsOffset": "runtimeScenarioSettings.education.useEducationSavingsOffset"
+      }
+    }
+  },
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18
+  },
+  assetFacts: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        typeKey: "plan529Account",
+        currentValue: 15000
+      }
+    ]
+  },
+  needPoints: createNeedPoints(4)
+});
+assert.equal(resourceModeOffOverridesSavingsToggle.educationSavingsOffset.active, false);
+assert.equal(resourceModeOffOverridesSavingsToggle.educationResourceSpending.effectiveMode, "off");
+assert.equal(resourceModeOffOverridesSavingsToggle.educationPoints[0].grossEducationNeedAmount, 60000);
+assert.equal(resourceModeOffOverridesSavingsToggle.educationPoints[0].netEducationNeedAmount, 60000);
+
+const eligibleResourcesAfterSavings = runProjection(helper, {
+  coverageStrategyScenarioSettings: {
+    version: 1,
+    source: "runtimeScenarioSettings",
+    education: {
+      educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+      useEducationSavingsOffset: false
+    },
+    trace: {
+      fieldSources: {
+        "education.educationResourceSpendingMode": "runtimeScenarioSettings.education.educationResourceSpendingMode"
+      }
+    }
+  },
+  educationAssumptions: {
+    includeEducationFunding: true,
+    includeProjectedDependents: true,
+    applyEducationInflation: false,
+    educationStartAge: 18
+  },
+  assetFacts: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        typeKey: "plan529Account",
+        currentValue: 15000
+      },
+      {
+        assetId: "general-cash",
+        categoryKey: "cashAndCashEquivalents",
+        typeKey: "checkingAccount",
+        currentValue: 999999
+      }
+    ]
+  },
+  treatedAssetOffsets: {
+    assets: [
+      {
+        assetId: "plan-529",
+        categoryKey: "educationSpecificSavings",
+        include: false,
+        treatedValue: 0
+      },
+      {
+        assetId: "general-cash",
+        categoryKey: "cashAndCashEquivalents",
+        include: true,
+        treatedValue: 999999
+      }
+    ]
+  },
+  needPoints: createNeedPoints(4)
+});
+assert.equal(eligibleResourcesAfterSavings.educationSavingsOffset.active, true);
+assert.equal(eligibleResourcesAfterSavings.educationPoints[0].educationSavingsOffsetAmount, 15000);
+assert.equal(eligibleResourcesAfterSavings.educationPoints[0].broaderEligibleResourceOffsetAmount, 0);
+assert.equal(eligibleResourcesAfterSavings.educationResourceSpending.effectiveMode, "eligibleResourcesAfterEducationSavings");
+assert.equal(eligibleResourcesAfterSavings.educationResourceSpending.broaderEligibleResourceStatus, "unavailable");
+assert.ok(issueCodes(eligibleResourcesAfterSavings.dataGaps).includes("education-eligible-resource-spending-source-unavailable"));
+assert.equal(eligibleResourcesAfterSavings.assumptionsUsed.generalResourceReductionApplied, false);
 
 const adapterContext = createContext();
 [

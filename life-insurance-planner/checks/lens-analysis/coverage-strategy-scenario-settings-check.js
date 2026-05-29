@@ -169,6 +169,7 @@ const runtimeBefore = JSON.stringify(runtimeInput);
 const runtimeResult = resolveScenarioSettings(runtimeInput);
 assert.equal(JSON.stringify(runtimeInput), runtimeBefore, "resolver should not mutate runtime input");
 assert.equal(runtimeResult.education.useEducationSavingsOffset, true);
+assert.equal(runtimeResult.education.educationResourceSpendingMode, "educationSavingsOnly");
 assert.equal(runtimeResult.education.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(
   runtimeResult.trace.fieldSources["education.educationPaymentScheduleMode"],
@@ -181,6 +182,16 @@ assert.equal(
 assert.equal(runtimeResult.education.projectedDependentTimingRows[0].expectedBirthYear, 2026);
 assert.equal(runtimeResult.education.projectedDependentTimingRows[0].timingMode, "expectedBirthYear");
 assert.equal(runtimeResult.education.projectedDependentTimingRows[0].validationStatus, "valid");
+assert.equal(
+  runtimeResult.trace.fieldSources["education.educationResourceSpendingMode"],
+  "derived-from-education.useEducationSavingsOffset"
+);
+assert.ok(
+  runtimeResult.trace.defaultedFields.some((field) => (
+    field.code === "education-resource-spending-mode-derived-from-education-savings-offset"
+  )),
+  "education savings offset compatibility should derive educationSavingsOnly mode"
+);
 
 const invalidBirthYearResult = resolveScenarioSettings({
   runtimeScenarioSettings: {
@@ -226,12 +237,14 @@ const savedResult = resolveScenarioSettings({
   savedScenarioSettings: {
     education: {
       useEducationSavingsOffset: true,
-      educationPaymentScheduleMode: "lumpSumAtStart"
+      educationPaymentScheduleMode: "lumpSumAtStart",
+      educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings"
     }
   }
 });
 assert.equal(savedResult.education.useEducationSavingsOffset, true);
 assert.equal(savedResult.education.educationPaymentScheduleMode, "lumpSumAtStart");
+assert.equal(savedResult.education.educationResourceSpendingMode, "eligibleResourcesAfterEducationSavings");
 assert.equal(savedResult.persisted, true);
 
 const profileSavedResult = resolveScenarioSettings({
@@ -257,6 +270,7 @@ const legacyResult = resolveScenarioSettings({
   }
 });
 assert.equal(legacyResult.education.useEducationSavingsOffset, true);
+assert.equal(legacyResult.education.educationResourceSpendingMode, "educationSavingsOnly");
 assert.equal(legacyResult.source, "legacy-analysis-settings");
 assert.ok(
   legacyResult.trace.legacyMappings.some((mapping) => (
@@ -365,8 +379,7 @@ assert.doesNotMatch(analysisSetupSource, /useExistingEducationSavingsOffset/);
 
 const controllerSource = readRepoFile("app/features/lens-analysis/coverage-strategy-page.js");
 const trayIndex = controllerSource.indexOf("coverage-strategy-scenario-tray");
-const trayEndIndex = controllerSource.indexOf("</div>", controllerSource.indexOf("is-diagnostic-export", trayIndex));
-const trayMarkup = controllerSource.slice(trayIndex, trayEndIndex);
+const trayMarkup = trayIndex >= 0 ? controllerSource.slice(trayIndex) : "";
 assert.match(trayMarkup, /Education savings/);
 assert.match(trayMarkup, /data-coverage-strategy-education-savings-offset/);
 assert.match(trayMarkup, /Education schedule/);

@@ -1665,6 +1665,10 @@
                 educationNeedAmount: educationProjectionPoint.educationNeedAmount,
                 grossEducationNeedAmount: educationProjectionPoint.grossEducationNeedAmount,
                 educationSavingsOffsetAmount: educationProjectionPoint.educationSavingsOffsetAmount,
+                educationResourceSpendingOffsetAmount: educationProjectionPoint.educationResourceSpendingOffsetAmount,
+                broaderEligibleResourceOffsetAmount: educationProjectionPoint.broaderEligibleResourceOffsetAmount,
+                remainingEducationNeedAfterEducationSavings:
+                  educationProjectionPoint.remainingEducationNeedAfterEducationSavings,
                 netEducationNeedAmount: educationProjectionPoint.netEducationNeedAmount,
                 currentDependentNeedAmount: educationProjectionPoint.currentDependentNeedAmount,
                 projectedDependentNeedAmount: educationProjectionPoint.projectedDependentNeedAmount,
@@ -1677,6 +1681,12 @@
                 excludedDependentCount: educationProjectionPoint.excludedDependentCount,
                 educationPaymentScheduleMode: educationProjectionPoint.trace?.educationPaymentScheduleMode || null,
                 educationPaymentScheduleModeSource: educationProjectionPoint.trace?.educationPaymentScheduleModeSource || null,
+                educationResourceSpendingMode: educationProjectionPoint.trace?.educationResourceSpendingMode || null,
+                effectiveEducationResourceSpendingMode:
+                  educationProjectionPoint.trace?.effectiveEducationResourceSpendingMode || null,
+                broaderEligibleResourceStatus: educationProjectionPoint.trace?.broaderEligibleResourceStatus || null,
+                broaderEligibleResourceOffsetApplied:
+                  educationProjectionPoint.trace?.broaderEligibleResourceOffsetApplied || 0,
                 coverageStrategyScenarioSettingsSource: educationProjectionPoint.trace?.coverageStrategyScenarioSettingsSource || coverageStrategyScenarioSettings?.source || null,
                 educationSavingsOffsetOwnership: educationProjectionPoint.trace?.educationSavingsOffsetOwnership || null,
                 sourceFactsUsed: educationProjectionPoint.trace || {}
@@ -1777,12 +1787,19 @@
                   ? educationLifetimeProjection.excludedDependents.length
                   : 0,
                 educationSavingsOffset: educationLifetimeProjection.educationSavingsOffset || null,
+                educationResourceSpending: educationLifetimeProjection.educationResourceSpending || null,
                 warningCount: Array.isArray(educationLifetimeProjection.warnings)
                   ? educationLifetimeProjection.warnings.length
                   : 0,
                 dataGapCount: Array.isArray(educationLifetimeProjection.dataGaps)
                   ? educationLifetimeProjection.dataGaps.length
                   : 0,
+                warnings: Array.isArray(educationLifetimeProjection.warnings)
+                  ? educationLifetimeProjection.warnings
+                  : [],
+                dataGaps: Array.isArray(educationLifetimeProjection.dataGaps)
+                  ? educationLifetimeProjection.dataGaps
+                  : [],
                 educationPoints: Array.isArray(educationLifetimeProjection.educationPoints)
                   ? educationLifetimeProjection.educationPoints
                   : [],
