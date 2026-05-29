@@ -723,6 +723,270 @@
     }, {});
   }
 
+  function getResourceLineAdjustmentInputs(input) {
+    const rows = [
+      input?.resourceLineAdjustmentsByYear,
+      input?.externalResourceAdjustments,
+      input?.depletionEvents,
+      input?.options?.resourceLineAdjustmentsByYear,
+      input?.options?.externalResourceAdjustments,
+      input?.options?.depletionEvents
+    ].find(Array.isArray);
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function normalizeResourceLineAdjustmentRows(input, warnings, dataGaps) {
+    return getResourceLineAdjustmentInputs(input).reduce(function (items, row, index) {
+      if (!isPlainObject(row)) {
+        addIssue(warnings, "invalid-resource-line-adjustment-row", "Resource Line adjustment row was ignored because it was not an object.", { index });
+        return items;
+      }
+      const amount = toOptionalNumber(
+        row.amount
+        ?? row.resourceLineReductionAmount
+        ?? row.resourceLineAdjustmentAmount
+        ?? row.appliedAmount
+      );
+      const yearIndex = toOptionalNumber(row.yearIndex);
+      if (yearIndex == null || yearIndex < 0) {
+        addIssue(
+          dataGaps,
+          "missing-resource-line-adjustment-year",
+          "Resource Line adjustment row was missing a valid yearIndex.",
+          { index, sourcePath: row.sourcePath || `resourceLineAdjustmentsByYear.${index}` }
+        );
+        return items;
+      }
+      if (amount == null || amount <= 0) {
+        addIssue(
+          dataGaps,
+          "missing-resource-line-adjustment-amount",
+          "Resource Line adjustment row was missing a positive amount.",
+          { index, yearIndex: Math.round(yearIndex), sourcePath: row.sourcePath || `resourceLineAdjustmentsByYear.${index}` }
+        );
+        return items;
+      }
+      items.push({
+        adjustmentId: normalizeString(row.adjustmentId || row.id) || `resource-line-adjustment-${index + 1}`,
+        yearIndex: Math.max(0, Math.round(yearIndex)),
+        calendarYear: toOptionalNumber(row.calendarYear) == null ? null : Math.round(toOptionalNumber(row.calendarYear)),
+        requestedAmount: roundMoney(amount),
+        categoryKey: normalizeString(
+          row.categoryKey
+          || row.sourceCategoryKey
+          || row.assetCategoryKey
+          || row.assetCategory
+        ) || null,
+        componentKey: normalizeString(row.componentKey || row.sourceComponentKey || row.component) || null,
+        obligationId: normalizeString(row.obligationId || row.sourceObligationId) || null,
+        source: normalizeString(row.source) || "external-resource-line-adjustment",
+        reason: normalizeString(row.reason || row.adjustmentReason) || null,
+        sourcePath: row.sourcePath || `resourceLineAdjustmentsByYear.${index}`,
+        trace: isPlainObject(row.trace) ? clonePlainValue(row.trace) : {}
+      });
+      return items;
+    }, []).sort(function (left, right) {
+      if (left.yearIndex !== right.yearIndex) {
+        return left.yearIndex - right.yearIndex;
+      }
+      return left.adjustmentId.localeCompare(right.adjustmentId);
+    });
+  }
+
+  function getPointForAdjustment(rawResourcePoints, adjustment) {
+    return rawResourcePoints.find(function (point) {
+      return point.yearIndex === adjustment.yearIndex;
+    }) || null;
+  }
+
+  function getCumulativeReductionForYear(appliedAdjustments, yearIndex) {
+    return roundMoney(appliedAdjustments.reduce(function (total, adjustment) {
+      return adjustment.yearIndex <= yearIndex
+        ? total + adjustment.appliedAmount
+        : total;
+    }, 0));
+  }
+
+  function getCumulativeCategoryReductionForYear(appliedAdjustments, yearIndex, categoryKey) {
+    return roundMoney(appliedAdjustments.reduce(function (total, adjustment) {
+      return adjustment.yearIndex <= yearIndex && adjustment.categoryKey === categoryKey
+        ? total + adjustment.appliedAmount
+        : total;
+    }, 0));
+  }
+
+  function createResourceLineAdjustmentPlan(rawResourcePoints, adjustmentRows, warnings, dataGaps) {
+    const appliedAdjustments = [];
+    const unappliedAdjustments = [];
+    const categoryAttributionWarnings = [];
+
+    adjustmentRows.forEach(function (adjustment) {
+      const point = getPointForAdjustment(rawResourcePoints, adjustment);
+      if (!point) {
+        const unapplied = {
+          ...clonePlainValue(adjustment),
+          appliedAmount: 0,
+          unappliedAmount: adjustment.requestedAmount,
+          eligibilityDecision: "unapplied",
+          reason: "resource-point-for-adjustment-year-unavailable"
+        };
+        unappliedAdjustments.push(unapplied);
+        addIssue(
+          dataGaps,
+          "resource-line-adjustment-year-unavailable",
+          "Resource Line adjustment could not be applied because no Resource Line point exists for its yearIndex.",
+          { adjustmentId: adjustment.adjustmentId, yearIndex: adjustment.yearIndex }
+        );
+        return;
+      }
+
+      const priorTotalReduction = getCumulativeReductionForYear(appliedAdjustments, adjustment.yearIndex);
+      const totalAvailable = Math.max(0, point.resourceAmount - priorTotalReduction);
+      const categoryAmount = adjustment.categoryKey
+        ? toOptionalNumber(point.categoryAmounts?.[adjustment.categoryKey])
+        : null;
+      const priorCategoryReduction = adjustment.categoryKey
+        ? getCumulativeCategoryReductionForYear(appliedAdjustments, adjustment.yearIndex, adjustment.categoryKey)
+        : 0;
+      const categoryAvailable = adjustment.categoryKey
+        ? Math.max(0, (categoryAmount || 0) - priorCategoryReduction)
+        : null;
+      const categoryAttributionStatus = adjustment.categoryKey
+        ? (categoryAmount == null ? "category-unavailable" : "category-attributed")
+        : "total-only";
+      const availableForAdjustment = adjustment.categoryKey && categoryAmount != null
+        ? Math.min(totalAvailable, categoryAvailable)
+        : totalAvailable;
+      const appliedAmount = roundMoney(Math.min(adjustment.requestedAmount, availableForAdjustment));
+      const unappliedAmount = roundMoney(Math.max(0, adjustment.requestedAmount - appliedAmount));
+      const normalizedAdjustment = {
+        ...clonePlainValue(adjustment),
+        appliedAmount,
+        unappliedAmount,
+        preResourceAmount: roundMoney(totalAvailable),
+        postResourceAmount: roundMoney(Math.max(0, totalAvailable - appliedAmount)),
+        categoryAttributionStatus,
+        categoryPreAmount: categoryAmount == null ? null : roundMoney(Math.max(0, categoryAmount - priorCategoryReduction)),
+        categoryPostAmount: categoryAmount == null ? null : roundMoney(Math.max(0, categoryAvailable - appliedAmount)),
+        capped: unappliedAmount > 0,
+        resourceLineReductionAmount: appliedAmount
+      };
+
+      if (appliedAmount > 0) {
+        appliedAdjustments.push(normalizedAdjustment);
+      }
+      if (unappliedAmount > 0) {
+        unappliedAdjustments.push(normalizedAdjustment);
+        addIssue(
+          warnings,
+          "resource-line-adjustment-capped",
+          "Resource Line adjustment exceeded available resources and was capped.",
+          {
+            adjustmentId: adjustment.adjustmentId,
+            yearIndex: adjustment.yearIndex,
+            requestedAmount: adjustment.requestedAmount,
+            appliedAmount,
+            unappliedAmount
+          }
+        );
+      }
+      if (categoryAttributionStatus !== "category-attributed") {
+        const warning = createIssue(
+          "resource-line-adjustment-category-attribution-unavailable",
+          "Resource Line adjustment reduced total resources without safe category-level attribution.",
+          {
+            adjustmentId: adjustment.adjustmentId,
+            yearIndex: adjustment.yearIndex,
+            categoryKey: adjustment.categoryKey,
+            categoryAttributionStatus
+          }
+        );
+        categoryAttributionWarnings.push(warning);
+        addIssue(warnings, warning.code, warning.message, warning.details);
+      }
+    });
+
+    const totalApplied = roundMoney(appliedAdjustments.reduce(function (total, adjustment) {
+      return total + adjustment.appliedAmount;
+    }, 0));
+    const totalUnapplied = roundMoney(unappliedAdjustments.reduce(function (total, adjustment) {
+      return total + adjustment.unappliedAmount;
+    }, 0));
+
+    return {
+      requestedAdjustmentCount: adjustmentRows.length,
+      appliedAdjustments,
+      unappliedAdjustments,
+      categoryAttributionWarnings,
+      totalApplied,
+      totalUnapplied
+    };
+  }
+
+  function applyResourceLineAdjustmentsToPoint(point, adjustmentPlan) {
+    if (!adjustmentPlan.requestedAdjustmentCount) {
+      return point;
+    }
+    const resourceLineAdjustmentAmount = getCumulativeReductionForYear(
+      adjustmentPlan.appliedAdjustments,
+      point.yearIndex
+    );
+    const adjustedCategoryAmounts = clonePlainValue(point.categoryAmounts);
+    Object.keys(adjustedCategoryAmounts).forEach(function (categoryKey) {
+      const categoryReduction = getCumulativeCategoryReductionForYear(
+        adjustmentPlan.appliedAdjustments,
+        point.yearIndex,
+        categoryKey
+      );
+      if (categoryReduction > 0) {
+        adjustedCategoryAmounts[categoryKey] = roundMoney(Math.max(
+          0,
+          (toOptionalNumber(adjustedCategoryAmounts[categoryKey]) || 0) - categoryReduction
+        ));
+      }
+    });
+    const adjustedResourceAmount = roundMoney(Math.max(0, point.resourceAmount - resourceLineAdjustmentAmount));
+    return {
+      ...point,
+      baselineResourceAmount: point.resourceAmount,
+      resourceAmount: adjustedResourceAmount,
+      eligibleResourceAmount: adjustedResourceAmount,
+      categoryAmounts: adjustedCategoryAmounts,
+      resourceLineAdjustmentAmount,
+      trace: {
+        ...point.trace,
+        resourceLineReductionApplied: resourceLineAdjustmentAmount > 0,
+        resourceLineMathChanged: resourceLineAdjustmentAmount > 0,
+        cumulativeResourceLineReductionAmount: resourceLineAdjustmentAmount,
+        resourceLineAdjustmentCount: adjustmentPlan.appliedAdjustments.filter(function (adjustment) {
+          return adjustment.yearIndex <= point.yearIndex;
+        }).length,
+        resourceLineAdjustmentSource: adjustmentPlan.requestedAdjustmentCount
+          ? "external-resource-line-adjustments"
+          : "none"
+      }
+    };
+  }
+
+  function adjustCategoryPoints(categoryPoints, adjustmentPlan) {
+    return categoryPoints.map(function (point) {
+      const categoryReduction = getCumulativeCategoryReductionForYear(
+        adjustmentPlan.appliedAdjustments,
+        point.yearIndex,
+        point.categoryKey
+      );
+      if (!(categoryReduction > 0)) {
+        return point;
+      }
+      return {
+        ...point,
+        baselineTreatedValue: point.treatedValue,
+        treatedValue: roundMoney(Math.max(0, point.treatedValue - categoryReduction)),
+        resourceLineAdjustmentAmount: categoryReduction
+      };
+    });
+  }
+
   function buildCoverageStrategyResourceLine(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const lensModel = isPlainObject(safeInput.lensModel) ? safeInput.lensModel : {};
@@ -752,7 +1016,9 @@
       || lensModel?.clientProfile?.dateOfBirth;
     const categoryPoints = [];
 
-    const resourcePoints = pointSpine.map(function (point) {
+    const resourceLineAdjustments = normalizeResourceLineAdjustmentRows(safeInput, warnings, dataGaps);
+
+    const rawResourcePoints = pointSpine.map(function (point) {
       const pointDate = normalizeDateOnly(point.date);
       const monthCount = valuationDateResult && pointDate
         ? Math.max(0, monthsBetween(valuationDateResult.date, pointDate.date))
@@ -817,6 +1083,17 @@
         }
       };
     });
+    const adjustmentPlan = createResourceLineAdjustmentPlan(
+      rawResourcePoints,
+      resourceLineAdjustments,
+      warnings,
+      dataGaps
+    );
+    const resourcePoints = rawResourcePoints.map(function (point) {
+      return applyResourceLineAdjustmentsToPoint(point, adjustmentPlan);
+    });
+    const adjustedCategoryPoints = adjustCategoryPoints(categoryPoints, adjustmentPlan);
+    const resourceLineReductionApplied = adjustmentPlan.totalApplied > 0;
 
     return {
       adapterVersion: COVERAGE_STRATEGY_RESOURCE_LINE_ADAPTER_VERSION,
@@ -825,7 +1102,19 @@
       valuationDate: valuationDateResult?.normalizedDate || normalizeString(sourceValuationDate),
       pointCount: resourcePoints.length,
       resourcePoints,
-      categoryPoints,
+      categoryPoints: adjustedCategoryPoints,
+      resourceLineAdjustments: {
+        requestedAdjustmentCount: adjustmentPlan.requestedAdjustmentCount,
+        appliedAdjustmentCount: adjustmentPlan.appliedAdjustments.length,
+        unappliedAdjustmentCount: adjustmentPlan.unappliedAdjustments.length,
+        totalResourceLineReduction: adjustmentPlan.totalApplied,
+        totalUnappliedResourceLineReduction: adjustmentPlan.totalUnapplied,
+        resourceLineReductionApplied,
+        resourceLineMathChanged: resourceLineReductionApplied,
+        adjustmentsApplied: adjustmentPlan.appliedAdjustments.map(clonePlainValue),
+        adjustmentsUnapplied: adjustmentPlan.unappliedAdjustments.map(clonePlainValue),
+        categoryAttributionWarnings: adjustmentPlan.categoryAttributionWarnings.map(clonePlainValue)
+      },
       assumptionsUsed: {
         resourceMeaning: "projected eligible non-insurance resources at each future death year before coverage",
         alignedToNeedPoints: Array.isArray(safeInput.needPoints),
@@ -833,7 +1122,9 @@
         savingAllocationSource: "lensModel.resourceProjectionInputs.savingAllocations",
         existingCoverageIncluded: false,
         unallocatedSurplusIncluded: false,
-        rawAggregateWealthUsed: false
+        rawAggregateWealthUsed: false,
+        resourceLineReductionApplied,
+        resourceLineMathChanged: resourceLineReductionApplied
       },
       warnings,
       dataGaps,
@@ -841,9 +1132,16 @@
         adapterVersion: COVERAGE_STRATEGY_RESOURCE_LINE_ADAPTER_VERSION,
         source: "prepared-lens-model-asset-treatment-growth-and-savings-context",
         pointCount: resourcePoints.length,
-        categoryPointCount: categoryPoints.length,
+        categoryPointCount: adjustedCategoryPoints.length,
         assetRowCount: normalizedAssets.rows.length,
         savingAllocationCount: savingAllocations.length,
+        resourceLineAdjustmentCount: adjustmentPlan.requestedAdjustmentCount,
+        resourceLineAppliedAdjustmentCount: adjustmentPlan.appliedAdjustments.length,
+        resourceLineUnappliedAdjustmentCount: adjustmentPlan.unappliedAdjustments.length,
+        totalResourceLineReduction: adjustmentPlan.totalApplied,
+        totalUnappliedResourceLineReduction: adjustmentPlan.totalUnapplied,
+        resourceLineReductionApplied,
+        resourceLineMathChanged: resourceLineReductionApplied,
         excludedInsuranceLikeAssetCount: normalizedAssets.excludedRows.length,
         warningCount: warnings.length,
         dataGapCount: dataGaps.length,

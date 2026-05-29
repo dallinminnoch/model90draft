@@ -28,10 +28,50 @@ const treatmentPath = path.join(
   "lens-analysis",
   "asset-treatment-calculations.js"
 );
+const allocationHelperPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-resource-allocation-depletion.js"
+);
+const educationProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-education-lifetime-projection.js"
+);
+const needLineAdapterPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-need-line-adapter.js"
+);
+const scenarioSettingsPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-scenario-settings.js"
+);
+const pageControllerPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-page.js"
+);
 
 const adapterSource = fs.readFileSync(adapterPath, "utf8");
 const taxonomySource = fs.readFileSync(taxonomyPath, "utf8");
 const treatmentSource = fs.readFileSync(treatmentPath, "utf8");
+const allocationHelperSource = fs.readFileSync(allocationHelperPath, "utf8");
+const educationProjectionSource = fs.readFileSync(educationProjectionPath, "utf8");
+const needLineAdapterSource = fs.readFileSync(needLineAdapterPath, "utf8");
+const scenarioSettingsSource = fs.readFileSync(scenarioSettingsPath, "utf8");
+const pageControllerSource = fs.readFileSync(pageControllerPath, "utf8");
 
 function loadAdapter({ includeTreatment = true } = {}) {
   const context = {
@@ -244,6 +284,13 @@ assert.doesNotMatch(adapterSource, /calculateHouseholdSurvivorRunway/);
 assert.doesNotMatch(adapterSource, /netCoverageGap/);
 assert.doesNotMatch(adapterSource, /coveragePolicies/);
 assert.doesNotMatch(adapterSource, /netWorth/i);
+assert.match(adapterSource, /resourceLineAdjustmentsByYear/);
+assert.match(allocationHelperSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(adapterSource, /calculateCoverageStrategyResourceAllocationDepletion/);
+assert.doesNotMatch(educationProjectionSource, /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/);
+assert.doesNotMatch(needLineAdapterSource, /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/);
+assert.doesNotMatch(scenarioSettingsSource, /calculateCoverageStrategyResourceAllocationDepletion|coverage-strategy-resource-allocation-depletion\.js/);
+assert.doesNotMatch(pageControllerSource, /eligibleResourcesAfterEducationSavings|Savings \+ Assets/);
 
 const buildCoverageStrategyResourceLine = loadAdapter();
 assert.equal(typeof buildCoverageStrategyResourceLine, "function", "adapter exports buildCoverageStrategyResourceLine");
@@ -264,6 +311,10 @@ assert.equal(JSON.stringify(sourceNeedPoints), beforeNeedPoints, "source needPoi
 assert.equal(result.status, "complete", "baseline resource line completes");
 assert.equal(result.cadence, "annual", "resource line is annual");
 assert.equal(result.resourcePoints.length, sourceNeedPoints.length, "resource points align to need points");
+assert.equal(result.resourceLineAdjustments.requestedAdjustmentCount, 0, "baseline has no resource adjustments");
+assert.equal(result.resourceLineAdjustments.resourceLineReductionApplied, false, "baseline applies no resource reduction");
+assert.equal(result.trace.resourceLineReductionApplied, false, "baseline trace applies no resource reduction");
+assert.equal(result.trace.resourceLineMathChanged, false, "baseline trace does not change resource math");
 assert.deepEqual(
   result.resourcePoints.map((point) => point.yearIndex),
   sourceNeedPoints.map((point) => point.yearIndex),
@@ -288,6 +339,16 @@ assert.equal(
 assert.equal(currentPoint.trace.existingCoverageIncluded, false, "trace excludes existing coverage");
 assert.equal(currentPoint.trace.unallocatedSurplusIncludedInResourceAmount, false, "trace excludes unallocated surplus");
 assert.equal(currentPoint.trace.insuranceProceedsIncluded, false, "trace excludes insurance proceeds");
+assert.equal(
+  Object.prototype.hasOwnProperty.call(currentPoint.trace, "resourceLineReductionApplied"),
+  false,
+  "baseline point trace is not expanded with depletion fields"
+);
+assert.equal(
+  Object.prototype.hasOwnProperty.call(currentPoint, "resourceLineAdjustmentAmount"),
+  false,
+  "baseline point shape is not expanded with depletion amounts"
+);
 
 const yearOne = result.resourcePoints[1];
 assert.ok(yearOne.resourceAmount > currentPoint.resourceAmount, "growth and assigned savings increase eligible resources over time");
@@ -387,6 +448,145 @@ assert.equal(
 const categoryRows = result.categoryPoints.filter((row) => row.categoryKey === "taxableBrokerageInvestments");
 assert.equal(categoryRows.length, result.resourcePoints.length, "category points are emitted by year");
 assert.ok(categoryRows[1].treatedValue > categoryRows[0].treatedValue, "category points carry projected treated values");
+
+const noAdjustmentBaseline = buildResourceLine();
+const emptyAdjustmentInput = buildResourceLine({
+  options: {
+    resourceLineAdjustmentsByYear: []
+  }
+});
+assert.deepEqual(
+  emptyAdjustmentInput.resourcePoints.map((point) => point.resourceAmount),
+  noAdjustmentBaseline.resourcePoints.map((point) => point.resourceAmount),
+  "empty adjustment input keeps baseline resource amounts unchanged"
+);
+
+const singleDepletion = buildResourceLine({
+  options: {
+    resourceLineAdjustmentsByYear: [
+      {
+        adjustmentId: "education-depletion-year-2",
+        yearIndex: 2,
+        calendarYear: 2028,
+        amount: 10000,
+        categoryKey: "taxableBrokerageInvestments",
+        componentKey: "education",
+        obligationId: "education-payment-1",
+        source: "test-fixture"
+      }
+    ]
+  }
+});
+assert.equal(
+  singleDepletion.resourcePoints[1].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[1].resourceAmount,
+  "single year-2 depletion does not affect prior years"
+);
+assert.equal(
+  singleDepletion.resourcePoints[2].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[2].resourceAmount - 10000,
+  "single depletion reduces event year resources"
+);
+assert.equal(
+  singleDepletion.resourcePoints[3].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[3].resourceAmount - 10000,
+  "single depletion carries forward to future resources"
+);
+assert.equal(
+  singleDepletion.resourcePoints[2].categoryAmounts.taxableBrokerageInvestments,
+  noAdjustmentBaseline.resourcePoints[2].categoryAmounts.taxableBrokerageInvestments - 10000,
+  "category-attributed depletion reduces category amount"
+);
+assert.equal(singleDepletion.resourceLineAdjustments.appliedAdjustmentCount, 1);
+assert.equal(singleDepletion.resourceLineAdjustments.totalResourceLineReduction, 10000);
+assert.equal(singleDepletion.trace.resourceLineReductionApplied, true);
+assert.equal(singleDepletion.trace.resourceLineMathChanged, true);
+assert.equal(singleDepletion.resourcePoints[2].trace.resourceLineReductionApplied, true);
+assert.equal(singleDepletion.resourceLineAdjustments.adjustmentsApplied[0].categoryAttributionStatus, "category-attributed");
+
+const multipleDepletion = buildResourceLine({
+  options: {
+    resourceLineAdjustmentsByYear: [
+      {
+        adjustmentId: "year-1-depletion",
+        yearIndex: 1,
+        amount: 5000,
+        categoryKey: "cashAndCashEquivalents",
+        componentKey: "education"
+      },
+      {
+        adjustmentId: "year-3-depletion",
+        yearIndex: 3,
+        amount: 7000,
+        categoryKey: "taxableBrokerageInvestments",
+        componentKey: "education"
+      }
+    ]
+  }
+});
+assert.equal(
+  multipleDepletion.resourcePoints[1].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[1].resourceAmount - 5000,
+  "first depletion applies in year 1"
+);
+assert.equal(
+  multipleDepletion.resourcePoints[2].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[2].resourceAmount - 5000,
+  "first depletion carries through year 2"
+);
+assert.equal(
+  multipleDepletion.resourcePoints[3].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[3].resourceAmount - 12000,
+  "multiple depletion events accumulate"
+);
+
+const cappedDepletion = buildResourceLine({
+  options: {
+    resourceLineAdjustmentsByYear: [
+      {
+        adjustmentId: "oversized-depletion",
+        yearIndex: 0,
+        amount: 999999,
+        componentKey: "education"
+      }
+    ]
+  }
+});
+assert.equal(cappedDepletion.resourcePoints[0].resourceAmount, 0, "oversized depletion caps current point at zero");
+assert.ok(
+  cappedDepletion.resourcePoints.every((point) => point.resourceAmount >= 0),
+  "resource amounts never go negative"
+);
+assert.ok(issueCodes(cappedDepletion.warnings).includes("resource-line-adjustment-capped"), "capped depletion emits warning");
+assert.ok(cappedDepletion.resourceLineAdjustments.adjustmentsUnapplied[0].unappliedAmount > 0, "capped depletion traces unapplied amount");
+
+const unattributedDepletion = buildResourceLine({
+  options: {
+    resourceLineAdjustmentsByYear: [
+      {
+        adjustmentId: "unknown-category-depletion",
+        yearIndex: 1,
+        amount: 1000,
+        categoryKey: "unknownCategory",
+        componentKey: "education"
+      }
+    ]
+  }
+});
+assert.equal(
+  unattributedDepletion.resourcePoints[1].resourceAmount,
+  noAdjustmentBaseline.resourcePoints[1].resourceAmount - 1000,
+  "unknown category depletion still reduces total resources"
+);
+assert.equal(
+  unattributedDepletion.resourcePoints[1].categoryAmounts.taxableBrokerageInvestments,
+  noAdjustmentBaseline.resourcePoints[1].categoryAmounts.taxableBrokerageInvestments,
+  "unknown category depletion does not fake category reduction"
+);
+assert.ok(
+  issueCodes(unattributedDepletion.warnings).includes("resource-line-adjustment-category-attribution-unavailable"),
+  "unknown category depletion emits attribution warning"
+);
 
 const missingTreatment = loadAdapter({ includeTreatment: false })({
   lensModel: createLensModel(),
