@@ -999,6 +999,7 @@
       controlsVisible: false,
       education: {
         educationTreatmentMode: "planAsUnfundedNeed",
+        effectiveEducationTreatmentMode: "scheduleRemainingNeed",
         educationPaymentScheduleMode: "fourYearAnnual",
         useEducationSavingsOffset: false,
         educationResourceSpendingMode: "off",
@@ -1688,6 +1689,13 @@
                 remainingEducationSavingsOffsetAvailable: educationProjectionPoint.remainingEducationSavingsOffsetAvailable,
                 includedDependentCount: educationProjectionPoint.includedDependentCount,
                 excludedDependentCount: educationProjectionPoint.excludedDependentCount,
+                educationTreatmentMode: educationProjectionPoint.trace?.educationTreatmentMode || null,
+                effectiveEducationTreatmentMode:
+                  educationProjectionPoint.trace?.effectiveEducationTreatmentMode || null,
+                educationTreatmentNeedLineRule: educationProjectionPoint.trace?.educationTreatmentNeedLineRule || null,
+                educationNeedDeclineReason: educationProjectionPoint.trace?.educationNeedDeclineReason || null,
+                visibleEducationTreatmentControl:
+                  educationProjectionPoint.trace?.visibleEducationTreatmentControl === true,
                 educationPaymentScheduleMode: educationProjectionPoint.trace?.educationPaymentScheduleMode || null,
                 educationPaymentScheduleModeSource: educationProjectionPoint.trace?.educationPaymentScheduleModeSource || null,
                 educationResourceSpendingMode: educationProjectionPoint.trace?.educationResourceSpendingMode || null,
@@ -1797,6 +1805,7 @@
                   : 0,
                 educationSavingsOffset: educationLifetimeProjection.educationSavingsOffset || null,
                 educationResourceSpending: educationLifetimeProjection.educationResourceSpending || null,
+                educationTreatment: educationLifetimeProjection.educationTreatment || null,
                 projectedDependentTimingMetadata:
                   educationLifetimeProjection.projectedDependentTimingMetadata || null,
                 warningCount: Array.isArray(educationLifetimeProjection.warnings)

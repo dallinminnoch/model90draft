@@ -401,11 +401,27 @@ assert.equal(
   educationSavingsOffsetResult.needPoints[0].trace.educationProjection.effectiveEducationResourceSpendingMode,
   "educationSavingsOnly"
 );
+assert.equal(
+  educationSavingsOffsetResult.needPoints[0].trace.educationProjection.educationTreatmentMode,
+  "planAsUnfundedNeed"
+);
+assert.equal(
+  educationSavingsOffsetResult.needPoints[0].trace.educationProjection.effectiveEducationTreatmentMode,
+  "scheduleRemainingNeed"
+);
+assert.equal(
+  educationSavingsOffsetResult.needPoints[0].trace.educationProjection.visibleEducationTreatmentControl,
+  false
+);
 assert.equal(educationSavingsOffsetResult.needPoints[0].componentAmounts.education, 55000);
 assert.equal(educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.active, true);
 assert.equal(
   educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationResourceSpending.effectiveMode,
   "educationSavingsOnly"
+);
+assert.equal(
+  educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationTreatment.effectiveMode,
+  "scheduleRemainingNeed"
 );
 assert.equal(
   educationSavingsOffsetResult.componentModels.education.lifetimeProjection.educationSavingsOffset.settingOwnership,
@@ -580,6 +596,10 @@ assert.equal(timedProjectedDependentResult.componentModels.education.lifetimePro
 assert.equal(
   timedProjectedDependentResult.componentModels.education.lifetimeProjection.projectedDependentSchedules[0].dateOfBirth,
   "2026-01-01"
+);
+assert.equal(
+  timedProjectedDependentResult.componentModels.education.lifetimeProjection.assumptionsUsed.effectiveEducationTreatmentMode,
+  "scheduleRemainingNeed"
 );
 assert.equal(timedProjectedDependentResult.needPoints[18].componentAmounts.education, 15000);
 assert.equal(timedProjectedDependentResult.needPoints[21].componentAmounts.education, 3750);

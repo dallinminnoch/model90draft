@@ -147,6 +147,10 @@ assert.equal(defaultResult.education.projectedDependentTimingMode, "untimedKeepT
 assert.ok(Array.isArray(defaultResult.education.projectedDependentTimingRows));
 assert.equal(defaultResult.education.projectedDependentTimingRows.length, 0);
 assert.equal(
+  defaultResult.trace.fieldSources["education.educationTreatmentMode"],
+  "coverage-strategy-defaults.education.educationTreatmentMode"
+);
+assert.equal(
   defaultResult.education.projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
   "untimedKeepThroughHorizon"
 );
@@ -179,6 +183,7 @@ const runtimeBefore = JSON.stringify(runtimeInput);
 const runtimeResult = resolveScenarioSettings(runtimeInput);
 assert.equal(JSON.stringify(runtimeInput), runtimeBefore, "resolver should not mutate runtime input");
 assert.equal(runtimeResult.education.useEducationSavingsOffset, true);
+assert.equal(runtimeResult.education.educationTreatmentMode, "planAsUnfundedNeed");
 assert.equal(runtimeResult.education.educationResourceSpendingMode, "educationSavingsOnly");
 assert.equal(runtimeResult.education.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(
@@ -273,9 +278,44 @@ assert.ok(
   "unsupported payment schedule mode should be traced as defaulted"
 );
 
+const explicitTreatmentModeResult = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {
+      educationTreatmentMode: "scheduleRemainingNeed"
+    }
+  }
+});
+assert.equal(explicitTreatmentModeResult.education.educationTreatmentMode, "scheduleRemainingNeed");
+assert.equal(
+  explicitTreatmentModeResult.trace.fieldSources["education.educationTreatmentMode"],
+  "runtimeScenarioSettings.education.educationTreatmentMode"
+);
+
+const invalidTreatmentModeResult = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {
+      educationTreatmentMode: "assumePaidWhenDue"
+    }
+  }
+});
+assert.equal(invalidTreatmentModeResult.education.educationTreatmentMode, "planAsUnfundedNeed");
+assert.ok(
+  invalidTreatmentModeResult.warnings.some((warning) => (
+    warning.code === "education-treatment-mode-unsupported"
+  )),
+  "unsupported education treatment mode should emit a structured warning"
+);
+assert.ok(
+  invalidTreatmentModeResult.trace.defaultedFields.some((field) => (
+    field.code === "education-treatment-mode-defaulted"
+  )),
+  "unsupported education treatment mode should be traced as defaulted"
+);
+
 const savedResult = resolveScenarioSettings({
   savedScenarioSettings: {
     education: {
+      educationTreatmentMode: "scheduleRemainingNeed",
       useEducationSavingsOffset: true,
       educationPaymentScheduleMode: "lumpSumAtStart",
       educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings"
@@ -283,6 +323,7 @@ const savedResult = resolveScenarioSettings({
   }
 });
 assert.equal(savedResult.education.useEducationSavingsOffset, true);
+assert.equal(savedResult.education.educationTreatmentMode, "scheduleRemainingNeed");
 assert.equal(savedResult.education.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(savedResult.education.educationResourceSpendingMode, "eligibleResourcesAfterEducationSavings");
 assert.equal(savedResult.persisted, true);

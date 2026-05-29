@@ -21,9 +21,7 @@
 
   const ALLOWED_EDUCATION_TREATMENT_MODES = Object.freeze([
     "planAsUnfundedNeed",
-    "useEducationSavingsOnly",
-    "assumePaidWhenDue",
-    "useSavingsThenEligibleResources"
+    "scheduleRemainingNeed"
   ]);
   const ALLOWED_PAYMENT_SCHEDULE_MODES = Object.freeze([
     "fourYearAnnual",
@@ -381,6 +379,39 @@
     return DEFAULT_EDUCATION_SETTINGS.educationPaymentScheduleMode;
   }
 
+  function resolveEducationTreatmentMode(candidates, fieldSources, warnings, defaultedFields) {
+    const path = "education.educationTreatmentMode";
+    const match = findScenarioValue(candidates, path);
+    if (!match) {
+      fieldSources[path] = "coverage-strategy-defaults.education.educationTreatmentMode";
+      return DEFAULT_EDUCATION_SETTINGS.educationTreatmentMode;
+    }
+
+    const normalized = normalizeString(match.value);
+    fieldSources[path] = match.sourcePath;
+    if (ALLOWED_EDUCATION_TREATMENT_MODES.includes(normalized)) {
+      return normalized;
+    }
+
+    const details = {
+      field: path,
+      received: match.value,
+      sourcePath: match.sourcePath,
+      fallback: DEFAULT_EDUCATION_SETTINGS.educationTreatmentMode,
+      supportedValues: ALLOWED_EDUCATION_TREATMENT_MODES.slice()
+    };
+    warnings.push(createIssue(
+      "education-treatment-mode-unsupported",
+      "Unsupported Coverage Strategy education treatment mode was defaulted.",
+      details
+    ));
+    defaultedFields.push({
+      code: "education-treatment-mode-defaulted",
+      ...clonePlainValue(details)
+    });
+    return DEFAULT_EDUCATION_SETTINGS.educationTreatmentMode;
+  }
+
   function resolveBooleanField(candidates, path, fallback, defaultPath, fieldSources) {
     const match = findScenarioValue(candidates, path);
     if (match) {
@@ -493,13 +524,11 @@
       projectedDependentTimingRows
     );
     const education = {
-      educationTreatmentMode: resolveModeField(
+      educationTreatmentMode: resolveEducationTreatmentMode(
         candidates,
-        "education.educationTreatmentMode",
-        ALLOWED_EDUCATION_TREATMENT_MODES,
-        DEFAULT_EDUCATION_SETTINGS.educationTreatmentMode,
-        "coverage-strategy-defaults.education.educationTreatmentMode",
-        fieldSources
+        fieldSources,
+        warnings,
+        defaultedFields
       ),
       educationPaymentScheduleMode: resolvePaymentScheduleMode(
         candidates,

@@ -125,6 +125,10 @@ const currentSchedule = runProjection(helper, {
   needPoints: createNeedPoints(8)
 });
 assert.equal(currentSchedule.currentDependentSchedules.length, 1);
+assert.equal(currentSchedule.assumptionsUsed.educationTreatmentMode, "planAsUnfundedNeed");
+assert.equal(currentSchedule.assumptionsUsed.effectiveEducationTreatmentMode, "scheduleRemainingNeed");
+assert.equal(currentSchedule.educationTreatment.currentDefaultOutputPreserved, true);
+assert.equal(currentSchedule.educationTreatment.resourceLineReductionApplied, false);
 assert.equal(currentSchedule.assumptionsUsed.educationPaymentScheduleMode, "fourYearAnnual");
 assert.equal(currentSchedule.currentDependentSchedules[0].trace.educationPaymentScheduleMode, "fourYearAnnual");
 assert.equal(currentSchedule.currentDependentSchedules[0].educationStartYear, 2028);
@@ -141,17 +145,22 @@ assert.equal(currentSchedule.educationPoints[3].currentDependentNeedAmount, 3000
 assert.equal(currentSchedule.educationPoints[6].currentDependentNeedAmount, 0);
 assert.equal(currentSchedule.educationPoints[0].trace.fourYearPaymentScheduleUsed, true);
 assert.equal(currentSchedule.educationPoints[0].trace.lumpSumAtStartScheduleUsed, false);
+assert.equal(currentSchedule.educationPoints[0].trace.educationTreatmentMode, "planAsUnfundedNeed");
+assert.equal(currentSchedule.educationPoints[0].trace.effectiveEducationTreatmentMode, "scheduleRemainingNeed");
+assert.equal(currentSchedule.educationPoints[0].trace.visibleEducationTreatmentControl, false);
 
 const lumpSumCurrent = runProjection(helper, {
   coverageStrategyScenarioSettings: {
     version: 1,
     source: "runtimeScenarioSettings",
     education: {
+      educationTreatmentMode: "scheduleRemainingNeed",
       educationPaymentScheduleMode: "lumpSumAtStart",
       useEducationSavingsOffset: false
     },
     trace: {
       fieldSources: {
+        "education.educationTreatmentMode": "runtimeScenarioSettings.education.educationTreatmentMode",
         "education.educationPaymentScheduleMode": "runtimeScenarioSettings.education.educationPaymentScheduleMode"
       }
     }
@@ -178,6 +187,8 @@ const lumpSumCurrent = runProjection(helper, {
   },
   needPoints: createNeedPoints(5)
 });
+assert.equal(lumpSumCurrent.assumptionsUsed.educationTreatmentMode, "scheduleRemainingNeed");
+assert.equal(lumpSumCurrent.assumptionsUsed.effectiveEducationTreatmentMode, "scheduleRemainingNeed");
 assert.equal(lumpSumCurrent.assumptionsUsed.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(lumpSumCurrent.assumptionsUsed.paymentYearCount, 1);
 assert.equal(lumpSumCurrent.currentDependentSchedules[0].payments.length, 1);

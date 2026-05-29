@@ -12,6 +12,12 @@
     "coverage-strategy-education-lifetime-projection-v1";
   const DEFAULT_EDUCATION_START_AGE = 18;
   const DEFAULT_PAYMENT_YEARS = 4;
+  const EDUCATION_TREATMENT_MODE_PLAN_AS_UNFUNDED_NEED = "planAsUnfundedNeed";
+  const EDUCATION_TREATMENT_MODE_SCHEDULE_REMAINING_NEED = "scheduleRemainingNeed";
+  const ALLOWED_EDUCATION_TREATMENT_MODES = Object.freeze([
+    EDUCATION_TREATMENT_MODE_PLAN_AS_UNFUNDED_NEED,
+    EDUCATION_TREATMENT_MODE_SCHEDULE_REMAINING_NEED
+  ]);
   const EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL = "fourYearAnnual";
   const EDUCATION_PAYMENT_SCHEDULE_MODE_LUMP_SUM_AT_START = "lumpSumAtStart";
   const ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES = Object.freeze([
@@ -231,6 +237,70 @@
         : sourcePath,
       defaulted: true,
       supportedValues: ALLOWED_EDUCATION_PAYMENT_SCHEDULE_MODES.slice()
+    };
+  }
+
+  function resolveEducationTreatmentMode(coverageStrategyScenarioSettings, warnings) {
+    const rawMode = coverageStrategyScenarioSettings?.education?.educationTreatmentMode;
+    const sourcePath = coverageStrategyScenarioSettings?.trace?.fieldSources?.["education.educationTreatmentMode"]
+      || "coverageStrategyScenarioSettings.education.educationTreatmentMode";
+    const normalized = normalizeString(rawMode);
+    if (ALLOWED_EDUCATION_TREATMENT_MODES.includes(normalized)) {
+      return {
+        selectedMode: normalized,
+        effectiveMode: EDUCATION_TREATMENT_MODE_SCHEDULE_REMAINING_NEED,
+        sourcePath,
+        defaulted: false,
+        currentDefaultOutputPreserved: normalized === EDUCATION_TREATMENT_MODE_PLAN_AS_UNFUNDED_NEED,
+        needLineTreatment: "scheduled-remaining-need",
+        declineReason: "dependent-schedule-obligations-no-longer-remaining",
+        resourceLineReductionApplied: false,
+        supportedValues: ALLOWED_EDUCATION_TREATMENT_MODES.slice()
+      };
+    }
+    if (rawMode != null && rawMode !== "") {
+      addIssue(
+        warnings,
+        "education-treatment-mode-unsupported",
+        "Unsupported Coverage Strategy education treatment mode was defaulted to plan-as-unfunded-need.",
+        {
+          received: rawMode,
+          fallback: EDUCATION_TREATMENT_MODE_PLAN_AS_UNFUNDED_NEED,
+          sourcePath,
+          supportedValues: ALLOWED_EDUCATION_TREATMENT_MODES.slice()
+        }
+      );
+    }
+    return {
+      selectedMode: EDUCATION_TREATMENT_MODE_PLAN_AS_UNFUNDED_NEED,
+      effectiveMode: EDUCATION_TREATMENT_MODE_SCHEDULE_REMAINING_NEED,
+      sourcePath: rawMode == null || rawMode === ""
+        ? "coverage-strategy-defaults.education.educationTreatmentMode"
+        : sourcePath,
+      defaulted: true,
+      currentDefaultOutputPreserved: true,
+      needLineTreatment: "scheduled-remaining-need",
+      declineReason: "dependent-schedule-obligations-no-longer-remaining",
+      resourceLineReductionApplied: false,
+      supportedValues: ALLOWED_EDUCATION_TREATMENT_MODES.slice()
+    };
+  }
+
+  function createEducationTreatmentTrace(treatmentMode, scheduledRemainingNeedApplied, untimedProjectedNeedAmount) {
+    const safeUntimedAmount = roundMoney(Math.max(0, toOptionalNumber(untimedProjectedNeedAmount) || 0));
+    return {
+      selectedMode: treatmentMode.selectedMode,
+      effectiveMode: treatmentMode.effectiveMode,
+      sourcePath: treatmentMode.sourcePath,
+      defaulted: treatmentMode.defaulted === true,
+      currentDefaultOutputPreserved: treatmentMode.currentDefaultOutputPreserved === true,
+      needLineTreatment: treatmentMode.needLineTreatment,
+      scheduledRemainingNeedApplied: scheduledRemainingNeedApplied === true,
+      needDeclineReason: treatmentMode.declineReason,
+      untimedProjectedDependentsKeptThroughHorizon: safeUntimedAmount > 0,
+      untimedProjectedDependentNeedAmount: safeUntimedAmount,
+      resourceLineReductionApplied: false,
+      visibleEducationTreatmentControl: false
     };
   }
 
@@ -1216,6 +1286,10 @@
     const rateResult = normalizePercentRate(safeInput.educationInflationRatePercent, warnings);
     const includeEducationFunding = educationAssumptions.includeEducationFunding !== false;
     const educationStartAge = normalizeEducationStartAge(educationAssumptions.educationStartAge, warnings);
+    const educationTreatmentMode = resolveEducationTreatmentMode(
+      coverageStrategyScenarioSettings,
+      warnings
+    );
     const paymentScheduleModeResult = resolveEducationPaymentScheduleMode(
       coverageStrategyScenarioSettings,
       warnings
@@ -1248,6 +1322,10 @@
       valuationDate: valuationDateResult ? valuationDateResult.normalizedDate : null,
       valuationYear: valuationDateResult ? valuationDateResult.calendarYear : null,
       educationStartAge,
+      educationTreatmentMode: educationTreatmentMode.selectedMode,
+      effectiveEducationTreatmentMode: educationTreatmentMode.effectiveMode,
+      educationTreatmentModeSource: educationTreatmentMode.sourcePath,
+      educationTreatmentModeDefaulted: educationTreatmentMode.defaulted,
       educationPaymentScheduleMode: paymentScheduleModeResult.mode,
       educationPaymentScheduleModeSource: paymentScheduleModeResult.sourcePath,
       educationPaymentScheduleModeDefaulted: paymentScheduleModeResult.defaulted,
@@ -1285,6 +1363,11 @@
             trace: {
               source: "coverage-strategy-education-lifetime-projection",
               projectionMode: "education-funding-excluded-by-setting",
+              educationTreatmentMode: context.educationTreatmentMode,
+              effectiveEducationTreatmentMode: context.effectiveEducationTreatmentMode,
+              educationTreatmentModeSource: context.educationTreatmentModeSource,
+              educationTreatmentModeDefaulted: context.educationTreatmentModeDefaulted,
+              visibleEducationTreatmentControl: false,
               educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
               educationSavingsOffsetApplied: false,
               educationPaymentScheduleMode: context.educationPaymentScheduleMode,
@@ -1311,6 +1394,11 @@
         excludedDependents: [],
         assumptionsUsed: {
           includeEducationFunding: false,
+          educationTreatmentMode: context.educationTreatmentMode,
+          effectiveEducationTreatmentMode: context.effectiveEducationTreatmentMode,
+          educationTreatmentModeSource: context.educationTreatmentModeSource,
+          educationTreatmentModeDefaulted: context.educationTreatmentModeDefaulted,
+          educationTreatment: createEducationTreatmentTrace(educationTreatmentMode, false, 0),
           educationPaymentScheduleMode: context.educationPaymentScheduleMode,
           educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
           educationPaymentScheduleModeDefaulted: context.educationPaymentScheduleModeDefaulted,
@@ -1352,6 +1440,11 @@
         dataGaps,
         trace: {
           source: "coverage-strategy-education-lifetime-projection",
+          educationTreatmentMode: context.educationTreatmentMode,
+          effectiveEducationTreatmentMode: context.effectiveEducationTreatmentMode,
+          educationTreatmentModeSource: context.educationTreatmentModeSource,
+          educationTreatmentModeDefaulted: context.educationTreatmentModeDefaulted,
+          visibleEducationTreatmentControl: false,
           educationPaymentScheduleMode: context.educationPaymentScheduleMode,
           educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
           effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
@@ -1559,6 +1652,13 @@
           source: "coverage-strategy-education-lifetime-projection",
           projectionMode: "record-level-education-obligation-schedule",
           annualPointRule: "annual-calendar-year-basis",
+          educationTreatmentMode: context.educationTreatmentMode,
+          effectiveEducationTreatmentMode: context.effectiveEducationTreatmentMode,
+          educationTreatmentModeSource: context.educationTreatmentModeSource,
+          educationTreatmentModeDefaulted: context.educationTreatmentModeDefaulted,
+          educationTreatmentNeedLineRule: educationTreatmentMode.needLineTreatment,
+          educationNeedDeclineReason: educationTreatmentMode.declineReason,
+          visibleEducationTreatmentControl: false,
           educationPaymentScheduleMode: context.educationPaymentScheduleMode,
           educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
           fourYearPaymentScheduleUsed: context.educationPaymentScheduleMode === EDUCATION_PAYMENT_SCHEDULE_MODE_FOUR_YEAR_ANNUAL,
@@ -1619,6 +1719,15 @@
       assumptionsUsed: {
         valuationDate: context.valuationDate,
         educationStartAge,
+        educationTreatmentMode: context.educationTreatmentMode,
+        effectiveEducationTreatmentMode: context.effectiveEducationTreatmentMode,
+        educationTreatmentModeSource: context.educationTreatmentModeSource,
+        educationTreatmentModeDefaulted: context.educationTreatmentModeDefaulted,
+        educationTreatment: createEducationTreatmentTrace(
+          educationTreatmentMode,
+          true,
+          untimedProjected.amount
+        ),
         educationPaymentScheduleMode: context.educationPaymentScheduleMode,
         educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
         educationPaymentScheduleModeDefaulted: context.educationPaymentScheduleModeDefaulted,
@@ -1687,11 +1796,23 @@
           return Math.max(max, toOptionalNumber(point.remainingEducationNeedAfterEducationSavings) || 0);
         }, 0)))
       ),
+      educationTreatment: createEducationTreatmentTrace(
+        educationTreatmentMode,
+        true,
+        untimedProjected.amount
+      ),
       projectedDependentTimingMetadata,
       warnings,
       dataGaps,
       trace: {
         source: "coverage-strategy-education-lifetime-projection",
+        educationTreatmentMode: context.educationTreatmentMode,
+        effectiveEducationTreatmentMode: context.effectiveEducationTreatmentMode,
+        educationTreatmentModeSource: context.educationTreatmentModeSource,
+        educationTreatmentModeDefaulted: context.educationTreatmentModeDefaulted,
+        educationTreatmentNeedLineRule: educationTreatmentMode.needLineTreatment,
+        educationNeedDeclineReason: educationTreatmentMode.declineReason,
+        visibleEducationTreatmentControl: false,
         educationPaymentScheduleMode: context.educationPaymentScheduleMode,
         educationPaymentScheduleModeSource: context.educationPaymentScheduleModeSource,
         educationPaymentScheduleModeDefaulted: context.educationPaymentScheduleModeDefaulted,

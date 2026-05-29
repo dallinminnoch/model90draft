@@ -353,6 +353,24 @@
           coverageStrategyScenarioSettings?.education
           || "Not available"
         ),
+        educationTreatmentMode: (
+          coverageStrategyScenarioSettings?.education?.educationTreatmentMode
+          || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.educationTreatmentMode
+          || "Not available"
+        ),
+        effectiveEducationTreatmentMode: (
+          safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.effectiveEducationTreatmentMode
+          || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationTreatment?.effectiveMode
+          || "Not available"
+        ),
+        educationTreatment: (
+          safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationTreatment
+          || "Not available"
+        ),
+        visibleEducationTreatmentControl: Boolean(
+          safeContext.visibleScenarioControls?.educationTreatmentMode
+          || safeContext.visibleScenarioControls?.educationTreatment
+        ),
         educationPaymentScheduleMode: (
           coverageStrategyScenarioSettings?.education?.educationPaymentScheduleMode
           || safeContext.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.educationPaymentScheduleMode

@@ -220,12 +220,23 @@ const diagnosticInput = {
           status: "complete",
           aggregateFallbackUsed: false,
           assumptionsUsed: {
+            educationTreatmentMode: "planAsUnfundedNeed",
+            effectiveEducationTreatmentMode: "scheduleRemainingNeed",
             educationPaymentScheduleMode: "lumpSumAtStart",
             educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
             effectiveEducationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
             paymentYearCount: 1,
             resourceSpendingApplied: false,
             generalResourceReductionApplied: false
+          },
+          educationTreatment: {
+            selectedMode: "planAsUnfundedNeed",
+            effectiveMode: "scheduleRemainingNeed",
+            needLineTreatment: "scheduled-remaining-need",
+            scheduledRemainingNeedApplied: true,
+            needDeclineReason: "dependent-schedule-obligations-no-longer-remaining",
+            resourceLineReductionApplied: false,
+            visibleEducationTreatmentControl: false
           },
           educationResourceSpending: {
             selectedMode: "eligibleResourcesAfterEducationSavings",
@@ -244,6 +255,9 @@ const diagnosticInput = {
             netEducationNeedAmount: 50000,
             educationNeedAmount: 50000,
             trace: {
+              educationTreatmentMode: "planAsUnfundedNeed",
+              effectiveEducationTreatmentMode: "scheduleRemainingNeed",
+              visibleEducationTreatmentControl: false,
               educationPaymentScheduleMode: "lumpSumAtStart",
               educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
               effectiveEducationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
@@ -407,6 +421,11 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.ac
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset.resourceReductionApplied, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.useEducationSavingsOffset, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationTreatmentMode, "planAsUnfundedNeed");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationTreatmentMode, "planAsUnfundedNeed");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.effectiveEducationTreatmentMode, "scheduleRemainingNeed");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationTreatment.visibleEducationTreatmentControl, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleEducationTreatmentControl, false);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationScenarioSettingsConsumed.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationPaymentScheduleMode, "lumpSumAtStart");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationResourceSpendingMode, "off");
@@ -473,6 +492,9 @@ assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /educationSavingsOffset/);
 assert.match(html, /coverageStrategyScenarioSettings/);
 assert.match(html, /educationScenarioSettingsConsumed/);
+assert.match(html, /educationTreatmentMode/);
+assert.match(html, /scheduleRemainingNeed/);
+assert.match(html, /visibleEducationTreatmentControl/);
 assert.match(html, /educationPaymentScheduleMode/);
 assert.match(html, /lumpSumAtStart/);
 assert.match(html, /projectedDependentTimingRowsConsumed/);
