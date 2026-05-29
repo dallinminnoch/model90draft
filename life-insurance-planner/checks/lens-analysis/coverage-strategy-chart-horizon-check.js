@@ -50,6 +50,10 @@ assert.match(controllerSource, /horizonYears: needLine\.horizonYears/);
 assert.match(controllerSource, /data-coverage-strategy-horizon-input/);
 assert.match(controllerSource, /data-coverage-strategy-horizon-number/);
 assert.match(controllerSource, /data-coverage-strategy-horizon-output/);
+assert.match(controllerSource, /HORIZON_NUMBER_INPUT_COMMIT_DELAY_MS = 450/);
+assert.match(controllerSource, /parseProjectionHorizonInputValue/);
+assert.match(controllerSource, /commitProjectionHorizonValue/);
+assert.match(controllerSource, /scheduleProjectionHorizonNumberCommit/);
 assert.match(controllerSource, /coverage-strategy-horizon-control-compact/);
 assert.ok(
   indexOfRequired(controllerSource, "coverage-strategy-scenario-tray", "Coverage Strategy controller")
@@ -63,6 +67,8 @@ assert.doesNotMatch(
 );
 assert.match(controllerSource, /host\.addEventListener\("input"/);
 assert.match(controllerSource, /host\.addEventListener\("change"/);
+assert.match(controllerSource, /host\.addEventListener\("focusout"/);
+assert.match(controllerSource, /host\.addEventListener\("keydown"/);
 assert.match(controllerSource, /buildCoverageStrategyTimelineChartModel/);
 assert.match(controllerSource, /chartModel/);
 assert.match(controllerSource, /renderTimelineSvg\(chartModelResult\)/);

@@ -1,6 +1,7 @@
 (function () {
   const MIN_PROJECTION_HORIZON_YEARS = 1;
   const MAX_PROJECTION_HORIZON_YEARS = 80;
+  const HORIZON_NUMBER_INPUT_COMMIT_DELAY_MS = 450;
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -1226,8 +1227,75 @@
         valuationDate
       });
       let selectedProjectionHorizonYears = resolveDefaultProjectionHorizon(age110Horizon);
+      let horizonNumberInputCommitTimer = null;
+
+      function clearScheduledHorizonNumberCommit() {
+        if (horizonNumberInputCommitTimer) {
+          clearTimeout(horizonNumberInputCommitTimer);
+          horizonNumberInputCommitTimer = null;
+        }
+      }
+
+      function getProjectionHorizonControls() {
+        return {
+          rangeInput: host.querySelector("[data-coverage-strategy-horizon-input]"),
+          numberInput: host.querySelector("[data-coverage-strategy-horizon-number]"),
+          output: host.querySelector("[data-coverage-strategy-horizon-output]")
+        };
+      }
+
+      function syncProjectionHorizonControls(horizonYears, options = {}) {
+        const safeValue = clampProjectionHorizonYears(horizonYears, selectedProjectionHorizonYears);
+        const { rangeInput, numberInput, output } = getProjectionHorizonControls();
+        if (rangeInput && options.skipRangeInput !== true) {
+          rangeInput.value = String(safeValue);
+        }
+        if (numberInput && options.skipNumberInput !== true) {
+          numberInput.value = String(safeValue);
+        }
+        if (numberInput) {
+          numberInput.setAttribute("aria-invalid", "false");
+        }
+        if (output) {
+          output.textContent = `${safeValue} years`;
+        }
+        return safeValue;
+      }
+
+      function parseProjectionHorizonInputValue(value) {
+        const rawValue = String(value ?? "").trim();
+        if (!rawValue) {
+          return null;
+        }
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) {
+          return null;
+        }
+        return clampProjectionHorizonYears(parsed, selectedProjectionHorizonYears);
+      }
+
+      function commitProjectionHorizonValue(value) {
+        clearScheduledHorizonNumberCommit();
+        const parsedValue = parseProjectionHorizonInputValue(value);
+        const safeValue = parsedValue == null
+          ? selectedProjectionHorizonYears
+          : parsedValue;
+        syncProjectionHorizonControls(safeValue);
+        buildAndRenderCoverageStrategy(safeValue);
+      }
+
+      function scheduleProjectionHorizonNumberCommit(target) {
+        clearScheduledHorizonNumberCommit();
+        horizonNumberInputCommitTimer = setTimeout(function () {
+          if (!target?.isConnected) {
+            return;
+          }
+          commitProjectionHorizonValue(target.value);
+        }, HORIZON_NUMBER_INPUT_COMMIT_DELAY_MS);
+      }
 
       function buildAndRenderCoverageStrategy(projectionHorizonYears) {
+        clearScheduledHorizonNumberCommit();
         const safeProjectionHorizonYears = clampProjectionHorizonYears(projectionHorizonYears, selectedProjectionHorizonYears);
         selectedProjectionHorizonYears = safeProjectionHorizonYears;
         runtimeScenarioSettings = {
@@ -1373,21 +1441,25 @@
 
       host.addEventListener("input", function (event) {
         const target = event.target;
-        if (!target?.matches?.("[data-coverage-strategy-horizon-input], [data-coverage-strategy-horizon-number]")) {
+        if (target?.matches?.("[data-coverage-strategy-horizon-input]")) {
+          const safeValue = syncProjectionHorizonControls(target.value, { skipRangeInput: true });
+          selectedProjectionHorizonYears = safeValue;
           return;
         }
-        const safeValue = clampProjectionHorizonYears(target.value, selectedProjectionHorizonYears);
-        const rangeInput = host.querySelector("[data-coverage-strategy-horizon-input]");
-        const numberInput = host.querySelector("[data-coverage-strategy-horizon-number]");
-        const output = host.querySelector("[data-coverage-strategy-horizon-output]");
-        if (rangeInput && rangeInput !== target) {
-          rangeInput.value = String(safeValue);
+        if (!target?.matches?.("[data-coverage-strategy-horizon-number]")) {
+          return;
         }
-        if (numberInput && numberInput !== target) {
-          numberInput.value = String(safeValue);
+        const parsedValue = parseProjectionHorizonInputValue(target.value);
+        if (parsedValue == null) {
+          clearScheduledHorizonNumberCommit();
+          target.setAttribute("aria-invalid", target.value.trim() ? "true" : "false");
+          return;
         }
-        if (output) {
-          output.textContent = `${safeValue} years`;
+        syncProjectionHorizonControls(parsedValue, { skipNumberInput: true });
+        if (String(target.value ?? "").trim().length >= 2) {
+          scheduleProjectionHorizonNumberCommit(target);
+        } else {
+          clearScheduledHorizonNumberCommit();
         }
       });
 
@@ -1396,7 +1468,24 @@
         if (!target?.matches?.("[data-coverage-strategy-horizon-input], [data-coverage-strategy-horizon-number]")) {
           return;
         }
-        buildAndRenderCoverageStrategy(target.value);
+        commitProjectionHorizonValue(target.value);
+      });
+
+      host.addEventListener("focusout", function (event) {
+        const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-horizon-number]")) {
+          return;
+        }
+        commitProjectionHorizonValue(target.value);
+      });
+
+      host.addEventListener("keydown", function (event) {
+        const target = event.target;
+        if (!target?.matches?.("[data-coverage-strategy-horizon-number]") || event.key !== "Enter") {
+          return;
+        }
+        event.preventDefault();
+        commitProjectionHorizonValue(target.value);
       });
 
       host.addEventListener("change", function (event) {
