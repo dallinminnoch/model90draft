@@ -246,13 +246,23 @@ const diagnosticInput = {
       mortgageSupportOwnershipTrace: {
         mortgageSupportOwnership: "mortgage-component",
         mortgageOwnedSupportActive: true,
+        mortgageComponentOwnsImmediatePayoff: true,
+        mortgageComponentOwnsPaymentSupport: true,
+        mortgagePaymentAlreadyInNeeds: true,
+        mortgagePaymentAlreadyInNeedsSource: "treatedMortgagePaymentPlan.mortgagePaymentAlreadyInNeeds",
+        originalMonthlyMortgagePayment: 2000,
+        finalMonthlyMortgagePayment: 2000,
+        effectiveMortgageMode: "continuePayments",
+        effectivePayoffPercent: 0,
+        mortgageImmediatePayoffAmount: 0,
         essentialSupportIncludedMortgageSupport: true,
         essentialSupportMortgageAdjustmentApplied: true,
         mortgageSupportAmountRemovedFromEssentialSupport: 48000,
         mortgageSupportAmountOwnedByMortgageComponent: 48000,
         adjustmentBasis: "treated-ongoing-support-mortgage-adjusted-source",
         sourcePath: "treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost",
-        noDoubleCountProof: true
+        noDoubleCountProof: true,
+        noDoubleCountProofStatus: "complete"
       },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       nonMortgageDebtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
@@ -461,6 +471,12 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvarian
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.invariantCorrectionApplied, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.correctionCode, "payoff-mode-forced-full-payoff");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.mortgageSupportOwnership, "mortgage-component");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.mortgagePaymentAlreadyInNeeds, true);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.mortgagePaymentAlreadyInNeedsSource,
+  "treatedMortgagePaymentPlan.mortgagePaymentAlreadyInNeeds"
+);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.mortgageComponentOwnsPaymentSupport, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.essentialSupportMortgageAdjustmentApplied, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.noDoubleCountProof, true);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
