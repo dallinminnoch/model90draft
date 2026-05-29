@@ -383,6 +383,14 @@ assert.ok(
   "Coverage Strategy should not drop an inconsistent auto loan to zero at year 4 when normalized facts provide calculated payoff term"
 );
 assert.equal(correctedAutoLoanTerm.debtPoints[9].payoffObligationAmount, 0);
+assert.ok(issueCodes(correctedAutoLoanTerm.warnings).includes("debt-record-payment-term-mismatch"));
+const correctedAutoLoanMismatch = correctedAutoLoanTerm.warnings.find((warning) => (
+  warning.code === "debt-record-payment-term-mismatch"
+));
+assert.equal(correctedAutoLoanMismatch.details.enteredRemainingTermMonths, 45);
+assert.equal(correctedAutoLoanMismatch.details.calculatedAmortizedTermMonths, 104);
+assert.equal(correctedAutoLoanMismatch.details.projectionMode, "amortized");
+assert.equal(correctedAutoLoanTerm.debtRecordProjections[0].warnings[0].code, "debt-record-payment-term-mismatch");
 assert.equal(multipleDebts.debtPoints[1].payoffObligationAmount, 0);
 
 const missingBalance = buildDebtLifetimeProjection({

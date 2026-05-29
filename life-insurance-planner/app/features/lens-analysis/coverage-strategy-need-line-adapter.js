@@ -699,7 +699,11 @@
       interestRatePercent: toOptionalNumber(rawDebt?.interestRatePercent),
       remainingTermMonths: toOptionalNumber(rawDebt?.remainingTermMonths),
       enteredRemainingTermMonths: toOptionalNumber(rawDebt?.enteredRemainingTermMonths),
+      calculatedAmortizedTermMonths: toOptionalNumber(rawDebt?.calculatedAmortizedTermMonths)
+        ?? toOptionalNumber(rawDebt?.calculatedRemainingTermMonths),
+      paymentTermMismatch: rawDebt?.paymentTermMismatch === true,
       payoffAmount: toOptionalNumber(rawDebt?.payoffAmount),
+      sourcePath: normalizeString(treatedDebt?.sourcePath || rawDebt?.sourcePath),
       metadata: isPlainObject(rawDebt?.metadata) ? clonePlainValue(rawDebt.metadata) : {}
     };
   }

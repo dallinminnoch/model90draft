@@ -73,6 +73,15 @@
     return issue;
   }
 
+  function addRecordIssue(target, code, message, details) {
+    if (!Array.isArray(target)) {
+      return null;
+    }
+    const issue = createIssue(code, message, details);
+    target.push(issue);
+    return issue;
+  }
+
   function normalizeDateOnly(value) {
     const raw = normalizeString(value);
     const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -296,6 +305,31 @@
     return roundMoney(balance);
   }
 
+  function calculateAmortizedTermMonths(principal, monthlyRate, monthlyPayment) {
+    const safePrincipal = toOptionalNumber(principal);
+    const safeRate = toOptionalNumber(monthlyRate);
+    const safePayment = toOptionalNumber(monthlyPayment);
+    if (
+      safePrincipal == null
+      || safePrincipal <= 0
+      || safeRate == null
+      || safeRate < 0
+      || safePayment == null
+      || safePayment <= 0
+    ) {
+      return null;
+    }
+    if (safeRate <= 0) {
+      return Math.ceil(safePrincipal / safePayment);
+    }
+    const monthlyInterestAmount = safePrincipal * safeRate;
+    if (safePayment <= monthlyInterestAmount) {
+      return null;
+    }
+    const months = -Math.log(1 - (safeRate * safePrincipal) / safePayment) / Math.log(1 + safeRate);
+    return Number.isFinite(months) && months >= 0 ? Math.ceil(months) : null;
+  }
+
   function projectStraightLineBalance(principal, remainingTermMonths, elapsedMonths) {
     const safeTerm = Math.max(0, Math.round(remainingTermMonths));
     const months = Math.max(0, Math.round(elapsedMonths));
@@ -416,6 +450,15 @@
     const hasRemainingTerm = remainingTermMonths != null && remainingTermMonths > 0;
     const hasMonthlyPayment = monthlyPayment != null && monthlyPayment > 0;
     const hasAnnualRate = annualInterestRate != null;
+    const enteredRemainingTermMonths = toOptionalNumber(
+      safeDebt.enteredRemainingTermMonths
+      ?? safeDebt.userEnteredRemainingTermMonths
+    );
+    const calculatedAmortizedTermMonths = toOptionalNumber(
+      safeDebt.calculatedAmortizedTermMonths
+      ?? safeDebt.calculatedRemainingTermMonths
+    ) ?? calculateAmortizedTermMonths(rawBalance, annualInterestRate == null ? null : annualInterestRate / 12, monthlyPayment);
+    const recordWarnings = [];
     let projectionMode = "flatFallback";
     if (hasMonthlyPayment && hasAnnualRate) {
       projectionMode = "amortized";
@@ -479,6 +522,36 @@
       );
     }
 
+    const termMismatch = Boolean(
+      projectionMode === "amortized"
+      && enteredRemainingTermMonths != null
+      && calculatedAmortizedTermMonths != null
+      && Math.abs(Math.ceil(enteredRemainingTermMonths) - Math.ceil(calculatedAmortizedTermMonths)) > 1
+    );
+    if (termMismatch) {
+      const mismatchWarning = addRecordIssue(
+        warnings,
+        "debt-record-payment-term-mismatch",
+        "Debt entered remaining term differs from the payoff term implied by balance, payment, and rate; amortization based on payment/rate was used for projection.",
+        {
+          debtId: debtFactId,
+          debtFactId,
+          label: normalizeString(safeDebt.label) || null,
+          enteredRemainingTermMonths: Math.ceil(enteredRemainingTermMonths),
+          calculatedAmortizedTermMonths: Math.ceil(calculatedAmortizedTermMonths),
+          balance: roundMoney(rawBalance),
+          monthlyPayment,
+          interestRatePercent: annualInterestRate == null ? null : roundRate(annualInterestRate * 100),
+          projectionMode,
+          sourcePath: normalizeString(safeDebt.sourcePath) || null,
+          explanation: "Coverage Strategy used payment/rate amortization for the non-mortgage debt projection instead of the user-entered remaining term."
+        }
+      );
+      if (mismatchWarning) {
+        recordWarnings.push(mismatchWarning);
+      }
+    }
+
     return {
       debtFactId,
       label: normalizeString(safeDebt.label) || `Debt ${index + 1}`,
@@ -491,7 +564,12 @@
       monthlyInterestRate: annualInterestRate == null ? null : annualInterestRate / 12,
       monthlyPayment,
       remainingTermMonths: remainingTermMonths == null ? null : Math.round(remainingTermMonths),
+      enteredRemainingTermMonths: enteredRemainingTermMonths == null ? null : Math.ceil(enteredRemainingTermMonths),
+      calculatedAmortizedTermMonths: calculatedAmortizedTermMonths == null
+        ? null
+        : Math.ceil(calculatedAmortizedTermMonths),
       projectionMode,
+      warnings: recordWarnings,
       trace: {
         debtFactId,
         label: normalizeString(safeDebt.label) || null,
@@ -505,8 +583,14 @@
         monthlyPayment,
         annualInterestRate: annualInterestRate == null ? null : roundRate(annualInterestRate),
         remainingTermMonths: remainingTermMonths == null ? null : Math.round(remainingTermMonths),
-        enteredRemainingTermMonths: toOptionalNumber(safeDebt.enteredRemainingTermMonths),
+        enteredRemainingTermMonths: enteredRemainingTermMonths == null ? null : Math.ceil(enteredRemainingTermMonths),
+        calculatedAmortizedTermMonths: calculatedAmortizedTermMonths == null
+          ? null
+          : Math.ceil(calculatedAmortizedTermMonths),
+        paymentTermMismatch: termMismatch,
+        warnings: recordWarnings,
         paymentFrequency: frequency.key,
+        sourcePath: normalizeString(safeDebt.sourcePath) || null,
         source: "coverage-strategy-debt-lifetime-projection"
       }
     };
@@ -613,6 +697,7 @@
         typeKey: debt.typeKey,
         sourceKey: debt.sourceKey,
         projectionMode: debt.projectionMode,
+        warnings: Array.isArray(debt.warnings) ? clonePlainValue(debt.warnings) : [],
         points: pointSpine.map(function (point) {
           return projectDebtAtPoint(debt, point, valuationDateResult);
         }),

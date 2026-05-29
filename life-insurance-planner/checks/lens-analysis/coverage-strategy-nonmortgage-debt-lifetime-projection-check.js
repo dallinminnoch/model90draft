@@ -97,10 +97,13 @@ function createLensModel() {
           categoryKey: "securedConsumerDebt",
           typeKey: "autoLoan",
           label: "Auto Loan",
-          currentBalance: 12000,
-          minimumMonthlyPayment: 1000,
-          interestRatePercent: 0,
-          remainingTermMonths: 12,
+          currentBalance: 31000,
+          minimumMonthlyPayment: 383,
+          interestRatePercent: 6,
+          remainingTermMonths: 104,
+          enteredRemainingTermMonths: 45,
+          calculatedAmortizedTermMonths: 104,
+          paymentTermMismatch: true,
           sourcePath: "debtFacts.debts[0]"
         },
         {
@@ -124,10 +127,10 @@ function createLensModel() {
           typeKey: "autoLoan",
           label: "Auto Loan",
           isMortgage: false,
-          rawBalance: 12000,
+          rawBalance: 31000,
           included: true,
           payoffPercent: 100,
-          treatedAmount: 12000,
+          treatedAmount: 31000,
           treatmentMode: "payoff"
         },
         {
@@ -144,9 +147,9 @@ function createLensModel() {
         }
       ],
       needs: {
-        debtPayoffAmount: 20000,
+        debtPayoffAmount: 39000,
         mortgagePayoffAmount: 0,
-        nonMortgageDebtAmount: 20000
+        nonMortgageDebtAmount: 39000
       }
     },
     treatedMortgagePaymentPlan: {
@@ -173,7 +176,7 @@ assert.equal(typeof buildNeedLine, "function");
 assert.equal(typeof buildDiagnostic, "function");
 
 const autoLoanInput = {
-  projectionYears: 5,
+  projectionYears: 9,
   valuationDate: "2026-01-01",
   debts: [
     {
@@ -184,7 +187,10 @@ const autoLoanInput = {
       balance: 31000,
       monthlyPayment: 383,
       interestRatePercent: 6,
-      remainingTermMonths: 45,
+      remainingTermMonths: 104,
+      enteredRemainingTermMonths: 45,
+      calculatedAmortizedTermMonths: 104,
+      paymentTermMismatch: true,
       sourcePath: "fixture.debts[0]",
       treatmentMode: "payoff"
     }
@@ -196,8 +202,16 @@ assert.deepEqual(autoLoanInput, autoLoanBefore, "Non-mortgage debt projection he
 assert.equal(autoLoan.assumptionsUsed.projectionModeCounts.amortized, 1);
 assert.equal(autoLoan.debtPoints[0].payoffObligationAmount, 31000);
 assert.ok(autoLoan.debtPoints[1].payoffObligationAmount < autoLoan.debtPoints[0].payoffObligationAmount);
-assert.equal(autoLoan.debtPoints[4].payoffObligationAmount, 0);
-assert.equal(autoLoan.debtPoints[5].payoffObligationAmount, 0);
+assert.ok(autoLoan.debtPoints[4].payoffObligationAmount > 0);
+assert.equal(autoLoan.debtPoints[9].payoffObligationAmount, 0);
+assert.ok(issueCodes(autoLoan.warnings).includes("debt-record-payment-term-mismatch"));
+const autoLoanMismatchWarning = autoLoan.warnings.find((warning) => warning.code === "debt-record-payment-term-mismatch");
+assert.equal(autoLoanMismatchWarning.details.enteredRemainingTermMonths, 45);
+assert.equal(autoLoanMismatchWarning.details.calculatedAmortizedTermMonths, 104);
+assert.equal(autoLoanMismatchWarning.details.projectionMode, "amortized");
+assert.equal(autoLoanMismatchWarning.details.sourcePath, "fixture.debts[0]");
+assert.equal(autoLoan.debtRecordProjections[0].warnings[0].code, "debt-record-payment-term-mismatch");
+assert.equal(autoLoan.debtRecordProjections[0].trace.warnings[0].code, "debt-record-payment-term-mismatch");
 
 const creditCard = buildProjection({
   valuationDate: "2026-01-01",
@@ -323,18 +337,19 @@ assert.equal(unavailable.trace.excludedDebts[0].exclusionReason, "unavailable");
 
 const needLine = buildNeedLine({
   lensModel: createLensModel(),
-  needsResult: createNeedsResult(20000),
+  needsResult: createNeedsResult(39000),
   valuationDate: "2026-01-01",
-  horizonYears: 3
+  horizonYears: 9
 });
-assert.equal(needLine.needPoints[0].componentAmounts.debtPayoff, 20000);
-assert.ok(needLine.needPoints[1].componentAmounts.debtPayoff < 20000);
-assert.equal(needLine.needPoints[2].componentAmounts.debtPayoff, 8000);
-assert.equal(needLine.needPoints[3].componentAmounts.debtPayoff, 8000);
+assert.equal(needLine.needPoints[0].componentAmounts.debtPayoff, 39000);
+assert.ok(needLine.needPoints[1].componentAmounts.debtPayoff < 39000);
+assert.ok(needLine.needPoints[4].componentAmounts.debtPayoff > 8000);
+assert.equal(needLine.needPoints[9].componentAmounts.debtPayoff, 8000);
 assert.equal(needLine.needPoints[1].trace.debtProjection.projectionModeCounts.amortized, 1);
 assert.equal(needLine.needPoints[1].trace.debtProjection.projectionModeCounts.flatFallback, 1);
 assert.ok(needLine.componentModels.nonMortgageDebtLifetimeProjection);
-assert.equal(needLine.componentModels.nonMortgageDebtLifetimeProjection.debtPoints[0].payoffObligationAmount, 20000);
+assert.equal(needLine.componentModels.nonMortgageDebtLifetimeProjection.debtPoints[0].payoffObligationAmount, 39000);
+assert.ok(issueCodes(needLine.componentModels.nonMortgageDebtLifetimeProjection.warnings).includes("debt-record-payment-term-mismatch"));
 
 const diagnostic = buildDiagnostic({
   lensModel: createLensModel(),
@@ -355,6 +370,10 @@ assert.equal(
 assert.equal(
   diagnostic.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection.assumptionsUsed.projectionModeCounts.flatFallback,
   1
+);
+assert.ok(
+  issueCodes(diagnostic.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection.warnings)
+    .includes("debt-record-payment-term-mismatch")
 );
 
 JSON.stringify(autoLoan);
