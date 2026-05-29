@@ -53,7 +53,7 @@ assert.match(componentsSource, /background: var\(--m90-surface\)/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-tabs\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-scenario-control\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
-assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(7rem, 14vh, 8\.5rem\)/);
+assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(6\.25rem, 12vh, 7\.5rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-chart\s*\{[\s\S]*min-height: clamp\(34rem, calc\(100vh - 18rem\), 50rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-svg\s*\{[\s\S]*min-height: 31rem/);
 
