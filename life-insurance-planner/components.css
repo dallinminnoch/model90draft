@@ -20984,6 +20984,10 @@ body[data-step="income-impact"] .income-impact-page-intro p::before {
   background: color-mix(in srgb, var(--m90-surface-alt) 42%, var(--m90-surface));
 }
 
+.coverage-strategy-scenario-control.is-education-resources .coverage-strategy-segmented-toggle {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .coverage-strategy-segmented-option {
   position: relative;
   display: grid;

@@ -160,7 +160,8 @@ assert.match(educationProjectionSource, /education-eligible-resource-spending-so
 assert.match(controllerSource, /data-coverage-strategy-education-resource-spending/);
 assert.match(controllerSource, /educationResourceSpendingMode:\s*mode/);
 assert.match(controllerSource, /calculateCoverageStrategyResourceAllocationDepletion/);
-assert.doesNotMatch(controllerSource, /Savings \+ Assets|value="eligibleResourcesAfterEducationSavings"/);
+assert.match(controllerSource, /value="eligibleResourcesAfterEducationSavings"/);
+assert.match(controllerSource, /Savings plus eligible assets/);
 assert.doesNotMatch(analysisSetupSource, /educationResourceSpendingMode|data-coverage-strategy-education-resource-spending/);
 assert.doesNotMatch(resourceAdapterSource, /educationResourceSpendingMode|educationResourceSpending|useEducationSavingsOffset/);
 
@@ -322,8 +323,11 @@ const allocatedEligibleResourcesProjection = buildEducationProjection({
 assert.equal(allocatedEligibleResourcesProjection.educationResourceSpending.broaderEligibleResourceStatus, "partial");
 assert.equal(allocatedEligibleResourcesProjection.educationResourceSpending.broaderEligibleResourceOffsetApplied, 20000);
 assert.equal(allocatedEligibleResourcesProjection.educationResourceSpending.resourceLineReductionApplied, true);
-assert.equal(allocatedEligibleResourcesProjection.educationPoints[0].broaderEligibleResourceOffsetAmount, 20000);
-assert.equal(allocatedEligibleResourcesProjection.educationPoints[0].netEducationNeedAmount, 10000);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[0].broaderEligibleResourceOffsetAmount, 0);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[0].netEducationNeedAmount, 30000);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[2].broaderEligibleResourceOffsetAmount, 0);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[3].broaderEligibleResourceOffsetAmount, 10000);
+assert.equal(allocatedEligibleResourcesProjection.educationPoints[3].trace.resourceSpendingApplied, true);
 assert.equal(allocatedEligibleResourcesProjection.assumptionsUsed.generalResourceReductionApplied, true);
 
 const needLine = buildNeedLine({

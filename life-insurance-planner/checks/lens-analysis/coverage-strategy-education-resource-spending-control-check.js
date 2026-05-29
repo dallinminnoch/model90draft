@@ -156,12 +156,15 @@ assert.match(trayMarkup, /Education resources/);
 assert.match(trayMarkup, /data-coverage-strategy-education-resource-spending/);
 assert.match(resourceControlMarkup, /value="off"/);
 assert.match(resourceControlMarkup, /value="educationSavingsOnly"/);
+assert.match(resourceControlMarkup, /value="eligibleResourcesAfterEducationSavings"/);
 assert.match(resourceControlMarkup, />Off</);
 assert.match(resourceControlMarkup, />Savings</);
-assert.doesNotMatch(resourceControlMarkup, /eligibleResourcesAfterEducationSavings|Eligible resources|drawer|coverage-strategy-scenario-drawer/i);
+assert.match(resourceControlMarkup, />Assets</);
+assert.match(resourceControlMarkup, /Savings plus eligible assets/);
+assert.doesNotMatch(resourceControlMarkup, /drawer|coverage-strategy-scenario-drawer/i);
 assert.doesNotMatch(resourceControlMarkup, /Education savings[\s\S]*data-coverage-strategy-education-savings-offset/);
 assert.match(controllerSource, /educationResourceSpendingMode:\s*mode/);
-assert.match(controllerSource, /useEducationSavingsOffset:\s*mode === "educationSavingsOnly"/);
+assert.match(controllerSource, /useEducationSavingsOffset:\s*mode !== "off"/);
 assert.match(controllerSource, /buildAndRenderCoverageStrategy\(selectedProjectionHorizonYears\)/);
 assert.match(controllerSource, /educationResourceSpendingMode: true/);
 assert.match(controllerSource, /educationResourceSpending: true/);
@@ -203,11 +206,21 @@ const savingsSettings = resolveScenarioSettings({
     }
   }
 });
+const assetsSettings = resolveScenarioSettings({
+  runtimeScenarioSettings: {
+    education: {
+      educationResourceSpendingMode: "eligibleResourcesAfterEducationSavings",
+      useEducationSavingsOffset: true
+    }
+  }
+});
 
 assert.equal(offSettings.education.educationResourceSpendingMode, "off");
 assert.equal(offSettings.education.useEducationSavingsOffset, false);
 assert.equal(savingsSettings.education.educationResourceSpendingMode, "educationSavingsOnly");
 assert.equal(savingsSettings.education.useEducationSavingsOffset, true);
+assert.equal(assetsSettings.education.educationResourceSpendingMode, "eligibleResourcesAfterEducationSavings");
+assert.equal(assetsSettings.education.useEducationSavingsOffset, true);
 
 const offNeedLine = buildNeedLine(buildCoverageStrategyNeedLine, offSettings);
 const savingsNeedLine = buildNeedLine(buildCoverageStrategyNeedLine, savingsSettings);

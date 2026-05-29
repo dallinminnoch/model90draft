@@ -266,7 +266,8 @@ const analysisSetupSource = readRepoFile("pages/analysis-setup.html");
 
 assert.match(pageSource, /coverage-strategy-resource-allocation-depletion\.js/);
 assert.match(controllerSource, /calculateCoverageStrategyResourceAllocationDepletion/);
-assert.doesNotMatch(controllerSource, /Savings \+ Assets|value="eligibleResourcesAfterEducationSavings"/);
+assert.match(controllerSource, /value="eligibleResourcesAfterEducationSavings"/);
+assert.match(controllerSource, /Savings plus eligible assets/);
 assert.doesNotMatch(analysisSetupSource, /eligibleResourcesAfterEducationSavings|Savings \+ Assets/);
 
 const context = createContext();
@@ -379,8 +380,11 @@ const adjustedNeedLine = buildNeedLine({
 });
 assert.equal(adjustedNeedLine.needPoints[0].trace.educationProjection.grossEducationNeedAmount, 135000);
 assert.equal(adjustedNeedLine.needPoints[0].trace.educationProjection.educationSavingsOffsetAmount, 20000);
-assert.equal(adjustedNeedLine.needPoints[0].trace.educationProjection.broaderEligibleResourceOffsetApplied, 60000);
-assert.equal(adjustedNeedLine.needPoints[0].componentAmounts.education, 55000);
+assert.equal(adjustedNeedLine.needPoints[0].trace.educationProjection.broaderEligibleResourceOffsetApplied, 0);
+assert.equal(adjustedNeedLine.needPoints[0].componentAmounts.education, 115000);
+assert.equal(adjustedNeedLine.needPoints[1].trace.educationProjection.broaderEligibleResourceOffsetApplied, 0);
+assert.equal(adjustedNeedLine.needPoints[2].trace.educationProjection.broaderEligibleResourceOffsetApplied, 13750);
+assert.equal(adjustedNeedLine.needPoints[2].trace.educationProjection.resourceLineReductionAmountFromBroaderResources, 13750);
 assert.equal(adjustedNeedLine.componentModels.education.lifetimeProjection.educationResourceSpending.broaderEligibleResourceStatus, "partial");
 assert.equal(adjustedNeedLine.componentModels.education.lifetimeProjection.educationResourceSpending.needLineReductionAmount, 60000);
 assert.equal(adjustedNeedLine.componentModels.education.lifetimeProjection.educationResourceSpending.resourceLineReductionAmount, 60000);
@@ -396,6 +400,9 @@ const adjustedResourceLine = buildResourceLine({
 });
 assert.equal(adjustedResourceLine.resourceLineAdjustments.resourceLineReductionApplied, true);
 assert.equal(adjustedResourceLine.resourceLineAdjustments.totalResourceLineReduction, 60000);
+assert.equal(adjustedResourceLine.resourcePoints[0].resourceLineAdjustmentAmount, 0);
+assert.equal(adjustedResourceLine.resourcePoints[1].resourceLineAdjustmentAmount, 0);
+assert.equal(adjustedResourceLine.resourcePoints[2].resourceLineAdjustmentAmount, 13750);
 assert.equal(
   adjustedResourceLine.resourceLineAdjustments.totalResourceLineReduction,
   adjustedNeedLine.componentModels.education.lifetimeProjection.educationResourceSpending.resourceLineReductionAmount

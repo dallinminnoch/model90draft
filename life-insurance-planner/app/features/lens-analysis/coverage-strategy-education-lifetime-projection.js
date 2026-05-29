@@ -1399,10 +1399,11 @@
     };
   }
 
-  function sumBroaderApplicationsForObligations(obligations, applicationMaps) {
+  function sumBroaderApplicationsForObligations(obligations, applicationMaps, pointYearIndex) {
     const obligationIds = new Set((Array.isArray(obligations) ? obligations : []).map(function (obligation) {
       return normalizeString(obligation?.id || obligation?.obligationId);
     }).filter(Boolean));
+    const safePointYearIndex = Math.max(0, Math.round(toOptionalNumber(pointYearIndex) || 0));
     let total = 0;
     let currentDependents = 0;
     let projectedDependents = 0;
@@ -1411,6 +1412,10 @@
     obligationIds.forEach(function (obligationId) {
       const rows = applicationMaps.byObligationId.get(obligationId) || [];
       rows.forEach(function (application) {
+        const applicationYearIndex = Math.max(0, Math.round(toOptionalNumber(application?.yearIndex) || 0));
+        if (applicationYearIndex > safePointYearIndex) {
+          return;
+        }
         const amount = Math.max(0, toOptionalNumber(application?.appliedAmount) || 0);
         if (!(amount > 0)) {
           return;
@@ -1746,7 +1751,7 @@
         activeEducationSavingsOffsetAvailable
       );
       const broaderPointAllocation = broaderEligibleResourceSpending.sourceAvailable === true
-        ? sumBroaderApplicationsForObligations(obligations, broaderApplicationMaps)
+        ? sumBroaderApplicationsForObligations(obligations, broaderApplicationMaps, yearIndex)
         : {
             totalApplied: 0,
             appliedToTimedCurrentDependents: 0,

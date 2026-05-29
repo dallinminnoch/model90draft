@@ -1286,6 +1286,16 @@
                     ${educationResourceSpendingMode === "educationSavingsOnly" ? "checked" : ""}>
                   <span>Savings</span>
                 </label>
+                <label class="coverage-strategy-segmented-option" title="Education savings plus eligible assets">
+                  <input
+                    type="radio"
+                    name="coverage-strategy-education-resource-spending"
+                    value="eligibleResourcesAfterEducationSavings"
+                    aria-label="Savings plus eligible assets"
+                    data-coverage-strategy-education-resource-spending
+                    ${educationResourceSpendingMode === "eligibleResourcesAfterEducationSavings" ? "checked" : ""}>
+                  <span>Assets</span>
+                </label>
               </div>
             </div>
             <div class="coverage-strategy-scenario-control is-education-schedule">
@@ -1405,7 +1415,7 @@
           educationPaymentScheduleMode: getEducationPaymentScheduleModeFromSettings(initialCoverageStrategyScenarioSettings),
           educationResourceSpendingMode: getEducationResourceSpendingModeFromSettings(initialCoverageStrategyScenarioSettings),
           useEducationSavingsOffset: getEducationResourceSpendingModeFromSettings(initialCoverageStrategyScenarioSettings)
-            === "educationSavingsOnly",
+            !== "off",
           projectedDependentTimingRows: buildProjectedDependentTimingRows(
             builderResult.lensModel,
             getProjectedDependentTimingRowsFromSettings(initialCoverageStrategyScenarioSettings),
@@ -1722,13 +1732,15 @@
         if (!target?.matches?.("[data-coverage-strategy-education-resource-spending]")) {
           return;
         }
-        const mode = target.value === "educationSavingsOnly" ? "educationSavingsOnly" : "off";
+        const mode = target.value === "eligibleResourcesAfterEducationSavings"
+          ? "eligibleResourcesAfterEducationSavings"
+          : (target.value === "educationSavingsOnly" ? "educationSavingsOnly" : "off");
         runtimeScenarioSettings = {
           ...runtimeScenarioSettings,
           education: {
             ...(isPlainObject(runtimeScenarioSettings.education) ? runtimeScenarioSettings.education : {}),
             educationResourceSpendingMode: mode,
-            useEducationSavingsOffset: mode === "educationSavingsOnly"
+            useEducationSavingsOffset: mode !== "off"
           }
         };
         buildAndRenderCoverageStrategy(selectedProjectionHorizonYears);

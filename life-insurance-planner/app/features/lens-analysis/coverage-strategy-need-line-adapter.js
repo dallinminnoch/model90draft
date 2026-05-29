@@ -1707,6 +1707,14 @@
                 broaderEligibleResourceStatus: educationProjectionPoint.trace?.broaderEligibleResourceStatus || null,
                 broaderEligibleResourceOffsetApplied:
                   educationProjectionPoint.trace?.broaderEligibleResourceOffsetApplied || 0,
+                broaderEligibleResourceApplications:
+                  educationProjectionPoint.trace?.broaderEligibleResourceApplications || [],
+                needLineReductionAmountFromBroaderResources:
+                  educationProjectionPoint.trace?.needLineReductionAmountFromBroaderResources || 0,
+                resourceLineReductionAmountFromBroaderResources:
+                  educationProjectionPoint.trace?.resourceLineReductionAmountFromBroaderResources || 0,
+                needLineResourceLineReductionAmountsMatch:
+                  educationProjectionPoint.trace?.needLineResourceLineReductionAmountsMatch === true,
                 coverageStrategyScenarioSettingsSource: educationProjectionPoint.trace?.coverageStrategyScenarioSettingsSource || coverageStrategyScenarioSettings?.source || null,
                 educationSavingsOffsetOwnership: educationProjectionPoint.trace?.educationSavingsOffsetOwnership || null,
                 sourceFactsUsed: educationProjectionPoint.trace || {}
