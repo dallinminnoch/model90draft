@@ -154,8 +154,8 @@ assert.match(trayMarkup, /Education schedule/);
 assert.match(trayMarkup, /data-coverage-strategy-education-payment-schedule/);
 assert.match(trayMarkup, /value="fourYearAnnual"/);
 assert.match(trayMarkup, /value="lumpSumAtStart"/);
-assert.match(trayMarkup, /Projected dependents/);
-assert.match(trayMarkup, /data-coverage-strategy-projected-dependent-birth-year/);
+assert.match(controllerSource, /Projected dependents/);
+assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth-year/);
 assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /Export Diagnostic Report/);
 assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
@@ -166,8 +166,8 @@ assert.match(controllerSource, /useEducationSavingsOffset:\s*target\.value === "
 assert.match(controllerSource, /data-coverage-strategy-education-payment-schedule/);
 assert.doesNotMatch(controllerSource, /sessionStorage|profileRecord\.coverageStrategyScenarioSettings\s*=/);
 
-assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-savings\s*\{/);
-assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-schedule\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-control\.is-projected-dependents\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-control\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-option\s*\{/);
 assert.doesNotMatch(analysisSetupSource, /data-analysis-education-field="fundingTreatment\.useExistingEducationSavingsOffset"/);

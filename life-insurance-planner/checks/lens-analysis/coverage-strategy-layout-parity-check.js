@@ -37,6 +37,8 @@ assert.match(controllerSource, /coverage-strategy-chart-stage/);
 assert.match(controllerSource, /coverage-strategy-right-panel/);
 assert.match(controllerSource, /coverage-strategy-scenario-tray/);
 assert.match(controllerSource, /is-compact-dock/);
+assert.match(controllerSource, /coverage-strategy-scenario-tabs/);
+assert.match(controllerSource, /data-scenario-reserved="true"/);
 
 assert.match(componentsSource, /\.coverage-strategy-workspace\s*\{/);
 assert.match(componentsSource, /grid-template-columns: minmax\(12rem, 0\.58fr\) minmax\(32rem, 1\.8fr\) minmax\(14rem, 0\.66fr\)/);
@@ -47,11 +49,11 @@ assert.match(componentsSource, /min-height: clamp\(34rem, calc\(100vh - 18rem\),
 assert.match(componentsSource, /\.coverage-strategy-scenario-tray\s*\{/);
 assert.match(componentsSource, /position: fixed/);
 assert.match(componentsSource, /z-index: 40/);
-assert.match(componentsSource, /min-height: 3\.7rem/);
-assert.match(componentsSource, /padding: 0\.5rem 0\.72rem/);
-assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-projected-dependents\s*\{/);
+assert.match(componentsSource, /background: var\(--m90-surface\)/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-tabs\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-control\.is-projected-dependents\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-projected-dependent-row\s*\{/);
-assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(5rem, 12vh, 6\.75rem\)/);
+assert.match(componentsSource, /\.coverage-need-timeline-card\s*\{[\s\S]*padding-bottom: clamp\(7rem, 14vh, 8\.5rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-chart\s*\{[\s\S]*min-height: clamp\(34rem, calc\(100vh - 18rem\), 50rem\)/);
 assert.match(componentsSource, /\.coverage-need-timeline-svg\s*\{[\s\S]*min-height: 31rem/);
 
@@ -91,8 +93,16 @@ assert.match(detailMarkup, /Component warnings/);
 const scenarioTrayMarkup = controllerSource.slice(trayIndex);
 assert.match(scenarioTrayMarkup, /Scenario Planner/);
 assert.match(scenarioTrayMarkup, /coverage-strategy-scenario-tray-header/);
+assert.match(scenarioTrayMarkup, /coverage-strategy-scenario-tabs/);
+assert.match(scenarioTrayMarkup, /Base Scenario/);
+assert.match(scenarioTrayMarkup, /Stress Scenario/);
+assert.match(scenarioTrayMarkup, /Best Case/);
+assert.match(scenarioTrayMarkup, /\+ New Scenario/);
+assert.match(scenarioTrayMarkup, /Save Scenario/);
+assert.match(scenarioTrayMarkup, /Recalculate Plan/);
+assert.match(scenarioTrayMarkup, /data-scenario-reserved="true"/);
 assert.match(scenarioTrayMarkup, /coverage-strategy-scenario-tray-grid/);
-assert.match(scenarioTrayMarkup, /coverage-strategy-scenario-tray-placeholder/);
+assert.match(scenarioTrayMarkup, /coverage-strategy-scenario-control/);
 assert.match(scenarioTrayMarkup, /Projection horizon/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-input/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-horizon-number/);
@@ -111,11 +121,10 @@ assert.match(controllerSource, /data-coverage-strategy-projected-dependent-birth
 assert.match(scenarioTrayMarkup, /Export Diagnostic Report/);
 assert.doesNotMatch(scenarioTrayMarkup, /Export Diagnostic PDF/);
 assert.match(scenarioTrayMarkup, /data-coverage-strategy-diagnostic-export/);
-const scenarioTrayMarkupWithoutDiagnosticExport = scenarioTrayMarkup.replace(
-  /<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/,
-  ""
-);
-assert.doesNotMatch(scenarioTrayMarkupWithoutDiagnosticExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
+const scenarioTrayInteractiveMarkupWithoutReservedOrExport = scenarioTrayMarkup
+  .replace(/<button[\s\S]*?data-coverage-strategy-diagnostic-export[\s\S]*?<\/button>/, "")
+  .replace(/<button[\s\S]*?data-scenario-reserved="true"[\s\S]*?<\/button>/g, "");
+assert.doesNotMatch(scenarioTrayInteractiveMarkupWithoutReservedOrExport, /<button|<select|<textarea|Save scenario|Recalculate<\/button>/);
 assert.doesNotMatch(scenarioTrayMarkup, /educationTreatmentMode|educationResourceSpendingMode|custom schedule|resource spending/i);
 
 assert.match(controllerSource, /Projected need/);

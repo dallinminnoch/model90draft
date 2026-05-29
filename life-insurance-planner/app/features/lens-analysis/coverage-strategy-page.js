@@ -390,15 +390,15 @@
     const timingRows = Array.isArray(rows) ? rows : [];
     if (!timingRows.length) {
       return `
-        <div class="coverage-strategy-scenario-tray-placeholder">
-          <span>Recalculate</span>
-          <strong>Reserved</strong>
+        <div class="coverage-strategy-scenario-control is-projected-dependents is-empty" aria-label="Projected dependents">
+          <span class="coverage-strategy-scenario-control-label">Projected dependents</span>
+          <strong>No projected dependents</strong>
         </div>
       `;
     }
     return `
-      <div class="coverage-strategy-scenario-tray-placeholder is-projected-dependents">
-        <span>Projected dependents</span>
+      <div class="coverage-strategy-scenario-control is-projected-dependents">
+        <span class="coverage-strategy-scenario-control-label">Projected dependents</span>
         <div class="coverage-strategy-projected-dependent-list">
           ${timingRows.map(function (row) {
             const validationStatus = row.validationStatus === "invalid"
@@ -1048,10 +1048,21 @@
         </div>
         <div class="coverage-strategy-scenario-tray is-compact-dock" aria-label="Scenario Planner">
           <div class="coverage-strategy-scenario-tray-header">
-            <div class="analysis-result-eyebrow">Scenario Planner</div>
+            <div class="coverage-strategy-scenario-tray-label">Scenario Planner</div>
+            <div class="coverage-strategy-scenario-tabs" role="tablist" aria-label="Scenario tabs reserved for future scenario persistence">
+              <button type="button" class="coverage-strategy-scenario-tab is-active" role="tab" aria-selected="true" disabled aria-disabled="true" data-scenario-reserved="true">Base Scenario</button>
+              <button type="button" class="coverage-strategy-scenario-tab" role="tab" aria-selected="false" disabled aria-disabled="true" data-scenario-reserved="true">Stress Scenario</button>
+              <button type="button" class="coverage-strategy-scenario-tab" role="tab" aria-selected="false" disabled aria-disabled="true" data-scenario-reserved="true">Best Case</button>
+              <button type="button" class="coverage-strategy-scenario-tab is-new" disabled aria-disabled="true" data-scenario-reserved="true">+ New Scenario</button>
+            </div>
+            <div class="coverage-strategy-scenario-actions" aria-label="Scenario actions reserved for future persistence">
+              <span class="coverage-strategy-scenario-status"><span aria-hidden="true"></span>Last calculated: Today</span>
+              <button type="button" class="coverage-strategy-scenario-action is-secondary" disabled aria-disabled="true" data-scenario-reserved="true">Save Scenario</button>
+              <button type="button" class="coverage-strategy-scenario-action is-primary" disabled aria-disabled="true" data-scenario-reserved="true">Recalculate Plan</button>
+            </div>
           </div>
           <div class="coverage-strategy-scenario-tray-grid">
-            <div class="coverage-strategy-scenario-tray-placeholder is-horizon">
+            <div class="coverage-strategy-scenario-control is-horizon">
               <div class="coverage-strategy-horizon-control coverage-strategy-horizon-control-compact" aria-label="Projection horizon control">
                 <label for="coverage-strategy-horizon-years">Projection horizon</label>
                 <input
@@ -1073,8 +1084,8 @@
                 <output for="coverage-strategy-horizon-years" data-coverage-strategy-horizon-output>${escapeHtml(projectionHorizonYears)} years</output>
               </div>
             </div>
-            <div class="coverage-strategy-scenario-tray-placeholder is-education-savings">
-              <span>Education savings</span>
+            <div class="coverage-strategy-scenario-control is-education-savings">
+              <span class="coverage-strategy-scenario-control-label">Education savings</span>
               <div class="coverage-strategy-segmented-toggle" role="radiogroup" aria-label="Education savings offset">
                 <label class="coverage-strategy-segmented-option">
                   <input
@@ -1096,8 +1107,8 @@
                 </label>
               </div>
             </div>
-            <div class="coverage-strategy-scenario-tray-placeholder is-education-schedule">
-              <span>Education schedule</span>
+            <div class="coverage-strategy-scenario-control is-education-schedule">
+              <span class="coverage-strategy-scenario-control-label">Education schedule</span>
               <div class="coverage-strategy-segmented-toggle" role="radiogroup" aria-label="Education payment schedule">
                 <label class="coverage-strategy-segmented-option">
                   <input
@@ -1120,8 +1131,8 @@
               </div>
             </div>
             ${renderProjectedDependentTimingControls(projectedDependentTimingRows)}
-            <div class="coverage-strategy-scenario-tray-placeholder is-diagnostic-export">
-              <span>Data export</span>
+            <div class="coverage-strategy-scenario-control is-diagnostic-export">
+              <span class="coverage-strategy-scenario-control-label">Data export</span>
               <button type="button" class="coverage-strategy-diagnostic-export-button" data-coverage-strategy-diagnostic-export>
                 Export Diagnostic Report
               </button>

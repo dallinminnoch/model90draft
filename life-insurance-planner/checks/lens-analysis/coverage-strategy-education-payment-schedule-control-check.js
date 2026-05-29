@@ -142,7 +142,7 @@ assert.match(trayMarkup, />4-year</);
 assert.match(trayMarkup, />Lump sum</);
 assert.doesNotMatch(trayMarkup, /custom schedule|education treatment|resource spending|savings then eligible resources/i);
 assert.match(trayMarkup, /Education savings/);
-assert.match(trayMarkup, /Projected dependents/);
+assert.match(controllerSource, /Projected dependents/);
 assert.match(trayMarkup, /Projection horizon/);
 assert.match(trayMarkup, /Export Diagnostic Report/);
 assert.doesNotMatch(trayMarkup, /Export Diagnostic PDF/);
@@ -152,7 +152,7 @@ assert.match(controllerSource, /educationPaymentScheduleMode:\s*target\.value ==
 assert.match(controllerSource, /buildAndRenderCoverageStrategy\(selectedProjectionHorizonYears\)/);
 assert.doesNotMatch(controllerSource, /profileRecord\.coverageStrategyScenarioSettings\s*=|localStorage\.setItem|sessionStorage\.setItem/);
 
-assert.match(componentsSource, /\.coverage-strategy-scenario-tray-placeholder\.is-education-schedule\s*\{/);
+assert.match(componentsSource, /\.coverage-strategy-scenario-control\s*\{/);
 assert.match(componentsSource, /\.coverage-strategy-segmented-toggle\s*\{/);
 assert.doesNotMatch(analysisSetupSource, /data-coverage-strategy-education-payment-schedule|educationPaymentScheduleMode/);
 assert.doesNotMatch(resourceAdapterSource, /educationPaymentScheduleMode|educationPaymentSchedule|coverageStrategyScenarioSettings/);
