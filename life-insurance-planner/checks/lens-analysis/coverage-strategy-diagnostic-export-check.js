@@ -219,6 +219,7 @@ const diagnosticInput = {
     componentModels: {
       mortgageLifetimeProjection: { assumptionsUsed: { projectionMode: "amortized" } },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
+      nonMortgageDebtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       education: {
         lifetimeProjection: {
           status: "complete",
@@ -418,6 +419,11 @@ assert.ok(snapshot.coverageStrategyGeneratedOutputs.warnings);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.dataGaps);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.mortgageLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection.assumptionsUsed.projectionModeCounts.amortized,
+  1
+);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.aggregateFallbackUsed, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset);

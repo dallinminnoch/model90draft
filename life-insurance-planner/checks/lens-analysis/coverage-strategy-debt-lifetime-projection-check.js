@@ -264,8 +264,8 @@ const straightLineMissingRate = buildDebtLifetimeProjection({
   valuationDate: "2026-01-01",
   needPoints: createNeedPoints(2)
 });
-assert.equal(straightLineMissingRate.assumptionsUsed.projectionModeCounts.straightLineFallback, 1);
-assert.ok(issueCodes(straightLineMissingRate.warnings).includes("debt-projection-rate-missing-straight-line"));
+assert.equal(straightLineMissingRate.assumptionsUsed.projectionModeCounts.termStraightLine, 1);
+assert.ok(issueCodes(straightLineMissingRate.warnings).includes("debt-projection-rate-missing-term-straight-line"));
 assert.equal(straightLineMissingRate.debtPoints[1].payoffObligationAmount, 6000);
 assert.equal(straightLineMissingRate.debtPoints[2].payoffObligationAmount, 0);
 
@@ -283,8 +283,8 @@ const straightLineMissingPayment = buildDebtLifetimeProjection({
   valuationDate: "2026-01-01",
   needPoints: createNeedPoints(2)
 });
-assert.equal(straightLineMissingPayment.assumptionsUsed.projectionModeCounts.straightLineFallback, 1);
-assert.ok(issueCodes(straightLineMissingPayment.warnings).includes("debt-projection-payment-missing-straight-line"));
+assert.equal(straightLineMissingPayment.assumptionsUsed.projectionModeCounts.termStraightLine, 1);
+assert.ok(issueCodes(straightLineMissingPayment.warnings).includes("debt-projection-payment-missing-term-straight-line"));
 assert.equal(straightLineMissingPayment.debtPoints[2].payoffObligationAmount, 0);
 
 const missingTerm = buildDebtLifetimeProjection({
@@ -293,8 +293,8 @@ const missingTerm = buildDebtLifetimeProjection({
       debtFactId: "custom-debt",
       categoryKey: "otherDebt",
       currentBalance: 12000,
-      minimumMonthlyPayment: 300,
-      interestRatePercent: 6,
+      minimumMonthlyPayment: null,
+      interestRatePercent: null,
       remainingTermMonths: null
     }
   ],
@@ -302,7 +302,7 @@ const missingTerm = buildDebtLifetimeProjection({
   needPoints: createNeedPoints(2)
 });
 assert.equal(missingTerm.assumptionsUsed.projectionModeCounts.flatFallback, 1);
-assert.ok(issueCodes(missingTerm.dataGaps).includes("debt-projection-term-missing"));
+assert.ok(issueCodes(missingTerm.dataGaps).includes("debt-projection-payoff-timing-unavailable"));
 assert.equal(missingTerm.debtPoints[2].payoffObligationAmount, 12000);
 
 const negativeAmortization = buildDebtLifetimeProjection({
@@ -399,7 +399,7 @@ const missingBalance = buildDebtLifetimeProjection({
   valuationDate: "2026-01-01",
   needPoints: createNeedPoints(1)
 });
-assert.ok(issueCodes(missingBalance.dataGaps).includes("debt-projection-balance-missing"));
+assert.ok(issueCodes(missingBalance.dataGaps).includes("debt-projection-amount-unavailable"));
 assert.equal(missingBalance.debtPoints[0].payoffObligationAmount, 0);
 
 const needLine = buildCoverageStrategyNeedLine({
@@ -429,8 +429,8 @@ const fallbackNeedLine = buildCoverageStrategyNeedLine({
           categoryKey: "otherDebt",
           typeKey: "customDebt",
           currentBalance: 12000,
-          minimumMonthlyPayment: 300,
-          interestRatePercent: 6,
+          minimumMonthlyPayment: null,
+          interestRatePercent: null,
           remainingTermMonths: null
         }
       ]
@@ -489,7 +489,7 @@ const fallbackNeedLine = buildCoverageStrategyNeedLine({
   valuationDate: "2026-01-01",
   horizonYears: 2
 });
-assert.ok(issueCodes(fallbackNeedLine.dataGaps).includes("debt-projection-term-missing"));
+assert.ok(issueCodes(fallbackNeedLine.dataGaps).includes("debt-projection-payoff-timing-unavailable"));
 assert.equal(fallbackNeedLine.needPoints[2].componentAmounts.debtPayoff, 12000);
 assert.equal(fallbackNeedLine.needPoints[2].trace.debtProjection.projectionModeCounts.flatFallback, 1);
 

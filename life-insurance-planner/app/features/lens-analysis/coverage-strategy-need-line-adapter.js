@@ -698,6 +698,8 @@
       paymentFrequency: rawDebt?.paymentFrequency || rawDebt?.minimumPaymentFrequency || "monthly",
       interestRatePercent: toOptionalNumber(rawDebt?.interestRatePercent),
       remainingTermMonths: toOptionalNumber(rawDebt?.remainingTermMonths),
+      enteredRemainingTermMonths: toOptionalNumber(rawDebt?.enteredRemainingTermMonths),
+      payoffAmount: toOptionalNumber(rawDebt?.payoffAmount),
       metadata: isPlainObject(rawDebt?.metadata) ? clonePlainValue(rawDebt.metadata) : {}
     };
   }
@@ -774,7 +776,9 @@
     if (!debtModel || debtModel.nonMortgageAmount <= 0) {
       return null;
     }
-    const builder = lensAnalysis.buildDebtLifetimeProjection;
+    const builder = lensAnalysis.calculateCoverageStrategyNonMortgageDebtLifetimeProjection
+      || lensAnalysis.buildNonMortgageDebtLifetimeProjection
+      || lensAnalysis.buildDebtLifetimeProjection;
     if (typeof builder !== "function") {
       addUniqueIssue(
         dataGaps,
@@ -1787,6 +1791,48 @@
           ? {
               status: debtLifetimeProjection.status,
               assumptionsUsed: debtLifetimeProjection.assumptionsUsed,
+              debtPoints: Array.isArray(debtLifetimeProjection.debtPoints)
+                ? clonePlainValue(debtLifetimeProjection.debtPoints)
+                : [],
+              debtRecordProjections: Array.isArray(debtLifetimeProjection.debtRecordProjections)
+                ? clonePlainValue(debtLifetimeProjection.debtRecordProjections)
+                : [],
+              warnings: Array.isArray(debtLifetimeProjection.warnings)
+                ? clonePlainValue(debtLifetimeProjection.warnings)
+                : [],
+              dataGaps: Array.isArray(debtLifetimeProjection.dataGaps)
+                ? clonePlainValue(debtLifetimeProjection.dataGaps)
+                : [],
+              trace: isPlainObject(debtLifetimeProjection.trace)
+                ? clonePlainValue(debtLifetimeProjection.trace)
+                : {},
+              warningCount: Array.isArray(debtLifetimeProjection.warnings)
+                ? debtLifetimeProjection.warnings.length
+                : 0,
+              dataGapCount: Array.isArray(debtLifetimeProjection.dataGaps)
+                ? debtLifetimeProjection.dataGaps.length
+                : 0
+            }
+          : null,
+        nonMortgageDebtLifetimeProjection: debtLifetimeProjection
+          ? {
+              status: debtLifetimeProjection.status,
+              assumptionsUsed: debtLifetimeProjection.assumptionsUsed,
+              debtPoints: Array.isArray(debtLifetimeProjection.debtPoints)
+                ? clonePlainValue(debtLifetimeProjection.debtPoints)
+                : [],
+              debtRecordProjections: Array.isArray(debtLifetimeProjection.debtRecordProjections)
+                ? clonePlainValue(debtLifetimeProjection.debtRecordProjections)
+                : [],
+              warnings: Array.isArray(debtLifetimeProjection.warnings)
+                ? clonePlainValue(debtLifetimeProjection.warnings)
+                : [],
+              dataGaps: Array.isArray(debtLifetimeProjection.dataGaps)
+                ? clonePlainValue(debtLifetimeProjection.dataGaps)
+                : [],
+              trace: isPlainObject(debtLifetimeProjection.trace)
+                ? clonePlainValue(debtLifetimeProjection.trace)
+                : {},
               warningCount: Array.isArray(debtLifetimeProjection.warnings)
                 ? debtLifetimeProjection.warnings.length
                 : 0,

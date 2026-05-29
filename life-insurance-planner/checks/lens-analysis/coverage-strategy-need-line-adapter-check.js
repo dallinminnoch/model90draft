@@ -863,8 +863,8 @@ const fallbackDebt = buildCoverageStrategyNeedLine({
           categoryKey: "otherDebt",
           typeKey: "customDebt",
           currentBalance: 12000,
-          minimumMonthlyPayment: 300,
-          interestRatePercent: 6,
+          minimumMonthlyPayment: null,
+          interestRatePercent: null,
           remainingTermMonths: null
         }
       ]
@@ -916,7 +916,7 @@ const fallbackDebt = buildCoverageStrategyNeedLine({
   valuationDate: "2026-01-01",
   horizonYears: 3
 });
-assert.ok(issueCodes(fallbackDebt.dataGaps).includes("debt-projection-term-missing"));
+assert.ok(issueCodes(fallbackDebt.dataGaps).includes("debt-projection-payoff-timing-unavailable"));
 assert.equal(fallbackDebt.needPoints[3].componentAmounts.debtPayoff, 12000);
 assert.equal(fallbackDebt.needPoints[3].trace.debtProjection.projectionModeCounts.flatFallback, 1);
 assert.equal(

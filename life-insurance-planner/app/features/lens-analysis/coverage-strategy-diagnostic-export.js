@@ -465,6 +465,10 @@
         ),
         mortgageLifetimeProjectionTraces: safeContext.needLine?.componentModels?.mortgageLifetimeProjection || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
+        nonMortgageDebtLifetimeProjection:
+          safeContext.needLine?.componentModels?.nonMortgageDebtLifetimeProjection
+          || safeContext.needLine?.componentModels?.debtLifetimeProjection
+          || "Not available",
         educationLifetimeProjection: safeContext.needLine?.componentModels?.education?.lifetimeProjection || "Not available",
         educationSavingsOffset: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationSavingsOffset || "Not available",
         educationResourceSpendingTrace: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending || "Not available",
@@ -478,6 +482,7 @@
           "coverage-strategy-page.js",
           "coverage-strategy-scenario-settings.js",
           "coverage-strategy-education-lifetime-projection.js",
+          "coverage-strategy-debt-lifetime-projection.js",
           "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",
           "coverage-strategy-resource-line-adapter.js",

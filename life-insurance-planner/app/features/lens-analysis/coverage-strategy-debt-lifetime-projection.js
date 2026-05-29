@@ -204,7 +204,7 @@
       });
     }
 
-    const horizonYears = Math.max(0, Math.round(toOptionalNumber(input?.horizonYears) || 0));
+    const horizonYears = Math.max(0, Math.round(toOptionalNumber(input?.horizonYears ?? input?.projectionYears) || 0));
     return Array.from({ length: horizonYears + 1 }, function (_unused, yearIndex) {
       const date = addYears(valuationDateResult, yearIndex);
       const parsedDate = normalizeDateOnly(date);
@@ -241,6 +241,48 @@
     });
   }
 
+  function classifyNonMortgageDebtOptionKey(debt) {
+    const candidates = [
+      debt?.categoryKey,
+      debt?.typeKey,
+      debt?.sourceKey,
+      debt?.debtType,
+      debt?.label
+    ].map(function (value) {
+      return normalizeString(value).toLowerCase();
+    });
+    if (candidates.some(function (value) {
+      return value.includes("creditcard") || value.includes("credit card");
+    })) {
+      return "includeCreditCards";
+    }
+    if (candidates.some(function (value) {
+      return value.includes("autoloan") || value.includes("auto loan") || value.includes("vehicle");
+    })) {
+      return "includeAutoLoans";
+    }
+    if (candidates.some(function (value) {
+      return value.includes("studentloan") || value.includes("student loan") || value.includes("educationdebt");
+    })) {
+      return "includeStudentLoans";
+    }
+    if (candidates.some(function (value) {
+      return value.includes("personalloan") || value.includes("personal loan");
+    })) {
+      return "includePersonalLoans";
+    }
+    return "includeOtherNonMortgageDebts";
+  }
+
+  function isDebtIncludedByOptions(debt, options) {
+    const safeOptions = isPlainObject(options) ? options : {};
+    const optionKey = classifyNonMortgageDebtOptionKey(debt);
+    return {
+      optionKey,
+      included: safeOptions[optionKey] !== false
+    };
+  }
+
   function projectAmortizedBalance(principal, monthlyRate, monthlyPayment, elapsedMonths) {
     const months = Math.max(0, Math.round(elapsedMonths));
     if (months <= 0) {
@@ -263,7 +305,7 @@
     return roundMoney(principal * (1 - months / safeTerm));
   }
 
-  function normalizeDebtRecord(debt, index, warnings, dataGaps) {
+  function normalizeDebtRecord(debt, index, warnings, dataGaps, options) {
     const safeDebt = isPlainObject(debt) ? debt : {};
     const debtFactId = normalizeString(safeDebt.debtFactId || safeDebt.debtId || safeDebt.id) || `debt-${index + 1}`;
     if (isMortgageDebt(safeDebt)) {
@@ -280,12 +322,29 @@
         }
       };
     }
+    const optionDecision = isDebtIncludedByOptions(safeDebt, options);
+    if (!optionDecision.included) {
+      return {
+        debtFactId,
+        excluded: true,
+        exclusionReason: "option-excluded",
+        trace: {
+          debtFactId,
+          label: normalizeString(safeDebt.label) || null,
+          optionKey: optionDecision.optionKey,
+          projectionMode: "unavailable"
+        }
+      };
+    }
 
     const rawBalance = toOptionalNumber(
       safeDebt.rawBalance
       ?? safeDebt.currentBalance
       ?? safeDebt.balance
       ?? safeDebt.outstandingBalance
+      ?? safeDebt.payoffAmount
+      ?? safeDebt.currentPayoffAmount
+      ?? safeDebt.treatedAmount
     );
     const payoffPercent = normalizePayoffPercent(safeDebt);
     const included = safeDebt.included === false
@@ -315,6 +374,8 @@
     const remainingTermMonths = toOptionalNumber(
       safeDebt.remainingTermMonths
       ?? safeDebt.termRemainingMonths
+      ?? safeDebt.calculatedRemainingTermMonths
+      ?? safeDebt.enteredRemainingTermMonths
       ?? safeDebt.termMonths
     );
 
@@ -336,57 +397,84 @@
     if (rawBalance == null || rawBalance < 0) {
       addIssue(
         dataGaps,
-        "debt-projection-balance-missing",
-        "Debt lifetime projection requires a valid current balance; this debt was excluded from projected payoff.",
+        "debt-projection-amount-unavailable",
+        "Debt lifetime projection requires a valid current balance or payoff amount; this debt was excluded from projected payoff.",
         { debtFactId, currentBalance: safeDebt.currentBalance ?? safeDebt.rawBalance ?? null }
       );
       return {
         debtFactId,
         excluded: true,
-        exclusionReason: "balance-missing",
+        exclusionReason: "unavailable",
         trace: {
           debtFactId,
-          label: normalizeString(safeDebt.label) || null
+          label: normalizeString(safeDebt.label) || null,
+          projectionMode: "unavailable"
         }
       };
     }
 
-    let projectionMode = "amortized";
-    if (remainingTermMonths == null || remainingTermMonths <= 0) {
+    const hasRemainingTerm = remainingTermMonths != null && remainingTermMonths > 0;
+    const hasMonthlyPayment = monthlyPayment != null && monthlyPayment > 0;
+    const hasAnnualRate = annualInterestRate != null;
+    let projectionMode = "flatFallback";
+    if (hasMonthlyPayment && hasAnnualRate) {
+      projectionMode = "amortized";
+      if (monthlyPayment <= rawBalance * (annualInterestRate / 12)) {
+        projectionMode = "flatFallback";
+        addIssue(
+          warnings,
+          "debt-projection-negative-amortization-flat-fallback",
+          "Debt payment does not cover projected monthly interest; flat fallback was used to avoid silently increasing payoff need.",
+          {
+            debtFactId,
+            currentBalance: rawBalance,
+            monthlyPayment,
+            monthlyInterestAmount: roundMoney(rawBalance * (annualInterestRate / 12))
+          }
+        );
+      }
+    } else if (hasRemainingTerm) {
+      projectionMode = "termStraightLine";
+      addIssue(
+        warnings,
+        hasAnnualRate
+          ? "debt-projection-payment-missing-term-straight-line"
+          : "debt-projection-rate-missing-term-straight-line",
+        hasAnnualRate
+          ? "Debt payment was missing; straight-line balance decline over the remaining term was used instead of inventing amortized precision."
+          : "Debt interest rate was missing; straight-line balance decline over the remaining term was used.",
+        {
+          debtFactId,
+          remainingTermMonths,
+          paymentAmount: safeDebt.monthlyPayment ?? safeDebt.minimumMonthlyPayment ?? null,
+          interestRatePercent: safeDebt.interestRatePercent ?? safeDebt.annualInterestRatePercent ?? null
+        }
+      );
+    } else if (hasMonthlyPayment) {
+      projectionMode = "paymentStraightLine";
+      addIssue(
+        warnings,
+        "debt-projection-term-rate-missing-payment-straight-line",
+        "Debt term and/or interest rate was missing; monthly payment straight-line balance decline was used.",
+        {
+          debtFactId,
+          monthlyPayment,
+          interestRatePercent: safeDebt.interestRatePercent ?? safeDebt.annualInterestRatePercent ?? null,
+          remainingTermMonths: safeDebt.remainingTermMonths ?? null
+        }
+      );
+    } else {
       projectionMode = "flatFallback";
       addIssue(
         dataGaps,
-        "debt-projection-term-missing",
-        "Debt remaining term was missing; flat fallback was used instead of inventing amortization.",
-        { debtFactId, remainingTermMonths: safeDebt.remainingTermMonths ?? null }
-      );
-    } else if (annualInterestRate == null) {
-      projectionMode = "straightLineFallback";
-      addIssue(
-        warnings,
-        "debt-projection-rate-missing-straight-line",
-        "Debt interest rate was missing; straight-line balance decline fallback was used.",
-        { debtFactId, remainingTermMonths }
-      );
-    } else if (monthlyPayment == null || monthlyPayment <= 0) {
-      projectionMode = "straightLineFallback";
-      addIssue(
-        warnings,
-        "debt-projection-payment-missing-straight-line",
-        "Debt payment was missing; straight-line balance decline fallback was used instead of inventing amortized precision.",
-        { debtFactId, paymentAmount: safeDebt.monthlyPayment ?? safeDebt.minimumMonthlyPayment ?? null }
-      );
-    } else if (monthlyPayment <= rawBalance * (annualInterestRate / 12)) {
-      projectionMode = "flatFallback";
-      addIssue(
-        warnings,
-        "debt-projection-negative-amortization-flat-fallback",
-        "Debt payment does not cover projected monthly interest; flat fallback was used to avoid silently increasing payoff need.",
+        "debt-projection-payoff-timing-unavailable",
+        "Debt payoff timing was unavailable; flat fallback kept the non-mortgage debt obligation through the horizon.",
         {
           debtFactId,
           currentBalance: rawBalance,
-          monthlyPayment,
-          monthlyInterestAmount: roundMoney(rawBalance * (annualInterestRate / 12))
+          monthlyPayment: safeDebt.monthlyPayment ?? safeDebt.minimumMonthlyPayment ?? null,
+          remainingTermMonths: safeDebt.remainingTermMonths ?? null,
+          interestRatePercent: safeDebt.interestRatePercent ?? safeDebt.annualInterestRatePercent ?? null
         }
       );
     }
@@ -413,6 +501,11 @@
         rawBalance: roundMoney(rawBalance),
         treatedAmount: toOptionalNumber(safeDebt.treatedAmount),
         payoffPercent,
+        projectionMode,
+        monthlyPayment,
+        annualInterestRate: annualInterestRate == null ? null : roundRate(annualInterestRate),
+        remainingTermMonths: remainingTermMonths == null ? null : Math.round(remainingTermMonths),
+        enteredRemainingTermMonths: toOptionalNumber(safeDebt.enteredRemainingTermMonths),
         paymentFrequency: frequency.key,
         source: "coverage-strategy-debt-lifetime-projection"
       }
@@ -427,7 +520,7 @@
     let projectedBalance = debt.currentBalance;
 
     if (debt.projectionMode === "amortized") {
-      projectedBalance = elapsedMonths >= debt.remainingTermMonths
+      projectedBalance = debt.remainingTermMonths != null && elapsedMonths >= debt.remainingTermMonths
         ? 0
         : projectAmortizedBalance(
             debt.currentBalance,
@@ -435,8 +528,10 @@
             debt.monthlyPayment,
             elapsedMonths
           );
-    } else if (debt.projectionMode === "straightLineFallback") {
+    } else if (debt.projectionMode === "termStraightLine") {
       projectedBalance = projectStraightLineBalance(debt.currentBalance, debt.remainingTermMonths, elapsedMonths);
+    } else if (debt.projectionMode === "paymentStraightLine") {
+      projectedBalance = roundMoney(debt.currentBalance - debt.monthlyPayment * elapsedMonths);
     }
 
     projectedBalance = roundMoney(Math.max(0, projectedBalance));
@@ -501,7 +596,7 @@
     }
 
     const normalizedRows = sourceDebts.map(function (debt, index) {
-      return normalizeDebtRecord(debt, index, warnings, dataGaps);
+      return normalizeDebtRecord(debt, index, warnings, dataGaps, safeInput.options);
     });
     const includedDebts = normalizedRows.filter(function (debt) {
       return debt && debt.excluded !== true;
@@ -553,7 +648,10 @@
         projectedDebtBalance,
         payoffObligationAmount,
         debtsIncludedCount: includedDebts.length,
-        debtsFallbackCount: (modeCounts.straightLineFallback || 0) + (modeCounts.flatFallback || 0),
+        debtsFallbackCount:
+          (modeCounts.termStraightLine || 0)
+          + (modeCounts.paymentStraightLine || 0)
+          + (modeCounts.flatFallback || 0),
         warnings: [],
         dataGaps: [],
         trace: {
@@ -615,11 +713,15 @@
   lensAnalysis.COVERAGE_STRATEGY_DEBT_LIFETIME_PROJECTION_VERSION =
     COVERAGE_STRATEGY_DEBT_LIFETIME_PROJECTION_VERSION;
   lensAnalysis.buildDebtLifetimeProjection = buildDebtLifetimeProjection;
+  lensAnalysis.buildNonMortgageDebtLifetimeProjection = buildDebtLifetimeProjection;
+  lensAnalysis.calculateCoverageStrategyNonMortgageDebtLifetimeProjection = buildDebtLifetimeProjection;
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       COVERAGE_STRATEGY_DEBT_LIFETIME_PROJECTION_VERSION,
-      buildDebtLifetimeProjection
+      buildDebtLifetimeProjection,
+      buildNonMortgageDebtLifetimeProjection: buildDebtLifetimeProjection,
+      calculateCoverageStrategyNonMortgageDebtLifetimeProjection: buildDebtLifetimeProjection
     };
   }
 })(typeof globalThis !== "undefined" ? globalThis : this);
