@@ -7727,8 +7727,8 @@ body[data-step="income-impact"] *::-webkit-scrollbar-corner {
   width: 0.98rem;
   height: 0.98rem;
   background-color: var(--m90-accent);
-  -webkit-mask: url("../Images/checkmark.svg") center / contain no-repeat;
-  mask: url("../Images/checkmark.svg") center / contain no-repeat;
+  -webkit-mask: url("Images/checkmark.svg") center / contain no-repeat;
+  mask: url("Images/checkmark.svg") center / contain no-repeat;
 }
 
 .client-checklist-list {
