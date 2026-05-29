@@ -146,6 +146,16 @@ assert.equal(defaultResult.education.educationResourceSpendingMode, "off");
 assert.equal(defaultResult.education.projectedDependentTimingMode, "untimedKeepThroughHorizon");
 assert.ok(Array.isArray(defaultResult.education.projectedDependentTimingRows));
 assert.equal(defaultResult.education.projectedDependentTimingRows.length, 0);
+assert.equal(
+  defaultResult.education.projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+  "untimedKeepThroughHorizon"
+);
+assert.equal(
+  defaultResult.education.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+  false
+);
+assert.equal(defaultResult.education.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 0);
+assert.equal(defaultResult.education.projectedDependentTimingMetadata.projectedDependentUntimedRowCount, 0);
 assert.equal(defaultResult.visibleControlsAdded, false);
 assert.equal(defaultResult.controlsVisible, false);
 assert.equal(defaultResult.persisted, false);
@@ -182,6 +192,29 @@ assert.equal(
 assert.equal(runtimeResult.education.projectedDependentTimingRows[0].expectedBirthYear, 2026);
 assert.equal(runtimeResult.education.projectedDependentTimingRows[0].timingMode, "expectedBirthYear");
 assert.equal(runtimeResult.education.projectedDependentTimingRows[0].validationStatus, "valid");
+assert.equal(runtimeResult.education.projectedDependentTimingMode, "untimedKeepThroughHorizon");
+assert.equal(
+  runtimeResult.education.projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+  "untimedKeepThroughHorizon"
+);
+assert.equal(
+  runtimeResult.education.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+  true
+);
+assert.equal(runtimeResult.education.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 1);
+assert.equal(runtimeResult.education.projectedDependentTimingMetadata.projectedDependentUntimedRowCount, 0);
+assert.match(
+  runtimeResult.education.projectedDependentTimingMetadata.effectiveProjectedDependentTimingSummary,
+  /Default mode keeps untimed projected dependents through the horizon; 1 row-level expected birth year override was applied\./
+);
+assert.equal(
+  runtimeResult.trace.projectedDependentTimingModeInterpretation,
+  "education.projectedDependentTimingMode is the default/fallback for projected dependents without a valid row-level expected birth year."
+);
+assert.equal(
+  runtimeResult.trace.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+  true
+);
 assert.equal(
   runtimeResult.trace.fieldSources["education.educationResourceSpendingMode"],
   "derived-from-education.useEducationSavingsOffset"
@@ -207,6 +240,13 @@ const invalidBirthYearResult = resolveScenarioSettings({
 });
 assert.equal(invalidBirthYearResult.education.projectedDependentTimingRows[0].expectedBirthYear, null);
 assert.equal(invalidBirthYearResult.education.projectedDependentTimingRows[0].validationStatus, "invalid");
+assert.equal(
+  invalidBirthYearResult.education.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+  false
+);
+assert.equal(invalidBirthYearResult.education.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 0);
+assert.equal(invalidBirthYearResult.education.projectedDependentTimingMetadata.projectedDependentUntimedRowCount, 1);
+assert.equal(invalidBirthYearResult.education.projectedDependentTimingMetadata.projectedDependentInvalidRowCount, 1);
 assert.equal(
   invalidBirthYearResult.education.projectedDependentTimingRows[0].validationCode,
   "projected-dependent-birth-year-invalid"

@@ -221,9 +221,19 @@ const timedNeedLine = buildNeedLine(buildCoverageStrategyNeedLine, timedSettings
 const timedProjection = timedNeedLine.componentModels.education.lifetimeProjection;
 assert.equal(timedSettings.education.projectedDependentTimingRows[0].expectedBirthYear, 2026);
 assert.equal(timedSettings.education.projectedDependentTimingRows[0].timingMode, "expectedBirthYear");
+assert.equal(timedSettings.education.projectedDependentTimingMode, "untimedKeepThroughHorizon");
+assert.equal(
+  timedSettings.education.projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+  "untimedKeepThroughHorizon"
+);
+assert.equal(timedSettings.education.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied, true);
+assert.equal(timedSettings.education.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 1);
+assert.equal(timedSettings.education.projectedDependentTimingMetadata.projectedDependentUntimedRowCount, 0);
 assert.equal(timedProjection.projectedDependentSchedules.length, 1);
 assert.equal(timedProjection.projectedDependentSchedules[0].dateOfBirth, "2026-01-01");
 assert.equal(timedProjection.projectedDependentSchedules[0].educationStartYear, 2044);
+assert.equal(timedProjection.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied, true);
+assert.equal(timedProjection.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 1);
 assert.ok(issueCodes(timedNeedLine.warnings).includes("projected-dependent-birth-year-defaulted-to-jan-1"));
 assert.equal(timedNeedLine.needPoints[17].componentAmounts.education, 20000);
 assert.equal(timedNeedLine.needPoints[20].componentAmounts.education, 10000);
@@ -302,6 +312,17 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioS
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettings.controlsVisible, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visiblePaymentScheduleControl, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.projectedDependentDefaultTimingMode,
+  "untimedKeepThroughHorizon"
+);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentRowTimingOverridesApplied, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimedRowCount, 1);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentUntimedRowCount, 0);
+assert.match(
+  snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingMetadata.effectiveProjectedDependentTimingSummary,
+  /Default mode keeps untimed projected dependents through the horizon; 1 row-level expected birth year override was applied\./
+);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.projectedDependentSchedules[0].dateOfBirth, "2026-01-01");
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyScenarioSettingsPersistence, "runtime-default-resolved");
 

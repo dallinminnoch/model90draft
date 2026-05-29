@@ -175,6 +175,58 @@
     });
   }
 
+  function pluralize(count, singular, plural) {
+    return `${count} ${count === 1 ? singular : plural}`;
+  }
+
+  function buildProjectedDependentTimingMetadata(defaultTimingMode, rows) {
+    const normalizedRows = Array.isArray(rows) ? rows : [];
+    const includedRows = normalizedRows.filter(function (row) {
+      return isPlainObject(row) && row.included !== false;
+    });
+    const timedRows = includedRows.filter(function (row) {
+      return row.timingMode === "expectedBirthYear"
+        && row.expectedBirthYear != null
+        && row.validationStatus !== "invalid";
+    });
+    const invalidRows = includedRows.filter(function (row) {
+      return row.validationStatus === "invalid";
+    });
+    const untimedRows = includedRows.filter(function (row) {
+      return !timedRows.includes(row);
+    });
+    const timedCount = timedRows.length;
+    const untimedCount = untimedRows.length;
+    return {
+      projectedDependentDefaultTimingMode: defaultTimingMode,
+      projectedDependentRowTimingOverridesApplied: timedCount > 0,
+      projectedDependentTimedRowCount: timedCount,
+      projectedDependentUntimedRowCount: untimedCount,
+      projectedDependentInvalidRowCount: invalidRows.length,
+      effectiveProjectedDependentTimingSummary: timedCount > 0
+        ? [
+            "Default mode keeps untimed projected dependents through the horizon;",
+            `${pluralize(timedCount, "row-level expected birth year override was", "row-level expected birth year overrides were")} applied.`
+          ].join(" ")
+        : "Default mode keeps untimed projected dependents through the horizon; no row-level expected birth year overrides were applied.",
+      rowTimingTrace: includedRows.map(function (row) {
+        return {
+          id: row.id || null,
+          label: row.label || null,
+          included: row.included !== false,
+          timingMode: row.timingMode || null,
+          expectedBirthYear: row.expectedBirthYear ?? null,
+          rawExpectedBirthYear: row.rawExpectedBirthYear ?? null,
+          validationStatus: row.validationStatus || null,
+          validationCode: row.validationCode || null,
+          rowOverrideApplied: row.timingMode === "expectedBirthYear"
+            && row.expectedBirthYear != null
+            && row.validationStatus !== "invalid"
+        };
+      })
+    };
+  }
+
   function candidate(label, path, value, kind) {
     return {
       label,
@@ -425,6 +477,21 @@
       fieldSources,
       legacyMappings
     );
+    const projectedDependentTimingMode = resolveModeField(
+      candidates,
+      "education.projectedDependentTimingMode",
+      ALLOWED_PROJECTED_DEPENDENT_TIMING_MODES,
+      DEFAULT_EDUCATION_SETTINGS.projectedDependentTimingMode,
+      "coverage-strategy-defaults.education.projectedDependentTimingMode",
+      fieldSources
+    );
+    const projectedDependentTimingRows = normalizeProjectedDependentTimingRows(
+      findScenarioValue(candidates, "education.projectedDependentTimingRows")?.value
+    );
+    const projectedDependentTimingMetadata = buildProjectedDependentTimingMetadata(
+      projectedDependentTimingMode,
+      projectedDependentTimingRows
+    );
     const education = {
       educationTreatmentMode: resolveModeField(
         candidates,
@@ -448,17 +515,9 @@
         defaultedFields,
         useEducationSavingsOffset
       ),
-      projectedDependentTimingMode: resolveModeField(
-        candidates,
-        "education.projectedDependentTimingMode",
-        ALLOWED_PROJECTED_DEPENDENT_TIMING_MODES,
-        DEFAULT_EDUCATION_SETTINGS.projectedDependentTimingMode,
-        "coverage-strategy-defaults.education.projectedDependentTimingMode",
-        fieldSources
-      ),
-      projectedDependentTimingRows: normalizeProjectedDependentTimingRows(
-        findScenarioValue(candidates, "education.projectedDependentTimingRows")?.value
-      )
+      projectedDependentTimingMode,
+      projectedDependentTimingRows,
+      projectedDependentTimingMetadata
     };
     fieldSources["education.projectedDependentTimingRows"] =
       findScenarioValue(candidates, "education.projectedDependentTimingRows")?.sourcePath
@@ -496,6 +555,11 @@
         selectedSource,
         fieldSources,
         defaultedFields,
+        projectedDependentTimingMetadata,
+        projectedDependentTimingModeInterpretation:
+          "education.projectedDependentTimingMode is the default/fallback for projected dependents without a valid row-level expected birth year.",
+        projectedDependentRowTimingOverrideRule:
+          "Valid projectedDependentTimingRows expectedBirthYear values override the default timing mode for that row only.",
         legacyMappings,
         visibleControlsAdded: false,
         storageRead: false,

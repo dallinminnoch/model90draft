@@ -419,6 +419,17 @@ assert.equal(
   "lumpSumAtStart"
 );
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingRowsConsumed[0].expectedBirthYear, 2026);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.projectedDependentDefaultTimingMode,
+  "untimedKeepThroughHorizon"
+);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentRowTimingOverridesApplied, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimedRowCount, 1);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.projectedDependentUntimedRowCount, 0);
+assert.match(
+  snapshot.coverageStrategyGeneratedOutputs.projectedDependentTimingMetadata.effectiveProjectedDependentTimingSummary,
+  /Default mode keeps untimed projected dependents through the horizon; 1 row-level expected birth year override was applied\./
+);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyVisibleScenarioControlsAdded, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpendingMode, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.visibleScenarioControls.educationResourceSpending, true);
@@ -465,6 +476,9 @@ assert.match(html, /educationScenarioSettingsConsumed/);
 assert.match(html, /educationPaymentScheduleMode/);
 assert.match(html, /lumpSumAtStart/);
 assert.match(html, /projectedDependentTimingRowsConsumed/);
+assert.match(html, /projectedDependentDefaultTimingMode/);
+assert.match(html, /projectedDependentRowTimingOverridesApplied/);
+assert.match(html, /effectiveProjectedDependentTimingSummary/);
 assert.match(html, /finalExpenseLifetimeProjection/);
 assert.match(html, /G\. Checks \/ Version Info/);
 assert.match(html, /This diagnostic file may contain personal and financial data/);

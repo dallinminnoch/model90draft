@@ -380,6 +380,21 @@ assert.equal(timedProjected.projectedDependentSchedules.length, 1);
 assert.equal(timedProjected.projectedDependentSchedules[0].dateOfBirth, "2020-01-01");
 assert.equal(timedProjected.projectedDependentSchedules[0].educationStartYear, 2038);
 assert.ok(issueCodes(timedProjected.warnings).includes("projected-dependent-birth-year-defaulted-to-jan-1"));
+assert.equal(
+  timedProjected.projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+  "untimedKeepThroughHorizon"
+);
+assert.equal(timedProjected.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied, true);
+assert.equal(timedProjected.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 1);
+assert.equal(timedProjected.projectedDependentTimingMetadata.projectedDependentUntimedRowCount, 0);
+assert.equal(
+  timedProjected.projectedDependentTimingMetadata.rowTimingTrace[0].assumedDateOfBirth,
+  "2020-01-01"
+);
+assert.equal(
+  timedProjected.projectedDependentTimingMetadata.rowTimingTrace[0].traceCode,
+  "projected-dependent-birth-year-defaulted-to-jan-1"
+);
 assert.equal(timedProjected.educationPoints[12].projectedDependentNeedAmount, 20000);
 assert.equal(timedProjected.educationPoints[13].projectedDependentNeedAmount, 15000);
 
@@ -416,6 +431,8 @@ assert.equal(lumpTimedProjected.projectedDependentSchedules[0].payments[0].amoun
 assert.equal(lumpTimedProjected.educationPoints[12].projectedDependentNeedAmount, 20000);
 assert.equal(lumpTimedProjected.educationPoints[13].projectedDependentNeedAmount, 0);
 assert.ok(issueCodes(lumpTimedProjected.warnings).includes("projected-dependent-birth-year-defaulted-to-jan-1"));
+assert.equal(lumpTimedProjected.projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied, true);
+assert.equal(lumpTimedProjected.projectedDependentTimingMetadata.projectedDependentTimedRowCount, 1);
 
 const invalidProjectedBirthYear = runProjection(helper, {
   educationSupport: {

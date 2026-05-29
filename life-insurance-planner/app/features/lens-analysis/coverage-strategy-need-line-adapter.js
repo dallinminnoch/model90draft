@@ -1003,7 +1003,16 @@
         useEducationSavingsOffset: false,
         educationResourceSpendingMode: "off",
         projectedDependentTimingMode: "untimedKeepThroughHorizon",
-        projectedDependentTimingRows: []
+        projectedDependentTimingRows: [],
+        projectedDependentTimingMetadata: {
+          projectedDependentDefaultTimingMode: "untimedKeepThroughHorizon",
+          projectedDependentRowTimingOverridesApplied: false,
+          projectedDependentTimedRowCount: 0,
+          projectedDependentUntimedRowCount: 0,
+          projectedDependentInvalidRowCount: 0,
+          effectiveProjectedDependentTimingSummary: "Default mode keeps untimed projected dependents through the horizon; no row-level expected birth year overrides were applied.",
+          rowTimingTrace: []
+        }
       },
       trace: {
         source: "coverage-strategy-need-line-adapter-fallback",
@@ -1788,6 +1797,8 @@
                   : 0,
                 educationSavingsOffset: educationLifetimeProjection.educationSavingsOffset || null,
                 educationResourceSpending: educationLifetimeProjection.educationResourceSpending || null,
+                projectedDependentTimingMetadata:
+                  educationLifetimeProjection.projectedDependentTimingMetadata || null,
                 warningCount: Array.isArray(educationLifetimeProjection.warnings)
                   ? educationLifetimeProjection.warnings.length
                   : 0,

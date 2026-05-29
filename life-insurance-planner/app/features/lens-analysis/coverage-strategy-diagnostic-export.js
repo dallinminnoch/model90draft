@@ -114,6 +114,62 @@
     return enriched;
   }
 
+  function buildProjectedDependentTimingMetadataForDiagnostic(context, coverageStrategyScenarioSettings) {
+    const directMetadata = coverageStrategyScenarioSettings?.education?.projectedDependentTimingMetadata
+      || context.needLine?.componentModels?.education?.lifetimeProjection?.projectedDependentTimingMetadata
+      || context.needLine?.componentModels?.education?.lifetimeProjection?.assumptionsUsed?.projectedDependentTimingMetadata;
+    if (isPlainObject(directMetadata)) {
+      return clonePlainValue(directMetadata);
+    }
+    const rows = (
+      coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
+      || context.needLine?.componentModels?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
+      || context.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
+      || []
+    );
+    const defaultMode = (
+      coverageStrategyScenarioSettings?.education?.projectedDependentTimingMode
+      || context.needLine?.componentModels?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingMode
+      || "untimedKeepThroughHorizon"
+    );
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const timedRows = safeRows.filter(function (row) {
+      return isPlainObject(row)
+        && row.included !== false
+        && row.expectedBirthYear != null
+        && row.validationStatus !== "invalid";
+    });
+    const includedRows = safeRows.filter(function (row) {
+      return isPlainObject(row) && row.included !== false;
+    });
+    const invalidRows = includedRows.filter(function (row) {
+      return row.validationStatus === "invalid";
+    });
+    return {
+      projectedDependentDefaultTimingMode: defaultMode,
+      projectedDependentRowTimingOverridesApplied: timedRows.length > 0,
+      projectedDependentTimedRowCount: timedRows.length,
+      projectedDependentUntimedRowCount: Math.max(0, includedRows.length - timedRows.length),
+      projectedDependentInvalidRowCount: invalidRows.length,
+      effectiveProjectedDependentTimingSummary: timedRows.length > 0
+        ? `Default mode keeps untimed projected dependents through the horizon; ${timedRows.length} row-level expected birth year override${timedRows.length === 1 ? " was" : "s were"} applied.`
+        : "Default mode keeps untimed projected dependents through the horizon; no row-level expected birth year overrides were applied.",
+      rowTimingTrace: includedRows.map(function (row) {
+        return {
+          id: row.id || null,
+          label: row.label || null,
+          included: row.included !== false,
+          timingMode: row.timingMode || null,
+          expectedBirthYear: row.expectedBirthYear ?? null,
+          rawExpectedBirthYear: row.rawExpectedBirthYear ?? null,
+          validationStatus: row.validationStatus || null,
+          validationCode: row.validationCode || null,
+          rowOverrideApplied: row.expectedBirthYear != null && row.validationStatus !== "invalid"
+        };
+      })
+    };
+  }
+
   function createHouseholdSnapshot(context) {
     const safeContext = isPlainObject(context) ? context : {};
     const profileRecord = isPlainObject(safeContext.profileRecord) ? safeContext.profileRecord : {};
@@ -214,6 +270,10 @@
     const coverageStrategyScenarioSettings = enrichScenarioSettingsForDiagnostic(
       rawCoverageStrategyScenarioSettings,
       visibleScenarioControls
+    );
+    const projectedDependentTimingMetadata = buildProjectedDependentTimingMetadataForDiagnostic(
+      safeContext,
+      isPlainObject(coverageStrategyScenarioSettings) ? coverageStrategyScenarioSettings : null
     );
     const coverageStrategyScenarioSettingsTrace = isPlainObject(coverageStrategyScenarioSettings)
       ? coverageStrategyScenarioSettings.trace
@@ -321,6 +381,15 @@
           || safeContext.needLine?.assumptionsUsed?.coverageStrategyScenarioSettings?.education?.projectedDependentTimingRows
           || "Not available"
         ),
+        projectedDependentTimingMetadata,
+        projectedDependentDefaultTimingMode:
+          projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+        projectedDependentRowTimingOverridesApplied:
+          projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+        projectedDependentTimedRowCount:
+          projectedDependentTimingMetadata.projectedDependentTimedRowCount,
+        projectedDependentUntimedRowCount:
+          projectedDependentTimingMetadata.projectedDependentUntimedRowCount,
         coverageStrategyVisibleScenarioControlsAdded: visibleControlsAdded,
         visibleScenarioControls,
         coverageStrategyScenarioSettingsPersistence: (

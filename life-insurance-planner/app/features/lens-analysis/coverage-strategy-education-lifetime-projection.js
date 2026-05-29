@@ -963,6 +963,79 @@
     };
   }
 
+  function pluralize(count, singular, plural) {
+    return `${count} ${count === 1 ? singular : plural}`;
+  }
+
+  function buildProjectedDependentTimingMetadata(coverageStrategyScenarioSettings, projectedModel) {
+    const scenarioMetadata = coverageStrategyScenarioSettings?.education?.projectedDependentTimingMetadata;
+    if (isPlainObject(scenarioMetadata)) {
+      return clonePlainValue(scenarioMetadata);
+    }
+    const defaultTimingMode = normalizeString(
+      coverageStrategyScenarioSettings?.education?.projectedDependentTimingMode
+    ) || "untimedKeepThroughHorizon";
+    const timedSchedules = Array.isArray(projectedModel?.timedSchedules)
+      ? projectedModel.timedSchedules
+      : [];
+    const excludedRows = Array.isArray(projectedModel?.excluded)
+      ? projectedModel.excluded
+      : [];
+    const invalidRows = excludedRows.filter(function (row) {
+      return row?.exclusionCode === "projected-dependent-birth-year-invalid";
+    });
+    const untimedRows = excludedRows.filter(function (row) {
+      return row?.exclusionCode !== "projected-dependent-birth-year-invalid";
+    });
+    const timedCount = timedSchedules.length;
+    const rowTimingTrace = timedSchedules.map(function (schedule) {
+      return {
+        id: schedule.id || null,
+        label: schedule.label || schedule.id || null,
+        included: true,
+        timingMode: "expectedBirthYear",
+        expectedBirthYear: schedule.dateOfBirth ? Number(String(schedule.dateOfBirth).slice(0, 4)) : null,
+        rawExpectedBirthYear: schedule.dateOfBirth ? String(schedule.dateOfBirth).slice(0, 4) : null,
+        validationStatus: "valid",
+        validationCode: null,
+        assumedDateOfBirth: schedule.dateOfBirth || null,
+        traceCode: "projected-dependent-birth-year-defaulted-to-jan-1",
+        rowOverrideApplied: true
+      };
+    }).concat(excludedRows.map(function (row) {
+      return {
+        id: row.id || null,
+        label: row.id || null,
+        included: true,
+        timingMode: "untimedKeepThroughHorizon",
+        expectedBirthYear: null,
+        rawExpectedBirthYear: row.trace?.rawExpectedBirthYear ?? null,
+        validationStatus: row.exclusionCode === "projected-dependent-birth-year-invalid"
+          ? "invalid"
+          : "untimed",
+        validationCode: row.exclusionCode === "projected-dependent-birth-year-invalid"
+          ? "projected-dependent-birth-year-invalid"
+          : null,
+        traceCode: row.exclusionCode || null,
+        rowOverrideApplied: false
+      };
+    }));
+    return {
+      projectedDependentDefaultTimingMode: defaultTimingMode,
+      projectedDependentRowTimingOverridesApplied: timedCount > 0,
+      projectedDependentTimedRowCount: timedCount,
+      projectedDependentUntimedRowCount: untimedRows.length + invalidRows.length,
+      projectedDependentInvalidRowCount: invalidRows.length,
+      effectiveProjectedDependentTimingSummary: timedCount > 0
+        ? [
+            "Default mode keeps untimed projected dependents through the horizon;",
+            `${pluralize(timedCount, "row-level expected birth year override was", "row-level expected birth year overrides were")} applied.`
+          ].join(" ")
+        : "Default mode keeps untimed projected dependents through the horizon; no row-level expected birth year overrides were applied.",
+      rowTimingTrace
+    };
+  }
+
   function resolveUntimedProjectedDependentNeed(educationSupport, projectedModel, educationAssumptions, context, warnings) {
     const includeProjectedDependents = educationAssumptions.includeProjectedDependents !== false;
     const aggregateTotal = Math.max(0, toOptionalNumber(
@@ -1186,6 +1259,10 @@
         && rateResult.annualRate > 0,
       educationInflationAnnualRate: rateResult.annualRate
     };
+    const scenarioProjectedDependentTimingMetadata = buildProjectedDependentTimingMetadata(
+      coverageStrategyScenarioSettings,
+      null
+    );
 
     if (!includeEducationFunding) {
       return {
@@ -1217,6 +1294,10 @@
               effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
               educationResourceSpendingModeSource: educationResourceSpendingMode.source,
               broaderEligibleResourceOffsetApplied: 0,
+              projectedDependentDefaultTimingMode:
+                scenarioProjectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+              projectedDependentRowTimingOverridesApplied:
+                scenarioProjectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
               coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
               resourceSpendingApplied: false,
               generalResourceReductionApplied: false
@@ -1241,6 +1322,7 @@
           effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
           educationResourceSpendingModeSource: educationResourceSpendingMode.source,
           broaderEligibleResourceOffsetApplied: 0,
+          projectedDependentTimingMetadata: scenarioProjectedDependentTimingMetadata,
           coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
           resourceSpendingApplied: false
         },
@@ -1265,6 +1347,7 @@
           0,
           0
         ),
+        projectedDependentTimingMetadata: scenarioProjectedDependentTimingMetadata,
         warnings,
         dataGaps,
         trace: {
@@ -1272,6 +1355,7 @@
           educationPaymentScheduleMode: context.educationPaymentScheduleMode,
           educationResourceSpendingMode: educationResourceSpendingMode.selectedMode,
           effectiveEducationResourceSpendingMode: educationResourceSpendingMode.effectiveMode,
+          projectedDependentTimingMetadata: scenarioProjectedDependentTimingMetadata,
           broaderEligibleResourceOffsetApplied: 0,
           displayHtmlUsed: false,
           storageUsed: false,
@@ -1282,6 +1366,10 @@
 
     const currentModel = buildCurrentDependentSchedules(safeInput, context, warnings, dataGaps);
     const projectedModel = buildProjectedDependentSchedules(safeInput, context, warnings);
+    const projectedDependentTimingMetadata = buildProjectedDependentTimingMetadata(
+      coverageStrategyScenarioSettings,
+      projectedModel
+    );
     const untimedProjected = resolveUntimedProjectedDependentNeed(
       educationSupport,
       projectedModel,
@@ -1501,6 +1589,14 @@
           broaderEligibleResourceSourceAvailable: broaderEligibleResourceSpending.sourceAvailable === true,
           broaderEligibleResourceWarningCode: broaderEligibleResourceSpending.warningCode,
           educationSpecificSavingsConsumed: educationSavingsOffsetActive && educationSavingsOffsetAmount > 0,
+          projectedDependentDefaultTimingMode:
+            projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+          projectedDependentRowTimingOverridesApplied:
+            projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+          projectedDependentTimedRowCount:
+            projectedDependentTimingMetadata.projectedDependentTimedRowCount,
+          projectedDependentUntimedRowCount:
+            projectedDependentTimingMetadata.projectedDependentUntimedRowCount,
           resourceSpendingApplied: false,
           generalResourceReductionApplied: false,
           untimedProjectedDependentStatus: untimedProjected.status
@@ -1548,6 +1644,7 @@
         broaderEligibleResourceOffsetApplied: broaderEligibleResourceSpending.totalApplied,
         broaderEligibleResourceStatus: broaderEligibleResourceSpending.status,
         coverageStrategyScenarioSettingsSource: coverageStrategyScenarioSettings?.source || null,
+        projectedDependentTimingMetadata,
         resourceSpendingApplied: false,
         generalResourceReductionApplied: false,
         educationSpecificSavingsConsumed: educationSavingsOffsetActive && maxEducationSavingsApplied > 0,
@@ -1590,6 +1687,7 @@
           return Math.max(max, toOptionalNumber(point.remainingEducationNeedAfterEducationSavings) || 0);
         }, 0)))
       ),
+      projectedDependentTimingMetadata,
       warnings,
       dataGaps,
       trace: {
@@ -1601,6 +1699,17 @@
         currentDependentScheduleCount: currentModel.schedules.length,
         projectedDependentScheduleCount: projectedModel.timedSchedules.length,
         untimedProjectedDependentCount: untimedProjectedDependents.length,
+        projectedDependentDefaultTimingMode:
+          projectedDependentTimingMetadata.projectedDependentDefaultTimingMode,
+        projectedDependentRowTimingOverridesApplied:
+          projectedDependentTimingMetadata.projectedDependentRowTimingOverridesApplied,
+        projectedDependentTimedRowCount:
+          projectedDependentTimingMetadata.projectedDependentTimedRowCount,
+        projectedDependentUntimedRowCount:
+          projectedDependentTimingMetadata.projectedDependentUntimedRowCount,
+        projectedDependentInvalidRowCount:
+          projectedDependentTimingMetadata.projectedDependentInvalidRowCount,
+        projectedDependentTimingMetadata,
         excludedDependentCount: excludedDependents.length,
         pointCount: educationPoints.length,
         educationSavingsOffsetStatus: educationSavingsOffsetActivation.status,
