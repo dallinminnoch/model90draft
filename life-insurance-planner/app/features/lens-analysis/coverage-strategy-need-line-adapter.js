@@ -566,6 +566,97 @@
     };
   }
 
+  function getMortgageAdjustedSupportSourcePath(supportModel) {
+    const sourcePaths = Array.isArray(supportModel?.trace?.sourcePaths)
+      ? supportModel.trace.sourcePaths
+      : [];
+    return sourcePaths.find(function (sourcePath) {
+      return normalizeString(sourcePath).indexOf("treatedOngoingSupport.mortgageAdjusted.") >= 0;
+    }) || null;
+  }
+
+  function resolveMortgageSupportOwnershipModel(supportModel, debtModel, dataGaps) {
+    const mortgageOwnedSupportActive = debtModel?.mortgageTiming === "time-bounded-payment-stream"
+      && Array.isArray(debtModel?.mortgageAnnualValues)
+      && debtModel.mortgageAnnualValues.length > 0;
+    const sourcePath = getMortgageAdjustedSupportSourcePath(supportModel);
+    const essentialSupportIncludedMortgageSupport = Boolean(mortgageOwnedSupportActive && sourcePath);
+    const supportHasPositiveAmount = (supportModel?.grossSupportTotal || 0) > 0
+      || (supportModel?.adjustedSupportTotal || 0) > 0
+      || (Array.isArray(supportModel?.annualValues) && supportModel.annualValues.length > 0);
+
+    if (mortgageOwnedSupportActive && supportHasPositiveAmount && !essentialSupportIncludedMortgageSupport) {
+      addUniqueIssue(
+        dataGaps,
+        "mortgage-support-ownership-essential-support-source-unproven",
+        "Mortgage support was owned by the mortgage component, but essential support source paths did not prove whether mortgage support was embedded; no essential support subtraction was guessed.",
+        {
+          mortgageSupportOwnership: "mortgage-component",
+          sourcePaths: Array.isArray(supportModel?.trace?.sourcePaths)
+            ? supportModel.trace.sourcePaths.slice()
+            : [],
+          mortgageTiming: debtModel?.mortgageTiming || null
+        }
+      );
+    }
+
+    return {
+      mortgageSupportOwnership: mortgageOwnedSupportActive ? "mortgage-component" : "not-active",
+      mortgageOwnedSupportActive,
+      essentialSupportIncludedMortgageSupport,
+      essentialSupportMortgageAdjustmentApplied: false,
+      mortgageSupportAmountRemovedFromEssentialSupport: 0,
+      mortgageSupportAmountOwnedByMortgageComponent: 0,
+      adjustmentBasis: essentialSupportIncludedMortgageSupport
+        ? "treated-ongoing-support-mortgage-adjusted-source"
+        : "not-applied",
+      sourcePath,
+      noDoubleCountProof: false,
+      dataGapCode: mortgageOwnedSupportActive && supportHasPositiveAmount && !essentialSupportIncludedMortgageSupport
+        ? "mortgage-support-ownership-essential-support-source-unproven"
+        : null,
+      traceVersion: "mortgage-support-ownership-v1"
+    };
+  }
+
+  function resolveMortgageSupportOwnershipForPoint(ownershipModel, pointInput) {
+    const rawEssentialSupport = Math.max(0, toOptionalNumber(pointInput?.rawEssentialSupport) || 0);
+    const rawAdjustedSupportNeed = Math.max(0, toOptionalNumber(pointInput?.rawAdjustedSupportNeed) || 0);
+    const mortgageOwnedSupportAmount = Math.max(0, toOptionalNumber(pointInput?.mortgageOwnedSupportAmount) || 0);
+    const adjustmentApplied = Boolean(
+      ownershipModel?.mortgageOwnedSupportActive
+      && ownershipModel?.essentialSupportIncludedMortgageSupport
+      && mortgageOwnedSupportAmount > 0
+    );
+    const removedAmount = adjustmentApplied
+      ? roundMoney(Math.min(rawEssentialSupport, mortgageOwnedSupportAmount))
+      : 0;
+    const adjustedRemovedAmount = adjustmentApplied
+      ? roundMoney(Math.min(rawAdjustedSupportNeed, mortgageOwnedSupportAmount))
+      : 0;
+    const essentialSupport = roundMoney(Math.max(0, rawEssentialSupport - removedAmount));
+    const adjustedSupportNeed = roundMoney(Math.max(0, rawAdjustedSupportNeed - adjustedRemovedAmount));
+
+    return {
+      essentialSupport,
+      adjustedSupportNeed,
+      trace: {
+        ...clonePlainValue(ownershipModel || {}),
+        yearIndex: pointInput?.yearIndex ?? null,
+        mortgageSupportAmountOwnedByMortgageComponent: mortgageOwnedSupportAmount,
+        mortgageSupportAmountRemovedFromEssentialSupport: removedAmount,
+        essentialSupportMortgageAdjustmentApplied: adjustmentApplied,
+        essentialSupportBeforeMortgageOwnershipAdjustment: rawEssentialSupport,
+        essentialSupportAfterMortgageOwnershipAdjustment: essentialSupport,
+        adjustedSupportBeforeMortgageOwnershipAdjustment: rawAdjustedSupportNeed,
+        adjustedSupportAfterMortgageOwnershipAdjustment: adjustedSupportNeed,
+        noDoubleCountProof: adjustmentApplied
+          ? removedAmount === mortgageOwnedSupportAmount
+          : !ownershipModel?.essentialSupportIncludedMortgageSupport
+      }
+    };
+  }
+
   function resolveDiscretionarySupportModel(needsResult, analysisSettings, warnings) {
     const assumptions = isPlainObject(needsResult?.assumptions) ? needsResult.assumptions : {};
     const included = assumptions.includeDiscretionarySupport === true
@@ -676,10 +767,12 @@
     let mortgageTiming = "point-in-time-payoff";
     let mortgageAmount = explicitMortgageAmount;
     let mortgageAnnualValues = [];
+    let mortgageImmediatePayoffAmount = 0;
 
     if (mortgageMode === "continuePayments") {
       const monthlyPayment = toOptionalNumber(mortgagePlan.finalMonthlyMortgagePayment);
       const finalRemainingTermMonths = toOptionalNumber(mortgagePlan.finalRemainingTermMonths);
+      mortgageImmediatePayoffAmount = roundMoney(Math.max(0, toOptionalNumber(mortgagePlan.immediatePayoffAmount) || 0));
       if (monthlyPayment != null && monthlyPayment >= 0 && finalRemainingTermMonths != null && finalRemainingTermMonths >= 0) {
         mortgageTiming = "time-bounded-payment-stream";
         const fullYears = Math.ceil(finalRemainingTermMonths / 12);
@@ -695,7 +788,7 @@
         });
         mortgageAmount = roundMoney(mortgageAnnualValues.reduce(function (sum, entry) {
           return sum + entry.amount;
-        }, 0));
+        }, mortgageImmediatePayoffAmount));
       } else {
         addUniqueIssue(
           dataGaps,
@@ -734,6 +827,7 @@
       totalDebt: roundMoney(Math.max(0, totalDebt)),
       nonMortgageAmount: roundMoney(Math.max(0, nonMortgageAmount || 0)),
       mortgageAmount: roundMoney(Math.max(0, mortgageAmount || 0)),
+      mortgageImmediatePayoffAmount,
       mortgageAnnualValues,
       mortgageTiming,
       mortgageLifetimeProjectionFacts,
@@ -749,6 +843,8 @@
         mortgageProjectionDecisionReason: mortgageProjectionDecision.reason,
         mortgageProjectionReliableFactsAvailable: mortgageProjectionDecision.reliableFactsAvailable === true,
         mortgageProjectionFactsUsed: clonePlainValue(mortgageLifetimeProjectionFacts),
+        mortgageImmediatePayoffAmount,
+        mortgageOwnedPaymentStreamTotal: roundMoney(Math.max(0, (mortgageAmount || 0) - mortgageImmediatePayoffAmount)),
         rawPayoffPercent: payoffPercentResolution.rawPayoffPercent,
         effectivePayoffPercent: payoffPercent,
         partialPayoffAllowed: payoffPercentResolution.partialPayoffAllowed,
@@ -1555,6 +1651,7 @@
     const supportModel = resolveGrossSupportModel(needsResult, analysisSettings, warnings, dataGaps);
     const discretionaryModel = resolveDiscretionarySupportModel(needsResult, analysisSettings, warnings);
     const debtModel = resolveDebtAndMortgageModel(lensModel, needsResult, warnings, dataGaps);
+    const mortgageSupportOwnershipModel = resolveMortgageSupportOwnershipModel(supportModel, debtModel, dataGaps);
     const educationModel = resolveEducationModel(lensModel, needsResult);
     const healthcareModel = resolveHealthcareModel(needsResult, warnings, dataGaps);
     const horizonYears = resolveHorizonYears(
@@ -1703,20 +1800,47 @@
       const date = point.date || null;
       const calendarYear = point.calendarYear ?? null;
       const age = point.age ?? null;
-      const essentialSupport = sumRemainingAnnualValues(supportModel.annualValues, yearIndex);
-      const adjustedSupportNeed = sumRemainingAnnualValues(supportModel.adjustedAnnualValues, yearIndex);
-      const survivorIncomeOffsetForPoint = supportModel.adjustedAnnualValues.length
-        ? roundMoney(Math.max(essentialSupport - adjustedSupportNeed, 0))
-        : supportModel.survivorIncomeOffset;
+      const rawEssentialSupport = sumRemainingAnnualValues(supportModel.annualValues, yearIndex);
+      const rawAdjustedSupportNeed = sumRemainingAnnualValues(supportModel.adjustedAnnualValues, yearIndex);
       const discretionarySupport = discretionaryModel.included
         ? sumRemainingAnnualValues(discretionaryModel.annualValues, yearIndex)
         : 0;
       const mortgageProjectionPoint = mortgageProjectionByYear.get(yearIndex) || null;
+      const mortgageOwnedSupportAmount = debtModel.mortgageTiming === "time-bounded-payment-stream"
+        ? sumRemainingAnnualValues(debtModel.mortgageAnnualValues, yearIndex)
+        : 0;
+      const mortgageImmediatePayoffForPoint = debtModel.mortgageTiming === "time-bounded-payment-stream"
+        && yearIndex === 0
+        ? debtModel.mortgageImmediatePayoffAmount || 0
+        : 0;
       const mortgage = mortgageProjectionPoint
         ? mortgageProjectionPoint.payoffObligationAmount
         : (debtModel.mortgageTiming === "time-bounded-payment-stream"
-        ? sumRemainingAnnualValues(debtModel.mortgageAnnualValues, yearIndex)
+        ? roundMoney(mortgageImmediatePayoffForPoint + mortgageOwnedSupportAmount)
         : debtModel.mortgageAmount);
+      const mortgageSupportOwnershipForPoint = resolveMortgageSupportOwnershipForPoint(
+        mortgageSupportOwnershipModel,
+        {
+          yearIndex,
+          rawEssentialSupport,
+          rawAdjustedSupportNeed,
+          mortgageOwnedSupportAmount
+        }
+      );
+      if (mortgageSupportOwnershipForPoint.trace.essentialSupportMortgageAdjustmentApplied) {
+        mortgageSupportOwnershipModel.essentialSupportMortgageAdjustmentApplied = true;
+        mortgageSupportOwnershipModel.mortgageSupportAmountRemovedFromEssentialSupport =
+          debtModel.trace?.mortgageOwnedPaymentStreamTotal || 0;
+        mortgageSupportOwnershipModel.mortgageSupportAmountOwnedByMortgageComponent =
+          debtModel.trace?.mortgageOwnedPaymentStreamTotal || 0;
+        mortgageSupportOwnershipModel.noDoubleCountProof =
+          mortgageSupportOwnershipForPoint.trace.noDoubleCountProof === true;
+      }
+      const essentialSupport = mortgageSupportOwnershipForPoint.essentialSupport;
+      const adjustedSupportNeed = mortgageSupportOwnershipForPoint.adjustedSupportNeed;
+      const survivorIncomeOffsetForPoint = supportModel.adjustedAnnualValues.length
+        ? roundMoney(Math.max(essentialSupport - adjustedSupportNeed, 0))
+        : supportModel.survivorIncomeOffset;
       const debtProjectionPoint = debtProjectionByYear.get(yearIndex) || null;
       const debtPayoff = debtProjectionPoint
         ? debtProjectionPoint.payoffObligationAmount
@@ -1803,7 +1927,8 @@
           grossSupportTotal: supportModel.grossSupportTotal,
           adjustedSupportTotal: supportModel.adjustedSupportTotal,
           supportDurationYears: supportModel.supportDurationYears,
-          reconstructionStatus: supportModel.reconstructionStatus
+          reconstructionStatus: supportModel.reconstructionStatus,
+          mortgageSupportOwnershipTrace: mortgageSupportOwnershipForPoint.trace
         },
         events,
         warnings: [],
@@ -1849,6 +1974,7 @@
                 sourceFactsUsed: mortgageProjectionPoint.trace || {}
               }
             : null,
+          mortgageSupportOwnershipTrace: mortgageSupportOwnershipForPoint.trace,
           debtProjection: debtProjectionPoint
             ? {
                 projectedDebtBalance: debtProjectionPoint.projectedDebtBalance,
@@ -1956,6 +2082,12 @@
       componentModels: {
         coverageStrategyScenarioSettings,
         support: supportModel,
+        mortgageSupportOwnershipTrace: {
+          ...clonePlainValue(mortgageSupportOwnershipModel),
+          mortgageImmediatePayoffAmount: debtModel.mortgageImmediatePayoffAmount || 0,
+          mortgageOwnedPaymentStreamTotal: debtModel.trace?.mortgageOwnedPaymentStreamTotal || 0,
+          mortgageTiming: debtModel.mortgageTiming || null
+        },
         discretionarySupport: discretionaryModel,
         debtAndMortgage: debtModel,
         mortgageLifetimeProjection: mortgageLifetimeProjection

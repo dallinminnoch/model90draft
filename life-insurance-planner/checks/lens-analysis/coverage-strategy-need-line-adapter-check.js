@@ -749,6 +749,247 @@ assert.ok(issueCodes(fallbackMortgage.dataGaps).includes("mortgage-projection-te
 assert.equal(fallbackMortgage.needPoints[3].componentAmounts.mortgage, 120000);
 assert.equal(fallbackMortgage.needPoints[3].trace.mortgageProjection.projectionMode, "flatFallback");
 
+const mortgageAdjustedSupportTrace = [
+  {
+    key: "debtPayoff",
+    value: 0,
+    inputs: {
+      preparedMortgagePayoffAmount: 0,
+      preparedNonMortgageDebtAmount: 0,
+      rawMortgageAmount: 0,
+      rawNonMortgageDebtAmount: 0
+    },
+    sourcePaths: ["treatedDebtPayoff.needs"]
+  },
+  {
+    key: "essentialSupport",
+    value: 48000,
+    inputs: {
+      annualTotalEssentialSupportCost: 24000,
+      essentialSupportPreExclusionAmount: 48000,
+      essentialSupportIncludedAmount: 48000,
+      inflation: {
+        baseAnnualAmount: 24000,
+        durationYears: 2,
+        ratePercent: 0,
+        projectedTotal: 48000,
+        applied: false
+      }
+    },
+    sourcePaths: ["treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost"]
+  },
+  {
+    key: "essentialSupportInflation",
+    value: 48000,
+    inputs: {
+      baseAnnualAmount: 24000,
+      durationYears: 2,
+      ratePercent: 0,
+      projectedTotal: 48000,
+      inflationApplied: false
+    }
+  }
+];
+const continuePaymentsOwnership = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "continuePayments",
+      immediatePayoffAmount: 0,
+      finalMonthlyMortgagePayment: 2000,
+      finalRemainingTermMonths: 24
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      debtPayoff: 0,
+      essentialSupport: 48000,
+      education: 0,
+      finalExpenses: 0,
+      healthcareExpenses: 0,
+      transitionNeeds: 0,
+      discretionarySupport: 0
+    },
+    commonOffsets: {
+      existingCoverageOffset: 0,
+      assetOffset: 0,
+      survivorIncomeOffset: 0,
+      totalOffset: 0
+    },
+    assumptions: {
+      needsSupportDurationYears: 2,
+      includeDiscretionarySupport: false,
+      includeSurvivorIncomeOffset: false,
+      valuationDate: "2026-01-01"
+    },
+    trace: mortgageAdjustedSupportTrace
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 2
+});
+assert.equal(continuePaymentsOwnership.needPoints[0].componentAmounts.mortgage, 48000);
+assert.equal(continuePaymentsOwnership.needPoints[0].componentAmounts.essentialSupport, 0);
+assert.equal(continuePaymentsOwnership.needPoints[1].componentAmounts.mortgage, 24000);
+assert.equal(continuePaymentsOwnership.needPoints[1].componentAmounts.essentialSupport, 0);
+assert.equal(continuePaymentsOwnership.componentModels.mortgageSupportOwnershipTrace.mortgageSupportOwnership, "mortgage-component");
+assert.equal(continuePaymentsOwnership.needPoints[0].trace.mortgageSupportOwnershipTrace.essentialSupportMortgageAdjustmentApplied, true);
+assert.equal(continuePaymentsOwnership.needPoints[0].trace.mortgageSupportOwnershipTrace.mortgageSupportAmountRemovedFromEssentialSupport, 48000);
+assert.equal(continuePaymentsOwnership.needPoints[0].trace.mortgageSupportOwnershipTrace.noDoubleCountProof, true);
+
+const partialPayoffOwnership = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "continuePayments",
+      originalBalance: 100000,
+      immediatePayoffAmount: 50000,
+      payoffPercent: 50,
+      rawPayoffPercent: 50,
+      effectivePayoffPercent: 50,
+      partialPayoffAllowed: true,
+      remainingPrincipalAfterPayoff: 50000,
+      finalMonthlyMortgagePayment: 1000,
+      finalRemainingTermMonths: 12,
+      trace: {
+        recalculationBasis: {
+          source: "continue-payments-remaining-principal",
+          remainingPrincipalAfterPayoff: 50000,
+          remainingTermMonths: 12,
+          interestRatePercent: 6
+        }
+      }
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      debtPayoff: 50000,
+      essentialSupport: 12000,
+      education: 0,
+      finalExpenses: 0,
+      healthcareExpenses: 0,
+      transitionNeeds: 0,
+      discretionarySupport: 0
+    },
+    commonOffsets: {
+      existingCoverageOffset: 0,
+      assetOffset: 0,
+      survivorIncomeOffset: 0,
+      totalOffset: 0
+    },
+    assumptions: {
+      needsSupportDurationYears: 1,
+      includeDiscretionarySupport: false,
+      includeSurvivorIncomeOffset: false,
+      valuationDate: "2026-01-01"
+    },
+    trace: mortgageAdjustedSupportTrace.map((row) => {
+      if (row.key !== "essentialSupport" && row.key !== "essentialSupportInflation") {
+        return row;
+      }
+      return {
+        ...row,
+        value: 12000,
+        inputs: {
+          ...row.inputs,
+          annualTotalEssentialSupportCost: 12000,
+          essentialSupportPreExclusionAmount: 12000,
+          essentialSupportIncludedAmount: 12000,
+          baseAnnualAmount: 12000,
+          durationYears: 1,
+          projectedTotal: 12000,
+          inflation: {
+            baseAnnualAmount: 12000,
+            durationYears: 1,
+            ratePercent: 0,
+            projectedTotal: 12000,
+            applied: false
+          }
+        }
+      };
+    })
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 1
+});
+assert.equal(partialPayoffOwnership.needPoints[0].componentAmounts.mortgage, 62000);
+assert.equal(partialPayoffOwnership.needPoints[0].componentAmounts.essentialSupport, 0);
+assert.equal(partialPayoffOwnership.componentModels.debtAndMortgage.trace.mortgageImmediatePayoffAmount, 50000);
+assert.equal(partialPayoffOwnership.componentModels.debtAndMortgage.trace.mortgageOwnedPaymentStreamTotal, 12000);
+assert.equal(partialPayoffOwnership.needPoints[0].trace.mortgageSupportOwnershipTrace.mortgageSupportAmountRemovedFromEssentialSupport, 12000);
+assert.equal(partialPayoffOwnership.needPoints[0].trace.mortgageSupportOwnershipTrace.noDoubleCountProof, true);
+
+const unprovenSupportOwnership = buildCoverageStrategyNeedLine({
+  lensModel: createLensModel({
+    treatedMortgagePaymentPlan: {
+      version: "treated-mortgage-payment-plan-v1",
+      mode: "continuePayments",
+      immediatePayoffAmount: 0,
+      finalMonthlyMortgagePayment: 1000,
+      finalRemainingTermMonths: 12
+    }
+  }),
+  needsResult: createNeedsResult({
+    components: {
+      debtPayoff: 0,
+      essentialSupport: 12000,
+      education: 0,
+      finalExpenses: 0,
+      healthcareExpenses: 0,
+      transitionNeeds: 0,
+      discretionarySupport: 0
+    },
+    commonOffsets: {
+      existingCoverageOffset: 0,
+      assetOffset: 0,
+      survivorIncomeOffset: 0,
+      totalOffset: 0
+    },
+    assumptions: {
+      needsSupportDurationYears: 1,
+      includeDiscretionarySupport: false,
+      includeSurvivorIncomeOffset: false,
+      valuationDate: "2026-01-01"
+    },
+    trace: [
+      mortgageAdjustedSupportTrace[0],
+      {
+        ...mortgageAdjustedSupportTrace[1],
+        value: 12000,
+        inputs: {
+          annualTotalEssentialSupportCost: 12000,
+          essentialSupportPreExclusionAmount: 12000,
+          essentialSupportIncludedAmount: 12000,
+          inflation: {
+            baseAnnualAmount: 12000,
+            durationYears: 1,
+            ratePercent: 0,
+            projectedTotal: 12000,
+            applied: false
+          }
+        },
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
+      },
+      {
+        ...mortgageAdjustedSupportTrace[2],
+        value: 12000,
+        inputs: {
+          baseAnnualAmount: 12000,
+          durationYears: 1,
+          ratePercent: 0,
+          projectedTotal: 12000,
+          inflationApplied: false
+        }
+      }
+    ]
+  }),
+  valuationDate: "2026-01-01",
+  horizonYears: 1
+});
+assert.equal(unprovenSupportOwnership.needPoints[0].componentAmounts.mortgage, 12000);
+assert.equal(unprovenSupportOwnership.needPoints[0].componentAmounts.essentialSupport, 12000);
+assert.equal(unprovenSupportOwnership.needPoints[0].trace.mortgageSupportOwnershipTrace.essentialSupportMortgageAdjustmentApplied, false);
+assert.ok(issueCodes(unprovenSupportOwnership.dataGaps).includes("mortgage-support-ownership-essential-support-source-unproven"));
+
 const amortizedDebt = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({
     debtFacts: {

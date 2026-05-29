@@ -473,6 +473,8 @@
           safeContext.needLine?.componentModels?.mortgageProjectionTrace
           || safeContext.needLine?.componentModels?.debtAndMortgage?.trace
           || "Not available",
+        mortgageSupportOwnershipTrace:
+          safeContext.needLine?.componentModels?.mortgageSupportOwnershipTrace || "Not available",
         debtLifetimeProjectionTraces: safeContext.needLine?.componentModels?.debtLifetimeProjection || "Not available",
         nonMortgageDebtLifetimeProjection:
           safeContext.needLine?.componentModels?.nonMortgageDebtLifetimeProjection

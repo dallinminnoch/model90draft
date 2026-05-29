@@ -243,6 +243,17 @@ const diagnosticInput = {
         correctionCode: "payoff-mode-forced-full-payoff",
         projectionConsumed: true
       },
+      mortgageSupportOwnershipTrace: {
+        mortgageSupportOwnership: "mortgage-component",
+        mortgageOwnedSupportActive: true,
+        essentialSupportIncludedMortgageSupport: true,
+        essentialSupportMortgageAdjustmentApplied: true,
+        mortgageSupportAmountRemovedFromEssentialSupport: 48000,
+        mortgageSupportAmountOwnedByMortgageComponent: 48000,
+        adjustmentBasis: "treated-ongoing-support-mortgage-adjusted-source",
+        sourcePath: "treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost",
+        noDoubleCountProof: true
+      },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       nonMortgageDebtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       education: {
@@ -449,6 +460,9 @@ assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvarian
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.effectivePayoffPercent, 100);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.invariantCorrectionApplied, true);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageTreatmentInvariantTrace.correctionCode, "payoff-mode-forced-full-payoff");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.mortgageSupportOwnership, "mortgage-component");
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.essentialSupportMortgageAdjustmentApplied, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.mortgageSupportOwnershipTrace.noDoubleCountProof, true);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.debtLifetimeProjectionTraces);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection);
 assert.equal(
