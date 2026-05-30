@@ -283,6 +283,11 @@ const validatedInflation = setupHarness.readValidatedAssumptions({
   householdExpenseInflationRatePercent: { value: "3" },
   educationInflationRatePercent: { value: "5" },
   healthcareInflationRatePercent: { value: "5" },
+  longTermCareInflationRatePercent: { value: "5" },
+  housingOperatingInflationRatePercent: { value: "3.5" },
+  childcareDependentCareInflationRatePercent: { value: "4" },
+  foodInflationRatePercent: { value: "3.25" },
+  transportationOperatingInflationRatePercent: { value: "3.5" },
   finalExpenseInflationRatePercent: { value: "3" },
   finalExpenseTargetAge: { value: "91" }
 });

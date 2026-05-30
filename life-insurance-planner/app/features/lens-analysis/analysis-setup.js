@@ -8,6 +8,11 @@
     "householdExpenseInflationRatePercent",
     "educationInflationRatePercent",
     "healthcareInflationRatePercent",
+    "longTermCareInflationRatePercent",
+    "housingOperatingInflationRatePercent",
+    "childcareDependentCareInflationRatePercent",
+    "foodInflationRatePercent",
+    "transportationOperatingInflationRatePercent",
     "finalExpenseInflationRatePercent"
   ];
 
@@ -42,6 +47,11 @@
     householdExpenseInflationRatePercent: "Household expense inflation",
     educationInflationRatePercent: "Education inflation",
     healthcareInflationRatePercent: "Healthcare inflation",
+    longTermCareInflationRatePercent: "Long-term care inflation",
+    housingOperatingInflationRatePercent: "Housing operating inflation",
+    childcareDependentCareInflationRatePercent: "Childcare / dependent-care inflation",
+    foodInflationRatePercent: "Food inflation",
+    transportationOperatingInflationRatePercent: "Transportation operating inflation",
     finalExpenseInflationRatePercent: "Final expense inflation"
   };
 
@@ -88,7 +98,12 @@
     householdExpenseInflationRatePercent: 3,
     educationInflationRatePercent: 5,
     healthcareInflationRatePercent: 5,
-    finalExpenseInflationRatePercent: 3,
+    longTermCareInflationRatePercent: 5,
+    housingOperatingInflationRatePercent: 3.5,
+    childcareDependentCareInflationRatePercent: 4,
+    foodInflationRatePercent: 3.25,
+    transportationOperatingInflationRatePercent: 3.5,
+    finalExpenseInflationRatePercent: 3.75,
     finalExpenseTargetAge: 85,
     source: "analysis-setup"
   });

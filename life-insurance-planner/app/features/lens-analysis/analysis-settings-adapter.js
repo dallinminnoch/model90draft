@@ -12,7 +12,12 @@
     householdExpenseInflationRatePercent: 3,
     educationInflationRatePercent: 5,
     healthcareInflationRatePercent: 5,
-    finalExpenseInflationRatePercent: 3,
+    longTermCareInflationRatePercent: 5,
+    housingOperatingInflationRatePercent: 3.5,
+    childcareDependentCareInflationRatePercent: 4,
+    foodInflationRatePercent: 3.25,
+    transportationOperatingInflationRatePercent: 3.5,
+    finalExpenseInflationRatePercent: 3.75,
     finalExpenseTargetAge: 85,
     source: "analysis-setup"
   });
@@ -21,6 +26,11 @@
     "householdExpenseInflationRatePercent",
     "educationInflationRatePercent",
     "healthcareInflationRatePercent",
+    "longTermCareInflationRatePercent",
+    "housingOperatingInflationRatePercent",
+    "childcareDependentCareInflationRatePercent",
+    "foodInflationRatePercent",
+    "transportationOperatingInflationRatePercent",
     "finalExpenseInflationRatePercent"
   ]);
   const MAX_INFLATION_RATE_PERCENT = 100;
