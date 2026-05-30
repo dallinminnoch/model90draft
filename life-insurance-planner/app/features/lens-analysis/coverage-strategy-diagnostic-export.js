@@ -371,6 +371,11 @@
       coverageStrategyGeneratedOutputs: {
         needsResult: safeContext.needsResult || "Not available",
         needPoints: safeContext.needLine?.needPoints || "Not available",
+        coverageStrategyObligationLedger: (
+          safeContext.needLine?.coverageStrategyObligationLedger
+          || safeContext.needLine?.componentModels?.coverageStrategyObligationLedger
+          || "Not available"
+        ),
         resourcePoints: safeContext.resourceLine?.resourcePoints || "Not available",
         existingCoveragePoints: safeContext.existingCoverageLine?.coveragePoints || "Not available",
         existingCoverageLayers: safeContext.existingCoverageLine?.layers || "Not available",
@@ -496,6 +501,7 @@
           "coverage-strategy-scenario-settings.js",
           "coverage-strategy-education-lifetime-projection.js",
           "coverage-strategy-transition-needs-lifetime-projection.js",
+          "coverage-strategy-obligation-ledger.js",
           "coverage-strategy-debt-lifetime-projection.js",
           "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",

@@ -2373,7 +2373,7 @@
       mortgageSupportOwnershipModel.noDoubleCountProofPointCount = mortgageSupportOwnershipPointProofs.length;
     }
 
-    return {
+    const needLineResult = {
       adapterVersion: COVERAGE_STRATEGY_NEED_LINE_ADAPTER_VERSION,
       status: dataGaps.length ? "partial" : "complete",
       cadence: "annual",
@@ -2682,6 +2682,20 @@
         survivorIncomeSubtractedFromNeedLine: false
       }
     };
+
+    const buildObligationLedger = lensAnalysis.buildCoverageStrategyObligationLedger;
+    if (typeof buildObligationLedger === "function") {
+      const obligationLedger = buildObligationLedger({
+        needPoints: needLineResult.needPoints,
+        componentModels: needLineResult.componentModels,
+        valuationDate: needLineResult.valuationDate,
+        horizonYears: needLineResult.horizonYears
+      });
+      needLineResult.coverageStrategyObligationLedger = obligationLedger;
+      needLineResult.componentModels.coverageStrategyObligationLedger = obligationLedger;
+    }
+
+    return needLineResult;
   }
 
   lensAnalysis.COVERAGE_STRATEGY_NEED_LINE_ADAPTER_VERSION = COVERAGE_STRATEGY_NEED_LINE_ADAPTER_VERSION;

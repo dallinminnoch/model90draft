@@ -33,6 +33,7 @@ const stylesSource = fs.readFileSync(stylesPath, "utf8");
 
 assert.match(moduleSource, /TEMPORARY DIAGNOSTIC EXPORT - safe to remove/);
 assert.match(moduleSource, /coverage-strategy-diagnostic-export-v1/);
+assert.match(moduleSource, /coverageStrategyObligationLedger/);
 assert.match(moduleSource, /module\.exports/);
 assert.match(moduleSource, /buildCoverageStrategyDiagnosticExportSnapshot/);
 assert.match(moduleSource, /exportCoverageStrategyDiagnosticPdf/);
@@ -229,6 +230,21 @@ const diagnosticInput = {
   needLine: {
     valuationDate: "2026-01-01",
     needPoints: [{ yearIndex: 0, grossNeedAmount: 1000000 }],
+    coverageStrategyObligationLedger: {
+      ledgerStatus: "complete",
+      diagnosticOnly: true,
+      ledgerDrivesNeedLine: false,
+      rowCount: 3,
+      allYearsMatchNeedLine: true,
+      annualParity: [
+        {
+          yearIndex: 0,
+          ledgerTotal: 1000000,
+          needLineAmount: 1000000,
+          matchesNeedLine: true
+        }
+      ]
+    },
     componentModels: {
       mortgageLifetimeProjection: { assumptionsUsed: { projectionMode: "amortized" } },
       mortgageProjectionTrace: {
@@ -486,6 +502,9 @@ assert.ok(snapshot.lensModelNormalizedFactsSnapshot.treatedMortgagePaymentPlan);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.resourceProjectionInputs);
 assert.ok(snapshot.lensModelNormalizedFactsSnapshot.savingsContributionFacts);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.needPoints);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyObligationLedger.diagnosticOnly, true);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyObligationLedger.ledgerDrivesNeedLine, false);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.coverageStrategyObligationLedger.allYearsMatchNeedLine, true);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.resourcePoints);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.existingCoveragePoints);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.gapSurplusPoints);
