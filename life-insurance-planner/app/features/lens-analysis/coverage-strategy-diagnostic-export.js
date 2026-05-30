@@ -313,6 +313,14 @@
     const visibleControlsAdded = hasVisibleScenarioControls(visibleScenarioControls);
     const educationBroaderResourceIntegrationTrace =
       buildEducationBroaderResourceIntegrationTraceForDiagnostic(safeContext);
+    const pmiItemTaxonomyDiagnostics = typeof lensAnalysis.buildPmiItemTaxonomyDiagnostics === "function"
+      ? lensAnalysis.buildPmiItemTaxonomyDiagnostics({
+          profileRecord: safeContext.profileRecord,
+          protectionModelingPayload,
+          protectionModelingData,
+          lensModel: safeContext.lensModel
+        })
+      : "Not available";
 
     return {
       exportMetadata: {
@@ -334,6 +342,7 @@
       pmiProtectionModelingInputs: {
         source: "saved linked profile protectionModeling payload",
         data: protectionModelingData,
+        pmiItemTaxonomyDiagnostics,
         payloadMetadata: {
           id: protectionModelingPayload.id ?? null,
           updatedAt: protectionModelingPayload.updatedAt ?? null,
@@ -368,6 +377,7 @@
         },
         fullLensModel: safeContext.lensModel || "Not available"
       },
+      pmiItemTaxonomyDiagnostics,
       coverageStrategyGeneratedOutputs: {
         needsResult: safeContext.needsResult || "Not available",
         needPoints: safeContext.needLine?.needPoints || "Not available",
@@ -502,6 +512,7 @@
           "coverage-strategy-education-lifetime-projection.js",
           "coverage-strategy-transition-needs-lifetime-projection.js",
           "coverage-strategy-obligation-ledger.js",
+          "pmi-item-taxonomy-diagnostics.js",
           "coverage-strategy-debt-lifetime-projection.js",
           "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",

@@ -14,6 +14,13 @@ const modulePath = path.join(
   "lens-analysis",
   "coverage-strategy-diagnostic-export.js"
 );
+const pmiItemTaxonomyDiagnosticsPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "pmi-item-taxonomy-diagnostics.js"
+);
 const pagePath = path.join(repoRoot, "pages", "coverage-strategy.html");
 const controllerPath = path.join(
   repoRoot,
@@ -26,6 +33,7 @@ const componentsPath = path.join(repoRoot, "components.css");
 const stylesPath = path.join(repoRoot, "styles.css");
 
 const moduleSource = fs.readFileSync(modulePath, "utf8");
+const pmiItemTaxonomyDiagnosticsSource = fs.readFileSync(pmiItemTaxonomyDiagnosticsPath, "utf8");
 const pageSource = fs.readFileSync(pagePath, "utf8");
 const controllerSource = fs.readFileSync(controllerPath, "utf8");
 const componentsSource = fs.readFileSync(componentsPath, "utf8");
@@ -34,6 +42,7 @@ const stylesSource = fs.readFileSync(stylesPath, "utf8");
 assert.match(moduleSource, /TEMPORARY DIAGNOSTIC EXPORT - safe to remove/);
 assert.match(moduleSource, /coverage-strategy-diagnostic-export-v1/);
 assert.match(moduleSource, /coverageStrategyObligationLedger/);
+assert.match(moduleSource, /pmiItemTaxonomyDiagnostics/);
 assert.match(moduleSource, /module\.exports/);
 assert.match(moduleSource, /buildCoverageStrategyDiagnosticExportSnapshot/);
 assert.match(moduleSource, /exportCoverageStrategyDiagnosticPdf/);
@@ -44,6 +53,11 @@ assert.ok(
   pageSource.indexOf("coverage-strategy-diagnostic-export.js")
     < pageSource.indexOf("coverage-strategy-page.js"),
   "Diagnostic export module should load before the Coverage Strategy page controller."
+);
+assert.ok(
+  pageSource.indexOf("pmi-item-taxonomy-diagnostics.js")
+    < pageSource.indexOf("coverage-strategy-diagnostic-export.js"),
+  "PMI item taxonomy diagnostics should load before the diagnostic export module."
 );
 
 assert.match(controllerSource, /Export Diagnostic Report/);
@@ -81,6 +95,7 @@ const context = {
 };
 context.globalThis = context;
 vm.createContext(context);
+vm.runInContext(pmiItemTaxonomyDiagnosticsSource, context, { filename: pmiItemTaxonomyDiagnosticsPath });
 vm.runInContext(moduleSource, context, { filename: modulePath });
 
 const buildSnapshot = context.LensApp.lensAnalysis.buildCoverageStrategyDiagnosticExportSnapshot;
@@ -484,6 +499,12 @@ assert.ok(snapshot.pmiProtectionModelingInputs.data.expenseRecords);
 assert.ok(snapshot.pmiProtectionModelingInputs.data.debtRecords);
 assert.ok(snapshot.pmiProtectionModelingInputs.data.assetRecords);
 assert.ok(snapshot.pmiProtectionModelingInputs.data.savingsHabitRecords);
+assert.ok(snapshot.pmiProtectionModelingInputs.pmiItemTaxonomyDiagnostics);
+assert.equal(snapshot.pmiProtectionModelingInputs.pmiItemTaxonomyDiagnostics.diagnosticOnly, true);
+assert.equal(snapshot.pmiProtectionModelingInputs.pmiItemTaxonomyDiagnostics.graphMathChanged, false);
+assert.ok(snapshot.pmiItemTaxonomyDiagnostics);
+assert.equal(snapshot.pmiItemTaxonomyDiagnostics.diagnosticOnly, true);
+assert.equal(snapshot.pmiItemTaxonomyDiagnostics.graphMathChanged, false);
 assert.ok(snapshot.analysisSetupAssumptions.savedAnalysisSettings);
 assert.ok(snapshot.analysisSetupAssumptions.resolvedMethodSettings);
 assert.ok(snapshot.analysisSetupAssumptions.coverageStrategyScenarioSettings);
